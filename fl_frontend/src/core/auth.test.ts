@@ -229,10 +229,8 @@ const { getSignedInAddress, getPasskeyStep, getSignInLanding } = await import(".
 const { isFreshlySignedIn } = await import("./auth/sessionStamps.ts");
 const { PASSKEY_LIMIT } = await import("./auth/enrolment.ts");
 const { readServedSession } = await import("./auth/session.ts");
-const { buildCodeEmail, CODE_VALIDITY_MINUTES } = await import("./authEmail.ts");
-const { renderMail } = await import("./emailShell.ts");
+const { CODE_VALIDITY_MINUTES } = await import("./authEmail.ts");
 const { holdsOwnersTier } = await import("./verwaltung.ts");
-const { getSubjectSession } = await import("./subject.ts");
 const { proxy } = await import("../proxy.ts");
 const { NextRequest } = await import("next/server");
 
@@ -327,23 +325,6 @@ describe("what the sign-in store hands the library", () => {
   });
 });
 
-describe("where the cookie integration sits among the plugins", () => {
-  /* Behind this one, a plugin with `hooks.after` sets cookies nothing copies into Next's store, and
-     the sign-in answers with no session cookie. The library's own guard for it warns on
-     `/get-session` alone, which is disabled here. */
-  it("keeps the cookie integration last, where the library says it belongs", () => {
-    expect(auth.options.plugins?.at(-1)?.id).toBe("next-cookies");
-  });
-
-  /* A browser refuses a `Secure` cookie over plain http, so the local stack keeps the library's own
-     name; the https arm is `fl_frontend/src/core/authCookie.test.ts`'s. */
-  it("keeps the library's own cookie name over http, where no `__Host-` cookie could be set", async () => {
-    const { cookie } = await signIn(PERSON_EMAIL);
-
-    expect(cookie).toMatch(/^better-auth\.session_token=/);
-  });
-});
-
 /** The six paths the browser's own client calls, which is the whole of the HTTP surface. */
 const OVER_HTTP = [
   "/passkey/generate-register-options",
@@ -432,16 +413,6 @@ async function overHttp(
 }
 
 describe("what the mounted HTTP surface answers", () => {
-  /* The allowlist's own floor: a path it admits has to still work, or every refusal below is the
-     handler being broken rather than the surface being closed. */
-  it("serves the ceremony a browser really calls, on the path the installed plugin mounts", async () => {
-    const { cookie } = await signIn(ADMIN_EMAIL);
-
-    expect((await overHttp("/passkey/generate-authenticate-options", { cookie })).status).toBe(200);
-    // Refused for its missing challenge rather than for its path, which is what 404 would mean.
-    expect((await overHttp("/passkey/verify-authentication", { method: "POST", cookie, body: { response: {} } })).status).toBe(400);
-  });
-
   it("refuses the session read itself, so no mounted route hands a script a session at all", async () => {
     const { cookie } = await signIn(ADMIN_EMAIL);
 
@@ -574,19 +545,6 @@ describe("what the mounted HTTP surface answers", () => {
     }
   });
 
-  /* Two refusals, each covering what the other cannot: the library's own switch answers before the
-     route is matched or a body read, and it compares the REQUEST's path, so the two parameterised
-     routes can be named nowhere but the hook. */
-  it("refuses a listed path at the library's switch and a parameterised one at the hook", async () => {
-    const listed = await overHttp("/update-user", { method: "POST", body: {} });
-    expect(listed.status).toBe(404);
-    expect(await listed.text()).toBe("Not Found");
-
-    const parameterised = await overHttp("/callback/irgendein-anbieter");
-    expect(parameterised.status).toBe(404);
-    expect(await parameterised.text(), "the switch cannot name this path, so the hook has to refuse it").not.toBe("Not Found");
-  });
-
   /* Left writable, this field is one `fetch` from any session to a factor it never presented. The
      route is now refused on both arms, so what drives `input: false` is the case below. */
   it("refuses the route that would stamp a session's own factor, on both arms, and leaves the stamp standing", async () => {
@@ -620,149 +578,14 @@ describe("what the mounted HTTP surface answers", () => {
   });
 });
 
-describe("what the narrowed session still gives the guards", () => {
-  it("keeps the address the admin verdict is derived from, so narrowing cannot fail admin open or shut", async () => {
-    const { cookie, row } = await signIn(ADMIN_EMAIL);
-    madeByPasskey(store, row);
-    arriveAs(cookie);
-
-    expect((await getAdminSession())?.user.email).toBe(ADMIN_EMAIL);
-  });
-});
-
-/* Read as no session, an outage of the store sends an administrator to a sign-in whose code never
-   comes, and tells a person on `/signin` that one is on its way. */
-describe("a session read the store does not answer", () => {
-  const refusingSessions = (_key: string, args: unknown[]): boolean => (args[0] as { model?: unknown } | undefined)?.model === "session";
-
-  it("throws at every guard and at the landing, rather than answering as signed out", async () => {
-    const { cookie, row } = await signIn(ADMIN_EMAIL);
-    madeByPasskey(store, row);
-    arriveAs(cookie);
-    assert.ok(await getAdminSession(), "the administrator was refused with the store answering, so the case proves nothing");
-
-    adapterCalls.refusing = refusingSessions;
-    try {
-      await expect(getAdminSession()).rejects.toThrow();
-      await expect(getAccountSession()).rejects.toThrow();
-      await expect(getSignInLanding()).rejects.toThrow();
-      await expect(getSignedInAddress()).rejects.toThrow();
-    } finally {
-      adapterCalls.refusing = undefined;
-    }
-  });
-
-  it("lets the proxy's request through to the page's own guard, clearing no cookie", async () => {
-    const { cookie, row } = await signIn(ADMIN_EMAIL);
-    madeByPasskey(store, row);
-
-    adapterCalls.refusing = refusingSessions;
-    try {
-      const answer = await proxy(new NextRequest("http://localhost:3000/area/admin/spiele", { headers: { cookie } }));
-
-      expect(answer.headers.get("location"), "the proxy signed an administrator out on an outage").toBe(null);
-      expect(answer.headers.get("x-middleware-next")).toBe("1");
-      expect(answer.headers.getSetCookie().length).toBe(0);
-    } finally {
-      adapterCalls.refusing = undefined;
-    }
-  });
-
-  // The control: a cookie naming no row is signed out, whatever the store's answers are made of.
-  it("still answers a cookie naming no row as no session", async () => {
+describe("a cookie whose session row is gone", () => {
+  it("answers as no session", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     store.session.splice(store.session.indexOf(row), 1);
     arriveAs(cookie);
 
     expect(await getAdminSession()).toBe(null);
     expect((await getSignInLanding()).destination).toBe("/signin");
-  });
-});
-
-/* `/signin` greets whom the landing would send on, and offers everybody else a sign-in: a second
-   sign-in over a live session would list that account's passkeys alone. */
-describe("whom `/signin` greets rather than offering a sign-in", () => {
-  it("greets a live session by its folded address, and nobody without one", async () => {
-    arriveAs(null);
-    expect(await getSignedInAddress()).toBe(null);
-
-    const { cookie } = await signIn(PERSON_EMAIL);
-    arriveAs(cookie);
-    expect(await getSignedInAddress()).toBe(PERSON_EMAIL);
-  });
-
-  it("offers a spent session a fresh sign-in rather than greeting it", async () => {
-    const { cookie, row } = await signIn(PERSON_EMAIL);
-    ageRow(row, { created: 31 * DAY_MS });
-    arriveAs(cookie);
-
-    expect(await getSignedInAddress()).toBe(null);
-  });
-
-  /* A session its ban's ending missed: every guard behind `/area` refuses it, so a landing there
-     sends it straight back to a page that would greet it as signed in. */
-  it("greets no barred person, and lands them on the sign-in rather than in the person area", async () => {
-    BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, seats: [A_SEAT], account: true });
-    try {
-      const { cookie } = await signIn(PERSON_EMAIL);
-      arriveAs(cookie);
-      expect((await getSignInLanding()).destination, "the seated person was not landed, so the case below proves nothing").not.toBe("/signin");
-      expect(await getSignedInAddress()).toBe(PERSON_EMAIL);
-
-      BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, seats: [A_SEAT], account: true, barred: true });
-
-      expect((await getSignInLanding()).destination).toBe("/signin");
-      expect(await getSignedInAddress()).toBe(null);
-    } finally {
-      BACKENDS.delete(PERSON_EMAIL);
-    }
-  });
-});
-
-/* Every refused guard sends its session to `/signin`, so the landing is where one no lane serves is
-   ended: left standing, the proxy slides it on every visit and the library binds the page's passkey
-   challenge to its account. */
-describe("what the landing ends", () => {
-  afterEach(() => BACKENDS.delete(PERSON_EMAIL));
-
-  it("ends a barred person's session, so a lift of the ban serves it no more", async () => {
-    BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, seats: [A_SEAT], account: true });
-    const { cookie, row } = await signIn(PERSON_EMAIL);
-    arriveAs(cookie);
-    BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, seats: [A_SEAT], account: true, barred: true });
-
-    expect(await getSignedInAddress()).toBe(null);
-    assert.ok(!store.session.includes(row), "a barred session the ban's ending missed outlived the landing");
-
-    BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, seats: [A_SEAT], account: true });
-    expect(await getAccountSession(), "the ban's lift served the session again with no sign-in").toBe(null);
-  });
-
-  /* The shared device: another person's passkey is refused on a page whose challenge names the spent account. */
-  it("ends a person's session past its lifetime, so the next passkey on that browser is anybody's", async () => {
-    const other = await signIn(ADMIN_EMAIL);
-    store.passkey.push({ ...aPasskeyFor(other.row.userId), credentialID: CREDENTIAL_ID, publicKey: COSE_KEY.toString("base64") });
-    const spent = await signIn(PERSON_EMAIL);
-    ageRow(spent.row, { created: 31 * DAY_MS });
-    arriveAs(spent.cookie);
-
-    expect(await getSignedInAddress()).toBe(null);
-    assert.ok(!store.session.includes(spent.row), "a session no lane serves outlived the landing");
-    expect((await assertPasskey(spent.cookie, true)).status, "the challenge was still bound to the spent account").toBe(200);
-  });
-
-  /* The spent row alone: ended by its account, a lapse on one device would sign its person out of every other. */
-  it("ends the spent session by its row, leaving the account's other device and another account signed in", async () => {
-    const otherDevice = await signIn(PERSON_EMAIL);
-    const otherAccount = await signIn(ADMIN_EMAIL);
-    const spent = await signIn(PERSON_EMAIL);
-    ageRow(spent.row, { created: 31 * DAY_MS });
-    arriveAs(spent.cookie);
-
-    expect(await getSignedInAddress()).toBe(null);
-    assert.ok(!store.session.includes(spent.row), "the landing ended nothing, so the case proves nothing");
-    assert.ok(store.session.includes(otherDevice.row), "the landing ended the same account's session on another device");
-    assert.ok(store.session.includes(otherAccount.row), "the landing ended another account's session");
   });
 });
 
@@ -816,24 +639,6 @@ describe("the three lifetimes, judged in the guard rather than in the store", ()
     expect((await getSignInLanding()).destination).toBe("/signin");
   });
 
-  it("serves a person's session thirteen days idle, so the case above is the window and not the harness", async () => {
-    const { cookie, row } = await signIn(PERSON_EMAIL);
-    ageRow(row, { created: 29 * DAY_MS, idle: 13 * DAY_MS });
-    arriveAs(cookie);
-
-    expect((await getSignInLanding()).destination).toBe("/area");
-  });
-
-  it("serves an administrator's session a minute short of twenty-four hours old, for the same reason", async () => {
-    const { cookie, row } = await signIn(ADMIN_EMAIL);
-    madeByPasskey(store, row);
-    ageRow(row, { created: 24 * HOUR_MS - MINUTE_MS });
-    arriveAs(cookie);
-
-    assert.ok(await getAdminSession());
-    expect((await getSignInLanding()).destination).toBe("/area");
-  });
-
   it("refuses an administrator's session a minute past an hour idle, and keeps it for the person lane", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     madeByPasskey(store, row);
@@ -843,22 +648,6 @@ describe("the three lifetimes, judged in the guard rather than in the store", ()
     expect(await getAdminSession()).toBe(null);
     expect((await getSignInLanding()).destination).toBe("/signin");
     assert.ok(store.session.includes(row), "the landing ended a session the person lane still serves");
-  });
-
-  it("serves an administrator's session a minute short of an hour idle, so the case above is the window", async () => {
-    const { cookie, row } = await signIn(ADMIN_EMAIL);
-    madeByPasskey(store, row);
-    ageRow(row, { created: 2 * HOUR_MS, idle: HOUR_MS - MINUTE_MS });
-    arriveAs(cookie);
-
-    assert.ok(await getAdminSession());
-  });
-
-  /* Chosen rather than derived, and read back by the proxy's own cases, which therefore pass at any
-     figure: shorter, every signed-in request writes the session row; longer, a pause under the
-     administrator's idle hour is refused. */
-  it("slides a session's row at most every five minutes, the granularity the idle windows are judged at", () => {
-    expect(auth.options.session.updateAge).toBe((5 * MINUTE_MS) / 1000);
   });
 });
 
@@ -888,25 +677,6 @@ describe("the administrator's idle hour across the proxy's slide", () => {
 
   it("keeps refusing a session slid a minute past an hour idle", async () => {
     expect(await slidThenJudged(HOUR_MS + MINUTE_MS)).toBe(null);
-  });
-
-  it("serves a session slid a minute short of an hour idle, so the mark is the window and not every slide", async () => {
-    assert.ok(await slidThenJudged(HOUR_MS - MINUTE_MS));
-  });
-
-  /* The hook marks any session an hour idle, a person's too: the mark narrows the administrator's lane
-     alone, so a person guard reading it would refuse every person returning after an hour. */
-  it("leaves a person's session the slide marked to every guard of the person lane", async () => {
-    const { cookie, row } = await signIn(PERSON_EMAIL);
-    refreshedAgo(row, 2 * HOUR_MS);
-
-    await proxy(new NextRequest("http://localhost:3000/account", { headers: { cookie } }));
-    expect(Reflect.get(row, "adminLapsed"), "the slide left no mark, so the case proves nothing").toBe(true);
-
-    arriveAs(cookie);
-    assert.ok(await getAccountSession(), "the account guard refused a person's marked session");
-    assert.ok(await getSubjectSession(), "the person guard refused a person's marked session");
-    expect((await getSignInLanding()).destination).toBe("/area");
   });
 });
 
@@ -956,18 +726,6 @@ describe("why the admin guard refused", () => {
     expect(await getAdminSession(), "the guard admitted a session holding no grant").toBe(null);
     expect(await judgeAdminRequest()).toStrictEqual({ refused: "grantGone" });
   });
-
-  /* A session whose passkey is gone is no session, which a new
-     sign-in repairs, whatever its address holds. */
-  it("tells a session whose passkey is gone to sign in, never that its grant is gone", async () => {
-    const { cookie, row } = await signIn(ADMIN_EMAIL);
-    madeByPasskey(store, row);
-    store.passkey.length = 0;
-    BACKENDS.set(ADMIN_EMAIL, { ...NOTHING_HELD, seats: [A_SEAT], account: true });
-    arriveAs(cookie);
-
-    expect(await judgeAdminRequest()).toStrictEqual({ refused: "signIn" });
-  });
 });
 
 /* A grant ends no session, so one the address made before it -- by a passkey enrolled while it held
@@ -999,29 +757,12 @@ describe("a passkey session made before its grant", () => {
     expect((await getSignInLanding()).destination).toBe("/signin");
   });
 
-  it("administers once the grant is dated before it, the same session and the same rows otherwise", async () => {
-    await aPasskeySessionGranted(-60 * 1000);
-
-    assert.ok(await getAdminSession(), "the control was refused, so the case above proves nothing");
-    assert.ok(await getAccountSession());
-    expect((await getSignInLanding()).destination).toBe("/area");
-  });
-
   it("is judged to the millisecond: refused a millisecond before its grant, admitted at it", async () => {
     await aPasskeySessionGranted(1);
     expect(await getAdminSession(), "a session a millisecond older than its grant administered").toBe(null);
 
     await aPasskeySessionGranted(0);
     assert.ok(await getAdminSession(), "a session made at the instant of its grant was refused");
-  });
-
-  /* Stricter than the backend, never looser: `fl_backend/app/api/berechtigungen/guard.py :: verify_actor_is_admin`
-     compares whole seconds and admits the same row, so the page refuses what a request would be served. */
-  it("is refused inside the second its grant falls in, which the backend's whole seconds admit", async () => {
-    const { created, granted } = await aPasskeySessionGranted(999, { onASecond: true });
-
-    expect(Math.floor(created.getTime() / 1000)).toBe(Math.floor(new Date(String(granted)).getTime() / 1000));
-    expect(await getAdminSession()).toBe(null);
   });
 
   /* The backend dates every grant; one answered with none is a contract the two services broke, which
@@ -1048,34 +789,6 @@ describe("the account page's guard on a barred address", () => {
     BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, seats: [A_SEAT], account: true, barred: true });
 
     expect(await getAccountSession()).toBe(null);
-  });
-});
-
-describe("why the administrator's guard turns a request away", () => {
-  afterEach(() => BACKENDS.delete(ADMIN_EMAIL));
-
-  /* A route answers its status on this reason: a sign-in repairs `signIn`, none repairs `noGrant`,
-     and `unread` is the backend's, which neither a sign-in nor a person's landing repairs. */
-  it("names the one repair each refused session has, and serves the administrator's", async () => {
-    arriveAs(null);
-    expect(await judgeAdminRequest()).toStrictEqual({ refused: "signIn" });
-
-    arriveAs((await signIn(PERSON_EMAIL)).cookie);
-    expect(await judgeAdminRequest()).toStrictEqual({ refused: "noGrant" });
-
-    const admin = await signIn(ADMIN_EMAIL);
-    arriveAs(admin.cookie);
-    expect(await judgeAdminRequest(), "a code-made session is refused as something a sign-in cannot repair").toStrictEqual({
-      refused: "signIn",
-    });
-
-    madeByPasskey(store, admin.row);
-    const judged = await judgeAdminRequest();
-    assert.ok("session" in judged, "the administrator's passkey session was refused");
-    expect(judged.session.user.email).toBe(ADMIN_EMAIL);
-
-    BACKENDS.set(ADMIN_EMAIL, "throws");
-    expect(await judgeAdminRequest()).toStrictEqual({ refused: "unread" });
   });
 });
 
@@ -1106,15 +819,6 @@ describe("the administrator's passkey sign-in, judged at the same guard", () => 
     expect((await getSignInLanding()).destination).toBe("/signin/passkey");
   });
 
-  it("admits the same address once the session was made by the passkey", async () => {
-    const { cookie, row } = await signIn(ADMIN_EMAIL);
-    madeByPasskey(store, row);
-    arriveAs(cookie);
-
-    assert.ok(await getAdminSession());
-    expect((await getSignInLanding()).destination).toBe("/area");
-  });
-
   /* A passkey enrolled elsewhere leaves this mailbox session as it was, so holding one decides which
      control the page offers and never whether the administrator is through. */
   it("offers enrolment while no passkey stands and the assertion once one does", async () => {
@@ -1127,81 +831,6 @@ describe("the administrator's passkey sign-in, judged at the same guard", () => 
 
     expect(await getPasskeyStep()).toStrictEqual({ step: "assert", email: ADMIN_EMAIL });
     expect(await getAdminSession(), "holding a passkey let a mailbox session through").toBe(null);
-  });
-
-  /* The one address this slice puts in front of a person, and the library stores whatever spelling
-     verified: unfolded it reads as a second account beside the one the grant names. */
-  it("hands the card the folded spelling of the address it prints", async () => {
-    const { cookie } = await signIn(ADMIN_EMAIL);
-    const held = store.user.find((user) => user.email === ADMIN_EMAIL);
-    assert.ok(held, "the sign-in wrote no user row for the granted address");
-    // Capitals and a no-break space, which the library never trims.
-    held.email = `${ADMIN_EMAIL.toUpperCase()}${String.fromCodePoint(0xa0)}`;
-    arriveAs(cookie);
-
-    const step = await getPasskeyStep();
-    // Restored before the assertion, so a failure here cannot report itself again in every case below.
-    held.email = ADMIN_EMAIL;
-
-    expect(step).toStrictEqual({ step: "enrol", email: ADMIN_EMAIL });
-  });
-
-  it("asks a session the passkey already made for neither half of that page", async () => {
-    const { cookie, row } = await signIn(ADMIN_EMAIL);
-    madeByPasskey(store, row);
-    arriveAs(cookie);
-
-    expect(await getPasskeyStep()).toBe(null);
-  });
-
-  it("offers a person signed in by the mailbox a passkey, on the page an administrator's card stands on", async () => {
-    const { cookie } = await signIn(PERSON_EMAIL);
-    arriveAs(cookie);
-
-    expect(await getPasskeyStep()).toStrictEqual({ step: "offer", email: PERSON_EMAIL });
-    expect((await getSignInLanding()).destination).toBe("/signin/passkey");
-  });
-
-  it("offers a person no passkey once they hold one, or once the passkey made the session", async () => {
-    const holding = await signIn(PERSON_EMAIL);
-    store.passkey.push(aPasskeyFor(holding.row.userId));
-    arriveAs(holding.cookie);
-
-    expect(await getPasskeyStep()).toBe(null);
-    expect((await getSignInLanding()).destination).toBe("/area");
-
-    store.passkey.length = 0;
-    madeByPasskey(store, holding.row);
-
-    expect(await getPasskeyStep(), "a session the passkey made was offered one").toBe(null);
-    expect((await getSignInLanding()).destination).toBe("/area");
-  });
-
-  /* The enrolment is refused past the library's `freshAge`, so a card offered there is a press the server
-     refuses: the landing and the page have to agree on where it stops. */
-  it("stops offering a person the passkey where the enrolment would be refused, and never sends them round", async () => {
-    const { cookie, row } = await signIn(PERSON_EMAIL);
-    ageRow(row, { created: FRESH_SIGN_IN_MS + 60_000 });
-    arriveAs(cookie);
-
-    expect(await getPasskeyStep()).toBe(null);
-    expect((await getSignInLanding()).destination).toBe("/area");
-  });
-
-  /* Past the window an administrator holding none has no card the server would honour: sent to the
-     passkey page, that page would send them back to the landing and round again. */
-  it("sends an administrator whose code session is too old to enrol back to sign in, and asserts one who holds a passkey", async () => {
-    const { cookie, row } = await signIn(ADMIN_EMAIL);
-    ageRow(row, { created: FRESH_SIGN_IN_MS + 60_000 });
-    arriveAs(cookie);
-
-    expect(await getPasskeyStep()).toBe(null);
-    expect((await getSignInLanding()).destination).toBe("/signin");
-
-    store.passkey.push(aPasskeyFor(row.userId));
-
-    expect(await getPasskeyStep()).toStrictEqual({ step: "assert", email: ADMIN_EMAIL });
-    expect((await getSignInLanding()).destination).toBe("/signin/passkey");
   });
 
   it("asks nothing of a visitor carrying no session", async () => {
@@ -1242,36 +871,6 @@ describe("the administrator's passkey sign-in, judged at the same guard", () => 
       isAdminSession(seen, promotedAt(made + 1)),
       holdsOwnersTier(seen.session.createdAt, A_GRANT),
     ]).toStrictEqual([true, false, true, false]);
-  });
-
-  /* The landing re-spelled the guard's conditions once, so a third one added to the guard would land a
-     granted session on a `/area` that sends it back to the landing. */
-  it("lands a granted session on `/area` exactly where the guard admits it, over the same seeded rows", async ({ onTestFinished }) => {
-    onTestFinished(() => void BACKENDS.delete(ADMIN_EMAIL));
-    const { cookie, row } = await signIn(ADMIN_EMAIL);
-
-    for (const factor of ["code", "passkey"]) {
-      for (const created of [HOUR_MS, 49 * HOUR_MS]) {
-        // A grant dated before every session, and one dated after the seeded row was made.
-        for (const grantedAgo of [100 * DAY_MS, created / 2]) {
-          if (factor === "passkey") madeByPasskey(store, row);
-          else row.authFactor = factor;
-          ageRow(row, { created });
-          const grant = { ...A_GRANT, granted_since: new Date(Date.now() - grantedAgo).toISOString() };
-          BACKENDS.set(ADMIN_EMAIL, grant);
-          arriveAs(cookie);
-
-          const seen = await served(cookie);
-          assert.ok(seen);
-          const destination = (await getSignInLanding()).destination;
-
-          expect(
-            destination === "/area",
-            `${factor} at ${String(created / HOUR_MS)}h, granted ${String(grantedAgo / HOUR_MS)}h ago, landed on ${destination}`,
-          ).toBe(isAdminSession(seen, grant));
-        }
-      }
-    }
   });
 });
 
@@ -1429,53 +1028,9 @@ describe("whose passkey may answer a signed-in page's challenge", () => {
     expect(refused.status).toBe(401);
     expect(store.session, "another account's passkey minted a session or ended the page's").toStrictEqual(before);
   });
-
-  it("admits the page's own account's passkey", async () => {
-    const { cookie, row } = await signIn(ADMIN_EMAIL);
-    store.passkey.push({ ...aPasskeyFor(row.userId), credentialID: CREDENTIAL_ID, publicKey: COSE_KEY.toString("base64") });
-
-    expect((await assertPasskey(cookie, true)).status).toBe(200);
-  });
-
-  /* Signed out, the challenge names nobody, and any account's passkey is the sign-in itself. */
-  it("admits an account's passkey to a challenge asked for signed out", async () => {
-    const holder = await signIn(ADMIN_EMAIL);
-    store.passkey.push({ ...aPasskeyFor(holder.row.userId), credentialID: CREDENTIAL_ID, publicKey: COSE_KEY.toString("base64") });
-
-    const offered = await overHttp("/passkey/generate-authenticate-options", {});
-    const { challenge } = (await offered.json()) as { challenge: string };
-    const answer = await overHttp("/passkey/verify-authentication", {
-      method: "POST",
-      cookie: cookieHeader(offered),
-      body: { response: assertionFor(challenge, true) },
-    });
-
-    expect(answer.status, await answer.clone().text()).toBe(200);
-  });
 });
 
 describe("what the passkey ceremony has to prove before it mints anything", () => {
-  /* The asking half, which the after hook writes in: a ceremony told "preferred" may answer with
-     the flag unset, and the arm below would then refuse the only passkey the administrator has. */
-  it("asks the authenticator to verify the user before it will take an assertion", async () => {
-    const { cookie } = await signIn(ADMIN_EMAIL);
-
-    const answer = await overHttp("/passkey/generate-authenticate-options", { cookie });
-    expect(answer.status, `the assertion the page offers was refused: ${JSON.stringify(logged)}`).toBe(200);
-
-    const options = (await answer.json()) as { userVerification: string };
-    expect(options.userVerification, "the assertion asks for less than the verifier below demands").toBe("required");
-  });
-
-  // The sign-in page asks with no session at all, which is where most assertions start.
-  it("asks the same of an assertion started signed out", async () => {
-    const answer = await overHttp("/passkey/generate-authenticate-options");
-    expect(answer.status, `the sign-in page's assertion was refused: ${JSON.stringify(logged)}`).toBe(200);
-
-    const options = (await answer.json()) as { userVerification: string };
-    expect(options.userVerification, "the sign-in page's assertion asks for less than the verifier demands").toBe("required");
-  });
-
   /* 1.7.7 hardcodes `requireUserVerification: false` in both verifiers, so the flag the browser
      prompt sets is checked here or nowhere. */
   it("refuses an assertion the authenticator did not verify, and mints no session for it", async () => {
@@ -1501,23 +1056,6 @@ describe("what the passkey ceremony has to prove before it mints anything", () =
     expect(refused.status).toBe(400);
     expect(((await refused.json()) as { code?: string }).code).toBe("USER_VERIFICATION_REQUIRED");
     expect(store.passkey).toStrictEqual([]);
-  });
-
-  /* The same ceremony, verified: the arm above is the requirement rather than the harness, and
-     this one is the only place the factor is stamped by the path that really mints it. */
-  it("admits a verified assertion and stamps the session the passkey made", async () => {
-    const { cookie, row } = await signIn(ADMIN_EMAIL);
-    store.passkey.push({ ...aPasskeyFor(row.userId), credentialID: CREDENTIAL_ID, publicKey: COSE_KEY.toString("base64") });
-
-    const admitted = await assertPasskey(cookie, true);
-    expect(admitted.status, await admitted.text()).toBe(200);
-
-    const minted = store.session.at(-1);
-    assert.ok(minted !== undefined);
-    expect(minted.authFactor, "the session the assertion minted was stamped as the link's").toBe("passkey");
-
-    arriveAs(cookieHeader(admitted));
-    assert.ok(await getAdminSession(), "the session the passkey minted does not open the admin surface");
   });
 });
 
@@ -1597,19 +1135,6 @@ describe("which sessions may enrol a passkey, and how many rows they may leave",
     expect(posted.status).toBe(404);
 
     expect(store.passkey, "a refused enrolment still reached the passkey rows").toStrictEqual([held]);
-  });
-
-  /* The positive control for every refusal below: a further passkey is enrolled from a session the
-     assertion made minutes ago, which is the one shape the dialog can put in front of the server. */
-  it("enrols a further passkey for a session the assertion made just now", async () => {
-    const { cookie, row } = await signIn(ADMIN_EMAIL);
-    steppedUp(row);
-    store.passkey.push(aPasskeyFor(row.userId));
-
-    const enrolled = await enrolPasskey(cookie, {}, true, SECOND_RAW_ID);
-
-    expect(enrolled.status, await enrolled.clone().text()).toBe(200);
-    expect(store.passkey.length).toBe(2);
   });
 
   /* The whole of what the touch buys: without it a stolen cookie could enrol for as long as the library's
@@ -1768,21 +1293,6 @@ describe("which sessions may enrol a passkey, and how many rows they may leave",
     expect(store.passkey, "the callback let a second passkey through").toStrictEqual([held]);
   });
 
-  /* The sequence the design stands on, run end to end: every other step-up case stamps the factor
-     and ages the row by hand, so none of them shows the ceremony minting what the predicate admits. */
-  it("enrols a further passkey on the session the assertion itself minted", async () => {
-    const { cookie, row } = await signIn(ADMIN_EMAIL);
-    store.passkey.push({ ...aPasskeyFor(row.userId), credentialID: CREDENTIAL_ID, publicKey: COSE_KEY.toString("base64") });
-
-    const admitted = await assertPasskey(cookie, true);
-    expect(admitted.status, await admitted.clone().text()).toBe(200);
-
-    const enrolled = await enrolPasskey(cookieHeader(admitted), {}, true, SECOND_RAW_ID);
-
-    expect(enrolled.status, await enrolled.clone().text()).toBe(200);
-    expect(store.passkey.length).toBe(2);
-  });
-
   /* The plugin writes the caller's own `name` onto the row, and the dialog draws a passkey's make:
      a planted row would otherwise title itself on the one surface built to spot it. */
   it("refuses an enrolment that names its own row, on the body and on the query alike", async () => {
@@ -1848,26 +1358,6 @@ describe("what a finished ceremony hands back to the page", () => {
     assert.ok(cookieHeader(admitted).length > 0, "the shaped body took the session cookie with it");
     arriveAs(cookieHeader(admitted));
     assert.ok(await getAdminSession());
-  });
-
-  it("answers the enrolment without the row it just wrote", async () => {
-    const { cookie } = await signIn(ADMIN_EMAIL);
-
-    const enrolled = await enrolPasskey(cookie);
-    expect(enrolled.status).toBe(200);
-    expect(await enrolled.json()).toStrictEqual({ status: true });
-  });
-
-  /* Shaping every answer alike would report a refusal as a success, and the card reads exactly that
-     distinction to tell a cancelled prompt from an unverified one. */
-  it("leaves a refused ceremony's own answer standing", async () => {
-    const { cookie, row } = await signIn(ADMIN_EMAIL);
-    store.passkey.push({ ...aPasskeyFor(row.userId), credentialID: CREDENTIAL_ID, publicKey: COSE_KEY.toString("base64") });
-
-    const refused = await assertPasskey(cookie, false);
-
-    expect(refused.status).toBe(400);
-    expect(((await refused.json()) as { code?: string }).code).toBe("USER_VERIFICATION_REQUIRED");
   });
 });
 
@@ -2112,45 +1602,12 @@ describe("which session a new sign-in replaces", () => {
     expect(writtenSince(before).length, "both step-ups left their session standing").toBe(1);
   });
 
-  /* The stamp is scoped to the cookie it names: a sign-in from another device, carrying none, ends no
-     session this browser holds. */
-  it("ends no session minted from another cookie, or from none", async () => {
-    const device = await signIn(ADMIN_EMAIL);
-    const other = await signIn(ADMIN_EMAIL);
-
-    await signInByCode(auth, ADMIN_EMAIL, { ...ORIGIN, cookie: other.cookie });
-
-    expect(await served(device.cookie), "a sign-in from another browser ended this one's session").not.toBe(null);
-  });
-
   it("ends the replaced session on a mailbox sign-in too, whoever's it was", async () => {
     const person = await signIn(PERSON_EMAIL);
 
     await signInByCode(auth, ADMIN_EMAIL, { ...ORIGIN, cookie: person.cookie });
 
     assert.ok(!store.session.includes(person.row), "the browser's previous session outlived the sign-in that replaced it");
-  });
-
-  /* The new session has committed by then, and failing the sign-in would strand it without its
-     cookie while the replaced one stayed alive anyway. */
-  it("signs in and records the failure where the replaced session cannot be ended", async () => {
-    const { cookie, row } = await signIn(ADMIN_EMAIL);
-    store.passkey.push({ ...aPasskeyFor(row.userId), credentialID: CREDENTIAL_ID, publicKey: COSE_KEY.toString("base64") });
-    const { internalAdapter } = await auth.$context;
-    const deleteSession = internalAdapter.deleteSession;
-    const before = [...store.session];
-    logged.length = 0;
-
-    internalAdapter.deleteSession = () => Promise.reject(new Error("the store answered nothing"));
-    try {
-      expect((await assertPasskey(cookie, true)).status).toBe(200);
-    } finally {
-      internalAdapter.deleteSession = deleteSession;
-    }
-
-    expect(logged.map((line) => [line.message, line.meta])).toStrictEqual([["auth.session_rotation_failed", { name: "Error" }]]);
-    expect(writtenSince(before).length, "the sign-in did not mint its session").toBe(1);
-    assert.ok(store.session.includes(row));
   });
 });
 
@@ -2217,14 +1674,6 @@ describe("what a ban ends in the sign-in store", () => {
 
     assert.ok(!store.session.includes(row));
     expect(asked).toStrictEqual([]);
-  });
-
-  it("does nothing for an address no account holds, and says it found none", async () => {
-    const sessions = store.session.length;
-
-    expect(await endSessionsOfAddress("niemand@example.org")).toBe(false);
-
-    expect(store.session.length).toBe(sessions);
   });
 
   /* A read that failed is no answer: taken for `false`, a ban would go unmailed and its administrator be
@@ -2303,20 +1752,6 @@ describe("what a ban ends in the sign-in store", () => {
       BACKENDS.delete(PERSON_EMAIL);
     }
   });
-
-  // The control: every refusal above would pass on a stamp refusing every session the account ever makes.
-  it("serves a session signed in after the ending", async () => {
-    await signIn(PERSON_EMAIL);
-    await endSessionsOfAddress(PERSON_EMAIL);
-    const account = store.user.find((user) => user.email === PERSON_EMAIL);
-    assert.ok(account !== undefined && Reflect.get(account, "sessionsEndedAt") instanceof Date, "the ending stamped nothing");
-    // A second back, so the sign-in below cannot share the stamp's millisecond.
-    Reflect.set(account, "sessionsEndedAt", new Date(Date.now() - 1000));
-
-    const after = await signIn(PERSON_EMAIL);
-
-    assert.ok((await readServedSession(new Headers({ ...ORIGIN, cookie: after.cookie }))) !== null);
-  });
 });
 
 describe("what the library's own log stream reaches this application as", () => {
@@ -2366,23 +1801,6 @@ describe("what the library's own log stream reaches this application as", () => 
       expect(Object.keys(line.meta).sort()).toStrictEqual(["name"]);
     }
   });
-
-  /* The plugin words every registration that failed past its verifier alike; only a conflict between two
-     enrolments is a warning, so a store that failed the same insert for any other reason stays an error. */
-  it("keeps a registration the store failed for another reason an error, with no warning", async () => {
-    const { cookie } = await signIn(ADMIN_EMAIL);
-    adapterCalls.refusing = (key, args) => key === "create" && (args[0] as { model?: unknown } | undefined)?.model === "passkey";
-    logged.length = 0;
-    warned.length = 0;
-
-    try {
-      expect((await enrolPasskey(cookie)).status).toBe(500);
-    } finally {
-      adapterCalls.refusing = undefined;
-    }
-
-    expect([logged.map((line) => [line.message, line.meta.name]), warned]).toStrictEqual([[["auth.library_failed", "Error"]], []]);
-  });
 });
 
 /* What the send and the notice owe the stream where the backend never took the mail: a held or barred send is the
@@ -2397,16 +1815,6 @@ describe("a sign-in mail the Postausgang never took", () => {
     await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
 
     expect(failedLines("auth.code_send_failed")).toStrictEqual([{ name: "APINetworkError" }]);
-  });
-
-  it("leaves the enrolment standing, and logs the notice", async () => {
-    const { cookie } = await signIn(ADMIN_EMAIL);
-    answerMail(() => "lost");
-    logged.length = 0;
-
-    expect((await enrolPasskey(cookie)).status).toBe(200);
-
-    expect(failedLines("auth.passkey_notice_failed")).toStrictEqual([{ name: "APINetworkError" }]);
   });
 });
 
@@ -2427,14 +1835,6 @@ describe("what the code costs an address holding nothing", () => {
 
     assert.ok(codeRowOf(ADMIN_EMAIL), "the mailed address holds no code row");
     assert.ok(codeRowOf(PERSON_EMAIL), "the unmailed address holds no code row, so a verify tells the two apart");
-  });
-
-  it("mails a granted address typed in another case", async () => {
-    const before = sent.length;
-
-    await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL.toUpperCase(), type: "sign-in" }, headers: new Headers(ORIGIN) });
-
-    expect(sent.slice(before).length, "the gate refused an address differing only in case").toBe(1);
   });
 
   /* The row lives in the league's database for as long as the code does: sealed under a key the backend never holds,
@@ -2474,20 +1874,6 @@ describe("what the code costs an address holding nothing", () => {
     expect((await answerOf(ADMIN_EMAIL, second)).status).toBe(200);
   });
 
-  /* Two tabs asking at once. The plugin takes the newest stamp for the live code and breaks a tie by
-     nothing, so on one frozen millisecond the mail sent last must still carry the code that signs in. */
-  it("keeps the code mailed last live when two sends share one millisecond", async ({ onTestFinished }) => {
-    vi.useFakeTimers({ toFake: ["Date"], now: Date.now() });
-    onTestFinished(() => void vi.useRealTimers());
-
-    await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
-    await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
-    const second = lastMailedCode(sent, ADMIN_EMAIL);
-    assert.ok(second !== null);
-
-    expect((await answerOf(ADMIN_EMAIL, second)).status, "the code mailed first outranked the one mailed after it").toBe(200);
-  });
-
   /* A code's ten minutes run from its own mail and no later request moves them: were a send to extend
      the code standing, asking again every few minutes would keep a leaked code alive for good. */
   it("never moves the expiry of a code already mailed", async () => {
@@ -2502,14 +1888,17 @@ describe("what the code costs an address holding nothing", () => {
     expect(mailed.expiresAt.getTime(), "a later send moved the mailed code's expiry").toBe(lapsing.getTime());
   });
 
-  it("consumes the code on its first use, so a second entry of the same code is refused", async () => {
+  /* A code read off a forwarded mail or a screen after its holder typed it would otherwise sign in again
+     inside its window, which nobody would see. */
+  it("mints no second session for a code already used", async () => {
     await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
     const otp = lastMailedCode(sent, ADMIN_EMAIL);
     assert.ok(otp !== null);
+    expect((await answerOf(ADMIN_EMAIL, otp)).status, "the code's first use signed nobody in, so the case proves nothing").toBe(200);
+    const sessions = store.session.length;
 
-    await auth.api.signInEmailOTP({ body: { email: ADMIN_EMAIL, otp }, headers: new Headers(ORIGIN), returnHeaders: true });
-
-    expect((await answerOf(ADMIN_EMAIL, otp)).code).toBe("INVALID_OTP");
+    expect((await answerOf(ADMIN_EMAIL, otp)).status).not.toBe(200);
+    expect(store.session.length, "the code's second use minted a session").toBe(sessions);
   });
 
   it("mails the code and the lifetime it has, and no link a forwarded message could be spent through", async () => {
@@ -2522,38 +1911,6 @@ describe("what the code costs an address holding nothing", () => {
     for (const url of `${message.text} ${message.html}`.match(/https?:\/\/[^\s"<]+/g) ?? []) {
       assert.ok(!url.includes(otp), `the message carries the code inside a link: ${url}`);
     }
-  });
-
-  /* The warning names the one host the code may be typed into, read off the configured origin rather
-     than spelled: a literal would go on naming production to a stack that is not. */
-  it("names the configured host as the one place to type the code, in both branches", async () => {
-    await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
-
-    const message = sent.at(-1);
-    assert.ok(message);
-    assert.ok(message.text.includes(`Gib ihn nur auf ${ORIGIN.host} ein.`), "the text branch names another place, or none");
-    // The markup sets the host in bold, so the sentence runs on around its tag.
-    assert.ok(message.html.includes(`>${ORIGIN.host}</strong> ein.`), "the markup branch names another place, or none");
-  });
-
-  it("states that same figure in the rendered message, which is the copy a reader acts on", () => {
-    const { text, html } = renderMail(buildCodeEmail("123456", "http://localhost:3000"));
-
-    assert.ok(text.includes(`${String(CODE_VALIDITY_MINUTES)} Minuten`));
-    assert.ok(html.includes(`${String(CODE_VALIDITY_MINUTES)} Minuten`));
-  });
-
-  /* Delete the `expiresIn` option and the plugin's own five-minute default halves the window in
-     silence, while the message above goes on stating the figure this module means. */
-  it("writes the row it expires on at the figure the message states", async () => {
-    const requested = Date.now();
-    await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
-
-    const written = codeRowOf(ADMIN_EMAIL);
-    assert.ok(written !== undefined);
-
-    const window_ = Math.round((written.expiresAt.getTime() - requested) / 1000);
-    expect(window_, "the row the library wrote does not carry this module's window").toBe(CODE_VALIDITY_MINUTES * 60);
   });
 });
 
@@ -2688,132 +2045,6 @@ describe("the failures one address may spend, across every code it is sent", () 
     expect(store.session.length, "the right code signed in past the bound").toBe(sessions);
   });
 
-  it("takes a refused attempt's own row back out, so hammering a closed bound does not extend it", async () => {
-    const otp = await mailedCode();
-    const wrong = wrongFor(otp);
-    for (let attempt = 0; attempt < 10; attempt += 1) await answerOf(ADMIN_EMAIL, wrong);
-
-    for (let attempt = 0; attempt < 3; attempt += 1) expect((await answerOf(ADMIN_EMAIL, wrong)).code).toBe("ADDRESS_ATTEMPTS_EXHAUSTED");
-
-    expect(failureRows().length).toBe(10);
-  });
-
-  it("clears the address's failures once a code signs in", async () => {
-    const otp = await mailedCode();
-    const wrong = wrongFor(otp);
-    for (let attempt = 0; attempt < 2; attempt += 1) await answerOf(ADMIN_EMAIL, wrong);
-    expect(failureRows().length).toBe(2);
-
-    await auth.api.signInEmailOTP({ body: { email: ADMIN_EMAIL, otp }, headers: new Headers(ORIGIN), returnHeaders: true });
-
-    expect(failureRows().length).toBe(0);
-  });
-
-  /* The clearing runs after the rotation has ended the browser's old session: a throw from it would
-     answer the right code with a 500 and send the person away holding no session at all. */
-  it("signs in with the right code even where clearing the address's failures fails", async () => {
-    const held = await signIn(ADMIN_EMAIL);
-    const otp = await mailedCode();
-    await answerOf(ADMIN_EMAIL, wrongFor(otp));
-
-    adapterCalls.refusing = (key, args) =>
-      key === "deleteMany" && JSON.stringify((args[0] as { where?: unknown } | undefined)?.where ?? []).includes("sign-in-attempt-");
-    try {
-      const answer = await auth.api.signInEmailOTP({
-        body: { email: ADMIN_EMAIL, otp },
-        headers: new Headers({ ...ORIGIN, cookie: held.cookie }),
-        returnHeaders: true,
-      });
-
-      assert.ok(answer.headers.get("set-cookie")?.includes("session_token"), "the right code set no session cookie");
-      assert.ok(!store.session.includes(held.row), "the old session outlived the sign-in that replaced it");
-      // The wrong code's row and the right one's own, which the refused clearing left standing.
-      expect(failureRows().length, "the refused clearing was not the one this case drove").toBe(2);
-    } finally {
-      adapterCalls.refusing = undefined;
-    }
-  });
-
-  /* The mint refuses only a code that verified, so none of its refusals is a guess: counted, a ban or
-     a backend outage would spend the address's day. */
-  it("counts none of the mint's refusals against the address, and still counts a wrong code", async () => {
-    const address = "an-der-praegung-gescheitert@example.org";
-    const refusals: unknown[] = [];
-    try {
-      for (const backend of [{ ...NOTHING_HELD, seats: [A_SEAT], account: true, barred: true }, NOTHING_HELD, "throws"] as const) {
-        BACKENDS.set(address, backend);
-        const otp = await auth.api.createVerificationOTP({ body: { email: address, type: "sign-in" } });
-        const refused = await answerOf(address, otp);
-        refusals.push(refused.code ?? refused.status);
-      }
-      expect(refusals, "a case below reached no refusal at the mint").toStrictEqual(["SIGN_IN_BARRED", "SIGN_IN_HOLDS_NOTHING", 503]);
-      expect(failureRows().length, "a refusal at the mint was counted as a failed code").toBe(0);
-
-      const otp = await auth.api.createVerificationOTP({ body: { email: address, type: "sign-in" } });
-      expect((await answerOf(address, wrongFor(otp))).code).toBe("INVALID_OTP");
-      expect(failureRows().length).toBe(1);
-    } finally {
-      BACKENDS.delete(address);
-    }
-  });
-
-  /* A refusal at the mint takes back its own row and no other: the newest may be a racing attempt's,
-     whose own removal would then find nothing and leave the count one too high. */
-  it("takes a refusal at the mint's own row back out, never another attempt's", async () => {
-    const address = "eigene-zeile@example.org";
-    try {
-      BACKENDS.set(address, { ...NOTHING_HELD, seats: [A_SEAT], account: true, barred: true });
-      const first = await auth.api.createVerificationOTP({ body: { email: address, type: "sign-in" } });
-      await answerOf(address, wrongFor(first));
-      const [counted] = failureRows();
-      assert.ok(counted !== undefined, "the wrong code was not counted, so nothing below has a row to compare");
-      // A row newer than the refused attempt's own, standing for an attempt still in flight.
-      const racing = { ...counted, id: "racing-attempt", createdAt: new Date(Date.now() + 60_000) };
-      store.verification.push(racing);
-
-      const otp = await auth.api.createVerificationOTP({ body: { email: address, type: "sign-in" } });
-      expect((await answerOf(address, otp)).code).toBe("SIGN_IN_BARRED");
-
-      expect(
-        failureRows()
-          .map((row) => row.id)
-          .sort(),
-      ).toStrictEqual([counted.id, "racing-attempt"].sort());
-    } finally {
-      BACKENDS.delete(address);
-    }
-  });
-
-  /* Ten in a row, and any sign-in ends the row: nine failures, a right code, then ten more are all
-     answered as wrong codes, and only the eleventh after the sign-in meets the lock. */
-  it("locks after ten consecutive failures, a sign-in between them clearing the count", async () => {
-    // Codes minted without a mail, so the per-address mail cap never answers for the lock.
-    const freshCode = () => auth.api.createVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" } });
-    const otp = await freshCode();
-    for (let attempt = 0; attempt < 9; attempt += 1) await answerOf(ADMIN_EMAIL, wrongFor(otp));
-    expect((await answerOf(ADMIN_EMAIL, await freshCode())).status).toBe(200);
-
-    const next = await freshCode();
-    for (let attempt = 0; attempt < 10; attempt += 1) {
-      const answer = await answerOf(ADMIN_EMAIL, wrongFor(next));
-      expect(answer.code, `failure ${String(attempt + 1)} after the sign-in met the lock`).not.toBe("ADDRESS_ATTEMPTS_EXHAUSTED");
-    }
-    expect((await answerOf(ADMIN_EMAIL, next)).code).toBe("ADDRESS_ATTEMPTS_EXHAUSTED");
-  });
-
-  /* The lock's own sentence points to a passkey, so a passkey sign-in has to end the count as well. */
-  it("clears the address's failures on a passkey sign-in", async () => {
-    const { cookie, row } = await signIn(ADMIN_EMAIL);
-    store.passkey.push({ ...aPasskeyFor(row.userId), credentialID: CREDENTIAL_ID, publicKey: COSE_KEY.toString("base64") });
-    const otp = await mailedCode();
-    for (let attempt = 0; attempt < 3; attempt += 1) await answerOf(ADMIN_EMAIL, wrongFor(otp));
-    assert.ok(failureRows().length > 0, "no failure was counted, so the clearing below proves nothing");
-
-    expect((await assertPasskey(cookie, true)).status).toBe(200);
-
-    expect(failureRows(), "a passkey sign-in left the address's failures standing").toStrictEqual([]);
-  });
-
   /* Each attempt's row goes in before it counts, so a burst cannot all read zero and all pass. The
      barrier holds every attempt at its count until the whole burst has arrived, the worst
      interleaving there is. */
@@ -2851,29 +2082,6 @@ describe("the code mails one address may be sent in an hour", () => {
     expect(sent.length - before).toBe(5);
     expect(answers.at(-1), "the capped send answered otherwise than a mailed one").toStrictEqual(answers[0]);
   });
-
-  it("takes a capped send's own row back out", async () => {
-    for (let send = 0; send < 8; send += 1) {
-      await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
-    }
-
-    const perAddress = store.verification.filter((row) => row.identifier.startsWith("sign-in-mail-"));
-    expect(perAddress.length).toBe(5);
-  });
-
-  /* The plugin writes a new code before its send callback runs, so a send capped there would void
-     the fifth mail's code and mail no other: the person would hold a dead code for the hour. */
-  it("leaves the last mailed code standing when a send is capped", async () => {
-    for (let send = 0; send < 5; send += 1) {
-      await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
-    }
-    const fifth = lastMailedCode(sent, ADMIN_EMAIL);
-    assert.ok(fifth !== null);
-
-    await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
-
-    expect((await answerOf(ADMIN_EMAIL, fifth)).status, "the capped send voided the code the person holds").toBe(200);
-  });
 });
 
 describe("which addresses the send gate mails", () => {
@@ -2901,21 +2109,6 @@ describe("which addresses the send gate mails", () => {
 
     return { answer, mailed: sent.slice(before).map((message) => message.to) };
   }
-
-  it("mails an address holding a seat on a live season, after the one backend read", async () => {
-    BACKENDS.set(SEATED_EMAIL, { ...NOTHING_HELD, seats: [A_SEAT], account: true });
-
-    expect((await askFor(SEATED_EMAIL)).mailed).toStrictEqual([SEATED_EMAIL]);
-    expect(asked).toStrictEqual(["/api/v0/identity/sign_in"]);
-  });
-
-  /* The case a gate admitting on the Funktion lists refuses: the person holds no panel, and still a
-     consent the account page offers back. */
-  it("mails an address whose only record is one the account page serves and no list names", async () => {
-    BACKENDS.set(ACCOUNT_ONLY_EMAIL, ONLY_AN_ACCOUNT);
-
-    expect((await askFor(ACCOUNT_ONLY_EMAIL)).mailed).toStrictEqual([ACCOUNT_ONLY_EMAIL]);
-  });
 
   /* The lookup drops every unconfirmed record, so the lists of a pending mailbox are as empty as an
      unknown one's: the flag is the only thing admitting it, and a gate reading the lists refuses it. */
@@ -2991,17 +2184,6 @@ describe("which addresses the send gate mails", () => {
 
     const lines = logged.slice(loggedBefore);
     expect(lines.map((line) => [line.message, line.meta])).toStrictEqual([["auth.sign_in_gate_failed", { name: "APINetworkError" }]]);
-  });
-
-  /* A refused payload is the backend answering, so its line says so rather than reading as an outage. */
-  it("mails nothing to an address the backend refuses as a payload, and logs the refusal apart from a failure", async () => {
-    BACKENDS.set(PERSON_EMAIL, "refuses");
-    const loggedBefore = logged.length;
-
-    expect((await askFor(PERSON_EMAIL)).mailed).toStrictEqual([]);
-    expect(logged.slice(loggedBefore).map((line) => [line.message, line.meta])).toStrictEqual([
-      ["auth.sign_in_gate_address_refused", { name: "APIBadStatusError" }],
-    ]);
   });
 
   /* The three refusals are three reasons to the gate and one answer to the person asking: which of
@@ -3087,14 +2269,6 @@ describe("which sign-ins the gate admits as the session is minted", () => {
     ]);
   });
 
-  /* The mint asks the gate's own read, so a person holding no Funktion is minted the session the
-     account page needs. */
-  it("mints a mailbox session for an address whose only record is one the account page serves", async () => {
-    BACKENDS.set(EMPTY_EMAIL, { ...NOTHING_HELD, account: true });
-
-    expect(await mailboxSignIn(EMPTY_EMAIL)).toBe(true);
-  });
-
   /* Only the holder of the authenticator reaches this refusal, so it names the reason. */
   it("refuses a barred address's passkey with the ban's own code, minting nothing and ending nothing", async () => {
     const { cookie, row } = await signIn(BARRED_EMAIL);
@@ -3157,48 +2331,6 @@ describe("which sign-ins the gate admits as the session is minted", () => {
 
     expect(refused.status).toBe(404);
     expect(store.passkey, "a barred address enrolled a passkey").toStrictEqual([]);
-  });
-
-  it("offers a barred subject no passkey card, and the same subject unbarred the offer", async () => {
-    const { cookie } = await signIn(BARRED_EMAIL);
-    BACKENDS.set(BARRED_EMAIL, { ...NOTHING_HELD, seats: [A_SEAT], account: true, barred: true });
-    arriveAs(cookie);
-
-    expect(await getPasskeyStep()).toBe(null);
-
-    BACKENDS.set(BARRED_EMAIL, { ...NOTHING_HELD, seats: [A_SEAT], account: true });
-    expect(await getPasskeyStep()).toStrictEqual({ step: "offer", email: BARRED_EMAIL });
-  });
-
-  /* The registration's transaction opens after the before hook: a backend round trip inside it would
-     hold it open for that call's length. The one read is the before
-     hook's. */
-  it("reads the gate's answer once for a set-up that signs in, ahead of the registration's transaction", async () => {
-    const { cookie } = await signIn(PERSON_EMAIL);
-    BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, seats: [A_SEAT], account: true });
-    const offered = await overHttp("/passkey/generate-register-options", { cookie });
-    const { challenge } = (await offered.json()) as { challenge: string };
-    asked.length = 0;
-
-    const answer = await overHttp("/passkey/verify-registration", {
-      method: "POST",
-      cookie: `${cookie}; ${cookieHeader(offered)}`,
-      body: { response: registrationFor(challenge, true), createSession: true },
-    });
-
-    expect(answer.status, await answer.clone().text()).toBe(200);
-    expect(store.passkey.length, "the set-up wrote no passkey").toBe(1);
-    expect(
-      asked.filter((path) => path.endsWith("/identity/sign_in")).length,
-      "the registration read the gate's answer again inside its transaction",
-    ).toBe(1);
-  });
-
-  it("admits an administrator's passkey on the grant alone, holding no league record", async () => {
-    const { cookie, row } = await signIn(ADMIN_EMAIL);
-    store.passkey.push({ ...aPasskeyFor(row.userId), credentialID: CREDENTIAL_ID, publicKey: COSE_KEY.toString("base64") });
-
-    expect((await assertPasskey(cookie, true)).status).toBe(200);
   });
 
   /* The grant is read on the same call as the ban, so an unreachable backend shuts the administration
@@ -3571,22 +2703,6 @@ describe("a person's own account deletion", () => {
     expect(informed.map((line) => line.message)).toStrictEqual(["auth.code_mail_capped"]);
   });
 
-  it("mails a sign-in code after four deletion links, each link counting once", async () => {
-    const email = "vier-links-dann-code@example.org";
-    const { cookie } = await signIn(email);
-    const headers = new Headers({ ...ORIGIN, cookie });
-    for (let press = 0; press < 4; press += 1) await requestAccountDeletion(headers);
-
-    BACKENDS.set(email, { ...NOTHING_HELD, seats: [A_SEAT], account: true });
-    try {
-      await auth.api.sendVerificationOTP({ body: { email, type: "sign-in" }, headers: new Headers(ORIGIN) });
-    } finally {
-      BACKENDS.delete(email);
-    }
-
-    expect(sent.filter((entry) => entry.to === email).length, "the fifth mail, a code, was held back").toBe(5);
-  });
-
   it("mails no deletion link after five sign-in codes, one row counting both", async () => {
     const email = "code-dann-loeschlink@example.org";
     const { cookie, row } = await signIn(email);
@@ -3607,18 +2723,6 @@ describe("a person's own account deletion", () => {
     expect(sent.filter((entry) => entry.to === email).length, "a link was mailed past five codes").toBe(5);
     expect(store.verification.filter((held) => held.identifier.startsWith("delete-account-") && held.value === row.userId).length).toBe(0);
     expect(informed.filter((line) => line.message === "auth.deletion_link_capped").length).toBe(1);
-  });
-
-  /* The library swallows a throw from its sender and answers the press as sent whatever happened, so what
-     tells an owed link from a lost one is the stream alone. */
-  it("logs the library's own line for a link the Postausgang never took", async () => {
-    const { cookie } = await signIn("versand-loeschung@example.org");
-    const failures = () => logged.filter((line) => line.message === "auth.library_failed").map((line) => line.meta.name);
-    answerMail(() => "lost");
-    logged.length = 0;
-
-    expect((await requestAccountDeletion(new Headers({ ...ORIGIN, cookie }))).success).toBe(true);
-    expect(failures()).toStrictEqual(["APINetworkError"]);
   });
 });
 

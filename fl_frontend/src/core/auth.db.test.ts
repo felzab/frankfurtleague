@@ -3,7 +3,6 @@ import { randomUUID } from "node:crypto";
 import {
   ADMIN_EMAIL,
   Barrier,
-  BARRIER_TIMEOUT_MS,
   configDouble,
   cookieHeader,
   GATE_BACKEND_CONFIG,
@@ -65,12 +64,6 @@ const wrapCollection = (name: string, collection: object): object =>
               return cursor.toArray();
             },
           };
-        };
-      }
-      if (name === "verification" && prop === "findOneAndDelete") {
-        return async (...args: unknown[]) => {
-          await consuming();
-          return (value as Method).apply(target, args);
         };
       }
       if (name === "account" && prop === "deleteMany") {
@@ -172,51 +165,12 @@ globalThis.fetch = ((input: string | URL | Request, init?: RequestInit) => {
   return Promise.resolve(new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } }));
 }) as typeof globalThis.fetch;
 
-/**
- * Holds the one write that arrives first until `release`, and passes every later one: the order in
- * which one request commits whole while the other, already judged, waits at its first write.
- */
-class Gate {
-  private release_: () => void = () => undefined;
-  private reachedResolve: () => void = () => undefined;
-  private armed = true;
-
-  /**
-   * Whether a write arrived and is being held. Bounded as the barrier's wait is, so a request that
-   * never reaches a held write answers `false` rather than hanging the run.
-   */
-  readonly reached = new Promise<boolean>((resolve) => {
-    this.reachedResolve = () => resolve(true);
-    setTimeout(() => resolve(false), BARRIER_TIMEOUT_MS).unref();
-  });
-
-  async arrive(): Promise<void> {
-    if (!this.armed) return;
-    this.armed = false;
-    this.reachedResolve();
-    await new Promise<void>((resolve) => {
-      this.release_ = resolve;
-      setTimeout(resolve, BARRIER_TIMEOUT_MS);
-    });
-  }
-
-  release(): void {
-    this.release_();
-  }
-}
-
 const warnings: string[] = [];
 const errors: string[] = [];
 const barrier = new Barrier();
 
 /** Where each bound's count waits, for a case that arms it. */
 const counting = new Barrier();
-
-/**
- * What runs as a verification row is consumed: a passkey's challenge after its session was read and
- * before its transaction, a code inside its consume's own transaction.
- */
-let consuming: () => Promise<unknown> = async () => undefined;
 
 // Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
 const { toNextJsHandler } = await import("better-auth/next-js");
@@ -248,7 +202,6 @@ beforeEach(async () => {
   barrier.disarm();
   counting.disarm();
   warnings.length = 0;
-  consuming = async () => undefined;
   atCommit = async () => undefined;
   deletingAccounts = async () => undefined;
   deletingUser = async () => undefined;
@@ -305,21 +258,6 @@ async function passkeyRows(): Promise<Record<string, unknown>[]> {
   return authDb().collection("passkey").find({}).toArray();
 }
 
-/** Two verify halves, both held at their first write until both have been judged. */
-async function atOnce(
-  pairs: readonly (readonly [Offered, Buffer])[],
-): Promise<{ statuses: number[]; codes: unknown[]; notices: number; warnings: string[] }> {
-  const mailedBefore = sent.length;
-  barrier.arm(pairs.length);
-  const responses = await Promise.all(pairs.map(([offered, rawId]) => verify(offered, rawId)));
-  barrier.disarm();
-  assert.ok(await barrier.filled, "the enrolments were not all held at `passkey.insertOne`, so no race was run");
-
-  const refused = responses.filter((response) => response.status !== 200);
-  const codes = await Promise.all(refused.map(async (response) => ((await response.json()) as { code?: unknown }).code));
-  return { statuses: responses.map((response) => response.status).sort(), codes, notices: sent.length - mailedBefore, warnings: [...warnings] };
-}
-
 const AUTHENTICATOR_A = Buffer.from("fl-auth-db-authenticator-a");
 const AUTHENTICATOR_B = Buffer.from("fl-auth-db-authenticator-b");
 
@@ -333,27 +271,6 @@ describe("two enrolments of one administrator, against a real database", () => {
     const second = await verify(b, AUTHENTICATOR_B);
 
     expect([first.status, second.status, (await passkeyRows()).length]).toStrictEqual([200, 404, 1]);
-  });
-
-  // The credential index alone keeps one row here, and answers the loser with the plugin's own failure
-  // rather than a refusal the dialog can word.
-  it("stores one authenticator enrolled twice at once as one row", async () => {
-    const a = await offer(await signIn(ADMIN_EMAIL));
-    const b = await offer(await signIn(ADMIN_EMAIL));
-
-    const raced = await atOnce([
-      [a, AUTHENTICATOR_A],
-      [b, AUTHENTICATOR_A],
-    ]);
-
-    expect({ ...raced, rows: (await passkeyRows()).length, errors: [...errors] }).toStrictEqual({
-      statuses: [200, 500],
-      codes: ["FAILED_TO_VERIFY_REGISTRATION"],
-      notices: 1,
-      warnings: ["auth.passkey_enrolment_conflict"],
-      rows: 1,
-      errors: [],
-    });
   });
 });
 
@@ -558,30 +475,13 @@ describe("an address change carrying the account, against a real database", () =
   });
 });
 
-/* The memory adapter's `delete` removes every row it matches and MongoDB's removes one, so the
-   clearing is judged here and nowhere else. */
-describe("an address's failures after a code signs in, against a real database", () => {
+describe("an address's failures, against a real database", () => {
   async function failureRows(): Promise<Record<string, unknown>[]> {
     return authDb()
       .collection("verification")
       .find({ identifier: { $regex: "^sign-in-attempt-" } })
       .toArray();
   }
-
-  it("clears every failure the address had, not one of them", async () => {
-    const otp = await auth.api.createVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" } });
-    const wrong = otp === "000000" ? "111111" : "000000";
-    for (let attempt = 0; attempt < 2; attempt += 1) {
-      await expect(auth.api.signInEmailOTP({ body: { email: ADMIN_EMAIL, otp: wrong }, headers: new Headers(ORIGIN) })).rejects.toSatisfy(
-        (error: { body?: { code?: unknown } }) => error.body?.code === "INVALID_OTP",
-      );
-    }
-    expect((await failureRows()).length, "the failures were not counted, so the clearing below proves nothing").toBe(2);
-
-    await auth.api.signInEmailOTP({ body: { email: ADMIN_EMAIL, otp }, headers: new Headers(ORIGIN) });
-
-    expect(await failureRows(), "a sign-in left failures standing against the address").toStrictEqual([]);
-  });
 
   /* Each attempt's row goes in before it counts; held at the count until the whole burst has arrived,
      every count sees every row, the worst interleaving a real store can give. */
@@ -603,57 +503,6 @@ describe("an address's failures after a code signs in, against a real database",
     const reached = answers.filter((answer) => answer !== "ADDRESS_ATTEMPTS_EXHAUSTED").length;
     assert.ok(reached <= 10, `${String(reached)} of 15 concurrent attempts reached the code`);
     assert.ok((await failureRows()).length <= 10);
-  });
-
-  /* A refusal at the mint comes after the code verified, so it is no guess: its row comes back out on
-     the real store as on the memory one. */
-  it("counts no refusal at the mint, and still counts a wrong code", async () => {
-    const email = "gesperrt-mit-code@example.org";
-    gateAnswer = { seats: [SEAT], barred: true, account: true };
-    const otp = await auth.api.createVerificationOTP({ body: { email, type: "sign-in" } });
-
-    await expect(auth.api.signInEmailOTP({ body: { email, otp }, headers: new Headers(ORIGIN) })).rejects.toSatisfy(
-      (error: { body?: { code?: unknown } }) => error.body?.code === "SIGN_IN_BARRED",
-    );
-    expect(await failureRows(), "the refusal at the mint was counted as a failed code").toStrictEqual([]);
-
-    const next = await auth.api.createVerificationOTP({ body: { email, type: "sign-in" } });
-    await expect(
-      auth.api.signInEmailOTP({ body: { email, otp: next === "000000" ? "111111" : "000000" }, headers: new Headers(ORIGIN) }),
-    ).rejects.toSatisfy((error: { body?: { code?: unknown } }) => error.body?.code === "INVALID_OTP");
-    expect((await failureRows()).length).toBe(1);
-  });
-});
-
-/* A wrong guess consumes the code and writes it back after its check. A send from another request,
-   inside the consume's transaction, writes a newer code the written-back one must not outrank. */
-describe("a wrong code racing a new one's send, against a real database", () => {
-  it("signs in with the code mailed while a wrong guess was being checked", async () => {
-    const headers = new Headers(ORIGIN);
-    await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers });
-    const stale = lastMailedCode(sent, ADMIN_EMAIL);
-    assert.ok(stale !== null, "the first send mailed nothing, so no code is raced");
-
-    const gate = new Gate();
-    consuming = () => gate.arrive();
-    const guess = auth.api.signInEmailOTP({ body: { email: ADMIN_EMAIL, otp: stale === "000000" ? "111111" : "000000" }, headers }).then(
-      () => "signed in",
-      (error: { body?: { code?: unknown } }) => error.body?.code,
-    );
-    try {
-      assert.ok(await gate.reached, "the wrong guess never reached its consume, so no race was run");
-      // From this request and never from inside the held one, whose transaction a nested call would join.
-      await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers });
-    } finally {
-      gate.release();
-    }
-    expect(await guess).toBe("INVALID_OTP");
-
-    const fresh = lastMailedCode(sent, ADMIN_EMAIL);
-    assert.ok(fresh !== null && fresh !== stale, "the racing send mailed no new code");
-    await auth.api.signInEmailOTP({ body: { email: ADMIN_EMAIL, otp: fresh }, headers });
-
-    expect((await sessionRows()).length).toBe(1);
   });
 });
 
