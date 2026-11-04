@@ -274,12 +274,13 @@ export const getAccountPostAddressChangeUrl = () => {
 };
 
 /**
- * Start a change of the address the person signs in on, its two mails owed in the same transaction and no link answered.
+ * Start a change of the address the person signs in on, its first mail owed in the same transaction and no link answered.
  *
- * The new mailbox is owed its link, and the address on file a notice with a stop link; **everything the address holds
- * as its person's own moves when the new mailbox confirms**, within `ADDRESS_CHANGE_VALID_HOURS`. Where it holds a
- * grant, the change also waits on another administrator's approval, an owner's for an owner's grant. The address's live
- * change ends replaced, an administrator's too: a sign-in at the address on file proves the mailbox is not lost.
+ * **The address on file confirms first**: it is owed a link, and only its confirmation owes the new mailbox the
+ * second; **everything the address holds as its person's own moves when the new mailbox confirms**, each link within
+ * `ADDRESS_CHANGE_VALID_HOURS`, and declining either ends the change. Where it holds a grant, the change also waits on
+ * another administrator's approval, an owner's for an owner's grant. The address's live change ends replaced, an
+ * administrator's too: a sign-in at the address on file proves the mailbox is not lost.
  * **Nothing about the new address is judged here** -- the ban list, another pupil, a grant it holds -- so this start
  * answers alike whatever the new address holds.
  *
@@ -509,7 +510,12 @@ export const getAddressChangePostAddressChangeAntwortUrl = () => {
 /**
  * Record whether the mailbox this link was sent to is the person's: `confirmed` confirms it, `declined` ends the change.
  *
- * **A confirmation moves the person, not a record.** Unless the change waits -- on a waiting time an administrator's
+ * **The person's own change asks the address on file first**: its link's confirmation owes the new mailbox its link,
+ * and nothing moves yet; refused `link_expired` past that link's deadline and `address_change_ended` once answered or
+ * ended, a decline refused only the latter. Every other link the address on file was mailed answers no confirmation
+ * (`link_invalid`).
+ *
+ * The new mailbox's link: **a confirmation moves the person, not a record.** Unless the change waits -- on a waiting time an administrator's
  * start with a reason asked, or on another administrator's approval of the grant it moves -- it takes effect in this
  * transaction: every pupil row, confirmed referee row, confirmed contact seat, registration and grant the address on
  * file holds moves to the new one, asking no consent and writing none, and `effective` says so; its completion notice is
@@ -560,7 +566,7 @@ export const getAddressChangePostAddressChangeStopUrl = () => {
 };
 
 /**
- * Stop the change the address on file was told of: its new address goes, out of every log image of the change too.
+ * Stop the change the address on file was mailed about: its new address goes, out of every log image of the change too.
  *
  * **Refused nothing but a token no change holds** (`link_invalid`) **and a change ended** (`address_change_ended`): a stop
  * hands nothing over, so it answers past every deadline, a barred address's holder too, until the change ends.
@@ -595,19 +601,20 @@ export const getAddressChangeGetAddressChangeViewUrl = () => {
 };
 
 /**
- * Answer what this token opens: the new mailbox's link, the stop link the address on file was mailed, or how either's change ended.
+ * Answer what this token opens: the new mailbox's link, the link the address on file was mailed, or how either's change ended.
  *
  * **Nothing else about the change**: never a name, either address or the id. A POST that reads, so the token travels in
  * a body and never in a second URL. Refuses only a token no change holds (`link_invalid`); an ended change's
- * links answer `ended` and how it ended for as long as its record is kept.
+ * links answer `ended`, how it ended and on which day, for as long as its record is kept.
  *
  * The new mailbox's side is served in a state: once pressed, `confirmed`, or `approval_expired` where its
  * approval week lapsed unapproved; else `barred` wherever the ban list holds the address the link was mailed to, then
  * `abgelaufen`, then `not_confirmable` wherever the press would be refused for the address on file's sake or would
  * find it holding nothing to move, each a state the confirmation is refused in. Those read alike here, though the press
  * answers each by its own code; what keeps the link's holder from telling them apart is the edge, where
- * `nginx/shared/site.conf` routes no public call to this service. The stop side answers the step the change waits on and
- * until when, and never whether it could be confirmed: the stop is refused nothing.
+ * the proxy routes no public call to this service. The address on file's side answers the step the change waits on
+ * and until when, `release_open` while the person's own change waits on this link's confirmation, and never whether
+ * the new mailbox could confirm.
  * @summary What one address link opens
  */
 export const addressChangeGetAddressChangeView = async (

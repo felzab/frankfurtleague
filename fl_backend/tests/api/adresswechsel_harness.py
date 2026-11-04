@@ -343,9 +343,26 @@ async def handed_out(database: AsyncDatabase, client: AsyncMongoClient, answer: 
     return Minted(answer=answer, token=links.get("token"), stopp_token=links.get("stopp_token"))
 
 
-async def start(database: AsyncDatabase, client: AsyncMongoClient, *, email: str = NEW_EMAIL, **given: Any) -> Minted:
-    answer = await call(post_address_change, database, client, adresswechsel_data=FLAccountAddressChangePayload(email=email), **given)
-    return await handed_out(database, client, answer, now=given.get("germany_now", NOW))
+async def start(database: AsyncDatabase, client: AsyncMongoClient, *, email: str = NEW_EMAIL, released: bool = True, **given: Any) -> Minted:
+    """The person's start, and unless `released` is off the address on file's confirmation through its link.
+
+    That confirmation is what owes the new mailbox its link, which the answer then carries beside the address on file's.
+    """
+
+    now = given.get("germany_now", NOW)
+    started = await handed_out(
+        database,
+        client,
+        await call(post_address_change, database, client, adresswechsel_data=FLAccountAddressChangePayload(email=email), **given),
+        now=now,
+    )
+    if not released:
+        return started
+
+    await answer(database, client, started.stopp_token, germany_now=now)
+    confirmed = await handed_out(database, client, started.answer, now=now)
+
+    return Minted(answer=started.answer, token=confirmed.token, stopp_token=started.stopp_token)
 
 
 async def approve_as_the_address(database: AsyncDatabase, client: AsyncMongoClient, address_change_id: ObjectId, **given: Any) -> Minted:

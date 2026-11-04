@@ -22,6 +22,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.adresswechsel.services import (
+    ASKS_THE_ADDRESS_ON_FILE_FIRST,
     LIVE_TERMS,
     build_address_filter,
     build_owed_carry_filter,
@@ -877,21 +878,24 @@ async def move_the_address_in_session(
         },
         session=session,
     )
-    await enqueue_mails(
-        outbox_collection=outbox_collection,
-        session=session,
-        mails=[
-            OwedMail(
-                key=f"adresswechsel/{record['_id']}/effective",
-                an=alt,
-                # Greeting nobody on the lost-mailbox way: that mailbox may have passed to a stranger.
-                data=FLAddressChangeEffectiveData(
-                    art="address_change_effective", instant=now, vorname=None if record["way"] == "waiting_period" else holdings.vorname
-                ),
-            )
-        ],
-        now=now,
-    )
+    # The person's own change owes the replaced mailbox nothing more: it confirmed the change through its own link, and
+    # the new mailbox confirmed it last, so both already know.
+    if record["way"] != "account":
+        await enqueue_mails(
+            outbox_collection=outbox_collection,
+            session=session,
+            mails=[
+                OwedMail(
+                    key=f"adresswechsel/{record['_id']}/effective",
+                    an=alt,
+                    # Greeting nobody on the lost-mailbox way: that mailbox may have passed to a stranger.
+                    data=FLAddressChangeEffectiveData(
+                        art="address_change_effective", instant=now, vorname=None if record["way"] == "waiting_period" else holdings.vorname
+                    ),
+                )
+            ],
+            now=now,
+        )
 
     # The requests for a grant it ended, each journalled by the caller as a refusal.
     return beendet
@@ -1095,9 +1099,9 @@ def others_naming(rows: Sequence[Mapping[str, Any]], identifier: str) -> list[Ma
 
 
 def known_to_the_new_mailbox(rows: Sequence[Mapping[str, Any]]) -> list[Mapping[str, Any]]:
-    """The ones whose link was owed the new mailbox: a request awaiting approval has none."""
+    """The ones whose link was owed the new mailbox: one still awaiting the address on file has none."""
 
-    return [row for row in rows if row.get("way") != "release" or row.get("released_at") is not None]
+    return [row for row in rows if row.get("way") not in ASKS_THE_ADDRESS_ON_FILE_FIRST or row.get("released_at") is not None]
 
 
 _GENEHMIGUNG_AKTEURE: Final = ("approval.started_by", "approval.approved_by")

@@ -81,7 +81,7 @@ class TestWhatALeakedLinkLearns:
         [
             pytest.param(FLAddressChangeViewNew, {"seite", "state", "valid_until", "effective_from", "way", "approval_open"}, id="new"),
             pytest.param(FLAddressChangeViewPrevious, {"seite", "state", "valid_until", "effective_from", "way"}, id="on file"),
-            pytest.param(FLAddressChangeViewEnded, {"seite", "state", "art"}, id="ended"),
+            pytest.param(FLAddressChangeViewEnded, {"seite", "state", "art", "ended_on"}, id="ended"),
         ],
     )
     def test_each_view_declares_exactly_its_side_its_state_and_its_instants(self, model: type[BaseModel], fields: set[str]):

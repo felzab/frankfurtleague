@@ -243,12 +243,13 @@ async def post_address_change(
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLAccountAddressChangeMintResponse:
     """
-    Start a change of the address the person signs in on, its two mails owed in the same transaction and no link answered.
+    Start a change of the address the person signs in on, its first mail owed in the same transaction and no link answered.
 
-    The new mailbox is owed its link, and the address on file a notice with a stop link; **everything the address holds
-    as its person's own moves when the new mailbox confirms**, within `ADDRESS_CHANGE_VALID_HOURS`. Where it holds a
-    grant, the change also waits on another administrator's approval, an owner's for an owner's grant. The address's live
-    change ends replaced, an administrator's too: a sign-in at the address on file proves the mailbox is not lost.
+    **The address on file confirms first**: it is owed a link, and only its confirmation owes the new mailbox the
+    second; **everything the address holds as its person's own moves when the new mailbox confirms**, each link within
+    `ADDRESS_CHANGE_VALID_HOURS`, and declining either ends the change. Where it holds a grant, the change also waits on
+    another administrator's approval, an owner's for an owner's grant. The address's live change ends replaced, an
+    administrator's too: a sign-in at the address on file proves the mailbox is not lost.
     **Nothing about the new address is judged here** -- the ban list, another pupil, a grant it holds -- so this start
     answers alike whatever the new address holds.
 
@@ -295,22 +296,13 @@ async def post_address_change(
             journal=journal,
             session=session,
         )
-        # The notice first and the link after, as the address on file is told before the new mailbox can answer.
+        # The address on file's link alone: the new mailbox is asked once the address on file confirmed.
         await owe_the_notice_in_session(
             address_change_id=address_change_id,
             adresse=identifier,
             way="account",
             valid_until=record["valid_until"],
             vorname=bestand.vorname,
-            outbox_collection=outbox_collection,
-            now=germany_now,
-            session=session,
-        )
-        await owe_the_link_in_session(
-            address_change_id=address_change_id,
-            email=email,
-            way="account",
-            valid_until=record["valid_until"],
             outbox_collection=outbox_collection,
             now=germany_now,
             session=session,

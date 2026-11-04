@@ -554,11 +554,10 @@ change of an address moves, in one step, every pupil row, confirmed referee row,
 seat, registration and grant the address holds, so one sign-in stays whole.
 
 - **The person can still sign in.** Point them to their account page, `/bereich/konto`, „E-Mail-Adresse
-  ändern“. They confirm it is them by passkey or by a code to the address on file, a holder of
-  access to the Verwaltung by passkey alone, type the new address, and confirm it from its own
-  mailbox within `fl_backend/app/shared/schemas/bounds.py :: ADDRESS_CHANGE_VALID_HOURS` hours; the address on
-  file is told, with a
-  link that stops the change. Never start a change for a
+  ändern“. They type the new address, a person holding a passkey touching it first, confirm the
+  change by the link mailed to the address on file, and then by the link that confirmation mails the
+  new address, each within `fl_backend/app/shared/schemas/bounds.py :: ADDRESS_CHANGE_VALID_HOURS`
+  hours; declining at either link ends it. Never start a change for a
   person who can sign in: a request arriving by mail proves nothing about who sent it.
 - **They say they cannot sign in.** Ask the address on file first: start the change in the address
   tool with both addresses and no reason (`POST /address_change`). Nothing goes to the new address
@@ -602,7 +601,8 @@ seat, registration and grant the address holds, so one sign-in stays whole.
   (`POST /address_change/{address_change_id}/invite`), and **discard** a change that turns out to be
   wrong (`DELETE /address_change/{address_change_id}`). A change whose step lapses ends within the hour
   ([`../datenschutz.md`](../datenschutz.md#6-retention-is-bounded-where-a-bound-was-chosen)).
-- **Once a change takes effect**, the replaced address is told. Where the person started it or the
+- **Once a change takes effect**, the replaced address is told where an administrator started it;
+  the person's own change mails nothing past its two links. Where the person started it or the
   address on file approved it, their sign-in account moves to the new address and every session of
   it ends, unless the new address holds an account of its own (`address_change.account_not_moved` at `WARN`), where the
   old account keeps its sessions until the sweep below; after a change started on a recorded reason, or onto such an address, they
@@ -619,7 +619,7 @@ seat, registration and grant the address holds, so one sign-in stays whole.
   names the pending change and opens it in the address tool, and discard it there, which takes the address out of the change's record and the log's images of it. Where the holder asked for their data to be deleted, the erasure
   itself ends the change alone and leaves the records standing. The
   link's own „Das ist nicht meine Adresse“ does the same as the discard, past its deadline too, and
-  the address on file's stop link does it from the other side.
+  the address on file's own link does it from the other side.
 - **A referee who is RETIRED and has not confirmed.** Correct `kontakt.email` in the referee editor.
   The save stores the address, mails nothing and kills the old link, since a retired referee takes
   no booking to consent for; reactivating them later mints a fresh link and mails it to the
@@ -632,7 +632,7 @@ seat, registration and grant the address holds, so one sign-in stays whole.
   whose person has stepped out takes a different route, below.
 
 **A person asking to change their own address is pointed to their account page.** Every account's
-address changes there, proved by the new mailbox's own link and told to the address on file; an
+address changes there, confirmed by the address on file's link and then by the new mailbox's; an
 administrator starts a change only for a lost mailbox, as above. A person holding only contact
 seats changes theirs there too. Where they cannot sign in, an administrator may instead seat them
 afresh in the contacts editor under the new address: the seat is then a new entry, its consent,

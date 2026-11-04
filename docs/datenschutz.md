@@ -249,19 +249,22 @@ Every ruling below is the sign-up flow as it stands for the next season.
   link is ever minted to a row holding no usable address, the mint refusing it as none
   (`fl_backend/app/api/schiedsrichter/services.py :: find_missing_address_refusal`).
 - **Every account's address changes only once the new mailbox confirms it, and the address on file
-  can stop the change until it takes effect**, because the address is what the person's sign-in and
+  can end the change until it takes effect**, because the address is what the person's sign-in and
   every record of theirs are keyed on — a pupil's row, a confirmed referee's, contact seats,
   registrations and a grant of access alike: moved at once, it would hand those records to whoever
-  holds a mistyped or a hijacked address. Ruled 2026-10-04, the process re-ruled 2026-10-20. The
-  person starts a change on their account page after confirming themselves by a passkey or a code to
-  the address on file; an administrator starts one only for a person who says they cannot sign in,
+  holds a mistyped or a hijacked address. Ruled 2026-10-04, the process re-ruled 2026-10-20 and
+  2026-11-04. The person starts a change on their account page, a person holding a passkey touching
+  it first; the address on file is mailed a link that confirms or declines the change, and only its
+  confirmation mails the new mailbox its own link, whose confirmation makes the change take effect,
+  a decline at either ending it. An administrator starts one only for a person who says they cannot sign in,
   asking the address on file to approve it on its account page first, so a mailbox that still works
   decides, or, with a recorded reason, for one whose mailbox there is lost, holding its effect a week
   past its confirmation. A change moving a grant of access also waits on another
   administrator's approval, an owner's for an owner's grant, and lapses unapproved a week after its
-  start (`fl_backend/app/shared/schemas/bounds.py :: APPROVAL_DAYS`). The address
-  on file is mailed a link that stops the change at its start and a notice once it took effect, and
-  neither names the new address; until a change takes effect the new address reaches nothing of the
+  start (`fl_backend/app/shared/schemas/bounds.py :: APPROVAL_DAYS`). On an administrator's change
+  the address on file is mailed a link that stops the change at its start and a notice once it took
+  effect; the person's own change mails nothing past its two links. No mail to the address on file
+  names the new address, and until a change takes effect the new address reaches nothing of the
   person's. The sign-in account moves with a change its person started or the address on file
   approved, every session of it ended, unless the new address holds an account of its own, where the
   old account keeps its sessions until the account sweep. A new address that any entry names,
@@ -770,7 +773,7 @@ GENEHMIGUNG_TAGE`), when the database deletes it.
   the person is erased with it or the new mailbox's holder's own erasure ends it alone, and it ends within the hour after the step it waits on lapses**: the address
   may be a stranger's, typed in by mistake, who never asked to be stored. Each link lasts a day from its sending
   (`fl_backend/app/shared/schemas/bounds.py :: ADDRESS_CHANGE_VALID_HOURS`) and a re-send
-  restarts it, the stop link lasting as long as the change stands; a change an administrator
+  restarts it, an administrator's change's stop link lasting as long as the change stands; a change an administrator
   started with a reason takes effect a week after its confirmation (`:: ADDRESS_CHANGE_WAITING_PERIOD_DAYS`),
   and one waiting on another administrator's approval lapses a week after its start
   (`:: APPROVAL_DAYS`). The hourly pass ends a lapsed one as a discard does, its
@@ -786,8 +789,8 @@ GENEHMIGUNG_TAGE`), when the database deletes it.
   is mailed nothing. The published notice states the ending and the thirty days
   (`DatenschutzView.tsx :: FRISTEN`). Ruled 2026-10-06, its timing re-ruled 2026-10-15 and
   2026-10-20. **The notice an end owes is owed in the Postausgang in the end's own transaction**, so a
-  lost answer loses no notice: an effect's to the replaced address, greeting the first name where the
-  address on file asked for or approved the change, a refusal's to the new address alone. Its row
+  lost answer loses no notice: an effect's to the replaced address on an administrator's change,
+  greeting the first name where the address on file approved it, a refusal's to the new address alone. Its row
   keeps no facts once it is sent or given up, and its recipient thirty days longer; an erasure of
   either address deletes it. An effect that carries the account owes the carry on the ended change
   itself, which keeps the two addresses until the carry is done, and the keyed check values of both

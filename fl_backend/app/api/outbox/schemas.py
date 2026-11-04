@@ -74,11 +74,15 @@ class FLAddressChangeLinkData(BaseModel):
 
 
 class FLAddressChangeNoticeData(BaseModel):
-    """The address on file's notice of an address change, its stop link minted at the hand-out into `stop.token_hashes`."""
+    """The address on file's mail about an address change, its link minted at the hand-out into `stop.token_hashes`.
+
+    On the person's own `account` way the link confirms or declines the change before the new mailbox is asked; on every
+    other way it stops the change.
+    """
 
     art: Literal["address_change_notice"]
     way: FLAddressChangeWay
-    # The approval's deadline, which only the `release` way's notice states.
+    # The deadline of what the address on file is asked, which the `account` and `release` ways' mails state.
     valid_until: AwareDatetime
     # Null on the lost-mailbox way: that mailbox may have passed to a stranger, so the notice greets nobody.
     vorname: str | None
