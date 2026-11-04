@@ -99,7 +99,8 @@ export const config = {
       has: [{ type: "header", key: "purpose", value: "prefetch" }],
       missing: [{ type: "header", key: "cookie", value: ".*\\.session_token=.*" }],
     },
-    // `fl_frontend/src/core/mailedLink.ts :: MAILED_LINK_PAGES`, on a request carrying a token alone.
+    // `fl_frontend/src/core/mailedLink.ts :: MAILED_LINK_PAGES`, on a request carrying a token alone, which an empty
+    // `token` is not: Next's `has` reads an empty query value as absent.
     { source: "/(erasure|registrierung)", has: [{ type: "query", key: "token" }] },
     {
       source: "/signin/:path*",
