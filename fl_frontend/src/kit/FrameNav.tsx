@@ -32,6 +32,7 @@ import type { Route } from "next";
 import type { ReactElement, ReactNode } from "react";
 import type { GlyphChoice } from "./ChoiceButtons";
 import type { IconName } from "./Icon";
+import type { MenuEntry, MenuLink } from "./Menu";
 
 /** A page every season holds once, by its route in the table: a route whose address takes the season alone. */
 export type SaisonPage = {
@@ -154,6 +155,11 @@ export type Account = {
   role: Copy;
   /** The sign-in address: under the name at the top of the menu, or the row's own name where there is none. */
   address: RecordText;
+  /**
+   * Every Funktion the person holds, by the page each opens on, the one this area serves marked current; two or more
+   * open „Funktion wechseln“, one being no choice to offer.
+   */
+  roles?: ReadonlyArray<MenuLink>;
 };
 
 /**
@@ -177,13 +183,34 @@ const THEMES: readonly GlyphChoice[] = [
 ];
 
 /**
- * The account menu, the same in every area: Konto and Abmelden; Impressum and Datenschutz; and at its foot the
- * theme as one row, „Darstellung“ with the three glyphs. A person with a name sees it with their address at
- * the top; an address alone already stands in the row, so the menu does not repeat it.
+ * The theme as the account menu's foot and Konto's Darstellung set it, one control in both places: the three
+ * glyphs, each named by its tooltip, acting at once.
  */
-function AccountMenu({ account, trigger, beside }: { account: Account; trigger: ReactElement; beside?: boolean }) {
-  // The theme next-themes holds; the menu's content renders only once it is opened, after hydration.
+export function ThemeChoice() {
+  // The theme next-themes holds, unknown until the page hydrates, so none is chosen before.
   const { theme, setTheme } = useTheme();
+  return (
+    <Segmented
+      placement="inline"
+      label={COPY.page.accountAppearance}
+      choices={THEMES}
+      value={theme ?? null}
+      onChange={setTheme}
+    />
+  );
+}
+
+/**
+ * The account menu, the same in every area: „Funktion wechseln“ in a group of its own for a person holding two or
+ * more Funktionen, its submenu marking the one this area serves; Konto and Abmelden; Impressum and Datenschutz; and at
+ * its foot the theme as one row, „Darstellung“ with the three glyphs. A person with a name sees it with their address
+ * at the top; an address alone already stands in the row, so the menu does not repeat it. `konto` is the Konto page
+ * the menu opens: the phone's list of its pages, or on desktop its first page, beside the rail listing the rest.
+ */
+function AccountMenu({ account, konto, trigger, beside }: { account: Account; konto: Route; trigger: ReactElement; beside?: boolean }) {
+  const roles = account.roles ?? [];
+  const switchRole: ReadonlyArray<ReadonlyArray<MenuEntry>> =
+    roles.length < 2 ? [] : [[{ kind: "submenu", label: COPY.shared.switchRole, links: roles }]];
   return (
     <Menu
       label={COPY.template.account}
@@ -191,8 +218,9 @@ function AccountMenu({ account, trigger, beside }: { account: Account; trigger: 
       beside={beside}
       head={account.name === undefined ? undefined : { name: account.name, detail: account.address }}
       groups={[
+        ...switchRole,
         [
-          { kind: "link", label: COPY.template.account, href: ROUTES.accountSignIn.path() },
+          { kind: "link", label: COPY.template.account, href: konto },
           { kind: "action", label: COPY.shared.verb.signOut, onAction: () => void signOutAndLeave() },
         ],
         [
@@ -200,18 +228,7 @@ function AccountMenu({ account, trigger, beside }: { account: Account; trigger: 
           { kind: "link", label: ROUTES.privacyNotice.title, href: ROUTES.privacyNotice.path() },
         ],
       ]}
-      foot={{
-        label: COPY.page.accountAppearance,
-        control: (
-          <Segmented
-            placement="inline"
-            label={COPY.page.accountAppearance}
-            choices={THEMES}
-            value={theme ?? null}
-            onChange={setTheme}
-          />
-        ),
-      }}
+      foot={{ label: COPY.page.accountAppearance, control: <ThemeChoice /> }}
       trigger={trigger}
     />
   );
@@ -335,6 +352,7 @@ export function AccountRow({ account: read }: { account: AccountRead }) {
   return (
     <AccountMenu
       account={account}
+      konto={ROUTES.accountSignIn.path()}
       beside={collapsed}
       trigger={
         <AriaButton
@@ -494,6 +512,7 @@ function AccountPlace({ account: read }: { account: AccountRead }) {
   return (
     <AccountMenu
       account={account}
+      konto={ROUTES.account.path()}
       trigger={
         <AriaButton
           data-kit-focus="inset"
