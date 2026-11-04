@@ -10,6 +10,7 @@ import { AccountRow, BackControl, BarPlaces, EditorBack, MenuScope, RailEntries,
 import { Icon } from "./Icon";
 import { LeaveGuardProvider } from "./LeaveGuard";
 import { frameLink } from "./Link";
+import { PageFade } from "./PageFade";
 import { RailRoot, RailToggle, RailTooltip } from "./RailState";
 import { RAIL_ID, railFade, railGlyph } from "./railStyles";
 import { SaisonButton } from "./SaisonButton";
@@ -237,7 +238,7 @@ export function RailPage({
 }) {
   const { head, heading } = strip({ scope });
   return (
-    <>
+    <PageFade>
       <header className={head()}>
         <RailToggle />
         {title === null ? <SkeletonTitle /> : <h1 className={heading()}>{titleOf(title)}</h1>}
@@ -265,7 +266,7 @@ export function RailPage({
         <div className="mx-auto flex w-full max-w-content min-w-0 flex-1 flex-col gap-6">{children}</div>
       </main>
       {bar}
-    </>
+    </PageFade>
   );
 }
 
