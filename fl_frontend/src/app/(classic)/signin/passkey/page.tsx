@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 
 import { SignInShell } from "@/kit/SignInShell";
 
-import { getPasskeyStep } from "@/core/auth";
+import { getPasskeyStep } from "@/core/auth/landing";
 import { ROUTES } from "@/core/routes";
 import { PasskeyStep } from "@/features/auth/components/forms/PasskeyStep";
 import { pageMetadata } from "@/shared/utils/metadata";

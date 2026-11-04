@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 
-import { getAdminSession } from "@/core/auth";
+import { getAdminSession } from "@/core/auth/guards";
 import { AdminAreaBoundary } from "@/features/admin/components/providers/AdminAreaBoundary";
 import { AdminSessionHold } from "@/features/admin/components/providers/AdminSessionHold";
 import { AdminShell } from "@/features/admin/components/ui/AdminShell";

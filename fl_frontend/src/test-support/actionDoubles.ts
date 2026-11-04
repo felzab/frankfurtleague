@@ -3,7 +3,7 @@ import { afterEach, beforeAll, beforeEach, expect, vi } from "vitest";
 
 import { failureToastTitle } from "@/shared/utils/failureToastTitle.ts";
 
-import type { AdminRefusal } from "@/core/auth.ts";
+import type { AdminRefusal } from "@/core/auth/guards.ts";
 import type { SubjectSession } from "@/core/subject.ts";
 import type { ActionFailure } from "@/shared/types/types.ts";
 import type * as AppToastModule from "@/shared/utils/appToast.ts";
@@ -252,7 +252,7 @@ async function verdictOf(answers: SignInAnswers): Promise<unknown> {
 }
 
 /**
- * The shape `fl_frontend/src/core/auth.ts :: getKontoSession` serves, signed in by passkey this moment:
+ * The shape `fl_frontend/src/core/auth/guards.ts :: getKontoSession` serves, signed in by passkey this moment:
  * a caller reading `user.id` or `session` off the bare `{ user }` would read `undefined` and pass.
  */
 const servedOf = (session: AdminSessionDouble): unknown => {
@@ -270,33 +270,51 @@ const servedOf = (session: AdminSessionDouble): unknown => {
  * replaced whole because the real one opens the database driver as it loads.
  */
 const signInStore = (answers: SignInAnswers) => ({
-  getAdminSession: () => administratorOf(answers),
-  judgeAdminRequest: () => verdictOf(answers),
-  // The account page's guard, answering the same session: its own lanes are the sign-in store's to judge.
-  getKontoSession: () => answering(answers.served),
-  getSignInDestination: () => Promise.resolve(answers.destination),
-  // The sign-in page's read, `null` wherever the landing sends the caller to sign in, as the real one judges.
-  getSignedInAddress: () =>
-    answers.session instanceof Error
-      ? Promise.reject(answers.session)
-      : Promise.resolve(answers.session === null || answers.destination === "/signin" ? null : answers.session.user.email),
-  // `null`, as the real store answers the session `served` holds: one its passkey made is offered no card.
-  getPasskeyStep: () => (answers.session instanceof Error ? Promise.reject(answers.session) : Promise.resolve(null)),
-  isFreshlySignedIn: () => answers.fresh,
-  endSessionsOfAddress: (address: unknown) => {
-    answers.signedOut.push(String(address));
-    return answering(answers.signOutFailure ?? answers.accountHeld);
+  guards: {
+    getAdminSession: () => administratorOf(answers),
+    judgeAdminRequest: () => verdictOf(answers),
+    // The account page's guard, answering the same session: its own lanes are the sign-in store's to judge.
+    getKontoSession: () => answering(answers.served),
   },
-  deleteAccountFor: (address: unknown) => {
-    answers.deletedAccounts.push(String(address));
-    return answering(answers.accountDeletionFailure ?? answers.accountHeld);
+  landing: {
+    getSignInDestination: () => Promise.resolve(answers.destination),
+    // The sign-in page's read, `null` wherever the landing sends the caller to sign in, as the real one judges.
+    getSignedInAddress: () =>
+      answers.session instanceof Error
+        ? Promise.reject(answers.session)
+        : Promise.resolve(answers.session === null || answers.destination === "/signin" ? null : answers.session.user.email),
+    // `null`, as the real store answers the session `served` holds: one its passkey made is offered no card.
+    getPasskeyStep: () => (answers.session instanceof Error ? Promise.reject(answers.session) : Promise.resolve(null)),
   },
-  // Folded as the real lookup folds, so a case naming one spelling holds every other; imported at the call, for
-  // `administratorOf`'s reason.
-  accountStandsAt: async (address: unknown) => {
-    const { asSignInIdentifier } = await import("@/core/emailAddress.ts");
-    return answers.accountsAt.includes(asSignInIdentifier(String(address)));
+  sessionStamps: { isFreshlySignedIn: () => answers.fresh },
+  accountSessions: {
+    endSessionsOfAddress: (address: unknown) => {
+      answers.signedOut.push(String(address));
+      return answering(answers.signOutFailure ?? answers.accountHeld);
+    },
   },
+  accounts: {
+    deleteAccountFor: (address: unknown) => {
+      answers.deletedAccounts.push(String(address));
+      return answering(answers.accountDeletionFailure ?? answers.accountHeld);
+    },
+    // Folded as the real lookup folds, so a case naming one spelling holds every other; imported at the call, for
+    // `administratorOf`'s reason.
+    accountStandsAt: async (address: unknown) => {
+      const { asSignInIdentifier } = await import("@/core/emailAddress.ts");
+      return answers.accountsAt.includes(asSignInIdentifier(String(address)));
+    },
+  },
+  // Every other module of the sign-in store, replaced as empty as the store's old single module left them.
+  ceremony: {},
+  enrolment: {},
+  gateReads: {},
+  library: {},
+  mails: {},
+  minting: {},
+  passkeys: {},
+  session: {},
+  signInRows: {},
 });
 
 /**
@@ -393,7 +411,7 @@ export function doubleActionRequest({
   readTracesOnceLoaded();
   // The request every action runs in: the sign-in store, the subject lookup and the logger, and the
   // two packages that answer only inside a request Next itself is serving.
-  vi.doMock("@/core/auth.ts", () => signInStore(answers));
+  for (const [module, double] of Object.entries(signInStore(answers))) vi.doMock(`@/core/auth/${module}.ts`, () => double);
   vi.doMock("@/core/subject.ts", () => subjectLookup(answers));
   vi.doMock("@/core/logging.ts", () => SILENT_LOGGER);
   vi.doMock("next/cache", () => NEXT_CACHE_DOUBLE);

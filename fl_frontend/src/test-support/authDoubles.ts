@@ -4,7 +4,7 @@ import { memoryAdapter } from "better-auth/adapters/memory";
 import { ObjectId } from "mongodb";
 import { afterAll, assert, vi } from "vitest";
 
-import type { auth as AuthInstance } from "@/core/auth.ts";
+import type { auth as AuthInstance } from "@/core/auth/library.ts";
 import type { LookupFixture } from "@/test-support/subjectFixtures.ts";
 import type { MemoryDB } from "better-auth/adapters/memory";
 
@@ -41,7 +41,7 @@ const SECRET_DOUBLES: SecretReaders = {
   internalApiKeySystem: () => "fabricated-system-not-a-credential",
 };
 
-/** The config every sign-in suite runs `fl_frontend/src/core/auth.ts` under, `secrets` over the readers' defaults. */
+/** The config every sign-in suite runs `fl_frontend/src/core/auth/library.ts` under, `secrets` over the readers' defaults. */
 export function configDouble(overrides: Readonly<Record<string, unknown>> = {}, secrets: SecretReaders = {}): DoubledExports {
   const config = {
     ...GATE_BACKEND_CONFIG,
@@ -64,7 +64,7 @@ type AdapterOptions = Parameters<ReturnType<typeof memoryAdapter>>[0];
 /**
  * The library's in-memory adapter over `store`, minting ids as the Mongo adapter does rather than at
  * random: an `ObjectId` rising with each insert, which settles two sessions stamped in one millisecond
- * (`fl_frontend/src/core/auth.ts :: mintedBefore`).
+ * (`fl_frontend/src/core/auth/minting.ts :: mintedBefore`).
  */
 export const insertOrderedAdapter =
   (store: MemoryDB) =>
@@ -76,7 +76,7 @@ export const insertOrderedAdapter =
 
 /**
  * The Mongo adapter reaches a real server through aggregation pipelines, so the store under the real
- * `auth.ts` is the library's own in-memory one, over the object held at `globalThis[store]`.
+ * `auth/library.ts` is the library's own in-memory one, over the object held at `globalThis[store]`.
  */
 export const memoryAdapterDouble = (store: string): DoubledExports => ({
   mongodbAdapter: () => insertOrderedAdapter(Reflect.get(globalThis, store) as MemoryDB),
@@ -90,7 +90,7 @@ type AuthDoubles = {
 };
 
 /**
- * Doubles, through `vi.doMock`, the config, the store client and the mailer `fl_frontend/src/core/auth.ts`
+ * Doubles, through `vi.doMock`, the config, the store client and the mailer `fl_frontend/src/core/auth/library.ts`
  * builds on, and the lookup its grant is read over. Test-only, which `no-restricted-imports` in
  * `fl_frontend/eslint.config.mjs` holds it to.
  */

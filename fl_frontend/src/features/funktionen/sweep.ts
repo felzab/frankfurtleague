@@ -1,6 +1,6 @@
 import "server-only";
 
-import { deleteAccountFor, listAccounts } from "@/core/auth";
+import { deleteAccountFor, listAccounts } from "@/core/auth/accounts";
 import { requestOf } from "@/core/errors";
 import { logger } from "@/core/logging";
 

@@ -277,7 +277,7 @@ async function drain(): Promise<void> {
  * (https://resend.com/docs/dashboard/emails/idempotency-keys). The ban was judged at the hand-out.
  */
 async function sendHandedOut(mail: FLOutboxHandout): Promise<Omit<FLOutboxResultPayload, "lease">> {
-  // Opened here alone, sealed by `fl_frontend/src/core/auth.ts :: oweSignInMail` under the same key, and held by this
+  // Opened here alone, sealed by `fl_frontend/src/core/auth/mails.ts :: oweSignInMail` under the same key, and held by this
   // scope alone: never on a line, never in an error.
   let secret: string | null = null;
   try {

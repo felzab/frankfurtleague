@@ -4,12 +4,12 @@ import { updateTag } from "next/cache";
 import { headers } from "next/headers";
 import { unstable_rethrow } from "next/navigation";
 
-import { judgeAdminRequest } from "./auth";
+import { judgeAdminRequest, passesPasskeyTouch } from "./auth/guards";
 import { COPY } from "./copy";
 import { APIBadStatusError, loggedByBackend, requestOf } from "./errors";
 import { logger } from "./logging";
 import { logRefused } from "./refused";
-import { requestWriteMayStand, runWithRequestScope } from "./requestScope";
+import { getRequestActor, requestWriteMayStand, runWithRequestScope } from "./requestScope";
 import { isSeatAt, rolesOf } from "./roles";
 import { isWordedRule, ruleMessage } from "./ruleMessage";
 import { SERVER_COPY } from "./serverCopy";
@@ -21,7 +21,7 @@ import { TURNSTILE_FIELD } from "./turnstileToken";
 import { fieldMessage } from "./zodGerman";
 
 import type { z } from "zod";
-import type { AdminRefusal } from "./auth";
+import type { AdminRefusal } from "./auth/guards";
 import type { Copy } from "./copy";
 import type { Code, FLRefusedField } from "./generated/client/types";
 import type { Role } from "./roles";
@@ -85,19 +85,25 @@ type Declared<Schema extends z.ZodType> = {
 
 type Run<Schema extends z.ZodType, Context, Value> = (input: z.output<Schema>, context: Context) => Promise<ActionAnswer<Value>>;
 
+/**
+ * The passkey touch, which an act on its fixed list declares: the act runs only on a session a passkey sign-in made
+ * within `PASSKEY_TOUCH_SECONDS`, for a person holding a passkey, every time; a person holding none passes.
+ */
+type Touched = { readonly passkey?: true };
+
 /** An administrator's write: the administrator's guard admits the caller before anything else runs. */
-type AdminLane<Schema extends z.ZodType, Value> = Declared<Schema> & {
-  readonly lane: "admin";
-  // Session 4: builds the passkey check for its fixed list of acts here, the slot typed shut until then.
-  readonly passkey?: never;
-  readonly run: Run<Schema, undefined, Value>;
-};
+type AdminLane<Schema extends z.ZodType, Value> = Declared<Schema> &
+  Touched & {
+    readonly lane: "admin";
+    readonly run: Run<Schema, undefined, Value>;
+  };
 
 /**
  * A person's write, by the claim it makes: a seat the session must hold at the team and season its input names,
  * or a record of the person's own, which the backend authorises in its transaction.
  */
-type PersonLane<Schema extends z.ZodType, Value> = Declared<Schema> & { readonly lane: "person" } & (
+type PersonLane<Schema extends z.ZodType, Value> = Declared<Schema> &
+  Touched & { readonly lane: "person" } & (
     | { readonly claim: "seat"; readonly run: Run<Schema, { readonly subject: SubjectSession; readonly seats: readonly Seat[] }, Value> }
     | { readonly claim: "record"; readonly run: Run<Schema, { readonly subject: SubjectSession }, Value> }
   );
@@ -311,18 +317,31 @@ function turnedAwayPerson(operation: string, refusal: "keine_sitzung" | "kein_si
   return { ok: false, reason: refusal === "keine_sitzung" ? COPY.shared.failure.signInExpired : COPY.shared.failure.stale };
 }
 
-/** The lane's guard, the parse and the body, in that order: no part of the input is read before the guard admits. */
+/** The touch a lane declares, judged on the actor its guard recorded: `undefined` where it declares none or passes. */
+async function untouched(lane: Touched): Promise<ActionAnswer<never> | undefined> {
+  if (lane.passkey !== true || (await passesPasskeyTouch(getRequestActor()))) return undefined;
+  return { ok: false, reason: COPY.signIn.refusal.touchMissing };
+}
+
+/**
+ * The lane's guard, the touch it declares, the parse and the body, in that order: no part of the input is read before
+ * the guard admits.
+ */
 async function guarded<Schema extends z.ZodType, Value>(lane: Lane<Schema, Value>, raw: unknown): Promise<ActionAnswer<Value>> {
   switch (lane.lane) {
     case "admin": {
       const judged = await judgeAdminRequest();
       if ("refused" in judged) return { ok: false, reason: TURNED_AWAY[judged.refused] };
+      const touch = await untouched(lane);
+      if (touch !== undefined) return touch;
       const read = parsed(lane, raw);
       return "answer" in read ? read.answer : body(lane, () => lane.run(read.input, undefined));
     }
     case "person": {
       const subject = await getSubjectSession();
       if (subject === null) return turnedAwayPerson(lane.name, "keine_sitzung");
+      const touch = await untouched(lane);
+      if (touch !== undefined) return touch;
       const read = parsed(lane, raw);
       if ("answer" in read) return read.answer;
       if (lane.claim === "record") return body(lane, () => lane.run(read.input, { subject }));

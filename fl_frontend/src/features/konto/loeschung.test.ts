@@ -98,7 +98,7 @@ const { readGrantHolderStepUp } = await import("./loeschungStepUp.ts");
 const { LETZTE_INHABERIN, mapLoeschungRefusal } = await import("./refusals.ts");
 const { toActionErrorResult } = await import("@/shared/utils/actionError.ts");
 const { assertEachAnswered, refusalCodes } = await import("@/test-support/refusals.ts");
-const { auth } = await import("@/core/auth.ts");
+const { auth } = await import("@/core/auth/library.ts");
 
 const HOUR_MS = 60 * 60 * 1000;
 

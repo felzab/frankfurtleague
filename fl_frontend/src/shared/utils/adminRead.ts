@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-import { judgeAdminRequest } from "@/core/auth";
+import { judgeAdminRequest } from "@/core/auth/guards";
 import { UnreadGrantError } from "@/core/errors";
 import { ROUTES } from "@/core/routes";
 

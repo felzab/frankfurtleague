@@ -1,6 +1,6 @@
 import "server-only";
 
-import { carryAccount } from "@/core/auth";
+import { carryAccount } from "@/core/auth/accounts";
 import { logger } from "@/core/logging";
 
 import { getAdresswechselUmzuege, postAdresswechselUmzuegeErledigt } from "./mutations";

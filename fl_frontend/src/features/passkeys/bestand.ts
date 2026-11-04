@@ -2,13 +2,13 @@ import "server-only";
 
 import { getAuthenticatorName } from "@better-auth/passkey";
 
-import { PASSKEY_LIMIT } from "@/core/auth";
+import { PASSKEY_LIMIT } from "@/core/auth/enrolment";
 
 import type { KontoSession } from "@/shared/utils/kontoMutation";
 import type { Passkey } from "@better-auth/passkey";
 import type { PasskeyKarte } from "./types";
 
-/** One stored passkey row, the holder's alone (`fl_frontend/src/core/auth.ts :: passkeysOf`). */
+/** One stored passkey row, the holder's alone (`fl_frontend/src/core/auth/passkeys.ts :: passkeysOf`). */
 export type PasskeyRow = Passkey;
 
 /** What the „Sicherheit“ section draws of the holder's passkeys, and whether it may offer another. */

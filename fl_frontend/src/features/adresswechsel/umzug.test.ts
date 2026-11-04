@@ -18,7 +18,7 @@ doubleApiClient((call) => {
   return { erledigt: ids.length };
 });
 
-vi.doMock("@/core/auth.ts", () => ({
+vi.doMock("@/core/auth/accounts.ts", () => ({
   carryAccount: (von: string, nach: string) => {
     carried.push([von, nach]);
     return Promise.resolve("umgezogen");

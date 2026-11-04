@@ -1,4 +1,4 @@
-import { accountStandsAt } from "@/core/auth";
+import { accountStandsAt } from "@/core/auth/accounts";
 
 import { postAdresswechselAdresse } from "./mutations";
 

@@ -52,7 +52,7 @@ const warned: [string, Record<string, unknown>][] = [];
 
 // Imported here rather than at the top: a static import resolves before the doubles above exist.
 const { toNextJsHandler } = await import("better-auth/next-js");
-const { auth } = await import("./auth.ts");
+const { auth } = await import("./auth/library.ts");
 
 const handler = toNextJsHandler(auth);
 

@@ -57,11 +57,6 @@
       "count": 2
     }
   },
-  "src/app/(public)/signin/weiter/page.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 2
-    }
-  },
   "src/app/api/bestaetigung/adresse/route.ts": {
     "fl/server-action": {
       "count": 1
@@ -98,19 +93,6 @@
     }
   },
   "src/app/api/registrierung/route.ts": {
-    "fl/server-action": {
-      "count": 1
-    }
-  },
-  "src/app/api/signin/code/route.ts": {
-    "fl/server-action": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
-  "src/app/api/signout/route.ts": {
     "fl/server-action": {
       "count": 1
     }
@@ -388,9 +370,44 @@
       "count": 1
     }
   },
-  "src/core/auth.ts": {
+  "src/core/auth/accountSessions.ts": {
     "no-restricted-syntax": {
-      "count": 13
+      "count": 2
+    }
+  },
+  "src/core/auth/accounts.ts": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/core/auth/library.ts": {
+    "no-restricted-syntax": {
+      "count": 2
+    }
+  },
+  "src/core/auth/mails.ts": {
+    "no-restricted-syntax": {
+      "count": 2
+    }
+  },
+  "src/core/auth/minting.ts": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/core/auth/passkeys.ts": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/core/auth/sessionStamps.ts": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/core/auth/signInRows.ts": {
+    "no-restricted-syntax": {
+      "count": 2
     }
   },
   "src/core/bewerbungEmail.ts": {

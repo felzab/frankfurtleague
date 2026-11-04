@@ -1,28 +1,55 @@
+import { ADDRESS_ATTEMPTS_EXHAUSTED } from "@/core/auth/codeRefusal";
 import { COPY } from "@/core/copy";
+import { SIGN_IN_BARRED, SIGN_IN_HOLDS_NOTHING } from "@/core/passkeyRefusal";
+
+import { refusalCode, refusalStatus } from "./passkeyAnswers";
 
 import type { Copy } from "@/core/copy";
 
 const { refusal } = COPY.signIn;
 
 /**
- * Every sentence the sign-in's send and its code route answer with a reason, as the catalogue holds it: the
- * route and the bot check read these same entries, so a sentence one of them answers is found here.
+ * Every sentence the bot check answers the send with, as the catalogue holds it, so a sentence the check answers is
+ * found here.
  */
-const ANTWORTEN: readonly Copy[] = [
-  refusal.codeWrong,
-  refusal.codeExpired,
-  refusal.codeTooOften,
-  refusal.addressTooOften,
-  refusal.codeUsedUp,
-  refusal.noRecord,
-  ...Object.values(COPY.shared.botCheck),
-];
+const BOT_CHECK_ANSWERS: readonly Copy[] = Object.values(COPY.shared.botCheck);
 
 /**
- * The catalogue's entry for a sentence the server or the bot check answered, found by its words, so the page
- * renders the catalogue's own text; any other answer, a retry no reason names among them, is the shared
- * failure line.
+ * The catalogue's entry for a sentence the bot check answered, found by its words, so the page renders the catalogue's
+ * own text; any other answer is the shared failure line.
  */
 export function signInAnswer(satz: string | undefined): Copy {
-  return ANTWORTEN.find((antwort) => antwort === satz) ?? COPY.shared.failure.unexpected;
+  return BOT_CHECK_ANSWERS.find((antwort) => antwort === satz) ?? COPY.shared.failure.unexpected;
+}
+
+/**
+ * The library's refusals of a typed code by their code. Each reaches an address holding an account and one holding
+ * none alike, so none of them names which it met; the mint's two, met only past a right code, are worded as one, so
+ * that no answer tells a barred address from one holding no record. A code never mailed, one already spent and one a
+ * newer mail replaced are `INVALID_OTP` too: the row is gone either way.
+ */
+const CODE_REFUSALS: ReadonlyMap<string, Copy> = new Map([
+  ["INVALID_OTP", refusal.codeWrong],
+  ["OTP_EXPIRED", refusal.codeExpired],
+  ["TOO_MANY_ATTEMPTS", refusal.codeTooOften],
+  [ADDRESS_ATTEMPTS_EXHAUSTED, refusal.addressTooOften],
+  [SIGN_IN_BARRED, refusal.noRecord],
+  [SIGN_IN_HOLDS_NOTHING, refusal.noRecord],
+]);
+
+/** The mint's backend did not answer, after the code was already spent: retyping it would meet a wrong code. */
+const SERVICE_UNAVAILABLE = 503;
+
+/** The edge's own rate refusal, which checked nothing and carries none of the library's codes. */
+const TOO_MANY_REQUESTS = 429;
+
+/** What the code check's refusal tells the reader: its code's sentence, else what its status alone can say. */
+export function codeRefusal(error: unknown): Copy {
+  const worded = CODE_REFUSALS.get(refusalCode(error) ?? "");
+  if (worded !== undefined) return worded;
+
+  const status = refusalStatus(error);
+  if (status === SERVICE_UNAVAILABLE) return refusal.codeUsedUp;
+  if (status === TOO_MANY_REQUESTS) return COPY.shared.failure.tooManyAttempts;
+  return COPY.shared.failure.unexpected;
 }

@@ -339,8 +339,9 @@ sign_in_identifier`) — trimmed and lower-case, ASCII throughout —
   refuses nothing. An umlaut is the case that turns up: the sign-in box takes no address outside
   ASCII, so that person needs a mailbox it will accept before a grant is worth writing. A domain
   already spelled in punycode (`xn--`) is taken as typed.
-- **A grant admits every passkey the address already holds.** A person enrols passkeys with a mailed
-  code, or brings them along on an address change the new mailbox confirmed while nothing named it
+- **A grant admits every passkey the address already holds.** A person enrols a first passkey with a
+  mailed code and every later one with a passkey sign-in of the last minute, or brings them along
+  on an address change the new mailbox confirmed while nothing named it
   and no grant was asked for it, the same authority an
   administrator's first passkey rests on, so one enrolled before the grant
   admits once the address is granted, though only on a passkey sign-in made after the grant: a
@@ -363,8 +364,9 @@ ABGLEICH_INTERVAL_MS`) finds the row, it is dated by its own `granted_at`, or by
   a grant and no passkey is answered the enrolment page and reaches no admin route until one stands,
   so there is nothing to prepare for them and nothing to hand over.
 - **A lost passkey is the administrator's own to replace while they still hold another**: the
-  account page, `/bereich/konto`, lists what they hold, adds one and removes one, each behind a
-  passkey sign-in or confirmation inside the step-up window, and the last row cannot be removed.
+  account page, `/bereich/konto`, lists what they hold, adds one behind a passkey sign-in of the last
+  minute and removes one behind a passkey sign-in or confirmation inside the step-up window, and the
+  last row cannot be removed.
   Removing one signs out the devices that passkey signed in, and no other.
 - **An administrator who has lost every passkey is recovered in the Atlas console**, by deleting
   their rows in the `passkey` collection of the `auth` database; their next sign-in by mailed
@@ -373,7 +375,7 @@ ABGLEICH_INTERVAL_MS`) finds the row, it is dated by its own `granted_at`, or by
 - **A device that cannot enrol a passkey is no way in, and no setting here relaxes it.** An
   administrator who enrolled a second device in advance still has one; one who did not is in the
   case below. The enrolment asks for a discoverable credential and for the person to be verified
-  (`fl_frontend/src/core/auth.ts :: USER_VERIFICATION`, beside `residentKey`), so the browser offers
+  (`fl_frontend/src/core/auth/library.ts :: USER_VERIFICATION`, beside `residentKey`), so the browser offers
   nothing where the machine has no platform authenticator and no security key supporting both — an
   older desktop with no biometric and no PIN is the case that turns up. Give them a FIDO2 key with
   resident-key and user-verification support, or a second device they can enrol from; there is no
@@ -488,7 +490,7 @@ finds them.
 behind.** A person's first sign-in writes their `user` row and a session in the `auth` database, a
 pupil's, referee's or contact person's as an administrator's is. Their own deletion from the account
 page and an administrator's erasure each delete the account in the same request as the records, its
-sessions, passkeys and waiting codes with it (`fl_frontend/src/core/auth.ts :: deleteOwnAccount`,
+sessions, passkeys and waiting codes with it (`fl_frontend/src/core/auth/accounts.ts :: deleteOwnAccount`,
 `:: deleteAccountFor`); after any other erasure the account sweep deletes it within the hour once
 nothing references the address ([section 9](#9-checking-that-the-hourly-passes-have-run)).
 **A ban keeps no account**
@@ -1651,7 +1653,7 @@ cookie comes back. With an expiry-after of zero seconds the stored value is the 
   it.
 - **`session` is defence in depth**: a row for anybody who signed in and closed the browser is held
   for the library's full `expiresIn` otherwise, and with the index the store stops serving what the
-  guards in `fl_frontend/src/core/auth.ts` would refuse anyway.
+  guards in `fl_frontend/src/core/auth/guards.ts` would refuse anyway.
 
 **An index dropped by hand after a boot is reported by nothing until the next one.**
 
@@ -1679,15 +1681,9 @@ carries the address. Ask when they tried and read that window:
   hour, so this one was sent nothing. The five count every request,
   a stranger's and one the gate refused included, so an address can be capped with nothing mailed;
   retries during a backend outage spend a person's hour the same way.
-- `auth.deletion_link_capped`, an info line carrying `bound`: a signed-in person asked for an account
-  deletion link past their address's five mails of the hour, codes and links counted together
-  (`address`), or past every address's hundred (`total`), so nothing was minted or mailed and the
-  press read as sent. A link they already hold stands for its day.
-- `auth.code_mail_total_capped`: a hundred codes had been mailed across every
-  address inside the hour, so nobody was sent one; a code a
-  person already held still stands, bar a send racing the hundredth. Only admitted addresses count,
-  so a run of these is a flood over members' addresses or an evening outgrowing the figure; it lifts
-  within the hour, or at once by the sweep in §17.
+- `auth.deletion_link_capped`, an info line: a signed-in person asked for an account deletion link
+  past their address's five mails of the hour, codes and links counted together, so nothing was
+  minted or mailed and the press read as sent. A link they already hold stands for its day.
 - A stack that is not production mails nothing: the code's Postausgang row reads `held`,
   and the message is in its sink. On the local stack that is `.tmp-mail/`, which
   every `./scripts/ops/local.sh` start empties of what earlier runs filed, so a code there is this
@@ -1785,19 +1781,9 @@ out for one person:
   `sign-in-attempt-`. Every address then has its ten tries back, which is the price of an
   identifier nobody can compute by hand.
 
-The five-an-hour mail cap keeps rows of the same shape under
-`sign-in-mail-`, the every-address total among them as `sign-in-mail-every-address`;
-they lift within the hour. During a flood the total can be lifted sooner the same way, by deleting
-every row whose `identifier` starts with `sign-in-mail-`, which gives every address its hour back.
-
-**Twenty member addresses are enough to close code sign-in for everyone, and to close it again every
-hour.** Only mailed codes count toward the total, and a person's address is mailed up to five an
-hour, so anyone who knows twenty addresses the gate admits can ask for the hundredth code alone;
-while the total is full nobody is mailed a code, and a passkey still signs its holder in. `auth.code_mail_total_capped` lines
-that come back hour after hour, or soon after a sweep, are that case rather
-than a busy evening. The sweep above reopens code sign-in only until the requests come again, since
-it clears the per-address rows too; while it recurs, point the people who sign in by code at a
-passkey, and repeat the sweep when it closes again.
+The five-an-hour mail cap keeps rows of the same shape under `sign-in-mail-`; they lift within the
+hour. They can be lifted sooner the same way, by deleting every row whose `identifier` starts with
+`sign-in-mail-`, which gives every address its hour back.
 
 ## 18. The Node a checkout runs
 

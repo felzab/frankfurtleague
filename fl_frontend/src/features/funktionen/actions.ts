@@ -1,6 +1,7 @@
 "use server";
 
-import { deleteAccountFor, endSessionsOfAddress } from "@/core/auth";
+import { deleteAccountFor } from "@/core/auth/accounts";
+import { endSessionsOfAddress } from "@/core/auth/accountSessions";
 import { RolledBackError } from "@/core/errors";
 import { logger } from "@/core/logging";
 import { isWithinEnrolmentWindow } from "@/core/sessionLifetimes";

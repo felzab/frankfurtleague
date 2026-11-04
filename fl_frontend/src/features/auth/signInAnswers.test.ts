@@ -5,19 +5,12 @@ import { MENSCH_BESTAETIGEN } from "@/core/turnstileToken.ts";
 import { describeCeremonyRefusal, OHNE_EINTRAG } from "@/features/auth/passkeyAnswers.ts";
 import { VERSUCHE_ES_ERNEUT_SATZ } from "@/shared/utils/refusal.ts";
 
-import { signInAnswer } from "./signInAnswers.ts";
+import { codeRefusal, signInAnswer } from "./signInAnswers.ts";
 
 const { refusal } = COPY.signIn;
 
-describe("a sign-in answer read back as the catalogue's words", () => {
-  // Each sentence the code route, the send's bot check or the widget can answer with a reason.
+describe("a bot check's answer read back as the catalogue's words", () => {
   it.each([
-    ["a wrong code", refusal.codeWrong],
-    ["an expired code", refusal.codeExpired],
-    ["a code tried too often", refusal.codeTooOften],
-    ["an address tried too often", refusal.addressTooOften],
-    ["a spent code", refusal.codeUsedUp],
-    ["an address that may not sign in", OHNE_EINTRAG],
     ["a token the check refused", MENSCH_BESTAETIGEN],
     ["a disturbed check", COPY.shared.botCheck.disrupted],
     ["a check not yet done", COPY.shared.botCheck.notReady],
@@ -29,6 +22,23 @@ describe("a sign-in answer read back as the catalogue's words", () => {
   it("answers a retry no reason names, and no answer at all, with the shared failure line", () => {
     expect(signInAnswer(VERSUCHE_ES_ERNEUT_SATZ)).toBe(COPY.shared.failure.unexpected);
     expect(signInAnswer(undefined)).toBe(COPY.shared.failure.unexpected);
+  });
+});
+
+describe("a typed code's refusal, as the library's client answers it", () => {
+  it.each([
+    ["a wrong code", { code: "INVALID_OTP", status: 400 }, refusal.codeWrong],
+    ["an expired code", { code: "OTP_EXPIRED", status: 400 }, refusal.codeExpired],
+    ["a code tried too often", { code: "TOO_MANY_ATTEMPTS", status: 403 }, refusal.codeTooOften],
+    ["an address tried too often", { code: "ADDRESS_ATTEMPTS_EXHAUSTED", status: 429 }, refusal.addressTooOften],
+    ["a barred address", { code: "SIGN_IN_BARRED", status: 403 }, OHNE_EINTRAG],
+    ["an address holding nothing", { code: "SIGN_IN_HOLDS_NOTHING", status: 403 }, OHNE_EINTRAG],
+    ["the mint's outage past a spent code", { status: 503 }, refusal.codeUsedUp],
+    ["the edge's own rate refusal", { status: 429 }, COPY.shared.failure.tooManyAttempts],
+    ["any other answer", { status: 500 }, COPY.shared.failure.unexpected],
+    ["a request that never left", new TypeError("Failed to fetch"), COPY.shared.failure.unexpected],
+  ])("words %s", (_, error, satz) => {
+    expect(codeRefusal(error)).toBe(satz);
   });
 });
 

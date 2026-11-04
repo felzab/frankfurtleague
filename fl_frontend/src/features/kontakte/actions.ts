@@ -1,6 +1,6 @@
 "use server";
 
-import { isFreshlySignedIn } from "@/core/auth";
+import { isFreshlySignedIn } from "@/core/auth/sessionStamps";
 import { getLaufendesLabel } from "@/core/einwilligung";
 import { formatList } from "@/core/format";
 import { getTeamSaisons } from "@/features/teams/queries";

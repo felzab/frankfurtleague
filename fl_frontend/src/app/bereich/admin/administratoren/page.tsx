@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 
-import { getAdminSession } from "@/core/auth";
+import { getAdminSession } from "@/core/auth/guards";
 import { asSignInIdentifier } from "@/core/emailAddress";
 import { holdsOwnersTier, verwaltungOf } from "@/core/verwaltung";
 import { AdminCreateBerechtigungModal } from "@/features/berechtigungen/components/modals/AdminCreateBerechtigungModal";

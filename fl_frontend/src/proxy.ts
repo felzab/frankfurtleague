@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 
-import { sessionCookieOf, slideSession } from "./core/auth";
+import { sessionCookieOf } from "./core/auth/library";
+import { withReturnAddress } from "./core/auth/returnAddress";
+import { slideSession } from "./core/auth/session";
+import { ROUTES } from "./core/routes";
 
 import type { NextRequest } from "next/server";
 
@@ -12,8 +15,7 @@ export async function proxy(req: NextRequest): Promise<NextResponse> {
   // Optimistic, as Next and the library document a proxy's check: the cookie alone, before any read, so a
   // visitor holding none meets sign-in, never an area's frame. Every verdict past it is a guard's.
   if (sessionCookieOf(req.headers) === null) {
-    // No return destination carried across: honouring one needs it checked against an allowlist first.
-    return inArea(req.nextUrl.pathname) ? turnAway(req, "/signin") : NextResponse.next();
+    return inArea(req.nextUrl.pathname) ? turnAway(req, ROUTES.signIn.path()) : NextResponse.next();
   }
 
   try {
@@ -36,7 +38,9 @@ function turnAway(req: NextRequest, destination: string): NextResponse {
     return new NextResponse(null, { headers: { "x-action-redirect": `${destination};replace` } });
   }
 
-  return NextResponse.redirect(new URL(destination, req.nextUrl));
+  // The page asked for rides the sign-in only where the allowlist holds it, so a mailed link keeps its target.
+  const returnTo = withReturnAddress(destination, `${req.nextUrl.pathname}${req.nextUrl.search}`);
+  return NextResponse.redirect(new URL(returnTo, req.nextUrl));
 }
 
 const AREA = "/bereich";

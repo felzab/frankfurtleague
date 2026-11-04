@@ -90,9 +90,10 @@ const deferred: (() => Promise<void>)[] = [];
 const store = memoryStore(STORE);
 
 // Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
-const { NextRequest } = await import("next/server");
+const { toNextJsHandler } = await import("better-auth/next-js");
+const { auth } = await import("@/core/auth/library.ts");
 const { handleSignIn } = await import("./actions.ts");
-const codeRoute = await import("@/app/api/signin/code/route.ts");
+const handler = toNextJsHandler(auth);
 
 interface Attempt {
   /** Recipients the send recorded while the caller was still waiting, which is the latency it would cost. */
@@ -152,23 +153,28 @@ function theLastCode(): string {
   return found[1];
 }
 
-/** Types `code` for `email` into the code step, as the form posts it. */
+/** Types `code` for `email` into the code step, as the page's client posts it to the library's own route. */
 async function typeTheCode(email: string, code: string): Promise<Response> {
-  return codeRoute.POST(
-    new NextRequest("http://localhost:3000/api/signin/code", {
+  return handler.POST(
+    new Request("http://localhost:3000/api/auth/sign-in/email-otp", {
       method: "POST",
-      headers: { "sec-fetch-site": "same-origin", "content-type": "application/json" },
-      body: JSON.stringify({ email, code }),
+      headers: { ...ORIGIN, origin: "http://localhost:3000", "content-type": "application/json" },
+      body: JSON.stringify({ email, otp: code }),
     }),
   );
 }
 
-/** Each written row's kind, by its identifier: the plugin's code row, or one of the two counts `fl_frontend/src/core/auth.ts` keeps. */
+/** The address the send answered, which is the one the page types the code for. */
+function sentTo(attempt: Attempt): string {
+  assert.ok(attempt.result.ok, "the send was refused, so there is no address to type a code for");
+  return attempt.result.value;
+}
+
+/** Each written row's kind, by its identifier: the plugin's code row, or one of the two counts `fl_frontend/src/core/auth/signInRows.ts` keeps. */
 function kindsOf(identifiers: readonly string[], email: string): string[] {
   return identifiers
     .map((identifier) => {
       if (identifier === `sign-in-otp-${email}`) return "the code";
-      if (identifier === "sign-in-mail-every-address") return "every address's total";
       return identifier.startsWith("sign-in-mail-") ? "the address's count" : identifier;
     })
     .sort();
@@ -215,13 +221,10 @@ describe("what a sign-in leaves behind on the response", () => {
     expect(rejected.scheduled, "the rejected branch scheduled nothing, so the two are distinguishable by what they defer").toBe(1);
   });
 
-  /* Kinds rather than a count: a refused branch writing the every-address total in place of the
-     address's own row counts the same. The total names no address, so the one row the branches
-     differ by tells nobody anything. */
-  it("writes the code's row and the address's count behind the response on both branches, and the every-address total on the mailed one alone", () => {
+  it("writes the code's row and the address's count behind the response on both branches alike", () => {
     expect(granted.writtenWhileAnswering, "the caller waited on a store write").toBe(0);
     expect(rejected.writtenWhileAnswering).toBe(0);
-    expect(kindsOf(granted.writtenAfter, GRANTED)).toStrictEqual(["every address's total", "the address's count", "the code"]);
+    expect(kindsOf(granted.writtenAfter, GRANTED)).toStrictEqual(["the address's count", "the code"]);
     expect(
       kindsOf(rejected.writtenAfter, REJECTED),
       "the two branches differ in what the store gained about the address, which is an oracle",
@@ -267,16 +270,18 @@ describe("what the gate's backend read leaves on the response", () => {
 });
 
 describe("what a typed code answers", () => {
-  /* The handler drops the verification's own answer: the browser's copy of the session goes through
-     Next's store, never onto the JSON answer. */
-  it("answers a typed code without the credential on its own response", async () => {
+  /* The library answers the session's token beside the user, and the token is the `httpOnly` cookie's own value:
+     the browser's one copy of it is the cookie. */
+  it("answers a typed code with the cookie and no token in its body", async () => {
     await signInWith(GRANTED);
     const code = theLastCode();
 
     const typed = await typeTheCode(GRANTED, code);
 
-    expect(await typed.json()).toStrictEqual({ success: true });
-    expect([...typed.headers.getSetCookie()], "the handler answered the credential on its own response").toStrictEqual([]);
+    expect(await typed.json()).toStrictEqual({ status: true });
+    const minted = store.session.at(-1);
+    assert.ok(minted, "the code minted no session, so nothing below is compared");
+    expect(typed.headers.getSetCookie().join(";"), "the session's cookie did not ride the answer").toContain(minted.token);
   });
 
   /* The window the message states is worth nothing unless the store enforces it: the library
@@ -294,7 +299,7 @@ describe("what a typed code answers", () => {
     const sessions = store.session.length;
     const typed = await typeTheCode(GRANTED, code);
 
-    expect(await typed.json()).toStrictEqual({ success: false, error: COPY.signIn.refusal.codeExpired });
+    expect(((await typed.json()) as { code?: string }).code).toBe("OTP_EXPIRED");
     expect(store.session.length, "an expired code still minted a session").toBe(sessions);
   });
 });
@@ -303,12 +308,12 @@ describe("which account two spellings of one address reach", () => {
   /* The library folds CASE alone, on the row it stores: a spelling only the fold converts would
      otherwise verify into a second `user` row, which a ban matching the first by equality never ends. */
   it("writes one user row for two spellings the fold reads as one address, through the send and the code alike", async () => {
-    // The fold makes the half-width ideographic full stop a dot; `toLowerCase` alone does not.
-    const spelledOtherwise = GRANTED.replace(/\.(?=[^.]*$)/, String.fromCodePoint(0xff61));
+    // A no-break space the library, which lower-cases alone, would keep; the box strips it and the fold trims it.
+    const spelledOtherwise = `${String.fromCodePoint(0xa0)}${GRANTED}`;
 
     for (const spelling of [GRANTED, spelledOtherwise]) {
-      await signInWith(spelling);
-      expect(await (await typeTheCode(spelling, theLastCode())).json(), `${spelling} was not signed in`).toStrictEqual({ success: true });
+      const attempt = await signInWith(spelling);
+      expect(await (await typeTheCode(sentTo(attempt), theLastCode())).json(), `${spelling} was not signed in`).toStrictEqual({ status: true });
     }
 
     // The whole store, not a slice: no other address here is ever mailed a code, so a second row

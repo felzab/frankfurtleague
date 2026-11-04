@@ -47,7 +47,7 @@ const record =
     lines.push({ level, event, error: error instanceof Error ? error.message : error, fields });
   };
 
-vi.doMock("@/core/auth.ts", () => ({
+vi.doMock("@/core/auth/accounts.ts", () => ({
   listAccounts: () => listing(),
   deleteAccountFor: (identifier: string) => {
     deleteCalls.push(identifier);

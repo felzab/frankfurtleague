@@ -40,3 +40,6 @@ export function describeCeremonyRefusal(error: unknown): Copy {
 
 /** Another ceremony took this one's place, which is no failure a reader made. */
 export const CEREMONY_ABORTED = "ERROR_CEREMONY_ABORTED";
+
+/** The library's refusal of an enrolment from a session older than its `freshAge`. */
+export const SESSION_NOT_FRESH = "SESSION_NOT_FRESH";

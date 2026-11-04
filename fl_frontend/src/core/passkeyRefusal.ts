@@ -1,5 +1,5 @@
 /**
- * Thrown by `fl_frontend/src/core/auth.ts` and worded where a ceremony starts. A module of its own
+ * Thrown by `fl_frontend/src/core/auth/library.ts` and worded where a ceremony starts. A module of its own
  * because neither end may import the other: the guard loading the browser client would construct it
  * where no page origin exists.
  */
