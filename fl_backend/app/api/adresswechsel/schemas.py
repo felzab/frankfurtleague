@@ -176,6 +176,9 @@ class FLAddressChangeViewNew(BaseModel):
     way: FLAddressChangeWay
     # Null exactly where not `confirmed`: whether the confirmed change waits on another administrator's approval.
     approval_open: bool | None
+    # The address this link was mailed to, exactly where `valid`: the question its holder answers names it, and the holder
+    # of that mailbox knows it.
+    email: str | None
 
 
 class FLAddressChangeViewPrevious(BaseModel):
@@ -186,6 +189,11 @@ class FLAddressChangeViewPrevious(BaseModel):
     valid_until: FLUtcInstant | None
     effective_from: FLUtcInstant | None
     way: FLAddressChangeWay
+    # The new address, exactly where the person's own change waits on this link (`release_open` on `account`): the holder
+    # of the address on file cannot judge a change without the address it goes to.
+    email: str | None
+    # The German day the address on file confirmed the change, which a link opened again names; null before.
+    released_on: CustomDateString | None
 
 
 class FLAddressChangeViewEnded(BaseModel):
@@ -196,10 +204,14 @@ class FLAddressChangeViewEnded(BaseModel):
     art: FLAddressChangeEndArt
     # The German day it ended on, which the page names beside what became of it.
     ended_on: CustomDateString
+    # The way it began, which tells the person's own change apart on either side, as the live views do.
+    way: FLAddressChangeWay
+    # The German day the address on file confirmed it, on the address on file's side once it has; null otherwise.
+    released_on: CustomDateString | None
 
 
 class FLAddressChangeViewResponse(BaseAPIResponse):
-    """What one address link opens: never a name, either address or the id."""
+    """What one address link opens: never a name or the id, and the new address only where a link asks its question."""
 
     view: Annotated[FLAddressChangeViewNew | FLAddressChangeViewPrevious | FLAddressChangeViewEnded, Field(discriminator="state")]
 

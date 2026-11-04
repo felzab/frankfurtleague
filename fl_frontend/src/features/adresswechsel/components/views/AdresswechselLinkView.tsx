@@ -11,7 +11,7 @@ import { ADRESSWECHSEL_GUELTIG_STUNDEN, ADRESSWECHSEL_WARTEZEIT_DAUER } from "@/
 import { ADRESSWECHSEL_STOPPEN } from "@/core/adresswechselAntworten";
 import { KONTAKT_EMAIL } from "@/core/brand";
 import { formatInstant } from "@/core/format";
-import { KONTO_HREF } from "@/core/kontoHref";
+import { ROUTES } from "@/core/routes";
 import { startOf } from "@/features/adresswechsel/link";
 import { ABSATZ_CLASSES, Wert } from "@/features/bewerbungen/components/ui/Gefuellt";
 import { SEITE_CLASSES } from "@/features/bewerbungen/components/ui/seite";
@@ -30,21 +30,26 @@ import {
 import { DISPLAY_HEADING_CLASSES } from "@/shared/components/ui/displayType";
 import { ctaButton, formButton } from "@/shared/components/ui/formButtons";
 import { appToast } from "@/shared/utils/appToast";
-import { ANTWORT_UNKLAR, postPublicForm, UNKLAR_TITEL } from "@/shared/utils/publicSubmit";
+import { ANTWORT_UNKLAR, UNKLAR_TITEL } from "@/shared/utils/publicSubmit";
 
+import type { ActionAnswer } from "@/core/action";
 import type { FLAddressChangeEndArt, FLAddressChangeViewPreviousState, FLAddressChangeWay } from "@/core/generated/client/types";
 import type { AdresswechselAnsicht, AdresswechselGedrueckt, AdresswechselLinkZustand, AdresswechselStart } from "@/features/adresswechsel/link";
-import type { PublicEnvelope } from "@/shared/utils/publicSubmit";
 
 type Antwort = AdresswechselGedrueckt["antwort"];
 
 type Beendet = Extract<AdresswechselAnsicht, { zustand: "ended" }>;
 
-/** The one route handler, which finds the change by the token's hash on either side. */
-const ROUTE = "/api/bestaetigung/adresse";
+/**
+ * What a press of this view comes to, as `app/(classic)/bestaetigung/adresse/antworten.ts :: verwaltungswegBeantworten`
+ * answers it: the press landed, the link stands in a state that refuses it, or the change moved since the page opened,
+ * which the link's own read says, null where that read failed.
+ */
+export type AdresswechselPresse =
+  { gedrueckt: Omit<AdresswechselGedrueckt, "success"> } | { zustand: AdresswechselLinkZustand } | { ansicht: AdresswechselAnsicht | null };
 
-type AdresswechselAntwort =
-  AdresswechselGedrueckt | (PublicEnvelope & { success: false; zustand?: AdresswechselLinkZustand; ansicht?: AdresswechselAnsicht | null });
+/** The action every press of this view sends through, with the link's token. */
+type Beantworten = (presse: { token: string; antwort: Antwort }) => Promise<ActionAnswer<AdresswechselPresse>>;
 
 /**
  * The new mailbox's confirmation, asking about the change and never about the mailbox: the holder of an address the league
@@ -143,45 +148,41 @@ function nachDruck(antwort: AdresswechselGedrueckt, way: FLAddressChangeWay): Ad
 }
 
 /** Sends one answer through the link and hands its outcome to the page: a result, or the state a refused press leaves the link in. */
-function useAntwort(start: AdresswechselStart, onAbschluss: (stand: AdresswechselStart) => void) {
+function useAntwort(start: AdresswechselStart, beantworten: Beantworten, onAbschluss: (stand: AdresswechselStart) => void) {
   const [isPending, startSending] = useTransition();
   const [gedrueckt, setGedrueckt] = useState<Antwort | null>(null);
   const token = "token" in start ? start.token : "";
-  const way = "way" in start ? start.way : "account";
+  const way = "way" in start ? start.way : "release";
 
   const sende = (antwort: Antwort) => {
     setGedrueckt(antwort);
     startSending(async () => {
-      const gesendet = await postPublicForm<AdresswechselAntwort>(ROUTE, { token: token, antwort: antwort });
+      // A press that threw may have landed, so it is told apart from the builder's own refusal.
+      const answer = await beantworten({ token: token, antwort: antwort }).catch(() => null);
 
-      if (!gesendet.answered) {
-        appToast.danger(gesendet.wroteNothing ? ANTWORT_NICHT_GESPEICHERT : UNKLAR_TITEL, { description: gesendet.error });
-        return;
-      }
-
-      const body = gesendet.body;
       // Wrapped again: React leaves an update after an `await` outside the transition.
       startSending(() => {
-        if (body.success) {
-          onAbschluss(nachDruck(body, way));
-          return;
-        }
-        if (body.outcome === "unknown") {
+        if (answer === null) {
           appToast.danger(UNKLAR_TITEL, { description: ANTWORT_UNKLAR });
           return;
         }
+        if (!answer.ok) {
+          appToast.danger(ANTWORT_NICHT_GESPEICHERT, { description: answer.reason ?? ANTWORT_NICHT_GESPEICHERT_SATZ });
+          return;
+        }
+        const presse = answer.value;
+        if ("gedrueckt" in presse) {
+          onAbschluss(nachDruck({ success: true, ...presse.gedrueckt }, way));
+          return;
+        }
         // The change moved between the open and the press: the answer is the panel, never a toast.
-        if (body.ansicht !== undefined) {
-          onAbschluss(body.ansicht === null ? { zustand: "unlesbar" } : startOf(body.ansicht, token));
+        if ("ansicht" in presse) {
+          onAbschluss(presse.ansicht === null ? { zustand: "unlesbar" } : startOf(presse.ansicht, token));
           return;
         }
-        if (body.zustand !== undefined) {
-          const zustand = body.zustand;
-          // The decline stays open on these two, so their panel keeps the token.
-          onAbschluss(zustand === "expired" || zustand === "not_confirmable" ? { zustand, way: way, token } : { zustand });
-          return;
-        }
-        appToast.danger(ANTWORT_NICHT_GESPEICHERT, { description: body.error ?? body.unplacedError ?? ANTWORT_NICHT_GESPEICHERT_SATZ });
+        const { zustand } = presse;
+        // The decline stays open on these two, so their panel keeps the token.
+        onAbschluss(zustand === "expired" || zustand === "not_confirmable" ? { zustand, way: way, token } : { zustand });
       });
     });
   };
@@ -307,7 +308,7 @@ function StoppPanel({
       <div className={AKTIONEN_CLASSES}>
         {zustand === "release_open" && (
           <Link
-            href={KONTO_HREF}
+            href={ROUTES.accountSignIn.path()}
             prefetch={false}
             className={ctaButton({ intent: "outline", hover: "css" })}>
             Zu Deinem Konto
@@ -337,8 +338,12 @@ function bestaetigtSatz({ wirksamAb, genehmigungOffen }: { wirksamAb: string | n
   return "Danke. Die neue E-Mail-Adresse ist bestätigt.";
 }
 
-/** One page for every state an address link can be in, either side's, live or ended: the token says which. */
-export function AdresswechselLinkView({ start }: { start: AdresswechselStart }) {
+/**
+ * Session 7: the administrator's two ways, in every state either link of such a change can be in, live or awaiting
+ * an approval; the person's own way, ended changes included, is `kit/MailedPage.tsx`'s. A grant holder's own change
+ * confirmed and waiting on its approval stands here too, the approval being the administrators' page's.
+ */
+export function AdresswechselLinkView({ start, beantworten }: { start: AdresswechselStart; beantworten: Beantworten }) {
   const [stand, setStand] = useState<AdresswechselStart>(start);
   const { ergebnisRef, beantwortet } = useLinkSeite(stand.zustand);
   const onAbschluss = (naechster: AdresswechselStart) => {
@@ -346,7 +351,7 @@ export function AdresswechselLinkView({ start }: { start: AdresswechselStart }) 
     setStand(naechster);
   };
   // Every state holding a token sends through it; a state without one renders no press.
-  const antwort = useAntwort(stand, onAbschluss);
+  const antwort = useAntwort(stand, beantworten, onAbschluss);
 
   if (stand.zustand === "barred") return <AdresseGesperrt panelRef={ergebnisRef} />;
 

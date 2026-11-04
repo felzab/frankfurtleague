@@ -9,11 +9,13 @@ import { ClassicPage } from "./ClassicPage";
 import { StatusLine } from "./FieldParts";
 import { StatusPage } from "./StatusPage";
 import { statusOf, useFormAction } from "./useFormAction";
+import { usePasskeyTouch } from "./usePasskeyTouch";
 
 import type { ActionAnswer } from "@/core/action";
 import type { Copy } from "@/core/copy";
 import type { ReactElement, ReactNode } from "react";
 import type { StatusCardProps } from "./StatusPage";
+import type { FormStatus } from "./useFormAction";
 
 /** The end a one-shot form reaches: the status page that replaces it, as the server words it. */
 export type EndState = StatusCardProps & { title: Copy };
@@ -21,8 +23,14 @@ export type EndState = StatusCardProps & { title: Copy };
 /** Which of the form's acts was pressed: the main one, or the quieter one beneath it. */
 export type Act = "primary" | "secondary";
 
-/** The server action a one-shot form posts to: the fields by their `name`s, and the act pressed. */
-export type OneShotAction = (formData: FormData, act: Act) => Promise<ActionAnswer<EndState>>;
+/** The field the pressed act posts under, beside the form's own, which the page's action reads by this name. */
+const ACT_FIELD = "act";
+
+/**
+ * The server action a one-shot form posts to, built by `fl_frontend/src/core/action.ts :: action`: the fields by their
+ * `name`s, the values the page carries, and the act pressed under `ACT_FIELD`.
+ */
+export type OneShotAction = (formData: FormData) => Promise<ActionAnswer<EndState>>;
 
 /**
  * The one-shot submit: a page in the classic frame's form column whose form is sent once and whose outcome
@@ -35,21 +43,27 @@ export function OneShotForm({
   head,
   action,
   acts,
+  carry = {},
+  touch = false,
   children,
 }: {
   /** What stands above the form: the page's title and what the person answers. */
   head: ReactElement;
   action: OneShotAction;
   acts: { primary: Copy; secondary?: Copy };
+  /** What the form posts beside its fields, unseen: the token the page's link carries. */
+  carry?: Readonly<Record<string, string>>;
+  /** The main act asks the passkey touch first, for a person holding a passkey (`usePasskeyTouch`). */
+  touch?: boolean;
   /** The form's fields, the kit's, each with its `name`. */
   children?: ReactNode;
 }) {
-  const { answer, submit, block, isBlocked, isPending } = useFormAction(
-    ({ formData, act }: { formData: FormData; act: Act }) => action(formData, act),
-    { resetOnLeave: false },
-  );
+  const { answer, submit, block, isBlocked, isPending } = useFormAction(action, { resetOnLeave: false });
+  const { touch: askTouch, isTouching } = usePasskeyTouch(touch);
   const form = useRef<HTMLFormElement>(null);
   const [pressed, setPressed] = useState<Act>("primary");
+  // The touch's own refusal: the act never posted, so no answer of the action's says it.
+  const [untouched, setUntouched] = useState<Copy | null>(null);
 
   if (answer?.ok === true) {
     return (
@@ -61,11 +75,24 @@ export function OneShotForm({
   }
 
   const refused = answer !== null && !answer.ok ? answer : null;
-  const status = statusOf(refused, isBlocked, isPending);
+  const status: FormStatus = untouched !== null ? { tone: "error", text: untouched } : statusOf(refused, isBlocked, isPending);
+  const isBusy = isPending || isTouching;
 
-  const send = (element: HTMLFormElement, act: Act) => {
+  const send = async (element: HTMLFormElement, act: Act) => {
     setPressed(act);
-    submit({ formData: new FormData(element), act });
+    setUntouched(null);
+    // Read before the prompt, which the browser may hold for as long as the person takes.
+    const formData = new FormData(element);
+    for (const [name, value] of Object.entries(carry)) formData.set(name, value);
+    formData.set(ACT_FIELD, act);
+    if (act === "primary") {
+      const refusal = await askTouch();
+      if (refusal !== null) {
+        setUntouched(refusal);
+        return;
+      }
+    }
+    submit(formData);
   };
 
   return (
@@ -77,7 +104,7 @@ export function OneShotForm({
         onInvalid={block}
         onSubmit={(event) => {
           event.preventDefault();
-          send(event.currentTarget, "primary");
+          if (!isBusy) void send(event.currentTarget, "primary");
         }}
         className="grid gap-6">
         {children !== undefined && <div className="grid justify-items-start gap-4">{children}</div>}
@@ -86,15 +113,15 @@ export function OneShotForm({
             variant="primary"
             type="submit"
             label={acts.primary}
-            isBusy={isPending && pressed === "primary"}
+            isBusy={isBusy && pressed === "primary"}
           />
           {acts.secondary !== undefined && (
             <Button
               variant="quiet"
               label={acts.secondary}
-              isBusy={isPending && pressed === "secondary"}
+              isBusy={isBusy && pressed === "secondary"}
               onPress={() => {
-                if (form.current !== null) send(form.current, "secondary");
+                if (form.current !== null && !isBusy) void send(form.current, "secondary");
               }}
             />
           )}

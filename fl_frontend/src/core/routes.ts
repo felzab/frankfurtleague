@@ -111,6 +111,11 @@ export const ROUTES = {
     crawl: "disallow",
   },
   accountErasure: { path: () => "/loeschung" as const, title: COPY.page.accountErasure, crawl: "disallow" },
+  /**
+   * Where a deletion lands, a page needing no session: the deletion ends the caller's own, so its action leads here
+   * rather than rendering the link's page again under a session that is gone.
+   */
+  accountErased: { path: () => "/loeschung/geloescht" as const, title: COPY.page.accountErasure, crawl: "disallow" },
   registrierung: { path: () => "/registrierung" as const, title: COPY.page.registrierung, crawl: "disallow" },
 
   // Session 4: its page is built.

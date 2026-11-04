@@ -14,9 +14,7 @@
   // and stands in `knip.production.json` alone.
   "ignoreFiles": [
     // Session 4.
-    "src/kit/AccountBox.tsx",
-    "src/kit/MailedPage.tsx",
-    "src/kit/OneShot.tsx"
+    "src/kit/AccountBox.tsx"
   ],
   // An export waiting for its first page says so on itself, with the page it waits for: `@awaitsPage` where
   // no other module reads it, which this run honours, and `@awaitsProduction` where no production module

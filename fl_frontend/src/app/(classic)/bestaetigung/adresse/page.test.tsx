@@ -1,0 +1,83 @@
+import { describe, expect, it, vi } from "vitest";
+
+import { COPY } from "@/core/copy";
+import { SERVER_COPY } from "@/core/serverCopy";
+
+import AdresseBestaetigenPage from "./page";
+
+import type { FLAddressChangeViewResponse } from "@/core/generated/client/types";
+import type { MailedState } from "@/kit/MailedPage";
+import type { ReactElement } from "react";
+
+const read = vi.hoisted(() => ({ view: null as FLAddressChangeViewResponse["view"] | null, accountAtTheNewAddress: false }));
+
+vi.mock("@/shared/utils/traceScope", () => ({ runWithIncomingTrace: <T,>(fn: () => Promise<T>) => fn() }));
+vi.mock("@/features/adresswechsel/mutations", async (original) => ({
+  ...(await original<object>()),
+  postAdresswechselAnsicht: async () => ({ view: read.view }),
+}));
+vi.mock("@/features/adresswechsel/konto", () => ({ kontoAnNeuerAdresse: async () => read.accountAtTheNewAddress }));
+
+const WORDS = SERVER_COPY.addressChange;
+const NEW_ADDRESS = "lenore.q@neupost.example.org";
+const DAY = "2026-11-04";
+
+/** What the page shows for the view the backend serves, as the template is handed it. */
+async function stateFor(view: FLAddressChangeViewResponse["view"], accountAtTheNewAddress = false): Promise<MailedState> {
+  read.view = view;
+  read.accountAtTheNewAddress = accountAtTheNewAddress;
+  const page = AdresseBestaetigenPage({ params: Promise.resolve({}), searchParams: Promise.resolve({ token: "tok" }) }) as ReactElement<{
+    page: Promise<MailedState>;
+  }>;
+  return page.props.page;
+}
+
+const live = { valid_until: "2026-11-05T10:00:00Z", effective_from: null, way: "account", email: null } as const;
+const ended = { state: "ended", ended_on: DAY, way: "account", released_on: null } as const;
+
+// Which state a link opens on decides what its holder may do: a used link offering its question again, or an
+// opened-again link calling a done change void, misleads in silence.
+describe("the person's own change, on each link", () => {
+  it("asks the address on file its question, naming the new address", async () => {
+    const state = await stateFor({ ...live, seite: "previous", state: "release_open", email: NEW_ADDRESS, released_on: null });
+    expect(state).toMatchObject({
+      state: "frage",
+      title: COPY.shared.withObject(WORDS.change, "confirm"),
+      facts: [{ label: WORDS.newAddress, value: { record: NEW_ADDRESS } }],
+      carry: { token: "tok", seite: "previous" },
+    });
+  });
+
+  it("says the address on file confirmed it, and when, once it has", async () => {
+    const state = await stateFor({ ...live, seite: "previous", state: "open", released_on: DAY });
+    expect(state).toMatchObject({ state: "schonErledigt", sentence: COPY.shared.end.doneOn(WORDS.previous.confirmed, DAY) });
+  });
+
+  it("asks the new mailbox its question, and calls it void where an account stands at the new address", async () => {
+    const valid = { ...live, seite: "new", state: "valid", email: NEW_ADDRESS, approval_open: null } as const;
+    expect(await stateFor(valid)).toMatchObject({ state: "frage", carry: { token: "tok", seite: "new" } });
+    expect(await stateFor(valid, true)).toMatchObject({ state: "ungueltig" });
+  });
+
+  it("names each answer and its day once the change ended, and calls every other end void", async () => {
+    expect(await stateFor({ ...ended, seite: "new", art: "effective" })).toMatchObject({
+      sentence: COPY.shared.end.doneOn(WORDS.new.confirmed, DAY),
+    });
+    expect(await stateFor({ ...ended, seite: "new", art: "declined" })).toMatchObject({ declined: true });
+    expect(await stateFor({ ...ended, seite: "previous", art: "declined" })).toMatchObject({ declined: true });
+    // Confirmed first, then declined by the new mailbox: the address on file did confirm, on its own day.
+    expect(await stateFor({ ...ended, seite: "previous", art: "declined", released_on: "2026-11-03" })).toMatchObject({
+      sentence: COPY.shared.end.doneOn(WORDS.previous.confirmed, "2026-11-03"),
+    });
+    expect(await stateFor({ ...ended, seite: "new", art: "expired" })).toMatchObject({ state: "ungueltig" });
+  });
+});
+
+describe("the administrator's ways", () => {
+  it("keep their old view", async () => {
+    expect(await stateFor({ ...live, way: "waiting_period", seite: "previous", state: "open", released_on: null })).toMatchObject({
+      state: "alt",
+    });
+    expect(await stateFor({ ...ended, way: "release", seite: "new", art: "effective" })).toMatchObject({ state: "alt" });
+  });
+});
