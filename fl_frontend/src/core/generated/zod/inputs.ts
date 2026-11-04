@@ -217,8 +217,8 @@ export const AddressChangeGetAddressChangeViewBody = zod
 /**
  * End a bounded share of the live changes whose waiting step lapsed, and make the due ones take effect.
  *
- * **A lapsed change** -- its link, the approval it asked of the address on file, or its grant's approval by another
- * administrator -- ends as `expired`: its address and reason out of the record and every log image of it
+ * **A lapsed change** -- its new mailbox's link, the question it asked the address on file, or its grant's approval by
+ * another administrator -- ends as `expired`: its address and reason out of the record and every log image of it
  * (`removed`). **A due change**, one whose waiting time has ended and whose grant's move, where its address still
  * holds the grant, was approved, is judged again as its confirmation was: a ban on either address, another pupil
  * signing in on the new one, a grant its approval does not cover, a grant at the new address, or nothing left to move
@@ -333,7 +333,7 @@ export const AddressChangePostAddressChangeApprovalParams = zod.object({
  * (`address_change_barred`), where another pupil has come to sign in on it (`address_change_taken`), where an entry has come to name it,
  * confirmed or not (`address_change_occupied`), where a grant's approval week has passed (`link_expired`), and where the change ended
  * (`address_change_ended`). 404 for an id naming no change, and unless the change waits on the new mailbox: one awaiting the address on
- * file's approval, or confirmed, has no link to re-send.
+ * file's confirmation, or confirmed, has no link to re-send.
  * @summary Send a pending address a fresh link
  */
 export const addressChangeInviteAddressChangePathAddressChangeIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");

@@ -436,7 +436,7 @@ async def _answer_for_the_address_on_file(
     released: Mapping[str, Any] = await patch_one_in_db(
         collection=adresswechsel_collection,
         db_filter=db_filter,
-        update=compose_link_update(now=germany_now, freigabe=True),
+        update=compose_link_update(now=germany_now, released=True),
         session=session,
         return_document=ReturnDocument.AFTER,
     )
