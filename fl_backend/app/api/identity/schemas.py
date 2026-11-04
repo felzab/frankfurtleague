@@ -231,6 +231,8 @@ def _trimmed_as_the_page_trims(value: Any) -> Any:
 ErasureAddress = Annotated[
     str,
     StringConstraints(max_length=KONTAKT_EMAIL_MAX_LENGTH, pattern="@"),
+    # Published, since no schema keyword carries the after-validator: a generated client would take the Unicode domain.
+    Field(description="Its domain, after the last `@`, in ASCII alone, an international one in punycode; else `email_not_accepted`."),
     # Never `strip_whitespace`, whose set adds U+0085, which the page keeps: one spelling's records would be erased and
     # another spelling's sign-in account left (`fl_backend/tests/shared/test_email_address.py`).
     BeforeValidator(_trimmed_as_the_page_trims),

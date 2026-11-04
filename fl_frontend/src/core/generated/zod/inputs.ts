@@ -1047,7 +1047,11 @@ export const identityPostErasureBodyEmailRegExp = new RegExp("@");
 export const IdentityPostErasureBody = zod
   .object({
     anlass: zod.string().min(1).max(identityPostErasureBodyAnlassMax).regex(identityPostErasureBodyAnlassRegExp),
-    email: zod.string().max(identityPostErasureBodyEmailMax).regex(identityPostErasureBodyEmailRegExp),
+    email: zod
+      .string()
+      .max(identityPostErasureBodyEmailMax)
+      .regex(identityPostErasureBodyEmailRegExp)
+      .describe("Its domain, after the last `@`, in ASCII alone, an international one in punycode; else `email_not_accepted`."),
   })
   .describe("The mailbox, and the request the erasure answers, which every log row the erasure files keeps.");
 
@@ -1126,7 +1130,11 @@ export const identityGetErasureViewBodyEmailRegExp = new RegExp("@");
 
 export const IdentityGetErasureViewBody = zod
   .object({
-    email: zod.string().max(identityGetErasureViewBodyEmailMax).regex(identityGetErasureViewBodyEmailRegExp),
+    email: zod
+      .string()
+      .max(identityGetErasureViewBodyEmailMax)
+      .regex(identityGetErasureViewBodyEmailRegExp)
+      .describe("Its domain, after the last `@`, in ASCII alone, an international one in punycode; else `email_not_accepted`."),
   })
   .describe("The mailbox an erasure, its preview or a sign-out of every session is looked up by.");
 
@@ -1177,7 +1185,11 @@ export const identityPostSignOutBodyEmailRegExp = new RegExp("@");
 
 export const IdentityPostSignOutBody = zod
   .object({
-    email: zod.string().max(identityPostSignOutBodyEmailMax).regex(identityPostSignOutBodyEmailRegExp),
+    email: zod
+      .string()
+      .max(identityPostSignOutBodyEmailMax)
+      .regex(identityPostSignOutBodyEmailRegExp)
+      .describe("Its domain, after the last `@`, in ASCII alone, an international one in punycode; else `email_not_accepted`."),
   })
   .describe("The mailbox an erasure, its preview or a sign-out of every session is looked up by.");
 

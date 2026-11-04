@@ -2258,6 +2258,7 @@ export interface FLDeclineBewerbungResponse {
  */
 export interface FLErasureAdressePayload {
   /**
+   * Its domain, after the last `@`, in ASCII alone, an international one in punycode; else `email_not_accepted`.
    * @maxLength 254
    * @pattern @
    */
@@ -2275,6 +2276,7 @@ export interface FLErasurePayload {
    */
   anlass: string;
   /**
+   * Its domain, after the last `@`, in ASCII alone, an international one in punycode; else `email_not_accepted`.
    * @maxLength 254
    * @pattern @
    */

@@ -5286,6 +5286,7 @@
         "description": "The mailbox an erasure, its preview or a sign-out of every session is looked up by.",
         "properties": {
           "email": {
+            "description": "Its domain, after the last `@`, in ASCII alone, an international one in punycode; else `email_not_accepted`.",
             "maxLength": 254,
             "pattern": "@",
             "title": "Email",
@@ -5310,6 +5311,7 @@
             "type": "string"
           },
           "email": {
+            "description": "Its domain, after the last `@`, in ASCII alone, an international one in punycode; else `email_not_accepted`.",
             "maxLength": 254,
             "pattern": "@",
             "title": "Email",
