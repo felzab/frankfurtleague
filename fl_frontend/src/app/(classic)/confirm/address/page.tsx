@@ -13,7 +13,7 @@ import { mapAdresswechselAnsichtRefusal } from "@/features/adresswechsel/refusal
 import { pageMetadata } from "@/shared/utils/metadata";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
-import { adresseBeantworten, verwaltungswegBeantworten } from "./antworten";
+import { answerAddressChange, verwaltungswegBeantworten } from "./answers";
 import { doneOnEnd, TO_ACCOUNT } from "./ends";
 
 import type { Copy } from "@/core/copy";
@@ -37,7 +37,7 @@ const INVALID: MailedState = { state: "ungueltig", next: TO_ACCOUNT };
  * `/confirm/address`, both links of an address change, the token saying which: the person's own change on the
  * mailed-page template, the address on file asked first, then the new mailbox, each confirming or declining.
  */
-export default function AdresseBestaetigenPage({ searchParams }: NextPageProps) {
+export default function AddressChangeConfirmationPage({ searchParams }: NextPageProps) {
   return <MailedPage page={readState(searchParams)} />;
 }
 
@@ -104,7 +104,7 @@ function question(side: Side, token: string, title: Copy, label: Copy, email: st
     title: title,
     facts: [{ label: label, value: { record: email } }],
     sentence: sentence,
-    action: adresseBeantworten,
+    action: answerAddressChange,
     acts: { primary: COPY.shared.verb.confirm, secondary: COPY.shared.verb.decline },
     carry: { token: token, side: side },
   };

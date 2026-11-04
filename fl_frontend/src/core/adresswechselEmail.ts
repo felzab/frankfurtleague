@@ -35,11 +35,11 @@ const LINK_VALID: Paragraph = [SERVER_COPY.mail.linkValidFor(ADRESSWECHSEL_GUELT
  * The link to the new address, asking only whether the mailbox is theirs. It greets nobody: behind a
  * mistyped address its reader is a stranger. It names no record, the change moving every one.
  */
-export function buildAdresswechselEmail({ way: weg, valid_until: gueltigBis }: FLAddressChangeLinkData, { origin, token }: MailLink): Mail {
+export function buildAdresswechselEmail({ way, valid_until: validUntil }: FLAddressChangeLinkData, { origin, token }: MailLink): Mail {
   const site = mailOrigin(origin);
 
   // The person's own change, the address on file having confirmed it first: the page's question, its title the button.
-  if (weg === "account") {
+  if (way === "account") {
     return {
       kind: "security",
       subjectLine: COPY.shared.withObject(WORDS.newAddress, "confirm"),
@@ -62,7 +62,7 @@ export function buildAdresswechselEmail({ way: weg, valid_until: gueltigBis }: F
         [{ strong: "Sie gilt erst, wenn Du sie bestätigst. Bis dahin schreiben wir an die bisherige Adresse." }],
       ],
       [
-        ["Bestätige sie bis ", { strong: formatInstant(gueltigBis) }, " über diesen Link."],
+        ["Bestätige sie bis ", { strong: formatInstant(validUntil) }, " über diesen Link."],
         "Er funktioniert nur einmal.",
         `Nach Deiner Bestätigung gilt sie ${ADRESSWECHSEL_WARTEZEIT_DAUER} später.`,
       ],
@@ -75,21 +75,18 @@ export function buildAdresswechselEmail({ way: weg, valid_until: gueltigBis }: F
  * The mail to the address on file. It names no new address, which the page its link opens shows: the change may be
  * somebody else's mistake or a pretext, and a mail travels further than the page it links.
  */
-export function buildAdresswechselHinweisEmail(
-  { way: weg, vorname }: FLAddressChangeNoticeData,
-  { origin, token: stoppToken }: MailLink,
-): Mail {
+export function buildAdresswechselHinweisEmail({ way, vorname }: FLAddressChangeNoticeData, { origin, token: stopToken }: MailLink): Mail {
   const site = mailOrigin(origin);
 
   // The person's own change asks the address on file first: its link confirms or declines the change.
-  if (weg === "account") {
+  if (way === "account") {
     return {
       kind: "security",
       subjectLine: COPY.page.addressChangeConfirmation,
       origin: site,
       vorname: vorname ?? "",
       paragraphs: [[WORDS.previous.question, SERVER_COPY.mail.addressChange.previousEffect], LINK_VALID],
-      button: { label: COPY.shared.withObject(WORDS.change, "confirm"), href: adresswechselLink(site, stoppToken) },
+      button: { label: COPY.shared.withObject(WORDS.change, "confirm"), href: adresswechselLink(site, stopToken) },
     };
   }
 
@@ -109,7 +106,7 @@ export function buildAdresswechselHinweisEmail(
       [["Fragen jederzeit an ", { address: KONTAKT_EMAIL }, "."]],
     ],
     // The stop: no link approves anything.
-    button: { label: ADRESSWECHSEL_STOPPEN, href: adresswechselLink(site, stoppToken) },
+    button: { label: ADRESSWECHSEL_STOPPEN, href: adresswechselLink(site, stopToken) },
   };
 }
 
@@ -117,7 +114,7 @@ export function buildAdresswechselHinweisEmail(
  * The completion notice: no control and no new address. The way to repudiate the change (NIST SP 800-63B-4,
  * read 2026-10-20: "clear instructions, including contact information") is the security kind's own last line.
  */
-export function buildAdresswechselWirksamEmail({ vorname, instant: zeitpunkt }: FLAddressChangeEffectiveData, { origin }: MailOrigin): Mail {
+export function buildAdresswechselWirksamEmail({ vorname, instant }: FLAddressChangeEffectiveData, { origin }: MailOrigin): Mail {
   return {
     kind: "security",
     subjectLine: "Deine E-Mail-Adresse wurde geändert",
@@ -125,7 +122,7 @@ export function buildAdresswechselWirksamEmail({ vorname, instant: zeitpunkt }: 
     vorname: vorname ?? "",
     paragraphs: [
       [
-        ["Für Dein Konto bei der ", BRAND_NAME, " gilt seit ", { strong: formatInstant(zeitpunkt) }, " eine neue E-Mail-Adresse."],
+        ["Für Dein Konto bei der ", BRAND_NAME, " gilt seit ", { strong: formatInstant(instant) }, " eine neue E-Mail-Adresse."],
         // Never says the old address stops signing in: a seat not yet confirmed stays behind and still signs in there.
         "Deine Einträge stehen jetzt unter ihr, und mit ihr meldest Du Dich an.",
       ],
@@ -137,7 +134,7 @@ export function buildAdresswechselWirksamEmail({ vorname, instant: zeitpunkt }: 
  * The new mailbox's notice that a confirmed change did not take effect at its time. No name, no reason:
  * a ban on this very address is among the reasons, and the holder of the address may be a stranger.
  */
-export function buildAdresswechselNichtWirksamEmail(_daten: FLAddressChangeDiscardedData, { origin }: MailOrigin): Mail {
+export function buildAdresswechselNichtWirksamEmail(_data: FLAddressChangeDiscardedData, { origin }: MailOrigin): Mail {
   return {
     kind: "security",
     subjectLine: "Deine E-Mail-Adresse wurde nicht geändert",

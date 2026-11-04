@@ -28,20 +28,20 @@ const { token } = AddressChangePostAddressChangeAnswerBody.shape;
  * words the end alone; the backend tells the links apart by the token. A link that holds no more at the press,
  * answered, ended or refused since the page opened, ends as the link no longer valid, one message for every cause.
  */
-export const adresseBeantworten = action({
+export const answerAddressChange = action({
   lane: "public",
-  name: "adresseBeantworten",
+  name: "answerAddressChange",
   input: z.object({ token: token, side: z.enum(["previous", "new"]), act: z.enum(["primary", "secondary"]) }),
   exempt: "The link's token is the whole credential, minted for one mailbox and spent by its answer.",
   run: async ({ token: link, side, act }): Promise<{ ok: true; value: MailedEnd }> => {
-    const antwort = act === "primary" ? "confirmed" : "declined";
+    const answer = act === "primary" ? "confirmed" : "declined";
     // The sign-in store is this server's, so the backend's press cannot refuse an account at the new address: refused
     // here, as the backend's own refusals of the address are. A decline is refused nothing.
-    if (antwort === "confirmed" && side === "new" && (await kontoAnNeuerAdresse({ token: link }))) return { ok: true, value: LINK_INVALID };
+    if (answer === "confirmed" && side === "new" && (await kontoAnNeuerAdresse({ token: link }))) return { ok: true, value: LINK_INVALID };
 
     let answered;
     try {
-      answered = await postAdresswechselAntwort({ token: link, answer: antwort });
+      answered = await postAdresswechselAntwort({ token: link, answer: answer });
     } catch (error) {
       if (mapAdresswechselPresseRefusal(error) === null) throw error;
       return { ok: true, value: LINK_INVALID };

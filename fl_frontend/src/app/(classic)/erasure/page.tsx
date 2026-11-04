@@ -35,7 +35,7 @@ const TO_ACCOUNT = { label: COPY.shared.end.toAccount, href: ROUTES.accountSignI
  * mailed to. Its already-done state is never reached: the library spends the token, and the account is gone, so a link
  * opened again reads as the link no longer valid.
  */
-export default function KontoLoeschenPage({ searchParams }: NextPageProps) {
+export default function AccountErasurePage({ searchParams }: NextPageProps) {
   return <MailedPage page={readState(searchParams)} />;
 }
 
@@ -59,13 +59,13 @@ async function readState(searchParams: NextPageProps["searchParams"]): Promise<M
   }
 
   // Uncaught: without the list the page cannot say what goes, so a failed read reaches the error boundary.
-  const [ansicht, served] = await Promise.all([getLoeschungAnsicht(), readRequestSession()]);
+  const [view, served] = await Promise.all([getLoeschungAnsicht(), readRequestSession()]);
   const passkeys = served === null ? 0 : (await passkeysOf(served.user.id)).length;
 
   return {
     state: "frage",
     title: COPY.page.accountErasure,
-    facts: factsOf(subject.email, passkeys, ansicht),
+    facts: factsOf(subject.email, passkeys, view),
     sentence: WORDS.question,
     action: kontoLoeschen,
     acts: { primary: COPY.page.accountErasure },
@@ -76,8 +76,8 @@ async function readState(searchParams: NextPageProps["searchParams"]): Promise<M
 }
 
 /** What goes, one row per label, the records the erasure view reads under it: the list a deletion erases. */
-function factsOf(email: string, passkeys: number, ansicht: FLAccountErasureViewResponse): Fact[] {
-  const { spieler, schiedsrichter, seats, bewerbungen, registrierungen, address_change, verwaltung } = ansicht;
+function factsOf(email: string, passkeys: number, view: FLAccountErasureViewResponse): Fact[] {
+  const { spieler, schiedsrichter, seats, bewerbungen, registrierungen, address_change, verwaltung } = view;
   // One row per label, since a label keys its row: two seats held as one role name both under it.
   const records = new Map<Copy, Words[]>();
   const add = (label: Copy, record: Words) => records.set(label, [...(records.get(label) ?? []), record]);

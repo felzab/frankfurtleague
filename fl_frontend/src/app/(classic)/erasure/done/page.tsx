@@ -18,7 +18,7 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
  * `/erasure/done`, the deletion's done state: the page the deletion's action leads to once the account and its
  * session are gone, reading nothing, so it renders under no session at all.
  */
-export default function KontoGeloeschtPage() {
+export default function AccountErasedPage() {
   return (
     <StatusPage
       frame="classic"

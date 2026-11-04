@@ -39,7 +39,7 @@ vi.mock("@/features/adresswechsel/umzug", () => ({
   },
 }));
 
-const { adresseBeantworten } = await import("./antworten");
+const { answerAddressChange } = await import("./answers");
 
 const TOKEN = "tok_abc";
 const EFFECTIVE: FLAddressChangeAnswerResponse = { answer: "confirmed", effective: true, effective_from: null, approval_open: false };
@@ -60,17 +60,17 @@ describe("the new mailbox's press, an account standing at the new address", () =
   it("is refused as the link no longer valid, and nothing is posted", async () => {
     held.accountAtTheNewAddress = true;
 
-    expect(await adresseBeantworten({ token: TOKEN, side: "new", act: "primary" })).toStrictEqual({ ok: true, value: LINK_INVALID });
+    expect(await answerAddressChange({ token: TOKEN, side: "new", act: "primary" })).toStrictEqual({ ok: true, value: LINK_INVALID });
     expect(held.posted).toStrictEqual([]);
   });
 
   it("still declines, and the address on file's confirmation is not refused", async () => {
     held.accountAtTheNewAddress = true;
     held.answered = { answer: "declined", effective: false, effective_from: null, approval_open: false };
-    await adresseBeantworten({ token: TOKEN, side: "new", act: "secondary" });
+    await answerAddressChange({ token: TOKEN, side: "new", act: "secondary" });
 
     held.answered = { answer: "confirmed", effective: false, effective_from: null, approval_open: false };
-    await adresseBeantworten({ token: TOKEN, side: "previous", act: "primary" });
+    await answerAddressChange({ token: TOKEN, side: "previous", act: "primary" });
 
     expect(held.posted).toStrictEqual([
       { token: TOKEN, answer: "declined" },
@@ -87,7 +87,7 @@ describe("the effect's account carry", () => {
     held.carry = () => new Promise((resolve) => (release = resolve));
 
     let settled = false;
-    const answer = adresseBeantworten({ token: TOKEN, side: "new", act: "primary" }).then((value) => {
+    const answer = answerAddressChange({ token: TOKEN, side: "new", act: "primary" }).then((value) => {
       settled = true;
       return value;
     });
@@ -103,7 +103,7 @@ describe("the effect's account carry", () => {
     held.answered = EFFECTIVE;
     held.carry = () => Promise.reject(new Error("the sign-in store is away"));
 
-    expect(await adresseBeantworten({ token: TOKEN, side: "new", act: "primary" })).toMatchObject({ ok: true, value: { tone: "success" } });
+    expect(await answerAddressChange({ token: TOKEN, side: "new", act: "primary" })).toMatchObject({ ok: true, value: { tone: "success" } });
     expect(held.logged).toStrictEqual(["address_change.carry_failed"]);
   });
 });
