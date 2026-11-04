@@ -88,7 +88,7 @@ export const eraseAccount = action({
  * one check guarding it, since the backend judges no fresh sign-in. The address typed is judged by the sign-in's own
  * rule, so every address a sign-in would refuse is refused here before it is mailed. An account standing at the new
  * address is not refused here: the start answers alike whatever the new address holds, so it tells nobody which
- * addresses hold an account, and the new mailbox's own press refuses it (`fl_frontend/src/app/(classic)/confirm/address/antworten.ts`).
+ * addresses hold an account, and the new mailbox's own press refuses it (`fl_frontend/src/app/(classic)/confirm/address/answers.ts`).
  */
 export const startAddressChange = action({
   lane: "person",
