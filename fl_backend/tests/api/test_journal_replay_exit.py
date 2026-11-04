@@ -2,7 +2,7 @@
 API · the journal replay outside a database: the refusals it answers 2 for, naming no value, and the page it names
 
 Run as `scripts/ops/replay_journal.sh` runs it, a process of its own, so what is pinned is the exit the wrapper reads
-(`app/api/identity/wiederherstellung.py :: _main`); the judging is `tests/api/test_journal_replay.py`'s.
+(`app/api/identity/journal_replay.py :: _main`); the judging is `tests/api/test_journal_replay.py`'s.
 """
 
 import re
@@ -13,7 +13,7 @@ from typing import Final
 
 import pytest
 
-from app.api.identity.wiederherstellung import ERASURE_PAGE_LABEL
+from app.api.identity.journal_replay import ERASURE_PAGE_LABEL
 from tests.core.test_config import an_environment
 
 BACKEND_ROOT: Final = Path(__file__).resolve().parents[2]
@@ -26,7 +26,7 @@ UNTIL: Final = "2026-10-15T09:40:00+00:00"
 
 def _replayed(*arguments: str) -> subprocess.CompletedProcess[bytes]:
     return subprocess.run(
-        [sys.executable, "-m", "app.api.identity.wiederherstellung", *arguments], input=b"", capture_output=True, timeout=120, check=False
+        [sys.executable, "-m", "app.api.identity.journal_replay", *arguments], input=b"", capture_output=True, timeout=120, check=False
     )
 
 

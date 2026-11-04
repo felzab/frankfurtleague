@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { COPY } from "@/core/copy";
 import { SERVER_COPY } from "@/core/serverCopy";
 
-import AdresseBestaetigenPage from "./page";
+import AddressChangeConfirmationPage from "./page";
 
 import type { FLAddressChangeViewResponse } from "@/core/generated/client/types";
 import type { MailedState } from "@/kit/MailedPage";
@@ -26,7 +26,7 @@ const DAY = "2026-11-04";
 async function stateFor(view: FLAddressChangeViewResponse["view"], accountAtTheNewAddress = false): Promise<MailedState> {
   read.view = view;
   read.accountAtTheNewAddress = accountAtTheNewAddress;
-  const page = AdresseBestaetigenPage({ params: Promise.resolve({}), searchParams: Promise.resolve({ token: "tok" }) }) as ReactElement<{
+  const page = AddressChangeConfirmationPage({ params: Promise.resolve({}), searchParams: Promise.resolve({ token: "tok" }) }) as ReactElement<{
     page: Promise<MailedState>;
   }>;
   return page.props.page;

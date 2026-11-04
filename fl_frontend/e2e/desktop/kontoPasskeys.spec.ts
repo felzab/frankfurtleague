@@ -12,6 +12,9 @@ import { signInWithCode } from "../support/signIn";
 
 import type { Page, Response } from "@playwright/test";
 
+/** The person this journey alone signs in as (`scripts/ops/seed/seed.js`). */
+const HOLDER = "emil.ernst@example.com";
+
 /** The relying party the local `AUTH_URL` names. */
 const RELYING_PARTY = "localhost";
 
@@ -21,12 +24,8 @@ const nextAction = (page: Page): Promise<Response> =>
     async (response) => response.request().method() === "POST" && (await response.request().headerValue("next-action")) !== null,
   );
 
-test("a person's passkeys on Sicherheit: set up, renamed, and removed with and without this device's session", async ({
-  page,
-  context,
-  person,
-}) => {
-  await signInWithCode(page, person);
+test("a person's passkeys on Sicherheit: set up, renamed, and removed with and without this device's session", async ({ page, context }) => {
+  await signInWithCode(page, HOLDER);
   await expect(page).toHaveURL(/\/signin\/passkey/);
   await page.getByRole("button", { name: "Später" }).click();
 

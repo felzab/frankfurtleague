@@ -1,5 +1,5 @@
 import { ClassicPage } from "@/kit/ClassicPage";
-import { MAILED_PAGE_METADATA, MailedPage } from "@/kit/MailedPage";
+import { MAILED_PAGE_METADATA, MailedPage, TO_ACCOUNT } from "@/kit/MailedPage";
 
 import { COPY } from "@/core/copy";
 import { dayOf } from "@/core/format";
@@ -13,8 +13,8 @@ import { mapAdresswechselAnsichtRefusal } from "@/features/adresswechsel/refusal
 import { pageMetadata } from "@/shared/utils/metadata";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
-import { adresseBeantworten, verwaltungswegBeantworten } from "./antworten";
-import { doneOnEnd, TO_ACCOUNT } from "./ends";
+import { answerAddressChange, verwaltungswegBeantworten } from "./answers";
+import { doneOnEnd } from "./ends";
 
 import type { Copy } from "@/core/copy";
 import type { FLAddressChangeViewResponse } from "@/core/generated/client/types";
@@ -37,7 +37,7 @@ const INVALID: MailedState = { state: "ungueltig", next: TO_ACCOUNT };
  * `/confirm/address`, both links of an address change, the token saying which: the person's own change on the
  * mailed-page template, the address on file asked first, then the new mailbox, each confirming or declining.
  */
-export default function AdresseBestaetigenPage({ searchParams }: NextPageProps) {
+export default function AddressChangeConfirmationPage({ searchParams }: NextPageProps) {
   return <MailedPage page={readState(searchParams)} />;
 }
 
@@ -104,7 +104,7 @@ function question(side: Side, token: string, title: Copy, label: Copy, email: st
     title: title,
     facts: [{ label: label, value: { record: email } }],
     sentence: sentence,
-    action: adresseBeantworten,
+    action: answerAddressChange,
     acts: { primary: COPY.shared.verb.confirm, secondary: COPY.shared.verb.decline },
     carry: { token: token, side: side },
   };

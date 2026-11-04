@@ -109,15 +109,39 @@ function referee(name, schule, payment, email, inactiveSince) {
   return { _id: ObjectId(), name, schule, default_payment: payment, kontakt: { telefon: null, email }, inactive_since: inactiveSince };
 }
 
+// A referee's consent as their own confirmation wrote it, the name kept off the public pages and no media, each choice
+// evidenced under its wording's label (`fl_frontend/src/core/consentWordings.ts :: SCHIEDSRICHTER_TEXT_VERSIONS`). A
+// referee row is its person's own only once confirmed (`fl_backend/app/api/identity/services.py ::
+// ist_eigener_schiedsrichter`), so an address change or an erasure moves nothing of a row without one. Its own day and
+// labels, the pupils' `CONSENTED` and `LABELS` being declared further down.
+function consented(row) {
+  const at = day(-60);
+  const evidence = (textVersion) => ({ am: `${at}T10:00:00+00:00`, text_version: textVersion });
+  return {
+    ...row,
+    einwilligung: {
+      umfang: "intern",
+      datum: at,
+      confirmed_at: at,
+      medien: false,
+      nachweis: { umfang: evidence("2026-11-name-spielplan-1"), medien: evidence("2026-11-medien-1") },
+    },
+  };
+}
+
 const REFEREES = [
   referee("Anna Ahrens", "Ahorn-Gymnasium", 20, "anna.ahrens@example.com", null),
   referee("Ben Brandt", null, 25, "ben.brandt@example.com", null),
   referee("Carla Conrad", "Ulme-Gymnasium", 20, null, null),
   referee("Dieter Dorn", null, 15, null, day(-90)),
   // Each project's leaver, whom the account acts' journey moves to a new address and then deletes: last, so no
-  // fixture's booking (`booked`, by index) changes, and no other journey signs in as either.
-  referee("Clara Kranz", null, 20, "clara.kranz@example.com", null),
-  referee("Dora Dahl", null, 20, "dora.dahl@example.com", null),
+  // fixture's booking (`booked`, by index) changes, and no other journey signs in as either. Each consented, without
+  // which their row is nothing the change moves.
+  consented(referee("Clara Kranz", null, 20, "clara.kranz@example.com", null)),
+  consented(referee("Dora Dahl", null, 20, "dora.dahl@example.com", null)),
+  // The desktop passkey journey's own person, whose passkeys it sets up and removes: no other journey signs in as them,
+  // so a run it leaves halfway hands no passkey to the sign-in journey's person.
+  referee("Emil Ernst", null, 20, "emil.ernst@example.com", null),
 ];
 
 // --- Grants --------------------------------------------------------------------------------------

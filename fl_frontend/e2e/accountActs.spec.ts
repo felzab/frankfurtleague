@@ -102,7 +102,13 @@ test("a person changes their address: the address on file confirms first, then t
   await page.goto("/account/signin");
   const before = await filedMessages();
   await page.getByLabel("Neue E-Mail-Adresse").fill(newAddress);
+  // The start's own answer, read before any mail is waited for: a refusal shows only the shared failure line on the
+  // page, and the answer's body names its code, which a failure here prints.
+  const started = page.waitForResponse(
+    async (response) => response.request().method() === "POST" && (await response.request().headerValue("next-action")) !== null,
+  );
   await page.getByRole("button", { name: "Link senden" }).click();
+  expect(await (await started).text(), "the start's action answered a refusal").toMatch(/"ok":true/);
 
   // The address on file's link asks it first, naming the address the change goes to.
   const previousLink = await mailedLink(leaver, "Änderung der E-Mail-Adresse", before);

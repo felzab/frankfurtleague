@@ -45,7 +45,7 @@ type Antwort = AdresswechselGedrueckt["answer"];
 type Beendet = Extract<AdresswechselAnsicht, { zustand: "ended" }>;
 
 /**
- * What a press of this view comes to, as `app/(classic)/confirm/address/antworten.ts :: verwaltungswegBeantworten`
+ * What a press of this view comes to, as `app/(classic)/confirm/address/answers.ts :: verwaltungswegBeantworten`
  * answers it: the press landed, the link stands in a state that refuses it, or the change moved since the page opened,
  * which the link's own read says, null where that read failed.
  */

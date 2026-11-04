@@ -1,7 +1,7 @@
 import { assertRedactedAtTheEdge } from "@/test-support/edgeRedaction.ts";
 import { describe, expect, it } from "vitest";
 
-const { SPIEL_BESTAETIGUNG_PATH, spielBestaetigungsLink } = await import("./spielEmail.ts");
+const { spielBestaetigungsLink } = await import("./spielEmail.ts");
 const { mailFor } = await import("./mailKinds.ts");
 
 /** The origin the local stack serves from, which `docker-compose.local.yml` sets `AUTH_URL` to. */
@@ -15,7 +15,7 @@ describe("the fixture confirmation's link", () => {
   /* The link stands on the serving origin as the close does, so a configured
      trailing slash or path reaches neither, and a value that is no URL composes no message at all. */
   it("stands on the origin `mailOrigin` makes of the configured value", () => {
-    expect(spielBestaetigungsLink(`${ORIGIN}/irgendwo/`, "t")).toBe(`${ORIGIN}${SPIEL_BESTAETIGUNG_PATH}?token=t`);
+    expect(spielBestaetigungsLink(`${ORIGIN}/irgendwo/`, "t")).toBe(`${ORIGIN}/confirm/spiel?token=t`);
     expect(() => spielBestaetigungsLink("/confirm", "t")).toThrow(/absolute origin/);
   });
 
