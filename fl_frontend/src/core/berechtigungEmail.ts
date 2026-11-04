@@ -12,7 +12,7 @@ import type { MailOrigin } from "./mailKinds";
 const BETREFF = "Änderung beim Zugang zur Verwaltung";
 const ZIEL_LABEL = "Zur Verwaltung";
 
-const ZIEL_PFAD = "/bereich/admin/administratoren";
+const ZIEL_PFAD = "/area/admin/administratoren";
 
 /** A change made outside the application names nobody, and says where it was made instead. */
 const OHNE_VERWALTUNG = "Diese Änderung wurde nicht in der Verwaltung vorgenommen, sondern direkt in der Datenbank.";

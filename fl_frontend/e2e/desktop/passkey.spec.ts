@@ -30,7 +30,7 @@ test("the administrator signs in again with the passkey alone and their account 
   await page.goto("/signin");
   await page.getByRole("button", { name: "Mit Passkey anmelden" }).click();
   // The Übersicht, where `enrolPasskey` lands the code-borne sign-in too.
-  await expect(page).toHaveURL(/\/bereich$/);
+  await expect(page).toHaveURL(/\/area$/);
 
   await expectAccountPageOf(page, administrator);
 });

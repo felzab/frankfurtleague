@@ -323,7 +323,7 @@ describe("the admin lane", () => {
 /** The throw Next's `redirect` makes. */
 function catchRedirect(): unknown {
   try {
-    redirect("/bereich");
+    redirect("/area");
   } catch (thrown) {
     return thrown;
   }

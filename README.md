@@ -11,7 +11,7 @@ League, _die Oberstufenliga der Frankfurter Schulen_.
 [![License: Elastic-2.0](https://img.shields.io/badge/license-Elastic--2.0-blue)](LICENSE)
 
 [Website](https://frankfurtleague.de) · [About](https://frankfurtleague.de/about) ·
-[Contact](https://frankfurtleague.de/kontakt)
+[Contact](https://frankfurtleague.de/contact)
 
 </div>
 
@@ -100,7 +100,7 @@ work and merge every change.
 Found a bug, or have an idea for the site? I'd be glad to hear about it through the
 [issue forms](https://github.com/felzab/frankfurtleague/issues/new/choose). I work on this alongside
 other things, so a reply can take a few days. I'm not looking for pull requests for now. Questions
-about the league itself are best sent through [the contact page](https://frankfurtleague.de/kontakt).
+about the league itself are best sent through [the contact page](https://frankfurtleague.de/contact).
 
 ## Security
 
@@ -115,4 +115,4 @@ to others as a hosted or managed service. [`LICENSE`](LICENSE) has the full term
 
 The league's name and logo belong to Frankfurt League e. V. and, like the league's data, are not
 licensed at all ([`NOTICE`](NOTICE) lists them). To ask about using any of it, get in touch through
-[frankfurtleague.de/kontakt](https://frankfurtleague.de/kontakt).
+[frankfurtleague.de/contact](https://frankfurtleague.de/contact).

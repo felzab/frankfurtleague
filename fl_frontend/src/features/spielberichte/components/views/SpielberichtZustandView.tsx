@@ -1,7 +1,7 @@
 import { EmptyState } from "@/shared/components/ui/EmptyState";
 
 /** The referee's panel, which lists every fixture a report is due for. */
-export const SCHIEDSRICHTER_HREF = "/bereich/schiedsrichter";
+export const SCHIEDSRICHTER_HREF = "/area/schiedsrichter";
 
 /** A report page that offers no form: the switch is off, or the fixture admits no report from this reader now. */
 export function SpielberichtZustandView({

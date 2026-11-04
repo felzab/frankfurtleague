@@ -218,7 +218,7 @@ export const AdminBewerbungenList = memo(function AdminBewerbungenList({
       {/* A link and not a press: the decision is taken on a page of its own, where the whole
           application stands. */}
       <RowActionLink
-        href={saisonHref(`/bereich/admin/bewerbungen/${bewerbung.id}`)}
+        href={saisonHref(`/area/admin/bewerbungen/${bewerbung.id}`)}
         label="Bewerbung öffnen"
         subject={bewerbung.teamName ?? NO_TEAM}>
         <ArrowRightFromSquare

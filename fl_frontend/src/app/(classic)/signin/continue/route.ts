@@ -18,16 +18,16 @@ export async function GET(request: NextRequest): Promise<never> {
   const landing = await getSignInDestination();
 
   // Outside any `try`, as Next documents for a Route Handler: `redirect` throws to lead on.
-  redirect(landing === "/bereich" ? (asked ?? (await areaLanding())) : withReturnAddress(landing, asked));
+  redirect(landing === "/area" ? (asked ?? (await areaLanding())) : withReturnAddress(landing, asked));
 }
 
-/** The page `/bereich` itself would send the session on to, so the sign-in lands there without a second redirect. */
+/** The page `/area` itself would send the session on to, so the sign-in lands there without a second redirect. */
 async function areaLanding(): Promise<string> {
-  // A backend that cannot answer is `/bereich`'s to say, which renders its area's outage panel.
+  // A backend that cannot answer is `/area`'s to say, which renders its area's outage panel.
   const subject = await getSubjectSession().catch(() => null);
-  if (subject === null) return "/bereich";
+  if (subject === null) return "/area";
 
-  // A lone team seat goes straight to its team, as `app/bereich/(persoenlich)/page.tsx` sends it.
+  // A lone team seat goes straight to its team, as `app/area/(persoenlich)/page.tsx` sends it.
   const [erstes, ...weitere] = zieleOf(rolesOf(subject).roles);
-  return erstes !== undefined && weitere.length === 0 && erstes.funktionen[0].art === "kontakt" ? erstes.href : "/bereich";
+  return erstes !== undefined && weitere.length === 0 && erstes.funktionen[0].art === "kontakt" ? erstes.href : "/area";
 }

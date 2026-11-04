@@ -35,7 +35,7 @@ code it governs, or in the commit that first wrote its words, which `git log -S 
 - **forms** — Judge a typed field between keystrokes; return the editor to a dialog
 - **spiele** — Guess a voided result rather than dry-running it
 - **admin** — Hide a triage tab on a zero count; order sections off anything but the label table
-- **finalrunden** — Write from `/bereich/admin/finalrunden`; render its wiring as cards
+- **finalrunden** — Write from `/area/admin/finalrunden`; render its wiring as cards
 - **admin** — Give a shell page a second `h1`; make a sidemenu `hint` optional
 - **saisons** — Fetch the season list inside `resolveSaisonId` when `?saison_id=` is absent; drop
   `resolveSaisonId`'s redirect or `SaisonSelector`'s fallback

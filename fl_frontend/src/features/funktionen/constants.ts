@@ -25,7 +25,7 @@ export const PERSON_SIDEMENU_ICONS = {
 
 export type PersonIconName = keyof typeof PERSON_SIDEMENU_ICONS;
 
-/** What the bar reads on an address inside `/bereich` that no page claims, the catch-all's 404 among them. */
+/** What the bar reads on an address inside `/area` that no page claims, the catch-all's 404 among them. */
 export const PERSON_SHELL_FALLBACK = {
   label: DEIN_BEREICH_TITEL,
   hint: {
@@ -53,7 +53,7 @@ export type PersonEintrag = "landing" | "spieler" | "schiedsrichter";
  */
 export const PERSON_SIDEMENU_ENTRIES = {
   landing: {
-    // The prefix itself: `/bereich` is the switch between every Funktion a person holds.
+    // The prefix itself: `/area` is the switch between every Funktion a person holds.
     id: "",
     label: "Übersicht",
     iconName: "House",
