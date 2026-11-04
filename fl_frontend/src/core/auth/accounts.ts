@@ -4,7 +4,7 @@ import { isAPIError } from "better-auth/api";
 import { MongoServerError } from "mongodb";
 
 import { asSignInIdentifier } from "../emailAddress";
-import { APIBadStatusError, isRefusalCode, RolledBackError } from "../errors";
+import { APIBadStatusError, RolledBackError } from "../errors";
 import { deleteEndedSessions } from "./accountSessions";
 import { auth, ownLoeschung } from "./library";
 import { SESSIONS_ENDED_FIELD } from "./sessionStamps";
@@ -111,8 +111,9 @@ export async function deleteOwnAccount(
       if (isAPIError(failed)) return "linkRefused";
       throw failed;
     }
-    // The backend refused the erasure, which writes nothing: the link is spent all the same.
-    if (failed instanceof APIBadStatusError && isRefusalCode(failed.serverErrorCode)) return "spentUnerased";
+    // The backend refused the erasure, its answer below 500 one its transaction wrote nothing behind: the link is spent
+    // all the same. A 500 or higher may be a commit of unknown outcome (`unknown_outcome`).
+    if (failed instanceof APIBadStatusError && failed.statusCode < 500) return "spentUnerased";
     throw new DeletionOutcomeUnknown(failed);
   }
 }

@@ -21,9 +21,16 @@ export function refuseBarred(anmeldung: AnmeldungRecords): void {
 
 /**
  * The gate's answer for the caller, read in the registration's before hook and carried on the
- * endpoint's context into its transaction, whose checks then decide without a backend round trip holding it open.
+ * endpoint's context into its transaction, whose checks then decide without a backend round trip holding it open;
+ * and when the ceremony's options were issued, read there before the plugin spends the challenge, `null` where none
+ * stood.
  */
-export type EnrolmentRead = { readonly userId: string; readonly anmeldung: AnmeldungRecords; readonly sentAt: Date };
+export type EnrolmentRead = {
+  readonly userId: string;
+  readonly anmeldung: AnmeldungRecords;
+  readonly sentAt: Date;
+  readonly challengeIssuedAt: Date | null;
+};
 
 /** The context key the carried read travels under; a string, the library merging no symbol key. */
 export const ENROLMENT_READ = "flEnrolmentRead";
@@ -45,12 +52,16 @@ export function carriedOrRefuse(ctx: object, userId: string): AnmeldungRecords {
 
 /**
  * Every condition an enrolment meets past the library's `freshAge`, on both arms: the plugin gates its two
- * registration endpoints on that and on nothing else.
+ * registration endpoints on that and on nothing else. The touch is judged as of `touchAt`, now where it is
+ * `undefined`: the options request judges it now, and the verify call as of that ceremony's options, so the browser's
+ * own prompt, a cross-device one by QR code among them, takes as long as the challenge lives and never runs the
+ * touch's window down.
  */
 export async function refuseEnrolment(
   adapter: DBTransactionAdapter,
   userId: string,
   caller: SessionStamps | null,
+  touchAt: Date | undefined,
   credentialID?: string,
 ): Promise<void> {
   // Every refusal below is the default-deny net's own answer, so an enrolment the page never offers
@@ -65,11 +76,11 @@ export async function refuseEnrolment(
 
   // The first passkey is added on a fresh sign-in by either factor, an administrator's mailed code among them; every
   // later one by the passkey touch alone, or a stolen mailbox would put its own authenticator beside the holder's.
-  if (held.length > 0 && !isPasskeyTouch(caller)) throw APIError.fromStatus("NOT_FOUND");
+  if (held.length > 0 && !isPasskeyTouch(caller, touchAt)) throw APIError.fromStatus("NOT_FOUND");
   if (held.length >= PASSKEY_LIMIT) throw APIError.fromStatus("NOT_FOUND");
 
   // The plugin takes the rows already held for an `excludeCredentials` hint, which the BROWSER
   // honours and no server checks: the same authenticator enrolled twice leaves the administrator two
-  // rows nothing on the page tells apart (driven against 1.7.7).
+  // rows nothing on the page tells apart.
   if (credentialID !== undefined && held.some((row) => row.credentialID === credentialID)) throw APIError.fromStatus("NOT_FOUND");
 }

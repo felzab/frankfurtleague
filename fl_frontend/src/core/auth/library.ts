@@ -27,9 +27,9 @@ import { CODE_FAILURE_LIMIT, CODE_FAILURE_WINDOW_HOURS, CODE_MAIL_LIMIT, CODE_MA
 import { mayReceiveSignIn } from "../signInGate";
 import { HOUR_MS } from "../timeUnits";
 import { readTraceparent, TRACEPARENT_HEADER } from "../trace";
-import { ceremonyCredentialId, isDuplicateCredential, refuseAnotherAccountsPasskey } from "./ceremony";
+import { ceremonyCredentialId, challengeIssuedAt, isDuplicateCredential, refuseAnotherAccountsPasskey } from "./ceremony";
 import { ADDRESS_ATTEMPTS_EXHAUSTED } from "./codeRefusal";
-import { carriedOrRefuse, ENROLMENT_READ, refuseBarred, refuseEnrolment } from "./enrolment";
+import { carriedEnrolmentRead, carriedOrRefuse, ENROLMENT_READ, refuseBarred, refuseEnrolment } from "./enrolment";
 import { enrolmentAnmeldung } from "./gateReads";
 import { notifyPasskey, oweSignInMail, sendDeletionLink } from "./mails";
 import { endReplacedSession, lineageOf, refuseUnadmitted, replacedToken } from "./minting";
@@ -565,7 +565,13 @@ const authOptions = (origin: URL, client: MongoClient) =>
         const enrolmentRead: EnrolmentRead | undefined =
           enrolling === null
             ? undefined
-            : { userId: enrolling.user.id, anmeldung: await enrolmentAnmeldung(enrolling.user.email), sentAt: sentAt };
+            : {
+                userId: enrolling.user.id,
+                anmeldung: await enrolmentAnmeldung(enrolling.user.email),
+                sentAt: sentAt,
+                // Here, before the plugin spends the challenge the verify call reads.
+                challengeIssuedAt: await challengeIssuedAt(ctx),
+              };
         const carried = enrolmentRead === undefined ? undefined : { context: { [ENROLMENT_READ]: enrolmentRead } };
 
         // An absent `ctx.request` is the library's own test for a call that did not arrive over HTTP,
@@ -597,7 +603,8 @@ const authOptions = (origin: URL, client: MongoClient) =>
         if (caller === null || endedByItsAccount(caller)) throw APIError.fromStatus("NOT_FOUND");
 
         refuseBarred(enrolmentRead?.anmeldung ?? (await enrolmentAnmeldung(caller.user.email)));
-        await refuseEnrolment(ctx.context.adapter, caller.user.id, stampsOf(caller.session));
+        // The options request is judged now; the verify call as of its ceremony's options, or now where none stands.
+        await refuseEnrolment(ctx.context.adapter, caller.user.id, stampsOf(caller.session), enrolmentRead?.challengeIssuedAt ?? undefined);
 
         return carried;
       }),
@@ -722,6 +729,8 @@ const authOptions = (origin: URL, client: MongoClient) =>
               adapter,
               user.id,
               enrolling === null ? null : stampsOf(enrolling.session),
+              // As of the ceremony's options, as the hook judged it, the challenge being spent by now.
+              (enrolling === null ? undefined : carriedEnrolmentRead(ctx, enrolling.user.id)?.challengeIssuedAt) ?? undefined,
               verification.registrationInfo?.credential.id,
             );
           },

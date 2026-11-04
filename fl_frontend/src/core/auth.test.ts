@@ -1634,6 +1634,31 @@ describe("which sessions may enrol a passkey, and how many rows they may leave",
     expect(store.passkey, "the callback let a stale session write a row").toStrictEqual([held]);
   });
 
+  /* The touch is judged where its options were asked for: a cross-device prompt by QR code can outlast the touch's
+     minute, and a verify judged now would refuse a credential the authenticator has already stored. */
+  it("enrols on a touch its ceremony's options were asked inside, however long the browser's prompt then takes", async () => {
+    const { cookie, row } = await signIn(ADMIN_EMAIL);
+    steppedUp(row);
+    store.passkey.push(aPasskeyFor(row.userId));
+    const offered = await overHttp("/passkey/generate-register-options", { cookie });
+    expect(offered.status, await offered.clone().text()).toBe(200);
+    const { challenge } = (await offered.json()) as { challenge: string };
+
+    // A prompt of a minute and a half: the touch and the options it asked for are both that much older now.
+    ageRow(row, { created: PASSKEY_TOUCH_MS + 30_000 });
+    const issued = store.verification.at(-1);
+    assert.ok(issued !== undefined, "the options stored no challenge");
+    issued.createdAt = new Date(row.createdAt.getTime() + 5_000);
+
+    const answer = await overHttp("/passkey/verify-registration", {
+      method: "POST",
+      cookie: `${cookie}; ${cookieHeader(offered)}`,
+      body: { response: registrationFor(challenge, true, SECOND_RAW_ID) },
+    });
+    expect(answer.status, await answer.clone().text()).toBe(200);
+    expect(store.passkey.length).toBe(2);
+  });
+
   /* A person's passkey is optional, so a fresh sign-in by either factor enrols the first: the mailbox is the
      account whatever the person holds. Every later one asks the touch, as an administrator's does. */
   it("enrols a person's first passkey from a fresh code session, and a further one on the touch alone", async () => {
@@ -3448,19 +3473,20 @@ describe("a person's own account deletion", () => {
 
   /* Asked and refused: a case passing where the hook never ran -- no session, another account's token --
      would leave the same rows standing. */
-  it("leaves the account and its passkeys standing where the backend refuses the erasure, having asked it", async () => {
+  /* The library spends the link before the erasure runs, so the press says so rather than offering the link again. */
+  it("leaves the account and its passkeys standing where the backend refuses the erasure, having asked it, its link spent", async () => {
     const person = await seedAccount("verweigert-loeschung@example.org");
     const refusal = await loeschungRefused();
     const loeschungen: string[] = [];
 
-    await expect(
-      asPerson("verweigert-loeschung@example.org", () =>
+    expect(
+      await asPerson("verweigert-loeschung@example.org", () =>
         deleteOwnAccount(person.token, new Headers({ ...ORIGIN, cookie: person.cookie }), () => {
           loeschungen.push("asked");
           return Promise.reject(refusal);
         }),
       ),
-    ).rejects.toSatisfy((thrown) => thrown === refusal);
+    ).toBe("spentUnerased");
 
     expect(loeschungen, "the backend was never asked, so the refusal proves nothing").toStrictEqual(["asked"]);
     const held = heldOf(person);
@@ -3529,7 +3555,10 @@ describe("a person's own account deletion", () => {
           return Promise.resolve({});
         }),
       ),
-    ).rejects.toSatisfy((thrown: Error) => thrown.name === "DeletionWithoutLoeschung");
+      // Past the library's spend of the link, so of an outcome the press cannot name.
+    ).rejects.toSatisfy(
+      (thrown: Error) => thrown.name === "DeletionOutcomeUnknown" && (thrown.cause as Error).name === "DeletionWithoutLoeschung",
+    );
 
     expect(loeschungen, "another person's records were erased").toStrictEqual([]);
     const held = heldOf(person);

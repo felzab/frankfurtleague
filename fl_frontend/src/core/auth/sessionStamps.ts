@@ -44,11 +44,15 @@ export function isFreshlySignedIn(served: StepUpCaller): boolean {
   return !served.verwaltung || served.session.authFactor === PASSKEY_FACTOR;
 }
 
-/** Whether a session is the passkey touch: made by a passkey sign-in no longer than `PASSKEY_TOUCH_SECONDS` ago. */
-export function isPasskeyTouch(session: SessionStamps): boolean {
+/**
+ * Whether a session is the passkey touch as of `at`, now unless a caller judges an earlier moment: made by a passkey
+ * sign-in no longer than `PASSKEY_TOUCH_SECONDS` before it, and not after it.
+ */
+export function isPasskeyTouch(session: SessionStamps, at: Date = now()): boolean {
   const created = new Date(session.createdAt).getTime();
+  const elapsed = at.getTime() - created;
   // An unreadable stamp is no touch, as `withinLifetime` reads one.
-  return session.authFactor === PASSKEY_FACTOR && Number.isFinite(created) && now().getTime() - created < PASSKEY_TOUCH_SECONDS * 1000;
+  return session.authFactor === PASSKEY_FACTOR && Number.isFinite(elapsed) && elapsed >= 0 && elapsed < PASSKEY_TOUCH_SECONDS * 1000;
 }
 
 /**
