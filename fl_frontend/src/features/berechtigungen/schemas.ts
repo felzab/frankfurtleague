@@ -1,8 +1,9 @@
 // Redesign: goes with its last importer.
 import z from "zod";
 
-import { asSignInIdentifier, isSignInLibraryAddress } from "@/core/emailAddress";
+import { asSignInIdentifier } from "@/core/emailAddress";
 import { FLVerwaltung } from "@/core/generated/client/types";
+import { isSignInLibraryAddress } from "@/core/signInLibraryAddress";
 import { CustomObjectIdStringSchema, KontaktEmailSchema } from "@/shared/schemas";
 
 /** The two tiers a grant holds, refused in German: the tier change's input names one. */
