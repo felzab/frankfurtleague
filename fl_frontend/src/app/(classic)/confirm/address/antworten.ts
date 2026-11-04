@@ -5,7 +5,9 @@ import { z } from "zod";
 import { action } from "@/core/action";
 import { afterTheResponse } from "@/core/afterResponse";
 import { COPY } from "@/core/copy";
+import { requestOf } from "@/core/errors";
 import { AddressChangePostAddressChangeAnswerBody } from "@/core/generated/zod/inputs";
+import { logger } from "@/core/logging";
 import { kontoAnNeuerAdresse } from "@/features/adresswechsel/konto";
 import { ansichtOf } from "@/features/adresswechsel/link";
 import { postAdresswechselAnsicht, postAdresswechselAntwort, postAdresswechselStopp } from "@/features/adresswechsel/mutations";
@@ -45,12 +47,26 @@ export const adresseBeantworten = action({
       return { ok: true, value: LINK_INVALID };
     }
 
-    // The effect owed its account's carry in its own transaction: behind the response, and by the hourly pass where
-    // this one never runs. No address reaches this action.
-    if (answered.effective) afterTheResponse(runAdresswechselUmzuege);
+    if (answered.effective) await carryTheAccount();
     return { ok: true, value: endOf(side, answered.answer, answered.approval_open) };
   },
 });
+
+/**
+ * The account carry the effect owed in its own transaction, awaited before the done end, which invites the sign-in at
+ * the new address: a sign-in there while the carry is still owed opens a fresh account, which the carry then finds
+ * standing, leaving the person's passkeys on the old one. Next's `after` is for work no answer waits on, and this
+ * answer's next page does. A failure is logged and left to the hourly pass, the effect having committed. No address
+ * reaches this action.
+ */
+async function carryTheAccount(): Promise<void> {
+  try {
+    await runAdresswechselUmzuege();
+  } catch (failed) {
+    // The name alone: a failure in the sign-in store routinely carries the address.
+    logger.error("address_change.carry_failed", undefined, { name: failed instanceof Error ? failed.name : "unknown", ...requestOf(failed) });
+  }
+}
 
 /**
  * Session 7: the administrator's way answered from its old view, the new mailbox's confirmation and decline and the
