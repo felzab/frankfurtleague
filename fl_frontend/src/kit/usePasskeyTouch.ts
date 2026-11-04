@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { assertedAddress } from "@/core/auth/assertionAnswer";
 import { loadAuthClient, usePreloadedAuthClient } from "@/core/auth/browserClient";
 import { COPY } from "@/core/copy";
 import { asSignInIdentifier } from "@/core/emailAddress";
@@ -33,8 +34,12 @@ export function usePasskeyTouch(held: boolean, holder: string | undefined) {
       const { data, error } = await authClient.signIn.passkey();
       // A cancelled prompt and a refused passkey alike: the act did not run, and the passkey did not answer for it.
       if (error !== null) return COPY.signIn.refusal.unverified;
-      const signedIn = asSignInIdentifier(data.user.email);
-      return holder === undefined || signedIn === asSignInIdentifier(holder) ? null : COPY.shared.failure.signInExpired;
+      if (holder === undefined) return null;
+      // Off the league's own answer: the plugin's typed `data.user` is the body the server replaces.
+      const signedIn = assertedAddress(data);
+      // Signed in, but as nobody the answer names: the act cannot be shown to run for the holder.
+      if (signedIn === null) return COPY.shared.failure.unexpected;
+      return asSignInIdentifier(signedIn) === asSignInIdentifier(holder) ? null : COPY.shared.failure.signInExpired;
     } catch {
       return COPY.shared.failure.unexpected;
     } finally {

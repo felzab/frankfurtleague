@@ -28,6 +28,7 @@ import { CODE_FAILURE_LIMIT, CODE_FAILURE_WINDOW_HOURS, CODE_MAIL_LIMIT, CODE_MA
 import { mayReceiveSignIn } from "../signInGate";
 import { HOUR_MS } from "../timeUnits";
 import { readTraceparent, TRACEPARENT_HEADER } from "../trace";
+import { assertionAnswer } from "./assertionAnswer";
 import { ceremonyCredentialId, challengeIssuedAt, isDuplicateCredential, refuseAnotherAccountsPasskey } from "./ceremony";
 import { ADDRESS_ATTEMPTS_EXHAUSTED } from "./codeRefusal";
 import { carriedEnrolmentRead, carriedOrRefuse, ENROLMENT_READ, refuseBarred, refuseEnrolment } from "./enrolment";
@@ -103,7 +104,10 @@ const ENROLMENT_FIELDS_REFUSED: readonly string[] = ["name"];
 // value -- beside the user.
 const SESSION_ANSWER_PATHS: ReadonlySet<string> = new Set([PASSKEY_REGISTRATION_PATH, PASSKEY_ASSERTION_PATH, CODE_SIGN_IN_PATH]);
 
-/** What every finished sign-in answers instead: the plugin's own shape for a call that carries no record back. */
+/**
+ * What every finished sign-in answers instead: the plugin's own shape for a call that carries no record back. The
+ * passkey assertion adds the address it signed in (`./assertionAnswer.ts`).
+ */
 const SIGNED_IN = { status: true };
 
 // Every endpoint that mints a session, with the factor it proves. A path missing here mints nothing,
@@ -642,7 +646,12 @@ const authOptions = (origin: URL, client: MongoClient) =>
           if (enrolled !== null) await notifyPasskey("passkey_hinzugefuegt", enrolled.user.email);
         }
 
-        // The pages read nothing off any of these bodies but whether it is there
+        // The touch reads whom the assertion signed in, to refuse another account's passkey before the act it guards; the
+        // documented `newSession` names that account, and the answer carries its address alone, never the row's token.
+        const signedIn = ctx.context.newSession;
+        if (ctx.path === PASSKEY_ASSERTION_PATH && signedIn !== null) return ctx.json(assertionAnswer(signedIn.user.email));
+
+        // The pages read nothing else off any of these bodies but whether it is there
         // (`@better-auth/passkey/client :: getPasskeyActions`, `fl_frontend/src/features/auth/components/forms/SignInFlow.tsx`).
         return ctx.json(SIGNED_IN);
       }),

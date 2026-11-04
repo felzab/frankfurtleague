@@ -19,6 +19,7 @@ import { answerAt, NO_RECORDS, SEAT } from "@/test-support/subjectFixtures.ts";
 import { assertionFor, COSE_KEY, CREDENTIAL_ID, CREDENTIAL_RAW_ID, registrationFor } from "@/test-support/testAuthenticator.ts";
 import { afterAll, afterEach, assert, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { assertionAnswer } from "./auth/assertionAnswer.ts";
 import { PASSKEY_TOUCH_SECONDS, STEP_UP_WINDOW_MS } from "./sessionLifetimes.ts";
 
 import type { MemoryStore, SessionRow } from "@/test-support/authDoubles.ts";
@@ -1882,7 +1883,7 @@ describe("what a finished ceremony hands back to the page", () => {
   /* The plugin answers each verify endpoint with the session row it minted, `token` and all, which
      is the cookie's own value: a script reading that body would hold the credential the browser
      never gets to see. */
-  it("answers the assertion without the session it just minted, while the cookie still rides the response", async () => {
+  it("answers the assertion with the address it signed in and without the session it minted, the cookie riding the response", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     store.passkey.push({ ...aPasskeyFor(row.userId), credentialID: CREDENTIAL_ID, publicKey: COSE_KEY.toString("base64") });
 
@@ -1893,7 +1894,8 @@ describe("what a finished ceremony hands back to the page", () => {
     const minted = store.session.at(-1);
     assert.ok(minted !== undefined);
     assert.ok(!body.includes(minted.token), "the minted session's token reached the page");
-    expect(JSON.parse(body)).toStrictEqual({ status: true });
+    // The answer the touch reads whom it signed in off (`fl_frontend/src/kit/usePasskeyTouch.ts`), and nothing more.
+    expect(JSON.parse(body)).toStrictEqual(assertionAnswer(ADMIN_EMAIL));
 
     // Truthy, which is the whole of what `@better-auth/passkey/client` reads off it.
     assert.ok(cookieHeader(admitted).length > 0, "the shaped body took the session cookie with it");
