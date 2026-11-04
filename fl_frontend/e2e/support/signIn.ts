@@ -93,8 +93,8 @@ export async function enrolPasskey(page: Page, context: BrowserContext): Promise
   await page.reload();
   await page.getByRole("button", { name: "Jetzt einrichten" }).click();
   // Every administrator lands on the Übersicht, which a session short of the passkey would leave for
-  // `/bereich/admin` and the passkey step (`fl_frontend/src/core/auth/landing.ts :: destinationOf`).
-  await expect(page).toHaveURL(/\/bereich$/);
+  // `/area/admin` and the passkey step (`fl_frontend/src/core/auth/landing.ts :: destinationOf`).
+  await expect(page).toHaveURL(/\/area$/);
 
   const [passkey] = await context.credentials.get({ rpId: RELYING_PARTY });
   if (passkey === undefined) throw new Error("the enrolment left the authenticator holding no passkey");

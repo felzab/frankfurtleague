@@ -20,10 +20,10 @@ import type { EditorSave } from "./useEditor";
 type Spielort = { name: string };
 
 const NAME = COPY.page.verwaltungSpielorte;
-const BACK = "/bereich/verwaltung/spielorte";
+const BACK = "/admin/spielorte";
 
 vi.mock("next/navigation", () => ({
-  usePathname: () => "/bereich/verwaltung/spielorte/ort-1",
+  usePathname: () => "/admin/spielorte/ort-1",
   useParams: () => ({ spielort: "ort-1" }),
   useRouter: () => ({ push: () => undefined, replace: () => undefined }),
 }));

@@ -124,7 +124,7 @@ async function mitLink(email: string, { passkey = false }: { passkey?: boolean }
 
   const angefordert = await requestErasure({});
   expect(angefordert.ok, `the account page's press answered ${JSON.stringify(angefordert)}`).toBe(true);
-  const found = /\/loeschung\?token=([0-9a-z]+)/.exec(mail.sent.findLast((sent) => sent.to === email)?.text ?? "");
+  const found = /\/erasure\?token=([0-9a-z]+)/.exec(mail.sent.findLast((sent) => sent.to === email)?.text ?? "");
   assert.ok(found?.[1] !== undefined, "the mail carries no link to the page");
 
   return { row, token: found[1] };
@@ -140,7 +140,7 @@ const heldOf = (userId: string) => ({
 const linkStands = (token: string) => store.verification.some((held) => held.identifier === `delete-account-${token}`);
 
 /** The page the deletion leads to, as Next's redirect names it in what it throws. */
-const LEADS_TO_THE_DONE_PAGE = /^NEXT_REDIRECT;[a-z]+;\/loeschung\/geloescht;/;
+const LEADS_TO_THE_DONE_PAGE = /^NEXT_REDIRECT;[a-z]+;\/erasure\/done;/;
 
 /** Whether a press ended in Next's redirect to the done page, which the action throws rather than answers. */
 async function ledToTheDonePage(pressed: Promise<unknown>): Promise<void> {
@@ -165,7 +165,7 @@ async function inhaberinMitLink(email: string): Promise<{ row: SessionRow; token
   madeByPasskey(store, durchPasskey.row);
   arriveAs(durchPasskey.cookie);
   expect((await requestErasure({})).ok, "the owner's passkey session mailed no link").toBe(true);
-  const found = /\/loeschung\?token=([0-9a-z]+)/.exec(mail.sent.findLast((sent) => sent.to === email)?.text ?? "");
+  const found = /\/erasure\?token=([0-9a-z]+)/.exec(mail.sent.findLast((sent) => sent.to === email)?.text ?? "");
   assert.ok(found?.[1] !== undefined, "the mail carries no link to the page");
 
   return { row: durchPasskey.row, token: found[1] };

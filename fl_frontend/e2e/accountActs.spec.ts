@@ -28,7 +28,7 @@ async function signIn(page: Page, address: string): Promise<void> {
   await signInWithCode(page, address);
   await expect(page).toHaveURL(/\/signin\/passkey/);
   await page.getByRole("button", { name: "Später" }).click();
-  await expect(page).toHaveURL(/\/bereich/);
+  await expect(page).toHaveURL(/\/area/);
 }
 
 test("Konto's frame, Darstellung and „Alle anderen abmelden“, on one sign-in and a second device's", async ({
@@ -147,7 +147,7 @@ test("the person deletes their account from the mailed link, signed out when it 
   // The passkey offer's „Später“ goes on to the address the link asked for, as the code's landing does.
   await expect(page).toHaveURL(/\/signin\/passkey\?return=/);
   await page.getByRole("button", { name: "Später" }).click();
-  await expect(page).toHaveURL(/\/loeschung\?token=/);
+  await expect(page).toHaveURL(/\/erasure\?token=/);
 
   // The list of what goes names the account's address.
   await expect(page.getByRole("heading", { name: "Konto löschen" })).toBeVisible();
@@ -161,7 +161,7 @@ test("the person deletes their account from the mailed link, signed out when it 
   );
   await page.getByRole("button", { name: "Konto löschen" }).click();
   const response = await answered;
-  expect(await response.headerValue("x-action-redirect")).toMatch(/^\/loeschung\/geloescht/);
+  expect(await response.headerValue("x-action-redirect")).toMatch(/^\/erasure\/done/);
   // The library's own deletion of the session's cookie reached the action's answer, which is what makes Next render a
   // page again at all, and what the redirect turns to the done page alone.
   expect(await response.headerValue("set-cookie"), "the action's answer deleted no session cookie").toMatch(/session_token=;[^,]*Max-Age=0/i);
@@ -169,11 +169,11 @@ test("the person deletes their account from the mailed link, signed out when it 
   expect(body, "the action's answer renders the link's page again").not.toContain("Alles oben wird endgültig gelöscht.");
   expect(body, "the action's answer carries no render of the done page").toContain("Konto gelöscht");
 
-  await expect(page).toHaveURL(/\/loeschung\/geloescht$/);
+  await expect(page).toHaveURL(/\/erasure\/done$/);
   await expect(page.getByRole("heading", { name: "Konto gelöscht" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Zur Startseite" })).toBeVisible();
 
   // The session is gone with the account: an area's page sends the browser to sign in.
-  await page.goto("/bereich");
+  await page.goto("/area");
   await expect(page).toHaveURL(/\/signin/);
 });

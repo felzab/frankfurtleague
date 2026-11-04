@@ -9,7 +9,7 @@ import { HeaderLinks } from "./HeaderLinks";
 
 import type { HeaderLink } from "./HeaderLinks";
 
-vi.mock("next/navigation", () => ({ usePathname: () => "/kontakt" }));
+vi.mock("next/navigation", () => ({ usePathname: () => "/contact" }));
 
 const LINKS = [
   { label: COPY.page.about, href: ROUTES.about.path() },
@@ -36,7 +36,7 @@ describe("the classic header's season entry", () => {
     expect(row.getAllByRole("link").map((link) => [link.textContent, link.getAttribute("href")])).toStrictEqual([
       [COPY.shared.saisonName("2026"), "/saisons/2026"],
       [COPY.page.about, "/about"],
-      [COPY.page.contact, "/kontakt"],
+      [COPY.page.contact, "/contact"],
     ]);
   });
 

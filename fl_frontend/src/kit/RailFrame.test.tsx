@@ -12,7 +12,7 @@ import { RailFrame, RailPage } from "./RailFrame";
 import type { Account } from "./FrameNav";
 
 vi.mock("next/navigation", () => ({
-  usePathname: () => "/bereich/verwaltung/spielorte",
+  usePathname: () => "/admin/spielorte",
   useParams: () => ({}),
   useRouter: () => ({ push: () => undefined, replace: () => undefined }),
 }));
@@ -35,9 +35,7 @@ async function renderFrame(account: Promise<Account | null>) {
   await act(async () =>
     render(
       <RailFrame
-        groups={[
-          { entries: [{ id: "spielorte", label: COPY.page.verwaltungSpielorte, href: "/bereich/verwaltung/spielorte", icon: "search" }] },
-        ]}
+        groups={[{ entries: [{ id: "spielorte", label: COPY.page.verwaltungSpielorte, href: "/admin/spielorte", icon: "search" }] }]}
         bar={["spielorte"]}
         foot={{ kind: "account", account }}>
         <p>Seite</p>
@@ -96,9 +94,7 @@ async function renderPage() {
   await act(async () =>
     render(
       <RailFrame
-        groups={[
-          { entries: [{ id: "spielorte", label: COPY.page.verwaltungSpielorte, href: "/bereich/verwaltung/spielorte", icon: "search" }] },
-        ]}
+        groups={[{ entries: [{ id: "spielorte", label: COPY.page.verwaltungSpielorte, href: "/admin/spielorte", icon: "search" }] }]}
         bar={["spielorte"]}
         foot={{ kind: "signIn", href: ROUTES.signIn.path() }}>
         <RailPage
