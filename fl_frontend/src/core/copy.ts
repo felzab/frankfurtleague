@@ -91,6 +91,8 @@ const SCHIEDSRICHTER = "Schiedsrichter";
 const KADER = "Kader";
 // The privacy notice's title, which the deletion box's sentence names as the place listing what outlives an erasure.
 const PRIVACY_NOTICE = "Datenschutz";
+// A season's name, `shared`'s entry, which the application page's title names its season by.
+const saisonName = (id: string) => `Saison ${id}`;
 
 /**
  * A range's end: a figure, or a year, which as a season id takes no thousands separator. A year is data, never a
@@ -256,7 +258,7 @@ export const COPY = catalogue({
     /** The season button's menu. */
     saison: "Saison",
     /** A season by its id, which is its year and so takes no thousands separator: „Saison 2027“. */
-    saisonName: (id: string) => `Saison ${id}`,
+    saisonName,
 
     /** The bot check before a public send: refused, disturbed, not yet done, or not loaded at all. */
     botCheck: {
@@ -307,7 +309,7 @@ export const COPY = catalogue({
     registrierungConfirmation: "Registrierung bestätigen",
     accountErasure: "Konto löschen",
     registrierung: "Registrierung",
-    bewerbung: (saison: string) => `Bewerbung Saison ${saison}`,
+    bewerbung: (saison: string) => `Bewerbung ${saisonName(saison)}`,
   },
 
   // Redesign: goes with its last importer.
