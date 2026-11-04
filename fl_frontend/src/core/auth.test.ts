@@ -514,6 +514,34 @@ describe("what the mounted HTTP surface answers", () => {
     expect(verified.headers.getSetCookie().join(";")).toContain(minted.token);
   });
 
+  /* A post from another site of the sender's own code, carrying no cookie, would sign the visiting browser in to the
+     sender's account. The library's origin check reads only a request carrying a cookie, so what holds it is the body:
+     a page of another site sends without a CORS preflight only the three content types below, and the code check
+     takes JSON alone, which a preflight this origin grants nobody would have to admit. */
+  it.each(["application/x-www-form-urlencoded", "multipart/form-data; boundary=x", "text/plain"])(
+    "refuses a cross-site post of a code as %s, carrying no cookie, minting no session",
+    async (contentType) => {
+      await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
+      const otp = lastMailedCode(sent, ADMIN_EMAIL);
+      assert.ok(otp !== null);
+      const sessions = store.session.length;
+
+      const crossSite = await handler.POST(
+        new Request("http://localhost:3000/api/auth/sign-in/email-otp", {
+          method: "POST",
+          headers: { ...ORIGIN, origin: "https://example.com", "sec-fetch-site": "cross-site", "content-type": contentType },
+          body:
+            contentType === "text/plain"
+              ? JSON.stringify({ email: ADMIN_EMAIL, otp })
+              : new URLSearchParams({ email: ADMIN_EMAIL, otp }).toString(),
+        }),
+      );
+      expect(crossSite.status).toBe(415);
+      expect(store.session.length, "the cross-site post minted a session").toBe(sessions);
+      expect(crossSite.headers.getSetCookie(), "the cross-site post set a cookie").toStrictEqual([]);
+    },
+  );
+
   /* The page's sign-out posts here, so the session ends in a request that renders no page: the request's own
      session alone, and a post another site sends meets the library's origin check before any row is read. */
   it("ends the session its own cookie names over HTTP, and refuses a post from another origin", async () => {
