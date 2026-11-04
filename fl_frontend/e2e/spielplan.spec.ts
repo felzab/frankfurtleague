@@ -7,19 +7,10 @@
  */
 import { expect } from "@playwright/test";
 
-import { test } from "./support/journey";
+import { hydrated, test } from "./support/journey";
 
 test("a visitor opens a match from the Spielplan, and Back returns to the matchday it showed", async ({ page }) => {
-  // Next prefetches a `<Link>`'s route, in production and once the link is in view, only after React has
-  // hydrated it (https://nextjs.org/docs/app/getting-started/linking-and-navigating#hydration-not-completed),
-  // as a request carrying the `_rsc` search parameter, which a full document load of the same address never
-  // does. The match rows are such links, so a prefetch of one is the sign the page is hydrated, and the
-  // presses below are client navigations, which the pop-up's route intercepts, not full loads. Listening
-  // from before the first load, the prefetch cannot be missed.
-  const prefetched = page.waitForRequest((request) => {
-    const url = new URL(request.url());
-    return /^\/saisons\/2027\/spiele\/[0-9a-f]{24}$/.test(url.pathname) && url.searchParams.has("_rsc");
-  });
+  const prefetched = hydrated(page);
   await page.goto("/saisons/2027");
 
   // The tabs open on the current matchday, the first holding a match still to play.
@@ -60,11 +51,7 @@ test("a visitor opens a match from the Spielplan, and Back returns to the matchd
 });
 
 test("a club's name in the pop-up opens the club's page and closes the pop-up", async ({ page }) => {
-  // Hydrated before the presses, as the journey above waits, so they are client navigations.
-  const prefetched = page.waitForRequest((request) => {
-    const url = new URL(request.url());
-    return /^\/saisons\/2027\/spiele\/[0-9a-f]{24}$/.test(url.pathname) && url.searchParams.has("_rsc");
-  });
+  const prefetched = hydrated(page);
   await page.goto("/saisons/2027?tab=gruppenphase-1");
   await prefetched;
 

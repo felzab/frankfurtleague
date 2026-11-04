@@ -7,30 +7,13 @@
  */
 import { expect } from "@playwright/test";
 
-import { test } from "../support/journey";
-
-import type { Page } from "@playwright/test";
+import { hydrated, test } from "../support/journey";
 
 /** The landing's one heading, its tagline. */
 const TAGLINE = "Frankfurts Abi-Jahrgänge spielen um den Titel";
 
-/**
- * A match link of the season `2027`, as the landing's card and the Spielplan write it. It anchors only its end, since
- * `toHaveURL` tests it against the whole URL and `hydrated` against a pathname.
- */
+/** A match link of the season `2027`, as the landing's card and the Spielplan write it, tested against the whole URL. */
 const MATCH = /\/saisons\/2027\/spiele\/[0-9a-f]{24}$/;
-
-/**
- * Waits for Next's prefetch of a match link, a request carrying the `_rsc` search parameter, which Next sends only
- * once React has hydrated the link (https://nextjs.org/docs/app/getting-started/linking-and-navigating#hydration-not-completed),
- * so the presses after it are client navigations, which the pop-up's route intercepts. Listening from before the load.
- */
-function hydrated(page: Page) {
-  return page.waitForRequest((request) => {
-    const url = new URL(request.url());
-    return MATCH.test(url.pathname) && url.searchParams.has("_rsc");
-  });
-}
 
 test("the landing's Spielplan leads to the season's Spielplan, and a landing match opens as the pop-up", async ({ page }) => {
   let ready = hydrated(page);
