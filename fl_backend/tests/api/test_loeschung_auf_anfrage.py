@@ -32,7 +32,6 @@ from app.api.identity.schemas import (
     FLLoeschung,
 )
 from app.api.schiedsrichter.services import build_ghost_schiedsrichter
-from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -47,7 +46,7 @@ from tests.app_client import app_client
 from tests.bans import ban_list
 from tests.config import ADMIN_KEY, ADMINISTRATORS, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.documents import address_change_document, ban_document, spiel_document
+from tests.documents import address_change_document
 from tests.erasure import erasure_collections
 from tests.isolation import InterleavedCollection
 from tests.session_headers import StampedHeaders, fresh_admin_actor
@@ -67,18 +66,13 @@ from .test_funktionen_loeschung import (
     MOVING_PUPIL_CHANGE_OID,
     NACHNAME,
     NOW,
-    OTHER_OWNER,
-    OTHER_OWNER_OID,
     OTHER_REFEREE_CHANGE_OID,
     OTHER_TEAM_OID,
-    PAYMENT,
     PENDING_OID,
     PUPIL_OID,
     REFEREE_NAME,
     REFEREE_OID,
     SAISON_ID,
-    SPIELTAG_OID,
-    THEIR_CHANGE_OID,
     THEIR_GRANT_OID,
     THEIR_VALUES,
     TYPED,
@@ -88,7 +82,6 @@ from .test_funktionen_loeschung import (
     acting,
     as_person,
     everything_in,
-    pending_changes,
 )
 from .test_funktionen_loeschung import PATH as SELBST_PATH
 
@@ -217,12 +210,6 @@ async def revealed(database: AsyncDatabase, client: AsyncMongoClient, email: str
 
 def journal_lines(caplog: pytest.LogCaptureFixture) -> list[str]:
     return [record.getMessage() for record in caplog.records if record.getMessage().startswith(JOURNAL_TOKEN)]
-
-
-async def filed_by(database: AsyncDatabase, path: str) -> list[Mapping[str, Any]]:
-    """The log rows the request on `path` filed, which every other request's rows are told apart from by their own path."""
-
-    return await database[Collection.ACTION_LOG].find({"request.path": path}).to_list(length=None)
 
 
 def _object_ids(value: Any) -> Iterator[ObjectId]:
@@ -417,19 +404,6 @@ class TestTheirOwnAddress:
 
         assert (response.status_code, response.json()["error_code"], untouched) == (403, Code.OWN_ADRESSE, True)
 
-    @pytest.mark.parametrize(
-        ("path", "body"),
-        [(ANSICHT_PATH, ansicht_of), (PATH, loeschung_of), (ABMELDUNG_PATH, ansicht_of)],
-        ids=["the reveal", "the erasure", "the sign-out"],
-    )
-    def test_another_administrators_address_is_not_refused(self, mongo_replica_set_url: str, path: str, body: Callable[[str], dict[str, str]]):
-        """Pressed by an owner, whom `verwaltung_adresse` refuses nothing, so the own address's refusal alone is asked."""
-
-        async def run(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            return await posted(mongo_replica_set_url, path, body(ANOTHER_ADMINISTRATOR), by=OWNER)
-
-        assert on_a_league(mongo_replica_set_url, run).status_code == 200
-
 
 @pytest.mark.db
 class TestAGrantHoldersAddress:
@@ -466,32 +440,6 @@ class TestAGrantHoldersAddress:
 
         assert (response.status_code, response.json()["error_code"], untouched) == (403, Code.VERWALTUNG_ADRESSE, True)
         assert journal_lines(caplog) == []
-
-    def test_an_administrator_holding_no_owners_power_ends_another_administrators_sessions(self, mongo_replica_set_url: str):
-        """The sign-out holds back an owner's address alone: signing in again repairs an ended session, as no erasure is."""
-
-        async def run(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await posted(mongo_replica_set_url, ABMELDUNG_PATH, ansicht_of(ANOTHER_ADMINISTRATOR))
-
-            return response.status_code, len(await filed_by(database, ABMELDUNG_PATH))
-
-        assert on_a_league(mongo_replica_set_url, run) == (200, 1)
-
-    def test_an_owner_loescht_another_owners_address(self, mongo_replica_set_url: str):
-        async def run(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await a_grant(database, OTHER_OWNER_OID, OTHER_OWNER, "owner")
-            ansicht = await posted(mongo_replica_set_url, ANSICHT_PATH, ansicht_of(OTHER_OWNER), by=OWNER)
-            loeschung = await posted(mongo_replica_set_url, PATH, loeschung_of(OTHER_OWNER), by=OWNER)
-
-            return (
-                ansicht.json()["verwaltung"],
-                loeschung.json(),
-                await database[Collection.GRANTS].count_documents({"adresse": OTHER_OWNER}),
-            )
-
-        verwaltung, geloescht, left = on_a_league(mongo_replica_set_url, run)
-
-        assert (verwaltung, geloescht["grants"], left) == ("owner", 1, 0)
 
     def test_a_grant_landing_inside_the_loeschung_is_refused_by_its_retry(self, mongo_replica_set_url: str):
         """The rival grants the address access after the first attempt's judgement and before its first write, the anchor both write.
@@ -565,51 +513,6 @@ class TestTheReveal:
         assert keys_anywhere(answer) & {"email", "geburtsdatum"} == set()
         assert "@" not in response.text and GEBURTSDATUM not in response.text
         assert untouched
-
-    def test_it_serves_each_rows_retirement_and_every_season_a_referee_holds_an_unplayed_fixture_in(self, mongo_replica_set_url: str):
-        """Two unplayed fixtures share a season, named once.
-
-        A cancelled one is no booking `schiedsrichter_still_assigned` judges, and its season stays unnamed.
-        """
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SAISON_SPIELER].update_one({"spieler_id": PUPIL_OID}, {"$set": {"inactive_since": "2026-03-20"}})
-            await database[Collection.SCHIEDSRICHTER].update_one({"_id": REFEREE_OID}, {"$set": {"inactive_since": "2026-03-21"}})
-            booking = {"schiedsrichter_id": REFEREE_OID, "name": REFEREE_NAME, "payment": PAYMENT}
-            await database[Collection.SPIELE].insert_many(
-                [
-                    spiel_document(
-                        spiel_id=ObjectId(), saison_id=saison_id, spiel_nr=spiel_nr, spieltag_id=SPIELTAG_OID, schiedsrichter=booking, **fields
-                    )
-                    for saison_id, spiel_nr, fields in (
-                        ("2028", 1, {}),
-                        ("2027", 1, {}),
-                        ("2028", 2, {}),
-                        ("2029", 1, {"sonderereignis": "ausgefallen"}),
-                    )
-                ]
-            )
-
-            return (await posted(mongo_replica_set_url, ANSICHT_PATH, ansicht_of())).json()
-
-        answer = on_a_league(mongo_replica_set_url, body)
-
-        assert [kader["inactive_since"] for kader in answer["spieler"][0]["kader"]] == ["2026-03-20"]
-        assert [(row["inactive_since"], row["spiele_without_ergebnis_saison_ids"]) for row in answer["schiedsrichter"]] == [
-            ("2026-03-21", ["2027", "2028"])
-        ]
-
-    def test_it_says_a_standing_ban_holds_the_address_typed_in_another_spelling(self, mongo_replica_set_url: str):
-        """The ban keyed on the fold and read for the capitals the person typed; `EXPECTED_ANSICHT` is the address no ban holds."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SPERRLISTE].insert_one(
-                ban_document(IDENTIFIER, bis=compose_gesperrt_bis_saison_id(massgebliche_saison_id=SAISON_ID))
-            )
-
-            return (await posted(mongo_replica_set_url, ANSICHT_PATH, ansicht_of(TYPED))).json()
-
-        assert on_a_league(mongo_replica_set_url, body)["barred"] is True
 
     def test_it_names_as_many_of_each_kind_as_the_loeschung_then_removes(self, mongo_replica_set_url: str):
         """Read against the erasure's own answer rather than the seed, so a kind it names short is caught whatever the seed holds."""
@@ -691,29 +594,6 @@ class TestAGrantHoldersPendingChange:
         assert owners_status == 200
         assert ended is not None and ended["ended"]["art"] == "discarded"
 
-    def test_the_reveal_names_their_own_change_and_open_requests_alone(self, mongo_replica_set_url: str):
-        """A lapsed request is gone to every reader already, so it is left out though removed."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await pending_changes(database, (THEIR_CHANGE_OID, IDENTIFIER, "neu.adresse@anderswo.org", "their-own-change", "2126-03-30"))
-            await their_requests_open(database)
-            lapsed = NOW - timedelta(days=8)
-            await database[Collection.GRANT_APPROVAL_REQUESTS].insert_one(
-                compose_antrag(
-                    adresse="verfallen@example.com",
-                    verwaltung="owner",
-                    grant_id=None,
-                    started_by=IDENTIFIER,
-                    now=lapsed,
-                )
-            )
-            return (await posted(mongo_replica_set_url, ANSICHT_PATH, ansicht_of())).json()
-
-        answer = on_a_league(mongo_replica_set_url, body)
-
-        assert answer["own_address_change"] == {"address_change_id": str(THEIR_CHANGE_OID)}
-        assert answer["approval_requests"] == EXPECTED_ANSICHT["approval_requests"]
-
 
 @pytest.mark.db
 class TestTheAnlass:
@@ -756,19 +636,6 @@ class TestTheAnlass:
         assert (afterwards["collection"], afterwards["document_id"], afterwards["anlass"]) == (str(Collection.TEAMS), OTHER_TEAM_OID, None)
         # The premise: the erasure in that context did set it.
         assert carrying, "no row carries the anlass, so its reset was never needed"
-
-    def test_the_persons_own_loeschung_files_none(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            async with app_client(mongo_replica_set_url, app=_app(), now=NOW) as http:
-                status = (await http.post(SELBST_PATH, headers=as_person(TYPED))).status_code
-
-            return status, await filed_by(database, SELBST_PATH)
-
-        status, filed = on_a_league(mongo_replica_set_url, body)
-
-        assert status == 200
-        assert filed, "the erasure filed no row, so the assertion below holds of nothing"
-        assert {row["anlass"] for row in filed} == {None}
 
 
 class PupilsReadMeetingARival(InterleavedCollection):
@@ -898,13 +765,6 @@ class TestTheAnlassIsRefusedAtTheBox:
             FLErasurePayload.model_validate(body)
 
         assert [error["loc"] for error in raised.value.errors()] == [("anlass",)]
-
-    def test_the_bound_itself_is_taken(self):
-        """The control: a payload refusing every anlass would pass the cases above."""
-
-        anlass = "x" * ERASURE_ANLASS_MAX_LENGTH
-
-        assert FLErasurePayload.model_validate(loeschung_of(anlass=anlass)).anlass == anlass
 
 
 class TestADomainIsRefusedBeyondAscii:

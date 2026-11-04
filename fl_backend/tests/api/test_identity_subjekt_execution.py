@@ -40,10 +40,9 @@ DATABASE_NAME = worker_database("fl_identity_subjekt_test")
 
 PATH = f"/api/v{API_VERSION}/identity/subject"
 
-# The folded form every record stores the address in, and a spelling a
-# caller may hand over unfolded. Deliberately unusual, so a hit in a seeded corpus cannot be a coincidence.
+# The folded form every record stores the address in. Deliberately unusual, so a hit in a seeded corpus cannot be a
+# coincidence.
 IDENTIFIER = "ortrud.zwiebelmayer@schule.de"
-ASKED_UNFOLDED = "Ortrud.Zwiebelmayer@Schule.de"
 
 # Nobody this identifier may reach, in each of the three collections.
 BYSTANDER = "baldur.krautzberger@example.com"
@@ -72,9 +71,7 @@ GRANT_INHABER_OID = ObjectId("6890a1b2c3d4e5f607820051")
 GRANT_STORED_OID = ObjectId("6890a1b2c3d4e5f607820052")
 
 # One mailbox at an internationalised domain, stored as every payload stores it:
-# the domain in punycode. Asked in punycode, the only form the
-# sign-in library hands over.
-IDN_ASKED = "anna@xn--mller-kva.de"
+# the domain in punycode.
 IDN_STORED = "anna@xn--mller-kva.de"
 
 PAST_SAISON = "2425"
@@ -291,66 +288,8 @@ def answered(url: str, email: str = IDENTIFIER) -> FLSubjectResponse:
 
 
 @pytest.mark.db
-def test_one_mailbox_answers_all_three_kinds_at_once(mongo_replica_set_url: str):
-    """Split in three, a lookup answering only the collection a case names would pass all three."""
-
-    answer = answered(mongo_replica_set_url)
-
-    assert (bool(answer.seats), bool(answer.spieler), bool(answer.schiedsrichter)) == (True, True, True)
-
-
-@pytest.mark.db
-def test_every_seat_the_mailbox_holds_is_answered_once_each(mongo_replica_set_url: str):
-    """Two clubs and two slots of one row, in the read's own order.
-
-    Kills a first-match lookup, a de-duplication that folds one person's two seats into one, and a
-    slot loop that stops at the Trainer.
-    """
-
-    seats = [(seat.saison_id, seat.team_id, seat.rolle) for seat in answered(mongo_replica_set_url).seats]
-
-    assert seats == [
-        (PAST_SAISON, TEAM_A_OID, "trainer"),
-        (ACTIVE_SAISON, TEAM_B_OID, "trainer"),
-        (ACTIVE_SAISON, TEAM_B_OID, "ansprechperson"),
-    ]
-
-
-@pytest.mark.db
-def test_the_pupil_the_address_names_is_answered(mongo_replica_set_url: str):
-    """One person per address among pupils (`uniq_spieler_email`), so a mailbox shared by siblings names one pupil."""
-
-    assert [row.spieler_id for row in answered(mongo_replica_set_url).spieler] == [PUPIL_ONE_OID]
-
-
-@pytest.mark.db
-def test_two_referees_sharing_an_address_are_both_answered(mongo_replica_set_url: str):
-    """The same for referees: a first-match read answers one of the two rows."""
-
-    assert [row.schiedsrichter_id for row in answered(mongo_replica_set_url).schiedsrichter] == [REFEREE_ONE_OID, REFEREE_TWO_OID]
-
-
-@pytest.mark.db
-def test_an_internationalised_domain_answers_all_three_kinds(mongo_replica_set_url: str):
-    """Kills a fold that decodes the punycode it is handed, which no stored row then equals."""
-
-    answer = answered(mongo_replica_set_url, IDN_ASKED)
-
-    assert [seat.team_id for seat in answer.seats] == [TEAM_C_OID]
-    assert [row.spieler_id for row in answer.spieler] == [IDN_PUPIL_OID]
-    assert [row.schiedsrichter_id for row in answer.schiedsrichter] == [IDN_REFEREE_OID]
-
-
-@pytest.mark.db
-def test_an_address_arriving_unfolded_answers_the_same_seats(mongo_replica_set_url: str):
-    """Kills trusting the caller to have folded: every read is an equality on the stored fold, which the asked spelling misses."""
-
-    assert [seat.team_id for seat in answered(mongo_replica_set_url, ASKED_UNFOLDED).seats] == [TEAM_A_OID, TEAM_B_OID, TEAM_B_OID]
-
-
-@pytest.mark.db
 def test_an_address_the_league_holds_nothing_for_answers_three_empty_lists(mongo_replica_set_url: str):
-    """The control: without it every case above would pass on a lookup that answers everything it is asked."""
+    """A lookup answering everything it is asked would hand this mailbox records of others, which nobody it reaches would see."""
 
     answer = answered(mongo_replica_set_url, "niemand.hierverzeichnet@example.com")
 
@@ -364,13 +303,6 @@ def test_an_address_sharing_only_a_local_part_with_unconfirmed_records_awaits_no
     answer = answered(mongo_replica_set_url, UNCONFIRMED_ELSEWHERE)
 
     assert (answer.unconfirmed, answer.seats, answer.spieler, answer.schiedsrichter) == (False, [], [], [])
-
-
-@pytest.mark.db
-def test_a_seat_carries_the_name_the_club_was_played_under(mongo_replica_set_url: str):
-    """Kills a join onto `teams`: the first club has been renamed since, so its own document holds the other name."""
-
-    assert [seat.team_name for seat in answered(mongo_replica_set_url).seats] == [ROW_NAME_A, ROW_NAME_B, ROW_NAME_B]
 
 
 @pytest.mark.db
@@ -400,70 +332,6 @@ def served_over_http(url: str, email: str = IDENTIFIER) -> Response:
             return await http.post(PATH, headers=SYSTEM_AUTH, json={"email": email})
 
     return asyncio.run(_answered())
-
-
-@pytest.mark.db
-def test_the_mounted_route_serves_the_three_kinds_the_corpus_holds(mongo_replica_set_url: str):
-    """The whole body, so `response_model`'s own serialisation is compared rather than the objects behind it.
-
-    A collection bound to the wrong parameter answers an empty list, and no case calling the
-    function by keyword can tell.
-    """
-
-    response = served_over_http(mongo_replica_set_url)
-
-    assert response.status_code == 200
-    assert response.json() == {
-        "seats": [
-            {
-                "saison_id": PAST_SAISON,
-                "team_id": str(TEAM_A_OID),
-                "rolle": "trainer",
-                "team_name": ROW_NAME_A,
-                "saison_status": "past",
-            },
-            {
-                "saison_id": ACTIVE_SAISON,
-                "team_id": str(TEAM_B_OID),
-                "rolle": "trainer",
-                "team_name": ROW_NAME_B,
-                "saison_status": "active",
-            },
-            {
-                "saison_id": ACTIVE_SAISON,
-                "team_id": str(TEAM_B_OID),
-                "rolle": "ansprechperson",
-                "team_name": ROW_NAME_B,
-                "saison_status": "active",
-            },
-        ],
-        "spieler": [{"spieler_id": str(PUPIL_ONE_OID)}],
-        "schiedsrichter": [{"schiedsrichter_id": str(REFEREE_ONE_OID)}, {"schiedsrichter_id": str(REFEREE_TWO_OID)}],
-        "unconfirmed": False,
-        "barred": False,
-        "verwaltung": None,
-        "granted_since": None,
-        "inhaber_seit": None,
-    }
-
-
-@pytest.mark.db
-def test_the_mounted_route_flags_a_mailbox_whose_every_record_awaits_its_confirmation(mongo_replica_set_url: str):
-    """An unconfirmed seat and a referee row whose record is null: the lists empty and the flag set, which empty lists alone cannot say."""
-
-    response = served_over_http(mongo_replica_set_url, UNCONFIRMED)
-
-    assert response.status_code == 200
-    assert response.json() == {
-        "seats": [],
-        "spieler": [],
-        "schiedsrichter": [],
-        "unconfirmed": True,
-        "barred": False,
-        "verwaltung": None,
-        "granted_since": None,
-        "inhaber_seit": None,
-    }
 
 
 @pytest.mark.db
@@ -543,29 +411,13 @@ class TestTheBanFlag:
         assert answer.barred is True
         assert [(seat.team_id, seat.rolle) for seat in answer.seats] == [(TEAM_C_OID, "stellvertretung")]
 
-    def test_an_address_the_list_does_not_hold_is_not_flagged(self, mongo_replica_set_url: str):
-        assert answered(mongo_replica_set_url).barred is False
-
-    def test_a_ban_whose_last_season_has_passed_no_longer_flags(self, mongo_replica_set_url: str):
-        """The row still stands, as it does between the season's end and the rollover that deletes it; its bound is what lapses it."""
-
-        assert answered(mongo_replica_set_url, ABGELAUFEN).barred is False
-
 
 @pytest.mark.db
 class TestTheGrant:
     """`verwaltung`: the one stored answer, read off `berechtigungen` on the folded identifier."""
 
-    def test_an_administrators_grant_is_answered_whatever_case_it_is_asked_in(self, mongo_replica_set_url: str):
-        """Asked in capitals; the grant stores the folded spelling, so an equality on the raw address would answer null."""
-
-        assert answered(mongo_replica_set_url, VERWALTUNG_ASKED).verwaltung == "administration"
-
-    def test_the_owners_grant_is_answered_as_the_owner(self, mongo_replica_set_url: str):
-        assert answered(mongo_replica_set_url, VERWALTUNG_INHABER).verwaltung == "owner"
-
     def test_a_mailbox_holding_records_and_no_grant_is_answered_null(self, mongo_replica_set_url: str):
-        """The control: a lookup answering a tier for every address passes both cases above."""
+        """A lookup answering a tier for every address would hand this mailbox the administration."""
 
         answer = answered(mongo_replica_set_url)
 

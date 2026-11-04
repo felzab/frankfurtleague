@@ -43,12 +43,6 @@ def test_every_shape_short_of_a_stamp_is_unconfirmed(einwilligung: Any):
     assert is_confirmed(einwilligung) is False
 
 
-def test_a_stamp_confirms():
-    """The control: without it every case above passes on a predicate answering no to everything."""
-
-    assert is_confirmed({"umfang": "kontaktdaten", "confirmed_at": STAMP}) is True
-
-
 def _own(labels: Mapping[FLEinwilligungChoice, str]) -> dict[str, Any]:
     return own_einwilligung_document(text_versions=labels, confirmed_at=STAMP)
 

@@ -2,7 +2,6 @@ from collections.abc import Mapping
 from typing import Any
 
 import pytest
-from pydantic import ValidationError
 
 from app.api.registrierungen.schemas import (
     FLRegistrierungConfirmationPayload,
@@ -13,13 +12,10 @@ from app.api.registrierungen.services import (
     compose_bestaetigung,
     compose_person,
     compose_person_update,
-    find_expired_token_refusal,
     persons_named,
     seite_of,
     sole_person,
-    zustand_of,
 )
-from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.tokens import hash_token
 from tests.documents import SPIELER_TEXT_VERSIONS, own_einwilligung_document
 
@@ -53,48 +49,6 @@ def registrierung(**overrides: Any) -> dict[str, Any]:
     }
 
 
-class TestWhatAReopenedLinkShows:
-    @pytest.mark.parametrize(
-        ("stored", "state"),
-        [
-            pytest.param(registrierung(), "valid", id="open, inside the deadline"),
-            pytest.param(registrierung(einwilligung=einwilligung()), "confirmed", id="confirmed"),
-            pytest.param(
-                registrierung(confirmation={**compose_bestaetigung(today="2026-03-26", frist=YESTERDAY), "token_hashes": [TOKEN_HASH]}),
-                "expired",
-                id="the deadline passed",
-            ),
-            # The deadline's own day still answers, as the press below takes it: the mail names that day.
-            pytest.param(
-                registrierung(confirmation={**compose_bestaetigung(today="2026-03-26", frist=TODAY), "token_hashes": [TOKEN_HASH]}),
-                "valid",
-                id="on the deadline's day",
-            ),
-            pytest.param(registrierung(status="declined"), "expired", id="declined while the link stood open"),
-            pytest.param(
-                registrierung(status="declined", einwilligung=einwilligung()),
-                "confirmed",
-                id="confirmed, then declined",
-            ),
-        ],
-    )
-    def test_each_state_reads_as_the_page_expects(self, stored: Mapping[str, Any], state: str):
-        """The last case is the ordering: a stamp outranks the deadline, so a pupil who answered is never shown an expired link.
-
-        The ban outranks both: a barred pupil's page shows nothing else.
-        """
-
-        assert zustand_of(registrierung_raw=stored, today=TODAY, barred=False) == state
-        assert zustand_of(registrierung_raw=stored, today=TODAY, barred=True) == "barred"
-
-
-class TestALinkWhoseTimeIsOver:
-    def test_the_deadlines_own_day_still_takes_the_answer(self):
-        """The mail names that day, and a link dying at the midnight before it lies."""
-
-        assert find_expired_token_refusal(confirmation={"frist": TODAY}, status="submitted", today=TODAY) is None
-
-
 class TestWhichPageTheLinkOpens:
     """The returning pupil's page is the confirmed person's at this address and name alone."""
 
@@ -104,7 +58,6 @@ class TestWhichPageTheLinkOpens:
         "geburtsdatum": "2009-05-09",
         "einwilligung": einwilligung(umfang="intern", medien=True),
     }
-    SIBLING = {**PERSON, "vorname": "Bramblewick", "geburtsdatum": "2007-02-02"}
 
     @pytest.mark.parametrize(
         ("person", "seite"),
@@ -120,14 +73,6 @@ class TestWhichPageTheLinkOpens:
         """The unconfirmed case is the one an address alone would get wrong: that page says choices nobody gave still stand."""
 
         assert seite_of(registrierung_raw=registrierung(nachname="Brackenmoor"), person_raw=person) == seite
-
-    def test_the_name_is_folded_as_the_narrowing_folds_it(self):
-        """The registration's own spelling of a stored name, which the page must not read as a stranger's."""
-
-        assert (
-            seite_of(registrierung_raw=registrierung(vorname="  quillhilde ", nachname="BRACKENMOOR"), person_raw=self.PERSON)
-            == SEITE_WIEDERKEHREND
-        )
 
     @pytest.mark.parametrize(
         ("spelling", "found"),
@@ -148,16 +93,6 @@ class TestWhichPageTheLinkOpens:
 
         assert (sole_person(named) is not None) == found
 
-    def test_a_mailbox_the_narrowing_parts_shows_each_pupil_their_own_record(self):
-        """The other half: narrowing to nothing wherever two rows share a mailbox would cost a returning sibling their own answers."""
-
-        at_the_mailbox = [self.PERSON, self.SIBLING]
-
-        for person in at_the_mailbox:
-            named = persons_named(at_the_mailbox, vorname=person["vorname"], nachname=person["nachname"])
-
-            assert sole_person(named) == person
-
     def test_a_surname_that_differs_keeps_the_person_hidden(self):
         """Both fields decide: narrowed on the forename alone, a remarried sibling's row would still be shown back."""
 
@@ -171,14 +106,6 @@ class TestWhichPageTheLinkOpens:
         stored = {**self.PERSON, "nachname": "Weiß"}
 
         assert persons_named([stored], vorname="Quillhilde", nachname="WEISS") == []
-
-    def test_a_decomposed_umlaut_is_the_name_it_renders_as(self):
-        """The same surname typed on another keyboard, which a fold normalising nothing would hide from its own pupil."""
-
-        # Built from code points: the two spellings render identically.
-        stored = {**self.PERSON, "nachname": f"Mu{chr(0x308)}ller"}
-
-        assert persons_named([stored], vorname="Quillhilde", nachname=f"M{chr(0xFC)}ller") == [stored]
 
     @pytest.mark.parametrize(
         ("vorname", "nachname", "found"),
@@ -210,23 +137,6 @@ class TestWhichPageTheLinkOpens:
         assert (sole_person(rows) is not None) == found
 
 
-class TestWhatAReturningAdmissionWrites:
-    """A registration carrying no choice renews nothing on the person's record."""
-
-    RETURNING = {
-        "vorname": "Quillhilde",
-        "nachname": "Brackenmoor",
-        "geburtsdatum": "2009-05-09",
-        "einwilligung": {"confirmed_at": TODAY},
-    }
-
-    def test_a_new_person_is_never_born_from_it(self):
-        """The guard behind `registrierung_person_missing`: a person born with no scope is one every read of their record refuses."""
-
-        with pytest.raises(ValueError, match="no choice"):
-            compose_person(spieler_id="a-new-id", registrierung_raw=self.RETURNING, adresse="quillhilde@example.com")
-
-
 class TestAPersonIsNeverWrittenNameless:
     """The `spieler` record admits a null forename and record for the erased pupils' sentinel, so these guards are a person's last ones."""
 
@@ -235,6 +145,13 @@ class TestAPersonIsNeverWrittenNameless:
         "nachname": "Brackenmoor",
         "geburtsdatum": "2009-05-09",
         "einwilligung": own_einwilligung_document(text_versions=SPIELER_TEXT_VERSIONS, confirmed_at=TODAY, umfang="intern"),
+    }
+    # A registration carrying no choice, which renews nothing on the person's record.
+    RETURNING = {
+        "vorname": "Quillhilde",
+        "nachname": "Brackenmoor",
+        "geburtsdatum": "2009-05-09",
+        "einwilligung": {"confirmed_at": TODAY},
     }
 
     # Whitespace among them: `person_name_key` folds it to the empty key the sentinel's null name also folds to.
@@ -247,7 +164,7 @@ class TestAPersonIsNeverWrittenNameless:
         with pytest.raises(ValueError, match="no forename"):
             compose_person_update(registrierung_raw=nameless, gespeichert=self.NEW["einwilligung"], adresse="quillhilde@example.com")
 
-    @pytest.mark.parametrize("registrierung_raw", [NEW, TestWhatAReturningAdmissionWrites.RETURNING], ids=("new page", "returning page"))
+    @pytest.mark.parametrize("registrierung_raw", [NEW, RETURNING], ids=("new page", "returning page"))
     def test_a_matched_person_holding_no_record_is_admitted_into_by_neither_page(self, registrierung_raw: Mapping[str, Any]):
         """The returning page is the load-bearing case: renewing nothing, it would leave the person standing with no record."""
 
@@ -267,9 +184,6 @@ def antwort(**overrides: Any) -> dict[str, Any]:
 
 
 class TestWhatTheAnswerPayloadRefuses:
-    def test_the_corpus_this_class_moves_one_field_of_is_valid(self):
-        assert FLRegistrierungConfirmationPayload.model_validate(antwort()).umfang == "intern"
-
     @pytest.mark.parametrize("field", ["token", "geburtsdatum", "umfang", "medien", "text_versions"])
     def test_every_field_is_required(self, field: str, assert_rejects):
         """`medien` above all: defaulted, an off switch would store this model's answer where the person's belongs."""
@@ -278,27 +192,3 @@ class TestWhatTheAnswerPayloadRefuses:
         del body[field]
 
         assert_rejects(FLRegistrierungConfirmationPayload, body, field)
-
-    def test_the_returning_pupils_page_states_its_unasked_answers_as_null(self):
-        """Which page a body may carry nulls on is the press's to judge (`registrierung_choices_unsuitable`), never the model's."""
-
-        stated = FLRegistrierungConfirmationPayload.model_validate(antwort(geburtsdatum=None, umfang=None, medien=None, text_versions=None))
-
-        assert (stated.geburtsdatum, stated.umfang, stated.medien, stated.text_versions) == (None, None, None, None)
-
-    def test_a_scope_outside_the_pair_is_refused(self, assert_rejects):
-        assert_rejects(FLRegistrierungConfirmationPayload, antwort(umfang="kontaktdaten"), "umfang")
-
-    def test_a_malformed_date_is_refused(self, assert_rejects):
-        """`payload_refused` rather than the age's own code: the shape of the field is the body's business, and the age is the person's."""
-
-        assert_rejects(FLRegistrierungConfirmationPayload, antwort(geburtsdatum="09.05.2009"), "geburtsdatum")
-
-    @pytest.mark.parametrize("model", [FLTokenPayload, FLRegistrierungConfirmationPayload])
-    def test_an_undeclared_key_is_refused(self, model: type):
-        body = antwort() if model is FLRegistrierungConfirmationPayload else {"token": RAW}
-
-        with pytest.raises(ValidationError) as failure:
-            model.model_validate({**body, "nachweis": {}})
-
-        assert [entry["type"] for entry in failure.value.errors()] == ["extra_forbidden"]

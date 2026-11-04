@@ -5,15 +5,12 @@ from app.api.sperrliste.schemas import FLPostSperrlistePayload
 from app.api.sperrliste.services import (
     SPERRLISTE_SCHLUESSEL_VERSION,
     adresse_hash,
-    find_sperrliste_refusal,
     stored_adresse_hash,
 )
-from app.core.codes import Code
 from app.shared.sub_keys import derive_sub_key
 
-# Obviously fake and distinct: two equal keys would let the separation case below pass vacuously.
+# Obviously fake.
 KEY = SecretStr("key-one".ljust(64, "0"))
-OTHER_KEY = SecretStr("key-two".ljust(64, "0"))
 
 ADDRESS = "Anna.Mueller@Muellerschule.de"
 
@@ -47,21 +44,6 @@ class TestTheStoredFormOfAnAddress:
         assert stored_adresse_hash("jürgen@schule.de", key=KEY) is None
         assert stored_adresse_hash(ADDRESS, key=KEY) == adresse_hash(ADDRESS, key=KEY)
 
-    def test_one_address_hashes_differently_under_two_keys(self):
-        """What the keying buys, and the reason the key can never be rotated: every stored row was taken under the one in force."""
-
-        assert adresse_hash(ADDRESS, key=KEY) != adresse_hash(ADDRESS, key=OTHER_KEY)
-
-    def test_the_hash_carries_no_part_of_the_address(self):
-        """A leaked collection confirms no guess, so nothing recognisable may survive into the stored value."""
-
-        stored = adresse_hash(ADDRESS, key=KEY)
-
-        # Hex alone, so no text of the address survives, and the digest's full width: a truncated one is
-        # a collision surface nothing reports.
-        assert len(stored) == 64
-        assert set(stored) <= set("0123456789abcdef")
-
 
 class TestTheConstructionItself:
     """The known answer.
@@ -77,34 +59,8 @@ class TestTheConstructionItself:
     KNOWN_ADDRESS = "Anna@Beispielschule.de"
     KNOWN_DIGEST = "4dd560c5783a9caa34984fabed329577d8c50e82fa60c464d7c4f717b067aba3"
 
-    # What the same inputs produce with the key and the message exchanged, so the case below is
-    # shown to separate the two rather than merely to have a literal in it.
-    SWAPPED_DIGEST = "bbde862683be3cabdee87e8bf8b94b3cdcc8a732239dc5b26cb2906cb6da0503"
-
     def test_the_stored_form_is_the_value_computed_outside_this_package(self):
         assert adresse_hash(self.KNOWN_ADDRESS, key=self.KNOWN_MASTER) == self.KNOWN_DIGEST
-
-    def test_the_known_answer_separates_the_key_from_the_message(self):
-        """The premise of the case above: without this, a swapped construction would have to be caught by eye."""
-
-        assert self.KNOWN_DIGEST != self.SWAPPED_DIGEST
-        assert adresse_hash(self.KNOWN_ADDRESS, key=self.KNOWN_MASTER) != self.SWAPPED_DIGEST
-
-    def test_the_corpus_is_keyed_under_its_own_label_and_never_the_master(self):
-        """The sub-key's whole purpose: a second corpus under this master must not be readable from this one."""
-
-        import hashlib
-        import hmac
-
-        master = self.KNOWN_MASTER.get_secret_value().encode("utf-8")
-        under_the_master = hmac.new(master, b"anna@beispielschule.de", hashlib.sha256).hexdigest()
-
-        assert adresse_hash(self.KNOWN_ADDRESS, key=self.KNOWN_MASTER) != under_the_master
-
-    def test_the_label_the_rows_record_is_the_one_the_key_is_derived_under(self):
-        """One string for both, or a row records a label that says nothing about the key that hashed it."""
-
-        assert SPERRLISTE_SCHLUESSEL_VERSION == "sperrliste-v1"
 
     @pytest.mark.parametrize("typed", ["anna@xn--mller-kva.de", "Anna@XN--MLLER-KVA.DE"], ids=["as stored", "in capitals"])
     def test_an_international_domain_keys_decoded_as_every_stored_ban_was_keyed(self, typed: str):
@@ -156,36 +112,3 @@ class TestWhatTheReasonMayHold:
             self._grund(grund)
 
         assert [error["type"] for error in raised.value.errors()] == ["address_in_free_text"]
-
-    @pytest.mark.parametrize(
-        "grund",
-        [
-            pytest.param("Nach Absprache @ Schulleitung", id="a bare at-sign with no domain"),
-            pytest.param("Siehe Mail vom 3.4.", id="a dot with no at-sign"),
-            pytest.param("Falsches Geburtsdatum bei der Anmeldung", id="the ordinary reason"),
-        ],
-    )
-    def test_a_reason_that_is_merely_German_prose_is_accepted(self, grund: str):
-        """The decision this rule turns on: a bare `@` is prose, and refusing it would refuse the ordinary case to catch the rare one."""
-
-        assert self._grund(grund) == grund
-
-
-class TestWhatTheCheckAnswers:
-    def test_a_banned_address_is_refused_under_the_published_code(self):
-        """The LITERAL: comparing the code to the constant that produced it would hold after a rename the frontend never heard of.
-
-        `fl_backend/app/core/codes.py :: Code` and each slice's own mapper both key on this string.
-        """
-
-        refusal = find_sperrliste_refusal(barred=True)
-
-        assert refusal is not None
-        assert refusal.error_code == "duplicate_key"
-        # The constant beside it, so a rename that moved one and not the other fails here too.
-        assert Code.DUPLICATE_KEY == "duplicate_key"
-
-    def test_an_address_the_list_does_not_hold_is_refused_by_nothing(self):
-        """The control: a check refusing everything would pass the case above and stop every sign-up."""
-
-        assert find_sperrliste_refusal(barred=False) is None

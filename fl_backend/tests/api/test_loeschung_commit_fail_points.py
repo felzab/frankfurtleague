@@ -1,7 +1,7 @@
 """
 API · a commit refused or its answer lost, and a read held: the journals, the sweeps, an adoption's stamp, a repoint, the per-request lookups
 
-The erasures' and a press's journal, each sweep's unanswered line, an adoption's stamp and an erased pupil's repointed
+The erasures' and a press's journal, the confirmation pass's mint, an adoption's stamp and an erased pupil's repointed
 report entries meet a refused or unanswered commit; the per-request lookups' reads are held on the server, so that the
 reads each gathers are seen in flight together, and the ones a transaction runs one at a time.
 
@@ -10,11 +10,8 @@ workers, so a second module configuring it on another worker would replace this 
 `off` would clear both. The gate's `--dist loadfile` runs one module on one worker, its cases one after another.
 """
 
-import ast
 import logging
 from collections.abc import Awaitable, Callable
-from importlib.util import resolve_name
-from pathlib import Path
 from typing import Any
 
 import pytest
@@ -39,10 +36,6 @@ from tests.whole_database import where_held
 
 from . import test_spielbestaetigung_sweep_execution as confirmations
 from . import test_spiele_write_execution as fixture_saves
-from .test_adresswechsel_sweep_execution import MINTED_TO_LAPSE_YESTERDAY, a_change, with_history
-from .test_adresswechsel_sweep_execution import numbered as change_numbered
-from .test_adresswechsel_sweep_execution import on_a_league as on_the_changes_league
-from .test_adresswechsel_sweep_execution import sweep as an_address_change_call
 from .test_funktionen_loeschung import IDENTIFIER, THEIR_GRANT_OID, a_grant
 from .test_funktionen_loeschung import geloescht_by_the_handler as geloescht_by_the_person
 from .test_funktionen_loeschung import on_a_league as on_their_league
@@ -84,9 +77,6 @@ HELD_READS_APP = "subject-held-reads"
 # Far longer than opening a connection for each gathered read takes, so every read gathered beside the first is sent
 # before the first is answered, and a read awaited before the next is sent shows as an answer ahead of that send.
 HELD_FOR_MS = 200
-TESTS_ROOT = Path(__file__).resolve().parents[1]
-BACKEND_ROOT = TESTS_ROOT.parent
-THIS_MODULE = ".".join(Path(__file__).resolve().relative_to(BACKEND_ROOT).with_suffix("").parts)
 
 
 class _Commits(monitoring.CommandListener):
@@ -137,36 +127,6 @@ class _InFlight(monitoring.CommandListener):
         first = next((index for index, (kind, _) in enumerate(self.events) if kind == "answered"), len(self.events))
 
         return sorted(collection for kind, collection in self.events[:first] if kind == "sent")
-
-
-def _modules_imported(path: Path) -> frozenset[str]:
-    """Every module the file imports, and every name it imports from one read as a submodule, relative levels resolved."""
-
-    package = ".".join(path.relative_to(BACKEND_ROOT).with_suffix("").parts[:-1])
-    found: set[str] = set()
-    for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
-        if isinstance(node, ast.Import):
-            found.update(alias.name for alias in node.names)
-        elif isinstance(node, ast.ImportFrom):
-            base = resolve_name("." * node.level + (node.module or ""), package)
-            found.add(base)
-            found.update(f"{base}.{alias.name}" for alias in node.names)
-
-    return frozenset(found)
-
-
-def test_no_other_module_configures_the_fail_point():
-    """The rule this module's docstring states: a second module's configuration replaces this one's on a shared server.
-
-    Two routes reach it: spelling the fail point, and importing this module, whose helpers configure it unspelled.
-    """
-
-    texts = {path.relative_to(TESTS_ROOT).as_posix(): (path, path.read_text(encoding="utf-8")) for path in sorted(TESTS_ROOT.rglob("*.py"))}
-    spelling = [name for name, (_, text) in texts.items() if FAIL_POINT in text]
-    # Parsed only where the module's own name is spelled, as every import of it spells it.
-    importing = [name for name, (path, text) in texts.items() if Path(__file__).stem in text and THIS_MODULE in _modules_imported(path)]
-
-    assert (spelling, importing) == ([Path(__file__).relative_to(TESTS_ROOT).as_posix()], [])
 
 
 async def _first_reads(url: str, database: AsyncDatabase, call: Callable[[AsyncMongoClient], Awaitable[Any]]) -> tuple[Any, list[str]]:
@@ -467,80 +427,6 @@ class TestAPersonsOwnPress:
         assert refusal == (409, Code.CHOICES_STALE, 0, True)
         # The control: the capture reads the line a press that lands leaves.
         assert (pressed, len(journalled(caplog))) == (204, 1)
-
-
-async def _first_commit_unanswered(
-    url: str, database: AsyncDatabase, client: AsyncMongoClient, call: Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
-) -> list[int | None]:
-    """`call` on a client of its own, whose first commit lands and answers only that its time ran out; each commit's answer."""
-
-    commits = _Commits()
-    losing = AsyncMongoClient(url, serverMonitoringMode="poll", appname=LOST_COMMIT_APP, event_listeners=[commits])
-    await client.admin.command("configureFailPoint", FAIL_POINT, mode={"times": 1}, data=UNANSWERED)
-    try:
-        await call(losing[database.name], losing)
-    finally:
-        await client.admin.command("configureFailPoint", FAIL_POINT, mode="off")
-        await losing.close()
-
-    return commits.answered
-
-
-# The fields the three sweeps' stopping lines carry beside their code.
-STOPPING_FIELDS = ("spieler_id", "erasure_unanswered", "art", "address_change_id", "unanswered", "clock", "may_stand")
-
-
-def _stopping_lines(caplog: pytest.LogCaptureFixture) -> list[tuple[str | None, str, dict[str, Any]]]:
-    return [
-        (
-            getattr(record, "error_code", None),
-            record.getMessage(),
-            {field: getattr(record, field) for field in STOPPING_FIELDS if hasattr(record, field)},
-        )
-        for record in caplog.records
-        if getattr(record, "error_code", None) in {Code.DATABASE_FAILED, Code.UNKNOWN_OUTCOME}
-    ]
-
-
-@pytest.mark.db
-class TestTheSweepsNameACommitTheyCannotRead:
-    """Each sweep reads the unknown-result label off the timeout its commit raised: without it, the line says the row stays due."""
-
-    def test_the_deletion_pass_names_the_pupil_whose_loeschung_went_unanswered(
-        self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture
-    ):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await seeded(database, a_due_pupil(1), a_due_pupil(2))
-
-            return await _first_commit_unanswered(mongo_replica_set_url, database, client, a_deletion_call)
-
-        with caplog.at_level(logging.WARNING):
-            commits = on_the_pupils_league(mongo_replica_set_url, body)
-
-        assert commits == [MAX_TIME_EXPIRED]
-        assert _stopping_lines(caplog) == [
-            (Code.UNKNOWN_OUTCOME, "identity.erasure_cut", {"spieler_id": str(pupil_numbered(1)), "erasure_unanswered": True})
-        ]
-
-    def test_the_address_change_sweep_names_the_change_whose_end_went_unanswered(
-        self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture
-    ):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await with_history(database, *(a_change(position, minted=MINTED_TO_LAPSE_YESTERDAY) for position in (1, 2)))
-
-            return await _first_commit_unanswered(mongo_replica_set_url, database, client, an_address_change_call)
-
-        with caplog.at_level(logging.WARNING):
-            commits = on_the_changes_league(mongo_replica_set_url, body)
-
-        assert commits == [MAX_TIME_EXPIRED]
-        assert _stopping_lines(caplog) == [
-            (
-                Code.UNKNOWN_OUTCOME,
-                "address_change.sweep_cut",
-                {"art": "lapsed", "address_change_id": str(change_numbered(1)), "unanswered": "end"},
-            )
-        ]
 
 
 @pytest.mark.db

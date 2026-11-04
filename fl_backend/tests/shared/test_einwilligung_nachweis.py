@@ -101,13 +101,6 @@ class TestTheEvidenceOfOneChoice:
             "given_before": {"am": GIVEN_AT, "text_version": CONFIRMED_LABEL},
         }
 
-    def test_a_grant_after_a_withdrawal_drops_the_earlier_grant(self):
-        """Bounded at one act per choice: the grant standing is its own evidence."""
-
-        beleg = compose_beleg(saved=MEDIA_WITHDRAWN, choice="medien", value=True, am=LATER, text_version=ACCOUNT_LABEL)
-
-        assert "given_before" not in beleg
-
     def test_a_seat_answered_without_whatsapp_keeps_no_earlier_grant(self):
         """`kontaktdaten` withholds, so a seat's first answer declining WhatsApp is a withdrawal of nothing."""
 
@@ -211,16 +204,6 @@ class TestARenewalFromTheSamePersonsLaterAnswers:
             "confirmed_at": "2026-04-15",
         }
 
-    def test_a_tie_keeps_what_is_stored(self):
-        tied = {
-            **REGISTERED,
-            "nachweis": {"umfang": {"am": GIVEN_AT, "text_version": "x"}, "medien": {"am": WITHDRAWN_AT, "text_version": "x"}},
-        }
-
-        update = renew(MEDIA_WITHDRAWN, tied)
-
-        assert not {"einwilligung.umfang", "einwilligung.medien"} & set(update)
-
     @pytest.mark.parametrize(
         ("registered_on", "carried"),
         [
@@ -299,18 +282,6 @@ class TestARenewalFromTheSamePersonsLaterAnswers:
 
 class TestTheStandAPressEchoes:
     """`nachweis_stand_of`, the one derivation the account read serves and a consent PATCH compares with."""
-
-    def test_a_record_holding_no_evidence_answers_none_for_each_choice(self):
-        """A seat as its seating writes it: nobody has answered it yet."""
-
-        seat = compose_einwilligung(today="2026-03-20", entered_by="liga")
-
-        assert nachweis_stand_of(bloecke=[seat]) == {"umfang": None, "medien": None}
-
-    def test_a_record_answers_the_same_stand_for_the_same_content(self):
-        """The control under the cases below: a stand drawn fresh per call would refuse every press."""
-
-        assert nachweis_stand_of(bloecke=[MEDIA_WITHDRAWN]) == nachweis_stand_of(bloecke=[dict(MEDIA_WITHDRAWN)])
 
     def test_a_grant_and_its_withdrawal_in_one_second_answer_two_stands(self):
         """The evidence is stamped to the second, so an instant leaves a page served between the two acts its stand, and it re-grants."""

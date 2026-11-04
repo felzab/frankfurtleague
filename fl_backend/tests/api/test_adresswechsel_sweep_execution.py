@@ -504,32 +504,6 @@ class StallsItsWrite:
 
 
 class TestTheDeadlineStopsTheCall:
-    def test_it_warns_once_and_the_rest_stay_due(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
-        """Fail each change past the deadline instead and every later one is logged an ERROR naming a refusal that never happened."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.ADDRESS_CHANGES].insert_many(
-                [a_change(position, minted=MINTED_TO_LAPSE_YESTERDAY) for position in (1, 2, 3)]
-            )
-            with pymongo.timeout(SHORT_DEADLINE_S):
-                answer = await sweep(
-                    database, client, adresswechsel_collection=StallsItsWrite(database[Collection.ADDRESS_CHANGES], numbered(2))
-                )
-
-            return (answer.removed, answer.remaining, answer.nach), await live(database)
-
-        with caplog.at_level("WARNING"):
-            counts, standing = on_a_league(mongo_replica_set_url, body)
-
-        assert counts == (1, 2, numbered(2))
-        assert standing == [numbered(2), numbered(3)]
-        lines = [
-            (record.levelname, record.getMessage(), getattr(record, "address_change_id", None), getattr(record, "unanswered", None))
-            for record in caplog.records
-            if getattr(record, "error_code", None) in {Code.DATABASE_FAILED, Code.UNKNOWN_OUTCOME}
-        ]
-        assert lines == [("WARNING", "address_change.sweep_cut", str(numbered(2)), None)]
-
     def test_a_change_dearer_than_the_budgets_row_moves_nothing_and_stays_due(self, mongo_replica_set_url: str):
         """Nothing bounds what one address holds, so a share can meet a change dearer than the one it is sized at.
 

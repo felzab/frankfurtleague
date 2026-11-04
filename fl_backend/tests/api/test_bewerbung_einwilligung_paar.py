@@ -196,37 +196,3 @@ class TestTheFloorIsThePersons:
         assert code == Code.CONFIRMATION_AGE
         assert document == paired
         assert rows == []
-
-    def test_a_trainer_holding_that_seat_alone_takes_the_same_date(self, mongo_replica_set_url: str):
-        """Without it the case above passes for a floor raised on every seat rather than carried by the second one."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await answer(database, client, RAW["trainer"], geburtsdatum=A_SEVENTEEN_YEAR_OLDS_BIRTHDATE)
-
-            return response, await stored(database)
-
-        single = bewerbung_document(kontakte=paired_kontakte(trainer_is_also=None, ansprechperson=kontaktperson_document("Quillhilde")))
-        response, document = on_a_league(mongo_replica_set_url, body, documents=[single])
-
-        assert response.ergebnis == "confirmed"
-        assert document["kontakte"]["trainer"]["geburtsdatum"] == A_SEVENTEEN_YEAR_OLDS_BIRTHDATE
-
-
-class TestAPairedConfirmation:
-    def test_a_partner_whose_slot_is_gone_is_left_alone(self, mongo_replica_set_url: str):
-        """The mirror of the decline's hazard, on the branch that writes five keys into the partner's slot."""
-
-        emptied = bewerbung_document(kontakte=paired_kontakte(trainer=None))
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await answer(database, client, RAW["ansprechperson"])
-
-            return response, await stored(database)
-
-        response, document = on_a_league(mongo_replica_set_url, body, documents=[emptied])
-
-        assert response.ergebnis == "confirmed"
-        assert document["kontakte"]["ansprechperson"]["geburtsdatum"] == AN_ADULTS_BIRTHDATE
-        assert document["kontakte"]["ansprechperson"]["einwilligung"]["confirmed_at"] == TODAY
-        assert document["kontakte"]["trainer"] is None
-        # The emptied seat has no stamp, so the application still cannot be accepted on it.

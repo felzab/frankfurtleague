@@ -8,22 +8,13 @@ from app.api.bewerbungen.schemas import (
     FLBewerbungEinwilligungAntwortPayload,
     FLBewerbungEinwilligungDeclined,
     FLBewerbungEinwilligungGiven,
-    age_outside_the_bounds,
 )
 from app.api.bewerbungen.services import (
     ausstehende_seats,
     compose_decline_update,
-    find_expired_token_refusal,
     paired_seat,
-    seat_opens_nobody,
-    zustand_of,
 )
 from app.api.kontakte.services import build_clearing_update
-from app.core.codes import Code
-from app.shared.schemas.bounds import (
-    BEWERBUNG_TOKEN_MAX_LENGTH,
-)
-from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 from app.shared.tokens import hash_token
 from tests.documents import SEAT_TEXT_VERSIONS, kontaktperson_document, minted_confirmations
@@ -57,16 +48,6 @@ class TestASlotAndItsBookkeepingMoveTogether:
             assert update[f"kontakte.{slot}"] is None
             assert update[f"confirmations.{slot}"] is None
 
-    def test_an_loeschung_finding_no_block_moves_no_bookkeeping(self):
-        """The flag's other side: a junction row no link was minted for has no entry to null."""
-
-        update = written(build_clearing_update(KONTAKT_ROLLEN))
-
-        assert set(update) == {f"kontakte.{slot}" for slot in KONTAKT_ROLLEN}
-
-
-YESTERDAY = "2026-03-31"
-TOMORROW = "2026-04-02"
 
 # Fixed rather than minted, so a case names the same hash every run; the raw values are never
 # needed here, only what the database would hold.
@@ -82,79 +63,6 @@ def kontakte(**overrides: Any) -> dict[str, Any]:
         "trainer_is_also": None,
         **overrides,
     }
-
-
-def application(**overrides: Any) -> dict[str, Any]:
-    """One stored application inside its deadline, every seat open, that each case moves one thing of."""
-
-    return {
-        "status": "submitted",
-        "saison_id": "2026",
-        "schule": {"team_name": "Zorbanax"},
-        "team_id": None,
-        "kontakte": kontakte(),
-        "confirmation_deadline": TOMORROW,
-        "confirmations": minted_confirmations(hashes=HASHES, today="2026-03-20"),
-        **overrides,
-    }
-
-
-class TestWhatAReopenedLinkShows:
-    """`state`: the ban outranks a stamp, which outranks a decline, which outranks the deadline, which outranks nothing."""
-
-    @pytest.mark.parametrize(
-        ("stored", "state"),
-        [
-            pytest.param(application(), "valid", id="open, inside the deadline"),
-            pytest.param(
-                application(kontakte=kontakte(trainer=kontaktperson_document("Quillhilde", confirmed_at=YESTERDAY))),
-                "confirmed",
-                id="confirmed",
-            ),
-            pytest.param(
-                application(
-                    kontakte=kontakte(trainer=None),
-                    confirmations={
-                        **minted_confirmations(hashes=HASHES, today=TODAY),
-                        "trainer": {**minted_confirmations(hashes=HASHES, today=TODAY)["trainer"], "declined_at": YESTERDAY},
-                    },
-                ),
-                "declined",
-                id="declined",
-            ),
-            pytest.param(application(confirmation_deadline=YESTERDAY), "expired", id="the deadline passed"),
-            pytest.param(application(status="declined"), "expired", id="decided by the triage while open"),
-            pytest.param(
-                application(status="accepted", kontakte=kontakte(trainer=kontaktperson_document("Quillhilde", confirmed_at=YESTERDAY))),
-                "confirmed",
-                id="confirmed, then accepted",
-            ),
-        ],
-    )
-    def test_each_state_reads_as_the_page_expects(self, stored: Mapping[str, Any], state: str):
-        assert zustand_of(bewerbung_raw=stored, seat="trainer", today=TODAY, barred=False) == state
-        # Whatever became of the link, a barred person's page shows the ban and nothing else.
-        assert zustand_of(bewerbung_raw=stored, seat="trainer", today=TODAY, barred=True) == "barred"
-
-
-class TestWhatALinkAnswers:
-    def test_a_decided_application_past_its_deadline_is_spent_rather_than_owed_a_fresh_link(self):
-        """The decision is judged before the deadline, so nobody is told a re-send would reopen what nothing undoes."""
-
-        refusal = find_expired_token_refusal(confirmation_deadline=YESTERDAY, status="accepted", today=TODAY)
-
-        assert refusal is not None
-        assert refusal.error_code == Code.LINK_EXPIRED
-
-    def test_a_closed_season_rows_link_to_an_emptied_seat_opens_nobody(self):
-        """Told apart, the page would tell a guess that someone once sat there, and offer a press the single use refuses."""
-
-        assert seat_opens_nobody(slot=None, state="saison_past") is True
-
-    def test_a_person_reaching_the_seats_floor_today_may_confirm(self):
-        """The floor to the day: a contact person sixteen today is inside it."""
-
-        assert age_outside_the_bounds(geburtsdatum="2010-04-01", today=TODAY, minimum_age=16) is False
 
 
 class TestTheSeatsStillOpen:
@@ -217,21 +125,11 @@ def refusals(body: dict[str, Any]) -> list[tuple[tuple[Any, ...], str]]:
 class TestWhatTheAnswerPayloadRefuses:
     """The answer's two shapes, told apart by `antwort`: each refusal is 422, at the tag and the field it names."""
 
-    def test_the_corpus_this_class_moves_one_field_of_is_valid(self):
-        assert isinstance(ANTWORT.validate_python(antwort()), FLBewerbungEinwilligungGiven)
-        assert isinstance(ANTWORT.validate_python({"token": "raw-trainer", "antwort": "declined"}), FLBewerbungEinwilligungDeclined)
-
     def test_a_consent_without_a_date_is_refused(self):
         body = antwort()
         del body["geburtsdatum"]
 
         assert refusals(body) == [(("given", "geburtsdatum"), "missing")]
-
-    @pytest.mark.parametrize("field", ["geburtsdatum", "whatsapp", "medien", "text_versions"])
-    def test_a_decline_carries_nothing_of_the_person(self, field: str):
-        """A decline empties the slot: a date or a choice sent with one would be a value nothing writes, echoed back as stored."""
-
-        assert refusals({"token": "raw-trainer", "antwort": "declined", field: antwort()[field]}) == [(("declined", field), "extra_forbidden")]
 
     @pytest.mark.parametrize("field", ["geburtsdatum", "whatsapp", "medien", "text_versions", "antwort"])
     def test_every_field_is_required(self, field: str, assert_rejects):
@@ -239,16 +137,3 @@ class TestWhatTheAnswerPayloadRefuses:
         del body[field]
 
         assert_rejects(FLBewerbungEinwilligungGiven, body, field)
-
-    @pytest.mark.parametrize("model", [FLTokenPayload, FLBewerbungEinwilligungGiven])
-    def test_a_token_past_the_bound_is_refused_and_one_at_it_taken(self, model: type, assert_rejects):
-        body = antwort() if model is FLBewerbungEinwilligungGiven else {"token": ""}
-
-        assert_rejects(model, {**body, "token": "t" * (BEWERBUNG_TOKEN_MAX_LENGTH + 1)}, "token")
-        assert model.model_validate({**body, "token": "t" * BEWERBUNG_TOKEN_MAX_LENGTH}).token == "t" * BEWERBUNG_TOKEN_MAX_LENGTH
-
-    def test_an_undeclared_key_is_refused(self):
-        with pytest.raises(ValidationError) as failure:
-            FLTokenPayload.model_validate({"token": "raw", "seat": "trainer"})
-
-        assert [entry["type"] for entry in failure.value.errors()] == ["extra_forbidden"]

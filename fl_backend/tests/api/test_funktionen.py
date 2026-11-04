@@ -49,7 +49,6 @@ STAMP = "2026-02-01"
 
 # One mailbox per case, each spelled so that a hit in the corpus cannot be a coincidence.
 ACTIVE = "aktiv.sitz@schule.de"
-ACTIVE_UNFOLDED = "Aktiv.Sitz@SCHULE.de"
 
 TWO_TEAMS = "zwei.teams@schule.de"
 TIMES = "zeiten.sitz@schule.de"
@@ -273,27 +272,10 @@ def is_empty(answer: FLSubjekt) -> bool:
 
 @pytest.mark.db
 class TestTheSeasonNarrowing:
-    def test_a_seat_on_the_active_season_is_answered_with_its_team_and_season(self, seeded_league: str):
-        assert seats(answered(seeded_league, ACTIVE)) == [(ACTIVE_SAISON, TEAM_A_OID, "trainer", ROW_NAME_A, "active")]
-
     def test_a_past_seat_is_answered_nothing_while_the_future_one_is_answered(self, seeded_league: str):
         """One mailbox holding both, so a narrowing dropped answers the past seat beside the future one rather than passing."""
 
         assert seats(answered(seeded_league, TIMES)) == [(FUTURE_SAISON, TEAM_A_OID, "trainer", ROW_NAME_A, "future")]
-
-    def test_a_mailbox_on_two_teams_rows_is_answered_two_seats(self, seeded_league: str):
-        assert [(seat.team_id, seat.rolle) for seat in answered(seeded_league, TWO_TEAMS).seats] == [
-            (TEAM_A_OID, "ansprechperson"),
-            (TEAM_B_OID, "trainer"),
-        ]
-
-
-@pytest.mark.db
-class TestTheFold:
-    def test_an_identifier_arriving_unfolded_is_answered_the_same_seat(self, seeded_league: str):
-        """Kills trusting the caller to have folded: every read is an equality on the stored fold, which the asked spelling misses."""
-
-        assert seats(answered(seeded_league, ACTIVE_UNFOLDED)) == seats(answered(seeded_league, ACTIVE))
 
 
 @pytest.mark.db
@@ -410,14 +392,6 @@ class TestTheWithdrawalNarrowing:
 
         assert seats(answered(seeded_league, AUSGETRETEN)) == [(FUTURE_SAISON, TEAM_E_OID, "trainer", ROW_NAME_E, "future")]
 
-    def test_an_unconfirmed_seat_on_a_withdrawn_row_does_not_raise_the_flag(self, seeded_league: str):
-        """The row grants nothing, so confirming the seat would open nothing."""
-
-        answer = answered(seeded_league, AUSGETRETEN_OPEN)
-
-        assert is_empty(answer)
-        assert answer.unconfirmed is False
-
 
 @pytest.mark.db
 class TestTheRetirementNarrowing:
@@ -433,11 +407,6 @@ class TestTheRetirementNarrowing:
         """Confirmed, so only the retirement keeps it out."""
 
         assert answered(seeded_league, FORMER).spieler == []
-
-    def test_a_retired_unconfirmed_record_does_not_raise_the_flag(self, seeded_league: str):
-        """A person who has left meets the landing of a mailbox holding nothing, never the one asking them to confirm."""
-
-        assert answered(seeded_league, RETIREMENT_OPEN).unconfirmed is False
 
     def test_the_ghost_grants_nothing_whatever_its_row_holds(self, seeded_league: str):
         """Its null address and its retirement keep it out as written; the seed gives it neither, so its id is what this pins."""

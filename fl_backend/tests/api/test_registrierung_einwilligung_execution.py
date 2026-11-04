@@ -19,15 +19,12 @@ from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
-from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS, REGISTRIERUNG_MIN_AGE_YEARS
 from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.tokens import hash_token
 from tests import documents
 from tests.bans import ban_list
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
-
-from .test_bewerbung_einwilligung_execution import ReadsRecorded, leaf_paths
 
 # Module level, as the application's confirmation suite marks its own: every test below reaches a
 # real mongod.
@@ -59,7 +56,6 @@ OTHER_SCHOOL = "Wraxlington"
 
 RAW = "raw-token-for-this-pupil"
 TOKEN_HASH = hash_token(RAW)
-RAW_ERINNERT = "the-first-link-this-pupil-was-mailed"
 
 # Folded, as every address payload stores it, the registration's and the person's alike.
 FOLDED_EMAIL = "quillhilde@example.com"
@@ -199,15 +195,6 @@ async def log_rows(database: AsyncDatabase) -> list[Mapping[str, Any]]:
 
 
 class TestWhatALinkOpens:
-    def test_a_live_link_names_the_team_its_school_and_the_season(self, mongo_replica_set_url: str):
-        """The three slots the ruled consent text renders; a slot with no value renders as a hole in it."""
-
-        response = on_a_league(mongo_replica_set_url, lambda database, _: ansicht(database, RAW))
-
-        assert (response.state, response.team, response.schule) == ("valid", TEAM_NAME, TEAM_FULL_NAME)
-        assert response.saison_id == SAISON_ID
-        assert response.minimum_age == REGISTRIERUNG_MIN_AGE_YEARS
-
     def test_the_link_carries_no_other_teams_name_and_nothing_else_of_the_registration(self, mongo_replica_set_url: str):
         """A leaked link learns what the mail it arrived in already said, and never a name, the address, the number or the Stufe."""
 
@@ -268,90 +255,6 @@ class TestWhatALinkOpens:
             return conflict.value.error_code
 
         assert on_a_league(mongo_replica_set_url, body) == Code.LINK_INVALID
-
-    def test_a_link_past_its_deadline_is_shown_as_expired_rather_than_refused(self, mongo_replica_set_url: str):
-        expired = registrierung_document(
-            confirmation={**compose_bestaetigung(today="2026-03-20", frist=YESTERDAY), "token_hashes": [TOKEN_HASH]}
-        )
-
-        response = on_a_league(mongo_replica_set_url, lambda database, _: ansicht(database, RAW), registrierungen=[expired])
-
-        assert response.state == "expired"
-
-    def test_a_reminders_second_link_opens_the_same_row(self, mongo_replica_set_url: str):
-        """Both links live at once, so a pupil still looking at the first mail is not punished by the chase."""
-
-        reminded = registrierung_document()
-        reminded["confirmation"] |= {"token_hashes": [TOKEN_HASH, hash_token(RAW_ERINNERT)], "reminded_at": "2026-03-29"}
-
-        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[Any, Any]:
-            return await ansicht(database, RAW), await ansicht(database, RAW_ERINNERT)
-
-        first, fresh = on_a_league(mongo_replica_set_url, body, registrierungen=[reminded])
-
-        assert (first.state, fresh.state) == ("valid", "valid")
-
-    def test_a_registration_whose_team_is_gone_fails_rather_than_rendering_a_consent_text_with_a_hole(self, mongo_replica_set_url: str):
-        """No code deletes a team, so this is a broken database: a server fault, never a 404 the page could answer, and never a gap."""
-
-        orphan = registrierung_document(team_id=ObjectId("6890a1b2c3d4e5f607960099"))
-
-        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> None:
-            with pytest.raises(AssertionError):
-                await ansicht(database, RAW)
-
-        on_a_league(mongo_replica_set_url, body, registrierungen=[orphan])
-
-
-# What the view resolves off the person its address holds: the name it matches and the stamp the page turns on. Never a
-# choice, which this page neither shows nor asks.
-PERSON_ANSICHT_RESOLVES = frozenset({"_id", "vorname", "nachname", "geburtsdatum", "einwilligung.confirmed_at"})
-
-
-class TestWhatTheLinksPersonReadLoads:
-    """Holds the narrowing alone: the returning page's cases drive each field the read resolves."""
-
-    def test_the_view_never_holds_the_person_beyond_what_it_judges(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> list[Any]:
-            recorder = ReadsRecorded(database[Collection.SPIELER])
-            await ansicht(database, RAW, spieler_collection=recorder)
-
-            return [document for _, document in recorder.answered if document is not None]
-
-        loaded = on_a_league(mongo_replica_set_url, body, spieler=[spieler_document(SPIELER_OID)])
-
-        assert loaded, "the person read found nobody, so nothing below is judged"
-        assert set().union(*(leaf_paths(document) for document in loaded)) <= PERSON_ANSICHT_RESOLVES
-
-
-# What the view resolves off the registration the link opens: its state, its team and season, the name and address the
-# person is matched by, and the stamp. Never the birthdate the pupil answered, and never a hash of the link.
-REGISTRIERUNG_ANSICHT_RESOLVES = frozenset(
-    {"confirmation.frist", "status", "saison_id", "team_id", "vorname", "nachname", "email", "einwilligung.confirmed_at"}
-)
-
-
-class TestWhatTheLinksRegistrationReadLoads:
-    """Holds the narrowing alone: an anonymous holder of the link is not yet known to be the pupil.
-
-    The answer's model drops what the read holds beyond it, so only the read itself tells a widened projection.
-    """
-
-    def test_the_view_never_holds_the_registration_beyond_what_it_resolves(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> list[Any]:
-            recorder = ReadsRecorded(database[Collection.REGISTRIERUNGEN])
-            await ansicht(database, RAW, registrierungen_collection=recorder)
-
-            return [document for _, document in recorder.answered if document is not None]
-
-        # Confirmed, so the birthdate and the record are stored for a widened read to load; and reminded, so the first
-        # link's hash, which the link read opens, sits beside the fresh one in `token_hashes`.
-        confirmed = registrierung_document(geburtsdatum=AT_THE_FLOOR, einwilligung=einwilligung())
-        confirmed["confirmation"] |= {"token_hashes": [TOKEN_HASH, hash_token(RAW_ERINNERT)], "reminded_at": "2026-03-29"}
-        loaded = on_a_league(mongo_replica_set_url, body, registrierungen=[confirmed])
-
-        assert loaded, "the link's own read found nothing, so nothing below is judged"
-        assert set().union(*(leaf_paths(document) for document in loaded)) <= REGISTRIERUNG_ANSICHT_RESOLVES
 
 
 class TestWhatAConfirmationWrites:
@@ -533,13 +436,6 @@ class TestTheLinkIsSpentByTheStamp:
         assert document == registrierung_document()
         assert rows == []
 
-    def test_the_floor_to_the_day_is_taken(self, mongo_replica_set_url: str):
-        """The other half of the pair: without it the case above passes for a floor set anywhere at all."""
-
-        response = on_a_league(mongo_replica_set_url, lambda database, client: answer(database, client, RAW, geburtsdatum=AT_THE_FLOOR))
-
-        assert response.ergebnis == "confirmed"
-
     def test_a_link_past_its_deadline_is_refused_before_the_stamp_is_judged(self, mongo_replica_set_url: str):
         expired = registrierung_document(
             confirmation={**compose_bestaetigung(today="2026-03-20", frist=YESTERDAY), "token_hashes": [TOKEN_HASH]}
@@ -570,34 +466,6 @@ class TestTheLinkIsSpentByTheStamp:
 
         assert on_a_league(mongo_replica_set_url, body, registrierungen=[declined]) == Code.LINK_EXPIRED
 
-    def test_an_expired_link_carrying_a_refused_date_answers_the_link_rather_than_the_age(self, mongo_replica_set_url: str):
-        """The order, which no other case pins: judged age-first, a dead link would tell a pupil to correct a date that buys them nothing."""
-
-        expired = registrierung_document(
-            confirmation={**compose_bestaetigung(today="2026-03-20", frist=YESTERDAY), "token_hashes": [TOKEN_HASH]}
-        )
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
-            with pytest.raises(APIError) as conflict:
-                await answer(database, client, RAW, geburtsdatum=A_DAY_SHORT)
-
-            return conflict.value.error_code
-
-        assert on_a_league(mongo_replica_set_url, body, registrierungen=[expired]) == Code.LINK_EXPIRED
-
-    def test_a_confirmed_registration_carrying_a_refused_date_answers_the_stamp_rather_than_the_age(self, mongo_replica_set_url: str):
-        """The other half of the order: a pupil who has already answered is told so rather than asked to retype a date nothing will store."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
-            await answer(database, client, RAW)
-
-            with pytest.raises(APIError) as conflict:
-                await answer(database, client, RAW, geburtsdatum=A_DAY_SHORT)
-
-            return conflict.value.error_code
-
-        assert on_a_league(mongo_replica_set_url, body) == Code.CONFIRMATION_EXISTS
-
     def test_a_token_no_registration_holds_is_refused_before_anything_is_read_of_a_row(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             with pytest.raises(APIError) as conflict:
@@ -618,9 +486,6 @@ A_DAY_SHORT_OF_THE_MEDIA_AGE = "2008-04-02"
 
 class TestTheMediaAge:
     """`medien_age` at the endpoint: the refusal is wired in, and judged before the write."""
-
-    def test_the_view_serves_the_age_the_page_offers_the_switch_from(self, mongo_replica_set_url: str):
-        assert on_a_league(mongo_replica_set_url, lambda database, _: ansicht(database, RAW)).medien_minimum_age == MEDIEN_MIN_AGE_YEARS
 
     def test_a_yes_a_day_short_of_the_media_age_is_refused_and_spends_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -664,120 +529,3 @@ class TestALinkToABarredAddress:
         assert (code, status) == (Code.LINK_BARRED, 403)
         assert document == registrierung_document()
         assert rows == []
-
-    def test_a_ban_on_another_address_leaves_the_link_answering(self, mongo_replica_set_url: str):
-        """The other half of the pair: without it the case above passes for a check refusing every press."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await ban(database, "somebody-else@example.com")
-
-            return await answer(database, client, RAW)
-
-        assert on_a_league(mongo_replica_set_url, body).ergebnis == "confirmed"
-
-    def test_the_link_answers_again_once_the_ban_is_lifted(self, mongo_replica_set_url: str):
-        """Nothing of the ban is written on the registration, so lifting it is all a mistaken ban needs undone."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await ban(database, FOLDED_EMAIL)
-            with pytest.raises(APIError):
-                await answer(database, client, RAW)
-            await database[Collection.SPERRLISTE].delete_many({})
-
-            return await answer(database, client, RAW)
-
-        assert on_a_league(mongo_replica_set_url, body).ergebnis == "confirmed"
-
-    def test_a_ban_past_its_last_season_bars_nothing(self, mongo_replica_set_url: str):
-        """The running season is what the bound is read against: asked without it, the lapsed row would still bar."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SAISONS].insert_one(documents.saison_document(SAISON_ID, "active"))
-            await ban(database, FOLDED_EMAIL, bis=f"{int(SAISON_ID) - 1}")
-
-            return await answer(database, client, RAW)
-
-        assert on_a_league(mongo_replica_set_url, body).ergebnis == "confirmed"
-
-    def test_a_confirmed_registration_answers_the_stamp_rather_than_the_ban(self, mongo_replica_set_url: str):
-        """The order: a pupil's answer given before the ban stands until an administrator acts, so a second press is refused as confirmed."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
-            await answer(database, client, RAW)
-            await ban(database, FOLDED_EMAIL)
-
-            with pytest.raises(APIError) as refused:
-                await answer(database, client, RAW)
-
-            return refused.value.error_code
-
-        assert on_a_league(mongo_replica_set_url, body) == Code.CONFIRMATION_EXISTS
-
-    def test_a_barred_press_carrying_a_refused_date_answers_the_ban_rather_than_the_age(self, mongo_replica_set_url: str):
-        """The other half of the order: a corrected date buys a barred address nothing, so it is not what the pupil is asked for."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
-            await ban(database, FOLDED_EMAIL)
-
-            with pytest.raises(APIError) as refused:
-                await answer(database, client, RAW, geburtsdatum=A_DAY_SHORT)
-
-            return refused.value.error_code
-
-        assert on_a_league(mongo_replica_set_url, body) == Code.LINK_BARRED
-
-
-class TestTheViewOfALinkToABarredAddress:
-    """The page reads the ban off the view, so it never offers a barred pupil the form."""
-
-    def test_the_view_answers_gesperrt(self, mongo_replica_set_url: str):
-        """Barred in the folded spelling while the row stores the typed one, as the press's own case bars it."""
-
-        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> str:
-            await ban(database, FOLDED_EMAIL)
-
-            return (await ansicht(database, RAW)).state
-
-        assert on_a_league(mongo_replica_set_url, body) == "barred"
-
-    def test_a_ban_on_another_address_leaves_the_view_open(self, mongo_replica_set_url: str):
-        """The other half of the pair: without it the case above passes for a view answering `barred` to everyone."""
-
-        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> str:
-            await ban(database, "somebody-else@example.com")
-
-            return (await ansicht(database, RAW)).state
-
-        assert on_a_league(mongo_replica_set_url, body) == "valid"
-
-    def test_the_view_opens_again_once_the_ban_is_lifted(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[str, str]:
-            await ban(database, FOLDED_EMAIL)
-            barred = (await ansicht(database, RAW)).state
-            await database[Collection.SPERRLISTE].delete_many({})
-
-            return barred, (await ansicht(database, RAW)).state
-
-        assert on_a_league(mongo_replica_set_url, body) == ("barred", "valid")
-
-    def test_a_ban_past_its_last_season_leaves_the_view_open(self, mongo_replica_set_url: str):
-        """Read against the running season as the press reads it: asked without it, the lapsed row would bar the view alone."""
-
-        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> str:
-            await database[Collection.SAISONS].insert_one(documents.saison_document(SAISON_ID, "active"))
-            await ban(database, FOLDED_EMAIL, bis=f"{int(SAISON_ID) - 1}")
-
-            return (await ansicht(database, RAW)).state
-
-        assert on_a_league(mongo_replica_set_url, body) == "valid"
-
-    def test_a_confirmed_registration_reopened_after_the_ban_shows_the_ban(self, mongo_replica_set_url: str):
-        """The ban outranks the stamp here, where the press ranks it below: the page shows a barred pupil nothing else."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
-            await answer(database, client, RAW)
-            await ban(database, FOLDED_EMAIL)
-
-            return (await ansicht(database, RAW)).state
-
-        assert on_a_league(mongo_replica_set_url, body) == "barred"

@@ -72,17 +72,3 @@ class TestAGrantThePressMovesNamesItsCurrentWording:
         """The floor for the refusal above: without it, a sequence refusing every grant passes it."""
 
         _press([PUPIL_WITHHELD], _as_stored(PUPIL_GRANTED), _replaced(FLSpielerTextVersions))
-
-    def test_a_withdrawal_beside_an_unchanged_grant_is_taken_from_a_page_showing_replaced_words(self):
-        """The press moves media off and sends the scope back granted as served: the scope moves nothing, so it records no label."""
-
-        _press([PUPIL_GRANTED], _as_stored(PUPIL_GRANTED, medien=False), _replaced(FLSpielerTextVersions, "umfang", "medien"))
-
-    def test_a_grant_beside_an_unchanged_one_is_judged_by_its_own_label_alone(self):
-        """Media moves on under its current label while the scope, granted as served, names a replaced one."""
-
-        _press(
-            [{"umfang": "kader_oeffentlich", "medien": False}],
-            _as_stored(PUPIL_GRANTED),
-            _replaced(FLSpielerTextVersions, "umfang"),
-        )

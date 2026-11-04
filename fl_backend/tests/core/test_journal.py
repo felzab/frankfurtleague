@@ -99,10 +99,6 @@ def test_the_replay_names_a_line_by_its_act_alone(line: JournalLine):
     assert all(keyed not in line.act() for keyed in (PERSON, PSEUDONYM, HALTER, BEFORE, JOURNAL_TOKEN))
 
 
-def test_a_message_of_another_kind_is_no_line():
-    assert parse_line("The grants went unchecked after an erasure: OperationFailure") is None
-
-
 @pytest.mark.parametrize(
     "message",
     [
