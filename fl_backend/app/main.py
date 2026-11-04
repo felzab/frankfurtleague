@@ -58,6 +58,7 @@ from app.core.db import lifespan
 from app.core.exception_handlers import FAILURE_RESPONSES, FAILURE_STATUSES, register_exception_handlers
 from app.core.logging import fl_logger, setup_logging
 from app.core.middlewares import TracedApp
+from app.shared.schemas.bounds import ADDRESS_CHANGE_BOUNDS
 from app.shared.schemas.einwilligung import CURRENT_TEXT_VERSIONS
 from app.shared.schemas.responses import FLFailureBody
 
@@ -135,18 +136,23 @@ def with_failure_responses(document: Mapping[str, Any]) -> dict[str, Any]:
     return {**document, "components": {**components, "schemas": schemas, "responses": responses}}
 
 
-def with_current_text_versions(document: Mapping[str, Any]) -> dict[str, Any]:
-    """`document` publishing each consent's current label as a schema of its own, which the frontend's grants are checked against.
+# Every alias a frontend constant is checked against: each consent's current label, which a grant sends, and the
+# address change's bounds, which the pages state.
+MIRRORED_CONSTANTS: Final = (*CURRENT_TEXT_VERSIONS, *ADDRESS_CHANGE_BOUNDS)
+
+
+def with_mirrored_constants(document: Mapping[str, Any]) -> dict[str, Any]:
+    """`document` publishing each of `MIRRORED_CONSTANTS` as a schema of its own, which the frontend's constants are checked against.
 
     No operation names one alone, and Pydantic inlines an alias that a model references only once.
     """
 
     components = document.get("components", {})
     adapters: list[tuple[str, JsonSchemaMode, TypeAdapter[Any]]] = [
-        (alias.__name__, "validation", TypeAdapter(alias)) for alias in CURRENT_TEXT_VERSIONS
+        (alias.__name__, "validation", TypeAdapter(alias)) for alias in MIRRORED_CONSTANTS
     ]
-    labels = TypeAdapter.json_schemas(adapters, ref_template=SCHEMA_REF)[1]["$defs"]
-    schemas = dict(sorted({**components.get("schemas", {}), **labels}.items()))
+    constants = TypeAdapter.json_schemas(adapters, ref_template=SCHEMA_REF)[1]["$defs"]
+    schemas = dict(sorted({**components.get("schemas", {}), **constants}.items()))
 
     return {**document, "components": {**components, "schemas": schemas}}
 
@@ -161,7 +167,7 @@ def publish_document(app: FastAPI) -> None:
     def openapi() -> dict[str, Any]:
         if not app.openapi_schema:
             document = get_openapi(title=DOCUMENT_TITLE, version=app.version, openapi_version=app.openapi_version, routes=app.routes)
-            app.openapi_schema = with_current_text_versions(with_failure_responses(document))
+            app.openapi_schema = with_mirrored_constants(with_failure_responses(document))
 
         return app.openapi_schema
 

@@ -36,8 +36,9 @@ export const answerAddressChange = action({
   run: async ({ token: link, side, act }): Promise<{ ok: true; value: EndState }> => {
     const answer = act === "primary" ? "confirmed" : "declined";
     // The sign-in store is this server's, so the backend's press cannot refuse an account at the new address: refused
-    // here, as the backend's own refusals of the address are. A decline is refused nothing.
-    if (answer === "confirmed" && side === "new" && (await accountAtNewAddress({ token: link }))) return { ok: true, value: LINK_INVALID };
+    // here, as the backend's own refusals of the address are. A decline is refused nothing. Asked whatever side the form
+    // posts, which a holder can edit: the lookup answers only the new mailbox's token, so the address on file's finds none.
+    if (answer === "confirmed" && (await accountAtNewAddress({ token: link }))) return { ok: true, value: LINK_INVALID };
 
     let answered;
     try {
