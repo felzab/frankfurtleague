@@ -349,7 +349,7 @@ STORED_AM = "2026-01-20T11:00:00+00:00"
 STORED_GRANT = {choice: {"am": STORED_AM, "text_version": label} for choice, label in SPIELER_TEXT_VERSIONS.items()}
 
 
-def granted_under_an_older_label() -> dict[str, Any]:
+def granted_by_an_earlier_registration() -> dict[str, Any]:
     return documents.own_einwilligung_document(
         text_versions=documents.SPIELER_TEXT_VERSIONS, confirmed_at="2026-01-20", am=STORED_AM, medien=True
     )
@@ -670,7 +670,7 @@ class TestThePersonAnAdmissionNames:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.SPIELER].insert_one(
-                a_stored_person(stored_id, einwilligung={**granted_under_an_older_label(), "medien": False})
+                a_stored_person(stored_id, einwilligung={**granted_by_an_earlier_registration(), "medien": False})
             )
             registrierung_id = await seed(database, registrierung_document())
             fresh = (await database[Collection.REGISTRIERUNGEN].find_one({"_id": registrierung_id}) or {})["einwilligung"]
@@ -708,7 +708,7 @@ class TestThePersonAnAdmissionNames:
         )["$set"]["einwilligung"]
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SPIELER].insert_one(a_stored_person(stored_id, einwilligung=granted_under_an_older_label()))
+            await database[Collection.SPIELER].insert_one(a_stored_person(stored_id, einwilligung=granted_by_an_earlier_registration()))
             registrierung_id = await seed(database, registrierung_document(einwilligung=bestaetigt))
             stored = (await database[Collection.SPIELER].find_one({"_id": stored_id}) or {})["einwilligung"]
             press = compose_person_move(
@@ -758,7 +758,7 @@ class TestThePersonAnAdmissionNames:
         )["$set"]["einwilligung"]
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SPIELER].insert_one(a_stored_person(stored_id, einwilligung=granted_under_an_older_label()))
+            await database[Collection.SPIELER].insert_one(a_stored_person(stored_id, einwilligung=granted_by_an_earlier_registration()))
             registrierung_id = await seed(database, registrierung_document(einwilligung=bestaetigt))
             await patch_registrierung_einwilligung(
                 registrierung_id=registrierung_id,
@@ -873,7 +873,7 @@ class TestAReturningRegistration:
 
     # Confirmed under an older label, its media grant standing, so a renewal of either choice or a
     # restamp of the label would each move a byte.
-    HELD = granted_under_an_older_label()
+    HELD = granted_by_an_earlier_registration()
 
     def test_its_person_moved_off_the_address_before_the_admission_admits_nobody(self, mongo_replica_set_url: str):
         """Not as a new person: the registration carries no choice for one to stand on."""

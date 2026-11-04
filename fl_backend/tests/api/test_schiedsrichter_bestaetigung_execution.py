@@ -77,7 +77,7 @@ TELEFON = "+49 69 1234567"
 AN_ADULTS_BIRTHDATE = "1984-05-09"
 A_CHILDS_BIRTHDATE = "2018-01-01"
 
-# The label the referee page runs, the one a new acceptance must name.
+# The labels the referee page names beside its two choices.
 TEXT_VERSIONS = documents.SCHIEDSRICHTER_TEXT_VERSIONS
 
 # Seeded before every confirmation that asserts on it, so "the write reaches one collection" is a
