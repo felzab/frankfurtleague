@@ -30,8 +30,10 @@ const MAILED_LINK_SECONDS = 60 * 60;
 
 /**
  * The proxy's answer to a mailed link's first request: a redirect to `page`'s plain address, its token held in
- * `page`'s cookie, or `null` where the request carries no token. A repeated or empty parameter is no link at all, so
- * it deletes a cookie an earlier link left rather than keeping that link alive.
+ * `page`'s cookie, or `null` where the request carries no token. A repeated parameter is no link at all, so it
+ * deletes a cookie an earlier link left rather than keeping that link alive. A single empty one never reaches here:
+ * Next's matcher reads an empty query value as absent, so the page renders on the cookie it holds, as its plain
+ * address does, and no mail sends that spelling.
  */
 export function swapMailedLinkToken(req: NextRequest, page: string): NextResponse | null {
   const tokens = req.nextUrl.searchParams.getAll(TOKEN_PARAMETER);
@@ -39,7 +41,7 @@ export function swapMailedLinkToken(req: NextRequest, page: string): NextRespons
 
   const answer = NextResponse.redirect(new URL(page, req.nextUrl));
   const [token] = tokens;
-  if (tokens.length !== 1 || token === undefined || token === "") {
+  if (tokens.length !== 1 || token === undefined) {
     answer.cookies.delete({ name: MAILED_LINK_COOKIE, path: page });
     return answer;
   }
