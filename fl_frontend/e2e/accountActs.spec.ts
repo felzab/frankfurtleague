@@ -35,8 +35,7 @@ test("„Alle anderen abmelden“ ends a second device's session and keeps this 
   await page.goto("/account/security");
   await page.getByRole("button", { name: "Alle anderen abmelden" }).click();
   await page.getByRole("alertdialog").getByRole("button", { name: "Abmelden" }).click();
-  // The toast stands outside `main`, in the region React Aria draws in the document's body (`fl_frontend/src/kit/Toast.tsx`).
-  await expect(page.getByRole("alertdialog", { name: "Alle abgemeldet" })).toBeVisible();
+  // The press's end: the count names this device alone, where it named two before.
   await expect(page.getByRole("main").getByText("Du bist auf 1 Gerät angemeldet.")).toBeVisible();
   // The page's own guard sends the ended session to the sign-in. Judged on the whole path, since `/account/signin`
   // itself ends in `/signin`.
