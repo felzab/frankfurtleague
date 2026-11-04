@@ -1,5 +1,5 @@
 import { COPY } from "@/core/copy";
-import { dayOf, formatDatum, formatUhrzeit, timeOf } from "@/core/format";
+import { dayOf, formatDatumWithWeekday, formatUhrzeit, timeOf } from "@/core/format";
 import { buildMapsSearchUrl } from "@/core/maps";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
@@ -152,7 +152,7 @@ export function popupFactsOf(spiel: FLSpielJoined): Fact[] {
   const day = dayOf(spiel.datum);
   const time = timeOf(spiel.uhrzeit);
   const facts: (Fact | null)[] = [
-    day === null ? null : { label: fact.datum, glyph: "calendar", value: { record: formatDatum(day) }, figures: true },
+    day === null ? null : { label: fact.datum, glyph: "calendar", value: { record: formatDatumWithWeekday(day) }, figures: true },
     time === null ? null : { label: fact.uhrzeit, glyph: "uhrzeit", value: { record: formatUhrzeit(time) }, figures: true },
     spiel.ort === null
       ? null
