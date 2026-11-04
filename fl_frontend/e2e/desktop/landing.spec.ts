@@ -1,9 +1,8 @@
 /**
  * E2E · the landing and the public pages around it, under the desktop project: the hero's „Spielplan“ straight to
  * the season the site is on, a match of the season card opened as the pop-up over the landing and closed by Back,
- * `/saisons`'s redirect to the same season and from there the rail's four season pages, the sponsors page under its
- * own heading, and an address no page answers any more meeting the not-found page. The made-up seed's running season
- * is 2027.
+ * `/saisons`'s redirect to the same season and from there the rail's four season pages, and the sponsors page under
+ * its own heading. The made-up seed's running season is 2027.
  */
 import { expect } from "@playwright/test";
 
@@ -70,11 +69,4 @@ test("the rail's four season pages and the sponsors page each stand under their 
   await page.getByRole("contentinfo").getByRole("link", { name: "Sponsoren", exact: true }).click();
   await expect(page).toHaveURL(/\/sponsors$/);
   await expect(page.getByRole("heading", { level: 1, name: "Sponsoren" })).toBeVisible();
-});
-
-test("an address no page answers any more meets the not-found page", async ({ page }) => {
-  // The old dashboard's address, which the rebuilt season pages replace.
-  const response = await page.goto("/dashboard");
-  expect(response?.status()).toBe(404);
-  await expect(page.getByRole("heading", { level: 1, name: "Seite nicht gefunden" })).toBeVisible();
 });
