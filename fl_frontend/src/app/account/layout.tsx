@@ -21,8 +21,7 @@ export default function KontoLayout({ children }: { children: ReactNode }) {
       groups={[{ entries: KONTO_ENTRIES }]}
       bar={["signin"]}
       foot={{ kind: "account", account: readAccount(COPY.template.account) }}
-      // The landing sends a session on to the page its Funktionen open on, its Übersicht.
-      back={ROUTES.signInLanding.path()}
+      back={ROUTES.area.path()}
       columnInLayouts>
       {children}
     </RailFrame>
