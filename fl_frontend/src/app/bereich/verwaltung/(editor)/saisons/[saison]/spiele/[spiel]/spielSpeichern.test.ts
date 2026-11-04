@@ -5,7 +5,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { COPY } from "@/core/copy";
 import { APIBadStatusError } from "@/core/errors";
 import { SERVER_COPY } from "@/core/serverCopy";
-import { SITE_CACHE_TAG } from "@/core/siteCache";
 
 import { KEIN_SONDEREREIGNIS } from "./spielWerte";
 
@@ -46,17 +45,18 @@ const NICHTS_BEWEGT: FLPatchSpielDataResponse = {
   bericht_adopted: null,
 };
 
-/** The fixture the save reads before its write, every payload it sends, what the write answers, and each tag cleared. */
+/** The fixture the save reads before its write, every payload it sends, and what the write answers. */
 const stand = vi.hoisted(() => ({
   gelesen: null as unknown,
   gesendet: [] as unknown[],
   ablehnung: null as unknown,
   antwort: null as unknown,
-  cleared: [] as string[],
 }));
 
 vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
-vi.mock("next/cache", () => ({ updateTag: (tag: string) => void stand.cleared.push(tag) }));
+// Next's `updateTag` throws outside a Server Action, and the write the real dispatch counts reaches it; whether a
+// save clears the site's cache is `core/action.test.ts`'s.
+vi.mock("next/cache", () => ({ updateTag: () => undefined }));
 vi.mock("@/core/auth", () => ({ judgeAdminRequest: async () => ({ session: {} }) }));
 
 vi.mock("@/features/spiele/queries", () => ({
@@ -93,7 +93,6 @@ beforeEach(() => {
   stand.gesendet = [];
   stand.ablehnung = null;
   stand.antwort = NICHTS_BEWEGT;
-  stand.cleared = [];
 });
 
 /** The version the editor was read at. */
@@ -104,9 +103,8 @@ describe("the match editor's save", () => {
     const answer = await spielSpeichern({ id: SPIEL_ID, version: VERSION, changes: { uhrzeit: "18:00:00" } });
 
     expect(answer).toEqual({ ok: true, value: 4 });
-    // The write itself, never its dry run, and the site's cache cleared once it stands.
+    // The write itself, never its dry run.
     expect(calls.map(({ endpoint, method }) => ({ endpoint, method }))).toStrictEqual([{ endpoint: `/spiele/${SPIEL_ID}`, method: "PATCH" }]);
-    expect(stand.cleared).toStrictEqual([SITE_CACHE_TAG]);
     expect(stand.gesendet).toEqual([
       {
         datum: "2027-03-14",
@@ -280,8 +278,5 @@ describe("the match editor's save", () => {
     // The fixture changed since the editor read it: the write refused the version it was sent.
     stand.ablehnung = refusal("version_stale");
     expect(await spielSpeichern(save)).toEqual({ ok: false, errorCode: "version_stale", reason: COPY.shared.failure.stale });
-
-    // Every refusal took its write back, so nothing the site caches changed.
-    expect(stand.cleared).toStrictEqual([]);
   });
 });
