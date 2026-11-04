@@ -512,6 +512,18 @@ class TestTheAddressOnFileConfirmsFirst:
         assert (bisherig.view.way, bisherig.view.released_on) == ("account", None)
         assert [line.art for line in journal] == ["adresswechsel_abgelehnt"]
 
+    def test_once_in_effect_its_link_names_the_day_it_confirmed(self, mongo_replica_set_url: str):
+        """Opened again after the change took effect, the link says it is done, never that it died."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            minted = await start(database, client)
+            await answer(database, client, minted.token)
+            return (await view(database, client, minted.stopp_token)).view
+
+        seen = on_a_person(mongo_replica_set_url, body)
+
+        assert (seen.side, seen.state, seen.art, seen.released_on) == ("previous", "ended", "effective", TODAY)
+
     def test_past_its_deadline_it_confirms_nothing_and_still_declines(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             minted = await start(database, client, released=False)
