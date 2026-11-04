@@ -146,6 +146,8 @@ const STALE: ReadonlySet<Code> = new Set<Code>([
   "choices_stale",
   // A grant offered on a record that since takes a withdrawal alone.
   "giving_not_allowed",
+  // A choice moved onto a grant under a label reworded since the page was served.
+  "grant_wording_stale",
   // The address holds nothing a change moves, its records erased since the page was served.
   "address_change_nothing",
   // A team's refusals, which a screen setting no team meets only where the fixture changed under it; a screen
