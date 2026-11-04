@@ -85,8 +85,10 @@ test("Konto's frame, Darstellung and „Alle anderen abmelden“, on one sign-in
   await page.getByRole("alertdialog").getByRole("button", { name: "Abmelden" }).click();
   await expect(page.getByText("Alle abgemeldet", { exact: true })).toBeVisible();
   await expect(page.getByText("Du bist auf 1 Gerät angemeldet.")).toBeVisible();
+  // The page's own guard sends the ended session to the sign-in. Judged on the whole path, since `/account/signin`
+  // itself ends in `/signin`.
   await elsewhere.goto("/account/signin");
-  await expect(elsewhere).toHaveURL(/\/signin/);
+  await expect(elsewhere).toHaveURL((url) => url.pathname === "/signin");
   await page.goto("/account/signin");
   await expect(page).toHaveURL(/\/account\/signin$/);
   await other.close();
@@ -176,5 +178,5 @@ test("the person deletes their account from the mailed link, signed out when it 
 
   // The session is gone with the account: an area's page sends the browser to sign in.
   await page.goto("/area");
-  await expect(page).toHaveURL(/\/signin/);
+  await expect(page).toHaveURL((url) => url.pathname === "/signin");
 });

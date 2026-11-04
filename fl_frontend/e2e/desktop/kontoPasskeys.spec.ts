@@ -84,6 +84,6 @@ test("a person's passkeys on Sicherheit: set up, renamed, and removed with and w
   const own = await ownAnswer;
   expect(await own.headerValue("x-action-revalidated"), "the removal ending this device's session rendered a page again").toBeNull();
   expect(await own.text(), "the answer carries a render of Sicherheit").not.toContain("Alle anderen abmelden");
-  await expect(page).toHaveURL(/\/signin$/);
+  await expect(page).toHaveURL((url) => url.pathname === "/signin");
   await expect(page.getByRole("heading", { name: "Anmelden" })).toBeVisible();
 });
