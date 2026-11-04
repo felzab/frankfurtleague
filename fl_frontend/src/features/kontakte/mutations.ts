@@ -6,12 +6,10 @@ import {
 } from "@/core/generated/client/sdk";
 
 import type {
-  FLBewerbungAccountEinwilligungResponse,
   FLKontaktInviteResponse,
   FLKontaktRolle,
   FLPatchSaisonTeamKontaktePayload,
   FLPatchSaisonTeamKontakteResponse,
-  FLSaisonTeamAccountEinwilligungResponse,
   FLSeatEinwilligungPayload,
 } from "@/core/generated/client/types";
 
@@ -41,19 +39,12 @@ export async function einladeKontakt({
 
 // A seat holder's own two choices, under the person lane's actor: the backend moves them on every seat
 // of theirs on that row and judges the seat itself, a past season's included for a withdrawal.
-export async function patchSitzEinwilligung(
-  teamId: string,
-  saisonId: string,
-  payload: FLSeatEinwilligungPayload,
-): Promise<FLSaisonTeamAccountEinwilligungResponse> {
+export async function patchSitzEinwilligung(teamId: string, saisonId: string, payload: FLSeatEinwilligungPayload): Promise<void> {
   return teamsPatchEinwilligung(teamId, saisonId, payload);
 }
 
 // A seat holder's withdrawal on a pending application, under the person lane's actor: the backend moves
 // every seat of theirs on it and takes a withdrawal alone, a grant being the confirmation page's.
-export async function patchBewerbungEinwilligung(
-  bewerbungId: string,
-  payload: FLSeatEinwilligungPayload,
-): Promise<FLBewerbungAccountEinwilligungResponse> {
+export async function patchBewerbungEinwilligung(bewerbungId: string, payload: FLSeatEinwilligungPayload): Promise<void> {
   return bewerbungenPatchEinwilligung(bewerbungId, payload);
 }

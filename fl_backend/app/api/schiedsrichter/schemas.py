@@ -14,7 +14,7 @@ from app.shared.schemas.custom import (
     CustomOptionalDateString,
     CustomOptionalString,
 )
-from app.shared.schemas.einwilligung import FLEinwilligungStand, FLSchiedsrichterTextVersions, cite_their_kind, refuse_a_stale_grant
+from app.shared.schemas.einwilligung import FLSchiedsrichterTextVersions, cite_their_kind, refuse_a_stale_grant
 from app.shared.schemas.kontakt import CustomKontaktName, FLKontakt, FLKontaktPayload
 from app.shared.schemas.literals import FLAddressChangeViewableDenied, FLConfirmationState, FLEinwilligungUmfang, FLSortOrder
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
@@ -222,12 +222,3 @@ class FLSchiedsrichterSelfResponse(BaseAPIResponse):
     """Every confirmed referee record the signed-in address holds, the ghost never among them."""
 
     schiedsrichter: list[FLSchiedsrichterSelf]
-
-
-class FLSchiedsrichterAccountEinwilligungResponse(BaseAPIResponse):
-    """The record as it stands after the write, everything the person did not move unchanged."""
-
-    schiedsrichter_id: CustomObjectId
-    einwilligung: FLEinwilligung
-    # For `app/api/spieler/schemas.py :: FLSpielerAccountEinwilligungResponse`'s reason.
-    nachweis_stand: FLEinwilligungStand

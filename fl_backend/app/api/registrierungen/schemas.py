@@ -13,7 +13,6 @@ from app.shared.schemas.custom import (
 )
 from app.shared.schemas.einwilligung import (
     FLEinwilligungNachweise,
-    FLEinwilligungStand,
     FLSpielerTextVersions,
     cite_their_kind,
     refuse_a_stale_grant,
@@ -263,18 +262,6 @@ class FLRegistrierungConfirmationResponse(BaseAPIResponse):
     # Null on a returning pupil's press, which posted none.
     umfang: FLEinwilligungUmfang | None
     medien: bool | None
-
-
-# --- The pupil's own WITHDRAWAL on the account page, between the confirmation and the admission.
-
-
-class FLRegistrierungAccountEinwilligungResponse(BaseAPIResponse):
-    """The registration's consent record as it stands after the write, everything the pupil did not move unchanged."""
-
-    registrierung_id: CustomObjectId
-    einwilligung: FLRegistrierungEinwilligung
-    # For `app/api/spieler/schemas.py :: FLSpielerAccountEinwilligungResponse`'s reason.
-    nachweis_stand: FLEinwilligungStand
 
 
 # --- The retention SWEEP, system tier. The backend decides, erases and owes each reminder in the

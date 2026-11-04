@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Body, Depends
+from fastapi import APIRouter, Body, Depends, status
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
@@ -10,10 +10,8 @@ from app.api.account.services import (
     compose_sitz_move,
     find_eigener_eintrag_refusal,
     geaenderte_sitz_wahlen,
-    sitz_wahlen_der_zeile,
     widerruf_line,
 )
-from app.api.bewerbungen.schemas import FLBewerbungAccountEinwilligungResponse
 from app.api.identity.services import eigene_sitze
 from app.api.sperrliste.guard import PERSON_ACTOR_BINDERS, KontaktIdentifier
 from app.core.collections import Collection
@@ -24,7 +22,7 @@ from app.core.journal import Journal
 from app.core.recording import log_stamp
 from app.core.security import erasure_journal_hash, verify_access_admin
 from app.core.transactions import transaction_session
-from app.shared.einwilligung_nachweis import FLEinwilligungChoice, nachweis_stand_of
+from app.shared.einwilligung_nachweis import FLEinwilligungChoice
 from app.shared.schemas.custom import CustomRouteObjectId
 from app.shared.schemas.einwilligung import FLSeatEinwilligungPayload, by_choice
 from app.shared.schemas.literals import KONTAKT_ROLLEN
@@ -39,7 +37,7 @@ router = APIRouter(
 # `/account/einwilligung`, its own segment, for `app/api/teams/person_router.py :: get_team_sitze`'s reason.
 @router.patch(
     "/{bewerbung_id:objectid}/account/einwilligung",
-    response_model=FLBewerbungAccountEinwilligungResponse,
+    status_code=status.HTTP_204_NO_CONTENT,
     summary="Withdraw a seat holder's own WhatsApp and media consent on a pending Bewerbung",
 )
 async def patch_einwilligung(
@@ -50,7 +48,7 @@ async def patch_einwilligung(
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
     germany_now: datetime = Depends(get_germany_now),
-) -> FLBewerbungAccountEinwilligungResponse:
+) -> None:
     """Withdraw the signed-in person's WhatsApp and media consents on every seat they hold on this pending application.
 
     A grant is refused. Refuses, writing nothing: `role_not_held`, `choices_stale` and
@@ -63,7 +61,7 @@ async def patch_einwilligung(
     journal = Journal()
 
     @journal.attempted
-    async def write(session: AsyncClientSession) -> FLBewerbungAccountEinwilligungResponse:
+    async def write(session: AsyncClientSession) -> None:
         # Pending alone: an accepted application's seats are its season row's, and a declined one is decided.
         bewerbung = await bewerbungen_collection.find_one(
             {"_id": bewerbung_id, "status": "submitted"},
@@ -89,17 +87,14 @@ async def patch_einwilligung(
             am=am,
             text_versions=by_choice(einwilligung_data.text_versions),
         )
-        updated = (
-            None
-            if update is None
-            else await patch_one_in_db(
+        if update is not None:
+            await patch_one_in_db(
                 collection=bewerbungen_collection,
                 db_filter={"_id": bewerbung["_id"]},
                 update=update,
                 session=session,
-                return_document=ReturnDocument.AFTER,
+                return_document=ReturnDocument.BEFORE,
             )
-        )
         line = widerruf_line(
             person_hash=erasure_journal_hash(identifier, key=config.sperrliste_key),
             collection=Collection.BEWERBUNGEN,
@@ -111,19 +106,7 @@ async def patch_einwilligung(
         )
         if line is not None:
             journal.note(line)
-        kontakte = bewerbung["kontakte"] if updated is None else updated["kontakte"]
-        bloecke = [kontakte[slot]["einwilligung"] for slot in rollen]
-
-        # For `app/api/teams/person_router.py :: patch_einwilligung`'s reason.
-        return FLBewerbungAccountEinwilligungResponse.model_validate(
-            {
-                "bewerbung_id": bewerbung_id,
-                "rollen": rollen,
-                **sitz_wahlen_der_zeile(bloecke),
-                "nachweis_stand": nachweis_stand_of(bloecke=bloecke),
-            }
-        )
 
     async with journal:
         async with transaction_session(db) as session:
-            return await session.with_transaction(write)
+            await session.with_transaction(write)

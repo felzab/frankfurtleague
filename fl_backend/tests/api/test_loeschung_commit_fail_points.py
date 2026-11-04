@@ -466,7 +466,7 @@ class TestAPersonsOwnPress:
 
         assert refusal == (409, Code.CHOICES_STALE, 0, True)
         # The control: the capture reads the line a press that lands leaves.
-        assert (pressed, len(journalled(caplog))) == (200, 1)
+        assert (pressed, len(journalled(caplog))) == (204, 1)
 
 
 async def _first_commit_unanswered(

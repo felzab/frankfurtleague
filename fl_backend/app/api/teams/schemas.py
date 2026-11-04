@@ -46,7 +46,6 @@ from app.shared.schemas.custom import (
 )
 from app.shared.schemas.einwilligung import (
     FLEinwilligungNachweise,
-    FLEinwilligungStand,
     FLSeatTextVersions,
     cite_their_kind,
 )
@@ -846,15 +845,3 @@ class FLTeamSeatsResponse(BaseAPIResponse):
     team_id: CustomObjectId
     saison_id: str
     seats: list[FLTeamSeat]
-
-
-class FLSaisonTeamAccountEinwilligungResponse(BaseAPIResponse):
-    """Which of the row's seats the press reached, and the two answers they now all hold."""
-
-    team_id: CustomObjectId
-    saison_id: str
-    rollen: list[FLKontaktRolle]
-    umfang: FLKontaktKenntnisnahmeUmfang
-    medien: bool
-    # The precondition a next press on this row echoes.
-    nachweis_stand: FLEinwilligungStand

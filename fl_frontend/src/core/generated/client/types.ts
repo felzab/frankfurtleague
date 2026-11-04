@@ -1389,18 +1389,6 @@ export interface FLBewerbungAbsageData {
 }
 
 /**
- * Which of the application's seats the withdrawal reached, and the two answers they now all hold.
- */
-export interface FLBewerbungAccountEinwilligungResponse {
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  bewerbung_id: string;
-  medien: boolean;
-  nachweis_stand: FLEinwilligungStand;
-  rollen: FLKontaktRolle[];
-  umfang: FLKontaktKenntnisnahmeUmfang;
-}
-
-/**
  * The school's address, with the Stadtteil required.
  */
 export interface FLBewerbungAddressPayload {
@@ -4103,16 +4091,6 @@ export interface FLRegistrierung {
 }
 
 /**
- * The registration's consent record as it stands after the write, everything the pupil did not move unchanged.
- */
-export interface FLRegistrierungAccountEinwilligungResponse {
-  einwilligung: FLRegistrierungEinwilligung;
-  nachweis_stand: FLEinwilligungStand;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  registrierung_id: string;
-}
-
-/**
  * The squad entry the admission wrote, and the person it belongs to.
  */
 export interface FLRegistrierungAdmissionResponse {
@@ -4370,19 +4348,6 @@ export interface FLSaisonSpielerResponse {
   version: number;
 }
 
-/**
- * Which of the row's seats the press reached, and the two answers they now all hold.
- */
-export interface FLSaisonTeamAccountEinwilligungResponse {
-  medien: boolean;
-  nachweis_stand: FLEinwilligungStand;
-  rollen: FLKontaktRolle[];
-  saison_id: string;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  team_id: string;
-  umfang: FLKontaktKenntnisnahmeUmfang;
-}
-
 export interface FLSaisonTeamAddressChangeDenied {
   ansprechperson: FLAddressChangeViewableDenied | null;
   stellvertretung: FLAddressChangeViewableDenied | null;
@@ -4496,16 +4461,6 @@ export interface FLSchiedsrichterAccountEinwilligungPayload {
   nachweis_stand: FLEinwilligungStandPayload;
   text_versions: FLSchiedsrichterTextVersions;
   umfang: FLEinwilligungUmfang;
-}
-
-/**
- * The record as it stands after the write, everything the person did not move unchanged.
- */
-export interface FLSchiedsrichterAccountEinwilligungResponse {
-  einwilligung: FLEinwilligung;
-  nachweis_stand: FLEinwilligungStand;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  schiedsrichter_id: string;
 }
 
 export interface FLSchiedsrichterConfirmationPayload {
@@ -5422,16 +5377,6 @@ export interface FLSpieleAdminSingleResponse {
 
 export interface FLSpieleSingleResponse {
   spiel: FLSpielJoined;
-}
-
-/**
- * The record as it stands after the write, everything the person did not move unchanged.
- */
-export interface FLSpielerAccountEinwilligungResponse {
-  einwilligung: FLEinwilligung;
-  nachweis_stand: FLEinwilligungStand;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  spieler_id: string;
 }
 
 /**

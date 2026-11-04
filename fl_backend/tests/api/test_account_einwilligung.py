@@ -20,7 +20,7 @@ from pydantic import BaseModel, ValidationError
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.account.schemas import FLAccountBewerbungSeatEinwilligung, FLAccountSeatEinwilligung
-from app.api.registrierungen.schemas import FLRegistrierungEinwilligung, FLRegistrierungSeite
+from app.api.registrierungen.schemas import FLRegistrierungSeite
 from app.api.registrierungen.services import compose_ablehnung_update
 from app.core.codes import Code
 from app.core.collections import Collection
@@ -152,6 +152,19 @@ def _person(email: str) -> StampedHeaders:
 
 def _referee_path(schiedsrichter_id: ObjectId | str) -> str:
     return f"/api/v{API_VERSION}/schiedsrichter/account/{schiedsrichter_id}/einwilligung"
+
+
+async def _served_stand(http: AsyncClient, email: str, arm: str, **key: str) -> Any:
+    """The stand the account read serves one record, by the ids naming it: what a page loaded after the last press posts.
+
+    A press answers nothing, so a second press reads its precondition where the page does.
+    """
+
+    served = (await http.get(KONTO_PATH, headers=_person(email))).json()[arm]
+    entries = served if isinstance(served, list) else [served]
+    [entry] = [entry for entry in entries if all(entry[name] == value for name, value in key.items())]
+
+    return entry["nachweis_stand"]
 
 
 # The instant each seeded seat's own confirmation was pressed, and the evidence it left on each choice.
@@ -332,7 +345,7 @@ class TestTheTwoChoices:
 
         response, before, after, spiele = served(mongo_replica_set_url, steps)
 
-        assert response.status_code == 200, response.text
+        assert response.status_code == 204, response.text
         assert _block(after[REFEREE_OID]["einwilligung"]) == {**_block(before[REFEREE_OID]["einwilligung"]), "umfang": "intern"}
         # The moved choice alone, under the account control's label, naming the grant its confirmation gave.
         assert after[REFEREE_OID]["einwilligung"][NACHWEIS] == {
@@ -370,7 +383,7 @@ class TestTheTwoChoices:
 
         response, before, after = served(mongo_replica_set_url, steps)
 
-        assert response.status_code == 200, response.text
+        assert response.status_code == 204, response.text
         assert after == before
 
     def test_moving_the_media_answer_leaves_the_scope(self, mongo_replica_set_url: str):
@@ -380,7 +393,7 @@ class TestTheTwoChoices:
 
         response, after = served(mongo_replica_set_url, steps)
 
-        assert response.status_code == 200, response.text
+        assert response.status_code == 204, response.text
         assert _block(after[REFEREE_OID]["einwilligung"]) == _block(_einwilligung(medien=True))
         assert after[REFEREE_OID]["einwilligung"][NACHWEIS] == {
             "umfang": CONFIRMED_BELEG["umfang"],
@@ -417,14 +430,18 @@ class TestARecordNotHeld:
             )
             granted = await http.patch(
                 _referee_path(RETIRED_OID),
-                json=_payload(umfang="kader_oeffentlich", medien=False, stand=withdrawn.json()["nachweis_stand"]),
+                json=_payload(
+                    umfang="kader_oeffentlich",
+                    medien=False,
+                    stand=await _served_stand(http, RETIRED, "schiedsrichter", schiedsrichter_id=str(RETIRED_OID)),
+                ),
                 headers=_person(RETIRED),
             )
             return withdrawn, granted, await _records(database)
 
         withdrawn, granted, after = served(mongo_replica_set_url, steps)
 
-        assert withdrawn.status_code == 200, withdrawn.text
+        assert withdrawn.status_code == 204, withdrawn.text
         assert (granted.status_code, granted.json()["error_code"]) == (403, Code.GIVING_NOT_ALLOWED)
         assert (after[RETIRED_OID]["einwilligung"]["umfang"], after[RETIRED_OID]["einwilligung"]["medien"]) == ("intern", False)
 
@@ -444,7 +461,7 @@ class TestThePressesOrder:
 
         withdrawn, stale, before, after = served(mongo_replica_set_url, steps)
 
-        assert withdrawn.status_code == 200, withdrawn.text
+        assert withdrawn.status_code == 204, withdrawn.text
         assert (stale.status_code, stale.json()["error_code"]) == (409, Code.CHOICES_STALE)
         assert after == before
 
@@ -452,13 +469,15 @@ class TestThePressesOrder:
 SPIELER_PATCH_PATH = f"/api/v{API_VERSION}/spieler/account/einwilligung"
 
 
-async def _withdrawn_then_granted(http: AsyncClient, path: str, payload: Callable[[bool, Any], dict[str, Any]], email: str) -> Any:
-    """A media withdrawal, then a grant from the page its answer leaves: the grant's status alone is the record's to answer."""
+async def _withdrawn_then_granted(
+    http: AsyncClient, path: str, payload: Callable[[bool, Any], dict[str, Any]], email: str, arm: str, **key: str
+) -> Any:
+    """A media withdrawal, then a grant from the page the read serves after it: the grant's status alone is the record's to answer."""
 
     withdrawn = await http.patch(path, json=payload(False, None), headers=_person(email))
-    assert withdrawn.status_code == 200, withdrawn.text
+    assert withdrawn.status_code == 204, withdrawn.text
 
-    return await http.patch(path, json=payload(True, withdrawn.json()["nachweis_stand"]), headers=_person(email))
+    return await http.patch(path, json=payload(True, await _served_stand(http, email, arm, **key)), headers=_person(email))
 
 
 @pytest.mark.db
@@ -491,6 +510,7 @@ class TestErteilbarIsTheGrantThePressTakes:
                         "nachweis_stand": body["spieler"]["nachweis_stand"] if stand is None else stand,
                     },
                     email,
+                    "spieler",
                 )
                 outcomes.append(("spieler", body["spieler"]["givable"], granted.status_code))
 
@@ -502,6 +522,8 @@ class TestErteilbarIsTheGrantThePressTakes:
                         umfang=eintrag["einwilligung"]["umfang"], medien=medien, stand=eintrag["nachweis_stand"] if stand is None else stand
                     ),
                     email,
+                    "schiedsrichter",
+                    schiedsrichter_id=eintrag["schiedsrichter_id"],
                 )
                 outcomes.append((eintrag["schiedsrichter_id"], eintrag["givable"], granted.status_code))
 
@@ -516,6 +538,9 @@ class TestErteilbarIsTheGrantThePressTakes:
                         "nachweis_stand": sitz["nachweis_stand"] if stand is None else stand,
                     },
                     email,
+                    "seats",
+                    team_id=sitz["team_id"],
+                    saison_id=sitz["saison_id"],
                 )
                 outcomes.append((f"{sitz['team_id']}/{sitz['saison_id']}", sitz["givable"], granted.status_code))
 
@@ -524,7 +549,7 @@ class TestErteilbarIsTheGrantThePressTakes:
         outcomes = served(mongo_replica_set_url, steps)
 
         assert outcomes, "the read served nothing, so nothing was compared"
-        assert [(entry, erteilbar, status == 200) for entry, erteilbar, status in outcomes] == [
+        assert [(entry, erteilbar, status == 204) for entry, erteilbar, status in outcomes] == [
             (entry, erteilbar, erteilbar) for entry, erteilbar, _ in outcomes
         ]
         assert {erteilbar for _, erteilbar, _ in outcomes} == ({True, False} if email == IDENTIFIER else {False})
@@ -650,8 +675,7 @@ class TestTheSeatsMediaChoice:
 
         response, before, after = served(mongo_replica_set_url, _seat_press(IDENTIFIER, TEAM_B_OID, ACTIVE_SAISON, False))
 
-        assert response.status_code == 200, response.text
-        assert response.json()["rollen"] == ["stellvertretung"]
+        assert response.status_code == 204, response.text
         row_before, row_after = before[(TEAM_B_OID, ACTIVE_SAISON)], after[(TEAM_B_OID, ACTIVE_SAISON)]
         assert _block(row_after["stellvertretung"]["einwilligung"]) == {
             **_block(row_before["stellvertretung"]["einwilligung"]),
@@ -669,15 +693,18 @@ class TestTheSeatsMediaChoice:
             withdrawn = await http.patch(_seat_path(TEAM_A_OID, PAST_SAISON), json=body, headers=_person(IDENTIFIER))
             granted = await http.patch(
                 _seat_path(TEAM_A_OID, PAST_SAISON),
-                json={**body, "medien": True, "nachweis_stand": withdrawn.json()["nachweis_stand"]},
+                json={
+                    **body,
+                    "medien": True,
+                    "nachweis_stand": await _served_stand(http, IDENTIFIER, "seats", team_id=str(TEAM_A_OID), saison_id=PAST_SAISON),
+                },
                 headers=_person(IDENTIFIER),
             )
             return withdrawn, granted, await _rows(database)
 
         withdrawn, granted, after = served(mongo_replica_set_url, steps)
 
-        assert withdrawn.status_code == 200, withdrawn.text
-        assert sorted(withdrawn.json()["rollen"]) == ["ansprechperson", "trainer"]
+        assert withdrawn.status_code == 204, withdrawn.text
         assert (granted.status_code, granted.json()["error_code"]) == (403, Code.GIVING_NOT_ALLOWED)
         for slot in ("trainer", "ansprechperson"):
             seat = after[(TEAM_A_OID, PAST_SAISON)][slot]["einwilligung"]
@@ -733,7 +760,7 @@ class TestTheSeatsMediaChoice:
 
         response, before, after = served(mongo_replica_set_url, steps)
 
-        assert response.status_code == 200, response.text
+        assert response.status_code == 204, response.text
         assert after == before
 
 
@@ -763,8 +790,7 @@ class TestTheSeatsWhatsAppChoice:
 
         response, after = served(mongo_replica_set_url, steps)
 
-        assert response.status_code == 200, response.text
-        assert (response.json()["umfang"], response.json()["medien"]) == ("kontaktdaten", True)
+        assert response.status_code == 204, response.text
         for slot in ("trainer", "ansprechperson"):
             seat = after[(TEAM_A_OID, PAST_SAISON)][slot]["einwilligung"]
             assert (seat["umfang"], seat["medien"], seat[NACHWEIS]) == (
@@ -782,16 +808,17 @@ class TestTheSeatsWhatsAppChoice:
                 headers=_person(IDENTIFIER),
             )
             before = await _rows(database)
+            stand = await _served_stand(http, IDENTIFIER, "seats", team_id=str(TEAM_A_OID), saison_id=PAST_SAISON)
             granted = await http.patch(
                 _seat_path(TEAM_A_OID, PAST_SAISON),
-                json=_seat_body(medien=True, umfang="kontaktdaten_whatsapp", stand=withdrawn.json()["nachweis_stand"]),
+                json=_seat_body(medien=True, umfang="kontaktdaten_whatsapp", stand=stand),
                 headers=_person(IDENTIFIER),
             )
             return withdrawn, granted, before, await _rows(database)
 
         withdrawn, granted, before, after = served(mongo_replica_set_url, steps)
 
-        assert withdrawn.status_code == 200, withdrawn.text
+        assert withdrawn.status_code == 204, withdrawn.text
         assert (granted.status_code, granted.json()["error_code"]) == (403, Code.GIVING_NOT_ALLOWED)
         assert after == before
 
@@ -802,16 +829,17 @@ class TestTheSeatsWhatsAppChoice:
             withdrawn = await http.patch(
                 path, json=_seat_body(medien=True, stand=_seated_stand(1, umfang="kontaktdaten_whatsapp")), headers=_person(IDENTIFIER)
             )
+            stand = await _served_stand(http, IDENTIFIER, "seats", team_id=str(TEAM_B_OID), saison_id=ACTIVE_SAISON)
             granted = await http.patch(
                 path,
-                json=_seat_body(medien=True, umfang="kontaktdaten_whatsapp", stand=withdrawn.json()["nachweis_stand"]),
+                json=_seat_body(medien=True, umfang="kontaktdaten_whatsapp", stand=stand),
                 headers=_person(IDENTIFIER),
             )
-            return granted, await _rows(database)
+            return withdrawn, granted, await _rows(database)
 
-        granted, after = served(mongo_replica_set_url, steps)
+        withdrawn, granted, after = served(mongo_replica_set_url, steps)
 
-        assert granted.status_code == 200, granted.text
+        assert (withdrawn.status_code, granted.status_code) == (204, 204), (withdrawn.text, granted.text)
         assert after[(TEAM_B_OID, ACTIVE_SAISON)]["stellvertretung"]["einwilligung"]["umfang"] == "kontaktdaten_whatsapp"
 
     def test_moving_the_scope_leaves_the_media_consent_and_its_evidence_standing(self, mongo_replica_set_url: str):
@@ -837,7 +865,7 @@ class TestTheSeatsWhatsAppChoice:
 
         response, after = served(mongo_replica_set_url, steps)
 
-        assert response.status_code == 200, response.text
+        assert response.status_code == 204, response.text
         seat = after[(TEAM_B_OID, ACTIVE_SAISON)]["stellvertretung"]["einwilligung"]
         assert (seat["umfang"], seat["medien"], seat[NACHWEIS]["medien"]) == ("kontaktdaten", True, medien_beleg)
         assert seat[NACHWEIS]["umfang"] == SEAT_WITHDRAWAL["umfang"]
@@ -854,7 +882,7 @@ class TestTheSeatsWhatsAppChoice:
 
         first, stale, before, after = served(mongo_replica_set_url, steps)
 
-        assert first.status_code == 200, first.text
+        assert first.status_code == 204, first.text
         assert (stale.status_code, stale.json()["error_code"]) == (409, Code.CHOICES_STALE)
         assert after == before
 
@@ -947,14 +975,7 @@ class TestAPendingApplicationsSeats:
 
         response, before, after = served(mongo_replica_set_url, steps)
 
-        assert response.status_code == 200, response.text
-        assert response.json() == {
-            "bewerbung_id": str(PENDING_OID),
-            "rollen": ["trainer", "ansprechperson"],
-            "umfang": "kontaktdaten",
-            "medien": False,
-            "nachweis_stand": nachweis_stand_of(bloecke=[after[PENDING_OID][slot]["einwilligung"] for slot in ("trainer", "ansprechperson")]),
-        }
+        assert response.status_code == 204, response.text
         for slot in ("trainer", "ansprechperson"):
             einwilligung = after[PENDING_OID][slot]["einwilligung"]
             assert (einwilligung["medien"], einwilligung[NACHWEIS]) == (
@@ -980,7 +1001,7 @@ class TestAPendingApplicationsSeats:
 
         response, before, after = served(mongo_replica_set_url, steps)
 
-        assert response.status_code == 200, response.text
+        assert response.status_code == 204, response.text
         assert after == before
 
     @pytest.mark.parametrize(("email", "bewerbung_id"), [(IDENTIFIER, DECIDED_OID), (IDENTIFIER, UNANSWERED_OID), (NOBODY, PENDING_OID)])
@@ -1035,7 +1056,7 @@ class TestAPendingApplicationsSeats:
 
         response, after = served(mongo_replica_set_url, steps)
 
-        assert response.status_code == 200, response.text
+        assert response.status_code == 204, response.text
         for slot in ("trainer", "ansprechperson"):
             einwilligung = after[PENDING_OID][slot]["einwilligung"]
             assert (einwilligung["umfang"], einwilligung["medien"], einwilligung[NACHWEIS]) == (
@@ -1054,7 +1075,7 @@ class TestAPendingApplicationsSeats:
 
         first, again, before, after = served(mongo_replica_set_url, steps)
 
-        assert first.status_code == 200, first.text
+        assert first.status_code == 204, first.text
         assert (again.status_code, again.json()["error_code"]) == (409, Code.CHOICES_STALE)
         assert after == before
 
@@ -1147,14 +1168,8 @@ class TestAPendingRegistration:
 
         response, before, after = served(mongo_replica_set_url, steps)
 
-        assert response.status_code == 200, response.text
+        assert response.status_code == 204, response.text
         einwilligung = after[REGISTRIERUNG_OWN]["einwilligung"]
-        assert response.json() == {
-            "registrierung_id": str(REGISTRIERUNG_OWN),
-            # As the read model serves the stored block, every declared field spelled.
-            "einwilligung": FLRegistrierungEinwilligung.model_validate(einwilligung).model_dump(mode="json"),
-            "nachweis_stand": nachweis_stand_of(bloecke=[einwilligung]),
-        }
         assert (einwilligung["umfang"], einwilligung[NACHWEIS]["umfang"]) == (
             "intern",
             {"am": AM, "text_version": SPIELER_TEXT_VERSIONS["umfang"], "given_before": REGISTRIERUNG_GRANT},
@@ -1217,7 +1232,7 @@ class TestAPendingRegistration:
 
         first, again, before, after = served(mongo_replica_set_url, steps)
 
-        assert first.status_code == 200, first.text
+        assert first.status_code == 204, first.text
         assert (again.status_code, again.json()["error_code"]) == (409, Code.CHOICES_STALE)
         assert after == before
 
@@ -1288,7 +1303,7 @@ class TestSeatsAnsweredApart:
         body, response, after = served(mongo_replica_set_url, steps)
 
         assert body["umfang"] == "kontaktdaten_whatsapp", "the page did not show the row's WhatsApp as on, so this case proves nothing"
-        assert response.status_code == 200, response.text
+        assert response.status_code == 204, response.text
         row = after[(TEAM_A_OID, PAST_SAISON)]
         assert [(row[slot]["einwilligung"]["umfang"], row[slot]["einwilligung"]["medien"]) for slot in ("trainer", "ansprechperson")] == [
             ("kontaktdaten_whatsapp", False),
@@ -1309,7 +1324,7 @@ class TestSeatsAnsweredApart:
         body, response, after = served(mongo_replica_set_url, steps)
 
         assert body["umfang"] == "kontaktdaten_whatsapp", "the page did not show the row's WhatsApp as on, so this case proves nothing"
-        assert response.status_code == 200, response.text
+        assert response.status_code == 204, response.text
         row = after[(TEAM_B_OID, ACTIVE_SAISON)]
         assert [
             (row[slot]["einwilligung"]["umfang"], row[slot]["einwilligung"]["medien"]) for slot in ("stellvertretung", "ansprechperson")
@@ -1327,7 +1342,7 @@ class TestSeatsAnsweredApart:
 
         response, after = served(mongo_replica_set_url, steps)
 
-        assert response.status_code == 200, response.text
+        assert response.status_code == 204, response.text
         row = after[(TEAM_A_OID, PAST_SAISON)]
         assert [(row[slot]["einwilligung"]["umfang"], row[slot]["einwilligung"]["medien"]) for slot in ("trainer", "ansprechperson")] == [
             ("kontaktdaten", True),
@@ -1337,20 +1352,6 @@ class TestSeatsAnsweredApart:
             {"umfang": SEAT_WITHDRAWAL["umfang"], "medien": SEAT_BELEG["medien"]},
             {"umfang": SEAT_BELEG["umfang"], "medien": SEAT_BELEG["medien"]},
         )
-
-    def test_the_answer_serves_the_row_as_the_next_read_serves_it(self, mongo_replica_set_url: str):
-        async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
-            await _seats_disagreeing(database)
-            body = await _as_the_page_was_served(http, TEAM_A_OID, PAST_SAISON, medien=False)
-            response = await http.patch(_seat_path(TEAM_A_OID, PAST_SAISON), json=body, headers=_person(IDENTIFIER))
-            again = await _as_the_page_was_served(http, TEAM_A_OID, PAST_SAISON)
-            return response, again
-
-        response, again = served(mongo_replica_set_url, steps)
-
-        assert response.status_code == 200, response.text
-        answer = response.json()
-        assert (answer["umfang"], answer["medien"], answer["nachweis_stand"]) == (again["umfang"], again["medien"], again["nachweis_stand"])
 
 
 @pytest.mark.db
@@ -1375,7 +1376,7 @@ def test_a_pending_applications_media_withdrawal_leaves_each_seats_whatsapp_answ
     entry, response, after = served(mongo_replica_set_url, steps)
 
     assert entry["umfang"] == "kontaktdaten_whatsapp", "the page did not show the application's WhatsApp as on, so this case proves nothing"
-    assert response.status_code == 200, response.text
+    assert response.status_code == 204, response.text
     seats = after[PENDING_OID]
     assert [(seats[slot]["einwilligung"]["umfang"], seats[slot]["einwilligung"]["medien"]) for slot in ("trainer", "ansprechperson")] == [
         ("kontaktdaten_whatsapp", False),

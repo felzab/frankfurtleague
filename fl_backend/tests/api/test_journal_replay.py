@@ -398,6 +398,22 @@ PERSONS = {
     "a referee's address that took effect": NEW_ADDRESS,
 }
 
+# The account page's saves, which answer nothing: the page reads its records again after a press.
+ANSWERING_NOTHING = {
+    "a pupil's withdrawal",
+    "a referee's withdrawal",
+    "a season seat's withdrawal",
+    "a pending application seat's withdrawal",
+    "a pending registration's withdrawal",
+}
+
+
+async def _served(http: AsyncClient) -> Any:
+    """The person's account read, whose stands a press after another one posts: a press answers nothing."""
+
+    return (await http.get(f"{V}/account/einwilligungen", headers=_person(PERSON))).json()
+
+
 Steps = Callable[[AsyncClient, AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
@@ -477,7 +493,7 @@ class TestEachPressAndItsReplay:
         [line] = [parse_line(text) for text in outcome["lines"]]
         assert line is not None
 
-        assert outcome["status"] == 200
+        assert outcome["status"] == (204 if press in ANSWERING_NOTHING else 200)
         assert (line.collection, line.record_id, line.am) == (collection, record_id, AM)
         assert line.person_hash == erasure_journal_hash(PERSONS.get(press, PERSON), key=KEY)
         # No address: the day files keep the line thirty days.
@@ -509,10 +525,15 @@ class TestEachPressAndItsReplay:
             )
             with caplog.at_level(logging.INFO):
                 granted = await http.patch(path, json=body, headers=_person(PERSON))
-                unmoved = await http.patch(path, json={**body, "nachweis_stand": granted.json()["nachweis_stand"]}, headers=_person(PERSON))
+                [stand] = [
+                    entry["nachweis_stand"]
+                    for entry in (await _served(http))["schiedsrichter"]
+                    if entry["schiedsrichter_id"] == str(REFEREE_OID)
+                ]
+                unmoved = await http.patch(path, json={**body, "nachweis_stand": stand}, headers=_person(PERSON))
             return [granted.status_code, unmoved.status_code]
 
-        assert served(mongo_replica_set_url, steps) == [200, 200]
+        assert served(mongo_replica_set_url, steps) == [204, 204]
         assert journalled(caplog) == []
 
 
@@ -651,9 +672,9 @@ async def _withdrawn_and_granted_again(http: AsyncClient, database: AsyncDatabas
     [line] = journalled(caplog)
     # The app's clock moved on; `app_client` puts back the overrides it found as it leaves.
     _app().dependency_overrides[get_germany_now] = lambda: AN_HOUR_LATER
-    body = {**_withdrawal("konto_spieler", umfang="intern", medien=True), "nachweis_stand": withdrawn.json()["nachweis_stand"]}
+    body = {**_withdrawal("konto_spieler", umfang="intern", medien=True), "nachweis_stand": (await _served(http))["spieler"]["nachweis_stand"]}
     granted = await http.patch(f"{V}/spieler/account/einwilligung", json=body, headers=_person(PERSON))
-    assert (withdrawn.status_code, granted.status_code) == (200, 200), granted.text
+    assert (withdrawn.status_code, granted.status_code) == (204, 204), granted.text
 
     return line
 
@@ -726,7 +747,7 @@ class TestAnLoeschungSettlesItsPersonsChoices:
             with caplog.at_level(logging.INFO):
                 withdrawn = await PRESSES["a season seat's withdrawal"][0](http, database)
                 geloescht = await http.post(LOESCHUNG, headers=_person(PERSON))
-            assert (withdrawn.status_code, geloescht.status_code) == (200, 200), geloescht.text
+            assert (withdrawn.status_code, geloescht.status_code) == (204, 200), geloescht.text
             withdrawal, loeschung = journalled(caplog)
             day = _day_file(("2126-10-03T10:00:01+00:00", withdrawal), ("2126-10-03T10:00:02+00:00", loeschung))
             return await _listed(day, client, database, apply=False), await _listed(day[:1], client, database, apply=False)
@@ -746,7 +767,7 @@ class TestAnLoeschungSettlesItsPersonsChoices:
             with caplog.at_level(logging.INFO):
                 withdrawn = await PRESSES["a season seat's withdrawal"][0](http, database)
                 geloescht = await http.post(LOESCHUNG, headers=_person(PERSON))
-            assert (withdrawn.status_code, geloescht.status_code) == (200, 200), geloescht.text
+            assert (withdrawn.status_code, geloescht.status_code) == (204, 200), geloescht.text
             withdrawal, loeschung = journalled(caplog)
             return await _listed(
                 _day_file(("2126-10-03T10:00:01+00:00", loeschung), ("2126-10-03T10:00:02+00:00", withdrawal)), client, database, apply=False

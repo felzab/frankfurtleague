@@ -2,7 +2,7 @@ from collections.abc import Mapping
 from datetime import datetime
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Body, Depends
+from fastapi import APIRouter, Body, Depends, status
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
@@ -11,14 +11,13 @@ from app.api.account.services import (
     compose_sitz_move,
     find_eigener_eintrag_refusal,
     geaenderte_sitz_wahlen,
-    sitz_wahlen_der_zeile,
     widerruf_line,
 )
 from app.api.identity.crud import funktionen_of, refuse_without_a_seat
 from app.api.identity.lookup import SubjektLookup
 from app.api.identity.services import eigene_sitze, holds_a_seat, seat_is_confirmed
 from app.api.sperrliste.guard import PERSON_ACTOR_BINDERS, KontaktIdentifier
-from app.api.teams.schemas import FLSaisonTeamAccountEinwilligungResponse, FLTeamSeat, FLTeamSeatsResponse
+from app.api.teams.schemas import FLTeamSeat, FLTeamSeatsResponse
 from app.core.collections import Collection
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import patch_one_in_db, refuse
@@ -32,7 +31,7 @@ from app.core.journal import Journal
 from app.core.recording import log_stamp
 from app.core.security import erasure_journal_hash, verify_access_admin
 from app.core.transactions import transaction_session
-from app.shared.einwilligung_nachweis import FLEinwilligungChoice, nachweis_stand_of
+from app.shared.einwilligung_nachweis import FLEinwilligungChoice
 from app.shared.schemas.custom import CustomRouteObjectId
 from app.shared.schemas.einwilligung import FLSeatEinwilligungPayload, by_choice
 from app.shared.schemas.literals import KONTAKT_ROLLEN
@@ -93,7 +92,7 @@ async def get_team_seats(
 
 @router.patch(
     "/{team_id:objectid}/saisons/{saison_id}/account/einwilligung",
-    response_model=FLSaisonTeamAccountEinwilligungResponse,
+    status_code=status.HTTP_204_NO_CONTENT,
     summary="Change a seat holder's own WhatsApp and media consent on one team's season",
 )
 async def patch_einwilligung(
@@ -107,7 +106,7 @@ async def patch_einwilligung(
     config: Annotated[BackendConfig, Depends(get_app_config)],
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
-) -> FLSaisonTeamAccountEinwilligungResponse:
+) -> None:
     """
     Set the signed-in person's two consents on every seat they hold on this team's season row: WhatsApp and media.
 
@@ -132,7 +131,7 @@ async def patch_einwilligung(
     journal = Journal()
 
     @journal.attempted
-    async def write(session: AsyncClientSession) -> FLSaisonTeamAccountEinwilligungResponse:
+    async def write(session: AsyncClientSession) -> None:
         row = await saison_teams_collection.find_one(
             {"saison_id": saison_id, "team_id": team_id},
             {f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_ROLLEN for field in ("email", "geburtsdatum", "einwilligung")},
@@ -165,17 +164,14 @@ async def patch_einwilligung(
             am=am,
             text_versions=by_choice(einwilligung_data.text_versions),
         )
-        updated = (
-            None
-            if update is None
-            else await patch_one_in_db(
+        if update is not None:
+            await patch_one_in_db(
                 collection=saison_teams_collection,
                 db_filter={"_id": row["_id"]},
                 update=update,
                 session=session,
-                return_document=ReturnDocument.AFTER,
+                return_document=ReturnDocument.BEFORE,
             )
-        )
         line = widerruf_line(
             person_hash=erasure_journal_hash(identifier, key=config.sperrliste_key),
             collection=Collection.SAISON_TEAMS,
@@ -187,20 +183,7 @@ async def patch_einwilligung(
         )
         if line is not None:
             journal.note(line)
-        kontakte = row["kontakte"] if updated is None else updated["kontakte"]
-        bloecke = [kontakte[slot]["einwilligung"] for slot in rollen]
-
-        # The row as the next read serves it: an unpressed choice its seats answered apart stays apart.
-        return FLSaisonTeamAccountEinwilligungResponse.model_validate(
-            {
-                "team_id": team_id,
-                "saison_id": saison_id,
-                "rollen": rollen,
-                **sitz_wahlen_der_zeile(bloecke),
-                "nachweis_stand": nachweis_stand_of(bloecke=bloecke),
-            }
-        )
 
     async with journal:
         async with transaction_session(db) as session:
-            return await session.with_transaction(write)
+            await session.with_transaction(write)

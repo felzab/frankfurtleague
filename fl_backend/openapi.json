@@ -3058,42 +3058,6 @@
         "title": "FLBewerbungAbsageData",
         "type": "object"
       },
-      "FLBewerbungAccountEinwilligungResponse": {
-        "description": "Which of the application's seats the withdrawal reached, and the two answers they now all hold.",
-        "properties": {
-          "bewerbung_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Bewerbung Id",
-            "type": "string"
-          },
-          "medien": {
-            "title": "Medien",
-            "type": "boolean"
-          },
-          "nachweis_stand": {
-            "$ref": "#/components/schemas/FLEinwilligungStand"
-          },
-          "rollen": {
-            "items": {
-              "$ref": "#/components/schemas/FLKontaktRolle"
-            },
-            "title": "Rollen",
-            "type": "array"
-          },
-          "umfang": {
-            "$ref": "#/components/schemas/FLKontaktKenntnisnahmeUmfang"
-          }
-        },
-        "required": [
-          "bewerbung_id",
-          "rollen",
-          "umfang",
-          "medien",
-          "nachweis_stand"
-        ],
-        "title": "FLBewerbungAccountEinwilligungResponse",
-        "type": "object"
-      },
       "FLBewerbungAddressPayload": {
         "additionalProperties": false,
         "description": "The school's address, with the Stadtteil required.",
@@ -10103,29 +10067,6 @@
         "title": "FLRegistrierungAbsageData",
         "type": "object"
       },
-      "FLRegistrierungAccountEinwilligungResponse": {
-        "description": "The registration's consent record as it stands after the write, everything the pupil did not move unchanged.",
-        "properties": {
-          "einwilligung": {
-            "$ref": "#/components/schemas/FLRegistrierungEinwilligung"
-          },
-          "nachweis_stand": {
-            "$ref": "#/components/schemas/FLEinwilligungStand"
-          },
-          "registrierung_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Registrierung Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "registrierung_id",
-          "einwilligung",
-          "nachweis_stand"
-        ],
-        "title": "FLRegistrierungAccountEinwilligungResponse",
-        "type": "object"
-      },
       "FLRegistrierungAdmissionResponse": {
         "description": "The squad entry the admission wrote, and the person it belongs to.",
         "properties": {
@@ -11317,47 +11258,6 @@
         ],
         "type": "string"
       },
-      "FLSaisonTeamAccountEinwilligungResponse": {
-        "description": "Which of the row's seats the press reached, and the two answers they now all hold.",
-        "properties": {
-          "medien": {
-            "title": "Medien",
-            "type": "boolean"
-          },
-          "nachweis_stand": {
-            "$ref": "#/components/schemas/FLEinwilligungStand"
-          },
-          "rollen": {
-            "items": {
-              "$ref": "#/components/schemas/FLKontaktRolle"
-            },
-            "title": "Rollen",
-            "type": "array"
-          },
-          "saison_id": {
-            "title": "Saison Id",
-            "type": "string"
-          },
-          "team_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Team Id",
-            "type": "string"
-          },
-          "umfang": {
-            "$ref": "#/components/schemas/FLKontaktKenntnisnahmeUmfang"
-          }
-        },
-        "required": [
-          "team_id",
-          "saison_id",
-          "rollen",
-          "umfang",
-          "medien",
-          "nachweis_stand"
-        ],
-        "title": "FLSaisonTeamAccountEinwilligungResponse",
-        "type": "object"
-      },
       "FLSaisonTeamAddressChange": {
         "description": "The live change of each confirmed seat's address, which the address tool shows.\n\nNull where none stands, the seat is empty, or its person never confirmed it, the change moving nothing of theirs.",
         "properties": {
@@ -11990,29 +11890,6 @@
           "text_versions"
         ],
         "title": "FLSchiedsrichterAccountEinwilligungPayload",
-        "type": "object"
-      },
-      "FLSchiedsrichterAccountEinwilligungResponse": {
-        "description": "The record as it stands after the write, everything the person did not move unchanged.",
-        "properties": {
-          "einwilligung": {
-            "$ref": "#/components/schemas/FLEinwilligung"
-          },
-          "nachweis_stand": {
-            "$ref": "#/components/schemas/FLEinwilligungStand"
-          },
-          "schiedsrichter_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Schiedsrichter Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "schiedsrichter_id",
-          "einwilligung",
-          "nachweis_stand"
-        ],
-        "title": "FLSchiedsrichterAccountEinwilligungResponse",
         "type": "object"
       },
       "FLSchiedsrichterConfirmationData": {
@@ -15791,29 +15668,6 @@
           "spiel"
         ],
         "title": "FLSpieleSingleResponse",
-        "type": "object"
-      },
-      "FLSpielerAccountEinwilligungResponse": {
-        "description": "The record as it stands after the write, everything the person did not move unchanged.",
-        "properties": {
-          "einwilligung": {
-            "$ref": "#/components/schemas/FLEinwilligung"
-          },
-          "nachweis_stand": {
-            "$ref": "#/components/schemas/FLEinwilligungStand"
-          },
-          "spieler_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Spieler Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "spieler_id",
-          "einwilligung",
-          "nachweis_stand"
-        ],
-        "title": "FLSpielerAccountEinwilligungResponse",
         "type": "object"
       },
       "FLSpielerAdminSingleResponse": {
@@ -20390,14 +20244,7 @@
           "required": true
         },
         "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLBewerbungAccountEinwilligungResponse"
-                }
-              }
-            },
+          "204": {
             "description": "Successful Response"
           },
           "400": {
@@ -22500,14 +22347,7 @@
           "required": true
         },
         "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLRegistrierungAccountEinwilligungResponse"
-                }
-              }
-            },
+          "204": {
             "description": "Successful Response"
           },
           "400": {
@@ -24844,14 +24684,7 @@
           "required": true
         },
         "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLSchiedsrichterAccountEinwilligungResponse"
-                }
-              }
-            },
+          "204": {
             "description": "Successful Response"
           },
           "400": {
@@ -27395,14 +27228,7 @@
           "required": true
         },
         "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLSpielerAccountEinwilligungResponse"
-                }
-              }
-            },
+          "204": {
             "description": "Successful Response"
           },
           "400": {
@@ -30355,14 +30181,7 @@
           "required": true
         },
         "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLSaisonTeamAccountEinwilligungResponse"
-                }
-              }
-            },
+          "204": {
             "description": "Successful Response"
           },
           "400": {

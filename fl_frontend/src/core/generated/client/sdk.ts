@@ -42,7 +42,6 @@ import type {
   FLAddressChangeVerwaltungViewPayload,
   FLAddressChangeVerwaltungViewResponse,
   FLAddressChangeViewResponse,
-  FLBewerbungAccountEinwilligungResponse,
   FLBewerbungEinwilligungAntwortResponse,
   FLBewerbungEinwilligungDeclined,
   FLBewerbungEinwilligungGiven,
@@ -130,7 +129,6 @@ import type {
   FLPostTeamPayload,
   FLReferencesPayload,
   FLReferencesResponse,
-  FLRegistrierungAccountEinwilligungResponse,
   FLRegistrierungAdmissionResponse,
   FLRegistrierungAdmitPayload,
   FLRegistrierungConfirmationPayload,
@@ -146,12 +144,10 @@ import type {
   FLSaisonsAdminListResponse,
   FLSaisonSpielerResponse,
   FLSaisonsSingleResponse,
-  FLSaisonTeamAccountEinwilligungResponse,
   FLSaisonTeamEinwilligungAntwortResponse,
   FLSaisonTeamResponse,
   FLSaisonTeamsResponse,
   FLSchiedsrichterAccountEinwilligungPayload,
-  FLSchiedsrichterAccountEinwilligungResponse,
   FLSchiedsrichterConfirmationPayload,
   FLSchiedsrichterConfirmationResponse,
   FLSchiedsrichterConfirmationViewResponse,
@@ -182,7 +178,6 @@ import type {
   FLSpieleActionRequiredResponse,
   FLSpieleAdminListResponse,
   FLSpieleAdminSingleResponse,
-  FLSpielerAccountEinwilligungResponse,
   FLSpielerAdminSingleResponse,
   FLSpielerNachnominierungResponse,
   FLSpielerSaisonsResponse,
@@ -1161,7 +1156,7 @@ export const bewerbungenPatchEinwilligung = async (
   bewerbungId: string,
   fLSeatEinwilligungPayload: FLSeatEinwilligungPayload,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLBewerbungAccountEinwilligungResponse> => {
+): Promise<void> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
@@ -1174,7 +1169,7 @@ export const bewerbungenPatchEinwilligung = async (
     }
     return headers;
   };
-  return adminKeyTransport<FLBewerbungAccountEinwilligungResponse>(getBewerbungenPatchEinwilligungUrl(bewerbungId), {
+  return adminKeyTransport<void>(getBewerbungenPatchEinwilligungUrl(bewerbungId), {
     ...options,
     method: "PATCH",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
@@ -2164,7 +2159,7 @@ export const registrierungenPatchEinwilligung = async (
   registrierungId: string,
   fLAccountEinwilligungPayload: FLAccountEinwilligungPayload,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLRegistrierungAccountEinwilligungResponse> => {
+): Promise<void> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
@@ -2177,7 +2172,7 @@ export const registrierungenPatchEinwilligung = async (
     }
     return headers;
   };
-  return adminKeyTransport<FLRegistrierungAccountEinwilligungResponse>(getRegistrierungenPatchEinwilligungUrl(registrierungId), {
+  return adminKeyTransport<void>(getRegistrierungenPatchEinwilligungUrl(registrierungId), {
     ...options,
     method: "PATCH",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
@@ -3045,7 +3040,7 @@ export const schiedsrichterPatchEinwilligung = async (
   schiedsrichterId: string,
   fLSchiedsrichterAccountEinwilligungPayload: FLSchiedsrichterAccountEinwilligungPayload,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLSchiedsrichterAccountEinwilligungResponse> => {
+): Promise<void> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
@@ -3058,7 +3053,7 @@ export const schiedsrichterPatchEinwilligung = async (
     }
     return headers;
   };
-  return adminKeyTransport<FLSchiedsrichterAccountEinwilligungResponse>(getSchiedsrichterPatchEinwilligungUrl(schiedsrichterId), {
+  return adminKeyTransport<void>(getSchiedsrichterPatchEinwilligungUrl(schiedsrichterId), {
     ...options,
     method: "PATCH",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
@@ -4122,7 +4117,7 @@ export const getSpielerPatchEinwilligungUrl = () => {
 export const spielerPatchEinwilligung = async (
   fLAccountEinwilligungPayload: FLAccountEinwilligungPayload,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLSpielerAccountEinwilligungResponse> => {
+): Promise<void> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
@@ -4135,7 +4130,7 @@ export const spielerPatchEinwilligung = async (
     }
     return headers;
   };
-  return adminKeyTransport<FLSpielerAccountEinwilligungResponse>(getSpielerPatchEinwilligungUrl(), {
+  return adminKeyTransport<void>(getSpielerPatchEinwilligungUrl(), {
     ...options,
     method: "PATCH",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
@@ -5035,7 +5030,7 @@ export const teamsPatchEinwilligung = async (
   saisonId: string,
   fLSeatEinwilligungPayload: FLSeatEinwilligungPayload,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLSaisonTeamAccountEinwilligungResponse> => {
+): Promise<void> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
@@ -5048,7 +5043,7 @@ export const teamsPatchEinwilligung = async (
     }
     return headers;
   };
-  return adminKeyTransport<FLSaisonTeamAccountEinwilligungResponse>(getTeamsPatchEinwilligungUrl(teamId, saisonId), {
+  return adminKeyTransport<void>(getTeamsPatchEinwilligungUrl(teamId, saisonId), {
     ...options,
     method: "PATCH",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
