@@ -4,7 +4,7 @@ import { useState } from "react";
 
 import { ComboBox } from "@/kit/ComboBox";
 import { DateField } from "@/kit/DateField";
-import { Dialog, useOpenUntilHidden } from "@/kit/Dialog";
+import { Dialog } from "@/kit/Dialog";
 import { EditorPage } from "@/kit/EditorPage";
 import { FieldPair } from "@/kit/FieldPair";
 import { Select } from "@/kit/Select";
@@ -60,8 +60,9 @@ export function SpielEditor({
 }) {
   const editor = useEditor(record, save);
   const { draft, set } = editor;
-  // The create dialog, opened from the venue list's last entry with the name typed into the field.
-  const [neu, setNeu] = useOpenUntilHidden();
+  // The create dialog, opened from the venue list's last entry with the name typed into the field; the dialog closes
+  // this state itself when Next hides the page.
+  const [neu, setNeu] = useState(false);
   const [neuerName, setNeuerName] = useState("");
 
   return (
