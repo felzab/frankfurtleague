@@ -135,7 +135,7 @@ test("the person deletes their account from the mailed link, signed out when it 
   await page.goto("/account/signin");
   const before = await filedMessages();
   await page.getByRole("button", { name: "Konto löschen" }).click();
-  await page.getByRole("dialog").getByRole("button", { name: "Konto löschen" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Löschen" }).click();
   const link = await mailedLink(address, "Konto löschen", before);
 
   // Opened signed out, the link leads through the sign-in and back to itself.
