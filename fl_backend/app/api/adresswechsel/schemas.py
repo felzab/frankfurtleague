@@ -230,7 +230,8 @@ class FLAddressChangeAnswerResponse(BaseAPIResponse):
     answer: FLAddressChangeAnswer
     # Set where a change waiting after its confirmation now waits until then.
     effective_from: FLUtcInstant | None
-    # Set where the change now waits on another administrator's approval of its grant's move.
+    # Set where the change waits on another administrator's approval of its grant's move: now, on the new mailbox's
+    # confirmation, or once the new mailbox confirms, on the address on file's. The page tells the two by the side it pressed.
     approval_open: bool
     # Set where the change took effect: its notice is owed in the Postausgang and its account's carry on the record.
     effective: bool

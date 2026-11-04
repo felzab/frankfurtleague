@@ -47,7 +47,7 @@ from tests.app_client import app_client
 from tests.bans import ban_list
 from tests.config import ADMIN_KEY, ADMINISTRATORS, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.documents import ban_document, spiel_document
+from tests.documents import address_change_document, ban_document, spiel_document
 from tests.erasure import erasure_collections
 from tests.isolation import InterleavedCollection
 from tests.session_headers import StampedHeaders, fresh_admin_actor
@@ -617,6 +617,10 @@ class TestTheReveal:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, "administration")
             await their_requests_open(database)
+            # A change still asking its address on file, which the person's own answer leaves uncounted and this one counts.
+            await database[Collection.ADDRESS_CHANGES].insert_one(
+                address_change_document(adresse="noch.gefragt@example.com", email=IDENTIFIER, token_hash=None, day="2126-03-30", way="account")
+            )
             ansicht = (await posted(mongo_replica_set_url, ANSICHT_PATH, ansicht_of(), by=OWNER)).json()
 
             return ansicht, (await posted(mongo_replica_set_url, PATH, loeschung_of(), by=OWNER)).json()

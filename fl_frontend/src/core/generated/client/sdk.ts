@@ -532,10 +532,12 @@ export const getAddressChangePostAddressChangeStopUrl = () => {
 /**
  * Stop the change the address on file was mailed about: its new address goes, out of every log image of the change too.
  *
- * **Refused nothing but a token no change holds** (`link_invalid`) **and a change ended** (`address_change_ended`): a stop
- * hands nothing over, so it answers past every deadline, a barred address's holder too, until the change ends. The
- * person's own change offers this link no stop before its address on file confirmed it (`link_invalid`): its
- * question's decline is the one way that link ends it then, so one act keeps one ending.
+ * **Refused nothing but a token no change holds, a change ended, and the person's own change before its address on file
+ * confirmed it**: a stop hands nothing over, so it answers past every deadline, a barred address's holder too, until
+ * the change ends. A token no change holds answers `link_invalid` and an ended change `address_change_ended`. The
+ * person's own change offers this link no stop until its address on file confirmed it, and answers `link_invalid` as
+ * the unknown token does, the page offering no stop then: the question's decline is the one way that link ends it
+ * before, so one act keeps one ending. From that confirmation on, the same link is the change's stop on every way.
  * @summary Stop a pending address change
  */
 export const addressChangePostAddressChangeStop = async (

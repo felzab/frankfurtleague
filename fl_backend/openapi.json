@@ -2078,7 +2078,7 @@
         "type": "object"
       },
       "FLAddressChangeNoticeData": {
-        "description": "The address on file's mail about an address change, its link minted at the hand-out into `stop.token_hashes`.\n\nOn the person's own `account` way the link confirms or declines the change before the new mailbox is asked; on the\nlost-mailbox way it stops the change.",
+        "description": "The address on file's mail about an address change, its link minted at the hand-out into `stop.token_hashes`.\n\nOn the person's own `account` way the link confirms or declines the change before the new mailbox is asked, and once\nit confirmed, stops the change; on the lost-mailbox way it stops the change.",
         "properties": {
           "art": {
             "const": "address_change_notice",
@@ -18949,7 +18949,7 @@
     },
     "/api/v0/address_change/confirmation/stop": {
       "post": {
-        "description": "Stop the change the address on file was mailed about: its new address goes, out of every log image of the change too.\n\n**Refused nothing but a token no change holds** (`link_invalid`) **and a change ended** (`address_change_ended`): a stop\nhands nothing over, so it answers past every deadline, a barred address's holder too, until the change ends. The\nperson's own change offers this link no stop before its address on file confirmed it (`link_invalid`): its\nquestion's decline is the one way that link ends it then, so one act keeps one ending.",
+        "description": "Stop the change the address on file was mailed about: its new address goes, out of every log image of the change too.\n\n**Refused nothing but a token no change holds, a change ended, and the person's own change before its address on file\nconfirmed it**: a stop hands nothing over, so it answers past every deadline, a barred address's holder too, until\nthe change ends. A token no change holds answers `link_invalid` and an ended change `address_change_ended`. The\nperson's own change offers this link no stop until its address on file confirmed it, and answers `link_invalid` as\nthe unknown token does, the page offering no stop then: the question's decline is the one way that link ends it\nbefore, so one act keeps one ending. From that confirmation on, the same link is the change's stop on every way.",
         "operationId": "address_change_post_address_change_stop",
         "requestBody": {
           "content": {

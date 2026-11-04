@@ -964,8 +964,8 @@ export interface FLAddressChangeMovesResponse {
 /**
  * The address on file's mail about an address change, its link minted at the hand-out into `stop.token_hashes`.
  *
- * On the person's own `account` way the link confirms or declines the change before the new mailbox is asked; on the
- * lost-mailbox way it stops the change.
+ * On the person's own `account` way the link confirms or declines the change before the new mailbox is asked, and once
+ * it confirmed, stops the change; on the lost-mailbox way it stops the change.
  */
 export interface FLAddressChangeNoticeData {
   art: "address_change_notice";

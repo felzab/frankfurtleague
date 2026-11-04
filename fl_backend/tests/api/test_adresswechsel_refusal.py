@@ -18,11 +18,12 @@ from app.api.adresswechsel.schemas import (
     FLAddressChangeAdressePayload,
     FLAddressChangeAdresseResponse,
     FLAddressChangeAnswerPayload,
+    FLAddressChangeVerwaltungPayload,
     FLAddressChangeViewEnded,
     FLAddressChangeViewNew,
     FLAddressChangeViewPrevious,
 )
-from app.api.adresswechsel.services import ist_abgelaufen, maskierte_adresse, neu_zustand
+from app.api.adresswechsel.services import bisherig_zustand, ist_abgelaufen, maskierte_adresse, neu_zustand
 from app.api.berechtigungen.services import genehmigung_steht, genehmigung_verwehrt
 from app.core.codes import Code
 from app.core.collections import Collection
@@ -162,6 +163,65 @@ class TestTheNewMailboxsState:
 
     def test_the_deadline_s_own_instant_is_past(self):
         assert ist_abgelaufen({"valid_until": NOW, "approval": None}, now=NOW)
+
+
+def a_step(step: str, *, lapsed: bool) -> dict[str, Any]:
+    """A live change waiting on `step`, its deadline for that step passed or not."""
+
+    deadline = NOW - timedelta(minutes=1) if lapsed else NOW + timedelta(hours=1)
+    released = {"way": "account", "released_at": NOW - timedelta(days=1)}
+    if step == "previous_address":
+        return {"way": "account", "released_at": None, "valid_until": deadline, "confirmed_at": None, "approval": None}
+    if step == "new_address":
+        return {**released, "valid_until": deadline, "confirmed_at": None, "approval": None}
+    confirmed = {"valid_until": None, "confirmed_at": NOW - timedelta(days=1)}
+    if step == "approval":
+        return {**released, **confirmed, "effective_from": None, "approval": {"bis": deadline, "approved_at": None}}
+    # The lost-mailbox way's waiting time: its end is the effect, never a lapse.
+    return {"way": "waiting_period", "released_at": None, **confirmed, "effective_from": NOW + timedelta(days=3), "approval": None}
+
+
+class TestTheAddressOnFilesState:
+    """`release_expired` is the person's own change's unanswered question past its deadline, and no other step's lapse.
+
+    Every other step's stop is refused nothing, so its link keeps showing the step until the hourly pass ends the change.
+    """
+
+    @pytest.mark.parametrize(
+        ("step", "lapsed", "state"),
+        [
+            pytest.param("previous_address", False, "release_open", id="the question open"),
+            pytest.param("previous_address", True, "release_expired", id="the question lapsed"),
+            pytest.param("new_address", False, "open", id="the new mailbox asked"),
+            pytest.param("new_address", True, "open", id="the new mailbox's link lapsed"),
+            pytest.param("approval", False, "approval", id="the approval owed"),
+            pytest.param("approval", True, "approval", id="the approval's week lapsed"),
+            pytest.param("waiting_period", False, "waiting_period", id="the waiting time"),
+        ],
+    )
+    def test_the_link_shows_its_step_and_lapses_only_its_own_question(self, step: str, lapsed: bool, state: str):
+        record = a_step(step, lapsed=lapsed)
+        # The control: each lapsed row is lapsed as the pass judges it, so the row passing is the guard's doing.
+        assert ist_abgelaufen(record, now=NOW) is lapsed
+
+        assert bisherig_zustand(record, now=NOW) == state
+
+
+class TestTheLostMailboxsStart:
+    @pytest.mark.parametrize("grund", [pytest.param(None, id="null"), pytest.param(..., id="missing")])
+    def test_it_is_refused_without_a_reason(self, grund: Any, assert_rejects):
+        """The change hands the records over without the address on file, so it stands on a recorded reason."""
+
+        payload: dict[str, Any] = {"adresse": CHANGED, "email": "neu@beispielschule.de"}
+        if grund is not ...:
+            payload["grund"] = grund
+
+        assert_rejects(FLAddressChangeVerwaltungPayload, payload, "grund")
+
+    def test_a_reason_is_taken(self):
+        """The floor for the refusals above."""
+
+        FLAddressChangeVerwaltungPayload.model_validate({"adresse": CHANGED, "email": "neu@beispielschule.de", "grund": "Postfach gelöscht"})
 
 
 class TestTheLinksLookups:

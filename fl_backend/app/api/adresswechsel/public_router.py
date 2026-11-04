@@ -29,6 +29,7 @@ from app.api.adresswechsel.schemas import (
 )
 from app.api.adresswechsel.services import (
     als_utc,
+    asks_the_address_on_file,
     bisherig_zustand,
     build_either_link_filter,
     build_open_link_terms,
@@ -42,7 +43,6 @@ from app.api.adresswechsel.services import (
     ist_abgelaufen,
     neu_zustand,
     side_of,
-    wartet_auf,
 )
 from app.api.identity.lookup import SubjektLookup
 from app.api.sperrliste.lookup import SperrlisteLookup, sperrliste_saison
@@ -176,7 +176,7 @@ async def get_address_change_view(
                 effective_from=wirksam_ab,
                 way=record["way"],
                 # Only while the person's own change asks this link its question, never once that lapsed.
-                email=str(record["email"]) if zustand_bisherig == "release_open" and record["way"] == "account" else None,
+                email=str(record["email"]) if zustand_bisherig == "release_open" else None,
                 released_on=None if released_at is None else german_day(released_at),
             )
         )
@@ -288,9 +288,6 @@ async def post_address_change_answer(
     """
 
     token_hash = hash_token(answer_data.token)
-    # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_gesperrt`), before the read naming which link the
-    # token is: the address on file's answer reads it in vain.
-    massgebliche_saison_id = await sperrliste_saison(sperrliste)
     stamp = log_stamp(germany_now)
     journal = Journal()
 
@@ -344,7 +341,8 @@ async def post_address_change_answer(
             record=record,
             records=records,
             sperrliste=sperrliste,
-            massgebliche_saison_id=massgebliche_saison_id,
+            # In the session, read by the confirmation alone: the address on file's answer and a decline judge no ban.
+            massgebliche_saison_id=await sperrliste_saison(sperrliste, session=session),
             adresswechsel_collection=adresswechsel_collection,
             spieler_collection=spieler_collection,
             schiedsrichter_collection=schiedsrichter_collection,
@@ -474,10 +472,12 @@ async def post_address_change_stop(
     """
     Stop the change the address on file was mailed about: its new address goes, out of every log image of the change too.
 
-    **Refused nothing but a token no change holds** (`link_invalid`) **and a change ended** (`address_change_ended`): a stop
-    hands nothing over, so it answers past every deadline, a barred address's holder too, until the change ends. The
-    person's own change offers this link no stop before its address on file confirmed it (`link_invalid`): its
-    question's decline is the one way that link ends it then, so one act keeps one ending.
+    **Refused nothing but a token no change holds, a change ended, and the person's own change before its address on file
+    confirmed it**: a stop hands nothing over, so it answers past every deadline, a barred address's holder too, until
+    the change ends. A token no change holds answers `link_invalid` and an ended change `address_change_ended`. The
+    person's own change offers this link no stop until its address on file confirmed it, and answers `link_invalid` as
+    the unknown token does, the page offering no stop then: the question's decline is the one way that link ends it
+    before, so one act keeps one ending. From that confirmation on, the same link is the change's stop on every way.
     """
 
     stopp_hash = hash_token(stopp_data.token)
@@ -486,13 +486,14 @@ async def post_address_change_stop(
 
     @journal.attempted
     async def stop_the_change(session: AsyncClientSession) -> FLAddressChangeStopResponse:
+        # `way` and `released_at` are what `asks_the_address_on_file` reads.
         record = await adresswechsel_collection.find_one(
-            {"stop.token_hashes": stopp_hash}, {"email": 1, "ended": 1, "way": 1, "released_at": 1, "confirmed_at": 1}, session=session
+            {"stop.token_hashes": stopp_hash}, {"email": 1, "ended": 1, "way": 1, "released_at": 1}, session=session
         )
         refuse(find_unbekannt_refusal(found=record is not None))
         assert record is not None
         refuse(find_beendet_refusal(offen=record.get("ended") is None))
-        refuse(find_unbekannt_refusal(found=wartet_auf(record) != "previous_address"))
+        refuse(find_unbekannt_refusal(found=not asks_the_address_on_file(record)))
 
         await end_the_change_in_session(
             adresswechsel_collection=adresswechsel_collection,
