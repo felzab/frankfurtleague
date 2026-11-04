@@ -405,17 +405,6 @@ class FLSpielerSelfKaderRow(BaseModel):
     inactive_since: CustomOptionalDateString
 
 
-class FLSpielerContext(BaseModel):
-    """What the pupil confirmation page's slots name for this record today, so its agreed words render whole.
-
-    Null where no squad row names a team and season; the words then render without them.
-    """
-
-    team: str | None
-    schule: str | None
-    saison: str | None
-
-
 class FLSpielerSelf(_SpielerPerson):
     """One pupil record's stored data as its own person reads it: the whole surname and the birthdate, never masked.
 

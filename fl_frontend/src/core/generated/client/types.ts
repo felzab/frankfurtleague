@@ -327,13 +327,13 @@ export interface FLAccountAddressChangeResponse {
 }
 
 /**
- * What the contact confirmation page's slots name for this seat today.
+ * Each choice's stand where the account page was served, null where the record carried no evidence for it.
+ *
+ * A consent PATCH's precondition, echoed back as served, never a secret.
  */
-export interface FLSeatContext {
-  saison: string;
-  schule: string | null;
-  team: string;
-  vorname: string | null;
+export interface FLEinwilligungStand {
+  medien: string | null;
+  umfang: string | null;
 }
 
 export type FLKontaktRolle = (typeof FLKontaktRolle)[keyof typeof FLKontaktRolle];
@@ -343,27 +343,6 @@ export const FLKontaktRolle = {
   ansprechperson: "ansprechperson",
   stellvertretung: "stellvertretung",
 } as const;
-
-/**
- * One confirmation a person gave on a row: the seats it answered, its day and the floor its page named.
- */
-export interface FLSeatConfirmed {
-  confirmed_at: string | null;
-  context: FLSeatContext;
-  minimum_age: number;
-  /** @minItems 1 */
-  rollen: FLKontaktRolle[];
-}
-
-/**
- * Each choice's stand where the account page was served, null where the record carried no evidence for it.
- *
- * A consent PATCH's precondition, echoed back as served, never a secret.
- */
-export interface FLEinwilligungStand {
-  medien: string | null;
-  umfang: string | null;
-}
 
 export type FLKontaktKenntnisnahmeUmfang = (typeof FLKontaktKenntnisnahmeUmfang)[keyof typeof FLKontaktKenntnisnahmeUmfang];
 
@@ -380,8 +359,6 @@ export const FLKontaktKenntnisnahmeUmfang = {
 export interface FLAccountBewerbungSeatEinwilligung {
   /** @pattern ^[0-9a-fA-F]{24}$ */
   bewerbung_id: string;
-  /** @minItems 1 */
-  confirmed: FLSeatConfirmed[];
   medien: boolean;
   /** @exclusiveMinimum 0 */
   medien_minimum_age: number;
@@ -398,7 +375,7 @@ export interface FLEinwilligungStandPayload {
   umfang: string | null;
 }
 
-export type FLSpielerMedienTextVersionInput = "2026-11-medien-1";
+export type FLCitedMedienTextVersion = "2026-11-medien-1";
 
 export type FLSpielerUmfangTextVersion = "2026-11-name-kader-1";
 
@@ -406,7 +383,7 @@ export type FLSpielerUmfangTextVersion = "2026-11-name-kader-1";
  * A pupil's two wordings: the name on the squad and the media switch.
  */
 export interface FLSpielerTextVersions {
-  medien: FLSpielerMedienTextVersionInput;
+  medien: FLCitedMedienTextVersion;
   umfang: FLSpielerUmfangTextVersion;
 }
 
@@ -425,17 +402,6 @@ export interface FLAccountEinwilligungPayload {
   nachweis_stand: FLEinwilligungStandPayload;
   text_versions: FLSpielerTextVersions;
   umfang: FLEinwilligungUmfang;
-}
-
-/**
- * What the pupil confirmation page's slots name for this record today, so its agreed words render whole.
- *
- * Null where no squad row names a team and season; the words then render without them.
- */
-export interface FLSpielerContext {
-  saison: string | null;
-  schule: string | null;
-  team: string | null;
 }
 
 export type FLSpielerPosition = (typeof FLSpielerPosition)[keyof typeof FLSpielerPosition];
@@ -462,12 +428,10 @@ export const FLSpielerStufe = {
  * One pending registration its pupil confirmed: its choices to withdraw, and what it stores.
  */
 export interface FLAccountRegistrierungEinwilligung {
-  context: FLSpielerContext;
   geburtsdatum: string | null;
   medien: boolean | null;
   /** @exclusiveMinimum 0 */
   medien_minimum_age: number;
-  minimum_age: number;
   nachname: string;
   nachweis_stand: FLEinwilligungStand;
   nummer: string | null;
@@ -485,12 +449,10 @@ export interface FLAccountRegistrierungEinwilligung {
 
 export type FLSeatUmfangTextVersion = "2026-11-whatsapp-1";
 
-export type FLMedienTextVersion = "2026-11-medien-1";
-
 export type FLSchiedsrichterUmfangTextVersion = "2026-11-name-spielplan-1";
 
 export type FLEinwilligungTextVersion =
-  FLSeatUmfangTextVersion | FLMedienTextVersion | FLSpielerUmfangTextVersion | FLSchiedsrichterUmfangTextVersion;
+  FLSeatUmfangTextVersion | FLSpielerUmfangTextVersion | FLSchiedsrichterUmfangTextVersion | FLCitedMedienTextVersion;
 
 /**
  * When a person set one consent choice, and under which wording.
@@ -551,7 +513,6 @@ export interface FLAccountSchiedsrichterEinwilligung {
   /** @exclusiveMinimum 0 */
   medien_minimum_age: number;
   medien_offered: boolean;
-  minimum_age: number;
   nachweis_stand: FLEinwilligungStand;
   /** @minLength 1 */
   name: string;
@@ -566,8 +527,6 @@ export interface FLAccountSchiedsrichterEinwilligung {
  * Per season row and not per slot: one person holding two of a row's slots answers one choice for both.
  */
 export interface FLAccountSeatEinwilligung {
-  /** @minItems 1 */
-  confirmed: FLSeatConfirmed[];
   givable: boolean;
   medien: boolean;
   /** @exclusiveMinimum 0 */
@@ -610,7 +569,6 @@ export interface FLSpielerSelfKaderRow {
  * The pupil's record on the account page: its stored data and the consent the page moves.
  */
 export interface FLAccountSpielerEinwilligung {
-  context: FLSpielerContext;
   einwilligung: FLEinwilligung;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   geburtsdatum: string;
@@ -620,7 +578,6 @@ export interface FLAccountSpielerEinwilligung {
   /** @exclusiveMinimum 0 */
   medien_minimum_age: number;
   medien_offered: boolean;
-  minimum_age: number;
   nachname: string | null;
   nachweis_stand: FLEinwilligungStand;
   /** @pattern ^[0-9a-fA-F]{24}$ */
@@ -1552,13 +1509,11 @@ export interface FLBewerbungEinwilligungDeclined {
   token: string;
 }
 
-export type FLSeatMedienTextVersionInput = "2026-11-medien-1";
-
 /**
  * A contact seat's two wordings: the WhatsApp switch and the media switch.
  */
 export interface FLSeatTextVersions {
-  medien: FLSeatMedienTextVersionInput;
+  medien: FLCitedMedienTextVersion;
   umfang: FLSeatUmfangTextVersion;
 }
 
@@ -3200,6 +3155,12 @@ export interface FLLandingResponse {
   saison: FLLandingBeforeStart | FLLandingRunning | FLLandingDecided | null;
 }
 
+export type FLMedienTextVersion = "2026-11-medien-1";
+
+export type FLNameKaderTextVersion = "2026-11-name-kader-1";
+
+export type FLNameSpielplanTextVersion = "2026-11-name-spielplan-1";
+
 /**
  * The stored person a confirmed registration's address resolves to, named so the team can be asked whether it is the same one.
  */
@@ -4535,13 +4496,11 @@ export interface FLSchiedsrichter {
   version: number;
 }
 
-export type FLSchiedsrichterMedienTextVersionInput = "2026-11-medien-1";
-
 /**
  * A referee's two wordings: the name on the fixtures and the media switch.
  */
 export interface FLSchiedsrichterTextVersions {
-  medien: FLSchiedsrichterMedienTextVersionInput;
+  medien: FLCitedMedienTextVersion;
   umfang: FLSchiedsrichterUmfangTextVersion;
 }
 
@@ -4610,8 +4569,6 @@ export interface FLSchiedsrichterListResponse {
   schiedsrichter: FLSchiedsrichter[];
 }
 
-export type FLSchiedsrichterMedienTextVersionOutput = FLMedienTextVersion;
-
 /**
  * The re-send's answer. Never null: where no link may be minted a refusal answers instead.
  */
@@ -4668,8 +4625,6 @@ export interface FLSeatEinwilligungPayload {
   text_versions: FLSeatTextVersions;
   umfang: FLKontaktKenntnisnahmeUmfang;
 }
-
-export type FLSeatMedienTextVersionOutput = FLMedienTextVersion;
 
 /**
  * The sign-in gate's whole answer: the records' two flags, the ban and the grant, and no record itself.
@@ -5511,8 +5466,6 @@ export interface FLSpielerAdminSingleResponse {
   vorname: string;
 }
 
-export type FLSpielerMedienTextVersionOutput = FLMedienTextVersion;
-
 /**
  * One squad row as seen from its player.
  *
@@ -6035,6 +5988,8 @@ export interface FLUndrawSpielplanResponse {
   spieltage: number;
   watermark_cleared: boolean;
 }
+
+export type FLWhatsappTextVersion = "2026-11-whatsapp-1";
 
 /**
  * Bad Request

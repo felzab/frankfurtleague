@@ -21,7 +21,6 @@ from app.api.account.services import (
     compose_schiedsrichter_account,
     compose_sitze_self,
     compose_spieler_account,
-    kontext_zeile,
 )
 from app.api.adresswechsel.crud import (
     end_the_change_in_session,
@@ -97,8 +96,7 @@ async def get_einwilligungen(
 
     PERSON TIER, for the account page, which every signed-in person reaches: an address holding nothing is answered
     `spieler: null` and four empty lists, never refused. A retired record, a past season's seat and a withdrawn team's
-    seat are served too, a withdrawal staying open wherever a consent stands; `context` carries what the record's
-    confirmation page filled its words with, as those records stand today; `givable` says whether a grant is
+    seat are served too, a withdrawal staying open wherever a consent stands; `givable` says whether a grant is
     admitted, `medien_offered` whether the media consent may be switched on. A record awaiting its person's
     confirmation is not served: there is nothing on it yet to change.
     """
@@ -113,29 +111,20 @@ async def get_einwilligungen(
     # From the rows read above, which the subject's own selections choose: a second read would answer the same.
     subjekt = funktionen_aus(identifier, seat_rows=seat_rows, referee_rows=referees, pupil_rows=pupils)
     teams = {team["_id"]: team for row in rows for team in row.get("teams", [])}
-    bewerbungen = {(bewerbung["team_id"], bewerbung["saison_id"]): bewerbung for row in seat_rows for bewerbung in row["bewerbungen"]}
 
     pupil = next((row for row in pupils if ist_eigener_spieler(row)), None)
-    zeile = None if pupil is None else kontext_zeile(pupil)
 
     return FLAccountEinwilligungenResponse.model_validate(
         {
             "spieler": None
             if pupil is None
-            else compose_spieler_account(
-                pupil,
-                givable=may_grant_on_spieler(subjekt, pupil["_id"]),
-                today=today,
-                team=None if zeile is None else teams.get(zeile["team_id"]),
-            ),
+            else compose_spieler_account(pupil, givable=may_grant_on_spieler(subjekt, pupil["_id"]), today=today),
             "schiedsrichter": [
                 compose_schiedsrichter_account(row, givable=may_grant_on_schiedsrichter(subjekt, row["_id"]), today=today)
                 for row in referees
                 if ist_eigener_schiedsrichter(row, identifier)
             ],
-            "seats": compose_sitze_self(
-                seat_rows, identifier, sitze_mit_panel=subjekt.seats, today=today, teams=teams, bewerbungen=bewerbungen
-            ),
+            "seats": compose_sitze_self(seat_rows, identifier, sitze_mit_panel=subjekt.seats, today=today),
             "bewerbungen": compose_bewerbungssitze_self(arms["bewerbungen"], identifier, teams=teams),
             "registrierungen": compose_registrierungen_self(arms["registrierungen"], identifier, teams=teams),
         }
