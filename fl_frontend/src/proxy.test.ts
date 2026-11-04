@@ -54,6 +54,7 @@ const { getSubjectSession } = await import("./core/subject.ts");
 const { unstable_doesMiddlewareMatch } = await import("next/experimental/testing/server.js");
 const { adapter } = await import("next/dist/server/web/adapter.js");
 const { config, proxy } = await import("./proxy.ts");
+const { MAILED_LINK_PAGES } = await import("./core/mailedLink.ts");
 const { ROUTES } = await import("./core/routes.ts");
 const { requireAdminRequest } = await import("./shared/utils/adminRead.ts");
 const { GET: continueTo } = await import("./app/(classic)/signin/continue/route.ts");
@@ -106,14 +107,20 @@ const landsOn = (path: string) => `NEXT_REDIRECT;replace;${path};307;`;
 describe("where the sign-in's landing sends a session asked to return somewhere", () => {
   it("lands a session the area serves straight on an allowlisted address it was asked for", async () => {
     expect(await landedAt(removed.cookie, "/account")).toBe(landsOn("/account"));
-    expect(await landedAt(removed.cookie, "/erasure?token=ein-token")).toBe(landsOn("/erasure?token=ein-token"));
+    expect(await landedAt(removed.cookie, "/erasure")).toBe(landsOn("/erasure"));
   });
 
-  it("lands it on the area's own page instead of an outside, an encoded or a protocol-relative address", async () => {
+  it("lands it on the area's own page instead of an outside, an encoded, a protocol-relative or a token-bearing address", async () => {
     const unasked = await landedAt(removed.cookie);
     assert.ok(unasked.startsWith("NEXT_REDIRECT;replace;/area"), `the control landed on ${unasked}`);
 
-    for (const asked of ["https://example.com/area", "/area%2F..%2Fadmin", "//example.com/area", "/\\example.com/area"]) {
+    for (const asked of [
+      "https://example.com/area",
+      "/area%2F..%2Fadmin",
+      "//example.com/area",
+      "/\\example.com/area",
+      "/erasure?token=ein-token",
+    ]) {
       expect(await landedAt(removed.cookie, asked), `${asked} was honoured`).toBe(unasked);
     }
   });
@@ -123,6 +130,24 @@ describe("where the sign-in's landing sends a session asked to return somewhere"
 
     expect(await landedAt(cookie, "/account")).toBe(landsOn("/signin/passkey?return=%2Faccount"));
     expect(await landedAt(cookie, "//example.com/area")).toBe(landsOn("/signin/passkey"));
+  });
+});
+
+/* Reverted, the token rides back into the sign-in's address and Turnstile's frame, and every page still renders. */
+describe("where the proxy sends a mailed link's first request", () => {
+  it("redirects it to the page's plain address, the token in that page's own HttpOnly cookie for an hour", async () => {
+    for (const page of MAILED_LINK_PAGES) {
+      const url = `http://localhost:3000${page}?token=ein-token`;
+      // The helper itself, since `matched` asks by path alone, and this source matches on the query.
+      expect(unstable_doesMiddlewareMatch({ config, url }), `${url} runs no proxy`).toBe(true);
+      expect(unstable_doesMiddlewareMatch({ config, url: `http://localhost:3000${page}` }), `${page} runs the proxy with no token`).toBe(false);
+
+      const answer = await proxy(new NextRequest(url, { headers: { host: "localhost:3000" } }));
+      expect(answer.headers.get("location"), `${page} kept its token in the address`).toBe(`http://localhost:3000${page}`);
+      const [set, ...more] = answer.headers.getSetCookie();
+      expect(more, "the swap set a second cookie").toStrictEqual([]);
+      expect(set).toMatch(new RegExp(`^mailed_link=ein-token; Path=${page}; Expires=[^;]+; Max-Age=3600; HttpOnly; SameSite=lax$`));
+    }
   });
 });
 
