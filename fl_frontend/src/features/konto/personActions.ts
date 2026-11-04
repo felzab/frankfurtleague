@@ -33,10 +33,9 @@ import { patchSchiedsrichterKontoEinwilligung } from "@/features/schiedsrichter/
 import { patchSpielerKontoEinwilligung } from "@/features/spieler/mutations";
 
 import { eraseOwnRecords, requestAccountAddressChange, stopAccountAddressChange } from "./mutations";
-import { getAccountEinwilligungen, getErasureView } from "./queries";
+import { getErasureView } from "./queries";
 
 import type { ActionAnswer } from "@/core/action";
-import type { FLAccountEinwilligungenResponse } from "@/core/generated/client/types";
 import type { EndState } from "@/kit/MailedPage";
 
 /** An act that posts no field but its page's holder: the signed-in session names everything it acts on. */
@@ -88,7 +87,7 @@ export const eraseAccount = action({
  * one check guarding it, since the backend judges no fresh sign-in. The address typed is judged by the sign-in's own
  * rule, so every address a sign-in would refuse is refused here before it is mailed. An account standing at the new
  * address is not refused here: the start answers alike whatever the new address holds, so it tells nobody which
- * addresses hold an account, and the new mailbox's own press refuses it (`fl_frontend/src/app/(classic)/confirm/address/antworten.ts`).
+ * addresses hold an account, and the new mailbox's own press refuses it (`fl_frontend/src/app/(classic)/confirm/address/answers.ts`).
  */
 export const startAddressChange = action({
   lane: "person",
@@ -151,25 +150,18 @@ export const signOutOthers = action({
 // an act of the account, which only Konto's page reaches, so an administrator's mailbox changes none of them.
 
 /**
- * A save whose media choice the backend refused as given below its floor, in the sentence Deine Einträge shows under
- * that switch, at the floor the record's view serves; `floorOf` answers it, or `undefined` where the record is gone
- * from the view, which the stale-page line answers. The page offers the switch from the served age alone, so only a
- * birthdate or a day that moved since it was served reaches this; any other failure goes to the builder.
+ * A save whose media choice the backend refused as given below its floor, answered as a stale page: the page offers
+ * the switch from the served age alone, so only a birthdate or a day that moved since it was served reaches this, and
+ * the page read again shows the switch closed under its own phrase, which has no subject on the status line. It is
+ * answered here rather than in the builder's stale set, since a form taking a birthdate meets the code knowingly. Any
+ * other failure goes to the builder.
  */
-async function savedWithMediaFloor(
-  save: () => Promise<unknown>,
-  floorOf: (view: FLAccountEinwilligungenResponse) => number | undefined,
-): Promise<ActionAnswer> {
+async function savedUnlessAgedOut(save: () => Promise<unknown>): Promise<ActionAnswer> {
   try {
     await save();
   } catch (failed) {
     if (!(failed instanceof APIBadStatusError) || failed.serverErrorCode !== "medien_age") throw failed;
-    const floor = floorOf(await getAccountEinwilligungen());
-    return {
-      ok: false,
-      errorCode: "medien_age",
-      reason: floor === undefined ? COPY.shared.failure.stale : COPY.account.entries.mediaFrom(floor),
-    };
+    return { ok: false, errorCode: "medien_age", reason: COPY.shared.failure.stale };
   }
   return { ok: true, value: undefined };
 }
@@ -180,11 +172,7 @@ export const saveSpielerConsent = action({
   claim: "account",
   name: "saveSpielerConsent",
   input: SpielerPatchEinwilligungBody.extend(PAGE_HOLDER),
-  run: ({ holder: _holder, ...choices }) =>
-    savedWithMediaFloor(
-      () => patchSpielerKontoEinwilligung(choices),
-      (view) => view.spieler?.medien_minimum_age,
-    ),
+  run: ({ holder: _holder, ...choices }) => savedUnlessAgedOut(() => patchSpielerKontoEinwilligung(choices)),
 });
 
 /** A referee's own two choices on one of their rows, of which one address may hold several. */
@@ -194,10 +182,7 @@ export const saveSchiedsrichterConsent = action({
   name: "saveSchiedsrichterConsent",
   input: SchiedsrichterPatchEinwilligungParams.extend(SchiedsrichterPatchEinwilligungBody.shape).extend(PAGE_HOLDER),
   run: ({ schiedsrichter_id, holder: _holder, ...choices }) =>
-    savedWithMediaFloor(
-      () => patchSchiedsrichterKontoEinwilligung(schiedsrichter_id, choices),
-      (view) => view.schiedsrichter.find((row) => row.schiedsrichter_id === schiedsrichter_id)?.medien_minimum_age,
-    ),
+    savedUnlessAgedOut(() => patchSchiedsrichterKontoEinwilligung(schiedsrichter_id, choices)),
 });
 
 /** A pupil's withdrawal on their pending registration, whose grant waits on the team's admission. */
@@ -218,11 +203,7 @@ export const saveSeatConsent = action({
   claim: "account",
   name: "saveSeatConsent",
   input: TeamsPatchEinwilligungParams.extend(TeamsPatchEinwilligungBody.shape).extend(PAGE_HOLDER),
-  run: ({ team_id, saison_id, holder: _holder, ...choices }) =>
-    savedWithMediaFloor(
-      () => patchSitzEinwilligung(team_id, saison_id, choices),
-      (view) => view.seats.find((seat) => seat.team_id === team_id && seat.saison_id === saison_id)?.medien_minimum_age,
-    ),
+  run: ({ team_id, saison_id, holder: _holder, ...choices }) => savedUnlessAgedOut(() => patchSitzEinwilligung(team_id, saison_id, choices)),
 });
 
 /** A seat holder's withdrawal on a pending application, whose grant is its confirmation page's alone. */

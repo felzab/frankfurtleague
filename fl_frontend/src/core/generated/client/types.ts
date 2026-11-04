@@ -855,6 +855,8 @@ export interface FLAddressChangeSweepResponse {
   removed: number;
 }
 
+export type FLAddressChangeValidHours = 24;
+
 /**
  * The approval a change moving a grant waits on, read-only here: the administrators page approves it.
  *
@@ -1068,6 +1070,8 @@ export const FLAddressChangeViewableDenied = {
   own: "own",
   verwaltung: "verwaltung",
 } as const;
+
+export type FLAddressChangeWaitingPeriodDays = 7;
 
 export interface FLAddressPayload {
   /**
