@@ -326,7 +326,6 @@ describe("what one refused confirmation shows", () => {
      confirmation raises and this mapper does not know falls through to the shared fallback. */
   it("maps every code the confirmation publishes, and no rule it does not", async () => {
     const published = refusalCodes(
-      "wording_not_allowed",
       "link_invalid",
       "link_expired",
       "confirmation_exists",
@@ -336,7 +335,6 @@ describe("what one refused confirmation shows", () => {
       "registrierung_choices_unsuitable",
     );
     const mapped: Code[] = [
-      "wording_not_allowed",
       "link_invalid",
       "link_expired",
       "confirmation_exists",

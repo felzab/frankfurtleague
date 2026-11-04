@@ -5,7 +5,6 @@ import { isRefusal } from "@/shared/utils/actionError";
 import { buildRefusal, LADE_DIE_SEITE_NEU } from "@/shared/utils/refusal";
 
 import { ADRESSE_KORRIGIEREN } from "./constants";
-import { BEWERBUNG_VERALTET } from "./utils";
 
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { BewerbungHerkunft } from "./constants";
@@ -206,10 +205,6 @@ export function mapKontaktSitzRefusal(error: unknown): { error?: string; fieldEr
       return { fieldErrors: { email: ADRESSE_SCHON_VERGEBEN } };
     case "bewerbung_kontakt_barred":
       return { fieldErrors: { email: SPERRLISTE_ADRESSE_GESPERRT_FELD } };
-    // The backend's judgement of the label: a page opened before a
-    // deploy moved the form's label would seat the person under words other than those the backend runs.
-    case "wording_not_allowed":
-      return { error: BEWERBUNG_VERALTET };
     default:
       return null;
   }
