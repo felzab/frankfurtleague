@@ -811,9 +811,8 @@ class TestAFixtureIsEitherDrawnOrWired:
 class TestTheSemiFinalLosersPlayForThirdPlace:
     @pytest.mark.parametrize("shape", SHAPES)
     def test_the_finale_matchday_opens_with_the_two_semi_finals_losers(self, shape: tuple[int, int, int]):
-        """Before the final, so the matchday is played in the order its numbers read; none where the bracket is a final alone."""
+        """Before the final, so the matchday is played in the order its numbers read."""
 
-        groups, _, qualifiers = shape
         plan = draw(*shape)
         semi_finals = [spiel["spiel_nr"] for spiel in plan.spiele if spiel["saison_phase"] == "halbfinale"]
         finale = [
@@ -821,13 +820,6 @@ class TestTheSemiFinalLosersPlayForThirdPlace:
             for spiel in sorted(plan.spiele, key=lambda spiel: spiel["spiel_nr"])
             if spiel["saison_phase"] == "finale"
         ]
-
-        # By hand rather than through `plays_for_third_place`: two qualifiers draw no semi-final, and
-        # their final, the one round, is seeded from the groups.
-        if groups * qualifiers == 2:
-            assert semi_finals == []
-            assert [quelle["type"] for pair in finale for quelle in pair] == ["gruppe", "gruppe"]
-            return
 
         assert finale == [
             tuple({"type": "spiel", "spiel_nr": nr, "ausgang": "verlierer"} for nr in semi_finals),

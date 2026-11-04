@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { COPY } from "@/core/copy";
+import { buildMapsSearchUrl } from "@/core/maps";
 import { SERVER_COPY } from "@/core/serverCopy";
 
 import { ereignisOf, matchdayOf, matchRowOf, outcomeFor, popupFactsOf } from "./blocks";
@@ -109,9 +110,10 @@ describe("what befell a match", () => {
 });
 
 describe("the pop-up's facts", () => {
+  const ort = { spielort_id: "4".repeat(24), name: "Sportplatz Ahornweg", maps_link: "Sportplatz Ahornweg, Ahornweg 2" };
   const booked: FLSpielJoined = {
     ...spiel(null),
-    ort: { spielort_id: "4".repeat(24), name: "Sportplatz Ahornweg", maps_link: "Sportplatz Ahornweg, Ahornweg 2" },
+    ort,
     schiedsrichter: { name: "Anna A.", name_is_public: true },
   };
   const { fact } = COPY.spielplan;
@@ -128,30 +130,22 @@ describe("the pop-up's facts", () => {
 
   it("link the venue to its map on another site", () => {
     expect(popupFactsOf(booked).find((each) => each.label === fact.spielort)?.elsewhere).toStrictEqual({
-      href: "https://www.google.com/maps/search/?api=1&query=Sportplatz%20Ahornweg%2C%20Ahornweg%202",
+      href: buildMapsSearchUrl(ort.maps_link),
       label: { record: "Sportplatz Ahornweg" },
     });
   });
 });
 
+// The labels themselves are `spieltagLabel`'s (`features/spieltage/utils.test.ts`); this holds what `matchdayOf` adds.
 describe("what a match's matchday is called", () => {
-  const knockout = { saison_phase: "viertelfinale", for_third_place: false } as const;
-
-  // As the Spielplan's tabs name it: a round over two matchdays numbers each, so the second reads apart from the first.
-  it("numbers a knockout round spread over several matchdays", () => {
-    expect(matchdayOf(knockout, { spieltag_position: 2, count_spieltage_in_phase: 2 })).toBe(
-      COPY.shared.knockoutRound(COPY.shared.phase.viertelfinale, 2),
+  // Position and count differ, so the two read the other way round would name the round alone.
+  it("hands the matchday's position and its phase's count on as the Spielplan's tabs read them", () => {
+    expect(matchdayOf({ saison_phase: "viertelfinale", for_third_place: false }, { spieltag_position: 1, count_spieltage_in_phase: 2 })).toBe(
+      COPY.shared.knockoutRound(COPY.shared.phase.viertelfinale, 1),
     );
   });
 
-  it("names a knockout round on one matchday by its phase alone", () => {
-    expect(matchdayOf(knockout, { spieltag_position: 1, count_spieltage_in_phase: 1 })).toBe(COPY.shared.phase.viertelfinale);
-  });
-
-  it("names a group matchday by its number, and the match for third place by its own name", () => {
-    expect(matchdayOf({ saison_phase: "gruppenphase", for_third_place: false }, { spieltag_position: 3, count_spieltage_in_phase: 5 })).toBe(
-      COPY.shared.spieltag(3),
-    );
+  it("names the match for third place by its own name", () => {
     expect(matchdayOf({ saison_phase: "finale", for_third_place: true }, { spieltag_position: 1, count_spieltage_in_phase: 1 })).toBe(
       SERVER_COPY.season.thirdPlace,
     );

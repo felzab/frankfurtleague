@@ -187,7 +187,7 @@ season-independent · `"playoffs"` is not a stored value · a no-show still coun
 ### `Anpfiff` — kick-off
 
 **Is:** the word the landing labels the season's opening match with, ahead of when it is set to start: its `datum`, and its `uhrzeit` in Berlin wall time where one is set.\
-**In code:** the line is `fl_frontend/src/core/serverCopy.ts :: SERVER_COPY.landing.saison.opening`; the opening match it labels is `fl_backend/app/api/saisons/schemas.py :: FLLandingOpeningSpiel`, served as `FLLandingSaison.opening_spiel`.\
+**In code:** the line is `fl_frontend/src/core/serverCopy.ts :: SERVER_COPY.landing.saison.opening`; the opening match it labels is `fl_backend/app/api/saisons/schemas.py :: FLLandingOpeningSpiel`, served as `FLLandingBeforeStart.opening_spiel`.\
 **Trap:** the landing's countdown counts to the season's start, 00:00 in Berlin on its `start_date` (`fl_backend/app/api/saisons/schemas.py :: saison_start`), never to the opening match's Anpfiff.
 
 ### `Einteilung` — the message telling a referee they are booked onto one fixture
@@ -241,8 +241,8 @@ season-independent · `"playoffs"` is not a stored value · a no-show still coun
 
 ### `Platz` — the number a club holds in a standing, or a place on the podium
 
-**Is:** the `platz` a bracket reference, a Tabelle row and a podium place each carry: inside a `gruppe` reference `1` is the group winner and `2` the runner-up, an `int` with `gt=0` and no upper bound; on the podium one to four.\
-**In code:** `fl_backend/app/api/spiele/schemas.py :: FLSpielQuelle`; the Tabelle serves each row's as `fl_backend/app/api/teams/schemas.py :: FLTabelleRow.platz`, and the landing's podium places one to four as `fl_backend/app/api/saisons/schemas.py :: FLPodiumPlace.platz`.\
+**Is:** the `platz` a bracket reference and a Tabelle row each carry, and a place on the podium: inside a `gruppe` reference `1` is the group winner and `2` the runner-up, an `int` with `gt=0` and no upper bound; on the podium one to four, served by position rather than as a field.\
+**In code:** `fl_backend/app/api/spiele/schemas.py :: FLSpielQuelle`; the Tabelle serves each row's as `fl_backend/app/api/teams/schemas.py :: FLTabelleRow.platz`, and the landing serves the podium's four places in their order, each a club or null, as `fl_backend/app/api/saisons/schemas.py :: FLLandingDecided.podium`.\
 **Trap:** the Tabelle's number is the bracket's placing except where the bracket decides none (`fl_backend/app/api/teams/services.py :: build_tabelle`): clubs left level share the number their band starts at, where the bracket seeds none of them, and a club with no match reads null and sorts last, so a club ranked below one still to play prints a lower number than the bracket counts it at. It counts only teams that can hold a placing, so a team that left the season before its group was decided keeps its table row while the place falls to the team below, and a team with no match that counts or still could holds no placing at all; a `platz` the group can never produce is reported rather than refused. A group is decided on its last fixture's day, and never while any of its fixtures is undated, one called off or played included (`fl_backend/app/api/teams/services.py :: _decided_on`), since a day read off a result would move when a later save called the fixture off; a team whose `austritt` is dated after that day keeps its place, and one dated on that day or earlier, or in a group not yet decided, loses it, by either route out (`fl_backend/app/api/teams/services.py :: in_the_season_when_decided`). The podium's places follow the same rule on their own match's day (`fl_backend/app/api/spiele/services.py :: podium_of`), a lost one served as a decided place with no club, so a season whose fourth place is vacant still has all four in.
 
 ### `Ausgang` — which side of a match a reference names

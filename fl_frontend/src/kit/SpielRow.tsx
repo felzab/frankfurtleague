@@ -90,9 +90,9 @@ export function look(score: Figures, side: "team1" | "team2") {
   return { winner: own > other, goals: score.shootOut && own < other ? "lost" : "counted" } as const;
 }
 
-/** One side's goals as its block marks them, or the empty mark before a result: a row's, a head's or a bracket card's. */
-export function Goal({ score, part, className }: { score: Figures; part: "team1" | "team2"; className: string }) {
-  return <span className={className}>{score === null ? COPY.shared.noValue : score[part]}</span>;
+/** One side's goals, or the empty mark before a result: a row's, a head's and a bracket card's figure. */
+export function goalsOf(score: Figures, part: "team1" | "team2") {
+  return score === null ? COPY.shared.noValue : score[part];
 }
 
 /** The mark between the two sides' goals, muted with them before a result. */
@@ -118,13 +118,7 @@ function Side({ side, score, part, mirrored }: { side: SpielSide; score: Figures
 }
 
 function Goals({ score, part }: { score: Figures; part: "team1" | "team2" }) {
-  return (
-    <Goal
-      score={score}
-      part={part}
-      className={row(look(score, part)).goals()}
-    />
-  );
+  return <span className={row(look(score, part)).goals()}>{goalsOf(score, part)}</span>;
 }
 
 function RowChip({ chip }: { chip?: ChipProps }) {

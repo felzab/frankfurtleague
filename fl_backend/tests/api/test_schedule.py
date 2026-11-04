@@ -120,7 +120,6 @@ class TestTheBracket:
     @pytest.mark.parametrize(
         ("qualifiers", "expected"),
         [
-            (2, ("finale",)),
             (4, ("halbfinale", "finale")),
             (8, ("viertelfinale", "halbfinale", "finale")),
             (16, ("achtelfinale", "viertelfinale", "halbfinale", "finale")),
@@ -142,9 +141,9 @@ class TestTheBracket:
 
         assert knockout_phases_for(32) == ()
 
-    @pytest.mark.parametrize("qualifiers", [0, 1])
+    @pytest.mark.parametrize("qualifiers", [0, 1, 2])
     def test_a_field_too_small_to_play_has_no_bracket(self, qualifiers):
-        """One qualifier is a champion by walkover, which is not a knockout round."""
+        """Below the semi-finals there is no match for third place, and the podium needs four places."""
 
         assert knockout_phases_for(qualifiers) == ()
 
@@ -153,25 +152,23 @@ class TestTheBracket:
 
 
 class TestTheMatchForThirdPlace:
-    @pytest.mark.parametrize(("qualifiers", "expected"), [(2, False), (4, True), (8, True), (16, True)])
-    def test_every_bracket_with_semi_finals_plays_one(self, qualifiers: int, expected: bool):
-        """Two qualifiers play the final alone: there is no semi-final to lose."""
+    @pytest.mark.parametrize("qualifiers", [4, 8, 16])
+    def test_every_bracket_plays_one(self, qualifiers: int):
+        assert plays_for_third_place(qualifiers) is True
 
-        assert plays_for_third_place(qualifiers) is expected
-
-    @pytest.mark.parametrize("qualifiers", [0, 1, 3, 6, 32])
+    @pytest.mark.parametrize("qualifiers", [0, 1, 2, 3, 6, 32])
     def test_a_field_with_no_bracket_plays_none(self, qualifiers: int):
         assert plays_for_third_place(qualifiers) is False
 
-    @pytest.mark.parametrize(("groups", "qualifiers", "finale"), [(1, 2, 1), (2, 1, 1), (2, 2, 2), (4, 2, 2), (4, 4, 2)])
+    @pytest.mark.parametrize(("groups", "qualifiers", "finale"), [(2, 2, 2), (4, 2, 2), (4, 4, 2)])
     def test_the_finale_matchday_counts_it_beside_the_final(self, groups: int, qualifiers: int, finale: int):
         """Every other round keeps half the field that entered it."""
 
         assert expected_matches(rules(groups=groups, per_group=4, qualifiers=qualifiers), "finale") == finale
 
-    @pytest.mark.parametrize(("groups", "qualifiers", "bracket"), [(1, 2, 1), (2, 2, 4), (4, 2, 8), (4, 4, 16)])
+    @pytest.mark.parametrize(("groups", "qualifiers", "bracket"), [(2, 2, 4), (4, 2, 8), (4, 4, 16)])
     def test_the_season_total_counts_it(self, groups: int, qualifiers: int, bracket: int):
-        """`bracket` is the knockout's matches by hand: `qualifiers - 1` played out, plus one for third place past two qualifiers."""
+        """`bracket` is the knockout's matches by hand: `qualifiers - 1` played out, plus one for third place."""
 
         shape = rules(groups=groups, per_group=4, qualifiers=qualifiers)
 

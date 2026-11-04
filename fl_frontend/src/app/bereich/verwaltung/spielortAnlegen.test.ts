@@ -4,15 +4,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
 import { APIBadStatusError } from "@/core/errors";
-import { SITE_CACHE_TAG } from "@/core/siteCache";
 
 import type { SpielortFeld } from "./spielortRegeln";
 
-/** What the create throws instead of creating the venue, and each tag the save cleared. */
-const stand = vi.hoisted(() => ({ ablehnung: null as unknown, cleared: [] as string[] }));
+/** What the create throws instead of creating the venue. */
+const stand = vi.hoisted(() => ({ ablehnung: null as unknown }));
 
 vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
-vi.mock("next/cache", () => ({ updateTag: (tag: string) => void stand.cleared.push(tag) }));
+// Next's `updateTag` throws outside a Server Action, and the write the real dispatch counts reaches it; whether a
+// save clears the site's cache is `core/action.test.ts`'s.
+vi.mock("next/cache", () => ({ updateTag: () => undefined }));
 vi.mock("@/core/auth", () => ({ judgeAdminRequest: async () => ({ session: {} }) }));
 
 // The backend client itself is replaced, so the create runs through the real generated call and the real dispatch,
@@ -43,11 +44,10 @@ const formular = (felder: Partial<Record<SpielortFeld, string>> = {}) => {
 beforeEach(() => {
   calls.length = 0;
   stand.ablehnung = null;
-  stand.cleared = [];
 });
 
 describe("the venue dialog's create", () => {
-  it("sends the dialog's boxes as the create's payload, the price as a figure, and clears the site's cache", async () => {
+  it("sends the dialog's boxes as the create's payload, with the price as a figure", async () => {
     expect(await spielortAnlegen(formular())).toStrictEqual({ ok: true, value: undefined });
     expect(requestsOf(calls)).toStrictEqual([
       {
@@ -60,7 +60,6 @@ describe("the venue dialog's create", () => {
         },
       },
     ]);
-    expect(stand.cleared).toStrictEqual([SITE_CACHE_TAG]);
   });
 
   it("places a name another venue holds on the name's box, by the path the create names", async () => {
@@ -81,8 +80,6 @@ describe("the venue dialog's create", () => {
       errorCode: "duplicate_key",
       fieldErrors: { name: COPY.shared.field.taken },
     });
-    // The refusal took the write back, so nothing the site caches changed.
-    expect(stand.cleared).toStrictEqual([]);
   });
 
   it("keeps a price that is no figure back on its box, sending nothing", async () => {
