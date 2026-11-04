@@ -7,6 +7,7 @@ import "next/dist/server/node-environment-baseline.js";
 import {
   ADMIN_EMAIL,
   configDouble,
+  cookiePair,
   GATE_BACKEND_CONFIG,
   HOLDS_NOTHING,
   madeByPasskey,
@@ -51,7 +52,7 @@ const { getSubjectSession } = await import("./core/subject.ts");
 const { unstable_doesMiddlewareMatch } = await import("next/experimental/testing/server.js");
 const { adapter } = await import("next/dist/server/web/adapter.js");
 const { config, proxy } = await import("./proxy.ts");
-const { SIGN_IN_LANDING } = await import("./core/signInLanding.ts");
+const { ROUTES } = await import("./core/routes.ts");
 const { requireAdminRequest } = await import("./shared/utils/adminRead.ts");
 
 /** What the landing reads, for the cases that put its answer and this proxy's side by side. */
@@ -172,7 +173,7 @@ describe("where the proxy sends a request for the administrator's subtree carryi
 
     arriveAs(cookie);
     await expect(requireAdminRequest()).rejects.toSatisfy(
-      (error: { digest?: unknown }) => error.digest === `NEXT_REDIRECT;replace;${SIGN_IN_LANDING};307;`,
+      (error: { digest?: unknown }) => error.digest === `NEXT_REDIRECT;replace;${ROUTES.signInLanding.path()};307;`,
     );
     expect(await getSignInDestination(), "the landing sends a code-borne administrator somewhere else").toBe("/signin/passkey");
   });
@@ -196,7 +197,7 @@ function matched(
 
   // Handed over as the helper's own `cookies`: it writes that header from them whatever `headers` carried.
   const { cookie = "", ...rest } = headers;
-  const cookies = Object.fromEntries(cookie.split(";").flatMap((pair) => (pair.includes("=") ? [pair.trim().split(/=(.*)/s, 2)] : [])));
+  const cookies = Object.fromEntries(cookie.split(";").flatMap((pair) => (pair.includes("=") ? [cookiePair(pair.trim())] : [])));
 
   return [pathname, spelled].some((path) =>
     // A copy each time: the helper writes a `host` into the object it is handed.
@@ -372,7 +373,7 @@ describe("where the proxy sends a request for an area's page", () => {
       arriveAs(cookie);
       expect(await getSubjectSession(), `the person guard served a ${name}'s ended session`).toBe(null);
       await expect(requireAdminRequest()).rejects.toSatisfy(
-        (error: { digest?: unknown }) => error.digest === `NEXT_REDIRECT;replace;${SIGN_IN_LANDING};307;`,
+        (error: { digest?: unknown }) => error.digest === `NEXT_REDIRECT;replace;${ROUTES.signInLanding.path()};307;`,
       );
     }
   });

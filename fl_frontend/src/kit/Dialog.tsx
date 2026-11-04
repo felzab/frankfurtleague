@@ -40,7 +40,7 @@ export function useOpenUntilHidden() {
  * the centring wrapper inside it stands in the visible part.
  */
 const dim = tv({
-  base: "absolute top-0 left-0 z-50 h-(--page-height) w-full bg-[rgb(0_0_0/0.1)] backdrop-blur-[4px] transition-opacity duration-(--motion-in) data-entering:opacity-0 data-exiting:opacity-0 data-exiting:duration-(--motion-out)",
+  base: "absolute top-0 left-0 z-50 h-(--page-height) w-full bg-scrim backdrop-blur-scrim transition-opacity duration-(--motion-in) data-entering:opacity-0 data-exiting:opacity-0 data-exiting:duration-(--motion-out)",
 });
 
 /**
@@ -52,7 +52,7 @@ const dim = tv({
  * `Inset` reads its card's.
  */
 const dialogBox = tv({
-  base: "grid max-h-[calc(var(--visual-viewport-height)-2rem)] w-full gap-6 overflow-y-auto rounded-xl bg-bg p-(--dialog-padding) text-fg shadow-dialog [--dialog-padding:var(--spacing-6)]",
+  base: "grid max-h-[calc(var(--visual-viewport-height)-2rem)] w-full gap-6 overflow-y-auto rounded-xl bg-bg-overlay p-(--dialog-padding) text-fg shadow-dialog [--dialog-padding:var(--spacing-6)]",
   variants: {
     width: {
       question: "max-w-question",

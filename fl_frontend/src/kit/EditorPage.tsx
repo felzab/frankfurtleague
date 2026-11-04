@@ -4,12 +4,15 @@ import { useRef } from "react";
 
 import { Form } from "react-aria-components/Form";
 
+import { COPY } from "@/core/copy";
+
 import { EditorBar } from "./EditorBar";
+import { FormClosed } from "./formClosed";
 import { formColumn, RailPage } from "./RailFrame";
 import { Section } from "./Section";
 
 import type { Copy } from "@/core/copy";
-import type { ReactNode } from "react";
+import type { ReactElement } from "react";
 import type { ChipProps } from "./Chip";
 import type { SaveWarning } from "./EditorBar";
 import type { PageTitle } from "./RailFrame";
@@ -17,7 +20,7 @@ import type { DangerAct } from "./Section";
 import type { Editor, EditorValue } from "./useEditor";
 
 /** One of an editor's sections, in the order the person's task takes them: its title, its ⓘ, its fields. */
-export type EditorSection = { id: string; title: Copy; help?: Copy; fields: ReactNode };
+export type EditorSection = { id: string; title: Copy; help?: Copy; fields: ReactElement };
 
 /**
  * The editor template: its sections one under another in the column of at most 760 px centred in the
@@ -26,7 +29,11 @@ export type EditorSection = { id: string; title: Copy; help?: Copy; fields: Reac
  * way out is the frame's „‹ Zurück“ to the record's list, which an editor's route group places
  * (`RailColumn`) and which asks before it drops unsaved changes. The last box ends in the danger rows, the
  * one place an editor's irreversible and retiring acts stand. The fields are the kit's, bound to `editor`'s
- * draft by the page's own client code.
+ * draft by the page's own client code, which the template's server half, `EditorShell`, waits for.
+ *
+ * A record its season no longer lets change opens `closed`, read-only rather than open to a save the write
+ * refuses: every field disabled, the reason under the first box's title, the chip „Abgeschlossen“ after the
+ * title, and neither the danger rows nor the bar, since there is nothing to save.
  */
 export function EditorPage<Values extends Record<string, EditorValue>>({
   title,
@@ -35,9 +42,12 @@ export function EditorPage<Values extends Record<string, EditorValue>>({
   sections,
   danger,
   warning,
+  closed,
 }: {
   title: PageTitle;
   chip?: ChipProps;
+  /** The reason the record is closed read-only, such as its season having finished; absent while it is open. */
+  closed?: Copy;
   editor: Editor<Values>;
   sections: readonly [EditorSection, ...EditorSection[]];
   danger?: ReadonlyArray<DangerAct>;
@@ -51,14 +61,16 @@ export function EditorPage<Values extends Record<string, EditorValue>>({
     <RailPage
       scope="area"
       title={title}
-      chip={chip}
+      chip={closed === undefined ? chip : { tone: "neutral", label: COPY.template.closed }}
       bar={
-        <EditorBar
-          status={editor.status}
-          isPending={editor.isPending}
-          warning={warning?.(editor.changes) ?? null}
-          onSave={() => form.current?.requestSubmit()}
-        />
+        closed === undefined ? (
+          <EditorBar
+            status={editor.status}
+            isPending={editor.isPending}
+            warning={warning?.(editor.changes) ?? null}
+            onSave={() => form.current?.requestSubmit()}
+          />
+        ) : undefined
       }>
       <Form
         ref={form}
@@ -70,15 +82,18 @@ export function EditorPage<Values extends Record<string, EditorValue>>({
           editor.submit();
         }}
         className={formColumn()}>
-        {sections.map((section, index) => (
-          <Section
-            key={section.id}
-            title={section.title}
-            help={section.help}
-            danger={index === last ? danger : undefined}>
-            {section.fields}
-          </Section>
-        ))}
+        <FormClosed value={closed !== undefined}>
+          {sections.map((section, index) => (
+            <Section
+              key={section.id}
+              title={section.title}
+              help={section.help}
+              note={index === 0 ? closed : undefined}
+              danger={index === last && closed === undefined ? danger : undefined}>
+              {section.fields}
+            </Section>
+          ))}
+        </FormClosed>
       </Form>
     </RailPage>
   );

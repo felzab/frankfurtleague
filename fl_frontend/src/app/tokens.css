@@ -3,13 +3,34 @@
    value, so `bg-bg` follows the theme. */
 @layer base {
   :root {
-    --bg: #ffffff;
-    --bg-surface: #f5f5f5;
-    --bg-muted: #e5e5e5;
+    /* The page. The body paints `--bg-base` from `schemes/2027.css`, which the old pages read, so a change
+       here writes that value too, in each theme.
+       Session 8: the scheme file goes with the old pages, and this second write with it.
+       A card stands a step brighter than the page in both themes, as the dark card does on its black page: the
+       light page is a grey, its cards white. The grey is as dark as a status chip's tint on it allows while its
+       word keeps 4.5:1, since a chip stands on the page after a page's title and in a card's head. */
+    --bg: #eaeaea;
+    /* The rail's fill, and a chosen box's lift: the card's, as in the dark theme. */
+    --bg-surface: #ffffff;
+    /* One step off a card and off the page: the fill under the pointer on a card, and the small fills, a
+       skeleton's bars on the page among them. */
+    --bg-muted: #d9d9d9;
+    /* A card and a table, one step off the page; its head on the page's own grey; a dialog, menu, sheet,
+       popover, tooltip or toast. Each a role of its own rather than a step of the scale above, so a theme can
+       raise its cards without moving the rail, the fields or the overlays. */
+    --bg-card: #ffffff;
+    --bg-card-head: #eaeaea;
+    /* A folded card's head under the pointer, lifted toward the text as a chip's tint is, as far as the head's
+       muted count keeps 4.5:1 on it. */
+    --bg-card-head-hover: #c8c8c8;
+    --bg-overlay: #ffffff;
     --fg: #0a0a0a;
     --fg-muted: #525252;
-    --border: #d4d4d4;
-    --border-control: #8e8e8e;
+    /* A row's and a card's hairline: 2.9:1 on a card and 2.4:1 on the page, so the light cards read as clearly
+       as the dark ones, and still lighter than a control's edge, which a line must not match. */
+    --border: #999999;
+    /* The lightest grey whose edge keeps 3:1 on the page and a card's head, the darkest grounds a field stands on. */
+    --border-control: #858585;
     --brand: #216c2d;
     --brand-solid: #033f11;
     --brand-solid-hover: #1b5123;
@@ -21,6 +42,8 @@
     --danger: #b71920;
     --danger-solid: #b71920;
     --danger-solid-hover: #d22e30;
+    /* The veil a dialog and a sheet lay over the page, one value in both themes: a dark page darkens little. */
+    --scrim: rgb(0 0 0 / 0.1);
 
     --menu-shadow:
       0 0 0 1px rgba(0, 0, 0, 0.04), 0 1px 1px rgba(0, 0, 0, 0.02), 0 4px 8px -4px rgba(0, 0, 0, 0.04), 0 16px 24px -8px rgba(0, 0, 0, 0.06);
@@ -33,6 +56,10 @@
     --bg: #030303;
     --bg-surface: #121212;
     --bg-muted: #262626;
+    --bg-card: #121212;
+    --bg-card-head: #262626;
+    --bg-card-head-hover: #383838;
+    --bg-overlay: #121212;
     --fg: #ffffff;
     --fg-muted: #a3a3a3;
     --border: #333333;
@@ -63,6 +90,18 @@
     @variant lg {
       --classic-header: 4rem;
     }
+  }
+
+  /* How long a wait runs before its placeholder shows: a wait shorter than this draws nothing. Defined
+     under reduced motion too, since it times a placeholder's appearance rather than any movement. */
+  :root {
+    --loading-delay: 100ms;
+  }
+
+  /* How long a place a link pointed to stays marked after the link brought the reader there (`kit-target`).
+     Defined under reduced motion too: the mark is a colour that fades, which moves nothing. */
+  :root {
+    --target-highlight: 2s;
   }
 
   /* Defined only where motion is welcome: under `reduce` each name is unset, so a duration reading it
@@ -122,6 +161,41 @@
   }
 }
 
+/* A placeholder's arrival: it is drawn invisible and becomes visible once `--loading-delay` has passed.
+   Outside the gate above, so under reduced motion it still appears, at once rather than fading. */
+@keyframes kit-appear {
+  to {
+    opacity: 1;
+  }
+}
+
+/* The place a link pointed to, such as a club's row in the Tabelle opened from its match: tinted as a chosen
+   value is, the tint fading to the place's own background. */
+@keyframes kit-target {
+  from {
+    background-color: color-mix(in srgb, var(--brand) 12%, transparent);
+  }
+}
+
+/* A place a link may point to by its fragment: the browser scrolls it into view clear of the frame's sticky
+   band or strip, and marks it while the address names it, CSS's `:target`, or, after a client navigation,
+   which never sets `:target`, the kit's `TargetMark`. */
+@layer components {
+  .kit-target {
+    scroll-margin-top: var(--rail-band);
+
+    @variant lg {
+      scroll-margin-top: var(--rail-strip);
+    }
+
+    &:target,
+    &[data-kit-target] {
+      animation-name: kit-target;
+      animation-duration: var(--target-highlight);
+    }
+  }
+}
+
 /* Registered so the two fade widths interpolate rather than jump. Zero where no scroll drives them: a
    row that fits, or a browser without scroll-driven animations, shows no fade. */
 @property --kit-fade-start {
@@ -140,6 +214,10 @@
   --color-bg: var(--bg);
   --color-bg-surface: var(--bg-surface);
   --color-bg-muted: var(--bg-muted);
+  --color-bg-card: var(--bg-card);
+  --color-bg-card-head: var(--bg-card-head);
+  --color-bg-card-head-hover: var(--bg-card-head-hover);
+  --color-bg-overlay: var(--bg-overlay);
   --color-fg: var(--fg);
   --color-fg-muted: var(--fg-muted);
   --color-border: var(--border);
@@ -155,6 +233,7 @@
   --color-danger: var(--danger);
   --color-danger-solid: var(--danger-solid);
   --color-danger-solid-hover: var(--danger-solid-hover);
+  --color-scrim: var(--scrim);
 
   --shadow-menu: var(--menu-shadow);
   --shadow-dialog: var(--dialog-shadow);
@@ -164,6 +243,8 @@
    the steps below are the only ones the kit may use, and the defaults stay for those stylesheets.
    Session 8: once those stylesheets go, each namespace below is reset to `initial`. */
 @theme {
+  /* Below the reading sizes, for a phone's compact table alone: its column heads and the „+N“ over a figure. */
+  --text-2xs: 0.625rem;
   --text-xs: 0.75rem;
   --text-sm: 0.875rem;
   --text-base: 1rem;
@@ -190,6 +271,9 @@
   --radius-lg: 0.5rem;
   --radius-xl: 0.75rem;
 
+  /* The blur behind a dialog's and a sheet's scrim. */
+  --blur-scrim: 4px;
+
   /* Anton's letterfit for a title at every size: it is drawn to set nearly solid, and the site's negative
      values were chosen for Inter's looser capitals. */
   --tracking-display: 0.02em;
@@ -205,6 +289,8 @@
   --container-signin: 22rem; /* the sign-in's column */
   --container-question: 25rem; /* a dialog asking one question */
   --container-card: 28rem; /* a status card, and the classic column holding one */
+  --container-bracket-phone: 5rem; /* a bracket card on a phone: the plaque and a two-digit figure inside 8-px padding */
+  --container-bracket: 12rem; /* a bracket card on desktop, the most a round's column gives it */
   --container-dialog: 35rem; /* a dialog holding a form */
   --container-form: 47.5rem; /* the form column: a classic form page's, an editor's and a read page's */
   --container-classic: 61rem; /* the classic frame's header and footer */

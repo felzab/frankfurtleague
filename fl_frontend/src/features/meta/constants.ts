@@ -1,152 +1,37 @@
-import { INSTAGRAM_HANDLE, INSTAGRAM_URL, KONTAKT_EMAIL, THREADS_URL } from "@/core/brand";
-import { KONTAKT_TITEL, ORGANISATION_TITEL } from "@/core/seitenNamen";
+import type { Sponsor } from "@/kit/TileGrid";
 
-import type { KontaktChannel, QaQuestion, TeamMember } from "./types";
+// Content in code and not data: no database backing and no admin surface, so a change here is a deploy. The
+// pages it feeds change once or twice a year.
 
-// Content in code and not data: no database backing and no admin surface, so a change here is a
-// deploy. The pages it feeds change once or twice a year.
-const TEAM_MEMBERS: TeamMember[] = [
-  { id: 1, name: "David", role: "Vorstand", desc: "Ligaleitung & Orga", tag: "vorstand" },
-  { id: 2, name: "Maria-Lucia", role: "Vorstand", desc: "Ligaleitung & Orga", tag: "vorstand" },
-  { id: 3, name: "Matin", role: "Spielbetrieb", desc: "Orga & Verwaltung", tag: "orga" },
-  { id: 4, name: "Mana", role: "Spielbetrieb", desc: "Orga & Verwaltung", tag: "orga" },
-  { id: 5, name: "Nick", role: "Spielbetrieb", desc: "Orga & Verwaltung", tag: "orga" },
-  { id: 6, name: "Vincent", role: "Spielbetrieb", desc: "Orga & Verwaltung", tag: "orga" },
-  { id: 7, name: "Felix", role: "Entwicklung", desc: "Website & Infrastruktur", tag: "web" },
-  { id: 10, name: "Jonathan", role: "Kommunikation", desc: "Kommunikation & Orga", tag: "web" },
+/** What an organiser does, keyed into the catalogue's roles. */
+export type OrganiserRole = "vorstand" | "spielbetrieb" | "website" | "kommunikation";
+
+/** The people who run the league, by their first names, in the order the landing and About show them. */
+export const ORGANISERS: ReadonlyArray<{ name: string; role: OrganiserRole }> = [
+  { name: "David", role: "vorstand" },
+  { name: "Maria-Lucia", role: "vorstand" },
+  { name: "Matin", role: "spielbetrieb" },
+  { name: "Mana", role: "spielbetrieb" },
+  { name: "Nick", role: "spielbetrieb" },
+  { name: "Vincent", role: "spielbetrieb" },
+  { name: "Felix", role: "website" },
+  { name: "Jonathan", role: "kommunikation" },
 ];
-
-/** Section heading per tag. Keyed by the union, so a new tag is a compile error here. */
-export const TAG_TITLES: Record<TeamMember["tag"], string> = {
-  vorstand: "Vorstand",
-  orga: "Spielbetrieb",
-  web: "Web & Kommunikation",
-};
-
-/** The eyebrow over each section's heading, keyed by the union like `TAG_TITLES` and for the same reason. */
-export const TAG_EYEBROWS: Record<TeamMember["tag"], string> = {
-  vorstand: "Ligaleitung",
-  orga: "Verwaltung",
-  web: "Website und Auftritt",
-};
 
 /**
- * Seeded with every key rather than accumulating into `{}`, so each bucket is a real array and a new
- * tag fails to compile here until it has both a bucket and a title.
+ * The league's sponsors, each with its logo as the sponsor serves it, under `public/icons/sponsors/`, where the
+ * icons' cache header covers it (`fl_frontend/next.config.ts`).
  */
-export const GROUPED_MEMBERS = TEAM_MEMBERS.reduce(
-  (acc, member) => {
-    acc[member.tag].push(member);
-    return acc;
-  },
-  { vorstand: [], orga: [], web: [] } as Record<TeamMember["tag"], TeamMember[]>,
-);
-
-export const KONTAKT_CHANNELS: KontaktChannel[] = [
-  {
-    id: "email",
-    name: "E-Mail",
-    // Shown and linked as the one address the legal pages publish: a value a press does not honour
-    // sends a visitor somewhere nobody is.
-    value: KONTAKT_EMAIL,
-    action: `mailto:${KONTAKT_EMAIL}`,
-    cta: "E-Mail schreiben",
-  },
-  {
-    id: "instagram",
-    name: "Instagram",
-    value: INSTAGRAM_HANDLE,
-    action: INSTAGRAM_URL,
-    cta: "Profil öffnen",
-  },
-  {
-    id: "threads",
-    name: "Threads",
-    value: "@frankfurt.league",
-    action: THREADS_URL,
-    cta: "Profil öffnen",
-  },
+const SPONSOR_ENTRIES: ReadonlyArray<{ name: string; short?: string; logo: string; href: string }> = [
+  { name: "Stiftung Polytechnische Gesellschaft", short: "SPTG", logo: "/icons/sponsors/sptg.svg", href: "https://sptg.de" },
 ];
 
-export const QA_QUESTIONS: QaQuestion[] = [
-  {
-    id: "finanzierung",
-    q: "Wie funktioniert die Finanzierung der Abibälle?",
-    a: "Die beiden Teams eines Spiels verdienen an Tickets und an ihren Verkäufen vor Ort. Der Erlös wird nach dem Spiel geteilt, in der Regel je zur Hälfte.",
-  },
-  {
-    id: "organisation",
-    q: "Wer organisiert die Liga?",
-    a: `Ehrenamtliche Schülerinnen, Schüler und Helfer. Wer dazugehört, steht auf der Seite „${ORGANISATION_TITEL}“.`,
-  },
-  {
-    id: "regeln",
-    q: "Nach welchen Regeln wird gespielt?",
-    a: "11 gegen 11, zwei Hälften à 45 Minuten. Die Schiedsrichter kommen, soweit möglich, von außerhalb.",
-  },
-  {
-    id: "teilnahme",
-    q: "Wer darf in den Teams mitspielen?",
-    a: "Nur Schülerinnen und Schüler des Abi-Jahrgangs, für den das Team antritt.",
-  },
-  {
-    id: "bewerbung",
-    q: "Wie kann unsere Schule der Liga beitreten?",
-    // Static copy cannot know whether a window is open, so it names both routes: the landing page's
-    // band links the form only while one runs (`fl_frontend/src/features/bewerbungen/components/ui/BewerbungOffenBand.tsx`).
-    a: `Solange die Bewerbungen für eine Saison offen sind, führt ein Link auf der Startseite zum Bewerbungsformular. Sonst schreib uns über die Seite „${KONTAKT_TITEL}“.`,
-  },
-  {
-    id: "wetter",
-    q: "Was passiert bei schlechtem Wetter?",
-    a: "Wir spielen bei jedem Wetter. Bei offizieller Unwetterwarnung oder Platzsperre wird das Spiel abgesagt und neu angesetzt.",
-  },
-  {
-    id: "preise",
-    q: "Was bekommt der Gewinner?",
-    a: "Das meiste Geld, dazu Ruhm und Ehre als bester Abi-Jahrgang des Jahres.",
-  },
-  {
-    id: "lehrer",
-    q: "Dürfen auch Lehrer mitspielen?",
-    a: "Nein, die Frankfurt League ist eine reine Schülerliga. Als Fans an der Seitenlinie sind Lehrer willkommen.",
-  },
-  {
-    id: "schiedsrichter-platzgebühr",
-    q: "Wie werden die Schiedsrichter und die Platzgebühr bezahlt?",
-    a: "Die beiden Teams legen die Kosten vor und holen sie sich aus den Einnahmen des Spiels zurück.",
-  },
-  {
-    id: "flinta",
-    q: "Können auch Mädchen- oder gemischte Teams antreten?",
-    a: "Absolut, die Liga ist offen für alle.",
-  },
-  {
-    id: "orte",
-    q: "Wo finden die Spiele statt?",
-    a: "Wir haben keinen zentralen Spielort. Wo und wann ein Spiel stattfindet, steht im Spielplan.",
-  },
-  {
-    id: "eintritt",
-    q: "Kostet der Eintritt etwas?",
-    a: "Ja, je nach Spiel und Kaufzeitpunkt 2 bis 5 €. Im Vorverkauf sind Tickets meist günstiger.",
-  },
-  {
-    id: "verletzungen",
-    q: "Wie seid ihr bei Verletzungen abgesichert?",
-    a: "Bei den meisten Spielen sind Sanitäter vor Ort, ebenfalls Schüler. Im Notfall rufen wir sofort den Krankenwagen.",
-  },
-  {
-    id: "tabelle",
-    q: "Wie setzt sich die Tabelle zusammen?",
-    a: "Nach Punkten aus den Spielen der Gruppenphase.",
-  },
-  {
-    id: "finale",
-    q: "Gibt es ein großes Finale?",
-    a: "Nach der Gruppenphase folgt die KO-Runde bis zum Finale. Diese Spiele sind größer aufgezogen als die Gruppenspiele.",
-  },
-];
+/** The sponsors as the kit's tiles and the footer take them, each name marked as the record's own data. */
+export const SPONSORS: readonly Sponsor[] = SPONSOR_ENTRIES.map(({ name, short, ...sponsor }) => ({
+  ...sponsor,
+  name: { record: name },
+  ...(short === undefined ? {} : { short: { record: short } }),
+}));
 
 /**
  * The day the privacy notice's words took effect: its „Stand“, and the sitemap's date for it. Hand-set,

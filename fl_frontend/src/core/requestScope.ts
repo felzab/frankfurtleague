@@ -31,13 +31,16 @@ interface RequestScope {
   actor?: RequestActor;
   // On `performance.now()`'s clock rather than `Date.now()`'s, which a wall-clock step moves.
   deadlineAt: number;
-  // Redesign: the three flags below go with the write-outcome functions further down, and so do the lines that
-  // seed them in each scope and set one in `boundCall`.
+  // The writes sent that may stand, each counted as it is sent and taken back once its own answer refuses it: the
+  // action builder clears the site's cache tag by it, where an action declaring its writes would repeat what each call
+  // already says. Held by reference, so the scope `runAnsweringOwnCut` derives counts into it.
+  standing: { writes: number };
+  // Redesign: the three flags below go with the write-outcome functions further down, and so do the lines that seed
+  // them in each scope and set `outcomeUnknown` in `boundCall`.
+  // Set as a write is sent, whatever its answer, which the old write path's spines judge a throw by.
+  writeSent: boolean;
   // Set where a call may have landed unanswered, which the spines read once the request's work is done.
   outcomeUnknown: boolean;
-  // Set when a call that may write is dispatched, answered or not: the admin spine judges by it what its
-  // answer leaves standing, where an action declaring it would repeat what each call already says.
-  writeSent: boolean;
   // Set before a write that may end the session the request carries: the spine then renders no page again.
   endsOwnSession: boolean;
   // `oncePerRequest`'s reads, by the function each wraps. Held by reference, so the scope
@@ -64,6 +67,7 @@ export function runWithRequestScope<T>(scope: Pick<RequestScope, "traceId" | "ac
   render.scope ??= {
     ...scope,
     deadlineAt: performance.now() + REQUEST_DEADLINE_MS,
+    standing: { writes: 0 },
     outcomeUnknown: false,
     writeSent: false,
     endsOwnSession: false,
@@ -100,6 +104,7 @@ export function runBehindTheResponse(traceId: string, work: () => Promise<void>)
   const scope: RequestScope = {
     traceId,
     deadlineAt: performance.now() + AFTER_RESPONSE_DEADLINE_MS,
+    standing: { writes: 0 },
     outcomeUnknown: false,
     writeSent: false,
     endsOwnSession: false,
@@ -125,6 +130,7 @@ export function runInBackground<T>(traceId: string, pass: () => Promise<T>): Pro
   const scope: RequestScope = {
     traceId,
     deadlineAt: Infinity,
+    standing: { writes: 0 },
     outcomeUnknown: false,
     writeSent: false,
     endsOwnSession: false,
@@ -179,9 +185,38 @@ export function boundCall(ownBoundMs: number): AbortSignal {
   return signal;
 }
 
+/**
+ * Records a write as it is sent, counted as standing until its own answer refuses it: one never answered may still
+ * have landed. Answers the withdrawal, which takes that one write back and no other. Its callers are of two kinds:
+ * `fl_frontend/src/core/apiDispatch.ts :: dispatchRequest`, for every write the generated client sends; and the old
+ * write path's actions in `features/konto/` and `features/passkeys/`, which record a sign-in store write by hand for
+ * their spines' reading of an unknown outcome. A builder action records none: a write through the sign-in store's own
+ * client moves nothing a cached read serves, so recorded it would clear the site's cache tag for nothing, and an
+ * action changing that store calls Next's `refresh()` itself. A no-op outside a scope.
+ */
+export function recordWriteSent(): () => void {
+  const store = storage.getStore();
+  if (store === undefined) return () => undefined;
+
+  store.writeSent = true;
+  store.standing.writes += 1;
+  return () => {
+    store.standing.writes -= 1;
+  };
+}
+
+/** Whether a write this request sent may stand: sent, and not refused by its own answer. `false` outside a scope. */
+export function requestWriteMayStand(): boolean {
+  return (storage.getStore()?.standing.writes ?? 0) > 0;
+}
+
 // Redesign: the write-outcome functions below go with their last importers, the old write path's spines and the
-// slices' old actions and mails. The builder in `fl_frontend/src/core/action.ts` clears the site's tag whatever a
-// body came to and reads none of them.
+// slices' old actions and mails. The builder in `fl_frontend/src/core/action.ts` reads none of them.
+
+/** Whether the transport has sent a write of this request, refused or not. `false` outside a scope. */
+export function requestWriteSent(): boolean {
+  return storage.getStore()?.writeSent === true;
+}
 
 /**
  * Runs a call whose doubt its caller words in its own answer, so a deadline cut inside it never marks the request.
@@ -204,20 +239,6 @@ export async function runAnsweringOwnCut<T>(fn: () => Promise<T>): Promise<T> {
 /** Whether the deadline cut a call of this request. `false` outside a scope. */
 export function requestOutcomeUnknown(): boolean {
   return storage.getStore()?.outcomeUnknown === true;
-}
-
-/**
- * Called as a call that may write is sent: one never answered may still have landed. The API client calls it
- * itself, and a write through another client at the write. A no-op outside a scope.
- */
-export function recordWriteSent(): void {
-  const store = storage.getStore();
-  if (store !== undefined) store.writeSent = true;
-}
-
-/** Whether this request has dispatched a call that may write. `false` outside a scope. */
-export function requestWriteSent(): boolean {
-  return storage.getStore()?.writeSent === true;
 }
 
 /**

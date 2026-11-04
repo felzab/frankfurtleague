@@ -126,7 +126,7 @@ describe("an editor's draft", () => {
   });
 
   it("says what else the save moved in place of „Gespeichert“", async () => {
-    const note = COPY.verwaltung.spiel.savedWithConsequences("Die Paarung in Spiel 31 wurde ebenfalls aktualisiert.");
+    const note = COPY.verwaltung.spiel.alsoChanged([31]);
     const { result, rerender } = editorOn(STORED, async () => ({ ok: true, value: 2, note }));
 
     act(() => result.current.set("plz", "60439"));

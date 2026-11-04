@@ -1,3 +1,4 @@
+import asyncio
 from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
 
@@ -6,8 +7,11 @@ from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spielbestaetigungen.services import SeatVoid, build_team_rows_filter, group_seat_voids
-from app.api.teams.services import find_entry_refusal
-from app.core.crud import anchor_in_db, patch_many_in_db, pull_many_from_db, pull_one_from_db, refuse
+from app.api.spiele.schemas import FLSpielListAdapter
+from app.api.teams.schemas import FLTabelle, FLTeamListAdapter, FLTeamsFilterParams
+from app.api.teams.services import build_tabelle, build_team_pipeline, find_entry_refusal
+from app.core.crud import GERMAN_COLLATION, aggregate_many_from_db, anchor_in_db, patch_many_in_db, pull_many_from_db, pull_one_from_db, refuse
+from app.core.readonly import ReadCollection
 from app.shared.schemas.bounds import LIST_LIMIT_MAX
 from app.shared.schemas.literals import FLGruppenNames
 
@@ -79,8 +83,29 @@ async def pull_a_club_to_enter(
     return club
 
 
+async def pull_tabelle(
+    *, teams_collection: AsyncCollection, spiele_collection: AsyncCollection, saison_id: str, rules: FLSaisonRules
+) -> FLTabelle:
+    """One season's standing over the group phase, every row placed; the clubs and the group fixtures read at once.
+
+    The fixtures beside the clubs, because the tiebreak chain weighs a head-to-head table over the same set the
+    statistics counted.
+    """
+
+    teams_raw, spiele_raw = await asyncio.gather(
+        aggregate_many_from_db(
+            collection=teams_collection,
+            pipeline=build_team_pipeline(filters=FLTeamsFilterParams(saison_id=saison_id), rules=rules),
+            collation=GERMAN_COLLATION,
+        ),
+        pull_many_from_db(collection=spiele_collection, db_filter={"saison_id": saison_id, "saison_phase": "gruppenphase"}),
+    )
+
+    return build_tabelle(teams=FLTeamListAdapter.validate_python(teams_raw), spiele=FLSpielListAdapter.validate_python(spiele_raw), rules=rules)
+
+
 async def pull_team_names(
-    *, teams_collection: AsyncCollection, team_ids: Iterable[Any], session: AsyncClientSession | None = None
+    *, teams_collection: ReadCollection, team_ids: Iterable[Any], session: AsyncClientSession | None = None
 ) -> dict[Any, str]:
     """These clubs' names off their `teams` documents, one read and no command for none; a club no document holds is absent."""
 

@@ -1,9 +1,11 @@
-from typing import NamedTuple
+from collections.abc import Mapping
+from typing import Any, NamedTuple
 
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.saisons.schemas import FLSaisonRules
+from app.api.spielberichte.crud import repoint_pupil_entries_in_session
 from app.api.spieler.schemas import FLSpielerRolle
 from app.api.spieler.services import (
     build_ghost_spieler,
@@ -18,13 +20,13 @@ from app.core.collections import Collection
 from app.core.crud import (
     aggregate_many_from_db,
     anchor_in_db,
+    ensure_one_in_db,
     erase_many_from_db,
-    post_one_to_db,
     pull_one_from_db,
     redact_log_rows_in_db,
     refuse,
 )
-from app.core.sentinels import GHOST_SPIELER_ID
+from app.core.readonly import ReadCollection
 from app.shared.schemas.custom import CustomObjectId
 
 
@@ -55,6 +57,9 @@ async def refuse_a_full_squad(
     saison_spieler_collection: AsyncCollection,
     saisons_collection: AsyncCollection,
     saison_id: str,
+    # The season's stored `rules`, which the caller reads in this session beside whatever else of the season it needs:
+    # the anchor below, not that read, is what closes the race.
+    rules: Mapping[str, Any],
     team_id: CustomObjectId,
     spieler_id: CustomObjectId,
     # REQUIRED: the anchor below is what closes the race, so forgetting the session has to be a
@@ -63,11 +68,8 @@ async def refuse_a_full_squad(
 ) -> None:
     """Refuse `kader_full` when this team's squad for this season is already at the season's cap.
 
-    Shared by create, transfer and reactivate: the cap is a property of the DESTINATION squad, not
-    of the verb.
+    Shared by every writer that grows a squad: the cap is a property of the DESTINATION squad, not of the verb.
     """
-
-    saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["rules"], session=session)
 
     # A count is a read, which a snapshot re-validates nowhere, so two writers pass one figure
     # unless something puts them in one write set.
@@ -87,7 +89,7 @@ async def refuse_a_full_squad(
             squad_size=squad_size,
             # Validated, not read raw: a season missing the key fails here rather than admitting a
             # player against a bound nobody chose.
-            max_kadergroesse=FLSaisonRules.model_validate(saison_raw["rules"]).max_kadergroesse,
+            max_kadergroesse=FLSaisonRules.model_validate(rules).max_kadergroesse,
         )
     )
 
@@ -134,7 +136,7 @@ async def refuse_a_taken_rolle(
 
 async def another_pupil_holds(
     *,
-    spieler_collection: AsyncCollection,
+    spieler_collection: ReadCollection,
     # Folded (`app/shared/folding.py :: sign_in_identifier`), the form `spieler.email` stores.
     identifier: str,
     spieler_id: CustomObjectId,
@@ -157,10 +159,13 @@ async def ensure_ghost_spieler(
     # it was written for rolled back.
     session: AsyncClientSession,
 ) -> None:
-    """Write the sentinel where none stands, so no reference to an erased pupil is ever repointed at a row nothing holds."""
+    """Write the sentinel where none stands, so no reference to an erased pupil is ever repointed at a row nothing holds.
 
-    if await spieler_collection.find_one({"_id": GHOST_SPIELER_ID}, projection={"_id": 1}, session=session) is None:
-        await post_one_to_db(collection=spieler_collection, document=build_ghost_spieler(), session=session)
+    One upsert inside the erasure's transaction, on a collection the boot's index build has already made
+    (`app/core/db.py`); an upsert creating one there is a write a sharded transaction would refuse.
+    """
+
+    await ensure_one_in_db(collection=spieler_collection, document=build_ghost_spieler(), session=session)
 
 
 class PersonGeloescht(NamedTuple):
@@ -173,6 +178,7 @@ async def loeschen_person_in_session(
     *,
     spieler_collection: AsyncCollection,
     saison_spieler_collection: AsyncCollection,
+    spielberichte_collection: AsyncCollection,
     aktionen_collection: AsyncCollection,
     spieler_id: CustomObjectId,
     # The caller's, so several erasures in one transaction redact under one instant.
@@ -180,11 +186,19 @@ async def loeschen_person_in_session(
     # REQUIRED, so a caller forgetting it is a TypeError rather than writes committing one by one.
     session: AsyncClientSession,
 ) -> PersonGeloescht:
-    """Remove the person and their squad rows, then redact the log. Whether they may be erased is the caller's to judge."""
+    """Repoint the person's report entries at the sentinel, remove the person and their squad rows, then redact the log.
+
+    Whether they may be erased is the caller's to judge; the sentinel must stand already
+    (`ensure_ghost_spieler`).
+    """
 
     # Through the by-id filter, before any write: the removals below key on the bare id, so the
     # sentinel handed in by any caller would go, and every reference repointed at it would dangle.
     await pull_one_from_db(collection=spieler_collection, db_filter=build_spieler_filter(spieler_id), projection={"_id": 1}, session=session)
+
+    # Before the removal, as the erasure reaches every reference to a person before the person: an
+    # entry left naming the id names a row nothing holds.
+    await repoint_pupil_entries_in_session(spielberichte_collection=spielberichte_collection, spieler_id=spieler_id, session=session)
 
     # Read BEFORE the removal and unbounded: a log row names a squad row by its own `_id`, which
     # nothing can recover once the row is gone, so a capped read would leave the rows it dropped
@@ -195,8 +209,8 @@ async def loeschen_person_in_session(
         session=session,
     )
 
-    # The squad rows first: the public read `$lookup`s outward from the person, so a row left
-    # behind is orphaned invisibly rather than surfacing as a fault somebody would notice.
+    # The squad rows first: the public read starts from them and drops a row whose person its `$lookup` cannot
+    # find, so a row left behind is orphaned invisibly rather than surfacing as a fault somebody would notice.
     geloescht_rows = await erase_many_from_db(collection=saison_spieler_collection, db_filter={"spieler_id": spieler_id}, session=session)
     geloescht_person = await erase_many_from_db(collection=spieler_collection, db_filter={"_id": spieler_id}, session=session)
 

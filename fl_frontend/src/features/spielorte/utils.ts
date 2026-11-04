@@ -1,4 +1,5 @@
-import { buildMapsSearchUrl, formatAddressFull } from "@/shared/utils/format";
+import { buildMapsSearchUrl } from "@/core/maps";
+import { formatAddressFull } from "@/shared/utils/format";
 
 import type { FLSpielort } from "@/core/generated/client/types";
 

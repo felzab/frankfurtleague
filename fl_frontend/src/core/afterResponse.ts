@@ -11,7 +11,10 @@ import { mintTraceId } from "./trace";
 
 /**
  * Next's `after`, the one way a request's own work is scheduled behind its response: a stopping server waits on every
- * pending callback, so each runs under the one deadline the container's stop grace is measured against.
+ * pending callback, so each runs under the one deadline the container's stop grace is measured against. A write the
+ * work sends clears nothing, since the action has answered and settled the site's cache tag before the work runs, and
+ * nothing checks what moves here: a league write never does, or the person who saved it is served the cached page
+ * until the `minutes` lifetime lapses.
  */
 export function afterTheResponse(work: () => Promise<void>): void {
   const traceId = getRequestTraceId() ?? mintTraceId();

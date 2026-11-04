@@ -1,6 +1,8 @@
 import { saisonRules } from "@/test-support/saisonRules.ts";
 import { describe, expect, it } from "vitest";
 
+import { COPY } from "@/core/copy";
+
 import { FLPatchSaisonPayloadSchema, FLPostSaisonPayloadSchema } from "./schemas";
 
 import type { FLSaisonRules } from "@/core/generated/client/types";
@@ -48,18 +50,19 @@ describe("FLPostSaisonPayloadSchema", () => {
     expect(pathsRefused(FLPostSaisonPayloadSchema, create({ qualifiers_per_gruppe: 2, teams_per_gruppe: 2 }))).toStrictEqual([]);
   });
 
-  it("refuses a field that pairs down to no bracket", () => {
-    expect(
-      pathsRefused(FLPostSaisonPayloadSchema, create({ number_of_gruppen: 3, qualifiers_per_gruppe: 1, teams_per_gruppe: 4 })),
-    ).toStrictEqual(["rules.qualifiers_per_gruppe"]);
-  });
-
-  /* This is the one message that asks the reader to multiply, so each factor is named as its own panel
-     labels it: a bare „Qualifikanten“ reads as the total across the season and is the wrong arithmetic. */
-  it("names both factors of the bracket product the way the panel labels them", () => {
-    const refused = messagesRefused(FLPostSaisonPayloadSchema, create({ number_of_gruppen: 3, qualifiers_per_gruppe: 1, teams_per_gruppe: 4 }));
-
-    expect(refused.join(" ")).toMatch(/Die Zahl der Gruppen mal die Qualifikanten pro Gruppe/);
+  /* The two counts together are at fault, so the issue stands on the rules as a whole, which no box is named, and
+     the form's failure line says it. A bracket of two is below the four the rules take. */
+  it("refuses counts that pair down to no bracket, a bracket of two among them, in the rule's one sentence", () => {
+    for (const [number_of_gruppen, qualifiers_per_gruppe] of [
+      [3, 1],
+      [1, 2],
+    ] as const) {
+      const draft = create({ number_of_gruppen, qualifiers_per_gruppe, teams_per_gruppe: 4 });
+      expect(pathsRefused(FLPostSaisonPayloadSchema, draft), `${String(number_of_gruppen)} x ${String(qualifiers_per_gruppe)}`).toStrictEqual([
+        "rules",
+      ]);
+      expect(messagesRefused(FLPostSaisonPayloadSchema, draft)).toStrictEqual([COPY.verwaltung.saison.bracketImpossible]);
+    }
   });
 
   it("refuses a group too small to generate a fixture, and one past the list read's cap", () => {

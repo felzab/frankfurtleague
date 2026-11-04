@@ -14,7 +14,6 @@ from app.api.spielberichte.schemas import FLSpieleActionRequiredResponse
 from app.api.spiele.schemas import (
     FLSpiel,
     FLSpieleAdminListResponse,
-    FLSpieleListResponse,
     FLSpielJoined,
     FLSpielJoinedAdmin,
     FLSpielJoinedInternal,
@@ -26,15 +25,18 @@ from app.api.spiele.schemas import (
     FLSpielTeamFieldJoinedInternal,
     public_referee_name,
 )
+from app.api.spieltage.schemas import FLSpielplanSpieltag
 from app.api.teams.schemas import FLTeam
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.main import create_app
 from tests.app_client import app_client
 from tests.config import ADMIN_AUTH, BASE_AUTH, build_test_config, grants_for_the_suite
+from tests.core.app_source import application
 from tests.database import a_clean_database_sync
 from tests.documents import (
     own_einwilligung_document,
+    saison_document,
     saison_team_document,
     schiedsrichter_document,
     spiel_document,
@@ -79,10 +81,12 @@ SCHIEDSRICHTER_SURNAME = "Kern"
 SCHIEDSRICHTER_NAME = f"Ada {SCHIEDSRICHTER_SURNAME}"
 PUBLIC_SCHIEDSRICHTER_NAME = "Ada K."
 
-LIST_PATH = f"/api/v{API_VERSION}/spiele"
-SINGLE_PATH = f"{LIST_PATH}/{SPIEL_ID}"
+SPIELE_PREFIX = f"/api/v{API_VERSION}/spiele"
+SINGLE_PATH = f"{SPIELE_PREFIX}/{SPIEL_ID}"
 ADMIN_PATH = f"{SINGLE_PATH}/verwaltung"
-ADMIN_LIST_PATH = f"{LIST_PATH}/list/verwaltung?saison_id={SAISON_ID}"
+ADMIN_LIST_PATH = f"{SPIELE_PREFIX}/list/verwaltung?saison_id={SAISON_ID}"
+# The base tier's list of fixtures: the season's matchdays, each holding its matches.
+SPIELPLAN_PATH = f"/api/v{API_VERSION}/saisons/{SAISON_ID}/spielplan"
 
 AUSTRITT = {"type": "disqualifikation", "grund": "Nicht angetreten zum Spieltag", "datum": "2026-03-14"}
 
@@ -105,6 +109,12 @@ def stored_document() -> dict[str, Any]:
     )
 
 
+def spieltag_document() -> dict[str, Any]:
+    """The fixture's matchday, which the Spielplan lists it under."""
+
+    return {"_id": SPIELTAG_ID, "beginn": None, "ende": None, "position": 1, "saison_phase": "gruppenphase", "saison_id": SAISON_ID}
+
+
 def joined_document() -> dict[str, Any]:
     """The same fixture as `build_spiele_pipeline` hands it to a read model: each side merged with BOTH spellings of its withdrawal.
 
@@ -119,6 +129,7 @@ def joined_document() -> dict[str, Any]:
         "team1": {**document["team1"], "austritt": None, AUSTRITT_TYPE_KEY: None},
         "team2": {**document["team2"], "austritt": dict(AUSTRITT), AUSTRITT_TYPE_KEY: AUSTRITT["type"]},
         "ansetzung_confirmed": None,
+        "for_third_place": False,
         # A referee publishing their name and agreeing to this fixture: both gates pass, so the reduction is what is left.
         "schiedsrichter": {**document["schiedsrichter"], "name_is_public": True, "einsatz_confirmed": True},
     }
@@ -210,6 +221,8 @@ def seeded_url(mongo_replica_set_url: str) -> Iterator[str]:
     try:
         database = a_clean_database_sync(client, mongo_replica_set_url, database_name)
         database[Collection.GRANTS].insert_many(grants_for_the_suite())
+        database[Collection.SAISONS].insert_one(saison_document(SAISON_ID, "active"))
+        database[Collection.SPIELTAGE].insert_one(spieltag_document())
         database[Collection.SPIELE].insert_one(stored_document())
         # Publishing their name, so the reduction is what the base tier serves rather than a withheld null.
         database[Collection.SCHIEDSRICHTER].insert_one(
@@ -271,6 +284,8 @@ BASE_TIER_FIXTURE_FIELDS = frozenset(
         "notiz",
         # A verdict and never a row: no seat, no answer's reason.
         "ansetzung_confirmed",
+        # The one rule for the match for third place, which the join composes.
+        "for_third_place",
     }
 )
 
@@ -348,7 +363,7 @@ class TestTheFixtureShapes:
         assert MONEY_KEYS <= keys_anywhere(joined_document())
 
     def test_the_base_tier_fixture_drops_both(self):
-        """`FLSpielJoined` is what `GET /spiele` and `GET /spiele/{spiel_id}` answer with, and Pydantic ignores an undeclared key."""
+        """`FLSpielJoined` is what the Spielplan and `GET /spiele/{spiel_id}` answer with, and Pydantic ignores an undeclared key."""
 
         dumped = FLSpielJoined.model_validate(joined_document()).model_dump()
 
@@ -416,7 +431,7 @@ class TestTheFixtureShapes:
         assert AUSTRITT_DETAIL_KEYS <= keys_under(joined_document(), "team2")
 
     def test_the_base_tier_fixture_drops_the_reason_and_the_day(self):
-        """`FLSpielJoined` is what `GET /spiele` and `GET /spiele/{spiel_id}` answer with, and Pydantic ignores an undeclared key."""
+        """`FLSpielJoined` is what the Spielplan and `GET /spiele/{spiel_id}` answer with, and Pydantic ignores an undeclared key."""
 
         dumped = FLSpielJoined.model_validate(joined_document()).model_dump()
 
@@ -456,10 +471,11 @@ class TestTheTwoListShapes:
     """
 
     def test_the_base_tier_list_reduces_the_referees_surname(self):
-        response = FLSpieleListResponse.model_validate({"spiele": [joined_document()]})
+        """The Spielplan's matchday, the one base-tier read listing a season's fixtures."""
+        spieltag = FLSpielplanSpieltag.model_validate({**spieltag_document(), "count_spiele": 1, "spiele": [joined_document()]})
 
-        assert response.spiele[0].schiedsrichter is not None
-        assert response.spiele[0].schiedsrichter.name == PUBLIC_SCHIEDSRICHTER_NAME
+        assert spieltag.spiele[0].schiedsrichter is not None
+        assert spieltag.spiele[0].schiedsrichter.name == PUBLIC_SCHIEDSRICHTER_NAME
 
     def test_the_admin_list_keeps_it_whole(self):
         """Without this the admin fixture search matches a surname against an initial and finds nothing."""
@@ -541,18 +557,75 @@ class TestTheStoredShape:
 
 
 BASE_TIER_CASES = [
-    pytest.param(f"{LIST_PATH}?saison_id={SAISON_ID}", id="the list"),
+    pytest.param(SPIELPLAN_PATH, id="the Spielplan"),
     pytest.param(SINGLE_PATH, id="one fixture"),
 ]
+
+# What no base-tier read may publish anywhere in its answer: the admin fixture shape, either figure, and the booked
+# referee's record id. Property names as the document publishes them, which are the keys a body carries.
+WITHHELD_PROPERTIES = MONEY_KEYS | {"schiedsrichter_id"}
+ADMIN_FIXTURE_SCHEMA = FLSpielJoinedAdmin.__name__
+
+
+def _reached(document: Mapping[str, Any], schema: Any) -> tuple[set[str], set[str]]:
+    """Every component schema and every property name a response schema reaches, through every `$ref` and nesting."""
+
+    components = document["components"]["schemas"]
+    names: set[str] = set()
+    properties: set[str] = set()
+    pending = [schema]
+    while pending:
+        node = pending.pop()
+        if isinstance(node, list):
+            pending.extend(node)
+        elif isinstance(node, dict):
+            ref = node.get("$ref")
+            if ref is None:
+                properties.update(node.get("properties", {}))
+                pending.extend(node.values())
+            elif (name := ref.rsplit("/", 1)[-1]) not in names:
+                names.add(name)
+                pending.append(components[name])
+
+    return names, properties
+
+
+def _reads_under(document: Mapping[str, Any], scheme: str) -> dict[str, tuple[set[str], set[str]]]:
+    """Every GET the document publishes under `scheme` alone, with what its answer reaches."""
+
+    return {
+        path: _reached(document, operation["responses"]["200"]["content"]["application/json"]["schema"])
+        for path, operations in document["paths"].items()
+        for method, operation in operations.items()
+        if method == "get" and operation.get("security") == [{scheme: []}]
+    }
+
+
+def test_no_base_tier_read_publishes_the_admin_fixture_shape_either_figure_or_the_referees_record():
+    """Read off the published document, so every base-tier read serving a fixture is held, a new one with no case of its own among them.
+
+    The wire cases above hold two reads against a seeded body; this holds every read's declared shape, where a page's
+    model swapped for the admin fixture shape would serve the referee's whole name, the rent and the fee.
+    """
+
+    document = application().openapi()
+    reads = _reads_under(document, "BaseKey")
+
+    leaks = {path: sorted(({ADMIN_FIXTURE_SCHEMA} & names) | (WITHHELD_PROPERTIES & properties)) for path, (names, properties) in reads.items()}
+    assert {path: leaked for path, leaked in leaks.items() if leaked} == {}
+
+    # Non-vacuous: the base-tier reads serving a fixture are among those walked, and the walk sees a leak where one
+    # stands, the admin fixture reads reaching the shape and all three keys.
+    assert [path for path, (_, properties) in reads.items() if "spiel_nr" in properties]
+    admin_fixture_reads = [properties for names, properties in _reads_under(document, "AdminKey").values() if ADMIN_FIXTURE_SCHEMA in names]
+    assert admin_fixture_reads
+    assert all(WITHHELD_PROPERTIES <= properties for properties in admin_fixture_reads)
 
 
 @pytest.mark.db
 @pytest.mark.parametrize("path", BASE_TIER_CASES)
 def test_no_base_tier_body_carries_either_figure_at_any_depth(seeded_url: str, path: str):
-    """The serialised answer to a real request, which is the only thing the wire is actually bound by.
-
-    `saison_id` is passed rather than resolved, so the list does not depend on a seeded season.
-    """
+    """The serialised answer to a real request, which is the only thing the wire is actually bound by."""
 
     response = answered(seeded_url, path, BASE_AUTH)
 

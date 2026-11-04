@@ -11,7 +11,7 @@ League, _die Oberstufenliga der Frankfurter Schulen_.
 [![License: Elastic-2.0](https://img.shields.io/badge/license-Elastic--2.0-blue)](LICENSE)
 
 [Website](https://frankfurtleague.de) · [About](https://frankfurtleague.de/about) ·
-[Organisation](https://frankfurtleague.de/organisation) · [Contact](https://frankfurtleague.de/kontakt)
+[Contact](https://frankfurtleague.de/kontakt)
 
 </div>
 
@@ -29,7 +29,7 @@ with. The site is in German; the code and its documentation are in English.
 ## What it does
 
 Anyone can follow the season: the fixtures and results (_Spielplan_), each group's table
-(_Saisontabelle_), computed from the results, the knockout bracket (_Finalrunden_), every team and
+(_Tabelle_), computed from the results, the knockout bracket (_K.-o.-Runde_), every team and
 its squad, and a search over the season's matches (_Spielsuche_).
 
 The site also supports the season's organisation:

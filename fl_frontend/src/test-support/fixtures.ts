@@ -51,6 +51,7 @@ export function spielFields(overrides: Partial<SpielFields> = {}): SpielFields {
     saison_id: "2026",
     notiz: null,
     ansetzung_confirmed: null,
+    for_third_place: false,
     ...overrides,
   };
 }

@@ -39,12 +39,12 @@ from app.api.kontakte.services import SEAT_FIELDS, build_accepted_application_pi
 from app.api.outbox.crud import state_of, states_of
 from app.api.outbox.services import OwedMail, enqueue_mails
 from app.api.registrierungen.services import saison_nimmt_registrierungen_an
-from app.api.saisons.crud import has_started, pull_saison_id_and_rules
+from app.api.saisons.crud import pull_saison_id_and_rules
 from app.api.saisons.schemas import FLSaisonRules
+from app.api.saisons.services import find_saison_past_refusal, has_started
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
 from app.api.sperrliste.services import withheld_actor
 from app.api.spielbestaetigungen.services import seat_void_of
-from app.api.spiele.schemas import FLSpielListAdapter
 from app.api.teams.crud import pull_a_club_to_enter, refuse_a_full_gruppe, void_moved_seats
 from app.api.teams.schemas import (
     FLKontaktInviteResponse,
@@ -61,14 +61,12 @@ from app.api.teams.schemas import (
     FLSaisonTeamResponse,
     FLTeamListAdapter,
     FLTeamsFilterParams,
-    FLTeamsGroupedResponse,
     FLTeamsListResponse,
-    FLTeamsResponse,
     FLTeamsSaisonsResponse,
     FLTeamWithMembershipsListAdapter,
 )
 from app.api.teams.services import (
-    build_gruppen,
+    TAKEN_PLACE_FIELDS,
     build_team_pipeline,
     build_team_saisons_pipeline,
     compose_bestaetigungen_mit,
@@ -84,6 +82,7 @@ from app.api.teams.services import (
     find_replacement_pair_refusal,
     find_replacement_refusal,
     find_retire_refusal,
+    has_taken_place,
     kontakt_zeile_of,
     kontakte_fassungen_gehalten,
     kontakte_fassungen_genannt,
@@ -101,6 +100,7 @@ from app.core.config import API_VERSION
 from app.core.crud import (
     GERMAN_COLLATION,
     aggregate_many_from_db,
+    anchor_in_db,
     insert_live,
     patch_many_in_db,
     patch_one_in_db,
@@ -203,7 +203,7 @@ async def get_team_saisons(
     """
     Every team, retired ones included, each with every season membership it holds. Sorted by name.
 
-    `GET /teams` cannot answer it: that read is season-scoped with a strict junction join. Each membership names the live
+    `GET /teams/list/verwaltung` cannot answer it: that read is season-scoped with a strict junction join. Each membership names the live
     change of each seat's address, which the address tool shows, and per seat why the tool refuses that change this
     administrator. Each seat's link names what became of the last mail carrying it, `delivery` null where none was
     ever owed.
@@ -244,24 +244,21 @@ async def get_team_saisons(
 # resource under one shape. No id route at this prefix ends in `/admin`, so none can shadow this one.
 @router.get(
     "/list/verwaltung",
-    response_model=FLTeamsResponse,
+    response_model=FLTeamsListResponse,
     summary="Teams for a Saison, for the admin surfaces",
 )
 async def get_teams_verwaltung(
     teams_collection: TeamsCollection,
     saisons_collection: SaisonsCollection,
-    spiele_collection: SpieleCollection,
     filters: FLTeamsFilterParams = Depends(),
-) -> FLTeamsResponse:
+) -> FLTeamsListResponse:
     """
     List a season's teams for the admin surfaces, a `future` season's included.
 
-    Same filters and shapes as `GET /teams`, without its season gate: a club is entered while its
-    season is still planned, so an admin who cannot see one cannot enter it.
+    No base-tier season gate: a club is entered while its season is still planned, so an admin who
+    cannot see one cannot enter it.
     """
 
-    # The whole body below mirrors `app/api/teams/public_router.py :: get_teams`, which cannot be called
-    # here: the gate is inside it, and refusing the planned season is the one thing this must not do.
     filters.saison_id, saison_rules = await pull_saison_id_and_rules(saisons_collection=saisons_collection, saison_id=filters.saison_id)
 
     teams = FLTeamListAdapter.validate_python(
@@ -271,20 +268,8 @@ async def get_teams_verwaltung(
             collation=GERMAN_COLLATION,
         )
     )
-    if not filters.in_gruppen:
-        return FLTeamsListResponse(teams=teams)
 
-    # Narrowed to the set the statistics counted, so a head-to-head tiebreak weighs the same matches.
-    spiele_filter: dict[str, Any] = {"saison_id": filters.saison_id}
-    if filters.statistik_scope == "gruppenphase":
-        spiele_filter["saison_phase"] = "gruppenphase"
-
-    spiele = FLSpielListAdapter.validate_python(await pull_many_from_db(collection=spiele_collection, db_filter=spiele_filter))
-
-    return FLTeamsGroupedResponse(
-        gruppen=build_gruppen(teams=teams, spiele=spiele, rules=saison_rules),
-        qualifiers_per_gruppe=saison_rules.qualifiers_per_gruppe,
-    )
+    return FLTeamsListResponse(teams=teams)
 
 
 @router.post("", response_model=FLCreatedResponse, status_code=201, summary="Create a team")
@@ -347,6 +332,10 @@ async def patch_team(
         )
         # One season per year against a 1024-row read: the list cannot truncate this century.
         open_saison_ids = [row["_id"] for row in open_saisons]
+        # A read alone joins no write set, and the rollover writes no club row, so without this a season closed under the
+        # rename would have its rows renamed after it closed; anchored, the rollover's demotion conflicts with the rename
+        # and the retry reads the season `past`.
+        await anchor_in_db(collection=saisons_collection, db_filter={"_id": {"$in": open_saison_ids}}, session=session)
 
         junction = await patch_many_in_db(
             collection=saison_teams_collection,
@@ -545,7 +534,8 @@ async def patch_saison_team(
     Rewrite a team's row for one season: group, exit record and kit colour.
 
     All three are required and replaced WHOLESALE: an omitted key is a 422, never a team reinstated.
-    The contact block is `PATCH .../kontakte`'s.
+    The contact block is `PATCH .../kontakte`'s, and stays correctable there on a `past` season, which
+    refuses this write (`saison_past`).
     """
 
     async def move_the_club(session: AsyncClientSession) -> tuple[Mapping[str, Any], Mapping[str, Any]]:
@@ -559,11 +549,19 @@ async def patch_saison_team(
             projection=["gruppe", "name", "shorthand"],
             session=session,
         )
-        # Only a CHANGE is judged: recording an austritt writes the same row without moving anyone,
-        # and takes no season write either, so two austritte contend on nothing and need not.
-        if saison_team_data.gruppe != existing_raw["gruppe"]:
-            saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, session=session)
 
+        # One read of the season for both judgements below, anchored so the status belongs to this write set:
+        # `activate_saison` writes this document, so a rollover landing under the move conflicts and the retry reads `past`.
+        saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, session=session)
+        await anchor_in_db(collection=saisons_collection, db_filter={"_id": saison_id}, session=session)
+
+        # Every write, an exit record included: a finished season's table and podium are read off these rows,
+        # and an exit recorded now would move places its fixtures can no longer be saved to answer.
+        refuse(find_saison_past_refusal(saison_status=str(saison_raw["status"])))
+
+        # Only a CHANGE is judged: recording an austritt writes the same row without moving anyone, so two
+        # austritte contend only on the season's anchor above, which costs one retry.
+        if saison_team_data.gruppe != existing_raw["gruppe"]:
             # Both sides, because a fixture fields a team on either.
             fixtures_drawn = await spiele_collection.count_documents(
                 {"saison_id": saison_id, "$or": [{"team1.team_id": team_id}, {"team2.team_id": team_id}]}, session=session
@@ -840,8 +838,13 @@ async def replace_saison_team(
             session=session,
         )
 
-        # In-session, because `activate_saison` moves `status` in a transaction of its own.
-        saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["status"], session=session)
+        saison_raw = await pull_one_from_db(
+            collection=saisons_collection, db_filter={"_id": saison_id}, projection=["status", "start_date"], session=session
+        )
+        # Anchored, so the start and the status this is judged on belong to its write set: `PATCH /saisons/{saison_id}`
+        # moves the one and `activate_saison` the other, each writing this document, so either landing under the
+        # judgement conflicts and the retry judges the season it left.
+        await anchor_in_db(collection=saisons_collection, db_filter={"_id": saison_id}, session=session)
 
         # The ONE read of the incoming club, and it earns its place three times over: an id naming
         # nothing 404s here, the row's name is reseeded from it as `post_saison_team` seeds one at
@@ -859,21 +862,22 @@ async def replace_saison_team(
         spiele = await pull_many_from_db(
             collection=spiele_collection,
             db_filter={"saison_id": saison_id, "$or": [{"team1.team_id": team_id}, {"team2.team_id": team_id}]},
-            projection=["team1.team_id", "team2.team_id"],
+            projection=["team1.team_id", "team2.team_id", *TAKEN_PLACE_FIELDS],
             session=session,
         )
 
         refuse(
             find_replacement_refusal(
                 saison_status=str(saison_raw["status"]),
-                started=await has_started(spiele_collection=spiele_collection, saison_id=saison_id, today=today, session=session),
+                started=has_started(start_date=str(saison_raw["start_date"]), today=today),
+                taken_place=any(has_taken_place(spiel) for spiel in spiele),
                 incoming_inactive_since=incoming_raw.get("inactive_since"),
                 incoming_already_entered=bool(incoming_rows),
             )
         )
 
         # One dict for both layers, so the season's row and its fixtures cannot come to disagree
-        # about what this club is called. No `tore`: a replacement runs only before the season has started.
+        # about what this club is called. No `tore`: a replacement runs only on fixtures none of which has taken place.
         incoming_side = {
             "team_id": replacement_data.incoming_team_id,
             "name": incoming_raw["name"],

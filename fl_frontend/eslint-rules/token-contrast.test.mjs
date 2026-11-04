@@ -44,8 +44,8 @@ describe("a button's label on its fill", () => {
     const classes = buttonLook({ look, host });
     const text = painted(classes, "", "text");
     expect(text, "this look names no colour for its label").toBeDefined();
-    // A see-through fill stands on the page, which draws its surface or its raised one.
-    const grounds = (fill) => (fill === undefined ? ["bg", "bg-surface"] : [fill]);
+    // A see-through fill stands on whatever holds it: the page, the rail, a card or an overlay.
+    const grounds = (fill) => (fill === undefined ? ["bg", "bg-surface", "bg-card", "bg-overlay"] : [fill]);
 
     const pairs = STATES.flatMap((state) =>
       grounds(painted(classes, state, "bg") ?? painted(classes, "", "bg")).map(

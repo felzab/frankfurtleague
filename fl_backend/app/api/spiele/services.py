@@ -44,7 +44,7 @@ from app.api.spiele.schemas import (
     is_unplayed,
     records_an_absence,
 )
-from app.api.teams.services import DecidedStanding, offered_gruppen
+from app.api.teams.services import DecidedStanding, in_the_season_when_decided, offered_gruppen
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.crud import build_query, build_sort
@@ -130,13 +130,13 @@ def _joined_side(side: FLSpielSeite) -> Mapping[str, Any]:
 SPIELBESTAETIGUNGEN_AS_NAME = "spielbestaetigungen_rows"
 
 # The served verdict's key, which `FLSpielJoined` declares and no stored shape does.
-ANSETZUNG_BESTAETIGT = "ansetzung_confirmed"
+ANSETZUNG_CONFIRMED = "ansetzung_confirmed"
 
 
 # Each joined row's marks: whether it is about the Ansetzung the fixture stands at now, and whether the team
 # verdict counts it as its club's agreement.
-_AKTUELL = "aktuell"
-_TEAM_ZUGESTIMMT = "team_zugestimmt"
+_CURRENT = "current"
+_TEAM_AGREED = "team_agreed"
 
 
 def _confirmations_lookup() -> Mapping[str, Any]:
@@ -145,7 +145,7 @@ def _confirmations_lookup() -> Mapping[str, Any]:
     No aggregation recomputes the stand, so an answer stops counting at a move, not at the hourly close.
     """
 
-    aktuell = {"$and": [{"$eq": [f"$ansetzung.{key}", f"$${key}"]} for key in ANSETZUNG_QUELLEN]}
+    current = {"$and": [{"$eq": [f"$ansetzung.{key}", f"$${key}"]} for key in ANSETZUNG_QUELLEN]}
 
     return {
         "$lookup": {
@@ -176,7 +176,7 @@ def _confirmations_lookup() -> Mapping[str, Any]:
                                 {"$eq": ["$spiel_id", "$$spiel_id"]},
                                 # A discard about an Ansetzung the fixture has left settles nothing, as the close
                                 # would have shut an unclosed row about it; a referee's decline stands whatever moved since.
-                                {"$or": [{"$eq": ["$closed", None]}, {"$ne": ["$party.art", "team"]}, aktuell]},
+                                {"$or": [{"$eq": ["$closed", None]}, {"$ne": ["$party.art", "team"]}, current]},
                             ]
                         },
                     }
@@ -188,8 +188,8 @@ def _confirmations_lookup() -> Mapping[str, Any]:
                         "party.art": 1,
                         "party.team_id": 1,
                         # A club's only closed rows the match admits are its discards.
-                        _TEAM_ZUGESTIMMT: {"$or": [{"$eq": ["$antwort.art", "zugesagt"]}, {"$ne": ["$closed", None]}]},
-                        _AKTUELL: aktuell,
+                        _TEAM_AGREED: {"$or": [{"$eq": ["$antwort.art", "zugesagt"]}, {"$ne": ["$closed", None]}]},
+                        _CURRENT: current,
                         # The referee gate's own inputs: their id tells the booked referee's rows from a replaced
                         # one's; the close tells their open rows from their closed answers, which the pass-minted id orders.
                         "_id": 1,
@@ -204,7 +204,7 @@ def _confirmations_lookup() -> Mapping[str, Any]:
     }
 
 
-def _ansetzung_bestaetigt() -> Mapping[str, Any]:
+def _ansetzung_confirmed() -> Mapping[str, Any]:
     """Three-valued, `None` never folding into `False`, which marks the card provisional.
 
     A row about an Ansetzung the fixture has left counts towards asked; a referee's row towards neither; a discarded
@@ -212,8 +212,8 @@ def _ansetzung_bestaetigt() -> Mapping[str, Any]:
     """
 
     team_rows = {"$filter": {"input": f"${SPIELBESTAETIGUNGEN_AS_NAME}", "cond": {"$eq": ["$$this.party.art", "team"]}}}
-    current_rows = {"$filter": {"input": "$$team_rows", "cond": f"$$this.{_AKTUELL}"}}
-    all_agreed = {"$allElementsTrue": [{"$map": {"input": "$$current_rows", "in": f"$$this.{_TEAM_ZUGESTIMMT}"}}]}
+    current_rows = {"$filter": {"input": "$$team_rows", "cond": f"$$this.{_CURRENT}"}}
+    all_agreed = {"$allElementsTrue": [{"$map": {"input": "$$current_rows", "in": f"$$this.{_TEAM_AGREED}"}}]}
     # `$ifNull` for the side lookup's reason; a null side matches no row's snapshot, so it never confirms.
     sides = [{"$ifNull": [f"${ANSETZUNG_QUELLEN[key]}", None]} for key in ("team1_id", "team2_id")]
     # The agreeing CLUBS are the two sides, never merely two rows: two answers of one club leave the
@@ -236,10 +236,52 @@ def _ansetzung_bestaetigt() -> Mapping[str, Any]:
 
 SCHIEDSRICHTER_AS_NAME = "schiedsrichter_rows"
 
+# The served mark's key, which `FLSpielJoined` declares and no stored shape does.
+FOR_THIRD_PLACE = "for_third_place"
+
+FINALE_KEY_NAME = "finale_key"
+FINALE_AS_NAME = "finale_rows"
+
+
+def _third_place_stages() -> list[Mapping[str, Any]]:
+    """Mark the match for third place: of a Finale matchday holding the two the draw writes, the lower-numbered.
+
+    Told apart by number rather than by a `verlierer` source, which an admin may clear by hand: the draw numbers the
+    match for third place just ahead of the final, and no save renumbers a match. A season whose match for third place
+    is not yet recorded holds its final alone, and that final is never marked. The one rule, which `podium_of` reads off
+    the mark.
+    """
+
+    return [
+        # Keyed on the season for a Finale match alone: every other match looks up a null key, which no fixture holds,
+        # so only the Finale's two read their phase.
+        {"$set": {FINALE_KEY_NAME: {"$cond": [{"$eq": ["$saison_phase", "finale"]}, "$saison_id", None]}}},
+        {
+            "$lookup": {
+                "from": Collection.SPIELE,
+                "localField": FINALE_KEY_NAME,
+                "foreignField": "saison_id",
+                "pipeline": [{"$match": {"saison_phase": "finale"}}, {"$project": {"_id": 0, "spiel_nr": 1}}],
+                "as": FINALE_AS_NAME,
+            }
+        },
+        {
+            "$set": {
+                FOR_THIRD_PLACE: {
+                    "$and": [
+                        {"$eq": [{"$size": f"${FINALE_AS_NAME}"}, 2]},
+                        {"$eq": ["$spiel_nr", {"$min": f"${FINALE_AS_NAME}.spiel_nr"}]},
+                    ]
+                }
+            }
+        },
+    ]
+
+
 # The served verdicts' keys on the referee block, which `FLSpielSchiedsrichterFieldPublic` and
 # `FLSpielJoined` read and no stored shape declares.
 NAME_IS_PUBLIC_KEY = "name_is_public"
-EINSATZ_BESTAETIGT = "einsatz_confirmed"
+EINSATZ_CONFIRMED = "einsatz_confirmed"
 
 
 def _referee_lookup() -> Mapping[str, Any]:
@@ -260,7 +302,7 @@ def _referee_lookup() -> Mapping[str, Any]:
     }
 
 
-def _einsatz_bestaetigt() -> Mapping[str, Any]:
+def _einsatz_confirmed() -> Mapping[str, Any]:
     """`True` only where the booked referee's open rows, else their latest answer, agree to the Ansetzung as it stands.
 
     Never three-valued: a booking the pass has not reached would publish its referee.
@@ -282,7 +324,7 @@ def _einsatz_bestaetigt() -> Mapping[str, Any]:
 
     def agreed(row: str) -> Mapping[str, Any]:
         # `$ifNull` on both: no latest answer leaves `$$latest` missing, which must read as not agreed, never as null.
-        return {"$and": [{"$ifNull": [f"{row}.{_AKTUELL}", False]}, {"$eq": [{"$ifNull": [f"{row}.antwort.art", None]}, "zugesagt"]}]}
+        return {"$and": [{"$ifNull": [f"{row}.{_CURRENT}", False]}, {"$eq": [{"$ifNull": [f"{row}.antwort.art", None]}, "zugesagt"]}]}
 
     # Open rows first: the decline closes its own row, and a fresh one is minted only after, so an open row is newer.
     judged = {
@@ -319,7 +361,7 @@ def _joined_referee() -> Mapping[str, Any]:
                     {
                         # A join answering nothing withholds: it costs a page a name, never a person theirs.
                         NAME_IS_PUBLIC_KEY: {"$ifNull": [{"$first": f"${SCHIEDSRICHTER_AS_NAME}.{NAME_IS_PUBLIC_KEY}"}, False]},
-                        EINSATZ_BESTAETIGT: _einsatz_bestaetigt(),
+                        EINSATZ_CONFIRMED: _einsatz_confirmed(),
                     },
                 ]
             },
@@ -382,12 +424,14 @@ def build_spiele_pipeline(
 
     pipeline.append(_referee_lookup())
 
+    pipeline.extend(_third_place_stages())
+
     pipeline.append(
         {
             "$set": {
                 "team1": _joined_side("team1"),
                 "team2": _joined_side("team2"),
-                ANSETZUNG_BESTAETIGT: _ansetzung_bestaetigt(),
+                ANSETZUNG_CONFIRMED: _ansetzung_confirmed(),
                 "schiedsrichter": _joined_referee(),
             }
         }
@@ -395,7 +439,7 @@ def build_spiele_pipeline(
 
     # Dropped here rather than at validation: `extra="ignore"` discards these scratch rows in
     # silence, after the driver has carried one array per fixture across every list read.
-    pipeline.append({"$unset": [SAISON_TEAMS_AS_NAME, SPIELBESTAETIGUNGEN_AS_NAME, SCHIEDSRICHTER_AS_NAME]})
+    pipeline.append({"$unset": [SAISON_TEAMS_AS_NAME, SPIELBESTAETIGUNGEN_AS_NAME, SCHIEDSRICHTER_AS_NAME, FINALE_KEY_NAME, FINALE_AS_NAME]})
 
     return pipeline
 
@@ -718,6 +762,20 @@ def _outcome_of(spiel_nr: int, ausgang: str, walk: _BracketWalk) -> FLSpielTeamF
     if an_occupant_changed:
         return None
 
+    decided = winner_and_loser(team1, team2, spiel.elfmeterschiessen)
+    if decided is None:
+        return None
+
+    winner, loser = decided
+
+    return winner if ausgang == "sieger" else loser
+
+
+def winner_and_loser[Side: FLSpielTeamField](
+    team1: Side | None, team2: Side | None, elfmeterschiessen: FLSpielElfmeterschiessen | None
+) -> tuple[Side, Side] | None:
+    """A knockout match's winner and loser by its goals, a level one by its shoot-out; `None` while it names neither."""
+
     # The goals are the result: a save composes `ergebnis` from them, so the two agree.
     if team1 is None or team2 is None or team1.tore is None or team2.tore is None:
         return None
@@ -725,17 +783,38 @@ def _outcome_of(spiel_nr: int, ausgang: str, walk: _BracketWalk) -> FLSpielTeamF
     if team1.tore == team2.tore:
         # Read only here, so the bracket and the table disagree about this fixture on purpose. No group
         # fixture reaches this: a group feeder is a fault the walk reports before asking its outcome.
-        if spiel.elfmeterschiessen is None:
+        if elfmeterschiessen is None:
             return None
 
         # Total, because `FLSpielElfmeterschiessen` refuses a level shoot-out.
-        team1_won = spiel.elfmeterschiessen.team1 > spiel.elfmeterschiessen.team2
+        team1_won = elfmeterschiessen.team1 > elfmeterschiessen.team2
     else:
         team1_won = team1.tore > team2.tore
 
-    winner, loser = (team1, team2) if team1_won else (team2, team1)
+    return (team1, team2) if team1_won else (team2, team1)
 
-    return winner if ausgang == "sieger" else loser
+
+def podium_of(finale: Sequence[FLSpielJoinedInternal]) -> list[tuple[int, FLSpielTeamFieldJoinedInternal | None]]:
+    """Places one to four as the Finale's matchday decides them, each pair only once its match has.
+
+    The final gives places one and two; the match for third place, as the read marks it (`_third_place_stages`), gives
+    three and four. A place decided on or after the day its club left the season is vacant, its club `None`, by the rule
+    a group's placings keep (`in_the_season_when_decided`): still a decided place, so a season whose fourth place is
+    vacant has all four in.
+    """
+
+    places: list[tuple[int, FLSpielTeamFieldJoinedInternal | None]] = []
+    for spiel in finale:
+        first = 3 if spiel.for_third_place else 1
+        decided = winner_and_loser(spiel.team1, spiel.team2, spiel.elfmeterschiessen)
+        if decided is not None:
+            places.extend(
+                (platz, side if in_the_season_when_decided(side.austritt, spiel.datum) else None)
+                for platz, side in ((first, decided[0]), (first + 1, decided[1]))
+            )
+
+    # By place, whichever order the Finale's two were read in.
+    return sorted(places, key=lambda place: place[0])
 
 
 def _fault_order(fault: FLBracketFault) -> tuple[int, str, str, int]:

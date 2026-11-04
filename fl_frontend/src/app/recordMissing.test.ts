@@ -20,11 +20,9 @@ doubleApiClient(() => {
 serveServerReact();
 
 const bewerbungen = await import("@/features/bewerbungen/queries.ts");
-const saisons = await import("@/features/saisons/queries.ts");
 const schiedsrichter = await import("@/features/schiedsrichter/queries.ts");
 const spiele = await import("@/features/spiele/queries.ts");
 const spieltage = await import("@/features/spieltage/queries.ts");
-const teams = await import("@/features/teams/queries.ts");
 
 // A fresh id per call: React's `cache` would answer a repeated one from the first case's result.
 let calls = 0;
@@ -33,13 +31,10 @@ const freshId = (): string => (calls += 1).toString(16).padStart(24, "0");
 /** Every read answering "none" off the API's record-missing refusal, each turned into its caller's `null`. */
 const READS: Readonly<Record<string, () => Promise<unknown>>> = {
   getBewerbungById: () => bewerbungen.getBewerbungById(freshId()),
-  getOffenesBewerbungFenster: () => bewerbungen.getOffenesBewerbungFenster(),
   getBewerbungFenster: () => bewerbungen.getBewerbungFenster(freshId()),
-  getActiveSaisonOrNull: () => saisons.getActiveSaisonOrNull(),
   getSchiedsrichterById: () => schiedsrichter.getSchiedsrichterById(freshId()),
   getAdminSpiel: () => spiele.getAdminSpiel(freshId()),
   getAdminSpieltagById: () => spieltage.getAdminSpieltagById(freshId()),
-  getTeam: () => teams.getTeam(freshId()),
 };
 
 const notFound = (serverErrorCode: Code | undefined): APIBadStatusError =>

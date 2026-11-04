@@ -1,67 +1,87 @@
+import { textOf } from "@/core/copy";
+
+import { cardSurface } from "./cardStyles";
 import { Link } from "./Link";
-import { figures, look, NONE, sideMarks } from "./SpielRow";
+import { figures, goalsOf, look, sideMarks } from "./SpielRow";
 import { TeamPlaque } from "./TeamPlaque";
 import { tv } from "./tv";
 
+import type { Copy } from "@/core/copy";
 import type { Route } from "next";
 import type { Figures, SpielRowProps, SpielSide } from "./SpielRow";
 
 const card = tv({
   extend: sideMarks,
   slots: {
-    line: "flex min-h-6 min-w-0 items-center justify-between gap-2",
+    // 6 px between the plaque and the figure on a phone, so a two-digit figure fits the card inside its padding.
+    line: "flex min-h-6 min-w-0 items-center justify-between gap-1.5 lg:gap-2",
     name: "flex min-w-0 items-center gap-2",
     goals: "whitespace-nowrap",
   },
 });
 
-function Line({ side, score, part }: { side: SpielSide; score: Figures; part: "home" | "away" }) {
-  const style = card(look(score, part));
+function Line({ side, score, part }: { side: SpielSide; score: Figures; part: "team1" | "team2" }) {
+  const marks = look(score, part);
+  // A card sets both figures bold whatever the outcome, a shoot-out loser's included, where a match row sets
+  // that loser's goals regular: with the shoot-out's goals added, the higher figure is the winner's.
+  const style = card({ ...marks, goals: marks.goals === "lost" ? "counted" : marks.goals });
+  const name = textOf(side.name);
   return (
     <span className={style.line()}>
       <span className={style.name()}>
-        <TeamPlaque {...side.plaque} />
-        {/* A phone's card shows the plaque alone; desktop sets the name, or a side's source, beside it. */}
-        <span className="min-w-0 truncate max-lg:hidden">{side.name}</span>
+        <TeamPlaque plaque={side.plaque} />
+        {/* A phone's card draws the plaque alone, the name still the link's words for a screen reader; desktop
+            sets the name, or a side's source, beside it, cut with „…“ and whole in its title. */}
+        <span
+          title={name}
+          className="min-w-0 truncate max-lg:sr-only">
+          {name}
+        </span>
       </span>
-      <span className={style.goals()}>{score === null ? NONE : score[part]}</span>
+      <span className={style.goals()}>{goalsOf(score, part)}</span>
     </span>
   );
 }
 
 /**
  * A knockout match in the bracket, the whole card a link to it. Every card is the same size: one figure
- * per side, a shoot-out's goals added, with no mark for it; on desktop the date under a hairline.
+ * per side, a shoot-out's goals added, with no mark for it, both figures bold; on desktop the date under a
+ * hairline.
  */
 export function BracketCard({
   href,
   when,
-  home,
-  away,
+  team1,
+  team2,
   result,
+  anchor,
 }: {
+  /** The card's fragment, so a link elsewhere, such as a club's line in a match head, opens the tree at it. */
+  anchor?: string;
   href: Route;
-  when: string;
-  home: SpielSide;
-  away: SpielSide;
+  when: Copy;
+  team1: SpielSide;
+  team2: SpielSide;
   result?: SpielRowProps["result"];
 }) {
   const score = figures(result);
   return (
-    <div className="overflow-hidden rounded-lg border border-border bg-bg text-sm">
+    <div
+      id={anchor}
+      className={cardSurface({ class: "kit-target overflow-hidden text-sm" })}>
       <Link
         href={href}
         placement="card">
-        <span className="grid gap-1 p-2 max-[23.125rem]:px-1 lg:px-3 lg:py-3">
+        <span className="grid gap-1 p-2 lg:px-3 lg:py-3">
           <Line
-            side={home}
+            side={team1}
             score={score}
-            part="home"
+            part="team1"
           />
           <Line
-            side={away}
+            side={team2}
             score={score}
-            part="away"
+            part="team2"
           />
           <span className="mt-1 border-t border-border pt-2 font-numeric text-xs text-fg-muted max-lg:hidden">{when}</span>
         </span>

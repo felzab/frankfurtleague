@@ -11,7 +11,7 @@ its invalidation live here rather than in the backend.
 
 | Folder                   | Holds                                                                                                                                                       |
 | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/app/`               | The routes: the public pages, `dashboard/` for the season pages, `bereich/` for every signed-in area                                                        |
+| `src/app/`               | The routes: the public pages, `saisons/` for the season pages, `bereich/` for every signed-in area                                                          |
 | `src/kit/`               | The design system's components, built on React Aria Components                                                                                              |
 | `src/core/`              | What the server process is and what every surface needs: configuration, the API client, auth, mail, logging, the string catalogue and the formatting module |
 | `src/shared/`            | What a rendered page is built from beside the kit: components, hooks and the utilities those call                                                           |
@@ -50,11 +50,18 @@ and answers the kit's `ActionAnswer`, the backend's refusal code with it; the li
 `fl/server-action` (`fl_frontend/eslint-rules/server-action.mjs`) refuses an action built any other
 way, and the forms not yet moved onto it are counted in the suppressions list until their area
 moves them. Every cached scope carries one tag, `fl_frontend/src/core/siteCache.ts ::
-SITE_CACHE_TAG`, and the save spines clear it after every write that may stand (the builder on its
-administrator's and person's lanes, a public action such as the sign-in reaching no cached read; the old
+SITE_CACHE_TAG`, so no write names the reads it moves. The builder clears it at the end of an action
+exactly when the action's body sent a backend write that may have landed, on every lane. It reads
+the count `fl_frontend/src/core/apiDispatch.ts :: dispatchRequest` keeps: each write is counted
+before it is sent, since a write whose answer is lost may have landed, and taken back once its
+answer is a 4xx carrying a code, the backend's refusal of it. A 5xx keeps the count, since the server
+may fail after its commit, and a write that may stand answers one, `unknown_outcome` with a 500. An
+action whose body sent no such write carries only its answer and renders no page again; one that
+changes state outside the cache, the sign-in store's, calls `refresh()` itself. A write behind the
+response clears nothing, so no league write moves there. The old
 `fl_frontend/src/shared/utils/adminMutation.ts :: runGuardedMutation`, and
-`fl_frontend/src/shared/utils/publicRoute.ts :: handlePublicRequest` for a route handler), so no
-write names the reads it moves. The league's reads keep Next's `minutes` lifetime; the read of a
+`fl_frontend/src/shared/utils/publicRoute.ts :: handlePublicRequest` for a route handler, clear it
+after a write that may stand. The league's reads keep Next's `minutes` lifetime; the read of a
 `Fassung` (`fl_frontend/src/core/einwilligung.ts :: getEinwilligungFassung`) keeps the longest,
 since a label's words never change. **The administration's reads are not cached**: each runs through
 `fl_frontend/src/shared/utils/adminRead.ts :: runAdminRead`, which judges the session first.
@@ -98,9 +105,12 @@ Tailwind v4, configured in CSS: `src/app/globals.css` and the design tokens in `
 `browserslist` in `fl_frontend/package.json` is Tailwind's own support matrix, since the stylesheet
 uses `oklch()`, `color-mix()` and `@property`; it does not govern Next's own polyfills.
 
-**The kit's components take every wording prop as `fl_frontend/src/core/copy.ts :: Copy`**, so a
-string reaches them only from the catalogue. The pages render HeroUI components and carry their own
-strings and date formatting. How a string is written is [`copy.md`](copy.md).
+**The kit's components take every wording prop as `fl_frontend/src/core/copy.ts :: Words`**: the
+catalogue's `Copy`, or a record's own data as `{ record }`, which lint keeps free of literals, so a
+string typed into a page has no way into a text slot; a slot holding a block takes a kit element. A
+rebuilt page formats every date, time and number through `fl_frontend/src/core/format.ts`; a page a
+later session rebuilds renders HeroUI components and carries its own strings and date formatting.
+How a string is written is [`copy.md`](copy.md).
 
 ## Authentication and authorization
 

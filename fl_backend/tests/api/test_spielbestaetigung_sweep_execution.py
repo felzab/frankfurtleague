@@ -36,7 +36,7 @@ from app.api.spielbestaetigungen.system_router import (
 )
 from app.api.spiele.admin_router import patch_spiel
 from app.api.spiele.schemas import FLPatchSpielDataPayload
-from app.api.spiele.services import ANSETZUNG_BESTAETIGT, build_spiele_pipeline
+from app.api.spiele.services import ANSETZUNG_CONFIRMED, build_spiele_pipeline
 from app.api.teams.admin_router import patch_saison_team_kontakte, replace_saison_team
 from app.api.teams.schemas import FLPatchSaisonTeamKontaktePayload, FLReplaceSaisonTeamPayload, kontakte_stand_of
 from app.core.codes import Code
@@ -698,7 +698,7 @@ async def verdict(database: AsyncDatabase) -> bool | None:
     cursor = await database[Collection.SPIELE].aggregate(build_spiele_pipeline(db_filter={"_id": SPIEL}))
     (document,) = await cursor.to_list()
 
-    return document[ANSETZUNG_BESTAETIGT]
+    return document[ANSETZUNG_CONFIRMED]
 
 
 async def alphas_discard_beside_betas_agreement(database: AsyncDatabase, client: AsyncMongoClient) -> ObjectId:
@@ -927,6 +927,8 @@ class TestAReplacedClubsRowsClose:
     def test_the_opponent_and_the_referee_are_told_and_every_row_closes(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await sweep(database, client)
+            # A replacement runs only before the season's start, so it starts the day after `TODAY`.
+            await database[Collection.SAISONS].update_one({"_id": SAISON_ID}, {"$set": {"start_date": "2026-04-02"}})
             await replace_saison_team(
                 team_id=ALPHA,
                 saison_id=SAISON_ID,

@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
 from app.api.saisons.schemas import FLSaisonRules
-from app.api.spiele.schemas import KNOCKOUT_PHASES, MAX_QUALIFIERS
+from app.api.spiele.schemas import KNOCKOUT_PHASES, MAX_QUALIFIERS, MIN_QUALIFIERS
 from app.shared.schemas.literals import FLSaisonPhase
 
 
@@ -61,7 +61,7 @@ def knockout_phases_for(qualifiers: int) -> tuple[FLSaisonPhase, ...]:
     renaming a round anybody plays. Empty for anything not a power of two in range.
     """
 
-    if qualifiers < 2 or qualifiers > MAX_QUALIFIERS or qualifiers & (qualifiers - 1) != 0:
+    if qualifiers < MIN_QUALIFIERS or qualifiers > MAX_QUALIFIERS or qualifiers & (qualifiers - 1) != 0:
         return ()
 
     rounds = qualifiers.bit_length() - 1
@@ -84,7 +84,9 @@ def schedule_for(rules: FLSaisonRules) -> tuple[PhaseSchedule, ...]:
 
     remaining = qualifier_count(rules)
     for phase in knockout_phases_for(remaining):
-        schedule.append(PhaseSchedule(phase=phase, spieltage=1, matches_per_spieltag=remaining // 2))
+        # The Finale's matchday also holds the match for third place, which every bracket plays (`draw_spielplan`).
+        matches = remaining // 2 + (1 if phase == "finale" else 0)
+        schedule.append(PhaseSchedule(phase=phase, spieltage=1, matches_per_spieltag=matches))
         remaining //= 2
 
     return tuple(schedule)
@@ -93,7 +95,8 @@ def schedule_for(rules: FLSaisonRules) -> tuple[PhaseSchedule, ...]:
 def expected_matches(rules: FLSaisonRules, phase: FLSaisonPhase) -> int:
     """How many matches one matchday of this phase should hold -- `spieltage.count_spiele`.
 
-    Zero for a knockout round this season's bracket does not reach.
+    The Finale's counts the match for third place beside the final. Zero for a knockout round this
+    season's bracket does not reach.
     """
 
     for entry in schedule_for(rules):

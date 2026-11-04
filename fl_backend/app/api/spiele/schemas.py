@@ -7,6 +7,7 @@ from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, TypeAdapter,
 from pydantic_core import PydanticCustomError
 
 from app.api.teams.schemas import FLAustritt
+from app.core.crud import Anchored
 from app.shared.schemas.bounds import (
     LIST_LIMIT_DEFAULT,
     LIST_LIMIT_MAX,
@@ -24,7 +25,15 @@ from app.shared.schemas.custom import (
     CustomSpielNr,
     CustomTimeString,
 )
-from app.shared.schemas.literals import FLAustrittType, FLGruppenNames, FLSaisonPhase, FLSonderereignis, FLSortOrder, FLSpielSeite
+from app.shared.schemas.literals import (
+    FLAustrittType,
+    FLGruppenNames,
+    FLSaisonPhase,
+    FLSaisonStatus,
+    FLSonderereignis,
+    FLSortOrder,
+    FLSpielSeite,
+)
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
 type FLSpielStatus = Literal["from_today", "past", "today", "abgesagt", "unknown"]
@@ -127,6 +136,10 @@ KNOCKOUT_PHASES: tuple[FLSaisonPhase, ...] = PHASE_ORDER[1:]
 # A knockout ladder halves each round down to one final, so the cap is what the phases can hold.
 MAX_QUALIFIERS: int = 2 ** len(KNOCKOUT_PHASES)
 
+# A bracket with semi-finals, so every K.-o.-Runde plays a match for third place and decides four places;
+# a final alone would leave the podium two places short. Derived as the cap is, from the rounds the Halbfinale opens.
+MIN_QUALIFIERS: int = 2 ** len(PHASE_ORDER[PHASE_RANK["halbfinale"] :])
+
 
 # Declared BEFORE what references them: below, they resolve only through PEP 649 deferred
 # annotations, so touching the core schema before the first validation raises `PydanticUserError`.
@@ -162,10 +175,10 @@ class FLSpielTeamFieldJoined(FLSpielTeamField):
 
 
 class FLSpielTeamFieldJoinedInternal(FLSpielTeamFieldJoined):
-    """The same side with the record behind the type, for `find_departed_occupants` alone.
+    """The same side with the record behind the type, for `find_departed_occupants` and `podium_of`.
 
-    On NO endpoint, so no response carries a reason: the walk orders a fault on the DAY a club
-    left, which the type cannot answer.
+    On NO endpoint, so no response carries a reason: the walk orders a fault, and the podium a place,
+    on the DAY a club left, which the type cannot answer.
     """
 
     # Beside the inherited type, and never a second answer to it: one `$let` in `_joined_side`
@@ -563,7 +576,7 @@ class FLSpielCommon(BaseReadModel):
     notiz: str | None = None
 
 
-class FLSpiel(FLSpielCommon):
+class FLSpiel(FLSpielCommon, Anchored):
     """One fixture as the `spiele` collection STORES it, and the shape every write composes.
 
     The money is re-declared because `$set` writes this model's dump, and a shape without it would
@@ -608,6 +621,9 @@ class FLSpielJoined(FLSpielCommon):
     # the next save. Required: only the join composes it.
     ansetzung_confirmed: bool | None
 
+    # Whether this is the match for third place, the one rule every reader and the podium read; on the same grounds.
+    for_third_place: bool
+
     # The acceptance gate ahead of the consent gate; `FLSpielJoinedAdmin`
     # re-declares the field plainly, which drops this validator there.
     schiedsrichter: Annotated[FLSpielSchiedsrichterFieldPublic | None, BeforeValidator(_withheld_unless_agreed)]
@@ -629,8 +645,9 @@ class FLSpielJoinedAdmin(FLSpielJoined):
 class FLSpielJoinedInternal(FLSpielJoinedAdmin):
     """The fixture with each side's record behind its type; on no endpoint, for `FLSpielTeamFieldJoinedInternal`'s reason.
 
-    On the ADMIN shape because its one reader hands the faulted matches to
-    `GET /spiele/action_required`, whose cards print the referee's name.
+    On the ADMIN shape because the bracket's fault report hands the faulted matches to
+    `GET /spiele/action_required`, whose cards print the referee's name. The landing reads its
+    podium through it too, serving only the names.
     """
 
     team1: FLSpielTeamFieldJoinedInternal | None
@@ -645,7 +662,7 @@ FLSpielJoinedInternalListAdapter = TypeAdapter(list[FLSpielJoinedInternal])
 
 class FLSpieleFilterParams(BaseModel):
     # None and never the current season: which season is current is a database read, which only the
-    # route can make (`get_spiele`, `get_spiele_verwaltung`).
+    # route can make (`get_spiele_verwaltung`).
     saison_id: str | None = None
     saison_phase: Literal["playoffs"] | FLSaisonPhase | None = None
     spiel_status: FLSpielStatus | None = None
@@ -654,10 +671,6 @@ class FLSpieleFilterParams(BaseModel):
     limit: int = Field(default=LIST_LIMIT_DEFAULT, ge=1, le=LIST_LIMIT_MAX)
     sort_by: Literal["datum", "uhrzeit", "spiel_nr", "saison_phase"] = Field(default="datum")
     order: FLSortOrder = Field(default="asc")
-
-
-class FLSpieleListResponse(BaseAPIResponse):
-    spiele: list[FLSpielJoined]
 
 
 # The base tier reduces a referee's surname to an initial and the admin fixture search matches on
@@ -673,9 +686,14 @@ class FLSpieleSingleResponse(BaseAPIResponse):
 
 
 class FLSpieleAdminSingleResponse(BaseAPIResponse):
-    """One fixture for the admin editor, money included."""
+    """One fixture for the admin editor, money included, and its season's status.
+
+    On the response rather than on the fixture: the editor alone asks it, to open a finished season's match
+    read-only, which the save refuses (`saison_past`), and a fixture carries no season-scoped state.
+    """
 
     spiel: FLSpielJoinedAdmin
+    saison_status: FLSaisonStatus
 
 
 # Private for `_BracketFault`'s reason: the reports state the destroyed result once.

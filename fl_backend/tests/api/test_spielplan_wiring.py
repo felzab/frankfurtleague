@@ -23,10 +23,10 @@ Shape = tuple[int, int, int]
 
 # `(number_of_groups, teams_per_group, qualifiers_per_group)`. The last is the largest season
 # `FLSaisonRules` admits, so the widest bracket and the longest round robin are both judged here.
-SHAPES: tuple[Shape, ...] = ((1, 2, 2), (2, 3, 1), (4, 5, 1), (4, 4, 4), (4, 16, 4))
+SHAPES: tuple[Shape, ...] = ((1, 4, 4), (2, 3, 2), (4, 5, 1), (4, 4, 4), (4, 16, 4))
 SHAPE_IDS = (
-    "one group of two into a final",
-    "two odd groups into one final",
+    "one group of four into a semi-final",
+    "two odd groups into a semi-final",
     "four odd groups into a semi-final",
     "four groups of four into a round of sixteen",
     "the largest season the rules bounds allow",
@@ -177,3 +177,67 @@ class TestAFreshDrawResolvesToAnEmptyBracket:
 
         assert resolution.advancements == []
         assert resolution.bracket_faults == []
+
+
+def played_up_to_the_finale(shape: Shape) -> tuple[tuple[FLSpiel, ...], dict[int, tuple[ObjectId, ObjectId]]]:
+    """The drawn season with every knockout round before the Finale won 1:0 by `team1`, and each such match's `(loser, winner)`.
+
+    Each side is the club its source names, so the walk keeps every stored result. The opening round's
+    clubs are any entered ones: no standing is handed in, which leaves a group-fed slot as it stands.
+    """
+
+    groups, teams, _ = shape
+    entered = entered_for(groups, teams)
+    squads = {gruppe: [team for team in entered if team.gruppe == gruppe] for gruppe in GRUPPEN[:groups]}
+    came_out: dict[tuple[int, str], EnteredTeam] = {}
+    decided: dict[int, tuple[ObjectId, ObjectId]] = {}
+
+    played: list[dict[str, Any]] = []
+    for raw in drawn(shape).spiele:
+        if raw["saison_phase"] in ("gruppenphase", "finale"):
+            played.append(raw)
+            continue
+
+        one, other = (
+            squads[quelle["gruppe"]][quelle["platz"] - 1] if quelle["type"] == "gruppe" else came_out[(quelle["spiel_nr"], quelle["ausgang"])]
+            for quelle in (raw["team1_quelle"], raw["team2_quelle"])
+        )
+        came_out[(raw["spiel_nr"], "sieger")], came_out[(raw["spiel_nr"], "verlierer")] = one, other
+        decided[raw["spiel_nr"]] = (other.team_id, one.team_id)
+        played.append(
+            {
+                **raw,
+                "team1": {"team_id": one.team_id, "tore": 1, "name": one.name, "shorthand": one.shorthand},
+                "team2": {"team_id": other.team_id, "tore": 0, "name": other.name, "shorthand": other.shorthand},
+                "ergebnis": "1:0",
+            }
+        )
+
+    return tuple(FLSpielListAdapter.validate_python(played)), decided
+
+
+class TestTheBracketWalkFillsTheMatchForThirdPlace:
+    """The draw's `verlierer` pair, resolved by the walk that fills the final."""
+
+    @pytest.mark.parametrize("shape", SHAPES[2:], ids=SHAPE_IDS[2:])
+    def test_the_semi_finals_losers_meet_and_their_winners_reach_the_final(self, shape: Shape):
+        """The three shapes with semi-finals; the two-team brackets draw no match for third place."""
+
+        season, decided = played_up_to_the_finale(shape)
+        semi_finals = sorted(spiel.spiel_nr for spiel in season if spiel.saison_phase == "halbfinale")
+        third_place, final = sorted(spiel.spiel_nr for spiel in season if spiel.saison_phase == "finale")
+
+        resolution = resolve_bracket(season, {})
+
+        assert resolution.bracket_faults == []
+        assert [
+            (
+                advanced.spiel_nr,
+                None if advanced.team1 is None else advanced.team1.team_id,
+                None if advanced.team2 is None else advanced.team2.team_id,
+            )
+            for advanced in resolution.advancements
+        ] == [
+            (third_place, decided[semi_finals[0]][0], decided[semi_finals[1]][0]),
+            (final, decided[semi_finals[0]][1], decided[semi_finals[1]][1]),
+        ]

@@ -1,12 +1,12 @@
 import { Fragment } from "react";
 import Link from "next/link";
 
+import { ROUTES } from "@/core/routes";
 import { Angabe, Leer } from "@/shared/components/ui/Angabe";
 import { labelBadge } from "@/shared/components/ui/badges";
 import { FIELD_PAIR_CLASSES, FORM_SECTION_HEADING_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { textLink } from "@/shared/components/ui/textLink";
 import { formatSpielDatum, nichtHinterlegt } from "@/shared/utils/format";
-import { withSaisonId } from "@/shared/utils/saisonHref";
 
 import { ausgetragenSeit, kaderName, NUMMER_NICHT_HINTERLEGT, rolleLabel } from "../../constants";
 
@@ -14,18 +14,18 @@ import type { FLSpielerSelf, FLSpielerSelfKaderRow } from "@/core/generated/clie
 import type { ReactNode } from "react";
 
 /** One squad row, linked to the squad where everyone reads it rather than repeated here. */
-function KaderEintrag({ zeile }: { zeile: FLSpielerSelfKaderRow }) {
+function KaderEintrag({ row }: { row: FLSpielerSelfKaderRow }) {
   const fakten: readonly (readonly [string, ReactNode])[] = [
-    ["nummer", zeile.nummer === null ? <Leer>{NUMMER_NICHT_HINTERLEGT}</Leer> : `Nummer ${zeile.nummer}`],
-    ["position", zeile.position ?? <Leer>{nichtHinterlegt("Position")}</Leer>],
-    ...(zeile.stufe === null ? [] : [["stufe", zeile.stufe] as const]),
-    ...(zeile.rolle === null ? [] : [["rolle", rolleLabel(zeile.rolle)] as const]),
+    ["nummer", row.nummer === null ? <Leer>{NUMMER_NICHT_HINTERLEGT}</Leer> : `Nummer ${row.nummer}`],
+    ["position", row.position ?? <Leer>{nichtHinterlegt("Position")}</Leer>],
+    ...(row.stufe === null ? [] : [["stufe", row.stufe] as const]),
+    ...(row.rolle === null ? [] : [["rolle", rolleLabel(row.rolle)] as const]),
   ];
 
   return (
     <li className="flex flex-col gap-y-1">
       <p className="fluid-sm font-bold text-foreground">
-        {zeile.team_name}, Saison {zeile.saison_id}
+        {row.team_name}, Saison {row.saison_id}
       </p>
       <p className="muted-hint">
         {fakten.map(([feld, fakt], index) => (
@@ -36,22 +36,22 @@ function KaderEintrag({ zeile }: { zeile: FLSpielerSelfKaderRow }) {
         ))}
       </p>
       {/* The tones and the precedence the administrator's squad list gives the same two facts. */}
-      {zeile.inactive_since !== null ? (
+      {row.inactive_since !== null ? (
         <p>
-          <span className={labelBadge("warning")}>{ausgetragenSeit(zeile.inactive_since)}</span>
+          <span className={labelBadge("warning")}>{ausgetragenSeit(row.inactive_since)}</span>
         </p>
       ) : (
-        zeile.is_nachnominiert && (
+        row.is_nachnominiert && (
           <p>
             <span className={labelBadge("info")}>Nachnominiert</span>
           </p>
         )
       )}
       <Link
-        href={withSaisonId(`/dashboard/spieler/${zeile.team_id}`, zeile.saison_id)}
+        href={ROUTES.team.path(row.saison_id, row.team_id)}
         prefetch={false}
         className={`${textLink()} w-fit fluid-sm`}>
-        Kader von {zeile.team_name} ansehen
+        Kader von {row.team_name} ansehen
       </Link>
     </li>
   );
@@ -81,10 +81,10 @@ export function SpielerAngaben({ spieler, kaderEbene }: { spieler: FLSpielerSelf
         <section className="flex flex-col gap-y-3">
           <KaderTitel className={KADER_TITEL_CLASSES[kaderEbene]}>Kader</KaderTitel>
           <ul className="flex flex-col gap-y-4">
-            {spieler.kader.map((zeile) => (
+            {spieler.kader.map((row) => (
               <KaderEintrag
-                key={`${zeile.team_id}-${zeile.saison_id}`}
-                zeile={zeile}
+                key={`${row.team_id}-${row.saison_id}`}
+                row={row}
               />
             ))}
           </ul>

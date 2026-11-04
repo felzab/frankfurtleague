@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 
 import { judgeAdminRequest } from "@/core/auth";
 import { UnreadGrantError } from "@/core/errors";
-import { SIGN_IN_LANDING } from "@/core/signInLanding";
+import { ROUTES } from "@/core/routes";
 
 import { runWithIncomingTrace } from "./traceScope";
 
@@ -16,7 +16,7 @@ export async function requireAdminRequest(): Promise<void> {
 
   // An outage stays on its page, whose boundary retries, as an admin write answers it with a retry.
   if (judged.refused === "unread") throw new UnreadGrantError();
-  redirect(SIGN_IN_LANDING);
+  redirect(ROUTES.signInLanding.path());
 }
 
 /**

@@ -1,26 +1,29 @@
+import { doubleApiClient, requestsOf } from "@/test-support/apiClientDouble";
 import { bodyField } from "@/test-support/refusedPayload";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
 import { APIBadStatusError } from "@/core/errors";
 
-import { spielortAnlegen } from "./spielortAnlegen";
-
 import type { SpielortFeld } from "./spielortRegeln";
 
-/** Every payload the create was sent, and what it throws instead of creating the venue. */
-const stand = vi.hoisted(() => ({ gesendet: [] as unknown[], ablehnung: null as unknown }));
+/** What the create throws instead of creating the venue. */
+const stand = vi.hoisted(() => ({ ablehnung: null as unknown }));
 
 vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
+// Next's `updateTag` throws outside a Server Action, and the write the real dispatch counts reaches it; whether a
+// save clears the site's cache is `core/action.test.ts`'s.
 vi.mock("next/cache", () => ({ updateTag: () => undefined }));
 vi.mock("@/core/auth", () => ({ judgeAdminRequest: async () => ({ session: {} }) }));
-vi.mock("@/core/generated/client/sdk", () => ({
-  spielortePostSpielort: async (payload: unknown) => {
-    stand.gesendet.push(payload);
-    if (stand.ablehnung !== null) throw stand.ablehnung;
-    return { created_id: "64b000000000000000000009" };
-  },
-}));
+
+// The backend client itself is replaced, so the create runs through the real generated call and the real dispatch,
+// which counts the write and takes it back where the backend refuses it.
+const calls = doubleApiClient(() => {
+  if (stand.ablehnung !== null) throw stand.ablehnung;
+  return { created_id: "64b000000000000000000009" };
+});
+
+const { spielortAnlegen } = await import("./spielortAnlegen");
 
 const FELDER: Readonly<Record<SpielortFeld, string>> = {
   name: "Sportpark Nord",
@@ -39,18 +42,22 @@ const formular = (felder: Partial<Record<SpielortFeld, string>> = {}) => {
 };
 
 beforeEach(() => {
-  stand.gesendet = [];
+  calls.length = 0;
   stand.ablehnung = null;
 });
 
 describe("the venue dialog's create", () => {
-  it("sends the dialog's boxes as the create's payload, the price as a figure", async () => {
+  it("sends the dialog's boxes as the create's payload, with the price as a figure", async () => {
     expect(await spielortAnlegen(formular())).toStrictEqual({ ok: true, value: undefined });
-    expect(stand.gesendet).toStrictEqual([
+    expect(requestsOf(calls)).toStrictEqual([
       {
-        name: "Sportpark Nord",
-        default_mietpreis: 60,
-        address: { strasse: "Am Riedberg", hausnummer: "12", plz: "60438", stadtteil: "Riedberg", stadt: "Frankfurt am Main" },
+        endpoint: "/spielorte",
+        method: "POST",
+        body: {
+          name: "Sportpark Nord",
+          default_mietpreis: 60,
+          address: { strasse: "Am Riedberg", hausnummer: "12", plz: "60438", stadtteil: "Riedberg", stadt: "Frankfurt am Main" },
+        },
       },
     ]);
   });
@@ -80,6 +87,6 @@ describe("the venue dialog's create", () => {
       ok: false,
       fieldErrors: { mietpreis: COPY.shared.field.format(COPY.verwaltung.spielort.mietpreisExample) },
     });
-    expect(stand.gesendet).toStrictEqual([]);
+    expect(calls).toStrictEqual([]);
   });
 });

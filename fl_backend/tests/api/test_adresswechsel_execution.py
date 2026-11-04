@@ -1567,9 +1567,10 @@ class TestTheMovedGrant:
             await answer(database, client, minted.token)
             grants = {row["adresse"]: row async for row in database[Collection.GRANTS].find({"adresse": {"$in": [EMAIL, NEW_EMAIL]}})}
             outbox = [row["data"] async for row in database[Collection.OUTBOX].find({"art": "grant", "an": SECOND_ADMIN}, sort=[("_id", 1)])]
-            since = await live_unbarred_grant_since(
-                NEW_EMAIL, berechtigungen_collection=database[Collection.GRANTS], sperrliste=ban_list(database)
-            )
+            async with client.start_session(snapshot=True) as session:
+                since = await live_unbarred_grant_since(
+                    NEW_EMAIL, berechtigungen_collection=database[Collection.GRANTS], sperrliste=ban_list(database), session=session
+                )
             return old_grant, grants, outbox, since
 
         old_grant, grants, outbox, since = on_a_person(mongo_replica_set_url, body)

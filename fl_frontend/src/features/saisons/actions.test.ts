@@ -4,6 +4,7 @@ import { answerShown, assertEachAnswered, DUPLICATE_KEY, refusalCodes, refused }
 import { saisonRules } from "@/test-support/saisonRules.ts";
 import { assert, describe, expect, it } from "vitest";
 
+import { COPY } from "@/core/copy.ts";
 import { SITE_CACHE_TAG } from "@/core/siteCache.ts";
 import { TEAMS_EINTRAG } from "@/features/admin/constants.ts";
 
@@ -142,6 +143,7 @@ describe("the saison actions against the codes their endpoints publish", () => {
       "rules_capacity_below_use",
       "rules_qualifiers_below_wiring",
       "rules_saison_started",
+      "saison_start_taken_place",
       "rules_spieltag_over_its_phase",
       "rules_qualifiers_above_gruppe",
       "rules_unentschieden_outvalues_win",
@@ -161,6 +163,7 @@ describe("the saison actions against the codes their endpoints publish", () => {
         "rules_capacity_below_use",
         "rules_qualifiers_below_wiring",
         "rules_saison_started",
+        "saison_start_taken_place",
         "rules_spieltag_over_its_phase",
         "rules_qualifiers_above_gruppe",
         "rules_unentschieden_outvalues_win",
@@ -205,12 +208,20 @@ describe("the saison actions against the codes their endpoints publish", () => {
       "swap_saison_started",
       "saison_past",
       "swap_spieltag_clash",
+      "sides_taken_place",
       "swap_fields_disqualified",
     )) {
       expect(answerShown(code, mapSwapRefusal), `${code} reaches the admin as a generic failure`).not.toBe(null);
     }
     await assertEachAnswered({
-      codes: refusalCodes("swap_not_a_swap", "swap_saison_started", "saison_past", "swap_spieltag_clash", "swap_fields_disqualified"),
+      codes: refusalCodes(
+        "swap_not_a_swap",
+        "swap_saison_started",
+        "saison_past",
+        "swap_spieltag_clash",
+        "sides_taken_place",
+        "swap_fields_disqualified",
+      ),
       refuseWith: answerWith,
       act: () => swapGruppenAction({ saison_id: SAISON_ID, team1_id: "68c1f0a2b3c4d5e6f7a8b9c0", team2_id: "68c1f0a2b3c4d5e6f7a8b9c1" }),
       mapped: mapSwapRefusal,
@@ -409,11 +420,19 @@ describe("the German each widened refusal renders", () => {
   /* These three read the shape alone, so each sends the admin to the panel holding the shape, whatever the
      action read off its request. */
   it("sends each shape fault to the panel holding the shape", () => {
-    for (const code of ["rules_bracket_impossible", "rules_qualifiers_above_gruppe", "rules_spiele_over_one_read"] as const) {
+    for (const code of ["rules_qualifiers_above_gruppe", "rules_spiele_over_one_read"] as const) {
       for (const carriedShape of [false, true]) {
         expect(drawAnswer(code, carriedShape), `${code} sends the admin away from the numbers it judged`).toMatch(/Abschnitt Spielplan/);
       }
     }
+  });
+
+  // The draw, the rules write and the create form's own check word the bracket rule in its one sentence.
+  it("words a bracket no number pair plays in the rule's one sentence", () => {
+    for (const carriedShape of [false, true]) {
+      expect(drawAnswer("rules_bracket_impossible", carriedShape)).toBe(COPY.verwaltung.saison.bracketImpossible);
+    }
+    expect(mapRulesRefusal(refused("rules_bracket_impossible"))).toStrictEqual({ error: COPY.verwaltung.saison.bracketImpossible });
   });
 
   /* A draw never carries the forfeit, so its twin of the editor's fault states the editor's own rule and

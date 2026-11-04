@@ -2,22 +2,20 @@ import { Suspense } from "react";
 import { redirect } from "next/navigation";
 
 import { getSignInDestination } from "@/core/auth";
+import { ROUTES } from "@/core/routes";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
-import { openGraphFor } from "@/shared/utils/metadata";
+import { pageMetadata } from "@/shared/utils/metadata";
 
-import type { Metadata } from "next";
+import type { Metadata, ResolvingMetadata } from "next";
 
 /**
- * `noindex` as `/signin` spells it. It carries no parameter, so no return destination rides it, and the allowlist one
- * would need first (`docs/decisions.md`, **auth**) has nothing to judge.
+ * Its row's metadata, as `/signin`'s: `noindex` and no description, as a sign-in page carries none. It carries no
+ * parameter, so no return destination rides it, and the allowlist one would need first (`docs/decisions.md`,
+ * **auth**) has nothing to judge.
  */
-export const metadata: Metadata = {
-  title: "Anmeldung",
-  description: "Anmeldung bei der Frankfurt League.",
-  robots: { index: false, follow: false },
-  openGraph: openGraphFor("/signin/weiter"),
-  alternates: { canonical: "/signin/weiter" },
-};
+export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
+  return pageMetadata(parent, ROUTES.signInLanding, ROUTES.signInLanding.path());
+}
 
 /**
  * Resolves nothing itself: a top-level await would tie the App Shell to one URL, and this page is a

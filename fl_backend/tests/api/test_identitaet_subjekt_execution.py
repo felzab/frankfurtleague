@@ -287,12 +287,14 @@ async def _no_body(_: AsyncDatabase) -> None:
 
 
 async def call_subjekt(database: AsyncDatabase, email: str) -> FLSubjectResponse:
-    return await get_subject(
-        subjekt_data=FLSubjectPayload(email=email),
-        records=record_collections(database),
-        sperrliste=ban_list(database),
-        berechtigungen_collection=database[Collection.GRANTS],
-    )
+    async with database.client.start_session(snapshot=True) as session:
+        return await get_subject(
+            subjekt_data=FLSubjectPayload(email=email),
+            records=record_collections(database),
+            sperrliste=ban_list(database),
+            berechtigungen_collection=database[Collection.GRANTS],
+            session=session,
+        )
 
 
 def answered(url: str, email: str = IDENTIFIER) -> FLSubjectResponse:
@@ -531,12 +533,14 @@ class TestEveryAddressReadWalksAnIndex:
         async def body(database: AsyncDatabase) -> list[tuple[str, str]]:
             async def ask_both(watched: AsyncDatabase, _client: Any) -> None:
                 await call_subjekt(watched, IDENTIFIER)
-                await get_sign_in(
-                    anmeldung_data=FLSubjectPayload(email=IDENTIFIER),
-                    records=record_collections(watched),
-                    sperrliste=ban_list(watched),
-                    berechtigungen_collection=watched[Collection.GRANTS],
-                )
+                async with watched.client.start_session(snapshot=True) as session:
+                    await get_sign_in(
+                        anmeldung_data=FLSubjectPayload(email=IDENTIFIER),
+                        records=record_collections(watched),
+                        sperrliste=ban_list(watched),
+                        berechtigungen_collection=watched[Collection.GRANTS],
+                        session=session,
+                    )
 
             _, plans = await plans_of_sent_reads(mongo_replica_set_url, database, ask_both, _selects_by_address)
 

@@ -22,8 +22,8 @@ from app.core.middlewares import request_deadline_var
 
 NO_DATA_TEXT: Final = "//- No Data -//"
 
-# Shared by every abort a request sends past its deadline, or a loop of cut transactions waits out
-# one apiece; far above a round trip, and inside the page's margin.
+# Counted as `app/core/middlewares.py :: RequestDeadline` says; far above a round trip, and inside the
+# page's margin.
 ABORT_GRACE_S: Final = 1.0
 
 # NoSuchTransaction and TransactionCommitted: the server holds nothing open, the driver's own abort
@@ -35,10 +35,21 @@ UNKNOWN_COMMIT_RESULT: Final = "UnknownTransactionCommitResult"
 
 
 def _abort_budget() -> float:
-    """What is left of the request's grace, or a whole grace outside a request."""
+    """What is left of the request's deadline and of its grace, counted as `RequestDeadline` says, or a whole grace outside a request."""
 
     deadline = request_deadline_var.get()
-    return ABORT_GRACE_S if deadline is None else deadline + ABORT_GRACE_S - time.monotonic()
+    if deadline is None:
+        return ABORT_GRACE_S
+
+    return max(0.0, deadline.at - time.monotonic()) + ABORT_GRACE_S - deadline.aborting_s
+
+
+def _spent_aborting(started: float) -> None:
+    """Charge the request's grace with the part of an abort begun at `started` that ran past its deadline."""
+
+    deadline = request_deadline_var.get()
+    if deadline is not None:
+        deadline.aborting_s += max(0.0, time.monotonic() - max(started, deadline.at))
 
 
 def _log_left_open(cause: str) -> None:
@@ -55,6 +66,8 @@ async def _abort_on_the_server(session: AsyncClientSession) -> None:
     the deadline cut holds them until the server's lifetime limit. A workaround the owner approved
     (https://github.com/felzab/frankfurtleague/issues/244): it goes in the commit taking a pymongo
     release that refreshes that timeout.
+
+    The timeout it refreshes to is what `_abort_budget` leaves.
     """
 
     # pymongo's placeholder until a command carries the session: no server holds its transaction.
@@ -78,6 +91,7 @@ async def _abort_on_the_server(session: AsyncClientSession) -> None:
         with pymongo.timeout(budget):
             await session.client.admin.command({"abortTransaction": 1, "txnNumber": transaction_number, "autocommit": False}, session=session)
 
+    started = time.monotonic()
     try:
         # Shielded: inside an anyio cancel scope a cancelled request is cancelled again at every await,
         # so this abort would be cancelled unsent; `pymongo.timeout` still bounds it.
@@ -89,6 +103,8 @@ async def _abort_on_the_server(session: AsyncClientSession) -> None:
         code = failure.code if isinstance(failure, OperationFailure) else None
         if code not in NOTHING_LEFT_OPEN:
             _log_left_open(f"its abort failed ({type(failure).__name__}, code {code})")
+    finally:
+        _spent_aborting(started)
 
 
 @asynccontextmanager
@@ -195,7 +211,7 @@ def _deadline_left() -> float | None:
     """What is left of the request's deadline, `None` outside a request."""
 
     deadline = request_deadline_var.get()
-    return None if deadline is None else deadline - time.monotonic()
+    return None if deadline is None else deadline.at - time.monotonic()
 
 
 async def _transacted[T](db: AsyncMongoClient, callback: Callable[[AsyncClientSession, Batch], Awaitable[T]], batch: Batch) -> T:

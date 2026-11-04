@@ -1,10 +1,9 @@
 import "server-only";
 
 import { BRAND_NAME, mailOrigin } from "./emailShell";
-import { formatDatum } from "./format";
+import { dayOf, formatDatum } from "./format";
 
 import type { Mail } from "./emailShell";
-import type { CalendarDay } from "./format";
 import type { FLSchiedsrichterConfirmationData } from "./generated/client/types";
 import type { MailLink } from "./mailKinds";
 
@@ -30,7 +29,7 @@ function schiedsrichterBestaetigungsLink(origin: string, token: string): string 
  */
 export function buildSchiedsrichterBestaetigungEmail({ frist }: FLSchiedsrichterConfirmationData, { origin, token }: MailLink): Mail {
   const site = mailOrigin(origin);
-  const fristText = formatDatum(frist as CalendarDay);
+  const fristText = formatDatum(dayOf(frist));
 
   return {
     kind: "firstContact",

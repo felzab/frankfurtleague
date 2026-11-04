@@ -25,7 +25,7 @@ import type { FLSpielbestaetigungEnterPayload, FLSpielbestaetigungVerwerfenPaylo
  * backend's own route template does not redact.
  */
 export async function postSpielbestaetigungAnsicht(payload: FLTokenPayload): Promise<FLSpielbestaetigungViewResponse> {
-  return spielbestaetigungenGetSpielbestaetigungView(payload, { readOnly: true });
+  return spielbestaetigungenGetSpielbestaetigungView(payload);
 }
 
 /** One club's answer, at the base tier: the token authorises, and an over-declared tier succeeds silently. */

@@ -46,10 +46,10 @@ from app.api.registrierungen.services import (
     registrierung_ist_bestaetigt,
     traegt_wahlen,
 )
+from app.api.saisons.services import has_started
 from app.api.sperrliste.guard import PERSON_ACTOR_BINDERS, KontaktIdentifier, SpielerIdentifier
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
 from app.api.spieler.crud import refuse_a_full_squad
-from app.api.spieltage.crud import nachnominierung_laeuft_in
 from app.core.collections import Collection
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import (
@@ -69,7 +69,6 @@ from app.core.dependencies import (
     SaisonSpielerCollection,
     SaisonTeamsCollection,
     SpielerCollection,
-    SpieltageCollection,
     get_german_date_str,
     get_germany_now,
 )
@@ -191,7 +190,6 @@ async def admit(
     saisons_collection: SaisonsCollection,
     spieler_collection: SpielerCollection,
     records: SubjektLookup,
-    spieltage_collection: SpieltageCollection,
     aktionen_collection: ActionLogCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
@@ -246,7 +244,10 @@ async def admit(
         )
         refuse(find_gesperrt_refusal(barred=bool(gesperrt)))
 
-        saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["rules"], session=session)
+        # The one read of the season: its rules for the level and the cap, its `start_date` for the Nachnominierung marker.
+        saison_raw = await pull_one_from_db(
+            collection=saisons_collection, db_filter={"_id": saison_id}, projection=["rules", "start_date"], session=session
+        )
         erlaubte_stufen = list((saison_raw.get("rules") or {}).get("allowed_stufen") or [])
         refuse(find_stufe_refusal(stufe=registrierung_raw.get("stufe"), allowed_stufen=erlaubte_stufen))
 
@@ -270,6 +271,7 @@ async def admit(
             saison_spieler_collection=saison_spieler_collection,
             saisons_collection=saisons_collection,
             saison_id=saison_id,
+            rules=saison_raw["rules"],
             team_id=team_id,
             spieler_id=spieler_id,
             session=session,
@@ -299,9 +301,7 @@ async def admit(
         kader_fields = compose_kader_fields(
             registrierung_raw=registrierung_raw,
             team_id=team_id,
-            is_nachnominiert=await nachnominierung_laeuft_in(
-                spieltage_collection=spieltage_collection, saison_id=saison_id, today=today, session=session
-            ),
+            is_nachnominiert=has_started(start_date=saison_raw["start_date"], today=today),
         )
         if kader_raw is None:
             await post_one_to_db(

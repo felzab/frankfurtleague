@@ -26,6 +26,8 @@ describe("the document's locale", () => {
   it("formats a date field under the root layout in the language the document declares", () => {
     const html = renderToStaticMarkup(
       h(RootLayout, {
+        params: Promise.resolve({}),
+        modal: null,
         children: h(AppDatePicker, {
           name: "datum",
           label: "Datum",

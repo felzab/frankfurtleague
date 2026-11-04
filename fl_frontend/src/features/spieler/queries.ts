@@ -1,37 +1,18 @@
 import { cache } from "react";
-import { cacheLife, cacheTag } from "next/cache";
 
-import {
-  spielerGetKader,
-  spielerGetSelf,
-  spielerGetSpieler,
-  spielerGetSpielerNachnominierung,
-  spielerGetSpielerSaisons,
-} from "@/core/generated/client/sdk";
-import { SITE_CACHE_TAG } from "@/core/siteCache";
+import { spielerGetKader, spielerGetSelf, spielerGetSpielerNachnominierung, spielerGetSpielerSaisons } from "@/core/generated/client/sdk";
 import { runAdminRead } from "@/shared/utils/adminRead";
 import { runPersonRead } from "@/shared/utils/personRead";
 
 import type {
   FLKaderResponse,
-  FLSpielerListResponse,
   FLSpielerNachnominierungResponse,
   FLSpielerSaisonsResponse,
   FLSpielerSelfResponse,
-  SpielerGetSpielerParams,
 } from "@/core/generated/client/types";
 
-export async function getSpieler(filters: SpielerGetSpielerParams = {}): Promise<FLSpielerListResponse> {
-  "use cache";
-
-  cacheTag(SITE_CACHE_TAG);
-  cacheLife("minutes");
-
-  return spielerGetSpieler(filters);
-}
-
 /**
- * `getSpieler` cannot serve the admin surfaces at any filter setting.
+ * The public squad read, a club page's squad, cannot serve the admin surfaces: it is one club's in one season.
  */
 // Never `"use cache"` here, which keys on the arguments rather than the caller.
 export const getSpielerSaisons = cache(async (): Promise<FLSpielerSaisonsResponse> => runAdminRead(() => spielerGetSpielerSaisons()));

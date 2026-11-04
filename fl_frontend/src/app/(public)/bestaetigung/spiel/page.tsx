@@ -1,27 +1,24 @@
 import { Suspense } from "react";
 
+import { ROUTES } from "@/core/routes";
 import { SpielbestaetigungView } from "@/features/spielbestaetigungen/components/views/SpielbestaetigungView";
 import { getSpielbestaetigungAnsicht } from "@/features/spielbestaetigungen/queries";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 import { nullUnlessContractBreak } from "@/shared/utils/degradedRead";
-import { openGraphFor } from "@/shared/utils/metadata";
+import { pageMetadata } from "@/shared/utils/metadata";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import type { NextPageProps } from "@/shared/types/types";
-import type { Metadata } from "next";
+import type { Metadata, ResolvingMetadata } from "next";
 
 /**
- * `noindex` as the contact confirmation spells it;
- * `referrer` keeps the link's token off the referer any link on the page would send.
+ * `referrer` keeps the link's token off the referer any link on the page would send; the row keeps crawlers out,
+ * as the contact confirmation's does.
  */
-export const metadata: Metadata = {
-  title: "Spieltermin bestätigen",
-  description: "Bestätige den Termin eines Spiels Deines Teams in der Frankfurt League, oder schlag einen anderen vor.",
-  robots: { index: false, follow: false },
-  referrer: "no-referrer",
-  openGraph: openGraphFor("/bestaetigung/spiel"),
-  alternates: { canonical: "/bestaetigung/spiel" },
-};
+export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
+  const row = ROUTES.spielbestaetigung;
+  return { ...(await pageMetadata(parent, row, row.path())), referrer: "no-referrer" };
+}
 
 /**
  * Resolves nothing itself: a top-level await would tie the App Shell to one URL, and this page's

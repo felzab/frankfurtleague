@@ -1,9 +1,12 @@
+import { textOf } from "@/core/copy";
+
+import { cardSurface, stacked } from "./cardStyles";
 import { Chip } from "./Chip";
 import { Icon } from "./Icon";
 import { Link } from "./Link";
 import { tv } from "./tv";
 
-import type { Copy } from "@/core/copy";
+import type { Copy, Words } from "@/core/copy";
 import type { Route } from "next";
 import type { ChipProps } from "./Chip";
 import type { IconName } from "./Icon";
@@ -17,10 +20,10 @@ export type Fact = {
   /** A small muted glyph before the label, as the match pop-up leads each of its facts (Notion's property pattern). */
   glyph?: IconName;
 } & (
-  | { value: string; /** Figures, set in Inter with columns that line up. */ figures?: boolean; link?: never; elsewhere?: never }
-  | { link: { href: Route; text: string }; value?: never; figures?: never; elsewhere?: never }
-  /** Opens in a new tab, leaving the site's page in place. */
-  | { elsewhere: { href: `https://${string}`; text: string }; value?: never; figures?: never; link?: never }
+  | { value: Words; /** Figures, set in Inter with columns that line up. */ figures?: boolean; link?: never; elsewhere?: never }
+  | { link: { href: Route; label: Words }; value?: never; figures?: never; elsewhere?: never }
+  /** Another site's address, which `Link` opens in a new tab, leaving the site's page in place. */
+  | { elsewhere: { href: `https://${string}`; label: Words }; value?: never; figures?: never; link?: never }
 );
 
 const facts = tv({
@@ -38,9 +41,9 @@ const facts = tv({
       // row was drawn in, so a read page's or a mailed page's column splits its pairs and a phone's, or a box
       // narrower than a dialog on any screen, stacks them.
       boxed: {
-        list: "overflow-hidden rounded-lg border border-border @lg:grid @lg:grid-cols-2",
+        list: `overflow-hidden ${cardSurface()} @lg:grid @lg:grid-cols-2`,
         // In the wide box the second pair shares the first one's row, so it draws no hairline above it either.
-        row: "border-t border-border px-3 py-2 first:border-t-0 @lg:nth-2:border-t-0",
+        row: `${stacked()} px-3 py-2 @lg:nth-2:border-t-0`,
       },
       // No box and no hairlines, two pairs a row at every width: the old pop-up's facts under its teams.
       free: {
@@ -65,7 +68,7 @@ export function Facts({
   facts: rows,
   look = "boxed",
 }: {
-  subject?: { name: string; chip?: ChipProps };
+  subject?: { name: Words; chip?: ChipProps };
   facts: ReadonlyArray<Fact>;
   look?: "boxed" | "free";
 }) {
@@ -74,18 +77,18 @@ export function Facts({
     <div className="@container grid gap-2 text-sm">
       {subject !== undefined && (
         <p className="flex min-w-0 items-center gap-2 text-base font-semibold">
-          <span className="min-w-0 truncate">{subject.name}</span>
-          {subject.chip !== undefined && (
-            <Chip
-              tone={subject.chip.tone}
-              label={subject.chip.label}
-            />
-          )}
+          <span
+            className="min-w-0 truncate"
+            title={textOf(subject.name)}>
+            {textOf(subject.name)}
+          </span>
+          {subject.chip !== undefined && <Chip {...subject.chip} />}
         </p>
       )}
       <dl className={list()}>
         {rows.map((fact) => {
           const { row, term, detail } = facts({ look, figures: fact.figures === true });
+          const to = fact.link ?? fact.elsewhere;
           return (
             <div
               key={fact.label}
@@ -100,22 +103,15 @@ export function Facts({
                 {fact.label}
               </dt>
               <dd className={detail()}>
-                {fact.link !== undefined ? (
-                  <Link
-                    href={fact.link.href}
-                    placement="standalone"
-                    text={fact.link.text}
-                  />
-                ) : fact.elsewhere !== undefined ? (
-                  <Link
-                    href={fact.elsewhere.href}
-                    placement="standalone"
-                    newTab
-                    text={fact.elsewhere.text}
-                  />
-                ) : (
-                  fact.value
-                )}
+                {fact.value !== undefined
+                  ? textOf(fact.value)
+                  : to !== undefined && (
+                      <Link
+                        href={to.href}
+                        placement="standalone"
+                        label={to.label}
+                      />
+                    )}
               </dd>
             </div>
           );

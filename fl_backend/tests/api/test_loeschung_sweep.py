@@ -57,6 +57,7 @@ from tests.documents import (
     saison_team_document,
     schiedsrichter_document,
     spiel_document,
+    spielbericht_document,
     spieler_document,
     team_document,
 )
@@ -132,6 +133,15 @@ def a_due_pupil(position: int) -> dict[Collection, list[dict[str, Any]]]:
         Collection.SAISON_SPIELER: [squad_row(spieler_id, "2023"), squad_row(spieler_id, "2024")],
         Collection.REGISTRIERUNGEN: [registration(numbered(5000 + position), address_of(position), declined=True)],
     }
+
+
+def a_report_naming(position: int) -> dict[Collection, list[dict[str, Any]]]:
+    """A report naming that due pupil among its scorers, whose repoint writes a log row: what makes a pupil's erasure its costliest."""
+
+    report = spielbericht_document({"_id": numbered(7000 + position), "saison_id": "2024"})
+    report["bericht"]["torschuetzen"][0]["spieler_id"] = numbered(position)
+
+    return {Collection.SPIELBERICHTE: [report]}
 
 
 async def seeded(database: AsyncDatabase, *shapes: Mapping[Collection, list[dict[str, Any]]]) -> None:
@@ -525,7 +535,6 @@ async def a_squad_row_entered(database: AsyncDatabase, client: AsyncMongoClient,
         saison_spieler_collection=database[Collection.SAISON_SPIELER],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
-        spieltage_collection=database[Collection.SPIELTAGE],
         db=client,
         today=TODAY,
     )
@@ -918,9 +927,15 @@ class TestOnePupilCostsTheCommandsItsShareIsSizedAt:
 
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[int, int]:
             async def counted(due: int) -> int:
-                for collection in (Collection.SPIELER, Collection.SAISON_SPIELER, Collection.REGISTRIERUNGEN, Collection.ACTION_LOG):
+                for collection in (
+                    Collection.SPIELER,
+                    Collection.SAISON_SPIELER,
+                    Collection.REGISTRIERUNGEN,
+                    Collection.SPIELBERICHTE,
+                    Collection.ACTION_LOG,
+                ):
                     await database[collection].delete_many({"_id": {"$ne": build_ghost_spieler()["_id"]}})
-                await seeded(database, *(a_due_pupil(position) for position in range(due)))
+                await seeded(database, *(shape for position in range(due) for shape in (a_due_pupil(position), a_report_naming(position))))
 
                 return await commands_sent(mongo_replica_set_url, DATABASE_NAME, run)
 
@@ -942,7 +957,9 @@ class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
 
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[Any, Counter[str]]:
             await seeded(
-                database, *(a_due_pupil(position) for position in range(LOESCHUNGEN_PER_PASS + 1)), {Collection.REGISTRIERUNGEN: waiting}
+                database,
+                *(shape for position in range(LOESCHUNGEN_PER_PASS + 1) for shape in (a_due_pupil(position), a_report_naming(position))),
+                {Collection.REGISTRIERUNGEN: waiting},
             )
 
             return await commands_by_name(mongo_replica_set_url, DATABASE_NAME, run)

@@ -1,38 +1,37 @@
 from __future__ import annotations
 
-import asyncio
 import json
-from collections.abc import Awaitable, Callable, Iterator, Mapping, Sequence
-from typing import Any, NamedTuple, cast, get_args
+from collections.abc import Awaitable, Callable, Iterator, Mapping
+from typing import Any, NamedTuple
 
 import pytest
 from bson import ObjectId
 from bson import encode as bson_encode
-from pydantic import ValidationError
-from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
 
+from app.api.saisons.public_router import get_team
+from app.api.saisons.schemas import FLTeamPageResponse
 from app.api.spieler.admin_router import _as_single
-from app.api.spieler.public_router import get_spieler, get_spieler_by_id
+from app.api.spieler.public_router import get_spieler_by_id
 from app.api.spieler.schemas import (
     FLSaisonSpielerResponse,
     FLSpieler,
     FLSpielerAdminSingleResponse,
-    FLSpielerFilterParams,
-    FLSpielerListResponse,
     FLSpielerMembership,
     FLSpielerPublic,
     FLSpielerSingleResponse,
-    FLSpielerSortOptions,
 )
-from app.api.spieler.services import build_real_spieler_filter, build_spieler_pipeline, build_spieler_saisons_pipeline, public_initial
-from app.core.codes import Code
-from app.core.config import API_VERSION
+from app.api.spieler.services import build_spieler_pipeline, build_spieler_saisons_pipeline, public_initial
 from app.core.crud import aggregate_many_from_db
-from app.core.exceptions import DocumentNotFoundError
-from app.openapi_document import build_document
 from tests.database import a_clean_database, on_the_seed_loop, shared_client
-from tests.documents import own_einwilligung_document, saison_spieler_document, spieler_document
+from tests.documents import (
+    own_einwilligung_document,
+    saison_document,
+    saison_spieler_document,
+    saison_team_document,
+    spieler_document,
+    team_document,
+)
 from tests.worker import worker_database
 
 from .conftest import unwritten
@@ -40,8 +39,6 @@ from .conftest import unwritten
 DATABASE_NAME = worker_database("fl_spieler_public_read_test")
 
 SAISON = "2026"
-# A second season, named by no document this corpus stores: these cases assert on the pipeline's shape alone.
-WITHHELD_SAISON = "2027"
 TEAM_OID = ObjectId("6890a1b2c3d4e5f607390001")
 
 # What the base tier serves, and the whole of it.
@@ -51,9 +48,9 @@ PUBLIC_FIELDS = {"vorname", "nachname", "nummer", "position"}
 # which asks what the surface renders rather than what looks sensitive. An unrendered field still ships.
 WITHHELD_FIELDS = ["stufe", "einwilligung", "email", "id", "team_id", "is_nachnominiert", "rolle", "inactive_since"]
 
-# What a caller may actually SEND: the filter model's fields plus anything declared beside them.
-# Constructing a filter object asks for nothing -- `extra="ignore"` drops an undeclared key first.
-BASE_QUERY_PARAMETERS = {parameter["name"] for parameter in build_document()["paths"][f"/api/v{API_VERSION}/spieler"]["get"]["parameters"]}
+# The club whose page serves the squad, in every corpus below: the page answers 404 for a club the
+# season does not hold, so each corpus enters it in each season it reads.
+TEAM_NAME, TEAM_SHORTHAND = "Helmholtz", "HGX"
 
 # The one person whose squad row is retired, searched for as an absence.
 RETIRED_ROW_VORNAME = "Nils"
@@ -105,28 +102,55 @@ def _squad_row(
     )
 
 
-def _filters() -> FLSpielerFilterParams:
+def _club(*saison_ids: str) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """The club's document and its junction row in each season named."""
+
+    return team_document(TEAM_OID, TEAM_NAME, TEAM_SHORTHAND), [
+        saison_team_document(saison_id, TEAM_OID, TEAM_NAME, TEAM_SHORTHAND) for saison_id in saison_ids
+    ]
+
+
+async def _enter_the_club(database: AsyncDatabase, *saison_ids: str) -> None:
+    club, rows = _club(*saison_ids)
+    await database.teams.insert_one(club)
+    await database.saison_teams.insert_many(rows)
+
+
+async def club_page(database: AsyncDatabase, saison_id: str = SAISON) -> FLTeamPageResponse:
+    """The club's page in one season, whose squad is the one base-tier read of a squad."""
+
+    return await get_team(
+        saison_id=saison_id,
+        team_id=TEAM_OID,
+        saisons_collection=database.saisons,
+        teams_collection=database.teams,
+        spiele_collection=database.spiele,
+        saison_spieler_collection=database.saison_spieler,
+    )
+
+
+def _pipeline() -> list[Mapping[str, Any]]:
     """One team's squad in one season -- the narrowing every case below shares."""
 
-    return FLSpielerFilterParams(team_id=TEAM_OID, saison_id=SAISON)
+    return build_spieler_pipeline(team_id=TEAM_OID, saison_id=SAISON)
 
 
-def _project(filters: FLSpielerFilterParams | None = None) -> dict[str, Any]:
-    pipeline = build_spieler_pipeline(filters or _filters())
-
-    return next(stage["$project"] for stage in pipeline if "$project" in stage)
+def _project() -> dict[str, Any]:
+    return next(stage["$project"] for stage in _pipeline() if "$project" in stage)
 
 
-def _sort(filters: FLSpielerFilterParams | None = None) -> dict[str, int]:
-    pipeline = build_spieler_pipeline(filters or _filters())
-
-    return next(stage["$sort"] for stage in pipeline if "$sort" in stage)
+def _sort() -> dict[str, int]:
+    return next(stage["$sort"] for stage in _pipeline() if "$sort" in stage)
 
 
-def _lookup_pipeline(filters: FLSpielerFilterParams | None = None, withheld: Sequence[str] = ()) -> list[Any]:
-    pipeline = build_spieler_pipeline(filters or _filters(), withheld)
+def _lookup_pipeline() -> list[Any]:
+    return next(stage["$lookup"] for stage in _pipeline() if "$lookup" in stage)["pipeline"]
 
-    return next(stage["$lookup"] for stage in pipeline if "$lookup" in stage)["pipeline"]
+
+def _squad_match() -> dict[str, Any]:
+    """The first stage, which narrows the squad rows before anything joins them."""
+
+    return _pipeline()[0]["$match"]
 
 
 class TestTheBaseTierShape:
@@ -138,8 +162,8 @@ class TestTheBaseTierShape:
         """Absent from the MODEL, not merely unrendered: the page is a client component, so every field it receives sits in the page source."""
         assert field not in FLSpielerPublic.model_fields
 
-    def test_the_list_response_serves_the_public_shape(self):
-        assert FLSpielerListResponse.model_fields["spieler"].annotation == list[FLSpielerPublic]
+    def test_the_club_page_serves_the_public_shape(self):
+        assert FLTeamPageResponse.model_fields["kader"].annotation == list[FLSpielerPublic]
 
     @pytest.mark.parametrize("field", WITHHELD_FIELDS)
     def test_the_stored_shape_still_declares_what_the_tier_withholds(self, field: str):
@@ -240,33 +264,21 @@ class TestTheProjection:
     def test_the_consent_record_is_read_and_projected_nowhere(self):
         """`READ-PUPIL-003` reads it inside the `$cond`, so the projection carrying no key of that name is the whole of the withholding."""
         assert "einwilligung" not in _project()
-        assert "$einwilligung.umfang" in json.dumps(_project())
+        assert "$einwilligung.umfang" in json.dumps(_lookup_pipeline())
 
-    def test_the_level_is_gone_from_the_shape_and_from_every_way_of_asking_for_it(self):
-        """Serving no `stufe` while `?stufe=` still narrowed would leave the fact readable one level at a time."""
+    def test_the_level_is_gone_from_the_shape(self):
+        """`READ-PUPIL-002`: the level stays stored and admin-visible, and this tier never projects it."""
         assert "stufe" not in _project()
-        assert "stufe" not in BASE_QUERY_PARAMETERS
-        assert "stufe" not in get_args(FLSpielerSortOptions)
 
-    def test_the_backdated_flag_is_gone_from_the_shape_and_from_every_way_of_asking_for_it(self):
-        """The same sentence one field up: `is_nachnominiert` is withheld too, so a request per value would partition the squad by it."""
+    def test_the_backdated_flag_is_gone_from_the_shape(self):
+        """The same sentence one field up: `is_nachnominiert` is withheld too."""
         assert "is_nachnominiert" not in _project()
-        assert "is_nachnominiert" not in BASE_QUERY_PARAMETERS
-        assert "is_nachnominiert" not in get_args(FLSpielerSortOptions)
 
     def test_the_sort_runs_after_the_mask_and_not_over_the_stored_names(self):
-        """`sort_by` is a published parameter.
-
-        An order keyed on the stored forename answers, for a withheld row, what the projection
-        withholds.
-        """
-        stages = [next(iter(stage)) for stage in build_spieler_pipeline(_filters())]
+        """An order keyed on the stored forename answers, for a withheld row, what the projection withholds."""
+        stages = [next(iter(stage)) for stage in _pipeline()]
 
         assert stages.index("$sort") > stages.index("$project")
-
-    def test_nothing_a_caller_may_send_narrows_on_a_name(self):
-        """The other half of the same channel: a term matching a stored name would report a withheld row's name by which requests return it."""
-        assert BASE_QUERY_PARAMETERS == {"team_id", "saison_id", "limit", "sort_by", "order"}
 
     def test_the_public_sort_does_not_tiebreak_on_the_surname(self):
         """A tie-break is the last place an ordering could still depend on a field the response withholds."""
@@ -277,132 +289,9 @@ class TestTheProjection:
         """The contrast is the assertion: the admin list orders people by full name and is entitled to."""
         assert build_spieler_saisons_pipeline()[-1]["$sort"] == {"vorname": 1, "nachname": 1}
 
-    @pytest.mark.parametrize("key", ["nachname", "stufe"])
-    def test_the_base_tier_refuses_to_order_by_a_key_it_will_not_serve(self, key: str):
-        """The tie-break was never the whole of it: `sort_by` is a published query parameter, so surname order could be ASKED for outright."""
-        assert key not in get_args(FLSpielerSortOptions)
-
-        with pytest.raises(ValidationError):
-            FLSpielerFilterParams.model_validate({"sort_by": key})
-
-    def test_the_person_s_own_retirement_narrows_nothing(self):
-        """`READ-SQUAD-001`: the only retirement match is the lookup's. One here would take a retired person's squad rows down with them."""
-        matches = [stage["$match"] for stage in build_spieler_pipeline(_filters()) if "$match" in stage]
-
-        # The sentinel's exclusion alone, which narrows by id and never by a retirement.
-        assert matches == [build_real_spieler_filter()]
-
     def test_the_squad_row_s_retirement_narrows_unconditionally(self):
-        """The other half, with no switch: this tier serves no field marking a row it would un-hide (`READ-SQUAD-002`)."""
-        assert {"$match": {"inactive_since": None}} in _lookup_pipeline()
-        assert "include_inactive" not in BASE_QUERY_PARAMETERS
-
-
-class TestTheSeasonsThisTierMayNotRead:
-    """A squad row carries the season it belongs to; the row this read SERVES does not. So the narrowing happens here."""
-
-    def test_a_withheld_season_narrows_the_junction(self):
-        assert {"$match": {"saison_id": {"$nin": [WITHHELD_SAISON]}}} in _lookup_pipeline(FLSpielerFilterParams(), [WITHHELD_SAISON])
-
-    def test_it_narrows_the_junction_rather_than_what_the_junction_joined(self):
-        """A `$match` after the join would leave the row attached, and the loose `$unwind` above serves a person with no row at all."""
-        pipeline = build_spieler_pipeline(FLSpielerFilterParams(), [WITHHELD_SAISON])
-
-        assert [stage["$match"] for stage in pipeline if "$match" in stage] == [build_real_spieler_filter()]
-
-    def test_it_narrows_ahead_of_nothing_the_row_carries(self):
-        """Last of the junction's terms: the season is the one narrowing that costs a comparison per id, so the cheap equalities go first."""
-        assert _lookup_pipeline(FLSpielerFilterParams(), [WITHHELD_SAISON])[-1] == {"$match": {"saison_id": {"$nin": [WITHHELD_SAISON]}}}
-
-    def test_a_league_with_nothing_planned_runs_the_pipeline_it_always_ran(self):
-        """`$nin: []` narrows nothing, so an empty set is no stage rather than a stage matching everything."""
-        assert all("$nin" not in str(stage) for stage in _lookup_pipeline(FLSpielerFilterParams()))
-
-    def test_the_default_is_the_empty_set(self):
-        """A caller joining across seasons has to supply them; one that does not is a league where nothing is withheld."""
-        assert build_spieler_pipeline(FLSpielerFilterParams()) == build_spieler_pipeline(FLSpielerFilterParams(), [])
-
-
-class _Cursor:
-    """An answer holding nobody, in both shapes the read iterates: `aggregate`'s cursor and `find(...).limit(...)`."""
-
-    def limit(self, length: int) -> _Cursor:
-        return self
-
-    async def to_list(self, length: int | None = None) -> list[Any]:
-        return []
-
-
-class _Seasons:
-    """A seasons collection holding at most one `active` season and withholding none."""
-
-    def __init__(self, active: str | None) -> None:
-        self.active = active
-
-    async def find_one(self, filter: Any = None, projection: Any = None, session: Any = None) -> dict[str, Any] | None:
-        return {"_id": self.active, "status": "active"} if self.active is not None and filter == {"status": "active"} else None
-
-    def find(self, **query: Any) -> _Cursor:
-        return _Cursor()
-
-
-class _Players:
-    """A players collection keeping the pipeline each read runs, which is where the season it resolved shows."""
-
-    def __init__(self) -> None:
-        self.pipelines: list[Sequence[Mapping[str, Any]]] = []
-
-    async def aggregate(self, pipeline: Sequence[Mapping[str, Any]], collation: Any = None, session: Any = None) -> _Cursor:
-        self.pipelines.append(pipeline)
-        return _Cursor()
-
-
-def _junction_terms(filters: FLSpielerFilterParams, seasons: _Seasons) -> list[Mapping[str, Any]]:
-    """The `$match` terms the read narrowed the squad rows on, as the handler itself built them."""
-
-    players = _Players()
-    asyncio.run(
-        get_spieler(spieler_collection=cast(AsyncCollection, players), saisons_collection=cast(AsyncCollection, seasons), filters=filters)
-    )
-    lookup = next(stage["$lookup"] for stage in players.pipelines[0] if "$lookup" in stage)
-
-    return [stage["$match"] for stage in lookup["pipeline"] if "$match" in stage]
-
-
-class TestTheSeasonASquadIsReadFor:
-    """The squad page names a club and, for the running season, no season."""
-
-    @pytest.mark.parametrize(
-        ("named", "read"),
-        [
-            # Without the resolve a player in two of the club's seasons is two rows, and one who left last season stands in this one.
-            pytest.param(None, SAISON, id="no season reads the active one"),
-            # The resolve fills an ABSENT id only: a page on a past season asks for that season's squad.
-            pytest.param(WITHHELD_SAISON, WITHHELD_SAISON, id="a named season is read as named"),
-        ],
-    )
-    def test_naming_a_team_reads_its_squad_in_one_season(self, named: str | None, read: str):
-        terms = _junction_terms(FLSpielerFilterParams(team_id=TEAM_OID, saison_id=named), _Seasons(SAISON))
-
-        assert {"team_id": TEAM_OID, "saison_id": read} in terms
-
-    def test_naming_neither_resolves_no_season(self):
-        """Every season's players: nothing names a squad, so no season is resolved to scope one."""
-        assert all("saison_id" not in term for term in _junction_terms(FLSpielerFilterParams(), _Seasons(SAISON)))
-
-    def test_naming_a_team_with_no_season_active_is_refused_before_any_player_is_read(self):
-        """No read method on the players collection: a handler reading squads with no season to scope them to fails on the attribute."""
-
-        with pytest.raises(DocumentNotFoundError) as refused:
-            asyncio.run(
-                get_spieler(
-                    spieler_collection=cast(AsyncCollection, object()),
-                    saisons_collection=cast(AsyncCollection, _Seasons(None)),
-                    filters=FLSpielerFilterParams(team_id=TEAM_OID),
-                )
-            )
-
-        assert refused.value.error_code == Code.DOCUMENT_NOT_FOUND
+        """With no switch: this tier serves no field marking a row it would un-hide (`READ-SQUAD-002`)."""
+        assert _squad_match()["inactive_since"] is None
 
 
 class TestTheInitial:
@@ -417,30 +306,24 @@ class TestTheInitial:
 
 @pytest.mark.db
 class TestTheBaseTierReadExecuted:
-    """The whole chain against a real mongod: what is STORED, what the pipeline yields, and what the endpoint serialises."""
+    """The whole chain against a real mongod: what is STORED, what the pipeline yields, and what the club page serialises."""
 
-    def _read(self, url: str, filters: FLSpielerFilterParams | None = None) -> dict[str, Any]:
-        """The endpoint's own answer, dumped as the wire carries it -- the only shape that can show nothing leaked."""
+    def _read(self, url: str) -> dict[str, Any]:
+        """The page's own answer, dumped as the wire carries it -- the only shape that can show nothing leaked."""
 
         async def body(database: AsyncDatabase) -> Any:
-            response = await get_spieler(
-                spieler_collection=database.spieler,
-                saisons_collection=database.saisons,
-                filters=filters or _filters(),
-            )
-
-            return response.model_dump(mode="json", by_alias=True)
+            return (await club_page(database)).model_dump(mode="json", by_alias=True)
 
         return on_a_database(url, body)
 
-    def _by_vorname(self, url: str, filters: FLSpielerFilterParams | None = None) -> dict[str, dict[str, Any]]:
-        return {row["vorname"]: row for row in self._read(url, filters)["spieler"]}
+    def _by_vorname(self, url: str) -> dict[str, dict[str, Any]]:
+        return {row["vorname"]: row for row in self._read(url)["kader"]}
 
-    def _rows(self, url: str, filters: FLSpielerFilterParams | None = None) -> list[Mapping[str, Any]]:
+    def _rows(self, url: str) -> list[Mapping[str, Any]]:
         """What mongod yields for the pipeline, one step BEFORE `FLSpielerPublic`, which declares five fields and drops the rest either way."""
 
         async def body(database: AsyncDatabase) -> Any:
-            return await aggregate_many_from_db(collection=database.spieler, pipeline=build_spieler_pipeline(filters or _filters()))
+            return await aggregate_many_from_db(collection=database.saison_spieler, pipeline=_pipeline())
 
         return on_a_database(url, body)
 
@@ -482,12 +365,6 @@ class TestTheBaseTierReadExecuted:
         """The retirement this read does filter on, so dropping the person's match cannot be mistaken for dropping both."""
         assert RETIRED_ROW_VORNAME not in self._by_vorname(seeded_url)
 
-    def test_a_person_whose_every_squad_row_is_retired_still_reads(self, seeded_url: str):
-        """Neither id narrows, so the join is loose: Nils survives the unwind with no `saison_data`, and `$project` leaves both keys off."""
-        served = self._by_vorname(seeded_url, FLSpielerFilterParams())
-
-        assert (served["Nils"]["nummer"], served["Nils"]["position"]) == (None, None)
-
     def test_a_stored_surname_is_served_as_an_initial(self, seeded_url: str):
         assert self._by_vorname(seeded_url)["Maxim"]["nachname"] == "M."
 
@@ -528,7 +405,7 @@ class TestTheBaseTierReadExecuted:
 
     def test_the_order_is_by_position_then_forename(self, seeded_url: str):
         """The default sort, unchanged by the redaction -- and MongoDB puts the null position first."""
-        served = self._read(seeded_url)["spieler"]
+        served = self._read(seeded_url)["kader"]
 
         assert [row["position"] for row in served] == [None, "Abwehr", "Angriff", "Mittelfeld", "Tor"]
 
@@ -541,7 +418,7 @@ class TestTheBaseTierReadExecuted:
         return on_a_database(url, body)
 
     def test_the_one_player_read_serves_the_same_initial(self, seeded_url: str):
-        """The second base-tier path, redacted by `public_initial` where the list is redacted by the pipeline."""
+        """The second base-tier path, redacted by `public_initial` where the squad is redacted by the pipeline."""
         assert self._read_one(seeded_url, "Mueller")["nachname"] == "M."
 
     def test_the_one_player_read_carries_no_leaving_date(self, seeded_url: str):
@@ -566,7 +443,7 @@ class TestTheBaseTierReadExecuted:
         async def body(database: AsyncDatabase) -> Any:
             before = await database.spieler.find_one({"_id": subject})
 
-            await get_spieler(spieler_collection=database.spieler, saisons_collection=database.saisons, filters=_filters())
+            await club_page(database)
             await get_spieler_by_id(spieler_id=subject, spieler_collection=database.spieler)
 
             return before, await database.spieler.find_one({"_id": subject})
@@ -590,6 +467,8 @@ def seeded_url(mongo_url: str) -> Iterator[str]:
 
     async def _seed() -> None:
         async with a_clean_database(mongo_url, DATABASE_NAME) as (_, database):
+            await database.saisons.insert_one(saison_document(SAISON, "active"))
+            await _enter_the_club(database, SAISON)
             await database.spieler.insert_many(
                 [
                     # Distinct forenames, none of them holding a surname as a substring: the rows
@@ -625,23 +504,21 @@ SQUAD_OIDS = {"Beide": ObjectId("6890a1b2c3d4e5f607390021"), "Ehemalig": ObjectI
 
 
 @pytest.mark.db
-class TestTheSquadReadNamingNoSeasonExecuted:
-    """The squad page's own call, `?team_id=` and no season, against a club that played two seasons."""
+class TestTheClubPageReadsOneSeasonsSquad:
+    """The club page in the running season, against a club that played two seasons."""
 
-    def _vornamen(self, url: str, filters: FLSpielerFilterParams) -> list[str]:
+    def _vornamen(self, url: str, saison_id: str) -> list[str]:
         async def body(database: AsyncDatabase) -> Any:
-            response = await get_spieler(spieler_collection=database.spieler, saisons_collection=database.saisons, filters=filters)
-
-            return [row.vorname for row in response.spieler]
+            return [row.vorname for row in (await club_page(database, saison_id)).kader]
 
         return on_the_seed_loop(body(shared_client(url)[SQUAD_DATABASE_NAME]))
 
     def test_a_player_of_both_seasons_is_listed_once_and_one_of_the_past_season_alone_not_at_all(self, squad_url: str):
-        assert self._vornamen(squad_url, FLSpielerFilterParams(team_id=TEAM_OID)) == ["Paula"]
+        assert self._vornamen(squad_url, SAISON) == ["Paula"]
 
-    def test_the_past_season_named_still_lists_its_own_squad(self, squad_url: str):
-        """The control: the corpus really holds the past season's second player and the row the default leaves out."""
-        assert sorted(self._vornamen(squad_url, FLSpielerFilterParams(team_id=TEAM_OID, saison_id=PAST_SAISON))) == ["Paula", "Theo"]
+    def test_the_past_season_s_page_still_lists_its_own_squad(self, squad_url: str):
+        """The control: the corpus really holds the past season's second player and the row the running season leaves out."""
+        assert sorted(self._vornamen(squad_url, PAST_SAISON)) == ["Paula", "Theo"]
 
 
 @pytest.fixture(scope="module")
@@ -650,7 +527,8 @@ def squad_url(mongo_url: str) -> Iterator[str]:
 
     async def _seed() -> None:
         async with a_clean_database(mongo_url, SQUAD_DATABASE_NAME, constraints=False) as (_, database):
-            await database.saisons.insert_many([{"_id": SAISON, "status": "active"}, {"_id": PAST_SAISON, "status": "past"}])
+            await database.saisons.insert_many([saison_document(SAISON, "active"), saison_document(PAST_SAISON, "past")])
+            await _enter_the_club(database, SAISON, PAST_SAISON)
             await database.spieler.insert_many(
                 [
                     {**_spieler("Mueller", "Paula", "Beispiel"), "_id": SQUAD_OIDS["Beide"]},
@@ -714,18 +592,12 @@ class TestThePublicationGate:
 
     def _read(self, url: str) -> dict[str, Any]:
         async def body(database: AsyncDatabase) -> Any:
-            response = await get_spieler(
-                spieler_collection=database.spieler,
-                saisons_collection=database.saisons,
-                filters=_filters(),
-            )
-
-            return response.model_dump(mode="json", by_alias=True)
+            return (await club_page(database)).model_dump(mode="json", by_alias=True)
 
         return _on_the_mask_database(url, body)
 
     def _by_nummer(self, url: str) -> dict[str, dict[str, Any]]:
-        return {row["nummer"]: row for row in self._read(url)["spieler"]}
+        return {row["nummer"]: row for row in self._read(url)["kader"]}
 
     def test_the_corpus_really_stores_the_names_and_the_records_the_cases_below_read(self, masked_url: str):
         """First: every case below would pass just as well against a corpus that stored no name to withhold."""
@@ -817,7 +689,7 @@ class TestTheAdminEchoIsServedNoMask:
         assert FLSpielerSingleResponse(spieler_id=MASKED_SQUAD["Intern"].oid, vorname=None, nachname=None).vorname is None
 
     def test_the_squad_row_takes_it_too(self):
-        """A required forename on the list's shape would 500 the whole squad over one withheld row."""
+        """A required forename on the squad's shape would 500 the whole club page over one withheld row."""
         served = FLSpielerPublic.model_validate({"_id": MASKED_SQUAD["Intern"].oid, "vorname": None, "nachname": None})
 
         assert (served.vorname, served.nachname) == (None, None)
@@ -829,7 +701,8 @@ def masked_url(mongo_url: str) -> Iterator[str]:
 
     async def _seed() -> None:
         async with a_clean_database(mongo_url, MASK_DATABASE_NAME) as (_, database):
-            await database.saisons.insert_one({"_id": SAISON, "status": "active"})
+            await database.saisons.insert_one(saison_document(SAISON, "active"))
+            await _enter_the_club(database, SAISON)
             await database.spieler.insert_many(
                 [
                     {
@@ -870,8 +743,8 @@ SORT_ORACLE_OIDS = {
     "Yilmaz": ObjectId("6890a1b2c3d4e5f607390043"),
 }
 
-# Equal across the three rows, so every `sort_by` value falls through to the chain's `vorname` and
-# each of the three is a way of asking the same question.
+# Equal across the three rows, so the club page's order, position first, falls through to the
+# chain's `vorname`.
 SORT_ORACLE_NUMMER = "7"
 SORT_ORACLE_POSITION = "Angriff"
 
@@ -880,17 +753,11 @@ SORT_ORACLE_POSITION = "Angriff"
 class TestTheOrderIsNoOracleForAWithheldName:
     """One squad seeded twice, differing only in the withheld row's stored forename: its place in the answer may not move with it."""
 
-    def _served_names(self, url: str, corpus: str, sort_by: str) -> list[str | None]:
-        """Each row's served forename, in the answer's order: `None` is the withheld row, the corpus holding one."""
+    def _served_names(self, url: str, corpus: str) -> list[str | None]:
+        """Each row's served forename, in the club page's order: `None` is the withheld row, the corpus holding one."""
 
         async def body(database: AsyncDatabase) -> Any:
-            response = await get_spieler(
-                spieler_collection=database.spieler,
-                saisons_collection=database.saisons,
-                filters=FLSpielerFilterParams(team_id=TEAM_OID, saison_id=SAISON, sort_by=cast(Any, sort_by)),
-            )
-
-            return [row.vorname for row in response.spieler]
+            return [row.vorname for row in (await club_page(database)).kader]
 
         return on_the_seed_loop(body(shared_client(url)[SORT_ORACLE_DATABASE_NAMES[corpus]]))
 
@@ -908,13 +775,12 @@ class TestTheOrderIsNoOracleForAWithheldName:
 
     def test_the_published_rows_really_are_ordered_by_the_name_the_read_serves(self, sort_oracle_url: str):
         """The second floor: an answer in seeding order would hold the withheld row still for a reason nothing here is testing."""
-        served = self._served_names(sort_oracle_url, "first", "vorname")
+        served = self._served_names(sort_oracle_url, "first")
 
         assert served.index("Bea") < served.index("Yara")
 
-    @pytest.mark.parametrize("sort_by", get_args(FLSpielerSortOptions))
-    def test_the_withheld_row_holds_one_place_whatever_forename_it_stores(self, sort_oracle_url: str, sort_by: str):
-        places = {corpus: self._served_names(sort_oracle_url, corpus, sort_by).index(None) for corpus in WITHHELD_FORENAMES}
+    def test_the_withheld_row_holds_one_place_whatever_forename_it_stores(self, sort_oracle_url: str):
+        places = {corpus: self._served_names(sort_oracle_url, corpus).index(None) for corpus in WITHHELD_FORENAMES}
 
         assert places["first"] == places["last"]
 
@@ -926,7 +792,8 @@ def sort_oracle_url(mongo_url: str) -> Iterator[str]:
     async def _seed() -> None:
         for corpus, withheld_forename in WITHHELD_FORENAMES.items():
             async with a_clean_database(mongo_url, SORT_ORACLE_DATABASE_NAMES[corpus], constraints=False) as (_, database):
-                await database.saisons.insert_one({"_id": SAISON, "status": "active"})
+                await database.saisons.insert_one(saison_document(SAISON, "active"))
+                await _enter_the_club(database, SAISON)
                 await database.spieler.insert_many(
                     [
                         {

@@ -11,6 +11,7 @@ import PersonPencil from "@gravity-ui/icons/PersonPencil";
 
 import { Table } from "@heroui/react/table";
 
+import { ROUTES } from "@/core/routes";
 import { reactivateTeamAction } from "@/features/teams/actions";
 import { austrittZustand, TEAM_NICHT_STILLLEGBAR, TEAMS_CRUD_COPY } from "@/features/teams/constants";
 import { AdminCrudEmptyCard, AdminCrudEmptyRow } from "@/shared/components/ui/AdminCrudEmpty";
@@ -91,9 +92,9 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
   );
 
   /**
-   * The Kürzel is the club's identity token rather than a column, as every other surface sets it
-   * (`fl_frontend/src/features/teams/components/ui/TeamCard.tsx`). The pills join the name's line: a
-   * column wide enough for „Stillgelegt 09.09.2026“ leaves the name almost nothing.
+   * The Kürzel is the club's identity token rather than a column, as every other surface sets it. The
+   * pills join the name's line: a column wide enough for „Stillgelegt 09.09.2026“ leaves the name almost
+   * nothing.
    */
   const renderIdentity = (team: AdminTeamRow) => (
     <div className={IDENTITY_ROW_CLASSES}>
@@ -181,7 +182,7 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
         {team.publicSaisonId !== null && (
           <RowActionMenuItem
             id="oeffentlich"
-            href={withSaisonId(`/dashboard/teams/${team.id}`, team.publicSaisonId)}
+            href={ROUTES.team.path(team.publicSaisonId, team.id)}
             label="Öffentliche Teamseite">
             <Globe
               aria-hidden="true"

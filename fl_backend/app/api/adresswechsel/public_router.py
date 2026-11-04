@@ -42,11 +42,15 @@ from app.core.crud import patch_one_in_db, refuse
 from app.core.dependencies import (
     ActionLogCollection,
     AddressChangeCollection,
+    AddressChangeReadCollection,
     BewerbungenCollection,
     DBClient,
     GrantApprovalRequestsCollection,
+    GrantApprovalRequestsReadCollection,
     GrantsAnnouncedCollection,
+    GrantsAnnouncedReadCollection,
     GrantsCollection,
+    GrantsReadCollection,
     InvitationsCollection,
     OutboxCollection,
     RegistrierungenCollection,
@@ -55,10 +59,12 @@ from app.core.dependencies import (
     SperrlisteCollection,
     SpielbestaetigungenCollection,
     SpielerCollection,
+    SpielerReadCollection,
     get_germany_now,
 )
 from app.core.journal import Journal
 from app.core.recording import log_stamp
+from app.core.routing import SAFE
 from app.core.security import bind_public_actor, verify_access_base
 from app.core.transactions import transaction_session
 from app.shared.schemas.confirmation import FLTokenPayload
@@ -91,15 +97,16 @@ _NICHT_BESTAETIGBAR = frozenset({"ersetzte_gesperrt", "vergeben", "nicht_gedeckt
     "/view",
     response_model=FLAddressChangeViewResponse,
     summary="What one address link opens",
+    openapi_extra=SAFE,
 )
 async def get_address_change_view(
     ansicht_data: Annotated[FLTokenPayload, Body()],
-    adresswechsel_collection: AddressChangeCollection,
+    adresswechsel_collection: AddressChangeReadCollection,
     records: SubjektLookup,
-    spieler_collection: SpielerCollection,
-    berechtigungen_collection: GrantsCollection,
-    berechtigungen_angekuendigt_collection: GrantsAnnouncedCollection,
-    berechtigungen_antraege_collection: GrantApprovalRequestsCollection,
+    spieler_collection: SpielerReadCollection,
+    berechtigungen_collection: GrantsReadCollection,
+    berechtigungen_angekuendigt_collection: GrantsAnnouncedReadCollection,
+    berechtigungen_antraege_collection: GrantApprovalRequestsReadCollection,
     sperrliste: SperrlisteLookup,
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLAddressChangeViewResponse:

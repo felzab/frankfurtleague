@@ -1,5 +1,4 @@
 import { COPY } from "@/core/copy";
-import { CODE_FAILURE_WINDOW_HOURS } from "@/core/signInCode";
 
 import type { Copy } from "@/core/copy";
 
@@ -13,11 +12,10 @@ const ANTWORTEN: readonly Copy[] = [
   refusal.codeWrong,
   refusal.codeExpired,
   refusal.codeTooOften,
-  refusal.addressTooOften(CODE_FAILURE_WINDOW_HOURS),
+  refusal.addressTooOften,
   refusal.codeUsedUp,
   refusal.noRecord,
   ...Object.values(COPY.shared.botCheck),
-  COPY.signIn.botCheckNotLoaded,
 ];
 
 /**

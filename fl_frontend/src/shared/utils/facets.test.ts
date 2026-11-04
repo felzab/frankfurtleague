@@ -345,7 +345,8 @@ const discovered: [string, readonly Facet<never>[]][] = [];
 
 for (const file of filesUnder(FEATURES_DIR, (name) => name === "facets.ts", 1)) {
   const slice = path.relative(FEATURES_DIR, path.dirname(file));
-  const loaded: Record<string, unknown> = await import(pathToFileURL(file).href);
+  // A computed specifier imports as `any`; a module namespace is an object of named exports.
+  const loaded = (await import(pathToFileURL(file).href)) as Record<string, unknown>;
   for (const [name, value] of Object.entries(loaded)) {
     if (isFacetArray(value)) discovered.push([`${slice}/${name}`, value]);
   }

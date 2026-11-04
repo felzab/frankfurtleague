@@ -5,6 +5,7 @@ you write one; the strings themselves live in the catalogue, `fl_frontend/src/co
 
 | Section                                                                   | Answers                                                    |
 | ------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| [The six rules](#six-rules-hold-every-string)                             | What every string on a rebuilt page obeys                  |
 | [Where a string lives](#a-string-lives-in-the-catalogue-and-nowhere-else) | Which file a string, a date or the current time comes from |
 | [Who approves](#i-approve-what-a-visitor-navigates-by)                    | Which strings ship and which are proposed                  |
 | [The one test](#every-sentence-passes-the-one-test)                       | Whether a sentence is written at all                       |
@@ -17,16 +18,34 @@ you write one; the strings themselves live in the catalogue, `fl_frontend/src/co
 | [Mail](#a-mail-is-one-small-set-of-data)                                  | What a mail holds and how its lines are written            |
 | [Legal text](#legal-text-keeps-its-own-rules)                             | What the privacy notice and the consent pages may do       |
 
+## Six rules hold every string
+
+1. **Every string a visitor reads comes from the catalogue**: no one-off is typed into a page, a
+   module or a component.
+2. **Under a field stands only one of `COPY.shared.field`'s patterns**, filled with the rule's
+   bounds: one phrase, no full stop, no article, no field name, at most 80 characters.
+3. **A new pattern is added only where it serves many fields**, and only once I approve it.
+4. **Everything else stands on the status line or in a callout** as one short declarative catalogue
+   sentence saying what is so, never why it is so or how to repair it.
+5. **The sign-in follows the same rules**: its code boxes show a pattern-form phrase, and every other
+   refusal stands on its status line.
+6. **A page not yet rebuilt keeps its strings until its rebuild**, and the session rebuilding it
+   brings every one of them under these rules.
+
 ## A string lives in the catalogue and nowhere else
 
 - **One typed catalogue, German only, keyed by area.** Its `shared` section comes first and every
   area draws from it; an area adds a key of its own only for a string `shared` lacks. No test hunts
   duplicate text, so review is what keeps a second „Gespeichert“ out.
-- **A component's text prop takes `fl_frontend/src/core/copy.ts :: Copy`**, so a string typed into a
-  page does not compile. An `as Copy` assertion outside the catalogue defeats that and is never
-  written.
-- **A parameterised entry is a typed function** taking data, never a sentence: the plural of an empty
-  state is the list's own title entry, a date is a stored `YYYY-MM-DD` day.
+- **A component's text prop takes `fl_frontend/src/core/copy.ts :: Copy`, or a record's own data as
+  `{ record }` (`Words`)**, so a string typed into a page does not compile, and lint refuses a
+  literal inside a `{ record }`. A prop holding a block, such as a door's act, takes a
+  `ReactElement`, which a bare string is not. An `as Copy` assertion outside the catalogue defeats
+  that and is never written.
+- **A parameterised entry is a typed function** taking data or another entry, never a sentence or a
+  string to pass through: the plural of an empty state is the list's own title entry, a date is a
+  stored `YYYY-MM-DD` day, a year a range ends on is `{ year }`. A name that may be the catalogue's
+  or a record's is `Words`, and lint refuses an entry returning its argument as it came.
 - **Every date, time, number, amount, score and season label goes through
   `fl_frontend/src/core/format.ts`**, and the current time is read through
   `fl_frontend/src/core/clock.ts :: now` alone. Parsing a given date is not reading the clock.
@@ -43,8 +62,8 @@ you write one; the strings themselves live in the catalogue, `fl_frontend/src/co
 ## Every sentence passes the one test
 
 **If the sentence were deleted, would the reader do something wrong?** If not, delete it. Copy says
-what to do or what to expect, never how the system works. A shared string replaces a detailed one
-wherever it can.
+what is so or what to expect, never why it is so, how to repair it or how the system works. A shared
+string replaces a detailed one wherever it can.
 
 ## The voice is plain and says du
 
@@ -68,42 +87,42 @@ wherever it can.
 A message is written short enough for the narrowest place it appears, since it must fit one line
 there.
 
-| Kind                    | Ceiling                                                  | Shape                                                                                            |
-| ----------------------- | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| Navigation label        | 1 to 2 words                                             | a noun                                                                                           |
-| Page or section heading | 4 words                                                  | a noun phrase, no full stop; a sentence standing as a heading is a status or a consequence       |
-| Field label             | 3 words                                                  | a noun, no colon                                                                                 |
-| Button                  | 3 words                                                  | a verb from the catalogue's closed set, with an object where needed („Team anlegen“)             |
-| Field description       | 1 sentence, 90 characters, one visible line              | says what the thing is; none where the label suffices; no field has a placeholder                |
-| Tooltip                 | 5 words                                                  | names an icon-only control, nothing more                                                         |
-| Section info tip (ⓘ)    | 2 sentences, about 200 characters                        | only where a named question needs it                                                             |
-| Field error             | one phrase, one line, 80 characters                      | a fixed pattern                                                                                  |
-| Form refusal            | 1 short sentence, the status line's two lines on a phone | a refusal about the whole form; one about a field shows on that field                            |
-| Failure line            | 2 sentences, the status line's two lines on a phone      | what happened, then the one repair; a failure no reason names, the one line `failure.unexpected` |
-| Empty state             | 1 sentence plus at most one button                       | which narrowing emptied it                                                                       |
-| Toast                   | a title of 1 to 3 words, no body                         | a past participle; a failure, the one line `failure.unexpected`                                  |
-| Page or section intro   | none                                                     | a page's title is its explanation                                                                |
-| List-truncation banner  | none                                                     | the load-more control instead                                                                    |
-| Page title              | the page's catalogue title                               | followed by the one suffix „\| Frankfurt League“; a match is „{Heim} gegen {Gast}“               |
-| Callout                 | a title plus at most 1 sentence                          | a state or a consequence                                                                         |
-| Team description        | three lines                                              | then „Mehr …“ opening the rest                                                                   |
-| Mail subject            | 50 characters                                            | what it is about first, no league name                                                           |
-| Mail body               | about 90 words                                           | more only where the law requires it on a first contact                                           |
+| Kind                    | Ceiling                                                  | Shape                                                                                         |
+| ----------------------- | -------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| Navigation label        | 1 to 2 words                                             | a noun                                                                                        |
+| Page or section heading | 4 words                                                  | a noun phrase, no full stop; a sentence standing as a heading is a status or a consequence    |
+| Field label             | 3 words                                                  | a noun, no colon                                                                              |
+| Button                  | 3 words                                                  | a verb from the catalogue's closed set, with an object where needed („Team anlegen“)          |
+| Field description       | 1 sentence, 90 characters, one visible line              | says what the thing is; none where the label suffices; no field has a placeholder             |
+| Tooltip                 | 5 words                                                  | names an icon-only control, nothing more                                                      |
+| Section info tip (ⓘ)    | 2 sentences, about 200 characters                        | only where a named question needs it                                                          |
+| Field error             | one phrase, one line, 80 characters                      | a fixed pattern                                                                               |
+| Form refusal            | 1 short sentence, the status line's two lines on a phone | a refusal about the whole form, or about a field no pattern words, naming that field          |
+| Failure line            | 1 short sentence, the status line's two lines on a phone | what happened, never the repair; a failure no reason names, the one line `failure.unexpected` |
+| Empty state             | 1 sentence plus at most one button                       | which narrowing emptied it                                                                    |
+| Toast                   | a title of 1 to 3 words, no body                         | a past participle; a failure, the one line `failure.unexpected`                               |
+| Page or section intro   | none                                                     | a page's title is its explanation                                                             |
+| List-truncation banner  | none                                                     | the load-more control instead                                                                 |
+| Page title              | the page's catalogue title                               | followed by the one suffix „\| Frankfurt League“; a match is „{Team 1} gegen {Team 2}“        |
+| Callout                 | a title plus at most 1 sentence                          | a state or a consequence                                                                      |
+| Team description        | three lines                                              | „Mehr“ inside the text at the third line's end, no „…“ before it, opening the rest            |
+| Mail subject            | 50 characters                                            | what it is about first, no league name                                                        |
+| Mail body               | about 90 words                                           | more only where the law requires it on a first contact                                        |
 
 ## A recurring job takes its fixed pattern
 
 Each pattern is an entry of `COPY.shared`; what the entry cannot say is when it applies.
 
 - **A field message** is one of `field`'s patterns, whether the form's own check or the backend's
-  rule refused the value. A real rule takes the same form („Höchstens 11 in der Startelf“) in its
-  area. The address example is `field.exampleAddress`, a reserved domain, never a school's address.
-- **A refusal a person can cause knowingly from the screen** that is about one field shows on that
-  field as a short phrase in the field patterns' form, and the status line says `checkFields`; where
-  the screen shows no box for the field, the status line reads `template.namedField`, „{Feld}:
-  {Phrase}“, the field's catalogue name before the same phrase. Only a refusal about the whole form
-  takes the status line on its own, in one short sentence that fits its two lines on a phone. Every
-  other refusal takes a `failure` line: `stale` for a stale page or a concurrent change,
-  `signInExpired` for an ended sign-in, `unexpected` for anything else.
+  rule refused the value, filled with the bounds the rule names („Höchstens 11“ under the Startelf's
+  box). The address example is `field.exampleAddress`, a reserved domain, never a school's address.
+- **A refusal a person can cause knowingly from the screen** that one of `field`'s patterns words
+  shows on its field's box, and the status line says `COPY.template.checkFields`. Every other such refusal, about
+  the whole form or about a field no pattern can word, takes the status line in one short sentence
+  that fits its two lines on a phone and names its field itself where it has one; a field phrase
+  never stands on the status line, since it has no subject there. Every other refusal takes a
+  `failure` line: `stale` for a stale page or a concurrent change, `signInExpired` for an ended
+  sign-in, `unexpected` for anything else.
 - **A saved record** shows `saved` beside its save button, never as a toast.
 - **A toast** is one of `toast`'s four titles, and only for an action that leaves nothing on the page
   to change.
@@ -146,8 +165,7 @@ A date field shows „tt.mm.jjjj“ and a time field „––:––“ while e
 - **German capitalisation**, no English title case.
 - **No full stop** after a heading, a label, a button, a tooltip or a one-phrase line; a full sentence
   ends with one.
-- **Quotation marks „…“.** The ellipsis character „…“ only for truncation and in `mehr`; never three
-  periods.
+- **Quotation marks „…“.** The ellipsis character „…“ only for truncation; never three periods.
 - **No „!“. No dash** except in a date range. **No semicolon** outside legal text.
 - **Banned**: „Bitte“; „erfolgreich“, „leider“, „wirklich“; a reassurance tail („wurde automatisch
   gemeldet“); „und mehr…“; „z.B.“ and „z. B.“, recast instead; a noun phrase where a verb exists

@@ -15,7 +15,7 @@ import type {
  */
 export async function postReferenzen(payload: FLReferencesPayload): Promise<FLReferencesResponse> {
   // A POST that reads, the addresses in the body: a query string would put them on the access line.
-  return identityGetReferences(payload, { readOnly: true });
+  return identityGetReferences(payload);
 }
 
 /**
@@ -23,7 +23,7 @@ export async function postReferenzen(payload: FLReferencesPayload): Promise<FLRe
  * Hence a POST even for the read, a GET's body having no defined semantics (RFC 9110 §9.3.1).
  */
 export async function readLoeschungAnsicht(payload: FLErasureAdressePayload): Promise<FLErasureViewResponse> {
-  return identityGetErasureView(payload, { readOnly: true });
+  return identityGetErasureView(payload);
 }
 
 /** Erases every league record of the address, the sign-in account left to the caller once this has answered. */

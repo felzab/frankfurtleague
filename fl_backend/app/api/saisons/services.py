@@ -27,19 +27,58 @@ def with_schedule(saison_raw: Mapping[str, Any]) -> dict[str, Any]:
 WITHHELD_FROM_BASE_TIER: FLSaisonStatus = "future"
 
 
-def base_tier_status_term(requested: FLSaisonStatus | None = None) -> dict[str, Any]:
-    """The `status` term every base-tier season read runs; `requested` is the caller's own filter.
+def base_tier_status_term() -> dict[str, Any]:
+    """The `status` term every base-tier season read runs.
 
     NARROWED, never fetched then hidden: a withheld season matches nothing, so `document_not_found`'s 404
     stays true and no 403 confirms the season exists.
     """
 
-    if requested is None:
-        return {"status": {"$ne": WITHHELD_FROM_BASE_TIER}}
+    return {"status": {"$ne": WITHHELD_FROM_BASE_TIER}}
 
-    # Both operators: an explicit `?status=future` then matches nothing, rather than the narrowing
-    # being overwritten by the term the caller asked for.
-    return {"status": {"$eq": requested, "$ne": WITHHELD_FROM_BASE_TIER}}
+
+def has_started(*, start_date: str, today: str) -> bool:
+    """Whether a season has started: from its `start_date`, the German day `today` is, onwards.
+
+    The one start every start lock, the Nachnominierung and the landing read, so the countdown reaching 00:00 in
+    Berlin and the locks closing are one instant. A date and never a fixture: the season's own field is what an
+    administrator sets, and a start read off the earliest match moved whenever a match was re-dated.
+    """
+
+    return start_date <= today
+
+
+def find_saison_start_refusal(*, stored_start_date: str, proposed_start_date: str, taken_place: bool) -> WriteRefusal | None:
+    """Why moving this season's start must be refused, or `None`: once a fixture of it has taken place, the start is fixed.
+
+    Editable until then, so a season frozen early is unlocked by moving its start. After a match, moving it would
+    reopen what every start lock closed on a season somebody already played. Compared by value, so an edit
+    resubmitting the stored date passes.
+    """
+
+    if stored_start_date == proposed_start_date or not taken_place:
+        return None
+
+    return WriteRefusal(
+        error_code=Code.SAISON_START_TAKEN_PLACE,
+        status=HTTPStatus.CONFLICT,
+    )
+
+
+def find_saison_past_refusal(*, saison_status: str) -> WriteRefusal | None:
+    """`saison_past` for a write that a finished season's record no longer takes: a fixture's save, a club's season row.
+
+    Pure. A caller's read of `status` stays current through its write set: `activate_saison` anchors the fixtures of every
+    season it closes, and the club move anchors the season document the rollover writes.
+    """
+
+    if saison_status != "past":
+        return None
+
+    return WriteRefusal(
+        error_code=Code.SAISON_PAST,
+        status=HTTPStatus.CONFLICT,
+    )
 
 
 # What a started season holds fixed: a league does not change its scoring or its seeding mid-season.
@@ -59,7 +98,7 @@ REDRAWABLE_SHAPE_FIELD = "qualifiers_per_gruppe"
 
 
 def total_season_fixtures(rules: FLSaisonRules) -> int:
-    """Every match these rules imply, the bracket's rounds included.
+    """Every match these rules imply, the bracket's rounds and its match for third place included.
 
     One fold, so every reader weighs one number against the one read's page: a second reading of
     `schedule_for` would drift the moment a phase moved.
@@ -85,8 +124,8 @@ def find_rules_freeze_refusal(*, saison_status: str, started: bool, stored: FLSa
     Compared by value, so a dates-only edit resubmitting the stored rules passes.
     """
 
-    # `past` beside the start, so a finished season none of whose group fixtures carries a date stays
-    # frozen too.
+    # `past` beside the start, so a finished season stays frozen even where its stored `start_date` was
+    # moved past today.
     if not (started or saison_status == "past"):
         return None
 

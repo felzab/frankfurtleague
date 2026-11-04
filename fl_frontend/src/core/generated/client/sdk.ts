@@ -1,4 +1,14 @@
-import { adminKeyTransport, baseKeyTransport, serializeQuery, systemKeyTransport, unkeyedTransport } from "@/core/transport";
+import {
+  adminKeyDryRunTransport,
+  adminKeyReadTransport,
+  adminKeyTransport,
+  baseKeyReadTransport,
+  baseKeyTransport,
+  serializeQuery,
+  systemKeyReadTransport,
+  systemKeyTransport,
+  unkeyedTransport,
+} from "@/core/transport";
 
 import type {
   ActionLogGetActionLogParams,
@@ -80,6 +90,8 @@ import type {
   FLKaderResponse,
   FLKaderRow,
   FLKontaktInviteResponse,
+  FLKoRundeResponse,
+  FLLandingResponse,
   FLOpenRegistrierungenResponse,
   FLOutboxEventPayload,
   FLOutboxEventResponse,
@@ -133,13 +145,14 @@ import type {
   FLRegistrierungSweepResponse,
   FLReplaceSaisonTeamPayload,
   FLReplaceSaisonTeamResponse,
+  FLSaisonFrameResponse,
   FLSaisonsAdminListResponse,
-  FLSaisonsListResponse,
   FLSaisonSpielerResponse,
   FLSaisonsSingleResponse,
   FLSaisonTeamAccountEinwilligungResponse,
   FLSaisonTeamEinwilligungAntwortResponse,
   FLSaisonTeamResponse,
+  FLSaisonTeamsResponse,
   FLSchiedsrichterAccountEinwilligungResponse,
   FLSchiedsrichterConfirmationPayload,
   FLSchiedsrichterConfirmationResponse,
@@ -171,10 +184,8 @@ import type {
   FLSpieleActionRequiredResponse,
   FLSpieleAdminListResponse,
   FLSpieleAdminSingleResponse,
-  FLSpieleListResponse,
   FLSpielerAccountEinwilligungResponse,
   FLSpielerAdminSingleResponse,
-  FLSpielerListResponse,
   FLSpielerNachnominierungResponse,
   FLSpielerSaisonsResponse,
   FLSpielerSelfResponse,
@@ -182,6 +193,8 @@ import type {
   FLSpieleSingleResponse,
   FLSpielorteListResponse,
   FLSpielorteSingleResponse,
+  FLSpielPageResponse,
+  FLSpielplanResponse,
   FLSpieltageListResponse,
   FLSpieltageSingleResponse,
   FLSpieltagWriteResponse,
@@ -190,8 +203,9 @@ import type {
   FLSwapGruppenPayload,
   FLSwapGruppenResponse,
   FLSweepSaisonsResponse,
+  FLTabelleResponse,
+  FLTeamPageResponse,
   FLTeamSeatsResponse,
-  FLTeamsGroupedResponse,
   FLTeamsListResponse,
   FLTeamsSaisonsResponse,
   FLTeamsSingleResponse,
@@ -201,22 +215,17 @@ import type {
   RegistrierungenGetOpenRegistrierungenParams,
   RegistrierungenGetRegistrierungenParams,
   SaisonsGetInvitationsDispatchPreviewParams,
-  SaisonsGetSaisonsParams,
   SaisonsGetSaisonsVerwaltungParams,
   SchiedsrichterGetSchiedsrichterParams,
   SpielberichteGetSpielberichteParams,
   SpielberichteGetSpielberichtVerwaltungParams,
   SpielbestaetigungenGetSpielbestaetigungenParams,
   SpieleGetSpieleActionRequiredParams,
-  SpieleGetSpieleParams,
   SpieleGetSpieleVerwaltungParams,
   SpielePatchSpielParams,
-  SpielerGetSpielerParams,
   SpielorteGetSpielorteParams,
-  SpieltageGetSpieltageParams,
   SpieltageGetSpieltageVerwaltungParams,
   TeamsGetTeamParams,
-  TeamsGetTeamsParams,
   TeamsGetTeamsVerwaltungParams,
 } from "./types.ts";
 
@@ -472,7 +481,7 @@ export const getAddressChangeGetAddressChangeAdresseUrl = () => {
  */
 export const addressChangeGetAddressChangeAdresse = async (
   fLAddressChangeAdressePayload: FLAddressChangeAdressePayload,
-  options?: Parameters<typeof systemKeyTransport>[1],
+  options?: Parameters<typeof systemKeyReadTransport>[1],
 ): Promise<FLAddressChangeAdresseResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
@@ -486,7 +495,7 @@ export const addressChangeGetAddressChangeAdresse = async (
     }
     return headers;
   };
-  return systemKeyTransport<FLAddressChangeAdresseResponse>(getAddressChangeGetAddressChangeAdresseUrl(), {
+  return systemKeyReadTransport<FLAddressChangeAdresseResponse>(getAddressChangeGetAddressChangeAdresseUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
@@ -604,7 +613,7 @@ export const getAddressChangeGetAddressChangeViewUrl = () => {
  */
 export const addressChangeGetAddressChangeView = async (
   fLTokenPayload: FLTokenPayload,
-  options?: Parameters<typeof baseKeyTransport>[1],
+  options?: Parameters<typeof baseKeyReadTransport>[1],
 ): Promise<FLAddressChangeViewResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
@@ -618,7 +627,7 @@ export const addressChangeGetAddressChangeView = async (
     }
     return headers;
   };
-  return baseKeyTransport<FLAddressChangeViewResponse>(getAddressChangeGetAddressChangeViewUrl(), {
+  return baseKeyReadTransport<FLAddressChangeViewResponse>(getAddressChangeGetAddressChangeViewUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
@@ -735,7 +744,7 @@ export const getAddressChangeGetAddressChangeVerwaltungViewUrl = () => {
  */
 export const addressChangeGetAddressChangeVerwaltungView = async (
   fLAddressChangeVerwaltungViewPayload: FLAddressChangeVerwaltungViewPayload,
-  options?: Parameters<typeof adminKeyTransport>[1],
+  options?: Parameters<typeof adminKeyReadTransport>[1],
 ): Promise<FLAddressChangeVerwaltungViewResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
@@ -749,7 +758,7 @@ export const addressChangeGetAddressChangeVerwaltungView = async (
     }
     return headers;
   };
-  return adminKeyTransport<FLAddressChangeVerwaltungViewResponse>(getAddressChangeGetAddressChangeVerwaltungViewUrl(), {
+  return adminKeyReadTransport<FLAddressChangeVerwaltungViewResponse>(getAddressChangeGetAddressChangeVerwaltungViewUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
@@ -968,7 +977,7 @@ export const getBewerbungenGetEinwilligungViewUrl = () => {
  */
 export const bewerbungenGetEinwilligungView = async (
   fLTokenPayload: FLTokenPayload,
-  options?: Parameters<typeof baseKeyTransport>[1],
+  options?: Parameters<typeof baseKeyReadTransport>[1],
 ): Promise<FLBewerbungEinwilligungViewResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
@@ -982,7 +991,7 @@ export const bewerbungenGetEinwilligungView = async (
     }
     return headers;
   };
-  return baseKeyTransport<FLBewerbungEinwilligungViewResponse>(getBewerbungenGetEinwilligungViewUrl(), {
+  return baseKeyReadTransport<FLBewerbungEinwilligungViewResponse>(getBewerbungenGetEinwilligungViewUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
@@ -1081,24 +1090,6 @@ export const bewerbungenGetTrikotfarben = async (
   options?: Parameters<typeof baseKeyTransport>[1],
 ): Promise<FLBewerbungTrikotFarbenResponse> => {
   return baseKeyTransport<FLBewerbungTrikotFarbenResponse>(getBewerbungenGetTrikotfarbenUrl(saisonId), {
-    ...options,
-    method: "GET",
-  });
-};
-
-export const getBewerbungenGetOpenWindowUrl = () => {
-  return `/api/v0/bewerbungen/window`;
-};
-
-/**
- * Return the season taking applications today -- its window open and the season not ended; 404 when none is.
- *
- * What is served is the window and whether its season has ended, never the season: the rule
- * withholds a `future` one from this tier (`READ-BEWERBUNG-001`).
- * @summary The Saison currently accepting applications
- */
-export const bewerbungenGetOpenWindow = async (options?: Parameters<typeof baseKeyTransport>[1]): Promise<FLBewerbungWindowResponse> => {
-  return baseKeyTransport<FLBewerbungWindowResponse>(getBewerbungenGetOpenWindowUrl(), {
     ...options,
     method: "GET",
   });
@@ -1852,7 +1843,7 @@ export const getIdentityGetErasureViewUrl = () => {
  */
 export const identityGetErasureView = async (
   fLErasureAdressePayload: FLErasureAdressePayload,
-  options?: Parameters<typeof adminKeyTransport>[1],
+  options?: Parameters<typeof adminKeyReadTransport>[1],
 ): Promise<FLErasureViewResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
@@ -1866,7 +1857,7 @@ export const identityGetErasureView = async (
     }
     return headers;
   };
-  return adminKeyTransport<FLErasureViewResponse>(getIdentityGetErasureViewUrl(), {
+  return adminKeyReadTransport<FLErasureViewResponse>(getIdentityGetErasureViewUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
@@ -1886,7 +1877,7 @@ export const getIdentityGetReferencesUrl = () => {
  */
 export const identityGetReferences = async (
   fLReferencesPayload: FLReferencesPayload,
-  options?: Parameters<typeof systemKeyTransport>[1],
+  options?: Parameters<typeof systemKeyReadTransport>[1],
 ): Promise<FLReferencesResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
@@ -1900,7 +1891,7 @@ export const identityGetReferences = async (
     }
     return headers;
   };
-  return systemKeyTransport<FLReferencesResponse>(getIdentityGetReferencesUrl(), {
+  return systemKeyReadTransport<FLReferencesResponse>(getIdentityGetReferencesUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
@@ -1920,7 +1911,7 @@ export const getIdentityGetSignInUrl = () => {
  */
 export const identityGetSignIn = async (
   fLSubjectPayload: FLSubjectPayload,
-  options?: Parameters<typeof systemKeyTransport>[1],
+  options?: Parameters<typeof systemKeyReadTransport>[1],
 ): Promise<FLSignInResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
@@ -1934,7 +1925,7 @@ export const identityGetSignIn = async (
     }
     return headers;
   };
-  return systemKeyTransport<FLSignInResponse>(getIdentityGetSignInUrl(), {
+  return systemKeyReadTransport<FLSignInResponse>(getIdentityGetSignInUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
@@ -1996,7 +1987,7 @@ export const getIdentityGetSubjectUrl = () => {
  */
 export const identityGetSubject = async (
   fLSubjectPayload: FLSubjectPayload,
-  options?: Parameters<typeof systemKeyTransport>[1],
+  options?: Parameters<typeof systemKeyReadTransport>[1],
 ): Promise<FLSubjectResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
@@ -2010,7 +2001,7 @@ export const identityGetSubject = async (
     }
     return headers;
   };
-  return systemKeyTransport<FLSubjectResponse>(getIdentityGetSubjectUrl(), {
+  return systemKeyReadTransport<FLSubjectResponse>(getIdentityGetSubjectUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
@@ -2309,7 +2300,7 @@ export const getRegistrierungenGetConfirmationViewUrl = () => {
  */
 export const registrierungenGetConfirmationView = async (
   fLTokenPayload: FLTokenPayload,
-  options?: Parameters<typeof baseKeyTransport>[1],
+  options?: Parameters<typeof baseKeyReadTransport>[1],
 ): Promise<FLRegistrierungConfirmationViewResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
@@ -2323,7 +2314,7 @@ export const registrierungenGetConfirmationView = async (
     }
     return headers;
   };
-  return baseKeyTransport<FLRegistrierungConfirmationViewResponse>(getRegistrierungenGetConfirmationViewUrl(), {
+  return baseKeyReadTransport<FLRegistrierungConfirmationViewResponse>(getRegistrierungenGetConfirmationViewUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
@@ -2345,7 +2336,7 @@ export const getRegistrierungenPostInvitationViewUrl = () => {
  */
 export const registrierungenPostInvitationView = async (
   fLTokenPayload: FLTokenPayload,
-  options?: Parameters<typeof baseKeyTransport>[1],
+  options?: Parameters<typeof baseKeyReadTransport>[1],
 ): Promise<FLInvitationViewResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
@@ -2359,7 +2350,7 @@ export const registrierungenPostInvitationView = async (
     }
     return headers;
   };
-  return baseKeyTransport<FLInvitationViewResponse>(getRegistrierungenPostInvitationViewUrl(), {
+  return baseKeyReadTransport<FLInvitationViewResponse>(getRegistrierungenPostInvitationViewUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
@@ -2530,29 +2521,6 @@ export const registrierungenDecline = async (
   });
 };
 
-export const getSaisonsGetSaisonsUrl = (params?: SaisonsGetSaisonsParams) => {
-  const stringifiedParams = serializeQuery(params);
-
-  return stringifiedParams.length > 0 ? `/api/v0/saisons?${stringifiedParams}` : `/api/v0/saisons`;
-};
-
-/**
- * List the seasons the public may read, optionally narrowed to `past` or `active`.
- *
- * Unlike the other resources, this does NOT default to the current season. A `future` season is
- * withheld here and served by `GET /saisons/list/verwaltung`.
- * @summary List Saisons
- */
-export const saisonsGetSaisons = async (
-  params?: SaisonsGetSaisonsParams,
-  options?: Parameters<typeof baseKeyTransport>[1],
-): Promise<FLSaisonsListResponse> => {
-  return baseKeyTransport<FLSaisonsListResponse>(getSaisonsGetSaisonsUrl(params), {
-    ...options,
-    method: "GET",
-  });
-};
-
 export const getSaisonsPostSaisonUrl = () => {
   return `/api/v0/saisons`;
 };
@@ -2588,16 +2556,33 @@ export const saisonsPostSaison = async (
   });
 };
 
-export const getSaisonsGetActiveSaisonUrl = () => {
-  return `/api/v0/saisons/active`;
+export const getSaisonsGetFrameUrl = () => {
+  return `/api/v0/saisons/frame`;
 };
 
 /**
- * Return the season currently marked active -- what every other endpoint resolves an omitted `saison_id` against.
- * @summary The active Saison
+ * Every season the public may read, the newest first, and the one the site is on; that one is null for a league that has none.
+ * @summary The season pages' frame
  */
-export const saisonsGetActiveSaison = async (options?: Parameters<typeof baseKeyTransport>[1]): Promise<FLSaisonsSingleResponse> => {
-  return baseKeyTransport<FLSaisonsSingleResponse>(getSaisonsGetActiveSaisonUrl(), {
+export const saisonsGetFrame = async (options?: Parameters<typeof baseKeyTransport>[1]): Promise<FLSaisonFrameResponse> => {
+  return baseKeyTransport<FLSaisonFrameResponse>(getSaisonsGetFrameUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getSaisonsGetLandingUrl = () => {
+  return `/api/v0/saisons/landing`;
+};
+
+/**
+ * The season the site is on, `before_start`, `running` or `decided`, null for a league that has none; its figures counted on every read.
+ *
+ * Beside it, the application window open today by the rule the submission refuses on.
+ * @summary The landing
+ */
+export const saisonsGetLanding = async (options?: Parameters<typeof baseKeyTransport>[1]): Promise<FLLandingResponse> => {
+  return baseKeyTransport<FLLandingResponse>(getSaisonsGetLandingUrl(), {
     ...options,
     method: "GET",
   });
@@ -2610,11 +2595,12 @@ export const getSaisonsGetSaisonsVerwaltungUrl = (params?: SaisonsGetSaisonsVerw
 };
 
 /**
- * List every season, the `future` ones `GET /saisons` withholds included, each with whether it has started.
+ * List every season, the `future` ones every base-tier read withholds included, each with whether it has started and has been played.
  *
  * The admin surfaces read here because a season is created `future` and clubs are entered while it
  * still is, so an admin who cannot see one cannot run the league. `begun` is the start every
- * start lock refuses on, the swap's, the replacement's and the rules freeze's.
+ * start lock refuses on, the swap's, the replacement's and the rules freeze's; `taken_place` is what
+ * fixes the start date (`saison_start_taken_place`).
  * @summary Every Saison for the admin surfaces
  */
 export const saisonsGetSaisonsVerwaltung = async (
@@ -2632,10 +2618,9 @@ export const getSaisonsGetSaisonUrl = (saisonId: string) => {
 };
 
 /**
- * Return one season by its id; 404 when none carries it, rather than an empty list.
+ * One season the public may read, by its id.
  *
- * A `future` season is one of those: it is withheld from this tier by the FILTER, so the miss is a
- * genuine one and nothing here has to know it was withheld.
+ * 404 where no season carries it or it is a `future` one.
  * @summary One Saison
  */
 export const saisonsGetSaison = async (
@@ -2656,7 +2641,10 @@ export const getSaisonsPatchSaisonUrl = (saisonId: string) => {
  * Update a season's dates and rules. `status` is on no payload.
  *
  * Editing the points moves every league table on the NEXT READ, standings being derived. What a
- * started or drawn season has fixed is refused, as is a rule narrowed below what it holds.
+ * started or drawn season has fixed is refused, as is a rule narrowed below what it holds. The start
+ * date moves until a fixture of the season has taken place (`saison_start_taken_place`); the rules
+ * freeze reads the STORED start, so a season started too early is unlocked by one save moving its
+ * start and a second changing its rules.
  * @summary Update a Saison's dates and rules
  */
 export const saisonsPatchSaison = async (
@@ -2854,6 +2842,45 @@ export const saisonsGetInvitationsDispatchPreview = async (
   });
 };
 
+export const getSaisonsGetKoRundeUrl = (saisonId: string) => {
+  return `/api/v0/saisons/${encodeURIComponent(String(saisonId))}/ko_runde`;
+};
+
+/**
+ * Every knockout matchday of one season with its matches in playing order, a side not yet known null beside its `quelle`.
+ *
+ * Empty before the draw; 404 for a season this tier may not read.
+ * @summary One Saison's K.-o.-Runde
+ */
+export const saisonsGetKoRunde = async (saisonId: string, options?: Parameters<typeof baseKeyTransport>[1]): Promise<FLKoRundeResponse> => {
+  return baseKeyTransport<FLKoRundeResponse>(getSaisonsGetKoRundeUrl(saisonId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getSaisonsGetSpielUrl = (saisonId: string, spielId: string) => {
+  return `/api/v0/saisons/${encodeURIComponent(String(saisonId))}/spiele/${encodeURIComponent(String(spielId))}`;
+};
+
+/**
+ * One match as its page and its pop-up show it, each side of a group match with its group and `platz`; 404 outside a readable season.
+ *
+ * Its report's line-ups whenever a club entered one, the scorers and cards only while the report is adopted and
+ * unchanged since, every pupil through the public mask.
+ * @summary One Spiel's page
+ */
+export const saisonsGetSpiel = async (
+  saisonId: string,
+  spielId: string,
+  options?: Parameters<typeof baseKeyTransport>[1],
+): Promise<FLSpielPageResponse> => {
+  return baseKeyTransport<FLSpielPageResponse>(getSaisonsGetSpielUrl(saisonId, spielId), {
+    ...options,
+    method: "GET",
+  });
+};
+
 export const getSaisonsDeleteSpielplanUrl = (saisonId: string) => {
   return `/api/v0/saisons/${encodeURIComponent(String(saisonId))}/spielplan`;
 };
@@ -2875,6 +2902,23 @@ export const saisonsDeleteSpielplan = async (
   return adminKeyTransport<FLUndrawSpielplanResponse>(getSaisonsDeleteSpielplanUrl(saisonId), {
     ...options,
     method: "DELETE",
+  });
+};
+
+export const getSaisonsGetSpielplanUrl = (saisonId: string) => {
+  return `/api/v0/saisons/${encodeURIComponent(String(saisonId))}/spielplan`;
+};
+
+/**
+ * Every matchday of one season with its matches, in playing order, and the matchday to open on.
+ *
+ * The Spielplan and the Spielsuche both show this. 404 for a season this tier may not read.
+ * @summary One Saison's Spielplan
+ */
+export const saisonsGetSpielplan = async (saisonId: string, options?: Parameters<typeof baseKeyTransport>[1]): Promise<FLSpielplanResponse> => {
+  return baseKeyTransport<FLSpielplanResponse>(getSaisonsGetSpielplanUrl(saisonId), {
+    ...options,
+    method: "GET",
   });
 };
 
@@ -2914,6 +2958,63 @@ export const saisonsPostSpielplan = async (
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
     body: JSON.stringify(fLGenerateSpielplanPayload),
+  });
+};
+
+export const getSaisonsGetTabelleUrl = (saisonId: string) => {
+  return `/api/v0/saisons/${encodeURIComponent(String(saisonId))}/tabelle`;
+};
+
+/**
+ * Each group's standing over the group phase with its goals counted on every read, and how many of each group advance.
+ *
+ * A club that left the season keeps its row; it holds no `platz` where it left before its group was decided, and
+ * neither does a club that has played no match, listed after every club that has; 404 for a season this tier may not
+ * read.
+ * @summary One Saison's Tabelle
+ */
+export const saisonsGetTabelle = async (saisonId: string, options?: Parameters<typeof baseKeyTransport>[1]): Promise<FLTabelleResponse> => {
+  return baseKeyTransport<FLTabelleResponse>(getSaisonsGetTabelleUrl(saisonId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getSaisonsGetTeamsUrl = (saisonId: string) => {
+  return `/api/v0/saisons/${encodeURIComponent(String(saisonId))}/teams`;
+};
+
+/**
+ * The clubs of one season by name, each under the name and shorthand it plays that season under.
+ *
+ * 404 for a season this tier may not read.
+ * @summary One Saison's teams
+ */
+export const saisonsGetTeams = async (saisonId: string, options?: Parameters<typeof baseKeyTransport>[1]): Promise<FLSaisonTeamsResponse> => {
+  return baseKeyTransport<FLSaisonTeamsResponse>(getSaisonsGetTeamsUrl(saisonId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getSaisonsGetTeamUrl = (saisonId: string, teamId: string) => {
+  return `/api/v0/saisons/${encodeURIComponent(String(saisonId))}/teams/${encodeURIComponent(String(teamId))}`;
+};
+
+/**
+ * One club in one season: the club, its row of the Tabelle, its matches and its squad.
+ *
+ * 404 for a season this tier may not read and for a club the season does not hold.
+ * @summary One team's page in one Saison
+ */
+export const saisonsGetTeam = async (
+  saisonId: string,
+  teamId: string,
+  options?: Parameters<typeof baseKeyTransport>[1],
+): Promise<FLTeamPageResponse> => {
+  return baseKeyTransport<FLTeamPageResponse>(getSaisonsGetTeamUrl(saisonId, teamId), {
+    ...options,
+    method: "GET",
   });
 };
 
@@ -3097,7 +3198,7 @@ export const getSchiedsrichterGetConfirmationViewUrl = () => {
  */
 export const schiedsrichterGetConfirmationView = async (
   fLTokenPayload: FLTokenPayload,
-  options?: Parameters<typeof baseKeyTransport>[1],
+  options?: Parameters<typeof baseKeyReadTransport>[1],
 ): Promise<FLSchiedsrichterConfirmationViewResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
@@ -3111,7 +3212,7 @@ export const schiedsrichterGetConfirmationView = async (
     }
     return headers;
   };
-  return baseKeyTransport<FLSchiedsrichterConfirmationViewResponse>(getSchiedsrichterGetConfirmationViewUrl(), {
+  return baseKeyReadTransport<FLSchiedsrichterConfirmationViewResponse>(getSchiedsrichterGetConfirmationViewUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
@@ -3795,7 +3896,7 @@ export const getSpielbestaetigungenGetSpielbestaetigungViewUrl = () => {
  */
 export const spielbestaetigungenGetSpielbestaetigungView = async (
   fLTokenPayload: FLTokenPayload,
-  options?: Parameters<typeof baseKeyTransport>[1],
+  options?: Parameters<typeof baseKeyReadTransport>[1],
 ): Promise<FLSpielbestaetigungViewResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
@@ -3809,7 +3910,7 @@ export const spielbestaetigungenGetSpielbestaetigungView = async (
     }
     return headers;
   };
-  return baseKeyTransport<FLSpielbestaetigungViewResponse>(getSpielbestaetigungenGetSpielbestaetigungViewUrl(), {
+  return baseKeyReadTransport<FLSpielbestaetigungViewResponse>(getSpielbestaetigungenGetSpielbestaetigungViewUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
@@ -3937,29 +4038,6 @@ export const spielbestaetigungenEnterSpielbestaetigung = async (
   });
 };
 
-export const getSpieleGetSpieleUrl = (params?: SpieleGetSpieleParams) => {
-  const stringifiedParams = serializeQuery(params);
-
-  return stringifiedParams.length > 0 ? `/api/v0/spiele?${stringifiedParams}` : `/api/v0/spiele`;
-};
-
-/**
- * List the Spiele matching the filters, of the current season unless `saison_id` names another.
- *
- * A season this tier may not read lists nothing; `playoffs` means every phase but `gruppenphase`, and
- * `from_today` includes today.
- * @summary List Spiele
- */
-export const spieleGetSpiele = async (
-  params?: SpieleGetSpieleParams,
-  options?: Parameters<typeof baseKeyTransport>[1],
-): Promise<FLSpieleListResponse> => {
-  return baseKeyTransport<FLSpieleListResponse>(getSpieleGetSpieleUrl(params), {
-    ...options,
-    method: "GET",
-  });
-};
-
 export const getSpieleGetSpieleActionRequiredUrl = (params?: SpieleGetSpieleActionRequiredParams) => {
   const stringifiedParams = serializeQuery(params);
 
@@ -3993,7 +4071,7 @@ export const getSpieleGetSpieleVerwaltungUrl = (params?: SpieleGetSpieleVerwaltu
 };
 
 /**
- * List Spiele as `GET /spiele` does, a planned season's included, in the admin shape.
+ * List one season's Spiele, the active one's unless `saison_id` names another, a planned season's included, in the admin shape.
  *
  * Each referee carries their whole name, and each booking its money.
  * @summary Spiele for the admin surfaces
@@ -4036,14 +4114,15 @@ export const getSpielePatchSpielUrl = (spielId: string, params?: SpielePatchSpie
  *
  * Every name is composed by the server. With `adopts_bericht` the save also stamps the fixture's Spielbericht
  * adopted, where it still stands at that version about the clubs the save leaves; a miss refuses nothing. A
- * `dry_run` answers the same report and writes nothing.
+ * `dry_run` answers the same report and writes nothing. A `past` season's fixture is refused (`saison_past`), the
+ * `dry_run` included.
  * @summary Update a Spiel
  */
 export const spielePatchSpiel = async (
   spielId: string,
   fLPatchSpielDataPayload: FLPatchSpielDataPayload,
   params?: SpielePatchSpielParams,
-  options?: Parameters<typeof adminKeyTransport>[1],
+  options?: Parameters<typeof adminKeyDryRunTransport>[1],
 ): Promise<FLPatchSpielDataResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
@@ -4057,7 +4136,7 @@ export const spielePatchSpiel = async (
     }
     return headers;
   };
-  return adminKeyTransport<FLPatchSpielDataResponse>(getSpielePatchSpielUrl(spielId, params), {
+  return adminKeyDryRunTransport<FLPatchSpielDataResponse>(getSpielePatchSpielUrl(spielId, params), {
     ...options,
     method: "PATCH",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
@@ -4070,7 +4149,7 @@ export const getSpieleGetSpielVerwaltungUrl = (spielId: string) => {
 };
 
 /**
- * Return one match in the admin shape, money included, for the editor.
+ * Return one match in the admin shape, money included, for the editor, with its season's status.
  * @summary One Spiel for the admin editor
  */
 export const spieleGetSpielVerwaltung = async (
@@ -4078,34 +4157,6 @@ export const spieleGetSpielVerwaltung = async (
   options?: Parameters<typeof adminKeyTransport>[1],
 ): Promise<FLSpieleAdminSingleResponse> => {
   return adminKeyTransport<FLSpieleAdminSingleResponse>(getSpieleGetSpielVerwaltungUrl(spielId), {
-    ...options,
-    method: "GET",
-  });
-};
-
-export const getSpielerGetSpielerUrl = (params?: SpielerGetSpielerParams) => {
-  const stringifiedParams = serializeQuery(params);
-
-  return stringifiedParams.length > 0 ? `/api/v0/spieler?${stringifiedParams}` : `/api/v0/spieler`;
-};
-
-/**
- * List players, normally one team's squad in one season.
- *
- * Naming a `team_id` without a `saison_id` returns that team's squad in the CURRENT season, and 404s
- * while no season is active. Naming neither lists every season's players, a season this tier may not
- * read adding no row. BASE TIER: a pupil reads back redacted (`READ-PUPIL-001`).
- *
- * Both names are `null` where the person's consent record does not publish them (`READ-PUPIL-003`);
- * the row keeps its `nummer` and `position`, and no row carries the person's record id
- * (`READ-PUPIL-005`).
- * @summary List Spieler
- */
-export const spielerGetSpieler = async (
-  params?: SpielerGetSpielerParams,
-  options?: Parameters<typeof baseKeyTransport>[1],
-): Promise<FLSpielerListResponse> => {
-  return baseKeyTransport<FLSpielerListResponse>(getSpielerGetSpielerUrl(params), {
     ...options,
     method: "GET",
   });
@@ -4255,9 +4306,8 @@ export const getSpielerGetSpielerNachnominierungUrl = (saisonId: string) => {
 /**
  * Whether a player entered into this season's squads today would be marked a Nachnominierung.
  *
- * `POST /spieler/{spieler_id}/saisons` derives the stored marker from this same test: from the first
- * day of matchday 1 of the season's first phase. A season whose matchday 1 is undated, or which
- * holds none yet, answers `false`. 404 where no season has this id.
+ * `POST /spieler/{spieler_id}/saisons` derives the stored marker from this same test: from the season's
+ * `start_date` on. 404 where no season has this id.
  * @summary Whether a squad entry into a season today is a Nachnominierung
  */
 export const spielerGetSpielerNachnominierung = async (
@@ -4277,8 +4327,8 @@ export const getSpielerGetSpielerSaisonsUrl = () => {
 /**
  * Every player, retired ones included, each with every squad row they hold.
  *
- * `GET /spieler` answers it at no setting: the junction join is strict with a `saison_id`, and
- * without one a player with no live row has `nummer` and `position` null.
+ * A club page's squad cannot answer it: it serves one team's squad in one season, and so never a
+ * player outside that squad or their other rows.
  *
  * `address_change_id` names the live change of the pupil's address, which the address tool shows, and
  * `address_change_viewable_denied` why the tool refuses it this administrator, null where it opens it.
@@ -4334,12 +4384,7 @@ export const getSpielerGetSpielerByIdUrl = (spielerId: string) => {
 };
 
 /**
- * Return one player -- an id, a forename and an INITIAL, which is all this surface needs.
- *
- * Both names are `null` where the person's consent record does not publish them (`READ-PUPIL-003`).
- *
- * NOT the flattened squad shape the list returns: those are season-scoped, and picking a season
- * here would make the answer depend on a default nobody asked for.
+ * One player's id, forename and surname initial, both names `null` where the pupil's consent does not publish them.
  * @summary One Spieler
  */
 export const spielerGetSpielerById = async (
@@ -4413,8 +4458,7 @@ export const getSpielerPostSaisonSpielerUrl = (spielerId: string) => {
  * 404 where no player has this id. One row per player per season: moving a player is a PATCH of
  * `team_id`, and a repeat is a 409 even where the row is retired. A
  * squad holds each `rolle` once (`kader_rolle_taken`). `is_nachnominiert` is derived here and never
- * taken from the body: it is true from the first day of the season's matchday 1, and false while
- * that matchday is undated.
+ * taken from the body: it is true from the season's `start_date` on.
  * @summary Add a Spieler to a squad
  */
 export const spielerPostSaisonSpieler = async (
@@ -4670,29 +4714,6 @@ export const spielorteReactivateSpielort = async (spielortId: string, options?: 
   });
 };
 
-export const getSpieltageGetSpieltageUrl = (params?: SpieltageGetSpieltageParams) => {
-  const stringifiedParams = serializeQuery(params);
-
-  return stringifiedParams.length > 0 ? `/api/v0/spieltage?${stringifiedParams}` : `/api/v0/spieltage`;
-};
-
-/**
- * List matchdays for a season, in the order they are played.
- *
- * That order is the phase in bracket order, then the stored `position` -- `sort_by=natural`.
- * Omitting `saison_id` returns the CURRENT season; one this tier may not read 404s.
- * @summary List Spieltage
- */
-export const spieltageGetSpieltage = async (
-  params?: SpieltageGetSpieltageParams,
-  options?: Parameters<typeof baseKeyTransport>[1],
-): Promise<FLSpieltageListResponse> => {
-  return baseKeyTransport<FLSpieltageListResponse>(getSpieltageGetSpieltageUrl(params), {
-    ...options,
-    method: "GET",
-  });
-};
-
 export const getSpieltageGetSpieltageVerwaltungUrl = (params?: SpieltageGetSpieltageVerwaltungParams) => {
   const stringifiedParams = serializeQuery(params);
 
@@ -4702,8 +4723,8 @@ export const getSpieltageGetSpieltageVerwaltungUrl = (params?: SpieltageGetSpiel
 /**
  * List a season's matchdays for the admin surfaces, a `future` season's included.
  *
- * Same filters, order and shape as `GET /spieltage`, without its season gate: a season's matchdays
- * are drawn while it is planned, and dating them is what this list is for.
+ * No season gate: a season's matchdays are drawn while it is planned, and dating them is what this
+ * list is for.
  * @summary Spieltage for the admin surfaces
  */
 export const spieltageGetSpieltageVerwaltung = async (
@@ -4721,10 +4742,9 @@ export const getSpieltageGetSpieltagUrl = (spieltagId: string) => {
 };
 
 /**
- * Return one matchday by its id.
+ * One matchday by its id, its match count derived from its own season's rules.
  *
- * Its OWN `saison_id` is resolved rather than the current season's, the derived match count needing
- * that season's rules. A matchday of a season this tier may not read 404s.
+ * 404 for a matchday of a season this tier may not read.
  * @summary One Spieltag
  */
 export const spieltageGetSpieltag = async (
@@ -4812,30 +4832,6 @@ export const systemCheckIsLive = async (options?: Parameters<typeof unkeyedTrans
   });
 };
 
-export const getTeamsGetTeamsUrl = (params?: TeamsGetTeamsParams) => {
-  const stringifiedParams = serializeQuery(params);
-
-  return stringifiedParams.length > 0 ? `/api/v0/teams?${stringifiedParams}` : `/api/v0/teams`;
-};
-
-/**
- * List teams for a season.
- *
- * `in_gruppen=true` returns the groups the season offers, keyed by group name, otherwise a plain list; check `format`.
- * Omitting `saison_id` returns the CURRENT season; one this tier may not read 404s, and a club that left the league
- * is listed in a `past` season alone.
- * @summary List teams, flat or grouped
- */
-export const teamsGetTeams = async (
-  params?: TeamsGetTeamsParams,
-  options?: Parameters<typeof baseKeyTransport>[1],
-): Promise<FLTeamsListResponse | FLTeamsGroupedResponse> => {
-  return baseKeyTransport<FLTeamsListResponse | FLTeamsGroupedResponse>(getTeamsGetTeamsUrl(params), {
-    ...options,
-    method: "GET",
-  });
-};
-
 export const getTeamsPostTeamUrl = () => {
   return `/api/v0/teams`;
 };
@@ -4877,15 +4873,15 @@ export const getTeamsGetTeamsVerwaltungUrl = (params?: TeamsGetTeamsVerwaltungPa
 /**
  * List a season's teams for the admin surfaces, a `future` season's included.
  *
- * Same filters and shapes as `GET /teams`, without its season gate: a club is entered while its
- * season is still planned, so an admin who cannot see one cannot enter it.
+ * No base-tier season gate: a club is entered while its season is still planned, so an admin who
+ * cannot see one cannot enter it.
  * @summary Teams for a Saison, for the admin surfaces
  */
 export const teamsGetTeamsVerwaltung = async (
   params?: TeamsGetTeamsVerwaltungParams,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLTeamsListResponse | FLTeamsGroupedResponse> => {
-  return adminKeyTransport<FLTeamsListResponse | FLTeamsGroupedResponse>(getTeamsGetTeamsVerwaltungUrl(params), {
+): Promise<FLTeamsListResponse> => {
+  return adminKeyTransport<FLTeamsListResponse>(getTeamsGetTeamsVerwaltungUrl(params), {
     ...options,
     method: "GET",
   });
@@ -4898,7 +4894,7 @@ export const getTeamsGetTeamSaisonsUrl = () => {
 /**
  * Every team, retired ones included, each with every season membership it holds. Sorted by name.
  *
- * `GET /teams` cannot answer it: that read is season-scoped with a strict junction join. Each membership names the live
+ * `GET /teams/list/verwaltung` cannot answer it: that read is season-scoped with a strict junction join. Each membership names the live
  * change of each seat's address, which the address tool shows, and per seat why the tool refuses that change this
  * administrator. Each seat's link names what became of the last mail carrying it, `delivery` null where none was
  * ever owed.
@@ -4938,10 +4934,9 @@ export const getTeamsGetTeamUrl = (teamId: string, params?: TeamsGetTeamParams) 
 };
 
 /**
- * Return one team, with its group and its statistics for a season.
+ * One team with its group and its figures in the season the query names, the season the site is on where it names none.
  *
- * The path names WHICH TEAM; the query names WHICH SEASON'S figures: `gruppe` and `statistik` are
- * season-scoped. 404 where the team, its row or the season is one this tier cannot read.
+ * 404 where the team, its row in that season or the season is one this tier may not read.
  * @summary One team
  */
 export const teamsGetTeam = async (
@@ -5049,7 +5044,8 @@ export const getTeamsPatchSaisonTeamUrl = (teamId: string, saisonId: string) => 
  * Rewrite a team's row for one season: group, exit record and kit colour.
  *
  * All three are required and replaced WHOLESALE: an omitted key is a 422, never a team reinstated.
- * The contact block is `PATCH .../kontakte`'s.
+ * The contact block is `PATCH .../kontakte`'s, and stays correctable there on a `past` season, which
+ * refuses this write (`saison_past`).
  * @summary Rewrite a team's season row: group, exit record and kit colour
  */
 export const teamsPatchSaisonTeam = async (

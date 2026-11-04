@@ -192,25 +192,27 @@ async def geloescht_by_the_handler(
 async def revealed(database: AsyncDatabase, client: AsyncMongoClient, email: str) -> FLErasureViewResponse:
     """The reveal's own function outside a request, as `OPERATOR`, for a league holding no grant to sign in through."""
 
-    return await get_erasure_view(
-        ansicht_data=FLErasureAdressePayload(email=email),
-        saison_teams_collection=database[Collection.SAISON_TEAMS],
-        bewerbungen_collection=database[Collection.BEWERBUNGEN],
-        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-        spieler_collection=database[Collection.SPIELER],
-        saison_spieler_collection=database[Collection.SAISON_SPIELER],
-        registrierungen_collection=database[Collection.REGISTRIERUNGEN],
-        spiele_collection=database[Collection.SPIELE],
-        berechtigungen_collection=database[Collection.GRANTS],
-        berechtigungen_angekuendigt_collection=database[Collection.GRANTS_ANNOUNCED],
-        berechtigungen_antraege_collection=database[Collection.GRANT_APPROVAL_REQUESTS],
-        sperrliste=ban_list(database),
-        db=client,
-        config=CONFIG,
-        operator=OPERATOR,
-        auth_time=int(time.time()) - 60,
-        germany_now=NOW,
-    )
+    async with client.start_session(snapshot=True) as session:
+        return await get_erasure_view(
+            ansicht_data=FLErasureAdressePayload(email=email),
+            saison_teams_collection=database[Collection.SAISON_TEAMS],
+            bewerbungen_collection=database[Collection.BEWERBUNGEN],
+            schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+            spieler_collection=database[Collection.SPIELER],
+            saison_spieler_collection=database[Collection.SAISON_SPIELER],
+            registrierungen_collection=database[Collection.REGISTRIERUNGEN],
+            spiele_collection=database[Collection.SPIELE],
+            berechtigungen_collection=database[Collection.GRANTS],
+            berechtigungen_angekuendigt_collection=database[Collection.GRANTS_ANNOUNCED],
+            berechtigungen_antraege_collection=database[Collection.GRANT_APPROVAL_REQUESTS],
+            adresswechsel_collection=database[Collection.ADDRESS_CHANGES],
+            sperrliste=ban_list(database),
+            session=session,
+            config=CONFIG,
+            operator=OPERATOR,
+            auth_time=int(time.time()) - 60,
+            germany_now=NOW,
+        )
 
 
 def journal_lines(caplog: pytest.LogCaptureFixture) -> list[str]:

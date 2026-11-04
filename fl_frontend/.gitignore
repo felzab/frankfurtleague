@@ -10,6 +10,6 @@
 next-env.d.ts
 
 
-# eslint's default cache, which a hand-run `eslint --cache` writes. The gate's own sits under
-# node_modules, where an uncached run cannot delete it (`docs/ops/spec.md`).
+# eslint's default cache, which a hand-run `eslint --cache` writes. The gate's lint runs uncached
+# (`fl_frontend/eslint.config.mjs`, the typed-linting block).
 /.eslintcache

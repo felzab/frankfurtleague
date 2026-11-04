@@ -53,6 +53,7 @@ from app.api.teams.services import (
     offered_gruppen,
 )
 from app.core.crud import aggregate_many_from_db, anchor_in_db, patch_one_in_db, pull_many_from_db, refuse
+from app.core.readonly import ReadCollection
 from app.shared.einwilligung import is_confirmed
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import CustomObjectId
@@ -60,7 +61,7 @@ from app.shared.schemas.literals import FLGruppenNames, FLSpielSeite
 
 
 async def _resolve_one_saison(
-    teams_collection: AsyncCollection,
+    teams_collection: ReadCollection,
     saison_id: str,
     rules: FLSaisonRules,
     spiele: Sequence[FLSpielCommon],
@@ -82,7 +83,7 @@ async def _resolve_one_saison(
 
     standings: Mapping[FLGruppenNames, DecidedStanding] = {}
     if gruppen_to_decide:
-        # `GET /teams`' own pipeline, so the bracket ranks the clubs the site's table ranks, and
+        # The Tabelle's own pipeline, so the bracket ranks the clubs the site's table ranks, and
         # `include_inactive` stays default: a club that table withholds must hold no placing the bracket
         # honours. `rules=None` asks it for the ROWS alone.
 
@@ -197,7 +198,7 @@ async def _retirement_days(collection: AsyncCollection, ids: Set[Any]) -> dict[A
 
 async def pull_slot_holders(
     *,
-    spiele_collection: AsyncCollection,
+    spiele_collection: ReadCollection,
     claims: Sequence[SlotClaim],
     session: AsyncClientSession | None = None,
 ) -> list[FLSpielSlotHolder]:
@@ -222,7 +223,7 @@ async def pull_slot_holders(
 
 async def pull_booked_slots(
     *,
-    spiele_collection: AsyncCollection,
+    spiele_collection: ReadCollection,
     spiel_id: CustomObjectId,
     claims: Sequence[SlotClaim],
     session: AsyncClientSession | None = None,
@@ -239,7 +240,7 @@ async def pull_booked_slots(
 
 
 async def pull_saison_membership(
-    saison_teams_collection: AsyncCollection,
+    saison_teams_collection: ReadCollection,
     saison_id: str,
     session: AsyncClientSession | None = None,
 ) -> dict[CustomObjectId, SaisonMembership]:
@@ -274,7 +275,7 @@ class SpieltagSpan(NamedTuple):
 
 async def pull_spieltag_span(
     *,
-    spieltage_collection: AsyncCollection,
+    spieltage_collection: ReadCollection,
     spieltag_id: CustomObjectId,
     session: AsyncClientSession | None = None,
 ) -> SpieltagSpan | None:
@@ -293,7 +294,7 @@ async def pull_spieltag_span(
 
 
 async def pull_booked_venue(
-    spielorte_collection: AsyncCollection,
+    spielorte_collection: ReadCollection,
     spielort_id: CustomObjectId | None,
     session: AsyncClientSession | None = None,
 ) -> BookedVenue | None:
@@ -314,7 +315,7 @@ async def pull_booked_venue(
 
 
 async def pull_booked_referee(
-    schiedsrichter_collection: AsyncCollection,
+    schiedsrichter_collection: ReadCollection,
     schiedsrichter_id: CustomObjectId | None,
     session: AsyncClientSession | None = None,
 ) -> BookedReferee | None:
@@ -403,7 +404,7 @@ def references_booked_again[Rewrite: (SlotAdvancement, SpieltagRelease)](
 
 
 async def preview_bracket_after_patch(
-    teams_collection: AsyncCollection,
+    teams_collection: ReadCollection,
     saison_id: str,
     rules: FLSaisonRules,
     season: Sequence[FLSpiel],

@@ -230,7 +230,7 @@ export type FLActionRequiredSection = {
 
 /**
  * One comparison serves every category: the earliest date is both the most overdue result and the
- * soonest fixture. Nulls last, for `sortByDate`'s reason — an unscheduled match belongs at the end.
+ * soonest fixture. Nulls last: an unscheduled match belongs at the end.
  */
 const compareByUrgencyWithin = (a: FLSpiel, b: FLSpiel): number => {
   if (a.datum !== b.datum) {

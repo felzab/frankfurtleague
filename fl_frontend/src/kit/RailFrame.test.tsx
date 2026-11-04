@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 
+import { Link } from "./Link";
 import { RailFrame, RailPage } from "./RailFrame";
 
 import type { Account } from "./FrameNav";
@@ -27,7 +28,7 @@ vi.mock("./Toast", async (original) => ({ ...(await original<Record<string, unkn
 const ADDRESS = "verwaltung@example.com";
 
 // An administrator: the grant stores no name.
-const ACCOUNT: Account = { role: COPY.verwaltung.role, address: ADDRESS };
+const ACCOUNT: Account = { role: COPY.verwaltung.role, address: { record: ADDRESS } };
 
 /** The frame of a one-page area around a page, its account read as given. */
 async function renderFrame(account: Promise<Account | null>) {
@@ -110,6 +111,32 @@ async function renderPage() {
   );
 }
 
+describe("a rail page's title", () => {
+  it("carries the page's way on in the strip, after the title", async () => {
+    await act(async () =>
+      render(
+        <RailPage
+          scope="saison"
+          title={{ route: "spielplan" }}
+          action={
+            <Link
+              href={ROUTES.spielSearch.path("2027")}
+              placement="standalone"
+              label={COPY.page.spielSearch}
+            />
+          }>
+          <p>Seite</p>
+        </RailPage>,
+      ),
+    );
+
+    const title = screen.getByRole("heading", { level: 1 });
+    const action = screen.getByRole("link", { name: COPY.page.spielSearch });
+    expect(title.parentElement?.contains(action)).toBe(true);
+    expect(title.compareDocumentPosition(action) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+});
+
 /** The rail's own link for the entry, apart from the phone bar's for the same page. */
 function railLink(rail: HTMLElement) {
   return screen.getAllByRole("link", { name: COPY.page.verwaltungSpielorte }).find((link) => rail.contains(link));
@@ -178,7 +205,7 @@ describe("the account menu", () => {
   });
 
   it("heads the menu with a person's name and address where the person has a name", async () => {
-    await renderFrame(Promise.resolve({ ...ACCOUNT, name: "Mia Berg" }));
+    await renderFrame(Promise.resolve({ ...ACCOUNT, name: { record: "Mia Berg" } }));
     await openMenu();
 
     expect(screen.getAllByText("Mia Berg")).toHaveLength(2);

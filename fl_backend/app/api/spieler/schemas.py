@@ -5,8 +5,6 @@ from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstra
 from app.core.crud import Anchored
 from app.core.sentinels import GHOST_SPIELER_ID
 from app.shared.schemas.bounds import (
-    LIST_LIMIT_DEFAULT,
-    LIST_LIMIT_MAX,
     SAISON_ID_LENGTH,
 )
 from app.shared.schemas.custom import CustomDateString, CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
@@ -15,7 +13,6 @@ from app.shared.schemas.kontakt import CustomKontaktName
 from app.shared.schemas.literals import (
     FLAddressChangeViewableDenied,
     FLEinwilligungUmfang,
-    FLSortOrder,
     FLSpielerPosition,
     FLSpielerStufe,
 )
@@ -24,11 +21,6 @@ from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 # `[0-9]`, never `\d`: Python's `\d` matches Unicode decimal digits where the frontend mirror's
 # does not, and the two ends must accept and refuse the same shirt.
 SQUAD_NUMMER_PATTERN = r"^[0-9]{1,4}$"
-
-# Every option is a field the base tier serves: ordering by a key reads it out, whether or not the
-# response carries it (`READ-PUPIL-001`, `READ-PUPIL-002`). No admin read takes a sort parameter, so
-# there is one Literal.
-FLSpielerSortOptions = Literal["vorname", "nummer", "position"]
 
 # Slugs rather than the German `position` and `stufe` store: a role also has a label and a badge
 # Kuerzel, and a stored German word would be a third spelling for those two to drift from.
@@ -150,7 +142,7 @@ class FLSpielerRecord(_SpielerPerson, Anchored):
 class FLSpieler(FLSpielerRecord, _SaisonSpielerWritable):
     """The person as STORED, flattened against one season. A declared shape: NO endpoint returns it.
 
-    `GET /spieler` answers with `FLSpielerPublic` instead.
+    A club page's squad serves `FLSpielerPublic` instead.
     """
 
     is_nachnominiert: bool
@@ -183,22 +175,6 @@ class FLSaisonSpielerRecord(FLSaisonSpielerRow):
 
     idempotency_key: str | None = None
     idempotency_fingerprint: str | None = None
-
-
-class FLSpielerFilterParams(BaseModel):
-    """What `GET /spieler` may narrow on -- never a field the response withholds.
-
-    A filter on a withheld one rebuilds it from squads of one (`READ-PUPIL-002`), and
-    `include_inactive` would un-hide rows this tier serves no marker for (`READ-SQUAD-002`).
-    """
-
-    # NOT paths: these narrow which players come back rather than naming one.
-    team_id: CustomObjectId | None = None
-    saison_id: str | None = None
-
-    limit: int = Field(default=LIST_LIMIT_DEFAULT, ge=1, le=LIST_LIMIT_MAX)
-    sort_by: FLSpielerSortOptions = Field(default="position")
-    order: FLSortOrder = Field(default="asc")
 
 
 class FLPatchSpielerPayload(BaseModel):
@@ -251,10 +227,6 @@ class FLPatchSaisonSpielerPayload(_SaisonSpielerPayload):
 
     # The `version` the editor was served; absent, the save is checked against nothing.
     version: int | None = None
-
-
-class FLSpielerListResponse(BaseAPIResponse):
-    spieler: list[FLSpielerPublic]
 
 
 class FLSpielerSingleResponse(BaseAPIResponse):

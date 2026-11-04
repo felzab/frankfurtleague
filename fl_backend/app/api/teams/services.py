@@ -16,10 +16,11 @@ from app.api.spiele.schemas import (
     records_an_absence,
 )
 from app.api.teams.schemas import (
-    FLGruppen,
+    FLAustritt,
     FLGruppenTeam,
     FLKontaktMint,
-    FLPublicTeamsFilterParams,
+    FLTabelle,
+    FLTabelleRow,
     FLTeam,
     FLTeamsFilterParams,
     FLTeamStatistik,
@@ -60,7 +61,7 @@ def _fixtures_of_this_team(saison_id: str, scope: FLTeamStatistikScope) -> dict[
     }
 
 
-def _counting_fixtures_match() -> dict[str, Any]:
+def counting_fixtures_match() -> dict[str, Any]:
     """Whether a fixture counts. A forfeit does, and a shoot-out is a draw."""
 
     return {
@@ -82,7 +83,7 @@ def build_statistik_lookup_stage(saison_id: str, rules: FLSaisonRules, scope: FL
                 {
                     "$match": {
                         **_fixtures_of_this_team(saison_id, scope),
-                        **_counting_fixtures_match(),
+                        **counting_fixtures_match(),
                     }
                 },
                 {
@@ -174,7 +175,7 @@ def build_retirement_stages(saison_id: str) -> list[Mapping[str, Any]]:
     ]
 
 
-def build_team_pipeline(filters: FLPublicTeamsFilterParams, rules: FLSaisonRules | None, team_id: Any | None = None) -> list[Mapping[str, Any]]:
+def build_team_pipeline(filters: FLTeamsFilterParams, rules: FLSaisonRules | None, team_id: Any | None = None) -> list[Mapping[str, Any]]:
     # Without a season the junction join stops being strict -- one row per season a club played --
     # and the statistics below match nothing, handing back a table of zeros that reads as an answer.
     if filters.saison_id is None:
@@ -185,9 +186,8 @@ def build_team_pipeline(filters: FLPublicTeamsFilterParams, rules: FLSaisonRules
     if team_id is not None:
         pipeline.append({"$match": {"_id": team_id}})
 
-    # Clubs that left the league -- never a team that left one season, which keeps its row. The switch
-    # is on the ADMIN model alone: a standings row carries no field that would mark one (`READ-SQUAD-002`).
-    if not (isinstance(filters, FLTeamsFilterParams) and filters.include_inactive):
+    # Clubs that left the league -- never a team that left one season, which keeps its row.
+    if not filters.include_inactive:
         pipeline.extend(build_retirement_stages(filters.saison_id))
 
     # Translated, not dumped: the row stores a record, never a boolean.
@@ -293,7 +293,7 @@ CERTAINTY_FIXTURE_LIMIT = 8
 
 
 def _counted_goals(spiel: FLSpielCommon) -> tuple[CustomObjectId, int, CustomObjectId, int] | None:
-    """`_counting_fixtures_match` restated in Python, for a standing asking it of a match the pipeline already summed."""
+    """`counting_fixtures_match` restated in Python, for a standing asking it of a match the pipeline already summed."""
 
     if spiel.ergebnis is None or spiel.team1 is None or spiel.team2 is None:
         return None
@@ -487,10 +487,12 @@ def _tiers(
     for team in teams:
         by_punkte.setdefault(punkte[team.id], []).append(team)
 
-    # Derived here so both callers ask one question: each ranks a club that has left and neither lets
-    # one hold a placing, so completeness judged over whoever is present would split the two surfaces.
+    # Derived here so both callers ask one question: each ranks a club that left before the group was
+    # decided and neither lets one hold a placing, so completeness judged over whoever is present would
+    # split the two surfaces.
     still_to_play = _still_to_play(spiele)
-    placeable = frozenset(team.id for team in teams if _may_hold_a_platz(team, still_to_play.get(team.id, 0)))
+    decided_on = _decided_on(spiele)
+    placeable = frozenset(team.id for team in teams if _may_hold_a_platz(team, still_to_play.get(team.id, 0), decided_on))
 
     tiers: list[list[FLTeam]] = []
     for score in sorted(by_punkte, reverse=True):
@@ -506,10 +508,78 @@ def _tiers(
     return tiers
 
 
-def _may_hold_a_platz(team: FLTeam, still_to_play: int) -> bool:
-    """Whether a team can hold a placing a bracket slot could name."""
+def _decided_on(spiele: Iterable[FLSpielCommon]) -> str | None:
+    """The day one group's placings are decided: its last fixture's; `None` while any fixture is undated.
 
-    return team.austritt is None and (team.statistik.count_gespielte_spiele + still_to_play) > 0
+    Dates alone, never a result: a fixture's ending is what the walk hypothesises, so a day read off one would move
+    under the walk and let a later call-off hand a departed club back a place already seeded without it. A fixture
+    called off or played without a date leaves the group undecided as one still to play does: nothing then says the
+    group was decided before a club's exit, so a club that left keeps no place on the strength of a fixture nobody
+    dated.
+    """
+
+    days: list[str] = []
+    for spiel in spiele:
+        if spiel.datum is None:
+            return None
+        days.append(spiel.datum)
+
+    return max(days, default=None)
+
+
+def in_the_season_when_decided(austritt: FLAustritt | None, decided_on: str | None) -> bool:
+    """Whether a club still stood in the season on the day a place was decided, so the place is its to keep.
+
+    Strictly before the exit, as `eligibility_disqualified` and `find_departed_occupants` order a day against it: the exit's
+    own day counts as after it, and so does a place not yet dated. One rule for a group's placings and the podium's places,
+    and for either route out, since no rule keyed on a club having left reads `type`.
+    """
+
+    return austritt is None or (decided_on is not None and decided_on < austritt.datum)
+
+
+def _may_hold_a_platz(team: FLTeam, still_to_play: int, decided_on: str | None) -> bool:
+    """Whether a team can hold a placing a bracket slot could name.
+
+    In the season when its group was decided, with a match that counts or still could.
+    """
+
+    return in_the_season_when_decided(team.austritt, decided_on) and team.statistik.count_gespielte_spiele + still_to_play > 0
+
+
+def build_tabelle(teams: Iterable[FLTeam], spiele: Iterable[FLSpielCommon], rules: FLSaisonRules) -> FLTabelle:
+    """Each group's standing as the Tabelle shows it, every row numbered as a `Platz` is.
+
+    A club that has played no match reads null and sorts below every club that has, whatever its zeroes would rank.
+    The rest are numbered as the bracket counts its placings (`_placings`), a club advancing the number only while it
+    stood in the season when its group was decided (`in_the_season_when_decided`), so a club that left before then reads
+    null and hides none, one that left after keeps its number, and clubs the chain leaves level share the
+    number their band starts at, where the bracket seeds none of them. The bracket also counts a club with no match
+    that has one still to play, so a club ranked below it prints a lower number than the bracket counts it at; the
+    bracket decides no such placing, since the club yet to play can still finish level with it on points at any goal
+    margin.
+    """
+
+    teams = list(teams)
+    spiele = list(spiele)
+
+    # The same day `_tiers` decides each group on, so the table and the bracket agree on who holds a place.
+    by_gruppe, _ = _spiele_by_gruppe(spiele, {team.id: team.gruppe for team in teams})
+    decided_on = {gruppe: _decided_on(fixtures) for gruppe, fixtures in by_gruppe.items()}
+    still_in = frozenset(team.id for team in teams if in_the_season_when_decided(team.austritt, decided_on.get(team.gruppe)))
+
+    tabelle: dict[FLGruppenNames, list[FLTabelleRow]] = {}
+    for name, ranked in _ranked_bands(teams, by_gruppe, rules).items():
+        placed: list[FLTabelleRow] = []
+        platz = 1
+        for band in ranked:
+            holders = {row.id for row in band if row.id in still_in and row.statistik.count_gespielte_spiele}
+            placed.extend(FLTabelleRow.model_validate({**row.model_dump(), "platz": platz if row.id in holders else None}) for row in band)
+            platz += len(holders)
+        # Stable, so the clubs that have played keep their standing order, and so do those that have not.
+        tabelle[name] = sorted(placed, key=lambda row: not row.statistik.count_gespielte_spiele)
+
+    return FLTabelle(tabelle)
 
 
 def _spiele_by_gruppe(
@@ -606,7 +676,9 @@ def _decide_one_gruppe(
         and spiel.team2 is not None
     ]
 
-    placeable = frozenset(team.id for team in teams if _may_hold_a_platz(team, still_to_play.get(team.id, 0)))
+    # One day for every hypothesised ending: the walk moves results, never dates, and `_decided_on` reads dates alone.
+    decided_on = _decided_on(spiele)
+    placeable = frozenset(team.id for team in teams if _may_hold_a_platz(team, still_to_play.get(team.id, 0), decided_on))
     is_complete = not open_pairs and not has_unattributable
 
     if has_unattributable:
@@ -651,7 +723,7 @@ def _decide_one_gruppe(
                 if side in left_to_play:
                     left_to_play[side] -= 1
 
-        dropped = frozenset(team_id for team_id, left in left_to_play.items() if not _may_hold_a_platz(by_id[team_id], left))
+        dropped = frozenset(team_id for team_id, left in left_to_play.items() if not _may_hold_a_platz(by_id[team_id], left, decided_on))
         vector = tuple(punkte[team_id] for team_id in order)
         # The points table stopped deciding the ranking on its own once a call-off became an ending,
         # so a vector skipped on its table alone is one that ranks differently.
@@ -730,8 +802,7 @@ def _placings(
 
     for band in _tiers(teams, punkte, settled, spiele, rules):
         # Only a club that can hold a placing advances the number, so a departed one takes no place
-        # and hides none -- the walk `fl_frontend/src/features/teams/utils.ts :: computePlatzByTeamId`
-        # runs over the same order.
+        # and hides none.
         holders = [team for team in band if team.id in placeable]
         if len(holders) == 1:
             placings[platz] = holders[0]
@@ -740,19 +811,15 @@ def _placings(
     return placings
 
 
-def build_gruppen(teams: Iterable[FLTeam], spiele: Iterable[FLSpielCommon], rules: FLSaisonRules) -> FLGruppen:
-    """Every group the season offers.
+def _ranked_bands(
+    teams: Sequence[FLTeam], by_gruppe: Mapping[FLGruppenNames, Sequence[FLSpielCommon]], rules: FLSaisonRules
+) -> dict[FLGruppenNames, list[list[FLGruppenTeam]]]:
+    """Every group the season offers as its standing's bands, a band of several being clubs the chain leaves level.
 
-    Seeded from that count rather than the teams present: a group nobody stands in keeps its key, and
-    the closed set here would answer a smaller season groups it never ran.
+    `by_gruppe` is `_spiele_by_gruppe`'s split of the season's fixtures, which the caller has already made. Seeded from
+    the count of groups rather than the teams present: a group nobody stands in keeps its key, and the closed set here
+    would answer a smaller season groups it never ran.
     """
-
-    teams = list(teams)
-    # Materialised because the fixtures are walked twice below, and a caller may pass a generator.
-    spiele = list(spiele)
-
-    gruppe_of: dict[CustomObjectId, FLGruppenNames] = {team.id: team.gruppe for team in teams}
-    by_gruppe, _ = _spiele_by_gruppe(spiele, gruppe_of)
 
     grouped: dict[FLGruppenNames, list[FLTeam]] = {name: [] for name in offered_gruppen(rules.number_of_gruppen)}
     for team in teams:
@@ -766,26 +833,19 @@ def build_gruppen(teams: Iterable[FLTeam], spiele: Iterable[FLSpielCommon], rule
         grouped[team.gruppe].append(team)
 
     # Every figure is final AS A READING OF NOW, which is what lets the whole chain apply.
-    everyone = frozenset(gruppe_of)
+    everyone = frozenset(team.id for team in teams)
 
-    # Over the WHOLE scoped list, as `build_decided_standings` derives it: a fixture attributable to
-    # no group would otherwise count on one surface and not the other.
-    still_to_play = _still_to_play(spiele)
-
-    return FLGruppen(
-        {
-            name: [
-                _standing_row(team, still_to_play.get(team.id, 0))
-                for band in _tiers(members, {team.id: team.statistik.punkte for team in members}, everyone, by_gruppe[name], rules)
-                for team in band
-            ]
-            for name, members in grouped.items()
-        }
-    )
+    return {
+        name: [
+            [_standing_row(team) for team in band]
+            for band in _tiers(members, {team.id: team.statistik.punkte for team in members}, everyone, by_gruppe[name], rules)
+        ]
+        for name, members in grouped.items()
+    }
 
 
-def _standing_row(team: FLTeam, still_to_play: int) -> FLGruppenTeam:
-    """One ranked team as the table publishes it, with the still-to-play term the placing rule needs."""
+def _standing_row(team: FLTeam) -> FLGruppenTeam:
+    """One ranked team as the table publishes it."""
 
     return FLGruppenTeam(
         id=team.id,
@@ -793,7 +853,6 @@ def _standing_row(team: FLTeam, still_to_play: int) -> FLGruppenTeam:
         shorthand=team.shorthand,
         statistik=team.statistik,
         austritt_type=team.austritt.type if team.austritt is not None else None,
-        count_pending_spiele=still_to_play,
     )
 
 
@@ -1510,9 +1569,12 @@ def find_gruppe_swap_refusal(
     team1_gruppe: str | None,
     team2_gruppe: str | None,
     saison_status: str,
-    # `app/api/saisons/crud.py :: has_started`: a swap rewrites fixtures, and once the season is under
+    # `app/api/saisons/services.py :: has_started`: a swap rewrites fixtures, and once the season is under
     # way a fixture is a record of who played it.
     started: bool,
+    # Whether a fixture the swap rewrites `has_taken_place`: a result entered before the start is a record
+    # too, and the rewrite would hand it to the other club, `tore` staying where they are.
+    taken_place: bool,
     clashing_spieltage: int,
     departed_fixtures: int,
 ) -> WriteRefusal | None:
@@ -1549,6 +1611,12 @@ def find_gruppe_swap_refusal(
             status=HTTPStatus.CONFLICT,
         )
 
+    if taken_place:
+        return WriteRefusal(
+            error_code=Code.SIDES_TAKEN_PLACE,
+            status=HTTPStatus.CONFLICT,
+        )
+
     if clashing_spieltage > 0:
         return WriteRefusal(
             error_code=Code.SWAP_SPIELTAG_CLASH,
@@ -1562,6 +1630,11 @@ def find_gruppe_swap_refusal(
         )
 
     return None
+
+
+# The projection `has_taken_place` reads, beside the predicate: a field in one and not the other reads a played
+# fixture as untouched.
+TAKEN_PLACE_FIELDS: tuple[str, ...] = ("ergebnis", "sonderereignis", "team1.tore", "team2.tore")
 
 
 def has_taken_place(spiel: Mapping[str, Any]) -> bool:
@@ -1592,9 +1665,12 @@ def find_replacement_pair_refusal(*, team_id: Any, incoming_team_id: Any) -> Wri
 def find_replacement_refusal(
     *,
     saison_status: str,
-    # `app/api/saisons/crud.py :: has_started`: once the season is under way, a club leaves it by its
+    # `app/api/saisons/services.py :: has_started`: once the season is under way, a club leaves it by its
     # Austritt and is never replaced.
     started: bool,
+    # Whether a fixture the replacement rewrites `has_taken_place`, the swap's rule: the incoming club would
+    # inherit a record it never made.
+    taken_place: bool,
     incoming_inactive_since: str | None,
     incoming_already_entered: bool,
 ) -> WriteRefusal | None:
@@ -1613,6 +1689,12 @@ def find_replacement_refusal(
     if started:
         return WriteRefusal(
             error_code=Code.REPLACE_SAISON_STARTED,
+            status=HTTPStatus.CONFLICT,
+        )
+
+    if taken_place:
+        return WriteRefusal(
+            error_code=Code.SIDES_TAKEN_PLACE,
             status=HTTPStatus.CONFLICT,
         )
 

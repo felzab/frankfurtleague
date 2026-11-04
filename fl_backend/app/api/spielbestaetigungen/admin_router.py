@@ -46,6 +46,7 @@ from app.core.dependencies import (
     get_germany_now,
 )
 from app.core.exceptions import DocumentNotFoundError
+from app.core.readonly import ReadCollection
 from app.core.routing import by_id
 from app.core.security import bind_actor, verify_access_admin, verify_step_up
 from app.core.transactions import transaction_session
@@ -59,7 +60,7 @@ router = APIRouter(
 FLSpielbestaetigungenFilters = Annotated[FLSpielbestaetigungenFilterParams, Query()]
 
 
-async def _mit_zustellung(*, outbox_collection: Any, rows: Sequence[Mapping[str, Any]]) -> list[FLSpielbestaetigung]:
+async def _mit_zustellung(*, outbox_collection: ReadCollection, rows: Sequence[Mapping[str, Any]]) -> list[FLSpielbestaetigung]:
     """The rows as served, each seat holding a link carrying what became of the last mail owed to it."""
 
     lagen = await states_of(outbox_collection=outbox_collection, collection=Collection.SPIELBESTAETIGUNGEN, ids=[row["_id"] for row in rows])

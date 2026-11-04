@@ -141,7 +141,7 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
    * swap pair identically.
    */
   const swap: SaisonGruppenSwapContext = buildGruppenSwapContext({
-    teams: teamsRes.format === "list" ? teamsRes.teams : [],
+    teams: teamsRes.teams,
     gruppenSpiele: gruppenSpieleRes.spiele,
     playoffSpiele: playoffSpieleRes.spiele,
     begonnen: saison.begun,
@@ -153,7 +153,7 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
    */
   const ersatz = buildReplacementContext({
     saisonId: saison.id,
-    teams: teamsRes.format === "list" ? teamsRes.teams : [],
+    teams: teamsRes.teams,
     ligaTeams: ligaTeamsRes?.teams ?? [],
     gruppenSpiele: gruppenSpieleRes.spiele,
     playoffSpiele: playoffSpieleRes.spiele,
@@ -181,6 +181,8 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
       spielplan={spielplan}
       hasDrawnSpiele={hasDrawnSpiele}
       spieltagBound={spieltagBound}
+      // The endpoint's own reading, beside `begun`: the start date closes exactly where its write refuses.
+      isStartFixed={saison.taken_place}
     />
   );
 }

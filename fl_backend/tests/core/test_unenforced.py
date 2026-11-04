@@ -122,6 +122,7 @@ def filled_bracket_slot(spiel: PayloadFactory) -> list[FLSpielJoinedInternal]:
                 team2=_joined_side(BIEBER, "Bieber", tore=1),
                 ergebnis="2:1",
                 ansetzung_confirmed=None,
+                for_third_place=False,
             ),
             spiel(
                 _id=MATCH_ID.format(SLOT_NR),
@@ -135,6 +136,7 @@ def filled_bracket_slot(spiel: PayloadFactory) -> list[FLSpielJoinedInternal]:
                 team2=None,
                 ergebnis=None,
                 ansetzung_confirmed=None,
+                for_third_place=False,
             ),
         ]
     )
@@ -197,6 +199,7 @@ def _swap(**overrides: Any):
             "team2_gruppe": "B",
             "saison_status": "active",
             "started": False,
+            "taken_place": False,
             "clashing_spieltage": 0,
             "departed_fixtures": 0,
             **overrides,

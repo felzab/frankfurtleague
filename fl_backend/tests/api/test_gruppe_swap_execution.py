@@ -15,6 +15,7 @@ from app.core.collections import Collection
 from app.core.exceptions import APIError
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.documents import saison_document, saison_team_document, spiel_document, team_document
+from tests.isolation import COMMITTED, InterleavedCollection, outcome_of
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -53,8 +54,8 @@ AUSTRITT = {"type": "disqualifikation", "grund": "Regelverstoss", "datum": "2026
 # A day after `AUSTRITT`, so the date half is satisfied and the EVENT is what each case turns on.
 AFTER_THE_EXIT = "2026-05-01"
 
-# The German day the swap is judged on: before `AFTER_THE_EXIT`, so a fixture dated then leaves the season unstarted.
-YESTERDAY, TODAY, TOMORROW = "2026-02-28", "2026-03-01", "2026-03-02"
+# The German day the swap is judged on, before `AFTER_THE_EXIT`; every season here starts the day after unless a case says so.
+TODAY, TOMORROW = "2026-03-01", "2026-03-02"
 
 
 async def record_an_austritt(database: AsyncDatabase, team_id: ObjectId) -> None:
@@ -140,14 +141,15 @@ def on_a_seeded_season(
     *,
     spiele: list[dict[str, Any]] | None = None,
     saison_status: str = "active",
+    start_date: str = TOMORROW,
     mutates_schema: bool = False,
 ) -> Any:
     """`mutates_schema=True` where the body attaches a validator (`tests/database.py :: a_clean_database`)."""
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, mutates_schema=mutates_schema) as (client, database):
-            # The swap reads the status alone.
-            await database[Collection.SAISONS].insert_one(saison_document(SAISON_ID, saison_status))
+            # The swap reads the status and the start alone.
+            await database[Collection.SAISONS].insert_one(saison_document(SAISON_ID, saison_status, start_date=start_date))
             await database[Collection.SAISON_TEAMS].insert_many(
                 [junction(ALPHA, "A"), junction(ALPHA_RIVAL, "A"), junction(BETA, "B"), junction(BETA_RIVAL, "B")]
             )
@@ -160,11 +162,15 @@ def on_a_seeded_season(
     return on_the_seed_loop(_run())
 
 
-async def call_swap(database: AsyncDatabase, client: AsyncMongoClient, team1_id: ObjectId, team2_id: ObjectId) -> Any:
+async def call_swap(
+    database: AsyncDatabase, client: AsyncMongoClient, team1_id: ObjectId, team2_id: ObjectId, *, saisons_collection: Any = None
+) -> Any:
+    """`saisons_collection` is overridable so a case can hand the endpoint a stand-in and nothing else."""
+
     return await swap_gruppen(
         saison_id=SAISON_ID,
         swap_data=FLSwapGruppenPayload(team1_id=team1_id, team2_id=team2_id),
-        saisons_collection=database[Collection.SAISONS],
+        saisons_collection=saisons_collection if saisons_collection is not None else database[Collection.SAISONS],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         spiele_collection=database[Collection.SPIELE],
         teams_collection=database[Collection.TEAMS],
@@ -399,8 +405,37 @@ class TestTheRefusalsReadTheRealDocuments:
         assert code == Code.SAISON_PAST
         assert sides == {1: (ALPHA, ALPHA_RIVAL), 2: (BETA_RIVAL, BETA)}, "a refused swap rewrote a fixture"
 
-    def test_a_group_fixture_dated_today_closes_the_window(self, mongo_replica_set_url: str):
-        """The season starts on its earliest group fixture's day, so a swap that day is refused and rewrites nothing."""
+    def test_a_season_starting_today_closes_the_window(self, mongo_replica_set_url: str):
+        """The season starts on its `start_date`, so a swap that day is refused and rewrites nothing."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            with pytest.raises(APIError) as refusal:
+                await call_swap(database, client, ALPHA, BETA)
+            return refusal.value.error_code, await gruppen_now(database), await sides_now(database)
+
+        code, stored, sides = on_a_seeded_season(mongo_replica_set_url, body, spiele=list(DRAWN_ROUND_ROBIN), start_date=TODAY)
+
+        assert code == Code.SWAP_SAISON_STARTED
+        assert stored[ALPHA] == "A" and stored[BETA] == "B", "a refused swap moved a junction row"
+        assert sides == {1: (ALPHA, ALPHA_RIVAL), 2: (BETA_RIVAL, BETA)}, "a refused swap rewrote a fixture"
+
+    def test_a_fixture_dated_today_does_not_start_the_season(self, mongo_replica_set_url: str):
+        """The start is the season's date and never a match's: the day before it, the swap runs whatever is dated."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await call_swap(database, client, ALPHA, BETA)
+            return await gruppen_now(database)
+
+        stored = on_a_seeded_season(
+            mongo_replica_set_url,
+            body,
+            spiele=[gruppen_fixture(1, ALPHA, ALPHA_RIVAL, datum=TODAY), gruppen_fixture(2, BETA_RIVAL, BETA)],
+        )
+
+        assert stored[ALPHA] == "B" and stored[BETA] == "A"
+
+    def test_a_rewritten_fixture_that_has_taken_place_is_refused(self, mongo_replica_set_url: str):
+        """Before the start, a result entered early: the rewrite moves no `tore`, so it would hand Alpha's result to Beta."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             with pytest.raises(APIError) as refusal:
@@ -410,42 +445,12 @@ class TestTheRefusalsReadTheRealDocuments:
         code, stored, sides = on_a_seeded_season(
             mongo_replica_set_url,
             body,
-            spiele=[gruppen_fixture(1, ALPHA, ALPHA_RIVAL, datum=TODAY), gruppen_fixture(2, BETA_RIVAL, BETA)],
+            spiele=[gruppen_fixture(1, ALPHA, ALPHA_RIVAL, ergebnis="2:1", tore=(2, 1)), gruppen_fixture(2, BETA_RIVAL, BETA)],
         )
 
-        assert code == Code.SWAP_SAISON_STARTED
+        assert code == Code.SIDES_TAKEN_PLACE
         assert stored[ALPHA] == "A" and stored[BETA] == "B", "a refused swap moved a junction row"
         assert sides == {1: (ALPHA, ALPHA_RIVAL), 2: (BETA_RIVAL, BETA)}, "a refused swap rewrote a fixture"
-
-    def test_a_group_fixture_dated_tomorrow_leaves_it_open(self, mongo_replica_set_url: str):
-        """The day before the start, the swap still runs."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await call_swap(database, client, ALPHA, BETA)
-            return await gruppen_now(database)
-
-        stored = on_a_seeded_season(
-            mongo_replica_set_url,
-            body,
-            spiele=[gruppen_fixture(1, ALPHA, ALPHA_RIVAL, datum=TOMORROW), gruppen_fixture(2, BETA_RIVAL, BETA)],
-        )
-
-        assert stored[ALPHA] == "B" and stored[BETA] == "A"
-
-    def test_a_dated_knockout_fixture_does_not_start_the_season(self, mongo_replica_set_url: str):
-        """Only the group phase starts a season, so a bracket fixture dated in the past leaves the swap open."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await call_swap(database, client, ALPHA, BETA)
-            return await gruppen_now(database)
-
-        stored = on_a_seeded_season(
-            mongo_replica_set_url,
-            body,
-            spiele=[*DRAWN_ROUND_ROBIN, knockout_fixture(ergebnis=None, datum=YESTERDAY)],
-        )
-
-        assert stored[ALPHA] == "B" and stored[BETA] == "A"
 
     def test_a_swap_that_would_field_a_club_twice_on_one_matchday_is_refused(self, mongo_replica_set_url: str):
         """`swap_spieltag_clash`: the rewrite moves group sides only, so Alpha takes Beta's fixture and plays twice: what a swap could dodge."""
@@ -562,3 +567,42 @@ class TestTheRefusalsReadTheRealDocuments:
 
         assert stored[ALPHA] == "B" and stored[BETA] == "A"
         assert sides == {1: (BETA, ALPHA_RIVAL), 2: (BETA_RIVAL, ALPHA)}
+
+
+class SeasonsRunningARivalAfterTheSessionRead(InterleavedCollection):
+    """A `saisons` stand-in running its rival once, just after the first read made inside a transaction.
+
+    The read before the transaction is the 404 check, so a rival there would land before any snapshot.
+    """
+
+    async def find_one(self, *args: Any, **kwargs: Any) -> Any:
+        found = await self._collection.find_one(*args, **kwargs)
+        if kwargs.get("session") is not None:
+            await self.run_the_rival()
+
+        return found
+
+
+class TestAStartMovedUnderTheSwapIsJudgedAgain:
+    """The season has not started when the swap judges, and has when it writes: `PATCH /saisons` moved its start."""
+
+    def test_the_swap_is_refused_on_the_start_moved_under_it(self, mongo_replica_set_url: str):
+        """Drop the season's anchor from `swap_gruppen` and this fails: the swap reads the start and writes only the clubs' rows."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            async def move_the_start_to_today() -> None:
+                # The season patch's own write, the one document both share.
+                await database[Collection.SAISONS].update_one({"_id": SAISON_ID}, {"$set": {"start_date": TODAY}})
+
+            seasons = SeasonsRunningARivalAfterTheSessionRead(database[Collection.SAISONS], move_the_start_to_today)
+            outcome = await outcome_of(call_swap(database, client, ALPHA, BETA, saisons_collection=seasons))
+
+            return outcome, seasons.passes, await gruppen_now(database)
+
+        outcome, passes, stored = on_a_seeded_season(mongo_replica_set_url, body, spiele=list(DRAWN_ROUND_ROBIN))
+
+        assert outcome != COMMITTED, "the swap committed on a start it judged before the patch moved it"
+        assert outcome == Code.SWAP_SAISON_STARTED
+        assert stored == {ALPHA: "A", ALPHA_RIVAL: "A", BETA: "B", BETA_RIVAL: "B"}
+        # The judgement's read and the retry's: the swap conflicted on the anchor rather than committing.
+        assert passes == 2

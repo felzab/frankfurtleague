@@ -1,21 +1,22 @@
 import { tv } from "./tv";
 
 /**
- * The look of everything that acts or leads on as a button: the kit's `Button`, and the kit's `Link` where
- * a page's one next step is drawn as the primary button. Kept apart from both so a server-rendered link
- * and a client button read the same recipe.
+ * The look of everything that acts or leads on as a button: the kit's `Button`, and the kit's `Link` drawn
+ * as a primary or a secondary button or as a glyph alone. Kept apart from both so a server-rendered link and
+ * a client button read the same recipe.
  */
 export const buttonLook = tv({
   // The border colour is named on every variant: HeroUI's base sheet colours every element's border.
-  base: "inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-lg border text-sm font-medium whitespace-nowrap transition-colors duration-(--motion-state) data-disabled:opacity-50 pointer-coarse:h-11",
+  base: "inline-flex h-8 shrink-0 items-center justify-center gap-2 rounded-lg border text-sm font-medium whitespace-nowrap transition-colors duration-(--motion-state) data-disabled:opacity-50 pointer-coarse:h-10",
   variants: {
     look: {
       primary: "border-transparent bg-brand-solid px-3.5 text-on-brand",
-      secondary: "border-border-control bg-bg px-3.5 text-fg",
+      // No fill of its own, the control edge alone, so it reads as one control on the page, a card and an overlay.
+      secondary: "border-border-control bg-transparent px-3.5 text-fg",
       danger: "border-transparent bg-danger-solid px-3.5 text-on-brand",
       // The quiet act beside or beneath a primary one, such as the passkey offer's „Später“: words alone.
       quiet: "border-transparent bg-transparent px-3.5 text-fg-muted",
-      icon: "w-9 border-transparent bg-transparent text-fg pointer-coarse:w-11",
+      icon: "w-8 border-transparent bg-transparent text-fg pointer-coarse:w-10",
     },
     // React Aria's button marks its own hover, which a touch never sets; a plain anchor takes the pointer's
     // `:hover`, which Tailwind applies only where the device can hover.
@@ -29,9 +30,12 @@ export const buttonLook = tv({
   compoundVariants: [
     { look: "primary", host: "aria", class: "data-hovered:bg-brand-solid-hover data-pressed:bg-brand-solid-hover" },
     { look: "primary", host: "link", class: "hover:bg-brand-solid-hover active:bg-brand-solid-hover" },
-    // The lighter surface keeps the edge at 3:1 against the fill under the pointer.
-    { look: "secondary", host: "aria", class: "data-hovered:bg-bg-surface data-pressed:bg-bg-surface" },
+    // One step above the card, so the hover shows on a raised card as on the page and in an overlay; the edge
+    // keeps its 3:1 against the ground around it.
+    { look: "secondary", host: "aria", class: "data-hovered:bg-bg-muted data-pressed:bg-bg-muted" },
+    { look: "secondary", host: "link", class: "hover:bg-bg-muted active:bg-bg-muted" },
     { look: "icon", host: "aria", class: "data-hovered:bg-bg-muted data-pressed:bg-bg-muted" },
+    { look: "icon", host: "link", class: "hover:bg-bg-muted active:bg-bg-muted" },
     { look: "quiet", host: "aria", class: "data-hovered:bg-bg-muted data-hovered:text-fg data-pressed:bg-bg-muted data-pressed:text-fg" },
     { look: "danger", host: "aria", class: "data-hovered:bg-danger-solid-hover data-pressed:bg-danger-solid-hover" },
   ],

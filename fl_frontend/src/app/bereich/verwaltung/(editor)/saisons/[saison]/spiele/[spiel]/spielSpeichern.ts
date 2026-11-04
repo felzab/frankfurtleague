@@ -8,7 +8,7 @@ import { spielePatchSpiel } from "@/core/generated/client/sdk";
 import { SpielePatchSpielBody, SpielePatchSpielParams } from "@/core/generated/zod/inputs";
 import { admitsShootOut } from "@/features/spiele/draftStatus";
 import { getAdminSpiel } from "@/features/spiele/queries";
-import { describeMovedSpiele, toStoredSide } from "@/features/spiele/utils";
+import { toStoredSide } from "@/features/spiele/utils";
 
 import { KEIN_SONDEREREIGNIS, werteOf } from "./spielWerte";
 
@@ -113,17 +113,11 @@ export const spielSpeichern = action({
     "booking_unconfirmed_schiedsrichter",
     "spiel_double_booked",
     "eligibility_disqualified",
+    // The editor stays open on a finished season, whose fixtures the write refuses whole.
+    "saison_past",
   ],
-  // The write's own paths: the date, the event and the venue have their boxes here, the referee and the two sides
-  // are kept as stored.
-  paths: {
-    datum: "changes.datum",
-    sonderereignis: "changes.sonderereignis",
-    "ort.spielort_id": "changes.spielort",
-    "schiedsrichter.schiedsrichter_id": { name: COPY.spielplan.fact.schiedsrichter },
-    "team1.team_id": { name: COPY.verwaltung.spiel.team1 },
-    "team2.team_id": { name: COPY.verwaltung.spiel.team2 },
-  },
+  // The boxes a field pattern's phrase lands on; every other refusal here is a sentence naming its field itself.
+  paths: { sonderereignis: "changes.sonderereignis" },
   examples: { "changes.mietpreis": COPY.verwaltung.spielort.mietpreisExample },
   run: async ({ id, version, changes }): Promise<ActionAnswer<number>> => {
     // Read for the fields the editor does not show, which the wholesale write sends as stored.
@@ -135,9 +129,12 @@ export const spielSpeichern = action({
 
     const geschrieben = await spielePatchSpiel(id, { ...payload, version });
 
-    // What the write did to other fixtures, a later round's occupant or result among them, in today's editor's words.
-    const folgen = describeMovedSpiele(geschrieben.advanced_to, geschrieben.bracket_faults, geschrieben.released_sides);
+    // The other fixtures the write changed: a later round's occupant or result, or a side it released on the same
+    // Spieltag. Each match once, in its number's order; the match's own page says what changed there.
     const value = geschrieben.version;
-    return folgen === undefined ? { ok: true, value } : { ok: true, value, note: COPY.verwaltung.spiel.savedWithConsequences(folgen) };
+    const geaendert = [...new Set([...geschrieben.advanced_to, ...geschrieben.released_sides].map(({ spiel_nr }) => spiel_nr))];
+    return geaendert.length === 0
+      ? { ok: true, value }
+      : { ok: true, value, note: COPY.verwaltung.spiel.alsoChanged(geaendert.toSorted((first, second) => first - second)) };
   },
 });

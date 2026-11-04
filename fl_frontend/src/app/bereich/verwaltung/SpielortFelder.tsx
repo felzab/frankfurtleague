@@ -27,7 +27,7 @@ export function SpielortFelder({
   return (
     <>
       <TextField
-        label={WORTE.name}
+        label={COPY.shared.name}
         name="name"
         width="W3"
         kind="text"

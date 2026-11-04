@@ -98,7 +98,9 @@ UNREAD_IN_THE_PUPIL_SCOPE = sorted(
 def test_the_pupil_scope_reads_no_other_kind_and_a_step_reading_one_raises(kind: str):
     """Catches a kind read for no step, and a kind left unread answered as an empty list, on which a step erases nothing."""
 
-    collections = {name: _Counted() for name in ("saison_teams", "bewerbungen", "schiedsrichter", "spieler", "registrierungen")}
+    collections = {
+        name: _Counted() for name in ("saison_teams", "bewerbungen", "schiedsrichter", "spieler", "registrierungen", "adresswechsel")
+    }
 
     subject = asyncio.run(
         resolve_subject(
@@ -116,6 +118,7 @@ def test_the_pupil_scope_reads_no_other_kind_and_a_step_reading_one_raises(kind:
         "schiedsrichter": 0,
         "spieler": 1,
         "registrierungen": 1,
+        "adresswechsel": 0,
     }
     assert (subject.spieler, subject.registrierungen) == ([], [])
     with pytest.raises(RuntimeError):

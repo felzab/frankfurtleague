@@ -34,18 +34,19 @@ Software stays with the holder named above.
      fl_frontend/src/app/icon.svg
      fl_frontend/src/app/favicon.ico
      fl_frontend/src/app/apple-icon.png
+     fl_frontend/src/app/share-image.png
      fl_frontend/public/icons/manifest/
-     fl_frontend/public/icons/opengraph/
      fl_frontend/src/shared/components/ui/FLLogo.tsx
 
    The GitHub, Instagram and Threads logos in fl_frontend/public/icons/footer/
-   are the marks of their owners, not of the association, and they are not part
-   of "the Software" either.
+   and the sponsors' logos in fl_frontend/public/icons/sponsors/ are the marks
+   of their owners, not of the association, and they are not part of "the
+   Software" either.
 
 3. LEAGUE DATA AND WRITTEN CONTENT
 
    Fixtures, results, tables, team and player records, and the league's written
-   copy, including the page text in fl_frontend/src/features/meta/constants.ts.
+   copy, including the page text in fl_frontend/src/core/serverCopy.ts.
 
    Most of this data lives in the database rather than this repository and is
    therefore outside the Software regardless. This clause covers what does

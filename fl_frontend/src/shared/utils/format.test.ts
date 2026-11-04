@@ -1,16 +1,6 @@
-import { assert, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
-import {
-  buildMapsSearchUrl,
-  formatAddress,
-  formatAddressFull,
-  formatEuro,
-  formatSpielDatum,
-  formatUhrzeit,
-  NICHT_HINTERLEGT,
-  nichtHinterlegt,
-  PLACEHOLDER,
-} from "./format.ts";
+import { formatAddressFull, formatEuro, formatSpielDatum, formatUhrzeit, NICHT_HINTERLEGT, nichtHinterlegt, PLACEHOLDER } from "./format.ts";
 
 describe("the two forms of an empty stored field", () => {
   it("reads „Nicht hinterlegt“ beside a label, and names the field where none stands", () => {
@@ -26,34 +16,6 @@ const address = {
   stadtteil: "Ostend",
   stadt: "Frankfurt am Main",
 };
-
-describe("formatAddress", () => {
-  it("formats a complete address", () => {
-    expect(formatAddress(address)).toBe("Hanauer Landstraße 12a, 60314 Frankfurt am Main (Ostend)");
-  });
-
-  it("returns the placeholder when no address is given", () => {
-    expect(formatAddress(undefined)).toBe("Adresse nicht hinterlegt");
-    expect(formatAddress()).toBe("Adresse nicht hinterlegt");
-  });
-
-  // Stadtteil is optional: an address without one is complete, so nothing may render an empty "()" tail.
-  it("drops the stadtteil parenthesis when it is empty", () => {
-    expect(formatAddress({ ...address, stadtteil: "" })).toBe("Hanauer Landstraße 12a, 60314 Frankfurt am Main");
-  });
-
-  it("closes the street up to its comma where the hausnummer is empty", () => {
-    expect(formatAddress({ ...address, hausnummer: "" })).toBe("Hanauer Landstraße, 60314 Frankfurt am Main (Ostend)");
-  });
-
-  it("drops an empty hausnummer and an empty stadtteil together", () => {
-    expect(formatAddress({ ...address, hausnummer: "", stadtteil: "" })).toBe("Hanauer Landstraße, 60314 Frankfurt am Main");
-  });
-
-  it("reads a part holding only whitespace as empty", () => {
-    expect(formatAddress({ ...address, hausnummer: " ", stadtteil: " " })).toBe("Hanauer Landstraße, 60314 Frankfurt am Main");
-  });
-});
 
 describe("formatAddressFull", () => {
   it("appends the country and puts stadtteil before stadt", () => {
@@ -76,23 +38,6 @@ describe("formatAddressFull", () => {
 
   it("reads a part holding only whitespace as empty", () => {
     expect(formatAddressFull({ ...address, hausnummer: " ", stadtteil: " " })).toBe("Hanauer Landstraße, 60314 Frankfurt am Main, Deutschland");
-  });
-});
-
-describe("buildMapsSearchUrl", () => {
-  it("wraps a query in a Google Maps search URL", () => {
-    expect(buildMapsSearchUrl("Sportplatz Ost")).toBe("https://www.google.com/maps/search/?api=1&query=Sportplatz%20Ost");
-  });
-
-  // The query is the only caller-controlled part of the URL, so encoding is the thing to pin.
-  it("percent-encodes characters that would otherwise break the query", () => {
-    const link = buildMapsSearchUrl("Platz & Halle #2");
-    assert.ok(link.includes("Platz%20%26%20Halle%20%232"));
-    assert.ok(!link.includes("&query=Platz &"));
-  });
-
-  it("returns a bare query parameter for an empty string", () => {
-    expect(buildMapsSearchUrl("")).toBe("https://www.google.com/maps/search/?api=1&query=");
   });
 });
 

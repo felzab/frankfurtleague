@@ -48,26 +48,33 @@ from app.api.registrierungen.services import (
     seite_of,
     zustand_of,
 )
+from app.api.saisons.services import has_started
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, hash_gesperrt, sperrliste_saison
-from app.api.spieltage.crud import nachnominierung_laeuft_in
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db, post_one_to_db, pull_one_from_db, refuse
 from app.core.dependencies import (
     DBClient,
     InvitationsCollection,
+    InvitationsReadCollection,
     OutboxCollection,
     RegistrierungenCollection,
+    RegistrierungenReadCollection,
     SaisonsCollection,
     SaisonSpielerCollection,
+    SaisonSpielerReadCollection,
+    SaisonsReadCollection,
     SaisonTeamsCollection,
+    SaisonTeamsReadCollection,
     SpielerCollection,
-    SpieltageCollection,
-    TeamsCollection,
+    SpielerReadCollection,
+    TeamsReadCollection,
     get_german_date_str,
     get_germany_now,
 )
+from app.core.readonly import ReadCollection
 from app.core.recording import log_stamp
+from app.core.routing import SAFE
 from app.core.security import bind_public_actor, verify_access_base
 from app.core.transactions import transaction_session
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS, REGISTRIERUNG_CONFIRMATION_FRIST_DAYS, REGISTRIERUNG_MIN_AGE_YEARS
@@ -83,15 +90,16 @@ router = APIRouter(
 )
 
 
-# What a season read serves this tier: the two rules a form is bounded by, the window, and the
-# status the page words a closed link with. No other field of a season reaches an invite's holder.
-SAISON_PROJECTION = ["registrierung", "rules.allowed_stufen", "rules.max_kadergroesse", "status"]
+# What a season read serves this tier: the two rules a form is bounded by, the window, the
+# status the page words a closed link with, and the start the Nachnominierung verdict is judged on,
+# which reaches the holder as that verdict alone. No other field of a season reaches an invite's holder.
+SAISON_PROJECTION = ["registrierung", "rules.allowed_stufen", "rules.max_kadergroesse", "status", "start_date"]
 
 # What a replay reads of the registration its key found: the digest it is compared by.
 WIEDERHOLUNG_PROJECTION = ["idempotency_fingerprint"]
 
-# `refuse_withheld_saison` is deliberately NOT called below, where every other base-tier season read
-# calls it: a season taking registrations is normally `future`, so that guard would 404 the flow
+# `resolve_public_saison` is deliberately NOT called below, where every other base-tier season read
+# calls it: a season taking registrations is normally `future`, so that resolve would 404 the flow
 # this exists for. The INVITE authorises instead.
 
 
@@ -105,7 +113,7 @@ def _live_squad_filter(*, saison_id: str, team_id: Any) -> dict[str, Any]:
     return {"saison_id": saison_id, "team_id": team_id, "inactive_since": None}
 
 
-async def _open_einladung(*, einladungen_collection: Any, token: str, session: AsyncClientSession | None = None) -> Any:
+async def _open_einladung(*, einladungen_collection: ReadCollection, token: str, session: AsyncClientSession | None = None) -> Any:
     """The live invite a presented link opens, or a refusal.
 
     ONE code for unknown and for revoked, the reason `link_invalid` records: nothing tells a
@@ -122,15 +130,15 @@ async def _open_einladung(*, einladungen_collection: Any, token: str, session: A
     "/invitation/view",
     response_model=FLInvitationViewResponse,
     summary="What a registration link opens",
+    openapi_extra=SAFE,
 )
 async def post_invitation_view(
     ansicht_data: Annotated[FLTokenPayload, Body()],
-    einladungen_collection: InvitationsCollection,
-    saisons_collection: SaisonsCollection,
-    saison_teams_collection: SaisonTeamsCollection,
-    saison_spieler_collection: SaisonSpielerCollection,
-    spieltage_collection: SpieltageCollection,
-    teams_collection: TeamsCollection,
+    einladungen_collection: InvitationsReadCollection,
+    saisons_collection: SaisonsReadCollection,
+    saison_teams_collection: SaisonTeamsReadCollection,
+    saison_spieler_collection: SaisonSpielerReadCollection,
+    teams_collection: TeamsReadCollection,
     today: str = Depends(get_german_date_str),
 ) -> FLInvitationViewResponse:
     """
@@ -159,7 +167,7 @@ async def post_invitation_view(
 
     # The squad create's own test, so the page tells a pupil what an entry made TODAY would store --
     # not what a squad row written on a later day will.
-    nachnominierung = await nachnominierung_laeuft_in(spieltage_collection=spieltage_collection, saison_id=saison_id, today=today, session=None)
+    nachnominierung = has_started(start_date=saison_raw["start_date"], today=today)
 
     return FLInvitationViewResponse(
         team=str((junction_raw or team_raw)["name"]),
@@ -347,12 +355,13 @@ async def post_registrierung(
     "/confirmation/view",
     response_model=FLRegistrierungConfirmationViewResponse,
     summary="What one registration confirmation link opens",
+    openapi_extra=SAFE,
 )
 async def get_confirmation_view(
     ansicht_data: Annotated[FLTokenPayload, Body()],
-    registrierungen_collection: RegistrierungenCollection,
-    teams_collection: TeamsCollection,
-    spieler_collection: SpielerCollection,
+    registrierungen_collection: RegistrierungenReadCollection,
+    teams_collection: TeamsReadCollection,
+    spieler_collection: SpielerReadCollection,
     sperrliste: SperrlisteLookup,
     today: str = Depends(get_german_date_str),
 ) -> FLRegistrierungConfirmationViewResponse:

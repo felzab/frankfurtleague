@@ -131,11 +131,12 @@ retired row. `retire_blocked`, `spielort_still_booked` and `schiedsrichter_still
 **Where a document really is removed, the removal is what the operation is for.** A confirmed **replace** of
 a season's draw takes its matchdays and fixtures away and writes fresh ones; an **undraw** takes the same two
 sets away and writes nothing back, and what it is for is [the rules
-below](#a-seasons-rules-are-the-interesting-case). A pupil's **erasure** removes the person, every one of
-their squad rows and their values in the action log, as one transaction over all three, and asks no
-retirement first — any one of the three alone would leave the erasure defeated
-while reporting success, the squad read joining from the person outward and a log row holding what was erased
-being exactly the record the erasure exists to remove.
+below](#a-seasons-rules-are-the-interesting-case). A pupil's **erasure** removes the person and every one of
+their squad rows, repoints every scorer and card entry naming them in a match report at the erased sentinel
+(`fl_backend/app/api/spielberichte/crud.py :: repoint_pupil_entries_in_session`) and removes their values in the
+action log, as one transaction over all four, and asks no retirement first — any one of the four alone would
+leave the erasure defeated while reporting success, a report entry or a log row holding what was erased being
+exactly the record the erasure exists to remove.
 
 ### A season's rules are the interesting case
 
@@ -160,15 +161,18 @@ is a schedule nobody has played.
 
 One freeze sits outside that one:
 
-- **A started season's scoring and seeding are frozen** (`rules_saison_started`) — from the day of its earliest
-  group-phase fixture (`fl_backend/app/api/saisons/crud.py :: has_started`), the points, the qualifiers per
-  group and the tie-break order hold: the table is derived from them on every read, and the bracket was
-  seeded from the placings the order decides. A `past` season stays frozen whatever its fixtures' dates.
+- **A started season's scoring and seeding are frozen** (`rules_saison_started`) — from its stored
+  `start_date` (`fl_backend/app/api/saisons/services.py :: has_started`, the start every start lock, the
+  Nachnominierung and the landing read), the points, the qualifiers per group and the tie-break order hold:
+  the table is derived from them on every read, and the bracket was seeded from the placings the order
+  decides. A `past` season stays frozen whatever its start date.
 
 **Every one of these judges the step and not the state it arrives in**, which is what keeps a season
 repairable: a date-only edit resubmits the whole `rules` object and passes whatever the stored values already
-say. The dates themselves sit outside `rules` and stay editable even on a
-finished season, correcting a mistyped one changing nothing anybody competed for.
+say. The dates themselves sit outside `rules`. The end date stays editable even on a finished season,
+correcting a mistyped one changing nothing anybody competed for. The start date moves until a fixture of the
+season has taken place (`saison_start_taken_place`), so a season frozen too early is unlocked by moving its
+start; after a match it would reopen what the start locks closed.
 
 ---
 
@@ -186,10 +190,13 @@ finished season, correcting a mistyped one changing nothing anybody competed for
 - **Every group plays one round robin, and the groups play in step.** Round _k_ of every group is matchday
   _k_, which is what keeps a club from standing twice on one matchday and makes every group finish together.
   An odd-sized group leaves one club on a bye each round rather than shortening the phase.
-- **The bracket has to have a shape.** Groups times qualifiers-per-group must be a power of two the round set
-  can hold (`rules_bracket_impossible`), because a knockout ladder halves each round down to one final; the rounds are
+- **The bracket has to have a shape.** Groups times qualifiers-per-group must be a power of two from four up to
+  what the round set can hold (`rules_bracket_impossible`), because a knockout ladder halves each round down to one
+  final and the podium needs semi-finals to fill four places; the rounds are
   `fl_backend/app/api/spiele/schemas.py :: KNOCKOUT_PHASES`, declared in playing order, and each of them is
-  one matchday.
+  one matchday. Every bracket therefore plays for third place: the two semi-final losers meet on the Finale's
+  matchday, ahead of the final and under its phase, where the draw writes that match
+  (`fl_backend/app/api/saisons/spielplan.py :: draw_spielplan`).
 - **A bracket fixture is drawn naming its sources rather than its teams.** A side is fed by a group placing,
   or by which side came out of an earlier fixture — so the whole season is drawn end to end before anybody has
   qualified for anything, and entering a result is what fills the slots downstream.
@@ -301,7 +308,7 @@ no later feature can come to depend on a flag.
 - **A Spieltag on which a club already stands twice.** The swap, `spieltag_occupied` and `spieltag_occupied_by_the_resolution`
   refuse only a pair the write would create, since refusing over a standing fault would block its repair;
   each standing appearance is reported.
-- **A departed club holding drawn fixtures.** It keeps its group place and its opponents need a fixture to
+- **A departed club holding drawn fixtures.** It keeps its row in its group and its opponents need a fixture to
   record the walkover on; `eligibility_disqualified` refuses only a request disturbing one.
 - **A group phase in which every club qualifies.** A seeding-only group stage is a real format, so
   `rules_qualifiers_above_gruppe` bounds the qualifiers from above alone.

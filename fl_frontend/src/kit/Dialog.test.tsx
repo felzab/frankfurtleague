@@ -144,6 +144,7 @@ describe("the route dialog", () => {
           <Link
             href="/saisons/2027/spiele/1"
             placement="button"
+            look="primary"
             label={COPY.shared.toSpiel}
           />
         }>
@@ -293,7 +294,7 @@ function SpielortFieldWithDialog() {
     <>
       <ComboBox
         label={COPY.verwaltung.spielort.object}
-        options={[{ id: "ost", label: "Sportplatz Ost" }]}
+        options={[{ id: "ost", label: { record: "Sportplatz Ost" } }]}
         create={{
           label: COPY.verwaltung.spielort.createEntry,
           onCreate: (typed) => {

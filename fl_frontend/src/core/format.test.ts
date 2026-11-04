@@ -3,12 +3,14 @@ import { describe, expect, it } from "vitest";
 import {
   formatDatum,
   formatDatumLong,
+  formatDatumPair,
   formatDatumWithWeekday,
   formatErgebnis,
   formatEuro,
   formatInstant,
   formatNumber,
   formatPeriod,
+  formatSigned,
   formatUhrzeit,
 } from "./format.ts";
 
@@ -39,6 +41,21 @@ describe("formatDatum", () => {
 describe("formatDatumLong", () => {
   it("names the month, umlaut included", async (t) => {
     await same(t, formatDatumLong("2027-03-14"), "14. März 2027");
+  });
+});
+
+describe("formatDatumPair", () => {
+  it("sets the day and the month over the long weekday and the year", async (t) => {
+    const { figure, line } = formatDatumPair("2027-03-06");
+    await same(t, figure, "06.03.");
+    await same(t, line, "Samstag 2027");
+  });
+
+  // Late on New Year's Eve UTC it is already the new year in Berlin: its weekday and its year both.
+  it("reads an instant on the league's clock, the year included", async (t) => {
+    const { figure, line } = formatDatumPair(new Date("2026-12-31T23:30:00Z"));
+    await same(t, figure, "01.01.");
+    await same(t, line, "Freitag 2027");
   });
 });
 
@@ -81,6 +98,13 @@ describe("formatNumber and formatEuro", () => {
 
   it("put the euro sign after a no-break space", async (t) => {
     await same(t, formatEuro(25), "25,00\u00a0€");
+  });
+});
+
+describe("formatSigned", () => {
+  // The runtime's ICU data writes the sign, so a minus it spells another way shows here first.
+  it("signs a difference where it is not level, and a level one bare", async (t) => {
+    await same(t, [formatSigned(3), formatSigned(0), formatSigned(-3)].join(" "), "+3 0 -3");
   });
 });
 

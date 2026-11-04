@@ -1,10 +1,10 @@
 // Apart from the Zod map, which `instrumentation.ts` installs on both runtimes: the rule phrases are the server's
 // own catalogue, which neither instrumentation bundle is to carry.
 import { COPY } from "./copy";
+import { dayOf } from "./format";
 import { SERVER_COPY } from "./serverCopy";
 
 import type { Copy } from "./copy";
-import type { CalendarDay } from "./format";
 import type { FLRefusedField } from "./generated/client/types";
 
 const { field, failure } = COPY.shared;
@@ -12,7 +12,7 @@ const { field, failure } = COPY.shared;
 type Context = FLRefusedField["ctx"];
 
 /** A span's end: earliest its start, which the backend's rule names, as the end box's own earliest day reads. */
-const notBeforeStart = ({ start }: Context) => (typeof start === "string" ? field.earliest(start as CalendarDay) : undefined);
+const notBeforeStart = ({ start }: Context) => (typeof start === "string" ? field.earliest(dayOf(start)) : undefined);
 
 /**
  * Each rule the backend refuses a payload with that a field pattern words, by its kind, from the bounds the rule's
@@ -22,7 +22,7 @@ const notBeforeStart = ({ start }: Context) => (typeof start === "string" ? fiel
 const PATTERNED = {
   // A season's id is its year, which takes no thousands separator.
   saison_year_out_of_range: ({ min, max }: Context) =>
-    typeof min === "number" && typeof max === "number" ? field.between(String(min), String(max)) : undefined,
+    typeof min === "number" && typeof max === "number" ? field.between({ year: min }, { year: max }) : undefined,
   saison_ends_before_start: notBeforeStart,
   bewerbung_window_ends_before_start: notBeforeStart,
   registrierung_window_ends_before_start: notBeforeStart,
@@ -39,24 +39,31 @@ const PATTERNED = {
   // A rule over the contact block, which the backend reports at the block; the kind says which field repeats.
   kontakt_email_twice: () => field.taken,
   kontakt_telefon_twice: () => field.taken,
+  // A no-show's report carries no play: the league composes its goals, and nobody scored them.
+  nichtantreten_with_tore: () => field.without(COPY.shared.tore),
+  nichtantreten_with_torschuetzen: () => field.without(COPY.verwaltung.spiel.torschuetzen),
 } satisfies Readonly<Record<string, (context: Context) => Copy | undefined>>;
 
-/** Every rule a refused payload can name that the catalogue words: by a pattern, or by `SERVER_COPY.rule`'s own phrase. */
-export type WordedRule = keyof typeof PATTERNED | keyof typeof SERVER_COPY.rule;
+/** Every rule a refused payload can name that the catalogue words: by a pattern, or by `SERVER_COPY.ruleLine`'s sentence. */
+export type WordedRule = keyof typeof PATTERNED | keyof typeof SERVER_COPY.ruleLine;
 
 const isPatterned = (kind: string): kind is keyof typeof PATTERNED => Object.hasOwn(PATTERNED, kind);
-const isPhrased = (kind: string): kind is keyof typeof SERVER_COPY.rule => Object.hasOwn(SERVER_COPY.rule, kind);
+const isLined = (kind: string): kind is keyof typeof SERVER_COPY.ruleLine => Object.hasOwn(SERVER_COPY.ruleLine, kind);
 
 /** Whether the catalogue words this rule, so a screen may place it. */
-export const isWordedRule = (kind: string): kind is WordedRule => isPatterned(kind) || isPhrased(kind);
+export const isWordedRule = (kind: string): kind is WordedRule => isPatterned(kind) || isLined(kind);
 
 /**
- * A rule the backend refused a payload with, in the same fixed patterns a Zod issue's line takes, or in the rule's own
- * phrase where no pattern words it. A context missing the bound its rule names means a page older than the API, so it
- * answers the unexpected line, as any rule the catalogue does not word does.
+ * A rule the backend refused a payload with: under its field, in the same fixed patterns a Zod issue's line takes, or,
+ * where no pattern words it, as the rule's sentence on the status line. A context missing the bound its rule names
+ * means a page older than the API, so it answers the unexpected line on the status line, as any rule the catalogue
+ * does not word does.
  */
-export function ruleMessage({ kind, ctx }: Pick<FLRefusedField, "kind" | "ctx">): Copy {
-  if (isPatterned(kind)) return PATTERNED[kind](ctx) ?? failure.unexpected;
-  if (isPhrased(kind)) return SERVER_COPY.rule[kind];
-  return failure.unexpected;
+export function ruleMessage({ kind, ctx }: Pick<FLRefusedField, "kind" | "ctx">): { field: Copy } | { line: Copy } {
+  if (isPatterned(kind)) {
+    const phrase = PATTERNED[kind](ctx);
+    return phrase === undefined ? { line: failure.unexpected } : { field: phrase };
+  }
+  if (isLined(kind)) return { line: SERVER_COPY.ruleLine[kind] };
+  return { line: failure.unexpected };
 }

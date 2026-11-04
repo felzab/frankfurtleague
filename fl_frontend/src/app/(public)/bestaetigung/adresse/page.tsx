@@ -1,30 +1,26 @@
 import { Suspense } from "react";
 
-import { ADRESSWECHSEL_PFAD } from "@/core/adresswechselEmail";
+import { ROUTES } from "@/core/routes";
 import { AdresswechselLinkView } from "@/features/adresswechsel/components/views/AdresswechselLinkView";
 import { startOf } from "@/features/adresswechsel/link";
 import { getAdresswechselAnsicht } from "@/features/adresswechsel/queries";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 import { nullUnlessContractBreak } from "@/shared/utils/degradedRead";
-import { openGraphFor } from "@/shared/utils/metadata";
+import { pageMetadata } from "@/shared/utils/metadata";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import type { AdresswechselStart } from "@/features/adresswechsel/link";
 import type { NextPageProps } from "@/shared/types/types";
-import type { Metadata } from "next";
+import type { Metadata, ResolvingMetadata } from "next";
 
 /**
- * `noindex` and `no-referrer`: the URL carries the link's token, which no crawler and no outbound referer may keep.
- * The title fits both links, the new mailbox's and the stop link of the address on file.
+ * `no-referrer`, and a row no crawler fetches: the URL carries the link's token, which no crawler and no outbound
+ * referer may keep. The title fits both links, the new mailbox's and the stop link of the address on file.
  */
-export const metadata: Metadata = {
-  title: "Änderung der E-Mail-Adresse",
-  description: "Bestätige die neue E-Mail-Adresse Deines Kontos bei der Frankfurt League, oder stoppe ihre Änderung.",
-  robots: { index: false, follow: false },
-  referrer: "no-referrer",
-  openGraph: openGraphFor(ADRESSWECHSEL_PFAD),
-  alternates: { canonical: ADRESSWECHSEL_PFAD },
-};
+export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
+  const row = ROUTES.addressChangeConfirmation;
+  return { ...(await pageMetadata(parent, row, row.path())), referrer: "no-referrer" };
+}
 
 /** Resolves nothing itself, for the consent link page's reason. */
 export default function AdresswechselPage(props: NextPageProps) {

@@ -7,16 +7,17 @@ import pytest
 from app.api.saisons.schemas import FLSaisonForfeitErgebnis, FLSaisonRules
 from app.api.spiele.schemas import SONDEREREIGNIS_WITHOUT_A_RESULT, FLBracketFaultGruppe, FLSpiel, FLSpielListAdapter
 from app.api.spiele.services import BracketResolution, resolve_bracket
-from app.api.teams.schemas import FLGruppenTeam, FLTeam, FLTeamStatistik
+from app.api.teams.schemas import FLTabelleRow, FLTeam, FLTeamStatistik
 from app.api.teams.services import (
     CERTAINTY_FIXTURE_LIMIT,
     _decide_one_gruppe,
+    _decided_on,
     _may_hold_a_platz,
     _separated_placings,
     _still_to_play,
     build_decided_standings,
-    build_gruppen,
     build_statistik_by_team,
+    build_tabelle,
 )
 from app.shared.schemas.literals import FLSpielerStufe
 
@@ -38,7 +39,8 @@ RULES = FLSaisonRules(
     allowed_stufen=STUFEN,
 )
 
-# The walk keys on the field being non-null, never on what it says, so one value serves every case.
+# The day before every fixture the factory dates (2026-03-15), so every case using it reads an exit before the group
+# was decided; the cases on the date itself spell theirs out.
 AUSGETRETEN = {"type": "disqualifikation", "grund": "Nicht angetreten zum Spieltag", "datum": "2026-03-14"}
 
 # One member serves for the same reason: the walk reads the SET a fixture's `sonderereignis` falls in.
@@ -98,29 +100,23 @@ DIREKTER_VERGLEICH = RULES.model_copy(update={"tiebreak_order": "direkter_vergle
 def order(teams: list[FLTeam], documents: list[dict[str, Any]], rules: FLSaisonRules = RULES) -> list[str]:
     """Group A's standing, as a list of names."""
 
-    return [row.name for row in table(teams, documents, rules)]
+    return [row.name for row in tabelle(teams, documents, rules)]
 
 
-def table(teams: list[FLTeam], documents: list[dict[str, Any]], rules: FLSaisonRules = RULES) -> list[FLGruppenTeam]:
-    """Group A's rows, in the shape the grouped response puts on the wire."""
+def tabelle(teams: list[FLTeam], documents: list[dict[str, Any]], rules: FLSaisonRules = RULES) -> list[FLTabelleRow]:
+    """Group A's rows as the Tabelle serves them (`build_tabelle`), each with its `platz`."""
 
-    return build_gruppen(teams, FLSpielListAdapter.validate_python(documents), rules).root["A"]
+    return build_tabelle(teams, FLSpielListAdapter.validate_python(documents), rules).root["A"]
 
 
-def platz_by_team_id(rows: Sequence[FLGruppenTeam]) -> dict[str, int]:
-    """`fl_frontend/src/features/teams/utils.ts :: computePlatzByTeamId` restated over the row shape it parses.
+def platz_by_team_id(teams: list[FLTeam], documents: list[dict[str, Any]], rules: FLSaisonRules = RULES) -> dict[str, int]:
+    """The `platz` the Tabelle serves each club of group A, a club holding none left out.
 
-    The two surfaces must number the same clubs, and nothing else in either suite can fail when they
-    part company.
+    Every placing the seeding decides must be the number the Tabelle prints, and nothing else can fail when they part
+    company.
     """
 
-    numbered: dict[str, int] = {}
-    for row in rows:
-        if row.austritt_type is not None or row.statistik.count_gespielte_spiele + row.count_pending_spiele == 0:
-            continue
-        numbered[str(row.id)] = len(numbered) + 1
-
-    return numbered
+    return {str(row.id): row.platz for row in tabelle(teams, documents, rules) if row.platz is not None}
 
 
 def standing(teams: list[FLTeam], documents: list[dict[str, Any]], rules: FLSaisonRules = RULES):
@@ -343,6 +339,38 @@ class TestDirekterVergleich:
         assert order(teams, one_meeting, DIREKTER_VERGLEICH) == order(teams, one_meeting, RULES)
         assert standing(teams, one_meeting, DIREKTER_VERGLEICH).by_platz == {}
 
+    @pytest.mark.parametrize(
+        ("its_fixtures", "displayed"),
+        [
+            pytest.param(None, ["Team 1", "Team 2", "Team 4", "Team 3", "Team 5"], id="still to play, so the goal keys rank the band"),
+            pytest.param(CALLED_OFF, ["Team 1", "Team 3", "Team 2", "Team 4", "Team 5"], id="all called off, so the meetings rank it"),
+        ],
+    )
+    def test_a_club_yet_to_play_its_first_match_holds_the_mini_table_back_and_one_with_nothing_left_does_not(
+        self, a_team: TeamFactory, played: MatchFactory, its_fixtures: str | None, displayed: list[str]
+    ):
+        """Team 5 has played nothing and stands level with three clubs that drew each other, a draw worth nothing here.
+
+        With a match still to play it can still hold a place, so its missing meetings leave the band to the goal keys; with
+        every fixture called off it can hold none, and the three that met are ranked on their meetings. The Tabelle lists
+        Team 5 last either way, so only the three clubs' order tells the two apart.
+        """
+
+        rules = DIREKTER_VERGLEICH.model_copy(update={"draw_points": 0})
+        # The figures the fixtures below add up to: Team 1 beat the three, which drew each other.
+        teams = [
+            a_team(1, punkte=9, geschossen=6, kassiert=0),
+            a_team(2, punkte=0, geschossen=2, kassiert=3),
+            a_team(3, punkte=0, geschossen=3, kassiert=7),
+            a_team(4, punkte=0, geschossen=1, kassiert=2),
+            a_team(5, punkte=0, gespielt=0),
+        ]
+        among_the_three = [played(1, 2, 3, 2, 2), played(2, 2, 4, 0, 0), played(3, 3, 4, 1, 1)]
+        against_team_1 = [played(4, 1, 2, 1, 0), played(5, 1, 3, 4, 0), played(6, 1, 4, 1, 0)]
+        team_5s = [in_state(played, 7 + index, 5, other, its_fixtures) for index, other in enumerate((1, 2, 3, 4))]
+
+        assert order(teams, [*among_the_three, *against_team_1, *team_5s], rules) == displayed
+
     def test_the_fallback_still_ranks_a_subgroup_that_has_met(self, a_team: TeamFactory, played: MatchFactory):
         """The guard refuses a missing comparison, never a real one: Teams 1 and 2 met, and their meeting still decides."""
 
@@ -362,7 +390,7 @@ class TestDirekterVergleich:
 class TestADepartedClubInTheBand:
     """A club that has left is ranked and displayed, and settles nothing for the clubs that can place.
 
-    `build_gruppen` ranks it and `build_decided_standings` never sees it, so a comparison judged over
+    `build_tabelle` ranks it and `build_decided_standings` never sees it, so a comparison judged over
     whoever is present would split the two surfaces.
     """
 
@@ -483,40 +511,34 @@ class TestWhoMayHoldAPlatz:
 
 
 class TestTheTableAndTheSeedingNumberTheSameClubs:
-    """The published table carries the still-to-play term, so one rule numbers both surfaces.
+    """The Tabelle numbers the clubs that have played, and every placing the seeding decides is the number it prints.
 
-    Read through `platz_by_team_id`: a row that reached the wire without the term would number a
-    different set here.
+    The seeding also counts a club with no match that has one still to play, which the Tabelle lists last; no
+    placing below such a club is decided, since it can still finish level with any of them on points.
     """
 
-    def test_a_row_carries_the_fixtures_it_has_still_to_play(self, a_team: TeamFactory, played: MatchFactory):
-        """The figure itself, before any rule reads it: `statistik` counts what was played and nothing counts what is coming."""
-
-        teams = [a_team(1, punkte=0, gespielt=0), a_team(2, punkte=0, gespielt=0)]
-
-        assert [row.count_pending_spiele for row in table(teams, [played(1, 1, 2)])] == [1, 1]
-
-    def test_a_group_before_its_first_fixture_numbers_every_club(self, a_team: TeamFactory, played: MatchFactory):
-        """A league table numbers its clubs from the day it is drawn; nothing here may read `N/A`."""
+    def test_a_club_that_has_played_no_match_holds_no_place(self, a_team: TeamFactory, played: MatchFactory):
+        """Before a group's first match every row reads null, while the seeding still counts each club that has a match to play."""
 
         teams = [a_team(seed, punkte=0, gespielt=0) for seed in (1, 2, 3)]
         fixtures = [played(1, 1, 2), played(2, 1, 3), played(3, 2, 3)]
 
-        assert sorted(platz_by_team_id(table(teams, fixtures)).values()) == [1, 2, 3]
+        assert [row.platz for row in tabelle(teams, fixtures)] == [None, None, None]
         assert standing(teams, fixtures).eligible == 3
 
     def test_every_placing_the_seeding_decides_is_the_number_the_table_prints(self, a_team: TeamFactory, played: MatchFactory):
-        """Mid-group: the club yet to play is numbered second, and the club below it prints 3 rather than 2."""
+        """Mid-group: the club yet to play ranks second on its zeroes, sorts last and prints no number, and the club below it prints 2."""
 
         teams = [a_team(1, punkte=9), a_team(2, punkte=0, gespielt=0), a_team(3, punkte=0, geschossen=0, kassiert=9)]
         fixtures = [played(1, 2, 3)]
 
         decided = standing(teams, fixtures)
-        numbered = platz_by_team_id(table(teams, fixtures))
+        numbered = platz_by_team_id(teams, fixtures)
         seeded = {str(team.id): platz for platz, team in decided.by_platz.items()}
 
-        assert decided.eligible == len(numbered) == 3
-        assert numbered[TEAM_ID.format(3)] == 3
+        assert [row.name for row in tabelle(teams, fixtures)] == ["Team 1", "Team 3", "Team 2"]
+        assert decided.eligible == 3
+        assert numbered == {TEAM_ID.format(1): 1, TEAM_ID.format(3): 2}
         # Pinned before it is compared: an `all` over a `by_platz` some tighter certainty rule emptied
         # asserts nothing and still passes.
         assert seeded == {TEAM_ID.format(1): 1}
@@ -528,31 +550,25 @@ class TestTheTableAndTheSeedingNumberTheSameClubs:
         teams = [a_team(1, punkte=9), a_team(2, punkte=6, austritt=AUSGETRETEN), a_team(3, punkte=3)]
         decided = standing(teams, [])
 
-        assert platz_by_team_id(table(teams, [])) == {str(team.id): platz for platz, team in decided.by_platz.items()}
+        assert platz_by_team_id(teams, []) == {str(team.id): platz for platz, team in decided.by_platz.items()}
+
+    def test_clubs_the_chain_leaves_level_share_the_place_their_band_starts_at(self, a_team: TeamFactory, played: MatchFactory):
+        """Level on points and goals and drawn against each other: the bracket seeds neither, and the Tabelle prints both second."""
+
+        level = {"punkte": 4, "geschossen": 5, "kassiert": 5}
+        teams = [a_team(1, punkte=9), a_team(2, **level), a_team(3, **level), a_team(4, punkte=0)]
+        drawn = [played(1, 2, 3, 1, 1)]
+
+        assert platz_by_team_id(teams, drawn) == {TEAM_ID.format(1): 1, TEAM_ID.format(2): 2, TEAM_ID.format(3): 2, TEAM_ID.format(4): 4}
+        assert {str(team.id): platz for platz, team in standing(teams, drawn).by_platz.items()} == {TEAM_ID.format(1): 1, TEAM_ID.format(4): 4}
 
     def test_a_club_with_nothing_played_and_nothing_left_is_numbered_by_neither(self, a_team: TeamFactory):
-        """The case `N/A` still exists for: zeroes rank above a negative difference, so the row sits high and holds no place."""
+        """The seeding counts no club with nothing to play for, and the Tabelle numbers no club that has not played."""
 
         teams = [a_team(1, punkte=0, gespielt=0), a_team(2, punkte=3, geschossen=1, kassiert=4)]
 
-        assert platz_by_team_id(table(teams, [])) == {TEAM_ID.format(2): 1}
+        assert platz_by_team_id(teams, []) == {TEAM_ID.format(2): 1}
         assert standing(teams, []).eligible == 1
-
-    def test_a_fixture_belonging_to_no_group_is_counted_by_the_table_too(self, a_team: TeamFactory, played: MatchFactory):
-        """Team 1's only fixture is against a group-B club, so no fixture INSIDE group A carries its term.
-
-        The seeding derives the term over the whole scoped list, so a table deriving it per group
-        prints `N/A` for a club the seeding still counts eligible.
-        """
-
-        teams = [a_team(1, punkte=0, gespielt=0), a_team(2, punkte=3, gespielt=1), a_team(3, punkte=0, gespielt=0, gruppe="B")]
-        across_the_groups = [played(9, 1, 3)]
-
-        rows = table(teams, across_the_groups)
-        numbered = platz_by_team_id(rows)
-
-        assert [(row.name, row.count_pending_spiele) for row in rows] == [("Team 2", 0), ("Team 1", 1)]
-        assert standing(teams, across_the_groups).eligible == len(numbered) == 2
 
 
 class TestWhenAPlacingIsFinal:
@@ -666,6 +682,34 @@ class TestACallOffIsAnEndingToo:
 
         assert decided.eligible == 1
         assert decided.by_platz[1].name == "Team 2"
+
+    @pytest.mark.parametrize(
+        ("left_on", "seeded"),
+        [
+            pytest.param(None, ["Team 1"], id="a club in the season"),
+            pytest.param("2026-03-16", ["Team 1"], id="a club leaving the day after the group's last fixture"),
+            pytest.param("2026-03-15", ["Team 1", "Team 3"], id="the control, a club leaving on that day"),
+        ],
+    )
+    def test_a_club_yet_to_play_its_first_match_holds_open_the_place_it_could_win(
+        self, a_team: TeamFactory, played: MatchFactory, left_on: str | None, seeded: list[str]
+    ):
+        """Team 2 has played nothing and meets Team 3, three points ahead, in the group's last fixture.
+
+        A win draws Team 2 level, so second place waits on that fixture; only the call-off, the one ending leaving Team 2
+        nothing counted, takes it out of the set. Leaving on the fixture's own day it holds no place in any ending, and
+        Team 3's second place is decided whatever the fixture brings.
+        """
+
+        teams = [
+            a_team(1, punkte=9),
+            a_team(2, punkte=0, gespielt=0, austritt=None if left_on is None else austritt_on(left_on)),
+            a_team(3, punkte=3, gespielt=2),
+        ]
+        # Dated 2026-03-15 by the factory, the day the group is decided on.
+        decided = standing(teams, [played(1, 2, 3)])
+
+        assert [decided.by_platz[platz].name for platz in sorted(decided.by_platz)] == seeded
 
     def test_a_call_off_is_told_from_a_draw_awarding_the_same_nothing(self, a_team: TeamFactory, played: MatchFactory):
         """`FLSaisonRules` bounds `draw_points` below at zero, where the draw and the call-off leave every total identical.
@@ -842,7 +886,7 @@ class TestEveryWayThreeClubsCanStand:
         for case, rules, teams, spiele in every_three_club_group(a_team, played):
             groups += 1
             left_to_play = _still_to_play(spiele)
-            placeable = frozenset(team.id for team in teams if _may_hold_a_platz(team, left_to_play.get(team.id, 0)))
+            placeable = frozenset(team.id for team in teams if _may_hold_a_platz(team, left_to_play.get(team.id, 0), _decided_on(spiele)))
             settled = frozenset(team.id for team in teams if left_to_play.get(team.id, 0) == 0)
 
             walked = _decide_one_gruppe(teams=teams, spiele=spiele, rules=rules, still_to_play=left_to_play, has_unattributable=False)
@@ -938,3 +982,98 @@ class TestSeedingTheSlot:
         resolution = self.seeded(decided, {"type": "gruppe", "gruppe": "A", "platz": 1}, spiel, stored=stored)
 
         assert resolution.advancements == []
+
+
+def austritt_on(datum: str, route: str = "disqualifikation") -> dict[str, Any]:
+    return {"type": route, "grund": "Ausgeschieden", "datum": datum}
+
+
+class TestAnExitIsWeighedAgainstTheDayItsGroupWasDecided:
+    """A place decided before a club's exit stands, one decided on or after it is vacated, for either route out.
+
+    Team 1 tops group A on every table here, so whether it holds the first place is the exit rule and nothing else.
+    """
+
+    def _group(
+        self, a_team: TeamFactory, played: MatchFactory, austritt: dict[str, Any], **last: Any
+    ) -> tuple[list[FLTeam], list[dict[str, Any]]]:
+        teams = [a_team(1, punkte=6, austritt=austritt), a_team(2, punkte=3), a_team(3, punkte=0)]
+        # Dated 2026-03-15 by the factory unless `last` dates the third.
+        spiele = [played(1, 1, 2, 1, 0), played(2, 1, 3, 1, 0), played(3, 2, 3, 1, 0, **last)]
+
+        return teams, spiele
+
+    @pytest.mark.parametrize("route", ["disqualifikation", "rueckzug"])
+    def test_an_exit_after_the_last_fixture_keeps_its_place_and_its_seed(self, a_team: TeamFactory, played: MatchFactory, route: str):
+        teams, spiele = self._group(a_team, played, austritt_on("2026-03-16", route))
+
+        assert platz_by_team_id(teams, spiele) == {TEAM_ID.format(1): 1, TEAM_ID.format(2): 2, TEAM_ID.format(3): 3}
+        assert standing(teams, spiele).by_platz[1].id == teams[0].id
+
+    @pytest.mark.parametrize("route", ["disqualifikation", "rueckzug"])
+    def test_an_exit_on_the_last_fixtures_day_vacates_it(self, a_team: TeamFactory, played: MatchFactory, route: str):
+        """The exit's own day counts as after it, as the eligibility rule orders a day against it."""
+
+        teams, spiele = self._group(a_team, played, austritt_on("2026-03-15", route))
+
+        assert platz_by_team_id(teams, spiele) == {TEAM_ID.format(2): 1, TEAM_ID.format(3): 2}
+        assert standing(teams, spiele).by_platz[1].id == teams[1].id
+
+    def test_an_undated_fixture_that_can_still_award_points_vacates_it(self, a_team: TeamFactory, played: MatchFactory):
+        """Nothing says the group was decided before the exit, so the place is not the departed club's."""
+
+        teams, spiele = self._group(a_team, played, austritt_on("2026-12-31"), datum=None)
+
+        assert TEAM_ID.format(1) not in platz_by_team_id(teams, spiele)
+
+    @pytest.mark.parametrize("sides", [(2, 3), (1, 3)], ids=["between two clubs that stay", "fielding the departed club"])
+    def test_an_undated_call_off_leaves_the_group_undecided(self, a_team: TeamFactory, played: MatchFactory, sides: tuple[int, int]):
+        """It awards nothing, and still nothing says the group was decided before the exit, so the place is not the departed club's."""
+
+        teams, spiele = self._group(a_team, played, austritt_on("2026-03-16"))
+        spiele.append(played(4, *sides, datum=None, sonderereignis=CALLED_OFF))
+
+        assert TEAM_ID.format(1) not in platz_by_team_id(teams, spiele)
+        assert standing(teams, spiele).by_platz[1].id == teams[1].id
+
+    @pytest.mark.parametrize("last", [{}, {"sonderereignis": CALLED_OFF}], ids=["still to play", "called off"])
+    def test_a_place_the_walk_decides_stays_decided_when_its_undated_fixture_is_called_off(
+        self, a_team: TeamFactory, played: MatchFactory, last: dict[str, Any]
+    ):
+        """While the one undated fixture is open the walk seeds the club below the departed one, so calling it off may not hand the place back.
+
+        Club 1 left the day after every dated fixture, so a day read off the call-off would date the group before the exit
+        and give club 1 back the first place, rewriting a slot the bracket had seeded with club 2.
+        """
+
+        teams = [a_team(1, punkte=9, austritt=austritt_on("2026-03-16")), a_team(2, punkte=6), a_team(3), a_team(4)]
+        dated = [played(nr, home, away, 1, 0) for nr, (home, away) in enumerate(all_pairs([1, 2, 3, 4])[:-1], start=1)]
+        spiele = [*dated, played(6, 3, 4, datum=None, **last)]
+
+        assert standing(teams, spiele).by_platz[1].id == teams[1].id
+
+    @pytest.mark.parametrize(("datum", "seeded"), [("2026-03-21", True), ("2026-03-20", False)], ids=["after", "on the day"])
+    def test_the_walk_weighs_the_day_of_a_fixture_still_to_play(self, a_team: TeamFactory, played: MatchFactory, datum: str, seeded: bool):
+        """With a fixture still open the group is decided on its day, which the walk reads for every ending alike."""
+
+        teams = [a_team(1, punkte=9, austritt=austritt_on(datum)), a_team(2, punkte=3), a_team(3, punkte=0)]
+        spiele = [played(1, 1, 2, 1, 0), played(2, 1, 3, 1, 0), played(3, 2, 3, datum="2026-03-20")]
+
+        holder = standing(teams, spiele).by_platz.get(1)
+
+        assert (holder is not None and holder.id == teams[0].id) is seeded
+
+    @pytest.mark.parametrize("rules", [RULES, DIREKTER_VERGLEICH], ids=["tordifferenz", "direkter_vergleich"])
+    def test_a_club_that_left_after_the_group_is_decided_counts_in_its_tiebreak(
+        self, a_team: TeamFactory, played: MatchFactory, rules: FLSaisonRules
+    ):
+        """Level with two clubs and having met neither, so no meeting ranks the three: they share the place their band starts at.
+
+        Gone before the decision, the same club would be left out and the meeting of the other two would rank them.
+        """
+
+        level = {"punkte": 6, "geschossen": 4, "kassiert": 4}
+        teams = [a_team(1, **level), a_team(2, **level), a_team(3, **level, austritt=austritt_on("2026-03-16"))]
+        met = [played(1, 1, 2, 2, 0)]
+
+        assert platz_by_team_id(teams, met, rules) == {TEAM_ID.format(1): 1, TEAM_ID.format(2): 1, TEAM_ID.format(3): 1}

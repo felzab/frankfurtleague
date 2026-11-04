@@ -4,16 +4,16 @@ from http import HTTPStatus
 from typing import Any, NamedTuple
 
 from app.api.adresswechsel.services import LIVE_KEYED_TERMS
-from app.api.spieler.schemas import FLSpielerFilterParams, FLSpielerRolle
+from app.api.spieler.schemas import FLSpielerRolle
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.crud import build_query, build_sort
 from app.core.exceptions import WriteRefusal
 from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SPIELER_ID
 from app.shared.einwilligung import NAME_IS_PUBLIC, is_confirmed
+from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import CustomObjectId
 
-AS_NAME = "saison_data"
+AS_NAME = "person"
 
 # `READ-PUPIL-001`: the surname must not reach the base tier at all, so the initial is composed here
 # rather than by a serialiser a later reader could go around. The dot belongs to the value, so the
@@ -89,7 +89,7 @@ def public_person(*, vorname: str | None, nachname: str | None, einwilligung: Ma
 
 
 def build_ghost_spieler() -> dict[str, Any]:
-    """The row an erased pupil's surviving entries are repointed to, as written.
+    """The row an erased pupil's scorer and card entries are repointed to, as written.
 
     Nameless and recordless, as `app/api/spieler/schemas.py :: FLSpielerRecord` admits for this row
     alone: a name here is published on every such entry, and a fabricated record is counted as consent.
@@ -135,87 +135,68 @@ def build_spieler_filter(spieler_id: Any) -> Mapping[str, Any]:
     return {"_id": {"$eq": spieler_id, **_NOT_THE_GHOST}}
 
 
-def build_spieler_pipeline(filters: FLSpielerFilterParams, withheld_saison_ids: Sequence[str] = ()) -> list[Mapping[str, Any]]:
-    """`withheld_saison_ids` are the seasons whose rows this read may not serve.
+# The squad table's own order, by position and then the forename served. Fixed rather than asked for: ordering by a key
+# reads it out whether or not the response carries it (`READ-PUPIL-001`, `READ-PUPIL-002`), so no caller names one, and
+# the chain stops at the forename, a surname this tier will not serve ordering nothing.
+SQUAD_ORDER: Mapping[str, int] = {"position": 1, "vorname": 1}
 
-    Empty is the honest default -- a league planning none withholds none -- so the caller that joins
-    across seasons is the one supplying them (`app/api/spieler/public_router.py`).
+
+def build_spieler_pipeline(*, team_id: CustomObjectId, saison_id: str) -> list[Mapping[str, Any]]:
+    """One club's squad in one season as the base tier serves it, run on `saison_spieler`.
+
+    The caller resolves the season, which no default here can. Both terms are required, since a squad is one club's in
+    one season and a term left out would serve that club's rows from every season; and they are the whole of what the
+    read narrows on, since a term on a field the response withholds rebuilds it from squads of one (`READ-PUPIL-002`).
     """
 
-    # First, ahead of the loose join below, which keeps a person holding no squad row.
-    pipeline: list[Mapping[str, Any]] = [{"$match": build_real_spieler_filter()}]
+    # First, so the read examines the one club's rows in the one season, through
+    # `saison_spieler_saison_id_team_id_de` under the collation the callers pass, and never every person.
+    squad_match: dict[str, Any] = {
+        "team_id": team_id,
+        "saison_id": saison_id,
+        # The SQUAD ROW's retirement, and only ever that (`READ-SQUAD-001`): the same term on the
+        # person would take a retired person's squad entries down with them. No switch: this tier
+        # marks no row it would un-hide (`READ-SQUAD-002`).
+        "inactive_since": None,
+        # The sentinel, so it never joins a squad row whatever the rows hold.
+        "spieler_id": dict(_NOT_THE_GHOST),
+    }
 
-    # Terms are NAMED, never excluded: a field added to the filter model would otherwise reach the
-    # junction `$match` unreviewed, and a term the response withholds is an inference channel.
-    active_filters = build_query(filters, terms={"team_id", "saison_id"})
-
-    # A sub-pipeline, not a post-join `$match`: these narrow the junction BEFORE the rows attach, so
-    # the join never carries a season this request did not ask for.
-    lookup_pipeline: list[Mapping[str, Any]] = [{"$match": {"$expr": {"$eq": ["$spieler_id", "$$base_spieler_id"]}}}]
-
-    # The SQUAD ROW's retirement, and only ever that (`READ-SQUAD-001`): the same match on the base
-    # collection would take a retired person's squad entries down with them. No switch: this tier
-    # marks no row it would un-hide (`READ-SQUAD-002`).
-    lookup_pipeline.append({"$match": {"inactive_since": None}})
-
-    # No `saison_data.` prefix: inside the sub-pipeline the junction document IS the root.
-    if active_filters:
-        lookup_pipeline.append({"$match": active_filters})
-
-    # Beside the caller's own terms rather than after the join: a row of a season this tier may not
-    # read must never attach, whatever else narrowed. Absent when nothing is withheld, so a league
-    # with no season planned runs the pipeline it always ran.
-    if withheld_saison_ids:
-        lookup_pipeline.append({"$match": {"saison_id": {"$nin": list(withheld_saison_ids)}}})
-
-    pipeline.append(
+    return [
+        {"$match": squad_match},
         {
             "$lookup": {
-                "from": Collection.SAISON_SPIELER,
-                "let": {"base_spieler_id": "$_id"},
-                "pipeline": lookup_pipeline,
+                "from": Collection.SPIELER,
+                "localField": "spieler_id",
+                "foreignField": "_id",
+                # The mask applied INSIDE the join, so the consent record it reads and every other
+                # field of the person never leave the sub-pipeline.
+                "pipeline": [{"$project": {"_id": 0, **PUBLIC_PERSON}}],
                 "as": AS_NAME,
             }
-        }
-    )
-
-    # One row per membership, so a player in two seasons is two documents.
-    strict_join = bool(filters.saison_id or filters.team_id)
-    pipeline.append(
-        {
-            "$unwind": {
-                "path": f"${AS_NAME}",
-                # Preserved unless a season or team filter is set: without one, a player with no
-                # squad row is still a player.
-                "preserveNullAndEmptyArrays": not strict_join,
-            }
-        }
-    )
-
-    # An ALLOW-LIST: every key here is one the squad table renders. What is projected reaches the
-    # page's payload whether rendered or not, so the consent record, the `stufe` (`READ-PUPIL-002`),
-    # the squad flags and the joined ids are not projected.
-    pipeline.append(
+        },
+        # Strict: a squad row naming nobody is a hand edit, and serves no slot.
+        {"$unwind": f"${AS_NAME}"},
+        # An ALLOW-LIST: every key here is one the squad table renders. What is projected reaches the
+        # page's payload whether rendered or not, so the `stufe` (`READ-PUPIL-002`), the squad flags
+        # and the joined ids are not projected.
         {
             "$project": {
-                # Named to drop it, `$project` keeping `_id` otherwise: the person's own id would tie every
-                # squad row of a pupil whose name is withheld together (`READ-PUPIL-005`).
+                # Named to drop the squad row's id, which `$project` keeps otherwise. `spieler_id`
+                # goes unnamed: the person's id would tie every row of a pupil whose name is withheld
+                # together (`READ-PUPIL-005`).
                 "_id": 0,
-                **PUBLIC_PERSON,
-                "position": f"${AS_NAME}.position",
-                "nummer": f"${AS_NAME}.nummer",
+                "vorname": f"${AS_NAME}.vorname",
+                "nachname": f"${AS_NAME}.nachname",
+                "position": 1,
+                "nummer": 1,
             }
-        }
-    )
-
-    # After the projection, so a bare field name reaches the root copy rather than the nested one.
-    # Through `build_sort` because `sort_by` may itself be `vorname`. The chain stops there: a surname
-    # this tier will not serve must not order the list either.
-    pipeline.append({"$sort": dict(build_sort(sort_by=filters.sort_by, order=filters.order, chain=(("vorname", 1),)))})
-
-    pipeline.append({"$limit": filters.limit})
-
-    return pipeline
+        },
+        # After the projection, so `vorname` orders by the name served, which the join masked.
+        {"$sort": dict(SQUAD_ORDER)},
+        # One page, as every season-scoped read takes.
+        {"$limit": LIST_LIMIT_DEFAULT},
+    ]
 
 
 def build_spieler_saisons_pipeline() -> list[Mapping[str, Any]]:

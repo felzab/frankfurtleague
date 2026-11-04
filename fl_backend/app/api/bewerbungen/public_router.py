@@ -27,7 +27,6 @@ from app.api.bewerbungen.services import (
     EINWILLIGUNG_ANTWORT_FIELDS,
     SAISON_EINWILLIGUNG_ANTWORT_FIELDS,
     SAISON_EINWILLIGUNG_FIELDS,
-    SAISON_NOT_ENDED_FILTER,
     ansprechperson_mailbox,
     assigned_trikot_farben,
     bestaetigungsfrist_from,
@@ -89,18 +88,23 @@ from app.core.crud import patch_one_in_db, post_one_to_db, pull_many_from_db, pu
 from app.core.dependencies import (
     ActionLogCollection,
     BewerbungenCollection,
+    BewerbungenReadCollection,
     DBClient,
     OutboxCollection,
     SaisonsCollection,
+    SaisonsReadCollection,
     SaisonTeamsCollection,
+    SaisonTeamsReadCollection,
     SpielbestaetigungenCollection,
     TeamsCollection,
+    TeamsReadCollection,
     get_german_date_str,
     get_germany_now,
 )
 from app.core.exceptions import DocumentNotFoundError
 from app.core.journal import Journal, JournalLine
 from app.core.recording import log_stamp
+from app.core.routing import SAFE
 from app.core.security import bind_public_actor, erasure_journal_hash, verify_access_base
 from app.core.transactions import transaction_session
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
@@ -148,53 +152,6 @@ async def _pull_window(*, saisons_collection: AsyncCollection, saison_id: str) -
     return window, saison_raw["status"]
 
 
-def _fenster(*, saison_id: str, saison_status: Any, bewerbung: Any, today: str) -> FLBewerbungWindowResponse:
-    """One window as this tier is served it, with the running judgement already taken."""
-
-    return FLBewerbungWindowResponse(
-        saison_id=saison_id,
-        offen=bool(bewerbung["offen"]),
-        von=str(bewerbung["von"]),
-        bis=str(bewerbung["bis"]),
-        running=saison_nimmt_bewerbungen_an(saison_status=saison_status, bewerbung=bewerbung, today=today),
-        saison_ended=season_has_ended(saison_status=saison_status),
-    )
-
-
-# NOT an ordering constraint: this and `/window/{saison_id}` are different segment counts, so
-# neither matches the other's path in any order. What keeps these literals out of the admin id route
-# is its `objectid` convertor (`app/core/routing.py`).
-@router.get(
-    "/window",
-    response_model=FLBewerbungWindowResponse,
-    summary="The Saison currently accepting applications",
-)
-async def get_open_window(saisons_collection: SaisonsCollection, today: str = Depends(get_german_date_str)) -> FLBewerbungWindowResponse:
-    """
-    Return the season taking applications today -- its window open and the season not ended; 404 when none is.
-
-    What is served is the window and whether its season has ended, never the season: the rule
-    withholds a `future` one from this tier (`READ-BEWERBUNG-001`).
-    """
-
-    # Compared in the query rather than after it, so a closed season is never read. ISO dates order
-    # lexicographically, which is how the rest of this application compares two.
-    db_filter = {"bewerbung.offen": True, "bewerbung.von": {"$lte": today}, "bewerbung.bis": {"$gte": today}, **SAISON_NOT_ENDED_FILTER}
-
-    # Sorted and limited rather than `find_one`: two open windows is a state an administrator can
-    # create, and an arbitrary pick would move between reads. Newest season id first, ids being years.
-    open_seasons = await pull_many_from_db(
-        collection=saisons_collection, db_filter=db_filter, limit=1, sort_by=[("_id", -1)], projection=WINDOW_PROJECTION
-    )
-
-    bewerbung = open_seasons[0]["bewerbung"] if open_seasons else None
-
-    if bewerbung is None:
-        raise DocumentNotFoundError()
-
-    return _fenster(saison_id=str(open_seasons[0]["_id"]), saison_status=open_seasons[0]["status"], bewerbung=bewerbung, today=today)
-
-
 @router.get(
     "/window/{saison_id}",
     response_model=FLBewerbungWindowResponse | FLBewerbungNoWindowResponse,
@@ -215,7 +172,14 @@ async def get_window(
     if bewerbung is None:
         return FLBewerbungNoWindowResponse(saison_id=saison_id, window=None)
 
-    return _fenster(saison_id=saison_id, saison_status=saison_status, bewerbung=bewerbung, today=today)
+    return FLBewerbungWindowResponse(
+        saison_id=saison_id,
+        offen=bool(bewerbung["offen"]),
+        von=str(bewerbung["von"]),
+        bis=str(bewerbung["bis"]),
+        running=saison_nimmt_bewerbungen_an(saison_status=saison_status, bewerbung=bewerbung, today=today),
+        saison_ended=season_has_ended(saison_status=saison_status),
+    )
 
 
 @router.get("/schulen", response_model=FLBewerbungSchulenResponse, summary="The clubs a public application may name")
@@ -274,13 +238,13 @@ async def get_trikotfarben(
     The SET alone, naming no club (`READ-BEWERBUNG-001`).
     """
 
-    # Not `refuse_withheld_saison`, which would 404 every season this read exists for: one taking
+    # Not `resolve_public_saison`, which would 404 every season this read exists for: one taking
     # applications is `future`. Whether it takes applications gates it instead, so
     # the carve-out stays the window reads' own.
     bewerbung, saison_status = await _pull_window(saisons_collection=saisons_collection, saison_id=saison_id)
 
-    # `saison_nimmt_bewerbungen_an`, the judgement `/window` and the submission already take: one
-    # spelling of "this season is taking applications", so a second cannot drift from it.
+    # `saison_nimmt_bewerbungen_an`, the judgement the landing's window, `/window/{saison_id}` and the submission
+    # already take: one spelling of "this season is taking applications", so a second cannot drift from it.
     if not saison_nimmt_bewerbungen_an(saison_status=saison_status, bewerbung=bewerbung, today=today):
         raise DocumentNotFoundError()
 
@@ -473,7 +437,7 @@ async def post_bewerbung(
         return await session.with_transaction(store_or_replay)
 
 
-async def _schule_name(*, bewerbung_raw: Mapping[str, Any], teams_collection: TeamsCollection) -> str:
+async def _schule_name(*, bewerbung_raw: Mapping[str, Any], teams_collection: TeamsReadCollection) -> str:
     """The school's name as submitted, or the picked club's own."""
 
     if isinstance(bewerbung_raw.get("schule"), Mapping):
@@ -490,8 +454,8 @@ async def _schule_name(*, bewerbung_raw: Mapping[str, Any], teams_collection: Te
 async def _saison_ansicht(
     *,
     token_hash: str,
-    saison_teams_collection: SaisonTeamsCollection,
-    saisons_collection: SaisonsCollection,
+    saison_teams_collection: SaisonTeamsReadCollection,
+    saisons_collection: SaisonsReadCollection,
     sperrliste: SperrlisteLookup,
     today: str,
 ) -> FLBewerbungEinwilligungViewResponse:
@@ -533,13 +497,14 @@ async def _saison_ansicht(
     "/einwilligung/view",
     response_model=FLBewerbungEinwilligungViewResponse,
     summary="What one confirmation link opens",
+    openapi_extra=SAFE,
 )
 async def get_einwilligung_view(
     ansicht_data: Annotated[FLTokenPayload, Body()],
-    bewerbungen_collection: BewerbungenCollection,
-    saison_teams_collection: SaisonTeamsCollection,
-    saisons_collection: SaisonsCollection,
-    teams_collection: TeamsCollection,
+    bewerbungen_collection: BewerbungenReadCollection,
+    saison_teams_collection: SaisonTeamsReadCollection,
+    saisons_collection: SaisonsReadCollection,
+    teams_collection: TeamsReadCollection,
     sperrliste: SperrlisteLookup,
     today: str = Depends(get_german_date_str),
 ) -> FLBewerbungEinwilligungViewResponse:

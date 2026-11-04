@@ -2,29 +2,26 @@ import { Suspense } from "react";
 
 import { getGenannteFassung } from "@/core/einwilligung";
 import { gekeyteFassung, KONTAKT_ABSATZ_SCHLUESSEL, KONTAKT_BEDIEN_SCHLUESSEL } from "@/core/einwilligungSeiten";
+import { ROUTES } from "@/core/routes";
 import { BestaetigungView } from "@/features/bewerbungen/components/views/BestaetigungView";
 import { getEinwilligungAnsicht } from "@/features/bewerbungen/queries";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 import { nullUnlessContractBreak } from "@/shared/utils/degradedRead";
-import { openGraphFor } from "@/shared/utils/metadata";
+import { pageMetadata } from "@/shared/utils/metadata";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import type { BestaetigungStart } from "@/features/bewerbungen/components/views/BestaetigungView";
 import type { NextPageProps } from "@/shared/types/types";
-import type { Metadata } from "next";
+import type { Metadata, ResolvingMetadata } from "next";
 
 /**
- * `noindex` as `/signin` spells it;
- * `referrer` keeps the link's token off the referer a press on „Datenschutzerklärung“ would send.
+ * `referrer` keeps the link's token off the referer a press on „Datenschutzerklärung“ would send; the row keeps
+ * crawlers out.
  */
-export const metadata: Metadata = {
-  title: "Eintrag bestätigen",
-  description: "Bestätige Deinen Eintrag als Kontaktperson in der Bewerbung Deiner Schule bei der Frankfurt League.",
-  robots: { index: false, follow: false },
-  referrer: "no-referrer",
-  openGraph: openGraphFor("/bestaetigung/kontakt"),
-  alternates: { canonical: "/bestaetigung/kontakt" },
-};
+export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
+  const row = ROUTES.kontaktConfirmation;
+  return { ...(await pageMetadata(parent, row, row.path())), referrer: "no-referrer" };
+}
 
 /**
  * Resolves nothing itself: a top-level await would tie the App Shell to one URL, and this page's

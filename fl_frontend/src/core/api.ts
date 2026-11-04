@@ -26,7 +26,8 @@ export interface FetchOptions extends RequestInit {
   authType: "base" | "system" | "admin" | "none";
   /**
    * A call changing nothing whatever its method says, such as a POST keeping a token out of the URL or
-   * a dry run: its timeout is a read that failed, never a write of unknown outcome.
+   * a dry run: its timeout is a read that failed, never a write of unknown outcome. Set by the operation's
+   * transport from what the contract states (`fl_frontend/src/core/transport.ts`), never by a call site.
    */
   readOnly?: true;
 }
@@ -174,14 +175,18 @@ export async function sendToBackend<T>(endpoint: string, options: FetchOptions):
     });
   }
 
-  let res: Response;
-  try {
-    res = await dispatchRequest(sent, () => fetch(urlObj, { ...customOptions, headers, signal: signal }));
-  } catch (error) {
-    throw asNetworkError(error);
-  }
+  const res = await dispatchRequest(sent, async () => {
+    let answered: Response;
+    try {
+      answered = await fetch(urlObj, { ...customOptions, headers, signal: signal });
+    } catch (error) {
+      throw asNetworkError(error);
+    }
+    // Thrown inside the dispatch, which takes a write the backend refused back from those that may stand.
+    if (!answered.ok) throw await refusalOf({ res: answered, traceId, endpoint, sent });
+    return answered;
+  });
 
-  if (!res.ok) throw await refusalOf({ res, traceId, endpoint, sent });
   // Every write that landed may have owed a mail in its own transaction, so the Postausgang drains behind the response
   // after each, whichever slice sent it; the drain finds nothing where none was owed. A background pass's writes are
   // drained by the pass.
@@ -189,6 +194,9 @@ export async function sendToBackend<T>(endpoint: string, options: FetchOptions):
   if (res.status === 204 || res.headers.get("content-length") === "0") return null as T;
 
   try {
+    // Typed, not parsed: the backend's response model validated this body on its way out, and `T` is generated
+    // from the same OpenAPI document, as orval's own custom client returns `response.json()` as its `T`; a check
+    // at run time would be orval's separate zod output, parsed by the caller.
     return (await res.json()) as T;
   } catch (error) {
     // A body cut or stalled on its way: the call may have landed, as any answer lost in transit.

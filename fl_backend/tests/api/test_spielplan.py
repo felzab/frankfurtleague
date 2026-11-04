@@ -46,9 +46,6 @@ Score = tuple[tuple[int, ...], tuple[int, ...]]
 # `(number_of_groups, teams_per_group, qualifiers_per_group)`. Every `BRACKET_SEEDING` row is drawn
 # by one of these, and each shape's legality is derived rather than trusted -- both below.
 SHAPES: tuple[tuple[int, int, int], ...] = (
-    (1, 2, 2),
-    (2, 3, 1),
-    (1, 6, 2),
     (1, 7, 4),
     (1, 8, 8),
     (2, 4, 2),
@@ -561,6 +558,8 @@ class TestTheDrawIsTheSeasonTheRulesDescribe:
 
     @pytest.mark.parametrize("shape", SHAPES)
     def test_the_bracket_halves_down_to_one_final(self, shape: tuple[int, int, int]):
+        """And the Finale's matchday adds the match for third place wherever semi-finals precede it."""
+
         groups, teams, qualifiers = shape
         season = rules(groups=groups, teams=teams, qualifiers=qualifiers)
         remaining = qualifier_count(season)
@@ -573,6 +572,8 @@ class TestTheDrawIsTheSeasonTheRulesDescribe:
         for phase in knockout_phases_for(remaining):
             expected[phase] = remaining // 2
             remaining //= 2
+        if "halbfinale" in expected:
+            expected["finale"] += 1
 
         assert drawn == expected
 
@@ -664,7 +665,7 @@ class TestSpielNrRunsOnceThroughTheSeason:
 class TestTheEmittedDocumentsReadBack:
     @pytest.mark.parametrize("shape", SHAPES)
     def test_every_fixture_reads_back_through_the_model_an_endpoint_serves(self, shape: tuple[int, int, int]):
-        """A document only the writer can read is one the first `GET /spiele` answers 500 on; one key no model declares, one nothing reads."""
+        """A document only the writer can read is one the first read of it answers 500 on; one key no model declares, one nothing reads."""
 
         for spiel in draw(*shape).spiele:
             FLSpiel.model_validate(spiel, extra="forbid")
@@ -768,7 +769,7 @@ class TestAFixtureIsEitherDrawnOrWired:
 
     @pytest.mark.parametrize("shape", SHAPES)
     def test_a_later_bracket_round_names_the_two_fixtures_feeding_it(self, shape: tuple[int, int, int]):
-        """Left to right, winners only: a `verlierer` source is what a third-place play-off would need, and this competition plays none."""
+        """Left to right, winners only: the one `verlierer` pair is the match for third place, judged on its own below."""
 
         groups, teams, qualifiers = shape
         season = rules(groups=groups, teams=teams, qualifiers=qualifiers)
@@ -781,7 +782,11 @@ class TestAFixtureIsEitherDrawnOrWired:
 
         for earlier, later in zip(rounds, rounds[1:], strict=False):
             feeding = by_phase[earlier]
-            wired = [(spiel["team1_quelle"], spiel["team2_quelle"]) for spiel in plan.spiele if spiel["saison_phase"] == later]
+            wired = [
+                (spiel["team1_quelle"], spiel["team2_quelle"])
+                for spiel in plan.spiele
+                if spiel["saison_phase"] == later and spiel["team1_quelle"]["ausgang"] == "sieger"
+            ]
             assert wired == [
                 (
                     {"type": "spiel", "spiel_nr": feeding[slot], "ausgang": "sieger"},
@@ -801,6 +806,25 @@ class TestAFixtureIsEitherDrawnOrWired:
                 if quelle is not None and quelle["type"] == "gruppe":
                     assert quelle["gruppe"] in GRUPPEN[:groups]
                     assert 1 <= quelle["platz"] <= teams
+
+
+class TestTheSemiFinalLosersPlayForThirdPlace:
+    @pytest.mark.parametrize("shape", SHAPES)
+    def test_the_finale_matchday_opens_with_the_two_semi_finals_losers(self, shape: tuple[int, int, int]):
+        """Before the final, so the matchday is played in the order its numbers read."""
+
+        plan = draw(*shape)
+        semi_finals = [spiel["spiel_nr"] for spiel in plan.spiele if spiel["saison_phase"] == "halbfinale"]
+        finale = [
+            (spiel["team1_quelle"], spiel["team2_quelle"])
+            for spiel in sorted(plan.spiele, key=lambda spiel: spiel["spiel_nr"])
+            if spiel["saison_phase"] == "finale"
+        ]
+
+        assert finale == [
+            tuple({"type": "spiel", "spiel_nr": nr, "ausgang": "verlierer"} for nr in semi_finals),
+            tuple({"type": "spiel", "spiel_nr": nr, "ausgang": "sieger"} for nr in semi_finals),
+        ]
 
 
 class TestTheSeasonIsPlayedUnderTheJunctionRowsNames:

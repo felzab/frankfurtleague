@@ -15,6 +15,22 @@ const PAGES = new Set(
   }),
 );
 
+describe("the pages a mail opens", () => {
+  // Their rows decide what robots.txt refuses and what each page names as its own address, while each mail builds
+  // its link from its own constant, which `scripts/checks/check_public_routes.py` holds to a page file.
+  it.each([
+    "addressChangeConfirmation",
+    "kontaktConfirmation",
+    "schiedsrichterConfirmation",
+    "spielbestaetigung",
+    "registrierungConfirmation",
+    "accountErasure",
+    "registrierung",
+  ] as const)("answer at the %s row's address", (row) => {
+    expect(PAGES.has(ROUTES[row].path())).toBe(true);
+  });
+});
+
 describe("the links every rail frame writes", () => {
   // The rail's foot signed out, and the strip's and „Mehr“'s two legal pages.
   it.each(["signIn", "legalNotice", "privacyNotice"] as const)("lead to a page answering at the %s row's address", (row) => {

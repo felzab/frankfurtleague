@@ -39,6 +39,10 @@ function kindOf(path) {
   return path.endsWith(".tsx") ? "page" : "module";
 }
 
+/** A route's page, which Next renders for an address: page code a template alone may stand in. */
+const ROUTE_PAGES = ["src/app/**/page.tsx"];
+const isRoutePage = (path) => /^src\/app\/(?:.*\/)?page\.tsx$/.test(path);
+
 /** `pattern` under one layer's folder; the other layer is every folder but `core` and `shared`. */
 const inLayer = (layer, pattern, ignores = []) =>
   layer === "other"
@@ -47,7 +51,10 @@ const inLayer = (layer, pattern, ignores = []) =>
 
 const LAYERS = ["core", "shared", "other"];
 
-/** The zones as globs, which `kindOf` and `layerOf` read the same way for one path. */
+/**
+ * The zones as globs, which `kindOf`, `layerOf` and `isRoutePage` read the same way for one path. Page code
+ * splits once more: a route's page, which the app's folder alone holds, and every other component.
+ */
 const ZONES = [
   ...LAYERS.map((layer) => ({ kind: "test", layer, ...inLayer(layer, "**/*.test.{ts,tsx}") })),
   { kind: "support", layer: "other", files: ["src/test-support/**/*.{ts,tsx}"], ignores: TEST_FILES },
@@ -56,8 +63,13 @@ const ZONES = [
   ...LAYERS.map((layer) => ({
     kind: "page",
     layer,
-    ...inLayer(layer, "**/*.tsx", layer === "other" ? [...TEST_FILES, "src/test-support/**", "src/kit/**", ...ROOT_DOCUMENT] : TEST_FILES),
+    ...inLayer(
+      layer,
+      "**/*.tsx",
+      layer === "other" ? [...TEST_FILES, "src/test-support/**", "src/kit/**", ...ROOT_DOCUMENT, ...ROUTE_PAGES] : TEST_FILES,
+    ),
   })),
+  { kind: "page", layer: "other", route: true, files: ROUTE_PAGES, ignores: [] },
   ...LAYERS.map((layer) => ({
     kind: "module",
     layer,
@@ -72,6 +84,7 @@ const PRODUCTION = (zone) => zone.kind !== "test" && zone.kind !== "support";
 const OUTSIDE_KIT = (zone) => PRODUCTION(zone) && zone.kind !== "kit";
 const KIT = (zone) => zone.kind === "kit";
 const PAGE_CODE = (zone) => zone.kind === "page";
+const ROUTE_PAGE = (zone) => zone.route === true;
 /** What renders markup: the kit, page code and the root document. */
 const RENDERED = (zone) => ["kit", "page", "document"].includes(zone.kind);
 const LAYER = (layer) => (zone) => zone.layer === layer;
@@ -240,7 +253,7 @@ const SITE_ORIGIN = {
   regex: moduleNamed("brand"),
   importNames: ["SITE_URL"],
   message:
-    "SITE_URL is the published origin, for the metadata base, robots.txt and the sitemap alone: a link a message carries stands on frontend_config.AUTH_URL.",
+    "SITE_URL is the published origin, for the metadata base, robots.txt, the sitemap and the JSON-LD block alone: a link a message carries stands on frontend_config.AUTH_URL.",
 };
 
 /**
@@ -370,7 +383,7 @@ const IMPORT_BANS = [
   importBan(LAYER_BOUNDARY.core, LAYER("core")),
   importBan(LAYER_BOUNDARY.shared, LAYER("shared")),
   // What a crawler reads, which stands on the published origin.
-  importBan(SITE_ORIGIN, PRODUCTION, { allow: ["src/app/layout.tsx", "src/app/robots.ts", "src/app/sitemap.ts"] }),
+  importBan(SITE_ORIGIN, PRODUCTION, { allow: ["src/app/layout.tsx", "src/app/robots.ts", "src/app/sitemap.ts", "src/kit/JsonLd.tsx"] }),
   importBan(LOCALE_PROVIDER, PRODUCTION, { allow: ["src/core/providers/RootProviders.tsx"] }),
   importBan(NEXT_AFTER, PRODUCTION, { allow: ["src/core/afterResponse.ts"] }),
   ...Object.values(SECRET_READERS).map(({ owners, ...entry }) => importBan(entry, PRODUCTION, { allow: owners })),
@@ -396,6 +409,29 @@ const IMPORT_BANS = [
 // ---------------------------------------------------------------------------------------------------
 // Syntax bans.
 // ---------------------------------------------------------------------------------------------------
+
+/** The two catalogue files, which alone write a reader's words. */
+const CATALOGUE_FILES = ["src/core/copy.ts", "src/core/serverCopy.ts"];
+
+/** The attributes whose value a reader hears or sees. */
+const SPOKEN_ATTRIBUTES =
+  "/^(?:aria-label|aria-description|aria-roledescription|aria-valuetext|aria-placeholder|title|alt|placeholder|textValue)$/";
+
+/** A literal holding words, two letters together: a string, or a template whose static text holds them. */
+const WORDS_LITERAL = "Literal[value=/[A-Za-zÄÖÜäöüß]{2}/], TemplateLiteral:has(> TemplateElement[value.raw=/[A-Za-zÄÖÜäöüß]{2}/])";
+
+/**
+ * Words as a reader reads them, which a code's token never is: a lower-case token, such as the kit's focus mark
+ * `"text"` under its placement's key, names a choice and says nothing.
+ */
+const PROSE_LITERAL = `Literal[value=/[A-Za-zÄÖÜäöüß]{2}/]:not([value=/^[a-z][a-z0-9_-]*$/]), TemplateLiteral:has(> TemplateElement[value.raw=/[A-Za-zÄÖÜäöüß]{2}/])`;
+
+/**
+ * The keys a page's objects word a reader's text under, the kit's text slots among them. A key that also names an id or
+ * a choice, such as `name`, `value` or `mark`, is left to the type checker, whose slot takes a `Copy` or a `{ record }`.
+ */
+const WORDED_KEYS =
+  "/^(?:label|title|text|sentence|note|reason|description|when|eyebrow|detail|line|hint|help|placeholder|alt|short|heading)$/";
 
 /**
  * One literal's text as a regular expression: a string, a template's static chunk, or JSX text. A
@@ -551,7 +587,7 @@ const SOURCE_BANS = [
     // The target in any spelling, an attribute's, a spread object's or a `window.open` argument's.
     syntax(
       inLiteral("^_blank$"),
-      "A link opening a new tab is the kit's `Link` with `newTab`: a target spelled here tells a screen reader nothing.",
+      "A link opening a new tab is the kit's `Link`, which opens every other site's address in one: a target spelled here tells a screen reader nothing.",
     ),
     SOURCE,
     // Redesign: goes with its last importer. `NewTabLink` is the old pages' new-tab link.
@@ -805,11 +841,27 @@ const DESIGN_BANS = [
       }[element] ?? {},
     ),
   ),
-  // Only a template writes the page's heading and its main landmark.
-  ...["h1", "main"].map((element) =>
+  // Only a template writes the page's heading and its main landmark; the landing's template writes its
+  // hero's heading inside the classic page's landmark.
+  ...[
+    ["h1", ["src/kit/RailFrame.tsx", "src/kit/ClassicPage.tsx", "src/kit/LandingPage.tsx"]],
+    ["main", ["src/kit/RailFrame.tsx", "src/kit/ClassicPage.tsx"]],
+  ].map(([element, allow]) =>
     ban("react/forbid-elements", { element, message: "only a page template writes the page's heading and its main landmark." }, KIT, {
-      allow: ["src/kit/RailFrame.tsx", "src/kit/ClassicPage.tsx"],
+      allow,
     }),
+  ),
+  // A wait is the template's: each holds one boundary around the content it draws, its fallback the skeleton
+  // of that content's box, so a page has no boundary of its own to leave without a loading state or to shape
+  // wrongly.
+  kitImport(
+    {
+      regex: packageUnder("react"),
+      importNames: ["Suspense"],
+      message:
+        "A page waits in its template's one boundary: hand the template its content as a promise, and the template draws the skeleton while it waits.",
+    },
+    ROUTE_PAGE,
   ),
   // Each save belongs to its owner: the record's one save to the editor template, the one-shot submit to
   // the mailed-page template, a Konto box to Konto's pages. The editor template stands in an editors'
@@ -901,16 +953,16 @@ const DESIGN_BANS = [
       { allow: homes },
     ),
   ),
-  // A segmented control's glyph segment and a link of the collapsed rail are the other icon-only controls:
-  // each one's name is its tooltip too.
+  // A segmented control's glyph segment, a link of the collapsed rail and an icon-only link are the other
+  // icon-only controls: each one's name is its tooltip too.
   kitImport(
     {
       regex: kitModule("Tooltip"),
       message:
-        "The kit's `Tooltip` names an icon-only `Button`, a glyph segment of `ChoiceButtons` or a link of the collapsed rail, and nothing else.",
+        "The kit's `Tooltip` names an icon-only `Button`, a glyph segment of `ChoiceButtons`, a link of the collapsed rail or `Link`'s icon-only placement, and nothing else.",
     },
     PRODUCTION,
-    { allow: ["src/kit/Button.tsx", "src/kit/ChoiceButtons.tsx", "src/kit/RailState.tsx"] },
+    { allow: ["src/kit/Button.tsx", "src/kit/ChoiceButtons.tsx", "src/kit/RailState.tsx", "src/kit/IconLink.tsx"] },
   ),
   // A chip stands right after the name it belongs to, so only the blocks carrying a name render one.
   kitImport(
@@ -920,9 +972,18 @@ const DESIGN_BANS = [
       message: "A chip is handed to the name it belongs to through a block's typed `chip` prop.",
     },
     PRODUCTION,
-    // The five blocks carrying a name: a table row's, a card row's, a match's, a record's facts and the page
-    // header's title.
-    { allow: ["src/kit/Table.tsx", "src/kit/Card.tsx", "src/kit/SpielRow.tsx", "src/kit/Facts.tsx", "src/kit/RailFrame.tsx"] },
+    // The six blocks carrying a name: a table row's, a card's and a card row's, a match's, a record's facts, the
+    // page header's title and a school's tile.
+    {
+      allow: [
+        "src/kit/Table.tsx",
+        "src/kit/Card.tsx",
+        "src/kit/SpielRow.tsx",
+        "src/kit/Facts.tsx",
+        "src/kit/RailFrame.tsx",
+        "src/kit/TileGrid.tsx",
+      ],
+    },
   ),
   // Only a confirmation asks a question.
   syntaxBan(
@@ -969,7 +1030,7 @@ const DESIGN_BANS = [
   ),
   classBan(
     CLASS(String.raw`text-(?:lg|[4-9]xl)`),
-    "Type is six sizes: text-xs, text-sm, text-base, text-xl, text-2xl and text-3xl.",
+    "Type is seven sizes: text-2xs for a phone's compact table alone, then text-xs, text-sm, text-base, text-xl, text-2xl and text-3xl.",
     PRODUCTION,
   ),
   classBan(
@@ -1013,18 +1074,43 @@ const DESIGN_BANS = [
   // The required mark is a glyph, not a word.
   ban("react/jsx-no-literals", { noStrings: true, ignoreProps: true, allowedStrings: ["*"] }, RENDERED),
   syntaxBan(syntax(PICKED_STRING, "Text a reader sees comes from the catalogue: a string a condition picks is no `Copy`."), RENDERED),
-  // The attributes a reader hears or sees, which `ignoreProps` passes over and an HTML element types `string`: the kit
-  // writes them from its `Copy` props. An empty `alt` marks a decorative image and says nothing.
+  // The attributes a reader hears or sees, which `ignoreProps` passes over and an HTML element or React Aria types
+  // `string`: the kit writes them from its `Copy` props, inside the kit as outside it. An empty `alt` marks a decorative
+  // image and says nothing. `textValue` is the words a list's entry is read and typed to by.
   syntaxBan(
     syntax(
       [
-        "JSXAttribute[name.name=/^(?:aria-label|aria-description|title|alt)$/] > Literal[value=/\\S/]",
-        "JSXAttribute[name.name=/^(?:aria-label|aria-description|title|alt)$/] > JSXExpressionContainer > Literal[value=/\\S/]",
-        "JSXAttribute[name.name=/^(?:aria-label|aria-description|title|alt)$/] > JSXExpressionContainer > TemplateLiteral > TemplateElement[value.raw=/\\S/]",
+        `JSXAttribute[name.name=${SPOKEN_ATTRIBUTES}] > Literal[value=/\\S/]`,
+        `JSXAttribute[name.name=${SPOKEN_ATTRIBUTES}] > JSXExpressionContainer > Literal[value=/\\S/]`,
+        `JSXAttribute[name.name=${SPOKEN_ATTRIBUTES}] > JSXExpressionContainer > TemplateLiteral > TemplateElement[value.raw=/\\S/]`,
       ].join(", "),
-      "Text a reader hears or sees comes from the catalogue: outside the kit, an `aria-label`, `aria-description`, `title` or `alt` takes a `Copy`.",
+      "Text a reader hears or sees comes from the catalogue: an `aria-label`, `aria-description`, `aria-roledescription`, `aria-valuetext`, `aria-placeholder`, `title`, `alt`, `placeholder` or `textValue` takes a `Copy`.",
     ),
-    OUTSIDE_KIT,
+    PRODUCTION,
+  ),
+  // A record's own data in a text slot, `{ record }`, is data read off the record: a literal there is a string typed
+  // into the page under data's name.
+  syntaxBan(
+    syntax(
+      `Property[key.name="record"] > :matches(${WORDS_LITERAL}), Property[key.name="record"] > ArrayExpression > :matches(${WORDS_LITERAL})`,
+      "`{ record }` holds a record's own data, read off the record: words typed here are no data. Take the catalogue's entry, or add one there.",
+    ),
+    PRODUCTION,
+    { allow: CATALOGUE_FILES },
+  ),
+  // The backstop for a module's object, which neither `jsx-no-literals` nor the picked-string ban reads: a property
+  // named for words, holding words. The kit's slots take a `Copy` or a `{ record }`, so the type checker refuses
+  // such a string at a slot; this refuses it where it is written, in any module. A recipe's slots, which `tv` takes
+  // by the parts they style, hold class lists.
+  syntaxBan(
+    syntax(
+      `Property[key.name=${WORDED_KEYS}]:not(CallExpression[callee.name="tv"] *) > :matches(${PROSE_LITERAL})`,
+      "Text a reader sees comes from the catalogue: a property named for words holds an entry of `COPY` or `SERVER_COPY`, or a record's own data as `{ record }`.",
+    ),
+    PRODUCTION,
+    // The league's own constants, which name it and its organisers and sponsors as data (`features/meta/constants.ts`);
+    // the boot's refusal, a line for an operator.
+    { allow: [...CATALOGUE_FILES, "src/core/brand.ts", "src/features/meta/constants.ts", "src/core/config.ts"] },
   ),
   syntaxBan(
     syntax(
@@ -1036,26 +1122,63 @@ const DESIGN_BANS = [
   ),
   syntaxBan(
     syntax(
-      inLiteral(
-        [
-          String.raw`\.\.\.`,
-          "!",
-          "[–—]",
-          String.raw`\s-\s`,
-          ";",
-          String.raw`\b[Bb]itte\b`,
-          String.raw`\b(?:[Ee]rfolgreich|[Ll]eider|[Ww]irklich)`,
-          String.raw`\bund mehr\b`,
-          String.raw`\bz\.\s?B\.`,
-          String.raw`Mannschaft`,
-          String.raw`\b[Nn]och\s?(?:einmal|ein Mal|mal)\b|\b[Nn]ochmal`,
-          String.raw`[a-zäöüß,]\s(?:Sie|Ihre?[mnrs]?|Du|Dein\w*|Dir|Dich)\b`,
-        ].join("|"),
-      ),
-      "The catalogue writes none of these: three periods, „!“, a dash, a semicolon, „Bitte“, „erfolgreich“, „leider“, „wirklich“, „und mehr“, „z. B.“, „Mannschaft“, „noch einmal“, „Sie“ or a capitalised „Du“ inside a sentence.",
+      [
+        inLiteral(
+          [
+            String.raw`\.\.\.`,
+            "!",
+            String.raw`\s-\s`,
+            ";",
+            String.raw`\b[Bb]itte\b`,
+            String.raw`\b(?:[Ee]rfolgreich|[Ll]eider|[Ww]irklich)`,
+            String.raw`\bund mehr\b`,
+            String.raw`\bz\.\s?B\.`,
+            String.raw`Mannschaft`,
+            String.raw`\b[Nn]och\s?(?:einmal|ein Mal|mal)\b|\b[Nn]ochmal`,
+            String.raw`[a-zäöüß,]\s(?:Sie|Ihre?[mnrs]?|Du|Dein\w*|Dir|Dich)\b`,
+          ].join("|"),
+        ),
+        // A dash inside text, where the standard allows one in a date range alone, which the locale writes. A literal
+        // that is the en dash and nothing else is a glyph standing for a value, as the empty value's mark, and no prose.
+        ":matches(Literal[value=/[–—]/]:not([value=/^–$/]), TemplateElement[value.raw=/[–—]/], JSXText[value=/[–—]/])",
+      ].join(", "),
+      "The catalogue writes none of these: three periods, „!“, a dash inside text, a semicolon, „Bitte“, „erfolgreich“, „leider“, „wirklich“, „und mehr“, „z. B.“, „Mannschaft“, „noch einmal“, „Sie“ or a capitalised „Du“ inside a sentence.",
     ),
     EVERY,
-    { only: ["src/core/copy.ts", "src/core/serverCopy.ts"] },
+    { only: CATALOGUE_FILES },
+  ),
+  // A field's message line is one pattern phrase: no full stop, no article, 80 characters at most. Its entries are
+  // `COPY.shared.field`'s patterns, and the server's phrases for a code, `SERVER_COPY.refusal`.
+  ...[
+    ["field", "src/core/copy.ts"],
+    ["refusal", "src/core/serverCopy.ts"],
+  ].map(([key, file]) =>
+    syntaxBan(
+      syntax(
+        `Property[key.name="${key}"] ${inLiteral(String.raw`\.$|^.{81,}$|\b(?:[Dd](?:er|ie|as|es|em|en)|[Ee]in(?:e[mnrs]?)?)\b`)}`,
+        "A field's message is one pattern phrase: no full stop, no article, at most 80 characters.",
+      ),
+      EVERY,
+      { only: [file] },
+    ),
+  ),
+  // An entry returning what it is handed as it came would make any string a `Copy`: the catalogue words its argument.
+  syntaxBan(
+    syntax(
+      "ArrowFunctionExpression > Identifier.body, ArrowFunctionExpression > TemplateLiteral.body[expressions.length=1]:not(:has(> TemplateElement[value.raw=/\\S/]))",
+      "A catalogue entry words what it is handed: one returning its argument as it came makes any string a `Copy`. A record's own name stands in a slot as `{ record }`.",
+    ),
+    EVERY,
+    { only: CATALOGUE_FILES },
+  ),
+  // A status line or a callout says one sentence: what is so, never a second one saying why or how.
+  syntaxBan(
+    syntax(
+      `Property[key.name=/^(?:failure|refusal|refusalLine|ruleLine|botCheck|consequence)$/] ${inLiteral(String.raw`[.?]\s+\S`)}`,
+      "A status line or a callout is one short sentence saying what is so: no second sentence.",
+    ),
+    EVERY,
+    { only: CATALOGUE_FILES },
   ),
 
   // Dates, numbers and the time.
@@ -1146,7 +1269,7 @@ if (GONE.length > 0) {
 const fileBlocks = () => {
   const groups = new Map();
   for (const path of NAMED_FILES) {
-    const rules = rulesFor({ kind: kindOf(path), layer: layerOf(path) }, path);
+    const rules = rulesFor({ kind: kindOf(path), layer: layerOf(path), route: isRoutePage(path) }, path);
     const key = JSON.stringify(rules);
     groups.set(key, { files: [...(groups.get(key)?.files ?? []), literally(path)], rules });
   }
@@ -1154,14 +1277,19 @@ const fileBlocks = () => {
 };
 
 const BAN_BLOCKS = [
-  ...ZONES.map(({ kind, layer, files, ignores }) => ({ name: `bans/${kind}/${layer}`, files, ignores, rules: rulesFor({ kind, layer }) })),
+  ...ZONES.map(({ kind, layer, route, files, ignores }) => ({
+    name: `bans/${kind}/${layer}${route === true ? "/route" : ""}`,
+    files,
+    ignores,
+    rules: rulesFor({ kind, layer, route }),
+  })),
   // A directory's files, zone by zone: a nested `files` array asks a file to match every pattern in it.
   ...NAMED_DIRECTORIES.flatMap((glob) =>
-    ZONES.map(({ kind, layer, files, ignores }) => ({
-      name: `bans/under/${glob}/${kind}/${layer}`,
+    ZONES.map(({ kind, layer, route, files, ignores }) => ({
+      name: `bans/under/${glob}/${kind}/${layer}${route === true ? "/route" : ""}`,
       files: files.map((pattern) => [pattern, literally(glob).replaceAll("[*][*]", "**")]),
       ignores,
-      rules: rulesFor({ kind, layer }, undefined, glob),
+      rules: rulesFor({ kind, layer, route }, undefined, glob),
     })),
   ),
   // Last, so a named file's own block is the one eslint reads its options from.
@@ -1203,6 +1331,31 @@ const eslintConfig = defineConfig([
       // A zero-width or line-separator character in code, a comment or a template reads as nothing and
       // changes what the line means. Plain strings stay free for the typography's no-break spaces.
       "no-irregular-whitespace": "error",
+    },
+  },
+
+  // Typed linting, through typescript-eslint's project service: an `any`, such as a `JSON.parse` result or a
+  // library's untyped value, is assignable to every type, a `Copy` among them, so the type checker passes whatever
+  // it carries. The `no-unsafe-*` rules refuse an `any` that flows on, so a value is typed where it enters,
+  // `unknown` until it is parsed. The TypeScript files alone: the config's own JavaScript carries no types to
+  // check. The root config files stand outside `tsconfig.json`'s `include` and take the parser's default project,
+  // which is meant for such files. `scripts.lint` writes the route types first, a page's props being Next's
+  // generated `PageProps`, and passes no `--cache`: eslint caches a file by its own content, which a type changed
+  // in another file never moves.
+  {
+    files: ["**/*.{ts,tsx,mts,cts}"],
+    languageOptions: {
+      parserOptions: {
+        projectService: { allowDefaultProject: ["next.config.ts", "orval.config.ts", "vitest.config.mts"] },
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
+    rules: {
+      "@typescript-eslint/no-unsafe-argument": "error",
+      "@typescript-eslint/no-unsafe-assignment": "error",
+      "@typescript-eslint/no-unsafe-call": "error",
+      "@typescript-eslint/no-unsafe-member-access": "error",
+      "@typescript-eslint/no-unsafe-return": "error",
     },
   },
 

@@ -10,6 +10,7 @@ import { MENSCH_BESTAETIGEN } from "@/core/turnstileToken";
 import { FIELD_ERROR_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { postClientError } from "@/shared/utils/clientError";
 
+import type { Copy } from "@/core/copy";
 import type { ReactNode } from "react";
 
 // Explicit rendering, Cloudflare's way for a page whose forms mount after it loads; fetched from this exact
@@ -23,10 +24,7 @@ const TOKEN_WAIT_MS = 10_000;
 /** A press past `TOKEN_WAIT_MS` with no token minted. */
 const NOCH_NICHT_FERTIG = COPY.shared.botCheck.notReady;
 
-/**
- * A form's sentence for a check that did not load. A blocked check stays refused, so the league's address is the
- * way in for a browser that will not load it.
- */
+/** Every form's sentence for a check that did not load. */
 const NICHT_GELADEN = COPY.shared.botCheck.notLoaded;
 
 /** The calls of Cloudflare's script this hook makes, as its client-side rendering page documents them. */
@@ -42,16 +40,13 @@ const turnstileApi = (): TurnstileApi | undefined => (window as Window & { turns
 type Stand = "laedt" | "bereit" | "interaktiv" | "failed";
 
 /** A press's token, or the sentence it is answered with instead: a press never posts an empty token. */
-type Anfrage = { readonly token: string } | { readonly satz: string };
+type Anfrage = { readonly token: string } | { readonly satz: Copy };
 
 /**
  * One form's bot check: `widget` stands before the submit, where Cloudflare's example places it, and each
- * press awaits `takeToken`. `fehlgeschlagen` is the form's sentence for a check that did not load.
+ * press awaits `takeToken`.
  */
-export function useTurnstile(
-  siteKey: string,
-  fehlgeschlagen: string = NICHT_GELADEN,
-): { widget: ReactNode; takeToken: () => Promise<Anfrage> } {
+export function useTurnstile(siteKey: string): { widget: ReactNode; takeToken: () => Promise<Anfrage> } {
   const [stand, setStandState] = useState<Stand>("laedt");
   // Read by a press, which can run between a callback and the render it causes.
   const standNow = useRef<Stand>("laedt");
@@ -155,7 +150,7 @@ export function useTurnstile(
       return { token: minted };
     };
     const withoutToken = (): Anfrage => {
-      if (standNow.current === "failed") return { satz: fehlgeschlagen };
+      if (standNow.current === "failed") return { satz: NICHT_GELADEN };
       return { satz: standNow.current === "interaktiv" ? MENSCH_BESTAETIGEN : NOCH_NICHT_FERTIG };
     };
 
@@ -182,7 +177,7 @@ export function useTurnstile(
           // callback costs a margin and never the challenge.
           className={stand === "interaktiv" ? "pb-4" : undefined}
         />
-        {stand === "failed" && <p className={`${FIELD_ERROR_CLASSES} pb-4`}>{fehlgeschlagen}</p>}
+        {stand === "failed" && <p className={`${FIELD_ERROR_CLASSES} pb-4`}>{NICHT_GELADEN}</p>}
         {/* `onReady` rather than `onLoad`: it runs again on every mount, a client navigation back included. */}
         <Script
           src={TURNSTILE_API}

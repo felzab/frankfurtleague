@@ -6,12 +6,13 @@ import { Modal } from "@heroui/react/modal";
 import { Separator } from "@heroui/react/separator";
 
 import { dismissControl } from "@/core/dismissControl";
+import { buildMapsSearchUrl } from "@/core/maps";
 import { spielSchiedsrichterAnzeige } from "@/features/schiedsrichter/constants";
 import { TeamPopoverMenu } from "@/features/teams/components/ui/TeamPopoverMenu";
 import { Leer } from "@/shared/components/ui/Angabe";
 import { NewTabLink } from "@/shared/components/ui/NewTabLink";
 import { textLink } from "@/shared/components/ui/textLink";
-import { buildMapsSearchUrl, formatSpielDatum, formatUhrzeit, PLACEHOLDER } from "@/shared/utils/format";
+import { formatSpielDatum, formatUhrzeit, PLACEHOLDER } from "@/shared/utils/format";
 
 import { canStillBePlayed, computeSpielStatus, ergebnisTone, formatQuelle, formatSpielDisplay } from "../../utils";
 import { SaisonPhaseChip } from "../ui/SaisonPhaseChip";

@@ -29,11 +29,13 @@ from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.dependencies import (
     ActionLogCollection,
     AddressChangeCollection,
+    AddressChangeReadCollection,
     BewerbungenCollection,
     DBClient,
     GrantApprovalRequestsCollection,
     GrantsAnnouncedCollection,
     GrantsCollection,
+    GrantsReadCollection,
     InvitationsCollection,
     OutboxCollection,
     RegistrierungenCollection,
@@ -41,6 +43,7 @@ from app.core.dependencies import (
     SaisonSpielerCollection,
     SaisonTeamsCollection,
     SchiedsrichterCollection,
+    SnapshotSession,
     SperrlisteCollection,
     SpielberichteCollection,
     SpielbestaetigungenCollection,
@@ -50,6 +53,7 @@ from app.core.dependencies import (
 )
 from app.core.logging import fl_logger
 from app.core.recording import log_stamp
+from app.core.routing import SAFE
 from app.core.security import bind_system_actor, verify_access_system
 from app.core.transactions import UNKNOWN_COMMIT_RESULT, diagnosis_of, transaction_session
 from app.shared.folding import sign_in_identifier
@@ -66,12 +70,14 @@ router = APIRouter(
     "/subject",
     response_model=FLSubjectResponse,
     summary="Say which league records one mailbox holds",
+    openapi_extra=SAFE,
 )
 async def get_subject(
     subjekt_data: Annotated[FLSubjectPayload, Body()],
     records: SubjektLookup,
     sperrliste: SperrlisteLookup,
-    berechtigungen_collection: GrantsCollection,
+    berechtigungen_collection: GrantsReadCollection,
+    session: SnapshotSession,
 ) -> FLSubjectResponse:
     """Answer which confirmed, live contact seats, pupil records and referee records one mailbox holds, with its ban and its grant.
 
@@ -90,7 +96,7 @@ async def get_subject(
     subjekt, gesperrt, grant = await asyncio.gather(
         find_subjekt(identifier, records),
         hash_gesperrt(sperrliste, ban_key),
-        verwaltung_of(berechtigungen_collection=berechtigungen_collection, adresse=identifier),
+        verwaltung_of(berechtigungen_collection=berechtigungen_collection, adresse=identifier, session=session),
     )
     verwaltung, berechtigt_seit, inhaber_seit = (None, None, None) if grant is None else grant
 
@@ -103,12 +109,14 @@ async def get_subject(
     "/sign_in",
     response_model=FLSignInResponse,
     summary="Say whether one mailbox may be offered a sign-in",
+    openapi_extra=SAFE,
 )
 async def get_sign_in(
     anmeldung_data: Annotated[FLSubjectPayload, Body()],
     records: SubjektLookup,
     sperrliste: SperrlisteLookup,
-    berechtigungen_collection: GrantsCollection,
+    berechtigungen_collection: GrantsReadCollection,
+    session: SnapshotSession,
 ) -> FLSignInResponse:
     """Answer what the sign-in gate decides on for one mailbox: two flags, its ban and its grant's tier, and never a record.
 
@@ -123,7 +131,7 @@ async def get_sign_in(
     anmeldung, gesperrt, grant = await asyncio.gather(
         find_anmeldung(identifier, records),
         hash_gesperrt(sperrliste, ban_key),
-        verwaltung_of(berechtigungen_collection=berechtigungen_collection, adresse=identifier),
+        verwaltung_of(berechtigungen_collection=berechtigungen_collection, adresse=identifier, session=session),
     )
 
     return FLSignInResponse(**anmeldung.model_dump(), barred=gesperrt, verwaltung=None if grant is None else grant[0])
@@ -133,12 +141,13 @@ async def get_sign_in(
     "/references",
     response_model=FLReferencesResponse,
     summary="Say which of these sign-in addresses no record references",
+    openapi_extra=SAFE,
 )
 async def get_references(
     referenzen_data: Annotated[FLReferencesPayload, Body()],
     records: SubjektLookup,
-    berechtigungen_collection: GrantsCollection,
-    adresswechsel_collection: AddressChangeCollection,
+    berechtigungen_collection: GrantsReadCollection,
+    adresswechsel_collection: AddressChangeReadCollection,
 ) -> FLReferencesResponse:
     """Answer which of these sign-in addresses no league record references, each once and in the spelling it was asked in.
 
@@ -157,9 +166,9 @@ async def get_references(
 
 # The erasure pass is system-tier for the same reason: the rule deletes, whichever caller triggers
 # it, and neither the hourly pass nor an activation's press holds a person's session here.
-# Twenty commands a pupil, each the round trip plus at most 2.03 ms, timed locally 2026-10-16 and
-# again over 20,000 log rows: this share fits `app/core/middlewares.py :: REQUEST_DEADLINE_S` at a 37 ms
-# round trip.
+# Twenty-two commands for a pupil a report names, whose repoint writes a log row, each the round trip plus at
+# most 2.03 ms, timed locally 2026-10-16 and again over 20,000 log rows: this share fits
+# `app/core/middlewares.py :: REQUEST_DEADLINE_S` at a 37 ms round trip.
 LOESCHUNGEN_PER_PASS: Final = 10
 
 

@@ -9,7 +9,7 @@
 const TEXT = 4.5;
 const EDGE = 3;
 
-const GROUNDS = ["bg", "bg-surface", "bg-muted"];
+const GROUNDS = ["bg", "bg-surface", "bg-muted", "bg-card", "bg-card-head", "bg-overlay"];
 
 /**
  * [foreground, ground, floor, the job named in the report]. `token-contrast.test.mjs` holds every button
@@ -24,12 +24,14 @@ export const PAIRS = [
   ["brand-accent", "brand-solid", EDGE, "the mark on the band"],
   ["border-control", "bg", EDGE, "a control's edge"],
   ["border-control", "bg-surface", EDGE, "a control's edge"],
+  ["border-control", "bg-card", EDGE, "a control's edge"],
+  ["border-control", "bg-overlay", EDGE, "a control's edge"],
   ["on-brand", "brand-solid", EDGE, "the focus ring on the band"],
 ];
 
 /** A status word on its own tint: the hue at this share over the ground, as `bg-{hue}/12` paints it. */
 const TINT = 0.12;
-const TINTED = ["success", "info", "warn", "danger"].flatMap((hue) => ["bg", "bg-surface"].map((ground) => [hue, ground]));
+const TINTED = ["success", "info", "warn", "danger"].flatMap((hue) => ["bg", "bg-surface", "bg-card"].map((ground) => [hue, ground]));
 
 const HEX = /^#([0-9a-f]{6})$/i;
 const VAR = /^var\(\s*--([a-z0-9-]+)\s*\)$/;

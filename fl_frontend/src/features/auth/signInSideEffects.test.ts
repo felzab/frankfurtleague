@@ -9,7 +9,7 @@ import {
   registerAuthDoubles,
 } from "@/test-support/authDoubles.ts";
 import { answerAt, SEAT } from "@/test-support/subjectFixtures.ts";
-import { assert, describe, expect, it, vi } from "vitest";
+import { assert, describe, expect, it } from "vitest";
 
 import { COPY } from "@/core/copy.ts";
 import { KONTAKT_EMAIL_MAX_LENGTH } from "@/core/emailAddress.ts";
@@ -85,9 +85,6 @@ const { sent } = registerAuthDoubles({
     "@better-auth/mongo-adapter": memoryAdapterDouble(STORE),
   },
 });
-
-// The action builder clears the site's cache tag, which Next takes from an action's own request alone.
-vi.mock("next/cache", async (original) => ({ ...(await original<object>()), updateTag: () => undefined }));
 
 const deferred: (() => Promise<void>)[] = [];
 const store = memoryStore(STORE);
@@ -297,7 +294,7 @@ describe("what a typed code answers", () => {
     const sessions = store.session.length;
     const typed = await typeTheCode(GRANTED, code);
 
-    expect(await typed.json()).toStrictEqual({ success: false, error: "Der Code ist abgelaufen. Fordere einen neuen an." });
+    expect(await typed.json()).toStrictEqual({ success: false, error: COPY.signIn.refusal.codeExpired });
     expect(store.session.length, "an expired code still minted a session").toBe(sessions);
   });
 });

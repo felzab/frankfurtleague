@@ -31,7 +31,10 @@ export type Constraints = {
 
 /**
  * The browser's validity flags as the fixed field messages, so no browser wording and no schema reaches
- * the client. A message the server or the form sent stands as it came.
+ * the client. A message the server or the form sent stands as it came: React Aria marks every message it did not
+ * read off the browser's own check, a form's `validationErrors` and a `validate` function's alike, `customError`
+ * (`useFormValidationState`). A native flag no constraint words carries the browser's or React Aria's own
+ * wording, which no catalogue holds, so it answers the shared failure line.
  */
 function fieldMessage({ validationDetails, validationErrors }: ValidationResult, constraints: Constraints) {
   const { field } = COPY.shared;
@@ -46,7 +49,7 @@ function fieldMessage({ validationDetails, validationErrors }: ValidationResult,
   ) {
     return field.format(constraints.example);
   }
-  return validationErrors[0];
+  return validationDetails.customError ? validationErrors[0] : COPY.shared.failure.unexpected;
 }
 
 /**

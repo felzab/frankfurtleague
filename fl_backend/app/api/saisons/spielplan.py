@@ -204,6 +204,7 @@ def _spiel(
 def draw_spielplan(*, saison_id: str, rules: FLSaisonRules, entered: Sequence[EnteredTeam]) -> Spielplan:
     """Every document one season's draw inserts, `spiel_nr` contiguous from 1 in playing order.
 
+    Every bracket also plays for third place, on the Finale's matchday before the final.
     No document carries a date: the draw settles who plays whom and in what order, and every date is
     set afterwards, one matchday and one fixture at a time.
     """
@@ -245,6 +246,25 @@ def draw_spielplan(*, saison_id: str, rules: FLSaisonRules, entered: Sequence[En
     for phase in knockout:
         spieltag = _spieltag(saison_id=saison_id, phase=phase, position=1)
         spieltage.append(spieltag)
+
+        # The match for third place. No bracket opens narrower than the semi-finals (`MIN_QUALIFIERS`),
+        # so `feeding` is then the two semi-finals, whose losers meet here. Ahead of the final, so the
+        # matchday is played in the order its numbers read, and under the Finale's phase rather than one
+        # of its own, which appended past `finale` would double `MAX_QUALIFIERS`.
+        if phase == "finale":
+            losers = [FLSpielQuelleSpiel(type="spiel", spiel_nr=nr, ausgang="verlierer").model_dump() for nr in feeding]
+            spiele.append(
+                _spiel(
+                    saison_id=saison_id,
+                    phase=phase,
+                    spieltag_id=spieltag["_id"],
+                    spiel_nr=spiel_nr,
+                    team1_quelle=losers[0],
+                    team2_quelle=losers[1],
+                )
+            )
+            spiel_nr += 1
+
         drawn: list[int] = []
         for slot in range(0, remaining, 2):
             sides = (

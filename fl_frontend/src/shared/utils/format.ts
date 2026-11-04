@@ -1,3 +1,4 @@
+// Redesign: goes with its last importer; `core/format.ts` replaces it.
 import { TIME_ZONE } from "@/core/format";
 
 import type { FLAddress } from "@/core/generated/client/types";
@@ -43,18 +44,6 @@ export function formatUhrzeit(uhrzeit: string | null | undefined, fallback: stri
 /** A part holding only whitespace counts as blank: `stadtteil` reaches storage unstripped on both tiers. */
 const joinPresent = (parts: readonly string[], separator: string): string => parts.filter((part) => part.trim() !== "").join(separator);
 
-export function formatAddress(address?: FLAddress): string {
-  if (!address) return nichtHinterlegt("Adresse");
-
-  // Stadtteil is optional; an empty one renders nothing rather than an empty "()" tail.
-  const stadtteil = address.stadtteil.trim() === "" ? "" : ` (${address.stadtteil})`;
-  // Joined, as `formatAddressFull` is, so a blank hausnummer leaves no „Feldweg , 60437“ on the team page.
-  const strasse = joinPresent([address.strasse, address.hausnummer], " ");
-  const ort = joinPresent([address.plz, address.stadt], " ");
-
-  return `${joinPresent([strasse, ort], ", ")}${stadtteil}`;
-}
-
 export function formatAddressFull(address: FLAddress): string {
   // Joined at both levels rather than templated: the copied line is pasted into a message, where
   // „Feldweg , 60437“ reads as a typo nobody made.
@@ -62,11 +51,6 @@ export function formatAddressFull(address: FLAddress): string {
   const ort = joinPresent([address.plz, address.stadtteil, address.stadt], " ");
 
   return joinPresent([strasse, ort, "Deutschland"], ", ");
-}
-
-/** Takes a string rather than a domain object: the call sites feed genuinely different queries, and only the shell is shared. */
-export function buildMapsSearchUrl(query: string): `https://${string}` {
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
 }
 
 // `timeZone` is what carries this: without one the runtime's zone decides, so a server in UTC and a

@@ -1,84 +1,39 @@
-import { PHASE_LABELS, SAISON_PHASE_OPTIONS } from "@/features/saisons/constants";
+import { COPY } from "@/core/copy";
+import { SAISON_PHASE_OPTIONS } from "@/features/saisons/constants";
 
+import type { Copy } from "@/core/copy";
 import type { FLSaisonPhase, FLSaisonPhaseSchedule } from "@/core/generated/client/types";
-import type { FLSpiel } from "@/features/spiele/types";
-import type { FLSpieltagWithSpiele } from "./types";
-
-/**
- * `PlayoffsView` draws its lines by index parity, true only if this has made it true — the Spiele
- * arrive sorted by `datum`, which says nothing about what feeds what. Walked last round first, so
- * each is ordered by the already-ordered round after it.
- */
-export const orderRoundsByWiring = (rounds: readonly FLSpieltagWithSpiele[]): FLSpieltagWithSpiele[] => {
-  const ordered: FLSpieltagWithSpiele[] = [];
-
-  // Built back to front, so `ordered[0]` is the already-reordered round after the one in hand; the
-  // last round anchors the walk unchanged.
-  for (const round of [...rounds].reverse()) {
-    const next = ordered[0];
-    if (next === undefined) {
-      ordered.unshift(round);
-      continue;
-    }
-
-    const byNr = new Map(round.spiele.map((spiel) => [spiel.spiel_nr, spiel]));
-    const fed: FLSpiel[] = [];
-    const placed = new Set<number>();
-
-    for (const spiel of next.spiele) {
-      for (const quelle of [spiel.team1_quelle, spiel.team2_quelle]) {
-        if (quelle?.type !== "spiel" || placed.has(quelle.spiel_nr)) continue;
-
-        const source = byNr.get(quelle.spiel_nr);
-        if (source === undefined) continue;
-
-        placed.add(quelle.spiel_nr);
-        fed.push(source);
-      }
-    }
-
-    ordered.unshift(placed.size === 0 ? round : { ...round, spiele: [...fed, ...round.spiele.filter((spiel) => !placed.has(spiel.spiel_nr))] });
-  }
-
-  return ordered;
-};
 
 /**
  * What one matchday is called, from its phase and its place within it. `countInPhase` decides whether
  * a knockout round needs distinguishing: four quarter-finals over two dates are two matchdays a
  * reader has to tell apart.
  */
-function spieltagLabel({ phase, ordinal, countInPhase }: { phase: FLSaisonPhase; ordinal: number; countInPhase: number }): string {
-  if (phase === "gruppenphase") return `${String(ordinal)}. Spieltag`;
+export function spieltagLabel({ phase, ordinal, countInPhase }: { phase: FLSaisonPhase; ordinal: number; countInPhase: number }): Copy {
+  if (phase === "gruppenphase") return COPY.shared.spieltag(ordinal);
 
-  return countInPhase > 1 ? `${PHASE_LABELS[phase]} (${String(ordinal)})` : PHASE_LABELS[phase];
+  return countInPhase > 1 ? COPY.shared.knockoutRound(COPY.shared.phase[phase], ordinal) : COPY.shared.phase[phase];
 }
 
+type Placed = { saison_phase: FLSaisonPhase; position: number };
+
 /**
- * Over the whole list, because `countInPhase` is knowable only once the phase has been seen. The
- * ordinal is the served `position`.
+ * Each matchday's name, read over the whole list once, because `countInPhase` is knowable only once the phase has
+ * been seen. The ordinal is the served `position`.
  */
-export function spieltagLabels(
-  spieltage: readonly { id: string; saison_phase: FLSaisonPhase; position: number }[],
-): Map<string, { label: string; ordinal: number }> {
+export function spieltagNamer(spieltage: readonly Placed[]): (spieltag: Placed) => Copy {
   const countByPhase = new Map<FLSaisonPhase, number>();
   for (const spieltag of spieltage) {
     countByPhase.set(spieltag.saison_phase, (countByPhase.get(spieltag.saison_phase) ?? 0) + 1);
   }
+  return (spieltag) =>
+    spieltagLabel({ phase: spieltag.saison_phase, ordinal: spieltag.position, countInPhase: countByPhase.get(spieltag.saison_phase) ?? 1 });
+}
 
-  const labels = new Map<string, { label: string; ordinal: number }>();
-  for (const spieltag of spieltage) {
-    labels.set(spieltag.id, {
-      ordinal: spieltag.position,
-      label: spieltagLabel({
-        phase: spieltag.saison_phase,
-        ordinal: spieltag.position,
-        countInPhase: countByPhase.get(spieltag.saison_phase) ?? 1,
-      }),
-    });
-  }
-
-  return labels;
+/** Each matchday's name and ordinal by its id, as `spieltagNamer` names it. */
+export function spieltagLabels(spieltage: readonly (Placed & { id: string })[]): Map<string, { label: Copy; ordinal: number }> {
+  const nameOf = spieltagNamer(spieltage);
+  return new Map(spieltage.map((spieltag) => [spieltag.id, { ordinal: spieltag.position, label: nameOf(spieltag) }]));
 }
 
 /** One phase of a season, with the matchdays it holds against the number its rules imply. */

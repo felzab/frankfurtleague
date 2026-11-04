@@ -1,25 +1,11 @@
-from typing import Any
-
 from fastapi import APIRouter, Depends
 
-from app.api.saisons.crud import pull_saison_id_and_rules
-from app.api.saisons.visibility import refuse_withheld_saison
-from app.api.spiele.schemas import FLSpielListAdapter
-from app.api.teams.schemas import (
-    FLPublicTeamsFilterParams,
-    FLTeam,
-    FLTeamListAdapter,
-    FLTeamsFilterParams,
-    FLTeamsGroupedResponse,
-    FLTeamSingleFilterParams,
-    FLTeamsListResponse,
-    FLTeamsResponse,
-    FLTeamsSingleResponse,
-)
-from app.api.teams.services import build_gruppen, build_team_pipeline
+from app.api.saisons.visibility import resolve_public_saison
+from app.api.teams.schemas import FLTeam, FLTeamsFilterParams, FLTeamSingleFilterParams, FLTeamsSingleResponse
+from app.api.teams.services import build_team_pipeline
 from app.core.config import API_VERSION
-from app.core.crud import GERMAN_COLLATION, aggregate_many_from_db, pull_many_from_db
-from app.core.dependencies import SaisonsCollection, SpieleCollection, TeamsCollection
+from app.core.crud import GERMAN_COLLATION, aggregate_many_from_db
+from app.core.dependencies import SaisonsCollection, TeamsCollection
 from app.core.exceptions import DocumentNotFoundError
 from app.core.routing import by_id
 from app.core.security import verify_access_base
@@ -31,57 +17,6 @@ router = APIRouter(
 )
 
 
-@router.get("", response_model=FLTeamsResponse, summary="List teams, flat or grouped")
-async def get_teams(
-    teams_collection: TeamsCollection,
-    saisons_collection: SaisonsCollection,
-    spiele_collection: SpieleCollection,
-    filters: FLPublicTeamsFilterParams = Depends(),
-) -> FLTeamsResponse:
-    """
-    List teams for a season.
-
-    `in_gruppen=true` returns the groups the season offers, keyed by group name, otherwise a plain list; check `format`.
-    Omitting `saison_id` returns the CURRENT season; one this tier may not read 404s, and a club that left the league
-    is listed in a `past` season alone.
-    """
-
-    # Resolved here, never as a field default, which cannot query the database. It also flips
-    # `strict_join` on: without a season the `$lookup` returns one row per season a team played.
-    filters.saison_id, saison_rules = await pull_saison_id_and_rules(saisons_collection=saisons_collection, saison_id=filters.saison_id)
-
-    # After the resolve, so an omitted `saison_id` is judged on the season it landed on -- which is
-    # the `active` one, and never withheld.
-    await refuse_withheld_saison(saisons_collection=saisons_collection, saison_id=filters.saison_id)
-
-    pipeline = build_team_pipeline(filters=filters, rules=saison_rules)
-
-    teams_raw = await aggregate_many_from_db(
-        collection=teams_collection,
-        pipeline=pipeline,
-        collation=GERMAN_COLLATION,
-    )
-
-    teams = FLTeamListAdapter.validate_python(teams_raw)
-    if not filters.in_gruppen:
-        return FLTeamsListResponse(teams=teams)
-
-    # The chain weighs a head-to-head table, leading on it where the season says so, so a standing
-    # needs the matches, filtered to the same set the statistics counted.
-    spiele_filter: dict[str, Any] = {"saison_id": filters.saison_id}
-    if filters.statistik_scope == "gruppenphase":
-        spiele_filter["saison_phase"] = "gruppenphase"
-
-    spiele_raw = await pull_many_from_db(collection=spiele_collection, db_filter=spiele_filter)
-    spiele = FLSpielListAdapter.validate_python(spiele_raw)
-
-    return FLTeamsGroupedResponse(
-        gruppen=build_gruppen(teams=teams, spiele=spiele, rules=saison_rules),
-        # Beside the table it applies to: a separate request could draw it from another season.
-        qualifiers_per_gruppe=saison_rules.qualifiers_per_gruppe,
-    )
-
-
 @router.get(by_id("team_id"), response_model=FLTeamsSingleResponse, summary="One team")
 async def get_team(
     team_id: CustomRouteObjectId,
@@ -89,29 +24,25 @@ async def get_team(
     saisons_collection: SaisonsCollection,
     filters: FLTeamSingleFilterParams = Depends(),
 ) -> FLTeamsSingleResponse:
-    """
-    Return one team, with its group and its statistics for a season.
+    """One team with its group and its figures in the season the query names, the season the site is on where it names none.
 
-    The path names WHICH TEAM; the query names WHICH SEASON'S figures: `gruppe` and `statistik` are
-    season-scoped. 404 where the team, its row or the season is one this tier cannot read.
+    404 where the team, its row in that season or the season is one this tier may not read.
     """
-
-    saison_id, saison_rules = await pull_saison_id_and_rules(saisons_collection=saisons_collection, saison_id=filters.saison_id)
 
     # Before the pipeline: the season is what scopes `gruppe` and `statistik`, so a withheld one has
     # to be refused whatever the club.
-    await refuse_withheld_saison(saisons_collection=saisons_collection, saison_id=saison_id)
+    saison = await resolve_public_saison(saisons_collection=saisons_collection, saison_id=filters.saison_id)
 
     # A retired club stays addressable by id: a caller holding one was given it by something.
     pipeline_filters = FLTeamsFilterParams(
-        saison_id=saison_id,
+        saison_id=saison.id,
         statistik_scope=filters.statistik_scope,
         include_inactive=True,
     )
 
     teams_raw = await aggregate_many_from_db(
         collection=teams_collection,
-        pipeline=build_team_pipeline(filters=pipeline_filters, rules=saison_rules, team_id=team_id),
+        pipeline=build_team_pipeline(filters=pipeline_filters, rules=saison.rules, team_id=team_id),
         collation=GERMAN_COLLATION,
     )
     if not teams_raw:

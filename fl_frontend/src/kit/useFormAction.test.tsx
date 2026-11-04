@@ -6,6 +6,7 @@ import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
+import { SERVER_COPY } from "@/core/serverCopy";
 
 import { EDGE_REFUSAL_BODY } from "./edgeRefusal";
 import { answering, statusOf, useFormAction } from "./useFormAction";
@@ -45,7 +46,7 @@ describe("a form's action through the one wrapper", () => {
 
   it("lets Next's redirect through to Next", async () => {
     const answered = answering(async (): Promise<ActionAnswer> => redirect("/bereich"), vi.fn());
-    await expect(answered(undefined)).rejects.toMatchObject({ digest: expect.stringContaining("NEXT_REDIRECT") });
+    await expect(answered(undefined)).rejects.toHaveProperty("digest", expect.stringContaining("NEXT_REDIRECT"));
   });
 });
 
@@ -56,6 +57,13 @@ describe("a form's status line for a refusal", () => {
       tone: "error",
       text: COPY.template.checkFields,
     });
+  });
+
+  // A boxed refusal and a sentence in one answer: the sentence is said nowhere else, so the line says it.
+  it("says a reason no box says, beside the boxes that say theirs", () => {
+    const plz = COPY.shared.field.required;
+    const reason = SERVER_COPY.ruleLine.elfmeterschiessen_without_draw;
+    expect(statusOf({ ok: false, fieldErrors: { plz }, reason }, false, false)).toStrictEqual({ tone: "error", text: reason });
   });
 
   it("says nothing while the next send is on its way, so the same refusal again is announced again", () => {

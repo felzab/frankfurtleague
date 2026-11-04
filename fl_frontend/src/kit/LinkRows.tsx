@@ -1,0 +1,53 @@
+import { textOf } from "@/core/copy";
+
+import { cardHover, cardSurface, stacked } from "./cardStyles";
+import { Icon } from "./Icon";
+import { Link } from "./Link";
+import { RowEnd } from "./RowEnd";
+
+import type { Copy, Words } from "@/core/copy";
+import type { Route } from "next";
+import type { IconName } from "./Icon";
+
+/** One way to reach the league: its glyph where it has one, its name, what it reaches, and the link itself. */
+type LinkRow = { glyph?: IconName; label: Copy; value: Words; href: Route };
+
+/**
+ * The ways to reach the league, one row each in one box, each row one link through its name, the address or
+ * the profile it reaches at the right and the chevron at its end, as a card's rows stand: Kontakt's page.
+ */
+export function LinkRows({ rows }: { rows: readonly LinkRow[] }) {
+  return (
+    <div className={cardSurface({ class: "overflow-hidden" })}>
+      {rows.map((row) => (
+        <div
+          key={row.href}
+          className={cardHover({
+            class: `relative flex min-h-14 items-center gap-3 ${stacked()} px-4 py-2 text-base lg:min-h-13 lg:text-sm`,
+          })}>
+          {row.glyph !== undefined && (
+            <Icon
+              glyph={row.glyph}
+              size={16}
+            />
+          )}
+          {/* The way's own short name keeps its line and its width; the address beside it takes the rest of
+              the row and is cut with „…“ where it is longer, whole in its `title`. */}
+          <span className="shrink-0 font-medium whitespace-nowrap">
+            <Link
+              href={row.href}
+              placement="row"
+              label={row.label}
+            />
+          </span>
+          <span
+            className="min-w-0 flex-1 truncate text-end text-fg-muted"
+            title={textOf(row.value)}>
+            {textOf(row.value)}
+          </span>
+          <RowEnd />
+        </div>
+      ))}
+    </div>
+  );
+}

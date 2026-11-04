@@ -39,7 +39,7 @@ import type { FLAdresswechselEinladenPayload, FLAdresswechselGenehmigungPayload,
  * does not redact. On the base tier, as the press is: the token in the body is the whole authorization.
  */
 export async function postAdresswechselAnsicht(payload: FLTokenPayload): Promise<FLAddressChangeViewResponse> {
-  return addressChangeGetAddressChangeView(payload, { readOnly: true });
+  return addressChangeGetAddressChangeView(payload);
 }
 
 /** The new mailbox's own answer. */
@@ -60,7 +60,7 @@ export async function postAdresswechselSweep(nach: string | null): Promise<FLAdd
 
 /** The sign-in accounts the effects still owe to carry, for this server alone: the answer names addresses. */
 export async function getAdresswechselUmzuege(): Promise<FLAddressChangeMovesResponse> {
-  return addressChangeGetAddressChangeMoves({ readOnly: true });
+  return addressChangeGetAddressChangeMoves();
 }
 
 /** Takes the carries done off their changes. */
@@ -73,14 +73,14 @@ export async function postAdresswechselUmzuegeErledigt(payload: FLAddressChangeM
  * serves no address, and this one reaches this server and never a page.
  */
 export async function postAdresswechselAdresse(payload: FLAddressChangeAdressePayload): Promise<FLAddressChangeAdresseResponse> {
-  return addressChangeGetAddressChangeAdresse(payload, { readOnly: true });
+  return addressChangeGetAddressChangeAdresse(payload);
 }
 
 /** A POST that reads, for the address it is handed: a GET would put a person's address in the URL every log line keeps. */
 export async function postAdresswechselVerwaltungAnsicht(
   payload: FLAddressChangeVerwaltungViewPayload,
 ): Promise<FLAddressChangeVerwaltungViewResponse> {
-  return addressChangeGetAddressChangeVerwaltungView(payload, { readOnly: true });
+  return addressChangeGetAddressChangeVerwaltungView(payload);
 }
 
 /** Ends the change standing at the address, so a link minted before stops working at once; the address on file stays in force. */

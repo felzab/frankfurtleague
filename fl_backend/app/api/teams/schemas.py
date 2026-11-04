@@ -486,18 +486,58 @@ class FLGruppenTeam(BaseModel):
     # The TYPE alone: a row marks that a club is out, and the club's own page publishes the reason
     # and the date.
     austritt_type: FLAustrittType | None
-    # Fixtures neither counted nor called off in the `statistik_scope` asked for, so points are still
-    # to be awarded here. REQUIRED with no default: a caller that forgot it would silently strip a
-    # placing.
-    count_pending_spiele: int = Field(ge=0)
 
 
-class FLGruppen(RootModel[Mapping[FLGruppenNames, list[FLGruppenTeam]]]):
-    """Every group the SEASON offers, all of them and no other, in standing order.
+class FLTabelleRow(FLGruppenTeam):
+    """One row of the Tabelle: the standing row and its placing, null for a club with no match or gone before its group was decided."""
 
-    Built by `fl_backend/app/api/teams/services.py :: build_gruppen` alone: the order is the tiebreak
-    chain, whose head-to-head criterion reads the season's matches.
+    platz: int | None = Field(gt=0)
+
+
+class FLTabelle(RootModel[Mapping[FLGruppenNames, list[FLTabelleRow]]]):
+    """Every group the season offers in standing order, the clubs that have played no match last.
+
+    Each club that has played and stood in the season on the day its group was decided is numbered as a `Platz` is, and
+    clubs the chain leaves level share one.
     """
+
+
+class FLTabelleResponse(BaseAPIResponse):
+    """One season's Tabelle: each group's standing over the group phase, and how many of each group advance."""
+
+    gruppen: FLTabelle
+    qualifiers_per_gruppe: int = Field(gt=0)
+
+
+class FLSaisonTeamEntry(BaseReadModel):
+    """One club of a season as the Teams page lists it: the name and shorthand it plays this season under."""
+
+    id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
+    name: CustomNonEmptyString
+    shorthand: CustomShorthand
+    gruppe: FLGruppenNames
+    # The type alone, as a standing row carries it: the club's own page publishes the reason and the date.
+    austritt_type: FLAustrittType | None
+
+
+FLSaisonTeamEntryListAdapter = TypeAdapter(list[FLSaisonTeamEntry])
+
+
+class FLSaisonTeamsResponse(BaseAPIResponse):
+    """A season's clubs, by name."""
+
+    teams: list[FLSaisonTeamEntry]
+
+
+class FLTeamPageClub(_TeamWritable, BaseReadModel):
+    """The club as its page in one season shows it: the school, its group, and how it left the season if it did.
+
+    The whole `austritt` record, reason and day: this page is the one that publishes them.
+    """
+
+    id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
+    gruppe: FLGruppenNames
+    austritt: FLAustritt | None
 
 
 class FLTeamMembership(BaseReadModel):
@@ -655,12 +695,8 @@ class FLReplaceSaisonTeamPayload(BaseModel):
     incoming_team_id: CustomObjectId
 
 
-class FLPublicTeamsFilterParams(BaseModel):
-    """What `GET /teams` may narrow on. `include_inactive` is on the admin model below alone.
-
-    A standings row names no leaving date, so a base-tier read that un-hid a retired club would say
-    nothing about which one had left (`READ-SQUAD-002`).
-    """
+class FLTeamsFilterParams(BaseModel):
+    """What a club read narrows on: the admin list's query, and the season views' and the club page's reads built in code."""
 
     # No `team_id`: one team by its id is addressed by `GET /teams/{team_id}`; this narrows a list.
     saison_id: str | None = None
@@ -671,7 +707,6 @@ class FLPublicTeamsFilterParams(BaseModel):
     # Independent of the boolean rather than nested under it: naming a type already implies having
     # left, so the two combine without either having to imply the other.
     austritt_type: FLAustrittType | None = None
-    in_gruppen: bool | None = None
 
     # Defaults to the GROUP TABLE, so an omitted parameter is the correct standing rather than the
     # playoff-polluted one.
@@ -681,16 +716,9 @@ class FLPublicTeamsFilterParams(BaseModel):
     sort_by: Literal["name"] = Field(default="name")
     order: FLSortOrder = Field(default="asc")
 
-
-class FLTeamsFilterParams(FLPublicTeamsFilterParams):
-    """The same filters plus the one switch a base-tier caller is not offered.
-
-    An extension rather than a second declaration, as `FLSpielerAdminSingleResponse` is: two
-    spellings of one filter set drift on every field they share.
-    """
-
-    # Retired CLUBS, for the admin pickers and for `GET /teams/{team_id}`, which is handed an id
-    # rather than discovering one.
+    # Retired CLUBS, for the admin pickers and for a read handed one club's id rather than discovering one. Never on a
+    # base-tier list: a standings row names no leaving date, so a list that un-hid a retired club would say nothing
+    # about which one had left (`READ-SQUAD-002`).
     include_inactive: bool = False
 
 
@@ -708,23 +736,8 @@ class FLTeamsListResponse(BaseAPIResponse):
     teams: list[FLTeam]
 
 
-class FLTeamsGroupedResponse(BaseAPIResponse):
-    """The season's groups in standing order, and how many of each advance.
-
-    `qualifiers_per_gruppe` rides along rather than being fetched separately, so a page cannot mark a
-    cutoff drawn from a different season than the table it marks.
-    """
-
-    format: Literal["grouped"] = "grouped"
-    gruppen: FLGruppen
-    qualifiers_per_gruppe: int = Field(gt=0)
-
-
 class FLTeamsSingleResponse(BaseAPIResponse):
-    """One team, from `GET /teams/{team_id}`.
-
-    Not part of `FLTeamsResponse`: that union discriminates the shapes ONE endpoint can return.
-    """
+    """One team, from `GET /teams/{team_id}`."""
 
     format: Literal["single"] = "single"
     team: FLTeam
@@ -849,9 +862,3 @@ class FLSaisonTeamAccountEinwilligungResponse(BaseAPIResponse):
     medien: bool
     # The precondition a next press on this row echoes.
     nachweis_stand: FLEinwilligungStand
-
-
-FLTeamsResponse = Annotated[
-    FLTeamsListResponse | FLTeamsGroupedResponse,
-    Field(discriminator="format"),
-]

@@ -1,65 +1,52 @@
-import { withSaisonId } from "./saisonHref";
+import { COPY, textOf } from "@/core/copy";
 
-import type { Copy } from "@/core/copy";
+import type { Copy, Words } from "@/core/copy";
 import type { RouteEntry } from "@/core/routes";
-import type { Metadata } from "next";
+import type { Metadata, ResolvingMetadata } from "next";
+
+/** The preview fields every page shares, which the root layout declares beside the share image. */
+export const SITE_OPEN_GRAPH = { siteName: COPY.brand.name, locale: "de_DE", type: "website" } as const;
 
 /**
- * A page's metadata from its row in `fl_frontend/src/core/routes.ts :: ROUTES` and its address: the
- * title, the address as the canonical and the preview's, and `noindex` where the row says search
- * engines may not list the page. A page declaring none inherits the root layout's, whose canonical is
- * the homepage. A row titled by its record or its teams takes that title as `title`.
+ * A page's metadata from its row in `fl_frontend/src/core/routes.ts :: ROUTES` and its address: the title,
+ * the description, the address as the preview's, and either the address as the canonical, on a page search
+ * engines list, or `noindex`, on one they do not: a canonical names the address to list, which a page kept out
+ * of the index has none of, so it declares none, as Yoast leaves it off a noindex page. A row titled by its record or its teams takes that title as `title`; a
+ * listed page takes its description from `fl_frontend/src/core/serverCopy.ts :: SERVER_COPY.description`,
+ * which holds one for a listed row alone. Call it from `generateMetadata`, handing on the `parent` Next
+ * passes there.
  */
-export function pageMetadata(row: RouteEntry & { readonly title: Copy }, path: string): Metadata;
-export function pageMetadata(row: RouteEntry, path: string, title: string): Metadata;
-export function pageMetadata(row: RouteEntry, path: string, title?: string): Metadata {
-  return {
-    title: title ?? (typeof row.title === "string" ? row.title : undefined),
-    alternates: { canonical: path },
-    openGraph: openGraphFor(path),
-    ...(row.indexed ? {} : { robots: { index: false, follow: false } }),
-  };
-}
-
-// Session 3: goes with the old dashboard pages, its last importers; `pageMetadata` stays.
-/**
- * `saisonId` is `resolveSaisonId`'s answer, never the raw parameter.
- *
- * **A URL naming the RUNNING season canonicalises to the bare address**, which serves that same
- * page: two self-canonicalising addresses split one page's indexing.
- */
-export function saisonScopedMetadata(
+export function pageMetadata(
+  parent: ResolvingMetadata,
+  row: RouteEntry & { readonly title: Copy },
   path: string,
-  saisonId: string | undefined,
-  runningSaisonId: string | undefined,
-): Pick<Metadata, "alternates" | "openGraph"> {
-  const url = withSaisonId(path, saisonId === runningSaisonId ? undefined : saisonId);
-
-  return { openGraph: openGraphFor(url), alternates: { canonical: url } };
-}
-
-/** The season a description names, from the same answer: a past season's page never calls itself the running one. */
-export function saisonPhrase(saisonId: string | undefined): string {
-  return saisonId === undefined ? "der laufenden Saison" : `der Saison ${saisonId}`;
+  words?: { readonly description?: Copy },
+): Promise<Metadata>;
+export function pageMetadata(
+  parent: ResolvingMetadata,
+  row: RouteEntry,
+  path: string,
+  words: { readonly title: Words; readonly description?: Copy },
+): Promise<Metadata>;
+export async function pageMetadata(
+  parent: ResolvingMetadata,
+  row: RouteEntry,
+  path: string,
+  words: { readonly title?: Words; readonly description?: Copy } = {},
+): Promise<Metadata> {
+  return {
+    title: words.title === undefined ? (typeof row.title === "string" ? row.title : undefined) : textOf(words.title),
+    description: words.description,
+    openGraph: await openGraphFor(parent, path),
+    ...(row.crawl === "index" ? { alternates: { canonical: path } } : { robots: { index: false, follow: false } }),
+  };
 }
 
 /**
- * Call it with the path the route gives `alternates.canonical`. **No route declares a bare `openGraph` object**:
- * Next replaces the parent's whole when a child defines one, so `openGraph: { url }` silently drops the image.
+ * A page's preview fields, its address among them as og:url, which Meta's scraper takes as the shared object's
+ * identity. Next replaces the parent's whole `openGraph` once a page declares one, image included, so the image
+ * the root layout set is carried over from `parent`.
  */
-export function openGraphFor(path: string): NonNullable<Metadata["openGraph"]> {
-  return {
-    url: path,
-    siteName: "Frankfurt League",
-    images: [
-      {
-        url: "/icons/opengraph/opengraph.png",
-        width: 1200,
-        height: 630,
-        alt: "Frankfurt League, die Oberstufenliga: Schriftzug neben dem Pokal",
-      },
-    ],
-    locale: "de_DE",
-    type: "website",
-  };
+export async function openGraphFor(parent: ResolvingMetadata, path: string): Promise<NonNullable<Metadata["openGraph"]>> {
+  return { ...SITE_OPEN_GRAPH, url: path, images: (await parent).openGraph?.images };
 }

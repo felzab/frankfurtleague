@@ -64,7 +64,7 @@ export async function postBewerbung(payload: FLPostBewerbungPayload, idempotency
  * backend's own route template does not redact.
  */
 export async function postEinwilligungAnsicht(payload: FLTokenPayload): Promise<FLBewerbungEinwilligungViewResponse> {
-  return bewerbungenGetEinwilligungView(payload, { readOnly: true });
+  return bewerbungenGetEinwilligungView(payload);
 }
 
 /** Records one contact person's answer and spends their token. */
@@ -123,7 +123,7 @@ export async function besetzenKontaktSitz({
  * because every read there is cached for a render, and this one answers a timer.
  */
 export async function getBewerbungSweepSaisons(): Promise<FLSweepSaisonsResponse> {
-  // `GET /saisons` cannot serve this: it withholds a `future` season,
+  // No base-tier season read can serve this: each withholds a `future` season,
   // which is the status every season with an open application holds.
   return bewerbungenGetSweepSaisons();
 }

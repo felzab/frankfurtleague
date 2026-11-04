@@ -1,22 +1,16 @@
-import { SAISON_PHASE_OPTIONS } from "@/features/saisons/constants";
-import { computeErgebnisFor, PHASE_RANK } from "@/features/spiele/utils";
 import { KADER_ABSCHNITT } from "@/features/spieler/constants";
 
 import { EINWILLIGUNG_UMFANG, GRUPPEN_OPTIONS, KONTAKT_ROLLEN, TRIKOT_FARBE_OPTIONS, WEBSITE_URL_SCHEME } from "./constants";
 
 import type {
-  FLGruppenTeam,
   FLKontaktperson,
   FLSaison,
-  FLSaisonPhase,
   FLSaisonRules,
   FLSaisonTeamKontakte,
   FLTeamMembership,
   FLTeamWithMemberships,
   FLTrikotFarbe,
 } from "@/core/generated/client/types";
-import type { FLSpiel } from "@/features/spiele/types";
-import type { FLSpielErgebnisFor } from "@/features/spiele/utils";
 import type { TrikotFarbeOption } from "./constants";
 import type { AdminKontakteRow, AdminKontaktSeat, GruppeOffer, KontaktpersonDraft, SaisonTeamKontakteDraft } from "./types";
 
@@ -75,181 +69,6 @@ export const describeReplacementUmfang = ({
       : `${String(ausgetrageneSquadRows)} Kadereinträge des ausscheidenden Teams wurden ausgetragen.`;
 
   return `${spiele} ${ausgetragen} ${SQUAD_REPAIR}`;
-};
-
-/**
- * `fl_backend/app/api/teams/services.py :: _may_hold_a_platz`, over the row that endpoint serves.
- * One rule, so the table and the bracket cannot name different qualifiers.
- */
-const mayHoldAPlatz = (team: FLGruppenTeam): boolean =>
-  team.austritt_type === null && team.statistik.count_gespielte_spiele + team.count_pending_spiele > 0;
-
-/**
- * "Currently" is the whole claim: this reads the table as it stands and says nothing about whether
- * the place is safe. The bracket seeds only once no remaining fixture can change it.
- */
-export const computeQualifyingTeamIds = ({
-  teams,
-  qualifiersPerGroup,
-}: {
-  teams: readonly FLGruppenTeam[];
-  qualifiersPerGroup: number;
-}): ReadonlySet<string> => {
-  const qualifying = new Set<string>();
-
-  for (const team of teams) {
-    if (qualifying.size === qualifiersPerGroup) break;
-    if (!mayHoldAPlatz(team)) continue;
-
-    qualifying.add(team.id);
-  }
-
-  return qualifying;
-};
-
-/**
- * Numbered as a `Platz` is (`docs/glossary.md :: Platz`), walking past a row that can hold none.
- * **A club absent from this map is the table's „Kein Platz“**, so nothing may restate the rule at a cell.
- */
-export const computePlatzByTeamId = (teams: readonly FLGruppenTeam[]): ReadonlyMap<string, number> => {
-  const platzByTeamId = new Map<string, number>();
-
-  for (const team of teams) {
-    if (!mayHoldAPlatz(team)) continue;
-
-    platzByTeamId.set(team.id, platzByTeamId.size + 1);
-  }
-
-  return platzByTeamId;
-};
-
-/** How one round went for one team, as far as that team's own fixtures can say. */
-export type SaisonPhaseOutcome =
-  /** Its fixture was won on goals. */
-  | "won"
-  /** Its fixture finished level and the shoot-out went its way. */
-  | "wonInShootOut"
-  /** Its fixture was lost on goals — the run ends here. */
-  | "out"
-  /** Its fixture finished level and the shoot-out went against it — the run ends here. */
-  | "outInShootOut"
-  /** Its round was played and a later one's winner or group placing fields the team, whatever the goals said. */
-  | "advanced"
-  /** Its fixture carries no result yet. */
-  | "pending"
-  /** Its fixture finished level with no shoot-out and no later round fields the team, so nobody here may name a winner. */
-  | "level"
-  /**
-   * **Only the group phase reaches this, and it must never acquire an outcome word.** Failing a group
-   * is evidenced only by the absence of a knockout fixture — which an undrawn bracket looks like too.
-   */
-  | "unknown";
-
-export type SaisonPhaseVerlauf = {
-  phase: FLSaisonPhase;
-  outcome: SaisonPhaseOutcome;
-};
-
-/**
- * Each round this team has a fixture in, in playing order. Only a round with a fixture gets an
- * entry, so a season that plays no `achtelfinale` yields none rather than a failure to reach it.
- */
-export const computeSaisonVerlauf = ({ spiele, teamId }: { spiele: readonly FLSpiel[]; teamId: string }): SaisonPhaseVerlauf[] => {
-  const byPhase = new Map<FLSaisonPhase, FLSpiel[]>();
-
-  // `sonderereignis` is deliberately not read: a round is come through exactly when a fixture carries
-  // an `ergebnis`, and the two members awarding nothing — `ausgefallen`, `annulliert` — carry none by
-  // construction.
-  for (const spiel of spiele) {
-    // Not redundant with the fetch: `GET /spiele?team_id=` matches both sides, but nothing types
-    // that promise.
-    if (spiel.team1?.team_id !== teamId && spiel.team2?.team_id !== teamId) continue;
-
-    const fixtures = byPhase.get(spiel.saison_phase);
-    if (fixtures === undefined) byPhase.set(spiel.saison_phase, [spiel]);
-    else fixtures.push(spiel);
-  }
-
-  // The deepest round the team is ADVANCED into: a side fed as `verlierer` — the third-place play-off —
-  // stands in a later round too, and a side no reference feeds may be either, so neither proves the team
-  // came through.
-  const deepestAdvancedRank = Math.max(
-    -1,
-    ...spiele.filter((spiel) => isAdvancedInto(spiel, teamId)).map((spiel) => PHASE_RANK[spiel.saison_phase]),
-  );
-  const verlauf: SaisonPhaseVerlauf[] = [];
-
-  // The declared sequence, so a season configured for different knockout rounds needs no edit here.
-  for (const phase of SAISON_PHASE_OPTIONS) {
-    const fixtures = byPhase.get(phase);
-    if (fixtures === undefined) continue;
-
-    const standsInALaterRound = PHASE_RANK[phase] < deepestAdvancedRank;
-
-    if (phase === "gruppenphase") {
-      // Two readings and never a third: a knockout side the team is advanced into, beside a group that
-      // was actually played, is evidence the group was come through, and anything else is evidence of nothing.
-      const played = fixtures.some((spiel) => computeErgebnisFor({ spiel, teamId }) !== "?");
-      verlauf.push({ phase, outcome: standsInALaterRound && played ? "advanced" : "unknown" });
-      continue;
-    }
-
-    verlauf.push({ phase, outcome: knockoutOutcome(fixtures, teamId, standsInALaterRound) });
-  }
-
-  return verlauf;
-};
-
-/** Whether the team holds a side of this fixture that a group placing or a match's winner feeds. */
-const isAdvancedInto = (spiel: FLSpiel, teamId: string): boolean => {
-  const quelle = spiel.team1?.team_id === teamId ? spiel.team1_quelle : spiel.team2?.team_id === teamId ? spiel.team2_quelle : null;
-
-  return quelle !== null && (quelle.type === "gruppe" || quelle.ausgang === "sieger");
-};
-
-/**
- * How one knockout round went: off the round's own result where that is a win, off the bracket's
- * movement everywhere else.
- */
-const knockoutOutcome = (fixtures: readonly FLSpiel[], teamId: string, standsInALaterRound: boolean): SaisonPhaseOutcome => {
-  const entscheidungen = fixtures.map((spiel) => computeEntscheidungFor({ spiel, teamId }));
-  const decided = (ergebnisFor: "S" | "N", imElfmeterschiessen: boolean): boolean =>
-    entscheidungen.some((entscheidung) => entscheidung.ergebnisFor === ergebnisFor && entscheidung.imElfmeterschiessen === imElfmeterschiessen);
-
-  if (decided("S", false)) return "won";
-  if (decided("S", true)) return "wonInShootOut";
-  // A round with no result at all is still open, however deep the team stands.
-  if (standsInALaterRound && entscheidungen.some((entscheidung) => entscheidung.ergebnisFor !== "?")) return "advanced";
-  if (decided("N", false)) return "out";
-  if (decided("N", true)) return "outInShootOut";
-  // "?" is a fixture carrying no result: a malformed scoreline is refused at the API boundary.
-  return entscheidungen.every((entscheidung) => entscheidung.ergebnisFor === "?") ? "pending" : "level";
-};
-
-/** One team's result in one fixture, and whether the shoot-out rather than the goals decided it. */
-type EntscheidungFor = { ergebnisFor: FLSpielErgebnisFor; imElfmeterschiessen: boolean };
-
-/**
- * The bracket's reading of a level knockout, for the team page's
- * rounds and fixtures alone. **Never a figure**: the table and the Saisonstatistik count the fixture as
- * the draw it finished as.
- */
-export const computeEntscheidungFor = ({ spiel, teamId }: { spiel: FLSpiel; teamId: string }): EntscheidungFor => {
-  const ergebnisFor = computeErgebnisFor({ spiel, teamId });
-  const shootOut = spiel.elfmeterschiessen;
-
-  // `fl_backend/app/api/spiele/services.py :: _outcome_of` reads no shoot-out on a group fixture, and
-  // a level count names nobody, so neither may name a winner here.
-  if (ergebnisFor !== "U" || spiel.saison_phase === "gruppenphase" || shootOut === null || shootOut.team1 === shootOut.team2) {
-    return { ergebnisFor, imElfmeterschiessen: false };
-  }
-
-  // "U" already placed the team on one of the two sides, so a team that is not team1 is team2.
-  const ownIsTeam1 = spiel.team1?.team_id === teamId;
-  const own = ownIsTeam1 ? shootOut.team1 : shootOut.team2;
-  const other = ownIsTeam1 ? shootOut.team2 : shootOut.team1;
-
-  return { ergebnisFor: own > other ? "S" : "N", imElfmeterschiessen: true };
 };
 
 /**
@@ -351,9 +170,9 @@ export function buildKontaktRows(teams: readonly FLTeamWithMemberships[], saison
 }
 
 /**
- * The season `/dashboard/teams/[team_id]` shows a club in, or `null` where that page would 404. A
- * planned season is withheld from the public tier, and a request naming one lands on the running
- * season (`fl_frontend/src/features/saisons/resolvers.ts :: resolveSaisonId`).
+ * The season whose club page (`fl_frontend/src/core/routes.ts :: ROUTES.team`) shows a club, or `null`
+ * where that page would 404. A planned season is withheld from the public tier, so a club picked in one
+ * is shown in the running season.
  */
 export function publicTeamSaisonId(
   saisons: readonly Pick<FLSaison, "id" | "status">[],

@@ -9,6 +9,7 @@ import { ClassicPage, ClassicTitle } from "./ClassicPage";
 import { CodeField } from "./CodeField";
 import { StatusLine } from "./FieldParts";
 import { Link } from "./Link";
+import { Skeleton, SkeletonTitle } from "./Skeleton";
 import { TextField } from "./TextField";
 import { tv } from "./tv";
 
@@ -55,6 +56,8 @@ type CodeView = Head & {
   address: string;
   code: {
     label: Copy;
+    /** The typed code's own refusal, a phrase under the boxes; every other refusal is the view's `row`. */
+    error: Copy | null;
     /** Counts the code's refusals: each one empties the boxes for the next code. */
     attempt: number;
     isDisabled: boolean;
@@ -105,7 +108,7 @@ const look = tv({
  * The sign-in template, centred as the prototype drew it: the heading, the sentences, the address and the code
  * boxes centred, every button full width in the 352-px column. Each view is one step of a sign-in; the page
  * holding its state passes the view it is on. A refusal stands in the one line under the acts, the address's
- * and the code's in their field's own line.
+ * and the typed code's in their field's own line.
  */
 export function SignInPage(props: SignInView) {
   const slots = look();
@@ -114,11 +117,34 @@ export function SignInPage(props: SignInView) {
     <ClassicPage width="signin">
       <div className={slots.column()}>
         <Body {...props} />
-        {/* The code view's refusal is the code field's own, under the boxes. */}
         <StatusLine
-          status={props.view === "code" || props.row === null ? null : { tone: "error", text: props.row }}
+          status={props.row === null ? null : { tone: "error", text: props.row }}
           placement="column"
         />
+      </div>
+    </ClassicPage>
+  );
+}
+
+/**
+ * The sign-in while its session is read: the title, which the address view and the signed-in view share, where
+ * either sets it, and under it the facts' skeleton, which appears once the wait outlasts the delay every
+ * template's skeleton keeps, the one wait every template draws. `null` where the title waits on the read too, as
+ * the passkey's step names its own: the title's bar stands centred in its line, as a rail page's strip draws it.
+ */
+export function SignInSkeleton({ title }: { title: Copy | null }) {
+  const slots = look();
+  return (
+    <ClassicPage width="signin">
+      <div className={slots.column()}>
+        {title === null ? (
+          <span className="flex h-8 justify-center">
+            <SkeletonTitle />
+          </span>
+        ) : (
+          <ClassicTitle text={title} />
+        )}
+        <Skeleton shape="facts" />
       </div>
     </ClassicPage>
   );
@@ -149,8 +175,8 @@ function Body(props: SignInView) {
             key={code.attempt}
             label={code.label}
             name="code"
-            // The code's refusal stands under the boxes it refuses, in the field's own line.
-            error={props.row ?? undefined}
+            // The typed code's refusal stands under the boxes it refuses, in the field's own line.
+            error={code.error ?? undefined}
             isDisabled={code.isDisabled}
             onComplete={code.onComplete}
           />
@@ -206,6 +232,7 @@ function Body(props: SignInView) {
             <Link
               href={props.continue.href}
               placement="button"
+              look="primary"
               label={props.continue.label}
             />
             {/* The step out beside the way on, quiet as „Später“ is. */}

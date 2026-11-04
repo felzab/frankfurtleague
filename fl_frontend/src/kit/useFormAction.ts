@@ -38,8 +38,9 @@ export type FormStatus = { tone: "changes" | "saved" | "error"; text: Copy } | n
 
 /**
  * The status line of a send. One the browser kept back for a field's own rule points at the fields, as does
- * a server refusal its fields carry, since the fields say what and the line where to look; any other refusal
- * says its reason, or the shared failure line; a done one says what else the write moved, or „Gespeichert“.
+ * a server refusal its fields carry, since the fields say what; a refusal with a reason no box says says that
+ * reason, the boxes saying theirs beside it, and any other the shared failure line; a done one says what else
+ * the write moved, or „Gespeichert“.
  * Nothing for no answer, nor while a send is on its way: the last answer is none to the press still running,
  * and the line, a polite live region, is announced only where its words change, so the same refusal twice
  * goes in afresh after the empty line or a screen reader stays silent on the second.
@@ -48,10 +49,11 @@ export function statusOf(answer: ActionAnswer<unknown> | null, isBlocked: boolea
   if (isBlocked) return { tone: "error", text: COPY.template.checkFields };
   if (answer === null || isPending) return null;
   if (answer.ok) return { tone: "saved", text: answer.note ?? COPY.shared.saved };
-  return {
-    tone: "error",
-    text: answer.fieldErrors === undefined ? (answer.reason ?? COPY.shared.failure.unexpected) : COPY.template.checkFields,
-  };
+  if (answer.fieldErrors === undefined) return { tone: "error", text: answer.reason ?? COPY.shared.failure.unexpected };
+  // A reason beside the fields stands before their pointer, being said nowhere else, unless a box already says it.
+  const { reason } = answer;
+  const unsaid = reason !== undefined && !Object.values(answer.fieldErrors).includes(reason);
+  return { tone: "error", text: unsaid ? reason : COPY.template.checkFields };
 }
 
 type Step<Payload> = { kind: "send"; payload: Payload } | { kind: "reset" };

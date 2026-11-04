@@ -26,6 +26,7 @@ from tests.documents import (
     spiel_document,
     team_document,
 )
+from tests.isolation import COMMITTED, InterleavedCollection, outcome_of
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -71,7 +72,7 @@ INCOMING_SIDE = {"team_id": INCOMING, "name": "Incoming", "shorthand": "INX", "t
 
 # The day the replacement runs, and a departure from the same squad that predates it.
 REPLACED_ON = "2026-04-15"
-# After the replacement day, so the season it runs on has not started.
+# After the replacement day, and the season's start unless a case says so, so the season it runs on has not started.
 FIRST_GROUP_FIXTURE_DAY = "2026-05-01"
 NOW = datetime(2026, 4, 15, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 # Written out rather than computed from `log_stamp`, which would agree with any conversion of `NOW`.
@@ -244,6 +245,7 @@ def on_a_seeded_season(
     *,
     spiele: Sequence[dict[str, Any]] | None = None,
     saison_status: str = "active",
+    start_date: str = FIRST_GROUP_FIXTURE_DAY,
     junctions: Sequence[dict[str, Any]] | None = None,
 ) -> Any:
     """`active` by default: a mid-season withdrawal is what this endpoint is for."""
@@ -252,7 +254,7 @@ def on_a_seeded_season(
         async with a_clean_database(url, DATABASE_NAME) as (client, database):
             # No case here turns on a season's rules; each season spans its own calendar year.
             await database[Collection.SAISONS].insert_many(
-                [saison_document(SAISON_ID, saison_status), saison_document(PRIOR_SAISON_ID, "past")]
+                [saison_document(SAISON_ID, saison_status, start_date=start_date), saison_document(PRIOR_SAISON_ID, "past")]
             )
             await database[Collection.SAISON_TEAMS].insert_many(list(default_junctions() if junctions is None else junctions))
             # No document for PHANTOM, which is the whole point of that junction row.
@@ -274,14 +276,17 @@ async def call_replace(
     incoming_team_id: ObjectId = INCOMING,
     *,
     saison_id: str = SAISON_ID,
+    saisons_collection: Any = None,
 ) -> Any:
+    """`saisons_collection` is overridable so a case can hand the endpoint a stand-in and nothing else."""
+
     return await replace_saison_team(
         team_id=team_id,
         saison_id=saison_id,
         replacement_data=FLReplaceSaisonTeamPayload(incoming_team_id=incoming_team_id),
         teams_collection=database[Collection.TEAMS],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
-        saisons_collection=database[Collection.SAISONS],
+        saisons_collection=saisons_collection if saisons_collection is not None else database[Collection.SAISONS],
         spiele_collection=database[Collection.SPIELE],
         saison_spieler_collection=database[Collection.SAISON_SPIELER],
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
@@ -516,7 +521,7 @@ class TestTheOutgoingClubsSquadIsRetired:
     """The fifth surface, the one that does not move: `kader_team_not_in_saison` refuses a squad row whose club has no junction row there."""
 
     def test_the_live_rows_are_stamped_with_the_day_of_the_replacement(self, mongo_replica_set_url: str):
-        """Kills leaving them standing: a season-and-team read of `GET /spieler` goes on serving the outgoing club's squad."""
+        """Kills leaving them standing: the club page's squad, a season-and-team read, goes on serving the outgoing club's squad."""
 
         squad = on_a_seeded_season(mongo_replica_set_url, _squad_after)
 
@@ -646,18 +651,59 @@ class TestAPhantomRowIsRepaired:
 
 
 class TestAStartedSeasonIsNotReplaced:
-    def test_a_group_fixture_dated_on_the_replacement_day_refuses_it(self, mongo_replica_set_url: str):
-        """From the season's first fixture day a club leaves by its Austritt and is not replaced, with the whole write rolled back."""
+    def test_a_season_starting_on_the_replacement_day_refuses_it(self, mongo_replica_set_url: str):
+        """From the season's `start_date` a club leaves by its Austritt and is not replaced, with the whole write rolled back."""
 
         code, row, spiele = on_a_seeded_season(
             mongo_replica_set_url,
             _refused,
-            spiele=[gruppen_fixture(1, WITHDRAWN, RIVAL, datum=REPLACED_ON), gruppen_fixture(2, RIVAL, WITHDRAWN)],
+            spiele=[gruppen_fixture(1, WITHDRAWN, RIVAL), gruppen_fixture(2, RIVAL, WITHDRAWN)],
+            start_date=REPLACED_ON,
         )
 
         assert code == Code.REPLACE_SAISON_STARTED
         assert row is not None, "the junction row was handed over anyway"
         assert spiele[2]["team2"] == side(WITHDRAWN), "the fan-out ran before the refusal, or outside the transaction"
+
+    def test_a_fixture_of_the_club_that_has_taken_place_refuses_it(self, mongo_replica_set_url: str):
+        """Before the start, a result entered early: the rewrite moves no `tore`, so the incoming club would inherit it."""
+
+        code, row, spiele = on_a_seeded_season(
+            mongo_replica_set_url,
+            _refused,
+            spiele=[gruppen_fixture(1, WITHDRAWN, RIVAL, ergebnis="1:0", tore=(1, 0)), gruppen_fixture(2, RIVAL, WITHDRAWN)],
+        )
+
+        assert code == Code.SIDES_TAKEN_PLACE
+        assert row is not None, "the junction row was handed over anyway"
+        assert spiele[2]["team2"] == side(WITHDRAWN), "the fan-out ran before the refusal, or outside the transaction"
+
+
+class TestAStartMovedUnderTheReplacementIsJudgedAgain:
+    """The season has not started when the replacement judges, and has when it writes: `PATCH /saisons` moved its start."""
+
+    def test_the_replacement_is_refused_on_the_start_moved_under_it(self, mongo_replica_set_url: str):
+        """Drop the season's anchor from `replace_saison_team` and this fails: it reads the start and never writes the season."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            async def move_the_start_to_the_replacement_day() -> None:
+                # The season patch's own write, the one document both share.
+                await database[Collection.SAISONS].update_one({"_id": SAISON_ID}, {"$set": {"start_date": REPLACED_ON}})
+
+            seasons = SeasonsRunningARivalAfterTheSessionRead(database[Collection.SAISONS], move_the_start_to_the_replacement_day)
+            outcome = await outcome_of(call_replace(database, client, saisons_collection=seasons))
+
+            return outcome, seasons.passes, await row_of(database, WITHDRAWN)
+
+        outcome, passes, row = on_a_seeded_season(
+            mongo_replica_set_url, body, spiele=[gruppen_fixture(1, WITHDRAWN, RIVAL), gruppen_fixture(2, RIVAL, WITHDRAWN)]
+        )
+
+        assert outcome != COMMITTED, "the replacement committed on a start it judged before the patch moved it"
+        assert outcome == Code.REPLACE_SAISON_STARTED
+        assert row is not None, "the junction row was handed over anyway"
+        # The judgement's read and the retry's: the replacement conflicted on the anchor rather than committing.
+        assert passes == 2
 
 
 class TestTheSeasonGateOnTheRoute:
@@ -738,3 +784,17 @@ class TestWhatIsAddressed:
             return await row_of(database, WITHDRAWN)
 
         assert on_a_seeded_season(mongo_replica_set_url, body) is not None
+
+
+class SeasonsRunningARivalAfterTheSessionRead(InterleavedCollection):
+    """A `saisons` stand-in running its rival once, just after the first read made inside a transaction.
+
+    The read before the transaction is the 404 check, so a rival there would land before any snapshot.
+    """
+
+    async def find_one(self, *args: Any, **kwargs: Any) -> Any:
+        found = await self._collection.find_one(*args, **kwargs)
+        if kwargs.get("session") is not None:
+            await self.run_the_rival()
+
+        return found

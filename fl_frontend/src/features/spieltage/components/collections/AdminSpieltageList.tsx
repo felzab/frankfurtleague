@@ -7,6 +7,7 @@ import Globe from "@gravity-ui/icons/Globe";
 import Magnifier from "@gravity-ui/icons/Magnifier";
 import Pencil from "@gravity-ui/icons/Pencil";
 
+import { ROUTES } from "@/core/routes";
 import { PHASE_LABELS, SAISON_PHASE_OPTIONS } from "@/features/saisons/constants";
 import { describeSpieltageCount } from "@/features/saisons/utils";
 import { SaisonPhaseChip } from "@/features/spiele/components/ui/SaisonPhaseChip";
@@ -207,7 +208,7 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
           sequence above actually produces the schedule somebody will read. */}
       {saisonId !== null && (
         <Link
-          href={`/dashboard/spielplan?saison_id=${encodeURIComponent(saisonId)}`}
+          href={ROUTES.spielplan.path(saisonId)}
           className="flex h-10 w-fit items-center gap-x-2 rounded-xl border border-border bg-surface px-4 fluid-xs font-bold text-foreground shadow-sm transition-colors hover:bg-hover">
           <Globe
             className="size-4"

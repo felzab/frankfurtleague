@@ -7,16 +7,12 @@ from fastapi.routing import APIRoute
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.spiele.admin_router import get_spiel_verwaltung, get_spiele_verwaltung
-from app.api.spiele.public_router import get_spiele
 from app.api.spiele.schemas import FLSpieleFilterParams
 from app.api.spieltage.admin_router import get_spieltag_verwaltung, get_spieltage_verwaltung
-from app.api.spieltage.public_router import get_spieltage
 from app.api.spieltage.schemas import FLSpieltageFilterParams
 from app.api.teams.admin_router import get_teams_verwaltung
-from app.api.teams.public_router import get_teams
 from app.api.teams.schemas import FLTeamsFilterParams
 from app.core.collections import Collection
-from app.core.exceptions import DocumentNotFoundError
 from app.core.security import verify_access_admin, verify_access_base, verify_access_system
 from tests import documents
 from tests.core.app_source import api_routes, application
@@ -38,7 +34,7 @@ STATUS_OF = {ARCHIVED: "past", RUNNING: "active", PLANNED: "future"}
 GRUPPE_OF = {ARCHIVED: "A", RUNNING: "B", PLANNED: "C"}
 SAISON_OF_GRUPPE = {gruppe: saison_id for saison_id, gruppe in GRUPPE_OF.items()}
 
-# `get_spiele` takes the day as an argument; only `spiel_status` reads it, and no test here sets one.
+# `get_spiele_verwaltung` takes the day as an argument; only `spiel_status` reads it, and no test here sets one.
 TODAY = "2026-03-20"
 
 TEAM_OID = ObjectId("6890a1b2c3d4e5f607260001")
@@ -119,23 +115,10 @@ def on_a_league(url: str, body: Body) -> Any:
     return on_the_seed_loop(_run())
 
 
-def raised_by(url: str, body: Body) -> DocumentNotFoundError:
-    """The refusal a read answered with, so a test asserts on its status rather than only that it refused."""
-
-    async def _catching(database: AsyncDatabase) -> DocumentNotFoundError:
-        with pytest.raises(DocumentNotFoundError) as refusal:
-            await body(database)
-
-        return refusal.value
-
-    return on_a_league(url, _catching)
-
-
 async def admin_teams(database: AsyncDatabase, saison_id: str) -> Any:
     return await get_teams_verwaltung(
         teams_collection=database[Collection.TEAMS],
         saisons_collection=database[Collection.SAISONS],
-        spiele_collection=database[Collection.SPIELE],
         filters=FLTeamsFilterParams(saison_id=saison_id),
     )
 
@@ -165,32 +148,6 @@ async def admin_spieltag(database: AsyncDatabase, saison_id: str) -> Any:
     )
 
 
-async def base_teams(database: AsyncDatabase, saison_id: str) -> Any:
-    return await get_teams(
-        teams_collection=database[Collection.TEAMS],
-        saisons_collection=database[Collection.SAISONS],
-        spiele_collection=database[Collection.SPIELE],
-        filters=FLTeamsFilterParams(saison_id=saison_id),
-    )
-
-
-async def base_spiele(database: AsyncDatabase, saison_id: str) -> Any:
-    return await get_spiele(
-        spiele_collection=database[Collection.SPIELE],
-        saisons_collection=database[Collection.SAISONS],
-        filters=FLSpieleFilterParams(saison_id=saison_id),
-        today=TODAY,
-    )
-
-
-async def base_spieltage(database: AsyncDatabase, saison_id: str) -> Any:
-    return await get_spieltage(
-        spieltage_collection=database[Collection.SPIELTAGE],
-        saisons_collection=database[Collection.SAISONS],
-        filters=FLSpieltageFilterParams(saison_id=saison_id),
-    )
-
-
 Read = Callable[[AsyncDatabase, str], Awaitable[Any]]
 Served = Callable[[Any], list[str]]
 
@@ -204,16 +161,6 @@ ADMIN_READS_OF_A_SEASON: list[tuple[str, Read, Served]] = [
 ]
 
 ADMIN_READ_IDS = [label for label, _, _ in ADMIN_READS_OF_A_SEASON]
-
-# Each pair with what only the admin shape serves, as `model_dump`'s `exclude` spells it: the fixture's
-# `version`, which its editor's save sends back (`spiele/schemas.py :: FLSpielJoinedAdmin`).
-PAIRED_TIERS: list[tuple[str, Read, Read, dict[str, Any] | None]] = [
-    ("squad list", admin_teams, base_teams, None),
-    ("fixture list", admin_spiele, base_spiele, {"spiele": {"__all__": {"version"}}}),
-    ("matchday list", admin_spieltage, base_spieltage, None),
-]
-
-PAIRED_IDS = [label for label, _, _, _ in PAIRED_TIERS]
 
 
 @pytest.mark.db
@@ -233,38 +180,6 @@ def test_the_admin_tier_reads_a_readable_season_as_the_season_it_named(
     """Non-vacuity: without it a read hardwired to one season would pass the case above."""
 
     assert served(on_a_league(seeded_league, lambda database: read(database, saison_id))) == [saison_id]
-
-
-@pytest.mark.db
-@pytest.mark.parametrize("saison_id", [ARCHIVED, RUNNING])
-@pytest.mark.parametrize("label,admin_read,base_read,admin_only", PAIRED_TIERS, ids=PAIRED_IDS)
-def test_the_admin_read_answers_exactly_what_the_base_read_answers(
-    label: str, admin_read: Read, base_read: Read, admin_only: dict[str, Any] | None, saison_id: str, seeded_league: str
-):
-    """Past what only the admin shape serves, the gate is meant to be the ONLY difference, so the two agree field for field."""
-
-    async def body(database: AsyncDatabase) -> tuple[Any, Any]:
-        return (await admin_read(database, saison_id)).model_dump(exclude=admin_only), (await base_read(database, saison_id)).model_dump()
-
-    admin_answer, base_answer = on_a_league(seeded_league, body)
-
-    assert admin_answer == base_answer
-
-
-@pytest.mark.db
-class TestTheBaseTierStillSeesNoneOfThePlannedSeason:
-    """The contrast these admin reads exist to make possible: adding them must not have reopened the gate."""
-
-    def test_its_squads_are_still_refused(self, seeded_league: str):
-        assert raised_by(seeded_league, lambda database: base_teams(database, PLANNED)).status_code == 404
-
-    def test_its_matchdays_are_still_refused(self, seeded_league: str):
-        assert raised_by(seeded_league, lambda database: base_spieltage(database, PLANNED)).status_code == 404
-
-    def test_its_fixtures_still_list_as_nothing(self, seeded_league: str):
-        """Empty rather than a refusal: an id naming no season already lists nothing there."""
-
-        assert on_a_league(seeded_league, lambda database: base_spiele(database, PLANNED)).spiele == []
 
 
 SLICE_GUARDS: set[Callable[..., Any]] = {verify_access_base, verify_access_admin, verify_access_system}

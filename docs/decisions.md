@@ -27,7 +27,6 @@ code it governs, or in the commit that first wrote its words, which `git log -S 
 - **cache** — Split the one site-wide cache tag by resource or season; give a league read a lifetime
   past `minutes`
 - **spiele** — Move the Spiel write path to `admin`; let its form read `useAdmin()`
-- **spiele** — Merge the three `SpielCard` variants
 - **pages** — Remove the `await connection()` from a session read, from `runWithIncomingTrace` or ahead of
   a cached read a render reaches before any request value
 - **lint** — Scope a cross-feature import lint to anything but `core` and `shared`
@@ -49,6 +48,8 @@ code it governs, or in the commit that first wrote its words, which `git log -S 
 - **css** — Leave a vendored overlay's zoom in place; write the app's scale override inside a
   `@layer`
 - **motion** — Stop a loading indicator under reduced motion; freeze an ornament that rests visible
+- **copy** — Type a visitor string outside the catalogue; word a field from anything but its
+  patterns; add a pattern the owner did not approve; explain why or how on a status line
 
 ## The backend
 

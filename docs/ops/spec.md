@@ -288,11 +288,12 @@ head is the root, which would cover every exact match there is.
 
 **Next's code-generated metadata conventions are accounted for beside the handlers and taken
 unmetered**: `/sitemap.xml`, `/robots.txt` and `/manifest.webmanifest` reach Next through the
-catch-all, and each exports a function reading no request and no live value, so Next prerenders it
-and a flood costs a static response rather than a render or a backend call. That decision is
-recorded at `scripts/checks/check_public_routes.py :: METADATA`; a reserved metadata name the
-checker cannot place refuses, the image conventions among them, whose generated URL carries a hash
-Next mints at build.
+catch-all. `robots.txt` and the manifest each export a function reading no request and no live
+value, so Next prerenders them and a flood costs a static response; the sitemap renders at request
+time from the season pages' cached season list, so a flood costs a render and one backend read per
+cache lifetime. That decision is recorded at `scripts/checks/check_public_routes.py :: METADATA`; a
+reserved metadata name the checker cannot place refuses, the image conventions among them, whose
+generated URL carries a hash Next mints at build.
 
 **Exact-match binds the path nginx matched, not the URI FastAPI is handed**: nginx merges slashes
 and resolves dot segments before choosing a location, then `proxy_pass` with no URI part forwards
@@ -396,17 +397,18 @@ a branded page with its way back to the site, since a sentence alone, opened fro
 end. The page is written inline in the configuration, because the deploy compares every file under
 `nginx/shared/` with what nginx loaded (§1.2) and a page nginx never loads would fail every deploy;
 it withholds the referrer, as every link page does, since its URL carries the link's token; and its
-colours are the season scheme's, copied by hand. Next 16.4.2 hands a server action's caller the body of a
-failed answer that is not RSC as the error's message under that exact type alone, and the frontend
-reads that message as a press that wrote nothing. A `charset` makes the header
+colours are the rebuilt site's, copied by hand from `fl_frontend/src/app/tokens.css` under its
+names. Next 16.4.2 hands a server action's caller the body of a failed answer that is not RSC as
+the error's message under that exact type alone, and the frontend reads that message as a press that
+wrote nothing. A `charset` makes the header
 `text/plain; charset=utf-8`, after which every refused press reads as an unclear save again. A route
 handler's caller reads the status alone, and a page load past the connection ceiling shows the
 sentence, a link page's the page. `nginx/edge_test.sh` grades a refused action's type, its body byte for byte against the
 file, and its security headers, asked with and without `Accept-Encoding: gzip`: nginx's gzip filter
 compresses a `200`, `403` or `404` alone, so the `429` leaves the origin plain either way. It
 grades a link page's refused load the same way against the page, and that page's referrer tag and its
-colours against the scheme `fl_frontend/src/app/globals.css` imports, which a comparison with the
-file it was read off cannot hold.
+colours against `fl_frontend/src/app/tokens.css`, name by name, so a colour that drifts from the
+file it was copied off fails.
 
 **A refusal writes no record to the error log**, `limit_req_log_level` and `limit_conn_log_level`
 both sitting below that log's own level. nginx puts the request line there WHOLE, query string and
@@ -801,9 +803,10 @@ without the extension is held by the format scope and CI alone. `.editorconfig` 
 conventions to the files prettier never opens and stays clear of every setting `.prettierrc.json`
 decides.
 
-**Every untracked file a run leaves is gitignored where it lands**, the three caches this repository
-opts into — `tsc`'s, eslint's and prettier's — among them, so none of it is a tracked file the gate
-wrote. **Outside
+**Every untracked file a run leaves is gitignored where it lands**, the two caches this repository
+opts into — `tsc`'s and prettier's — among them, so none of it is a tracked file the gate wrote.
+eslint runs uncached: its typed rules read other files' types, which its per-file cache never keys
+on. **Outside
 CI the two Next commands install as well as write**: handed a missing `typescript` or `@types/*`
 package, `next typegen` and `next build` add it to `node_modules` rather than failing, where a
 runner takes the refusing branch, keyed off Next's own `isCI`.
@@ -1021,9 +1024,14 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
   (`fl_frontend/src/features/meta/components/views/DatenschutzView.tsx :: EMPFAENGER`), so a route
   aimed at a hosted mailbox changes that notice in the same step.
 - **The AI-bot controls admit an agent and refuse a trainer**: AI training blocked, AI agents
-  allowed, AI search allowed, and the managed `robots.txt` on. An agent fetching a page for a
-  person is a visitor; a crawler filling a training set is not, and the distinction is the whole
-  reason the three are set apart rather than by one toggle.
+  allowed, AI search allowed. An agent fetching a page for a person is a visitor; a crawler filling
+  a training set is not, and the distinction is the whole reason the three are set apart rather
+  than by one toggle.
+- **The managed `robots.txt` declares the training opt-out, and it is off until the owner switches
+  it on.** Cloudflare prepends its list of AI-training crawlers to the origin's `/robots.txt`
+  (<https://developers.cloudflare.com/bots/additional-configurations/managed-robots-txt/>), and
+  `fl_frontend/src/app/robots.ts` writes one rule for every crawler alike, so while the setting is
+  off the block above enforces the opt-out and nothing declares it.
 - **A Managed Challenge meets a navigation to `/signin` and to `/bewerbung/*`, and meets nothing
   else** — not `/api/*`, and not a server action's POST, for the reason §2 gives. It
   guards the page load alone: no rule checks the POST behind either page, which the Turnstile

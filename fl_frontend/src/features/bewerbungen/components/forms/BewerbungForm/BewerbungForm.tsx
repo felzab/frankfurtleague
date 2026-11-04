@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 
 import CircleCheck from "@gravity-ui/icons/CircleCheck";
+import z from "zod";
 
 import { Button } from "@heroui/react/button";
 
@@ -38,8 +39,15 @@ import type { BewerbungFassung } from "./FormKontaktpersonenSection";
 
 type BewerbungAntwort = PublicEnvelope & { message?: string };
 
-/** The availability check's answer, whose `vergeben` is present only where it could be judged. */
-type KuerzelAntwort = { success: boolean; vergeben?: boolean; rateLimited?: boolean };
+/**
+ * The availability check's answer as its route sends it, whose `vergeben` is present only where it could be judged:
+ * parsed rather than asserted, so an answer of another shape is a check that failed rather than a verdict read off
+ * fields that are not there.
+ */
+const KuerzelAntwortSchema = z.object({ success: z.boolean(), vergeben: z.boolean().optional() });
+
+/** The answer, or the edge's limit, which answers before the route runs. */
+type KuerzelAntwort = z.infer<typeof KuerzelAntwortSchema> & { rateLimited?: boolean };
 
 const NICHT_ABGESCHICKT = `Deine Bewerbung wurde nicht abgeschickt. ${VERSUCHE_ES_ERNEUT_SATZ}`;
 
@@ -64,7 +72,7 @@ async function fetchKuerzel(shorthand: string): Promise<KuerzelAntwort> {
   if (response.status === EDGE_RATE_LIMIT_STATUS) return { success: false, rateLimited: true };
   if (!response.ok) throw new Error(`HTTP ${String(response.status)}`);
 
-  return response.json() as Promise<KuerzelAntwort>;
+  return KuerzelAntwortSchema.parse(await response.json());
 }
 
 /**

@@ -5,7 +5,6 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Body, Depends
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
-from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.adresswechsel.crud import (
     Belegung,
@@ -69,16 +68,21 @@ from app.core.crud import patch_one_in_db, refuse
 from app.core.dependencies import (
     ActionLogCollection,
     AddressChangeCollection,
+    AddressChangeReadCollection,
     BewerbungenCollection,
     DBClient,
     GrantApprovalRequestsCollection,
     GrantsAnnouncedCollection,
+    GrantsAnnouncedReadCollection,
     GrantsCollection,
+    GrantsReadCollection,
     InvitationsCollection,
     OutboxCollection,
+    OutboxReadCollection,
     RegistrierungenCollection,
     SaisonTeamsCollection,
     SchiedsrichterCollection,
+    SnapshotSession,
     SperrlisteCollection,
     SpielbestaetigungenCollection,
     SpielerCollection,
@@ -86,8 +90,9 @@ from app.core.dependencies import (
 )
 from app.core.exceptions import DocumentNotFoundError
 from app.core.journal import Journal
+from app.core.readonly import ReadCollection
 from app.core.recording import log_stamp
-from app.core.routing import by_id
+from app.core.routing import SAFE, by_id
 from app.core.security import bind_actor, get_actor_auth_time, get_actor_email, verify_access_admin, verify_recent_confirmation, verify_step_up
 from app.core.transactions import transaction_session
 from app.shared.folding import sign_in_identifier
@@ -105,8 +110,8 @@ async def _refuse_the_address(
     *,
     akteur: str,
     auth_time: int,
-    berechtigungen_collection: AsyncCollection,
-    berechtigungen_angekuendigt_collection: AsyncCollection,
+    berechtigungen_collection: ReadCollection,
+    berechtigungen_angekuendigt_collection: ReadCollection,
     session: AsyncClientSession,
 ) -> tuple[list[Mapping[str, Any]], list[Mapping[str, Any]]]:
     """The erasure tool's two refusals about who asks, judged on the grants read here, which the caller reuses.
@@ -127,7 +132,7 @@ async def _refuse_the_address(
 
 
 async def _pull_the_change(
-    adresswechsel_collection: AsyncCollection, address_change_id: Any, *, session: AsyncClientSession | None
+    adresswechsel_collection: ReadCollection, address_change_id: Any, *, session: AsyncClientSession | None
 ) -> Mapping[str, Any]:
     """The change an id names, ended or not: 404 where none is kept, `address_change_ended` where it ended."""
 
@@ -174,15 +179,16 @@ def _bestand(holdings: Bestand) -> FLAddressChangeVerwaltungHoldings:
     "/view",
     response_model=FLAddressChangeVerwaltungViewResponse,
     summary="Show what an address holds that a change moves, and its live change",
+    openapi_extra=SAFE,
 )
 async def get_address_change_verwaltung_view(
     ansicht_data: Annotated[FLAddressChangeVerwaltungViewPayload, Body()],
-    adresswechsel_collection: AddressChangeCollection,
-    outbox_collection: OutboxCollection,
+    adresswechsel_collection: AddressChangeReadCollection,
+    outbox_collection: OutboxReadCollection,
     records: SubjektLookup,
-    berechtigungen_collection: GrantsCollection,
-    berechtigungen_angekuendigt_collection: GrantsAnnouncedCollection,
-    db: DBClient,
+    berechtigungen_collection: GrantsReadCollection,
+    berechtigungen_angekuendigt_collection: GrantsAnnouncedReadCollection,
+    session: SnapshotSession,
     operator: str = Depends(get_actor_email),
     auth_time: int = Depends(get_actor_auth_time),
     germany_now: datetime = Depends(get_germany_now),
@@ -200,28 +206,25 @@ async def get_address_change_verwaltung_view(
 
     akteur = sign_in_identifier(operator)
 
-    # A snapshot, so the tool names the records of one moment; never a transaction, a read writing nothing having no
-    # conflict to retry for.
-    async with db.start_session(snapshot=True) as session:
-        if ansicht_data.address_change_id is not None:
-            identifier = str((await _pull_the_change(adresswechsel_collection, ansicht_data.address_change_id, session=session))["adresse"])
-        else:
-            identifier = sign_in_identifier(str(ansicht_data.adresse))
-        await _refuse_the_address(
-            identifier,
-            akteur=akteur,
-            auth_time=auth_time,
-            berechtigungen_collection=berechtigungen_collection,
-            berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
-            session=session,
-        )
-        bestand = await read_the_bestand(identifier, records=records, berechtigungen_collection=berechtigungen_collection, session=session)
-        offen = await adresswechsel_collection.find_one(build_address_filter(identifier), session=session)
-        zustellung = (
-            None
-            if offen is None
-            else await lage_of_the_link(outbox_collection=outbox_collection, address_change_id=offen["_id"], session=session)
-        )
+    # Every read in the request's snapshot session, so the tool names the records of one moment; never a transaction, a
+    # read writing nothing having no conflict to retry for.
+    if ansicht_data.address_change_id is not None:
+        identifier = str((await _pull_the_change(adresswechsel_collection, ansicht_data.address_change_id, session=session))["adresse"])
+    else:
+        identifier = sign_in_identifier(str(ansicht_data.adresse))
+    await _refuse_the_address(
+        identifier,
+        akteur=akteur,
+        auth_time=auth_time,
+        berechtigungen_collection=berechtigungen_collection,
+        berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
+        session=session,
+    )
+    bestand = await read_the_bestand(identifier, records=records, berechtigungen_collection=berechtigungen_collection, session=session)
+    offen = await adresswechsel_collection.find_one(build_address_filter(identifier), session=session)
+    zustellung = (
+        None if offen is None else await lage_of_the_link(outbox_collection=outbox_collection, address_change_id=offen["_id"], session=session)
+    )
 
     return FLAddressChangeVerwaltungViewResponse(
         adresse=identifier,

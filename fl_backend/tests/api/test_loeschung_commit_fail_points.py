@@ -1,8 +1,9 @@
 """
-API · a commit refused or its answer lost, and a read held: the journals, the sweeps, an adoption's stamp, the subject lookup
+API · a commit refused or its answer lost, and a read held: the journals, the sweeps, an adoption's stamp, a repoint, the subject lookup
 
-The erasures' and a press's journal, each sweep's unanswered line and an adoption's stamp meet a refused or unanswered
-commit; the subject lookup's reads are held on the server, so that the reads it gathers are seen in flight together.
+The erasures' and a press's journal, each sweep's unanswered line, an adoption's stamp and an erased pupil's repointed
+report entries meet a refused or unanswered commit; the subject lookup's reads are held on the server, so that the reads
+it gathers are seen in flight together.
 
 Every case configuring `failCommand` lives in this module: the fail point is one setting the server holds for all
 workers, so a second module configuring it on another worker would replace this one's configuration, and either case's
@@ -48,7 +49,7 @@ from .test_loeschung_auf_anfrage import CONFIG as REQUEST_CONFIG
 from .test_loeschung_auf_anfrage import geloescht_by_the_handler as geloescht_on_request
 from .test_loeschung_auf_anfrage import journal_lines
 from .test_loeschung_auf_anfrage import on_a_league as on_the_administrators_league
-from .test_loeschung_sweep import a_due_pupil, seeded
+from .test_loeschung_sweep import a_due_pupil, a_report_naming, seeded
 from .test_loeschung_sweep import numbered as pupil_numbered
 from .test_loeschung_sweep import on_a_league as on_the_pupils_league
 from .test_loeschung_sweep import run as a_deletion_call
@@ -569,3 +570,47 @@ class TestAFixtureSaveRefusedAtItsCommit:
         # The premise first: one commit, refused, and the fixture it carried not written.
         assert (commits, spiele[fixture_saves.VIERTELFINALE_NR]["ergebnis"]) == ([NO_SUCH_TRANSACTION], "1:3")
         assert after[fixture_saves.VIERTELFINALE] == before[fixture_saves.VIERTELFINALE], "a save that never committed adopted the report"
+
+
+@pytest.mark.db
+class TestAPupilsLoeschungRefusedAtItsCommit:
+    def test_takes_the_repointed_report_entries_back_with_the_pupil(self, mongo_replica_set_url: str):
+        """Catches a repoint written off the erasure's session: the report would name the sentinel of a pupil who stands.
+
+        Refused without the transient label, so nothing reruns the erasure and the state read after it is the rollback's.
+        """
+
+        pupil = pupil_numbered(1)
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await seeded(database, a_due_pupil(1), a_report_naming(1))
+            commits = _Commits()
+            refusing = AsyncMongoClient(
+                mongo_replica_set_url, serverMonitoringMode="poll", appname=REFUSED_COMMIT_APP, event_listeners=[commits]
+            )
+            refusal = {
+                "failCommands": ["commitTransaction"],
+                "appName": REFUSED_COMMIT_APP,
+                "errorCode": NO_SUCH_TRANSACTION,
+                "errorLabels": [],
+            }
+            await client.admin.command("configureFailPoint", FAIL_POINT, mode={"times": 1}, data=refusal)
+            try:
+                answer = await a_deletion_call(refusing[database.name], refusing)
+            finally:
+                await client.admin.command("configureFailPoint", FAIL_POINT, mode="off")
+                await refusing.close()
+
+            report = await database[Collection.SPIELBERICHTE].find_one({}, {"bericht.torschuetzen.spieler_id": 1})
+            standing = await database[Collection.SPIELER].count_documents({"_id": pupil})
+
+            return commits.answered, (answer.spieler, answer.failed), report, standing
+
+        commits, counted, report, standing = on_the_pupils_league(mongo_replica_set_url, body)
+
+        # The premise first: one commit, refused, and the erasure it carried counted as failed.
+        assert (commits, counted) == ([NO_SUCH_TRANSACTION], (0, 1))
+        assert report is not None
+        # `a_report_naming` names the pupil as the report's first scorer.
+        assert report["bericht"]["torschuetzen"][0]["spieler_id"] == pupil, "an erasure that rolled back repointed the report"
+        assert standing == 1

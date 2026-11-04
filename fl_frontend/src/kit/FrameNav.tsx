@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, Fragment, Suspense, use, useContext } from "react";
+import { createContext, Suspense, use, useContext } from "react";
 import NextLink from "next/link";
 import { useParams, usePathname, useRouter } from "next/navigation";
 
@@ -17,8 +17,9 @@ import { ConfirmDialog } from "./ConfirmDialog";
 import { entryMark } from "./fieldStyles";
 import { Icon } from "./Icon";
 import { useLeaveGuard } from "./LeaveGuard";
-import { frameLink, menuEntry } from "./Link";
+import { menuEntry } from "./Link";
 import { Menu } from "./Menu";
+import { currentOf, FreshPerPage } from "./navPlace";
 import { RailTooltip, useRailCollapsed } from "./RailState";
 import { railFade, railGlyph } from "./railStyles";
 import { groupHeading } from "./Section";
@@ -26,7 +27,7 @@ import { Sheet } from "./Sheet";
 import { appToast } from "./Toast";
 import { tv } from "./tv";
 
-import type { Copy } from "@/core/copy";
+import type { Copy, RecordText } from "@/core/copy";
 import type { Route } from "next";
 import type { ReactElement, ReactNode } from "react";
 import type { GlyphChoice } from "./ChoiceButtons";
@@ -148,11 +149,11 @@ function useEntries(groups: ReadonlyArray<RailGroup>) {
 /** The person signed in, as the rail's foot and the phone bar's account place show them. */
 export type Account = {
   /** The person's name; an administrator's grant stores none, so the row names the address instead. */
-  name?: string;
+  name?: RecordText;
   /** The role the area is for, the row's second line. */
   role: Copy;
   /** The sign-in address: under the name at the top of the menu, or the row's own name where there is none. */
-  address: string;
+  address: RecordText;
 };
 
 /**
@@ -216,16 +217,6 @@ function AccountMenu({ account, trigger, beside }: { account: Account; trigger: 
   );
 }
 
-/**
- * The entry the address belongs to: the longest one the path equals or lies under, so an area's Übersicht
- * is not marked on a page beneath it that has an entry of its own.
- */
-function currentOf<Href extends string>(path: string, hrefs: ReadonlyArray<Href>) {
-  return hrefs
-    .filter((href) => path === href || path.startsWith(`${href}/`))
-    .reduce<Href | null>((best, href) => (best === null || href.length > best.length ? href : best), null);
-}
-
 function useCurrent(entries: ReadonlyArray<{ href: Route }>) {
   return currentOf(
     usePathname(),
@@ -233,18 +224,10 @@ function useCurrent(entries: ReadonlyArray<{ href: Route }>) {
   );
 }
 
-/**
- * Its children afresh on every page: a sheet the layout keeps would otherwise stay open after one of its links
- * led on, since a layout outlives the page it surrounds.
- */
-function FreshPerPage({ children }: { children: ReactNode }) {
-  return <Fragment key={usePathname()}>{children}</Fragment>;
-}
-
 // The current entry is marked as every navigating list marks its place, the link carrying `data-selected`.
 // Collapsed, the entry clips its words past its glyph's box (`railGlyph`).
 const railEntry = tv({
-  base: "flex h-[2.125rem] items-center gap-3 overflow-hidden rounded-lg px-3 text-sm font-medium whitespace-nowrap transition-colors duration-(--motion-state)",
+  base: "flex h-8 items-center gap-3 overflow-hidden rounded-lg px-3 text-sm font-medium whitespace-nowrap transition-colors duration-(--motion-state) pointer-coarse:h-10",
   variants: {
     current: {
       true: entryMark({ mark: "place" }),
@@ -348,7 +331,7 @@ export function AccountRow({ account: read }: { account: AccountRead }) {
   const collapsed = useRailCollapsed();
   const account = use(read);
   if (account === null) return null;
-  const name = account.name ?? account.address;
+  const { record: name } = account.name ?? account.address;
   return (
     <AccountMenu
       account={account}
@@ -518,7 +501,7 @@ function AccountPlace({ account: read }: { account: AccountRead }) {
           <span
             aria-hidden
             className={avatar({ size: "bar" })}>
-            {initials(account.name ?? account.address)}
+            {initials((account.name ?? account.address).record)}
           </span>
           {COPY.template.account}
         </AriaButton>
@@ -528,7 +511,7 @@ function AccountPlace({ account: read }: { account: AccountRead }) {
 }
 
 // On the dark-green band, as tall as a touch target; the chevron stands where the logo's edge would.
-const back = tv({ base: "-ms-2 flex h-11 items-center gap-1 rounded-lg ps-1 pe-3 text-sm font-medium text-on-brand" });
+const back = tv({ base: "-ms-2 flex h-10 items-center gap-1 rounded-lg ps-1 pe-3 text-sm font-medium text-on-brand" });
 
 /**
  * „‹ Zurück“ in the band where the logo stands: in Konto, and on a phone in an editor. While an editor holds
@@ -586,72 +569,4 @@ export function EditorBack() {
   const groups = useEntries(useContext(MenuContext)?.groups ?? []);
   const href = useCurrent(groups.flatMap((group) => group.entries));
   return href === null ? null : <BackControl href={href} />;
-}
-
-/** A link of the classic header: catalogue words and an address the layout gives. */
-export type HeaderLink = { label: Copy; href: Route };
-
-/**
- * The classic header's links and „Anmelden“ on the band: in a row from 1024 px, and on a phone behind one
- * button opening them as a sheet.
- */
-export function HeaderLinks({ links, signIn }: { links: ReadonlyArray<HeaderLink>; signIn: Route }) {
-  const current = currentOf(
-    usePathname(),
-    links.map((link) => link.href),
-  );
-  return (
-    <>
-      <nav
-        aria-label={COPY.template.navigation}
-        className="hidden gap-2 lg:flex">
-        {links.map((link) => (
-          <NextLink
-            key={link.href}
-            href={link.href}
-            aria-current={link.href === current ? "page" : undefined}
-            data-kit-focus="ring"
-            className={frameLink({ tone: link.href === current ? "band" : "bandMuted" })}>
-            {link.label}
-          </NextLink>
-        ))}
-      </nav>
-      <NextLink
-        href={signIn}
-        data-kit-focus="ring"
-        className={frameLink({ tone: "band", class: "ms-auto hidden lg:flex" })}>
-        {COPY.shared.verb.signIn}
-      </NextLink>
-      <div className="ms-auto lg:hidden">
-        <FreshPerPage>
-          <Sheet
-            label={COPY.template.menu}
-            trigger={
-              <AriaButton
-                aria-label={COPY.template.menu}
-                data-kit-focus="ring"
-                className="flex size-11 items-center justify-center rounded-lg text-on-brand">
-                <Icon
-                  glyph="menu"
-                  size={18}
-                />
-              </AriaButton>
-            }>
-            <div className="grid gap-1 pt-2">
-              {[...links, { label: COPY.shared.verb.signIn, href: signIn }].map((link) => (
-                <NextLink
-                  key={link.href}
-                  href={link.href}
-                  aria-current={link.href === current ? "page" : undefined}
-                  data-kit-focus="inset"
-                  className={menuEntry({ size: "phone" })}>
-                  {link.label}
-                </NextLink>
-              ))}
-            </div>
-          </Sheet>
-        </FreshPerPage>
-      </div>
-    </>
-  );
 }

@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import NextLink from "next/link";
 
-import { COPY } from "@/core/copy";
+import { COPY, textOf } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 
 import { Brand } from "./Brand";
@@ -13,12 +13,13 @@ import { frameLink } from "./Link";
 import { RailRoot, RailToggle, RailTooltip } from "./RailState";
 import { RAIL_ID, railFade, railGlyph } from "./railStyles";
 import { SaisonButton } from "./SaisonButton";
+import { SkeletonTitle } from "./Skeleton";
 import { ToastRegion } from "./Toast";
 import { tv } from "./tv";
 
-import type { Copy } from "@/core/copy";
+import type { Copy, Words } from "@/core/copy";
 import type { Route } from "next";
-import type { ReactNode } from "react";
+import type { ReactElement, ReactNode } from "react";
 import type { ChipProps } from "./Chip";
 import type { AccountRead, FrameSaisons, RailGroup } from "./FrameNav";
 
@@ -174,13 +175,13 @@ type TitledRoute = { [K in keyof typeof ROUTES]: (typeof ROUTES)[K]["title"] ext
 
 /**
  * A page's name: its route's catalogue title, a match's two teams in the fixture's order, or a record's own
- * name on its editor or read page.
+ * name on its editor or read page, as the catalogue words it or as the record holds it.
  */
-export type PageTitle = { route: TitledRoute } | { route: "spiel"; heim: string; gast: string } | { record: string };
+export type PageTitle = { route: TitledRoute } | { route: "spiel"; team1: Words; team2: Words } | Words;
 
 function titleOf(title: PageTitle): string {
-  if ("record" in title) return title.record;
-  if (title.route === "spiel") return ROUTES.spiel.title(title.heim, title.gast);
+  if (typeof title === "string" || "record" in title) return textOf(title);
+  if (title.route === "spiel") return ROUTES.spiel.title(title.team1, title.team2);
   return ROUTES[title.route].title;
 }
 
@@ -215,15 +216,23 @@ export function RailPage({
   scope,
   title,
   chip,
+  action,
   bar,
   children,
 }: {
   scope: "saison" | "area";
-  title: PageTitle;
+  /** `null` while the record naming the page is read: a bar stands in the title's place. */
+  title: PageTitle | null;
   /** The record's status, directly after its name. */
   chip?: ChipProps;
+  /**
+   * The page's one icon-only way on beside its title, after its chip, such as the Spielplan's magnifier to
+   * the Spielsuche: the kit's link, which its tooltip names. It may wait for the page's address, as the
+   * magnifier names its season, so it streams in a boundary of its own, its icon button's place held meanwhile.
+   */
+  action?: ReactElement;
   /** The editor's bar, at the foot of the content from the rail's separator to the edge. */
-  bar?: ReactNode;
+  bar?: ReactElement;
   children: ReactNode;
 }) {
   const { head, heading } = strip({ scope });
@@ -231,13 +240,9 @@ export function RailPage({
     <>
       <header className={head()}>
         <RailToggle />
-        <h1 className={heading()}>{titleOf(title)}</h1>
-        {chip !== undefined && (
-          <Chip
-            tone={chip.tone}
-            label={chip.label}
-          />
-        )}
+        {title === null ? <SkeletonTitle /> : <h1 className={heading()}>{titleOf(title)}</h1>}
+        {chip !== undefined && <Chip {...chip} />}
+        {action !== undefined && <Suspense fallback={<span className="size-8 shrink-0 pointer-coarse:size-10" />}>{action}</Suspense>}
         {scope === "saison" && (
           <nav
             aria-label={COPY.template.navigation}
@@ -264,5 +269,8 @@ export function RailPage({
   );
 }
 
-/** What a template hands `RailPage`: the area and the title, and the status chip where the record has one. */
-export type RailPageHead = { scope: "saison" | "area"; title: PageTitle; chip?: ChipProps };
+/**
+ * What a page hands a template for the strip, drawn before the page's content is read: the area and the
+ * title, the status chip where the record has one, and the way on beside the title where the page has one.
+ */
+export type RailPageHead = { scope: "saison" | "area"; title: PageTitle; chip?: ChipProps; action?: ReactElement };

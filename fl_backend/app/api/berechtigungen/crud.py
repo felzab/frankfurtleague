@@ -36,11 +36,12 @@ from app.core.crud import (
     patch_many_in_db,
     post_one_to_db,
 )
+from app.core.readonly import ReadCollection
 from app.shared.schemas.literals import FLVerwaltung
 
 
 async def read_berechtigungen(
-    *, berechtigungen_collection: AsyncCollection, session: AsyncClientSession | None = None
+    *, berechtigungen_collection: ReadCollection, session: AsyncClientSession | None = None
 ) -> list[Mapping[str, Any]]:
     """Every grant, by address, and unbounded: the floor and the recipients are both judged over the whole list."""
 
@@ -73,7 +74,13 @@ async def pull_the_list_to_judge(
 
 
 async def _grant_and_its_record_in(
-    *, berechtigungen_collection: AsyncCollection, adresse: str, fields: list[str], session: AsyncClientSession
+    *,
+    berechtigungen_collection: ReadCollection,
+    adresse: str,
+    fields: list[str],
+    # The request's snapshot session (`app/core/dependencies.py :: SnapshotSession`), or a commit landing between the
+    # row's read and the join pairs the row before it with the record after.
+    session: AsyncClientSession,
 ) -> tuple[Mapping[str, Any], Mapping[str, Any] | None] | None:
     """The row this folded address holds and its record in `berechtigungen_angekuendigt`, joined in one read.
 
@@ -104,26 +111,17 @@ async def _grant_and_its_record_in(
     return found[0], next(iter(found[0]["angekuendigt"]), None)
 
 
-async def _grant_and_its_record(
-    *, berechtigungen_collection: AsyncCollection, adresse: str, fields: list[str]
-) -> tuple[Mapping[str, Any], Mapping[str, Any] | None] | None:
-    # A snapshot, or a commit landing between the row's read and the join pairs the row before it
-    # with the record after.
-    async with berechtigungen_collection.database.client.start_session(snapshot=True) as session:
-        return await _grant_and_its_record_in(
-            berechtigungen_collection=berechtigungen_collection, adresse=adresse, fields=fields, session=session
-        )
-
-
-async def verwaltung_of(*, berechtigungen_collection: AsyncCollection, adresse: str) -> tuple[FLVerwaltung, datetime, datetime | None] | None:
+async def verwaltung_of(
+    *, berechtigungen_collection: ReadCollection, adresse: str, session: AsyncClientSession
+) -> tuple[FLVerwaltung, datetime, datetime | None] | None:
     """The tier this address holds, and when the grant and the tier took effect, or `None`.
 
     Each caller folds an address the address rule admitted, and a row equal to
     that is live.
     """
 
-    grant = await _grant_and_its_record(
-        berechtigungen_collection=berechtigungen_collection, adresse=adresse, fields=["verwaltung", "appointed_at"]
+    grant = await _grant_and_its_record_in(
+        berechtigungen_collection=berechtigungen_collection, adresse=adresse, fields=["verwaltung", "appointed_at"], session=session
     )
     if grant is None:
         return None
@@ -143,8 +141,9 @@ async def verwaltung_of(*, berechtigungen_collection: AsyncCollection, adresse: 
 async def live_unbarred_grant_since(
     identifier: str,
     *,
-    berechtigungen_collection: AsyncCollection,
+    berechtigungen_collection: ReadCollection,
     sperrliste: BanList,
+    session: AsyncClientSession,
 ) -> datetime | None:
     """The actor check's question: when the live grant this identifier holds took effect, read by one equality beside the ban list's.
 
@@ -152,9 +151,10 @@ async def live_unbarred_grant_since(
     """
 
     # Both at once rather than the ban after a grant is found: an admin-tier caller passed the
-    # frontend's own grant read moments before, so the ban read that order would spare is almost never spared.
+    # frontend's own grant read moments before, so the ban read that order would spare is almost never spared. The ban
+    # read takes no session, so the gathered pair never runs two operations on one.
     grant, barred = await asyncio.gather(
-        _grant_and_its_record(berechtigungen_collection=berechtigungen_collection, adresse=identifier, fields=[]),
+        _grant_and_its_record_in(berechtigungen_collection=berechtigungen_collection, adresse=identifier, fields=[], session=session),
         adressen_gesperrt(sperrliste, [identifier]),
     )
     if grant is None or barred:
@@ -231,7 +231,7 @@ async def withhold_in_the_postausgang(*, outbox_collection: AsyncCollection, adr
 
 
 async def read_the_announced(
-    *, berechtigungen_angekuendigt_collection: AsyncCollection, session: AsyncClientSession | None = None
+    *, berechtigungen_angekuendigt_collection: ReadCollection, session: AsyncClientSession | None = None
 ) -> list[Mapping[str, Any]]:
     """Every announced row: the whole record is the other half of every comparison."""
 

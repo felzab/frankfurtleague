@@ -9,9 +9,9 @@ import { Badge } from "@heroui/react/badge";
 import { Popover } from "@heroui/react/popover";
 import { Separator } from "@heroui/react/separator";
 
+import { ROUTES } from "@/core/routes";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 import { useNavigationClosedOverlay } from "@/shared/hooks/useNavigationClosedOverlay";
-import { withSaisonId } from "@/shared/utils/saisonHref";
 
 import { AustrittKuerzel } from "./AustrittKuerzel";
 
@@ -33,9 +33,10 @@ export function TeamPopoverMenu({
   teamName: string;
   teamId: string;
   /**
-   * The season both links open in, `undefined` where the running one is meant. Required for the reason
-   * `teamAustritt` is: the junction join is strict, so a caller forgetting it sends a past season's club
-   * to „nicht gefunden“.
+   * The season whose club page both links open, `undefined` where the running one is meant: no club
+   * page's address takes the running season unnamed, so both links then open `ROUTES.saisons`.
+   * Required for the reason `teamAustritt` is: the junction join is strict, so a caller forgetting it
+   * sends a past season's club to „nicht gefunden“.
    */
   saisonId: string | undefined;
   /**
@@ -64,6 +65,9 @@ export function TeamPopoverMenu({
     setIsOpen(false);
     onNavigate?.();
   };
+
+  // The squad is part of the club page, so both entries open the same address.
+  const clubHref = saisonId === undefined ? ROUTES.saisons.path() : ROUTES.team.path(saisonId, teamId);
 
   // Not a control: it only stops the card underneath from also reacting. `Popover.Trigger` below is
   // the control, so an interactive role here would invent a duplicate.
@@ -101,9 +105,8 @@ export function TeamPopoverMenu({
               {/* Wrapped and never clipped: this panel is where a name a card cuts short reads whole,
                   on touch as with a pointer. */}
               <span className="min-w-0 pr-2 text-balance wrap-break-word">{teamName}</span>
-              {/* `-strong` on the tint, as `SaisontabelleView`'s badge does: the plain accent measures
-                  3.76:1 on this panel in light and 4.06:1 in dark, both under the 4.5:1 this size
-                  answers to. */}
+              {/* `-strong` on the tint: the plain accent measures 3.76:1 on this panel in light and
+                  4.06:1 in dark, both under the 4.5:1 this size answers to. */}
               {teamAustritt !== null && (
                 <AustrittKuerzel
                   type={teamAustritt}
@@ -122,7 +125,7 @@ export function TeamPopoverMenu({
             <div className="flex size-full flex-col gap-y-1 fluid-sm">
               <Link
                 prefetch={false}
-                href={withSaisonId(`/dashboard/teams/${teamId}`, saisonId)}
+                href={clubHref}
                 onNavigate={closeOnNavigate}
                 className="flex w-full flex-row items-center gap-x-2 rounded-lg px-2.5 py-2 font-semibold text-foreground-muted transition-colors hover:bg-hover hover:text-foreground">
                 {/* The row's own colour, never the brand: the top-nav menu and the rail keep the brand for the
@@ -136,7 +139,7 @@ export function TeamPopoverMenu({
 
               <Link
                 prefetch={false}
-                href={withSaisonId(`/dashboard/spieler/${teamId}`, saisonId)}
+                href={clubHref}
                 onNavigate={closeOnNavigate}
                 className="flex w-full flex-row items-center gap-x-2 rounded-lg px-2.5 py-2 font-semibold text-foreground-muted transition-colors hover:bg-hover hover:text-foreground">
                 <Persons

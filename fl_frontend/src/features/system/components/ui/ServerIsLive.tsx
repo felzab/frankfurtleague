@@ -1,3 +1,4 @@
+// Redesign: goes with its last importer.
 import { nullUnlessContractBreak } from "@/shared/utils/degradedRead";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 

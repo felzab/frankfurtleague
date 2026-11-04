@@ -150,37 +150,6 @@ export const EINWILLIGUNG_VEROEFFENTLICHUNG_HINWEIS =
   `„${EINWILLIGUNG_UMFANG_LABELS.kader_oeffentlich}“ steht und ein Bestätigungsdatum eingetragen ist. Sonst steht die Person als ` +
   `„${SPIELER_ANONYM_LABEL}“ im Kader, mit Nummer und Position.`;
 
-/** The two name fields as `READ-PUPIL-003` serves them, which is the only shape either reader below takes. */
-type SpielerName = { vorname: string | null; nachname: string | null };
-
-/**
- * **The null forename decides, and nothing else**: the gate answers both names as `null` for a person
- * it withholds, so a row still carrying one is a row a reader may be shown.
- */
-export function spielerAnzeigename({ vorname, nachname }: SpielerName): string {
-  if (vorname === null) return SPIELER_ANONYM_LABEL;
-
-  return [vorname, nachname].filter(Boolean).join(" ");
-}
-
-/**
- * The decider `spielerAnzeigename` reads, so the word a row shows and the grade it is set in can
- * never disagree about which rows the gate withheld.
- */
-export function istNameZurueckgehalten({ vorname }: SpielerName): boolean {
-  return vorname === null;
-}
-
-/**
- * One letter from each NAME FIELD rather than from the joined string: a two-word forename splits on
- * its space, and three letters overflow the fixed circle the avatar draws them in.
- */
-export function spielerInitialen(name: SpielerName): string {
-  if (name.vorname === null) return SPIELER_ANONYM_LABEL.charAt(0).toUpperCase();
-
-  return `${name.vorname.charAt(0)}${name.nachname?.charAt(0) ?? ""}`.toUpperCase();
-}
-
 /**
  * A pupil as everyone but the public reads them: the surname whole, never the public initial, and the
  * first name alone where the record holds no surname.
@@ -195,7 +164,7 @@ export function kaderName({ vorname, nachname }: { vorname: string; nachname: st
  */
 export const STUFE_NICHT_ZUGELASSEN = "Diese Stufe ist in dieser Saison nicht zugelassen.";
 
-/** What a squad nobody has filled yet says, on the public team page and the team panel's squad page alike. */
+/** What a squad nobody has filled yet says on the team panel's squad page. */
 export const KADER_LEER = "Für dieses Team ist noch kein Kader eingetragen.";
 
 /**

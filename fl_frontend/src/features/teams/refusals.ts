@@ -1,3 +1,4 @@
+import { SERVER_COPY } from "@/core/serverCopy";
 import { isRefusal } from "@/shared/utils/actionError";
 import { buildRefusal } from "@/shared/utils/refusal";
 
@@ -66,9 +67,14 @@ export function mapCreatedClubEntryRefusal(error: unknown): string {
   return `Das Team wurde angelegt, konnte aber nicht in die Saison aufgenommen werden${reason} Nimm es auf seiner Seite in eine Saison auf. Ein erneutes Anlegen scheitert am Kürzel.`;
 }
 
-/** The club editor's answer to an entry rule: the reason, and the repair its own page offers. */
+/**
+ * The club editor's answer to a rule its season panel's writes refuse, the entry and the season row's edit: the
+ * reason, and the repair its own page offers.
+ */
 export function mapEntryRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
   if (!isRefusal(error)) return null;
+  // The row's edit alone: the entry refuses a season no longer planned as `entry_saison_not_future`.
+  if (error.serverErrorCode === "saison_past") return { error: SERVER_COPY.refusalLine.saison_past };
   if (error.serverErrorCode === "entry_saison_not_future") {
     return { error: buildRefusal({ reason: ENTRY_REASONS["entry_saison_not_future"], repair: "Nimm das Team in eine geplante Saison auf" }) };
   }
@@ -125,6 +131,8 @@ export function mapReplacementRefusal(error: unknown): string | null {
     // sentence says which.
     return "Diese Saison hat inzwischen begonnen. Trage für das ausscheidende Team stattdessen unten auf seiner eigenen Team-Seite einen Austritt ein.";
   }
+  // Before the start, so a result entered early: the replacement moves no goals and would hand it to the incoming club.
+  if (error.serverErrorCode === "sides_taken_place") return SERVER_COPY.verwaltung.replacementSidesTakenPlace;
   if (error.serverErrorCode === "replace_incoming_already_entered") {
     // PLATZ and never „spielt“ — the condition is a `saison_teams` row of ANY kind, and a withdrawn
     // club still holds one.

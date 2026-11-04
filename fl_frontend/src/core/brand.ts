@@ -1,5 +1,8 @@
 export const KONTAKT_EMAIL = "kontakt@frankfurtleague.de";
 
+/** The mail link to it, a literal as the two profiles' addresses are, so a link takes each as it stands. */
+export const KONTAKT_MAILTO = `mailto:${KONTAKT_EMAIL}` as const;
+
 export const VEREIN_NAME = "Frankfurt League e. V.";
 
 /** Spelled once: the Impressum, the Datenschutzerklärung and every email's close render this same string. */

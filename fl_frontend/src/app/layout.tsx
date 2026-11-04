@@ -7,7 +7,10 @@ import { ThemeColor } from "@/kit/ThemeColor";
 import { SITE_URL } from "@/core/brand";
 import { COPY } from "@/core/copy";
 import { RootProviders } from "@/core/providers/RootProviders";
-import { openGraphFor } from "@/shared/utils/metadata";
+import { SERVER_COPY } from "@/core/serverCopy";
+import { SITE_OPEN_GRAPH } from "@/shared/utils/metadata";
+
+import shareImage from "./share-image.png";
 
 import type { Metadata } from "next";
 
@@ -38,29 +41,33 @@ const inter = Inter({
 });
 
 /**
- * `metadataBase` lets every route spell its canonical as a PATH, and one declaring none inherits
- * this file's. Next replaces `openGraph` WHOLE rather than merging, which is why every route
- * builds one through `openGraphFor(path)`.
+ * What every page inherits, so nothing here names one page: a description, a canonical or an og:url set
+ * here would stand on every page declaring none, a signed-in one or one a mail opens among them. Each page
+ * names its own title part, its description and its address through
+ * `fl_frontend/src/shared/utils/metadata.ts :: pageMetadata`; `metadataBase` lets it spell them as a PATH.
  */
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
     template: `%s | ${COPY.brand.name}`,
-    default: "Frankfurt League | Die Oberstufenliga",
+    // Next requires it beside a template; a page naming no title of its own shows the league's name alone.
+    default: COPY.brand.name,
   },
-  description:
-    "Bei der Frankfurt League treten Frankfurter Oberstufen gegeneinander an, um herauszufinden, welche von ihnen die Beste ist. Hier gibt's alle Infos.",
-  alternates: {
-    canonical: "/",
+  // The share image as a static import: its address under `/_next/static/media/` carries a hash of the file's own
+  // bytes, so a redrawn image is a new URL a preview fetches anew. A generated `opengraph-image` route's hash is its
+  // source's, and the static file convention takes its alt from a `.txt` outside the catalogue.
+  openGraph: {
+    ...SITE_OPEN_GRAPH,
+    images: [{ url: shareImage.src, width: shareImage.width, height: shareImage.height, alt: SERVER_COPY.shareImage.alt }],
   },
-  openGraph: openGraphFor("/"),
   // Without this X falls back to a small square thumbnail; the rest is inherited.
   twitter: {
     card: "summary_large_image",
   },
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+/** `modal` is the slot where a match row, on the landing or a season page, opens its match as a pop-up. */
+export default function RootLayout({ children, modal }: LayoutProps<"/">) {
   return (
     <html
       lang="de"
@@ -73,6 +80,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <RootProviders>
           <ThemeColor />
           {children}
+          {modal}
         </RootProviders>
       </body>
     </html>

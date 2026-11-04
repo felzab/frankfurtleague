@@ -1084,6 +1084,7 @@ class TestTheSentinelIsNobodyToLoeschen:
                 return await loeschen_person_in_session(
                     spieler_collection=database[Collection.SPIELER],
                     saison_spieler_collection=database[Collection.SAISON_SPIELER],
+                    spielberichte_collection=database[Collection.SPIELBERICHTE],
                     aktionen_collection=database[Collection.ACTION_LOG],
                     spieler_id=GHOST_SPIELER_ID,
                     stamp=TODAY,
@@ -1457,7 +1458,6 @@ class TestAnAdmissionInsideTheLoeschung:
                     saisons_collection=database[Collection.SAISONS],
                     spieler_collection=database[Collection.SPIELER],
                     records=record_collections(database),
-                    spieltage_collection=database[Collection.SPIELTAGE],
                     aktionen_collection=database[Collection.ACTION_LOG],
                     sperrliste=ban_list(database),
                     db=client,

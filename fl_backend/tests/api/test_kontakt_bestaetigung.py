@@ -156,7 +156,8 @@ def on_a_league(
         async with a_clean_database(url, DATABASE_NAME, constraints=True, mutates_schema=mutates_schema) as (client, database):
             # A ban entered through its route re-judges its actor's grant.
             await database[Collection.GRANTS].insert_many(grants_for_the_suite())
-            await database[Collection.SAISONS].insert_one(documents.saison_document(SAISON_ID, saison_status))
+            # Starting the day after `TODAY`, so the club's replacement is still open to it.
+            await database[Collection.SAISONS].insert_one(documents.saison_document(SAISON_ID, saison_status, start_date="2026-04-02"))
             for team_id, name, shorthand in (
                 (TEAM_OID, TEAM_NAME, "ADX"),
                 (OTHER_TEAM_OID, "Falken", "FAX"),

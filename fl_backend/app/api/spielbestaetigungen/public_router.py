@@ -44,14 +44,18 @@ from app.core.crud import patch_one_in_db, refuse
 from app.core.dependencies import (
     DBClient,
     SaisonTeamsCollection,
+    SaisonTeamsReadCollection,
     SpielbestaetigungenCollection,
+    SpielbestaetigungenReadCollection,
     SpieleCollection,
-    SpielorteCollection,
+    SpieleReadCollection,
+    SpielorteReadCollection,
     SpieltageCollection,
-    TeamsCollection,
+    TeamsReadCollection,
     get_german_date_str,
 )
 from app.core.exceptions import DocumentNotFoundError, WriteRefusal
+from app.core.routing import SAFE
 from app.core.security import bind_public_actor, verify_access_base
 from app.core.transactions import transaction_session
 from app.shared.schemas.confirmation import FLTokenPayload
@@ -75,14 +79,15 @@ def judged_as_a_proposal(refusal: WriteRefusal | None) -> WriteRefusal | None:
     "/view",
     response_model=FLSpielbestaetigungViewResponse,
     summary="What one fixture confirmation link opens",
+    openapi_extra=SAFE,
 )
 async def get_spielbestaetigung_view(
     ansicht_data: Annotated[FLTokenPayload, Body()],
-    spielbestaetigungen_collection: SpielbestaetigungenCollection,
-    spiele_collection: SpieleCollection,
-    saison_teams_collection: SaisonTeamsCollection,
-    spielorte_collection: SpielorteCollection,
-    teams_collection: TeamsCollection,
+    spielbestaetigungen_collection: SpielbestaetigungenReadCollection,
+    spiele_collection: SpieleReadCollection,
+    saison_teams_collection: SaisonTeamsReadCollection,
+    spielorte_collection: SpielorteReadCollection,
+    teams_collection: TeamsReadCollection,
     sperrliste: SperrlisteLookup,
     today: str = Depends(get_german_date_str),
 ) -> FLSpielbestaetigungViewResponse:

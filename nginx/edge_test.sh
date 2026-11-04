@@ -290,11 +290,11 @@ CASES=(
   "LEAK-REF|http://localhost/x/token=${TOK}"
   "LEAK-REF|http://localhost/signin?token=a%20b${TOK}"
 
-  # A typed search query, which no page writes: an address in the
-  # first parameter, a name past another, and the page a visitor came from, plain and encoded.
+  # A typed search query, which no page writes: an address in the first parameter, a name past
+  # another on the Spielsuche's own address, and the page a visitor came from, plain and encoded.
   "LEAK|${BASE}/bereich/admin/sperrliste?q=${EM}"
-  "LEAK|${BASE}/dashboard/spielsuche?saison_id=abc&q=${TOK}"
-  "LEAK-REF|http://localhost/dashboard/spielsuche?q=${TOK}"
+  "LEAK|${BASE}/saisons/2026/search?a=1&q=${TOK}"
+  "LEAK-REF|http://localhost/saisons/2026/search?q=${TOK}"
   "LEAK-REF|http://localhost/x%3Fq%3D${TOK}"
 
   # Controls. Each is a query an operator reads off this line, and a redaction wide enough to eat
@@ -822,23 +822,16 @@ awk "/^[[:space:]]*return 429 '/ { open = 1; sub(/^[[:space:]]*return 429 '/, \"
   open { print }" "${REPO_ROOT}/nginx/shared/site.conf" > "$REFUSAL_PAGE"
 [[ -s "$REFUSAL_PAGE" ]] || refuse "nginx/shared/site.conf returns no 429 page this test can read."
 
-# The page's colours against the season scheme `fl_frontend/src/app/globals.css` imports, both
-# copied by hand. The read is a standalone script, so it needs nothing of this scope's interpreter
-# beyond its standard library.
+# The page's colours against the tokens the rebuilt site paints, `fl_frontend/src/app/tokens.css`, each
+# copied by hand under the name that file gives it, and the page's ground and its card's each on the element
+# that wears it. The read is a standalone script, so it needs nothing of this scope's interpreter beyond its
+# standard library.
 PAGE_PALETTE_READ='
 import re
 import sys
 
 page = open(sys.argv[1], "rb").read().decode("utf-8")
-app = sys.argv[2] + "/fl_frontend/src/app/"
-FROM_SCHEME = {
-    "--surface": "--bg-surface",
-    "--card": "--bg-base",
-    "--text": "--fg-muted",
-    "--heading": "--fg-base",
-    "--rule": "--border-base",
-    "--brand": "--accent-brand",
-}
+SITE_TOKENS = ("--bg", "--bg-card", "--fg-muted", "--fg", "--border", "--brand")
 
 
 def body_after(text, opener):
@@ -853,25 +846,29 @@ def body_after(text, opener):
     return ""
 
 
-imported = re.search(r"@import\s+\"\./(schemes/[^\"]+)\"", open(app + "globals.css", "rb").read().decode("utf-8"))
-if imported is None:
-    sys.exit("globals.css imports no season scheme")
-scheme = open(app + imported.group(1), "rb").read().decode("utf-8")
-scheme = re.sub(r"/\*.*?\*/", lambda comment: re.sub(r"[^\n]", " ", comment.group(0)), scheme, flags=re.DOTALL)
+site = open(sys.argv[2] + "/fl_frontend/src/app/tokens.css", "rb").read().decode("utf-8")
+site = re.sub(r"/\*.*?\*/", lambda comment: re.sub(r"[^\n]", " ", comment.group(0)), site, flags=re.DOTALL)
 problems = []
-for theme, scheme_opener, page_opener in (
-    ("light", r":root\s*,\s*\[data-theme=\"light\"\]\s*\{", r":root\s*\{"),
+for theme, site_opener, page_opener in (
+    ("light", r":root\s*\{", r":root\s*\{"),
     ("dark", r"\[data-theme=\"dark\"\]\s*\{", r"prefers-color-scheme:\s*dark\)\s*\{\s*:root\s*\{"),
 ):
-    tokens = dict(re.findall(r"(--[a-z0-9-]+)\s*:\s*(\S+?)\s*;", body_after(scheme, scheme_opener)))
+    tokens = dict(re.findall(r"(--[a-z0-9-]+)\s*:\s*(\S+?)\s*;", body_after(site, site_opener)))
     shown = {
         name: "".join(format(int(channel), "02x") for channel in channels)
-        for name, *channels in re.findall(r"(--[a-z]+):\s*rgb\((\d+) (\d+) (\d+)\);", body_after(page, page_opener))
+        for name, *channels in re.findall(r"(--[a-z-]+):\s*rgb\((\d+) (\d+) (\d+)\);", body_after(page, page_opener))
     }
-    for name, token in FROM_SCHEME.items():
-        wanted = tokens.get(token, "").lower().removeprefix(chr(35))
+    for name in SITE_TOKENS:
+        wanted = tokens.get(name, "").lower().removeprefix(chr(35))
         if not wanted or shown.get(name) != wanted:
-            problems.append(f"{theme} {name} reads {shown.get(name)}, the scheme {token} {wanted or None}")
+            problems.append(f"{theme} {name} reads {shown.get(name)}, tokens.css {wanted or None}")
+# Where the two grounds stand: the body is the ground of the page and the box a card on it, as on every rebuilt
+# page, so a right value painted on the wrong element is a page in another look.
+for element, wanted in (("body", "var(--bg)"), ("main", "var(--bg-card)")):
+    rule = body_after(page, r"(?<![\w.:-])" + element + r"\s*\{")
+    painted = re.findall(r"(?<![\w-])background(?:-color)?\s*:\s*([^;]+?)\s*;", rule)
+    if painted != [wanted]:
+        problems.append(f"{element} paints {painted or None}, wanted {wanted}")
 print("; ".join(problems))
 sys.exit(1 if problems else 0)
 '
@@ -898,7 +895,7 @@ grade_page() { # $1 the transfer's label, its files named for it; $2 "head" wher
   fi
   if [[ "${2:-}" != head ]] && ! palette="$("$EDGE_PY" -c "$PAGE_PALETTE_READ" "${SCRATCH}/$1.body" "$REPO_ROOT" 2>&1)"; then
     fail "ACTION $1"
-    detail "expected the page's colours to be the season scheme's: ${palette}"
+    detail "expected the page's colours to be the rebuilt site's tokens: ${palette}"
     ACTION_FAILURES=$(( ACTION_FAILURES + 1 ))
   fi
   grade_security_headers "the edge's own 429 page, $1"

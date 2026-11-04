@@ -4,7 +4,7 @@
    does not tree-shake a dependency's CSS. Order is HeroUI's `components/index.css`. */
 
 /* Two entries back no direct import: `spinner` is `Button`'s loading state, and `empty-state` is
-   `ListBox`'s `renderEmptyState`. `disclosure` serves both `Accordion`'s heading and `Disclosure` itself. */
+   `ListBox`'s `renderEmptyState`. */
 @layer theme, base, components, utilities;
 
 @import "tailwindcss";
@@ -21,7 +21,6 @@
 @import "@heroui/styles/components/label.css" layer(components);
 
 /* Navigation */
-@import "@heroui/styles/components/accordion.css" layer(components);
 @import "@heroui/styles/components/disclosure.css" layer(components);
 @import "@heroui/styles/components/link.css" layer(components);
 @import "@heroui/styles/components/tabs.css" layer(components);
@@ -73,13 +72,9 @@
 @import "@heroui/styles/components/date-picker.css" layer(components);
 
 /* Layout */
-@import "@heroui/styles/components/card.css" layer(components);
 @import "@heroui/styles/components/header.css" layer(components);
 @import "@heroui/styles/components/separator.css" layer(components);
 @import "@heroui/styles/components/surface.css" layer(components);
-
-/* Media */
-@import "@heroui/styles/components/avatar.css" layer(components);
 
 /* Overlays */
 @import "@heroui/styles/components/modal.css" layer(components);
@@ -818,12 +813,6 @@ form[data-required-marks="on"] [data-required="true"] > .label::after {
     animation-delay: 0ms !important;
   }
 
-  /* The bracket sweep already moves nothing, so only the stagger is left to drop — dropped for the
-     cascade's reason, since two collections resolving differently here would state nothing. */
-  .bracket-sweep > * {
-    animation-delay: 0ms !important;
-  }
-
   /* `.toast__timer` is not stopped here: it is a timer readout, and a 3px bar shortening is no
      slide or loop. */
 }
@@ -946,25 +935,6 @@ form[data-required-marks="on"] [data-required="true"] > .label::after {
   }
   .cards-cascade [role="listitem"]:nth-child(n + 8) {
     animation-delay: 175ms;
-  }
-
-  /* TIER 2 AT COLUMN SCOPE — the playoff bracket, one round per step. Its class
-     string is `BRACKET_SWEEP_CLASSES` in `shared/components/ui/motion.ts`. */
-  /* It fades and does not move, and that is forced: each gutter's connector is two
-     halves owned by adjacent columns, so any travel would break every joint for the
-     length of the stagger. */
-  .bracket-sweep > * {
-    animation: bracket-phase-enter var(--motion-slow) var(--motion-ease-enter) both;
-  }
-  /* The tree settles inside the cascade's own window. */
-  .bracket-sweep > *:nth-child(2) {
-    animation-delay: 50ms;
-  }
-  .bracket-sweep > *:nth-child(3) {
-    animation-delay: 100ms;
-  }
-  .bracket-sweep > *:nth-child(n + 4) {
-    animation-delay: 150ms;
   }
 }
 
@@ -1130,14 +1100,6 @@ form[data-required-marks="on"] [data-required="true"] > .label::after {
   from {
     opacity: 0;
     transform: translateY(var(--card-enter-shift, 0.5rem));
-  }
-}
-
-/* No transform beside the fade, and no `--bracket-phase-shift` to reinstate one: the reason is the
-   split connector documented on `.bracket-sweep`, not a reduced-motion allowance. */
-@keyframes bracket-phase-enter {
-  from {
-    opacity: 0;
   }
 }
 

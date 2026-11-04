@@ -1,3 +1,5 @@
+import { FLKontaktRolle } from "@/core/generated/client/types";
+
 import type { FLBewerbung, FLOutboxDeliveryState, FLOutboxStatus, FLOutboxStatusState } from "@/core/generated/client/types";
 
 /** The two grades a delivery is reported in: trouble that may clear, and trouble that will not. */
@@ -53,5 +55,6 @@ export const ZUSTELLUNG_QUEUE_TINT = "danger";
  * the fact where their eye already is, rather than on a page they never open.
  */
 export function hatUnerreichbarenSitz({ confirmations: bestaetigungen }: Pick<FLBewerbung, "confirmations">): boolean {
-  return Object.values(bestaetigungen).some((verlauf) => verlauf?.zustellung?.unzustellbar === true);
+  // By the seats' own names: `Object.values` reads an interface's values as `any`, which no field check reaches.
+  return Object.values(FLKontaktRolle).some((rolle) => bestaetigungen[rolle]?.delivery?.undeliverable === true);
 }

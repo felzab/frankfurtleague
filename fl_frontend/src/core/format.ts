@@ -4,6 +4,20 @@ export type CalendarDay = `${number}-${number}-${number}`;
 /** A time of day as the API stores it, `HH:MM` or `HH:MM:SS`. */
 export type Uhrzeit = `${number}:${number}` | `${number}:${number}:${number}`;
 
+// A served day or time in the type the formats take: the backend's schema holds each to its stored format, which the
+// generated client types as a plain string, so the one narrowing stands here and nowhere else.
+export function dayOf(datum: string): CalendarDay;
+export function dayOf(datum: string | null): CalendarDay | null;
+export function dayOf(datum: string | null): CalendarDay | null {
+  return datum as CalendarDay | null;
+}
+
+export function timeOf(uhrzeit: string): Uhrzeit;
+export function timeOf(uhrzeit: string | null): Uhrzeit | null;
+export function timeOf(uhrzeit: string | null): Uhrzeit | null {
+  return uhrzeit as Uhrzeit | null;
+}
+
 /** One side's figure each, as a fixture and its shoot-out store them. */
 export type Pair = { readonly team1: number; readonly team2: number };
 
@@ -13,12 +27,16 @@ export const TIME_ZONE = "Europe/Berlin";
 
 const DATUM = new Intl.DateTimeFormat("de-DE", { timeZone: TIME_ZONE, day: "2-digit", month: "2-digit", year: "numeric" });
 const DATUM_WITH_WEEKDAY = new Intl.DateTimeFormat("de-DE", { timeZone: TIME_ZONE, weekday: "short", day: "2-digit", month: "2-digit" });
+const DAY_MONTH = new Intl.DateTimeFormat("de-DE", { timeZone: TIME_ZONE, day: "2-digit", month: "2-digit" });
+const WEEKDAY = new Intl.DateTimeFormat("de-DE", { timeZone: TIME_ZONE, weekday: "long" });
+const YEAR = new Intl.DateTimeFormat("de-DE", { timeZone: TIME_ZONE, year: "numeric" });
 const DATUM_LONG = new Intl.DateTimeFormat("de-DE", { timeZone: TIME_ZONE, day: "numeric", month: "long", year: "numeric" });
 const INSTANT = new Intl.DateTimeFormat("de-DE", { timeZone: TIME_ZONE, dateStyle: "long", timeStyle: "short" });
 const UHRZEIT = new Intl.DateTimeFormat("de-DE", { timeZone: TIME_ZONE, hour: "2-digit", minute: "2-digit" });
 // A stored time of day names no instant, so it is read in UTC, where no clock change can move it.
 const UHRZEIT_SAVED = new Intl.DateTimeFormat("de-DE", { timeZone: "UTC", hour: "2-digit", minute: "2-digit" });
 const NUMBER = new Intl.NumberFormat("de-DE");
+const SIGNED = new Intl.NumberFormat("de-DE", { signDisplay: "exceptZero" });
 const EURO = new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" });
 const LIST = new Intl.ListFormat("de-DE", { type: "conjunction" });
 
@@ -34,6 +52,15 @@ export const formatDatum = (day: CalendarDay | Date): string => DATUM.format(asI
 
 /** „So., 14.03.“: a match's day in its row, whose season already names the year. */
 export const formatDatumWithWeekday = (day: CalendarDay | Date): string => DATUM_WITH_WEEKDAY.format(asInstant(day));
+
+/**
+ * „06.03.“ over „Samstag 2027“: a match's date in its tile, the day and the month as the figure, the weekday and
+ * the year on the line under it. One formatter asked for both would write „2027 Samstag“.
+ */
+export function formatDatumPair(day: CalendarDay | Date): { figure: string; line: string } {
+  const instant = asInstant(day);
+  return { figure: DAY_MONTH.format(instant), line: `${WEEKDAY.format(instant)} ${YEAR.format(instant)}` };
+}
 
 /** „24. Oktober 2026“: a date inside a sentence or a mail. */
 export const formatDatumLong = (day: CalendarDay | Date): string => DATUM_LONG.format(asInstant(day));
@@ -65,6 +92,12 @@ export const formatPeriod = (from: CalendarDay | Date, to: CalendarDay | Date): 
 
 /** „1.234,5“. */
 export const formatNumber = (number: number): string => NUMBER.format(number);
+
+/** „+3“, „0“, „-3“: a difference, its sign written wherever it is not level. */
+export const formatSigned = (number: number): string => SIGNED.format(number);
+
+/** „3.“: a place or a position, a German ordinal being its figure and a full stop. */
+export const formatOrdinal = (number: number): string => `${NUMBER.format(number)}.`;
 
 /** „25,00 €“. */
 export const formatEuro = (amount: number): string => EURO.format(amount);

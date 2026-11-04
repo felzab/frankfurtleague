@@ -1,34 +1,29 @@
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping
 from typing import Any
 
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
+from app.api.bewerbungen.services import SAISON_NOT_ENDED_FILTER, saison_nimmt_bewerbungen_an
 from app.api.saisons.schemas import FLSaisonRules
-from app.core.crud import pull_one_from_db
+from app.api.saisons.services import has_started
+from app.api.teams.services import TAKEN_PLACE_FIELDS, has_taken_place
+from app.core.crud import pull_many_from_db, pull_one_from_db
 from app.core.exceptions import DocumentNotFoundError
+from app.core.readonly import ReadCollection
 
 CURRENT_SAISON_FILTER = {"status": "active"}
 
 
-async def pull_active_saison(saisons_collection: AsyncCollection) -> Mapping[str, Any]:
-    """The season marked `active`.
-
-    Raises 404 when none is active rather than degrading to an unfiltered query.
-    """
-
-    return await pull_one_from_db(collection=saisons_collection, db_filter=CURRENT_SAISON_FILTER)
-
-
 async def pull_active_saison_id(saisons_collection: AsyncCollection) -> str:
-    """The current season's id."""
+    """The current season's id; 404 where none is active, rather than degrading to an unfiltered query."""
 
     saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter=CURRENT_SAISON_FILTER, projection=["_id"])
 
     return str(saison_raw["_id"])
 
 
-async def pull_massgebliche_saison_id(saisons_collection: AsyncCollection, session: AsyncClientSession | None = None) -> str | None:
+async def pull_massgebliche_saison_id(saisons_collection: ReadCollection, session: AsyncClientSession | None = None) -> str | None:
     """The season a count of seasons is reckoned from: the running one.
 
     `None` rather than a 404 where none runs, so the caller decides what that means.
@@ -45,33 +40,66 @@ async def pull_massgebliche_saison_id(saisons_collection: AsyncCollection, sessi
     return str(running["_id"])
 
 
-async def has_started(*, spiele_collection: AsyncCollection, saison_id: str, today: str, session: AsyncClientSession | None = None) -> bool:
-    """Whether this season has started: from the German day of its earliest group-phase fixture, never while none is dated.
+async def pull_open_window_saison(*, saisons_collection: AsyncCollection, today: str) -> Mapping[str, Any] | None:
+    """The season taking applications today, its window and status alone; `None` where none is.
 
-    The one predicate every start lock reads. Some fixture is dated today or earlier exactly when the
-    earliest one is, so no sort is needed.
+    Judged by `saison_nimmt_bewerbungen_an`, the rule the submission refuses on, over every season not yet ended, and
+    never by a filter restating it, so the landing cannot offer a window the submission refuses. Newest season id
+    first, ids being years: two open windows is a state an administrator can create, and an arbitrary pick would move
+    between reads.
     """
 
-    started = await spiele_collection.find_one(_started(saison_id, today), {"_id": 1}, session=session)
+    candidates = await pull_many_from_db(
+        collection=saisons_collection, db_filter=SAISON_NOT_ENDED_FILTER, sort_by=[("_id", -1)], projection=["bewerbung", "status"]
+    )
 
-    return started is not None
+    return next(
+        (raw for raw in candidates if saison_nimmt_bewerbungen_an(saison_status=raw["status"], bewerbung=raw.get("bewerbung"), today=today)),
+        None,
+    )
 
 
-async def started_saison_ids(*, spiele_collection: AsyncCollection, saison_ids: Sequence[str], today: str) -> set[str]:
-    """The seasons among `saison_ids` that `has_started` answers true for, in one round trip rather than one per season."""
+async def saisons_with_a_fixture_taken_place(
+    *,
+    spiele_collection: ReadCollection,
+    saison_ids: Collection[str],
+    # REQUIRED, `None` included: a transactional caller that forgot it would read outside its
+    # snapshot in silence, so the omission has to be a TypeError at the call.
+    session: AsyncClientSession | None,
+) -> set[str]:
+    """The seasons among these holding a fixture that has taken place, which fixes a season's start (`saison_start_taken_place`).
 
-    return set(await spiele_collection.distinct("saison_id", _started({"$in": list(saison_ids)}, today)))
+    Judged by `has_taken_place`, never by a filter restating it, in one read over every season asked about, whose cursor
+    stops once every one of them is found.
+    """
+
+    found: set[str] = set()
+    async with spiele_collection.find(
+        {"saison_id": {"$in": list(saison_ids)}}, ["saison_id", *TAKEN_PLACE_FIELDS], session=session
+    ) as fixtures:
+        async for spiel in fixtures:
+            if has_taken_place(spiel):
+                found.add(spiel["saison_id"])
+                if found.issuperset(saison_ids):
+                    break
+
+    return found
 
 
-def _started(saison_id: str | Mapping[str, Any], today: str) -> Mapping[str, Any]:
-    """The fixtures that start a season, of the season or seasons `saison_id` matches."""
+async def nachnominierung_laeuft_in(*, saisons_collection: ReadCollection, saison_id: str, today: str) -> bool:
+    """Whether an entry into this season's squads on `today` is a Nachnominierung: one made once the season has started.
 
-    # `$type` beside `$lte`, so an undated fixture's null is never compared.
-    return {"saison_id": saison_id, "saison_phase": "gruppenphase", "datum": {"$type": "string", "$lte": today}}
+    The start every start lock reads (`app/api/saisons/services.py :: has_started`), so the marker and the locks
+    cannot disagree about when the season began. 404 where no season has this id.
+    """
+
+    saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["start_date"])
+
+    return has_started(start_date=saison_raw["start_date"], today=today)
 
 
 async def pull_saison_id_and_rules(
-    saisons_collection: AsyncCollection,
+    saisons_collection: ReadCollection,
     saison_id: str | None,
 ) -> tuple[str, FLSaisonRules]:
     """A season's id and its scoring rules.

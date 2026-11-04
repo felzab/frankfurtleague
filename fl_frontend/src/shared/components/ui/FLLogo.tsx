@@ -1,5 +1,5 @@
-// Redesign: moves into the kit, its one importer being `kit/Brand.tsx`; the old-component ban's allowance
-// for that file goes with it.
+// Redesign: moves into the kit once `BrandLink`, its importer beside `kit/Brand.tsx`, goes with the old frames;
+// the old-component ban's allowance for `kit/Brand.tsx` goes with it.
 
 type TrophyPath = { d: string; evenOdd?: true };
 

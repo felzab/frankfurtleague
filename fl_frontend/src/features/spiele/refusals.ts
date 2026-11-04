@@ -1,3 +1,5 @@
+// Redesign: goes with its last importer.
+import { SERVER_COPY } from "@/core/serverCopy";
 import { isRefusal } from "@/shared/utils/actionError";
 import { buildRefusal } from "@/shared/utils/refusal";
 
@@ -14,7 +16,7 @@ export function mapSpielRefusal(error: unknown): { error?: string; fieldErrors?:
   if (!isRefusal(error)) return null;
 
   if (error.serverErrorCode === "spiel_outside_spieltag") {
-    return { fieldErrors: { datum: "Dieses Datum liegt außerhalb des Spieltags." } };
+    return { fieldErrors: { datum: SERVER_COPY.refusalLine.spiel_outside_spieltag } };
   }
   // The referee alone, so the picker takes it: a kept one too, which a lifted call-off or a cleared result books again.
   if (error.serverErrorCode === "booking_unconfirmed_schiedsrichter") {
@@ -24,6 +26,10 @@ export function mapSpielRefusal(error: unknown): { error?: string; fieldErrors?:
         "schiedsrichter.schiedsrichter_id": "Diese Schiedsrichterin oder dieser Schiedsrichter hat den eigenen Eintrag noch nicht bestätigt.",
       },
     };
+  }
+  // The save and its dry run alike: the editor stays open on a finished season, whose fixtures the write refuses whole.
+  if (error.serverErrorCode === "saison_past") {
+    return { error: SERVER_COPY.refusalLine.saison_past };
   }
   if (error.serverErrorCode === "ergebnis_side_emptied") {
     return {

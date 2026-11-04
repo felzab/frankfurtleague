@@ -9,15 +9,16 @@ from typing import Annotated, Any, Self
 
 import pytest
 from bson import ObjectId
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.responses import StreamingResponse
 from fastapi.testclient import TestClient
 from httpx2 import Response
 from pydantic import AfterValidator, BaseModel, Field, ValidationError, model_validator
 from pydantic_core import PydanticCustomError
-from pymongo.errors import BulkWriteError, PyMongoError
+from pymongo.errors import BulkWriteError, NetworkTimeout, PyMongoError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from app.api.spiele.schemas import FLSpieleFilterParams
 from app.core.codes import Code
 from app.core.exception_handlers import (
     ROUTING_CODES,
@@ -28,6 +29,7 @@ from app.core.exception_handlers import (
 from app.core.exceptions import APIError
 from app.core.logging import JSONFormatter, TraceContextFilter
 from app.core.middlewares import TracedApp
+from app.core.routing import SAFE, SAFE_WHEN
 from app.main import create_app
 from app.shared.schemas.custom import PERSON_NAME_PATTERN, refuse_reversed_span
 from tests.config import BASE_AUTH, build_test_config
@@ -42,6 +44,10 @@ def client() -> TestClient:
     # No context manager, so the lifespan must not run: a client that never opens the database makes
     # the first guarded read raise a real `no_database_client` rather than a hand-mocked exception.
     return TestClient(APP, raise_server_exceptions=False)
+
+
+# A base-tier read that reaches the database, so a request passing the key meets the missing client.
+GUARDED_READ = "/api/v0/saisons/frame"
 
 
 def error_records(caplog) -> list[logging.LogRecord]:
@@ -135,6 +141,16 @@ async def raise_starlettes_own(status: int) -> None:
     raise StarletteHTTPException(status_code=status)
 
 
+FILTERED_PATH = "/filtered"
+
+
+@VALIDATION_APP.get(FILTERED_PATH)
+async def read_the_query(filters: FLSpieleFilterParams = Depends()) -> dict[str, str]:
+    """The admin fixture list's query, declared as that route declares it, naming the type its `team_id` reached it as."""
+
+    return {"team_id": type(filters.team_id).__name__}
+
+
 def rejected_name_error() -> ValidationError:
     with pytest.raises(ValidationError) as refused:
         NamePayload(vorname=REJECTED_NAME)
@@ -153,7 +169,7 @@ def logged_document(caplog) -> str:
 
 class TestFailureBodies:
     def test_missing_credentials_answer_names_its_code_and_id(self):
-        response = client().get("/api/v0/spiele")
+        response = client().get(GUARDED_READ)
 
         assert response.status_code == 401
         body = response.json()
@@ -162,19 +178,19 @@ class TestFailureBodies:
         assert response.headers["WWW-Authenticate"] == "Bearer"
 
     def test_a_wrong_key_is_distinguishable_by_code(self):
-        response = client().get("/api/v0/spiele", headers={"Authorization": "Bearer wrong"})
+        response = client().get(GUARDED_READ, headers={"Authorization": "Bearer wrong"})
 
         assert (response.status_code, response.json()["error_code"]) == (401, Code.ACCESS_KEY_REFUSED)
 
     def test_an_unavailable_database_is_503_with_its_code(self):
-        response = client().get("/api/v0/spiele", headers=BASE_AUTH)
+        response = client().get(GUARDED_READ, headers=BASE_AUTH)
 
         assert (response.status_code, response.json()["error_code"]) == (503, Code.NO_DATABASE_CLIENT)
 
     def test_the_body_and_the_headers_carry_nothing_but_the_code_the_id_and_the_challenge(self):
         """`error_response` forwards `exc.headers` as well as the body, so either is a channel a message could leak through."""
 
-        response = client().get("/api/v0/spiele")
+        response = client().get(GUARDED_READ)
 
         assert (set(response.json()), response.json()["fields"]) == ({"error_code", "trace_id", "fields"}, [])
         # The exact set, so a message copied into any header, under any name, moves this.
@@ -259,6 +275,28 @@ class TestARefusalIsAnsweredAtTheStatusItsCheckChose:
         assert (response.status_code, response.json()["error_code"]) == (status, ROUTING_CODES[status])
 
 
+QUERY_ID = "6890a1b2c3d4e5f607182930"
+
+# Each malformed a different way: `ObjectId` tests length before it decodes hex, so the third is refused on its characters.
+MALFORMED_QUERY_IDS = ["not-an-id", QUERY_ID[:-1], "z" * 24, f"{QUERY_ID}0"]
+
+
+class TestAMalformedQueryIdIsARefusedPayload:
+    """A query validates, so a malformed id is a 422, never the 404 a path's would be (`tests/api/test_malformed_ids.py`)."""
+
+    @pytest.mark.parametrize("team_id", MALFORMED_QUERY_IDS)
+    def test_a_malformed_query_id_is_a_422(self, team_id: str):
+        response = TestClient(VALIDATION_APP, raise_server_exceptions=False).get(FILTERED_PATH, params={"team_id": team_id})
+
+        assert (response.status_code, response.json()["error_code"]) == (422, Code.PAYLOAD_REFUSED)
+
+    def test_a_well_formed_query_id_reaches_the_handler_as_an_object_id(self):
+        """The control: the same parameter carrying a real id is validated into the type every lookup by it needs."""
+        response = TestClient(VALIDATION_APP, raise_server_exceptions=False).get(FILTERED_PATH, params={"team_id": QUERY_ID})
+
+        assert (response.status_code, response.json()) == (200, {"team_id": ObjectId.__name__})
+
+
 def access_codes(caplog, request: Any) -> list[Any]:
     """Each access line's code for one request, read off the line the middleware writes."""
 
@@ -272,7 +310,7 @@ class TestTheAccessLineCarriesTheRefusal:
     """A refusal writes no line of its own, so the access line is the one record of which code a request answered."""
 
     def test_a_refusal_s_code_rides_its_access_line(self, caplog):
-        assert access_codes(caplog, lambda: client().get("/api/v0/spiele")) == [Code.ACCESS_KEY_REFUSED]
+        assert access_codes(caplog, lambda: client().get(GUARDED_READ)) == [Code.ACCESS_KEY_REFUSED]
 
     def test_a_success_s_access_line_carries_no_code(self, caplog):
         assert access_codes(caplog, lambda: TestClient(VALIDATION_APP).get(ANSWERED_PATH)) == [None]
@@ -349,18 +387,18 @@ TRACEPARENT = f"00-{'c0ffee00' * 4}-{'ab' * 8}-01"
 
 class TestTraceContext:
     def test_a_well_formed_traceparent_s_trace_id_reaches_the_failure_body(self):
-        response = client().get("/api/v0/spiele", headers={"traceparent": TRACEPARENT, **BASE_AUTH})
+        response = client().get(GUARDED_READ, headers={"traceparent": TRACEPARENT, **BASE_AUTH})
 
         assert response.json()["trace_id"] == "c0ffee00" * 4
 
     def test_nothing_is_echoed_on_the_response(self):
         """The failure body is the one channel handing the id back: a response header would put it where nothing reads it."""
-        response = client().get("/api/v0/spiele", headers={"traceparent": TRACEPARENT, **BASE_AUTH})
+        response = client().get(GUARDED_READ, headers={"traceparent": TRACEPARENT, **BASE_AUTH})
 
         assert not {"traceparent", "x-correlation-id"} & {name.lower() for name in response.headers}
 
     def test_a_malformed_traceparent_is_replaced_not_honoured(self):
-        response = client().get("/api/v0/spiele", headers={"traceparent": "NOT/AN/ID", **BASE_AUTH})
+        response = client().get(GUARDED_READ, headers={"traceparent": "NOT/AN/ID", **BASE_AUTH})
 
         minted = response.json()["trace_id"]
         assert minted != "NOT/AN/ID"
@@ -368,7 +406,7 @@ class TestTraceContext:
 
     def test_the_retired_header_is_read_by_nothing(self):
         """A hop still sending the old header must find it ignored rather than honoured: it carries no span and no version."""
-        response = client().get("/api/v0/spiele", headers={"X-Correlation-ID": "c0ffee00" * 4, **BASE_AUTH})
+        response = client().get(GUARDED_READ, headers={"X-Correlation-ID": "c0ffee00" * 4, **BASE_AUTH})
 
         assert response.json()["trace_id"] != "c0ffee00" * 4
 
@@ -389,10 +427,10 @@ class TestAccessLine:
 
     def test_the_query_string_is_part_of_the_logged_path(self, caplog):
         with caplog.at_level(logging.INFO, logger="frankfurtleague"):
-            client().get("/api/v0/spiele", params={"limit": 5}, headers=BASE_AUTH)
+            client().get(GUARDED_READ, params={"limit": 5}, headers=BASE_AUTH)
 
         paths = [record.path for record in caplog.records if getattr(record, "path", None)]
-        assert "/api/v0/spiele?limit=5" in paths
+        assert f"{GUARDED_READ}?limit=5" in paths
 
 
 async def crash() -> None:
@@ -407,9 +445,13 @@ async def break_after_the_status() -> StreamingResponse:
     return StreamingResponse(body())
 
 
+async def cut_by_the_deadline() -> None:
+    raise NetworkTimeout("the request's deadline cut the command")
+
+
 @functools.cache
 def _crashing_app() -> FastAPI:
-    """The shipped stack around two routes that fail: an app of its own, `APP` being every module's.
+    """The shipped stack around routes that fail: an app of its own, `APP` being every module's.
 
     Built on first use rather than at import, which every xdist worker pays at collection.
     """
@@ -417,6 +459,9 @@ def _crashing_app() -> FastAPI:
     crashing = create_app(build_test_config())
     crashing.add_api_route("/crash", crash)
     crashing.add_api_route("/broken-stream", break_after_the_status)
+    # Marked as the application's routes are, so the deadline's answer is judged by the route the router matched.
+    crashing.add_api_route("/cut-read", cut_by_the_deadline, methods=["POST"], openapi_extra=SAFE)
+    crashing.add_api_route("/cut-save", cut_by_the_deadline, methods=["PATCH"], openapi_extra=SAFE_WHEN)
 
     return crashing
 
@@ -467,3 +512,24 @@ class TestACrashIsAnsweredInsideItsRequest:
 
         assert [line[:2] for line in access] == [(status, "c0ffee00" * 4)]
         assert crashes == [access[0][1:]]
+
+
+CUTS = [
+    pytest.param("POST", "/cut-read", Code.DATABASE_FAILED, id="a read over POST, marked safe"),
+    pytest.param("PATCH", "/cut-save?dry_run=true", Code.DATABASE_FAILED, id="a save's dry run, marked safe when asked for"),
+    pytest.param("PATCH", "/cut-save", Code.UNKNOWN_OUTCOME, id="the same save, which may have written"),
+    # Present and false is a save: a mark read by presence would judge it safe and send the person to repeat it.
+    pytest.param("PATCH", "/cut-save?dry_run=false", Code.UNKNOWN_OUTCOME, id="the same save, its dry run declined"),
+]
+
+
+@pytest.mark.parametrize(("method", "path", "code"), CUTS)
+def test_a_deadline_s_cut_is_of_unknown_outcome_only_where_the_request_could_write(method: str, path: str, code: Code):
+    """A cut read answered unknown tells the person a view may have saved something.
+
+    The frontend reads the same marks for its own lost answers.
+    """
+
+    response = TestClient(_crashing_app(), raise_server_exceptions=False).request(method, path)
+
+    assert (response.status_code, response.json()["error_code"]) == (500, code)

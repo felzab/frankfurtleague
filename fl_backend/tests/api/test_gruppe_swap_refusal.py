@@ -38,6 +38,7 @@ class TestWhatCountsAsASwap:
             team2_gruppe="A",
             saison_status="active",
             started=False,
+            taken_place=False,
             clashing_spieltage=0,
             departed_fixtures=0,
         )

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildMapsSearchUrl } from "@/shared/utils/format.ts";
+import { buildMapsSearchUrl } from "@/core/maps.ts";
 
 import { formatMapsLink } from "./utils.ts";
 

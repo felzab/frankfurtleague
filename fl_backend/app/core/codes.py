@@ -1,7 +1,14 @@
 """Every refusal code a failure body carries, each the one spelling of its reason.
 
 A code's value is its member's own name in lower snake case, which `StrEnum`'s `auto()` derives. The
-published document lists them once, as the failure body's `error_code`.
+published document lists them once, as the failure body's `error_code`. A 4xx answer promises that
+the request wrote nothing, and the frontend clears the site's cache by that promise
+(`fl_frontend/src/core/apiDispatch.ts :: dispatchRequest`); a write that may stand answers
+`unknown_outcome` with a 500, which promises nothing (`app/core/exception_handlers.py ::
+db_exception_handler`). Two answers break the promise, each a 409 after the commit that ended an
+address change, whose records no cached read serves:
+`app/api/adresswechsel/admin_router.py :: post_address_change_approval` (`address_change_nothing`)
+and `app/api/adresswechsel/public_router.py :: post_address_change_antwort` (`address_change_ended`).
 """
 
 from enum import StrEnum, auto
@@ -20,9 +27,12 @@ class Code(StrEnum):
     UNKNOWN_OUTCOME = auto()
     # Activating demotes the incumbent to `past`, whose rules then stay frozen (`rules_saison_started`).
     ACTIVATE_SAISON_UNFINISHED = auto()
-    # Every write a `past` season refuses, its activation included, the rules' freeze aside. No escape, and no demotion endpoint
-    # beside it: both keep the state reachable, and activating is the one operation that can reopen a
-    # finished season's points, groups and table. A season closed by mistake is repaired at the database.
+    # A write a `past` season refuses: its activation, the draw, the group swap, the replacement, a fixture's save, a
+    # club's season row, a link's mint and a referee's report. Not every write: a club's contacts, an invitation's
+    # revocation and the administrator's correction of a report stay open on purpose, and the season's own edit refuses
+    # by the rules' freeze and the fixed start. No escape, and no demotion endpoint beside it: both keep the state
+    # reachable, and activating is the one operation that can reopen a finished season's points, groups and table. A
+    # season closed by mistake is repaired at the database.
     SAISON_PAST = auto()
     # The pair to `saison_past` on the draw: that one lets a running season still be drawn, and this one
     # keeps a season from going live undrawn in the first place.
@@ -137,6 +147,9 @@ class Code(StrEnum):
     # postponement takes.
     SPIELTAG_BEGINN_OUT_OF_ORDER = auto()
     SAISON_SPAN_BELOW_SPIELPLAN_AS_STORED = auto()
+    # The start every start lock reads, fixed once a fixture of the season has taken place: moved after play, it would
+    # reopen the rules, the swap and the replacement on a season somebody already played.
+    SAISON_START_TAKEN_PLACE = auto()
     INVITATION_TEAM_NOT_ENTERED = auto()
     # One code for every write that stamps a label, so a page's form maps one refusal however many
     # writes share its page.
@@ -198,6 +211,11 @@ class Code(StrEnum):
     # Apart from `replace_incoming_already_entered`, being the payload's own fault: no season makes a club its own
     # replacement.
     REPLACE_ONE_TEAM_ON_BOTH_ENDS = auto()
+    # One code for the swap and the replacement, as `booking_unknown_resource` covers two resources: one rule read
+    # against two writes. Neither moves `tore`, so a fixture that has taken place would hand its record to another club.
+    # Its own code beside the two `..._saison_started`: before the start this is a result entered early, which a
+    # cleared result repairs.
+    SIDES_TAKEN_PLACE = auto()
     ERGEBNIS_SIDE_EMPTIED = auto()
     RETIRE_BLOCKED = auto()
     # A played fixture never blocks: its `ort` is an embedded record.

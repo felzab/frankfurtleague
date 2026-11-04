@@ -5,7 +5,7 @@ import { useState } from "react";
 import { SignInPage } from "@/kit/SignInPage";
 
 import { COPY } from "@/core/copy";
-import { SIGN_IN_LANDING } from "@/core/signInLanding";
+import { ROUTES } from "@/core/routes";
 import { leaveDocumentFor } from "@/shared/utils/documentNavigation";
 import { signOut } from "@/shared/utils/signOut";
 
@@ -39,7 +39,7 @@ export function SignedIn({ address }: { address: string }) {
       sentence={COPY.signIn.signedInAs}
       address={address}
       // A link and never a press: the landing decides where a signed-in visitor goes, as after every sign-in.
-      continue={{ label: COPY.shared.overview, href: SIGN_IN_LANDING }}
+      continue={{ label: COPY.shared.overview, href: ROUTES.signInLanding.path() }}
       // One press, as every sign-out is.
       signOut={{ label: COPY.shared.verb.signOut, isBusy: isPending, onPress: () => void abmelden() }}
       row={fehler}

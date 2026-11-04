@@ -35,7 +35,7 @@ describe("the admin season list across a render pass", () => {
     const before = adminReads();
 
     // What one admin Suspense boundary does: check the season named in the URL, then read the list.
-    const resolved = await resolveSaisonId(Promise.resolve({ saison_id: "2526" }), "admin");
+    const resolved = await resolveSaisonId(Promise.resolve({ saison_id: "2526" }));
     await getAdminSaisons();
 
     expect(resolved).toBe("2526");
@@ -50,7 +50,7 @@ describe("the admin season list across a render pass", () => {
     const before = adminReads();
 
     beginRenderPass();
-    await resolveSaisonId(Promise.resolve({ saison_id: "2526" }), "admin");
+    await resolveSaisonId(Promise.resolve({ saison_id: "2526" }));
     await getAdminSaisons();
 
     // Split, so each way of being wrong names itself: 0 is the cross-request leak `"use cache"`

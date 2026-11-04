@@ -77,6 +77,7 @@ from app.core.crud import aggregate_many_from_db, anchor_in_db, erase_many_from_
 from app.core.db import warn_about_the_grants
 from app.core.journal import JournalLine, lost_its_answer
 from app.core.logging import fl_logger, journal_logger
+from app.core.readonly import ReadCollection
 from app.core.recording import ERASED_ACTOR_MARKER, SYSTEM_ACTOR_EMAIL
 from app.core.security import actor_pseudonym, erasure_journal_hash
 from app.shared.einwilligung import is_confirmed
@@ -85,7 +86,7 @@ from app.shared.schemas.literals import FLSaisonStatus
 
 
 async def _statuses_of(
-    *, saisons_collection: AsyncCollection, saison_ids: Sequence[str], session: AsyncClientSession | None
+    *, saisons_collection: ReadCollection, saison_ids: Sequence[str], session: AsyncClientSession | None
 ) -> Mapping[str, FLSaisonStatus]:
     """One read of `saisons` for every season the seats sit in, the junction row carrying no copy of its season's `status`.
 
@@ -115,7 +116,7 @@ async def _statuses_of(
 Rows = list[Mapping[str, Any]]
 
 
-def _reads(identifier: str, records: RecordCollections) -> tuple[tuple[AsyncCollection, Rows], ...]:
+def _reads(identifier: str, records: RecordCollections) -> tuple[tuple[ReadCollection, Rows], ...]:
     """The three record reads a Funktion stands on, in the order every lookup unpacks them.
 
     Unbounded, as `resolve_subject`'s are: a capped list reads as a person holding fewer records
@@ -135,7 +136,7 @@ async def _judged(
     referee_rows: Rows,
     pupil_rows: Rows,
     *,
-    saisons_collection: AsyncCollection,
+    saisons_collection: ReadCollection,
     session: AsyncClientSession | None,
 ) -> FLSubjekt:
     """The answer every lookup gives from the same three reads: one judgement, so no two can narrow differently.
@@ -299,7 +300,7 @@ async def funktionen_aus(
     seat_rows: Rows,
     referee_rows: Rows,
     pupil_rows: Rows,
-    saisons_collection: AsyncCollection,
+    saisons_collection: ReadCollection,
     session: AsyncClientSession,
 ) -> FLSubjekt:
     """`funktionen_of`'s answer over rows a caller already read through the subject's own selections, so none is read twice.
@@ -390,11 +391,12 @@ class Subject:
 async def resolve_subject(
     identifier: str,
     *,
-    saison_teams_collection: AsyncCollection,
-    bewerbungen_collection: AsyncCollection,
-    schiedsrichter_collection: AsyncCollection,
-    spieler_collection: AsyncCollection,
-    registrierungen_collection: AsyncCollection,
+    saison_teams_collection: ReadCollection,
+    bewerbungen_collection: ReadCollection,
+    schiedsrichter_collection: ReadCollection,
+    spieler_collection: ReadCollection,
+    registrierungen_collection: ReadCollection,
+    adresswechsel_collection: ReadCollection,
     key: SecretStr,
     # REQUIRED: the erasure reads it inside its transaction, so a retry re-reads it, and the preview in
     # a snapshot, so it names the records of one moment.
@@ -407,7 +409,7 @@ async def resolve_subject(
     One read at a time: a session runs one operation at a time, and gathered reads would race unseen.
     """
 
-    async def read(collection: AsyncCollection, pipeline: Sequence[Mapping[str, Any]]) -> Rows:
+    async def read(collection: ReadCollection, pipeline: Sequence[Mapping[str, Any]]) -> Rows:
         return await aggregate_many_from_db(collection=collection, pipeline=pipeline, session=session)
 
     seats = _runs(loeschen_kontaktperson_in_session, scope)
@@ -425,8 +427,7 @@ async def resolve_subject(
         else None
     )
     adresswechsel = (
-        # On the subject's own database, a read alone: the ban's reveal reads the subject too and holds no change's collection.
-        await read(spieler_collection.database[Collection.ADDRESS_CHANGES], build_loeschung_adresswechsel_pipeline(identifier))
+        await read(adresswechsel_collection, build_loeschung_adresswechsel_pipeline(identifier))
         if _runs(end_the_address_changes_in_session, scope)
         else None
     )
@@ -625,7 +626,7 @@ LOESCHUNG_STEPS: Final[tuple[LoeschungStep, ...]] = (
         run=loeschen_registrierungen_in_session,
     ),
     LoeschungStep(
-        reaches=frozenset({Collection.SPIELER, Collection.SAISON_SPIELER, Collection.ACTION_LOG}),
+        reaches=frozenset({Collection.SPIELER, Collection.SAISON_SPIELER, Collection.SPIELBERICHTE, Collection.ACTION_LOG}),
         personengruppe="spieler",
         run=loeschen_person_in_session,
     ),
@@ -722,13 +723,14 @@ async def loeschen_everything(
         schiedsrichter_collection=schiedsrichter_collection,
         spieler_collection=spieler_collection,
         registrierungen_collection=registrierungen_collection,
+        adresswechsel_collection=adresswechsel_collection,
         key=key,
         session=session,
         scope=scope,
     )
 
     # Each sentinel ahead of the step erasing its kind. The referee's takes the fixtures that booked the
-    # person; nothing is repointed at the pupils'.
+    # person and the reports they sent; the pupils' takes the scorer and card entries naming them.
     if _runs(loeschen_referee_in_session, scope) and subject.schiedsrichter:
         await ensure_ghost_schiedsrichter(schiedsrichter_collection=schiedsrichter_collection, session=session)
     if _runs(loeschen_person_in_session, scope) and subject.spieler:
@@ -811,6 +813,7 @@ async def loeschen_everything(
             geloescht = await loeschen_person_in_session(
                 spieler_collection=spieler_collection,
                 saison_spieler_collection=saison_spieler_collection,
+                spielberichte_collection=spielberichte_collection,
                 aktionen_collection=aktionen_collection,
                 spieler_id=row["_id"],
                 stamp=stamp,
@@ -961,8 +964,8 @@ async def unreferenced_of(
     identifiers: Sequence[str],
     records: RecordCollections,
     *,
-    berechtigungen_collection: AsyncCollection,
-    adresswechsel_collection: AsyncCollection,
+    berechtigungen_collection: ReadCollection,
+    adresswechsel_collection: ReadCollection,
 ) -> list[str]:
     """Which of these addresses no record references.
 

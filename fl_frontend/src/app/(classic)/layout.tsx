@@ -1,29 +1,11 @@
-import { ClassicFrame } from "@/kit/ClassicFrame";
+import { Classic } from "./frame";
 
-import { INSTAGRAM_URL, THREADS_URL } from "@/core/brand";
-import { COPY } from "@/core/copy";
-import { ROUTES } from "@/core/routes";
-
-/** The league's pages every classic page links to: the header's two, and the footer's group with the legal pages. */
-const ABOUT = { label: COPY.page.about, href: ROUTES.about.path() };
-const KONTAKT = { label: COPY.page.contact, href: ROUTES.contact.path() };
-const IMPRESSUM = { label: COPY.page.legalNotice, href: ROUTES.legalNotice.path() };
-const DATENSCHUTZ = { label: COPY.page.privacyNotice, href: ROUTES.privacyNotice.path() };
+import type { ReactNode } from "react";
 
 /**
- * The classic public frame around the pages it holds: the sign-in today. No sponsor is listed yet, so the
- * footer shows none of their logos.
+ * The classic public frame around the pages it holds: the landing, About, Kontakt, the sponsors page and the sign-in.
+ * A match row on the landing opens its pop-up in the root layout's slot, which serves every frame.
  */
-export default function ClassicLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <ClassicFrame
-      links={[ABOUT, KONTAKT]}
-      signIn={ROUTES.signIn.path()}
-      groups={[]}
-      liga={[ABOUT, KONTAKT, IMPRESSUM, DATENSCHUTZ]}
-      social={{ instagram: INSTAGRAM_URL, threads: THREADS_URL }}
-      sponsors={[]}>
-      {children}
-    </ClassicFrame>
-  );
+export default function ClassicLayout({ children }: { children: ReactNode }) {
+  return <Classic>{children}</Classic>;
 }

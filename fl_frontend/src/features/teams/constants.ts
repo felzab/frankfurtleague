@@ -1,7 +1,9 @@
+import { COPY } from "@/core/copy";
 import { FLGruppenNames } from "@/core/generated/client/types";
 import { KONTAKT_ROLLE_LONG_FORM, TRIKOT_FARBEN } from "@/core/teamVocabulary";
 import { NICHT_HINTERLEGT, nichtHinterlegt } from "@/shared/utils/format";
 
+import type { Copy } from "@/core/copy";
 import type {
   FLAustrittType,
   FLKontaktEnteredBy,
@@ -10,6 +12,7 @@ import type {
   FLTrainerAlso,
   FLTrikotFarbe,
 } from "@/core/generated/client/types";
+import type { ChipProps } from "@/kit/Chip";
 
 export const TEAMS_CRUD_COPY = {
   searchLabel: "Teams suchen",
@@ -53,36 +56,46 @@ export const GRUPPEN_OPTIONS: readonly FLGruppenNames[] = Object.values(FLGruppe
 type AustrittOption = {
   readonly value: FLAustrittType;
   /** Names the RECORD, for the editor's picker and the change list. */
-  readonly label: string;
+  readonly label: Copy;
   /** Names the CLUB's resulting state, for anything reading `… seit <Datum>`. */
-  readonly zustand: string;
+  readonly zustand: Copy;
   /** The two-letter badge a table cell and the team popover have room for. */
-  readonly kuerzel: string;
+  readonly kuerzel: Copy;
 };
+
+// Keyed by every route, so a route the contract adds fails to compile until the catalogue words it.
+const AUSTRITT_WORDS: Record<FLAustrittType, Omit<AustrittOption, "value">> = COPY.shared.austritt;
 
 /**
  * The two routes out of a season, in the editor's order.
  *
- * All three wordings live here as one fact: a surface reads them rather than writing its own
- * German, so no two can name the same record differently — a withdrawal reading as a sanction.
+ * All three wordings are one fact, spelled once in the catalogue: a surface reads them here rather than
+ * writing its own German, so no two can name the same record differently — a withdrawal reading as a sanction.
  */
 export const AUSTRITT_OPTIONS: readonly AustrittOption[] = [
-  { value: "disqualifikation", label: "Disqualifikation", zustand: "Disqualifiziert", kuerzel: "DQ" },
-  { value: "rueckzug", label: "Rückzug", zustand: "Zurückgezogen", kuerzel: "RZ" },
+  { value: "disqualifikation", ...AUSTRITT_WORDS.disqualifikation },
+  { value: "rueckzug", ...AUSTRITT_WORDS.rueckzug },
 ];
 
-// The find cannot miss: `type` is the closed set the table enumerates, and the parse refuses
-// anything else before a render sees it.
-const austrittOption = (type: FLAustrittType): AustrittOption | undefined => AUSTRITT_OPTIONS.find((option) => option.value === type);
-
 /** The state a club is in once the record exists — `Disqualifiziert seit …`, `Zurückgezogen seit …`. */
-export function austrittZustand(type: FLAustrittType): string {
-  return austrittOption(type)?.zustand ?? "";
+export function austrittZustand(type: FLAustrittType): Copy {
+  return AUSTRITT_WORDS[type].zustand;
 }
 
-/** The badge form. Always rendered beside the full `zustand` as a label, so the two letters never stand alone. */
-export function austrittKuerzel(type: FLAustrittType): string {
-  return austrittOption(type)?.kuerzel ?? "";
+/** The badge form, for a table cell, a popover or a chip, where only two letters have room. */
+export function austrittKuerzel(type: FLAustrittType): Copy {
+  return AUSTRITT_WORDS[type].kuerzel;
+}
+
+// A disqualification is the league's sanction, so its chip takes the danger hue; a withdrawal is the club's own act.
+const AUSTRITT_TONE = { disqualifikation: "danger", rueckzug: "neutral" } as const satisfies Record<FLAustrittType, ChipProps["tone"]>;
+
+/**
+ * A club's exit chip, after its name wherever a list or its page names it: the route's two letters, which a screen
+ * reader hears as the club's state, so every surface draws one chip for one record.
+ */
+export function austrittChip(type: FLAustrittType): ChipProps {
+  return { tone: AUSTRITT_TONE[type], label: austrittKuerzel(type), spoken: austrittZustand(type) };
 }
 
 /**

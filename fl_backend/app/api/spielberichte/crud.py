@@ -47,7 +47,7 @@ from app.core.crud import (
     pull_many_from_db,
     pull_one_from_db,
 )
-from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
+from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID, GHOST_SPIELER_ID
 from app.shared.schemas.custom import CustomObjectId
 from app.shared.schemas.literals import FLSpielSeite
 
@@ -99,7 +99,7 @@ async def pull_genannt(
 ) -> list[FLSpielberichtSpieler]:
     """Every pupil the block names outside the squads served, so a stored entry keeps its name; every one where none is served.
 
-    An erased pupil comes nameless, read „anonym“ rather than as the id its entry keeps.
+    An erased pupil's entries name the sentinel, which comes nameless and reads „anonym“.
     """
 
     live = {row["spieler_id"] for seite in SEITEN for row in live_kader(lage, seite)} if kader_offen else set()
@@ -325,3 +325,32 @@ async def stamp_the_adoption(
     )
 
     return stamped.matched_count > 0
+
+
+async def repoint_pupil_entries_in_session(
+    *,
+    spielberichte_collection: AsyncCollection,
+    spieler_id: CustomObjectId,
+    # REQUIRED: the erasure's own, so a report never names the sentinel of an erasure that rolled back.
+    session: AsyncClientSession,
+) -> int:
+    """Repoint every scorer and card entry naming this pupil at the sentinel, answering how many reports changed.
+
+    The one place an erased pupil's entries are repointed. A line-up's entries (`services.py :: AUFSTELLUNGEN_FIELD`)
+    are outside this update, so a write storing a line-up adds them to it, or a report keeps an erased pupil's id. The
+    report stands as the league's record of the match, its adoption with it: `bericht.version` counts the referee's and
+    the administrator's writes alone.
+    """
+
+    # One update over both arrays, each through its own `$[<identifier>]` (the manual's
+    # "$[<identifier>]" page). The filter selects only the reports holding an entry to change, since
+    # an array-filtered update reaches `patch_many_in_db` unnarrowed.
+    repointed = await patch_many_in_db(
+        collection=spielberichte_collection,
+        db_filter={"$or": [{"bericht.torschuetzen.spieler_id": spieler_id}, {"bericht.karten.spieler_id": spieler_id}]},
+        update={"$set": {"bericht.torschuetzen.$[goal].spieler_id": GHOST_SPIELER_ID, "bericht.karten.$[card].spieler_id": GHOST_SPIELER_ID}},
+        array_filters=[{"goal.spieler_id": spieler_id}, {"card.spieler_id": spieler_id}],
+        session=session,
+    )
+
+    return repointed.modified_count

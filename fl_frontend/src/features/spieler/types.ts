@@ -55,8 +55,8 @@ export type SpielerSaisonMembership = {
   /** `rules.allowed_stufen` — the only levels this season's picker offers, beside "Keine Angabe". */
   erlaubteStufen: FLSpielerStufe[];
   /**
-   * The backend's verdict, never the season's status: an active season whose matchday 1 is undated or
-   * ahead enters players as ordinary ones. `null` where the player already holds a row, so no entry is offered.
+   * The backend's verdict, never the season's status: an active season whose start date is ahead enters players
+   * as ordinary ones. `null` where the player already holds a row, so no entry is offered.
    */
   nachnominierungLaeuft: boolean | null;
 };

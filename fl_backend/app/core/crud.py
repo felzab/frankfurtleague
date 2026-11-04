@@ -28,6 +28,7 @@ from pymongo.results import DeleteResult, InsertManyResult, InsertOneResult, Upd
 from app.core.codes import Code
 from app.core.collections import EDITED_COLLECTIONS
 from app.core.exceptions import APIError, DocumentNotFoundError, WriteRefusal
+from app.core.readonly import ReadCollection
 from app.core.recording import RedactionTarget, build_redaction_filter, build_redaction_update, record_write
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 
@@ -42,7 +43,7 @@ GERMAN_COLLATION: Mapping[str, Any] = {"locale": "de"}
 
 async def pull_one_from_db(
     *,
-    collection: AsyncCollection,
+    collection: ReadCollection,
     db_filter: Mapping[str, Any],
     projection: Mapping[str, Any] | list[str] | None = None,
     session: AsyncClientSession | None = None,
@@ -58,7 +59,7 @@ async def pull_one_from_db(
 
 async def pull_many_from_db(
     *,
-    collection: AsyncCollection,
+    collection: ReadCollection,
     db_filter: Mapping[str, Any],
     limit: int = LIST_LIMIT_DEFAULT,
     sort_by: Sequence[tuple[str, int]] | None = None,
@@ -181,6 +182,10 @@ async def patch_many_in_db(
     collection: AsyncCollection,
     db_filter: Mapping[str, Any],
     update: Mapping[str, Any],
+    # The conditions `$[<identifier>]` paths in `update` select array elements by (the manual's
+    # "$[<identifier>]" page). Such an update keeps the caller's filter unnarrowed, so that filter
+    # has to match only the documents holding an element to change.
+    array_filters: Sequence[Mapping[str, Any]] | None = None,
     session: AsyncClientSession | None = None,
 ) -> UpdateResult:
     """The driver's result, unwrapped: `modified_count` is reported on the wire, so nothing here may swallow it.
@@ -194,7 +199,7 @@ async def patch_many_in_db(
     matched = _changed_by(db_filter, update) if collection.name in EDITED_COLLECTIONS else db_filter
     update = _versioned(collection, update)
 
-    result = await collection.update_many(filter=matched, update=update, session=session)
+    result = await collection.update_many(filter=matched, update=update, array_filters=array_filters, session=session)
 
     # A fan-out that changed nothing records nothing, as a removal that took nothing: so a
     # caller sends its write unguarded, and an hourly pass matching nothing files no row saying so.
@@ -275,6 +280,33 @@ async def post_one_to_db(
     await record_write(collection=collection, operation="insert", document_id=result.inserted_id, session=session)
 
     return result
+
+
+async def ensure_one_in_db(
+    *,
+    collection: AsyncCollection,
+    # Keyed by its own `_id`, the one term the upsert's filter holds.
+    document: Mapping[str, Any],
+    session: AsyncClientSession | None = None,
+) -> bool:
+    """Insert `document` where no document holds its `_id`, in one round trip, and answer whether it did.
+
+    MongoDB's insert-if-absent, an upsert whose update is `$setOnInsert` alone (the manual's
+    `$setOnInsert` page): no read precedes the write, so nothing lands between a lookup and an
+    insert. Logged as the insert `post_one_to_db` logs, and only where one happened.
+    """
+
+    created = _created(collection, document)
+    # `_id` comes from the filter's equality; the rest is what the insert writes.
+    fields = {key: value for key, value in created.items() if key != "_id"}
+
+    result = await collection.update_one(filter={"_id": created["_id"]}, update={"$setOnInsert": fields}, upsert=True, session=session)
+    if result.upserted_id is None:
+        return False
+
+    await record_write(collection=collection, operation="insert", document_id=result.upserted_id, session=session)
+
+    return True
 
 
 async def post_many_to_db(
@@ -442,7 +474,7 @@ async def redact_log_rows_in_db(
 
 async def aggregate_many_from_db(
     *,
-    collection: AsyncCollection,
+    collection: ReadCollection,
     pipeline: Sequence[Mapping[str, Any]],
     collation: Mapping[str, Any] | None = None,
     session: AsyncClientSession | None = None,

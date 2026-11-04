@@ -1,7 +1,6 @@
-import { KONTAKT_EMAIL } from "./brand";
-import { formatDatum, formatDatumLong, formatDatumWithWeekday, formatErgebnis, formatNumber, formatUhrzeit } from "./format";
+import { formatDatum, formatDatumLong, formatDatumWithWeekday, formatList, formatNumber, formatOrdinal, formatUhrzeit } from "./format";
 
-import type { CalendarDay, Pair, Uhrzeit } from "./format";
+import type { CalendarDay, Uhrzeit } from "./format";
 
 declare const copyBrand: unique symbol;
 
@@ -10,6 +9,18 @@ declare const copyBrand: unique symbol;
  * does not compile; `as Copy` outside this file is the one way round it.
  */
 export type Copy = string & { readonly [copyBrand]: true };
+
+/**
+ * A record's own data where words stand, such as a club's name or a figure it holds: not the catalogue's words, and
+ * marked as data so a string typed into a page has no way into a text slot. Lint refuses a literal inside one.
+ */
+export type RecordText = { readonly record: string };
+
+/** What a kit text slot shows: the catalogue's words, or a record's own data. */
+export type Words = Copy | RecordText;
+
+/** The text a slot shows. */
+export const textOf = (words: Words): string => (typeof words === "string" ? words : words.record);
 
 type Catalogue<T> = T extends string
   ? Copy
@@ -51,13 +62,24 @@ const infinitive = (verb: Verb): string => `${VERB[verb].charAt(0).toLowerCase()
 // One line for every failure no reason names, the same in a toast and in a status line.
 const UNEXPECTED = "Etwas ist schiefgelaufen";
 
-/** A range's end: a figure, or a year as a string, which as a season id takes no thousands separator. */
-type Bound = number | string;
+// The glossary's one spelling, which the season editor's sentence about it takes too.
+const K_O_RUNDE = "K.-o.-Runde";
 
-const bound = (value: Bound): string => (typeof value === "string" ? value : formatNumber(value));
+// Words two areas of this one object say alike, each written once and read under both keys: a match's facts and
+// its events as a visitor reads them and as the editor's fields name them, and the sign-in's acts and pages.
+const SPIEL_FACT = { datum: "Datum", uhrzeit: "Uhrzeit" } as const;
+const SONDEREREIGNIS = { ausgefallen: "Ausgefallen", abgebrochen: "Abgebrochen", annulliert: "Annulliert" } as const;
+const ANMELDUNG = "Anmeldung";
+const MIT_PASSKEY_ANMELDEN = "Mit Passkey anmelden";
+const PASSKEY_EINRICHTEN = { title: "Passkey einrichten", button: "Jetzt einrichten" } as const;
 
-// The mark a result decided in a shoot-out carries: under the score in a match row, after it in a fact.
-const AFTER_ELFMETERSCHIESSEN = "n. E.";
+/**
+ * A range's end: a figure, or a year, which as a season id takes no thousands separator. A year is data, never a
+ * string, so no entry taking a bound passes a caller's words through as the catalogue's.
+ */
+type Bound = number | { year: number };
+
+const bound = (value: Bound): string => (typeof value === "number" ? formatNumber(value) : String(value.year));
 
 export const COPY = catalogue({
   /** What every area draws from; an area adds a key of its own only for a string this lacks. */
@@ -84,7 +106,6 @@ export const COPY = catalogue({
       exampleDate: "31.12.2026",
       // Reserved as the address example's domain is.
       exampleUrl: "https://example.com",
-      // Redesign: the first field taking a range reads it.
       between: (from: Bound, to: Bound) => `Zwischen ${bound(from)} und ${bound(to)}`,
       // One-sided bounds of a number or of a list, the box's label saying what is counted.
       max: (count: number) => `Höchstens ${formatNumber(count)}`,
@@ -100,14 +121,14 @@ export const COPY = catalogue({
     /** The three lines every refusal no person causes knowingly from the screen falls back to. */
     failure: {
       unexpected: UNEXPECTED,
-      stale: "Die Seite ist nicht mehr aktuell. Lade sie neu.",
-      signInExpired: "Deine Anmeldung ist abgelaufen. Melde dich neu an.",
+      stale: "Die Seite ist nicht mehr aktuell.",
+      signInExpired: "Deine Anmeldung ist abgelaufen.",
       /** The edge refused the press for its rate before anything behind it ran; the meter refills within the minute. */
-      tooManyAttempts: "Zu viele Versuche in kurzer Zeit. Warte einen Moment und versuche es dann erneut.",
+      tooManyAttempts: "Zu viele Versuche in kurzer Zeit.",
       /** An administrator's grant is gone or was never held: no sign-in and no retry repairs it. */
       accessGone: "Dein Zugang zur Verwaltung besteht nicht mehr.",
       /** The backend left the grant unread: nothing ran, and a sign-in would meet the same outage. */
-      accessUnchecked: "Dein Zugang zur Verwaltung ließ sich gerade nicht prüfen. Versuch es erneut.",
+      accessUnchecked: "Dein Zugang zur Verwaltung ließ sich gerade nicht prüfen.",
     },
 
     /** Beside the save button once the record is stored. */
@@ -139,7 +160,7 @@ export const COPY = catalogue({
     close: "Schließen",
 
     /** The end states of a page a mail opens; each page names its own sentence for the done state. */
-    // Session 4: the mailed pages read these.
+    // Session 4: the mailed pages read `doneOn` and `toAccount`.
     end: {
       doneOn: (done: Copy, day: CalendarDay) => `${done} am ${formatDatumLong(day)}.`,
       linkInvalid: "Dieser Link gilt nicht mehr.",
@@ -149,22 +170,60 @@ export const COPY = catalogue({
 
     /** The match pop-up's way to the match's own page. */
     toSpiel: "Zum Spiel",
-    // Redesign: the first fact its reader could supply, shown empty, reads it.
+    /** A fact nobody has entered, where a sentence names it in words rather than a glyph: a match mail's ground. */
     notProvided: "Nicht hinterlegt",
+    /** A value not there yet, in a tile, a table cell or a score's place: a glyph, not a word. */
+    noValue: "–",
+    /** Between a pairing's two sides where no score stands between them, as a fixture's pairing reads: a glyph, not a word. */
+    versus: "–",
     overview: "Übersicht",
     // Redesign: the account menu reads it once it offers a second role.
     switchRole: "Funktion wechseln",
-    more: "Mehr …",
     loadMore: "Weitere 50 laden",
-    kORunde: "K.-o.-Runde",
-    // Session 3: its page reads it.
+    kORunde: K_O_RUNDE,
     kOBaum: "K.-o.-Baum",
-    afterElfmeterschiessen: AFTER_ELFMETERSCHIESSEN,
-    // Session 3: its page reads it.
-    disqualified: "DQ",
-    // Redesign: a line-up's chips read these.
+    /** The one German spelling of each phase, which `PHASE_LABELS` serves to every surface. */
+    phase: {
+      gruppenphase: "Gruppenphase",
+      achtelfinale: "Achtelfinale",
+      viertelfinale: "Viertelfinale",
+      halbfinale: "Halbfinale",
+      finale: "Finale",
+    },
+    /** A group matchday, by its served `position`: the season's lists, a match's head and the season card name it alike. */
+    spieltag: (position: number) => `${formatOrdinal(position)} Spieltag`,
+    /** A knockout matchday where its phase spans several, „Viertelfinale (2)“: the phase's name and the matchday's place in it. */
+    knockoutRound: (phase: Copy, position: number) => `${phase} (${formatNumber(position)})`,
+    /** The mark a result decided in a shoot-out carries, under the score in a match row and a match's head. */
+    afterElfmeterschiessen: "n. E.",
+    /**
+     * The two routes out of a season, each in its three wordings: `label` names the record, `zustand` the club's
+     * resulting state, `kuerzel` the badge. `AUSTRITT_OPTIONS` serves them to every surface, so no two can name
+     * one record differently.
+     */
+    austritt: {
+      disqualifikation: { label: "Disqualifikation", zustand: "Disqualifiziert", kuerzel: "DQ" },
+      rueckzug: { label: "Rückzug", zustand: "Zurückgezogen", kuerzel: "RZ" },
+    },
+    /** The head of a club's exit note, „Disqualifiziert seit 14.03.2026“: its route's `zustand` and the day it took effect. */
+    austrittSeit: (zustand: Copy, day: CalendarDay) => `${zustand} seit ${formatDatum(day)}`,
     startelf: "Startelf",
     bank: "Bank",
+    /** A club's goals, a match's and a season's: a column head, a tile, a field's message. */
+    tore: "Tore",
+    /** A record's name: a box's label, a list's column head. */
+    name: "Name",
+
+    /**
+     * The kit's season blocks that a client component draws: a table's rows reach the list's client table. The
+     * rest, which only the server draws, stand in `SERVER_COPY.season`.
+     */
+    season: {
+      /** The name of the mark beside a club's figure: how many of its fixtures were called off. */
+      cancelled: (count: number) => (count === 1 ? "1 Spiel abgesagt" : `${formatNumber(count)} Spiele abgesagt`),
+      /** The mark itself, drawn red on the corner of a club's figure and hidden from a screen reader, which hears `cancelled`. */
+      cancelledMark: (count: number) => `+${formatNumber(count)}`,
+    },
 
     /** The ⓘ's name, which its tooltip shows. */
     help: "Hilfe",
@@ -178,10 +237,10 @@ export const COPY = catalogue({
 
     /** The bot check before a public send: refused, disturbed, not yet done, or not loaded at all. */
     botCheck: {
-      confirm: "Bestätige kurz, dass du ein Mensch bist.",
-      disrupted: "Die Prüfung, ob du ein Mensch bist, ist gerade gestört. Versuche es später erneut.",
-      notReady: "Die Prüfung, ob du ein Mensch bist, ist noch nicht fertig. Versuche es gleich erneut.",
-      notLoaded: `Die Prüfung, ob du ein Mensch bist, ließ sich nicht laden. Erlaube challenges.cloudflare.com in deinem Browser oder Werbeblocker und lade die Seite neu, oder schreib uns an ${KONTAKT_EMAIL}.`,
+      confirm: "Die Bestätigung, dass du ein Mensch bist, fehlt.",
+      disrupted: "Die Prüfung, ob du ein Mensch bist, ist gerade gestört.",
+      notReady: "Die Prüfung, ob du ein Mensch bist, ist noch nicht fertig.",
+      notLoaded: "Die Prüfung, ob du ein Mensch bist, ließ sich nicht laden.",
     },
   },
 
@@ -195,13 +254,13 @@ export const COPY = catalogue({
     teams: "Teams",
     spielSearch: "Spielsuche",
     /** A match's page, named by its two teams in the order the fixture lists them. */
-    spiel: (heim: string, gast: string) => `${heim} gegen ${gast}`,
-    about: "About",
+    spiel: (team1: Words, team2: Words) => `${textOf(team1)} gegen ${textOf(team2)}`,
+    about: "Über die Liga",
     contact: "Kontakt",
     sponsors: "Sponsoren",
     legalNotice: "Impressum",
     privacyNotice: "Datenschutz",
-    accountSignIn: "Anmeldung",
+    accountSignIn: ANMELDUNG,
     accountSecurity: "Sicherheit",
     accountAppearance: "Darstellung",
     accountEntries: "Deine Einträge",
@@ -218,6 +277,14 @@ export const COPY = catalogue({
     verwaltungErasures: "Löschungen",
     verwaltungAddressChanges: "Adressänderungen",
     verwaltungActionLog: "Protokoll",
+    addressChangeConfirmation: "Änderung der E-Mail-Adresse",
+    /** A contact person's and a referee's confirmation of their own entry. */
+    entryConfirmation: "Eintrag bestätigen",
+    spielbestaetigung: "Spieltermin bestätigen",
+    registrierungConfirmation: "Registrierung bestätigen",
+    accountErasure: "Konto löschen",
+    registrierung: "Registrierung",
+    bewerbung: (saison: string) => `Bewerbung Saison ${saison}`,
   },
 
   /** The Spielplan, and a match's page, which opens as the pop-up over it. */
@@ -227,14 +294,11 @@ export const COPY = catalogue({
     /** When a match is played, as its row shows it; until it is dated, what is still to settle. */
     when: (day: CalendarDay | null, time: Uhrzeit | null) =>
       day === null ? "Termin offen" : time === null ? formatDatumWithWeekday(day) : `${formatDatumWithWeekday(day)} · ${formatUhrzeit(time)}`,
-    /** The score, a shoot-out's goals added to each side's, with the shoot-out's mark after it. */
-    ergebnis: (tore: Pair, elfmeterschiessen: Pair | null) =>
-      elfmeterschiessen === null ? formatErgebnis(tore) : `${formatErgebnis(tore, elfmeterschiessen)} ${AFTER_ELFMETERSCHIESSEN}`,
 
     /** A side the draw has not settled: its source short in the dashed plaque, and in full as its name. */
     quelle: {
       gruppeShort: (gruppe: string, platz: number) => `${gruppe}${formatNumber(platz)}`,
-      gruppe: (gruppe: string, platz: number) => `${formatNumber(platz)}. der Gruppe ${gruppe}`,
+      gruppe: (gruppe: string, platz: number) => `${formatOrdinal(platz)} der Gruppe ${gruppe}`,
       siegerShort: (spiel: number) => `S${formatNumber(spiel)}`,
       sieger: (spiel: number) => `Sieger von Spiel ${formatNumber(spiel)}`,
       verliererShort: (spiel: number) => `V${formatNumber(spiel)}`,
@@ -245,10 +309,10 @@ export const COPY = catalogue({
 
     /** What befell a match, as a visitor reads it: a no-show names the club that did not turn up. */
     sonderereignis: {
-      ausgefallen: "Ausgefallen",
-      nichtAngetreten: (team: string) => `${team} nicht angetreten`,
-      abgebrochen: "Abgebrochen",
-      annulliert: "Annulliert",
+      ausgefallen: SONDEREREIGNIS.ausgefallen,
+      nichtAngetreten: (team: Words) => `${textOf(team)} nicht angetreten`,
+      abgebrochen: SONDEREREIGNIS.abgebrochen,
+      annulliert: SONDEREREIGNIS.annulliert,
       /**
        * What the event means for the result, under its name in the pop-up's callout: a match called off or
        * struck out awards nothing, a no-show awards the side that turned up the forfeit the season's rules
@@ -256,30 +320,29 @@ export const COPY = catalogue({
        */
       consequence: {
         ausgefallen: "Das Spiel hat nicht stattgefunden und wird nicht gewertet.",
-        nichtAngetreten: (gegner: string) => `Das Spiel wird für ${gegner} gewertet.`,
-        abgebrochenScored: "Das Spiel wurde abgebrochen. Das eingetragene Ergebnis wird gewertet.",
-        abgebrochenOpen: "Das Spiel wurde abgebrochen. Wie es gewertet wird, steht noch nicht fest.",
+        nichtAngetreten: (gegner: Words) => `Das Spiel wird für ${textOf(gegner)} gewertet.`,
+        abgebrochenScored: "Das eingetragene Ergebnis wird gewertet.",
+        abgebrochenOpen: "Die Wertung steht noch nicht fest.",
         annulliert: "Das Spiel wurde annulliert und wird nicht gewertet.",
       },
     },
 
     /** A match's facts, each by its label. */
     fact: {
-      ergebnis: "Ergebnis",
-      sonderereignis: "Sonderereignis",
       spieltag: "Spieltag",
-      datum: "Datum",
-      uhrzeit: "Uhrzeit",
+      datum: SPIEL_FACT.datum,
+      uhrzeit: SPIEL_FACT.uhrzeit,
       spielort: "Ort",
       schiedsrichter: "Schiedsrichter",
-      notiz: "Notiz",
     },
   },
 
   /** The page templates' own words: the frames around a page, the editor's bar, a list's paging, the end states. */
   template: {
-    /** The phone bar's place opening the rest of the menu, without the ellipsis a truncated text's link takes. */
+    /** The phone bar's place opening the rest of the menu, and the link at the end of a folded text's third line. */
     more: "Mehr",
+    /** The same link once the folded text is open, naming the press that folds it again. */
+    less: "Weniger",
     /** The name of a frame's menu, the rail's and the phone bar's. */
     navigation: "Navigation",
     /** The account's place: the rail's account row and the phone bar's avatar. */
@@ -291,8 +354,9 @@ export const COPY = catalogue({
     /** The strip's toggle folding the rail to its glyphs and back, named for what the next press does. */
     sidebar: { collapse: "Seitenleiste einklappen", expand: "Seitenleiste ausklappen" },
 
-    /** The footer: the league's group, which holds the sponsors' page, and the line over the sponsors' logos. */
+    /** The footer: the league's group, which holds the sponsors' page, the legal pages' group, and the line over the sponsors' logos. */
     liga: "Liga",
+    legal: "Rechtliches",
     oberstufenliga: "Die Frankfurter Oberstufenliga",
     supportedBy: "Mit Unterstützung von",
     instagram: "Instagram",
@@ -303,10 +367,10 @@ export const COPY = catalogue({
     changes: "Änderungen",
     changesPending: (count: number) => (count === 1 ? "1 Änderung" : `${formatNumber(count)} Änderungen`),
     changesLost: (count: number) => (count === 1 ? "1 Änderung geht verloren." : `${formatNumber(count)} Änderungen gehen verloren.`),
-    /** A save refused for its fields: the fields say what, the status line says where to look. */
-    checkFields: "Prüfe die markierten Felder.",
-    /** A refusal about a field the screen shows no box for: the field's name, then the line its box would show. */
-    namedField: (name: Copy, line: Copy) => `${name}: ${line}`,
+    /** The chip after an editor's title while its record is closed read-only, its season finished. */
+    closed: "Abgeschlossen",
+    /** A save refused for its fields: the fields say what, the status line that some are off. */
+    checkFields: "Einige Felder sind nicht richtig ausgefüllt.",
 
     /** A page a mail opened whose link no longer holds, above the catalogue's sentence for it. */
     linkInvalid: "Link nicht mehr gültig",
@@ -314,16 +378,16 @@ export const COPY = catalogue({
 
   /** Signing in: the address and its code, the passkey, and the answers either can meet. */
   signIn: {
-    /** The tab titles of `/signin` and `/signin/passkey`. */
-    title: "Anmelden",
+    /** `/signin`'s tab title, and its card's heading, signed out and signed in: the act its button names. */
+    title: VERB.signIn,
     passkeyTitle: "Passkey",
+    /** `/signin/weiter`'s tab title, a page that only sends the session on to where it goes next. */
+    landingTitle: ANMELDUNG,
 
     address: "E-Mail-Adresse",
     sendCode: "Code senden",
     or: "oder",
-    withPasskey: "Mit Passkey anmelden",
-    /** The bot check that did not load, naming the passkey, which signs in without it. */
-    botCheckNotLoaded: `Die Prüfung, ob du ein Mensch bist, ließ sich nicht laden. Erlaube challenges.cloudflare.com in deinem Browser oder Werbeblocker und lade die Seite neu, melde dich mit einem Passkey an oder schreib uns an ${KONTAKT_EMAIL}.`,
+    withPasskey: MIT_PASSKEY_ANMELDEN,
 
     /**
      * The code view: one sentence for every address, so it says nothing about who holds an account, in the two
@@ -339,33 +403,29 @@ export const COPY = catalogue({
     signedInAs: { before: "Du bist als", after: "angemeldet." },
 
     passkey: {
-      setUp: { title: "Passkey einrichten", sentence: "Die Verwaltung ist erst mit einem Passkey erreichbar.", button: "Jetzt einrichten" },
-      signIn: { title: "Mit Passkey anmelden", sentence: "Melde dich mit dem Passkey an, den du eingerichtet hast.", button: "Jetzt anmelden" },
-      offer: {
-        title: "Passkey einrichten",
-        sentence: "Mit einem Passkey meldest du dich künftig sicher ohne Code an.",
-        button: "Jetzt einrichten",
-      },
+      setUp: { ...PASSKEY_EINRICHTEN, sentence: "Die Verwaltung ist erst mit einem Passkey erreichbar." },
+      signIn: { title: MIT_PASSKEY_ANMELDEN, sentence: "Melde dich mit dem Passkey an, den du eingerichtet hast.", button: "Jetzt anmelden" },
+      offer: { ...PASSKEY_EINRICHTEN, sentence: "Mit einem Passkey meldest du dich künftig sicher ohne Code an." },
       later: "Später",
     },
 
     /**
      * The code's and the passkey's refusals: the code route answers them, and the page finds each one here
      * again. A barred address and one holding no record meet one sentence, so nobody can probe the ban list.
+     * The typed code's own refusal is a phrase under its boxes; every other is a sentence on the status line.
      */
     refusal: {
-      codeWrong: "Der Code stimmt nicht oder gilt nicht mehr. Nimm den Code aus der neuesten E-Mail oder fordere einen neuen an.",
-      codeExpired: "Der Code ist abgelaufen. Fordere einen neuen an.",
-      codeTooOften: "Zu viele Versuche mit diesem Code. Fordere einen neuen an.",
-      addressTooOften: (hours: number) =>
-        `Zu viele Versuche mit dieser Adresse. Melde dich mit einem Passkey an oder versuche es in ${formatNumber(hours)} Stunden erneut.`,
-      codeUsedUp: "Die Anmeldung hat gerade nicht geklappt, und dein Code ist damit verbraucht. Fordere in ein paar Minuten einen neuen an.",
-      noRecord: `Mit dieser Adresse ist derzeit keine Anmeldung möglich. Wenn du das für einen Fehler hältst, schreib uns an ${KONTAKT_EMAIL}.`,
-      unverified: "Dieser Passkey hat nicht bestätigt, dass du es bist. Nimm einen Passkey mit PIN, Fingerabdruck oder Gesichtserkennung.",
+      codeWrong: "Falsch oder nicht mehr gültig",
+      codeExpired: "Der Code ist abgelaufen.",
+      codeTooOften: "Zu viele Versuche mit diesem Code.",
+      addressTooOften: "Zu viele Versuche mit dieser Adresse.",
+      codeUsedUp: "Die Anmeldung hat nicht geklappt, und dein Code ist verbraucht.",
+      noRecord: "Mit dieser Adresse ist derzeit keine Anmeldung möglich.",
+      unverified: "Dieser Passkey hat nicht bestätigt, dass du es bist.",
     },
   },
 
-  /** The administration's own words: its frame, the Spielorte list and the match editor. */
+  /** The administration's own words: its frame, the Spielorte list, the match editor and the season editor. */
   verwaltung: {
     /** The role an administrator acts in, the account row's second line. */
     role: "Verwaltung",
@@ -375,14 +435,11 @@ export const COPY = catalogue({
       schulenAndSpieler: "Schulen und Spieler",
       accessAndPrivacy: "Zugang und Datenschutz",
     },
-    /** A record's own page, named by the record. */
-    record: (name: string) => name,
 
     spielort: {
       /** The object of „Spielort anlegen“. */
       object: "Spielort",
       search: "Spielorte suchen",
-      name: "Name",
       /** The create dialog's two groups: the address's lines, and the record's terms, the price among them. */
       address: "Adresse",
       terms: "Konditionen",
@@ -400,9 +457,25 @@ export const COPY = catalogue({
       hausnummerExample: "12a",
       retired: "Stillgelegt",
       /** The venue list's last entry, which opens the create dialog with the name typed so far. */
-      createEntry: "Spielort anlegen …",
+      createEntry: "Spielort anlegen",
       /** One line of a venue's address: its street and number. */
       strasseWithHausnummer: (strasse: string, hausnummer: string) => `${strasse} ${hausnummer}`,
+      /** A whole address on one line, „Schulweg 8, 60317 Frankfurt am Main“, after its street line. */
+      addressLine: (street: Copy, plz: string, stadt: string) => `${street}, ${plz} ${stadt}`,
+    },
+
+    saison: {
+      /**
+       * The groups and the qualifiers per group multiply to no bracket the league plays: the form's own check, the
+       * rules write's refusal and the draw's say it alike, on the status line, the two counts together being at fault.
+       */
+      bracketImpossible: `Aus diesen Zahlen entsteht keine ${K_O_RUNDE}.`,
+      /**
+       * Under the season's start once a match of the season has taken place, which holds it: a match has taken place
+       * once it has a result, a recorded no-show or abandonment, or one side's goals
+       * (`fl_backend/app/api/teams/services.py :: has_taken_place`).
+       */
+      startFixed: "Steht fest, seit ein Spiel stattgefunden hat",
     },
 
     spiel: {
@@ -410,31 +483,40 @@ export const COPY = catalogue({
       number: (nr: number) => `Spiel ${formatNumber(nr)}`,
       ansetzung: "Ansetzung",
       ergebnis: "Ergebnis",
+      /** The players credited with a result's goals, as a field's message names what it must not hold. */
+      torschuetzen: "Torschützen",
       notiz: "Notiz",
-      datum: "Datum",
-      uhrzeit: "Uhrzeit",
+      datum: SPIEL_FACT.datum,
+      uhrzeit: SPIEL_FACT.uhrzeit,
       sonderereignis: "Sonderereignis",
       /** The Sonderereignis' first entry: nothing beyond the match being played. */
       none: "Keines",
-      ausgefallen: "Ausgefallen",
+      ausgefallen: SONDEREREIGNIS.ausgefallen,
       nichtantretenTeam1: "Nichtantreten Team 1",
       nichtantretenTeam2: "Nichtantreten Team 2",
       /** The fixture's two sides, by the names the Sonderereignis' entries give them. */
       team1: "Team 1",
       team2: "Team 2",
-      abgebrochen: "Abgebrochen",
-      annulliert: "Annulliert",
+      abgebrochen: SONDEREREIGNIS.abgebrochen,
+      annulliert: SONDEREREIGNIS.annulliert,
       /** Why a no-show cannot be picked while a side is open. */
-      needsBothSides: "beide Seiten nötig",
-      /** The save's done line where the write moved other matches too, `folgen` naming them in today's editor's words. */
-      savedWithConsequences: (consequences: string) => `Gespeichert. ${consequences}`,
+      needsBothSides: "Nur mit beiden Teams",
+      /** The save's done line where the write moved other matches too, by their numbers: „Auch Spiel 5 und 7 geändert“. */
+      alsoChanged: (spiele: readonly number[]) => `Auch Spiel ${formatList(spiele.map(formatNumber))} geändert`,
     },
+  },
+
+  /** The landing's words a client component reads; the rest stand in `SERVER_COPY.landing`. */
+  landing: {
+    /** The countdown's units, under its three figures. Board: their words. */
+    saison: { days: "Tage", hours: "Stunden", minutes: "Minuten" },
   },
 
   /** The league's own name, which ends every tab title, and what an installed app calls itself. */
   brand: {
     name: "Frankfurt League",
     shortName: "FL",
-    description: "Die Frankfurt League ist die Oberstufenliga der Frankfurter Schulen. Finde heraus, welche Schule gewinnt!",
+    description:
+      "Die Frankfurt League ist die Fußballliga der Frankfurter Oberstufen. Abi-Jahrgänge spielen 11 gegen 11 um den Titel. Jedes Spiel bringt Geld für den Abiball.",
   },
 });

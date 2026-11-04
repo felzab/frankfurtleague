@@ -6,19 +6,24 @@ import { COPY } from "@/core/copy";
 
 import SaisonsLayout from "./layout";
 
+import type { FLSaisonFrameResponse } from "@/core/generated/client/types";
+
 vi.mock("next/navigation", () => ({
   usePathname: () => "/saisons/2027",
   useParams: () => ({ saison: "2027" }),
   useRouter: () => ({ push: () => undefined, replace: () => undefined }),
 }));
-vi.mock("./[saison]/spielplan", () => ({
-  readSeasons: async () => ({
-    entries: [
-      { id: "2027", span: "01.09.2026 – 30.06.2027" },
-      { id: "2026", span: "01.09.2025 – 30.06.2026" },
-    ],
-    standard: "2027",
-  }),
+vi.mock("next/server", () => ({ connection: async () => undefined }));
+// Typed whole, so a field the frame stops serving fails the compile rather than standing in the fixture.
+vi.mock("@/features/saisons/queries", () => ({
+  getSaisonFrame: async () =>
+    ({
+      saisons: [
+        { id: "2027", start_date: "2026-09-01", end_date: "2027-06-30" },
+        { id: "2026", start_date: "2025-09-01", end_date: "2026-06-30" },
+      ],
+      active_saison_id: "2027",
+    }) satisfies FLSaisonFrameResponse,
 }));
 
 // Next keys a dynamic segment's subtree on its value, so whatever the `[saison]` layout draws is drawn anew
@@ -34,6 +39,9 @@ describe("the public season pages' frame", () => {
     });
 
     expect(screen.getAllByRole("link", { name: COPY.page.spielplan }).map((link) => link.getAttribute("href"))).toContain("/saisons/2027");
+    expect(screen.getAllByRole("link", { name: COPY.page.tabelle }).map((link) => link.getAttribute("href"))).toContain(
+      "/saisons/2027/tabelle",
+    );
     expect(screen.getAllByRole("button", { name: new RegExp(COPY.shared.saisonName("2027")) }).length).toBeGreaterThan(0);
   });
 });

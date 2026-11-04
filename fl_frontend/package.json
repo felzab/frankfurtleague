@@ -18,7 +18,7 @@
     "dev": "NODE_OPTIONS=--max-old-space-size=8192 SECRETS_DIR=../secrets next dev --turbo",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint . --max-warnings 0 --cache --cache-strategy content --cache-location node_modules/.cache/eslint/",
+    "lint": "pnpm typegen && eslint . --max-warnings 0",
     "knip": "knip --no-progress --treat-config-hints-as-errors",
     "knip:prod": "knip --production --no-progress --treat-config-hints-as-errors --config knip.production.json",
     "format": "prettier --write .. \"!../.claude/worktrees/**\" --ignore-path ../.prettierignore",

@@ -1,16 +1,20 @@
+from datetime import date, datetime, time
 from typing import Annotated, Final, Literal, Self
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter, model_validator
 from pydantic_core import PydanticCustomError
 
-from app.api.teams.schemas import MAX_NUMBER_OF_GROUPS
+from app.api.spielberichte.schemas import FLSpielberichtPublic
+from app.api.spiele.schemas import FLSpielJoined
+from app.api.spieler.schemas import FLSpielerPublic
+from app.api.teams.schemas import MAX_NUMBER_OF_GROUPS, FLSaisonTeamEntry, FLTabelleRow, FLTeamPageClub
 from app.core import clock
 
 # Imported rather than restated. Acyclic: no model of `teams` imports this file --
 # `teams/services.py` does, and no model there.
 from app.core.crud import Anchored
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SAISON_ID_LENGTH
-from app.shared.schemas.custom import CustomDateString, CustomObjectId, refuse_reversed_span
+from app.shared.schemas.custom import CustomDateString, CustomObjectId, CustomTimeString, refuse_reversed_span
 from app.shared.schemas.literals import FLGruppenNames, FLSaisonPhase, FLSaisonStatus, FLSortOrder, FLSpielerStufe
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
@@ -129,7 +133,10 @@ class _SaisonPayload(_SaisonWritable):
 
     @model_validator(mode="after")
     def the_season_ends_after_it_starts(self) -> Self:
-        """The rule a `past` season's edit can still fail: its dates stay editable so a mistyped one can be repaired."""
+        """Judged on every edit, a `past` season's included: its end date stays editable so a mistyped one can be repaired.
+
+        Its start date is fixed once a fixture has taken place, which `saison_start_taken_place` refuses on the stored season.
+        """
 
         refuse_reversed_span(start=self.start_date, end=self.end_date, kind="saison_ends_before_start")
 
@@ -178,15 +185,15 @@ class FLSaisonRecord(_SaisonStored, Anchored):
     """A season as `saisons` stores it: no derived schedule."""
 
 
-FLSaisonListAdapter = TypeAdapter(list[FLSaison])
-
-
 class FLSaisonAdmin(FLSaison):
-    """The same season for the admin surfaces, with whether it has started."""
+    """The same season for the admin surfaces, with whether it has started and whether a fixture of it has taken place."""
 
-    # DERIVED per read by `app/api/saisons/crud.py :: has_started`, the predicate every start lock
-    # reads, so a control closed on it closes exactly what the endpoint refuses.
+    # DERIVED per read by `app/api/saisons/services.py :: has_started` off the stored `start_date`, the predicate
+    # every start lock reads, so a control closed on it closes exactly what the endpoint refuses.
     begun: bool
+    # DERIVED per read by `app/api/teams/services.py :: has_taken_place` over every fixture of the season: true,
+    # the start date is fixed (`saison_start_taken_place`), so the field closes exactly where the edit refuses.
+    taken_place: bool
 
 
 FLSaisonAdminListAdapter = TypeAdapter(list[FLSaisonAdmin])
@@ -274,14 +281,31 @@ class FLSwapGruppenResponse(BaseAPIResponse):
     rewritten_spiele: int
 
 
-class FLSaisonsListResponse(BaseAPIResponse):
-    format: Literal["list"] = "list"
-    saisons: list[FLSaison]
-
-
 class FLSaisonsAdminListResponse(BaseAPIResponse):
     format: Literal["list"] = "list"
     saisons: list[FLSaisonAdmin]
+
+
+class FLSaisonFrameEntry(BaseReadModel):
+    """One season as the season pages' frame lists it: its id and its span; which one the site is on is the response's."""
+
+    id: str = Field(validation_alias="_id", serialization_alias="id")
+    start_date: CustomDateString
+    end_date: CustomDateString
+
+
+FLSaisonFrameEntryListAdapter = TypeAdapter(list[FLSaisonFrameEntry])
+
+
+class FLSaisonFrameResponse(BaseAPIResponse):
+    """Every season the public may read, the newest first, and the one the site is on.
+
+    `active_saison_id` is null for a league no season has been activated in; a season stays active, finished or not,
+    until the next is activated.
+    """
+
+    saisons: list[FLSaisonFrameEntry]
+    active_saison_id: str | None
 
 
 class FLSaisonsSingleResponse(BaseAPIResponse):
@@ -364,3 +388,156 @@ class FLUndrawSpielplanResponse(BaseAPIResponse):
     spieltage: int = Field(ge=0)
     spiele: int = Field(ge=0)
     watermark_cleared: bool
+
+
+class FLTeamPageSpiel(FLSpielJoined):
+    """One of a club's matches with its matchday's `position` and its phase's count of matchdays, which the page names the matchday by."""
+
+    spieltag_position: int = Field(ge=1)
+    count_spieltage_in_phase: int = Field(ge=1)
+
+
+FLTeamPageSpielListAdapter: Final = TypeAdapter(list[FLTeamPageSpiel])
+
+
+class FLTeamPageResponse(BaseAPIResponse):
+    """One club's page in one season: the club, its row of the Tabelle, its matches and its squad.
+
+    `standing` is null for a club no group of the Tabelle lists, one that left the league; `spiele` are in the order the
+    draw numbered them, each with its matchday's `position`; the squad is the base tier's, names withheld where the
+    pupil's consent does not publish them.
+    """
+
+    team: FLTeamPageClub
+    standing: FLTabelleRow | None
+    spiele: list[FLTeamPageSpiel]
+    kader: list[FLSpielerPublic]
+
+
+class FLSpielSideStanding(BaseReadModel):
+    """Where one side of a group match stands in the Tabelle: its group, and its `platz`, null while it holds none."""
+
+    gruppe: FLGruppenNames
+    platz: int | None = Field(gt=0)
+
+
+class FLSpielSideStandings(BaseReadModel):
+    """Each side's place in the Tabelle on a group match.
+
+    Null on a knockout match, whose round is the match's own phase, and for a side the groups do not list.
+    """
+
+    team1: FLSpielSideStanding | None
+    team2: FLSpielSideStanding | None
+
+
+class FLSpielPageResponse(BaseAPIResponse):
+    """One match as its page and its pop-up show it.
+
+    The match, its matchday's `position` and its phase's count of matchdays, which together name the matchday, where
+    each side stands, and what the public may read of its report, null where none is stored.
+    """
+
+    spiel: FLSpielJoined
+    spieltag_position: int = Field(ge=1)
+    count_spieltage_in_phase: int = Field(ge=1)
+    standings: FLSpielSideStandings
+    bericht: FLSpielberichtPublic | None
+
+
+class FLLandingSide(BaseReadModel):
+    """A club as the landing names it, on the opening match or the podium, under the name and shorthand it plays the season under."""
+
+    name: str
+    shorthand: str
+
+
+class FLLandingOpeningSpiel(BaseReadModel):
+    """The season's opening match: when it is set to start, in Berlin wall time, its two sides and its Spieltag's `position`.
+
+    A side is null while its slot is empty, as a match's own sides are.
+    """
+
+    datum: CustomDateString
+    uhrzeit: CustomTimeString | None
+    spieltag_position: int = Field(ge=1)
+    team1: FLLandingSide | None
+    team2: FLLandingSide | None
+
+
+def saison_start(start_date: str) -> datetime:
+    """The instant a season starts, which the landing counts down to: 00:00 in Berlin on its `start_date`, with that day's offset.
+
+    The day's first minute exists on every day: Berlin changes its clocks at two and three in the morning.
+    """
+
+    return datetime.combine(date.fromisoformat(start_date), time(), tzinfo=clock.GERMANY)
+
+
+# Places one to four by position, each its club, or null where the place is vacant, its club having left the season by
+# then. A vacancy is still a decided place, so a season with one has all four in.
+FLPodium = tuple[FLLandingSide | None, FLLandingSide | None, FLLandingSide | None, FLLandingSide | None]
+
+
+class FLLandingCounts(BaseReadModel):
+    """Three of the season's four figures, counted on every read: its goals, its matches and its matchdays.
+
+    The fourth, its clubs, is the length of the `teams` served beside them. `count_spiele` is every match of any phase the
+    Tabelle would count, one carrying an `ergebnis`, a forfeit among them, so a season before its first played match reads
+    0; `count_tore` is both sides' goals summed over the same matches: a forfeit's awarded goals among them, a shoot-out's
+    never.
+    """
+
+    count_tore: int = Field(ge=0)
+    count_spiele: int = Field(ge=0)
+    count_spieltage: int = Field(ge=0)
+
+
+class _FLLandingSaisonFacts(BaseReadModel):
+    """What the landing shows of the season the site is on in every state: `start` is 00:00 in Berlin on its `start_date`."""
+
+    id: str
+    start: datetime
+    counts: FLLandingCounts
+    teams: list[FLSaisonTeamEntry]
+
+
+class FLLandingBeforeStart(_FLLandingSaisonFacts):
+    """Before its start date: its opening match, the earliest dated group match, null while none is."""
+
+    state: Literal["before_start"]
+    opening_spiel: FLLandingOpeningSpiel | None
+
+
+class FLLandingRunning(_FLLandingSaisonFacts):
+    """From its start date: the latest result and the next match, at most one of each, empty where there is none."""
+
+    state: Literal["running"]
+    recent: list[FLSpielJoined]
+    upcoming: list[FLSpielJoined]
+
+
+class FLLandingDecided(_FLLandingSaisonFacts):
+    """Once all four places are in: places one to four in their order."""
+
+    state: Literal["decided"]
+    podium: FLPodium
+
+
+# One member per state, so a state is served with exactly the facts it shows and a reader narrowing on `state` is handed
+# them typed, rather than checking at run time for a field the flat shape left nullable in every state.
+FLLandingSaison = Annotated[FLLandingBeforeStart | FLLandingRunning | FLLandingDecided, Field(discriminator="state")]
+
+
+class FLBewerbungWindow(BaseReadModel):
+    """The application window open today, by the one rule the submission refuses on: the season it is for and its last day."""
+
+    saison_id: str
+    bis: CustomDateString
+
+
+class FLLandingResponse(BaseAPIResponse):
+    """The landing's facts: the season the site is on, null for a league that has none, and an open window."""
+
+    saison: FLLandingSaison | None
+    bewerbung_window: FLBewerbungWindow | None

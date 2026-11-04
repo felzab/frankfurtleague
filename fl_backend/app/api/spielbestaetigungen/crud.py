@@ -33,6 +33,7 @@ from app.core.crud import (
     pull_many_from_db,
     redact_log_rows_in_db,
 )
+from app.core.readonly import ReadCollection
 from app.shared.schemas.custom import CustomObjectId
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 
@@ -63,8 +64,8 @@ def verein_fields(*, team_id: Any, seat: str) -> dict[str, Any]:
 
 async def pull_ansetzung_lage(
     *,
-    spiele_collection: AsyncCollection,
-    saison_teams_collection: AsyncCollection,
+    spiele_collection: ReadCollection,
+    saison_teams_collection: ReadCollection,
     spielbestaetigung_raw: Mapping[str, Any],
     # `None` for the whole fixture, which a proposal is judged as.
     spiel_projection: Mapping[str, Any] | None,
@@ -88,7 +89,7 @@ async def pull_ansetzung_lage(
 
 
 async def pull_vorschlag_offen(
-    *, spielbestaetigungen_collection: AsyncCollection, spielbestaetigung_raw: Mapping[str, Any]
+    *, spielbestaetigungen_collection: ReadCollection, spielbestaetigung_raw: Mapping[str, Any]
 ) -> FLSpielbestaetigungAppointment | None:
     """The other club's proposal about this same Ansetzung while its decline stands open, its date and hour alone.
 

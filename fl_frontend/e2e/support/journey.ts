@@ -16,6 +16,7 @@ import { test as base } from "@playwright/test";
 
 import { accessLogEnd, expectEdgeSawVisitor } from "./edgeLog";
 
+import type { Page, Request } from "@playwright/test";
 import type { IncomingHttpHeaders, IncomingMessage, OutgoingHttpHeaders, ServerResponse } from "node:http";
 import type { Socket } from "node:net";
 
@@ -161,6 +162,20 @@ async function startVisitorProxy(origin: string, visitor: string): Promise<{ ser
       await closed;
     },
   };
+}
+
+/**
+ * Waits for Next's prefetch of a match link of the made-up seed's running season, a request carrying the `_rsc`
+ * search parameter. Next sends one, in production and once the link is in view, only after React has hydrated the
+ * link (https://nextjs.org/docs/app/getting-started/linking-and-navigating#hydration-not-completed), and a full
+ * document load of the same address never does, so the presses after it are client navigations, which the pop-up's
+ * route intercepts, not full loads. Called before the load, so the prefetch cannot be missed.
+ */
+export function hydrated(page: Page): Promise<Request> {
+  return page.waitForRequest((request) => {
+    const url = new URL(request.url());
+    return /^\/saisons\/2027\/spiele\/[0-9a-f]{24}$/.test(url.pathname) && url.searchParams.has("_rsc");
+  });
 }
 
 export const test = base.extend<JourneyFixtures & JourneyOptions>({
