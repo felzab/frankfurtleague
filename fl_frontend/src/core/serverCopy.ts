@@ -36,6 +36,19 @@ const OBJECTION_RIGHT = {
 const MORE = { before: "Mehr unter ", after: "." };
 
 /**
+ * The bounds the frontend's code holds that the privacy notice's retention table states, passed by its page. An hour
+ * read „1 Stunde“ is typed as its one figure, the singular being the sentence's.
+ */
+type RetentionBounds = {
+  bewerbungDays: number;
+  schiedsrichterDays: number;
+  addressChangeLinkHours: number;
+  code: { minutes: number; mailHours: 1; failureHours: number };
+  person: { idleDays: number; days: number };
+  admin: { idleHours: 1; hours: number };
+};
+
+/**
  * The catalogue's entries only the server reads, so no client bundle carries them: `COPY` is one object, and a
  * bundler keeps all of an object a client module imports. Branded as `COPY` is, so an entry passes wherever a `Copy`
  * is asked for.
@@ -465,7 +478,7 @@ export const SERVER_COPY = catalogue({
         heading: "Anmeldung und Konto",
         // An administrator's idle hour is typed as its one figure: a sentence reading „nach 1 Stunde“ is singular.
         signIn: (code: { minutes: number }, person: { idleDays: number; days: number }, admin: { idleHours: 1; hours: number }) =>
-          `Du meldest dich mit einem Code an, den wir dir schicken und nach ${formatNumber(code.minutes)} Minuten löschen, oder mit einem Passkey, zu dem wir seinen Namen und seine letzte Nutzung speichern; mit Zugang zur Verwaltung nur mit einem Passkey. Eine Sitzung endet nach ${formatNumber(person.idleDays)} Tagen ohne Nutzung, spätestens nach ${formatNumber(person.days)} Tagen; mit Zugang zur Verwaltung nach ${formatNumber(admin.idleHours)} Stunde ohne Nutzung, spätestens nach ${formatNumber(admin.hours)} Stunden.`,
+          `Du meldest dich mit einem Code an, den wir dir schicken und nach ${formatNumber(code.minutes)} Minuten löschen, oder mit einem Passkey, zu dem wir seinen öffentlichen Schlüssel mit Kennung und Zähler, den Anbieter, bei dem er liegt, ob er gesichert ist, wie dein Gerät ihn erreicht, seinen Namen und seine letzte Nutzung speichern, nie seinen privaten Schlüssel; mit Zugang zur Verwaltung nur mit einem Passkey. Eine Sitzung endet nach ${formatNumber(person.idleDays)} Tagen ohne Nutzung, spätestens nach ${formatNumber(person.days)} Tagen; mit Zugang zur Verwaltung nach ${formatNumber(admin.idleHours)} Stunde ohne Nutzung, spätestens nach ${formatNumber(admin.hours)} Stunden.`,
         // Session 7: the grant's 24-hour wait becomes a parameter read from the code once that session builds it.
         changes: (linkHours: number, stopDays: number) =>
           `Eine neue E-Mail-Adresse bestätigst du zuerst über einen Link an deine bisherige Adresse und danach über einen Link an die neue, jeder ${formatNumber(linkHours)} Stunden gültig; sie gilt, sobald du beide bestätigt hast. Kommst du an deine bisherige Adresse nicht mehr heran, ändert die Liga sie auf deine Anfrage und vermerkt den Grund; die bisherige Adresse erfährt davon und kann die Änderung ${formatNumber(stopDays)} Tage lang stoppen. Ein Zugang zur Verwaltung gilt erst 24 Stunden, nachdem er vergeben ist, auch für eine neue Adresse; alle mit Zugang erfahren sofort davon, und bis dahin lässt er sich zurücknehmen. Dein Konto löschst du jederzeit selbst, bestätigt über einen Link an deine Adresse; sonst bleibt es, solange unter deiner Adresse ein Eintrag bei uns besteht.`,
@@ -506,8 +519,10 @@ export const SERVER_COPY = catalogue({
           "In die Vereinigten Staaten übermitteln wir auf Grundlage des Angemessenheitsbeschlusses zum EU-US Data Privacy Framework (Art. 45 DSGVO), für Cloudflare und Resend auch der Standardvertragsklauseln der Europäischen Kommission (Art. 46 Abs. 2 lit. c DSGVO), deren Kopie wir dir auf Anfrage schicken. Ein privates Postfach kann in einem Land ohne Angemessenheitsbeschluss liegen; für diese Übermittlung gibt es keine geeigneten Garantien. Darüber hinaus geben wir keine Daten weiter, auch nicht an unsere Sponsoren.",
       },
       /**
-       * The retention table: each store's name, what it holds and how long. The periods are the rulings' and the
-       * providers', several of which only the backend or a later session's build holds, so each is written out.
+       * The retention table: each store's name, what it holds and how long. A bound the frontend's code holds is a
+       * parameter; the rest are the rulings' and the providers', several of which only the backend, a host script or a
+       * later session's build holds, so each is written out. A confirmation link's days stand for a declined item's
+       * too, the rulings giving both one wait.
        */
       retention: {
         heading: "Speicherdauer",
@@ -515,25 +530,68 @@ export const SERVER_COPY = catalogue({
         content: "Inhalt",
         period: "Dauer",
         rows: [
-          { name: "Bewerbung", content: "Schule, Team, Kontaktpersonen", period: "14 Tage, wenn nicht alle bestätigen; abgelehnt 14 Tage" },
+          {
+            name: "Bewerbung",
+            content: "Schule, Team, Kontaktpersonen",
+            period: (bound: RetentionBounds) =>
+              `${formatNumber(bound.bewerbungDays)} Tage, wenn nicht alle bestätigen; abgelehnt ${formatNumber(bound.bewerbungDays)} Tage`,
+          },
           {
             name: "Kontaktpersonen",
             content: "Kontaktdaten, Geburtsdatum, Antworten",
-            period: "14 Tage, wenn unbestätigt oder abgelehnt; sonst bis zum Ende der Saison danach",
+            period: (bound: RetentionBounds) =>
+              `${formatNumber(bound.bewerbungDays)} Tage, wenn unbestätigt oder abgelehnt; sonst bis zum Ende der Saison danach`,
           },
+          // Session 8: the 14 days become `REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE` once that constant holds them.
           { name: "Registrierung", content: "Name, Adresse, Geburtsdatum", period: "14 Tage, wenn unbestätigt oder abgelehnt" },
+          {
+            name: "Registrierungslinks",
+            content: "Team, Saison, Adresse der Person aus der Verwaltung, die ihn erstellt hat",
+            period: "ohne Frist; die Adresse bis zur Löschung dieser Person",
+          },
           { name: "Kader und Aufstellungen", content: "Name, Adresse, Geburtsdatum, Antworten", period: "bis zum Ende der Saison danach" },
           {
             name: "Schiedsrichter",
             content: "Name, Kontaktdaten, Honorar, Antworten",
-            period: "14 Tage, wenn unbestätigt oder abgelehnt; sonst bis du oder die Liga den Eintrag beenden",
+            period: (bound: RetentionBounds) =>
+              `${formatNumber(bound.schiedsrichterDays)} Tage, wenn unbestätigt oder abgelehnt; sonst bis du oder die Liga den Eintrag beenden`,
           },
-          { name: "Teams und Spiele", content: "Ergebnisse, Tore, Karten, Notizen", period: "als Chronik der Liga" },
+          {
+            name: "Teams und Spiele",
+            content: "Ergebnisse, Tore, Karten, Notizen",
+            period: "als Chronik der Liga; Namen darin nur, solange der Eintrag der Person besteht",
+          },
           { name: "Freie Texte zu Spielen", content: "Absagegründe, Kartengründe, Bemerkungen", period: "bis zum Ende der Saison danach" },
           { name: "Gesperrte Adresse", content: "Adresse, Grund, Datum", period: "5 Saisons" },
           { name: "Zugang zur Verwaltung", content: "Adresse, Stufe, Beginn", period: "bis er endet" },
           { name: "Konto", content: "Adresse, Passkeys", period: "solange ein Eintrag besteht" },
+          {
+            name: "Anmeldung",
+            content: "Code; Zahl der Codes und der Fehlversuche je Adresse, pseudonymisiert",
+            period: (bound: RetentionBounds) =>
+              `Code ${formatNumber(bound.code.minutes)} Minuten; Codes ${formatNumber(bound.code.mailHours)} Stunde, Fehlversuche ${formatNumber(bound.code.failureHours)} Stunden`,
+          },
+          {
+            name: "Sitzungen",
+            content: "Beginn, letzte Nutzung, Art der Anmeldung",
+            period: (bound: RetentionBounds) =>
+              `${formatNumber(bound.person.idleDays)} Tage ohne Nutzung, höchstens ${formatNumber(bound.person.days)}; mit Zugang zur Verwaltung ${formatNumber(bound.admin.idleHours)} Stunde ohne Nutzung, höchstens ${formatNumber(bound.admin.hours)} Stunden`,
+          },
+          // The ended change's 30 days are the backend's alone, `fl_backend/app/shared/schemas/bounds.py ::
+          // ADDRESS_CHANGE_RETENTION_DAYS`.
+          {
+            name: "Adressänderung",
+            content: "Beide Adressen; bei einer Änderung auf Anfrage der Grund",
+            period: (bound: RetentionBounds) =>
+              `jeder Link ${formatNumber(bound.addressChangeLinkHours)} Stunden; Adressen und Grund bis zu ihrem Ende, der Rest 30 Tage danach`,
+          },
           { name: "Änderungsprotokoll", content: "Änderungen", period: "12 Monate" },
+          // A host script's, `scripts/ops/export_journal.sh :: JOURNAL_DAYS`, each day's file counted from its last change.
+          {
+            name: "Löschungen und Widerrufe",
+            content: "Art, Zeitpunkt und Datensatz, die Adresse pseudonymisiert, auch zu Adressänderungen und Anträgen auf Zugang",
+            period: "30 Tage",
+          },
           { name: "Protokolle des Servers", content: "Aufrufe, Anmeldungen, Löschungen", period: "9 Tage" },
           { name: "Unsere E-Mails", content: "Inhalt, Adresse, Zustellstand", period: "Inhalt bis zum Versand, der Rest 30 Tage danach" },
           { name: "E-Mails bei Resend", content: "Adresse, Betreff, Inhalt", period: "30 Tage, in Sicherungen bis 7 Tage länger" },

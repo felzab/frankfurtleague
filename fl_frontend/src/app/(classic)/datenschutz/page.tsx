@@ -8,6 +8,7 @@ import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { ADMIN_IDLE_HOURS, ADMIN_WINDOW_HOURS, PERSON_LIFETIME, PERSON_WINDOW_DAYS } from "@/core/sessionLifetimes";
+import { CODE_FAILURE_WINDOW_HOURS, CODE_MAIL_WINDOW_HOURS } from "@/core/signInCode";
 import { DAY_MS } from "@/core/timeUnits";
 import { BEWERBUNG_BESTAETIGUNG_FRIST_TAGE, BEWERBUNG_MIN_ALTER, VERTRETUNG_MIN_ALTER } from "@/features/bewerbungen/constants";
 import { DATENSCHUTZ_STAND } from "@/features/meta/constants";
@@ -88,7 +89,24 @@ export default function PrivacyNoticePage() {
           { key: "content", label: retention.content },
           { key: "period", label: retention.period },
         ],
-        rows: retention.rows.map((row) => ({ id: row.name, name: row.name, cells: { content: row.content, period: row.period } })),
+        rows: retention.rows.map((row) => ({
+          id: row.name,
+          name: row.name,
+          cells: {
+            content: row.content,
+            period:
+              typeof row.period === "string"
+                ? row.period
+                : row.period({
+                    bewerbungDays: BEWERBUNG_BESTAETIGUNG_FRIST_TAGE,
+                    schiedsrichterDays: SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE,
+                    addressChangeLinkHours: ADRESSWECHSEL_GUELTIG_STUNDEN,
+                    code: { minutes: CODE_VALIDITY_MINUTES, mailHours: CODE_MAIL_WINDOW_HOURS, failureHours: CODE_FAILURE_WINDOW_HOURS },
+                    person: { idleDays: PERSON_LIFETIME.idle / DAY_MS, days: PERSON_WINDOW_DAYS },
+                    admin: { idleHours: ADMIN_IDLE_HOURS, hours: ADMIN_WINDOW_HOURS },
+                  }),
+          },
+        })),
         // Its rows are fixed, so this state never shows; every table names one.
         empty: { kind: "none", plural: retention.nameLabel },
         prose: true,
