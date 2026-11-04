@@ -7,6 +7,16 @@
       "count": 1
     }
   },
+  "src/app/(public)/bewerbung/[saison_id]/loading.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    }
+  },
+  "src/app/(public)/bewerbung/[saison_id]/page.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 2
+    }
+  },
   "src/app/(public)/confirm/kontakt/page.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 2
@@ -23,16 +33,6 @@
     }
   },
   "src/app/(public)/confirm/spieler/page.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 2
-    }
-  },
-  "src/app/(public)/bewerbung/[saison_id]/loading.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/app/(public)/bewerbung/[saison_id]/page.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 2
     }
@@ -79,11 +79,6 @@
   },
   "src/app/api/registrierung/route.ts": {
     "fl/server-action": {
-      "count": 1
-    }
-  },
-  "src/app/bereich/(persoenlich)/konto/page.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
       "count": 1
     }
   },
@@ -346,6 +341,11 @@
     }
   },
   "src/app/area/team/[team_id]/[saison_id]/not-found.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    }
+  },
+  "src/app/bereich/(persoenlich)/konto/page.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 1
     }
