@@ -8,7 +8,8 @@ import type { DBTransactionAdapter } from "better-auth";
 import type { AnmeldungRecords } from "../signInGate";
 import type { SessionStamps } from "./sessionStamps";
 
-// A ceiling nothing else supplies: one session that passed the assertion can enrol without limit.
+// A ceiling nothing else supplies: one session that passed the assertion can enrol without limit. Five, because an
+// administrator carries several devices, and a second passkey enrolled in advance keeps recovery off the Atlas console.
 export const PASSKEY_LIMIT = 5;
 
 /**
