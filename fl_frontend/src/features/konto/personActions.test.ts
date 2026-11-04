@@ -21,8 +21,16 @@ import type { MemoryDB } from "better-auth/adapters/memory";
 /** What the request a case arrives as carries, which `arriveAs` sets. */
 let requestHeaders: Headers | undefined;
 
-// The cookie a completed deletion forgets is the response's, which no case here reads.
-const HEADERS_DOUBLE = { headers: () => Promise.resolve(requestHeaders), cookies: () => Promise.resolve({ delete: () => undefined }) };
+/** Every cookie an action deleted since the case began, as it named the cookie to Next. */
+const deletedCookies: unknown[] = [];
+
+const HEADERS_DOUBLE = {
+  headers: () => Promise.resolve(requestHeaders),
+  cookies: () => Promise.resolve({ delete: (cookie: unknown) => void deletedCookies.push(cookie) }),
+};
+
+/** The mailed link's cookie as the proxy set it on the deletion's page, which a completed deletion forgets. */
+const ERASURE_LINK_COOKIE = { name: "mailed_link", path: "/erasure" };
 
 const LOGGING_DOUBLE = { logger: { debug: () => undefined, info: () => undefined, warn: () => undefined, error: () => undefined } };
 
@@ -124,6 +132,7 @@ beforeEach(() => {
   store.passkey.length = 0;
   store.verification.length = 0;
   cacheCalls.length = 0;
+  deletedCookies.length = 0;
   loeschungen.length = 0;
   addressChanges.length = 0;
   consentWrites.length = 0;
@@ -203,7 +212,8 @@ async function inhaberinMitLink(email: string): Promise<{ row: SessionRow; token
 }
 
 // Each a loss nobody would see: an account deleted with its records left, a deletion the cache keeps serving, the last
-// owner gone, a link spent by a refusal the person can no longer repair, a passkey holder deleted without the touch.
+// owner gone, a link spent by a refusal the person can no longer repair, a passkey holder deleted without the touch, a
+// used link left in a shared browser.
 describe("a person's own account deletion through the mailed link's page", () => {
   it("erases the records under the person's actor, deletes the account, clears the site's tag and leads to the done page", async () => {
     const { row, token, holder } = await mitLink("ganz-weg@example.org");
@@ -218,6 +228,7 @@ describe("a person's own account deletion through the mailed link's page", () =>
     ).toStrictEqual([["POST", true]]);
     expect(heldOf(row.userId)).toStrictEqual({ user: 0, passkeys: 0 });
     expect(cacheCalls.filter(({ name }) => name === "updateTag").flatMap(({ args }) => args)).toStrictEqual([SITE_CACHE_TAG]);
+    expect(deletedCookies, "the used link stayed in the browser for its hour").toStrictEqual([ERASURE_LINK_COOKIE]);
   });
 
   it("asks a passkey holder signed in by code for the touch, erasing nothing and leaving the link standing", async () => {
@@ -240,6 +251,7 @@ describe("a person's own account deletion through the mailed link's page", () =>
     letzterInhaber = false;
     await ledToTheDonePage(eraseAccount({ token, holder }));
     expect(heldOf(row.userId)).toStrictEqual({ user: 0, passkeys: 0 });
+    expect(deletedCookies, "the refused press forgot the link, or the completed one kept it").toStrictEqual([ERASURE_LINK_COOKIE]);
   });
 
   it("ends a link the library refuses as the link no longer valid, erasing nothing", async () => {
