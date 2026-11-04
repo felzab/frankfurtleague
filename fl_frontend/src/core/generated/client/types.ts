@@ -97,6 +97,7 @@ export const Code = {
   saison_start_taken_place: "saison_start_taken_place",
   invitation_team_not_entered: "invitation_team_not_entered",
   choices_stale: "choices_stale",
+  grant_wording_stale: "grant_wording_stale",
   medien_age: "medien_age",
   giving_not_allowed: "giving_not_allowed",
   eligibility_disqualified: "eligibility_disqualified",
@@ -4655,7 +4656,7 @@ export interface FLSchiedsrichterSingleResponse {
 }
 
 /**
- * A seat holder's own two choices for every seat they hold on one row.
+ * A seat holder's own two choices for every seat they hold on one row, under any label their kind cites.
  *
  * Both choices on every press: a page that sent one alone would leave the other judged by nothing.
  */

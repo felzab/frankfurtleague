@@ -1,0 +1,88 @@
+"""
+API · which labels an account press may name: a choice it moves onto a grant names its current wording, and nothing else does
+
+The payloads take any label their kind cites, so this sequence is the one place the rule binds. Every kind's records
+cite their current labels alone until a rewording adds one, so no request can carry a replaced label yet, and the
+database tier never reaches these cases: the labels are constructed past validation.
+"""
+
+import asyncio
+from collections.abc import Mapping
+from typing import Any, Final
+
+import pytest
+
+from app.api.account.crud import press_einwilligung
+from app.core.codes import Code
+from app.core.exceptions import APIError
+from app.shared.einwilligung_nachweis import FLEinwilligungChoice, nachweis_stand_of
+from app.shared.schemas.einwilligung import FLSpielerTextVersions, PressTextVersions
+
+STALE: Final = "2026-10-ersetzt-1"
+TODAY: Final = "2026-11-04"
+# Old enough for the media consent, so its age rule never decides a case here.
+ADULT: Final = "2000-01-01"
+
+
+async def _may_grant() -> bool:
+    return True
+
+
+def _replaced(kind: type[FLSpielerTextVersions], *choices: FLEinwilligungChoice) -> PressTextVersions:
+    labels = {**kind.current, **dict.fromkeys(choices, STALE)}
+    return kind.model_construct(umfang=labels["umfang"], medien=labels["medien"])
+
+
+def _press(bloecke: list[Mapping[str, Any]], gewaehlt: Mapping[FLEinwilligungChoice, Any], text_versions: PressTextVersions) -> None:
+    asyncio.run(
+        press_einwilligung(
+            bloecke=bloecke,
+            geburtsdaten=[ADULT] * len(bloecke),
+            gewaehlt=gewaehlt,
+            nachweis_stand=nachweis_stand_of(bloecke=bloecke),
+            text_versions=text_versions,
+            darf_erteilen=_may_grant,
+            today=TODAY,
+        )
+    )
+
+
+# A stored block, and the press sending each choice back as stored.
+PUPIL_WITHHELD: Final[Mapping[str, Any]] = {"umfang": "intern", "medien": False}
+PUPIL_GRANTED: Final[Mapping[str, Any]] = {"umfang": "kader_oeffentlich", "medien": True}
+
+
+def _as_stored(block: Mapping[str, Any], **moved: Any) -> dict[FLEinwilligungChoice, Any]:
+    return {"umfang": moved.get("umfang", block["umfang"]), "medien": moved.get("medien", block["medien"])}
+
+
+class TestAGrantThePressMovesNamesItsCurrentWording:
+    @pytest.mark.parametrize(("choice", "giving"), [("umfang", "kader_oeffentlich"), ("medien", True)])
+    def test_a_choice_moved_onto_a_grant_under_a_replaced_label_is_refused(self, choice: FLEinwilligungChoice, giving: Any):
+        with pytest.raises(APIError) as refused:
+            _press([PUPIL_WITHHELD], _as_stored(PUPIL_WITHHELD, **{choice: giving}), _replaced(FLSpielerTextVersions, choice))
+
+        assert (refused.value.error_code, refused.value.status_code, refused.value.fields) == (
+            Code.GRANT_WORDING_STALE,
+            409,
+            (("text_versions", choice),),
+        )
+
+    def test_a_grant_under_the_current_label_is_taken(self):
+        """The floor for the refusal above: without it, a sequence refusing every grant passes it."""
+
+        _press([PUPIL_WITHHELD], _as_stored(PUPIL_GRANTED), _replaced(FLSpielerTextVersions))
+
+    def test_a_withdrawal_beside_an_unchanged_grant_is_taken_from_a_page_showing_replaced_words(self):
+        """The press moves media off and sends the scope back granted as served: the scope moves nothing, so it records no label."""
+
+        _press([PUPIL_GRANTED], _as_stored(PUPIL_GRANTED, medien=False), _replaced(FLSpielerTextVersions, "umfang", "medien"))
+
+    def test_a_grant_beside_an_unchanged_one_is_judged_by_its_own_label_alone(self):
+        """Media moves on under its current label while the scope, granted as served, names a replaced one."""
+
+        _press(
+            [{"umfang": "kader_oeffentlich", "medien": False}],
+            _as_stored(PUPIL_GRANTED),
+            _replaced(FLSpielerTextVersions, "umfang"),
+        )

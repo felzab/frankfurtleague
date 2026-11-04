@@ -26,6 +26,7 @@ from app.core.exceptions import WriteRefusal
 from app.core.journal import JournalLine
 from app.shared.einwilligung_nachweis import CHOICES, FLEinwilligungChoice, TextVersions, compose_choices, is_given, nachweis_stand_of
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS, REGISTRIERUNG_MIN_AGE_YEARS, SCHIEDSRICHTER_MIN_AGE_YEARS
+from app.shared.schemas.einwilligung import PressTextVersions, stale_grants
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 
 
@@ -114,6 +115,29 @@ def widerruf_line(
         am=am,
         text_versions={wahl: text_versions[wahl] for wahl in widerrufen},
         choices=widerrufen,
+    )
+
+
+def find_grant_wording_refusal(
+    *, bloecke: Sequence[Mapping[str, Any]], gewaehlt: Mapping[FLEinwilligungChoice, Any], text_versions: PressTextVersions
+) -> WriteRefusal | None:
+    """`grant_wording_stale`: a choice this press moves onto a grant on any of `bloecke` names a replaced label.
+
+    Only a choice that moves: the writers stamp no other, so an unchanged grant beside a withdrawal from a page loaded
+    before a rewording records nothing under the old words, and refusing it would keep the withdrawal from landing.
+    """
+
+    erteilt: dict[FLEinwilligungChoice, Any] = {
+        wahl: wert for wahl, wert in gewaehlt.items() if any(erteilt_etwas(gespeichert=block, gewaehlt={wahl: wert}) for block in bloecke)
+    }
+    stale = stale_grants(text_versions, erteilt)
+    if not stale:
+        return None
+
+    return WriteRefusal(
+        error_code=Code.GRANT_WORDING_STALE,
+        status=HTTPStatus.CONFLICT,
+        fields=tuple(("text_versions", wahl) for wahl in stale),
     )
 
 

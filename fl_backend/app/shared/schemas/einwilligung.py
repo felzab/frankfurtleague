@@ -1,7 +1,7 @@
 from collections.abc import Mapping
-from typing import Any, ClassVar, Literal, Self, TypeAliasType, get_args, get_origin
+from typing import Any, ClassVar, Literal, TypeAliasType, get_args, get_origin
 
-from pydantic import BaseModel, ConfigDict, model_validator
+from pydantic import BaseModel, ConfigDict
 from pydantic_core import PydanticCustomError
 
 from app.shared.einwilligung_nachweis import CHOICES, FLEinwilligungChoice, TextVersions, is_given
@@ -95,7 +95,7 @@ class FLEinwilligungStandPayload(FLEinwilligungStand):
 
 # The labels a press was given under, one per choice, each recorded on that choice's evidence. Both on every press,
 # for the payloads' reason below; one model per kind of record, whose scope wordings differ. Each admits every label
-# its kind's records may cite, and `refuse_a_stale_grant` holds a grant to the current one.
+# its kind's records may cite, and `stale_grants` holds a grant to the current one.
 class _TextVersions(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -145,12 +145,25 @@ def by_choice(text_versions: PressTextVersions) -> TextVersions:
     return {"umfang": text_versions.umfang, "medien": text_versions.medien}
 
 
-def refuse_a_stale_grant(text_versions: PressTextVersions, gesetzt: Mapping[FLEinwilligungChoice, Any]) -> None:
-    """Refuse a press granting a choice under any label but its current one; a withdrawal names any its kind cites."""
+def stale_grants(text_versions: PressTextVersions, gesetzt: Mapping[FLEinwilligungChoice, Any]) -> list[FLEinwilligungChoice]:
+    """The choices `gesetzt` grants under any label but their current one; a withdrawal names any its kind cites."""
 
-    for choice, value in gesetzt.items():
-        if is_given(choice, value) and getattr(text_versions, choice) != text_versions.current[choice]:
-            raise PydanticCustomError("grant_wording_stale", "a grant names its choice's current wording", {"choice": choice})
+    return [
+        choice
+        for choice, value in gesetzt.items()
+        if is_given(choice, value) and getattr(text_versions, choice) != text_versions.current[choice]
+    ]
+
+
+def refuse_a_stale_grant(text_versions: PressTextVersions, gesetzt: Mapping[FLEinwilligungChoice, Any]) -> None:
+    """A confirmation's refusal of a grant under a replaced label: every choice it sets is a first answer, so each grant moves.
+
+    The account presses judge it in their writer instead (`app/api/account/services.py :: find_grant_wording_refusal`).
+    """
+
+    stale = stale_grants(text_versions, gesetzt)
+    if stale:
+        raise PydanticCustomError("grant_wording_stale", "a grant names its choice's current wording", {"choice": stale[0]})
 
 
 def cite_their_kind(nachweise: FLEinwilligungNachweise, kind: type[_TextVersions]) -> FLEinwilligungNachweise:
@@ -167,6 +180,10 @@ def cite_their_kind(nachweise: FLEinwilligungNachweise, kind: type[_TextVersions
     return nachweise
 
 
+# The account presses' payloads take any label their kind cites, a grant's included: only a choice the press moves onto
+# a grant must name its current one, and which choices move is the stored record's to say, which the writer reads
+# (`app/api/account/crud.py :: press_einwilligung`). A page loaded before a rewording still withdraws one choice while
+# leaving the other granted.
 class _OwnEinwilligungPayload(BaseModel):
     # Both choices on every press, and no member defaulted: a default would let a page that forgot one
     # reset the person's other choice.
@@ -183,25 +200,15 @@ class FLAccountEinwilligungPayload(_OwnEinwilligungPayload):
 
     text_versions: FLSpielerTextVersions
 
-    @model_validator(mode="after")
-    def _grants_name_the_current_wording(self) -> Self:
-        refuse_a_stale_grant(self.text_versions, {"umfang": self.umfang, "medien": self.medien})
-        return self
-
 
 class FLSchiedsrichterAccountEinwilligungPayload(_OwnEinwilligungPayload):
     """A referee's own two choices on their record."""
 
     text_versions: FLSchiedsrichterTextVersions
 
-    @model_validator(mode="after")
-    def _grants_name_the_current_wording(self) -> Self:
-        refuse_a_stale_grant(self.text_versions, {"umfang": self.umfang, "medien": self.medien})
-        return self
-
 
 class FLSeatEinwilligungPayload(BaseModel):
-    """A seat holder's own two choices for every seat they hold on one row.
+    """A seat holder's own two choices for every seat they hold on one row, under any label their kind cites.
 
     Both choices on every press: a page that sent one alone would leave the other judged by nothing.
     """
@@ -213,8 +220,3 @@ class FLSeatEinwilligungPayload(BaseModel):
     text_versions: FLSeatTextVersions
     # The row's `nachweis_stand` as the page was served it.
     nachweis_stand: FLEinwilligungStandPayload
-
-    @model_validator(mode="after")
-    def _grants_name_the_current_wording(self) -> Self:
-        refuse_a_stale_grant(self.text_versions, {"umfang": self.umfang, "medien": self.medien})
-        return self

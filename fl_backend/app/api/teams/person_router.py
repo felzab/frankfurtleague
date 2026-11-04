@@ -120,8 +120,10 @@ async def patch_einwilligung(
 
     Refuses, in this order: a row on which the address holds no confirmed seat (`role_not_held`); a
     `nachweis_stand` other than the held seats' own, either choice having moved since the page was served
-    (`choices_stale`); a grant where the row grants no panel (`giving_not_allowed`); `medien` moving to `true`
-    where a held seat's stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is missing (`medien_age`). Each refusal writes nothing.
+    (`choices_stale`); a grant where the row grants no panel (`giving_not_allowed`); a choice moving onto a grant
+    under a label other than its current wording's, the page loaded before a rewording (`grant_wording_stale`);
+    `medien` moving to `true` where a held seat's stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is
+    missing (`medien_age`). Each refusal writes nothing.
     """
 
     gedrueckt: dict[FLEinwilligungChoice, object] = {"umfang": einwilligung_data.umfang, "medien": einwilligung_data.medien}
@@ -152,6 +154,7 @@ async def patch_einwilligung(
             geburtsdaten=[sitz.get("geburtsdatum") for sitz in sitze.values()],
             gewaehlt=gewaehlt,
             nachweis_stand=einwilligung_data.nachweis_stand.model_dump(),
+            text_versions=einwilligung_data.text_versions,
             darf_erteilen=darf_erteilen,
             today=today,
         )

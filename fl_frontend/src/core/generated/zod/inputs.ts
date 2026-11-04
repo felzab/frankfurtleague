@@ -782,7 +782,7 @@ export const BewerbungenPatchEinwilligungBody = zod
     umfang: zod.enum(["kontaktdaten", "kontaktdaten_whatsapp"]),
   })
   .describe(
-    "A seat holder's own two choices for every seat they hold on one row.\n\nBoth choices on every press: a page that sent one alone would leave the other judged by nothing.",
+    "A seat holder's own two choices for every seat they hold on one row, under any label their kind cites.\n\nBoth choices on every press: a page that sent one alone would leave the other judged by nothing.",
   );
 
 /**
@@ -2097,8 +2097,10 @@ export const SchiedsrichterPostSchiedsrichterBody = zod.object({
  *
  * Refuses, in this order: an id that is no confirmed referee record of this address (`role_not_held`); a
  * `nachweis_stand` other than the record's own, either choice having moved since the page was served
- * (`choices_stale`); a grant on a retired record (`giving_not_allowed`); `medien` moving to `true` where the
- * stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is missing (`medien_age`). Each refusal writes nothing.
+ * (`choices_stale`); a grant on a retired record (`giving_not_allowed`); a choice moving onto a grant under a label
+ * other than its current wording's, the page loaded before a rewording (`grant_wording_stale`); `medien` moving to
+ * `true` where the stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is missing (`medien_age`). Each
+ * refusal writes nothing.
  *
  * **The caller drops the cached fixture list after a successful answer**, which reads this row; nothing here can.
  * @summary Change a signed-in referee's own publication and media consent
@@ -3139,7 +3141,8 @@ export const SpieleGetSpielVerwaltungParams = zod.object({
  *
  * Refuses, in this order: an address holding no confirmed pupil record (`role_not_held`); a `nachweis_stand`
  * other than the record's own, either choice having moved since the page was served (`choices_stale`); a
- * grant on a retired record (`giving_not_allowed`); `medien` moving to `true` where
+ * grant on a retired record (`giving_not_allowed`); a choice moving onto a grant under a label other than its
+ * current wording's, the page loaded before a rewording (`grant_wording_stale`); `medien` moving to `true` where
  * the stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is missing (`medien_age`). Each
  * refusal writes nothing.
  *
@@ -3870,8 +3873,10 @@ export const TeamsPatchSaisonTeamBody = zod
  *
  * Refuses, in this order: a row on which the address holds no confirmed seat (`role_not_held`); a
  * `nachweis_stand` other than the held seats' own, either choice having moved since the page was served
- * (`choices_stale`); a grant where the row grants no panel (`giving_not_allowed`); `medien` moving to `true`
- * where a held seat's stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is missing (`medien_age`). Each refusal writes nothing.
+ * (`choices_stale`); a grant where the row grants no panel (`giving_not_allowed`); a choice moving onto a grant
+ * under a label other than its current wording's, the page loaded before a rewording (`grant_wording_stale`);
+ * `medien` moving to `true` where a held seat's stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is
+ * missing (`medien_age`). Each refusal writes nothing.
  * @summary Change a seat holder's own WhatsApp and media consent on one team's season
  */
 export const teamsPatchEinwilligungPathTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -3897,7 +3902,7 @@ export const TeamsPatchEinwilligungBody = zod
     umfang: zod.enum(["kontaktdaten", "kontaktdaten_whatsapp"]),
   })
   .describe(
-    "A seat holder's own two choices for every seat they hold on one row.\n\nBoth choices on every press: a page that sent one alone would leave the other judged by nothing.",
+    "A seat holder's own two choices for every seat they hold on one row, under any label their kind cites.\n\nBoth choices on every press: a page that sent one alone would leave the other judged by nothing.",
   );
 
 /**
