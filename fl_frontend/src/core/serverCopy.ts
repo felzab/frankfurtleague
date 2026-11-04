@@ -23,6 +23,18 @@ const SPIELBETRIEB = "Spielbetrieb";
 const gruppeName = (gruppe: string) => `Gruppe ${gruppe}`;
 const placeName = (platz: number) => `${formatOrdinal(platz)} ${PLATZ}`;
 
+// The confirmation pages' shared sentences, each written once: what the typed birthdate is checked for, the deadline
+// of an entry that goes alone, the objection Art. 21 (4) asks to be named explicitly, in the two parts around the
+// league's address, and the privacy notice's link, around its title.
+const ageCheck = (minAge: number) => `Mit deinem Geburtsdatum prüfen wir, ob du mindestens ${formatNumber(minAge)} Jahre alt bist.`;
+const entryDeadline = (until: CalendarDay) => `Bestätigst du nicht bis zum ${formatDatumLong(until)}, löschen wir deinen Eintrag.`;
+const OBJECTION_RIGHT = {
+  before:
+    "Du kannst der Verarbeitung deiner Angaben jederzeit widersprechen, aus Gründen, die sich aus deiner besonderen Situation ergeben (Art. 21 DSGVO). Eine formlose E-Mail an ",
+  after: " genügt.",
+};
+const MORE = { before: "Mehr unter ", after: "." };
+
 /**
  * The catalogue's entries only the server reads, so no client bundle carries them: `COPY` is one object, and a
  * bundler keeps all of an object a client module imports. Branded as `COPY` is, so an entry passes wherever a `Copy`
@@ -571,9 +583,10 @@ export const SERVER_COPY = catalogue({
   // Session 6: its page reads these.
   /**
    * The fixed text of a contact person's confirmation page, `ROUTES.kontaktConfirmation`, titled
-   * `COPY.page.entryConfirmation`: who named the person and for what, what is stored and until when, the deadline, and
-   * the privacy notice's link. The consents under it are `fl_frontend/src/core/consentWordings.ts`'s; nobody accepts the
-   * notice, which informs and asks no consent.
+   * `COPY.page.entryConfirmation`: who named the person and for what, what is stored and until when, what the birthdate
+   * is checked for, the deadline, what an objection does, the objection Art. 21 (4) asks to be named explicitly, since the
+   * seat rests on legitimate interest, and the privacy notice's link. The consents under it are
+   * `fl_frontend/src/core/consentWordings.ts`'s; nobody accepts the notice, which informs and asks no consent.
    */
   kontaktConfirmation: {
     /** The first sentence, by how the seat came to be. */
@@ -592,13 +605,60 @@ export const SERVER_COPY = catalogue({
         `Die Liga hat dich für ${textOf(team)} in der ${COPY.shared.saisonName(saison)} als ${textOf(rolle)} eingetragen.`,
     },
     stored: "Wir speichern deinen Namen, deine Kontaktdaten und dein Geburtsdatum längstens bis zum Ende der Saison danach.",
+    /** At the birthdate's field, by the seat's floor: Art. 13 asks the purpose where the date is asked. */
+    ageCheck,
     /** The deadline of a seat in an application, which goes whole when one seat stays unconfirmed. */
     applicationDeadline: (kontakte: number, until: CalendarDay) =>
       `Bestätigen nicht alle ${formatNumber(kontakte)} Kontaktpersonen bis zum ${formatDatumLong(until)}, löschen wir die Bewerbung.`,
     /** The deadline of a seat on a team's season, which goes alone. */
-    seatDeadline: (until: CalendarDay) => `Bestätigst du nicht bis zum ${formatDatumLong(until)}, löschen wir deinen Eintrag.`,
+    seatDeadline: entryDeadline,
+    /**
+     * At the objection's control, read before the press, by how the seat came to be: an application's seat tells the
+     * person who submitted it, unless the seat is that person's own, and a season row's seat tells nobody.
+     */
+    objectionEffect: {
+      application: "Widersprichst du, entfernen wir deine Angaben aus der Bewerbung und schreiben das der Person, die sie eingereicht hat.",
+      self: "Widersprichst du, entfernen wir deine Angaben aus der Bewerbung.",
+      seasonRow: "Widersprichst du, löschen wir deinen Eintrag.",
+    },
+    /** The Art. 21 (4) sentence, its own paragraph, around the league's address, which the page sets as a link. */
+    objectionRight: OBJECTION_RIGHT,
     /** The last line, around the privacy notice's title, which the page sets as its link. */
-    more: { before: "Mehr unter ", after: "." },
+    more: MORE,
+  },
+
+  // Session 5: its page reads these.
+  /**
+   * The fixed text of a referee's confirmation page, `ROUTES.schiedsrichterConfirmation`, built as
+   * `kontaktConfirmation` is: who entered the person and for what, what is stored and until when, the deadline, what
+   * the birthdate is checked for, the objection and the privacy notice's link. The referee's floor is the backend's
+   * alone, so the page passes the one its read serves.
+   */
+  schiedsrichterConfirmation: {
+    opening: "Die Liga hat dich als Schiedsrichterin oder Schiedsrichter für ihre Spiele eingetragen.",
+    stored:
+      "Wir speichern deinen Namen, deine Kontaktdaten, dein Honorar, dein Geburtsdatum und deine Schule, wenn sie angegeben ist, bis du oder die Liga den Eintrag beenden.",
+    ageCheck,
+    deadline: entryDeadline,
+    objectionRight: OBJECTION_RIGHT,
+    more: MORE,
+  },
+
+  // Session 8: its page reads these.
+  /**
+   * The fixed text of a pupil's confirmation page, `ROUTES.registrierungConfirmation`, built as `kontaktConfirmation`
+   * is: the registration the pupil made, what is stored and until when, the deadline, what the birthdate is checked
+   * for, the objection and the privacy notice's link.
+   */
+  registrierungConfirmation: {
+    opening: (team: Words, saison: string) =>
+      `Du hast dich über den Link von ${textOf(team)} für den Kader in der ${COPY.shared.saisonName(saison)} registriert.`,
+    stored:
+      "Wir speichern deinen Namen, deine E-Mail-Adresse, dein Geburtsdatum und, wenn du sie angegeben hast, Rückennummer, Position und Stufe, längstens bis zum Ende der Saison danach.",
+    ageCheck,
+    deadline: (until: CalendarDay) => `Bestätigst du nicht bis zum ${formatDatumLong(until)}, löschen wir deine Registrierung.`,
+    objectionRight: OBJECTION_RIGHT,
+    more: MORE,
   },
 
   /**
