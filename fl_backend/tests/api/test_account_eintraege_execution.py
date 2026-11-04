@@ -291,7 +291,6 @@ def test_the_account_page_serves_a_registration_as_its_pupil_stored_it(mongo_rep
     [entry] = [entry for entry in response.json()["registrierungen"] if entry["registrierung_id"] == str(REGISTRIERUNG_NEW)]
     assert {key: value for key, value in entry.items() if key != "nachweis_stand"} == {
         "registrierung_id": str(REGISTRIERUNG_NEW),
-        "team_id": str(TEAMS[3]),
         "team_name": "Schule3",
         "saison_id": ACTIVE,
         "umfang": "kader_oeffentlich",

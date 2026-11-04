@@ -926,11 +926,6 @@
               }
             ]
           },
-          "team_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Team Id",
-            "type": "string"
-          },
           "team_name": {
             "anyOf": [
               {
@@ -959,7 +954,6 @@
         },
         "required": [
           "registrierung_id",
-          "team_id",
           "team_name",
           "saison_id",
           "umfang",
@@ -1000,18 +994,6 @@
           "honorar": {
             "title": "Honorar",
             "type": "integer"
-          },
-          "inactive_since": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Inactive Since"
           },
           "kontakt": {
             "$ref": "#/components/schemas/FLKontakt"
@@ -1057,7 +1039,6 @@
           "kontakt",
           "honorar",
           "geburtsdatum",
-          "inactive_since",
           "einwilligung",
           "nachweis_stand",
           "givable",
@@ -1145,18 +1126,6 @@
             "title": "Givable",
             "type": "boolean"
           },
-          "inactive_since": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Inactive Since"
-          },
           "kader": {
             "items": {
               "$ref": "#/components/schemas/FLSpielerSelfKaderRow"
@@ -1204,7 +1173,6 @@
           "spieler_id",
           "geburtsdatum",
           "kader",
-          "inactive_since",
           "einwilligung",
           "nachweis_stand",
           "givable",

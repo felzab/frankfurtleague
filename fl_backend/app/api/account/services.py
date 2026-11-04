@@ -223,7 +223,6 @@ def compose_spieler_account(row: Mapping[str, Any], *, givable: bool, today: str
 
     return {
         **compose_spieler_self(row),
-        "inactive_since": row.get("inactive_since"),
         "einwilligung": row["einwilligung"],
         "nachweis_stand": nachweis_stand_of(bloecke=[row["einwilligung"]]),
         "givable": givable,
@@ -250,7 +249,6 @@ def compose_schiedsrichter_account(row: Mapping[str, Any], *, givable: bool, tod
 
     return {
         **compose_schiedsrichter_self(row),
-        "inactive_since": row.get("inactive_since"),
         "einwilligung": row["einwilligung"],
         "nachweis_stand": nachweis_stand_of(bloecke=[row["einwilligung"]]),
         "givable": givable,
@@ -439,7 +437,6 @@ def compose_registrierungen_self(
         eintraege.append(
             {
                 "registrierung_id": row["_id"],
-                "team_id": row["team_id"],
                 "team_name": None if team is None else team.get("name"),
                 "saison_id": row["saison_id"],
                 "umfang": block.get("umfang"),

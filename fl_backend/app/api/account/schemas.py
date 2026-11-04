@@ -22,7 +22,6 @@ from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 class FLAccountSpielerEinwilligung(FLSpielerSelf):
     """The pupil's record on the account page: its stored data and the consent the page moves."""
 
-    inactive_since: CustomOptionalDateString
     # Required: only a confirmed record is served, so the block is always there.
     einwilligung: FLEinwilligung
     # What the consent PATCH echoes back, computed by the function its precondition compares with.
@@ -37,7 +36,6 @@ class FLAccountSpielerEinwilligung(FLSpielerSelf):
 class FLAccountSchiedsrichterEinwilligung(FLSchiedsrichterSelf, BaseReadModel):
     """One referee record on the account page: its stored data and the consent the page moves."""
 
-    inactive_since: CustomOptionalDateString
     einwilligung: FLEinwilligung
     nachweis_stand: FLEinwilligungStand
     givable: bool
@@ -90,7 +88,6 @@ class FLAccountRegistrierungEinwilligung(BaseModel):
     """One pending registration its pupil confirmed: its choices to withdraw, and what it stores."""
 
     registrierung_id: CustomObjectId
-    team_id: CustomObjectId
     # The club's own name, today; null where its document is gone.
     team_name: str | None
     saison_id: str

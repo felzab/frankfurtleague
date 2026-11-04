@@ -436,8 +436,6 @@ export interface FLAccountRegistrierungEinwilligung {
   registrierung_id: string;
   saison_id: string;
   stufe: FLSpielerStufe | null;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  team_id: string;
   team_name: string | null;
   umfang: FLEinwilligungUmfang | null;
   vorname: string;
@@ -504,7 +502,6 @@ export interface FLAccountSchiedsrichterEinwilligung {
   geburtsdatum: string | null;
   givable: boolean;
   honorar: number;
-  inactive_since: string | null;
   kontakt: FLKontakt;
   /** @exclusiveMinimum 0 */
   medien_minimum_age: number;
@@ -569,7 +566,6 @@ export interface FLAccountSpielerEinwilligung {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   geburtsdatum: string;
   givable: boolean;
-  inactive_since: string | null;
   kader: FLSpielerSelfKaderRow[];
   /** @exclusiveMinimum 0 */
   medien_minimum_age: number;
