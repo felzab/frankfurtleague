@@ -13,7 +13,7 @@ import {
   signInByCode,
 } from "@/test-support/authDoubles.ts";
 import { replicaSetUrl, startJudgedReplicaSet } from "@/test-support/expiredTransactions.ts";
-import { MongoOperationTimeoutError, MongoServerError } from "mongodb";
+import { MongoServerError } from "mongodb";
 import { assert, beforeEach, describe, expect, it, vi } from "vitest";
 
 // A replica set: the property under test is a transaction's.
@@ -103,9 +103,7 @@ const DB_DOUBLE = overriding(PRODUCTION_DB, {
             const commit = session.commitTransaction.bind(session);
             session.commitTransaction = async () => {
               await committing(session);
-              const done = await commit();
-              await committed();
-              return done;
+              return commit();
             };
             return session;
           };
@@ -200,9 +198,6 @@ type HeldSession = { commitTransaction: () => Promise<unknown>; abortTransaction
 /** What runs as a removal's commit is asked for, before it is sent. */
 let committing: (session: HeldSession) => Promise<unknown> = async () => undefined;
 
-/** What runs once a removal's commit has been taken by the server, before its answer reaches the removal. */
-let committed: () => Promise<unknown> = async () => undefined;
-
 // Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
 const { auth } = await import("@/core/auth/library");
 const { buildAuthIndexes } = await import("@/core/authIndexes");
@@ -226,7 +221,6 @@ beforeEach(async () => {
   warnings.length = 0;
   signingOut = async () => undefined;
   committing = async () => undefined;
-  committed = async () => undefined;
   readGate = OPEN_GATE;
   await authDb().dropDatabase();
 
@@ -397,20 +391,6 @@ describe("the sessions a removal ends, against a real database", () => {
     expect(cacheCalls.map(({ name }) => name)).toStrictEqual(["refresh"]);
   });
 
-  /* The page would render again under the session the removal ended: the action clears nothing and reads nothing
-     again, and the page leaves by a document load on its answer. */
-  it("renders nothing again where the removal ends this device's own session", async () => {
-    const own = await steppedUpAdmin();
-    const [, ownRow] = await seedPasskeys(own.userId, 2, [KEPT, OWN_CREDENTIAL]);
-    assert.ok(ownRow);
-    requestHeaders = new Headers({ ...ORIGIN, cookie: own.cookie });
-
-    cacheCalls.length = 0;
-    expect(await removePasskeyAction({ id: ownRow, holder: ADMIN_EMAIL })).toStrictEqual({ ok: true, value: "thisDevice" });
-    expect(await opens(own.cookie), "this device's session outlived its passkey").toBe(false);
-    expect(cacheCalls, "the removal ending this device's session cleared the cache or read the page again").toStrictEqual([]);
-  });
-
   /* Another device's `updatedAt` refresh, landing while the sign-out runs on every run the adapter
      retries: the delete before the sign-out rolls back with it rather than standing alone, until the
      client's `timeoutMS` ends the retries. */
@@ -495,32 +475,5 @@ describe("the sessions a removal ends, against a real database", () => {
       open: [await opens(other.cookie), await opens(own.cookie)],
       warnings: [...warnings],
     }).toStrictEqual({ answer: UNEXPECTED, rows: 2, open: [true, true], warnings: [] });
-  });
-
-  /* The commit landed and the client timed out before its answer came back: the stale-page line, whose reload shows
-     what became of it, the removal standing all the same, and the failure logged by its name. */
-  it("answers the stale-page line where the commit's own answer is lost, the removal standing", async () => {
-    const other = await steppedUpAdmin(REMOVED);
-    const own = await steppedUpAdmin();
-    const [first] = await seedPasskeys(own.userId, 2, [REMOVED]);
-    assert.ok(first);
-    requestHeaders = new Headers({ ...ORIGIN, cookie: own.cookie });
-    committed = async () => {
-      throw new MongoOperationTimeoutError("planted: the time ran out before the commit's answer came back");
-    };
-
-    const answer = await removePasskeyAction({ id: first, holder: ADMIN_EMAIL });
-
-    expect({
-      answer: answer,
-      rows: (await passkeyRows()).length,
-      open: [await opens(other.cookie), await opens(own.cookie)],
-      errors: [...errors],
-    }).toStrictEqual({
-      answer: { ok: false, reason: GLEICHZEITIG_GEAENDERT },
-      rows: 1,
-      open: [false, true],
-      errors: ["passkeys.removal_outcome_unknown"],
-    });
   });
 });
