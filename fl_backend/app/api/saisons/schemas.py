@@ -482,9 +482,10 @@ FLPodium = tuple[FLLandingSide | None, FLLandingSide | None, FLLandingSide | Non
 class FLLandingCounts(BaseReadModel):
     """Three of the season's four figures, counted on every read: its goals, its matches and its matchdays.
 
-    The fourth, its clubs, is the length of the `teams` served beside them. `count_tore` is both sides' goals summed over
-    every match of any phase the Tabelle would count, one carrying an `ergebnis`: a forfeit's awarded goals among them, a
-    shoot-out's never.
+    The fourth, its clubs, is the length of the `teams` served beside them. `count_spiele` is every match of any phase the
+    Tabelle would count, one carrying an `ergebnis`, a forfeit among them, so a season before its first played match reads
+    0; `count_tore` is both sides' goals summed over the same matches: a forfeit's awarded goals among them, a shoot-out's
+    never.
     """
 
     count_tore: int = Field(ge=0)

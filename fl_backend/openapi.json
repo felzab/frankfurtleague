@@ -7662,7 +7662,7 @@
         "type": "object"
       },
       "FLLandingCounts": {
-        "description": "Three of the season's four figures, counted on every read: its goals, its matches and its matchdays.\n\nThe fourth, its clubs, is the length of the `teams` served beside them. `count_tore` is both sides' goals summed over\nevery match of any phase the Tabelle would count, one carrying an `ergebnis`: a forfeit's awarded goals among them, a\nshoot-out's never.",
+        "description": "Three of the season's four figures, counted on every read: its goals, its matches and its matchdays.\n\nThe fourth, its clubs, is the length of the `teams` served beside them. `count_spiele` is every match of any phase the\nTabelle would count, one carrying an `ergebnis`, a forfeit among them, so a season before its first played match reads\n0; `count_tore` is both sides' goals summed over the same matches: a forfeit's awarded goals among them, a shoot-out's\nnever.",
         "properties": {
           "count_spiele": {
             "minimum": 0.0,

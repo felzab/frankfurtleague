@@ -146,14 +146,17 @@ def landing(url: str, database_name: str) -> Any:
 
 @pytest.mark.db
 def test_a_running_season_shows_its_latest_results_its_next_matches_and_its_figures(running_url: str):
-    """The latest result and the soonest match to come, each out of three; the retired club in no figure."""
+    """The latest result and the soonest match to come, each out of three; the retired club in no figure.
+
+    The matches figure counts the three played, as the goals do, never the three still to come.
+    """
 
     response = landing(running_url, RUNNING_DATABASE_NAME)
     saison = response.saison
 
     assert (type(saison), saison.id, saison.state) == (FLLandingRunning, SAISON, "running")
     assert ([spiel.spiel_nr for spiel in saison.recent], [spiel.spiel_nr for spiel in saison.upcoming]) == ([3], [4])
-    assert saison.counts.model_dump() == {"count_tore": 7, "count_spiele": 6, "count_spieltage": 2}
+    assert saison.counts.model_dump() == {"count_tore": 7, "count_spiele": 3, "count_spieltage": 2}
     assert [team.name for team in saison.teams] == ["Alpha", "Beta"]
     assert response.bewerbung_window.model_dump() == {"saison_id": NEXT, "bis": "2026-03-31"}
 
@@ -200,7 +203,7 @@ def test_a_season_before_its_first_match_counts_to_its_start_and_names_its_openi
 
 @pytest.mark.db
 def test_a_season_past_its_start_date_runs_before_its_first_match(mongo_url: str):
-    """The start is the season's date and never a match's: from it the season runs, its results still empty."""
+    """The start is the season's date and never a match's: from it the season runs, its results and its figures still empty."""
 
     seeded(
         mongo_url, STARTED_DATABASE_NAME, {Collection.SPIELTAGE: [spieltag(DAY_1, 1)], Collection.SPIELE: [match(1, DAY_1, "2026-03-10", None)]}
@@ -209,6 +212,7 @@ def test_a_season_past_its_start_date_runs_before_its_first_match(mongo_url: str
     saison = landing(mongo_url, STARTED_DATABASE_NAME).saison
 
     assert (type(saison), saison.recent, [spiel.spiel_nr for spiel in saison.upcoming]) == (FLLandingRunning, [], [1])
+    assert saison.counts.model_dump() == {"count_tore": 0, "count_spiele": 0, "count_spieltage": 1}
 
 
 @pytest.mark.parametrize(
