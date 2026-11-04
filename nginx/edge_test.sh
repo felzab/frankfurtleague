@@ -274,6 +274,11 @@ CASES=(
   "LEAK|${BASE}/teams%3Femail=${EM}"
   "LEAK|${BASE}/teams%3Ftoken%3D${TOK}"
 
+  # A token inside another parameter's value, its `=` encoded, as the sign-in's `return` carries the
+  # mailed deletion link (`fl_frontend/src/core/auth/returnAddress.ts :: withReturnAddress`). The URI
+  # holds a literal `?`, but no `token=` follows it, so only the backstop reaches this one either.
+  "LEAK|${BASE}/signin?return=%2Ferasure%3Ftoken%3D${TOK}"
+
   # The token VALUE holding each delimiter a class-bounded expression fails open on. Nothing here
   # inspects the value; these exist so that stays true on purpose rather than by luck.
   "LEAK|${BASE}/signin?token=a/b${TOK}"
