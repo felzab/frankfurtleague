@@ -1,8 +1,7 @@
 import { AccountPage } from "@/kit/AccountPage";
 
 import { PASSKEY_LIMIT } from "@/core/auth/enrolment";
-import { FRESH_SIGN_IN_SECONDS, PASSKEY_FACTOR } from "@/core/auth/sessionStamps";
-import { now } from "@/core/clock";
+import { isFreshForEnrolment, PASSKEY_FACTOR } from "@/core/auth/sessionStamps";
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 import { requireAccountSession } from "@/features/konto/account";
@@ -23,8 +22,8 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
 
 /**
  * Why the set-up is closed, where the page knows it at render: the cap, or a first passkey asked of a code session
- * older than the library's `freshAge`, which refuses it (`fl_frontend/src/core/auth/landing.ts` judges the same for
- * the landing's card). A session the passkey made is fresh by the touch the set-up asks first.
+ * older than the library's `freshAge`, which refuses it. A session the passkey made is fresh by the touch the set-up
+ * asks first.
  */
 function setUpClosedOf(
   served: { readonly session: { readonly createdAt: Date | string; readonly authFactor?: unknown } },
@@ -32,9 +31,7 @@ function setUpClosedOf(
 ): Copy | undefined {
   if (!stand.canAdd) return COPY.account.passkeys.limit(PASSKEY_LIMIT);
   if (stand.rows.length > 0 || served.session.authFactor === PASSKEY_FACTOR) return undefined;
-  const created = new Date(served.session.createdAt).getTime();
-  const mayEnrol = Number.isFinite(created) && now().getTime() - created < FRESH_SIGN_IN_SECONDS * 1000;
-  return mayEnrol ? undefined : COPY.account.passkeys.signInTooOld;
+  return isFreshForEnrolment(served.session) ? undefined : COPY.account.passkeys.signInTooOld;
 }
 
 /** The passkeys and the devices, read for the session the page is drawn for. */

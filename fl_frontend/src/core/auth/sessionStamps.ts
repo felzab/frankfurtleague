@@ -56,6 +56,15 @@ export function isPasskeyTouch(session: SessionStamps, at: Date = now()): boolea
 }
 
 /**
+ * Whether a session is young enough for the library's `freshAge`, which refuses a passkey enrolment past it: the one
+ * judgement of it, so a page offers the enrolment exactly where the library takes it.
+ */
+export function isFreshForEnrolment(session: SessionStamps): boolean {
+  const created = new Date(session.createdAt).getTime();
+  return Number.isFinite(created) && now().getTime() - created < FRESH_SIGN_IN_SECONDS * 1000;
+}
+
+/**
  * The stamps sit on the stored row and on neither arm's declared type, the library typing both to
  * its own base shape: read through `Reflect` rather than cast, so nothing here claims they are there.
  */
