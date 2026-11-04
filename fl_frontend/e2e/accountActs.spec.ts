@@ -6,8 +6,8 @@
  * a second device. Konto's steps are named by the board's words, which Konto's pages are built to. The passkeys are
  * `desktop/kontoPasskeys.spec.ts`'s.
  *
- * The person is the project's `leaver`, an address no other journey signs in as: the change moves their records and the
- * deletion erases them, which would break any journey after this one reading them.
+ * Each journey signs in as a person of its own, the project's `twoDevices`, `mover` and `leaver`, whom no other journey
+ * signs in as: each writes what another would read, the sessions it ends, the records it moves, the account it erases.
  */
 import { expect } from "@playwright/test";
 
@@ -16,12 +16,6 @@ import { filedMessages, mailedLink } from "./support/mailSink";
 import { sessionCookies, signInWithCode, signInWithCodeHere } from "./support/signIn";
 
 import type { Page } from "@playwright/test";
-
-// The change's new address is the deletion's account: the second journey runs on what the first left.
-test.describe.configure({ mode: "serial" });
-
-/** The project's leaver at a mailbox of their own the change moves them to. */
-const newAddressOf = (leaver: string): string => leaver.replace("@", ".neu@");
 
 /** A code-borne sign-in past the passkey offer, which this journey leaves for later. */
 async function signIn(page: Page, address: string): Promise<void> {
@@ -36,15 +30,14 @@ test("Konto's frame, Darstellung and „Alle anderen abmelden“, on one sign-in
   browser,
   proxy,
   baseURL,
-  leaver,
+  twoDevices,
   isMobile,
 }) => {
-  // A second device, signed in first through the journey's own visitor. Two of the address's five codes an hour, the
-  // address change below the third.
+  // A second device, signed in first through the journey's own visitor.
   const other = await browser.newContext({ proxy, baseURL });
   const elsewhere = await other.newPage();
-  await signIn(elsewhere, leaver);
-  await signIn(page, leaver);
+  await signIn(elsewhere, twoDevices);
+  await signIn(page, twoDevices);
 
   if (isMobile) {
     // A phone opens Konto on the list of its four pages, with no bottom bar: the band's „Zurück“ is the way out.
@@ -95,9 +88,10 @@ test("Konto's frame, Darstellung and „Alle anderen abmelden“, on one sign-in
   await other.close();
 });
 
-test("a person changes their address: the address on file confirms first, then the new mailbox", async ({ page, context, leaver }) => {
-  const newAddress = newAddressOf(leaver);
-  await signIn(page, leaver);
+test("a person changes their address: the address on file confirms first, then the new mailbox", async ({ page, context, mover }) => {
+  // A mailbox of their own the change moves them to.
+  const newAddress = mover.replace("@", ".neu@");
+  await signIn(page, mover);
 
   // Konto's address box: the new address, and the link it sends.
   await page.goto("/account/signin");
@@ -113,7 +107,7 @@ test("a person changes their address: the address on file confirms first, then t
   await expect(page.getByRole("main").getByRole("button", { name: "Änderung zurückziehen" })).toBeVisible();
 
   // The address on file's link asks it first, naming the address the change goes to.
-  const previousLink = await mailedLink(leaver, "Änderung der E-Mail-Adresse", before);
+  const previousLink = await mailedLink(mover, "Änderung der E-Mail-Adresse", before);
   await page.goto(previousLink);
   await expect(page.getByRole("heading", { name: "Änderung bestätigen" })).toBeVisible();
   await expect(page.getByText(newAddress, { exact: true })).toBeVisible();
@@ -143,15 +137,14 @@ test("a person changes their address: the address on file confirms first, then t
 });
 
 test("the person deletes their account from the mailed link, signed out when it opens", async ({ page, context, baseURL, leaver }) => {
-  const address = newAddressOf(leaver);
-  await signIn(page, address);
+  await signIn(page, leaver);
 
   // Konto's deletion box mails the link; its dialog asks first.
   await page.goto("/account/signin");
   const before = await filedMessages();
   await page.getByRole("button", { name: "Konto löschen" }).click();
   await page.getByRole("alertdialog").getByRole("button", { name: "Löschen" }).click();
-  const link = await mailedLink(address, "Konto löschen", before);
+  const link = await mailedLink(leaver, "Konto löschen", before);
 
   // Opened signed out, the link leads through the sign-in and back to itself.
   await context.clearCookies();
@@ -159,7 +152,7 @@ test("the person deletes their account from the mailed link, signed out when it 
   await expect(page.getByText("Du bist nicht angemeldet.")).toBeVisible();
   await page.getByRole("main").getByRole("link", { name: "Anmelden" }).click();
   await expect(page).toHaveURL(/\/signin\?return=/);
-  await signInWithCodeHere(page, address);
+  await signInWithCodeHere(page, leaver);
   // The passkey offer's „Später“ goes on to the address the link asked for, as the code's landing does.
   await expect(page).toHaveURL(/\/signin\/passkey\?return=/);
   await page.getByRole("button", { name: "Später" }).click();
@@ -168,7 +161,7 @@ test("the person deletes their account from the mailed link, signed out when it 
   // The list of what goes names the account's address, as the value of its row. Asked by role: the sign-in's steps
   // stay in the document hidden, as Next keeps the routes a visitor came through, and they name the address too.
   await expect(page.getByRole("heading", { name: "Konto löschen" })).toBeVisible();
-  await expect(page.getByRole("definition").filter({ hasText: address })).toHaveText(address);
+  await expect(page.getByRole("definition").filter({ hasText: leaver })).toHaveText(leaver);
   await expect(page.getByText("Alles oben wird endgültig gelöscht.")).toBeVisible();
 
   // The deletion leads to the page that needs no session.

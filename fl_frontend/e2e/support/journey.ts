@@ -25,7 +25,11 @@ export type JourneyOptions = {
   administrator: string;
   /** A referee's address, which admits a sign-in and grants no Verwaltung. */
   person: string;
-  /** A referee's address no other journey signs in as: the account acts move it and then delete it. */
+  /** A referee's address the account acts sign in as on two devices, and then end the other device's session. */
+  twoDevices: string;
+  /** A referee's address the account acts move to a new mailbox. */
+  mover: string;
+  /** A referee's address the account acts delete. */
   leaver: string;
 };
 
@@ -194,6 +198,8 @@ export const test = base.extend<JourneyFixtures & JourneyOptions, WorkerFixtures
   // Empty until a project sets them, which `fl_frontend/playwright.config.ts` does for each.
   administrator: ["", { option: true }],
   person: ["", { option: true }],
+  twoDevices: ["", { option: true }],
+  mover: ["", { option: true }],
   leaver: ["", { option: true }],
 
   // `provide` is the fixture's `use`, named apart from React's hook, which a lint rule reads it as.

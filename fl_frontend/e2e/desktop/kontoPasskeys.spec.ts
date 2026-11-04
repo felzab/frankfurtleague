@@ -1,7 +1,7 @@
 /**
  * E2E · J8's passkeys on Konto: a person sets one up, renames it and removes it behind the passkey touch, which ends the
- * session this device's set-up signed in, and the page leaves for the sign-in. Then the same person, holding a passkey
- * again, starts an address change and deletes the account, each behind its own touch. Desktop alone, for the reason
+ * session this device's set-up signed in, and the page leaves for the sign-in. Then a passkey holder starts an address
+ * change and deletes the account, each behind its own touch. Desktop alone, for the reason
  * `fl_frontend/playwright.config.ts` gives at its projects.
  */
 import { expect } from "@playwright/test";
@@ -12,14 +12,14 @@ import { signInWithCode } from "../support/signIn";
 
 import type { BrowserContext } from "@playwright/test";
 
-/** The person this journey alone signs in as (`scripts/ops/seed/seed.js`), and the one its last step erases. */
-const HOLDER = "emil.ernst@example.com";
+/** The person the removal's journey alone signs in as (`scripts/ops/seed/seed.js`). */
+const REMOVER = "emil.ernst@example.com";
+
+/** The person the touched acts' journey alone signs in as, and the one its last step erases. */
+const HOLDER = "jana.jansen@example.com";
 
 /** The relying party the local `AUTH_URL` names. */
 const RELYING_PARTY = "localhost";
-
-// The second journey runs on the account the first leaves: holding no passkey, signed out.
-test.describe.configure({ mode: "serial" });
 
 /**
  * The assertions the browser's authenticator has signed for the site: its signature counter rises by one on each
@@ -31,7 +31,7 @@ async function assertionsSigned(context: BrowserContext): Promise<number> {
 }
 
 test("a person's passkey on Sicherheit: set up, renamed, and removed with this device's session", async ({ page, context }) => {
-  await signInWithCode(page, HOLDER);
+  await signInWithCode(page, REMOVER);
   await expect(page).toHaveURL(/\/signin\/passkey/);
   await page.getByRole("button", { name: "Später" }).click();
 
@@ -64,7 +64,7 @@ test("a passkey holder's address change and deletion each run behind the touch",
   await expect(page).toHaveURL(/\/signin\/passkey/);
   await page.getByRole("button", { name: "Später" }).click();
 
-  // A passkey again, set up on the code's fresh session, which nobody holding one asks no touch of.
+  // A passkey, set up on the code's fresh session: the person holds none yet, so nothing is touched.
   await context.credentials.install();
   await page.goto("/account/security");
   await page.getByRole("button", { name: "Passkey einrichten" }).click();
