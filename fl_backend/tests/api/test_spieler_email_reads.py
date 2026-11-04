@@ -173,12 +173,6 @@ async def the_account_read(database: AsyncDatabase, client: AsyncMongoClient, re
     return await get_einwilligungen(
         identifier=FOLDED_EMAIL,
         spieler_collection=database[Collection.SPIELER],
-        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-        saison_teams_collection=database[Collection.SAISON_TEAMS],
-        teams_collection=database[Collection.TEAMS],
-        bewerbungen_collection=database[Collection.BEWERBUNGEN],
-        registrierungen_collection=database[Collection.REGISTRIERUNGEN],
-        records=record_collections(database),
         db=client,
         today=TODAY,
     )

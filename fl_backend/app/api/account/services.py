@@ -6,18 +6,20 @@ read judges a grant exactly as the PATCH it offers does. Pure: the routers read,
 from what they pass.
 """
 
-from collections.abc import Collection, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from http import HTTPStatus
-from typing import Any, Final
+from typing import Any, Final, Literal, get_args
 
 from bson import ObjectId
 
 from app.api.bewerbungen.services import bewerbung_schule, build_eigene_bewerbung_filter, mindestalter_for, saison_schule
 from app.api.einwilligung.services import find_fassung_refusal, medien_angeboten
 from app.api.identity.schemas import FLSubjectSeat
-from app.api.identity.services import eigene_sitze, holds_a_seat, ist_eigene_registrierung
+from app.api.identity.services import eigene_sitze, holds_a_seat, ist_eigene_registrierung, saison_status_lookup
 from app.api.kontakte.services import rows_seating
 from app.api.registrierungen.services import build_eigene_registrierung_filter, traegt_wahlen
+from app.api.schiedsrichter.services import build_self_referee_pipeline
+from app.api.spieler.services import build_self_pupil_pipeline
 from app.core.codes import Code
 from app.core.collections import Collection as DbCollection
 from app.core.exceptions import WriteRefusal
@@ -198,10 +200,18 @@ def kontext_zeile(row: Mapping[str, Any]) -> Mapping[str, Any] | None:
     return kader[0] if kader else None
 
 
-def build_kontext_teams_pipeline(team_ids: Collection[Any]) -> list[Mapping[str, Any]]:
-    """The clubs the records' slots name, read today: the two names a confirmation page fills `{team}` and `{schule}` from."""
+def kontext_teams_lookup(local_field: str) -> Mapping[str, Any]:
+    """The clubs a record's `local_field` names, read today as `teams`: the two names a confirmation page fills `{team}` and `{schule}` from."""
 
-    return [{"$match": {"_id": {"$in": sorted(set(team_ids))}}}, {"$project": {"name": 1, "full_name": 1}}]
+    return {
+        "$lookup": {
+            "from": DbCollection.TEAMS,
+            "localField": local_field,
+            "foreignField": "_id",
+            "pipeline": [{"$project": {"name": 1, "full_name": 1}}],
+            "as": "teams",
+        }
+    }
 
 
 def compose_spieler_self(row: Mapping[str, Any]) -> dict[str, Any]:
@@ -271,7 +281,8 @@ def compose_schiedsrichter_konto(row: Mapping[str, Any], *, givable: bool, today
 def build_self_seat_pipeline(identifier: str) -> list[Mapping[str, Any]]:
     """Every season row one of whose seats names the address, `app/api/identity/services.py :: eigene_sitze` judging each slot.
 
-    No `austritt` term: a withdrawal reaches a withdrawn team's seat too.
+    No `austritt` term: a withdrawal reaches a withdrawn team's seat too. Each row carries its season's status, its club and
+    the admitted application that seated the club, so the page reads none of them apart.
     """
 
     return [
@@ -287,6 +298,22 @@ def build_self_seat_pipeline(identifier: str) -> list[Mapping[str, Any]]:
                 **{f"confirmations.{slot}.sent_at": 1 for slot in KONTAKT_ROLLEN},
             }
         },
+        # Read by the same Funktionen.
+        saison_status_lookup(),
+        kontext_teams_lookup("team_id"),
+        {
+            "$lookup": {
+                "from": DbCollection.BEWERBUNGEN,
+                "localField": "team_id",
+                "foreignField": "team_id",
+                "let": {"saison_id": "$saison_id"},
+                "pipeline": [
+                    {"$match": {"status": "accepted", "$expr": {"$eq": ["$saison_id", "$$saison_id"]}}},
+                    {"$project": {"team_id": 1, "saison_id": 1, "schule": 1}},
+                ],
+                "as": "bewerbungen",
+            }
+        },
         {"$sort": {"saison_id": -1, "name": 1, "team_id": 1}},
     ]
 
@@ -300,15 +327,6 @@ def auf_der_saison_bestaetigt(row: Mapping[str, Any], slot: str) -> bool:
     entry = (row.get("confirmations") or {}).get(slot)
 
     return isinstance(entry, Mapping) and isinstance(entry.get("sent_at"), str)
-
-
-def build_angenommene_bewerbungen_pipeline(team_ids: Collection[Any]) -> list[Mapping[str, Any]]:
-    """The admitted applications that seated these clubs, whose pages an admitted seat was confirmed on."""
-
-    return [
-        {"$match": {"team_id": {"$in": sorted(set(team_ids))}, "status": "accepted"}},
-        {"$project": {"team_id": 1, "saison_id": 1, "schule": 1}},
-    ]
 
 
 def _sitz_schule(
@@ -449,6 +467,7 @@ def build_self_bewerbung_pipeline(identifier: str) -> list[Mapping[str, Any]]:
                 **{f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_ROLLEN for field in ("vorname", "email", "einwilligung")},
             }
         },
+        kontext_teams_lookup("team_id"),
         {"$sort": {"saison_id": -1, "_id": 1}},
     ]
 
@@ -510,6 +529,7 @@ def build_self_registrierung_pipeline(identifier: str) -> list[Mapping[str, Any]
                 )
             }
         },
+        kontext_teams_lookup("team_id"),
         {"$sort": {"saison_id": -1, "_id": 1}},
     ]
 
@@ -547,3 +567,57 @@ def compose_registrierungen_self(
         )
 
     return eintraege
+
+
+# --- The page's ONE read: every kind of own record, each arm keyed by the person's own rows and joined to what it names,
+# unioned into one aggregation so the page costs one round trip.
+
+AccountArm = Literal["spieler", "schiedsrichter", "seats", "bewerbungen", "registrierungen"]
+
+
+def _arm(arm: AccountArm, pipeline: Sequence[Mapping[str, Any]]) -> list[Mapping[str, Any]]:
+    """`pipeline`'s rows, each tagged with its arm and its place in the arm's own order as `_rank`.
+
+    A union's order is unspecified, its arms' with it, so the place is stored: the `$push` collects the rows in the order
+    the pipeline's `$sort` hands them on, and the unwind numbers them.
+    """
+
+    return [
+        *pipeline,
+        {"$group": {"_id": None, "rows": {"$push": "$$ROOT"}}},
+        {"$unwind": {"path": "$rows", "includeArrayIndex": "_rank"}},
+        {"$replaceWith": {"$mergeObjects": ["$rows", {"_rank": "$_rank", "_arm": arm}]}},
+    ]
+
+
+def build_account_pipeline(identifier: str) -> list[Mapping[str, Any]]:
+    """The account page's read, run on `spieler`, each arm tagged and ranked.
+
+    The pupil's and the referee's rows by their own pages' selections, and the season rows, pending applications and
+    registrations seating the address.
+    """
+
+    *pupil_stages, pupil_sort = build_self_pupil_pipeline(identifier)
+
+    return [
+        *_arm("spieler", [*pupil_stages, kontext_teams_lookup("kader.team_id"), pupil_sort]),
+        {"$unionWith": {"coll": DbCollection.SCHIEDSRICHTER, "pipeline": _arm("schiedsrichter", build_self_referee_pipeline(identifier))}},
+        {"$unionWith": {"coll": DbCollection.SAISON_TEAMS, "pipeline": _arm("seats", build_self_seat_pipeline(identifier))}},
+        {"$unionWith": {"coll": DbCollection.BEWERBUNGEN, "pipeline": _arm("bewerbungen", build_self_bewerbung_pipeline(identifier))}},
+        {
+            "$unionWith": {
+                "coll": DbCollection.REGISTRIERUNGEN,
+                "pipeline": _arm("registrierungen", build_self_registrierung_pipeline(identifier)),
+            }
+        },
+    ]
+
+
+def account_arms(rows: Sequence[Mapping[str, Any]]) -> dict[AccountArm, list[Mapping[str, Any]]]:
+    """The read's rows by the arm that found them, each in its arm's own order."""
+
+    arms: dict[AccountArm, list[Mapping[str, Any]]] = {arm: [] for arm in get_args(AccountArm)}
+    for row in sorted(rows, key=lambda row: row["_rank"]):
+        arms[row["_arm"]].append(row)
+
+    return arms

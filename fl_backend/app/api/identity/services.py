@@ -33,8 +33,39 @@ from app.shared.schemas.literals import KONTAKT_ROLLEN, FLAddressChangeViewableD
 # Unnarrowed by retirement or withdrawal: `_judged` narrows the Funktionen.
 
 
+def saison_status_lookup() -> Mapping[str, Any]:
+    """Each season row's own `saisons` row beside it as `saison`, its status alone: the read that finds a seat answers its season too."""
+
+    return {
+        "$lookup": {
+            "from": DbCollection.SAISONS,
+            "localField": "saison_id",
+            "foreignField": "_id",
+            "pipeline": [{"$project": {"status": 1}}],
+            "as": "saison",
+        }
+    }
+
+
+def seat_saison_statuses(rows: Iterable[Mapping[str, Any]]) -> dict[str, FLSaisonStatus]:
+    """The status of each row's season, off the `saison` that `saison_status_lookup` joined.
+
+    Raised rather than dropped: a seat whose season has no row is a database this read cannot answer truthfully for, and a
+    silently shorter list is a person shown no panel at all.
+    """
+
+    statuses: dict[str, FLSaisonStatus] = {}
+    for row in rows:
+        [saison] = row.get("saison") or [None]
+        if saison is None:
+            raise RuntimeError(f"saison_teams holds a seat in {row['saison_id']}, which saisons has no row for")
+        statuses[row["saison_id"]] = saison["status"]
+
+    return statuses
+
+
 def build_seat_pipeline(identifier: str) -> list[Mapping[str, Any]]:
-    """Every junction row whose block names the address, a withdrawn team's included."""
+    """Every junction row whose block names the address, a withdrawn team's included, its season's status beside it."""
 
     return [
         {"$match": rows_seating(identifier)},
@@ -52,6 +83,7 @@ def build_seat_pipeline(identifier: str) -> list[Mapping[str, Any]]:
         # Ordered in the read rather than by the reader: two clubs' seats held by one inbox are
         # otherwise answered in whatever order the collection was written in.
         {"$sort": {"saison_id": 1, "team_id": 1}},
+        saison_status_lookup(),
     ]
 
 

@@ -16,11 +16,8 @@ from app.api.account.schemas import (
     FLAccountEinwilligungenResponse,
 )
 from app.api.account.services import (
-    build_angenommene_bewerbungen_pipeline,
-    build_kontext_teams_pipeline,
-    build_self_bewerbung_pipeline,
-    build_self_registrierung_pipeline,
-    build_self_seat_pipeline,
+    account_arms,
+    build_account_pipeline,
     compose_bewerbungssitze_self,
     compose_registrierungen_self,
     compose_schiedsrichter_konto,
@@ -60,25 +57,18 @@ from app.api.berechtigungen.services import genehmiger_of
 from app.api.identity.crud import funktionen_aus
 from app.api.identity.lookup import RecordCollections, SubjektLookup
 from app.api.identity.services import ist_eigener_schiedsrichter, ist_eigener_spieler, may_grant_on_schiedsrichter, may_grant_on_spieler
-from app.api.schiedsrichter.services import build_self_referee_pipeline
 from app.api.sperrliste.guard import PERSON_ACTOR_BINDERS, KontaktIdentifier
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt
-from app.api.spieler.services import build_self_pupil_pipeline
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import aggregate_many_from_db, patch_one_in_db, refuse
 from app.core.dependencies import (
     ActionLogCollection,
     AddressChangeCollection,
-    BewerbungenCollection,
     DBClient,
     GrantsAnnouncedCollection,
     GrantsCollection,
     OutboxCollection,
-    RegistrierungenCollection,
-    SaisonTeamsCollection,
-    SchiedsrichterCollection,
     SpielerCollection,
-    TeamsCollection,
     get_german_date_str,
     get_germany_now,
 )
@@ -107,12 +97,6 @@ router = APIRouter(
 async def get_einwilligungen(
     identifier: KontaktIdentifier,
     spieler_collection: SpielerCollection,
-    schiedsrichter_collection: SchiedsrichterCollection,
-    saison_teams_collection: SaisonTeamsCollection,
-    teams_collection: TeamsCollection,
-    bewerbungen_collection: BewerbungenCollection,
-    registrierungen_collection: RegistrierungenCollection,
-    records: SubjektLookup,
     db: DBClient,
     today: str = Depends(get_german_date_str),
 ) -> FLAccountEinwilligungenResponse:
@@ -132,78 +116,43 @@ async def get_einwilligungen(
     confirmation is not served: there is nothing on it yet to change.
     """
 
-    # A snapshot, so every record is answered as of one moment; never a transaction, which a read
-    # writing nothing has no conflict to retry for.
+    # One aggregation, every kind of own record unioned and each joined to what it names, so the page costs one round trip;
+    # in a snapshot, so its arms and their joins are read as of one moment.
     async with db.start_session(snapshot=True) as session:
-        pupils = await aggregate_many_from_db(collection=spieler_collection, pipeline=build_self_pupil_pipeline(identifier), session=session)
-        referees = await aggregate_many_from_db(
-            collection=schiedsrichter_collection, pipeline=build_self_referee_pipeline(identifier), session=session
-        )
-        seat_rows = await aggregate_many_from_db(
-            collection=saison_teams_collection, pipeline=build_self_seat_pipeline(identifier), session=session
-        )
-        bewerbung_rows = await aggregate_many_from_db(
-            collection=bewerbungen_collection, pipeline=build_self_bewerbung_pipeline(identifier), session=session
-        )
-        registrierung_rows = await aggregate_many_from_db(
-            collection=registrierungen_collection, pipeline=build_self_registrierung_pipeline(identifier), session=session
-        )
-        # From the rows read above, which the subject's own selections choose: a second read would answer the same.
-        subjekt = await funktionen_aus(
-            identifier,
-            seat_rows=seat_rows,
-            referee_rows=referees,
-            pupil_rows=pupils,
-            saisons_collection=records.saisons_collection,
-            session=session,
-        )
+        rows = await aggregate_many_from_db(collection=spieler_collection, pipeline=build_account_pipeline(identifier), session=session)
 
-        pupil = next((row for row in pupils if ist_eigener_spieler(row)), None)
-        zeile = None if pupil is None else kontext_zeile(pupil)
-        team_ids = [
-            *([] if zeile is None else [zeile["team_id"]]),
-            *(row["team_id"] for row in seat_rows),
-            # A school applying as a club the league already holds names it by `team_id` alone.
-            *(row["team_id"] for row in bewerbung_rows if row.get("team_id") is not None),
-            *(row["team_id"] for row in registrierung_rows),
-        ]
-        teams = {
-            team["_id"]: team
-            for team in await aggregate_many_from_db(
-                collection=teams_collection, pipeline=build_kontext_teams_pipeline(team_ids), session=session
-            )
-        }
-        bewerbungen = {
-            (bewerbung["team_id"], bewerbung["saison_id"]): bewerbung
-            for bewerbung in await aggregate_many_from_db(
-                collection=bewerbungen_collection,
-                pipeline=build_angenommene_bewerbungen_pipeline([row["team_id"] for row in seat_rows]),
-                session=session,
-            )
-        }
+    arms = account_arms(rows)
+    pupils, referees, seat_rows = arms["spieler"], arms["schiedsrichter"], arms["seats"]
+    # From the rows read above, which the subject's own selections choose: a second read would answer the same.
+    subjekt = funktionen_aus(identifier, seat_rows=seat_rows, referee_rows=referees, pupil_rows=pupils)
+    teams = {team["_id"]: team for row in rows for team in row.get("teams", [])}
+    bewerbungen = {(bewerbung["team_id"], bewerbung["saison_id"]): bewerbung for row in seat_rows for bewerbung in row["bewerbungen"]}
 
-        return FLAccountEinwilligungenResponse.model_validate(
-            {
-                "spieler": None
-                if pupil is None
-                else compose_spieler_konto(
-                    pupil,
-                    givable=may_grant_on_spieler(subjekt, pupil["_id"]),
-                    today=today,
-                    team=None if zeile is None else teams.get(zeile["team_id"]),
-                ),
-                "schiedsrichter": [
-                    compose_schiedsrichter_konto(row, givable=may_grant_on_schiedsrichter(subjekt, row["_id"]), today=today)
-                    for row in referees
-                    if ist_eigener_schiedsrichter(row, identifier)
-                ],
-                "seats": compose_sitze_self(
-                    seat_rows, identifier, sitze_mit_panel=subjekt.seats, today=today, teams=teams, bewerbungen=bewerbungen
-                ),
-                "bewerbungen": compose_bewerbungssitze_self(bewerbung_rows, identifier, teams=teams),
-                "registrierungen": compose_registrierungen_self(registrierung_rows, identifier, teams=teams),
-            }
-        )
+    pupil = next((row for row in pupils if ist_eigener_spieler(row)), None)
+    zeile = None if pupil is None else kontext_zeile(pupil)
+
+    return FLAccountEinwilligungenResponse.model_validate(
+        {
+            "spieler": None
+            if pupil is None
+            else compose_spieler_konto(
+                pupil,
+                givable=may_grant_on_spieler(subjekt, pupil["_id"]),
+                today=today,
+                team=None if zeile is None else teams.get(zeile["team_id"]),
+            ),
+            "schiedsrichter": [
+                compose_schiedsrichter_konto(row, givable=may_grant_on_schiedsrichter(subjekt, row["_id"]), today=today)
+                for row in referees
+                if ist_eigener_schiedsrichter(row, identifier)
+            ],
+            "seats": compose_sitze_self(
+                seat_rows, identifier, sitze_mit_panel=subjekt.seats, today=today, teams=teams, bewerbungen=bewerbungen
+            ),
+            "bewerbungen": compose_bewerbungssitze_self(arms["bewerbungen"], identifier, teams=teams),
+            "registrierungen": compose_registrierungen_self(arms["registrierungen"], identifier, teams=teams),
+        }
+    )
 
 
 # --- The ADDRESS CHANGE the person starts, approves and stops for themselves. Recorded under `kontakt`, as the erasure

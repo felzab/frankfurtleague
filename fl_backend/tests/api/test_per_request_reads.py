@@ -18,7 +18,7 @@ from app.api.identity.crud import find_subjekt, funktionen_of
 from app.core.collections import Collection
 from tests.records import record_collections
 
-from .test_identity_subjekt_execution import IDENTIFIER, VERWALTUNG_STORED, on_a_league
+from .test_identity_subjekt_execution import IDENTIFIER, on_a_league
 
 pytestmark = pytest.mark.db
 
@@ -54,31 +54,17 @@ async def _counted(url: str, database: AsyncDatabase, call: Callable[[AsyncMongo
         await client.close()
 
 
-class TestTheSubjectLookupsReads:
-    """`POST /identity/subject` answers every signed-in render, so each read it sends is a round trip on every page."""
+def test_the_subject_lookup_answers_a_seats_season_from_the_seat_read(mongo_replica_set_url: str):
+    """`POST /identity/subject` answers every signed-in render: a season read after the seats is a second round trip on every page."""
 
-    def test_a_mailbox_holding_no_seat_reads_no_season(self, mongo_replica_set_url: str):
-        """The season read follows the gathered three, so made for nothing it is a second round trip on every page."""
+    async def body(database: AsyncDatabase) -> Any:
+        return await _counted(mongo_replica_set_url, database, lambda _, db: find_subjekt(IDENTIFIER, record_collections(db)))
 
-        async def body(database: AsyncDatabase) -> Any:
-            return await _counted(mongo_replica_set_url, database, lambda _, db: find_subjekt(VERWALTUNG_STORED, record_collections(db)))
+    answer, sent = on_a_league(mongo_replica_set_url, body)
 
-        answer, sent = on_a_league(mongo_replica_set_url, body)
-
-        assert answer.seats == []
-        assert sorted(sent.collections()) == sorted(map(str, (Collection.SAISON_TEAMS, Collection.SCHIEDSRICHTER, Collection.SPIELER)))
-
-    def test_a_seat_holders_seasons_are_read_once_its_seats_are_known(self, mongo_replica_set_url: str):
-        """The control for the case above: a lookup reading no season at all passes it and answers no status here."""
-
-        async def body(database: AsyncDatabase) -> Any:
-            return await _counted(mongo_replica_set_url, database, lambda _, db: find_subjekt(IDENTIFIER, record_collections(db)))
-
-        answer, sent = on_a_league(mongo_replica_set_url, body)
-
-        assert sent.collections()[-1] == Collection.SAISONS
-        assert sent.collections().count(Collection.SAISONS) == 1
-        assert {seat.saison_status for seat in answer.seats} == {"past", "active"}
+    # The premise first: the seats' seasons were answered, so the reads below carried them.
+    assert {seat.saison_status for seat in answer.seats} == {"past", "active"}
+    assert sorted(sent.collections()) == sorted(map(str, (Collection.SAISON_TEAMS, Collection.SCHIEDSRICHTER, Collection.SPIELER)))
 
 
 def test_a_person_endpoint_reads_the_three_role_records_in_its_session(mongo_replica_set_url: str):
@@ -93,26 +79,18 @@ def test_a_person_endpoint_reads_the_three_role_records_in_its_session(mongo_rep
 
     (_, session_id), sent = on_a_league(mongo_replica_set_url, body)
 
-    assert Counter(sent.collections()) == Counter(
-        map(str, (Collection.SAISON_TEAMS, Collection.SAISONS, Collection.SCHIEDSRICHTER, Collection.SPIELER))
-    )
+    assert Counter(sent.collections()) == Counter(map(str, (Collection.SAISON_TEAMS, Collection.SCHIEDSRICHTER, Collection.SPIELER)))
     assert [lsid for _, lsid in sent.reads] == [session_id] * len(sent.reads)
 
 
-def test_the_account_read_reads_each_record_collection_once(mongo_replica_set_url: str):
-    """The Funktionen the page judges a grant by come from the rows the read already holds, never a second read of them."""
+def test_the_account_read_is_one_aggregation(mongo_replica_set_url: str):
+    """Every kind of own record, the seasons and clubs they name and the Funktionen a grant is judged by, in one round trip."""
 
     async def body(database: AsyncDatabase) -> Any:
         async def read(client: AsyncMongoClient, db: AsyncDatabase) -> Any:
             return await get_einwilligungen(
                 identifier=IDENTIFIER,
                 spieler_collection=db[Collection.SPIELER],
-                schiedsrichter_collection=db[Collection.SCHIEDSRICHTER],
-                saison_teams_collection=db[Collection.SAISON_TEAMS],
-                teams_collection=db[Collection.TEAMS],
-                bewerbungen_collection=db[Collection.BEWERBUNGEN],
-                registrierungen_collection=db[Collection.REGISTRIERUNGEN],
-                records=record_collections(db),
                 db=client,
                 today="2026-10-03",
             )
@@ -121,6 +99,12 @@ def test_the_account_read_reads_each_record_collection_once(mongo_replica_set_ur
 
     answer, sent = on_a_league(mongo_replica_set_url, body)
 
-    # The premise first: the page answered the mailbox's records, so the count below is of reads that found them.
-    assert (answer.spieler is not None, len(answer.schiedsrichter), bool(answer.seats)) == (True, 2, True)
-    assert [sent.collections().count(name) for name in (Collection.SPIELER, Collection.SCHIEDSRICHTER, Collection.SAISON_TEAMS)] == [1, 1, 1]
+    # The premise first: the page answered the mailbox's records and what they name, so the count below is of a read
+    # that found them.
+    assert (answer.spieler is not None, len(answer.schiedsrichter), [seat.team_name for seat in answer.seats]) == (
+        True,
+        2,
+        ["Lessing", "Helmholtz"],
+    )
+    assert answer.seats[0].givable
+    assert sent.collections() == [Collection.SPIELER], f"the read sent {len(sent.reads)}: {sent.collections()}"
