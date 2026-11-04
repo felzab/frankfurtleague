@@ -19,8 +19,8 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.account.person_router import delete_address_change as stop_on_the_account_page
-from app.api.account.person_router import get_address_change, post_address_change, post_address_change_release
-from app.api.account.schemas import FLAccountAddressChangePayload, FLAccountAddressChangeReleasePayload
+from app.api.account.person_router import get_address_change, post_address_change
+from app.api.account.schemas import FLAccountAddressChangePayload
 from app.api.adresswechsel.admin_router import (
     delete_address_change,
     get_address_change_verwaltung_view,
@@ -360,22 +360,12 @@ async def start(database: AsyncDatabase, client: AsyncMongoClient, *, email: str
     return Minted(answer=started.answer, token=confirmed.token, stopp_token=started.stopp_token)
 
 
-async def approve_as_the_address(database: AsyncDatabase, client: AsyncMongoClient, address_change_id: ObjectId, **given: Any) -> Minted:
-    payload = FLAccountAddressChangeReleasePayload(id=address_change_id)
-    return await handed_out(
-        database,
-        client,
-        await call(post_address_change_release, database, client, freigabe_data=payload, **given),
-        now=given.get("germany_now", NOW),
-    )
-
-
 def stop_here(database: AsyncDatabase, client: AsyncMongoClient, **given: Any) -> Awaitable[Any]:
     return call(stop_on_the_account_page, database, client, **given)
 
 
 async def administrator_starts(
-    database: AsyncDatabase, client: AsyncMongoClient, *, grund: str | None, adresse: str = EMAIL, email: str = NEW_EMAIL, **given: Any
+    database: AsyncDatabase, client: AsyncMongoClient, *, grund: str, adresse: str = EMAIL, email: str = NEW_EMAIL, **given: Any
 ) -> Minted:
     payload = FLAddressChangeVerwaltungPayload.model_validate({"adresse": adresse, "email": email, "grund": grund})
     return await handed_out(

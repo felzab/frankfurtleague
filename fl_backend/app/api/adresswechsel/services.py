@@ -207,21 +207,16 @@ def build_awaiting_genehmigung_filter(adressen: list[str], *, now: datetime) -> 
     }
 
 
-def build_awaiting_approval_terms() -> dict[str, Any]:
-    """A change an administrator started without a reason, its address on file not yet asked to approve it in vain."""
-
-    return {"way": "release", "released_at": None, "confirmed_at": None}
-
-
-# The ways whose new mailbox is asked only once the address on file approved: an administrator's start without a reason,
-# approved on the account page, and the person's own, confirmed by the link the address on file was mailed.
-ASKS_THE_ADDRESS_ON_FILE_FIRST: Final[tuple[FLAddressChangeWay, ...]] = ("release", "account")
-
-
 def build_resendable_terms() -> dict[str, Any]:
-    """A change waiting on the new mailbox: one awaiting the address on file's approval, or confirmed, has no link to re-send."""
+    """A change waiting on the new mailbox: the person's own awaiting its address on file, or one confirmed, has no link to re-send."""
 
-    return {"$nor": [{"way": {"$in": list(ASKS_THE_ADDRESS_ON_FILE_FIRST)}, "released_at": None}], "confirmed_at": None}
+    return {"$nor": [{"way": "account", "released_at": None}], "confirmed_at": None}
+
+
+def asks_the_address_on_file(record: Mapping[str, Any]) -> bool:
+    """Whether the person's own change waits on its address on file's confirmation, its first step: the new mailbox is owed nothing yet."""
+
+    return record.get("way") == "account" and record.get("released_at") is None
 
 
 def build_either_link_filter(token_hash: str) -> dict[str, Any]:
@@ -327,19 +322,10 @@ def wartet_auf(record: Mapping[str, Any]) -> FLAddressChangeWaitsOn:
         # A confirmed change with no waiting time stands only while its grant's approval is owed.
         return "waiting_period" if record.get("effective_from") is not None else "approval"
 
-    if record.get("released_at") is None:
-        # Two steps of two people: the account page's approval of an administrator's start, and the person's own
-        # change's confirmation through the link its address on file was mailed.
-        if record.get("way") == "release":
-            return "release"
-        if record.get("way") == "account":
-            return "previous_address"
-
-    return "new_address"
+    return "previous_address" if asks_the_address_on_file(record) else "new_address"
 
 
 _BISHERIG: Final[Mapping[FLAddressChangeWaitsOn, FLAdresswechselBisherigZustand]] = {
-    "release": "release_open",
     "previous_address": "release_open",
     "new_address": "open",
     "approval": "approval",

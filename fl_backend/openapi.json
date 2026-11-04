@@ -365,7 +365,7 @@
         "type": "object"
       },
       "FLAccountAddressChangeMintResponse": {
-        "description": "The change a start or an approval wrote: no link is answered, each owed in the Postausgang.",
+        "description": "The change a start wrote: no link is answered, the one owed the address on file waiting in the Postausgang.",
         "properties": {
           "email": {
             "title": "Email",
@@ -473,22 +473,6 @@
           "email"
         ],
         "title": "FLAccountAddressChangePayload",
-        "type": "object"
-      },
-      "FLAccountAddressChangeReleasePayload": {
-        "additionalProperties": false,
-        "description": "The change the page showed: an administrator's later start replaces it, and the approval then reaches nothing.",
-        "properties": {
-          "id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id"
-        ],
-        "title": "FLAccountAddressChangeReleasePayload",
         "type": "object"
       },
       "FLAccountAddressChangeResponse": {
@@ -2093,7 +2077,7 @@
         "type": "object"
       },
       "FLAddressChangeNoticeData": {
-        "description": "The address on file's mail about an address change, its link minted at the hand-out into `stop.token_hashes`.\n\nOn the person's own `account` way the link confirms or declines the change before the new mailbox is asked; on every\nother way it stops the change.",
+        "description": "The address on file's mail about an address change, its link minted at the hand-out into `stop.token_hashes`.\n\nOn the person's own `account` way the link confirms or declines the change before the new mailbox is asked; on the\nlost-mailbox way it stops the change.",
         "properties": {
           "art": {
             "const": "address_change_notice",
@@ -2451,7 +2435,7 @@
       },
       "FLAddressChangeVerwaltungPayload": {
         "additionalProperties": false,
-        "description": "The address a change starts on, the address it goes to, and the reason where the address on file is gone.",
+        "description": "The address a change starts on, the address it goes to, and how the administrator established who asks for it.",
         "properties": {
           "adresse": {
             "maxLength": 254,
@@ -2464,18 +2448,11 @@
             "type": "string"
           },
           "grund": {
-            "anyOf": [
-              {
-                "maxLength": 200,
-                "minLength": 1,
-                "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Grund"
+            "maxLength": 200,
+            "minLength": 1,
+            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
+            "title": "Grund",
+            "type": "string"
           }
         },
         "required": [
@@ -2816,7 +2793,6 @@
       },
       "FLAddressChangeWaitsOn": {
         "enum": [
-          "release",
           "previous_address",
           "new_address",
           "approval",
@@ -2827,7 +2803,6 @@
       "FLAddressChangeWay": {
         "enum": [
           "account",
-          "release",
           "waiting_period"
         ],
         "type": "string"
@@ -18306,7 +18281,7 @@
         ]
       },
       "get": {
-        "description": "Answer whether the signed-in address holds anything its own change moves, and the change pending on it.\n\nPERSON TIER. `possible` where the address holds a pupil row, a confirmed referee row, a confirmed contact seat, a\nregistration or a grant. **The pending address is served masked where an administrator started the change**, whole\nonly where the person typed it here: a change an administrator started may be a pretext whose target the holder of\nthe address on file must not learn. `waits_on` names the step: `release` alone is this page's own approval\n(`POST /account/address_change/release`), `previous_address` the link the person's own change mailed the address on\nfile. `approval` is the approval a change moving the person's grant waits on;\n`expired` says the step the change waits on lapsed, whose press is refused until the hourly pass ends the change.",
+        "description": "Answer whether the signed-in address holds anything its own change moves, and the change pending on it.\n\nPERSON TIER. `possible` where the address holds a pupil row, a confirmed referee row, a confirmed contact seat, a\nregistration or a grant. **The pending address is served masked where an administrator started the change**, whole\nonly where the person typed it here: a change an administrator started may be a pretext whose target the holder of\nthe address on file must not learn. `waits_on` names the step, `previous_address` the link the person's own change\nmailed the address on file, which this page answers nothing of. `approval` is the approval a change moving the\nperson's grant waits on;\n`expired` says the step the change waits on lapsed, whose press is refused until the hourly pass ends the change.",
         "operationId": "account_get_address_change",
         "responses": {
           "200": {
@@ -18433,79 +18408,6 @@
           }
         ],
         "summary": "Start a change of the signed-in person's address",
-        "tags": [
-          "account"
-        ]
-      }
-    },
-    "/api/v0/account/address_change/release": {
-      "post": {
-        "description": "Approve the change `id` names, which an administrator started without a reason, owing the new mailbox its link.\n\n**Nothing reaches the new mailbox before this press**. Nothing about the new address is\njudged here either: the approver is owed no answer about it, and the confirmation judges it. **The press approves the\nchange its page showed alone**: an administrator's later start replaces that one, and its id then names an ended change.\n\nRefused `confirmation_required` from a sign-in or confirmation older than `ENROLMENT_WINDOW_MINUTES`, or by code where the\naddress holds a grant; `address_change_ended` where the change `id` names has ended; 404 where it is no change of this\naddress awaiting its approval; and `link_expired` past the approval's deadline.",
-        "operationId": "account_post_address_change_release",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/FLAccountAddressChangeReleasePayload"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLAccountAddressChangeMintResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "AdminKey": []
-          }
-        ],
-        "summary": "Approve the address change an administrator asked of the signed-in person",
         "tags": [
           "account"
         ]
@@ -18826,7 +18728,7 @@
     },
     "/api/v0/address_change": {
       "post": {
-        "description": "Start a change of the typed address for a person who says they cannot sign in, its mails owed in the same transaction.\n\n**Nothing moves here.** Without a `grund` the change asks the address on file first: it is owed the request with its\nstop link, and nothing goes to the new mailbox until that address approves on its account page. With a `grund`,\nrecording how the administrator established who asks, the new mailbox is owed its link and the address on file a\nnotice with its stop link; the change then takes effect `ADDRESS_CHANGE_WAITING_PERIOD_DAYS` after the new mailbox\nconfirms. Where the address holds a grant, the change also waits on another administrator's approval, never this\none's. No link is answered. The address's live change ends replaced.\n\nRefused the administrator's own address (`own_adresse`), a grant holder's without an owner's power\n(`verwaltung_adresse`), the address on file typed again (`address_change_unchanged`), a new address the ban list holds\n(`address_change_barred`), an address holding nothing a change moves (`address_change_nothing`), a new address another pupil signs in on\nwhere the change moves a pupil (`address_change_taken`), a new address any entry names, confirmed or not (`address_change_occupied`), and a\ngrant nobody could approve (`address_change_no_approver`).",
+        "description": "Start a change of the typed address for a person who says they cannot sign in, its mails owed in the same transaction.\n\n**Nothing moves here.** The `grund` records how the administrator established who asks, the address on file being\nlost: a person who can still sign in there changes it on their own account page. The new mailbox is owed its link\nand the address on file a notice with its stop link; the change then takes effect\n`ADDRESS_CHANGE_WAITING_PERIOD_DAYS` after the new mailbox confirms. Where the address holds a grant, the change also\nwaits on another administrator's approval, never this one's. No link is answered. The address's live change ends\nreplaced.\n\nRefused the administrator's own address (`own_adresse`), a grant holder's without an owner's power\n(`verwaltung_adresse`), the address on file typed again (`address_change_unchanged`), a new address the ban list holds\n(`address_change_barred`), an address holding nothing a change moves (`address_change_nothing`), a new address another pupil signs in on\nwhere the change moves a pupil (`address_change_taken`), a new address any entry names, confirmed or not (`address_change_occupied`), and a\ngrant nobody could approve (`address_change_no_approver`).",
         "operationId": "address_change_post_address_change_verwaltung",
         "requestBody": {
           "content": {

@@ -18,13 +18,12 @@ from fastapi import FastAPI
 from httpx2 import AsyncClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.adresswechsel.services import compose_record
 from app.api.schiedsrichter.services import compose_bestaetigung
 from app.api.teams.schemas import kontakte_stand_of
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.security import ENROLMENT_WINDOW_S, PASSKEY_FACTOR, STEP_UP_WINDOW_S
+from app.core.security import ENROLMENT_WINDOW_S, STEP_UP_WINDOW_S
 from app.main import create_app
 from app.shared.tokens import hash_token
 from tests.app_client import app_client
@@ -324,65 +323,6 @@ class TestTheRefereesReturn:
             return (await http.post(self.URL, headers=OLDER)).status_code
 
         assert on_a_season(mongo_replica_set_url, body, seed=seeding(a_referee(confirmed=True, retired=True))) == 200
-
-
-# A grant holder, beside the suite's administrators, whose approval of an administrator's change hands their grant over.
-GRANT_HOLDER = "gisela.zugang@example.com"
-AWAITING_CHANGE_ID = ObjectId("6890a1b2c3d4e5f607950021")
-
-
-async def a_grant_holders_change_awaiting_approval(database: AsyncDatabase) -> None:
-    await database[Collection.GRANTS].insert_one(
-        {"adresse": GRANT_HOLDER, "verwaltung": "administration", "granted_by": "PLAYGROUND", "granted_at": datetime(2026, 1, 1, tzinfo=UTC)}
-    )
-    await database[Collection.ADDRESS_CHANGES].insert_one(
-        {
-            "_id": AWAITING_CHANGE_ID,
-            **compose_record(
-                adresse=GRANT_HOLDER,
-                email="gisela.neu@example.com",
-                way="release",
-                grund=None,
-                approval=None,
-                # Started now, the request's own clock being the real one: a past start would lapse before the press.
-                now=datetime.now(UTC),
-            ),
-        }
-    )
-
-
-class TestAGrantHoldersApprovalOfAnAdministratorsChange:
-    """The address on file's approval lets the link go that hands the grant over, so it asks the revoke's passkey."""
-
-    URL = f"/api/v{API_VERSION}/account/address_change/release"
-
-    @pytest.mark.parametrize(
-        "headers",
-        [
-            pytest.param(StampedHeaders(GRANT_HOLDER, ADMIN_KEY, lane="person", signed_in_before_s=1), id="by code a second ago"),
-            pytest.param(
-                StampedHeaders(GRANT_HOLDER, ADMIN_KEY, lane="person", signed_in_before_s=ENROLMENT_WINDOW_S + 60, factor=PASSKEY_FACTOR),
-                id="by passkey past the window",
-            ),
-        ],
-    )
-    def test_an_approval_is_refused_and_lets_no_link_go(self, mongo_replica_set_url: str, headers: StampedHeaders):
-        async def body(database: AsyncDatabase, http: AsyncClient) -> tuple[bool, Any]:
-            response = await http.post(self.URL, json={"id": str(AWAITING_CHANGE_ID)}, headers=headers)
-            stored = await database[Collection.ADDRESS_CHANGES].find_one({"_id": AWAITING_CHANGE_ID})
-            assert stored is not None
-            return refused(response), stored["released_at"]
-
-        assert on_a_season(mongo_replica_set_url, body, seed=a_grant_holders_change_awaiting_approval) == (True, None)
-
-    def test_a_passkey_confirmed_a_second_before_approves(self, mongo_replica_set_url: str):
-        """The control: every refusal above would pass on a route refusing everything."""
-
-        async def body(database: AsyncDatabase, http: AsyncClient) -> int:
-            by_passkey = StampedHeaders(GRANT_HOLDER, ADMIN_KEY, lane="person", signed_in_before_s=1, factor=PASSKEY_FACTOR)
-            return (await http.post(self.URL, json={"id": str(AWAITING_CHANGE_ID)}, headers=by_passkey)).status_code
-
-        assert on_a_season(mongo_replica_set_url, body, seed=a_grant_holders_change_awaiting_approval) == 200
 
 
 # An administrator's address beside the suite's, whose erasure on request takes that grant with the rest.

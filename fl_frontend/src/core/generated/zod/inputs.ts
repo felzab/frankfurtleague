@@ -25,26 +25,6 @@ export const AccountPostAddressChangeBody = zod.object({
 });
 
 /**
- * Approve the change `id` names, which an administrator started without a reason, owing the new mailbox its link.
- *
- * **Nothing reaches the new mailbox before this press**. Nothing about the new address is
- * judged here either: the approver is owed no answer about it, and the confirmation judges it. **The press approves the
- * change its page showed alone**: an administrator's later start replaces that one, and its id then names an ended change.
- *
- * Refused `confirmation_required` from a sign-in or confirmation older than `ENROLMENT_WINDOW_MINUTES`, or by code where the
- * address holds a grant; `address_change_ended` where the change `id` names has ended; 404 where it is no change of this
- * address awaiting its approval; and `link_expired` past the approval's deadline.
- * @summary Approve the address change an administrator asked of the signed-in person
- */
-export const accountPostAddressChangeReleaseBodyIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
-
-export const AccountPostAddressChangeReleaseBody = zod
-  .object({
-    id: zod.string().regex(accountPostAddressChangeReleaseBodyIdRegExp),
-  })
-  .describe("The change the page showed: an administrator's later start replaces it, and the approval then reaches nothing.");
-
-/**
  * List recorded writes newest first, `complete` false where `limit` cut them, an actor's `email` null where the ban list holds it.
  *
  * `collection`, `operation` and `herkunft` take a comma-joined or repeated selection, and each
@@ -79,12 +59,12 @@ export const ActionLogGetActionLogEntryParams = zod.object({
 /**
  * Start a change of the typed address for a person who says they cannot sign in, its mails owed in the same transaction.
  *
- * **Nothing moves here.** Without a `grund` the change asks the address on file first: it is owed the request with its
- * stop link, and nothing goes to the new mailbox until that address approves on its account page. With a `grund`,
- * recording how the administrator established who asks, the new mailbox is owed its link and the address on file a
- * notice with its stop link; the change then takes effect `ADDRESS_CHANGE_WAITING_PERIOD_DAYS` after the new mailbox
- * confirms. Where the address holds a grant, the change also waits on another administrator's approval, never this
- * one's. No link is answered. The address's live change ends replaced.
+ * **Nothing moves here.** The `grund` records how the administrator established who asks, the address on file being
+ * lost: a person who can still sign in there changes it on their own account page. The new mailbox is owed its link
+ * and the address on file a notice with its stop link; the change then takes effect
+ * `ADDRESS_CHANGE_WAITING_PERIOD_DAYS` after the new mailbox confirms. Where the address holds a grant, the change also
+ * waits on another administrator's approval, never this one's. No link is answered. The address's live change ends
+ * replaced.
  *
  * Refused the administrator's own address (`own_adresse`), a grant holder's without an owner's power
  * (`verwaltung_adresse`), the address on file typed again (`address_change_unchanged`), a new address the ban list holds
@@ -97,24 +77,21 @@ export const addressChangePostAddressChangeVerwaltungBodyAdresseMax = 254;
 
 export const addressChangePostAddressChangeVerwaltungBodyEmailMax = 254;
 
-export const addressChangePostAddressChangeVerwaltungBodyGrundOneMax = 200;
+export const addressChangePostAddressChangeVerwaltungBodyGrundMax = 200;
 
-export const addressChangePostAddressChangeVerwaltungBodyGrundOneRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
+export const addressChangePostAddressChangeVerwaltungBodyGrundRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
 
 export const AddressChangePostAddressChangeVerwaltungBody = zod
   .object({
     adresse: zod.string().max(addressChangePostAddressChangeVerwaltungBodyAdresseMax),
     email: zod.string().max(addressChangePostAddressChangeVerwaltungBodyEmailMax),
-    grund: zod.union([
-      zod
-        .string()
-        .min(1)
-        .max(addressChangePostAddressChangeVerwaltungBodyGrundOneMax)
-        .regex(addressChangePostAddressChangeVerwaltungBodyGrundOneRegExp),
-      zod.null(),
-    ]),
+    grund: zod
+      .string()
+      .min(1)
+      .max(addressChangePostAddressChangeVerwaltungBodyGrundMax)
+      .regex(addressChangePostAddressChangeVerwaltungBodyGrundRegExp),
   })
-  .describe("The address a change starts on, the address it goes to, and the reason where the address on file is gone.");
+  .describe("The address a change starts on, the address it goes to, and how the administrator established who asks for it.");
 
 /**
  * Answer the new address of the live change the new mailbox's link token or the change's id names, folded to the sign-in identifier.

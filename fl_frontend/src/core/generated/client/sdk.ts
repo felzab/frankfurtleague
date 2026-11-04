@@ -19,7 +19,6 @@ import type {
   FLAcceptBewerbungResponse,
   FLAccountAddressChangeMintResponse,
   FLAccountAddressChangePayload,
-  FLAccountAddressChangeReleasePayload,
   FLAccountAddressChangeResponse,
   FLAccountEinwilligungenResponse,
   FLAccountEinwilligungPayload,
@@ -258,9 +257,9 @@ export const getAccountGetAddressChangeUrl = () => {
  * PERSON TIER. `possible` where the address holds a pupil row, a confirmed referee row, a confirmed contact seat, a
  * registration or a grant. **The pending address is served masked where an administrator started the change**, whole
  * only where the person typed it here: a change an administrator started may be a pretext whose target the holder of
- * the address on file must not learn. `waits_on` names the step: `release` alone is this page's own approval
- * (`POST /account/address_change/release`), `previous_address` the link the person's own change mailed the address on
- * file. `approval` is the approval a change moving the person's grant waits on;
+ * the address on file must not learn. `waits_on` names the step, `previous_address` the link the person's own change
+ * mailed the address on file, which this page answers nothing of. `approval` is the approval a change moving the
+ * person's grant waits on;
  * `expired` says the step the change waits on lapsed, whose press is refused until the hourly pass ends the change.
  * @summary Whether a signed-in person may change their address
  */
@@ -312,46 +311,6 @@ export const accountPostAddressChange = async (
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
     body: JSON.stringify(fLAccountAddressChangePayload),
-  });
-};
-
-export const getAccountPostAddressChangeReleaseUrl = () => {
-  return `/api/v0/account/address_change/release`;
-};
-
-/**
- * Approve the change `id` names, which an administrator started without a reason, owing the new mailbox its link.
- *
- * **Nothing reaches the new mailbox before this press**. Nothing about the new address is
- * judged here either: the approver is owed no answer about it, and the confirmation judges it. **The press approves the
- * change its page showed alone**: an administrator's later start replaces that one, and its id then names an ended change.
- *
- * Refused `confirmation_required` from a sign-in or confirmation older than `ENROLMENT_WINDOW_MINUTES`, or by code where the
- * address holds a grant; `address_change_ended` where the change `id` names has ended; 404 where it is no change of this
- * address awaiting its approval; and `link_expired` past the approval's deadline.
- * @summary Approve the address change an administrator asked of the signed-in person
- */
-export const accountPostAddressChangeRelease = async (
-  fLAccountAddressChangeReleasePayload: FLAccountAddressChangeReleasePayload,
-  options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLAccountAddressChangeMintResponse> => {
-  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
-    if (!h) return {};
-    if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
-  };
-  return adminKeyTransport<FLAccountAddressChangeMintResponse>(getAccountPostAddressChangeReleaseUrl(), {
-    ...options,
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLAccountAddressChangeReleasePayload),
   });
 };
 
@@ -430,12 +389,12 @@ export const getAddressChangePostAddressChangeVerwaltungUrl = () => {
 /**
  * Start a change of the typed address for a person who says they cannot sign in, its mails owed in the same transaction.
  *
- * **Nothing moves here.** Without a `grund` the change asks the address on file first: it is owed the request with its
- * stop link, and nothing goes to the new mailbox until that address approves on its account page. With a `grund`,
- * recording how the administrator established who asks, the new mailbox is owed its link and the address on file a
- * notice with its stop link; the change then takes effect `ADDRESS_CHANGE_WAITING_PERIOD_DAYS` after the new mailbox
- * confirms. Where the address holds a grant, the change also waits on another administrator's approval, never this
- * one's. No link is answered. The address's live change ends replaced.
+ * **Nothing moves here.** The `grund` records how the administrator established who asks, the address on file being
+ * lost: a person who can still sign in there changes it on their own account page. The new mailbox is owed its link
+ * and the address on file a notice with its stop link; the change then takes effect
+ * `ADDRESS_CHANGE_WAITING_PERIOD_DAYS` after the new mailbox confirms. Where the address holds a grant, the change also
+ * waits on another administrator's approval, never this one's. No link is answered. The address's live change ends
+ * replaced.
  *
  * Refused the administrator's own address (`own_adresse`), a grant holder's without an owner's power
  * (`verwaltung_adresse`), the address on file typed again (`address_change_unchanged`), a new address the ban list holds

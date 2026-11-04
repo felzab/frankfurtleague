@@ -227,7 +227,9 @@ async def the_address_change_request(database: AsyncDatabase, client: AsyncMongo
     """The holder check, shared with the re-send, the link's view and its confirmation (`app/api/spieler/crud.py :: another_pupil_holds`)."""
 
     return await post_address_change_verwaltung(
-        adresswechsel_data=FLAddressChangeVerwaltungPayload(adresse=FOLDED_EMAIL, email="thessaly.neu@beispielschule.de", grund=None),
+        adresswechsel_data=FLAddressChangeVerwaltungPayload(
+            adresse=FOLDED_EMAIL, email="thessaly.neu@beispielschule.de", grund="Ausweis gesehen"
+        ),
         adresswechsel_collection=database[Collection.ADDRESS_CHANGES],
         records=record_collections(database),
         spieler_collection=database[Collection.SPIELER],

@@ -3,7 +3,6 @@ from datetime import datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Depends
-from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
@@ -11,7 +10,6 @@ from app.api.account.schemas import (
     FLAccountAddressChangeMintResponse,
     FLAccountAddressChangeOpen,
     FLAccountAddressChangePayload,
-    FLAccountAddressChangeReleasePayload,
     FLAccountAddressChangeResponse,
     FLAccountEinwilligungenResponse,
 )
@@ -28,23 +26,16 @@ from app.api.account.services import (
 from app.api.adresswechsel.crud import (
     end_the_change_in_session,
     ending_line,
-    live_grant_of,
-    owe_the_link_in_session,
     owe_the_notice_in_session,
     read_the_bestand,
     start_the_change_in_session,
 )
 from app.api.adresswechsel.schemas import FLAddressChangeApprovalState
 from app.api.adresswechsel.services import (
-    LIVE_TERMS,
     als_utc,
     build_address_filter,
-    build_awaiting_approval_terms,
     compose_genehmigung,
-    compose_link_update,
     compose_record,
-    find_abgelaufen_refusal,
-    find_beendet_refusal,
     find_kein_genehmiger_refusal,
     find_nichts_refusal,
     find_unveraendert_refusal,
@@ -60,7 +51,7 @@ from app.api.identity.services import ist_eigener_schiedsrichter, ist_eigener_sp
 from app.api.sperrliste.guard import PERSON_ACTOR_BINDERS, KontaktIdentifier
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt
 from app.core.config import API_VERSION, BackendConfig, get_app_config
-from app.core.crud import aggregate_many_from_db, patch_one_in_db, refuse
+from app.core.crud import aggregate_many_from_db, refuse
 from app.core.dependencies import (
     ActionLogCollection,
     AddressChangeCollection,
@@ -76,11 +67,7 @@ from app.core.exceptions import DocumentNotFoundError
 from app.core.journal import Journal
 from app.core.recording import log_stamp
 from app.core.security import (
-    SessionActor,
     verify_access_admin,
-    verify_person_actor,
-    verify_person_passkey_confirmation,
-    verify_recent_person_confirmation,
 )
 from app.core.transactions import transaction_session
 from app.shared.folding import sign_in_identifier
@@ -212,9 +199,9 @@ async def get_address_change(
     PERSON TIER. `possible` where the address holds a pupil row, a confirmed referee row, a confirmed contact seat, a
     registration or a grant. **The pending address is served masked where an administrator started the change**, whole
     only where the person typed it here: a change an administrator started may be a pretext whose target the holder of
-    the address on file must not learn. `waits_on` names the step: `release` alone is this page's own approval
-    (`POST /account/address_change/release`), `previous_address` the link the person's own change mailed the address on
-    file. `approval` is the approval a change moving the person's grant waits on;
+    the address on file must not learn. `waits_on` names the step, `previous_address` the link the person's own change
+    mailed the address on file, which this page answers nothing of. `approval` is the approval a change moving the
+    person's grant waits on;
     `expired` says the step the change waits on lapsed, whose press is refused until the hourly pass ends the change.
     """
 
@@ -320,85 +307,6 @@ async def post_address_change(
     async with journal:
         async with transaction_session(db) as session:
             return await session.with_transaction(start_the_change)
-
-
-@router.post(
-    "/address_change/release",
-    response_model=FLAccountAddressChangeMintResponse,
-    summary="Approve the address change an administrator asked of the signed-in person",
-    # Redesign: goes with its last importer.
-    dependencies=[Depends(verify_recent_person_confirmation)],
-)
-async def post_address_change_release(
-    identifier: KontaktIdentifier,
-    freigabe_data: Annotated[FLAccountAddressChangeReleasePayload, Body()],
-    adresswechsel_collection: AddressChangeCollection,
-    berechtigungen_collection: GrantsCollection,
-    outbox_collection: OutboxCollection,
-    db: DBClient,
-    # Redesign: goes with its last importer.
-    actor: Annotated[SessionActor, Depends(verify_person_actor)],
-    germany_now: datetime = Depends(get_germany_now),
-) -> FLAccountAddressChangeMintResponse:
-    """
-    Approve the change `id` names, which an administrator started without a reason, owing the new mailbox its link.
-
-    **Nothing reaches the new mailbox before this press**. Nothing about the new address is
-    judged here either: the approver is owed no answer about it, and the confirmation judges it. **The press approves the
-    change its page showed alone**: an administrator's later start replaces that one, and its id then names an ended change.
-
-    Refused `confirmation_required` from a sign-in or confirmation older than `ENROLMENT_WINDOW_MINUTES`, or by code where the
-    address holds a grant; `address_change_ended` where the change `id` names has ended; 404 where it is no change of this
-    address awaiting its approval; and `link_expired` past the approval's deadline.
-    """
-
-    address_change_id = freigabe_data.id
-    db_filter = {"_id": address_change_id, **build_address_filter(identifier), **build_awaiting_approval_terms()}
-
-    async def approve_the_change(session: AsyncClientSession) -> Mapping[str, Any]:
-        record = await adresswechsel_collection.find_one(db_filter, session=session)
-        if record is None:
-            ended = await adresswechsel_collection.find_one(
-                {"_id": address_change_id, "ended": {"$type": "object"}}, {"_id": 1}, session=session
-            )
-            refuse(find_beendet_refusal(offen=ended is None))
-            raise DocumentNotFoundError()
-        refuse(find_abgelaufen_refusal(abgelaufen=ist_abgelaufen(record, now=germany_now)))
-        # Redesign: goes with its last importer.
-        # The press lets a link go that hands over any grant the address holds at the effect, and the person's lane
-        # admits a sign-in by code.
-        if await live_grant_of(identifier, berechtigungen_collection=berechtigungen_collection, session=session) is not None:
-            verify_person_passkey_confirmation(actor)
-
-        approved = await patch_one_in_db(
-            collection=adresswechsel_collection,
-            db_filter={"_id": record["_id"], **LIVE_TERMS},
-            update=compose_link_update(now=germany_now, freigabe=True),
-            session=session,
-            return_document=ReturnDocument.AFTER,
-        )
-        # Read back with no offset, as the driver reads every stored instant.
-        gueltig_bis = als_utc(approved["valid_until"])
-        assert gueltig_bis is not None
-        await owe_the_link_in_session(
-            address_change_id=approved["_id"],
-            email=str(approved["email"]),
-            way=approved["way"],
-            valid_until=gueltig_bis,
-            outbox_collection=outbox_collection,
-            now=germany_now,
-            session=session,
-        )
-
-        return approved
-
-    async with transaction_session(db) as session:
-        record = await session.with_transaction(approve_the_change)
-
-    gueltig_bis = als_utc(record["valid_until"])
-    assert gueltig_bis is not None
-
-    return FLAccountAddressChangeMintResponse(id=record["_id"], valid_until=gueltig_bis, email=record["email"])
 
 
 @router.delete(

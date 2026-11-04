@@ -41,7 +41,6 @@ from app.core.security import (
     erasure_journal_hash,
     get_actor_email,
     verify_recent_confirmation,
-    verify_recent_person_confirmation,
     verify_step_up,
 )
 from app.main import create_app
@@ -181,25 +180,18 @@ STEP_UP_WRITES = [
 ]
 
 
-# The person's approval of an administrator's address change, held to the enrolment window by either factor.
-ADDRESS_CHANGE_WRITES = [
-    pytest.param("post", "/api/v0/account/address_change/release", id="an approval"),
-]
-
 WindowCheck = Callable[[SessionActor], None]
 
 # Each window check and the window it holds a sign-in to.
 WINDOWS = [
     pytest.param(verify_recent_confirmation, ENROLMENT_WINDOW_S, id="the grants' enrolment window"),
     pytest.param(verify_step_up, STEP_UP_WINDOW_S, id="the step-up window"),
-    pytest.param(verify_recent_person_confirmation, ENROLMENT_WINDOW_S, id="the person's enrolment window"),
 ]
 
 # Each window check and the writes declaring it.
 DECLARATIONS = [
     pytest.param(verify_recent_confirmation, GRANT_WRITES, id="the grants' enrolment window"),
     pytest.param(verify_step_up, STEP_UP_WRITES, id="the step-up window"),
-    pytest.param(verify_recent_person_confirmation, ADDRESS_CHANGE_WRITES, id="the person's enrolment window"),
 ]
 
 
@@ -219,7 +211,7 @@ def refusal_of(check: WindowCheck, actor: SessionActor) -> APIError | None:
 
 
 class TestTheStepUp:
-    """Each step-up write is held to its window: the grants' writes and a person's approval to the enrolment window."""
+    """The grants' writes are held to the enrolment window, every other step-up write to the step-up window."""
 
     @pytest.mark.parametrize(("check", "window_s"), WINDOWS)
     def test_a_sign_in_older_than_the_window_is_refused_with_its_challenge(self, check: WindowCheck, window_s: int):
@@ -234,14 +226,6 @@ class TestTheStepUp:
         """The control: every refusal above would pass on a check refusing everything."""
 
         assert refusal_of(check, verified_actor(ACTOR, signed_in_before_s=window_s - SESSION_AGE_S)) is None
-
-    @pytest.mark.parametrize("factor", ["code", PASSKEY_FACTOR])
-    def test_a_person_s_approval_takes_either_factor_inside_the_window(self, factor: Factor):
-        """The code goes to the address on file, the confirmation OWASP's process asks of it."""
-
-        actor = verified_actor(ACTOR, signed_in_before_s=ENROLMENT_WINDOW_S - SESSION_AGE_S, factor=factor)
-
-        assert refusal_of(verify_recent_person_confirmation, actor) is None
 
     @pytest.mark.parametrize(("check", "writes"), DECLARATIONS)
     def test_every_route_declaring_the_check_is_one_listed_above(self, check: WindowCheck, writes: list[Any]):

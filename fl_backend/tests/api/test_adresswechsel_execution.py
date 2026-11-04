@@ -93,7 +93,6 @@ from .adresswechsel_harness import (
     administrator_starts,
     answer,
     approve,
-    approve_as_the_address,
     call,
     carries,
     change,
@@ -166,7 +165,7 @@ class TestTheAccountPagesRead:
         """It may be a pretext whose target the holder of the address on file must not learn: unmask it and this fails."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await administrator_starts(database, client, grund=None)
+            await administrator_starts(database, client, grund=GRUND)
             return await read(database, client)
 
         seen = on_a_person(mongo_replica_set_url, body)
@@ -423,7 +422,7 @@ class TestTheLinks:
     @pytest.mark.parametrize(
         ("step", "waits_on", "bisherig", "email"),
         [
-            ("release", "release", "release_open", None),
+            ("an administrator's start", "new_address", "open", None),
             ("previous_address", "previous_address", "release_open", NEW_EMAIL),
             ("approval", "approval", "approval", None),
         ],
@@ -431,15 +430,15 @@ class TestTheLinks:
     def test_the_step_a_change_waits_on_reads_on_the_account_page_and_the_stop_link(
         self, mongo_replica_set_url: str, step: str, waits_on: str, bisherig: str, email: str | None
     ):
-        """The account page offers the address on file's approval on `release` alone, and the stop link names each step.
+        """The account page and the address on file's link name each step alike.
 
         The new address only where the person's own change asks the address on file its question: an administrator's
         start may be a pretext whose target that address's holder must not learn.
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            if step == "release":
-                minted = await administrator_starts(database, client, grund=None)
+            if step == "an administrator's start":
+                minted = await administrator_starts(database, client, grund=GRUND)
             elif step == "previous_address":
                 minted = await start(database, client, released=False)
             else:
@@ -1057,52 +1056,6 @@ class TestTheStop:
         assert on_a_person(mongo_replica_set_url, body) == (Code.LINK_INVALID, None, "declined")
 
 
-class TestTheAddressOnFilesApproval:
-    def test_without_a_reason_nothing_reaches_the_new_mailbox_before_the_address_on_file_approves(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            started = await administrator_starts(database, client, grund=None)
-            before = await change(database, started.id)
-            approved = await approve_as_the_address(database, client, started.id)
-            return started, before, approved, await change(database, started.id)
-
-        started, before, approved, after = on_a_person(mongo_replica_set_url, body)
-
-        assert (started.way, started.token, before["token_hashes"]) == ("release", None, [])
-        assert (approved.id, approved.email) == (started.id, NEW_EMAIL)
-        assert (after["token_hashes"], after["released_at"] is not None) == ([hash_token(approved.token)], True)
-        assert after["stop"] == before["stop"]
-
-    def test_past_its_deadline_it_is_refused(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            started = await administrator_starts(database, client, grund=None)
-            return await refused_code(approve_as_the_address(database, client, started.id, germany_now=AFTER_THE_DEADLINE))
-
-        assert on_a_person(mongo_replica_set_url, body) == Code.LINK_EXPIRED
-
-    def test_a_tab_showing_a_change_since_replaced_approves_nothing(self, mongo_replica_set_url: str):
-        """The page read one request; a second start replaced it before the press, whose new address the page never showed."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            shown = await administrator_starts(database, client, grund=None)
-            later = await administrator_starts(database, client, grund=None, email=FOREIGN_EMAIL)
-            stale = await refused_code(approve_as_the_address(database, client, shown.id))
-            return stale, await change(database, later.id)
-
-        stale, later = on_a_person(mongo_replica_set_url, body)
-
-        assert stale == Code.ADDRESS_CHANGE_ENDED
-        assert (later["token_hashes"], later["released_at"]) == ([], None)
-
-    def test_another_address_s_change_is_not_found(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            theirs = await administrator_starts(database, client, grund=None, adresse=OTHER_EMAIL)
-            with pytest.raises(DocumentNotFoundError):
-                await approve_as_the_address(database, client, theirs.id)
-            return await change(database, theirs.id)
-
-        assert on_a_person(mongo_replica_set_url, body)["token_hashes"] == []
-
-
 class TestTheToolsStart:
     def test_with_a_reason_it_mints_the_new_mailbox_its_link_and_refuses_a_new_address_holding_entries(self, mongo_replica_set_url: str):
         """Its reader trusted, the tool refuses at its start what the confirmation would, and the change it would replace stands."""
@@ -1122,12 +1075,12 @@ class TestTheToolsStart:
         """On the lost-mailbox way the address on file may be a stranger's by now, so its notice is given no name to greet."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await administrator_starts(database, client, grund=None)
+            await start(database, client, released=False)
             await administrator_starts(database, client, grund=GRUND)
             rows = database[Collection.OUTBOX].find({"art": "address_change_notice"}, sort=[("recorded_at", 1), ("_id", 1)])
             return [(row["data"]["way"], row["data"]["vorname"]) async for row in rows]
 
-        assert on_a_person(mongo_replica_set_url, body) == [("release", "Lenore"), ("waiting_period", None)]
+        assert on_a_person(mongo_replica_set_url, body) == [("account", "Lenore"), ("waiting_period", None)]
 
     @staticmethod
     def refused_start(url: str, setup: str = "", **payload: Any) -> tuple[str, int]:
@@ -1220,15 +1173,6 @@ class TestTheTool:
         assert after["valid_until"] > before["valid_until"]
         # The replaced link opens nothing: its hash is gone from the record.
         assert old == Code.LINK_INVALID
-
-    def test_a_change_not_waiting_on_the_new_mailbox_is_sent_nothing(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            started = await administrator_starts(database, client, grund=None)
-            with pytest.raises(DocumentNotFoundError):
-                await resend(database, client, started.id)
-            return "not found"
-
-        assert on_a_person(mongo_replica_set_url, body) == "not found"
 
     def test_a_confirmed_change_is_sent_no_fresh_link(self, mongo_replica_set_url: str):
         """A deadline set again on a change waiting out its time would make the pass end it lapsed rather than let it take effect."""

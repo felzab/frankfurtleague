@@ -97,8 +97,8 @@ class FLAdresswechselStopp(BaseModel):
 class FLAdresswechselRecord(FLAdresswechsel):
     """One change as `adresswechsel` stores it, its two links' hashes with it, each minted as its mail is handed out."""
 
-    # Empty until the new mailbox's link is handed out, and on the `release` and `account` ways until the address on file
-    # approves.
+    # Empty until the new mailbox's link is handed out, which on the person's own change waits until its address on file
+    # confirms.
     token_hashes: list[str]
     stop: FLAdresswechselStopp
 
@@ -309,15 +309,14 @@ class FLAddressChangeVerwaltungViewResponse(BaseAPIResponse):
 
 
 class FLAddressChangeVerwaltungPayload(BaseModel):
-    """The address a change starts on, the address it goes to, and the reason where the address on file is gone."""
+    """The address a change starts on, the address it goes to, and how the administrator established who asks for it."""
 
     model_config = ConfigDict(extra="forbid")
 
     adresse: CustomEmail
     email: CustomEmail
-    # Required, null meaning the address on file is asked first: a form forgetting the box must not start the change
-    # that hands the records over without that address.
-    grund: CustomAdresswechselGrund | None
+    # Never null: the change hands the records over without the address on file, so it stands on a recorded reason.
+    grund: CustomAdresswechselGrund
 
 
 class FLAddressChangeVerwaltungMintResponse(BaseAPIResponse):

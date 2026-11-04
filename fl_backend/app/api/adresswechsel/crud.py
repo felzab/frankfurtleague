@@ -22,8 +22,8 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.adresswechsel.services import (
-    ASKS_THE_ADDRESS_ON_FILE_FIRST,
     LIVE_TERMS,
+    asks_the_address_on_file,
     build_address_filter,
     build_owed_carry_filter,
     compose_end_update,
@@ -1102,7 +1102,7 @@ def others_naming(rows: Sequence[Mapping[str, Any]], identifier: str) -> list[Ma
 def known_to_the_new_mailbox(rows: Sequence[Mapping[str, Any]]) -> list[Mapping[str, Any]]:
     """The ones whose link was owed the new mailbox: one still awaiting the address on file has none."""
 
-    return [row for row in rows if row.get("way") not in ASKS_THE_ADDRESS_ON_FILE_FIRST or row.get("released_at") is not None]
+    return [row for row in rows if not asks_the_address_on_file(row)]
 
 
 _GENEHMIGUNG_AKTEURE: Final = ("approval.started_by", "approval.approved_by")

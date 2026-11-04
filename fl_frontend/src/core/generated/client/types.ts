@@ -256,7 +256,7 @@ export interface FLAcceptBewerbungResponse {
 }
 
 /**
- * The change a start or an approval wrote: no link is answered, each owed in the Postausgang.
+ * The change a start wrote: no link is answered, the one owed the address on file waiting in the Postausgang.
  */
 export interface FLAccountAddressChangeMintResponse {
   email: string;
@@ -284,7 +284,6 @@ export interface FLAddressChangeApprovalState {
 export type FLAddressChangeWaitsOn = (typeof FLAddressChangeWaitsOn)[keyof typeof FLAddressChangeWaitsOn];
 
 export const FLAddressChangeWaitsOn = {
-  release: "release",
   previous_address: "previous_address",
   new_address: "new_address",
   approval: "approval",
@@ -295,7 +294,6 @@ export type FLAddressChangeWay = (typeof FLAddressChangeWay)[keyof typeof FLAddr
 
 export const FLAddressChangeWay = {
   account: "account",
-  release: "release",
   waiting_period: "waiting_period",
 } as const;
 
@@ -317,14 +315,6 @@ export interface FLAccountAddressChangeOpen {
 export interface FLAccountAddressChangePayload {
   /** @maxLength 254 */
   email: string;
-}
-
-/**
- * The change the page showed: an administrator's later start replaces it, and the approval then reaches nothing.
- */
-export interface FLAccountAddressChangeReleasePayload {
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  id: string;
 }
 
 /**
@@ -973,8 +963,8 @@ export interface FLAddressChangeMovesResponse {
 /**
  * The address on file's mail about an address change, its link minted at the hand-out into `stop.token_hashes`.
  *
- * On the person's own `account` way the link confirms or declines the change before the new mailbox is asked; on every
- * other way it stops the change.
+ * On the person's own `account` way the link confirms or declines the change before the new mailbox is asked; on the
+ * lost-mailbox way it stops the change.
  */
 export interface FLAddressChangeNoticeData {
   art: "address_change_notice";
@@ -1104,14 +1094,19 @@ export interface FLAddressChangeVerwaltungOpen {
 }
 
 /**
- * The address a change starts on, the address it goes to, and the reason where the address on file is gone.
+ * The address a change starts on, the address it goes to, and how the administrator established who asks for it.
  */
 export interface FLAddressChangeVerwaltungPayload {
   /** @maxLength 254 */
   adresse: string;
   /** @maxLength 254 */
   email: string;
-  grund: string | null;
+  /**
+   * @minLength 1
+   * @maxLength 200
+   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
+   */
+  grund: string;
 }
 
 /**
