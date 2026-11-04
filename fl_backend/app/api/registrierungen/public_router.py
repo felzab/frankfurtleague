@@ -9,7 +9,6 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.bewerbungen.services import build_schluessel_filter, days_after, payload_fingerabdruck
 from app.api.einladungen.services import find_live_einladung_filter, find_unknown_einladung_refusal
-from app.api.einwilligung.services import find_fassung_refusal
 from app.api.outbox.schemas import FLOutboxReference, FLRegistrierungLinkData
 from app.api.outbox.services import OwedMail, enqueue_mails
 from app.api.registrierungen.crud import person_at_the_address
@@ -79,6 +78,7 @@ from app.core.security import bind_public_actor, verify_access_base
 from app.core.transactions import transaction_session
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS, REGISTRIERUNG_CONFIRMATION_FRIST_DAYS, REGISTRIERUNG_MIN_AGE_YEARS
 from app.shared.schemas.confirmation import FLTokenPayload
+from app.shared.schemas.einwilligung import by_choice
 from app.shared.tokens import hash_token
 
 # `bind_public_actor`, never `bind_actor`: no browser sends `X-FL-Actor`, so that guard would refuse
@@ -419,7 +419,7 @@ async def post_confirmation(
     """Record a pupil's own answer for the registration their link opens, which stays pending until the team decides.
 
     Refuses, writing nothing: `link_invalid`, `link_expired`, `confirmation_exists`, `confirmation_age`, `medien_age`,
-    `link_barred`, `registrierung_choices_unsuitable` and `wording_not_allowed`.
+    `link_barred` and `registrierung_choices_unsuitable`.
     """
 
     token_hash = hash_token(antwort_data.token)
@@ -447,13 +447,12 @@ async def post_confirmation(
         person = await person_at_the_address(spieler_collection=spieler_collection, registrierung_raw=raw, session=session)
         seite = seite_of(registrierung_raw=raw, person_raw=person)
         gespeichert = gespeichertes_geburtsdatum(seite=seite, person_raw=person)
-        # A new acceptance: the running label alone, so a page loaded before a deploy is told to reload.
-        refuse(find_fassung_refusal(seite=seite, named={"einwilligung": antwort_data.text_version}))
         refuse(
             find_wahlen_refusal(
                 seite=seite,
                 umfang=antwort_data.umfang,
                 medien=antwort_data.medien,
+                text_versions=antwort_data.text_versions,
                 geburtsdatum=antwort_data.geburtsdatum,
             )
         )
@@ -476,7 +475,7 @@ async def post_confirmation(
                 geburtsdatum=geburtsdatum,
                 umfang=antwort_data.umfang,
                 medien=antwort_data.medien,
-                text_version=antwort_data.text_version,
+                text_versions=None if antwort_data.text_versions is None else by_choice(antwort_data.text_versions),
                 today=today,
                 am=log_stamp(germany_now),
             ),

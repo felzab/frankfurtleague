@@ -1408,7 +1408,7 @@ DUE_RESOLUTION = [
 
 
 def confirmed_consent() -> dict[str, Any]:
-    return documents.own_einwilligung_document(text_version="2026-10-schiedsrichterseite-4", confirmed_at="2027-04-01")
+    return documents.own_einwilligung_document(text_versions=documents.SCHIEDSRICHTER_TEXT_VERSIONS, confirmed_at="2027-04-01")
 
 
 def referee_row(row_id: ObjectId = REFEREE_ROW, *, schiedsrichter_id: ObjectId = SCHIEDSRICHTER, **fields: Any) -> dict[str, Any]:

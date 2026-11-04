@@ -238,7 +238,7 @@ def _withdrawable(block: Mapping[str, Any], line: JournalLine) -> dict[FLEinwill
 
 
 async def _plan_widerruf(line: JournalLine, database: AsyncDatabase, *, key: SecretStr, session: AsyncClientSession | None) -> Plan:
-    assert line.collection is not None and line.am is not None and line.text_version is not None
+    assert line.collection is not None and line.am is not None
     collection = database[line.collection]
     row = await collection.find_one({"_id": line.record_id}, session=session)
     if row is None:
@@ -249,7 +249,7 @@ async def _plan_widerruf(line: JournalLine, database: AsyncDatabase, *, key: Sec
         if not _holds(_PERSON_ADDRESS[line.collection](row), line, key) or not isinstance(block, Mapping):
             return Plan("left for review")
         gewaehlt = _withdrawable(block, line)
-        update = compose_person_move(gespeichert=block, gewaehlt=gewaehlt, am=line.am, text_version=line.text_version) if gewaehlt else None
+        update = compose_person_move(gespeichert=block, gewaehlt=gewaehlt, am=line.am, text_versions=line.text_versions) if gewaehlt else None
     else:
         kontakte = row.get("kontakte") or {}
         sitze = {
@@ -265,7 +265,9 @@ async def _plan_widerruf(line: JournalLine, database: AsyncDatabase, *, key: Sec
         gesetzt: dict[str, Any] = {}
         for slot, block in sitze.items():
             gewaehlt = _withdrawable(block, line)
-            moved = compose_sitz_move(sitze={slot: block}, gewaehlt=gewaehlt, am=line.am, text_version=line.text_version) if gewaehlt else None
+            moved = (
+                compose_sitz_move(sitze={slot: block}, gewaehlt=gewaehlt, am=line.am, text_versions=line.text_versions) if gewaehlt else None
+            )
             gesetzt |= moved["$set"] if moved is not None else {}
         update = {"$set": gesetzt} if gesetzt else None
 

@@ -1,19 +1,14 @@
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
 
-import { getLaufendeFassung, getLaufendesLabel } from "@/core/einwilligung";
-import { gekeyteFassung, KONTAKT_ABSATZ_SCHLUESSEL, KONTAKT_BEDIEN_SCHLUESSEL } from "@/core/einwilligungSeiten";
 import { AdminBewerbungView } from "@/features/bewerbungen/components/views/AdminBewerbungView";
 import { getBewerbungById } from "@/features/bewerbungen/queries";
 import { resolveBewerbungId } from "@/features/bewerbungen/resolvers";
 import { bewerbungTeamName } from "@/features/bewerbungen/utils";
 import { getAdminSaisons } from "@/features/saisons/queries";
-import { getMedienFragen } from "@/features/spieler/medienFragen";
 import { getTeamSaisons } from "@/features/teams/queries";
 import { buildGruppeOffer } from "@/features/teams/utils";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
-import { nullUnlessContractBreak } from "@/shared/utils/degradedRead";
-import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import type { NextPageProps } from "@/shared/types/types";
 
@@ -46,27 +41,7 @@ async function AdminBewerbungContent({ params }: { params: NextPageProps<{ bewer
 
   // The admin-tier season read, because this season is still planned — which is the only state a
   // team is taken into (`entry_saison_not_future`) and the one the base read withholds.
-  const [saisonsRes, teamsRes, medienFragen, neubesetzung] = await Promise.all([
-    getAdminSaisons(),
-    getTeamSaisons(),
-    runWithIncomingTrace(() => getMedienFragen(bewerbung.kontakte)),
-    // `null` where either registry read failed: the reseat alone needs them, so it closes and the
-    // decision above it stands. Words it cannot key reach the error boundary.
-    runWithIncomingTrace(() =>
-      Promise.all([
-        // Per request, as every stamper reads the running label: a deploy moves it.
-        getLaufendesLabel("bewerbung"),
-        // The administration's page, which a person an administrator seats is asked on.
-        getLaufendeFassung("bestaetigung_kontakt_verwaltung"),
-      ]).then(
-        ([formLabel, seite]) => ({
-          textVersion: formLabel,
-          absaetze: gekeyteFassung(seite, KONTAKT_ABSATZ_SCHLUESSEL, KONTAKT_BEDIEN_SCHLUESSEL).absaetze,
-        }),
-        nullUnlessContractBreak,
-      ),
-    ),
-  ]);
+  const [saisonsRes, teamsRes] = await Promise.all([getAdminSaisons(), getTeamSaisons()]);
 
   // Null where nothing carries the application's `saison_id`: the acceptance would 404, and the
   // panel says so rather than offering groups nobody declared.
@@ -81,8 +56,6 @@ async function AdminBewerbungContent({ params }: { params: NextPageProps<{ bewer
       fristAbgelaufen={bewerbungRes.confirmation_deadline_expired}
       teamName={bewerbungTeamName(bewerbung, teamsRes.teams)}
       saisonStatus={saison?.status ?? null}
-      neubesetzung={neubesetzung}
-      medienFragen={medienFragen}
       gruppeOffer={
         saison === null
           ? []

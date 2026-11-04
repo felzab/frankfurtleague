@@ -17,7 +17,6 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.bewerbungen.public_router import get_einwilligung_view, post_bewerbung
 from app.api.bewerbungen.schemas import FLPostBewerbungPayload
 from app.api.bewerbungen.services import bestaetigungsfrist_from, build_schluessel_filter, compose_decline_update, compose_kontakte
-from app.api.einwilligung import services as einwilligung_services
 from app.api.kontakte.services import build_clearing_update
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.core.codes import Code
@@ -27,7 +26,6 @@ from app.core.exceptions import APIError, DocumentNotFoundError
 from app.core.recording import PUBLIC_ACTOR_EMAIL
 from app.core.security import ACTOR_HEADER
 from app.main import create_app
-from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.schemas.bounds import BEWERBUNG_CONFIRMATION_DEADLINE_DAYS
 from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.tokens import hash_token
@@ -76,7 +74,7 @@ def person(vorname: str, *, telefon: str, email: str | None = None) -> dict[str,
         "nachname": f"{vorname}-Mustermann",
         "email": email or f"{vorname.lower()}@example.com",
         "telefon": telefon,
-        "einwilligung": {"text_version": LAUFENDE_FASSUNGEN["bewerbung"], "given": True},
+        "einwilligung": {"given": True},
     }
 
 
@@ -87,19 +85,6 @@ KONTAKTE: Mapping[str, Any] = {
     "stellvertretung": person("Bramblewick", telefon="+49 170 3333333"),
     "trainer_is_also": None,
 }
-
-
-# A label the registry still resolves, as a page loaded under the build before the running one stamps it.
-EARLIER_FASSUNG = "2026-09-bestaetigung-4"
-
-
-def kontakte_labelled(text_version: str) -> dict[str, Any]:
-    """`KONTAKTE` with every seat naming `text_version`."""
-
-    return {
-        seat: {**value, "einwilligung": {**value["einwilligung"], "text_version": text_version}} if isinstance(value, dict) else value
-        for seat, value in KONTAKTE.items()
-    }
 
 
 def club_document(team_id: ObjectId, name: str, shorthand: str, *, inactive_since: str | None = None) -> dict[str, Any]:
@@ -258,7 +243,6 @@ class TestWhatASubmissionStores:
             # person, and no evidence: no person has set a choice yet.
             assert stored["kontakte"][seat]["einwilligung"] == {
                 "umfang": "kontaktdaten",
-                "text_version": LAUFENDE_FASSUNGEN["bewerbung"],
                 "datum": TODAY,
                 "confirmed_at": None,
                 "medien": False,
@@ -504,21 +488,6 @@ class TestTheSubmissionKey:
 
         assert first == second
 
-    def test_a_replay_is_answered_whatever_wording_its_first_press_named(self, mongo_replica_set_url: str, monkeypatch: pytest.MonkeyPatch):
-        """Looked up before the wording is judged: a deploy between the presses moved the label, and the retry resends the first one's."""
-
-        async def body(database: AsyncDatabase) -> Any:
-            with monkeypatch.context() as earlier_build:
-                earlier_build.setattr(einwilligung_services, "LAUFENDE_FASSUNGEN", {**LAUFENDE_FASSUNGEN, "bewerbung": EARLIER_FASSUNG})
-                first = await submit(database, key=SCHLUESSEL, kontakte=kontakte_labelled(EARLIER_FASSUNG))
-            second = await submit(database, key=SCHLUESSEL, kontakte=kontakte_labelled(EARLIER_FASSUNG))
-
-            return first.created_id, second.created_id, await database[Collection.BEWERBUNGEN].count_documents({})
-
-        first, second, stored = on_a_league(mongo_replica_set_url, body)
-
-        assert (second, stored) == (first, 1)
-
     def test_the_same_key_over_other_details_is_refused_and_stores_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:
             await submit(database, key=SCHLUESSEL)
@@ -694,11 +663,6 @@ class TestTheRefusalsTheWritePathAnswers:
 
     def test_a_club_already_playing_the_season_refuses(self, mongo_replica_set_url: str):
         assert refused(mongo_replica_set_url, team_id=str(ENTERED_OID)).error_code == Code.BEWERBUNG_PICKED_TEAM_ALREADY_ENTERED
-
-    def test_a_first_press_naming_an_earlier_wording_refuses(self, mongo_replica_set_url: str):
-        """The replay case's control: the same body under a key nothing stores is judged, and stores nothing."""
-
-        assert refused(mongo_replica_set_url, kontakte=kontakte_labelled(EARLIER_FASSUNG)).error_code == Code.WORDING_NOT_ALLOWED
 
     def test_a_new_school_proposing_a_taken_kuerzel_refuses(self, mongo_replica_set_url: str):
         """Asked of a NEW school alone; `uniq_shorthand` is what would otherwise fail at acceptance."""

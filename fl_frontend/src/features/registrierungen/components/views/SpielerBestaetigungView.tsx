@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import Link from "next/link";
 
 import CircleCheck from "@gravity-ui/icons/CircleCheck";
@@ -14,9 +14,11 @@ import { ToggleButton } from "@heroui/react/toggle-button";
 import { ToggleButtonGroup } from "@heroui/react/toggle-button-group";
 
 import { KONTAKT_EMAIL } from "@/core/brand";
+import { SPIELER_TEXT_VERSIONS, SPIELER_WORDINGS } from "@/core/consentWordings";
 import { KONTO_HREF } from "@/core/kontoHref";
-import { ABSATZ_CLASSES, FESTE_WERTE, Gefuellt, Wert } from "@/features/bewerbungen/components/ui/Gefuellt";
+import { ABSATZ_CLASSES, Wert } from "@/features/bewerbungen/components/ui/Gefuellt";
 import { SEITE_CLASSES } from "@/features/bewerbungen/components/ui/seite";
+import { EinwilligungZeile } from "@/features/bewerbungen/components/views/BestaetigungHinweise";
 import {
   AdresseGesperrt,
   ANTWORT_NICHT_GESPEICHERT,
@@ -58,22 +60,14 @@ import { formatSpielDatum } from "@/shared/utils/format";
 import { reportRefusedConfirmation } from "@/shared/utils/linkConfirmation";
 import { postPublicForm, UNKLAR_TITEL } from "@/shared/utils/publicSubmit";
 
-import { EINWILLIGUNG_UMFANG_OPTIONS, SPIELER_UMFANG_FRAGE } from "../../constants";
+import { EINWILLIGUNG_UMFANG_OPTIONS } from "../../constants";
 import { buildRegistrierungBestaetigungPayloadSchema } from "../../schemas";
 
-import type { SpielerAbsatzSchluessel, SpielerWiederkehrendAbsatzSchluessel } from "@/core/einwilligungSeiten";
 import type { FLEinwilligungUmfang, FLRegistrierungConfirmationViewResponse } from "@/core/generated/client/types";
 import type { PublicEnvelope } from "@/shared/utils/publicSubmit";
-import type { Slots } from "@/shared/utils/stampedSlots";
 import type { Key } from "@heroui/react/rac";
 import type { CalendarDate } from "@internationalized/date";
-import type {
-  SpielerBestaetigungGespeichert,
-  SpielerBestaetigungStart,
-  SpielerFassung,
-  SpielerLinkZustand,
-  SpielerSeitenFassung,
-} from "../../types";
+import type { SpielerBestaetigungGespeichert, SpielerBestaetigungStart, SpielerLinkZustand, SpielerSeitenFassung } from "../../types";
 
 // The words ride with the two states that show them, so neither can render without them.
 type Stand =
@@ -103,115 +97,28 @@ const TITEL: Record<Exclude<Stand["zustand"], "barred">, string> = {
   unlesbar: LINK_UNLESBAR_TITEL,
 };
 
-const LISTE_CLASSES = `${ABSATZ_CLASSES} flex list-disc flex-col gap-y-1 pl-5`;
-const ABSCHNITT_CLASSES = "flex flex-col gap-y-2";
-
-/**
- * The slots a record fills from the person who opened the link
- * (`fl_frontend/src/features/bewerbungen/components/ui/Gefuellt.tsx :: Gefuellt`).
- */
-const EIGENE_SLOTS = new Set(["team", "schule", "saison"]);
-
 /**
  * What each publication scope offers, in the order the copy reads them in.
  *
- * The words are the stamped label's, so a record reproduces the question beside the answer it holds;
- * the order is this page's, which no record cites.
+ * The words are the wording's, so a record reproduces the question beside the answer it holds; the
+ * order is this page's, which no record cites.
  */
-const umfangOptionen = (fassung: SpielerFassung): readonly { value: FLEinwilligungUmfang; label: string }[] =>
-  EINWILLIGUNG_UMFANG_OPTIONS.map((value) => ({ value: value, label: fassung.bedienelemente[value] }));
+const UMFANG_OPTIONEN: readonly { value: FLEinwilligungUmfang; label: string }[] = EINWILLIGUNG_UMFANG_OPTIONS.map((value) => ({
+  value: value,
+  label: SPIELER_WORDINGS.umfang.options[value],
+}));
 
 /** The empty string is a date nobody has entered yet, which the picker shows as empty rather than refuses. */
 function toCalendarDate(stored: string): CalendarDate | null {
   return stored === "" ? null : parseDate(stored);
 }
 
-/** The paragraphs both pages hold under one key, which the standing text renders on either. */
-type HinweisSchluessel = SpielerAbsatzSchluessel & SpielerWiederkehrendAbsatzSchluessel;
-
-/** The two choices the new pupil's page took, in the words of the label it showed: its answer panel's readout. */
-function wahlZeilen(fassung: SpielerFassung, umfang: FLEinwilligungUmfang | null, medien: boolean | null) {
+/** The two choices the new pupil's page took, in the words of the wording it showed: its answer panel's readout. */
+function wahlZeilen(umfang: FLEinwilligungUmfang | null, medien: boolean | null) {
   return [
-    ...(umfang === null ? [] : [{ label: "Auf der Website", wert: fassung.bedienelemente[umfang] }]),
+    ...(umfang === null ? [] : [{ label: "Auf der Website", wert: SPIELER_WORDINGS.umfang.options[umfang] }]),
     ...(medien === null ? [] : [medienZeile(medien)]),
   ];
-}
-
-/**
- * The standing text, in the order a reader meets it rather than the legal draft's: the media
- * paragraph sits at its switch and the points at the button.
- */
-function SpielerHinweise({ absaetze, werte }: { absaetze: Readonly<Record<HinweisSchluessel, string>>; werte: Slots }) {
-  const absatz = (schluessel: HinweisSchluessel) => (
-    <Gefuellt
-      text={absaetze[schluessel]}
-      werte={werte}
-      eigene={EIGENE_SLOTS}
-    />
-  );
-
-  return (
-    <BestaetigungAbschnitt titel="Was das bedeutet">
-      <section className={ABSCHNITT_CLASSES}>
-        <h3 className={FORM_SECTION_HEADING_CLASSES}>Worum es geht</h3>
-        <p className={ABSATZ_CLASSES}>{absatz("worum")}</p>
-      </section>
-
-      <section className={ABSCHNITT_CLASSES}>
-        <h3 className={FORM_SECTION_HEADING_CLASSES}>Was gespeichert ist und wozu</h3>
-        <p className={ABSATZ_CLASSES}>{absatz("gespeichert")}</p>
-        <p className={ABSATZ_CLASSES}>{absatz("geburtsdatum")}</p>
-        <p className={ABSATZ_CLASSES}>{absatz("rechtsgrundlage")}</p>
-      </section>
-
-      <section className={ABSCHNITT_CLASSES}>
-        <h3 className={FORM_SECTION_HEADING_CLASSES}>Wer was sieht</h3>
-        <p className={ABSATZ_CLASSES}>{absatz("wer")}</p>
-      </section>
-
-      <section className={ABSCHNITT_CLASSES}>
-        <h3 className={FORM_SECTION_HEADING_CLASSES}>Wie lange wir Deine Angaben behalten</h3>
-        <p className={ABSATZ_CLASSES}>{absatz("frist")}</p>
-      </section>
-
-      <section className={ABSCHNITT_CLASSES}>
-        <h3 className={FORM_SECTION_HEADING_CLASSES}>Deine Rechte</h3>
-        <p className={ABSATZ_CLASSES}>{absatz("widerruf")}</p>
-        <p className={ABSATZ_CLASSES}>{absatz("art21")}</p>
-      </section>
-    </BestaetigungAbschnitt>
-  );
-}
-
-/**
- * **The one wording of the points**: the button describes itself by this block's `id` rather
- * than by a summary sentence beside it, which is how a reader meets the same promise twice.
- */
-function KlickBestaetigung({ id, wording: fassung, werte }: { id: string; wording: SpielerSeitenFassung; werte: Slots }) {
-  // The returning page's points carry no consent: it asks none.
-  const punkte =
-    fassung.seite === "bestaetigung_spieler"
-      ? [fassung.absaetze.klickIdentitaet, fassung.absaetze.klickAlter, fassung.absaetze.klickEinwilligung, fassung.absaetze.klickHinweise]
-      : [fassung.absaetze.klickIdentitaet, fassung.absaetze.klickAlter, fassung.absaetze.klickHinweise];
-
-  return (
-    <div
-      id={id}
-      className="flex flex-col gap-y-3">
-      <h3 className={FORM_SECTION_HEADING_CLASSES}>Was Du mit dem Klick bestätigst</h3>
-      <ul className={LISTE_CLASSES}>
-        {punkte.map((punkt) => (
-          <li key={punkt}>
-            <Gefuellt
-              text={punkt}
-              werte={werte}
-              eigene={EIGENE_SLOTS}
-            />
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
 }
 
 type Antwort =
@@ -286,7 +193,7 @@ export function SpielerBestaetigungView({
                 ...(stand.gespeichert.geburtsdatum === null
                   ? []
                   : [{ label: "Geburtsdatum", wert: formatSpielDatum(stand.gespeichert.geburtsdatum) }]),
-                ...wahlZeilen(stand.wording, stand.gespeichert.umfang, stand.gespeichert.medien),
+                ...wahlZeilen(stand.gespeichert.umfang, stand.gespeichert.medien),
               ]}
             />
           ) : (
@@ -357,7 +264,6 @@ function SpielerBestaetigungForm({
     medien: false,
   });
 
-  const klickPunkteId = useId();
   const panel = formPanel();
 
   // Built from the floor the link answered, never the module's own: the endpoint judges this
@@ -392,7 +298,7 @@ function SpielerBestaetigungForm({
     // Never the draft's own `true` where no switch stands: one given before the date moved below the
     // media age would send a consent this page withheld.
     medien: fragtWahlen ? medienAngeboten && entwurf.medien : null,
-    text_version: fassung.textVersion,
+    text_versions: fragtWahlen ? SPIELER_TEXT_VERSIONS : null,
   });
 
   useForgiveFixed({ bestaetigung: payload() });
@@ -400,17 +306,6 @@ function SpielerBestaetigungForm({
   // The floor's alone, never the ceiling's: a date past the ceiling is a mistyped century, and
   // telling a 190-year-old to ask their team for a place is the wrong repair.
   const istZuJung = fieldErrors.geburtsdatum !== undefined && entwurf.geburtsdatum !== "" && entwurf.geburtsdatum > spaeteste;
-
-  const werte: Slots = {
-    team: ansicht.team,
-    schule: ansicht.schule,
-    saison: ansicht.saison_id,
-    minAlter: String(ansicht.minimum_age),
-    medienMinAlter: String(ansicht.medien_minimum_age),
-    // Filled rather than left standing: `Gefuellt` leaves an unfilled slot as written, so the
-    // consent text would spell its own placeholder on the live page.
-    ...FESTE_WERTE,
-  };
 
   const sende = () => {
     const body = payload();
@@ -466,11 +361,6 @@ function SpielerBestaetigungForm({
       onSubmit={() => {
         guardSubmit({ bestaetigung: payload() }, sende);
       }}>
-      <SpielerHinweise
-        absaetze={fassung.absaetze}
-        werte={werte}
-      />
-
       <BestaetigungAbschnitt titel="Deine Antwort">
         <section className="flex flex-col gap-y-3">
           <h3 className={FORM_SECTION_HEADING_CLASSES}>Dein Geburtsdatum</h3>
@@ -498,8 +388,6 @@ function SpielerBestaetigungForm({
 
         {fassung.seite === "bestaetigung_spieler" ? (
           <WahlenAbschnitte
-            wording={fassung}
-            werte={werte}
             umfang={entwurf.umfang}
             medien={entwurf.medien}
             medienAngeboten={medienAngeboten}
@@ -512,14 +400,6 @@ function SpielerBestaetigungForm({
           <section className="flex flex-col gap-y-3">
             <h3 className={FORM_SECTION_HEADING_CLASSES}>Deine Einwilligung</h3>
             <p className={ABSATZ_CLASSES}>
-              <Gefuellt
-                text={fassung.absaetze.einwilligungen}
-                werte={werte}
-                eigene={EIGENE_SLOTS}
-              />
-            </p>
-            {/* The way there alone: the stamped paragraph above already says what the account page changes. */}
-            <p className={ABSATZ_CLASSES}>
               <Link
                 href={KONTO_HREF}
                 prefetch={false}
@@ -529,12 +409,6 @@ function SpielerBestaetigungForm({
             </p>
           </section>
         )}
-
-        <KlickBestaetigung
-          id={klickPunkteId}
-          wording={fassung}
-          werte={werte}
-        />
 
         {istZuJung && (
           <Callout
@@ -550,7 +424,6 @@ function SpielerBestaetigungForm({
           <Button
             type="submit"
             isPending={isPending}
-            aria-describedby={klickPunkteId}
             className={formButton({ intent: "submit", fullWidth: true })}>
             <CircleCheck
               className="size-4.5"
@@ -566,8 +439,6 @@ function SpielerBestaetigungForm({
 
 /** The new pupil's two choices, each below the paragraph it answers. */
 function WahlenAbschnitte({
-  wording: fassung,
-  werte,
   umfang,
   medien,
   medienAngeboten,
@@ -576,8 +447,6 @@ function WahlenAbschnitte({
   switchContentClassName,
   switchControlClassName,
 }: {
-  wording: SpielerFassung;
-  werte: Slots;
   umfang: FLEinwilligungUmfang | null;
   medien: boolean;
   medienAngeboten: boolean;
@@ -598,9 +467,9 @@ function WahlenAbschnitte({
           value={umfang ?? ""}
           onChange={() => undefined}
           className="flex w-full flex-col gap-y-1">
-          <Label className={FIELD_LABEL_CLASSES}>{SPIELER_UMFANG_FRAGE}</Label>
+          <Label className={FIELD_LABEL_CLASSES}>{SPIELER_WORDINGS.umfang.question}</Label>
           <ToggleButtonGroup
-            aria-label={SPIELER_UMFANG_FRAGE}
+            aria-label={SPIELER_WORDINGS.umfang.question}
             size="sm"
             isDetached
             selectionMode="single"
@@ -610,11 +479,11 @@ function WahlenAbschnitte({
             selectedKeys={umfang === null ? [] : [umfang]}
             onSelectionChange={(keys: Set<Key>) => {
               const [picked] = [...keys].map(String);
-              const option = umfangOptionen(fassung).find((candidate) => candidate.value === picked);
+              const option = UMFANG_OPTIONEN.find((candidate) => candidate.value === picked);
               if (option !== undefined) onUmfang(option.value);
             }}
             className={`flex w-full flex-row flex-wrap gap-2 ${TOGGLE_GROUP_ALIGN_CLASSES}`}>
-            {umfangOptionen(fassung).map((option) => (
+            {UMFANG_OPTIONEN.map((option) => (
               <ToggleButton
                 key={option.value}
                 id={option.value}
@@ -627,19 +496,12 @@ function WahlenAbschnitte({
           <Input className="hidden" />
           <FieldError className={FIELD_ERROR_CLASSES} />
         </TextField>
-        <p className={ABSATZ_CLASSES}>
-          <Gefuellt
-            text={fassung.absaetze.veroeffentlichung}
-            werte={werte}
-            eigene={EIGENE_SLOTS}
-          />
-        </p>
+        <EinwilligungZeile line={SPIELER_WORDINGS.umfang.line} />
       </section>
 
       <section className="flex flex-col gap-y-3">
         <h3 className={FORM_SECTION_HEADING_CLASSES}>Freiwillig</h3>
-        {/* The paragraph below stands for every age and the switch alone goes: the record's label
-              then reproduces the screen whichever of the two its person was shown. */}
+        {/* The switch and its line from the served age, as the contact page offers them. */}
         {medienAngeboten && (
           <Switch
             className="flex w-full flex-col gap-y-1"
@@ -647,20 +509,14 @@ function WahlenAbschnitte({
             isSelected={medien}
             onChange={onMedien}>
             <Switch.Content className={switchContentClassName}>
-              {fassung.schalter}
+              {SPIELER_WORDINGS.medien.label}
               <Switch.Control className={switchControlClassName}>
                 <Switch.Thumb />
               </Switch.Control>
             </Switch.Content>
           </Switch>
         )}
-        <p className={ABSATZ_CLASSES}>
-          <Gefuellt
-            text={fassung.absaetze.medien}
-            werte={werte}
-            eigene={EIGENE_SLOTS}
-          />
-        </p>
+        {medienAngeboten && <EinwilligungZeile line={SPIELER_WORDINGS.medien.line} />}
       </section>
     </>
   );

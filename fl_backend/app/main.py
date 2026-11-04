@@ -18,7 +18,6 @@ from app.api.bewerbungen.admin_router import router as bewerbungen_admin_router
 from app.api.bewerbungen.person_router import router as bewerbungen_person_router
 from app.api.bewerbungen.public_router import router as bewerbungen_public_router
 from app.api.bewerbungen.system_router import router as bewerbungen_system_router
-from app.api.einwilligung.public_router import router as einwilligung_public_router
 from app.api.identity.admin_router import router as identity_admin_router
 from app.api.identity.person_router import router as identity_person_router
 from app.api.identity.system_router import router as identity_system_router
@@ -68,7 +67,6 @@ ROUTERS: Mapping[str, tuple[APIRouter, ...]] = {
     "action_log": (action_log_admin_router,),
     "grants": (grants_admin_router, grants_system_router),
     "bewerbungen": (bewerbungen_admin_router, bewerbungen_public_router, bewerbungen_person_router, bewerbungen_system_router),
-    "einwilligung": (einwilligung_public_router,),
     "identity": (identity_system_router, identity_admin_router, identity_person_router),
     "account": (account_person_router,),
     "outbox": (outbox_system_router,),

@@ -107,14 +107,12 @@ export async function besetzenKontaktSitz({
   nachname,
   email,
   telefon,
-  text_version,
 }: { id: string; rolle: FLKontaktRolle } & FLBewerbungKontaktSeatPayload): Promise<FLBewerbungKontaktEmailResponse> {
   return bewerbungenPostKontaktSeat(id, rolle, {
     vorname: vorname,
     nachname: nachname,
     email: email,
     telefon: telefon,
-    text_version: text_version,
   });
 }
 

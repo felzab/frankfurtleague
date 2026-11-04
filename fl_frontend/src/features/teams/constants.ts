@@ -158,12 +158,6 @@ export function trikotFarbeHex(farbe: FLTrikotFarbe): string {
 }
 
 /**
- * The stamped wording's version cap, mirrored from `fl_backend/app/shared/schemas/bounds.py`. Every
- * frontend enforcement point reads it from here, so the schema and the input cannot disagree.
- */
-export const EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH = 64;
-
-/**
  * The one scope a contact person's Kenntnisnahme covers. A single member because a second scope would
  * be a second acknowledgement, gathered on its own terms.
  */

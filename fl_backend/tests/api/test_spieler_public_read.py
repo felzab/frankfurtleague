@@ -25,6 +25,7 @@ from app.api.spieler.services import build_spieler_pipeline, build_spieler_saiso
 from app.core.crud import aggregate_many_from_db
 from tests.database import a_clean_database, on_the_seed_loop, shared_client
 from tests.documents import (
+    SPIELER_TEXT_VERSIONS,
     own_einwilligung_document,
     saison_document,
     saison_spieler_document,
@@ -76,7 +77,7 @@ Body = Callable[[AsyncDatabase], Awaitable[Any]]
 def _consent(umfang: str, **fields: Any) -> dict[str, Any]:
     """A record its person confirmed under `umfang`, `fields` laid over it."""
 
-    return {**own_einwilligung_document(text_version="v1", confirmed_at="2026-01-20", umfang=umfang), **fields}
+    return {**own_einwilligung_document(text_versions=SPIELER_TEXT_VERSIONS, confirmed_at="2026-01-20", umfang=umfang), **fields}
 
 
 def _spieler(key: str, vorname: str, nachname: str | None, *, inactive_since: str | None = None) -> dict[str, Any]:

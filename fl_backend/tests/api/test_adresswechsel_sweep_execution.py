@@ -113,7 +113,7 @@ def a_referee(position: int) -> dict[str, Any]:
         email=on_file(position),
         name=f"Schiedsrichter {position}",
         default_payment=20,
-        einwilligung=documents.own_einwilligung_document(text_version="v1", confirmed_at="2126-03-01"),
+        einwilligung=documents.own_einwilligung_document(text_versions=documents.SCHIEDSRICHTER_TEXT_VERSIONS, confirmed_at="2126-03-01"),
     )
 
 

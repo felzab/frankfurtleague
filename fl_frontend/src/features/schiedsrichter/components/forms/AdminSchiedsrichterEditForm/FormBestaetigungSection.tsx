@@ -15,8 +15,8 @@ import {
   SCHIEDSRICHTER_KORREKTUR_HINWEIS,
   SCHIEDSRICHTER_UMFANG_LABELS,
 } from "@/features/schiedsrichter/constants";
-import { Beleg, Fassung } from "@/features/spieler/components/ui/Nachweis";
-import { EINWILLIGUNG_FASSUNG_FRAGE, EINWILLIGUNG_MEDIEN_FRAGE, EINWILLIGUNG_MEDIEN_LABELS } from "@/features/spieler/constants";
+import { Beleg } from "@/features/spieler/components/ui/Nachweis";
+import { EINWILLIGUNG_MEDIEN_FRAGE, EINWILLIGUNG_MEDIEN_LABELS } from "@/features/spieler/constants";
 import { bestaetigungOf } from "@/features/spieler/nachweis";
 import { Angabe, Leer } from "@/shared/components/ui/Angabe";
 import { FocusSlot } from "@/shared/components/ui/FocusSlot";
@@ -75,15 +75,7 @@ function LinkStand({
 }
 
 /** The referee's record read back as facts, each choice with the act that set it. */
-function EinwilligungStand({
-  einwilligung,
-  istFassungBekannt,
-  geburtsdatum,
-}: {
-  einwilligung: FLEinwilligung;
-  istFassungBekannt: boolean | null;
-  geburtsdatum: string | null;
-}) {
+function EinwilligungStand({ einwilligung, geburtsdatum }: { einwilligung: FLEinwilligung; geburtsdatum: string | null }) {
   return (
     <dl className={FIELD_PAIR_CLASSES}>
       <Angabe label="Veröffentlichung">
@@ -102,13 +94,6 @@ function EinwilligungStand({
       </Angabe>
       <Angabe label="Bestätigt am">
         {einwilligung.confirmed_at === null ? <Leer>Nicht bestätigt</Leer> : formatSpielDatum(einwilligung.confirmed_at)}
-      </Angabe>
-      {/* The key rather than a German gloss of it, which would be a second name for one wording. */}
-      <Angabe label={EINWILLIGUNG_FASSUNG_FRAGE}>
-        <Fassung
-          textVersion={einwilligung.text_version}
-          istBekannt={istFassungBekannt}
-        />
       </Angabe>
       {/* Beside the record because the same press wrote it, and on no field of this form: the person
           enters it themselves and no admin payload carries it. */}
@@ -130,7 +115,6 @@ export function FormBestaetigungSection({
   istAbgelaufen,
   delivery: zustellung,
   einwilligung,
-  istFassungBekannt,
   geburtsdatum,
   isDirty,
 }: {
@@ -144,8 +128,6 @@ export function FormBestaetigungSection({
   /** What became of the last confirmation mail, off the Postausgang; null where none was owed. */
   delivery: FLOutboxStatus | null;
   einwilligung: FLEinwilligung | null;
-  /** Whether the registry holds the stored label, resolved by the page through the words read. */
-  istFassungBekannt: boolean | null;
   geburtsdatum: string | null;
   /** The editor's unsaved typing, which the mint re-keys the editor over. */
   isDirty: boolean;
@@ -239,7 +221,6 @@ export function FormBestaetigungSection({
             <p className="muted-hint">Diese Angaben lassen sich nicht bearbeiten.</p>
             <EinwilligungStand
               einwilligung={einwilligung}
-              istFassungBekannt={istFassungBekannt}
               geburtsdatum={geburtsdatum}
             />
           </>

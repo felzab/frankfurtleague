@@ -18,6 +18,7 @@ from tests.config import SYSTEM_AUTH
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import (
     EINWILLIGUNG,
+    SPIELER_TEXT_VERSIONS,
     ban_document,
     bewerbung_document,
     kontakte_document,
@@ -129,7 +130,7 @@ def _registrierung(email: str, *, confirmed: bool) -> dict[str, Any]:
             "geburtsdatum": "2009-05-04",
             "umfang": "intern",
             "medien": False,
-            "text_version": "2026-09",
+            "text_versions": SPIELER_TEXT_VERSIONS,
             "today": "2026-01-03",
             "am": "2026-01-03T08:00:00+00:00",
         },

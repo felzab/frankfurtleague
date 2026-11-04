@@ -338,13 +338,12 @@ export function abiJahrgang(saisonId: string): string {
   return String(Number(saisonId) + 1);
 }
 
-const buildEmptyBewerbungKontaktperson = (textVersion: string): BewerbungKontaktpersonDraft => ({
+const buildEmptyBewerbungKontaktperson = (): BewerbungKontaktpersonDraft => ({
   vorname: "",
   nachname: "",
   email: "",
   telefon: "",
-  // Stamped as the form opens, so what a record cites is the wording its reader was shown.
-  einwilligung: { text_version: textVersion, given: false },
+  einwilligung: { given: false },
 });
 
 /** A blank new school, held from the moment the form opens so nothing typed into it can be dropped. */
@@ -359,14 +358,14 @@ const buildEmptyBewerbungSchule = (): BewerbungSchuleDraft => ({
   website_url: null,
 });
 
-export const buildEmptyBewerbungDraft = (saisonId: string, textVersion: string): BewerbungFormDraft => ({
+export const buildEmptyBewerbungDraft = (saisonId: string): BewerbungFormDraft => ({
   saison_id: saisonId,
   auswahl: null,
   schule: buildEmptyBewerbungSchule(),
   kontakte: {
-    trainer: buildEmptyBewerbungKontaktperson(textVersion),
-    ansprechperson: buildEmptyBewerbungKontaktperson(textVersion),
-    stellvertretung: buildEmptyBewerbungKontaktperson(textVersion),
+    trainer: buildEmptyBewerbungKontaktperson(),
+    ansprechperson: buildEmptyBewerbungKontaktperson(),
+    stellvertretung: buildEmptyBewerbungKontaktperson(),
     trainer_is_also: null,
   },
   trikot: { existing_satz: "", wunschfarbe: null },

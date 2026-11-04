@@ -73,7 +73,7 @@ def person(**overrides: Any) -> dict[str, Any]:
         "nachname": "Brackenmoor",
         "email": "quillhilde@example.com",
         "telefon": "+49 170 1234567",
-        "einwilligung": {"text_version": "v3", "given": True},
+        "einwilligung": {"given": True},
         **overrides,
     }
 
@@ -138,7 +138,7 @@ A_CHILDS_BIRTHDATE = "2018-01-01"
 
 # What the junction's own editor sends for one person's consent: the source and the stamp are on no
 # payload.
-JUNCTION_EINWILLIGUNG: Mapping[str, Any] = {"umfang": "kontaktdaten", "text_version": "v3", "datum": TODAY}
+JUNCTION_EINWILLIGUNG: Mapping[str, Any] = {"umfang": "kontaktdaten", "datum": TODAY}
 
 
 class TestNoBirthdateOnAnyPayload:
@@ -327,11 +327,10 @@ class TestWhatTheServerComposes:
     def test_a_seat_records_the_acknowledgement_on_the_persons_behalf_and_who_seated_them(self):
         """One person ticked for three: who seated each person is recorded, and nobody's answer is."""
 
-        composed = compose_einwilligung(text_version="v3", today=TODAY, entered_by="bewerbung")
+        composed = compose_einwilligung(today=TODAY, entered_by="bewerbung")
 
         assert composed == {
             "umfang": "kontaktdaten",
-            "text_version": "v3",
             "datum": TODAY,
             "confirmed_at": None,
             "medien": False,
@@ -345,7 +344,6 @@ class TestWhatTheServerComposes:
 
         assert set(composed["trainer"]["einwilligung"]) == {
             "umfang",
-            "text_version",
             "datum",
             "confirmed_at",
             "medien",
@@ -375,14 +373,14 @@ class TestWhatTheServerComposes:
         """`erteilt: Literal[True]`: an unticked box is a 422, never a stored record saying somebody declined."""
 
         with pytest.raises(ValidationError):
-            FLBewerbungKontaktpersonPayload.model_validate(person(einwilligung={"text_version": "v3", "given": False}))
+            FLBewerbungKontaktpersonPayload.model_validate(person(einwilligung={"given": False}))
 
     @pytest.mark.parametrize("field", ["umfang", "entered_by", "datum", "confirmed_at"])
     def test_a_client_may_not_name_a_field_the_server_composes(self, field: str):
         """`extra="forbid"`: a body naming one of these could claim a person's own consent or its seating, or backdate or pre-confirm one."""
 
         with pytest.raises(ValidationError):
-            FLBewerbungKontaktpersonPayload.model_validate(person(einwilligung={"text_version": "v3", "given": True, field: "x"}))
+            FLBewerbungKontaktpersonPayload.model_validate(person(einwilligung={"given": True, field: "x"}))
 
 
 class TestWhatTheSubmissionPayloadRefuses:

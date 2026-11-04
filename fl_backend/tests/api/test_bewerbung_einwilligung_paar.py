@@ -14,14 +14,13 @@ from app.api.bewerbungen.schemas import FLBewerbungEinwilligungAntwortPayload
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
-from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 from app.shared.tokens import hash_token
 from tests import documents
 from tests.bans import ban_list
 from tests.config import build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.documents import kontaktperson_document, minted_confirmations
+from tests.documents import SEAT_TEXT_VERSIONS, kontaktperson_document, minted_confirmations
 from tests.worker import worker_database
 
 # Module level, as the execution suite marks its own: every test below reaches a real mongod.
@@ -88,10 +87,6 @@ def on_a_league(url: str, body: Body, *, documents: list[dict[str, Any]]) -> Any
     return on_the_seed_loop(_run())
 
 
-# The applicant's page: every seat here is the applicant's, dated the submission's day.
-BEWERBER_SEITE = LAUFENDE_FASSUNGEN["bestaetigung_kontakt"]
-
-
 async def answer(database: AsyncDatabase, client: AsyncMongoClient, token: str, **overrides: Any) -> Any:
     body = {
         "token": token,
@@ -99,7 +94,7 @@ async def answer(database: AsyncDatabase, client: AsyncMongoClient, token: str, 
         "geburtsdatum": AN_ADULTS_BIRTHDATE,
         "whatsapp": False,
         "medien": False,
-        "text_version": BEWERBER_SEITE,
+        "text_versions": dict(SEAT_TEXT_VERSIONS),
         **overrides,
     }
 

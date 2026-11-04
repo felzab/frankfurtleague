@@ -26,6 +26,7 @@ from tests.config import SYSTEM_AUTH
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import (
     EINWILLIGUNG,
+    SPIELER_TEXT_VERSIONS,
     ban_document,
     bewerbung_document,
     kontakte_document,
@@ -150,7 +151,7 @@ def _registrierung(oid: ObjectId, email: str, *, confirmed: bool = True, **field
             "geburtsdatum": "2009-05-04",
             "umfang": "intern",
             "medien": False,
-            "text_version": "2026-09",
+            "text_versions": SPIELER_TEXT_VERSIONS,
             "today": "2026-01-03",
             "am": "2026-01-03T08:00:00+00:00",
         },
@@ -210,7 +211,7 @@ async def _seed(database: AsyncDatabase) -> None:
             REGISTRIERT_OHNE_WAHL,
             confirmed=False,
             **compose_confirmation_update(
-                geburtsdatum="2009-05-04", umfang=None, medien=None, text_version="2026-09", today="2026-01-03", am="2026-01-03T08:00:00+00:00"
+                geburtsdatum="2009-05-04", umfang=None, medien=None, text_versions=None, today="2026-01-03", am="2026-01-03T08:00:00+00:00"
             )["$set"],
         )
     )

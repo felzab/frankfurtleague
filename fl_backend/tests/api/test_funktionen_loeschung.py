@@ -55,6 +55,7 @@ from tests.bans import ban_list
 from tests.config import ADMIN_KEY
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.documents import (
+    SPIELER_TEXT_VERSIONS,
     ban_document,
     bericht_document,
     bewerbung_document,
@@ -224,7 +225,7 @@ def referee(schiedsrichter_id: ObjectId, *, email: str, name: str, **fields: Any
         email=email,
         name=name,
         default_payment=PAYMENT,
-        einwilligung=own_einwilligung_document(text_version="v1", confirmed_at="2126-03-01"),
+        einwilligung=own_einwilligung_document(text_versions=SPIELER_TEXT_VERSIONS, confirmed_at="2126-03-01"),
         **fields,
     )
 
@@ -407,7 +408,7 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
             idempotency_fingerprint=THEIR_BLOCKLESS_DIGEST,
         )
     )
-    einwilligung = own_einwilligung_document(text_version="v1", confirmed_at="2126-03-02")
+    einwilligung = own_einwilligung_document(text_versions=SPIELER_TEXT_VERSIONS, confirmed_at="2126-03-02")
     # A pupil's address as it stood before its correction, which the person's own pupil row holds after it: the
     # correction's image alone keeps it, a row the person's steps never reach.
     await database[Collection.SPIELER].insert_one(
@@ -606,7 +607,7 @@ async def a_mailbox_sharing_their_local_part(database: AsyncDatabase) -> None:
             "Ulla",
             "Ulla-Muster",
             email="ulla@example.com",
-            einwilligung=own_einwilligung_document(text_version="v1", confirmed_at="2126-03-02"),
+            einwilligung=own_einwilligung_document(text_versions=SPIELER_TEXT_VERSIONS, confirmed_at="2126-03-02"),
         )
     )
     await pending_changes(
@@ -1431,7 +1432,7 @@ async def an_admittable_registration(database: AsyncDatabase) -> None:
                 "geburtsdatum": GEBURTSDATUM,
                 "umfang": "intern",
                 "medien": False,
-                "text_version": "2026-09",
+                "text_versions": SPIELER_TEXT_VERSIONS,
                 "today": YESTERDAY,
                 "am": "2126-03-31T08:00:00+00:00",
             },

@@ -40,7 +40,7 @@ LINES = {
         collection=Collection.SPIELER,
         record_id=RECORD,
         am=AM,
-        text_version="2026-10-konto-spieler",
+        text_versions={"umfang": "2026-11-name-kader-1", "medien": "2026-11-medien-1"},
         choices={"umfang": "intern", "medien": False},
     ),
     "a Widerspruch": JournalLine(
@@ -76,7 +76,8 @@ def test_an_erasure_is_spelled_as_the_export_and_the_restore_read_it():
     assert LINES["an erasure naming no holder"].text() == f"{JOURNAL_TOKEN} {PERSON} loeschung pseudonym={PSEUDONYM}"
     assert LINES["an older erasure"].text() == f"{JOURNAL_TOKEN} {PERSON} loeschung"
     assert LINES["a withdrawal"].text() == (
-        f"{JOURNAL_TOKEN} {PERSON} widerruf spieler/{RECORD} am={AM} text_version=2026-10-konto-spieler umfang=intern medien=false"
+        f"{JOURNAL_TOKEN} {PERSON} widerruf spieler/{RECORD} am={AM} text_version.umfang=2026-11-name-kader-1 "
+        "text_version.medien=2026-11-medien-1 umfang=intern medien=false"
     )
     assert (
         LINES["an address change taking effect"].text()
@@ -109,13 +110,15 @@ def test_a_message_of_another_kind_is_no_line():
         pytest.param(f"{JOURNAL_TOKEN} {PERSON} loeschung spieler/{RECORD}", id="an erasure naming a record"),
         pytest.param(f"{JOURNAL_TOKEN} {PERSON} widerruf spieler/{RECORD} am={AM} medien=false", id="a withdrawal without its label"),
         pytest.param(
-            f"{JOURNAL_TOKEN} {PERSON} widerruf spieler/{RECORD} am={AM} text_version=2026-10-konto-spieler medien=true", id="a grant"
+            f"{JOURNAL_TOKEN} {PERSON} widerruf spieler/{RECORD} am={AM} text_version.medien=2026-11-medien-1 medien=true", id="a grant"
         ),
         pytest.param(
-            f"{JOURNAL_TOKEN} {PERSON} widerruf spieler/{RECORD} am={AM} text_version=2026-10-konto-spieler umfang=x@y.de",
+            f"{JOURNAL_TOKEN} {PERSON} widerruf spieler/{RECORD} am={AM} text_version.umfang=2026-11-name-kader-1 umfang=x@y.de",
             id="an address as a value",
         ),
-        pytest.param(f"{JOURNAL_TOKEN} {PERSON} widerruf spieler/{RECORD} am=2026-10-15T10:00:00 text_version=v umfang=intern", id="no offset"),
+        pytest.param(
+            f"{JOURNAL_TOKEN} {PERSON} widerruf spieler/{RECORD} am=2026-10-15T10:00:00 text_version.umfang=v umfang=intern", id="no offset"
+        ),
         pytest.param(f"{JOURNAL_TOKEN} {PERSON} widerspruch spieler/{RECORD} am={AM} sitze=trainer", id="a Widerspruch on a pupil"),
         pytest.param(f"{JOURNAL_TOKEN} {PERSON} widerspruch bewerbungen/{RECORD} am={AM}", id="a Widerspruch naming no seat"),
         pytest.param(f"{JOURNAL_TOKEN} {PERSON} adresswechsel_abgelehnt adresswechsel/{RECORD} am={AM} am={AM}", id="a value twice"),

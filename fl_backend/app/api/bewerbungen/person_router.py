@@ -7,7 +7,6 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.account.crud import press_widerruf
 from app.api.account.services import (
-    KONTO_SEITE_KONTAKT,
     compose_sitz_move,
     find_eigener_eintrag_refusal,
     geaenderte_sitz_wahlen,
@@ -27,7 +26,7 @@ from app.core.security import erasure_journal_hash, verify_access_admin
 from app.core.transactions import transaction_session
 from app.shared.einwilligung_nachweis import FLEinwilligungChoice, nachweis_stand_of
 from app.shared.schemas.custom import CustomRouteObjectId
-from app.shared.schemas.einwilligung import FLSeatEinwilligungPayload
+from app.shared.schemas.einwilligung import FLSeatEinwilligungPayload, by_choice
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 
 # The person lane's binder, as `app/api/teams/person_router.py` declares it and for its reason.
@@ -55,7 +54,7 @@ async def patch_einwilligung(
     """Withdraw the signed-in person's WhatsApp and media consents on every seat they hold on this pending application.
 
     A grant is refused. Refuses, writing nothing: `role_not_held`, `wording_not_allowed` (the choices moved since the
-    page was served), `giving_not_allowed` and `wording_not_allowed`.
+    page was served) and `giving_not_allowed`.
     """
 
     gedrueckt: dict[FLEinwilligungChoice, object] = {"umfang": einwilligung_data.umfang, "medien": einwilligung_data.medien}
@@ -82,15 +81,13 @@ async def patch_einwilligung(
             bloecke=[sitz["einwilligung"] for sitz in sitze.values()],
             gewaehlt=gewaehlt,
             nachweis_stand=einwilligung_data.nachweis_stand.model_dump(),
-            text_version=einwilligung_data.text_version,
-            seite=KONTO_SEITE_KONTAKT,
         )
 
         update = compose_sitz_move(
             sitze={slot: sitz["einwilligung"] for slot, sitz in sitze.items()},
             gewaehlt=gewaehlt,
             am=am,
-            text_version=einwilligung_data.text_version,
+            text_versions=by_choice(einwilligung_data.text_versions),
         )
         updated = (
             None
@@ -110,7 +107,7 @@ async def patch_einwilligung(
             bloecke=[sitz["einwilligung"] for sitz in sitze.values()],
             gewaehlt=gewaehlt,
             am=am,
-            text_version=einwilligung_data.text_version,
+            text_versions=by_choice(einwilligung_data.text_versions),
         )
         if line is not None:
             journal.note(line)

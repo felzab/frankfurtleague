@@ -1,7 +1,7 @@
-import { laufendeFassung } from "@/test-support/einwilligungRegistry.ts";
 import { renderMarkup, textOf } from "@/test-support/renderMarkup.ts";
 import { assert, describe, expect, it } from "vitest";
 
+import { SEAT_TEXT_VERSIONS } from "@/core/consentWordings.ts";
 import { gleicheAdresse } from "@/features/teams/kontaktePersonen";
 import { toFieldErrors } from "@/shared/utils/validation";
 
@@ -18,7 +18,6 @@ import { bewerbungPayload, buildEmptyBewerbungDraft } from "./utils.ts";
 import type { BewerbungFormDraft, BewerbungKontaktpersonDraft, BewerbungSchuleDraft } from "./types.ts";
 
 /** The label the application form runs, off the registry the backend generated. */
-const FORM_LABEL = laufendeFassung("bewerbung").text_version;
 
 /** A whole person, so every case below fails for the one rule it names and no other. */
 const person = (vorname: string, overrides: Partial<BewerbungKontaktpersonDraft> = {}): BewerbungKontaktpersonDraft => ({
@@ -26,7 +25,7 @@ const person = (vorname: string, overrides: Partial<BewerbungKontaktpersonDraft>
   nachname: "Mustermann",
   email: `${vorname.toLowerCase()}@beispiel.de`,
   telefon: `069 ${vorname.length}234567`,
-  einwilligung: { text_version: "2026-08", given: true },
+  einwilligung: { given: true },
   ...overrides,
 });
 
@@ -43,7 +42,7 @@ const schule = (overrides: Partial<BewerbungSchuleDraft> = {}): BewerbungSchuleD
 
 /** A submission that passes, so a failing case below fails for the field it changed and no other. */
 const validDraft = (overrides: Partial<BewerbungFormDraft> = {}): BewerbungFormDraft => ({
-  ...buildEmptyBewerbungDraft("2627", FORM_LABEL),
+  ...buildEmptyBewerbungDraft("2627"),
   auswahl: SCHULE_NICHT_IN_LISTE,
   schule: schule(),
   kontakte: {
@@ -195,7 +194,7 @@ describe("the three people have to be tellable apart", () => {
     const sharedSeat = validDraft({
       kontakte: {
         ...draft.kontakte,
-        trainer: person("Tim", { einwilligung: { text_version: "2026-08", given: false } }),
+        trainer: person("Tim", { einwilligung: { given: false } }),
         stellvertretung: person("Lena", { email: draft.kontakte.ansprechperson.email }),
       },
     });
@@ -206,7 +205,7 @@ describe("the three people have to be tellable apart", () => {
   /* Read off the issues rather than the field map, which keeps a box's first message: the empty box's
      own refusal comes first and would hide a second one claiming the empty numbers are shared. */
   it("calls no two empty boxes one person, the fold reading two empty numbers as equal", () => {
-    const parsed = FLPostBewerbungPayloadSchema.safeParse(bewerbungPayload(buildEmptyBewerbungDraft("2627", FORM_LABEL)));
+    const parsed = FLPostBewerbungPayloadSchema.safeParse(bewerbungPayload(buildEmptyBewerbungDraft("2627")));
     const sharedSeat = parsed.success ? [] : parsed.error.issues.filter((issue) => issue.message.includes("schon bei einer anderen Person"));
 
     expect(parsed.success).toBe(false);
@@ -283,20 +282,10 @@ describe("the Kenntnisnahme each seat carries", () => {
      that would record the absence of an acknowledgement as an answer to the question. */
   it("refuses an unticked box on the seat that left it unticked", () => {
     const without = validDraft({
-      kontakte: { ...validDraft().kontakte, stellvertretung: person("Lena", { einwilligung: { text_version: "2026-08", given: false } }) },
+      kontakte: { ...validDraft().kontakte, stellvertretung: person("Lena", { einwilligung: { given: false } }) },
     });
 
     expect(refusedPaths(without)).toStrictEqual(["kontakte.stellvertretung.einwilligung.given"]);
-  });
-
-  /* The version is what a stored record cites. Without it the record claims acknowledgement of wording
-     nobody can identify afterwards. */
-  it("refuses a Kenntnisnahme citing no wording version", () => {
-    const without = validDraft({
-      kontakte: { ...validDraft().kontakte, trainer: person("Tim", { einwilligung: { text_version: "  ", given: true } }) },
-    });
-
-    expect(refusedPaths(without)).toStrictEqual(["kontakte.trainer.einwilligung.text_version"]);
   });
 });
 
@@ -310,7 +299,7 @@ describe("a submission names exactly one school", () => {
   /* zod skips a refinement once any box is refused, so without `when` an empty first press would mark
      every box but the picker, whose message would come with the second. */
   it("marks the unpicked school in the same press as every empty box", () => {
-    const parsed = FLPostBewerbungPayloadSchema.safeParse(bewerbungPayload(buildEmptyBewerbungDraft("2627", FORM_LABEL)));
+    const parsed = FLPostBewerbungPayloadSchema.safeParse(bewerbungPayload(buildEmptyBewerbungDraft("2627")));
     const refusals = parsed.success ? {} : toFieldErrors(parsed.error);
 
     assert.ok(Object.keys(refusals).length > 1, "the empty draft is refused for the picker alone, so nothing else competes with it");
@@ -692,7 +681,7 @@ describe("the consenting answer's birth date", () => {
       geburtsdatum: "",
       whatsapp: false,
       medien: false,
-      text_version: "2026-08",
+      text_versions: SEAT_TEXT_VERSIONS,
     });
 
     expect(parsed.error?.issues.map((issue) => [issue.path.join("."), issue.message])).toStrictEqual([
@@ -717,22 +706,5 @@ describe("the ceiling on the confirmation link's own token", () => {
 
   it("takes a token at the ceiling, as the endpoint does", () => {
     expect(verdict("x".repeat(BEWERBUNG_TOKEN_MAX_LENGTH)).success).toBe(true);
-  });
-});
-
-describe("the label a confirmation's answer names", () => {
-  /* The endpoint refuses an empty label, so the page refuses it first, in German, rather than sending a
-     body the endpoint answers with a code no box can carry. */
-  it("is refused empty or blank, as the endpoint refuses it", () => {
-    // A consent, the one answer naming a label, with a date inside every floor and ceiling for decades.
-    const antwort = { token: "kein-echtes-token", antwort: "given", geburtsdatum: "1980-01-01", whatsapp: false, medien: false };
-
-    for (const text_version of ["", "   "]) {
-      const parsed = FLBewerbungEinwilligungAntwortPayloadSchema.safeParse({ ...antwort, text_version });
-      expect(
-        parsed.error?.issues.map((issue) => [issue.path.join("."), issue.message]),
-        JSON.stringify(text_version),
-      ).toStrictEqual([["text_version", "Deine Antwort nennt keine Fassung. Öffne den Link aus Deiner E-Mail erneut."]]);
-    }
   });
 });

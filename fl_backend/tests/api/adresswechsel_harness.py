@@ -40,7 +40,6 @@ from app.api.outbox.system_router import post_handout
 from app.core.collections import Collection
 from app.core.exceptions import APIError
 from app.core.security import PASSKEY_FACTOR, SessionActor
-from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.schemas.bounds import ADDRESS_CHANGE_WAITING_PERIOD_DAYS
 from app.shared.schemas.confirmation import FLTokenPayload
 from tests import documents
@@ -87,7 +86,6 @@ SPIEL_OID = ObjectId("6890a1b2c3d4e5f607850061")
 CONFIRMATION_OID = ObjectId("6890a1b2c3d4e5f607850062")
 
 UNCONFIRMED_REG_LINK = "the-unconfirmed-registrations-link"
-REFEREE_LABEL = LAUFENDE_FASSUNGEN["bestaetigung_schiedsrichter"]
 
 A_BOUNCE: Mapping[str, Any] = {"message_id": "m-1", "state": "undeliverable", "grund": "NoEmail", "am": "2126-03-21T10:00:00.000000+00:00"}
 
@@ -109,7 +107,6 @@ def registration(registrierung_id: ObjectId, team_id: ObjectId, *, confirmed: bo
         submitted_at="2126-03-30",
         frist="2126-04-06",
         confirmed=documents.registrierung_confirmed(
-            "bestaetigung_spieler",
             geburtsdatum="2009-05-04",
             today="2126-03-31",
             am="2126-03-31T08:00:00+00:00",
@@ -141,7 +138,9 @@ async def _seed(database: AsyncDatabase, *, pupil: bool, records: bool) -> None:
                 email=EMAIL,
                 name="Lenore Quastenbach",
                 default_payment=20,
-                einwilligung=documents.own_einwilligung_document(text_version=REFEREE_LABEL, confirmed_at="2126-03-02"),
+                einwilligung=documents.own_einwilligung_document(
+                    text_versions=documents.SCHIEDSRICHTER_TEXT_VERSIONS, confirmed_at="2126-03-02"
+                ),
                 confirmation={
                     "token_hash": "c" * 64,
                     "sent_at": "2126-03-01",

@@ -287,6 +287,13 @@ export const COPY = catalogue({
     bewerbung: (saison: string) => `Bewerbung Saison ${saison}`,
   },
 
+  // Redesign: goes with its last importer.
+  /** The old application form's words. */
+  bewerbung: {
+    /** The one switch acknowledging, for all three seats, that their people know of their entry. */
+    kenntnisnahme: "Ja, die Angaben stimmen, und die drei Personen wissen von ihrem Eintrag.",
+  },
+
   /** The Spielplan, and a match's page, which opens as the pop-up over it. */
   spielplan: {
     /** The matchday tabs' name, and the plural an empty Spielplan names. */

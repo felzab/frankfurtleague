@@ -45,7 +45,6 @@ from app.shared.schemas.custom import (
     validate_external_url,
 )
 from app.shared.schemas.einwilligung import (
-    CustomEinwilligungTextVersion,
     FLEinwilligungNachweise,
     FLEinwilligungStand,
 )
@@ -128,14 +127,11 @@ class FLAustrittPayload(FLAustritt):
 # both on every write path, and a payload declaring either is a route to an answer nobody gave.
 class _KontaktKenntnisnahmeWritable(BaseModel):
     umfang: Literal["kontaktdaten"]
-    # The version of the text they were shown. The text lives in the frontend and is versioned
-    # there, so a later rewording never changes what a stored record claims.
-    text_version: str
     datum: CustomDateString
 
 
 class FLKontaktKenntnisnahme(_KontaktKenntnisnahmeWritable, BaseReadModel):
-    """Which wording this person was shown, and how the record came to be held.
+    """How this person's record came to be held, and what they answered.
 
     Kenntnisnahme and not Einwilligung: the published basis is Art. 6(1)(b)/(f), and the pupil's
     `fl_backend/app/api/spieler/schemas.py :: FLEinwilligung` holds other values entirely
@@ -148,8 +144,8 @@ class FLKontaktKenntnisnahme(_KontaktKenntnisnahmeWritable, BaseReadModel):
     # The one consent on this record, to photographs, video and interviews, and on the READ model
     # alone for `umfang`'s reason.
     medien: bool
-    # Written once, by the write that seats the person, and moved by nothing else: which confirmation
-    # page the seat's link opens.
+    # Written once, by the write that seats the person, and moved by nothing else: who seated them,
+    # the applicant or the league.
     entered_by: FLKontaktEnteredBy
     # Each choice's evidence, empty until the seat's person answers, for `FLEinwilligung.nachweis`'s reasons.
     nachweis: FLEinwilligungNachweise = Field(default_factory=FLEinwilligungNachweise)
@@ -324,9 +320,6 @@ def kontakte_stand_of(block: Any) -> str:
 # repair it.
 class FLKontaktKenntnisnahmePayload(_KontaktKenntnisnahmeWritable):
     model_config = ConfigDict(extra="forbid")
-
-    # A record whose wording version is spaces cites no text at all.
-    text_version: CustomEinwilligungTextVersion
 
 
 # Private for `_TeamWritable`'s reason, and a base rather than `FLKontaktperson` itself because
@@ -831,8 +824,7 @@ class FLReplaceSaisonTeamResponse(BaseAPIResponse):
 class FLTeamSeat(BaseModel):
     """One seat as the people beside it see it: who holds it and whether they answered their link.
 
-    No address, telephone number or birthdate: the contact page promises that only administrators
-    see those (`fl_backend/app/shared/einwilligung.py :: FASSUNGEN`).
+    No address, telephone number or birthdate: only administrators see those.
     """
 
     rolle: FLKontaktRolle

@@ -1,7 +1,5 @@
 import { Suspense } from "react";
 
-import { getGenannteFassung } from "@/core/einwilligung";
-import { gekeyteFassung, KONTAKT_ABSATZ_SCHLUESSEL, KONTAKT_BEDIEN_SCHLUESSEL } from "@/core/einwilligungSeiten";
 import { ROUTES } from "@/core/routes";
 import { BestaetigungView } from "@/features/bewerbungen/components/views/BestaetigungView";
 import { getEinwilligungAnsicht } from "@/features/bewerbungen/queries";
@@ -46,21 +44,12 @@ async function BestaetigungContent(props: NextPageProps) {
 
   const start: BestaetigungStart = await runWithIncomingTrace(() =>
     getEinwilligungAnsicht(token).then(
-      async (gelesen): Promise<BestaetigungStart> => {
-        // Offered the Widerspruch alone, which shows no stamped words.
+      (gelesen): BestaetigungStart => {
+        // Offered the Widerspruch alone.
         if (gelesen.zustand === "saison_past") return { zustand: "saison_past", ansicht: gelesen.ansicht, token: token };
         if (gelesen.zustand !== "valid") return gelesen;
 
-        // After the link's read, never beside it: the view names the label by how the seat was filled.
-        // A failed read is the panel below; a label the registry does not hold reaches the error boundary.
-        const fassung = await getGenannteFassung(gelesen.ansicht.running_wording).catch(nullUnlessContractBreak);
-
-        // A page with no words to show is a page that cannot be answered, which the failed read's panel says.
-        if (fassung === null) return { zustand: "unlesbar" };
-
-        // Uncaught: words this page cannot key are a broken contract, which the error boundary logs.
-        const worte = gekeyteFassung(fassung, KONTAKT_ABSATZ_SCHLUESSEL, KONTAKT_BEDIEN_SCHLUESSEL);
-        return { zustand: "valid", ansicht: gelesen.ansicht, token: token, wording: worte };
+        return { zustand: "valid", ansicht: gelesen.ansicht, token: token };
       },
       (error: unknown): BestaetigungStart => nullUnlessContractBreak(error) ?? { zustand: "unlesbar" },
     ),

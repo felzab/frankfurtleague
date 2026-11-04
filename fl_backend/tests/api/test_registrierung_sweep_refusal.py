@@ -18,7 +18,7 @@ from app.api.registrierungen.services import (
 from app.core.middlewares import REQUEST_DEADLINE_S
 from app.shared.schemas.bounds import REGISTRIERUNG_CONFIRMATION_FRIST_DAYS, REGISTRIERUNG_REMINDER_DAYS
 from app.shared.tokens import hash_token
-from tests.documents import own_einwilligung_document
+from tests.documents import SPIELER_TEXT_VERSIONS, own_einwilligung_document
 
 TODAY = "2026-04-01"
 YESTERDAY = "2026-03-31"
@@ -33,7 +33,7 @@ FIRST_HASH = hash_token("first")
 
 
 def einwilligung() -> dict[str, Any]:
-    return own_einwilligung_document(text_version="2026-10-spielerseite-5", confirmed_at=TODAY)
+    return own_einwilligung_document(text_versions=SPIELER_TEXT_VERSIONS, confirmed_at=TODAY)
 
 
 def bestaetigung(**overrides: Any) -> dict[str, Any]:

@@ -15,7 +15,6 @@ from app.api.bewerbungen.services import (
     compose_decline_update,
     find_expired_token_refusal,
     paired_seat,
-    saison_kontakt_seite,
     seat_opens_nobody,
     zustand_of,
 )
@@ -27,7 +26,7 @@ from app.shared.schemas.bounds import (
 from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 from app.shared.tokens import hash_token
-from tests.documents import kontaktperson_document, minted_confirmations
+from tests.documents import SEAT_TEXT_VERSIONS, kontaktperson_document, minted_confirmations
 
 TODAY = "2026-04-01"
 
@@ -152,13 +151,6 @@ class TestWhatALinkAnswers:
 
         assert seat_opens_nobody(slot=None, state="saison_past") is True
 
-    def test_a_season_row_seat_an_administrator_filled_opens_the_season_rows_page(self):
-        """The view and the answer agree on whatever this names, so a wrong page is consented to and stored with no refusal."""
-
-        row = {"kontakte": {"trainer": kontaktperson_document("Quillhilde", entered_by="liga")}}
-
-        assert saison_kontakt_seite(row=row, seat="trainer") == "bestaetigung_kontakt_saison"
-
     def test_a_person_reaching_the_seats_floor_today_may_confirm(self):
         """The floor to the day: a contact person sixteen today is inside it."""
 
@@ -207,7 +199,7 @@ def antwort(**overrides: Any) -> dict[str, Any]:
         "geburtsdatum": "1984-05-09",
         "whatsapp": False,
         "medien": False,
-        "text_version": "v4",
+        "text_versions": dict(SEAT_TEXT_VERSIONS),
         **overrides,
     }
 
@@ -235,13 +227,13 @@ class TestWhatTheAnswerPayloadRefuses:
 
         assert refusals(body) == [(("given", "geburtsdatum"), "missing")]
 
-    @pytest.mark.parametrize("field", ["geburtsdatum", "whatsapp", "medien", "text_version"])
+    @pytest.mark.parametrize("field", ["geburtsdatum", "whatsapp", "medien", "text_versions"])
     def test_a_decline_carries_nothing_of_the_person(self, field: str):
         """A decline empties the slot: a date or a choice sent with one would be a value nothing writes, echoed back as stored."""
 
         assert refusals({"token": "raw-trainer", "antwort": "declined", field: antwort()[field]}) == [(("declined", field), "extra_forbidden")]
 
-    @pytest.mark.parametrize("field", ["geburtsdatum", "whatsapp", "medien", "text_version", "antwort"])
+    @pytest.mark.parametrize("field", ["geburtsdatum", "whatsapp", "medien", "text_versions", "antwort"])
     def test_every_field_is_required(self, field: str, assert_rejects):
         body = antwort()
         del body[field]

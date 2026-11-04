@@ -35,12 +35,6 @@ export const REGISTRIERUNG_MIN_ALTER = 16;
 // `medien_mindestalter` for the reason given above.
 export const MEDIEN_MIN_ALTER = 18;
 
-/**
- * The publication question, on the confirmation page and the account page alike. The answers are the
- * registry's, this choice deciding a stored field; the question is no stamped word.
- */
-export const SPIELER_UMFANG_FRAGE = "Was darf von Deinem Namen auf der Website stehen?";
-
 /** The two publication scopes, both in one list: a control offering one answer and a blank reads as a default. */
 export const EINWILLIGUNG_UMFANG_OPTIONS: readonly FLEinwilligungUmfang[] = Object.values(FLEinwilligungUmfang);
 

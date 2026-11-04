@@ -1,12 +1,12 @@
 "use client";
 
 import { useId } from "react";
-import Link from "next/link";
 
 import { FieldError } from "@heroui/react/field-error";
 import { Input } from "@heroui/react/input";
 import { Label } from "@heroui/react/label";
 
+import { COPY } from "@/core/copy";
 import { TrainerZugleichPicker } from "@/features/teams/components/forms/TrainerZugleichPicker";
 import { KONTAKT_NAME_MAX_LENGTH } from "@/features/teams/constants";
 import {
@@ -21,19 +21,12 @@ import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { Switch } from "@/shared/components/ui/Switch";
 import { TextField } from "@/shared/components/ui/TextField";
-import { textLink } from "@/shared/components/ui/textLink";
 
 import type { FLTrainerAlso } from "@/core/generated/client/types";
 import type { BewerbungKontaktpersonDraft } from "@/features/bewerbungen/types";
 import type { ReactNode } from "react";
 
 export type SeatRolle = "ansprechperson" | "stellvertretung" | "trainer";
-
-/**
- * The words the form shows under the label every seat it submits stamps, read by the page per
- * request: a deploy moves the label the submission is judged against.
- */
-export type BewerbungFassung = { readonly textVersion: string; readonly absaetze: readonly string[]; readonly schalter: string };
 
 /** What each seat is for, behind the heading's own glyph. */
 const SEAT_HINT: Record<SeatRolle, ReactNode> = {
@@ -211,38 +204,15 @@ export function FormKontaktpersonenSection({
   );
 }
 
-/** The privacy notice, linked on its own name wherever the retained wording happens to use it. */
-const DATENSCHUTZ_WORT = "Datenschutzerklärung";
-
-function mitDatenschutzLink(absatz: string): ReactNode {
-  const [vor = "", ...rest] = absatz.split(DATENSCHUTZ_WORT);
-  if (rest.length === 0) return absatz;
-
-  return (
-    <>
-      {vor}
-      <Link
-        href="/datenschutz"
-        prefetch={false}
-        className={textLink()}>
-        {DATENSCHUTZ_WORT}
-      </Link>
-      {rest.join(DATENSCHUTZ_WORT)}
-    </>
-  );
-}
-
 /**
  * **One switch and not three**: it asserts that the three people know of their entry, where three
  * acknowledgements would claim what two absent people cannot give. Each person's own Bestätigung
  * comes through their own link.
  */
 export function FormEinwilligungSection({
-  fassung,
   erteilt,
   onErteiltPicked,
 }: {
-  fassung: BewerbungFassung;
   erteilt: boolean;
   /** A press, so it is judged here rather than on a blur no switch produces. */
   onErteiltPicked: (erteilt: boolean) => void;
@@ -261,16 +231,6 @@ export function FormEinwilligungSection({
       </div>
 
       <div className={panel.body()}>
-        {/* `muted-meta` rather than `muted-hint`: the wording is stamped and cannot be shortened, so
-            the type step it is set at is the only lever on how long the block reads. */}
-        {fassung.absaetze.map((absatz) => (
-          <p
-            key={absatz}
-            className="muted-meta">
-            {mitDatenschutzLink(absatz)}
-          </p>
-        ))}
-
         {/* The Switch holds the NAME itself: `SwitchField` takes one, so its own checkbox carries
             `aria-required` and `aria-invalid` and is described by the message below it. */}
         <Switch
@@ -281,7 +241,7 @@ export function FormEinwilligungSection({
           isSelected={erteilt}
           onChange={onErteiltPicked}>
           <Switch.Content className={panel.switchContent()}>
-            {fassung.schalter}
+            {COPY.bewerbung.kenntnisnahme}
             <Switch.Control className={panel.switchControl()}>
               <Switch.Thumb />
             </Switch.Control>

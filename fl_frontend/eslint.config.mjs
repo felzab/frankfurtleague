@@ -675,8 +675,6 @@ const SOURCE_BANS = [
     SOURCE,
     {
       allow: [
-        // A label's words never change, so nothing outside a save reaches them.
-        "src/core/einwilligung.ts",
         // The footer's year, which no record holds.
         "src/kit/ClassicFrame.tsx",
       ],

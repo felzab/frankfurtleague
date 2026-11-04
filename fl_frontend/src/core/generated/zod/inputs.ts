@@ -393,9 +393,6 @@ export const BewerbungenGetBewerbungenQueryParams = zod.object({
  * (`bewerbung_key_differing`).
  *
  * An address the ban list holds, on any seat, is refused (`bewerbung_adresse_barred`) on a first press.
- *
- * A seat naming a consent wording other than the one the form now shows is refused (`wording_not_allowed`),
- * and only once the key has been looked up: a stored key is answered whatever wording it names.
  * @summary Submit a Bewerbung
  */
 export const bewerbungenPostBewerbungBodyKaderExpectedSizeMax = 200;
@@ -403,11 +400,6 @@ export const bewerbungenPostBewerbungBodyKaderExpectedSizeMax = 200;
 export const bewerbungenPostBewerbungBodyKaderGoodSpielerMin = 0;
 export const bewerbungenPostBewerbungBodyKaderGoodSpielerMax = 200;
 
-export const bewerbungenPostBewerbungBodyKontakteAnsprechpersonEinwilligungTextVersionMax = 64;
-
-export const bewerbungenPostBewerbungBodyKontakteAnsprechpersonEinwilligungTextVersionRegExp = new RegExp(
-  "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
-);
 export const bewerbungenPostBewerbungBodyKontakteAnsprechpersonEmailMax = 254;
 
 export const bewerbungenPostBewerbungBodyKontakteAnsprechpersonNachnameMax = 80;
@@ -417,11 +409,6 @@ export const bewerbungenPostBewerbungBodyKontakteAnsprechpersonTelefonRegExp = n
 export const bewerbungenPostBewerbungBodyKontakteAnsprechpersonVornameMax = 80;
 
 export const bewerbungenPostBewerbungBodyKontakteAnsprechpersonVornameRegExp = new RegExp("^\\p{L}[\\p{L}\\-' ]*$", "u");
-export const bewerbungenPostBewerbungBodyKontakteStellvertretungEinwilligungTextVersionMax = 64;
-
-export const bewerbungenPostBewerbungBodyKontakteStellvertretungEinwilligungTextVersionRegExp = new RegExp(
-  "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
-);
 export const bewerbungenPostBewerbungBodyKontakteStellvertretungEmailMax = 254;
 
 export const bewerbungenPostBewerbungBodyKontakteStellvertretungNachnameMax = 80;
@@ -431,11 +418,6 @@ export const bewerbungenPostBewerbungBodyKontakteStellvertretungTelefonRegExp = 
 export const bewerbungenPostBewerbungBodyKontakteStellvertretungVornameMax = 80;
 
 export const bewerbungenPostBewerbungBodyKontakteStellvertretungVornameRegExp = new RegExp("^\\p{L}[\\p{L}\\-' ]*$", "u");
-export const bewerbungenPostBewerbungBodyKontakteTrainerEinwilligungTextVersionMax = 64;
-
-export const bewerbungenPostBewerbungBodyKontakteTrainerEinwilligungTextVersionRegExp = new RegExp(
-  "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
-);
 export const bewerbungenPostBewerbungBodyKontakteTrainerEmailMax = 254;
 
 export const bewerbungenPostBewerbungBodyKontakteTrainerNachnameMax = 80;
@@ -489,13 +471,8 @@ export const BewerbungenPostBewerbungBody = zod
             einwilligung: zod
               .object({
                 given: zod.literal(true).meta({ title: "Given" }),
-                text_version: zod
-                  .string()
-                  .min(1)
-                  .max(bewerbungenPostBewerbungBodyKontakteAnsprechpersonEinwilligungTextVersionMax)
-                  .regex(bewerbungenPostBewerbungBodyKontakteAnsprechpersonEinwilligungTextVersionRegExp),
               })
-              .describe("What the applicant agreed to; the scope and the date are the server's."),
+              .describe("What the applicant acknowledged; the scope and the date are the server's."),
             email: zod.string().max(bewerbungenPostBewerbungBodyKontakteAnsprechpersonEmailMax),
             nachname: zod
               .string()
@@ -515,13 +492,8 @@ export const BewerbungenPostBewerbungBody = zod
             einwilligung: zod
               .object({
                 given: zod.literal(true).meta({ title: "Given" }),
-                text_version: zod
-                  .string()
-                  .min(1)
-                  .max(bewerbungenPostBewerbungBodyKontakteStellvertretungEinwilligungTextVersionMax)
-                  .regex(bewerbungenPostBewerbungBodyKontakteStellvertretungEinwilligungTextVersionRegExp),
               })
-              .describe("What the applicant agreed to; the scope and the date are the server's."),
+              .describe("What the applicant acknowledged; the scope and the date are the server's."),
             email: zod.string().max(bewerbungenPostBewerbungBodyKontakteStellvertretungEmailMax),
             nachname: zod
               .string()
@@ -541,13 +513,8 @@ export const BewerbungenPostBewerbungBody = zod
             einwilligung: zod
               .object({
                 given: zod.literal(true).meta({ title: "Given" }),
-                text_version: zod
-                  .string()
-                  .min(1)
-                  .max(bewerbungenPostBewerbungBodyKontakteTrainerEinwilligungTextVersionMax)
-                  .regex(bewerbungenPostBewerbungBodyKontakteTrainerEinwilligungTextVersionRegExp),
               })
-              .describe("What the applicant agreed to; the scope and the date are the server's."),
+              .describe("What the applicant acknowledged; the scope and the date are the server's."),
             email: zod.string().max(bewerbungenPostBewerbungBodyKontakteTrainerEmailMax),
             nachname: zod
               .string()
@@ -643,14 +610,11 @@ export const BewerbungenPostBewerbungBody = zod
  *
  * A decline empties the slot; on an application it owes the Ansprechperson who still stands the notice naming who
  * refused, in the same transaction, which stands as the deletion notice too. Refuses, writing nothing:
- * `link_invalid`, `link_expired`, `bewerbung_seat_already_answered`, `confirmation_age`, `link_barred`, `wording_not_allowed`,
- * `medien_age`, and on a team's season row `link_expired` and `kontakt_saison_past`.
+ * `link_invalid`, `link_expired`, `bewerbung_seat_already_answered`, `confirmation_age`, `link_barred`, `medien_age`, and
+ * on a team's season row `link_expired` and `kontakt_saison_past`.
  * @summary Confirm or decline one seat of a Bewerbung or of a team's season row
  */
 export const bewerbungenPostEinwilligungBodyOneGeburtsdatumRegExp = new RegExp("^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$");
-export const bewerbungenPostEinwilligungBodyOneTextVersionMax = 64;
-
-export const bewerbungenPostEinwilligungBodyOneTextVersionRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
 export const bewerbungenPostEinwilligungBodyOneTokenMax = 128;
 
 export const bewerbungenPostEinwilligungBodyOneTokenRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
@@ -664,11 +628,12 @@ export const BewerbungenPostEinwilligungBody = zod.union([
       antwort: zod.literal("given").meta({ title: "Antwort" }),
       geburtsdatum: zod.string().regex(bewerbungenPostEinwilligungBodyOneGeburtsdatumRegExp),
       medien: zod.boolean(),
-      text_version: zod
-        .string()
-        .min(1)
-        .max(bewerbungenPostEinwilligungBodyOneTextVersionMax)
-        .regex(bewerbungenPostEinwilligungBodyOneTextVersionRegExp),
+      text_versions: zod
+        .object({
+          medien: zod.literal("2026-11-medien-1"),
+          umfang: zod.literal("2026-11-whatsapp-1"),
+        })
+        .describe("A contact seat's two wordings: the WhatsApp switch and the media switch."),
       token: zod.string().min(1).max(bewerbungenPostEinwilligungBodyOneTokenMax).regex(bewerbungenPostEinwilligungBodyOneTokenRegExp),
       whatsapp: zod.boolean(),
     })
@@ -809,7 +774,7 @@ export const BewerbungenAcceptBewerbungBody = zod
  * Withdraw the signed-in person's WhatsApp and media consents on every seat they hold on this pending application.
  *
  * A grant is refused. Refuses, writing nothing: `role_not_held`, `wording_not_allowed` (the choices moved since the
- * page was served), `giving_not_allowed` and `wording_not_allowed`.
+ * page was served) and `giving_not_allowed`.
  * @summary Withdraw a seat holder's own WhatsApp and media consent on a pending Bewerbung
  */
 export const bewerbungenPatchEinwilligungPathBewerbungIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -818,10 +783,6 @@ export const BewerbungenPatchEinwilligungParams = zod.object({
   bewerbung_id: zod.string().regex(bewerbungenPatchEinwilligungPathBewerbungIdRegExp),
 });
 
-export const bewerbungenPatchEinwilligungBodyTextVersionMax = 64;
-
-export const bewerbungenPatchEinwilligungBodyTextVersionRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
-
 export const BewerbungenPatchEinwilligungBody = zod
   .object({
     medien: zod.boolean(),
@@ -829,11 +790,12 @@ export const BewerbungenPatchEinwilligungBody = zod
       medien: zod.union([zod.string(), zod.null()]),
       umfang: zod.union([zod.string(), zod.null()]),
     }),
-    text_version: zod
-      .string()
-      .min(1)
-      .max(bewerbungenPatchEinwilligungBodyTextVersionMax)
-      .regex(bewerbungenPatchEinwilligungBodyTextVersionRegExp),
+    text_versions: zod
+      .object({
+        medien: zod.literal("2026-11-medien-1"),
+        umfang: zod.literal("2026-11-whatsapp-1"),
+      })
+      .describe("A contact seat's two wordings: the WhatsApp switch and the media switch."),
     umfang: zod.enum(["kontaktdaten", "kontaktdaten_whatsapp"]),
   })
   .describe(
@@ -895,8 +857,7 @@ export const BewerbungenResendEinwilligungParams = zod.object({
  * stepped out of — confirmed, still waiting or erased at its person's request, the claimed mirror included
  * (`bewerbung_seat_already_answered`); and on an address another
  * contact person on this application already holds (`bewerbung_kontakt_email_taken`), or that the ban list holds
- * (`bewerbung_kontakt_barred`); and on any label but the application form's running one (`wording_not_allowed`), the person
- * seated being a new acceptance. A path naming no seat is a 404.
+ * (`bewerbung_kontakt_barred`). A path naming no seat is a 404.
  * @summary Seat another person where a contact person stepped out
  */
 export const bewerbungenPostKontaktSeatPathBewerbungIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -912,9 +873,6 @@ export const bewerbungenPostKontaktSeatBodyNachnameMax = 80;
 
 export const bewerbungenPostKontaktSeatBodyNachnameRegExp = new RegExp("^\\p{L}[\\p{L}\\-' ]*$", "u");
 export const bewerbungenPostKontaktSeatBodyTelefonRegExp = new RegExp("^([+]?[ 0-9\\-().]{2,19}[0-9])$");
-export const bewerbungenPostKontaktSeatBodyTextVersionMax = 64;
-
-export const bewerbungenPostKontaktSeatBodyTextVersionRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
 export const bewerbungenPostKontaktSeatBodyVornameMax = 80;
 
 export const bewerbungenPostKontaktSeatBodyVornameRegExp = new RegExp("^\\p{L}[\\p{L}\\-' ]*$", "u");
@@ -924,7 +882,6 @@ export const BewerbungenPostKontaktSeatBody = zod
     email: zod.string().max(bewerbungenPostKontaktSeatBodyEmailMax),
     nachname: zod.string().min(1).max(bewerbungenPostKontaktSeatBodyNachnameMax).regex(bewerbungenPostKontaktSeatBodyNachnameRegExp),
     telefon: zod.string().regex(bewerbungenPostKontaktSeatBodyTelefonRegExp),
-    text_version: zod.string().min(1).max(bewerbungenPostKontaktSeatBodyTextVersionMax).regex(bewerbungenPostKontaktSeatBodyTextVersionRegExp),
     vorname: zod.string().min(1).max(bewerbungenPostKontaktSeatBodyVornameMax).regex(bewerbungenPostKontaktSeatBodyVornameRegExp),
   })
   .describe("The person seated where a contact person stepped out, who has agreed to nothing yet.");
@@ -964,14 +921,6 @@ export const BewerbungenPostKontaktEmailBody = zod
     previous_email: zod.string().max(bewerbungenPostKontaktEmailBodyPreviousEmailMax),
   })
   .describe("The corrected address and the one the page showed on the seat, and nothing else of the person.");
-
-/**
- * The words a consent label names, which never change, so the answer may be cached; 404 for a label the registry lacks.
- * @summary The words one consent label names
- */
-export const EinwilligungGetWordingParams = zod.object({
-  text_version: zod.string(),
-});
 
 /**
  * Grant an address access to the administration, as `administration`, or ask another administrator to. No request grants `owner`.
@@ -1431,7 +1380,7 @@ export const RegistrierungenPostRegistrierungBody = zod
  * Withdraw the publication scope or the media consent the signed-in pupil gave on their own pending registration.
  *
  * A grant is refused, and a PATCH moving neither writes nothing. Refuses, writing nothing: `role_not_held`,
- * `wording_not_allowed` (the wording or the choices moved since the page was served) and `giving_not_allowed`.
+ * `wording_not_allowed` (the choices moved since the page was served) and `giving_not_allowed`.
  * @summary Withdraw a pupil's own publication and media consent on their pending registration
  */
 export const registrierungenPatchEinwilligungPathRegistrierungIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -1440,10 +1389,6 @@ export const RegistrierungenPatchEinwilligungParams = zod.object({
   registrierung_id: zod.string().regex(registrierungenPatchEinwilligungPathRegistrierungIdRegExp),
 });
 
-export const registrierungenPatchEinwilligungBodyTextVersionMax = 64;
-
-export const registrierungenPatchEinwilligungBodyTextVersionRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
-
 export const RegistrierungenPatchEinwilligungBody = zod
   .object({
     medien: zod.boolean(),
@@ -1451,29 +1396,25 @@ export const RegistrierungenPatchEinwilligungBody = zod
       medien: zod.union([zod.string(), zod.null()]),
       umfang: zod.union([zod.string(), zod.null()]),
     }),
-    text_version: zod
-      .string()
-      .min(1)
-      .max(registrierungenPatchEinwilligungBodyTextVersionMax)
-      .regex(registrierungenPatchEinwilligungBodyTextVersionRegExp),
+    text_versions: zod
+      .object({
+        medien: zod.literal("2026-11-medien-1"),
+        umfang: zod.literal("2026-11-name-kader-1"),
+      })
+      .describe("A pupil's two wordings: the name on the squad and the media switch."),
     umfang: zod.enum(["kader_oeffentlich", "intern"]),
   })
-  .describe(
-    "A pupil's, a referee's or a registration's own two choices on their record.\n\nBoth choices on every press, and no member defaulted: a default would let a page that forgot one\nreset the person's other choice.",
-  );
+  .describe("A pupil's or a registration's own two choices on their record.");
 
 /**
  * Record a pupil's own answer for the registration their link opens, which stays pending until the team decides.
  *
  * Refuses, writing nothing: `link_invalid`, `link_expired`, `confirmation_exists`, `confirmation_age`, `medien_age`,
- * `link_barred`, `registrierung_choices_unsuitable` and `wording_not_allowed`.
+ * `link_barred` and `registrierung_choices_unsuitable`.
  * @summary Confirm one registration and record the pupil's consent
  */
 export const registrierungenPostConfirmationBodyGeburtsdatumOneRegExp = new RegExp("^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$");
 export const registrierungenPostConfirmationBodyGeburtsdatumThreeRegExp = new RegExp("^\\s*$");
-export const registrierungenPostConfirmationBodyTextVersionMax = 64;
-
-export const registrierungenPostConfirmationBodyTextVersionRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
 export const registrierungenPostConfirmationBodyTokenMax = 128;
 
 export const registrierungenPostConfirmationBodyTokenRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
@@ -1486,11 +1427,15 @@ export const RegistrierungenPostConfirmationBody = zod
       zod.string().regex(registrierungenPostConfirmationBodyGeburtsdatumThreeRegExp),
     ]),
     medien: zod.union([zod.boolean(), zod.null()]),
-    text_version: zod
-      .string()
-      .min(1)
-      .max(registrierungenPostConfirmationBodyTextVersionMax)
-      .regex(registrierungenPostConfirmationBodyTextVersionRegExp),
+    text_versions: zod.union([
+      zod
+        .object({
+          medien: zod.literal("2026-11-medien-1"),
+          umfang: zod.literal("2026-11-name-kader-1"),
+        })
+        .describe("A pupil's two wordings: the name on the squad and the media switch."),
+      zod.null(),
+    ]),
     token: zod.string().min(1).max(registrierungenPostConfirmationBodyTokenMax).regex(registrierungenPostConfirmationBodyTokenRegExp),
     umfang: zod.union([zod.enum(["kader_oeffentlich", "intern"]), zod.null()]),
   })
@@ -2169,10 +2114,8 @@ export const SchiedsrichterPostSchiedsrichterBody = zod.object({
  *
  * Refuses, in this order: an id that is no confirmed referee record of this address (`role_not_held`); a
  * `nachweis_stand` other than the record's own, either choice having moved since the page was served
- * (`wording_not_allowed`); a grant on a retired record (`giving_not_allowed`); a `text_version` naming no version of
- * the account page's referee control, or a grant naming any but the page's running one (`wording_not_allowed`);
- * `medien` moving to `true` where the stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is missing
- * (`medien_age`). Each refusal writes nothing.
+ * (`wording_not_allowed`); a grant on a retired record (`giving_not_allowed`); `medien` moving to `true` where the
+ * stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is missing (`medien_age`). Each refusal writes nothing.
  *
  * **The caller drops the cached fixture list after a successful answer**, which reads this row; nothing here can.
  * @summary Change a signed-in referee's own publication and media consent
@@ -2183,10 +2126,6 @@ export const SchiedsrichterPatchEinwilligungParams = zod.object({
   schiedsrichter_id: zod.string().regex(schiedsrichterPatchEinwilligungPathSchiedsrichterIdRegExp),
 });
 
-export const schiedsrichterPatchEinwilligungBodyTextVersionMax = 64;
-
-export const schiedsrichterPatchEinwilligungBodyTextVersionRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
-
 export const SchiedsrichterPatchEinwilligungBody = zod
   .object({
     medien: zod.boolean(),
@@ -2194,39 +2133,35 @@ export const SchiedsrichterPatchEinwilligungBody = zod
       medien: zod.union([zod.string(), zod.null()]),
       umfang: zod.union([zod.string(), zod.null()]),
     }),
-    text_version: zod
-      .string()
-      .min(1)
-      .max(schiedsrichterPatchEinwilligungBodyTextVersionMax)
-      .regex(schiedsrichterPatchEinwilligungBodyTextVersionRegExp),
+    text_versions: zod
+      .object({
+        medien: zod.literal("2026-11-medien-1"),
+        umfang: zod.literal("2026-11-name-spielplan-1"),
+      })
+      .describe("A referee's two wordings: the name on the fixtures and the media switch."),
     umfang: zod.enum(["kader_oeffentlich", "intern"]),
   })
-  .describe(
-    "A pupil's, a referee's or a registration's own two choices on their record.\n\nBoth choices on every press, and no member defaulted: a default would let a page that forgot one\nreset the person's other choice.",
-  );
+  .describe("A referee's own two choices on their record.");
 
 /**
  * Record a referee's own answer for the entry their link opens: their date of birth and the consent, in one update.
  *
- * The consent carries the publication scope they chose, the media answer beside it, the stamp and the wording they were
- * shown. It reaches this one collection and writes nothing on any fixture: a referee's publication scope has one home,
- * which the fixture list joins at read time to decide whether to publish the name each fixture stores.
+ * The consent carries the publication scope they chose, the media answer beside it, the stamp and, on each choice's
+ * evidence, the wording they were shown. It reaches this one collection and writes nothing on any fixture: a referee's
+ * publication scope has one home, which the fixture list joins at read time to decide whether to publish the name each
+ * fixture stores.
  *
  * Refuses, in this order: a token no referee holds (`link_invalid`), an entry already confirmed
- * (`confirmation_exists`), a link whose deadline has passed (`link_expired`), any label but the referee
- * page's running one (`wording_not_allowed`), a link mailed to an address the ban list holds now, whenever the link
- * was minted (`link_barred`), an age outside what this consent asks (`confirmation_age`), and a media
- * consent from a referee below `medien_minimum_age` (`medien_age`) -- the label and the last two judged
- * before anything is written, so a reloaded page or a mistyped year spends nothing.
+ * (`confirmation_exists`), a link whose deadline has passed (`link_expired`), a link mailed to an address the ban
+ * list holds now, whenever the link was minted (`link_barred`), an age outside what this consent asks
+ * (`confirmation_age`), and a media consent from a referee below `medien_minimum_age` (`medien_age`) -- the last two
+ * judged before anything is written, so a mistyped year spends nothing.
  *
  * **The caller drops the cached fixture list after a successful answer**, which reads this record. Nothing here can:
  * a withheld name would go on being served for as long as that entry lives.
  * @summary Confirm one Schiedsrichter's entry and consent
  */
 export const schiedsrichterPostConfirmationBodyGeburtsdatumRegExp = new RegExp("^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$");
-export const schiedsrichterPostConfirmationBodyTextVersionMax = 64;
-
-export const schiedsrichterPostConfirmationBodyTextVersionRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
 export const schiedsrichterPostConfirmationBodyTokenMax = 128;
 
 export const schiedsrichterPostConfirmationBodyTokenRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
@@ -2234,11 +2169,12 @@ export const schiedsrichterPostConfirmationBodyTokenRegExp = new RegExp("^[^\\x0
 export const SchiedsrichterPostConfirmationBody = zod.object({
   geburtsdatum: zod.string().regex(schiedsrichterPostConfirmationBodyGeburtsdatumRegExp),
   medien: zod.boolean(),
-  text_version: zod
-    .string()
-    .min(1)
-    .max(schiedsrichterPostConfirmationBodyTextVersionMax)
-    .regex(schiedsrichterPostConfirmationBodyTextVersionRegExp),
+  text_versions: zod
+    .object({
+      medien: zod.literal("2026-11-medien-1"),
+      umfang: zod.literal("2026-11-name-spielplan-1"),
+    })
+    .describe("A referee's two wordings: the name on the fixtures and the media switch."),
   token: zod.string().min(1).max(schiedsrichterPostConfirmationBodyTokenMax).regex(schiedsrichterPostConfirmationBodyTokenRegExp),
   umfang: zod.enum(["kader_oeffentlich", "intern"]),
 });
@@ -3220,8 +3156,7 @@ export const SpieleGetSpielVerwaltungParams = zod.object({
  *
  * Refuses, in this order: an address holding no confirmed pupil record (`role_not_held`); a `nachweis_stand`
  * other than the record's own, either choice having moved since the page was served (`wording_not_allowed`); a
- * grant on a retired record (`giving_not_allowed`); a `text_version` naming no version of the account page's pupil
- * control, or a grant naming any but the page's running one (`wording_not_allowed`); `medien` moving to `true` where
+ * grant on a retired record (`giving_not_allowed`); `medien` moving to `true` where
  * the stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is missing (`medien_age`). Each
  * refusal writes nothing.
  *
@@ -3229,10 +3164,6 @@ export const SpieleGetSpielVerwaltungParams = zod.object({
  * name is served, and nothing here can.
  * @summary Change a signed-in pupil's own publication and media consent
  */
-export const spielerPatchEinwilligungBodyTextVersionMax = 64;
-
-export const spielerPatchEinwilligungBodyTextVersionRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
-
 export const SpielerPatchEinwilligungBody = zod
   .object({
     medien: zod.boolean(),
@@ -3240,12 +3171,15 @@ export const SpielerPatchEinwilligungBody = zod
       medien: zod.union([zod.string(), zod.null()]),
       umfang: zod.union([zod.string(), zod.null()]),
     }),
-    text_version: zod.string().min(1).max(spielerPatchEinwilligungBodyTextVersionMax).regex(spielerPatchEinwilligungBodyTextVersionRegExp),
+    text_versions: zod
+      .object({
+        medien: zod.literal("2026-11-medien-1"),
+        umfang: zod.literal("2026-11-name-kader-1"),
+      })
+      .describe("A pupil's two wordings: the name on the squad and the media switch."),
     umfang: zod.enum(["kader_oeffentlich", "intern"]),
   })
-  .describe(
-    "A pupil's, a referee's or a registration's own two choices on their record.\n\nBoth choices on every press, and no member defaulted: a default would let a page that forgot one\nreset the person's other choice.",
-  );
+  .describe("A pupil's or a registration's own two choices on their record.");
 
 /**
  * The squad of one team in one season, for a person holding any contact seat on it.
@@ -3953,10 +3887,8 @@ export const TeamsPatchSaisonTeamBody = zod
  *
  * Refuses, in this order: a row on which the address holds no confirmed seat (`role_not_held`); a
  * `nachweis_stand` other than the held seats' own, either choice having moved since the page was served
- * (`wording_not_allowed`); a grant where the row grants no panel (`giving_not_allowed`); a `text_version` naming no
- * version of the account page's seat control, or a grant naming any but its running one (`wording_not_allowed`);
- * `medien` moving to `true` where a held seat's stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is
- * missing (`medien_age`). Each refusal writes nothing.
+ * (`wording_not_allowed`); a grant where the row grants no panel (`giving_not_allowed`); `medien` moving to `true`
+ * where a held seat's stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is missing (`medien_age`). Each refusal writes nothing.
  * @summary Change a seat holder's own WhatsApp and media consent on one team's season
  */
 export const teamsPatchEinwilligungPathTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -3966,10 +3898,6 @@ export const TeamsPatchEinwilligungParams = zod.object({
   saison_id: zod.string(),
 });
 
-export const teamsPatchEinwilligungBodyTextVersionMax = 64;
-
-export const teamsPatchEinwilligungBodyTextVersionRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
-
 export const TeamsPatchEinwilligungBody = zod
   .object({
     medien: zod.boolean(),
@@ -3977,7 +3905,12 @@ export const TeamsPatchEinwilligungBody = zod
       medien: zod.union([zod.string(), zod.null()]),
       umfang: zod.union([zod.string(), zod.null()]),
     }),
-    text_version: zod.string().min(1).max(teamsPatchEinwilligungBodyTextVersionMax).regex(teamsPatchEinwilligungBodyTextVersionRegExp),
+    text_versions: zod
+      .object({
+        medien: zod.literal("2026-11-medien-1"),
+        umfang: zod.literal("2026-11-whatsapp-1"),
+      })
+      .describe("A contact seat's two wordings: the WhatsApp switch and the media switch."),
     umfang: zod.enum(["kontaktdaten", "kontaktdaten_whatsapp"]),
   })
   .describe(
@@ -4095,9 +4028,7 @@ export const TeamsPostInvitationDispatchBody = zod
  *
  * **A seat the same person keeps keeps its record whole**, each choice and its evidence included; a seat newly filled
  * or handed to another person is born granting nothing, its media consent off and no choice evidenced, since only a
- * person's own write grants one. Such a seat's label must be the application form's running one
- * (`wording_not_allowed`). A kept seat may name its stored label back, whichever page it is a version of, or the
- * running one, and its record is carried either way.
+ * person's own write grants one.
  * @summary Rewrite a team's season contacts, and nothing else on the row
  */
 export const teamsPatchSaisonTeamKontaktePathTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -4109,11 +4040,6 @@ export const TeamsPatchSaisonTeamKontakteParams = zod.object({
 
 export const teamsPatchSaisonTeamKontakteBodyKontakteOneAnsprechpersonOneEinwilligungDatumRegExp = new RegExp(
   "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-);
-export const teamsPatchSaisonTeamKontakteBodyKontakteOneAnsprechpersonOneEinwilligungTextVersionMax = 64;
-
-export const teamsPatchSaisonTeamKontakteBodyKontakteOneAnsprechpersonOneEinwilligungTextVersionRegExp = new RegExp(
-  "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
 );
 export const teamsPatchSaisonTeamKontakteBodyKontakteOneAnsprechpersonOneEmailMax = 254;
 
@@ -4127,11 +4053,6 @@ export const teamsPatchSaisonTeamKontakteBodyKontakteOneAnsprechpersonOneVorname
 export const teamsPatchSaisonTeamKontakteBodyKontakteOneStellvertretungOneEinwilligungDatumRegExp = new RegExp(
   "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
 );
-export const teamsPatchSaisonTeamKontakteBodyKontakteOneStellvertretungOneEinwilligungTextVersionMax = 64;
-
-export const teamsPatchSaisonTeamKontakteBodyKontakteOneStellvertretungOneEinwilligungTextVersionRegExp = new RegExp(
-  "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
-);
 export const teamsPatchSaisonTeamKontakteBodyKontakteOneStellvertretungOneEmailMax = 254;
 
 export const teamsPatchSaisonTeamKontakteBodyKontakteOneStellvertretungOneNachnameMax = 80;
@@ -4143,11 +4064,6 @@ export const teamsPatchSaisonTeamKontakteBodyKontakteOneStellvertretungOneVornam
 export const teamsPatchSaisonTeamKontakteBodyKontakteOneStellvertretungOneVornameRegExp = new RegExp("^\\p{L}[\\p{L}\\-' ]*$", "u");
 export const teamsPatchSaisonTeamKontakteBodyKontakteOneTrainerOneEinwilligungDatumRegExp = new RegExp(
   "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-);
-export const teamsPatchSaisonTeamKontakteBodyKontakteOneTrainerOneEinwilligungTextVersionMax = 64;
-
-export const teamsPatchSaisonTeamKontakteBodyKontakteOneTrainerOneEinwilligungTextVersionRegExp = new RegExp(
-  "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
 );
 export const teamsPatchSaisonTeamKontakteBodyKontakteOneTrainerOneEmailMax = 254;
 
@@ -4168,11 +4084,6 @@ export const TeamsPatchSaisonTeamKontakteBody = zod
             zod.object({
               einwilligung: zod.object({
                 datum: zod.string().regex(teamsPatchSaisonTeamKontakteBodyKontakteOneAnsprechpersonOneEinwilligungDatumRegExp),
-                text_version: zod
-                  .string()
-                  .min(1)
-                  .max(teamsPatchSaisonTeamKontakteBodyKontakteOneAnsprechpersonOneEinwilligungTextVersionMax)
-                  .regex(teamsPatchSaisonTeamKontakteBodyKontakteOneAnsprechpersonOneEinwilligungTextVersionRegExp),
                 umfang: zod.literal("kontaktdaten").meta({ title: "Umfang" }),
               }),
               email: zod.string().max(teamsPatchSaisonTeamKontakteBodyKontakteOneAnsprechpersonOneEmailMax),
@@ -4194,11 +4105,6 @@ export const TeamsPatchSaisonTeamKontakteBody = zod
             zod.object({
               einwilligung: zod.object({
                 datum: zod.string().regex(teamsPatchSaisonTeamKontakteBodyKontakteOneStellvertretungOneEinwilligungDatumRegExp),
-                text_version: zod
-                  .string()
-                  .min(1)
-                  .max(teamsPatchSaisonTeamKontakteBodyKontakteOneStellvertretungOneEinwilligungTextVersionMax)
-                  .regex(teamsPatchSaisonTeamKontakteBodyKontakteOneStellvertretungOneEinwilligungTextVersionRegExp),
                 umfang: zod.literal("kontaktdaten").meta({ title: "Umfang" }),
               }),
               email: zod.string().max(teamsPatchSaisonTeamKontakteBodyKontakteOneStellvertretungOneEmailMax),
@@ -4220,11 +4126,6 @@ export const TeamsPatchSaisonTeamKontakteBody = zod
             zod.object({
               einwilligung: zod.object({
                 datum: zod.string().regex(teamsPatchSaisonTeamKontakteBodyKontakteOneTrainerOneEinwilligungDatumRegExp),
-                text_version: zod
-                  .string()
-                  .min(1)
-                  .max(teamsPatchSaisonTeamKontakteBodyKontakteOneTrainerOneEinwilligungTextVersionMax)
-                  .regex(teamsPatchSaisonTeamKontakteBodyKontakteOneTrainerOneEinwilligungTextVersionRegExp),
                 umfang: zod.literal("kontaktdaten").meta({ title: "Umfang" }),
               }),
               email: zod.string().max(teamsPatchSaisonTeamKontakteBodyKontakteOneTrainerOneEmailMax),

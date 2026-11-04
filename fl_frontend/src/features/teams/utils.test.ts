@@ -1,4 +1,3 @@
-import { laufendeFassung } from "@/test-support/einwilligungRegistry.ts";
 import { kenntnisnahme } from "@/test-support/kenntnisnahme.ts";
 import { assert, describe, expect, it } from "vitest";
 
@@ -6,15 +5,7 @@ import { EINGETRAGEN_VON_OPTIONS, GRUPPEN_OPTIONS, KONTAKT_ROLLEN, TRIKOT_FARBE_
 import { buildKontakteFacets, buildTeamFacets, KONTAKTE_BESETZUNG_OPTIONS, kontakteBesetzung, TEAM_FACETS } from "./facets.ts";
 import { FLTrikotFarbeSchema } from "./schemas.ts";
 // Relative import, not the "@/" alias: Node's resolver does not read tsconfig paths.
-import {
-  buildEmptyKontaktperson,
-  buildKontaktRows,
-  describeReplacementUmfang,
-  holdsNobody,
-  isRetireable,
-  offeredTrikotFarben,
-  toWebsiteUrl,
-} from "./utils.ts";
+import { buildKontaktRows, describeReplacementUmfang, holdsNobody, isRetireable, offeredTrikotFarben, toWebsiteUrl } from "./utils.ts";
 
 import type { FLKontaktperson, FLSaisonTeamKontakte, FLTeamWithMemberships } from "@/core/generated/client/types.ts";
 
@@ -82,7 +73,7 @@ const kontaktperson = (vorname: string): FLKontaktperson => ({
   email: `${vorname.toLowerCase()}@beispiel.de`,
   telefon: "069 1234567",
   geburtsdatum: "1990-01-01",
-  einwilligung: kenntnisnahme({ text_version: "2025-08", datum: "2025-09-01", confirmed_at: "2025-09-02" }),
+  einwilligung: kenntnisnahme({ datum: "2025-09-01", confirmed_at: "2025-09-02" }),
 });
 
 const club = (kontakte: FLSaisonTeamKontakte | null): FLTeamWithMemberships => ({
@@ -336,19 +327,6 @@ describe("what a website box reports upward", () => {
     expect(toWebsiteUrl("")).toBe(null);
     expect(toWebsiteUrl("   ")).toBe(null);
     expect(toWebsiteUrl("https://")).toBe(null);
-  });
-});
-
-describe("what a new Kenntnisnahme cites", () => {
-  /* Stamped from the label the backend runs, never typed and never left blank: the version NAMES the
-     wording, so a record citing nothing, or citing a value somebody keyed in, claims acknowledgement of a
-     text the league cannot identify. */
-  it("stamps the label it is handed, the one the backend runs", () => {
-    const laufend = laufendeFassung("bewerbung").text_version;
-    const frisch = buildEmptyKontaktperson(laufend).einwilligung;
-
-    expect(frisch.text_version, "a new Kenntnisnahme cites a version the league did not stamp").toBe(laufend);
-    expect(frisch.text_version, "a new Kenntnisnahme cites no wording at all").not.toBe("");
   });
 });
 

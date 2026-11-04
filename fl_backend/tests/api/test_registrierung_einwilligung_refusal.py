@@ -19,11 +19,9 @@ from app.api.registrierungen.services import (
     sole_person,
     zustand_of,
 )
-from app.shared.einwilligung import LAUFENDE_FASSUNGEN
-from app.shared.schemas.bounds import EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH
 from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.tokens import hash_token
-from tests.documents import own_einwilligung_document
+from tests.documents import SPIELER_TEXT_VERSIONS, own_einwilligung_document
 
 TODAY = "2026-04-01"
 YESTERDAY = "2026-03-31"
@@ -33,13 +31,11 @@ TOMORROW = "2026-04-02"
 RAW = "raw-token-for-this-pupil"
 TOKEN_HASH = hash_token(RAW)
 
-A_LABEL = "2026-10-spielerseite-5"
-
 
 def einwilligung(**overrides: Any) -> dict[str, Any]:
     """One consent record as a pupil's own press leaves it."""
 
-    return {**own_einwilligung_document(text_version=A_LABEL, confirmed_at=YESTERDAY), **overrides}
+    return {**own_einwilligung_document(text_versions=SPIELER_TEXT_VERSIONS, confirmed_at=YESTERDAY), **overrides}
 
 
 def registrierung(**overrides: Any) -> dict[str, Any]:
@@ -214,9 +210,6 @@ class TestWhichPageTheLinkOpens:
         assert (sole_person(rows) is not None) == found
 
 
-RETURNING_LABEL = LAUFENDE_FASSUNGEN[SEITE_WIEDERKEHREND]
-
-
 class TestWhatAReturningAdmissionWrites:
     """A registration carrying no choice renews nothing on the person's record."""
 
@@ -224,7 +217,7 @@ class TestWhatAReturningAdmissionWrites:
         "vorname": "Quillhilde",
         "nachname": "Brackenmoor",
         "geburtsdatum": "2009-05-09",
-        "einwilligung": {"confirmed_at": TODAY, "text_version": RETURNING_LABEL},
+        "einwilligung": {"confirmed_at": TODAY},
     }
 
     def test_a_new_person_is_never_born_from_it(self):
@@ -241,7 +234,7 @@ class TestAPersonIsNeverWrittenNameless:
         "vorname": "Quillhilde",
         "nachname": "Brackenmoor",
         "geburtsdatum": "2009-05-09",
-        "einwilligung": own_einwilligung_document(text_version=RETURNING_LABEL, confirmed_at=TODAY, umfang="intern"),
+        "einwilligung": own_einwilligung_document(text_versions=SPIELER_TEXT_VERSIONS, confirmed_at=TODAY, umfang="intern"),
     }
 
     # Whitespace among them: `person_name_key` folds it to the empty key the sentinel's null name also folds to.
@@ -263,14 +256,21 @@ class TestAPersonIsNeverWrittenNameless:
 
 
 def antwort(**overrides: Any) -> dict[str, Any]:
-    return {"token": RAW, "geburtsdatum": "2009-05-09", "umfang": "intern", "medien": False, "text_version": A_LABEL, **overrides}
+    return {
+        "token": RAW,
+        "geburtsdatum": "2009-05-09",
+        "umfang": "intern",
+        "medien": False,
+        "text_versions": dict(SPIELER_TEXT_VERSIONS),
+        **overrides,
+    }
 
 
 class TestWhatTheAnswerPayloadRefuses:
     def test_the_corpus_this_class_moves_one_field_of_is_valid(self):
         assert FLRegistrierungConfirmationPayload.model_validate(antwort()).umfang == "intern"
 
-    @pytest.mark.parametrize("field", ["token", "geburtsdatum", "umfang", "medien", "text_version"])
+    @pytest.mark.parametrize("field", ["token", "geburtsdatum", "umfang", "medien", "text_versions"])
     def test_every_field_is_required(self, field: str, assert_rejects):
         """`medien` above all: defaulted, an off switch would store this model's answer where the person's belongs."""
 
@@ -282,22 +282,12 @@ class TestWhatTheAnswerPayloadRefuses:
     def test_the_returning_pupils_page_states_its_unasked_answers_as_null(self):
         """Which page a body may carry nulls on is the press's to judge (`registrierung_choices_unsuitable`), never the model's."""
 
-        stated = FLRegistrierungConfirmationPayload.model_validate(
-            antwort(geburtsdatum=None, umfang=None, medien=None, text_version=RETURNING_LABEL)
-        )
+        stated = FLRegistrierungConfirmationPayload.model_validate(antwort(geburtsdatum=None, umfang=None, medien=None, text_versions=None))
 
-        assert (stated.geburtsdatum, stated.umfang, stated.medien) == (None, None, None)
+        assert (stated.geburtsdatum, stated.umfang, stated.medien, stated.text_versions) == (None, None, None, None)
 
     def test_a_scope_outside_the_pair_is_refused(self, assert_rejects):
         assert_rejects(FLRegistrierungConfirmationPayload, antwort(umfang="kontaktdaten"), "umfang")
-
-    def test_a_label_past_the_bound_is_refused_and_one_at_it_taken(self, assert_rejects):
-        assert_rejects(
-            FLRegistrierungConfirmationPayload, antwort(text_version="v" * (EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH + 1)), "text_version"
-        )
-
-        at_the_bound = "v" * EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH
-        assert FLRegistrierungConfirmationPayload.model_validate(antwort(text_version=at_the_bound)).text_version == at_the_bound
 
     def test_a_malformed_date_is_refused(self, assert_rejects):
         """`payload_refused` rather than the age's own code: the shape of the field is the body's business, and the age is the person's."""

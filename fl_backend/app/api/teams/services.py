@@ -1142,27 +1142,6 @@ def compose_kontakte_herkunft(*, kontakte: Mapping[str, Any] | None, stored: Any
     return composed
 
 
-def kontakte_fassungen_genannt(*, kontakte: Mapping[str, Any] | None) -> dict[str, str]:
-    seats = {slot: kontakte.get(slot) for slot in KONTAKT_ROLLEN} if kontakte is not None else {}
-
-    return {slot: str(seat["einwilligung"]["text_version"]) for slot, seat in seats.items() if isinstance(seat, Mapping)}
-
-
-def kontakte_fassungen_gehalten(*, kontakte: Mapping[str, Any] | None, stored: Any) -> dict[str, str | None]:
-    """The label each seat holds where the save leaves its PERSON unchanged, never where it hands the seat on."""
-
-    stored_block = stored if isinstance(stored, Mapping) else {}
-    gehalten: dict[str, str | None] = {}
-
-    for slot in KONTAKT_ROLLEN:
-        seat = kontakte.get(slot) if kontakte is not None else None
-        held = _confirmation_held_by(stored_block.get(slot), seat=seat) if isinstance(seat, Mapping) else None
-        if held is not None:
-            gehalten[slot] = held.get("text_version")
-
-    return gehalten
-
-
 # --- The CONFIRMATION LINK a seat an administrator typed in is mailed, stored beside the slot at
 # `bestaetigungen.<slot>` as an application keeps its own.
 

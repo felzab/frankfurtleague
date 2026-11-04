@@ -22,7 +22,6 @@ from app.api.registrierungen.schemas import (
 )
 from app.api.spieler.person_router import get_self, patch_einwilligung
 from app.core.collections import Collection
-from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.einwilligung_nachweis import nachweis_stand_of
 from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.schemas.einwilligung import FLAccountEinwilligungPayload
@@ -30,6 +29,7 @@ from tests import documents
 from tests.bans import ban_list
 from tests.config import build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
+from tests.documents import SPIELER_TEXT_VERSIONS
 from tests.erasure import erased
 from tests.plans import plans_of_sent_reads
 from tests.records import record_collections
@@ -94,7 +94,7 @@ async def seed(database: AsyncDatabase) -> ObjectId:
                 "geburtsdatum": "2009-05-04",
                 "umfang": "intern",
                 "medien": False,
-                "text_version": "2026-09",
+                "text_versions": SPIELER_TEXT_VERSIONS,
                 "today": "2026-03-31",
                 "am": "2026-03-31T08:00:00+00:00",
             },
@@ -188,7 +188,7 @@ async def the_own_record_press(database: AsyncDatabase, client: AsyncMongoClient
             {
                 "umfang": "intern",
                 "medien": False,
-                "text_version": LAUFENDE_FASSUNGEN["konto_spieler"],
+                "text_versions": dict(documents.SPIELER_TEXT_VERSIONS),
                 # The stand the account page served for the record as the corpus seeds it.
                 "nachweis_stand": nachweis_stand_of(bloecke=[documents.EINWILLIGUNG]),
             }

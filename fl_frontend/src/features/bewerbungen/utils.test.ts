@@ -1,9 +1,9 @@
-import { laufendeFassung } from "@/test-support/einwilligungRegistry.ts";
 import { answerSettled, answerShown, refusalCodes, refused } from "@/test-support/refusals.ts";
 import { bodyField, refusedPayload } from "@/test-support/refusedPayload.ts";
 import { parseDate } from "@internationalized/date";
 import { assert, describe, expect, it } from "vitest";
 
+import { SEAT_TEXT_VERSIONS } from "@/core/consentWordings.ts";
 import { TEAM_FACETS } from "@/features/teams/facets";
 import { FELD_ABGELEHNT } from "@/shared/utils/actionError";
 import { getGermanTodayStr } from "@/shared/utils/date";
@@ -33,9 +33,6 @@ import {
 
 import type { Code, FLBewerbung, FLBewerbungWindowResponse } from "@/core/generated/client/types.ts";
 import type { BewerbungKontakteDraft, BewerbungKontaktpersonDraft, EinwilligungAnsicht } from "./types.ts";
-
-/** The label the backend runs on the contact page, off the registry it generated. */
-const KONTAKT_LABEL = laufendeFassung("bestaetigung_kontakt").text_version;
 
 /** The proposed school, of which only `team_name` decides the answer. */
 const SCHOOL: FLBewerbung["schule"] = {
@@ -290,7 +287,7 @@ describe("the birthdate window a contact person's date has to fall in", () => {
     for (const mindestalter of [BEWERBUNG_MIN_ALTER, VERTRETUNG_MIN_ALTER]) {
       const { spaeteste } = geburtsdatumSpanne(getGermanTodayStr(), mindestalter);
       const schema = buildEinwilligungAntwortPayloadSchema(mindestalter);
-      const antwort = { token: "kein-echtes-token", antwort: "given", whatsapp: false, medien: false, text_version: KONTAKT_LABEL };
+      const antwort = { token: "kein-echtes-token", antwort: "given", whatsapp: false, medien: false, text_versions: SEAT_TEXT_VERSIONS };
 
       expect(schema.safeParse({ ...antwort, geburtsdatum: spaeteste }).success, `${String(mindestalter)}: the offer is refused`).toBe(true);
       expect(
@@ -307,7 +304,7 @@ describe("the public form's coach mirror", () => {
     nachname: "Mustermann",
     email: `${vorname.toLowerCase()}@beispiel.de`,
     telefon: "069 1234567",
-    einwilligung: { text_version: "2026-08", given: true },
+    einwilligung: { given: true },
   });
 
   const kontakte = (overrides: Partial<BewerbungKontakteDraft> = {}): BewerbungKontakteDraft => ({
@@ -607,7 +604,6 @@ const offenBei = (mindestalter: number) => async (): Promise<EinwilligungAnsicht
     schule: "Ernst-Reuter",
     rolle: "ansprechperson",
     also_rolle: null,
-    running_wording: KONTAKT_LABEL,
     minimum_age: mindestalter,
     medien_minimum_age: 18,
   },

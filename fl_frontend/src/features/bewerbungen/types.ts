@@ -30,7 +30,7 @@ export type AdminBewerbungRow = FLBewerbung & {
 export type BewerbungKontaktpersonDraft = Omit<FLBewerbungKontaktpersonPayload, "einwilligung"> & {
   // `erteilt` starts `false`, which `z.literal(true)` refuses: an untouched box is an acknowledgement
   // nobody made, and the payload type admits no other value.
-  einwilligung: { text_version: string; given: boolean };
+  einwilligung: { given: boolean };
 };
 
 /** The three seats mid-entry. All three are present: an application is what three reachable people submitted. */

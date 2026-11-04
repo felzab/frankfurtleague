@@ -12,7 +12,7 @@ import io
 import logging
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Literal
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -35,14 +35,16 @@ from app.core.logging import JSONFormatter
 from app.core.recording import ERASED_ACTOR_MARKER
 from app.core.security import actor_pseudonym, erasure_journal_hash
 from app.main import create_app
-from app.shared.einwilligung import LAUFENDE_FASSUNGEN, Seite
-from app.shared.einwilligung_nachweis import nachweis_stand_of
+from app.shared.einwilligung_nachweis import TextVersions, nachweis_stand_of
 from app.shared.tokens import hash_token
 from tests import documents
 from tests.app_client import app_client
 from tests.config import ADMIN_KEY, BASE_AUTH
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import (
+    SCHIEDSRICHTER_TEXT_VERSIONS,
+    SEAT_TEXT_VERSIONS,
+    SPIELER_TEXT_VERSIONS,
     bewerbung_document,
     kontakte_document,
     kontaktperson_document,
@@ -105,8 +107,6 @@ MOVING_PUPIL = "lenore@schule.de"
 MOVING_REFEREE = "baldur@schule.de"
 ADMIN = "verwaltung@frankfurtleague.de"
 
-CONFIRMED_LABEL = "2026-10-schiedsrichterseite-4"
-SEAT_LABEL = "2026-09-bestaetigungsseite-6"
 
 ROW_LINK = "the-season-rows-link"
 APPLICATION_LINK = "the-applications-link"
@@ -114,10 +114,10 @@ REFEREE_ADDRESS_LINK = "the-referees-address-link"
 PUPIL_ADDRESS_LINK = "the-pupils-address-link"
 
 
-def _own(**fields: Any) -> dict[str, Any]:
-    """A person's own record's consent, both choices granted."""
+def _own(text_versions: TextVersions, **fields: Any) -> dict[str, Any]:
+    """A person's own record's consent, both choices granted under its kind's wordings."""
 
-    return own_einwilligung_document(text_version=CONFIRMED_LABEL, confirmed_at="2126-09-02", medien=True, **fields)
+    return own_einwilligung_document(text_versions=text_versions, confirmed_at="2126-09-02", medien=True, **fields)
 
 
 def _seat(email: str, *, confirmed: bool = True) -> dict[str, Any]:
@@ -125,15 +125,22 @@ def _seat(email: str, *, confirmed: bool = True) -> dict[str, Any]:
         "Ortrud" if confirmed else "Ida",
         confirmed_at="2126-09-03" if confirmed else None,
         geburtsdatum=ADULT if confirmed else None,
-        einwilligung={"umfang": "kontaktdaten_whatsapp", "medien": True, "text_version": SEAT_LABEL} if confirmed else {},
+        einwilligung={"umfang": "kontaktdaten_whatsapp", "medien": True} if confirmed else {},
     )
     return {**seat, "email": email}
 
 
 # The stand each account page serves for the record as `_seed` stores it, which a press from that page echoes.
-SERVED_STAND: dict[Seite, dict[str, str | None]] = {
-    "konto_spieler": nachweis_stand_of(bloecke=[_own()]),
-    "konto_schiedsrichter": nachweis_stand_of(bloecke=[_own()]),
+# Each account control beside the wordings its press names.
+type Konto = Literal["konto_spieler", "konto_schiedsrichter", "konto_kontakt"]
+LABELS: dict[Konto, TextVersions] = {
+    "konto_spieler": SPIELER_TEXT_VERSIONS,
+    "konto_schiedsrichter": SCHIEDSRICHTER_TEXT_VERSIONS,
+    "konto_kontakt": SEAT_TEXT_VERSIONS,
+}
+SERVED_STAND: dict[Konto, dict[str, str | None]] = {
+    "konto_spieler": nachweis_stand_of(bloecke=[_own(SPIELER_TEXT_VERSIONS)]),
+    "konto_schiedsrichter": nachweis_stand_of(bloecke=[_own(SCHIEDSRICHTER_TEXT_VERSIONS)]),
     "konto_kontakt": nachweis_stand_of(bloecke=[_seat(PERSON)["einwilligung"]]),
 }
 
@@ -186,21 +193,28 @@ async def _seed(database: AsyncDatabase) -> None:
     )
     await database[Collection.SPIELER].insert_many(
         [
-            spieler_document(PUPIL_OID, "Ortrud", "Zwiebelmayer", email=PERSON, geburtsdatum=ADULT, einwilligung=_own()),
-            spieler_document(MOVING_PUPIL_OID, "Lenore", "Quastenbach", email=MOVING_PUPIL, geburtsdatum=ADULT, einwilligung=_own()),
+            spieler_document(PUPIL_OID, "Ortrud", "Zwiebelmayer", email=PERSON, geburtsdatum=ADULT, einwilligung=_own(SPIELER_TEXT_VERSIONS)),
+            spieler_document(
+                MOVING_PUPIL_OID, "Lenore", "Quastenbach", email=MOVING_PUPIL, geburtsdatum=ADULT, einwilligung=_own(SPIELER_TEXT_VERSIONS)
+            ),
         ]
     )
     await database[Collection.SCHIEDSRICHTER].insert_many(
         [
             schiedsrichter_document(
-                REFEREE_OID, email=PERSON, name="Ortrud Zwiebelmayer", default_payment=20, einwilligung=_own(), geburtsdatum=ADULT
+                REFEREE_OID,
+                email=PERSON,
+                name="Ortrud Zwiebelmayer",
+                default_payment=20,
+                einwilligung=_own(SCHIEDSRICHTER_TEXT_VERSIONS),
+                geburtsdatum=ADULT,
             ),
             schiedsrichter_document(
                 MOVING_REFEREE_OID,
                 email=MOVING_REFEREE,
                 name="Baldur Krautzberger",
                 default_payment=20,
-                einwilligung=_own(),
+                einwilligung=_own(SCHIEDSRICHTER_TEXT_VERSIONS),
                 geburtsdatum=ADULT,
             ),
         ]
@@ -233,7 +247,6 @@ async def _seed(database: AsyncDatabase) -> None:
             nummer="17",
             stufe="Q1",
             confirmed=registrierung_confirmed(
-                "bestaetigung_spieler",
                 geburtsdatum=ADULT,
                 today="2126-09-21",
                 am="2126-09-21T08:00:00+00:00",
@@ -260,8 +273,8 @@ def _person(email: str) -> StampedHeaders:
     return StampedHeaders(email, ADMIN_KEY, lane="person")
 
 
-def _withdrawal(page: Seite, **choices: Any) -> dict[str, Any]:
-    return {"text_version": LAUFENDE_FASSUNGEN[page], "nachweis_stand": SERVED_STAND[page], **choices}
+def _withdrawal(page: Konto, **choices: Any) -> dict[str, Any]:
+    return {"text_versions": dict(LABELS[page]), "nachweis_stand": SERVED_STAND[page], **choices}
 
 
 Press = Callable[[AsyncClient, AsyncDatabase], Awaitable[Any]]
@@ -491,7 +504,7 @@ class TestEachPressAndItsReplay:
                 f"{V}/schiedsrichter/account/{REFEREE_OID}/einwilligung",
                 {
                     **_withdrawal("konto_schiedsrichter", umfang="kader_oeffentlich", medien=True),
-                    "nachweis_stand": nachweis_stand_of(bloecke=[{**_own(), "medien": False}]),
+                    "nachweis_stand": nachweis_stand_of(bloecke=[{**_own(SCHIEDSRICHTER_TEXT_VERSIONS), "medien": False}]),
                 },
             )
             with caplog.at_level(logging.INFO):
@@ -511,7 +524,7 @@ class TestARecordTheLineNoLongerFits:
             collection=Collection.SPIELER,
             record_id=MOVING_PUPIL_OID,
             am=AM,
-            text_version=LAUFENDE_FASSUNGEN["konto_spieler"],
+            text_versions={"medien": SPIELER_TEXT_VERSIONS["medien"]},
             choices={"medien": False},
         )
 
@@ -562,7 +575,7 @@ class TestTheListing:
             collection=Collection.SPIELER,
             record_id=PUPIL_OID,
             am=AM,
-            text_version=LAUFENDE_FASSUNGEN["konto_spieler"],
+            text_versions={"medien": SPIELER_TEXT_VERSIONS["medien"]},
             choices={"medien": False},
         )
         on_the_restored_site = JournalLine(
@@ -571,7 +584,7 @@ class TestTheListing:
             collection=Collection.SCHIEDSRICHTER,
             record_id=REFEREE_OID,
             am="2126-10-03T12:30:00+00:00",
-            text_version=LAUFENDE_FASSUNGEN["konto_schiedsrichter"],
+            text_versions={"medien": SCHIEDSRICHTER_TEXT_VERSIONS["medien"]},
             choices={"medien": False},
         )
         day = _day_file(

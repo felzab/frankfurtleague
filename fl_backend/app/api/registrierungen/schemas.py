@@ -11,7 +11,7 @@ from app.shared.schemas.custom import (
     CustomObjectId,
     CustomOptionalDateString,
 )
-from app.shared.schemas.einwilligung import CustomEinwilligungTextVersion, FLEinwilligungNachweise, FLEinwilligungStand
+from app.shared.schemas.einwilligung import FLEinwilligungNachweise, FLEinwilligungStand, FLSpielerTextVersions
 from app.shared.schemas.kontakt import CustomEmail, CustomKontaktName
 from app.shared.schemas.literals import (
     FLConfirmationState,
@@ -194,8 +194,8 @@ class FLRegistrierungenListResponse(BaseAPIResponse):
 # --- The CONFIRMATION. The token is the whole credential, as it is for the application's link, so
 # both endpoints are base-tier and every payload forbids an undeclared key.
 
-# The two pages one link may open, members of `app/shared/einwilligung.py :: Seite`: the returning
-# pupil's asks no choice, so the press is judged against whichever its own transaction resolves.
+# The two pages one link may open: the returning pupil's asks no choice, so the press is judged against
+# whichever its own transaction resolves.
 FLRegistrierungSeite = Literal["bestaetigung_spieler", "bestaetigung_spieler_wiederkehrend"]
 
 
@@ -208,7 +208,7 @@ class FLRegistrierungConfirmationViewResponse(BaseAPIResponse):
     team: CustomNonEmptyString
     schule: CustomNonEmptyString
     saison_id: str
-    # Served rather than left to the page to infer: the press refuses the other page's label, and the
+    # Served rather than left to the page to infer: the press refuses the other page's answers, and the
     # returning pupil's takes the stored person's birthdate rather than asking one.
     seite: FLRegistrierungSeite
     # Served rather than read from a constant of the page's own: the floor the write judges by is
@@ -233,8 +233,8 @@ class FLRegistrierungConfirmationPayload(BaseModel):
     # the person's.
     umfang: FLEinwilligungUmfang | None
     medien: bool | None
-    # The label of the words the page showed: the write refuses any but the running one.
-    text_version: CustomEinwilligungTextVersion
+    # The wordings the page showed beside the two choices, null where it asked none, as `umfang` is.
+    text_versions: FLSpielerTextVersions | None
 
 
 class FLRegistrierungConfirmationResponse(BaseAPIResponse):
@@ -281,7 +281,7 @@ class FLRegistrierungSweepResponse(BaseAPIResponse):
 
 # --- The TEAM's decision, person tier. No model below declares `email`, `telefon`, `geburtsdatum` or
 # `einwilligung`: a seat holder reads who registered and decides, and a pupil's address and birthdate
-# are the league administrators' alone (`fl_backend/app/shared/einwilligung.py :: FASSUNGEN`).
+# are the league administrators' alone.
 
 
 class FLOffeneRegistrierungenParams(BaseModel):

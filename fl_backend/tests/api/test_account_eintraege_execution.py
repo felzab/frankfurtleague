@@ -19,18 +19,19 @@ from fastapi import FastAPI
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.identity.crud import find_eigene_eintraege
+from app.api.registrierungen.schemas import FLRegistrierungSeite
 from app.api.registrierungen.services import compose_ablehnung_update
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.main import create_app
-from app.shared.einwilligung import LAUFENDE_FASSUNGEN, Seite
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS, REGISTRIERUNG_MIN_AGE_YEARS
 from tests.app_client import app_client
 from tests.config import ADMIN_KEY
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import (
+    SPIELER_TEXT_VERSIONS,
     bewerbung_document,
     kontakte_document,
     kontaktperson_document,
@@ -121,7 +122,7 @@ def _person(email: str) -> StampedHeaders:
 
 
 def _einwilligung(**fields: Any) -> dict[str, Any]:
-    return own_einwilligung_document(text_version="2026-10-schiedsrichterseite-4", confirmed_at="2026-09-02", **fields)
+    return own_einwilligung_document(text_versions=SPIELER_TEXT_VERSIONS, confirmed_at="2026-09-02", **fields)
 
 
 def _referee(referee_id: ObjectId, email: str, name: str, **fields: Any) -> dict[str, Any]:
@@ -137,7 +138,7 @@ def _seat(email: str, *, confirmed_at: str | None = "2026-09-03") -> dict[str, A
         email=email,
         telefon="+49 69 5550101",
         geburtsdatum="2000-05-09",
-        einwilligung={"text_version": "2026-09-bestaetigungsseite-6", "datum": "2026-09-01", "medien": True},
+        einwilligung={"datum": "2026-09-01", "medien": True},
     )
 
 
@@ -157,14 +158,16 @@ def _bewerbung(oid: ObjectId, *, status: str, kontakte: dict[str, Any]) -> dict[
     )
 
 
-def _registrierung(oid: ObjectId, email: str, *, seite: Seite | None = "bestaetigung_spieler", vorname: str = "Wiltrudis") -> dict[str, Any]:
+def _registrierung(
+    oid: ObjectId, email: str, *, seite: FLRegistrierungSeite | None = "bestaetigung_spieler", vorname: str = "Wiltrudis"
+) -> dict[str, Any]:
     """A registration as its composers leave it; `seite` the confirmation page its pupil answered, `None` for none yet."""
 
     gewaehlt: dict[str, Any] = {"umfang": "kader_oeffentlich", "medien": True} if seite == "bestaetigung_spieler" else {}
     bestaetigt = (
         None
         if seite is None
-        else registrierung_confirmed(seite, geburtsdatum="2008-05-09", today="2026-09-21", am="2026-09-21T08:00:00+00:00", **gewaehlt)
+        else registrierung_confirmed(geburtsdatum="2008-05-09", today="2026-09-21", am="2026-09-21T08:00:00+00:00", **gewaehlt)
     )
 
     return registrierung_document(
@@ -292,7 +295,6 @@ def test_the_account_page_serves_a_registration_as_its_pupil_stored_it(mongo_rep
         "team_id": str(TEAMS[3]),
         "team_name": "Schule3",
         "saison_id": ACTIVE,
-        "confirmed_text_version": LAUFENDE_FASSUNGEN["bestaetigung_spieler"],
         "umfang": "kader_oeffentlich",
         "medien": True,
         "minimum_age": REGISTRIERUNG_MIN_AGE_YEARS,
