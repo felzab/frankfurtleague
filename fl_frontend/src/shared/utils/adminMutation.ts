@@ -6,7 +6,7 @@ import { judgeAdminRequest } from "@/core/auth/guards";
 import { isFreshlySignedIn } from "@/core/auth/sessionStamps";
 import { APIBadStatusError } from "@/core/errors";
 import { logger } from "@/core/logging";
-import { requestEndsOwnSession, requestWriteSent } from "@/core/requestScope";
+import { requestWriteSent } from "@/core/requestScope";
 import { isWithinEnrolmentWindow } from "@/core/sessionLifetimes";
 import { SITE_CACHE_TAG } from "@/core/siteCache";
 
@@ -81,7 +81,7 @@ async function runGuarded<S, T extends { success: boolean }>(
   mutationName: string,
   guard: Guard<S>,
   fn: (session: S) => Promise<T>,
-): Promise<{ forbidden: true } | { forbidden: false; answer: T | ActionFailure; wrote: boolean; endsOwnSession: boolean }> {
+): Promise<{ forbidden: true } | { forbidden: false; answer: T | ActionFailure; wrote: boolean }> {
   return runWithIncomingTrace(async () => {
     let answer: T | ActionFailure;
     try {
@@ -103,16 +103,15 @@ async function runGuarded<S, T extends { success: boolean }>(
 
     // Read once the body has settled and inside this scope, which closes with the callback.
     const wrote = requestWriteSent();
-    const endsOwnSession = requestEndsOwnSession();
 
     // Whatever the action made of it: part of the write may stand.
     if (writeOutcomeUnknown()) {
       logger.error("mutation.outcome_unknown", undefined, { lane: guard.lane, mutation: mutationName });
 
-      return { forbidden: false, answer: outcomeUnknown(), wrote: wrote, endsOwnSession: endsOwnSession };
+      return { forbidden: false, answer: outcomeUnknown(), wrote: wrote };
     }
 
-    return { forbidden: false, answer: answer, wrote: wrote, endsOwnSession: endsOwnSession };
+    return { forbidden: false, answer: answer, wrote: wrote };
   });
 }
 
@@ -128,12 +127,8 @@ export async function runGuardedMutation<S, T extends { success: boolean }>(
   const guarded = await runGuarded(mutationName, guard, fn);
   if (guarded.forbidden) return { success: false, error: typeof guard.forbidden === "string" ? guard.forbidden : await guard.forbidden() };
 
-  const { answer, wrote, endsOwnSession } = guarded;
+  const { answer, wrote } = guarded;
   const outcome = "outcome" in answer ? answer.outcome : undefined;
-  // A write that may have ended its caller's session renders no page again, whose own check would redirect and empty the area;
-  // the page leaves by a document load. Such a write removes a passkey, which no cached read holds.
-  if (endsOwnSession) return answer;
-
   // Wherever a write may stand, a lost answer and a partial one included, and whatever it wrote: every cached read
   // carries the one tag, so no write has to know which of them it moves.
   if (wrote && (answer.success || outcome !== undefined)) updateTag(SITE_CACHE_TAG);

@@ -1,6 +1,6 @@
 "use client";
 
-import { KONTO_HREF } from "@/core/kontoHref";
+import { ROUTES } from "@/core/routes";
 import { AppShell } from "@/shared/components/layout/shell/AppShell";
 import { signOut } from "@/shared/utils/signOut";
 
@@ -34,7 +34,7 @@ export function AdminShell({
       unlistedSections={ADMIN_SHELL_UNLISTED_SECTIONS}
       fallbackTitle={ADMIN_SHELL_FALLBACK.label}
       fallbackHint={ADMIN_SHELL_FALLBACK.hint}
-      kontoHref={KONTO_HREF}
+      kontoHref={ROUTES.account.path()}
       onSignOut={signOut}>
       {children}
     </AppShell>

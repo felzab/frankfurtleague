@@ -88,8 +88,7 @@ globalThis.fetch = ((input: string | URL | Request, init?: RequestInit) => {
 }) as typeof globalThis.fetch;
 
 // Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
-const { fordereKontoLoeschungAnAction } = await import("./actions.ts");
-const { kontoLoeschen } = await import("./personActions.ts");
+const { kontoLoeschen, requestErasure } = await import("./personActions.ts");
 const { COPY } = await import("@/core/copy.ts");
 const { SERVER_COPY } = await import("@/core/serverCopy.ts");
 const { auth } = await import("@/core/auth/library.ts");
@@ -123,8 +122,8 @@ async function mitLink(email: string, { passkey = false }: { passkey?: boolean }
   }
   arriveAs(cookie);
 
-  const angefordert = await fordereKontoLoeschungAnAction();
-  expect(angefordert.success, `the account page's press answered ${JSON.stringify(angefordert)}`).toBe(true);
+  const angefordert = await requestErasure({});
+  expect(angefordert.ok, `the account page's press answered ${JSON.stringify(angefordert)}`).toBe(true);
   const found = /\/loeschung\?token=([0-9a-z]+)/.exec(mail.sent.findLast((sent) => sent.to === email)?.text ?? "");
   assert.ok(found?.[1] !== undefined, "the mail carries no link to the page");
 
@@ -165,7 +164,7 @@ async function inhaberinMitLink(email: string): Promise<{ row: SessionRow; token
   const durchPasskey = await sessionByCode(auth, store, email);
   madeByPasskey(store, durchPasskey.row);
   arriveAs(durchPasskey.cookie);
-  expect((await fordereKontoLoeschungAnAction()).success, "the owner's passkey session mailed no link").toBe(true);
+  expect((await requestErasure({})).ok, "the owner's passkey session mailed no link").toBe(true);
   const found = /\/loeschung\?token=([0-9a-z]+)/.exec(mail.sent.findLast((sent) => sent.to === email)?.text ?? "");
   assert.ok(found?.[1] !== undefined, "the mail carries no link to the page");
 

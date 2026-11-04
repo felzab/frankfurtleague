@@ -38,21 +38,6 @@ export async function liveSessionsOf(userId: string): Promise<LiveSessionRow[]> 
 }
 
 /**
- * Deletes the holder's session row `id`, by the holder's own user id too, so an id belonging to another
- * person ends nothing; answers how many rows went.
- */
-export async function endSessionOf(userId: string, id: string): Promise<number> {
-  const { adapter } = await auth.$context;
-  return adapter.deleteMany({
-    model: "session",
-    where: [
-      { field: "id", value: id },
-      { field: "userId", value: userId },
-    ],
-  });
-}
-
-/**
  * Ends every session of an address's account, which a refused next sign-in does not reach, keeping the account: a
  * barred one is the account sweep's to judge, a signed-out one waits for its next
  * sign-in.

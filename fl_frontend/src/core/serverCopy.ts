@@ -60,6 +60,10 @@ export const SERVER_COPY = catalogue({
     },
     /** The league's last owner, whose erasure would leave the administration owned by nobody. */
     last_owner_erasure: "Du bist die letzte Inhaberin oder der letzte Inhaber der Verwaltung.",
+    /** A person's own address change to the address they already sign in with. */
+    address_change_unchanged: COPY.konto.address.unchanged,
+    /** A grant's move nobody but the person could approve. */
+    address_change_no_approver: COPY.konto.address.noApprover,
     eligibility_disqualified: {
       team1: `${team1} ist aus der Saison ausgeschieden.`,
       team2: `${team2} ist aus der Saison ausgeschieden.`,

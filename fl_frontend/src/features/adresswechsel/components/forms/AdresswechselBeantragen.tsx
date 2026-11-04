@@ -36,7 +36,7 @@ import { toFieldErrors } from "@/shared/utils/validation";
 
 import type { Key } from "@heroui/react/rac";
 
-export const LINK_AN_NEUE_ADRESSE = "Link an neue Adresse senden";
+const LINK_AN_NEUE_ADRESSE = "Link an neue Adresse senden";
 
 /**
  * The reload first, then the address shown again, which a reload empties: a second start

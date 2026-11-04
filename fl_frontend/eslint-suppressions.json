@@ -82,11 +82,6 @@
       "count": 1
     }
   },
-  "src/app/bereich/(persoenlich)/konto/page.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
   "src/app/bereich/(persoenlich)/layout.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 1
@@ -661,23 +656,6 @@
   "src/features/aktionen/utils.ts": {
     "no-restricted-syntax": {
       "count": 2
-    }
-  },
-  "src/features/auth/components/forms/CodeStep.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 8
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 4
-    },
-    "no-restricted-syntax": {
-      "count": 14
-    },
-    "react/forbid-component-props": {
-      "count": 4
-    },
-    "react/jsx-no-literals": {
-      "count": 6
     }
   },
   "src/features/berechtigungen/actions.ts": {
@@ -1367,130 +1345,9 @@
       "count": 6
     }
   },
-  "src/features/kontakte/personActions.ts": {
-    "fl/server-action": {
-      "count": 2
-    }
-  },
   "src/features/kontakte/refusals.ts": {
     "no-restricted-syntax": {
       "count": 4
-    }
-  },
-  "src/features/konto/actions.ts": {
-    "fl/server-action": {
-      "count": 5
-    }
-  },
-  "src/features/konto/components/forms/AdresswechselForm/AdresswechselPanel.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 14
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 15
-    },
-    "react/forbid-component-props": {
-      "count": 10
-    },
-    "react/jsx-no-literals": {
-      "count": 5
-    }
-  },
-  "src/features/konto/components/forms/EinwilligungForm/EinwilligungForm.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 7
-    },
-    "no-restricted-syntax": {
-      "count": 8
-    },
-    "react/forbid-component-props": {
-      "count": 5
-    }
-  },
-  "src/features/konto/components/forms/EinwilligungForm/EinwilligungPanel.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 5
-    },
-    "no-restricted-syntax": {
-      "count": 8
-    },
-    "react/forbid-component-props": {
-      "count": 5
-    }
-  },
-  "src/features/konto/components/ui/AndereAbmelden.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 4
-    },
-    "no-restricted-syntax": {
-      "count": 2
-    },
-    "react/forbid-component-props": {
-      "count": 1
-    },
-    "react/jsx-no-literals": {
-      "count": 1
-    }
-  },
-  "src/features/konto/components/ui/AnmeldungZeile.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 4
-    },
-    "no-restricted-syntax": {
-      "count": 14
-    },
-    "react/forbid-component-props": {
-      "count": 2
-    },
-    "react/jsx-no-literals": {
-      "count": 4
-    }
-  },
-  "src/features/konto/components/ui/CodeConfirmation.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 3
-    },
-    "no-restricted-syntax": {
-      "count": 3
-    },
-    "react/forbid-component-props": {
-      "count": 1
-    }
-  },
-  "src/features/konto/components/views/KontoLoeschenSection.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 6
-    },
-    "no-restricted-syntax": {
-      "count": 5
-    },
-    "react/forbid-component-props": {
-      "count": 2
-    },
-    "react/jsx-no-literals": {
-      "count": 2
-    }
-  },
-  "src/features/konto/components/views/SicherheitPanel.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 13
-    },
-    "no-restricted-syntax": {
-      "count": 24
-    },
-    "react/forbid-component-props": {
-      "count": 4
-    },
-    "react/jsx-no-literals": {
-      "count": 3
-    }
-  },
-  "src/features/konto/personActions.ts": {
-    "fl/server-action": {
-      "count": 3
     }
   },
   "src/features/meta/components/ui/LegalSection.tsx": {
@@ -1529,31 +1386,6 @@
       "count": 17
     }
   },
-  "src/features/passkeys/actions.ts": {
-    "fl/server-action": {
-      "count": 3
-    },
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
-  "src/features/passkeys/components/ui/PasskeyKarteView.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 16
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 13
-    },
-    "react/forbid-component-props": {
-      "count": 11
-    },
-    "react/jsx-no-literals": {
-      "count": 6
-    }
-  },
   "src/features/registrierungen/components/collections/AdminRegistrierungenList.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 9
@@ -1580,14 +1412,6 @@
     },
     "react/jsx-no-literals": {
       "count": 8
-    }
-  },
-  "src/features/registrierungen/components/ui/RegistrierungAngaben.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 2
-    },
-    "no-restricted-syntax": {
-      "count": 1
     }
   },
   "src/features/registrierungen/components/views/AdminRegistrierungenView.tsx": {
@@ -1662,7 +1486,7 @@
   },
   "src/features/registrierungen/personActions.ts": {
     "fl/server-action": {
-      "count": 3
+      "count": 2
     }
   },
   "src/features/registrierungen/utils.ts": {
@@ -2144,11 +1968,6 @@
   "src/features/schiedsrichter/facets.ts": {
     "no-restricted-syntax": {
       "count": 7
-    }
-  },
-  "src/features/schiedsrichter/personActions.ts": {
-    "fl/server-action": {
-      "count": 1
     }
   },
   "src/features/schiedsrichter/refusals.ts": {
@@ -3193,7 +3012,7 @@
   },
   "src/features/spieler/personActions.ts": {
     "fl/server-action": {
-      "count": 3
+      "count": 2
     }
   },
   "src/features/spieler/refusals.ts": {
@@ -4406,17 +4225,6 @@
       "count": 1
     }
   },
-  "src/shared/components/ui/IdentityConfirmation.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 2
-    },
-    "no-restricted-syntax": {
-      "count": 2
-    },
-    "react/forbid-component-props": {
-      "count": 1
-    }
-  },
   "src/shared/components/ui/InfoHint.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 2
@@ -4429,14 +4237,6 @@
     },
     "react/forbid-component-props": {
       "count": 4
-    }
-  },
-  "src/shared/components/ui/KontoPanel.tsx": {
-    "no-restricted-syntax": {
-      "count": 8
-    },
-    "react/forbid-component-props": {
-      "count": 1
     }
   },
   "src/shared/components/ui/ModalShell.tsx": {
@@ -4700,11 +4500,6 @@
   "src/shared/components/ui/textLink.ts": {
     "better-tailwindcss/no-restricted-classes": {
       "count": 2
-    }
-  },
-  "src/shared/hooks/useAnsweredActionState.ts": {
-    "no-restricted-syntax": {
-      "count": 1
     }
   },
   "src/shared/hooks/useConfirmationWindows.ts": {

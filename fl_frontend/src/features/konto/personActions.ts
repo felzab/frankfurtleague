@@ -8,28 +8,37 @@ import { linkInvalid } from "@/kit/MailedPage";
 import { z } from "zod";
 
 import { action } from "@/core/action";
-import { deleteOwnAccount } from "@/core/auth/accounts";
-import { getKontoSession } from "@/core/auth/guards";
+import { deleteOwnAccount, requestAccountDeletion } from "@/core/auth/accounts";
+import { revokeOtherSessions } from "@/core/auth/accountSessions";
 import { COPY } from "@/core/copy";
-import { formatInstant } from "@/core/format";
+import {
+  AccountPostAddressChangeReleaseBody,
+  BewerbungenPatchEinwilligungBody,
+  BewerbungenPatchEinwilligungParams,
+  RegistrierungenPatchEinwilligungBody,
+  RegistrierungenPatchEinwilligungParams,
+  SchiedsrichterPatchEinwilligungBody,
+  SchiedsrichterPatchEinwilligungParams,
+  SpielerPatchEinwilligungBody,
+  TeamsPatchEinwilligungBody,
+  TeamsPatchEinwilligungParams,
+} from "@/core/generated/zod/inputs";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
-import { mapKontoAdresswechselRefusal, mapKontoFreigabeRefusal, mapKontoStoppRefusal } from "@/features/adresswechsel/refusals";
-import { refusalResult, stepUpRequired } from "@/shared/utils/adminMutation";
-import { enrolmentUntil } from "@/shared/utils/kontoMutation";
-import { runPersonRecordMutation } from "@/shared/utils/personMutation";
-import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
+import { SignInPayloadSchema } from "@/features/auth/schemas";
+import { patchBewerbungEinwilligung, patchSitzEinwilligung } from "@/features/kontakte/mutations";
+import { patchRegistrierungEinwilligung } from "@/features/registrierungen/mutations";
+import { patchSchiedsrichterKontoEinwilligung } from "@/features/schiedsrichter/mutations";
+import { patchSpielerKontoEinwilligung } from "@/features/spieler/mutations";
 
-import { genehmigerText } from "./genehmiger";
 import { beantrageKontoAdresswechsel, gibKontoAdresswechselFrei, loeschenEigeneDaten, stoppeKontoAdresswechsel } from "./mutations";
 import { getLoeschungAnsicht } from "./queries";
-import { FLKontoAdresswechselFreigabePayloadSchema, FLKontoAdresswechselPayloadSchema } from "./schemas";
 
 import type { ActionAnswer } from "@/core/action";
-import type { FLVerwaltung } from "@/core/generated/client/types";
 import type { MailedEnd } from "@/kit/MailedPage";
-import type { ActionResult } from "@/shared/types/types";
-import type { StepUpRequired } from "@/shared/utils/adminMutation";
+
+/** An act that posts no field: the signed-in session names everything it acts on. */
+const NOTHING = z.object({});
 
 /**
  * Completes a mailed deletion link: the league's records, then the account, the passkey touch first for a person
@@ -62,107 +71,144 @@ export const kontoLoeschen = action({
   },
 });
 
-/** What the account page is told of a link it owed: a sentence, never a token or an address. */
-type AdresswechselGesendet = ActionResult;
-
-/** Said where the address holds a grant: the change waits for its approver too, the old address signing in meanwhile. */
-const genehmigungSatz = (verwaltung: FLVerwaltung): string =>
-  `Weil Deine Adresse Zugang zur Verwaltung hat, muss außerdem ${genehmigerText(verwaltung)} zustimmen. Bis dahin meldest Du Dich weiter mit dieser Adresse an.`;
+/**
+ * The person's own address change from Konto: the address on file is mailed its link first, and the new address its
+ * own once that confirms, the change taking effect once both have. A passkey holder touches the passkey first, the
+ * one check guarding it, since the backend judges no fresh sign-in. The address typed is judged by the sign-in's own
+ * rule, so every address a sign-in would refuse is refused here before it is mailed.
+ */
+export const startAddressChange = action({
+  lane: "person",
+  claim: "record",
+  passkey: true,
+  name: "startAddressChange",
+  input: SignInPayloadSchema,
+  examples: { email: COPY.shared.field.exampleAddress },
+  ownWords: ["address_change_unchanged", "address_change_no_approver"],
+  run: async ({ email }) => {
+    await beantrageKontoAdresswechsel({ email });
+    return { ok: true, value: undefined };
+  },
+});
 
 /**
- * One sentence whatever becomes of the mail, which leaves behind the answer: a barred address hears nothing, and
- * naming the ban would tell a stranger typing the address that it is known here.
+ * The address on file's approval of the change an administrator started without a reason, the passkey touch first:
+ * only now does the new address get its link. A later start replaced the one the page showed, and the press then
+ * approves nothing.
  */
-function gesendetSatz(gueltigBis: string, art: "start" | "freigabe"): string {
-  const bitte = `Bestätige die neue Adresse über den Link in der E-Mail an sie, bis ${formatInstant(gueltigBis)}.`;
-  // Only the start's notice goes to the address on file; the approval's request went at the administrator's start.
-  const sonst =
-    art === "start"
-      ? " Kommt keine E-Mail an, prüfe die Adresse oben. Ist sie falsch, zieh die Änderung zurück und gib sie neu ein. Deine bisherige Adresse bekommt einen Hinweis."
-      : "";
-  return `${bitte}${sonst}`;
-}
+export const approveAddressChange = action({
+  lane: "person",
+  claim: "record",
+  passkey: true,
+  name: "approveAddressChange",
+  input: AccountPostAddressChangeReleaseBody,
+  run: async ({ id }) => {
+    await gibKontoAdresswechselFrei({ id });
+    return { ok: true, value: undefined };
+  },
+});
 
-/** Whether the request's session is inside the enrolment window, which the backend judges again at `iat`. */
-async function istFrischBestaetigt(): Promise<boolean> {
-  const served = await getKontoSession();
-  return served !== null && enrolmentUntil(served) !== null;
-}
+/** The pending change withdrawn from Konto, the address on file's stop link's twin: it hands nothing over, so it asks no touch. */
+export const withdrawAddressChange = action({
+  lane: "person",
+  claim: "record",
+  name: "withdrawAddressChange",
+  input: NOTHING,
+  run: async () => {
+    await stoppeKontoAdresswechsel();
+    return { ok: true, value: undefined };
+  },
+});
 
 /**
- * The person's own start from the account page, inside the enrolment window: the
- * link goes to the new address, a stop link to the signed-in one, and, where a grant moves, word to its approvers.
+ * Mails the person the link deleting their account, to the session's own address and never a posted one; the deletion
+ * waits on that link's page. The library answers a send that failed as one that went, so the answer is the same
+ * either way.
  */
-export async function starteAdresswechselAction(rawPayload: { email: string }): Promise<AdresswechselGesendet | StepUpRequired> {
-  return runPersonRecordMutation("starteAdresswechselAction", async (subject) => {
-    const validated = FLKontoAdresswechselPayloadSchema.safeParse(rawPayload);
-    if (!validated.success) return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
+export const requestErasure = action({
+  lane: "person",
+  claim: "record",
+  name: "requestErasure",
+  input: NOTHING,
+  run: async () => {
+    await requestAccountDeletion(await headers());
+    return { ok: true, value: undefined };
+  },
+});
 
-    // An address change outlives the session making it, as a passkey does: the page's next press asks first.
-    if (!(await istFrischBestaetigt())) {
-      refresh();
-      return stepUpRequired();
-    }
+/** Ends every session of the person's but this device's, through the library's own in-process call. */
+export const signOutOthers = action({
+  lane: "person",
+  claim: "record",
+  name: "signOutOthers",
+  input: NOTHING,
+  run: async () => {
+    await revokeOtherSessions(await headers());
+    // The sign-in store holds what changed, past every cached read: the device count is read again.
+    refresh();
+    return { ok: true, value: undefined };
+  },
+});
 
-    let mint;
-    try {
-      mint = await beantrageKontoAdresswechsel(validated.data);
-    } catch (error) {
-      const refusal = mapKontoAdresswechselRefusal(error);
-      if (refusal !== null) return refusalResult(refusal);
-      throw error;
-    }
+// The consents Deine Einträge saves, one record a box: both choices on every press, with the labels the page showed
+// and the evidence it was served, so a press on a page older than either change is refused rather than stamped.
 
-    const { verwaltung } = subject.subject;
-    const gesendet = gesendetSatz(mint.valid_until, "start");
-    return {
-      success: true,
-      // The tier off the grant the spine's subject read found: a grant's move waits on an approver, whom the start
-      // refused to go without.
-      message: verwaltung === null ? gesendet : `${gesendet} ${genehmigungSatz(verwaltung)}`,
-    };
-  });
-}
+/** A pupil's own two choices on their record. */
+export const saveSpielerConsent = action({
+  lane: "person",
+  claim: "record",
+  name: "saveSpielerConsent",
+  input: SpielerPatchEinwilligungBody,
+  run: async (choices) => {
+    await patchSpielerKontoEinwilligung(choices);
+    return { ok: true, value: undefined };
+  },
+});
 
-/**
- * The address on file's approval of the change its page showed, one an administrator started without a reason: only
- * now does the new address get its link. A later start replaced the shown one, and the press then approves nothing.
- */
-export async function gibAdresswechselFreiAction(rawPayload: { id: string }): Promise<AdresswechselGesendet | StepUpRequired> {
-  return runPersonRecordMutation("gibAdresswechselFreiAction", async () => {
-    const validated = FLKontoAdresswechselFreigabePayloadSchema.safeParse(rawPayload);
-    if (!validated.success) return { success: false, error: VALIDATION_FAILED };
+/** A referee's own two choices on one of their rows, of which one address may hold several. */
+export const saveSchiedsrichterConsent = action({
+  lane: "person",
+  claim: "record",
+  name: "saveSchiedsrichterConsent",
+  input: SchiedsrichterPatchEinwilligungParams.extend(SchiedsrichterPatchEinwilligungBody.shape),
+  run: async ({ schiedsrichter_id, ...choices }) => {
+    await patchSchiedsrichterKontoEinwilligung(schiedsrichter_id, choices);
+    return { ok: true, value: undefined };
+  },
+});
 
-    // The approval hands the records over as a start does, so it is held to the same window.
-    if (!(await istFrischBestaetigt())) {
-      refresh();
-      return stepUpRequired();
-    }
+/** A pupil's withdrawal on their pending registration, whose grant waits on the team's admission. */
+export const saveRegistrierungConsent = action({
+  lane: "person",
+  claim: "record",
+  name: "saveRegistrierungConsent",
+  input: RegistrierungenPatchEinwilligungParams.extend(RegistrierungenPatchEinwilligungBody.shape),
+  run: async ({ registrierung_id, ...choices }) => {
+    await patchRegistrierungEinwilligung(registrierung_id, choices);
+    return { ok: true, value: undefined };
+  },
+});
 
-    let freigabe;
-    try {
-      freigabe = await gibKontoAdresswechselFrei(validated.data);
-    } catch (error) {
-      const refusal = mapKontoFreigabeRefusal(error);
-      if (refusal !== null) return { success: false, error: refusal };
-      throw error;
-    }
+/** A seat holder's own two choices for every seat they hold on one team's season, a past season's to withdraw. */
+export const saveSeatConsent = action({
+  lane: "person",
+  claim: "record",
+  name: "saveSeatConsent",
+  input: TeamsPatchEinwilligungParams.extend(TeamsPatchEinwilligungBody.shape),
+  run: async ({ team_id, saison_id, ...choices }) => {
+    await patchSitzEinwilligung(team_id, saison_id, choices);
+    return { ok: true, value: undefined };
+  },
+});
 
-    return { success: true, message: gesendetSatz(freigabe.valid_until, "freigabe") };
-  });
-}
-
-/** The address on file's stop of a pending change. It hands nothing over, so it asks no fresh sign-in. */
-export async function stoppeAdresswechselAction(): Promise<ActionResult> {
-  return runPersonRecordMutation("stoppeAdresswechselAction", async () => {
-    try {
-      await stoppeKontoAdresswechsel();
-    } catch (error) {
-      const refusal = mapKontoStoppRefusal(error);
-      if (refusal !== null) return { success: false, error: refusal };
-      throw error;
-    }
-
-    return { success: true, message: "Diese Adresse bleibt." };
-  });
-}
+/** A seat holder's withdrawal on a pending application, whose grant is its confirmation page's alone. */
+export const saveBewerbungConsent = action({
+  lane: "person",
+  claim: "record",
+  name: "saveBewerbungConsent",
+  input: BewerbungenPatchEinwilligungParams.extend(BewerbungenPatchEinwilligungBody.shape),
+  run: async ({ bewerbung_id, ...choices }) => {
+    await patchBewerbungEinwilligung(bewerbung_id, choices);
+    return { ok: true, value: undefined };
+  },
+});

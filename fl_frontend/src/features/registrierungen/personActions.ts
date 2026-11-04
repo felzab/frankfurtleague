@@ -2,18 +2,15 @@
 
 import z from "zod";
 
-import { mapRegistrierungEinwilligungRefusal, WAHL_GESPEICHERT } from "@/features/konto/einwilligung";
-import { FLSpielerKontoEinwilligungPayloadSchema } from "@/features/spieler/schemas";
 import { CustomObjectIdStringSchema } from "@/shared/schemas";
-import { refusalResult } from "@/shared/utils/adminMutation";
-import { runPersonMutation, runPersonRecordMutation } from "@/shared/utils/personMutation";
+import { runPersonMutation } from "@/shared/utils/personMutation";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
-import { patchRegistrierungEinwilligung, postRegistrierungAblehnen, postRegistrierungAufnehmen } from "./mutations";
+import { postRegistrierungAblehnen, postRegistrierungAufnehmen } from "./mutations";
 import { FLRegistrierungAblehnenPayloadSchema, FLRegistrierungAufnehmenPayloadSchema } from "./schemas";
 import { mapAblehnungRefusal, mapAufnahmeRefusal } from "./utils";
 
-import type { FLEinwilligungStand, FLRegistrierungAdmitPayload, FLRegistrierungDeclinePayload } from "@/core/generated/client/types";
+import type { FLRegistrierungAdmitPayload, FLRegistrierungDeclinePayload } from "@/core/generated/client/types";
 import type { ActionResult } from "@/shared/types/types";
 
 /**
@@ -78,35 +75,5 @@ export async function ablehnenRegistrierungAction(rawPayload: RegistrierungAdres
       success: true,
       message: `${ablehnung.vorname} kommt nicht in den Kader. Die Registrierung löschen wir einen Monat nach der Entscheidung.`,
     };
-  });
-}
-
-/**
- * A pupil's withdrawal on their own pending registration, which the page binds. It claims the pupil's
- * record, a registration granting no Funktion, and the backend judges the registration theirs.
- */
-export async function patchRegistrierungEinwilligungAction(
-  registrierungId: string,
-  rawPayload: z.input<typeof FLSpielerKontoEinwilligungPayloadSchema>,
-): Promise<ActionResult<{ nachweis_stand: FLEinwilligungStand }>> {
-  return runPersonRecordMutation("patchRegistrierungEinwilligungAction", async () => {
-    const id = CustomObjectIdStringSchema.safeParse(registrierungId);
-    const validated = FLSpielerKontoEinwilligungPayloadSchema.safeParse(rawPayload);
-
-    if (!id.success || !validated.success) {
-      return { success: false, error: VALIDATION_FAILED, fieldErrors: validated.success ? undefined : toFieldErrors(validated.error) };
-    }
-
-    let antwort;
-    try {
-      antwort = await patchRegistrierungEinwilligung(id.data, validated.data);
-    } catch (error) {
-      const refusal = mapRegistrierungEinwilligungRefusal(error);
-      if (refusal !== null) return refusalResult(refusal);
-      throw error;
-    }
-
-    // No public read serves a pending registration: the spine's refresh is the page's whole re-read.
-    return { success: true, message: WAHL_GESPEICHERT, nachweis_stand: antwort.nachweis_stand };
   });
 }

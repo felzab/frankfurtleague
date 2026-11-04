@@ -8,7 +8,7 @@ import type { ConsentLine } from "@/core/consentWordings";
  * A consent line's words, its link among them, for a paragraph a caller places: every page showing a consent renders
  * its line through here, so no page sets the frozen words apart from the others.
  */
-export function EinwilligungZeilenTeile({ line }: { line: ConsentLine }) {
+function EinwilligungZeilenTeile({ line }: { line: ConsentLine }) {
   return (
     <>
       {line.map((teil) => (

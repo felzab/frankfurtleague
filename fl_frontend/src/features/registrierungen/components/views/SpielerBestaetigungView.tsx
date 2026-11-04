@@ -15,7 +15,7 @@ import { ToggleButtonGroup } from "@heroui/react/toggle-button-group";
 
 import { KONTAKT_EMAIL } from "@/core/brand";
 import { SPIELER_TEXT_VERSIONS, SPIELER_WORDINGS } from "@/core/consentWordings";
-import { KONTO_HREF } from "@/core/kontoHref";
+import { ROUTES } from "@/core/routes";
 import { ABSATZ_CLASSES, Wert } from "@/features/bewerbungen/components/ui/Gefuellt";
 import { SEITE_CLASSES } from "@/features/bewerbungen/components/ui/seite";
 import { EinwilligungZeile } from "@/features/bewerbungen/components/views/BestaetigungHinweise";
@@ -401,7 +401,7 @@ function SpielerBestaetigungForm({
             <h3 className={FORM_SECTION_HEADING_CLASSES}>Deine Einwilligung</h3>
             <p className={ABSATZ_CLASSES}>
               <Link
-                href={KONTO_HREF}
+                href={ROUTES.account.path()}
                 prefetch={false}
                 className={textLink()}>
                 Zum Konto

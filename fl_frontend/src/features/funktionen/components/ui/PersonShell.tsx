@@ -1,6 +1,6 @@
 "use client";
 
-import { KONTO_HREF } from "@/core/kontoHref";
+import { ROUTES } from "@/core/routes";
 import { AppShell } from "@/shared/components/layout/shell/AppShell";
 import { SidemenuEntries } from "@/shared/components/layout/sidemenu/SidemenuNavLinks";
 import { signOut } from "@/shared/utils/signOut";
@@ -44,7 +44,7 @@ export function PersonShell({
       keepsSaisonQuery={false}
       fallbackTitle={fallback.label}
       fallbackHint={fallback.hint}
-      kontoHref={KONTO_HREF}
+      kontoHref={ROUTES.account.path()}
       onSignOut={signOut}>
       {children}
     </AppShell>

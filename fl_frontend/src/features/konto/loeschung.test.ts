@@ -42,7 +42,7 @@ globalThis.fetch = ((input: string | URL | Request) => {
 }) as typeof globalThis.fetch;
 
 // Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
-const { fordereKontoLoeschungAnAction } = await import("./actions.ts");
+const { requestErasure } = await import("./personActions.ts");
 const { auth } = await import("@/core/auth/library.ts");
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -66,10 +66,10 @@ describe("the account page's request for a deletion link", () => {
     arriveAs(cookie);
 
     const answers = [];
-    for (let press = 0; press < 50; press += 1) answers.push(await fordereKontoLoeschungAnAction());
+    for (let press = 0; press < 50; press += 1) answers.push(await requestErasure({}));
 
     assert.ok(
-      answers.every((answer) => answer.success),
+      answers.every((answer) => answer.ok),
       "a press past the bound answered apart from a sent one",
     );
     expect(new Set(answers.map((answer) => JSON.stringify(answer))).size, "a capped press answers apart from a mailed one").toBe(1);
@@ -86,7 +86,7 @@ describe("the account page's request for a deletion link", () => {
     row.createdAt = new Date(Date.now() - 3 * HOUR_MS);
     arriveAs(cookie);
 
-    expect((await fordereKontoLoeschungAnAction()).success).toBe(true);
+    expect((await requestErasure({})).ok).toBe(true);
     assert.ok(
       mail.sent.some((sent) => sent.to === "spaeter@example.org"),
       "no link was mailed",

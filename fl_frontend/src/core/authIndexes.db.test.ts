@@ -82,13 +82,12 @@ const { sent } = registerAuthDoubles({
 // Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
 const { toNextJsHandler } = await import("better-auth/next-js");
 const { auth } = await import("./auth/library.ts");
-const { endSessionsOfAddress } = await import("./auth/accountSessions.ts");
+const { endSessionsOfAddress, revokeOtherSessions } = await import("./auth/accountSessions.ts");
 const { getKontoSession } = await import("./auth/guards.ts");
 const { readServedSession } = await import("./auth/session.ts");
 const { removePasskey } = await import("./auth/passkeys.ts");
 const { buildAuthIndexes } = await import("./authIndexes.ts");
-const { readSicherheit } = await import("@/features/konto/sicherheit");
-const { endAndereAnmeldungenAction, endAnmeldungAction } = await import("@/features/konto/actions");
+const { devicesOf } = await import("@/features/konto/sicherheit");
 
 const store = () => (storeClient as MongoClient).db("auth");
 const COLLECTIONS = ["session", "passkey", "user", "verification"] as const;
@@ -222,14 +221,11 @@ describe("every query the sign-in store serves, with table scans refused", () =>
     const served = await withoutTableScans(() => getKontoSession());
     assert.ok(served, "the account page refused the passkey's session");
 
-    // Two more devices, one ended by its row and one with every other.
+    // Two more devices, counted and then ended with every other.
     await withoutTableScans(() => signInByCode(auth, ADMIN_EMAIL));
     await withoutTableScans(() => signInByCode(auth, ADMIN_EMAIL));
-    const sicherheit = await withoutTableScans(() => readSicherheit(served));
-    const [andere] = sicherheit.anmeldungen.filter(({ diesesGeraet }) => !diesesGeraet);
-    assert.ok(andere, "the account page listed no other sign-in");
-    expect(await withoutTableScans(() => endAnmeldungAction(andere.id))).toStrictEqual({ success: true });
-    expect(await withoutTableScans(() => endAndereAnmeldungenAction())).toStrictEqual({ success: true });
+    expect(await withoutTableScans(() => devicesOf(served)), "the account page counted no other device").toBeGreaterThan(1);
+    await withoutTableScans(() => revokeOtherSessions(asRequest(byPasskey)));
 
     // A second passkey, listed, renamed and removed.
     const second = await withoutTableScans(() => enrol(byPasskey, Buffer.from("fl-index-db-second-authenticator")));

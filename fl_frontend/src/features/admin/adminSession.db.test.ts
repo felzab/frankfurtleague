@@ -27,7 +27,7 @@ registerAuthDoubles({
   },
   specifiers: {
     "next/headers": { headers: () => Promise.resolve(requestHeaders) },
-    // Reached through the account spine `readSicherheit` imports, and called by no case here.
+    // Called by no case here.
     "next/cache": { refresh: () => undefined },
   },
 });
@@ -45,7 +45,8 @@ const { getAdminSession, getKontoSession, judgeAdminRequest } = await import("@/
 const { getPasskeyStep } = await import("@/core/auth/landing.ts");
 const { buildAuthIndexes } = await import("@/core/authIndexes.ts");
 const { getSubjectSession } = await import("@/core/subject.ts");
-const { readSicherheit } = await import("@/features/konto/sicherheit.ts");
+const { devicesOf } = await import("@/features/konto/sicherheit.ts");
+const { passkeyStandOf } = await import("@/features/passkeys/bestand.ts");
 const { runAdminRead } = await import("@/shared/utils/adminRead.ts");
 const { runWithIncomingTrace } = await import("@/shared/utils/traceScope.ts");
 
@@ -218,7 +219,7 @@ describe("the account and passkey pages, each across one render pass", () => {
       assert.ok(await getSubjectSession(), "the person guard refused the administrator");
       const served = await getKontoSession();
       assert.ok(served, "the account page's guard refused the administrator, so the count below counts a refusal");
-      await readSicherheit(served);
+      await Promise.all([passkeyStandOf(served), devicesOf(served)]);
     });
 
     // The guards' one read, the check its passkey stands, the page's passkeys and its sign-ins.
@@ -277,9 +278,9 @@ describe("the holder's passkeys, with another account's beside them in the store
     beginRenderPass();
     const served = await getKontoSession();
     assert.ok(served, "the account page's guard refused the administrator");
-    const { passkeys } = await readSicherheit(served);
+    const { rows } = await passkeyStandOf(served);
 
-    expect(passkeys.length, "the account page listed another account's passkey").toBe(1);
+    expect(rows.length, "the account page listed another account's passkey").toBe(1);
   });
 
   it("offers a holder of no passkey the enrolment, not the sign-in by another account's", async () => {
@@ -293,7 +294,6 @@ describe("the holder's passkeys, with another account's beside them in the store
 
   it("counts the holder's passkeys alone against the cap", async () => {
     const { PASSKEY_LIMIT } = await import("@/core/auth/enrolment.ts");
-    const { readPasskeyStandAction } = await import("@/features/passkeys/actions.ts");
     requestHeaders = await signInAsAdministrator();
     await aSecondAccountsPasskey();
     const { adapter } = await auth.$context;
@@ -316,9 +316,11 @@ describe("the holder's passkeys, with another account's beside them in the store
       });
     }
 
-    leaveRenderPass();
+    beginRenderPass();
+    const served = await getKontoSession();
+    assert.ok(served, "the account page's guard refused the administrator");
 
-    expect(await runWithIncomingTrace(() => readPasskeyStandAction())).toStrictEqual({ success: true, kannHinzufuegen: true });
+    expect((await passkeyStandOf(served)).canAdd, "another account's passkey closed the set-up").toBe(true);
   });
 });
 
@@ -355,7 +357,7 @@ describe("the account row the session read joins, against a real store", () => {
 
   /* A ban's deletion that missed a row leaves it standing beside the stamp: listed, it reads as
      somebody else's device signed in to the account the person has just signed in to again. */
-  it("lists none of the sign-ins the ending stamped on the account page, beside the one made after it", async () => {
+  it("counts none of the sign-ins the ending stamped on the account page, beside the one made after it", async () => {
     const { endSessionsOfAddress } = await import("@/core/auth/accountSessions.ts");
     const { readServedSession } = await import("@/core/auth/session.ts");
     const endedHeaders = await signInAsAdministrator();
@@ -376,42 +378,6 @@ describe("the account row the session read joins, against a real store", () => {
     beginRenderPass();
     const served = await getKontoSession();
     assert.ok(served, "the account page's guard refused the sign-in made after the ending");
-    const { anmeldungen } = await readSicherheit(served);
-
-    expect(anmeldungen.map(({ id }) => id)).toStrictEqual([String(after._id)]);
-  });
-});
-
-/* A session id is whatever the action's caller posted, so only the holder's own user id in the same
-   delete keeps one person's press from ending another person's sign-in. */
-describe("ending one sign-in, with another account's session beside it in the store", () => {
-  it("ends nothing for another account's session id, and says the list is stale", async () => {
-    const { endAnmeldungAction } = await import("@/features/konto/actions.ts");
-    requestHeaders = await signInAsAdministrator();
-    const { adapter } = await auth.$context;
-    const other = await adapter.create<{ name: string; email: string; emailVerified: boolean }, { id: string }>({
-      model: "user",
-      data: { name: "", email: "zweite.person@example.org", emailVerified: true },
-    });
-    const theirs = await adapter.create<Record<string, unknown>, { id: string }>({
-      model: "session",
-      data: {
-        userId: other.id,
-        token: "fl-admin-session-db-second-account-session",
-        expiresAt: new Date(Date.now() + 60 * 60 * 1000),
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-    });
-
-    leaveRenderPass();
-    const answer = await runWithIncomingTrace(() => endAnmeldungAction(theirs.id));
-
-    // The stale list's own refusal, and no step-up or validation one, which would leave the row standing anyway.
-    expect(answer).toStrictEqual({ success: false, error: "Die Anmeldung war schon beendet. Lade die Seite neu." });
-    expect(
-      await client.db("auth").collection("session").countDocuments({ token: "fl-admin-session-db-second-account-session" }),
-      "another account's session was ended",
-    ).toBe(1);
+    expect(await devicesOf(served)).toBe(1);
   });
 });

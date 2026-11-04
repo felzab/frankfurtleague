@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { KONTO_HREF } from "@/core/kontoHref";
+import { ROUTES } from "@/core/routes";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { textLink } from "@/shared/components/ui/textLink";
@@ -36,7 +36,7 @@ export function SpielerSelfView({ spieler }: { spieler: FLSpielerSelf }) {
             <p className="fluid-sm font-medium text-foreground">
               Was von Dir auf der Website stehen darf, änderst Du unter{" "}
               <Link
-                href={KONTO_HREF}
+                href={ROUTES.account.path()}
                 prefetch={false}
                 className={textLink()}>
                 Konto

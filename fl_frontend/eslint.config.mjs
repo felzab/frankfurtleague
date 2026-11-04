@@ -614,10 +614,8 @@ const SOURCE_BANS = [
   syntaxBan(TRANSITION_REWRAP, SOURCE),
   syntaxBan(FAILURE_BY_HAND, SOURCE, {
     allow: [
-      // Failures no FastAPI write words, so none carries an unknown outcome: Better Auth answers the
-      // sign-out and sends and checks the sign-in code.
+      // A failure no FastAPI write words, so none carries an unknown outcome: Better Auth answers the sign-out.
       "src/shared/hooks/useSignOut.ts",
-      "src/features/auth/components/forms/CodeStep.tsx",
     ],
   }),
   syntaxBan(
@@ -880,7 +878,7 @@ const DESIGN_BANS = [
     ["EditorPage", ["src/app/**/(editor)/**"], "An editor is a page of an `(editor)` route group, whose layout draws its way back."],
     ["EditorBar", ["src/kit/EditorPage.tsx"], "A record's one save is the editor template's `EditorBar`: place the page in `EditorPage`."],
     ["OneShot", ["src/kit/MailedPage.tsx"], "The one-shot submit is the mailed-page template's: place the page in `MailedPage`."],
-    ["AccountBox", ["src/app/bereich/**/konto/**"], "An `AccountBox` saves one section of Konto, on Konto's own pages."],
+    ["AccountBox", ["src/app/account/**"], "An `AccountBox` is one box of Konto, on Konto's own pages."],
   ].map(([name, owners, message]) => kitImport({ regex: kitModule(name), message }, PRODUCTION, { allow: owners })),
   // The danger act is one row inside the editor's last box, which the editor template alone places.
   syntaxBan(

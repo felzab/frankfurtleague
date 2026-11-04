@@ -118,14 +118,15 @@ export const ROUTES = {
   accountErased: { path: () => "/loeschung/geloescht" as const, title: COPY.page.accountErasure, crawl: "disallow" },
   registrierung: { path: () => "/registrierung" as const, title: COPY.page.registrierung, crawl: "disallow" },
 
-  // Session 4: its page is built.
-  accountSignIn: { path: () => "/bereich/konto/signin" as const, title: COPY.page.accountSignIn, crawl: "disallow" },
-  // Session 4: its page is built.
-  accountSecurity: { path: () => "/bereich/konto/security" as const, title: COPY.page.accountSecurity, crawl: "disallow" },
-  // Session 4: its page is built.
-  accountAppearance: { path: () => "/bereich/konto/appearance" as const, title: COPY.page.accountAppearance, crawl: "disallow" },
-  // Session 4: its page is built.
-  accountEntries: { path: () => "/bereich/konto/entries" as const, title: COPY.page.accountEntries, crawl: "disallow" },
+  /**
+   * Konto, a signed-in person's own pages whatever they hold, outside every area: the list of its four pages, which a
+   * phone opens on, and the four.
+   */
+  account: { path: () => "/account" as const, title: COPY.template.account, crawl: "disallow" },
+  accountSignIn: { path: () => "/account/signin" as const, title: COPY.page.accountSignIn, crawl: "disallow" },
+  accountSecurity: { path: () => "/account/security" as const, title: COPY.page.accountSecurity, crawl: "disallow" },
+  accountAppearance: { path: () => "/account/appearance" as const, title: COPY.page.accountAppearance, crawl: "disallow" },
+  accountEntries: { path: () => "/account/entries" as const, title: COPY.page.accountEntries, crawl: "disallow" },
 
   // Session 8: its page is built.
   schiedsrichterOverview: {
