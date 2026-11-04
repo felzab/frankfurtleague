@@ -36,7 +36,7 @@ trace of its own and writes no line for it. A failed fill reaches the page's cra
 `fetch_trace_id` names the fill's trace beside the page request's `trace_id`. A cache hit makes no
 request at all, so the edge's access line is the only record of that page view.
 Server actions, route handlers and the uncached reads a page makes run under the page request's
-trace end to end (`fl_frontend/src/shared/utils/traceScope.ts`).
+trace end to end (`fl_frontend/src/core/traceScope.ts`).
 
 **A line written outside any request carries `SYSTEM`** as its trace.
 

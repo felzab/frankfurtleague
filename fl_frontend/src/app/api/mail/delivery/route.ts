@@ -9,7 +9,7 @@ import { outboxPostEvent } from "@/core/generated/client/sdk";
 import { OutboxPostEventBody } from "@/core/generated/zod/inputs";
 import { logger } from "@/core/logging";
 import { OUTBOX_TAG } from "@/core/mailKinds";
-import { runWithIncomingTrace } from "@/shared/utils/traceScope";
+import { runWithIncomingTrace } from "@/core/traceScope";
 
 import type { FLOutboxEventPayload } from "@/core/generated/client/types";
 import type { NextRequest } from "next/server";
