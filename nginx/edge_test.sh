@@ -742,8 +742,9 @@ mapfile -t ACTION_STATUSES < <(curl "${ACTION_REQUESTS[@]}" || true)
 ACTION_SENT=${#ACTION_LABELS[@]}
 ACTION_REQUESTS=()
 
-# The link pages' pair, every request it meters a page render. Its burst read off the file, so a
-# burst moved there is still flooded past, with twenty more for the refill the run takes.
+# The link pages' pair, every request it meters a page render or the proxy's redirect into one. Its
+# burst read off the file, so a burst moved there is still flooded past, with twenty more for the
+# refill the run takes.
 LINK_BURST="$(sed -n 's/^[[:space:]]*limit_req zone=linkpage burst=\([0-9]*\) nodelay;$/\1/p' "${REPO_ROOT}/nginx/shared/site.conf" | head -n 1)"
 [[ -n "$LINK_BURST" ]] || refuse "nginx/shared/site.conf declares no linkpage burst this test can read."
 for _ in $(seq 1 $(( LINK_BURST + 20 ))); do
