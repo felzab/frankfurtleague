@@ -12,7 +12,7 @@ import { expect } from "@playwright/test";
 
 import { test } from "./support/journey";
 import { filedMessages, mailedLink } from "./support/mailSink";
-import { sessionCookies, signInWithCode, signInWithCodeHere } from "./support/signIn";
+import { expectAccountPageOf, sessionCookies, signInWithCode, signInWithCodeHere } from "./support/signIn";
 
 import type { Page } from "@playwright/test";
 
@@ -87,7 +87,18 @@ test("a person changes their address: the address on file confirms first, then t
   await expect(page.getByRole("main").getByRole("heading", { name: "Adresse bestätigt" })).toBeVisible();
   await expect(page.getByRole("main").getByText("Mit dieser Adresse meldest du dich ab jetzt an.")).toBeVisible();
   // In the page's own end: the classic header holds an „Anmelden“ of its own on a desktop.
-  await expect(page.getByRole("main").getByRole("link", { name: "Anmelden" })).toBeVisible();
+  const signInHere = page.getByRole("main").getByRole("link", { name: "Anmelden" });
+  await expect(signInHere).toBeVisible();
+
+  // The change took effect, which the done page's sentence states whatever the backend answered: the new address signs
+  // in, and its account page names it.
+  await signInHere.click();
+  await expect(page).toHaveURL((url) => url.pathname === "/signin");
+  await signInWithCodeHere(page, newAddress);
+  await expect(page).toHaveURL((url) => url.pathname === "/signin/passkey");
+  await page.getByRole("button", { name: "Später" }).click();
+  await expect(page).toHaveURL((url) => url.pathname === "/area");
+  await expectAccountPageOf(page, newAddress);
 });
 
 test("the person deletes their account from the mailed link, signed out when it opens", async ({ page, context, baseURL, leaver }) => {
