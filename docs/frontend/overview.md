@@ -133,9 +133,11 @@ session cookie before any read, and judges nothing further, as Next's and Better
 proxy check. The session, its sign-in factor and the grant are judged where the data is read: no
 layout turns a session away, because Next renders a page whatever its layout decides.
 
-**A person's sign-in is managed on one account page, `/account`**, whichever area they hold:
-every signed-in shell links it, and its passkeys and sign-ins change only behind a recent sign-in or
-confirmation.
+**A person's sign-in is managed on Konto, `/account` and its four pages**, whichever area they hold:
+every signed-in shell and every frame's account menu links it, and an act on the passkey touch's fixed
+list, a passkey's removal and the address change's start among them, runs only on a passkey sign-in
+made seconds before, for a person holding a passkey (`fl_frontend/src/core/action.ts`, a lane's
+`passkey`).
 
 ## Configuration and tests
 

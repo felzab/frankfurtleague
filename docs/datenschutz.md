@@ -32,8 +32,9 @@ one stand in [section 11](#11-open-and-owed-a-decision). Other files cite sectio
   (`:: VORSTAND`). No school and no individual is the controller; the league is run by its pupils as
   an association, and a school-law basis is unavailable. No data protection officer is appointed.
 - **A person who signs in changes or withdraws their own consents on the account page**, each record
-  they hold a control of its own
-  (`fl_frontend/src/features/konto/components/views/EinwilligungSection.tsx :: EinwilligungSection`).
+  they hold a box of its own on Konto's „Deine Einträge“, saved by its „Speichern“
+  (`fl_frontend/src/app/account/(pages)/entries/EintraegeBoxes.tsx :: EintraegeBoxes`, each save an action of
+  `fl_frontend/src/features/konto/personActions.ts`).
 - **Every other request goes to the contact address**: access, rectification, erasure, objection
   and a withdrawal by mail.
   [`ops/runbooks.md`](ops/runbooks.md#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it)
