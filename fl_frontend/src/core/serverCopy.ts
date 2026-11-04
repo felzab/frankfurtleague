@@ -1,7 +1,8 @@
 import "server-only";
 
+import { KONTAKT_EMAIL, VEREIN_ANSCHRIFT, VEREIN_NAME, VEREINSREGISTER, VORSTAND_GEMEINSAM } from "./brand";
 import { catalogue, COPY, textOf } from "./copy";
-import { formatDatum, formatNumber, formatOrdinal, formatSigned } from "./format";
+import { formatDatum, formatDatumLong, formatNumber, formatOrdinal, formatSigned } from "./format";
 
 import type { Copy, Words } from "./copy";
 import type { CalendarDay } from "./format";
@@ -388,6 +389,182 @@ export const SERVER_COPY = catalogue({
   },
 
   /**
+   * The two legal pages' text, which their pages set as the kit's `Prose` blocks under their titles; the copy
+   * standard's legal section governs it. A bound the frontend's code holds is a parameter, so the text states the one
+   * the code keeps; a provider's period, and a bound only the backend or a later build holds, is written out. A
+   * paragraph with a link stands in parts around it, `before` and `after`, which the page sets the link between.
+   */
+  legal: {
+    privacyNotice: {
+      firstLayer: {
+        heading: "Das Wichtigste",
+        items: [
+          `Verantwortlich ist der ${VEREIN_NAME}, ${VEREIN_ANSCHRIFT}.`,
+          "Wir verarbeiten, was du uns für eine Bewerbung, einen Kader, ein Spiel oder deine Anmeldung angibst, und die technischen Daten jedes Aufrufs.",
+          "Wir brauchen diese Daten, um den Spielbetrieb der Liga durchzuführen, dich zu erreichen und die Website sicher zu betreiben.",
+          "Öffentlich sind Teams, Spielpläne, Ergebnisse und Aufstellungen; deinen Namen zeigen wir dort nur mit deiner Einwilligung.",
+          "Wir messen nicht, was du auf der Website tust, und verkaufen keine Daten.",
+          "Du kannst Auskunft, Berichtigung, Löschung, Einschränkung und die Herausgabe deiner Daten verlangen, widersprechen, jede Einwilligung widerrufen und dich bei der Aufsichtsbehörde beschweren.",
+        ],
+        /** The last item, around the league's address. */
+        contact: { before: "Dafür genügt eine formlose E-Mail an ", after: "." },
+      },
+      basis: {
+        heading: "Rechtsgrundlagen",
+        text: "Wo nichts anderes steht, verarbeiten wir deine Daten auf Grundlage von Art. 6 Abs. 1 lit. f DSGVO; unser berechtigtes Interesse ist, den Spielbetrieb der Liga durchzuführen, dich zu erreichen, Fehler in den Daten zu erkennen und die Website vor Angriffen und Missbrauch zu schützen. Wo du eine Einwilligung gibst, ist sie die Grundlage (Art. 6 Abs. 1 lit. a DSGVO). Die Namen des Vorstands im Impressum nennen wir, weil das Gesetz es verlangt (§ 5 DDG, Art. 6 Abs. 1 lit. c DSGVO).",
+      },
+      website: {
+        heading: "Website und Browser",
+        requests:
+          "Jede Anfrage an die Website läuft zuerst über Cloudflare, Inc.; Cloudflare sieht dabei deine IP-Adresse, die aufgerufene Adresse, die Angaben deines Browsers und jedes Formular, das du abschickst. Bei jedem Aufruf speichert unser Server deine IP-Adresse, den Zeitpunkt, die aufgerufene Seite, den Statuscode und die Kennung deines Browsers.",
+        // The passkey cookie's 5 minutes are Better Auth's own, which the library sets and exports no name for.
+        browser:
+          "In deinem Browser legt die Website nur ab, was ihr Betrieb braucht: ein Sitzungs-Cookie, sobald du dich anmeldest, ein Cookie für die Anmeldung mit einem Passkey, das 5 Minuten gilt, und im lokalen Speicher die Darstellung, hell oder dunkel, die du wählst. Auf der Anmeldeseite, im Bewerbungsformular und im Registrierungsformular prüft Cloudflare Turnstile, ob ein Mensch das Formular abschickt, und fragt dafür Merkmale deines Browsers und deiner Verbindung ab; Cloudflare nutzt sie auch in eigener Verantwortung, um seine Erkennung automatisierter Zugriffe zu verbessern. Beides ist nach § 25 Abs. 2 Nr. 2 TDDDG ohne Einwilligung zulässig.",
+      },
+      bewerbung: {
+        heading: "Bewerbung einer Schule",
+        form: (kontakte: number) =>
+          `Das Bewerbungsformular fragt Angaben zur Schule und zu ihrem Team, darunter ein dreistelliges Kürzel und die Anschrift der Schule, und ${formatNumber(kontakte)} Kontaktpersonen mit Name, E-Mail-Adresse und Telefonnummer; freiwillig sind nur die Website der Schule, der Trikotsatz und der Wunschgegner. Die Angaben zu den Kontaktpersonen erhalten wir von der Person, die die Bewerbung einreicht.`,
+        confirmation: (days: number, trainerAge: number, otherAge: number) =>
+          `Jede Kontaktperson bekommt einen eigenen Link, über den sie ihren Eintrag innerhalb von ${formatNumber(days)} Tagen mit ihrem Geburtsdatum bestätigt oder ihm widerspricht, ebenso wenn die Liga sie selbst einträgt; das Mindestalter ist ${formatNumber(trainerAge)} Jahre als Trainer und sonst ${formatNumber(otherAge)}. Haben nach ${formatNumber(days)} Tagen nicht alle bestätigt, löschen wir die Bewerbung und schreiben das der Person, die sie eingereicht hat.`,
+      },
+      kader: {
+        heading: "Im Kader",
+        // Session 8: the link's 14 days become a parameter read from `REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE` once that
+        // constant holds the 14 days every link confirming a registered person lives.
+        text: (minAge: number) =>
+          `In den Kader eines Teams registrierst du dich über dessen Link mit Name und E-Mail-Adresse, wenn du willst auch mit Rückennummer, Position und Stufe, und bestätigst innerhalb von 14 Tagen über einen Link mit deinem Geburtsdatum, dass du mindestens ${formatNumber(minAge)} Jahre alt bist. Über die Aufnahme entscheiden die Kontaktpersonen des Teams; deine E-Mail-Adresse, dein Geburtsdatum und deine Antworten sehen sie nicht.`,
+      },
+      schiedsrichter: {
+        heading: "Schiedsrichterinnen und Schiedsrichter",
+        // The referee's minimum age is the backend's alone, `fl_backend/app/shared/schemas/bounds.py`.
+        text: (days: number) =>
+          `Pfeifst du für die Liga, trägt sie dich mit Name, Kontaktdaten, Schule und Honorar ein, so wie du oder die Person, die dich genannt hat, sie uns mitteilt. Über einen Link bestätigst du den Eintrag innerhalb von ${formatNumber(days)} Tagen mit deinem Geburtsdatum; pfeifen kann, wer mindestens 16 Jahre alt ist. Löschen wir deinen Eintrag, bleibt an angesetzten und gespielten Spielen das Honorar ohne deinen Namen stehen.`,
+      },
+      spiele: {
+        heading: "Spiele und Spielberichte",
+        text: "Vor einem Spiel fragen wir beide Teams und die Schiedsrichterin oder den Schiedsrichter, ob der Termin steht; eine Absage kann eine Begründung als freien Text tragen. Nach dem Spiel trägt die Schiedsrichterin oder der Schiedsrichter einen Spielbericht ein: Ergebnis, Tore und Karten mit Minute und Person, zu einer Karte einen Grund aus einer festen Liste und Bemerkungen als freien Text.",
+      },
+      account: {
+        heading: "Anmeldung und Konto",
+        // An administrator's idle hour is typed as its one figure: a sentence reading „nach 1 Stunde“ is singular.
+        signIn: (code: { minutes: number }, person: { idleDays: number; days: number }, admin: { idleHours: 1; hours: number }) =>
+          `Du meldest dich mit einem Code an, den wir dir schicken und nach ${formatNumber(code.minutes)} Minuten löschen, oder mit einem Passkey, zu dem wir seinen Namen und seine letzte Nutzung speichern; mit Zugang zur Verwaltung nur mit einem Passkey. Eine Sitzung endet nach ${formatNumber(person.idleDays)} Tagen ohne Nutzung, spätestens nach ${formatNumber(person.days)} Tagen; mit Zugang zur Verwaltung nach ${formatNumber(admin.idleHours)} Stunde ohne Nutzung, spätestens nach ${formatNumber(admin.hours)} Stunden.`,
+        // Session 7: the grant's 24-hour wait becomes a parameter read from the code once that session builds it.
+        changes: (linkHours: number) =>
+          `Eine neue E-Mail-Adresse bestätigst du zuerst über einen Link an deine bisherige Adresse und danach über einen Link an die neue, jeder ${formatNumber(linkHours)} Stunden gültig; sie gilt, sobald du beide bestätigt hast. Ein Zugang zur Verwaltung gilt erst 24 Stunden, nachdem er vergeben ist, auch für eine neue Adresse; alle mit Zugang erfahren sofort davon, und bis dahin lässt er sich zurücknehmen. Dein Konto löschst du jederzeit selbst, bestätigt über einen Link an deine Adresse; sonst bleibt es, solange unter deiner Adresse ein Eintrag bei uns besteht.`,
+      },
+      mail: {
+        heading: "E-Mail und WhatsApp",
+        senders:
+          "Unsere E-Mails verschicken wir über Resend, Codes und Sicherheitshinweise von anmeldung@frankfurtleague.de, alle anderen von liga@frankfurtleague.de; Resend meldet uns, ob eine E-Mail ankommt, und wir speichern das bei der Nachricht.",
+        forwarding:
+          "Ein eigenes Postfach hat die Liga nicht: E-Mails an die Liga leitet Cloudflare an die privaten Postfächer der Personen weiter, die die Liga organisieren, und die Antwort kommt von deren privater Adresse. Den Inhalt speichert Cloudflare nach eigener Angabe nicht, nur Absender, Empfänger und Betreff. Deine Nachricht löschen wir, sobald sie erledigt ist und keine Pflicht zur Aufbewahrung besteht.",
+        whatsapp:
+          "Über WhatsApp schreiben wir dir nur, wenn du das erlaubt hast oder uns dort schreibst; dann erhält WhatsApp deine Telefonnummer und die Nachrichten.",
+      },
+      published: {
+        heading: "Was wir veröffentlichen",
+        record:
+          "Auf der Website stehen Name, Kürzel, Schule und Anschrift jedes Teams, Spielpläne, Ergebnisse und Tabellen, Aufstellungen, sobald ein Team sie einträgt, Tore und Karten, sobald der Spielbericht feststeht, und als freier Text Notizen zu Spielen, Beschreibungen von Teams und der Grund für einen Rückzug.",
+        names:
+          "Stehst du im Kader, zeigen wir dort, in Aufstellungen und bei Toren und Karten deinen Vornamen und den Anfangsbuchstaben deines Nachnamens; pfeifst du, zeigen wir an deinen Spielen den ersten Teil deines Namens und den Anfangsbuchstaben des nächsten, bei nur einem Namen diesen ganz. Beides zeigen wir nur mit deiner Einwilligung, sonst steht dort „anonym“; im Kader stehen Rückennummer und Position in beiden Fällen.",
+        consented: (mediaAge: number) =>
+          `Ebenfalls nur mit Einwilligung zeigen wir die Vornamen der Personen, die die Liga organisieren, auf der Startseite und unter „${COPY.page.about}“ und, ab ${formatNumber(mediaAge)} Jahren, Fotos, Videos und Interviews, auf denen du zu erkennen bist, hier und auf dem Instagram-Kanal der Liga.`,
+        never:
+          "Nie veröffentlichen wir Kontaktdaten, Geburtsdaten, Registrierungen, Kontaktpersonen, Antworten zu Einwilligungen, die Stufe, Schule und Honorar einer Schiedsrichterin oder eines Schiedsrichters, Kartengründe und die Bemerkungen eines Spielberichts.",
+      },
+      recipients: {
+        heading: "Empfänger",
+        lead: "Außer uns erhalten deine Daten nur:",
+        items: [
+          "Hetzner Online GmbH, Nürnberg: unser Server;",
+          "Cloudflare, Inc.: jede Anfrage, Turnstile und die Weiterleitung von E-Mails;",
+          "MongoDB, Inc.: die Datenbank und ihre Sicherungskopien, in Frankfurt am Main;",
+          "Resend (Plus Five Five, Inc.): unsere E-Mails;",
+          "die Anbieter der privaten Postfächer: E-Mails an die Liga und unsere Antworten, ohne Vertrag zur Auftragsverarbeitung;",
+          "WhatsApp Ireland Limited, wenn du WhatsApp erlaubst: die gewöhnliche App, ohne Vertrag zur Auftragsverarbeitung;",
+          "Meta (Instagram), selbst verantwortlich: die Fotos, Videos und Interviews, die du erlaubst.",
+        ],
+        transfers:
+          "In die Vereinigten Staaten übermitteln wir auf Grundlage des Angemessenheitsbeschlusses zum EU-US Data Privacy Framework (Art. 45 DSGVO), für Cloudflare und Resend auch der Standardvertragsklauseln der Europäischen Kommission (Art. 46 Abs. 2 lit. c DSGVO), deren Kopie wir dir auf Anfrage schicken. Ein privates Postfach kann in einem Land ohne Angemessenheitsbeschluss liegen; für diese Übermittlung gibt es keine geeigneten Garantien. Darüber hinaus geben wir keine Daten weiter, auch nicht an unsere Sponsoren.",
+      },
+      /**
+       * The retention table: each store's name, what it holds and how long. The periods are the rulings' and the
+       * providers', several of which only the backend or a later session's build holds, so each is written out.
+       */
+      retention: {
+        heading: "Speicherdauer",
+        nameLabel: "Daten",
+        content: "Inhalt",
+        period: "Dauer",
+        rows: [
+          { name: "Bewerbung", content: "Schule, Team, Kontaktpersonen", period: "14 Tage, wenn nicht alle bestätigen; abgelehnt 14 Tage" },
+          {
+            name: "Kontaktpersonen",
+            content: "Kontaktdaten, Geburtsdatum, Antworten",
+            period: "14 Tage, wenn unbestätigt oder abgelehnt; sonst bis zum Ende der Saison danach",
+          },
+          { name: "Registrierung", content: "Name, Adresse, Geburtsdatum", period: "14 Tage, wenn unbestätigt oder abgelehnt" },
+          { name: "Kader und Aufstellungen", content: "Name, Adresse, Geburtsdatum, Antworten", period: "bis zum Ende der Saison danach" },
+          {
+            name: "Schiedsrichter",
+            content: "Name, Kontaktdaten, Honorar, Antworten",
+            period: "14 Tage, wenn unbestätigt oder abgelehnt; sonst bis du oder die Liga den Eintrag beenden",
+          },
+          { name: "Teams und Spiele", content: "Ergebnisse, Tore, Karten, Notizen", period: "als Chronik der Liga" },
+          { name: "Freie Texte zu Spielen", content: "Absagegründe, Kartengründe, Bemerkungen", period: "bis zum Ende der Saison danach" },
+          { name: "Gesperrte Adresse", content: "Adresse, Grund, Datum", period: "5 Saisons" },
+          { name: "Zugang zur Verwaltung", content: "Adresse, Stufe, Beginn", period: "bis er endet" },
+          { name: "Konto", content: "Adresse, Passkeys", period: "solange ein Eintrag besteht" },
+          { name: "Änderungsprotokoll", content: "Änderungen", period: "12 Monate" },
+          { name: "Protokolle des Servers", content: "Aufrufe, Anmeldungen, Löschungen", period: "9 Tage" },
+          { name: "Unsere E-Mails", content: "Inhalt, Adresse, Zustellstand", period: "Inhalt bis zum Versand, der Rest 30 Tage danach" },
+          { name: "E-Mails bei Resend", content: "Adresse, Betreff, Inhalt", period: "30 Tage, in Sicherungen bis 7 Tage länger" },
+          { name: "E-Mails bei Cloudflare", content: "Absender, Empfänger, Betreff", period: "31 Tage" },
+        ],
+      },
+      erasure: {
+        heading: "Löschung",
+        text: "Löschen wir Daten, auf deinen Wunsch oder nach ihrer Frist, sind sie aus der Datenbank sofort verschwunden und aus den Sicherungskopien nach etwa 8 Tagen; spielen wir eine ältere Sicherung ein, löschen wir sie erneut. Die Kopien bei Resend und Cloudflare erreicht eine Löschung nicht; sie laufen nach ihren Fristen aus. Löschen wir ein bestätigtes Konto oder eine bestätigte Bewerbung, schreiben wir dir das.",
+        log: "Jede Änderung an den Daten der Liga halten wir 12 Monate im Änderungsprotokoll fest; eine Person steht darin nur mit Rolle, Team und Nummer ihres Eintrags, eine persönliche Angabe nur als geändert, ohne ihren Inhalt.",
+      },
+      rights: {
+        heading: "Deine Rechte",
+        /** Around the league's address. */
+        text: {
+          before:
+            "Du hast das Recht auf Auskunft, Berichtigung, Löschung, Einschränkung der Verarbeitung und Datenübertragbarkeit (Art. 15 bis 18 und 20 DSGVO). Eine Einwilligung widerrufst du jederzeit für die Zukunft, in deinem Konto oder per E-Mail; was bis dahin geschah, bleibt rechtmäßig. Für alles genügt eine formlose E-Mail an ",
+          after: ".",
+        },
+        /** The Art. 21 DSGVO objection, set apart as Art. 21 (4) asks; a callout's text holds no link, so it names the address. */
+        objection: {
+          title: "Recht auf Widerspruch",
+          text: `Jeder Verarbeitung auf Grundlage von Art. 6 Abs. 1 lit. f DSGVO kannst du aus Gründen deiner besonderen Situation widersprechen (Art. 21 DSGVO); eine E-Mail an ${KONTAKT_EMAIL} genügt.`,
+        },
+        closing:
+          "Automatisierte Entscheidungen im Sinne von Art. 22 DSGVO treffen wir nicht. Einen Datenschutzbeauftragten haben wir nicht bestellt. Beschweren kannst du dich bei einer Datenschutzaufsichtsbehörde, für uns beim Hessischen Beauftragten für Datenschutz und Informationsfreiheit, Postfach 3163, 65021 Wiesbaden.",
+      },
+      /** The notice's last paragraph: the day its words took effect. */
+      stand: (day: CalendarDay) => `Stand: ${formatDatumLong(day)}`,
+    },
+
+    legalNotice: {
+      provider: { heading: "Anbieter", name: VEREIN_NAME, address: VEREIN_ANSCHRIFT },
+      representation: {
+        heading: "Vertretung",
+        rule: `Je ${formatNumber(VORSTAND_GEMEINSAM)} Mitglieder des Vorstands vertreten den Verein gemeinsam:`,
+        member: (name: string, amt: string) => `${name}, ${amt}`,
+      },
+      /** Before the league's address, which the page sets as a link after it. */
+      contact: { heading: "Kontakt", lead: "E-Mail: " },
+      register: { heading: "Registereintrag", entry: VEREINSREGISTER },
+      /** Before the repository's link, which the page sets after it under `link`. */
+      licence: { heading: "Lizenz", lead: "Der Quellcode dieser Website steht unter der Elastic License 2.0: ", link: "Quellcode auf GitHub" },
+    },
+  },
+
+  /**
    * Each listed page's meta description, by its route key, as a search result shows it under the title. Exactly
    * one for every row `ROUTES` lists and none for any other: a signed-in page, a sign-in page or one a mail opens
    * carries none, and a description set nowhere is not inherited from the root either.
@@ -404,7 +581,7 @@ export const SERVER_COPY = catalogue({
       `${textOf(team1)} gegen ${textOf(team2)} in der Saison ${saison} der Frankfurt League: Termin, Ort, Ergebnis und Aufstellungen.`,
     contact: "Die Frankfurt League erreichst du per E-Mail, auf Instagram und auf Threads.",
     sponsors: "Die Sponsoren der Frankfurt League, und wie du die Liga unterstützen kannst.",
-    legalNotice: "Anbieterkennzeichnung der Frankfurt League nach § 5 DDG und § 18 Abs. 2 MStV.",
+    legalNotice: "Anbieterkennzeichnung der Frankfurt League nach § 5 DDG.",
     privacyNotice: "Welche Daten die Frankfurt League verarbeitet, auf welcher Grundlage und wie lange.",
   } satisfies Record<ListedRoute, string | ((...names: never) => string)>,
 });

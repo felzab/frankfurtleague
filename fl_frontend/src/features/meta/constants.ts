@@ -1,3 +1,4 @@
+import type { CalendarDay } from "@/core/format";
 import type { Sponsor } from "@/kit/TileGrid";
 
 // Content in code and not data: no database backing and no admin surface, so a change here is a deploy. The
@@ -37,4 +38,4 @@ export const SPONSORS: readonly Sponsor[] = SPONSOR_ENTRIES.map(({ name, short, 
  * The day the privacy notice's words took effect: its „Stand“, and the sitemap's date for it. Hand-set,
  * since a live `new Date()` is a dynamic read, which would take the notice off the static shell.
  */
-export const DATENSCHUTZ_STAND = "2026-10-27";
+export const DATENSCHUTZ_STAND: CalendarDay = "2026-11-04";
