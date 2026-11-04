@@ -23,6 +23,31 @@ const SPIELBETRIEB = "Spielbetrieb";
 const gruppeName = (gruppe: string) => `Gruppe ${gruppe}`;
 const placeName = (platz: number) => `${formatOrdinal(platz)} ${PLATZ}`;
 
+// The confirmation pages' shared sentences, each written once: what the typed birthdate is checked for, the deadline
+// of an entry that goes alone, the objection Art. 21 (4) asks to be named explicitly, in the two parts around the
+// league's address, and the privacy notice's link, around its title.
+const ageCheck = (minAge: number) => `Mit deinem Geburtsdatum prüfen wir, ob du mindestens ${formatNumber(minAge)} Jahre alt bist.`;
+const entryDeadline = (until: CalendarDay) => `Bestätigst du nicht bis zum ${formatDatumLong(until)}, löschen wir deinen Eintrag.`;
+const OBJECTION_RIGHT = {
+  before:
+    "Du kannst der Verarbeitung deiner Angaben jederzeit widersprechen, aus Gründen, die sich aus deiner besonderen Situation ergeben (Art. 21 DSGVO). Eine formlose E-Mail an ",
+  after: " genügt.",
+};
+const MORE = { before: "Mehr unter ", after: "." };
+
+/**
+ * The bounds the frontend's code holds that the privacy notice's retention table states, passed by its page. An hour
+ * read „1 Stunde“ is typed as its one figure, the singular being the sentence's.
+ */
+type RetentionBounds = {
+  bewerbungDays: number;
+  schiedsrichterDays: number;
+  addressChangeLinkHours: number;
+  code: { minutes: number; mailHours: 1; failureHours: number };
+  person: { idleDays: number; days: number };
+  admin: { idleHours: 1; hours: number };
+};
+
 /**
  * The catalogue's entries only the server reads, so no client bundle carries them: `COPY` is one object, and a
  * bundler keeps all of an object a client module imports. Branded as `COPY` is, so an entry passes wherever a `Copy`
@@ -150,7 +175,8 @@ export const SERVER_COPY = catalogue({
     /** The deletion link: the subject and the button are the act's own words, `COPY.page.accountErasure`. */
     erasureLink: {
       lead: "Du hast angefordert, dein Konto zu löschen.",
-      consequence: "Dein Konto und alle Angaben unter deiner E-Mail-Adresse werden endgültig gelöscht.",
+      // What outlives an erasure is the privacy notice's to list; the one sentence a consequence holds points there.
+      consequence: `Dein Konto und alle Angaben unter deiner E-Mail-Adresse werden endgültig gelöscht, bis auf das, was unter „${COPY.page.privacyNotice}“ steht.`,
     },
 
     /** The person's own address change: the address on file's request, then the new address's. */
@@ -192,7 +218,7 @@ export const SERVER_COPY = catalogue({
     addressChanges: "Laufende Adressänderungen",
     grant: "Zugang",
     done: "Konto gelöscht",
-    doneSentence: "Dein Konto und deine Angaben sind gelöscht.",
+    doneSentence: `Dein Konto und deine Angaben sind gelöscht, bis auf das, was unter „${COPY.page.privacyNotice}“ steht.`,
     signedOut: "Du bist nicht angemeldet.",
   },
 
@@ -453,10 +479,10 @@ export const SERVER_COPY = catalogue({
         heading: "Anmeldung und Konto",
         // An administrator's idle hour is typed as its one figure: a sentence reading „nach 1 Stunde“ is singular.
         signIn: (code: { minutes: number }, person: { idleDays: number; days: number }, admin: { idleHours: 1; hours: number }) =>
-          `Du meldest dich mit einem Code an, den wir dir schicken und nach ${formatNumber(code.minutes)} Minuten löschen, oder mit einem Passkey, zu dem wir seinen Namen und seine letzte Nutzung speichern; mit Zugang zur Verwaltung nur mit einem Passkey. Eine Sitzung endet nach ${formatNumber(person.idleDays)} Tagen ohne Nutzung, spätestens nach ${formatNumber(person.days)} Tagen; mit Zugang zur Verwaltung nach ${formatNumber(admin.idleHours)} Stunde ohne Nutzung, spätestens nach ${formatNumber(admin.hours)} Stunden.`,
+          `Du meldest dich mit einem Code an, den wir dir schicken und nach ${formatNumber(code.minutes)} Minuten löschen, oder mit einem Passkey, zu dem wir seinen öffentlichen Schlüssel mit Kennung und Zähler, den Anbieter, bei dem er liegt, ob er gesichert ist, wie dein Gerät ihn erreicht, seinen Namen und seine letzte Nutzung speichern, nie seinen privaten Schlüssel; mit Zugang zur Verwaltung nur mit einem Passkey. Eine Sitzung endet nach ${formatNumber(person.idleDays)} Tagen ohne Nutzung, spätestens nach ${formatNumber(person.days)} Tagen; mit Zugang zur Verwaltung nach ${formatNumber(admin.idleHours)} Stunde ohne Nutzung, spätestens nach ${formatNumber(admin.hours)} Stunden.`,
         // Session 7: the grant's 24-hour wait becomes a parameter read from the code once that session builds it.
-        changes: (linkHours: number) =>
-          `Eine neue E-Mail-Adresse bestätigst du zuerst über einen Link an deine bisherige Adresse und danach über einen Link an die neue, jeder ${formatNumber(linkHours)} Stunden gültig; sie gilt, sobald du beide bestätigt hast. Ein Zugang zur Verwaltung gilt erst 24 Stunden, nachdem er vergeben ist, auch für eine neue Adresse; alle mit Zugang erfahren sofort davon, und bis dahin lässt er sich zurücknehmen. Dein Konto löschst du jederzeit selbst, bestätigt über einen Link an deine Adresse; sonst bleibt es, solange unter deiner Adresse ein Eintrag bei uns besteht.`,
+        changes: (linkHours: number, stopDays: number) =>
+          `Eine neue E-Mail-Adresse bestätigst du zuerst über einen Link an deine bisherige Adresse und danach über einen Link an die neue, jeder ${formatNumber(linkHours)} Stunden gültig; sie gilt, sobald du beide bestätigt hast. Kommst du an deine bisherige Adresse nicht mehr heran, ändert die Liga sie auf deine Anfrage und vermerkt den Grund; die bisherige Adresse erfährt davon und kann die Änderung ${formatNumber(stopDays)} Tage lang stoppen. Ein Zugang zur Verwaltung gilt erst 24 Stunden, nachdem er vergeben ist, auch für eine neue Adresse; alle mit Zugang erfahren sofort davon, und bis dahin lässt er sich zurücknehmen. Dein Konto löschst du jederzeit selbst, bestätigt über einen Link an deine Adresse; sonst bleibt es, solange unter deiner Adresse ein Eintrag bei uns besteht.`,
       },
       mail: {
         heading: "E-Mail und WhatsApp",
@@ -474,7 +500,7 @@ export const SERVER_COPY = catalogue({
         names:
           "Stehst du im Kader, zeigen wir dort, in Aufstellungen und bei Toren und Karten deinen Vornamen und den Anfangsbuchstaben deines Nachnamens; pfeifst du, zeigen wir an deinen Spielen den ersten Teil deines Namens und den Anfangsbuchstaben des nächsten, bei nur einem Namen diesen ganz. Beides zeigen wir nur mit deiner Einwilligung, sonst steht dort „anonym“; im Kader stehen Rückennummer und Position in beiden Fällen.",
         consented: (mediaAge: number) =>
-          `Ebenfalls nur mit Einwilligung zeigen wir die Vornamen der Personen, die die Liga organisieren, auf der Startseite und unter „${COPY.page.about}“ und, ab ${formatNumber(mediaAge)} Jahren, Fotos, Videos und Interviews, auf denen du zu erkennen bist, hier und auf dem Instagram-Kanal der Liga.`,
+          `Ebenfalls nur mit Einwilligung zeigen wir die Vornamen der Personen, die die Liga organisieren, auf der Startseite und unter „${COPY.page.about}“ und, ab ${formatNumber(mediaAge)} Jahren, Fotos, Videos und Interviews, auf denen du zu erkennen bist, hier und auf dem Instagram-Kanal der Liga. Widerrufst du, entfernen wir Fotos, Videos und Interviews von dir von der Website und vom Instagram-Kanal der Liga.`,
         never:
           "Nie veröffentlichen wir Kontaktdaten, Geburtsdaten, Registrierungen, Kontaktpersonen, Antworten zu Einwilligungen, die Stufe, Schule und Honorar einer Schiedsrichterin oder eines Schiedsrichters, Kartengründe und die Bemerkungen eines Spielberichts.",
       },
@@ -494,8 +520,10 @@ export const SERVER_COPY = catalogue({
           "In die Vereinigten Staaten übermitteln wir auf Grundlage des Angemessenheitsbeschlusses zum EU-US Data Privacy Framework (Art. 45 DSGVO), für Cloudflare und Resend auch der Standardvertragsklauseln der Europäischen Kommission (Art. 46 Abs. 2 lit. c DSGVO), deren Kopie wir dir auf Anfrage schicken. Ein privates Postfach kann in einem Land ohne Angemessenheitsbeschluss liegen; für diese Übermittlung gibt es keine geeigneten Garantien. Darüber hinaus geben wir keine Daten weiter, auch nicht an unsere Sponsoren.",
       },
       /**
-       * The retention table: each store's name, what it holds and how long. The periods are the rulings' and the
-       * providers', several of which only the backend or a later session's build holds, so each is written out.
+       * The retention table: each store's name, what it holds and how long. A bound the frontend's code holds is a
+       * parameter; the rest are the rulings' and the providers', several of which only the backend, a host script or a
+       * later session's build holds, so each is written out. A confirmation link's days stand for a declined item's
+       * too, the rulings giving both one wait.
        */
       retention: {
         heading: "Speicherdauer",
@@ -503,25 +531,68 @@ export const SERVER_COPY = catalogue({
         content: "Inhalt",
         period: "Dauer",
         rows: [
-          { name: "Bewerbung", content: "Schule, Team, Kontaktpersonen", period: "14 Tage, wenn nicht alle bestätigen; abgelehnt 14 Tage" },
+          {
+            name: "Bewerbung",
+            content: "Schule, Team, Kontaktpersonen",
+            period: (bound: RetentionBounds) =>
+              `${formatNumber(bound.bewerbungDays)} Tage, wenn nicht alle bestätigen; abgelehnt ${formatNumber(bound.bewerbungDays)} Tage`,
+          },
           {
             name: "Kontaktpersonen",
             content: "Kontaktdaten, Geburtsdatum, Antworten",
-            period: "14 Tage, wenn unbestätigt oder abgelehnt; sonst bis zum Ende der Saison danach",
+            period: (bound: RetentionBounds) =>
+              `${formatNumber(bound.bewerbungDays)} Tage, wenn unbestätigt oder abgelehnt; sonst bis zum Ende der Saison danach`,
           },
+          // Session 8: the 14 days become `REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE` once that constant holds them.
           { name: "Registrierung", content: "Name, Adresse, Geburtsdatum", period: "14 Tage, wenn unbestätigt oder abgelehnt" },
+          {
+            name: "Registrierungslinks",
+            content: "Team, Saison, Adresse der Person aus der Verwaltung, die ihn erstellt hat",
+            period: "ohne Frist; die Adresse bis zur Löschung dieser Person",
+          },
           { name: "Kader und Aufstellungen", content: "Name, Adresse, Geburtsdatum, Antworten", period: "bis zum Ende der Saison danach" },
           {
             name: "Schiedsrichter",
             content: "Name, Kontaktdaten, Honorar, Antworten",
-            period: "14 Tage, wenn unbestätigt oder abgelehnt; sonst bis du oder die Liga den Eintrag beenden",
+            period: (bound: RetentionBounds) =>
+              `${formatNumber(bound.schiedsrichterDays)} Tage, wenn unbestätigt oder abgelehnt; sonst bis du oder die Liga den Eintrag beenden`,
           },
-          { name: "Teams und Spiele", content: "Ergebnisse, Tore, Karten, Notizen", period: "als Chronik der Liga" },
+          {
+            name: "Teams und Spiele",
+            content: "Ergebnisse, Tore, Karten, Notizen",
+            period: "als Chronik der Liga; Namen darin nur, solange der Eintrag der Person besteht",
+          },
           { name: "Freie Texte zu Spielen", content: "Absagegründe, Kartengründe, Bemerkungen", period: "bis zum Ende der Saison danach" },
           { name: "Gesperrte Adresse", content: "Adresse, Grund, Datum", period: "5 Saisons" },
           { name: "Zugang zur Verwaltung", content: "Adresse, Stufe, Beginn", period: "bis er endet" },
           { name: "Konto", content: "Adresse, Passkeys", period: "solange ein Eintrag besteht" },
+          {
+            name: "Anmeldung",
+            content: "Code; Zahl der Codes und der Fehlversuche je Adresse, pseudonymisiert",
+            period: (bound: RetentionBounds) =>
+              `Code ${formatNumber(bound.code.minutes)} Minuten; Codes ${formatNumber(bound.code.mailHours)} Stunde, Fehlversuche ${formatNumber(bound.code.failureHours)} Stunden`,
+          },
+          {
+            name: "Sitzungen",
+            content: "Beginn, letzte Nutzung, Art der Anmeldung",
+            period: (bound: RetentionBounds) =>
+              `${formatNumber(bound.person.idleDays)} Tage ohne Nutzung, höchstens ${formatNumber(bound.person.days)}; mit Zugang zur Verwaltung ${formatNumber(bound.admin.idleHours)} Stunde ohne Nutzung, höchstens ${formatNumber(bound.admin.hours)} Stunden`,
+          },
+          // The ended change's 30 days are the backend's alone, `fl_backend/app/shared/schemas/bounds.py ::
+          // ADDRESS_CHANGE_RETENTION_DAYS`.
+          {
+            name: "Adressänderung",
+            content: "Beide Adressen; bei einer Änderung auf Anfrage der Grund",
+            period: (bound: RetentionBounds) =>
+              `jeder Link ${formatNumber(bound.addressChangeLinkHours)} Stunden; Adressen und Grund bis zu ihrem Ende, der Rest 30 Tage danach`,
+          },
           { name: "Änderungsprotokoll", content: "Änderungen", period: "12 Monate" },
+          // A host script's, `scripts/ops/export_journal.sh :: JOURNAL_DAYS`, each day's file counted from its last change.
+          {
+            name: "Löschungen und Widerrufe",
+            content: "Art, Zeitpunkt und Datensatz, die Adresse pseudonymisiert, auch zu Adressänderungen und Anträgen auf Zugang",
+            period: "30 Tage",
+          },
           { name: "Protokolle des Servers", content: "Aufrufe, Anmeldungen, Löschungen", period: "9 Tage" },
           { name: "Unsere E-Mails", content: "Inhalt, Adresse, Zustellstand", period: "Inhalt bis zum Versand, der Rest 30 Tage danach" },
           { name: "E-Mails bei Resend", content: "Adresse, Betreff, Inhalt", period: "30 Tage, in Sicherungen bis 7 Tage länger" },
@@ -530,7 +601,7 @@ export const SERVER_COPY = catalogue({
       },
       erasure: {
         heading: "Löschung",
-        text: "Löschen wir Daten, auf deinen Wunsch oder nach ihrer Frist, sind sie aus der Datenbank sofort verschwunden und aus den Sicherungskopien nach etwa 8 Tagen; spielen wir eine ältere Sicherung ein, löschen wir sie erneut. Die Kopien bei Resend und Cloudflare erreicht eine Löschung nicht; sie laufen nach ihren Fristen aus. Löschen wir ein bestätigtes Konto oder eine bestätigte Bewerbung, schreiben wir dir das.",
+        text: "Löschen wir Daten, auf deinen Wunsch oder nach ihrer Frist, verschwinden sie sofort aus der Datenbank und nach etwa 8 Tagen aus den Sicherungskopien; spielen wir eine ältere Sicherung ein, löschen wir sie erneut. Es bleiben die Kopien bei Resend und Cloudflare bis zu ihren Fristen, eine Sperre deiner Adresse bis zu ihrem Ende, die E-Mail mit dem Link zur Löschung, bis er abläuft, freie Texte, die nicht unter deiner Adresse stehen, und im Änderungsprotokoll, was du unter einer früheren Adresse geändert hast. Löschen wir ein bestätigtes Konto oder eine bestätigte Bewerbung, schreiben wir dir das.",
         log: "Jede Änderung an den Daten der Liga halten wir 12 Monate im Änderungsprotokoll fest; eine Person steht darin nur mit Rolle, Team und Nummer ihres Eintrags, eine persönliche Angabe nur als geändert, ohne ihren Inhalt.",
       },
       rights: {
@@ -571,9 +642,10 @@ export const SERVER_COPY = catalogue({
   // Session 6: its page reads these.
   /**
    * The fixed text of a contact person's confirmation page, `ROUTES.kontaktConfirmation`, titled
-   * `COPY.page.entryConfirmation`: who named the person and for what, what is stored and until when, the deadline, and
-   * the privacy notice's link. The consents under it are `fl_frontend/src/core/consentWordings.ts`'s; nobody accepts the
-   * notice, which informs and asks no consent.
+   * `COPY.page.entryConfirmation`: who named the person and for what, what is stored and until when, what the birthdate
+   * is checked for, the deadline, what an objection does, the objection Art. 21 (4) asks to be named explicitly, since the
+   * seat rests on legitimate interest, and the privacy notice's link. The consents under it are
+   * `fl_frontend/src/core/consentWordings.ts`'s; nobody accepts the notice, which informs and asks no consent.
    */
   kontaktConfirmation: {
     /** The first sentence, by how the seat came to be. */
@@ -592,13 +664,60 @@ export const SERVER_COPY = catalogue({
         `Die Liga hat dich für ${textOf(team)} in der ${COPY.shared.saisonName(saison)} als ${textOf(rolle)} eingetragen.`,
     },
     stored: "Wir speichern deinen Namen, deine Kontaktdaten und dein Geburtsdatum längstens bis zum Ende der Saison danach.",
+    /** At the birthdate's field, by the seat's floor: Art. 13 asks the purpose where the date is asked. */
+    ageCheck,
     /** The deadline of a seat in an application, which goes whole when one seat stays unconfirmed. */
     applicationDeadline: (kontakte: number, until: CalendarDay) =>
       `Bestätigen nicht alle ${formatNumber(kontakte)} Kontaktpersonen bis zum ${formatDatumLong(until)}, löschen wir die Bewerbung.`,
     /** The deadline of a seat on a team's season, which goes alone. */
-    seatDeadline: (until: CalendarDay) => `Bestätigst du nicht bis zum ${formatDatumLong(until)}, löschen wir deinen Eintrag.`,
+    seatDeadline: entryDeadline,
+    /**
+     * At the objection's control, read before the press, by how the seat came to be: an application's seat tells the
+     * person who submitted it, unless the seat is that person's own, and a season row's seat tells nobody.
+     */
+    objectionEffect: {
+      application: "Widersprichst du, entfernen wir deine Angaben aus der Bewerbung und schreiben das der Person, die sie eingereicht hat.",
+      self: "Widersprichst du, entfernen wir deine Angaben aus der Bewerbung.",
+      seasonRow: "Widersprichst du, löschen wir deinen Eintrag.",
+    },
+    /** The Art. 21 (4) sentence, its own paragraph, around the league's address, which the page sets as a link. */
+    objectionRight: OBJECTION_RIGHT,
     /** The last line, around the privacy notice's title, which the page sets as its link. */
-    more: { before: "Mehr unter ", after: "." },
+    more: MORE,
+  },
+
+  // Session 5: its page reads these.
+  /**
+   * The fixed text of a referee's confirmation page, `ROUTES.schiedsrichterConfirmation`, built as
+   * `kontaktConfirmation` is: who entered the person and for what, what is stored and until when, the deadline, what
+   * the birthdate is checked for, the objection and the privacy notice's link. The referee's floor is the backend's
+   * alone, so the page passes the one its read serves.
+   */
+  schiedsrichterConfirmation: {
+    opening: "Die Liga hat dich als Schiedsrichterin oder Schiedsrichter für ihre Spiele eingetragen.",
+    stored:
+      "Wir speichern deinen Namen, deine Kontaktdaten, dein Honorar, dein Geburtsdatum und deine Schule, wenn sie angegeben ist, bis du oder die Liga den Eintrag beenden.",
+    ageCheck,
+    deadline: entryDeadline,
+    objectionRight: OBJECTION_RIGHT,
+    more: MORE,
+  },
+
+  // Session 8: its page reads these.
+  /**
+   * The fixed text of a pupil's confirmation page, `ROUTES.registrierungConfirmation`, built as `kontaktConfirmation`
+   * is: the registration the pupil made, what is stored and until when, the deadline, what the birthdate is checked
+   * for, the objection and the privacy notice's link.
+   */
+  registrierungConfirmation: {
+    opening: (team: Words, saison: string) =>
+      `Du hast dich über den Link von ${textOf(team)} für den Kader in der ${COPY.shared.saisonName(saison)} registriert.`,
+    stored:
+      "Wir speichern deinen Namen, deine E-Mail-Adresse, dein Geburtsdatum und, wenn du sie angegeben hast, Rückennummer, Position und Stufe, längstens bis zum Ende der Saison danach.",
+    ageCheck,
+    deadline: (until: CalendarDay) => `Bestätigst du nicht bis zum ${formatDatumLong(until)}, löschen wir deine Registrierung.`,
+    objectionRight: OBJECTION_RIGHT,
+    more: MORE,
   },
 
   /**

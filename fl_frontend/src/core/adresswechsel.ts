@@ -8,7 +8,7 @@ export const ADRESSWECHSEL_GUELTIG_STUNDEN = 24;
  * Mirrored from `fl_backend/app/shared/schemas/bounds.py`: the days a change started with a reason waits after its
  * confirmation, so the address on file can still stop it.
  */
-const ADRESSWECHSEL_WARTEZEIT_TAGE = 7;
+export const ADRESSWECHSEL_WARTEZEIT_TAGE = 7;
 
 // Indexed by the constant, so a waiting time this map has no words for fails the type check rather
 // than printing a numeral beside every other duration the pages spell out.
