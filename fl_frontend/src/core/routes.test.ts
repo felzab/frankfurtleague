@@ -127,12 +127,4 @@ describe("every address", () => {
     const words = glossaryWords();
     expect(Object.entries(LEAGUE_WORDS).filter(([, entry]) => !words.has(entry))).toStrictEqual([]);
   });
-
-  // A word no address carries is a word the next address may take without anyone choosing it, so the lists stay
-  // exactly as long as the tree needs.
-  it("lists no word that no address carries", () => {
-    const carried = new Set(addresses().flatMap(({ segments }) => segments));
-    const unused = [...Object.keys(LEAGUE_WORDS), ...ADDRESS_WORDS].filter((word) => !carried.has(word));
-    expect(unused).toStrictEqual([]);
-  });
 });

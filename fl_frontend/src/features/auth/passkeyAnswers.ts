@@ -13,7 +13,7 @@ const OHNE_BESTAETIGUNG = COPY.signIn.refusal.unverified;
  * An address holding no record of its own in the league, or a barred one, which a retry would not change.
  * One sentence for both, so no answer here tells who stands on the ban list.
  */
-export const OHNE_EINTRAG = COPY.signIn.refusal.noRecord;
+const OHNE_EINTRAG = COPY.signIn.refusal.noRecord;
 
 /** Read off the answer rather than off its type: the client declares no `code`, and the body has one. */
 export const refusalCode = (error: unknown): string | undefined =>

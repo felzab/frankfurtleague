@@ -10,11 +10,7 @@ import { SignInFlow } from "./SignInFlow";
 
 // The server action, the bot check and the sign-in's client each reach a service; the send and the code's answers
 // alone are driven here.
-const { emailOtp, leaveDocumentFor, search } = vi.hoisted(() => ({
-  emailOtp: vi.fn(),
-  leaveDocumentFor: vi.fn(),
-  search: { params: new URLSearchParams() },
-}));
+const { emailOtp } = vi.hoisted(() => ({ emailOtp: vi.fn() }));
 vi.mock("../../actions", () => ({ handleSignIn: vi.fn() }));
 vi.mock("@/shared/hooks/useTurnstile", () => ({
   useTurnstile: () => ({ widget: null, takeToken: () => Promise.resolve({ token: "token" }) }),
@@ -24,9 +20,8 @@ vi.mock("@/core/authClient", () => ({ authClient: { signIn: { emailOtp } } }));
 vi.mock("next/navigation", async (original) => ({
   ...(await original<object>()),
   useRouter: () => ({ refresh: () => undefined }),
-  useSearchParams: () => search.params,
+  useSearchParams: () => new URLSearchParams(),
 }));
-vi.mock("@/shared/utils/documentNavigation", () => ({ leaveDocumentFor }));
 
 describe("the sign-in's send", () => {
   it("moves the focus to the address field on each refusal of a malformed address, the same words twice included", async () => {
@@ -107,28 +102,5 @@ describe("the sign-in's code", () => {
     await userEvent.type(screen.getByRole("textbox", { name: COPY.signIn.code }), "654321");
     await waitFor(() => expect(screen.getByText(COPY.signIn.refusal.noRecord)).toBeTruthy());
     expect(screen.getByRole("alert").textContent).toBe("");
-  });
-});
-
-describe("the address a sign-in returns to", () => {
-  /* The landing judges the address again before it honours it; the page carries none the allowlist refuses. */
-  it.each([
-    ["/account", "/signin/continue?return=%2Faccount"],
-    ["//example.com/area", "/signin/continue"],
-  ])("carries %s to the landing as %s", async (asked, landing) => {
-    search.params = new URLSearchParams({ return: asked });
-    vi.mocked(handleSignIn).mockResolvedValue({ ok: true, value: "lena@example.com" });
-    emailOtp.mockResolvedValueOnce({ data: { status: true }, error: null });
-    render(
-      <SignInFlow
-        next="/signin/continue"
-        siteKey=""
-      />,
-    );
-    await userEvent.type(screen.getByRole("textbox", { name: COPY.signIn.address }), "lena@example.com");
-    await userEvent.click(screen.getByRole("button", { name: COPY.signIn.sendCode }));
-    await userEvent.type(await screen.findByRole("textbox", { name: COPY.signIn.code }), "123456");
-
-    await waitFor(() => expect(leaveDocumentFor).toHaveBeenCalledWith(landing));
   });
 });

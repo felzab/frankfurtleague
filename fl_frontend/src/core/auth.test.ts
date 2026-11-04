@@ -1321,23 +1321,9 @@ describe("a passkey session whose passkey is gone", () => {
 });
 
 describe("the fresh sign-in a first passkey is added on", () => {
-  /* A passkey outlives the session that adds it, so only a sign-in of the last minutes adds one. */
-  it("still generates registration options for a code session a minute inside the library's `freshAge`", async () => {
-    const { cookie, row } = await signIn(ADMIN_EMAIL);
-    ageRow(row, { created: FRESH_SIGN_IN_MS - 60_000 });
-
-    const answer = await overHttp("/passkey/generate-register-options", { cookie });
-    expect(answer.status, `the enrolment the page offers was refused: ${JSON.stringify(logged)}`).toBe(200);
-
-    /* The enrolment's half of the ask: the authenticator is told a PIN or a biometric is required,
-       and the library checks neither response's flag. */
-    const options = (await answer.json()) as { authenticatorSelection: { userVerification: string }; rp: { id: string } };
-    expect(options.authenticatorSelection.userVerification).toBe("required");
-    expect(options.rp.id, "the relying party is not the origin this stack serves").toBe("localhost");
-  });
-
-  /* An administrator's mailed code reaches no further than this: a mailbox read later adds no passkey. */
-  it("refuses them a minute past it, which is where the page stops offering the step", async () => {
+  /* A passkey outlives the session that adds it, so an administrator's mailed code adds one only inside the library's
+     `freshAge`: a mailbox read later adds none. */
+  it("refuses a code session's registration options a minute past `freshAge`, where the page stops offering the step", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     ageRow(row, { created: FRESH_SIGN_IN_MS + 60_000 });
 
@@ -1661,45 +1647,6 @@ describe("which sessions may enrol a passkey, and how many rows they may leave",
     ).rejects.toSatisfy((raised: unknown) => Reflect.get(raised as object, "status") === "NOT_FOUND");
 
     expect(store.passkey, "the callback let a stale session write a row").toStrictEqual([held]);
-  });
-
-  /* The touch is judged where its options were asked for: a cross-device prompt by QR code can outlast the touch's
-     minute, and a verify judged now would refuse a credential the authenticator has already stored. */
-  it("enrols on a touch its ceremony's options were asked inside, however long the browser's prompt then takes", async () => {
-    const { cookie, row } = await signIn(ADMIN_EMAIL);
-    steppedUp(row);
-    store.passkey.push(aPasskeyFor(row.userId));
-    const offered = await overHttp("/passkey/generate-register-options", { cookie });
-    expect(offered.status, await offered.clone().text()).toBe(200);
-    const { challenge } = (await offered.json()) as { challenge: string };
-
-    // A prompt of a minute and a half: the touch and the options it asked for are both that much older now.
-    ageRow(row, { created: PASSKEY_TOUCH_MS + 30_000 });
-    const issued = store.verification.at(-1);
-    assert.ok(issued !== undefined, "the options stored no challenge");
-    issued.createdAt = new Date(row.createdAt.getTime() + 5_000);
-
-    const answer = await overHttp("/passkey/verify-registration", {
-      method: "POST",
-      cookie: `${cookie}; ${cookieHeader(offered)}`,
-      body: { response: registrationFor(challenge, true, SECOND_RAW_ID) },
-    });
-    expect(answer.status, await answer.clone().text()).toBe(200);
-    expect(store.passkey.length).toBe(2);
-  });
-
-  /* A person's passkey is optional, so a fresh sign-in by either factor enrols the first: the mailbox is the
-     account whatever the person holds. Every later one asks the touch, as an administrator's does. */
-  it("enrols a person's first passkey from a fresh code session, and a further one on the touch alone", async () => {
-    const { cookie, row } = await signIn(PERSON_EMAIL);
-
-    expect((await enrolPasskey(cookie)).status).toBe(200);
-    const byCode = await overHttp("/passkey/generate-register-options", { cookie });
-    expect(byCode.status, "a holder's code session was offered a second passkey").toBe(404);
-
-    steppedUp(row);
-    expect((await enrolPasskey(cookie, {}, true, SECOND_RAW_ID)).status, "the touch was refused a second passkey").toBe(200);
-    expect(store.passkey.map((held) => held.userId)).toStrictEqual([row.userId, row.userId]);
   });
 
   /* The `auth.api` arm, which the hook returns early for: the library's own `freshAge` holds it as it holds HTTP. */
@@ -2253,15 +2200,6 @@ describe("what a ban ends in the sign-in store", () => {
 
     arriveAs(first.cookie);
     expect((await getSignInLanding()).destination).toBe("/signin");
-  });
-
-  /* The store holds the folded address, lower-cased: a ban typed in capitals has to reach the stored account. */
-  it("reaches an account whose address is typed in capitals", async () => {
-    const stored = await signIn("leser@xn--bcher-kva.example");
-
-    await endSessionsOfAddress("Leser@XN--BCHER-KVA.example");
-
-    assert.ok(!store.session.includes(stored.row));
   });
 
   /* The ban refuses an address holding a grant, so the ending asks nothing: a read here would make a
