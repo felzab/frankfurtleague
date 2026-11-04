@@ -176,7 +176,7 @@ def build_spieler_pipeline(*, team_id: CustomObjectId, saison_id: str) -> list[M
             }
         },
         # Strict: a squad row naming nobody is a hand edit, and serves no slot.
-        {"$unwind": {"path": f"${AS_NAME}", "preserveNullAndEmptyArrays": False}},
+        {"$unwind": f"${AS_NAME}"},
         # An ALLOW-LIST: every key here is one the squad table renders. What is projected reaches the
         # page's payload whether rendered or not, so the `stufe` (`READ-PUPIL-002`), the squad flags
         # and the joined ids are not projected.
