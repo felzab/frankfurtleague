@@ -54,8 +54,10 @@ export function carriedOrRefuse(ctx: object, userId: string): AnmeldungRecords {
  * Every condition an enrolment meets past the library's `freshAge`, on both arms: the plugin gates its two
  * registration endpoints on that and on nothing else. The touch is judged as of `touchAt`, now where it is
  * `undefined`: the options request judges it now, and the verify call as of that ceremony's options, so the browser's
- * own prompt, a cross-device one by QR code among them, takes as long as the challenge lives and never runs the
- * touch's window down.
+ * own prompt, a cross-device one by QR code among them, never runs the touch's window down. What bounds the prompt is
+ * the library's `freshAge`, which holds the verify call to the session's creation (`FRESH_SIGN_IN_SECONDS`, 300): after a
+ * touch, whose options fall inside `PASSKEY_TOUCH_SECONDS` (60), that leaves the prompt between 240 and 300 seconds, and
+ * a prompt running past it is refused as a sign-in too old.
  */
 export async function refuseEnrolment(
   adapter: DBTransactionAdapter,
