@@ -11,6 +11,7 @@ import { ActRow, DialogOverlay, useOpenUntilHidden } from "./Dialog";
 
 import type { Copy, Verb } from "@/core/copy";
 import type { ReactElement } from "react";
+import type { HeldOpen } from "./Dialog";
 
 /** What opens the question: its own trigger, or the open state another control holds, as the kit's `Dialog` takes it. */
 type Opening =
@@ -21,7 +22,7 @@ type Opening =
     }
   | {
       /** The open state, held by the control that asks: a row's act asking once the passkey touch has answered. */
-      open: { isOpen: boolean; onOpenChange: (isOpen: boolean) => void };
+      open: HeldOpen;
       trigger?: never;
     };
 
@@ -43,9 +44,7 @@ export type ConfirmDialogProps = {
  * „Zurück“ and the act's verb. It has no close mark; Escape and „Zurück“ are the way out.
  */
 export function ConfirmDialog({ verb, subject, consequence, tone, trigger, open, onConfirm }: ConfirmDialogProps) {
-  const [own, setOwn] = useOpenUntilHidden();
-  const isOpen = open?.isOpen ?? own;
-  const setOpen = open?.onOpenChange ?? setOwn;
+  const [isOpen, setOpen] = useOpenUntilHidden(open);
   const [isBusy, startAct] = useTransition();
 
   const overlay = (
