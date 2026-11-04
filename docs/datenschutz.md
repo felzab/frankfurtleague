@@ -35,7 +35,7 @@ one stand in [section 11](#11-open-and-owed-a-decision). Other files cite sectio
   an association, and a school-law basis is unavailable. No data protection officer is appointed.
 - **A person who signs in changes or withdraws their own consents on the account page**, each record
   they hold a box of its own on Konto's „Deine Einträge“, saved by its „Speichern“
-  (`fl_frontend/src/app/account/(pages)/entries/EintraegeBoxes.tsx :: EintraegeBoxes`, each save an action of
+  (`fl_frontend/src/app/account/(pages)/entries/EntriesBoxes.tsx :: EntriesBoxes`, each save an action of
   `fl_frontend/src/features/konto/personActions.ts`).
 - **Every other request goes to the contact address**: access, rectification, erasure, objection
   and a withdrawal by mail.

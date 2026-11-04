@@ -1195,7 +1195,7 @@ rejects, for the heartbeat to name. A carry the new address refused files
 `address_change.account_not_moved`:
 
 ```bash
-docker compose logs --since 2h frontend | grep -E 'address_change\.account_not_moved|scheduler\.job_failed'
+docker compose logs --since 2h frontend | grep -E 'address_change\.(account_not_moved|carry_failed)|scheduler\.job_failed'
 ```
 
 A `account_not_moved` line at `WARN` needs no repair: reading `grund: "belegt"`, the new address
