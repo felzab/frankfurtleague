@@ -226,6 +226,17 @@ describe("every query the sign-in store serves, with table scans refused", () =>
     await withoutTableScans(() => signInByCode(auth, ADMIN_EMAIL));
     expect(await withoutTableScans(() => devicesOf(served)), "the account page counted no other device").toBeGreaterThan(1);
     await withoutTableScans(() => endOtherSessions(served.user.id, served.session.id));
+    // On the real store, through the adapter's own conversion of both ids: the kept session alone stands.
+    const standing = await withoutTableScans(() =>
+      store()
+        .collection("session")
+        .find({ userId: new ObjectId(served.user.id) })
+        .toArray(),
+    );
+    expect(
+      standing.map(({ _id }) => String(_id)),
+      "another device's session stood past the ending, or the kept one went",
+    ).toStrictEqual([served.session.id]);
 
     // A second passkey, listed, renamed and removed.
     const second = await withoutTableScans(() => enrol(byPasskey, Buffer.from("fl-index-db-second-authenticator")));
