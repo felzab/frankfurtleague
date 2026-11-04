@@ -863,6 +863,16 @@ const DESIGN_BANS = [
     },
     ROUTE_PAGE,
   ),
+  // The cross-fade between pages is the kit's one `PageFade`, standing first in each page template: a fade of a
+  // page's own is a second motion beside it, one the tokens' duration and reduced-motion rules do not reach.
+  kitImport(
+    {
+      regex: packageUnder("react"),
+      importNames: ["ViewTransition"],
+      message: "A page fades in its template's `PageFade`: render the template, which places the one view transition.",
+    },
+    OUTSIDE_KIT,
+  ),
   // Each save belongs to its owner: the record's one save to the editor template, the one-shot submit to
   // the mailed-page template, a Konto box to Konto's pages. The editor template stands in an editors'
   // route group, whose layout draws the phone's band with the way back rather than the logo and the bar.
