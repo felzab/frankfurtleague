@@ -25,7 +25,8 @@ check is on this page.
   test: would the word stand in the league's printed rulebook if there were no website? The German
   a visitor reads is not a name and keeps its words. A page address and a mailed link's address follow
   this rule as a name does, each segment a league word or English, save `/impressum` and `/datenschutz`,
-  the words German law and a German visitor look for. A
+  the words German law and a German visitor look for (`fl_frontend/src/core/routes.ts :: ADDRESS_WORDS`,
+  which `fl_frontend/src/core/routes.test.ts` holds every address to). A
   data noun stored or served under its German name (`datum`, `vorname`, `grund`, `art`) keeps it,
   and a stored field name or value already in production keeps its spelling unless a paste is owed
   anyway. A name the production host or a deploy holds (a secret file, an environment variable, a

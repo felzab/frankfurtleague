@@ -23,8 +23,48 @@ export type RouteEntry = {
 };
 
 /**
- * Every page whose name is settled. A segment is German only where the glossary holds the word the
- * screen shows, and English otherwise; a page under a season carries the season in its address.
+ * The English words an address may carry. An address follows the code's naming rule: a segment is German only where
+ * it is the league's own word, a core entity or attribute of the glossary, and every word for what the website does
+ * with one is English and stands here. `fl_frontend/src/core/routes.test.ts` holds every fixed segment of every row
+ * and every page to this list or to a league word, so a new word is added here, in English, or the build fails.
+ * @internal
+ */
+export const ADDRESS_WORDS = [
+  "about",
+  "account",
+  "address",
+  "address-changes",
+  "admin",
+  "administrators",
+  "api",
+  "appearance",
+  "area",
+  "auth",
+  "client-error",
+  "confirm",
+  "contact",
+  "continue",
+  "delivery",
+  "done",
+  "entries",
+  "erasure",
+  "erasures",
+  "log",
+  "mail",
+  "passkey",
+  "search",
+  "security",
+  "signin",
+  "sponsors",
+  // The one exception, two German words naming no league thing: the Impressum is a duty under German law, and
+  // `/impressum` and `/datenschutz` are where a German visitor looks for it and for the privacy notice.
+  "impressum",
+  "datenschutz",
+] as const;
+
+/**
+ * Every page whose name is settled. Each segment is a league word or one of `ADDRESS_WORDS`; a page under a season
+ * carries the season in its address.
  * Signed-in pages, sign-in pages and pages a mail opens are never indexed, and a signed-in page or one
  * a mail opens, whose link carries a token, is never fetched.
  */
