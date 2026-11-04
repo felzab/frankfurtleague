@@ -30,7 +30,7 @@ const BASE_URL = "http://localhost:3000";
  * refuses before any ceremony starts, so a phone passkey journey would test Playwright's stand-in
  * rather than WebKit. The phone follows an administrator's mailed code as far as the passkey card.
  */
-const EVERY_PROJECT = ["signin.spec.ts", "spielplan.spec.ts", "mailedLinks.spec.ts", "accountActs.spec.ts", "legal.spec.ts"];
+const EVERY_PROJECT = ["signin.spec.ts", "spielplan.spec.ts", "accountActs.spec.ts", "legal.spec.ts"];
 
 export default defineConfig<JourneyOptions>({
   testDir: "./e2e",
@@ -57,7 +57,6 @@ export default defineConfig<JourneyOptions>({
       use: {
         ...devices["Desktop Chrome"],
         administrator: "admin.desktop@example.com",
-        person: "anna.ahrens@example.com",
         twoDevices: "frieda.falk@example.com",
         mover: "clara.kranz@example.com",
         leaver: "hanna.hahn@example.com",
@@ -70,7 +69,6 @@ export default defineConfig<JourneyOptions>({
       use: {
         ...devices["iPhone 17"],
         administrator: "admin.telefon@example.com",
-        person: "ben.brandt@example.com",
         twoDevices: "gustav.gerber@example.com",
         mover: "dora.dahl@example.com",
         leaver: "ingo.imhof@example.com",

@@ -20,9 +20,8 @@
 // meets the proxy signed out (`fl_frontend/e2e/desktop/signedOutSave.spec.ts`), and the fourth the
 // administration's journey's (`fl_frontend/e2e/desktop/verwaltung.spec.ts`): each sets up its own
 // passkey, which no other journey could then answer. The referees `journeyPerson` writes, each one
-// journey's, are the account acts' three per project and the desktop passkey journeys' two. The two
-// referees with an address a fixture books are the sign-in journey's person of each project. The owner
-// signs in in none.
+// journey's, are the account acts' three per project and the desktop passkey journeys' two. The owner's
+// code is asked for and never typed (`fl_frontend/e2e/signin.spec.ts`).
 //
 // Run by `./scripts/ops/local.sh --e2e` and `--seed-made-up`, and by the journeys' CI job, with
 // mongosh INSIDE the stack's own database container, at `mongodb://127.0.0.1:27017/<DB_BASE_NAME>`

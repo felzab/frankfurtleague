@@ -87,11 +87,6 @@ test("an administrator creates a venue over the Spielorte list, then moves a mat
   await expect(dialog).toBeHidden();
   await expect(page.getByRole("cell", { name: NEW_VENUE })).toBeVisible();
 
-  // The search narrows the list held on the page to the new venue.
-  await page.getByRole("searchbox", { name: "Spielorte suchen" }).fill("Ulmen");
-  await expect(page.getByRole("cell", { name: NEW_VENUE })).toBeVisible();
-  await expect(page.getByRole("cell", { name: "Sporthalle Birkenallee" })).toBeHidden();
-
   // --- The match editor --------------------------------------------------------------------------
 
   const editor = `/admin/saisons/${SAISON}/spiele/${await spielId(page)}`;

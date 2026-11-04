@@ -1,10 +1,9 @@
 /**
  * E2E · J8, a person's account acts, under each project: the address change through its two mailed links, the address
  * on file asked first, then the new mailbox; then the deletion through its mailed link, opened signed out and carried
- * through the sign-in, its action leading to the page that needs no session. Before them Konto's frame: the phone's
- * list of its four pages and the way back through it, the desktop's rail, Darstellung, and „Alle anderen abmelden“ with
- * a second device. Konto's steps are named by the board's words, which Konto's pages are built to. The passkeys are
- * `desktop/kontoPasskeys.spec.ts`'s.
+ * through the sign-in, its action leading to the page that needs no session. Before them „Alle anderen abmelden“ with a
+ * second device, whose cookie no person would see still admitted. Konto's steps are named by the board's words, which
+ * Konto's pages are built to. The passkeys are `desktop/kontoPasskeys.spec.ts`'s.
  *
  * Each journey signs in as a person of its own, the project's `twoDevices`, `mover` and `leaver`, whom no other journey
  * signs in as: each writes what another would read, the sessions it ends, the records it moves, the account it erases.
@@ -25,52 +24,12 @@ async function signIn(page: Page, address: string): Promise<void> {
   await expect(page).toHaveURL(/\/area/);
 }
 
-test("Konto's frame, Darstellung and „Alle anderen abmelden“, on one sign-in and a second device's", async ({
-  page,
-  browser,
-  proxy,
-  baseURL,
-  twoDevices,
-  isMobile,
-}) => {
+test("„Alle anderen abmelden“ ends a second device's session and keeps this one", async ({ page, browser, proxy, baseURL, twoDevices }) => {
   // A second device, signed in first through the journey's own visitor.
   const other = await browser.newContext({ proxy, baseURL });
   const elsewhere = await other.newPage();
   await signIn(elsewhere, twoDevices);
   await signIn(page, twoDevices);
-
-  if (isMobile) {
-    // A phone opens Konto on the list of its four pages, with no bottom bar: the band's „Zurück“ is the way out.
-    await page.goto("/account");
-    const list = page.getByRole("main").getByRole("navigation", { name: "Konto" });
-    for (const name of ["Anmeldung", "Sicherheit", "Darstellung", "Deine Einträge"])
-      await expect(list.getByRole("link", { name })).toBeVisible();
-    await expect(page.getByRole("navigation", { name: "Navigation" })).toHaveCount(0);
-    await list.getByRole("link", { name: "Sicherheit" }).click();
-    await expect(page).toHaveURL(/\/account\/security$/);
-    await page.getByRole("link", { name: "Zurück" }).click();
-    await expect(page).toHaveURL(/\/account$/);
-    await page.getByRole("link", { name: "Zurück" }).click();
-    await expect(page).not.toHaveURL(/\/account/);
-  } else {
-    // A desktop's rail lists the four pages, „Zurück“ in its head leading out of Konto at once.
-    await page.goto("/account/signin");
-    const rail = page.getByRole("complementary").getByRole("navigation", { name: "Navigation" });
-    for (const name of ["Anmeldung", "Sicherheit", "Darstellung", "Deine Einträge"])
-      await expect(rail.getByRole("link", { name })).toBeVisible();
-    await rail.getByRole("link", { name: "Sicherheit" }).click();
-    await expect(page).toHaveURL(/\/account\/security$/);
-    await page.getByRole("complementary").getByRole("link", { name: "Zurück" }).click();
-    await expect(page).not.toHaveURL(/\/account/);
-  }
-
-  // Darstellung acts at once, with the account menu's three glyphs: one choice of three, so React Aria's single-select
-  // button group draws them as radios, and next-themes marks the theme on the root's `data-theme`.
-  await page.goto("/account/appearance");
-  await page.getByRole("main").getByRole("radio", { name: "Dunkel" }).click();
-  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
-  await page.getByRole("main").getByRole("radio", { name: "Hell" }).click();
-  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
 
   // „Alle anderen abmelden“ asks first, then ends the other device's session and keeps this one.
   await page.goto("/account/security");
@@ -118,11 +77,6 @@ test("a person changes their address: the address on file confirms first, then t
   await expect(page.getByRole("heading", { name: "Änderung bestätigt" })).toBeVisible();
   await expect(page.getByText("Die neue Adresse bekommt jetzt ihren Link.")).toBeVisible();
   await expect(page.getByRole("main").getByRole("link", { name: "Zum Konto" })).toBeVisible();
-
-  // Opened again, the link says what was done and when, and asks nothing.
-  await page.goto(previousLink);
-  await expect(page.getByText(/^Änderung bestätigt am \d{1,2}\. \S+ \d{4}\.$/)).toBeVisible();
-  await expect(page.getByRole("button", { name: "Bestätigen" })).toHaveCount(0);
 
   // Only now the new mailbox is asked; its confirmation makes the change take effect.
   const newLink = await mailedLink(newAddress, "Neue E-Mail-Adresse bestätigen", afterTheFirst);

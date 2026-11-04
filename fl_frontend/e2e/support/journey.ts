@@ -23,8 +23,6 @@ import type { Socket } from "node:net";
 export type JourneyOptions = {
   /** An administrator's grant. */
   administrator: string;
-  /** A referee's address, which admits a sign-in and grants no Verwaltung. */
-  person: string;
   /** A referee's address the account acts sign in as on two devices, and then end the other device's session. */
   twoDevices: string;
   /** A referee's address the account acts move to a new mailbox. */
@@ -197,7 +195,6 @@ export function hydrated(page: Page): Promise<Request> {
 export const test = base.extend<JourneyFixtures & JourneyOptions, WorkerFixtures>({
   // Empty until a project sets them, which `fl_frontend/playwright.config.ts` does for each.
   administrator: ["", { option: true }],
-  person: ["", { option: true }],
   twoDevices: ["", { option: true }],
   mover: ["", { option: true }],
   leaver: ["", { option: true }],
