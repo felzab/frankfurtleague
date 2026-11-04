@@ -469,11 +469,15 @@ def unmetered(app: Path, where: tuple) -> list:
 
 @pytest.mark.parametrize(
     "text",
-    [SERVER_READ, '"use client";\nexport default function Page() {\n  return useSearchParams().get("token");\n}\n'],
-    ids=["server-page", "client-hook"],
+    [
+        SERVER_READ,
+        '"use client";\nexport default function Page() {\n  return useSearchParams().get("token");\n}\n',
+        'import { mailedLinkToken } from "@/core/mailedLink";\nexport default async function Page() {\n  return await mailedLinkToken();\n}\n',
+    ],
+    ids=["server-page", "client-hook", "mailed-link-reader"],
 )
 def test_a_link_page_only_the_catch_all_answers_is_a_finding(text):
-    """The page and its twin each, under both spellings of the read, the hook's being what a case-blind match exists for."""
+    """The page and its twin each, under every spelling of the read, the hook's being what a case-blind match exists for."""
     findings = unmetered(link_page("/neu", text), served(METERED, CATCH_ALL))
 
     assert severities(findings) == ["fail", "fail"]
