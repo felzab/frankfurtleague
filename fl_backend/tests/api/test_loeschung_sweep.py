@@ -24,7 +24,7 @@ from fastapi import FastAPI
 from pymongo import AsyncMongoClient, ReturnDocument
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.identity.crud import faellige_seite, saison_statuses
+from app.api.identity.crud import erasure_due_page, saison_statuses
 from app.api.identity.schemas import FLLoeschungSweepParams
 from app.api.identity.system_router import LOESCHUNGEN_PER_PASS, sweep_erasure
 from app.api.registrierungen.public_router import post_registrierung
@@ -234,7 +234,7 @@ WHOLE = 1000
 
 
 async def population(database: AsyncDatabase) -> list[Any]:
-    seite, _ = await faellige_seite(
+    seite, _ = await erasure_due_page(
         await saison_statuses(saisons_collection=database[Collection.SAISONS]),
         nach=None,
         groesse=WHOLE,

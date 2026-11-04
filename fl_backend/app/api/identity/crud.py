@@ -31,12 +31,12 @@ from app.api.identity.services import (
     behaltene_saison_ids,
     build_bewerbung_pipeline,
     build_bewerbung_references_pipeline,
-    build_loeschung_anzahl_pipeline,
+    build_erasure_due_count_pipeline,
+    build_erasure_due_page_pipeline,
     build_loeschung_pupil_pipeline,
     build_loeschung_referee_pipeline,
     build_loeschung_registrierung_pipeline,
     build_loeschung_seat_pipeline,
-    build_loeschung_seite_pipeline,
     build_offene_registrierungen_pipeline,
     build_pupil_pipeline,
     build_pupil_references_pipeline,
@@ -48,6 +48,7 @@ from app.api.identity.services import (
     build_seat_references_pipeline,
     eigene_eintraege,
     eigene_sitze,
+    erasure_due,
     find_funktion_refusal,
     find_kein_inhaber_refusal,
     folds_to,
@@ -55,7 +56,6 @@ from app.api.identity.services import (
     ist_eigener_schiedsrichter,
     ist_eigener_spieler,
     lebt,
-    loeschung_faellig,
     nicht_ausgetreten,
     offene_adressen,
     referenced_addresses,
@@ -989,7 +989,7 @@ async def _offene(registrierungen_collection: AsyncCollection) -> frozenset[str]
     )
 
 
-async def faellige_seite(
+async def erasure_due_page(
     statuses: Mapping[str, FLSaisonStatus],
     *,
     nach: ObjectId | None,
@@ -1006,7 +1006,7 @@ async def faellige_seite(
     if behalten is None:
         return [], 0
 
-    pipeline = build_loeschung_seite_pipeline(behalten=behalten, offene=await _offene(registrierungen_collection), nach=nach, groesse=groesse)
+    pipeline = build_erasure_due_page_pipeline(behalten=behalten, offene=await _offene(registrierungen_collection), nach=nach, groesse=groesse)
     [gelesen] = await aggregate_many_from_db(collection=spieler_collection, pipeline=pipeline)
 
     return gelesen["seite"], sum(row["anzahl"] for row in gelesen["anzahl"])
@@ -1021,7 +1021,7 @@ async def faellige_anzahl(
     if behalten is None:
         return 0
 
-    pipeline = build_loeschung_anzahl_pipeline(behalten=behalten, offene=await _offene(registrierungen_collection))
+    pipeline = build_erasure_due_count_pipeline(behalten=behalten, offene=await _offene(registrierungen_collection))
 
     return sum(row["anzahl"] for row in await aggregate_many_from_db(collection=spieler_collection, pipeline=pipeline))
 
@@ -1085,7 +1085,7 @@ async def loeschen_if_still_due(
         pipeline=[{"$match": build_eigene_registrierung_filter(email)}, {"$project": {"status": 1, "email": 1}}],
         session=session,
     )
-    if not loeschung_faellig(
+    if not erasure_due(
         email=email,
         kader_saison_ids=[row["saison_id"] for row in kader],
         offene=offene_adressen(registrierungen),

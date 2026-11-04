@@ -10,7 +10,7 @@ from app.api.identity.crud import JEDE_PERSONENGRUPPE, LoeschungJournal, loesche
 from app.api.identity.schemas import FLAccountErasureViewResponse, FLErasureResponse
 from app.api.identity.services import (
     build_season_team_pipeline,
-    compose_loeschung_ansicht,
+    compose_account_erasure_view,
     find_letzter_inhaber_loeschung_refusal,
     holds_an_owner_grant,
 )
@@ -237,7 +237,7 @@ async def get_account_erasure_view(
             is not None
         )
 
-    ansicht = compose_loeschung_ansicht(
+    ansicht = compose_account_erasure_view(
         identifier,
         saison_team_rows=subject.saison_teams,
         bewerbung_rows=subject.bewerbungen,

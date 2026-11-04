@@ -78,7 +78,7 @@ REPLAY_METHOD: Final = "REPLAY"
 
 # The erasure page as the sidemenu names it (`fl_frontend/src/features/admin/constants.ts :: LOESCHUNG_EINTRAG`), where
 # the listing sends an operator. This image holds no frontend source to read it from, so a mirror case holds the two.
-LOESCHUNG_SEITE: Final = "Löschung auf Anfrage"
+ERASURE_PAGE_LABEL: Final = "Löschung auf Anfrage"
 
 # Where each record keeps the address its person signed in or was written to under.
 _PERSON_ADDRESS: Final[Mapping[Collection, Callable[[Mapping[str, Any]], Any]]] = {
@@ -716,7 +716,7 @@ def _print_held(places: list[tuple[str, Any, str]], out: TextIO) -> None:
         found = [place for place in places if place[0] == collection]
         shown = ", ".join(f"{document_id} {path}" for _, document_id, path in found[:3])
         print(f"    held in {collection}: {len(found)} field(s), {shown}{', …' if len(found) > 3 else ''}", file=out)
-    print(f"    run it again on „{LOESCHUNG_SEITE}“ with the address one of those records shows", file=out)
+    print(f"    run it again on „{ERASURE_PAGE_LABEL}“ with the address one of those records shows", file=out)
 
 
 def _instant(parser: argparse.ArgumentParser, flag: str, spelled: str) -> datetime:
