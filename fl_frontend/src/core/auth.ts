@@ -1664,7 +1664,7 @@ export async function getAdminSession(): Promise<JudgedSession | null> {
   return "session" in judged ? judged.session : null;
 }
 
-/** Where `/signin/weiter` sends the session it was handed. */
+/** Where `/signin/continue` sends the session it was handed, before `/bereich` is resolved to the page it leads to. */
 export type SignInDestination = "/signin/passkey" | "/bereich" | "/signin";
 
 export async function getSignInDestination(): Promise<SignInDestination> {

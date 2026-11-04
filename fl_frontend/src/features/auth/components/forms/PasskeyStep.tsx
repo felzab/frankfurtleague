@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 import { SignInPage } from "@/kit/SignInPage";
 
+import { allowedReturnAddress, RETURN_PARAMETER, withReturnAddress } from "@/core/auth/returnAddress";
 import { authClient } from "@/core/authClient";
 import { COPY } from "@/core/copy";
 import { leaveDocumentFor } from "@/shared/utils/documentNavigation";
@@ -65,6 +66,8 @@ export function PasskeyStep(props: Props) {
   const [isPending, setIsPending] = useState(false);
   const [fehler, setFehler] = useState<Copy | null>(null);
   const worte = WORTE[step];
+  // The address a mailed link asked for, which both ways on carry where the allowlist holds it.
+  const asked = allowedReturnAddress(useSearchParams().get(RETURN_PARAMETER));
 
   const run = async () => {
     setIsPending(true);
@@ -82,7 +85,7 @@ export function PasskeyStep(props: Props) {
     // Never `router.refresh()` beside a soft navigation here: either ceremony replaced the session, so this
     // page's own guard redirects to the landing while the navigation redirects past it, and the two left the
     // reader on the landing for good.
-    leaveDocumentFor(next);
+    leaveDocumentFor(withReturnAddress(next, asked));
   };
 
   return (
@@ -97,7 +100,7 @@ export function PasskeyStep(props: Props) {
       // The session is unchanged, so a soft navigation is the right tool here.
       later={
         props.step === "offer"
-          ? { label: COPY.signIn.passkey.later, isDisabled: isPending, onPress: () => router.push(props.later) }
+          ? { label: COPY.signIn.passkey.later, isDisabled: isPending, onPress: () => router.push(asked ?? props.later) }
           : undefined
       }
       row={fehler}

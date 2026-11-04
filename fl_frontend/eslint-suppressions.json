@@ -67,11 +67,6 @@
       "count": 2
     }
   },
-  "src/app/(public)/signin/weiter/page.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 2
-    }
-  },
   "src/app/api/bestaetigung/adresse/route.ts": {
     "fl/server-action": {
       "count": 1

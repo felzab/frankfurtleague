@@ -1,10 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 
 import { SignInPage } from "@/kit/SignInPage";
 import { useFormAction } from "@/kit/useFormAction";
 
+import { RETURN_PARAMETER, withReturnAddress } from "@/core/auth/returnAddress";
 import { authClient } from "@/core/authClient";
 import { COPY } from "@/core/copy";
 import { TURNSTILE_FIELD } from "@/core/turnstileToken";
@@ -25,6 +27,8 @@ import type { Copy } from "@/core/copy";
  */
 export function SignInFlow({ next, siteKey }: { next: string; siteKey: string }) {
   const [email, setEmail] = useState("");
+  // The address a mailed link asked for, carried to the landing only where the allowlist holds it.
+  const landing = withReturnAddress(next, useSearchParams().get(RETURN_PARAMETER));
   const humanCheck = useTurnstile(siteKey);
 
   // The send answers every address alike: the code view and its sentence are written here from the address
@@ -72,7 +76,7 @@ export function SignInFlow({ next, siteKey }: { next: string; siteKey: string })
 
       // A full document load and never a soft navigation: the session has just changed, so every payload the
       // router holds was rendered for somebody signed out. The view stays busy until the document goes.
-      if (error === null) return leaveDocumentFor(next);
+      if (error === null) return leaveDocumentFor(landing);
 
       setPruefe(false);
       setVersuch((count) => count + 1);
@@ -121,7 +125,7 @@ export function SignInFlow({ next, siteKey }: { next: string; siteKey: string })
       (result) => result.error,
       (failed: unknown) => failed,
     );
-    if (error === null) return leaveDocumentFor(next);
+    if (error === null) return leaveDocumentFor(landing);
 
     setPasskeyLaeuft(false);
     // Aborted by a ceremony started after it, which is no failure of the reader's.

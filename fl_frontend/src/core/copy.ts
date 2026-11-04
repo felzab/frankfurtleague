@@ -381,7 +381,7 @@ export const COPY = catalogue({
     /** `/signin`'s tab title, and its card's heading, signed out and signed in: the act its button names. */
     title: VERB.signIn,
     passkeyTitle: "Passkey",
-    /** `/signin/weiter`'s tab title, a page that only sends the session on to where it goes next. */
+    /** `/signin/continue`'s name in the route table, an address that only sends the session on to where it goes next. */
     landingTitle: ANMELDUNG,
 
     address: "E-Mail-Adresse",

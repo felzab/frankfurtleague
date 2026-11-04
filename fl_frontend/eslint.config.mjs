@@ -1415,7 +1415,8 @@ const eslintConfig = defineConfig([
   },
 
   // The one write path: every server action built by `src/core/action.ts`, which runs its lane's guard, and the
-  // route handlers no browser form posts to, the three that stay for callers that are not a browser.
+  // route handlers no browser form posts to, the four that stay: three for callers that are not a browser, and the
+  // sign-in's landing, a GET dispatcher no form posts to.
   {
     files: ["src/**/*.{ts,tsx}"],
     ignores: TEST_FILES,
@@ -1423,7 +1424,14 @@ const eslintConfig = defineConfig([
     rules: {
       "fl/server-action": [
         "error",
-        { keptRoutes: ["src/app/api/auth/[...all]/route.ts", "src/app/api/mail/zustellung/route.ts", "src/app/api/client-error/route.ts"] },
+        {
+          keptRoutes: [
+            "src/app/api/auth/[...all]/route.ts",
+            "src/app/api/mail/zustellung/route.ts",
+            "src/app/api/client-error/route.ts",
+            "src/app/(classic)/signin/continue/route.ts",
+          ],
+        },
       ],
     },
   },
