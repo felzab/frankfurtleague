@@ -1,4 +1,4 @@
-import { MAILED_PAGE_METADATA, MailedPage } from "@/kit/MailedPage";
+import { MAILED_PAGE_METADATA, MailedPage, TO_ACCOUNT } from "@/kit/MailedPage";
 
 import { passkeysOf } from "@/core/auth/passkeys";
 import { withReturnAddress } from "@/core/auth/returnAddress";
@@ -27,8 +27,6 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
 
 const WORDS = SERVER_COPY.accountErasure;
 const ENTRIES = COPY.konto.entries;
-
-const TO_ACCOUNT = { label: COPY.shared.end.toAccount, href: ROUTES.accountSignIn.path() };
 
 /**
  * `/erasure`, the deletion link's page: the list of what goes, and the act, for the signed-in person the link was

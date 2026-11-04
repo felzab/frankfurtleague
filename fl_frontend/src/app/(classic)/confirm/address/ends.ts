@@ -1,6 +1,6 @@
 import "server-only";
 
-import { linkInvalid } from "@/kit/MailedPage";
+import { linkInvalid, TO_ACCOUNT } from "@/kit/MailedPage";
 
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
@@ -10,9 +10,6 @@ import type { CalendarDay } from "@/core/format";
 import type { MailedEnd } from "@/kit/MailedPage";
 
 const WORDS = SERVER_COPY.addressChange;
-
-/** The address box on Konto: where a change is started again, and the way on from a link that holds no more. */
-export const TO_ACCOUNT = { label: COPY.shared.end.toAccount, href: ROUTES.accountSignIn.path() };
 
 const TO_HOME = { label: COPY.shared.end.toHome, href: ROUTES.home.path() };
 

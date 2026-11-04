@@ -1,5 +1,5 @@
 import { ClassicPage } from "@/kit/ClassicPage";
-import { MAILED_PAGE_METADATA, MailedPage } from "@/kit/MailedPage";
+import { MAILED_PAGE_METADATA, MailedPage, TO_ACCOUNT } from "@/kit/MailedPage";
 
 import { COPY } from "@/core/copy";
 import { dayOf } from "@/core/format";
@@ -14,7 +14,7 @@ import { pageMetadata } from "@/shared/utils/metadata";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import { answerAddressChange, verwaltungswegBeantworten } from "./answers";
-import { doneOnEnd, TO_ACCOUNT } from "./ends";
+import { doneOnEnd } from "./ends";
 
 import type { Copy } from "@/core/copy";
 import type { FLAddressChangeViewResponse } from "@/core/generated/client/types";
