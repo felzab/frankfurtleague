@@ -308,8 +308,8 @@ describe("which account two spellings of one address reach", () => {
   /* The library folds CASE alone, on the row it stores: a spelling only the fold converts would
      otherwise verify into a second `user` row, which a ban matching the first by equality never ends. */
   it("writes one user row for two spellings the fold reads as one address, through the send and the code alike", async () => {
-    // The fold makes the half-width ideographic full stop a dot; `toLowerCase` alone does not.
-    const spelledOtherwise = GRANTED.replace(/\.(?=[^.]*$)/, String.fromCodePoint(0xff61));
+    // A no-break space the library, which lower-cases alone, would keep; the box strips it and the fold trims it.
+    const spelledOtherwise = `${String.fromCodePoint(0xa0)}${GRANTED}`;
 
     for (const spelling of [GRANTED, spelledOtherwise]) {
       const attempt = await signInWith(spelling);

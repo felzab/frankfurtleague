@@ -21,9 +21,9 @@ const STORE = "__flSubjectStore";
 
 /** Granted nothing, which is the case this seam exists for. */
 const PERSON_EMAIL = "spielerin@example.org";
-/* A half-width ideographic full stop as well as capitals: the sign-in library lower-cases what it
-   stores, so a case-only spelling reaches the guard folded already and would pass with the fold deleted. */
-const UNFOLDED_EMAIL = `Anna.Mueller@Schule${String.fromCodePoint(0xff61)}DE`;
+/* A no-break space and a space around capitals: the sign-in library lower-cases what it stores but never
+   trims, so a case-only spelling reaches the guard folded already and would pass with the fold deleted. */
+const UNFOLDED_EMAIL = `${String.fromCodePoint(0xa0)}Anna.Mueller@Schule.DE `;
 const FOLDED_EMAIL = "anna.mueller@schule.de";
 
 const API_ORIGIN = "http://backend.test";

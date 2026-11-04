@@ -1117,7 +1117,8 @@ describe("the administrator's passkey sign-in, judged at the same guard", () => 
     const { cookie } = await signIn(ADMIN_EMAIL);
     const held = store.user.find((user) => user.email === ADMIN_EMAIL);
     assert.ok(held, "the sign-in wrote no user row for the granted address");
-    held.email = ADMIN_EMAIL.replace(/\.(?=[^.]*$)/, String.fromCodePoint(0xff61));
+    // Capitals and a no-break space, which the library never trims.
+    held.email = `${ADMIN_EMAIL.toUpperCase()}${String.fromCodePoint(0xa0)}`;
     arriveAs(cookie);
 
     const step = await getPasskeyStep();
@@ -2210,12 +2211,11 @@ describe("what a ban ends in the sign-in store", () => {
     expect(await getSignInDestination()).toBe("/signin");
   });
 
-  /* The store holds the folded address, whose domain is punycode: a ban typed with the Unicode
-     domain has to reach it. */
-  it("reaches an account whose address has a Unicode domain, typed either way", async () => {
+  /* The store holds the folded address, lower-cased: a ban typed in capitals has to reach the stored account. */
+  it("reaches an account whose address is typed in capitals", async () => {
     const stored = await signIn("leser@xn--bcher-kva.example");
 
-    await endSessionsOfAddress("Leser@Bücher.example");
+    await endSessionsOfAddress("Leser@XN--BCHER-KVA.example");
 
     assert.ok(!store.session.includes(stored.row));
   });
@@ -3242,9 +3242,9 @@ describe("which spelling of an administrator a write is attributed to", () => {
 
     const held = store.user.find((user) => user.email === ADMIN_EMAIL);
     assert.ok(held, "the sign-in wrote no user row for the granted address");
-    // The fold converts this spelling's domain to the granted one, so the guard admits a session
+    // The fold trims and lower-cases this spelling to the granted one, so the guard admits a session
     // whose stored address is not the one the grant carries.
-    held.email = ADMIN_EMAIL.replace(/\.(?=[^.]*$)/, String.fromCodePoint(0xff61));
+    held.email = `${ADMIN_EMAIL.toUpperCase()}${String.fromCodePoint(0xa0)}`;
     arriveAs(cookie);
 
     const actor = await runWithRequestScope({ traceId: `${"0".repeat(31)}1` }, async () => {
