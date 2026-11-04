@@ -1,3 +1,4 @@
+import { runWithIncomingTrace } from "@/core/traceScope";
 import { requireAdminSaison } from "@/features/saisons/resolvers";
 import { getSchiedsrichter } from "@/features/schiedsrichter/queries";
 import { getSpielbestaetigungen } from "@/features/spielbestaetigungen/queries";
@@ -9,7 +10,6 @@ import { spieltagLabels } from "@/features/spieltage/utils";
 import { getTeamSaisons } from "@/features/teams/queries";
 import { getGermanTodayStr } from "@/shared/utils/date";
 import { nullUnlessContractBreak } from "@/shared/utils/degradedRead";
-import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import type { NextPageProps } from "@/shared/types/types";
 

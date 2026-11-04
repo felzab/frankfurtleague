@@ -93,7 +93,7 @@ A value list in any slice is the generated value, as in `z.enum(FLSaisonStatus)`
 
 **Every read waits for a real request with `await connection()` in the few functions the reads share**,
 never in a page: the session reads (`fl_frontend/src/core/auth/session.ts :: readRequestSession` and the
-sign-in landing's), `fl_frontend/src/shared/utils/traceScope.ts :: runWithIncomingTrace`, which every
+sign-in landing's), `fl_frontend/src/core/traceScope.ts :: runWithIncomingTrace`, which every
 admin, person and uncached public read passes, and each component that reaches a `"use cache"` read
 or the clock before the URL or any of those. This looks like it defeats static rendering and is
 deliberate: the Docker builder stage has **no reachable backend or sign-in store**, so a page that

@@ -6,6 +6,7 @@ import { asSignInIdentifier } from "./emailAddress";
 import { APIBadStatusError } from "./errors";
 import { identityGetSignIn, identityGetSubject } from "./generated/client/sdk";
 import { logger } from "./logging";
+import { runWithIncomingTrace } from "./traceScope";
 
 import type { FLSignInResponse } from "./generated/client/types";
 import type { SubjectSession } from "./subject";
@@ -20,24 +21,29 @@ const PAYLOAD_REFUSED = "payload_refused";
  * one call: the gate, a passkey enrolment's included, reads `lookUpAnmeldung`. Throws on every backend
  * failure; `fl_frontend/src/core/subject.ts :: getSubjectSession` lets it.
  */
-export const lookUpSubjekt = cache(async (email: string): Promise<SubjectSession["subject"]> => {
-  // In the body and on no query parameter: a URL carrying an address reaches the edge's access
-  // line, which nothing downstream un-logs.
-  const answer = await identityGetSubject({ email: email });
+export const lookUpSubjekt = cache((email: string): Promise<SubjectSession["subject"]> =>
+  // Under the edge's trace: a render's first guard and the sign-in landing's handler reach here before anything
+  // has opened the request's scope, and a call outside one is filed under a trace no edge line carries. Inside a
+  // scope already open, an action's or the render's, this opens nothing.
+  runWithIncomingTrace(async () => {
+    // In the body and on no query parameter: a URL carrying an address reaches the edge's access
+    // line, which nothing downstream un-logs.
+    const answer = await identityGetSubject({ email: email });
 
-  // Field by field rather than the body: the generated call types the answer and parses nothing, so the body
-  // would carry into the session whatever else the backend ever answered.
-  return {
-    seats: answer.seats,
-    spieler: answer.spieler,
-    schiedsrichter: answer.schiedsrichter,
-    unconfirmed: answer.unconfirmed,
-    barred: answer.barred,
-    verwaltung: answer.verwaltung,
-    granted_since: answer.granted_since,
-    inhaber_seit: answer.inhaber_seit,
-  };
-});
+    // Field by field rather than the body: the generated call types the answer and parses nothing, so the body
+    // would carry into the session whatever else the backend ever answered.
+    return {
+      seats: answer.seats,
+      spieler: answer.spieler,
+      schiedsrichter: answer.schiedsrichter,
+      unconfirmed: answer.unconfirmed,
+      barred: answer.barred,
+      verwaltung: answer.verwaltung,
+      granted_since: answer.granted_since,
+      inhaber_seit: answer.inhaber_seit,
+    };
+  }),
+);
 
 /** What the sign-in gate decides on for one mailbox: its two record flags, its ban and its grant. */
 export type AnmeldungRecords = FLSignInResponse;

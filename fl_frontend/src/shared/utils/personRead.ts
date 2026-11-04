@@ -1,7 +1,6 @@
 import { PersonReadWithoutSubjectError } from "@/core/errors";
 import { getSubjectSession } from "@/core/subject";
-
-import { runWithIncomingTrace } from "./traceScope";
+import { runWithIncomingTrace } from "@/core/traceScope";
 
 /**
  * Runs one person-tier read with the signed-in person recorded as the request's actor: a render opens

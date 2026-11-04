@@ -9,7 +9,7 @@ serveServerReact();
 vi.doMock("next/headers", () => NEXT_HEADERS_DOUBLE);
 
 const { runWithIncomingTrace } = await import("./traceScope.ts");
-const { boundCall, getRequestTraceId, REQUEST_DEADLINE_MS } = await import("@/core/requestScope");
+const { boundCall, getRequestTraceId, REQUEST_DEADLINE_MS } = await import("./requestScope.ts");
 
 /** `performance.now()`'s reading, which the mocked timers leave alone and `advance` moves beside them. */
 let clock = 0;

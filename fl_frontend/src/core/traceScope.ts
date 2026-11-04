@@ -4,8 +4,8 @@
 import { headers } from "next/headers";
 import { connection } from "next/server";
 
-import { runWithRequestScope } from "@/core/requestScope";
-import { mintTraceId, readTraceparent, TRACEPARENT_HEADER } from "@/core/trace";
+import { runWithRequestScope } from "./requestScope";
+import { mintTraceId, readTraceparent, TRACEPARENT_HEADER } from "./trace";
 
 /**
  * Runs `fn` under the trace the edge opened for this request, past a wait for a real request: the image's build

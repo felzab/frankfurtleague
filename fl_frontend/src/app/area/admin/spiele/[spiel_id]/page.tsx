@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
 
+import { runWithIncomingTrace } from "@/core/traceScope";
 import { AdminContextWrapper } from "@/features/admin/components/providers/AdminContextWrapper";
 import { AdminSpielEditView } from "@/features/admin/components/views/AdminSpielEditView";
 import { getAdminSpielbericht } from "@/features/spielberichte/queries";
@@ -11,7 +12,6 @@ import { spielStateKey } from "@/features/spiele/utils";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 import { getGermanTodayStr } from "@/shared/utils/date";
 import { nullAfterLoggingUnexplained } from "@/shared/utils/degradedRead";
-import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import type { SpielberichtStand } from "@/features/spielberichte/types";
 import type { NextPageProps } from "@/shared/types/types";

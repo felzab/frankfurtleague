@@ -1,7 +1,6 @@
 import "server-only";
 
 import { updateTag } from "next/cache";
-import { headers } from "next/headers";
 import { unstable_rethrow } from "next/navigation";
 
 import { z } from "zod";
@@ -12,13 +11,13 @@ import { asSignInIdentifier, KONTAKT_EMAIL_MAX_LENGTH } from "./emailAddress";
 import { APIBadStatusError, loggedByBackend, requestOf } from "./errors";
 import { logger } from "./logging";
 import { logRefused } from "./refused";
-import { getRequestActor, requestWriteMayStand, runWithRequestScope } from "./requestScope";
+import { getRequestActor, requestWriteMayStand } from "./requestScope";
 import { isSeatAt, rolesOf } from "./roles";
 import { isWordedRule, ruleMessage } from "./ruleMessage";
 import { SERVER_COPY } from "./serverCopy";
 import { SITE_CACHE_TAG } from "./siteCache";
 import { getSubjectSession } from "./subject";
-import { mintTraceId, readTraceparent, TRACEPARENT_HEADER } from "./trace";
+import { runWithIncomingTrace } from "./traceScope";
 import { turnstileRefusal } from "./turnstile";
 import { TURNSTILE_FIELD } from "./turnstileToken";
 import { fieldMessage } from "./zodGerman";
@@ -457,10 +456,8 @@ async function body<Schema extends z.ZodType, Value>(
 export function action<Schema extends z.ZodType, Value = undefined>(
   lane: Lane<Schema, Value>,
 ): (raw: z.input<Schema> | FormData) => Promise<ActionAnswer<Value>> {
-  return async (raw) => {
-    const incoming = readTraceparent((await headers()).get(TRACEPARENT_HEADER));
-    return runWithRequestScope({ traceId: incoming ?? mintTraceId() }, () => answered(lane, raw));
-  };
+  // An async function, as Next defines a server action, though its check at runtime sees only a function.
+  return async (raw) => runWithIncomingTrace(() => answered(lane, raw));
 }
 
 /**

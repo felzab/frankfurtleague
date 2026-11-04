@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { rolesOf } from "@/core/roles";
+import { runWithIncomingTrace } from "@/core/traceScope";
 import { requireSubjectSession } from "@/features/funktionen/resolvers";
 import { logPageVerweigert } from "@/features/funktionen/verweigert";
 import { SchiedsrichterSelfView } from "@/features/schiedsrichter/components/views/SchiedsrichterSelfView";
@@ -9,7 +10,6 @@ import { getSchiedsrichterSpielberichte } from "@/features/spielberichte/queries
 import { getEigeneSpielbestaetigungen } from "@/features/spielbestaetigungen/queries";
 import { isFunktionLost } from "@/shared/utils/actionError";
 import { nullUnlessContractBreak } from "@/shared/utils/degradedRead";
-import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import type { SchiedsrichterSpielberichte } from "@/features/spielberichte/types";
 

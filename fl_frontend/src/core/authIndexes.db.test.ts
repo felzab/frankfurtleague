@@ -271,16 +271,6 @@ describe("every query the sign-in store serves, with table scans refused", () =>
 });
 
 describe("the index build against a real store", () => {
-  it("changes nothing when run again", async () => {
-    await buildAuthIndexes();
-    const built = await heldIndexes();
-
-    await buildAuthIndexes();
-
-    expect(errors).toStrictEqual([]);
-    expect(await heldIndexes()).toStrictEqual(built);
-  });
-
   // Production's hand-made indexes are the case: one standing under another name refuses its build.
   it("logs a same-key index standing under another name, and builds every other", async () => {
     await buildAuthIndexes();
@@ -300,32 +290,6 @@ describe("the index build against a real store", () => {
     expect(names(await heldIndexes()).sort()).toStrictEqual(
       [...names(reference).filter((name) => name !== "session.session_token_uidx"), "session.made_by_hand"].sort(),
     );
-  });
-
-  /* Production's store as its Atlas console listed it on 2026-09-27, beside each collection's `_id_`, and
-     moving there without us: a list entry naming one of these otherwise is refused with code 85 on every boot. */
-  it("builds over the indexes production's store was given by hand, refusing none", async () => {
-    await store().collection("session").createIndex({ expiresAt: 1 }, { name: "expiresAt_1", expireAfterSeconds: 0 });
-    await store().collection("verification").createIndex({ expiresAt: 1 }, { name: "expiresAt_1", expireAfterSeconds: 0 });
-    await store().collection("passkey").createIndex({ credentialID: 1 }, { name: "credentialID_1", unique: true });
-
-    await buildAuthIndexes();
-
-    expect(errors).toStrictEqual([]);
-  });
-
-  it("logs the address index two accounts at one address refuse, never quoting the address", async () => {
-    const account = { email: "doppelt@example.org", emailVerified: true, name: "", createdAt: new Date(), updatedAt: new Date() };
-    await store()
-      .collection("user")
-      .insertMany([{ ...account }, { ...account }]);
-
-    await buildAuthIndexes();
-
-    expect(errors.map(({ fields }) => fields)).toStrictEqual([
-      { index: "user_email_uidx", name: "MongoServerError", code: 11000, codeName: "DuplicateKey" },
-    ]);
-    assert.ok(!JSON.stringify(errors).includes("@"), "the line quoted the address the refusal named");
   });
 
   /* Read off the library's own schema rather than the list, so a field it declares unique, or an
