@@ -13,8 +13,8 @@ import path from "node:path";
 /** In the checkout's root, three levels above `fl_frontend/e2e/support/`, as the mail sink is. */
 const ACCESS_LOG = path.resolve(__dirname, "..", "..", "..", ".tmp-e2e", "nginx-log", "access.log");
 
-/** RFC 5737's documentation range, from which `./journey.ts` hands every journey its address. */
-const VISITOR_RANGE = /^198\.51\.100\.\d{1,3}$/;
+/** RFC 2544's benchmarking range, 198.18.0.0/15, from which `./journey.ts` hands every journey its address. */
+const VISITOR_RANGE = /^198\.1[89]\.\d{1,3}\.\d{1,3}$/;
 
 /** Where the log ends now, so a reading later takes only the lines written since. */
 export async function accessLogEnd(): Promise<number> {

@@ -1,8 +1,9 @@
 // SCRIPTS · the made-up seed: a league nobody plays in, for daily work and the end-to-end journeys.
 //
-// Two seasons, eight clubs, five venues, four referees, an owner and four administrators, every one of them
-// invented, so no machine needs production's personal data to show a page in each of its states.
-// The states are the ones the Spielplan, the sign-in, the match editor and the Spielorte table draw:
+// Two seasons, eight clubs, five venues, four referees the fixtures book and the journeys' own people, an
+// owner and four administrators, every one of them invented, so no machine needs production's personal
+// data to show a page in each of its states. The states are the ones the Spielplan, the sign-in, the
+// match editor and the Spielorte table draw:
 //
 // - a finished season: every fixture played, the match for third place among them, the final decided on
 //   penalties;
@@ -13,12 +14,15 @@
 //   referees with and without an address, one retired;
 // - an owner and four administrators.
 //
-// The administrators and the two referees with an address are the journeys' people: one
-// administrator and one referee per end-to-end project (`fl_frontend/playwright.config.ts`), the
-// third administrator the desktop journey's whose save meets the proxy signed out
-// (`fl_frontend/e2e/desktop/signedOutSave.spec.ts`), and the fourth the administration's journey's
-// (`fl_frontend/e2e/desktop/verwaltung.spec.ts`): each sets up its own passkey, which no other journey
-// could then answer. The owner signs in in none.
+// Every journey that writes signs in as a person no other journey signs in as, since one journey's
+// writes would change what another reads (https://playwright.dev/docs/auth). One administrator per
+// end-to-end project (`fl_frontend/playwright.config.ts`), the third the desktop journey's whose save
+// meets the proxy signed out (`fl_frontend/e2e/desktop/signedOutSave.spec.ts`), and the fourth the
+// administration's journey's (`fl_frontend/e2e/desktop/verwaltung.spec.ts`): each sets up its own
+// passkey, which no other journey could then answer. The referees `journeyPerson` writes, each one
+// journey's, are the account acts' three per project and the desktop passkey journeys' two. The two
+// referees with an address a fixture books are the sign-in journey's person of each project. The owner
+// signs in in none.
 //
 // Run by `./scripts/ops/local.sh --e2e` and `--seed-made-up`, and by the journeys' CI job, with
 // mongosh INSIDE the stack's own database container, at `mongodb://127.0.0.1:27017/<DB_BASE_NAME>`
@@ -115,14 +119,17 @@ function referee(name, schule, payment, email, inactiveSince) {
 const CONSENTED = day(-60);
 const LABELS = { umfang: "2026-11-name-kader-1", medien: "2026-11-medien-1" };
 
-// A referee's consent, the name kept off the public pages and no media, its name's choice under the referees' own
-// wording (`SCHIEDSRICHTER_TEXT_VERSIONS`). A referee row is its person's own only once confirmed
+// A journey's person: a referee no fixture books, as their own confirmation leaves the row
+// (`fl_backend/app/api/schiedsrichter/services.py :: compose_confirmation_update`), in its one write: the birthdate and
+// the consent, the name kept off the public pages and no media, its name's choice under the referees' own wording
+// (`SCHIEDSRICHTER_TEXT_VERSIONS`). A referee row is its person's own only once confirmed
 // (`fl_backend/app/api/identity/services.py :: ist_eigener_schiedsrichter`), so an address change or an erasure moves
 // nothing of a row without one.
-function consented(row) {
+function journeyPerson(name, email) {
   const evidence = (textVersion) => ({ am: `${CONSENTED}T10:00:00+00:00`, text_version: textVersion });
   return {
-    ...row,
+    ...referee(name, null, 20, email, null),
+    geburtsdatum: day(-20 * 365),
     einwilligung: {
       umfang: "intern",
       datum: CONSENTED,
@@ -138,15 +145,18 @@ const REFEREES = [
   referee("Ben Brandt", null, 25, "ben.brandt@example.com", null),
   referee("Carla Conrad", "Ulme-Gymnasium", 20, null, null),
   referee("Dieter Dorn", null, 15, null, day(-90)),
-  // Each project's leaver, whom the account acts' journey moves to a new address and then deletes: after every
-  // referee a fixture books, so no fixture's booking (`booked`, by index) changes, and no other journey signs in as
-  // either. Each consented, without which their row is nothing the change moves.
-  consented(referee("Clara Kranz", null, 20, "clara.kranz@example.com", null)),
-  consented(referee("Dora Dahl", null, 20, "dora.dahl@example.com", null)),
-  // The desktop passkey journey's own person, whose passkeys it sets up and removes and whose address change it starts:
-  // no other journey signs in as them, so a run it leaves halfway hands no passkey to the sign-in journey's person.
-  // Consented, as the leavers are, without which their row is nothing the change moves.
-  consented(referee("Emil Ernst", null, 20, "emil.ernst@example.com", null)),
+  // The journeys' own, after every referee a fixture books, so no fixture's booking (`booked`, by index) changes. Each
+  // project's account acts (`fl_frontend/e2e/accountActs.spec.ts`), in its order: the person signed in on a second
+  // device, the one whose address changes, and the one who deletes the account.
+  journeyPerson("Frieda Falk", "frieda.falk@example.com"),
+  journeyPerson("Clara Kranz", "clara.kranz@example.com"),
+  journeyPerson("Hanna Hahn", "hanna.hahn@example.com"),
+  journeyPerson("Gustav Gerber", "gustav.gerber@example.com"),
+  journeyPerson("Dora Dahl", "dora.dahl@example.com"),
+  journeyPerson("Ingo Imhof", "ingo.imhof@example.com"),
+  // The desktop passkey journeys' (`fl_frontend/e2e/desktop/kontoPasskeys.spec.ts`), one each.
+  journeyPerson("Emil Ernst", "emil.ernst@example.com"),
+  journeyPerson("Jana Jansen", "jana.jansen@example.com"),
 ];
 
 // --- Grants --------------------------------------------------------------------------------------
