@@ -49,11 +49,11 @@ describe("a timeline", () => {
     render(
       <Timeline
         label={COPY.page.spiele}
-        items={[{ id: "s1", mark: { record: "1" }, counts: true, title: SERVER_COPY.season.spieltag(1) }]}
+        items={[{ id: "s1", mark: { record: "1" }, counts: true, title: COPY.shared.spieltag(1) }]}
       />,
     );
     const [item] = within(screen.getByRole("list", { name: COPY.page.spiele })).getAllByRole("listitem");
     expect(screen.getByText("1").closest("[aria-hidden]")).not.toBe(null);
-    expect(item?.textContent).toBe(`1${SERVER_COPY.season.spieltag(1)}`);
+    expect(item?.textContent).toBe(`1${COPY.shared.spieltag(1)}`);
   });
 });
