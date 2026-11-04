@@ -53,8 +53,8 @@ const PREVIOUSLY_REGISTERED = "ERROR_AUTHENTICATOR_PREVIOUSLY_REGISTERED";
 
 /** Every refusal of a further passkey's set-up a retry would meet again, by the plugin's own code. */
 const SET_UP_WORDED: ReadonlyMap<string, Copy> = new Map([
-  [SESSION_NOT_FRESH, COPY.konto.passkeys.signInTooOld],
-  [PREVIOUSLY_REGISTERED, COPY.konto.passkeys.alreadyOnDevice],
+  [SESSION_NOT_FRESH, COPY.account.passkeys.signInTooOld],
+  [PREVIOUSLY_REGISTERED, COPY.account.passkeys.alreadyOnDevice],
 ]);
 
 /** Why Sicherheit's set-up did not happen: the refusals above by their code, and any other as the shared failure line. */

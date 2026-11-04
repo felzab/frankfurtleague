@@ -84,7 +84,7 @@ export function SecurityBoxes({
       verb: "delete",
       subject: PASSKEY,
       // Read after the touch, whose sign-in the page's session then is: `thisDevice` is the fresh page's answer.
-      consequence: passkey.thisDevice ? COPY.konto.passkeys.endsThisDevice : COPY.konto.passkeys.endsDevices,
+      consequence: passkey.thisDevice ? COPY.account.passkeys.endsThisDevice : COPY.account.passkeys.endsDevices,
       touch: true,
       closed: lastKept,
       run: async () => {
@@ -100,8 +100,8 @@ export function SecurityBoxes({
   return (
     <>
       <AccountBox
-        title={COPY.konto.passkeys.title}
-        description={COPY.konto.passkeys.description}
+        title={COPY.account.passkeys.title}
+        description={COPY.account.passkeys.description}
         act={{
           run: setUp,
           button: { label: COPY.shared.withObject(PASSKEY, "setUp") },
@@ -112,12 +112,17 @@ export function SecurityBoxes({
         {rows.length > 0 && <AccountRows rows={rows} />}
       </AccountBox>
       <AccountBox
-        title={COPY.konto.devices.title}
+        title={COPY.account.devices.title}
         description={devices}
         act={{
           run: signOutOthers,
           button: {
-            confirm: { verb: "signOut", subject: COPY.konto.devices.allOthers, consequence: COPY.konto.devices.consequence, tone: "primary" },
+            confirm: {
+              verb: "signOut",
+              subject: COPY.account.devices.allOthers,
+              consequence: COPY.account.devices.consequence,
+              tone: "primary",
+            },
           },
           done: COPY.shared.toast.othersSignedOut,
         }}

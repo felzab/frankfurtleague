@@ -48,7 +48,7 @@ export async function passkeyStandOf(served: {
       id: row.id,
       name: row.name ?? getAuthenticatorName(row.aaguid) ?? COPY.signIn.passkeyTitle,
       // Not on the plugin's declared row: `fl_frontend/src/core/passkeyLastUse.ts` adds the field.
-      dates: COPY.konto.passkeys.dates(created, dateOf(Reflect.get(row, "lastUsedAt"))),
+      dates: COPY.account.passkeys.dates(created, dateOf(Reflect.get(row, "lastUsedAt"))),
       thisDevice: served.session.passkeyCredentialId === row.credentialID,
     }));
   // The cap is judged again at the set-up itself; this closes the act, so the person meets a sentence rather than a

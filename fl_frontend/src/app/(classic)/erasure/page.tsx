@@ -26,7 +26,7 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
 }
 
 const WORDS = SERVER_COPY.accountErasure;
-const ENTRIES = COPY.konto.entries;
+const ENTRIES = COPY.account.entries;
 
 /**
  * `/erasure`, the deletion link's page: the list of what goes, and the act, for the signed-in person the link was

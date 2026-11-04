@@ -30,11 +30,11 @@ function setUpClosedOf(
   served: { readonly session: { readonly createdAt: Date | string; readonly authFactor?: unknown } },
   stand: PasskeyStand,
 ): Copy | undefined {
-  if (!stand.canAdd) return COPY.konto.passkeys.limit(PASSKEY_LIMIT);
+  if (!stand.canAdd) return COPY.account.passkeys.limit(PASSKEY_LIMIT);
   if (stand.rows.length > 0 || served.session.authFactor === PASSKEY_FACTOR) return undefined;
   const created = new Date(served.session.createdAt).getTime();
   const mayEnrol = Number.isFinite(created) && now().getTime() - created < FRESH_SIGN_IN_SECONDS * 1000;
-  return mayEnrol ? undefined : COPY.konto.passkeys.signInTooOld;
+  return mayEnrol ? undefined : COPY.account.passkeys.signInTooOld;
 }
 
 /** The passkeys and the devices, read for the session the page is drawn for. */
@@ -47,8 +47,8 @@ async function SecurityContent() {
       passkeys={stand.rows}
       setUpClosed={setUpClosedOf(served, stand)}
       // An administrator's last passkey is their only way into the administration, which the removal refuses.
-      lastKept={served.verwaltung && stand.rows.length === 1 ? COPY.konto.passkeys.lastKept : undefined}
-      devices={COPY.konto.devices.description(devices)}
+      lastKept={served.verwaltung && stand.rows.length === 1 ? COPY.account.passkeys.lastKept : undefined}
+      devices={COPY.account.devices.description(devices)}
       name={{ required: !PasskeyNameSchema.safeParse("").success, max: PASSKEY_NAME_MAX }}
     />
   );

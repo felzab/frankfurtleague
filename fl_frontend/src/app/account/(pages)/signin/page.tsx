@@ -21,7 +21,7 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
 
 /** The change pending on the address, worded on the server, where its deadline is written in the league's time zone. */
 function pendingOf(open: FLAccountAddressChangeOpen): Pending {
-  const { pending } = COPY.konto.address;
+  const { pending } = COPY.account.address;
   // The person's own change asks the address on file's link first, then the new address's own.
   const previous = open.waits_on === "previous_address";
   return {

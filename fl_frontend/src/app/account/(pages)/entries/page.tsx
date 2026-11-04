@@ -19,7 +19,7 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
   return pageMetadata(parent, ROUTES.accountEntries, ROUTES.accountEntries.path());
 }
 
-const { entries: WORDS } = COPY.konto;
+const { entries: WORDS } = COPY.account;
 
 /** A fact the record holds, left out where it holds none. */
 const fact = (label: Copy, value: string | null): Fact[] => (value === null || value === "" ? [] : [{ label, value: { record: value } }]);

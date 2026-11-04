@@ -55,7 +55,7 @@ export const removePasskeyAction = action({
       logger.error("passkeys.removal_outcome_unknown", undefined, { name: failed instanceof Error ? failed.name : "unknown" });
       return { ok: false, reason: COPY.shared.failure.stale };
     }
-    if (removal === "last") return { ok: false, reason: COPY.konto.passkeys.lastKept };
+    if (removal === "last") return { ok: false, reason: COPY.account.passkeys.lastKept };
     if (removal === "absent") return { ok: false, reason: COPY.shared.failure.stale };
 
     const { email } = served.user;

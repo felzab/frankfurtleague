@@ -33,13 +33,13 @@ function entryOf(ziel: FunktionZiel, current: Role["art"] | undefined): MenuLink
         href,
         isCurrent,
         label: { record: first.team_name },
-        detail: COPY.konto.role.seats(COPY.shared.saisonName(first.saison_id), rollen),
+        detail: COPY.account.role.seats(COPY.shared.saisonName(first.saison_id), rollen),
       };
     }
     case "spieler":
-      return { href, isCurrent, label: COPY.konto.role.spieler };
+      return { href, isCurrent, label: COPY.shared.spieler };
     case "schiedsrichter":
-      return { href, isCurrent, label: COPY.konto.role.schiedsrichter };
+      return { href, isCurrent, label: COPY.shared.schiedsrichter };
     case "administration":
       return { href, isCurrent, label: COPY.verwaltung.role };
   }

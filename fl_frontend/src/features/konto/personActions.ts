@@ -167,7 +167,7 @@ async function savedWithMediaFloor(
     return {
       ok: false,
       errorCode: "medien_age",
-      reason: floor === undefined ? COPY.shared.failure.stale : COPY.konto.entries.mediaFrom(floor),
+      reason: floor === undefined ? COPY.shared.failure.stale : COPY.account.entries.mediaFrom(floor),
     };
   }
   return { ok: true, value: undefined };
