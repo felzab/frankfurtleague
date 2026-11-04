@@ -93,6 +93,8 @@ const KADER = "Kader";
 const PRIVACY_NOTICE = "Datenschutz";
 // A season's name, `shared`'s entry, which the application page's title names its season by.
 const saisonName = (id: string) => `Saison ${id}`;
+// A team's season, Deine Einträge's fact, which the deletion list's label for a registration names it by.
+const teamSeason = (team: Words, saison: Copy) => `${textOf(team)}, ${saison}`;
 
 /**
  * A range's end: a figure, or a year, which as a season id takes no thousands separator. A year is data, never a
@@ -554,7 +556,7 @@ export const COPY = catalogue({
       /** Under the media box of a person short of its floor, who may not give that choice yet. */
       mediaFrom: (age: number) => `Erst ab ${formatNumber(age)} Jahren`,
       /** A seat's or a registration's team season: „Birkenschule, Saison 2027“. */
-      teamSeason: (team: Words, saison: Copy) => `${textOf(team)}, ${saison}`,
+      teamSeason,
       /**
        * The labels the deletion's list names an address's records by (`fl_frontend/src/app/(classic)/erasure/page.tsx`),
        * each the person's part in the record: one row per label, holding the records it names.
@@ -567,7 +569,7 @@ export const COPY = catalogue({
       bewerbung: (saison: Copy) => `Bewerbung für die ${saison}`,
       /** A pupil's registration, by its team where the team still stands. */
       registrierung: (team: Words | null, saison: Copy) =>
-        team === null ? `Registrierung für die ${saison}` : `Registrierung für ${textOf(team)}, ${saison}`,
+        team === null ? `Registrierung für die ${saison}` : `Registrierung für ${teamSeason(team, saison)}`,
       /** One label's records, where an address holds several under it. */
       several: (records: readonly Words[]) => formatList(records.map(textOf)),
     },
