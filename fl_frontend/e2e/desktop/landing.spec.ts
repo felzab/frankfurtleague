@@ -13,8 +13,11 @@ import type { Page } from "@playwright/test";
 /** The landing's one heading, its tagline. */
 const TAGLINE = "Frankfurts Abi-Jahrgänge spielen um den Titel";
 
-/** A match link of the season `2027`, as the landing's card and the Spielplan write it. */
-const MATCH = /^\/saisons\/2027\/spiele\/[0-9a-f]{24}$/;
+/**
+ * A match link of the season `2027`, as the landing's card and the Spielplan write it. It anchors only its end, since
+ * `toHaveURL` tests it against the whole URL and `hydrated` against a pathname.
+ */
+const MATCH = /\/saisons\/2027\/spiele\/[0-9a-f]{24}$/;
 
 /**
  * Waits for Next's prefetch of a match link, a request carrying the `_rsc` search parameter, which Next sends only
