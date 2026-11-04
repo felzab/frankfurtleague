@@ -1488,11 +1488,6 @@
       "count": 3
     }
   },
-  "src/features/konto/loeschungStepUp.ts": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
   "src/features/konto/personActions.ts": {
     "fl/server-action": {
       "count": 3
