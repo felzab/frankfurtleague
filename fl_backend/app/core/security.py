@@ -229,6 +229,28 @@ def verify_step_up(actor: Annotated[SessionActor, Depends(verify_admin_actor)]) 
         raise confirmation_required(STEP_UP_WINDOW_S)
 
 
+# Redesign: goes with its last importer.
+def verify_person_passkey_confirmation(actor: SessionActor) -> None:
+    """Refuse a person's write handing over their grant without a fresh passkey, as a revoke does.
+
+    The person's lane admits a sign-in by code, so the handler calls this on exactly the calls it judges to reach a grant.
+    """
+
+    if actor.factor != PASSKEY_FACTOR or confirmed_before(actor, ENROLMENT_WINDOW_S):
+        raise confirmation_required(ENROLMENT_WINDOW_S)
+
+
+# Redesign: goes with its last importer.
+def verify_recent_person_confirmation(actor: Annotated[SessionActor, Depends(verify_person_actor)]) -> None:
+    """Refuse a person's approval of an administrator's address change from a sign-in or confirmation older than the enrolment window.
+
+    Either factor: a code reaches the address on file, which OWASP asks to confirm before it is replaced.
+    """
+
+    if confirmed_before(actor, ENROLMENT_WINDOW_S):
+        raise confirmation_required(ENROLMENT_WINDOW_S)
+
+
 @dataclass(frozen=True)
 class Attribution[T]:
     """Who a request's writes are recorded under, and what its binder hands a handler."""

@@ -18437,7 +18437,7 @@
     },
     "/api/v0/account/address_change/release": {
       "post": {
-        "description": "Approve the change `id` names, which an administrator started without a reason, owing the new mailbox its link.\n\n**Nothing reaches the new mailbox before this press**. Nothing about the new address is\njudged here either: the approver is owed no answer about it, and the confirmation judges it. **The press approves the\nchange its page showed alone**: an administrator's later start replaces that one, and its id then names an ended change.\n\nRefused `address_change_ended` where the change `id` names has ended; 404 where it\nis no change of this address awaiting its approval; and `link_expired` past the approval's deadline.",
+        "description": "Approve the change `id` names, which an administrator started without a reason, owing the new mailbox its link.\n\n**Nothing reaches the new mailbox before this press**. Nothing about the new address is\njudged here either: the approver is owed no answer about it, and the confirmation judges it. **The press approves the\nchange its page showed alone**: an administrator's later start replaces that one, and its id then names an ended change.\n\nRefused `confirmation_required` from a sign-in or confirmation older than `ENROLMENT_WINDOW_MINUTES`, or by code where the\naddress holds a grant; `address_change_ended` where the change `id` names has ended; 404 where it is no change of this\naddress awaiting its approval; and `link_expired` past the approval's deadline.",
         "operationId": "account_post_address_change_release",
         "requestBody": {
           "content": {

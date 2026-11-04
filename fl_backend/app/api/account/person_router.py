@@ -28,6 +28,7 @@ from app.api.account.services import (
 from app.api.adresswechsel.crud import (
     end_the_change_in_session,
     ending_line,
+    live_grant_of,
     owe_the_link_in_session,
     owe_the_notice_in_session,
     read_the_bestand,
@@ -75,7 +76,11 @@ from app.core.exceptions import DocumentNotFoundError
 from app.core.journal import Journal
 from app.core.recording import log_stamp
 from app.core.security import (
+    SessionActor,
     verify_access_admin,
+    verify_person_actor,
+    verify_person_passkey_confirmation,
+    verify_recent_person_confirmation,
 )
 from app.core.transactions import transaction_session
 from app.shared.folding import sign_in_identifier
@@ -319,6 +324,8 @@ async def post_address_change(
     "/address_change/release",
     response_model=FLAccountAddressChangeMintResponse,
     summary="Approve the address change an administrator asked of the signed-in person",
+    # Redesign: goes with its last importer.
+    dependencies=[Depends(verify_recent_person_confirmation)],
 )
 async def post_address_change_release(
     identifier: KontaktIdentifier,
@@ -327,6 +334,8 @@ async def post_address_change_release(
     berechtigungen_collection: GrantsCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
+    # Redesign: goes with its last importer.
+    actor: Annotated[SessionActor, Depends(verify_person_actor)],
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLAccountAddressChangeMintResponse:
     """
@@ -336,8 +345,9 @@ async def post_address_change_release(
     judged here either: the approver is owed no answer about it, and the confirmation judges it. **The press approves the
     change its page showed alone**: an administrator's later start replaces that one, and its id then names an ended change.
 
-    Refused `address_change_ended` where the change `id` names has ended; 404 where it
-    is no change of this address awaiting its approval; and `link_expired` past the approval's deadline.
+    Refused `confirmation_required` from a sign-in or confirmation older than `ENROLMENT_WINDOW_MINUTES`, or by code where the
+    address holds a grant; `address_change_ended` where the change `id` names has ended; 404 where it is no change of this
+    address awaiting its approval; and `link_expired` past the approval's deadline.
     """
 
     address_change_id = freigabe_data.id
@@ -352,6 +362,11 @@ async def post_address_change_release(
             refuse(find_beendet_refusal(offen=ended is None))
             raise DocumentNotFoundError()
         refuse(find_abgelaufen_refusal(abgelaufen=ist_abgelaufen(record, now=germany_now)))
+        # Redesign: goes with its last importer.
+        # The press lets a link go that hands over any grant the address holds at the effect, and the person's lane
+        # admits a sign-in by code.
+        if await live_grant_of(identifier, berechtigungen_collection=berechtigungen_collection, session=session) is not None:
+            verify_person_passkey_confirmation(actor)
 
         approved = await patch_one_in_db(
             collection=adresswechsel_collection,

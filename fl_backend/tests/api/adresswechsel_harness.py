@@ -39,7 +39,6 @@ from app.api.adresswechsel.system_router import sweep_address_change
 from app.api.outbox.system_router import post_handout
 from app.core.collections import Collection
 from app.core.exceptions import APIError
-from app.core.security import PASSKEY_FACTOR, SessionActor
 from app.shared.schemas.bounds import ADDRESS_CHANGE_WAITING_PERIOD_DAYS
 from app.shared.schemas.confirmation import FLTokenPayload
 from tests import documents
@@ -247,20 +246,16 @@ async def granted(database: AsyncDatabase, adresse: str = EMAIL, *, verwaltung: 
     return grant_id
 
 
-def person_actor(*, factor: str | None) -> SessionActor:
-    """The person's session, made a minute ago, by passkey or, with `factor` None, by code."""
-
-    return verified_actor(EMAIL, factor=PASSKEY_FACTOR if factor == PASSKEY_FACTOR else "code")
-
-
 def call(handler: Callable[..., Awaitable[Any]], database: AsyncDatabase, client: AsyncMongoClient, **given: Any) -> Awaitable[Any]:
     """The handler with every collection it names taken off `database` by its parameter's spelling, and the rest defaulted.
 
-    An administrator's call acts as the suite's first administrator, signed in a minute ago, unless the case names another.
+    An administrator's call acts as the suite's first administrator, signed in a minute ago, unless the case names another;
+    a person's as the suite's person, by passkey a minute ago.
     """
 
     supplied: dict[str, Any] = {}
-    for name in inspect.signature(handler).parameters:
+    parameters = inspect.signature(handler).parameters
+    for name in parameters:
         if name in given:
             supplied[name] = given[name]
         elif name.endswith("_collection"):
@@ -282,7 +277,8 @@ def call(handler: Callable[..., Awaitable[Any]], database: AsyncDatabase, client
         elif name == "identifier":
             supplied[name] = EMAIL
         elif name == "actor":
-            supplied[name] = person_actor(factor=PASSKEY_FACTOR)
+            # An administrator's handler names its operator beside its actor, and a person's names none.
+            supplied[name] = verified_actor(given.get("operator", ADMIN) if "operator" in parameters else EMAIL)
 
     if "session" in inspect.signature(handler).parameters and "session" not in given:
         # The request's snapshot session (`app/core/dependencies.py :: SnapshotSession`), open for the handler's run.

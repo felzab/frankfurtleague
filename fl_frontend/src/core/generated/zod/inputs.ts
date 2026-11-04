@@ -31,8 +31,9 @@ export const AccountPostAddressChangeBody = zod.object({
  * judged here either: the approver is owed no answer about it, and the confirmation judges it. **The press approves the
  * change its page showed alone**: an administrator's later start replaces that one, and its id then names an ended change.
  *
- * Refused `address_change_ended` where the change `id` names has ended; 404 where it
- * is no change of this address awaiting its approval; and `link_expired` past the approval's deadline.
+ * Refused `confirmation_required` from a sign-in or confirmation older than `ENROLMENT_WINDOW_MINUTES`, or by code where the
+ * address holds a grant; `address_change_ended` where the change `id` names has ended; 404 where it is no change of this
+ * address awaiting its approval; and `link_expired` past the approval's deadline.
  * @summary Approve the address change an administrator asked of the signed-in person
  */
 export const accountPostAddressChangeReleaseBodyIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
