@@ -277,7 +277,11 @@ CASES=(
   # A token inside another parameter's value, its `=` encoded, as the sign-in's `return` carries the
   # mailed deletion link (`fl_frontend/src/core/auth/returnAddress.ts :: withReturnAddress`). The URI
   # holds a literal `?`, but no `token=` follows it, so only the backstop reaches this one either.
+  # Each of the three addresses carrying it: the sign-in, the passkey offer and the landing, the
+  # last two on blocks of their own (`nginx/shared/site.conf`).
   "LEAK|${BASE}/signin?return=%2Ferasure%3Ftoken%3D${TOK}"
+  "LEAK|${BASE}/signin/passkey?return=%2Ferasure%3Ftoken%3D${TOK}"
+  "LEAK|${BASE}/signin/continue?return=%2Ferasure%3Ftoken%3D${TOK}"
 
   # The token VALUE holding each delimiter a class-bounded expression fails open on. Nothing here
   # inspects the value; these exist so that stays true on purpose rather than by luck.
@@ -294,6 +298,9 @@ CASES=(
   "LEAK-REF|http://localhost/x?a=1&token=${TOK}"
   "LEAK-REF|http://localhost/x/token=${TOK}"
   "LEAK-REF|http://localhost/signin?token=a%20b${TOK}"
+  # The page after the sign-in's code step names the sign-in, its `return` carrying the deletion link.
+  "LEAK-REF|http://localhost/signin?return=%2Ferasure%3Ftoken%3D${TOK}"
+  "LEAK-REF|http://localhost/signin/passkey?return=%2Ferasure%3Ftoken%3D${TOK}"
 
   # A typed search query, which no page writes: an address in the first parameter, a name past
   # another on the Spielsuche's own address, and the page a visitor came from, plain and encoded.
