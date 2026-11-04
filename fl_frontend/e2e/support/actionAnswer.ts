@@ -4,7 +4,8 @@
  * once the page navigates, and has dropped it for an answer no navigation followed, so `Response.text()` can fail
  * with "No resource with given identifier found". The route fetches the answer itself with `route.fetch()` and hands it on with
  * `route.fulfill()`, Playwright's documented way to read a response before the page acts on it
- * (https://playwright.dev/docs/network#modify-responses).
+ * (https://playwright.dev/docs/network#modify-responses). Playwright's own request client sends that fetch, through the
+ * journey's proxy by a tunnel, where it is named the journey's visitor as the browser's requests are (`./journey.ts`).
  */
 import type { Page } from "@playwright/test";
 

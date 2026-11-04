@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { createContext, useContext, useRef, useState } from "react";
 
 import { Form } from "react-aria-components/Form";
 
@@ -32,12 +32,37 @@ const ACT_FIELD = "act";
  */
 export type OneShotAction = (formData: FormData) => Promise<ActionAnswer<EndState>>;
 
+/** Where a one-shot form hands the end its action reached, to the boundary holding it above the page's state. */
+const AnsweredEnd = createContext<((end: EndState) => void) | null>(null);
+
+/**
+ * The one-shot's end, held above the mailed page's state, whose place a done answer takes for good. A done action
+ * renders the page again with the cache tag its write cleared (`fl_frontend/src/core/action.ts :: body`), and the
+ * link read again is in another state, the opened-again one, which takes the form's place in the same response.
+ * React keeps a component's state only while its type stays at its place in the tree
+ * (https://react.dev/learn/preserving-and-resetting-state), so the answer is lifted to this boundary, whose place the
+ * re-render never changes, rather than kept in the form the re-render replaces.
+ */
+export function OneShotEnd({ children }: { children: ReactNode }) {
+  const [end, setEnd] = useState<EndState | null>(null);
+  if (end !== null) {
+    return (
+      <StatusPage
+        frame="classic"
+        {...end}
+      />
+    );
+  }
+  return <AnsweredEnd value={setEnd}>{children}</AnsweredEnd>;
+}
+
 /**
  * The one-shot submit: a page in the classic frame's form column whose form is sent once and whose outcome
  * replaces it. Done, the server's end state takes the page's place as the status template; refused, the
  * form stays with its input, each field's message under its field and the reason in the line under the
  * acts. The main act stands full width; a second, quieter act beneath it sends without asking the fields,
- * as an objection needs none of them. The answer outlives a visit elsewhere: what was done stays done.
+ * as an objection needs none of them. The end stands in `OneShotEnd`, which the form stands inside, and outlives
+ * a visit elsewhere and the page's own re-render: what was done stays done.
  */
 export function OneShotForm({
   head,
@@ -58,19 +83,22 @@ export function OneShotForm({
   /** The form's fields, the kit's, each with its `name`. */
   children?: ReactNode;
 }) {
-  const { answer, submit, block, isBlocked, isPending } = useFormAction(action, { resetOnLeave: false });
+  const answered = useContext(AnsweredEnd);
+  const { answer, submit, block, isBlocked, isPending } = useFormAction(
+    async (formData: FormData) => {
+      const reached = await action(formData);
+      // Handed up before the answer settles here: the same response may already have replaced this form.
+      if (reached.ok) answered?.(reached.value);
+      return reached;
+    },
+    { resetOnLeave: false },
+  );
   const { run, refusal, isTouching } = usePasskeyTouch(touch, carry.holder);
   const form = useRef<HTMLFormElement>(null);
   const [pressed, setPressed] = useState<Act>("primary");
 
-  if (answer?.ok === true) {
-    return (
-      <StatusPage
-        frame="classic"
-        {...answer.value}
-      />
-    );
-  }
+  // The end stands in `OneShotEnd`, in this form's place.
+  if (answer?.ok === true) return null;
 
   const refused = answer !== null && !answer.ok ? answer : null;
   const status: FormStatus = refusal !== null ? { tone: "error", text: refusal } : statusOf(refused, isBlocked, isPending);

@@ -5,7 +5,7 @@ import { ROUTES } from "@/core/routes";
 
 import { ClassicPage, ClassicTitle } from "./ClassicPage";
 import { Facts } from "./Facts";
-import { OneShotForm } from "./OneShot";
+import { OneShotEnd, OneShotForm } from "./OneShot";
 import { Skeleton, SkeletonTitle } from "./Skeleton";
 import { StatusPage } from "./StatusPage";
 
@@ -132,14 +132,17 @@ async function MailedBody({ page }: { page: Promise<MailedState> }) {
  */
 export function MailedPage({ page }: { page: Promise<MailedState> }) {
   return (
-    <Suspense
-      fallback={
-        <ClassicPage width="form">
-          <SkeletonTitle />
-          <Skeleton shape="facts" />
-        </ClassicPage>
-      }>
-      <MailedBody page={page} />
-    </Suspense>
+    // Outermost, so neither the state a done answer's re-render reads nor the boundary waiting for it takes the end.
+    <OneShotEnd>
+      <Suspense
+        fallback={
+          <ClassicPage width="form">
+            <SkeletonTitle />
+            <Skeleton shape="facts" />
+          </ClassicPage>
+        }>
+        <MailedBody page={page} />
+      </Suspense>
+    </OneShotEnd>
   );
 }
