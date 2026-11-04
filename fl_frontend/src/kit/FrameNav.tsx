@@ -227,7 +227,7 @@ function useCurrent(entries: ReadonlyArray<{ href: Route }>) {
 // The current entry is marked as every navigating list marks its place, the link carrying `data-selected`.
 // Collapsed, the entry clips its words past its glyph's box (`railGlyph`).
 const railEntry = tv({
-  base: "flex h-[2.125rem] items-center gap-3 overflow-hidden rounded-lg px-3 text-sm font-medium whitespace-nowrap transition-colors duration-(--motion-state)",
+  base: "flex h-8 items-center gap-3 overflow-hidden rounded-lg px-3 text-sm font-medium whitespace-nowrap transition-colors duration-(--motion-state) pointer-coarse:h-10",
   variants: {
     current: {
       true: entryMark({ mark: "place" }),
