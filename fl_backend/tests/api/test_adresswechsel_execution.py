@@ -351,8 +351,11 @@ class TestTheLinks:
             "effective_from": None,
             "way": "account",
             "approval_open": None,
+            "email": NEW_EMAIL,
         }
         assert (bisherig.view.seite, bisherig.view.state, bisherig.view.way) == ("previous", "open", "account")
+        # Past its own question the address on file's link names no address, and the day it confirmed instead.
+        assert (bisherig.view.email, bisherig.view.released_on) == (None, TODAY)
 
     def test_a_grant_holder_s_link_tells_of_the_approval_only_once_pressed(self, mongo_replica_set_url: str):
         """Before the press it would tell whoever holds a mistyped link that the account holds access to the administration."""
@@ -474,6 +477,8 @@ class TestTheLinks:
         seen, pressed = on_a_person(mongo_replica_set_url, body)
 
         assert (seen.view.state, seen.view.valid_until, seen.view.effective_from is not None) == ("confirmed", None, True)
+        # Answered, the new mailbox's link names its address no more.
+        assert seen.view.email is None
         assert pressed == Code.ADDRESS_CHANGE_ENDED
 
 
@@ -496,6 +501,8 @@ class TestTheAddressOnFileConfirmsFirst:
         assert (minted.token, minted.stopp_token is not None) == (None, True)
         assert (record["token_hashes"], record["stop"]["token_hashes"], record["released_at"]) == ([], [hash_token(minted.stopp_token)], None)
         assert (bisherig.view.seite, bisherig.view.state, bisherig.view.way) == ("previous", "release_open", "account")
+        # Its question names the address the change goes to, and no day it was answered on.
+        assert (bisherig.view.email, bisherig.view.released_on) == (NEW_EMAIL, None)
 
     def test_its_confirmation_owes_the_new_mailbox_its_link_and_moves_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -519,7 +526,23 @@ class TestTheAddressOnFileConfirmsFirst:
 
         assert (declined.antwort, record["email"], record["ended"]["art"], record["token_hashes"]) == ("declined", None, "declined", [])
         assert (bisherig.view.state, bisherig.view.art, bisherig.view.ended_on) == ("ended", "declined", TODAY)
+        # Declined before it confirmed anything: the link names no day of a confirmation.
+        assert (bisherig.view.way, bisherig.view.released_on) == ("account", None)
         assert [line.art for line in journal] == ["adresswechsel_abgelehnt"]
+
+    def test_once_in_effect_its_link_names_the_day_it_confirmed(self, mongo_replica_set_url: str):
+        """The address on file confirmed first, so its link opened again says when, the change having ended since."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            minted = await start(database, client)
+            effective = await answer(database, client, minted.token)
+            return effective.effective, await view(database, client, minted.stopp_token)
+
+        effective, bisherig = on_a_person(mongo_replica_set_url, body)
+
+        assert effective is True
+        assert (bisherig.view.seite, bisherig.view.state, bisherig.view.art) == ("previous", "ended", "effective")
+        assert (bisherig.view.way, bisherig.view.released_on) == ("account", TODAY)
 
     def test_past_its_deadline_it_confirms_nothing_and_still_declines(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
