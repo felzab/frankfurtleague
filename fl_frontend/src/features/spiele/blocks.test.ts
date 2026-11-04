@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { COPY } from "@/core/copy";
+import { buildMapsSearchUrl } from "@/core/maps";
 import { SERVER_COPY } from "@/core/serverCopy";
 
 import { ereignisOf, matchdayOf, matchRowOf, outcomeFor, popupFactsOf } from "./blocks";
@@ -109,9 +110,10 @@ describe("what befell a match", () => {
 });
 
 describe("the pop-up's facts", () => {
+  const ort = { spielort_id: "4".repeat(24), name: "Sportplatz Ahornweg", maps_link: "Sportplatz Ahornweg, Ahornweg 2" };
   const booked: FLSpielJoined = {
     ...spiel(null),
-    ort: { spielort_id: "4".repeat(24), name: "Sportplatz Ahornweg", maps_link: "Sportplatz Ahornweg, Ahornweg 2" },
+    ort,
     schiedsrichter: { name: "Anna A.", name_is_public: true },
   };
   const { fact } = COPY.spielplan;
@@ -128,7 +130,7 @@ describe("the pop-up's facts", () => {
 
   it("link the venue to its map on another site", () => {
     expect(popupFactsOf(booked).find((each) => each.label === fact.spielort)?.elsewhere).toStrictEqual({
-      href: "https://www.google.com/maps/search/?api=1&query=Sportplatz%20Ahornweg%2C%20Ahornweg%202",
+      href: buildMapsSearchUrl(ort.maps_link),
       label: { record: "Sportplatz Ahornweg" },
     });
   });
