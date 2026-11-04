@@ -110,8 +110,11 @@ job bounded by its own `timeout-minutes` and by no other time budget.
 - **A behaviour gets a test only where a harm would go unnoticed, no static check holds it and no
   library guarantees it**, once, at the lowest tier that sees it.
 - **Unsure whether a fix is yours** — scope, a ratified decision, a product call — ask at that
-  moment, never in the wrap-up. **A finding outside the task is fixed on the branch that found it**,
-  or put to the owner where you doubt it belongs in this session; it is never filed in silence.
+  moment, never in the wrap-up. **A finding outside the task is judged as one inside it is**:
+  whether acting on it is worth its cost against what the repository is for — its end state, only
+  what is essential, lean. One that is worth it is fixed on the branch that found it, one that is not
+  is closed with that reason, and one you doubt belongs in this session goes to the owner; none is
+  filed in silence, and none is acted on only because it was found.
 - **What stays open is a GitHub issue, read and written with `gh issue`**: only a question the owner
   has not answered, a standing condition outside the repository, or a study the owner ordered. Its
   body carries the analysis, and it takes one kind label — `bug`, `enhancement`, `question`,
