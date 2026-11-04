@@ -1,5 +1,3 @@
-import { z } from "zod";
-
 /**
  * `core` rather than beside `fl_frontend/src/shared/schemas.ts :: KontaktEmailSchema`, its other
  * caller: the sign-in fold and the mailer read these rules, and
@@ -91,17 +89,6 @@ export function isDeliverableAddress(value: string): boolean {
 export function hasAsciiLocalPart(value: string): boolean {
   const at = value.lastIndexOf("@");
   return at === -1 || /^\p{ASCII}*$/u.test(value.slice(0, at));
-}
-
-/**
- * The sign-in library's own primitive rather than a copy of its pattern: `better-auth` checks a
- * code's address with `z.email()`.
- */
-const SIGN_IN_LIBRARY_EMAIL = z.email();
-
-/** Asked of the FOLDED address: `fl_frontend/src/features/auth/actions.ts :: handleSignIn` hands the library that form and no other. */
-export function isSignInLibraryAddress(value: string): boolean {
-  return SIGN_IN_LIBRARY_EMAIL.safeParse(value).success;
 }
 
 /** ASCII's 26 letters, never `toLowerCase`, whose tables move with the runtime's Unicode release: the API lowers the same 26. */
