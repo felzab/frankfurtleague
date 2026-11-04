@@ -6,7 +6,7 @@ import { refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { EinsehbarVerwehrtSchema } from "./einsehbar";
-import { kontoAnNeuerAdresse } from "./konto";
+import { accountAtNewAddress } from "./konto";
 import {
   beantrageAdresswechsel,
   einladeAdresswechsel,
@@ -31,7 +31,7 @@ import {
   FLAdresswechselVerwaltungPayloadSchema,
   FLAdresswechselVerwerfenPayloadSchema,
 } from "./schemas";
-import { runAdresswechselUmzuege } from "./umzug";
+import { runAddressChangeMoves } from "./umzug";
 
 import type {
   FLAddressChangeVerwaltungPayload,
@@ -107,7 +107,7 @@ export async function einladeAdresswechselAction(rawPayload: FLAdresswechselEinl
     if (!validated.success) return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
 
     // Before the re-mint, which kills the earlier link: a fresh one would be refused at its press.
-    if (await kontoAnNeuerAdresse({ address_change_id: validated.data.id })) return { success: false, error: KONTO_BELEGT_ERNEUT };
+    if (await accountAtNewAddress({ address_change_id: validated.data.id })) return { success: false, error: KONTO_BELEGT_ERNEUT };
 
     let mint;
     try {
@@ -168,7 +168,7 @@ export async function genehmigeAdresswechselAction(
 
     // By the change's id, the approver perhaps being refused the tool's read of it; the effect would leave the account
     // at the new address standing beside the person's records.
-    if (await kontoAnNeuerAdresse({ address_change_id: validated.data.id })) {
+    if (await accountAtNewAddress({ address_change_id: validated.data.id })) {
       return { success: false, error: kontoBelegtGenehmigung(verwehrt.data) };
     }
 
@@ -184,7 +184,7 @@ export async function genehmigeAdresswechselAction(
     if (antwort.effective) {
       // The effect owed its account's carry on the change: behind the response, and by the hourly pass where this one
       // never runs.
-      afterTheResponse(runAdresswechselUmzuege);
+      afterTheResponse(runAddressChangeMoves);
       return { success: true, message: "Die neue Adresse gilt jetzt, und der Zugang zur Verwaltung ist mit ihr gewechselt." };
     }
 

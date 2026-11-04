@@ -32,8 +32,8 @@ import { patchRegistrierungEinwilligung } from "@/features/registrierungen/mutat
 import { patchSchiedsrichterKontoEinwilligung } from "@/features/schiedsrichter/mutations";
 import { patchSpielerKontoEinwilligung } from "@/features/spieler/mutations";
 
-import { beantrageKontoAdresswechsel, loeschenEigeneDaten, stoppeKontoAdresswechsel } from "./mutations";
-import { getKontoEinwilligungen, getLoeschungAnsicht } from "./queries";
+import { eraseOwnRecords, requestAccountAddressChange, stopAccountAddressChange } from "./mutations";
+import { getAccountEinwilligungen, getErasureView } from "./queries";
 
 import type { ActionAnswer } from "@/core/action";
 import type { FLAccountEinwilligungenResponse } from "@/core/generated/client/types";
@@ -52,23 +52,23 @@ const NOTHING = z.object({});
  * where a fresh link is asked for. A press failing past the spent link with its outcome unknown reads the stale-page
  * line, as the passkey removal's does: a reload shows whether the account stands.
  */
-export const kontoLoeschen = action({
+export const eraseAccount = action({
   lane: "person",
   claim: "account",
   passkey: true,
-  name: "kontoLoeschen",
+  name: "eraseAccount",
   // The library's own token, which no backend schema publishes: one line of letters, digits, `-` and `_`.
   input: z.object({ token: z.string().regex(/^[A-Za-z0-9_-]{1,128}$/), ...TOUCH_HOLDER }),
   run: async ({ token }, { subject }): Promise<ActionAnswer<MailedEnd>> => {
     // Refused before the library spends the link, so the same link completes once another owner is made; the
     // backend refuses two owners at once. Read for an owner alone, the one tier that can be the last.
-    if (subject.subject.verwaltung === "owner" && (await getLoeschungAnsicht()).last_owner) {
+    if (subject.subject.verwaltung === "owner" && (await getErasureView()).last_owner) {
       return { ok: false, reason: SERVER_COPY.refusalLine.last_owner_erasure };
     }
 
     let outcome: Awaited<ReturnType<typeof deleteOwnAccount>>;
     try {
-      outcome = await deleteOwnAccount(token, await headers(), () => loeschenEigeneDaten());
+      outcome = await deleteOwnAccount(token, await headers(), () => eraseOwnRecords());
     } catch (failed) {
       if (!(failed instanceof DeletionOutcomeUnknown)) throw failed;
       logger.error("konto.deletion_outcome_unknown", undefined, { name: failed.cause instanceof Error ? failed.cause.name : "unknown" });
@@ -99,7 +99,7 @@ export const startAddressChange = action({
   examples: { email: COPY.shared.field.exampleAddress },
   ownWords: ["address_change_unchanged", "address_change_no_approver"],
   run: async ({ email }) => {
-    await beantrageKontoAdresswechsel({ email });
+    await requestAccountAddressChange({ email });
     return { ok: true, value: undefined };
   },
 });
@@ -111,7 +111,7 @@ export const withdrawAddressChange = action({
   name: "withdrawAddressChange",
   input: NOTHING,
   run: async () => {
-    await stoppeKontoAdresswechsel();
+    await stopAccountAddressChange();
     return { ok: true, value: undefined };
   },
 });
@@ -163,7 +163,7 @@ async function savedWithMediaFloor(
     await save();
   } catch (failed) {
     if (!(failed instanceof APIBadStatusError) || failed.serverErrorCode !== "medien_age") throw failed;
-    const floor = floorOf(await getKontoEinwilligungen());
+    const floor = floorOf(await getAccountEinwilligungen());
     return {
       ok: false,
       errorCode: "medien_age",

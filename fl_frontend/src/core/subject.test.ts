@@ -653,13 +653,13 @@ describe("the guard across one render pass", () => {
 
   /* Each guard called once, so each one's own memo is idle and the count is the session read's alone. */
   it("reads the session once for the person guard, the account guard and the administrator's guard of one render pass", async () => {
-    const { getKontoSession } = await import("./auth/guards.ts");
+    const { getAccountSession } = await import("./auth/guards.ts");
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     madeByPasskey(store, row);
     arriveAs(cookie);
     const readsBefore = headerReads();
 
-    const answers = await Promise.all([getSubjectSession(), getKontoSession(), getAdminSession()]);
+    const answers = await Promise.all([getSubjectSession(), getAccountSession(), getAdminSession()]);
 
     assert.ok(
       answers.every((answer) => answer !== null),

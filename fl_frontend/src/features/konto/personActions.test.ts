@@ -96,7 +96,7 @@ globalThis.fetch = ((input: string | URL | Request, init?: RequestInit) => {
 }) as typeof globalThis.fetch;
 
 // Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
-const { kontoLoeschen, requestErasure, signOutOthers, startAddressChange } = await import("./personActions.ts");
+const { eraseAccount, requestErasure, signOutOthers, startAddressChange } = await import("./personActions.ts");
 const { removePasskeyAction } = await import("@/features/passkeys/actions.ts");
 const { COPY } = await import("@/core/copy.ts");
 const { SERVER_COPY } = await import("@/core/serverCopy.ts");
@@ -192,7 +192,7 @@ describe("a person's own account deletion through the mailed link's page", () =>
     // The link's own request cleared it too, mailing being a write.
     cacheCalls.length = 0;
 
-    await ledToTheDonePage(kontoLoeschen({ token, holder }));
+    await ledToTheDonePage(eraseAccount({ token, holder }));
 
     expect(
       loeschungen.map(({ method, actor }) => [method, actor !== null]),
@@ -205,7 +205,7 @@ describe("a person's own account deletion through the mailed link's page", () =>
   it("asks a passkey holder signed in by code for the touch, erasing nothing and leaving the link standing", async () => {
     const { row, token, holder } = await mitLink("mit-passkey@example.org", { passkey: true });
 
-    expect(await kontoLoeschen({ token, holder })).toStrictEqual({ ok: false, reason: COPY.signIn.refusal.touchMissing });
+    expect(await eraseAccount({ token, holder })).toStrictEqual({ ok: false, reason: COPY.signIn.refusal.touchMissing });
     expect(loeschungen).toStrictEqual([]);
     expect(heldOf(row.userId)).toStrictEqual({ user: 1, passkeys: 1 });
     assert.ok(linkStands(token), "the refused press spent the link");
@@ -215,7 +215,7 @@ describe("a person's own account deletion through the mailed link's page", () =>
     const { row, token, holder } = await mitLink("beruehrt@example.org", { passkey: true });
     madeByPasskey(store, row);
 
-    await ledToTheDonePage(kontoLoeschen({ token, holder }));
+    await ledToTheDonePage(eraseAccount({ token, holder }));
     expect(heldOf(row.userId)).toStrictEqual({ user: 0, passkeys: 0 });
   });
 
@@ -223,12 +223,12 @@ describe("a person's own account deletion through the mailed link's page", () =>
     const { row, token, holder } = await inhaberinMitLink("letzte-inhaberin@example.org");
     letzterInhaber = true;
 
-    expect(await kontoLoeschen({ token, holder })).toStrictEqual({ ok: false, reason: SERVER_COPY.refusalLine.last_owner_erasure });
+    expect(await eraseAccount({ token, holder })).toStrictEqual({ ok: false, reason: SERVER_COPY.refusalLine.last_owner_erasure });
     expect(loeschungen, "the erasure was asked for although the preview read the last owner").toStrictEqual([]);
     assert.ok(linkStands(token), "the refused press spent the link, which the owner can no longer open");
 
     letzterInhaber = false;
-    await ledToTheDonePage(kontoLoeschen({ token, holder }));
+    await ledToTheDonePage(eraseAccount({ token, holder }));
     expect(heldOf(row.userId)).toStrictEqual({ user: 0, passkeys: 0 });
   });
 
@@ -238,7 +238,7 @@ describe("a person's own account deletion through the mailed link's page", () =>
     const { row, token, holder } = await inhaberinMitLink("zweite-inhaberin@example.org");
     loeschungAnswer = () => Response.json({ error_code: "last_owner_erasure", trace_id: "0".repeat(32) }, { status: 409 });
 
-    expect(await kontoLoeschen({ token, holder })).toMatchObject({
+    expect(await eraseAccount({ token, holder })).toMatchObject({
       ok: true,
       value: { title: COPY.template.linkInvalid, next: { href: "/account/signin" } },
     });
@@ -253,13 +253,13 @@ describe("a person's own account deletion through the mailed link's page", () =>
       throw new TypeError("fetch failed");
     };
 
-    expect(await kontoLoeschen({ token, holder })).toStrictEqual({ ok: false, reason: COPY.shared.failure.stale });
+    expect(await eraseAccount({ token, holder })).toStrictEqual({ ok: false, reason: COPY.shared.failure.stale });
   });
 
   it("ends a link the library refuses as the link no longer valid, erasing nothing", async () => {
     const { row, holder } = await mitLink("falscher-link@example.org");
 
-    const answer = await kontoLoeschen({ token: "kein-gemailter-link", holder });
+    const answer = await eraseAccount({ token: "kein-gemailter-link", holder });
 
     expect(answer).toMatchObject({ ok: true, value: { title: COPY.template.linkInvalid, sentence: COPY.shared.end.linkInvalid } });
     expect(loeschungen).toStrictEqual([]);
@@ -288,7 +288,7 @@ describe("a person's own account deletion through the mailed link's page", () =>
       const { row, token, holder } = await mitLink(email);
       judged();
 
-      expect(await kontoLoeschen({ token, holder })).toStrictEqual({ ok: false, reason: COPY.shared.failure.signInExpired });
+      expect(await eraseAccount({ token, holder })).toStrictEqual({ ok: false, reason: COPY.shared.failure.signInExpired });
       expect(loeschungen).toStrictEqual([]);
       expect(heldOf(row.userId)).toStrictEqual({ user: 1, passkeys: 0 });
     });

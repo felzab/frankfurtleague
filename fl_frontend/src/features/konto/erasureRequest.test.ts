@@ -33,7 +33,7 @@ const mail = registerAuthDoubles({
   },
 });
 
-const store = memoryStore("__flLoeschungStore");
+const store = memoryStore("__flErasureRequestStore");
 
 // Every address the subject read and the gate ask about holds a live seat.
 globalThis.fetch = ((input: string | URL | Request) => {

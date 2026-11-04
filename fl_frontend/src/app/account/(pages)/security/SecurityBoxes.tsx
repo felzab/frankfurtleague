@@ -15,7 +15,7 @@ import { leaveDocumentFor } from "@/shared/utils/documentNavigation";
 
 import type { ActionAnswer } from "@/core/action";
 import type { Copy } from "@/core/copy";
-import type { PasskeyRow } from "@/features/passkeys/bestand";
+import type { PasskeyRow } from "@/features/passkeys/held";
 import type { AccountRow } from "@/kit/AccountBox";
 
 const PASSKEY = COPY.signIn.passkeyTitle;

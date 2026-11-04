@@ -4,7 +4,7 @@ import { COPY } from "@/core/copy";
 import { dayOf, formatDatum } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { requireAccountSession } from "@/features/konto/account";
-import { getKontoEinwilligungen } from "@/features/konto/queries";
+import { getAccountEinwilligungen } from "@/features/konto/queries";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import { EntriesBoxes } from "./EntriesBoxes";
@@ -129,7 +129,7 @@ function entriesOf({ spieler, schiedsrichter, registrierungen, seats, bewerbunge
 /** The person's records, read for the session the page is drawn for. */
 async function EntriesContent() {
   await requireAccountSession(ROUTES.accountEntries.path());
-  const entries = entriesOf(await getKontoEinwilligungen());
+  const entries = entriesOf(await getAccountEinwilligungen());
   return entries.length === 0 ? (
     <AccountEmpty
       plural={WORDS.plural}

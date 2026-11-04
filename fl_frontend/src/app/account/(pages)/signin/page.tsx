@@ -6,7 +6,7 @@ import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { SignInPayloadSchema } from "@/features/auth/schemas";
 import { requireAccountSession } from "@/features/konto/account";
-import { getKontoAdresswechsel, getLoeschungAnsicht } from "@/features/konto/queries";
+import { getAccountAddressChange, getErasureView } from "@/features/konto/queries";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import { SignInBoxes } from "./SignInBoxes";
@@ -37,10 +37,10 @@ function pendingOf(open: FLAccountAddressChangeOpen): Pending {
 async function SignInContent() {
   const { subject, served } = await requireAccountSession(ROUTES.accountSignIn.path());
   const [change, held, lastOwner] = await Promise.all([
-    getKontoAdresswechsel(),
+    getAccountAddressChange(),
     passkeysOf(served.user.id).then((rows) => rows.length > 0),
     // Read for an owner alone, the one tier that can be the last; the deletion's own page refuses it again.
-    subject.subject.verwaltung === "owner" ? getLoeschungAnsicht().then((view) => view.last_owner) : false,
+    subject.subject.verwaltung === "owner" ? getErasureView().then((view) => view.last_owner) : false,
   ]);
   return (
     <SignInBoxes

@@ -5,7 +5,7 @@ import { connection } from "next/server";
 
 import { now } from "../clock";
 import { asSignInIdentifier } from "../emailAddress";
-import { subjektOrNull } from "./gateReads";
+import { subjectOrNull } from "./gateReads";
 import { isAdminSession, isAdminWithinWindow } from "./guards";
 import { auth } from "./library";
 import { passkeysOf } from "./passkeys";
@@ -57,7 +57,7 @@ async function landingOf(requestHeaders: Headers): Promise<Landing> {
 
   // An unread lookup is the backend down: `/area` answers it with the person area's outage panel, its
   // own lookup failing, where `/signin` would mail no code and say nothing.
-  const subjekt = await subjektOrNull(served.user.email);
+  const subjekt = await subjectOrNull(served.user.email);
   if (subjekt === null) return { destination: "/area", served: served, subject: null };
 
   // The ban itself, never read through the grant: every guard behind `/area` refuses a barred session,
@@ -130,7 +130,7 @@ export async function getPasskeyStep(): Promise<PasskeyStep | null> {
 
   // An unread read offers no card, for the landing's reason; a barred subject none either, its
   // enrolment being refused.
-  const subjekt = await subjektOrNull(served.user.email);
+  const subjekt = await subjectOrNull(served.user.email);
   if (subjekt === null || subjekt.barred) return null;
 
   const step = await passkeyStepOf(served, subjekt.verwaltung !== null);

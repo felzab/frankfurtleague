@@ -83,11 +83,11 @@ const { sent } = registerAuthDoubles({
 const { toNextJsHandler } = await import("better-auth/next-js");
 const { auth } = await import("./auth/library.ts");
 const { endOtherSessions, endSessionsOfAddress } = await import("./auth/accountSessions.ts");
-const { getKontoSession } = await import("./auth/guards.ts");
+const { getAccountSession } = await import("./auth/guards.ts");
 const { readServedSession } = await import("./auth/session.ts");
 const { removePasskey } = await import("./auth/passkeys.ts");
 const { buildAuthIndexes } = await import("./authIndexes.ts");
-const { devicesOf } = await import("@/features/konto/sicherheit");
+const { devicesOf } = await import("@/features/konto/security");
 
 const store = () => (storeClient as MongoClient).db("auth");
 const COLLECTIONS = ["session", "passkey", "user", "verification"] as const;
@@ -218,7 +218,7 @@ describe("every query the sign-in store serves, with table scans refused", () =>
     requestHeaders = asRequest(byPasskey);
 
     assert.ok(await withoutTableScans(() => readServedSession(asRequest(byPasskey))), "the passkey's session was not served");
-    const served = await withoutTableScans(() => getKontoSession());
+    const served = await withoutTableScans(() => getAccountSession());
     assert.ok(served, "the account page refused the passkey's session");
 
     // Two more devices, counted and then ended with every other.

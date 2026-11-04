@@ -9,7 +9,7 @@ import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
 import type { Code, FLAddressChangeViewableDenied, FLApprovalDenied } from "@/core/generated/client/types";
 import type { RefusalParts } from "@/shared/utils/refusal";
 import type { FieldErrors } from "@/shared/utils/validation";
-import type { AdresswechselLinkZustand } from "./link";
+import type { AddressChangeLinkState } from "./link";
 
 // ---- The link page ------------------------------------------------------------------------------
 
@@ -17,7 +17,7 @@ import type { AdresswechselLinkZustand } from "./link";
  * A refused link read as the panel it renders, or `null` where the read failed instead. Every state a live
  * or ended change can be in answers in a 200, so a refusal is a token nothing could place.
  */
-export function mapAdresswechselAnsichtRefusal(error: unknown): "invalid" | null {
+export function mapAddressChangeViewRefusal(error: unknown): "invalid" | null {
   if (!isRefusal(error)) return null;
 
   // A token the backend will not parse matches no record, so the page calls the link void.
@@ -27,10 +27,10 @@ export function mapAdresswechselAnsichtRefusal(error: unknown): "invalid" | null
 }
 
 /** What a refused press leaves the page showing: a panel, a re-read of the link, or the sentence of a drifted body. */
-export type AdresswechselPresseRefusal = { zustand: AdresswechselLinkZustand } | { neuLesen: true } | ReturnType<typeof refusedPayloadAnswer>;
+export type AddressChangePressRefusal = { zustand: AddressChangeLinkState } | { neuLesen: true } | ReturnType<typeof refusedPayloadAnswer>;
 
 /** A refused answer or stop, or `null` where the code is none of these. */
-export function mapAdresswechselPresseRefusal(error: unknown): AdresswechselPresseRefusal | null {
+export function mapAddressChangePressRefusal(error: unknown): AddressChangePressRefusal | null {
   if (!isRefusal(error)) return null;
 
   switch (error.serverErrorCode) {
@@ -107,7 +107,7 @@ const EINTRAEGE_DA = "Unter der neuen Adresse stehen schon Einträge bei der Lig
 const NUR_VON_HAND = "Die Einträge beider Adressen lassen sich nur von Hand zusammenführen, nicht über diese Seite.";
 
 /**
- * A sign-in account at the new address, which this server reads and the backend cannot (`kontoAnNeuerAdresse`). It may
+ * A sign-in account at the new address, which this server reads and the backend cannot (`accountAtNewAddress`). It may
  * be one the hourly account sweep removes, holding nothing, so a later try is named before the work by hand.
  */
 const KONTO_DA = "Mit der neuen Adresse meldet sich schon jemand an.";

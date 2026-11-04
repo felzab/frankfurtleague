@@ -16,7 +16,7 @@ import { authSecret, frontend_config } from "../config";
 import { signInStore } from "../db";
 import { asSignInIdentifier } from "../emailAddress";
 import { BRAND_NAME } from "../emailShell";
-import { LOESCHUNG_LINK_GUELTIG_STUNDEN } from "../loeschungEmail";
+import { ERASURE_LINK_VALID_HOURS } from "../loeschungEmail";
 import { logger } from "../logging";
 import { declaredCredentialId, PASSKEY_ASSERTION_PATH } from "../passkeyCeremony";
 import { passkeyLastUse } from "../passkeyLastUse";
@@ -30,7 +30,7 @@ import { readTraceparent, TRACEPARENT_HEADER } from "../trace";
 import { ceremonyCredentialId, challengeIssuedAt, isDuplicateCredential, refuseAnotherAccountsPasskey } from "./ceremony";
 import { ADDRESS_ATTEMPTS_EXHAUSTED } from "./codeRefusal";
 import { carriedEnrolmentRead, carriedOrRefuse, ENROLMENT_READ, refuseBarred, refuseEnrolment } from "./enrolment";
-import { enrolmentAnmeldung } from "./gateReads";
+import { enrolmentSignIn } from "./gateReads";
 import { notifyPasskey, oweSignInMail, sendDeletionLink } from "./mails";
 import { endReplacedSession, lineageOf, refuseUnadmitted, replacedToken } from "./minting";
 import {
@@ -281,7 +281,7 @@ const userOptions = {
   // Both halves run in process alone, `DISABLED_PATHS` refusing `/delete-user` and its callback over HTTP.
   deleteUser: {
     enabled: true,
-    deleteTokenExpiresIn: LOESCHUNG_LINK_GUELTIG_STUNDEN * 60 * 60,
+    deleteTokenExpiresIn: ERASURE_LINK_VALID_HOURS * 60 * 60,
     sendDeleteAccountVerification: sendDeletionLink,
     beforeDelete: eraseBeforeTheAccount,
   },
@@ -567,7 +567,7 @@ const authOptions = (origin: URL, client: MongoClient) =>
             ? undefined
             : {
                 userId: enrolling.user.id,
-                anmeldung: await enrolmentAnmeldung(enrolling.user.email),
+                signIn: await enrolmentSignIn(enrolling.user.email),
                 sentAt: sentAt,
                 // Here, before the plugin spends the challenge the verify call reads.
                 challengeIssuedAt: await challengeIssuedAt(ctx),
@@ -602,7 +602,7 @@ const authOptions = (origin: URL, client: MongoClient) =>
         // session it cannot read, and the in-process arm already refuses one.
         if (caller === null || endedByItsAccount(caller)) throw APIError.fromStatus("NOT_FOUND");
 
-        refuseBarred(enrolmentRead?.anmeldung ?? (await enrolmentAnmeldung(caller.user.email)));
+        refuseBarred(enrolmentRead?.signIn ?? (await enrolmentSignIn(caller.user.email)));
         // The options request is judged now; the verify call as of its ceremony's options, or now where none stands.
         await refuseEnrolment(ctx.context.adapter, caller.user.id, stampsOf(caller.session), enrolmentRead?.challengeIssuedAt ?? undefined);
 

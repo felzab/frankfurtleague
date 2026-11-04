@@ -1,6 +1,6 @@
 import "server-only";
 
-import { ADRESSWECHSEL_WARTEZEIT_DAUER } from "@/core/adresswechsel";
+import { ADDRESS_CHANGE_WAIT_SPAN } from "@/core/adresswechsel";
 
 import type { FLAddressChangeVerwaltungMintResponse } from "@/core/generated/client/types";
 
@@ -9,7 +9,7 @@ import type { FLAddressChangeVerwaltungMintResponse } from "@/core/generated/cli
  * only the new address. Whether each arrived is the change's own read (`zustellung`).
  */
 export function describeAdresswechselMail({ email, way: weg }: FLAddressChangeVerwaltungMintResponse): string {
-  const wartezeit = weg === "waiting_period" ? ` Die neue gilt erst ${ADRESSWECHSEL_WARTEZEIT_DAUER} nach ihrer Bestätigung.` : "";
+  const wartezeit = weg === "waiting_period" ? ` Die neue gilt erst ${ADDRESS_CHANGE_WAIT_SPAN} nach ihrer Bestätigung.` : "";
 
   return `Der Link zur Bestätigung der neuen Adresse geht an ${email}. Bis zur Bestätigung gilt die bisherige.${wartezeit}`;
 }

@@ -5,8 +5,8 @@ import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink.ts";
 
 import {
   GENEHMIGUNG_VERWEHRT,
-  mapAdresswechselAnsichtRefusal,
-  mapAdresswechselPresseRefusal,
+  mapAddressChangePressRefusal,
+  mapAddressChangeViewRefusal,
   mapGenehmigungRefusal,
   mapVerwaltungLinkRefusal,
   mapVerwaltungStartRefusal,
@@ -70,26 +70,26 @@ describe("what one refused press asks the link page to show", () => {
     ["duplicate_key", "not_confirmable"],
   ] as const) {
     it(`answers ${code} as the ${zustand} panel`, () => {
-      expect(mapAdresswechselPresseRefusal(refused(code))).toStrictEqual({ zustand: zustand });
+      expect(mapAddressChangePressRefusal(refused(code))).toStrictEqual({ zustand: zustand });
     });
   }
 
   /* The change ended or the link was answered since the page opened: the link's own read says how, never "void". */
   it("asks for the link to be read again where the change ended since the page opened", () => {
-    expect(mapAdresswechselPresseRefusal(refused("address_change_ended"))).toStrictEqual({ neuLesen: true });
+    expect(mapAddressChangePressRefusal(refused("address_change_ended"))).toStrictEqual({ neuLesen: true });
   });
 
   it("answers a stop link nothing matches as the void link's panel", () => {
-    expect(mapAdresswechselPresseRefusal(refused("link_invalid"))).toStrictEqual({ zustand: "invalid" });
+    expect(mapAddressChangePressRefusal(refused("link_invalid"))).toStrictEqual({ zustand: "invalid" });
   });
 
   it("sends a body the API could not read back to the mail's link", () => {
-    expect(mapAdresswechselPresseRefusal(refused("body_unreadable"))).toStrictEqual({ error: ANTWORT_NEU_OEFFNEN });
+    expect(mapAddressChangePressRefusal(refused("body_unreadable"))).toStrictEqual({ error: ANTWORT_NEU_OEFFNEN });
   });
 
   it("answers nothing for a code it does not word", () => {
-    expect(mapAdresswechselPresseRefusal(refused("address_change_unchanged", 409))).toBe(null);
-    expect(mapAdresswechselPresseRefusal(new Error("network"))).toBe(null);
+    expect(mapAddressChangePressRefusal(refused("address_change_unchanged", 409))).toBe(null);
+    expect(mapAddressChangePressRefusal(new Error("network"))).toBe(null);
   });
 });
 
@@ -120,7 +120,7 @@ describe("what the tool says where nobody could approve, and what an approval sa
 
 describe("what a refused link read shows", () => {
   it("calls a link the read refused void, and leaves a failed read to the page's error", () => {
-    expect(mapAdresswechselAnsichtRefusal(refused("payload_refused"))).toBe("invalid");
-    expect(mapAdresswechselAnsichtRefusal(new Error("network"))).toBe(null);
+    expect(mapAddressChangeViewRefusal(refused("payload_refused"))).toBe("invalid");
+    expect(mapAddressChangeViewRefusal(new Error("network"))).toBe(null);
   });
 });

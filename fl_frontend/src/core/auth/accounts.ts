@@ -30,31 +30,31 @@ export async function accountStandsAt(address: string): Promise<boolean> {
 }
 
 /** Where an address change's effect left the replaced address's account: moved, none there, or the new address holding its own. */
-export type KontoUmzug = "umgezogen" | "keines" | "belegt";
+export type AccountCarry = "moved" | "none" | "taken";
 
 /**
  * Moves the replaced address's account, passkeys included, to the new address and ends its sessions: the confirmed
  * link is the verification the library's own change of address mails, so this is that change's completing write
  * (`better-auth/api :: verifyEmail`).
  */
-export async function carryAccount(bisherige: string, neue: string): Promise<KontoUmzug> {
+export async function carryAccount(previous: string, next: string): Promise<AccountCarry> {
   const { adapter, internalAdapter } = await auth.$context;
   try {
     // The stamp rides the same write, so no session opened at the replaced address is served at the new one; the
     // library's revocations each end only the requesting session, which no caller here holds.
-    const account = await internalAdapter.updateUserByEmail(asSignInIdentifier(bisherige), {
-      email: asSignInIdentifier(neue),
+    const account = await internalAdapter.updateUserByEmail(asSignInIdentifier(previous), {
+      email: asSignInIdentifier(next),
       emailVerified: true,
       [SESSIONS_ENDED_FIELD]: new Date(),
     });
-    if (account === null) return "keines";
+    if (account === null) return "none";
 
     await deleteEndedSessions(adapter, account.id);
-    return "umgezogen";
+    return "moved";
   } catch (failed) {
     // `user_email_uidx` refusing a second account: the new address signs in to its own, the old one waits for the account sweep.
     // Every press and approval refuses such an address (`accountStandsAt`), so only an account opened there since reaches this.
-    if (failed instanceof MongoServerError && failed.code === DUPLICATE_KEY && "email" in (failed.keyPattern ?? {})) return "belegt";
+    if (failed instanceof MongoServerError && failed.code === DUPLICATE_KEY && "email" in (failed.keyPattern ?? {})) return "taken";
     throw failed;
   }
 }

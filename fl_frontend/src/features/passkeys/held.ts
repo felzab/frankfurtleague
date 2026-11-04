@@ -20,7 +20,7 @@ export type PasskeyRow = {
 };
 
 /** The person's passkeys as Sicherheit lists them, and whether another may be set up. */
-export type PasskeyStand = { readonly rows: readonly PasskeyRow[]; readonly canAdd: boolean };
+export type HeldPasskeys = { readonly rows: readonly PasskeyRow[]; readonly canAdd: boolean };
 
 /** A stamp the adapter answered, a `Date` or its ISO text, or `null` where it holds none it can read. */
 function dateOf(stamp: unknown): Date | null {
@@ -33,10 +33,10 @@ function dateOf(stamp: unknown): Date | null {
  * The person's passkeys, oldest first, so a row keeps its place when another is added or renamed. Compared with the
  * session's credential on the server, so the credential id the session recorded never reaches the page.
  */
-export async function passkeyStandOf(served: {
+export async function heldPasskeysOf(served: {
   readonly user: { readonly id: string };
   readonly session: { readonly passkeyCredentialId?: unknown };
-}): Promise<PasskeyStand> {
+}): Promise<HeldPasskeys> {
   const held = await passkeysOf(served.user.id);
   const rows = held
     .map((row) => ({

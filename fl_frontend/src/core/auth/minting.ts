@@ -102,8 +102,7 @@ export async function refuseUnadmitted(ctx: GenericEndpointContext, userId: stri
   const carried = carriedEnrolmentRead(ctx, userId);
   // Answered to date the session it admits: taken before the read is sent, so a ban the read missed ends it.
   const sentAt = carried?.sentAt ?? new Date();
-  const verdict =
-    account === null ? "failed" : carried === undefined ? await mayReceiveSignIn(account.email) : signInVerdictOf(carried.anmeldung);
+  const verdict = account === null ? "failed" : carried === undefined ? await mayReceiveSignIn(account.email) : signInVerdictOf(carried.signIn);
   if (verdict === "admitted") return sentAt;
 
   // Worded where the ceremony starts (`fl_frontend/src/features/auth/passkeyAnswers.ts`); a failed

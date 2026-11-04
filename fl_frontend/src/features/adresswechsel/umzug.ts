@@ -11,15 +11,15 @@ import { getAdresswechselUmzuege, postAdresswechselUmzuegeErledigt } from "./mut
  * carry moves the account once, so a second run finds none to move; a failure rejects, the rest waiting for the
  * next run.
  */
-export async function runAdresswechselUmzuege(): Promise<void> {
+export async function runAddressChangeMoves(): Promise<void> {
   for (;;) {
-    const { moves: umzuege } = await getAdresswechselUmzuege();
-    if (umzuege.length === 0) return;
+    const { moves } = await getAdresswechselUmzuege();
+    if (moves.length === 0) return;
 
-    for (const { von, nach } of umzuege) {
+    for (const { von, nach } of moves) {
       // The new address holding its own account, opened since every press refused one there: it signs in to that one.
-      if ((await carryAccount(von, nach)) === "belegt") logger.warn("address_change.account_not_moved", { grund: "occupied" });
+      if ((await carryAccount(von, nach)) === "taken") logger.warn("address_change.account_not_moved", { grund: "occupied" });
     }
-    await postAdresswechselUmzuegeErledigt({ ids: umzuege.map(({ id }) => id) });
+    await postAdresswechselUmzuegeErledigt({ ids: moves.map(({ id }) => id) });
   }
 }

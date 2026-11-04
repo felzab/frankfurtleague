@@ -6,15 +6,15 @@ import { now } from "@/core/clock";
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 import { requireAccountSession } from "@/features/konto/account";
-import { devicesOf } from "@/features/konto/sicherheit";
-import { passkeyStandOf } from "@/features/passkeys/bestand";
+import { devicesOf } from "@/features/konto/security";
+import { heldPasskeysOf } from "@/features/passkeys/held";
 import { PASSKEY_NAME_MAX, PasskeyNameSchema } from "@/features/passkeys/schemas";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import { SecurityBoxes } from "./SecurityBoxes";
 
 import type { Copy } from "@/core/copy";
-import type { PasskeyStand } from "@/features/passkeys/bestand";
+import type { HeldPasskeys } from "@/features/passkeys/held";
 import type { Metadata, ResolvingMetadata } from "next";
 
 export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
@@ -28,7 +28,7 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
  */
 function setUpClosedOf(
   served: { readonly session: { readonly createdAt: Date | string; readonly authFactor?: unknown } },
-  stand: PasskeyStand,
+  stand: HeldPasskeys,
 ): Copy | undefined {
   if (!stand.canAdd) return COPY.account.passkeys.limit(PASSKEY_LIMIT);
   if (stand.rows.length > 0 || served.session.authFactor === PASSKEY_FACTOR) return undefined;
@@ -40,7 +40,7 @@ function setUpClosedOf(
 /** The passkeys and the devices, read for the session the page is drawn for. */
 async function SecurityContent() {
   const { subject, served } = await requireAccountSession(ROUTES.accountSecurity.path());
-  const [stand, devices] = await Promise.all([passkeyStandOf(served), devicesOf(served)]);
+  const [stand, devices] = await Promise.all([heldPasskeysOf(served), devicesOf(served)]);
   return (
     <SecurityBoxes
       holder={subject.email}

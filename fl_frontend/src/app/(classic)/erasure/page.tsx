@@ -8,8 +8,8 @@ import { formatNumber } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { getSubjectSession } from "@/core/subject";
-import { kontoLoeschen } from "@/features/konto/personActions";
-import { getLoeschungAnsicht } from "@/features/konto/queries";
+import { eraseAccount } from "@/features/konto/personActions";
+import { getErasureView } from "@/features/konto/queries";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import type { Copy, Words } from "@/core/copy";
@@ -57,7 +57,7 @@ async function readState(searchParams: NextPageProps["searchParams"]): Promise<M
   }
 
   // Uncaught: without the list the page cannot say what goes, so a failed read reaches the error boundary.
-  const [view, served] = await Promise.all([getLoeschungAnsicht(), readRequestSession()]);
+  const [view, served] = await Promise.all([getErasureView(), readRequestSession()]);
   const passkeys = served === null ? 0 : (await passkeysOf(served.user.id)).length;
 
   return {
@@ -65,7 +65,7 @@ async function readState(searchParams: NextPageProps["searchParams"]): Promise<M
     title: COPY.page.accountErasure,
     facts: factsOf(subject.email, passkeys, view),
     sentence: WORDS.question,
-    action: kontoLoeschen,
+    action: eraseAccount,
     acts: { primary: COPY.page.accountErasure },
     carry: { token: token, holder: subject.email },
     // Every person holding a passkey touches it first, an administrator always among them.

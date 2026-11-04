@@ -2,7 +2,7 @@ import "server-only";
 
 import { redirect } from "next/navigation";
 
-import { getKontoSession } from "@/core/auth/guards";
+import { getAccountSession } from "@/core/auth/guards";
 import { withReturnAddress } from "@/core/auth/returnAddress";
 import { COPY } from "@/core/copy";
 import { rolesOf } from "@/core/roles";
@@ -64,13 +64,13 @@ export async function readAccount(role: Copy, current?: Role["art"]): Promise<Ac
  * The signed-in person a Konto page at `path` is drawn for, and the session it is drawn under, or a redirect carrying
  * `path` back, as the proxy's turn-away does: to sign in for no session, and to the landing for an address holding a
  * grant whose session the administrator's lane refuses, which owes a fresh sign-in or its passkey step before its
- * account's acts (`fl_frontend/src/core/auth/guards.ts :: getKontoSession`), the landing sending it there. Thrown
+ * account's acts (`fl_frontend/src/core/auth/guards.ts :: getAccountSession`), the landing sending it there. Thrown
  * inside the page, as a page's turn-away is. Both guards share this render's one session read and one lookup.
  */
 export async function requireAccountSession(path: string): Promise<{ subject: SubjectSession; served: JudgedSession }> {
   const subject = await getSubjectSession();
   if (subject === null) redirect(withReturnAddress(ROUTES.signIn.path(), path));
-  const served = await getKontoSession();
+  const served = await getAccountSession();
   if (served === null) redirect(withReturnAddress(ROUTES.signInLanding.path(), path));
   return { subject, served };
 }

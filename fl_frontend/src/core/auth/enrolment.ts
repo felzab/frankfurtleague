@@ -15,8 +15,8 @@ export const PASSKEY_LIMIT = 5;
  * A barred address enrols nothing, whatever it holds: its session is one a ban's ending missed or a
  * mint raced, and a passkey would outlive both.
  */
-export function refuseBarred(anmeldung: AnmeldungRecords): void {
-  if (anmeldung.barred) throw APIError.fromStatus("NOT_FOUND");
+export function refuseBarred(signIn: AnmeldungRecords): void {
+  if (signIn.barred) throw APIError.fromStatus("NOT_FOUND");
 }
 
 /**
@@ -27,7 +27,7 @@ export function refuseBarred(anmeldung: AnmeldungRecords): void {
  */
 export type EnrolmentRead = {
   readonly userId: string;
-  readonly anmeldung: AnmeldungRecords;
+  readonly signIn: AnmeldungRecords;
   readonly sentAt: Date;
   readonly challengeIssuedAt: Date | null;
 };
@@ -47,7 +47,7 @@ export function carriedEnrolmentRead(ctx: object | undefined, userId: string): E
 export function carriedOrRefuse(ctx: object, userId: string): AnmeldungRecords {
   const read = carriedEnrolmentRead(ctx, userId);
   if (read === undefined) throw APIError.fromStatus("NOT_FOUND");
-  return read.anmeldung;
+  return read.signIn;
 }
 
 /**

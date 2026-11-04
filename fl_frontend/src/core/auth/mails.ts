@@ -4,7 +4,7 @@ import { symmetricEncrypt } from "better-auth/crypto";
 
 import { authSecret } from "../config";
 import { outboxPostSignIn } from "../generated/client/sdk";
-import { LOESCHUNG_LINK_GUELTIG_STUNDEN } from "../loeschungEmail";
+import { ERASURE_LINK_VALID_HOURS } from "../loeschungEmail";
 import { logger } from "../logging";
 import { ROUTES } from "../routes";
 import { HOUR_MS } from "../timeUnits";
@@ -57,5 +57,5 @@ export async function notifyPasskeyRemoved(email: string): Promise<void> {
  * library swallows a throw from here, logging it.
  */
 export async function sendDeletionLink({ user, token }: { user: { email: string }; token: string }): Promise<void> {
-  await oweSignInMail(user.email, { art: "account_erasure" }, { wert: token, gueltigMs: LOESCHUNG_LINK_GUELTIG_STUNDEN * HOUR_MS });
+  await oweSignInMail(user.email, { art: "account_erasure" }, { wert: token, gueltigMs: ERASURE_LINK_VALID_HOURS * HOUR_MS });
 }

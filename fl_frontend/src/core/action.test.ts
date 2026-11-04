@@ -62,7 +62,7 @@ vi.mock("./auth/guards", () => ({
     state.steps.push("passkey touch");
     return state.touch;
   },
-  getKontoSession: async () => {
+  getAccountSession: async () => {
     state.steps.push("account guard");
     return state.account;
   },

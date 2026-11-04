@@ -252,7 +252,7 @@ async function verdictOf(answers: SignInAnswers): Promise<unknown> {
 }
 
 /**
- * The shape `fl_frontend/src/core/auth/guards.ts :: getKontoSession` serves, signed in by passkey this moment:
+ * The shape `fl_frontend/src/core/auth/guards.ts :: getAccountSession` serves, signed in by passkey this moment:
  * a caller reading `user.id` or `session` off the bare `{ user }` would read `undefined` and pass.
  */
 const servedOf = (session: AdminSessionDouble): unknown => {
@@ -274,7 +274,7 @@ const signInStore = (answers: SignInAnswers) => ({
     getAdminSession: () => administratorOf(answers),
     judgeAdminRequest: () => verdictOf(answers),
     // The account page's guard, answering the same session: its own lanes are the sign-in store's to judge.
-    getKontoSession: () => answering(answers.served),
+    getAccountSession: () => answering(answers.served),
   },
   landing: {
     // The landing as read for a session the person lookup is not doubled for: its person stands unread.

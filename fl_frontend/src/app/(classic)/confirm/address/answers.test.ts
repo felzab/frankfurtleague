@@ -23,17 +23,17 @@ vi.mock("@/core/logging", () => ({
     error: (message: string) => void held.logged.push(message),
   },
 }));
-vi.mock("@/features/adresswechsel/konto", () => ({ kontoAnNeuerAdresse: async () => held.accountAtTheNewAddress }));
+vi.mock("@/features/adresswechsel/konto", () => ({ accountAtNewAddress: async () => held.accountAtTheNewAddress }));
 vi.mock("@/features/adresswechsel/mutations", async (original) => ({
   ...(await original<object>()),
-  postAdresswechselAntwort: async (payload: unknown) => {
+  postAddressChangeAnswer: async (payload: unknown) => {
     held.posted.push(payload);
     if (held.answered === null) throw new Error("the case answered no press");
     return held.answered;
   },
 }));
 vi.mock("@/features/adresswechsel/umzug", () => ({
-  runAdresswechselUmzuege: () => {
+  runAddressChangeMoves: () => {
     held.carries += 1;
     return held.carry();
   },

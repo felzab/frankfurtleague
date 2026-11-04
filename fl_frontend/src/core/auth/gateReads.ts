@@ -22,7 +22,7 @@ function logUnreadVerwaltung(failed: unknown): void {
  * The gate's answer an enrolment is judged by, where an unread read must refuse rather than admit: a
  * barred address would otherwise enrol while the backend is down.
  */
-export async function enrolmentAnmeldung(email: string): Promise<AnmeldungRecords> {
+export async function enrolmentSignIn(email: string): Promise<AnmeldungRecords> {
   try {
     return await lookUpAnmeldung(asSignInIdentifier(email));
   } catch (failed) {
@@ -32,7 +32,7 @@ export async function enrolmentAnmeldung(email: string): Promise<AnmeldungRecord
 }
 
 /** The records where an unread read offers nothing: `null` where the backend could not say. */
-export async function subjektOrNull(email: string): Promise<SubjectSession["subject"] | null> {
+export async function subjectOrNull(email: string): Promise<SubjectSession["subject"] | null> {
   try {
     return await lookUpSubjekt(asSignInIdentifier(email));
   } catch (failed) {

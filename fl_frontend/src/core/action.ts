@@ -6,7 +6,7 @@ import { unstable_rethrow } from "next/navigation";
 
 import { z } from "zod";
 
-import { getKontoSession, judgeAdminRequest, passesPasskeyTouch } from "./auth/guards";
+import { getAccountSession, judgeAdminRequest, passesPasskeyTouch } from "./auth/guards";
 import { COPY } from "./copy";
 import { asSignInIdentifier, KONTAKT_EMAIL_MAX_LENGTH } from "./emailAddress";
 import { APIBadStatusError, loggedByBackend, requestOf } from "./errors";
@@ -112,7 +112,7 @@ type AdminLane<Schema extends z.ZodType, Value> = Declared<Schema> &
 /**
  * A person's write, by the claim it makes: a seat the session must hold at the team and season its input names; a
  * record of the person's own, which the backend authorises in its transaction; or the person's sign-in account, which
- * the account's own guard admits too (`fl_frontend/src/core/auth/guards.ts :: getKontoSession`), handing the body the
+ * the account's own guard admits too (`fl_frontend/src/core/auth/guards.ts :: getAccountSession`), handing the body the
  * session it judged, so a session an administrator's mailbox made changes nothing of that administrator's sign-in.
  */
 type PersonLane<Schema extends z.ZodType, Value> = Declared<Schema> &
@@ -384,7 +384,7 @@ async function guarded<Schema extends z.ZodType, Value>(lane: Lane<Schema, Value
         case "record":
           return admitted(lane, raw, (input) => body(lane, () => lane.run(input, { subject })));
         case "account": {
-          const served = await getKontoSession();
+          const served = await getAccountSession();
           if (served === null) return turnedAwayPerson(lane.name, "keine_sitzung");
           return admitted(lane, raw, (input) => body(lane, () => lane.run(input, { subject, served })));
         }

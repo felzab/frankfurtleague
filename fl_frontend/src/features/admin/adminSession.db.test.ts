@@ -41,12 +41,12 @@ const { signInStore } = (await import(PRODUCTION_DB)) as { signInStore: () => Mo
 const client = signInStore();
 closing(() => client.close());
 const { auth } = await import("@/core/auth/library.ts");
-const { getAdminSession, getKontoSession, judgeAdminRequest } = await import("@/core/auth/guards.ts");
+const { getAdminSession, getAccountSession, judgeAdminRequest } = await import("@/core/auth/guards.ts");
 const { getPasskeyStep } = await import("@/core/auth/landing.ts");
 const { buildAuthIndexes } = await import("@/core/authIndexes.ts");
 const { getSubjectSession } = await import("@/core/subject.ts");
-const { devicesOf } = await import("@/features/konto/sicherheit.ts");
-const { passkeyStandOf } = await import("@/features/passkeys/bestand.ts");
+const { devicesOf } = await import("@/features/konto/security.ts");
+const { heldPasskeysOf } = await import("@/features/passkeys/held.ts");
 const { runAdminRead } = await import("@/shared/utils/adminRead.ts");
 const { runWithIncomingTrace } = await import("@/shared/utils/traceScope.ts");
 
@@ -217,9 +217,9 @@ describe("the account and passkey pages, each across one render pass", () => {
     beginRenderPass();
     const commands = await sentBy(async () => {
       assert.ok(await getSubjectSession(), "the person guard refused the administrator");
-      const served = await getKontoSession();
+      const served = await getAccountSession();
       assert.ok(served, "the account page's guard refused the administrator, so the count below counts a refusal");
-      await Promise.all([passkeyStandOf(served), devicesOf(served)]);
+      await Promise.all([heldPasskeysOf(served), devicesOf(served)]);
     });
 
     // The guards' one read, the check its passkey stands, the page's passkeys and its sign-ins.
@@ -276,9 +276,9 @@ describe("the holder's passkeys, with another account's beside them in the store
     await aSecondAccountsPasskey();
 
     beginRenderPass();
-    const served = await getKontoSession();
+    const served = await getAccountSession();
     assert.ok(served, "the account page's guard refused the administrator");
-    const { rows } = await passkeyStandOf(served);
+    const { rows } = await heldPasskeysOf(served);
 
     expect(rows.length, "the account page listed another account's passkey").toBe(1);
   });
@@ -317,10 +317,10 @@ describe("the holder's passkeys, with another account's beside them in the store
     }
 
     beginRenderPass();
-    const served = await getKontoSession();
+    const served = await getAccountSession();
     assert.ok(served, "the account page's guard refused the administrator");
 
-    expect((await passkeyStandOf(served)).canAdd, "another account's passkey closed the set-up").toBe(true);
+    expect((await heldPasskeysOf(served)).canAdd, "another account's passkey closed the set-up").toBe(true);
   });
 });
 
@@ -376,7 +376,7 @@ describe("the account row the session read joins, against a real store", () => {
     await sessions.updateOne({ _id: after._id }, { $set: { authFactor: "passkey", passkeyCredentialId: CREDENTIAL_ID } });
 
     beginRenderPass();
-    const served = await getKontoSession();
+    const served = await getAccountSession();
     assert.ok(served, "the account page's guard refused the sign-in made after the ending");
     expect(await devicesOf(served)).toBe(1);
   });
