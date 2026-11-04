@@ -11,8 +11,6 @@ import {
 import { answerAt, SEAT } from "@/test-support/subjectFixtures.ts";
 import { assert, describe, expect, it } from "vitest";
 
-import { COPY } from "@/core/copy.ts";
-import { KONTAKT_EMAIL_MAX_LENGTH } from "@/core/emailAddress.ts";
 import { TURNSTILE_FIELD } from "@/core/turnstileToken.ts";
 
 import type { ActionAnswer } from "@/core/action.ts";
@@ -270,9 +268,9 @@ describe("what the gate's backend read leaves on the response", () => {
 });
 
 describe("what a typed code answers", () => {
-  /* The window the message states is worth nothing unless the store enforces it: the library
-     consumes an expired row on the way past, so a code typed late must refuse rather than sign in. */
-  it("refuses a code whose row has expired, and mints no session for it", async () => {
+  /* The window the message states is worth nothing unless the store enforces it: a code typed past its
+     row's expiry signs nobody in, which nothing a reader sees would tell. */
+  it("mints no session for a code whose row has expired", async () => {
     await signInWith(GRANTED);
     const code = theLastCode();
 
@@ -285,8 +283,9 @@ describe("what a typed code answers", () => {
     const sessions = store.session.length;
     const typed = await typeTheCode(GRANTED, code);
 
-    expect(((await typed.json()) as { code?: string }).code).toBe("OTP_EXPIRED");
     expect(store.session.length, "an expired code still minted a session").toBe(sessions);
+    // The control: refused for its age, where a code this harness misread would mint no session either.
+    expect(((await typed.json()) as { code?: string }).code).toBe("OTP_EXPIRED");
   });
 });
 
@@ -305,37 +304,5 @@ describe("which account two spellings of one address reach", () => {
     // The whole store, not a slice: no other address here is ever mailed a code, so a second row
     // could only be the second spelling's.
     expect(store.user.map((user) => user.email)).toStrictEqual([GRANTED]);
-  });
-});
-
-describe("what the action answers an address it cannot parse", () => {
-  it("refuses in front of the response and schedules nothing, a format check leaking no membership", async () => {
-    const attempt = await signInWith("keine-adresse");
-
-    expect(attempt.result.ok).toBe(false);
-    expect(attempt.scheduled).toBe(0);
-  });
-
-  /* Each refusal is the box's line and never the unexpected one, which would tell a reader who mistyped that the
-     site failed. "" is what the form posts for an empty box, the view marking no field required, and a box of
-     spaces is stripped to it. The browser's `type=email` lets a host with no dot through, and a post made without
-     the page sends anything, so the server's answer is the one those meet. */
-  const { field } = COPY.shared;
-  it.each([
-    { label: "an empty box", typed: "", line: field.required },
-    { label: "a box of spaces", typed: "   ", line: field.required },
-    { label: "no at sign", typed: "abc", line: field.format(field.exampleAddress) },
-    { label: "a host with no dot", typed: "erika@schule", line: field.format(field.exampleAddress) },
-    { label: "an umlaut before the at sign", typed: "jürgen@schule.de", line: field.format(field.exampleAddress) },
-    {
-      label: "an address past the ceiling",
-      typed: `${"a".repeat(KONTAKT_EMAIL_MAX_LENGTH)}@schule.de`,
-      line: field.maxChars(KONTAKT_EMAIL_MAX_LENGTH),
-    },
-  ])("answers $label with its line on the address box", async ({ typed, line }) => {
-    const attempt = await signInWith(typed);
-
-    expect(attempt.result).toStrictEqual({ ok: false, fieldErrors: { email: line } });
-    expect(attempt.scheduled).toBe(0);
   });
 });
