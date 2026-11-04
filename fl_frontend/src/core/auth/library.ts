@@ -12,6 +12,7 @@ import { emailOTP } from "better-auth/plugins/email-otp";
 
 import { CODE_VALIDITY_MINUTES } from "../authEmail";
 import { MONGO_DB_NAME } from "../authIndexes";
+import { now } from "../clock";
 import { authSecret, frontend_config } from "../config";
 import { signInStore } from "../db";
 import { asSignInIdentifier } from "../emailAddress";
@@ -417,7 +418,7 @@ const authOptions = (origin: URL, client: MongoClient) =>
 
             // Stamped again past every await, so the order of two mints is their order of insert, one write
             // apart, and not of a backend round trip: `endEarlierSiblings` keeps the latest by it.
-            const stamped = new Date();
+            const stamped = now();
             const lifetime = new Date(session.expiresAt).getTime() - new Date(session.createdAt).getTime();
 
             return {
@@ -561,7 +562,7 @@ const authOptions = (origin: URL, client: MongoClient) =>
         // and a backend round trip inside it would hold it open.
         const enrolling = ctx.path === PASSKEY_REGISTRATION_PATH ? await getSessionFromCtx(ctx) : null;
         // Taken before the read is sent: the session a set-up mints is dated by it.
-        const sentAt = new Date();
+        const sentAt = now();
         const enrolmentRead: EnrolmentRead | undefined =
           enrolling === null
             ? undefined

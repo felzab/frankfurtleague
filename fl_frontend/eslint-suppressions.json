@@ -342,46 +342,6 @@
       "count": 1
     }
   },
-  "src/core/auth/accountSessions.ts": {
-    "no-restricted-syntax": {
-      "count": 2
-    }
-  },
-  "src/core/auth/accounts.ts": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
-  "src/core/auth/library.ts": {
-    "no-restricted-syntax": {
-      "count": 2
-    }
-  },
-  "src/core/auth/mails.ts": {
-    "no-restricted-syntax": {
-      "count": 2
-    }
-  },
-  "src/core/auth/minting.ts": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
-  "src/core/auth/passkeys.ts": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
-  "src/core/auth/sessionStamps.ts": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
-  "src/core/auth/signInRows.ts": {
-    "no-restricted-syntax": {
-      "count": 2
-    }
-  },
   "src/core/bewerbungEmail.ts": {
     "no-restricted-syntax": {
       "count": 41

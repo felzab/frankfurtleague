@@ -1,5 +1,6 @@
 import "server-only";
 
+import { now } from "../clock";
 import { RolledBackError } from "../errors";
 import { auth } from "./library";
 import { EVERY_ROW, RemovalOutsideTransaction } from "./signInRows";
@@ -20,7 +21,7 @@ class ClaimMatchedNoAccount extends Error {
 async function claimAccount(adapter: Pick<DBTransactionAdapter, "update">, userId: string): Promise<void> {
   // Any field of the account's own row conflicts; `updatedAt` is one the row already carries, so the
   // claim stores nothing new about the administrator.
-  const claimed = await adapter.update({ model: "user", where: [{ field: "id", value: userId }], update: { updatedAt: new Date() } });
+  const claimed = await adapter.update({ model: "user", where: [{ field: "id", value: userId }], update: { updatedAt: now() } });
 
   // A claim on no row conflicts with nothing, which is the removal the transaction exists to refuse.
   if (claimed === null) throw new ClaimMatchedNoAccount();

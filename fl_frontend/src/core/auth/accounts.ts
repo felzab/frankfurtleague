@@ -3,6 +3,7 @@ import "server-only";
 import { isAPIError } from "better-auth/api";
 import { MongoServerError } from "mongodb";
 
+import { now } from "../clock";
 import { asSignInIdentifier } from "../emailAddress";
 import { APIBadStatusError, RolledBackError } from "../errors";
 import { deleteEndedSessions } from "./accountSessions";
@@ -45,7 +46,7 @@ export async function carryAccount(previous: string, next: string): Promise<Acco
     const account = await internalAdapter.updateUserByEmail(asSignInIdentifier(previous), {
       email: asSignInIdentifier(next),
       emailVerified: true,
-      [SESSIONS_ENDED_FIELD]: new Date(),
+      [SESSIONS_ENDED_FIELD]: now(),
     });
     if (account === null) return "none";
 

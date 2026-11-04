@@ -2,6 +2,7 @@ import "server-only";
 
 import { symmetricEncrypt } from "better-auth/crypto";
 
+import { now } from "../clock";
 import { authSecret } from "../config";
 import { outboxPostSignIn } from "../generated/client/sdk";
 import { ERASURE_LINK_VALID_HOURS } from "../loeschungEmail";
@@ -27,7 +28,7 @@ export async function oweSignInMail(
     an: an,
     data: daten,
     secret: geheim === undefined ? null : await symmetricEncrypt({ key: authSecret(), data: geheim.wert }),
-    valid_until: geheim === undefined ? null : new Date(Date.now() + geheim.gueltigMs).toISOString(),
+    valid_until: geheim === undefined ? null : new Date(now().getTime() + geheim.gueltigMs).toISOString(),
   });
 }
 
@@ -37,7 +38,7 @@ export async function oweSignInMail(
  */
 export async function notifyPasskey(art: FLPasskeyDataArt, email: string): Promise<void> {
   try {
-    await oweSignInMail(email, { art: art, instant: new Date().toISOString(), account: ROUTES.accountSecurity.path() });
+    await oweSignInMail(email, { art: art, instant: now().toISOString(), account: ROUTES.accountSecurity.path() });
   } catch (failed) {
     // Name only, as the code's own send writes one: a failure here routinely carries the address.
     logger.error("auth.passkey_notice_failed", undefined, {

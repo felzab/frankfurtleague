@@ -3,6 +3,7 @@ import "server-only";
 import { isAPIError } from "better-auth/api";
 import { makeSignature } from "better-auth/crypto";
 
+import { now } from "../clock";
 import { asSignInIdentifier } from "../emailAddress";
 import { logger } from "../logging";
 import { SIGN_IN_BARRED, SIGN_IN_HOLDS_NOTHING } from "../passkeyRefusal";
@@ -69,7 +70,7 @@ export async function withinBound(context: BoundContext, identifier: string, lim
   const own = await context.internalAdapter.createVerificationValue({
     identifier,
     value: "counted",
-    expiresAt: new Date(Date.now() + windowMs),
+    expiresAt: new Date(now().getTime() + windowMs),
   });
 
   const held = await context.adapter.count({
@@ -77,7 +78,7 @@ export async function withinBound(context: BoundContext, identifier: string, lim
     where: [
       { field: "identifier", value: identifier },
       // Filtered here as well as swept by the library and by the TTL index: either can lag.
-      { field: "expiresAt", operator: "gt", value: new Date() },
+      { field: "expiresAt", operator: "gt", value: now() },
     ],
   });
   if (held <= limit) return own.id;

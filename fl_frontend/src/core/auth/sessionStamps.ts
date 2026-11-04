@@ -89,8 +89,8 @@ export function withinLifetime(session: { createdAt: Date; updatedAt: Date }, li
   // NaN's own answer, which the next comparison added here would not inherit.
   if (!Number.isFinite(created) || !Number.isFinite(updated)) return false;
 
-  const now = Date.now();
-  return now - updated < lifetime.idle && now - created < lifetime.absolute;
+  const at = now().getTime();
+  return at - updated < lifetime.idle && at - created < lifetime.absolute;
 }
 
 /** Exported for `fl_frontend/src/core/subject.ts`, which judges the same window in its own lane. */
