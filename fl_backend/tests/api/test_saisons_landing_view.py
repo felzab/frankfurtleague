@@ -368,6 +368,20 @@ def finale_match(
         ),
         pytest.param([finale_match(("Alpha", 1), ("Beta", 1), third=False)], [], id="a level final with no shoot-out names nobody"),
         pytest.param(
+            [finale_match(("Alpha", 1), ("Beta", 0), third=False)],
+            [(1, "Alpha"), (2, "Beta")],
+            id="a final alone, as a bracket of two clubs draws it, gives the first two places",
+        ),
+        pytest.param(
+            [
+                finale_match(("Cara", 0), ("Dora", 1), third=True),
+                finale_match(("Alpha", 1), ("Beta", 0), third=False),
+                finale_match(("Emil", 2), ("Fritz", 0), third=False),
+            ],
+            [],
+            id="a Finale wired by hand past the draw's two names nobody",
+        ),
+        pytest.param(
             [finale_match(("Alpha", 1), ("Beta", 0), third=False), finale_match(("Cara", 0), ("Dora", 1), third=True)],
             [(1, "Alpha"), (2, "Beta"), (3, "Dora"), (4, "Cara")],
             id="the Finale's two read in either order",
