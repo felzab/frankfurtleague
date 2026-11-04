@@ -96,7 +96,7 @@ export const Code = {
   saison_span_below_spielplan_as_stored: "saison_span_below_spielplan_as_stored",
   saison_start_taken_place: "saison_start_taken_place",
   invitation_team_not_entered: "invitation_team_not_entered",
-  wording_not_allowed: "wording_not_allowed",
+  choices_stale: "choices_stale",
   medien_age: "medien_age",
   giving_not_allowed: "giving_not_allowed",
   eligibility_disqualified: "eligibility_disqualified",

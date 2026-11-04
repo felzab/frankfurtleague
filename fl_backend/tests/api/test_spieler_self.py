@@ -414,7 +414,7 @@ class TestTheEvidence:
 
 @pytest.mark.db
 class TestAStalePage:
-    """`wording_not_allowed`: a press answers the evidence its page was served, or is refused and writes nothing."""
+    """`choices_stale`: a press answers the evidence its page was served, or is refused and writes nothing."""
 
     def test_a_page_served_before_a_withdrawal_elsewhere_cannot_re_grant_it(self, mongo_replica_set_url: str):
         """Two tabs: the second withdraws the media consent, then the first, still showing it on, narrows the scope."""
@@ -434,7 +434,7 @@ class TestAStalePage:
         withdrawn, stale, before, after = served(mongo_replica_set_url, steps)
 
         assert withdrawn.status_code == 200, withdrawn.text
-        assert (stale.status_code, stale.json()["error_code"]) == (409, Code.WORDING_NOT_ALLOWED)
+        assert (stale.status_code, stale.json()["error_code"]) == (409, Code.CHOICES_STALE)
         assert after == before
         assert after[PUPIL_OID]["einwilligung"]["medien"] is False
 
@@ -472,7 +472,7 @@ class TestAStalePage:
         withdrawn, granted, stale, before, after = served(mongo_replica_set_url, steps)
 
         assert (withdrawn.status_code, granted.status_code) == (200, 200), granted.text
-        assert (stale.status_code, stale.json()["error_code"]) == (409, Code.WORDING_NOT_ALLOWED)
+        assert (stale.status_code, stale.json()["error_code"]) == (409, Code.CHOICES_STALE)
         assert after == before
 
 

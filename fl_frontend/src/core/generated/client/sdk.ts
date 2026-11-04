@@ -1185,8 +1185,8 @@ export const getBewerbungenPatchEinwilligungUrl = (bewerbungId: string) => {
 /**
  * Withdraw the signed-in person's WhatsApp and media consents on every seat they hold on this pending application.
  *
- * A grant is refused. Refuses, writing nothing: `role_not_held`, `wording_not_allowed` (the choices moved since the
- * page was served) and `giving_not_allowed`.
+ * A grant is refused. Refuses, writing nothing: `role_not_held`, `choices_stale` and
+ * `giving_not_allowed`.
  * @summary Withdraw a seat holder's own WhatsApp and media consent on a pending Bewerbung
  */
 export const bewerbungenPatchEinwilligung = async (
@@ -2189,7 +2189,7 @@ export const getRegistrierungenPatchEinwilligungUrl = (registrierungId: string) 
  * Withdraw the publication scope or the media consent the signed-in pupil gave on their own pending registration.
  *
  * A grant is refused, and a PATCH moving neither writes nothing. Refuses, writing nothing: `role_not_held`,
- * `wording_not_allowed` (the choices moved since the page was served) and `giving_not_allowed`.
+ * `choices_stale` and `giving_not_allowed`.
  * @summary Withdraw a pupil's own publication and media consent on their pending registration
  */
 export const registrierungenPatchEinwilligung = async (
@@ -3065,7 +3065,7 @@ export const getSchiedsrichterPatchEinwilligungUrl = (schiedsrichterId: string) 
  *
  * Refuses, in this order: an id that is no confirmed referee record of this address (`role_not_held`); a
  * `nachweis_stand` other than the record's own, either choice having moved since the page was served
- * (`wording_not_allowed`); a grant on a retired record (`giving_not_allowed`); `medien` moving to `true` where the
+ * (`choices_stale`); a grant on a retired record (`giving_not_allowed`); `medien` moving to `true` where the
  * stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is missing (`medien_age`). Each refusal writes nothing.
  *
  * **The caller drops the cached fixture list after a successful answer**, which reads this row; nothing here can.
@@ -4139,7 +4139,7 @@ export const getSpielerPatchEinwilligungUrl = () => {
  * taken on a live record alone; a withdrawal on a retired one too.
  *
  * Refuses, in this order: an address holding no confirmed pupil record (`role_not_held`); a `nachweis_stand`
- * other than the record's own, either choice having moved since the page was served (`wording_not_allowed`); a
+ * other than the record's own, either choice having moved since the page was served (`choices_stale`); a
  * grant on a retired record (`giving_not_allowed`); `medien` moving to `true` where
  * the stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is missing (`medien_age`). Each
  * refusal writes nothing.
@@ -5053,7 +5053,7 @@ export const getTeamsPatchEinwilligungUrl = (teamId: string, saisonId: string) =
  *
  * Refuses, in this order: a row on which the address holds no confirmed seat (`role_not_held`); a
  * `nachweis_stand` other than the held seats' own, either choice having moved since the page was served
- * (`wording_not_allowed`); a grant where the row grants no panel (`giving_not_allowed`); `medien` moving to `true`
+ * (`choices_stale`); a grant where the row grants no panel (`giving_not_allowed`); `medien` moving to `true`
  * where a held seat's stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is missing (`medien_age`). Each refusal writes nothing.
  * @summary Change a seat holder's own WhatsApp and media consent on one team's season
  */

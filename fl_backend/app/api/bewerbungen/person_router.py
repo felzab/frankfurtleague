@@ -53,8 +53,8 @@ async def patch_einwilligung(
 ) -> FLBewerbungAccountEinwilligungResponse:
     """Withdraw the signed-in person's WhatsApp and media consents on every seat they hold on this pending application.
 
-    A grant is refused. Refuses, writing nothing: `role_not_held`, `wording_not_allowed` (the choices moved since the
-    page was served) and `giving_not_allowed`.
+    A grant is refused. Refuses, writing nothing: `role_not_held`, `choices_stale` and
+    `giving_not_allowed`.
     """
 
     gedrueckt: dict[FLEinwilligungChoice, object] = {"umfang": einwilligung_data.umfang, "medien": einwilligung_data.medien}

@@ -149,7 +149,7 @@ def find_eigener_eintrag_refusal(*, gehalten: bool) -> WriteRefusal | None:
 
 
 def find_nachweis_stand_refusal(*, erwartet: Mapping[str, Any], bloecke: Sequence[Any]) -> WriteRefusal | None:
-    """`wording_not_allowed`: a choice's evidence moved since the page was served.
+    """`choices_stale`: a choice's evidence moved since the page was served.
 
     Refused rather than merged: a stale page sends the other choice as it last saw it, and taking that
     would re-grant what the person withdrew elsewhere.
@@ -159,7 +159,7 @@ def find_nachweis_stand_refusal(*, erwartet: Mapping[str, Any], bloecke: Sequenc
         return None
 
     return WriteRefusal(
-        error_code=Code.WORDING_NOT_ALLOWED,
+        error_code=Code.CHOICES_STALE,
         status=HTTPStatus.CONFLICT,
     )
 

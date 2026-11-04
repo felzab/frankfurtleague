@@ -151,9 +151,9 @@ class Code(StrEnum):
     # reopen the rules, the swap and the replacement on a season somebody already played.
     SAISON_START_TAKEN_PLACE = auto()
     INVITATION_TEAM_NOT_ENTERED = auto()
-    # One code for every write that stamps a label, so a page's form maps one refusal however many
-    # writes share its page.
-    WORDING_NOT_ALLOWED = auto()
+    # A consent press whose page was served choices that have moved since, on any of the account page's records: one
+    # code, so the page maps one refusal however many writes share it.
+    CHOICES_STALE = auto()
     # One code for every write taking a person's media consent, the account presses and the three
     # confirmations alike, so each page maps one refusal.
     MEDIEN_AGE = auto()

@@ -464,7 +464,7 @@ class TestAPersonsOwnPress:
 
         refusal, pressed = served(mongo_replica_set_url, steps)
 
-        assert refusal == (409, Code.WORDING_NOT_ALLOWED, 0, True)
+        assert refusal == (409, Code.CHOICES_STALE, 0, True)
         # The control: the capture reads the line a press that lands leaves.
         assert (pressed, len(journalled(caplog))) == (200, 1)
 
