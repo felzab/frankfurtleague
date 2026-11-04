@@ -52,7 +52,12 @@ INSTALLS: Final = (
     (("fl_frontend/package.json", "fl_frontend/pnpm-lock.yaml"), ("pnpm", "--dir", "fl_frontend", "install", "--frozen-lockfile")),
     (("fl_backend/pyproject.toml", "fl_backend/uv.lock"), ("uv", "sync", "--project", "fl_backend", "--dev", "--frozen")),
 )
-ROWS_FIXED_RE: Final = re.compile(r"^Rows fixed:\s*(?P<rows>.+)$", re.MULTILINE)
+ROW_LABEL: Final = r"[A-Z][A-Z0-9-]*-F\d+"
+# A body wraps its `Rows fixed:` line like the rest of its prose, so the line runs on through every
+# following line made of row labels alone; prose after it, a label mentioned in it included, closes nothing.
+ROWS_FIXED_RE: Final = re.compile(
+    rf"^Rows fixed:[ \t]*(?P<rows>.+(?:\n[ \t]*{ROW_LABEL}(?:[,.]?[ \t]+{ROW_LABEL})*[,.]?[ \t]*$)*)", re.MULTILINE
+)
 # A rebase of commits another branch already merged lands each twice under two hashes, which the
 # preflight's duplicate-patch check then refuses.
 MERGE_BACK: Final = "the agent merges the session branch into its own branch, rebasing only where no other branch holds its commits"
@@ -327,12 +332,17 @@ def land(register: Path, branch: str, after_dispatch: bool = False) -> int:
     return 0
 
 
+def fixed_rows(bodies: str) -> list[str]:
+    """Every row label the commit bodies' `Rows fixed:` lines name, their wrapped continuations included."""
+    tokens = (row.rstrip(".,") for found in ROWS_FIXED_RE.findall(bodies) for row in re.split(r"[,\s]+", found))
+    return sorted({row for row in tokens if re.fullmatch(ROW_LABEL, row)})
+
+
 def credit(register: Path, held: str, branch: str, before: str, merge: str) -> None:
     """The rows the merged commits fixed closed, and each row and standing action the landing leaves named."""
     # Only a `Rows fixed:` line closes, and only a row routed to an agent the merge landed: a mention,
     # or a row another fixer holds, stays for the coordinator to judge.
-    bodies = git("log", "--format=%B", "HEAD^1..HEAD^2")
-    named = sorted({row.rstrip(".") for found in ROWS_FIXED_RE.findall(bodies) for row in re.split(r"[,\s]+", found) if row.rstrip(".")})
+    named = fixed_rows(git("log", "--format=%B", "HEAD^1..HEAD^2"))
     agent = owners(held, branch).union(*(owners(held, other) for other in carried(before)))
     closed = ledger.close_routed(register, named, merge, agent)
     for row in closed:

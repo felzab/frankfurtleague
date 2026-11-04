@@ -2128,6 +2128,17 @@ def test_a_landing_closes_only_the_rows_routed_to_its_agent_that_a_rows_fixed_li
     assert "B1" not in done.stdout and "OTHER lands" not in done.stdout
 
 
+def test_a_rows_fixed_line_wrapped_like_its_body_names_every_row() -> None:
+    """A fixer wrapped its line at 76 characters and the landing read the first line alone, leaving 8 of 11 rows routed."""
+    body = (
+        "Frontend: A note\n\nThe journeys read the built page.\n\n"
+        "Rows fixed: JOURNEY-LENS-F23, JOURNEY-LENS-F24,\nJOURNEY-LENS-F25, AUTH-PRIVACY-2-F6.\n\n"
+        "Verified. A-F9 is mentioned here and closes nothing.\nRows fixed: A-F1\nA-F2 stays open."
+    )
+
+    assert land.fixed_rows(body) == ["A-F1", "AUTH-PRIVACY-2-F6", "JOURNEY-LENS-F23", "JOURNEY-LENS-F24", "JOURNEY-LENS-F25"]
+
+
 def test_a_branch_the_session_already_holds_is_nothing_to_land(tmp_path: Path) -> None:
     root = _repo(tmp_path)
     _agent_commit(root, "Docs: A note", NOTE)
