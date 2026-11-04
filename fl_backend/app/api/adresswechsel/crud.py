@@ -410,7 +410,7 @@ async def owe_the_link_in_session(
     )
 
 
-async def owe_the_hinweis_in_session(
+async def owe_the_notice_in_session(
     *,
     address_change_id: ObjectId,
     adresse: str,

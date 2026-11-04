@@ -32,8 +32,8 @@ from app.api.adresswechsel.crud import (
     end_the_change_in_session,
     ending_line,
     live_grant_of,
-    owe_the_hinweis_in_session,
     owe_the_link_in_session,
+    owe_the_notice_in_session,
     read_the_bestand,
     start_the_change_in_session,
 )
@@ -357,7 +357,7 @@ async def post_address_change(
             session=session,
         )
         # The notice first and the link after, as the address on file is told before the new mailbox can answer.
-        await owe_the_hinweis_in_session(
+        await owe_the_notice_in_session(
             address_change_id=address_change_id,
             adresse=identifier,
             way="account",
