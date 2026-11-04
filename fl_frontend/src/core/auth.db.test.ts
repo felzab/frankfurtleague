@@ -807,9 +807,8 @@ async function seedAccount(email: string): Promise<{ cookie: string; userId: str
   assert.ok(found?.[1] !== undefined, "the request mailed no link to the interstitial");
   await requestAccountDeletion(new Headers({ ...ORIGIN, cookie }));
 
-  // The aggregate count names no address, so it is nobody's to delete.
   const pending = (await authDb().collection("verification").find({}).toArray())
-    .filter((row) => !before.has(String(row._id)) && row.identifier !== "sign-in-mail-every-address")
+    .filter((row) => !before.has(String(row._id)))
     .map((row) => String(row.identifier));
   expect(pending.length, `the seeding left ${String(pending.length)} pending rows, so a case reads fewer than it means to`).toBe(7);
 

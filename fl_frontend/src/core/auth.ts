@@ -98,9 +98,6 @@ const CODE_SEND_PATH = "/email-otp/send-verification-otp";
 const FAILURE_ROW_PREFIX = "sign-in-attempt-";
 const MAIL_ROW_PREFIX = "sign-in-mail-";
 
-/** Every address's mails in one count, under the mail rows' prefix so the runbook's sweep of those reaches it. */
-const MAIL_TOTAL_IDENTIFIER = `${MAIL_ROW_PREFIX}every-address`;
-
 /** The library's own prefix for an outstanding deletion token's row, whose value is the account's user id. */
 const DELETE_TOKEN_ROW_PREFIX = "delete-account-";
 
@@ -109,10 +106,6 @@ const DELETE_USER_PATH = "/delete-user";
 
 /** The library's answer to a mailed link, which a capped request answers too (`better-auth/api :: deleteUser`). */
 const DELETION_LINK_SENT = "Verification email sent";
-
-// The per-address cap lets a flood grow with every member's address, and codes spending the
-// provider's quota stop every other mail the league sends. Set well above an hour of real sign-ins.
-const CODE_MAIL_TOTAL_LIMIT = 100;
 
 /** The refusal the route words as the address being locked, whatever code the request carried. */
 export const ADDRESS_ATTEMPTS_EXHAUSTED = "ADDRESS_ATTEMPTS_EXHAUSTED";
@@ -541,21 +534,6 @@ async function withinBound(context: BoundContext, identifier: string, limit: num
 }
 
 /**
- * Whether every address together has already been mailed the hour's total: a read alone, writing nothing,
- * so two sends racing for the hour's last mail both pass it.
- */
-async function mailTotalReached(context: BoundContext): Promise<boolean> {
-  const mailed = await context.adapter.count({
-    model: "verification",
-    where: [
-      { field: "identifier", value: MAIL_TOTAL_IDENTIFIER },
-      { field: "expiresAt", operator: "gt", value: new Date() },
-    ],
-  });
-  return mailed >= CODE_MAIL_TOTAL_LIMIT;
-}
-
-/**
  * Each code sign-in's own failure row, from the hook counting it to the hook settling it, keyed on the
  * body both are handed: the newest row may be a racing attempt's, whose own removal would find nothing.
  */
@@ -632,25 +610,15 @@ function asksForDeletionLink(body: unknown): boolean {
 }
 
 /**
- * Whether a deletion link would mail past its address's hour or every address's: counted on the code's own
- * rows, so one bound holds every mail sent at the person's own request.
+ * Whether a deletion link would mail past its address's hour: counted on the code's own rows, so one bound
+ * holds every mail sent at the person's own request.
  */
 async function deletionLinkCapped(context: BoundContext, email: string): Promise<boolean> {
-  const capped = (bound: "address" | "total"): true => {
-    logger.info("auth.deletion_link_capped", { bound: bound });
-    return true;
-  };
-
-  // In the code send's order: the total read first, writing nothing, then each count.
-  if (await mailTotalReached(context)) return capped("total");
-
   const perAddress = await boundIdentifier(MAIL_ROW_PREFIX, email, context.secret);
-  if ((await withinBound(context, perAddress, CODE_MAIL_LIMIT, CODE_MAIL_WINDOW_HOURS * HOUR_MS)) === null) return capped("address");
-  if ((await withinBound(context, MAIL_TOTAL_IDENTIFIER, CODE_MAIL_TOTAL_LIMIT, CODE_MAIL_WINDOW_HOURS * HOUR_MS)) === null) {
-    return capped("total");
-  }
+  if ((await withinBound(context, perAddress, CODE_MAIL_LIMIT, CODE_MAIL_WINDOW_HOURS * HOUR_MS)) !== null) return false;
 
-  return false;
+  logger.info("auth.deletion_link_capped");
+  return true;
 }
 
 /** The address a sign-in code is asked for, or `null` for a send of any other type. */
@@ -1075,13 +1043,6 @@ const authOptions = (origin: URL, client: MongoClient) =>
         // member from a stranger.
         const recipient = ctx.path === CODE_SEND_PATH ? codeSendAddress(body) : null;
 
-        // The total read ahead of the plugin as well, so a full hour voids no held code; writing nothing
-        // and naming nobody, it answers members and strangers alike. The counted row comes past the gate.
-        if (recipient !== null && (await mailTotalReached(ctx.context))) {
-          logger.warn("auth.code_mail_total_capped");
-          return ctx.json({ success: true });
-        }
-
         if (
           recipient !== null &&
           (await withinBound(
@@ -1212,7 +1173,7 @@ const authOptions = (origin: URL, client: MongoClient) =>
         // "reuse" moved a live code's expiry on every send, so a code asked for again every few minutes
         // never lapsed.
         resendStrategy: "rotate",
-        async sendVerificationOTP({ email, otp, type }, ctx) {
+        async sendVerificationOTP({ email, otp, type }) {
           // The one type this application asks for: every endpoint minting another is refused over
           // HTTP and never called in process.
           if (type !== "sign-in") return;
@@ -1220,17 +1181,6 @@ const authOptions = (origin: URL, client: MongoClient) =>
           // The refusal, whole: an address the gate refuses, for whatever reason, is mailed nothing
           // and this returns as though it had, so every branch is one answer.
           if ((await mayReceiveSignIn(email)) !== "admitted") return;
-
-          // Mails sent, past the gate: a count of requests would let invented addresses close sign-in
-          // for everyone. Its rows carry no address and no hash of one, so the aggregate tells nobody who
-          // is a member.
-          if (
-            ctx === undefined ||
-            (await withinBound(ctx.context, MAIL_TOTAL_IDENTIFIER, CODE_MAIL_TOTAL_LIMIT, CODE_MAIL_WINDOW_HOURS * HOUR_MS)) === null
-          ) {
-            logger.warn("auth.code_mail_total_capped");
-            return;
-          }
 
           // Awaited: the one caller a stranger reaches, `fl_frontend/src/features/auth/actions.ts :: handleSignIn`,
           // runs this whole send behind its response, and the library's own send route is closed (`DISABLED_PATHS`).

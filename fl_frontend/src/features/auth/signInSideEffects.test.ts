@@ -168,7 +168,6 @@ function kindsOf(identifiers: readonly string[], email: string): string[] {
   return identifiers
     .map((identifier) => {
       if (identifier === `sign-in-otp-${email}`) return "the code";
-      if (identifier === "sign-in-mail-every-address") return "every address's total";
       return identifier.startsWith("sign-in-mail-") ? "the address's count" : identifier;
     })
     .sort();
@@ -215,13 +214,10 @@ describe("what a sign-in leaves behind on the response", () => {
     expect(rejected.scheduled, "the rejected branch scheduled nothing, so the two are distinguishable by what they defer").toBe(1);
   });
 
-  /* Kinds rather than a count: a refused branch writing the every-address total in place of the
-     address's own row counts the same. The total names no address, so the one row the branches
-     differ by tells nobody anything. */
-  it("writes the code's row and the address's count behind the response on both branches, and the every-address total on the mailed one alone", () => {
+  it("writes the code's row and the address's count behind the response on both branches alike", () => {
     expect(granted.writtenWhileAnswering, "the caller waited on a store write").toBe(0);
     expect(rejected.writtenWhileAnswering).toBe(0);
-    expect(kindsOf(granted.writtenAfter, GRANTED)).toStrictEqual(["every address's total", "the address's count", "the code"]);
+    expect(kindsOf(granted.writtenAfter, GRANTED)).toStrictEqual(["the address's count", "the code"]);
     expect(
       kindsOf(rejected.writtenAfter, REJECTED),
       "the two branches differ in what the store gained about the address, which is an oracle",

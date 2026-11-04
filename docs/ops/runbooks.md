@@ -1679,15 +1679,9 @@ carries the address. Ask when they tried and read that window:
   hour, so this one was sent nothing. The five count every request,
   a stranger's and one the gate refused included, so an address can be capped with nothing mailed;
   retries during a backend outage spend a person's hour the same way.
-- `auth.deletion_link_capped`, an info line carrying `bound`: a signed-in person asked for an account
-  deletion link past their address's five mails of the hour, codes and links counted together
-  (`address`), or past every address's hundred (`total`), so nothing was minted or mailed and the
-  press read as sent. A link they already hold stands for its day.
-- `auth.code_mail_total_capped`: a hundred codes had been mailed across every
-  address inside the hour, so nobody was sent one; a code a
-  person already held still stands, bar a send racing the hundredth. Only admitted addresses count,
-  so a run of these is a flood over members' addresses or an evening outgrowing the figure; it lifts
-  within the hour, or at once by the sweep in §17.
+- `auth.deletion_link_capped`, an info line: a signed-in person asked for an account deletion link
+  past their address's five mails of the hour, codes and links counted together, so nothing was
+  minted or mailed and the press read as sent. A link they already hold stands for its day.
 - A stack that is not production mails nothing: the code's Postausgang row reads `held`,
   and the message is in its sink. On the local stack that is `.tmp-mail/`, which
   every `./scripts/ops/local.sh` start empties of what earlier runs filed, so a code there is this
@@ -1785,19 +1779,9 @@ out for one person:
   `sign-in-attempt-`. Every address then has its ten tries back, which is the price of an
   identifier nobody can compute by hand.
 
-The five-an-hour mail cap keeps rows of the same shape under
-`sign-in-mail-`, the every-address total among them as `sign-in-mail-every-address`;
-they lift within the hour. During a flood the total can be lifted sooner the same way, by deleting
-every row whose `identifier` starts with `sign-in-mail-`, which gives every address its hour back.
-
-**Twenty member addresses are enough to close code sign-in for everyone, and to close it again every
-hour.** Only mailed codes count toward the total, and a person's address is mailed up to five an
-hour, so anyone who knows twenty addresses the gate admits can ask for the hundredth code alone;
-while the total is full nobody is mailed a code, and a passkey still signs its holder in. `auth.code_mail_total_capped` lines
-that come back hour after hour, or soon after a sweep, are that case rather
-than a busy evening. The sweep above reopens code sign-in only until the requests come again, since
-it clears the per-address rows too; while it recurs, point the people who sign in by code at a
-passkey, and repeat the sweep when it closes again.
+The five-an-hour mail cap keeps rows of the same shape under `sign-in-mail-`; they lift within the
+hour. They can be lifted sooner the same way, by deleting every row whose `identifier` starts with
+`sign-in-mail-`, which gives every address its hour back.
 
 ## 18. The Node a checkout runs
 

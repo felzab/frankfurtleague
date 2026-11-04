@@ -2870,9 +2870,6 @@ describe("the failures one address may spend, across every code it is sent", () 
 });
 
 describe("the code mails one address may be sent in an hour", () => {
-  /* Written out rather than read from the module: the runbook's sweep matches rows by this spelling. */
-  const TOTAL_ROW = "sign-in-mail-every-address";
-
   it("mails nothing past the fifth, on the same answer as the first", async () => {
     const before = sent.length;
     const answers = [];
@@ -2889,7 +2886,7 @@ describe("the code mails one address may be sent in an hour", () => {
       await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
     }
 
-    const perAddress = store.verification.filter((row) => row.identifier.startsWith("sign-in-mail-") && row.identifier !== TOTAL_ROW);
+    const perAddress = store.verification.filter((row) => row.identifier.startsWith("sign-in-mail-"));
     expect(perAddress.length).toBe(5);
   });
 
@@ -2905,53 +2902,6 @@ describe("the code mails one address may be sent in an hour", () => {
     await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
 
     expect((await answerOf(ADMIN_EMAIL, fifth)).status, "the capped send voided the code the person holds").toBe(200);
-  });
-
-  it("mails no address past the hour's total, on the same answer as a mailed send", async () => {
-    const mailedAnswer = await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
-    const expiresAt = new Date(Date.now() + HOUR_MS);
-    for (let row = store.verification.filter((held) => held.identifier === TOTAL_ROW).length; row < 100; row += 1) {
-      store.verification.push({
-        id: `total-${String(row)}`,
-        identifier: TOTAL_ROW,
-        value: "counted",
-        expiresAt,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
-    }
-    const before = sent.length;
-
-    const held = lastMailedCode(sent, ADMIN_EMAIL);
-    const capped = await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
-
-    expect(sent.length, "a send past the total was mailed").toBe(before);
-    expect(capped).toStrictEqual(mailedAnswer);
-    // Capped ahead of the plugin, which would otherwise have replaced the code the person holds.
-    assert.ok(held !== null);
-    expect((await answerOf(ADMIN_EMAIL, held)).status, "the capped send voided the code the person holds").toBe(200);
-  });
-
-  /* Counted per request, invented addresses would close sign-in for everyone. */
-  it("counts mails sent against the hour's total, and no send the gate refuses", async () => {
-    await auth.api.sendVerificationOTP({ body: { email: STRANGER_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
-    expect(store.verification.filter((row) => row.identifier === TOTAL_ROW).length, "a send that mailed nothing spent the total").toBe(0);
-
-    await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
-    expect(store.verification.filter((row) => row.identifier === TOTAL_ROW).length).toBe(1);
-  });
-
-  /* Written for mails alone, so a row naming its address, or a keyed hash of it, would be the oracle
-     the per-address rows avoid by being written for every address. */
-  it("keeps every address out of the total's rows", async () => {
-    await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
-    const [total] = store.verification.filter((row) => row.identifier === TOTAL_ROW);
-    const keyed = store.verification.find((row) => row.identifier.startsWith("sign-in-mail-") && row.identifier !== TOTAL_ROW);
-    assert.ok(total !== undefined && keyed !== undefined, "no send was counted, so nothing below is compared");
-
-    const serialised = JSON.stringify(total);
-    assert.ok(!serialised.includes(ADMIN_EMAIL.split("@")[0] ?? ADMIN_EMAIL), "the total's row names the address");
-    assert.ok(!serialised.includes(keyed.identifier.slice("sign-in-mail-".length)), "the total's row carries the address's keyed hash");
   });
 });
 
@@ -3446,10 +3396,7 @@ async function seedAccount(email: string): Promise<{ cookie: string; userId: str
   const token = mailedToken(email);
   await requestAccountDeletion(headers);
 
-  // The aggregate count names no address, so it is nobody's to delete.
-  const pending = store.verification
-    .filter((held) => !before.has(held.id) && held.identifier !== "sign-in-mail-every-address")
-    .map((held) => held.identifier);
+  const pending = store.verification.filter((held) => !before.has(held.id)).map((held) => held.identifier);
   expect(pending.length, `the seeding left ${String(pending.length)} pending rows, so a case reads fewer than it means to`).toBe(7);
 
   return { cookie, userId: row.userId, pending, token };
@@ -3626,49 +3573,7 @@ describe("a person's own account deletion", () => {
     expect(sent.filter((entry) => entry.to === email).length, "the address was mailed past its hour's five").toBe(5);
     expect(tokens().length, "a capped request minted a token row").toBe(5);
     expect(new Set(answers.map((answer) => JSON.stringify(answer))).size, "a capped request answers apart from a mailed one").toStrictEqual(1);
-    expect(informed.filter((line) => line.message === "auth.deletion_link_capped").map((line) => line.meta.bound)).toStrictEqual(
-      Array.from({ length: 45 }, () => "address"),
-    );
-  });
-
-  it("mails no link past every address's hundred mails of the hour, on the same answer, spending none of the address's five", async () => {
-    const email = "loeschlink-gesamt@example.org";
-    const { cookie, row } = await signIn(email);
-    const headers = new Headers({ ...ORIGIN, cookie });
-    const mailed = await requestAccountDeletion(headers);
-    const expiresAt = new Date(Date.now() + HOUR_MS);
-    for (let held = store.verification.filter((each) => each.identifier === "sign-in-mail-every-address").length; held < 100; held += 1) {
-      store.verification.push({
-        id: `gesamt-${String(held)}`,
-        identifier: "sign-in-mail-every-address",
-        value: "counted",
-        expiresAt,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
-    }
-    const before = sent.length;
-    const mailRows = () => store.verification.filter((held) => held.identifier.startsWith("sign-in-mail-")).length;
-    const counted = mailRows();
-    informed.length = 0;
-
-    const capped = await requestAccountDeletion(headers);
-
-    expect(sent.length, "a link past the total was mailed").toBe(before);
-    expect(capped).toStrictEqual(mailed);
-    expect(store.verification.filter((held) => held.identifier.startsWith("delete-account-") && held.value === row.userId).length).toBe(1);
-    expect(mailRows(), "a link the full hour held back spent one of the address's five").toBe(counted);
-    expect(informed.filter((line) => line.message === "auth.deletion_link_capped").map((line) => line.meta.bound)).toStrictEqual(["total"]);
-  });
-
-  it("counts a mailed link on every address's hundred", async () => {
-    const { cookie } = await signIn("gesamt-zaehlt@example.org");
-    const total = () => store.verification.filter((held) => held.identifier === "sign-in-mail-every-address").length;
-    const before = total();
-
-    await requestAccountDeletion(new Headers({ ...ORIGIN, cookie }));
-
-    expect(total(), "a mailed link left the hour's total uncounted").toBe(before + 1);
+    expect(informed.filter((line) => line.message === "auth.deletion_link_capped").length).toBe(45);
   });
 
   it("holds a sign-in code back after five deletion links, one row counting both", async () => {
@@ -3726,7 +3631,7 @@ describe("a person's own account deletion", () => {
 
     expect(sent.filter((entry) => entry.to === email).length, "a link was mailed past five codes").toBe(5);
     expect(store.verification.filter((held) => held.identifier.startsWith("delete-account-") && held.value === row.userId).length).toBe(0);
-    expect(informed.filter((line) => line.message === "auth.deletion_link_capped").map((line) => line.meta.bound)).toStrictEqual(["address"]);
+    expect(informed.filter((line) => line.message === "auth.deletion_link_capped").length).toBe(1);
   });
 
   /* The library swallows a throw from its sender and answers the press as sent whatever happened, so what

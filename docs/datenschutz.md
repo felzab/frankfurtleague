@@ -186,19 +186,15 @@ Every ruling below is the sign-up flow as it stands for the next season.
   - the ban refusing an administrator's correction, reseat or re-send of an application's contact
     seat (`bewerbung_kontakt_barred`), which falls on that administrator's write in the same way.
 
-  **Five refusals a person's own entry meets are not named among them.** Every box that stores an
+  **Four refusals a person's own entry meets are not named among them.** Every box that stores an
   address refuses one whose part before the @ is not plain ASCII
   (`fl_frontend/src/shared/schemas.ts :: KontaktEmailSchema`,
-  `fl_backend/app/shared/folding.py :: league_address`). The code sign-in refuses four more:
+  `fl_backend/app/shared/folding.py :: league_address`). The code sign-in refuses three more:
   - an address that failed ten codes in a row is refused the next, the right one included, until the
     oldest of those failures is a day old or a sign-in clears the count, and the refusal says so and
     offers a passkey;
   - an address that asked for five codes in the hour is mailed no further one that hour, answered as
     a mailed code is;
-  - once every address together has been mailed the hour's total of codes, no address is mailed one
-    until the oldest of those mails is an hour old, answered the same way: a limit of the service
-    rather than a judgement about the person, keeping a flood of codes from spending the mail
-    provider's quota that every other message of the league's needs;
   - an address holding neither a grant, nor a record of its own, nor only records awaiting its
     confirmation is mailed no code at all, answered the same way: the gate's `holds-nothing` verdict
     (`fl_frontend/src/core/signInGate.ts :: mayReceiveSignIn`). A record of its own is one its person
