@@ -12,7 +12,7 @@ from typing import Any, Final, Literal, get_args
 
 from bson import ObjectId
 
-from app.api.bewerbungen.services import bewerbung_schule, build_eigene_bewerbung_filter, mindestalter_for, saison_schule
+from app.api.bewerbungen.services import bewerbung_schule, build_eigene_bewerbung_filter
 from app.api.einwilligung.services import medien_angeboten
 from app.api.identity.schemas import FLSubjectSeat
 from app.api.identity.services import eigene_sitze, holds_a_seat, ist_eigene_registrierung, saison_status_lookup
@@ -25,7 +25,7 @@ from app.core.collections import Collection as DbCollection
 from app.core.exceptions import WriteRefusal
 from app.core.journal import JournalLine
 from app.shared.einwilligung_nachweis import CHOICES, FLEinwilligungChoice, TextVersions, compose_choices, is_given, nachweis_stand_of
-from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS, REGISTRIERUNG_MIN_AGE_YEARS, SCHIEDSRICHTER_MIN_AGE_YEARS
+from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS
 from app.shared.schemas.einwilligung import PressTextVersions, stale_grants
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 
@@ -192,27 +192,15 @@ def find_nachweis_stand_refusal(*, erwartet: Mapping[str, Any], bloecke: Sequenc
 # withdrawal staying open on every record a consent stands on.
 
 
-def kontext_zeile(row: Mapping[str, Any]) -> Mapping[str, Any] | None:
-    """The squad row naming a pupil record's team and season: the newest season's, live or ausgetragen.
-
-    Nothing stores the season a record was confirmed for; each admission rewrites the record, so only an
-    administrator's later entry is misread.
-    """
-
-    kader = row.get("kader") or []
-
-    return kader[0] if kader else None
-
-
 def kontext_teams_lookup(local_field: str) -> Mapping[str, Any]:
-    """The clubs a record's `local_field` names, read today as `teams`: the two names a confirmation page fills `{team}` and `{schule}` from."""
+    """The clubs a record's `local_field` names, read today as `teams`: the name a registration's and an application's entry shows."""
 
     return {
         "$lookup": {
             "from": DbCollection.TEAMS,
             "localField": local_field,
             "foreignField": "_id",
-            "pipeline": [{"$project": {"name": 1, "full_name": 1}}],
+            "pipeline": [{"$project": {"name": 1}}],
             "as": "teams",
         }
     }
@@ -230,10 +218,8 @@ def compose_spieler_self(row: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
-def compose_spieler_account(row: Mapping[str, Any], *, givable: bool, today: str, team: Mapping[str, Any] | None) -> dict[str, Any]:
-    """The pupil's account entry: its stored data and its consent. `team` is `kontext_zeile`'s club, as it stands today."""
-
-    zeile = kontext_zeile(row)
+def compose_spieler_account(row: Mapping[str, Any], *, givable: bool, today: str) -> dict[str, Any]:
+    """The pupil's account entry: its stored data and its consent."""
 
     return {
         **compose_spieler_self(row),
@@ -242,13 +228,7 @@ def compose_spieler_account(row: Mapping[str, Any], *, givable: bool, today: str
         "nachweis_stand": nachweis_stand_of(bloecke=[row["einwilligung"]]),
         "givable": givable,
         "medien_offered": medien_angeboten(geburtsdatum=row.get("geburtsdatum"), today=today),
-        "minimum_age": REGISTRIERUNG_MIN_AGE_YEARS,
         "medien_minimum_age": MEDIEN_MIN_AGE_YEARS,
-        "context": {
-            "team": None if team is None else team.get("name"),
-            "schule": None if team is None else team.get("full_name"),
-            "saison": None if zeile is None else zeile["saison_id"],
-        },
     }
 
 
@@ -275,7 +255,6 @@ def compose_schiedsrichter_account(row: Mapping[str, Any], *, givable: bool, tod
         "nachweis_stand": nachweis_stand_of(bloecke=[row["einwilligung"]]),
         "givable": givable,
         "medien_offered": medien_angeboten(geburtsdatum=row.get("geburtsdatum"), today=today),
-        "minimum_age": SCHIEDSRICHTER_MIN_AGE_YEARS,
         "medien_minimum_age": MEDIEN_MIN_AGE_YEARS,
     }
 
@@ -283,8 +262,8 @@ def compose_schiedsrichter_account(row: Mapping[str, Any], *, givable: bool, tod
 def build_self_seat_pipeline(identifier: str) -> list[Mapping[str, Any]]:
     """Every season row one of whose seats names the address, `app/api/identity/services.py :: eigene_sitze` judging each slot.
 
-    No `austritt` term: a withdrawal reaches a withdrawn team's seat too. Each row carries its season's status, its club and
-    the admitted application that seated the club, so the page reads none of them apart.
+    No `austritt` term: a withdrawal reaches a withdrawn team's seat too. Each row carries its season's status, so the page
+    reads none apart.
     """
 
     return [
@@ -296,53 +275,12 @@ def build_self_seat_pipeline(identifier: str) -> list[Mapping[str, Any]]:
                 "name": 1,
                 # Read by the Funktionen the page judges a grant by, which come from these rows.
                 "austritt": 1,
-                **{f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_ROLLEN for field in ("vorname", "email", "geburtsdatum", "einwilligung")},
-                **{f"confirmations.{slot}.sent_at": 1 for slot in KONTAKT_ROLLEN},
+                **{f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_ROLLEN for field in ("email", "geburtsdatum", "einwilligung")},
             }
         },
         # Read by the same Funktionen.
         saison_status_lookup(),
-        kontext_teams_lookup("team_id"),
-        {
-            "$lookup": {
-                "from": DbCollection.BEWERBUNGEN,
-                "localField": "team_id",
-                "foreignField": "team_id",
-                "let": {"saison_id": "$saison_id"},
-                "pipeline": [
-                    {"$match": {"status": "accepted", "$expr": {"$eq": ["$saison_id", "$$saison_id"]}}},
-                    {"$project": {"team_id": 1, "saison_id": 1, "schule": 1}},
-                ],
-                "as": "bewerbungen",
-            }
-        },
     ]
-
-
-def auf_der_saison_bestaetigt(row: Mapping[str, Any], slot: str) -> bool:
-    """Whether this seat's person answered a link the season row minted, rather than the application's.
-
-    An admitted application's seats come over with no link: the row mints one only for a person a save newly writes.
-    """
-
-    entry = (row.get("confirmations") or {}).get(slot)
-
-    return isinstance(entry, Mapping) and isinstance(entry.get("sent_at"), str)
-
-
-def _sitz_schule(
-    row: Mapping[str, Any], slot: str, *, teams: Mapping[Any, Mapping[str, Any]], bewerbungen: Mapping[tuple[Any, str], Mapping[str, Any]]
-) -> str | None:
-    """`{schule}` as the page this seat was confirmed on filled it; `None` where no stored application seated the club."""
-
-    if auf_der_saison_bestaetigt(row, slot):
-        return saison_schule(row)
-
-    bewerbung = bewerbungen.get((row["team_id"], row["saison_id"]))
-    if bewerbung is None:
-        return None
-
-    return bewerbung_schule(bewerbung_raw=bewerbung, club_name=(teams.get(row["team_id"]) or {}).get("name"))
 
 
 def sitz_wahlen_der_zeile(bloecke: Sequence[Mapping[str, Any]]) -> dict[FLEinwilligungChoice, Any]:
@@ -376,40 +314,12 @@ def _sitz_wahlen_gehalten(held: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
     return {**sitz_wahlen_der_zeile(bloecke), "nachweis_stand": nachweis_stand_of(bloecke=bloecke)}
 
 
-def bestaetigungsgruppen(kontakte: Mapping[str, Any], rollen: Sequence[str]) -> list[list[str]]:
-    """The held slots grouped by the confirmation each answered, one group per day, in `rollen` order.
-
-    A seat's link is answered on its own, so one person's two seats may stand on two days and two floors.
-    """
-
-    gruppen: dict[Any, list[str]] = {}
-    for slot in rollen:
-        gruppen.setdefault(kontakte[slot]["einwilligung"].get("confirmed_at"), []).append(slot)
-
-    return list(gruppen.values())
-
-
-def _bestaetigt(kontakte: Mapping[str, Any], gruppe: Sequence[str], *, team: str, schule: str | None, saison: str) -> dict[str, Any]:
-    """One confirmation a person gave on a row: its roles, its day, the floor its page named and what it named."""
-
-    block = kontakte[gruppe[0]]["einwilligung"]
-
-    return {
-        "rollen": list(gruppe),
-        "confirmed_at": block.get("confirmed_at"),
-        "minimum_age": mindestalter_for(gruppe),
-        "context": {"vorname": kontakte[gruppe[0]].get("vorname"), "team": team, "schule": schule, "saison": saison},
-    }
-
-
 def compose_sitze_self(
     rows: Sequence[Mapping[str, Any]],
     identifier: str,
     *,
     sitze_mit_panel: Sequence[FLSubjectSeat],
     today: str,
-    teams: Mapping[Any, Mapping[str, Any]],
-    bewerbungen: Mapping[tuple[Any, str], Mapping[str, Any]],
 ) -> list[dict[str, Any]]:
     """One entry per season row on which this address holds a confirmed seat.
 
@@ -433,16 +343,6 @@ def compose_sitze_self(
                 "medien_minimum_age": MEDIEN_MIN_AGE_YEARS,
                 "medien_offered": all(medien_angeboten(geburtsdatum=seat.get("geburtsdatum"), today=today) for seat in held),
                 "givable": holds_a_seat(sitze_mit_panel, team_id=row["team_id"], saison_id=row["saison_id"]),
-                "confirmed": [
-                    _bestaetigt(
-                        row["kontakte"],
-                        gruppe,
-                        team=row["name"],
-                        schule=_sitz_schule(row, gruppe[0], teams=teams, bewerbungen=bewerbungen),
-                        saison=row["saison_id"],
-                    )
-                    for gruppe in bestaetigungsgruppen(row["kontakte"], rollen)
-                ],
             }
         )
 
@@ -463,7 +363,7 @@ def build_self_bewerbung_pipeline(identifier: str) -> list[Mapping[str, Any]]:
                 "saison_id": 1,
                 "team_id": 1,
                 "schule.team_name": 1,
-                **{f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_ROLLEN for field in ("vorname", "email", "einwilligung")},
+                **{f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_ROLLEN for field in ("email", "einwilligung")},
             }
         },
         kontext_teams_lookup("team_id"),
@@ -490,11 +390,6 @@ def compose_bewerbungssitze_self(
                 "rollen": rollen,
                 **_sitz_wahlen_gehalten(held),
                 "medien_minimum_age": MEDIEN_MIN_AGE_YEARS,
-                # `{team}` is the school too: an application names no season row.
-                "confirmed": [
-                    _bestaetigt(row["kontakte"], gruppe, team=schule, schule=schule, saison=row["saison_id"])
-                    for gruppe in bestaetigungsgruppen(row["kontakte"], rollen)
-                ],
             }
         )
 
@@ -550,14 +445,8 @@ def compose_registrierungen_self(
                 "saison_id": row["saison_id"],
                 "umfang": block.get("umfang"),
                 "medien": is_given("medien", block.get("medien")) if traegt_wahlen(block) else None,
-                "minimum_age": REGISTRIERUNG_MIN_AGE_YEARS,
                 "medien_minimum_age": MEDIEN_MIN_AGE_YEARS,
                 "nachweis_stand": nachweis_stand_of(bloecke=[block]),
-                "context": {
-                    "team": None if team is None else team.get("name"),
-                    "schule": None if team is None else team.get("full_name"),
-                    "saison": row["saison_id"],
-                },
                 **{field: row.get(field) for field in ("vorname", "nachname", "geburtsdatum", "nummer", "position", "stufe")},
             }
         )
@@ -603,7 +492,7 @@ def build_account_pipeline(identifier: str) -> list[Mapping[str, Any]]:
     """
 
     return [
-        *_arm("spieler", [*build_self_pupil_pipeline(identifier), kontext_teams_lookup("kader.team_id")], order=SELF_PUPIL_ORDER),
+        *_arm("spieler", build_self_pupil_pipeline(identifier), order=SELF_PUPIL_ORDER),
         {
             "$unionWith": {
                 "coll": DbCollection.SCHIEDSRICHTER,

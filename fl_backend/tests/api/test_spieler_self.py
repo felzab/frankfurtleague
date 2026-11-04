@@ -474,18 +474,3 @@ class TestAStalePage:
         assert (withdrawn.status_code, granted.status_code) == (200, 200), granted.text
         assert (stale.status_code, stale.json()["error_code"]) == (409, Code.CHOICES_STALE)
         assert after == before
-
-
-@pytest.mark.db
-class TestTheWordsContext:
-    """The agreed words render with what the record names today: the club as it is called now, never the season row's copy."""
-
-    def test_the_newest_seasons_squad_row_names_the_team_school_and_season(self, mongo_replica_set_url: str):
-        kontext = served(mongo_replica_set_url, _read(IDENTIFIER, path=KONTO_PATH)).json()["spieler"]["context"]
-
-        assert kontext == {"team": CLUB_NAME_A_NOW, "schule": f"{CLUB_NAME_A_NOW}-Schule", "saison": ACTIVE_SAISON}
-
-    def test_a_record_with_no_squad_row_names_nothing(self, mongo_replica_set_url: str):
-        kontext = served(mongo_replica_set_url, _read(YOUNG, path=KONTO_PATH)).json()["spieler"]["context"]
-
-        assert kontext == {"team": None, "schule": None, "saison": None}

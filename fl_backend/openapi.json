@@ -509,14 +509,6 @@
             "title": "Bewerbung Id",
             "type": "string"
           },
-          "confirmed": {
-            "items": {
-              "$ref": "#/components/schemas/FLSeatConfirmed"
-            },
-            "minItems": 1,
-            "title": "Confirmed",
-            "type": "array"
-          },
           "medien": {
             "title": "Medien",
             "type": "boolean"
@@ -557,7 +549,6 @@
           "umfang",
           "medien",
           "nachweis_stand",
-          "confirmed",
           "medien_minimum_age"
         ],
         "title": "FLAccountBewerbungSeatEinwilligung",
@@ -871,9 +862,6 @@
       "FLAccountRegistrierungEinwilligung": {
         "description": "One pending registration its pupil confirmed: its choices to withdraw, and what it stores.",
         "properties": {
-          "context": {
-            "$ref": "#/components/schemas/FLSpielerContext"
-          },
           "geburtsdatum": {
             "anyOf": [
               {
@@ -900,10 +888,6 @@
           "medien_minimum_age": {
             "exclusiveMinimum": 0.0,
             "title": "Medien Minimum Age",
-            "type": "integer"
-          },
-          "minimum_age": {
-            "title": "Minimum Age",
             "type": "integer"
           },
           "nachname": {
@@ -992,9 +976,7 @@
           "umfang",
           "medien",
           "nachweis_stand",
-          "minimum_age",
           "medien_minimum_age",
-          "context",
           "vorname",
           "nachname",
           "geburtsdatum",
@@ -1055,10 +1037,6 @@
             "title": "Medien Offered",
             "type": "boolean"
           },
-          "minimum_age": {
-            "title": "Minimum Age",
-            "type": "integer"
-          },
           "nachweis_stand": {
             "$ref": "#/components/schemas/FLEinwilligungStand"
           },
@@ -1096,7 +1074,6 @@
           "nachweis_stand",
           "givable",
           "medien_offered",
-          "minimum_age",
           "medien_minimum_age"
         ],
         "title": "FLAccountSchiedsrichterEinwilligung",
@@ -1105,14 +1082,6 @@
       "FLAccountSeatEinwilligung": {
         "description": "One team season on which the address holds a confirmed contact seat, with its WhatsApp and media choices.\n\nPer season row and not per slot: one person holding two of a row's slots answers one choice for both.",
         "properties": {
-          "confirmed": {
-            "items": {
-              "$ref": "#/components/schemas/FLSeatConfirmed"
-            },
-            "minItems": 1,
-            "title": "Confirmed",
-            "type": "array"
-          },
           "givable": {
             "title": "Givable",
             "type": "boolean"
@@ -1168,7 +1137,6 @@
           "nachweis_stand",
           "medien_offered",
           "givable",
-          "confirmed",
           "medien_minimum_age"
         ],
         "title": "FLAccountSeatEinwilligung",
@@ -1177,9 +1145,6 @@
       "FLAccountSpielerEinwilligung": {
         "description": "The pupil's record on the account page: its stored data and the consent the page moves.",
         "properties": {
-          "context": {
-            "$ref": "#/components/schemas/FLSpielerContext"
-          },
           "einwilligung": {
             "$ref": "#/components/schemas/FLEinwilligung"
           },
@@ -1220,10 +1185,6 @@
             "title": "Medien Offered",
             "type": "boolean"
           },
-          "minimum_age": {
-            "title": "Minimum Age",
-            "type": "integer"
-          },
           "nachname": {
             "anyOf": [
               {
@@ -1260,9 +1221,7 @@
           "nachweis_stand",
           "givable",
           "medien_offered",
-          "minimum_age",
-          "medien_minimum_age",
-          "context"
+          "medien_minimum_age"
         ],
         "title": "FLAccountSpielerEinwilligung",
         "type": "object"
@@ -12472,89 +12431,6 @@
         ],
         "type": "string"
       },
-      "FLSeatConfirmed": {
-        "description": "One confirmation a person gave on a row: the seats it answered, its day and the floor its page named.",
-        "properties": {
-          "confirmed_at": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Confirmed At"
-          },
-          "context": {
-            "$ref": "#/components/schemas/FLSeatContext"
-          },
-          "minimum_age": {
-            "title": "Minimum Age",
-            "type": "integer"
-          },
-          "rollen": {
-            "items": {
-              "$ref": "#/components/schemas/FLKontaktRolle"
-            },
-            "minItems": 1,
-            "title": "Rollen",
-            "type": "array"
-          }
-        },
-        "required": [
-          "rollen",
-          "confirmed_at",
-          "minimum_age",
-          "context"
-        ],
-        "title": "FLSeatConfirmed",
-        "type": "object"
-      },
-      "FLSeatContext": {
-        "description": "What the contact confirmation page's slots name for this seat today.",
-        "properties": {
-          "saison": {
-            "title": "Saison",
-            "type": "string"
-          },
-          "schule": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Schule"
-          },
-          "team": {
-            "title": "Team",
-            "type": "string"
-          },
-          "vorname": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Vorname"
-          }
-        },
-        "required": [
-          "vorname",
-          "team",
-          "schule",
-          "saison"
-        ],
-        "title": "FLSeatContext",
-        "type": "object"
-      },
       "FLSeatEinwilligungPayload": {
         "additionalProperties": false,
         "description": "A seat holder's own two choices for every seat they hold on one row, under any label their kind cites.\n\nBoth choices on every press: a page that sent one alone would leave the other judged by nothing.",
@@ -16070,51 +15946,6 @@
         "title": "FLSpielerAdminSingleResponse",
         "type": "object"
       },
-      "FLSpielerContext": {
-        "description": "What the pupil confirmation page's slots name for this record today, so its agreed words render whole.\n\nNull where no squad row names a team and season; the words then render without them.",
-        "properties": {
-          "saison": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Saison"
-          },
-          "schule": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Schule"
-          },
-          "team": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Team"
-          }
-        },
-        "required": [
-          "team",
-          "schule",
-          "saison"
-        ],
-        "title": "FLSpielerContext",
-        "type": "object"
-      },
       "FLSpielerMembership": {
         "description": "One squad row as seen from its player.\n\nCarries `inactive_since`, which the team junction does not: a player leaves a squad mid-season,\nwhere a team never leaves a season at all.",
         "properties": {
@@ -18407,7 +18238,7 @@
     },
     "/api/v0/account/einwilligungen": {
       "get": {
-        "description": "Answer every confirmed consent record the signed-in address holds, its pupil, referee and contact-seat records alike.\n\nThe seats come one entry per team season on which the address holds a confirmed seat, however many of its slots;\n`bewerbungen` one per PENDING application on which it does, whose two choices the account page may only withdraw;\n`registrierungen` one per pending registration its pupil confirmed, withdraw-only alike until the admission; a\nreturning pupil's asked no choice, so it serves its stored data with both choices null and offers nothing to press.\n\nPERSON TIER, for the account page, which every signed-in person reaches: an address holding nothing is answered\n`spieler: null` and four empty lists, never refused. A retired record, a past season's seat and a withdrawn team's\nseat are served too, a withdrawal staying open wherever a consent stands; `context` carries what the record's\nconfirmation page filled its words with, as those records stand today; `givable` says whether a grant is\nadmitted, `medien_offered` whether the media consent may be switched on. A record awaiting its person's\nconfirmation is not served: there is nothing on it yet to change.",
+        "description": "Answer every confirmed consent record the signed-in address holds, its pupil, referee and contact-seat records alike.\n\nThe seats come one entry per team season on which the address holds a confirmed seat, however many of its slots;\n`bewerbungen` one per PENDING application on which it does, whose two choices the account page may only withdraw;\n`registrierungen` one per pending registration its pupil confirmed, withdraw-only alike until the admission; a\nreturning pupil's asked no choice, so it serves its stored data with both choices null and offers nothing to press.\n\nPERSON TIER, for the account page, which every signed-in person reaches: an address holding nothing is answered\n`spieler: null` and four empty lists, never refused. A retired record, a past season's seat and a withdrawn team's\nseat are served too, a withdrawal staying open wherever a consent stands; `givable` says whether a grant is\nadmitted, `medien_offered` whether the media consent may be switched on. A record awaiting its person's\nconfirmation is not served: there is nothing on it yet to change.",
         "operationId": "account_get_einwilligungen",
         "responses": {
           "200": {

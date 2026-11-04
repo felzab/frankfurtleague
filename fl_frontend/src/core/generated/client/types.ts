@@ -327,13 +327,13 @@ export interface FLAccountAddressChangeResponse {
 }
 
 /**
- * What the contact confirmation page's slots name for this seat today.
+ * Each choice's stand where the account page was served, null where the record carried no evidence for it.
+ *
+ * A consent PATCH's precondition, echoed back as served, never a secret.
  */
-export interface FLSeatContext {
-  saison: string;
-  schule: string | null;
-  team: string;
-  vorname: string | null;
+export interface FLEinwilligungStand {
+  medien: string | null;
+  umfang: string | null;
 }
 
 export type FLKontaktRolle = (typeof FLKontaktRolle)[keyof typeof FLKontaktRolle];
@@ -343,27 +343,6 @@ export const FLKontaktRolle = {
   ansprechperson: "ansprechperson",
   stellvertretung: "stellvertretung",
 } as const;
-
-/**
- * One confirmation a person gave on a row: the seats it answered, its day and the floor its page named.
- */
-export interface FLSeatConfirmed {
-  confirmed_at: string | null;
-  context: FLSeatContext;
-  minimum_age: number;
-  /** @minItems 1 */
-  rollen: FLKontaktRolle[];
-}
-
-/**
- * Each choice's stand where the account page was served, null where the record carried no evidence for it.
- *
- * A consent PATCH's precondition, echoed back as served, never a secret.
- */
-export interface FLEinwilligungStand {
-  medien: string | null;
-  umfang: string | null;
-}
 
 export type FLKontaktKenntnisnahmeUmfang = (typeof FLKontaktKenntnisnahmeUmfang)[keyof typeof FLKontaktKenntnisnahmeUmfang];
 
@@ -380,8 +359,6 @@ export const FLKontaktKenntnisnahmeUmfang = {
 export interface FLAccountBewerbungSeatEinwilligung {
   /** @pattern ^[0-9a-fA-F]{24}$ */
   bewerbung_id: string;
-  /** @minItems 1 */
-  confirmed: FLSeatConfirmed[];
   medien: boolean;
   /** @exclusiveMinimum 0 */
   medien_minimum_age: number;
@@ -427,17 +404,6 @@ export interface FLAccountEinwilligungPayload {
   umfang: FLEinwilligungUmfang;
 }
 
-/**
- * What the pupil confirmation page's slots name for this record today, so its agreed words render whole.
- *
- * Null where no squad row names a team and season; the words then render without them.
- */
-export interface FLSpielerContext {
-  saison: string | null;
-  schule: string | null;
-  team: string | null;
-}
-
 export type FLSpielerPosition = (typeof FLSpielerPosition)[keyof typeof FLSpielerPosition];
 
 export const FLSpielerPosition = {
@@ -462,12 +428,10 @@ export const FLSpielerStufe = {
  * One pending registration its pupil confirmed: its choices to withdraw, and what it stores.
  */
 export interface FLAccountRegistrierungEinwilligung {
-  context: FLSpielerContext;
   geburtsdatum: string | null;
   medien: boolean | null;
   /** @exclusiveMinimum 0 */
   medien_minimum_age: number;
-  minimum_age: number;
   nachname: string;
   nachweis_stand: FLEinwilligungStand;
   nummer: string | null;
@@ -549,7 +513,6 @@ export interface FLAccountSchiedsrichterEinwilligung {
   /** @exclusiveMinimum 0 */
   medien_minimum_age: number;
   medien_offered: boolean;
-  minimum_age: number;
   nachweis_stand: FLEinwilligungStand;
   /** @minLength 1 */
   name: string;
@@ -564,8 +527,6 @@ export interface FLAccountSchiedsrichterEinwilligung {
  * Per season row and not per slot: one person holding two of a row's slots answers one choice for both.
  */
 export interface FLAccountSeatEinwilligung {
-  /** @minItems 1 */
-  confirmed: FLSeatConfirmed[];
   givable: boolean;
   medien: boolean;
   /** @exclusiveMinimum 0 */
@@ -608,7 +569,6 @@ export interface FLSpielerSelfKaderRow {
  * The pupil's record on the account page: its stored data and the consent the page moves.
  */
 export interface FLAccountSpielerEinwilligung {
-  context: FLSpielerContext;
   einwilligung: FLEinwilligung;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   geburtsdatum: string;
@@ -618,7 +578,6 @@ export interface FLAccountSpielerEinwilligung {
   /** @exclusiveMinimum 0 */
   medien_minimum_age: number;
   medien_offered: boolean;
-  minimum_age: number;
   nachname: string | null;
   nachweis_stand: FLEinwilligungStand;
   /** @pattern ^[0-9a-fA-F]{24}$ */
