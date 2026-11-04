@@ -2,12 +2,12 @@
 
 import { CheckboxButton, CheckboxField } from "react-aria-components/Checkbox";
 
+import { textOf } from "@/core/copy";
+
 import { MessageLine, RequiredMark } from "./FieldParts";
 import { toggleBox, toggleField, toggleLine, toggleRow } from "./fieldStyles";
 import { useDisabled } from "./formClosed";
 import { Icon } from "./Icon";
-
-import { textOf } from "@/core/copy";
 
 import type { Copy, Words } from "@/core/copy";
 

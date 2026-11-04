@@ -1,8 +1,8 @@
 // Redesign: goes with its last importer.
-import type { getKontoSession } from "@/core/auth/guards";
 import { isFreshlySignedIn } from "@/core/auth/sessionStamps";
 import { ENROLMENT_WINDOW_MS, isWithinEnrolmentWindow, STEP_UP_WINDOW_MS } from "@/core/sessionLifetimes";
 
+import type { getKontoSession } from "@/core/auth/guards";
 import type { ConfirmedUntil } from "@/shared/hooks/useConfirmationWindows";
 
 /** The signed-in holder of the account page, in either lane; never the row's `token`. */
