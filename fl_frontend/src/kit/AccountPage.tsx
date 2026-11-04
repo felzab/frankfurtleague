@@ -15,9 +15,22 @@ import type { Copy } from "@/core/copy";
 import type { Route } from "next";
 import type { ReactNode } from "react";
 import type { IconName } from "./Icon";
+import type { SkeletonShape } from "./Skeleton";
 
 /** Konto's pages, by their routes: its list, and the four the list and the rail lead to. */
 type AccountRoute = "account" | "accountSignIn" | "accountSecurity" | "accountAppearance" | "accountEntries";
+
+/**
+ * The skeleton each page waits in, shaped like its final box: the list's one box of rows, Darstellung's one row-high
+ * box, and the boxes with a footer for the rest.
+ */
+const WAIT: Readonly<Record<AccountRoute, SkeletonShape>> = {
+  account: "list",
+  accountSignIn: "sections",
+  accountSecurity: "sections",
+  accountAppearance: "box",
+  accountEntries: "sections",
+};
 
 /**
  * A Konto page: its title in the strip and its boxes one under another in the 760-px column, each an `AccountBox`.
@@ -30,7 +43,7 @@ export function AccountPage({ route, children }: { route: AccountRoute; children
       scope="area"
       title={{ route }}>
       <div className={formColumn()}>
-        <PageWait fallback={<Skeleton shape="sections" />}>{children}</PageWait>
+        <PageWait fallback={<Skeleton shape={WAIT[route]} />}>{children}</PageWait>
       </div>
     </RailPage>
   );

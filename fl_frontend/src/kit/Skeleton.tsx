@@ -5,26 +5,30 @@ import { tv } from "./tv";
 
 /**
  * The final boxes a template waits for: a table's rows, the match cards a Spielplan sets two a row, a read page's
- * facts, an editor's sections, the school tiles Teams sets four a row.
+ * facts, an editor's sections, the school tiles Teams sets four a row, Konto's list of its pages, and the one
+ * row-high box of a Konto page holding a control that acts at once.
  */
-export type SkeletonShape = "table" | "cards" | "facts" | "sections" | "tiles";
+export type SkeletonShape = "table" | "cards" | "facts" | "sections" | "tiles" | "list" | "box";
 
 /** How many rows or boxes each shape draws. */
-const ROWS: Readonly<Record<SkeletonShape, number>> = { table: 8, cards: 6, facts: 4, sections: 2, tiles: 8 };
+const ROWS: Readonly<Record<SkeletonShape, number>> = { table: 8, cards: 6, facts: 4, sections: 2, tiles: 8, list: 4, box: 1 };
 
 /**
  * The shapes whose rows are boxes of their own, laid out as their final boxes are: the sections one under another,
- * the match cards two a row from `lg`, the tiles four a row and two on a phone. Every other shape is one box of rows.
+ * the match cards two a row from `lg`, the tiles four a row and two on a phone, the one box alone. Every other shape
+ * is one box of rows.
  */
 const GRID: Partial<Record<SkeletonShape, string>> = {
   sections: "grid gap-6",
   cards: "grid gap-3 lg:grid-cols-2",
   tiles: "grid grid-cols-2 gap-2 lg:grid-cols-4",
+  box: "grid",
 };
 
 /**
  * Each shape's bars, by their widths, where the final row's columns will stand: a table's rank, its name and
- * three figures at the row's end; a match card's date line over its two sides; a fact's label over its value; a section's title; a tile's plaque and its name.
+ * three figures at the row's end; a match card's date line over its two sides; a fact's label over its value; a
+ * section's title; a tile's plaque and its name; a list row's glyph and its name; the one box's title.
  */
 const BARS: Readonly<Record<SkeletonShape, readonly string[]>> = {
   table: ["w-6", "w-1/3", "ms-auto w-6", "w-6", "w-6"],
@@ -32,6 +36,8 @@ const BARS: Readonly<Record<SkeletonShape, readonly string[]>> = {
   facts: ["h-3 w-1/4", "w-1/2"],
   sections: ["w-1/2"],
   tiles: ["h-6 w-10", "w-1/2"],
+  list: ["w-5", "w-1/3"],
+  box: ["w-1/3"],
 };
 
 const skeleton = tv({
@@ -59,6 +65,10 @@ const skeleton = tv({
       sections: { row: `h-40 ${cardSurface()} first:border-t` },
       // A school tile's height, 48 px on a phone and 44 from `lg`, its plaque before its name.
       tiles: { row: `h-12 gap-2 px-2.5 lg:h-11 ${cardSurface()} first:border-t` },
+      // Konto's list row, 56 px at every width.
+      list: { row: "h-14" },
+      // The one box's row: its title and sentence beside its control, 72 px with the box's padding.
+      box: { row: `h-18 ${cardSurface()} first:border-t` },
     },
   },
 });
