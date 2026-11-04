@@ -143,9 +143,10 @@ const REFEREES = [
   // either. Each consented, without which their row is nothing the change moves.
   consented(referee("Clara Kranz", null, 20, "clara.kranz@example.com", null)),
   consented(referee("Dora Dahl", null, 20, "dora.dahl@example.com", null)),
-  // The desktop passkey journey's own person, whose passkeys it sets up and removes: no other journey signs in as them,
-  // so a run it leaves halfway hands no passkey to the sign-in journey's person.
-  referee("Emil Ernst", null, 20, "emil.ernst@example.com", null),
+  // The desktop passkey journey's own person, whose passkeys it sets up and removes and whose address change it starts:
+  // no other journey signs in as them, so a run it leaves halfway hands no passkey to the sign-in journey's person.
+  // Consented, as the leavers are, without which their row is nothing the change moves.
+  consented(referee("Emil Ernst", null, 20, "emil.ernst@example.com", null)),
 ];
 
 // --- Grants --------------------------------------------------------------------------------------
