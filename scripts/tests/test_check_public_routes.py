@@ -99,10 +99,10 @@ def test_a_recorded_reason_at_an_exact_match_path_declares_no_prefix_location(mo
 
 def test_a_handler_filed_as_a_tsx_route_is_walked_too():
     """Next resolves all four extensions, so a walk seeing one of them accounts for part of the tree."""
-    findings, _ = judged(tree("/api/mail/zustellung", file="route.tsx"), served(METERED, CATCH_ALL))
+    findings, _ = judged(tree("/api/mail/delivery", file="route.tsx"), served(METERED, CATCH_ALL))
 
     assert severities(findings) == ["fail"]
-    assert "/api/mail/zustellung" in details(findings)
+    assert "/api/mail/delivery" in details(findings)
 
 
 def test_a_handler_filed_under_another_spelling_of_route_ts_is_not_accounted_for():
@@ -255,15 +255,15 @@ def test_an_exact_match_carrying_no_limit_req_is_a_finding():
 
 def test_a_handler_no_location_names_is_a_finding():
     """A route handler added with no edge change at all, which is how one ships unmetered."""
-    findings, _ = judged(tree("/api/mail/zustellung"), served(METERED, CATCH_ALL))
+    findings, _ = judged(tree("/api/mail/delivery"), served(METERED, CATCH_ALL))
 
     assert severities(findings) == ["fail"]
-    assert "/api/mail/zustellung" in details(findings)
+    assert "/api/mail/delivery" in details(findings)
 
 
 def test_the_catch_all_is_never_coverage():
     """`location /` matches every URI, so counting it would leave this check unable to fail."""
-    assert routes.covering_prefix("/api/mail/zustellung", served(CATCH_ALL)) is None
+    assert routes.covering_prefix("/api/mail/delivery", served(CATCH_ALL)) is None
 
 
 def test_a_prefix_covering_a_handler_needs_a_recorded_reason(monkeypatch):
@@ -912,7 +912,7 @@ def test_an_uneven_link_burst_reaches_the_exit_contract(monkeypatch):
 
 def test_a_finding_exits_one(monkeypatch):
     """Held over `scripts/checks/check_public_routes.py :: main`, for `scripts/lib/checker_kernel.py :: EXIT_FINDINGS`'s reason."""
-    app = tree("/api/mail/zustellung")
+    app = tree("/api/mail/delivery")
 
     assert run_main(app, "server {\n" + METERED + CATCH_ALL + "}\n", monkeypatch) == 1
 
