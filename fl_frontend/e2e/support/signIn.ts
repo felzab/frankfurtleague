@@ -38,6 +38,20 @@ export async function askForCode(page: Page, address: string): Promise<{ respons
 /** Presses „Code senden“ for `address` on a fresh `/signin`; answers the send's response, whatever it answered. */
 export async function pressSend(page: Page, address: string): Promise<Response> {
   await page.goto("/signin");
+  return sendFromHere(page, address);
+}
+
+/** Signs in with the code the stack mails `address`, on the sign-in page the browser stands on, its return address kept. */
+export async function signInWithCodeHere(page: Page, address: string): Promise<void> {
+  const before = await filedMessages();
+  await sendFromHere(page, address);
+  await expect(codeStep(page)).toBeVisible();
+  const code = await mailedCode(address, before);
+  await page.getByRole("textbox", { name: "Code aus der E-Mail" }).pressSequentially(code);
+}
+
+/** Presses „Code senden“ for `address` on the sign-in page the browser stands on. */
+async function sendFromHere(page: Page, address: string): Promise<Response> {
   const field = page.getByLabel("E-Mail-Adresse");
   // Tapped first, as a person reaches the field: React hydrates what a press lands on during the
   // press itself (https://github.com/reactwg/react-18/discussions/37). A bare `fill` into a field not

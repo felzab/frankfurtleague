@@ -30,7 +30,7 @@ const BASE_URL = "http://localhost:3000";
  * refuses before any ceremony starts, so a phone passkey journey would test Playwright's stand-in
  * rather than WebKit. The phone follows an administrator's mailed code as far as the passkey card.
  */
-const EVERY_PROJECT = ["signin.spec.ts", "spielplan.spec.ts"];
+const EVERY_PROJECT = ["signin.spec.ts", "spielplan.spec.ts", "mailedLinks.spec.ts", "accountActs.spec.ts"];
 
 export default defineConfig<JourneyOptions>({
   testDir: "./e2e",
@@ -54,13 +54,23 @@ export default defineConfig<JourneyOptions>({
     {
       name: "desktop",
       testMatch: [...EVERY_PROJECT, "desktop/**/*.spec.ts"],
-      use: { ...devices["Desktop Chrome"], administrator: "admin.desktop@example.com", person: "anna.ahrens@example.com" },
+      use: {
+        ...devices["Desktop Chrome"],
+        administrator: "admin.desktop@example.com",
+        person: "anna.ahrens@example.com",
+        leaver: "clara.kranz@example.com",
+      },
     },
     {
       name: "phone",
       testMatch: [...EVERY_PROJECT, "phone/**/*.spec.ts"],
       // The profile `playwright open --mobile` takes in WebKit, Playwright's newest iPhone.
-      use: { ...devices["iPhone 17"], administrator: "admin.telefon@example.com", person: "ben.brandt@example.com" },
+      use: {
+        ...devices["iPhone 17"],
+        administrator: "admin.telefon@example.com",
+        person: "ben.brandt@example.com",
+        leaver: "dora.dahl@example.com",
+      },
     },
   ],
 });
