@@ -71,12 +71,13 @@ test("Konto's frame, Darstellung and „Alle anderen abmelden“, on one sign-in
     await expect(page).not.toHaveURL(/\/account/);
   }
 
-  // Darstellung acts at once, with the account menu's three glyphs.
+  // Darstellung acts at once, with the account menu's three glyphs: one choice of three, so React Aria's single-select
+  // button group draws them as radios, and next-themes marks the theme on the root's `data-theme`.
   await page.goto("/account/appearance");
-  await page.getByRole("main").getByRole("button", { name: "Dunkel" }).click();
-  await expect(page.locator("html")).toHaveClass(/dark/);
-  await page.getByRole("main").getByRole("button", { name: "Hell" }).click();
-  await expect(page.locator("html")).not.toHaveClass(/dark/);
+  await page.getByRole("main").getByRole("radio", { name: "Dunkel" }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await page.getByRole("main").getByRole("radio", { name: "Hell" }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
 
   // „Alle anderen abmelden“ asks first, then ends the other device's session and keeps this one.
   await page.goto("/account/security");
@@ -84,8 +85,10 @@ test("Konto's frame, Darstellung and „Alle anderen abmelden“, on one sign-in
   await page.getByRole("alertdialog").getByRole("button", { name: "Abmelden" }).click();
   await expect(page.getByText("Alle abgemeldet", { exact: true })).toBeVisible();
   await expect(page.getByText("Du bist auf 1 Gerät angemeldet.")).toBeVisible();
+  // The page's own guard sends the ended session to the sign-in. Judged on the whole path, since `/account/signin`
+  // itself ends in `/signin`.
   await elsewhere.goto("/account/signin");
-  await expect(elsewhere).toHaveURL(/\/signin/);
+  await expect(elsewhere).toHaveURL((url) => url.pathname === "/signin");
   await page.goto("/account/signin");
   await expect(page).toHaveURL(/\/account\/signin$/);
   await other.close();
@@ -134,7 +137,7 @@ test("the person deletes their account from the mailed link, signed out when it 
   await page.goto("/account/signin");
   const before = await filedMessages();
   await page.getByRole("button", { name: "Konto löschen" }).click();
-  await page.getByRole("dialog").getByRole("button", { name: "Konto löschen" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Löschen" }).click();
   const link = await mailedLink(address, "Konto löschen", before);
 
   // Opened signed out, the link leads through the sign-in and back to itself.
@@ -175,5 +178,5 @@ test("the person deletes their account from the mailed link, signed out when it 
 
   // The session is gone with the account: an area's page sends the browser to sign in.
   await page.goto("/area");
-  await expect(page).toHaveURL(/\/signin/);
+  await expect(page).toHaveURL((url) => url.pathname === "/signin");
 });
