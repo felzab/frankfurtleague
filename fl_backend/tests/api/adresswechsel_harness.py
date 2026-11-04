@@ -28,9 +28,9 @@ from app.api.adresswechsel.admin_router import (
     post_address_change_approval,
     post_address_change_verwaltung,
 )
-from app.api.adresswechsel.public_router import get_address_change_view, post_address_change_antwort, post_address_change_stop
+from app.api.adresswechsel.public_router import get_address_change_view, post_address_change_answer, post_address_change_stop
 from app.api.adresswechsel.schemas import (
-    FLAddressChangeAntwortPayload,
+    FLAddressChangeAnswerPayload,
     FLAddressChangeVerwaltungPayload,
     FLAddressChangeVerwaltungViewPayload,
     FLAdresswechselSweepParams,
@@ -415,9 +415,11 @@ def _handed(token: str | None) -> str:
     return token
 
 
-def answer(database: AsyncDatabase, client: AsyncMongoClient, token: str | None, antwort: str = "confirmed", **given: Any) -> Awaitable[Any]:
-    payload = FLAddressChangeAntwortPayload.model_validate({"token": _handed(token), "antwort": antwort})
-    return call(post_address_change_antwort, database, client, antwort_data=payload, **given)
+def answer(
+    database: AsyncDatabase, client: AsyncMongoClient, token: str | None, given_answer: str = "confirmed", **given: Any
+) -> Awaitable[Any]:
+    payload = FLAddressChangeAnswerPayload.model_validate({"token": _handed(token), "answer": given_answer})
+    return call(post_address_change_answer, database, client, answer_data=payload, **given)
 
 
 def stop_by_link(database: AsyncDatabase, client: AsyncMongoClient, token: str | None, **given: Any) -> Awaitable[Any]:

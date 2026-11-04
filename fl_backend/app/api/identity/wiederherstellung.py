@@ -56,7 +56,7 @@ from app.api.spielbestaetigungen.crud import redact_seat_entries_in_images
 from app.api.spielbestaetigungen.services import build_contact_reason_images_filter, build_contact_reasons_filter, kontakte_ohne, seat_void_of
 from app.api.teams.crud import void_moved_seats
 from app.core import clock
-from app.core.clock import GERMANY as _GERMANY
+from app.core.clock import german_day
 from app.core.collections import Collection
 
 # Outside any request, so the environment's settings rather than an application's.
@@ -138,9 +138,9 @@ class Window:
         The snapshot's went out by the snapshot's day, the site's from the restore's, so one sent on a day both fell on is `None`.
         """
 
-        if sent_at > _german_day(self.since):
+        if sent_at > german_day(self.since):
             return True
-        if sent_at < _german_day(self.until):
+        if sent_at < german_day(self.until):
             return False
         return None
 
@@ -220,10 +220,6 @@ def _holds(address: Any, line: JournalLine, key: SecretStr) -> bool:
     return isinstance(address, str) and erasure_journal_hash(address, key=key) == line.person_hash
 
 
-def _german_day(instant: datetime) -> str:
-    return instant.astimezone(_GERMANY).strftime("%Y-%m-%d")
-
-
 def _withdrawable(block: Mapping[str, Any], line: JournalLine) -> dict[FLEinwilligungChoice, Any]:
     """The line's choices that still grant on `block` by an act no later than the line's: a later grant is its person's last word."""
 
@@ -293,7 +289,7 @@ async def _plan_widerspruch(
         return Plan("no such record")
 
     kontakte, bestaetigungen = row.get("kontakte") or {}, row.get("confirmations")
-    declined_on = _german_day(datetime.fromisoformat(line.am))
+    declined_on = german_day(datetime.fromisoformat(line.am))
 
     def linked_since(slot: str) -> bool | None:
         # A link the restored site sent is a seating since, which the decline must not empty.

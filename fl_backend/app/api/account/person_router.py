@@ -212,8 +212,10 @@ async def get_address_change(
     PERSON TIER. `possible` where the address holds a pupil row, a confirmed referee row, a confirmed contact seat, a
     registration or a grant. **The pending address is served masked where an administrator started the change**, whole
     only where the person typed it here: a change an administrator started may be a pretext whose target the holder of
-    the address on file must not learn. `approval` is the approval a change moving the person's grant waits on;
-    `abgelaufen` says the step the change waits on lapsed, whose press is refused until the hourly pass ends the change.
+    the address on file must not learn. `waits_on` names the step: `release` alone is this page's own approval
+    (`POST /account/address_change/release`), `previous_address` the link the person's own change mailed the address on
+    file. `approval` is the approval a change moving the person's grant waits on;
+    `expired` says the step the change waits on lapsed, whose press is refused until the hourly pass ends the change.
     """
 
     # A snapshot, so the records and the change are answered as of one moment.
@@ -415,9 +417,10 @@ async def delete_address_change(
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLAccountAddressChangeResponse:
     """
-    Stop the change pending on the signed-in address, the stop link's twin: its new address goes, out of every log image too.
+    Stop the change pending on the signed-in address at any step: its new address goes, out of every log image too.
 
-    Asks no fresh confirmation and counts nothing: a stop hands nothing over. 404 where no change is pending on the address.
+    Its address on file's question unanswered too, which the link mailed there declines rather than stops. Asks no fresh
+    confirmation and counts nothing: a stop hands nothing over. 404 where no change is pending on the address.
     """
 
     stamp = log_stamp(germany_now)

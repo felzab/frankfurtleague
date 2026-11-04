@@ -16,7 +16,7 @@ from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 from typing import Any, Final, Literal, get_args
 
-from app.core.clock import GERMANY as _GERMANY
+from app.core.clock import german_day
 from app.core.codes import Code
 from app.core.exceptions import WriteRefusal
 from app.shared.folding import sign_in_identifier
@@ -25,11 +25,12 @@ from app.shared.schemas.literals import FLAddressChangeEndArt, FLAddressChangeWa
 
 ADRESSWECHSEL_WEGE: Final[tuple[str, ...]] = get_args(FLAddressChangeWay.__value__)
 
-# What the stop link of the address on file shows, one state per step the change waits on.
-FLAdresswechselBisherigZustand = Literal["release_open", "open", "approval", "waiting_period"]
+# What the address on file's link shows, one state per step the change waits on, and `release_expired` once the person's own
+# change's question to it lapsed: the page never offers a confirmation the press refuses `link_expired`.
+FLAdresswechselBisherigZustand = Literal["release_open", "release_expired", "open", "approval", "waiting_period"]
 
 # What the new mailbox's link shows while the change stands. `approval_expired` is a confirmed change's lapsed
-# approval week, never `abgelaufen`: that is the link's own deadline, and a confirmed link takes no second answer.
+# approval week, never `expired`: that is the link's own deadline, and a confirmed link takes no second answer.
 FLAdresswechselNeuZustand = Literal["valid", "expired", "barred", "not_confirmable", "confirmed", "approval_expired"]
 
 ADRESSWECHSEL_ENDE_ARTEN: Final[tuple[str, ...]] = get_args(FLAddressChangeEndArt.__value__)
@@ -61,11 +62,6 @@ def gueltig_bis_ab(now: datetime) -> datetime:
 
 def wirksam_ab_von(confirmed_at: datetime) -> datetime:
     return confirmed_at.astimezone(UTC) + timedelta(days=ADDRESS_CHANGE_WAITING_PERIOD_DAYS)
-
-
-def german_day(now: datetime) -> str:
-    # The day the restore planner judges a link's send by (`app/api/identity/wiederherstellung.py :: Window`).
-    return now.astimezone(_GERMANY).strftime("%Y-%m-%d")
 
 
 def compose_genehmigung(*, verwaltung: str, started_by: str, now: datetime) -> dict[str, Any]:
@@ -228,6 +224,18 @@ def build_resendable_terms() -> dict[str, Any]:
     return {"$nor": [{"way": {"$in": list(ASKS_THE_ADDRESS_ON_FILE_FIRST)}, "released_at": None}], "confirmed_at": None}
 
 
+def build_either_link_filter(token_hash: str) -> dict[str, Any]:
+    """The change either of whose links a token is, each clause answered by its own index (`app/core/constraints.py`)."""
+
+    return {"$or": [{"token_hashes": token_hash}, {"stop.token_hashes": token_hash}]}
+
+
+def side_of(record: Mapping[str, Any], token_hash: str) -> Literal["new", "previous"]:
+    """Which link of `record` a token is, read with its `token_hashes`: the new mailbox's, or the one the address on file was mailed."""
+
+    return "new" if token_hash in record.get("token_hashes", ()) else "previous"
+
+
 def build_previous_link_terms(stop_hash: str) -> dict[str, Any]:
     """The person's own change while it waits on the link the address on file was mailed: answered once, it takes no second."""
 
@@ -319,24 +327,38 @@ def wartet_auf(record: Mapping[str, Any]) -> FLAddressChangeWaitsOn:
         # A confirmed change with no waiting time stands only while its grant's approval is owed.
         return "waiting_period" if record.get("effective_from") is not None else "approval"
 
-    if record.get("way") in ASKS_THE_ADDRESS_ON_FILE_FIRST and record.get("released_at") is None:
-        return "release"
+    if record.get("released_at") is None:
+        # Two steps of two people: the account page's approval of an administrator's start, and the person's own
+        # change's confirmation through the link its address on file was mailed.
+        if record.get("way") == "release":
+            return "release"
+        if record.get("way") == "account":
+            return "previous_address"
 
-    return "new_adresse"
+    return "new_address"
 
 
 _BISHERIG: Final[Mapping[FLAddressChangeWaitsOn, FLAdresswechselBisherigZustand]] = {
     "release": "release_open",
-    "new_adresse": "open",
+    "previous_address": "release_open",
+    "new_address": "open",
     "approval": "approval",
     "waiting_period": "waiting_period",
 }
 
 
-def bisherig_zustand(record: Mapping[str, Any]) -> FLAdresswechselBisherigZustand:
-    """What the stop link shows: the step the change waits on, and never whether it could be confirmed, the stop being refused nothing."""
+def bisherig_zustand(record: Mapping[str, Any], *, now: datetime) -> FLAdresswechselBisherigZustand:
+    """What the address on file's link shows: the step the change waits on, and never whether it could be confirmed.
 
-    return _BISHERIG[wartet_auf(record)]
+    `release_expired` where it waits on this link's own answer past its deadline, as the new mailbox's link ranks its lapse; every
+    other step's stop is refused nothing, so it shows the step whatever lapsed.
+    """
+
+    wartet = wartet_auf(record)
+    if wartet == "previous_address" and ist_abgelaufen(record, now=now):
+        return "release_expired"
+
+    return _BISHERIG[wartet]
 
 
 def neu_zustand(record: Mapping[str, Any], *, now: datetime, barred: bool, nicht_bestaetigbar: bool) -> FLAdresswechselNeuZustand:

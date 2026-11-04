@@ -256,7 +256,7 @@ export interface FLAcceptBewerbungResponse {
 }
 
 /**
- * The change a start or an approval wrote, and the mailbox its link is owed in the Postausgang: no link is answered.
+ * The change a start or an approval wrote: no link is answered, each owed in the Postausgang.
  */
 export interface FLAccountAddressChangeMintResponse {
   email: string;
@@ -285,7 +285,8 @@ export type FLAddressChangeWaitsOn = (typeof FLAddressChangeWaitsOn)[keyof typeo
 
 export const FLAddressChangeWaitsOn = {
   release: "release",
-  new_adresse: "new_adresse",
+  previous_address: "previous_address",
+  new_address: "new_address",
   approval: "approval",
   waiting_period: "waiting_period",
 } as const;
@@ -864,15 +865,15 @@ export interface FLAddressChangeAdresseResponse {
   email: string | null;
 }
 
-export type FLAddressChangeAntwort = (typeof FLAddressChangeAntwort)[keyof typeof FLAddressChangeAntwort];
+export type FLAddressChangeAnswer = (typeof FLAddressChangeAnswer)[keyof typeof FLAddressChangeAnswer];
 
-export const FLAddressChangeAntwort = {
+export const FLAddressChangeAnswer = {
   confirmed: "confirmed",
   declined: "declined",
 } as const;
 
-export interface FLAddressChangeAntwortPayload {
-  antwort: FLAddressChangeAntwort;
+export interface FLAddressChangeAnswerPayload {
+  answer: FLAddressChangeAnswer;
   /**
    * @minLength 1
    * @maxLength 128
@@ -884,8 +885,8 @@ export interface FLAddressChangeAntwortPayload {
 /**
  * The answer recorded, and no address of the change: the notices an effect owes are queued, never answered.
  */
-export interface FLAddressChangeAntwortResponse {
-  antwort: FLAddressChangeAntwort;
+export interface FLAddressChangeAnswerResponse {
+  answer: FLAddressChangeAnswer;
   approval_open: boolean;
   effective: boolean;
   effective_from: string | null;
@@ -1128,9 +1129,9 @@ export interface FLAddressChangeVerwaltungViewResponse {
   possible: boolean;
 }
 
-export type FLAddressChangeViewEndedSeite = (typeof FLAddressChangeViewEndedSeite)[keyof typeof FLAddressChangeViewEndedSeite];
+export type FLAddressChangeViewEndedSide = (typeof FLAddressChangeViewEndedSide)[keyof typeof FLAddressChangeViewEndedSide];
 
-export const FLAddressChangeViewEndedSeite = {
+export const FLAddressChangeViewEndedSide = {
   new: "new",
   previous: "previous",
 } as const;
@@ -1143,7 +1144,7 @@ export interface FLAddressChangeViewEnded {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   ended_on: string;
   released_on: string | null;
-  seite: FLAddressChangeViewEndedSeite;
+  side: FLAddressChangeViewEndedSide;
   state: "ended";
   way: FLAddressChangeWay;
 }
@@ -1166,7 +1167,7 @@ export interface FLAddressChangeViewNew {
   approval_open: boolean | null;
   effective_from: string | null;
   email: string | null;
-  seite: "new";
+  side: "new";
   state: FLAddressChangeViewNewState;
   valid_until: string | null;
   way: FLAddressChangeWay;
@@ -1176,6 +1177,7 @@ export type FLAddressChangeViewPreviousState = (typeof FLAddressChangeViewPrevio
 
 export const FLAddressChangeViewPreviousState = {
   release_open: "release_open",
+  release_expired: "release_expired",
   open: "open",
   approval: "approval",
   waiting_period: "waiting_period",
@@ -1188,7 +1190,7 @@ export interface FLAddressChangeViewPrevious {
   effective_from: string | null;
   email: string | null;
   released_on: string | null;
-  seite: "previous";
+  side: "previous";
   state: FLAddressChangeViewPreviousState;
   valid_until: string | null;
   way: FLAddressChangeWay;

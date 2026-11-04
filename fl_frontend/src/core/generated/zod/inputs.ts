@@ -151,9 +151,11 @@ export const AddressChangeGetAddressChangeAdresseBody = zod
  * Record whether the mailbox this link was sent to is the person's: `confirmed` confirms it, `declined` ends the change.
  *
  * **The person's own change asks the address on file first**: its link's confirmation owes the new mailbox its link,
- * and nothing moves yet; refused `link_expired` past that link's deadline and `address_change_ended` once answered or
- * ended, a decline refused only the latter. Every other link the address on file was mailed answers no confirmation
- * (`link_invalid`).
+ * and nothing moves yet, answering `confirmed` with `effective` false, `effective_from` null and `approval_open` saying
+ * whether the change will wait on another administrator's approval of the grant it moves; refused `link_expired` past
+ * that link's deadline and `address_change_ended` once answered or ended, a decline refused only the latter, and a
+ * decline is the one way this link ends the change before it confirmed (`/stop` refuses it). Every other link the
+ * address on file was mailed answers no confirmation (`link_invalid`).
  *
  * The new mailbox's link: **a confirmation moves the person, not a record.** Unless the change waits -- on a waiting time an administrator's
  * start with a reason asked, or on another administrator's approval of the grant it moves -- it takes effect in this
@@ -177,20 +179,22 @@ export const AddressChangeGetAddressChangeAdresseBody = zod
  * `link_barred` tell a caller what the view's `not_confirmable` keeps alike; only the edge keeps them from the link's holder.
  * @summary Confirm or decline a pending address
  */
-export const addressChangePostAddressChangeAntwortBodyTokenMax = 128;
+export const addressChangePostAddressChangeAnswerBodyTokenMax = 128;
 
-export const addressChangePostAddressChangeAntwortBodyTokenRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
+export const addressChangePostAddressChangeAnswerBodyTokenRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
 
-export const AddressChangePostAddressChangeAntwortBody = zod.object({
-  antwort: zod.enum(["confirmed", "declined"]),
-  token: zod.string().min(1).max(addressChangePostAddressChangeAntwortBodyTokenMax).regex(addressChangePostAddressChangeAntwortBodyTokenRegExp),
+export const AddressChangePostAddressChangeAnswerBody = zod.object({
+  answer: zod.enum(["confirmed", "declined"]),
+  token: zod.string().min(1).max(addressChangePostAddressChangeAnswerBodyTokenMax).regex(addressChangePostAddressChangeAnswerBodyTokenRegExp),
 });
 
 /**
  * Stop the change the address on file was mailed about: its new address goes, out of every log image of the change too.
  *
  * **Refused nothing but a token no change holds** (`link_invalid`) **and a change ended** (`address_change_ended`): a stop
- * hands nothing over, so it answers past every deadline, a barred address's holder too, until the change ends.
+ * hands nothing over, so it answers past every deadline, a barred address's holder too, until the change ends. The
+ * person's own change offers this link no stop before its address on file confirmed it (`link_invalid`): its
+ * question's decline is the one way that link ends it then, so one act keeps one ending.
  * @summary Stop a pending address change
  */
 export const addressChangePostAddressChangeStopBodyTokenMax = 128;
@@ -213,12 +217,12 @@ export const AddressChangePostAddressChangeStopBody = zod
  *
  * The new mailbox's side is served in a state: once pressed, `confirmed`, or `approval_expired` where its
  * approval week lapsed unapproved; else `barred` wherever the ban list holds the address the link was mailed to, then
- * `abgelaufen`, then `not_confirmable` wherever the press would be refused for the address on file's sake or would
+ * `expired`, then `not_confirmable` wherever the press would be refused for the address on file's sake or would
  * find it holding nothing to move, each a state the confirmation is refused in. Those read alike here, though the press
  * answers each by its own code; what keeps the link's holder from telling them apart is the edge, where
  * the proxy routes no public call to this service. The address on file's side answers the step the change waits on
- * and until when, `release_open` while the person's own change waits on this link's confirmation, and never whether
- * the new mailbox could confirm, and the day it confirmed once it has.
+ * and until when, `release_open` while the person's own change waits on this link's confirmation and `release_expired` once that lapsed,
+ * never whether the new mailbox could confirm, and the day it confirmed once it has.
  * @summary What one address link opens
  */
 export const addressChangeGetAddressChangeViewBodyTokenMax = 128;
@@ -235,7 +239,7 @@ export const AddressChangeGetAddressChangeViewBody = zod
  * End a bounded share of the live changes whose waiting step lapsed, and make the due ones take effect.
  *
  * **A lapsed change** -- its link, the approval it asked of the address on file, or its grant's approval by another
- * administrator -- ends as `abgelaufen`: its address and reason out of the record and every log image of it
+ * administrator -- ends as `expired`: its address and reason out of the record and every log image of it
  * (`removed`). **A due change**, one whose waiting time has ended and whose grant's move, where its address still
  * holds the grant, was approved, is judged again as its confirmation was: a ban on either address, another pupil
  * signing in on the new one, a grant its approval does not cover, a grant at the new address, or nothing left to move

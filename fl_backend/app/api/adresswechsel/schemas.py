@@ -19,7 +19,7 @@ from app.shared.schemas.kontakt import CustomEmail
 from app.shared.schemas.literals import FLAddressChangeEndArt, FLAddressChangeWaitsOn, FLAddressChangeWay, FLVerwaltung
 from app.shared.schemas.responses import BaseAPIResponse
 
-type FLAddressChangeAntwort = Literal["confirmed", "declined"]
+type FLAddressChangeAnswer = Literal["confirmed", "declined"]
 
 # How an administrator checked who asks, where the address on file is gone: the erasure occasion's ceiling, being
 # copied onto the start's log row as that occasion is. An address typed here would outlive every redaction of the change.
@@ -89,7 +89,7 @@ class FLAdresswechsel(BaseModel):
 
 
 class FLAdresswechselStopp(BaseModel):
-    """The address on file's link: the person's own change's first confirmation, every other way's stop."""
+    """The address on file's link: the person's own change's confirmation or decline until it confirms, then every way's stop."""
 
     token_hashes: list[str]
 
@@ -168,7 +168,7 @@ class FLAddressChangeApprovalState(BaseModel):
 class FLAddressChangeViewNew(BaseModel):
     """What the new mailbox's link opens while the change stands."""
 
-    seite: Literal["new"]
+    side: Literal["new"]
     state: FLAdresswechselNeuZustand
     # Null exactly where the change is confirmed: it waits on no deadline of this link's.
     valid_until: FLUtcInstant | None
@@ -184,7 +184,7 @@ class FLAddressChangeViewNew(BaseModel):
 class FLAddressChangeViewPrevious(BaseModel):
     """What the address on file's link opens: the step the change waits on, never whether the new mailbox could confirm it."""
 
-    seite: Literal["previous"]
+    side: Literal["previous"]
     state: FLAdresswechselBisherigZustand
     valid_until: FLUtcInstant | None
     effective_from: FLUtcInstant | None
@@ -199,7 +199,7 @@ class FLAddressChangeViewPrevious(BaseModel):
 class FLAddressChangeViewEnded(BaseModel):
     """What either link opens once its change ended, for as long as its record is kept."""
 
-    seite: Literal["new", "previous"]
+    side: Literal["new", "previous"]
     state: Literal["ended"]
     art: FLAddressChangeEndArt
     # The German day it ended on, which the page names beside what became of it.
@@ -216,18 +216,18 @@ class FLAddressChangeViewResponse(BaseAPIResponse):
     view: Annotated[FLAddressChangeViewNew | FLAddressChangeViewPrevious | FLAddressChangeViewEnded, Field(discriminator="state")]
 
 
-class FLAddressChangeAntwortPayload(BaseModel):
+class FLAddressChangeAnswerPayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     token: CustomToken
     # Required rather than defaulted: a page that omitted it would have the model answer for the person whether a mailbox is theirs.
-    antwort: FLAddressChangeAntwort
+    answer: FLAddressChangeAnswer
 
 
-class FLAddressChangeAntwortResponse(BaseAPIResponse):
+class FLAddressChangeAnswerResponse(BaseAPIResponse):
     """The answer recorded, and no address of the change: the notices an effect owes are queued, never answered."""
 
-    antwort: FLAddressChangeAntwort
+    answer: FLAddressChangeAnswer
     # Set where a change waiting after its confirmation now waits until then.
     effective_from: FLUtcInstant | None
     # Set where the change now waits on another administrator's approval of its grant's move.

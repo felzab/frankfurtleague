@@ -17,7 +17,7 @@ from pymongo import ASCENDING
 from app.api.adresswechsel.schemas import (
     FLAddressChangeAdressePayload,
     FLAddressChangeAdresseResponse,
-    FLAddressChangeAntwortPayload,
+    FLAddressChangeAnswerPayload,
     FLAddressChangeViewEnded,
     FLAddressChangeViewNew,
     FLAddressChangeViewPrevious,
@@ -82,13 +82,11 @@ class TestWhatALeakedLinkLearns:
     @pytest.mark.parametrize(
         ("model", "fields"),
         [
+            pytest.param(FLAddressChangeViewNew, {"side", "state", "valid_until", "effective_from", "way", "approval_open", "email"}, id="new"),
             pytest.param(
-                FLAddressChangeViewNew, {"seite", "state", "valid_until", "effective_from", "way", "approval_open", "email"}, id="new"
+                FLAddressChangeViewPrevious, {"side", "state", "valid_until", "effective_from", "way", "email", "released_on"}, id="on file"
             ),
-            pytest.param(
-                FLAddressChangeViewPrevious, {"seite", "state", "valid_until", "effective_from", "way", "email", "released_on"}, id="on file"
-            ),
-            pytest.param(FLAddressChangeViewEnded, {"seite", "state", "art", "ended_on", "way", "released_on"}, id="ended"),
+            pytest.param(FLAddressChangeViewEnded, {"side", "state", "art", "ended_on", "way", "released_on"}, id="ended"),
         ],
     )
     def test_each_view_declares_exactly_its_side_its_state_and_its_instants(self, model: type[BaseModel], fields: set[str]):
@@ -98,9 +96,9 @@ class TestWhatALeakedLinkLearns:
         """Defaulted, the model would answer for the person whether a mailbox is theirs."""
 
         with pytest.raises(ValidationError):
-            FLAddressChangeAntwortPayload.model_validate({"token": "t" * 43})
+            FLAddressChangeAnswerPayload.model_validate({"token": "t" * 43})
         with pytest.raises(ValidationError):
-            FLAddressChangeAntwortPayload.model_validate({"token": "t" * 43, "antwort": "confirmed", "email": "x@example.org"})
+            FLAddressChangeAnswerPayload.model_validate({"token": "t" * 43, "answer": "confirmed", "email": "x@example.org"})
 
 
 class TestTheSystemsReadOfTheNewAddress:

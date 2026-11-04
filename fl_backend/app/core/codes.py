@@ -8,7 +8,7 @@ the request wrote nothing, and the frontend clears the site's cache by that prom
 db_exception_handler`). Two answers break the promise, each a 409 after the commit that ended an
 address change, whose records no cached read serves:
 `app/api/adresswechsel/admin_router.py :: post_address_change_approval` (`address_change_nothing`)
-and `app/api/adresswechsel/public_router.py :: post_address_change_antwort` (`address_change_ended`).
+and `app/api/adresswechsel/public_router.py :: post_address_change_answer` (`address_change_ended`).
 """
 
 from enum import StrEnum, auto

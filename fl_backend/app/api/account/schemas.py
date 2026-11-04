@@ -174,10 +174,12 @@ class FLAccountAddressChangePayload(BaseModel):
 
 
 class FLAccountAddressChangeMintResponse(BaseAPIResponse):
-    """The change a start or an approval wrote, and the mailbox its link is owed in the Postausgang: no link is answered."""
+    """The change a start or an approval wrote: no link is answered, each owed in the Postausgang."""
 
     id: CustomObjectId
     valid_until: FLUtcInstant
+    # The change's new address: the mailbox an approval's link goes to, and the one a start's link to the address on file
+    # asks about.
     email: str
 
 

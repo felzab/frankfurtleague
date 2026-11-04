@@ -29,8 +29,8 @@ import type {
   FLActivateSaisonResponse,
   FLAddressChangeAdressePayload,
   FLAddressChangeAdresseResponse,
-  FLAddressChangeAntwortPayload,
-  FLAddressChangeAntwortResponse,
+  FLAddressChangeAnswerPayload,
+  FLAddressChangeAnswerResponse,
   FLAddressChangeApprovalResponse,
   FLAddressChangeIdResponse,
   FLAddressChangeMovesDonePayload,
@@ -233,9 +233,10 @@ export const getAccountDeleteAddressChangeUrl = () => {
 };
 
 /**
- * Stop the change pending on the signed-in address, the stop link's twin: its new address goes, out of every log image too.
+ * Stop the change pending on the signed-in address at any step: its new address goes, out of every log image too.
  *
- * Asks no fresh confirmation and counts nothing: a stop hands nothing over. 404 where no change is pending on the address.
+ * Its address on file's question unanswered too, which the link mailed there declines rather than stops. Asks no fresh
+ * confirmation and counts nothing: a stop hands nothing over. 404 where no change is pending on the address.
  * @summary Stop the address change pending on the signed-in person
  */
 export const accountDeleteAddressChange = async (
@@ -257,8 +258,10 @@ export const getAccountGetAddressChangeUrl = () => {
  * PERSON TIER. `possible` where the address holds a pupil row, a confirmed referee row, a confirmed contact seat, a
  * registration or a grant. **The pending address is served masked where an administrator started the change**, whole
  * only where the person typed it here: a change an administrator started may be a pretext whose target the holder of
- * the address on file must not learn. `approval` is the approval a change moving the person's grant waits on;
- * `abgelaufen` says the step the change waits on lapsed, whose press is refused until the hourly pass ends the change.
+ * the address on file must not learn. `waits_on` names the step: `release` alone is this page's own approval
+ * (`POST /account/address_change/release`), `previous_address` the link the person's own change mailed the address on
+ * file. `approval` is the approval a change moving the person's grant waits on;
+ * `expired` says the step the change waits on lapsed, whose press is refused until the hourly pass ends the change.
  * @summary Whether a signed-in person may change their address
  */
 export const accountGetAddressChange = async (options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLAccountAddressChangeResponse> => {
@@ -503,7 +506,7 @@ export const addressChangeGetAddressChangeAdresse = async (
   });
 };
 
-export const getAddressChangePostAddressChangeAntwortUrl = () => {
+export const getAddressChangePostAddressChangeAnswerUrl = () => {
   return `/api/v0/address_change/confirmation`;
 };
 
@@ -511,9 +514,11 @@ export const getAddressChangePostAddressChangeAntwortUrl = () => {
  * Record whether the mailbox this link was sent to is the person's: `confirmed` confirms it, `declined` ends the change.
  *
  * **The person's own change asks the address on file first**: its link's confirmation owes the new mailbox its link,
- * and nothing moves yet; refused `link_expired` past that link's deadline and `address_change_ended` once answered or
- * ended, a decline refused only the latter. Every other link the address on file was mailed answers no confirmation
- * (`link_invalid`).
+ * and nothing moves yet, answering `confirmed` with `effective` false, `effective_from` null and `approval_open` saying
+ * whether the change will wait on another administrator's approval of the grant it moves; refused `link_expired` past
+ * that link's deadline and `address_change_ended` once answered or ended, a decline refused only the latter, and a
+ * decline is the one way this link ends the change before it confirmed (`/stop` refuses it). Every other link the
+ * address on file was mailed answers no confirmation (`link_invalid`).
  *
  * The new mailbox's link: **a confirmation moves the person, not a record.** Unless the change waits -- on a waiting time an administrator's
  * start with a reason asked, or on another administrator's approval of the grant it moves -- it takes effect in this
@@ -537,10 +542,10 @@ export const getAddressChangePostAddressChangeAntwortUrl = () => {
  * `link_barred` tell a caller what the view's `not_confirmable` keeps alike; only the edge keeps them from the link's holder.
  * @summary Confirm or decline a pending address
  */
-export const addressChangePostAddressChangeAntwort = async (
-  fLAddressChangeAntwortPayload: FLAddressChangeAntwortPayload,
+export const addressChangePostAddressChangeAnswer = async (
+  fLAddressChangeAnswerPayload: FLAddressChangeAnswerPayload,
   options?: Parameters<typeof baseKeyTransport>[1],
-): Promise<FLAddressChangeAntwortResponse> => {
+): Promise<FLAddressChangeAnswerResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
@@ -553,11 +558,11 @@ export const addressChangePostAddressChangeAntwort = async (
     }
     return headers;
   };
-  return baseKeyTransport<FLAddressChangeAntwortResponse>(getAddressChangePostAddressChangeAntwortUrl(), {
+  return baseKeyTransport<FLAddressChangeAnswerResponse>(getAddressChangePostAddressChangeAnswerUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLAddressChangeAntwortPayload),
+    body: JSON.stringify(fLAddressChangeAnswerPayload),
   });
 };
 
@@ -569,7 +574,9 @@ export const getAddressChangePostAddressChangeStopUrl = () => {
  * Stop the change the address on file was mailed about: its new address goes, out of every log image of the change too.
  *
  * **Refused nothing but a token no change holds** (`link_invalid`) **and a change ended** (`address_change_ended`): a stop
- * hands nothing over, so it answers past every deadline, a barred address's holder too, until the change ends.
+ * hands nothing over, so it answers past every deadline, a barred address's holder too, until the change ends. The
+ * person's own change offers this link no stop before its address on file confirmed it (`link_invalid`): its
+ * question's decline is the one way that link ends it then, so one act keeps one ending.
  * @summary Stop a pending address change
  */
 export const addressChangePostAddressChangeStop = async (
@@ -610,12 +617,12 @@ export const getAddressChangeGetAddressChangeViewUrl = () => {
  *
  * The new mailbox's side is served in a state: once pressed, `confirmed`, or `approval_expired` where its
  * approval week lapsed unapproved; else `barred` wherever the ban list holds the address the link was mailed to, then
- * `abgelaufen`, then `not_confirmable` wherever the press would be refused for the address on file's sake or would
+ * `expired`, then `not_confirmable` wherever the press would be refused for the address on file's sake or would
  * find it holding nothing to move, each a state the confirmation is refused in. Those read alike here, though the press
  * answers each by its own code; what keeps the link's holder from telling them apart is the edge, where
  * the proxy routes no public call to this service. The address on file's side answers the step the change waits on
- * and until when, `release_open` while the person's own change waits on this link's confirmation, and never whether
- * the new mailbox could confirm, and the day it confirmed once it has.
+ * and until when, `release_open` while the person's own change waits on this link's confirmation and `release_expired` once that lapsed,
+ * never whether the new mailbox could confirm, and the day it confirmed once it has.
  * @summary What one address link opens
  */
 export const addressChangeGetAddressChangeView = async (
@@ -652,7 +659,7 @@ export const getAddressChangeSweepAddressChangeUrl = (params?: AddressChangeSwee
  * End a bounded share of the live changes whose waiting step lapsed, and make the due ones take effect.
  *
  * **A lapsed change** -- its link, the approval it asked of the address on file, or its grant's approval by another
- * administrator -- ends as `abgelaufen`: its address and reason out of the record and every log image of it
+ * administrator -- ends as `expired`: its address and reason out of the record and every log image of it
  * (`removed`). **A due change**, one whose waiting time has ended and whose grant's move, where its address still
  * holds the grant, was approved, is judged again as its confirmation was: a ban on either address, another pupil
  * signing in on the new one, a grant its approval does not cover, a grant at the new address, or nothing left to move

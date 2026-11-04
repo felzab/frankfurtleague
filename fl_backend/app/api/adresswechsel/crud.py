@@ -878,9 +878,10 @@ async def move_the_address_in_session(
         },
         session=session,
     )
-    # The person's own change owes the replaced mailbox nothing more: it confirmed the change through its own link, and
-    # the new mailbox confirmed it last, so both already know.
-    if record["way"] != "account":
+    # The person's own change taking effect at the new mailbox's press owes the replaced mailbox nothing more: it confirmed
+    # the change through its own link, and the new mailbox confirmed it last, so both already know. One that waited on a
+    # grant's approval takes effect later, at that approval or the hourly pass, and tells the replaced mailbox then.
+    if record["way"] != "account" or record.get("confirmed_at") is not None:
         await enqueue_mails(
             outbox_collection=outbox_collection,
             session=session,

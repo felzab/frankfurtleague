@@ -365,7 +365,7 @@
         "type": "object"
       },
       "FLAccountAddressChangeMintResponse": {
-        "description": "The change a start or an approval wrote, and the mailbox its link is owed in the Postausgang: no link is answered.",
+        "description": "The change a start or an approval wrote: no link is answered, each owed in the Postausgang.",
         "properties": {
           "email": {
             "title": "Email",
@@ -1836,18 +1836,18 @@
         "title": "FLAddressChangeAdresseResponse",
         "type": "object"
       },
-      "FLAddressChangeAntwort": {
+      "FLAddressChangeAnswer": {
         "enum": [
           "confirmed",
           "declined"
         ],
         "type": "string"
       },
-      "FLAddressChangeAntwortPayload": {
+      "FLAddressChangeAnswerPayload": {
         "additionalProperties": false,
         "properties": {
-          "antwort": {
-            "$ref": "#/components/schemas/FLAddressChangeAntwort"
+          "answer": {
+            "$ref": "#/components/schemas/FLAddressChangeAnswer"
           },
           "token": {
             "maxLength": 128,
@@ -1859,16 +1859,16 @@
         },
         "required": [
           "token",
-          "antwort"
+          "answer"
         ],
-        "title": "FLAddressChangeAntwortPayload",
+        "title": "FLAddressChangeAnswerPayload",
         "type": "object"
       },
-      "FLAddressChangeAntwortResponse": {
+      "FLAddressChangeAnswerResponse": {
         "description": "The answer recorded, and no address of the change: the notices an effect owes are queued, never answered.",
         "properties": {
-          "antwort": {
-            "$ref": "#/components/schemas/FLAddressChangeAntwort"
+          "answer": {
+            "$ref": "#/components/schemas/FLAddressChangeAnswer"
           },
           "approval_open": {
             "title": "Approval Open",
@@ -1892,12 +1892,12 @@
           }
         },
         "required": [
-          "antwort",
+          "answer",
           "effective_from",
           "approval_open",
           "effective"
         ],
-        "title": "FLAddressChangeAntwortResponse",
+        "title": "FLAddressChangeAnswerResponse",
         "type": "object"
       },
       "FLAddressChangeApprovalResponse": {
@@ -2574,12 +2574,12 @@
             ],
             "title": "Released On"
           },
-          "seite": {
+          "side": {
             "enum": [
               "new",
               "previous"
             ],
-            "title": "Seite",
+            "title": "Side",
             "type": "string"
           },
           "state": {
@@ -2592,7 +2592,7 @@
           }
         },
         "required": [
-          "seite",
+          "side",
           "state",
           "art",
           "ended_on",
@@ -2639,9 +2639,9 @@
             ],
             "title": "Email"
           },
-          "seite": {
+          "side": {
             "const": "new",
-            "title": "Seite",
+            "title": "Side",
             "type": "string"
           },
           "state": {
@@ -2673,7 +2673,7 @@
           }
         },
         "required": [
-          "seite",
+          "side",
           "state",
           "valid_until",
           "effective_from",
@@ -2722,14 +2722,15 @@
             ],
             "title": "Released On"
           },
-          "seite": {
+          "side": {
             "const": "previous",
-            "title": "Seite",
+            "title": "Side",
             "type": "string"
           },
           "state": {
             "enum": [
               "release_open",
+              "release_expired",
               "open",
               "approval",
               "waiting_period"
@@ -2754,7 +2755,7 @@
           }
         },
         "required": [
-          "seite",
+          "side",
           "state",
           "valid_until",
           "effective_from",
@@ -2779,6 +2780,7 @@
                 "expired": "#/components/schemas/FLAddressChangeViewNew",
                 "not_confirmable": "#/components/schemas/FLAddressChangeViewNew",
                 "open": "#/components/schemas/FLAddressChangeViewPrevious",
+                "release_expired": "#/components/schemas/FLAddressChangeViewPrevious",
                 "release_open": "#/components/schemas/FLAddressChangeViewPrevious",
                 "valid": "#/components/schemas/FLAddressChangeViewNew",
                 "waiting_period": "#/components/schemas/FLAddressChangeViewPrevious"
@@ -2815,7 +2817,8 @@
       "FLAddressChangeWaitsOn": {
         "enum": [
           "release",
-          "new_adresse",
+          "previous_address",
+          "new_address",
           "approval",
           "waiting_period"
         ],
@@ -18242,7 +18245,7 @@
   "paths": {
     "/api/v0/account/address_change": {
       "delete": {
-        "description": "Stop the change pending on the signed-in address, the stop link's twin: its new address goes, out of every log image too.\n\nAsks no fresh confirmation and counts nothing: a stop hands nothing over. 404 where no change is pending on the address.",
+        "description": "Stop the change pending on the signed-in address at any step: its new address goes, out of every log image too.\n\nIts address on file's question unanswered too, which the link mailed there declines rather than stops. Asks no fresh\nconfirmation and counts nothing: a stop hands nothing over. 404 where no change is pending on the address.",
         "operationId": "account_delete_address_change",
         "responses": {
           "200": {
@@ -18303,7 +18306,7 @@
         ]
       },
       "get": {
-        "description": "Answer whether the signed-in address holds anything its own change moves, and the change pending on it.\n\nPERSON TIER. `possible` where the address holds a pupil row, a confirmed referee row, a confirmed contact seat, a\nregistration or a grant. **The pending address is served masked where an administrator started the change**, whole\nonly where the person typed it here: a change an administrator started may be a pretext whose target the holder of\nthe address on file must not learn. `approval` is the approval a change moving the person's grant waits on;\n`abgelaufen` says the step the change waits on lapsed, whose press is refused until the hourly pass ends the change.",
+        "description": "Answer whether the signed-in address holds anything its own change moves, and the change pending on it.\n\nPERSON TIER. `possible` where the address holds a pupil row, a confirmed referee row, a confirmed contact seat, a\nregistration or a grant. **The pending address is served masked where an administrator started the change**, whole\nonly where the person typed it here: a change an administrator started may be a pretext whose target the holder of\nthe address on file must not learn. `waits_on` names the step: `release` alone is this page's own approval\n(`POST /account/address_change/release`), `previous_address` the link the person's own change mailed the address on\nfile. `approval` is the approval a change moving the person's grant waits on;\n`expired` says the step the change waits on lapsed, whose press is refused until the hourly pass ends the change.",
         "operationId": "account_get_address_change",
         "responses": {
           "200": {
@@ -18970,13 +18973,13 @@
     },
     "/api/v0/address_change/confirmation": {
       "post": {
-        "description": "Record whether the mailbox this link was sent to is the person's: `confirmed` confirms it, `declined` ends the change.\n\n**The person's own change asks the address on file first**: its link's confirmation owes the new mailbox its link,\nand nothing moves yet; refused `link_expired` past that link's deadline and `address_change_ended` once answered or\nended, a decline refused only the latter. Every other link the address on file was mailed answers no confirmation\n(`link_invalid`).\n\nThe new mailbox's link: **a confirmation moves the person, not a record.** Unless the change waits -- on a waiting time an administrator's\nstart with a reason asked, or on another administrator's approval of the grant it moves -- it takes effect in this\ntransaction: every pupil row, confirmed referee row, confirmed contact seat, registration and grant the address on\nfile holds moves to the new one, asking no consent and writing none, and `effective` says so; its completion notice is\nowed in this transaction, and so is its sign-in account's carry. A change that waits is confirmed alone,\nanswering `effective_from` or `approval_open`.\nEither answer spends the link, which keeps answering what became of the change.\n\nRefuses a token no change holds (`link_invalid`), a link already answered or a change ended\n(`address_change_ended`), and, in the order the link's view ranks its states, a CONFIRMATION through a link mailed to\nan address the ban list holds now (`link_barred`), one past its deadline (`link_expired`), one whose change would replace an address\nthe ban list holds now (`address_change_replaced_barred`), so a barred person cannot move their records off the address the ban keys on,\none moving a pupil onto an address another pupil signs in on (`address_change_taken`), one whose address came to hold a grant its approval\ndoes not cover (`address_change_not_covered`), one moving a grant onto an address holding one (`address_change_new_granted`), and one\nwhose new address any entry names, confirmed or not, an open grant request among them (`address_change_occupied`): moving the person onto it\nwould join two people's records. **A decline is refused none of these**: it removes an address nobody proved, out of every log image of the\nchange too.\n\nA change whose address has come to hold nothing to move ends discarded, and the press answers `address_change_ended`. The codes past\n`link_barred` tell a caller what the view's `not_confirmable` keeps alike; only the edge keeps them from the link's holder.",
-        "operationId": "address_change_post_address_change_antwort",
+        "description": "Record whether the mailbox this link was sent to is the person's: `confirmed` confirms it, `declined` ends the change.\n\n**The person's own change asks the address on file first**: its link's confirmation owes the new mailbox its link,\nand nothing moves yet, answering `confirmed` with `effective` false, `effective_from` null and `approval_open` saying\nwhether the change will wait on another administrator's approval of the grant it moves; refused `link_expired` past\nthat link's deadline and `address_change_ended` once answered or ended, a decline refused only the latter, and a\ndecline is the one way this link ends the change before it confirmed (`/stop` refuses it). Every other link the\naddress on file was mailed answers no confirmation (`link_invalid`).\n\nThe new mailbox's link: **a confirmation moves the person, not a record.** Unless the change waits -- on a waiting time an administrator's\nstart with a reason asked, or on another administrator's approval of the grant it moves -- it takes effect in this\ntransaction: every pupil row, confirmed referee row, confirmed contact seat, registration and grant the address on\nfile holds moves to the new one, asking no consent and writing none, and `effective` says so; its completion notice is\nowed in this transaction, and so is its sign-in account's carry. A change that waits is confirmed alone,\nanswering `effective_from` or `approval_open`.\nEither answer spends the link, which keeps answering what became of the change.\n\nRefuses a token no change holds (`link_invalid`), a link already answered or a change ended\n(`address_change_ended`), and, in the order the link's view ranks its states, a CONFIRMATION through a link mailed to\nan address the ban list holds now (`link_barred`), one past its deadline (`link_expired`), one whose change would replace an address\nthe ban list holds now (`address_change_replaced_barred`), so a barred person cannot move their records off the address the ban keys on,\none moving a pupil onto an address another pupil signs in on (`address_change_taken`), one whose address came to hold a grant its approval\ndoes not cover (`address_change_not_covered`), one moving a grant onto an address holding one (`address_change_new_granted`), and one\nwhose new address any entry names, confirmed or not, an open grant request among them (`address_change_occupied`): moving the person onto it\nwould join two people's records. **A decline is refused none of these**: it removes an address nobody proved, out of every log image of the\nchange too.\n\nA change whose address has come to hold nothing to move ends discarded, and the press answers `address_change_ended`. The codes past\n`link_barred` tell a caller what the view's `not_confirmable` keeps alike; only the edge keeps them from the link's holder.",
+        "operationId": "address_change_post_address_change_answer",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/FLAddressChangeAntwortPayload"
+                "$ref": "#/components/schemas/FLAddressChangeAnswerPayload"
               }
             }
           },
@@ -18987,7 +18990,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLAddressChangeAntwortResponse"
+                  "$ref": "#/components/schemas/FLAddressChangeAnswerResponse"
                 }
               }
             },
@@ -19043,7 +19046,7 @@
     },
     "/api/v0/address_change/confirmation/stop": {
       "post": {
-        "description": "Stop the change the address on file was mailed about: its new address goes, out of every log image of the change too.\n\n**Refused nothing but a token no change holds** (`link_invalid`) **and a change ended** (`address_change_ended`): a stop\nhands nothing over, so it answers past every deadline, a barred address's holder too, until the change ends.",
+        "description": "Stop the change the address on file was mailed about: its new address goes, out of every log image of the change too.\n\n**Refused nothing but a token no change holds** (`link_invalid`) **and a change ended** (`address_change_ended`): a stop\nhands nothing over, so it answers past every deadline, a barred address's holder too, until the change ends. The\nperson's own change offers this link no stop before its address on file confirmed it (`link_invalid`): its\nquestion's decline is the one way that link ends it then, so one act keeps one ending.",
         "operationId": "address_change_post_address_change_stop",
         "requestBody": {
           "content": {
@@ -19116,7 +19119,7 @@
     },
     "/api/v0/address_change/confirmation/view": {
       "post": {
-        "description": "Answer what this token opens: the new mailbox's link, the link the address on file was mailed, or how either's change ended.\n\n**Nothing else about the change**: never a name or the id, and the new address only on the two questions, the new\nmailbox's `valid` link and the address on file's `release_open` link of the person's own change. A POST that reads,\nso the token travels in a body and never in a second URL. Refuses only a token no change holds (`link_invalid`); an ended change's\nlinks answer `ended`, how it ended and on which day, for as long as its record is kept.\n\nThe new mailbox's side is served in a state: once pressed, `confirmed`, or `approval_expired` where its\napproval week lapsed unapproved; else `barred` wherever the ban list holds the address the link was mailed to, then\n`abgelaufen`, then `not_confirmable` wherever the press would be refused for the address on file's sake or would\nfind it holding nothing to move, each a state the confirmation is refused in. Those read alike here, though the press\nanswers each by its own code; what keeps the link's holder from telling them apart is the edge, where\nthe proxy routes no public call to this service. The address on file's side answers the step the change waits on\nand until when, `release_open` while the person's own change waits on this link's confirmation, and never whether\nthe new mailbox could confirm, and the day it confirmed once it has.",
+        "description": "Answer what this token opens: the new mailbox's link, the link the address on file was mailed, or how either's change ended.\n\n**Nothing else about the change**: never a name or the id, and the new address only on the two questions, the new\nmailbox's `valid` link and the address on file's `release_open` link of the person's own change. A POST that reads,\nso the token travels in a body and never in a second URL. Refuses only a token no change holds (`link_invalid`); an ended change's\nlinks answer `ended`, how it ended and on which day, for as long as its record is kept.\n\nThe new mailbox's side is served in a state: once pressed, `confirmed`, or `approval_expired` where its\napproval week lapsed unapproved; else `barred` wherever the ban list holds the address the link was mailed to, then\n`expired`, then `not_confirmable` wherever the press would be refused for the address on file's sake or would\nfind it holding nothing to move, each a state the confirmation is refused in. Those read alike here, though the press\nanswers each by its own code; what keeps the link's holder from telling them apart is the edge, where\nthe proxy routes no public call to this service. The address on file's side answers the step the change waits on\nand until when, `release_open` while the person's own change waits on this link's confirmation and `release_expired` once that lapsed,\nnever whether the new mailbox could confirm, and the day it confirmed once it has.",
         "operationId": "address_change_get_address_change_view",
         "requestBody": {
           "content": {
@@ -19190,7 +19193,7 @@
     },
     "/api/v0/address_change/sweep": {
       "post": {
-        "description": "End a bounded share of the live changes whose waiting step lapsed, and make the due ones take effect.\n\n**A lapsed change** -- its link, the approval it asked of the address on file, or its grant's approval by another\nadministrator -- ends as `abgelaufen`: its address and reason out of the record and every log image of it\n(`removed`). **A due change**, one whose waiting time has ended and whose grant's move, where its address still\nholds the grant, was approved, is judged again as its confirmation was: a ban on either address, another pupil\nsigning in on the new one, a grant its approval does not cover, a grant at the new address, or nothing left to move\nends it discarded, and\n`discarded` counts it, its new address owed a notice that it did not take effect and never why; otherwise\neverything the replaced address holds moves, and `effective` counts it, its completion notice owed. Each notice is owed\nin the Postausgang in its change's own transaction, so none rides on this answer.\n\nEach change is handled in a transaction of its own that judges it again, so one confirmed, stopped, discarded or\nreplaced since this call read it is left standing. **A pass is a run of calls, each handing the next the `nach` the last\nanswered**, the first naming none; it ends at the call answering `nach` null. A call reaches at most a fixed share of the\nchanges after `nach`, in `_id` order, and the pass holds no state on the server. A change whose handling fails is\nlogged by its id and passed, holding back nobody behind it; it stays due, and the next pass tries it again. Where the\nrequest's deadline cuts the call, it stops at that change, warns once, and answers what it did. `remaining` counts\nthe changes standing due after the call, so it is no stopping condition.",
+        "description": "End a bounded share of the live changes whose waiting step lapsed, and make the due ones take effect.\n\n**A lapsed change** -- its link, the approval it asked of the address on file, or its grant's approval by another\nadministrator -- ends as `expired`: its address and reason out of the record and every log image of it\n(`removed`). **A due change**, one whose waiting time has ended and whose grant's move, where its address still\nholds the grant, was approved, is judged again as its confirmation was: a ban on either address, another pupil\nsigning in on the new one, a grant its approval does not cover, a grant at the new address, or nothing left to move\nends it discarded, and\n`discarded` counts it, its new address owed a notice that it did not take effect and never why; otherwise\neverything the replaced address holds moves, and `effective` counts it, its completion notice owed. Each notice is owed\nin the Postausgang in its change's own transaction, so none rides on this answer.\n\nEach change is handled in a transaction of its own that judges it again, so one confirmed, stopped, discarded or\nreplaced since this call read it is left standing. **A pass is a run of calls, each handing the next the `nach` the last\nanswered**, the first naming none; it ends at the call answering `nach` null. A call reaches at most a fixed share of the\nchanges after `nach`, in `_id` order, and the pass holds no state on the server. A change whose handling fails is\nlogged by its id and passed, holding back nobody behind it; it stays due, and the next pass tries it again. Where the\nrequest's deadline cuts the call, it stops at that change, warns once, and answers what it did. `remaining` counts\nthe changes standing due after the call, so it is no stopping condition.",
         "operationId": "address_change_sweep_address_change",
         "parameters": [
           {
