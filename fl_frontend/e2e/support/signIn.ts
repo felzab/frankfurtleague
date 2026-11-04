@@ -80,7 +80,8 @@ export async function expectAccountPageOf(page: Page, address: string): Promise<
   await page.goto("/account/signin");
 
   await expect(page).toHaveURL(/\/account\/signin$/);
-  await expect(page.getByText(address, { exact: true })).toBeVisible();
+  // The page's own E-Mail-Adresse box, in `main`: the rail's account row outside it names the address too.
+  await expect(page.getByRole("main").getByText(address, { exact: true })).toBeVisible();
 }
 
 /** An administrator's first passkey, set up where a code-borne sign-in lands; answers the passkey the authenticator now holds. */
