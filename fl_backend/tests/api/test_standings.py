@@ -683,6 +683,34 @@ class TestACallOffIsAnEndingToo:
         assert decided.eligible == 1
         assert decided.by_platz[1].name == "Team 2"
 
+    @pytest.mark.parametrize(
+        ("left_on", "seeded"),
+        [
+            pytest.param(None, ["Team 1"], id="a club in the season"),
+            pytest.param("2026-03-16", ["Team 1"], id="a club leaving the day after the group's last fixture"),
+            pytest.param("2026-03-15", ["Team 1", "Team 3"], id="the control, a club leaving on that day"),
+        ],
+    )
+    def test_a_club_yet_to_play_its_first_match_holds_open_the_place_it_could_win(
+        self, a_team: TeamFactory, played: MatchFactory, left_on: str | None, seeded: list[str]
+    ):
+        """Team 2 has played nothing and meets Team 3, three points ahead, in the group's last fixture.
+
+        A win draws Team 2 level, so second place waits on that fixture; only the call-off, the one ending leaving Team 2
+        nothing counted, takes it out of the set. Leaving on the fixture's own day it holds no place in any ending, and
+        Team 3's second place is decided whatever the fixture brings.
+        """
+
+        teams = [
+            a_team(1, punkte=9),
+            a_team(2, punkte=0, gespielt=0, austritt=None if left_on is None else austritt_on(left_on)),
+            a_team(3, punkte=3, gespielt=2),
+        ]
+        # Dated 2026-03-15 by the factory, the day the group is decided on.
+        decided = standing(teams, [played(1, 2, 3)])
+
+        assert [decided.by_platz[platz].name for platz in sorted(decided.by_platz)] == seeded
+
     def test_a_call_off_is_told_from_a_draw_awarding_the_same_nothing(self, a_team: TeamFactory, played: MatchFactory):
         """`FLSaisonRules` bounds `draw_points` below at zero, where the draw and the call-off leave every total identical.
 
