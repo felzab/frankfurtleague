@@ -1,12 +1,4 @@
 {
-  "src/app/(public)/(meta)/layout.tsx": {
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
   "src/app/(public)/bestaetigung/kontakt/page.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 2
@@ -1348,42 +1340,6 @@
   "src/features/kontakte/refusals.ts": {
     "no-restricted-syntax": {
       "count": 4
-    }
-  },
-  "src/features/meta/components/ui/LegalSection.tsx": {
-    "no-restricted-syntax": {
-      "count": 2
-    }
-  },
-  "src/features/meta/components/views/DatenschutzView.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 7
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 5
-    },
-    "no-restricted-syntax": {
-      "count": 126
-    },
-    "react/forbid-component-props": {
-      "count": 2
-    },
-    "react/jsx-no-literals": {
-      "count": 129
-    }
-  },
-  "src/features/meta/components/views/ImpressumView.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 6
-    },
-    "no-restricted-syntax": {
-      "count": 36
-    },
-    "react/forbid-component-props": {
-      "count": 2
-    },
-    "react/jsx-no-literals": {
-      "count": 17
     }
   },
   "src/features/registrierungen/components/collections/AdminRegistrierungenList.tsx": {
