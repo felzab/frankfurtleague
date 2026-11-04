@@ -141,6 +141,7 @@ async def post_account_erasure(
             berechtigungen_antraege_collection=berechtigungen_antraege_collection,
             sperrliste=sperrliste,
             changed_by=identifier,
+            for_the_person=True,
             key=config.sperrliste_key,
             stamp=log_stamp(germany_now),
             now=germany_now,

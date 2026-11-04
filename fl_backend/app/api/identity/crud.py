@@ -15,6 +15,8 @@ from app.api.adresswechsel.crud import (
     build_loeschung_adresswechsel_pipeline,
     end_an_emptied_change_in_session,
     end_the_address_changes_in_session,
+    known_to_the_new_mailbox,
+    others_naming,
 )
 from app.api.adresswechsel.services import build_owed_carry_filter
 from app.api.aktionen.crud import reattribute_administrator_in_session, redact_address_in_images
@@ -660,6 +662,10 @@ async def loeschen_everything(
     now: datetime,
     # REQUIRED: the caller's transaction, every step committing together or none.
     session: AsyncClientSession,
+    # The person's own request, whose answer counts no change whose link has not reached this mailbox, as their preview
+    # names none (`app/api/identity/person_router.py :: get_account_erasure_view`): it would tell them that somebody
+    # typed their address. Every change naming it ends all the same.
+    for_the_person: bool = False,
 ) -> FLLoeschung:
     """Erase every record of this folded address the scope reaches, in the caller's transaction.
 
@@ -716,6 +722,9 @@ async def loeschen_everything(
             stamp=stamp,
             session=session,
         )
+        if for_the_person:
+            others = others_naming(subject.adresswechsel, identifier)
+            adresswechsel -= len(others) - len(known_to_the_new_mailbox(others))
 
     if _runs(loeschen_referee_confirmations_in_session, scope):
         await loeschen_referee_confirmations_in_session(
