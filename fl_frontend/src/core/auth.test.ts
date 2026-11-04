@@ -2269,29 +2269,30 @@ describe("which sign-ins the gate admits as the session is minted", () => {
     ]);
   });
 
-  /* Only the holder of the authenticator reaches this refusal, so it names the reason. */
-  it("refuses a barred address's passkey with the ban's own code, minting nothing and ending nothing", async () => {
-    const { cookie, row } = await signIn(BARRED_EMAIL);
-    store.passkey.push({ ...aPasskeyFor(row.userId), credentialID: CREDENTIAL_ID, publicKey: COSE_KEY.toString("base64") });
-    BACKENDS.set(BARRED_EMAIL, { ...NOTHING_HELD, seats: [A_SEAT], account: true, barred: true });
-    const before = [...store.session];
+  /* The browser reads the refusal's body, so a body naming the ban would tell a passkey's holder who stands on the
+     ban list, whatever the words on the page. */
+  it("refuses a barred address's passkey and an empty address's with one body, minting nothing and ending nothing", async () => {
+    const refusals: [number, string][] = [];
+    for (const [email, held] of [
+      [BARRED_EMAIL, { ...NOTHING_HELD, seats: [A_SEAT], account: true, barred: true }],
+      [EMPTY_EMAIL, NOTHING_HELD],
+    ] as const) {
+      const { cookie, row } = await signIn(email);
+      const passkey = { ...aPasskeyFor(row.userId), credentialID: CREDENTIAL_ID, publicKey: COSE_KEY.toString("base64") };
+      store.passkey.push(passkey);
+      BACKENDS.set(email, held);
+      const before = [...store.session];
 
-    const refused = await assertPasskey(cookie, true);
+      const refused = await assertPasskey(cookie, true);
 
-    expect(refused.status).toBe(403);
-    expect(((await refused.json()) as { code?: string }).code).toBe("SIGN_IN_BARRED");
-    expect(store.session, "a refused passkey sign-in minted a session or ended one").toStrictEqual(before);
-  });
+      refusals.push([refused.status, await refused.text()]);
+      expect(store.session, "a refused passkey sign-in minted a session or ended one").toStrictEqual(before);
+      store.passkey.splice(store.passkey.indexOf(passkey), 1);
+    }
 
-  it("refuses the passkey of an address that holds nothing with a code of its own", async () => {
-    const { cookie, row } = await signIn(EMPTY_EMAIL);
-    store.passkey.push({ ...aPasskeyFor(row.userId), credentialID: CREDENTIAL_ID, publicKey: COSE_KEY.toString("base64") });
-    BACKENDS.set(EMPTY_EMAIL, NOTHING_HELD);
-
-    const refused = await assertPasskey(cookie, true);
-
-    expect(refused.status).toBe(403);
-    expect(((await refused.json()) as { code?: string }).code).toBe("SIGN_IN_HOLDS_NOTHING");
+    const [barred, empty] = refusals;
+    expect(barred?.[0]).toBe(403);
+    expect(barred, "a barred address's refusal differs from an empty address's").toStrictEqual(empty);
   });
 
   /* The set-up that signs in mints inside the registration's transaction, so its refusal takes the
@@ -2304,7 +2305,7 @@ describe("which sign-ins the gate admits as the session is minted", () => {
     const refused = await enrolPasskey(cookie, { createSession: true });
 
     expect(refused.status).toBe(403);
-    expect(((await refused.clone().json()) as { code?: string }).code).toBe("SIGN_IN_HOLDS_NOTHING");
+    expect(((await refused.clone().json()) as { code?: string }).code).toBe("SIGN_IN_REFUSED");
     expect(store.passkey, "the refused set-up left its passkey behind").toStrictEqual([]);
     assert.ok(store.session.includes(row), "the refused set-up signed its caller out");
   });

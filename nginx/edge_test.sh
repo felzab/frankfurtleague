@@ -274,11 +274,10 @@ CASES=(
   "LEAK|${BASE}/teams%3Femail=${EM}"
   "LEAK|${BASE}/teams%3Ftoken%3D${TOK}"
 
-  # A token inside another parameter's value, its `=` encoded, as the sign-in's `return` carries the
-  # mailed deletion link (`fl_frontend/src/core/auth/returnAddress.ts :: withReturnAddress`). The URI
-  # holds a literal `?`, but no `token=` follows it, so only the backstop reaches this one either.
-  # Each of the three addresses carrying it: the sign-in, the passkey offer and the landing, the
-  # last two on blocks of their own (`nginx/shared/site.conf`).
+  # A token inside another parameter's value, its `=` encoded, a spelling no page writes but a visitor
+  # can. The URI holds a literal `?`, but no `token=` follows it, so only the backstop reaches this one
+  # either. Each of the sign-in's three addresses taking a `return`: the sign-in, the passkey offer
+  # and the landing, the last two on blocks of their own (`nginx/shared/site.conf`).
   "LEAK|${BASE}/signin?return=%2Ferasure%3Ftoken%3D${TOK}"
   "LEAK|${BASE}/signin/passkey?return=%2Ferasure%3Ftoken%3D${TOK}"
   "LEAK|${BASE}/signin/continue?return=%2Ferasure%3Ftoken%3D${TOK}"
@@ -298,7 +297,7 @@ CASES=(
   "LEAK-REF|http://localhost/x?a=1&token=${TOK}"
   "LEAK-REF|http://localhost/x/token=${TOK}"
   "LEAK-REF|http://localhost/signin?token=a%20b${TOK}"
-  # The page after the sign-in's code step names the sign-in, its `return` carrying the deletion link.
+  # The page after the sign-in's code step names the sign-in, here with a link a visitor put in its `return`.
   "LEAK-REF|http://localhost/signin?return=%2Ferasure%3Ftoken%3D${TOK}"
   "LEAK-REF|http://localhost/signin/passkey?return=%2Ferasure%3Ftoken%3D${TOK}"
 

@@ -444,9 +444,10 @@ export const SERVER_COPY = catalogue({
         heading: "Website und Browser",
         requests:
           "Jede Anfrage an die Website läuft zuerst über Cloudflare, Inc.; Cloudflare sieht dabei deine IP-Adresse, die aufgerufene Adresse, die Angaben deines Browsers und jedes Formular, das du abschickst. Bei jedem Aufruf speichert unser Server deine IP-Adresse, den Zeitpunkt, die aufgerufene Seite, den Statuscode und die Kennung deines Browsers.",
-        // The passkey cookie's 5 minutes are Better Auth's own, which the library sets and exports no name for.
+        // The passkey cookie's 5 minutes are Better Auth's own, which the library sets and exports no name for; the mailed
+        // link's hour is `fl_frontend/src/core/mailedLink.ts :: MAILED_LINK_SECONDS`.
         browser:
-          "In deinem Browser legt die Website nur ab, was ihr Betrieb braucht: ein Sitzungs-Cookie, sobald du dich anmeldest, ein Cookie für die Anmeldung mit einem Passkey, das 5 Minuten gilt, und im lokalen Speicher die Darstellung, hell oder dunkel, die du wählst. Auf der Anmeldeseite, im Bewerbungsformular und im Registrierungsformular prüft Cloudflare Turnstile, ob ein Mensch das Formular abschickt, und fragt dafür Merkmale deines Browsers und deiner Verbindung ab; Cloudflare nutzt sie auch in eigener Verantwortung, um seine Erkennung automatisierter Zugriffe zu verbessern. Beides ist nach § 25 Abs. 2 Nr. 2 TDDDG ohne Einwilligung zulässig.",
+          "In deinem Browser legt die Website nur ab, was ihr Betrieb braucht: ein Sitzungs-Cookie, sobald du dich anmeldest, ein Cookie für die Anmeldung mit einem Passkey, das 5 Minuten gilt, ein Cookie, das einen Link aus einer E-Mail eine Stunde lang hält, bis du ihn benutzt, und im lokalen Speicher die Darstellung, hell oder dunkel, die du wählst. Auf der Anmeldeseite, im Bewerbungsformular und im Registrierungsformular prüft Cloudflare Turnstile, ob ein Mensch das Formular abschickt, und fragt dafür Merkmale deines Browsers und deiner Verbindung ab; Cloudflare nutzt sie auch in eigener Verantwortung, um seine Erkennung automatisierter Zugriffe zu verbessern. Beides ist nach § 25 Abs. 2 Nr. 2 TDDDG ohne Einwilligung zulässig.",
       },
       bewerbung: {
         heading: "Bewerbung einer Schule",

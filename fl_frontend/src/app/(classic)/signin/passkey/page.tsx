@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { SignInShell } from "@/kit/SignInShell";
 
 import { getPasskeyStep } from "@/core/auth/landing";
-import { RETURN_PARAMETER, SIGN_IN_REFERRER, withReturnAddress } from "@/core/auth/returnAddress";
+import { RETURN_PARAMETER, withReturnAddress } from "@/core/auth/returnAddress";
 import { ROUTES } from "@/core/routes";
 import { PasskeyStep } from "@/features/auth/components/forms/PasskeyStep";
 import { pageMetadata } from "@/shared/utils/metadata";
@@ -11,9 +11,9 @@ import { pageMetadata } from "@/shared/utils/metadata";
 import type { NextPageProps } from "@/shared/types/types";
 import type { Metadata, ResolvingMetadata } from "next";
 
-/** No description, as `/signin` carries none; and the referrer `/signin`'s is, for its reason. */
+/** No description, as `/signin` carries none. */
 export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
-  return { ...(await pageMetadata(parent, ROUTES.signInPasskey, ROUTES.signInPasskey.path())), ...SIGN_IN_REFERRER };
+  return pageMetadata(parent, ROUTES.signInPasskey, ROUTES.signInPasskey.path());
 }
 
 // Never under `/area/admin`: the session that must reach this page is the one the admin guard is

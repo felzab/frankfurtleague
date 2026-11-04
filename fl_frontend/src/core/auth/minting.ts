@@ -5,7 +5,7 @@ import { makeSignature } from "better-auth/crypto";
 
 import { now } from "../clock";
 import { logger } from "../logging";
-import { SIGN_IN_BARRED, SIGN_IN_HOLDS_NOTHING } from "../passkeyRefusal";
+import { SIGN_IN_REFUSED } from "../passkeyRefusal";
 import { mayReceiveSignIn, signInVerdictOf } from "../signInGate";
 import { carriedEnrolmentRead } from "./enrolment";
 import { REPLACED_SESSION_FIELD } from "./sessionStamps";
@@ -108,7 +108,7 @@ export async function refuseUnadmitted(ctx: GenericEndpointContext, userId: stri
 
   // Worded where the ceremony starts (`fl_frontend/src/features/auth/passkeyAnswers.ts`); a failed
   // read is the backend's and not the person's, so it answers as a retry would.
-  if (verdict === "barred") throw new APIError("FORBIDDEN", { code: SIGN_IN_BARRED, message: "The address is barred." });
-  if (verdict === "holds-nothing") throw new APIError("FORBIDDEN", { code: SIGN_IN_HOLDS_NOTHING, message: "The address holds nothing." });
-  throw APIError.fromStatus("SERVICE_UNAVAILABLE");
+  if (verdict === "failed") throw APIError.fromStatus("SERVICE_UNAVAILABLE");
+  // The browser reads this body, so a ban and an address holding nothing answer it byte for byte alike.
+  throw new APIError("FORBIDDEN", { code: SIGN_IN_REFUSED, message: "No sign-in is admitted for this address." });
 }

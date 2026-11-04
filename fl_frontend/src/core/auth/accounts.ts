@@ -9,7 +9,7 @@ import { APIBadStatusError, RolledBackError } from "../errors";
 import { deleteEndedSessions } from "./accountSessions";
 import { auth, ownErasure } from "./library";
 import { SESSIONS_ENDED_FIELD } from "./sessionStamps";
-import { deleteSignInRowsOf, DUPLICATE_KEY, EVERY_ROW, RemovalOutsideTransaction } from "./signInRows";
+import { DELETE_TOKEN_ROW_PREFIX, deleteSignInRowsOf, DUPLICATE_KEY, EVERY_ROW, RemovalOutsideTransaction } from "./signInRows";
 
 import type { DeletionPress } from "./library";
 
@@ -83,6 +83,16 @@ export class DeletionOutcomeUnknown extends Error {
   constructor(cause: unknown) {
     super("The deletion failed after its link was spent.", { cause });
   }
+}
+
+/**
+ * Whether a mailed deletion link still stands, whoever's it is: the library's own row for its token, unspent and short
+ * of its expiry. Asked before any session, so a spent or lapsed link says so to whoever opens it, signed in or not.
+ */
+export async function erasureLinkStands(token: string): Promise<boolean> {
+  const { internalAdapter } = await auth.$context;
+  const row = await internalAdapter.findVerificationValue(`${DELETE_TOKEN_ROW_PREFIX}${token}`);
+  return row !== null && row.expiresAt.getTime() > now().getTime();
 }
 
 /**

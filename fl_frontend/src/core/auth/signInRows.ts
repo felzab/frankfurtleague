@@ -6,7 +6,7 @@ import { makeSignature } from "better-auth/crypto";
 import { now } from "../clock";
 import { asSignInIdentifier } from "../emailAddress";
 import { logger } from "../logging";
-import { SIGN_IN_BARRED, SIGN_IN_HOLDS_NOTHING } from "../passkeyRefusal";
+import { SIGN_IN_REFUSED } from "../passkeyRefusal";
 import { CODE_MAIL_LIMIT, CODE_MAIL_WINDOW_HOURS } from "../signInCode";
 import { HOUR_MS } from "../timeUnits";
 
@@ -40,7 +40,7 @@ export const FAILURE_ROW_PREFIX = "sign-in-attempt-";
 export const MAIL_ROW_PREFIX = "sign-in-mail-";
 
 /** The library's own prefix for an outstanding deletion token's row, whose value is the account's user id. */
-const DELETE_TOKEN_ROW_PREFIX = "delete-account-";
+export const DELETE_TOKEN_ROW_PREFIX = "delete-account-";
 
 // The server's code for an insert a unique index refused; the driver exports no name for it.
 export const DUPLICATE_KEY = 11000;
@@ -99,7 +99,7 @@ export const attemptRows = new WeakMap<object, string>();
  */
 export function refusedAtMint(returned: APIError): boolean {
   const code: unknown = returned.body?.code;
-  return code === SIGN_IN_BARRED || code === SIGN_IN_HOLDS_NOTHING || returned.status === "SERVICE_UNAVAILABLE";
+  return code === SIGN_IN_REFUSED || returned.status === "SERVICE_UNAVAILABLE";
 }
 
 /**
