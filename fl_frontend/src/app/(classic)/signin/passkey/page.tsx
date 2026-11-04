@@ -1,7 +1,6 @@
-import { Suspense } from "react";
 import { redirect } from "next/navigation";
 
-import { SignInSkeleton } from "@/kit/SignInPage";
+import { SignInShell } from "@/kit/SignInShell";
 
 import { getPasskeyStep } from "@/core/auth";
 import { ROUTES } from "@/core/routes";
@@ -25,13 +24,14 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
  */
 export default function PasskeyPage() {
   return (
-    <Suspense fallback={<SignInSkeleton title={null} />}>
-      <PasskeyInhalt />
-    </Suspense>
+    <SignInShell
+      title={null}
+      view={readView()}
+    />
   );
 }
 
-async function PasskeyInhalt() {
+async function readView() {
   // Which control stands here is the guard's answer and never this page's: the requirement it
   // enforces is judged per request, beside the session lifetimes.
   const schritt = await getPasskeyStep();

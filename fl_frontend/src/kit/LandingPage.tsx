@@ -1,7 +1,6 @@
-import { Suspense } from "react";
-
 import { ClassicPage } from "./ClassicPage";
 import { Link } from "./Link";
+import { PageWait } from "./PageFade";
 import { LandingSkeleton } from "./Skeleton";
 import { tv } from "./tv";
 
@@ -107,7 +106,7 @@ export function LandingPage({
     <ClassicPage width="landing">
       <div className={slots.root()}>
         <h1 className={slots.title()}>{title}</h1>
-        <Suspense
+        <PageWait
           fallback={
             <Parts
               words={<LandingSkeleton part="words" />}
@@ -119,7 +118,7 @@ export function LandingPage({
             lead={lead}
             content={content}
           />
-        </Suspense>
+        </PageWait>
       </div>
     </ClassicPage>
   );

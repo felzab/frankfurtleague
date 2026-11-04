@@ -9,6 +9,7 @@ import { actLabel } from "./dialogAct";
 import { EmptyState } from "./EmptyState";
 import { Filters } from "./Filters";
 import { ListMatches, ListQueryScope, ListSearchField, ListTable, ListTiles } from "./ListTable";
+import { PageWait } from "./PageFade";
 import { RailPage } from "./RailFrame";
 import { Skeleton } from "./Skeleton";
 import { Table } from "./Table";
@@ -252,9 +253,9 @@ export function ListPage({
             )}
           </div>
         )}
-        <Suspense fallback={<Skeleton shape={WAIT[list.kind]} />}>
+        <PageWait fallback={<Skeleton shape={WAIT[list.kind]} />}>
           <ListBody list={list} />
-        </Suspense>
+        </PageWait>
       </ListQueryScope>
     </RailPage>
   );
