@@ -472,7 +472,7 @@ class TestTheCaptaincy:
                 identifier=ANSPRECH,
                 saison_spieler_collection=squad_rows if squad_rows is not None else database[Collection.SAISON_SPIELER],
                 saisons_collection=saisons,
-                records=record_collections(database, saisons_collection=saisons),
+                records=record_collections(database),
                 db=client,
             )
 

@@ -789,8 +789,6 @@ async def loeschen_everything(
             berechtigungen_collection=berechtigungen_collection,
             records=RecordCollections(
                 saison_teams_collection=saison_teams_collection,
-                # Read by no step: the record lookup's bundle carries it for the subject's own reads.
-                saisons_collection=saison_teams_collection.database[Collection.SAISONS],
                 spieler_collection=spieler_collection,
                 schiedsrichter_collection=schiedsrichter_collection,
                 bewerbungen_collection=bewerbungen_collection,

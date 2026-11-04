@@ -436,7 +436,6 @@ async def _plan_antrag_ende(
 def _records_of(database: AsyncDatabase) -> RecordCollections:
     return RecordCollections(
         saison_teams_collection=database[Collection.SAISON_TEAMS],
-        saisons_collection=database[Collection.SAISONS],
         spieler_collection=database[Collection.SPIELER],
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
