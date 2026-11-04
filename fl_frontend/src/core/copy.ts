@@ -106,7 +106,6 @@ export const COPY = catalogue({
       exampleDate: "31.12.2026",
       // Reserved as the address example's domain is.
       exampleUrl: "https://example.com",
-      // Redesign: the first field taking a range reads it.
       between: (from: Bound, to: Bound) => `Zwischen ${bound(from)} und ${bound(to)}`,
       // One-sided bounds of a number or of a list, the box's label saying what is counted.
       max: (count: number) => `Höchstens ${formatNumber(count)}`,
@@ -161,7 +160,7 @@ export const COPY = catalogue({
     close: "Schließen",
 
     /** The end states of a page a mail opens; each page names its own sentence for the done state. */
-    // Session 4: the mailed pages read these.
+    // Session 4: the mailed pages read `doneOn` and `toAccount`.
     end: {
       doneOn: (done: Copy, day: CalendarDay) => `${done} am ${formatDatumLong(day)}.`,
       linkInvalid: "Dieser Link gilt nicht mehr.",
@@ -171,7 +170,7 @@ export const COPY = catalogue({
 
     /** The match pop-up's way to the match's own page. */
     toSpiel: "Zum Spiel",
-    // Redesign: the first fact its reader could supply, shown empty, reads it.
+    /** A fact nobody has entered, where a sentence names it in words rather than a glyph: a match mail's ground. */
     notProvided: "Nicht hinterlegt",
     /** A value not there yet, in a tile, a table cell or a score's place: a glyph, not a word. */
     noValue: "–",
