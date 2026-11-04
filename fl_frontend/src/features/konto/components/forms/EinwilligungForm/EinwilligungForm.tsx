@@ -16,7 +16,7 @@ import { rejectedWrite } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { focusAfterWrite, focusSlot } from "@/shared/utils/focusAfterWrite";
 
-import { medienZuJung, WAHL_GESPEICHERT, WAHL_NICHT_GESPEICHERT } from "../../../einwilligung";
+import { medienZuJung, NUR_WIDERRUF, WAHL_GESPEICHERT, WAHL_NICHT_GESPEICHERT } from "../../../einwilligung";
 
 import type { FLEinwilligung, FLEinwilligungStand, FLKontaktKenntnisnahme } from "@/core/generated/client/types";
 import type { ActionFailure } from "@/shared/types/types";
@@ -26,6 +26,9 @@ import type { ReactNode } from "react";
 export type PersonUmfang = FLEinwilligung["umfang"];
 export type SitzUmfang = FLKontaktKenntnisnahme["umfang"];
 type Umfang = PersonUmfang | SitzUmfang;
+
+/** The labels a press names, one per choice, as the record's kind's request schema admits them. */
+export type Labels = { readonly umfang: string; readonly medien: string };
 
 /** The chips in the order a reader meets them: the wider publication first, as the confirmation pages ask it. */
 const UMFANG_REIHENFOLGE: readonly PersonUmfang[] = Object.values(FLEinwilligungUmfang);
@@ -53,9 +56,9 @@ const hält = (gehalten: EinwilligungWahl, wahl: Wahl): boolean => gehalten[wahl
  * The words one control shows, every slot already filled: `umfang`'s chips or `whatsapp`'s switch, as the
  * scope `U` is a person's or a seat's. A name is a string because it is a control's accessible name.
  */
-export type EinwilligungWorte<U extends Umfang = Umfang> = {
-  /** The label the words below belong to, posted back with every press so the record names what was on screen. */
-  readonly textVersion: string;
+type EinwilligungWorte<U extends Umfang = Umfang, V extends Labels = Labels> = {
+  /** The labels the words below belong to, posted back with every press so the record names what was on screen. */
+  readonly textVersions: V;
   /**
    * Keyed by the scope each chip writes. `never` on a seat's scope, so a person's words, chips and all,
    * handed to a seat's control fail the type check rather than inferring `U` as the seat's.
@@ -66,22 +69,17 @@ export type EinwilligungWorte<U extends Umfang = Umfang> = {
   /** With the scope it writes on and off, so a person's words cannot carry one. */
   readonly whatsapp?: { readonly schalter: string; readonly an: U & SitzUmfang; readonly aus: U & SitzUmfang; readonly absatz: ReactNode };
   readonly medien: { readonly schalter: string; readonly absatz: ReactNode };
-  /** What a change takes effect from. */
-  readonly widerruf: ReactNode;
 };
 
-/**
- * Whether the record admits a grant, with its words. One granting no panel takes a withdrawal alone, never
- * closed, and its words say why, read with every control, so a closed grant without a reason fails the
- * type check.
- */
-export type Gewaehrung<U extends Umfang = Umfang> =
-  | { readonly erteilbar: true; readonly worte: EinwilligungWorte<U> & { readonly nurWiderruf?: never } }
-  | { readonly erteilbar: false; readonly worte: EinwilligungWorte<U> & { readonly nurWiderruf: string } };
+/** Whether the record admits a grant, with its words. One granting no panel takes a withdrawal alone, never closed. */
+export type Gewaehrung<U extends Umfang = Umfang, V extends Labels = Labels> = {
+  readonly erteilbar: boolean;
+  readonly worte: EinwilligungWorte<U, V>;
+};
 
 /** What a press sends: the whole record's choices, so moving one never resets the other. */
-type EinwilligungAntwort<U extends Umfang = Umfang> = EinwilligungWahl<U> & {
-  readonly text_version: string;
+type EinwilligungAntwort<U extends Umfang = Umfang, V extends Labels = Labels> = EinwilligungWahl<U> & {
+  readonly text_versions: V;
   readonly nachweis_stand: FLEinwilligungStand;
 };
 
@@ -127,7 +125,7 @@ function GrantSchalter({
 }
 
 /** One record's control, typed by the record's own scope `U`. */
-export type EinwilligungFormProps<U extends Umfang> = Gewaehrung<U> & {
+export type EinwilligungFormProps<U extends Umfang, V extends Labels> = Gewaehrung<U, V> & {
   /** The record as the page read it; the controls show it again once a press has been answered. */
   gespeichert: EinwilligungWahl<U>;
   /** The stand the page was served with the record. */
@@ -137,7 +135,7 @@ export type EinwilligungFormProps<U extends Umfang> = Gewaehrung<U> & {
   /** The media floor the record's entry serves, which a grant refused below it names. */
   medienMindestalter: number;
   /** Typed by the record's own payload, so a field its write's mirror gains fails the page that binds it. */
-  speichereAction: (antwort: EinwilligungAntwort<U>) => Promise<Gespeichert | ActionFailure>;
+  speichereAction: (antwort: EinwilligungAntwort<U, V>) => Promise<Gespeichert | ActionFailure>;
 };
 
 /**
@@ -145,7 +143,7 @@ export type EinwilligungFormProps<U extends Umfang> = Gewaehrung<U> & {
  * through this one component, so the pupil's, the referee's, a seat's and a registration's cannot drift
  * apart in wording or behaviour.
  */
-export function EinwilligungForm<U extends Umfang>({
+export function EinwilligungForm<U extends Umfang, V extends Labels>({
   worte,
   gespeichert,
   nachweisStand,
@@ -153,13 +151,12 @@ export function EinwilligungForm<U extends Umfang>({
   medienMindestalter,
   erteilbar,
   speichereAction,
-}: EinwilligungFormProps<U>) {
+}: EinwilligungFormProps<U, V>) {
   const router = useRouter();
   const frageId = useId();
   const umfangAbsatzId = useId();
   const whatsappAbsatzId = useId();
   const medienAbsatzId = useId();
-  const nurWiderrufId = useId();
 
   // Shown until the press's answer re-reads the page: the action's spine refreshes it after a landed
   // write, and a refused one falls back to what the page last read.
@@ -179,13 +176,9 @@ export function EinwilligungForm<U extends Umfang>({
 
   // Why a closed grant is closed, for a press queued behind a landed withdrawal, whose refresh draws the
   // switch closed, so no reload is asked. On a record admitting a grant, only the media consent below the age closes.
-  const grund = (): string => (erteilbar ? medienZuJung(medienMindestalter) : worte.nurWiderruf);
+  const grund = (): string => (erteilbar ? medienZuJung(medienMindestalter) : NUR_WIDERRUF);
 
-  // Every control on a withdraw-only record is read with its reason, a closed one and an open one alike.
-  const beschreibung = (...eigene: string[]): string | undefined => {
-    const ids = [...eigene, ...(worte.nurWiderruf === undefined ? [] : [nurWiderrufId])];
-    return ids.length === 0 ? undefined : ids.join(" ");
-  };
+  const beschreibung = (...eigene: string[]): string | undefined => (eigene.length === 0 ? undefined : eigene.join(" "));
 
   // One press at a time, each the held record plus its own change: built from the screen, a press after
   // a refused grant would carry the grant along, and one sent unanswered a stand that press moves.
@@ -202,7 +195,7 @@ export function EinwilligungForm<U extends Umfang>({
         const naechste: EinwilligungWahl<U> = { ...gehalten.current.wahl, [aenderung.wahl]: aenderung.wert };
         const answer = await speichereAction({
           ...naechste,
-          text_version: worte.textVersion,
+          text_versions: worte.textVersions,
           nachweis_stand: gehalten.current.stand,
         }).catch(rejectedWrite(router));
         if (answer.success) gehalten.current = { wahl: naechste, stand: answer.nachweis_stand };
@@ -226,15 +219,6 @@ export function EinwilligungForm<U extends Umfang>({
 
   return (
     <div className="flex w-full flex-col gap-y-6">
-      {/* Once, ahead of every control it explains, and outside each control's own slot. */}
-      {worte.nurWiderruf !== undefined && (
-        <p
-          id={nurWiderrufId}
-          className={ABSATZ_CLASSES}>
-          {worte.nurWiderruf}
-        </p>
-      )}
-
       {umfang !== undefined && (
         <div className="flex w-full flex-col gap-y-3">
           <p
@@ -311,8 +295,6 @@ export function EinwilligungForm<U extends Umfang>({
           {worte.medien.absatz}
         </p>
       </div>
-
-      <p className={ABSATZ_CLASSES}>{worte.widerruf}</p>
     </div>
   );
 }

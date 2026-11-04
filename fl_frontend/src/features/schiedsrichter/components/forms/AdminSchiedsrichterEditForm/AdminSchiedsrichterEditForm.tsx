@@ -57,8 +57,6 @@ type AdminSchiedsrichterEditFormProps = {
     /** What became of the last confirmation mail the referee was owed, read off the Postausgang. */
     zustellung: FLOutboxStatus | null;
   };
-  /** Whether the registry holds the stored label, which no record of the row says. */
-  istFassungBekannt: boolean | null;
   /** A fact about the row rather than a field this form commits, so it arrives beside the values. */
   isRetired: boolean;
   pageHeader: EditPageHeaderContent;
@@ -68,7 +66,7 @@ type AdminSchiedsrichterEditFormProps = {
  * One save bar over one endpoint, unlike the squad editor's two: a referee is one document with no junction
  * row, so no partial failure is reachable. Its drafts start from the props, the view's key remounting it after a save.
  */
-export function AdminSchiedsrichterEditForm({ schiedsrichter, istFassungBekannt, isRetired, pageHeader }: AdminSchiedsrichterEditFormProps) {
+export function AdminSchiedsrichterEditForm({ schiedsrichter, isRetired, pageHeader }: AdminSchiedsrichterEditFormProps) {
   const saisonHref = useSaisonHref();
   const [isPending, startSaving] = useTransition();
   const stepUp = useStepUp();
@@ -253,7 +251,6 @@ export function AdminSchiedsrichterEditForm({ schiedsrichter, istFassungBekannt,
             istAbgelaufen={schiedsrichter.abgelaufen.bestaetigung}
             delivery={schiedsrichter.zustellung}
             einwilligung={schiedsrichter.einwilligung}
-            istFassungBekannt={istFassungBekannt}
             geburtsdatum={schiedsrichter.geburtsdatum}
           />
         </EditFormLayout>

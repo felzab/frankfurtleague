@@ -33,7 +33,7 @@ from app.shared.schemas.custom import (
     parse_empty_string_to_none,
     validate_external_url,
 )
-from app.shared.schemas.einwilligung import CustomEinwilligungTextVersion, FLEinwilligungStand
+from app.shared.schemas.einwilligung import FLEinwilligungStand, FLSeatTextVersions
 from app.shared.schemas.kontakt import CustomEmail
 
 # Imported rather than restated: an application's three people BECOME the junction's three people at
@@ -309,13 +309,10 @@ def age_outside_the_bounds(*, geburtsdatum: str, today: str, minimum_age: int) -
 
 
 class FLBewerbungEinwilligungPayload(BaseModel):
-    """What the applicant agreed to; the scope and the date are the server's."""
+    """What the applicant acknowledged; the scope and the date are the server's."""
 
     model_config = ConfigDict(extra="forbid")
 
-    # Stripped before the floor counts it, as the junction payload's is: a record whose wording
-    # version is spaces cites no text at all.
-    text_version: CustomEinwilligungTextVersion
     # `True` and no other value: a form submitted with the box unticked is a body this endpoint
     # refuses, never a stored record saying somebody declined.
     given: Literal[True]
@@ -559,9 +556,6 @@ class FLBewerbungEinwilligungViewResponse(BaseAPIResponse):
     # and never `trainer_is_also` itself: null on every other seat, so no link says whether two
     # OTHER seats are one person.
     also_rolle: FLKontaktRolle | None
-    # The label the page renders and its answer must name: the applicant's page, or the one for a
-    # person an administrator seated, decided from how the seat was filled (`kontakt_seite_of`).
-    running_wording: str
     # The PERSON's floor over the seats this link answers for, so the page bounds its date control
     # and fills its own sentences from what the answer will judge rather than from a constant.
     minimum_age: int
@@ -581,9 +575,8 @@ class FLBewerbungEinwilligungGiven(BaseModel):
     whatsapp: bool
     # Required as `whatsapp` is: a page that forgot the switch is refused rather than read as a no.
     medien: bool
-    # The wording the CONFIRMING person saw, which is what a confirmed seat then cites: the label
-    # the applicant ticked for them may be an older one.
-    text_version: CustomEinwilligungTextVersion
+    # The wordings the confirming person saw beside the two switches, which their evidence cites.
+    text_versions: FLSeatTextVersions
 
 
 class FLBewerbungEinwilligungDeclined(BaseModel):
@@ -644,11 +637,6 @@ class FLBewerbungEinwilligungResendResponse(BaseAPIResponse):
 
 class FLBewerbungKontaktSeatPayload(_KontaktpersonWritablePayload):
     """The person seated where a contact person stepped out, who has agreed to nothing yet."""
-
-    # The label alone, `compose_einwilligung` requiring one and the registry naming it
-    # (`fl_backend/app/shared/einwilligung.py :: FASSUNGEN`). Stripped before the floor counts it: a
-    # version that is spaces cites no text.
-    text_version: CustomEinwilligungTextVersion
 
 
 class FLBewerbungKontaktEmailPayload(BaseModel):

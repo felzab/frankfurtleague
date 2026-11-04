@@ -10,10 +10,10 @@ import {
 } from "@/core/generated/client/sdk";
 
 import type {
-  FLAccountEinwilligungPayload,
   FLPatchSchiedsrichterResponse,
   FLPostSchiedsrichterPayload,
   FLPostSchiedsrichterResponse,
+  FLSchiedsrichterAccountEinwilligungPayload,
   FLSchiedsrichterAccountEinwilligungResponse,
   FLSchiedsrichterConfirmationPayload,
   FLSchiedsrichterConfirmationResponse,
@@ -72,7 +72,7 @@ export async function postSchiedsrichterBestaetigung(
 // the path because one address may hold several referee rows.
 export async function patchSchiedsrichterKontoEinwilligung(
   schiedsrichterId: string,
-  payload: FLAccountEinwilligungPayload,
+  payload: FLSchiedsrichterAccountEinwilligungPayload,
 ): Promise<FLSchiedsrichterAccountEinwilligungResponse> {
   return schiedsrichterPatchEinwilligung(schiedsrichterId, payload);
 }

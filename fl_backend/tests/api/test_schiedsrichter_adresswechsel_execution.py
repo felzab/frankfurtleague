@@ -25,7 +25,6 @@ from app.api.schiedsrichter.services import BESTAETIGUNG_FELD
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
-from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.tokens import hash_token
 from tests import documents
 from tests.bans import ban_list
@@ -97,7 +96,7 @@ def on_a_league(url: str, body: Body, *, confirmed: bool = True) -> Any:
                             "geburtsdatum": "1984-05-09",
                             "umfang": "kader_oeffentlich",
                             "medien": True,
-                            "text_version": LAUFENDE_FASSUNGEN["bestaetigung_schiedsrichter"],
+                            "text_versions": dict(documents.SCHIEDSRICHTER_TEXT_VERSIONS),
                         }
                     ),
                     schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],

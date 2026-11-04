@@ -14,10 +14,9 @@ import type { SetStateAction } from "react";
  */
 export function useBewerbungDraft(
   saisonId: string,
-  textVersion: string,
   isEingereicht: boolean,
 ): [BewerbungFormDraft, (next: SetStateAction<BewerbungFormDraft>) => void] {
-  const [draft, setDraft] = useState<BewerbungFormDraft>(() => buildEmptyBewerbungDraft(saisonId, textVersion));
+  const [draft, setDraft] = useState<BewerbungFormDraft>(() => buildEmptyBewerbungDraft(saisonId));
   /** Set on the first edit and never cleared: what it guards is the browser's own unload prompt. */
   const [hasTyped, setHasTyped] = useState(false);
 

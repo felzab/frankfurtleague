@@ -42,7 +42,7 @@ def spiel(spiel_nr: int, home: str, away: str, ergebnis: str | None = None) -> d
 
 
 def pupil(vorname: str) -> dict[str, Any]:
-    published = documents.own_einwilligung_document(text_version=documents.EINWILLIGUNG["text_version"], confirmed_at="2026-01-20")
+    published = documents.own_einwilligung_document(text_versions=documents.SPIELER_TEXT_VERSIONS, confirmed_at="2026-01-20")
     return documents.spieler_document(ObjectId(), vorname, "Müller", einwilligung=published)
 
 

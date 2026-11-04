@@ -25,12 +25,18 @@ from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.security import ENROLMENT_WINDOW_S, STEP_UP_WINDOW_S
 from app.main import create_app
-from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.tokens import hash_token
 from tests.app_client import app_client
 from tests.config import ADMIN_KEY, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.documents import kontaktperson_document, own_einwilligung_document, rules_document, saison_document, saison_team_document
+from tests.documents import (
+    SCHIEDSRICHTER_TEXT_VERSIONS,
+    kontaktperson_document,
+    own_einwilligung_document,
+    rules_document,
+    saison_document,
+    saison_team_document,
+)
 from tests.session_headers import StampedHeaders
 from tests.worker import worker_database
 
@@ -159,7 +165,7 @@ class TestTheClubsContacts:
             "email": "ida@example.com",
             "telefon": "+4917010000001",
             # The running label, so the label judgement admits the newcomer and the step-up alone refuses.
-            "einwilligung": {"umfang": "kontaktdaten", "text_version": LAUFENDE_FASSUNGEN["bewerbung"], "datum": "2026-03-01"},
+            "einwilligung": {"umfang": "kontaktdaten", "datum": "2026-03-01"},
         }
 
         async def body(database: AsyncDatabase, http: AsyncClient) -> tuple[bool, Any]:
@@ -176,7 +182,7 @@ class TestTheClubsContacts:
         confirmed = kontaktperson_document(
             "Ida",
             confirmed_at="2026-03-02",
-            einwilligung={"text_version": LAUFENDE_FASSUNGEN["bewerbung"], "datum": "2026-03-01"},
+            einwilligung={"datum": "2026-03-01"},
             nachname="Musterfrau",
             email="ida@example.com",
             telefon="+4917010000001",
@@ -227,7 +233,9 @@ def a_referee(*, confirmed: bool = False, retired: bool = False) -> dict[str, An
         "confirmation": {**compose_bestaetigung(today="2026-03-20"), "token_hashes": [hash_token("seeded-referee")]},
         **(
             {
-                "einwilligung": own_einwilligung_document(text_version="v1", confirmed_at="2026-03-21", umfang="intern"),
+                "einwilligung": own_einwilligung_document(
+                    text_versions=SCHIEDSRICHTER_TEXT_VERSIONS, confirmed_at="2026-03-21", umfang="intern"
+                ),
                 "geburtsdatum": "1984-05-09",
             }
             if confirmed

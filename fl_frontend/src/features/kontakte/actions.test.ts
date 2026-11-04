@@ -1,6 +1,5 @@
 import { doubleActionRequest } from "@/test-support/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/test-support/apiClientDouble.ts";
-import { einwilligungAnswer, laufendeFassung } from "@/test-support/einwilligungRegistry.ts";
 import { kenntnisnahme } from "@/test-support/kenntnisnahme.ts";
 import { doubleOutbox } from "@/test-support/mailDouble.ts";
 import { membershipAnswer } from "@/test-support/membershipFixtures.ts";
@@ -14,9 +13,6 @@ import type { ApiCall } from "@/test-support/apiClientDouble.ts";
 const { setFresh } = doubleActionRequest();
 const mail = doubleOutbox();
 
-/** The label the backend runs on the application form, off the registry it generated. */
-const FORM_LABEL = laufendeFassung("bewerbung").text_version;
-
 const TEAM_ID = "6890a1b2c3d4e5f607182932";
 
 /** What each endpoint answers in this case, returned or, where it is an `Error`, thrown. */
@@ -26,7 +22,6 @@ let resend: Answer;
 let memberships: Answer;
 
 function answerFor({ endpoint }: ApiCall): unknown {
-  if (endpoint === "/einwilligung/seiten") return einwilligungAnswer(endpoint);
   if (endpoint === "/teams/saisons") return memberships();
   return endpoint.endsWith("/confirmation/invite") ? resend() : save();
 }
@@ -50,7 +45,7 @@ const sitz = (vorname: string, email: string) => ({
   nachname: "Meier",
   email,
   telefon: TELEFON[vorname] ?? "069 1234567",
-  einwilligung: { umfang: "kontaktdaten" as const, text_version: FORM_LABEL, datum: "2026-10-03" },
+  einwilligung: { umfang: "kontaktdaten" as const, datum: "2026-10-03" },
 });
 
 /** The same seat as the read model stores it, unconfirmed. */
@@ -139,31 +134,6 @@ describe("the contacts save", () => {
     expect(res.success).toBe(false);
     expect(res.success ? "" : res.error).toMatch(/^Eine neu eingetragene E-Mail-Adresse steht auf der Sperrliste\. /);
     expect(res.success ? "" : res.error).not.toMatch(/@/);
-  });
-});
-
-/* A seat handed to another person is a new acceptance, admitted under the running label alone; the
-   label the editor's page held may be one a deploy has since moved past. */
-describe("the label a contacts save names", () => {
-  it("sends every seat under the label the form runs at the write, whatever label the page held", async () => {
-    const alt = (person: typeof BLOCK.trainer) => ({
-      ...person,
-      einwilligung: { ...person.einwilligung, text_version: "eine-fruehere-fassung" },
-    });
-
-    await patchSaisonTeamKontakteAction({
-      ...PAYLOAD,
-      kontakte: { ...BLOCK, trainer: alt(BLOCK.trainer), stellvertretung: alt(BLOCK.stellvertretung) },
-    });
-
-    const [write] = requestsOf(client.calls).filter(({ method }) => method !== undefined && method !== "GET");
-    expect(write?.body).toStrictEqual({ kontakte: BLOCK, kontakte_stand: PAYLOAD.kontakte_stand });
-  });
-
-  it("reads no label for a save clearing the block", async () => {
-    await patchSaisonTeamKontakteAction({ ...PAYLOAD, kontakte: null });
-
-    expect(client.calls.some(({ endpoint }) => endpoint === "/einwilligung/seiten")).toBe(false);
   });
 });
 

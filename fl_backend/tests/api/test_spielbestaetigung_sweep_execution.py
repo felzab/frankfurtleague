@@ -43,7 +43,6 @@ from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
-from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 from app.shared.tokens import hash_token
 from tests import documents
@@ -1059,7 +1058,7 @@ def a_payload_person(vorname: str, nachname: str, telefon: str) -> dict[str, Any
         "nachname": nachname,
         "email": f"{vorname.lower()}@example.com",
         "telefon": telefon,
-        "einwilligung": {"umfang": "kontaktdaten", "text_version": LAUFENDE_FASSUNGEN["bewerbung"], "datum": "2026-03-01"},
+        "einwilligung": {"umfang": "kontaktdaten", "datum": "2026-03-01"},
     }
 
 
@@ -1689,7 +1688,13 @@ class TestARefereeTakenOffIsToldOnlyWhereTheyWereTold:
             await sweep(database, client)
             await database[Collection.SCHIEDSRICHTER].update_one(
                 {"_id": SCHIEDSRICHTER},
-                {"$set": {"einwilligung": documents.own_einwilligung_document(text_version="v1", confirmed_at=YESTERDAY)}},
+                {
+                    "$set": {
+                        "einwilligung": documents.own_einwilligung_document(
+                            text_versions=documents.SCHIEDSRICHTER_TEXT_VERSIONS, confirmed_at=YESTERDAY
+                        )
+                    }
+                },
             )
             (own,) = await rows(database, **{"party.schiedsrichter_id": SCHIEDSRICHTER})
             await post_schiedsrichter_antwort(
@@ -1771,7 +1776,13 @@ async def as_the_referee(database: AsyncDatabase, client: AsyncMongoClient, antw
 
     await database[Collection.SCHIEDSRICHTER].update_one(
         {"_id": SCHIEDSRICHTER},
-        {"$set": {"einwilligung": documents.own_einwilligung_document(text_version="v1", confirmed_at=YESTERDAY)}},
+        {
+            "$set": {
+                "einwilligung": documents.own_einwilligung_document(
+                    text_versions=documents.SCHIEDSRICHTER_TEXT_VERSIONS, confirmed_at=YESTERDAY
+                )
+            }
+        },
     )
     (own,) = await rows(database, **{"party.schiedsrichter_id": SCHIEDSRICHTER})
     await post_schiedsrichter_antwort(

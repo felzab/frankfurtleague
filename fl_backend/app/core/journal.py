@@ -92,8 +92,8 @@ class JournalLine:
     record_id: ObjectId | None = None
     # The instant the act's evidence was stamped with, as `app/core/recording.py :: log_stamp` spells it.
     am: str | None = None
-    # A withdrawal's label and the values it set, each withholding.
-    text_version: str | None = None
+    # A withdrawal's values, each withholding, and the label each was set under.
+    text_versions: Mapping[FLEinwilligungChoice, str] = field(default_factory=lambda: MappingProxyType({}))
     choices: Mapping[FLEinwilligungChoice, Any] = field(default_factory=lambda: MappingProxyType({}))
     # The slots a Widerspruch emptied.
     seats: tuple[str, ...] = ()
@@ -122,7 +122,7 @@ class JournalLine:
                 self.collection is not None
                 or self.record_id is not None
                 or self.am is not None
-                or self.text_version
+                or self.text_versions
                 or self.choices
                 or self.seats
             ):
@@ -135,16 +135,16 @@ class JournalLine:
             raise ValueError("a choice's line carries the instant it was made, with its offset")
 
         withdrawn = (
-            self.text_version is not None
-            and _WORT.fullmatch(self.text_version) is not None
-            and bool(self.choices)
+            bool(self.choices)
+            and self.text_versions.keys() == self.choices.keys()
+            and all(_WORT.fullmatch(label) is not None for label in self.text_versions.values())
             and all(
                 choice in CHOICES and not is_given(choice, value) and (isinstance(value, bool) or _WORT.fullmatch(str(value)) is not None)
                 for choice, value in self.choices.items()
             )
         )
         if (self.art == "widerruf") != withdrawn:
-            raise ValueError("a withdrawal's line, and only one, carries its label and the withholding values it set")
+            raise ValueError("a withdrawal's line, and only one, carries the withholding values it set and each one's label")
         if (self.art == "widerspruch") != (bool(self.seats) and all(_WORT.fullmatch(seat) for seat in self.seats)):
             raise ValueError("a Widerspruch's line, and only one, names the slots it emptied")
 
@@ -167,9 +167,8 @@ class JournalLine:
             tokens.append(f"{self.collection}/{self.record_id}")
         if self.am is not None:
             tokens.append(f"am={self.am}")
-        if self.text_version is not None:
-            tokens.append(f"text_version={self.text_version}")
         # In `CHOICES`'s order, so one act is spelled one way.
+        tokens.extend(f"{_TEXT_VERSION}{choice}={self.text_versions[choice]}" for choice in CHOICES if choice in self.text_versions)
         tokens.extend(f"{choice}={_spelled(self.choices[choice])}" for choice in CHOICES if choice in self.choices)
         if self.seats:
             tokens.append(f"sitze={','.join(self.seats)}")
@@ -188,6 +187,9 @@ def _read_value(choice: str, spelled: str) -> Any:
 
 # A line's keys as the host's day files spell them, which the export and the replay match, beside the field each fills.
 _LINE_KEYS: Final[Mapping[str, str]] = {"sitze": "seats", "zuvor": "before"}
+
+# The key a choice's label is spelled under, the choice after it.
+_TEXT_VERSION: Final = "text_version."
 
 
 def parse_line(message: str) -> JournalLine | None:
@@ -212,20 +214,31 @@ def parse_line(message: str) -> JournalLine | None:
         fields |= {"collection": Collection(collection), "record_id": record_id}
 
     choices: dict[str, Any] = {}
+    text_versions: dict[str, str] = {}
     for token in rest:
         key, separator, value = token.partition("=")
-        if not separator or not value or _LINE_KEYS.get(key, key) in fields or key in choices:
+        if (
+            not separator
+            or not value
+            or _LINE_KEYS.get(key, key) in fields
+            or key in choices
+            or (key.startswith(_TEXT_VERSION) and key.removeprefix(_TEXT_VERSION) in text_versions)
+        ):
             raise ValueError("a journal line's every later token is one named value")
         if key in CHOICES:
             choices[key] = _read_value(key, value)
+        elif key.startswith(_TEXT_VERSION) and key.removeprefix(_TEXT_VERSION) in CHOICES:
+            text_versions[key.removeprefix(_TEXT_VERSION)] = value
         elif key == "sitze":
             fields["seats"] = tuple(value.split(","))
-        elif key in ("am", "text_version", "pseudonym", "halter", "zuvor"):
+        elif key in ("am", "pseudonym", "halter", "zuvor"):
             fields[_LINE_KEYS.get(key, key)] = value
         else:
             raise ValueError("a journal line names a value no act carries")
     if choices:
         fields["choices"] = MappingProxyType(choices)
+    if text_versions:
+        fields["text_versions"] = MappingProxyType(text_versions)
 
     return JournalLine(**fields)
 

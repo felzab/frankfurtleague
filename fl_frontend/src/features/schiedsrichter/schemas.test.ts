@@ -1,6 +1,7 @@
 import { parseDate } from "@internationalized/date";
 import { describe, expect, it } from "vitest";
 
+import { SCHIEDSRICHTER_TEXT_VERSIONS } from "@/core/consentWordings.ts";
 import { KONTAKT_NAME_MAX_LENGTH, KONTAKT_NAME_ZU_LANG } from "@/features/teams/constants.ts";
 import { getGermanTodayStr } from "@/shared/utils/date.ts";
 
@@ -8,7 +9,6 @@ import {
   buildSchiedsrichterBestaetigungPayloadSchema,
   FLPatchSchiedsrichterPayloadSchema,
   FLPostSchiedsrichterPayloadSchema,
-  FLSchiedsrichterBestaetigungPayloadSchema,
   hatAdresse,
 } from "./schemas.ts";
 
@@ -66,26 +66,6 @@ describe("the ceiling a referee's name is held to", () => {
   }
 });
 
-describe("the label a confirmation's answer names", () => {
-  /* The endpoint refuses an empty label, so the page refuses it first, in German, rather than sending a
-     body the endpoint answers with a code no box can carry. */
-  it("is refused empty or blank, as the endpoint refuses it", () => {
-    const antwort = { token: "kein-echtes-token", geburtsdatum: "1990-01-01", umfang: "intern", medien: false };
-
-    expect(
-      FLSchiedsrichterBestaetigungPayloadSchema.safeParse({ ...antwort, text_version: "2026-09-seite" }).success,
-      "the fixture is refused for a field of its own",
-    ).toBe(true);
-    for (const text_version of ["", "   "]) {
-      const parsed = FLSchiedsrichterBestaetigungPayloadSchema.safeParse({ ...antwort, text_version });
-      expect(
-        parsed.error?.issues.map((issue) => [issue.path.join("."), issue.message]),
-        JSON.stringify(text_version),
-      ).toStrictEqual([["text_version", "Deine Antwort nennt keine Fassung. Öffne den Link aus Deiner E-Mail erneut."]]);
-    }
-  });
-});
-
 describe("the birth date the page's own schema accepts", () => {
   /* The page judges the date against the German day as the endpoint does, so a youngest date one day short
      of the floor is told to correct a date the endpoint would take, and one a day past it is let through to a
@@ -94,7 +74,7 @@ describe("the birth date the page's own schema accepts", () => {
     const mindestalter = 16;
     const spaeteste = parseDate(getGermanTodayStr()).subtract({ years: mindestalter });
     const schema = buildSchiedsrichterBestaetigungPayloadSchema(mindestalter);
-    const antwort = { token: "kein-echtes-token", umfang: "intern", medien: false, text_version: "2026-09-seite" };
+    const antwort = { token: "kein-echtes-token", umfang: "intern", medien: false, text_versions: SCHIEDSRICHTER_TEXT_VERSIONS };
 
     expect(schema.safeParse({ ...antwort, geburtsdatum: spaeteste.toString() }).success, "the latest date the floor allows is refused").toBe(
       true,

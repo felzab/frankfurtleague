@@ -31,7 +31,7 @@ from app.core.collections import Collection as Sammlung
 from app.core.crud import build_sort
 from app.core.exceptions import WriteRefusal
 from app.shared.einwilligung import is_confirmed
-from app.shared.einwilligung_nachweis import compose_choices
+from app.shared.einwilligung_nachweis import TextVersions, compose_choices
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.bounds import (
     BEWERBUNG_CONFIRMATION_DEADLINE_DAYS,
@@ -292,7 +292,7 @@ def find_abweichender_fingerabdruck_refusal(*, gespeichert: Any, fingerabdruck: 
     )
 
 
-def compose_einwilligung(*, text_version: str, today: str, entered_by: FLKontaktEnteredBy) -> dict[str, Any]:
+def compose_einwilligung(*, today: str, entered_by: FLKontaktEnteredBy) -> dict[str, Any]:
     """The contact seat's record as the server writes it: who seated the person, and nothing they answered.
 
     Named by no client, who could otherwise dress a transcription as a signature.
@@ -302,7 +302,6 @@ def compose_einwilligung(*, text_version: str, today: str, entered_by: FLKontakt
     # that person's media consent.
     return {
         "umfang": "kontaktdaten",
-        "text_version": text_version,
         "datum": today,
         "confirmed_at": None,
         "medien": False,
@@ -340,9 +339,7 @@ def compose_kontakte(*, kontakte: Mapping[str, Any], today: str) -> dict[str, An
             # Written null rather than left off, as `wunschgegner` is: the key marks a date not yet
             # entered, and the confirmation fills it.
             "geburtsdatum": None,
-            "einwilligung": compose_einwilligung(
-                text_version=kontakte[seat]["einwilligung"]["text_version"], today=today, entered_by="bewerbung"
-            ),
+            "einwilligung": compose_einwilligung(today=today, entered_by="bewerbung"),
         }
         for seat in KONTAKT_ROLLEN
     }
@@ -393,10 +390,6 @@ def _per_seat(block: str, *fields: str) -> dict[str, int]:
     return {f"{block}.{seat}.{field}": 1 for seat in KONTAKT_ROLLEN for field in fields}
 
 
-# What decides which page a seat's link opens (`kontakt_seite_of`): who seated its person.
-KONTAKT_SEITE_FIELDS: Final = ("einwilligung.entered_by",)
-
-
 # What an answer moves on each seat, read before it: a withdrawal keeps the grant it ended.
 KONTAKT_WAHL_FIELDS: Final = ("einwilligung.umfang", "einwilligung.medien", "einwilligung.nachweis")
 
@@ -408,7 +401,7 @@ EINWILLIGUNG_ANSICHT_FIELDS: Mapping[str, int] = {
     **_per_seat("confirmations", "token_hashes", "declined_at"),
     # The address for the ban list alone, as the answer's read takes it: the response model declares
     # no field to carry it.
-    **_per_seat("kontakte", "email", "einwilligung.confirmed_at", *KONTAKT_SEITE_FIELDS),
+    **_per_seat("kontakte", "email", "einwilligung.confirmed_at"),
     # A declaration naming a seat, holding nobody's details: `paired_seat` reads it, and the view
     # serves only the pair it resolves for this link's own seat.
     "kontakte.trainer_is_also": 1,
@@ -427,7 +420,7 @@ EINWILLIGUNG_ANSICHT_FIELDS: Mapping[str, int] = {
 EINWILLIGUNG_ANTWORT_FIELDS: Mapping[str, int] = {
     **_per_seat("confirmations", "token_hashes", "declined_at"),
     # The choices and their evidence, so a withdrawal names the grant it ends (`compose_choices`).
-    **_per_seat("kontakte", "vorname", "email", "einwilligung.confirmed_at", *KONTAKT_WAHL_FIELDS, *KONTAKT_SEITE_FIELDS),
+    **_per_seat("kontakte", "vorname", "email", "einwilligung.confirmed_at", *KONTAKT_WAHL_FIELDS),
     "kontakte.trainer_is_also": 1,
     "saison_id": 1,
     "status": 1,
@@ -621,7 +614,7 @@ def build_saison_token_filter(*, token_hash: str) -> Mapping[str, Any]:
 # `schule`.
 SAISON_EINWILLIGUNG_FIELDS: Mapping[str, int] = {
     **_per_seat("confirmations", "token_hashes", "declined_at", "frist"),
-    **_per_seat("kontakte", "email", "einwilligung.confirmed_at", *KONTAKT_SEITE_FIELDS),
+    **_per_seat("kontakte", "email", "einwilligung.confirmed_at"),
     "kontakte.trainer_is_also": 1,
     "saison_id": 1,
     "name": 1,
@@ -833,7 +826,7 @@ def compose_confirmation_update(
     seats: Sequence[str],
     geburtsdatum: str,
     today: str,
-    text_version: str,
+    text_versions: TextVersions,
     whatsapp: bool,
     medien: bool,
     am: str,
@@ -851,14 +844,13 @@ def compose_confirmation_update(
         # Field by field, never the block whole: `entered_by` and `datum` are the seating's, and
         # what it tells stands after the answer.
         written[f"{pfad}.confirmed_at"] = today
-        written[f"{pfad}.text_version"] = text_version
         written.update(
             compose_choices(
                 path=pfad,
                 saved=kontakte[seat]["einwilligung"],
                 gesetzt={"umfang": KONTAKT_UMFANG_WHATSAPP if whatsapp else KONTAKT_UMFANG, "medien": medien},
                 am=am,
-                text_version=text_version,
+                text_versions=text_versions,
             )
         )
 
@@ -890,58 +882,6 @@ def build_eigene_bewerbung_filter(*identifiers: str) -> Mapping[str, Any]:
     """
 
     return {"status": "submitted", **rows_seating(*identifiers)}
-
-
-# The pages a contact seat's link opens, named as the registry names them: the applicant's, and one
-# for a person the administration seated on each home.
-KontaktSeite = Literal["bestaetigung_kontakt", "bestaetigung_kontakt_verwaltung", "bestaetigung_kontakt_saison"]
-
-
-def kontakt_seite_of(*, einwilligung: Mapping[str, Any], verwaltet: KontaktSeite) -> KontaktSeite:
-    """The page this seat's link opens: the applicant's where the applicant named the person, else its home's own.
-
-    Read off `entered_by`, which nothing after the seating moves.
-    """
-
-    return "bestaetigung_kontakt" if einwilligung.get("entered_by") == "bewerbung" else verwaltet
-
-
-def _einwilligung_of(kontakte: Any, seat: str) -> Mapping[str, Any]:
-    slot = kontakte.get(seat) if isinstance(kontakte, Mapping) else None
-    einwilligung = slot.get("einwilligung") if isinstance(slot, Mapping) else None
-
-    return einwilligung if isinstance(einwilligung, Mapping) else {}
-
-
-def bewerbung_kontakt_seite(*, bewerbung_raw: Mapping[str, Any], seat: str) -> KontaktSeite:
-    return kontakt_seite_of(einwilligung=_einwilligung_of(bewerbung_raw.get("kontakte"), seat), verwaltet="bestaetigung_kontakt_verwaltung")
-
-
-def antwort_seite(*, seiten: Sequence[KontaktSeite], verwaltet: KontaktSeite) -> KontaktSeite:
-    """The one page a link answering seats of these pages opens, which its answer is judged against.
-
-    The applicant's only where every seat's is: one press is one person's answer to one page.
-    """
-
-    return "bestaetigung_kontakt" if seiten and all(seite == "bestaetigung_kontakt" for seite in seiten) else verwaltet
-
-
-def bewerbung_antwort_seite(*, bewerbung_raw: Mapping[str, Any], seats: Sequence[str]) -> KontaktSeite:
-    return antwort_seite(
-        seiten=[bewerbung_kontakt_seite(bewerbung_raw=bewerbung_raw, seat=seat) for seat in seats], verwaltet="bestaetigung_kontakt_verwaltung"
-    )
-
-
-def saison_kontakt_seite(*, row: Mapping[str, Any], seat: str) -> KontaktSeite:
-    """The page a season row's seat opens: the applicant's for a person the applicant named, else the row's own."""
-
-    return kontakt_seite_of(einwilligung=_einwilligung_of(row.get("kontakte"), seat), verwaltet="bestaetigung_kontakt_saison")
-
-
-def saison_antwort_seite(*, row: Mapping[str, Any], seats: Sequence[str]) -> KontaktSeite:
-    """The page a season row's link opens for the seats its answer writes: the view's and the press's one source."""
-
-    return antwort_seite(seiten=[saison_kontakt_seite(row=row, seat=seat) for seat in seats], verwaltet="bestaetigung_kontakt_saison")
 
 
 def objection_is_announced(*, kontakte: Any, seats: Sequence[str]) -> bool:
@@ -1151,13 +1091,13 @@ def claimed_pair_seat(*, kontakte: Any, seat: str) -> FLKontaktRolle | None:
 
 
 def compose_kontakt_seat_update(
-    *, seats: Sequence[str], person: Mapping[str, Any], text_version: str, today: str, confirmation_deadline: str
+    *, seats: Sequence[str], person: Mapping[str, Any], today: str, confirmation_deadline: str
 ) -> Mapping[str, Any]:
     """The new person and their fresh link, in ONE `$set`. Two writes would seat them behind the link the seat's last holder still holds."""
 
     erneut = compose_erneut_update(seats=seats, today=today, confirmation_deadline=confirmation_deadline)
     # Born afresh: nothing of the person who stepped out travels to the one seated.
-    einwilligung = compose_einwilligung(text_version=text_version, today=today, entered_by="liga")
+    einwilligung = compose_einwilligung(today=today, entered_by="liga")
     # Null rather than left off, as the submission writes it: the key marks a date not yet entered,
     # and the confirmation fills it.
     slot = {**person, "geburtsdatum": None, "einwilligung": einwilligung}

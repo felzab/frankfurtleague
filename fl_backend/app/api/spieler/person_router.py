@@ -9,7 +9,6 @@ from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.account.crud import press_einwilligung
 from app.api.account.services import (
-    KONTO_SEITE_SPIELER,
     compose_person_move,
     compose_spieler_self,
     find_eigener_eintrag_refusal,
@@ -53,7 +52,7 @@ from app.core.security import erasure_journal_hash, verify_access_admin
 from app.core.transactions import transaction_session
 from app.shared.einwilligung_nachweis import FLEinwilligungChoice, nachweis_stand_of
 from app.shared.schemas.custom import CustomObjectId, CustomRouteObjectId
-from app.shared.schemas.einwilligung import FLAccountEinwilligungPayload
+from app.shared.schemas.einwilligung import FLAccountEinwilligungPayload, by_choice
 from app.shared.schemas.literals import FLSpielerStufe
 
 # The person lane's binder IN PLACE of `bind_actor` and the grants check, which a seat holder holding
@@ -323,8 +322,7 @@ async def patch_einwilligung(
 
     Refuses, in this order: an address holding no confirmed pupil record (`role_not_held`); a `nachweis_stand`
     other than the record's own, either choice having moved since the page was served (`wording_not_allowed`); a
-    grant on a retired record (`giving_not_allowed`); a `text_version` naming no version of the account page's pupil
-    control, or a grant naming any but the page's running one (`wording_not_allowed`); `medien` moving to `true` where
+    grant on a retired record (`giving_not_allowed`); `medien` moving to `true` where
     the stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is missing (`medien_age`). Each
     refusal writes nothing.
 
@@ -353,13 +351,13 @@ async def patch_einwilligung(
             geburtsdaten=[row.get("geburtsdatum")],
             gewaehlt=gewaehlt,
             nachweis_stand=einwilligung_data.nachweis_stand.model_dump(),
-            text_version=einwilligung_data.text_version,
-            seite=KONTO_SEITE_SPIELER,
             darf_erteilen=darf_erteilen,
             today=today,
         )
 
-        update = compose_person_move(gespeichert=gespeichert, gewaehlt=gewaehlt, am=am, text_version=einwilligung_data.text_version)
+        update = compose_person_move(
+            gespeichert=gespeichert, gewaehlt=gewaehlt, am=am, text_versions=by_choice(einwilligung_data.text_versions)
+        )
         updated = (
             None
             if update is None
@@ -378,7 +376,7 @@ async def patch_einwilligung(
             bloecke=[gespeichert],
             gewaehlt=gewaehlt,
             am=am,
-            text_version=einwilligung_data.text_version,
+            text_versions=by_choice(einwilligung_data.text_versions),
         )
         if line is not None:
             journal.note(line)

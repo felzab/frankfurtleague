@@ -1,6 +1,5 @@
 import { doubleActionRequest, doubleActions } from "@/test-support/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/test-support/apiClientDouble.ts";
-import { laufendeFassung } from "@/test-support/einwilligungRegistry.ts";
 import { kenntnisnahme } from "@/test-support/kenntnisnahme.ts";
 import { doubleOutbox } from "@/test-support/mailDouble.ts";
 import { answerShown, assertEachAnswered, DUPLICATE_KEY, refusalCodes, refused } from "@/test-support/refusals.ts";
@@ -70,11 +69,6 @@ const client = doubleApiAnswers(() => Promise.resolve({}));
 const writes = client.calls;
 /** Answers the write a case presses with `next`. */
 const answerWith = (next: () => Promise<unknown>): void => client.answerWith(() => next());
-/** The label the backend runs on the application form, off the registry it generated. */
-const FORM_LABEL = laufendeFassung("bewerbung").text_version;
-// The running label's read answered at its module, so the writes below are the client's whole record:
-// `fl_frontend/src/core/einwilligung.test.ts` drives the read itself.
-doubleActions({ modules: ["@/core/einwilligung.ts"], answer: () => Promise.resolve(FORM_LABEL) });
 const { answerWith: readWith } = doubleActions({ modules: ["@/features/bewerbungen/queries.ts"], answer: () => Promise.resolve(GELESEN) });
 const { answerWith: clubsWith } = doubleActions({
   modules: ["@/features/teams/queries.ts"],
@@ -249,7 +243,7 @@ const ENTSCHIEDEN: FLBewerbung = {
       nachname: "Meier",
       telefon: "069 1234567",
       geburtsdatum: null,
-      einwilligung: kenntnisnahme({ text_version: FORM_LABEL, datum: "2026-09-01", confirmed_at: null }),
+      einwilligung: kenntnisnahme({ datum: "2026-09-01", confirmed_at: null }),
     },
     stellvertretung: null,
     trainer_is_also: null,
@@ -302,7 +296,6 @@ const SITZ = {
   nachname: "Beispiel",
   email: "berta@example.de",
   telefon: "069 1234567",
-  text_version: FORM_LABEL,
 } as const;
 
 /** The paths of the three repairs above, each a write that mints the seat's link and so spends the one it held. */
@@ -787,7 +780,6 @@ describe("the person seated where one stepped out", () => {
           nachname: "Beispiel",
           email: "berta@example.de",
           telefon: "069 1234567",
-          text_version: FORM_LABEL,
         }),
       mapped: mapKontaktSitzRefusal,
     });

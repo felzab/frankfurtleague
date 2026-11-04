@@ -24,10 +24,6 @@ ADDRESS_HAUSNUMMER_MAX_LENGTH: Final = 16
 # box with a generic sentence rather than the length's own German.
 KONTAKT_EMAIL_MAX_LENGTH: Final = 254
 
-# The identifier of the consent WORDING a contact person was shown, not the wording itself: the
-# text is versioned in the frontend, so what a row stores is a short tag and nothing longer is one.
-EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH: Final = 64
-
 TEAM_DESCRIPTION_MAX_LENGTH: Final = 4096
 
 # A fixture's admin note, bounded on the payload alone: a season replace or undraw logs every

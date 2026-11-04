@@ -94,7 +94,7 @@ def referee(referee_id: ObjectId, name: str, email: str) -> dict[str, Any]:
         email=email,
         name=name,
         default_payment=20,
-        einwilligung=documents.own_einwilligung_document(text_version="2027-01-schiedsrichterseite-1", confirmed_at="2027-01-10"),
+        einwilligung=documents.own_einwilligung_document(text_versions=documents.SCHIEDSRICHTER_TEXT_VERSIONS, confirmed_at="2027-01-10"),
     )
 
 

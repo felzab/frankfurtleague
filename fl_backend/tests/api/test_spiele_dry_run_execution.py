@@ -145,7 +145,9 @@ def seeded_url(mongo_replica_set_url: str) -> str:
                 email="ada.kern@example.com",
                 name="Ada Kern",
                 default_payment=15,
-                einwilligung=documents.own_einwilligung_document(text_version="v1", confirmed_at="2026-01-20"),
+                einwilligung=documents.own_einwilligung_document(
+                    text_versions=documents.SCHIEDSRICHTER_TEXT_VERSIONS, confirmed_at="2026-01-20"
+                ),
             )
         )
         spiele = bracket()

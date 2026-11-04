@@ -871,13 +871,13 @@
   },
   "src/features/bewerbungen/components/forms/BewerbungForm/FormKontaktpersonenSection.tsx": {
     "@typescript-eslint/no-restricted-imports": {
-      "count": 11
+      "count": 9
     },
     "no-restricted-syntax": {
-      "count": 13
+      "count": 12
     },
     "react/forbid-component-props": {
-      "count": 19
+      "count": 18
     },
     "react/jsx-no-literals": {
       "count": 4
@@ -946,13 +946,7 @@
     }
   },
   "src/features/bewerbungen/components/ui/Gefuellt.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 2
-    },
     "no-restricted-syntax": {
-      "count": 1
-    },
-    "react/forbid-component-props": {
       "count": 1
     }
   },
@@ -1008,17 +1002,8 @@
     }
   },
   "src/features/bewerbungen/components/views/BestaetigungHinweise.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 1
-    },
     "no-restricted-syntax": {
-      "count": 34
-    },
-    "react/jsx-no-literals": {
-      "count": 6
+      "count": 1
     }
   },
   "src/features/bewerbungen/components/views/BestaetigungPanels.tsx": {
@@ -1071,7 +1056,7 @@
       "count": 2
     },
     "no-restricted-syntax": {
-      "count": 26
+      "count": 24
     },
     "react/forbid-component-props": {
       "count": 3
@@ -1088,13 +1073,13 @@
       "count": 2
     },
     "no-restricted-syntax": {
-      "count": 33
+      "count": 30
     },
     "react/forbid-component-props": {
-      "count": 32
+      "count": 31
     },
     "react/jsx-no-literals": {
-      "count": 13
+      "count": 12
     }
   },
   "src/features/bewerbungen/components/views/BewerbungView.tsx": {
@@ -1352,10 +1337,10 @@
       "count": 14
     },
     "no-restricted-syntax": {
-      "count": 17
+      "count": 16
     },
     "react/forbid-component-props": {
-      "count": 19
+      "count": 17
     },
     "react/jsx-no-literals": {
       "count": 11
@@ -1419,7 +1404,7 @@
       "count": 7
     },
     "no-restricted-syntax": {
-      "count": 10
+      "count": 8
     },
     "react/forbid-component-props": {
       "count": 5
@@ -1434,11 +1419,6 @@
     },
     "react/forbid-component-props": {
       "count": 5
-    }
-  },
-  "src/features/konto/components/forms/EinwilligungForm/kontoWorte.tsx": {
-    "no-restricted-syntax": {
-      "count": 1
     }
   },
   "src/features/konto/components/ui/AndereAbmelden.tsx": {
@@ -1478,11 +1458,6 @@
     },
     "react/forbid-component-props": {
       "count": 1
-    }
-  },
-  "src/features/konto/components/views/EinwilligungSection.tsx": {
-    "no-restricted-syntax": {
-      "count": 2
     }
   },
   "src/features/konto/components/views/KontoLoeschenSection.tsx": {
@@ -1680,17 +1655,14 @@
     "@typescript-eslint/no-restricted-imports": {
       "count": 20
     },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 1
-    },
     "no-restricted-syntax": {
-      "count": 56
+      "count": 31
     },
     "react/forbid-component-props": {
       "count": 14
     },
     "react/jsx-no-literals": {
-      "count": 26
+      "count": 20
     }
   },
   "src/features/registrierungen/personActions.ts": {
@@ -2150,17 +2122,14 @@
     "@typescript-eslint/no-restricted-imports": {
       "count": 18
     },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 1
-    },
     "no-restricted-syntax": {
-      "count": 38
+      "count": 23
     },
     "react/forbid-component-props": {
       "count": 13
     },
     "react/jsx-no-literals": {
-      "count": 22
+      "count": 16
     }
   },
   "src/features/schiedsrichter/components/views/SchiedsrichterSelfView.tsx": {
@@ -3156,14 +3125,8 @@
     }
   },
   "src/features/spieler/components/ui/Nachweis.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    },
     "no-restricted-syntax": {
       "count": 1
-    },
-    "react/jsx-no-literals": {
-      "count": 2
     }
   },
   "src/features/spieler/components/ui/SpielerAngaben.tsx": {
@@ -4822,11 +4785,6 @@
     }
   },
   "src/shared/utils/kontoMutation.ts": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
-  "src/shared/utils/refusal.ts": {
     "no-restricted-syntax": {
       "count": 1
     }

@@ -1,15 +1,17 @@
 // Redesign: goes with its last importer.
 import z from "zod";
 
-import { BEWERBUNG_TOKEN_MAX_LENGTH } from "@/features/bewerbungen/constants";
 // The application's own derivation, not a copy of it: the two flows bound a birthdate by the same
 // two numbers, and a second span here would refuse a day the endpoint takes.
+import { SPIELER_TEXT_VERSIONS } from "@/core/consentWordings";
+import { BEWERBUNG_TOKEN_MAX_LENGTH } from "@/features/bewerbungen/constants";
 import { geburtsdatumSpanne } from "@/features/bewerbungen/utils";
 import {
   FLPostSaisonSpielerPayloadSchema,
   FLSpielerPositionSchema,
   FLSpielerStufeSchema,
-  LinkAntwortTextVersionSchema,
+  LINK_FASSUNG_FEHLT,
+  textVersionsSchema,
 } from "@/features/spieler/schemas";
 import { KONTAKT_NAME_MAX_LENGTH, KONTAKT_NAME_ZU_LANG } from "@/features/teams/constants";
 import { CustomDateStringSchema, CustomObjectIdStringSchema, KontaktEmailSchema, PersonNameSchema } from "@/shared/schemas";
@@ -72,9 +74,9 @@ export const FLRegistrierungBestaetigungPayloadSchema = z.object({
   // Separately answered from `umfang`, and the endpoint stores both: one press carries two
   // consents, and a media permission folded into the scope would be one nobody gave on its own.
   medien: z.boolean().nullable(),
-  // The version this page rendered, never the one a later reader would be shown: the record has
-  // to cite the words the confirming person read.
-  text_version: LinkAntwortTextVersionSchema,
+  // The wordings this page rendered, never ones a later reader would be shown: the record has to
+  // cite the words the confirming person read. Null on the returning pupil's page, as the choices are.
+  text_versions: textVersionsSchema(SPIELER_TEXT_VERSIONS, LINK_FASSUNG_FEHLT).nullable(),
 });
 
 /**

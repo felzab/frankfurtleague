@@ -1,10 +1,7 @@
 import { Suspense } from "react";
 
-import { getLaufendeFassung } from "@/core/einwilligung";
-import { gekeyteFassung, SCHIEDSRICHTER_ABSATZ_SCHLUESSEL } from "@/core/einwilligungSeiten";
 import { ROUTES } from "@/core/routes";
 import { SchiedsrichterBestaetigungView } from "@/features/schiedsrichter/components/views/SchiedsrichterBestaetigungView";
-import { SCHIEDSRICHTER_UMFANG_WERTE } from "@/features/schiedsrichter/constants";
 import { getSchiedsrichterBestaetigungAnsicht } from "@/features/schiedsrichter/queries";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 import { nullUnlessContractBreak } from "@/shared/utils/degradedRead";
@@ -43,23 +40,13 @@ async function SchiedsrichterBestaetigungContent(props: NextPageProps) {
   // failed read is its own state: the dead-link panel there would call a live link void.
   if (typeof token !== "string" || token === "") return <SchiedsrichterBestaetigungView start={{ zustand: "invalid" }} />;
 
-  // Beside the link's read, and per request: a deploy moves the label the answer must stamp. Settled
-  // together, so a contract break in either read reaches the error boundary whatever the link's state
-  // rather than rejecting unobserved.
-  const [gelesen, geleseneWorte] = await Promise.all([
-    runWithIncomingTrace(() => getSchiedsrichterBestaetigungAnsicht(token).catch(nullUnlessContractBreak)),
-    runWithIncomingTrace(() => getLaufendeFassung("bestaetigung_schiedsrichter").catch(nullUnlessContractBreak)),
-  ]);
+  // A contract break reaches the error boundary whatever the link's state rather than rejecting unobserved.
+  const gelesen = await runWithIncomingTrace(() => getSchiedsrichterBestaetigungAnsicht(token).catch(nullUnlessContractBreak));
 
   if (gelesen === null) return <SchiedsrichterBestaetigungView start={{ zustand: "unlesbar" }} />;
   if (gelesen.zustand !== "valid") return <SchiedsrichterBestaetigungView start={gelesen} />;
 
-  // A page with no words to show cannot be answered, which the failed read's panel says.
-  if (geleseneWorte === null) return <SchiedsrichterBestaetigungView start={{ zustand: "unlesbar" }} />;
-
-  // Uncaught: words this page cannot key are a broken contract, which the error boundary logs.
-  const worte = gekeyteFassung(geleseneWorte, SCHIEDSRICHTER_ABSATZ_SCHLUESSEL, SCHIEDSRICHTER_UMFANG_WERTE);
-  const start: SchiedsrichterBestaetigungStart = { zustand: "valid", ansicht: gelesen.ansicht, token: token, wording: worte };
+  const start: SchiedsrichterBestaetigungStart = { zustand: "valid", ansicht: gelesen.ansicht, token: token };
 
   return <SchiedsrichterBestaetigungView start={start} />;
 }

@@ -1,18 +1,14 @@
 import { Suspense } from "react";
 
-import { getLaufendeFassung } from "@/core/einwilligung";
-import { gekeyteFassung, SPIELER_ABSATZ_SCHLUESSEL, SPIELER_WIEDERKEHREND_ABSATZ_SCHLUESSEL } from "@/core/einwilligungSeiten";
 import { ROUTES } from "@/core/routes";
 import { SpielerBestaetigungView } from "@/features/registrierungen/components/views/SpielerBestaetigungView";
-import { EINWILLIGUNG_UMFANG_OPTIONS } from "@/features/registrierungen/constants";
 import { getSpielerBestaetigungAnsicht } from "@/features/registrierungen/queries";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 import { nullUnlessContractBreak } from "@/shared/utils/degradedRead";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
-import type { FLEinwilligungWording, FLRegistrierungConfirmationViewResponseSeite } from "@/core/generated/client/types";
-import type { SpielerBestaetigungStart, SpielerSeitenFassung } from "@/features/registrierungen/types";
+import type { SpielerBestaetigungStart } from "@/features/registrierungen/types";
 import type { NextPageProps } from "@/shared/types/types";
 import type { Metadata, ResolvingMetadata } from "next";
 
@@ -42,12 +38,10 @@ export default function SpielerBestaetigungPage(props: NextPageProps) {
 async function SpielerBestaetigungContent(props: NextPageProps) {
   const { token } = await props.searchParams;
 
-  // Beside the link's read, which names the page, and per request: a deploy moves the stamped label.
-  // Settled together, so a contract break in any of the three reads reaches the error boundary rather
-  // than rejecting unobserved.
-  const [start, neu, wiederkehrend] = await Promise.all([
+  // A contract break reaches the error boundary rather than rejecting unobserved.
+  const start: SpielerBestaetigungStart =
     typeof token === "string" && token !== ""
-      ? runWithIncomingTrace(() =>
+      ? await runWithIncomingTrace(() =>
           getSpielerBestaetigungAnsicht(token).then(
             (gelesen): SpielerBestaetigungStart =>
               gelesen.zustand === "valid" ? { zustand: "valid", ansicht: gelesen.ansicht, token: token } : gelesen,
@@ -55,33 +49,12 @@ async function SpielerBestaetigungContent(props: NextPageProps) {
             (error: unknown): SpielerBestaetigungStart => nullUnlessContractBreak(error) ?? { zustand: "unlesbar" },
           ),
         )
-      : ({ zustand: "invalid" } satisfies SpielerBestaetigungStart),
-    runWithIncomingTrace(() => getLaufendeFassung("bestaetigung_spieler").catch(nullUnlessContractBreak)),
-    runWithIncomingTrace(() => getLaufendeFassung("bestaetigung_spieler_wiederkehrend").catch(nullUnlessContractBreak)),
-  ]);
+      : { zustand: "invalid" };
 
   return (
     <SpielerBestaetigungView
       start={start}
-      wording={start.zustand === "valid" ? seitenFassung(start.ansicht.seite, neu, wiederkehrend) : null}
+      wording={start.zustand === "valid" ? { seite: start.ansicht.seite } : null}
     />
   );
-}
-
-/**
- * The words of the page the link opens, keyed as that page places them.
- *
- * Keyed outside the read's catch: words this page cannot key are a broken contract, which the error
- * boundary logs.
- */
-function seitenFassung(
-  seite: FLRegistrierungConfirmationViewResponseSeite,
-  neu: FLEinwilligungWording | null,
-  wiederkehrend: FLEinwilligungWording | null,
-): SpielerSeitenFassung | null {
-  if (seite === "bestaetigung_spieler") {
-    return neu === null ? null : { ...gekeyteFassung(neu, SPIELER_ABSATZ_SCHLUESSEL, EINWILLIGUNG_UMFANG_OPTIONS), seite: seite };
-  }
-
-  return wiederkehrend === null ? null : { ...gekeyteFassung(wiederkehrend, SPIELER_WIEDERKEHREND_ABSATZ_SCHLUESSEL), seite: seite };
 }

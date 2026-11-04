@@ -8,7 +8,7 @@ import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { FOCUS_HEADING, focusSection } from "@/shared/utils/focusAfterWrite";
 
 import type { ReactElement, ReactNode } from "react";
-import type { EinwilligungFormProps, PersonUmfang, SitzUmfang } from "./EinwilligungForm";
+import type { EinwilligungFormProps, Labels, PersonUmfang, SitzUmfang } from "./EinwilligungForm";
 
 /**
  * One record on the account page: its stored data, its control, and the words its person confirmed. The
@@ -30,7 +30,7 @@ export type EinwilligungEintrag = {
    * Absent on a record holding no choice of its own, a returning pupil's registration: its data stands alone.
    * A person's or a seat's, each at its own scope, never one taking both.
    */
-  readonly control?: ReactElement<EinwilligungFormProps<PersonUmfang>> | ReactElement<EinwilligungFormProps<SitzUmfang>>;
+  readonly control?: ReactElement<EinwilligungFormProps<PersonUmfang, Labels>> | ReactElement<EinwilligungFormProps<SitzUmfang, Labels>>;
 };
 
 /** The words a person agreed to, apart from the control's own: a press changes the choice, never what was agreed. */

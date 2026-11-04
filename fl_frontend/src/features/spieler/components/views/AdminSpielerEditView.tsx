@@ -23,14 +23,11 @@ import type { AdminSpielerStored, SpielerSaisonMembership, SpielerTeamOption } f
 export function AdminSpielerEditView({
   spieler,
   einwilligung,
-  istFassungBekannt,
   saison,
   teams,
 }: {
   spieler: AdminSpielerStored;
   einwilligung: FLEinwilligung;
-  /** Whether the registry holds the stored label. */
-  istFassungBekannt: boolean | null;
   saison: SpielerSaisonMembership;
   /** The selected season's teams, for the picker and for reading a `team_id` as a name. */
   teams: SpielerTeamOption[];
@@ -47,7 +44,6 @@ export function AdminSpielerEditView({
       <AdminSpielerEditForm
         spieler={spieler}
         einwilligung={einwilligung}
-        istFassungBekannt={istFassungBekannt}
         saison={saison}
         teams={teams}
         pageHeader={{

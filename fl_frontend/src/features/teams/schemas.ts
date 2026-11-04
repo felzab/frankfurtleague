@@ -19,7 +19,6 @@ import {
 
 import {
   DESCRIPTION_MAX_LENGTH,
-  EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH,
   KONTAKT_NAME_MAX_LENGTH,
   KONTAKT_NAME_ZU_LANG,
   TEAM_FULL_NAME_MAX_LENGTH,
@@ -72,13 +71,6 @@ export const FLKontaktKenntnisnahmePayloadSchema = z.object({
   umfang: z.literal("kontaktdaten", { error: "Die Kenntnisnahme gilt ausschließlich für Kontaktdaten." }),
   // No `eingetragen_von` and no `bestaetigt_am`: both are the server's to compose, and a payload that
   // could name the stamp would let an administrator file a transcription as the person's own answer.
-  text_version: z
-    .string()
-    .trim()
-    .nonempty({ error: "Die Kenntnisnahme nennt keine Fassung. Lade die Seite neu." })
-    .max(EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH, {
-      error: `Die Fassung darf höchstens ${String(EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH)} Zeichen lang sein.`,
-    }),
   datum: CustomDateStringSchema,
 });
 

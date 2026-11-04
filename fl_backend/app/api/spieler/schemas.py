@@ -39,10 +39,6 @@ class FLEinwilligung(BaseModel):
     datum: CustomDateString
     # The day its person confirmed it: a record is born confirmed.
     confirmed_at: CustomDateString
-    # A label of `fl_backend/app/shared/einwilligung.py :: FASSUNGEN` and never the words, as
-    # `app/api/teams/schemas.py :: FLKontaktKenntnisnahme` holds one: a rewording must not change what
-    # a stored record claims.
-    text_version: str
     # A SECOND consent under one record rather than a third `umfang` member: publication and media
     # are independent answers, so withdrawing one leaves the other standing.
     medien: bool

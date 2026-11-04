@@ -1,6 +1,5 @@
-import { laufendeFassung } from "@/test-support/einwilligungRegistry.ts";
 import { kenntnisnahme } from "@/test-support/kenntnisnahme.ts";
-import { assert, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import {
   addressOnlyConfirmedSeatLabels,
@@ -17,16 +16,13 @@ import {
 import type { FLKontaktperson, FLTeamMembership } from "@/core/generated/client/types";
 import type { KontaktpersonDraft, SaisonTeamKontakteDraft } from "@/features/teams/types";
 
-/** The label the backend runs on the application form, which a seat opened blank stamps. */
-const LABEL = laufendeFassung("bewerbung").text_version;
-
 const person = (overrides: Partial<KontaktpersonDraft> = {}): KontaktpersonDraft => ({
   vorname: "Erika",
   nachname: "Mustermann",
   email: "erika@beispiel.de",
   telefon: "069 1234567",
   geburtsdatum: "1990-01-01",
-  einwilligung: kenntnisnahme({ text_version: "2025-08", datum: "2025-09-01", confirmed_at: "2025-09-02" }),
+  einwilligung: kenntnisnahme({ datum: "2025-09-01", confirmed_at: "2025-09-02" }),
   ...overrides,
 });
 
@@ -93,40 +89,29 @@ describe("applySeatPresence", () => {
   /* Re-judged on the way OUT only. A seat just switched on holds fields nobody has typed in, and a
      message over those describes a value nobody finished entering. */
   it("re-judges the seats a switch emptied and never the ones it opened", () => {
-    expect(applySeatPresence(block(), "trainer", false, LABEL).revalidate).toBe(true);
-    expect(applySeatPresence(block({ trainer: null }), "trainer", true, LABEL).revalidate).toBe(false);
-    expect(applySeatPresence(block(), "stellvertretung", false, LABEL).revalidate).toBe(true);
-    expect(applySeatPresence(block({ stellvertretung: null }), "stellvertretung", true, LABEL).revalidate).toBe(false);
+    expect(applySeatPresence(block(), "trainer", false).revalidate).toBe(true);
+    expect(applySeatPresence(block({ trainer: null }), "trainer", true).revalidate).toBe(false);
+    expect(applySeatPresence(block(), "stellvertretung", false).revalidate).toBe(true);
+    expect(applySeatPresence(block({ stellvertretung: null }), "stellvertretung", true).revalidate).toBe(false);
   });
 
   it("empties the seat it is given and opens a blank person in it", () => {
-    expect(applySeatPresence(block(), "stellvertretung", false, LABEL).next.stellvertretung).toBe(null);
+    expect(applySeatPresence(block(), "stellvertretung", false).next.stellvertretung).toBe(null);
 
-    const opened = applySeatPresence(block({ trainer: null }), "trainer", true, LABEL).next;
+    const opened = applySeatPresence(block({ trainer: null }), "trainer", true).next;
     expect(opened.trainer?.vorname).toBe("");
     expect(opened.trainer?.einwilligung.confirmed_at).toBe(null);
-    // The label the page read, never one the slice keeps: a blank seat cites the words the form runs.
-    expect(opened.trainer?.einwilligung.text_version).toBe(LABEL);
-  });
-
-  /* A blank seat stamps the running label, so without it a seat opens on nobody; one switched off
-     and on again gets its person back, who needs no label. */
-  it("opens no blank person where the label could not be read, and gives a held person back", () => {
-    expect(applySeatPresence(block({ trainer: null }), "trainer", true, null).next.trainer).toBe(null);
-
-    const gehalten = block().trainer ?? assert.fail("the fixture seats no Trainer");
-    expect(applySeatPresence(block({ trainer: null }), "trainer", true, null, gehalten).next.trainer).toBe(gehalten);
   });
 
   /* The switch moves ITS OWN seat and nothing else. The claim is honoured when the payload is
      composed, so a switch that also moved the mirrored seat would write into the draft the very
      overwrite composing exists to avoid. */
   it("reaches no seat beside its own, claim or no claim", () => {
-    const shared = applySeatPresence(block({ trainer_is_also: "ansprechperson" }), "trainer", false, LABEL).next;
+    const shared = applySeatPresence(block({ trainer_is_also: "ansprechperson" }), "trainer", false).next;
     expect(shared.trainer).toBe(null);
     expect(shared.ansprechperson?.vorname, "emptying the Trainer emptied the seat the claim names").toBe("Max");
 
-    const alone = applySeatPresence(block(), "trainer", false, LABEL).next;
+    const alone = applySeatPresence(block(), "trainer", false).next;
     expect(alone.trainer).toBe(null);
     expect(alone.ansprechperson?.vorname).toBe("Max");
     expect(alone.stellvertretung?.vorname).toBe("Lena");
@@ -135,7 +120,7 @@ describe("applySeatPresence", () => {
   /* What the composed payload does with it: the Trainer reads the named seat, so emptying that seat
      is what empties the Trainer — through `mirrorKontakte`, not through the switch. */
   it("empties the composed trainer by emptying the seat the claim names", () => {
-    const emptied = applySeatPresence(block({ trainer_is_also: "ansprechperson" }), "ansprechperson", false, LABEL).next;
+    const emptied = applySeatPresence(block({ trainer_is_also: "ansprechperson" }), "ansprechperson", false).next;
 
     expect(mirrorKontakte(emptied).trainer).toBe(null);
   });
@@ -387,17 +372,17 @@ describe("what a seat's switch does to what was entered", () => {
     const erikaSeat = person({ vorname: "Erika", email: "erika@beispiel.de" });
     const fullBlock = block({ ansprechperson: erikaSeat });
 
-    const takenOut = applySeatPresence(fullBlock, "ansprechperson", false, LABEL);
+    const takenOut = applySeatPresence(fullBlock, "ansprechperson", false);
     expect(takenOut.next.ansprechperson, "switching a seat off no longer empties it").toBe(null);
 
-    const again2 = applySeatPresence(takenOut.next, "ansprechperson", true, LABEL, erikaSeat);
+    const again2 = applySeatPresence(takenOut.next, "ansprechperson", true, erikaSeat);
     expect(again2.next.ansprechperson, "the seat came back with something other than the person it held").toStrictEqual(erikaSeat);
   });
 
   /* A seat that has never held anybody has nothing to give back, and must still open as three empty
      boxes rather than as whatever another seat left behind. */
   it("opens an untouched seat empty", () => {
-    const emptyBlock = applySeatPresence(block({ ansprechperson: null }), "ansprechperson", true, LABEL);
+    const emptyBlock = applySeatPresence(block({ ansprechperson: null }), "ansprechperson", true);
 
     expect(emptyBlock.next.ansprechperson, "switching an empty seat on left it holding nobody").not.toBe(null);
     expect(emptyBlock.next.ansprechperson?.vorname, "an untouched seat opened holding somebody's name").toBe("");
@@ -406,7 +391,7 @@ describe("what a seat's switch does to what was entered", () => {
   /* Re-judged on the way to empty only: a seat just switched back on holds values the admin entered
      and has not left again, and a message over one of those describes a value nobody finished. */
   it("re-judges the seats only on the way to empty", () => {
-    expect(applySeatPresence(block({}), "ansprechperson", false, LABEL).revalidate).toBe(true);
-    expect(applySeatPresence(block({ ansprechperson: null }), "ansprechperson", true, LABEL).revalidate).toBe(false);
+    expect(applySeatPresence(block({}), "ansprechperson", false).revalidate).toBe(true);
+    expect(applySeatPresence(block({ ansprechperson: null }), "ansprechperson", true).revalidate).toBe(false);
   });
 });

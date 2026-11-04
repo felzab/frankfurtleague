@@ -25,6 +25,10 @@ GIVEN_BEFORE: Final = "given_before"
 FLEinwilligungChoice = Literal["umfang", "medien"]
 CHOICES: Final[tuple[FLEinwilligungChoice, ...]] = ("umfang", "medien")
 
+# The label of the wording each choice was given under, as a press's `text_versions` names them: the two choices of
+# one press stand beside two wordings.
+type TextVersions = Mapping[FLEinwilligungChoice, str]
+
 # The values that GRANT, across both vocabularies; every other value of a choice withholds. A
 # contact seat's `kontaktdaten` is the acknowledgement alone, and WhatsApp the consent on top of it.
 _GIVING: Final[Mapping[str, tuple[object, ...]]] = {"umfang": ("kader_oeffentlich", "kontaktdaten_whatsapp"), "medien": (True,)}
@@ -60,7 +64,7 @@ def compose_beleg(*, saved: Mapping[str, Any], choice: FLEinwilligungChoice, val
 
 
 def compose_choices(
-    *, path: str, saved: Mapping[str, Any], gesetzt: Mapping[FLEinwilligungChoice, Any], am: str, text_version: str
+    *, path: str, saved: Mapping[str, Any], gesetzt: Mapping[FLEinwilligungChoice, Any], am: str, text_versions: TextVersions
 ) -> dict[str, Any]:
     """The dotted `$set` moving these choices and their evidence on the block at `path`, read in the writer's transaction.
 
@@ -70,7 +74,9 @@ def compose_choices(
     gesetzt_set: dict[str, Any] = {}
     for choice, value in gesetzt.items():
         gesetzt_set[f"{path}.{choice}"] = value
-        gesetzt_set[f"{path}.{NACHWEIS}.{choice}"] = compose_beleg(saved=saved, choice=choice, value=value, am=am, text_version=text_version)
+        gesetzt_set[f"{path}.{NACHWEIS}.{choice}"] = compose_beleg(
+            saved=saved, choice=choice, value=value, am=am, text_version=text_versions[choice]
+        )
 
     return gesetzt_set
 
@@ -128,8 +134,8 @@ def compose_erneuert(*, path: str, saved: Mapping[str, Any], erneuert: Mapping[s
     A choice moves only where it was set there later, and only with evidence to carry.
     """
 
-    # The day and the label, `datum` with them, only from a confirmation no older than the stored one:
-    # an older registration admitted after a newer one would date and name the record backwards.
+    # The confirmation's day, `datum` with it, only from a confirmation no older than the stored one:
+    # an older registration admitted after a newer one would date the record backwards.
     new_at, alt_am = erneuert.get("confirmed_at"), saved.get("confirmed_at")
     younger = not (isinstance(alt_am, str) and alt_am) or (isinstance(new_at, str) and new_at >= alt_am)
     gesetzt: dict[str, Any] = (
@@ -149,14 +155,14 @@ def compose_erneuert(*, path: str, saved: Mapping[str, Any], erneuert: Mapping[s
     return gesetzt
 
 
-def compose_geboren(*, block: Mapping[str, Any], am: str) -> dict[str, Any]:
-    """A block its person's own confirmation writes whole, each choice it holds evidenced under the block's label."""
+def compose_geboren(*, block: Mapping[str, Any], am: str, text_versions: TextVersions) -> dict[str, Any]:
+    """A block its person's own confirmation writes whole, each choice it holds evidenced under that choice's label."""
 
-    if NACHWEIS in block or not isinstance(block.get("text_version"), str) or not block["text_version"]:
-        raise ValueError("a block being born carries no evidence of its own, and needs the label its person was shown")
+    if NACHWEIS in block:
+        raise ValueError("a block being born carries no evidence of its own")
 
     nachweis = {
-        choice: compose_beleg(saved={}, choice=choice, value=block[choice], am=am, text_version=block["text_version"])
+        choice: compose_beleg(saved={}, choice=choice, value=block[choice], am=am, text_version=text_versions[choice])
         for choice in CHOICES
         if choice in block
     }

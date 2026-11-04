@@ -14,7 +14,7 @@ from app.shared.schemas.custom import (
     CustomOptionalDateString,
     CustomOptionalString,
 )
-from app.shared.schemas.einwilligung import CustomEinwilligungTextVersion, FLEinwilligungStand
+from app.shared.schemas.einwilligung import FLEinwilligungStand, FLSchiedsrichterTextVersions
 from app.shared.schemas.kontakt import CustomKontaktName, FLKontakt, FLKontaktPayload
 from app.shared.schemas.literals import FLAddressChangeViewableDenied, FLConfirmationState, FLEinwilligungUmfang, FLSortOrder
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
@@ -163,8 +163,8 @@ class FLSchiedsrichterConfirmationPayload(BaseModel):
     # Required rather than defaulted: a page that omitted it would store the model's answer in place
     # of the person's, and an off switch is an answer.
     medien: bool
-    # The label of the words the page showed: the write refuses any but the running one.
-    text_version: CustomEinwilligungTextVersion
+    # The wordings the page showed beside the two choices.
+    text_versions: FLSchiedsrichterTextVersions
 
 
 class FLSchiedsrichterConfirmationResponse(BaseAPIResponse):

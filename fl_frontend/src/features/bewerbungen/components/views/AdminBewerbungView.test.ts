@@ -4,7 +4,6 @@ import { act, createElement as h } from "react";
 
 import { doubleActions, doubleToasts } from "@/test-support/actionDoubles.ts";
 import { closedControl } from "@/test-support/closedControl.ts";
-import { laufendeNeubesetzung } from "@/test-support/einwilligungAnswers.ts";
 import { kenntnisnahme } from "@/test-support/kenntnisnahme.ts";
 import { underNext } from "@/test-support/nextContexts.ts";
 import { pressTwice } from "@/test-support/twoPress.ts";
@@ -34,7 +33,6 @@ const person = (vorname: string, bestaetigtAm: string | null): NonNullable<FLBew
   telefon: "069 1234567",
   geburtsdatum: bestaetigtAm === null ? null : "1988-04-02",
   einwilligung: kenntnisnahme({
-    text_version: "2026-09-bestaetigungsseite",
     datum: "2026-09-01",
     confirmed_at: bestaetigtAm,
   }),
@@ -72,8 +70,6 @@ function renderPage(bewerbung: FLBewerbung, teamName: string | null = TEAM_NAME)
   return render(
     underNext(
       h(AdminBewerbungView, {
-        neubesetzung: laufendeNeubesetzung(),
-        medienFragen: {},
         bewerbung,
         fristAbgelaufen: false,
         teamName,

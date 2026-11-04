@@ -1,8 +1,9 @@
 import z from "zod";
 
+import { SPIELER_TEXT_VERSIONS } from "@/core/consentWordings";
 import { FLEinwilligungUmfang, FLSpielerPosition, FLSpielerRolle, FLSpielerStufe } from "@/core/generated/client/types";
 import { SAISON_ID_LENGTH } from "@/features/saisons/constants";
-import { EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH, KONTAKT_NAME_MAX_LENGTH, KONTAKT_NAME_ZU_LANG } from "@/features/teams/constants";
+import { KONTAKT_NAME_MAX_LENGTH, KONTAKT_NAME_ZU_LANG } from "@/features/teams/constants";
 import { CustomDateStringSchema, CustomObjectIdStringSchema, PersonNameSchema } from "@/shared/schemas";
 
 import { NUMMER_MUST_BE_DIGITS } from "./constants";
@@ -139,33 +140,23 @@ export const WAHL_UNBEKANNT = "Diese Wahl kennen wir nicht. Lade die Seite neu."
 
 // Redesign: goes with its last importer.
 /**
- * Mirrors `FLSpielerKontoEinwilligungPayload`, and the referee's payload is this same schema: the two
- * writes are one shape, so the one consent control cannot send either a member the other lacks.
+ * The labels a press names, one per choice, each the one its kind's wording carries
+ * (`fl_frontend/src/core/consentWordings.ts`): only a drifted page sends another, which `error` tells to reload.
  */
+export const textVersionsSchema = <U extends string, M extends string>(labels: { readonly umfang: U; readonly medien: M }, error: string) =>
+  z.object({ umfang: z.literal(labels.umfang, { error: error }), medien: z.literal(labels.medien, { error: error }) }, { error: error });
+
+/** A drifted account page's labels, which a reload repairs. */
+export const KONTO_FASSUNG_FEHLT = "Deine Wahl nennt keine Fassung. Lade die Seite neu.";
+
+/** A drifted link page's labels, which the link reopened repairs. */
+export const LINK_FASSUNG_FEHLT = "Deine Antwort nennt keine Fassung. Öffne den Link aus Deiner E-Mail erneut.";
+
+// Redesign: goes with its last importer.
+/** Mirrors `FLAccountEinwilligungPayload`, the pupil's and a registration's press on the account page. */
 export const FLSpielerKontoEinwilligungPayloadSchema = z.object({
   umfang: z.enum(FLEinwilligungUmfang, { error: WAHL_UNBEKANNT }),
   medien: z.boolean(),
-  // The account page's own label, never the one the record was confirmed under: the backend judges it
-  // against the page that took the press.
-  text_version: z
-    .string()
-    .trim()
-    .nonempty({ error: "Deine Wahl nennt keine Fassung. Lade die Seite neu." })
-    .max(EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH, {
-      error: `Die Fassung darf höchstens ${String(EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH)} Zeichen lang sein.`,
-    }),
+  text_versions: textVersionsSchema(SPIELER_TEXT_VERSIONS, KONTO_FASSUNG_FEHLT),
   nachweis_stand: FLEinwilligungStandSchema,
 });
-
-// Redesign: goes with its last importer.
-/**
- * The label a link confirmation's answer names: each endpoint floors it, and the page fills it from
- * the served label, so only a drifted page sends none, which the link reopened repairs.
- */
-export const LinkAntwortTextVersionSchema = z
-  .string()
-  .trim()
-  .nonempty({ error: "Deine Antwort nennt keine Fassung. Öffne den Link aus Deiner E-Mail erneut." })
-  .max(EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH, {
-    error: `Die Fassung darf höchstens ${String(EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH)} Zeichen lang sein.`,
-  });

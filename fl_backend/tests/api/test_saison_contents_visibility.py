@@ -67,7 +67,7 @@ def spieler_document(spieler_id: ObjectId, vorname: str) -> dict[str, Any]:
     Consent passed, not defaulted: only a published, confirmed one serves the forename.
     """
 
-    published = documents.own_einwilligung_document(text_version=documents.EINWILLIGUNG["text_version"], confirmed_at="2026-01-20")
+    published = documents.own_einwilligung_document(text_versions=documents.SPIELER_TEXT_VERSIONS, confirmed_at="2026-01-20")
 
     return documents.spieler_document(spieler_id, vorname, "Müller", einwilligung=published)
 

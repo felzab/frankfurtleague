@@ -17,7 +17,6 @@ import { Label } from "@heroui/react/label";
 
 import { besetzeKontaktSitzAction, einwilligungErneutSendenAction, kontaktEmailKorrigierenAction } from "@/features/bewerbungen/actions";
 import { adressenAndererPersonen, istOffen, linkAngebot, loeschungsSatz, sitzAngebot } from "@/features/bewerbungen/bestaetigungStand";
-import { FESTE_WERTE } from "@/features/bewerbungen/components/ui/Gefuellt";
 import { ADRESSE_KORRIGIEREN, ERNEUT_OHNE_ADRESSE } from "@/features/bewerbungen/constants";
 import { FLBewerbungKontaktEmailPayloadSchema, FLBewerbungKontaktSitzPayloadSchema } from "@/features/bewerbungen/schemas";
 import { zustellungChip } from "@/features/bewerbungen/zustellLage";
@@ -45,16 +44,11 @@ import { DRAFT_DISCARDED, guardAgainstDraft } from "@/shared/utils/draftGuard";
 import { focusAfterWrite, focusRow, focusSection, focusSlot } from "@/shared/utils/focusAfterWrite";
 import { nichtHinterlegt } from "@/shared/utils/format";
 import { pressLinkWrite } from "@/shared/utils/linkWrite";
-import { WORDING_UNREADABLE } from "@/shared/utils/refusal";
 
-import { Absatz } from "./BestaetigungHinweise";
-
-import type { KontaktAbsatzSchluessel } from "@/core/einwilligungSeiten";
 import type { SitzBestaetigung } from "@/features/bewerbungen/bestaetigungStand";
 import type { KontaktRolle } from "@/features/teams/constants";
 import type { PillTone } from "@/shared/components/ui/badges";
 import type { RaiseFailure } from "@/shared/hooks/useServerFieldErrors";
-import type { KontaktFassung } from "./BestaetigungHinweise";
 
 /**
  * One height for every chip on this readout and for the control beside them, so a row carrying a
@@ -111,19 +105,11 @@ const NEUBESETZUNG_TITEL = "Rolle neu besetzt";
 type Bearbeitung = "korrektur" | "neubesetzung";
 
 /**
- * What a reseat writes and shows, read by the page per request: the label the application form runs,
- * which the new person's record stamps, and the words of the administration's confirmation page, which
- * that person will be asked on.
- */
-export type Neubesetzung = { textVersion: string; absaetze: KontaktFassung["absaetze"] };
-
-/**
  * A readout above the fact panels rather than a section inside them, so the question deciding
  * whether the Zusage is possible at all is answered before the panels it governs.
  */
 export function BewerbungBestaetigungStrip({
   bewerbungId,
-  neubesetzung,
   staende,
   frist,
   fristAbgelaufen,
@@ -132,8 +118,6 @@ export function BewerbungBestaetigungStrip({
   onGetipptChange,
 }: {
   bewerbungId: string;
-  /** `null` where the registry could not be read, which closes the reseat with the reason. */
-  neubesetzung: Neubesetzung | null;
   staende: readonly SitzBestaetigung[];
   /** The day an incomplete application is deleted after. */
   frist: string;
@@ -222,7 +206,6 @@ export function BewerbungBestaetigungStrip({
             <SitzZeile
               key={sitz.rolle}
               bewerbungId={bewerbungId}
-              neubesetzung={neubesetzung}
               sitz={sitz}
               belegteAdressen={adressenAndererPersonen(staende, sitz)}
               hatAngebot={isOpen && angebot.has(sitz.rolle)}
@@ -261,7 +244,6 @@ export function BewerbungBestaetigungStrip({
  */
 function SitzZeile({
   bewerbungId,
-  neubesetzung,
   sitz,
   belegteAdressen,
   hatAngebot,
@@ -276,8 +258,6 @@ function SitzZeile({
   onSchliessen,
 }: {
   bewerbungId: string;
-  /** `null` where the registry could not be read, which closes the reseat with the reason. */
-  neubesetzung: Neubesetzung | null;
   sitz: SitzBestaetigung;
   belegteAdressen: readonly string[];
   /** Whether a link can still be sent to this seat, which is the one condition the pencil and the re-send stand under. */
@@ -358,29 +338,20 @@ function SitzZeile({
         {/* In the right-hand cluster where the re-send stands, never beside the name: what it offers
             is a fresh link for this seat, and the two are never offered at once. */}
         {istNeubesetzbar && bearbeitet === null && (
-          // Closed rather than withheld where the registry could not be read: the new person is asked
-          // the administration's page, whose words the box shows, and the reason says what to do.
-          <Hint
-            mode="refusal"
-            reason={neubesetzung === null ? WORDING_UNREADABLE : null}
-            label={besetzenLabel}
-            className="shrink-0">
-            <Button
-              {...focusSlot("neubesetzung")}
-              type="button"
-              isDisabled={neubesetzung === null}
-              aria-label={besetzenLabel}
-              onPress={() => {
-                onOeffne("neubesetzung");
-              }}
-              className={`${formButton({ intent: "nav", size: "xs" })} shrink-0 gap-x-2`}>
-              <PersonPlus
-                className="size-3.5"
-                aria-hidden="true"
-              />
-              <span>Neu besetzen</span>
-            </Button>
-          </Hint>
+          <Button
+            {...focusSlot("neubesetzung")}
+            type="button"
+            aria-label={besetzenLabel}
+            onPress={() => {
+              onOeffne("neubesetzung");
+            }}
+            className={`${formButton({ intent: "nav", size: "xs" })} shrink-0 gap-x-2`}>
+            <PersonPlus
+              className="size-3.5"
+              aria-hidden="true"
+            />
+            <span>Neu besetzen</span>
+          </Button>
         )}
 
         {hatAngebot && bearbeitet === null && (
@@ -424,11 +395,10 @@ function SitzZeile({
         </FocusSlot>
       )}
 
-      {bearbeitet === "neubesetzung" && neubesetzung !== null && (
+      {bearbeitet === "neubesetzung" && (
         <FocusSlot name="neubesetzung">
           <SitzNeuBesetzen
             bewerbungId={bewerbungId}
-            neubesetzung={neubesetzung}
             rolle={sitz.rolle}
             label={sitz.label}
             belegteAdressen={belegteAdressen}
@@ -612,22 +582,9 @@ function AdresseKorrigieren({
 /** A blank person, because nobody stands in this seat: `AdresseKorrigieren`'s box prefills where it is repairing one character. */
 const LEERE_PERSON = { vorname: "", nachname: "", email: "", telefon: "" };
 
-// The confirmation page's opening section in its order, less each paragraph with a slot this strip
-// cannot fill as the page does: a slot left standing is a word the person never sees.
-const SEITENANFANG = [
-  "gespeichert",
-  "rechtsgrundlage",
-  "nichtOeffentlich",
-  "fristAbgelehnt",
-  "fristUnvollstaendig",
-  "widerruf",
-  "art21",
-] as const satisfies readonly KontaktAbsatzSchluessel[];
-
 /** The box `AdresseKorrigieren` opens in, carrying four fields rather than one: this writes a whole person. */
 function SitzNeuBesetzen({
   bewerbungId,
-  neubesetzung,
   rolle,
   label,
   belegteAdressen,
@@ -636,7 +593,6 @@ function SitzNeuBesetzen({
   onFertig,
 }: {
   bewerbungId: string;
-  neubesetzung: Neubesetzung;
   rolle: KontaktRolle;
   /** The seat's own German, so the heading names the role the strip's chip beside it named. */
   label: string;
@@ -662,9 +618,7 @@ function SitzNeuBesetzen({
     schemas: { neubesetzung: FLBewerbungKontaktSitzPayloadSchema },
   });
 
-  // The label the new person will be shown, read from the registry rather than typed, as the
-  // application form writes it: a later rewording never changes what a stored record claims.
-  const payload = { id: bewerbungId, rolle: rolle, ...person, text_version: neubesetzung.textVersion };
+  const payload = { id: bewerbungId, rolle: rolle, ...person };
 
   useForgiveFixed({ neubesetzung: payload });
 
@@ -743,22 +697,6 @@ function SitzNeuBesetzen({
       {/* The seat is named here and not on the button: the row above says „Niemand mehr in der
           Bewerbung“, so the box has to say which of the three seats it is filling. */}
       <p className="fluid-xs text-foreground-muted">Neue Person für die Rolle {label}</p>
-
-      {/* The confirmation page's words, never the application form's: those address the submitter,
-          and the person this writes will only ever read the page. */}
-      <div className="flex flex-col gap-y-2 rounded-lg border border-border p-3">
-        <p className="fluid-xs font-bold text-foreground">Diese Person bekommt den Bestätigungslink und wird dort gefragt:</p>
-        {SEITENANFANG.map((schluessel) => (
-          <p
-            key={schluessel}
-            className="muted-meta">
-            <Absatz
-              text={neubesetzung.absaetze[schluessel]}
-              werte={FESTE_WERTE}
-            />
-          </p>
-        ))}
-      </div>
 
       <div className={FIELD_PAIR_CLASSES}>
         <TextField

@@ -16,7 +16,6 @@ from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError, DocumentNotFoundError
-from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS
 from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.schemas.literals import KONTAKT_ROLLEN
@@ -54,8 +53,6 @@ RAW: Mapping[str, str] = {seat: f"{RAW_PREFIX}-{seat}" for seat in KONTAKT_ROLLE
 HASHES: Mapping[str, str] = {seat: hash_token(raw) for seat, raw in RAW.items()}
 
 # What each of the two contact pages stamps today; an answer names the one its view answered.
-BEWERBER_SEITE = LAUFENDE_FASSUNGEN["bestaetigung_kontakt"]
-VERWALTUNG_SEITE = LAUFENDE_FASSUNGEN["bestaetigung_kontakt_verwaltung"]
 
 A_CHILDS_BIRTHDATE = "2018-01-01"
 AN_ADULTS_BIRTHDATE = "1984-05-09"
@@ -73,7 +70,6 @@ def _seat_paths(block: str, *leaves: str) -> set[str]:
 ANSICHT_RESOLVES = frozenset(
     _seat_paths("confirmations", "token_hashes", "declined_at")
     | _seat_paths("kontakte", "email", "einwilligung.confirmed_at")
-    | _seat_paths("kontakte", "einwilligung.entered_by")
     | {"kontakte.trainer_is_also", "saison_id", "status", "confirmation_deadline", "schule.team_name", "team_id"}
 )
 
@@ -82,7 +78,7 @@ ANSICHT_RESOLVES = frozenset(
 ANTWORT_RESOLVES = frozenset(
     _seat_paths("confirmations", "token_hashes", "declined_at")
     | _seat_paths("kontakte", "vorname", "email", "einwilligung.confirmed_at", "einwilligung.umfang", "einwilligung.medien")
-    | _seat_paths("kontakte", "einwilligung.nachweis", "einwilligung.entered_by")
+    | _seat_paths("kontakte", "einwilligung.nachweis")
     | {"_id", "kontakte.trainer_is_also", "saison_id", "status", "confirmation_deadline"}
 )
 
@@ -159,7 +155,13 @@ async def answer(
     """One answer through the seat's link; a case reading the mail it owes passes `MAIL_NOW`, which the stamps then carry."""
 
     # A Widerspruch carries the token alone: every default below is the consent's.
-    erteilt = {"antwort": "given", "geburtsdatum": AN_ADULTS_BIRTHDATE, "whatsapp": True, "medien": False, "text_version": BEWERBER_SEITE}
+    erteilt = {
+        "antwort": "given",
+        "geburtsdatum": AN_ADULTS_BIRTHDATE,
+        "whatsapp": True,
+        "medien": False,
+        "text_versions": dict(documents.SEAT_TEXT_VERSIONS),
+    }
     body = {"token": token, **(overrides if overrides.get("antwort") == "declined" else {**erteilt, **overrides})}
 
     return await post_einwilligung(
@@ -394,21 +396,20 @@ class TestWhatAConfirmationWrites:
 
         trainer = document["kontakte"]["trainer"]
         assert trainer["geburtsdatum"] == AN_ADULTS_BIRTHDATE
-        # The wording the CONFIRMING person saw, not the one the applicant ticked for them, and the
-        # stored speaker gone: whether the person answered is the stamp's to say.
+        # No label on the block and the stored speaker gone: whether the person answered is the stamp's
+        # to say, and which words each choice was given under its evidence's.
         assert trainer["einwilligung"] == {
             "umfang": "kontaktdaten_whatsapp",
-            "text_version": BEWERBER_SEITE,
             "datum": "2026-03-20",
             "confirmed_at": TODAY,
             "medien": False,
             # The seating's, which the answer leaves standing.
             "entered_by": "bewerbung",
-            # Each choice's evidence under the page the person answered: the WhatsApp grant, and the
-            # media answer withholding.
+            # Each choice's evidence under its own wording: the WhatsApp grant, and the media answer
+            # withholding.
             "nachweis": {
-                "umfang": {"am": "2026-04-01T10:30:00+00:00", "text_version": BEWERBER_SEITE},
-                "medien": {"am": "2026-04-01T10:30:00+00:00", "text_version": BEWERBER_SEITE},
+                "umfang": {"am": "2026-04-01T10:30:00+00:00", "text_version": documents.SEAT_TEXT_VERSIONS["umfang"]},
+                "medien": {"am": "2026-04-01T10:30:00+00:00", "text_version": documents.SEAT_TEXT_VERSIONS["medien"]},
             },
         }
         # NOT nulled on use: single use is the stamp's doing, so the reopened link can show its state.
@@ -454,113 +455,6 @@ class TestWhatAConfirmationWrites:
             assert document["kontakte"][seat]["geburtsdatum"] == AN_ADULTS_BIRTHDATE
             assert document["kontakte"][seat]["einwilligung"]["confirmed_at"] == TODAY
         assert document["kontakte"]["trainer"] == document["kontakte"]["ansprechperson"]
-
-
-def eingetragen(von: str, *, datum: str = "2026-03-20") -> dict[str, Any]:
-    """An application whose Trainer seat names who seated its person, its record dated `datum`."""
-
-    seeded = bewerbung_document()
-    einwilligung = seeded["kontakte"]["trainer"]["einwilligung"]
-    seeded["kontakte"]["trainer"]["einwilligung"] = {**einwilligung, "datum": datum, "entered_by": von}
-
-    return seeded
-
-
-class TestThePageALinkOpens:
-    """The view answers the label of the page true for the person, and the answer is judged against that page."""
-
-    @pytest.mark.parametrize(
-        ("seeded", "wording"),
-        [
-            pytest.param(eingetragen("bewerbung"), BEWERBER_SEITE, id="named by the applicant"),
-            pytest.param(eingetragen("liga", datum="2026-03-27"), VERWALTUNG_SEITE, id="reseated by an administrator"),
-        ],
-    )
-    def test_the_view_answers_the_label_of_the_page_the_seat_opens(self, mongo_replica_set_url: str, seeded: dict[str, Any], wording: str):
-        response = on_a_league(mongo_replica_set_url, lambda database, _: ansicht(database, RAW["trainer"]), documents=[seeded])
-
-        assert response.running_wording == wording
-
-    @pytest.mark.parametrize(
-        ("seeded", "named"),
-        [
-            pytest.param(eingetragen("bewerbung"), VERWALTUNG_SEITE, id="the administration's page on an applicant-named seat"),
-            pytest.param(eingetragen("liga", datum="2026-03-27"), BEWERBER_SEITE, id="the applicant's page on a reseated seat"),
-            pytest.param(eingetragen("bewerbung"), "2026-09-bestaetigungsseite-5", id="a superseded label of the right page"),
-            pytest.param(eingetragen("bewerbung"), LAUFENDE_FASSUNGEN["bestaetigung_spieler"], id="another page's running label"),
-        ],
-    )
-    def test_an_answer_naming_any_other_label_is_refused_and_spends_nothing(
-        self, mongo_replica_set_url: str, seeded: dict[str, Any], named: str
-    ):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(APIError) as conflict:
-                await answer(database, client, RAW["trainer"], text_version=named)
-
-            return conflict.value, await stored(database), await log_rows(database)
-
-        refusal, document, rows = on_a_league(mongo_replica_set_url, body, documents=[seeded])
-
-        assert (refusal.error_code, refusal.status_code) == (Code.WORDING_NOT_ALLOWED, 409)
-        assert document == seeded
-        assert rows == []
-
-    def test_a_reseated_seat_is_confirmed_under_the_administrations_page_and_keeps_who_seated_them(self, mongo_replica_set_url: str):
-        """`entered_by` is what decides the page, so a confirmation rewriting it would move the page under the person."""
-
-        seeded = eingetragen("liga", datum="2026-03-27")
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await answer(database, client, RAW["trainer"], text_version=VERWALTUNG_SEITE)
-
-            return await stored(database), await ansicht(database, RAW["trainer"])
-
-        document, view = on_a_league(mongo_replica_set_url, body, documents=[seeded])
-
-        einwilligung = document["kontakte"]["trainer"]["einwilligung"]
-        assert (einwilligung["text_version"], einwilligung["entered_by"], einwilligung["datum"]) == (
-            VERWALTUNG_SEITE,
-            "liga",
-            "2026-03-27",
-        )
-        assert einwilligung["nachweis"]["umfang"]["text_version"] == VERWALTUNG_SEITE
-        assert (view.state, view.running_wording) == ("confirmed", VERWALTUNG_SEITE)
-
-    def test_a_link_answering_a_mixed_pair_shows_and_takes_one_page(self, mongo_replica_set_url: str):
-        """A Trainer the applicant named, holding a seat the league filled: one page for both.
-
-        Stored directly: no route makes this pair on an application today, and the judge must not rely on that.
-        """
-
-        seeded = bewerbung_document(kontakte=kontakte(trainer_is_also="ansprechperson"))
-        for slot, von in (("trainer", "bewerbung"), ("ansprechperson", "liga")):
-            seeded["kontakte"][slot]["einwilligung"] = {**seeded["kontakte"][slot]["einwilligung"], "entered_by": von}
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            view = await ansicht(database, RAW["trainer"])
-            with pytest.raises(APIError) as conflict:
-                await answer(database, client, RAW["trainer"], text_version=BEWERBER_SEITE)
-            await answer(database, client, RAW["trainer"], text_version=view.running_wording)
-
-            return view, conflict.value, await stored(database)
-
-        view, refusal, document = on_a_league(mongo_replica_set_url, body, documents=[seeded])
-
-        assert view.running_wording == VERWALTUNG_SEITE
-        assert (refusal.error_code, refusal.status_code) == (Code.WORDING_NOT_ALLOWED, 409)
-        for slot in ("trainer", "ansprechperson"):
-            einwilligung = document["kontakte"][slot]["einwilligung"]
-            assert (einwilligung["confirmed_at"], einwilligung["text_version"]) == (TODAY, VERWALTUNG_SEITE)
-
-    def test_a_decline_names_no_label_and_is_judged_against_none(self, mongo_replica_set_url: str):
-        """A Widerspruch stores no record, so it carries no label to store or refuse."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await answer(database, client, RAW["trainer"], antwort="declined")
-
-            return await stored(database)
-
-        assert on_a_league(mongo_replica_set_url, body)["kontakte"]["trainer"] is None
 
 
 class TestTheMediaConsent:
@@ -612,7 +506,7 @@ class TestTheMediaConsent:
 
         # The answer carries what it stored, as the referee's answer does.
         assert response.medien is einwilligung["medien"] is True
-        assert einwilligung["nachweis"]["medien"] == {"am": "2026-04-01T10:30:00+00:00", "text_version": BEWERBER_SEITE}
+        assert einwilligung["nachweis"]["medien"] == {"am": "2026-04-01T10:30:00+00:00", "text_version": documents.SEAT_TEXT_VERSIONS["medien"]}
 
     def test_a_trainer_below_the_media_age_giving_medien_is_refused_and_spends_nothing(self, mongo_replica_set_url: str):
         """Seventeen clears the Trainer's own floor and not the media one, so the age refusal stays silent and this one speaks."""

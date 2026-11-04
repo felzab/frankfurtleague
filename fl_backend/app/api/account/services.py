@@ -8,12 +8,12 @@ from what they pass.
 
 from collections.abc import Mapping, Sequence
 from http import HTTPStatus
-from typing import Any, Final, Literal, get_args
+from typing import Any, Literal, get_args
 
 from bson import ObjectId
 
 from app.api.bewerbungen.services import bewerbung_schule, build_eigene_bewerbung_filter, mindestalter_for, saison_schule
-from app.api.einwilligung.services import find_fassung_refusal, medien_angeboten
+from app.api.einwilligung.services import medien_angeboten
 from app.api.identity.schemas import FLSubjectSeat
 from app.api.identity.services import eigene_sitze, holds_a_seat, ist_eigene_registrierung, saison_status_lookup
 from app.api.kontakte.services import rows_seating
@@ -24,18 +24,9 @@ from app.core.codes import Code
 from app.core.collections import Collection as DbCollection
 from app.core.exceptions import WriteRefusal
 from app.core.journal import JournalLine
-from app.shared.einwilligung import Seite
-from app.shared.einwilligung_nachweis import CHOICES, FLEinwilligungChoice, compose_choices, is_given, nachweis_stand_of
+from app.shared.einwilligung_nachweis import CHOICES, FLEinwilligungChoice, TextVersions, compose_choices, is_given, nachweis_stand_of
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS, REGISTRIERUNG_MIN_AGE_YEARS, SCHIEDSRICHTER_MIN_AGE_YEARS
 from app.shared.schemas.literals import KONTAKT_ROLLEN
-
-# The registry pages (`app/shared/einwilligung.py :: LAUFENDE_FASSUNGEN`) whose labels each control stamps.
-KONTO_SEITE_SPIELER: Final[Seite] = "konto_spieler"
-KONTO_SEITE_SCHIEDSRICHTER: Final[Seite] = "konto_schiedsrichter"
-KONTO_SEITE_KONTAKT: Final[Seite] = "konto_kontakt"
-
-# The place `find_fassung_refusal` names in its message: each PATCH stamps one label.
-_FASSUNG_ORT: Final = "einwilligung"
 
 
 def erteilt_etwas(*, gespeichert: Mapping[str, Any], gewaehlt: Mapping[FLEinwilligungChoice, Any]) -> bool:
@@ -52,12 +43,11 @@ def _bewegt(gespeichert: Mapping[str, Any], wahl: FLEinwilligungChoice, wert: An
 
 
 def compose_person_move(
-    *, gespeichert: Mapping[str, Any], gewaehlt: Mapping[FLEinwilligungChoice, Any], am: str, text_version: str
+    *, gespeichert: Mapping[str, Any], gewaehlt: Mapping[FLEinwilligungChoice, Any], am: str, text_versions: TextVersions
 ) -> dict[str, dict[str, Any]] | None:
     """The update moving a person's own block, at `einwilligung`, by the choices that change; `None` where none does.
 
-    Never `confirmed_at`, read by the panel and the publication mask, nor the block's CONFIRMED
-    `text_version`: the press's label is its evidence's.
+    Never `confirmed_at`, read by the panel and the publication mask: each press's labels are its evidence's.
     """
 
     bewegt: list[FLEinwilligungChoice] = [wahl for wahl in CHOICES if wahl in gewaehlt and _bewegt(gespeichert, wahl, gewaehlt[wahl])]
@@ -70,13 +60,13 @@ def compose_person_move(
             saved=gespeichert,
             gesetzt={wahl: gewaehlt[wahl] for wahl in bewegt},
             am=am,
-            text_version=text_version,
+            text_versions=text_versions,
         )
     }
 
 
 def compose_sitz_move(
-    *, sitze: Mapping[str, Mapping[str, Any]], gewaehlt: Mapping[FLEinwilligungChoice, Any], am: str, text_version: str
+    *, sitze: Mapping[str, Mapping[str, Any]], gewaehlt: Mapping[FLEinwilligungChoice, Any], am: str, text_versions: TextVersions
 ) -> dict[str, dict[str, Any]] | None:
     """The update moving every held seat's block of one row or application, `sitze` keyed by slot; `None` where none moves."""
 
@@ -88,7 +78,7 @@ def compose_sitz_move(
                 saved=gespeichert,
                 gesetzt={wahl: gewaehlt[wahl] for wahl in CHOICES if wahl in gewaehlt and _bewegt(gespeichert, wahl, gewaehlt[wahl])},
                 am=am,
-                text_version=text_version,
+                text_versions=text_versions,
             )
         )
 
@@ -103,7 +93,7 @@ def widerruf_line(
     bloecke: Sequence[Mapping[str, Any]],
     gewaehlt: Mapping[FLEinwilligungChoice, Any],
     am: str,
-    text_version: str,
+    text_versions: TextVersions,
 ) -> JournalLine | None:
     """The journal line of a press, naming each choice it moved off a grant on any of `bloecke`; `None` where it withdrew none.
 
@@ -122,7 +112,7 @@ def widerruf_line(
         collection=collection,
         record_id=record_id,
         am=am,
-        text_version=text_version,
+        text_versions={wahl: text_versions[wahl] for wahl in widerrufen},
         choices=widerrufen,
     )
 
@@ -172,16 +162,6 @@ def find_nachweis_stand_refusal(*, erwartet: Mapping[str, Any], bloecke: Sequenc
         error_code=Code.WORDING_NOT_ALLOWED,
         status=HTTPStatus.CONFLICT,
     )
-
-
-def find_konto_fassung_refusal(*, seite: Seite, text_version: str, erteilt: bool) -> WriteRefusal | None:
-    """`wording_not_allowed` on an account-page control: a grant names the page's running label, a withdrawal any version of it.
-
-    Refusing a withdrawal from a page loaded before a deploy would make taking a consent back harder
-    than giving it.
-    """
-
-    return find_fassung_refusal(seite=seite, named={_FASSUNG_ORT: text_version}, jede_fassung=not erteilt)
 
 
 # --- The records each read serves: CONFIRMED ones alone, retired rows and past seasons included, a
@@ -235,7 +215,6 @@ def compose_spieler_konto(row: Mapping[str, Any], *, givable: bool, today: str, 
         **compose_spieler_self(row),
         "inactive_since": row.get("inactive_since"),
         "einwilligung": row["einwilligung"],
-        "confirmed_text_version": row["einwilligung"]["text_version"],
         "nachweis_stand": nachweis_stand_of(bloecke=[row["einwilligung"]]),
         "givable": givable,
         "medien_offered": medien_angeboten(geburtsdatum=row.get("geburtsdatum"), today=today),
@@ -269,7 +248,6 @@ def compose_schiedsrichter_konto(row: Mapping[str, Any], *, givable: bool, today
         **compose_schiedsrichter_self(row),
         "inactive_since": row.get("inactive_since"),
         "einwilligung": row["einwilligung"],
-        "confirmed_text_version": row["einwilligung"]["text_version"],
         "nachweis_stand": nachweis_stand_of(bloecke=[row["einwilligung"]]),
         "givable": givable,
         "medien_offered": medien_angeboten(geburtsdatum=row.get("geburtsdatum"), today=today),
@@ -376,27 +354,25 @@ def _sitz_wahlen_gehalten(held: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
 
 
 def bestaetigungsgruppen(kontakte: Mapping[str, Any], rollen: Sequence[str]) -> list[list[str]]:
-    """The held slots grouped by the confirmation each answered, one group per label and day, in `rollen` order.
+    """The held slots grouped by the confirmation each answered, one group per day, in `rollen` order.
 
-    A seat's link is answered on its own, so one person's two seats may stand on two pages and two floors.
+    A seat's link is answered on its own, so one person's two seats may stand on two days and two floors.
     """
 
-    gruppen: dict[tuple[Any, Any], list[str]] = {}
+    gruppen: dict[Any, list[str]] = {}
     for slot in rollen:
-        block = kontakte[slot]["einwilligung"]
-        gruppen.setdefault((block["text_version"], block.get("confirmed_at")), []).append(slot)
+        gruppen.setdefault(kontakte[slot]["einwilligung"].get("confirmed_at"), []).append(slot)
 
     return list(gruppen.values())
 
 
 def _bestaetigt(kontakte: Mapping[str, Any], gruppe: Sequence[str], *, team: str, schule: str | None, saison: str) -> dict[str, Any]:
-    """One confirmation a person gave on a row: its roles, its words, the floor its page named and what filled them."""
+    """One confirmation a person gave on a row: its roles, its day, the floor its page named and what it named."""
 
     block = kontakte[gruppe[0]]["einwilligung"]
 
     return {
         "rollen": list(gruppe),
-        "text_version": block["text_version"],
         "confirmed_at": block.get("confirmed_at"),
         "minimum_age": mindestalter_for(gruppe),
         "context": {"vorname": kontakte[gruppe[0]].get("vorname"), "team": team, "schule": schule, "saison": saison},
@@ -551,7 +527,6 @@ def compose_registrierungen_self(
                 "team_id": row["team_id"],
                 "team_name": None if team is None else team.get("name"),
                 "saison_id": row["saison_id"],
-                "confirmed_text_version": block["text_version"],
                 "umfang": block.get("umfang"),
                 "medien": is_given("medien", block.get("medien")) if traegt_wahlen(block) else None,
                 "minimum_age": REGISTRIERUNG_MIN_AGE_YEARS,

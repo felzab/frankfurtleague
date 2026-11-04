@@ -26,7 +26,7 @@ from app.core.crud import build_sort
 from app.core.exceptions import WriteRefusal
 from app.shared.alter import whole_years_between
 from app.shared.einwilligung import is_confirmed
-from app.shared.einwilligung_nachweis import compose_erneuert, compose_geboren
+from app.shared.einwilligung_nachweis import TextVersions, compose_erneuert, compose_geboren
 from app.shared.folding import person_name_key, sign_in_identifier
 from app.shared.schemas.bounds import (
     BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
@@ -247,7 +247,7 @@ def build_registrierungen_sort(*, sort_by: str, order: str) -> list[tuple[str, i
 # confirm".
 
 
-# The two pages one link opens, each with its running label (`app/shared/einwilligung.py :: LAUFENDE_FASSUNGEN`).
+# The two pages one link opens.
 SEITE_NEU: Final[FLRegistrierungSeite] = "bestaetigung_spieler"
 SEITE_WIEDERKEHREND: Final[FLRegistrierungSeite] = "bestaetigung_spieler_wiederkehrend"
 
@@ -477,14 +477,14 @@ def gespeichertes_geburtsdatum(*, seite: FLRegistrierungSeite, person_raw: Mappi
     return person_raw["geburtsdatum"] if seite == SEITE_WIEDERKEHREND and person_raw is not None else None
 
 
-def find_wahlen_refusal(*, seite: FLRegistrierungSeite, umfang: Any, medien: Any, geburtsdatum: Any) -> WriteRefusal | None:
+def find_wahlen_refusal(*, seite: FLRegistrierungSeite, umfang: Any, medien: Any, text_versions: Any, geburtsdatum: Any) -> WriteRefusal | None:
     """`registrierung_choices_unsuitable`: the body answers what its page did not ask, or leaves out what it did.
 
-    Both choices and a birthdate on the new pupil's page, none of the three on the returning pupil's.
+    Both choices, their wordings and a birthdate on the new pupil's page, none of the four on the returning pupil's.
     """
 
     gefragt = seite == SEITE_NEU
-    if (umfang is not None) == gefragt and (medien is not None) == gefragt and (geburtsdatum is not None) == gefragt:
+    if all((wert is not None) == gefragt for wert in (umfang, medien, text_versions, geburtsdatum)):
         return None
 
     return WriteRefusal(
@@ -511,7 +511,7 @@ def find_medien_refusal(*, geburtsdatum: str, medien: bool, today: str) -> Write
 
 
 def compose_confirmation_update(
-    *, geburtsdatum: str, umfang: str | None, medien: bool | None, text_version: str, today: str, am: str
+    *, geburtsdatum: str, umfang: str | None, medien: bool | None, text_versions: TextVersions | None, today: str, am: str
 ) -> Mapping[str, Any]:
     """The ONE `$set` a confirmation is: the whole consent record beside the date.
 
@@ -522,9 +522,9 @@ def compose_confirmation_update(
     if umfang is None and medien is None:
         # The returning pupil's page asked nothing, so the record holds no choice, no evidence and no
         # `datum`, the day a consent was given.
-        return {"$set": {"geburtsdatum": geburtsdatum, "einwilligung": {"confirmed_at": today, "text_version": text_version}}}
+        return {"$set": {"geburtsdatum": geburtsdatum, "einwilligung": {"confirmed_at": today}}}
 
-    if umfang is None or medien is None:
+    if umfang is None or medien is None or text_versions is None:
         raise ValueError("a confirmation answers both choices or neither, as `find_wahlen_refusal` holds a body to its page")
 
     # Born whole rather than moved: the submission stores no record and a second press is refused, so
@@ -536,10 +536,10 @@ def compose_confirmation_update(
             # consent and the confirming of it.
             "datum": today,
             "confirmed_at": today,
-            "text_version": text_version,
             "medien": medien,
         },
         am=am,
+        text_versions=text_versions,
     )
 
     return {"$set": {"geburtsdatum": geburtsdatum, "einwilligung": record}}

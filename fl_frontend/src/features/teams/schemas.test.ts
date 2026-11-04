@@ -2,11 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import {
   FLCreateTeamFormPayloadSchema,
-  FLKontaktKenntnisnahmePayloadSchema,
   FLPatchSaisonTeamPayloadSchema,
   FLPatchTeamPayloadSchema,
   FLSaisonTeamKontaktePayloadSchema,
 } from "./schemas";
+
+import type { FLKontaktKenntnisnahmePayloadSchema } from "./schemas";
 
 /** The paths a payload schema refuses, so a case names the field it judges and nothing beside it. */
 const pathsRefused = (
@@ -27,7 +28,7 @@ const kontaktpersonPayload = (overrides: Record<string, unknown> = {}) => ({
   nachname: "Mustermann",
   email: "erika@beispiel.de",
   telefon: "069 1234567",
-  einwilligung: { umfang: "kontaktdaten", text_version: "2025-08", datum: "2025-09-01" },
+  einwilligung: { umfang: "kontaktdaten", datum: "2025-09-01" },
   ...overrides,
 });
 
@@ -198,12 +199,6 @@ describe("the write payloads' floors, against the stripped floors at the API", (
     const address = { ...createTeam().address, strasse: SPACES };
 
     expect(pathsRefused(FLCreateTeamFormPayloadSchema, createTeam({ address }))).toStrictEqual(["address.strasse"]);
-  });
-
-  it("refuses a Kenntnisnahme whose Fassung is spaces alone, which cites no wording at all", () => {
-    const kenntnisnahme = { umfang: "kontaktdaten", text_version: SPACES, datum: "2025-09-01" };
-
-    expect(pathsRefused(FLKontaktKenntnisnahmePayloadSchema, kenntnisnahme)).toStrictEqual(["text_version"]);
   });
 
   it("refuses an austritt whose published reason is spaces alone", () => {

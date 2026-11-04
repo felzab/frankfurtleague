@@ -19,7 +19,6 @@ from app.api.bewerbungen.services import compose_decline_update
 from app.api.teams.admin_router import patch_saison_team, patch_saison_team_kontakte
 from app.api.teams.schemas import FLPatchSaisonTeamKontaktePayload, FLPatchSaisonTeamPayload, kontakte_stand_of
 from app.core.collections import Collection
-from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.folding import sign_in_identifier
 from app.shared.tokens import hash_token
 from tests.bans import ban_list
@@ -158,7 +157,7 @@ SEATED = {
     "nachname": "Quillfeather",
     "email": TYPED,
     "telefon": TELEFON,
-    "einwilligung": {"umfang": "kontaktdaten", "text_version": LAUFENDE_FASSUNGEN["bewerbung"], "datum": "2026-03-01"},
+    "einwilligung": {"umfang": "kontaktdaten", "datum": "2026-03-01"},
 }
 BESIDE = {**SEATED, "vorname": "Ottilie", "nachname": "Andere", "email": "ottilie.andere@example.com", "telefon": "+49 69 5550404"}
 

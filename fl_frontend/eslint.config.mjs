@@ -677,8 +677,6 @@ const SOURCE_BANS = [
     SOURCE,
     {
       allow: [
-        // A label's words never change, so nothing outside a save reaches them.
-        "src/core/einwilligung.ts",
         // The footer's year, which no record holds.
         "src/kit/ClassicFrame.tsx",
       ],
@@ -1111,8 +1109,11 @@ const DESIGN_BANS = [
     ),
     PRODUCTION,
     // The league's own constants, which name it and its organisers and sponsors as data (`features/meta/constants.ts`);
-    // the boot's refusal, a line for an operator.
-    { allow: [...CATALOGUE_FILES, "src/core/brand.ts", "src/features/meta/constants.ts", "src/core/config.ts"] },
+    // the boot's refusal, a line for an operator; the consent wordings, the catalogue's legal sibling, whose frozen words
+    // the catalogue's punctuation rules never judge.
+    {
+      allow: [...CATALOGUE_FILES, "src/core/brand.ts", "src/features/meta/constants.ts", "src/core/config.ts", "src/core/consentWordings.ts"],
+    },
   ),
   syntaxBan(
     syntax(

@@ -49,11 +49,6 @@ export const SCHIEDSRICHTER_RETIREMENT_CONSEQUENCE =
  */
 export const SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE = 14;
 
-// „intern“ is the consent text's own word for the second answer, so the chip carries it rather than
-// a paraphrase a reader would have to match to the paragraph above it.
-/** The publication question. The answers are the registry's, this choice deciding a stored field. */
-export const SCHIEDSRICHTER_UMFANG_FRAGE = "Was darf im Spielplan von Deinem Namen stehen?";
-
 // Both bounds, never the floor alone: named for the floor, a mistyped year would answer a
 // 190-year-old date with „mindestens 16“, which is a different fault.
 

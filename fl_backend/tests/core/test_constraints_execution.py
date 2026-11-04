@@ -85,7 +85,7 @@ ADDRESS = {"strasse": "Hanauer Landstraße", "hausnummer": "12a", "plz": "60314"
 
 
 # The seat as its applicant named the person under the form's label, and as that person then confirmed it.
-SEATED: Final = {"text_version": "v1", "datum": "2026-01-15"}
+SEATED: Final = {"datum": "2026-01-15"}
 
 
 def kontaktperson(vorname: str) -> dict[str, Any]:

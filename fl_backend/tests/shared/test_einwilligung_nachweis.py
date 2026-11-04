@@ -6,6 +6,7 @@ import pytest
 from app.api.bewerbungen.services import compose_einwilligung
 from app.api.registrierungen.services import compose_person_update
 from app.shared.einwilligung_nachweis import (
+    TextVersions,
     compose_beleg,
     compose_choices,
     compose_erneuert,
@@ -19,19 +20,20 @@ GIVEN_AT: Final = "2026-04-01T10:30:00+00:00"
 WITHDRAWN_AT: Final = "2026-05-02T07:00:00+00:00"
 LATER: Final = "2026-07-04T12:00:00+00:00"
 
-# The label a person confirmed under, and the label of an account control a later press is given under.
+# The label a person confirmed a choice under, and a later wording's label a press is given under.
 CONFIRMED_LABEL: Final = "2026-10-schiedsrichterseite-4"
 ACCOUNT_LABEL: Final = "2026-10-schiedsrichterkonto"
+# One wording per choice, as a press names them.
+CONFIRMED_LABELS: Final[TextVersions] = {"umfang": "2026-10-name", "medien": CONFIRMED_LABEL}
 
 # A referee's record as their confirmation left it: both choices granted, each with its evidence.
 CONFIRMED: Final[Mapping[str, Any]] = {
     "umfang": "kader_oeffentlich",
     "datum": "2026-04-01",
     "confirmed_at": "2026-04-01",
-    "text_version": CONFIRMED_LABEL,
     "medien": True,
     "nachweis": {
-        "umfang": {"am": GIVEN_AT, "text_version": CONFIRMED_LABEL},
+        "umfang": {"am": GIVEN_AT, "text_version": CONFIRMED_LABELS["umfang"]},
         "medien": {"am": GIVEN_AT, "text_version": CONFIRMED_LABEL},
     },
 }
@@ -41,7 +43,7 @@ MEDIA_WITHDRAWN: Final[Mapping[str, Any]] = {
     **CONFIRMED,
     "medien": False,
     "nachweis": {
-        "umfang": {"am": GIVEN_AT, "text_version": CONFIRMED_LABEL},
+        "umfang": {"am": GIVEN_AT, "text_version": CONFIRMED_LABELS["umfang"]},
         "medien": {"am": WITHDRAWN_AT, "text_version": ACCOUNT_LABEL, "given_before": {"am": GIVEN_AT, "text_version": CONFIRMED_LABEL}},
     },
 }
@@ -50,7 +52,7 @@ MEDIA_WITHDRAWN: Final[Mapping[str, Any]] = {
 AS_PRESSED: Final[Mapping[str, Any]] = {key: value for key, value in CONFIRMED.items() if key != "nachweis"}
 
 # A contact seat's record as the application seated its person, nobody having answered.
-SEATED: Final[Mapping[str, Any]] = compose_einwilligung(text_version="2026-09-bestaetigung-5", today="2026-03-20", entered_by="bewerbung")
+SEATED: Final[Mapping[str, Any]] = compose_einwilligung(today="2026-03-20", entered_by="bewerbung")
 
 
 class TestWhichValueGrants:
@@ -117,10 +119,14 @@ class TestTheEvidenceOfOneChoice:
 
 class TestTheTwoShapesOfAWrite:
     def test_a_press_sets_the_moved_choice_and_its_evidence_dotted(self):
-        """Dotted, so `confirmed_at`, the confirmed label and the other choice's evidence stay as stored."""
+        """Dotted, so `confirmed_at` and the other choice's evidence stay as stored."""
 
         assert compose_choices(
-            path="einwilligung", saved=CONFIRMED, gesetzt={"medien": False}, am=WITHDRAWN_AT, text_version=ACCOUNT_LABEL
+            path="einwilligung",
+            saved=CONFIRMED,
+            gesetzt={"medien": False},
+            am=WITHDRAWN_AT,
+            text_versions={"umfang": "unread", "medien": ACCOUNT_LABEL},
         ) == {
             "einwilligung.medien": False,
             "einwilligung.nachweis.medien": {
@@ -131,19 +137,15 @@ class TestTheTwoShapesOfAWrite:
         }
 
     def test_a_record_born_whole_carries_each_choice_it_holds_evidenced_under_its_own_label(self):
-        born = compose_geboren(block=AS_PRESSED, am=GIVEN_AT)
+        born = compose_geboren(block=AS_PRESSED, am=GIVEN_AT, text_versions=CONFIRMED_LABELS)
 
         assert born == CONFIRMED
-
-    def test_a_block_born_with_no_label_is_refused(self):
-        with pytest.raises(ValueError):
-            compose_geboren(block={**AS_PRESSED, "text_version": None}, am=GIVEN_AT)
 
     def test_a_block_already_holding_evidence_is_never_born_again(self):
         """Born over stored evidence, a withdrawal's earlier grant would go in one `$set`."""
 
         with pytest.raises(ValueError):
-            compose_geboren(block=MEDIA_WITHDRAWN, am=LATER)
+            compose_geboren(block=MEDIA_WITHDRAWN, am=LATER, text_versions=CONFIRMED_LABELS)
 
 
 # A registration confirmed between the record's confirmation and its withdrawal: scope narrowed, media granted.
@@ -152,7 +154,6 @@ REGISTERED: Final[Mapping[str, Any]] = {
     "umfang": "intern",
     "datum": "2026-04-15",
     "confirmed_at": "2026-04-15",
-    "text_version": "2026-10-spielerseite-5",
     "medien": True,
     "nachweis": {
         "umfang": {"am": REGISTERED_AT, "text_version": "2026-10-spielerseite-5"},
@@ -176,18 +177,21 @@ class TestARenewalFromTheSamePersonsLaterAnswers:
         assert "einwilligung.medien" not in update and "einwilligung.nachweis.medien" not in update
         assert (update["einwilligung.umfang"], update["einwilligung.nachweis.umfang"]) == (
             "intern",
-            {"am": REGISTERED_AT, "text_version": "2026-10-spielerseite-5", "given_before": {"am": GIVEN_AT, "text_version": CONFIRMED_LABEL}},
+            {
+                "am": REGISTERED_AT,
+                "text_version": "2026-10-spielerseite-5",
+                "given_before": {"am": GIVEN_AT, "text_version": CONFIRMED_LABELS["umfang"]},
+            },
         )
 
     def test_every_field_but_the_choices_is_renewed(self):
-        """The day, the stamp and the label follow the newer confirmation whole."""
+        """The day and the stamp follow the newer confirmation whole."""
 
         update = renew(MEDIA_WITHDRAWN, REGISTERED)
 
-        assert {key: update[f"einwilligung.{key}"] for key in ("datum", "confirmed_at", "text_version")} == {
+        assert {key: update[f"einwilligung.{key}"] for key in ("datum", "confirmed_at")} == {
             "datum": "2026-04-15",
             "confirmed_at": "2026-04-15",
-            "text_version": "2026-10-spielerseite-5",
         }
 
     def test_a_tie_keeps_what_is_stored(self):
@@ -208,12 +212,12 @@ class TestARenewalFromTheSamePersonsLaterAnswers:
             pytest.param("2026-04-15", True, id="confirmed after it"),
         ],
     )
-    def test_an_older_registration_moves_neither_the_records_day_nor_its_label(self, registered_on: str, carried: bool):
-        """Admitted after a newer one, it keeps the newer choices and must not date and name the record by its older confirmation."""
+    def test_an_older_registration_moves_neither_the_records_day_nor_its_stamp(self, registered_on: str, carried: bool):
+        """Admitted after a newer one, it keeps the newer choices and must not date the record by its older confirmation."""
 
         update = renew(CONFIRMED, {**REGISTERED, "datum": registered_on, "confirmed_at": registered_on})
 
-        for field in ("datum", "confirmed_at", "text_version"):
+        for field in ("datum", "confirmed_at"):
             assert (f"einwilligung.{field}" in update) is carried, f"{field} moved against the stored confirmation's day"
 
     def test_a_returning_pupil_takes_the_answers_they_gave(self):
@@ -227,10 +231,10 @@ class TestARenewalFromTheSamePersonsLaterAnswers:
                 "umfang": "kader_oeffentlich",
                 "datum": "2025-09-01",
                 "confirmed_at": "2025-09-01",
-                "text_version": "2025-09",
                 "medien": True,
             },
             am="2025-09-01T08:00:00+00:00",
+            text_versions={"umfang": "2025-09", "medien": "2025-09"},
         )
         registrierung = {
             "vorname": "Ida",
@@ -241,10 +245,10 @@ class TestARenewalFromTheSamePersonsLaterAnswers:
                     "umfang": "intern",
                     "datum": "2026-10-01",
                     "confirmed_at": "2026-10-01",
-                    "text_version": "2026-10-spielerseite-5",
                     "medien": False,
                 },
                 am="2026-10-01T08:00:00+00:00",
+                text_versions={"umfang": "2026-10-spielerseite-5", "medien": "2026-10-spielerseite-5"},
             ),
         }
 
@@ -263,7 +267,6 @@ class TestARenewalFromTheSamePersonsLaterAnswers:
             "einwilligung.medien": False,
             "einwilligung.datum": "2026-10-01",
             "einwilligung.confirmed_at": "2026-10-01",
-            "einwilligung.text_version": "2026-10-spielerseite-5",
             "einwilligung.nachweis.umfang": stamp,
             "einwilligung.nachweis.medien": stamp,
         }
@@ -283,7 +286,7 @@ class TestTheStandAPressEchoes:
     def test_a_record_holding_no_evidence_answers_none_for_each_choice(self):
         """A seat as its seating writes it: nobody has answered it yet."""
 
-        seat = compose_einwilligung(text_version="v6", today="2026-03-20", entered_by="liga")
+        seat = compose_einwilligung(today="2026-03-20", entered_by="liga")
 
         assert nachweis_stand_of(bloecke=[seat]) == {"umfang": None, "medien": None}
 

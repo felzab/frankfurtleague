@@ -8,7 +8,6 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.account.crud import press_einwilligung
 from app.api.account.services import (
-    KONTO_SEITE_KONTAKT,
     compose_sitz_move,
     find_eigener_eintrag_refusal,
     geaenderte_sitz_wahlen,
@@ -35,7 +34,7 @@ from app.core.security import erasure_journal_hash, verify_access_admin
 from app.core.transactions import transaction_session
 from app.shared.einwilligung_nachweis import FLEinwilligungChoice, nachweis_stand_of
 from app.shared.schemas.custom import CustomRouteObjectId
-from app.shared.schemas.einwilligung import FLSeatEinwilligungPayload
+from app.shared.schemas.einwilligung import FLSeatEinwilligungPayload, by_choice
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 
 # The person lane's binder, as `app/api/registrierungen/person_router.py` declares it and for its reason.
@@ -121,10 +120,8 @@ async def patch_einwilligung(
 
     Refuses, in this order: a row on which the address holds no confirmed seat (`role_not_held`); a
     `nachweis_stand` other than the held seats' own, either choice having moved since the page was served
-    (`wording_not_allowed`); a grant where the row grants no panel (`giving_not_allowed`); a `text_version` naming no
-    version of the account page's seat control, or a grant naming any but its running one (`wording_not_allowed`);
-    `medien` moving to `true` where a held seat's stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is
-    missing (`medien_age`). Each refusal writes nothing.
+    (`wording_not_allowed`); a grant where the row grants no panel (`giving_not_allowed`); `medien` moving to `true`
+    where a held seat's stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is missing (`medien_age`). Each refusal writes nothing.
     """
 
     gedrueckt: dict[FLEinwilligungChoice, object] = {"umfang": einwilligung_data.umfang, "medien": einwilligung_data.medien}
@@ -155,8 +152,6 @@ async def patch_einwilligung(
             geburtsdaten=[sitz.get("geburtsdatum") for sitz in sitze.values()],
             gewaehlt=gewaehlt,
             nachweis_stand=einwilligung_data.nachweis_stand.model_dump(),
-            text_version=einwilligung_data.text_version,
-            seite=KONTO_SEITE_KONTAKT,
             darf_erteilen=darf_erteilen,
             today=today,
         )
@@ -165,7 +160,7 @@ async def patch_einwilligung(
             sitze={slot: sitz["einwilligung"] for slot, sitz in sitze.items()},
             gewaehlt=gewaehlt,
             am=am,
-            text_version=einwilligung_data.text_version,
+            text_versions=by_choice(einwilligung_data.text_versions),
         )
         updated = (
             None
@@ -185,7 +180,7 @@ async def patch_einwilligung(
             bloecke=[sitz["einwilligung"] for sitz in sitze.values()],
             gewaehlt=gewaehlt,
             am=am,
-            text_version=einwilligung_data.text_version,
+            text_versions=by_choice(einwilligung_data.text_versions),
         )
         if line is not None:
             journal.note(line)

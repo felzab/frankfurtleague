@@ -8,7 +8,7 @@ from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.account.crud import press_widerruf
-from app.api.account.services import KONTO_SEITE_SPIELER, compose_person_move, find_eigener_eintrag_refusal, widerruf_line
+from app.api.account.services import compose_person_move, find_eigener_eintrag_refusal, widerruf_line
 from app.api.identity.crud import refuse_without_a_seat
 from app.api.identity.lookup import SubjektLookup
 from app.api.identity.services import ist_eigene_registrierung
@@ -80,7 +80,7 @@ from app.core.transactions import transaction_session
 from app.shared.einwilligung_nachweis import FLEinwilligungChoice, nachweis_stand_of
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.custom import CustomRouteObjectId
-from app.shared.schemas.einwilligung import FLAccountEinwilligungPayload
+from app.shared.schemas.einwilligung import FLAccountEinwilligungPayload, by_choice
 
 # The person lane's binder in place of `bind_actor`: a seat holder signs in by code and holds no
 # grant, so the administrator's actor check would refuse every one of them.
@@ -457,7 +457,7 @@ async def patch_einwilligung(
     """Withdraw the publication scope or the media consent the signed-in pupil gave on their own pending registration.
 
     A grant is refused, and a PATCH moving neither writes nothing. Refuses, writing nothing: `role_not_held`,
-    `wording_not_allowed` (the wording or the choices moved since the page was served) and `giving_not_allowed`.
+    `wording_not_allowed` (the choices moved since the page was served) and `giving_not_allowed`.
     """
 
     gewaehlt: dict[FLEinwilligungChoice, object] = {"umfang": einwilligung_data.umfang, "medien": einwilligung_data.medien}
@@ -485,11 +485,11 @@ async def patch_einwilligung(
             bloecke=[gespeichert],
             gewaehlt=gewaehlt,
             nachweis_stand=einwilligung_data.nachweis_stand.model_dump(),
-            text_version=einwilligung_data.text_version,
-            seite=KONTO_SEITE_SPIELER,
         )
 
-        update = compose_person_move(gespeichert=gespeichert, gewaehlt=gewaehlt, am=am, text_version=einwilligung_data.text_version)
+        update = compose_person_move(
+            gespeichert=gespeichert, gewaehlt=gewaehlt, am=am, text_versions=by_choice(einwilligung_data.text_versions)
+        )
         updated = (
             None
             if update is None
@@ -508,7 +508,7 @@ async def patch_einwilligung(
             bloecke=[gespeichert],
             gewaehlt=gewaehlt,
             am=am,
-            text_version=einwilligung_data.text_version,
+            text_versions=by_choice(einwilligung_data.text_versions),
         )
         if line is not None:
             journal.note(line)

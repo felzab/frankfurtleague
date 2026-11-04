@@ -64,7 +64,6 @@ describe("how each contact repair is addressed", () => {
       nachname: "Beispiel",
       email: "berta@example.de",
       telefon: "069 1234567",
-      text_version: "2026-08-01",
     };
 
     await besetzenKontaktSitz({ id: ID, rolle: "stellvertretung", ...person });

@@ -580,7 +580,7 @@
       },
       "FLAccountEinwilligungPayload": {
         "additionalProperties": false,
-        "description": "A pupil's, a referee's or a registration's own two choices on their record.\n\nBoth choices on every press, and no member defaulted: a default would let a page that forgot one\nreset the person's other choice.",
+        "description": "A pupil's or a registration's own two choices on their record.",
         "properties": {
           "medien": {
             "title": "Medien",
@@ -589,12 +589,8 @@
           "nachweis_stand": {
             "$ref": "#/components/schemas/FLEinwilligungStandPayload"
           },
-          "text_version": {
-            "maxLength": 64,
-            "minLength": 1,
-            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
-            "title": "Text Version",
-            "type": "string"
+          "text_versions": {
+            "$ref": "#/components/schemas/FLSpielerTextVersions"
           },
           "umfang": {
             "$ref": "#/components/schemas/FLEinwilligungUmfang"
@@ -603,8 +599,8 @@
         "required": [
           "umfang",
           "medien",
-          "text_version",
-          "nachweis_stand"
+          "nachweis_stand",
+          "text_versions"
         ],
         "title": "FLAccountEinwilligungPayload",
         "type": "object"
@@ -890,10 +886,6 @@
       "FLAccountRegistrierungEinwilligung": {
         "description": "One pending registration its pupil confirmed: its choices to withdraw, and what it stores.",
         "properties": {
-          "confirmed_text_version": {
-            "title": "Confirmed Text Version",
-            "type": "string"
-          },
           "context": {
             "$ref": "#/components/schemas/FLSpielerContext"
           },
@@ -1012,7 +1004,6 @@
           "team_id",
           "team_name",
           "saison_id",
-          "confirmed_text_version",
           "umfang",
           "medien",
           "nachweis_stand",
@@ -1032,10 +1023,6 @@
       "FLAccountSchiedsrichterEinwilligung": {
         "description": "One referee record on the account page: its stored data and the consent the page moves.",
         "properties": {
-          "confirmed_text_version": {
-            "title": "Confirmed Text Version",
-            "type": "string"
-          },
           "einwilligung": {
             "$ref": "#/components/schemas/FLEinwilligung"
           },
@@ -1121,7 +1108,6 @@
           "geburtsdatum",
           "inactive_since",
           "einwilligung",
-          "confirmed_text_version",
           "nachweis_stand",
           "givable",
           "medien_offered",
@@ -1206,10 +1192,6 @@
       "FLAccountSpielerEinwilligung": {
         "description": "The pupil's record on the account page: its stored data and the consent the page moves.",
         "properties": {
-          "confirmed_text_version": {
-            "title": "Confirmed Text Version",
-            "type": "string"
-          },
           "context": {
             "$ref": "#/components/schemas/FLSpielerContext"
           },
@@ -1290,7 +1272,6 @@
           "kader",
           "inactive_since",
           "einwilligung",
-          "confirmed_text_version",
           "nachweis_stand",
           "givable",
           "medien_offered",
@@ -3520,12 +3501,8 @@
             "title": "Medien",
             "type": "boolean"
           },
-          "text_version": {
-            "maxLength": 64,
-            "minLength": 1,
-            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
-            "title": "Text Version",
-            "type": "string"
+          "text_versions": {
+            "$ref": "#/components/schemas/FLSeatTextVersions"
           },
           "token": {
             "maxLength": 128,
@@ -3545,30 +3522,22 @@
           "geburtsdatum",
           "whatsapp",
           "medien",
-          "text_version"
+          "text_versions"
         ],
         "title": "FLBewerbungEinwilligungGiven",
         "type": "object"
       },
       "FLBewerbungEinwilligungPayload": {
         "additionalProperties": false,
-        "description": "What the applicant agreed to; the scope and the date are the server's.",
+        "description": "What the applicant acknowledged; the scope and the date are the server's.",
         "properties": {
           "given": {
             "const": true,
             "title": "Given",
             "type": "boolean"
-          },
-          "text_version": {
-            "maxLength": 64,
-            "minLength": 1,
-            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
-            "title": "Text Version",
-            "type": "string"
           }
         },
         "required": [
-          "text_version",
           "given"
         ],
         "title": "FLBewerbungEinwilligungPayload",
@@ -3649,10 +3618,6 @@
               }
             ]
           },
-          "running_wording": {
-            "title": "Running Wording",
-            "type": "string"
-          },
           "saison_id": {
             "title": "Saison Id",
             "type": "string"
@@ -3682,7 +3647,6 @@
           "schule",
           "rolle",
           "also_rolle",
-          "running_wording",
           "minimum_age",
           "medien_minimum_age"
         ],
@@ -3839,13 +3803,6 @@
             "title": "Telefon",
             "type": "string"
           },
-          "text_version": {
-            "maxLength": 64,
-            "minLength": 1,
-            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
-            "title": "Text Version",
-            "type": "string"
-          },
           "vorname": {
             "maxLength": 80,
             "minLength": 1,
@@ -3858,8 +3815,7 @@
           "vorname",
           "nachname",
           "email",
-          "telefon",
-          "text_version"
+          "telefon"
         ],
         "title": "FLBewerbungKontaktSeatPayload",
         "type": "object"
@@ -5152,10 +5108,6 @@
           "nachweis": {
             "$ref": "#/components/schemas/FLEinwilligungNachweise"
           },
-          "text_version": {
-            "title": "Text Version",
-            "type": "string"
-          },
           "umfang": {
             "$ref": "#/components/schemas/FLEinwilligungUmfang"
           }
@@ -5164,7 +5116,6 @@
           "umfang",
           "datum",
           "confirmed_at",
-          "text_version",
           "medien",
           "nachweis"
         ],
@@ -5179,8 +5130,7 @@
             "type": "string"
           },
           "text_version": {
-            "title": "Text Version",
-            "type": "string"
+            "$ref": "#/components/schemas/FLEinwilligungTextVersion"
           }
         },
         "required": [
@@ -5215,8 +5165,7 @@
             ]
           },
           "text_version": {
-            "title": "Text Version",
-            "type": "string"
+            "$ref": "#/components/schemas/FLEinwilligungTextVersion"
           }
         },
         "required": [
@@ -5256,23 +5205,6 @@
           "medien"
         ],
         "title": "FLEinwilligungNachweise",
-        "type": "object"
-      },
-      "FLEinwilligungSeitenResponse": {
-        "description": "The label each page stamps on a new acceptance today, which a deploy moves: never cached by a reader.",
-        "properties": {
-          "running_wordings": {
-            "additionalProperties": {
-              "type": "string"
-            },
-            "title": "Running Wordings",
-            "type": "object"
-          }
-        },
-        "required": [
-          "running_wordings"
-        ],
-        "title": "FLEinwilligungSeitenResponse",
         "type": "object"
       },
       "FLEinwilligungStand": {
@@ -5341,93 +5273,28 @@
         "title": "FLEinwilligungStandPayload",
         "type": "object"
       },
+      "FLEinwilligungTextVersion": {
+        "anyOf": [
+          {
+            "$ref": "#/components/schemas/FLWhatsappTextVersion"
+          },
+          {
+            "$ref": "#/components/schemas/FLMedienTextVersion"
+          },
+          {
+            "$ref": "#/components/schemas/FLNameKaderTextVersion"
+          },
+          {
+            "$ref": "#/components/schemas/FLNameSpielplanTextVersion"
+          }
+        ]
+      },
       "FLEinwilligungUmfang": {
         "enum": [
           "kader_oeffentlich",
           "intern"
         ],
         "type": "string"
-      },
-      "FLEinwilligungWording": {
-        "description": "The words one consent label names, as the person stamping it was shown them.\n\nNever changed once served: different words are a new label.",
-        "properties": {
-          "absaetze": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Absaetze",
-            "type": "array"
-          },
-          "absaetze_nach_schluessel": {
-            "anyOf": [
-              {
-                "additionalProperties": {
-                  "type": "string"
-                },
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Absaetze Nach Schluessel"
-          },
-          "applies_from": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Applies From",
-            "type": "string"
-          },
-          "controls": {
-            "additionalProperties": {
-              "type": "string"
-            },
-            "title": "Controls",
-            "type": "object"
-          },
-          "placeholder": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Placeholder",
-            "type": "array"
-          },
-          "seite": {
-            "title": "Seite",
-            "type": "string"
-          },
-          "switch": {
-            "title": "Switch",
-            "type": "string"
-          },
-          "text_version": {
-            "title": "Text Version",
-            "type": "string"
-          }
-        },
-        "required": [
-          "text_version",
-          "seite",
-          "applies_from",
-          "absaetze",
-          "switch",
-          "controls",
-          "absaetze_nach_schluessel",
-          "placeholder"
-        ],
-        "title": "FLEinwilligungWording",
-        "type": "object"
-      },
-      "FLEinwilligungWordingResponse": {
-        "properties": {
-          "wording": {
-            "$ref": "#/components/schemas/FLEinwilligungWording"
-          }
-        },
-        "required": [
-          "wording"
-        ],
-        "title": "FLEinwilligungWordingResponse",
-        "type": "object"
       },
       "FLErasureAdressePayload": {
         "additionalProperties": false,
@@ -7384,7 +7251,7 @@
         "type": "object"
       },
       "FLKontaktKenntnisnahme": {
-        "description": "Which wording this person was shown, and how the record came to be held.\n\nKenntnisnahme and not Einwilligung: the published basis is Art. 6(1)(b)/(f), and the pupil's\n`fl_backend/app/api/spieler/schemas.py :: FLEinwilligung` holds other values entirely\n(`docs/glossary.md :: Einwilligung`).",
+        "description": "How this person's record came to be held, and what they answered.\n\nKenntnisnahme and not Einwilligung: the published basis is Art. 6(1)(b)/(f), and the pupil's\n`fl_backend/app/api/spieler/schemas.py :: FLEinwilligung` holds other values entirely\n(`docs/glossary.md :: Einwilligung`).",
         "properties": {
           "confirmed_at": {
             "anyOf": [
@@ -7413,17 +7280,12 @@
           "nachweis": {
             "$ref": "#/components/schemas/FLEinwilligungNachweise"
           },
-          "text_version": {
-            "title": "Text Version",
-            "type": "string"
-          },
           "umfang": {
             "$ref": "#/components/schemas/FLKontaktKenntnisnahmeUmfang"
           }
         },
         "required": [
           "umfang",
-          "text_version",
           "datum",
           "confirmed_at",
           "medien",
@@ -7441,13 +7303,6 @@
             "title": "Datum",
             "type": "string"
           },
-          "text_version": {
-            "maxLength": 64,
-            "minLength": 1,
-            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
-            "title": "Text Version",
-            "type": "string"
-          },
           "umfang": {
             "const": "kontaktdaten",
             "title": "Umfang",
@@ -7456,7 +7311,6 @@
         },
         "required": [
           "umfang",
-          "text_version",
           "datum"
         ],
         "title": "FLKontaktKenntnisnahmePayload",
@@ -8013,6 +7867,18 @@
         ],
         "title": "FLLandingSide",
         "type": "object"
+      },
+      "FLMedienTextVersion": {
+        "const": "2026-11-medien-1",
+        "type": "string"
+      },
+      "FLNameKaderTextVersion": {
+        "const": "2026-11-name-kader-1",
+        "type": "string"
+      },
+      "FLNameSpielplanTextVersion": {
+        "const": "2026-11-name-spielplan-1",
+        "type": "string"
       },
       "FLOpenRegistrierung": {
         "description": "One pending registration as the team deciding it reads it.",
@@ -10531,12 +10397,15 @@
             ],
             "title": "Medien"
           },
-          "text_version": {
-            "maxLength": 64,
-            "minLength": 1,
-            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
-            "title": "Text Version",
-            "type": "string"
+          "text_versions": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielerTextVersions"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "token": {
             "maxLength": 128,
@@ -10561,7 +10430,7 @@
           "geburtsdatum",
           "umfang",
           "medien",
-          "text_version"
+          "text_versions"
         ],
         "title": "FLRegistrierungConfirmationPayload",
         "type": "object"
@@ -10790,10 +10659,6 @@
           "nachweis": {
             "$ref": "#/components/schemas/FLEinwilligungNachweise"
           },
-          "text_version": {
-            "title": "Text Version",
-            "type": "string"
-          },
           "umfang": {
             "anyOf": [
               {
@@ -10809,7 +10674,6 @@
           "umfang",
           "datum",
           "confirmed_at",
-          "text_version",
           "medien",
           "nachweis"
         ],
@@ -12235,6 +12099,33 @@
         "title": "FLSchiedsrichter",
         "type": "object"
       },
+      "FLSchiedsrichterAccountEinwilligungPayload": {
+        "additionalProperties": false,
+        "description": "A referee's own two choices on their record.",
+        "properties": {
+          "medien": {
+            "title": "Medien",
+            "type": "boolean"
+          },
+          "nachweis_stand": {
+            "$ref": "#/components/schemas/FLEinwilligungStandPayload"
+          },
+          "text_versions": {
+            "$ref": "#/components/schemas/FLSchiedsrichterTextVersions"
+          },
+          "umfang": {
+            "$ref": "#/components/schemas/FLEinwilligungUmfang"
+          }
+        },
+        "required": [
+          "umfang",
+          "medien",
+          "nachweis_stand",
+          "text_versions"
+        ],
+        "title": "FLSchiedsrichterAccountEinwilligungPayload",
+        "type": "object"
+      },
       "FLSchiedsrichterAccountEinwilligungResponse": {
         "description": "The record as it stands after the write, everything the person did not move unchanged.",
         "properties": {
@@ -12291,12 +12182,8 @@
             "title": "Medien",
             "type": "boolean"
           },
-          "text_version": {
-            "maxLength": 64,
-            "minLength": 1,
-            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
-            "title": "Text Version",
-            "type": "string"
+          "text_versions": {
+            "$ref": "#/components/schemas/FLSchiedsrichterTextVersions"
           },
           "token": {
             "maxLength": 128,
@@ -12314,7 +12201,7 @@
           "geburtsdatum",
           "umfang",
           "medien",
-          "text_version"
+          "text_versions"
         ],
         "title": "FLSchiedsrichterConfirmationPayload",
         "type": "object"
@@ -12567,6 +12454,24 @@
         "title": "FLSchiedsrichterSingleResponse",
         "type": "object"
       },
+      "FLSchiedsrichterTextVersions": {
+        "additionalProperties": false,
+        "description": "A referee's two wordings: the name on the fixtures and the media switch.",
+        "properties": {
+          "medien": {
+            "$ref": "#/components/schemas/FLMedienTextVersion"
+          },
+          "umfang": {
+            "$ref": "#/components/schemas/FLNameSpielplanTextVersion"
+          }
+        },
+        "required": [
+          "umfang",
+          "medien"
+        ],
+        "title": "FLSchiedsrichterTextVersions",
+        "type": "object"
+      },
       "FLSchulform": {
         "enum": [
           "gymnasium_g8",
@@ -12579,7 +12484,7 @@
         "type": "string"
       },
       "FLSeatConfirmed": {
-        "description": "One confirmation a person gave on a row: the seats it answered, its words and the floor its page named.",
+        "description": "One confirmation a person gave on a row: the seats it answered, its day and the floor its page named.",
         "properties": {
           "confirmed_at": {
             "anyOf": [
@@ -12607,15 +12512,10 @@
             "minItems": 1,
             "title": "Rollen",
             "type": "array"
-          },
-          "text_version": {
-            "title": "Text Version",
-            "type": "string"
           }
         },
         "required": [
           "rollen",
-          "text_version",
           "confirmed_at",
           "minimum_age",
           "context"
@@ -12677,12 +12577,8 @@
           "nachweis_stand": {
             "$ref": "#/components/schemas/FLEinwilligungStandPayload"
           },
-          "text_version": {
-            "maxLength": 64,
-            "minLength": 1,
-            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
-            "title": "Text Version",
-            "type": "string"
+          "text_versions": {
+            "$ref": "#/components/schemas/FLSeatTextVersions"
           },
           "umfang": {
             "$ref": "#/components/schemas/FLKontaktKenntnisnahmeUmfang"
@@ -12691,10 +12587,28 @@
         "required": [
           "umfang",
           "medien",
-          "text_version",
+          "text_versions",
           "nachweis_stand"
         ],
         "title": "FLSeatEinwilligungPayload",
+        "type": "object"
+      },
+      "FLSeatTextVersions": {
+        "additionalProperties": false,
+        "description": "A contact seat's two wordings: the WhatsApp switch and the media switch.",
+        "properties": {
+          "medien": {
+            "$ref": "#/components/schemas/FLMedienTextVersion"
+          },
+          "umfang": {
+            "$ref": "#/components/schemas/FLWhatsappTextVersion"
+          }
+        },
+        "required": [
+          "umfang",
+          "medien"
+        ],
+        "title": "FLSeatTextVersions",
         "type": "object"
       },
       "FLSignInCodeData": {
@@ -16603,6 +16517,24 @@
         ],
         "type": "string"
       },
+      "FLSpielerTextVersions": {
+        "additionalProperties": false,
+        "description": "A pupil's two wordings: the name on the squad and the media switch.",
+        "properties": {
+          "medien": {
+            "$ref": "#/components/schemas/FLMedienTextVersion"
+          },
+          "umfang": {
+            "$ref": "#/components/schemas/FLNameKaderTextVersion"
+          }
+        },
+        "required": [
+          "umfang",
+          "medien"
+        ],
+        "title": "FLSpielerTextVersions",
+        "type": "object"
+      },
       "FLSpielerWithMemberships": {
         "description": "The person as stored, plus every squad row they hold.\n\nA DIFFERENT question from `FLSpieler`, not a projection: that one is FLATTENED against one\nseason, so a player in two comes back as two indistinguishable rows.",
         "properties": {
@@ -17872,7 +17804,7 @@
         "type": "object"
       },
       "FLTeamSeat": {
-        "description": "One seat as the people beside it see it: who holds it and whether they answered their link.\n\nNo address, telephone number or birthdate: the contact page promises that only administrators\nsee those (`fl_backend/app/shared/einwilligung.py :: FASSUNGEN`).",
+        "description": "One seat as the people beside it see it: who holds it and whether they answered their link.\n\nNo address, telephone number or birthdate: only administrators see those.",
         "properties": {
           "confirmed": {
             "title": "Confirmed",
@@ -18254,6 +18186,10 @@
         ],
         "title": "FLVonAdmin",
         "type": "object"
+      },
+      "FLWhatsappTextVersion": {
+        "const": "2026-11-whatsapp-1",
+        "type": "string"
       }
     },
     "securitySchemes": {
@@ -19893,7 +19829,7 @@
         ]
       },
       "post": {
-        "description": "Store one school's application to play one season as submitted, and owe each contact person their confirmation mail.\n\nEverything the league decides -- `status`, `submitted_at`, `decision` and each consent's\nscope, source and date -- is written here and never taken off the payload. One mail per person is owed in the\nsame transaction, a person holding two seats being sent one link for both: the Ansprechperson the receipt naming\nwho is still to answer, every other person their link. Each link is minted when its mail is handed out; no token\nis answered.\n\nAn `Idempotency-Key` header makes a second press safe. A key already stored answers with the\napplication it holds, stores none and owes nothing again. The same key over other details is refused\n(`bewerbung_key_differing`).\n\nAn address the ban list holds, on any seat, is refused (`bewerbung_adresse_barred`) on a first press.\n\nA seat naming a consent wording other than the one the form now shows is refused (`wording_not_allowed`),\nand only once the key has been looked up: a stored key is answered whatever wording it names.",
+        "description": "Store one school's application to play one season as submitted, and owe each contact person their confirmation mail.\n\nEverything the league decides -- `status`, `submitted_at`, `decision` and each consent's\nscope, source and date -- is written here and never taken off the payload. One mail per person is owed in the\nsame transaction, a person holding two seats being sent one link for both: the Ansprechperson the receipt naming\nwho is still to answer, every other person their link. Each link is minted when its mail is handed out; no token\nis answered.\n\nAn `Idempotency-Key` header makes a second press safe. A key already stored answers with the\napplication it holds, stores none and owes nothing again. The same key over other details is refused\n(`bewerbung_key_differing`).\n\nAn address the ban list holds, on any seat, is refused (`bewerbung_adresse_barred`) on a first press.",
         "operationId": "bewerbungen_post_bewerbung",
         "parameters": [
           {
@@ -19985,7 +19921,7 @@
     },
     "/api/v0/bewerbungen/einwilligung": {
       "post": {
-        "description": "Record one person's consent or decline for the seat their link opens, and for a second seat they hold.\n\nA decline empties the slot; on an application it owes the Ansprechperson who still stands the notice naming who\nrefused, in the same transaction, which stands as the deletion notice too. Refuses, writing nothing:\n`link_invalid`, `link_expired`, `bewerbung_seat_already_answered`, `confirmation_age`, `link_barred`, `wording_not_allowed`,\n`medien_age`, and on a team's season row `link_expired` and `kontakt_saison_past`.",
+        "description": "Record one person's consent or decline for the seat their link opens, and for a second seat they hold.\n\nA decline empties the slot; on an application it owes the Ansprechperson who still stands the notice naming who\nrefused, in the same transaction, which stands as the deletion notice too. Refuses, writing nothing:\n`link_invalid`, `link_expired`, `bewerbung_seat_already_answered`, `confirmation_age`, `link_barred`, `medien_age`, and\non a team's season row `link_expired` and `kontakt_saison_past`.",
         "operationId": "bewerbungen_post_einwilligung",
         "requestBody": {
           "content": {
@@ -20752,7 +20688,7 @@
     },
     "/api/v0/bewerbungen/{bewerbung_id}/account/einwilligung": {
       "patch": {
-        "description": "Withdraw the signed-in person's WhatsApp and media consents on every seat they hold on this pending application.\n\nA grant is refused. Refuses, writing nothing: `role_not_held`, `wording_not_allowed` (the choices moved since the\npage was served), `giving_not_allowed` and `wording_not_allowed`.",
+        "description": "Withdraw the signed-in person's WhatsApp and media consents on every seat they hold on this pending application.\n\nA grant is refused. Refuses, writing nothing: `role_not_held`, `wording_not_allowed` (the choices moved since the\npage was served) and `giving_not_allowed`.",
         "operationId": "bewerbungen_patch_einwilligung",
         "parameters": [
           {
@@ -21006,7 +20942,7 @@
     },
     "/api/v0/bewerbungen/{bewerbung_id}/kontakte/{seat}": {
       "post": {
-        "description": "Write another person into a seat its own holder stepped out of, and owe them their link in the same transaction.\n\nIt runs on an EMPTY seat alone, and the one thing that empties a seat this way is that person's own Widerspruch.\nThe record written is administrative and confirms nothing: the new person's own link is what asks them, and an\nacceptance waits on that answer as it waits on the other two. Where one person holds two seats both are filled\nfrom one press and one link answers both, and both must be empty for either to be written.\n\nThe link the seat's last holder was sent stops opening anything, and the application's confirmation deadline\nrestarts from today EVEN WHERE IT HAD PASSED: left where it was, it would hand the new person a link that opens\nnothing, seating them for a confirmation they cannot give.\n\nRefused on an application already decided (`bewerbung_already_decided`); on any seat this write would reach that nobody\nstepped out of — confirmed, still waiting or erased at its person's request, the claimed mirror included\n(`bewerbung_seat_already_answered`); and on an address another\ncontact person on this application already holds (`bewerbung_kontakt_email_taken`), or that the ban list holds\n(`bewerbung_kontakt_barred`); and on any label but the application form's running one (`wording_not_allowed`), the person\nseated being a new acceptance. A path naming no seat is a 404.",
+        "description": "Write another person into a seat its own holder stepped out of, and owe them their link in the same transaction.\n\nIt runs on an EMPTY seat alone, and the one thing that empties a seat this way is that person's own Widerspruch.\nThe record written is administrative and confirms nothing: the new person's own link is what asks them, and an\nacceptance waits on that answer as it waits on the other two. Where one person holds two seats both are filled\nfrom one press and one link answers both, and both must be empty for either to be written.\n\nThe link the seat's last holder was sent stops opening anything, and the application's confirmation deadline\nrestarts from today EVEN WHERE IT HAD PASSED: left where it was, it would hand the new person a link that opens\nnothing, seating them for a confirmation they cannot give.\n\nRefused on an application already decided (`bewerbung_already_decided`); on any seat this write would reach that nobody\nstepped out of — confirmed, still waiting or erased at its person's request, the claimed mirror included\n(`bewerbung_seat_already_answered`); and on an address another\ncontact person on this application already holds (`bewerbung_kontakt_email_taken`), or that the ban list holds\n(`bewerbung_kontakt_barred`). A path naming no seat is a 404.",
         "operationId": "bewerbungen_post_kontakt_seat",
         "parameters": [
           {
@@ -21189,143 +21125,6 @@
         "summary": "Correct one contact person's email address and re-send their link",
         "tags": [
           "bewerbungen"
-        ]
-      }
-    },
-    "/api/v0/einwilligung/seiten": {
-      "get": {
-        "description": "For every page that stamps a consent label, the label a new acceptance on it must name.\n\nA deploy moves it, so a reader caches it no longer than a request.",
-        "operationId": "einwilligung_get_seiten",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLEinwilligungSeitenResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "BaseKey": []
-          }
-        ],
-        "summary": "The consent label each page stamps today",
-        "tags": [
-          "einwilligung"
-        ]
-      }
-    },
-    "/api/v0/einwilligung/wordings/{text_version}": {
-      "get": {
-        "description": "The words a consent label names, which never change, so the answer may be cached; 404 for a label the registry lacks.",
-        "operationId": "einwilligung_get_wording",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "text_version",
-            "required": true,
-            "schema": {
-              "title": "Text Version",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLEinwilligungWordingResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "BaseKey": []
-          }
-        ],
-        "summary": "The words one consent label names",
-        "tags": [
-          "einwilligung"
         ]
       }
     },
@@ -22999,7 +22798,7 @@
     },
     "/api/v0/registrierungen/account/{registrierung_id}/einwilligung": {
       "patch": {
-        "description": "Withdraw the publication scope or the media consent the signed-in pupil gave on their own pending registration.\n\nA grant is refused, and a PATCH moving neither writes nothing. Refuses, writing nothing: `role_not_held`,\n`wording_not_allowed` (the wording or the choices moved since the page was served) and `giving_not_allowed`.",
+        "description": "Withdraw the publication scope or the media consent the signed-in pupil gave on their own pending registration.\n\nA grant is refused, and a PATCH moving neither writes nothing. Refuses, writing nothing: `role_not_held`,\n`wording_not_allowed` (the choices moved since the page was served) and `giving_not_allowed`.",
         "operationId": "registrierungen_patch_einwilligung",
         "parameters": [
           {
@@ -23084,7 +22883,7 @@
     },
     "/api/v0/registrierungen/confirmation": {
       "post": {
-        "description": "Record a pupil's own answer for the registration their link opens, which stays pending until the team decides.\n\nRefuses, writing nothing: `link_invalid`, `link_expired`, `confirmation_exists`, `confirmation_age`, `medien_age`,\n`link_barred`, `registrierung_choices_unsuitable` and `wording_not_allowed`.",
+        "description": "Record a pupil's own answer for the registration their link opens, which stays pending until the team decides.\n\nRefuses, writing nothing: `link_invalid`, `link_expired`, `confirmation_exists`, `confirmation_age`, `medien_age`,\n`link_barred` and `registrierung_choices_unsuitable`.",
         "operationId": "registrierungen_post_confirmation",
         "requestBody": {
           "content": {
@@ -25343,7 +25142,7 @@
     },
     "/api/v0/schiedsrichter/account/{schiedsrichter_id}/einwilligung": {
       "patch": {
-        "description": "Set the two choices of one of the signed-in referee's own consent records: the publication scope and the media consent.\n\nWrites those two on this one referee row, each moved choice with its evidence (`nachweis.<choice>`), and nothing\nelse: the confirmation day, the day given and the wording they confirmed stand, and no fixture is written. The\npublic fixture list reads the scope off this row, so a withdrawal takes the name off every fixture page at that\nlist's next read. A PATCH moving neither choice writes nothing. A GRANT (`umfang` to\n`kader_oeffentlich` or `medien` to `true`) is taken on a live record alone; a withdrawal on a retired one too.\n\nRefuses, in this order: an id that is no confirmed referee record of this address (`role_not_held`); a\n`nachweis_stand` other than the record's own, either choice having moved since the page was served\n(`wording_not_allowed`); a grant on a retired record (`giving_not_allowed`); a `text_version` naming no version of\nthe account page's referee control, or a grant naming any but the page's running one (`wording_not_allowed`);\n`medien` moving to `true` where the stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is missing\n(`medien_age`). Each refusal writes nothing.\n\n**The caller drops the cached fixture list after a successful answer**, which reads this row; nothing here can.",
+        "description": "Set the two choices of one of the signed-in referee's own consent records: the publication scope and the media consent.\n\nWrites those two on this one referee row, each moved choice with its evidence (`nachweis.<choice>`), and nothing\nelse: the confirmation day, the day given and the wording they confirmed stand, and no fixture is written. The\npublic fixture list reads the scope off this row, so a withdrawal takes the name off every fixture page at that\nlist's next read. A PATCH moving neither choice writes nothing. A GRANT (`umfang` to\n`kader_oeffentlich` or `medien` to `true`) is taken on a live record alone; a withdrawal on a retired one too.\n\nRefuses, in this order: an id that is no confirmed referee record of this address (`role_not_held`); a\n`nachweis_stand` other than the record's own, either choice having moved since the page was served\n(`wording_not_allowed`); a grant on a retired record (`giving_not_allowed`); `medien` moving to `true` where the\nstored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is missing (`medien_age`). Each refusal writes nothing.\n\n**The caller drops the cached fixture list after a successful answer**, which reads this row; nothing here can.",
         "operationId": "schiedsrichter_patch_einwilligung",
         "parameters": [
           {
@@ -25361,7 +25160,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/FLAccountEinwilligungPayload"
+                "$ref": "#/components/schemas/FLSchiedsrichterAccountEinwilligungPayload"
               }
             }
           },
@@ -25428,7 +25227,7 @@
     },
     "/api/v0/schiedsrichter/confirmation": {
       "post": {
-        "description": "Record a referee's own answer for the entry their link opens: their date of birth and the consent, in one update.\n\nThe consent carries the publication scope they chose, the media answer beside it, the stamp and the wording they were\nshown. It reaches this one collection and writes nothing on any fixture: a referee's publication scope has one home,\nwhich the fixture list joins at read time to decide whether to publish the name each fixture stores.\n\nRefuses, in this order: a token no referee holds (`link_invalid`), an entry already confirmed\n(`confirmation_exists`), a link whose deadline has passed (`link_expired`), any label but the referee\npage's running one (`wording_not_allowed`), a link mailed to an address the ban list holds now, whenever the link\nwas minted (`link_barred`), an age outside what this consent asks (`confirmation_age`), and a media\nconsent from a referee below `medien_minimum_age` (`medien_age`) -- the label and the last two judged\nbefore anything is written, so a reloaded page or a mistyped year spends nothing.\n\n**The caller drops the cached fixture list after a successful answer**, which reads this record. Nothing here can:\na withheld name would go on being served for as long as that entry lives.",
+        "description": "Record a referee's own answer for the entry their link opens: their date of birth and the consent, in one update.\n\nThe consent carries the publication scope they chose, the media answer beside it, the stamp and, on each choice's\nevidence, the wording they were shown. It reaches this one collection and writes nothing on any fixture: a referee's\npublication scope has one home, which the fixture list joins at read time to decide whether to publish the name each\nfixture stores.\n\nRefuses, in this order: a token no referee holds (`link_invalid`), an entry already confirmed\n(`confirmation_exists`), a link whose deadline has passed (`link_expired`), a link mailed to an address the ban\nlist holds now, whenever the link was minted (`link_barred`), an age outside what this consent asks\n(`confirmation_age`), and a media consent from a referee below `medien_minimum_age` (`medien_age`) -- the last two\njudged before anything is written, so a mistyped year spends nothing.\n\n**The caller drops the cached fixture list after a successful answer**, which reads this record. Nothing here can:\na withheld name would go on being served for as long as that entry lives.",
         "operationId": "schiedsrichter_post_confirmation",
         "requestBody": {
           "content": {
@@ -27906,7 +27705,7 @@
     },
     "/api/v0/spieler/account/einwilligung": {
       "patch": {
-        "description": "Set the two choices of the signed-in address's own pupil consent record: the publication scope and the media consent.\n\nWrites those two on this one record, each moved choice with its evidence (`nachweis.<choice>`), and nothing else:\nthe confirmation day, the day given and the wording they confirmed stand, and no other document is written. A\nPATCH moving neither choice writes nothing. A GRANT (`umfang` to `kader_oeffentlich` or `medien` to `true`) is\ntaken on a live record alone; a withdrawal on a retired one too.\n\nRefuses, in this order: an address holding no confirmed pupil record (`role_not_held`); a `nachweis_stand`\nother than the record's own, either choice having moved since the page was served (`wording_not_allowed`); a\ngrant on a retired record (`giving_not_allowed`); a `text_version` naming no version of the account page's pupil\ncontrol, or a grant naming any but the page's running one (`wording_not_allowed`); `medien` moving to `true` where\nthe stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is missing (`medien_age`). Each\nrefusal writes nothing.\n\n**The caller drops the cached squad lists after a successful answer**: the publication scope decides whether a\nname is served, and nothing here can.",
+        "description": "Set the two choices of the signed-in address's own pupil consent record: the publication scope and the media consent.\n\nWrites those two on this one record, each moved choice with its evidence (`nachweis.<choice>`), and nothing else:\nthe confirmation day, the day given and the wording they confirmed stand, and no other document is written. A\nPATCH moving neither choice writes nothing. A GRANT (`umfang` to `kader_oeffentlich` or `medien` to `true`) is\ntaken on a live record alone; a withdrawal on a retired one too.\n\nRefuses, in this order: an address holding no confirmed pupil record (`role_not_held`); a `nachweis_stand`\nother than the record's own, either choice having moved since the page was served (`wording_not_allowed`); a\ngrant on a retired record (`giving_not_allowed`); `medien` moving to `true` where\nthe stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is missing (`medien_age`). Each\nrefusal writes nothing.\n\n**The caller drops the cached squad lists after a successful answer**: the publication scope decides whether a\nname is served, and nothing here can.",
         "operationId": "spieler_patch_einwilligung",
         "requestBody": {
           "content": {
@@ -30845,7 +30644,7 @@
     },
     "/api/v0/teams/{team_id}/saisons/{saison_id}/account/einwilligung": {
       "patch": {
-        "description": "Set the signed-in person's two consents on every seat they hold on this team's season row: WhatsApp and media.\n\nOne answer for all of them: a person holding two of the row's slots answers once, each choice moving only where it\ndiffers from the row as the page served it, so seats answered apart keep their answers to a choice not changed. No\nother slot of the row and no other row is written, each choice moving with its own evidence and leaving the\nother standing; a press moving no seat writes nothing. A GRANT (`umfang` to `kontaktdaten_whatsapp` or `medien`\nto `true`) is taken on a row of an `active` or `future` season its team has not left; a withdrawal on any row the\nperson confirmed a seat on, a past season's included.\n\nRefuses, in this order: a row on which the address holds no confirmed seat (`role_not_held`); a\n`nachweis_stand` other than the held seats' own, either choice having moved since the page was served\n(`wording_not_allowed`); a grant where the row grants no panel (`giving_not_allowed`); a `text_version` naming no\nversion of the account page's seat control, or a grant naming any but its running one (`wording_not_allowed`);\n`medien` moving to `true` where a held seat's stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is\nmissing (`medien_age`). Each refusal writes nothing.",
+        "description": "Set the signed-in person's two consents on every seat they hold on this team's season row: WhatsApp and media.\n\nOne answer for all of them: a person holding two of the row's slots answers once, each choice moving only where it\ndiffers from the row as the page served it, so seats answered apart keep their answers to a choice not changed. No\nother slot of the row and no other row is written, each choice moving with its own evidence and leaving the\nother standing; a press moving no seat writes nothing. A GRANT (`umfang` to `kontaktdaten_whatsapp` or `medien`\nto `true`) is taken on a row of an `active` or `future` season its team has not left; a withdrawal on any row the\nperson confirmed a seat on, a past season's included.\n\nRefuses, in this order: a row on which the address holds no confirmed seat (`role_not_held`); a\n`nachweis_stand` other than the held seats' own, either choice having moved since the page was served\n(`wording_not_allowed`); a grant where the row grants no panel (`giving_not_allowed`); `medien` moving to `true`\nwhere a held seat's stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is missing (`medien_age`). Each refusal writes nothing.",
         "operationId": "teams_patch_einwilligung",
         "parameters": [
           {
@@ -31281,7 +31080,7 @@
     },
     "/api/v0/teams/{team_id}/saisons/{saison_id}/kontakte": {
       "patch": {
-        "description": "Rewrite the three people this team is reached through for one season. Null clears the block.\n\nIts own endpoint so the contacts editor and the club editor cannot clobber one row. The one\nrule's refusal is `kontakte_moved_under_the_save`: the body echoes back the `kontakte_stand` its caller was served\nbeside the block, and a row whose block answers to another token is refused rather than\noverwritten, an erasure between the caller's read and this write being what moves it. A clearing,\nwhich nothing restores, is refused `confirmation_required` from a sign-in or confirmation older than\n`STEP_UP_WINDOW_HOURS`. A `past` season's contacts stay correctable. Each seat's `entered_by` and\n`confirmed_at` are the server's: a seat keeping its person keeps both, and a seat newly filled or handed\non is stored as the league's entry, unconfirmed.\n\n**Each person the save newly seats is owed a confirmation link**, mailed through the Postausgang in this write's own\ntransaction and named in `confirmations` by the address it goes to, never by the link: one per person, covering\nboth seats where the Trainer holds a second. A seat keeping its person keeps their link, and a seat emptied or\nhanded on loses the one it held and its links on the team's open match confirmations, so the person who left it\nholds nothing live. A save newly seating an address the ban list holds is\nrefused `kontakt_seat_barred`, as the re-send to one is. On a row of a `past` season, or of a team that has left it, the\nlink is how its person learns of the entry, and it takes their Widerspruch alone. A save owing a link, emptying\nor handing on a seat, or voiding a link its person could still answer, is refused `confirmation_required` as the clearing\nis; a save doing none of these is not.\n\n**A seat the same person keeps keeps its record whole**, each choice and its evidence included; a seat newly filled\nor handed to another person is born granting nothing, its media consent off and no choice evidenced, since only a\nperson's own write grants one. Such a seat's label must be the application form's running one\n(`wording_not_allowed`). A kept seat may name its stored label back, whichever page it is a version of, or the\nrunning one, and its record is carried either way.",
+        "description": "Rewrite the three people this team is reached through for one season. Null clears the block.\n\nIts own endpoint so the contacts editor and the club editor cannot clobber one row. The one\nrule's refusal is `kontakte_moved_under_the_save`: the body echoes back the `kontakte_stand` its caller was served\nbeside the block, and a row whose block answers to another token is refused rather than\noverwritten, an erasure between the caller's read and this write being what moves it. A clearing,\nwhich nothing restores, is refused `confirmation_required` from a sign-in or confirmation older than\n`STEP_UP_WINDOW_HOURS`. A `past` season's contacts stay correctable. Each seat's `entered_by` and\n`confirmed_at` are the server's: a seat keeping its person keeps both, and a seat newly filled or handed\non is stored as the league's entry, unconfirmed.\n\n**Each person the save newly seats is owed a confirmation link**, mailed through the Postausgang in this write's own\ntransaction and named in `confirmations` by the address it goes to, never by the link: one per person, covering\nboth seats where the Trainer holds a second. A seat keeping its person keeps their link, and a seat emptied or\nhanded on loses the one it held and its links on the team's open match confirmations, so the person who left it\nholds nothing live. A save newly seating an address the ban list holds is\nrefused `kontakt_seat_barred`, as the re-send to one is. On a row of a `past` season, or of a team that has left it, the\nlink is how its person learns of the entry, and it takes their Widerspruch alone. A save owing a link, emptying\nor handing on a seat, or voiding a link its person could still answer, is refused `confirmation_required` as the clearing\nis; a save doing none of these is not.\n\n**A seat the same person keeps keeps its record whole**, each choice and its evidence included; a seat newly filled\nor handed to another person is born granting nothing, its media consent off and no choice evidenced, since only a\nperson's own write grants one.",
         "operationId": "teams_patch_saison_team_kontakte",
         "parameters": [
           {

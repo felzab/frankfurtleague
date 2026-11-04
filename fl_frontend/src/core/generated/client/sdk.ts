@@ -63,8 +63,6 @@ import type {
   FLCreatedResponse,
   FLDeclineBewerbungPayload,
   FLDeclineBewerbungResponse,
-  FLEinwilligungSeitenResponse,
-  FLEinwilligungWordingResponse,
   FLErasureAdressePayload,
   FLErasurePayload,
   FLErasurePreviewResponse,
@@ -153,6 +151,7 @@ import type {
   FLSaisonTeamEinwilligungAntwortResponse,
   FLSaisonTeamResponse,
   FLSaisonTeamsResponse,
+  FLSchiedsrichterAccountEinwilligungPayload,
   FLSchiedsrichterAccountEinwilligungResponse,
   FLSchiedsrichterConfirmationPayload,
   FLSchiedsrichterConfirmationResponse,
@@ -902,9 +901,6 @@ export const getBewerbungenPostBewerbungUrl = () => {
  * (`bewerbung_key_differing`).
  *
  * An address the ban list holds, on any seat, is refused (`bewerbung_adresse_barred`) on a first press.
- *
- * A seat naming a consent wording other than the one the form now shows is refused (`wording_not_allowed`),
- * and only once the key has been looked up: a stored key is answered whatever wording it names.
  * @summary Submit a Bewerbung
  */
 export const bewerbungenPostBewerbung = async (
@@ -940,8 +936,8 @@ export const getBewerbungenPostEinwilligungUrl = () => {
  *
  * A decline empties the slot; on an application it owes the Ansprechperson who still stands the notice naming who
  * refused, in the same transaction, which stands as the deletion notice too. Refuses, writing nothing:
- * `link_invalid`, `link_expired`, `bewerbung_seat_already_answered`, `confirmation_age`, `link_barred`, `wording_not_allowed`,
- * `medien_age`, and on a team's season row `link_expired` and `kontakt_saison_past`.
+ * `link_invalid`, `link_expired`, `bewerbung_seat_already_answered`, `confirmation_age`, `link_barred`, `medien_age`, and
+ * on a team's season row `link_expired` and `kontakt_saison_past`.
  * @summary Confirm or decline one seat of a Bewerbung or of a team's season row
  */
 export const bewerbungenPostEinwilligung = async (
@@ -1190,7 +1186,7 @@ export const getBewerbungenPatchEinwilligungUrl = (bewerbungId: string) => {
  * Withdraw the signed-in person's WhatsApp and media consents on every seat they hold on this pending application.
  *
  * A grant is refused. Refuses, writing nothing: `role_not_held`, `wording_not_allowed` (the choices moved since the
- * page was served), `giving_not_allowed` and `wording_not_allowed`.
+ * page was served) and `giving_not_allowed`.
  * @summary Withdraw a seat holder's own WhatsApp and media consent on a pending Bewerbung
  */
 export const bewerbungenPatchEinwilligung = async (
@@ -1300,8 +1296,7 @@ export const getBewerbungenPostKontaktSeatUrl = (bewerbungId: string, seat: stri
  * stepped out of — confirmed, still waiting or erased at its person's request, the claimed mirror included
  * (`bewerbung_seat_already_answered`); and on an address another
  * contact person on this application already holds (`bewerbung_kontakt_email_taken`), or that the ban list holds
- * (`bewerbung_kontakt_barred`); and on any label but the application form's running one (`wording_not_allowed`), the person
- * seated being a new acceptance. A path naming no seat is a 404.
+ * (`bewerbung_kontakt_barred`). A path naming no seat is a 404.
  * @summary Seat another person where a contact person stepped out
  */
 export const bewerbungenPostKontaktSeat = async (
@@ -1375,41 +1370,6 @@ export const bewerbungenPostKontaktEmail = async (
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
     body: JSON.stringify(fLBewerbungKontaktEmailPayload),
-  });
-};
-
-export const getEinwilligungGetSeitenUrl = () => {
-  return `/api/v0/einwilligung/seiten`;
-};
-
-/**
- * For every page that stamps a consent label, the label a new acceptance on it must name.
- *
- * A deploy moves it, so a reader caches it no longer than a request.
- * @summary The consent label each page stamps today
- */
-export const einwilligungGetSeiten = async (options?: Parameters<typeof baseKeyTransport>[1]): Promise<FLEinwilligungSeitenResponse> => {
-  return baseKeyTransport<FLEinwilligungSeitenResponse>(getEinwilligungGetSeitenUrl(), {
-    ...options,
-    method: "GET",
-  });
-};
-
-export const getEinwilligungGetWordingUrl = (textVersion: string) => {
-  return `/api/v0/einwilligung/wordings/${encodeURIComponent(String(textVersion))}`;
-};
-
-/**
- * The words a consent label names, which never change, so the answer may be cached; 404 for a label the registry lacks.
- * @summary The words one consent label names
- */
-export const einwilligungGetWording = async (
-  textVersion: string,
-  options?: Parameters<typeof baseKeyTransport>[1],
-): Promise<FLEinwilligungWordingResponse> => {
-  return baseKeyTransport<FLEinwilligungWordingResponse>(getEinwilligungGetWordingUrl(textVersion), {
-    ...options,
-    method: "GET",
   });
 };
 
@@ -2229,7 +2189,7 @@ export const getRegistrierungenPatchEinwilligungUrl = (registrierungId: string) 
  * Withdraw the publication scope or the media consent the signed-in pupil gave on their own pending registration.
  *
  * A grant is refused, and a PATCH moving neither writes nothing. Refuses, writing nothing: `role_not_held`,
- * `wording_not_allowed` (the wording or the choices moved since the page was served) and `giving_not_allowed`.
+ * `wording_not_allowed` (the choices moved since the page was served) and `giving_not_allowed`.
  * @summary Withdraw a pupil's own publication and media consent on their pending registration
  */
 export const registrierungenPatchEinwilligung = async (
@@ -2265,7 +2225,7 @@ export const getRegistrierungenPostConfirmationUrl = () => {
  * Record a pupil's own answer for the registration their link opens, which stays pending until the team decides.
  *
  * Refuses, writing nothing: `link_invalid`, `link_expired`, `confirmation_exists`, `confirmation_age`, `medien_age`,
- * `link_barred`, `registrierung_choices_unsuitable` and `wording_not_allowed`.
+ * `link_barred` and `registrierung_choices_unsuitable`.
  * @summary Confirm one registration and record the pupil's consent
  */
 export const registrierungenPostConfirmation = async (
@@ -3105,17 +3065,15 @@ export const getSchiedsrichterPatchEinwilligungUrl = (schiedsrichterId: string) 
  *
  * Refuses, in this order: an id that is no confirmed referee record of this address (`role_not_held`); a
  * `nachweis_stand` other than the record's own, either choice having moved since the page was served
- * (`wording_not_allowed`); a grant on a retired record (`giving_not_allowed`); a `text_version` naming no version of
- * the account page's referee control, or a grant naming any but the page's running one (`wording_not_allowed`);
- * `medien` moving to `true` where the stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is missing
- * (`medien_age`). Each refusal writes nothing.
+ * (`wording_not_allowed`); a grant on a retired record (`giving_not_allowed`); `medien` moving to `true` where the
+ * stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is missing (`medien_age`). Each refusal writes nothing.
  *
  * **The caller drops the cached fixture list after a successful answer**, which reads this row; nothing here can.
  * @summary Change a signed-in referee's own publication and media consent
  */
 export const schiedsrichterPatchEinwilligung = async (
   schiedsrichterId: string,
-  fLAccountEinwilligungPayload: FLAccountEinwilligungPayload,
+  fLSchiedsrichterAccountEinwilligungPayload: FLSchiedsrichterAccountEinwilligungPayload,
   options?: Parameters<typeof adminKeyTransport>[1],
 ): Promise<FLSchiedsrichterAccountEinwilligungResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
@@ -3134,7 +3092,7 @@ export const schiedsrichterPatchEinwilligung = async (
     ...options,
     method: "PATCH",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLAccountEinwilligungPayload),
+    body: JSON.stringify(fLSchiedsrichterAccountEinwilligungPayload),
   });
 };
 
@@ -3145,16 +3103,16 @@ export const getSchiedsrichterPostConfirmationUrl = () => {
 /**
  * Record a referee's own answer for the entry their link opens: their date of birth and the consent, in one update.
  *
- * The consent carries the publication scope they chose, the media answer beside it, the stamp and the wording they were
- * shown. It reaches this one collection and writes nothing on any fixture: a referee's publication scope has one home,
- * which the fixture list joins at read time to decide whether to publish the name each fixture stores.
+ * The consent carries the publication scope they chose, the media answer beside it, the stamp and, on each choice's
+ * evidence, the wording they were shown. It reaches this one collection and writes nothing on any fixture: a referee's
+ * publication scope has one home, which the fixture list joins at read time to decide whether to publish the name each
+ * fixture stores.
  *
  * Refuses, in this order: a token no referee holds (`link_invalid`), an entry already confirmed
- * (`confirmation_exists`), a link whose deadline has passed (`link_expired`), any label but the referee
- * page's running one (`wording_not_allowed`), a link mailed to an address the ban list holds now, whenever the link
- * was minted (`link_barred`), an age outside what this consent asks (`confirmation_age`), and a media
- * consent from a referee below `medien_minimum_age` (`medien_age`) -- the label and the last two judged
- * before anything is written, so a reloaded page or a mistyped year spends nothing.
+ * (`confirmation_exists`), a link whose deadline has passed (`link_expired`), a link mailed to an address the ban
+ * list holds now, whenever the link was minted (`link_barred`), an age outside what this consent asks
+ * (`confirmation_age`), and a media consent from a referee below `medien_minimum_age` (`medien_age`) -- the last two
+ * judged before anything is written, so a mistyped year spends nothing.
  *
  * **The caller drops the cached fixture list after a successful answer**, which reads this record. Nothing here can:
  * a withheld name would go on being served for as long as that entry lives.
@@ -4182,8 +4140,7 @@ export const getSpielerPatchEinwilligungUrl = () => {
  *
  * Refuses, in this order: an address holding no confirmed pupil record (`role_not_held`); a `nachweis_stand`
  * other than the record's own, either choice having moved since the page was served (`wording_not_allowed`); a
- * grant on a retired record (`giving_not_allowed`); a `text_version` naming no version of the account page's pupil
- * control, or a grant naming any but the page's running one (`wording_not_allowed`); `medien` moving to `true` where
+ * grant on a retired record (`giving_not_allowed`); `medien` moving to `true` where
  * the stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is missing (`medien_age`). Each
  * refusal writes nothing.
  *
@@ -5096,10 +5053,8 @@ export const getTeamsPatchEinwilligungUrl = (teamId: string, saisonId: string) =
  *
  * Refuses, in this order: a row on which the address holds no confirmed seat (`role_not_held`); a
  * `nachweis_stand` other than the held seats' own, either choice having moved since the page was served
- * (`wording_not_allowed`); a grant where the row grants no panel (`giving_not_allowed`); a `text_version` naming no
- * version of the account page's seat control, or a grant naming any but its running one (`wording_not_allowed`);
- * `medien` moving to `true` where a held seat's stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is
- * missing (`medien_age`). Each refusal writes nothing.
+ * (`wording_not_allowed`); a grant where the row grants no panel (`giving_not_allowed`); `medien` moving to `true`
+ * where a held seat's stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is missing (`medien_age`). Each refusal writes nothing.
  * @summary Change a seat holder's own WhatsApp and media consent on one team's season
  */
 export const teamsPatchEinwilligung = async (
@@ -5282,9 +5237,7 @@ export const getTeamsPatchSaisonTeamKontakteUrl = (teamId: string, saisonId: str
  *
  * **A seat the same person keeps keeps its record whole**, each choice and its evidence included; a seat newly filled
  * or handed to another person is born granting nothing, its media consent off and no choice evidenced, since only a
- * person's own write grants one. Such a seat's label must be the application form's running one
- * (`wording_not_allowed`). A kept seat may name its stored label back, whichever page it is a version of, or the
- * running one, and its record is carried either way.
+ * person's own write grants one.
  * @summary Rewrite a team's season contacts, and nothing else on the row
  */
 export const teamsPatchSaisonTeamKontakte = async (

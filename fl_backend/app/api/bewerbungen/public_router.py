@@ -30,7 +30,6 @@ from app.api.bewerbungen.services import (
     ansprechperson_mailbox,
     assigned_trikot_farben,
     bestaetigungsfrist_from,
-    bewerbung_antwort_seite,
     bewerbung_bezug,
     bewerbung_schule,
     build_saison_token_filter,
@@ -60,7 +59,6 @@ from app.api.bewerbungen.services import (
     owed_at_submission,
     paired_seat,
     payload_fingerabdruck,
-    saison_antwort_seite,
     saison_frist_of,
     saison_link_pair,
     saison_nimmt_bewerbungen_an,
@@ -73,7 +71,7 @@ from app.api.bewerbungen.services import (
     seat_vorname,
     zustand_of,
 )
-from app.api.einwilligung.services import find_fassung_refusal, find_self_medien_refusal
+from app.api.einwilligung.services import find_self_medien_refusal
 from app.api.kontakte.crud import redact_the_decliner, remove_their_reasons
 from app.api.outbox.schemas import FLBewerbungPerson, FLBewerbungWiderspruchData
 from app.api.outbox.services import OwedMail, enqueue_mails
@@ -107,11 +105,10 @@ from app.core.recording import log_stamp
 from app.core.routing import SAFE
 from app.core.security import bind_public_actor, erasure_journal_hash, verify_access_base
 from app.core.transactions import transaction_session
-from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS
 from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.schemas.custom import fold_shorthand
-from app.shared.schemas.literals import KONTAKT_ROLLEN
+from app.shared.schemas.einwilligung import by_choice
 from app.shared.schemas.responses import FLCreatedResponse
 from app.shared.tokens import hash_token
 
@@ -310,9 +307,6 @@ async def post_bewerbung(
     (`bewerbung_key_differing`).
 
     An address the ban list holds, on any seat, is refused (`bewerbung_adresse_barred`) on a first press.
-
-    A seat naming a consent wording other than the one the form now shows is refused (`wording_not_allowed`),
-    and only once the key has been looked up: a stored key is answered whatever wording it names.
     """
 
     schluessel = None if idempotency_key is None else str(idempotency_key)
@@ -338,12 +332,6 @@ async def post_bewerbung(
         )
         if stored is not None:
             return _answer_as_the_first(stored=stored, fingerabdruck=fingerabdruck)
-
-        # After the lookup and never ahead of it: a retry across a deploy that moved the label resends
-        # the first press's words, and refusing it here would have its reload store a second application.
-        refuse(
-            find_fassung_refusal(seite="bewerbung", named={seat: getattr(kontakte, seat).einwilligung.text_version for seat in KONTAKT_ROLLEN})
-        )
 
         # The season first, so a submission arriving after the deadline is refused before anything about
         # the applicant is looked up. The window is read under the same projection the public GET uses.
@@ -487,7 +475,6 @@ async def _saison_ansicht(
         schule=saison_schule(row),
         rolle=seat,
         also_rolle=zugleich,
-        running_wording=LAUFENDE_FASSUNGEN[saison_antwort_seite(row=row, seats=seats)],
         minimum_age=mindestalter_for(seats),
         medien_minimum_age=MEDIEN_MIN_AGE_YEARS,
     )
@@ -552,7 +539,6 @@ async def get_einwilligung_view(
         schule=await _schule_name(bewerbung_raw=bewerbung_raw, teams_collection=teams_collection),
         rolle=seat,
         also_rolle=zugleich,
-        running_wording=LAUFENDE_FASSUNGEN[bewerbung_antwort_seite(bewerbung_raw=bewerbung_raw, seats=seats)],
         minimum_age=mindestalter_for(seats),
         medien_minimum_age=MEDIEN_MIN_AGE_YEARS,
     )
@@ -581,8 +567,8 @@ async def post_einwilligung(
 
     A decline empties the slot; on an application it owes the Ansprechperson who still stands the notice naming who
     refused, in the same transaction, which stands as the deletion notice too. Refuses, writing nothing:
-    `link_invalid`, `link_expired`, `bewerbung_seat_already_answered`, `confirmation_age`, `link_barred`, `wording_not_allowed`,
-    `medien_age`, and on a team's season row `link_expired` and `kontakt_saison_past`.
+    `link_invalid`, `link_expired`, `bewerbung_seat_already_answered`, `confirmation_age`, `link_barred`, `medien_age`, and
+    on a team's season row `link_expired` and `kontakt_saison_past`.
     """
 
     token_hash = hash_token(antwort_data.token)
@@ -629,10 +615,6 @@ async def post_einwilligung(
             # rollover or after it; never the Widerspruch below, which removes the person.
             refuse(find_saison_vorbei_einwilligung_refusal(saison_status=saison_raw.get("status"), austritt=row.get("austritt")))
 
-            # Against the one page the view answered for these seats.
-            seite = saison_antwort_seite(row=row, seats=seats)
-            refuse(find_fassung_refusal(seite=seite, named={seat: antwort_data.text_version}))
-
             # Asked at the press, however old the link, as the application's consent asks it;
             # never of the Widerspruch below.
             gesperrt = await adressen_gesperrt(
@@ -650,7 +632,7 @@ async def post_einwilligung(
                     seats=seats,
                     geburtsdatum=geburtsdatum,
                     today=today,
-                    text_version=antwort_data.text_version,
+                    text_versions=by_choice(antwort_data.text_versions),
                     whatsapp=antwort_data.whatsapp,
                     medien=antwort_data.medien,
                     am=log_stamp(germany_now),
@@ -750,10 +732,6 @@ async def post_einwilligung(
         if antwort_data.antwort == "given":
             geburtsdatum = antwort_data.geburtsdatum
 
-            # Against the one page the view answered for these seats.
-            seite = bewerbung_antwort_seite(bewerbung_raw=bewerbung_raw, seats=seats)
-            refuse(find_fassung_refusal(seite=seite, named={seat: antwort_data.text_version}))
-
             # Asked at the press rather than only at the mint, so a ban entered after the link went out
             # stops it here. Never of the decline below: a barred person asking to be removed is not refused.
             gesperrt = await adressen_gesperrt(
@@ -773,7 +751,7 @@ async def post_einwilligung(
                     seats=seats,
                     geburtsdatum=geburtsdatum,
                     today=today,
-                    text_version=antwort_data.text_version,
+                    text_versions=by_choice(antwort_data.text_versions),
                     whatsapp=antwort_data.whatsapp,
                     medien=antwort_data.medien,
                     am=log_stamp(germany_now),

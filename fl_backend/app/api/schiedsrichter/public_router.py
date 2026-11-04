@@ -5,7 +5,6 @@ from fastapi import APIRouter, Body, Depends
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.einwilligung.services import find_fassung_refusal
 from app.api.schiedsrichter.schemas import (
     FLSchiedsrichterConfirmationPayload,
     FLSchiedsrichterConfirmationResponse,
@@ -42,6 +41,7 @@ from app.core.security import bind_public_actor, verify_access_base
 from app.core.transactions import transaction_session
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS, SCHIEDSRICHTER_MIN_AGE_YEARS
 from app.shared.schemas.confirmation import FLTokenPayload
+from app.shared.schemas.einwilligung import by_choice
 from app.shared.tokens import hash_token
 
 # Beside the admin and person routers, each guarded whole: the token is the whole credential, so
@@ -117,16 +117,16 @@ async def post_confirmation(
     """
     Record a referee's own answer for the entry their link opens: their date of birth and the consent, in one update.
 
-    The consent carries the publication scope they chose, the media answer beside it, the stamp and the wording they were
-    shown. It reaches this one collection and writes nothing on any fixture: a referee's publication scope has one home,
-    which the fixture list joins at read time to decide whether to publish the name each fixture stores.
+    The consent carries the publication scope they chose, the media answer beside it, the stamp and, on each choice's
+    evidence, the wording they were shown. It reaches this one collection and writes nothing on any fixture: a referee's
+    publication scope has one home, which the fixture list joins at read time to decide whether to publish the name each
+    fixture stores.
 
     Refuses, in this order: a token no referee holds (`link_invalid`), an entry already confirmed
-    (`confirmation_exists`), a link whose deadline has passed (`link_expired`), any label but the referee
-    page's running one (`wording_not_allowed`), a link mailed to an address the ban list holds now, whenever the link
-    was minted (`link_barred`), an age outside what this consent asks (`confirmation_age`), and a media
-    consent from a referee below `medien_minimum_age` (`medien_age`) -- the label and the last two judged
-    before anything is written, so a reloaded page or a mistyped year spends nothing.
+    (`confirmation_exists`), a link whose deadline has passed (`link_expired`), a link mailed to an address the ban
+    list holds now, whenever the link was minted (`link_barred`), an age outside what this consent asks
+    (`confirmation_age`), and a media consent from a referee below `medien_minimum_age` (`medien_age`) -- the last two
+    judged before anything is written, so a mistyped year spends nothing.
 
     **The caller drops the cached fixture list after a successful answer**, which reads this record. Nothing here can:
     a withheld name would go on being served for as long as that entry lives.
@@ -154,8 +154,6 @@ async def post_confirmation(
         # to ask for another.
         refuse(find_already_confirmed_refusal(einwilligung=raw.get(EINWILLIGUNG_FELD)))
         refuse(find_expired_token_refusal(frist=raw[BESTAETIGUNG_FELD]["frist"], today=today))
-        # A new acceptance: the running label alone, so a page loaded before a deploy is told to reload.
-        refuse(find_fassung_refusal(seite="bestaetigung_schiedsrichter", named={EINWILLIGUNG_FELD: antwort_data.text_version}))
         # Asked at the press rather than only at the mint: a ban entered after the link went out
         # stops it here, and one lifted while it runs lets it answer again.
         gesperrt = await adressen_gesperrt(
@@ -172,7 +170,7 @@ async def post_confirmation(
                 geburtsdatum=antwort_data.geburtsdatum,
                 umfang=antwort_data.umfang,
                 medien=antwort_data.medien,
-                text_version=antwort_data.text_version,
+                text_versions=by_choice(antwort_data.text_versions),
                 today=today,
                 am=log_stamp(germany_now),
             ),

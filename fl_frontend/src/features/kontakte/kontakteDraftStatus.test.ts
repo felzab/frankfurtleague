@@ -15,7 +15,7 @@ const person = (overrides: Partial<KontaktpersonDraft> = {}): KontaktpersonDraft
   email: "erika@beispiel.de",
   telefon: "069 1234567",
   geburtsdatum: "1990-01-01",
-  einwilligung: kenntnisnahme({ text_version: "2025-08", datum: "2025-09-01", confirmed_at: "2025-09-02" }),
+  einwilligung: kenntnisnahme({ datum: "2025-09-01", confirmed_at: "2025-09-02" }),
   ...overrides,
 });
 
@@ -41,7 +41,7 @@ describe("deriveKontakteDraftStatus", () => {
     expect(status.fields.length).toBe(7);
     expect(status.byPath.get("kontakte.trainer")?.draftText).toBe("Erika Mustermann, erika@beispiel.de, 069 1234567, geboren am 01.01.1990");
     expect(status.byPath.get("kontakte.trainer.einwilligung")?.draftText).toBe(
-      `${eingetragenVonLabel("bewerbung")}, Fassung 2025-08 (ab 01.09.2025)`,
+      `${eingetragenVonLabel("bewerbung")}, ab 01.09.2025`,
     );
     // Read from the table rather than quoted: the wording is the product's, and pinning it here
     // makes rewording the question read as a regression.
@@ -135,7 +135,7 @@ describe("deriveKontakteDraftStatus", () => {
     const status = deriveKontakteDraftStatus({ stored, draft: stored, fieldErrors: {} });
 
     expect(status.byPath.get("kontakte.trainer.einwilligung")?.draftText).toBe(
-      "Mit der Bewerbung eingetragen, Fassung 2025-08 (ab 01.09.2025)",
+      "Mit der Bewerbung eingetragen, ab 01.09.2025",
     );
   });
 
@@ -145,7 +145,7 @@ describe("deriveKontakteDraftStatus", () => {
       draft: block({
         trainer: person({
           // As the editor opens a seat: nobody has seated its person yet.
-          einwilligung: kenntnisnahme({ text_version: "", datum: "", confirmed_at: null, entered_by: null }),
+          einwilligung: kenntnisnahme({ datum: "", confirmed_at: null, entered_by: null }),
         }),
       }),
       fieldErrors: { "kontakte.trainer.einwilligung.datum": "Bitte gib an, wann die Kenntnisnahme erfasst wurde." },
@@ -155,7 +155,7 @@ describe("deriveKontakteDraftStatus", () => {
     expect(row?.error).toBe("Bitte gib an, wann die Kenntnisnahme erfasst wurde.");
     // Both fallbacks render rather than hiding: they are the mid-edit states the schema rejects on
     // save, and the change list is where the admin sees what is still missing.
-    expect(row?.draftText).toBe("Fassung nicht hinterlegt (Datum nicht hinterlegt)");
+    expect(row?.draftText).toBe("Datum nicht hinterlegt");
   });
 
   /* A seat holds a person once anybody is recorded in it, and a name is one of the fields that
@@ -229,7 +229,6 @@ const candidatePaths = (rolle: KontaktRolle): string[] => [
   `kontakte.${rolle}.telefon`,
   `kontakte.${rolle}.geburtsdatum`,
   `kontakte.${rolle}.einwilligung`,
-  `kontakte.${rolle}.einwilligung.text_version`,
   `kontakte.${rolle}.einwilligung.datum`,
 ];
 
@@ -256,7 +255,6 @@ describe("kontaktSeatPaths", () => {
       "kontakte.trainer",
       "kontakte.trainer.einwilligung",
       "kontakte.trainer.einwilligung.datum",
-      "kontakte.trainer.einwilligung.text_version",
       "kontakte.trainer.email",
       "kontakte.trainer.nachname",
       "kontakte.trainer.telefon",
