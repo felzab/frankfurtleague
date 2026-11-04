@@ -294,24 +294,30 @@ class DeletionWithoutLoeschung extends Error {
 
 // Our own dependency injection, never a compensation for the library: the hook takes no per-call
 // value, the backend's write lives in a slice's mutations module, and `core` imports no slice.
-/** The erasure of the league's records one press hands `deleteOwnAccount`, for the deletion that call makes. */
-export const ownLoeschung = new AsyncLocalStorage<() => Promise<unknown>>();
+/**
+ * One press of a mailed deletion link: the erasure of the league's records it hands `deleteOwnAccount`, and whether
+ * the library has spent the link, which it does before this hook runs and whatever the hook then answers.
+ */
+export type DeletionPress = { readonly erase: () => Promise<unknown>; linkSpent: boolean };
+
+/** The press `deleteOwnAccount` runs the library's deletion under, for the deletion that call makes. */
+export const ownLoeschung = new AsyncLocalStorage<DeletionPress>();
 
 /**
- * Runs after the library has checked the token against the signed-in user and before it deletes anything:
- * an account never goes while the league's records of its address stand.
+ * Runs after the library has spent the token and checked it against the signed-in user, and before it deletes
+ * anything: an account never goes while the league's records of its address stand.
  */
 async function loeschenBeforeTheAccount(user: { id: string; email: string }): Promise<void> {
-  const loeschen = ownLoeschung.getStore();
+  const press = ownLoeschung.getStore();
+  // First: whatever follows, the link this press carried is spent (`better-auth/api :: deleteUserCallback`).
+  if (press !== undefined) press.linkSpent = true;
   // The backend erases the request's person and the library deletes the session's user, so the two must
   // be one address; with no erasure handed in, no deletion goes ahead at all.
   const actor = getRequestActor();
-  if (loeschen === undefined || actor?.lane !== "person" || actor.email !== asSignInIdentifier(user.email))
-    throw new DeletionWithoutLoeschung();
+  if (press === undefined || actor?.lane !== "person" || actor.email !== asSignInIdentifier(user.email)) throw new DeletionWithoutLoeschung();
 
-  // Thrown on as it came, so the press reads the backend's refusal, or a write of unknown outcome, as every
-  // person write does; the account and its passkeys stand for a fresh link.
-  await loeschen();
+  // Thrown on as it came, for the press to word: the account and its passkeys stand, the link spent.
+  await press.erase();
 
   // Before the library deletes the user row: a failure past here leaves that row for the account sweep,
   // never passkeys whose account is gone.

@@ -69,7 +69,7 @@ async function readState(searchParams: NextPageProps["searchParams"]): Promise<M
     sentence: WORDS.question,
     action: kontoLoeschen,
     acts: { primary: COPY.page.accountErasure },
-    carry: { token: token },
+    carry: { token: token, holder: subject.email },
     // Every person holding a passkey touches it first, an administrator always among them.
     touch: passkeys > 0,
   };

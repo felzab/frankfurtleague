@@ -1,12 +1,11 @@
 import { AccountPage } from "@/kit/AccountPage";
 
-import { getKontoSession } from "@/core/auth/guards";
 import { passkeysOf } from "@/core/auth/passkeys";
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { SignInPayloadSchema } from "@/features/auth/schemas";
-import { requireKontoSubject } from "@/features/konto/account";
+import { requireAccountSession } from "@/features/konto/account";
 import { getKontoAdresswechsel, getLoeschungAnsicht } from "@/features/konto/queries";
 import { pageMetadata } from "@/shared/utils/metadata";
 
@@ -36,11 +35,10 @@ function pendingOf(open: FLAccountAddressChangeOpen): Pending {
 
 /** The address and the deletion, read for the session the page is drawn for. */
 async function Anmeldung() {
-  const subject = await requireKontoSubject();
-  const served = await getKontoSession();
+  const { subject, served } = await requireAccountSession(ROUTES.accountSignIn.path());
   const [change, held, lastOwner] = await Promise.all([
     getKontoAdresswechsel(),
-    served === null ? false : passkeysOf(served.user.id).then((rows) => rows.length > 0),
+    passkeysOf(served.user.id).then((rows) => rows.length > 0),
     // Read for an owner alone, the one tier that can be the last; the deletion's own page refuses it again.
     subject.subject.verwaltung === "owner" ? getLoeschungAnsicht().then((view) => view.last_owner) : false,
   ]);

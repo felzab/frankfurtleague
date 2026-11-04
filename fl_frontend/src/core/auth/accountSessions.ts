@@ -8,7 +8,21 @@ import { EVERY_ROW } from "./signInRows";
 
 import type { DBTransactionAdapter } from "better-auth";
 
-export const revokeOtherSessions = (requestHeaders: Headers) => auth.api.revokeOtherSessions({ headers: requestHeaders });
+/**
+ * Ends every session of the account but `kept`, in the store by the account and the row's id, never by a token. Not
+ * the library's `revokeOtherSessions`, which lists the account's sessions through a read the adapter caps at 100 rows
+ * and deletes each by its token, so the rest of a longer list stand.
+ */
+export async function endOtherSessions(userId: string, kept: string): Promise<void> {
+  const { adapter } = await auth.$context;
+  await adapter.deleteMany({
+    model: "session",
+    where: [
+      { field: "userId", value: userId },
+      { field: "id", operator: "ne", value: kept },
+    ],
+  });
+}
 
 /** The fields of a stored session row the account's security page touches; `token` is deliberately not among them. */
 export type LiveSessionRow = {

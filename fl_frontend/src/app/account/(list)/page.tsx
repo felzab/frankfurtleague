@@ -1,7 +1,7 @@
 import { AccountList, AccountPage } from "@/kit/AccountPage";
 
 import { ROUTES } from "@/core/routes";
-import { requireKontoSubject } from "@/features/konto/account";
+import { requireAccountSession } from "@/features/konto/account";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import { KONTO_ENTRIES } from "../entries";
@@ -14,7 +14,7 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
 
 /** The list, once the session is judged: it reads nothing else. */
 async function KontoList() {
-  await requireKontoSubject();
+  await requireAccountSession(ROUTES.account.path());
   return <AccountList entries={KONTO_ENTRIES} />;
 }
 

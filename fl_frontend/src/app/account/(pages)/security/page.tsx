@@ -1,12 +1,9 @@
-import { redirect } from "next/navigation";
-
 import { AccountPage } from "@/kit/AccountPage";
 
 import { PASSKEY_LIMIT } from "@/core/auth/enrolment";
-import { getKontoSession } from "@/core/auth/guards";
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
-import { requireKontoSubject } from "@/features/konto/account";
+import { requireAccountSession } from "@/features/konto/account";
 import { devicesOf } from "@/features/konto/sicherheit";
 import { passkeyStandOf } from "@/features/passkeys/bestand";
 import { PASSKEY_NAME_MAX, PasskeyNameSchema } from "@/features/passkeys/schemas";
@@ -22,13 +19,11 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
 
 /** The passkeys and the devices, read for the session the page is drawn for. */
 async function Sicherheit() {
-  await requireKontoSubject();
-  // The account page's own verdict on the session, which holds an administrator's address to the administrator's lane.
-  const served = await getKontoSession();
-  if (served === null) redirect(ROUTES.signIn.path());
+  const { subject, served } = await requireAccountSession(ROUTES.accountSecurity.path());
   const [stand, devices] = await Promise.all([passkeyStandOf(served), devicesOf(served)]);
   return (
     <SicherheitBoxes
+      holder={subject.email}
       passkeys={stand.rows}
       limit={stand.canAdd ? undefined : COPY.konto.passkeys.limit(PASSKEY_LIMIT)}
       verwaltung={served.verwaltung}

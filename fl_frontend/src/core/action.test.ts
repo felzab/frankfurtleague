@@ -5,7 +5,7 @@ import { person, seat } from "@/test-support/subjectFixtures.ts";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
-import { action } from "./action";
+import { action, TOUCH_HOLDER } from "./action";
 import { afterTheResponse } from "./afterResponse";
 import { dispatchRequest, sentRequestOf } from "./apiDispatch";
 import { COPY } from "./copy";
@@ -14,6 +14,7 @@ import { AFTER_RESPONSE_DEADLINE_MS, getRequestActor, requestTimeLeft, setReques
 import { SERVER_COPY } from "./serverCopy";
 
 import type { Code } from "./generated/client/types";
+import type { RequestActor } from "./requestScope";
 import type { SubjectSession } from "./subject";
 
 /** What each double answers, and what reached it. */
@@ -23,6 +24,10 @@ const state = vi.hoisted(() => ({
   botCheck: null as string | null,
   /** The passkey touch's verdict. */
   touch: true,
+  /** The account guard's verdict: the session it judged, or `null` where it refuses. */
+  account: null as object | null,
+  /** The actor each guard records once it admits, as the real guards do. */
+  actor: undefined as RequestActor | undefined,
   /** Every step in the order it ran. */
   steps: [] as string[],
   lines: [] as { level: string; message: string; meta: unknown }[],
@@ -49,16 +54,23 @@ vi.mock("./mail", () => ({ drainOutbox: async () => undefined }));
 vi.mock("./auth/guards", () => ({
   judgeAdminRequest: async () => {
     state.steps.push("admin guard");
+    if (state.actor !== undefined && "session" in state.admin)
+      (await import("./requestScope")).setRequestActor({ ...state.actor, lane: "admin" });
     return state.admin;
   },
   passesPasskeyTouch: async () => {
     state.steps.push("passkey touch");
     return state.touch;
   },
+  getKontoSession: async () => {
+    state.steps.push("account guard");
+    return state.account;
+  },
 }));
 vi.mock("./subject", () => ({
   getSubjectSession: async () => {
     state.steps.push("person guard");
+    if (state.actor !== undefined && state.subject !== null) (await import("./requestScope")).setRequestActor(state.actor);
     return state.subject;
   },
 }));
@@ -123,6 +135,8 @@ beforeEach(() => {
   state.subject = null;
   state.botCheck = null;
   state.touch = true;
+  state.account = null;
+  state.actor = undefined;
   state.steps = [];
   state.lines = [];
   state.behind = [];
@@ -373,36 +387,81 @@ describe("the person lane", () => {
 });
 
 describe("the passkey touch a lane declares", () => {
-  const touched = (lane: "admin" | "person", passkey?: true) => {
-    const declared = { name: "passkeyAendern", input: Venue, ...(passkey === undefined ? {} : { passkey }) };
-    const run = async () => {
-      state.steps.push("body");
-      return { ok: true as const, value: undefined };
-    };
-    return lane === "admin" ? action({ ...declared, lane, run }) : action({ ...declared, lane, claim: "record", run });
+  const HOLDER = "inhaberin@example.org";
+  const run = async () => {
+    state.steps.push("body");
+    return { ok: true as const, value: undefined };
   };
+  const declared = { name: "passkeyAendern", input: Venue.extend(TOUCH_HOLDER), passkey: true } as const;
+  const touched = (lane: "admin" | "person") =>
+    lane === "admin" ? action({ ...declared, lane, run }) : action({ ...declared, lane, claim: "record", run });
+
+  beforeEach(() => {
+    state.subject = person({});
+    state.actor = { email: HOLDER, lane: "person", authTime: 0, factor: "passkey" };
+  });
 
   it.each(["admin", "person"] as const)("refuses the %s lane's act its touch fails, before the input is read", async (lane) => {
-    state.subject = person({});
     state.touch = false;
 
     // An input the schema refuses: read first, it would answer with the box's message.
-    expect(await touched(lane, true)({ name: "", plz: "x" })).toStrictEqual({ ok: false, reason: COPY.signIn.refusal.touchMissing });
+    expect(await touched(lane)({ name: "", plz: "x", holder: HOLDER })).toStrictEqual({ ok: false, reason: COPY.signIn.refusal.touchMissing });
     expect(state.steps).toStrictEqual([lane === "admin" ? "admin guard" : "person guard", "passkey touch"]);
   });
 
-  it.each(["admin", "person"] as const)("runs the %s lane's act its touch passes", async (lane) => {
-    state.subject = person({});
-
-    expect(await touched(lane, true)({ name: "Nord", plz: "60438" })).toStrictEqual({ ok: true, value: undefined });
+  it.each(["admin", "person"] as const)("runs the %s lane's act its touch passes for the address the page was drawn for", async (lane) => {
+    expect(await touched(lane)({ name: "Nord", plz: "60438", holder: HOLDER.toUpperCase() })).toStrictEqual({ ok: true, value: undefined });
     expect(state.steps).toStrictEqual([lane === "admin" ? "admin guard" : "person guard", "passkey touch", "body"]);
+  });
+
+  /* The touch on a page whose own session ended signs in whichever account's passkey answers: the act would run as it. */
+  it.each(["admin", "person"] as const)("refuses the %s lane's act a touch signed another account in for, running nothing", async (lane) => {
+    expect(await touched(lane)({ name: "Nord", plz: "60438", holder: "jemand-anderes@example.org" })).toStrictEqual({
+      ok: false,
+      reason: COPY.shared.failure.signInExpired,
+    });
+    expect(state.steps).toStrictEqual([lane === "admin" ? "admin guard" : "person guard", "passkey touch"]);
   });
 
   it("asks no touch of an act that declares none", async () => {
     state.touch = false;
 
-    expect(await touched("admin")({ name: "Nord", plz: "60438" })).toStrictEqual({ ok: true, value: undefined });
+    expect(await action({ name: "anlegen", input: Venue, lane: "admin", run })({ name: "Nord", plz: "60438" })).toStrictEqual({
+      ok: true,
+      value: undefined,
+    });
     expect(state.steps).toStrictEqual(["admin guard", "body"]);
+  });
+});
+
+describe("the account's own acts", () => {
+  const signOut = action({
+    lane: "person",
+    claim: "account",
+    name: "abmelden",
+    input: z.object({}),
+    run: async (_input, { served }) => {
+      state.steps.push(`body ${JSON.stringify(served)}`);
+      return { ok: true, value: undefined };
+    },
+  });
+
+  /* An address holding a grant signed in by its mailed code alone passes the person guard: its mailbox's holder
+     would end the administrator's other sessions. */
+  it("turns away a session the account's guard refuses, before the input is read", async () => {
+    state.subject = person({});
+    state.account = null;
+
+    expect(await signOut({})).toStrictEqual({ ok: false, reason: COPY.shared.failure.signInExpired });
+    expect(state.steps).toStrictEqual(["person guard", "account guard"]);
+  });
+
+  it("runs the body on the session the account's guard judged", async () => {
+    state.subject = person({});
+    state.account = { user: { id: "u1" } };
+
+    expect(await signOut({})).toStrictEqual({ ok: true, value: undefined });
+    expect(state.steps).toStrictEqual(["person guard", "account guard", 'body {"user":{"id":"u1"}}']);
   });
 });
 

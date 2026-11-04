@@ -27,12 +27,15 @@ const SET_UP_REFUSED = (status: number): Copy => (status === 403 ? COPY.konto.pa
  * passkey touch first; `limit` closes the set-up where no more may be added.
  */
 export function SicherheitBoxes({
+  holder,
   passkeys,
   limit,
   verwaltung,
   devices,
   name,
 }: {
+  /** The address the page is drawn for, which each removal posts behind its touch. */
+  holder: string;
   passkeys: readonly PasskeyRow[];
   /** Why no further passkey may be set up, or `undefined` where one may. */
   limit: Copy | undefined;
@@ -87,7 +90,7 @@ export function SicherheitBoxes({
           : COPY.konto.passkeys.endsDevices,
       touch: true,
       run: async () => {
-        const answer = await removePasskeyAction({ id: passkey.id });
+        const answer = await removePasskeyAction({ id: passkey.id, holder });
         // The removal ended the session this page runs in, so the page renders nothing again: it leaves as a new
         // document, since a soft navigation keeps every hidden route with what it showed that session.
         if (answer.ok && answer.value === "thisDevice") leaveDocumentFor(ROUTES.signIn.path());

@@ -53,7 +53,15 @@ export function AnmeldungBoxes({
         <AccountBox
           title={COPY.signIn.address}
           description={COPY.konto.address.description}
-          act={{ run: startAddressChange, button: { label: COPY.shared.withObject(COPY.konto.address.link, "send") }, touch: held }}>
+          act={{
+            // The address the page is drawn for, which the start posts behind its touch.
+            run: (formData) => {
+              formData.set("holder", email);
+              return startAddressChange(formData);
+            },
+            button: { label: COPY.shared.withObject(COPY.konto.address.link, "send") },
+            touch: held,
+          }}>
           {address}
           <TextField
             label={COPY.konto.address.new}

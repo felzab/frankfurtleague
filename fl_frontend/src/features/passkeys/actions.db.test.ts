@@ -293,7 +293,7 @@ async function removeAtOnce(cookie: string, ids: readonly string[]) {
   requestHeaders = new Headers({ ...ORIGIN, cookie });
   const mailedBefore = sent.length;
   barrier.arm(ids.length);
-  const answers = await Promise.all(ids.map((id) => removePasskeyAction({ id })));
+  const answers = await Promise.all(ids.map((id) => removePasskeyAction({ id, holder: ADMIN_EMAIL })));
   barrier.disarm();
   assert.ok(await barrier.filled, "the removals were not all held at `passkey.deleteOne` or `user.findOneAndUpdate`, so no race was run");
   await runBehind();
@@ -348,10 +348,10 @@ describe("two removals by one administrator at once, against a real database", (
     readGate = gate;
 
     try {
-      const second = removePasskeyAction({ id: held });
+      const second = removePasskeyAction({ id: held, holder: ADMIN_EMAIL });
       assert.ok(await gate.reached, "the held removal never reached its in-transaction read");
 
-      const first = await removePasskeyAction({ id: through });
+      const first = await removePasskeyAction({ id: through, holder: ADMIN_EMAIL });
       gate.release();
 
       expect({ first: first.ok, second: await second, rows: (await passkeyRows()).length }).toStrictEqual({
@@ -386,7 +386,7 @@ describe("the sessions a removal ends, against a real database", () => {
     requestHeaders = new Headers({ ...ORIGIN, cookie: own.cookie });
 
     cacheCalls.length = 0;
-    expect(await removePasskeyAction({ id: first })).toStrictEqual({ ok: true, value: "otherDevices" });
+    expect(await removePasskeyAction({ id: first, holder: ADMIN_EMAIL })).toStrictEqual({ ok: true, value: "otherDevices" });
     expect([await opens(other.cookie), await opens(third.cookie), await opens(byCode), await opens(own.cookie)]).toStrictEqual([
       false,
       true,
@@ -406,7 +406,7 @@ describe("the sessions a removal ends, against a real database", () => {
     requestHeaders = new Headers({ ...ORIGIN, cookie: own.cookie });
 
     cacheCalls.length = 0;
-    expect(await removePasskeyAction({ id: ownRow })).toStrictEqual({ ok: true, value: "thisDevice" });
+    expect(await removePasskeyAction({ id: ownRow, holder: ADMIN_EMAIL })).toStrictEqual({ ok: true, value: "thisDevice" });
     expect(await opens(own.cookie), "this device's session outlived its passkey").toBe(false);
     expect(cacheCalls, "the removal ending this device's session cleared the cache or read the page again").toStrictEqual([]);
   });
@@ -425,7 +425,7 @@ describe("the sessions a removal ends, against a real database", () => {
         .collection("session")
         .updateMany({}, { $set: { updatedAt: new Date() } });
 
-    const answer = await removePasskeyAction({ id: first });
+    const answer = await removePasskeyAction({ id: first, holder: ADMIN_EMAIL });
 
     expect({
       answer: answer,
@@ -464,7 +464,7 @@ describe("the sessions a removal ends, against a real database", () => {
       if (runs > 1) throw new Error("planted: the retried run fails");
     };
 
-    const answer = await removePasskeyAction({ id: first });
+    const answer = await removePasskeyAction({ id: first, holder: ADMIN_EMAIL });
 
     expect(runs, "the adapter ran the removal once, so no retry followed a commit").toBe(2);
 
@@ -487,7 +487,7 @@ describe("the sessions a removal ends, against a real database", () => {
       throw new Error("planted");
     };
 
-    const answer = await removePasskeyAction({ id: first });
+    const answer = await removePasskeyAction({ id: first, holder: ADMIN_EMAIL });
 
     expect({
       answer: answer,
@@ -509,7 +509,7 @@ describe("the sessions a removal ends, against a real database", () => {
       throw new MongoOperationTimeoutError("planted: the time ran out before the commit's answer came back");
     };
 
-    const answer = await removePasskeyAction({ id: first });
+    const answer = await removePasskeyAction({ id: first, holder: ADMIN_EMAIL });
 
     expect({
       answer: answer,

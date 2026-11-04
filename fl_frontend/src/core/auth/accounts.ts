@@ -4,11 +4,13 @@ import { isAPIError } from "better-auth/api";
 import { MongoServerError } from "mongodb";
 
 import { asSignInIdentifier } from "../emailAddress";
-import { RolledBackError } from "../errors";
+import { APIBadStatusError, isRefusalCode, RolledBackError } from "../errors";
 import { deleteEndedSessions } from "./accountSessions";
 import { auth, ownLoeschung } from "./library";
 import { SESSIONS_ENDED_FIELD } from "./sessionStamps";
 import { deleteSignInRowsOf, DUPLICATE_KEY, EVERY_ROW, RemovalOutsideTransaction } from "./signInRows";
+
+import type { DeletionPress } from "./library";
 
 /** The library's answer to a link it completed (`better-auth/api :: deleteUser`), its one answer that deletes. */
 const ACCOUNT_DELETED = "User deleted";
@@ -63,12 +65,29 @@ export async function carryAccount(bisherige: string, neue: string): Promise<Kon
  */
 export const requestAccountDeletion = (requestHeaders: Headers) => auth.api.deleteUser({ body: {}, headers: requestHeaders });
 
-/** What a mailed deletion link came to short of a throw: the account gone, or the link refused by the library. */
-export type OwnAccountDeletion = "deleted" | "linkRefused";
+/**
+ * What a mailed deletion link came to short of a throw: the account gone; the link refused by the library, nothing
+ * erased; or the link spent by a press the backend's erasure then refused, nothing erased, which only a fresh link
+ * repairs.
+ */
+export type OwnAccountDeletion = "deleted" | "linkRefused" | "spentUnerased";
+
+/**
+ * A press that failed after the library spent its link, other than by the backend's refusal: the league's records may
+ * stand erased or not, and the account deleted or not.
+ */
+export class DeletionOutcomeUnknown extends Error {
+  override name = "DeletionOutcomeUnknown";
+
+  constructor(cause: unknown) {
+    super("The deletion failed after its link was spent.", { cause });
+  }
+}
 
 /**
  * Completes a mailed deletion link for the session `requestHeaders` names, `loeschenRecords` erasing that
- * person's league records first; a throw of the erasure, or of the store past it, comes back as thrown.
+ * person's league records first. A failure before the library spends the link comes back as thrown; one after it
+ * as `spentUnerased` or `DeletionOutcomeUnknown`.
  */
 export async function deleteOwnAccount(
   token: string,
@@ -78,17 +97,23 @@ export async function deleteOwnAccount(
   // The library reads an empty token as a request for a new link, which it would mint and mail: no link at all.
   if (token === "") return "linkRefused";
 
+  const press: DeletionPress = { erase: loeschenRecords, linkSpent: false };
   try {
-    const answer = await ownLoeschung.run(loeschenRecords, () => auth.api.deleteUser({ body: { token: token }, headers: requestHeaders }));
+    const answer = await ownLoeschung.run(press, () => auth.api.deleteUser({ body: { token: token }, headers: requestHeaders }));
     // The library's own word for a deletion, never the absence of a throw. Its one other answer, a link's, comes
     // only for an empty token, which the guard above refuses first: no case reaches this check alone.
     if (answer.message !== ACCOUNT_DELETED) throw new DeletionNotAnswered();
     return "deleted";
   } catch (failed) {
-    // The library's own refusals alone: a token spent, lapsed or another account's -- spent all the same
-    // -- or no session it reads. Nothing was erased or deleted for any of them.
-    if (isAPIError(failed)) return "linkRefused";
-    throw failed;
+    if (!press.linkSpent) {
+      // The library's own refusals alone: a token spent, lapsed or another account's -- spent all the same
+      // -- or no session it reads. Nothing was erased or deleted for any of them.
+      if (isAPIError(failed)) return "linkRefused";
+      throw failed;
+    }
+    // The backend refused the erasure, which writes nothing: the link is spent all the same.
+    if (failed instanceof APIBadStatusError && isRefusalCode(failed.serverErrorCode)) return "spentUnerased";
+    throw new DeletionOutcomeUnknown(failed);
   }
 }
 
