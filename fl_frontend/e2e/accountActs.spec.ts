@@ -11,6 +11,7 @@
  */
 import { expect } from "@playwright/test";
 
+import { answerOf } from "./support/actionAnswer";
 import { test } from "./support/journey";
 import { filedMessages, mailedLink } from "./support/mailSink";
 import { signInWithCode, signInWithCodeHere } from "./support/signIn";
@@ -108,11 +109,10 @@ test("a person changes their address: the address on file confirms first, then t
   await field.fill(newAddress);
   // The start's own answer, read before any mail is waited for: a refusal shows only the shared failure line on the
   // page, and the answer's body names its code, which a failure here prints.
-  const started = page.waitForResponse(
-    async (response) => response.request().method() === "POST" && (await response.request().headerValue("next-action")) !== null,
-  );
-  await page.getByRole("button", { name: "Link senden" }).click();
-  expect(await (await started).text(), "the start's action answered a refusal").toMatch(/"ok":true/);
+  const started = await answerOf(page, "/account/signin", async () => {
+    await page.getByRole("button", { name: "Link senden" }).click();
+  });
+  expect(started.body, "the start's action answered a refusal").toMatch(/"ok":true/);
 
   // The address on file's link asks it first, naming the address the change goes to.
   const previousLink = await mailedLink(leaver, "Änderung der E-Mail-Adresse", before);
@@ -169,18 +169,17 @@ test("the person deletes their account from the mailed link, signed out when it 
 
   // The deletion ends the caller's own session, so the action's answer is the done page's render alone: the link's
   // page is never rendered again under a session that is gone.
-  const answered = page.waitForResponse(
-    async (response) => response.request().method() === "POST" && (await response.request().headerValue("next-action")) !== null,
-  );
-  await page.getByRole("button", { name: "Konto löschen" }).click();
-  const response = await answered;
-  expect(await response.headerValue("x-action-redirect")).toMatch(/^\/erasure\/done/);
+  const answer = await answerOf(page, "/erasure", async () => {
+    await page.getByRole("button", { name: "Konto löschen" }).click();
+  });
+  expect(answer.headers["x-action-redirect"]).toMatch(/^\/erasure\/done/);
   // The library's own deletion of the session's cookie reached the action's answer, which is what makes Next render a
   // page again at all, and what the redirect turns to the done page alone.
-  expect(await response.headerValue("set-cookie"), "the action's answer deleted no session cookie").toMatch(/session_token=;[^,]*Max-Age=0/i);
-  const body = await response.text();
-  expect(body, "the action's answer renders the link's page again").not.toContain("Alles oben wird endgültig gelöscht.");
-  expect(body, "the action's answer carries no render of the done page").toContain("Konto gelöscht");
+  expect(answer.setCookies, "the action's answer deleted no session cookie").toContainEqual(
+    expect.stringMatching(/session_token=;.*Max-Age=0/i),
+  );
+  expect(answer.body, "the action's answer renders the link's page again").not.toContain("Alles oben wird endgültig gelöscht.");
+  expect(answer.body, "the action's answer carries no render of the done page").toContain("Konto gelöscht");
 
   await expect(page).toHaveURL(/\/erasure\/done$/);
   await expect(page.getByRole("heading", { name: "Konto gelöscht" })).toBeVisible();
