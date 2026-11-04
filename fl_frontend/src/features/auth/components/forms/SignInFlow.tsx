@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 import { SignInPage } from "@/kit/SignInPage";
 import { useFormAction } from "@/kit/useFormAction";
 
+import { loadAuthClient, usePreloadedAuthClient } from "@/core/auth/browserClient";
 import { RETURN_PARAMETER, withReturnAddress } from "@/core/auth/returnAddress";
 import { COPY } from "@/core/copy";
 import { TURNSTILE_FIELD } from "@/core/turnstileToken";
@@ -30,10 +31,7 @@ export function SignInFlow({ next, siteKey }: { next: string; siteKey: string })
   const landing = withReturnAddress(next, useSearchParams().get(RETURN_PARAMETER));
   const humanCheck = useTurnstile(siteKey);
 
-  // The library's client in a chunk of its own, off the page's first load, and fetched once the page stands: a press
-  // then awaits a module already here, and a passkey prompt keeps the gesture that asked for it. A fetch that failed
-  // here is the press's to answer, which asks again.
-  useEffect(() => void import("@/core/authClient").catch(() => undefined), []);
+  usePreloadedAuthClient();
 
   // The send answers every address alike: the code view and its sentence are written here from the address
   // the action folded, never from what the action says, so a member's answer and a stranger's cannot differ.
@@ -73,8 +71,8 @@ export function SignInFlow({ next, siteKey }: { next: string; siteKey: string })
       setCodeFehler(null);
 
       // A rejection, a network that failed, reaches no error boundary from here and would leave the boxes busy for good.
-      const error = await import("@/core/authClient")
-        .then(({ authClient }) => authClient.signIn.emailOtp({ email: address, otp: code }))
+      const error = await loadAuthClient()
+        .then((authClient) => authClient.signIn.emailOtp({ email: address, otp: code }))
         .then(
           (result) => result.error,
           (failed: unknown) => failed,
@@ -127,8 +125,8 @@ export function SignInFlow({ next, siteKey }: { next: string; siteKey: string })
     setPasskeyFehler(null);
 
     // A rejection reaches no error boundary from here, and would leave the button busy for good.
-    const error = await import("@/core/authClient")
-      .then(({ authClient }) => authClient.signIn.passkey())
+    const error = await loadAuthClient()
+      .then((authClient) => authClient.signIn.passkey())
       .then(
         (result) => result.error,
         (failed: unknown) => failed,

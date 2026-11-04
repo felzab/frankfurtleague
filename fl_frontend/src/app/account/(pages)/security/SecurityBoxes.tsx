@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { AccountBox, AccountRows } from "@/kit/AccountBox";
 import { TextField } from "@/kit/TextField";
 
+import { loadAuthClient } from "@/core/auth/browserClient";
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 import { signOutOthers } from "@/features/konto/personActions";
@@ -52,7 +53,7 @@ export function SecurityBoxes({
 
   // The library's own registration, a request of the browser's past every server action: the page is read again.
   const setUp = async (): Promise<ActionAnswer> => {
-    const { authClient } = await import("@/core/authClient");
+    const authClient = await loadAuthClient();
     const { error } = await authClient.passkey.addPasskey();
     if (error !== null) return { ok: false, reason: SET_UP_REFUSED(error.status) };
     router.refresh();

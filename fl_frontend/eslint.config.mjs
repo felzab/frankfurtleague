@@ -394,17 +394,17 @@ const IMPORT_BANS = [
   importBan(CATALOGUE_BRAND, EVERY, { allow: ["src/core/serverCopy.ts"] }),
   ...BACKGROUND_PASS_BANS,
   // `no-restricted-imports` reads import and export declarations alone, so an `import()` would pass every ban above.
-  // The two files spared are the runtime split, Next's documented shape, and the boot, which turns the settings'
-  // failed validation into its refusal. The sign-in's browser client is admitted by its specifier in every file: no
-  // ban above names it, so loading it on a press passes none by, and a page carries its weight only once pressed.
+  // The files spared are the runtime split, Next's documented shape; the boot, which turns the settings' failed
+  // validation into its refusal; and the sign-in's browser client's one loader, which no ban above names, so a page
+  // carries the client's weight only once a press asks for it.
   ban(
     "no-restricted-syntax",
     syntax(
-      "ImportExpression:not([source.value='@/core/authClient'])",
+      "ImportExpression",
       "Import a module statically: the import bans read import and export declarations alone, so an `import()` passes every one of them.",
     ),
     PRODUCTION,
-    { allow: ["src/instrumentation.ts", "src/instrumentation-node.ts"] },
+    { allow: ["src/instrumentation.ts", "src/instrumentation-node.ts", "src/core/auth/browserClient.ts"] },
   ),
 ];
 
