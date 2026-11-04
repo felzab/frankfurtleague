@@ -23,7 +23,7 @@ import {
   saveSpielerConsent,
 } from "@/features/konto/personActions";
 
-import type { Copy } from "@/core/copy";
+import type { Copy, Words } from "@/core/copy";
 import type { FLEinwilligungStand, FLEinwilligungUmfang, FLKontaktKenntnisnahmeUmfang } from "@/core/generated/client/types";
 import type { Fact } from "@/kit/Facts";
 
@@ -38,10 +38,10 @@ type Save =
   | { kind: "seat"; team_id: string; saison_id: string }
   | { kind: "bewerbung"; bewerbung_id: string };
 
-/** One record of the person's, as its box shows it: what it is, what the league stores, and its two choices. */
+/** One record of the person's, as its box shows it: what it is, a team's seats titled by the team's own name, what the league stores, and its two choices. */
 export type Entry = {
   readonly id: string;
-  readonly title: Copy;
+  readonly title: Words;
   readonly description: Copy;
   readonly facts: readonly Fact[];
   readonly save: Save;

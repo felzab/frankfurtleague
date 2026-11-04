@@ -1,4 +1,4 @@
-import { COPY } from "@/core/copy";
+import { COPY, textOf } from "@/core/copy";
 
 import { Button } from "./Button";
 import { cardSurface } from "./cardStyles";
@@ -6,7 +6,7 @@ import { ConfirmDialog } from "./ConfirmDialog";
 import { HelpPopover } from "./HelpPopover";
 import { tv } from "./tv";
 
-import type { Copy } from "@/core/copy";
+import type { Copy, Words } from "@/core/copy";
 import type { ReactNode } from "react";
 import type { ConfirmDialogProps } from "./ConfirmDialog";
 
@@ -18,7 +18,7 @@ export type DangerAct = {
   name: Copy;
   consequence: Copy;
   /** The question its button opens; the button carries the question's verb and tone. */
-  confirm: Omit<ConfirmDialogProps, "trigger">;
+  confirm: Omit<ConfirmDialogProps, "trigger" | "open">;
 };
 
 function DangerRow({ act }: { act: DangerAct }) {
@@ -45,9 +45,9 @@ function DangerRow({ act }: { act: DangerAct }) {
  * A section's title, 16 px semibold, one step under the page's: an editor's or a Konto page's box, a read
  * page's group, the filter sheet, and a dialog's group of fields, one level under the dialog's own title.
  */
-export function SectionTitle({ text, level = 2 }: { text: Copy; level?: 2 | 3 }) {
+export function SectionTitle({ text, level = 2 }: { text: Words; level?: 2 | 3 }) {
   const Heading = level === 2 ? "h2" : "h3";
-  return <Heading className="text-base font-semibold">{text}</Heading>;
+  return <Heading className="text-base font-semibold">{textOf(text)}</Heading>;
 }
 
 /**
