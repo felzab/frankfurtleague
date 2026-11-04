@@ -313,8 +313,7 @@ def test_a_season_whose_third_place_match_is_not_played_reads_running_its_last_r
     ("finale_nrs", "marked"),
     [
         pytest.param((2, 3), {1: False, 2: True, 3: False}, id="the draw's two mark the lower-numbered"),
-        pytest.param((2,), {1: False, 2: False}, id="a final alone, as a bracket of two clubs draws it, marks none"),
-        pytest.param((2, 3, 4), {1: False, 2: False, 3: False, 4: False}, id="three wired by hand mark none"),
+        pytest.param((2,), {1: False, 2: False}, id="a final alone, its match for third place not yet recorded, marks none"),
     ],
 )
 def test_the_read_marks_the_match_for_third_place_only_on_a_finale_of_the_draws_two(
@@ -322,8 +321,8 @@ def test_the_read_marks_the_match_for_third_place_only_on_a_finale_of_the_draws_
 ):
     """The mark as the Finale read hands it to `podium_of`, beside a group match, which never carries it.
 
-    Read off the pipeline rather than the landing: a mark on a lone final or a hand-wired third match leaves the season
-    running either way, so only the read's own rows show it.
+    Read off the pipeline rather than the landing: a mark on a lone final leaves the season running either way, so only
+    the read's own rows show it.
     """
 
     seeded(
@@ -409,20 +408,6 @@ def finale_match(
             id="third place still to play",
         ),
         pytest.param([finale_match(("Alpha", 1), ("Beta", 1), third=False)], [], id="a level final with no shoot-out names nobody"),
-        pytest.param(
-            [finale_match(("Alpha", 1), ("Beta", 0), third=False)],
-            [(1, "Alpha"), (2, "Beta")],
-            id="a final alone, as a bracket of two clubs draws it, gives the first two places",
-        ),
-        pytest.param(
-            [
-                finale_match(("Cara", 0), ("Dora", 1), third=True),
-                finale_match(("Alpha", 1), ("Beta", 0), third=False),
-                finale_match(("Emil", 2), ("Fritz", 0), third=False),
-            ],
-            [],
-            id="a Finale wired by hand past the draw's two names nobody",
-        ),
         pytest.param(
             [finale_match(("Alpha", 1), ("Beta", 0), third=False), finale_match(("Cara", 0), ("Dora", 1), third=True)],
             [(1, "Alpha"), (2, "Beta"), (3, "Dora"), (4, "Cara")],

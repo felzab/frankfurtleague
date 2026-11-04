@@ -247,8 +247,9 @@ def _third_place_stages() -> list[Mapping[str, Any]]:
     """Mark the match for third place: of a Finale matchday holding the two the draw writes, the lower-numbered.
 
     Told apart by number rather than by a `verlierer` source, which an admin may clear by hand: the draw numbers the
-    match for third place just ahead of the final, and no save renumbers a match. A Finale holding more than the draw
-    writes was wired by hand, and marks none. The one rule, which `podium_of` reads off the mark.
+    match for third place just ahead of the final, and no save renumbers a match. A season whose match for third place
+    is not yet recorded holds its final alone, and that final is never marked. The one rule, which `podium_of` reads off
+    the mark.
     """
 
     return [
@@ -801,10 +802,6 @@ def podium_of(finale: Sequence[FLSpielJoinedInternal]) -> list[tuple[int, FLSpie
     a group's placings keep (`in_the_season_when_decided`): still a decided place, so a season whose fourth place is
     vacant has all four in.
     """
-
-    # A matchday holding more than the draw writes was wired by hand, and it names nobody.
-    if not 1 <= len(finale) <= 2:
-        return []
 
     places: list[tuple[int, FLSpielTeamFieldJoinedInternal | None]] = []
     for spiel in finale:

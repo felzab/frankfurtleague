@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
 from app.api.saisons.schemas import FLSaisonRules
-from app.api.spiele.schemas import KNOCKOUT_PHASES, MAX_QUALIFIERS
+from app.api.spiele.schemas import KNOCKOUT_PHASES, MAX_QUALIFIERS, MIN_QUALIFIERS
 from app.shared.schemas.literals import FLSaisonPhase
 
 
@@ -61,7 +61,7 @@ def knockout_phases_for(qualifiers: int) -> tuple[FLSaisonPhase, ...]:
     renaming a round anybody plays. Empty for anything not a power of two in range.
     """
 
-    if qualifiers < 2 or qualifiers > MAX_QUALIFIERS or qualifiers & (qualifiers - 1) != 0:
+    if qualifiers < MIN_QUALIFIERS or qualifiers > MAX_QUALIFIERS or qualifiers & (qualifiers - 1) != 0:
         return ()
 
     rounds = qualifiers.bit_length() - 1
