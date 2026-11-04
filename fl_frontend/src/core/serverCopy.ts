@@ -585,13 +585,13 @@ export const SERVER_COPY = catalogue({
               `jeder Link ${formatNumber(bound.addressChangeLinkHours)} Stunden; Adressen und Grund bis zu ihrem Ende, der Rest 30 Tage danach`,
           },
           { name: "Änderungsprotokoll", content: "Änderungen", period: "12 Monate" },
-          // A host script's, `scripts/ops/export_journal.sh :: JOURNAL_DAYS`, each day's file counted from its last change.
+          // The end state's one store: the erasure journal is written as the server's own journald lines, kept nine days,
+          // so the host script that exports a day file today states nothing here.
           {
-            name: "Löschungen und Widerrufe",
-            content: "Art, Zeitpunkt und Datensatz, die Adresse pseudonymisiert, auch zu Adressänderungen und Anträgen auf Zugang",
-            period: "30 Tage",
+            name: "Protokolle des Servers",
+            content: "Aufrufe, Anmeldungen, Löschungen und Widerrufe, die Adresse pseudonymisiert",
+            period: "9 Tage",
           },
-          { name: "Protokolle des Servers", content: "Aufrufe, Anmeldungen, Löschungen", period: "9 Tage" },
           { name: "Unsere E-Mails", content: "Inhalt, Adresse, Zustellstand", period: "Inhalt bis zum Versand, der Rest 30 Tage danach" },
           { name: "E-Mails bei Resend", content: "Adresse, Betreff, Inhalt", period: "30 Tage, in Sicherungen bis 7 Tage länger" },
           { name: "E-Mails bei Cloudflare", content: "Absender, Empfänger, Betreff", period: "31 Tage" },
