@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { useState } from "react";
+import { Activity, useState } from "react";
 
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -18,6 +18,7 @@ import { useEditor } from "./useEditor";
 
 import type { ActionAnswer } from "@/core/action";
 import type * as Navigation from "next/navigation";
+import type { ReactElement } from "react";
 import type { EditorSave } from "./useEditor";
 
 // The route dialog's way back, which jsdom's history, one entry long, sends to the page beneath.
@@ -132,7 +133,83 @@ describe("the kit's confirmation", () => {
 
     expectTheSharedOverlay(screen.getByRole("alertdialog"));
   });
+
+  it("closes once Next hides its page, though the control asking holds its open state in a plain one", async () => {
+    await leaveAndReturnWithOpen(HeldQuestion, "alertdialog");
+
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+  });
 });
+
+/** A control asking its question through an open state of its own, a plain one, as Konto's removal holds it. */
+function HeldQuestion() {
+  const [isOpen, setOpen] = useState(false);
+  return (
+    <>
+      <Button
+        variant="secondary"
+        label={COPY.shared.verb.delete}
+        onPress={() => setOpen(true)}
+      />
+      <ConfirmDialog
+        verb="delete"
+        subject={NAME}
+        consequence={COPY.shared.failure.stale}
+        tone="danger"
+        onConfirm={() => undefined}
+        open={{ isOpen, onOpenChange: setOpen }}
+      />
+    </>
+  );
+}
+
+/** A control opening its dialog through an open state of its own, a plain one. */
+function HeldDialog() {
+  const [isOpen, setOpen] = useState(false);
+  return (
+    <>
+      <Button
+        variant="secondary"
+        label={COPY.shared.verb.create}
+        onPress={() => setOpen(true)}
+      />
+      <Dialog
+        title={NAME}
+        act={{ verb: "create", object: NAME }}
+        action={async () => DONE}
+        open={{ isOpen, onOpenChange: setOpen }}>
+        <TextField
+          label={INPUT}
+          name="created"
+          width="W3"
+          kind="text"
+        />
+      </Dialog>
+    </>
+  );
+}
+
+/**
+ * Opens the overlay a page holds by its one button, then leaves the page and comes back: Next keeps a departed page
+ * in a hidden `Activity`, its state with it, and shows it again on the way back.
+ */
+async function leaveAndReturnWithOpen(Page: () => ReactElement, role: "dialog" | "alertdialog") {
+  const { rerender } = render(
+    <Activity mode="visible">
+      <Page />
+    </Activity>,
+  );
+  await userEvent.click(screen.getByRole("button"));
+  expect(screen.getByRole(role)).toBeTruthy();
+  for (const mode of ["hidden", "visible"] as const)
+    await act(async () =>
+      rerender(
+        <Activity mode={mode}>
+          <Page />
+        </Activity>,
+      ),
+    );
+}
 
 describe("the route dialog", () => {
   it("is named by its title, and closes from the button in its corner", async () => {
@@ -283,6 +360,15 @@ describe("the kit's dialog", () => {
     expect((screen.getByRole("textbox", { name: INPUT }) as HTMLInputElement).value).toBe("Sportpark Süd");
     await userEvent.click(screen.getByRole("button", { name: COPY.shared.back }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  });
+
+  it.each([
+    ["opened by its own trigger", () => <CreateDialog create={async () => DONE} />],
+    ["opened by a control holding its open state in a plain one", HeldDialog],
+  ])("closes once Next hides its page, %s", async (_opening, Page) => {
+    await leaveAndReturnWithOpen(Page, "dialog");
+
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 });
 

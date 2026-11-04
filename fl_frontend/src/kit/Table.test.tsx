@@ -199,11 +199,12 @@ describe("a table on a phone", () => {
   });
 
   // A row drawn as a grid on a phone loses the table semantics an engine infers from its elements, so the table, its
-  // rows and its heads say their roles in writing; a part left without one reads as a plain box there.
-  it("writes the table's, its rows' and its heads' roles, so a row drawn as a grid keeps its semantics", () => {
+  // rows, its heads and its cells say their roles in writing; a part left without one reads as a plain box there.
+  it("writes the table's, its rows', its heads' and its cells' roles, so a row drawn as a grid keeps its semantics", () => {
     render(
       <Table
-        {...props([{ id: "1", name: { record: "Goethe" }, href: "/saisons/2027", cells: { stadtteil: { record: "Nordend" } } }])}
+        {...props([{ id: "1", name: { record: "Goethe" }, href: "/saisons/2027", place: 1, cells: { stadtteil: { record: "Nordend" } } }])}
+        rankLabel={COPY.shared.saison}
         prose
       />,
     );
@@ -211,6 +212,10 @@ describe("a table on a phone", () => {
     expect(table.getAttribute("role")).toBe("table");
     for (const row of table.querySelectorAll("tr")) expect(row.getAttribute("role")).toBe("row");
     for (const head of table.querySelectorAll("th")) expect(head.getAttribute("role")).toBe("columnheader");
+    // The rank, the name, the column and the chevron in the record's row, and the chevrons' empty head.
+    const cells = table.querySelectorAll("td");
+    expect(cells).toHaveLength(5);
+    for (const cell of cells) expect(cell.getAttribute("role")).toBe("cell");
   });
 
   it("leaves the chevron out, the whole row still the link", () => {
