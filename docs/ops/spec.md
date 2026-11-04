@@ -368,7 +368,8 @@ prefix because every page under it is a link page**, so a page added there is me
 exists; a link page added anywhere else needs an exact match and its twin, as `/registrierung` and
 `/erasure` have. **`scripts/checks/check_public_routes.py :: LINK_ZONES` holds every link page to a
 location naming that pair, at its URL and at its twin's, each zone on one `limit_req` line in every
-block naming it**: a link page is one whose own module reads `token` from its search parameters, or
+block naming it**: a link page is one whose own module reads `token` from its search parameters or
+through the proxy's mailed-link reader (`fl_frontend/src/core/mailedLink.ts :: mailedLinkToken`), or
 one a module under `fl_frontend/src` mints a `?token=` link to, so a page reading the token through
 another module is found by its minter, and a `?token=` the checker cannot place refuses the run. Each block restates
 `location /`'s ceiling and action pair, sets `$link_page`, and declares no `proxy_set_header`,
