@@ -36,7 +36,9 @@ you write one; the strings themselves live in the catalogue, `fl_frontend/src/co
 
 - **One typed catalogue, German only, keyed by area.** Its `shared` section comes first and every
   area draws from it; an area adds a key of its own only for a string `shared` lacks. No test hunts
-  duplicate text, so review is what keeps a second „Gespeichert“ out.
+  duplicate text, so review is what keeps a second „Gespeichert“ out. A string only the server
+  reads, a mail, a refusal's sentence or a page's description among them, lives in its second
+  object, `fl_frontend/src/core/serverCopy.ts :: SERVER_COPY`, so no client bundle carries it.
 - **A component's text prop takes `fl_frontend/src/core/copy.ts :: Copy`, or a record's own data as
   `{ record }` (`Words`)**, so a string typed into a page does not compile, and lint refuses a
   literal inside a `{ record }`. A prop holding a block, such as a door's act, takes a
@@ -187,4 +189,8 @@ A date field shows „tt.mm.jjjj“ and a time field „––:––“ while e
 ## Legal text keeps its own rules
 
 - **Semicolons are allowed here alone.**
-- **A consent wording a stored record references stays as it was shown**, superseded or not.
+- **A consent's label is its whole sentence**, past a field label's 3 words, because the sentence
+  is what the person agrees to.
+- **A consent wording a stored record references stays as it was shown**, superseded or not: it
+  lives outside the catalogue, in `fl_frontend/src/core/consentWordings.ts :: CONSENT_WORDINGS`,
+  where new words are a new label beside it.

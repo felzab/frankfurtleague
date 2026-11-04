@@ -61,9 +61,8 @@ changes state outside the cache, the sign-in store's, calls `refresh()` itself. 
 response clears nothing, so no league write moves there. The old
 `fl_frontend/src/shared/utils/adminMutation.ts :: runGuardedMutation`, and
 `fl_frontend/src/shared/utils/publicRoute.ts :: handlePublicRequest` for a route handler, clear it
-after a write that may stand. The league's reads keep Next's `minutes` lifetime; the read of a
-`Fassung` (`fl_frontend/src/core/einwilligung.ts :: getEinwilligungFassung`) keeps the longest,
-since a label's words never change. **The administration's reads are not cached**: each runs through
+after a write that may stand. The league's reads keep Next's `minutes` lifetime. **The
+administration's reads are not cached**: each runs through
 `fl_frontend/src/shared/utils/adminRead.ts :: runAdminRead`, which judges the session first.
 
 **A change no save makes, a background pass's or an edit made straight in MongoDB, is served stale
