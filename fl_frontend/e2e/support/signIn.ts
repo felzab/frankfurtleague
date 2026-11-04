@@ -75,11 +75,11 @@ export async function signInWithCode(page: Page, address: string): Promise<void>
   await page.getByRole("textbox", { name: "Code aus der E-Mail" }).pressSequentially(code);
 }
 
-/** The account page renders for a session alone: without one it sends the visitor to `/signin`. */
+/** Konto's Anmeldung renders for a session alone: without one it sends the visitor to `/signin`. */
 export async function expectAccountPageOf(page: Page, address: string): Promise<void> {
-  await page.goto("/bereich/konto");
+  await page.goto("/account/signin");
 
-  await expect(page).toHaveURL(/\/bereich\/konto$/);
+  await expect(page).toHaveURL(/\/account\/signin$/);
   await expect(page.getByText(address, { exact: true })).toBeVisible();
 }
 

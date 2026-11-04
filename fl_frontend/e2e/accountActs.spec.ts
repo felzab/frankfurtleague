@@ -1,8 +1,10 @@
 /**
  * E2E · J8, a person's account acts, under each project: the address change through its two mailed links, the address
  * on file asked first, then the new mailbox; then the deletion through its mailed link, opened signed out and carried
- * through the sign-in, its action leading to the page that needs no session. Konto's own steps, the address box and
- * the deletion box, are named by the board's words, which Konto's page is built to.
+ * through the sign-in, its action leading to the page that needs no session. Before them Konto's frame: the phone's
+ * list of its four pages and the way back through it, the desktop's rail, Darstellung, and „Alle anderen abmelden“ with
+ * a second device. Konto's steps are named by the board's words, which Konto's pages are built to. The passkeys are
+ * `desktop/kontoPasskeys.spec.ts`'s.
  *
  * The person is the project's `leaver`, an address no other journey signs in as: the change moves their records and the
  * deletion erases them, which would break any journey after this one reading them.
@@ -29,12 +31,72 @@ async function signIn(page: Page, address: string): Promise<void> {
   await expect(page).toHaveURL(/\/bereich/);
 }
 
+test("Konto's frame, Darstellung and „Alle anderen abmelden“, on one sign-in and a second device's", async ({
+  page,
+  browser,
+  proxy,
+  baseURL,
+  leaver,
+  isMobile,
+}) => {
+  // A second device, signed in first through the journey's own visitor. Two of the address's five codes an hour, the
+  // address change below the third.
+  const other = await browser.newContext({ proxy, baseURL });
+  const elsewhere = await other.newPage();
+  await signIn(elsewhere, leaver);
+  await signIn(page, leaver);
+
+  if (isMobile) {
+    // A phone opens Konto on the list of its four pages, with no bottom bar: the band's „Zurück“ is the way out.
+    await page.goto("/account");
+    const list = page.getByRole("main").getByRole("navigation", { name: "Konto" });
+    for (const name of ["Anmeldung", "Sicherheit", "Darstellung", "Deine Einträge"])
+      await expect(list.getByRole("link", { name })).toBeVisible();
+    await expect(page.getByRole("navigation", { name: "Navigation" })).toHaveCount(0);
+    await list.getByRole("link", { name: "Sicherheit" }).click();
+    await expect(page).toHaveURL(/\/account\/security$/);
+    await page.getByRole("link", { name: "Zurück" }).click();
+    await expect(page).toHaveURL(/\/account$/);
+    await page.getByRole("link", { name: "Zurück" }).click();
+    await expect(page).not.toHaveURL(/\/account/);
+  } else {
+    // A desktop's rail lists the four pages, „Zurück“ in its head leading out of Konto at once.
+    await page.goto("/account/signin");
+    const rail = page.getByRole("complementary").getByRole("navigation", { name: "Navigation" });
+    for (const name of ["Anmeldung", "Sicherheit", "Darstellung", "Deine Einträge"])
+      await expect(rail.getByRole("link", { name })).toBeVisible();
+    await rail.getByRole("link", { name: "Sicherheit" }).click();
+    await expect(page).toHaveURL(/\/account\/security$/);
+    await page.getByRole("complementary").getByRole("link", { name: "Zurück" }).click();
+    await expect(page).not.toHaveURL(/\/account/);
+  }
+
+  // Darstellung acts at once, with the account menu's three glyphs.
+  await page.goto("/account/appearance");
+  await page.getByRole("main").getByRole("button", { name: "Dunkel" }).click();
+  await expect(page.locator("html")).toHaveClass(/dark/);
+  await page.getByRole("main").getByRole("button", { name: "Hell" }).click();
+  await expect(page.locator("html")).not.toHaveClass(/dark/);
+
+  // „Alle anderen abmelden“ asks first, then ends the other device's session and keeps this one.
+  await page.goto("/account/security");
+  await page.getByRole("button", { name: "Alle anderen abmelden" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Abmelden" }).click();
+  await expect(page.getByText("Alle abgemeldet", { exact: true })).toBeVisible();
+  await expect(page.getByText("Du bist auf 1 Gerät angemeldet.")).toBeVisible();
+  await elsewhere.goto("/account/signin");
+  await expect(elsewhere).toHaveURL(/\/signin/);
+  await page.goto("/account/signin");
+  await expect(page).toHaveURL(/\/account\/signin$/);
+  await other.close();
+});
+
 test("a person changes their address: the address on file confirms first, then the new mailbox", async ({ page, context, leaver }) => {
   const newAddress = newAddressOf(leaver);
   await signIn(page, leaver);
 
   // Konto's address box: the new address, and the link it sends.
-  await page.goto("/bereich/konto/signin");
+  await page.goto("/account/signin");
   const before = await filedMessages();
   await page.getByLabel("Neue E-Mail-Adresse").fill(newAddress);
   await page.getByRole("button", { name: "Link senden" }).click();
@@ -69,7 +131,7 @@ test("the person deletes their account from the mailed link, signed out when it 
   await signIn(page, address);
 
   // Konto's deletion box mails the link; its dialog asks first.
-  await page.goto("/bereich/konto/signin");
+  await page.goto("/account/signin");
   const before = await filedMessages();
   await page.getByRole("button", { name: "Konto löschen" }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Konto löschen" }).click();
