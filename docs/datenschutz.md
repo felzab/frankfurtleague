@@ -284,7 +284,7 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
     report's remarks naming a pupil by name or by shirt number, and an erasure's `anlass`;
   - the deletion link's Postausgang row, until its secret lapses with the link, 24 hours after it was
     minted (`fl_backend/app/api/outbox/services.py :: row_of`,
-    `fl_frontend/src/core/loeschungEmail.ts :: LOESCHUNG_LINK_GUELTIG_STUNDEN`);
+    `fl_frontend/src/core/loeschungEmail.ts :: ERASURE_LINK_VALID_HOURS`);
   - a registration link's entry, which names no subject, and the action log's rows written under an
     earlier address's pseudonym, until the log's twelve months.
 - **A retired row is never removed because of its age**: a referee who stopped, a club that left and

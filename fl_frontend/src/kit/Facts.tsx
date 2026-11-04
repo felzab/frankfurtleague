@@ -73,6 +73,9 @@ export function Facts({
   look?: "boxed" | "free";
 }) {
   const { list } = facts({ look });
+  // A row's key is its label and how many rows above it hold that label: keys are unique among siblings, and a caller
+  // may list two records under one label, so the label alone would collide.
+  const above = new Map<Copy, number>();
   return (
     <div className="@container grid gap-2 text-sm">
       {subject !== undefined && (
@@ -89,9 +92,11 @@ export function Facts({
         {rows.map((fact) => {
           const { row, term, detail } = facts({ look, figures: fact.figures === true });
           const to = fact.link ?? fact.elsewhere;
+          const nth = above.get(fact.label) ?? 0;
+          above.set(fact.label, nth + 1);
           return (
             <div
-              key={fact.label}
+              key={`${nth}:${fact.label}`}
               className={row()}>
               <dt className={term()}>
                 {fact.glyph !== undefined && (
