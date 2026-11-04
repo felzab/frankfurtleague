@@ -42,14 +42,14 @@ export const messageLine = tv({
 
 /**
  * A form's status line, at its acts: always there and at least one line tall, so an outcome appearing moves
- * nothing. Beside the acts in a row it shares the row and is cut at its second line; under them in a column,
- * as on the sign-in, it takes every line a refusal needs.
+ * nothing, and never cut, since a sentence's end is what says what happened. Beside the acts in a row it takes the
+ * room the acts leave, wrapping there; under them in a column, as on the sign-in, it takes the whole width.
  */
 export const statusLine = tv({
   base: "min-h-5 text-sm",
   variants: {
     placement: {
-      row: "line-clamp-2 min-w-0 flex-1",
+      row: "min-w-0 flex-1",
       column: "",
     },
     tone: {

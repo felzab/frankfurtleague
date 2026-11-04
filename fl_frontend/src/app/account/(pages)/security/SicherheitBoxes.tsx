@@ -24,20 +24,21 @@ const SET_UP_REFUSED = (status: number): Copy => (status === 403 ? COPY.konto.pa
 /**
  * Sicherheit's two boxes: the passkeys, each a row with its rename and its removal, the set-up in the footer; and the
  * devices, with „Alle anderen abmelden“. `held` says the person holds a passkey, whose set-up and removal then ask the
- * passkey touch first; `limit` closes the set-up where no more may be added.
+ * passkey touch first; `setUpClosed` closes the set-up where the page knows it would be refused, and `lastKept` the
+ * removal of the one passkey an administrator must keep.
  */
 export function SicherheitBoxes({
   passkeys,
-  limit,
-  verwaltung,
+  setUpClosed,
+  lastKept,
   devices,
   name,
 }: {
   passkeys: readonly PasskeyRow[];
   /** Why no further passkey may be set up, or `undefined` where one may. */
-  limit: Copy | undefined;
-  /** An administrator's address, whose last passkey is kept. */
-  verwaltung: boolean;
+  setUpClosed: Copy | undefined;
+  /** Why the one passkey may not be removed, or `undefined` where every row's removal is open. */
+  lastKept: Copy | undefined;
   /** Geräte's sentence, the count of devices signed in. */
   devices: Copy;
   /** What the rename's write asks of the name, read off its schema on the server. */
@@ -80,12 +81,10 @@ export function SicherheitBoxes({
     remove: {
       verb: "delete",
       subject: PASSKEY,
-      consequence: passkey.thisDevice
-        ? COPY.konto.passkeys.endsThisDevice
-        : !verwaltung && passkeys.length === 1
-          ? COPY.konto.passkeys.lastOne
-          : COPY.konto.passkeys.endsDevices,
+      // Read after the touch, whose sign-in the page's session then is: `thisDevice` is the fresh page's answer.
+      consequence: passkey.thisDevice ? COPY.konto.passkeys.endsThisDevice : COPY.konto.passkeys.endsDevices,
       touch: true,
+      closed: lastKept,
       run: async () => {
         const answer = await removePasskeyAction({ id: passkey.id });
         // The removal ended the session this page runs in, so the page renders nothing again: it leaves as a new
@@ -101,7 +100,13 @@ export function SicherheitBoxes({
       <AccountBox
         title={COPY.konto.passkeys.title}
         description={COPY.konto.passkeys.description}
-        act={{ run: setUp, button: { label: COPY.shared.withObject(PASSKEY, "setUp") }, touch: held, closed: limit }}>
+        act={{
+          run: setUp,
+          button: { label: COPY.shared.withObject(PASSKEY, "setUp") },
+          touch: held,
+          closed: setUpClosed,
+          line: lastKept,
+        }}>
         {rows.length > 0 && <AccountRows rows={rows} />}
       </AccountBox>
       <AccountBox
