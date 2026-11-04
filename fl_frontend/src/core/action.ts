@@ -459,6 +459,21 @@ export function action<Schema extends z.ZodType, Value = undefined>(
 ): (raw: z.input<Schema> | FormData) => Promise<ActionAnswer<Value>> {
   return async (raw) => {
     const incoming = readTraceparent((await headers()).get(TRACEPARENT_HEADER));
-    return runWithRequestScope({ traceId: incoming ?? mintTraceId() }, () => guarded(lane, raw));
+    return runWithRequestScope({ traceId: incoming ?? mintTraceId() }, () => answered(lane, raw));
   };
+}
+
+/**
+ * The lane, its guards' own failures answered as the unexpected failure, as the body answers its own: a guard whose
+ * lookup the backend could not answer has written nothing, while the browser's catch of a thrown action reads the page
+ * again as though the press may have landed (`fl_frontend/src/kit/useFormAction.ts :: answering`).
+ */
+async function answered<Schema extends z.ZodType, Value>(lane: Lane<Schema, Value>, raw: unknown): Promise<ActionAnswer<Value>> {
+  try {
+    return await guarded(lane, raw);
+  } catch (error) {
+    unstable_rethrow(error);
+    logFailure(lane.name, error);
+    return UNEXPECTED;
+  }
 }
