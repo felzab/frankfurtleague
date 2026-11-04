@@ -1417,6 +1417,8 @@ export interface FLBewerbungAddressPayload {
   strasse: string;
 }
 
+export type FLBewerbungConfirmationDeadlineDays = 14;
+
 export type FLEinwilligungErgebnis = (typeof FLEinwilligungErgebnis)[keyof typeof FLEinwilligungErgebnis];
 
 export const FLEinwilligungErgebnis = {
@@ -1589,6 +1591,8 @@ export interface FLBewerbungKontaktEmailResponse {
   email: string;
   rollen: FLKontaktRolle[];
 }
+
+export type FLBewerbungKontaktMinAgeYears = 16;
 
 /**
  * The person seated where a contact person stepped out, who has agreed to nothing yet.
@@ -3128,6 +3132,8 @@ export interface FLLandingResponse {
   saison: FLLandingBeforeStart | FLLandingRunning | FLLandingDecided | null;
 }
 
+export type FLMedienMinAgeYears = 18;
+
 export type FLMedienTextVersion = "2026-11-medien-1";
 
 export type FLNameKaderTextVersion = "2026-11-name-kader-1";
@@ -4186,6 +4192,8 @@ export interface FLRegistrierungDeclineResponse {
   vorname: string;
 }
 
+export type FLRegistrierungMinAgeYears = 16;
+
 /**
  * One season's pass: the reminders owed and the erasures made, each committed.
  */
@@ -4463,6 +4471,8 @@ export interface FLSchiedsrichterAccountEinwilligungPayload {
   text_versions: FLSchiedsrichterTextVersions;
   umfang: FLEinwilligungUmfang;
 }
+
+export type FLSchiedsrichterConfirmationFristDays = 14;
 
 export interface FLSchiedsrichterConfirmationPayload {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
@@ -5934,6 +5944,8 @@ export interface FLUndrawSpielplanResponse {
   spieltage: number;
   watermark_cleared: boolean;
 }
+
+export type FLVertretungMinAgeYears = 18;
 
 export type FLWhatsappTextVersion = "2026-11-whatsapp-1";
 

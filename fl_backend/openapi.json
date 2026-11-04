@@ -3162,6 +3162,10 @@
         "title": "FLBewerbungConfirmation",
         "type": "object"
       },
+      "FLBewerbungConfirmationDeadlineDays": {
+        "const": 14,
+        "type": "integer"
+      },
       "FLBewerbungConfirmations": {
         "description": "The three seats' bookkeeping, each null where an erasure emptied the seat.",
         "properties": {
@@ -3613,6 +3617,10 @@
         ],
         "title": "FLBewerbungKontaktEmailResponse",
         "type": "object"
+      },
+      "FLBewerbungKontaktMinAgeYears": {
+        "const": 16,
+        "type": "integer"
       },
       "FLBewerbungKontaktSeatPayload": {
         "additionalProperties": false,
@@ -7706,6 +7714,10 @@
         "title": "FLLandingSide",
         "type": "object"
       },
+      "FLMedienMinAgeYears": {
+        "const": 18,
+        "type": "integer"
+      },
       "FLMedienTextVersion": {
         "const": "2026-11-medien-1",
         "type": "string"
@@ -10529,6 +10541,10 @@
         "title": "FLRegistrierungLinkData",
         "type": "object"
       },
+      "FLRegistrierungMinAgeYears": {
+        "const": 16,
+        "type": "integer"
+      },
       "FLRegistrierungPerson": {
         "description": "The stored person a confirmed registration's address resolves to, named so the team can be asked whether it is the same one.",
         "properties": {
@@ -11920,6 +11936,10 @@
         ],
         "title": "FLSchiedsrichterConfirmationData",
         "type": "object"
+      },
+      "FLSchiedsrichterConfirmationFristDays": {
+        "const": 14,
+        "type": "integer"
       },
       "FLSchiedsrichterConfirmationPayload": {
         "additionalProperties": false,
@@ -17776,6 +17796,10 @@
         ],
         "title": "FLUndrawSpielplanResponse",
         "type": "object"
+      },
+      "FLVertretungMinAgeYears": {
+        "const": 18,
+        "type": "integer"
       },
       "FLVerwaltung": {
         "enum": [
