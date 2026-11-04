@@ -29,13 +29,18 @@ export const PERSON_LIFETIME: Lifetime = { idle: 14 * DAY_MS, absolute: PERSON_W
 // one: an absolute figure here would keep a person's idle row alive past its own window.
 export const SESSION_EXPIRES_IN_DAYS = Math.max(ADMIN_LIFETIME.idle, PERSON_LIFETIME.idle) / DAY_MS;
 
+// How recent a passkey sign-in the passkey touch is: an act the touch guards asks one this recent of every person
+// holding a passkey, every time.
+export const PASSKEY_TOUCH_SECONDS = 60;
+
+// Redesign: goes with its last importer.
 // GitHub's re-authentication window, the widely adopted figure: a change to passkeys or sign-ins asks
 // again past it. Mirrored in `fl_backend/app/shared/schemas/bounds.py`,
 // whose step-up check refuses an administrator's step-up write from a sign-in older than it.
 export const STEP_UP_WINDOW_MS = 2 * HOUR_MS;
 
-// Narrower for ADDING a passkey, which outlives the session that adds it: a borrowed session would
-// otherwise leave its borrower a way in for good.
+// Redesign: goes with its last importer.
+// Narrower for a confirmation the old account forms ask before a change to passkeys.
 export const ENROLMENT_WINDOW_MS = 5 * 60 * 1000;
 
 function isYoungerThan(createdAt: Date | string, window: number): boolean {
@@ -46,13 +51,15 @@ function isYoungerThan(createdAt: Date | string, window: number): boolean {
   return Number.isFinite(created) && Date.now() - created < window;
 }
 
+// Redesign: goes with its last importer.
 // Both windows' predicates beside their figures rather than in `auth.ts`: every spine judging one reads
 // it here, and the suites doubling the sign-in store keep it real.
 export function isWithinStepUpWindow(createdAt: Date | string): boolean {
   return isYoungerThan(createdAt, STEP_UP_WINDOW_MS);
 }
 
-/** Adding a passkey asks a sign-in or confirmation this recent, whoever adds it. */
+// Redesign: goes with its last importer.
+/** The old account forms' confirmation before a change to passkeys asks a sign-in this recent. */
 export function isWithinEnrolmentWindow(createdAt: Date | string): boolean {
   return isYoungerThan(createdAt, ENROLMENT_WINDOW_MS);
 }

@@ -18,6 +18,7 @@ import { MongoServerError } from "mongodb";
 
 import { CODE_VALIDITY_MINUTES } from "./authEmail";
 import { MONGO_DB_NAME } from "./authIndexes";
+import { now } from "./clock";
 import { authSecret, frontend_config } from "./config";
 import { signInStore } from "./db";
 import { asSignInIdentifier } from "./emailAddress";
@@ -31,14 +32,7 @@ import { declaredCredentialId, PASSKEY_ASSERTION_PATH } from "./passkeyCeremony"
 import { passkeyLastUse } from "./passkeyLastUse";
 import { SIGN_IN_BARRED, SIGN_IN_HOLDS_NOTHING, USER_VERIFICATION_REFUSED } from "./passkeyRefusal";
 import { getRequestActor, oncePerRequest, setRequestActor } from "./requestScope";
-import {
-  ADMIN_LIFETIME,
-  isWithinEnrolmentWindow,
-  isWithinStepUpWindow,
-  PERSON_LIFETIME,
-  SESSION_EXPIRES_IN_DAYS,
-  STEP_UP_WINDOW_MS,
-} from "./sessionLifetimes";
+import { ADMIN_LIFETIME, isWithinStepUpWindow, PASSKEY_TOUCH_SECONDS, PERSON_LIFETIME, SESSION_EXPIRES_IN_DAYS } from "./sessionLifetimes";
 import { CODE_FAILURE_LIMIT, CODE_FAILURE_WINDOW_HOURS, CODE_MAIL_LIMIT, CODE_MAIL_WINDOW_HOURS, SIGN_IN_CODE_LENGTH } from "./signInCode";
 import { lookUpAnmeldung, lookUpSubjekt, mayReceiveSignIn, signInVerdictOf } from "./signInGate";
 import { HOUR_MS } from "./timeUnits";
@@ -64,6 +58,10 @@ const SESSION_EXPIRES_IN_SECONDS = SESSION_EXPIRES_IN_DAYS * 24 * 60 * 60;
 // hour together: kept under the seventh of a window Better Auth's documented example slides at.
 // Global, so persons' rows slide as often.
 const SESSION_UPDATE_AGE_SECONDS = 5 * 60;
+
+// The library's `freshAge`, which it holds both halves of a passkey enrolment to, measured from `createdAt`: a passkey
+// outlives the session adding it, so a session borrowed for longer than this adds none.
+const FRESH_SIGN_IN_SECONDS = 5 * 60;
 
 const CODE_VALIDITY_SECONDS = CODE_VALIDITY_MINUTES * 60;
 
@@ -173,13 +171,17 @@ function refuseUnverified(userVerified: boolean): void {
   throw new APIError("BAD_REQUEST", { code: USER_VERIFICATION_REFUSED, message: "The authenticator did not verify the user." });
 }
 
+/** As much of a session as the passkey touch judges: when it was made, and by which factor. */
+type SessionStamps = { readonly createdAt: Date | string; readonly authFactor?: unknown };
+
 /** As much of a served session as the step-up judges, beside whether its address holds a grant. */
 type StepUpCaller = {
   readonly user: { readonly email: string };
-  readonly session: { readonly createdAt: Date | string; readonly authFactor?: unknown };
+  readonly session: SessionStamps;
   readonly verwaltung: boolean;
 };
 
+// Redesign: goes with its last importer.
 /**
  * Whether a session was signed in -- or confirmed, which mints a new one -- recently enough to change
  * passkeys and sign-ins: by either factor for a person, by the passkey for an administrator.
@@ -190,19 +192,19 @@ export function isFreshlySignedIn(served: StepUpCaller): boolean {
   return !served.verwaltung || served.session.authFactor === PASSKEY_FACTOR;
 }
 
+/** Whether a session is the passkey touch: made by a passkey sign-in no longer than `PASSKEY_TOUCH_SECONDS` ago. */
+function isPasskeyTouch(session: SessionStamps): boolean {
+  const created = new Date(session.createdAt).getTime();
+  // An unreadable stamp is no touch, as `withinLifetime` reads one.
+  return session.authFactor === PASSKEY_FACTOR && Number.isFinite(created) && now().getTime() - created < PASSKEY_TOUCH_SECONDS * 1000;
+}
+
 /**
- * The stamp sits on the stored row and on neither arm's declared type, the library typing both to
- * its own base shape: read through `Reflect` rather than cast, so nothing here claims it is there.
+ * The stamps sit on the stored row and on neither arm's declared type, the library typing both to
+ * its own base shape: read through `Reflect` rather than cast, so nothing here claims they are there.
  */
-function asStepUpCaller(served: { user: { email: string }; session: object }, verwaltung: boolean): StepUpCaller {
-  return {
-    user: { email: served.user.email },
-    session: {
-      createdAt: Reflect.get(served.session, "createdAt") as Date | string,
-      authFactor: Reflect.get(served.session, "authFactor"),
-    },
-    verwaltung: verwaltung,
-  };
+function stampsOf(session: object): SessionStamps {
+  return { createdAt: Reflect.get(session, "createdAt") as Date | string, authFactor: Reflect.get(session, "authFactor") };
 }
 
 /** Logged where the grant was asked for, as the send gate's own failure is: the error's name alone. */
@@ -213,9 +215,8 @@ function logUnreadVerwaltung(failed: unknown): void {
 }
 
 /**
- * The gate's answer an enrolment is judged by, where an unread read must refuse rather than admit: an
- * enrolment held to the passkey for an administrator would otherwise relax to a person's, by mailed
- * code, while the backend is down.
+ * The gate's answer an enrolment is judged by, where an unread read must refuse rather than admit: a
+ * barred address would otherwise enrol while the backend is down.
  */
 async function enrolmentAnmeldung(email: string): Promise<AnmeldungRecords> {
   try {
@@ -227,12 +228,11 @@ async function enrolmentAnmeldung(email: string): Promise<AnmeldungRecords> {
 }
 
 /**
- * The grant an enrolment is judged by. A barred address enrols nothing, whatever it holds: its session
- * is one a ban's ending missed or a mint raced, and a passkey would outlive both.
+ * A barred address enrols nothing, whatever it holds: its session is one a ban's ending missed or a
+ * mint raced, and a passkey would outlive both.
  */
-function enrolmentGrant(anmeldung: AnmeldungRecords): boolean {
+function refuseBarred(anmeldung: AnmeldungRecords): void {
   if (anmeldung.barred) throw APIError.fromStatus("NOT_FOUND");
-  return anmeldung.verwaltung !== null;
 }
 
 /**
@@ -280,13 +280,13 @@ async function verwaltungOrNull(email: string): Promise<Verwaltung | null> {
 }
 
 /**
- * Every condition an enrolment meets, on both arms. The plugin gates its two registration endpoints
- * on `freshAge` and on nothing else, which is the wider window every other change takes.
+ * Every condition an enrolment meets past the library's `freshAge`, on both arms: the plugin gates its two
+ * registration endpoints on that and on nothing else.
  */
 async function refuseEnrolment(
   adapter: DBTransactionAdapter,
   userId: string,
-  caller: StepUpCaller | null,
+  caller: SessionStamps | null,
   credentialID?: string,
 ): Promise<void> {
   // Every refusal below is the default-deny net's own answer, so an enrolment the page never offers
@@ -299,15 +299,9 @@ async function refuseEnrolment(
     limit: PASSKEY_LIMIT + 1,
   });
 
-  // For everybody and before any factor: a passkey outlives the session adding it, so only a sign-in
-  // or confirmation of the last minutes may add one.
-  if (!isWithinEnrolmentWindow(caller.session.createdAt)) throw APIError.fromStatus("NOT_FOUND");
-
-  // The mailed code enrols an administrator's first passkey and only ever that one: past it a stolen
-  // mailbox would put its own authenticator beside the administrator's and never need theirs again.
-  const bootstrap = held.length === 0 && caller.verwaltung && caller.session.authFactor === CODE_FACTOR;
-
-  if (!bootstrap && !isFreshlySignedIn(caller)) throw APIError.fromStatus("NOT_FOUND");
+  // The first passkey is added on a fresh sign-in by either factor, an administrator's mailed code among them; every
+  // later one by the passkey touch alone, or a stolen mailbox would put its own authenticator beside the holder's.
+  if (held.length > 0 && !isPasskeyTouch(caller)) throw APIError.fromStatus("NOT_FOUND");
   if (held.length >= PASSKEY_LIMIT) throw APIError.fromStatus("NOT_FOUND");
 
   // The plugin takes the rows already held for an `excludeCredentials` hint, which the BROWSER
@@ -756,9 +750,8 @@ const REGISTRATION_FAILED = "Failed to verify registration";
 const sessionOptions = {
   expiresIn: SESSION_EXPIRES_IN_SECONDS,
   updateAge: SESSION_UPDATE_AGE_SECONDS,
-  // The library gates passkey REGISTRATION on this figure, measured from `createdAt`: the same window
-  // `isFreshlySignedIn` judges every other step-up by, so the page never offers what either refuses.
-  freshAge: STEP_UP_WINDOW_MS / 1000,
+  // `passkeyStepOf` offers an enrolment on the same figure, so the page never offers what the library refuses.
+  freshAge: FRESH_SIGN_IN_SECONDS,
   // Off, so revocation stays a store read on every request and the guards below judge a stored
   // row rather than a signed copy of one.
   cookieCache: { enabled: false },
@@ -1101,7 +1094,6 @@ const authOptions = (origin: URL, client: MongoClient) =>
           if (Reflect.get(ctx.query ?? {}, field) !== undefined) throw APIError.fromStatus("BAD_REQUEST");
         }
 
-        // The plugin gates both halves on `freshAge` alone, which a code-borne session is inside.
         const caller = enrolling ?? (await getSessionFromCtx(ctx));
 
         // Refused rather than left to the plugin's `freshSessionMiddleware`, which is mounted only
@@ -1109,11 +1101,8 @@ const authOptions = (origin: URL, client: MongoClient) =>
         // session it cannot read, and the in-process arm already refuses one.
         if (caller === null || endedByItsAccount(caller)) throw APIError.fromStatus("NOT_FOUND");
 
-        await refuseEnrolment(
-          ctx.context.adapter,
-          caller.user.id,
-          asStepUpCaller(caller, enrolmentGrant(enrolmentRead?.anmeldung ?? (await enrolmentAnmeldung(caller.user.email)))),
-        );
+        refuseBarred(enrolmentRead?.anmeldung ?? (await enrolmentAnmeldung(caller.user.email)));
+        await refuseEnrolment(ctx.context.adapter, caller.user.id, stampsOf(caller.session));
 
         return carried;
       }),
@@ -1233,10 +1222,11 @@ const authOptions = (origin: URL, client: MongoClient) =>
             // mounts only while `registration.requireSession` keeps its default: unset it and this arm
             // sees no factor at all and refuses every enrolment.
             const enrolling = ctx.context.session ?? null;
+            if (enrolling !== null) refuseBarred(carriedOrRefuse(ctx, enrolling.user.id));
             await refuseEnrolment(
               adapter,
               user.id,
-              enrolling === null ? null : asStepUpCaller(enrolling, enrolmentGrant(carriedOrRefuse(ctx, enrolling.user.id))),
+              enrolling === null ? null : stampsOf(enrolling.session),
               verification.registrationInfo?.credential.id,
             );
           },
@@ -1525,7 +1515,7 @@ export async function slideSession(requestHeaders: Headers): Promise<void> {
  * row.
  */
 export function endedByItsAccount({ user, session }: { user: object; session: object }): boolean {
-  // Through `Reflect`, as `asStepUpCaller` reads a stamp: the library types a ceremony's read to its own base shape.
+  // Through `Reflect`, as `stampsOf` reads a stamp: the library types a ceremony's read to its own base shape.
   const stamp: unknown = Reflect.get(user, SESSIONS_ENDED_FIELD);
   if (stamp === null || stamp === undefined) return false;
 
@@ -1761,8 +1751,9 @@ async function passkeyStepOf(served: ServedSession, admin: boolean): Promise<Pas
   // A session the passkey already made needs no card, whatever it holds.
   if (served.session.authFactor === PASSKEY_FACTOR) return null;
 
-  // Past it `refuseEnrolment` refuses the enrolment, so no card offers one.
-  const mayEnrol = isWithinEnrolmentWindow(served.session.createdAt);
+  // Past the library's `freshAge` the enrolment is refused, so no card offers one.
+  const created = new Date(served.session.createdAt).getTime();
+  const mayEnrol = Number.isFinite(created) && now().getTime() - created < FRESH_SIGN_IN_SECONDS * 1000;
   if (!admin && !mayEnrol) return null;
 
   // The question `refuseEnrolment` puts to the adapter, by the same user id: they agree or the page

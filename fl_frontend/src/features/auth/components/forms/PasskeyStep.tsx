@@ -9,7 +9,7 @@ import { authClient } from "@/core/authClient";
 import { COPY } from "@/core/copy";
 import { leaveDocumentFor } from "@/shared/utils/documentNavigation";
 
-import { describeCeremonyRefusal, refusalStatus } from "../../passkeyAnswers";
+import { describeCeremonyRefusal, refusalCode, refusalStatus, SESSION_NOT_FRESH } from "../../passkeyAnswers";
 
 import type { Copy } from "@/core/copy";
 
@@ -35,9 +35,11 @@ async function ceremonyHeld(step: Step): Promise<Held | null> {
 
     if (error === null) return null;
 
-    // The guard's own refusal, which an enrolment another tab or device finished first earns too: the step
-    // this view was handed is then stale in the same way.
-    if (enrolling && refusalStatus(error) === 404) return { satz: COPY.shared.failure.unexpected, stale: true };
+    // The guard's own refusal, which an enrolment another tab or device finished first earns too, and the library's
+    // for a session that aged past its `freshAge` while the card stood: the step this view was handed is then stale.
+    if (enrolling && (refusalStatus(error) === 404 || refusalCode(error) === SESSION_NOT_FRESH)) {
+      return { satz: COPY.shared.failure.unexpected, stale: true };
+    }
 
     return { satz: describeCeremonyRefusal(error), stale: false };
   } catch {

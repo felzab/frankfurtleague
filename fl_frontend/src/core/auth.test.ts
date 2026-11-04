@@ -20,7 +20,7 @@ import { assertionFor, COSE_KEY, CREDENTIAL_ID, CREDENTIAL_RAW_ID, registrationF
 import { isAPIError } from "better-auth/api";
 import { afterAll, afterEach, assert, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { ENROLMENT_WINDOW_MS, STEP_UP_WINDOW_MS } from "./sessionLifetimes.ts";
+import { PASSKEY_TOUCH_SECONDS, STEP_UP_WINDOW_MS } from "./sessionLifetimes.ts";
 
 import type { MemoryStore, SessionRow } from "@/test-support/authDoubles.ts";
 import type { LookupFixture } from "@/test-support/subjectFixtures.ts";
@@ -252,6 +252,9 @@ const handler = toNextJsHandler(auth);
 const MINUTE_MS = 60 * 1000;
 const HOUR_MS = 60 * MINUTE_MS;
 const DAY_MS = 24 * HOUR_MS;
+/** The library's `freshAge`, which a first passkey's enrolment is held to: written out, so a moved option fails the cases. */
+const FRESH_SIGN_IN_MS = 5 * MINUTE_MS;
+const PASSKEY_TOUCH_MS = PASSKEY_TOUCH_SECONDS * 1000;
 
 // Before rather than after each case: a seeded row cleared at the end of the case that seeded it
 // survives that case FAILING, and every later case then reports the first one's fault as its own.
@@ -1134,11 +1137,11 @@ describe("the administrator's passkey sign-in, judged at the same guard", () => 
     expect(await getSignInDestination()).toBe("/bereich");
   });
 
-  /* The enrolment is refused past its own window, so a card offered there is a press the server
-     refuses: the landing and the page have to agree on where it stops, well inside the step-up window. */
+  /* The enrolment is refused past the library's `freshAge`, so a card offered there is a press the server
+     refuses: the landing and the page have to agree on where it stops. */
   it("stops offering a person the passkey where the enrolment would be refused, and never sends them round", async () => {
     const { cookie, row } = await signIn(PERSON_EMAIL);
-    ageRow(row, { created: ENROLMENT_WINDOW_MS + 60_000 });
+    ageRow(row, { created: FRESH_SIGN_IN_MS + 60_000 });
     arriveAs(cookie);
 
     expect(await getPasskeyStep()).toBe(null);
@@ -1149,7 +1152,7 @@ describe("the administrator's passkey sign-in, judged at the same guard", () => 
      passkey page, that page would send them back to the landing and round again. */
   it("sends an administrator whose code session is too old to enrol back to sign in, and asserts one who holds a passkey", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
-    ageRow(row, { created: ENROLMENT_WINDOW_MS + 60_000 });
+    ageRow(row, { created: FRESH_SIGN_IN_MS + 60_000 });
     arriveAs(cookie);
 
     expect(await getPasskeyStep()).toBe(null);
@@ -1298,12 +1301,11 @@ describe("the session a code's second tab counts as signed in", () => {
   });
 });
 
-describe("the window an enrolment happens inside", () => {
-  /* A passkey outlives the session that adds it, so only a sign-in or a confirmation of the last
-     minutes adds one. */
-  it("still generates registration options for a code session a minute inside the enrolment window", async () => {
+describe("the fresh sign-in a first passkey is added on", () => {
+  /* A passkey outlives the session that adds it, so only a sign-in of the last minutes adds one. */
+  it("still generates registration options for a code session a minute inside the library's `freshAge`", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
-    ageRow(row, { created: ENROLMENT_WINDOW_MS - 60_000 });
+    ageRow(row, { created: FRESH_SIGN_IN_MS - 60_000 });
 
     const answer = await overHttp("/passkey/generate-register-options", { cookie });
     expect(answer.status, `the enrolment the page offers was refused: ${JSON.stringify(logged)}`).toBe(200);
@@ -1315,21 +1317,21 @@ describe("the window an enrolment happens inside", () => {
     expect(options.rp.id, "the relying party is not the origin this stack serves").toBe("localhost");
   });
 
-  /* Deep inside the library's own freshness gate, so the refusal is the enrolment rule's and not the
-     library's, which answers 403. */
+  /* An administrator's mailed code reaches no further than this: a mailbox read later adds no passkey. */
   it("refuses them a minute past it, which is where the page stops offering the step", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
-    ageRow(row, { created: ENROLMENT_WINDOW_MS + 60_000 });
+    ageRow(row, { created: FRESH_SIGN_IN_MS + 60_000 });
 
-    expect((await overHttp("/passkey/generate-register-options", { cookie })).status).toBe(404);
+    const refused = await overHttp("/passkey/generate-register-options", { cookie });
+    expect(refused.status).toBe(403);
+    expect(((await refused.json()) as { code?: string }).code).toBe("SESSION_NOT_FRESH");
+    expect(store.passkey).toStrictEqual([]);
   });
 
-  /* Two hours, GitHub's re-authentication window, for every change but adding a passkey; five minutes
-     for that. The library's gate takes the wider one, this module's the narrower. */
-  it("holds the two windows at their figures, chosen rather than derived", () => {
-    expect(STEP_UP_WINDOW_MS).toBe(2 * HOUR_MS);
-    expect(ENROLMENT_WINDOW_MS).toBe(5 * 60 * 1000);
-    expect(auth.options.session.freshAge, "the library's freshness gate and the step-up disagree").toBe(STEP_UP_WINDOW_MS / 1000);
+  /* Five minutes for adding a first passkey, a minute's touch for every later one: chosen rather than derived. */
+  it("holds the library's `freshAge` and the passkey touch at their figures", () => {
+    expect(auth.options.session.freshAge).toBe(FRESH_SIGN_IN_MS / 1000);
+    expect(PASSKEY_TOUCH_SECONDS).toBe(60);
   });
 });
 
@@ -1573,20 +1575,20 @@ describe("which sessions may enrol a passkey, and how many rows they may leave",
     expect(store.passkey.length).toBe(2);
   });
 
-  /* The whole of what the step-up buys: without it a stolen cookie could enrol for as long as it was
-     valid at all. */
-  it("refuses a further passkey to a passkey-made session whose assertion is past the step-up window", async () => {
+  /* The whole of what the touch buys: without it a stolen cookie could enrol for as long as the library's
+     `freshAge` lasts. */
+  it("refuses a further passkey to a passkey-made session whose assertion is past the touch", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     steppedUp(row);
-    ageRow(row, { created: STEP_UP_WINDOW_MS + 60_000 });
+    ageRow(row, { created: PASSKEY_TOUCH_MS + 30_000 });
     store.passkey.push(aPasskeyFor(row.userId));
 
     expect((await overHttp("/passkey/generate-register-options", { cookie })).status).toBe(404);
     expect(store.passkey.length).toBe(1);
   });
 
-  /* The `auth.api` arm, which the hook returns early for: the library's freshness gate stands at the
-     same window and answers first, so the callback behind it is driven by a case further down. */
+  /* The `auth.api` arm, which the hook returns early for, aged inside the library's `freshAge`: the touch in
+     `registration.afterVerification` is then the only thing that refuses it. */
   it("refuses that same stale session where the hook never runs", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     steppedUp(row);
@@ -1598,76 +1600,47 @@ describe("which sessions may enrol a passkey, and how many rows they may leave",
 
     const held = aPasskeyFor(row.userId);
     store.passkey.push(held);
-    // Aged after the options call, which the library gates on `freshAge` and would refuse first.
-    ageRow(row, { created: STEP_UP_WINDOW_MS + 60_000 });
+    ageRow(row, { created: PASSKEY_TOUCH_MS + 30_000 });
 
     await expect(() =>
       auth.api.verifyPasskeyRegistration({
         body: { response: registrationFor(challenge, true, SECOND_RAW_ID) },
         headers: new Headers({ ...ORIGIN, cookie: `${cookie}; ${minted}`, origin: "http://localhost:3000" }),
       }),
-    ).rejects.toSatisfy((raised: unknown) => Reflect.get(raised as object, "status") === "FORBIDDEN");
+    ).rejects.toSatisfy((raised: unknown) => Reflect.get(raised as object, "status") === "NOT_FOUND");
 
     expect(store.passkey, "the callback let a stale session write a row").toStrictEqual([held]);
   });
 
-  /* A person's passkey is optional, so a fresh sign-in by either factor enrols: the mailbox is the
-     account whatever the person holds. */
-  it("enrols a person's passkey from a fresh code session, and a further one", async () => {
+  /* A person's passkey is optional, so a fresh sign-in by either factor enrols the first: the mailbox is the
+     account whatever the person holds. Every later one asks the touch, as an administrator's does. */
+  it("enrols a person's first passkey from a fresh code session, and a further one on the touch alone", async () => {
     const { cookie, row } = await signIn(PERSON_EMAIL);
 
     expect((await enrolPasskey(cookie)).status).toBe(200);
-    expect((await enrolPasskey(cookie, {}, true, SECOND_RAW_ID)).status, "a code session was refused a second passkey").toBe(200);
+    const byCode = await overHttp("/passkey/generate-register-options", { cookie });
+    expect(byCode.status, "a holder's code session was offered a second passkey").toBe(404);
+
+    steppedUp(row);
+    expect((await enrolPasskey(cookie, {}, true, SECOND_RAW_ID)).status, "the touch was refused a second passkey").toBe(200);
     expect(store.passkey.map((held) => held.userId)).toStrictEqual([row.userId, row.userId]);
   });
 
-  /* Inside the two hours every other change is allowed in: adding a passkey alone asks for more. */
-  it("refuses a person's passkey past the enrolment window, whatever made the session", async () => {
-    const { cookie, row } = await signIn(PERSON_EMAIL);
-
-    for (const factor of ["code", "passkey"]) {
-      row.authFactor = factor;
-      ageRow(row, { created: ENROLMENT_WINDOW_MS + 60_000 });
-
-      expect((await overHttp("/passkey/generate-register-options", { cookie })).status, `${factor} enrolled when stale`).toBe(404);
-    }
-    expect(store.passkey).toStrictEqual([]);
-  });
-
-  it("refuses an administrator's further passkey from a passkey session past the enrolment window", async () => {
-    const { cookie, row } = await signIn(ADMIN_EMAIL);
-    steppedUp(row);
-    ageRow(row, { created: ENROLMENT_WINDOW_MS + 60_000 });
-    store.passkey.push(aPasskeyFor(row.userId));
-
-    expect((await overHttp("/passkey/generate-register-options", { cookie })).status).toBe(404);
-    expect(store.passkey.length).toBe(1);
-  });
-
-  it("refuses an administrator's first passkey from a code session past the enrolment window", async () => {
-    const { cookie, row } = await signIn(ADMIN_EMAIL);
-    ageRow(row, { created: ENROLMENT_WINDOW_MS + 60_000 });
-
-    expect((await overHttp("/passkey/generate-register-options", { cookie })).status).toBe(404);
-    expect(store.passkey).toStrictEqual([]);
-  });
-
-  /* The `auth.api` arm, which the hook returns early for, aged inside the library's own freshness gate:
-     the enrolment rule in `registration.afterVerification` is then the only thing that refuses it. */
-  it("refuses a person's enrolment past the enrolment window where the hook never runs", async () => {
+  /* The `auth.api` arm, which the hook returns early for: the library's own `freshAge` holds it as it holds HTTP. */
+  it("refuses a person's first passkey past the library's `freshAge` where the hook never runs", async () => {
     const { cookie, row } = await signIn(PERSON_EMAIL);
     const headers = new Headers({ ...ORIGIN, cookie, origin: "http://localhost:3000" });
 
     const offered = await auth.api.generatePasskeyRegistrationOptions({ headers, returnHeaders: true });
     const challenge = (offered.response as { challenge: string }).challenge;
-    ageRow(row, { created: ENROLMENT_WINDOW_MS + 60_000 });
+    ageRow(row, { created: FRESH_SIGN_IN_MS + 60_000 });
 
     await expect(() =>
       auth.api.verifyPasskeyRegistration({
         body: { response: registrationFor(challenge, true) },
         headers: new Headers({ ...ORIGIN, cookie: `${cookie}; ${cookieHeader(offered)}`, origin: "http://localhost:3000" }),
       }),
-    ).rejects.toSatisfy((raised: unknown) => Reflect.get(raised as object, "status") === "NOT_FOUND");
+    ).rejects.toSatisfy((raised: unknown) => Reflect.get(raised as object, "status") === "FORBIDDEN");
     expect(store.passkey).toStrictEqual([]);
   });
 

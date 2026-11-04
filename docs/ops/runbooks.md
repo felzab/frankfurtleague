@@ -339,8 +339,8 @@ sign_in_identifier`) — trimmed, the letters of both halves lower-case, the dom
   refuses nothing. An umlaut before the at sign is the case that turns up: the sign-in box takes no
   such address, so that person needs a mailbox it will accept before a grant is worth writing. An umlaut domain is stored in punycode,
   which the sign-in box converts either spelling to.
-- **A grant admits every passkey the address already holds.** A person enrols passkeys with a mailed
-  code, or brings them along on an address change the new mailbox confirmed while nothing named it
+- **A grant admits every passkey the address already holds.** A person enrols a first passkey with a
+  mailed code and every later one with a passkey sign-in of the last minute, or brings them along on an address change the new mailbox confirmed while nothing named it
   and no grant was asked for it, the same authority an
   administrator's first passkey rests on, so one enrolled before the grant
   admits once the address is granted, though only on a passkey sign-in made after the grant: a
@@ -363,8 +363,9 @@ ABGLEICH_INTERVAL_MS`) finds the row, it is dated by its own `granted_at`, or by
   a grant and no passkey is answered the enrolment page and reaches no admin route until one stands,
   so there is nothing to prepare for them and nothing to hand over.
 - **A lost passkey is the administrator's own to replace while they still hold another**: the
-  account page, `/bereich/konto`, lists what they hold, adds one and removes one, each behind a
-  passkey sign-in or confirmation inside the step-up window, and the last row cannot be removed.
+  account page, `/bereich/konto`, lists what they hold, adds one behind a passkey sign-in of the last
+  minute and removes one behind a passkey sign-in or confirmation inside the step-up window, and the
+  last row cannot be removed.
   Removing one signs out the devices that passkey signed in, and no other.
 - **An administrator who has lost every passkey is recovered in the Atlas console**, by deleting
   their rows in the `passkey` collection of the `auth` database; their next sign-in by mailed
