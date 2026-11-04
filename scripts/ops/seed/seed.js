@@ -390,13 +390,13 @@ const GHOST_SPIELER = {
   inactive_since: "2000-01-01",
 };
 
-// Each pupil's consent as their own confirmation wrote it, publishing the name and no media: the wording a
-// confirmation records today (`fl_backend/app/shared/einwilligung.py :: LAUFENDE_FASSUNGEN`).
+// Each pupil's consent as their own confirmation wrote it, publishing the name and no media, each choice
+// evidenced under its wording's label (`fl_frontend/src/core/consentWordings.ts :: SPIELER_TEXT_VERSIONS`).
 const CONSENTED = day(-60);
-const WORDING = "2026-10-spielerseite-5";
+const LABELS = { umfang: "2026-11-name-kader-1", medien: "2026-11-medien-1" };
 
 function pupil(vorname, nachname) {
-  const evidence = { am: `${CONSENTED}T10:00:00+00:00`, text_version: WORDING };
+  const evidence = (choice) => ({ am: `${CONSENTED}T10:00:00+00:00`, text_version: LABELS[choice] });
   return {
     _id: ObjectId(),
     vorname,
@@ -407,9 +407,8 @@ function pupil(vorname, nachname) {
       umfang: "kader_oeffentlich",
       datum: CONSENTED,
       confirmed_at: CONSENTED,
-      text_version: WORDING,
       medien: false,
-      nachweis: { umfang: evidence, medien: evidence },
+      nachweis: { umfang: evidence("umfang"), medien: evidence("medien") },
     },
     inactive_since: null,
   };
