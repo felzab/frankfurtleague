@@ -11,7 +11,7 @@ from typing import Any
 
 from bson import ObjectId
 
-from app.api.saisons.schedule import knockout_phases_for, plays_for_third_place, qualifier_count
+from app.api.saisons.schedule import knockout_phases_for, qualifier_count
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.schemas import FLSpielQuelleGruppe, FLSpielQuelleSpiel, FLSpielTeamField
 from app.api.teams.services import offered_gruppen
@@ -204,7 +204,7 @@ def _spiel(
 def draw_spielplan(*, saison_id: str, rules: FLSaisonRules, entered: Sequence[EnteredTeam]) -> Spielplan:
     """Every document one season's draw inserts, `spiel_nr` contiguous from 1 in playing order.
 
-    A bracket with semi-finals also plays for third place, on the Finale's matchday before the final.
+    Every bracket also plays for third place, on the Finale's matchday before the final.
     No document carries a date: the draw settles who plays whom and in what order, and every date is
     set afterwards, one matchday and one fixture at a time.
     """
@@ -236,7 +236,6 @@ def draw_spielplan(*, saison_id: str, rules: FLSaisonRules, entered: Sequence[En
 
     remaining = qualifier_count(rules)
     knockout = knockout_phases_for(remaining)
-    third_place = plays_for_third_place(remaining)
     # Asked of the phases and not of the count: `knockout_phases_for` is what answers empty for a
     # field no bracket halves, and `bracket_seeding` raises on one.
     seeding = bracket_seeding(number_of_gruppen=rules.number_of_gruppen, qualifiers_per_gruppe=rules.qualifiers_per_gruppe) if knockout else ()
@@ -248,9 +247,11 @@ def draw_spielplan(*, saison_id: str, rules: FLSaisonRules, entered: Sequence[En
         spieltag = _spieltag(saison_id=saison_id, phase=phase, position=1)
         spieltage.append(spieltag)
 
-        # Ahead of the final, so the matchday is played in the order its numbers read; `feeding` is
-        # then the two semi-finals, whose losers meet here.
-        if phase == "finale" and third_place:
+        # The match for third place. No bracket opens narrower than the semi-finals (`MIN_QUALIFIERS`),
+        # so `feeding` is then the two semi-finals, whose losers meet here. Ahead of the final, so the
+        # matchday is played in the order its numbers read, and under the Finale's phase rather than one
+        # of its own, which appended past `finale` would double `MAX_QUALIFIERS`.
+        if phase == "finale":
             losers = [FLSpielQuelleSpiel(type="spiel", spiel_nr=nr, ausgang="verlierer").model_dump() for nr in feeding]
             spiele.append(
                 _spiel(
