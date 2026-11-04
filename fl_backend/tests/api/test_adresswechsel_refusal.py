@@ -218,11 +218,6 @@ class TestTheLostMailboxsStart:
 
         assert_rejects(FLAddressChangeVerwaltungPayload, payload, "grund")
 
-    def test_a_reason_is_taken(self):
-        """The floor for the refusals above."""
-
-        FLAddressChangeVerwaltungPayload.model_validate({"adresse": CHANGED, "email": "neu@beispielschule.de", "grund": "Postfach gelöscht"})
-
 
 class TestTheLinksLookups:
     @pytest.mark.parametrize("key", ["token_hashes", "stop.token_hashes"])

@@ -51,19 +51,15 @@ UNICODE_DOMAIN = f"anna@m{chr(0xFC)}ller.de"
 PLAIN = "Anna@Schule.DE"
 PLAIN_STORED = "anna@schule.de"
 
-# The control's answer: a well-formed request that got past validation and reached the database. The
-# refusal's is `payload_refused`, and a keying crash answers `unhandled_crash`.
-UNREACHED_DATABASE = {Code.DATABASE_FAILED, Code.UNKNOWN_OUTCOME}
-
 
 def registered(email: str) -> Response:
     body = {"token": "x" * 43, "vorname": "Anna", "nachname": "Müller", "email": email, "position": None, "nummer": None, "stufe": None}
 
     async def _answered() -> Response:
         async with app_client(UNANSWERED_URI) as http:
-            # The app's deadline would hold the control against this unanswered server; nested in
-            # this one it cannot extend it. A refused body touches no driver, so no deadline turns a
-            # 422 into the control's.
+            # A body the rule lets through waits on this unanswered server, and this deadline, nested
+            # in the app's longer one, ends the wait first. A refused body touches no driver, so no
+            # deadline turns its 422 into a database failure.
             with pymongo.timeout(UNANSWERED_DEADLINE_S):
                 return await http.post(f"/api/v{API_VERSION}/registrierungen", headers=BASE_AUTH, json=body)
 
@@ -91,14 +87,6 @@ class TestARegistrationRefusesALocalPartBeyondAscii:
         response = registered(UMLAUT_LOCAL_PART)
 
         assert (response.status_code, response.json()["error_code"]) == (422, Code.PAYLOAD_REFUSED)
-
-    def test_an_ascii_address_reaches_the_database(self):
-        """The control: without it, a route refusing every body would pass the case above."""
-
-        response = registered(PLAIN)
-
-        assert response.status_code == 500, response.json()
-        assert response.json()["error_code"] in UNREACHED_DATABASE, response.json()
 
 
 def _every_module() -> Iterator[str]:

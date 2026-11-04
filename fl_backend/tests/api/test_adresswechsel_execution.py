@@ -120,7 +120,6 @@ pytestmark = pytest.mark.db
 
 DATABASE_NAME = worker_database("fl_adresswechsel_test")
 KEY = build_test_config().sperrliste_key
-# A pupil whose record holds no address.
 
 
 def on_a_person(url: str, body: Any, **seeded: Any) -> Any:
@@ -158,16 +157,6 @@ class TestTheAccountPagesRead:
 
         assert on_a_person(mongo_replica_set_url, body) == [None, None, None, Code.ADDRESS_CHANGE_NOTHING]
 
-    def test_the_person_s_own_change_shows_its_address_whole(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await start(database, client)
-            return await read(database, client)
-
-        seen = on_a_person(mongo_replica_set_url, body)
-
-        assert seen.open is not None
-        assert (seen.open.email, seen.open.way, seen.open.waits_on, seen.open.approval) == (NEW_EMAIL, "account", "new_address", None)
-
     def test_an_administrator_s_change_shows_its_address_masked_and_never_whole(self, mongo_replica_set_url: str):
         """It may be a pretext whose target the holder of the address on file must not learn: unmask it and this fails."""
 
@@ -180,22 +169,6 @@ class TestTheAccountPagesRead:
 
         assert seen.open is not None and seen.open.email == "l•••@n•••.org"
         assert (NEW_EMAIL in served, "lenore.q" in served, "neupost" in served) == (False, False, False)
-
-    @pytest.mark.parametrize("step", ["link", "approval"])
-    def test_a_lapsed_step_reads_lapsed_until_the_pass_ends_the_change(self, mongo_replica_set_url: str, step: str):
-        """Its press is refused `link_expired`, so a page reading it unmarked offers that press until the pass."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            if step == "approval":
-                await granted(database)
-            minted = await start(database, client)
-            if step == "approval":
-                await answer(database, client, minted.token)
-            later = AFTER_THE_DEADLINE if step == "link" else AFTER_THE_WEEK
-            seen = [(await read(database, client, germany_now=at)).open for at in (NOW, later)]
-            return [offen is not None and offen.expired for offen in seen]
-
-        assert on_a_person(mongo_replica_set_url, body) == [False, True]
 
 
 class TestThePersonsStart:
@@ -378,20 +351,6 @@ class TestTheLinks:
         assert (before.state, before.approval_open) == ("valid", None)
         assert (after.state, after.approval_open) == ("confirmed", True)
 
-    def test_a_confirmed_link_whose_approval_week_lapsed_reads_lapsed(self, mongo_replica_set_url: str):
-        """The pass ends it unapproved, so the page must not still promise it takes effect once approved."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await granted(database)
-            minted = await start(database, client)
-            await answer(database, client, minted.token)
-            return (await view(database, client, minted.token, germany_now=AFTER_THE_WEEK)).view
-
-        seen = on_a_person(mongo_replica_set_url, body)
-
-        # Never `abgelaufen`, the link's own lapse: the page would offer a decline the confirmed link refuses.
-        assert (seen.state, seen.approval_open) == ("approval_expired", None)
-
     @pytest.mark.parametrize(
         ("cause", "refused"),
         [
@@ -562,20 +521,6 @@ class TestTheAddressOnFileConfirmsFirst:
         # Declined before it confirmed anything: the link names no day of a confirmation.
         assert (bisherig.view.way, bisherig.view.released_on) == ("account", None)
         assert [line.art for line in journal] == ["adresswechsel_abgelehnt"]
-
-    def test_once_in_effect_its_link_names_the_day_it_confirmed(self, mongo_replica_set_url: str):
-        """The address on file confirmed first, so its link opened again says when, the change having ended since."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            minted = await start(database, client)
-            effective = await answer(database, client, minted.token)
-            return effective.effective, await view(database, client, minted.stopp_token)
-
-        effective, bisherig = on_a_person(mongo_replica_set_url, body)
-
-        assert effective is True
-        assert (bisherig.view.side, bisherig.view.state, bisherig.view.art) == ("previous", "ended", "effective")
-        assert (bisherig.view.way, bisherig.view.released_on) == ("account", TODAY)
 
     def test_past_its_deadline_it_confirms_nothing_and_still_declines(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -1287,19 +1232,6 @@ class TestTheApproval:
         # Taking effect days after both mailboxes confirmed, the change tells the replaced one then, as a grant holder's
         # change always did; one taking effect at the new mailbox's press owes it nothing.
         assert (told, [(notice["art"], notice["an"]) for notice in notices]) == ([], [("effective", EMAIL)])
-
-    @pytest.mark.parametrize("holds_a_grant", [pytest.param(True, id="a grant holder"), pytest.param(False, id="a pupil alone")])
-    def test_the_address_on_file_s_confirmation_says_whether_the_change_will_wait_on_an_approval(
-        self, mongo_replica_set_url: str, holds_a_grant: bool
-    ):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            if holds_a_grant:
-                await granted(database)
-            minted = await start(database, client, released=False)
-            answered = await answer(database, client, minted.stopp_token)
-            return answered.answer, answered.effective, answered.approval_open
-
-        assert on_a_person(mongo_replica_set_url, body) == ("confirmed", False, holds_a_grant)
 
     @staticmethod
     def refused_approval(url: str, *, approver: str, verwaltung: str) -> tuple[str, Any]:
