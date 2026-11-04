@@ -172,8 +172,8 @@ export const SERVER_COPY = catalogue({
     /** The deletion link: the subject and the button are the act's own words, `COPY.page.accountErasure`. */
     erasureLink: {
       lead: "Du hast angefordert, dein Konto zu löschen.",
-      // What outlives an erasure is the privacy notice's to list; the one sentence a consequence holds points there.
-      consequence: `Dein Konto und alle Angaben unter deiner E-Mail-Adresse werden endgültig gelöscht, bis auf das, was unter „${COPY.page.privacyNotice}“ steht.`,
+      /** The deletion box's own sentence, so the box and its mail word what goes, and what outlives it, alike. */
+      consequence: COPY.account.erasure.description,
     },
 
     /** The person's own address change: the address on file's request, then the new address's. */
