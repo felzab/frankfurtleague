@@ -12,7 +12,7 @@ you write one; the strings themselves live in the catalogue, `fl_frontend/src/co
 | [Voice](#the-voice-is-plain-and-says-du)                                  | Address, who speaks, gendering, how a message reads        |
 | [Lengths](#each-kind-of-string-has-a-ceiling)                             | How long a label, a button, a message or a mail may be     |
 | [Fixed patterns](#a-recurring-job-takes-its-fixed-pattern)                | Which catalogue entry a recurring job takes, and when      |
-| [Help text](#help-text-is-one-of-three-kinds)                             | How a field, a section or a state is explained             |
+| [Help text](#help-text-is-one-of-four-kinds)                              | How a field, a section or a state is explained             |
 | [Formats](#dates-and-numbers-go-through-the-formatting-module)            | How a date, a time, a number or a score is written         |
 | [Punctuation](#punctuation-is-german-and-sparse)                          | Quotation marks, the ellipsis, the dash, the banned words  |
 | [Mail](#a-mail-is-one-small-set-of-data)                                  | What a mail holds and how its lines are written            |
@@ -94,6 +94,7 @@ there.
 | Field label             | 3 words                                                  | a noun, no colon                                                                              |
 | Button                  | 3 words                                                  | a verb from the catalogue's closed set, with an object where needed („Team anlegen“)          |
 | Field description       | 1 sentence, 90 characters, one visible line              | says what the thing is; none where the label suffices; no field has a placeholder             |
+| Box description         | 1 sentence, 90 characters, one visible line              | says what a Konto box holds, under its title                                                  |
 | Tooltip                 | 5 words                                                  | names an icon-only control, nothing more                                                      |
 | Section info tip (ⓘ)    | 2 sentences, about 200 characters                        | only where a named question needs it                                                          |
 | Field error             | one phrase, one line, 80 characters                      | a fixed pattern                                                                               |
@@ -124,7 +125,7 @@ Each pattern is an entry of `COPY.shared`; what the entry cannot say is when it 
   `failure` line: `stale` for a stale page or a concurrent change, `signInExpired` for an ended
   sign-in, `unexpected` for anything else.
 - **A saved record** shows `saved` beside its save button, never as a toast.
-- **A toast** is one of `toast`'s four titles, and only for an action that leaves nothing on the page
+- **A toast** is one of `toast`'s five titles, and only for an action that leaves nothing on the page
   to change.
 - **A busy button** keeps its label and shows a spinner named `loading`; no „Speichert …“.
 - **An empty list** says `empty.search`, `empty.filter` or `empty.none` with its own plural;
@@ -134,12 +135,16 @@ Each pattern is an entry of `COPY.shared`; what the entry cannot say is when it 
 - **A page a mail opens** ends in one of `end`'s states: done, already done saying what the person
   did and when, or `linkInvalid`, one message for an expired, mistyped or tampered link alike.
   Each ends in one button to the logical next step: `verb.signIn` after a confirmed seat or address
-  change, `end.toHome` after anything else.
+  change, `end.toAccount` where Konto is the one place to change what was done and for an address
+  change's or a deletion's link that no longer holds, `end.toHome` after anything else.
 - **A Vorschau line** names the changed fields by their own labels; there are no change-list labels.
 
-## Help text is one of three kinds
+## Help text is one of four kinds
 
 - **A field description**: one visible line under the field, saying what the thing is.
+- **A box's description**: one sentence under the title of each box of a Konto page, saying what
+  the box holds, the one section that carries a sentence under its title, since Konto's boxes are
+  one shape whatever each holds.
 - **One ⓘ per section**, right after its title, opening help a person sometimes needs. Text the
   reader needs is never hidden behind it.
 - **A callout**: one visible state or consequence.

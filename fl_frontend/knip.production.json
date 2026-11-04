@@ -20,10 +20,6 @@
   // Built ahead of their first page, each named with the session that first uses it, which deletes
   // its line here and in `knip.json`.
   "ignoreFiles": [
-    // Session 4.
-    "src/kit/Checkbox.tsx",
-    "src/kit/RadioGroup.tsx",
-    "src/kit/AccountBox.tsx",
     // Session 5.
     "src/kit/Switch.tsx"
   ],
