@@ -40,9 +40,7 @@ describe("deriveKontakteDraftStatus", () => {
     expect(status.isDirty).toBe(false);
     expect(status.fields.length).toBe(7);
     expect(status.byPath.get("kontakte.trainer")?.draftText).toBe("Erika Mustermann, erika@beispiel.de, 069 1234567, geboren am 01.01.1990");
-    expect(status.byPath.get("kontakte.trainer.einwilligung")?.draftText).toBe(
-      `${eingetragenVonLabel("bewerbung")}, ab 01.09.2025`,
-    );
+    expect(status.byPath.get("kontakte.trainer.einwilligung")?.draftText).toBe(`${eingetragenVonLabel("bewerbung")}, ab 01.09.2025`);
     // Read from the table rather than quoted: the wording is the product's, and pinning it here
     // makes rewording the question read as a regression.
     expect(status.byPath.get("kontakte.trainer_is_also")?.draftText).toBe(trainerZugleichLabel(null));
@@ -134,9 +132,7 @@ describe("deriveKontakteDraftStatus", () => {
     const stored = block({ trainer: person({ einwilligung: { ...person().einwilligung, entered_by: "bewerbung" } }) });
     const status = deriveKontakteDraftStatus({ stored, draft: stored, fieldErrors: {} });
 
-    expect(status.byPath.get("kontakte.trainer.einwilligung")?.draftText).toBe(
-      "Mit der Bewerbung eingetragen, ab 01.09.2025",
-    );
+    expect(status.byPath.get("kontakte.trainer.einwilligung")?.draftText).toBe("Mit der Bewerbung eingetragen, ab 01.09.2025");
   });
 
   it("finds an unpicked Kenntnisnahme under the Kenntnisnahme's row, and renders it as still open", () => {
