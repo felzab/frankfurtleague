@@ -274,7 +274,7 @@ BESTAETIGUNG_ANSICHT_FIELDS: Mapping[str, int] = {
     "team_id": 1,
     "vorname": 1,
     # Both read for the join finding the person the league may already hold, and answered by
-    # neither read: the name narrows the address, for the reason `persons_named` gives.
+    # neither read: the name narrows the address, for the reason `person_named` gives.
     "nachname": 1,
     "email": 1,
     # The stamp alone: nothing the pupil answered reaches the link's view.
@@ -433,27 +433,16 @@ def person_name(raw: Mapping[str, Any]) -> tuple[str, ...] | None:
     return name if all(name) else None
 
 
-def persons_named(rows: Sequence[Mapping[str, Any]], *, vorname: Any, nachname: Any) -> list[Mapping[str, Any]]:
-    """Every row at this address whose stored name is the registration's own.
+def person_named(person_raw: Mapping[str, Any] | None, *, vorname: Any, nachname: Any) -> Mapping[str, Any] | None:
+    """The person stored at this address where their stored name is the registration's own, else `None`.
 
-    An address holds one stored person (`docs/datenschutz.md :: "One address is one person"`), but a
-    sibling registering from a mailbox shared anyway would be shown that person's birthdate.
+    An address holds one stored person (`app/core/constraints.py :: uniq_spieler_email`), but a sibling
+    registering from a mailbox shared anyway would be shown that person's birthdate.
     """
 
-    if (wanted := person_name({"vorname": vorname, "nachname": nachname})) is None:
-        return []
+    wanted = person_name({"vorname": vorname, "nachname": nachname})
 
-    return [row for row in rows if person_name(row) == wanted]
-
-
-def sole_person(rows: Sequence[Mapping[str, Any]]) -> Mapping[str, Any] | None:
-    """The one person this narrowed set holds, or `None` where it holds several.
-
-    Anything but exactly one row shows the pupil nothing and asks them as a first-timer, which is
-    never wrong; guessing is.
-    """
-
-    return rows[0] if len(rows) == 1 else None
+    return person_raw if wanted is not None and person_raw is not None and person_name(person_raw) == wanted else None
 
 
 def seite_of(*, registrierung_raw: Mapping[str, Any], person_raw: Mapping[str, Any] | None) -> FLRegistrierungSeite:
@@ -462,8 +451,7 @@ def seite_of(*, registrierung_raw: Mapping[str, Any], person_raw: Mapping[str, A
     It asks no choice, saying the stored ones stand: an unconfirmed record's were given by no person.
     """
 
-    rows = [] if person_raw is None else [person_raw]
-    named = sole_person(persons_named(rows, vorname=registrierung_raw.get("vorname"), nachname=registrierung_raw.get("nachname")))
+    named = person_named(person_raw, vorname=registrierung_raw.get("vorname"), nachname=registrierung_raw.get("nachname"))
 
     return SEITE_WIEDERKEHREND if named is not None and is_confirmed(named.get("einwilligung")) else SEITE_NEU
 

@@ -12,9 +12,8 @@ from app.api.registrierungen.services import (
     compose_bestaetigung,
     compose_person,
     compose_person_update,
-    persons_named,
+    person_named,
     seite_of,
-    sole_person,
 )
 from app.shared.tokens import hash_token
 from tests.documents import SPIELER_TEXT_VERSIONS, own_einwilligung_document
@@ -89,23 +88,19 @@ class TestWhichPageTheLinkOpens:
         On the address alone that pupil's press stores the stored person's birthdate as their own.
         """
 
-        named = persons_named([self.PERSON], vorname=spelling, nachname="Brackenmoor")
-
-        assert (sole_person(named) is not None) == found
+        assert (person_named(self.PERSON, vorname=spelling, nachname="Brackenmoor") is not None) == found
 
     def test_a_surname_that_differs_keeps_the_person_hidden(self):
         """Both fields decide: narrowed on the forename alone, a remarried sibling's row would still be shown back."""
 
-        named = persons_named([self.PERSON], vorname="Quillhilde", nachname="Wraxlington")
-
-        assert named == []
+        assert person_named(self.PERSON, vorname="Quillhilde", nachname="Wraxlington") is None
 
     def test_a_sharp_s_surname_and_its_ss_spelling_are_two_pupils(self):
         """„Weiß“ and „Weiss“ at one mailbox are two pupils, whom `casefold` would show each other's record."""
 
         stored = {**self.PERSON, "nachname": "Weiß"}
 
-        assert persons_named([stored], vorname="Quillhilde", nachname="WEISS") == []
+        assert person_named(stored, vorname="Quillhilde", nachname="WEISS") is None
 
     @pytest.mark.parametrize(
         ("vorname", "nachname", "found"),
@@ -121,20 +116,7 @@ class TestWhichPageTheLinkOpens:
 
         stored = {**self.PERSON, "vorname": vorname, "nachname": nachname}
 
-        assert (persons_named([stored], vorname=vorname, nachname=nachname) == [stored]) == found
-
-    @pytest.mark.parametrize(
-        ("rows", "found"),
-        [
-            pytest.param([], False, id="an address the league holds nobody at"),
-            pytest.param([PERSON], True, id="one person"),
-            pytest.param([PERSON, PERSON], False, id="two rows the narrowing could not part"),
-        ],
-    )
-    def test_anything_but_exactly_one_row_shows_nobody_back(self, rows: list[Mapping[str, Any]], found: bool):
-        """Two identically-named rows at one address survive the narrowing, and guessing between them is what this refuses."""
-
-        assert (sole_person(rows) is not None) == found
+        assert (person_named(stored, vorname=vorname, nachname=nachname) is stored) == found
 
 
 class TestAPersonIsNeverWrittenNameless:
