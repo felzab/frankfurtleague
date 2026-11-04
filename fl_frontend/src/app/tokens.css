@@ -111,9 +111,8 @@
     :root {
       --motion-state: 100ms;
       --motion-in: 200ms;
+      /* An overlay's exit, and the cross-fade between pages and from a template's skeleton to its content. */
       --motion-out: 150ms;
-      /* The cross-fade between pages and from a template's skeleton to its content. */
-      --motion-page: 150ms;
     }
   }
 
@@ -123,7 +122,7 @@
      under reduced motion, where the token is unset, both fall back to 0s and the swap is immediate. */
   ::view-transition-group(*) {
     animation-name: none;
-    animation-duration: var(--motion-page);
+    animation-duration: var(--motion-out);
   }
 
   /* The overlay a transition draws over the page would otherwise take the clicks meant for the page. */
