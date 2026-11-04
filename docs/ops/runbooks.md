@@ -1396,6 +1396,15 @@ registry does not hold, which §2's read-back passes, a record model taking any 
 snapshot taken before that moment, its snapshot window being about eight days
 ([`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)); delete it then.
 
+**A snapshot taken before the deploy of the current consent wordings brings back the labels that
+deploy's paste re-pointed: once the restore has completed, run that paste again, before the replay
+below.** It is the paste the owner's checklist holds for that deploy, moving every stored label, a
+withdrawal's `given_before` among them, to its consent's current wording. Skipped, every read of a record citing an older label is refused, the read models
+admitting the current labels alone (`fl_backend/app/shared/schemas/einwilligung.py ::
+FLEinwilligungTextVersion`) while §2's read-back passes them, and the replay would stamp the current
+label on a withdrawal whose `given_before` keeps the old one. This lapses with the rule above, once
+the hosting holds no snapshot taken before that deploy; delete it then.
+
 **Before restoring, start the frontend held: add `RESTORE_HOLD=on` to the server's
 `fl_frontend/.env` and deploy (§1), and take the line out again only at the last step below.** The
 steps below are done on the admin pages, so the frontend runs throughout, and every hourly pass
