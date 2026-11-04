@@ -1,5 +1,5 @@
 from collections.abc import Mapping
-from typing import Any, ClassVar, Literal, TypeAliasType, get_args, get_origin
+from typing import Any, ClassVar, Final, Literal, TypeAliasType, get_args, get_origin
 
 from pydantic import BaseModel, ConfigDict
 from pydantic_core import PydanticCustomError
@@ -15,24 +15,24 @@ type FLMedienTextVersion = Literal["2026-11-medien-1"]
 type FLNameKaderTextVersion = Literal["2026-11-name-kader-1"]
 type FLNameSpielplanTextVersion = Literal["2026-11-name-spielplan-1"]
 
+# Published as schemas of their own (`app/main.py :: with_failure_responses`), though no operation names one alone: each
+# label constant `fl_frontend/src/core/consentWordings.ts` sends on a grant is checked against them, so a rewording that
+# moves one here and leaves the page's label behind fails the frontend's type check rather than refusing every grant.
+CURRENT_TEXT_VERSIONS: Final = (FLWhatsappTextVersion, FLMedienTextVersion, FLNameKaderTextVersion, FLNameSpielplanTextVersion)
+
 # Every label a record of each kind may cite for each choice: the current one and each it replaced. A rewording moves the
 # current `Literal` above and adds the label it replaced here, so a record citing that label still reads, and a withdrawal
 # from a page still showing its words is still taken: taking a consent back is never harder than giving it.
 type FLSeatUmfangTextVersion = FLWhatsappTextVersion
-type FLSeatMedienTextVersion = FLMedienTextVersion
 type FLSpielerUmfangTextVersion = FLNameKaderTextVersion
-type FLSpielerMedienTextVersion = FLMedienTextVersion
 type FLSchiedsrichterUmfangTextVersion = FLNameSpielplanTextVersion
-type FLSchiedsrichterMedienTextVersion = FLMedienTextVersion
+# One for every kind, each showing the one media wording: three aliases of the one label would each be published
+# twice, Pydantic rendering an alias another references once as its `const` and one referenced more often as a `$ref`.
+type FLCitedMedienTextVersion = FLMedienTextVersion
 # Every label any record cites, as `fl_frontend/src/core/consentWordings.ts :: CONSENT_WORDINGS` keys their words, which
 # that map is checked against through the published contract.
 type FLEinwilligungTextVersion = (
-    FLSeatUmfangTextVersion
-    | FLSeatMedienTextVersion
-    | FLSpielerUmfangTextVersion
-    | FLSpielerMedienTextVersion
-    | FLSchiedsrichterUmfangTextVersion
-    | FLSchiedsrichterMedienTextVersion
+    FLSeatUmfangTextVersion | FLSpielerUmfangTextVersion | FLSchiedsrichterUmfangTextVersion | FLCitedMedienTextVersion
 )
 
 
@@ -115,7 +115,7 @@ class FLSeatTextVersions(_TextVersions):
     current = {"umfang": _current(FLWhatsappTextVersion), "medien": _current(FLMedienTextVersion)}
 
     umfang: FLSeatUmfangTextVersion
-    medien: FLSeatMedienTextVersion
+    medien: FLCitedMedienTextVersion
 
 
 class FLSpielerTextVersions(_TextVersions):
@@ -124,7 +124,7 @@ class FLSpielerTextVersions(_TextVersions):
     current = {"umfang": _current(FLNameKaderTextVersion), "medien": _current(FLMedienTextVersion)}
 
     umfang: FLSpielerUmfangTextVersion
-    medien: FLSpielerMedienTextVersion
+    medien: FLCitedMedienTextVersion
 
 
 class FLSchiedsrichterTextVersions(_TextVersions):
@@ -133,7 +133,7 @@ class FLSchiedsrichterTextVersions(_TextVersions):
     current = {"umfang": _current(FLNameSpielplanTextVersion), "medien": _current(FLMedienTextVersion)}
 
     umfang: FLSchiedsrichterUmfangTextVersion
-    medien: FLSchiedsrichterMedienTextVersion
+    medien: FLCitedMedienTextVersion
 
 
 type PressTextVersions = FLSeatTextVersions | FLSpielerTextVersions | FLSchiedsrichterTextVersions

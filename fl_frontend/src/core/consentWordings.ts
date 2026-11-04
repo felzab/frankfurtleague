@@ -4,9 +4,13 @@ import type { Route } from "next";
 import type {
   FLEinwilligungTextVersion,
   FLEinwilligungUmfang,
+  FLMedienTextVersion,
+  FLNameKaderTextVersion,
+  FLNameSpielplanTextVersion,
   FLSchiedsrichterTextVersions,
   FLSeatTextVersions,
   FLSpielerTextVersions,
+  FLWhatsappTextVersion,
 } from "./generated/client/types";
 
 /** The line under a control: its words, a link among them where it points to a page. */
@@ -74,13 +78,22 @@ export const CONSENT_WORDINGS = {
   // under a label it refuses, fails the type check.
 } as const satisfies Readonly<Record<FLEinwilligungTextVersion, SwitchWording | ScopeWording>>;
 
-// The labels each kind of record's press names, one per choice, as its request schema admits them.
-export const SEAT_TEXT_VERSIONS = { umfang: "2026-11-whatsapp-1", medien: "2026-11-medien-1" } as const satisfies FLSeatTextVersions;
-export const SPIELER_TEXT_VERSIONS = { umfang: "2026-11-name-kader-1", medien: "2026-11-medien-1" } as const satisfies FLSpielerTextVersions;
+// The labels each kind of record's press names, one per choice: each choice's current wording, the one label a grant
+// may name, though the request schema admits every label its kind's records cite so a withdrawal from an older page
+// still reaches. Checked against the backend's current labels, so a rewording that moves one fails here rather than
+// refusing every grant from the page.
+export const SEAT_TEXT_VERSIONS = { umfang: "2026-11-whatsapp-1", medien: "2026-11-medien-1" } as const satisfies FLSeatTextVersions & {
+  readonly umfang: FLWhatsappTextVersion;
+  readonly medien: FLMedienTextVersion;
+};
+export const SPIELER_TEXT_VERSIONS = { umfang: "2026-11-name-kader-1", medien: "2026-11-medien-1" } as const satisfies FLSpielerTextVersions & {
+  readonly umfang: FLNameKaderTextVersion;
+  readonly medien: FLMedienTextVersion;
+};
 export const SCHIEDSRICHTER_TEXT_VERSIONS = {
   umfang: "2026-11-name-spielplan-1",
   medien: "2026-11-medien-1",
-} as const satisfies FLSchiedsrichterTextVersions;
+} as const satisfies FLSchiedsrichterTextVersions & { readonly umfang: FLNameSpielplanTextVersion; readonly medien: FLMedienTextVersion };
 
 /** The words a kind's page shows beside its two choices, read off its labels so a page shows what its press stamps. */
 export const SEAT_WORDINGS = { umfang: CONSENT_WORDINGS[SEAT_TEXT_VERSIONS.umfang], medien: CONSENT_WORDINGS[SEAT_TEXT_VERSIONS.medien] };
