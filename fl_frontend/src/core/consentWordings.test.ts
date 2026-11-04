@@ -6,18 +6,21 @@ import { CONSENT_WORDINGS } from "./consentWordings.ts";
 
 /** Each label's words as they were when its label was minted. A changed wording is a new label with a digest of its own. */
 const DIGESTS: Readonly<Record<string, string>> = {
-  "2026-11-whatsapp-1": "0cc3024ba32f406bf7fc9f962918ab68ea78359e8b321d3b440ad07abaa33da6",
-  "2026-11-medien-1": "03104b930c21137b7350fbf1240ee697b0bc5d5da4005520921e398678d4144e",
-  "2026-11-name-kader-1": "79d1286db7e35c140d4948278f6c30a3a1ec6f0230e5047a6d0d46404964931e",
-  "2026-11-name-spielplan-1": "6432083f10d42329fb7969a2e443a896be0147d668e3661e927cfa6cc119662d",
+  "2026-11-whatsapp-1": "7665639f8c2c0c8da1e3cd351683385e5058d4a84623845aeba6686918362120",
+  "2026-11-medien-1": "048502afcdce8e3c41c9c51bf6a285c7b11650c4a3da25121140abd6ae657bf3",
+  "2026-11-name-kader-1": "7eb4002cc138c13609667c4cd38a3a075a0215a81b5f184a2765449c017861de",
+  "2026-11-name-spielplan-1": "7718111ae5a071a7f0f7390e6d6abd0450df66623adbd50523801f6a4a775b2f",
 };
 
-// Keys sorted, so moving a key inside an entry leaves its digest alone: only its words count.
+// Keys sorted, so moving a key inside an entry leaves its digest alone, and a link's address left out, which a route
+// moves without changing a word the person read: only the words count.
 const canonical = (value: unknown): string =>
-  JSON.stringify(value, (_key, inner: unknown) =>
-    inner !== null && typeof inner === "object" && !Array.isArray(inner)
-      ? Object.fromEntries(Object.entries(inner).sort(([a], [b]) => (a < b ? -1 : 1)))
-      : inner,
+  JSON.stringify(value, (key, inner: unknown) =>
+    key === "href"
+      ? undefined
+      : inner !== null && typeof inner === "object" && !Array.isArray(inner)
+        ? Object.fromEntries(Object.entries(inner).sort(([a], [b]) => (a < b ? -1 : 1)))
+        : inner,
   );
 
 const digest = (wording: unknown): string => createHash("sha256").update(canonical(wording), "utf8").digest("hex");
