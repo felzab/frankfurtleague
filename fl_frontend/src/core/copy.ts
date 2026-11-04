@@ -422,6 +422,8 @@ export const COPY = catalogue({
       codeUsedUp: "Die Anmeldung hat nicht geklappt, und dein Code ist verbraucht.",
       noRecord: "Mit dieser Adresse ist derzeit keine Anmeldung möglich.",
       unverified: "Dieser Passkey hat nicht bestätigt, dass du es bist.",
+      /** An act the passkey touch guards, sent without a passkey sign-in of the last minute by a person holding one. */
+      touchMissing: "Die Bestätigung mit deinem Passkey fehlt.",
     },
   },
 

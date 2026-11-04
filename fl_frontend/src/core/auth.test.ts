@@ -237,6 +237,7 @@ const {
   judgeAdminRequest,
   listAccounts,
   PASSKEY_LIMIT,
+  passesPasskeyTouch,
   readAdmittedSession,
   readServedSession,
   requestAccountDeletion,
@@ -1332,6 +1333,38 @@ describe("the fresh sign-in a first passkey is added on", () => {
   it("holds the library's `freshAge` and the passkey touch at their figures", () => {
     expect(auth.options.session.freshAge).toBe(FRESH_SIGN_IN_MS / 1000);
     expect(PASSKEY_TOUCH_SECONDS).toBe(60);
+  });
+});
+
+/* The touch an act on its list declares, judged on the actor a guard recorded: how old the sign-in is, by which
+   factor, and whether the account holds a passkey at all. */
+describe("the passkey touch an act declares", () => {
+  const actorOf = (factor: "code" | "passkey", ageMs: number) => ({
+    email: PERSON_EMAIL,
+    lane: "person" as const,
+    authTime: Math.floor((Date.now() - ageMs) / 1000),
+    factor: factor,
+  });
+
+  it("admits a passkey sign-in inside the touch, and refuses one past it", async () => {
+    const { row } = await signIn(PERSON_EMAIL);
+    store.passkey.push(aPasskeyFor(row.userId));
+
+    expect(await passesPasskeyTouch(actorOf("passkey", PASSKEY_TOUCH_MS - 10_000)), "a fresh touch was refused").toBe(true);
+    expect(await passesPasskeyTouch(actorOf("passkey", PASSKEY_TOUCH_MS + 10_000)), "a touch past its figure passed").toBe(false);
+  });
+
+  it("refuses a code session of a person holding a passkey, however fresh, and passes one holding none", async () => {
+    const { row } = await signIn(PERSON_EMAIL);
+
+    expect(await passesPasskeyTouch(actorOf("code", 0)), "a person holding no passkey was refused").toBe(true);
+
+    store.passkey.push(aPasskeyFor(row.userId));
+    expect(await passesPasskeyTouch(actorOf("code", 0)), "a holder's code session passed the touch").toBe(false);
+  });
+
+  it("passes nobody where no guard recorded an actor", async () => {
+    expect(await passesPasskeyTouch(undefined)).toBe(false);
   });
 });
 

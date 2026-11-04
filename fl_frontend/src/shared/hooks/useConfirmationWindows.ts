@@ -1,5 +1,6 @@
 "use client";
 
+// Redesign: goes with its last importer.
 import { useCallback, useMemo, useState } from "react";
 
 import { ENROLMENT_WINDOW_MS, STEP_UP_WINDOW_MS } from "@/core/sessionLifetimes";

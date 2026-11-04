@@ -200,6 +200,23 @@ function isPasskeyTouch(session: SessionStamps): boolean {
 }
 
 /**
+ * Whether the request's actor may make an act the passkey touch guards: a person holding a passkey by the touch
+ * alone, every time, and a person holding none as they stand. `false` where no guard recorded an actor.
+ */
+export async function passesPasskeyTouch(actor: RequestActor | undefined): Promise<boolean> {
+  if (actor === undefined) return false;
+  if (isPasskeyTouch({ createdAt: new Date(actor.authTime * 1000), authFactor: actor.factor })) return true;
+  // Every guard serves a passkey's session only while its passkey is held, so one past the touch is a holder's.
+  if (actor.factor === PASSKEY_FACTOR) return false;
+
+  const { adapter, internalAdapter } = await auth.$context;
+  const account = await internalAdapter.findUserByEmail(actor.email);
+  // No account at the actor's address is no session to judge, so nothing passes.
+  if (account === null) return false;
+  return (await adapter.count({ model: "passkey", where: [{ field: "userId", value: account.user.id }] })) === 0;
+}
+
+/**
  * The stamps sit on the stored row and on neither arm's declared type, the library typing both to
  * its own base shape: read through `Reflect` rather than cast, so nothing here claims they are there.
  */
