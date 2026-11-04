@@ -163,6 +163,41 @@ function HeldQuestion() {
   );
 }
 
+/** Which render a closing setter came from, as `FreshSetterDialog` records it. */
+const FROM_THE_OPEN_RENDER = "closed by the setter of the render that showed it open";
+const FROM_THE_FIRST_RENDER = "closed by the setter of the render that mounted it";
+
+/**
+ * A control handing its dialog a new setter on every render, a closure over that render's state, as an inline
+ * handler is: each records which render it came from as it closes the dialog.
+ */
+function FreshSetterDialog() {
+  const [held, setHeld] = useState({ isOpen: false, closedBy: "" });
+  const from = held.isOpen ? FROM_THE_OPEN_RENDER : FROM_THE_FIRST_RENDER;
+  return (
+    <>
+      <Button
+        variant="secondary"
+        label={COPY.shared.verb.create}
+        onPress={() => setHeld({ isOpen: true, closedBy: "" })}
+      />
+      <p>{held.closedBy}</p>
+      <Dialog
+        title={NAME}
+        act={{ verb: "create", object: NAME }}
+        action={async () => DONE}
+        open={{ isOpen: held.isOpen, onOpenChange: (isOpen) => setHeld({ isOpen, closedBy: from }) }}>
+        <TextField
+          label={INPUT}
+          name="created"
+          width="W3"
+          kind="text"
+        />
+      </Dialog>
+    </>
+  );
+}
+
 /** A control opening its dialog through an open state of its own, a plain one. */
 function HeldDialog() {
   const [isOpen, setOpen] = useState(false);
@@ -369,6 +404,15 @@ describe("the kit's dialog", () => {
     await leaveAndReturnWithOpen(Page, "dialog");
 
     expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  /* The hide's cleanup runs once, set up at mount: a holder's setter of that first render closes over state long
+     stale, which the holder's write would then put back. */
+  it("closes through the holder's setter of its latest render, a holder handing a new one each time", async () => {
+    await leaveAndReturnWithOpen(FreshSetterDialog, "dialog");
+
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.getByText(FROM_THE_OPEN_RENDER)).toBeTruthy();
   });
 });
 
