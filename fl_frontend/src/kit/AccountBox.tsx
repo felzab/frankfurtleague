@@ -36,6 +36,11 @@ type Question = Omit<ConfirmDialogProps, "trigger" | "open" | "onConfirm">;
 /** The one act a box's footer holds, beside its status line. */
 export type AccountAct = {
   run: Run;
+  /**
+   * What the act posts beside the box's fields, unseen: the address the page was drawn for. A field rather than a
+   * closure around `run`, so a box drawn on the server hands its act a server action's reference alone.
+   */
+  carry?: Readonly<Record<string, string>>;
   /** Its button's label, or the question it asks first. */
   button: { label: Copy } | { confirm: Question };
   /** The passkey touch first, for a person holding a passkey (`usePasskeyTouch`). */
@@ -163,7 +168,10 @@ function ActBox({ act, head, children }: { act: AccountAct; head: ReactElement; 
 
   const press = () => {
     setRowStatus(null);
-    if (form.current !== null) send(new FormData(form.current));
+    if (form.current === null) return;
+    const formData = new FormData(form.current);
+    for (const [name, value] of Object.entries(act.carry ?? {})) formData.set(name, value);
+    send(formData);
   };
 
   return (

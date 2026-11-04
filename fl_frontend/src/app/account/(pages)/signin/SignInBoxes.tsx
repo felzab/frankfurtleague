@@ -53,11 +53,9 @@ export function SignInBoxes({
           title={COPY.signIn.address}
           description={COPY.konto.address.description}
           act={{
+            run: startAddressChange,
             // The address the page is drawn for, which the start posts behind its touch.
-            run: (formData) => {
-              formData.set("holder", email);
-              return startAddressChange(formData);
-            },
+            carry: { holder: email },
             button: { label: COPY.shared.withObject(COPY.konto.address.link, "send") },
             touch: held,
           }}>
