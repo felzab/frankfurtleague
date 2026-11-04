@@ -48,8 +48,8 @@ you write one; the strings themselves live in the catalogue, `fl_frontend/src/co
   string to pass through: the plural of an empty state is the list's own title entry, a date is a
   stored `YYYY-MM-DD` day, a year a range ends on is `{ year }`. A name that may be the catalogue's
   or a record's is `Words`, and lint refuses an entry returning its argument as it came.
-- **Every date, time, number, amount, score and season label goes through
-  `fl_frontend/src/core/format.ts`**, and the current time is read through
+- **Every date, time, number, amount and score goes through `fl_frontend/src/core/format.ts`, and
+  every season's name through `COPY.shared.saisonName`**, and the current time is read through
   `fl_frontend/src/core/clock.ts :: now` alone. Parsing a given date is not reading the clock.
 - **No string is rewritten for a screen about to change or go**: a change writes the strings of what
   it builds.
@@ -157,8 +157,9 @@ placeholders, no truncation banners.
 ## Dates and numbers go through the formatting module
 
 `fl_frontend/src/core/format.ts` holds each form beside the function writing it: a date in a list or
-a field message, a date in a sentence or a mail, a time, a moment, a range, a number, an amount, a
-score and a season. Two rules no function states:
+a field message, a date in a sentence or a mail, a time, a moment, a range, a number, an amount and a
+score; a season's name is the catalogue's `COPY.shared.saisonName`, since its id is its year and
+needs no formatting. Two rules no function states:
 
 - **A range is the only place a dash appears**, and the locale writes it, dropping what both ends
   share.
