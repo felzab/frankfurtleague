@@ -10,8 +10,8 @@ from fastapi import FastAPI
 from httpx2 import Response
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.identitaet.schemas import FLSubjectPayload, FLSubjectResponse
-from app.api.identitaet.system_router import get_sign_in, get_subject
+from app.api.identity.schemas import FLSubjectPayload, FLSubjectResponse
+from app.api.identity.system_router import get_sign_in, get_subject
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.main import create_app
@@ -36,7 +36,7 @@ from tests.worker import worker_database
 
 from .conftest import config_for
 
-DATABASE_NAME = worker_database("fl_identitaet_subjekt_test")
+DATABASE_NAME = worker_database("fl_identity_subjekt_test")
 
 PATH = f"/api/v{API_VERSION}/identity/subject"
 
@@ -44,13 +44,6 @@ PATH = f"/api/v{API_VERSION}/identity/subject"
 # caller may hand over unfolded. Deliberately unusual, so a hit in a seeded corpus cannot be a coincidence.
 IDENTIFIER = "ortrud.zwiebelmayer@schule.de"
 ASKED_UNFOLDED = "Ortrud.Zwiebelmayer@Schule.de"
-
-# The „ß“ decision, never a `casefold`: IDNA 2008 keeps „ß“ in a domain, so these are two mailboxes,
-# each holding a seat. The sharp-s one is stored in punycode, as a payload stores it.
-SHARP_S_ASKED = "Post@straße.de"
-SHARP_S_STORED = "post@xn--strae-oqa.de"
-DOUBLE_S_ASKED = "post@strasse.de"
-DOUBLE_S_STORED = "post@strasse.de"
 
 # Nobody this identifier may reach, in each of the three collections.
 BYSTANDER = "baldur.krautzberger@example.com"
@@ -96,8 +89,6 @@ TEAM_C_OID = ObjectId("6890a1b2c3d4e5f607820003")
 SEAT_ROW_A_OID = ObjectId("6890a1b2c3d4e5f607820011")
 SEAT_ROW_B_OID = ObjectId("6890a1b2c3d4e5f607820012")
 BYSTANDER_ROW_OID = ObjectId("6890a1b2c3d4e5f607820013")
-SHARP_S_ROW_OID = ObjectId("6890a1b2c3d4e5f607820014")
-DOUBLE_S_ROW_OID = ObjectId("6890a1b2c3d4e5f607820015")
 IDN_ROW_OID = ObjectId("6890a1b2c3d4e5f607820017")
 PUPIL_ONE_OID = ObjectId("6890a1b2c3d4e5f607820021")
 IDN_PUPIL_OID = ObjectId("6890a1b2c3d4e5f607820023")
@@ -213,8 +204,6 @@ async def _seed(database: AsyncDatabase) -> None:
                 ansprechperson=_person(UNCONFIRMED, confirmed_at=None),
                 stellvertretung=GESPERRT_STORED,
             ),
-            _junction(SHARP_S_ROW_OID, FUTURE_SAISON, TEAM_A_OID, name=ROW_NAME_A, trainer=SHARP_S_STORED),
-            _junction(DOUBLE_S_ROW_OID, FUTURE_SAISON, TEAM_B_OID, name=ROW_NAME_B, trainer=DOUBLE_S_STORED),
             _junction(IDN_ROW_OID, PAST_SAISON, TEAM_C_OID, name="Krautzberg", trainer=IDN_STORED),
         ]
     )
@@ -350,18 +339,6 @@ def test_an_internationalised_domain_answers_all_three_kinds(mongo_replica_set_u
     assert [seat.team_id for seat in answer.seats] == [TEAM_C_OID]
     assert [row.spieler_id for row in answer.spieler] == [IDN_PUPIL_OID]
     assert [row.schiedsrichter_id for row in answer.schiedsrichter] == [IDN_REFEREE_OID]
-
-
-@pytest.mark.db
-def test_the_sharp_s_address_and_the_double_s_one_are_two_mailboxes(mongo_replica_set_url: str):
-    """Kills `casefold` in the fold, which maps „ß“ to „ss“ and would hand one person the other's seat.
-
-    Each address holds a seat at a club of its own, so collapsing the two answers the wrong club
-    rather than nothing.
-    """
-
-    assert [seat.team_id for seat in answered(mongo_replica_set_url, SHARP_S_ASKED).seats] == [TEAM_A_OID]
-    assert [seat.team_id for seat in answered(mongo_replica_set_url, DOUBLE_S_ASKED).seats] == [TEAM_B_OID]
 
 
 @pytest.mark.db

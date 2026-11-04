@@ -288,17 +288,9 @@ describe("renamedConfirmedSeatLabels", () => {
     expect(howStored({ email: "Erika@Beispiel.DE" }, { email: "erika@beispiel.de" })).toStrictEqual([]);
   });
 
-  /* A domain typed in Unicode is stored as the punycode the row already holds: the server reads the
-     two as one person and keeps the stamp. */
-  it("stays silent where a domain typed in Unicode meets its stored punycode", () => {
-    expect(howStored({ email: "anna@xn--mller-kva.de" }, { email: "anna@müller.de" })).toStrictEqual([]);
-  });
-
-  /* „Weiß“ and „Weiss“ are two families, and „straße“ and „strasse“ two domains to sign-in: the save
-     drops each stamp, so the banner has to name the seat. */
+  /* „Weiß“ and „Weiss“ are two families: the save drops the stamp, so the banner has to name the seat. */
   it("names a seat where „ß“ against „ss“ is the whole difference", () => {
     expect(howStored({ nachname: "Weiß" }, { nachname: "WEISS" })).toStrictEqual(["Trainer"]);
-    expect(howStored({ email: "erika@strasse.de" }, { email: "erika@straße.de" })).toStrictEqual(["Trainer"]);
   });
 
   /* The three fields are compared apart: folded into one run, „Anna Maria Weiß“ reads the same however

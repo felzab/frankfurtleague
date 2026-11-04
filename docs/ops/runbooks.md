@@ -310,7 +310,7 @@ administration is shut while it is down. Each of these is easy to get wrong:
   `mongosh`, into the `berechtigungen` collection of the application database (`DB_BASE_NAME`,
   which `fl_backend/.env` names). The row holds five fields: `adresse`,
   the address in the form the sign-in stores it (`fl_backend/app/shared/folding.py ::
-sign_in_identifier`) — trimmed, the letters of both halves lower-case, the domain in punycode —
+sign_in_identifier`) — trimmed and lower-case, ASCII throughout —
   which the application then reads as typed; `verwaltung`, `owner` or `administration`; `granted_by`, a marker naming the
   paste, such as `PLAYGROUND`; `granted_at`, a date rather than a string; and `version: 0`, which
   the tier change takes into its filter, so on a row without it every tier change is refused as stale. Removing the row by its
@@ -336,11 +336,12 @@ sign_in_identifier`) — trimmed, the letters of both halves lower-case, the dom
   nothing, so deleting it by hand is tidying rather than revocation.
 - **A grant to an address the sign-in library will not take admits nobody**: that person is mailed
   no code. The grant page refuses such an address; the Playground
-  refuses nothing. An umlaut before the at sign is the case that turns up: the sign-in box takes no
-  such address, so that person needs a mailbox it will accept before a grant is worth writing. An umlaut domain is stored in punycode,
-  which the sign-in box converts either spelling to.
+  refuses nothing. An umlaut is the case that turns up: the sign-in box takes no address outside
+  ASCII, so that person needs a mailbox it will accept before a grant is worth writing. A domain
+  already spelled in punycode (`xn--`) is taken as typed.
 - **A grant admits every passkey the address already holds.** A person enrols a first passkey with a
-  mailed code and every later one with a passkey sign-in of the last minute, or brings them along on an address change the new mailbox confirmed while nothing named it
+  mailed code and every later one with a passkey sign-in of the last minute, or brings them along
+  on an address change the new mailbox confirmed while nothing named it
   and no grant was asked for it, the same authority an
   administrator's first passkey rests on, so one enrolled before the grant
   admits once the address is granted, though only on a passkey sign-in made after the grant: a
@@ -555,11 +556,10 @@ change of an address moves, in one step, every pupil row, confirmed referee row,
 seat, registration and grant the address holds, so one sign-in stays whole.
 
 - **The person can still sign in.** Point them to their account page, `/bereich/konto`, „E-Mail-Adresse
-  ändern“. They confirm it is them by passkey or by a code to the address on file, a holder of
-  access to the Verwaltung by passkey alone, type the new address, and confirm it from its own
-  mailbox within `fl_backend/app/shared/schemas/bounds.py :: ADDRESS_CHANGE_VALID_HOURS` hours; the address on
-  file is told, with a
-  link that stops the change. Never start a change for a
+  ändern“. They type the new address, a person holding a passkey touching it first, confirm the
+  change by the link mailed to the address on file, and then by the link that confirmation mails the
+  new address, each within `fl_backend/app/shared/schemas/bounds.py :: ADDRESS_CHANGE_VALID_HOURS`
+  hours; declining at either link ends it. Never start a change for a
   person who can sign in: a request arriving by mail proves nothing about who sent it.
 - **They say they cannot sign in.** Ask the address on file first: start the change in the address
   tool with both addresses and no reason (`POST /address_change`). Nothing goes to the new address
@@ -603,7 +603,8 @@ seat, registration and grant the address holds, so one sign-in stays whole.
   (`POST /address_change/{address_change_id}/invite`), and **discard** a change that turns out to be
   wrong (`DELETE /address_change/{address_change_id}`). A change whose step lapses ends within the hour
   ([`../datenschutz.md`](../datenschutz.md#6-retention-is-bounded-where-a-bound-was-chosen)).
-- **Once a change takes effect**, the replaced address is told. Where the person started it or the
+- **Once a change takes effect**, the replaced address is told where an administrator started it;
+  the person's own change mails nothing past its two links. Where the person started it or the
   address on file approved it, their sign-in account moves to the new address and every session of
   it ends, unless the new address holds an account of its own (`address_change.account_not_moved` at `WARN`), where the
   old account keeps its sessions until the sweep below; after a change started on a recorded reason, or onto such an address, they
@@ -620,7 +621,7 @@ seat, registration and grant the address holds, so one sign-in stays whole.
   names the pending change and opens it in the address tool, and discard it there, which takes the address out of the change's record and the log's images of it. Where the holder asked for their data to be deleted, the erasure
   itself ends the change alone and leaves the records standing. The
   link's own „Das ist nicht meine Adresse“ does the same as the discard, past its deadline too, and
-  the address on file's stop link does it from the other side.
+  the address on file's own link does it from the other side.
 - **A referee who is RETIRED and has not confirmed.** Correct `kontakt.email` in the referee editor.
   The save stores the address, mails nothing and kills the old link, since a retired referee takes
   no booking to consent for; reactivating them later mints a fresh link and mails it to the
@@ -633,7 +634,7 @@ seat, registration and grant the address holds, so one sign-in stays whole.
   whose person has stepped out takes a different route, below.
 
 **A person asking to change their own address is pointed to their account page.** Every account's
-address changes there, proved by the new mailbox's own link and told to the address on file; an
+address changes there, confirmed by the address on file's link and then by the new mailbox's; an
 administrator starts a change only for a lost mailbox, as above. A person holding only contact
 seats changes theirs there too. Where they cannot sign in, an administrator may instead seat them
 afresh in the contacts editor under the new address: the seat is then a new entry, its consent,
@@ -1442,7 +1443,7 @@ the stream remove it, and the replay refuses then as well.
 
 It hands the day files from the snapshot's day on to the backend's container, which reads every line
 written after the first moment and no later than the second, and matches it against the restored
-database under the journal's key (`fl_backend/app/api/identitaet/wiederherstellung.py`), so **the key
+database under the journal's key (`fl_backend/app/api/identity/wiederherstellung.py`), so **the key
 is never typed, and no address, no hash and no key is printed**. Before the container is asked, it
 refuses a moment naming no offset, a restore's end no later than the snapshot, and a snapshot's day
 the export wrote no file for. Each line is listed by its act and its record, never by its person:

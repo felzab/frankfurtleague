@@ -1,14 +1,4 @@
 {
-  "src/app/(classic)/signin/page.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/app/(classic)/signin/passkey/page.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
   "src/app/(public)/(meta)/layout.tsx": {
     "better-tailwindcss/no-restricted-classes": {
       "count": 1

@@ -7,11 +7,11 @@ from fastapi import APIRouter, Body, Depends, Query
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.identitaet.crud import refuse_without_a_seat
-from app.api.identitaet.lookup import SubjektLookup
-from app.api.identitaet.services import ist_eigene_registrierung
-from app.api.konto.crud import press_widerruf
-from app.api.konto.services import KONTO_SEITE_SPIELER, compose_person_move, find_eigener_eintrag_refusal, widerruf_line
+from app.api.account.crud import press_widerruf
+from app.api.account.services import KONTO_SEITE_SPIELER, compose_person_move, find_eigener_eintrag_refusal, widerruf_line
+from app.api.identity.crud import refuse_without_a_seat
+from app.api.identity.lookup import SubjektLookup
+from app.api.identity.services import ist_eigene_registrierung
 from app.api.outbox.schemas import FLOutboxReference, FLRegistrierungAbsageData
 from app.api.outbox.services import OwedMail, enqueue_mails
 from app.api.registrierungen.crud import (

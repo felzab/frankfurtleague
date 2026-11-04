@@ -22,7 +22,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.bewerbungen.public_router import get_einwilligung_view, post_einwilligung
 from app.api.bewerbungen.schemas import FLBewerbungEinwilligungAntwortPayload
 from app.api.bewerbungen.services import SEAT_MIN_AGE_YEARS, bestaetigungsfrist_from
-from app.api.identitaet.crud import funktionen_of
+from app.api.identity.crud import funktionen_of
 from app.api.saisons.admin_router import activate_saison
 from app.api.teams.admin_router import invite_kontakt, patch_saison_team_kontakte, replace_saison_team
 from app.api.teams.schemas import FLPatchSaisonTeamKontaktePayload, FLReplaceSaisonTeamPayload, kontakte_stand_of

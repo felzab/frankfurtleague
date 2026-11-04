@@ -19,9 +19,9 @@ from httpx2 import AsyncClient
 from pydantic import BaseModel, ValidationError
 from pymongo.asynchronous.database import AsyncDatabase
 
+from app.api.account.schemas import FLAccountBewerbungSeatEinwilligung, FLAccountSeatEinwilligung, FLSeatConfirmed
+from app.api.account.services import KONTO_SEITE_SCHIEDSRICHTER
 from app.api.bewerbungen.services import mindestalter_for
-from app.api.konto.schemas import FLAccountBewerbungSeatEinwilligung, FLAccountSeatEinwilligung, FLSeatConfirmed
-from app.api.konto.services import KONTO_SEITE_SCHIEDSRICHTER
 from app.api.registrierungen.schemas import FLRegistrierungEinwilligung
 from app.api.registrierungen.services import compose_ablehnung_update
 from app.core.codes import Code
@@ -56,7 +56,7 @@ from tests.worker import worker_database
 
 from .conftest import AUSTRITT, config_for
 
-DATABASE_NAME = worker_database("fl_konto_einwilligung_test")
+DATABASE_NAME = worker_database("fl_account_einwilligung_test")
 
 CONFIG = config_for(DATABASE_NAME)
 

@@ -11,7 +11,7 @@ from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SCHIEDSRICHTER_ID
 from app.shared.alter import whole_years_between
 from app.shared.einwilligung import is_confirmed
 from app.shared.einwilligung_nachweis import compose_geboren
-from app.shared.folding import canonical_address, sign_in_identifier
+from app.shared.folding import league_address, sign_in_identifier
 from app.shared.schemas.bounds import (
     BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
     MEDIEN_MIN_AGE_YEARS,
@@ -379,7 +379,7 @@ def find_missing_address_refusal(*, email: Any) -> WriteRefusal | None:
     # would otherwise meet as a 500.
     if email is not None:
         try:
-            canonical_address(str(email))
+            league_address(str(email))
         except ValueError:
             pass
         else:
@@ -518,7 +518,7 @@ SELBST_FIELDS: Mapping[str, int] = {
 
 
 def build_self_referee_pipeline(identifier: str) -> list[Mapping[str, Any]]:
-    """The referee rows a person's own pages read, each a candidate for `app/api/identitaet/services.py :: ist_eigener_schiedsrichter`.
+    """The referee rows a person's own pages read, each a candidate for `app/api/identity/services.py :: ist_eigener_schiedsrichter`.
 
     Unbounded: a capped list reads as a person holding fewer records.
     """

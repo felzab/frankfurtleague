@@ -17,8 +17,7 @@ const KONTAKT_PAARE = [
 ] as const;
 
 /**
- * One address on the sign-in fold, as the API compares two seats: an umlaut domain is its punycode,
- * and „strasse“ beside „straße“ is two domains to sign-in and to IDNA 2008.
+ * One address on the sign-in fold, as the API compares two seats: trimmed, and ASCII case alone lowered.
  */
 export const gleicheAdresse = (a: string, b: string): boolean => asSignInIdentifier(a) === asSignInIdentifier(b) && a.trim() !== "";
 

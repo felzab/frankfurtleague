@@ -28,7 +28,7 @@ from pymongo.errors import OperationFailure
 from app.api.adresswechsel.crud import end_an_emptied_change_in_session
 from app.api.berechtigungen.antraege import compose_antrag
 from app.api.einladungen.services import compose_einladung, compose_widerruf_update
-from app.api.identitaet.crud import JEDE_PERSONENGRUPPE, LOESCHUNG_STEPS, loeschen_everything
+from app.api.identity.crud import JEDE_PERSONENGRUPPE, LOESCHUNG_STEPS, loeschen_everything
 from app.api.registrierungen.person_router import admit
 from app.api.registrierungen.schemas import FLRegistrierungAdmitPayload
 from app.api.registrierungen.services import compose_ablehnung_update
@@ -101,8 +101,8 @@ NOW = datetime(2126, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 # The person as a request or a pasted grant may spell them, and the fold every record the league writes stores.
 TYPED = "Zorbanax.Quillfeather@Example.org"
 IDENTIFIER = "zorbanax.quillfeather@example.org"
-# As a hand-typed row may spell it, the domain fullwidth: the fold equates it with theirs, a pattern listing domains never.
-PASTED = IDENTIFIER.replace("example", "".join(chr(ord(letter) + 0xFEE0) for letter in "example"))
+# As a hand-typed row may spell it, in capitals: the fold equates it with theirs, an equality on the stored spelling never.
+PASTED = IDENTIFIER.upper()
 VORNAME, NACHNAME = "Zorbanax", "Quillfeather"
 TELEFON = "+49 69 7771234"
 GEBURTSDATUM = "2008-07-14"

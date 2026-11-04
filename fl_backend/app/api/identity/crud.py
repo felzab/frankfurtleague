@@ -21,9 +21,9 @@ from app.api.aktionen.crud import reattribute_administrator_in_session, redact_a
 from app.api.berechtigungen.antraege import loeschen_antraege_in_session
 from app.api.berechtigungen.crud import read_berechtigungen
 from app.api.berechtigungen.loeschung import loeschen_grants_and_authorship_in_session
-from app.api.identitaet.lookup import RecordCollections
-from app.api.identitaet.schemas import FLAnmeldung, FLLoeschung, FLSubjectSchiedsrichter, FLSubjectSeat, FLSubjectSpieler, FLSubjekt
-from app.api.identitaet.services import (
+from app.api.identity.lookup import RecordCollections
+from app.api.identity.schemas import FLAnmeldung, FLLoeschung, FLSubjectSchiedsrichter, FLSubjectSeat, FLSubjectSpieler, FLSubjekt
+from app.api.identity.services import (
     EintragArt,
     awaits_confirmation,
     behaltene_saison_ids,
@@ -58,6 +58,7 @@ from app.api.identitaet.services import (
     offene_adressen,
     referenced_addresses,
     seat_is_confirmed,
+    seat_saison_statuses,
     seats_naming,
     statuses_of,
     unreferenced,
@@ -84,35 +85,6 @@ from app.shared.einwilligung import is_confirmed
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.literals import FLSaisonStatus
 
-
-async def _statuses_of(
-    *, saisons_collection: ReadCollection, saison_ids: Sequence[str], session: AsyncClientSession | None
-) -> Mapping[str, FLSaisonStatus]:
-    """One read of `saisons` for every season the seats sit in, the junction row carrying no copy of its season's `status`.
-
-    Made after the live seats are judged, so a withdrawn team's season is never read for.
-    """
-
-    # No seat, no read: an empty `$in` answers nothing, and it would cost a mailbox holding no seat a
-    # second round trip after the gathered reads.
-    if not saison_ids:
-        return {}
-
-    rows = await aggregate_many_from_db(
-        collection=saisons_collection,
-        pipeline=[{"$match": {"_id": {"$in": sorted(set(saison_ids))}}}, {"$project": {"status": 1}}],
-        session=session,
-    )
-    statuses = {row["_id"]: row["status"] for row in rows}
-
-    if missing := sorted(set(saison_ids) - statuses.keys()):
-        # Raised rather than dropped: a seat whose season has no row is a database this read cannot
-        # answer truthfully for, and a silently shorter list is a person shown no panel at all.
-        raise RuntimeError(f"saison_teams holds seats in {missing}, which saisons has no row for")
-
-    return statuses
-
-
 Rows = list[Mapping[str, Any]]
 
 
@@ -130,15 +102,7 @@ def _reads(identifier: str, records: RecordCollections) -> tuple[tuple[ReadColle
     )
 
 
-async def _judged(
-    identifier: str,
-    seat_rows: Rows,
-    referee_rows: Rows,
-    pupil_rows: Rows,
-    *,
-    saisons_collection: ReadCollection,
-    session: AsyncClientSession | None,
-) -> FLSubjekt:
+def _judged(identifier: str, seat_rows: Rows, referee_rows: Rows, pupil_rows: Rows) -> FLSubjekt:
     """The answer every lookup gives from the same three reads: one judgement, so no two can narrow differently.
 
     Each list is the live part of the address's own records, so the gate never refuses a Funktion
@@ -153,11 +117,7 @@ async def _judged(
 
     # Every live seat naming the address and not only its confirmed ones: the flag below reads an
     # unconfirmed seat's season too, so a seat whose season has no row stays loud whichever list counts it.
-    statuses = await _statuses_of(
-        saisons_collection=saisons_collection,
-        saison_ids=[row["saison_id"] for row, _ in seats_naming(lebende_sitzzeilen, identifier)],
-        session=session,
-    )
+    statuses = seat_saison_statuses(row for row, _ in seats_naming(lebende_sitzzeilen, identifier))
 
     # The confirmation narrows HERE, through the predicates every reader shares, and never at a caller:
     # a caller-side check leaves the sign-in gate mailing, and a panel drawn for, a person nobody confirmed.
@@ -207,7 +167,7 @@ async def find_subjekt(identifier: str, records: RecordCollections) -> FLSubjekt
         *(aggregate_many_from_db(collection=collection, pipeline=pipeline) for collection, pipeline in _reads(identifier, records))
     )
 
-    return await _judged(identifier, seat_rows, referee_rows, pupil_rows, saisons_collection=records.saisons_collection, session=None)
+    return _judged(identifier, seat_rows, referee_rows, pupil_rows)
 
 
 async def find_eigene_eintraege(identifier: str, records: RecordCollections) -> tuple[FLSubjekt, frozenset[tuple[EintragArt, Any]]]:
@@ -223,7 +183,7 @@ async def find_eigene_eintraege(identifier: str, records: RecordCollections) -> 
         aggregate_many_from_db(collection=records.registrierungen_collection, pipeline=build_registrierung_pipeline(identifier)),
     )
 
-    subjekt = await _judged(identifier, seat_rows, referee_rows, pupil_rows, saisons_collection=records.saisons_collection, session=None)
+    subjekt = _judged(identifier, seat_rows, referee_rows, pupil_rows)
 
     return subjekt, eigene_eintraege(
         identifier,
@@ -261,7 +221,7 @@ async def find_subjekt_in_session(
         for collection, pipeline in _reads(identifier, records)
     ]
 
-    return await _judged(identifier, seat_rows, referee_rows, pupil_rows, saisons_collection=records.saisons_collection, session=session)
+    return _judged(identifier, seat_rows, referee_rows, pupil_rows)
 
 
 async def funktionen_of(
@@ -294,23 +254,14 @@ def _nur_mit_panel(subjekt: FLSubjekt) -> FLSubjekt:
     return subjekt.model_copy(update={"seats": [sitz for sitz in subjekt.seats if grants_a_panel(sitz.saison_status)]})
 
 
-async def funktionen_aus(
-    identifier: str,
-    *,
-    seat_rows: Rows,
-    referee_rows: Rows,
-    pupil_rows: Rows,
-    saisons_collection: ReadCollection,
-    session: AsyncClientSession,
-) -> FLSubjekt:
+def funktionen_aus(identifier: str, *, seat_rows: Rows, referee_rows: Rows, pupil_rows: Rows) -> FLSubjekt:
     """`funktionen_of`'s answer over rows a caller already read through the subject's own selections, so none is read twice.
 
-    The rows must carry what `_judged` reads: each seat row's `austritt`, `name` and seats, and each person's stamp and retirement.
+    The rows must carry what `_judged` reads: each seat row's `austritt`, `name`, seats and `saison_status_lookup`'s `saison`, and
+    each person's stamp and retirement.
     """
 
-    return _nur_mit_panel(
-        await _judged(identifier, seat_rows, referee_rows, pupil_rows, saisons_collection=saisons_collection, session=session)
-    )
+    return _nur_mit_panel(_judged(identifier, seat_rows, referee_rows, pupil_rows))
 
 
 async def refuse_without_a_seat(

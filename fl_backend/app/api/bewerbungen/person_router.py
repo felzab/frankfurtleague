@@ -5,10 +5,8 @@ from fastapi import APIRouter, Body, Depends
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.bewerbungen.schemas import FLBewerbungAccountEinwilligungResponse
-from app.api.identitaet.services import eigene_sitze
-from app.api.konto.crud import press_widerruf
-from app.api.konto.services import (
+from app.api.account.crud import press_widerruf
+from app.api.account.services import (
     KONTO_SEITE_KONTAKT,
     compose_sitz_move,
     find_eigener_eintrag_refusal,
@@ -16,6 +14,8 @@ from app.api.konto.services import (
     sitz_wahlen_der_zeile,
     widerruf_line,
 )
+from app.api.bewerbungen.schemas import FLBewerbungAccountEinwilligungResponse
+from app.api.identity.services import eigene_sitze
 from app.api.sperrliste.guard import PERSON_ACTOR_BINDERS, KontaktIdentifier
 from app.core.collections import Collection
 from app.core.config import API_VERSION, BackendConfig, get_app_config

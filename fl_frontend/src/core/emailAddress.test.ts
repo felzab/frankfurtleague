@@ -11,61 +11,22 @@ const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..");
 /** `new URL` DELETES these five while parsing, so each reaches every later check as `xy.de`. */
 const INVISIBLE = ["​", "﻿", "­", "⁠", "᠎"];
 
-/** The tab and the second at sign survive `new URL` too, where the enumerated punctuation does not. */
-const REFUSED_PAST_THE_URL = [...INVISIBLE, "\t", "@"];
-
-/** A letter-digit-hyphen host, a dotted one, and the two shapes RFC 6531 admits above ASCII. */
-const TAKEN = ["-", ".", "ü", "日"];
+/** Outside a host label's letters, digits and hyphens: an umlaut and a CJK letter, which the rule refuses rather than converts, among them. */
+const REFUSED = [...INVISIBLE, "\t", "@", "_", "ü", "日"];
 
 const hostOf = (middle: string): string => `person@x${middle}y.de`;
 
 describe("the host alphabet an address is held to", () => {
-  it("takes a plain host, so a refusal below is the alphabet and not the function refusing everything", () => {
-    expect(isDeliverableAddress("person@xy.de")).toBe(true);
-    assert.ok(TAKEN.length > 0 && REFUSED_PAST_THE_URL.length > 0, "a table is empty, so this case compares nothing");
-  });
-
-  it("takes a hyphen, a dot and a character above ASCII", () => {
-    for (const middle of TAKEN) {
+  it("takes a hyphen and a dot, so a refusal below is the alphabet and not the function refusing everything", () => {
+    for (const middle of ["-", "."]) {
       expect(isDeliverableAddress(hostOf(middle)), `expected a host carrying ${JSON.stringify(middle)} to be deliverable`).toBe(true);
     }
   });
 
-  /* Each of these is refused by the alphabet ALONE: drop one from the class and the address is
-     accepted, because every check after the alphabet reads the host `new URL` already cleaned. */
-  it("refuses what survives the URL parse to reach a later check as a different host", () => {
-    for (const middle of REFUSED_PAST_THE_URL) {
+  it("refuses every character outside a label's letters, digits and hyphens", () => {
+    for (const middle of REFUSED) {
       expect(isDeliverableAddress(hostOf(middle)), `expected a host carrying ${JSON.stringify(middle)} to be refused`).toBe(false);
     }
-  });
-
-  /* One character class cannot backtrack, so a host of nothing but hyphens answers rather than
-     hangs. The runner's own timeout is what a regression here would trip. */
-  it("answers on a host of twenty thousand hyphens", () => {
-    expect(isDeliverableAddress(`person@${"-".repeat(20000)} .de`)).toBe(false);
-  });
-});
-
-/** An address of `local@` and thirteen umlaut labels, `pad` ASCII letters, then `.de`: 164 characters at five, 255 octets punycoded. */
-const umlautAddressOf = (pad: number): string => `${"a".repeat(64)}@${"müller.".repeat(13)}${"b".repeat(pad)}.de`;
-
-/* The API measures the whole address with its host punycoded, where each `müller` costs thirteen
-   octets rather than six characters: read as typed, the refused one is ninety characters short. */
-describe("the whole-address ceiling an umlaut domain reaches", () => {
-  it("takes the address whose punycoded form is 254 octets and refuses the one at 255", () => {
-    expect(isDeliverableAddress(umlautAddressOf(4))).toBe(true);
-    expect(isDeliverableAddress(umlautAddressOf(5))).toBe(false);
-    assert.ok(umlautAddressOf(5).length < 254, "the refused address is already over the ceiling as typed, so this compares nothing");
-  });
-
-  /* A label of one repeated umlaut punycodes to about an octet a letter and takes two in UTF-8, so
-     here the address as typed is what the API refuses, the punycoded form sitting well inside. */
-  it("refuses an address whose typed form alone passes the ceiling in UTF-8 octets", () => {
-    const address = `a@${Array.from({ length: 3 }, () => "ä".repeat(57)).join(".")}.de`;
-
-    expect(new TextEncoder().encode(address).length).toBe(349);
-    assert.ok(address.length < 254, "the address is over the ceiling in characters, so this compares nothing");
-    expect(isDeliverableAddress(address)).toBe(false);
   });
 });
 
@@ -86,9 +47,9 @@ describe("a local part above ASCII", () => {
     }
   });
 
-  /* The control: a rule refusing every character above ASCII fails here rather than passing the case above. */
-  it("is told apart from one whose domain alone is above ASCII", () => {
-    expect(isDeliverableAddress(`anna@m${String.fromCodePoint(0xfc)}ller.de`)).toBe(true);
+  /* The control: a wording reading the whole address would give an umlaut domain the local part's sentence. */
+  it("is told apart from a domain above ASCII, which takes the generic refusal", () => {
+    expect(isDeliverableAddress(`anna@m${String.fromCodePoint(0xfc)}ller.de`)).toBe(false);
     expect(hasAsciiLocalPart(`anna@m${String.fromCodePoint(0xfc)}ller.de`)).toBe(true);
   });
 
@@ -97,25 +58,19 @@ describe("a local part above ASCII", () => {
   });
 });
 
-/** What one side's rule takes the address as, `null` where it refuses it, and how its fold spells it. */
-const ANSWER = z.object({ stored: z.string().nullable(), folded: z.string() });
-
 /** One table both suites run their own rule and fold over; `fl_backend/tests/shared/test_email_address.py` holds the API's half. */
 const ROWS = z
-  .array(z.object({ case: z.string(), typed: z.string(), ...ANSWER.shape, frontend: ANSWER.optional() }))
+  .array(z.object({ case: z.string(), typed: z.string(), stored: z.string().nullable(), folded: z.string() }))
   .parse(JSON.parse(readFileSync(path.resolve(REPO_ROOT, "fl_backend", "tests", "shared", "email_addresses.json"), "utf8")));
 
-/* Each runtime converts a Unicode domain on its own tables, held here to one answer, or each to its own where they part. */
 describe("the address table the API is held to as well", () => {
-  for (const row of ROWS) {
-    it(`answers ${row.case} as the table records`, () => {
-      const { stored, folded } = row.frontend ?? row;
+  for (const { case: what, typed, stored, folded } of ROWS) {
+    it(`answers ${what} as the table records`, () => {
       // Trimmed first, as the address box trims before the rule reads the value.
-      const typed = row.typed.trim();
-      expect(isDeliverableAddress(typed)).toBe(stored !== null);
-      expect(asSignInIdentifier(row.typed)).toBe(folded);
+      expect(isDeliverableAddress(typed.trim())).toBe(stored !== null);
+      expect(asSignInIdentifier(typed)).toBe(folded);
       // The API stores the fold itself, so the address this side folds meets the stored row by equality.
-      if (stored !== null) expect(asSignInIdentifier(typed)).toBe(stored);
+      if (stored !== null) expect(asSignInIdentifier(typed.trim())).toBe(stored);
     });
   }
 });

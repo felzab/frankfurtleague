@@ -89,7 +89,7 @@ class FLAdresswechsel(BaseModel):
 
 
 class FLAdresswechselStopp(BaseModel):
-    """The address on file's stop link."""
+    """The address on file's link: the person's own change's first confirmation, every other way's stop."""
 
     token_hashes: list[str]
 
@@ -97,7 +97,8 @@ class FLAdresswechselStopp(BaseModel):
 class FLAdresswechselRecord(FLAdresswechsel):
     """One change as `adresswechsel` stores it, its two links' hashes with it, each minted as its mail is handed out."""
 
-    # Empty until the new mailbox's link is handed out, and on the `release` way until the address on file approves.
+    # Empty until the new mailbox's link is handed out, and on the `release` and `account` ways until the address on file
+    # approves.
     token_hashes: list[str]
     stop: FLAdresswechselStopp
 
@@ -178,7 +179,7 @@ class FLAddressChangeViewNew(BaseModel):
 
 
 class FLAddressChangeViewPrevious(BaseModel):
-    """What the address on file's stop link opens: the step the change waits on, never whether it could be confirmed."""
+    """What the address on file's link opens: the step the change waits on, never whether the new mailbox could confirm it."""
 
     seite: Literal["previous"]
     state: FLAdresswechselBisherigZustand
@@ -193,6 +194,8 @@ class FLAddressChangeViewEnded(BaseModel):
     seite: Literal["new", "previous"]
     state: Literal["ended"]
     art: FLAddressChangeEndArt
+    # The German day it ended on, which the page names beside what became of it.
+    ended_on: CustomDateString
 
 
 class FLAddressChangeViewResponse(BaseAPIResponse):

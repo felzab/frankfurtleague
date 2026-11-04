@@ -182,7 +182,7 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         "the counts the log page's three facets are told, over every recorded row",
     ),
     # `actor.pseudonym` leads: an erasure for a person's request matches on it alone, and the pupils' pass,
-    # running for a whole season at once, on both (`app/api/identitaet/crud.py :: unattribute_in_session`,
+    # running for a whole season at once, on both (`app/api/identity/crud.py :: unattribute_in_session`,
     # `:: loeschen_pupil_actor_in_session`).
     SupportIndex(
         Collection.ACTION_LOG,

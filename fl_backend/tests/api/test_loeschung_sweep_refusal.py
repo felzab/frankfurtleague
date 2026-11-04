@@ -9,8 +9,8 @@ from typing import Any
 
 import pytest
 
-from app.api.identitaet import system_router
-from app.api.identitaet.services import (
+from app.api.identity import system_router
+from app.api.identity.services import (
     abgeschlossene_saison_id,
     behaltene_saison_ids,
     geschlossen_durch,

@@ -6,11 +6,8 @@ from fastapi import APIRouter, Body, Depends
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.identitaet.crud import funktionen_of, refuse_without_a_seat
-from app.api.identitaet.lookup import SubjektLookup
-from app.api.identitaet.services import eigene_sitze, holds_a_seat, seat_is_confirmed
-from app.api.konto.crud import press_einwilligung
-from app.api.konto.services import (
+from app.api.account.crud import press_einwilligung
+from app.api.account.services import (
     KONTO_SEITE_KONTAKT,
     compose_sitz_move,
     find_eigener_eintrag_refusal,
@@ -18,6 +15,9 @@ from app.api.konto.services import (
     sitz_wahlen_der_zeile,
     widerruf_line,
 )
+from app.api.identity.crud import funktionen_of, refuse_without_a_seat
+from app.api.identity.lookup import SubjektLookup
+from app.api.identity.services import eigene_sitze, holds_a_seat, seat_is_confirmed
 from app.api.sperrliste.guard import PERSON_ACTOR_BINDERS, KontaktIdentifier
 from app.api.teams.schemas import FLSaisonTeamAccountEinwilligungResponse, FLTeamSeat, FLTeamSeatsResponse
 from app.core.collections import Collection

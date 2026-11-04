@@ -1,9 +1,8 @@
-import { Suspense } from "react";
-
 import { cardSurface } from "./cardStyles";
 import { ClassicPage, ClassicTitle } from "./ClassicPage";
 import { Icon } from "./Icon";
 import { Link } from "./Link";
+import { PageWait } from "./PageFade";
 import { RailPage } from "./RailFrame";
 import { tv } from "./tv";
 
@@ -117,9 +116,9 @@ export function StatusPage(
       scope={props.scope}
       title={props.title}
       chip={props.chip}>
-      <Suspense fallback={null}>
+      <PageWait fallback={null}>
         <CardOnceRead card={props.card} />
-      </Suspense>
+      </PageWait>
     </RailPage>
   );
 }

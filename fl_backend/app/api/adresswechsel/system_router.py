@@ -28,7 +28,7 @@ from app.api.adresswechsel.services import (
     build_parked_terms,
     ist_abgelaufen,
 )
-from app.api.identitaet.lookup import RecordCollections, SubjektLookup
+from app.api.identity.lookup import RecordCollections, SubjektLookup
 from app.api.sperrliste.lookup import BanList, SperrlisteLookup, sperrliste_saison
 from app.core.codes import Code
 from app.core.collections import Collection

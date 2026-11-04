@@ -176,8 +176,8 @@ export function addressSchema(accepts: (address: string) => boolean, box: z.ZodS
 }
 
 /**
- * Every address typed to be stored or signed in with is judged here. `z.email()` cannot be it: no
- * pattern of its converts an umlaut domain, and its `html5Email` takes the doubled dot the API refuses.
+ * Every address typed to be stored or signed in with is judged here. `z.email()` cannot be it: its
+ * default alphabet refuses atext characters the API takes, and its `html5Email` takes the doubled dot the API refuses.
  */
 const asciiLocalBox = addressBox.refine(hasAsciiLocalPart, {
   // First and alone: the one refusal nobody can read out of the generic sentence. It asks for another

@@ -7,8 +7,8 @@ from bson import ObjectId
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.identitaet.crud import funktionen_of
-from app.api.identitaet.schemas import FLSubjekt
+from app.api.identity.crud import funktionen_of
+from app.api.identity.schemas import FLSubjekt
 from app.core.collections import Collection
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.shared.schemas.literals import KONTAKT_ROLLEN
@@ -72,10 +72,7 @@ ONLY_PAST_OPEN = "nur.vergangen.offen@schule.de"
 AUSGETRETEN = "ausgetreten.sitz@schule.de"
 AUSGETRETEN_OPEN = "ausgetreten.offen@schule.de"
 
-# The „ß“ decision: IDNA 2008 keeps „ß“ in a domain, so the two are two mailboxes.
-SHARP_S_ASKED = "Post@straße.de"
-DOUBLE_S_ASKED = "POST@strasse.de"
-DOUBLE_S_STORED = "post@strasse.de"
+ANSPRECHPERSON = "post@strasse.de"
 
 # Retired, and brought back inside the transaction case.
 SPIELER_ONLY_OPEN_OID = ObjectId("6890a1b2c3d4e5f607830021")
@@ -182,7 +179,7 @@ async def _seed(database: AsyncDatabase) -> None:
                 ansprechperson=_seat(PAST_AND_OPEN),
                 stellvertretung=_seat(ONLY_PAST_OPEN, confirmed_at=None),
             ),
-            _junction(ROW_FUTURE_A_OID, FUTURE_SAISON, TEAM_A_OID, ROW_NAME_A, trainer=_seat(TIMES), ansprechperson=_seat(DOUBLE_S_STORED)),
+            _junction(ROW_FUTURE_A_OID, FUTURE_SAISON, TEAM_A_OID, ROW_NAME_A, trainer=_seat(TIMES), ansprechperson=_seat(ANSPRECHPERSON)),
             # The Trainer also holds the Ansprechperson seat, confirmed in the first and entered by an
             # administrator into the second: the stamp is the SLOT's, so the second grants nothing.
             _junction(
@@ -297,12 +294,6 @@ class TestTheFold:
         """Kills trusting the caller to have folded: every read is an equality on the stored fold, which the asked spelling misses."""
 
         assert seats(answered(seeded_league, ACTIVE_UNFOLDED)) == seats(answered(seeded_league, ACTIVE))
-
-    def test_an_address_on_the_sharp_s_domain_is_not_answered_the_double_s_seat(self, seeded_league: str):
-        """Kills `casefold` in the fold, which maps „ß“ to „ss“; the double-s spelling asked beside it is the control."""
-
-        assert answered(seeded_league, SHARP_S_ASKED).seats == []
-        assert [(seat.saison_id, seat.rolle) for seat in answered(seeded_league, DOUBLE_S_ASKED).seats] == [(FUTURE_SAISON, "ansprechperson")]
 
 
 @pytest.mark.db

@@ -9,11 +9,11 @@ from bson import ObjectId
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
+from app.api.account.person_router import get_einwilligungen
 from app.api.adresswechsel.admin_router import post_address_change_verwaltung
 from app.api.adresswechsel.schemas import FLAddressChangeVerwaltungPayload
-from app.api.identitaet.crud import find_anmeldung, find_subjekt, unreferenced_of
-from app.api.identitaet.person_router import get_account_erasure_view
-from app.api.konto.person_router import get_einwilligungen
+from app.api.identity.crud import find_anmeldung, find_subjekt, unreferenced_of
+from app.api.identity.person_router import get_account_erasure_view
 from app.api.registrierungen.person_router import admit, get_open_registrierungen
 from app.api.registrierungen.public_router import get_confirmation_view
 from app.api.registrierungen.schemas import (
@@ -173,12 +173,6 @@ async def the_account_read(database: AsyncDatabase, client: AsyncMongoClient, re
     return await get_einwilligungen(
         identifier=FOLDED_EMAIL,
         spieler_collection=database[Collection.SPIELER],
-        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-        saison_teams_collection=database[Collection.SAISON_TEAMS],
-        teams_collection=database[Collection.TEAMS],
-        bewerbungen_collection=database[Collection.BEWERBUNGEN],
-        registrierungen_collection=database[Collection.REGISTRIERUNGEN],
-        records=record_collections(database),
         db=client,
         today=TODAY,
     )

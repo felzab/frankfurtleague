@@ -18,6 +18,9 @@ from bson import ObjectId
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
+from app.api.account.person_router import delete_address_change as stop_on_the_account_page
+from app.api.account.person_router import get_address_change, post_address_change, post_address_change_release
+from app.api.account.schemas import FLAccountAddressChangePayload, FLAccountAddressChangeReleasePayload
 from app.api.adresswechsel.admin_router import (
     delete_address_change,
     get_address_change_verwaltung_view,
@@ -33,9 +36,6 @@ from app.api.adresswechsel.schemas import (
     FLAdresswechselSweepParams,
 )
 from app.api.adresswechsel.system_router import sweep_address_change
-from app.api.konto.person_router import delete_address_change as stop_on_the_account_page
-from app.api.konto.person_router import get_address_change, post_address_change, post_address_change_release
-from app.api.konto.schemas import FLAccountAddressChangePayload, FLAccountAddressChangeReleasePayload
 from app.api.outbox.system_router import post_handout
 from app.core.collections import Collection
 from app.core.exceptions import APIError
@@ -343,9 +343,26 @@ async def handed_out(database: AsyncDatabase, client: AsyncMongoClient, answer: 
     return Minted(answer=answer, token=links.get("token"), stopp_token=links.get("stopp_token"))
 
 
-async def start(database: AsyncDatabase, client: AsyncMongoClient, *, email: str = NEW_EMAIL, **given: Any) -> Minted:
-    answer = await call(post_address_change, database, client, adresswechsel_data=FLAccountAddressChangePayload(email=email), **given)
-    return await handed_out(database, client, answer, now=given.get("germany_now", NOW))
+async def start(database: AsyncDatabase, client: AsyncMongoClient, *, email: str = NEW_EMAIL, released: bool = True, **given: Any) -> Minted:
+    """The person's start, and unless `released` is off the address on file's confirmation through its link.
+
+    That confirmation is what owes the new mailbox its link, which the answer then carries beside the address on file's.
+    """
+
+    now = given.get("germany_now", NOW)
+    started = await handed_out(
+        database,
+        client,
+        await call(post_address_change, database, client, adresswechsel_data=FLAccountAddressChangePayload(email=email), **given),
+        now=now,
+    )
+    if not released:
+        return started
+
+    await answer(database, client, started.stopp_token, germany_now=now)
+    confirmed = await handed_out(database, client, started.answer, now=now)
+
+    return Minted(answer=started.answer, token=confirmed.token, stopp_token=started.stopp_token)
 
 
 async def approve_as_the_address(database: AsyncDatabase, client: AsyncMongoClient, address_change_id: ObjectId, **given: Any) -> Minted:

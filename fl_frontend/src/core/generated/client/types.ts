@@ -962,7 +962,10 @@ export interface FLAddressChangeMovesResponse {
 }
 
 /**
- * The address on file's notice of an address change, its stop link minted at the hand-out into `stop.token_hashes`.
+ * The address on file's mail about an address change, its link minted at the hand-out into `stop.token_hashes`.
+ *
+ * On the person's own `account` way the link confirms or declines the change before the new mailbox is asked; on every
+ * other way it stops the change.
  */
 export interface FLAddressChangeNoticeData {
   art: "address_change_notice";
@@ -1129,6 +1132,8 @@ export const FLAddressChangeViewEndedSeite = {
  */
 export interface FLAddressChangeViewEnded {
   art: FLAddressChangeEndArt;
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  ended_on: string;
   seite: FLAddressChangeViewEndedSeite;
   state: "ended";
 }
@@ -1166,7 +1171,7 @@ export const FLAddressChangeViewPreviousState = {
 } as const;
 
 /**
- * What the address on file's stop link opens: the step the change waits on, never whether it could be confirmed.
+ * What the address on file's link opens: the step the change waits on, never whether the new mailbox could confirm it.
  */
 export interface FLAddressChangeViewPrevious {
   effective_from: string | null;
@@ -5606,7 +5611,7 @@ export interface FLSpielerSaisonsResponse {
 /**
  * One pupil record's stored data as its own person reads it: the whole surname and the birthdate, never masked.
  *
- * Its consent is the account page's, whose entry extends this (`app/api/konto/schemas.py :: FLAccountSpielerEinwilligung`).
+ * Its consent is the account page's, whose entry `FLAccountSpielerEinwilligung` extends this.
  */
 export interface FLSpielerSelf {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */

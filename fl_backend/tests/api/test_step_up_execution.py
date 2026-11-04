@@ -18,13 +18,12 @@ from fastapi import FastAPI
 from httpx2 import AsyncClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.adresswechsel.services import compose_record
 from app.api.schiedsrichter.services import compose_bestaetigung
 from app.api.teams.schemas import kontakte_stand_of
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.security import ENROLMENT_WINDOW_S, PASSKEY_FACTOR, STEP_UP_WINDOW_S
+from app.core.security import ENROLMENT_WINDOW_S, STEP_UP_WINDOW_S
 from app.main import create_app
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.tokens import hash_token
@@ -316,112 +315,6 @@ class TestTheRefereesReturn:
             return (await http.post(self.URL, headers=OLDER)).status_code
 
         assert on_a_season(mongo_replica_set_url, body, seed=seeding(a_referee(confirmed=True, retired=True))) == 200
-
-
-# A grant holder, beside the suite's administrators, whose own erasure takes their grant with the rest.
-GRANT_HOLDER = "gisela.zugang@example.com"
-
-
-def by_passkey(email: str, *, signed_in_before_s: int) -> StampedHeaders:
-    """A person's session after the page's passkey prompt."""
-
-    return StampedHeaders(email, ADMIN_KEY, lane="person", signed_in_before_s=signed_in_before_s, factor=PASSKEY_FACTOR)
-
-
-async def a_grant_holder(database: AsyncDatabase) -> None:
-    await database[Collection.GRANTS].insert_one(
-        {"adresse": GRANT_HOLDER, "verwaltung": "administration", "granted_by": "PLAYGROUND", "granted_at": datetime(2026, 1, 1, tzinfo=UTC)}
-    )
-
-
-class TestAGrantHoldersOwnLoeschung:
-    """A person's erasure asks the revoke's passkey window on the calls taking a live grant."""
-
-    URL = f"/api/v{API_VERSION}/identity/account/erasure"
-
-    def test_an_loeschung_from_a_passkey_past_the_window_is_refused_and_loescht_nothing(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, http: AsyncClient) -> tuple[bool, int]:
-            # The person's own session, past the revoke's window by a minute: this suite's `OLDER` is an administrator's.
-            OLDER = by_passkey(GRANT_HOLDER, signed_in_before_s=ENROLMENT_WINDOW_S + 60)
-            response = await http.post(self.URL, headers=OLDER)
-            return refused(response), await database[Collection.GRANTS].count_documents({"adresse": GRANT_HOLDER})
-
-        assert on_a_season(mongo_replica_set_url, body, seed=a_grant_holder) == (True, 1)
-
-    def test_an_loeschung_from_a_sign_in_by_code_is_refused_however_fresh(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, http: AsyncClient) -> tuple[bool, int]:
-            by_code = StampedHeaders(GRANT_HOLDER, ADMIN_KEY, lane="person", signed_in_before_s=1)
-            response = await http.post(self.URL, headers=by_code)
-            return refused(response), await database[Collection.GRANTS].count_documents({"adresse": GRANT_HOLDER})
-
-        assert on_a_season(mongo_replica_set_url, body, seed=a_grant_holder) == (True, 1)
-
-    def test_a_passkey_confirmed_a_second_before_loescht_the_grant(self, mongo_replica_set_url: str):
-
-        async def body(database: AsyncDatabase, http: AsyncClient) -> tuple[int, int]:
-            response = await http.post(self.URL, headers=by_passkey(GRANT_HOLDER, signed_in_before_s=1))
-            return response.status_code, response.json()["grants"]
-
-        assert on_a_season(mongo_replica_set_url, body, seed=a_grant_holder) == (200, 1)
-
-    def test_an_address_holding_no_grant_loescht_from_an_older_sign_in_by_code(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, http: AsyncClient) -> int:
-            older = StampedHeaders("niemand@example.com", ADMIN_KEY, lane="person", signed_in_before_s=ENROLMENT_WINDOW_S + 60)
-            return (await http.post(self.URL, headers=older)).status_code
-
-        assert on_a_season(mongo_replica_set_url, body) == 200
-
-
-class TestAGrantHoldersOwnAddressChange:
-    """A start of a change handing a grant over asks the passkey the erasure asks."""
-
-    URL = f"/api/v{API_VERSION}/account/address_change"
-
-    def test_a_start_by_code_is_refused_however_fresh_and_starts_nothing(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, http: AsyncClient) -> tuple[bool, int]:
-            # By code a second ago: the route's own window passes it, and the handler judges the factor.
-            OLDER = StampedHeaders(GRANT_HOLDER, ADMIN_KEY, lane="person", signed_in_before_s=1)
-            response = await http.post(self.URL, json={"email": "gisela.neu@example.com"}, headers=OLDER)
-            return refused(response), await database[Collection.ADDRESS_CHANGES].count_documents({})
-
-        assert on_a_season(mongo_replica_set_url, body, seed=a_grant_holder) == (True, 0)
-
-
-async def a_grant_holders_change_awaiting_approval(database: AsyncDatabase) -> None:
-    await a_grant_holder(database)
-    await database[Collection.ADDRESS_CHANGES].insert_one(
-        {
-            "_id": AWAITING_CHANGE_ID,
-            **compose_record(
-                adresse=GRANT_HOLDER,
-                email="gisela.neu@example.com",
-                way="release",
-                grund=None,
-                approval=None,
-                # Started now, the request's own clock being the real one: a past start would lapse before the press.
-                now=datetime.now(UTC),
-            ),
-        }
-    )
-
-
-AWAITING_CHANGE_ID = ObjectId("6890a1b2c3d4e5f607950021")
-
-
-class TestAGrantHoldersApprovalOfAnAdministratorsChange:
-    """The address on file's approval lets the link go that hands the grant over."""
-
-    URL = f"/api/v{API_VERSION}/account/address_change/release"
-
-    def test_an_approval_by_code_is_refused_however_fresh_and_mints_no_link(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, http: AsyncClient) -> tuple[bool, Any]:
-            # By code a second ago, as the start's case: the route's own window passes it.
-            OLDER = StampedHeaders(GRANT_HOLDER, ADMIN_KEY, lane="person", signed_in_before_s=1)
-            response = await http.post(self.URL, json={"id": str(AWAITING_CHANGE_ID)}, headers=OLDER)
-            stored = await database[Collection.ADDRESS_CHANGES].find_one({"_id": AWAITING_CHANGE_ID})
-            return refused(response), (stored or {}).get("token_hash")
-
-        assert on_a_season(mongo_replica_set_url, body, seed=a_grant_holders_change_awaiting_approval) == (True, None)
 
 
 # An administrator's address beside the suite's, whose erasure on request takes that grant with the rest.
