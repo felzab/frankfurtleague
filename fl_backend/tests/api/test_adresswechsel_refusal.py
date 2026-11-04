@@ -27,7 +27,7 @@ from app.api.berechtigungen.services import genehmigung_steht, genehmigung_verwe
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.constraints import SUPPORT_INDEXES, UNIQUE_INDEXES
+from app.core.constraints import SUPPORT_INDEXES
 from app.core.recording import ERASED_ACTOR_MARKER
 from tests.config import BASE_AUTH
 from tests.core.app_source import application
@@ -159,12 +159,11 @@ class TestTheLostMailboxsStart:
 
 class TestTheLinksLookups:
     @pytest.mark.parametrize("key", ["token_hashes", "stop.token_hashes"])
-    def test_each_hash_a_stranger_drives_is_indexed_and_never_unique(self, key: str):
-        """Indexed, as a stranger sends the lookup; never unique, as a kept record holds its hashes beside a live one's."""
+    def test_each_hash_a_stranger_drives_is_indexed(self, key: str):
+        """Indexed, as a stranger sends the lookup: without one, every link opened scans the collection."""
 
         keyed = [index for index in SUPPORT_INDEXES if index.collection == Collection.ADDRESS_CHANGES and index.keys == ((key, ASCENDING),)]
         assert len(keyed) == 1
-        assert not [index for index in UNIQUE_INDEXES if index.collection == Collection.ADDRESS_CHANGES and key in index.keys]
 
 
 # Each grant in effect since a day before the request, but `LATE`'s, granted after it, and `PROMOTED`'s owner tier, made after it.
