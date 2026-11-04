@@ -66,6 +66,7 @@ describe("a match as a row", () => {
     expect(matchRowOf(spiel(null)).result).toBeUndefined();
   });
 
+  // Each of the three sources: a winner's slot worded as a loser's names the other club of that match.
   it("names a side the draw has not settled by its source, short in the plaque", () => {
     const row = matchRowOf({
       ...spiel(null),
@@ -74,9 +75,11 @@ describe("a match as a row", () => {
       team1_quelle: { type: "gruppe", gruppe: "A", platz: 1 },
       team2_quelle: { type: "spiel", spiel_nr: 25, ausgang: "verlierer" },
     });
+    const winners = matchRowOf({ ...spiel(null), team1: null, team1_quelle: { type: "spiel", spiel_nr: 26, ausgang: "sieger" } });
     const { quelle } = COPY.spielplan;
     expect(row.team1).toStrictEqual({ name: quelle.gruppe("A", 1), plaque: { quelle: quelle.gruppeShort("A", 1) } });
     expect(row.team2).toStrictEqual({ name: quelle.verlierer(25), plaque: { quelle: quelle.verliererShort(25) } });
+    expect(winners.team1).toStrictEqual({ name: quelle.sieger(26), plaque: { quelle: quelle.siegerShort(26) } });
   });
 });
 

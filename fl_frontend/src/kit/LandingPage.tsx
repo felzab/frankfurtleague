@@ -12,8 +12,10 @@ import type { ReactElement, ReactNode } from "react";
 /** One of the hero's two ways on: a label and its address. */
 type HeroAct = { label: Copy; href: Route };
 
-/** What the landing reads: the hero's second way on, the season's card beside the hero, and the sections. */
+/** What the landing reads: the hero's two ways on, the season's card beside the hero, and the sections. */
 export type LandingContent = {
+  /** The Spielplan, in every state. */
+  primary: HeroAct;
   /** Applying while a window is open, the league's own page while none is. */
   secondary: HeroAct;
   /** The season's card, `SaisonBlock`. */
@@ -51,8 +53,8 @@ function Parts({ words, aside, sections }: { words: ReactNode; aside: ReactNode;
 }
 
 /** The parts once the read has landed. */
-async function Read({ lead, primary, content }: { lead: Copy; primary: HeroAct; content: Promise<LandingContent> }) {
-  const { secondary, aside, sections } = await content;
+async function Read({ lead, content }: { lead: Copy; content: Promise<LandingContent> }) {
+  const { primary, secondary, aside, sections } = await content;
   const slots = hero();
   return (
     <Parts
@@ -93,14 +95,11 @@ async function Read({ lead, primary, content }: { lead: Copy; primary: HeroAct; 
 export function LandingPage({
   title,
   lead,
-  primary,
   content,
 }: {
   /** The tagline, the page's one heading. */
   title: Copy;
   lead: Copy;
-  /** The first way on, the Spielplan in every state. */
-  primary: HeroAct;
   content: Promise<LandingContent>;
 }) {
   const slots = hero();
@@ -118,7 +117,6 @@ export function LandingPage({
           }>
           <Read
             lead={lead}
-            primary={primary}
             content={content}
           />
         </Suspense>

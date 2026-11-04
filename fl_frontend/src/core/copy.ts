@@ -1,15 +1,6 @@
-import {
-  formatDatum,
-  formatDatumLong,
-  formatDatumWithWeekday,
-  formatErgebnis,
-  formatList,
-  formatNumber,
-  formatOrdinal,
-  formatUhrzeit,
-} from "./format";
+import { formatDatum, formatDatumLong, formatDatumWithWeekday, formatList, formatNumber, formatOrdinal, formatUhrzeit } from "./format";
 
-import type { CalendarDay, Pair, Uhrzeit } from "./format";
+import type { CalendarDay, Uhrzeit } from "./format";
 
 declare const copyBrand: unique symbol;
 
@@ -76,7 +67,7 @@ const K_O_RUNDE = "K.-o.-Runde";
 
 // Words two areas of this one object say alike, each written once and read under both keys: a match's facts and
 // its events as a visitor reads them and as the editor's fields name them, and the sign-in's acts and pages.
-const SPIEL_FACT = { ergebnis: "Ergebnis", sonderereignis: "Sonderereignis", datum: "Datum", uhrzeit: "Uhrzeit", notiz: "Notiz" } as const;
+const SPIEL_FACT = { datum: "Datum", uhrzeit: "Uhrzeit" } as const;
 const SONDEREREIGNIS = { ausgefallen: "Ausgefallen", abgebrochen: "Abgebrochen", annulliert: "Annulliert" } as const;
 const ANMELDUNG = "Anmeldung";
 const MIT_PASSKEY_ANMELDEN = "Mit Passkey anmelden";
@@ -89,9 +80,6 @@ const PASSKEY_EINRICHTEN = { title: "Passkey einrichten", button: "Jetzt einrich
 type Bound = number | { year: number };
 
 const bound = (value: Bound): string => (typeof value === "number" ? formatNumber(value) : String(value.year));
-
-// The mark a result decided in a shoot-out carries: under the score in a match row, after it in a fact.
-const AFTER_ELFMETERSCHIESSEN = "n. E.";
 
 export const COPY = catalogue({
   /** What every area draws from; an area adds a key of its own only for a string this lacks. */
@@ -118,7 +106,6 @@ export const COPY = catalogue({
       exampleDate: "31.12.2026",
       // Reserved as the address example's domain is.
       exampleUrl: "https://example.com",
-      // Redesign: the first field taking a range reads it.
       between: (from: Bound, to: Bound) => `Zwischen ${bound(from)} und ${bound(to)}`,
       // One-sided bounds of a number or of a list, the box's label saying what is counted.
       max: (count: number) => `Höchstens ${formatNumber(count)}`,
@@ -173,7 +160,7 @@ export const COPY = catalogue({
     close: "Schließen",
 
     /** The end states of a page a mail opens; each page names its own sentence for the done state. */
-    // Session 4: the mailed pages read these.
+    // Session 4: the mailed pages read `doneOn` and `toAccount`.
     end: {
       doneOn: (done: Copy, day: CalendarDay) => `${done} am ${formatDatumLong(day)}.`,
       linkInvalid: "Dieser Link gilt nicht mehr.",
@@ -183,7 +170,7 @@ export const COPY = catalogue({
 
     /** The match pop-up's way to the match's own page. */
     toSpiel: "Zum Spiel",
-    // Redesign: the first fact its reader could supply, shown empty, reads it.
+    /** A fact nobody has entered, where a sentence names it in words rather than a glyph: a match mail's ground. */
     notProvided: "Nicht hinterlegt",
     /** A value not there yet, in a tile, a table cell or a score's place: a glyph, not a word. */
     noValue: "–",
@@ -207,7 +194,8 @@ export const COPY = catalogue({
     spieltag: (position: number) => `${formatOrdinal(position)} Spieltag`,
     /** A knockout matchday where its phase spans several, „Viertelfinale (2)“: the phase's name and the matchday's place in it. */
     knockoutRound: (phase: Copy, position: number) => `${phase} (${formatNumber(position)})`,
-    afterElfmeterschiessen: AFTER_ELFMETERSCHIESSEN,
+    /** The mark a result decided in a shoot-out carries, under the score in a match row and a match's head. */
+    afterElfmeterschiessen: "n. E.",
     /**
      * The two routes out of a season, each in its three wordings: `label` names the record, `zustand` the club's
      * resulting state, `kuerzel` the badge. `AUSTRITT_OPTIONS` serves them to every surface, so no two can name
@@ -306,9 +294,6 @@ export const COPY = catalogue({
     /** When a match is played, as its row shows it; until it is dated, what is still to settle. */
     when: (day: CalendarDay | null, time: Uhrzeit | null) =>
       day === null ? "Termin offen" : time === null ? formatDatumWithWeekday(day) : `${formatDatumWithWeekday(day)} · ${formatUhrzeit(time)}`,
-    /** The score, a shoot-out's goals added to each side's, with the shoot-out's mark after it. */
-    ergebnis: (tore: Pair, elfmeterschiessen: Pair | null) =>
-      elfmeterschiessen === null ? formatErgebnis(tore) : `${formatErgebnis(tore, elfmeterschiessen)} ${AFTER_ELFMETERSCHIESSEN}`,
 
     /** A side the draw has not settled: its source short in the dashed plaque, and in full as its name. */
     quelle: {
@@ -344,14 +329,11 @@ export const COPY = catalogue({
 
     /** A match's facts, each by its label. */
     fact: {
-      ergebnis: SPIEL_FACT.ergebnis,
-      sonderereignis: SPIEL_FACT.sonderereignis,
       spieltag: "Spieltag",
       datum: SPIEL_FACT.datum,
       uhrzeit: SPIEL_FACT.uhrzeit,
       spielort: "Ort",
       schiedsrichter: "Schiedsrichter",
-      notiz: SPIEL_FACT.notiz,
     },
   },
 
@@ -500,13 +482,13 @@ export const COPY = catalogue({
       /** The editor of a match whose two teams are not both known yet, named by its number. */
       number: (nr: number) => `Spiel ${formatNumber(nr)}`,
       ansetzung: "Ansetzung",
-      ergebnis: SPIEL_FACT.ergebnis,
+      ergebnis: "Ergebnis",
       /** The players credited with a result's goals, as a field's message names what it must not hold. */
       torschuetzen: "Torschützen",
-      notiz: SPIEL_FACT.notiz,
+      notiz: "Notiz",
       datum: SPIEL_FACT.datum,
       uhrzeit: SPIEL_FACT.uhrzeit,
-      sonderereignis: SPIEL_FACT.sonderereignis,
+      sonderereignis: "Sonderereignis",
       /** The Sonderereignis' first entry: nothing beyond the match being played. */
       none: "Keines",
       ausgefallen: SONDEREREIGNIS.ausgefallen,

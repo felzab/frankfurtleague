@@ -1,6 +1,5 @@
 import "server-only";
 
-import { KONTAKT_EMAIL } from "./brand";
 import { catalogue, COPY, textOf } from "./copy";
 import { formatDatum, formatNumber, formatOrdinal, formatSigned } from "./format";
 
@@ -233,10 +232,9 @@ export const SERVER_COPY = catalogue({
       state: { planned: "Geplant", running: "Läuft", decided: "Entschieden" },
     },
 
-    /** Kontakt's rows, and the doors' links. */
+    /** The league's mail address by its label: Kontakt's row, and the doors' and the sponsors page's link. */
     contact: {
       email: "E-Mail",
-      address: KONTAKT_EMAIL,
     },
 
     /** The classic frame's not-found page. */
@@ -252,8 +250,6 @@ export const SERVER_COPY = catalogue({
     gruppe: gruppeName,
     /** The match between the two semi-finals' losers: its label, its card's row above the Finale, the pop-up's head. */
     thirdPlace: "Spiel um Platz 3",
-    /** A group matchday, as a match's head names it. */
-    spieltag: COPY.shared.spieltag,
     /** A match's own label before its date, on the one line every form of its row shows. */
     labelled: (label: Words, when: Words) => `${textOf(label)} · ${textOf(when)}`,
     /**

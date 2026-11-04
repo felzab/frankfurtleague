@@ -199,9 +199,9 @@ async def get_landing(
     # Known before any match is read, so only the reads its state can serve are sent: the opening match before it, the
     # two lists after. The Finale is read either way, a played one deciding the season over both.
     started = has_started(start_date=saison_raw["start_date"], today=today)
-    # Two groups of reads sent at once, because `asyncio.gather`'s typing stops at six: one gather of eight types none
+    # Two groups of reads sent at once, because `asyncio.gather`'s typing stops at six: one gather of seven types none
     # of its results.
-    (first_raw, recent_raw, upcoming_raw, finale_raw), (teams, tore_raw, count_spiele, count_spieltage) = await asyncio.gather(
+    (first_raw, recent_raw, upcoming_raw, finale_raw), (teams, counted_raw, count_spieltage) = await asyncio.gather(
         asyncio.gather(
             _no_rows()
             if started
@@ -232,15 +232,14 @@ async def get_landing(
         ),
         asyncio.gather(
             _clubs_of(teams_collection=teams_collection, saison_id=saison_id),
-            # The matches the Tabelle counts, every phase's, as `count_spiele` counts them.
+            # The matches the Tabelle counts, every phase's: one group, so the goals and the matches stand on one basis.
             aggregate_many_from_db(
                 collection=spiele_collection,
                 pipeline=[
                     {"$match": {**in_saison, **counting_fixtures_match()}},
-                    {"$group": {"_id": None, "tore": {"$sum": {"$add": ["$team1.tore", "$team2.tore"]}}}},
+                    {"$group": {"_id": None, "tore": {"$sum": {"$add": ["$team1.tore", "$team2.tore"]}}, "spiele": {"$sum": 1}}},
                 ],
             ),
-            spiele_collection.count_documents(in_saison),
             spieltage_collection.count_documents(in_saison),
         ),
     )
@@ -248,8 +247,8 @@ async def get_landing(
     start = saison_start(saison_raw["start_date"])
     counts = FLLandingCounts(
         # No group row where no match counts yet.
-        count_tore=tore_raw[0]["tore"] if tore_raw else 0,
-        count_spiele=count_spiele,
+        count_tore=counted_raw[0]["tore"] if counted_raw else 0,
+        count_spiele=counted_raw[0]["spiele"] if counted_raw else 0,
         count_spieltage=count_spieltage,
     )
 
@@ -294,8 +293,8 @@ async def get_landing(
     return FLLandingResponse(saison=saison, bewerbung_window=window)
 
 
-# Declared after `/active`, `/frame` and `/landing`: routes match in declaration order, and the
-# `objectid` convertor cannot help here, a season id being a four-character string.
+# Declared after `/frame` and `/landing`, which it would otherwise answer as season ids: routes match in
+# declaration order, and the `objectid` convertor cannot help here, a season id being a four-character string.
 @router.get("/{saison_id}", response_model=FLSaisonsSingleResponse, summary="One Saison")
 async def get_saison(saison_id: str, saisons_collection: SaisonsCollection) -> FLSaisonsSingleResponse:
     """One season the public may read, by its id.

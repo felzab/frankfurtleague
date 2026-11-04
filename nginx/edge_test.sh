@@ -823,8 +823,9 @@ awk "/^[[:space:]]*return 429 '/ { open = 1; sub(/^[[:space:]]*return 429 '/, \"
 [[ -s "$REFUSAL_PAGE" ]] || refuse "nginx/shared/site.conf returns no 429 page this test can read."
 
 # The page's colours against the tokens the rebuilt site paints, `fl_frontend/src/app/tokens.css`, each
-# copied by hand under the name that file gives it. The read is a standalone script, so it needs nothing of
-# this scope's interpreter beyond its standard library.
+# copied by hand under the name that file gives it, and the page's ground and its card's each on the element
+# that wears it. The read is a standalone script, so it needs nothing of this scope's interpreter beyond its
+# standard library.
 PAGE_PALETTE_READ='
 import re
 import sys
@@ -861,6 +862,13 @@ for theme, site_opener, page_opener in (
         wanted = tokens.get(name, "").lower().removeprefix(chr(35))
         if not wanted or shown.get(name) != wanted:
             problems.append(f"{theme} {name} reads {shown.get(name)}, tokens.css {wanted or None}")
+# Where the two grounds stand: the body is the ground of the page and the box a card on it, as on every rebuilt
+# page, so a right value painted on the wrong element is a page in another look.
+for element, wanted in (("body", "var(--bg)"), ("main", "var(--bg-card)")):
+    rule = body_after(page, r"(?<![\w.:-])" + element + r"\s*\{")
+    painted = re.findall(r"(?<![\w-])background(?:-color)?\s*:\s*([^;]+?)\s*;", rule)
+    if painted != [wanted]:
+        problems.append(f"{element} paints {painted or None}, wanted {wanted}")
 print("; ".join(problems))
 sys.exit(1 if problems else 0)
 '

@@ -35,11 +35,12 @@ const link = tv({
 });
 
 /**
- * A link the frames draw themselves, 36 px tall, coloured by the ground it stands on: the classic header's
- * on the dark-green band, the title strip's legal pages, „Anmelden“ at the rail's foot.
+ * A link the frames draw themselves, as tall as every control, 32 px under a mouse and 40 px under a finger,
+ * coloured by the ground it stands on: the classic header's on the dark-green band, the title strip's legal
+ * pages, „Anmelden“ at the rail's foot.
  */
 export const frameLink = tv({
-  base: "flex h-9 items-center rounded-lg px-3 text-sm font-medium whitespace-nowrap transition-colors duration-(--motion-state)",
+  base: "flex h-8 items-center rounded-lg px-3 text-sm font-medium whitespace-nowrap transition-colors duration-(--motion-state) pointer-coarse:h-10",
   variants: {
     tone: {
       // On the band: the page the visitor is on, and „Anmelden“, in full white.
