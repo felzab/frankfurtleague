@@ -5,7 +5,7 @@ Named here so two slices spelling the same limit cannot drift apart. A bound onl
 stays at that field, and a derived one is never re-spelled as a literal.
 """
 
-from typing import Final
+from typing import Final, Literal
 
 # The address ceilings, stated by the payload address alone so a stored value over one still reads.
 # `plz` carries none: its own pattern already fixes the width exactly.
@@ -144,11 +144,19 @@ SCHIEDSRICHTER_CONFIRMATION_FRIST_DAYS: Final = 14
 # How long a step of an address change waits from its asking: the new mailbox's link, or the question
 # the person's own change asks the address on file. NIST SP 800-63B-4 `#issuedrecovery` caps an emailed recovery code at 24 hours
 # (read 2026-10-20).
-ADDRESS_CHANGE_VALID_HOURS: Final = 24
+type FLAddressChangeValidHours = Literal[24]
+ADDRESS_CHANGE_VALID_HOURS: Final[FLAddressChangeValidHours] = 24
 
 # A change an administrator started with a reason waits this long after its confirmation, the address
 # on file free to stop it: a school week and its weekends, past any holiday weekend three days fit inside.
-ADDRESS_CHANGE_WAITING_PERIOD_DAYS: Final = 7
+type FLAddressChangeWaitingPeriodDays = Literal[7]
+ADDRESS_CHANGE_WAITING_PERIOD_DAYS: Final[FLAddressChangeWaitingPeriodDays] = 7
+
+# Published as schemas of their own (`app/main.py :: with_mirrored_constants`), though no operation names one: the
+# privacy notice, the mails and the link page state both figures, and `fl_frontend/src/core/adresswechsel.ts` checks
+# its constants against them, so a bound moved here alone fails the frontend's type check rather than the notice
+# stating a figure the backend no longer keeps. Each value is typed by its alias, so neither moves without the other.
+ADDRESS_CHANGE_BOUNDS: Final = (FLAddressChangeValidHours, FLAddressChangeWaitingPeriodDays)
 
 # How long a write waiting on a second administrator's approval waits from its start before it lapses: a week, so an
 # approver away for a weekend is no reason to start it again.

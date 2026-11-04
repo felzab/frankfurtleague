@@ -2077,6 +2077,10 @@
         "title": "FLAddressChangeSweepResponse",
         "type": "object"
       },
+      "FLAddressChangeValidHours": {
+        "const": 24,
+        "type": "integer"
+      },
       "FLAddressChangeVerwaltungApproval": {
         "description": "The approval a change moving a grant waits on, read-only here: the administrators page approves it.\n\nNever who approved: a barred administrator's address is answered on no read.",
         "properties": {
@@ -2672,6 +2676,10 @@
           "verwaltung"
         ],
         "type": "string"
+      },
+      "FLAddressChangeWaitingPeriodDays": {
+        "const": 7,
+        "type": "integer"
       },
       "FLAddressChangeWaitsOn": {
         "enum": [

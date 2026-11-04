@@ -15,7 +15,7 @@ type FLMedienTextVersion = Literal["2026-11-medien-1"]
 type FLNameKaderTextVersion = Literal["2026-11-name-kader-1"]
 type FLNameSpielplanTextVersion = Literal["2026-11-name-spielplan-1"]
 
-# Published as schemas of their own (`app/main.py :: with_current_text_versions`), though no operation names one alone: each
+# Published as schemas of their own (`app/main.py :: with_mirrored_constants`), though no operation names one alone: each
 # label constant `fl_frontend/src/core/consentWordings.ts` sends on a grant is checked against them, so a rewording that
 # moves one here and leaves the page's label behind fails the frontend's type check rather than refusing every grant.
 CURRENT_TEXT_VERSIONS: Final = (FLWhatsappTextVersion, FLMedienTextVersion, FLNameKaderTextVersion, FLNameSpielplanTextVersion)
