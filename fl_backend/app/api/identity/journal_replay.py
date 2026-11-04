@@ -739,7 +739,7 @@ def _main() -> int:
     """The exit contract: 0 nothing left, 1 lines left, 2 nothing judged (the arguments, the settings or the database), 3 a crash."""
 
     parser = argparse.ArgumentParser(
-        prog="python -m app.api.identity.wiederherstellung",
+        prog="python -m app.api.identity.journal_replay",
         description="Match the journal lines on stdin against the restored database, and replay the choices they name.",
     )
     parser.add_argument("--since", required=True, help="the instant the restored snapshot was taken, ISO 8601 with its offset")

@@ -33,8 +33,8 @@ from app.api.berechtigungen.crud import live_unbarred_grant_since
 from app.api.einladungen.services import compose_einladung
 from app.api.identity.admin_router import get_erasure_view, post_erasure
 from app.api.identity.crud import find_anmeldung, find_subjekt, unreferenced_of
+from app.api.identity.journal_replay import Read, Window, plan_replay, replay_line
 from app.api.identity.schemas import FLErasureAdressePayload, FLErasurePayload
-from app.api.identity.wiederherstellung import Read, Window, plan_replay, replay_line
 from app.api.registrierungen.public_router import get_confirmation_view
 from app.api.registrierungen.services import compose_ablehnung_update, erinnerung_is_due
 from app.api.schiedsrichter.admin_router import get_schiedsrichter_by_id

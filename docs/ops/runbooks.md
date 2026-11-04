@@ -1454,7 +1454,7 @@ the stream remove it, and the replay refuses then as well.
 
 It hands the day files from the snapshot's day on to the backend's container, which reads every line
 written after the first moment and no later than the second, and matches it against the restored
-database under the journal's key (`fl_backend/app/api/identity/wiederherstellung.py`), so **the key
+database under the journal's key (`fl_backend/app/api/identity/journal_replay.py`), so **the key
 is never typed, and no address, no hash and no key is printed**. Before the container is asked, it
 refuses a moment naming no offset, a restore's end no later than the snapshot, and a snapshot's day
 the export wrote no file for. Each line is listed by its act and its record, never by its person:
