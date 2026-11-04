@@ -41,8 +41,14 @@ test("a person's passkeys on Sicherheit: set up, renamed, and removed with and w
   if (first === undefined) throw new Error("the set-up left the authenticator holding no passkey");
 
   // The second, on the touch with the first: the browser is asked to exclude the first, so the authenticator lets go of
-  // it once the touch has signed in and before the set-up's own prompt, and holds the second alone afterwards.
+  // it once the touch has signed in and before the set-up's own prompt, and holds the second alone afterwards. The first
+  // is kept as the touch left it: its assertion moved the signature counter the site stores, and a passkey seeded again
+  // at an older count answers at most that count, which the site refuses as a cloned authenticator's.
+  let touched = first;
   await page.route("**/api/auth/passkey/generate-register-options*", async (route) => {
+    const [held] = await context.credentials.get({ id: first.id });
+    if (held === undefined) throw new Error("the authenticator let go of the first passkey before the set-up asked for options");
+    touched = held;
     await context.credentials.delete(first.id);
     await route.continue();
   });
@@ -61,7 +67,7 @@ test("a person's passkeys on Sicherheit: set up, renamed, and removed with and w
 
   // The second passkey removed on the touch with the first: another device's, so the action renders the page again.
   await context.credentials.delete(second.id);
-  await context.credentials.create(RELYING_PARTY, first);
+  await context.credentials.create(RELYING_PARTY, touched);
   await rows().nth(1).click();
   const otherAnswer = nextAction(page);
   await page.getByRole("alertdialog").getByRole("button", { name: "Löschen" }).click();
