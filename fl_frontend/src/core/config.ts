@@ -166,7 +166,7 @@ const environment = {
     return !authUrl || new URL(raw).origin !== new URL(authUrl).origin;
   }, "API_URL must reach the backend directly, not through the public origin AUTH_URL names"),
 
-  // A stray http:// here ships a session cookie in plaintext: `fl_frontend/src/core/auth.ts` reads this
+  // A stray http:// here ships a session cookie in plaintext: `fl_frontend/src/core/auth/library.ts` reads this
   // value's SCHEME and gives the cookie the `__Host-` name prefix and the `secure` attribute together
   // or neither.
 

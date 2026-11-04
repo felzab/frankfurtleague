@@ -29,9 +29,9 @@ registerAuthDoubles({
   specifiers: { "better-auth": LIBRARY_DOUBLE, "@better-auth/mongo-adapter": memoryAdapterDouble(STORE) },
 });
 
-describe("when `fl_frontend/src/core/auth.ts :: auth` is built", () => {
+describe("when `fl_frontend/src/core/auth/library.ts :: auth` is built", () => {
   it("builds nothing at import where the secret and the serving URL are absent, and builds once on first use", async () => {
-    const { auth } = await import("./auth.ts");
+    const { auth } = await import("./auth/library.ts");
     expect(built, "importing the module built the library").toBe(0);
 
     // What the boot gate guarantees before a request reaches the library.

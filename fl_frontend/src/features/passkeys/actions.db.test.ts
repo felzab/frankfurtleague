@@ -186,7 +186,7 @@ let committing: (session: HeldSession) => Promise<unknown> = async () => undefin
 let committed: () => Promise<unknown> = async () => undefined;
 
 // Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
-const { auth } = await import("@/core/auth");
+const { auth } = await import("@/core/auth/library");
 const { buildAuthIndexes } = await import("@/core/authIndexes");
 const { removePasskeyAction } = await import("./actions.ts");
 const { UNKNOWN_REFUSAL } = await import("@/shared/utils/refusal");

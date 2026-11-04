@@ -2,7 +2,9 @@
 
 import { headers } from "next/headers";
 
-import { endSessionOf, requestAccountDeletion, revokeOtherSessions, sendSignInCode } from "@/core/auth";
+import { requestAccountDeletion } from "@/core/auth/accounts";
+import { endSessionOf, revokeOtherSessions } from "@/core/auth/accountSessions";
+import { sendSignInCode } from "@/core/auth/library";
 import { asSignInIdentifier } from "@/core/emailAddress";
 import { logger } from "@/core/logging";
 import { recordWriteSent } from "@/core/requestScope";

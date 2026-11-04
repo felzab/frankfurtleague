@@ -2,19 +2,21 @@ import "server-only";
 
 import { cache } from "react";
 
-import { CODE_FACTOR, endedByItsAccount, isWithinPersonLifetime, liveSessionsOf, PASSKEY_FACTOR, passkeysOf } from "@/core/auth";
+import { liveSessionsOf } from "@/core/auth/accountSessions";
+import { passkeysOf } from "@/core/auth/passkeys";
+import { CODE_FACTOR, endedByItsAccount, isWithinPersonLifetime, PASSKEY_FACTOR } from "@/core/auth/sessionStamps";
 import { PERSON_LIFETIME } from "@/core/sessionLifetimes";
 import { passkeyBestandOf, passkeyNamenOf } from "@/features/passkeys/bestand";
 import { passkeyAnzeigename } from "@/features/passkeys/utils";
 import { confirmedUntil } from "@/shared/utils/kontoMutation";
 
-import type { LiveSessionRow } from "@/core/auth";
+import type { LiveSessionRow } from "@/core/auth/accountSessions";
 import type { PasskeyRow } from "@/features/passkeys/bestand";
 import type { KontoSession } from "@/shared/utils/kontoMutation";
 import type { Anmeldung, AnmeldungFaktor, Sicherheit } from "./types";
 
 // One read per request, the address control in the panel above sharing it: keyed on `served`, which
-// `fl_frontend/src/core/auth.ts :: getKontoSession` hands every caller as the same object.
+// `fl_frontend/src/core/auth/guards.ts :: getKontoSession` hands every caller as the same object.
 export const readSicherheit = cache(async (served: KontoSession): Promise<Sicherheit> => {
   const [held, rows] = await Promise.all([passkeysOf(served.user.id), liveSessionsOf(served.user.id)]);
 

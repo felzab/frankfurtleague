@@ -1,0 +1,75 @@
+import "server-only";
+
+import { APIError } from "better-auth/api";
+
+import { isPasskeyTouch } from "./sessionStamps";
+
+import type { DBTransactionAdapter } from "better-auth";
+import type { AnmeldungRecords } from "../signInGate";
+import type { SessionStamps } from "./sessionStamps";
+
+// A ceiling nothing else supplies: one session that passed the assertion can enrol without limit.
+export const PASSKEY_LIMIT = 5;
+
+/**
+ * A barred address enrols nothing, whatever it holds: its session is one a ban's ending missed or a
+ * mint raced, and a passkey would outlive both.
+ */
+export function refuseBarred(anmeldung: AnmeldungRecords): void {
+  if (anmeldung.barred) throw APIError.fromStatus("NOT_FOUND");
+}
+
+/**
+ * The gate's answer for the caller, read in the registration's before hook and carried on the
+ * endpoint's context into its transaction, whose checks then decide without a backend round trip holding it open.
+ */
+export type EnrolmentRead = { readonly userId: string; readonly anmeldung: AnmeldungRecords; readonly sentAt: Date };
+
+/** The context key the carried read travels under; a string, the library merging no symbol key. */
+export const ENROLMENT_READ = "flEnrolmentRead";
+
+/** The read the before hook carried for `userId`, or `undefined` where it carried none for them. */
+export function carriedEnrolmentRead(ctx: object | undefined, userId: string): EnrolmentRead | undefined {
+  const read: unknown = ctx === undefined ? undefined : Reflect.get(ctx, ENROLMENT_READ);
+  if (typeof read !== "object" || read === null) return undefined;
+
+  return Reflect.get(read, "userId") === userId ? (read as EnrolmentRead) : undefined;
+}
+
+/** The carried read, or the default-deny net's refusal where the hook carried none for this caller. */
+export function carriedOrRefuse(ctx: object, userId: string): AnmeldungRecords {
+  const read = carriedEnrolmentRead(ctx, userId);
+  if (read === undefined) throw APIError.fromStatus("NOT_FOUND");
+  return read.anmeldung;
+}
+
+/**
+ * Every condition an enrolment meets past the library's `freshAge`, on both arms: the plugin gates its two
+ * registration endpoints on that and on nothing else.
+ */
+export async function refuseEnrolment(
+  adapter: DBTransactionAdapter,
+  userId: string,
+  caller: SessionStamps | null,
+  credentialID?: string,
+): Promise<void> {
+  // Every refusal below is the default-deny net's own answer, so an enrolment the page never offers
+  // names no surface either.
+  if (caller === null) throw APIError.fromStatus("NOT_FOUND");
+
+  const held = await adapter.findMany<{ credentialID?: string }>({
+    model: "passkey",
+    where: [{ field: "userId", value: userId }],
+    limit: PASSKEY_LIMIT + 1,
+  });
+
+  // The first passkey is added on a fresh sign-in by either factor, an administrator's mailed code among them; every
+  // later one by the passkey touch alone, or a stolen mailbox would put its own authenticator beside the holder's.
+  if (held.length > 0 && !isPasskeyTouch(caller)) throw APIError.fromStatus("NOT_FOUND");
+  if (held.length >= PASSKEY_LIMIT) throw APIError.fromStatus("NOT_FOUND");
+
+  // The plugin takes the rows already held for an `excludeCredentials` hint, which the BROWSER
+  // honours and no server checks: the same authenticator enrolled twice leaves the administrator two
+  // rows nothing on the page tells apart (driven against 1.7.7).
+  if (credentialID !== undefined && held.some((row) => row.credentialID === credentialID)) throw APIError.fromStatus("NOT_FOUND");
+}

@@ -179,8 +179,9 @@ const CONFIG_MODULE = moduleNamed("config");
 const SECRET_READERS = Object.fromEntries(
   [
     [["src/core/db.ts"], ["mongodbUri"], "the sign-in store's credential"],
-    // The drain opens a sign-in mail's secret with it, which `auth.ts` sealed (`better-auth/crypto :: symmetricDecrypt`).
-    [["src/core/auth.ts", "src/core/mail.ts"], ["authSecret"], "the key every session is signed with"],
+    // The library's options carry it, and the drain opens a sign-in mail's secret with it, which `auth/mails.ts` sealed
+    // (`better-auth/crypto :: symmetricDecrypt`).
+    [["src/core/auth/library.ts", "src/core/auth/mails.ts", "src/core/mail.ts"], ["authSecret"], "the key every session is signed with"],
     // The key authorises a send, so a module holding it could mail past the Postausgang and the ban its hand-out judges;
     // the drain's own send is module-private, which the compiler holds.
     [["src/core/mail.ts"], ["authResendKey"], "the provider's key, which sends past the Postausgang"],
@@ -202,14 +203,14 @@ const SECRET_READERS = Object.fromEntries(
 
 /**
  * The sign-in library's instance, whose options and context both carry the session key: its own route
- * handler needs it whole, and every other module calls a narrow function `fl_frontend/src/core/auth.ts`
- * exports instead.
+ * handler needs it whole, the modules of `fl_frontend/src/core/auth/` read it, and every other module calls a
+ * narrow function one of them exports instead.
  */
 const AUTH_INSTANCE = {
-  regex: moduleNamed("auth"),
+  regex: moduleNamed(String.raw`auth\x2Flibrary`),
   importNames: ["auth"],
   message:
-    "auth carries the session key in its options and its context: fl_frontend/src/app/api/auth/[...all]/route.ts imports it, and a *.test.ts(x) file may; nothing else may. Call a narrow function fl_frontend/src/core/auth.ts exports.",
+    "auth carries the session key in its options and its context: fl_frontend/src/app/api/auth/[...all]/route.ts and the modules of fl_frontend/src/core/auth/ import it, and a *.test.ts(x) file may; nothing else may. Call a narrow function one of those modules exports.",
 };
 
 /** The store's client, whose driver keeps the store's login for its re-authentication, so nothing scrubs it off. */
@@ -217,12 +218,12 @@ const SIGN_IN_STORE = {
   regex: moduleNamed("db"),
   importNames: ["signInStore"],
   message:
-    "signInStore hands out a client holding the store's login: fl_frontend/src/core/auth.ts and fl_frontend/src/core/authIndexes.ts import it, and a *.test.ts(x) file may; nothing else may.",
+    "signInStore hands out a client holding the store's login: fl_frontend/src/core/auth/library.ts and fl_frontend/src/core/authIndexes.ts import it, and a *.test.ts(x) file may; nothing else may.",
 };
 
 /** The eraser is whatever its caller hands in, so a second caller could delete an account erasing nothing. */
 const OWN_ACCOUNT_DELETION = {
-  regex: moduleNamed("auth"),
+  regex: moduleNamed(String.raw`auth\x2Faccounts`),
   importNames: ["deleteOwnAccount"],
   message:
     "deleteOwnAccount deletes the account around whatever eraser it is handed: fl_frontend/src/features/konto/personActions.ts imports it, handing it the backend's own erasure, and a *.test.ts(x) file may; nothing else may.",
@@ -387,18 +388,19 @@ const IMPORT_BANS = [
   importBan(LOCALE_PROVIDER, PRODUCTION, { allow: ["src/core/providers/RootProviders.tsx"] }),
   importBan(NEXT_AFTER, PRODUCTION, { allow: ["src/core/afterResponse.ts"] }),
   ...Object.values(SECRET_READERS).map(({ owners, ...entry }) => importBan(entry, PRODUCTION, { allow: owners })),
-  importBan(AUTH_INSTANCE, PRODUCTION, { allow: ["src/app/api/auth/[...all]/route.ts"] }),
-  importBan(SIGN_IN_STORE, PRODUCTION, { allow: ["src/core/auth.ts", "src/core/authIndexes.ts"] }),
+  importBan(AUTH_INSTANCE, PRODUCTION, { allow: ["src/app/api/auth/[...all]/route.ts", "src/core/auth/**"] }),
+  importBan(SIGN_IN_STORE, PRODUCTION, { allow: ["src/core/auth/library.ts", "src/core/authIndexes.ts"] }),
   importBan(OWN_ACCOUNT_DELETION, PRODUCTION, { allow: ["src/features/konto/personActions.ts"] }),
   importBan(CATALOGUE_BRAND, EVERY, { allow: ["src/core/serverCopy.ts"] }),
   ...BACKGROUND_PASS_BANS,
   // `no-restricted-imports` reads import and export declarations alone, so an `import()` would pass every ban above.
   // The two files spared are the runtime split, Next's documented shape, and the boot, which turns the settings'
-  // failed validation into its refusal.
+  // failed validation into its refusal. The sign-in's browser client is admitted by its specifier in every file: no
+  // ban above names it, so loading it on a press passes none by, and a page carries its weight only once pressed.
   ban(
     "no-restricted-syntax",
     syntax(
-      "ImportExpression",
+      "ImportExpression:not([source.value='@/core/authClient'])",
       "Import a module statically: the import bans read import and export declarations alone, so an `import()` passes every one of them.",
     ),
     PRODUCTION,
@@ -748,7 +750,7 @@ const PROPERTY_BANS = [
     {
       property: "deletePasskey",
       message:
-        "The passkey plugin's own deletion writes outside the transaction a removal holds. Remove through `removePasskey` in src/core/auth.ts.",
+        "The passkey plugin's own deletion writes outside the transaction a removal holds. Remove through `removePasskey` in src/core/auth/passkeys.ts.",
     },
     SOURCE,
   ),
@@ -1416,7 +1418,8 @@ const eslintConfig = defineConfig([
   },
 
   // The one write path: every server action built by `src/core/action.ts`, which runs its lane's guard, and the
-  // route handlers no browser form posts to, the three that stay for callers that are not a browser.
+  // route handlers no browser form posts to, the four that stay: three for callers that are not a browser, and the
+  // sign-in's landing, a GET dispatcher no form posts to.
   {
     files: ["src/**/*.{ts,tsx}"],
     ignores: TEST_FILES,
@@ -1424,7 +1427,14 @@ const eslintConfig = defineConfig([
     rules: {
       "fl/server-action": [
         "error",
-        { keptRoutes: ["src/app/api/auth/[...all]/route.ts", "src/app/api/mail/zustellung/route.ts", "src/app/api/client-error/route.ts"] },
+        {
+          keptRoutes: [
+            "src/app/api/auth/[...all]/route.ts",
+            "src/app/api/mail/zustellung/route.ts",
+            "src/app/api/client-error/route.ts",
+            "src/app/(classic)/signin/continue/route.ts",
+          ],
+        },
       ],
     },
   },

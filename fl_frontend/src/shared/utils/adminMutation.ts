@@ -1,10 +1,9 @@
 // Redesign: goes with its last importer.
 import { refresh, updateTag } from "next/cache";
 import { unstable_rethrow } from "next/navigation";
-import { NextResponse } from "next/server";
 
-import { isFreshlySignedIn, judgeAdminRequest } from "@/core/auth";
-import { frontend_config } from "@/core/config";
+import { judgeAdminRequest } from "@/core/auth/guards";
+import { isFreshlySignedIn } from "@/core/auth/sessionStamps";
 import { APIBadStatusError } from "@/core/errors";
 import { logger } from "@/core/logging";
 import { requestEndsOwnSession, requestWriteSent } from "@/core/requestScope";
@@ -18,7 +17,7 @@ import { runWithIncomingTrace } from "./traceScope";
 import { VALIDATION_FAILED } from "./validation";
 import { answerThrow, writeOutcomeUnknown } from "./writeOutcome";
 
-import type { AdminRefusal, getAdminSession } from "@/core/auth";
+import type { AdminRefusal, getAdminSession } from "@/core/auth/guards";
 import type { StepUpDemand } from "@/shared/components/ui/stepUp";
 import type { ActionFailure } from "@/shared/types/types";
 import type { FieldErrors } from "./validation";
@@ -31,18 +30,6 @@ const BERECHTIGUNG_UNGELESEN_ERNEUT = `${BERECHTIGUNG_UNGELESEN} ${VERSUCHE_ES_E
 
 /** The administrator a guarded body runs for, as the guard resolved them. */
 export type AdminSession = NonNullable<Awaited<ReturnType<typeof getAdminSession>>>;
-
-/**
- * `null` for this site's own page. Such a route spends a credential or ends a session, so a browser too old to
- * label its request is judged by the pinned origin, never the caller's.
- */
-export function crossSiteRefusal(request: Request): NextResponse | null {
-  const secFetchSite = request.headers.get("sec-fetch-site");
-  if (secFetchSite === "same-origin") return null;
-  if (secFetchSite === null && request.headers.get("origin") === new URL(frontend_config.AUTH_URL).origin) return null;
-
-  return new NextResponse(null, { status: 403 });
-}
 
 /** The server's answer to a change sent after the step-up window closed; the page asks before it sends one. */
 const STEP_UP_REQUIRED = "Bestätige zuerst, dass Du es bist.";

@@ -82,7 +82,7 @@ ACTOR_HEADER: Final = "X-FL-Actor"
 AUTH_TIME_HEADER: Final = "X-FL-Auth-Time"
 AUTH_FACTOR_HEADER: Final = "X-FL-Auth-Factor"
 
-# The two factors the frontend's sessions are made by (`fl_frontend/src/core/auth.ts :: SESSION_FACTOR_BY_PATH`).
+# The two factors the frontend's sessions are made by (`fl_frontend/src/core/auth/library.ts :: SESSION_FACTOR_BY_PATH`).
 Factor = Literal["passkey", "code"]
 FACTORS: Final[tuple[Factor, ...]] = get_args(Factor)
 PASSKEY_FACTOR: Final = "passkey"
@@ -150,7 +150,7 @@ def refused_session() -> APIError:
 def verify_admin_actor(actor: Annotated[SessionActor, Depends(get_session_actor)]) -> SessionActor:
     """The administrator an admin-tier request is attributed to: a passkey session inside the administrator's window.
 
-    The frontend's admin guard asks both (`fl_frontend/src/core/auth.ts :: isAdminSession`); asked here
+    The frontend's admin guard asks both (`fl_frontend/src/core/auth/guards.ts :: isAdminSession`); asked here
     too because person and admin routes take the same key, so a person's session sent to an admin route
     by mistake meets this rather than acting on the grant alone. One dependency `verify_actor_is_admin`
     and `bind_actor` share, so FastAPI reads it once a request.

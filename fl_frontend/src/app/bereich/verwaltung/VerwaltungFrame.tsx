@@ -2,7 +2,7 @@ import { Suspense } from "react";
 
 import { RailColumn, RailFrame } from "@/kit/RailFrame";
 
-import { judgeAdminRequest } from "@/core/auth";
+import { judgeAdminRequest } from "@/core/auth/guards";
 import { COPY } from "@/core/copy";
 import { dayOf, formatPeriod } from "@/core/format";
 import { ROUTES } from "@/core/routes";

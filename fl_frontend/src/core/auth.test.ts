@@ -17,10 +17,9 @@ import {
 } from "@/test-support/authDoubles.ts";
 import { answerAt, NO_RECORDS, SEAT } from "@/test-support/subjectFixtures.ts";
 import { assertionFor, COSE_KEY, CREDENTIAL_ID, CREDENTIAL_RAW_ID, registrationFor } from "@/test-support/testAuthenticator.ts";
-import { isAPIError } from "better-auth/api";
 import { afterAll, afterEach, assert, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { ENROLMENT_WINDOW_MS, STEP_UP_WINDOW_MS } from "./sessionLifetimes.ts";
+import { PASSKEY_TOUCH_SECONDS, STEP_UP_WINDOW_MS } from "./sessionLifetimes.ts";
 
 import type { MemoryStore, SessionRow } from "@/test-support/authDoubles.ts";
 import type { LookupFixture } from "@/test-support/subjectFixtures.ts";
@@ -59,7 +58,7 @@ const LOGGING_DOUBLE = {
 /** One adapter operation, recorded under the model it was asked about. */
 const operationOf = (key: string, args: unknown[]): string => `${key} ${String((args[0] as { model?: unknown } | undefined)?.model ?? "")}`;
 
-/* The memory store under the real `auth.ts`, recording what the module handed the adapter's factory,
+/* The memory store under the real `auth/library.ts`, recording what the module handed the adapter's factory,
    and each operation on the adapter while a case holds `operations` open: what an answer's timing
    is made of. */
 const ADAPTER_DOUBLE = {
@@ -221,26 +220,14 @@ const { toNextJsHandler } = await import("better-auth/next-js");
 const { runWithEndpointContext } = (await import(
   pathToFileURL(createRequire(import.meta.resolve("better-auth")).resolve("@better-auth/core/context")).href
 )) as { runWithEndpointContext: <T>(context: object, run: () => Promise<T>) => Promise<T> };
-const {
-  auth,
-  deleteAccountFor,
-  deleteOwnAccount,
-  endSessionsOfAddress,
-  forgiveCodeAttempt,
-  getAdminSession,
-  getKontoSession,
-  getSignedInAddress,
-  getPasskeyStep,
-  getSignInDestination,
-  isAdminSession,
-  isFreshlySignedIn,
-  judgeAdminRequest,
-  listAccounts,
-  PASSKEY_LIMIT,
-  readAdmittedSession,
-  readServedSession,
-  requestAccountDeletion,
-} = await import("./auth.ts");
+const { auth } = await import("./auth/library.ts");
+const { deleteAccountFor, deleteOwnAccount, listAccounts, requestAccountDeletion } = await import("./auth/accounts.ts");
+const { endSessionsOfAddress } = await import("./auth/accountSessions.ts");
+const { getAdminSession, getKontoSession, isAdminSession, judgeAdminRequest, passesPasskeyTouch } = await import("./auth/guards.ts");
+const { getSignedInAddress, getPasskeyStep, getSignInDestination } = await import("./auth/landing.ts");
+const { isFreshlySignedIn } = await import("./auth/sessionStamps.ts");
+const { PASSKEY_LIMIT } = await import("./auth/enrolment.ts");
+const { readServedSession } = await import("./auth/session.ts");
 const { buildCodeEmail, CODE_VALIDITY_MINUTES } = await import("./authEmail.ts");
 const { renderMail } = await import("./emailShell.ts");
 const { holdsOwnersTier } = await import("./verwaltung.ts");
@@ -252,6 +239,9 @@ const handler = toNextJsHandler(auth);
 const MINUTE_MS = 60 * 1000;
 const HOUR_MS = 60 * MINUTE_MS;
 const DAY_MS = 24 * HOUR_MS;
+/** The library's `freshAge`, which a first passkey's enrolment is held to: written out, so a moved option fails the cases. */
+const FRESH_SIGN_IN_MS = 5 * MINUTE_MS;
+const PASSKEY_TOUCH_MS = PASSKEY_TOUCH_SECONDS * 1000;
 
 // Before rather than after each case: a seeded row cleared at the end of the case that seeded it
 // survives that case FAILING, and every later case then reports the first one's fault as its own.
@@ -265,13 +255,14 @@ beforeEach(() => {
 type Refusal = { status: number; code?: unknown; message?: unknown };
 
 async function answerOf(email: string, otp: string): Promise<Refusal> {
-  try {
-    await auth.api.signInEmailOTP({ body: { email, otp }, headers: new Headers(ORIGIN), returnHeaders: true });
-    return { status: 200 };
-  } catch (refused) {
-    if (!isAPIError(refused)) throw refused;
-    return { status: refused.statusCode, code: refused.body?.code, message: refused.body?.message };
-  }
+  // Over the mounted handler, the one route the page's client posts a code by.
+  const answered = await overHttp("/sign-in/email-otp", { method: "POST", body: { email, otp } });
+  if (answered.ok) return { status: 200 };
+
+  // A refusal by status alone, as the mint's outage is, answers no body at all.
+  const text = await answered.text();
+  const refused = (text === "" ? {} : JSON.parse(text)) as { code?: string; message?: string };
+  return { status: answered.status, code: refused.code, message: refused.message };
 }
 
 /** The code row the plugin holds for `email`, the latest of them. */
@@ -352,12 +343,14 @@ describe("where the cookie integration sits among the plugins", () => {
   });
 });
 
-/** The four paths the browser's own client calls, which is the whole of the HTTP surface. */
+/** The six paths the browser's own client calls, which is the whole of the HTTP surface. */
 const OVER_HTTP = [
   "/passkey/generate-register-options",
   "/passkey/verify-registration",
   "/passkey/generate-authenticate-options",
   "/passkey/verify-authentication",
+  "/sign-in/email-otp",
+  "/sign-out",
 ];
 
 /** What this application's own code reaches through `auth.api`, and no browser may. */
@@ -368,8 +361,6 @@ const IN_PROCESS_ONLY = [
   "/passkey/delete-passkey",
   "/passkey/list-user-passkeys",
   "/revoke-other-sessions",
-  "/sign-in/email-otp",
-  "/sign-out",
 ];
 
 /** Every other endpoint the installed library mounts: refused on both arms. */
@@ -502,24 +493,46 @@ describe("what the mounted HTTP surface answers", () => {
     expect(store.passkey, "a route the allowlist refuses still reached the passkey rows").toStrictEqual([held]);
   });
 
-  /* Mounted and unmailed: its answer is the raw session token, and over HTTP it meets neither the
-     route handler's origin guard nor its edge zones, so an open arm here spends a code unbounded. */
-  it("refuses the library's own code sign-in over HTTP while the route handler's call still signs in", async () => {
+  /* The library answers its code sign-in with the session's token, the cookie's own value, and writes a name or an
+     image it is handed onto a first sign-in's account: the page's client sends neither, so a request that does is
+     refused before the code is counted or spent. */
+  it("signs a code in over HTTP answering no token, and refuses a body naming more than the address and the code", async () => {
     await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
     const otp = lastMailedCode(sent, ADMIN_EMAIL);
     assert.ok(otp !== null);
     const sessions = store.session.length;
 
-    expect((await overHttp("/sign-in/email-otp", { method: "POST", body: { email: ADMIN_EMAIL, otp } })).status).toBe(404);
-    expect(store.session.length, "the refused arm minted a session on its way out").toBe(sessions);
+    const named = await overHttp("/sign-in/email-otp", { method: "POST", body: { email: ADMIN_EMAIL, otp, name: "Jemand" } });
+    expect(named.status).toBe(400);
+    expect(store.session.length, "the refused body minted a session on its way out").toBe(sessions);
+    expect(failureRows(), "the refused body was counted as a guess").toStrictEqual([]);
 
-    const verified = await auth.api.signInEmailOTP({ body: { email: ADMIN_EMAIL, otp }, headers: new Headers(ORIGIN), returnHeaders: true });
-    assert.ok(verified.headers.getSetCookie().length > 0, "the HTTP arm spent the code the handler still needs");
+    const verified = await overHttp("/sign-in/email-otp", { method: "POST", body: { email: ADMIN_EMAIL, otp } });
+    expect(await verified.json()).toStrictEqual({ status: true });
+    const minted = store.session.at(-1);
+    assert.ok(minted !== undefined && store.session.length === sessions + 1, "the refused body spent the code");
+    expect(verified.headers.getSetCookie().join(";")).toContain(minted.token);
   });
 
-  /* Every path outside the browser's four, driven rather than sampled: a set the module widens by
+  /* The page's sign-out posts here, so the session ends in a request that renders no page: the request's own
+     session alone, and a post another site sends meets the library's origin check before any row is read. */
+  it("ends the session its own cookie names over HTTP, and refuses a post from another origin", async () => {
+    const other = await signIn(PERSON_EMAIL);
+    const { cookie, row } = await signIn(ADMIN_EMAIL);
+
+    const crossSite = await overHttp("/sign-out", { method: "POST", cookie, body: {}, from: { origin: "https://example.com" } });
+    expect(crossSite.status).toBe(403);
+    assert.ok(store.session.includes(row), "a cross-site post ended the session");
+
+    const ended = await overHttp("/sign-out", { method: "POST", cookie, body: {} });
+    expect(await ended.json()).toStrictEqual({ success: true });
+    assert.ok(!store.session.includes(row), "the sign-out left its own session standing");
+    assert.ok(store.session.includes(other.row), "the sign-out ended another account's session");
+  });
+
+  /* Every path outside the browser's six, driven rather than sampled: a set the module widens by
      one is what a hand-written list of twelve would go on passing through. */
-  it("refuses every path outside the browser's own four, whatever session the caller carries", async () => {
+  it("refuses every path outside the browser's own six, whatever session the caller carries", async () => {
     const { cookie } = await signIn(ADMIN_EMAIL);
 
     for (const path of [...IN_PROCESS_ONLY, ...REFUSED]) {
@@ -1093,7 +1106,8 @@ describe("the administrator's passkey sign-in, judged at the same guard", () => 
     const { cookie } = await signIn(ADMIN_EMAIL);
     const held = store.user.find((user) => user.email === ADMIN_EMAIL);
     assert.ok(held, "the sign-in wrote no user row for the granted address");
-    held.email = ADMIN_EMAIL.replace(/\.(?=[^.]*$)/, String.fromCodePoint(0xff61));
+    // Capitals and a no-break space, which the library never trims.
+    held.email = `${ADMIN_EMAIL.toUpperCase()}${String.fromCodePoint(0xa0)}`;
     arriveAs(cookie);
 
     const step = await getPasskeyStep();
@@ -1134,11 +1148,11 @@ describe("the administrator's passkey sign-in, judged at the same guard", () => 
     expect(await getSignInDestination()).toBe("/bereich");
   });
 
-  /* The enrolment is refused past its own window, so a card offered there is a press the server
-     refuses: the landing and the page have to agree on where it stops, well inside the step-up window. */
+  /* The enrolment is refused past the library's `freshAge`, so a card offered there is a press the server
+     refuses: the landing and the page have to agree on where it stops. */
   it("stops offering a person the passkey where the enrolment would be refused, and never sends them round", async () => {
     const { cookie, row } = await signIn(PERSON_EMAIL);
-    ageRow(row, { created: ENROLMENT_WINDOW_MS + 60_000 });
+    ageRow(row, { created: FRESH_SIGN_IN_MS + 60_000 });
     arriveAs(cookie);
 
     expect(await getPasskeyStep()).toBe(null);
@@ -1149,7 +1163,7 @@ describe("the administrator's passkey sign-in, judged at the same guard", () => 
      passkey page, that page would send them back to the landing and round again. */
   it("sends an administrator whose code session is too old to enrol back to sign in, and asserts one who holds a passkey", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
-    ageRow(row, { created: ENROLMENT_WINDOW_MS + 60_000 });
+    ageRow(row, { created: FRESH_SIGN_IN_MS + 60_000 });
     arriveAs(cookie);
 
     expect(await getPasskeyStep()).toBe(null);
@@ -1277,33 +1291,11 @@ describe("a passkey session whose passkey is gone", () => {
   });
 });
 
-/* The code route's second tab forgives a guess to whoever it reads as signed in, so that read is the
-   guards' own, a ban and a gone passkey included. */
-describe("the session a code's second tab counts as signed in", () => {
-  afterEach(() => BACKENDS.delete(PERSON_EMAIL));
-
-  it("serves the session every guard serves, and none a ban or a gone passkey refuses", async () => {
-    BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, seats: [A_SEAT], account: true });
-    const { cookie, row } = await signIn(PERSON_EMAIL);
-    const request = new Headers({ ...ORIGIN, cookie });
-    expect((await readAdmittedSession(request))?.session.id, "the live session was refused, so the cases below prove nothing").toBe(row.id);
-
-    BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, seats: [A_SEAT], account: true, barred: true });
-    expect(await readAdmittedSession(request), "a barred subject's session counted as signed in").toBe(null);
-
-    BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, seats: [A_SEAT], account: true });
-    madeByPasskey(store, row);
-    store.passkey.length = 0;
-    expect(await readAdmittedSession(request), "a session whose passkey is gone counted as signed in").toBe(null);
-  });
-});
-
-describe("the window an enrolment happens inside", () => {
-  /* A passkey outlives the session that adds it, so only a sign-in or a confirmation of the last
-     minutes adds one. */
-  it("still generates registration options for a code session a minute inside the enrolment window", async () => {
+describe("the fresh sign-in a first passkey is added on", () => {
+  /* A passkey outlives the session that adds it, so only a sign-in of the last minutes adds one. */
+  it("still generates registration options for a code session a minute inside the library's `freshAge`", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
-    ageRow(row, { created: ENROLMENT_WINDOW_MS - 60_000 });
+    ageRow(row, { created: FRESH_SIGN_IN_MS - 60_000 });
 
     const answer = await overHttp("/passkey/generate-register-options", { cookie });
     expect(answer.status, `the enrolment the page offers was refused: ${JSON.stringify(logged)}`).toBe(200);
@@ -1315,21 +1307,53 @@ describe("the window an enrolment happens inside", () => {
     expect(options.rp.id, "the relying party is not the origin this stack serves").toBe("localhost");
   });
 
-  /* Deep inside the library's own freshness gate, so the refusal is the enrolment rule's and not the
-     library's, which answers 403. */
+  /* An administrator's mailed code reaches no further than this: a mailbox read later adds no passkey. */
   it("refuses them a minute past it, which is where the page stops offering the step", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
-    ageRow(row, { created: ENROLMENT_WINDOW_MS + 60_000 });
+    ageRow(row, { created: FRESH_SIGN_IN_MS + 60_000 });
 
-    expect((await overHttp("/passkey/generate-register-options", { cookie })).status).toBe(404);
+    const refused = await overHttp("/passkey/generate-register-options", { cookie });
+    expect(refused.status).toBe(403);
+    expect(((await refused.json()) as { code?: string }).code).toBe("SESSION_NOT_FRESH");
+    expect(store.passkey).toStrictEqual([]);
   });
 
-  /* Two hours, GitHub's re-authentication window, for every change but adding a passkey; five minutes
-     for that. The library's gate takes the wider one, this module's the narrower. */
-  it("holds the two windows at their figures, chosen rather than derived", () => {
-    expect(STEP_UP_WINDOW_MS).toBe(2 * HOUR_MS);
-    expect(ENROLMENT_WINDOW_MS).toBe(5 * 60 * 1000);
-    expect(auth.options.session.freshAge, "the library's freshness gate and the step-up disagree").toBe(STEP_UP_WINDOW_MS / 1000);
+  /* Five minutes for adding a first passkey, a minute's touch for every later one: chosen rather than derived. */
+  it("holds the library's `freshAge` and the passkey touch at their figures", () => {
+    expect(auth.options.session.freshAge).toBe(FRESH_SIGN_IN_MS / 1000);
+    expect(PASSKEY_TOUCH_SECONDS).toBe(60);
+  });
+});
+
+/* The touch an act on its list declares, judged on the actor a guard recorded: how old the sign-in is, by which
+   factor, and whether the account holds a passkey at all. */
+describe("the passkey touch an act declares", () => {
+  const actorOf = (factor: "code" | "passkey", ageMs: number) => ({
+    email: PERSON_EMAIL,
+    lane: "person" as const,
+    authTime: Math.floor((Date.now() - ageMs) / 1000),
+    factor: factor,
+  });
+
+  it("admits a passkey sign-in inside the touch, and refuses one past it", async () => {
+    const { row } = await signIn(PERSON_EMAIL);
+    store.passkey.push(aPasskeyFor(row.userId));
+
+    expect(await passesPasskeyTouch(actorOf("passkey", PASSKEY_TOUCH_MS - 10_000)), "a fresh touch was refused").toBe(true);
+    expect(await passesPasskeyTouch(actorOf("passkey", PASSKEY_TOUCH_MS + 10_000)), "a touch past its figure passed").toBe(false);
+  });
+
+  it("refuses a code session of a person holding a passkey, however fresh, and passes one holding none", async () => {
+    const { row } = await signIn(PERSON_EMAIL);
+
+    expect(await passesPasskeyTouch(actorOf("code", 0)), "a person holding no passkey was refused").toBe(true);
+
+    store.passkey.push(aPasskeyFor(row.userId));
+    expect(await passesPasskeyTouch(actorOf("code", 0)), "a holder's code session passed the touch").toBe(false);
+  });
+
+  it("passes nobody where no guard recorded an actor", async () => {
+    expect(await passesPasskeyTouch(undefined)).toBe(false);
   });
 });
 
@@ -1573,20 +1597,20 @@ describe("which sessions may enrol a passkey, and how many rows they may leave",
     expect(store.passkey.length).toBe(2);
   });
 
-  /* The whole of what the step-up buys: without it a stolen cookie could enrol for as long as it was
-     valid at all. */
-  it("refuses a further passkey to a passkey-made session whose assertion is past the step-up window", async () => {
+  /* The whole of what the touch buys: without it a stolen cookie could enrol for as long as the library's
+     `freshAge` lasts. */
+  it("refuses a further passkey to a passkey-made session whose assertion is past the touch", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     steppedUp(row);
-    ageRow(row, { created: STEP_UP_WINDOW_MS + 60_000 });
+    ageRow(row, { created: PASSKEY_TOUCH_MS + 30_000 });
     store.passkey.push(aPasskeyFor(row.userId));
 
     expect((await overHttp("/passkey/generate-register-options", { cookie })).status).toBe(404);
     expect(store.passkey.length).toBe(1);
   });
 
-  /* The `auth.api` arm, which the hook returns early for: the library's freshness gate stands at the
-     same window and answers first, so the callback behind it is driven by a case further down. */
+  /* The `auth.api` arm, which the hook returns early for, aged inside the library's `freshAge`: the touch in
+     `registration.afterVerification` is then the only thing that refuses it. */
   it("refuses that same stale session where the hook never runs", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     steppedUp(row);
@@ -1598,76 +1622,47 @@ describe("which sessions may enrol a passkey, and how many rows they may leave",
 
     const held = aPasskeyFor(row.userId);
     store.passkey.push(held);
-    // Aged after the options call, which the library gates on `freshAge` and would refuse first.
-    ageRow(row, { created: STEP_UP_WINDOW_MS + 60_000 });
+    ageRow(row, { created: PASSKEY_TOUCH_MS + 30_000 });
 
     await expect(() =>
       auth.api.verifyPasskeyRegistration({
         body: { response: registrationFor(challenge, true, SECOND_RAW_ID) },
         headers: new Headers({ ...ORIGIN, cookie: `${cookie}; ${minted}`, origin: "http://localhost:3000" }),
       }),
-    ).rejects.toSatisfy((raised: unknown) => Reflect.get(raised as object, "status") === "FORBIDDEN");
+    ).rejects.toSatisfy((raised: unknown) => Reflect.get(raised as object, "status") === "NOT_FOUND");
 
     expect(store.passkey, "the callback let a stale session write a row").toStrictEqual([held]);
   });
 
-  /* A person's passkey is optional, so a fresh sign-in by either factor enrols: the mailbox is the
-     account whatever the person holds. */
-  it("enrols a person's passkey from a fresh code session, and a further one", async () => {
+  /* A person's passkey is optional, so a fresh sign-in by either factor enrols the first: the mailbox is the
+     account whatever the person holds. Every later one asks the touch, as an administrator's does. */
+  it("enrols a person's first passkey from a fresh code session, and a further one on the touch alone", async () => {
     const { cookie, row } = await signIn(PERSON_EMAIL);
 
     expect((await enrolPasskey(cookie)).status).toBe(200);
-    expect((await enrolPasskey(cookie, {}, true, SECOND_RAW_ID)).status, "a code session was refused a second passkey").toBe(200);
+    const byCode = await overHttp("/passkey/generate-register-options", { cookie });
+    expect(byCode.status, "a holder's code session was offered a second passkey").toBe(404);
+
+    steppedUp(row);
+    expect((await enrolPasskey(cookie, {}, true, SECOND_RAW_ID)).status, "the touch was refused a second passkey").toBe(200);
     expect(store.passkey.map((held) => held.userId)).toStrictEqual([row.userId, row.userId]);
   });
 
-  /* Inside the two hours every other change is allowed in: adding a passkey alone asks for more. */
-  it("refuses a person's passkey past the enrolment window, whatever made the session", async () => {
-    const { cookie, row } = await signIn(PERSON_EMAIL);
-
-    for (const factor of ["code", "passkey"]) {
-      row.authFactor = factor;
-      ageRow(row, { created: ENROLMENT_WINDOW_MS + 60_000 });
-
-      expect((await overHttp("/passkey/generate-register-options", { cookie })).status, `${factor} enrolled when stale`).toBe(404);
-    }
-    expect(store.passkey).toStrictEqual([]);
-  });
-
-  it("refuses an administrator's further passkey from a passkey session past the enrolment window", async () => {
-    const { cookie, row } = await signIn(ADMIN_EMAIL);
-    steppedUp(row);
-    ageRow(row, { created: ENROLMENT_WINDOW_MS + 60_000 });
-    store.passkey.push(aPasskeyFor(row.userId));
-
-    expect((await overHttp("/passkey/generate-register-options", { cookie })).status).toBe(404);
-    expect(store.passkey.length).toBe(1);
-  });
-
-  it("refuses an administrator's first passkey from a code session past the enrolment window", async () => {
-    const { cookie, row } = await signIn(ADMIN_EMAIL);
-    ageRow(row, { created: ENROLMENT_WINDOW_MS + 60_000 });
-
-    expect((await overHttp("/passkey/generate-register-options", { cookie })).status).toBe(404);
-    expect(store.passkey).toStrictEqual([]);
-  });
-
-  /* The `auth.api` arm, which the hook returns early for, aged inside the library's own freshness gate:
-     the enrolment rule in `registration.afterVerification` is then the only thing that refuses it. */
-  it("refuses a person's enrolment past the enrolment window where the hook never runs", async () => {
+  /* The `auth.api` arm, which the hook returns early for: the library's own `freshAge` holds it as it holds HTTP. */
+  it("refuses a person's first passkey past the library's `freshAge` where the hook never runs", async () => {
     const { cookie, row } = await signIn(PERSON_EMAIL);
     const headers = new Headers({ ...ORIGIN, cookie, origin: "http://localhost:3000" });
 
     const offered = await auth.api.generatePasskeyRegistrationOptions({ headers, returnHeaders: true });
     const challenge = (offered.response as { challenge: string }).challenge;
-    ageRow(row, { created: ENROLMENT_WINDOW_MS + 60_000 });
+    ageRow(row, { created: FRESH_SIGN_IN_MS + 60_000 });
 
     await expect(() =>
       auth.api.verifyPasskeyRegistration({
         body: { response: registrationFor(challenge, true) },
         headers: new Headers({ ...ORIGIN, cookie: `${cookie}; ${cookieHeader(offered)}`, origin: "http://localhost:3000" }),
       }),
-    ).rejects.toSatisfy((raised: unknown) => Reflect.get(raised as object, "status") === "NOT_FOUND");
+    ).rejects.toSatisfy((raised: unknown) => Reflect.get(raised as object, "status") === "FORBIDDEN");
     expect(store.passkey).toStrictEqual([]);
   });
 
@@ -2205,12 +2200,11 @@ describe("what a ban ends in the sign-in store", () => {
     expect(await getSignInDestination()).toBe("/signin");
   });
 
-  /* The store holds the folded address, whose domain is punycode: a ban typed with the Unicode
-     domain has to reach it. */
-  it("reaches an account whose address has a Unicode domain, typed either way", async () => {
+  /* The store holds the folded address, lower-cased: a ban typed in capitals has to reach the stored account. */
+  it("reaches an account whose address is typed in capitals", async () => {
     const stored = await signIn("leser@xn--bcher-kva.example");
 
-    await endSessionsOfAddress("Leser@Bücher.example");
+    await endSessionsOfAddress("Leser@XN--BCHER-KVA.example");
 
     assert.ok(!store.session.includes(stored.row));
   });
@@ -2797,22 +2791,6 @@ describe("the failures one address may spend, across every code it is sent", () 
     }
   });
 
-  /* The route's second tab: the spent code meets the sign-in it already made, which is no guess. */
-  it("takes back exactly the failure the route forgives, by the body it sent", async () => {
-    const otp = await auth.api.createVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" } });
-    await answerOf(ADMIN_EMAIL, wrongFor(otp));
-    const [earlier] = failureRows();
-    assert.ok(earlier !== undefined);
-
-    const body = { email: ADMIN_EMAIL, otp: wrongFor(otp) };
-    await auth.api.signInEmailOTP({ body, headers: new Headers(ORIGIN) }).catch(() => undefined);
-    expect(failureRows().length, "the second attempt was not counted, so nothing below is taken back").toBe(2);
-
-    await forgiveCodeAttempt(body);
-
-    expect(failureRows().map((row) => row.id)).toStrictEqual([earlier.id]);
-  });
-
   /* Ten in a row, and any sign-in ends the row: nine failures, a right code, then ten more are all
      answered as wrong codes, and only the eleventh after the sign-in meets the lock. */
   it("locks after ten consecutive failures, a sign-in between them clearing the count", async () => {
@@ -2870,9 +2848,6 @@ describe("the failures one address may spend, across every code it is sent", () 
 });
 
 describe("the code mails one address may be sent in an hour", () => {
-  /* Written out rather than read from the module: the runbook's sweep matches rows by this spelling. */
-  const TOTAL_ROW = "sign-in-mail-every-address";
-
   it("mails nothing past the fifth, on the same answer as the first", async () => {
     const before = sent.length;
     const answers = [];
@@ -2889,7 +2864,7 @@ describe("the code mails one address may be sent in an hour", () => {
       await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
     }
 
-    const perAddress = store.verification.filter((row) => row.identifier.startsWith("sign-in-mail-") && row.identifier !== TOTAL_ROW);
+    const perAddress = store.verification.filter((row) => row.identifier.startsWith("sign-in-mail-"));
     expect(perAddress.length).toBe(5);
   });
 
@@ -2905,53 +2880,6 @@ describe("the code mails one address may be sent in an hour", () => {
     await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
 
     expect((await answerOf(ADMIN_EMAIL, fifth)).status, "the capped send voided the code the person holds").toBe(200);
-  });
-
-  it("mails no address past the hour's total, on the same answer as a mailed send", async () => {
-    const mailedAnswer = await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
-    const expiresAt = new Date(Date.now() + HOUR_MS);
-    for (let row = store.verification.filter((held) => held.identifier === TOTAL_ROW).length; row < 100; row += 1) {
-      store.verification.push({
-        id: `total-${String(row)}`,
-        identifier: TOTAL_ROW,
-        value: "counted",
-        expiresAt,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
-    }
-    const before = sent.length;
-
-    const held = lastMailedCode(sent, ADMIN_EMAIL);
-    const capped = await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
-
-    expect(sent.length, "a send past the total was mailed").toBe(before);
-    expect(capped).toStrictEqual(mailedAnswer);
-    // Capped ahead of the plugin, which would otherwise have replaced the code the person holds.
-    assert.ok(held !== null);
-    expect((await answerOf(ADMIN_EMAIL, held)).status, "the capped send voided the code the person holds").toBe(200);
-  });
-
-  /* Counted per request, invented addresses would close sign-in for everyone. */
-  it("counts mails sent against the hour's total, and no send the gate refuses", async () => {
-    await auth.api.sendVerificationOTP({ body: { email: STRANGER_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
-    expect(store.verification.filter((row) => row.identifier === TOTAL_ROW).length, "a send that mailed nothing spent the total").toBe(0);
-
-    await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
-    expect(store.verification.filter((row) => row.identifier === TOTAL_ROW).length).toBe(1);
-  });
-
-  /* Written for mails alone, so a row naming its address, or a keyed hash of it, would be the oracle
-     the per-address rows avoid by being written for every address. */
-  it("keeps every address out of the total's rows", async () => {
-    await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
-    const [total] = store.verification.filter((row) => row.identifier === TOTAL_ROW);
-    const keyed = store.verification.find((row) => row.identifier.startsWith("sign-in-mail-") && row.identifier !== TOTAL_ROW);
-    assert.ok(total !== undefined && keyed !== undefined, "no send was counted, so nothing below is compared");
-
-    const serialised = JSON.stringify(total);
-    assert.ok(!serialised.includes(ADMIN_EMAIL.split("@")[0] ?? ADMIN_EMAIL), "the total's row names the address");
-    assert.ok(!serialised.includes(keyed.identifier.slice("sign-in-mail-".length)), "the total's row carries the address's keyed hash");
   });
 });
 
@@ -3303,9 +3231,9 @@ describe("which spelling of an administrator a write is attributed to", () => {
 
     const held = store.user.find((user) => user.email === ADMIN_EMAIL);
     assert.ok(held, "the sign-in wrote no user row for the granted address");
-    // The fold converts this spelling's domain to the granted one, so the guard admits a session
+    // The fold trims and lower-cases this spelling to the granted one, so the guard admits a session
     // whose stored address is not the one the grant carries.
-    held.email = ADMIN_EMAIL.replace(/\.(?=[^.]*$)/, String.fromCodePoint(0xff61));
+    held.email = `${ADMIN_EMAIL.toUpperCase()}${String.fromCodePoint(0xa0)}`;
     arriveAs(cookie);
 
     const actor = await runWithRequestScope({ traceId: `${"0".repeat(31)}1` }, async () => {
@@ -3446,10 +3374,7 @@ async function seedAccount(email: string): Promise<{ cookie: string; userId: str
   const token = mailedToken(email);
   await requestAccountDeletion(headers);
 
-  // The aggregate count names no address, so it is nobody's to delete.
-  const pending = store.verification
-    .filter((held) => !before.has(held.id) && held.identifier !== "sign-in-mail-every-address")
-    .map((held) => held.identifier);
+  const pending = store.verification.filter((held) => !before.has(held.id)).map((held) => held.identifier);
   expect(pending.length, `the seeding left ${String(pending.length)} pending rows, so a case reads fewer than it means to`).toBe(7);
 
   return { cookie, userId: row.userId, pending, token };
@@ -3626,49 +3551,7 @@ describe("a person's own account deletion", () => {
     expect(sent.filter((entry) => entry.to === email).length, "the address was mailed past its hour's five").toBe(5);
     expect(tokens().length, "a capped request minted a token row").toBe(5);
     expect(new Set(answers.map((answer) => JSON.stringify(answer))).size, "a capped request answers apart from a mailed one").toStrictEqual(1);
-    expect(informed.filter((line) => line.message === "auth.deletion_link_capped").map((line) => line.meta.bound)).toStrictEqual(
-      Array.from({ length: 45 }, () => "address"),
-    );
-  });
-
-  it("mails no link past every address's hundred mails of the hour, on the same answer, spending none of the address's five", async () => {
-    const email = "loeschlink-gesamt@example.org";
-    const { cookie, row } = await signIn(email);
-    const headers = new Headers({ ...ORIGIN, cookie });
-    const mailed = await requestAccountDeletion(headers);
-    const expiresAt = new Date(Date.now() + HOUR_MS);
-    for (let held = store.verification.filter((each) => each.identifier === "sign-in-mail-every-address").length; held < 100; held += 1) {
-      store.verification.push({
-        id: `gesamt-${String(held)}`,
-        identifier: "sign-in-mail-every-address",
-        value: "counted",
-        expiresAt,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
-    }
-    const before = sent.length;
-    const mailRows = () => store.verification.filter((held) => held.identifier.startsWith("sign-in-mail-")).length;
-    const counted = mailRows();
-    informed.length = 0;
-
-    const capped = await requestAccountDeletion(headers);
-
-    expect(sent.length, "a link past the total was mailed").toBe(before);
-    expect(capped).toStrictEqual(mailed);
-    expect(store.verification.filter((held) => held.identifier.startsWith("delete-account-") && held.value === row.userId).length).toBe(1);
-    expect(mailRows(), "a link the full hour held back spent one of the address's five").toBe(counted);
-    expect(informed.filter((line) => line.message === "auth.deletion_link_capped").map((line) => line.meta.bound)).toStrictEqual(["total"]);
-  });
-
-  it("counts a mailed link on every address's hundred", async () => {
-    const { cookie } = await signIn("gesamt-zaehlt@example.org");
-    const total = () => store.verification.filter((held) => held.identifier === "sign-in-mail-every-address").length;
-    const before = total();
-
-    await requestAccountDeletion(new Headers({ ...ORIGIN, cookie }));
-
-    expect(total(), "a mailed link left the hour's total uncounted").toBe(before + 1);
+    expect(informed.filter((line) => line.message === "auth.deletion_link_capped").length).toBe(45);
   });
 
   it("holds a sign-in code back after five deletion links, one row counting both", async () => {
@@ -3726,7 +3609,7 @@ describe("a person's own account deletion", () => {
 
     expect(sent.filter((entry) => entry.to === email).length, "a link was mailed past five codes").toBe(5);
     expect(store.verification.filter((held) => held.identifier.startsWith("delete-account-") && held.value === row.userId).length).toBe(0);
-    expect(informed.filter((line) => line.message === "auth.deletion_link_capped").map((line) => line.meta.bound)).toStrictEqual(["address"]);
+    expect(informed.filter((line) => line.message === "auth.deletion_link_capped").length).toBe(1);
   });
 
   /* The library swallows a throw from its sender and answers the press as sent whatever happened, so what

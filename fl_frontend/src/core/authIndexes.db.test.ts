@@ -81,7 +81,11 @@ const { sent } = registerAuthDoubles({
 
 // Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
 const { toNextJsHandler } = await import("better-auth/next-js");
-const { auth, endSessionsOfAddress, getKontoSession, readServedSession, removePasskey } = await import("./auth.ts");
+const { auth } = await import("./auth/library.ts");
+const { endSessionsOfAddress } = await import("./auth/accountSessions.ts");
+const { getKontoSession } = await import("./auth/guards.ts");
+const { readServedSession } = await import("./auth/session.ts");
+const { removePasskey } = await import("./auth/passkeys.ts");
 const { buildAuthIndexes } = await import("./authIndexes.ts");
 const { readSicherheit } = await import("@/features/konto/sicherheit");
 const { endAndereAnmeldungenAction, endAnmeldungAction } = await import("@/features/konto/actions");

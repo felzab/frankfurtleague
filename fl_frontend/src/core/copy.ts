@@ -1,6 +1,7 @@
 import { formatDatum, formatDatumLong, formatDatumWithWeekday, formatList, formatNumber, formatOrdinal, formatUhrzeit } from "./format";
 
 import type { CalendarDay, Uhrzeit } from "./format";
+import type { FLKontaktRolle } from "./generated/client/types";
 
 declare const copyBrand: unique symbol;
 
@@ -81,6 +82,14 @@ type Bound = number | { year: number };
 
 const bound = (value: Bound): string => (typeof value === "number" ? formatNumber(value) : String(value.year));
 
+// A contact seat's name as a record's label names it, in the seats' order.
+const SEAT = {
+  ansprechperson: "Ansprechperson",
+  stellvertretung: "Stellvertretung",
+  trainer: "Trainerin oder Trainer",
+} as const satisfies Record<FLKontaktRolle, string>;
+const SEAT_ORDER = Object.keys(SEAT) as FLKontaktRolle[];
+
 export const COPY = catalogue({
   /** What every area draws from; an area adds a key of its own only for a string this lacks. */
   shared: {
@@ -160,7 +169,6 @@ export const COPY = catalogue({
     close: "Schließen",
 
     /** The end states of a page a mail opens; each page names its own sentence for the done state. */
-    // Session 4: the mailed pages read `doneOn` and `toAccount`.
     end: {
       doneOn: (done: Copy, day: CalendarDay) => `${done} am ${formatDatumLong(day)}.`,
       linkInvalid: "Dieser Link gilt nicht mehr.",
@@ -388,7 +396,7 @@ export const COPY = catalogue({
     /** `/signin`'s tab title, and its card's heading, signed out and signed in: the act its button names. */
     title: VERB.signIn,
     passkeyTitle: "Passkey",
-    /** `/signin/weiter`'s tab title, a page that only sends the session on to where it goes next. */
+    /** `/signin/continue`'s name in the route table, an address that only sends the session on to where it goes next. */
     landingTitle: ANMELDUNG,
 
     address: "E-Mail-Adresse",
@@ -417,8 +425,9 @@ export const COPY = catalogue({
     },
 
     /**
-     * The code's and the passkey's refusals: the code route answers them, and the page finds each one here
-     * again. A barred address and one holding no record meet one sentence, so nobody can probe the ban list.
+     * The code's and the passkey's refusals, which the page words off the library's own codes
+     * (`fl_frontend/src/features/auth/signInAnswers.ts`, `passkeyAnswers.ts`). A barred address and one holding
+     * no record meet one sentence, so nobody can probe the ban list.
      * The typed code's own refusal is a phrase under its boxes; every other is a sentence on the status line.
      */
     refusal: {
@@ -429,6 +438,32 @@ export const COPY = catalogue({
       codeUsedUp: "Die Anmeldung hat nicht geklappt, und dein Code ist verbraucht.",
       noRecord: "Mit dieser Adresse ist derzeit keine Anmeldung möglich.",
       unverified: "Dieser Passkey hat nicht bestätigt, dass du es bist.",
+      /** An act the passkey touch guards, sent without a passkey sign-in of the last minute by a person holding one. */
+      touchMissing: "Die Bestätigung mit deinem Passkey fehlt.",
+    },
+  },
+
+  /** Konto, the account's own pages. */
+  konto: {
+    /**
+     * Each record an address holds, by the label Deine Einträge heads it with and the deletion's list names it by, and
+     * the record it names: the label alone where the record is the person themselves.
+     */
+    entries: {
+      spieler: "Als Spielerin oder Spieler",
+      schiedsrichter: "Als Schiedsrichterin oder Schiedsrichter",
+      /** The seats a contact person holds on one row, as one phrase in the seats' order: „Als Ansprechperson und Trainerin oder Trainer“. */
+      seats: (rollen: readonly FLKontaktRolle[]) =>
+        `Als ${formatList(SEAT_ORDER.filter((rolle) => rollen.includes(rolle)).map((rolle) => SEAT[rolle]))}`,
+      /** A seat's or a registration's team season: „Birkenschule, Saison 2027“. */
+      teamSeason: (team: Words, saison: Copy) => `${textOf(team)}, ${saison}`,
+      /** An application not yet decided, by the season it applies for. */
+      bewerbung: (saison: Copy) => `Bewerbung für die ${saison}`,
+      /** A pupil's registration, by its team where the team still stands. */
+      registrierung: (team: Words | null, saison: Copy) =>
+        team === null ? `Registrierung für die ${saison}` : `Registrierung für ${textOf(team)}, ${saison}`,
+      /** One label's records, where an address holds several under it. */
+      several: (records: readonly Words[]) => formatList(records.map(textOf)),
     },
   },
 

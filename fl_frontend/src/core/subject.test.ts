@@ -21,9 +21,9 @@ const STORE = "__flSubjectStore";
 
 /** Granted nothing, which is the case this seam exists for. */
 const PERSON_EMAIL = "spielerin@example.org";
-/* A half-width ideographic full stop as well as capitals: the sign-in library lower-cases what it
-   stores, so a case-only spelling reaches the guard folded already and would pass with the fold deleted. */
-const UNFOLDED_EMAIL = `Anna.Mueller@Schule${String.fromCodePoint(0xff61)}DE`;
+/* A no-break space and a space around capitals: the sign-in library lower-cases what it stores but never
+   trims, so a case-only spelling reaches the guard folded already and would pass with the fold deleted. */
+const UNFOLDED_EMAIL = `${String.fromCodePoint(0xa0)}Anna.Mueller@Schule.DE `;
 const FOLDED_EMAIL = "anna.mueller@schule.de";
 
 const API_ORIGIN = "http://backend.test";
@@ -118,7 +118,9 @@ beforeEach(() => {
 });
 
 // Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
-const { auth, getAdminSession, getSignInDestination } = await import("./auth.ts");
+const { auth } = await import("./auth/library.ts");
+const { getAdminSession } = await import("./auth/guards.ts");
+const { getSignInDestination } = await import("./auth/landing.ts");
 const { getSubjectSession } = await import("./subject.ts");
 const { lookUpSubjekt } = await import("./signInGate.ts");
 const { verwaltungOf } = await import("./verwaltung.ts");
@@ -469,7 +471,7 @@ describe("a session the store cannot answer for", () => {
     }
   });
 
-  /* The refusal is `fl_frontend/src/core/auth.ts :: isWithinPersonLifetime`'s, which fails closed on
+  /* The refusal is `fl_frontend/src/core/auth/sessionStamps.ts :: isWithinPersonLifetime`'s, which fails closed on
      a stamp it cannot read; this lane answers no session rather than an unbounded one. */
   it("answers nothing for a session whose stamps it cannot read", async () => {
     const { cookie, row } = await signIn(PERSON_EMAIL);
@@ -651,7 +653,7 @@ describe("the guard across one render pass", () => {
 
   /* Each guard called once, so each one's own memo is idle and the count is the session read's alone. */
   it("reads the session once for the person guard, the account guard and the administrator's guard of one render pass", async () => {
-    const { getKontoSession } = await import("./auth.ts");
+    const { getKontoSession } = await import("./auth/guards.ts");
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     madeByPasskey(store, row);
     arriveAs(cookie);

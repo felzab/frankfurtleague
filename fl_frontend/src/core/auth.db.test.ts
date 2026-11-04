@@ -220,7 +220,9 @@ let consuming: () => Promise<unknown> = async () => undefined;
 
 // Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
 const { toNextJsHandler } = await import("better-auth/next-js");
-const { auth, carryAccount, deleteAccountFor, deleteOwnAccount, endSessionsOfAddress, requestAccountDeletion } = await import("./auth.ts");
+const { auth } = await import("./auth/library.ts");
+const { carryAccount, deleteAccountFor, deleteOwnAccount, requestAccountDeletion } = await import("./auth/accounts.ts");
+const { endSessionsOfAddress } = await import("./auth/accountSessions.ts");
 const { buildAuthIndexes } = await import("./authIndexes.ts");
 
 type Collection = {
@@ -449,7 +451,7 @@ describe("what a ban ends, against a real database", () => {
       },
     });
 
-    await endSessionsOfAddress("Leser@Bücher.example");
+    await endSessionsOfAddress("Leser@XN--BCHER-KVA.example");
 
     expect(
       (await sessionRows()).map(({ userId }) => String(userId)),
@@ -504,7 +506,7 @@ describe("an address change carrying the account, against a real database", () =
     const person = await accountAt("alt@schule.example");
     const other = await accountAt("unbeteiligt@example.org");
 
-    expect(await carryAccount("Alt@Schule.example", "Neu@Bücher.example")).toBe("umgezogen");
+    expect(await carryAccount("Alt@Schule.example", "Neu@XN--BCHER-KVA.example")).toBe("umgezogen");
 
     expect(await accounts()).toStrictEqual(
       [
@@ -750,7 +752,7 @@ describe("a code sign-in through the mint, against a real database", () => {
    never test: an update matching nothing signs the reader out instead. */
 describe("a session only read, against a real database", () => {
   it("slides the stored row once past `updateAge` at the proxy, and never at a guard's read", async () => {
-    const { readServedSession } = await import("./auth.ts");
+    const { readServedSession } = await import("./auth/session.ts");
     const { proxy } = await import("../proxy.ts");
     const { NextRequest } = await import("next/server");
 
@@ -807,9 +809,8 @@ async function seedAccount(email: string): Promise<{ cookie: string; userId: str
   assert.ok(found?.[1] !== undefined, "the request mailed no link to the interstitial");
   await requestAccountDeletion(new Headers({ ...ORIGIN, cookie }));
 
-  // The aggregate count names no address, so it is nobody's to delete.
   const pending = (await authDb().collection("verification").find({}).toArray())
-    .filter((row) => !before.has(String(row._id)) && row.identifier !== "sign-in-mail-every-address")
+    .filter((row) => !before.has(String(row._id)))
     .map((row) => String(row.identifier));
   expect(pending.length, `the seeding left ${String(pending.length)} pending rows, so a case reads fewer than it means to`).toBe(7);
 

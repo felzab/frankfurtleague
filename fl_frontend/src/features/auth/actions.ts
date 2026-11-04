@@ -4,7 +4,7 @@ import { headers } from "next/headers";
 
 import { action } from "@/core/action";
 import { afterTheResponse } from "@/core/afterResponse";
-import { sendSignInCode } from "@/core/auth";
+import { sendSignInCode } from "@/core/auth/library";
 import { COPY } from "@/core/copy";
 import { asSignInIdentifier } from "@/core/emailAddress";
 import { logger } from "@/core/logging";
@@ -30,8 +30,8 @@ export const handleSignIn = action({
     const requestHeaders = await headers();
 
     // Folded HERE, which is the boundary: below this line the code row, the mailed recipient, the gate and the
-    // stored `user` row all carry one string. The library folds CASE alone and refuses a Unicode domain, so the
-    // punycode the fold converts one to is the only spelling in which that person signs in at all.
+    // stored `user` row all carry one string. The library folds case alone and never trims, so the fold's trimmed
+    // spelling is the one every sign-in of that person carries.
     const email = asSignInIdentifier(typed);
 
     // The whole call, behind the response: the mail cap, the code write, the gate and the send all sit in the

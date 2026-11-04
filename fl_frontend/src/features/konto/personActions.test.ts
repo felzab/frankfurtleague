@@ -1,0 +1,273 @@
+import { cacheCalls, NEXT_CACHE_DOUBLE } from "@/test-support/actionDoubles.ts";
+import {
+  configDouble,
+  GATE_BACKEND_CONFIG,
+  insertOrderedAdapter,
+  madeByPasskey,
+  memoryStore,
+  ORIGIN,
+  registerAuthDoubles,
+  sessionByCode,
+} from "@/test-support/authDoubles.ts";
+import { answerAt, NO_RECORDS, SEAT } from "@/test-support/subjectFixtures.ts";
+import { assert, beforeEach, describe, expect, it } from "vitest";
+
+import { SITE_CACHE_TAG } from "@/core/siteCache.ts";
+
+import type { SessionRow } from "@/test-support/authDoubles.ts";
+import type { LookupFixture } from "@/test-support/subjectFixtures.ts";
+import type { MemoryDB } from "better-auth/adapters/memory";
+
+/** What the request a case arrives as carries, which `arriveAs` sets. */
+let requestHeaders: Headers | undefined;
+
+const HEADERS_DOUBLE = { headers: () => Promise.resolve(requestHeaders) };
+
+const LOGGING_DOUBLE = { logger: { debug: () => undefined, info: () => undefined, warn: () => undefined, error: () => undefined } };
+
+const ADAPTER_DOUBLE = {
+  mongodbAdapter: () => insertOrderedAdapter(store as unknown as MemoryDB),
+};
+
+const mail = registerAuthDoubles({
+  // The admin key the person lane's erasure is sent under, beside the system key the gate reads with.
+  core: {
+    logging: LOGGING_DOUBLE,
+    config: configDouble(GATE_BACKEND_CONFIG, { internalApiKeyAdmin: () => "fabricated-admin-not-a-credential" }),
+  },
+  specifiers: {
+    "next/headers": HEADERS_DOUBLE,
+    "next/cache": NEXT_CACHE_DOUBLE,
+    "@better-auth/mongo-adapter": ADAPTER_DOUBLE,
+  },
+});
+
+const store = memoryStore("__flKontoLoeschenStore");
+
+/** What the backend holds for each address the subject read and the gate ask about, a live seat for any other. */
+const HELD = new Map<string, LookupFixture>();
+
+/** The counts the erasure answers a person holding one squad row. */
+const GELOESCHT = {
+  spieler: 1,
+  saison_spieler: 1,
+  schiedsrichter: 0,
+  spiele: 0,
+  kontakt_seats: 0,
+  registrierungen: 0,
+  address_change: 0,
+  grants: 0,
+  grants_approval_requests: 0,
+};
+
+/** What the backend's erasure answers, and every erasure it was asked for, with the actor header each carried. */
+let loeschungAnswer: () => Response = () => Response.json(GELOESCHT);
+const loeschungen: { method: string; actor: string | null }[] = [];
+
+const LOESCHUNG_PATH = "/api/v0/identity/account/erasure";
+
+const ANSICHT_PATH = "/api/v0/identity/account/erasure/view";
+
+/** Whether the preview reads the press as the last owner's. */
+let letzterInhaber = false;
+
+globalThis.fetch = ((input: string | URL | Request, init?: RequestInit) => {
+  const path = new URL(input instanceof Request ? input.url : String(input)).pathname;
+  if (path === ANSICHT_PATH) {
+    const leer = { spieler: [], schiedsrichter: [], seats: [], bewerbungen: [], registrierungen: [], address_change: 0 };
+    return Promise.resolve(Response.json({ ...leer, verwaltung: "owner", last_owner: letzterInhaber }));
+  }
+  if (path === LOESCHUNG_PATH) {
+    loeschungen.push({ method: init?.method ?? "GET", actor: new Headers(init?.headers).get("x-fl-actor") });
+    return Promise.resolve(loeschungAnswer());
+  }
+
+  const { email } = JSON.parse(String(init?.body ?? "{}")) as { email?: string };
+  const fixture = HELD.get(email ?? "") ?? { ...NO_RECORDS, seats: [SEAT], account: true };
+  return Promise.resolve(Response.json(answerAt(path, fixture)));
+}) as typeof globalThis.fetch;
+
+// Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
+const { fordereKontoLoeschungAnAction } = await import("./actions.ts");
+const { kontoLoeschen } = await import("./personActions.ts");
+const { COPY } = await import("@/core/copy.ts");
+const { SERVER_COPY } = await import("@/core/serverCopy.ts");
+const { auth } = await import("@/core/auth/library.ts");
+
+beforeEach(() => {
+  store.passkey.length = 0;
+  store.verification.length = 0;
+  cacheCalls.length = 0;
+  loeschungen.length = 0;
+  HELD.clear();
+  loeschungAnswer = () => Response.json(GELOESCHT);
+  letzterInhaber = false;
+});
+
+/** Answers every guard below as one request would: the cookie they read off `headers()`. */
+function arriveAs(cookie: string): void {
+  requestHeaders = new Headers({ ...ORIGIN, cookie });
+}
+
+/** A signed-in person, the request arriving as them, and a deletion link mailed to them; `passkey` adds one they hold. */
+async function mitLink(email: string, { passkey = false }: { passkey?: boolean } = {}): Promise<{ row: SessionRow; token: string }> {
+  const { cookie, row } = await sessionByCode(auth, store, email);
+  if (passkey) {
+    store.passkey.push({
+      id: `passkey-${row.userId}`,
+      userId: row.userId,
+      credentialID: `credential-${row.userId}`,
+      publicKey: "k",
+      counter: 0,
+    });
+  }
+  arriveAs(cookie);
+
+  const angefordert = await fordereKontoLoeschungAnAction();
+  expect(angefordert.success, `the account page's press answered ${JSON.stringify(angefordert)}`).toBe(true);
+  const found = /\/loeschung\?token=([0-9a-z]+)/.exec(mail.sent.findLast((sent) => sent.to === email)?.text ?? "");
+  assert.ok(found?.[1] !== undefined, "the mail carries no link to the page");
+
+  return { row, token: found[1] };
+}
+
+/** What the store still holds of the account `userId` names. */
+const heldOf = (userId: string) => ({
+  user: store.user.filter((user) => user.id === userId).length,
+  passkeys: store.passkey.filter((passkey) => passkey.userId === userId).length,
+});
+
+/** Whether the library still holds the link's token, unspent. */
+const linkStands = (token: string) => store.verification.some((held) => held.identifier === `delete-account-${token}`);
+
+/** The page the deletion leads to, as Next's redirect names it in what it throws. */
+const LEADS_TO_THE_DONE_PAGE = /^NEXT_REDIRECT;[a-z]+;\/loeschung\/geloescht;/;
+
+/** Whether a press ended in Next's redirect to the done page, which the action throws rather than answers. */
+async function ledToTheDonePage(pressed: Promise<unknown>): Promise<void> {
+  const thrown: unknown = await pressed.then(
+    () => null,
+    (error: unknown) => error,
+  );
+  const digest = thrown instanceof Error && "digest" in thrown ? String(thrown.digest) : "";
+  expect(digest, "the press led to no done page").toMatch(LEADS_TO_THE_DONE_PAGE);
+}
+
+/** A signed-in owner, the request arriving as their passkey session of this moment, and a link mailed to them. */
+async function inhaberinMitLink(email: string): Promise<{ row: SessionRow; token: string }> {
+  HELD.set(email, {
+    ...NO_RECORDS,
+    verwaltung: "owner",
+    granted_since: "2026-01-01T00:00:00Z",
+    inhaber_seit: "2026-01-01T00:00:00Z",
+    account: false,
+  });
+  const durchPasskey = await sessionByCode(auth, store, email);
+  madeByPasskey(store, durchPasskey.row);
+  arriveAs(durchPasskey.cookie);
+  expect((await fordereKontoLoeschungAnAction()).success, "the owner's passkey session mailed no link").toBe(true);
+  const found = /\/loeschung\?token=([0-9a-z]+)/.exec(mail.sent.findLast((sent) => sent.to === email)?.text ?? "");
+  assert.ok(found?.[1] !== undefined, "the mail carries no link to the page");
+
+  return { row: durchPasskey.row, token: found[1] };
+}
+
+// Each a loss nobody would see: an account deleted with its records left, a deletion the cache keeps serving, the last
+// owner gone, a link spent by a refusal the person can no longer repair, a passkey holder deleted without the touch.
+describe("a person's own account deletion through the mailed link's page", () => {
+  it("erases the records under the person's actor, deletes the account, clears the site's tag and leads to the done page", async () => {
+    const { row, token } = await mitLink("ganz-weg@example.org");
+    // The link's own request cleared it too, mailing being a write.
+    cacheCalls.length = 0;
+
+    await ledToTheDonePage(kontoLoeschen({ token }));
+
+    expect(
+      loeschungen.map(({ method, actor }) => [method, actor !== null]),
+      "the erasure was not sent once, as a write naming its person",
+    ).toStrictEqual([["POST", true]]);
+    expect(heldOf(row.userId)).toStrictEqual({ user: 0, passkeys: 0 });
+    expect(cacheCalls.filter(({ name }) => name === "updateTag").flatMap(({ args }) => args)).toStrictEqual([SITE_CACHE_TAG]);
+  });
+
+  it("asks a passkey holder signed in by code for the touch, erasing nothing and leaving the link standing", async () => {
+    const { row, token } = await mitLink("mit-passkey@example.org", { passkey: true });
+
+    expect(await kontoLoeschen({ token })).toStrictEqual({ ok: false, reason: COPY.signIn.refusal.touchMissing });
+    expect(loeschungen).toStrictEqual([]);
+    expect(heldOf(row.userId)).toStrictEqual({ user: 1, passkeys: 1 });
+    assert.ok(linkStands(token), "the refused press spent the link");
+  });
+
+  it("deletes for a passkey holder whose passkey signed in a moment ago", async () => {
+    const { row, token } = await mitLink("beruehrt@example.org", { passkey: true });
+    madeByPasskey(store, row);
+
+    await ledToTheDonePage(kontoLoeschen({ token }));
+    expect(heldOf(row.userId)).toStrictEqual({ user: 0, passkeys: 0 });
+  });
+
+  it("refuses the league's last owner before the link is spent, and deletes on the same link once another owns", async () => {
+    const { row, token } = await inhaberinMitLink("letzte-inhaberin@example.org");
+    letzterInhaber = true;
+
+    expect(await kontoLoeschen({ token })).toStrictEqual({ ok: false, reason: SERVER_COPY.refusalLine.last_owner_erasure });
+    expect(loeschungen, "the erasure was asked for although the preview read the last owner").toStrictEqual([]);
+    assert.ok(linkStands(token), "the refused press spent the link, which the owner can no longer open");
+
+    letzterInhaber = false;
+    await ledToTheDonePage(kontoLoeschen({ token }));
+    expect(heldOf(row.userId)).toStrictEqual({ user: 0, passkeys: 0 });
+  });
+
+  it("words the backend's own last-owner refusal, having asked the backend, and deletes nothing", async () => {
+    const { row, token } = await inhaberinMitLink("zweite-inhaberin@example.org");
+    loeschungAnswer = () => Response.json({ error_code: "last_owner_erasure", trace_id: "0".repeat(32) }, { status: 409 });
+
+    expect(await kontoLoeschen({ token })).toStrictEqual({
+      ok: false,
+      errorCode: "last_owner_erasure",
+      reason: SERVER_COPY.refusalLine.last_owner_erasure,
+    });
+    expect(loeschungen.length, "the backend was never asked, so the refusal proves nothing").toBe(1);
+    expect(heldOf(row.userId)).toStrictEqual({ user: 1, passkeys: 1 });
+  });
+
+  it("ends a link the library refuses as the link no longer valid, erasing nothing", async () => {
+    const { row } = await mitLink("falscher-link@example.org");
+
+    const answer = await kontoLoeschen({ token: "kein-gemailter-link" });
+
+    expect(answer).toMatchObject({ ok: true, value: { title: COPY.template.linkInvalid, sentence: COPY.shared.end.linkInvalid } });
+    expect(loeschungen).toStrictEqual([]);
+    expect(heldOf(row.userId)).toStrictEqual({ user: 1, passkeys: 0 });
+  });
+
+  /* The library reads a barred person's leftover session, or one its account's sessions were ended before, as a session
+     like any other: the person lane's own guard is what refuses both. */
+  for (const [label, email, judged] of [
+    [
+      "barred since the link was mailed",
+      "gesperrt-seither@example.org",
+      () => void HELD.set("gesperrt-seither@example.org", { ...NO_RECORDS, barred: true, account: true }),
+    ],
+    [
+      "ended by its account after it was made",
+      "beendet-seither@example.org",
+      () => {
+        const account = store.user.find((user) => user.email === "beendet-seither@example.org");
+        assert.ok(account !== undefined, "the sign-in wrote no account");
+        account.sessionsEndedAt = new Date();
+      },
+    ],
+  ] as const) {
+    it(`deletes and erases nothing from a session ${label}`, async () => {
+      const { row, token } = await mitLink(email);
+      judged();
+
+      expect(await kontoLoeschen({ token })).toStrictEqual({ ok: false, reason: COPY.shared.failure.signInExpired });
+      expect(loeschungen).toStrictEqual([]);
+      expect(heldOf(row.userId)).toStrictEqual({ user: 1, passkeys: 0 });
+    });
+  }
+});

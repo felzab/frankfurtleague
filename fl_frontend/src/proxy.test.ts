@@ -47,13 +47,16 @@ const store = memoryStore(STORE);
 
 // Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
 const { NextRequest } = await import("next/server");
-const { auth, getAdminSession, getKontoSession, getSignInDestination } = await import("./core/auth.ts");
+const { auth } = await import("./core/auth/library.ts");
+const { getAdminSession, getKontoSession } = await import("./core/auth/guards.ts");
+const { getSignInDestination } = await import("./core/auth/landing.ts");
 const { getSubjectSession } = await import("./core/subject.ts");
 const { unstable_doesMiddlewareMatch } = await import("next/experimental/testing/server.js");
 const { adapter } = await import("next/dist/server/web/adapter.js");
 const { config, proxy } = await import("./proxy.ts");
 const { ROUTES } = await import("./core/routes.ts");
 const { requireAdminRequest } = await import("./shared/utils/adminRead.ts");
+const { GET: continueTo } = await import("./app/(classic)/signin/continue/route.ts");
 
 /** What the landing reads, for the cases that put its answer and this proxy's side by side. */
 function arriveAs(cookie: string | null): void {
@@ -126,6 +129,56 @@ describe("where the proxy sends a request for the administrator's subtree carryi
 
     expect(redirectedTo(answer), "a 307 is replayed by the action's fetch as a POST to the sign-in page").toBe(null);
     expect(answer.headers.get("x-action-redirect")).toBe("/signin;replace");
+  });
+
+  /* A mailed link into an area keeps its target through the sign-in, and only a target the allowlist holds. */
+  it("carries the page it was asked for onto the sign-in, and no address the allowlist refuses", async () => {
+    const carried = (url: string) => callProxy({ url }).then((answer) => answer.headers.get("location"));
+
+    expect(await carried(ADMIN_URL)).toBe("http://localhost:3000/signin?return=%2Fbereich%2Fadmin%2Fspiele");
+    // An escaped separator, and a query naming another site, each meet the sign-in with no target at all.
+    expect(await carried("http://localhost:3000/bereich/admin%2F..%2Fspiele")).toBe("http://localhost:3000/signin");
+    expect(await carried(`${ADMIN_URL}?next=https://example.com/`)).toBe("http://localhost:3000/signin");
+  });
+});
+
+/** Where the landing sends the session `cookie` names, asked to return to `asked` where given: the redirect it throws. */
+async function landedAt(cookie: string, asked?: string): Promise<string> {
+  arriveAs(cookie);
+  const url = new URL("http://localhost:3000/signin/continue");
+  if (asked !== undefined) url.searchParams.set("return", asked);
+  try {
+    await continueTo(new NextRequest(url));
+  } catch (error) {
+    const digest: unknown = Reflect.get(error as object, "digest");
+    assert.ok(typeof digest === "string", "the landing threw other than a redirect");
+    return digest;
+  }
+  throw new Error("the landing answered without a redirect");
+}
+
+const landsOn = (path: string) => `NEXT_REDIRECT;replace;${path};307;`;
+
+describe("where the sign-in's landing sends a session asked to return somewhere", () => {
+  it("lands a session the area serves straight on an allowlisted address it was asked for", async () => {
+    expect(await landedAt(removed.cookie, "/bereich/konto")).toBe(landsOn("/bereich/konto"));
+    expect(await landedAt(removed.cookie, "/loeschung?token=ein-token")).toBe(landsOn("/loeschung?token=ein-token"));
+  });
+
+  it("lands it on the area's own page instead of an outside, an encoded or a protocol-relative address", async () => {
+    const unasked = await landedAt(removed.cookie);
+    assert.ok(unasked.startsWith("NEXT_REDIRECT;replace;/bereich"), `the control landed on ${unasked}`);
+
+    for (const asked of ["https://example.com/bereich", "/bereich%2F..%2Fadmin", "//example.com/bereich", "/\\example.com/bereich"]) {
+      expect(await landedAt(removed.cookie, asked), `${asked} was honoured`).toBe(unasked);
+    }
+  });
+
+  it("carries an allowlisted address on through the passkey step", async () => {
+    const { cookie } = await signIn(ADMIN_EMAIL);
+
+    expect(await landedAt(cookie, "/bereich/konto")).toBe(landsOn("/signin/passkey?return=%2Fbereich%2Fkonto"));
+    expect(await landedAt(cookie, "//example.com/bereich")).toBe(landsOn("/signin/passkey"));
   });
 });
 
@@ -232,7 +285,11 @@ describe("which addresses the proxy is run on", () => {
       expect(matched(url), `${url} runs no proxy`).toBe(true);
     }
     // The route handlers write their own cookies, and a public page reads no session.
-    for (const url of ["http://localhost:3000/", "http://localhost:3000/api/signin/code", "http://localhost:3000/api/bestaetigung/kontakt"]) {
+    for (const url of [
+      "http://localhost:3000/",
+      "http://localhost:3000/api/auth/sign-in/email-otp",
+      "http://localhost:3000/api/bestaetigung/kontakt",
+    ]) {
       expect(matched(url), `${url} runs the proxy`).toBe(false);
     }
   });
@@ -407,7 +464,7 @@ function refreshedAgo(row: SessionRow, ago: number): void {
 async function visit(url: string, cookie: string | undefined, load: "document" | "navigation" = "navigation"): Promise<Response> {
   const headers: Record<string, string> = { host: "localhost:3000" };
   // What the router sends on a client navigation, which the proxy slides on too. A render's read refreshes
-  // nothing whatever these say: it passes `disableRefresh` (`fl_frontend/src/core/auth.ts :: readServedSession`).
+  // nothing whatever these say: it passes `disableRefresh` (`fl_frontend/src/core/auth/session.ts :: readServedSession`).
   if (load === "navigation") Object.assign(headers, { rsc: "1", "next-router-state-tree": "%5B%22%22%5D" });
   if (cookie !== undefined) headers.cookie = cookie;
 

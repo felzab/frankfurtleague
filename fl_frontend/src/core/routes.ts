@@ -86,8 +86,11 @@ export const ROUTES = {
   signIn: { path: () => "/signin" as const, title: COPY.signIn.title, crawl: "noindex" },
   /** The passkey step a sign-in reaches where its session is to set one up, use one or is offered one. */
   signInPasskey: { path: () => "/signin/passkey" as const, title: COPY.signIn.passkeyTitle, crawl: "noindex" },
-  /** Where every finished sign-in step lands, which sends the session on to where it goes next. */
-  signInLanding: { path: () => "/signin/weiter" as const, title: COPY.signIn.landingTitle, crawl: "noindex" },
+  /**
+   * Where every finished sign-in step lands: a route handler, not a page, which sends the session on to the page it
+   * goes to next in one redirect, so nothing renders at this address under its title.
+   */
+  signInLanding: { path: () => "/signin/continue" as const, title: COPY.signIn.landingTitle, crawl: "noindex" },
 
   // The pages a mail opens, each answering the token its link carries.
   addressChangeConfirmation: {
@@ -108,6 +111,11 @@ export const ROUTES = {
     crawl: "disallow",
   },
   accountErasure: { path: () => "/loeschung" as const, title: COPY.page.accountErasure, crawl: "disallow" },
+  /**
+   * Where a deletion lands, a page needing no session: the deletion ends the caller's own, so its action leads here
+   * rather than rendering the link's page again under a session that is gone.
+   */
+  accountErased: { path: () => "/loeschung/geloescht" as const, title: COPY.page.accountErasure, crawl: "disallow" },
   registrierung: { path: () => "/registrierung" as const, title: COPY.page.registrierung, crawl: "disallow" },
 
   // Session 4: its page is built.

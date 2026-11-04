@@ -153,7 +153,7 @@ describe("one drain of the Postausgang", () => {
     expect(reports()).toStrictEqual([{ id: handed(1).id, result: "sent", message_id: "re-1", grund: null }]);
   });
 
-  /* The row arrives sealed under the frontend's own key (`fl_frontend/src/core/auth.ts :: oweSignInMail`): a builder
+  /* The row arrives sealed under the frontend's own key (`fl_frontend/src/core/auth/mails.ts :: oweSignInMail`): a builder
      handed the ciphertext would mail a code nobody can type. */
   it("opens a sealed secret under the frontend's key before its kind's builder renders it", async () => {
     const { symmetricEncrypt } = await import("better-auth/crypto");

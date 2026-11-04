@@ -27,13 +27,6 @@ const EMAIL_ATOM = "[a-zA-Z0-9_!#$%&'*+\\-/=?^`{|}~]+";
  */
 const EMAIL_LOCAL_PART_REGEX = new RegExp(`^${EMAIL_ATOM}(?:\\.${EMAIL_ATOM})*$`);
 
-/**
- * Read before `new URL`, which reads a slash or colon as path or port, answering a host nobody typed.
- * Exclusions, not united allowances: a union needs the `v` flag, which the browserslist refuses at
- * `safari >= 16.4`.
- */
-const EMAIL_HOST_CHARS_REGEX = /^[^\p{Z}\p{C}!"#$%&'()*+,/:;<=>?@[\]\\^_`{|}~]+$/u;
-
 /** RFC 1123 2.1's letter-digit-hyphen label, which is the clause that refuses `person@ab-.de`. */
 const EMAIL_HOST_LABEL_REGEX = /^[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?$/;
 
@@ -50,18 +43,6 @@ export const SPECIAL_USE_DOMAINS = ["arpa", "invalid", "local", "localhost", "on
 const EMAIL_HOST_MAX_OCTETS = 253;
 const EMAIL_HOST_LABEL_MAX_OCTETS = 63;
 
-/** The only punycode route a browser offers, and the one `withAsciiDomain` takes: a second spelling is what drifts from this one. */
-function asAsciiHost(host: string): string | undefined {
-  try {
-    return new URL(`https://${host}`).hostname;
-  } catch {
-    return undefined;
-  }
-}
-
-/** A host already inside ASCII, which `withAsciiDomain` hands back rather than rebuilding. */
-const ASCII_HOST_REGEX = /^\p{ASCII}+$/u;
-
 /**
  * One run of characters no mailbox syntax gives a meaning: whitespace, controls, and RFC 5322's
  * specials, which open a display name, a group, a list, a comment, a quoted string or a literal.
@@ -77,23 +58,6 @@ const ONE_BARE_MAILBOX_REGEX = new RegExp(`^${MAILBOX_ATOM}(?:\\.${MAILBOX_ATOM}
  */
 export function isOneBareMailbox(value: string): boolean {
   return ONE_BARE_MAILBOX_REGEX.test(value);
-}
-
-/** The address with its domain in the ASCII form every mail system carries, or `undefined` where the domain has none. */
-export function withAsciiDomain(address: string): string | undefined {
-  const at = address.lastIndexOf("@");
-  if (at < 1) return undefined;
-
-  const host = address.slice(at + 1);
-  // Byte for byte where nothing needs converting: `new URL` also lower-cases, and a recipient
-  // spelled differently from the stored row is one no later delivery event can be matched back to it.
-  if (ASCII_HOST_REGEX.test(host)) return address;
-
-  if (!EMAIL_HOST_CHARS_REGEX.test(host)) return undefined;
-
-  const ascii = asAsciiHost(host);
-
-  return ascii === undefined ? undefined : `${address.slice(0, at)}@${ascii}`;
 }
 
 /** Whether the lower-cased host is a special-use name or under one, compared as the API compares its domain. */

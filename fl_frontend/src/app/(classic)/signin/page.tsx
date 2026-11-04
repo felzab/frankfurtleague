@@ -1,6 +1,6 @@
 import { SignInShell } from "@/kit/SignInShell";
 
-import { getSignedInAddress } from "@/core/auth";
+import { getSignedInAddress } from "@/core/auth/landing";
 import { frontend_config } from "@/core/config";
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";

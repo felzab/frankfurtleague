@@ -91,7 +91,7 @@ A value list in any slice is the generated value, as in `z.enum(FLSaisonStatus)`
 ## Rendering
 
 **Every read waits for a real request with `await connection()` in the few functions the reads share**,
-never in a page: the session reads (`fl_frontend/src/core/auth.ts :: readRequestSession` and the
+never in a page: the session reads (`fl_frontend/src/core/auth/session.ts :: readRequestSession` and the
 sign-in landing's), `fl_frontend/src/shared/utils/traceScope.ts :: runWithIncomingTrace`, which every
 admin, person and uncached public read passes, and each component that reaches a `"use cache"` read
 or the clock before the URL or any of those. This looks like it defeats static rendering and is
@@ -126,7 +126,7 @@ and sits on every authorization check. Application data goes through FastAPI wit
 `fl_frontend/src/core/verwaltung.ts :: verwaltungOf`, and the backend checks it again on every
 administration request. A backend that cannot answer admits nobody, and a revoked grant admits
 nothing from the next request on. Every admin server action opens on
-`fl_frontend/src/core/auth.ts :: judgeAdminRequest`, through the builder's admin lane or, for a form
+`fl_frontend/src/core/auth/guards.ts :: judgeAdminRequest`, through the builder's admin lane or, for a form
 not yet moved onto it, `fl_frontend/src/shared/utils/adminMutation.ts :: runAdminMutation`.
 
 **Route protection is layered.** `src/proxy.ts` turns away a request to `/bereich` carrying no

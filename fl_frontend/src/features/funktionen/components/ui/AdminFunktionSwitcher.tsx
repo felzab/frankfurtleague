@@ -1,4 +1,4 @@
-import { getAdminSession } from "@/core/auth";
+import { getAdminSession } from "@/core/auth/guards";
 import { asSignInIdentifier } from "@/core/emailAddress";
 import { rolesOf } from "@/core/roles";
 import { lookUpSubjekt } from "@/core/signInGate";

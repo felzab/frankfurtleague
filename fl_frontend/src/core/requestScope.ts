@@ -2,7 +2,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 
 import { cache } from "react";
 
-import type { AuthFactor } from "./auth";
+import type { AuthFactor } from "./auth/sessionStamps";
 
 // Under `nginx/shared/site.conf :: proxy_read_timeout` by the proxy's session read before this scope
 // opens. Next streams an action's answer once it returns, the re-render following in chunks, and nginx
@@ -21,7 +21,7 @@ export type ActorLane = "admin" | "person";
 /**
  * Who the request acts for, as `fl_frontend/src/core/api.ts :: sendToBackend` states them beside the admin
  * key: the folded address, when its session was made in whole seconds, and by which factor
- * (`fl_frontend/src/core/auth.ts :: requestActorOf`).
+ * (`fl_frontend/src/core/auth/guards.ts :: requestActorOf`).
  */
 export type RequestActor = { readonly email: string; readonly lane: ActorLane; readonly authTime: number; readonly factor: AuthFactor };
 

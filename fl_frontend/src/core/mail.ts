@@ -8,7 +8,7 @@ import { symmetricDecrypt } from "better-auth/crypto";
 import { KONTAKT_EMAIL } from "./brand";
 import { authResendKey, authSecret, frontend_config } from "./config";
 import { COPY } from "./copy";
-import { isOneBareMailbox, withAsciiDomain } from "./emailAddress";
+import { isOneBareMailbox } from "./emailAddress";
 import { renderMail } from "./emailShell";
 import { APINetworkError, MailSendError } from "./errors";
 import { outboxPostHandout, outboxPostResult } from "./generated/client/sdk";
@@ -94,12 +94,12 @@ class MailHeldError extends Error {
 }
 
 /**
- * Raised where the recipient is not one bare mailbox, or its domain has no ASCII form. Beside
- * `MailHeldError` rather than in `errors.ts` for its reason, and carrying no address for the same one.
+ * Raised where the recipient is not one bare mailbox. Beside `MailHeldError` rather than in `errors.ts` for its
+ * reason, and carrying no address for the same one.
  */
 class MailRecipientError extends Error {
   constructor() {
-    super("The recipient is not one mailbox with an ASCII domain.");
+    super("The recipient is not one bare mailbox.");
 
     this.name = "MailRecipientError";
   }
@@ -191,16 +191,14 @@ function pause(ms: number, signal: AbortSignal): Promise<void> {
 }
 
 /**
- * The row's address as the provider is handed it: one bare mailbox, its domain in ASCII. The ban was judged at the
- * hand-out, on the stored spelling.
+ * The row's address as the provider is handed it, byte for byte as stored, which every address rule keeps ASCII: one
+ * bare mailbox. The ban was judged at the hand-out, on that spelling.
  */
 function recipientOf(to: string): string {
-  // A domain IDNA cannot convert, and any spelling around a mailbox, which the provider would still reach the mailbox
-  // inside.
-  const converted = withAsciiDomain(to);
-  if (converted === undefined || !isOneBareMailbox(converted)) throw new MailRecipientError();
+  // Any spelling around a mailbox, which the provider would still reach the mailbox inside.
+  if (!isOneBareMailbox(to)) throw new MailRecipientError();
 
-  return converted;
+  return to;
 }
 
 /** What drains settled: the backend's counts, summed over every report they made. */
@@ -277,7 +275,7 @@ async function drain(): Promise<void> {
  * (https://resend.com/docs/dashboard/emails/idempotency-keys). The ban was judged at the hand-out.
  */
 async function sendHandedOut(mail: FLOutboxHandout): Promise<Omit<FLOutboxResultPayload, "lease">> {
-  // Opened here alone, sealed by `fl_frontend/src/core/auth.ts :: oweSignInMail` under the same key, and held by this
+  // Opened here alone, sealed by `fl_frontend/src/core/auth/mails.ts :: oweSignInMail` under the same key, and held by this
   // scope alone: never on a line, never in an error.
   let secret: string | null = null;
   try {

@@ -1,14 +1,14 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
-import { assert, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import { asSignInIdentifier, hasAsciiLocalPart, isDeliverableAddress, isOneBareMailbox, withAsciiDomain } from "@/core/emailAddress";
+import { asSignInIdentifier, hasAsciiLocalPart, isDeliverableAddress, isOneBareMailbox } from "@/core/emailAddress";
 
 const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..");
 
-/** `new URL` DELETES these five while parsing, so each reaches every later check as `xy.de`. */
+/** Five characters a reader cannot see, which `new URL` deletes while parsing, so a host carrying one reads as another. */
 const INVISIBLE = ["​", "﻿", "­", "⁠", "᠎"];
 
 /** Outside a host label's letters, digits and hyphens: an umlaut and a CJK letter, which the rule refuses rather than converts, among them. */
@@ -73,37 +73,6 @@ describe("the address table the API is held to as well", () => {
       if (stored !== null) expect(asSignInIdentifier(typed.trim())).toBe(stored);
     });
   }
-});
-
-/* Every row carries a character above ASCII as well: an ASCII host is handed back byte for byte
-   and never reaches the parse the characters below mislead. */
-const convertedHostOf = (middle: string): string => `person@xü${middle}y.de`;
-
-/** What `new URL` ANSWERS on rather than throwing over, so nothing but the alphabet stands between it and a host nobody typed. */
-const ANSWERED_AS_ANOTHER_HOST = [...INVISIBLE, "\t", "/", "\\", "?", "#"];
-
-/** Where the alphabet is the second of two refusals: the parse throws over these, so a regression in it would still be refused. */
-const REFUSED_BY_THE_PARSE = [" ", ":"];
-
-describe("the domain the conversion is willing to rewrite", () => {
-  it("converts a host above ASCII, so a refusal below is the alphabet and not the function refusing everything", () => {
-    expect(withAsciiDomain("person@münchen.de")).toBe("person@xn--mnchen-3ya.de");
-    assert.ok(ANSWERED_AS_ANOTHER_HOST.length > 0 && REFUSED_BY_THE_PARSE.length > 0, "a table is empty, so a case below compares nothing");
-  });
-
-  /* Each is dropped or read as structure by the parse, which then answers a host the sender never
-     typed -- `xü` alone for the punctuation, `xüy.de` for the rest -- and the message goes there. */
-  it("refuses a host the parse would answer a different name on", () => {
-    for (const middle of ANSWERED_AS_ANOTHER_HOST) {
-      expect(withAsciiDomain(convertedHostOf(middle)), `expected a host carrying ${JSON.stringify(middle)} to be refused`).toBe(undefined);
-    }
-  });
-
-  it("refuses a host the parse throws over too", () => {
-    for (const middle of REFUSED_BY_THE_PARSE) {
-      expect(withAsciiDomain(convertedHostOf(middle)), `expected a host carrying ${JSON.stringify(middle)} to be refused`).toBe(undefined);
-    }
-  });
 });
 
 describe("one bare mailbox, the only recipient the mailer takes", () => {

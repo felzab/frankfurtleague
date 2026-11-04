@@ -1,7 +1,7 @@
 "use server";
 
 import { afterTheResponse } from "@/core/afterResponse";
-import { accountStandsAt } from "@/core/auth";
+import { accountStandsAt } from "@/core/auth/accounts";
 import { refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 

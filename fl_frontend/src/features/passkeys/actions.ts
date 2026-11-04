@@ -4,7 +4,9 @@ import { headers } from "next/headers";
 
 import { isAPIError } from "better-auth/api";
 
-import { notifyPasskeyRemoved, PASSKEY_LIMIT, passkeysOf, removePasskey, renamePasskey } from "@/core/auth";
+import { PASSKEY_LIMIT } from "@/core/auth/enrolment";
+import { notifyPasskeyRemoved } from "@/core/auth/mails";
+import { passkeysOf, removePasskey, renamePasskey } from "@/core/auth/passkeys";
 import { recordOwnSessionEnding, recordWriteSent, runAnsweringOwnCut } from "@/core/requestScope";
 import { stepUpRequired } from "@/shared/utils/adminMutation";
 import { enrolmentUntil, runKontoMutation } from "@/shared/utils/kontoMutation";

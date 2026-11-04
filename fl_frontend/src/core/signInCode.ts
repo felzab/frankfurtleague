@@ -1,7 +1,7 @@
 // A module of its own because the figures reach a client component and the privacy notice, which may
 // import neither `server-only` module that enforces them.
 
-/** Digits in a mailed sign-in code: `fl_frontend/src/core/auth.ts` mints them, the field takes them, the route parses them. */
+/** Digits in a mailed sign-in code: `fl_frontend/src/core/auth/library.ts` mints them, the field takes them, the route parses them. */
 export const SIGN_IN_CODE_LENGTH = 6;
 
 /**

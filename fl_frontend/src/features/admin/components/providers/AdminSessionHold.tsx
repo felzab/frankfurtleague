@@ -1,4 +1,4 @@
-import { judgeAdminRequest } from "@/core/auth";
+import { judgeAdminRequest } from "@/core/auth/guards";
 import { UnreadGrantError } from "@/core/errors";
 import { confirmedUntil } from "@/shared/utils/kontoMutation";
 

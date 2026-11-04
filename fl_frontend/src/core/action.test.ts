@@ -21,6 +21,8 @@ const state = vi.hoisted(() => ({
   admin: { session: {} } as { session: object } | { refused: string },
   subject: null as SubjectSession | null,
   botCheck: null as string | null,
+  /** The passkey touch's verdict. */
+  touch: true,
   /** Every step in the order it ran. */
   steps: [] as string[],
   lines: [] as { level: string; message: string; meta: unknown }[],
@@ -44,10 +46,14 @@ vi.mock("next/server", async (original) => {
   };
 });
 vi.mock("./mail", () => ({ drainOutbox: async () => undefined }));
-vi.mock("./auth", () => ({
+vi.mock("./auth/guards", () => ({
   judgeAdminRequest: async () => {
     state.steps.push("admin guard");
     return state.admin;
+  },
+  passesPasskeyTouch: async () => {
+    state.steps.push("passkey touch");
+    return state.touch;
   },
 }));
 vi.mock("./subject", () => ({
@@ -116,6 +122,7 @@ beforeEach(() => {
   state.admin = { session: {} };
   state.subject = null;
   state.botCheck = null;
+  state.touch = true;
   state.steps = [];
   state.lines = [];
   state.behind = [];
@@ -362,6 +369,40 @@ describe("the person lane", () => {
 
     expect(await register({ team_id: "t1", saison_id: "2027" })).toStrictEqual({ ok: true, value: undefined });
     expect(state.steps).toStrictEqual(["person guard", "body 1"]);
+  });
+});
+
+describe("the passkey touch a lane declares", () => {
+  const touched = (lane: "admin" | "person", passkey?: true) => {
+    const declared = { name: "passkeyAendern", input: Venue, ...(passkey === undefined ? {} : { passkey }) };
+    const run = async () => {
+      state.steps.push("body");
+      return { ok: true as const, value: undefined };
+    };
+    return lane === "admin" ? action({ ...declared, lane, run }) : action({ ...declared, lane, claim: "record", run });
+  };
+
+  it.each(["admin", "person"] as const)("refuses the %s lane's act its touch fails, before the input is read", async (lane) => {
+    state.subject = person({});
+    state.touch = false;
+
+    // An input the schema refuses: read first, it would answer with the box's message.
+    expect(await touched(lane, true)({ name: "", plz: "x" })).toStrictEqual({ ok: false, reason: COPY.signIn.refusal.touchMissing });
+    expect(state.steps).toStrictEqual([lane === "admin" ? "admin guard" : "person guard", "passkey touch"]);
+  });
+
+  it.each(["admin", "person"] as const)("runs the %s lane's act its touch passes", async (lane) => {
+    state.subject = person({});
+
+    expect(await touched(lane, true)({ name: "Nord", plz: "60438" })).toStrictEqual({ ok: true, value: undefined });
+    expect(state.steps).toStrictEqual([lane === "admin" ? "admin guard" : "person guard", "passkey touch", "body"]);
+  });
+
+  it("asks no touch of an act that declares none", async () => {
+    state.touch = false;
+
+    expect(await touched("admin")({ name: "Nord", plz: "60438" })).toStrictEqual({ ok: true, value: undefined });
+    expect(state.steps).toStrictEqual(["admin guard", "body"]);
   });
 });
 

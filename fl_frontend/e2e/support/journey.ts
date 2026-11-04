@@ -25,6 +25,8 @@ export type JourneyOptions = {
   administrator: string;
   /** A referee's address, which admits a sign-in and grants no Verwaltung. */
   person: string;
+  /** A referee's address no other journey signs in as: the account acts move it and then delete it. */
+  leaver: string;
 };
 
 type JourneyFixtures = {
@@ -182,6 +184,7 @@ export const test = base.extend<JourneyFixtures & JourneyOptions>({
   // Empty until a project sets them, which `fl_frontend/playwright.config.ts` does for each.
   administrator: ["", { option: true }],
   person: ["", { option: true }],
+  leaver: ["", { option: true }],
 
   // Each journey is one visitor, as each person on the site is: the edge's rate limits are per visitor,
   // and every journey shares one address with the others unless it names its own

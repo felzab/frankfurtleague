@@ -1,10 +1,12 @@
 import "server-only";
 
-import { ADRESSWECHSEL_WARTEZEIT_DAUER } from "./adresswechsel";
+import { ADRESSWECHSEL_GUELTIG_STUNDEN, ADRESSWECHSEL_WARTEZEIT_DAUER } from "./adresswechsel";
 import { ADRESSWECHSEL_STOPPEN } from "./adresswechselAntworten";
 import { KONTAKT_EMAIL } from "./brand";
+import { COPY } from "./copy";
 import { BRAND_NAME, mailOrigin } from "./emailShell";
 import { formatInstant } from "./format";
+import { SERVER_COPY } from "./serverCopy";
 
 import type { Mail, Paragraph } from "./emailShell";
 import type {
@@ -27,6 +29,11 @@ function adresswechselLink(origin: string, token: string): string {
   return `${origin}${ADRESSWECHSEL_PFAD}?token=${encodeURIComponent(token)}`;
 }
 
+const WORDS = SERVER_COPY.addressChange;
+
+/** Both mails of the person's own change state the link's lifetime, which the backend refuses past. */
+const LINK_VALID: Paragraph = [SERVER_COPY.mail.linkValidFor(ADRESSWECHSEL_GUELTIG_STUNDEN)];
+
 /**
  * The link to the new address, asking only whether the mailbox is theirs. It greets nobody: behind a
  * mistyped address its reader is a stranger. It names no record, the change moving every one.
@@ -34,6 +41,19 @@ function adresswechselLink(origin: string, token: string): string {
 export function buildAdresswechselEmail({ way: weg, valid_until: gueltigBis }: FLAddressChangeLinkData, { origin, token }: MailLink): Mail {
   const site = mailOrigin(origin);
 
+  // The person's own change, the address on file having confirmed it first: the page's question, its title the button.
+  if (weg === "account") {
+    return {
+      kind: "security",
+      subjectLine: COPY.shared.withObject(WORDS.newAddress, "confirm"),
+      origin: site,
+      vorname: "",
+      paragraphs: [[WORDS.new.question], LINK_VALID],
+      button: { label: COPY.shared.withObject(COPY.signIn.address, "confirm"), href: adresswechselLink(site, token) },
+    };
+  }
+
+  // Session 7: the administrator's ways take their final words.
   return {
     kind: "security",
     subjectLine: "Neue E-Mail-Adresse bestätigen",
@@ -41,10 +61,7 @@ export function buildAdresswechselEmail({ way: weg, valid_until: gueltigBis }: F
     vorname: "",
     paragraphs: [
       [
-        // The person typed it on the person's own start; the administration on either of its two.
-        weg === "account"
-          ? `Für ein Konto bei der ${BRAND_NAME} wurde diese E-Mail-Adresse als neue angegeben.`
-          : `Die Verwaltung der ${BRAND_NAME} hat diese E-Mail-Adresse für ein Konto eingetragen.`,
+        `Die Verwaltung der ${BRAND_NAME} hat diese E-Mail-Adresse für ein Konto eingetragen.`,
         [{ strong: "Sie gilt erst, wenn Du sie bestätigst. Bis dahin schreiben wir an die bisherige Adresse." }],
       ],
       [
@@ -57,15 +74,9 @@ export function buildAdresswechselEmail({ way: weg, valid_until: gueltigBis }: F
   };
 }
 
-/** Why the address on file is told, per way the change was started. */
-function anlassAbsatz(weg: FLAddressChangeWay, gueltigBis: string): Paragraph {
+/** Why the address on file is told, per way an administrator started the change. */
+function anlassAbsatz(weg: Exclude<FLAddressChangeWay, "account">, gueltigBis: string): Paragraph {
   switch (weg) {
-    case "account":
-      return [
-        "In Deinem Konto wurde eine neue E-Mail-Adresse angegeben.",
-        "Sie gilt erst, wenn sie über den Link bestätigt ist, den wir an sie geschickt haben.",
-        "Bis dahin bleibt diese Adresse in Kraft.",
-      ];
     case "release":
       return [
         "Die Verwaltung hat eine neue E-Mail-Adresse für Dich eingetragen.",
@@ -83,8 +94,8 @@ function anlassAbsatz(weg: FLAddressChangeWay, gueltigBis: string): Paragraph {
 }
 
 /**
- * The notice to the address on file, carrying its stop link. It names no new address: the change may be
- * somebody else's mistake or a pretext, and this mailbox is owed the word, never the other mailbox's name.
+ * The mail to the address on file. It names no new address, which the page its link opens shows: the change may be
+ * somebody else's mistake or a pretext, and a mail travels further than the page it links.
  */
 export function buildAdresswechselHinweisEmail(
   { way: weg, valid_until: gueltigBis, vorname }: FLAddressChangeNoticeData,
@@ -92,6 +103,19 @@ export function buildAdresswechselHinweisEmail(
 ): Mail {
   const site = mailOrigin(origin);
 
+  // The person's own change asks the address on file first: its link confirms or declines the change.
+  if (weg === "account") {
+    return {
+      kind: "security",
+      subjectLine: COPY.page.addressChangeConfirmation,
+      origin: site,
+      vorname: vorname ?? "",
+      paragraphs: [[WORDS.previous.question, SERVER_COPY.mail.addressChange.previousEffect], LINK_VALID],
+      button: { label: COPY.shared.withObject(WORDS.change, "confirm"), href: adresswechselLink(site, stoppToken) },
+    };
+  }
+
+  // Session 7: the administrator's ways take their final words.
   return {
     kind: "security",
     // One subject for every way: the approval's request exists so a real holder can refuse a pretext, and a

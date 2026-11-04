@@ -7,11 +7,6 @@
       "count": 1
     }
   },
-  "src/app/(public)/bestaetigung/adresse/page.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 2
-    }
-  },
   "src/app/(public)/bestaetigung/kontakt/page.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 2
@@ -47,24 +42,9 @@
       "count": 1
     }
   },
-  "src/app/(public)/loeschung/page.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 2
-    }
-  },
   "src/app/(public)/registrierung/page.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 2
-    }
-  },
-  "src/app/(public)/signin/weiter/page.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 2
-    }
-  },
-  "src/app/api/bestaetigung/adresse/route.ts": {
-    "fl/server-action": {
-      "count": 1
     }
   },
   "src/app/api/bestaetigung/kontakt/route.ts": {
@@ -98,19 +78,6 @@
     }
   },
   "src/app/api/registrierung/route.ts": {
-    "fl/server-action": {
-      "count": 1
-    }
-  },
-  "src/app/api/signin/code/route.ts": {
-    "fl/server-action": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
-  "src/app/api/signout/route.ts": {
     "fl/server-action": {
       "count": 1
     }
@@ -388,9 +355,44 @@
       "count": 1
     }
   },
-  "src/core/auth.ts": {
+  "src/core/auth/accountSessions.ts": {
     "no-restricted-syntax": {
-      "count": 13
+      "count": 2
+    }
+  },
+  "src/core/auth/accounts.ts": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/core/auth/library.ts": {
+    "no-restricted-syntax": {
+      "count": 2
+    }
+  },
+  "src/core/auth/mails.ts": {
+    "no-restricted-syntax": {
+      "count": 2
+    }
+  },
+  "src/core/auth/minting.ts": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/core/auth/passkeys.ts": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/core/auth/sessionStamps.ts": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/core/auth/signInRows.ts": {
+    "no-restricted-syntax": {
+      "count": 2
     }
   },
   "src/core/bewerbungEmail.ts": {
@@ -403,17 +405,7 @@
       "count": 4
     }
   },
-  "src/core/loeschungEmail.ts": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
   "src/core/mail.ts": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
-  "src/core/passkeyEmail.ts": {
     "no-restricted-syntax": {
       "count": 1
     }
@@ -1482,23 +1474,6 @@
       "count": 2
     }
   },
-  "src/features/konto/components/views/LoeschungView.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 10
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 17
-    },
-    "react/forbid-component-props": {
-      "count": 3
-    },
-    "react/jsx-no-literals": {
-      "count": 14
-    }
-  },
   "src/features/konto/components/views/SicherheitPanel.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 13
@@ -1520,7 +1495,7 @@
   },
   "src/features/konto/personActions.ts": {
     "fl/server-action": {
-      "count": 4
+      "count": 3
     }
   },
   "src/features/meta/components/ui/LegalSection.tsx": {

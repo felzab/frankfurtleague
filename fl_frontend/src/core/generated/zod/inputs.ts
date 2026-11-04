@@ -205,8 +205,9 @@ export const AddressChangePostAddressChangeStopBody = zod
 /**
  * Answer what this token opens: the new mailbox's link, the link the address on file was mailed, or how either's change ended.
  *
- * **Nothing else about the change**: never a name, either address or the id. A POST that reads, so the token travels in
- * a body and never in a second URL. Refuses only a token no change holds (`link_invalid`); an ended change's
+ * **Nothing else about the change**: never a name or the id, and the new address only on the two questions, the new
+ * mailbox's `valid` link and the address on file's `release_open` link of the person's own change. A POST that reads,
+ * so the token travels in a body and never in a second URL. Refuses only a token no change holds (`link_invalid`); an ended change's
  * links answer `ended`, how it ended and on which day, for as long as its record is kept.
  *
  * The new mailbox's side is served in a state: once pressed, `confirmed`, or `approval_expired` where its
@@ -216,7 +217,7 @@ export const AddressChangePostAddressChangeStopBody = zod
  * answers each by its own code; what keeps the link's holder from telling them apart is the edge, where
  * the proxy routes no public call to this service. The address on file's side answers the step the change waits on
  * and until when, `release_open` while the person's own change waits on this link's confirmation, and never whether
- * the new mailbox could confirm.
+ * the new mailbox could confirm, and the day it confirmed once it has.
  * @summary What one address link opens
  */
 export const addressChangeGetAddressChangeViewBodyTokenMax = 128;

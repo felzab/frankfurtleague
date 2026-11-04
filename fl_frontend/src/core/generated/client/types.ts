@@ -1139,8 +1139,10 @@ export interface FLAddressChangeViewEnded {
   art: FLAddressChangeEndArt;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   ended_on: string;
+  released_on: string | null;
   seite: FLAddressChangeViewEndedSeite;
   state: "ended";
+  way: FLAddressChangeWay;
 }
 
 export type FLAddressChangeViewNewState = (typeof FLAddressChangeViewNewState)[keyof typeof FLAddressChangeViewNewState];
@@ -1160,6 +1162,7 @@ export const FLAddressChangeViewNewState = {
 export interface FLAddressChangeViewNew {
   approval_open: boolean | null;
   effective_from: string | null;
+  email: string | null;
   seite: "new";
   state: FLAddressChangeViewNewState;
   valid_until: string | null;
@@ -1180,6 +1183,8 @@ export const FLAddressChangeViewPreviousState = {
  */
 export interface FLAddressChangeViewPrevious {
   effective_from: string | null;
+  email: string | null;
+  released_on: string | null;
   seite: "previous";
   state: FLAddressChangeViewPreviousState;
   valid_until: string | null;
@@ -1187,7 +1192,7 @@ export interface FLAddressChangeViewPrevious {
 }
 
 /**
- * What one address link opens: never a name, either address or the id.
+ * What one address link opens: never a name or the id, and the new address only where a link asks its question.
  */
 export interface FLAddressChangeViewResponse {
   view: FLAddressChangeViewNew | FLAddressChangeViewPrevious | FLAddressChangeViewEnded;

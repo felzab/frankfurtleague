@@ -114,6 +114,10 @@ const REFEREES = [
   referee("Ben Brandt", null, 25, "ben.brandt@example.com", null),
   referee("Carla Conrad", "Ulme-Gymnasium", 20, null, null),
   referee("Dieter Dorn", null, 15, null, day(-90)),
+  // Each project's leaver, whom the account acts' journey moves to a new address and then deletes: last, so no
+  // fixture's booking (`booked`, by index) changes, and no other journey signs in as either.
+  referee("Clara Kranz", null, 20, "clara.kranz@example.com", null),
+  referee("Dora Dahl", null, 20, "dora.dahl@example.com", null),
 ];
 
 // --- Grants --------------------------------------------------------------------------------------

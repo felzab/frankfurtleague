@@ -14,7 +14,7 @@ vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
 // Next's `updateTag` throws outside a Server Action, and the write the real dispatch counts reaches it; whether a
 // save clears the site's cache is `core/action.test.ts`'s.
 vi.mock("next/cache", () => ({ updateTag: () => undefined }));
-vi.mock("@/core/auth", () => ({ judgeAdminRequest: async () => ({ session: {} }) }));
+vi.mock("@/core/auth/guards", () => ({ judgeAdminRequest: async () => ({ session: {} }) }));
 
 // The backend client itself is replaced, so the create runs through the real generated call and the real dispatch,
 // which counts the write and takes it back where the backend refuses it.

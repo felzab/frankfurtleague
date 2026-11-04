@@ -119,8 +119,9 @@ async def get_address_change_view(
     """
     Answer what this token opens: the new mailbox's link, the link the address on file was mailed, or how either's change ended.
 
-    **Nothing else about the change**: never a name, either address or the id. A POST that reads, so the token travels in
-    a body and never in a second URL. Refuses only a token no change holds (`link_invalid`); an ended change's
+    **Nothing else about the change**: never a name or the id, and the new address only on the two questions, the new
+    mailbox's `valid` link and the address on file's `release_open` link of the person's own change. A POST that reads,
+    so the token travels in a body and never in a second URL. Refuses only a token no change holds (`link_invalid`); an ended change's
     links answer `ended`, how it ended and on which day, for as long as its record is kept.
 
     The new mailbox's side is served in a state: once pressed, `confirmed`, or `approval_expired` where its
@@ -130,7 +131,7 @@ async def get_address_change_view(
     answers each by its own code; what keeps the link's holder from telling them apart is the edge, where
     the proxy routes no public call to this service. The address on file's side answers the step the change waits on
     and until when, `release_open` while the person's own change waits on this link's confirmation, and never whether
-    the new mailbox could confirm.
+    the new mailbox could confirm, and the day it confirmed once it has.
     """
 
     token_hash = hash_token(ansicht_data.token)
@@ -148,15 +149,31 @@ async def get_address_change_view(
         # Marked UTC first: the driver reads the stored instant back with no offset, which a conversion would take as local.
         ended_at = als_utc(beendet["am"])
         assert ended_at is not None
+        released_at = als_utc(record.get("released_at")) if seite == "previous" else None
         return FLAddressChangeViewResponse(
-            view=FLAddressChangeViewEnded(seite=seite, state="ended", art=beendet["art"], ended_on=german_day(ended_at))
+            view=FLAddressChangeViewEnded(
+                seite=seite,
+                state="ended",
+                art=beendet["art"],
+                ended_on=german_day(ended_at),
+                way=record["way"],
+                released_on=None if released_at is None else german_day(released_at),
+            )
         )
 
     gueltig_bis, wirksam_ab = als_utc(record.get("valid_until")), als_utc(record.get("effective_from"))
     if seite == "previous":
+        zustand_bisherig = bisherig_zustand(record)
+        released_at = als_utc(record.get("released_at"))
         return FLAddressChangeViewResponse(
             view=FLAddressChangeViewPrevious(
-                seite="previous", state=bisherig_zustand(record), valid_until=gueltig_bis, effective_from=wirksam_ab, way=record["way"]
+                seite="previous",
+                state=zustand_bisherig,
+                valid_until=gueltig_bis,
+                effective_from=wirksam_ab,
+                way=record["way"],
+                email=str(record["email"]) if zustand_bisherig == "release_open" and record["way"] == "account" else None,
+                released_on=None if released_at is None else german_day(released_at),
             )
         )
 
@@ -200,6 +217,7 @@ async def get_address_change_view(
             # Only once confirmed, where the page says what the change waits on: before, it would tell whoever holds a
             # mistyped link that the account holds access to the administration.
             approval_open=genehmigung_offen(record) if zustand == "confirmed" else None,
+            email=str(record["email"]) if zustand == "valid" else None,
         )
     )
 

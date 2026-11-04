@@ -25,7 +25,7 @@ registerAuthDoubles({
 });
 
 // Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
-const { auth, sessionCookieOf } = await import("./core/auth.ts");
+const { auth, sessionCookieOf } = await import("./core/auth/library.ts");
 const { unstable_doesMiddlewareMatch } = await import("next/experimental/testing/server.js");
 const { config } = await import("./proxy.ts");
 

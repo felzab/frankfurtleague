@@ -19,7 +19,8 @@ registerAuthDoubles({
 });
 
 // Imported here rather than at the top: a static import resolves before the doubles above are registered.
-const { deleteAccountFor, removePasskey } = await import("./auth.ts");
+const { deleteAccountFor } = await import("./auth/accounts.ts");
+const { removePasskey } = await import("./auth/passkeys.ts");
 const { RolledBackError } = await import("./errors.ts");
 
 /* Each caller reads anything but a rollback as a write that may have landed: the erasure has answered before the

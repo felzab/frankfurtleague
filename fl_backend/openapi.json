@@ -2562,6 +2562,18 @@
             "title": "Ended On",
             "type": "string"
           },
+          "released_on": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Released On"
+          },
           "seite": {
             "enum": [
               "new",
@@ -2574,13 +2586,18 @@
             "const": "ended",
             "title": "State",
             "type": "string"
+          },
+          "way": {
+            "$ref": "#/components/schemas/FLAddressChangeWay"
           }
         },
         "required": [
           "seite",
           "state",
           "art",
-          "ended_on"
+          "ended_on",
+          "way",
+          "released_on"
         ],
         "title": "FLAddressChangeViewEnded",
         "type": "object"
@@ -2610,6 +2627,17 @@
               }
             ],
             "title": "Effective From"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
           },
           "seite": {
             "const": "new",
@@ -2650,7 +2678,8 @@
           "valid_until",
           "effective_from",
           "way",
-          "approval_open"
+          "approval_open",
+          "email"
         ],
         "title": "FLAddressChangeViewNew",
         "type": "object"
@@ -2669,6 +2698,29 @@
               }
             ],
             "title": "Effective From"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "released_on": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Released On"
           },
           "seite": {
             "const": "previous",
@@ -2706,13 +2758,15 @@
           "state",
           "valid_until",
           "effective_from",
-          "way"
+          "way",
+          "email",
+          "released_on"
         ],
         "title": "FLAddressChangeViewPrevious",
         "type": "object"
       },
       "FLAddressChangeViewResponse": {
-        "description": "What one address link opens: never a name, either address or the id.",
+        "description": "What one address link opens: never a name or the id, and the new address only where a link asks its question.",
         "properties": {
           "view": {
             "discriminator": {
@@ -19035,7 +19089,7 @@
     },
     "/api/v0/address_change/confirmation/view": {
       "post": {
-        "description": "Answer what this token opens: the new mailbox's link, the link the address on file was mailed, or how either's change ended.\n\n**Nothing else about the change**: never a name, either address or the id. A POST that reads, so the token travels in\na body and never in a second URL. Refuses only a token no change holds (`link_invalid`); an ended change's\nlinks answer `ended`, how it ended and on which day, for as long as its record is kept.\n\nThe new mailbox's side is served in a state: once pressed, `confirmed`, or `approval_expired` where its\napproval week lapsed unapproved; else `barred` wherever the ban list holds the address the link was mailed to, then\n`abgelaufen`, then `not_confirmable` wherever the press would be refused for the address on file's sake or would\nfind it holding nothing to move, each a state the confirmation is refused in. Those read alike here, though the press\nanswers each by its own code; what keeps the link's holder from telling them apart is the edge, where\nthe proxy routes no public call to this service. The address on file's side answers the step the change waits on\nand until when, `release_open` while the person's own change waits on this link's confirmation, and never whether\nthe new mailbox could confirm.",
+        "description": "Answer what this token opens: the new mailbox's link, the link the address on file was mailed, or how either's change ended.\n\n**Nothing else about the change**: never a name or the id, and the new address only on the two questions, the new\nmailbox's `valid` link and the address on file's `release_open` link of the person's own change. A POST that reads,\nso the token travels in a body and never in a second URL. Refuses only a token no change holds (`link_invalid`); an ended change's\nlinks answer `ended`, how it ended and on which day, for as long as its record is kept.\n\nThe new mailbox's side is served in a state: once pressed, `confirmed`, or `approval_expired` where its\napproval week lapsed unapproved; else `barred` wherever the ban list holds the address the link was mailed to, then\n`abgelaufen`, then `not_confirmable` wherever the press would be refused for the address on file's sake or would\nfind it holding nothing to move, each a state the confirmation is refused in. Those read alike here, though the press\nanswers each by its own code; what keeps the link's holder from telling them apart is the edge, where\nthe proxy routes no public call to this service. The address on file's side answers the step the change waits on\nand until when, `release_open` while the person's own change waits on this link's confirmation, and never whether\nthe new mailbox could confirm, and the day it confirmed once it has.",
         "operationId": "address_change_get_address_change_view",
         "requestBody": {
           "content": {

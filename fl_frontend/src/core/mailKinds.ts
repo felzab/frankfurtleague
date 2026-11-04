@@ -123,7 +123,7 @@ const MAIL_KINDS: { [A in OutboxKind]: MailBuilder<A> } = {
   bewerbung_widerspruch: buildBewerbungWiderspruchEmail,
 };
 
-/** A secret kind's secret, which its every row carries (`fl_frontend/src/core/auth.ts :: oweSignInMail`). */
+/** A secret kind's secret, which its every row carries (`fl_frontend/src/core/auth/mails.ts :: oweSignInMail`). */
 function secretOf(secret: string | null): string {
   if (secret === null) throw new Error("The mail's kind carries a secret, and its row holds none.");
 
