@@ -124,7 +124,7 @@ and sits on every authorization check. Application data goes through FastAPI wit
 
 **Administration is a stored grant, read on every request.** A row of `berechtigungen`
 (`Berechtigung`) makes an address an administrator; the frontend reads it through
-`fl_frontend/src/core/verwaltung.ts :: verwaltungOf`, and the backend checks it again on every
+`fl_frontend/src/core/grant.ts :: grantOf`, and the backend checks it again on every
 administration request. A backend that cannot answer admits nobody, and a revoked grant admits
 nothing from the next request on. Every admin server action opens on
 `fl_frontend/src/core/auth/guards.ts :: judgeAdminRequest`, through the builder's admin lane or, for a form

@@ -311,7 +311,7 @@ administration is shut while it is down. Each of these is easy to get wrong:
   which `fl_backend/.env` names). The row holds five fields: `adresse`,
   the address in the form the sign-in stores it (`fl_backend/app/shared/folding.py ::
 sign_in_identifier`) — trimmed and lower-case, ASCII throughout —
-  which the application then reads as typed; `verwaltung`, `owner` or `administration`; `granted_by`, a marker naming the
+  which the application then reads as typed; `admin_tier`, `owner` or `administration`; `granted_by`, a marker naming the
   paste, such as `PLAYGROUND`; `granted_at`, a date rather than a string; and `version: 0`, which
   the tier change takes into its filter, so on a row without it every tier change is refused as stale. Removing the row by its
   folded address revokes it. A paste asks nobody's approval, which is why it serves these two cases
@@ -321,7 +321,7 @@ sign_in_identifier`) — trimmed and lower-case, ASCII throughout —
   Until the paste lands no address holds a grant, so the site admits no administrator; the public
   site is untouched.
 - **Keep two grants standing, an `owner` grant among them.** The revoke route refuses to leave fewer, the tier change to leave no owner, and the Playground refuses nothing: the boot warns with
-  `berechtigungen.no_grant` where no grant is left and `berechtigungen.no_owner` where no owner is, and serves the public
+  `grants.no_grant` where no grant is left and `grants.no_owner` where no owner is, and serves the public
   site either way. An erasure refuses neither short of the last owner's own, and the same two
   warnings follow its commit; nothing warns where one grant is left.
 - **A barred address is granted nothing, and a granted one is banned by nothing**: lift the ban first, or revoke the grant first. A grant the
@@ -471,20 +471,20 @@ record, and the action log records the writes you make rather than the request t
 **Establish who is asking and in which role, because the data sits somewhere different for each.**
 One person can hold several — a referee is a pupil, and a contact person can be both.
 
-| Role           | Where their data is read                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Pupil          | `/area/admin/spieler/{spieler_id}`, and the squad rows under each season; `/area/admin/registrierungen` for a registration still awaiting its team; plus every match report entry naming them, a goal or a card with its colour, its minute and, until the season-end strip, its reason (`spielberichte.bericht.torschuetzen.spieler_id`, `spielberichte.bericht.karten.spieler_id`), which no page lists by person and a read-only Playground query on those two fields finds; plus every remark describing them by shirt number (`spielberichte.bericht.bemerkungen`), which their erasure does not reach and which stands until the season-end strip, read in the reports on their team's fixtures of each season they played for it, against their number then                                                                                                                                                                                                                                                                                                  |
-| Referee        | `/area/admin/schiedsrichter/{schiedsrichter_id}`, plus every past fixture that embeds the name; plus a fixture confirmation row for every fixture they were booked on and asked about (`spielbestaetigungen.party.schiedsrichter_id`), which no page renders and a read-only Playground query on that field finds; plus the remarks, until the season-end strip, of every match report they first sent (`spielberichte.bericht.submitted_by.schiedsrichter_id`) and of every report on a fixture booked to them (`spiele.schiedsrichter.schiedsrichter_id`), which they may have written over another writer's: a report's page shows it to the referee booked now alone, so a read-only Playground query on those two fields finds them whole                                                                                                                                                                                                                                                                                                                      |
-| Contact person | `/area/admin/kontakte/{team_id}` for the season's block, and `/area/admin/bewerbungen/{bewerbung_id}` for the application it was collected on; plus their address on every registration they declined for their team (`registrierungen.decision.von`), which no page renders and a read-only Playground query on that field finds; plus the fixture confirmations their seats were asked, which no page renders either (below)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| Administrator  | The sign-in store — the `auth` database, holding the address, the sessions, the sign-in codes and the passkey — plus their address as the actor of every log row they wrote (`aktionen.actor.email`, `/area/admin/aktionen`) and as the author of every ban, invite and application decision they made (`sperrliste.created_by`, `einladungen.created_by`, `bewerbungen.decision.von`), and the grants: their own in `berechtigungen` and `berechtigungen_angekuendigt`, `granted_by` on every grant they made, and each notice naming them still owed in `outbox` (`data.changed_by`, `data.now.adresse`, `data.before.adresse`); plus every request for a grant they asked or one is asked for them (`berechtigungen_antraege.approval.started_by`, `berechtigungen_antraege.adresse`), listed under „Offene Anträge“ on `/area/admin/administratoren`, and every address change of a grant holder they started or approved (`adresswechsel.approval.started_by`, `adresswechsel.approval.approved_by`), which a read-only Playground query on those fields finds |
-| Anyone else    | The `auth` database's `verification` collection, where the address of whoever typed it into the sign-in form is held until the retention index removes the row (§14); plus a pending address change someone typed it into as the new address (`adresswechsel.email`), found as the holder of a pending new address below, and a request for a grant typed for it (`berechtigungen_antraege.adresse`), listed under „Offene Anträge“                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| Role           | Where their data is read                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Pupil          | `/area/admin/spieler/{spieler_id}`, and the squad rows under each season; `/area/admin/registrierungen` for a registration still awaiting its team; plus every match report entry naming them, a goal or a card with its colour, its minute and, until the season-end strip, its reason (`spielberichte.bericht.torschuetzen.spieler_id`, `spielberichte.bericht.karten.spieler_id`), which no page lists by person and a read-only Playground query on those two fields finds; plus every remark describing them by shirt number (`spielberichte.bericht.bemerkungen`), which their erasure does not reach and which stands until the season-end strip, read in the reports on their team's fixtures of each season they played for it, against their number then                                                                                                                                                                                                                                                                                                      |
+| Referee        | `/area/admin/schiedsrichter/{schiedsrichter_id}`, plus every past fixture that embeds the name; plus a fixture confirmation row for every fixture they were booked on and asked about (`spielbestaetigungen.party.schiedsrichter_id`), which no page renders and a read-only Playground query on that field finds; plus the remarks, until the season-end strip, of every match report they first sent (`spielberichte.bericht.submitted_by.schiedsrichter_id`) and of every report on a fixture booked to them (`spiele.schiedsrichter.schiedsrichter_id`), which they may have written over another writer's: a report's page shows it to the referee booked now alone, so a read-only Playground query on those two fields finds them whole                                                                                                                                                                                                                                                                                                                          |
+| Contact person | `/area/admin/kontakte/{team_id}` for the season's block, and `/area/admin/bewerbungen/{bewerbung_id}` for the application it was collected on; plus their address on every registration they declined for their team (`registrierungen.decision.von`), which no page renders and a read-only Playground query on that field finds; plus the fixture confirmations their seats were asked, which no page renders either (below)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| Administrator  | The sign-in store — the `auth` database, holding the address, the sessions, the sign-in codes and the passkey — plus their address as the actor of every log row they wrote (`aktionen.actor.email`, `/area/admin/aktionen`) and as the author of every ban, invite and application decision they made (`sperrliste.created_by`, `einladungen.created_by`, `bewerbungen.decision.von`), and the grants: their own in `berechtigungen` and `berechtigungen_angekuendigt`, `granted_by` on every grant they made, and each notice naming them still owed in `outbox` (`data.changed_by`, `data.now.adresse`, `data.before.adresse`); plus every request for a grant they asked or one is asked for them (`berechtigungen_antraege.approval.started_by`, `berechtigungen_antraege.adresse`), listed under „Offene Anträge“ on `/area/admin/administratoren`, and every address change of a grant holder they started or approved (`address_changes.approval.started_by`, `address_changes.approval.approved_by`), which a read-only Playground query on those fields finds |
+| Anyone else    | The `auth` database's `verification` collection, where the address of whoever typed it into the sign-in form is held until the retention index removes the row (§14); plus a pending address change someone typed it into as the new address (`address_changes.email`), found as the holder of a pending new address below, and a request for a grant typed for it (`berechtigungen_antraege.adresse`), listed under „Offene Anträge“                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 
 **Whatever the role, a pending change of their address and its owed notices are read apart.** Type
 the address on file into the address tool, `/area/admin/adresswechsel`
 (`POST /address_change/view`), the one read serving a live change's new address and reason; the
 editors show only that a change waits. A notice an ended change still owes either address sits in `outbox` (`an`, and on some rows
-`data.vorname`), and an effect's owed account carry on the change itself (`adresswechsel.move.von`,
-`adresswechsel.move.nach`); no page renders either, and a read-only Playground query on those fields
+`data.vorname`), and an effect's owed account carry on the change itself (`address_changes.move.von`,
+`address_changes.move.nach`); no page renders either, and a read-only Playground query on those fields
 finds them.
 
 **Anybody who has signed in is in the sign-in store too, and no erasure leaves their account
@@ -588,7 +588,7 @@ seat, registration and grant the address holds, so one sign-in stays whole.
   `fl_backend/app/shared/schemas/bounds.py :: APPROVAL_DAYS` days of its start;
   neither the changed address nor whoever started the change gives it. Revoking the grant while a confirmed change waits needs
   no approval after it: the next hourly pass makes the change take effect, the grant moving nowhere. The tool starts a grant holder's change for an owner
-  alone (`verwaltung_adresse`), and a last owner names another owner before changing their own address. On the effect the grant moves to the new address under the
+  alone (`admin_address`), and a last owner names another owner before changing their own address. On the effect the grant moves to the new address under the
   approver, announced to every administrator as a revoke and a grant.
 - **The mailbox has passed to somebody else**, a school account given to a new pupil say. Whoever
   holds the address on file can sign in as the person, stop every change started here and start one
@@ -765,7 +765,7 @@ and nothing verifies it: what surfaces is somebody recognising the person or the
 Decline the application and bar the address at `/area/admin/sperrliste` with the reason in your own words
 and no person named in it, the row outliving that person's erasure
 ([`../glossary.md`](../glossary.md#sperrliste--the-addresses-barred-from-signing-up-and-from-the-leagues-mail)). An
-address holding a grant is refused (`sperrliste_verwaltung`) until the grant is revoked
+address holding a grant is refused (`ban_list_admin`) until the grant is revoked
 ([section 3](#3-granting-or-revoking-admin-access)). **The write
 mails the person itself where the address holds a sign-in account**, naming the reason you typed and
 the last season the ban covers, so there is nothing to send by hand; an address that never signed in
@@ -843,7 +843,7 @@ python -c "import secrets; print(secrets.token_hex(32))"
 ```
 
 Thirty-two random bytes as sixty-four hexadecimal characters. **The boot's floor counts CHARACTERS
-and not entropy** (`fl_backend/app/core/config.py :: SPERRLISTE_KEY_MIN_LENGTH`), so sixty-four
+and not entropy** (`fl_backend/app/core/config.py :: BAN_LIST_KEY_MIN_LENGTH`), so sixty-four
 repeated letters pass it and are worthless: what makes the value a key is that it came from this
 command and not from a keyboard.
 
@@ -1129,7 +1129,7 @@ whatever closed the host's inbound 80 and 443 is opened.
 **The heartbeat answers it.** After every hourly pass the scheduler
 (`fl_frontend/src/instrumentation-node.ts :: armScheduler`) pings Better Stack's heartbeat monitor,
 and pings it with `/fail` where a job threw, left owed deletions or erasures, or the drain gave a
-mail up, its output naming each: `konto failed`, `loeschung left 3`, `postausgang gave up 2`. The
+mail up, its output naming each: `account failed`, `erasure left 3`, `outbox gave up 2`. The
 monitor alerts on a failing ping and on a missing one, so an alert names the job whose lines to read
 in the frontend's log, and `scheduler.job_failed` names a job that threw. **A missing ping means no
 pass finished**: the frontend process holds the timer, so the container can be up while the timer
@@ -1182,7 +1182,7 @@ ending the address changes whose step lapsed and making the due ones take effect
 notice to the Postausgang: each replaced address gets its completion notice and the new address of a
 confirmed change refused at its due time or lapsed unapproved a notice naming nobody. The pass ends
 by carrying each sign-in account an effect still owes
-(`fl_frontend/src/features/adresswechsel/umzug.ts :: runAddressChangeMoves`). Its counts and no person
+(`fl_frontend/src/features/address-change/umzug.ts :: runAddressChangeMoves`). Its counts and no person
 are the pass line's `address_change_` ones, `address_change_remaining` the rows it left due. A half that threw fails the applications' job once the seasons have run, which
 `scheduler.job_failed` names as `bewerbungen`.
 
@@ -1203,11 +1203,11 @@ An `account_not_moved` line at `WARN` needs no repair: reading `grund: "occupied
 held an account of its own, and the person signs in there anew.
 
 **The pupils' deletion runs on every pass**
-(`fl_frontend/src/features/saisons/sweep.ts :: runLoeschungSweep`). It stamps no day either: each
+(`fl_frontend/src/features/saisons/sweep.ts :: runErasureSweep`). It stamps no day either: each
 pass deletes the pupils the season-after rule makes due, drops the squad cache after its last call,
 and counts on the pass's line what it erased and the pupils it failed or passed over; a pass whose
 call threw fails the job, its counts on that line all the same, which `scheduler.job_failed` names
-as `loeschung`.
+as `erasure`.
 
 **Activating a season runs the same deletion first, inside the press, but only as far as the
 press's own deadline reaches** (`fl_frontend/src/core/requestScope.ts :: REQUEST_DEADLINE_MS`): the
@@ -1248,7 +1248,7 @@ mailbox's.
 **Two promises rest on the retention sweep's pass**
 (`fl_frontend/src/features/bewerbungen/sweep.ts :: sweepAdresswechsel`): the privacy notice's word
 that a change whose step lapsed ends „innerhalb einer Stunde“, and the word, in the notice and in
-both mails the change sends (`fl_frontend/src/core/adresswechselEmail.ts`), that a change an
+both mails the change sends (`fl_frontend/src/core/addressChangeEmail.ts`), that a change an
 administrator started with a reason takes effect its waiting time after its confirmation. While no
 pass runs neither is kept: a lapsed change keeps its new address and its reason, and a change past
 its waiting time takes effect only where an approval it still owed is pressed after it. **The
@@ -1290,14 +1290,14 @@ deadline's own days is due the day it is asked.
 ([`spec.md`](spec.md) §1.1): the accounts answered unreferenced, deleted, already gone, and those a
 failure left for the next pass, never naming an address. A pass whose sign-in store could not be
 listed rejects, which `scheduler.job_failed`
-names as `konto` and the heartbeat as `konto failed`. Every other failure inside a pass is a line of
+names as `account` and the heartbeat as `account failed`. Every other failure inside a pass is a line of
 its own, and the next pass asks again.
 
 **An `account.references_failed` line carrying `no_owner` means the backend reads no live
 `owner` grant**, so it refuses every batch and the sweep deletes nothing, every pass alike. Such a pass still counts, its
-`fehlgeschlagen` every account the store listed, so a pass's line alone does not say the sweep works. Either the backend reads another database than the league's,
+`failed` every account the store listed, so a pass's line alone does not say the sweep works. Either the backend reads another database than the league's,
 which `DB_BASE_NAME` in `fl_backend/.env` names, or the `owner` grant is gone; the backend's boot warns
-`berechtigungen.no_grant` or `berechtigungen.no_owner` in both cases. Repair the setting, or write the `owner` grant as
+`grants.no_grant` or `grants.no_owner` in both cases. Repair the setting, or write the `owner` grant as
 [section 3](#3-granting-or-revoking-admin-access) says.
 
 **The erasure journal's export answers in its unit's status and its file names** (§7): the status

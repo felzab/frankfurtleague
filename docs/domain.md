@@ -37,7 +37,7 @@ reads like a constant of this league is nearly always one some season chose for 
 - **Standing apart** — one school's application to play one season (`bewerbungen`), one pupil's registration
   to play it (`registrierungen`), one minted registration link (`einladungen`), one party's answer about one
   fixture's Ansetzung (`spielbestaetigungen`), one fixture's report by its referee or an administrator (`spielberichte`),
-  one change of the address a person signs in on (`adresswechsel`), one barred address
+  one change of the address a person signs in on (`address_changes`), one barred address
   (`sperrliste`), one address's access to the administration (`berechtigungen`), what the
   administrators have been told of it (`berechtigungen_angekuendigt`) and a grant waiting on a
   second administrator's approval (`berechtigungen_antraege`), one mail the league owes one
