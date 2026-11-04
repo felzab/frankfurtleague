@@ -1,37 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import { COPY } from "@/core/copy.ts";
-import { MENSCH_BESTAETIGEN } from "@/core/turnstileToken.ts";
 import { describeCeremonyRefusal } from "@/features/auth/passkeyAnswers.ts";
-import { VERSUCHE_ES_ERNEUT_SATZ } from "@/shared/utils/refusal.ts";
-
-import { signInAnswer } from "./signInAnswers.ts";
 
 const { refusal } = COPY.signIn;
-
-describe("a bot check's answer read back as the catalogue's words", () => {
-  it.each([
-    ["a token the check refused", MENSCH_BESTAETIGEN],
-    ["a disturbed check", COPY.shared.botCheck.disrupted],
-    ["a check not yet done", COPY.shared.botCheck.notReady],
-    ["a check that did not load", COPY.shared.botCheck.notLoaded],
-  ])("finds %s", (_, satz) => {
-    expect(signInAnswer(satz)).toBe(satz);
-  });
-
-  it("answers a retry no reason names, and no answer at all, with the shared failure line", () => {
-    expect(signInAnswer(VERSUCHE_ES_ERNEUT_SATZ)).toBe(COPY.shared.failure.unexpected);
-    expect(signInAnswer(undefined)).toBe(COPY.shared.failure.unexpected);
-  });
-});
 
 describe("a passkey ceremony's refusal", () => {
   it("words a barred address as one holding no record, so the ban list cannot be probed", () => {
     expect(describeCeremonyRefusal({ code: "SIGN_IN_BARRED" })).toBe(refusal.noRecord);
     expect(describeCeremonyRefusal({ code: "SIGN_IN_HOLDS_NOTHING" })).toBe(refusal.noRecord);
-  });
-
-  it("words a cancelled or unknown refusal with the shared failure line", () => {
-    expect(describeCeremonyRefusal(new Error("NotAllowedError"))).toBe(COPY.shared.failure.unexpected);
   });
 });

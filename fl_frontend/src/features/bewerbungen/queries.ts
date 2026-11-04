@@ -9,8 +9,8 @@ import {
   bewerbungenGetTrikotfarben,
   bewerbungenGetWindow,
 } from "@/core/generated/client/sdk";
+import { runWithIncomingTrace } from "@/core/traceScope";
 import { runAdminRead } from "@/shared/utils/adminRead";
-import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import { bewerbungenQueueTerms } from "./facets";
 import { postEinwilligungAnsicht } from "./mutations";

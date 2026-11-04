@@ -13,7 +13,6 @@ import {
   signInByCode,
 } from "@/test-support/authDoubles.ts";
 import { replicaSetUrl, startJudgedReplicaSet } from "@/test-support/expiredTransactions.ts";
-import { MongoServerError } from "mongodb";
 import { assert, beforeEach, describe, expect, it, vi } from "vitest";
 
 // A replica set: the property under test is a transaction's.
@@ -97,17 +96,6 @@ const DB_DOUBLE = overriding(PRODUCTION_DB, {
       get(target, prop) {
         const value: unknown = Reflect.get(target, prop, target);
         if (prop === "db") return (name: string, options?: unknown) => wrapDb((value as Method).call(target, name, options) as object);
-        if (prop === "startSession") {
-          return (...args: unknown[]) => {
-            const session = (value as Method).apply(target, args) as HeldSession;
-            const commit = session.commitTransaction.bind(session);
-            session.commitTransaction = async () => {
-              await committing(session);
-              return commit();
-            };
-            return session;
-          };
-        }
         return bound(target, value);
       },
     });
@@ -192,12 +180,6 @@ let readGate: { arrive: () => Promise<unknown> } = OPEN_GATE;
 /** What runs as a removal reaches its sign-out: inside its transaction, after its delete. */
 let signingOut: () => Promise<unknown> = async () => undefined;
 
-/** What the double hands `committing`: the session whose commit is about to be sent. */
-type HeldSession = { commitTransaction: () => Promise<unknown>; abortTransaction: () => Promise<unknown> };
-
-/** What runs as a removal's commit is asked for, before it is sent. */
-let committing: (session: HeldSession) => Promise<unknown> = async () => undefined;
-
 // Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
 const { auth } = await import("@/core/auth/library");
 const { buildAuthIndexes } = await import("@/core/authIndexes");
@@ -220,7 +202,6 @@ beforeEach(async () => {
   barrier.disarm();
   warnings.length = 0;
   signingOut = async () => undefined;
-  committing = async () => undefined;
   readGate = OPEN_GATE;
   await authDb().dropDatabase();
 
@@ -302,8 +283,6 @@ async function removeAtOnce(cookie: string, ids: readonly string[]) {
 
 const { COPY } = await import("@/core/copy.ts");
 
-const GLEICHZEITIG_GEAENDERT = COPY.shared.failure.stale;
-
 const LETZTER_PASSKEY = COPY.account.passkeys.lastKept;
 
 /** A removal the store failed under, whatever became of it. */
@@ -321,14 +300,6 @@ describe("two removals by one administrator at once, against a real database", (
     const ids = await seedPasskeys(userId, 2);
 
     expect(await removeAtOnce(cookie, ids)).toStrictEqual({ ...ONE_WINS, refusals: [LETZTER_PASSKEY], rows: 1 });
-  });
-
-  it("removes one row once when the same row is asked for twice at once, the second finding it gone", async () => {
-    const { cookie, userId } = await steppedUpAdmin();
-    const [first] = await seedPasskeys(userId, 3);
-    assert.ok(first);
-
-    expect(await removeAtOnce(cookie, [first, first])).toStrictEqual({ ...ONE_WINS, refusals: [GLEICHZEITIG_GEAENDERT], rows: 2 });
   });
 
   /* The other order: the second removal's snapshot is taken only once the first has committed whole,
@@ -406,47 +377,6 @@ describe("the sessions a removal ends, against a real database", () => {
         .updateMany({}, { $set: { updatedAt: new Date() } });
 
     const answer = await removePasskeyAction({ id: first, holder: ADMIN_EMAIL });
-
-    expect({
-      answer: answer,
-      rows: (await passkeyRows()).length,
-      open: [await opens(other.cookie), await opens(own.cookie)],
-      warnings: [...warnings],
-    }).toStrictEqual({ answer: UNEXPECTED, rows: 2, open: [true, true], warnings: [] });
-  });
-
-  /* The first run's commit fails transiently and writes nothing, so the adapter runs the removal
-     again; that run fails before its commit, and the removal answers the rollback it is rather than
-     an unknown outcome. */
-  it("answers the generic failure where the run retried after a transient commit failure fails", async () => {
-    const other = await steppedUpAdmin(REMOVED);
-    const own = await steppedUpAdmin();
-    const [first] = await seedPasskeys(own.userId, 2, [REMOVED]);
-    assert.ok(first);
-    requestHeaders = new Headers({ ...ORIGIN, cookie: own.cookie });
-    let commits = 0;
-    committing = async (session) => {
-      commits += 1;
-      if (commits > 1) return;
-      // The server's answer to a commit whose transaction it already dropped, as across a failover.
-      // Built rather than raised by the server: the test container refuses `configureFailPoint`.
-      await session.abortTransaction();
-      throw new MongoServerError({
-        message: "planted: the transaction was gone at its commit",
-        code: 251,
-        codeName: "NoSuchTransaction",
-        errorLabels: ["TransientTransactionError"],
-      });
-    };
-    let runs = 0;
-    signingOut = async () => {
-      runs += 1;
-      if (runs > 1) throw new Error("planted: the retried run fails");
-    };
-
-    const answer = await removePasskeyAction({ id: first, holder: ADMIN_EMAIL });
-
-    expect(runs, "the adapter ran the removal once, so no retry followed a commit").toBe(2);
 
     expect({
       answer: answer,

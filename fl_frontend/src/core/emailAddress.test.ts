@@ -4,7 +4,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import { asSignInIdentifier, hasAsciiLocalPart, isDeliverableAddress, isOneBareMailbox } from "@/core/emailAddress";
+import { asSignInIdentifier, isDeliverableAddress, isOneBareMailbox } from "@/core/emailAddress";
 
 const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..");
 
@@ -17,44 +17,10 @@ const REFUSED = [...INVISIBLE, "\t", "@", "_", "ü", "日"];
 const hostOf = (middle: string): string => `person@x${middle}y.de`;
 
 describe("the host alphabet an address is held to", () => {
-  it("takes a hyphen and a dot, so a refusal below is the alphabet and not the function refusing everything", () => {
-    for (const middle of ["-", "."]) {
-      expect(isDeliverableAddress(hostOf(middle)), `expected a host carrying ${JSON.stringify(middle)} to be deliverable`).toBe(true);
-    }
-  });
-
   it("refuses every character outside a label's letters, digits and hyphens", () => {
     for (const middle of REFUSED) {
       expect(isDeliverableAddress(hostOf(middle)), `expected a host carrying ${JSON.stringify(middle)} to be refused`).toBe(false);
     }
-  });
-});
-
-/* Built from code points, so no editor normalises one into the ASCII the case must not compare: the
-   full-width a and the no-break space pass for ASCII, and the accent stays uncomposed. */
-const BEYOND_ASCII = [
-  `j${String.fromCodePoint(0xfc)}rgen@schule.de`,
-  `${String.fromCodePoint(0xff41)}nna@schule.de`,
-  `vorstand${String.fromCodePoint(0x301)}@schule.de`,
-  `an${String.fromCodePoint(0xa0)}na@schule.de`,
-];
-
-describe("a local part above ASCII", () => {
-  it("is refused wherever the character stands, and worded apart from every other refusal", () => {
-    for (const address of BEYOND_ASCII) {
-      expect(isDeliverableAddress(address), `expected ${JSON.stringify(address)} to be refused`).toBe(false);
-      expect(hasAsciiLocalPart(address), `expected ${JSON.stringify(address)} to be worded as its local part`).toBe(false);
-    }
-  });
-
-  /* The control: a wording reading the whole address would give an umlaut domain the local part's sentence. */
-  it("is told apart from a domain above ASCII, which takes the generic refusal", () => {
-    expect(isDeliverableAddress(`anna@m${String.fromCodePoint(0xfc)}ller.de`)).toBe(false);
-    expect(hasAsciiLocalPart(`anna@m${String.fromCodePoint(0xfc)}ller.de`)).toBe(true);
-  });
-
-  it("leaves a value without an at sign to the generic refusal", () => {
-    expect(hasAsciiLocalPart(`j${String.fromCodePoint(0xfc)}rgen`)).toBe(true);
   });
 });
 

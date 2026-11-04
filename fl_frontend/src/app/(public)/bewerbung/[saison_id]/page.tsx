@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { frontend_config } from "@/core/config";
 import { ROUTES } from "@/core/routes";
+import { runWithIncomingTrace } from "@/core/traceScope";
 import { BewerbungView } from "@/features/bewerbungen/components/views/BewerbungView";
 import { getBewerbungFenster, getBewerbungSchulen, getBewerbungTrikotfarben } from "@/features/bewerbungen/queries";
 import { resolveSaisonIdParam } from "@/features/saisons/resolvers";
@@ -10,7 +11,6 @@ import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 import { getGermanTodayStr } from "@/shared/utils/date";
 import { nullUnlessContractBreak } from "@/shared/utils/degradedRead";
 import { openGraphFor } from "@/shared/utils/metadata";
-import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import type { NextPageProps } from "@/shared/types/types";
 import type { Metadata, ResolvingMetadata } from "next";

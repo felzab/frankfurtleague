@@ -30,7 +30,7 @@ vi.doMock("@/core/logging.ts", () => ({
   },
 }));
 // `next/headers` is request-only and throws outside one, so the real scope cannot run here.
-vi.doMock("@/shared/utils/traceScope.ts", () => ({ runWithIncomingTrace: async (fn: () => unknown) => fn() }));
+vi.doMock("@/core/traceScope.ts", () => ({ runWithIncomingTrace: async (fn: () => unknown) => fn() }));
 vi.doMock("@/core/generated/client/sdk.ts", () => ({
   outboxPostEvent: async (payload: FLOutboxEventPayload) => {
     forwarded.push(payload);

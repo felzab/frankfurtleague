@@ -1,12 +1,12 @@
 import { Suspense } from "react";
 
 import { ROUTES } from "@/core/routes";
+import { runWithIncomingTrace } from "@/core/traceScope";
 import { SpielbestaetigungView } from "@/features/spielbestaetigungen/components/views/SpielbestaetigungView";
 import { getSpielbestaetigungAnsicht } from "@/features/spielbestaetigungen/queries";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 import { nullUnlessContractBreak } from "@/shared/utils/degradedRead";
 import { pageMetadata } from "@/shared/utils/metadata";
-import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import type { NextPageProps } from "@/shared/types/types";
 import type { Metadata, ResolvingMetadata } from "next";
