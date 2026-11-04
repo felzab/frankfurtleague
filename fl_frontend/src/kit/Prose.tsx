@@ -2,16 +2,13 @@ import { Callout } from "./Callout";
 import { Link } from "./Link";
 import { Table } from "./Table";
 
-import type { Copy } from "@/core/copy";
+import type { Copy, Words } from "@/core/copy";
 import type { Route } from "next";
 import type { CalloutProps } from "./Callout";
 import type { TableProps } from "./Table";
 
-/**
- * A run of text: catalogue words, with links set inside it.
- * @awaitsPage session 4's legal pages
- */
-export type ProseText = ReadonlyArray<Copy | { href: Route; label: Copy }>;
+/** A run of text: catalogue words, with links set inside it, each named by the catalogue or by its own data, such as an address. */
+export type ProseText = ReadonlyArray<Copy | { href: Route; label: Words }>;
 
 export type ProseBlock =
   | { kind: "heading"; text: Copy }

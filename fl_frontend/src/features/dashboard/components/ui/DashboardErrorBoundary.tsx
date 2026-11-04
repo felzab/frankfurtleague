@@ -9,7 +9,7 @@ import { asCaughtError } from "@/shared/utils/caughtError";
 import { DashboardError } from "./DashboardError";
 
 /**
- * The shared body of every shelled area's `error.tsx` under `fl_frontend/src/app/bereich/`, and of
+ * The shared body of every shelled area's `error.tsx` under `fl_frontend/src/app/area/`, and of
  * each area layout's own boundary. Next's file convention requires a file per segment, so each
  * route file exists and only the implementation is shared.
  */

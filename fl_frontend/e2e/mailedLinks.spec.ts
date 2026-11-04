@@ -7,7 +7,7 @@ import { expect } from "@playwright/test";
 
 import { test } from "./support/journey";
 
-for (const link of ["/bestaetigung/adresse?token=niemals-gemailt", "/bestaetigung/adresse", "/loeschung"]) {
+for (const link of ["/confirm/address?token=niemals-gemailt", "/confirm/address", "/erasure"]) {
   test(`${link}, holding nothing, says the link no longer holds`, async ({ page }) => {
     await page.goto(link);
 
@@ -20,12 +20,12 @@ for (const link of ["/bestaetigung/adresse?token=niemals-gemailt", "/bestaetigun
 }
 
 test("a deletion link opened signed out asks a sign-in that returns to the link", async ({ page }) => {
-  await page.goto("/loeschung?token=niemals-gemailt");
+  await page.goto("/erasure?token=niemals-gemailt");
 
   await expect(page.getByRole("heading", { name: "Konto löschen" })).toBeVisible();
   await expect(page.getByText("Du bist nicht angemeldet.")).toBeVisible();
   await expect(page.getByRole("main").getByRole("link", { name: "Anmelden" })).toHaveAttribute(
     "href",
-    `/signin?${new URLSearchParams({ return: "/loeschung?token=niemals-gemailt" }).toString()}`,
+    `/signin?${new URLSearchParams({ return: "/erasure?token=niemals-gemailt" }).toString()}`,
   );
 });

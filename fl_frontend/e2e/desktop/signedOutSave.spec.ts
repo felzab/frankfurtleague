@@ -11,7 +11,7 @@ import { enrolPasskey, signInWithCode } from "../support/signIn";
 const EDITOR = "admin.editor@example.com";
 
 /** A venue's own editor, whatever season the list's link carries along. */
-const EDITOR_URL = /\/bereich\/admin\/spielorte\/[0-9a-f]{24}(?:\?|$)/;
+const EDITOR_URL = /\/area\/admin\/spielorte\/[0-9a-f]{24}(?:\?|$)/;
 
 test("a save the proxy finds signed out lands on the sign-in page", async ({ page, context }) => {
   await signInWithCode(page, EDITOR);
@@ -20,7 +20,7 @@ test("a save the proxy finds signed out lands on the sign-in page", async ({ pag
   // The editor's address is read off the list's link and loaded, never pressed: the list is a react-aria
   // table, which throws away the rows it hydrated and renders them again just after, so a press landing
   // across that swap reaches no link and goes nowhere. Nothing documented marks the swap as done.
-  await page.goto("/bereich/admin/spielorte");
+  await page.goto("/area/admin/spielorte");
   const editor = await page.getByRole("link", { name: "Bearbeiten: Spielort Sporthalle Birkenallee" }).getAttribute("href");
   if (editor === null) throw new Error("the Spielorte list has no editor link for Sporthalle Birkenallee");
   await page.goto(editor);

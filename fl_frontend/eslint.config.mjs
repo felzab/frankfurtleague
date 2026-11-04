@@ -185,7 +185,7 @@ const SECRET_READERS = Object.fromEntries(
     // The key authorises a send, so a module holding it could mail past the Postausgang and the ban its hand-out judges;
     // the drain's own send is module-private, which the compiler holds.
     [["src/core/mail.ts"], ["authResendKey"], "the provider's key, which sends past the Postausgang"],
-    [["src/app/api/mail/zustellung/route.ts"], ["resendWebhookSecret"], "the key the provider's delivery reports are verified with"],
+    [["src/app/api/mail/delivery/route.ts"], ["resendWebhookSecret"], "the key the provider's delivery reports are verified with"],
     // The system's key calls the backend as the system, past every guard on an admin's session.
     [["src/core/api.ts"], ["internalApiKeyBase", "internalApiKeySystem", "internalApiKeyAdmin"], "the backend's keys"],
     [["src/core/turnstile.ts"], ["turnstileSecretKey"], "the key the bot check's tokens are verified with"],
@@ -1131,7 +1131,6 @@ const DESIGN_BANS = [
             String.raw`\.\.\.`,
             "!",
             String.raw`\s-\s`,
-            ";",
             String.raw`\b[Bb]itte\b`,
             String.raw`\b(?:[Ee]rfolgreich|[Ll]eider|[Ww]irklich)`,
             String.raw`\bund mehr\b`,
@@ -1145,7 +1144,16 @@ const DESIGN_BANS = [
         // that is the en dash and nothing else is a glyph standing for a value, as the empty value's mark, and no prose.
         ":matches(Literal[value=/[–—]/]:not([value=/^–$/]), TemplateElement[value.raw=/[–—]/], JSXText[value=/[–—]/])",
       ].join(", "),
-      "The catalogue writes none of these: three periods, „!“, a dash inside text, a semicolon, „Bitte“, „erfolgreich“, „leider“, „wirklich“, „und mehr“, „z. B.“, „Mannschaft“, „noch einmal“, „Sie“ or a capitalised „Du“ inside a sentence.",
+      "The catalogue writes none of these: three periods, „!“, a dash inside text, „Bitte“, „erfolgreich“, „leider“, „wirklich“, „und mehr“, „z. B.“, „Mannschaft“, „noch einmal“, „Sie“ or a capitalised „Du“ inside a sentence.",
+    ),
+    EVERY,
+    { only: CATALOGUE_FILES },
+  ),
+  // The copy standard allows a semicolon in legal text alone: the legal pages' region of the server's catalogue.
+  syntaxBan(
+    syntax(
+      `${inLiteral(";")}:not(VariableDeclarator[id.name="SERVER_COPY"] > CallExpression > ObjectExpression > Property[key.name="legal"] *)`,
+      "The catalogue writes a semicolon in legal text alone, `SERVER_COPY.legal`.",
     ),
     EVERY,
     { only: CATALOGUE_FILES },
@@ -1430,7 +1438,7 @@ const eslintConfig = defineConfig([
         {
           keptRoutes: [
             "src/app/api/auth/[...all]/route.ts",
-            "src/app/api/mail/zustellung/route.ts",
+            "src/app/api/mail/delivery/route.ts",
             "src/app/api/client-error/route.ts",
             "src/app/(classic)/signin/continue/route.ts",
           ],

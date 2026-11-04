@@ -223,7 +223,7 @@ describe("the club filter a link into the contacts list preselects", () => {
     SAISON,
   );
 
-  /* `?team=<id>`, the parameter `/bereich/admin/spieler` and `/bereich/admin/spielsuche` already answer to. A link
+  /* `?team=<id>`, the parameter `/area/admin/spieler` and `/area/admin/spielsuche` already answer to. A link
      naming a parameter the facet does not declare filters nothing and reports nothing. */
   it("reads the club off the row under the parameter the row actions link with", () => {
     const facets = buildKontakteFacets(rows.map((row) => ({ teamId: row.teamId, name: row.teamName })));

@@ -85,6 +85,12 @@ export type TableProps = {
    * column keeps its place by compact cells. Every other table keeps its 12-px cells on a phone.
    */
   compact?: boolean;
+  /**
+   * A table of sentences rather than figures, such as the privacy notice's retention table: its cells wrap at every
+   * width, and on a phone, which has no room for its columns side by side, each row stacks, its name over its cells and
+   * every cell after its column's label.
+   */
+  prose?: boolean;
 };
 
 const table = tv({
@@ -131,6 +137,15 @@ const table = tv({
       hidden: { head: "max-lg:hidden", cell: "max-lg:hidden" },
       only: { head: "lg:hidden", cell: "lg:hidden" },
       shown: {},
+    },
+    // On a phone the column labels move into the cells, each cell drawing its own from `data-label` before its words.
+    prose: {
+      true: {
+        head: "max-lg:hidden",
+        row: "max-lg:grid max-lg:h-auto max-lg:gap-1 max-lg:px-3 max-lg:py-3",
+        name: "w-auto max-w-none py-3 align-top max-lg:px-0 max-lg:py-0 max-lg:font-semibold",
+        cell: "py-3 align-top whitespace-normal max-lg:grid max-lg:grid-cols-[4rem_minmax(0,1fr)] max-lg:gap-x-3 max-lg:px-0 max-lg:before:text-xs max-lg:before:text-fg-muted max-lg:before:content-[attr(data-label)]",
+      },
     },
     linked: {
       true: { row: cardHover() },
@@ -202,11 +217,12 @@ function Cell({ cell, slot }: { cell: TableCell | undefined; slot: boolean }) {
 
 /**
  * The name, cut with „…“ where its column is too narrow and whole in its `title`, then the chip, which keeps
- * its size and its line. A club's plaque stands before its name inside the row's link, so on a phone, where
- * the plaque alone is drawn, the link still opens the club and is named by the club's full name.
+ * its size and its line; a prose table's name wraps instead. A club's plaque stands before its name inside the
+ * row's link, so on a phone, where the plaque alone is drawn, the link still opens the club and is named by the
+ * club's full name.
  */
-function NameCell({ row, barred, compact }: { row: TableRow; barred: TableRow["qualifies"]; compact: boolean }) {
-  const s = table({ qualifies: barred, compact });
+function NameCell({ row, barred, compact, prose }: { row: TableRow; barred: TableRow["qualifies"]; compact: boolean; prose: boolean }) {
+  const s = table({ qualifies: barred, compact, prose });
   const name = textOf(row.name);
   const words =
     row.plaque === undefined ? (
@@ -221,7 +237,7 @@ function NameCell({ row, barred, compact }: { row: TableRow; barred: TableRow["q
     <td className={s.name()}>
       <span className="flex min-w-0 items-center gap-2">
         <span
-          className="min-w-0 truncate"
+          className={prose ? "min-w-0" : "min-w-0 truncate"}
           title={name}>
           {row.href === undefined ? (
             words
@@ -244,8 +260,8 @@ function NameCell({ row, barred, compact }: { row: TableRow; barred: TableRow["q
  * muted capitals. A row opens its record, a chevron at its end saying so. Few columns: the name with its plaque
  * and chip, then a few facts.
  */
-export function Table({ label, nameLabel, rankLabel, columns, rows, empty, bare = false, compact = false }: TableProps) {
-  const nameHead = table({ align: "start", compact }).head();
+export function Table({ label, nameLabel, rankLabel, columns, rows, empty, bare = false, compact = false, prose = false }: TableProps) {
+  const nameHead = table({ align: "start", compact, prose }).head();
   const isLinked = rows.some((row) => row.href !== undefined);
   // The columns where some row carries the mark of fixtures called off, whose every row keeps its slot.
   const marked = new Set(
@@ -289,6 +305,7 @@ export function Table({ label, nameLabel, rankLabel, columns, rows, empty, bare 
                     align: column.figures === true ? "figure" : "start",
                     phone: phoneOf(column),
                     compact,
+                    prose,
                   }).head()}>
                   {column.label}
                 </th>
@@ -304,7 +321,7 @@ export function Table({ label, nameLabel, rankLabel, columns, rows, empty, bare 
                 <tr
                   key={row.id}
                   id={row.anchor}
-                  className={table(marks).row()}>
+                  className={table({ ...marks, prose }).row()}>
                   {rankLabel !== undefined && (
                     <td className={table({ align: "centre", figures: true, qualifies: row.qualifies, compact }).cell()}>
                       {row.place == null ? COPY.shared.noValue : formatNumber(row.place)}
@@ -314,16 +331,19 @@ export function Table({ label, nameLabel, rankLabel, columns, rows, empty, bare 
                     row={row}
                     barred={rankLabel === undefined ? row.qualifies : undefined}
                     compact={compact}
+                    prose={prose}
                   />
                   {columns.map((column) => (
                     <td
                       key={column.key}
+                      data-label={prose ? column.label : undefined}
                       className={table({
                         align: column.figures === true ? "figure" : "start",
                         figures: column.figures === true,
                         strong: column.strong === true,
                         phone: phoneOf(column),
                         compact,
+                        prose,
                       }).cell()}>
                       <Cell
                         cell={row.cells[column.key]}

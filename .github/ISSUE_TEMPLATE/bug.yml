@@ -9,7 +9,7 @@ body:
       value: |
         **Not for security problems.** A suspected vulnerability goes to a
         [private advisory](https://github.com/felzab/frankfurtleague/security/advisories/new)
-        or through [frankfurtleague.de/kontakt](https://frankfurtleague.de/kontakt), never to a
+        or through [frankfurtleague.de/contact](https://frankfurtleague.de/contact), never to a
         public issue. See [SECURITY.md](https://github.com/felzab/frankfurtleague/blob/main/SECURITY.md).
 
         Keep the title in the shape `Area: symptom`, for example

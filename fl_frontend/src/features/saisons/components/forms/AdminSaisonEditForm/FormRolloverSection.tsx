@@ -234,7 +234,7 @@ export function FormRolloverSection({
                       {spiel.datum ? formatSpielDatum(spiel.datum) : <Leer>{PLACEHOLDER.datum}</Leer>}
                     </span>
                     <Link
-                      href={saisonHref(`/bereich/admin/spiele/${spiel.id}`)}
+                      href={saisonHref(`/area/admin/spiele/${spiel.id}`)}
                       className={`${BRAND_INK_OUTSIDE_PROSE_CLASSES} shrink-0 fluid-xxs font-bold`}>
                       Öffnen
                     </Link>

@@ -123,7 +123,7 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
       />
       {/* A link and not a press: the venue form edits on a page of its own. */}
       <RowActionLink
-        href={saisonHref(`/bereich/admin/spielorte/${ort.id}`)}
+        href={saisonHref(`/area/admin/spielorte/${ort.id}`)}
         label="Bearbeiten"
         subject={`Spielort ${ort.name}`}>
         <Pencil
@@ -161,7 +161,7 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
             carries a search query. */}
         <RowActionMenuItem
           id="spiele"
-          href={saisonHref(`/bereich/admin/spielsuche?ort=${ort.id}`)}
+          href={saisonHref(`/area/admin/spielsuche?ort=${ort.id}`)}
           label="Spiele anzeigen">
           <Magnifier
             aria-hidden="true"

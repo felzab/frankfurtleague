@@ -47,7 +47,7 @@ describe("the confirmation link's mail", () => {
   it("builds the link on the origin it is handed, the token in it and nowhere else", () => {
     const { html, text } = renderMail(buildBewerbungBestaetigungEmail(LINK, { origin: ORIGIN, token: "beispiel-eins" }));
 
-    assert.ok(text.includes(`${ORIGIN}/bestaetigung/kontakt?token=beispiel-eins`), "the link is built on another origin");
+    assert.ok(text.includes(`${ORIGIN}/confirm/kontakt?token=beispiel-eins`), "the link is built on another origin");
     // However often the shell prints the link, the token stands inside it each time and nowhere else.
     expect(html.split("beispiel-eins").length, "the token stands somewhere besides its link").toBe(html.split("?token=beispiel-eins").length);
   });

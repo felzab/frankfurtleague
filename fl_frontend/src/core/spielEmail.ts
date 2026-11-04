@@ -18,7 +18,7 @@ import type {
 import type { MailLink, MailOrigin } from "./mailKinds";
 
 /** Under the segment `fl_frontend/src/app/robots.ts` already turns crawlers back from, so a live token is never indexed. */
-export const SPIEL_BESTAETIGUNG_PATH = "/bestaetigung/spiel";
+export const SPIEL_BESTAETIGUNG_PATH = "/confirm/spiel";
 
 /**
  * The one place this link is spelled. `token` is the name `nginx/shared/http.conf :: $credential_free_uri`
@@ -54,7 +54,7 @@ function ansetzungText({ team1, team2, datum, uhrzeit, ort }: FLSpielMailAnsetzu
 }
 
 /** The referee's own panel, the address `fl_frontend/src/features/funktionen/utils.ts` opens their Funktion on. */
-const SCHIEDSRICHTER_PANEL_PATH = "/bereich/schiedsrichter";
+const SCHIEDSRICHTER_PANEL_PATH = "/area/schiedsrichter";
 
 /** The pairing as the copy rules spell one: the two clubs by name, joined by „gegen“. */
 function paarung(team1: string, team2: string): readonly Run[] {

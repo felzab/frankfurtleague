@@ -174,6 +174,31 @@ describe("a table on a phone", () => {
     expect(heads.map((head) => head.classList.contains("lg:hidden"))).toStrictEqual([false, false, false, true]);
   });
 
+  // A prose table's sentences outrun a phone's width in columns: each row stacks, and each cell draws its column's
+  // label from `data-label` before its words, so a label left off, or a cell kept on one line, overflows unseen.
+  it("stacks a prose table's row, each cell after its column's label, its words wrapping at every width", async () => {
+    render(
+      <Table
+        {...props([{ id: "1", name: { record: LONG }, cells: { stadtteil: { record: LONG } } }])}
+        prose
+      />,
+    );
+    const [name, cell] = [...(screen.getByRole("row", { name: (accessible) => accessible.includes(LONG) }).children ?? [])];
+    expect(name?.querySelector("[title]")?.classList).not.toContain("truncate");
+    expect(cell?.getAttribute("data-label")).toBe(COPY.shared.startelf);
+    expect(cell?.classList).toContain("whitespace-normal");
+    expect(cell?.classList).not.toContain("whitespace-nowrap");
+    for (const head of screen.getAllByRole("columnheader")) expect(head.classList).toContain("max-lg:hidden");
+
+    const labelled: string[] = [];
+    (await compiledGlobals()).walkDecls("--tw-content", (decl) => {
+      if (decl.parent?.type !== "rule") return;
+      const selectors = selectorsOf(decl.parent as Rule).map((selector) => selector.replace(/\\(.)/g, "$1"));
+      if (selectors.some((selector) => selector.includes(".max-lg:before:content-[attr(data-label)]"))) labelled.push(decl.value);
+    });
+    expect(labelled).toStrictEqual(["attr(data-label)"]);
+  });
+
   it("leaves the chevron out, the whole row still the link", () => {
     render(<Table {...props([{ id: "1", name: { record: "Goethe" }, href: "/saisons/2027", cells: { stadtteil: { record: "Nordend" } } }])} />);
     const row = screen.getByRole("link", { name: "Goethe" }).closest("tr");

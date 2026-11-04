@@ -12,5 +12,5 @@ export function seatsAt(funktionen: readonly Role[], teamId: string, saisonId: s
 
 /** A team's area, the team and the season being its whole address. */
 export function teamHref(teamId: string, saisonId: string): string {
-  return `/bereich/team/${teamId}/${saisonId}`;
+  return `/area/team/${teamId}/${saisonId}`;
 }

@@ -46,10 +46,10 @@ const scrollsSideways = (page: Page) =>
  * old search's editor link names it.
  */
 async function spielId(page: Page): Promise<string> {
-  await page.goto(`/bereich/admin/spielsuche?saison_id=${SAISON}&status=heute`);
+  await page.goto(`/area/admin/spielsuche?saison_id=${SAISON}&status=heute`);
   const link = page.getByRole("link", { name: `Spiel bearbeiten: Spiel Nr. ${String(SPIEL_NR)}` });
   const href = await link.getAttribute("href");
-  const id = /\/bereich\/admin\/spiele\/([0-9a-f]{24})/.exec(href ?? "")?.[1];
+  const id = /\/area\/admin\/spiele\/([0-9a-f]{24})/.exec(href ?? "")?.[1];
   if (id === undefined) throw new Error(`no editor link for match ${String(SPIEL_NR)} on today's search`);
   return id;
 }
@@ -60,7 +60,7 @@ test("an administrator creates a venue over the Spielorte list, then moves a mat
 
   // --- Spielorte ---------------------------------------------------------------------------------
 
-  await page.goto("/bereich/verwaltung/spielorte");
+  await page.goto("/admin/spielorte");
   await expect(page.getByRole("heading", { level: 1, name: "Spielorte" })).toBeVisible();
 
   // A long name wraps in its row and pushes nothing sideways, on desktop and at a phone's width.
@@ -94,7 +94,7 @@ test("an administrator creates a venue over the Spielorte list, then moves a mat
 
   // --- The match editor --------------------------------------------------------------------------
 
-  const editor = `/bereich/verwaltung/saisons/${SAISON}/spiele/${await spielId(page)}`;
+  const editor = `/admin/saisons/${SAISON}/spiele/${await spielId(page)}`;
   await page.goto(editor);
   await expect(page.getByRole("heading", { level: 1, name: "Kastanie gegen Eiche" })).toBeVisible();
 

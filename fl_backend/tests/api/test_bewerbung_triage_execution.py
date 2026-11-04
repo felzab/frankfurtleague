@@ -349,7 +349,7 @@ class TestAnAcceptanceEntersTheSchool:
         assert (rows[0]["team_id"], rows[0]["name"], rows[0]["shorthand"]) == (EXISTING_OID, EXISTING_NAME, EXISTING_SHORTHAND)
 
     def test_the_three_people_reach_the_junction_row_as_they_confirmed(self, mongo_replica_set_url: str):
-        """They arrive WITH the season's row rather than being typed in after it, which is what `/bereich/admin/kontakte` then reads."""
+        """They arrive WITH the season's row rather than being typed in after it, which is what `/area/admin/kontakte` then reads."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await accept(database, client, PICKED_BEWERBUNG)

@@ -82,7 +82,7 @@ export const AdminRegistrierungenList = memo(function AdminRegistrierungenList({
       {/* The row's OWN season, never the header's: the list spans every season, and the seats it is
           cured on are that season's. The subject names the pupil, one team holding several rows. */}
       <RowActionLink
-        href={withSaisonId(`/bereich/admin/kontakte/${registrierung.team_id}`, registrierung.saison_id)}
+        href={withSaisonId(`/area/admin/kontakte/${registrierung.team_id}`, registrierung.saison_id)}
         label="Kontakte bearbeiten"
         subject={`${registrierung.teamName ?? NO_TEAM}, Registrierung von ${registrierung.vorname} ${registrierung.nachname}`}>
         <Pencil
