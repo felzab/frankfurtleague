@@ -24,7 +24,9 @@ const PAYLOAD_REFUSED = "payload_refused";
 export const lookUpSubjekt = cache((email: string): Promise<SubjectSession["subject"]> =>
   // Under the edge's trace: a render's first guard and the sign-in landing's handler reach here before anything
   // has opened the request's scope, and a call outside one is filed under a trace no edge line carries. Inside a
-  // scope already open, an action's or the render's, this opens nothing.
+  // scope already open, an action's or the render's, the read joins it rather than opening another; but the wrapper
+  // reads the request first, which Next refuses in an `after()` a render scheduled and in a scheduler pass, which
+  // serves no request, so neither may call this.
   runWithIncomingTrace(async () => {
     // In the body and on no query parameter: a URL carrying an address reaches the edge's access
     // line, which nothing downstream un-logs.

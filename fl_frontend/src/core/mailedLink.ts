@@ -30,8 +30,10 @@ const MAILED_LINK_SECONDS = 60 * 60;
 
 /**
  * The proxy's answer to a mailed link's first request: a redirect to `page`'s plain address, its token held in
- * `page`'s cookie, or `null` where the request carries no token. A repeated or empty parameter is no link at all, so
- * it deletes a cookie an earlier link left rather than keeping that link alive.
+ * `page`'s cookie, or `null` where the request carries no token. A repeated parameter is no link at all, so it
+ * deletes a cookie an earlier link left rather than keeping that link alive. A single empty one never reaches here:
+ * Next's matcher reads an empty query value as absent, so the page renders on the cookie it holds, as its plain
+ * address does, and no mail sends that spelling.
  */
 export function swapMailedLinkToken(req: NextRequest, page: string): NextResponse | null {
   const tokens = req.nextUrl.searchParams.getAll(TOKEN_PARAMETER);
@@ -39,7 +41,7 @@ export function swapMailedLinkToken(req: NextRequest, page: string): NextRespons
 
   const answer = NextResponse.redirect(new URL(page, req.nextUrl));
   const [token] = tokens;
-  if (tokens.length !== 1 || token === undefined || token === "") {
+  if (tokens.length !== 1 || token === undefined) {
     answer.cookies.delete({ name: MAILED_LINK_COOKIE, path: page });
     return answer;
   }
@@ -61,4 +63,14 @@ export function swapMailedLinkToken(req: NextRequest, page: string): NextRespons
 export async function mailedLinkToken(): Promise<string | null> {
   const token = (await cookies()).get(MAILED_LINK_COOKIE)?.value;
   return token === undefined || token === "" ? null : token;
+}
+
+/**
+ * Deletes `page`'s cookie once its link has done its work, as the privacy notice promises, so a later visitor of a
+ * shared browser opening the plain address meets no earlier person's link. Only a server action or a route handler may
+ * write a cookie, so the act completing the link calls this, never the page; the path is the one the proxy set, which
+ * a browser matches the deletion on.
+ */
+export async function forgetMailedLink(page: string): Promise<void> {
+  (await cookies()).delete({ name: MAILED_LINK_COOKIE, path: page });
 }
