@@ -28,7 +28,6 @@ from app.api.account.services import (
 from app.api.adresswechsel.crud import (
     end_the_change_in_session,
     ending_line,
-    live_grant_of,
     owe_the_link_in_session,
     owe_the_notice_in_session,
     read_the_bestand,
@@ -76,11 +75,7 @@ from app.core.exceptions import DocumentNotFoundError
 from app.core.journal import Journal
 from app.core.recording import log_stamp
 from app.core.security import (
-    SessionActor,
     verify_access_admin,
-    verify_person_actor,
-    verify_person_passkey_confirmation,
-    verify_recent_person_confirmation,
 )
 from app.core.transactions import transaction_session
 from app.shared.folding import sign_in_identifier
@@ -232,7 +227,6 @@ async def get_address_change(
     "/address_change",
     response_model=FLAccountAddressChangeMintResponse,
     summary="Start a change of the signed-in person's address",
-    dependencies=[Depends(verify_recent_person_confirmation)],
 )
 async def post_address_change(
     identifier: KontaktIdentifier,
@@ -246,7 +240,6 @@ async def post_address_change(
     aktionen_collection: ActionLogCollection,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
-    actor: Annotated[SessionActor, Depends(verify_person_actor)],
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLAccountAddressChangeMintResponse:
     """
@@ -259,10 +252,9 @@ async def post_address_change(
     **Nothing about the new address is judged here** -- the ban list, another pupil, a grant it holds -- so this start
     answers alike whatever the new address holds.
 
-    Refused `confirmation_required` from a sign-in or confirmation older than `ENROLMENT_WINDOW_MINUTES`, or by code where the
-    address holds a grant;
-    `address_change_nothing` where the address holds nothing a change moves; `address_change_unchanged` where the typed address is the one
-    signed in; and `address_change_no_approver` where nobody could approve the grant's move, the last owner making another first.
+    Refused `address_change_nothing` where the address holds nothing a change moves; `address_change_unchanged` where the
+    typed address is the one signed in; and `address_change_no_approver` where nobody could approve the grant's move, the
+    last owner making another first.
     """
 
     email = adresswechsel_data.email
@@ -276,8 +268,6 @@ async def post_address_change(
 
         genehmigung = None
         if bestand.grant is not None:
-            # The change hands the grant over, so it asks the passkey a revoke does: this lane admits a sign-in by code.
-            verify_person_passkey_confirmation(actor)
             grants = await read_berechtigungen(berechtigungen_collection=berechtigungen_collection, session=session)
             announced = await read_the_announced(berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection, session=session)
             gesperrt = await adressen_gesperrt(sperrliste, [str(row["adresse"]) for row in grants], session=session)
@@ -337,7 +327,6 @@ async def post_address_change(
     "/address_change/release",
     response_model=FLAccountAddressChangeMintResponse,
     summary="Approve the address change an administrator asked of the signed-in person",
-    dependencies=[Depends(verify_recent_person_confirmation)],
 )
 async def post_address_change_release(
     identifier: KontaktIdentifier,
@@ -346,7 +335,6 @@ async def post_address_change_release(
     berechtigungen_collection: GrantsCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
-    actor: Annotated[SessionActor, Depends(verify_person_actor)],
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLAccountAddressChangeMintResponse:
     """
@@ -356,7 +344,7 @@ async def post_address_change_release(
     judged here either: the approver is owed no answer about it, and the confirmation judges it. **The press approves the
     change its page showed alone**: an administrator's later start replaces that one, and its id then names an ended change.
 
-    Refused `confirmation_required` as the start is; `address_change_ended` where the change `id` names has ended; 404 where it
+    Refused `address_change_ended` where the change `id` names has ended; 404 where it
     is no change of this address awaiting its approval; and `link_expired` past the approval's deadline.
     """
 
@@ -372,9 +360,6 @@ async def post_address_change_release(
             refuse(find_beendet_refusal(offen=ended is None))
             raise DocumentNotFoundError()
         refuse(find_abgelaufen_refusal(abgelaufen=ist_abgelaufen(record, now=germany_now)))
-        # As the start: the press lets a link go that hands over any grant the address holds at the effect.
-        if await live_grant_of(identifier, berechtigungen_collection=berechtigungen_collection, session=session) is not None:
-            verify_person_passkey_confirmation(actor)
 
         approved = await patch_one_in_db(
             collection=adresswechsel_collection,

@@ -12,10 +12,9 @@ import * as zod from "zod";
  * **Nothing about the new address is judged here** -- the ban list, another pupil, a grant it holds -- so this start
  * answers alike whatever the new address holds.
  *
- * Refused `confirmation_required` from a sign-in or confirmation older than `ENROLMENT_WINDOW_MINUTES`, or by code where the
- * address holds a grant;
- * `address_change_nothing` where the address holds nothing a change moves; `address_change_unchanged` where the typed address is the one
- * signed in; and `address_change_no_approver` where nobody could approve the grant's move, the last owner making another first.
+ * Refused `address_change_nothing` where the address holds nothing a change moves; `address_change_unchanged` where the
+ * typed address is the one signed in; and `address_change_no_approver` where nobody could approve the grant's move, the
+ * last owner making another first.
  * @summary Start a change of the signed-in person's address
  */
 export const accountPostAddressChangeBodyEmailMax = 254;
@@ -31,7 +30,7 @@ export const AccountPostAddressChangeBody = zod.object({
  * judged here either: the approver is owed no answer about it, and the confirmation judges it. **The press approves the
  * change its page showed alone**: an administrator's later start replaces that one, and its id then names an ended change.
  *
- * Refused `confirmation_required` as the start is; `address_change_ended` where the change `id` names has ended; 404 where it
+ * Refused `address_change_ended` where the change `id` names has ended; 404 where it
  * is no change of this address awaiting its approval; and `link_expired` past the approval's deadline.
  * @summary Approve the address change an administrator asked of the signed-in person
  */

@@ -283,10 +283,9 @@ export const getAccountPostAddressChangeUrl = () => {
  * **Nothing about the new address is judged here** -- the ban list, another pupil, a grant it holds -- so this start
  * answers alike whatever the new address holds.
  *
- * Refused `confirmation_required` from a sign-in or confirmation older than `ENROLMENT_WINDOW_MINUTES`, or by code where the
- * address holds a grant;
- * `address_change_nothing` where the address holds nothing a change moves; `address_change_unchanged` where the typed address is the one
- * signed in; and `address_change_no_approver` where nobody could approve the grant's move, the last owner making another first.
+ * Refused `address_change_nothing` where the address holds nothing a change moves; `address_change_unchanged` where the
+ * typed address is the one signed in; and `address_change_no_approver` where nobody could approve the grant's move, the
+ * last owner making another first.
  * @summary Start a change of the signed-in person's address
  */
 export const accountPostAddressChange = async (
@@ -324,7 +323,7 @@ export const getAccountPostAddressChangeReleaseUrl = () => {
  * judged here either: the approver is owed no answer about it, and the confirmation judges it. **The press approves the
  * change its page showed alone**: an administrator's later start replaces that one, and its id then names an ended change.
  *
- * Refused `confirmation_required` as the start is; `address_change_ended` where the change `id` names has ended; 404 where it
+ * Refused `address_change_ended` where the change `id` names has ended; 404 where it
  * is no change of this address awaiting its approval; and `link_expired` past the approval's deadline.
  * @summary Approve the address change an administrator asked of the signed-in person
  */
@@ -1637,9 +1636,8 @@ export const getIdentityPostAccountErasureUrl = () => {
  * Erase every record the signed-in address holds, at once and as one write, and answer how many of each kind went.
  *
  * PERSON TIER. The last live, unbarred `owner` of the administration is refused until another administrator is made one
- * (`last_owner_erasure`), since nobody else could ever make an owner again; a person holding a live grant erases it with the rest
- * from a passkey sign-in `ENROLMENT_WINDOW_MINUTES` old at most, as a revoke asks, else `confirmation_required`. No other
- * precondition stands in front of a person's own request, a pupil in a live squad and a referee booked on a fixture still
+ * (`last_owner_erasure`), since nobody else could ever make an owner again, and a person holding a live grant erases it with
+ * the rest. No other precondition stands in front of a person's own request, a pupil in a live squad and a referee booked on a fixture still
  * to be played included. Nothing is counted against the person's day.
  *
  * Removed: the pupil record and every squad row it holds, so the team reads one player fewer; the referee record,

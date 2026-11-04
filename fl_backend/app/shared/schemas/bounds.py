@@ -216,8 +216,10 @@ PERSON_WINDOW_DAYS: Final = 30
 
 # The frontend's enrolment window, which it holds a grant, a revoke and a tier change to as well: the
 # backend refuses those writes from a sign-in older than it, so one the page failed to step up still meets it.
+# Redesign: goes with its last importer.
 ENROLMENT_WINDOW_MINUTES: Final = 5
 
 # The frontend's step-up window, which it holds every other step-up write to: the backend refuses
 # those writes from a sign-in older than it, so one the page failed to step up still meets it.
+# Redesign: goes with its last importer.
 STEP_UP_WINDOW_HOURS: Final = 2

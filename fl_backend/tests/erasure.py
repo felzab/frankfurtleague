@@ -12,7 +12,6 @@ from app.core.collections import Collection
 from app.shared.folding import sign_in_identifier
 from tests.bans import ban_list
 from tests.config import build_test_config
-from tests.session_headers import fresh_admin_actor
 
 _CONFIG = build_test_config()
 
@@ -40,8 +39,6 @@ async def erased(
         identifier=sign_in_identifier(address),
         **erasure_collections(database, **replaced),
         sperrliste=ban_list(database),
-        # Refusing none: a grant holder's passkey is held over HTTP, in `tests/api/test_step_up_execution.py`.
-        actor=fresh_admin_actor(),
         db=client,
         config=_CONFIG,
         germany_now=germany_now,

@@ -101,7 +101,6 @@ from .adresswechsel_harness import (
     everything,
     granted,
     owed,
-    person_actor,
     read,
     refused_code,
     registration,
@@ -914,40 +913,6 @@ class TestTheStop:
             return missed.value.status_code
 
         assert on_a_person(mongo_replica_set_url, body) == 404
-
-
-class TestAGrantHoldersOwnPressAsksAPasskey:
-    """The person's lane admits a sign-in by code, which a change handing a grant over must not be enough for."""
-
-    def test_a_start_by_code_is_refused_where_the_address_holds_a_grant_and_writes_nothing(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await granted(database)
-            with pytest.raises(APIError):
-                await start(database, client, actor=person_actor(factor=None))
-            return await database[Collection.ADDRESS_CHANGES].count_documents({})
-
-        assert on_a_person(mongo_replica_set_url, body) == 0
-
-    def test_a_start_by_code_goes_where_the_address_holds_no_grant(self, mongo_replica_set_url: str):
-        """The control: the code reached the address on file, the confirmation OWASP's process asks of it."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            return await start(database, client, actor=person_actor(factor=None))
-
-        assert on_a_person(mongo_replica_set_url, body).token is not None
-
-    def test_the_address_on_files_approval_by_code_is_refused_where_it_holds_a_grant(self, mongo_replica_set_url: str):
-        """Its press lets the link go that hands the grant over at the effect."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await granted(database)
-            started = await administrator_starts(database, client, grund=None, operator=OWNER)
-            with pytest.raises(APIError):
-                await approve_as_the_address(database, client, started.id, actor=person_actor(factor=None))
-            approved = await approve_as_the_address(database, client, started.id)
-            return approved.token is not None
-
-        assert on_a_person(mongo_replica_set_url, body) is True
 
 
 class TestTheAddressOnFilesApproval:
