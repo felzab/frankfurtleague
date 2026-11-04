@@ -11,7 +11,7 @@
 //   open and a cancelled fixture, next week's matchday holding an undated fixture, and a knockout
 //   round drawn but not yet decided;
 // - venues with and without rent, one retired and one with a name long enough to test a row's width;
-//   referees with and without an address, one retired;
+//   referees, every one with the address both referee payloads require, one retired;
 // - an owner and four administrators.
 //
 // Every journey that writes signs in as a person no other journey signs in as, since one journey's
@@ -20,9 +20,8 @@
 // meets the proxy signed out (`fl_frontend/e2e/desktop/signedOutSave.spec.ts`), and the fourth the
 // administration's journey's (`fl_frontend/e2e/desktop/verwaltung.spec.ts`): each sets up its own
 // passkey, which no other journey could then answer. The referees `journeyPerson` writes, each one
-// journey's, are the account acts' three per project and the desktop passkey journeys' two. The two
-// referees with an address a fixture books are the sign-in journey's person of each project. The owner
-// signs in in none.
+// journey's, are the account acts' three per project and the desktop passkey journeys' two. The owner's
+// code is asked for and never typed (`fl_frontend/e2e/signin.spec.ts`).
 //
 // Run by `./scripts/ops/local.sh --e2e` and `--seed-made-up`, and by the journeys' CI job, with
 // mongosh INSIDE the stack's own database container, at `mongodb://127.0.0.1:27017/<DB_BASE_NAME>`
@@ -143,8 +142,8 @@ function journeyPerson(name, email) {
 const REFEREES = [
   referee("Anna Ahrens", "Ahorn-Gymnasium", 20, "anna.ahrens@example.com", null),
   referee("Ben Brandt", null, 25, "ben.brandt@example.com", null),
-  referee("Carla Conrad", "Ulme-Gymnasium", 20, null, null),
-  referee("Dieter Dorn", null, 15, null, day(-90)),
+  referee("Carla Conrad", "Ulme-Gymnasium", 20, "carla.conrad@example.com", null),
+  referee("Dieter Dorn", null, 15, "dieter.dorn@example.com", day(-90)),
   // The journeys' own, after every referee a fixture books, so no fixture's booking (`booked`, by index) changes. Each
   // project's account acts (`fl_frontend/e2e/accountActs.spec.ts`), in its order: the person signed in on a second
   // device, the one whose address changes, and the one who deletes the account.

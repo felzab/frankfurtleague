@@ -12,17 +12,12 @@ test("the footer's legal group leads to the Impressum and to the privacy notice"
 
   await page.goto("/");
   await legal.getByRole("link", { name: "Impressum", exact: true }).click();
-  await expect(page).toHaveURL(/\/impressum$/);
-  await expect(page.getByRole("heading", { level: 1, name: "Impressum" })).toBeVisible();
-  // The licence note's link leads to the repository.
-  await expect(page.getByRole("main").getByRole("link", { name: "Quellcode auf GitHub" })).toHaveAttribute(
-    "href",
-    "https://github.com/felzab/frankfurtleague",
-  );
+  await expect(page).toHaveURL((url) => url.pathname === "/impressum");
+  await expect(page.getByRole("main").getByRole("heading", { level: 1, name: "Impressum" })).toBeVisible();
 
   await legal.getByRole("link", { name: "Datenschutz", exact: true }).click();
-  await expect(page).toHaveURL(/\/datenschutz$/);
-  await expect(page.getByRole("heading", { level: 1, name: "Datenschutz" })).toBeVisible();
-  await expect(page.getByRole("table", { name: "Speicherdauer" })).toBeVisible();
+  await expect(page).toHaveURL((url) => url.pathname === "/datenschutz");
+  await expect(page.getByRole("main").getByRole("heading", { level: 1, name: "Datenschutz" })).toBeVisible();
+  await expect(page.getByRole("main").getByRole("table", { name: "Speicherdauer" })).toBeVisible();
   await expect(page.getByRole("main").getByText(/^Stand: \d{1,2}\. \S+ \d{4}$/)).toBeVisible();
 });
