@@ -162,9 +162,10 @@ test("the person deletes their account from the mailed link, signed out when it 
   await page.getByRole("button", { name: "Später" }).click();
   await expect(page).toHaveURL(/\/erasure\?token=/);
 
-  // The list of what goes names the account's address.
+  // The list of what goes names the account's address, as the value of its row. Asked by role: the sign-in's steps
+  // stay in the document hidden, as Next keeps the routes a visitor came through, and they name the address too.
   await expect(page.getByRole("heading", { name: "Konto löschen" })).toBeVisible();
-  await expect(page.getByText(address, { exact: true })).toBeVisible();
+  await expect(page.getByRole("definition").filter({ hasText: address })).toHaveText(address);
   await expect(page.getByText("Alles oben wird endgültig gelöscht.")).toBeVisible();
 
   // The deletion ends the caller's own session, so the action's answer is the done page's render alone: the link's
