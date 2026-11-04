@@ -14,8 +14,7 @@ test("an administrator's mailed code leads to setting up a passkey", async ({ pa
   // The code alone does not open the Verwaltung: the card requires the passkey, where a person's
   // offers it with a way past.
   await expect(page).toHaveURL((url) => url.pathname === "/signin/passkey");
-  // In `main` and by role: the code step the browser came through stays in the document, hidden, and names the address
-  // too.
+  // In `main`: the code step the browser came through stays in the document, hidden, and names the address too.
   const card = page.getByRole("main");
   await expect(card.getByText("Die Verwaltung ist erst mit einem Passkey erreichbar.")).toBeVisible();
   await expect(card.getByText(administrator, { exact: true })).toBeVisible();
@@ -27,5 +26,6 @@ test("an administrator's mailed code leads to setting up a passkey", async ({ pa
   await page.goto("/admin/spielorte");
   await expect(page).toHaveURL((url) => url.pathname === "/signin/passkey");
   await expect(card.getByText("Die Verwaltung ist erst mit einem Passkey erreichbar.")).toBeVisible();
-  await expect(card.getByRole("heading", { level: 1, name: "Spielorte", exact: true })).toHaveCount(0);
+  // Over the whole page: an absence judged inside one landmark would hold wherever else the title stood.
+  await expect(page.getByRole("heading", { level: 1, name: "Spielorte", exact: true })).toHaveCount(0);
 });

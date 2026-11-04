@@ -23,7 +23,7 @@ test("the landing's Spielplan leads to the season's Spielplan, and a landing mat
   // The hero's first act leads straight to the Spielplan of the season the site is on.
   await page.getByRole("main").getByRole("link", { name: "Spielplan", exact: true }).click();
   await expect(page).toHaveURL((url) => url.pathname === "/saisons/2027");
-  await expect(page.getByRole("main").getByRole("heading", { level: 1, name: "Spielplan" })).toBeVisible();
+  await expect(page.getByRole("banner").getByRole("heading", { level: 1, name: "Spielplan" })).toBeVisible();
 
   ready = hydrated(page);
   await page.goto("/");
@@ -53,7 +53,7 @@ test("the rail's four season pages and the sponsors page each stand under their 
   // is on in-stream.
   await page.goto("/saisons");
   await expect(page).toHaveURL((url) => url.pathname === "/saisons/2027");
-  await expect(page.getByRole("main").getByRole("heading", { level: 1, name: "Spielplan" })).toBeVisible();
+  await expect(page.getByRole("banner").getByRole("heading", { level: 1, name: "Spielplan" })).toBeVisible();
 
   // The rail's entries in its order, each a link to the season's page of that name.
   for (const [label, address] of [
@@ -64,7 +64,7 @@ test("the rail's four season pages and the sponsors page each stand under their 
   ] as const) {
     await page.getByRole("navigation", { name: "Navigation" }).getByRole("link", { name: label, exact: true }).click();
     await expect(page).toHaveURL((url) => url.pathname === address);
-    await expect(page.getByRole("main").getByRole("heading", { level: 1, name: label })).toBeVisible();
+    await expect(page.getByRole("banner").getByRole("heading", { level: 1, name: label })).toBeVisible();
   }
 
   // The sponsors page, reached from the classic footer's „Liga“ group.

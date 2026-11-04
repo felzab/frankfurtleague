@@ -61,7 +61,7 @@ test("an administrator creates a venue over the Spielorte list, then moves a mat
   // --- Spielorte ---------------------------------------------------------------------------------
 
   await page.goto("/admin/spielorte");
-  await expect(page.getByRole("main").getByRole("heading", { level: 1, name: "Spielorte" })).toBeVisible();
+  await expect(page.getByRole("banner").getByRole("heading", { level: 1, name: "Spielorte" })).toBeVisible();
 
   // A long name wraps in its row and pushes nothing sideways, on desktop and at a phone's width.
   await expect(page.getByRole("main").getByRole("cell", { name: LONG_NAME })).toBeVisible();
@@ -91,7 +91,7 @@ test("an administrator creates a venue over the Spielorte list, then moves a mat
 
   const editor = `/admin/saisons/${SAISON}/spiele/${await spielId(page)}`;
   await page.goto(editor);
-  await expect(page.getByRole("main").getByRole("heading", { level: 1, name: "Kastanie gegen Eiche" })).toBeVisible();
+  await expect(page.getByRole("banner").getByRole("heading", { level: 1, name: "Kastanie gegen Eiche" })).toBeVisible();
 
   // The kick-off's hour, then its minutes: the segmented field moves on by itself after two digits.
   const uhrzeit = page.getByRole("group", { name: /^Uhrzeit/ });

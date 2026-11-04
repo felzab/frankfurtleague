@@ -46,7 +46,7 @@ test("a visitor opens a match from the Spielplan, and Back returns to the matchd
 
   // Loaded directly, the same address is the match's own page, with no pop-up.
   await page.goto(matchPage);
-  await expect(page.getByRole("main").getByRole("heading", { level: 1, name: "Ahorn gegen Kastanie" })).toBeVisible();
+  await expect(page.getByRole("banner").getByRole("heading", { level: 1, name: "Ahorn gegen Kastanie" })).toBeVisible();
   await expect(page.getByRole("dialog")).toHaveCount(0);
 });
 
@@ -63,6 +63,6 @@ test("a club's name in the pop-up opens the club's page and closes the pop-up", 
   // its routes; the slot's catch-all matches the club's page and draws no pop-up.
   await popup.getByRole("link", { name: "Ahorn", exact: true }).click();
   await expect(page).toHaveURL((url) => /^\/saisons\/2027\/teams\/[0-9a-f]{24}$/.test(url.pathname));
-  await expect(page.getByRole("main").getByRole("heading", { level: 1, name: "Ahorn" })).toBeVisible();
+  await expect(page.getByRole("banner").getByRole("heading", { level: 1, name: "Ahorn" })).toBeVisible();
   await expect(page.getByRole("dialog")).toHaveCount(0);
 });
