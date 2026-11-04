@@ -34,7 +34,7 @@ export function SecurityBoxes({
   devices,
   name,
 }: {
-  /** The address the page is drawn for, which each removal posts behind its touch. */
+  /** The address the page is drawn for, which every act of the account posts and every touch answers for. */
   holder: string;
   passkeys: readonly PasskeyRow[];
   /** Why no further passkey may be set up, or `undefined` where one may. */
@@ -66,6 +66,7 @@ export function SecurityBoxes({
       title: COPY.shared.withObject(PASSKEY, "rename"),
       run: (formData) => {
         formData.set("id", passkey.id);
+        formData.set("holder", holder);
         return renamePasskeyAction(formData);
       },
       field: (
@@ -86,6 +87,7 @@ export function SecurityBoxes({
       // Read after the touch, whose sign-in the page's session then is: `thisDevice` is the fresh page's answer.
       consequence: passkey.thisDevice ? COPY.account.passkeys.endsThisDevice : COPY.account.passkeys.endsDevices,
       touch: true,
+      holder,
       closed: lastKept,
       run: async () => {
         const answer = await removePasskeyAction({ id: passkey.id, holder });
@@ -104,6 +106,8 @@ export function SecurityBoxes({
         description={COPY.account.passkeys.description}
         act={{
           run: setUp,
+          // The browser's own act posts no holder, so the touch before it answers for the page's address alone.
+          carry: { holder },
           button: { label: COPY.shared.withObject(PASSKEY, "setUp") },
           touch: held,
           closed: setUpClosed,
@@ -116,6 +120,7 @@ export function SecurityBoxes({
         description={devices}
         act={{
           run: signOutOthers,
+          carry: { holder },
           button: {
             confirm: {
               verb: "signOut",

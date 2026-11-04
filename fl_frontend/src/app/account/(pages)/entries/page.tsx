@@ -128,7 +128,7 @@ function entriesOf({ spieler, schiedsrichter, registrierungen, seats, bewerbunge
 
 /** The person's records, read for the session the page is drawn for. */
 async function EntriesContent() {
-  await requireAccountSession(ROUTES.accountEntries.path());
+  const { subject } = await requireAccountSession(ROUTES.accountEntries.path());
   const entries = entriesOf(await getAccountEinwilligungen());
   return entries.length === 0 ? (
     <AccountEmpty
@@ -136,7 +136,10 @@ async function EntriesContent() {
       glyph="entries"
     />
   ) : (
-    <EntriesBoxes entries={entries} />
+    <EntriesBoxes
+      entries={entries}
+      holder={subject.email}
+    />
   );
 }
 

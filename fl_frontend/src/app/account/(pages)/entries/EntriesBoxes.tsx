@@ -57,8 +57,12 @@ export type Entry = {
   readonly mediaFrom: Copy | null;
 };
 
-/** The two fields a box posts: the scope, a choice or a box ticked, and the media box. */
-const read = (formData: FormData) => ({ umfang: formData.get("umfang"), medien: formData.get("medien") === "on" });
+/** The fields a box posts: the scope, a choice or a box ticked, the media box, and the holder its act carries. */
+const read = (formData: FormData) => ({
+  umfang: formData.get("umfang"),
+  medien: formData.get("medien") === "on",
+  holder: String(formData.get("holder")),
+});
 
 /** A name's scope as its choice posts it, the record's own where the choice closed and posted none. */
 const nameScope = (posted: FormDataEntryValue | null, held: Entry["umfang"]): FLEinwilligungUmfang =>
@@ -74,13 +78,14 @@ const contactScope = (posted: FormDataEntryValue | null): FLKontaktKenntnisnahme
  */
 function saveOf(entry: Entry) {
   return (formData: FormData) => {
-    const { umfang, medien } = read(formData);
+    const { umfang, medien, holder } = read(formData);
     const { save, nachweis } = entry;
     switch (save.kind) {
       case "spieler":
         return saveSpielerConsent({
           umfang: nameScope(umfang, entry.umfang),
           medien,
+          holder,
           nachweis_stand: nachweis,
           text_versions: SPIELER_TEXT_VERSIONS,
         });
@@ -89,6 +94,7 @@ function saveOf(entry: Entry) {
           registrierung_id: save.registrierung_id,
           umfang: nameScope(umfang, entry.umfang),
           medien,
+          holder,
           nachweis_stand: nachweis,
           text_versions: SPIELER_TEXT_VERSIONS,
         });
@@ -97,6 +103,7 @@ function saveOf(entry: Entry) {
           schiedsrichter_id: save.schiedsrichter_id,
           umfang: nameScope(umfang, entry.umfang),
           medien,
+          holder,
           nachweis_stand: nachweis,
           text_versions: SCHIEDSRICHTER_TEXT_VERSIONS,
         });
@@ -106,6 +113,7 @@ function saveOf(entry: Entry) {
           saison_id: save.saison_id,
           umfang: contactScope(umfang),
           medien,
+          holder,
           nachweis_stand: nachweis,
           text_versions: SEAT_TEXT_VERSIONS,
         });
@@ -114,6 +122,7 @@ function saveOf(entry: Entry) {
           bewerbung_id: save.bewerbung_id,
           umfang: contactScope(umfang),
           medien,
+          holder,
           nachweis_stand: nachweis,
           text_versions: SEAT_TEXT_VERSIONS,
         });
@@ -198,13 +207,20 @@ function MediaChoice({ entry }: { entry: Entry }) {
  * Deine Einträge: every record of the person's own, one box each, with what the league stores of it and its two
  * choices under their wordings, saved together by the footer's „Speichern“ and by nothing else.
  */
-export function EntriesBoxes({ entries }: { entries: readonly Entry[] }) {
+export function EntriesBoxes({
+  entries,
+  holder,
+}: {
+  entries: readonly Entry[];
+  /** The address the page is drawn for, which every save posts. */
+  holder: string;
+}) {
   return entries.map((entry) => (
     <AccountBox
       key={entry.id}
       title={entry.title}
       description={entry.description}
-      act={{ run: saveOf(entry), button: { label: COPY.shared.verb.save }, saves: true }}>
+      act={{ run: saveOf(entry), carry: { holder }, button: { label: COPY.shared.verb.save }, saves: true }}>
       {entry.facts.length > 0 && (
         <Facts
           look="free"

@@ -59,7 +59,7 @@ export function OneShotForm({
   children?: ReactNode;
 }) {
   const { answer, submit, block, isBlocked, isPending } = useFormAction(action, { resetOnLeave: false });
-  const { run, refusal, isTouching } = usePasskeyTouch(touch);
+  const { run, refusal, isTouching } = usePasskeyTouch(touch, carry.holder);
   const form = useRef<HTMLFormElement>(null);
   const [pressed, setPressed] = useState<Act>("primary");
 

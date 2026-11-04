@@ -6,7 +6,7 @@ import { headers } from "next/headers";
 import { isAPIError } from "better-auth/api";
 import { z } from "zod";
 
-import { action, TOUCH_HOLDER } from "@/core/action";
+import { action, PAGE_HOLDER } from "@/core/action";
 import { afterTheResponse } from "@/core/afterResponse";
 import { notifyPasskeyRemoved } from "@/core/auth/mails";
 import { passkeysOf, removePasskey, renamePasskey } from "@/core/auth/passkeys";
@@ -38,7 +38,7 @@ export const removePasskeyAction = action({
   claim: "account",
   passkey: true,
   name: "removePasskeyAction",
-  input: z.object({ id: PasskeyId, ...TOUCH_HOLDER }),
+  input: z.object({ id: PasskeyId, ...PAGE_HOLDER }),
   run: async ({ id }, { served }) => {
     // Read before the removal, which may end the session this request arrived with.
     const thisDevice = (await passkeysOf(served.user.id)).some(
@@ -74,7 +74,7 @@ export const renamePasskeyAction = action({
   lane: "person",
   claim: "account",
   name: "renamePasskeyAction",
-  input: z.object({ id: PasskeyId, name: PasskeyNameSchema }),
+  input: z.object({ id: PasskeyId, name: PasskeyNameSchema, ...PAGE_HOLDER }),
   run: async ({ id, name }) => {
     try {
       await renamePasskey(id, name, await headers());

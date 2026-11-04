@@ -7,7 +7,7 @@ import { redirect } from "next/navigation";
 import { linkInvalid, TO_ACCOUNT } from "@/kit/MailedPage";
 import { z } from "zod";
 
-import { action, TOUCH_HOLDER } from "@/core/action";
+import { action, PAGE_HOLDER } from "@/core/action";
 import { deleteOwnAccount, DeletionOutcomeUnknown, requestAccountDeletion } from "@/core/auth/accounts";
 import { endOtherSessions } from "@/core/auth/accountSessions";
 import { COPY } from "@/core/copy";
@@ -39,8 +39,8 @@ import type { ActionAnswer } from "@/core/action";
 import type { FLAccountEinwilligungenResponse } from "@/core/generated/client/types";
 import type { EndState } from "@/kit/MailedPage";
 
-/** An act that posts no field: the signed-in session names everything it acts on. */
-const NOTHING = z.object({});
+/** An act that posts no field but its page's holder: the signed-in session names everything it acts on. */
+const HOLDER_ALONE = z.object(PAGE_HOLDER);
 
 /**
  * Completes a mailed deletion link: the league's records, then the account, the passkey touch first for a person
@@ -58,7 +58,7 @@ export const eraseAccount = action({
   passkey: true,
   name: "eraseAccount",
   // The library's own token, which no backend schema publishes: one line of letters, digits, `-` and `_`.
-  input: z.object({ token: z.string().regex(/^[A-Za-z0-9_-]{1,128}$/), ...TOUCH_HOLDER }),
+  input: z.object({ token: z.string().regex(/^[A-Za-z0-9_-]{1,128}$/), ...PAGE_HOLDER }),
   run: async ({ token }, { subject }): Promise<ActionAnswer<EndState>> => {
     // Refused before the library spends the link, so the same link completes once another owner is made; the
     // backend refuses two owners at once. Read for an owner alone, the one tier that can be the last.
@@ -95,7 +95,7 @@ export const startAddressChange = action({
   claim: "account",
   passkey: true,
   name: "startAddressChange",
-  input: SignInPayloadSchema.extend(TOUCH_HOLDER),
+  input: SignInPayloadSchema.extend(PAGE_HOLDER),
   examples: { email: COPY.shared.field.exampleAddress },
   ownWords: ["address_change_unchanged", "address_change_no_approver"],
   run: async ({ email }) => {
@@ -109,7 +109,7 @@ export const withdrawAddressChange = action({
   lane: "person",
   claim: "account",
   name: "withdrawAddressChange",
-  input: NOTHING,
+  input: HOLDER_ALONE,
   run: async () => {
     await stopAccountAddressChange();
     return { ok: true, value: undefined };
@@ -125,7 +125,7 @@ export const requestErasure = action({
   lane: "person",
   claim: "account",
   name: "requestErasure",
-  input: NOTHING,
+  input: HOLDER_ALONE,
   run: async () => {
     await requestAccountDeletion(await headers());
     return { ok: true, value: undefined };
@@ -137,7 +137,7 @@ export const signOutOthers = action({
   lane: "person",
   claim: "account",
   name: "signOutOthers",
-  input: NOTHING,
+  input: HOLDER_ALONE,
   run: async (_, { served }) => {
     await endOtherSessions(served.user.id, served.session.id);
     // The sign-in store holds what changed, past every cached read: the device count is read again.
@@ -147,7 +147,8 @@ export const signOutOthers = action({
 });
 
 // The consents Deine Einträge saves, one record a box: both choices on every press, with the labels the page showed
-// and the evidence it was served, so a press on a page older than either change is refused rather than stamped.
+// and the evidence it was served, so a press on a page older than either change is refused rather than stamped. Each is
+// an act of the account, which only Konto's page reaches, so an administrator's mailbox changes none of them.
 
 /**
  * A save whose media choice the backend refused as given below its floor, in the sentence Deine Einträge shows under
@@ -176,10 +177,10 @@ async function savedWithMediaFloor(
 /** A pupil's own two choices on their record. */
 export const saveSpielerConsent = action({
   lane: "person",
-  claim: "record",
+  claim: "account",
   name: "saveSpielerConsent",
-  input: SpielerPatchEinwilligungBody,
-  run: (choices) =>
+  input: SpielerPatchEinwilligungBody.extend(PAGE_HOLDER),
+  run: ({ holder: _holder, ...choices }) =>
     savedWithMediaFloor(
       () => patchSpielerKontoEinwilligung(choices),
       (view) => view.spieler?.medien_minimum_age,
@@ -189,10 +190,10 @@ export const saveSpielerConsent = action({
 /** A referee's own two choices on one of their rows, of which one address may hold several. */
 export const saveSchiedsrichterConsent = action({
   lane: "person",
-  claim: "record",
+  claim: "account",
   name: "saveSchiedsrichterConsent",
-  input: SchiedsrichterPatchEinwilligungParams.extend(SchiedsrichterPatchEinwilligungBody.shape),
-  run: ({ schiedsrichter_id, ...choices }) =>
+  input: SchiedsrichterPatchEinwilligungParams.extend(SchiedsrichterPatchEinwilligungBody.shape).extend(PAGE_HOLDER),
+  run: ({ schiedsrichter_id, holder: _holder, ...choices }) =>
     savedWithMediaFloor(
       () => patchSchiedsrichterKontoEinwilligung(schiedsrichter_id, choices),
       (view) => view.schiedsrichter.find((row) => row.schiedsrichter_id === schiedsrichter_id)?.medien_minimum_age,
@@ -202,10 +203,10 @@ export const saveSchiedsrichterConsent = action({
 /** A pupil's withdrawal on their pending registration, whose grant waits on the team's admission. */
 export const saveRegistrierungConsent = action({
   lane: "person",
-  claim: "record",
+  claim: "account",
   name: "saveRegistrierungConsent",
-  input: RegistrierungenPatchEinwilligungParams.extend(RegistrierungenPatchEinwilligungBody.shape),
-  run: async ({ registrierung_id, ...choices }) => {
+  input: RegistrierungenPatchEinwilligungParams.extend(RegistrierungenPatchEinwilligungBody.shape).extend(PAGE_HOLDER),
+  run: async ({ registrierung_id, holder: _holder, ...choices }) => {
     await patchRegistrierungEinwilligung(registrierung_id, choices);
     return { ok: true, value: undefined };
   },
@@ -214,10 +215,10 @@ export const saveRegistrierungConsent = action({
 /** A seat holder's own two choices for every seat they hold on one team's season, a past season's to withdraw. */
 export const saveSeatConsent = action({
   lane: "person",
-  claim: "record",
+  claim: "account",
   name: "saveSeatConsent",
-  input: TeamsPatchEinwilligungParams.extend(TeamsPatchEinwilligungBody.shape),
-  run: ({ team_id, saison_id, ...choices }) =>
+  input: TeamsPatchEinwilligungParams.extend(TeamsPatchEinwilligungBody.shape).extend(PAGE_HOLDER),
+  run: ({ team_id, saison_id, holder: _holder, ...choices }) =>
     savedWithMediaFloor(
       () => patchSitzEinwilligung(team_id, saison_id, choices),
       (view) => view.seats.find((seat) => seat.team_id === team_id && seat.saison_id === saison_id)?.medien_minimum_age,
@@ -227,10 +228,10 @@ export const saveSeatConsent = action({
 /** A seat holder's withdrawal on a pending application, whose grant is its confirmation page's alone. */
 export const saveBewerbungConsent = action({
   lane: "person",
-  claim: "record",
+  claim: "account",
   name: "saveBewerbungConsent",
-  input: BewerbungenPatchEinwilligungParams.extend(BewerbungenPatchEinwilligungBody.shape),
-  run: async ({ bewerbung_id, ...choices }) => {
+  input: BewerbungenPatchEinwilligungParams.extend(BewerbungenPatchEinwilligungBody.shape).extend(PAGE_HOLDER),
+  run: async ({ bewerbung_id, holder: _holder, ...choices }) => {
     await patchBewerbungEinwilligung(bewerbung_id, choices);
     return { ok: true, value: undefined };
   },

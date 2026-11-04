@@ -54,7 +54,7 @@ export function SignInBoxes({
           description={COPY.account.address.description}
           act={{
             run: startAddressChange,
-            // The address the page is drawn for, which the start posts behind its touch.
+            // The address the page is drawn for, which every act of the account posts.
             carry: { holder: email },
             button: { label: COPY.shared.withObject(COPY.account.address.link, "send") },
             touch: held,
@@ -74,7 +74,11 @@ export function SignInBoxes({
           description={COPY.account.address.description}
           act={
             pending.own
-              ? { run: withdrawAddressChange, button: { label: COPY.shared.withObject(COPY.account.address.change, "withdraw") } }
+              ? {
+                  run: withdrawAddressChange,
+                  carry: { holder: email },
+                  button: { label: COPY.shared.withObject(COPY.account.address.change, "withdraw") },
+                }
               : undefined
           }>
           {address}
@@ -101,6 +105,7 @@ export function SignInBoxes({
         description={COPY.account.erasure.description}
         act={{
           run: requestErasure,
+          carry: { holder: email },
           button: {
             confirm: { verb: "delete", subject: COPY.template.account, consequence: COPY.account.erasure.consequence, tone: "danger" },
           },
