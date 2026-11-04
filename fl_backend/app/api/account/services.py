@@ -19,7 +19,7 @@ from app.api.identity.services import eigene_sitze, holds_a_seat, ist_eigene_reg
 from app.api.kontakte.services import rows_seating
 from app.api.registrierungen.services import build_eigene_registrierung_filter, traegt_wahlen
 from app.api.schiedsrichter.services import SELF_REFEREE_ORDER, build_self_referee_pipeline
-from app.api.spieler.services import SELF_PUPIL_ORDER, build_self_pupil_pipeline
+from app.api.spieler.services import SELF_PUPIL_ORDER, build_self_pupil_filter
 from app.core.codes import Code
 from app.core.collections import Collection as DbCollection
 from app.core.exceptions import WriteRefusal
@@ -206,25 +206,44 @@ def kontext_teams_lookup(local_field: str) -> Mapping[str, Any]:
     }
 
 
-def compose_spieler_self(row: Mapping[str, Any]) -> dict[str, Any]:
-    """One pupil row's stored data, as `app/api/spieler/services.py :: build_self_pupil_pipeline` reads it."""
+def _account_einwilligung(block: Mapping[str, Any]) -> dict[str, Any]:
+    return {"umfang": block["umfang"], "medien": block["medien"]}
 
+
+def _compose_spieler_person(row: Mapping[str, Any]) -> dict[str, Any]:
     return {
         "spieler_id": row["_id"],
         "vorname": row["vorname"],
         "nachname": row.get("nachname"),
         "geburtsdatum": row.get("geburtsdatum"),
-        "kader": row["kader"],
     }
 
 
+def compose_spieler_self(row: Mapping[str, Any]) -> dict[str, Any]:
+    """One pupil row's stored data and its squad rows, as `app/api/spieler/services.py :: build_self_pupil_pipeline` reads them."""
+
+    return {**_compose_spieler_person(row), "kader": row["kader"]}
+
+
+def build_account_pupil_pipeline(identifier: str) -> list[Mapping[str, Any]]:
+    """This address's pupil row as its account entry and the Funktionen the page judges a grant by read it.
+
+    Its own rather than `app/api/spieler/services.py :: build_self_pupil_pipeline`, whose lookups join every squad row
+    the pupil holds for an entry serving none.
+    """
+
+    return [
+        {"$match": build_self_pupil_filter(identifier)},
+        {"$project": {"vorname": 1, "nachname": 1, "geburtsdatum": 1, "inactive_since": 1, "einwilligung": 1}},
+    ]
+
+
 def compose_spieler_account(row: Mapping[str, Any], *, givable: bool, today: str) -> dict[str, Any]:
-    """The pupil's account entry: its stored data and its consent."""
+    """The pupil's account entry: its stored data and its consent, never its squad rows, which the page lists none of."""
 
     return {
-        **compose_spieler_self(row),
-        "inactive_since": row.get("inactive_since"),
-        "einwilligung": row["einwilligung"],
+        **_compose_spieler_person(row),
+        "einwilligung": _account_einwilligung(row["einwilligung"]),
         "nachweis_stand": nachweis_stand_of(bloecke=[row["einwilligung"]]),
         "givable": givable,
         "medien_offered": medien_angeboten(geburtsdatum=row.get("geburtsdatum"), today=today),
@@ -232,26 +251,28 @@ def compose_spieler_account(row: Mapping[str, Any], *, givable: bool, today: str
     }
 
 
-def compose_schiedsrichter_self(row: Mapping[str, Any]) -> dict[str, Any]:
-    """One referee row's stored data, as `app/api/schiedsrichter/services.py :: SELBST_FIELDS` projects it."""
-
+def _compose_schiedsrichter_person(row: Mapping[str, Any]) -> dict[str, Any]:
     return {
         "schiedsrichter_id": row["_id"],
         "name": row["name"],
         "schule": row.get("schule"),
-        "honorar": row["default_payment"],
         "kontakt": row["kontakt"],
         "geburtsdatum": row.get("geburtsdatum"),
     }
 
 
+def compose_schiedsrichter_self(row: Mapping[str, Any]) -> dict[str, Any]:
+    """One referee row's stored data and its fee, as `app/api/schiedsrichter/services.py :: SELBST_FIELDS` projects them."""
+
+    return {**_compose_schiedsrichter_person(row), "honorar": row["default_payment"]}
+
+
 def compose_schiedsrichter_account(row: Mapping[str, Any], *, givable: bool, today: str) -> dict[str, Any]:
-    """One referee row's account entry: its stored data and its consent."""
+    """One referee row's account entry: its stored data and its consent, never its fee, which the page shows nowhere."""
 
     return {
-        **compose_schiedsrichter_self(row),
-        "inactive_since": row.get("inactive_since"),
-        "einwilligung": row["einwilligung"],
+        **_compose_schiedsrichter_person(row),
+        "einwilligung": _account_einwilligung(row["einwilligung"]),
         "nachweis_stand": nachweis_stand_of(bloecke=[row["einwilligung"]]),
         "givable": givable,
         "medien_offered": medien_angeboten(geburtsdatum=row.get("geburtsdatum"), today=today),
@@ -389,7 +410,6 @@ def compose_bewerbungssitze_self(
                 "saison_id": row["saison_id"],
                 "rollen": rollen,
                 **_sitz_wahlen_gehalten(held),
-                "medien_minimum_age": MEDIEN_MIN_AGE_YEARS,
             }
         )
 
@@ -415,9 +435,6 @@ def build_self_registrierung_pipeline(identifier: str) -> list[Mapping[str, Any]
                     "vorname",
                     "nachname",
                     "geburtsdatum",
-                    "nummer",
-                    "position",
-                    "stufe",
                     "einwilligung",
                 )
             }
@@ -440,14 +457,12 @@ def compose_registrierungen_self(
         eintraege.append(
             {
                 "registrierung_id": row["_id"],
-                "team_id": row["team_id"],
                 "team_name": None if team is None else team.get("name"),
                 "saison_id": row["saison_id"],
                 "umfang": block.get("umfang"),
                 "medien": is_given("medien", block.get("medien")) if traegt_wahlen(block) else None,
-                "medien_minimum_age": MEDIEN_MIN_AGE_YEARS,
                 "nachweis_stand": nachweis_stand_of(bloecke=[block]),
-                **{field: row.get(field) for field in ("vorname", "nachname", "geburtsdatum", "nummer", "position", "stufe")},
+                **{field: row.get(field) for field in ("vorname", "nachname", "geburtsdatum")},
             }
         )
 
@@ -492,7 +507,7 @@ def build_account_pipeline(identifier: str) -> list[Mapping[str, Any]]:
     """
 
     return [
-        *_arm("spieler", build_self_pupil_pipeline(identifier), order=SELF_PUPIL_ORDER),
+        *_arm("spieler", build_account_pupil_pipeline(identifier), order=SELF_PUPIL_ORDER),
         {
             "$unionWith": {
                 "coll": DbCollection.SCHIEDSRICHTER,

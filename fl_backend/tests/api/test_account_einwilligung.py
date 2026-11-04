@@ -555,7 +555,9 @@ class TestTheAccountPagesRead:
         assert response.status_code == 200, response.text
         body = response.json()
         assert (body["spieler"]["spieler_id"], body["spieler"]["givable"]) == (str(PUPIL_OID), True)
-        assert [(record["schiedsrichter_id"], record["honorar"]) for record in body["schiedsrichter"]] == [(str(REFEREE_OID), 20)]
+        assert [(record["schiedsrichter_id"], record["name"]) for record in body["schiedsrichter"]] == [
+            (str(REFEREE_OID), "Ortrud Zwiebelmayer")
+        ]
         assert [(sitz["team_name"], sitz["saison_id"], sorted(sitz["rollen"]), sitz["medien"], sitz["givable"]) for sitz in body["seats"]] == [
             (ROW_NAME_B, ACTIVE_SAISON, ["stellvertretung"], True, True),
             (ROW_NAME_A_PAST, PAST_SAISON, ["ansprechperson", "trainer"], True, False),
@@ -933,7 +935,6 @@ class TestAPendingApplicationsSeats:
                 "umfang": "kontaktdaten",
                 "medien": True,
                 "nachweis_stand": _seated_stand(2),
-                "medien_minimum_age": MEDIEN_MIN_AGE_YEARS,
             }
         ]
 
@@ -1234,12 +1235,7 @@ class TestAPendingRegistration:
         assert sorted(entries) == sorted([str(REGISTRIERUNG_OWN), str(REGISTRIERUNG_RETURNING)])
         returning = entries[str(REGISTRIERUNG_RETURNING)]
         assert (returning["umfang"], returning["medien"], returning["nachweis_stand"]) == (None, None, {"umfang": None, "medien": None})
-        assert (returning["nummer"], returning["position"], returning["stufe"], returning["geburtsdatum"]) == (
-            "17",
-            "Mittelfeld",
-            "Q1",
-            SEVENTEEN_BIRTHDATE,
-        )
+        assert returning["geburtsdatum"] == SEVENTEEN_BIRTHDATE
         assert (entries[str(REGISTRIERUNG_OWN)]["umfang"], entries[str(REGISTRIERUNG_OWN)]["medien"]) == ("kader_oeffentlich", True)
 
 

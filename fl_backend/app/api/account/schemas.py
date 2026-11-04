@@ -2,29 +2,36 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.api.adresswechsel.schemas import FLAddressChangeApprovalState
 from app.api.berechtigungen.schemas import FLUtcInstant
-from app.api.schiedsrichter.schemas import FLSchiedsrichterSelf
-from app.api.spieler.schemas import FLEinwilligung, FLSpielerSelf
-from app.shared.schemas.custom import CustomObjectId, CustomOptionalDateString
+from app.api.spieler.schemas import FLSpielerSelfPerson
+from app.shared.schemas.custom import CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
 from app.shared.schemas.einwilligung import FLEinwilligungStand
-from app.shared.schemas.kontakt import CustomEmail
+from app.shared.schemas.kontakt import CustomEmail, FLKontakt
 from app.shared.schemas.literals import (
     FLAddressChangeWaitsOn,
     FLAddressChangeWay,
     FLEinwilligungUmfang,
     FLKontaktKenntnisnahmeUmfang,
     FLKontaktRolle,
-    FLSpielerPosition,
-    FLSpielerStufe,
 )
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
 
-class FLAccountSpielerEinwilligung(FLSpielerSelf):
+class FLAccountEinwilligung(BaseModel):
+    """A person's own record's two choices as its box shows them.
+
+    The choices alone: the box names no day and no label, and `nachweis_stand` stands for each choice's evidence in the
+    precondition a press echoes.
+    """
+
+    umfang: FLEinwilligungUmfang
+    medien: bool
+
+
+class FLAccountSpielerEinwilligung(FLSpielerSelfPerson):
     """The pupil's record on the account page: its stored data and the consent the page moves."""
 
-    inactive_since: CustomOptionalDateString
     # Required: only a confirmed record is served, so the block is always there.
-    einwilligung: FLEinwilligung
+    einwilligung: FLAccountEinwilligung
     # What the consent PATCH echoes back, computed by the function its precondition compares with.
     nachweis_stand: FLEinwilligungStand
     # Served rather than derived on the page, which would judge a grant with a second copy of the rule.
@@ -34,11 +41,19 @@ class FLAccountSpielerEinwilligung(FLSpielerSelf):
     medien_minimum_age: int = Field(gt=0)
 
 
-class FLAccountSchiedsrichterEinwilligung(FLSchiedsrichterSelf, BaseReadModel):
-    """One referee record on the account page: its stored data and the consent the page moves."""
+class FLAccountSchiedsrichterEinwilligung(BaseReadModel):
+    """One referee record on the account page: the stored data its box shows and the consent the page moves.
 
-    inactive_since: CustomOptionalDateString
-    einwilligung: FLEinwilligung
+    Its own shape rather than `app/api/schiedsrichter/schemas.py :: FLSchiedsrichterSelf`'s, whose fee the confirmation
+    page lists and this box does not.
+    """
+
+    schiedsrichter_id: CustomObjectId
+    name: CustomNonEmptyString
+    schule: str | None
+    kontakt: FLKontakt
+    geburtsdatum: CustomOptionalDateString = None
+    einwilligung: FLAccountEinwilligung
     nachweis_stand: FLEinwilligungStand
     givable: bool
     medien_offered: bool
@@ -60,7 +75,7 @@ class FLAccountSeatEinwilligung(BaseModel):
     # Each on where any held slot's is, so a withdrawal stays offered.
     umfang: FLKontaktKenntnisnahmeUmfang
     medien: bool
-    # Over every held slot, for `app/api/spieler/schemas.py :: FLSpielerSelf`'s reason.
+    # Over every held slot, for `FLAccountSpielerEinwilligung.nachweis_stand`'s reason.
     nachweis_stand: FLEinwilligungStand
     medien_offered: bool
     givable: bool
@@ -84,15 +99,12 @@ class FLAccountBewerbungSeatEinwilligung(BaseModel):
     umfang: FLKontaktKenntnisnahmeUmfang
     medien: bool
     nachweis_stand: FLEinwilligungStand
-    # The media floor every entry serves, though the page names none on a withdraw-only entry, which grants nothing.
-    medien_minimum_age: int = Field(gt=0)
 
 
 class FLAccountRegistrierungEinwilligung(BaseModel):
     """One pending registration its pupil confirmed: its choices to withdraw, and what it stores."""
 
     registrierung_id: CustomObjectId
-    team_id: CustomObjectId
     # The club's own name, today; null where its document is gone.
     team_name: str | None
     saison_id: str
@@ -101,15 +113,10 @@ class FLAccountRegistrierungEinwilligung(BaseModel):
     umfang: FLEinwilligungUmfang | None
     medien: bool | None
     nachweis_stand: FLEinwilligungStand
-    # The media floor every entry serves, though the page names none on a withdraw-only entry, which grants nothing.
-    medien_minimum_age: int = Field(gt=0)
-    # As the registration stores them: the account page shows what is kept about the pupil.
+    # As the registration stores them: the facts the account page's box names its pupil by.
     vorname: str
     nachname: str
     geburtsdatum: CustomOptionalDateString
-    nummer: str | None
-    position: FLSpielerPosition | None
-    stufe: FLSpielerStufe | None
 
 
 class FLAccountAddressChangeOpen(BaseModel):
@@ -130,10 +137,8 @@ class FLAccountAddressChangeOpen(BaseModel):
 
 
 class FLAccountAddressChangeResponse(BaseAPIResponse):
-    """Whether the signed-in address may change, and the change pending on it."""
+    """The change pending on the signed-in address."""
 
-    # The address holds anything a change moves, a grant included.
-    possible: bool
     open: FLAccountAddressChangeOpen | None
 
 

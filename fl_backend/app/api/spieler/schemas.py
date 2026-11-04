@@ -405,14 +405,22 @@ class FLSpielerSelfKaderRow(BaseModel):
     inactive_since: CustomOptionalDateString
 
 
-class FLSpielerSelf(_SpielerPerson):
+class FLSpielerSelfPerson(_SpielerPerson):
     """One pupil record's stored data as its own person reads it: the whole surname and the birthdate, never masked.
 
-    Its consent is the account page's, whose entry `FLAccountSpielerEinwilligung` extends this.
+    Its consent is the account page's, whose entry `app/api/account/schemas.py :: FLAccountSpielerEinwilligung` extends this.
     """
 
     spieler_id: CustomObjectId
     geburtsdatum: CustomDateString
+
+
+class FLSpielerSelf(FLSpielerSelfPerson):
+    """The pupil's own page's read: the record and every squad row it holds.
+
+    The squad rows are this read's alone: the account page lists none, so its entry extends the record without them.
+    """
+
     kader: list[FLSpielerSelfKaderRow]
 
 

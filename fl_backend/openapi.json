@@ -477,7 +477,7 @@
         "type": "object"
       },
       "FLAccountAddressChangeResponse": {
-        "description": "Whether the signed-in address may change, and the change pending on it.",
+        "description": "The change pending on the signed-in address.",
         "properties": {
           "open": {
             "anyOf": [
@@ -488,14 +488,9 @@
                 "type": "null"
               }
             ]
-          },
-          "possible": {
-            "title": "Possible",
-            "type": "boolean"
           }
         },
         "required": [
-          "possible",
           "open"
         ],
         "title": "FLAccountAddressChangeResponse",
@@ -512,11 +507,6 @@
           "medien": {
             "title": "Medien",
             "type": "boolean"
-          },
-          "medien_minimum_age": {
-            "exclusiveMinimum": 0.0,
-            "title": "Medien Minimum Age",
-            "type": "integer"
           },
           "nachweis_stand": {
             "$ref": "#/components/schemas/FLEinwilligungStand"
@@ -548,10 +538,27 @@
           "rollen",
           "umfang",
           "medien",
-          "nachweis_stand",
-          "medien_minimum_age"
+          "nachweis_stand"
         ],
         "title": "FLAccountBewerbungSeatEinwilligung",
+        "type": "object"
+      },
+      "FLAccountEinwilligung": {
+        "description": "A person's own record's two choices as its box shows them.\n\nThe choices alone: the box names no day and no label, and `nachweis_stand` stands for each choice's evidence in the\nprecondition a press echoes.",
+        "properties": {
+          "medien": {
+            "title": "Medien",
+            "type": "boolean"
+          },
+          "umfang": {
+            "$ref": "#/components/schemas/FLEinwilligungUmfang"
+          }
+        },
+        "required": [
+          "umfang",
+          "medien"
+        ],
+        "title": "FLAccountEinwilligung",
         "type": "object"
       },
       "FLAccountEinwilligungPayload": {
@@ -885,38 +892,12 @@
             ],
             "title": "Medien"
           },
-          "medien_minimum_age": {
-            "exclusiveMinimum": 0.0,
-            "title": "Medien Minimum Age",
-            "type": "integer"
-          },
           "nachname": {
             "title": "Nachname",
             "type": "string"
           },
           "nachweis_stand": {
             "$ref": "#/components/schemas/FLEinwilligungStand"
-          },
-          "nummer": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Nummer"
-          },
-          "position": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLSpielerPosition"
-              },
-              {
-                "type": "null"
-              }
-            ]
           },
           "registrierung_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -925,21 +906,6 @@
           },
           "saison_id": {
             "title": "Saison Id",
-            "type": "string"
-          },
-          "stufe": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLSpielerStufe"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "team_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Team Id",
             "type": "string"
           },
           "team_name": {
@@ -970,28 +936,23 @@
         },
         "required": [
           "registrierung_id",
-          "team_id",
           "team_name",
           "saison_id",
           "umfang",
           "medien",
           "nachweis_stand",
-          "medien_minimum_age",
           "vorname",
           "nachname",
-          "geburtsdatum",
-          "nummer",
-          "position",
-          "stufe"
+          "geburtsdatum"
         ],
         "title": "FLAccountRegistrierungEinwilligung",
         "type": "object"
       },
       "FLAccountSchiedsrichterEinwilligung": {
-        "description": "One referee record on the account page: its stored data and the consent the page moves.",
+        "description": "One referee record on the account page: the stored data its box shows and the consent the page moves.\n\nIts own shape rather than `app/api/schiedsrichter/schemas.py :: FLSchiedsrichterSelf`'s, whose fee the confirmation\npage lists and this box does not.",
         "properties": {
           "einwilligung": {
-            "$ref": "#/components/schemas/FLEinwilligung"
+            "$ref": "#/components/schemas/FLAccountEinwilligung"
           },
           "geburtsdatum": {
             "anyOf": [
@@ -1008,22 +969,6 @@
           "givable": {
             "title": "Givable",
             "type": "boolean"
-          },
-          "honorar": {
-            "title": "Honorar",
-            "type": "integer"
-          },
-          "inactive_since": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Inactive Since"
           },
           "kontakt": {
             "$ref": "#/components/schemas/FLKontakt"
@@ -1067,9 +1012,7 @@
           "name",
           "schule",
           "kontakt",
-          "honorar",
           "geburtsdatum",
-          "inactive_since",
           "einwilligung",
           "nachweis_stand",
           "givable",
@@ -1146,7 +1089,7 @@
         "description": "The pupil's record on the account page: its stored data and the consent the page moves.",
         "properties": {
           "einwilligung": {
-            "$ref": "#/components/schemas/FLEinwilligung"
+            "$ref": "#/components/schemas/FLAccountEinwilligung"
           },
           "geburtsdatum": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -1156,25 +1099,6 @@
           "givable": {
             "title": "Givable",
             "type": "boolean"
-          },
-          "inactive_since": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Inactive Since"
-          },
-          "kader": {
-            "items": {
-              "$ref": "#/components/schemas/FLSpielerSelfKaderRow"
-            },
-            "title": "Kader",
-            "type": "array"
           },
           "medien_minimum_age": {
             "exclusiveMinimum": 0.0,
@@ -1215,8 +1139,6 @@
           "nachname",
           "spieler_id",
           "geburtsdatum",
-          "kader",
-          "inactive_since",
           "einwilligung",
           "nachweis_stand",
           "givable",
@@ -16144,7 +16066,7 @@
         "type": "object"
       },
       "FLSpielerSelf": {
-        "description": "One pupil record's stored data as its own person reads it: the whole surname and the birthdate, never masked.\n\nIts consent is the account page's, whose entry `FLAccountSpielerEinwilligung` extends this.",
+        "description": "The pupil's own page's read: the record and every squad row it holds.\n\nThe squad rows are this read's alone: the account page lists none, so its entry extends the record without them.",
         "properties": {
           "geburtsdatum": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -18104,7 +18026,7 @@
         ]
       },
       "get": {
-        "description": "Answer whether the signed-in address holds anything its own change moves, and the change pending on it.\n\nPERSON TIER. `possible` where the address holds a pupil row, a confirmed referee row, a confirmed contact seat, a\nregistration or a grant. **The pending address is served masked where an administrator started the change**, whole\nonly where the person typed it here: a change an administrator started may be a pretext whose target the holder of\nthe address on file must not learn. `waits_on` names the step, `previous_address` the link the person's own change\nmailed the address on file, which this page answers nothing of. `approval` is the approval a change moving the\nperson's grant waits on;\n`expired` says the step the change waits on lapsed, whose press is refused until the hourly pass ends the change.",
+        "description": "Answer the change pending on the signed-in address, null where none is.\n\nPERSON TIER. Whether the address holds anything a change moves is the start's to answer, refused\n`address_change_nothing`. **The pending address is served masked where an administrator started the change**, whole\nonly where the person typed it here: a change an administrator started may be a pretext whose target the holder of\nthe address on file must not learn. `waits_on` names the step, `previous_address` the link the person's own change\nmailed the address on file, which this page answers nothing of. `approval` is the approval a change moving the\nperson's grant waits on;\n`expired` says the step the change waits on lapsed, whose press is refused until the hourly pass ends the change.",
         "operationId": "account_get_address_change",
         "responses": {
           "200": {
@@ -18159,7 +18081,7 @@
             "AdminKey": []
           }
         ],
-        "summary": "Whether a signed-in person may change their address",
+        "summary": "The address change pending on a signed-in person",
         "tags": [
           "account"
         ]

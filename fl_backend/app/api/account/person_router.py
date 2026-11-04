@@ -45,7 +45,7 @@ from app.api.adresswechsel.services import (
 from app.api.berechtigungen.crud import read_berechtigungen, read_the_announced
 from app.api.berechtigungen.services import genehmiger_of
 from app.api.identity.crud import funktionen_aus
-from app.api.identity.lookup import RecordCollections, SubjektLookup
+from app.api.identity.lookup import SubjektLookup
 from app.api.identity.services import ist_eigener_schiedsrichter, ist_eigener_spieler, may_grant_on_schiedsrichter, may_grant_on_spieler
 from app.api.sperrliste.guard import PERSON_ACTOR_BINDERS, KontaktIdentifier
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt
@@ -161,32 +161,26 @@ def _offen(record: Mapping[str, Any], *, now: datetime) -> FLAccountAddressChang
 async def _adresswechsel_answer(
     identifier: str,
     *,
-    records: RecordCollections,
     adresswechsel_collection: AsyncCollection,
-    berechtigungen_collection: AsyncCollection,
     now: datetime,
     session: AsyncClientSession | None,
 ) -> FLAccountAddressChangeResponse:
-    bestand = await read_the_bestand(identifier, records=records, berechtigungen_collection=berechtigungen_collection, session=session)
     record = await adresswechsel_collection.find_one(build_address_filter(identifier), session=session)
 
-    return FLAccountAddressChangeResponse(possible=not bestand.leer, open=None if record is None else _offen(record, now=now))
+    return FLAccountAddressChangeResponse(open=None if record is None else _offen(record, now=now))
 
 
-@router.get("/address_change", response_model=FLAccountAddressChangeResponse, summary="Whether a signed-in person may change their address")
+@router.get("/address_change", response_model=FLAccountAddressChangeResponse, summary="The address change pending on a signed-in person")
 async def get_address_change(
     identifier: KontaktIdentifier,
-    records: SubjektLookup,
     adresswechsel_collection: AddressChangeCollection,
-    berechtigungen_collection: GrantsCollection,
-    db: DBClient,
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLAccountAddressChangeResponse:
     """
-    Answer whether the signed-in address holds anything its own change moves, and the change pending on it.
+    Answer the change pending on the signed-in address, null where none is.
 
-    PERSON TIER. `possible` where the address holds a pupil row, a confirmed referee row, a confirmed contact seat, a
-    registration or a grant. **The pending address is served masked where an administrator started the change**, whole
+    PERSON TIER. Whether the address holds anything a change moves is the start's to answer, refused
+    `address_change_nothing`. **The pending address is served masked where an administrator started the change**, whole
     only where the person typed it here: a change an administrator started may be a pretext whose target the holder of
     the address on file must not learn. `waits_on` names the step, `previous_address` the link the person's own change
     mailed the address on file, which this page answers nothing of. `approval` is the approval a change moving the
@@ -194,16 +188,7 @@ async def get_address_change(
     `expired` says the step the change waits on lapsed, whose press is refused until the hourly pass ends the change.
     """
 
-    # A snapshot, so the records and the change are answered as of one moment.
-    async with db.start_session(snapshot=True) as session:
-        return await _adresswechsel_answer(
-            identifier,
-            records=records,
-            adresswechsel_collection=adresswechsel_collection,
-            berechtigungen_collection=berechtigungen_collection,
-            now=germany_now,
-            session=session,
-        )
+    return await _adresswechsel_answer(identifier, adresswechsel_collection=adresswechsel_collection, now=germany_now, session=None)
 
 
 @router.post(
@@ -305,9 +290,7 @@ async def post_address_change(
 )
 async def delete_address_change(
     identifier: KontaktIdentifier,
-    records: SubjektLookup,
     adresswechsel_collection: AddressChangeCollection,
-    berechtigungen_collection: GrantsCollection,
     aktionen_collection: ActionLogCollection,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
@@ -348,14 +331,7 @@ async def delete_address_change(
             )
         )
 
-        return await _adresswechsel_answer(
-            identifier,
-            records=records,
-            adresswechsel_collection=adresswechsel_collection,
-            berechtigungen_collection=berechtigungen_collection,
-            now=germany_now,
-            session=session,
-        )
+        return await _adresswechsel_answer(identifier, adresswechsel_collection=adresswechsel_collection, now=germany_now, session=session)
 
     async with journal:
         async with transaction_session(db) as session:

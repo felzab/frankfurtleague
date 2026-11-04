@@ -254,7 +254,7 @@ class TestTheOwnRecord:
     def test_a_retired_record_is_served_for_its_withdrawal_alone(self, mongo_replica_set_url: str):
         record = served(mongo_replica_set_url, _read(RETIRED, path=KONTO_PATH)).json()["spieler"]
 
-        assert (record["spieler_id"], record["inactive_since"], record["givable"]) == (str(RETIRED_OID), "2026-07-01", False)
+        assert (record["spieler_id"], record["givable"]) == (str(RETIRED_OID), False)
 
     @pytest.mark.parametrize(("email", "angeboten"), [(YOUNG, False), (IDENTIFIER, True)], ids=["seventeen", "adult"])
     def test_the_media_switch_is_offered_from_the_media_age_alone(self, mongo_replica_set_url: str, email: str, angeboten: bool):
