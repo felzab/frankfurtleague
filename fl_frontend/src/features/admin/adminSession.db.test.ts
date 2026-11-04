@@ -40,7 +40,9 @@ serveServerReact();
 const { signInStore } = (await import(PRODUCTION_DB)) as { signInStore: () => MongoClient };
 const client = signInStore();
 closing(() => client.close());
-const { auth, getAdminSession, getKontoSession, getPasskeyStep, judgeAdminRequest } = await import("@/core/auth.ts");
+const { auth } = await import("@/core/auth/library.ts");
+const { getAdminSession, getKontoSession, judgeAdminRequest } = await import("@/core/auth/guards.ts");
+const { getPasskeyStep } = await import("@/core/auth/landing.ts");
 const { buildAuthIndexes } = await import("@/core/authIndexes.ts");
 const { getSubjectSession } = await import("@/core/subject.ts");
 const { readSicherheit } = await import("@/features/konto/sicherheit.ts");
@@ -290,7 +292,7 @@ describe("the holder's passkeys, with another account's beside them in the store
   });
 
   it("counts the holder's passkeys alone against the cap", async () => {
-    const { PASSKEY_LIMIT } = await import("@/core/auth.ts");
+    const { PASSKEY_LIMIT } = await import("@/core/auth/enrolment.ts");
     const { readPasskeyStandAction } = await import("@/features/passkeys/actions.ts");
     requestHeaders = await signInAsAdministrator();
     await aSecondAccountsPasskey();
@@ -325,7 +327,7 @@ describe("the holder's passkeys, with another account's beside them in the store
    ended. */
 describe("the account row the session read joins, against a real store", () => {
   it("refuses a session its account's ending stamp postdates, at every guard", async () => {
-    const { readServedSession } = await import("@/core/auth.ts");
+    const { readServedSession } = await import("@/core/auth/session.ts");
     requestHeaders = await signInAsAdministrator();
     beginRenderPass();
     assert.ok(await getAdminSession(), "the administrator was refused before the stamp, so the refusals below prove nothing");
@@ -341,7 +343,7 @@ describe("the account row the session read joins, against a real store", () => {
   });
 
   it("serves no session whose account row is gone, the session row standing", async () => {
-    const { readServedSession } = await import("@/core/auth.ts");
+    const { readServedSession } = await import("@/core/auth/session.ts");
     requestHeaders = await signInAsAdministrator();
     await client.db("auth").collection("user").deleteMany({});
     expect(await client.db("auth").collection("session").countDocuments({}), "the session row went with the account's").toBe(1);
@@ -354,7 +356,8 @@ describe("the account row the session read joins, against a real store", () => {
   /* A ban's deletion that missed a row leaves it standing beside the stamp: listed, it reads as
      somebody else's device signed in to the account the person has just signed in to again. */
   it("lists none of the sign-ins the ending stamped on the account page, beside the one made after it", async () => {
-    const { endSessionsOfAddress, readServedSession } = await import("@/core/auth.ts");
+    const { endSessionsOfAddress } = await import("@/core/auth/accountSessions.ts");
+    const { readServedSession } = await import("@/core/auth/session.ts");
     const endedHeaders = await signInAsAdministrator();
     const sessions = client.db("auth").collection("session");
     const [ended] = await sessions.find({}).toArray();

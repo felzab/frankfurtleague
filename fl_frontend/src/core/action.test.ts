@@ -46,7 +46,7 @@ vi.mock("next/server", async (original) => {
   };
 });
 vi.mock("./mail", () => ({ drainOutbox: async () => undefined }));
-vi.mock("./auth", () => ({
+vi.mock("./auth/guards", () => ({
   judgeAdminRequest: async () => {
     state.steps.push("admin guard");
     return state.admin;

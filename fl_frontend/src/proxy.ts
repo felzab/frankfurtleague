@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 
-import { sessionCookieOf, slideSession } from "./core/auth";
+import { sessionCookieOf } from "./core/auth/library";
 import { withReturnAddress } from "./core/auth/returnAddress";
+import { slideSession } from "./core/auth/session";
 import { ROUTES } from "./core/routes";
 
 import type { NextRequest } from "next/server";

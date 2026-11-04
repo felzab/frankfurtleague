@@ -1,4 +1,4 @@
-import { getKontoSession } from "@/core/auth";
+import { getKontoSession } from "@/core/auth/guards";
 import { verwaltungOf } from "@/core/verwaltung";
 
 import { getKontoAdresswechsel } from "../../queries";

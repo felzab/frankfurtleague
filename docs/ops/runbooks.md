@@ -375,7 +375,7 @@ ABGLEICH_INTERVAL_MS`) finds the row, it is dated by its own `granted_at`, or by
 - **A device that cannot enrol a passkey is no way in, and no setting here relaxes it.** An
   administrator who enrolled a second device in advance still has one; one who did not is in the
   case below. The enrolment asks for a discoverable credential and for the person to be verified
-  (`fl_frontend/src/core/auth.ts :: USER_VERIFICATION`, beside `residentKey`), so the browser offers
+  (`fl_frontend/src/core/auth/library.ts :: USER_VERIFICATION`, beside `residentKey`), so the browser offers
   nothing where the machine has no platform authenticator and no security key supporting both — an
   older desktop with no biometric and no PIN is the case that turns up. Give them a FIDO2 key with
   resident-key and user-verification support, or a second device they can enrol from; there is no
@@ -490,7 +490,7 @@ finds them.
 behind.** A person's first sign-in writes their `user` row and a session in the `auth` database, a
 pupil's, referee's or contact person's as an administrator's is. Their own deletion from the account
 page and an administrator's erasure each delete the account in the same request as the records, its
-sessions, passkeys and waiting codes with it (`fl_frontend/src/core/auth.ts :: deleteOwnAccount`,
+sessions, passkeys and waiting codes with it (`fl_frontend/src/core/auth/accounts.ts :: deleteOwnAccount`,
 `:: deleteAccountFor`); after any other erasure the account sweep deletes it within the hour once
 nothing references the address ([section 9](#9-checking-that-the-hourly-passes-have-run)).
 **A ban keeps no account**
@@ -1653,7 +1653,7 @@ cookie comes back. With an expiry-after of zero seconds the stored value is the 
   it.
 - **`session` is defence in depth**: a row for anybody who signed in and closed the browser is held
   for the library's full `expiresIn` otherwise, and with the index the store stops serving what the
-  guards in `fl_frontend/src/core/auth.ts` would refuse anyway.
+  guards in `fl_frontend/src/core/auth/guards.ts` would refuse anyway.
 
 **An index dropped by hand after a boot is reported by nothing until the next one.**
 

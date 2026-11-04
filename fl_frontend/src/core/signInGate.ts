@@ -86,7 +86,7 @@ export async function mayReceiveSignIn(identifier: string): Promise<SignInVerdic
 
 /**
  * The gate over an answer already read, for a caller that read it where no round trip may run: the
- * registration's transaction (`fl_frontend/src/core/auth.ts :: refuseUnadmitted`).
+ * registration's transaction (`fl_frontend/src/core/auth/minting.ts :: refuseUnadmitted`).
  */
 export function signInVerdictOf(anmeldung: AnmeldungRecords): Exclude<SignInVerdict, "failed"> {
   // Ahead of every record and the grant: a barred address still holding a seat, awaiting a

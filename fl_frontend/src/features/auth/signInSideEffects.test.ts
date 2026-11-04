@@ -91,7 +91,7 @@ const store = memoryStore(STORE);
 
 // Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
 const { toNextJsHandler } = await import("better-auth/next-js");
-const { auth } = await import("@/core/auth.ts");
+const { auth } = await import("@/core/auth/library.ts");
 const { handleSignIn } = await import("./actions.ts");
 const handler = toNextJsHandler(auth);
 
@@ -170,7 +170,7 @@ function sentTo(attempt: Attempt): string {
   return attempt.result.value;
 }
 
-/** Each written row's kind, by its identifier: the plugin's code row, or one of the two counts `fl_frontend/src/core/auth.ts` keeps. */
+/** Each written row's kind, by its identifier: the plugin's code row, or one of the two counts `fl_frontend/src/core/auth/signInRows.ts` keeps. */
 function kindsOf(identifiers: readonly string[], email: string): string[] {
   return identifiers
     .map((identifier) => {

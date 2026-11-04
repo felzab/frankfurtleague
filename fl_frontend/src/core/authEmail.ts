@@ -5,7 +5,7 @@ import { mailOrigin } from "./emailShell";
 import type { Mail, Sentence } from "./emailShell";
 
 /**
- * The one figure: `fl_frontend/src/core/auth.ts` expires the code on it and this message states it.
+ * The one figure: `fl_frontend/src/core/auth/library.ts` expires the code on it and this message states it.
  * It lives HERE because the import the other way round would read it inside its own dead zone.
  */
 export const CODE_VALIDITY_MINUTES = 10;

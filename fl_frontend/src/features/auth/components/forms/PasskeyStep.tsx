@@ -13,7 +13,7 @@ import { describeCeremonyRefusal, refusalCode, refusalStatus, SESSION_NOT_FRESH 
 
 import type { Copy } from "@/core/copy";
 
-/** Named off `fl_frontend/src/core/auth.ts :: PasskeyStep`, whose verdict the page hands over. */
+/** Named off `fl_frontend/src/core/auth/landing.ts :: PasskeyStep`, whose verdict the page hands over. */
 type Step = "enrol" | "assert" | "offer";
 
 /** One set of words per step, so a heading and its control cannot drift apart. */
@@ -52,7 +52,7 @@ async function ceremonyHeld(step: Step): Promise<Held | null> {
 // session that could remove one would let a stolen mailbox swap the administrator's own out.
 
 // Removal lives behind a fresh sign-in, and the plugin's own three management paths stay refused at
-// `fl_frontend/src/core/auth.ts :: BROWSER_PATHS`.
+// `fl_frontend/src/core/auth/library.ts :: BROWSER_PATHS`.
 
 /** Where „Später“ goes, which only the offer carries: the requirement and the assertion have no way past them. */
 type Props = { readonly address: string; readonly next: string } & (

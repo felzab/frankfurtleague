@@ -19,7 +19,7 @@ const HINZUGEFUEGT: Ereignis = {
 const GELOESCHT: Ereignis = {
   betreff: "Passkey für Dein Konto gelöscht",
   // Only the devices that passkey signed in: a removal ends the sessions carrying its credential and
-  // leaves every other standing (`fl_frontend/src/core/auth.ts :: removePasskey`).
+  // leaves every other standing (`fl_frontend/src/core/auth/passkeys.ts :: removePasskey`).
   saetze: (zeit) => [
     ["Von Deinem Konto wurde am ", { strong: zeit }, " ein Passkey gelöscht."],
     "Geräte, die damit angemeldet waren, wurden abgemeldet.",

@@ -4,7 +4,7 @@ import { updateTag } from "next/cache";
 import { headers } from "next/headers";
 import { unstable_rethrow } from "next/navigation";
 
-import { judgeAdminRequest, passesPasskeyTouch } from "./auth";
+import { judgeAdminRequest, passesPasskeyTouch } from "./auth/guards";
 import { COPY } from "./copy";
 import { APIBadStatusError, loggedByBackend, requestOf } from "./errors";
 import { logger } from "./logging";
@@ -21,7 +21,7 @@ import { TURNSTILE_FIELD } from "./turnstileToken";
 import { fieldMessage } from "./zodGerman";
 
 import type { z } from "zod";
-import type { AdminRefusal } from "./auth";
+import type { AdminRefusal } from "./auth/guards";
 import type { Copy } from "./copy";
 import type { Code, FLRefusedField } from "./generated/client/types";
 import type { Role } from "./roles";

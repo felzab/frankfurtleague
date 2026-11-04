@@ -58,7 +58,7 @@ const LOGGING_DOUBLE = {
 /** One adapter operation, recorded under the model it was asked about. */
 const operationOf = (key: string, args: unknown[]): string => `${key} ${String((args[0] as { model?: unknown } | undefined)?.model ?? "")}`;
 
-/* The memory store under the real `auth.ts`, recording what the module handed the adapter's factory,
+/* The memory store under the real `auth/library.ts`, recording what the module handed the adapter's factory,
    and each operation on the adapter while a case holds `operations` open: what an answer's timing
    is made of. */
 const ADAPTER_DOUBLE = {
@@ -220,25 +220,14 @@ const { toNextJsHandler } = await import("better-auth/next-js");
 const { runWithEndpointContext } = (await import(
   pathToFileURL(createRequire(import.meta.resolve("better-auth")).resolve("@better-auth/core/context")).href
 )) as { runWithEndpointContext: <T>(context: object, run: () => Promise<T>) => Promise<T> };
-const {
-  auth,
-  deleteAccountFor,
-  deleteOwnAccount,
-  endSessionsOfAddress,
-  getAdminSession,
-  getKontoSession,
-  getSignedInAddress,
-  getPasskeyStep,
-  getSignInDestination,
-  isAdminSession,
-  isFreshlySignedIn,
-  judgeAdminRequest,
-  listAccounts,
-  PASSKEY_LIMIT,
-  passesPasskeyTouch,
-  readServedSession,
-  requestAccountDeletion,
-} = await import("./auth.ts");
+const { auth } = await import("./auth/library.ts");
+const { deleteAccountFor, deleteOwnAccount, listAccounts, requestAccountDeletion } = await import("./auth/accounts.ts");
+const { endSessionsOfAddress } = await import("./auth/accountSessions.ts");
+const { getAdminSession, getKontoSession, isAdminSession, judgeAdminRequest, passesPasskeyTouch } = await import("./auth/guards.ts");
+const { getSignedInAddress, getPasskeyStep, getSignInDestination } = await import("./auth/landing.ts");
+const { isFreshlySignedIn } = await import("./auth/sessionStamps.ts");
+const { PASSKEY_LIMIT } = await import("./auth/enrolment.ts");
+const { readServedSession } = await import("./auth/session.ts");
 const { buildCodeEmail, CODE_VALIDITY_MINUTES } = await import("./authEmail.ts");
 const { renderMail } = await import("./emailShell.ts");
 const { holdsOwnersTier } = await import("./verwaltung.ts");

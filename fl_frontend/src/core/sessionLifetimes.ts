@@ -3,7 +3,7 @@ import { DAY_MS, HOUR_MS } from "./timeUnits";
 /** How long a session of one kind survives without use, and how long it survives at all. */
 export type Lifetime = { readonly idle: number; readonly absolute: number };
 
-// Here rather than in `fl_frontend/src/core/auth.ts`, which enforces them: the privacy notice states
+// Here rather than in `fl_frontend/src/core/auth/library.ts`, which enforces them: the privacy notice states
 // these figures too, and importing them from there would load Better Auth into the page.
 
 // NIST SP 800-63B-4 §2.2.3 (read 2026-10-15): the overall timeout "SHOULD be no more than 24 hours at
@@ -47,12 +47,12 @@ function isYoungerThan(createdAt: Date | string, window: number): boolean {
   const created = new Date(createdAt).getTime();
 
   // An unreadable stamp is no step-up rather than an unbounded one, as
-  // `fl_frontend/src/core/auth.ts :: withinLifetime` reads one.
+  // `fl_frontend/src/core/auth/sessionStamps.ts :: withinLifetime` reads one.
   return Number.isFinite(created) && Date.now() - created < window;
 }
 
 // Redesign: goes with its last importer.
-// Both windows' predicates beside their figures rather than in `auth.ts`: every spine judging one reads
+// Both windows' predicates beside their figures rather than in `fl_frontend/src/core/auth/`: every spine judging one reads
 // it here, and the suites doubling the sign-in store keep it real.
 export function isWithinStepUpWindow(createdAt: Date | string): boolean {
   return isYoungerThan(createdAt, STEP_UP_WINDOW_MS);

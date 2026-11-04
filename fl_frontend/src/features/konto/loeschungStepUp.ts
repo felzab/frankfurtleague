@@ -1,6 +1,8 @@
 import "server-only";
 
-import { getKontoSession, passkeysOf, readRequestSession } from "@/core/auth";
+import { getKontoSession } from "@/core/auth/guards";
+import { passkeysOf } from "@/core/auth/passkeys";
+import { readRequestSession } from "@/core/auth/session";
 import { confirmedUntil } from "@/shared/utils/kontoMutation";
 
 import type { GrantHolderStepUp } from "./components/views/LoeschungView";

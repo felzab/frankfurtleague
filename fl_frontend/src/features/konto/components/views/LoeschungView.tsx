@@ -264,7 +264,7 @@ function LoeschungInhalt({ start }: { start: LoeschungStart }) {
       )}
 
       {/* The sign-in page offers a signed-in visitor its sign-out, and the next sign-in by code sends a granted
-          address to set its passkey up (`fl_frontend/src/core/auth.ts :: destinationOf`). */}
+          address to set its passkey up (`fl_frontend/src/core/auth/landing.ts :: destinationOf`). */}
       {stand.zustand === "ohnePasskey" && (
         <BestaetigungErgebnis tone="hinweis">
           <p className={ABSATZ_CLASSES}>

@@ -47,7 +47,9 @@ const store = memoryStore(STORE);
 
 // Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
 const { NextRequest } = await import("next/server");
-const { auth, getAdminSession, getKontoSession, getSignInDestination } = await import("./core/auth.ts");
+const { auth } = await import("./core/auth/library.ts");
+const { getAdminSession, getKontoSession } = await import("./core/auth/guards.ts");
+const { getSignInDestination } = await import("./core/auth/landing.ts");
 const { getSubjectSession } = await import("./core/subject.ts");
 const { unstable_doesMiddlewareMatch } = await import("next/experimental/testing/server.js");
 const { adapter } = await import("next/dist/server/web/adapter.js");
@@ -462,7 +464,7 @@ function refreshedAgo(row: SessionRow, ago: number): void {
 async function visit(url: string, cookie: string | undefined, load: "document" | "navigation" = "navigation"): Promise<Response> {
   const headers: Record<string, string> = { host: "localhost:3000" };
   // What the router sends on a client navigation, which the proxy slides on too. A render's read refreshes
-  // nothing whatever these say: it passes `disableRefresh` (`fl_frontend/src/core/auth.ts :: readServedSession`).
+  // nothing whatever these say: it passes `disableRefresh` (`fl_frontend/src/core/auth/session.ts :: readServedSession`).
   if (load === "navigation") Object.assign(headers, { rsc: "1", "next-router-state-tree": "%5B%22%22%5D" });
   if (cookie !== undefined) headers.cookie = cookie;
 

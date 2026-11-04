@@ -149,7 +149,7 @@ Every ruling below is the sign-up flow as it stands for the next season.
   - an address the ban list holds, for a registration (`registrierung_adresse_barred`), for any of an application's
     three contact persons (`bewerbung_adresse_barred`), for a sign-in
     by any route, refused as its session would be created
-    (`fl_frontend/src/core/auth.ts :: refuseUnadmitted`), and for the confirmation on a person's own
+    (`fl_frontend/src/core/auth/minting.ts :: refuseUnadmitted`), and for the confirmation on a person's own
     page, however long ago its link was mailed (`link_barred`, `link_barred`,
     `link_barred`), the link's page showing that person the refusal and nothing else, so a
     contact person's Widerspruch goes by mail to the address it names; the notice's „eine
@@ -509,7 +509,7 @@ GENEHMIGUNG_TAGE`), when the database deletes it.
   address moved, or one whose deletion failed, the account sweep deletes within the hour of nothing
   referencing its address, as after any other erasure, a barred address's included
   ([section 6](#6-retention-is-bounded-where-a-bound-was-chosen));
-  `fl_frontend/src/core/auth.ts` is where that store is configured, and
+  `fl_frontend/src/core/auth/library.ts` is where that store is configured, and
   [`ops/runbooks.md`](ops/runbooks.md#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it)
   names it as the place a signed-in person's own data sits. Its collections are `user`,
   `session`, `account`, `verification` and `passkey`. The last holds a credential's public key, its
@@ -523,15 +523,15 @@ GENEHMIGUNG_TAGE`), when the database deletes it.
   `session` row holds the account it belongs to, when it was made, its own
   expiry, which factor made it and, where a passkey did, that passkey's credential identifier,
   where it replaced a session the browser held a keyed digest of that session's cookie
-  (`fl_frontend/src/core/auth.ts :: lineageOf`), whether it once went unused past the administration's
-  idle hour (`fl_frontend/src/core/auth.ts :: isAdminWithinWindow`), and neither the address nor the
+  (`fl_frontend/src/core/auth/minting.ts :: lineageOf`), whether it once went unused past the administration's
+  idle hour (`fl_frontend/src/core/auth/guards.ts :: isAdminWithinWindow`), and neither the address nor the
   browser the sign-in came from. It also records when it was last used, to within the interval a session waits before
-  its row is refreshed (`fl_frontend/src/core/auth.ts :: SESSION_UPDATE_AGE_SECONDS`), and the
+  its row is refreshed (`fl_frontend/src/core/auth/library.ts :: SESSION_UPDATE_AGE_SECONDS`), and the
   account page shows that as „Zuletzt aktiv“ beside each sign-in
   (`fl_frontend/src/features/konto/sicherheit.ts`). A `user` row's `updatedAt` records when that account last changed or last
-  had a passkey removed (`fl_frontend/src/core/auth.ts :: claimAccount`), and where a ban or an
+  had a passkey removed (`fl_frontend/src/core/auth/passkeys.ts :: claimAccount`), and where a ban or an
   administrator's sign-out ended the account's sessions, the row keeps when it did
-  (`fl_frontend/src/core/auth.ts :: endSessionsOfAddress`), so that no session made before it is
+  (`fl_frontend/src/core/auth/accountSessions.ts :: endSessionsOfAddress`), so that no session made before it is
   served again, not even once a ban is lifted. The sign-out bars nothing and mails nobody; the action
   log keeps who did it and when, and never the address. **A session and a sign-in code each carry an expiry set at that
   configuration, and the expiry bounds the credential rather than the row**: the library drops a
@@ -539,7 +539,7 @@ GENEHMIGUNG_TAGE`), when the database deletes it.
   back, and it consumes a code's row when the code is typed, live or expired, sweeping expired
   `verification` rows only when it next reads one. Per typed address it also keeps rows counting
   failed codes for a day and requested codes for an hour, under a keyed hash of the address rather
-  than the address (`fl_frontend/src/core/auth.ts :: boundIdentifier`); both are counted ahead of the
+  than the address (`fl_frontend/src/core/auth/signInRows.ts :: boundIdentifier`); both are counted ahead of the
   send gate, so a stranger's address is counted as a member's is. One more row per code mailed counts
   every address together for an hour, and carries no address and no hash of one. What deletes a
   row of either collection at its expiry is an index the frontend builds at every production boot
@@ -682,7 +682,7 @@ GENEHMIGUNG_TAGE`), when the database deletes it.
   (`DatenschutzView.tsx :: FRISTEN`), and nothing compares that table with this section: every
   figure in it mirrors a clock this page records, read from its constant where the notice
   interpolates one and checked by hand where it does not, apart from the sign-in row's, which are the
-  sign-in library's settings (`fl_frontend/src/core/auth.ts`). **An application whose deletion notice the
+  sign-in library's settings (`fl_frontend/src/core/auth/library.ts`). **An application whose deletion notice the
   provider refuses is held past that window rather than erased**:
   the provider accepts a send to a suppressed address and skips it, so erasing on a stamp saying
   the notice went out is erasing somebody who was told nothing. It stands until an administrator

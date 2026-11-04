@@ -1,5 +1,6 @@
 // Redesign: goes with its last importer.
-import { getKontoSession, isFreshlySignedIn } from "@/core/auth";
+import { getKontoSession } from "@/core/auth/guards";
+import { isFreshlySignedIn } from "@/core/auth/sessionStamps";
 import { ENROLMENT_WINDOW_MS, isWithinEnrolmentWindow, STEP_UP_WINDOW_MS } from "@/core/sessionLifetimes";
 
 import { ANMELDUNG_ABGELAUFEN } from "./actionError";

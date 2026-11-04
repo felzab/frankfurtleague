@@ -14,7 +14,7 @@ registerAuthDoubles({
 });
 
 // Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
-const { auth } = await import("./auth.ts");
+const { auth } = await import("./auth/library.ts");
 
 const HEADERS = { host: "liga.example", "x-forwarded-proto": "https" };
 

@@ -5,7 +5,7 @@ import { BRAND_NAME, mailOrigin } from "./emailShell";
 import type { Mail } from "./emailShell";
 
 /**
- * The one figure: `fl_frontend/src/core/auth.ts` expires the deletion link on it and this message
+ * The one figure: `fl_frontend/src/core/auth/library.ts` expires the deletion link on it and this message
  * states it, as `fl_frontend/src/core/authEmail.ts :: CODE_VALIDITY_MINUTES` is shared.
  */
 export const LOESCHUNG_LINK_GUELTIG_STUNDEN = 24;

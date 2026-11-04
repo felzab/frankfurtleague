@@ -3,7 +3,8 @@
 import { refresh } from "next/cache";
 import { headers } from "next/headers";
 
-import { deleteOwnAccount, getKontoSession } from "@/core/auth";
+import { deleteOwnAccount } from "@/core/auth/accounts";
+import { getKontoSession } from "@/core/auth/guards";
 import { formatInstant } from "@/core/format";
 import { recordWriteSent } from "@/core/requestScope";
 import { mapKontoAdresswechselRefusal, mapKontoFreigabeRefusal, mapKontoStoppRefusal } from "@/features/adresswechsel/refusals";

@@ -13,7 +13,7 @@ const options = {
     deprecationErrors: true,
   },
   // Per operation, never per request: a session read is one aggregate, and a session a passkey made
-  // adds that passkey's lookup (`fl_frontend/src/core/auth.ts :: servedSessionOf`). An admin action reads
+  // adds that passkey's lookup (`fl_frontend/src/core/auth/session.ts :: servedSessionOf`). An admin action reads
   // the session in the proxy's slide, its guard and the render after it, so a slow store costs it
   // several times this.
 

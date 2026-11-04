@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-import { getSignInDestination } from "@/core/auth";
+import { getSignInDestination } from "@/core/auth/landing";
 import { allowedReturnAddress, RETURN_PARAMETER, withReturnAddress } from "@/core/auth/returnAddress";
 import { rolesOf } from "@/core/roles";
 import { getSubjectSession } from "@/core/subject";

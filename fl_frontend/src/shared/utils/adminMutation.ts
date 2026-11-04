@@ -2,7 +2,8 @@
 import { refresh, updateTag } from "next/cache";
 import { unstable_rethrow } from "next/navigation";
 
-import { isFreshlySignedIn, judgeAdminRequest } from "@/core/auth";
+import { judgeAdminRequest } from "@/core/auth/guards";
+import { isFreshlySignedIn } from "@/core/auth/sessionStamps";
 import { APIBadStatusError } from "@/core/errors";
 import { logger } from "@/core/logging";
 import { requestEndsOwnSession, requestWriteSent } from "@/core/requestScope";
@@ -16,7 +17,7 @@ import { runWithIncomingTrace } from "./traceScope";
 import { VALIDATION_FAILED } from "./validation";
 import { answerThrow, writeOutcomeUnknown } from "./writeOutcome";
 
-import type { AdminRefusal, getAdminSession } from "@/core/auth";
+import type { AdminRefusal, getAdminSession } from "@/core/auth/guards";
 import type { StepUpDemand } from "@/shared/components/ui/stepUp";
 import type { ActionFailure } from "@/shared/types/types";
 import type { FieldErrors } from "./validation";

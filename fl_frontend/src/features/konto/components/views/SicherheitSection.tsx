@@ -1,4 +1,4 @@
-import { getKontoSession } from "@/core/auth";
+import { getKontoSession } from "@/core/auth/guards";
 
 import { readSicherheit } from "../../sicherheit";
 import { SicherheitPanel } from "./SicherheitPanel";

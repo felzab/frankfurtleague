@@ -48,7 +48,7 @@ const store = memoryStore(STORE);
 // Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
 const { pruefeInhaberAction } = await import("@/features/konto/actions.ts");
 const { pruefeAdministratorAction } = await import("@/features/admin/actions.ts");
-const { auth } = await import("@/core/auth");
+const { auth } = await import("@/core/auth/library");
 
 beforeEach(() => {
   store.session.length = 0;
