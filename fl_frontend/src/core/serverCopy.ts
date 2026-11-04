@@ -595,6 +595,7 @@ export const SERVER_COPY = catalogue({
           { name: "Unsere E-Mails", content: "Inhalt, Adresse, Zustellstand", period: "Inhalt bis zum Versand, der Rest 30 Tage danach" },
           { name: "E-Mails bei Resend", content: "Adresse, Betreff, Inhalt", period: "30 Tage, in Sicherungen bis 7 Tage länger" },
           { name: "E-Mails bei Cloudflare", content: "Absender, Empfänger, Betreff", period: "31 Tage" },
+          { name: "Turnstile bei Cloudflare", content: "Signale deines Browsers beim Absenden eines Formulars", period: "7 Tage" },
         ],
       },
       erasure: {
