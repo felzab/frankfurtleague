@@ -33,6 +33,8 @@ test("„Alle anderen abmelden“ ends a second device's session and keeps this 
 
   // „Alle anderen abmelden“ asks first, then ends the other device's session and keeps this one.
   await page.goto("/account/security");
+  // Both sessions alive before the press, so the press is seen ending one rather than finding one already gone.
+  await expect(page.getByRole("main").getByText("Du bist auf 2 Geräten angemeldet.")).toBeVisible();
   await page.getByRole("button", { name: "Alle anderen abmelden" }).click();
   await page.getByRole("alertdialog").getByRole("button", { name: "Abmelden" }).click();
   // The press's end: the count names this device alone, where it named two before.
