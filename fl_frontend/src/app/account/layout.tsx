@@ -4,7 +4,7 @@ import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 import { readAccount } from "@/features/konto/account";
 
-import { KONTO_ENTRIES } from "./entries";
+import { ACCOUNT_ENTRIES } from "./entries";
 
 import type { ReactNode } from "react";
 
@@ -15,10 +15,10 @@ import type { ReactNode } from "react";
  * The phone's band is the route groups' (`(list)`, `(pages)`), since its way back differs: the list's to the
  * Übersicht, a page's to the list.
  */
-export default function KontoLayout({ children }: { children: ReactNode }) {
+export default function AccountLayout({ children }: { children: ReactNode }) {
   return (
     <RailFrame
-      groups={[{ entries: KONTO_ENTRIES }]}
+      groups={[{ entries: ACCOUNT_ENTRIES }]}
       bar={["signin"]}
       foot={{ kind: "account", account: readAccount(COPY.template.account) }}
       back={ROUTES.area.path()}

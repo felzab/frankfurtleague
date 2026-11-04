@@ -137,11 +137,8 @@ export const SERVER_COPY = catalogue({
      * The Art. 21 DSGVO objection, set apart from the rest as Art. 21 (4) asks, in the two parts around the league's
      * address, which the shell sets as a link between them.
      */
-    objection: {
-      before:
-        "Du kannst der Verarbeitung deiner Angaben jederzeit widersprechen, aus Gründen, die sich aus deiner besonderen Situation ergeben (Art. 21 DSGVO). Eine formlose E-Mail an",
-      after: "genügt.",
-    },
+    // The confirmation pages' words, the shell setting the address between the parts without their spaces.
+    objection: { before: OBJECTION_RIGHT.before.trimEnd(), after: OBJECTION_RIGHT.after.trimStart() },
     /** The mail's last line, by its kind: what a reader the mail was not meant for does. */
     notYou: {
       signIn: "Du hast keinen Code angefordert? Dann ignoriere diese E-Mail.",
@@ -191,10 +188,10 @@ export const SERVER_COPY = catalogue({
    * `fl_frontend/src/kit/MailedPage.tsx`. The address change's two mails open on these pages' questions.
    */
   addressChange: {
-    /** The noun of the address on file's act, „Änderung bestätigen“. */
-    change: "Änderung",
-    /** The address on file's question names the address the change goes to under this label. */
-    newAddress: "Neue E-Mail-Adresse",
+    /** The noun of the address on file's act, „Änderung bestätigen“: Konto's word for the pending change. */
+    change: COPY.konto.address.change,
+    /** The address on file's question names the address the change goes to under Konto's label for it. */
+    newAddress: COPY.konto.address.new,
     previous: {
       question: "Für dein Konto soll eine neue E-Mail-Adresse gelten.",
       confirmed: "Änderung bestätigt",
@@ -213,8 +210,8 @@ export const SERVER_COPY = catalogue({
   accountErasure: {
     /** Under the list of what goes, each row a record the read found. */
     question: "Alles oben wird endgültig gelöscht.",
-    /** The list's rows beside each record's own: the account's passkeys, its live address changes, its grant. */
-    passkeys: "Passkeys",
+    /** The list's rows beside each record's own: the account's passkeys, under their box's title, its live address changes, its grant. */
+    passkeys: COPY.konto.passkeys.title,
     addressChanges: "Laufende Adressänderungen",
     grant: "Zugang",
     done: "Konto gelöscht",

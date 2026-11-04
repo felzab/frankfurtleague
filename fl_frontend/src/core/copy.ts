@@ -8,6 +8,7 @@ import {
   formatOrdinal,
   formatUhrzeit,
 } from "./format";
+import { rollenText } from "./teamVocabulary";
 
 import type { CalendarDay, Uhrzeit } from "./format";
 import type { FLKontaktRolle } from "./generated/client/types";
@@ -84,6 +85,12 @@ const SONDEREREIGNIS = { ausgefallen: "Ausgefallen", abgebrochen: "Abgebrochen",
 const ANMELDUNG = "Anmeldung";
 const MIT_PASSKEY_ANMELDEN = "Mit Passkey anmelden";
 const PASSKEY_EINRICHTEN = { title: "Passkey einrichten", button: "Jetzt einrichten" } as const;
+// The glossary's nouns, each one entry of `shared` and read under the page keys and the account keys naming them.
+const SPIELER = "Spieler";
+const SCHIEDSRICHTER = "Schiedsrichter";
+const KADER = "Kader";
+// The privacy notice's title, which the deletion box's sentence names as the place listing what outlives an erasure.
+const PRIVACY_NOTICE = "Datenschutz";
 
 /**
  * A range's end: a figure, or a year, which as a season id takes no thousands separator. A year is data, never a
@@ -92,14 +99,6 @@ const PASSKEY_EINRICHTEN = { title: "Passkey einrichten", button: "Jetzt einrich
 type Bound = number | { year: number };
 
 const bound = (value: Bound): string => (typeof value === "number" ? formatNumber(value) : String(value.year));
-
-// A contact seat's name as a record's label names it, in the seats' order.
-const SEAT = {
-  ansprechperson: "Ansprechperson",
-  stellvertretung: "Stellvertretung",
-  trainer: "Trainerin oder Trainer",
-} as const satisfies Record<FLKontaktRolle, string>;
-const SEAT_ORDER = Object.keys(SEAT) as FLKontaktRolle[];
 
 export const COPY = catalogue({
   /** What every area draws from; an area adds a key of its own only for a string this lacks. */
@@ -233,6 +232,10 @@ export const COPY = catalogue({
     tore: "Tore",
     /** A record's name: a box's label, a list's column head. */
     name: "Name",
+    /** The glossary's nouns for a pupil, a referee and a squad: a page's title, a Funktion, an entry's box. */
+    spieler: SPIELER,
+    schiedsrichter: SCHIEDSRICHTER,
+    kader: KADER,
 
     /**
      * The kit's season blocks that a client component draws: a table's rows reach the list's client table. The
@@ -279,7 +282,7 @@ export const COPY = catalogue({
     contact: "Kontakt",
     sponsors: "Sponsoren",
     legalNotice: "Impressum",
-    privacyNotice: "Datenschutz",
+    privacyNotice: PRIVACY_NOTICE,
     accountSignIn: ANMELDUNG,
     accountSecurity: "Sicherheit",
     accountAppearance: "Darstellung",
@@ -287,11 +290,11 @@ export const COPY = catalogue({
     verwaltungSaisons: "Saisons",
     spiele: "Spiele",
     verwaltungSpielorte: "Spielorte",
-    verwaltungSchiedsrichter: "Schiedsrichter",
+    verwaltungSchiedsrichter: SCHIEDSRICHTER,
     verwaltungBewerbungen: "Bewerbungen",
-    verwaltungSpieler: "Spieler",
+    verwaltungSpieler: SPIELER,
     registrierungen: "Registrierungen",
-    teamKader: "Kader",
+    teamKader: KADER,
     verwaltungAdministrators: "Administratoren",
     verwaltungSperrliste: "Sperrliste",
     verwaltungErasures: "Löschungen",
@@ -360,7 +363,7 @@ export const COPY = catalogue({
       datum: SPIEL_FACT.datum,
       uhrzeit: SPIEL_FACT.uhrzeit,
       spielort: "Ort",
-      schiedsrichter: "Schiedsrichter",
+      schiedsrichter: SCHIEDSRICHTER,
     },
   },
 
@@ -459,6 +462,8 @@ export const COPY = catalogue({
   konto: {
     address: {
       description: "Mit dieser Adresse meldest du dich an.",
+      /** The address on file, shown over the field for its replacement; the pending change's sentence calls it the same. */
+      current: "Bisherige E-Mail-Adresse",
       new: "Neue E-Mail-Adresse",
       /** The act's noun, „Link senden“. */
       link: "Link",
@@ -485,21 +490,24 @@ export const COPY = catalogue({
       noApprover: "Gerade kann niemand aus der Verwaltung die Änderung genehmigen.",
     },
     erasure: {
-      description: "Dein Konto und deine Angaben werden endgültig gelöscht.",
+      // What outlives an erasure is the privacy notice's to list, as the deletion mail and its page point there.
+      description: `Dein Konto und deine Angaben werden gelöscht, bis auf das, was unter „${PRIVACY_NOTICE}“ steht.`,
       consequence: "Den Link zum Löschen bekommst du per E-Mail.",
     },
     passkeys: {
       title: "Passkeys",
       description: "Mit einem Passkey meldest du dich ohne Code an.",
-      /** A row's line under its name: when it was set up, and when it last signed in where it has. */
+      /** A row's line under its name, in a list's date form: when it was set up, and when it last signed in where it has. */
       dates: (created: Date, lastUsed: Date | null) =>
         lastUsed === null
-          ? `Eingerichtet am ${formatDatumLong(created)}`
-          : `Eingerichtet am ${formatDatumLong(created)} · Zuletzt verwendet am ${formatDatumLong(lastUsed)}`,
-      /** The deletion's consequence: the devices it signed in, this one among them where it did, or a person's last. */
+          ? `Eingerichtet am ${formatDatum(created)}`
+          : `Eingerichtet am ${formatDatum(created)} · Zuletzt verwendet am ${formatDatum(lastUsed)}`,
+      /**
+       * The deletion's consequence, worded after the passkey touch, whose sign-in the session then is: the devices
+       * the passkey signed in, this one among them where the touch was made with it.
+       */
       endsDevices: "Geräte, die damit angemeldet sind, werden abgemeldet.",
       endsThisDevice: "Auch dieses Gerät wird abgemeldet.",
-      lastOne: "Danach meldest du dich mit einem Code an.",
       /** An administrator's last passkey, their only way into the administration. */
       lastKept: "Der letzte Passkey lässt sich nicht löschen.",
       limit: (count: number) => `Mehr als ${formatNumber(count)} Passkeys sind nicht möglich.`,
@@ -519,38 +527,43 @@ export const COPY = catalogue({
     },
     /**
      * „Funktion wechseln“'s entries: a team by its name, with this line under it naming the season and the seats held
-     * there in the seats' order; a pupil's, a referee's and the administration's by their area alone.
+     * there in the seats' order; a pupil's, a referee's and the administration's by their area alone. The two nouns
+     * are `shared`'s, read here under the keys the account menu's entries name.
      */
     role: {
-      seats: (saison: Copy, rollen: readonly FLKontaktRolle[]) =>
-        `${saison} · ${formatList(SEAT_ORDER.filter((rolle) => rollen.includes(rolle)).map((rolle) => SEAT[rolle]))}`,
-      spieler: "Spieler",
-      schiedsrichter: "Schiedsrichter",
+      seats: (saison: Copy, rollen: readonly FLKontaktRolle[]) => `${saison} · ${rollenText(rollen)}`,
+      spieler: SPIELER,
+      schiedsrichter: SCHIEDSRICHTER,
     },
     /**
-     * Each record an address holds, by the label Deine Einträge heads it with and the deletion's list names it by, and
-     * the record it names: the label alone where the record is the person themselves.
+     * Each record an address holds, as Deine Einträge boxes it: titled by what the record is, a team's seats by the
+     * team's name, the rest by `shared`'s noun or the page's, and described by the person's part in it.
      */
     entries: {
       /** Deine Einträge's empty state, „Noch keine Einträge.“ */
       plural: "Einträge",
-      /** Each entry box's one sentence, by the kind of record it holds. */
+      /** Each entry box's one sentence, by the kind of record it holds, naming the role the person holds in it. */
       description: {
-        spieler: "Dein Eintrag im Kader und was davon öffentlich ist.",
-        schiedsrichter: "Dein Eintrag im Spielplan und was davon öffentlich ist.",
-        seat: "Deine Angaben als Kontaktperson und wie die Liga dich erreicht.",
+        spieler: "Dein Eintrag als Spielerin oder Spieler im Kader und was davon öffentlich ist.",
+        registrierung: "Deine Registrierung als Spielerin oder Spieler und was davon öffentlich ist.",
+        schiedsrichter: "Dein Eintrag als Schiedsrichterin oder Schiedsrichter und was davon öffentlich ist.",
+        /** A seat on a team's season and a seat in an application alike, by the seats held, in the seats' order. */
+        seat: (rollen: readonly FLKontaktRolle[]) => `Dein Eintrag als ${rollenText(rollen)} und wie die Liga dich erreicht.`,
       },
       /** The facts an entry box shows of its record. */
       facts: { birthday: "Geburtsdatum", phone: "Telefon", school: "Schule", team: "Team" },
-      /** The media choice of a person under its floor, which they may not yet give. */
-      mediaFrom: (age: number) => `Fotos, Videos und Interviews kannst du erst ab ${formatNumber(age)} Jahren erlauben.`,
+      /** Under the media box of a person short of its floor, who may not give that choice yet. */
+      mediaFrom: (age: number) => `Erst ab ${formatNumber(age)} Jahren`,
+      /** A seat's or a registration's team season: „Birkenschule, Saison 2027“. */
+      teamSeason: (team: Words, saison: Copy) => `${textOf(team)}, ${saison}`,
+      /**
+       * The labels the deletion's list names an address's records by (`fl_frontend/src/app/(classic)/erasure/page.tsx`),
+       * each the person's part in the record: one row per label, holding the records it names.
+       */
       spieler: "Als Spielerin oder Spieler",
       schiedsrichter: "Als Schiedsrichterin oder Schiedsrichter",
       /** The seats a contact person holds on one row, as one phrase in the seats' order: „Als Ansprechperson und Trainerin oder Trainer“. */
-      seats: (rollen: readonly FLKontaktRolle[]) =>
-        `Als ${formatList(SEAT_ORDER.filter((rolle) => rollen.includes(rolle)).map((rolle) => SEAT[rolle]))}`,
-      /** A seat's or a registration's team season: „Birkenschule, Saison 2027“. */
-      teamSeason: (team: Words, saison: Copy) => `${textOf(team)}, ${saison}`,
+      seats: (rollen: readonly FLKontaktRolle[]) => `Als ${rollenText(rollen)}`,
       /** An application not yet decided, by the season it applies for. */
       bewerbung: (saison: Copy) => `Bewerbung für die ${saison}`,
       /** A pupil's registration, by its team where the team still stands. */

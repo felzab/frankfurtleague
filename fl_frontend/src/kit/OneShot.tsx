@@ -59,11 +59,9 @@ export function OneShotForm({
   children?: ReactNode;
 }) {
   const { answer, submit, block, isBlocked, isPending } = useFormAction(action, { resetOnLeave: false });
-  const { touch: askTouch, isTouching } = usePasskeyTouch(touch);
+  const { run, refusal, isTouching } = usePasskeyTouch(touch);
   const form = useRef<HTMLFormElement>(null);
   const [pressed, setPressed] = useState<Act>("primary");
-  // The touch's own refusal: the act never posted, so no answer of the action's says it.
-  const [untouched, setUntouched] = useState<Copy | null>(null);
 
   if (answer?.ok === true) {
     return (
@@ -75,24 +73,18 @@ export function OneShotForm({
   }
 
   const refused = answer !== null && !answer.ok ? answer : null;
-  const status: FormStatus = untouched !== null ? { tone: "error", text: untouched } : statusOf(refused, isBlocked, isPending);
+  const status: FormStatus = refusal !== null ? { tone: "error", text: refusal } : statusOf(refused, isBlocked, isPending);
   const isBusy = isPending || isTouching;
 
-  const send = async (element: HTMLFormElement, act: Act) => {
+  const send = (element: HTMLFormElement, act: Act) => {
     setPressed(act);
-    setUntouched(null);
     // Read before the prompt, which the browser may hold for as long as the person takes.
     const formData = new FormData(element);
     for (const [name, value] of Object.entries(carry)) formData.set(name, value);
     formData.set(ACT_FIELD, act);
-    if (act === "primary") {
-      const refusal = await askTouch();
-      if (refusal !== null) {
-        setUntouched(refusal);
-        return;
-      }
-    }
-    submit(formData);
+    // The quieter act posts without the touch: an objection hands nothing over.
+    if (act === "primary") void run(() => submit(formData));
+    else submit(formData);
   };
 
   return (
@@ -104,7 +96,7 @@ export function OneShotForm({
         onInvalid={block}
         onSubmit={(event) => {
           event.preventDefault();
-          if (!isBusy) void send(event.currentTarget, "primary");
+          if (!isBusy) send(event.currentTarget, "primary");
         }}
         className="grid gap-6">
         {children !== undefined && <div className="grid justify-items-start gap-4">{children}</div>}
@@ -121,7 +113,7 @@ export function OneShotForm({
               label={acts.secondary}
               isBusy={isBusy && pressed === "secondary"}
               onPress={() => {
-                if (form.current !== null && !isBusy) void send(form.current, "secondary");
+                if (form.current !== null && !isBusy) send(form.current, "secondary");
               }}
             />
           )}

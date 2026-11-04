@@ -175,8 +175,9 @@ describe("a table on a phone", () => {
   });
 
   // A prose table's sentences outrun a phone's width in columns: each row stacks, and each cell draws its column's
-  // label from `data-label` before its words, so a label left off, or a cell kept on one line, overflows unseen.
-  it("stacks a prose table's row, each cell after its column's label, its words wrapping at every width", async () => {
+  // label before its words for the eye alone, the heads staying read, so a label left off, or a cell kept on one
+  // line, overflows unseen, and a head hidden outright leaves the cells without their columns.
+  it("stacks a prose table's row, each cell after its column's label, its heads read but not drawn, its words wrapping", () => {
     render(
       <Table
         {...props([{ id: "1", name: { record: LONG }, cells: { stadtteil: { record: LONG } } }])}
@@ -185,18 +186,31 @@ describe("a table on a phone", () => {
     );
     const [name, cell] = [...(screen.getByRole("row", { name: (accessible) => accessible.includes(LONG) }).children ?? [])];
     expect(name?.querySelector("[title]")?.classList).not.toContain("truncate");
-    expect(cell?.getAttribute("data-label")).toBe(COPY.shared.startelf);
     expect(cell?.classList).toContain("whitespace-normal");
     expect(cell?.classList).not.toContain("whitespace-nowrap");
-    for (const head of screen.getAllByRole("columnheader")) expect(head.classList).toContain("max-lg:hidden");
+    const label = cell?.firstElementChild;
+    expect(label?.textContent).toBe(COPY.shared.startelf);
+    expect(label?.getAttribute("aria-hidden")).toBe("true");
+    expect(label?.classList).toContain("lg:hidden");
+    for (const head of screen.getAllByRole("columnheader")) {
+      expect(head.classList).toContain("max-lg:sr-only");
+      expect(head.classList).not.toContain("max-lg:hidden");
+    }
+  });
 
-    const labelled: string[] = [];
-    (await compiledGlobals()).walkDecls("--tw-content", (decl) => {
-      if (decl.parent?.type !== "rule") return;
-      const selectors = selectorsOf(decl.parent as Rule).map((selector) => selector.replace(/\\(.)/g, "$1"));
-      if (selectors.some((selector) => selector.includes(".max-lg:before:content-[attr(data-label)]"))) labelled.push(decl.value);
-    });
-    expect(labelled).toStrictEqual(["attr(data-label)"]);
+  // A row drawn as a grid on a phone loses the table semantics an engine infers from its elements, so the table, its
+  // rows and its heads say their roles in writing; a part left without one reads as a plain box there.
+  it("writes the table's, its rows' and its heads' roles, so a row drawn as a grid keeps its semantics", () => {
+    render(
+      <Table
+        {...props([{ id: "1", name: { record: "Goethe" }, href: "/saisons/2027", cells: { stadtteil: { record: "Nordend" } } }])}
+        prose
+      />,
+    );
+    const table = screen.getByRole("table");
+    expect(table.getAttribute("role")).toBe("table");
+    for (const row of table.querySelectorAll("tr")) expect(row.getAttribute("role")).toBe("row");
+    for (const head of table.querySelectorAll("th")) expect(head.getAttribute("role")).toBe("columnheader");
   });
 
   it("leaves the chevron out, the whole row still the link", () => {

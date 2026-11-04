@@ -12,6 +12,7 @@ import {
   Separator,
   SubmenuTrigger,
 } from "react-aria-components/Menu";
+import { Text } from "react-aria-components/Text";
 
 import { COPY, textOf } from "@/core/copy";
 
@@ -101,9 +102,18 @@ function Entry({ label, detail, icon, hasMore }: { label: string; detail?: strin
       {detail === undefined ? (
         <span className="min-w-0 truncate">{label}</span>
       ) : (
+        // React Aria's two text slots: the entry is named by its label and described by its detail.
         <span className="grid min-w-0 py-1 leading-tight">
-          <span className="truncate">{label}</span>
-          <span className="truncate text-xs font-normal text-fg-muted">{detail}</span>
+          <Text
+            slot="label"
+            className="truncate">
+            {label}
+          </Text>
+          <Text
+            slot="description"
+            className="truncate text-xs font-normal text-fg-muted">
+            {detail}
+          </Text>
         </span>
       )}
       {hasMore === true && (
@@ -123,20 +133,24 @@ function current(links: ReadonlyArray<MenuLink>) {
   return links.find((link) => link.isCurrent === true)?.href ?? null;
 }
 
-/** A link, marked as the rail marks the current page where its section selects it. */
+/**
+ * A link, marked as the rail marks the current page where its section selects it. Its text value, which typeahead
+ * matches, carries the detail too: two entries can share a label, a team's name in two seasons.
+ */
 function LinkItem({ link, size }: { link: MenuLink; size: Size }) {
+  const detail = link.detail === undefined ? undefined : textOf(link.detail);
   return (
     <MenuItem
       id={link.href}
       href={link.href}
       routerOptions={link.routerOptions}
-      textValue={textOf(link.label)}
+      textValue={detail === undefined ? textOf(link.label) : `${textOf(link.label)} ${detail}`}
       data-kit-focus="item"
       // A two-line entry grows past the one line's height.
       className={`${menuEntry({ size, class: link.detail === undefined ? "" : "h-auto" })} ${entryMark({ mark: "place" })}`}>
       <Entry
         label={textOf(link.label)}
-        detail={link.detail === undefined ? undefined : textOf(link.detail)}
+        detail={detail}
         icon={link.icon}
       />
     </MenuItem>

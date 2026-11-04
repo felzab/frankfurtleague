@@ -1,5 +1,7 @@
 "use client";
 
+import { useId } from "react";
+
 import { AccountBox } from "@/kit/AccountBox";
 import { Checkbox } from "@/kit/Checkbox";
 import { ConsentLine } from "@/kit/ConsentLine";
@@ -23,7 +25,7 @@ import {
   saveSpielerConsent,
 } from "@/features/konto/personActions";
 
-import type { Copy } from "@/core/copy";
+import type { Copy, Words } from "@/core/copy";
 import type { FLEinwilligungStand, FLEinwilligungUmfang, FLKontaktKenntnisnahmeUmfang } from "@/core/generated/client/types";
 import type { Fact } from "@/kit/Facts";
 
@@ -38,10 +40,10 @@ type Save =
   | { kind: "seat"; team_id: string; saison_id: string }
   | { kind: "bewerbung"; bewerbung_id: string };
 
-/** One record of the person's, as its box shows it: what it is, what the league stores, and its two choices. */
+/** One record of the person's, as its box shows it: what it is, a team's seats titled by the team's own name, what the league stores, and its two choices. */
 export type Entry = {
   readonly id: string;
-  readonly title: Copy;
+  readonly title: Words;
   readonly description: Copy;
   readonly facts: readonly Fact[];
   readonly save: Save;
@@ -123,8 +125,12 @@ function saveOf(entry: Entry) {
 const wordingsOf = (kind: Save["kind"]) =>
   kind === "spieler" || kind === "registrierung" ? SPIELER_WORDINGS : kind === "schiedsrichter" ? SCHIEDSRICHTER_WORDINGS : SEAT_WORDINGS;
 
-/** The scope's control under its wording: a name's two options, the wider closed where no grant may be given, or WhatsApp's box. */
+/**
+ * The scope's control under its wording, described by the line under it: a name's two options, the wider closed where
+ * no grant may be given, or WhatsApp's box.
+ */
 function ScopeChoice({ entry }: { entry: Entry }) {
+  const lineId = useId();
   const { kind } = entry.save;
   if (kind === "seat" || kind === "bewerbung") {
     const held = entry.umfang === "kontaktdaten_whatsapp";
@@ -132,11 +138,15 @@ function ScopeChoice({ entry }: { entry: Entry }) {
       <>
         <Checkbox
           label={{ record: SEAT_WORDINGS.umfang.label }}
+          aria-describedby={lineId}
           name="umfang"
           defaultSelected={held}
           isDisabled={!entry.givable && !held}
         />
-        <ConsentLine line={SEAT_WORDINGS.umfang.line} />
+        <ConsentLine
+          id={lineId}
+          line={SEAT_WORDINGS.umfang.line}
+        />
       </>
     );
   }
@@ -145,6 +155,7 @@ function ScopeChoice({ entry }: { entry: Entry }) {
     <>
       <RadioGroup
         label={{ record: wording.question }}
+        aria-describedby={lineId}
         name="umfang"
         defaultValue={entry.umfang}
         choices={(["kader_oeffentlich", "intern"] as const).map((value) => ({
@@ -153,7 +164,32 @@ function ScopeChoice({ entry }: { entry: Entry }) {
           isDisabled: !entry.givable && value === "kader_oeffentlich" && entry.umfang !== value,
         }))}
       />
-      <ConsentLine line={wording.line} />
+      <ConsentLine
+        id={lineId}
+        line={wording.line}
+      />
+    </>
+  );
+}
+
+/** The media choice under its wording, described by the line under it. */
+function MediaChoice({ entry }: { entry: Entry }) {
+  const lineId = useId();
+  const { medien } = wordingsOf(entry.save.kind);
+  return (
+    <>
+      <Checkbox
+        label={{ record: medien.label }}
+        aria-describedby={lineId}
+        name="medien"
+        defaultSelected={entry.medien}
+        isDisabled={(!entry.givable || entry.mediaFrom !== null) && !entry.medien}
+        description={entry.mediaFrom ?? undefined}
+      />
+      <ConsentLine
+        id={lineId}
+        line={medien.line}
+      />
     </>
   );
 }
@@ -162,31 +198,21 @@ function ScopeChoice({ entry }: { entry: Entry }) {
  * Deine Einträge: every record of the person's own, one box each, with what the league stores of it and its two
  * choices under their wordings, saved together by the footer's „Speichern“ and by nothing else.
  */
-export function EintraegeBoxes({ entries }: { entries: readonly Entry[] }) {
-  return entries.map((entry) => {
-    const medien = wordingsOf(entry.save.kind).medien;
-    return (
-      <AccountBox
-        key={entry.id}
-        title={entry.title}
-        description={entry.description}
-        act={{ run: saveOf(entry), button: { label: COPY.shared.verb.save }, saves: true }}>
-        {entry.facts.length > 0 && (
-          <Facts
-            look="free"
-            facts={entry.facts}
-          />
-        )}
-        <ScopeChoice entry={entry} />
-        <Checkbox
-          label={{ record: medien.label }}
-          name="medien"
-          defaultSelected={entry.medien}
-          isDisabled={(!entry.givable || entry.mediaFrom !== null) && !entry.medien}
-          description={entry.mediaFrom ?? undefined}
+export function EntriesBoxes({ entries }: { entries: readonly Entry[] }) {
+  return entries.map((entry) => (
+    <AccountBox
+      key={entry.id}
+      title={entry.title}
+      description={entry.description}
+      act={{ run: saveOf(entry), button: { label: COPY.shared.verb.save }, saves: true }}>
+      {entry.facts.length > 0 && (
+        <Facts
+          look="free"
+          facts={entry.facts}
         />
-        <ConsentLine line={medien.line} />
-      </AccountBox>
-    );
-  });
+      )}
+      <ScopeChoice entry={entry} />
+      <MediaChoice entry={entry} />
+    </AccountBox>
+  ));
 }
