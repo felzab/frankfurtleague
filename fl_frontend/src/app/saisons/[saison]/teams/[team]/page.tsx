@@ -6,19 +6,18 @@ import { ReadPage } from "@/kit/ReadPage";
 import { SpielList } from "@/kit/SpielRow";
 
 import { COPY } from "@/core/copy";
-import { formatErgebnis, formatNumber, formatOrdinal } from "@/core/format";
+import { dayOf, formatErgebnis, formatNumber, formatOrdinal } from "@/core/format";
+import { buildMapsSearchUrl } from "@/core/maps";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { getTeamPage } from "@/features/saisons/queries";
 import { resolvePublicSaisonParam } from "@/features/saisons/resolvers";
 import { matchdayOf, matchRowOf, outcomeFor } from "@/features/spiele/blocks";
 import { austrittChip, austrittZustand } from "@/features/teams/constants";
-import { buildMapsSearchUrl } from "@/shared/utils/format";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { resolveObjectIdParam } from "@/shared/utils/routeParams";
 
 import type { Words } from "@/core/copy";
-import type { CalendarDay } from "@/core/format";
 import type { FLSpielerPublic, FLTeamPageResponse } from "@/core/generated/client/types";
 import type { ReadRecord } from "@/kit/ReadPage";
 import type { StatTile } from "@/kit/StatTiles";
@@ -124,7 +123,7 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
         team.austritt === null
           ? null
           : {
-              title: COPY.shared.austrittSeit(austrittZustand(team.austritt.type), team.austritt.datum as CalendarDay),
+              title: COPY.shared.austrittSeit(austrittZustand(team.austritt.type), dayOf(team.austritt.datum)),
               text: { record: team.austritt.grund },
             },
     },

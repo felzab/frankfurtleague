@@ -2,11 +2,10 @@ import "server-only";
 
 import { COPY } from "./copy";
 import { BRAND_NAME, mailOrigin } from "./emailShell";
-import { formatDatum, formatUhrzeit } from "./format";
+import { dayOf, formatDatum, formatUhrzeit, timeOf } from "./format";
 import { DEIN_BEREICH_TITEL, EINSAETZE_TITEL } from "./seitenNamen";
 
 import type { Fact, Mail, Run } from "./emailShell";
-import type { CalendarDay, Uhrzeit } from "./format";
 import type {
   FLSpielEinteilungData,
   FLSpielEinteilungLiftedData,
@@ -39,9 +38,9 @@ interface SpielAnsetzungText {
   readonly ortText: string;
 }
 
-const datumText = (datum: string): string => formatDatum(datum as CalendarDay);
+const datumText = (datum: string): string => formatDatum(dayOf(datum));
 
-const uhrzeitText = (uhrzeit: string): string => formatUhrzeit(uhrzeit as Uhrzeit);
+const uhrzeitText = (uhrzeit: string): string => formatUhrzeit(timeOf(uhrzeit));
 
 /** The fixture as the row's facts hold it, its dates as the site prints them, a ground nobody assigned in the fixtures' word. */
 function ansetzungText({ team1, team2, datum, uhrzeit, ort }: FLSpielMailAnsetzung): SpielAnsetzungText {

@@ -1,12 +1,12 @@
 import { COPY } from "@/core/copy";
-import { formatDatum, formatUhrzeit } from "@/core/format";
+import { dayOf, formatDatum, formatUhrzeit, timeOf } from "@/core/format";
+import { buildMapsSearchUrl } from "@/core/maps";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { spieltagLabel } from "@/features/spieltage/utils";
-import { buildMapsSearchUrl } from "@/shared/utils/format";
 
 import type { Copy } from "@/core/copy";
-import type { CalendarDay, Pair, Uhrzeit } from "@/core/format";
+import type { Pair } from "@/core/format";
 import type {
   FLSonderereignis,
   FLSpielJoined,
@@ -27,15 +27,6 @@ import type { Route } from "next";
  * landing's among them: its sides, its row, its head and its facts, from the public read's match.
  */
 
-// The fixture's own strings, which its schema has already held to the stored formats.
-const dayOf = (datum: string | null): CalendarDay | null => (datum === null ? null : (datum as CalendarDay));
-const timeOf = (uhrzeit: string | null): Uhrzeit | null => (uhrzeit === null ? null : (uhrzeit as Uhrzeit));
-
-/** The match between the two semi-finals' losers, as the read marks it: the one rule the podium reads too. */
-export function isThirdPlace(spiel: Pick<FLSpielJoined, "for_third_place">): boolean {
-  return spiel.for_third_place;
-}
-
 /** A match's matchday as the page reads serve it beside the match: its `position`, and its phase's count of matchdays. */
 type Matchday = Pick<FLSpielPageResponse, "spieltag_position" | "count_spieltage_in_phase">;
 
@@ -44,7 +35,7 @@ type Matchday = Pick<FLSpielPageResponse, "spieltag_position" | "count_spieltage
  * a knockout round spread over several matchdays numbered among them, and the third-place match by its own name.
  */
 export function matchdayOf(spiel: Pick<FLSpielJoined, "saison_phase" | "for_third_place">, matchday: Matchday): Copy {
-  if (isThirdPlace(spiel)) return SERVER_COPY.season.thirdPlace;
+  if (spiel.for_third_place) return SERVER_COPY.season.thirdPlace;
   return spieltagLabel({ phase: spiel.saison_phase, ordinal: matchday.spieltag_position, countInPhase: matchday.count_spieltage_in_phase });
 }
 
@@ -91,8 +82,8 @@ function sideOf(team: FLSpielTeamFieldJoined | null, quelle: FLSpielQuelle | nul
 }
 
 /** The match's two sides, the first-listed side first. */
-export function sidesOf(spiel: FLSpielJoined): { heim: SpielSide; gast: SpielSide } {
-  return { heim: sideOf(spiel.team1, spiel.team1_quelle), gast: sideOf(spiel.team2, spiel.team2_quelle) };
+export function sidesOf(spiel: FLSpielJoined): { team1: SpielSide; team2: SpielSide } {
+  return { team1: sideOf(spiel.team1, spiel.team1_quelle), team2: sideOf(spiel.team2, spiel.team2_quelle) };
 }
 
 /** The result as the kit's rows and heads take it, and nothing until one is entered. */
@@ -110,14 +101,12 @@ export const whenOf = (spiel: FLSpielJoined): Copy => COPY.spielplan.when(dayOf(
  * over the page. The third-place match says so before its date, the one line every form of the row shows.
  */
 export function matchRowOf(spiel: FLSpielJoined): SpielRowProps & { id: string } {
-  const { heim, gast } = sidesOf(spiel);
   const when = whenOf(spiel);
   return {
     id: spiel.id,
     href: ROUTES.spiel.path(spiel.saison_id, spiel.id),
-    when: isThirdPlace(spiel) ? SERVER_COPY.season.labelled(SERVER_COPY.season.thirdPlace, when) : when,
-    home: heim,
-    away: gast,
+    when: spiel.for_third_place ? SERVER_COPY.season.labelled(SERVER_COPY.season.thirdPlace, when) : when,
+    ...sidesOf(spiel),
     ...resultOf(spiel),
   };
 }
@@ -138,7 +127,7 @@ function standingOf(spiel: FLSpielJoined, team: FLSpielTeamFieldJoined | null, s
  * name a link to its page and under it where it stands, a link to that place.
  */
 export function headOf(spiel: FLSpielJoined, matchday: Matchday, standings: FLSpielSideStandings): SpielHeadProps {
-  const { heim, gast } = sidesOf(spiel);
+  const { team1, team2 } = sidesOf(spiel);
   const eyebrow = matchdayOf(spiel, matchday);
   const side = (shown: SpielSide, team: FLSpielTeamFieldJoined | null, standing: FLSpielSideStanding | null) => ({
     ...shown,
@@ -147,8 +136,8 @@ export function headOf(spiel: FLSpielJoined, matchday: Matchday, standings: FLSp
   });
   return {
     eyebrow,
-    home: side(heim, spiel.team1, standings.team1),
-    away: side(gast, spiel.team2, standings.team2),
+    team1: side(team1, spiel.team1, standings.team1),
+    team2: side(team2, spiel.team2, standings.team2),
     ...resultOf(spiel),
   };
 }
@@ -184,9 +173,9 @@ function sonderereignisOf(ereignis: FLSonderereignis, spiel: FLSpielJoined): Cop
   const words = COPY.spielplan.sonderereignis;
   switch (ereignis) {
     case "nichtantreten_team1":
-      return words.nichtAngetreten(sidesOf(spiel).heim.name);
+      return words.nichtAngetreten(sidesOf(spiel).team1.name);
     case "nichtantreten_team2":
-      return words.nichtAngetreten(sidesOf(spiel).gast.name);
+      return words.nichtAngetreten(sidesOf(spiel).team2.name);
     default:
       return words[ereignis];
   }
@@ -203,9 +192,9 @@ export function ereignisOf(spiel: FLSpielJoined): { title: Copy; text: Copy } | 
   const { consequence } = COPY.spielplan.sonderereignis;
   switch (ereignis) {
     case "nichtantreten_team1":
-      return { title, text: consequence.nichtAngetreten(sidesOf(spiel).gast.name) };
+      return { title, text: consequence.nichtAngetreten(sidesOf(spiel).team2.name) };
     case "nichtantreten_team2":
-      return { title, text: consequence.nichtAngetreten(sidesOf(spiel).heim.name) };
+      return { title, text: consequence.nichtAngetreten(sidesOf(spiel).team1.name) };
     case "abgebrochen":
       return { title, text: spiel.ergebnis === null ? consequence.abgebrochenOpen : consequence.abgebrochenScored };
     default:

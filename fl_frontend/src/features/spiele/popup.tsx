@@ -19,9 +19,9 @@ export async function spielPopupOf(saison: string, spielId: string): Promise<Spi
   const page = await getSpielPage(saison, spielId);
   if (page === null) notFound();
   const { spiel, standings } = page;
-  const { heim, gast } = sidesOf(spiel);
+  const { team1, team2 } = sidesOf(spiel);
   return {
-    title: ROUTES.spiel.title(heim.name, gast.name),
+    title: ROUTES.spiel.title(team1.name, team2.name),
     beneath: ROUTES.spielplan.path(saison),
     act: (
       // A full page load: a client navigation to this same address is intercepted again as this pop-up.

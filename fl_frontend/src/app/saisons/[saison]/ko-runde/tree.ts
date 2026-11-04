@@ -1,15 +1,15 @@
 import "server-only";
 
 import { PHASE_LABELS, SAISON_PHASE_OPTIONS } from "@/features/saisons/constants";
-import { isThirdPlace, matchRowOf, whenOf } from "@/features/spiele/blocks";
+import { matchRowOf, whenOf } from "@/features/spiele/blocks";
 
 import type { FLSpielJoined, FLSpielplanSpieltag, FLSpielQuelle } from "@/core/generated/client/types";
 import type { BracketMatch, BracketRound } from "@/kit/BracketTree";
 
 /** A match as its card in the tree: its date alone, the tree's own row naming the third place. */
 function cardOf(spiel: FLSpielJoined): BracketMatch {
-  const { id, href, home, away, result } = matchRowOf(spiel);
-  return { id, href, when: whenOf(spiel), home, away, ...(result === undefined ? {} : { result }), anchor: spiel.id };
+  const { id, href, team1, team2, result } = matchRowOf(spiel);
+  return { id, href, when: whenOf(spiel), team1, team2, ...(result === undefined ? {} : { result }), anchor: spiel.id };
 }
 
 /** The match a side's winner comes from, by its number. */
@@ -24,7 +24,7 @@ const feederOf = (quelle: FLSpielQuelle | null): number | null =>
  */
 export function treeOf(spieltage: readonly FLSpielplanSpieltag[]): { rounds: [BracketRound, ...BracketRound[]]; third?: BracketMatch } | null {
   const spiele = spieltage.flatMap((spieltag) => spieltag.spiele);
-  const third = spiele.find(isThirdPlace);
+  const third = spiele.find((spiel) => spiel.for_third_place);
   const phases = SAISON_PHASE_OPTIONS.filter((phase) => phase !== "gruppenphase")
     .map((phase) => ({ phase, spiele: spiele.filter((spiel) => spiel.saison_phase === phase && spiel !== third) }))
     .filter((round) => round.spiele.length > 0);

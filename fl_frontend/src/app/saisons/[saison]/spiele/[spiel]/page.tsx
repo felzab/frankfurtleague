@@ -4,19 +4,18 @@ import { ReadFolds } from "@/kit/ReadFolds";
 import { ReadPage } from "@/kit/ReadPage";
 
 import { COPY } from "@/core/copy";
-import { formatDatumPair, formatErgebnis, formatOrdinal, formatUhrzeit } from "@/core/format";
+import { dayOf, formatDatumPair, formatErgebnis, formatOrdinal, formatUhrzeit, timeOf } from "@/core/format";
+import { buildMapsSearchUrl } from "@/core/maps";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { PHASE_LABELS } from "@/features/saisons/constants";
 import { getSpielPage } from "@/features/saisons/queries";
 import { resolvePublicSaisonParam } from "@/features/saisons/resolvers";
 import { ereignisOf, headOf, matchdayOf, sidesOf } from "@/features/spiele/blocks";
-import { buildMapsSearchUrl } from "@/shared/utils/format";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { resolveObjectIdParam } from "@/shared/utils/routeParams";
 
 import type { Copy, Words } from "@/core/copy";
-import type { CalendarDay, Uhrzeit } from "@/core/format";
 import type {
   FLAufstellungEntryPublic,
   FLAufstellungPublic,
@@ -44,10 +43,10 @@ async function readPage(params: Props["params"]): Promise<FLSpielPageResponse> {
 
 export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
   const { spiel } = await readPage(params);
-  const { heim, gast } = sidesOf(spiel);
+  const { team1, team2 } = sidesOf(spiel);
   return pageMetadata(parent, ROUTES.spiel, ROUTES.spiel.path(spiel.saison_id, spiel.id), {
-    title: ROUTES.spiel.title(heim.name, gast.name),
-    description: SERVER_COPY.description.spiel(heim.name, gast.name, spiel.saison_id),
+    title: ROUTES.spiel.title(team1.name, team2.name),
+    description: SERVER_COPY.description.spiel(team1.name, team2.name, spiel.saison_id),
   });
 }
 
@@ -68,13 +67,13 @@ export default function SpielPage({ params }: Props) {
 async function readRecord(params: Props["params"]): Promise<ReadRecord> {
   const page = await readPage(params);
   const { spiel, standings, bericht } = page;
-  const { heim, gast } = sidesOf(spiel);
+  const { team1, team2 } = sidesOf(spiel);
   const words = SERVER_COPY.season.spiel;
   // The goals and cards as official: null until the report is adopted and where none is stored, so a result
   // awaiting its report never reads as nobody having scored, which an adopted report's empty lists say.
   const official = bericht?.torschuetzen == null || bericht.karten === null ? null : { tore: bericht.torschuetzen, karten: bericht.karten };
   return {
-    title: { route: "spiel", heim: heim.name, gast: gast.name },
+    title: { route: "spiel", team1: team1.name, team2: team2.name },
     spiel: { head: headOf(spiel, page, standings), sonderereignis: ereignisOf(spiel) },
     groups: [
       { kind: "tiles", tiles: { layout: "five", items: tilesOf(spiel, page) } },
@@ -84,8 +83,8 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
         folds: (
           <ReadFolds
             cards={[
-              { title: heim.name, ...lineupOf(bericht?.aufstellungen.team1 ?? null) },
-              { title: gast.name, ...lineupOf(bericht?.aufstellungen.team2 ?? null) },
+              { title: team1.name, ...lineupOf(bericht?.aufstellungen.team1 ?? null) },
+              { title: team2.name, ...lineupOf(bericht?.aufstellungen.team2 ?? null) },
             ]}
           />
         ),
@@ -108,7 +107,7 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
 function tilesOf(spiel: FLSpielJoined, page: FLSpielPageResponse): readonly [StatTile, StatTile, StatTile, StatTile, StatTile] {
   const { fact } = COPY.spielplan;
   const group = spiel.saison_phase === "gruppenphase";
-  const datum = spiel.datum === null ? null : formatDatumPair(spiel.datum as CalendarDay);
+  const datum = spiel.datum === null ? null : formatDatumPair(dayOf(spiel.datum));
   return [
     group
       ? { label: fact.spieltag, value: { record: formatOrdinal(page.spieltag_position) }, line: PHASE_LABELS.gruppenphase }
@@ -116,7 +115,7 @@ function tilesOf(spiel: FLSpielJoined, page: FLSpielPageResponse): readonly [Sta
     datum === null
       ? { label: fact.datum, value: COPY.shared.noValue }
       : { label: fact.datum, value: { record: datum.figure }, line: { record: datum.line } },
-    { label: fact.uhrzeit, value: spiel.uhrzeit === null ? COPY.shared.noValue : { record: formatUhrzeit(spiel.uhrzeit as Uhrzeit) } },
+    { label: fact.uhrzeit, value: spiel.uhrzeit === null ? COPY.shared.noValue : { record: formatUhrzeit(timeOf(spiel.uhrzeit)) } },
     {
       label: fact.schiedsrichter,
       value: spiel.schiedsrichter?.name == null ? COPY.shared.noValue : { record: spiel.schiedsrichter.name },

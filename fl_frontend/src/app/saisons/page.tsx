@@ -26,7 +26,7 @@ async function readSaison(): Promise<StatusCardProps> {
   if (active !== null) redirect(ROUTES.spielplan.path(active));
   // The landing's words for the same fact, the empty pattern under the season's noun.
   return {
-    mark: "info",
+    tone: "info",
     sentence: COPY.shared.empty.none(COPY.shared.saison),
     next: { label: COPY.shared.end.toHome, href: ROUTES.home.path() },
   };

@@ -14,21 +14,20 @@ import { Steps } from "@/kit/Steps";
 import { StepsLine } from "@/kit/StepsLine";
 import { SchoolTiles, SponsorTiles } from "@/kit/TileGrid";
 
-import { INSTAGRAM_URL, KONTAKT_EMAIL, THREADS_URL } from "@/core/brand";
+import { INSTAGRAM_URL, KONTAKT_MAILTO, THREADS_URL } from "@/core/brand";
 import { COPY } from "@/core/copy";
-import { formatNumber } from "@/core/format";
+import { dayOf, formatNumber } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { BEWERBUNG_BESTAETIGUNG_FRIST_TAGE } from "@/features/bewerbungen/constants";
 import { ORGANISERS, SPONSORS } from "@/features/meta/constants";
 import { pageMetadata } from "@/shared/utils/metadata";
 
-import { formOf, readLanding, stateOf } from "./landing";
+import { readLanding, stateOf } from "./landing";
 
-import type { CalendarDay } from "@/core/format";
 import type { FLBewerbungWindow } from "@/core/generated/client/types";
 import type { LandingContent } from "@/kit/LandingPage";
-import type { Metadata, ResolvingMetadata, Route } from "next";
+import type { Metadata, ResolvingMetadata } from "next";
 import type { ComponentProps, ReactElement, ReactNode } from "react";
 import type { LandingSaison } from "./landing";
 
@@ -44,9 +43,9 @@ const ABOUT = { label: COPY.page.about, href: ROUTES.about.path() };
 /** The question's door: the league's address and its two networks. */
 const QUESTION: ComponentProps<typeof Doors>["question"] = {
   ...words.doors.question,
-  email: { label: words.contact.email, href: `mailto:${KONTAKT_EMAIL}` as Route, glyph: "email" },
-  instagram: INSTAGRAM_URL as Route,
-  threads: THREADS_URL as Route,
+  email: { label: words.contact.email, href: KONTAKT_MAILTO },
+  instagram: INSTAGRAM_URL,
+  threads: THREADS_URL,
 };
 
 /** The season's card, or the one sentence that the league has none yet. */
@@ -60,7 +59,7 @@ function asideOf(saison: LandingSaison | null, window: FLBewerbungWindow | null)
     ) : (
       <SaisonBlock
         title={COPY.shared.saisonName(window.saison_id)}
-        state={{ kind: "window", until: window.bis as CalendarDay, apply: formOf(window) }}
+        state={{ kind: "window", until: dayOf(window.bis), apply: ROUTES.bewerbung.path(window.saison_id) }}
       />
     );
   }
@@ -102,8 +101,8 @@ function sectionsOf(saison: LandingSaison | null, window: FLBewerbungWindow | nu
               ? { open: false, sentence: words.join.closed, act: ABOUT }
               : {
                   open: true,
-                  sentence: words.saison.windowUntil(window.bis as CalendarDay),
-                  act: { label: words.toBewerbung, href: formOf(window) },
+                  sentence: words.saison.windowUntil(dayOf(window.bis)),
+                  act: { label: words.toBewerbung, href: ROUTES.bewerbung.path(window.saison_id) },
                 }
           }
         />
@@ -154,7 +153,7 @@ function sectionsOf(saison: LandingSaison | null, window: FLBewerbungWindow | nu
                 title: words.doors.school.title,
                 // The date stands on the join band and the season card, each fact once: the door says only that the window is open.
                 text: words.join.opened,
-                act: { label: words.toBewerbung, href: formOf(window) },
+                act: { label: words.toBewerbung, href: ROUTES.bewerbung.path(window.saison_id) },
               }
         }
         question={QUESTION}
@@ -182,7 +181,7 @@ async function contentOf(): Promise<LandingContent> {
   await connection();
   const { saison, bewerbung_window: window } = await readLanding();
   return {
-    secondary: window === null ? ABOUT : { label: words.toBewerbung, href: formOf(window) },
+    secondary: window === null ? ABOUT : { label: words.toBewerbung, href: ROUTES.bewerbung.path(window.saison_id) },
     aside: asideOf(saison, window),
     sections: sectionsOf(saison, window),
   };

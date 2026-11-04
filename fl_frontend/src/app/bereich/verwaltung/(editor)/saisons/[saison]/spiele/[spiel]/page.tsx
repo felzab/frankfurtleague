@@ -10,8 +10,8 @@ import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { getAdminSpiel } from "@/features/spiele/queries";
 import { getSpielorte } from "@/features/spielorte/queries";
-import { CustomObjectIdStringSchema } from "@/shared/schemas";
 import { pageMetadata } from "@/shared/utils/metadata";
+import { resolveObjectIdParam } from "@/shared/utils/routeParams";
 
 import { spielortAnlegen } from "../../../../../spielortAnlegen";
 import { SPIELORT_REGELN } from "../../../../../spielortRegeln";
@@ -36,11 +36,20 @@ const SONDEREREIGNISSE: Readonly<Record<FLSonderereignis, Copy>> = {
   annulliert: WORTE.annulliert,
 };
 
-/** The fixture the address names, read once for the tab's title and the page alike; `null` where none is. */
-const lesen = cache(async (spiel: string) => {
-  const id = CustomObjectIdStringSchema.safeParse(spiel);
-  return id.success ? getAdminSpiel(id.data) : null;
-});
+/** One read of the fixture for the tab's title and the page alike. */
+const lesen = cache(getAdminSpiel);
+
+/**
+ * The fixture the address names, as every season page reads its record: not-found for a malformed id, for none
+ * by it, and for one of another season, the tab's title included.
+ */
+async function readSpiel(params: Props["params"]) {
+  const spiel = await resolveObjectIdParam(params, "spiel");
+  const { saison } = await params;
+  const gelesen = await lesen(spiel);
+  if (gelesen === null || gelesen.spiel.saison_id !== saison) notFound();
+  return gelesen;
+}
 
 /** A match is named by its two teams, as its own page is, and by its number while a side is still open. */
 const nameOf = (spiel: FLSpielJoinedAdmin) =>
@@ -49,11 +58,8 @@ const nameOf = (spiel: FLSpielJoinedAdmin) =>
     : ROUTES.verwaltungSpiel.title({ record: spiel.team1.name }, { record: spiel.team2.name });
 
 export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
-  const { saison, spiel } = await params;
-  const gelesen = await lesen(spiel);
-  return gelesen === null
-    ? {}
-    : pageMetadata(parent, ROUTES.verwaltungSpiel, ROUTES.verwaltungSpiel.path(saison, spiel), { title: nameOf(gelesen.spiel) });
+  const { spiel } = await readSpiel(params);
+  return pageMetadata(parent, ROUTES.verwaltungSpiel, ROUTES.verwaltungSpiel.path(spiel.saison_id, spiel.id), { title: nameOf(spiel) });
 }
 
 /** The match editor, on today's match read and write. */
@@ -62,10 +68,8 @@ export default function SpielEditorPage({ params }: Props) {
 }
 
 async function readEditor(params: Props["params"]) {
-  const { saison, spiel } = await params;
   // Retired venues included, so a match booked at one still names it.
-  const [gelesen, { spielorte }] = await Promise.all([lesen(spiel), getSpielorte({ include_inactive: true })]);
-  if (gelesen === null || gelesen.spiel.saison_id !== saison) notFound();
+  const [gelesen, { spielorte }] = await Promise.all([readSpiel(params), getSpielorte({ include_inactive: true })]);
   // A finished season's matches take no write (`saison_past`), so the editor opens on one read-only.
   const vorbei = gelesen.saison_status === "past";
   const gespeichert = gelesen.spiel;

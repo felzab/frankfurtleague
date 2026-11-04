@@ -1,4 +1,13 @@
-import { formatDatum, formatDatumLong, formatDatumWithWeekday, formatErgebnis, formatList, formatNumber, formatUhrzeit } from "./format";
+import {
+  formatDatum,
+  formatDatumLong,
+  formatDatumWithWeekday,
+  formatErgebnis,
+  formatList,
+  formatNumber,
+  formatOrdinal,
+  formatUhrzeit,
+} from "./format";
 
 import type { CalendarDay, Pair, Uhrzeit } from "./format";
 
@@ -178,6 +187,8 @@ export const COPY = catalogue({
     notProvided: "Nicht hinterlegt",
     /** A value not there yet, in a tile, a table cell or a score's place: a glyph, not a word. */
     noValue: "–",
+    /** Between a pairing's two sides where no score stands between them, as a fixture's pairing reads: a glyph, not a word. */
+    versus: "–",
     overview: "Übersicht",
     // Redesign: the account menu reads it once it offers a second role.
     switchRole: "Funktion wechseln",
@@ -193,7 +204,7 @@ export const COPY = catalogue({
       finale: "Finale",
     },
     /** A group matchday, by its served `position`: the season's lists, a match's head and the season card name it alike. */
-    spieltag: (position: number) => `${formatNumber(position)}. Spieltag`,
+    spieltag: (position: number) => `${formatOrdinal(position)} Spieltag`,
     /** A knockout matchday where its phase spans several, „Viertelfinale (2)“: the phase's name and the matchday's place in it. */
     knockoutRound: (phase: Copy, position: number) => `${phase} (${formatNumber(position)})`,
     afterElfmeterschiessen: AFTER_ELFMETERSCHIESSEN,
@@ -255,7 +266,7 @@ export const COPY = catalogue({
     teams: "Teams",
     spielSearch: "Spielsuche",
     /** A match's page, named by its two teams in the order the fixture lists them. */
-    spiel: (heim: Words, gast: Words) => `${textOf(heim)} gegen ${textOf(gast)}`,
+    spiel: (team1: Words, team2: Words) => `${textOf(team1)} gegen ${textOf(team2)}`,
     about: "Über die Liga",
     contact: "Kontakt",
     sponsors: "Sponsoren",
@@ -285,6 +296,7 @@ export const COPY = catalogue({
     registrierungConfirmation: "Registrierung bestätigen",
     accountErasure: "Konto löschen",
     registrierung: "Registrierung",
+    bewerbung: (saison: string) => `Bewerbung Saison ${saison}`,
   },
 
   /** The Spielplan, and a match's page, which opens as the pop-up over it. */
@@ -301,7 +313,7 @@ export const COPY = catalogue({
     /** A side the draw has not settled: its source short in the dashed plaque, and in full as its name. */
     quelle: {
       gruppeShort: (gruppe: string, platz: number) => `${gruppe}${formatNumber(platz)}`,
-      gruppe: (gruppe: string, platz: number) => `${formatNumber(platz)}. der Gruppe ${gruppe}`,
+      gruppe: (gruppe: string, platz: number) => `${formatOrdinal(platz)} der Gruppe ${gruppe}`,
       siegerShort: (spiel: number) => `S${formatNumber(spiel)}`,
       sieger: (spiel: number) => `Sieger von Spiel ${formatNumber(spiel)}`,
       verliererShort: (spiel: number) => `V${formatNumber(spiel)}`,
@@ -476,8 +488,12 @@ export const COPY = catalogue({
        * rules write's refusal and the draw's say it alike, on the status line, the two counts together being at fault.
        */
       bracketImpossible: `Aus diesen Zahlen entsteht keine ${K_O_RUNDE}.`,
-      /** Under the season's start once a result is entered, which holds it. */
-      startFixed: "Steht fest, seit ein Ergebnis eingetragen ist",
+      /**
+       * Under the season's start once a match of the season has taken place, which holds it: a match has taken place
+       * once it has a result, a recorded no-show or abandonment, or one side's goals
+       * (`fl_backend/app/api/teams/services.py :: has_taken_place`).
+       */
+      startFixed: "Steht fest, seit ein Spiel stattgefunden hat",
     },
 
     spiel: {

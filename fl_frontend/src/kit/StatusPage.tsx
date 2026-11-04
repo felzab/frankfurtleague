@@ -9,14 +9,19 @@ import { tv } from "./tv";
 
 import type { Copy } from "@/core/copy";
 import type { Route } from "next";
+import type { ChipProps } from "./Chip";
+import type { IconName } from "./Icon";
 import type { RailPageHead } from "./RailFrame";
 
-/** What the end says at a glance: done, a fact, a link or a page that is no more, a failure; each names its glyph. */
-type StatusMark = "done" | "info" | "warning" | "error";
+/** What the end says at a glance, in the hues a chip names: done, a fact, a link or a page that is no more, a failure. */
+type StatusTone = Exclude<ChipProps["tone"], "neutral">;
 
-/** One end state: its mark, its one sentence, and its one way on, a label and an address per page in the catalogue. */
+/** Each hue's glyph in the card's mark. */
+const GLYPH: Readonly<Record<StatusTone, IconName>> = { success: "done", info: "info", warn: "warning", danger: "error" };
+
+/** One end state: its hue, its one sentence, and its one way on, a label and an address per page in the catalogue. */
 export type StatusCardProps = {
-  mark: StatusMark;
+  tone: StatusTone;
   sentence: Copy;
   next: { label: Copy; href: Route };
 };
@@ -29,11 +34,11 @@ const card = tv({
   },
   variants: {
     // The mark's tint is 12 % of its hue over the card, as a chip's.
-    mark: {
-      done: { mark: "bg-success/12 text-success" },
+    tone: {
+      success: { mark: "bg-success/12 text-success" },
       info: { mark: "bg-info/12 text-info" },
-      warning: { mark: "bg-warn/12 text-warn" },
-      error: { mark: "bg-danger/12 text-danger" },
+      warn: { mark: "bg-warn/12 text-warn" },
+      danger: { mark: "bg-danger/12 text-danger" },
     },
   },
 });
@@ -46,16 +51,16 @@ type CardWords = { title?: Copy; sentence: Copy } | { title: Copy; sentence?: un
 
 /**
  * The hairline card every end state shares: its mark, the title where the frame carries none, one sentence, one
- * way on; an error's too, which offers no retry (D481). It writes no landmark, so a page inside an old shell's
+ * way on; an error's too, which offers no retry. It writes no landmark, so a page inside an old shell's
  * `main` places it alone.
  */
-export function StatusCard({ mark, sentence, next, title }: Omit<StatusCardProps, "sentence"> & CardWords) {
-  const slots = card({ mark });
+export function StatusCard({ tone, sentence, next, title }: Omit<StatusCardProps, "sentence"> & CardWords) {
+  const slots = card({ tone });
   return (
     <div className={slots.root()}>
       <span className={slots.mark()}>
         <Icon
-          glyph={mark}
+          glyph={GLYPH[tone]}
           size={18}
         />
       </span>
@@ -73,10 +78,10 @@ export function StatusCard({ mark, sentence, next, title }: Omit<StatusCardProps
 
 /** The card once the page's read has said which end it is, in the rail form's boundary. */
 async function CardOnceRead({ card }: { card: Promise<StatusCardProps> }) {
-  const { mark, sentence, next } = await card;
+  const { tone, sentence, next } = await card;
   return (
     <StatusCard
-      mark={mark}
+      tone={tone}
       sentence={sentence}
       next={next}
     />
@@ -99,7 +104,7 @@ export function StatusPage(
     return (
       <ClassicPage width="card">
         <StatusCard
-          mark={props.mark}
+          tone={props.tone}
           sentence={props.sentence}
           next={props.next}
           title={props.title}

@@ -4,11 +4,11 @@ import { ClassicFrame } from "@/kit/ClassicFrame";
 
 import { INSTAGRAM_URL, THREADS_URL } from "@/core/brand";
 import { COPY } from "@/core/copy";
-import { ROUTES } from "@/core/routes";
+import { ROUTES, SAISON_PAGES } from "@/core/routes";
 import { SPONSORS } from "@/features/meta/constants";
 import { getSaisonFrame } from "@/features/saisons/queries";
 
-import type { HeaderLink } from "@/kit/FrameNav";
+import type { HeaderLink } from "@/kit/HeaderLinks";
 import type { ReactNode } from "react";
 
 /** The league's own pages: the header's two and the footer's „Liga“ group, and the footer's legal pages. */
@@ -42,14 +42,7 @@ export function Classic({ children }: { children: ReactNode }) {
       links={[ABOUT, CONTACT]}
       signIn={ROUTES.signIn.path()}
       seasonPages={active.then((saison) =>
-        saison === null
-          ? null
-          : [
-              { label: COPY.page.spielplan, href: ROUTES.spielplan.path(saison) },
-              { label: COPY.page.tabelle, href: ROUTES.tabelle.path(saison) },
-              { label: COPY.page.teams, href: ROUTES.teams.path(saison) },
-              { label: COPY.shared.kORunde, href: ROUTES.kORunde.path(saison) },
-            ],
+        saison === null ? null : SAISON_PAGES.map((page) => ({ label: ROUTES[page].title, href: ROUTES[page].path(saison) })),
       )}
       liga={[ABOUT, CONTACT]}
       legal={[LEGAL_NOTICE, PRIVACY_NOTICE]}

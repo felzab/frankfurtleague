@@ -31,7 +31,7 @@ export function SheetFrame({
       className="group/sheet z-50">
       <SheetBackdrop
         swipeAnimation="kit-sheet-backdrop"
-        className="bg-[rgb(0_0_0/0.1)] backdrop-blur-[4px]"
+        className="bg-scrim backdrop-blur-scrim"
       />
       <AriaSheet className="max-h-[92%] w-full overflow-clip rounded-t-xl bg-bg-overlay text-base text-fg shadow-dialog">
         {/* The handle: the sheet follows a swipe down and closes past its edge. */}

@@ -15,8 +15,8 @@ vi.mock("next/link", () => ({
 
 const PAIRING = {
   eyebrow: COPY.shared.spieltag(1),
-  home: { name: { record: "Goethe" }, plaque: { record: "GOE" } },
-  away: { name: { record: "Helmholtz" }, plaque: { record: "HEL" } },
+  team1: { name: { record: "Goethe" }, plaque: { record: "GOE" } },
+  team2: { name: { record: "Helmholtz" }, plaque: { record: "HEL" } },
 } as const;
 
 describe("the match head's clubs", () => {
@@ -24,8 +24,8 @@ describe("the match head's clubs", () => {
     render(
       <SpielHead
         {...PAIRING}
-        home={{
-          ...PAIRING.home,
+        team1={{
+          ...PAIRING.team1,
           href: "/saisons/2027/teams/goe",
           standing: { text: SERVER_COPY.season.standing(1, "A"), href: "/saisons/2027/tabelle#goe" },
         }}
@@ -66,7 +66,7 @@ describe("the match head's club names", () => {
     render(
       <SpielHead
         {...PAIRING}
-        home={{ ...PAIRING.home, href: "/saisons/2027/teams/goe" }}
+        team1={{ ...PAIRING.team1, href: "/saisons/2027/teams/goe" }}
       />,
     );
 

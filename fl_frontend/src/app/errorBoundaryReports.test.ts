@@ -26,7 +26,7 @@ const BOUNDARIES = filesUnder(APP_DIR, (name) => name === "error.tsx" || name ==
   shown: path.relative(APP_DIR, file).split(path.sep).join("/"),
 }));
 
-/* A boundary built on the kit's status card ends in one link, the way to the start page (D284), and offers no
+/* A boundary built on the kit's status card ends in one link, the way to the start page, and offers no
    retry; the old pages' boundaries still offer one. Read off the source, so a boundary rebuilt on the card
    moves from the one set to the other with no edit here. */
 const LINKING = BOUNDARIES.filter(({ file }) => /from "@\/kit\/StatusPage"/.test(readFileSync(file, "utf8")));

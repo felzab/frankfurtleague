@@ -75,6 +75,13 @@ export const ROUTES = {
   sponsors: { path: () => "/sponsors" as const, title: COPY.page.sponsors, crawl: "index" },
   legalNotice: { path: () => "/impressum" as const, title: COPY.page.legalNotice, crawl: "index" },
   privacyNotice: { path: () => "/datenschutz" as const, title: COPY.page.privacyNotice, crawl: "index" },
+  /**
+   * A coming season's application form, which the landing and a mail lead to. Never in the sitemap, whose one
+   * season is the season the site is on and not the one taking applications; the page names its own canonical
+   * address while a window is open and asks not to be listed while none is.
+   */
+  // Session 6: its page is built.
+  bewerbung: { path: (saison: string) => `/bewerbung/${saison}` as const, title: COPY.page.bewerbung, crawl: "noindex" },
   /** Signing in, which every page signed out offers as „Anmelden“. */
   signIn: { path: () => "/signin" as const, title: COPY.signIn.title, crawl: "noindex" },
   /** The passkey step a sign-in reaches where its session is to set one up, use one or is offered one. */
@@ -228,3 +235,9 @@ export const ROUTES = {
   // Session 7: its page is built.
   verwaltungActionLog: { path: () => "/bereich/verwaltung/log" as const, title: COPY.page.verwaltungActionLog, crawl: "disallow" },
 } as const satisfies Record<string, RouteEntry>;
+
+/**
+ * A season's public pages in the one order every frame lists them: the rail and the phone bar on a season page,
+ * and the classic footer's „Saison“ group. Each is named by its route's title.
+ */
+export const SAISON_PAGES = ["spielplan", "kORunde", "tabelle", "teams"] as const satisfies ReadonlyArray<keyof typeof ROUTES>;

@@ -4,6 +4,20 @@ export type CalendarDay = `${number}-${number}-${number}`;
 /** A time of day as the API stores it, `HH:MM` or `HH:MM:SS`. */
 export type Uhrzeit = `${number}:${number}` | `${number}:${number}:${number}`;
 
+// A served day or time in the type the formats take: the backend's schema holds each to its stored format, which the
+// generated client types as a plain string, so the one narrowing stands here and nowhere else.
+export function dayOf(datum: string): CalendarDay;
+export function dayOf(datum: string | null): CalendarDay | null;
+export function dayOf(datum: string | null): CalendarDay | null {
+  return datum as CalendarDay | null;
+}
+
+export function timeOf(uhrzeit: string): Uhrzeit;
+export function timeOf(uhrzeit: string | null): Uhrzeit | null;
+export function timeOf(uhrzeit: string | null): Uhrzeit | null {
+  return uhrzeit as Uhrzeit | null;
+}
+
 /** One side's figure each, as a fixture and its shoot-out store them. */
 export type Pair = { readonly team1: number; readonly team2: number };
 

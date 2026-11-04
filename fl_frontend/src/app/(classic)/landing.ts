@@ -1,16 +1,15 @@
 import { cacheLife, cacheTag } from "next/cache";
 
 import { COPY } from "@/core/copy";
+import { dayOf, timeOf } from "@/core/format";
 import { saisonsGetLanding } from "@/core/generated/client/sdk";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { SITE_CACHE_TAG } from "@/core/siteCache";
 import { matchRowOf } from "@/features/spiele/blocks";
 
-import type { CalendarDay, Uhrzeit } from "@/core/format";
-import type { FLBewerbungWindow, FLLandingResponse, FLLandingSide } from "@/core/generated/client/types";
+import type { FLLandingResponse, FLLandingSide } from "@/core/generated/client/types";
 import type { Place } from "@/kit/Podium";
 import type { SaisonBlock } from "@/kit/SaisonBlock";
-import type { Route } from "next";
 import type { ComponentProps } from "react";
 
 /** The season the site is on, one member per state, each carrying the facts that state shows. */
@@ -32,9 +31,6 @@ export async function readLanding(): Promise<FLLandingResponse> {
 
   return saisonsGetLanding();
 }
-
-/** The application form for the season whose window is open. */
-export const formOf = (window: FLBewerbungWindow) => `/bewerbung/${window.saison_id}` as Route;
 
 /** An opening side by its club's Kürzel, `null` while its slot is empty, which the card draws as the open plaque. */
 const plaqueOf = (side: FLLandingSide | null) => (side === null ? null : { record: side.shorthand });
@@ -59,11 +55,10 @@ export function stateOf(saison: LandingSaison): SaisonState {
           ? {}
           : {
               opening: {
-                // The schema has already held both to the stored formats.
-                when: COPY.spielplan.when(spiel.datum as CalendarDay, spiel.uhrzeit as Uhrzeit | null),
+                when: COPY.spielplan.when(dayOf(spiel.datum), timeOf(spiel.uhrzeit)),
                 spieltag: SERVER_COPY.landing.saison.spieltag(spiel.spieltag_position),
-                home: plaqueOf(spiel.team1),
-                away: plaqueOf(spiel.team2),
+                team1: plaqueOf(spiel.team1),
+                team2: plaqueOf(spiel.team2),
               },
             }),
       };

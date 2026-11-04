@@ -42,6 +42,8 @@
     --danger: #b71920;
     --danger-solid: #b71920;
     --danger-solid-hover: #d22e30;
+    /* The veil a dialog and a sheet lay over the page, one value in both themes: a dark page darkens little. */
+    --scrim: rgb(0 0 0 / 0.1);
 
     --menu-shadow:
       0 0 0 1px rgba(0, 0, 0, 0.04), 0 1px 1px rgba(0, 0, 0, 0.02), 0 4px 8px -4px rgba(0, 0, 0, 0.04), 0 16px 24px -8px rgba(0, 0, 0, 0.06);
@@ -231,6 +233,7 @@
   --color-danger: var(--danger);
   --color-danger-solid: var(--danger-solid);
   --color-danger-solid-hover: var(--danger-solid-hover);
+  --color-scrim: var(--scrim);
 
   --shadow-menu: var(--menu-shadow);
   --shadow-dialog: var(--dialog-shadow);
@@ -267,6 +270,9 @@
   --radius-md: 0.375rem;
   --radius-lg: 0.5rem;
   --radius-xl: 0.75rem;
+
+  /* The blur behind a dialog's and a sheet's scrim. */
+  --blur-scrim: 4px;
 
   /* Anton's letterfit for a title at every size: it is drawn to set nearly solid, and the site's negative
      values were chosen for Inter's looser capitals. */

@@ -1,13 +1,12 @@
 import { Suspense } from "react";
 
 import { COPY, textOf } from "@/core/copy";
-import { ERGEBNIS_SEPARATOR } from "@/core/format";
 
 import { Callout } from "./Callout";
 import { RouteDialog } from "./Dialog";
 import { Facts } from "./Facts";
 import { Link } from "./Link";
-import { figures, look, sideMarks } from "./SpielRow";
+import { figures, Goal, GoalSeparator, look, sideMarks } from "./SpielRow";
 import { TeamPlaque } from "./TeamPlaque";
 import { tv } from "./tv";
 
@@ -35,8 +34,8 @@ type SpielHeadSide = SpielSide & {
 export type SpielHeadProps = {
   /** The line above the pairing, as a competition's round stands over a scoreboard: the matchday. */
   eyebrow: Copy;
-  home: SpielHeadSide;
-  away: SpielHeadSide;
+  team1: SpielHeadSide;
+  team2: SpielHeadSide;
   /** Absent until a result is entered, so an unplayed match never reads 0:0. */
   result?: SpielRowProps["result"];
 };
@@ -64,12 +63,18 @@ const head = tv({
   },
 });
 
-function Goals({ score, part }: { score: Figures; part: "home" | "away" }) {
-  return <span className={head(look(score, part)).goals()}>{score === null ? COPY.shared.noValue : score[part]}</span>;
+function Goals({ score, part }: { score: Figures; part: "team1" | "team2" }) {
+  return (
+    <Goal
+      score={score}
+      part={part}
+      className={head(look(score, part)).goals()}
+    />
+  );
 }
 
 /** A side as the centred look sets it: the plaque over the name, and under it where the club stands. */
-function Side({ side, score, part }: { side: SpielHeadSide; score: Figures; part: "home" | "away" }) {
+function Side({ side, score, part }: { side: SpielHeadSide; score: Figures; part: "team1" | "team2" }) {
   const style = head(look(score, part));
   return (
     <span className={style.side()}>
@@ -106,7 +111,7 @@ function Side({ side, score, part }: { side: SpielHeadSide; score: Figures; part
  * shoot-out's score, on a surface of its own, the band across the dialog's top or a box of the page. The one
  * block that names a match by its two sides.
  */
-export function SpielHead({ eyebrow, home, away, result, placement = "dialog" }: SpielHeadProps & { placement?: "dialog" | "page" }) {
+export function SpielHead({ eyebrow, team1, team2, result, placement = "dialog" }: SpielHeadProps & { placement?: "dialog" | "page" }) {
   const score = figures(result);
   const shootOut = score?.shootOut === true ? COPY.shared.afterElfmeterschiessen : null;
   const style = head({ placement });
@@ -115,29 +120,29 @@ export function SpielHead({ eyebrow, home, away, result, placement = "dialog" }:
       <span className={style.eyebrow()}>{eyebrow}</span>
       <div className="grid w-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-start gap-3">
         <Side
-          side={home}
+          side={team1}
           score={score}
-          part="home"
+          part="team1"
         />
         <span className="grid justify-items-center pt-0.5">
           <span className="text-3xl leading-none">
             <Goals
               score={score}
-              part="home"
+              part="team1"
             />
-            <span className={score === null ? "text-fg-muted" : undefined}>{ERGEBNIS_SEPARATOR}</span>
+            <GoalSeparator score={score} />
             <Goals
               score={score}
-              part="away"
+              part="team2"
             />
           </span>
           {/* Placed under the score, and read straight after it; the line keeps its height so the sides stand still. */}
           <span className="h-4 text-xs text-fg-muted">{shootOut}</span>
         </span>
         <Side
-          side={away}
+          side={team2}
           score={score}
-          part="away"
+          part="team2"
         />
       </div>
     </div>

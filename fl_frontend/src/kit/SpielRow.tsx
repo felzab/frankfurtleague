@@ -1,7 +1,7 @@
 import { COPY, textOf } from "@/core/copy";
 import { ERGEBNIS_SEPARATOR } from "@/core/format";
 
-import { cardSurface } from "./cardStyles";
+import { cardSurface, stacked } from "./cardStyles";
 import { Chip } from "./Chip";
 import { Link } from "./Link";
 import { RowEnd } from "./RowEnd";
@@ -22,8 +22,8 @@ export type SpielRowProps = {
   href: Route;
   /** When it is played, as the catalogue words it. */
   when: Copy;
-  home: SpielSide;
-  away: SpielSide;
+  team1: SpielSide;
+  team2: SpielSide;
   /** Absent until a result is entered, so an unplayed match never reads 0:0. */
   result?: { tore: Pair; elfmeterschiessen?: Pair };
   /** The phase, by its catalogue name. */
@@ -61,7 +61,7 @@ const row = tv({
     name: "min-w-0 truncate",
   },
   variants: {
-    // The home side on desktop: the name before its plaque, so the plaque stands nearest the score.
+    // The first side on desktop: the name before its plaque, so the plaque stands nearest the score.
     mirrored: {
       true: { side: "justify-end" },
     },
@@ -69,28 +69,38 @@ const row = tv({
 });
 
 /** Each side's figure, or `null` before a result. */
-export type Figures = { home: number; away: number; shootOut: boolean } | null;
+export type Figures = { team1: number; team2: number; shootOut: boolean } | null;
 
 /** Each side's figure: its goals, a shoot-out's goals added, as the league reports it. */
 export function figures(result: SpielRowProps["result"]): Figures {
   if (result === undefined) return null;
   const { tore, elfmeterschiessen } = result;
   return {
-    home: tore.team1 + (elfmeterschiessen?.team1 ?? 0),
-    away: tore.team2 + (elfmeterschiessen?.team2 ?? 0),
+    team1: tore.team1 + (elfmeterschiessen?.team1 ?? 0),
+    team2: tore.team2 + (elfmeterschiessen?.team2 ?? 0),
     shootOut: elfmeterschiessen !== undefined,
   };
 }
 
 /** How one side reads, as `sideMarks`' variants: whether it won, and how its goals count. */
-export function look(score: Figures, side: "home" | "away") {
+export function look(score: Figures, side: "team1" | "team2") {
   if (score === null) return { winner: false, goals: "none" } as const;
   const own = score[side];
-  const other = score[side === "home" ? "away" : "home"];
+  const other = score[side === "team1" ? "team2" : "team1"];
   return { winner: own > other, goals: score.shootOut && own < other ? "lost" : "counted" } as const;
 }
 
-function Side({ side, score, part, mirrored }: { side: SpielSide; score: Figures; part: "home" | "away"; mirrored?: boolean }) {
+/** One side's goals as its block marks them, or the empty mark before a result: a row's, a head's or a bracket card's. */
+export function Goal({ score, part, className }: { score: Figures; part: "team1" | "team2"; className: string }) {
+  return <span className={className}>{score === null ? COPY.shared.noValue : score[part]}</span>;
+}
+
+/** The mark between the two sides' goals, muted with them before a result. */
+export function GoalSeparator({ score }: { score: Figures }) {
+  return <span className={score === null ? "text-fg-muted" : undefined}>{ERGEBNIS_SEPARATOR}</span>;
+}
+
+function Side({ side, score, part, mirrored }: { side: SpielSide; score: Figures; part: "team1" | "team2"; mirrored?: boolean }) {
   const style = row({ ...look(score, part), mirrored: mirrored === true });
   const name = textOf(side.name);
   return (
@@ -107,8 +117,14 @@ function Side({ side, score, part, mirrored }: { side: SpielSide; score: Figures
   );
 }
 
-function Goals({ score, part }: { score: Figures; part: "home" | "away" }) {
-  return <span className={row(look(score, part)).goals()}>{score === null ? COPY.shared.noValue : score[part]}</span>;
+function Goals({ score, part }: { score: Figures; part: "team1" | "team2" }) {
+  return (
+    <Goal
+      score={score}
+      part={part}
+      className={row(look(score, part)).goals()}
+    />
+  );
 }
 
 function RowChip({ chip }: { chip?: ChipProps }) {
@@ -116,17 +132,17 @@ function RowChip({ chip }: { chip?: ChipProps }) {
 }
 
 /**
- * A match in a list, the whole row a link to it. In a wide list one line, 56 px: when, the home side, the
- * score with „n. E.“ centred under it, the away side, the phase, the chevron. In a narrow one a card of two
+ * A match in a list, the whole row a link to it. In a wide list one line, 56 px: when, the first side, the
+ * score with „n. E.“ centred under it, the second side, the phase, the chevron. In a narrow one a card of two
  * lines under the date line, each side with its goals at the right, „n. E.“ on the date line, and no chevron;
  * every row the same height with or without a shoot-out.
  */
-function SpielRow({ href, when, home, away, result, phase, chip }: SpielRowProps) {
+function SpielRow({ href, when, team1, team2, result, phase, chip }: SpielRowProps) {
   const score = figures(result);
   const shootOut = score?.shootOut === true ? COPY.shared.afterElfmeterschiessen : null;
 
   return (
-    <div className="border-t border-border first:border-t-0">
+    <div className={stacked()}>
       <Link
         href={href}
         placement="card">
@@ -134,30 +150,30 @@ function SpielRow({ href, when, home, away, result, phase, chip }: SpielRowProps
           <span className="col-start-1 row-span-2 row-start-1 font-numeric text-fg-muted">{when}</span>
           <span className="col-start-2 row-span-2 row-start-1">
             <Side
-              side={home}
+              side={team1}
               score={score}
-              part="home"
+              part="team1"
               mirrored
             />
           </span>
           <span className="col-start-3 row-start-1 text-center text-base">
             <Goals
               score={score}
-              part="home"
+              part="team1"
             />
-            <span className={score === null ? "text-fg-muted" : undefined}>{ERGEBNIS_SEPARATOR}</span>
+            <GoalSeparator score={score} />
             <Goals
               score={score}
-              part="away"
+              part="team2"
             />
           </span>
           {/* Placed under the score, and read straight after it. */}
           <span className="col-start-3 row-start-2 text-center text-xs text-fg-muted">{shootOut}</span>
           <span className="col-start-4 row-span-2 row-start-1 flex min-w-0 items-center gap-2">
             <Side
-              side={away}
+              side={team2}
               score={score}
-              part="away"
+              part="team2"
             />
             <RowChip chip={chip} />
           </span>
@@ -172,29 +188,29 @@ function SpielRow({ href, when, home, away, result, phase, chip }: SpielRowProps
           <span className="text-end text-xs text-fg-muted">{shootOut}</span>
           <span className="flex min-w-0 items-center gap-2">
             <Side
-              side={home}
+              side={team1}
               score={score}
-              part="home"
+              part="team1"
             />
           </span>
           <span className="min-w-7 text-end">
             <Goals
               score={score}
-              part="home"
+              part="team1"
             />
           </span>
           <span className="flex min-w-0 items-center gap-2">
             <Side
-              side={away}
+              side={team2}
               score={score}
-              part="away"
+              part="team2"
             />
             <RowChip chip={chip} />
           </span>
           <span className="min-w-7 text-end">
             <Goals
               score={score}
-              part="away"
+              part="team2"
             />
           </span>
         </span>

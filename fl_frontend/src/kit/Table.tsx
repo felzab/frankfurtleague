@@ -1,7 +1,7 @@
 import { COPY, textOf } from "@/core/copy";
 import { formatNumber } from "@/core/format";
 
-import { cardHover, cardSurface, columnHead } from "./cardStyles";
+import { cardHover, cardSurface, columnHead, stacked } from "./cardStyles";
 import { Chip } from "./Chip";
 import { EmptyState } from "./EmptyState";
 import { Link } from "./Link";
@@ -93,7 +93,7 @@ const table = tv({
     // with the card's head band.
     head: columnHead().text(),
     // A row a link may point to by its fragment, marked while the address names it.
-    row: "kit-target relative h-14 border-t border-border first:border-t-0 lg:h-13",
+    row: `kit-target relative h-14 ${stacked()} lg:h-13`,
     cell: "px-3 whitespace-nowrap",
     // The name takes the room the facts leave and is cut with „…“ where it is longer (`max-w-0` lets a cell
     // of an automatic table layout shrink below its content, so the cut can happen at all).

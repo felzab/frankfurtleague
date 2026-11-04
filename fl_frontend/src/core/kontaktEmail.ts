@@ -1,13 +1,12 @@
 import "server-only";
 
 import { BRAND_NAME, mailOrigin } from "./emailShell";
-import { formatDatum } from "./format";
+import { dayOf, formatDatum } from "./format";
 import { kontaktBestaetigungsLink } from "./kontaktLink";
 import { DEIN_BEREICH_TITEL } from "./seitenNamen";
 import { rollenText } from "./teamVocabulary";
 
 import type { Mail, Paragraph, Sentence } from "./emailShell";
-import type { CalendarDay } from "./format";
 import type { FLKontaktLinkData, FLKontaktRow } from "./generated/client/types";
 import type { MailLink } from "./mailKinds";
 
@@ -71,7 +70,7 @@ export function buildKontaktBestaetigungEmail(
             ]
           : GESCHLOSSEN_SATZ[zeile],
       ],
-      linkAbsatz(zeile, formatDatum(frist as CalendarDay)),
+      linkAbsatz(zeile, formatDatum(dayOf(frist))),
     ],
     // Named for what the page offers: a closed row's page has nothing to confirm.
     button: { label: zeile === "open" ? "Eintrag bestätigen" : "Zum Eintrag", href: kontaktBestaetigungsLink(site, token) },

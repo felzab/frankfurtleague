@@ -22,9 +22,10 @@ const ORGANIZATION = {
 };
 
 /**
- * The block as React's `<script>` with a string child (https://react.dev/reference/react-dom/components/script),
- * which the server writes with every `<script` and `</script` in it escaped, so no value can end the block early.
- * A data block, which no browser runs.
+ * The block as React's `<script>` with a string child, which React's server renderer writes with every `<script`
+ * and `</script` in it escaped, so no value can end the block early. React's documentation does not promise that
+ * escaping, so `JsonLd.test.tsx` holds it; Next's guide escapes through `dangerouslySetInnerHTML` instead, which
+ * `react/no-danger` keeps out of the tree. A data block, which no browser runs.
  */
 export function OrganizationJsonLd() {
   return <script type="application/ld+json">{JSON.stringify(ORGANIZATION)}</script>;

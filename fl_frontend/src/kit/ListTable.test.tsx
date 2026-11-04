@@ -84,15 +84,15 @@ describe("a list's search", () => {
 });
 
 /** A match card of the Spielsuche: its row, and the words beyond its two clubs a visitor finds it by. */
-const match = (id: string, home: string, away: string, words: string) => ({
+const match = (id: string, team1: string, team2: string, words: string) => ({
   row: {
     id,
     href: `/saisons/2027/spiele/${id}` as const,
     when: COPY.spielplan.when(null, null),
-    home: { name: { record: home }, plaque: { record: "AAA" } },
-    away: { name: { record: away }, plaque: { record: "BBB" } },
+    team1: { name: { record: team1 }, plaque: { record: "AAA" } },
+    team2: { name: { record: team2 }, plaque: { record: "BBB" } },
   },
-  words: `${home} ${away} ${words}`,
+  words: `${team1} ${team2} ${words}`,
 });
 
 describe("the Spielsuche's matches", () => {

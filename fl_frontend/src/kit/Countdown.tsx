@@ -20,7 +20,7 @@ function remaining(start: number, at: number) {
 }
 
 /**
- * The days, hours and minutes left until the season's start (D499), the one part of the landing that runs
+ * The days, hours and minutes left until the season's start, the one start every season rule reads, the one part of the landing that runs
  * on the client. Its first render, on the server and again while the page hydrates, counts from `seed`, the
  * instant the server rendered at, so both write the same markup; once hydrated it counts from the visitor's
  * clock and wakes as each minute runs out, re-rendering these figures alone. No seconds: a figure ticking

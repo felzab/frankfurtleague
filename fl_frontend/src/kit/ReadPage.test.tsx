@@ -17,7 +17,7 @@ vi.mock("next/link", () => ({
 const { fact } = COPY.spielplan;
 
 const RECORD: ReadRecord = {
-  title: { route: "spiel", heim: { record: "Goethe" }, gast: { record: "Helmholtz" } },
+  title: { route: "spiel", team1: { record: "Goethe" }, team2: { record: "Helmholtz" } },
   groups: [{ kind: "facts", facts: [{ label: fact.spieltag, value: { record: "1. Spieltag" } }] }],
 };
 
@@ -40,8 +40,8 @@ describe("a match's own page", () => {
           spiel: {
             head: {
               eyebrow: COPY.shared.spieltag(1),
-              home: { name: { record: "Goethe" }, plaque: { record: "GOE" } },
-              away: { name: { record: "Helmholtz" }, plaque: { record: "HEL" } },
+              team1: { name: { record: "Goethe" }, plaque: { record: "GOE" } },
+              team2: { name: { record: "Helmholtz" }, plaque: { record: "HEL" } },
             },
             sonderereignis: { title: COPY.spielplan.sonderereignis.ausgefallen, text: COPY.spielplan.sonderereignis.consequence.ausgefallen },
           },

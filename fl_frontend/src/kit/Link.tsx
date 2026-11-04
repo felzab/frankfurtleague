@@ -27,7 +27,7 @@ const link = tv({
       row: "text-inherit after:absolute after:inset-0 after:content-['']",
       card: `block text-fg ${cardHover()}`,
       // The classic footer's links, its words and its sponsors' logos: muted until the pointer is over them.
-      footer: "rounded-md text-sm leading-6 text-fg-muted hover:text-fg",
+      footer: "rounded-md text-sm leading-6 text-fg-muted transition-colors duration-(--motion-state) hover:text-fg",
       // Drawn by `buttonLook` in the look the link names.
       button: "",
     },
@@ -39,7 +39,7 @@ const link = tv({
  * on the dark-green band, the title strip's legal pages, „Anmelden“ at the rail's foot.
  */
 export const frameLink = tv({
-  base: "flex h-9 items-center rounded-lg px-3 text-sm font-medium whitespace-nowrap",
+  base: "flex h-9 items-center rounded-lg px-3 text-sm font-medium whitespace-nowrap transition-colors duration-(--motion-state)",
   variants: {
     tone: {
       // On the band: the page the visitor is on, and „Anmelden“, in full white.

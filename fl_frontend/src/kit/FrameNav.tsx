@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, Fragment, Suspense, use, useContext } from "react";
+import { createContext, Suspense, use, useContext } from "react";
 import NextLink from "next/link";
 import { useParams, usePathname, useRouter } from "next/navigation";
 
@@ -17,8 +17,9 @@ import { ConfirmDialog } from "./ConfirmDialog";
 import { entryMark } from "./fieldStyles";
 import { Icon } from "./Icon";
 import { useLeaveGuard } from "./LeaveGuard";
-import { frameLink, menuEntry } from "./Link";
+import { menuEntry } from "./Link";
 import { Menu } from "./Menu";
+import { currentOf, FreshPerPage } from "./navPlace";
 import { RailTooltip, useRailCollapsed } from "./RailState";
 import { railFade, railGlyph } from "./railStyles";
 import { groupHeading } from "./Section";
@@ -216,29 +217,11 @@ function AccountMenu({ account, trigger, beside }: { account: Account; trigger: 
   );
 }
 
-/**
- * The entry the address belongs to: the longest one the path equals or lies under, so an area's Übersicht
- * is not marked on a page beneath it that has an entry of its own.
- */
-function currentOf<Href extends string>(path: string, hrefs: ReadonlyArray<Href>) {
-  return hrefs
-    .filter((href) => path === href || path.startsWith(`${href}/`))
-    .reduce<Href | null>((best, href) => (best === null || href.length > best.length ? href : best), null);
-}
-
 function useCurrent(entries: ReadonlyArray<{ href: Route }>) {
   return currentOf(
     usePathname(),
     entries.map((entry) => entry.href),
   );
-}
-
-/**
- * Its children afresh on every page: a sheet the layout keeps would otherwise stay open after one of its links
- * led on, since a layout outlives the page it surrounds.
- */
-function FreshPerPage({ children }: { children: ReactNode }) {
-  return <Fragment key={usePathname()}>{children}</Fragment>;
 }
 
 // The current entry is marked as every navigating list marks its place, the link carrying `data-selected`.
@@ -586,112 +569,4 @@ export function EditorBack() {
   const groups = useEntries(useContext(MenuContext)?.groups ?? []);
   const href = useCurrent(groups.flatMap((group) => group.entries));
   return href === null ? null : <BackControl href={href} />;
-}
-
-/** A link of the classic header: catalogue words and an address the layout gives. */
-export type HeaderLink = { label: Copy; href: Route };
-
-/** The season the site is on as the header's first entry, once its read lands; none while the league has none. */
-function SeasonEntry({ read, look }: { read: Promise<HeaderLink | null>; look: "band" | "sheet" }) {
-  const link = use(read);
-  if (link === null) return null;
-  return (
-    <NextLink
-      href={link.href}
-      data-kit-focus={look === "band" ? "ring" : "inset"}
-      className={look === "band" ? frameLink({ tone: "bandMuted" }) : menuEntry({ size: "phone" })}>
-      {link.label}
-    </NextLink>
-  );
-}
-
-/**
- * The classic header's links and „Anmelden“ on the band: in a row from 1024 px, and on a phone behind one
- * button opening them as a sheet. The season's entry leads them once its read lands; while it waits it holds no
- * width and the band its fixed height, so nothing beside it moves up or down.
- */
-export function HeaderLinks({
-  season,
-  links,
-  signIn,
-}: {
-  /** The season the site is on, read on a request, or null where the league has none. */
-  season?: Promise<HeaderLink | null>;
-  links: ReadonlyArray<HeaderLink>;
-  signIn: Route;
-}) {
-  const current = currentOf(
-    usePathname(),
-    links.map((link) => link.href),
-  );
-  return (
-    <>
-      <nav
-        aria-label={COPY.template.navigation}
-        className="hidden gap-2 lg:flex">
-        {season !== undefined && (
-          <Suspense fallback={null}>
-            <SeasonEntry
-              read={season}
-              look="band"
-            />
-          </Suspense>
-        )}
-        {links.map((link) => (
-          <NextLink
-            key={link.href}
-            href={link.href}
-            aria-current={link.href === current ? "page" : undefined}
-            data-kit-focus="ring"
-            className={frameLink({ tone: link.href === current ? "band" : "bandMuted" })}>
-            {link.label}
-          </NextLink>
-        ))}
-      </nav>
-      <NextLink
-        href={signIn}
-        data-kit-focus="ring"
-        className={frameLink({ tone: "band", class: "ms-auto hidden lg:flex" })}>
-        {COPY.shared.verb.signIn}
-      </NextLink>
-      <div className="ms-auto lg:hidden">
-        <FreshPerPage>
-          <Sheet
-            label={COPY.template.menu}
-            trigger={
-              <AriaButton
-                aria-label={COPY.template.menu}
-                data-kit-focus="ring"
-                className="flex size-10 items-center justify-center rounded-lg text-on-brand">
-                <Icon
-                  glyph="menu"
-                  size={18}
-                />
-              </AriaButton>
-            }>
-            <div className="grid gap-1 pt-2">
-              {season !== undefined && (
-                <Suspense fallback={null}>
-                  <SeasonEntry
-                    read={season}
-                    look="sheet"
-                  />
-                </Suspense>
-              )}
-              {[...links, { label: COPY.shared.verb.signIn, href: signIn }].map((link) => (
-                <NextLink
-                  key={link.href}
-                  href={link.href}
-                  aria-current={link.href === current ? "page" : undefined}
-                  data-kit-focus="inset"
-                  className={menuEntry({ size: "phone" })}>
-                  {link.label}
-                </NextLink>
-              ))}
-            </div>
-          </Sheet>
-        </FreshPerPage>
-      </div>
-    </>
-  );
 }

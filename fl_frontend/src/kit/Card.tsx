@@ -10,7 +10,6 @@ import type { Route } from "next";
 import type { ReactElement, ReactNode } from "react";
 import type { ChipProps } from "./Chip";
 
-/** A card's props, which its folded form, `CardFold`, takes as they are. */
 export type CardProps = {
   /** Catalogue text such as the kind of open work, or a record's own name, such as a club's. */
   title: Words;

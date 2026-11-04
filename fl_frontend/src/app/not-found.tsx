@@ -22,7 +22,7 @@ export default function NotfoundPage() {
     <Classic>
       <StatusPage
         frame="classic"
-        mark="info"
+        tone="info"
         title={words.title}
         sentence={words.sentence}
         next={{ label: COPY.shared.end.toHome, href: ROUTES.home.path() }}

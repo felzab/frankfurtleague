@@ -15,7 +15,20 @@ export const cardSurface = tv({ base: "rounded-lg border border-border bg-bg-car
 export const cardHover = tv({ base: "transition-colors duration-(--motion-state) hover:bg-bg-muted" });
 
 /**
- * The column head's look: small muted capitals, 40 px tall, over a hairline, on the card's own fill. A table's
+ * The hairline parting parts stacked one under another inside one box, drawn above every part but the first: a
+ * card's rows, a table's, a match list's, the facts' pairs, the steps and the folded line-up's groups.
+ */
+export const stacked = tv({ base: "border-t border-border first:border-t-0" });
+
+/**
+ * The kit's label rung: small muted capitals, set apart by their tracking. A table's column head and a card's
+ * subhead wear it through `columnHead`, and so do a landing section's eyebrow, a fact card's label and the
+ * classic footer's group headings, so one ruling on the rung reaches each of them from here.
+ */
+export const smallCaps = tv({ base: "text-xs font-medium tracking-caps text-fg-muted uppercase" });
+
+/**
+ * The column head's look: the label rung, 40 px tall, over a hairline, on the card's own fill. A table's
  * head row reads it, and so does every subhead parting the groups inside one card, such as a line-up's starters
  * and bench or the season card's last and next match, through `GroupHead`: a card's head is the one band it
  * carries, so a group inside it is headed as a column is and never by a second band.
@@ -24,7 +37,7 @@ export const columnHead = tv({
   slots: {
     // On a table's head row, the row its heads share; on a subhead, the subhead itself.
     rule: "border-b border-border",
-    text: "h-10 text-xs font-medium tracking-caps whitespace-nowrap text-fg-muted uppercase",
+    text: smallCaps({ class: "h-10 whitespace-nowrap" }),
   },
   variants: {
     // In line with what the head stands over: a table's 12-px cells, or a card's 16-px rows such as a match's.
@@ -61,7 +74,7 @@ export const card = tv({
     body: "min-w-0",
     foot: "flex justify-end p-4",
     chevron: "",
-    row: `relative flex min-h-14 items-stretch gap-3 border-t border-border px-4 py-2 text-sm first:border-t-0 lg:min-h-13 ${cardHover()}`,
+    row: `relative flex min-h-14 items-stretch gap-3 ${stacked()} px-4 py-2 text-sm lg:min-h-13 ${cardHover()}`,
   },
   variants: {
     body: {

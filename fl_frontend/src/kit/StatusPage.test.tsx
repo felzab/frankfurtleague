@@ -14,7 +14,7 @@ describe("a status card", () => {
     render(
       <main>
         <StatusCard
-          mark="info"
+          tone="info"
           title={notFound.title}
           sentence={notFound.sentence}
           next={{ label: COPY.shared.end.toHome, href: "/" }}
@@ -25,12 +25,12 @@ describe("a status card", () => {
     expect(screen.getByRole("link", { name: COPY.shared.end.toHome }).getAttribute("href")).toBe("/");
   });
 
-  // D481: an error page offers the way to the start page, never a retry.
+  // An error page offers the way to the start page, never a retry.
   it("leads an error page's card to the start page, in the one landmark the classic frame writes", () => {
     render(
       <StatusPage
         frame="classic"
-        mark="error"
+        tone="danger"
         title={COPY.shared.failure.unexpected}
         next={{ label: COPY.shared.end.toHome, href: "/" }}
       />,

@@ -177,11 +177,11 @@ type TitledRoute = { [K in keyof typeof ROUTES]: (typeof ROUTES)[K]["title"] ext
  * A page's name: its route's catalogue title, a match's two teams in the fixture's order, or a record's own
  * name on its editor or read page, as the catalogue words it or as the record holds it.
  */
-export type PageTitle = { route: TitledRoute } | { route: "spiel"; heim: Words; gast: Words } | Words;
+export type PageTitle = { route: TitledRoute } | { route: "spiel"; team1: Words; team2: Words } | Words;
 
 function titleOf(title: PageTitle): string {
   if (typeof title === "string" || "record" in title) return textOf(title);
-  if (title.route === "spiel") return ROUTES.spiel.title(title.heim, title.gast);
+  if (title.route === "spiel") return ROUTES.spiel.title(title.team1, title.team2);
   return ROUTES[title.route].title;
 }
 

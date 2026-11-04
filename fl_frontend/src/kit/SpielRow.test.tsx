@@ -11,8 +11,8 @@ const SPIEL = {
   id: "1",
   href: "/saisons/2027",
   when: COPY.spielplan.when("2027-04-14", "15:30"),
-  home: { name: { record: "Goethe" }, plaque: { record: "GOE" } },
-  away: { name: { record: "Helmholtz" }, plaque: { record: "HEL" } },
+  team1: { name: { record: "Goethe" }, plaque: { record: "GOE" } },
+  team2: { name: { record: "Helmholtz" }, plaque: { record: "HEL" } },
 } as const;
 
 describe("a match row's score", () => {
