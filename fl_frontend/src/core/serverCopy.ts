@@ -564,6 +564,39 @@ export const SERVER_COPY = catalogue({
     },
   },
 
+  // Session 6: its page reads these.
+  /**
+   * The fixed text of a contact person's confirmation page, `ROUTES.kontaktConfirmation`, titled
+   * `COPY.page.entryConfirmation`: who named the person and for what, what is stored and until when, the deadline, and
+   * the privacy notice's link. The consents under it are `fl_frontend/src/core/consentWordings.ts`'s; nobody accepts the
+   * notice, which informs and asks no consent.
+   */
+  kontaktConfirmation: {
+    /** The first sentence, by how the seat came to be. */
+    opening: {
+      /** Named in an application by the person who submitted it. */
+      named: (submitter: Words, schule: Words, saison: string, rolle: Words) =>
+        `${textOf(submitter)} hat dich in der Bewerbung von ${textOf(schule)} für die ${COPY.shared.saisonName(saison)} als ${textOf(rolle)} genannt.`,
+      /** The submitter's own seat. */
+      self: (schule: Words, saison: string, rolle: Words) =>
+        `Du hast dich in der Bewerbung von ${textOf(schule)} für die ${COPY.shared.saisonName(saison)} als ${textOf(rolle)} eingetragen.`,
+      /** Seated in an application by the league. */
+      byLeague: (schule: Words, saison: string, rolle: Words) =>
+        `Die Liga hat dich in der Bewerbung von ${textOf(schule)} für die ${COPY.shared.saisonName(saison)} als ${textOf(rolle)} eingetragen.`,
+      /** Seated by the league on a team's season, with no application. */
+      seasonRow: (team: Words, saison: string, rolle: Words) =>
+        `Die Liga hat dich für ${textOf(team)} in der ${COPY.shared.saisonName(saison)} als ${textOf(rolle)} eingetragen.`,
+    },
+    stored: "Wir speichern deinen Namen, deine Kontaktdaten und dein Geburtsdatum längstens bis zum Ende der Saison danach.",
+    /** The deadline of a seat in an application, which goes whole when one seat stays unconfirmed. */
+    applicationDeadline: (kontakte: number, until: CalendarDay) =>
+      `Bestätigen nicht alle ${formatNumber(kontakte)} Kontaktpersonen bis zum ${formatDatumLong(until)}, löschen wir die Bewerbung.`,
+    /** The deadline of a seat on a team's season, which goes alone. */
+    seatDeadline: (until: CalendarDay) => `Bestätigst du nicht bis zum ${formatDatumLong(until)}, löschen wir deinen Eintrag.`,
+    /** The last line, around the privacy notice's title, which the page sets as its link. */
+    more: { before: "Mehr unter ", after: "." },
+  },
+
   /**
    * Each listed page's meta description, by its route key, as a search result shows it under the title. Exactly
    * one for every row `ROUTES` lists and none for any other: a signed-in page, a sign-in page or one a mail opens
