@@ -58,6 +58,8 @@ export const SERVER_COPY = catalogue({
       ort: "Der Spielort ist zu dieser Zeit schon belegt.",
       schiedsrichter: "Der Schiedsrichter ist zu dieser Zeit schon eingeteilt.",
     },
+    /** The league's last owner, whose erasure would leave the administration owned by nobody. */
+    last_owner_erasure: "Du bist die letzte Inhaberin oder der letzte Inhaber der Verwaltung.",
     eligibility_disqualified: {
       team1: `${team1} ist aus der Saison ausgeschieden.`,
       team2: `${team2} ist aus der Saison ausgeschieden.`,
@@ -171,6 +173,8 @@ export const SERVER_COPY = catalogue({
       question: `Diese Adresse soll künftig für ein Konto bei der ${COPY.brand.name} gelten.`,
       confirmed: "Adresse bestätigt",
       confirmedSentence: "Mit dieser Adresse meldest du dich ab jetzt an.",
+      /** A grant holder's confirmed change, which waits on another administrator's approval of the grant's move. */
+      awaitsApproval: "Die Änderung gilt, sobald die Verwaltung sie genehmigt hat.",
     },
     declined: "Änderung abgelehnt",
     declinedSentence: "Diese Adresse wird nicht übernommen.",
@@ -178,8 +182,10 @@ export const SERVER_COPY = catalogue({
   accountErasure: {
     /** Under the list of what goes, each row a record the read found. */
     question: "Alles oben wird endgültig gelöscht.",
-    /** The count of the account's passkeys, the list's row for them. */
+    /** The list's rows beside each record's own: the account's passkeys, its live address changes, its grant. */
     passkeys: "Passkeys",
+    addressChanges: "Laufende Adressänderungen",
+    grant: "Zugang",
     done: "Konto gelöscht",
     doneSentence: "Dein Konto und deine Angaben sind gelöscht.",
     signedOut: "Du bist nicht angemeldet.",
