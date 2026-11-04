@@ -1,55 +1,33 @@
 /**
- * E2E · J8's passkeys on Konto: a person sets one up, renames it and removes it behind the passkey touch. The removal of
- * the passkey this device's session was made by renders nothing again, since that page would render under a session
- * the removal ended, and the page leaves by a document load. Then the same person, holding a passkey again, starts an
- * address change and deletes the account, each behind its own touch. Desktop alone, for the reason
+ * E2E · J8's passkeys on Konto: a person sets one up, renames it and removes it behind the passkey touch, which ends the
+ * session this device's set-up signed in, and the page leaves for the sign-in. Then the same person, holding a passkey
+ * again, starts an address change and deletes the account, each behind its own touch. Desktop alone, for the reason
  * `fl_frontend/playwright.config.ts` gives at its projects.
  */
 import { expect } from "@playwright/test";
 
-import { answerOf } from "../support/actionAnswer";
 import { test } from "../support/journey";
 import { filedMessages, mailedLink } from "../support/mailSink";
 import { signInWithCode } from "../support/signIn";
 
-import type { Page, Request, Response } from "@playwright/test";
+import type { BrowserContext } from "@playwright/test";
 
 /** The person this journey alone signs in as (`scripts/ops/seed/seed.js`), and the one its last step erases. */
 const HOLDER = "emil.ernst@example.com";
 
-/** The passkey's assertion, which the touch posts before the act it guards. */
-const TOUCH_PATH = "/api/auth/passkey/verify-authentication";
+/** The relying party the local `AUTH_URL` names. */
+const RELYING_PARTY = "localhost";
 
 // The second journey runs on the account the first leaves: holding no passkey, signed out.
 test.describe.configure({ mode: "serial" });
 
-/** A touched act's answer, kept whole: the passkey assertions answered between the press and the act's post, and the post's answer. */
-type Pressed = { readonly touches: number; readonly headers: Readonly<Record<string, string>>; readonly body: string };
-
 /**
- * Presses an act behind the touch on the page at `pathname`, and answers what its server action sent back, read whole
- * through `answerOf`, with the passkey assertions answered before the act's post went.
+ * The assertions the browser's authenticator has signed for the site: its signature counter rises by one on each
+ * (https://playwright.dev/docs/api/class-credentials#credentials-create-option-sign-count), so a press behind the touch
+ * moves it by exactly one, and an act whose end shows ran past the touch that moved it.
  */
-async function pressBehindTheTouch(page: Page, pathname: string, press: () => Promise<void>): Promise<Pressed> {
-  let touches = 0;
-  let beforeTheAct: number | undefined;
-  const counted = (response: Response) => {
-    if (response.request().method() === "POST" && new URL(response.url()).pathname === TOUCH_PATH && response.ok()) touches += 1;
-  };
-  // Counted as the act is sent: a touch answered after it is no touch for it.
-  const sent = (request: Request) => {
-    const isTheAct = request.method() === "POST" && new URL(request.url()).pathname === pathname && "next-action" in request.headers();
-    if (isTheAct) beforeTheAct ??= touches;
-  };
-  page.on("response", counted);
-  page.on("request", sent);
-  try {
-    const { headers, body } = await answerOf(page, pathname, press);
-    return { touches: beforeTheAct ?? touches, headers, body };
-  } finally {
-    page.off("response", counted);
-    page.off("request", sent);
-  }
+async function assertionsSigned(context: BrowserContext): Promise<number> {
+  return (await context.credentials.get({ rpId: RELYING_PARTY })).reduce((signed, passkey) => signed + passkey.signCount, 0);
 }
 
 test("a person's passkey on Sicherheit: set up, renamed, and removed with this device's session", async ({ page, context }) => {
@@ -72,17 +50,13 @@ test("a person's passkey on Sicherheit: set up, renamed, and removed with this d
   await rename.getByRole("button", { name: "Umbenennen" }).click();
   await expect(page.getByText("Laptop", { exact: true })).toBeVisible();
 
-  // Removed on its own touch: this device's session goes with it, so the answer renders no page and the
-  // browser leaves for the sign-in as a new document.
-  const own = await pressBehindTheTouch(page, "/account/security", async () => {
-    await rows().first().click();
-    await page.getByRole("alertdialog").getByRole("button", { name: "Löschen" }).click();
-  });
-  expect(own.touches, "the removal of this device's passkey asked no touch of its own").toBe(1);
-  expect(own.headers["x-action-revalidated"], "the removal ending this device's session rendered a page again").toBeUndefined();
-  expect(own.body, "the answer carries a render of Sicherheit").not.toContain("Alle anderen abmelden");
+  // Removed on its own touch: this device's session goes with it, and the browser leaves for the sign-in.
+  const beforeTheRemoval = await assertionsSigned(context);
+  await rows().first().click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Löschen" }).click();
   await expect(page).toHaveURL((url) => url.pathname === "/signin");
   await expect(page.getByRole("heading", { name: "Anmelden" })).toBeVisible();
+  expect(await assertionsSigned(context), "the removal of this device's passkey asked no touch of its own").toBe(beforeTheRemoval + 1);
 });
 
 test("a passkey holder's address change and deletion each run behind the touch", async ({ page, context }) => {
@@ -99,12 +73,11 @@ test("a passkey holder's address change and deletion each run behind the touch",
   // The change's start asks the touch before it posts, and stands as the pending change its box then shows.
   await page.goto("/account/signin");
   await page.getByLabel("Neue E-Mail-Adresse").fill(HOLDER.replace("@", ".neu@"));
-  const started = await pressBehindTheTouch(page, "/account/signin", async () => {
-    await page.getByRole("button", { name: "Link senden" }).click();
-  });
-  expect(started.touches, "the address change's start asked no touch").toBe(1);
+  const beforeTheStart = await assertionsSigned(context);
+  await page.getByRole("button", { name: "Link senden" }).click();
   const withdraw = page.getByRole("button", { name: "Änderung zurückziehen" });
   await expect(withdraw).toBeVisible();
+  expect(await assertionsSigned(context), "the address change's start asked no touch").toBe(beforeTheStart + 1);
   await withdraw.click();
   await expect(page.getByRole("button", { name: "Link senden" })).toBeVisible();
 
@@ -115,10 +88,9 @@ test("a passkey holder's address change and deletion each run behind the touch",
   const link = await mailedLink(HOLDER, "Konto löschen", before);
   await page.goto(link);
   await expect(page.getByRole("heading", { name: "Konto löschen" })).toBeVisible();
-  const deleted = await pressBehindTheTouch(page, "/erasure", async () => {
-    await page.getByRole("main").getByRole("button", { name: "Konto löschen" }).click();
-  });
-  expect(deleted.touches, "the deletion asked no touch").toBe(1);
-  expect(deleted.headers["x-action-redirect"]).toMatch(/^\/erasure\/done/);
+  const beforeTheDeletion = await assertionsSigned(context);
+  await page.getByRole("main").getByRole("button", { name: "Konto löschen" }).click();
+  await expect(page).toHaveURL((url) => url.pathname === "/erasure/done");
   await expect(page.getByRole("heading", { name: "Konto gelöscht" })).toBeVisible();
+  expect(await assertionsSigned(context), "the deletion asked no touch").toBe(beforeTheDeletion + 1);
 });

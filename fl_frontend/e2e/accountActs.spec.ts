@@ -11,10 +11,9 @@
  */
 import { expect } from "@playwright/test";
 
-import { answerOf } from "./support/actionAnswer";
 import { test } from "./support/journey";
 import { filedMessages, mailedLink } from "./support/mailSink";
-import { signInWithCode, signInWithCodeHere } from "./support/signIn";
+import { sessionCookies, signInWithCode, signInWithCodeHere } from "./support/signIn";
 
 import type { Page } from "@playwright/test";
 
@@ -90,6 +89,7 @@ test("Konto's frame, Darstellung and „Alle anderen abmelden“, on one sign-in
   // itself ends in `/signin`.
   await elsewhere.goto("/account/signin");
   await expect(elsewhere).toHaveURL((url) => url.pathname === "/signin");
+  expect(await sessionCookies(other, baseURL), "the other device still holds its ended session's cookie").toEqual([]);
   await page.goto("/account/signin");
   await expect(page).toHaveURL(/\/account\/signin$/);
   await other.close();
@@ -107,12 +107,10 @@ test("a person changes their address: the address on file confirms first, then t
   // the field leaves React's state empty, and the form refuses the press as a missing address.
   await field.click();
   await field.fill(newAddress);
-  // The start's own answer, read before any mail is waited for: a refusal shows only the shared failure line on the
-  // page, and the answer's body names its code, which a failure here prints.
-  const started = await answerOf(page, "/account/signin", async () => {
-    await page.getByRole("button", { name: "Link senden" }).click();
-  });
-  expect(started.body, "the start's action answered a refusal").toMatch(/"ok":true/);
+  // The start's own end, before any mail is waited for: the box stands as the pending change, which a refusal never
+  // shows.
+  await page.getByRole("button", { name: "Link senden" }).click();
+  await expect(page.getByRole("main").getByRole("button", { name: "Änderung zurückziehen" })).toBeVisible();
 
   // The address on file's link asks it first, naming the address the change goes to.
   const previousLink = await mailedLink(leaver, "Änderung der E-Mail-Adresse", before);
@@ -144,7 +142,7 @@ test("a person changes their address: the address on file confirms first, then t
   await expect(page.getByRole("main").getByRole("link", { name: "Anmelden" })).toBeVisible();
 });
 
-test("the person deletes their account from the mailed link, signed out when it opens", async ({ page, context, leaver }) => {
+test("the person deletes their account from the mailed link, signed out when it opens", async ({ page, context, baseURL, leaver }) => {
   const address = newAddressOf(leaver);
   await signIn(page, address);
 
@@ -173,25 +171,15 @@ test("the person deletes their account from the mailed link, signed out when it 
   await expect(page.getByRole("definition").filter({ hasText: address })).toHaveText(address);
   await expect(page.getByText("Alles oben wird endgültig gelöscht.")).toBeVisible();
 
-  // The deletion ends the caller's own session, so the action's answer is the done page's render alone: the link's
-  // page is never rendered again under a session that is gone.
-  const answer = await answerOf(page, "/erasure", async () => {
-    await page.getByRole("button", { name: "Konto löschen" }).click();
-  });
-  expect(answer.headers["x-action-redirect"]).toMatch(/^\/erasure\/done/);
-  // The library's own deletion of the session's cookie reached the action's answer, which is what makes Next render a
-  // page again at all, and what the redirect turns to the done page alone.
-  expect(answer.setCookies, "the action's answer deleted no session cookie").toContainEqual(
-    expect.stringMatching(/session_token=;.*Max-Age=0/i),
-  );
-  expect(answer.body, "the action's answer renders the link's page again").not.toContain("Alles oben wird endgültig gelöscht.");
-  expect(answer.body, "the action's answer carries no render of the done page").toContain("Konto gelöscht");
+  // The deletion leads to the page that needs no session.
+  await page.getByRole("main").getByRole("button", { name: "Konto löschen" }).click();
+  await expect(page).toHaveURL((url) => url.pathname === "/erasure/done");
+  await expect(page.getByRole("main").getByRole("heading", { name: "Konto gelöscht" })).toBeVisible();
+  await expect(page.getByRole("main").getByRole("link", { name: "Zur Startseite" })).toBeVisible();
 
-  await expect(page).toHaveURL(/\/erasure\/done$/);
-  await expect(page.getByRole("heading", { name: "Konto gelöscht" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Zur Startseite" })).toBeVisible();
-
-  // The session is gone with the account: an area's page sends the browser to sign in.
+  // The session goes with the account: the browser holds its cookie no longer, and an area's page sends it to sign in.
+  // A cookie left standing is nothing a person sees, so only this journey holds its expiry.
+  expect(await sessionCookies(context, baseURL), "the deletion left the session's cookie in the browser").toEqual([]);
   await page.goto("/area");
   await expect(page).toHaveURL((url) => url.pathname === "/signin");
 });

@@ -75,6 +75,14 @@ export async function signInWithCode(page: Page, address: string): Promise<void>
   await page.getByRole("textbox", { name: "Code aus der E-Mail" }).pressSequentially(code);
 }
 
+/**
+ * The session cookies the browser holds for the site, by name: the library's, under whatever prefix the origin gives
+ * it, as `fl_frontend/src/proxy.ts` matches it. Scoped to the site, since the bot check loads from another host.
+ */
+export async function sessionCookies(context: BrowserContext, site: string | undefined): Promise<string[]> {
+  return (await context.cookies(String(site))).map((cookie) => cookie.name).filter((name) => name.endsWith(".session_token"));
+}
+
 /** Konto's Anmeldung renders for a session alone: without one it sends the visitor to `/signin`. */
 export async function expectAccountPageOf(page: Page, address: string): Promise<void> {
   await page.goto("/account/signin");
