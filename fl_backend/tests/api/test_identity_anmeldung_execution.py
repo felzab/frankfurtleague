@@ -11,8 +11,9 @@ from httpx2 import Response
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.identity import crud as identity_crud
-from app.api.identity.crud import find_eigene_eintraege
+from app.api.identity.crud import funktionen_aus
 from app.api.identity.schemas import FLSignInResponse, FLSubjectPayload
+from app.api.identity.services import eigene_eintraege, seat_saison_statuses
 from app.api.identity.system_router import get_sign_in
 from app.api.registrierungen.services import compose_confirmation_update
 from app.core.collections import Collection
@@ -342,31 +343,36 @@ class TestTheFlagsBesideIt:
         assert (answer.verwaltung, answer.account, answer.barred) == ("administration", False, False)
 
 
-@pytest.mark.db
-def test_every_funktion_list_is_drawn_from_the_own_records(mongo_replica_set_url: str):
+def test_a_seat_whose_season_has_no_row_is_raised_rather_than_dropped():
+    """A silently shorter list is a person shown no panel at all; the control reads a joined season's status."""
+
+    assert seat_saison_statuses([{"saison_id": ACTIVE_SAISON, "saison": [{"status": "active"}]}]) == {ACTIVE_SAISON: "active"}
+    with pytest.raises(RuntimeError):
+        seat_saison_statuses([{"saison_id": ACTIVE_SAISON, "saison": []}])
+
+
+def test_every_funktion_list_is_drawn_from_the_own_records():
     """One row seating the mailbox confirmed and again unconfirmed in another spelling, and an unconfirmed referee row.
 
-    Kills a Funktion list built from the rows the pre-filter matched rather than from the own records.
+    Kills a Funktion list built from the rows the pre-filter matched rather than from the own records. Both judgements
+    are pure over the rows the subject's reads hand them, so the rows are given as those reads leave them.
     """
 
     identifier = "ortrud.zwiebelmayer@schule.de"
+    seat_rows: list[Mapping[str, Any]] = [
+        {
+            **_row(TEAM_OIDS[4], ACTIVE_SAISON, "OZX", trainer=_seat(identifier), ansprechperson=_seat(identifier.upper(), confirmed_at=None)),
+            # As `app/api/identity/services.py :: saison_status_lookup` joins the row's season.
+            "saison": [{"status": "active"}],
+        }
+    ]
+    referee_rows: list[Mapping[str, Any]] = [_referee(ObjectId(), identifier, "O. Zwiebelmayer", einwilligung=None)]
+    pupil_rows: list[Mapping[str, Any]] = [spieler_document(ObjectId(), "Ortrud", "Zwiebelmayer", email=identifier)]
 
-    async def body(database: AsyncDatabase) -> Any:
-        await database[Collection.SAISON_TEAMS].insert_one(
-            _row(
-                TEAM_OIDS[4],
-                ACTIVE_SAISON,
-                "OZX",
-                trainer=_seat(identifier),
-                ansprechperson=_seat(identifier.upper(), confirmed_at=None),
-            )
-        )
-        await database[Collection.SPIELER].insert_one(spieler_document(ObjectId(), "Ortrud", "Zwiebelmayer", email=identifier))
-        await database[Collection.SCHIEDSRICHTER].insert_one(_referee(ObjectId(), identifier, "O. Zwiebelmayer", einwilligung=None))
-
-        return await find_eigene_eintraege(identifier, record_collections(database))
-
-    subjekt, eintraege = on_a_league(mongo_replica_set_url, body)
+    subjekt = funktionen_aus(identifier, seat_rows=seat_rows, referee_rows=referee_rows, pupil_rows=pupil_rows)
+    eintraege = eigene_eintraege(
+        identifier, seat_rows=seat_rows, referee_rows=referee_rows, pupil_rows=pupil_rows, bewerbung_rows=[], registrierung_rows=[]
+    )
 
     assert [sitz.rolle for sitz in subjekt.seats] == ["trainer"]
     assert {("sitze", (sitz.team_id, sitz.saison_id)) for sitz in subjekt.seats} | {

@@ -4,7 +4,7 @@ import { KONTAKT_EMAIL } from "@/core/brand";
 import { medienZuJung } from "@/features/konto/einwilligung";
 import { isRefusal, isRuleRefusal, refusedPayloadAnswer } from "@/shared/utils/actionError";
 import { buildRefusal, LADE_DIE_SEITE_NEU, LADE_NEU_UND_VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
-import { ANTWORT_NEU_OEFFNEN, FASSUNG_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
+import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
 import { mirrorTrainerSeat } from "@/shared/utils/trainerSeat";
 
 import { alterAusserhalb, BEWERBUNG_MAX_ALTER, KUERZEL_LAENGE, SCHULE_NICHT_IN_LISTE } from "./constants";
@@ -189,8 +189,6 @@ export function mapBewerbungSubmitRefusal(
     // With the record missing, the season this page names is one the running API does not hold: only a
     // page from before a data reset, or a crafted body, sends it, and the reload fetches the window open now.
     case "document_not_found":
-    // A seat names words other than the form's, which only a page loaded before a deploy sends.
-    case "wording_not_allowed":
       return { error: BEWERBUNG_VERALTET };
     default:
       return null;
@@ -255,10 +253,6 @@ export async function mapEinwilligungRefusal(
     case "body_unreadable":
     case "payload_refused":
       return refusedPayloadAnswer(error, ANTWORT_NEU_OEFFNEN);
-    // The backend's judgement of the label: a page opened before a
-    // deploy moved it posts words other than those the backend runs, and only the mail's link reopens it.
-    case "wording_not_allowed":
-      return { error: FASSUNG_NEU_OEFFNEN };
     case "link_invalid":
       return { zustand: "invalid" };
     // Judged ahead of the seat and the ban, which the view ranks first: an answer given in another window, or a ban

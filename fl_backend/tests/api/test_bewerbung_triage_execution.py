@@ -109,7 +109,7 @@ NEW_SCHOOL_NAME, NEW_SCHOOL_SHORTHAND = "Zorbanax", "ZXX"
 RULES: Mapping[str, Any] = rules_document(number_of_gruppen=2, teams_per_gruppe=2)
 
 
-# The seat as its applicant named the person under the form's label, and as that person then confirmed it.
+# The seat as its applicant named the person, and as that person then confirmed it.
 SEATED: Final = {"datum": "2026-01-15"}
 
 

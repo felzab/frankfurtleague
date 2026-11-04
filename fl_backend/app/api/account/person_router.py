@@ -3,7 +3,6 @@ from datetime import datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Depends
-from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
@@ -11,7 +10,6 @@ from app.api.account.schemas import (
     FLAccountAddressChangeMintResponse,
     FLAccountAddressChangeOpen,
     FLAccountAddressChangePayload,
-    FLAccountAddressChangeReleasePayload,
     FLAccountAddressChangeResponse,
     FLAccountEinwilligungenResponse,
 )
@@ -20,30 +18,24 @@ from app.api.account.services import (
     build_account_pipeline,
     compose_bewerbungssitze_self,
     compose_registrierungen_self,
-    compose_schiedsrichter_konto,
+    compose_schiedsrichter_account,
     compose_sitze_self,
-    compose_spieler_konto,
+    compose_spieler_account,
     kontext_zeile,
 )
 from app.api.adresswechsel.crud import (
     end_the_change_in_session,
     ending_line,
-    owe_the_link_in_session,
     owe_the_notice_in_session,
     read_the_bestand,
     start_the_change_in_session,
 )
 from app.api.adresswechsel.schemas import FLAddressChangeApprovalState
 from app.api.adresswechsel.services import (
-    LIVE_TERMS,
     als_utc,
     build_address_filter,
-    build_awaiting_approval_terms,
     compose_genehmigung,
-    compose_link_update,
     compose_record,
-    find_abgelaufen_refusal,
-    find_beendet_refusal,
     find_kein_genehmiger_refusal,
     find_nichts_refusal,
     find_unveraendert_refusal,
@@ -59,7 +51,7 @@ from app.api.identity.services import ist_eigener_schiedsrichter, ist_eigener_sp
 from app.api.sperrliste.guard import PERSON_ACTOR_BINDERS, KontaktIdentifier
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt
 from app.core.config import API_VERSION, BackendConfig, get_app_config
-from app.core.crud import aggregate_many_from_db, patch_one_in_db, refuse
+from app.core.crud import aggregate_many_from_db, refuse
 from app.core.dependencies import (
     ActionLogCollection,
     AddressChangeCollection,
@@ -130,14 +122,14 @@ async def get_einwilligungen(
         {
             "spieler": None
             if pupil is None
-            else compose_spieler_konto(
+            else compose_spieler_account(
                 pupil,
                 givable=may_grant_on_spieler(subjekt, pupil["_id"]),
                 today=today,
                 team=None if zeile is None else teams.get(zeile["team_id"]),
             ),
             "schiedsrichter": [
-                compose_schiedsrichter_konto(row, givable=may_grant_on_schiedsrichter(subjekt, row["_id"]), today=today)
+                compose_schiedsrichter_account(row, givable=may_grant_on_schiedsrichter(subjekt, row["_id"]), today=today)
                 for row in referees
                 if ist_eigener_schiedsrichter(row, identifier)
             ],
@@ -207,8 +199,10 @@ async def get_address_change(
     PERSON TIER. `possible` where the address holds a pupil row, a confirmed referee row, a confirmed contact seat, a
     registration or a grant. **The pending address is served masked where an administrator started the change**, whole
     only where the person typed it here: a change an administrator started may be a pretext whose target the holder of
-    the address on file must not learn. `approval` is the approval a change moving the person's grant waits on;
-    `abgelaufen` says the step the change waits on lapsed, whose press is refused until the hourly pass ends the change.
+    the address on file must not learn. `waits_on` names the step, `previous_address` the link the person's own change
+    mailed the address on file, which this page answers nothing of. `approval` is the approval a change moving the
+    person's grant waits on;
+    `expired` says the step the change waits on lapsed, whose press is refused until the hourly pass ends the change.
     """
 
     # A snapshot, so the records and the change are answered as of one moment.
@@ -315,75 +309,6 @@ async def post_address_change(
             return await session.with_transaction(start_the_change)
 
 
-@router.post(
-    "/address_change/release",
-    response_model=FLAccountAddressChangeMintResponse,
-    summary="Approve the address change an administrator asked of the signed-in person",
-)
-async def post_address_change_release(
-    identifier: KontaktIdentifier,
-    freigabe_data: Annotated[FLAccountAddressChangeReleasePayload, Body()],
-    adresswechsel_collection: AddressChangeCollection,
-    berechtigungen_collection: GrantsCollection,
-    outbox_collection: OutboxCollection,
-    db: DBClient,
-    germany_now: datetime = Depends(get_germany_now),
-) -> FLAccountAddressChangeMintResponse:
-    """
-    Approve the change `id` names, which an administrator started without a reason, owing the new mailbox its link.
-
-    **Nothing reaches the new mailbox before this press**. Nothing about the new address is
-    judged here either: the approver is owed no answer about it, and the confirmation judges it. **The press approves the
-    change its page showed alone**: an administrator's later start replaces that one, and its id then names an ended change.
-
-    Refused `address_change_ended` where the change `id` names has ended; 404 where it
-    is no change of this address awaiting its approval; and `link_expired` past the approval's deadline.
-    """
-
-    address_change_id = freigabe_data.id
-    db_filter = {"_id": address_change_id, **build_address_filter(identifier), **build_awaiting_approval_terms()}
-
-    async def approve_the_change(session: AsyncClientSession) -> Mapping[str, Any]:
-        record = await adresswechsel_collection.find_one(db_filter, session=session)
-        if record is None:
-            ended = await adresswechsel_collection.find_one(
-                {"_id": address_change_id, "ended": {"$type": "object"}}, {"_id": 1}, session=session
-            )
-            refuse(find_beendet_refusal(offen=ended is None))
-            raise DocumentNotFoundError()
-        refuse(find_abgelaufen_refusal(abgelaufen=ist_abgelaufen(record, now=germany_now)))
-
-        approved = await patch_one_in_db(
-            collection=adresswechsel_collection,
-            db_filter={"_id": record["_id"], **LIVE_TERMS},
-            update=compose_link_update(now=germany_now, freigabe=True),
-            session=session,
-            return_document=ReturnDocument.AFTER,
-        )
-        # Read back with no offset, as the driver reads every stored instant.
-        gueltig_bis = als_utc(approved["valid_until"])
-        assert gueltig_bis is not None
-        await owe_the_link_in_session(
-            address_change_id=approved["_id"],
-            email=str(approved["email"]),
-            way=approved["way"],
-            valid_until=gueltig_bis,
-            outbox_collection=outbox_collection,
-            now=germany_now,
-            session=session,
-        )
-
-        return approved
-
-    async with transaction_session(db) as session:
-        record = await session.with_transaction(approve_the_change)
-
-    gueltig_bis = als_utc(record["valid_until"])
-    assert gueltig_bis is not None
-
-    return FLAccountAddressChangeMintResponse(id=record["_id"], valid_until=gueltig_bis, email=record["email"])
-
-
 @router.delete(
     "/address_change",
     response_model=FLAccountAddressChangeResponse,
@@ -400,9 +325,10 @@ async def delete_address_change(
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLAccountAddressChangeResponse:
     """
-    Stop the change pending on the signed-in address, the stop link's twin: its new address goes, out of every log image too.
+    Stop the change pending on the signed-in address at any step: its new address goes, out of every log image too.
 
-    Asks no fresh confirmation and counts nothing: a stop hands nothing over. 404 where no change is pending on the address.
+    Its address on file's question unanswered too, which the link mailed there declines rather than stops. Asks no fresh
+    confirmation and counts nothing: a stop hands nothing over. 404 where no change is pending on the address.
     """
 
     stamp = log_stamp(germany_now)

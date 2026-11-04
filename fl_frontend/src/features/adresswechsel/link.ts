@@ -2,7 +2,7 @@
 // module's exports arrive only as references to render, and calling one throws.
 import type {
   FLAddressChangeEndArt,
-  FLAddressChangeViewEndedSeite,
+  FLAddressChangeViewEndedSide,
   FLAddressChangeViewPreviousState,
   FLAddressChangeViewResponse,
   FLAddressChangeWay,
@@ -10,6 +10,12 @@ import type {
 
 /** The new mailbox's states besides an open link, and a token the read matched to nothing. */
 export type AdresswechselLinkZustand = "expired" | "invalid" | "barred" | "not_confirmable";
+
+/**
+ * The address on file's steps this view shows. The person's own change asks that address first, and the mailed page
+ * answers that question and its lapse, so no such link reaches this view: `ansichtOf` reads one as the dead link.
+ */
+export type OldViewPreviousState = Exclude<FLAddressChangeViewPreviousState, "release_open" | "release_expired">;
 
 /** The new mailbox's states the backend still takes the decline through, so the page keeps their token. */
 type NurAblehnbar = Extract<AdresswechselLinkZustand, "expired" | "not_confirmable">;
@@ -21,11 +27,11 @@ type NurAblehnbar = Extract<AdresswechselLinkZustand, "expired" | "not_confirmab
 export type AdresswechselAnsicht =
   | { zustand: "valid"; gueltigBis: string; way: FLAddressChangeWay }
   | { zustand: "confirmed"; wirksamAb: string | null; genehmigungOffen: boolean; way: FLAddressChangeWay }
-  | { zustand: FLAddressChangeViewPreviousState; gueltigBis: string | null; wirksamAb: string | null; way: FLAddressChangeWay }
+  | { zustand: OldViewPreviousState; gueltigBis: string | null; wirksamAb: string | null; way: FLAddressChangeWay }
   | { zustand: NurAblehnbar; way: FLAddressChangeWay }
   // Pressed, so the backend refuses the decline too: told apart from `abgelaufen`, whose link was never pressed.
   | { zustand: "approval_expired"; way: FLAddressChangeWay }
-  | { zustand: "ended"; seite: FLAddressChangeViewEndedSeite; art: FLAddressChangeEndArt }
+  | { zustand: "ended"; side: FLAddressChangeViewEndedSide; art: FLAddressChangeEndArt }
   | { zustand: Exclude<AdresswechselLinkZustand, NurAblehnbar> };
 
 type OhnePresse = { zustand: "ended" | "confirmed" | "approval_expired" | "barred" | "invalid" };
@@ -36,8 +42,9 @@ export type AdresswechselStart =
 
 /** The read's answer as the page holds it: the side is implied by the state. */
 export function ansichtOf({ view: ansicht }: Pick<FLAddressChangeViewResponse, "view">): AdresswechselAnsicht {
-  if (ansicht.state === "ended") return { zustand: "ended", seite: ansicht.seite, art: ansicht.art };
-  if (ansicht.seite === "previous") {
+  if (ansicht.state === "ended") return { zustand: "ended", side: ansicht.side, art: ansicht.art };
+  if (ansicht.side === "previous") {
+    if (ansicht.state === "release_open" || ansicht.state === "release_expired") return { zustand: "invalid" };
     return { zustand: ansicht.state, gueltigBis: ansicht.valid_until, wirksamAb: ansicht.effective_from, way: ansicht.way };
   }
 
@@ -73,7 +80,7 @@ export function startOf(gelesen: AdresswechselAnsicht, token: string): Adresswec
 /** A press that landed: the confirmation's outcome, `wirksam` where it took effect in this press. */
 export type AdresswechselGedrueckt = {
   success: true;
-  antwort: "confirmed" | "declined" | "stopped";
+  answer: "confirmed" | "declined" | "stopped";
   effective: boolean;
   effective_from: string | null;
   approval_open: boolean;

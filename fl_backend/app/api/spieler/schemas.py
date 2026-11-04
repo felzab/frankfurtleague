@@ -8,7 +8,7 @@ from app.shared.schemas.bounds import (
     SAISON_ID_LENGTH,
 )
 from app.shared.schemas.custom import CustomDateString, CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
-from app.shared.schemas.einwilligung import FLEinwilligungNachweise, FLEinwilligungStand
+from app.shared.schemas.einwilligung import FLEinwilligungNachweise, FLEinwilligungStand, FLSpielerTextVersions, cite_their_kind
 from app.shared.schemas.kontakt import CustomKontaktName
 from app.shared.schemas.literals import (
     FLAddressChangeViewableDenied,
@@ -132,6 +132,12 @@ class FLSpielerRecord(_SpielerPerson, Anchored):
                 raise ValueError("the erased pupils' sentinel holds no address")
         elif any(value is None for value in (self.vorname, self.geburtsdatum, self.einwilligung)):
             raise ValueError("only the erased pupils' sentinel stores no forename, birthdate or consent record")
+        return self
+
+    @model_validator(mode="after")
+    def _cites_a_pupils_wordings(self) -> Self:
+        if self.einwilligung is not None:
+            cite_their_kind(self.einwilligung.nachweis, FLSpielerTextVersions)
         return self
 
 

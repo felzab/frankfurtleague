@@ -164,7 +164,7 @@ class TestTheClubsContacts:
             "nachname": "Musterfrau",
             "email": "ida@example.com",
             "telefon": "+4917010000001",
-            # The running label, so the label judgement admits the newcomer and the step-up alone refuses.
+            # A seat the applicant's form would store, so the step-up alone refuses.
             "einwilligung": {"umfang": "kontaktdaten", "datum": "2026-03-01"},
         }
 

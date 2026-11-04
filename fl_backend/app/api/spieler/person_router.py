@@ -321,7 +321,7 @@ async def patch_einwilligung(
     taken on a live record alone; a withdrawal on a retired one too.
 
     Refuses, in this order: an address holding no confirmed pupil record (`role_not_held`); a `nachweis_stand`
-    other than the record's own, either choice having moved since the page was served (`wording_not_allowed`); a
+    other than the record's own, either choice having moved since the page was served (`choices_stale`); a
     grant on a retired record (`giving_not_allowed`); `medien` moving to `true` where
     the stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is missing (`medien_age`). Each
     refusal writes nothing.

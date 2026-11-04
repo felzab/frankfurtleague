@@ -8,7 +8,7 @@ the request wrote nothing, and the frontend clears the site's cache by that prom
 db_exception_handler`). Two answers break the promise, each a 409 after the commit that ended an
 address change, whose records no cached read serves:
 `app/api/adresswechsel/admin_router.py :: post_address_change_approval` (`address_change_nothing`)
-and `app/api/adresswechsel/public_router.py :: post_address_change_antwort` (`address_change_ended`).
+and `app/api/adresswechsel/public_router.py :: post_address_change_answer` (`address_change_ended`).
 """
 
 from enum import StrEnum, auto
@@ -151,9 +151,9 @@ class Code(StrEnum):
     # reopen the rules, the swap and the replacement on a season somebody already played.
     SAISON_START_TAKEN_PLACE = auto()
     INVITATION_TEAM_NOT_ENTERED = auto()
-    # One code for every write that stamps a label, so a page's form maps one refusal however many
-    # writes share its page.
-    WORDING_NOT_ALLOWED = auto()
+    # A consent press whose page was served choices that have moved since, on any of the account page's records: one
+    # code, so the page maps one refusal however many writes share it.
+    CHOICES_STALE = auto()
     # One code for every write taking a person's media consent, the account presses and the three
     # confirmations alike, so each page maps one refusal.
     MEDIEN_AGE = auto()

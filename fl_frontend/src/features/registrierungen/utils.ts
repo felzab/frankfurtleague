@@ -4,7 +4,7 @@ import { medienNochNicht } from "@/features/bewerbungen/utils";
 import { nummerPayload } from "@/features/spieler/utils";
 import { isRefusal, isRuleRefusal, refusedPayloadAnswer } from "@/shared/utils/actionError";
 import { buildRefusal, LADE_DIE_SEITE_NEU } from "@/shared/utils/refusal";
-import { ANTWORT_NEU_OEFFNEN, FASSUNG_NEU_OEFFNEN, REGISTRIERUNG_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
+import { ANTWORT_NEU_OEFFNEN, REGISTRIERUNG_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
 
 import { alterAusserhalb } from "./constants";
 
@@ -183,10 +183,6 @@ export async function mapBestaetigungRefusal(
     // changed since it opened first. The mail's link reopens it.
     case "registrierung_choices_unsuitable":
       return { error: ANTWORT_NEU_OEFFNEN };
-    // The backend's judgement of the label: a page opened before a
-    // deploy moved it posts words other than those the backend runs, and only the mail's link reopens it.
-    case "wording_not_allowed":
-      return { error: FASSUNG_NEU_OEFFNEN };
     case "link_invalid":
       return { zustand: "invalid" };
     // Judged ahead of a confirmation and of the ban, which the view ranks first: a link confirmed in another window,

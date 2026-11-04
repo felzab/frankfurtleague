@@ -129,7 +129,7 @@ const STALE: ReadonlySet<Code> = new Set<Code>([
   "wiring_gruppe_not_run",
   "role_not_held",
   // A consent's choices moved since the page was served.
-  "wording_not_allowed",
+  "choices_stale",
   // A team's refusals, which a screen setting no team meets only where the fixture changed under it; a screen
   // setting one words them as its own.
   "ergebnis_side_emptied",

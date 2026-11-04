@@ -901,3 +901,25 @@ class TestTheAnlassIsRefusedAtTheBox:
         anlass = "x" * ERASURE_ANLASS_MAX_LENGTH
 
         assert FLErasurePayload.model_validate(loeschung_of(anlass=anlass)).anlass == anlass
+
+
+class TestADomainIsRefusedBeyondAscii:
+    """Every stored domain is ASCII, so a lookup typing one in Unicode would find nothing and say nothing is held."""
+
+    @pytest.mark.parametrize(
+        ("payload", "body"),
+        [
+            pytest.param(FLErasureAdressePayload, ansicht_of("anna@müller.de"), id="the lookup"),
+            pytest.param(FLErasurePayload, loeschung_of("anna@müller.de"), id="the erasure"),
+        ],
+    )
+    def test_the_address_rule_s_own_refusal_names_the_box(self, payload: type[FLErasureAdressePayload], body: dict[str, str]):
+        with pytest.raises(ValidationError) as raised:
+            payload.model_validate(body)
+
+        assert [(error["loc"], error["type"]) for error in raised.value.errors()] == [(("email",), "email_not_accepted")]
+
+    def test_the_stored_punycode_is_looked_up(self):
+        """The control: the spelling every payload stored the domain in."""
+
+        assert FLErasureAdressePayload.model_validate({"email": "anna@xn--mller-kva.de"}).email == "anna@xn--mller-kva.de"

@@ -120,7 +120,7 @@ async def patch_einwilligung(
 
     Refuses, in this order: a row on which the address holds no confirmed seat (`role_not_held`); a
     `nachweis_stand` other than the held seats' own, either choice having moved since the page was served
-    (`wording_not_allowed`); a grant where the row grants no panel (`giving_not_allowed`); `medien` moving to `true`
+    (`choices_stale`); a grant where the row grants no panel (`giving_not_allowed`); `medien` moving to `true`
     where a held seat's stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is missing (`medien_age`). Each refusal writes nothing.
     """
 

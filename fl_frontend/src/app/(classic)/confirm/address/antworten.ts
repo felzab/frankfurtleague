@@ -5,7 +5,7 @@ import { z } from "zod";
 import { action } from "@/core/action";
 import { afterTheResponse } from "@/core/afterResponse";
 import { COPY } from "@/core/copy";
-import { AddressChangePostAddressChangeAntwortBody } from "@/core/generated/zod/inputs";
+import { AddressChangePostAddressChangeAnswerBody } from "@/core/generated/zod/inputs";
 import { kontoAnNeuerAdresse } from "@/features/adresswechsel/konto";
 import { ansichtOf } from "@/features/adresswechsel/link";
 import { postAdresswechselAnsicht, postAdresswechselAntwort, postAdresswechselStopp } from "@/features/adresswechsel/mutations";
@@ -18,7 +18,7 @@ import type { ActionAnswer } from "@/core/action";
 import type { AdresswechselPresse } from "@/features/adresswechsel/components/views/AdresswechselLinkView";
 import type { MailedEnd } from "@/kit/MailedPage";
 
-const { token } = AddressChangePostAddressChangeAntwortBody.shape;
+const { token } = AddressChangePostAddressChangeAnswerBody.shape;
 
 /**
  * The person's own change answered through either link, the side the page read posted beside the token, the
@@ -29,17 +29,17 @@ const { token } = AddressChangePostAddressChangeAntwortBody.shape;
 export const adresseBeantworten = action({
   lane: "public",
   name: "adresseBeantworten",
-  input: z.object({ token: token, seite: z.enum(["previous", "new"]), act: z.enum(["primary", "secondary"]) }),
+  input: z.object({ token: token, side: z.enum(["previous", "new"]), act: z.enum(["primary", "secondary"]) }),
   exempt: "The link's token is the whole credential, minted for one mailbox and spent by its answer.",
-  run: async ({ token: link, seite, act }): Promise<{ ok: true; value: MailedEnd }> => {
+  run: async ({ token: link, side, act }): Promise<{ ok: true; value: MailedEnd }> => {
     const antwort = act === "primary" ? "confirmed" : "declined";
     // The sign-in store is this server's, so the backend's press cannot refuse an account at the new address: refused
     // here, as the backend's own refusals of the address are. A decline is refused nothing.
-    if (antwort === "confirmed" && seite === "new" && (await kontoAnNeuerAdresse({ token: link }))) return { ok: true, value: LINK_INVALID };
+    if (antwort === "confirmed" && side === "new" && (await kontoAnNeuerAdresse({ token: link }))) return { ok: true, value: LINK_INVALID };
 
     let answered;
     try {
-      answered = await postAdresswechselAntwort({ token: link, antwort: antwort });
+      answered = await postAdresswechselAntwort({ token: link, answer: antwort });
     } catch (error) {
       if (mapAdresswechselPresseRefusal(error) === null) throw error;
       return { ok: true, value: LINK_INVALID };
@@ -48,12 +48,12 @@ export const adresseBeantworten = action({
     // The effect owed its account's carry in its own transaction: behind the response, and by the hourly pass where
     // this one never runs. No address reaches this action.
     if (answered.effective) afterTheResponse(runAdresswechselUmzuege);
-    return { ok: true, value: endOf(seite, answered.antwort, answered.approval_open) };
+    return { ok: true, value: endOf(side, answered.answer, answered.approval_open) };
   },
 });
 
 /**
- * Session 7: the administrator's ways answered from their old view, the new mailbox's confirmation and decline and the
+ * Session 7: the administrator's way answered from its old view, the new mailbox's confirmation and decline and the
  * address on file's stop, each answering what the view shows next.
  */
 export const verwaltungswegBeantworten = action({
@@ -72,11 +72,11 @@ export const verwaltungswegBeantworten = action({
         return {
           ok: true,
           value: {
-            gedrueckt: { antwort: "stopped", effective: false, effective_from: null, approval_open: false },
+            gedrueckt: { answer: "stopped", effective: false, effective_from: null, approval_open: false },
           },
         };
       }
-      const answered = await postAdresswechselAntwort({ token: link, antwort: antwort });
+      const answered = await postAdresswechselAntwort({ token: link, answer: antwort });
       if (answered.effective) afterTheResponse(runAdresswechselUmzuege);
       return { ok: true, value: { gedrueckt: answered } };
     } catch (error) {

@@ -1,6 +1,6 @@
-from typing import Annotated, Literal
+from typing import Annotated, Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter, model_validator
 
 from app.api.spieler.schemas import SQUAD_NUMMER_PATTERN, FLEinwilligung
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SAISON_ID_LENGTH
@@ -11,7 +11,13 @@ from app.shared.schemas.custom import (
     CustomObjectId,
     CustomOptionalDateString,
 )
-from app.shared.schemas.einwilligung import FLEinwilligungNachweise, FLEinwilligungStand, FLSpielerTextVersions
+from app.shared.schemas.einwilligung import (
+    FLEinwilligungNachweise,
+    FLEinwilligungStand,
+    FLSpielerTextVersions,
+    cite_their_kind,
+    refuse_a_stale_grant,
+)
 from app.shared.schemas.kontakt import CustomEmail, CustomKontaktName
 from app.shared.schemas.literals import (
     FLConfirmationState,
@@ -59,8 +65,11 @@ class FLRegistrierungEinwilligung(FLEinwilligung, BaseReadModel):
     datum: CustomOptionalDateString = None
     # Null where nobody was asked, never `False`: a returning pupil's media answer stands on their own record.
     medien: bool | None = None
-    # Empty on a returning pupil's record, which evidences no choice it never asked.
-    nachweis: FLEinwilligungNachweise = Field(default_factory=FLEinwilligungNachweise)
+    # Empty on a returning pupil's record, which evidences no choice it never asked. A pupil's wordings alone: a
+    # registration becomes the pupil's record.
+    nachweis: Annotated[FLEinwilligungNachweise, AfterValidator(lambda nachweise: cite_their_kind(nachweise, FLSpielerTextVersions))] = Field(
+        default_factory=FLEinwilligungNachweise
+    )
 
 
 class _RegistrierungStored(BaseModel):
@@ -235,6 +244,12 @@ class FLRegistrierungConfirmationPayload(BaseModel):
     medien: bool | None
     # The wordings the page showed beside the two choices, null where it asked none, as `umfang` is.
     text_versions: FLSpielerTextVersions | None
+
+    @model_validator(mode="after")
+    def _grants_name_the_current_wording(self) -> Self:
+        if self.text_versions is not None:
+            refuse_a_stale_grant(self.text_versions, {"umfang": self.umfang, "medien": self.medien})
+        return self
 
 
 class FLRegistrierungConfirmationResponse(BaseAPIResponse):

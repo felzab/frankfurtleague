@@ -359,7 +359,7 @@ class TestTheTwoChoices:
 
         response, before, after = served(mongo_replica_set_url, steps)
 
-        assert (response.status_code, response.json()["error_code"]) == (409, Code.WORDING_NOT_ALLOWED)
+        assert (response.status_code, response.json()["error_code"]) == (409, Code.CHOICES_STALE)
         assert after == before
 
     def test_a_press_moving_neither_choice_writes_nothing(self, mongo_replica_set_url: str):
@@ -447,7 +447,7 @@ class TestThePressesOrder:
         withdrawn, stale, before, after = served(mongo_replica_set_url, steps)
 
         assert withdrawn.status_code == 200, withdrawn.text
-        assert (stale.status_code, stale.json()["error_code"]) == (409, Code.WORDING_NOT_ALLOWED)
+        assert (stale.status_code, stale.json()["error_code"]) == (409, Code.CHOICES_STALE)
         assert after == before
 
 
@@ -747,7 +747,7 @@ class TestTheSeatsMediaChoice:
             mongo_replica_set_url, _seat_press(IDENTIFIER, TEAM_B_OID, ACTIVE_SAISON, True, before=withdrawn_elsewhere)
         )
 
-        assert (response.status_code, response.json()["error_code"]) == (409, Code.WORDING_NOT_ALLOWED)
+        assert (response.status_code, response.json()["error_code"]) == (409, Code.CHOICES_STALE)
         assert after == before
 
     def test_a_press_moving_no_seat_writes_nothing(self, mongo_replica_set_url: str):
@@ -882,7 +882,7 @@ class TestTheSeatsWhatsAppChoice:
         first, stale, before, after = served(mongo_replica_set_url, steps)
 
         assert first.status_code == 200, first.text
-        assert (stale.status_code, stale.json()["error_code"]) == (409, Code.WORDING_NOT_ALLOWED)
+        assert (stale.status_code, stale.json()["error_code"]) == (409, Code.CHOICES_STALE)
         assert after == before
 
 
@@ -1156,7 +1156,7 @@ class TestAPendingApplicationsSeats:
         first, again, before, after = served(mongo_replica_set_url, steps)
 
         assert first.status_code == 200, first.text
-        assert (again.status_code, again.json()["error_code"]) == (409, Code.WORDING_NOT_ALLOWED)
+        assert (again.status_code, again.json()["error_code"]) == (409, Code.CHOICES_STALE)
         assert after == before
 
 
@@ -1319,7 +1319,7 @@ class TestAPendingRegistration:
         first, again, before, after = served(mongo_replica_set_url, steps)
 
         assert first.status_code == 200, first.text
-        assert (again.status_code, again.json()["error_code"]) == (409, Code.WORDING_NOT_ALLOWED)
+        assert (again.status_code, again.json()["error_code"]) == (409, Code.CHOICES_STALE)
         assert after == before
 
     def test_the_read_lists_the_confirmed_pending_registrations_and_no_other(self, mongo_replica_set_url: str):

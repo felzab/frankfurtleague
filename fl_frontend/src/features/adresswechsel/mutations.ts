@@ -5,7 +5,7 @@ import {
   addressChangeGetAddressChangeVerwaltungView,
   addressChangeGetAddressChangeView,
   addressChangeInviteAddressChange,
-  addressChangePostAddressChangeAntwort,
+  addressChangePostAddressChangeAnswer,
   addressChangePostAddressChangeApproval,
   addressChangePostAddressChangeMovesDone,
   addressChangePostAddressChangeStop,
@@ -16,8 +16,8 @@ import {
 import type {
   FLAddressChangeAdressePayload,
   FLAddressChangeAdresseResponse,
-  FLAddressChangeAntwortPayload,
-  FLAddressChangeAntwortResponse,
+  FLAddressChangeAnswerPayload,
+  FLAddressChangeAnswerResponse,
   FLAddressChangeApprovalResponse,
   FLAddressChangeIdResponse,
   FLAddressChangeMovesDonePayload,
@@ -43,8 +43,8 @@ export async function postAdresswechselAnsicht(payload: FLTokenPayload): Promise
 }
 
 /** The new mailbox's own answer. */
-export async function postAdresswechselAntwort(payload: FLAddressChangeAntwortPayload): Promise<FLAddressChangeAntwortResponse> {
-  return addressChangePostAddressChangeAntwort(payload);
+export async function postAdresswechselAntwort(payload: FLAddressChangeAnswerPayload): Promise<FLAddressChangeAnswerResponse> {
+  return addressChangePostAddressChangeAnswer(payload);
 }
 
 /** The stop of the address on file, which hands nothing over. */

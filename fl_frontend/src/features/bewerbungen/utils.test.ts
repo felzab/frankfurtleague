@@ -7,7 +7,7 @@ import { SEAT_TEXT_VERSIONS } from "@/core/consentWordings.ts";
 import { TEAM_FACETS } from "@/features/teams/facets";
 import { FELD_ABGELEHNT } from "@/shared/utils/actionError";
 import { getGermanTodayStr } from "@/shared/utils/date";
-import { ANTWORT_NEU_OEFFNEN, FASSUNG_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
+import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
 
 import { alterAusserhalb, BEWERBUNG_MAX_ALTER, BEWERBUNG_MIN_ALTER, VERTRETUNG_MIN_ALTER } from "./constants.ts";
 import { buildEinwilligungAntwortPayloadSchema } from "./schemas.ts";
@@ -443,7 +443,6 @@ describe("the submission's refusals against the codes its endpoint publishes", (
       "bewerbung_shorthand_taken",
       "bewerbung_key_differing",
       "bewerbung_adresse_barred",
-      "wording_not_allowed",
     )) {
       expect(answerShown(code, mapBewerbungSubmitRefusal), `${code} reaches the applicant unmapped`).not.toBe(null);
     }
@@ -461,7 +460,6 @@ describe("the submission's refusals against the codes its endpoint publishes", (
       "bewerbung_shorthand_taken",
       "bewerbung_key_differing",
       "bewerbung_adresse_barred",
-      "wording_not_allowed",
     ).map((code) => JSON.stringify(mapBewerbungSubmitRefusal(refused(code))));
 
     expect(new Set(answers).size, "two codes are answered with the same sentence").toBe(answers.length);
@@ -492,10 +490,6 @@ describe("the submission's refusals against the codes its endpoint publishes", (
     expect(fieldOf("bewerbung_picked_team_already_entered")).toMatch(/\bspielt\b/);
     expect(fieldOf("bewerbung_picked_team_already_entered")).toMatch(/dieser Saison/);
     expect(fieldOf("bewerbung_picked_team_already_entered")).not.toMatch(/beworben|Bewerbung|gespielt|früher|einmal/);
-
-    // An earlier wording on a seat is a page older than the deploy, which a reload replaces: the
-    // sentence the form's own parse gives such a page, and no box, none of them being at fault.
-    expect(mapBewerbungSubmitRefusal(refused("wording_not_allowed"))).toStrictEqual({ error: BEWERBUNG_VERALTET });
   });
 
   /* The record missing is a season the running API does not hold, which only a page from before a
@@ -620,7 +614,6 @@ describe("the confirmation's refusals against the codes its endpoint publishes",
       "confirmation_age",
       "bewerbung_token_past_deadline",
       "link_barred",
-      "wording_not_allowed",
       "medien_age",
       "link_expired",
       "kontakt_saison_past",
@@ -650,7 +643,6 @@ describe("the confirmation's refusals against the codes its endpoint publishes",
       "confirmation_age",
       "bewerbung_token_past_deadline",
       "link_barred",
-      "wording_not_allowed",
       "medien_age",
       "link_expired",
       "kontakt_saison_past",
@@ -724,16 +716,6 @@ describe("the confirmation's refusals against the codes its endpoint publishes",
     );
 
     expect(mappedRefusal).toStrictEqual({ fieldErrors: { geburtsdatum: FELD_ABGELEHNT }, unplacedError: ANTWORT_NEU_OEFFNEN });
-  });
-});
-
-describe("which wording an answer may be stored under", () => {
-  /* The backend judges the label: a page opened before a deploy moved
-     it shows words other than those the backend runs, and only the mail's link reopens the page on them. */
-  it("answers the backend's refusal of the label with the mail's link, saying the words moved", async () => {
-    expect(await mapEinwilligungRefusal(refused("wording_not_allowed"), offenBei(VERTRETUNG_MIN_ALTER))).toStrictEqual({
-      error: FASSUNG_NEU_OEFFNEN,
-    });
   });
 });
 

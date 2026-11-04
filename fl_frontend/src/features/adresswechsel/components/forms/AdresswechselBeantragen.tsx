@@ -12,7 +12,7 @@ import { ToggleButtonGroup } from "@heroui/react/toggle-button-group";
 
 import { asSignInIdentifier } from "@/core/emailAddress";
 import { beantrageAdresswechselAction } from "@/features/adresswechsel/actions";
-import { AdresswechselGrundSchema, FLAdresswechselVerwaltungPayloadSchema } from "@/features/adresswechsel/schemas";
+import { FLAdresswechselVerwaltungPayloadSchema } from "@/features/adresswechsel/schemas";
 import { formButton } from "@/shared/components/ui/formButtons";
 import {
   FIELD_ERROR_CLASSES,
@@ -77,9 +77,6 @@ function fehlerIn(adresse: string, entwurf: AdresswechselEntwurf): Fehler {
   const fehler = toFieldErrors(geprueft.error);
   return { email: fehler.email, grund: fehler.grund };
 }
-
-/** The reason required on its way, so its box wears the star its refusal asks for: the payload's own field is nullable. */
-const MIT_GRUND = FLAdresswechselVerwaltungPayloadSchema.extend({ grund: AdresswechselGrundSchema });
 
 /**
  * Whether the box holds an address its press would send: compared as the backend compares it, both sides on the
@@ -179,7 +176,7 @@ export function AdresswechselBeantragen({
         <p className="muted-hint text-pretty">Eine neue Änderung beendet die oben gezeigte, und ihre Links gelten nicht mehr.</p>
       )}
 
-      <RequiredSchemas schemas={[MIT_GRUND]}>
+      <RequiredSchemas schemas={[FLAdresswechselVerwaltungPayloadSchema]}>
         <TextField
           type="email"
           name="email"

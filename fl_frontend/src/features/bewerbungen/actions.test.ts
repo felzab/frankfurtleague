@@ -759,7 +759,6 @@ describe("the person seated where one stepped out", () => {
       "bewerbung_seat_already_answered",
       "bewerbung_kontakt_email_taken",
       "bewerbung_kontakt_barred",
-      "wording_not_allowed",
     )) {
       expect(answerShown(code, mapKontaktSitzRefusal), `${code} is published on the reseat and reaches the admin unmapped`).not.toBe(null);
     }
@@ -769,7 +768,6 @@ describe("the person seated where one stepped out", () => {
         "bewerbung_seat_already_answered",
         "bewerbung_kontakt_email_taken",
         "bewerbung_kontakt_barred",
-        "wording_not_allowed",
       ),
       refuseWith: answerWith,
       act: () =>

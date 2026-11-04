@@ -14,7 +14,6 @@ import type {
   FLAddressChangeEffectiveData,
   FLAddressChangeLinkData,
   FLAddressChangeNoticeData,
-  FLAddressChangeWay,
 } from "./generated/client/types";
 import type { MailLink, MailOrigin } from "./mailKinds";
 
@@ -53,7 +52,7 @@ export function buildAdresswechselEmail({ way: weg, valid_until: gueltigBis }: F
     };
   }
 
-  // Session 7: the administrator's ways take their final words.
+  // Session 7: the administrator's way takes its final words.
   return {
     kind: "security",
     subjectLine: "Neue E-Mail-Adresse bestätigen",
@@ -67,30 +66,11 @@ export function buildAdresswechselEmail({ way: weg, valid_until: gueltigBis }: F
       [
         ["Bestätige sie bis ", { strong: formatInstant(gueltigBis) }, " über diesen Link."],
         "Er funktioniert nur einmal.",
-        ...(weg === "waiting_period" ? [`Nach Deiner Bestätigung gilt sie ${ADRESSWECHSEL_WARTEZEIT_DAUER} später.`] : []),
+        `Nach Deiner Bestätigung gilt sie ${ADRESSWECHSEL_WARTEZEIT_DAUER} später.`,
       ],
     ],
     button: { label: "Adresse bestätigen", href: adresswechselLink(site, token) },
   };
-}
-
-/** Why the address on file is told, per way an administrator started the change. */
-function anlassAbsatz(weg: Exclude<FLAddressChangeWay, "account">, gueltigBis: string): Paragraph {
-  switch (weg) {
-    case "release":
-      return [
-        "Die Verwaltung hat eine neue E-Mail-Adresse für Dich eingetragen.",
-        "Sie gilt nur, wenn Du sie in Deinem Konto freigibst.",
-        "Gib sie nur frei, wenn Du das selbst bei uns angefragt hast.",
-        // The approval is the account page's alone, so `freigabe` names the deadline that page keeps.
-        ["Freigeben kannst Du sie bis ", { strong: formatInstant(gueltigBis) }, ", nachdem Du Dich mit dieser Adresse angemeldet hast."],
-      ];
-    case "waiting_period":
-      return [
-        "Die Verwaltung hat eine neue E-Mail-Adresse für Dich eingetragen, weil diese Adresse nicht mehr erreichbar sein soll.",
-        `Bestätigt die neue Adresse ihren Link, gilt sie ${ADRESSWECHSEL_WARTEZEIT_DAUER} danach.`,
-      ];
-  }
 }
 
 /**
@@ -98,7 +78,7 @@ function anlassAbsatz(weg: Exclude<FLAddressChangeWay, "account">, gueltigBis: s
  * somebody else's mistake or a pretext, and a mail travels further than the page it links.
  */
 export function buildAdresswechselHinweisEmail(
-  { way: weg, valid_until: gueltigBis, vorname }: FLAddressChangeNoticeData,
+  { way: weg, vorname }: FLAddressChangeNoticeData,
   { origin, token: stoppToken }: MailLink,
 ): Mail {
   const site = mailOrigin(origin);
@@ -115,20 +95,22 @@ export function buildAdresswechselHinweisEmail(
     };
   }
 
-  // Session 7: the administrator's ways take their final words.
+  // Session 7: the administrators' lost-mailbox change takes its final words.
   return {
     kind: "security",
-    // One subject for every way: the approval's request exists so a real holder can refuse a pretext, and a
-    // subject telling them to approve would be its first instruction.
+    // Telling of the change and asking nothing: a real holder refuses a pretext by the stop alone.
     subjectLine: "Deine E-Mail-Adresse soll sich ändern",
     origin: site,
     vorname: vorname ?? "",
     paragraphs: [
-      anlassAbsatz(weg, gueltigBis),
+      [
+        "Die Verwaltung hat eine neue E-Mail-Adresse für Dich eingetragen, weil diese Adresse nicht mehr erreichbar sein soll.",
+        `Bestätigt die neue Adresse ihren Link, gilt sie ${ADRESSWECHSEL_WARTEZEIT_DAUER} danach.`,
+      ],
       ["Hast Du das nicht veranlasst? Dann stoppe die Änderung über diesen Link.", "Er gilt, bis die Änderung wirksam wird."],
       [["Fragen jederzeit an ", { address: KONTAKT_EMAIL }, "."]],
     ],
-    // The stop on every way: no link approves anything, the account page asking a fresh sign-in first.
+    // The stop: no link approves anything.
     button: { label: ADRESSWECHSEL_STOPPEN, href: adresswechselLink(site, stoppToken) },
   };
 }

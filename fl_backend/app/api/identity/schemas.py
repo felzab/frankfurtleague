@@ -8,7 +8,7 @@ from app.api.berechtigungen.schemas import FLUtcInstant
 # The wire's spelling of the three seats, imported rather than restated: a second closed set here
 # would name a seat no other endpoint publishes.
 from app.api.sperrliste.schemas import ADDRESS_IN_FREE_TEXT
-from app.shared.folding import trimmed
+from app.shared.folding import refuse_a_domain_beyond_ascii, trimmed
 from app.shared.schemas.bounds import ERASURE_ANLASS_MAX_LENGTH, KONTAKT_EMAIL_MAX_LENGTH, REFERENCES_ADRESSEN_MAX
 from app.shared.schemas.custom import SINGLE_LINE_PATTERN, CustomObjectId, CustomOptionalDateString
 from app.shared.schemas.kontakt import CustomEmail
@@ -182,7 +182,7 @@ class FLAccountErasureRegistrierung(BaseModel):
     nachname: str
 
 
-class FLKontoLoeschungAnsicht(BaseModel):
+class FLAccountErasureView(BaseModel):
     """What an erasure of one address would remove, by kind and by name, and never an address or a birthdate."""
 
     spieler: list[FLAccountErasureSpieler]
@@ -194,7 +194,7 @@ class FLKontoLoeschungAnsicht(BaseModel):
     address_change: int = Field(ge=0)
 
 
-class FLAccountErasureViewResponse(FLKontoLoeschungAnsicht, BaseAPIResponse):
+class FLAccountErasureViewResponse(FLAccountErasureView, BaseAPIResponse):
     # The tier of the live grant the address holds, read in the preview's snapshot as the press reads it.
     verwaltung: FLVerwaltung | None
     # Advisory: read apart from the erasure's transaction, whose own `last_owner_erasure` alone decides.
@@ -224,14 +224,17 @@ def _trimmed_as_the_page_trims(value: Any) -> Any:
     return trimmed(value) if isinstance(value, str) else value
 
 
-# A lookup asking no more than any payload stores, an `@` within the stored ceiling:
-# a record stored under an older rule stays erasable.
+# A lookup asking no more than any payload stores, an `@` within the stored ceiling: a record stored under an older rule
+# stays erasable, a local part beyond ASCII among them. Its domain alone is held to ASCII, as every stored domain is, an
+# international one in punycode: one typed in Unicode is refused with the address rule's own refusal rather than answered
+# as holding nothing.
 LoeschungAdresse = Annotated[
     str,
     StringConstraints(max_length=KONTAKT_EMAIL_MAX_LENGTH, pattern="@"),
     # Never `strip_whitespace`, whose set adds U+0085, which the page keeps: one spelling's records would be erased and
     # another spelling's sign-in account left (`fl_backend/tests/shared/test_email_address.py`).
     BeforeValidator(_trimmed_as_the_page_trims),
+    AfterValidator(refuse_a_domain_beyond_ascii),
 ]
 
 

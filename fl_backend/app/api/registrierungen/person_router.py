@@ -457,7 +457,7 @@ async def patch_einwilligung(
     """Withdraw the publication scope or the media consent the signed-in pupil gave on their own pending registration.
 
     A grant is refused, and a PATCH moving neither writes nothing. Refuses, writing nothing: `role_not_held`,
-    `wording_not_allowed` (the choices moved since the page was served) and `giving_not_allowed`.
+    `choices_stale` and `giving_not_allowed`.
     """
 
     gewaehlt: dict[FLEinwilligungChoice, object] = {"umfang": einwilligung_data.umfang, "medien": einwilligung_data.medien}
