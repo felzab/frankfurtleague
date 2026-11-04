@@ -9,20 +9,16 @@ import { Button } from "@heroui/react/button";
 import { InputOTP, REGEXP_ONLY_DIGITS } from "@heroui/react/input-otp";
 import { Label } from "@heroui/react/label";
 
+import { authClient } from "@/core/authClient";
 import { SIGN_IN_CODE_LENGTH } from "@/core/signInCode";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { FIELD_ERROR_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { Hint } from "@/shared/components/ui/Hint";
 import { BRAND_INK_OUTSIDE_PROSE_CLASSES } from "@/shared/components/ui/textLink";
-import { appToast } from "@/shared/utils/appToast";
-import { postPublicForm, UNKLAR_TITEL } from "@/shared/utils/publicSubmit";
-import { VERSUCHE_ES_ERNEUT_SATZ } from "@/shared/utils/refusal";
 
-import type { PublicEnvelope } from "@/shared/utils/publicSubmit";
+import { codeRefusal } from "../../signInAnswers";
+
 import type { ReactNode } from "react";
-
-/** The route handler a typed code is checked at (`fl_frontend/src/app/api/signin/code/route.ts`). */
-const CODE_ENDPOINT = "/api/signin/code";
 
 /** Long enough that a mail sent a moment ago can arrive before a second is asked for. */
 const RESEND_COOLDOWN_MS = 30_000;
@@ -52,7 +48,7 @@ const QUIET_ACTION_CLASSES = `${BRAND_INK_OUTSIDE_PROSE_CLASSES} w-fit cursor-po
 const asClock = (seconds: number): string => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
 
 /**
- * `onSignedIn` runs once the route has set the session's cookie, and the step stays pending after it:
+ * `onSignedIn` runs once the library has set the session's cookie, and the step stays pending after it:
  * the caller moves on, by a navigation or by unmounting it. Without `onBack` no other address is offered.
  */
 export function CodeStep({
@@ -77,7 +73,7 @@ export function CodeStep({
   /** The bot check guarding the resend, set before it as Cloudflare's example sets one before a submit. */
   resendCheck?: ReactNode;
   onBack?: () => void;
-  /** `bereits`: a session another tab made answered this, and no code was confirmed here. */
+  /** `bereits` is `false` on every answer: the old confirmation that reads it goes before this does. */
   onSignedIn: (answer: { bereits: boolean }) => void;
 }) {
   const [code, setCode] = useState("");
@@ -131,23 +127,21 @@ export function CodeStep({
     setIsChecking(true);
     setRefusal(null);
 
-    const checked = await postPublicForm<PublicEnvelope & { bereits?: boolean }>(CODE_ENDPOINT, { email: address, code: typed });
+    const error = await authClient.signIn.emailOtp({ email: address, otp: typed }).then(
+      (result) => result.error,
+      (failed: unknown) => failed,
+    );
 
-    if (!checked.answered) {
-      setIsChecking(false);
-      appToast.danger(checked.wroteNothing ? "Nicht angemeldet" : UNKLAR_TITEL, { description: checked.error });
-      return;
-    }
-
-    if (checked.body.success) {
-      onSignedIn({ bereits: checked.body.bereits === true });
+    // A confirmation always rests on this code: the library answers a code another tab spent as a wrong one.
+    if (error === null) {
+      onSignedIn({ bereits: false });
       return;
     }
 
     // Emptied, so the next six digits submit by themselves again rather than waiting on a press.
     setIsChecking(false);
     setCode("");
-    setRefusal(checked.body.error ?? VERSUCHE_ES_ERNEUT_SATZ);
+    setRefusal(codeRefusal(error));
   };
 
   return (

@@ -410,8 +410,9 @@ export const COPY = catalogue({
     },
 
     /**
-     * The code's and the passkey's refusals: the code route answers them, and the page finds each one here
-     * again. A barred address and one holding no record meet one sentence, so nobody can probe the ban list.
+     * The code's and the passkey's refusals, which the page words off the library's own codes
+     * (`fl_frontend/src/features/auth/signInAnswers.ts`, `passkeyAnswers.ts`). A barred address and one holding
+     * no record meet one sentence, so nobody can probe the ban list.
      * The typed code's own refusal is a phrase under its boxes; every other is a sentence on the status line.
      */
     refusal: {

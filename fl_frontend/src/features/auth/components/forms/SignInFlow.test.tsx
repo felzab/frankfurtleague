@@ -4,19 +4,18 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
-import { postPublicForm } from "@/shared/utils/publicSubmit";
 
 import { handleSignIn } from "../../actions";
 import { SignInFlow } from "./SignInFlow";
 
-// The server action, the code route, the bot check and the passkey client each reach a service; the send and the
-// code's answers alone are driven here.
+// The server action, the bot check and the sign-in's client each reach a service; the send and the code's answers
+// alone are driven here.
+const { emailOtp } = vi.hoisted(() => ({ emailOtp: vi.fn() }));
 vi.mock("../../actions", () => ({ handleSignIn: vi.fn() }));
-vi.mock("@/shared/utils/publicSubmit", () => ({ postPublicForm: vi.fn() }));
 vi.mock("@/shared/hooks/useTurnstile", () => ({
   useTurnstile: () => ({ widget: null, takeToken: () => Promise.resolve({ token: "token" }) }),
 }));
-vi.mock("@/core/authClient", () => ({ authClient: {} }));
+vi.mock("@/core/authClient", () => ({ authClient: { signIn: { emailOtp } } }));
 // A thrown send reads the page again through Next's router, which no test mounts.
 vi.mock("next/navigation", async (original) => ({ ...(await original<object>()), useRouter: () => ({ refresh: () => undefined }) }));
 
@@ -78,10 +77,9 @@ describe("the sign-in's send", () => {
 describe("the sign-in's code", () => {
   it("shows the typed code's refusal under the boxes, and every other on the status line", async () => {
     vi.mocked(handleSignIn).mockResolvedValue({ ok: true, value: "lena@example.com" });
-    const answered = (error: string) => ({ answered: true, body: { success: false, error } }) as const;
-    vi.mocked(postPublicForm)
-      .mockResolvedValueOnce(answered(COPY.signIn.refusal.codeWrong))
-      .mockResolvedValueOnce(answered(COPY.signIn.refusal.noRecord));
+    // The library's refusals as its client answers them: the code and the status, beside no data.
+    const refused = (code: string, status: number) => ({ data: null, error: { code, status } });
+    emailOtp.mockResolvedValueOnce(refused("INVALID_OTP", 400)).mockResolvedValueOnce(refused("SIGN_IN_BARRED", 403));
     render(
       <SignInFlow
         next="/"

@@ -10,18 +10,13 @@ import { COPY } from "@/core/copy";
 import { TURNSTILE_FIELD } from "@/core/turnstileToken";
 import { useTurnstile } from "@/shared/hooks/useTurnstile";
 import { leaveDocumentFor } from "@/shared/utils/documentNavigation";
-import { postPublicForm } from "@/shared/utils/publicSubmit";
 
 import { handleSignIn } from "../../actions";
 import { CEREMONY_ABORTED, describeCeremonyRefusal, refusalCode } from "../../passkeyAnswers";
-import { signInAnswer } from "../../signInAnswers";
+import { codeRefusal, signInAnswer } from "../../signInAnswers";
 
 import type { ActionAnswer } from "@/core/action";
 import type { Copy } from "@/core/copy";
-import type { PublicEnvelope } from "@/shared/utils/publicSubmit";
-
-/** The route handler a typed code is checked at (`fl_frontend/src/app/api/signin/code/route.ts`). */
-const CODE_ENDPOINT = "/api/signin/code";
 
 /**
  * `/signin` for somebody signed out: the address and its send, the six boxes for the mailed code, and the
@@ -69,17 +64,19 @@ export function SignInFlow({ next, siteKey }: { next: string; siteKey: string })
       setPruefe(true);
       setCodeFehler(null);
 
-      const checked = await postPublicForm<PublicEnvelope & { bereits?: boolean }>(CODE_ENDPOINT, { email: address, code });
+      // A rejection, a network that failed, reaches no error boundary from here and would leave the boxes busy for good.
+      const error = await authClient.signIn.emailOtp({ email: address, otp: code }).then(
+        (result) => result.error,
+        (failed: unknown) => failed,
+      );
 
       // A full document load and never a soft navigation: the session has just changed, so every payload the
       // router holds was rendered for somebody signed out. The view stays busy until the document goes.
-      if (checked.answered && checked.body.success) return leaveDocumentFor(next);
+      if (error === null) return leaveDocumentFor(next);
 
       setPruefe(false);
       setVersuch((count) => count + 1);
-      if (checked.answered) setCodeFehler(signInAnswer(checked.body.error));
-      // The edge's own rate refusal checked nothing; any other answer not this application's may have.
-      else setCodeFehler(checked.wroteNothing ? COPY.shared.failure.tooManyAttempts : COPY.shared.failure.unexpected);
+      setCodeFehler(codeRefusal(error));
     };
 
     // The typed code's own refusal is a phrase under its boxes; every other answer is a sentence on the status line.

@@ -16,6 +16,7 @@ import { nextCookies } from "better-auth/next-js";
 import { emailOTP } from "better-auth/plugins/email-otp";
 import { MongoServerError } from "mongodb";
 
+import { ADDRESS_ATTEMPTS_EXHAUSTED } from "./auth/codeRefusal";
 import { CODE_VALIDITY_MINUTES } from "./authEmail";
 import { MONGO_DB_NAME } from "./authIndexes";
 import { now } from "./clock";
@@ -85,8 +86,11 @@ function nextCodeStamp(issued: number): number {
   return stamp;
 }
 
-/** The one path that spends a code, which `fl_frontend/src/app/api/signin/code/route.ts` calls in process. */
+/** The one path that spends a code, which the browser's client posts (`fl_frontend/src/core/authClient.ts`). */
 const CODE_SIGN_IN_PATH = "/sign-in/email-otp";
+
+/** What the code check takes: the browser's client sends these two, and a name or an image is a hand-made request's. */
+const CODE_SIGN_IN_FIELDS: ReadonlySet<string> = new Set(["email", "otp"]);
 
 /** The one path that mails a code, which `fl_frontend/src/features/auth/actions.ts :: handleSignIn` calls in process. */
 const CODE_SEND_PATH = "/email-otp/send-verification-otp";
@@ -105,9 +109,6 @@ const DELETE_USER_PATH = "/delete-user";
 /** The library's answer to a mailed link, which a capped request answers too (`better-auth/api :: deleteUser`). */
 const DELETION_LINK_SENT = "Verification email sent";
 
-/** The refusal the route words as the address being locked, whatever code the request carried. */
-export const ADDRESS_ATTEMPTS_EXHAUSTED = "ADDRESS_ATTEMPTS_EXHAUSTED";
-
 const PASSKEY_REGISTRATION_PATH = "/passkey/verify-registration";
 
 // Both halves of an enrolment, which the plugin gates on `freshAge` and on nothing else -- so the
@@ -118,12 +119,12 @@ const ENROLMENT_PATHS: ReadonlySet<string> = new Set(["/passkey/generate-registe
 // surface built to spot a planted one. `createSession` stays open, so setting a passkey up signs in with it.
 const ENROLMENT_FIELDS_REFUSED: readonly string[] = ["name"];
 
-// The plugin answers each of these with the session row it minted, `token` -- the cookie's own
-// value -- among its fields.
-const CEREMONY_VERIFY_PATHS: ReadonlySet<string> = new Set([PASSKEY_REGISTRATION_PATH, PASSKEY_ASSERTION_PATH]);
+// The library answers each of these with the session row it minted, or its `token` -- the cookie's own
+// value -- beside the user.
+const SESSION_ANSWER_PATHS: ReadonlySet<string> = new Set([PASSKEY_REGISTRATION_PATH, PASSKEY_ASSERTION_PATH, CODE_SIGN_IN_PATH]);
 
-/** What every finished ceremony answers instead: the plugin's own shape for a call that carries no record back. */
-const CEREMONY_DONE = { status: true };
+/** What every finished sign-in answers instead: the plugin's own shape for a call that carries no record back. */
+const SIGNED_IN = { status: true };
 
 /** What made a session, stamped on its row and read by every guard. */
 export const PASSKEY_FACTOR = "passkey";
@@ -584,20 +585,8 @@ async function clearCodeFailures(context: BoundContext, userId: string): Promise
 }
 
 /**
- * Takes back the failure a code sign-in's `body` was counted as, for the route's second tab: a spent
- * code met by the sign-in it already made is no guess.
- */
-export async function forgiveCodeAttempt(body: object): Promise<void> {
-  const own = attemptRows.get(body);
-  if (own === undefined) return;
-
-  const { adapter } = await auth.$context;
-  await unlessUnsettled(() => adapter.delete({ model: "verification", where: [{ field: "id", value: own }] }).then(() => undefined));
-}
-
-/**
  * The edge's trace off the request a sign-in arrived on, whose access line holds the address it came from: a sign-in
- * runs under no request scope of this application's, through the library's route or the code route's in-process call.
+ * runs under no request scope of this application's, arriving through the library's own route.
  */
 function signInTrace(ctx: GenericEndpointContext): string | undefined {
   return readTraceparent(new Headers(ctx.headers ?? ctx.request?.headers).get(TRACEPARENT_HEADER));
@@ -649,11 +638,16 @@ function codeSignInAddress(body: unknown): string | null {
    covers what it cannot. */
 
 // What a browser of this league calls: `fl_frontend/src/core/authClient.ts`'s two ceremonies, four
-// paths. The sign-in, the sign-out and every guard run in process instead.
+// paths, and its code check. The code's send, the sign-out and every guard run in process instead.
 
-// Three spellings come from the constants the stamp, the enrolment refusal and the assertion's ask
-// compare, so a release that renamed one would 404 the real ceremony rather than let it through unjudged.
-const BROWSER_PATHS: ReadonlySet<string> = new Set([...ENROLMENT_PATHS, PASSKEY_ASSERTION_OPTIONS_PATH, PASSKEY_ASSERTION_PATH]);
+// The spellings come from the constants the stamp, the enrolment refusal, the assertion's ask and the code's
+// bounds compare, so a release that renamed one would 404 the real call rather than let it through unjudged.
+const BROWSER_PATHS: ReadonlySet<string> = new Set([
+  ...ENROLMENT_PATHS,
+  PASSKEY_ASSERTION_OPTIONS_PATH,
+  PASSKEY_ASSERTION_PATH,
+  CODE_SIGN_IN_PATH,
+]);
 
 // The library's own switch, which refuses before a route is matched or a body read.
 
@@ -691,7 +685,6 @@ const DISABLED_PATHS: readonly string[] = [
   "/revoke-sessions",
   "/send-verification-email",
   "/sign-in/email",
-  CODE_SIGN_IN_PATH,
   "/sign-in/social",
   "/sign-out",
   "/sign-up/email",
@@ -993,9 +986,9 @@ const authOptions = (origin: URL, client: MongoClient) =>
       },
     },
 
-    // Off everywhere: the edge meters these paths, and the library's own
-    // rules key on a network address it does not store and reach no in-process call; `withinBound`
-    // stands in for them.
+    // Off everywhere: the edge meters these paths, the code check's on the confirmation zones
+    // (`nginx/shared/site.conf`), and the library's own rules key on a network address it does not store
+    // and reach no in-process call; `withinBound` stands in for them per address.
     rateLimit: { enabled: false },
 
     disabledPaths: [...DISABLED_PATHS],
@@ -1030,9 +1023,13 @@ const authOptions = (origin: URL, client: MongoClient) =>
       before: createAuthMiddleware(async (ctx) => {
         // The library types a request's body `any`: read here as what it is, a value nothing has checked yet.
         const body: unknown = ctx.body;
-        // Above the in-process return below, because the route handler's own call is in process and
-        // is the only caller. Counted whatever the address holds: a lock only members met would be a
-        // membership oracle.
+        // Refused ahead of the count, and rather than dropped, as an enrolment's `name` is: the library
+        // writes a name and an image it is handed onto a first sign-in's account.
+        if (ctx.path === CODE_SIGN_IN_PATH && typeof body === "object" && body !== null) {
+          if (Object.keys(body).some((field) => !CODE_SIGN_IN_FIELDS.has(field))) throw APIError.fromStatus("BAD_REQUEST");
+        }
+        // On both arms, ahead of the in-process return below. Counted whatever the address holds: a
+        // lock only members met would be a membership oracle.
         const address = ctx.path === CODE_SIGN_IN_PATH ? codeSignInAddress(body) : null;
         if (address !== null) {
           const own = await withinBound(
@@ -1144,9 +1141,9 @@ const authOptions = (origin: URL, client: MongoClient) =>
           return ctx.json({ ...offered, userVerification: USER_VERIFICATION });
         }
 
-        if (!CEREMONY_VERIFY_PATHS.has(ctx.path)) return undefined;
+        if (!SESSION_ANSWER_PATHS.has(ctx.path)) return undefined;
 
-        // Left standing where the ceremony was refused, or a refusal is answered as a success.
+        // Left standing where the sign-in was refused, or a refusal is answered as a success.
         if (isAPIError(ctx.context.returned)) return undefined;
 
         // Here rather than in the callback above, which runs BEFORE the write: a notice sent there
@@ -1156,9 +1153,9 @@ const authOptions = (origin: URL, client: MongoClient) =>
           if (enrolled !== null) await notifyPasskey("passkey_hinzugefuegt", enrolled.user.email);
         }
 
-        // The browser client reads nothing off either body but whether it is there
-        // (`@better-auth/passkey/client :: getPasskeyActions`).
-        return ctx.json(CEREMONY_DONE);
+        // The pages read nothing off any of these bodies but whether it is there
+        // (`@better-auth/passkey/client :: getPasskeyActions`, `fl_frontend/src/features/auth/components/forms/SignInFlow.tsx`).
+        return ctx.json(SIGNED_IN);
       }),
     },
 
@@ -1278,11 +1275,6 @@ export const auth = new Proxy({} as ReturnType<typeof build>, {
   // `toNextJsHandler` asks `"handler" in auth` on every request.
   has: (_, key) => Reflect.has((built ??= build()), key),
 });
-
-type CodeSignIn = { readonly email: string; readonly otp: string };
-
-// The body is handed on as it came: `forgiveCodeAttempt` keeps the attempt's failure against that object.
-export const signInWithCode = (body: CodeSignIn, requestHeaders: Headers) => auth.api.signInEmailOTP({ body, headers: requestHeaders });
 
 export const sendSignInCode = (email: string, requestHeaders: Headers) =>
   auth.api.sendVerificationOTP({ body: { email, type: "sign-in" }, headers: requestHeaders });
@@ -1507,17 +1499,6 @@ export const readRequestSession = cache(async (): Promise<ServedSession | null> 
   await connection();
   return readServedSession(await headers());
 });
-
-/**
- * The session the code route's second tab counts as signed in: every guard's read, and none where the
- * sign-in gate refuses the address, a ban its ending missed included.
- */
-export async function readAdmittedSession(requestHeaders: Headers): Promise<ServedSession | null> {
-  const served = await readServedSession(requestHeaders);
-  if (served === null) return null;
-
-  return (await mayReceiveSignIn(served.user.email)) === "admitted" ? served : null;
-}
 
 /**
  * The proxy's read: the proxy runs ahead of the render and can still write a cookie, so the library's

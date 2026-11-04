@@ -232,7 +232,11 @@ describe("which addresses the proxy is run on", () => {
       expect(matched(url), `${url} runs no proxy`).toBe(true);
     }
     // The route handlers write their own cookies, and a public page reads no session.
-    for (const url of ["http://localhost:3000/", "http://localhost:3000/api/signin/code", "http://localhost:3000/api/bestaetigung/kontakt"]) {
+    for (const url of [
+      "http://localhost:3000/",
+      "http://localhost:3000/api/auth/sign-in/email-otp",
+      "http://localhost:3000/api/bestaetigung/kontakt",
+    ]) {
       expect(matched(url), `${url} runs the proxy`).toBe(false);
     }
   });

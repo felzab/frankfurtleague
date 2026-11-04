@@ -112,14 +112,6 @@
       "count": 1
     }
   },
-  "src/app/api/signin/code/route.ts": {
-    "fl/server-action": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
   "src/app/api/signout/route.ts": {
     "fl/server-action": {
       "count": 1

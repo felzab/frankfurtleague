@@ -15,7 +15,7 @@
 # - No visitor is named in the container's own streams.
 # - Each upstream is found by name as nginx serves, and the capabilities the model grants are enough
 #   to start it.
-# - `docs/ops/spec.md` §1.3's server-action, link-page and account-page pairs.
+# - `docs/ops/spec.md` §1.3's server-action, link-page and account-page pairs, and the code check's.
 #
 #   ./nginx/edge_test.sh --verbose   print the access line every case was graded on
 #   ./nginx/edge_test.sh --help
@@ -770,6 +770,14 @@ for _ in $(seq 1 $(( ACCOUNT_BURST + 5 ))); do
   action_request account-flood -X POST -H "Content-Type: application/json" --data '{}' "${BASE}/bereich/konto"
 done
 
+# The code check's pair, read off its own block and flooded past with five more: the library's prefix
+# block meters the same path five times as loosely, so a check fallen back to it answers no 429 here.
+CODE_BURST="$(sed -n '/^location = \/api\/auth\/sign-in\/email-otp {$/,/^}$/s/^[[:space:]]*limit_req zone=confirmation burst=\([0-9]*\) nodelay;$/\1/p' "${REPO_ROOT}/nginx/shared/site.conf")"
+[[ -n "$CODE_BURST" ]] || refuse "nginx/shared/site.conf declares no confirmation burst on the code check this test can read."
+for _ in $(seq 1 $(( CODE_BURST + 5 ))); do
+  action_request code-flood -X POST -H "Content-Type: application/json" --data '{}' "${BASE}/api/auth/sign-in/email-otp"
+done
+
 mapfile -t -O "$ACTION_SENT" ACTION_STATUSES < <(curl "${ACTION_REQUESTS[@]}" || true)
 expect_action() { # $1 label, $2 the status every transfer of it must answer, or "some:<status>"
   local label="$1" wanted="$2" _j _status found=0 all=1 answered=""
@@ -938,6 +946,7 @@ grade_spent link-json
 expect_action link-head some:429
 grade_spent link-head head
 expect_action account-flood some:429
+expect_action code-flood some:429
 
 # A refusal's error line repeats the request line, live token included, so `limit_req_log_level` keeps
 # it below the log's own level. Read once every kept refusal's access line is written, which comes

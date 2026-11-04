@@ -17,7 +17,6 @@ import {
 } from "@/test-support/authDoubles.ts";
 import { answerAt, NO_RECORDS, SEAT } from "@/test-support/subjectFixtures.ts";
 import { assertionFor, COSE_KEY, CREDENTIAL_ID, CREDENTIAL_RAW_ID, registrationFor } from "@/test-support/testAuthenticator.ts";
-import { isAPIError } from "better-auth/api";
 import { afterAll, afterEach, assert, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { PASSKEY_TOUCH_SECONDS, STEP_UP_WINDOW_MS } from "./sessionLifetimes.ts";
@@ -226,7 +225,6 @@ const {
   deleteAccountFor,
   deleteOwnAccount,
   endSessionsOfAddress,
-  forgiveCodeAttempt,
   getAdminSession,
   getKontoSession,
   getSignedInAddress,
@@ -238,7 +236,6 @@ const {
   listAccounts,
   PASSKEY_LIMIT,
   passesPasskeyTouch,
-  readAdmittedSession,
   readServedSession,
   requestAccountDeletion,
 } = await import("./auth.ts");
@@ -269,13 +266,14 @@ beforeEach(() => {
 type Refusal = { status: number; code?: unknown; message?: unknown };
 
 async function answerOf(email: string, otp: string): Promise<Refusal> {
-  try {
-    await auth.api.signInEmailOTP({ body: { email, otp }, headers: new Headers(ORIGIN), returnHeaders: true });
-    return { status: 200 };
-  } catch (refused) {
-    if (!isAPIError(refused)) throw refused;
-    return { status: refused.statusCode, code: refused.body?.code, message: refused.body?.message };
-  }
+  // Over the mounted handler, the one route the page's client posts a code by.
+  const answered = await overHttp("/sign-in/email-otp", { method: "POST", body: { email, otp } });
+  if (answered.ok) return { status: 200 };
+
+  // A refusal by status alone, as the mint's outage is, answers no body at all.
+  const text = await answered.text();
+  const refused = (text === "" ? {} : JSON.parse(text)) as { code?: string; message?: string };
+  return { status: answered.status, code: refused.code, message: refused.message };
 }
 
 /** The code row the plugin holds for `email`, the latest of them. */
@@ -356,12 +354,13 @@ describe("where the cookie integration sits among the plugins", () => {
   });
 });
 
-/** The four paths the browser's own client calls, which is the whole of the HTTP surface. */
+/** The five paths the browser's own client calls, which is the whole of the HTTP surface. */
 const OVER_HTTP = [
   "/passkey/generate-register-options",
   "/passkey/verify-registration",
   "/passkey/generate-authenticate-options",
   "/passkey/verify-authentication",
+  "/sign-in/email-otp",
 ];
 
 /** What this application's own code reaches through `auth.api`, and no browser may. */
@@ -372,7 +371,6 @@ const IN_PROCESS_ONLY = [
   "/passkey/delete-passkey",
   "/passkey/list-user-passkeys",
   "/revoke-other-sessions",
-  "/sign-in/email-otp",
   "/sign-out",
 ];
 
@@ -506,24 +504,30 @@ describe("what the mounted HTTP surface answers", () => {
     expect(store.passkey, "a route the allowlist refuses still reached the passkey rows").toStrictEqual([held]);
   });
 
-  /* Mounted and unmailed: its answer is the raw session token, and over HTTP it meets neither the
-     route handler's origin guard nor its edge zones, so an open arm here spends a code unbounded. */
-  it("refuses the library's own code sign-in over HTTP while the route handler's call still signs in", async () => {
+  /* The library answers its code sign-in with the session's token, the cookie's own value, and writes a name or an
+     image it is handed onto a first sign-in's account: the page's client sends neither, so a request that does is
+     refused before the code is counted or spent. */
+  it("signs a code in over HTTP answering no token, and refuses a body naming more than the address and the code", async () => {
     await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
     const otp = lastMailedCode(sent, ADMIN_EMAIL);
     assert.ok(otp !== null);
     const sessions = store.session.length;
 
-    expect((await overHttp("/sign-in/email-otp", { method: "POST", body: { email: ADMIN_EMAIL, otp } })).status).toBe(404);
-    expect(store.session.length, "the refused arm minted a session on its way out").toBe(sessions);
+    const named = await overHttp("/sign-in/email-otp", { method: "POST", body: { email: ADMIN_EMAIL, otp, name: "Jemand" } });
+    expect(named.status).toBe(400);
+    expect(store.session.length, "the refused body minted a session on its way out").toBe(sessions);
+    expect(failureRows(), "the refused body was counted as a guess").toStrictEqual([]);
 
-    const verified = await auth.api.signInEmailOTP({ body: { email: ADMIN_EMAIL, otp }, headers: new Headers(ORIGIN), returnHeaders: true });
-    assert.ok(verified.headers.getSetCookie().length > 0, "the HTTP arm spent the code the handler still needs");
+    const verified = await overHttp("/sign-in/email-otp", { method: "POST", body: { email: ADMIN_EMAIL, otp } });
+    expect(await verified.json()).toStrictEqual({ status: true });
+    const minted = store.session.at(-1);
+    assert.ok(minted !== undefined && store.session.length === sessions + 1, "the refused body spent the code");
+    expect(verified.headers.getSetCookie().join(";")).toContain(minted.token);
   });
 
   /* Every path outside the browser's four, driven rather than sampled: a set the module widens by
      one is what a hand-written list of twelve would go on passing through. */
-  it("refuses every path outside the browser's own four, whatever session the caller carries", async () => {
+  it("refuses every path outside the browser's own five, whatever session the caller carries", async () => {
     const { cookie } = await signIn(ADMIN_EMAIL);
 
     for (const path of [...IN_PROCESS_ONLY, ...REFUSED]) {
@@ -1278,27 +1282,6 @@ describe("a passkey session whose passkey is gone", () => {
     arriveAs(cookie);
 
     expect(await getAdminSession()).toBe(null);
-  });
-});
-
-/* The code route's second tab forgives a guess to whoever it reads as signed in, so that read is the
-   guards' own, a ban and a gone passkey included. */
-describe("the session a code's second tab counts as signed in", () => {
-  afterEach(() => BACKENDS.delete(PERSON_EMAIL));
-
-  it("serves the session every guard serves, and none a ban or a gone passkey refuses", async () => {
-    BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, seats: [A_SEAT], account: true });
-    const { cookie, row } = await signIn(PERSON_EMAIL);
-    const request = new Headers({ ...ORIGIN, cookie });
-    expect((await readAdmittedSession(request))?.session.id, "the live session was refused, so the cases below prove nothing").toBe(row.id);
-
-    BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, seats: [A_SEAT], account: true, barred: true });
-    expect(await readAdmittedSession(request), "a barred subject's session counted as signed in").toBe(null);
-
-    BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, seats: [A_SEAT], account: true });
-    madeByPasskey(store, row);
-    store.passkey.length = 0;
-    expect(await readAdmittedSession(request), "a session whose passkey is gone counted as signed in").toBe(null);
   });
 });
 
@@ -2801,22 +2784,6 @@ describe("the failures one address may spend, across every code it is sent", () 
     } finally {
       BACKENDS.delete(address);
     }
-  });
-
-  /* The route's second tab: the spent code meets the sign-in it already made, which is no guess. */
-  it("takes back exactly the failure the route forgives, by the body it sent", async () => {
-    const otp = await auth.api.createVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" } });
-    await answerOf(ADMIN_EMAIL, wrongFor(otp));
-    const [earlier] = failureRows();
-    assert.ok(earlier !== undefined);
-
-    const body = { email: ADMIN_EMAIL, otp: wrongFor(otp) };
-    await auth.api.signInEmailOTP({ body, headers: new Headers(ORIGIN) }).catch(() => undefined);
-    expect(failureRows().length, "the second attempt was not counted, so nothing below is taken back").toBe(2);
-
-    await forgiveCodeAttempt(body);
-
-    expect(failureRows().map((row) => row.id)).toStrictEqual([earlier.id]);
   });
 
   /* Ten in a row, and any sign-in ends the row: nine failures, a right code, then ten more are all
