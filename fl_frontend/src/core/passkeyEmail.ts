@@ -1,32 +1,33 @@
 import "server-only";
 
+import { COPY } from "./copy";
 import { mailOrigin } from "./emailShell";
 import { formatInstant } from "./format";
+import { SERVER_COPY } from "./serverCopy";
 
-import type { Mail, Sentence } from "./emailShell";
+import type { Mail, Paragraph } from "./emailShell";
 
-/** The subject and the sentence of one event; nothing here names a row or a device. */
+const { passkeyAdded, passkeyRemoved } = SERVER_COPY.mail;
+
+/** The subject and the sentences of one event; nothing here names a row or a device. */
 interface Ereignis {
-  readonly betreff: string;
-  readonly saetze: (zeit: string) => readonly [Sentence, ...Sentence[]];
+  readonly subject: string;
+  readonly paragraph: (zeit: string) => Paragraph;
 }
 
 const HINZUGEFUEGT: Ereignis = {
-  betreff: "Neuer Passkey für Dein Konto",
-  saetze: (zeit) => [["Deinem Konto wurde am ", { strong: zeit }, " ein Passkey hinzugefügt."]],
+  subject: passkeyAdded.subject,
+  paragraph: (zeit) => [[`${passkeyAdded.lead.before} `, { strong: zeit }, ` ${passkeyAdded.lead.after}`]],
 };
 
 const GELOESCHT: Ereignis = {
-  betreff: "Passkey für Dein Konto gelöscht",
+  subject: passkeyRemoved.subject,
   // Only the devices that passkey signed in: a removal ends the sessions carrying its credential and
   // leaves every other standing (`fl_frontend/src/core/auth/passkeys.ts :: removePasskey`).
-  saetze: (zeit) => [
-    ["Von Deinem Konto wurde am ", { strong: zeit }, " ein Passkey gelöscht."],
-    "Geräte, die damit angemeldet waren, wurden abgemeldet.",
-  ],
+  paragraph: (zeit) => [[`${passkeyRemoved.lead.before} `, { strong: zeit }, ` ${passkeyRemoved.lead.after}`], passkeyRemoved.devices],
 };
 
-/** What a builder is handed; `konto` is a path on `origin`, one area's account page (`fl_frontend/src/core/kontoHref.ts`). */
+/** What a builder is handed; `konto` is a path on `origin`, the account's Sicherheit page, which the row carries. */
 type Anlass = { zeitpunkt: Date; origin: string; konto: string };
 
 function build(ereignis: Ereignis, { zeitpunkt, origin, konto }: Anlass): Mail {
@@ -34,12 +35,12 @@ function build(ereignis: Ereignis, { zeitpunkt, origin, konto }: Anlass): Mail {
 
   return {
     kind: "security",
-    subjectLine: ereignis.betreff,
+    subjectLine: ereignis.subject,
     origin: site,
     vorname: "",
-    paragraphs: [ereignis.saetze(formatInstant(zeitpunkt))],
-    // The reader's own account page, which is the only place either event can be acted on.
-    button: { label: "Zu Deinem Konto", href: `${site}${konto}` },
+    paragraphs: [ereignis.paragraph(formatInstant(zeitpunkt))],
+    // The one place either event can be acted on.
+    button: { label: COPY.shared.end.toAccount, href: `${site}${konto}` },
   };
 }
 

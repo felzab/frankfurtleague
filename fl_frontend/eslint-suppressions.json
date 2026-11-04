@@ -420,17 +420,7 @@
       "count": 4
     }
   },
-  "src/core/loeschungEmail.ts": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
   "src/core/mail.ts": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
-  "src/core/passkeyEmail.ts": {
     "no-restricted-syntax": {
       "count": 1
     }

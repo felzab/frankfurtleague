@@ -4,9 +4,9 @@ import { symmetricEncrypt } from "better-auth/crypto";
 
 import { authSecret } from "../config";
 import { outboxPostSignIn } from "../generated/client/sdk";
-import { KONTO_HREF } from "../kontoHref";
 import { LOESCHUNG_LINK_GUELTIG_STUNDEN } from "../loeschungEmail";
 import { logger } from "../logging";
+import { ROUTES } from "../routes";
 import { HOUR_MS } from "../timeUnits";
 
 import type { FLOutboxSignInPayload, FLPasskeyDataArt } from "../generated/client/types";
@@ -37,7 +37,7 @@ export async function oweSignInMail(
  */
 export async function notifyPasskey(art: FLPasskeyDataArt, email: string): Promise<void> {
   try {
-    await oweSignInMail(email, { art: art, instant: new Date().toISOString(), account: KONTO_HREF });
+    await oweSignInMail(email, { art: art, instant: new Date().toISOString(), account: ROUTES.accountSecurity.path() });
   } catch (failed) {
     // Name only, as the code's own send writes one: a failure here routinely carries the address.
     logger.error("auth.passkey_notice_failed", undefined, {

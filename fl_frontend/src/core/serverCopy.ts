@@ -92,7 +92,10 @@ export const SERVER_COPY = catalogue({
     replacementSidesTakenPlace: "Ein Spiel des ausscheidenden Teams hat schon stattgefunden.",
   },
 
-  /** The mail shell's own lines; each mail's sentences are its template's until its area's session rewrites them. */
+  /**
+   * The mail shell's own lines, and the words of the account's mails; every other mail's sentences are its template's
+   * until its area's session rewrites them.
+   */
   mail: {
     /** The one greeting: the first name where it is known. */
     greeting: (vorname: string) => (vorname === "" ? "Hallo," : `Hallo ${vorname},`),
@@ -113,6 +116,73 @@ export const SERVER_COPY = catalogue({
       security: "Warst du das nicht? Dann antworte sofort auf diese E-Mail.",
       firstContact: "Du weißt nichts davon? Dann antworte auf diese E-Mail, und wir löschen deine Angaben.",
     },
+
+    /** A mailed link's deadline, by the hours its lifetime counts. */
+    linkValidFor: (hours: number) => `Der Link gilt ${formatNumber(hours)} Stunden.`,
+
+    /** The sign-in code: no button, since a link carrying the code would sign in whoever opened a forwarded mail. */
+    signInCode: {
+      subject: "Dein Anmeldecode",
+      lead: "Mit diesem Code meldest du dich an:",
+      validity: (minutes: number) => `Er gilt ${formatNumber(minutes)} Minuten und nur einmal.`,
+      /** The host the code is typed on, in the two parts around it, which the shell sets semibold between them. */
+      onlyHere: { before: "Gib ihn nur auf", after: "ein." },
+    },
+
+    /** A passkey set up or deleted, in the two parts around the moment, which the shell sets semibold between them. */
+    passkeyAdded: {
+      subject: "Passkey eingerichtet",
+      lead: { before: "Am", after: "wurde in deinem Konto ein Passkey eingerichtet." },
+    },
+    passkeyRemoved: {
+      subject: "Passkey gelöscht",
+      lead: { before: "Am", after: "wurde in deinem Konto ein Passkey gelöscht." },
+      devices: "Geräte, die damit angemeldet waren, sind abgemeldet.",
+    },
+
+    /** The deletion link: the subject and the button are the act's own words, `COPY.page.accountErasure`. */
+    erasureLink: {
+      lead: "Du hast angefordert, dein Konto zu löschen.",
+      consequence: "Dein Konto und alle Angaben unter deiner E-Mail-Adresse werden endgültig gelöscht.",
+    },
+
+    /** The person's own address change: the address on file's request, then the new address's. */
+    addressChange: {
+      /** The address on file's request opens on the page's question; the subject is the page's title. */
+      previousEffect: "Sie gilt, sobald beide Adressen sie bestätigt haben.",
+    },
+  },
+
+  /**
+   * The two pages a mail opens for the account, `/bestaetigung/adresse` and `/loeschung`, in the states of
+   * `fl_frontend/src/kit/MailedPage.tsx`. The address change's two mails open on these pages' questions.
+   */
+  addressChange: {
+    /** The noun of the address on file's act, „Änderung bestätigen“. */
+    change: "Änderung",
+    /** The address on file's question names the address the change goes to under this label. */
+    newAddress: "Neue E-Mail-Adresse",
+    previous: {
+      question: "Für dein Konto soll eine neue E-Mail-Adresse gelten.",
+      confirmed: "Änderung bestätigt",
+      confirmedSentence: "Die neue Adresse bekommt jetzt ihren Link.",
+    },
+    new: {
+      question: `Diese Adresse soll künftig für ein Konto bei der ${COPY.brand.name} gelten.`,
+      confirmed: "Adresse bestätigt",
+      confirmedSentence: "Mit dieser Adresse meldest du dich ab jetzt an.",
+    },
+    declined: "Änderung abgelehnt",
+    declinedSentence: "Diese Adresse wird nicht übernommen.",
+  },
+  accountErasure: {
+    /** Under the list of what goes, each row a record the read found. */
+    question: "Alles oben wird endgültig gelöscht.",
+    /** The count of the account's passkeys, the list's row for them. */
+    passkeys: "Passkeys",
+    done: "Konto gelöscht",
+    doneSentence: "Dein Konto und deine Angaben sind gelöscht.",
+    signedOut: "Du bist nicht angemeldet.",
   },
 
   /**
