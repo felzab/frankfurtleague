@@ -101,7 +101,11 @@ test("a person changes their address: the address on file confirms first, then t
   // Konto's address box: the new address, and the link it sends.
   await page.goto("/account/signin");
   const before = await filedMessages();
-  await page.getByLabel("Neue E-Mail-Adresse").fill(newAddress);
+  const field = page.getByLabel("Neue E-Mail-Adresse");
+  // Tapped first, as `e2e/support/signIn.ts :: sendFromHere` taps its field: a bare `fill` before WebKit has hydrated
+  // the field leaves React's state empty, and the form refuses the press as a missing address.
+  await field.click();
+  await field.fill(newAddress);
   // The start's own answer, read before any mail is waited for: a refusal shows only the shared failure line on the
   // page, and the answer's body names its code, which a failure here prints.
   const started = page.waitForResponse(
