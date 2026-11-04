@@ -8,6 +8,7 @@ import { TextField } from "@/kit/TextField";
 import { loadAuthClient } from "@/core/auth/browserClient";
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
+import { describeSetUpRefusal } from "@/features/auth/passkeyAnswers";
 import { signOutOthers } from "@/features/konto/personActions";
 import { removePasskeyAction, renamePasskeyAction } from "@/features/passkeys/actions";
 import { leaveDocumentFor } from "@/shared/utils/documentNavigation";
@@ -18,9 +19,6 @@ import type { PasskeyRow } from "@/features/passkeys/bestand";
 import type { AccountRow } from "@/kit/AccountBox";
 
 const PASSKEY = COPY.signIn.passkeyTitle;
-
-/** Why a set-up the library refused did not happen: a first passkey past `freshAge` answers 403, anything else none we word. */
-const SET_UP_REFUSED = (status: number): Copy => (status === 403 ? COPY.konto.passkeys.signInTooOld : COPY.shared.failure.unexpected);
 
 /**
  * Sicherheit's two boxes: the passkeys, each a row with its rename and its removal, the set-up in the footer; and the
@@ -55,7 +53,7 @@ export function SecurityBoxes({
   const setUp = async (): Promise<ActionAnswer> => {
     const authClient = await loadAuthClient();
     const { error } = await authClient.passkey.addPasskey();
-    if (error !== null) return { ok: false, reason: SET_UP_REFUSED(error.status) };
+    if (error !== null) return { ok: false, reason: describeSetUpRefusal(error) };
     router.refresh();
     return { ok: true, value: undefined };
   };

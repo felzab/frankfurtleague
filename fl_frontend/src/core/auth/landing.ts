@@ -19,10 +19,6 @@ import type { ServedSession } from "./session";
 /** Where `/signin/continue` sends the session it was handed, before `/area` is resolved to the page it leads to. */
 export type SignInDestination = "/signin/passkey" | "/area" | "/signin";
 
-export async function getSignInDestination(): Promise<SignInDestination> {
-  return (await landingOf(await headers())).destination;
-}
-
 /**
  * Where `/signin/continue` sends the session, and, where that is `/area` and the backend answered, the person as the
  * landing read them, so the person area's own landing rule is asked of the reads already made.

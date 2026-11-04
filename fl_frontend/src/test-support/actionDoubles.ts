@@ -277,7 +277,8 @@ const signInStore = (answers: SignInAnswers) => ({
     getKontoSession: () => answering(answers.served),
   },
   landing: {
-    getSignInDestination: () => Promise.resolve(answers.destination),
+    // The landing as read for a session the person lookup is not doubled for: its person stands unread.
+    getSignInLanding: () => Promise.resolve({ destination: answers.destination, subject: null }),
     // The sign-in page's read, `null` wherever the landing sends the caller to sign in, as the real one judges.
     getSignedInAddress: () =>
       answers.session instanceof Error
