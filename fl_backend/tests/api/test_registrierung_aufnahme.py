@@ -870,8 +870,8 @@ async def confirm_as_returning(database: AsyncDatabase, client: AsyncMongoClient
 class TestAReturningRegistration:
     """A registration confirmed on the returning pupil's page moves nothing on the person's record."""
 
-    # Confirmed under an older label, its media grant standing, so a renewal of either choice or a
-    # restamp of the label would each move a byte.
+    # Confirmed on an earlier day, its media grant standing, so a renewal of either choice would move a byte. No label
+    # but the current one exists yet, so a restamp of the label would move none.
     HELD = granted_by_an_earlier_registration()
 
     def test_its_person_moved_off_the_address_before_the_admission_admits_nobody(self, mongo_replica_set_url: str):

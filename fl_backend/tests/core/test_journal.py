@@ -159,6 +159,11 @@ def test_a_message_of_another_kind_is_no_line():
         pytest.param(
             f"{JOURNAL_TOKEN} {PERSON} widerruf spieler/{RECORD} am={AM} text_version=a text_version=b medien=false", id="two press labels"
         ),
+        pytest.param(
+            f"{JOURNAL_TOKEN} {PERSON} widerruf spiele/{RECORD} am={AM} text_version=2026-10-konto medien=false",
+            id="a press's label on a collection holding no consent",
+        ),
+        pytest.param(f"{JOURNAL_TOKEN} {PERSON} widerruf am={AM} text_version=2026-10-konto medien=false", id="a press's label on no record"),
     ],
 )
 def test_a_line_nothing_could_replay_is_refused_rather_than_read(message: str):
