@@ -1656,7 +1656,8 @@ class TestAGrantEndedBeforeTheApproval:
         assert (offen, offered) == (True, [])
         assert (swept.effective, swept.remaining) == (1, 0)
         assert record["ended"]["art"] == "effective"
-        assert notices == []
+        # Taking effect at the pass, after both mailboxes confirmed, it tells the replaced one then.
+        assert [(notice["art"], notice["an"]) for notice in notices] == [("effective", EMAIL)]
         assert after["pupil"]["email"] == NEW_EMAIL
 
     def test_a_change_whose_grant_stands_waits_and_is_no_remainder(self, mongo_replica_set_url: str):
