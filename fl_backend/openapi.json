@@ -5276,16 +5276,22 @@
       "FLEinwilligungTextVersion": {
         "anyOf": [
           {
-            "$ref": "#/components/schemas/FLWhatsappTextVersion"
+            "$ref": "#/components/schemas/FLSeatUmfangTextVersion"
           },
           {
-            "$ref": "#/components/schemas/FLMedienTextVersion"
+            "$ref": "#/components/schemas/FLSeatMedienTextVersion-Output"
           },
           {
-            "$ref": "#/components/schemas/FLNameKaderTextVersion"
+            "$ref": "#/components/schemas/FLSpielerUmfangTextVersion"
           },
           {
-            "$ref": "#/components/schemas/FLNameSpielplanTextVersion"
+            "$ref": "#/components/schemas/FLSpielerMedienTextVersion-Output"
+          },
+          {
+            "$ref": "#/components/schemas/FLSchiedsrichterUmfangTextVersion"
+          },
+          {
+            "$ref": "#/components/schemas/FLSchiedsrichterMedienTextVersion-Output"
           }
         ]
       },
@@ -7870,14 +7876,6 @@
       },
       "FLMedienTextVersion": {
         "const": "2026-11-medien-1",
-        "type": "string"
-      },
-      "FLNameKaderTextVersion": {
-        "const": "2026-11-name-kader-1",
-        "type": "string"
-      },
-      "FLNameSpielplanTextVersion": {
-        "const": "2026-11-name-spielplan-1",
         "type": "string"
       },
       "FLOpenRegistrierung": {
@@ -12276,6 +12274,13 @@
         "title": "FLSchiedsrichterListResponse",
         "type": "object"
       },
+      "FLSchiedsrichterMedienTextVersion-Input": {
+        "const": "2026-11-medien-1",
+        "type": "string"
+      },
+      "FLSchiedsrichterMedienTextVersion-Output": {
+        "$ref": "#/components/schemas/FLMedienTextVersion"
+      },
       "FLSchiedsrichterMint": {
         "description": "The confirmation link a write owed the referee, which the Postausgang mints and mails: never the link itself.",
         "properties": {
@@ -12459,10 +12464,10 @@
         "description": "A referee's two wordings: the name on the fixtures and the media switch.",
         "properties": {
           "medien": {
-            "$ref": "#/components/schemas/FLMedienTextVersion"
+            "$ref": "#/components/schemas/FLSchiedsrichterMedienTextVersion-Input"
           },
           "umfang": {
-            "$ref": "#/components/schemas/FLNameSpielplanTextVersion"
+            "$ref": "#/components/schemas/FLSchiedsrichterUmfangTextVersion"
           }
         },
         "required": [
@@ -12471,6 +12476,10 @@
         ],
         "title": "FLSchiedsrichterTextVersions",
         "type": "object"
+      },
+      "FLSchiedsrichterUmfangTextVersion": {
+        "const": "2026-11-name-spielplan-1",
+        "type": "string"
       },
       "FLSchulform": {
         "enum": [
@@ -12593,15 +12602,22 @@
         "title": "FLSeatEinwilligungPayload",
         "type": "object"
       },
+      "FLSeatMedienTextVersion-Input": {
+        "const": "2026-11-medien-1",
+        "type": "string"
+      },
+      "FLSeatMedienTextVersion-Output": {
+        "$ref": "#/components/schemas/FLMedienTextVersion"
+      },
       "FLSeatTextVersions": {
         "additionalProperties": false,
         "description": "A contact seat's two wordings: the WhatsApp switch and the media switch.",
         "properties": {
           "medien": {
-            "$ref": "#/components/schemas/FLMedienTextVersion"
+            "$ref": "#/components/schemas/FLSeatMedienTextVersion-Input"
           },
           "umfang": {
-            "$ref": "#/components/schemas/FLWhatsappTextVersion"
+            "$ref": "#/components/schemas/FLSeatUmfangTextVersion"
           }
         },
         "required": [
@@ -12610,6 +12626,10 @@
         ],
         "title": "FLSeatTextVersions",
         "type": "object"
+      },
+      "FLSeatUmfangTextVersion": {
+        "const": "2026-11-whatsapp-1",
+        "type": "string"
       },
       "FLSignInCodeData": {
         "properties": {
@@ -16122,6 +16142,13 @@
         "title": "FLSpielerContext",
         "type": "object"
       },
+      "FLSpielerMedienTextVersion-Input": {
+        "const": "2026-11-medien-1",
+        "type": "string"
+      },
+      "FLSpielerMedienTextVersion-Output": {
+        "$ref": "#/components/schemas/FLMedienTextVersion"
+      },
       "FLSpielerMembership": {
         "description": "One squad row as seen from its player.\n\nCarries `inactive_since`, which the team junction does not: a player leaves a squad mid-season,\nwhere a team never leaves a season at all.",
         "properties": {
@@ -16522,10 +16549,10 @@
         "description": "A pupil's two wordings: the name on the squad and the media switch.",
         "properties": {
           "medien": {
-            "$ref": "#/components/schemas/FLMedienTextVersion"
+            "$ref": "#/components/schemas/FLSpielerMedienTextVersion-Input"
           },
           "umfang": {
-            "$ref": "#/components/schemas/FLNameKaderTextVersion"
+            "$ref": "#/components/schemas/FLSpielerUmfangTextVersion"
           }
         },
         "required": [
@@ -16534,6 +16561,10 @@
         ],
         "title": "FLSpielerTextVersions",
         "type": "object"
+      },
+      "FLSpielerUmfangTextVersion": {
+        "const": "2026-11-name-kader-1",
+        "type": "string"
       },
       "FLSpielerWithMemberships": {
         "description": "The person as stored, plus every squad row they hold.\n\nA DIFFERENT question from `FLSpieler`, not a projection: that one is FLATTENED against one\nseason, so a player in two comes back as two indistinguishable rows.",
@@ -18186,10 +18217,6 @@
         ],
         "title": "FLVonAdmin",
         "type": "object"
-      },
-      "FLWhatsappTextVersion": {
-        "const": "2026-11-whatsapp-1",
-        "type": "string"
       }
     },
     "securitySchemes": {

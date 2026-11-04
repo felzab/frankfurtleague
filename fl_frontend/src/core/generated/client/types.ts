@@ -406,16 +406,16 @@ export interface FLEinwilligungStandPayload {
   umfang: string | null;
 }
 
-export type FLMedienTextVersion = "2026-11-medien-1";
+export type FLSpielerMedienTextVersionInput = "2026-11-medien-1";
 
-export type FLNameKaderTextVersion = "2026-11-name-kader-1";
+export type FLSpielerUmfangTextVersion = "2026-11-name-kader-1";
 
 /**
  * A pupil's two wordings: the name on the squad and the media switch.
  */
 export interface FLSpielerTextVersions {
-  medien: FLMedienTextVersion;
-  umfang: FLNameKaderTextVersion;
+  medien: FLSpielerMedienTextVersionInput;
+  umfang: FLSpielerUmfangTextVersion;
 }
 
 export type FLEinwilligungUmfang = (typeof FLEinwilligungUmfang)[keyof typeof FLEinwilligungUmfang];
@@ -491,11 +491,14 @@ export interface FLAccountRegistrierungEinwilligung {
   vorname: string;
 }
 
-export type FLWhatsappTextVersion = "2026-11-whatsapp-1";
+export type FLSeatUmfangTextVersion = "2026-11-whatsapp-1";
 
-export type FLNameSpielplanTextVersion = "2026-11-name-spielplan-1";
+export type FLMedienTextVersion = "2026-11-medien-1";
 
-export type FLEinwilligungTextVersion = FLWhatsappTextVersion | FLMedienTextVersion | FLNameKaderTextVersion | FLNameSpielplanTextVersion;
+export type FLSchiedsrichterUmfangTextVersion = "2026-11-name-spielplan-1";
+
+export type FLEinwilligungTextVersion =
+  FLSeatUmfangTextVersion | FLMedienTextVersion | FLSpielerUmfangTextVersion | FLSchiedsrichterUmfangTextVersion;
 
 /**
  * When a person set one consent choice, and under which wording.
@@ -1551,12 +1554,14 @@ export interface FLBewerbungEinwilligungDeclined {
   token: string;
 }
 
+export type FLSeatMedienTextVersionInput = "2026-11-medien-1";
+
 /**
  * A contact seat's two wordings: the WhatsApp switch and the media switch.
  */
 export interface FLSeatTextVersions {
-  medien: FLMedienTextVersion;
-  umfang: FLWhatsappTextVersion;
+  medien: FLSeatMedienTextVersionInput;
+  umfang: FLSeatUmfangTextVersion;
 }
 
 /**
@@ -4530,12 +4535,14 @@ export interface FLSchiedsrichter {
   version: number;
 }
 
+export type FLSchiedsrichterMedienTextVersionInput = "2026-11-medien-1";
+
 /**
  * A referee's two wordings: the name on the fixtures and the media switch.
  */
 export interface FLSchiedsrichterTextVersions {
-  medien: FLMedienTextVersion;
-  umfang: FLNameSpielplanTextVersion;
+  medien: FLSchiedsrichterMedienTextVersionInput;
+  umfang: FLSchiedsrichterUmfangTextVersion;
 }
 
 /**
@@ -4603,6 +4610,8 @@ export interface FLSchiedsrichterListResponse {
   schiedsrichter: FLSchiedsrichter[];
 }
 
+export type FLSchiedsrichterMedienTextVersionOutput = FLMedienTextVersion;
+
 /**
  * The re-send's answer. Never null: where no link may be minted a refusal answers instead.
  */
@@ -4659,6 +4668,8 @@ export interface FLSeatEinwilligungPayload {
   text_versions: FLSeatTextVersions;
   umfang: FLKontaktKenntnisnahmeUmfang;
 }
+
+export type FLSeatMedienTextVersionOutput = FLMedienTextVersion;
 
 /**
  * The sign-in gate's whole answer: the records' two flags, the ban and the grant, and no record itself.
@@ -5499,6 +5510,8 @@ export interface FLSpielerAdminSingleResponse {
   /** @minLength 1 */
   vorname: string;
 }
+
+export type FLSpielerMedienTextVersionOutput = FLMedienTextVersion;
 
 /**
  * One squad row as seen from its player.

@@ -47,6 +47,8 @@ from app.shared.schemas.custom import (
 from app.shared.schemas.einwilligung import (
     FLEinwilligungNachweise,
     FLEinwilligungStand,
+    FLSeatTextVersions,
+    cite_their_kind,
 )
 from app.shared.schemas.kontakt import CustomEmail, CustomKontaktName
 from app.shared.schemas.literals import (
@@ -147,8 +149,11 @@ class FLKontaktKenntnisnahme(_KontaktKenntnisnahmeWritable, BaseReadModel):
     # Written once, by the write that seats the person, and moved by nothing else: who seated them,
     # the applicant or the league.
     entered_by: FLKontaktEnteredBy
-    # Each choice's evidence, empty until the seat's person answers, for `FLEinwilligung.nachweis`'s reasons.
-    nachweis: FLEinwilligungNachweise = Field(default_factory=FLEinwilligungNachweise)
+    # Each choice's evidence, empty until the seat's person answers, for `FLEinwilligung.nachweis`'s reasons; a seat's
+    # wordings alone.
+    nachweis: Annotated[FLEinwilligungNachweise, AfterValidator(lambda nachweise: cite_their_kind(nachweise, FLSeatTextVersions))] = Field(
+        default_factory=FLEinwilligungNachweise
+    )
 
 
 class FLKontaktperson(BaseModel):

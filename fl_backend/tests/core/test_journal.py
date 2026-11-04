@@ -8,6 +8,7 @@ replay reading it are `tests/api/test_journal_replay.py`'s.
 
 import asyncio
 import logging
+from collections.abc import Mapping
 from typing import cast
 
 import pytest
@@ -19,6 +20,7 @@ from app.core.collections import Collection
 from app.core.journal import JOURNAL_TOKEN, Journal, JournalLine, lost_its_answer, parse_line
 from app.core.logging import FL_LOGGER_NAME, JOURNAL_LOGGER_SUFFIX
 from app.core.transactions import UNKNOWN_COMMIT_RESULT
+from app.shared.einwilligung_nachweis import FLEinwilligungChoice
 
 PERSON = "a" * 64
 PSEUDONYM = "c" * 64
@@ -149,11 +151,50 @@ def test_a_message_of_another_kind_is_no_line():
             f"{JOURNAL_TOKEN} {PERSON} adresswechsel_wirksam adresswechsel/{RECORD} am={AM} zuvor=anna@example.com",
             id="an address for the replaced one",
         ),
+        pytest.param(
+            f"{JOURNAL_TOKEN} {PERSON} widerruf spieler/{RECORD} am={AM} text_version=2026-10-konto-spieler "
+            "text_version.medien=2026-11-medien-1 medien=false",
+            id="a press's label beside a choice's",
+        ),
+        pytest.param(
+            f"{JOURNAL_TOKEN} {PERSON} widerruf spieler/{RECORD} am={AM} text_version=a text_version=b medien=false", id="two press labels"
+        ),
     ],
 )
 def test_a_line_nothing_could_replay_is_refused_rather_than_read(message: str):
     with pytest.raises(ValueError):
         parse_line(message)
+
+
+@pytest.mark.parametrize(
+    ("collection", "labels"),
+    [
+        pytest.param(Collection.SPIELER, {"umfang": "2026-11-name-kader-1", "medien": "2026-11-medien-1"}, id="a pupil"),
+        pytest.param(Collection.REGISTRIERUNGEN, {"umfang": "2026-11-name-kader-1", "medien": "2026-11-medien-1"}, id="a registration"),
+        pytest.param(Collection.SCHIEDSRICHTER, {"umfang": "2026-11-name-spielplan-1", "medien": "2026-11-medien-1"}, id="a referee"),
+        pytest.param(Collection.SAISON_TEAMS, {"umfang": "2026-11-whatsapp-1", "medien": "2026-11-medien-1"}, id="a contact seat"),
+        pytest.param(Collection.BEWERBUNGEN, {"umfang": "2026-11-whatsapp-1", "medien": "2026-11-medien-1"}, id="an application's seat"),
+    ],
+)
+def test_a_withdrawal_naming_one_label_for_its_press_replays_under_its_kinds_labels(
+    collection: Collection, labels: Mapping[FLEinwilligungChoice, str]
+):
+    """An older day file's spelling: refused, the restore would leave every such withdrawal's consent restored."""
+
+    umfang = "intern" if collection in (Collection.SPIELER, Collection.REGISTRIERUNGEN, Collection.SCHIEDSRICHTER) else "kontaktdaten"
+    line = parse_line(
+        f"{JOURNAL_TOKEN} {PERSON} widerruf {collection}/{RECORD} am={AM} text_version=2026-10-konto umfang={umfang} medien=false"
+    )
+
+    assert line == JournalLine(
+        person_hash=PERSON,
+        art="widerruf",
+        collection=collection,
+        record_id=RECORD,
+        am=AM,
+        text_versions=labels,
+        choices={"umfang": umfang, "medien": False},
+    )
 
 
 def _committed(journal: Journal, caplog: pytest.LogCaptureFixture, *, failure: BaseException | None, attempts: int = 1) -> list[str]:

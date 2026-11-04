@@ -27,6 +27,7 @@ from app.core.logging import journal_logger
 from app.core.transactions import UNKNOWN_COMMIT_RESULT
 from app.shared.einwilligung_nachweis import CHOICES, FLEinwilligungChoice, is_given
 from app.shared.schemas.custom import parse_object_id
+from app.shared.schemas.einwilligung import FLSchiedsrichterTextVersions, FLSeatTextVersions, FLSpielerTextVersions
 
 # What every line opens with: a token rather than a sentence, so the host's export matches a line by it whatever
 # follows (`scripts/ops/export_journal.sh :: JOURNAL_TOKEN`).
@@ -191,6 +192,17 @@ _LINE_KEYS: Final[Mapping[str, str]] = {"sitze": "seats", "zuvor": "before"}
 # The key a choice's label is spelled under, the choice after it.
 _TEXT_VERSION: Final = "text_version."
 
+# The one label a withdrawal line of an older day file names for its whole press, before each choice carried its own.
+# Every stored label was re-pointed to its kind's current one, so the replay stamps those, read off the record's kind.
+_PRESS_TEXT_VERSION: Final = "text_version"
+_KIND_OF: Final[Mapping[Collection, type[FLSeatTextVersions | FLSpielerTextVersions | FLSchiedsrichterTextVersions]]] = {
+    Collection.SPIELER: FLSpielerTextVersions,
+    Collection.REGISTRIERUNGEN: FLSpielerTextVersions,
+    Collection.SCHIEDSRICHTER: FLSchiedsrichterTextVersions,
+    Collection.SAISON_TEAMS: FLSeatTextVersions,
+    Collection.BEWERBUNGEN: FLSeatTextVersions,
+}
+
 
 def parse_line(message: str) -> JournalLine | None:
     """The act a stream message spells, `None` for one opening on another word; `ValueError` for a journal line nothing could replay."""
@@ -215,6 +227,7 @@ def parse_line(message: str) -> JournalLine | None:
 
     choices: dict[str, Any] = {}
     text_versions: dict[str, str] = {}
+    press_label = False
     for token in rest:
         key, separator, value = token.partition("=")
         if (
@@ -229,12 +242,19 @@ def parse_line(message: str) -> JournalLine | None:
             choices[key] = _read_value(key, value)
         elif key.startswith(_TEXT_VERSION) and key.removeprefix(_TEXT_VERSION) in CHOICES:
             text_versions[key.removeprefix(_TEXT_VERSION)] = value
+        elif key == _PRESS_TEXT_VERSION and not press_label and _WORT.fullmatch(value):
+            press_label = True
         elif key == "sitze":
             fields["seats"] = tuple(value.split(","))
         elif key in ("am", "pseudonym", "halter", "zuvor"):
             fields[_LINE_KEYS.get(key, key)] = value
         else:
             raise ValueError("a journal line names a value no act carries")
+    if press_label:
+        kind = _KIND_OF.get(fields["collection"]) if "collection" in fields else None
+        if text_versions or kind is None:
+            raise ValueError("a withdrawal's line names one label for its press, or one per choice of a consent record")
+        text_versions = {choice: kind.current[choice] for choice in CHOICES if choice in choices}
     if choices:
         fields["choices"] = MappingProxyType(choices)
     if text_versions:
