@@ -14,7 +14,8 @@ type Crawl = "index" | "noindex" | "disallow";
  * One page: the address it answers at, built from its segments, the name its tab and its strip show,
  * and what a search engine may do with it. A link takes its address from here, so with typed routes
  * on, an address whose page does not exist fails where the link is written. A page named by its record, such
- * as a club's, holds `null`: the page hands its record's name as a title of its own (`{ record }`).
+ * as a club's, holds `null`: the page hands its record's name as a title of its own (`{ record }`); so does an
+ * address that renders nothing, a route handler sending the request on.
  */
 export type RouteEntry = {
   readonly path: (...segments: never) => `/${string}`;
@@ -128,9 +129,9 @@ export const ROUTES = {
   signInPasskey: { path: () => "/signin/passkey" as const, title: COPY.signIn.passkeyTitle, crawl: "noindex" },
   /**
    * Where every finished sign-in step lands: a route handler, not a page, which sends the session on to the page it
-   * goes to next in one redirect, so nothing renders at this address under its title.
+   * goes to next in one redirect, so nothing renders at this address and it has no title.
    */
-  signInLanding: { path: () => "/signin/continue" as const, title: COPY.signIn.landingTitle, crawl: "noindex" },
+  signInLanding: { path: () => "/signin/continue" as const, title: null, crawl: "noindex" },
 
   // The pages a mail opens, each answering the token its link carries.
   addressChangeConfirmation: {

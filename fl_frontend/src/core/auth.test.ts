@@ -1244,7 +1244,7 @@ describe("the administrator's passkey sign-in, judged at the same guard", () => 
   });
 
   /* The landing re-spelled the guard's conditions once, so a third one added to the guard would land a
-     granted session on a `/area` that sends it on to an `/area/admin` whose guard bounces it. */
+     granted session on a `/area` that sends it back to the landing. */
   it("lands a granted session on `/area` exactly where the guard admits it, over the same seeded rows", async ({ onTestFinished }) => {
     onTestFinished(() => void BACKENDS.delete(ADMIN_EMAIL));
     const { cookie, row } = await signIn(ADMIN_EMAIL);

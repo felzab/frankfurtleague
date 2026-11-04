@@ -22,14 +22,14 @@ import type { StatusCardProps } from "./StatusPage";
  */
 export const MAILED_PAGE_METADATA = { referrer: "no-referrer" } as const satisfies Metadata;
 
-/** The end a mailed page's answer reaches, which its action words: the status page that replaces the question. */
-export type MailedEnd = EndState;
+// The end a mailed page's answer reaches, handed on from the one-shot submit, which no page imports but this template.
+export type { EndState } from "./OneShot";
 
 /**
  * The link no longer valid, one message for an expired, mistyped or tampered link alike, as the page opens on it
  * and as a press ends on it where the link stopped holding since the page opened.
  */
-export function linkInvalid(next: StatusCardProps["next"]): MailedEnd {
+export function linkInvalid(next: StatusCardProps["next"]): EndState {
   return { tone: "warn", title: COPY.template.linkInvalid, sentence: COPY.shared.end.linkInvalid, next: next };
 }
 

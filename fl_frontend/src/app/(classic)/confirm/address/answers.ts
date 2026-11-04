@@ -18,7 +18,7 @@ import { endOf, LINK_INVALID } from "./ends";
 
 import type { ActionAnswer } from "@/core/action";
 import type { AdresswechselPresse } from "@/features/adresswechsel/components/views/AdresswechselLinkView";
-import type { MailedEnd } from "@/kit/MailedPage";
+import type { EndState } from "@/kit/MailedPage";
 
 const { token } = AddressChangePostAddressChangeAnswerBody.shape;
 
@@ -33,7 +33,7 @@ export const answerAddressChange = action({
   name: "answerAddressChange",
   input: z.object({ token: token, side: z.enum(["previous", "new"]), act: z.enum(["primary", "secondary"]) }),
   exempt: "The link's token is the whole credential, minted for one mailbox and spent by its answer.",
-  run: async ({ token: link, side, act }): Promise<{ ok: true; value: MailedEnd }> => {
+  run: async ({ token: link, side, act }): Promise<{ ok: true; value: EndState }> => {
     const answer = act === "primary" ? "confirmed" : "declined";
     // The sign-in store is this server's, so the backend's press cannot refuse an account at the new address: refused
     // here, as the backend's own refusals of the address are. A decline is refused nothing.

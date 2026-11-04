@@ -4,7 +4,7 @@ import { refresh } from "next/cache";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
-import { linkInvalid } from "@/kit/MailedPage";
+import { linkInvalid, TO_ACCOUNT } from "@/kit/MailedPage";
 import { z } from "zod";
 
 import { action, TOUCH_HOLDER } from "@/core/action";
@@ -37,7 +37,7 @@ import { getAccountEinwilligungen, getErasureView } from "./queries";
 
 import type { ActionAnswer } from "@/core/action";
 import type { FLAccountEinwilligungenResponse } from "@/core/generated/client/types";
-import type { MailedEnd } from "@/kit/MailedPage";
+import type { EndState } from "@/kit/MailedPage";
 
 /** An act that posts no field: the signed-in session names everything it acts on. */
 const NOTHING = z.object({});
@@ -59,7 +59,7 @@ export const eraseAccount = action({
   name: "eraseAccount",
   // The library's own token, which no backend schema publishes: one line of letters, digits, `-` and `_`.
   input: z.object({ token: z.string().regex(/^[A-Za-z0-9_-]{1,128}$/), ...TOUCH_HOLDER }),
-  run: async ({ token }, { subject }): Promise<ActionAnswer<MailedEnd>> => {
+  run: async ({ token }, { subject }): Promise<ActionAnswer<EndState>> => {
     // Refused before the library spends the link, so the same link completes once another owner is made; the
     // backend refuses two owners at once. Read for an owner alone, the one tier that can be the last.
     if (subject.subject.verwaltung === "owner" && (await getErasureView()).last_owner) {
@@ -75,7 +75,7 @@ export const eraseAccount = action({
       return { ok: false, reason: COPY.shared.failure.stale };
     }
     if (outcome !== "deleted") {
-      return { ok: true, value: linkInvalid({ label: COPY.shared.end.toAccount, href: ROUTES.accountSignIn.path() }) };
+      return { ok: true, value: linkInvalid(TO_ACCOUNT) };
     }
 
     redirect(ROUTES.accountErased.path());
