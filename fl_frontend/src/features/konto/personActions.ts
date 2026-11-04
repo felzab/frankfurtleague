@@ -24,6 +24,7 @@ import {
   TeamsPatchEinwilligungParams,
 } from "@/core/generated/zod/inputs";
 import { logger } from "@/core/logging";
+import { forgetMailedLink } from "@/core/mailedLink";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { SignInPayloadSchema } from "@/features/auth/schemas";
@@ -77,6 +78,7 @@ export const eraseAccount = action({
       return { ok: true, value: linkInvalid(TO_ACCOUNT) };
     }
 
+    await forgetMailedLink(ROUTES.accountErasure.path());
     redirect(ROUTES.accountErased.path());
   },
 });

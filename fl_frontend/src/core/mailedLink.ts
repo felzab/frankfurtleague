@@ -62,3 +62,13 @@ export async function mailedLinkToken(): Promise<string | null> {
   const token = (await cookies()).get(MAILED_LINK_COOKIE)?.value;
   return token === undefined || token === "" ? null : token;
 }
+
+/**
+ * Deletes `page`'s cookie once its link has done its work, as the privacy notice promises, so a later visitor of a
+ * shared browser opening the plain address meets no earlier person's link. Only a server action or a route handler may
+ * write a cookie, so the act completing the link calls this, never the page; the path is the one the proxy set, which
+ * a browser matches the deletion on.
+ */
+export async function forgetMailedLink(page: string): Promise<void> {
+  (await cookies()).delete({ name: MAILED_LINK_COOKIE, path: page });
+}

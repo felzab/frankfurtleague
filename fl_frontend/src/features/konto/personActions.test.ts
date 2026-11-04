@@ -21,7 +21,8 @@ import type { MemoryDB } from "better-auth/adapters/memory";
 /** What the request a case arrives as carries, which `arriveAs` sets. */
 let requestHeaders: Headers | undefined;
 
-const HEADERS_DOUBLE = { headers: () => Promise.resolve(requestHeaders) };
+// The cookie a completed deletion forgets is the response's, which no case here reads.
+const HEADERS_DOUBLE = { headers: () => Promise.resolve(requestHeaders), cookies: () => Promise.resolve({ delete: () => undefined }) };
 
 const LOGGING_DOUBLE = { logger: { debug: () => undefined, info: () => undefined, warn: () => undefined, error: () => undefined } };
 
