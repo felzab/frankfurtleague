@@ -10,7 +10,7 @@
  */
 import { expect } from "@playwright/test";
 
-import { test } from "./support/journey";
+import { test as journey } from "./support/journey";
 import { filedMessages, mailedLink } from "./support/mailSink";
 import { expectAccountPageOf, sessionCookies, signInWithCode, signInWithCodeHere } from "./support/signIn";
 
@@ -24,11 +24,25 @@ async function signIn(page: Page, address: string): Promise<void> {
   await expect(page).toHaveURL((url) => url.pathname === "/area");
 }
 
-test("„Alle anderen abmelden“ ends a second device's session and keeps this one", async ({ page, browser, proxy, baseURL, twoDevices }) => {
+/**
+ * A second device, a browser context beside the test's own, built and closed in a fixture as Playwright's guide builds
+ * one for a second role (https://playwright.dev/docs/auth#testing-multiple-roles-with-pom-fixtures), so a journey that
+ * fails closes it too. The project's `use` options reach it as they reach every context the test's browser makes
+ * (https://playwright.dev/docs/test-use-options#explicit-context-creation-and-option-inheritance). The journey's proxy
+ * is named all the same: a fixture is torn down before what it depends on, so this context closes before the proxy, and
+ * the edge is read once both have.
+ */
+const test = journey.extend<{ secondDevice: Page }>({
+  secondDevice: async ({ browser, proxy }, provide) => {
+    const device = await browser.newContext({ proxy });
+    await provide(await device.newPage());
+    await device.close();
+  },
+});
+
+test("„Alle anderen abmelden“ ends a second device's session and keeps this one", async ({ page, secondDevice, baseURL, twoDevices }) => {
   // A second device, signed in first through the journey's own visitor.
-  const other = await browser.newContext({ proxy, baseURL });
-  const elsewhere = await other.newPage();
-  await signIn(elsewhere, twoDevices);
+  await signIn(secondDevice, twoDevices);
   await signIn(page, twoDevices);
 
   // „Alle anderen abmelden“ asks first, then ends the other device's session and keeps this one.
@@ -41,12 +55,11 @@ test("„Alle anderen abmelden“ ends a second device's session and keeps this 
   await expect(page.getByRole("main").getByText("Du bist auf 1 Gerät angemeldet.")).toBeVisible();
   // The page's own guard sends the ended session to the sign-in. Judged on the whole path, since `/account/signin`
   // itself ends in `/signin`.
-  await elsewhere.goto("/account/signin");
-  await expect(elsewhere).toHaveURL((url) => url.pathname === "/signin");
-  expect(await sessionCookies(other, baseURL), "the other device still holds its ended session's cookie").toEqual([]);
+  await secondDevice.goto("/account/signin");
+  await expect(secondDevice).toHaveURL((url) => url.pathname === "/signin");
+  expect(await sessionCookies(secondDevice.context(), baseURL), "the other device still holds its ended session's cookie").toEqual([]);
   await page.goto("/account/signin");
   await expect(page).toHaveURL((url) => url.pathname === "/account/signin");
-  await other.close();
 });
 
 test("a person changes their address: the address on file confirms first, then the new mailbox", async ({ page, context, mover }) => {
