@@ -141,8 +141,8 @@ ACTOR_PSEUDONYM_SHOWN: Final = 8
 # second route in.
 SCHIEDSRICHTER_CONFIRMATION_FRIST_DAYS: Final = 14
 
-# How long a step of an address change waits from its asking: the new mailbox's link, or the address
-# on file's approval. NIST SP 800-63B-4 `#issuedrecovery` caps an emailed recovery code at 24 hours
+# How long a step of an address change waits from its asking: the new mailbox's link, or the question
+# the person's own change asks the address on file. NIST SP 800-63B-4 `#issuedrecovery` caps an emailed recovery code at 24 hours
 # (read 2026-10-20).
 ADDRESS_CHANGE_VALID_HOURS: Final = 24
 

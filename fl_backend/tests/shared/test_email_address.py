@@ -5,7 +5,7 @@ from typing import Final, NamedTuple
 import pytest
 from pydantic import TypeAdapter, ValidationError
 
-from app.api.identity.schemas import LoeschungAdresse
+from app.api.identity.schemas import ErasureAddress
 from app.shared.folding import league_address, sign_in_identifier
 
 # One table both suites run their own rule and fold over, the frontend half in `fl_frontend/src/core/emailAddress.test.ts`,
@@ -47,7 +47,7 @@ def test_the_fold_answers_each_row_as_the_table_records(row: Row):
     assert sign_in_identifier(row.typed) == row.folded
 
 
-ERASURE_LOOKUP: Final = TypeAdapter(LoeschungAdresse)
+ERASURE_LOOKUP: Final = TypeAdapter(ErasureAddress)
 
 
 def _ascii_domain(row: Row) -> bool:

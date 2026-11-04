@@ -92,8 +92,10 @@ async def patch_einwilligung(
 
     Refuses, in this order: an id that is no confirmed referee record of this address (`role_not_held`); a
     `nachweis_stand` other than the record's own, either choice having moved since the page was served
-    (`choices_stale`); a grant on a retired record (`giving_not_allowed`); `medien` moving to `true` where the
-    stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is missing (`medien_age`). Each refusal writes nothing.
+    (`choices_stale`); a grant on a retired record (`giving_not_allowed`); a choice moving onto a grant under a label
+    other than its current wording's, the page loaded before a rewording (`grant_wording_stale`); `medien` moving to
+    `true` where the stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is missing (`medien_age`). Each
+    refusal writes nothing.
 
     **The caller drops the cached fixture list after a successful answer**, which reads this row; nothing here can.
     """
@@ -122,6 +124,7 @@ async def patch_einwilligung(
             geburtsdaten=[row.get("geburtsdatum")],
             gewaehlt=gewaehlt,
             nachweis_stand=einwilligung_data.nachweis_stand.model_dump(),
+            text_versions=einwilligung_data.text_versions,
             darf_erteilen=darf_erteilen,
             today=today,
         )

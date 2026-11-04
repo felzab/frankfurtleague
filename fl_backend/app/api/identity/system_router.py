@@ -10,7 +10,7 @@ from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.errors import PyMongoError
 
 from app.api.berechtigungen.crud import verwaltung_of
-from app.api.identity.crud import faellige_seite, find_anmeldung, find_subjekt, loeschen_if_still_due, saison_statuses, unreferenced_of
+from app.api.identity.crud import erasure_due_page, find_anmeldung, find_subjekt, loeschen_if_still_due, saison_statuses, unreferenced_of
 from app.api.identity.lookup import SubjektLookup
 from app.api.identity.schemas import (
     FLErasureSweepResponse,
@@ -296,7 +296,7 @@ async def sweep_erasure(
 
     statuses = await saison_statuses(saisons_collection=saisons_collection)
     # One past the share, so a call ending exactly at the share's last pupil can tell whether any follow.
-    seite, anzahl = await faellige_seite(
+    seite, anzahl = await erasure_due_page(
         statuses,
         nach=params.nach,
         groesse=LOESCHUNGEN_PER_PASS + 1,

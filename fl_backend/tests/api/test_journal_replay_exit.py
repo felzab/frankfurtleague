@@ -13,7 +13,7 @@ from typing import Final
 
 import pytest
 
-from app.api.identity.journal_replay import LOESCHUNG_SEITE
+from app.api.identity.journal_replay import ERASURE_PAGE_LABEL
 from tests.core.test_config import an_environment
 
 BACKEND_ROOT: Final = Path(__file__).resolve().parents[2]
@@ -74,4 +74,4 @@ def test_the_replay_names_the_loeschung_page_as_the_sidemenu_does():
     found = re.search(rf'^export const {name} = \{{\n  id: "[a-z]+",\n  label: "(?P<label>[^"]+)",$', source, re.MULTILINE)
 
     assert found is not None, f"{module.name} does not open {name} with its id and its label"
-    assert found["label"] == LOESCHUNG_SEITE, f"the replay names „{LOESCHUNG_SEITE}“, where the sidemenu shows „{found['label']}“"
+    assert found["label"] == ERASURE_PAGE_LABEL, f"the replay names „{ERASURE_PAGE_LABEL}“, where the sidemenu shows „{found['label']}“"

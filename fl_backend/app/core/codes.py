@@ -154,6 +154,9 @@ class Code(StrEnum):
     # A consent press whose page was served choices that have moved since, on any of the account page's records: one
     # code, so the page maps one refusal however many writes share it.
     CHOICES_STALE = auto()
+    # An account press moving a choice onto a grant under a label its current wording replaced: the page was loaded
+    # before a rewording. The confirmations refuse the same reason as a rule of their payload under the same spelling.
+    GRANT_WORDING_STALE = auto()
     # One code for every write taking a person's media consent, the account presses and the three
     # confirmations alike, so each page maps one refusal.
     MEDIEN_AGE = auto()
