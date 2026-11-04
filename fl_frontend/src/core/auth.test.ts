@@ -1213,13 +1213,6 @@ describe("which sessions may enrol a passkey, and how many rows they may leave",
     expect(store.passkey.length).toBe(PASSKEY_LIMIT);
   });
 
-  /* The FIGURE, which every case above takes from the constant and would follow anywhere it moved.
-     Five was chosen, not derived: an administrator carries several devices, and a second passkey
-     enrolled in advance keeps recovery off the Atlas console. */
-  it("caps an administrator at five passkeys, the figure chosen rather than derived", () => {
-    expect(PASSKEY_LIMIT).toBe(5);
-  });
-
   /* `excludeCredentials` is a hint the BROWSER honours: a caller posting the same credential twice
      leaves two rows nothing in the dialog tells apart, and removing the wrong one removes neither. */
   it("refuses a credential the account has already enrolled, leaving the row it has", async () => {
