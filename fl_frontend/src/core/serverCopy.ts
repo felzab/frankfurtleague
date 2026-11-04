@@ -175,7 +175,8 @@ export const SERVER_COPY = catalogue({
     /** The deletion link: the subject and the button are the act's own words, `COPY.page.accountErasure`. */
     erasureLink: {
       lead: "Du hast angefordert, dein Konto zu löschen.",
-      consequence: "Dein Konto und alle Angaben unter deiner E-Mail-Adresse werden endgültig gelöscht.",
+      // What outlives an erasure is the privacy notice's to list; the one sentence a consequence holds points there.
+      consequence: `Dein Konto und alle Angaben unter deiner E-Mail-Adresse werden endgültig gelöscht, bis auf das, was unter „${COPY.page.privacyNotice}“ steht.`,
     },
 
     /** The person's own address change: the address on file's request, then the new address's. */
@@ -217,7 +218,7 @@ export const SERVER_COPY = catalogue({
     addressChanges: "Laufende Adressänderungen",
     grant: "Zugang",
     done: "Konto gelöscht",
-    doneSentence: "Dein Konto und deine Angaben sind gelöscht.",
+    doneSentence: `Dein Konto und deine Angaben sind gelöscht, bis auf das, was unter „${COPY.page.privacyNotice}“ steht.`,
     signedOut: "Du bist nicht angemeldet.",
   },
 
@@ -600,7 +601,7 @@ export const SERVER_COPY = catalogue({
       },
       erasure: {
         heading: "Löschung",
-        text: "Löschen wir Daten, auf deinen Wunsch oder nach ihrer Frist, sind sie aus der Datenbank sofort verschwunden und aus den Sicherungskopien nach etwa 8 Tagen; spielen wir eine ältere Sicherung ein, löschen wir sie erneut. Die Kopien bei Resend und Cloudflare erreicht eine Löschung nicht; sie laufen nach ihren Fristen aus. Löschen wir ein bestätigtes Konto oder eine bestätigte Bewerbung, schreiben wir dir das.",
+        text: "Löschen wir Daten, auf deinen Wunsch oder nach ihrer Frist, verschwinden sie sofort aus der Datenbank und nach etwa 8 Tagen aus den Sicherungskopien; spielen wir eine ältere Sicherung ein, löschen wir sie erneut. Es bleiben die Kopien bei Resend und Cloudflare bis zu ihren Fristen, eine Sperre deiner Adresse bis zu ihrem Ende, die E-Mail mit dem Link zur Löschung, bis er abläuft, freie Texte, die nicht unter deiner Adresse stehen, und im Änderungsprotokoll, was du unter einer früheren Adresse geändert hast. Löschen wir ein bestätigtes Konto oder eine bestätigte Bewerbung, schreiben wir dir das.",
         log: "Jede Änderung an den Daten der Liga halten wir 12 Monate im Änderungsprotokoll fest; eine Person steht darin nur mit Rolle, Team und Nummer ihres Eintrags, eine persönliche Angabe nur als geändert, ohne ihren Inhalt.",
       },
       rights: {
