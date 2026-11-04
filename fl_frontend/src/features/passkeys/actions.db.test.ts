@@ -136,7 +136,13 @@ const { sent } = registerAuthDoubles({
   specifiers: {
     "next/headers": HEADERS_DOUBLE,
     "next/cache": NEXT_CACHE_DOUBLE,
-    "next/server": async () => ({ ...(await vi.importActual<object>("next/server")), after: (work: () => unknown) => void behind.push(work) }),
+    // This replaces `fl_frontend/src/test-support/setup.ts`'s double of the package whole, so it carries that file's
+    // resolved `connection`, which the person lane's session read waits on.
+    "next/server": async () => ({
+      ...(await vi.importActual<object>("next/server")),
+      connection: () => Promise.resolve(),
+      after: (work: () => unknown) => void behind.push(work),
+    }),
   },
 });
 
