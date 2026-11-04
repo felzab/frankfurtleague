@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 
 import { MAILED_PAGE_METADATA, MailedPage, TO_ACCOUNT } from "@/kit/MailedPage";
 
+import { erasureLinkStands } from "@/core/auth/accounts";
 import { getAccountSession } from "@/core/auth/guards";
 import { passkeysOf } from "@/core/auth/passkeys";
 import { withReturnAddress } from "@/core/auth/returnAddress";
@@ -34,7 +35,8 @@ const ENTRIES = COPY.account.entries;
 /**
  * `/erasure`, the deletion link's page: the list of what goes, and the act, for the signed-in person the link was
  * mailed to. Its already-done state is never reached: the library spends the token, and the account is gone, so a link
- * opened again reads as the link no longer valid.
+ * opened again reads as the link no longer valid, signed in or not. A live link alone asks a signed-out visitor to
+ * sign in; another account's is refused at the press, nothing on a signed-out request naming whose it is.
  */
 export default function AccountErasurePage() {
   return <MailedPage page={readState()} />;
@@ -42,7 +44,8 @@ export default function AccountErasurePage() {
 
 async function readState(): Promise<MailedState> {
   const token = await mailedLinkToken();
-  if (token === null) return { state: "ungueltig", next: TO_ACCOUNT };
+  // Judged before the session: a spent, lapsed or unknown link is a dead end a sign-in cannot repair.
+  if (token === null || !(await erasureLinkStands(token))) return { state: "ungueltig", next: TO_ACCOUNT };
 
   // A signed-out browser signs in and returns to this page, whose cookie holds the token past the sign-in.
   const link = ROUTES.accountErasure.path();

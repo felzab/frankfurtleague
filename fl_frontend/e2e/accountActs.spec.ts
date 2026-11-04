@@ -130,4 +130,8 @@ test("the person deletes their account from the mailed link, signed out when it 
   expect(await sessionCookies(context, baseURL), "the deletion left the session's cookie in the browser").toEqual([]);
   await page.goto("/area");
   await expect(page).toHaveURL((url) => url.pathname === "/signin");
+
+  // Opened again signed out, the spent link says it is dead rather than asking for a sign-in it would not repair.
+  await page.goto(link);
+  await expect(page.getByRole("main").getByRole("heading", { name: "Link nicht mehr gültig" })).toBeVisible();
 });

@@ -40,7 +40,7 @@ export const FAILURE_ROW_PREFIX = "sign-in-attempt-";
 export const MAIL_ROW_PREFIX = "sign-in-mail-";
 
 /** The library's own prefix for an outstanding deletion token's row, whose value is the account's user id. */
-const DELETE_TOKEN_ROW_PREFIX = "delete-account-";
+export const DELETE_TOKEN_ROW_PREFIX = "delete-account-";
 
 // The server's code for an insert a unique index refused; the driver exports no name for it.
 export const DUPLICATE_KEY = 11000;
