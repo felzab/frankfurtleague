@@ -33,14 +33,18 @@ export const CONSENT_WORDINGS = {
   "2026-11-whatsapp-1": {
     label: "Die Liga darf mich auch über WhatsApp erreichen.",
     line: [
-      "Dafür erhält WhatsApp deine Telefonnummer und unsere Nachrichten. Du kannst das jederzeit in deinem Konto widerrufen. Mehr unter ",
+      "Dafür erhält WhatsApp deine Telefonnummer und unsere Nachrichten. Du kannst das jederzeit in deinem Konto oder per E-Mail an kontakt@frankfurtleague.de widerrufen. Mehr unter ",
       { href: PRIVACY_NOTICE, label: "Datenschutz" },
       ".",
     ],
   },
   "2026-11-medien-1": {
     label: "Die Liga darf Fotos, Videos und Interviews von mir auf ihrer Website und auf Instagram veröffentlichen.",
-    line: ["Du kannst das jederzeit in deinem Konto widerrufen. Mehr unter ", { href: PRIVACY_NOTICE, label: "Datenschutz" }, "."],
+    line: [
+      "Du kannst das jederzeit in deinem Konto oder per E-Mail an kontakt@frankfurtleague.de widerrufen. Mehr unter ",
+      { href: PRIVACY_NOTICE, label: "Datenschutz" },
+      ".",
+    ],
   },
   "2026-11-name-kader-1": {
     question: "Was darf von deinem Namen auf der Website stehen?",
@@ -49,7 +53,7 @@ export const CONSENT_WORDINGS = {
       intern: "Kein Name, nur Nummer und Position",
     },
     line: [
-      "Ohne Namen steht dort „anonym“. Du kannst das jederzeit in deinem Konto ändern. Mehr unter ",
+      "Ohne Namen steht dort „anonym“. Du kannst das jederzeit in deinem Konto oder per E-Mail an kontakt@frankfurtleague.de ändern. Mehr unter ",
       { href: PRIVACY_NOTICE, label: "Datenschutz" },
       ".",
     ],
@@ -61,7 +65,7 @@ export const CONSENT_WORDINGS = {
       intern: "Kein Name",
     },
     line: [
-      "Ohne Namen steht dort „anonym“. Du kannst das jederzeit in deinem Konto ändern. Mehr unter ",
+      "Ohne Namen steht dort „anonym“. Du kannst das jederzeit in deinem Konto oder per E-Mail an kontakt@frankfurtleague.de ändern. Mehr unter ",
       { href: PRIVACY_NOTICE, label: "Datenschutz" },
       ".",
     ],

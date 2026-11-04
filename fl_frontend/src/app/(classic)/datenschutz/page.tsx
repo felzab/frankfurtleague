@@ -1,7 +1,7 @@
 import { ClassicPage, ClassicTitle } from "@/kit/ClassicPage";
 import { Prose } from "@/kit/Prose";
 
-import { ADRESSWECHSEL_GUELTIG_STUNDEN } from "@/core/adresswechsel";
+import { ADRESSWECHSEL_GUELTIG_STUNDEN, ADRESSWECHSEL_WARTEZEIT_TAGE } from "@/core/adresswechsel";
 import { CODE_VALIDITY_MINUTES } from "@/core/authEmail";
 import { KONTAKT_EMAIL, KONTAKT_MAILTO } from "@/core/brand";
 import { COPY } from "@/core/copy";
@@ -64,7 +64,7 @@ export default function PrivacyNoticePage() {
         { idleHours: ADMIN_IDLE_HOURS, hours: ADMIN_WINDOW_HOURS },
       ),
     ),
-    paragraph(words.account.changes(ADRESSWECHSEL_GUELTIG_STUNDEN)),
+    paragraph(words.account.changes(ADRESSWECHSEL_GUELTIG_STUNDEN, ADRESSWECHSEL_WARTEZEIT_TAGE)),
     heading(words.mail.heading),
     paragraph(words.mail.senders),
     paragraph(words.mail.forwarding),
