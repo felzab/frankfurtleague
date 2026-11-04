@@ -290,7 +290,7 @@ export const SERVER_COPY = catalogue({
 
     /** The season in four counts. */
     figures: {
-      title: (saison: string) => `Saison ${saison} in Zahlen`,
+      title: (saison: string) => `${COPY.shared.saisonName(saison)} in Zahlen`,
       schulen: "Schulen",
       tore: COPY.shared.tore,
       spiele: COPY.page.spiele,
@@ -317,7 +317,7 @@ export const SERVER_COPY = catalogue({
       support: "Du willst die Liga unterstützen",
     },
 
-    schools: { eyebrow: "Wer dabei ist", title: (saison: string) => `Schulen der Saison ${saison}` },
+    schools: { eyebrow: "Wer dabei ist", title: (saison: string) => `Schulen der ${COPY.shared.saisonName(saison)}` },
 
     /** The season card beside the hero, in its states. */
     saison: {
@@ -725,13 +725,15 @@ export const SERVER_COPY = catalogue({
   description: {
     home: COPY.brand.description,
     about: "Wer in der Frankfurt League spielt, nach welchen Regeln und wofür, und wer die Liga organisiert.",
-    spielplan: (saison: string) => `Alle Spiele der Saison ${saison} der Frankfurt League, Spieltag für Spieltag, mit Datum, Uhrzeit und Ort.`,
-    tabelle: (saison: string) => `Die Tabelle der Saison ${saison} der Frankfurt League: jede Gruppe mit Spielen, Toren und Punkten.`,
-    teams: (saison: string) => `Alle Teams der Saison ${saison} der Frankfurt League, mit Gruppe und Kader.`,
-    team: (team: string, saison: string) => `${team} in der Saison ${saison} der Frankfurt League: Stand, Spiele und Kader.`,
-    kORunde: (saison: string) => `Die K.-o.-Runde der Saison ${saison} der Frankfurt League: der K.-o.-Baum bis zum Finale.`,
+    spielplan: (saison: string) =>
+      `Alle Spiele der ${COPY.shared.saisonName(saison)} der Frankfurt League, Spieltag für Spieltag, mit Datum, Uhrzeit und Ort.`,
+    tabelle: (saison: string) =>
+      `Die Tabelle der ${COPY.shared.saisonName(saison)} der Frankfurt League: jede Gruppe mit Spielen, Toren und Punkten.`,
+    teams: (saison: string) => `Alle Teams der ${COPY.shared.saisonName(saison)} der Frankfurt League, mit Gruppe und Kader.`,
+    team: (team: string, saison: string) => `${team} in der ${COPY.shared.saisonName(saison)} der Frankfurt League: Stand, Spiele und Kader.`,
+    kORunde: (saison: string) => `Die K.-o.-Runde der ${COPY.shared.saisonName(saison)} der Frankfurt League: der K.-o.-Baum bis zum Finale.`,
     spiel: (team1: Words, team2: Words, saison: string) =>
-      `${textOf(team1)} gegen ${textOf(team2)} in der Saison ${saison} der Frankfurt League: Termin, Ort, Ergebnis und Aufstellungen.`,
+      `${textOf(team1)} gegen ${textOf(team2)} in der ${COPY.shared.saisonName(saison)} der Frankfurt League: Termin, Ort, Ergebnis und Aufstellungen.`,
     contact: "Die Frankfurt League erreichst du per E-Mail, auf Instagram und auf Threads.",
     sponsors: "Die Sponsoren der Frankfurt League, und wie du die Liga unterstützen kannst.",
     legalNotice: "Anbieterkennzeichnung der Frankfurt League nach § 5 DDG.",
