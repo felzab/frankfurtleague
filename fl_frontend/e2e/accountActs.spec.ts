@@ -121,8 +121,11 @@ test("a person changes their address: the address on file confirms first, then t
   await expect(page.getByText(newAddress, { exact: true })).toBeVisible();
   const afterTheFirst = await filedMessages();
   await page.getByRole("button", { name: "Bestätigen" }).click();
+  // The press's own end, by its sentence: the answer also renders the page again, and the link read again is in the
+  // opened-again state, whose title and way on are the same.
   await expect(page.getByRole("heading", { name: "Änderung bestätigt" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Zum Konto" })).toBeVisible();
+  await expect(page.getByText("Die neue Adresse bekommt jetzt ihren Link.")).toBeVisible();
+  await expect(page.getByRole("main").getByRole("link", { name: "Zum Konto" })).toBeVisible();
 
   // Opened again, the link says what was done and when, and asks nothing.
   await page.goto(previousLink);
@@ -136,7 +139,9 @@ test("a person changes their address: the address on file confirms first, then t
   await expect(page.getByRole("heading", { name: "E-Mail-Adresse bestätigen" })).toBeVisible();
   await page.getByRole("button", { name: "Bestätigen" }).click();
   await expect(page.getByRole("heading", { name: "Adresse bestätigt" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Anmelden" })).toBeVisible();
+  await expect(page.getByText("Mit dieser Adresse meldest du dich ab jetzt an.")).toBeVisible();
+  // In the page's own end: the classic header holds an „Anmelden“ of its own on a desktop.
+  await expect(page.getByRole("main").getByRole("link", { name: "Anmelden" })).toBeVisible();
 });
 
 test("the person deletes their account from the mailed link, signed out when it opens", async ({ page, context, leaver }) => {
