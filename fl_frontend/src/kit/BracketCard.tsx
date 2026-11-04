@@ -2,7 +2,7 @@ import { textOf } from "@/core/copy";
 
 import { cardSurface } from "./cardStyles";
 import { Link } from "./Link";
-import { figures, Goal, look, sideMarks } from "./SpielRow";
+import { figures, goalsOf, look, sideMarks } from "./SpielRow";
 import { TeamPlaque } from "./TeamPlaque";
 import { tv } from "./tv";
 
@@ -38,11 +38,7 @@ function Line({ side, score, part }: { side: SpielSide; score: Figures; part: "t
           {name}
         </span>
       </span>
-      <Goal
-        score={score}
-        part={part}
-        className={style.goals()}
-      />
+      <span className={style.goals()}>{goalsOf(score, part)}</span>
     </span>
   );
 }
