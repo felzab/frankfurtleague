@@ -36,7 +36,7 @@ import { toFieldErrors } from "@/shared/utils/validation";
 
 import type { Key } from "@heroui/react/rac";
 
-export const LINK_AN_NEUE_ADRESSE = "Link an neue Adresse senden";
+const LINK_AN_NEUE_ADRESSE = "Link an neue Adresse senden";
 
 /**
  * The reload first, then the address shown again, which a reload empties: a second start
@@ -45,13 +45,10 @@ export const LINK_AN_NEUE_ADRESSE = "Link an neue Adresse senden";
 const START_OHNE_ANTWORT =
   "Prüfe die Verbindung, lade die Seite neu und zeige die bisherige Adresse erneut an. Steht dort keine Änderung, trage die neue Adresse erneut ein.";
 
-/** The two ways an administrator starts a change: the address on file asked first, or a recorded reason and a waiting time. */
-type Weg = "fragen" | "unerreichbar";
+/** The one way an administrator starts a change: a recorded reason and a waiting time, the address on file unreachable. */
+type Weg = "unerreichbar";
 
-const WEGE: readonly { id: Weg; label: string }[] = [
-  { id: "fragen", label: "Die bisherige Adresse fragen" },
-  { id: "unerreichbar", label: "Die bisherige Adresse ist nicht mehr erreichbar" },
-];
+const WEGE: readonly { id: Weg; label: string }[] = [{ id: "unerreichbar", label: "Die bisherige Adresse ist nicht mehr erreichbar" }];
 
 /** Names the way chips for a screen reader, `ToggleButtonGroup` carrying its own role and no label element. */
 const WEG_LABEL_ID = "adresswechsel-weg";
@@ -62,10 +59,10 @@ const WEG_LABEL_ID = "adresswechsel-weg";
  */
 export type AdresswechselEntwurf = { email: string; weg: Weg; grund: string };
 
-export const LEERER_ENTWURF: AdresswechselEntwurf = { email: "", weg: "fragen", grund: "" };
+export const LEERER_ENTWURF: AdresswechselEntwurf = { email: "", weg: "unerreichbar", grund: "" };
 
-/** The reason is sent only on the way that records one: the address on file is asked first exactly where it is null. */
-const gesendeterGrund = ({ weg, grund }: AdresswechselEntwurf): string | null => (weg === "unerreichbar" ? grund : null);
+/** The reason, which every start records. */
+const gesendeterGrund = ({ grund }: AdresswechselEntwurf): string => grund;
 
 type Fehler = { email?: string; grund?: string };
 
@@ -182,7 +179,7 @@ export function AdresswechselBeantragen({
         <p className="muted-hint text-pretty">Eine neue Änderung beendet die oben gezeigte, und ihre Links gelten nicht mehr.</p>
       )}
 
-      <RequiredSchemas schemas={[entwurf.weg === "unerreichbar" ? MIT_GRUND : FLAdresswechselVerwaltungPayloadSchema]}>
+      <RequiredSchemas schemas={[MIT_GRUND]}>
         <TextField
           type="email"
           name="email"
@@ -221,7 +218,7 @@ export function AdresswechselBeantragen({
             selectedKeys={[entwurf.weg]}
             onSelectionChange={(keys: Set<Key>) => {
               const [picked] = [...keys].map(String);
-              if (picked === "fragen" || picked === "unerreichbar") setze({ weg: picked });
+              if (picked === "unerreichbar") setze({ weg: picked });
             }}
             className={`flex w-full flex-row flex-wrap gap-2 ${TOGGLE_GROUP_ALIGN_CLASSES}`}>
             {WEGE.map((option) => (

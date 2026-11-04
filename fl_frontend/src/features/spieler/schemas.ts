@@ -1,7 +1,6 @@
 import z from "zod";
 
-import { SPIELER_TEXT_VERSIONS } from "@/core/consentWordings";
-import { FLEinwilligungUmfang, FLSpielerPosition, FLSpielerRolle, FLSpielerStufe } from "@/core/generated/client/types";
+import { FLSpielerPosition, FLSpielerRolle, FLSpielerStufe } from "@/core/generated/client/types";
 import { SAISON_ID_LENGTH } from "@/features/saisons/constants";
 import { KONTAKT_NAME_MAX_LENGTH, KONTAKT_NAME_ZU_LANG } from "@/features/teams/constants";
 import { CustomDateStringSchema, CustomObjectIdStringSchema, PersonNameSchema } from "@/shared/schemas";
@@ -24,16 +23,6 @@ export const FLSpielerStufeSchema = z.enum(FLSpielerStufe, { error: "Bitte wähl
  * refuses on (`kader_rolle_taken`).
  */
 const FLSpielerRolleSchema = z.enum(FLSpielerRolle, { error: "Bitte wähle eine Rolle." });
-
-// Redesign: goes with its last importer.
-/**
- * A consent press's precondition, `FLEinwilligungStandPayload`: each choice's stand as the page was served it, null
- * where no evidence backs that choice, echoed unread, so nothing here reads or derives it.
- */
-const FLEinwilligungStandSchema = z.object({
-  umfang: z.string().nullable(),
-  medien: z.string().nullable(),
-});
 
 // Redesign: goes with its last importer.
 /**
@@ -135,9 +124,6 @@ export type FLPatchKaderRowPayload = z.infer<typeof FLPatchKaderZeilePayloadSche
 export const FLKaderZeileKeyPayloadSchema = z.object(kaderZeileKeyFields);
 export type FLKaderZeileKeyPayload = z.infer<typeof FLKaderZeileKeyPayloadSchema>;
 
-/** A consent press's scope no control offers: a drifted page, which a reload repairs. */
-export const WAHL_UNBEKANNT = "Diese Wahl kennen wir nicht. Lade die Seite neu.";
-
 // Redesign: goes with its last importer.
 /**
  * The labels a press names, one per choice, each the one its kind's wording carries
@@ -146,17 +132,5 @@ export const WAHL_UNBEKANNT = "Diese Wahl kennen wir nicht. Lade die Seite neu."
 export const textVersionsSchema = <U extends string, M extends string>(labels: { readonly umfang: U; readonly medien: M }, error: string) =>
   z.object({ umfang: z.literal(labels.umfang, { error: error }), medien: z.literal(labels.medien, { error: error }) }, { error: error });
 
-/** A drifted account page's labels, which a reload repairs. */
-export const KONTO_FASSUNG_FEHLT = "Deine Wahl nennt keine Fassung. Lade die Seite neu.";
-
 /** A drifted link page's labels, which the link reopened repairs. */
 export const LINK_FASSUNG_FEHLT = "Deine Antwort nennt keine Fassung. Öffne den Link aus Deiner E-Mail erneut.";
-
-// Redesign: goes with its last importer.
-/** Mirrors `FLAccountEinwilligungPayload`, the pupil's and a registration's press on the account page. */
-export const FLSpielerKontoEinwilligungPayloadSchema = z.object({
-  umfang: z.enum(FLEinwilligungUmfang, { error: WAHL_UNBEKANNT }),
-  medien: z.boolean(),
-  text_versions: textVersionsSchema(SPIELER_TEXT_VERSIONS, KONTO_FASSUNG_FEHLT),
-  nachweis_stand: FLEinwilligungStandSchema,
-});

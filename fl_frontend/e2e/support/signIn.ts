@@ -75,11 +75,11 @@ export async function signInWithCode(page: Page, address: string): Promise<void>
   await page.getByRole("textbox", { name: "Code aus der E-Mail" }).pressSequentially(code);
 }
 
-/** The account page renders for a session alone: without one it sends the visitor to `/signin`. */
+/** Konto's Anmeldung renders for a session alone: without one it sends the visitor to `/signin`. */
 export async function expectAccountPageOf(page: Page, address: string): Promise<void> {
-  await page.goto("/bereich/konto");
+  await page.goto("/account/signin");
 
-  await expect(page).toHaveURL(/\/bereich\/konto$/);
+  await expect(page).toHaveURL(/\/account\/signin$/);
   await expect(page.getByText(address, { exact: true })).toBeVisible();
 }
 
@@ -93,8 +93,8 @@ export async function enrolPasskey(page: Page, context: BrowserContext): Promise
   await page.reload();
   await page.getByRole("button", { name: "Jetzt einrichten" }).click();
   // Every administrator lands on the Übersicht, which a session short of the passkey would leave for
-  // `/bereich/admin` and the passkey step (`fl_frontend/src/core/auth/landing.ts :: destinationOf`).
-  await expect(page).toHaveURL(/\/bereich$/);
+  // `/area/admin` and the passkey step (`fl_frontend/src/core/auth/landing.ts :: destinationOf`).
+  await expect(page).toHaveURL(/\/area$/);
 
   const [passkey] = await context.credentials.get({ rpId: RELYING_PARTY });
   if (passkey === undefined) throw new Error("the enrolment left the authenticator holding no passkey");

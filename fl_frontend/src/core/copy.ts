@@ -1,4 +1,13 @@
-import { formatDatum, formatDatumLong, formatDatumWithWeekday, formatList, formatNumber, formatOrdinal, formatUhrzeit } from "./format";
+import {
+  formatDatum,
+  formatDatumLong,
+  formatDatumWithWeekday,
+  formatInstant,
+  formatList,
+  formatNumber,
+  formatOrdinal,
+  formatUhrzeit,
+} from "./format";
 
 import type { CalendarDay, Uhrzeit } from "./format";
 import type { FLKontaktRolle } from "./generated/client/types";
@@ -53,6 +62,8 @@ const VERB = {
   lineUp: "Aufstellen",
   signIn: "Anmelden",
   signOut: "Abmelden",
+  setUp: "Einrichten",
+  rename: "Umbenennen",
 } as const;
 
 /** The closed set of button verbs: a button names its act with one of these. */
@@ -143,12 +154,14 @@ export const COPY = catalogue({
     /** Beside the save button once the record is stored. */
     saved: "Gespeichert",
 
-    /** The four toast titles; a toast carries no body. */
+    /** The five toast titles; a toast carries no body. */
     toast: {
-      // Redesign: these three are read once copying, sending a link and signing out each toast through the kit.
+      // Redesign: these two are read once copying and signing out each toast through the kit.
       copied: "Kopiert",
       linkSent: "Link gesendet",
       signedOut: "Abgemeldet",
+      /** Every other device's session ended, this one's kept. */
+      othersSignedOut: "Alle abgemeldet",
       failure: UNEXPECTED,
     },
 
@@ -443,13 +456,95 @@ export const COPY = catalogue({
     },
   },
 
-  /** Konto, the account's own pages. */
+  /** Konto, the account's own pages, each box's title over its one sentence of description. */
   konto: {
+    address: {
+      description: "Mit dieser Adresse meldest du dich an.",
+      new: "Neue E-Mail-Adresse",
+      /** The act's noun, „Link senden“. */
+      link: "Link",
+      /** The pending change's noun, „Änderung zurückziehen“, the glossary's screen word. */
+      change: "Änderung",
+      /**
+       * The pending change, in the two parts around its new address, which the box sets semibold between them: waiting
+       * on the address on file's link, which confirms first, or on the new address's own, by the step's deadline.
+       */
+      pending: {
+        before: "Die neue Adresse",
+        previous: (until: string | null) =>
+          until === null
+            ? "wartet auf die Bestätigung deiner bisherigen Adresse."
+            : `wartet bis ${formatInstant(until)} auf die Bestätigung deiner bisherigen Adresse.`,
+        new: (until: string | null) =>
+          until === null ? "wartet auf ihre Bestätigung." : `wartet bis ${formatInstant(until)} auf ihre Bestätigung.`,
+      },
+      /** The step the change waits on lapsed; the hourly pass ends it. */
+      lapsed: "Die Änderung ist abgelaufen.",
+      /** A grant's move waits on another administrator, who approves it apart from both links. */
+      grantNote: "Eine andere Person aus der Verwaltung muss die Änderung genehmigen.",
+      unchanged: "Das ist schon deine E-Mail-Adresse.",
+      noApprover: "Gerade kann niemand aus der Verwaltung die Änderung genehmigen.",
+    },
+    erasure: {
+      description: "Dein Konto und deine Angaben werden endgültig gelöscht.",
+      consequence: "Den Link zum Löschen bekommst du per E-Mail.",
+    },
+    passkeys: {
+      title: "Passkeys",
+      description: "Mit einem Passkey meldest du dich ohne Code an.",
+      /** A row's line under its name: when it was set up, and when it last signed in where it has. */
+      dates: (created: Date, lastUsed: Date | null) =>
+        lastUsed === null
+          ? `Eingerichtet am ${formatDatumLong(created)}`
+          : `Eingerichtet am ${formatDatumLong(created)} · Zuletzt verwendet am ${formatDatumLong(lastUsed)}`,
+      /** The deletion's consequence: the devices it signed in, this one among them where it did, or a person's last. */
+      endsDevices: "Geräte, die damit angemeldet sind, werden abgemeldet.",
+      endsThisDevice: "Auch dieses Gerät wird abgemeldet.",
+      lastOne: "Danach meldest du dich mit einem Code an.",
+      /** An administrator's last passkey, their only way into the administration. */
+      lastKept: "Der letzte Passkey lässt sich nicht löschen.",
+      limit: (count: number) => `Mehr als ${formatNumber(count)} Passkeys sind nicht möglich.`,
+      /** A first passkey set up past the sign-in library's `freshAge`. */
+      signInTooOld: "Deine Anmeldung liegt zu lange zurück.",
+    },
+    devices: {
+      title: "Geräte",
+      description: (count: number) =>
+        count === 1 ? "Du bist auf 1 Gerät angemeldet." : `Du bist auf ${formatNumber(count)} Geräten angemeldet.`,
+      /** The act's noun, „Alle anderen abmelden“. */
+      allOthers: "Alle anderen",
+      consequence: "Nur dieses Gerät bleibt angemeldet.",
+    },
+    appearance: {
+      description: "Hell, dunkel oder wie dein Gerät.",
+    },
+    /**
+     * „Funktion wechseln“'s entries: a team by its name, with this line under it naming the season and the seats held
+     * there in the seats' order; a pupil's, a referee's and the administration's by their area alone.
+     */
+    role: {
+      seats: (saison: Copy, rollen: readonly FLKontaktRolle[]) =>
+        `${saison} · ${formatList(SEAT_ORDER.filter((rolle) => rollen.includes(rolle)).map((rolle) => SEAT[rolle]))}`,
+      spieler: "Spieler",
+      schiedsrichter: "Schiedsrichter",
+    },
     /**
      * Each record an address holds, by the label Deine Einträge heads it with and the deletion's list names it by, and
      * the record it names: the label alone where the record is the person themselves.
      */
     entries: {
+      /** Deine Einträge's empty state, „Noch keine Einträge.“ */
+      plural: "Einträge",
+      /** Each entry box's one sentence, by the kind of record it holds. */
+      description: {
+        spieler: "Dein Eintrag im Kader und was davon öffentlich ist.",
+        schiedsrichter: "Dein Eintrag im Spielplan und was davon öffentlich ist.",
+        seat: "Deine Angaben als Kontaktperson und wie die Liga dich erreicht.",
+      },
+      /** The facts an entry box shows of its record. */
+      facts: { birthday: "Geburtsdatum", phone: "Telefon", school: "Schule", team: "Team" },
+      /** The media choice of a person under its floor, which they may not yet give. */
+      mediaFrom: (age: number) => `Fotos, Videos und Interviews kannst du erst ab ${formatNumber(age)} Jahren erlauben.`,
       spieler: "Als Spielerin oder Spieler",
       schiedsrichter: "Als Schiedsrichterin oder Schiedsrichter",
       /** The seats a contact person holds on one row, as one phrase in the seats' order: „Als Ansprechperson und Trainerin oder Trainer“. */

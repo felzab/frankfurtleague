@@ -26,11 +26,11 @@ import { useSidemenuState } from "./SidemenuState";
  */
 export type FunktionOrt = { href: string; titel: string; detail: string; name: string };
 
-const BEREICH_HREF = "/bereich";
+const BEREICH_HREF = "/area";
 
 /**
  * The place the address stands in, every page below a place's own being that place's. Matched by whole
- * segments, so `/bereich/spielerin` stands in no place `/bereich/spieler` names; no two places nest.
+ * segments, so `/area/spielerin` stands in no place `/area/spieler` names; no two places nest.
  */
 function ortAt(orte: readonly FunktionOrt[], pathname: string): FunktionOrt | undefined {
   return orte.find((ort) => pathname === ort.href || pathname.startsWith(`${ort.href}/`));
@@ -48,7 +48,7 @@ export function FunktionSwitcher({
   orte: readonly FunktionOrt[];
   /** What the trigger names where the address is none of the places, the person area's own pages among them. */
   ohneOrt: string;
-  /** The way to `/bereich` beneath the places, which a shell whose own landing is `/bereich` leaves out. */
+  /** The way to `/area` beneath the places, which a shell whose own landing is `/area` leaves out. */
   mitBereich: boolean;
 }) {
   const pathname = usePathname() ?? "";
@@ -102,7 +102,7 @@ export function FunktionSwitcher({
         // The options menu's widths, so the two menus of one rail open alike.
         className={`min-w-[250px] rounded-xl ${isDesktopCollapsed ? "w-[220px]" : "w-[calc(100vw-2rem)] lg:w-(--trigger-width)"}`}>
         {/* Named by its trigger, which react-aria's menu button wires, so the list's own name sits on the places'
-            group. The selection is that group's alone: the way to `/bereich` below is an action, never a place. */}
+            group. The selection is that group's alone: the way to `/area` below is an action, never a place. */}
         <Dropdown.Menu>
           <Dropdown.Section
             aria-label="Deine Funktionen"

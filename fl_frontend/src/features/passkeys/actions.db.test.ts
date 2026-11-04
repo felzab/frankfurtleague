@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import { NEXT_CACHE_DOUBLE } from "@/test-support/actionDoubles.ts";
+import { cacheCalls, NEXT_CACHE_DOUBLE } from "@/test-support/actionDoubles.ts";
 import {
   ADMIN_EMAIL,
   Barrier,
@@ -14,7 +14,7 @@ import {
 } from "@/test-support/authDoubles.ts";
 import { replicaSetUrl, startJudgedReplicaSet } from "@/test-support/expiredTransactions.ts";
 import { MongoOperationTimeoutError, MongoServerError } from "mongodb";
-import { assert, beforeEach, describe, expect, it } from "vitest";
+import { assert, beforeEach, describe, expect, it, vi } from "vitest";
 
 // A replica set: the property under test is a transaction's.
 const { mongod, closing } = await startJudgedReplicaSet();
@@ -128,10 +128,22 @@ const LOGGING_DOUBLE = {
   },
 };
 
+/** The work each removal owes behind its answer, its notice among it, which a case runs once the answers are in. */
+const behind: (() => unknown)[] = [];
+
 const { sent } = registerAuthDoubles({
   core: { config: configDouble({}, { mongodbUri: () => MONGO_URL }), db: DB_DOUBLE, logging: LOGGING_DOUBLE },
-  specifiers: { "next/headers": HEADERS_DOUBLE, "next/cache": NEXT_CACHE_DOUBLE },
+  specifiers: {
+    "next/headers": HEADERS_DOUBLE,
+    "next/cache": NEXT_CACHE_DOUBLE,
+    "next/server": async () => ({ ...(await vi.importActual<object>("next/server")), after: (work: () => unknown) => void behind.push(work) }),
+  },
 });
+
+/** Runs what the answered removals owe behind their answers. */
+async function runBehind(): Promise<void> {
+  await Promise.all(behind.splice(0).map((work) => work()));
+}
 
 /**
  * Holds the first removal whose transaction reads the passkey rows, where its snapshot is taken, until
@@ -189,7 +201,6 @@ let committed: () => Promise<unknown> = async () => undefined;
 const { auth } = await import("@/core/auth/library");
 const { buildAuthIndexes } = await import("@/core/authIndexes");
 const { removePasskeyAction } = await import("./actions.ts");
-const { UNKNOWN_REFUSAL } = await import("@/shared/utils/refusal");
 
 type Collection = {
   find: (filter: object) => { toArray: () => Promise<Record<string, unknown>[]> };
@@ -276,21 +287,27 @@ async function removeAtOnce(cookie: string, ids: readonly string[]) {
   requestHeaders = new Headers({ ...ORIGIN, cookie });
   const mailedBefore = sent.length;
   barrier.arm(ids.length);
-  const answers = await Promise.all(ids.map((id) => removePasskeyAction(id)));
+  const answers = await Promise.all(ids.map((id) => removePasskeyAction({ id })));
   barrier.disarm();
   assert.ok(await barrier.filled, "the removals were not all held at `passkey.deleteOne` or `user.findOneAndUpdate`, so no race was run");
+  await runBehind();
   return {
-    successes: answers.map((answer) => answer.success).sort(),
-    refusals: answers.flatMap((answer) => (answer.success ? [] : [answer.error])),
+    successes: answers.map((answer) => answer.ok).sort(),
+    refusals: answers.flatMap((answer) => (answer.ok ? [] : [answer.reason])),
     notices: sent.length - mailedBefore,
     warnings: [...warnings],
     rows: (await passkeyRows()).length,
   };
 }
 
-const GLEICHZEITIG_GEAENDERT = "Gleichzeitig wurde an Deinen Passkeys oder Anmeldungen etwas geändert. Lade die Seite neu.";
+const { COPY } = await import("@/core/copy.ts");
 
-const LETZTER_PASSKEY = "Der letzte Passkey lässt sich nicht löschen.";
+const GLEICHZEITIG_GEAENDERT = COPY.shared.failure.stale;
+
+const LETZTER_PASSKEY = COPY.konto.passkeys.lastKept;
+
+/** A removal the store failed under, whatever became of it. */
+const UNEXPECTED = { ok: false, reason: COPY.shared.failure.unexpected };
 
 /**
  * One removal stands. The other's claim conflicts with it, and the run the adapter retries on a fresh
@@ -325,15 +342,15 @@ describe("two removals by one administrator at once, against a real database", (
     readGate = gate;
 
     try {
-      const second = removePasskeyAction(held);
+      const second = removePasskeyAction({ id: held });
       assert.ok(await gate.reached, "the held removal never reached its in-transaction read");
 
-      const first = await removePasskeyAction(through);
+      const first = await removePasskeyAction({ id: through });
       gate.release();
 
-      expect({ first: first.success, second: await second, rows: (await passkeyRows()).length }).toStrictEqual({
+      expect({ first: first.ok, second: await second, rows: (await passkeyRows()).length }).toStrictEqual({
         first: true,
-        second: { success: false, error: LETZTER_PASSKEY },
+        second: { ok: false, reason: LETZTER_PASSKEY },
         rows: 1,
       });
     } finally {
@@ -362,13 +379,30 @@ describe("the sessions a removal ends, against a real database", () => {
     assert.ok(first);
     requestHeaders = new Headers({ ...ORIGIN, cookie: own.cookie });
 
-    expect((await removePasskeyAction(first)).success).toBe(true);
+    cacheCalls.length = 0;
+    expect(await removePasskeyAction({ id: first })).toStrictEqual({ ok: true, value: "otherDevices" });
     expect([await opens(other.cookie), await opens(third.cookie), await opens(byCode), await opens(own.cookie)]).toStrictEqual([
       false,
       true,
       true,
       true,
     ]);
+    // Another device's passkey: this page reads the sign-in store again, which nothing cached holds.
+    expect(cacheCalls.map(({ name }) => name)).toStrictEqual(["refresh"]);
+  });
+
+  /* The page would render again under the session the removal ended: the action clears nothing and reads nothing
+     again, and the page leaves by a document load on its answer. */
+  it("renders nothing again where the removal ends this device's own session", async () => {
+    const own = await steppedUpAdmin();
+    const [, ownRow] = await seedPasskeys(own.userId, 2, [KEPT, OWN_CREDENTIAL]);
+    assert.ok(ownRow);
+    requestHeaders = new Headers({ ...ORIGIN, cookie: own.cookie });
+
+    cacheCalls.length = 0;
+    expect(await removePasskeyAction({ id: ownRow })).toStrictEqual({ ok: true, value: "thisDevice" });
+    expect(await opens(own.cookie), "this device's session outlived its passkey").toBe(false);
+    expect(cacheCalls, "the removal ending this device's session cleared the cache or read the page again").toStrictEqual([]);
   });
 
   /* Another device's `updatedAt` refresh, landing while the sign-out runs on every run the adapter
@@ -385,14 +419,14 @@ describe("the sessions a removal ends, against a real database", () => {
         .collection("session")
         .updateMany({}, { $set: { updatedAt: new Date() } });
 
-    const answer = await removePasskeyAction(first);
+    const answer = await removePasskeyAction({ id: first });
 
     expect({
       answer: answer,
       rows: (await passkeyRows()).length,
       open: [await opens(other.cookie), await opens(own.cookie)],
       warnings: [...warnings],
-    }).toStrictEqual({ answer: { success: false, error: UNKNOWN_REFUSAL }, rows: 2, open: [true, true], warnings: [] });
+    }).toStrictEqual({ answer: UNEXPECTED, rows: 2, open: [true, true], warnings: [] });
   });
 
   /* The first run's commit fails transiently and writes nothing, so the adapter runs the removal
@@ -424,7 +458,7 @@ describe("the sessions a removal ends, against a real database", () => {
       if (runs > 1) throw new Error("planted: the retried run fails");
     };
 
-    const answer = await removePasskeyAction(first);
+    const answer = await removePasskeyAction({ id: first });
 
     expect(runs, "the adapter ran the removal once, so no retry followed a commit").toBe(2);
 
@@ -433,7 +467,7 @@ describe("the sessions a removal ends, against a real database", () => {
       rows: (await passkeyRows()).length,
       open: [await opens(other.cookie), await opens(own.cookie)],
       warnings: [...warnings],
-    }).toStrictEqual({ answer: { success: false, error: UNKNOWN_REFUSAL }, rows: 2, open: [true, true], warnings: [] });
+    }).toStrictEqual({ answer: UNEXPECTED, rows: 2, open: [true, true], warnings: [] });
   });
 
   // A failure the adapter does not retry rolls the delete back with it, before any commit.
@@ -447,19 +481,19 @@ describe("the sessions a removal ends, against a real database", () => {
       throw new Error("planted");
     };
 
-    const answer = await removePasskeyAction(first);
+    const answer = await removePasskeyAction({ id: first });
 
     expect({
       answer: answer,
       rows: (await passkeyRows()).length,
       open: [await opens(other.cookie), await opens(own.cookie)],
       warnings: [...warnings],
-    }).toStrictEqual({ answer: { success: false, error: UNKNOWN_REFUSAL }, rows: 2, open: [true, true], warnings: [] });
+    }).toStrictEqual({ answer: UNEXPECTED, rows: 2, open: [true, true], warnings: [] });
   });
 
-  /* The commit landed and the client timed out before its answer came back: nobody can tell from the
-     timeout that the removal stands, so a failure's title would send the administrator to remove it again. */
-  it("answers the outcome as unknown where the commit's own answer is lost, the removal standing", async () => {
+  /* The commit landed and the client timed out before its answer came back: the stale-page line, whose reload shows
+     what became of it, the removal standing all the same, and the failure logged by its name. */
+  it("answers the stale-page line where the commit's own answer is lost, the removal standing", async () => {
     const other = await steppedUpAdmin(REMOVED);
     const own = await steppedUpAdmin();
     const [first] = await seedPasskeys(own.userId, 2, [REMOVED]);
@@ -469,20 +503,18 @@ describe("the sessions a removal ends, against a real database", () => {
       throw new MongoOperationTimeoutError("planted: the time ran out before the commit's answer came back");
     };
 
-    const answer = await removePasskeyAction(first);
+    const answer = await removePasskeyAction({ id: first });
 
     expect({
       answer: answer,
       rows: (await passkeyRows()).length,
       open: [await opens(other.cookie), await opens(own.cookie)],
+      errors: [...errors],
     }).toStrictEqual({
-      answer: {
-        success: false,
-        error: "Ob die Änderung gespeichert wurde, ist unklar. Lade die Seite neu und prüfe, ob sie da ist.",
-        outcome: "unknown",
-      },
+      answer: { ok: false, reason: GLEICHZEITIG_GEAENDERT },
       rows: 1,
       open: [false, true],
+      errors: ["passkeys.removal_outcome_unknown"],
     });
   });
 });

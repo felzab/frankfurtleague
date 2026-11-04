@@ -185,7 +185,7 @@ export function AdresswechselWartet({ offen, onGeschrieben }: { offen: FLAddress
                 Offen bis {zeitpunktText(genehmigung.bis)}.{" "}
                 {/* Pressed on the grant's own row, where granting and revoking already are: one place for the approval. */}
                 <Link
-                  href={saisonHref("/bereich/admin/administratoren")}
+                  href={saisonHref("/area/admin/administratoren")}
                   prefetch={false}
                   className={textLink()}>
                   Zu den Administratoren

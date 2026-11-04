@@ -1,6 +1,6 @@
 "use client";
 
-import { KONTO_HREF } from "@/core/kontoHref";
+import { ROUTES } from "@/core/routes";
 import { AppShell } from "@/shared/components/layout/shell/AppShell";
 import { SidemenuEntries } from "@/shared/components/layout/sidemenu/SidemenuNavLinks";
 import { signOut } from "@/shared/utils/signOut";
@@ -35,7 +35,7 @@ export function PersonShell({
     <AppShell
       structure={structure}
       entries={entries}
-      linkPrefix="/bereich"
+      linkPrefix="/area"
       iconDictionary={PERSON_SIDEMENU_ICONS}
       // A person's pages are scoped to the person rather than to a season, so no season slot stands
       // and no link carries one.
@@ -44,7 +44,7 @@ export function PersonShell({
       keepsSaisonQuery={false}
       fallbackTitle={fallback.label}
       fallbackHint={fallback.hint}
-      kontoHref={KONTO_HREF}
+      kontoHref={ROUTES.account.path()}
       onSignOut={signOut}>
       {children}
     </AppShell>

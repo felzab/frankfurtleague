@@ -1,14 +1,9 @@
 // Redesign: goes with its last importer.
-import { getKontoSession } from "@/core/auth/guards";
 import { isFreshlySignedIn } from "@/core/auth/sessionStamps";
 import { ENROLMENT_WINDOW_MS, isWithinEnrolmentWindow, STEP_UP_WINDOW_MS } from "@/core/sessionLifetimes";
 
-import { ANMELDUNG_ABGELAUFEN } from "./actionError";
-import { runGuardedMutation, stepUpRequired } from "./adminMutation";
-
+import type { getKontoSession } from "@/core/auth/guards";
 import type { ConfirmedUntil } from "@/shared/hooks/useConfirmationWindows";
-import type { ActionFailure } from "@/shared/types/types";
-import type { StepUpRequired } from "./adminMutation";
 
 /** The signed-in holder of the account page, in either lane; never the row's `token`. */
 export type KontoSession = NonNullable<Awaited<ReturnType<typeof getKontoSession>>>;
@@ -30,7 +25,7 @@ function freshUntil(served: KontoSession): number | null {
  * Until when the served session may add a passkey, or `null` where it already may not: the enrolment
  * guard's narrower window, inside the confirmation every change takes.
  */
-export function enrolmentUntil(served: KontoSession): number | null {
+function enrolmentUntil(served: KontoSession): number | null {
   if (!isFreshlySignedIn(served) || !isWithinEnrolmentWindow(served.session.createdAt)) return null;
   return new Date(served.session.createdAt).getTime() + ENROLMENT_WINDOW_MS;
 }
@@ -38,28 +33,4 @@ export function enrolmentUntil(served: KontoSession): number | null {
 /** What a page's step-up is served, on both surfaces: no figure reaches a page without the clock it was read on. */
 export function confirmedUntil(served: KontoSession): ConfirmedUntil {
   return { freshUntil: freshUntil(served), enrolmentUntil: enrolmentUntil(served), servedAt: Date.now() };
-}
-
-/**
- * The account page's guard without the step-up window, for a press that only mails the holder's own
- * mailbox: the code that renews the window, and the deletion link.
- */
-export async function runKontoStepUp<T extends { success: boolean }>(
-  mutationName: string,
-  fn: (served: KontoSession) => Promise<T>,
-): Promise<T | ActionFailure> {
-  return runGuardedMutation(mutationName, { lane: "Account", resolve: getKontoSession, forbidden: ANMELDUNG_ABGELAUFEN }, fn);
-}
-
-/**
- * The account page's spine: every change there is refused past the step-up window, whichever lane the
- * holder signs in by.
- */
-export async function runKontoMutation<T extends { success: boolean }>(
-  mutationName: string,
-  fn: (served: KontoSession) => Promise<T>,
-): Promise<T | ActionFailure | StepUpRequired> {
-  return runGuardedMutation(mutationName, { lane: "Account", resolve: getKontoSession, forbidden: ANMELDUNG_ABGELAUFEN }, async (served) =>
-    isFreshlySignedIn(served) ? fn(served) : stepUpRequired(),
-  );
 }

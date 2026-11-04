@@ -8,10 +8,11 @@ import { dayOf, formatPeriod } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 // Session 5: the old admin layout's guard, which moves with that layout.
 import { AdminSessionHold } from "@/features/admin/components/providers/AdminSessionHold";
+import { readAccount } from "@/features/konto/account";
 import { getAdminSaisons } from "@/features/saisons/queries";
 import { selectSaison } from "@/features/saisons/resolvers";
 
-import type { Account, RailGroup, Saisons } from "@/kit/FrameNav";
+import type { RailGroup, Saisons } from "@/kit/FrameNav";
 import type { ReactNode } from "react";
 
 /**
@@ -87,7 +88,10 @@ export function VerwaltungFrame({ children }: { children: ReactNode }) {
       bar={["uebersicht", "spiele", "teams"]}
       // A league-wide page has no counterpart in another season, so a switch there lands on the season's Übersicht.
       saison={{ saisons: readSeasons(session), home: "verwaltungOverview", withoutSaison: ROUTES.verwaltungSaisons.path() }}
-      foot={{ kind: "account", account: readAccount(session) }}
+      foot={{
+        kind: "account",
+        account: session.then((served) => (served === null ? null : readAccount(COPY.verwaltung.role, "administration"))),
+      }}
       columnInLayouts>
       {children}
     </RailFrame>
@@ -109,14 +113,6 @@ export function VerwaltungColumn({ editor = false, children }: { editor?: boolea
 }
 
 type Session = Promise<{ user: { email: string } } | null>;
-
-/** The administrator signed in, or `null` for a session the area turns away. */
-async function readAccount(session: Session): Promise<Account | null> {
-  const served = await session;
-  if (served === null) return null;
-  // An administrator is an address: the grant stores no name, so the row names the address.
-  return { role: COPY.verwaltung.role, address: { record: served.user.email } };
-}
 
 /**
  * Every season, the newest first as the public frame lists them, and the one a page whose address names none

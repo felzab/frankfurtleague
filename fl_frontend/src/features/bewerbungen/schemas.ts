@@ -2,15 +2,9 @@
 import z from "zod";
 
 import { SEAT_TEXT_VERSIONS } from "@/core/consentWordings";
-import { FLKontaktKenntnisnahmeUmfang, FLKontaktRolle } from "@/core/generated/client/types";
+import { FLKontaktRolle } from "@/core/generated/client/types";
 import { SAISON_ID_LENGTH } from "@/features/saisons/constants";
-import {
-  FLSpielerKontoEinwilligungPayloadSchema,
-  KONTO_FASSUNG_FEHLT,
-  LINK_FASSUNG_FEHLT,
-  textVersionsSchema,
-  WAHL_UNBEKANNT,
-} from "@/features/spieler/schemas";
+import { LINK_FASSUNG_FEHLT, textVersionsSchema } from "@/features/spieler/schemas";
 import {
   KONTAKT_NAME_MAX_LENGTH,
   KONTAKT_NAME_ZU_LANG,
@@ -332,17 +326,6 @@ export const FLBewerbungEinwilligungAntwortPayloadSchema = buildEinwilligungAntw
 export const FLEinwilligungErneutPayloadSchema = z.object({
   id: CustomObjectIdStringSchema,
   rolle: FLKontaktRolleSchema,
-});
-
-/**
- * A seat holder's two choices from the account page, one declaration the backend publishes for an
- * application's seats and a season row's alike. A pending application's seats take a withdrawal alone,
- * which the backend judges; the page offers no grant there.
- */
-export const FLBewerbungPersonEinwilligungPayloadSchema = FLSpielerKontoEinwilligungPayloadSchema.extend({
-  // Both choices on every press, so moving one never leaves the other judged by nothing.
-  umfang: z.enum(FLKontaktKenntnisnahmeUmfang, { error: WAHL_UNBEKANNT }),
-  text_versions: textVersionsSchema(SEAT_TEXT_VERSIONS, KONTO_FASSUNG_FEHLT),
 });
 
 /**

@@ -2,12 +2,14 @@
 
 import { CheckboxButton, CheckboxField } from "react-aria-components/Checkbox";
 
+import { textOf } from "@/core/copy";
+
 import { MessageLine, RequiredMark } from "./FieldParts";
 import { toggleBox, toggleField, toggleLine, toggleRow } from "./fieldStyles";
 import { useDisabled } from "./formClosed";
 import { Icon } from "./Icon";
 
-import type { Copy } from "@/core/copy";
+import type { Copy, Words } from "@/core/copy";
 
 /**
  * A saved yes or no, such as a consent or „Startelf“ in a line-up: the drawn box, its label to the
@@ -24,7 +26,7 @@ export function Checkbox({
   defaultSelected,
   onChange,
 }: {
-  label: Copy;
+  label: Words;
   description?: Copy;
   isRequired?: boolean;
   isDisabled?: boolean;
@@ -57,7 +59,7 @@ export function Checkbox({
               )}
             </span>
             <span>
-              {label}
+              {textOf(label)}
               <RequiredMark isRequired={isRequired} />
             </span>
           </>

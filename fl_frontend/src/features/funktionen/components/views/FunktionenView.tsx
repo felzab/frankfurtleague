@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import { KONTAKT_EMAIL } from "@/core/brand";
-import { KONTO_HREF } from "@/core/kontoHref";
+import { ROUTES } from "@/core/routes";
 import { Callout } from "@/shared/components/ui/Callout";
 import { card } from "@/shared/components/ui/card";
 import { NAME_WRAP_CLASSES } from "@/shared/components/ui/nameWrap";
@@ -55,7 +55,7 @@ export function FunktionenView(props: FunktionenZustand) {
         {props.zustand === "konto" && (
           <ul className="flex flex-col gap-4">
             <ZielKarte
-              href={KONTO_HREF}
+              href={ROUTES.account.path()}
               titel="Konto"
               detail="Was Du bei uns bestätigt hast, und Deine Anmeldung"
             />

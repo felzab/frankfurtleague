@@ -33,7 +33,7 @@ const COLUMN_HEADING_CLASSES = "fluid-xs font-semibold tracking-wider text-foreg
 const NAVIGATION_LINKS = [
   { href: "/about", label: ABOUT_TITEL },
   { href: "/organisation", label: ORGANISATION_TITEL },
-  { href: "/kontakt", label: KONTAKT_TITEL },
+  { href: "/contact", label: KONTAKT_TITEL },
 ] as const;
 
 // A column of their own rather than the tail of Navigation: these two are reached because a reader

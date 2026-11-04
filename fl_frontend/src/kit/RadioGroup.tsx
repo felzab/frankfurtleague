@@ -2,12 +2,20 @@
 
 import { RadioGroup as AriaRadioGroup, Radio } from "react-aria-components/RadioGroup";
 
+import { textOf } from "@/core/copy";
+
 import { FieldLabel, MessageLine } from "./FieldParts";
 import { choiceCard, fieldRoot, radioDot, radioList, toggleBox, toggleRow } from "./fieldStyles";
 import { useDisabled } from "./formClosed";
 
-import type { Copy } from "@/core/copy";
+import type { Copy, Words } from "@/core/copy";
 import type { Choice } from "./FieldParts";
+
+/**
+ * An answer of the list: the catalogue's words, or a wording of its own such as a consent's option, which stands as
+ * it was shown; one the person may not pick stays in the list, closed.
+ */
+type ListChoice = { id: string; label: Words; isDisabled?: boolean };
 
 /** An answer that needs describing: its title and the one line under it. */
 type DescribedChoice = Choice & { line: Copy };
@@ -42,7 +50,7 @@ export function RadioGroup({
   onChange,
   ...answers
 }: {
-  label: Copy;
+  label: Words;
   description?: Copy;
   isRequired?: boolean;
   isDisabled?: boolean;
@@ -50,7 +58,7 @@ export function RadioGroup({
   value?: string | null;
   defaultValue?: string | null;
   onChange?: (id: string) => void;
-} & ({ layout?: "list"; choices: readonly Choice[] } | { layout: "cards"; choices: readonly DescribedChoice[] })) {
+} & ({ layout?: "list"; choices: readonly ListChoice[] } | { layout: "cards"; choices: readonly DescribedChoice[] })) {
   return (
     <AriaRadioGroup
       className={fieldRoot()}
@@ -92,6 +100,7 @@ export function RadioGroup({
               <Radio
                 key={choice.id}
                 value={choice.id}
+                isDisabled={choice.isDisabled}
                 className={toggleRow({ in: "list" })}>
                 {({ isSelected, isInvalid }) => (
                   <>
@@ -99,7 +108,7 @@ export function RadioGroup({
                       isSelected={isSelected}
                       isInvalid={isInvalid}
                     />
-                    {choice.label}
+                    {textOf(choice.label)}
                   </>
                 )}
               </Radio>

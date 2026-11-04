@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { KONTO_HREF } from "@/core/kontoHref";
+import { ROUTES } from "@/core/routes";
 import { SchiedsrichterSpielberichteSection } from "@/features/spielberichte/components/views/SchiedsrichterSpielberichteSection";
 import { SchiedsrichterEinsaetzeSection } from "@/features/spielbestaetigungen/components/views/SchiedsrichterEinsaetzeSection";
 import { formPanel } from "@/shared/components/ui/formPanel";
@@ -48,7 +48,7 @@ export function SchiedsrichterSelfView({
               <p className="fluid-sm font-medium text-foreground">
                 Was von Dir im Spielplan und auf der Website stehen darf, änderst Du unter{" "}
                 <Link
-                  href={KONTO_HREF}
+                  href={ROUTES.account.path()}
                   prefetch={false}
                   className={textLink()}>
                   Konto

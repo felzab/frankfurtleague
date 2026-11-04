@@ -33,13 +33,13 @@ describe("the same page in the other season", () => {
     );
     expect(
       counterpart({
-        path: "/bereich/verwaltung/saisons/2027/teams",
+        path: "/admin/saisons/2027/teams",
         params: { saison: "2027" },
         to: "2026",
         home: "verwaltungOverview",
         pages: VERWALTUNG,
       }),
-    ).toBe("/bereich/verwaltung/saisons/2026/teams");
+    ).toBe("/admin/saisons/2026/teams");
   });
 
   it("lands a record's page, which has no counterpart, on the list it lies under", () => {
@@ -48,18 +48,18 @@ describe("the same page in the other season", () => {
     ).toBe("/saisons/2026");
     expect(
       counterpart({
-        path: "/bereich/verwaltung/saisons/2027/spiele/abc",
+        path: "/admin/saisons/2027/spiele/abc",
         params: { saison: "2027", spiel: "abc" },
         to: "2026",
         home: "verwaltungOverview",
         pages: VERWALTUNG,
       }),
-    ).toBe("/bereich/verwaltung/saisons/2026/spiele");
+    ).toBe("/admin/saisons/2026/spiele");
   });
 
   it("lands a page whose address names no season on the season's first page", () => {
-    expect(counterpart({ path: "/bereich/verwaltung/spielorte", params: {}, to: "2026", home: "verwaltungOverview", pages: VERWALTUNG })).toBe(
-      "/bereich/verwaltung/saisons/2026",
+    expect(counterpart({ path: "/admin/spielorte", params: {}, to: "2026", home: "verwaltungOverview", pages: VERWALTUNG })).toBe(
+      "/admin/saisons/2026",
     );
   });
 });
@@ -95,7 +95,7 @@ describe("the season button", () => {
   beforeEach(() => {
     // The rail's width, where the menu opens as a popover: jsdom has none of the observers the phone's sheet uses.
     vi.spyOn(window, "matchMedia").mockImplementation((media) => Object.assign(new EventTarget(), { media, matches: true }) as MediaQueryList);
-    address.path = "/bereich/verwaltung/saisons/2027/spiele/abc";
+    address.path = "/admin/saisons/2027/spiele/abc";
     address.params = { saison: "2027", spiel: "abc" };
   });
 
@@ -104,9 +104,7 @@ describe("the season button", () => {
 
     await userEvent.click(screen.getByRole("button", { name: new RegExp(COPY.shared.saisonName("2027")) }));
 
-    expect(screen.getByRole("menuitemradio", { name: COPY.shared.saisonName("2026") }).getAttribute("href")).toBe(
-      "/bereich/verwaltung/saisons/2026/spiele",
-    );
+    expect(screen.getByRole("menuitemradio", { name: COPY.shared.saisonName("2026") }).getAttribute("href")).toBe("/admin/saisons/2026/spiele");
     expect(screen.getByRole("menuitemradio", { name: COPY.shared.saisonName("2027") }).getAttribute("aria-checked")).toBe("true");
   });
 
@@ -117,11 +115,11 @@ describe("the season button", () => {
     await userEvent.click(screen.getByRole("button", { name: new RegExp(COPY.shared.saisonName("2027")) }));
     await userEvent.click(screen.getByRole("menuitemradio", { name: COPY.shared.saisonName("2026") }));
 
-    expect(navigate).toHaveBeenCalledWith("/bereich/verwaltung/saisons/2026/spiele", { replace: true });
+    expect(navigate).toHaveBeenCalledWith("/admin/saisons/2026/spiele", { replace: true });
   });
 
   it("names the frame's standard season on a page whose address names none", async () => {
-    address.path = "/bereich/verwaltung/spielorte";
+    address.path = "/admin/spielorte";
     address.params = {};
     await renderButton(SAISONS);
 

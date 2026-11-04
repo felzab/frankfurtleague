@@ -1,100 +1,90 @@
 "use server";
 
+import { refresh } from "next/cache";
 import { headers } from "next/headers";
 
 import { isAPIError } from "better-auth/api";
+import { z } from "zod";
 
-import { PASSKEY_LIMIT } from "@/core/auth/enrolment";
+import { action } from "@/core/action";
+import { afterTheResponse } from "@/core/afterResponse";
+import { getKontoSession } from "@/core/auth/guards";
 import { notifyPasskeyRemoved } from "@/core/auth/mails";
 import { passkeysOf, removePasskey, renamePasskey } from "@/core/auth/passkeys";
-import { recordOwnSessionEnding, recordWriteSent, runAnsweringOwnCut } from "@/core/requestScope";
-import { stepUpRequired } from "@/shared/utils/adminMutation";
-import { enrolmentUntil, runKontoMutation } from "@/shared/utils/kontoMutation";
-import { buildRefusal, LADE_DIE_SEITE_NEU } from "@/shared/utils/refusal";
-import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
+import { COPY } from "@/core/copy";
+import { RolledBackError } from "@/core/errors";
+import { logger } from "@/core/logging";
 
-import { PasskeyNamePayloadSchema } from "./schemas";
+import { PasskeyNameSchema } from "./schemas";
 
-import type { ActionResult, QueryResult } from "@/shared/types/types";
+/* `disabledPaths` closes the plugin's management endpoints to HTTP alone, so these actions, each calling in process,
+   are the whole of the surface. */
 
-/* `disabledPaths` closes the plugin's management endpoints to HTTP alone, so these actions, each
-   calling in process, are the whole of the surface. */
+/** A stored passkey row's id, as the library mints it. */
+const PasskeyId = z.string().min(1).max(64);
+
+/** What a removal ended: this device's session, which the page then leaves, or other devices' alone. */
+type Removed = "thisDevice" | "otherDevices";
 
 /**
- * What protects an administrator's last ROW; a person may remove theirs and signs in by code again.
- * The card closes its own control with the same sentence
- * (`fl_frontend/src/features/passkeys/components/ui/PasskeyKarteView.tsx :: LETZTER_PASSKEY`): **move both.**
+ * Removes one of the person's passkeys, the passkey touch first, and every session it signed in with it. Where that
+ * ended this device's own session the body records no write and renders nothing again, since the page would render
+ * under a session that is gone: the page leaves by a document load. Otherwise it reads the page again itself, the
+ * sign-in store holding what changed. The notice mail is owed behind the response, so its write counts as none of
+ * this action's.
  */
-const LETZTER_PASSKEY = "Der letzte Passkey lässt sich nicht löschen.";
+export const removePasskeyAction = action({
+  lane: "person",
+  claim: "record",
+  passkey: true,
+  name: "removePasskeyAction",
+  input: z.object({ id: PasskeyId }),
+  run: async ({ id }) => {
+    // The account page's own verdict, which keeps an administrator's address to the administrator's lane.
+    const served = await getKontoSession();
+    if (served === null) return { ok: false, reason: COPY.shared.failure.signInExpired };
 
-/** A change addressing a row another change took away, or one that was never the holder's: a stale list either way. */
-const GLEICHZEITIG_GEAENDERT = buildRefusal({
-  reason: "Gleichzeitig wurde an Deinen Passkeys oder Anmeldungen etwas geändert",
-  repair: LADE_DIE_SEITE_NEU,
+    // Read before the removal, which may end the session this request arrived with.
+    const thisDevice = (await passkeysOf(served.user.id)).some(
+      (row) => row.id === id && row.credentialID === served.session.passkeyCredentialId,
+    );
+    let removal: Awaited<ReturnType<typeof removePasskey>>;
+    try {
+      removal = await removePasskey({ id: served.user.id, verwaltung: served.verwaltung }, id);
+    } catch (failed) {
+      // A rollback removed nothing, so the shared failure line stands and a press again is safe.
+      if (failed instanceof RolledBackError) throw failed;
+      // Any other failure may be the commit's, landed or not: a reload shows which. Nothing renders again, since the
+      // removal may have ended the session this page would render under.
+      logger.error("passkeys.removal_outcome_unknown", undefined, { name: failed instanceof Error ? failed.name : "unknown" });
+      return { ok: false, reason: COPY.shared.failure.stale };
+    }
+    if (removal === "last") return { ok: false, reason: COPY.konto.passkeys.lastKept };
+    if (removal === "absent") return { ok: false, reason: COPY.shared.failure.stale };
+
+    const { email } = served.user;
+    afterTheResponse(() => notifyPasskeyRemoved(email));
+    if (thisDevice) return { ok: true, value: "thisDevice" satisfies Removed };
+    refresh();
+    return { ok: true, value: "otherDevices" satisfies Removed };
+  },
 });
 
-/** `diesesGeraet` says the removal ended the session the request came with, which the page then leaves. */
-export async function removePasskeyAction(id: string): Promise<ActionResult<{ diesesGeraet: boolean }>> {
-  return runKontoMutation("removePasskeyAction", async (served) => {
-    // A server action's argument is whatever a caller posted, and this one reaches a store query.
-    if (typeof id !== "string" || id === "") return { success: false, error: VALIDATION_FAILED };
-
-    const held = await passkeysOf(served.user.id);
-    // Read before the removal, which may end the session this request arrived with.
-    const diesesGeraet = held.some((row) => row.id === id && row.credentialID === served.session.passkeyCredentialId);
-
-    // Named here because the sign-in store is written past the API client, which records its own writes: unrecorded,
-    // the spine answers a success unrefreshed and a throw after the commit as a plain failure.
-    recordWriteSent();
-    // Before the removal, whose commit may end that session unanswered: the spine then renders no page again,
-    // and the page leaves by a document load.
-    if (diesesGeraet) recordOwnSessionEnding();
-
-    const removal = await removePasskey({ id: served.user.id, verwaltung: served.verwaltung }, id);
-
-    if (removal === "last") return { success: false, error: LETZTER_PASSKEY };
-    if (removal === "absent") return { success: false, error: GLEICHZEITIG_GEAENDERT };
-
-    // The removal has committed: a deadline cut of its notice leaves the answer the removal's, never unknown, which would
-    // also leave a device the removal signed out on its dead page.
-    await runAnsweringOwnCut(() => notifyPasskeyRemoved(served.user.email));
-
-    return { success: true, message: "Passkey gelöscht", diesesGeraet: diesesGeraet };
-  });
-}
-
-/** The name the card shows; the plugin checks the row is the caller's own and the length is this slice's. */
-export async function renamePasskeyAction(id: string, name: string): Promise<ActionResult> {
-  return runKontoMutation("renamePasskeyAction", async () => {
-    const parsed = PasskeyNamePayloadSchema.safeParse({ name: name });
-    if (typeof id !== "string" || id === "") return { success: false, error: VALIDATION_FAILED };
-    if (!parsed.success) return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(parsed.error) };
-
-    recordWriteSent();
-
+/** The name a passkey's row shows; the plugin checks the row is the caller's own before it writes. */
+export const renamePasskeyAction = action({
+  lane: "person",
+  claim: "record",
+  name: "renamePasskeyAction",
+  input: z.object({ id: PasskeyId, name: PasskeyNameSchema }),
+  run: async ({ id, name }) => {
     try {
-      await renamePasskey(id, parsed.data.name, await headers());
+      await renamePasskey(id, name, await headers());
     } catch (failed) {
-      // The plugin refuses a row that is gone and a row that is another person's alike, both before it
-      // writes: to the holder either is a stale list.
-      if (isAPIError(failed) && failed.statusCode < 500) return { success: false, error: GLEICHZEITIG_GEAENDERT };
+      // A row gone and a row another person's alike, both refused before the plugin writes: to the holder a stale list.
+      if (isAPIError(failed) && failed.statusCode < 500) return { ok: false, reason: COPY.shared.failure.stale };
       throw failed;
     }
-
-    return { success: true, message: "Passkey umbenannt" };
-  });
-}
-
-/**
- * Read after the enrolment guard's 404, which answers the cap, a stale sign-in and a held authenticator
- * alike: the step-up refusal, by the enrolment's own window, names the second, the count the first.
- */
-export async function readPasskeyStandAction(): Promise<QueryResult<{ kannHinzufuegen: boolean }>> {
-  return runKontoMutation("readPasskeyStandAction", async (served) => {
-    if (enrolmentUntil(served) === null) return stepUpRequired();
-
-    const held = await passkeysOf(served.user.id);
-
-    return { success: true, kannHinzufuegen: held.length < PASSKEY_LIMIT };
-  });
-}
+    refresh();
+    return { ok: true, value: undefined };
+  },
+});

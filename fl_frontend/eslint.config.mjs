@@ -614,10 +614,8 @@ const SOURCE_BANS = [
   syntaxBan(TRANSITION_REWRAP, SOURCE),
   syntaxBan(FAILURE_BY_HAND, SOURCE, {
     allow: [
-      // Failures no FastAPI write words, so none carries an unknown outcome: Better Auth answers the
-      // sign-out and sends and checks the sign-in code.
+      // A failure no FastAPI write words, so none carries an unknown outcome: Better Auth answers the sign-out.
       "src/shared/hooks/useSignOut.ts",
-      "src/features/auth/components/forms/CodeStep.tsx",
     ],
   }),
   syntaxBan(
@@ -863,6 +861,16 @@ const DESIGN_BANS = [
     },
     ROUTE_PAGE,
   ),
+  // The cross-fade between pages is the kit's one `PageFade`, standing first in each page template: a fade of a
+  // page's own is a second motion beside it, one the tokens' duration and reduced-motion rules do not reach.
+  kitImport(
+    {
+      regex: packageUnder("react"),
+      importNames: ["ViewTransition"],
+      message: "A page fades in its template's `PageFade`: render the template, which places the one view transition.",
+    },
+    OUTSIDE_KIT,
+  ),
   // Each save belongs to its owner: the record's one save to the editor template, the one-shot submit to
   // the mailed-page template, a Konto box to Konto's pages. The editor template stands in an editors'
   // route group, whose layout draws the phone's band with the way back rather than the logo and the bar.
@@ -870,7 +878,7 @@ const DESIGN_BANS = [
     ["EditorPage", ["src/app/**/(editor)/**"], "An editor is a page of an `(editor)` route group, whose layout draws its way back."],
     ["EditorBar", ["src/kit/EditorPage.tsx"], "A record's one save is the editor template's `EditorBar`: place the page in `EditorPage`."],
     ["OneShot", ["src/kit/MailedPage.tsx"], "The one-shot submit is the mailed-page template's: place the page in `MailedPage`."],
-    ["AccountBox", ["src/app/bereich/**/konto/**"], "An `AccountBox` saves one section of Konto, on Konto's own pages."],
+    ["AccountBox", ["src/app/account/**"], "An `AccountBox` is one box of Konto, on Konto's own pages."],
   ].map(([name, owners, message]) => kitImport({ regex: kitModule(name), message }, PRODUCTION, { allow: owners })),
   // The danger act is one row inside the editor's last box, which the editor template alone places.
   syntaxBan(

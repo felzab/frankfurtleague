@@ -18,9 +18,6 @@ const STORE = "__flHolderCheckStore";
 /** A second address holding a grant: the only other account whose session the administrator's check is handed. */
 const SECOND_ADMIN_EMAIL = "kassenwart@example.org";
 
-const PERSON_EMAIL = "spielerin@example.org";
-const OTHER_EMAIL = "schiedsrichter@example.org";
-
 /** What the request a case arrives as carries. */
 let requestHeaders: Headers | undefined;
 
@@ -46,7 +43,6 @@ registerAuthDoubles({
 const store = memoryStore(STORE);
 
 // Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
-const { pruefeInhaberAction } = await import("@/features/konto/actions.ts");
 const { pruefeAdministratorAction } = await import("@/features/admin/actions.ts");
 const { auth } = await import("@/core/auth/library");
 
@@ -69,14 +65,6 @@ async function arriveSignedIn(email: string, { byPasskey = false } = {}): Promis
 // Each answer is compared whole: a guard's refusal carries no `gleich`, and a case reading that
 // field alone would pass on a refusal.
 describe("which session a holder check calls the holder's", () => {
-  it("answers held for the account page's holder, and not held for another person's session", async () => {
-    const holder = await arriveSignedIn(PERSON_EMAIL);
-    expect(await pruefeInhaberAction(holder)).toStrictEqual({ success: true, gleich: true });
-
-    await arriveSignedIn(OTHER_EMAIL);
-    expect(await pruefeInhaberAction(holder)).toStrictEqual({ success: true, gleich: false });
-  });
-
   it("answers held for the administrator who asked, and not held for another administrator's session", async () => {
     const holder = await arriveSignedIn(ADMIN_EMAIL, { byPasskey: true });
     expect(await pruefeAdministratorAction(holder)).toStrictEqual({ success: true, gleich: true });

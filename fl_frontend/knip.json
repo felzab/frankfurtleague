@@ -12,10 +12,7 @@
   // Built ahead of their first page, each named with the session that first uses it, which deletes
   // its line here and in `knip.production.json`. A kit file a test already reads is used in this run
   // and stands in `knip.production.json` alone.
-  "ignoreFiles": [
-    // Session 4.
-    "src/kit/AccountBox.tsx"
-  ],
+  "ignoreFiles": [],
   // An export waiting for its first page says so on itself, with the page it waits for: `@awaitsPage` where
   // no other module reads it, which this run honours, and `@awaitsProduction` where no production module
   // reads it, which `knip.production.json` honours; an export no module but its own uses carries both.
