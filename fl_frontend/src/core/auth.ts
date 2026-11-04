@@ -638,7 +638,7 @@ function codeSignInAddress(body: unknown): string | null {
    covers what it cannot. */
 
 // What a browser of this league calls: `fl_frontend/src/core/authClient.ts`'s two ceremonies, four
-// paths, and its code check. The code's send, the sign-out and every guard run in process instead.
+// paths, its code check and its sign-out. The code's send and every guard run in process instead.
 
 // The spellings come from the constants the stamp, the enrolment refusal, the assertion's ask and the code's
 // bounds compare, so a release that renamed one would 404 the real call rather than let it through unjudged.
@@ -647,6 +647,9 @@ const BROWSER_PATHS: ReadonlySet<string> = new Set([
   PASSKEY_ASSERTION_OPTIONS_PATH,
   PASSKEY_ASSERTION_PATH,
   CODE_SIGN_IN_PATH,
+  // Ends the session the request's own cookie names and no other, so a cross-site post meets the library's origin check
+  // and nothing more is at stake.
+  "/sign-out",
 ]);
 
 // The library's own switch, which refuses before a route is matched or a body read.
@@ -686,7 +689,6 @@ const DISABLED_PATHS: readonly string[] = [
   "/send-verification-email",
   "/sign-in/email",
   "/sign-in/social",
-  "/sign-out",
   "/sign-up/email",
   "/unlink-account",
   "/update-session",
@@ -1278,8 +1280,6 @@ export const auth = new Proxy({} as ReturnType<typeof build>, {
 
 export const sendSignInCode = (email: string, requestHeaders: Headers) =>
   auth.api.sendVerificationOTP({ body: { email, type: "sign-in" }, headers: requestHeaders });
-
-export const signOutHere = (requestHeaders: Headers) => auth.api.signOut({ headers: requestHeaders });
 
 export const revokeOtherSessions = (requestHeaders: Headers) => auth.api.revokeOtherSessions({ headers: requestHeaders });
 

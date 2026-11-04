@@ -107,11 +107,6 @@
       "count": 1
     }
   },
-  "src/app/api/signout/route.ts": {
-    "fl/server-action": {
-      "count": 1
-    }
-  },
   "src/app/bereich/(persoenlich)/konto/page.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 1

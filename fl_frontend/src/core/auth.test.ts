@@ -354,13 +354,14 @@ describe("where the cookie integration sits among the plugins", () => {
   });
 });
 
-/** The five paths the browser's own client calls, which is the whole of the HTTP surface. */
+/** The six paths the browser's own client calls, which is the whole of the HTTP surface. */
 const OVER_HTTP = [
   "/passkey/generate-register-options",
   "/passkey/verify-registration",
   "/passkey/generate-authenticate-options",
   "/passkey/verify-authentication",
   "/sign-in/email-otp",
+  "/sign-out",
 ];
 
 /** What this application's own code reaches through `auth.api`, and no browser may. */
@@ -371,7 +372,6 @@ const IN_PROCESS_ONLY = [
   "/passkey/delete-passkey",
   "/passkey/list-user-passkeys",
   "/revoke-other-sessions",
-  "/sign-out",
 ];
 
 /** Every other endpoint the installed library mounts: refused on both arms. */
@@ -525,9 +525,25 @@ describe("what the mounted HTTP surface answers", () => {
     expect(verified.headers.getSetCookie().join(";")).toContain(minted.token);
   });
 
-  /* Every path outside the browser's four, driven rather than sampled: a set the module widens by
+  /* The page's sign-out posts here, so the session ends in a request that renders no page: the request's own
+     session alone, and a post another site sends meets the library's origin check before any row is read. */
+  it("ends the session its own cookie names over HTTP, and refuses a post from another origin", async () => {
+    const other = await signIn(PERSON_EMAIL);
+    const { cookie, row } = await signIn(ADMIN_EMAIL);
+
+    const crossSite = await overHttp("/sign-out", { method: "POST", cookie, body: {}, from: { origin: "https://example.com" } });
+    expect(crossSite.status).toBe(403);
+    assert.ok(store.session.includes(row), "a cross-site post ended the session");
+
+    const ended = await overHttp("/sign-out", { method: "POST", cookie, body: {} });
+    expect(await ended.json()).toStrictEqual({ success: true });
+    assert.ok(!store.session.includes(row), "the sign-out left its own session standing");
+    assert.ok(store.session.includes(other.row), "the sign-out ended another account's session");
+  });
+
+  /* Every path outside the browser's six, driven rather than sampled: a set the module widens by
      one is what a hand-written list of twelve would go on passing through. */
-  it("refuses every path outside the browser's own five, whatever session the caller carries", async () => {
+  it("refuses every path outside the browser's own six, whatever session the caller carries", async () => {
     const { cookie } = await signIn(ADMIN_EMAIL);
 
     for (const path of [...IN_PROCESS_ONLY, ...REFUSED]) {
