@@ -221,7 +221,7 @@ type SignInAnswers = {
 };
 
 /** Where the real store sends a caller the session leaves out, when a case names no other. */
-const destinationOf = (session: AdminSessionDouble): string => (session === null ? "/signin" : "/bereich");
+const destinationOf = (session: AdminSessionDouble): string => (session === null ? "/signin" : "/area");
 
 const answering = (answer: unknown): Promise<unknown> => (answer instanceof Error ? Promise.reject(answer) : Promise.resolve(answer));
 
@@ -243,10 +243,10 @@ async function administratorOf({ session, served }: SignInAnswers): Promise<unkn
 
 /**
  * The guard's verdict with its reason. Nobody signed in is told apart by the landing the case named,
- * as the real guard and landing judge one session: `/bereich` is a session whose address holds no grant.
+ * as the real guard and landing judge one session: `/area` is a session whose address holds no grant.
  */
 async function verdictOf(answers: SignInAnswers): Promise<unknown> {
-  if (answers.session === null) return { refused: answers.refusal ?? (answers.destination === "/bereich" ? "noGrant" : "signIn") };
+  if (answers.session === null) return { refused: answers.refusal ?? (answers.destination === "/area" ? "noGrant" : "signIn") };
 
   return { session: await administratorOf(answers) };
 }

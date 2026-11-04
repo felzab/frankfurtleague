@@ -465,7 +465,7 @@ function renderRegion(query: string): void {
         facetCounts: TOLD,
         renderTable: () => null,
       }),
-      { search: query, pathname: "/bereich/admin/bewerbungen" },
+      { search: query, pathname: "/area/admin/bewerbungen" },
     ),
   );
 }

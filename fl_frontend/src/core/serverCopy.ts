@@ -156,7 +156,7 @@ export const SERVER_COPY = catalogue({
   },
 
   /**
-   * The two pages a mail opens for the account, `/bestaetigung/adresse` and `/loeschung`, in the states of
+   * The two pages a mail opens for the account, `/confirm/address` and `/erasure`, in the states of
    * `fl_frontend/src/kit/MailedPage.tsx`. The address change's two mails open on these pages' questions.
    */
   addressChange: {

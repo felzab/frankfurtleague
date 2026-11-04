@@ -71,7 +71,7 @@ export const ROUTES = {
     crawl: "noindex",
   },
   about: { path: () => "/about" as const, title: COPY.page.about, crawl: "index" },
-  contact: { path: () => "/kontakt" as const, title: COPY.page.contact, crawl: "index" },
+  contact: { path: () => "/contact" as const, title: COPY.page.contact, crawl: "index" },
   sponsors: { path: () => "/sponsors" as const, title: COPY.page.sponsors, crawl: "index" },
   legalNotice: { path: () => "/impressum" as const, title: COPY.page.legalNotice, crawl: "index" },
   privacyNotice: { path: () => "/datenschutz" as const, title: COPY.page.privacyNotice, crawl: "index" },
@@ -94,28 +94,28 @@ export const ROUTES = {
 
   // The pages a mail opens, each answering the token its link carries.
   addressChangeConfirmation: {
-    path: () => "/bestaetigung/adresse" as const,
+    path: () => "/confirm/address" as const,
     title: COPY.page.addressChangeConfirmation,
     crawl: "disallow",
   },
-  kontaktConfirmation: { path: () => "/bestaetigung/kontakt" as const, title: COPY.page.entryConfirmation, crawl: "disallow" },
+  kontaktConfirmation: { path: () => "/confirm/kontakt" as const, title: COPY.page.entryConfirmation, crawl: "disallow" },
   schiedsrichterConfirmation: {
-    path: () => "/bestaetigung/schiedsrichter" as const,
+    path: () => "/confirm/schiedsrichter" as const,
     title: COPY.page.entryConfirmation,
     crawl: "disallow",
   },
-  spielbestaetigung: { path: () => "/bestaetigung/spiel" as const, title: COPY.page.spielbestaetigung, crawl: "disallow" },
+  spielbestaetigung: { path: () => "/confirm/spiel" as const, title: COPY.page.spielbestaetigung, crawl: "disallow" },
   registrierungConfirmation: {
-    path: () => "/bestaetigung/spieler" as const,
+    path: () => "/confirm/spieler" as const,
     title: COPY.page.registrierungConfirmation,
     crawl: "disallow",
   },
-  accountErasure: { path: () => "/loeschung" as const, title: COPY.page.accountErasure, crawl: "disallow" },
+  accountErasure: { path: () => "/erasure" as const, title: COPY.page.accountErasure, crawl: "disallow" },
   /**
    * Where a deletion lands, a page needing no session: the deletion ends the caller's own, so its action leads here
    * rather than rendering the link's page again under a session that is gone.
    */
-  accountErased: { path: () => "/loeschung/geloescht" as const, title: COPY.page.accountErasure, crawl: "disallow" },
+  accountErased: { path: () => "/erasure/done" as const, title: COPY.page.accountErasure, crawl: "disallow" },
   registrierung: { path: () => "/registrierung" as const, title: COPY.page.registrierung, crawl: "disallow" },
 
   // Session 4: its page is built.
@@ -127,66 +127,68 @@ export const ROUTES = {
   // Session 4: its page is built.
   accountEntries: { path: () => "/bereich/konto/entries" as const, title: COPY.page.accountEntries, crawl: "disallow" },
 
+  /** Where a signed-in person lands, the switch between every Funktion they hold. */
+  area: { path: () => "/area" as const, title: COPY.shared.overview, crawl: "disallow" },
   // Session 8: its page is built.
   schiedsrichterOverview: {
-    path: (saison: string) => `/bereich/schiedsrichter/${saison}` as const,
+    path: (saison: string) => `/area/schiedsrichter/${saison}` as const,
     title: COPY.shared.overview,
     crawl: "disallow",
   },
 
   teamOverview: {
-    path: (team: string, saison: string) => `/bereich/team/${team}/${saison}` as const,
+    path: (team: string, saison: string) => `/area/team/${team}/${saison}` as const,
     title: COPY.shared.overview,
     crawl: "disallow",
   },
   // Session 8: its page is built.
   teamSpiele: {
-    path: (team: string, saison: string) => `/bereich/team/${team}/${saison}/spiele` as const,
+    path: (team: string, saison: string) => `/area/team/${team}/${saison}/spiele` as const,
     title: COPY.page.spiele,
     crawl: "disallow",
   },
   teamKader: {
-    path: (team: string, saison: string) => `/bereich/team/${team}/${saison}/kader` as const,
+    path: (team: string, saison: string) => `/area/team/${team}/${saison}/kader` as const,
     title: COPY.page.teamKader,
     crawl: "disallow",
   },
   teamRegistrierungen: {
-    path: (team: string, saison: string) => `/bereich/team/${team}/${saison}/registrierungen` as const,
+    path: (team: string, saison: string) => `/area/team/${team}/${saison}/registrierungen` as const,
     title: COPY.page.registrierungen,
     crawl: "disallow",
   },
 
   // Session 5: its page is built.
   verwaltungOverview: {
-    path: (saison: string) => `/bereich/verwaltung/saisons/${saison}` as const,
+    path: (saison: string) => `/admin/saisons/${saison}` as const,
     title: COPY.shared.overview,
     crawl: "disallow",
   },
   // Session 5: its page is built.
-  verwaltungSaisons: { path: () => "/bereich/verwaltung/saisons" as const, title: COPY.page.verwaltungSaisons, crawl: "disallow" },
+  verwaltungSaisons: { path: () => "/admin/saisons" as const, title: COPY.page.verwaltungSaisons, crawl: "disallow" },
   // Session 5: its page is built.
   verwaltungSpiele: {
-    path: (saison: string) => `/bereich/verwaltung/saisons/${saison}/spiele` as const,
+    path: (saison: string) => `/admin/saisons/${saison}/spiele` as const,
     title: COPY.page.spiele,
     crawl: "disallow",
   },
   /** The match editor, named by the match's two teams as the match's own page is. */
   verwaltungSpiel: {
-    path: (saison: string, spiel: string) => `/bereich/verwaltung/saisons/${saison}/spiele/${spiel}` as const,
+    path: (saison: string, spiel: string) => `/admin/saisons/${saison}/spiele/${spiel}` as const,
     title: COPY.page.spiel,
     crawl: "disallow",
   },
-  verwaltungSpielorte: { path: () => "/bereich/verwaltung/spielorte" as const, title: COPY.page.verwaltungSpielorte, crawl: "disallow" },
+  verwaltungSpielorte: { path: () => "/admin/spielorte" as const, title: COPY.page.verwaltungSpielorte, crawl: "disallow" },
   /** A venue's own page, named by the venue. */
   // Session 5: its page is built.
   verwaltungSpielort: {
-    path: (spielort: string) => `/bereich/verwaltung/spielorte/${spielort}` as const,
+    path: (spielort: string) => `/admin/spielorte/${spielort}` as const,
     title: null,
     crawl: "disallow",
   },
   // Session 5: its page is built.
   verwaltungSchiedsrichter: {
-    path: () => "/bereich/verwaltung/schiedsrichter" as const,
+    path: () => "/admin/schiedsrichter" as const,
     title: COPY.page.verwaltungSchiedsrichter,
     crawl: "disallow",
   },
@@ -194,54 +196,54 @@ export const ROUTES = {
   // every season page does; venues and referees are the league's and keep addresses without one.
   // Session 6: its page is built.
   verwaltungBewerbungen: {
-    path: (saison: string) => `/bereich/verwaltung/saisons/${saison}/bewerbungen` as const,
+    path: (saison: string) => `/admin/saisons/${saison}/bewerbungen` as const,
     title: COPY.page.verwaltungBewerbungen,
     crawl: "disallow",
   },
   // Session 6: its page is built.
   verwaltungTeams: {
-    path: (saison: string) => `/bereich/verwaltung/saisons/${saison}/teams` as const,
+    path: (saison: string) => `/admin/saisons/${saison}/teams` as const,
     title: COPY.page.teams,
     crawl: "disallow",
   },
   // Session 6: its page is built.
   verwaltungSpieler: {
-    path: (saison: string) => `/bereich/verwaltung/saisons/${saison}/spieler` as const,
+    path: (saison: string) => `/admin/saisons/${saison}/spieler` as const,
     title: COPY.page.verwaltungSpieler,
     crawl: "disallow",
   },
   // Session 6: its page is built.
   verwaltungRegistrierungen: {
-    path: (saison: string) => `/bereich/verwaltung/saisons/${saison}/registrierungen` as const,
+    path: (saison: string) => `/admin/saisons/${saison}/registrierungen` as const,
     title: COPY.page.registrierungen,
     crawl: "disallow",
   },
   // Session 7: its page is built.
   verwaltungAdministrators: {
-    path: () => "/bereich/verwaltung/administrators" as const,
+    path: () => "/admin/administrators" as const,
     title: COPY.page.verwaltungAdministrators,
     crawl: "disallow",
   },
   // Session 7: its page is built.
   verwaltungSperrliste: {
-    path: () => "/bereich/verwaltung/sperrliste" as const,
+    path: () => "/admin/sperrliste" as const,
     title: COPY.page.verwaltungSperrliste,
     crawl: "disallow",
   },
   // Session 7: its page is built.
   verwaltungErasures: {
-    path: () => "/bereich/verwaltung/loeschungen" as const,
+    path: () => "/admin/erasures" as const,
     title: COPY.page.verwaltungErasures,
     crawl: "disallow",
   },
   // Session 7: its page is built.
   verwaltungAddressChanges: {
-    path: () => "/bereich/verwaltung/adressaenderungen" as const,
+    path: () => "/admin/address-changes" as const,
     title: COPY.page.verwaltungAddressChanges,
     crawl: "disallow",
   },
   // Session 7: its page is built.
-  verwaltungActionLog: { path: () => "/bereich/verwaltung/log" as const, title: COPY.page.verwaltungActionLog, crawl: "disallow" },
+  verwaltungActionLog: { path: () => "/admin/log" as const, title: COPY.page.verwaltungActionLog, crawl: "disallow" },
 } as const satisfies Record<string, RouteEntry>;
 
 /**

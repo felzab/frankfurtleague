@@ -75,7 +75,7 @@ madeByPasskey(store, admin.row);
 const removed = await signIn(REMOVED_EMAIL);
 madeByPasskey(store, removed.row);
 
-const ADMIN_URL = "http://localhost:3000/bereich/admin/spiele";
+const ADMIN_URL = "http://localhost:3000/area/admin/spiele";
 
 /** What react-dom fills the header with; the value is never read, only its presence. */
 const ACTION_ID = "6f1b0c9d4a2e8f37";
@@ -135,9 +135,9 @@ describe("where the proxy sends a request for the administrator's subtree carryi
   it("carries the page it was asked for onto the sign-in, and no address the allowlist refuses", async () => {
     const carried = (url: string) => callProxy({ url }).then((answer) => answer.headers.get("location"));
 
-    expect(await carried(ADMIN_URL)).toBe("http://localhost:3000/signin?return=%2Fbereich%2Fadmin%2Fspiele");
+    expect(await carried(ADMIN_URL)).toBe("http://localhost:3000/signin?return=%2Farea%2Fadmin%2Fspiele");
     // An escaped separator, and a query naming another site, each meet the sign-in with no target at all.
-    expect(await carried("http://localhost:3000/bereich/admin%2F..%2Fspiele")).toBe("http://localhost:3000/signin");
+    expect(await carried("http://localhost:3000/area/admin%2F..%2Fspiele")).toBe("http://localhost:3000/signin");
     expect(await carried(`${ADMIN_URL}?next=https://example.com/`)).toBe("http://localhost:3000/signin");
   });
 });
@@ -161,15 +161,15 @@ const landsOn = (path: string) => `NEXT_REDIRECT;replace;${path};307;`;
 
 describe("where the sign-in's landing sends a session asked to return somewhere", () => {
   it("lands a session the area serves straight on an allowlisted address it was asked for", async () => {
-    expect(await landedAt(removed.cookie, "/bereich/konto")).toBe(landsOn("/bereich/konto"));
-    expect(await landedAt(removed.cookie, "/loeschung?token=ein-token")).toBe(landsOn("/loeschung?token=ein-token"));
+    expect(await landedAt(removed.cookie, "/account")).toBe(landsOn("/account"));
+    expect(await landedAt(removed.cookie, "/erasure?token=ein-token")).toBe(landsOn("/erasure?token=ein-token"));
   });
 
   it("lands it on the area's own page instead of an outside, an encoded or a protocol-relative address", async () => {
     const unasked = await landedAt(removed.cookie);
-    assert.ok(unasked.startsWith("NEXT_REDIRECT;replace;/bereich"), `the control landed on ${unasked}`);
+    assert.ok(unasked.startsWith("NEXT_REDIRECT;replace;/area"), `the control landed on ${unasked}`);
 
-    for (const asked of ["https://example.com/bereich", "/bereich%2F..%2Fadmin", "//example.com/bereich", "/\\example.com/bereich"]) {
+    for (const asked of ["https://example.com/area", "/area%2F..%2Fadmin", "//example.com/area", "/\\example.com/area"]) {
       expect(await landedAt(removed.cookie, asked), `${asked} was honoured`).toBe(unasked);
     }
   });
@@ -177,8 +177,8 @@ describe("where the sign-in's landing sends a session asked to return somewhere"
   it("carries an allowlisted address on through the passkey step", async () => {
     const { cookie } = await signIn(ADMIN_EMAIL);
 
-    expect(await landedAt(cookie, "/bereich/konto")).toBe(landsOn("/signin/passkey?return=%2Fbereich%2Fkonto"));
-    expect(await landedAt(cookie, "//example.com/bereich")).toBe(landsOn("/signin/passkey"));
+    expect(await landedAt(cookie, "/account")).toBe(landsOn("/signin/passkey?return=%2Faccount"));
+    expect(await landedAt(cookie, "//example.com/area")).toBe(landsOn("/signin/passkey"));
   });
 });
 
@@ -269,16 +269,17 @@ const PREFETCHES: Record<string, string>[] = [
   { purpose: "prefetch" },
 ];
 
-const TEAM_URL = "http://localhost:3000/bereich/team/6890a1b2c3d4e5f607190001/2526";
+const TEAM_URL = "http://localhost:3000/area/team/6890a1b2c3d4e5f607190001/2526";
 
 describe("which addresses the proxy is run on", () => {
   it("runs on every page a session serves, and on no public page or route handler", () => {
     for (const url of [
-      "http://localhost:3000/bereich",
-      "http://localhost:3000/bereich/konto",
-      "http://localhost:3000/bereich/team/6890a1b2c3d4e5f607190001/2026",
-      "http://localhost:3000/bereich/admin",
-      "http://localhost:3000/bereich/%61dmin/spiele",
+      "http://localhost:3000/area",
+      "http://localhost:3000/account",
+      "http://localhost:3000/area/team/6890a1b2c3d4e5f607190001/2026",
+      "http://localhost:3000/area/admin",
+      "http://localhost:3000/area/%61dmin/spiele",
+      "http://localhost:3000/admin/spielorte",
       "http://localhost:3000/signin",
       "http://localhost:3000/signin/weiter",
     ]) {
@@ -300,12 +301,12 @@ describe("which addresses the proxy is run on", () => {
     const { cookie } = await signIn("leserin@example.org");
     for (const prefetch of PREFETCHES) {
       for (const url of [
-        "http://localhost:3000/bereich",
-        "http://localhost:3000/bereich/konto",
+        "http://localhost:3000/area",
+        "http://localhost:3000/account",
         TEAM_URL,
         "http://localhost:3000/signin",
         ADMIN_URL,
-        "http://localhost:3000/bereich/%61dmin/spiele",
+        "http://localhost:3000/area/%61dmin/spiele",
       ]) {
         expect(
           matched(url, { headers: { ...prefetch, cookie } }),
@@ -319,7 +320,7 @@ describe("which addresses the proxy is run on", () => {
      shown the area's prefetched frame. A sign-in page's prefetch reads nothing either way. */
   it("runs on a prefetch of an area's page carrying no session cookie, and of no sign-in page", () => {
     for (const prefetch of PREFETCHES) {
-      for (const url of ["http://localhost:3000/bereich", "http://localhost:3000/bereich/konto", TEAM_URL, ADMIN_URL]) {
+      for (const url of ["http://localhost:3000/area", "http://localhost:3000/account", TEAM_URL, ADMIN_URL]) {
         expect(
           matched(url, { headers: { ...prefetch, cookie: "theme=dark" } }),
           `${url} skips a signed-out prefetch, ${JSON.stringify(prefetch)}`,
@@ -335,16 +336,20 @@ describe("which addresses the proxy is run on", () => {
     // The first entry, which names the area and nothing else.
     const areaEntry = config.matcher.slice(0, 1);
     for (const url of [
-      "http://localhost:3000/bereich",
-      "http://localhost:3000/bereich/",
-      "http://localhost:3000/bereich/admin/spiele",
-      "http://localhost:3000/bereich/%61dmin/spiele",
-      "http://localhost:3000/%62ereich/konto",
-      "http://localhost:3000/BEREICH/konto",
-      "http://localhost:3000/bereichsweise",
+      "http://localhost:3000/area",
+      "http://localhost:3000/area/",
+      "http://localhost:3000/area/admin/spiele",
+      "http://localhost:3000/area/%61dmin/spiele",
+      "http://localhost:3000/admin",
+      "http://localhost:3000/%61dmin/spielorte",
+      "http://localhost:3000/account/security",
+      "http://localhost:3000/AREA/admin",
+      "http://localhost:3000/areas",
+      "http://localhost:3000/administration",
+      "http://localhost:3000/accounting",
       "http://localhost:3000/signin",
       // A malformed escape the decoding cannot read, which must not take the request down with it.
-      "http://localhost:3000/bereich/team/%E0%A4%A",
+      "http://localhost:3000/area/team/%E0%A4%A",
     ]) {
       const judged = redirectedTo(await callProxy({ url })) === "/signin";
       expect(judged, `${url} is judged otherwise than the area's entry matches it`).toBe(matched(url, { matcher: areaEntry }));
@@ -354,8 +359,8 @@ describe("which addresses the proxy is run on", () => {
   // The verdicts past the cookie are each guard's, read where the data is.
   it("lets every session carrying a cookie through, the administrator's subtree included, a grant held or none", async () => {
     for (const url of [
-      "http://localhost:3000/bereich/konto",
-      "http://localhost:3000/bereich/administration",
+      "http://localhost:3000/account",
+      "http://localhost:3000/area/administration",
       "http://localhost:3000/signin",
       ADMIN_URL,
     ]) {
@@ -375,12 +380,7 @@ describe("which addresses the proxy is run on", () => {
   });
 });
 
-const PERSON_URLS = [
-  "http://localhost:3000/bereich",
-  "http://localhost:3000/bereich/konto",
-  "http://localhost:3000/bereich/zorbanax",
-  TEAM_URL,
-];
+const PERSON_URLS = ["http://localhost:3000/area", "http://localhost:3000/account", "http://localhost:3000/area/zorbanax", TEAM_URL];
 
 describe("where the proxy sends a request for an area's page", () => {
   /* Optimistic, as Next and the library document a proxy's check: turned away before any bar paints, where
@@ -390,7 +390,7 @@ describe("where the proxy sends a request for an area's page", () => {
   }) => {
     const read = vi.spyOn(auth.api, "getSession");
     onTestFinished(() => void read.mockRestore());
-    for (const url of [...PERSON_URLS, ADMIN_URL, "http://localhost:3000/bereich/%61dmin/spiele"]) {
+    for (const url of [...PERSON_URLS, ADMIN_URL, "http://localhost:3000/area/%61dmin/spiele", "http://localhost:3000/admin/spielorte"]) {
       expect(redirectedTo(await callProxy({ url })), `${url} let a visitor holding no session through`).toBe("/signin");
     }
     expect(read.mock.calls.length, "the cookie check read the store").toBe(0);
@@ -449,7 +449,7 @@ const EXPIRES_IN_MS = (auth.options.session?.expiresIn ?? Number.NaN) * 1000;
 const UPDATE_AGE_MS = (auth.options.session?.updateAge ?? Number.NaN) * 1000;
 const MINUTE_MS = 60 * 1000;
 
-const PERSON_URL = "http://localhost:3000/bereich/konto";
+const PERSON_URL = "http://localhost:3000/account";
 
 /** Leaves `row` as the library's own refresh `ago` milliseconds back would have left it. */
 function refreshedAgo(row: SessionRow, ago: number): void {
@@ -534,7 +534,7 @@ describe("where a session that is only read slides", () => {
     const due = stampsOf(row);
 
     arriveAs(cookie);
-    expect(await getSignInDestination(), "the render read no live session, so the case proves nothing").toBe("/bereich");
+    expect(await getSignInDestination(), "the render read no live session, so the case proves nothing").toBe("/area");
 
     expect(stampsOf(row)).toStrictEqual(due);
   });

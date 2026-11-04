@@ -12,7 +12,7 @@ export const DEIN_BEREICH_TITEL = "Dein Bereich";
 /** A referee's bookings on their own page, which the Einteilung's button and the landing's card name as well. */
 export const EINSAETZE_TITEL = "Deine Einsätze";
 
-/** The administration's own name, which `/bereich/admin` carries rather than the section it redirects to. */
+/** The administration's own name, which `/area/admin` carries rather than the section it redirects to. */
 export const VERWALTUNG_TITEL = "Verwaltung";
 
 /** The grants' page in the administration, which the mail asking an approver to approve an address change names. */

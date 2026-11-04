@@ -189,7 +189,7 @@ export function buildSpielFacets({
 
   // `ansetzung` follows `status` because it is the only facet that narrows these rows to an
   // incomplete fixture; the season-wide queue at
-  // `fl_frontend/src/app/bereich/admin/action_required/page.tsx` is where one is found off this list. The
+  // `fl_frontend/src/app/area/admin/action_required/page.tsx` is where one is found off this list. The
   // tail carries no ranking.
   return [status, ansetzung, team, phase, spieltag, ort, ergebnis, sonderereignis, schiedsrichterFacet].filter((facet) => facet !== undefined);
 }

@@ -56,7 +56,7 @@ export function AdminBewerbungView({
       className={`${PAGE_RISE_CLASSES} w-full p-6 sm:p-8`}
       {...focusSection("bewerbung")}>
       <div className="mx-auto flex w-full max-w-page flex-col">
-        <BackButton fallbackHref={saisonHref("/bereich/admin/bewerbungen")} />
+        <BackButton fallbackHref={saisonHref("/area/admin/bewerbungen")} />
 
         <header className="mb-6 flex w-full flex-row items-center gap-x-3">
           {/* `h2`, never `h1`: the shell's top bar owns the page's one heading. */}

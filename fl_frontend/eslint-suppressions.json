@@ -7,22 +7,22 @@
       "count": 1
     }
   },
-  "src/app/(public)/bestaetigung/kontakt/page.tsx": {
+  "src/app/(public)/confirm/kontakt/page.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 2
     }
   },
-  "src/app/(public)/bestaetigung/schiedsrichter/page.tsx": {
+  "src/app/(public)/confirm/schiedsrichter/page.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 2
     }
   },
-  "src/app/(public)/bestaetigung/spiel/page.tsx": {
+  "src/app/(public)/confirm/spiel/page.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 2
     }
   },
-  "src/app/(public)/bestaetigung/spieler/page.tsx": {
+  "src/app/(public)/confirm/spieler/page.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 2
     }
@@ -87,167 +87,167 @@
       "count": 1
     }
   },
-  "src/app/bereich/(persoenlich)/layout.tsx": {
+  "src/app/area/(persoenlich)/layout.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 1
     }
   },
-  "src/app/bereich/(persoenlich)/loading.tsx": {
+  "src/app/area/(persoenlich)/loading.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 1
     }
   },
-  "src/app/bereich/(persoenlich)/not-found.tsx": {
+  "src/app/area/(persoenlich)/not-found.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 1
     }
   },
-  "src/app/bereich/(persoenlich)/schiedsrichter/spielbericht/[spiel_id]/page.tsx": {
+  "src/app/area/(persoenlich)/schiedsrichter/spielbericht/[spiel_id]/page.tsx": {
     "no-restricted-syntax": {
       "count": 4
     }
   },
-  "src/app/bereich/admin/administratoren/loading.tsx": {
+  "src/app/area/admin/administratoren/loading.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 1
     }
   },
-  "src/app/bereich/admin/administratoren/page.tsx": {
+  "src/app/area/admin/administratoren/page.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 4
     }
   },
-  "src/app/bereich/admin/aktionen/loading.tsx": {
+  "src/app/area/admin/aktionen/loading.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 1
     }
   },
-  "src/app/bereich/admin/aktionen/page.tsx": {
+  "src/app/area/admin/aktionen/page.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 4
     }
   },
-  "src/app/bereich/admin/bewerbungen/[bewerbung_id]/loading.tsx": {
+  "src/app/area/admin/bewerbungen/[bewerbung_id]/loading.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 1
     }
   },
-  "src/app/bereich/admin/bewerbungen/[bewerbung_id]/page.tsx": {
+  "src/app/area/admin/bewerbungen/[bewerbung_id]/page.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 2
     }
   },
-  "src/app/bereich/admin/bewerbungen/loading.tsx": {
+  "src/app/area/admin/bewerbungen/loading.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 1
     }
   },
-  "src/app/bereich/admin/bewerbungen/page.tsx": {
+  "src/app/area/admin/bewerbungen/page.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 4
     }
   },
-  "src/app/bereich/admin/kontakte/[team_id]/loading.tsx": {
+  "src/app/area/admin/kontakte/[team_id]/loading.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 1
     }
   },
-  "src/app/bereich/admin/kontakte/[team_id]/page.tsx": {
+  "src/app/area/admin/kontakte/[team_id]/page.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 2
     }
   },
-  "src/app/bereich/admin/kontakte/loading.tsx": {
+  "src/app/area/admin/kontakte/loading.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 1
     }
   },
-  "src/app/bereich/admin/kontakte/page.tsx": {
+  "src/app/area/admin/kontakte/page.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 4
     }
   },
-  "src/app/bereich/admin/layout.tsx": {
+  "src/app/area/admin/layout.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 1
     }
   },
-  "src/app/bereich/admin/loading.tsx": {
+  "src/app/area/admin/loading.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 1
     }
   },
-  "src/app/bereich/admin/not-found.tsx": {
+  "src/app/area/admin/not-found.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 1
     }
   },
-  "src/app/bereich/admin/registrierungen/loading.tsx": {
+  "src/app/area/admin/registrierungen/loading.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 1
     }
   },
-  "src/app/bereich/admin/registrierungen/page.tsx": {
+  "src/app/area/admin/registrierungen/page.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 4
     }
   },
-  "src/app/bereich/admin/saisons/[saison_id]/loading.tsx": {
+  "src/app/area/admin/saisons/[saison_id]/loading.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 1
     }
   },
-  "src/app/bereich/admin/saisons/[saison_id]/page.tsx": {
+  "src/app/area/admin/saisons/[saison_id]/page.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 2
     }
   },
-  "src/app/bereich/admin/saisons/loading.tsx": {
+  "src/app/area/admin/saisons/loading.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 1
     }
   },
-  "src/app/bereich/admin/saisons/page.tsx": {
+  "src/app/area/admin/saisons/page.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 4
     }
   },
-  "src/app/bereich/admin/schiedsrichter/[schiedsrichter_id]/loading.tsx": {
+  "src/app/area/admin/schiedsrichter/[schiedsrichter_id]/loading.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 1
     }
   },
-  "src/app/bereich/admin/schiedsrichter/[schiedsrichter_id]/page.tsx": {
+  "src/app/area/admin/schiedsrichter/[schiedsrichter_id]/page.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 2
     }
   },
-  "src/app/bereich/admin/schiedsrichter/loading.tsx": {
+  "src/app/area/admin/schiedsrichter/loading.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 1
     }
   },
-  "src/app/bereich/admin/schiedsrichter/page.tsx": {
+  "src/app/area/admin/schiedsrichter/page.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 4
     }
   },
-  "src/app/bereich/admin/sperrliste/loading.tsx": {
+  "src/app/area/admin/sperrliste/loading.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 1
     }
   },
-  "src/app/bereich/admin/sperrliste/page.tsx": {
+  "src/app/area/admin/sperrliste/page.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 4
     }
   },
-  "src/app/bereich/admin/spiele/[spiel_id]/page.tsx": {
+  "src/app/area/admin/spiele/[spiel_id]/page.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 2
     }
   },
-  "src/app/bereich/admin/spiele/[spiel_id]/spielbericht/page.tsx": {
+  "src/app/area/admin/spiele/[spiel_id]/spielbericht/page.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 2
     },
@@ -255,97 +255,97 @@
       "count": 4
     }
   },
-  "src/app/bereich/admin/spieler/[spieler_id]/loading.tsx": {
+  "src/app/area/admin/spieler/[spieler_id]/loading.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 1
     }
   },
-  "src/app/bereich/admin/spieler/[spieler_id]/page.tsx": {
+  "src/app/area/admin/spieler/[spieler_id]/page.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 2
     }
   },
-  "src/app/bereich/admin/spieler/loading.tsx": {
+  "src/app/area/admin/spieler/loading.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 1
     }
   },
-  "src/app/bereich/admin/spieler/page.tsx": {
+  "src/app/area/admin/spieler/page.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 4
     }
   },
-  "src/app/bereich/admin/spielorte/[spielort_id]/loading.tsx": {
+  "src/app/area/admin/spielorte/[spielort_id]/loading.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 1
     }
   },
-  "src/app/bereich/admin/spielorte/[spielort_id]/page.tsx": {
+  "src/app/area/admin/spielorte/[spielort_id]/page.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 2
     }
   },
-  "src/app/bereich/admin/spielorte/loading.tsx": {
+  "src/app/area/admin/spielorte/loading.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 1
     }
   },
-  "src/app/bereich/admin/spielorte/page.tsx": {
+  "src/app/area/admin/spielorte/page.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 4
     }
   },
-  "src/app/bereich/admin/spieltage/[spieltag_id]/loading.tsx": {
+  "src/app/area/admin/spieltage/[spieltag_id]/loading.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 1
     }
   },
-  "src/app/bereich/admin/spieltage/[spieltag_id]/page.tsx": {
+  "src/app/area/admin/spieltage/[spieltag_id]/page.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 2
     }
   },
-  "src/app/bereich/admin/spieltage/loading.tsx": {
+  "src/app/area/admin/spieltage/loading.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 1
     }
   },
-  "src/app/bereich/admin/spieltage/page.tsx": {
+  "src/app/area/admin/spieltage/page.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 4
     }
   },
-  "src/app/bereich/admin/teams/[team_id]/loading.tsx": {
+  "src/app/area/admin/teams/[team_id]/loading.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 1
     }
   },
-  "src/app/bereich/admin/teams/[team_id]/page.tsx": {
+  "src/app/area/admin/teams/[team_id]/page.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 2
     }
   },
-  "src/app/bereich/admin/teams/loading.tsx": {
+  "src/app/area/admin/teams/loading.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 1
     }
   },
-  "src/app/bereich/admin/teams/page.tsx": {
+  "src/app/area/admin/teams/page.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 5
     }
   },
-  "src/app/bereich/team/[team_id]/[saison_id]/layout.tsx": {
+  "src/app/area/team/[team_id]/[saison_id]/layout.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 2
     }
   },
-  "src/app/bereich/team/[team_id]/[saison_id]/loading.tsx": {
+  "src/app/area/team/[team_id]/[saison_id]/loading.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 1
     }
   },
-  "src/app/bereich/team/[team_id]/[saison_id]/not-found.tsx": {
+  "src/app/area/team/[team_id]/[saison_id]/not-found.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 1
     }

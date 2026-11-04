@@ -113,8 +113,8 @@ describe("the sign-in's code", () => {
 describe("the address a sign-in returns to", () => {
   /* The landing judges the address again before it honours it; the page carries none the allowlist refuses. */
   it.each([
-    ["/bereich/konto", "/signin/continue?return=%2Fbereich%2Fkonto"],
-    ["//example.com/bereich", "/signin/continue"],
+    ["/account", "/signin/continue?return=%2Faccount"],
+    ["//example.com/area", "/signin/continue"],
   ])("carries %s to the landing as %s", async (asked, landing) => {
     search.params = new URLSearchParams({ return: asked });
     vi.mocked(handleSignIn).mockResolvedValue({ ok: true, value: "lena@example.com" });

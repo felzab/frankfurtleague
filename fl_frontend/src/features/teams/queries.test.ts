@@ -31,7 +31,7 @@ describe("the admin membership lists across a render pass", () => {
   /* First, so a scope that failed to take fails here rather than under every count below. */
   itOpensAScopeThatMemoizes();
 
-  it("is fetched once when both `/bereich/admin/teams` boundaries read the club list", async () => {
+  it("is fetched once when both `/area/admin/teams` boundaries read the club list", async () => {
     beginRenderPass();
     const before = countOf(TEAMS_ENDPOINT);
 
@@ -42,7 +42,7 @@ describe("the admin membership lists across a render pass", () => {
     expect(countOf(TEAMS_ENDPOINT) - before, "the admin club list went to the backend twice in one render pass").toBe(1);
   });
 
-  it("is fetched once per list when both `/bereich/admin/spieler` boundaries read the pair", async () => {
+  it("is fetched once per list when both `/area/admin/spieler` boundaries read the pair", async () => {
     beginRenderPass();
     const beforeTeams = countOf(TEAMS_ENDPOINT);
     const beforeSpieler = countOf(SPIELER_ENDPOINT);

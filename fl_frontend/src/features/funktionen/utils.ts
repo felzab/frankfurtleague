@@ -14,11 +14,11 @@ function funktionHref(funktion: Role): string {
     case "kontakt":
       return teamHref(funktion.team_id, funktion.saison_id);
     case "spieler":
-      return "/bereich/spieler";
+      return "/area/spieler";
     case "schiedsrichter":
-      return "/bereich/schiedsrichter";
+      return "/area/schiedsrichter";
     case "administration":
-      return "/bereich/admin";
+      return "/area/admin";
   }
 }
 

@@ -9,7 +9,7 @@ import { zieleOf } from "../../utils";
 
 import type { Role } from "@/core/roles";
 
-const BEREICH = { href: "/bereich", label: DEIN_BEREICH_TITEL };
+const BEREICH = { href: "/area", label: DEIN_BEREICH_TITEL };
 
 /**
  * A team and season the person holds no seat on. It names nothing of the address — who holds a seat

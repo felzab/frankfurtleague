@@ -9,14 +9,14 @@ const ORIGIN = "http://localhost:3000";
 
 describe("the fixture confirmation's link", () => {
   it("puts the token on the origin it was handed, under the confirmation page's path", () => {
-    expect(spielBestaetigungsLink(ORIGIN, "beispiel-eins")).toBe(`${ORIGIN}/bestaetigung/spiel?token=beispiel-eins`);
+    expect(spielBestaetigungsLink(ORIGIN, "beispiel-eins")).toBe(`${ORIGIN}/confirm/spiel?token=beispiel-eins`);
   });
 
   /* The link stands on the serving origin as the close does, so a configured
      trailing slash or path reaches neither, and a value that is no URL composes no message at all. */
   it("stands on the origin `mailOrigin` makes of the configured value", () => {
     expect(spielBestaetigungsLink(`${ORIGIN}/irgendwo/`, "t")).toBe(`${ORIGIN}${SPIEL_BESTAETIGUNG_PATH}?token=t`);
-    expect(() => spielBestaetigungsLink("/bestaetigung", "t")).toThrow(/absolute origin/);
+    expect(() => spielBestaetigungsLink("/confirm", "t")).toThrow(/absolute origin/);
   });
 
   it("names a parameter the edge's own redaction map replaces", () => {

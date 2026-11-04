@@ -11,7 +11,7 @@ its invalidation live here rather than in the backend.
 
 | Folder                   | Holds                                                                                                                                                       |
 | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/app/`               | The routes: the public pages, `saisons/` for the season pages, `bereich/` for every signed-in area                                                          |
+| `src/app/`               | The routes: the public pages, `saisons/` for the season pages, `area/`, `admin/` and `account/` for the signed-in areas                                     |
 | `src/kit/`               | The design system's components, built on React Aria Components                                                                                              |
 | `src/core/`              | What the server process is and what every surface needs: configuration, the API client, auth, mail, logging, the string catalogue and the formatting module |
 | `src/shared/`            | What a rendered page is built from beside the kit: components, hooks and the utilities those call                                                           |
@@ -129,12 +129,12 @@ nothing from the next request on. Every admin server action opens on
 `fl_frontend/src/core/auth/guards.ts :: judgeAdminRequest`, through the builder's admin lane or, for a form
 not yet moved onto it, `fl_frontend/src/shared/utils/adminMutation.ts :: runAdminMutation`.
 
-**Route protection is layered.** `src/proxy.ts` turns away a request to `/bereich` carrying no
+**Route protection is layered.** `src/proxy.ts` turns away a request to `/area`, `/admin` or `/account` carrying no
 session cookie before any read, and judges nothing further, as Next's and Better Auth's guidance has a
 proxy check. The session, its sign-in factor and the grant are judged where the data is read: no
 layout turns a session away, because Next renders a page whatever its layout decides.
 
-**A person's sign-in is managed on one account page, `/bereich/konto`**, whichever area they hold:
+**A person's sign-in is managed on one account page, `/account`**, whichever area they hold:
 every signed-in shell links it, and its passkeys and sign-ins change only behind a recent sign-in or
 confirmation.
 

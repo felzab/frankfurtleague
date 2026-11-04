@@ -111,7 +111,7 @@ export function AdminSpielortEditForm({
   };
 
   const { isLeaving, leavePage, isConfirmingDiscard, closeDiscard, hasLeftViaDiscard, requestLeave, discardAndLeave } = useEditorExit({
-    fallbackHref: saisonHref("/bereich/admin/spielorte"),
+    fallbackHref: saisonHref("/area/admin/spielorte"),
     isDirty,
     resetDraftToStored,
   });

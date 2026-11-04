@@ -19,7 +19,7 @@ import { formatSpielDatum } from "@/shared/utils/format";
 import type { FLBewerbungWindowResponse, FLTrikotFarbe } from "@/core/generated/client/types";
 
 /** Where a school goes when this page cannot take its application, whatever closed it. */
-const ZUM_KONTAKT = { href: "/kontakt", label: KONTAKT_TITEL };
+const ZUM_KONTAKT = { href: "/contact", label: KONTAKT_TITEL };
 
 /**
  * The rest of the site, from a page reached cold. `ROUTES.saisons` opens the season the site is on,

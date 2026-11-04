@@ -18,11 +18,11 @@ describe("the passkey page for a session the step does not hold", () => {
   it("leads to the landing carrying the address a mailed link asked for", async () => {
     const page = PasskeyPage({
       params: Promise.resolve({}),
-      searchParams: Promise.resolve({ return: "/loeschung?token=abc" }),
+      searchParams: Promise.resolve({ return: "/erasure?token=abc" }),
     }) as ReactElement<{
       view: Promise<unknown>;
     }>;
-    await expect(page.props.view).rejects.toThrow("redirect /signin/continue?return=%2Floeschung%3Ftoken%3Dabc");
+    await expect(page.props.view).rejects.toThrow("redirect /signin/continue?return=%2Ferasure%3Ftoken%3Dabc");
   });
 
   it("leads to the landing alone for an address the allowlist does not hold", async () => {

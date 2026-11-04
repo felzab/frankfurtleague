@@ -65,7 +65,7 @@ export async function resolveAdminSaison(searchParamsPromise: NextPageProps["sea
 
 /** For a page whose reads name a season: a league holding none is sent to the page that creates one. */
 export async function requireAdminSaison(searchParamsPromise: NextPageProps["searchParams"]): Promise<FLSaisonAdmin> {
-  return (await resolveAdminSaison(searchParamsPromise)) ?? redirect("/bereich/admin/saisons");
+  return (await resolveAdminSaison(searchParamsPromise)) ?? redirect("/area/admin/saisons");
 }
 
 /**

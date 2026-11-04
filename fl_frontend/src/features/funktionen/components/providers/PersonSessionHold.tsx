@@ -1,6 +1,6 @@
 import { getSubjectSession } from "@/core/subject";
 
-// A person's lane only, never above `/bereich/admin`: an administrator's render reads `getAdminSession` alone.
+// A person's lane only, never above `/area/admin`: an administrator's render reads `getAdminSession` alone.
 /**
  * Holds the page slot until the session is read, and never redirects: a redirect thrown in the frame unmounts it
  * whole, so the page's own `requireSubjectSession` turns a lapsed session away.
