@@ -206,6 +206,10 @@ def kontext_teams_lookup(local_field: str) -> Mapping[str, Any]:
     }
 
 
+def _account_einwilligung(block: Mapping[str, Any]) -> dict[str, Any]:
+    return {"umfang": block["umfang"], "medien": block["medien"]}
+
+
 def _compose_spieler_person(row: Mapping[str, Any]) -> dict[str, Any]:
     return {
         "spieler_id": row["_id"],
@@ -239,7 +243,7 @@ def compose_spieler_account(row: Mapping[str, Any], *, givable: bool, today: str
 
     return {
         **_compose_spieler_person(row),
-        "einwilligung": row["einwilligung"],
+        "einwilligung": _account_einwilligung(row["einwilligung"]),
         "nachweis_stand": nachweis_stand_of(bloecke=[row["einwilligung"]]),
         "givable": givable,
         "medien_offered": medien_angeboten(geburtsdatum=row.get("geburtsdatum"), today=today),
@@ -268,7 +272,7 @@ def compose_schiedsrichter_account(row: Mapping[str, Any], *, givable: bool, tod
 
     return {
         **_compose_schiedsrichter_person(row),
-        "einwilligung": row["einwilligung"],
+        "einwilligung": _account_einwilligung(row["einwilligung"]),
         "nachweis_stand": nachweis_stand_of(bloecke=[row["einwilligung"]]),
         "givable": givable,
         "medien_offered": medien_angeboten(geburtsdatum=row.get("geburtsdatum"), today=today),

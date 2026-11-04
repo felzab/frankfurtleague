@@ -2,7 +2,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.api.adresswechsel.schemas import FLAddressChangeApprovalState
 from app.api.berechtigungen.schemas import FLUtcInstant
-from app.api.spieler.schemas import FLEinwilligung, FLSpielerSelfPerson
+from app.api.spieler.schemas import FLSpielerSelfPerson
 from app.shared.schemas.custom import CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
 from app.shared.schemas.einwilligung import FLEinwilligungStand
 from app.shared.schemas.kontakt import CustomEmail, FLKontakt
@@ -16,11 +16,22 @@ from app.shared.schemas.literals import (
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
 
+class FLAccountEinwilligung(BaseModel):
+    """A person's own record's two choices as its box shows them.
+
+    The choices alone: the box names no day and no label, and `nachweis_stand` stands for each choice's evidence in the
+    precondition a press echoes.
+    """
+
+    umfang: FLEinwilligungUmfang
+    medien: bool
+
+
 class FLAccountSpielerEinwilligung(FLSpielerSelfPerson):
     """The pupil's record on the account page: its stored data and the consent the page moves."""
 
     # Required: only a confirmed record is served, so the block is always there.
-    einwilligung: FLEinwilligung
+    einwilligung: FLAccountEinwilligung
     # What the consent PATCH echoes back, computed by the function its precondition compares with.
     nachweis_stand: FLEinwilligungStand
     # Served rather than derived on the page, which would judge a grant with a second copy of the rule.
@@ -42,7 +53,7 @@ class FLAccountSchiedsrichterEinwilligung(BaseReadModel):
     schule: str | None
     kontakt: FLKontakt
     geburtsdatum: CustomOptionalDateString = None
-    einwilligung: FLEinwilligung
+    einwilligung: FLAccountEinwilligung
     nachweis_stand: FLEinwilligungStand
     givable: bool
     medien_offered: bool

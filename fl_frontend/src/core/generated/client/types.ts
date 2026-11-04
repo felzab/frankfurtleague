@@ -368,6 +368,24 @@ export interface FLAccountBewerbungSeatEinwilligung {
   umfang: FLKontaktKenntnisnahmeUmfang;
 }
 
+export type FLEinwilligungUmfang = (typeof FLEinwilligungUmfang)[keyof typeof FLEinwilligungUmfang];
+
+export const FLEinwilligungUmfang = {
+  kader_oeffentlich: "kader_oeffentlich",
+  intern: "intern",
+} as const;
+
+/**
+ * A person's own record's two choices as its box shows them.
+ *
+ * The choices alone: the box names no day and no label, and `nachweis_stand` stands for each choice's evidence in the
+ * precondition a press echoes.
+ */
+export interface FLAccountEinwilligung {
+  medien: boolean;
+  umfang: FLEinwilligungUmfang;
+}
+
 export interface FLEinwilligungStandPayload {
   medien: string | null;
   umfang: string | null;
@@ -384,13 +402,6 @@ export interface FLSpielerTextVersions {
   medien: FLCitedMedienTextVersion;
   umfang: FLSpielerUmfangTextVersion;
 }
-
-export type FLEinwilligungUmfang = (typeof FLEinwilligungUmfang)[keyof typeof FLEinwilligungUmfang];
-
-export const FLEinwilligungUmfang = {
-  kader_oeffentlich: "kader_oeffentlich",
-  intern: "intern",
-} as const;
 
 /**
  * A pupil's or a registration's own two choices on their record.
@@ -418,54 +429,6 @@ export interface FLAccountRegistrierungEinwilligung {
   vorname: string;
 }
 
-export type FLSeatUmfangTextVersion = "2026-11-whatsapp-1";
-
-export type FLSchiedsrichterUmfangTextVersion = "2026-11-name-spielplan-1";
-
-export type FLEinwilligungTextVersion =
-  FLSeatUmfangTextVersion | FLSpielerUmfangTextVersion | FLSchiedsrichterUmfangTextVersion | FLCitedMedienTextVersion;
-
-/**
- * When a person set one consent choice, and under which wording.
- */
-export interface FLEinwilligungBeleg {
-  am: string;
-  text_version: FLEinwilligungTextVersion;
-}
-
-/**
- * The evidence one consent choice keeps: the act that set its value, and on a withdrawal the grant it ended.
- */
-export interface FLEinwilligungNachweis {
-  am: string;
-  given_before: FLEinwilligungBeleg | null;
-  text_version: FLEinwilligungTextVersion;
-}
-
-/**
- * Each choice's evidence, null until its person sets it: a record no person has answered carries none.
- */
-export interface FLEinwilligungNachweise {
-  medien: FLEinwilligungNachweis | null;
-  umfang: FLEinwilligungNachweis | null;
-}
-
-/**
- * What this person agreed may be published about them.
- *
- * Its keys stand TOGETHER, as `FLAustritt`'s do: a scope with no confirmation date claims somebody
- * consented, and no surface can tell that from one somebody gave.
- */
-export interface FLEinwilligung {
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  confirmed_at: string;
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  datum: string;
-  medien: boolean;
-  nachweis: FLEinwilligungNachweise;
-  umfang: FLEinwilligungUmfang;
-}
-
 export interface FLKontakt {
   email: string | null;
   telefon: string | null;
@@ -478,7 +441,7 @@ export interface FLKontakt {
  * page lists and this box does not.
  */
 export interface FLAccountSchiedsrichterEinwilligung {
-  einwilligung: FLEinwilligung;
+  einwilligung: FLAccountEinwilligung;
   geburtsdatum: string | null;
   givable: boolean;
   kontakt: FLKontakt;
@@ -518,7 +481,7 @@ export interface FLAccountSeatEinwilligung {
  * The pupil's record on the account page: its stored data and the consent the page moves.
  */
 export interface FLAccountSpielerEinwilligung {
-  einwilligung: FLEinwilligung;
+  einwilligung: FLAccountEinwilligung;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   geburtsdatum: string;
   givable: boolean;
@@ -1263,6 +1226,38 @@ export const FLKontaktEnteredBy = {
   bewerbung: "bewerbung",
   liga: "liga",
 } as const;
+
+export type FLSeatUmfangTextVersion = "2026-11-whatsapp-1";
+
+export type FLSchiedsrichterUmfangTextVersion = "2026-11-name-spielplan-1";
+
+export type FLEinwilligungTextVersion =
+  FLSeatUmfangTextVersion | FLSpielerUmfangTextVersion | FLSchiedsrichterUmfangTextVersion | FLCitedMedienTextVersion;
+
+/**
+ * When a person set one consent choice, and under which wording.
+ */
+export interface FLEinwilligungBeleg {
+  am: string;
+  text_version: FLEinwilligungTextVersion;
+}
+
+/**
+ * The evidence one consent choice keeps: the act that set its value, and on a withdrawal the grant it ended.
+ */
+export interface FLEinwilligungNachweis {
+  am: string;
+  given_before: FLEinwilligungBeleg | null;
+  text_version: FLEinwilligungTextVersion;
+}
+
+/**
+ * Each choice's evidence, null until its person sets it: a record no person has answered carries none.
+ */
+export interface FLEinwilligungNachweise {
+  medien: FLEinwilligungNachweis | null;
+  umfang: FLEinwilligungNachweis | null;
+}
 
 /**
  * How this person's record came to be held, and what they answered.
@@ -2162,6 +2157,22 @@ export interface FLDeclineBewerbungPayload {
 export interface FLDeclineBewerbungResponse {
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
+}
+
+/**
+ * What this person agreed may be published about them.
+ *
+ * Its keys stand TOGETHER, as `FLAustritt`'s do: a scope with no confirmation date claims somebody
+ * consented, and no surface can tell that from one somebody gave.
+ */
+export interface FLEinwilligung {
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  confirmed_at: string;
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  datum: string;
+  medien: boolean;
+  nachweis: FLEinwilligungNachweise;
+  umfang: FLEinwilligungUmfang;
 }
 
 /**
