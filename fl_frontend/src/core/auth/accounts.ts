@@ -13,7 +13,7 @@ import { deleteSignInRowsOf, DUPLICATE_KEY, EVERY_ROW, RemovalOutsideTransaction
 
 import type { DeletionPress } from "./library";
 
-/** The library's answer to a link it completed (`better-auth/api :: deleteUser`), its one answer that deletes. */
+/** The library's answer to a link it completed (`better-auth/api :: deleteUserCallback`), its one answer that deletes. */
 const ACCOUNT_DELETED = "User deleted";
 
 /** A deletion the library answered with something other than a deletion, which no caller may read as one. */
@@ -95,14 +95,14 @@ export async function deleteOwnAccount(
   requestHeaders: Headers,
   eraseRecords: () => Promise<unknown>,
 ): Promise<OwnAccountDeletion> {
-  // The library reads an empty token as a request for a new link, which it would mint and mail: no link at all.
-  if (token === "") return "linkRefused";
-
   const press: DeletionPress = { erase: eraseRecords, linkSpent: false };
   try {
-    const answer = await ownErasure.run(press, () => auth.api.deleteUser({ body: { token: token }, headers: requestHeaders }));
-    // The library's own word for a deletion, never the absence of a throw. Its one other answer, a link's, comes
-    // only for an empty token, which the guard above refuses first: no case reaches this check alone.
+    // The completing endpoint itself, the one the library's own link reaches: it expires the session's cookie on
+    // its own answer, which `nextCookies` carries onto the action's. `deleteUser` with a token calls it as a plain
+    // function and answers without that expiry (better-auth#12132), leaving the browser a cookie naming a gone session.
+    const answer = await ownErasure.run(press, () => auth.api.deleteUserCallback({ query: { token: token }, headers: requestHeaders }));
+    // The library's own word for a deletion, never the absence of a throw. Its one other end, a redirect, comes only
+    // for a `callbackURL`, which no press passes: no case reaches this check alone.
     if (answer.message !== ACCOUNT_DELETED) throw new DeletionNotAnswered();
     return "deleted";
   } catch (failed) {

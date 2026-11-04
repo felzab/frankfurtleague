@@ -3523,8 +3523,8 @@ describe("a person's own account deletion", () => {
     expect([held.user, held.sessions, held.passkeys]).toStrictEqual([1, 1, 1]);
   });
 
-  /* The library reads an empty token as a request for a new link, which it mints and mails: a caller passing
-     one through was told of a deletion while a fresh link went out instead. */
+  /* The library's `deleteUser` reads an empty token as a request for a new link, which it mints and mails: a press
+     reaching it with one would be told of a deletion while a fresh link went out instead. */
   it("answers an empty token as no link, mailing, erasing and deleting nothing", async () => {
     const person = await seedAccount("leerer-link@example.org");
     const loeschungen: string[] = [];
