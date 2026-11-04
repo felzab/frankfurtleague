@@ -50,7 +50,9 @@ test("a person's passkey on Sicherheit: set up, then removed, which ends this de
   await rows().first().click();
   await page.getByRole("alertdialog").getByRole("button", { name: "Löschen" }).click();
   await expect(page).toHaveURL((url) => url.pathname === "/signin");
-  await expect(page.getByRole("main").getByRole("heading", { name: "Anmelden" })).toBeVisible();
+  // The signed-out form's press, which only a request bearing no live session is shown: a session the removal left
+  // alive draws the signed-in card under the same „Anmelden“ heading instead.
+  await expect(page.getByRole("main").getByRole("button", { name: "Code senden" })).toBeVisible();
   expect(await assertionsSigned(context), "the removal of this device's passkey asked no touch of its own").toBe(beforeTheRemoval + 1);
 });
 
