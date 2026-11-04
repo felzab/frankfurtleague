@@ -182,7 +182,7 @@ class FLAccountErasureRegistrierung(BaseModel):
     nachname: str
 
 
-class FLKontoLoeschungAnsicht(BaseModel):
+class FLAccountErasureView(BaseModel):
     """What an erasure of one address would remove, by kind and by name, and never an address or a birthdate."""
 
     spieler: list[FLAccountErasureSpieler]
@@ -194,7 +194,7 @@ class FLKontoLoeschungAnsicht(BaseModel):
     address_change: int = Field(ge=0)
 
 
-class FLAccountErasureViewResponse(FLKontoLoeschungAnsicht, BaseAPIResponse):
+class FLAccountErasureViewResponse(FLAccountErasureView, BaseAPIResponse):
     # The tier of the live grant the address holds, read in the preview's snapshot as the press reads it.
     verwaltung: FLVerwaltung | None
     # Advisory: read apart from the erasure's transaction, whose own `last_owner_erasure` alone decides.

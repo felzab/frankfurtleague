@@ -14,7 +14,7 @@ from bson import ObjectId
 
 from app.api.berechtigungen.services import OWNER, holds_an_owners_power, verwaltung_des
 from app.api.bewerbungen.services import build_eigene_bewerbung_filter
-from app.api.identity.schemas import FLKontoLoeschungAnsicht, FLLoeschungAnsicht, FLSubjectSeat, FLSubjekt
+from app.api.identity.schemas import FLAccountErasureView, FLLoeschungAnsicht, FLSubjectSeat, FLSubjekt
 from app.api.kontakte.services import rows_seating
 from app.api.registrierungen.services import SUBMITTED, build_eigene_registrierung_filter, build_loeschung_registrierung_filter
 from app.api.schiedsrichter.services import (
@@ -240,12 +240,12 @@ def compose_loeschung_ansicht(
     registrierung_rows: Sequence[Mapping[str, Any]],
     adresswechsel_rows: Sequence[Mapping[str, Any]],
     team_rows: Sequence[Mapping[str, Any]],
-) -> FLKontoLoeschungAnsicht:
+) -> FLAccountErasureView:
     """The preview, from the rows the erasure's own subject read holds; no address and no birthdate reaches it."""
 
     team_names = _team_names(team_rows)
 
-    return FLKontoLoeschungAnsicht.model_validate(
+    return FLAccountErasureView.model_validate(
         {
             "spieler": [_pupil_entry(row) for row in pupil_rows],
             "schiedsrichter": [_referee_entry(row) for row in referee_rows],

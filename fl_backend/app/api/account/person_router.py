@@ -18,9 +18,9 @@ from app.api.account.services import (
     build_account_pipeline,
     compose_bewerbungssitze_self,
     compose_registrierungen_self,
-    compose_schiedsrichter_konto,
+    compose_schiedsrichter_account,
     compose_sitze_self,
-    compose_spieler_konto,
+    compose_spieler_account,
     kontext_zeile,
 )
 from app.api.adresswechsel.crud import (
@@ -122,14 +122,14 @@ async def get_einwilligungen(
         {
             "spieler": None
             if pupil is None
-            else compose_spieler_konto(
+            else compose_spieler_account(
                 pupil,
                 givable=may_grant_on_spieler(subjekt, pupil["_id"]),
                 today=today,
                 team=None if zeile is None else teams.get(zeile["team_id"]),
             ),
             "schiedsrichter": [
-                compose_schiedsrichter_konto(row, givable=may_grant_on_schiedsrichter(subjekt, row["_id"]), today=today)
+                compose_schiedsrichter_account(row, givable=may_grant_on_schiedsrichter(subjekt, row["_id"]), today=today)
                 for row in referees
                 if ist_eigener_schiedsrichter(row, identifier)
             ],

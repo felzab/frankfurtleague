@@ -206,7 +206,7 @@ def compose_spieler_self(row: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
-def compose_spieler_konto(row: Mapping[str, Any], *, givable: bool, today: str, team: Mapping[str, Any] | None) -> dict[str, Any]:
+def compose_spieler_account(row: Mapping[str, Any], *, givable: bool, today: str, team: Mapping[str, Any] | None) -> dict[str, Any]:
     """The pupil's account entry: its stored data and its consent. `team` is `kontext_zeile`'s club, as it stands today."""
 
     zeile = kontext_zeile(row)
@@ -241,7 +241,7 @@ def compose_schiedsrichter_self(row: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
-def compose_schiedsrichter_konto(row: Mapping[str, Any], *, givable: bool, today: str) -> dict[str, Any]:
+def compose_schiedsrichter_account(row: Mapping[str, Any], *, givable: bool, today: str) -> dict[str, Any]:
     """One referee row's account entry: its stored data and its consent."""
 
     return {
