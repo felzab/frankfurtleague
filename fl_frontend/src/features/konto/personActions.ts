@@ -2,11 +2,18 @@
 
 import { refresh } from "next/cache";
 import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 
+import { linkInvalid } from "@/kit/MailedPage";
+import { z } from "zod";
+
+import { action } from "@/core/action";
 import { deleteOwnAccount } from "@/core/auth/accounts";
 import { getKontoSession } from "@/core/auth/guards";
+import { COPY } from "@/core/copy";
 import { formatInstant } from "@/core/format";
-import { recordWriteSent } from "@/core/requestScope";
+import { ROUTES } from "@/core/routes";
+import { SERVER_COPY } from "@/core/serverCopy";
 import { mapKontoAdresswechselRefusal, mapKontoFreigabeRefusal, mapKontoStoppRefusal } from "@/features/adresswechsel/refusals";
 import { refusalResult, stepUpRequired } from "@/shared/utils/adminMutation";
 import { enrolmentUntil } from "@/shared/utils/kontoMutation";
@@ -16,76 +23,44 @@ import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 import { genehmigerText } from "./genehmiger";
 import { beantrageKontoAdresswechsel, gibKontoAdresswechselFrei, loeschenEigeneDaten, stoppeKontoAdresswechsel } from "./mutations";
 import { getLoeschungAnsicht } from "./queries";
-import { LETZTE_INHABERIN, mapLoeschungRefusal } from "./refusals";
 import { FLKontoAdresswechselFreigabePayloadSchema, FLKontoAdresswechselPayloadSchema } from "./schemas";
 
+import type { ActionAnswer } from "@/core/action";
 import type { FLVerwaltung } from "@/core/generated/client/types";
+import type { MailedEnd } from "@/kit/MailedPage";
 import type { ActionResult } from "@/shared/types/types";
 import type { StepUpRequired } from "@/shared/utils/adminMutation";
 
-/** What the library's refusal of a link means to its holder, the token being spent before it was refused. */
-const LINK_UNGUELTIG =
-  "Dieser Link lässt sich nicht mehr verwenden: Er ist abgelaufen, wurde schon verwendet oder gehört zu einem anderen Konto. Fordere auf Deiner Kontoseite einen neuen an.";
-
-/** Every other failure once the library may have spent the link, whose next press would meet `LINK_UNGUELTIG`. */
-const LINK_VERBRAUCHT = "Dieser Link ist dabei verbraucht worden. Für einen neuen Versuch fordere auf Deiner Kontoseite einen neuen an.";
-
 /**
- * Completes a mailed deletion link, the league's records before the account. The person-record spine sends the actor the backend's person route reads, and refuses
- * sessions the library itself would accept.
+ * Completes a mailed deletion link: the league's records, then the account, the passkey touch first for a person
+ * holding one. The deletion ends the caller's own session, so a done one leads to a page needing none rather than
+ * answering: Next renders the posting page again after an action writes a cookie, and the library deletes the session's
+ * cookie, but a `redirect` from the body renders the destination alone, the builder having cleared the site's tag on
+ * its way out. A link the library refuses, spent, lapsed or another account's, ends as the link no longer valid, with
+ * nothing erased.
  */
-export async function loescheKontoAction(token: string): Promise<ActionResult> {
-  // Whether the press reached the library, which may spend the link, and whether the library refused the link itself.
-  const link = { spent: false, refused: false };
-
-  const answer = await runPersonRecordMutation("loescheKontoAction", async (subject) => {
-    // A server action's argument is whatever a caller posted, and this one reaches the sign-in store.
-    if (typeof token !== "string" || token === "") return { success: false, error: VALIDATION_FAILED };
-
-    // Refused before the library spends the link, so the same link completes once another owner is made;
-    // the backend refuses two owners at once. Read for an owner alone,
-    // the one tier that can be the last.
+export const kontoLoeschen = action({
+  lane: "person",
+  claim: "record",
+  passkey: true,
+  name: "kontoLoeschen",
+  // The library's own token, which no backend schema publishes: one line of letters, digits, `-` and `_`.
+  input: z.object({ token: z.string().regex(/^[A-Za-z0-9_-]{1,128}$/) }),
+  ownWords: ["last_owner_erasure"],
+  run: async ({ token }, { subject }): Promise<ActionAnswer<MailedEnd>> => {
+    // Refused before the library spends the link, so the same link completes once another owner is made; the
+    // backend refuses two owners at once. Read for an owner alone, the one tier that can be the last.
     if (subject.subject.verwaltung === "owner" && (await getLoeschungAnsicht()).last_owner) {
-      return { success: false, error: LETZTE_INHABERIN };
+      return { ok: false, reason: SERVER_COPY.refusalLine.last_owner_erasure };
     }
 
-    // A grant goes with the account, so a grant holder is held to a revoke's window, a passkey confirmation
-    // of the enrolment's minutes, judged before the library spends the link.
-    if (subject.subject.verwaltung !== null) {
-      const verwaltend = await getKontoSession();
-      if (verwaltend === null || enrolmentUntil(verwaltend) === null) {
-        // The page's figures read again, so its next press asks first.
-        refresh();
-        return stepUpRequired();
-      }
-    }
+    const outcome = await deleteOwnAccount(token, await headers(), () => loeschenEigeneDaten());
+    if (outcome === "linkRefused")
+      return { ok: true, value: linkInvalid({ label: COPY.shared.end.toAccount, href: ROUTES.accountSignIn.path() }) };
 
-    // The token is spent in the sign-in store, written past the API client, whatever the press comes to.
-    recordWriteSent();
-    link.spent = true;
-
-    let outcome;
-    try {
-      outcome = await deleteOwnAccount(token, await headers(), () => loeschenEigeneDaten());
-    } catch (error) {
-      // The backend's own refusal of the last owner; every other throw is the spine's to answer.
-      const refusal = mapLoeschungRefusal(error);
-      if (refusal !== null) return refusalResult(refusal);
-      throw error;
-    }
-    if (outcome === "linkRefused") {
-      link.refused = true;
-      return { success: false, error: LINK_UNGUELTIG };
-    }
-
-    return { success: true, message: "Dein Konto und Deine Angaben sind gelöscht." };
-  });
-
-  // Past the spend every answer but a deletion leaves a link the next press cannot take, which the spine's
-  // own words, a retry's or a reload's, would hide.
-  if (answer.success || !link.spent || link.refused) return answer;
-  return { ...answer, error: `${answer.error} ${LINK_VERBRAUCHT}` };
-}
+    redirect(ROUTES.accountErased.path());
+  },
+});
 
 /** What the account page is told of a link it owed: a sentence, never a token or an address. */
 type AdresswechselGesendet = ActionResult;
