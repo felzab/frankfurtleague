@@ -9,6 +9,7 @@ from app.api.sperrliste.services import (
     stored_adresse_hash,
 )
 from app.core.codes import Code
+from app.shared.sub_keys import derive_sub_key
 
 # Obviously fake and distinct: two equal keys would let the separation case below pass vacuously.
 KEY = SecretStr("key-one".ljust(64, "0"))
@@ -104,6 +105,18 @@ class TestTheConstructionItself:
         """One string for both, or a row records a label that says nothing about the key that hashed it."""
 
         assert SPERRLISTE_SCHLUESSEL_VERSION == "sperrliste-v1"
+
+    @pytest.mark.parametrize("typed", ["anna@xn--mller-kva.de", "Anna@XN--MLLER-KVA.DE"], ids=["as stored", "in capitals"])
+    def test_an_international_domain_keys_decoded_as_every_stored_ban_was_keyed(self, typed: str):
+        """The list holds keyed hashes alone, which nothing re-keys: a key moved off the stored bans' form lifts each such ban in silence."""
+
+        import hashlib
+        import hmac
+
+        sub_key = derive_sub_key(self.KNOWN_MASTER, SPERRLISTE_SCHLUESSEL_VERSION)
+        decoded = hmac.new(sub_key, "anna@müller.de".encode(), hashlib.sha256).hexdigest()
+
+        assert adresse_hash(typed, key=self.KNOWN_MASTER) == decoded
 
 
 class TestWhatTheHashRefuses:
