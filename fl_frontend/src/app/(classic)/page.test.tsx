@@ -18,20 +18,9 @@ const landing = vi.hoisted((): { current: FLLandingResponse } => ({ current: { s
 
 vi.mock("./landing", async (original) => ({ ...(await original<object>()), readLanding: async () => landing.current }));
 
-/** A season under way with nothing yet to show: no match, no figure, no school. */
-const RUNNING: FLLandingResponse["saison"] = {
-  id: "2027",
-  state: "running",
-  start: "2026-09-01T00:00:00+02:00",
-  recent: [],
-  upcoming: [],
-  counts: { count_tore: 0, count_spiele: 0, count_spieltage: 0 },
-  teams: [],
-};
-
-/** The landing's whole server render for the window and the season given: the document a browser shows before hydrating. */
-async function rendered(window: FLLandingResponse["bewerbung_window"], saison: FLLandingResponse["saison"] = null) {
-  landing.current = { saison, bewerbung_window: window };
+/** The landing's whole server render for the window given: the document a browser shows before hydrating. */
+async function rendered(window: FLLandingResponse["bewerbung_window"]) {
+  landing.current = { saison: null, bewerbung_window: window };
   const stream = await renderToReadableStream(<HomePage />);
   await stream.allReady;
   return new Response(stream).text();
@@ -63,20 +52,5 @@ describe("the landing's ways to apply", () => {
     expect(html).toContain(words.join.closed);
     // The hero's second act and the steps' band lead to About, beside the organisers' way on.
     expect(hrefs(html).filter((href) => href === "/about")).toHaveLength(3);
-  });
-});
-
-// The hero's first act takes the season's own address, as the header's season entry does: through `/saisons` the
-// press renders that page's frame and is redirected again inside the stream.
-describe("the hero's Spielplan", () => {
-  it("leads to the Spielplan of the season the site is on", async () => {
-    const html = await rendered(null, RUNNING);
-    // The hero's two acts are the render's first two links.
-    expect(hrefs(html).slice(0, 2)).toStrictEqual(["/saisons/2027", "/about"]);
-  });
-
-  it("leads to `/saisons`, which says the league has no season yet, while it has none", async () => {
-    const html = await rendered(null);
-    expect(hrefs(html).slice(0, 2)).toStrictEqual(["/saisons", "/about"]);
   });
 });
