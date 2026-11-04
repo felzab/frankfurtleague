@@ -243,7 +243,6 @@ async def admit(
         spieler_collection=database[Collection.SPIELER] if spieler is None else spieler,
         records=record_collections(
             database,
-            saisons_collection=database[Collection.SAISONS] if saisons is None else saisons,
             spieler_collection=database[Collection.SPIELER] if spieler is None else spieler,
         ),
         aktionen_collection=database[Collection.ACTION_LOG],
