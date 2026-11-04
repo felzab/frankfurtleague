@@ -435,9 +435,6 @@ export interface FLKontakt {
 
 /**
  * One referee record on the account page: the stored data its box shows and the consent the page moves.
- *
- * Its own shape rather than `app/api/schiedsrichter/schemas.py :: FLSchiedsrichterSelf`'s, whose fee the confirmation
- * page lists and this box does not.
  */
 export interface FLAccountSchiedsrichterEinwilligung {
   einwilligung: FLAccountEinwilligung;
@@ -1386,18 +1383,6 @@ export interface FLBewerbungAbsageData {
   rollen: FLKontaktRolle[];
   saison_id: string;
   team: string;
-}
-
-/**
- * Which of the application's seats the withdrawal reached, and the two answers they now all hold.
- */
-export interface FLBewerbungAccountEinwilligungResponse {
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  bewerbung_id: string;
-  medien: boolean;
-  nachweis_stand: FLEinwilligungStand;
-  rollen: FLKontaktRolle[];
-  umfang: FLKontaktKenntnisnahmeUmfang;
 }
 
 /**
@@ -4103,16 +4088,6 @@ export interface FLRegistrierung {
 }
 
 /**
- * The registration's consent record as it stands after the write, everything the pupil did not move unchanged.
- */
-export interface FLRegistrierungAccountEinwilligungResponse {
-  einwilligung: FLRegistrierungEinwilligung;
-  nachweis_stand: FLEinwilligungStand;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  registrierung_id: string;
-}
-
-/**
  * The squad entry the admission wrote, and the person it belongs to.
  */
 export interface FLRegistrierungAdmissionResponse {
@@ -4370,19 +4345,6 @@ export interface FLSaisonSpielerResponse {
   version: number;
 }
 
-/**
- * Which of the row's seats the press reached, and the two answers they now all hold.
- */
-export interface FLSaisonTeamAccountEinwilligungResponse {
-  medien: boolean;
-  nachweis_stand: FLEinwilligungStand;
-  rollen: FLKontaktRolle[];
-  saison_id: string;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  team_id: string;
-  umfang: FLKontaktKenntnisnahmeUmfang;
-}
-
 export interface FLSaisonTeamAddressChangeDenied {
   ansprechperson: FLAddressChangeViewableDenied | null;
   stellvertretung: FLAddressChangeViewableDenied | null;
@@ -4498,16 +4460,6 @@ export interface FLSchiedsrichterAccountEinwilligungPayload {
   umfang: FLEinwilligungUmfang;
 }
 
-/**
- * The record as it stands after the write, everything the person did not move unchanged.
- */
-export interface FLSchiedsrichterAccountEinwilligungResponse {
-  einwilligung: FLEinwilligung;
-  nachweis_stand: FLEinwilligungStand;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  schiedsrichter_id: string;
-}
-
 export interface FLSchiedsrichterConfirmationPayload {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   geburtsdatum: string;
@@ -4568,9 +4520,9 @@ export interface FLSchiedsrichterReactivateResponse {
 }
 
 /**
- * One referee record's stored data as its own person reads it: contact details and fee, never the link's bookkeeping.
+ * The referee's own page's read: the record and its fee.
  *
- * For `app/api/spieler/schemas.py :: FLSpielerSelf`'s reason, the account page's entry extends it.
+ * The fee is this read's alone: the account page shows it nowhere, so its entry extends the record without it.
  */
 export interface FLSchiedsrichterSelf {
   geburtsdatum: string | null;
@@ -5422,16 +5374,6 @@ export interface FLSpieleAdminSingleResponse {
 
 export interface FLSpieleSingleResponse {
   spiel: FLSpielJoined;
-}
-
-/**
- * The record as it stands after the write, everything the person did not move unchanged.
- */
-export interface FLSpielerAccountEinwilligungResponse {
-  einwilligung: FLEinwilligung;
-  nachweis_stand: FLEinwilligungStand;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  spieler_id: string;
 }
 
 /**

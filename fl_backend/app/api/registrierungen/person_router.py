@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Annotated, Any
 
 from bson import ObjectId
-from fastapi import APIRouter, Body, Depends, Query
+from fastapi import APIRouter, Body, Depends, Query, status
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
@@ -24,7 +24,6 @@ from app.api.registrierungen.schemas import (
     FLOffeneRegistrierungenParams,
     FLOpenRegistrierung,
     FLOpenRegistrierungenResponse,
-    FLRegistrierungAccountEinwilligungResponse,
     FLRegistrierungAdmissionResponse,
     FLRegistrierungAdmitPayload,
     FLRegistrierungDeclinePayload,
@@ -77,7 +76,7 @@ from app.core.recording import log_stamp
 from app.core.routing import by_id
 from app.core.security import erasure_journal_hash, verify_access_admin
 from app.core.transactions import transaction_session
-from app.shared.einwilligung_nachweis import FLEinwilligungChoice, nachweis_stand_of
+from app.shared.einwilligung_nachweis import FLEinwilligungChoice
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.custom import CustomRouteObjectId
 from app.shared.schemas.einwilligung import FLAccountEinwilligungPayload, by_choice
@@ -442,7 +441,7 @@ spieler_router = APIRouter(
 
 @spieler_router.patch(
     f"{by_id('registrierung_id')}/einwilligung",
-    response_model=FLRegistrierungAccountEinwilligungResponse,
+    status_code=status.HTTP_204_NO_CONTENT,
     summary="Withdraw a pupil's own publication and media consent on their pending registration",
 )
 async def patch_einwilligung(
@@ -453,7 +452,7 @@ async def patch_einwilligung(
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
     germany_now: datetime = Depends(get_germany_now),
-) -> FLRegistrierungAccountEinwilligungResponse:
+) -> None:
     """Withdraw the publication scope or the media consent the signed-in pupil gave on their own pending registration.
 
     A grant is refused, and a PATCH moving neither writes nothing. Refuses, writing nothing: `role_not_held`,
@@ -466,7 +465,7 @@ async def patch_einwilligung(
     journal = Journal()
 
     @journal.attempted
-    async def write(session: AsyncClientSession) -> FLRegistrierungAccountEinwilligungResponse:
+    async def write(session: AsyncClientSession) -> None:
         # By the id alone: the predicate judges the status, the fold, the confirmation and the choices.
         row = await registrierungen_collection.find_one(
             {"_id": registrierung_id}, projection={"status": 1, "email": 1, "einwilligung": 1}, session=session
@@ -490,17 +489,14 @@ async def patch_einwilligung(
         update = compose_person_move(
             gespeichert=gespeichert, gewaehlt=gewaehlt, am=am, text_versions=by_choice(einwilligung_data.text_versions)
         )
-        updated = (
-            None
-            if update is None
-            else await patch_one_in_db(
+        if update is not None:
+            await patch_one_in_db(
                 collection=registrierungen_collection,
                 db_filter={"_id": row["_id"]},
                 update=update,
                 session=session,
-                return_document=ReturnDocument.AFTER,
+                return_document=ReturnDocument.BEFORE,
             )
-        )
         line = widerruf_line(
             person_hash=erasure_journal_hash(identifier, key=config.sperrliste_key),
             collection=Collection.REGISTRIERUNGEN,
@@ -512,17 +508,7 @@ async def patch_einwilligung(
         )
         if line is not None:
             journal.note(line)
-        # A press moving neither choice is no act, so nothing was written and the record answers as stored.
-        einwilligung = gespeichert if updated is None else updated["einwilligung"]
-
-        return FLRegistrierungAccountEinwilligungResponse.model_validate(
-            {
-                "registrierung_id": row["_id"],
-                "einwilligung": einwilligung,
-                "nachweis_stand": nachweis_stand_of(bloecke=[einwilligung]),
-            }
-        )
 
     async with journal:
         async with transaction_session(db) as session:
-            return await session.with_transaction(write)
+            await session.with_transaction(write)

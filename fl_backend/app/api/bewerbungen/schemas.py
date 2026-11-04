@@ -33,7 +33,7 @@ from app.shared.schemas.custom import (
     parse_empty_string_to_none,
     validate_external_url,
 )
-from app.shared.schemas.einwilligung import FLEinwilligungStand, FLSeatTextVersions, refuse_a_stale_grant
+from app.shared.schemas.einwilligung import FLSeatTextVersions, refuse_a_stale_grant
 from app.shared.schemas.kontakt import CustomEmail
 
 # Imported rather than restated: an application's three people BECOME the junction's three people at
@@ -41,7 +41,6 @@ from app.shared.schemas.kontakt import CustomEmail
 # no model in `teams` imports this slice.
 from app.shared.schemas.literals import (
     FLGruppenNames,
-    FLKontaktKenntnisnahmeUmfang,
     FLKontaktRolle,
     FLKontaktRow,
     FLSchulform,
@@ -692,14 +691,3 @@ class FLBewerbungSweepResponse(BaseAPIResponse):
     redacted_action_log: int
     # One sum over every clock rather than a count a clock: the line logging each row names its clock.
     failed: int
-
-
-class FLBewerbungAccountEinwilligungResponse(BaseAPIResponse):
-    """Which of the application's seats the withdrawal reached, and the two answers they now all hold."""
-
-    bewerbung_id: CustomObjectId
-    rollen: list[FLKontaktRolle]
-    umfang: FLKontaktKenntnisnahmeUmfang
-    medien: bool
-    # The precondition a next press on this application echoes.
-    nachweis_stand: FLEinwilligungStand

@@ -8,7 +8,7 @@ from app.shared.schemas.bounds import (
     SAISON_ID_LENGTH,
 )
 from app.shared.schemas.custom import CustomDateString, CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
-from app.shared.schemas.einwilligung import FLEinwilligungNachweise, FLEinwilligungStand, FLSpielerTextVersions, cite_their_kind
+from app.shared.schemas.einwilligung import FLEinwilligungNachweise, FLSpielerTextVersions, cite_their_kind
 from app.shared.schemas.kontakt import CustomKontaktName
 from app.shared.schemas.literals import (
     FLAddressChangeViewableDenied,
@@ -428,12 +428,3 @@ class FLSpielerSelfResponse(BaseAPIResponse):
     """The signed-in address's own pupil record: one at most, `spieler.email` being unique."""
 
     spieler: FLSpielerSelf
-
-
-class FLSpielerAccountEinwilligungResponse(BaseAPIResponse):
-    """The record as it stands after the write, everything the person did not move unchanged."""
-
-    spieler_id: CustomObjectId
-    einwilligung: FLEinwilligung
-    # The precondition a next press on this page echoes.
-    nachweis_stand: FLEinwilligungStand

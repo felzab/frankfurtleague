@@ -2,10 +2,11 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.api.adresswechsel.schemas import FLAddressChangeApprovalState
 from app.api.berechtigungen.schemas import FLUtcInstant
+from app.api.schiedsrichter.schemas import FLSchiedsrichterSelfPerson
 from app.api.spieler.schemas import FLSpielerSelfPerson
-from app.shared.schemas.custom import CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
+from app.shared.schemas.custom import CustomObjectId, CustomOptionalDateString
 from app.shared.schemas.einwilligung import FLEinwilligungStand
-from app.shared.schemas.kontakt import CustomEmail, FLKontakt
+from app.shared.schemas.kontakt import CustomEmail
 from app.shared.schemas.literals import (
     FLAddressChangeWaitsOn,
     FLAddressChangeWay,
@@ -13,7 +14,7 @@ from app.shared.schemas.literals import (
     FLKontaktKenntnisnahmeUmfang,
     FLKontaktRolle,
 )
-from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
+from app.shared.schemas.responses import BaseAPIResponse
 
 
 class FLAccountEinwilligung(BaseModel):
@@ -41,18 +42,9 @@ class FLAccountSpielerEinwilligung(FLSpielerSelfPerson):
     medien_minimum_age: int = Field(gt=0)
 
 
-class FLAccountSchiedsrichterEinwilligung(BaseReadModel):
-    """One referee record on the account page: the stored data its box shows and the consent the page moves.
+class FLAccountSchiedsrichterEinwilligung(FLSchiedsrichterSelfPerson):
+    """One referee record on the account page: the stored data its box shows and the consent the page moves."""
 
-    Its own shape rather than `app/api/schiedsrichter/schemas.py :: FLSchiedsrichterSelf`'s, whose fee the confirmation
-    page lists and this box does not.
-    """
-
-    schiedsrichter_id: CustomObjectId
-    name: CustomNonEmptyString
-    schule: str | None
-    kontakt: FLKontakt
-    geburtsdatum: CustomOptionalDateString = None
     einwilligung: FLAccountEinwilligung
     nachweis_stand: FLEinwilligungStand
     givable: bool

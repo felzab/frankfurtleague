@@ -18,7 +18,7 @@ from app.api.identity.schemas import FLSubjectSeat
 from app.api.identity.services import eigene_sitze, holds_a_seat, ist_eigene_registrierung, saison_status_lookup
 from app.api.kontakte.services import rows_seating
 from app.api.registrierungen.services import build_eigene_registrierung_filter, traegt_wahlen
-from app.api.schiedsrichter.services import SELF_REFEREE_ORDER, build_self_referee_pipeline
+from app.api.schiedsrichter.services import EINWILLIGUNG_FELD, SELF_REFEREE_ORDER, build_self_referee_filter
 from app.api.spieler.services import SELF_PUPIL_ORDER, build_self_pupil_filter
 from app.core.codes import Code
 from app.core.collections import Collection as DbCollection
@@ -267,6 +267,19 @@ def compose_schiedsrichter_self(row: Mapping[str, Any]) -> dict[str, Any]:
     return {**_compose_schiedsrichter_person(row), "honorar": row["default_payment"]}
 
 
+def build_account_referee_pipeline(identifier: str) -> list[Mapping[str, Any]]:
+    """This address's referee rows as their account entries and the Funktionen the page judges a grant by read them.
+
+    Its own rather than `app/api/schiedsrichter/services.py :: build_self_referee_pipeline`, whose projection takes the fee
+    for an entry serving none.
+    """
+
+    return [
+        {"$match": build_self_referee_filter(identifier)},
+        {"$project": {"name": 1, "schule": 1, "kontakt": 1, "geburtsdatum": 1, "inactive_since": 1, EINWILLIGUNG_FELD: 1}},
+    ]
+
+
 def compose_schiedsrichter_account(row: Mapping[str, Any], *, givable: bool, today: str) -> dict[str, Any]:
     """One referee row's account entry: its stored data and its consent, never its fee, which the page shows nowhere."""
 
@@ -502,7 +515,7 @@ def _arm(arm: AccountArm, pipeline: Sequence[Mapping[str, Any]], *, order: Mappi
 def build_account_pipeline(identifier: str) -> list[Mapping[str, Any]]:
     """The account page's read, run on `spieler`, each arm tagged and ranked.
 
-    The pupil's and the referee's rows by their own pages' selections, and the season rows, pending applications and
+    The pupil's and the referee's rows by the selections their account entries read, and the season rows, pending applications and
     registrations seating the address. Each arm is sorted last, after its lookups, so no stage after it moves its order.
     """
 
@@ -511,7 +524,7 @@ def build_account_pipeline(identifier: str) -> list[Mapping[str, Any]]:
         {
             "$unionWith": {
                 "coll": DbCollection.SCHIEDSRICHTER,
-                "pipeline": _arm("schiedsrichter", build_self_referee_pipeline(identifier), order=SELF_REFEREE_ORDER),
+                "pipeline": _arm("schiedsrichter", build_account_referee_pipeline(identifier), order=SELF_REFEREE_ORDER),
             }
         },
         {"$unionWith": {"coll": DbCollection.SAISON_TEAMS, "pipeline": _arm("seats", build_self_seat_pipeline(identifier), order=SEAT_ORDER)}},

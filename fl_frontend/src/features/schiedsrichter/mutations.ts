@@ -14,7 +14,6 @@ import type {
   FLPostSchiedsrichterPayload,
   FLPostSchiedsrichterResponse,
   FLSchiedsrichterAccountEinwilligungPayload,
-  FLSchiedsrichterAccountEinwilligungResponse,
   FLSchiedsrichterConfirmationPayload,
   FLSchiedsrichterConfirmationResponse,
   FLSchiedsrichterConfirmationViewResponse,
@@ -73,6 +72,6 @@ export async function postSchiedsrichterBestaetigung(
 export async function patchSchiedsrichterKontoEinwilligung(
   schiedsrichterId: string,
   payload: FLSchiedsrichterAccountEinwilligungPayload,
-): Promise<FLSchiedsrichterAccountEinwilligungResponse> {
+): Promise<void> {
   return schiedsrichterPatchEinwilligung(schiedsrichterId, payload);
 }

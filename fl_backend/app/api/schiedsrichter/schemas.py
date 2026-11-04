@@ -14,7 +14,7 @@ from app.shared.schemas.custom import (
     CustomOptionalDateString,
     CustomOptionalString,
 )
-from app.shared.schemas.einwilligung import FLEinwilligungStand, FLSchiedsrichterTextVersions, cite_their_kind, refuse_a_stale_grant
+from app.shared.schemas.einwilligung import FLSchiedsrichterTextVersions, cite_their_kind, refuse_a_stale_grant
 from app.shared.schemas.kontakt import CustomKontaktName, FLKontakt, FLKontaktPayload
 from app.shared.schemas.literals import FLAddressChangeViewableDenied, FLConfirmationState, FLEinwilligungUmfang, FLSortOrder
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
@@ -203,31 +203,30 @@ class FLSchiedsrichterSingleResponse(BaseAPIResponse):
     delivery: FLOutboxStatus | None
 
 
-class FLSchiedsrichterSelf(BaseReadModel):
-    """One referee record's stored data as its own person reads it: contact details and fee, never the link's bookkeeping.
+class FLSchiedsrichterSelfPerson(BaseReadModel):
+    """One referee record's stored data as its own person reads it: contact details, never the link's bookkeeping.
 
-    For `app/api/spieler/schemas.py :: FLSpielerSelf`'s reason, the account page's entry extends it.
+    Its consent is the account page's, whose entry `app/api/account/schemas.py :: FLAccountSchiedsrichterEinwilligung` extends this.
     """
 
     schiedsrichter_id: CustomObjectId
     name: CustomNonEmptyString
     schule: str | None
     kontakt: FLKontakt
+    geburtsdatum: CustomOptionalDateString = None
+
+
+class FLSchiedsrichterSelf(FLSchiedsrichterSelfPerson):
+    """The referee's own page's read: the record and its fee.
+
+    The fee is this read's alone: the account page shows it nowhere, so its entry extends the record without it.
+    """
+
     # `default_payment`, named as the screen names it: the confirmation page lists it among what is stored.
     honorar: int
-    geburtsdatum: CustomOptionalDateString = None
 
 
 class FLSchiedsrichterSelfResponse(BaseAPIResponse):
     """Every confirmed referee record the signed-in address holds, the ghost never among them."""
 
     schiedsrichter: list[FLSchiedsrichterSelf]
-
-
-class FLSchiedsrichterAccountEinwilligungResponse(BaseAPIResponse):
-    """The record as it stands after the write, everything the person did not move unchanged."""
-
-    schiedsrichter_id: CustomObjectId
-    einwilligung: FLEinwilligung
-    # For `app/api/spieler/schemas.py :: FLSpielerAccountEinwilligungResponse`'s reason.
-    nachweis_stand: FLEinwilligungStand
