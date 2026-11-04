@@ -91,6 +91,10 @@ const SCHIEDSRICHTER = "Schiedsrichter";
 const KADER = "Kader";
 // The privacy notice's title, which the deletion box's sentence names as the place listing what outlives an erasure.
 const PRIVACY_NOTICE = "Datenschutz";
+// A season's name, `shared`'s entry, which the application page's title names its season by.
+const saisonName = (id: string) => `Saison ${id}`;
+// A team's season, Deine Einträge's fact, which the deletion list's label for a registration names it by.
+const teamSeason = (team: Words, saison: Copy) => `${textOf(team)}, ${saison}`;
 
 /**
  * A range's end: a figure, or a year, which as a season id takes no thousands separator. A year is data, never a
@@ -256,7 +260,7 @@ export const COPY = catalogue({
     /** The season button's menu. */
     saison: "Saison",
     /** A season by its id, which is its year and so takes no thousands separator: „Saison 2027“. */
-    saisonName: (id: string) => `Saison ${id}`,
+    saisonName,
 
     /** The bot check before a public send: refused, disturbed, not yet done, or not loaded at all. */
     botCheck: {
@@ -307,7 +311,7 @@ export const COPY = catalogue({
     registrierungConfirmation: "Registrierung bestätigen",
     accountErasure: "Konto löschen",
     registrierung: "Registrierung",
-    bewerbung: (saison: string) => `Bewerbung Saison ${saison}`,
+    bewerbung: (saison: string) => `Bewerbung ${saisonName(saison)}`,
   },
 
   // Redesign: goes with its last importer.
@@ -488,7 +492,7 @@ export const COPY = catalogue({
       noApprover: "Gerade kann niemand aus der Verwaltung die Änderung genehmigen.",
     },
     erasure: {
-      // What outlives an erasure is the privacy notice's to list, as the deletion mail and its page point there.
+      // What outlives an erasure is the privacy notice's to list. The deletion mail reads this sentence, and the done page says it in the done state.
       description: `Dein Konto und deine Angaben werden gelöscht, bis auf das, was unter „${PRIVACY_NOTICE}“ steht.`,
       consequence: "Den Link zum Löschen bekommst du per E-Mail.",
     },
@@ -545,14 +549,14 @@ export const COPY = catalogue({
         registrierung: "Deine Registrierung als Spielerin oder Spieler und was davon öffentlich ist.",
         schiedsrichter: "Dein Eintrag als Schiedsrichterin oder Schiedsrichter und was davon öffentlich ist.",
         /** A seat on a team's season and a seat in an application alike, by the seats held, in the seats' order. */
-        seat: (rollen: readonly FLKontaktRolle[]) => `Dein Eintrag als ${rollenText(rollen)} und wie die Liga dich erreicht.`,
+        seat: (rollen: readonly FLKontaktRolle[]) => `Dein Eintrag als ${rollenText(rollen)} und wie wir dich erreichen.`,
       },
       /** The facts an entry box shows of its record. */
       facts: { birthday: "Geburtsdatum", phone: "Telefon", school: "Schule", team: "Team" },
       /** Under the media box of a person short of its floor, who may not give that choice yet. */
       mediaFrom: (age: number) => `Erst ab ${formatNumber(age)} Jahren`,
       /** A seat's or a registration's team season: „Birkenschule, Saison 2027“. */
-      teamSeason: (team: Words, saison: Copy) => `${textOf(team)}, ${saison}`,
+      teamSeason,
       /**
        * The labels the deletion's list names an address's records by (`fl_frontend/src/app/(classic)/erasure/page.tsx`),
        * each the person's part in the record: one row per label, holding the records it names.
@@ -565,7 +569,7 @@ export const COPY = catalogue({
       bewerbung: (saison: Copy) => `Bewerbung für die ${saison}`,
       /** A pupil's registration, by its team where the team still stands. */
       registrierung: (team: Words | null, saison: Copy) =>
-        team === null ? `Registrierung für die ${saison}` : `Registrierung für ${textOf(team)}, ${saison}`,
+        team === null ? `Registrierung für die ${saison}` : `Registrierung für ${teamSeason(team, saison)}`,
       /** One label's records, where an address holds several under it. */
       several: (records: readonly Words[]) => formatList(records.map(textOf)),
     },

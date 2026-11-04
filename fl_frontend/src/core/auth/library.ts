@@ -84,7 +84,10 @@ const CODE_SIGN_IN_FIELDS: ReadonlySet<string> = new Set(["email", "otp"]);
 /** The one path that mails a code, which `fl_frontend/src/features/auth/actions.ts :: handleSignIn` calls in process. */
 const CODE_SEND_PATH = "/email-otp/send-verification-otp";
 
-/** The one path that mails a deletion link, without a token, and completes one with it, both called in process. */
+/**
+ * The one path that mails a deletion link, called in process without a token; a press completes the link through
+ * `/delete-user/callback`, also called in process (`fl_frontend/src/core/auth/accounts.ts :: deleteOwnAccount`).
+ */
 const DELETE_USER_PATH = "/delete-user";
 
 /** The library's answer to a mailed link, which a capped request answers too (`better-auth/api :: deleteUser`). */
