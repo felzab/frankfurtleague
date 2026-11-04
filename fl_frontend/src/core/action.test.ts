@@ -44,6 +44,8 @@ vi.mock("next/server", async (original) => {
   return {
     ...(await original<object>()),
     after: (task: () => Promise<void>) => void state.behind.push(AsyncLocalStorage.bind(task)),
+    // Awaited by `runWithIncomingTrace` ahead of the action's body.
+    connection: () => Promise.resolve(),
   };
 });
 vi.mock("./mail", () => ({ drainOutbox: async () => undefined }));

@@ -69,6 +69,8 @@ const HEADERS_DOUBLE = { headers: () => Promise.resolve(requestHeaders) };
  */
 const NEXT_SERVER_DOUBLE = overriding("next/server", {
   after: () => (task: () => Promise<void>) => void deferred.push(task),
+  // Awaited by `runWithIncomingTrace` ahead of the action's body.
+  connection: () => () => Promise.resolve(),
 });
 
 // Recorded rather than sent: the send is what parts the two branches, so a file that cannot see it
