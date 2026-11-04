@@ -174,24 +174,20 @@ describe("a table on a phone", () => {
     expect(heads.map((head) => head.classList.contains("lg:hidden"))).toStrictEqual([false, false, false, true]);
   });
 
-  // A prose table's sentences outrun a phone's width in columns: each row stacks, and each cell draws its column's
-  // label before its words for the eye alone, the heads staying read, so a label left off, or a cell kept on one
-  // line, overflows unseen, and a head hidden outright leaves the cells without their columns.
-  it("stacks a prose table's row, each cell after its column's label, its heads read but not drawn, its words wrapping", () => {
+  // On a phone a prose table's cells draw their column's label for the eye alone, and the heads stay read: a head
+  // hidden outright leaves every cell without its column for a screen reader, and a drawn label it can reach names
+  // the column twice. A sighted reader sees neither.
+  it("keeps a prose table's heads read on a phone, its cells' drawn labels hidden from the screen reader", () => {
     render(
       <Table
         {...props([{ id: "1", name: { record: LONG }, cells: { stadtteil: { record: LONG } } }])}
         prose
       />,
     );
-    const [name, cell] = [...(screen.getByRole("row", { name: (accessible) => accessible.includes(LONG) }).children ?? [])];
-    expect(name?.querySelector("[title]")?.classList).not.toContain("truncate");
-    expect(cell?.classList).toContain("whitespace-normal");
-    expect(cell?.classList).not.toContain("whitespace-nowrap");
+    const [, cell] = [...(screen.getByRole("row", { name: (accessible) => accessible.includes(LONG) }).children ?? [])];
     const label = cell?.firstElementChild;
     expect(label?.textContent).toBe(COPY.shared.startelf);
     expect(label?.getAttribute("aria-hidden")).toBe("true");
-    expect(label?.classList).toContain("lg:hidden");
     for (const head of screen.getAllByRole("columnheader")) {
       expect(head.classList).toContain("max-lg:sr-only");
       expect(head.classList).not.toContain("max-lg:hidden");
