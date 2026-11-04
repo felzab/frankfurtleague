@@ -4,11 +4,10 @@ import { Link } from "./Link";
 
 import type { Copy } from "@/core/copy";
 import type { Route } from "next";
-import type { IconName } from "./Icon";
 
 /**
- * The league's three ways to write to it, on one line, all three the control's height: the e-mail button,
- * then Instagram and Threads as glyphs alone, each named by its tooltip and opening in a new tab, as `Link`
+ * The league's three ways to write to it, on one line, all three the control's height: the e-mail button led
+ * by the mail glyph, then Instagram and Threads as glyphs alone, each named by its tooltip and opening in a new tab, as `Link`
  * opens every other site.
  */
 export function SocialButtons({
@@ -16,11 +15,8 @@ export function SocialButtons({
   instagram,
   threads,
 }: {
-  /**
-   * The mail link, its words the address. Board: whether it leads with a glyph, and which, is owed; it
-   * ships without one.
-   */
-  email: { label: Copy; href: Route; glyph?: IconName };
+  /** The mail link, its words the address. */
+  email: { label: Copy; href: Route };
   instagram: Route;
   threads: Route;
 }) {
@@ -30,7 +26,7 @@ export function SocialButtons({
         href={email.href}
         placement="button"
         look="secondary"
-        leadingIcon={email.glyph}
+        leadingIcon="email"
         label={email.label}
       />
       <Link
