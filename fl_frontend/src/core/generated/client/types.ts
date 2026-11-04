@@ -360,8 +360,6 @@ export interface FLAccountBewerbungSeatEinwilligung {
   /** @pattern ^[0-9a-fA-F]{24}$ */
   bewerbung_id: string;
   medien: boolean;
-  /** @exclusiveMinimum 0 */
-  medien_minimum_age: number;
   nachweis_stand: FLEinwilligungStand;
   /** @minItems 1 */
   rollen: FLKontaktRolle[];
@@ -430,8 +428,6 @@ export const FLSpielerStufe = {
 export interface FLAccountRegistrierungEinwilligung {
   geburtsdatum: string | null;
   medien: boolean | null;
-  /** @exclusiveMinimum 0 */
-  medien_minimum_age: number;
   nachname: string;
   nachweis_stand: FLEinwilligungStand;
   nummer: string | null;

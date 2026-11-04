@@ -84,8 +84,6 @@ class FLAccountBewerbungSeatEinwilligung(BaseModel):
     umfang: FLKontaktKenntnisnahmeUmfang
     medien: bool
     nachweis_stand: FLEinwilligungStand
-    # The media floor every entry serves, though the page names none on a withdraw-only entry, which grants nothing.
-    medien_minimum_age: int = Field(gt=0)
 
 
 class FLAccountRegistrierungEinwilligung(BaseModel):
@@ -101,8 +99,6 @@ class FLAccountRegistrierungEinwilligung(BaseModel):
     umfang: FLEinwilligungUmfang | None
     medien: bool | None
     nachweis_stand: FLEinwilligungStand
-    # The media floor every entry serves, though the page names none on a withdraw-only entry, which grants nothing.
-    medien_minimum_age: int = Field(gt=0)
     # As the registration stores them: the account page shows what is kept about the pupil.
     vorname: str
     nachname: str

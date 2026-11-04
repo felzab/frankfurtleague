@@ -26,7 +26,6 @@ from app.core.config import API_VERSION
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.main import create_app
 from app.shared.folding import sign_in_identifier
-from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS
 from tests.app_client import app_client
 from tests.config import ADMIN_KEY
 from tests.database import a_clean_database, on_the_seed_loop
@@ -297,7 +296,6 @@ def test_the_account_page_serves_a_registration_as_its_pupil_stored_it(mongo_rep
         "saison_id": ACTIVE,
         "umfang": "kader_oeffentlich",
         "medien": True,
-        "medien_minimum_age": MEDIEN_MIN_AGE_YEARS,
         "vorname": "Wiltrudis",
         "nachname": "Ehrenpreis",
         "geburtsdatum": "2008-05-09",

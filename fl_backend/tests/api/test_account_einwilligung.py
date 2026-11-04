@@ -933,7 +933,6 @@ class TestAPendingApplicationsSeats:
                 "umfang": "kontaktdaten",
                 "medien": True,
                 "nachweis_stand": _seated_stand(2),
-                "medien_minimum_age": MEDIEN_MIN_AGE_YEARS,
             }
         ]
 

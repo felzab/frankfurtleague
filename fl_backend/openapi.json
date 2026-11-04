@@ -513,11 +513,6 @@
             "title": "Medien",
             "type": "boolean"
           },
-          "medien_minimum_age": {
-            "exclusiveMinimum": 0.0,
-            "title": "Medien Minimum Age",
-            "type": "integer"
-          },
           "nachweis_stand": {
             "$ref": "#/components/schemas/FLEinwilligungStand"
           },
@@ -548,8 +543,7 @@
           "rollen",
           "umfang",
           "medien",
-          "nachweis_stand",
-          "medien_minimum_age"
+          "nachweis_stand"
         ],
         "title": "FLAccountBewerbungSeatEinwilligung",
         "type": "object"
@@ -885,11 +879,6 @@
             ],
             "title": "Medien"
           },
-          "medien_minimum_age": {
-            "exclusiveMinimum": 0.0,
-            "title": "Medien Minimum Age",
-            "type": "integer"
-          },
           "nachname": {
             "title": "Nachname",
             "type": "string"
@@ -976,7 +965,6 @@
           "umfang",
           "medien",
           "nachweis_stand",
-          "medien_minimum_age",
           "vorname",
           "nachname",
           "geburtsdatum",

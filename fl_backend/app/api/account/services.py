@@ -389,7 +389,6 @@ def compose_bewerbungssitze_self(
                 "saison_id": row["saison_id"],
                 "rollen": rollen,
                 **_sitz_wahlen_gehalten(held),
-                "medien_minimum_age": MEDIEN_MIN_AGE_YEARS,
             }
         )
 
@@ -445,7 +444,6 @@ def compose_registrierungen_self(
                 "saison_id": row["saison_id"],
                 "umfang": block.get("umfang"),
                 "medien": is_given("medien", block.get("medien")) if traegt_wahlen(block) else None,
-                "medien_minimum_age": MEDIEN_MIN_AGE_YEARS,
                 "nachweis_stand": nachweis_stand_of(bloecke=[block]),
                 **{field: row.get(field) for field in ("vorname", "nachname", "geburtsdatum", "nummer", "position", "stufe")},
             }
