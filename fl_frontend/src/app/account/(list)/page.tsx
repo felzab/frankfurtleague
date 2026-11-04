@@ -4,7 +4,7 @@ import { ROUTES } from "@/core/routes";
 import { requireAccountSession } from "@/features/konto/account";
 import { pageMetadata } from "@/shared/utils/metadata";
 
-import { KONTO_ENTRIES } from "../entries";
+import { ACCOUNT_ENTRIES } from "../entries";
 
 import type { Metadata, ResolvingMetadata } from "next";
 
@@ -13,16 +13,16 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
 }
 
 /** The list, once the session is judged: it reads nothing else. */
-async function KontoList() {
+async function AccountListContent() {
   await requireAccountSession(ROUTES.account.path());
-  return <AccountList entries={KONTO_ENTRIES} />;
+  return <AccountList entries={ACCOUNT_ENTRIES} />;
 }
 
 /** Konto's list of its four pages, which a phone opens on. */
-export default function KontoListPage() {
+export default function AccountListPage() {
   return (
     <AccountPage route="account">
-      <KontoList />
+      <AccountListContent />
     </AccountPage>
   );
 }

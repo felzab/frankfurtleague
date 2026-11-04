@@ -1,12 +1,11 @@
 import "server-only";
 
 import { BRAND_NAME, mailOrigin } from "./emailShell";
+import { ROUTES } from "./routes";
 
 import type { Mail } from "./emailShell";
 import type { FLRegistrierungAbsageData, FLRegistrierungLinkData } from "./generated/client/types";
 import type { MailLink, MailOrigin } from "./mailKinds";
-
-const SPIELER_BESTAETIGUNG_PATH = "/confirm/spieler";
 
 // Beside the builders that spend it rather than in the slice: `core` may not import a feature.
 
@@ -17,7 +16,7 @@ const SPIELER_BESTAETIGUNG_PATH = "/confirm/spieler";
  * a second spelling reaches the access line and the referer unredacted.
  */
 function spielerBestaetigungsLink(origin: string, token: string): string {
-  return `${origin}${SPIELER_BESTAETIGUNG_PATH}?token=${encodeURIComponent(token)}`;
+  return `${origin}${ROUTES.registrierungConfirmation.path()}?token=${encodeURIComponent(token)}`;
 }
 
 /**

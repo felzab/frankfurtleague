@@ -9,11 +9,11 @@ import { requireAccountSession } from "@/features/konto/account";
 import { getKontoAdresswechsel, getLoeschungAnsicht } from "@/features/konto/queries";
 import { pageMetadata } from "@/shared/utils/metadata";
 
-import { AnmeldungBoxes } from "./AnmeldungBoxes";
+import { SignInBoxes } from "./SignInBoxes";
 
 import type { FLAccountAddressChangeOpen } from "@/core/generated/client/types";
 import type { Metadata, ResolvingMetadata } from "next";
-import type { Pending } from "./AnmeldungBoxes";
+import type { Pending } from "./SignInBoxes";
 
 export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
   return pageMetadata(parent, ROUTES.accountSignIn, ROUTES.accountSignIn.path());
@@ -34,7 +34,7 @@ function pendingOf(open: FLAccountAddressChangeOpen): Pending {
 }
 
 /** The address and the deletion, read for the session the page is drawn for. */
-async function Anmeldung() {
+async function SignInContent() {
   const { subject, served } = await requireAccountSession(ROUTES.accountSignIn.path());
   const [change, held, lastOwner] = await Promise.all([
     getKontoAdresswechsel(),
@@ -43,7 +43,7 @@ async function Anmeldung() {
     subject.subject.verwaltung === "owner" ? getLoeschungAnsicht().then((view) => view.last_owner) : false,
   ]);
   return (
-    <AnmeldungBoxes
+    <SignInBoxes
       email={subject.email}
       pending={change.open === null ? null : pendingOf(change.open)}
       held={held}
@@ -54,10 +54,10 @@ async function Anmeldung() {
 }
 
 /** Anmeldung: the address the person signs in with, and „Konto löschen“. */
-export default function AnmeldungPage() {
+export default function AccountSignInPage() {
   return (
     <AccountPage route="accountSignIn">
-      <Anmeldung />
+      <SignInContent />
     </AccountPage>
   );
 }

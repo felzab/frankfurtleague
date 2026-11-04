@@ -48,10 +48,13 @@ export function RadioGroup({
   value,
   defaultValue,
   onChange,
+  "aria-describedby": describedBy,
   ...answers
 }: {
   label: Words;
   description?: Copy;
+  /** A line outside the group describing it, such as a consent's, by its id; read with the description's own. */
+  "aria-describedby"?: string;
   isRequired?: boolean;
   isDisabled?: boolean;
   name?: string;
@@ -62,6 +65,7 @@ export function RadioGroup({
   return (
     <AriaRadioGroup
       className={fieldRoot()}
+      aria-describedby={describedBy}
       name={name}
       value={value}
       defaultValue={defaultValue}

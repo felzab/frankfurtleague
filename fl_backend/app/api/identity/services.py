@@ -14,7 +14,7 @@ from bson import ObjectId
 
 from app.api.berechtigungen.services import OWNER, holds_an_owners_power, verwaltung_des
 from app.api.bewerbungen.services import build_eigene_bewerbung_filter
-from app.api.identity.schemas import FLAccountErasureView, FLLoeschungAnsicht, FLSubjectSeat, FLSubjekt
+from app.api.identity.schemas import FLAccountErasureView, FLErasureView, FLSubjectSeat, FLSubjekt
 from app.api.kontakte.services import rows_seating
 from app.api.registrierungen.services import SUBMITTED, build_eigene_registrierung_filter, build_loeschung_registrierung_filter
 from app.api.schiedsrichter.services import (
@@ -230,7 +230,7 @@ def _kader_entry(row: Mapping[str, Any], team_names: Mapping[tuple[Any, Any], An
     }
 
 
-def compose_loeschung_ansicht(
+def compose_account_erasure_view(
     identifier: str,
     *,
     saison_team_rows: Sequence[Mapping[str, Any]],
@@ -257,7 +257,7 @@ def compose_loeschung_ansicht(
     )
 
 
-def compose_loeschung_ansicht_auf_anfrage(
+def compose_erasure_view(
     identifier: str,
     *,
     saison_team_rows: Sequence[Mapping[str, Any]],
@@ -273,7 +273,7 @@ def compose_loeschung_ansicht_auf_anfrage(
     kader_rows: Sequence[Mapping[str, Any]],
     team_rows: Sequence[Mapping[str, Any]],
     unplayed_rows: Sequence[Mapping[str, Any]],
-) -> FLLoeschungAnsicht:
+) -> FLErasureView:
     """The administrator's reveal, from the rows the erasure's own subject read holds, by the ids the page links each record by.
 
     The pending changes are named, never counted: the page links each row to the tool acting on it.
@@ -281,7 +281,7 @@ def compose_loeschung_ansicht_auf_anfrage(
 
     team_names = _team_names(team_rows)
 
-    return FLLoeschungAnsicht.model_validate(
+    return FLErasureView.model_validate(
         {
             "spieler": [
                 {
@@ -798,7 +798,7 @@ def offene_adressen(registrierung_rows: Iterable[Mapping[str, Any]]) -> frozense
     return frozenset(row["email"] for row in registrierung_rows if row.get("status") == SUBMITTED and isinstance(row.get("email"), str))
 
 
-def loeschung_faellig(*, email: Any, kader_saison_ids: Iterable[str], offene: AbstractSet[str], behalten: frozenset[str] | None) -> bool:
+def erasure_due(*, email: Any, kader_saison_ids: Iterable[str], offene: AbstractSet[str], behalten: frozenset[str] | None) -> bool:
     """Whether one pupil is due, judged in the erasure's own transaction.
 
     A retired squad row keeps its pupil as a live one does: removing a player retires the row.
@@ -807,8 +807,8 @@ def loeschung_faellig(*, email: Any, kader_saison_ids: Iterable[str], offene: Ab
     return behalten is not None and isinstance(email, str) and email not in offene and behalten.isdisjoint(kader_saison_ids)
 
 
-def build_loeschung_pipeline(*, behalten: frozenset[str], offene: AbstractSet[str]) -> list[Mapping[str, Any]]:
-    """Every due pupil's id and address: `loeschung_faellig` as one read.
+def build_erasure_due_pipeline(*, behalten: frozenset[str], offene: AbstractSet[str]) -> list[Mapping[str, Any]]:
+    """Every due pupil's id and address: `erasure_due` as one read.
 
     An addressless pupil is never read: the registry erases by address.
     """
@@ -821,7 +821,7 @@ def build_loeschung_pipeline(*, behalten: frozenset[str], offene: AbstractSet[st
                 "from": DbCollection.SAISON_SPIELER,
                 "localField": "_id",
                 "foreignField": "spieler_id",
-                # Every row, its `inactive_since` unread, for `loeschung_faellig`'s reason.
+                # Every row, its `inactive_since` unread, for `erasure_due`'s reason.
                 "pipeline": [{"$match": {"saison_id": {"$in": sorted(behalten)}}}, {"$limit": 1}, {"$project": {"_id": 1}}],
                 "as": "behalten",
             }
@@ -831,7 +831,7 @@ def build_loeschung_pipeline(*, behalten: frozenset[str], offene: AbstractSet[st
     ]
 
 
-def build_loeschung_seite_pipeline(
+def build_erasure_due_page_pipeline(
     *, behalten: frozenset[str], offene: AbstractSet[str], nach: ObjectId | None, groesse: int
 ) -> list[Mapping[str, Any]]:
     """The due pupils after `nach` in `_id` order, at most `groesse`, beside how many are due in all, as ONE document."""
@@ -839,10 +839,10 @@ def build_loeschung_seite_pipeline(
     seite: list[Mapping[str, Any]] = [{"$sort": {"_id": 1}}, {"$limit": groesse}]
 
     return [
-        *build_loeschung_pipeline(behalten=behalten, offene=offene),
+        *build_erasure_due_pipeline(behalten=behalten, offene=offene),
         {"$facet": {"seite": seite if nach is None else [{"$match": {"_id": {"$gt": nach}}}, *seite], "anzahl": [{"$count": "anzahl"}]}},
     ]
 
 
-def build_loeschung_anzahl_pipeline(*, behalten: frozenset[str], offene: AbstractSet[str]) -> list[Mapping[str, Any]]:
-    return [*build_loeschung_pipeline(behalten=behalten, offene=offene), {"$count": "anzahl"}]
+def build_erasure_due_count_pipeline(*, behalten: frozenset[str], offene: AbstractSet[str]) -> list[Mapping[str, Any]]:
+    return [*build_erasure_due_pipeline(behalten=behalten, offene=offene), {"$count": "anzahl"}]

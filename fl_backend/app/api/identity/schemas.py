@@ -228,9 +228,11 @@ def _trimmed_as_the_page_trims(value: Any) -> Any:
 # stays erasable, a local part beyond ASCII among them. Its domain alone is held to ASCII, as every stored domain is, an
 # international one in punycode: one typed in Unicode is refused with the address rule's own refusal rather than answered
 # as holding nothing.
-LoeschungAdresse = Annotated[
+ErasureAddress = Annotated[
     str,
     StringConstraints(max_length=KONTAKT_EMAIL_MAX_LENGTH, pattern="@"),
+    # Published, since no schema keyword carries the after-validator: a generated client would take the Unicode domain.
+    Field(description="Its domain, after the last `@`, in ASCII alone, an international one in punycode; else `email_not_accepted`."),
     # Never `strip_whitespace`, whose set adds U+0085, which the page keeps: one spelling's records would be erased and
     # another spelling's sign-in account left (`fl_backend/tests/shared/test_email_address.py`).
     BeforeValidator(_trimmed_as_the_page_trims),
@@ -253,7 +255,7 @@ class FLErasureAdressePayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     # In the BODY for `FLSubjectPayload`'s reason.
-    email: LoeschungAdresse
+    email: ErasureAddress
 
 
 class FLErasurePayload(FLErasureAdressePayload):
@@ -335,7 +337,7 @@ class FLErasureViewApprovalRequest(BaseModel):
     rolle: FLLoeschungAntragRolle
 
 
-class FLLoeschungAnsicht(BaseModel):
+class FLErasureView(BaseModel):
     """What the administrator's erasure of one address reaches, by kind, name and the ids the page links by.
 
     Never an address or a birthdate, at any depth.
@@ -351,7 +353,7 @@ class FLLoeschungAnsicht(BaseModel):
     approval_requests: list[FLErasureViewApprovalRequest]
 
 
-class FLErasureViewResponse(FLLoeschungAnsicht, BaseAPIResponse):
+class FLErasureViewResponse(FLErasureView, BaseAPIResponse):
     # The tier of the live grant the address holds, which the erasure removes with the rest.
     verwaltung: FLVerwaltung | None
     # Whether a standing ban holds the address, which the erasure leaves standing: the ban's dialog refuses it before its press.

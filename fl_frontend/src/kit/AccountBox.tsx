@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useRef, useState } from "react";
+import { createContext, useContext, useId, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { Form } from "react-aria-components/Form";
@@ -19,7 +19,7 @@ import { answering, statusOf, useFormAction } from "./useFormAction";
 import { usePasskeyTouch } from "./usePasskeyTouch";
 
 import type { ActionAnswer } from "@/core/action";
-import type { Copy, RecordText, Verb } from "@/core/copy";
+import type { Copy, RecordText, Verb, Words } from "@/core/copy";
 import type { ReactElement, ReactNode } from "react";
 import type { ConfirmDialogProps } from "./ConfirmDialog";
 import type { FormStatus } from "./useFormAction";
@@ -31,7 +31,7 @@ import type { FormStatus } from "./useFormAction";
 type Run = (formData: FormData) => Promise<ActionAnswer<unknown>>;
 
 /** The question an act asks before it runs; its button then carries the question's verb and record. */
-type Question = Omit<ConfirmDialogProps, "trigger" | "onConfirm">;
+type Question = Omit<ConfirmDialogProps, "trigger" | "open" | "onConfirm">;
 
 /** The one act a box's footer holds, beside its status line. */
 export type AccountAct = {
@@ -44,6 +44,8 @@ export type AccountAct = {
   done?: Copy;
   /** Why the act cannot run on the box's present state: the button closed, the line saying it. */
   closed?: Copy;
+  /** What the line says while nothing has answered: why a row's act is closed, which the row's button cannot say. */
+  line?: Copy;
   /** The act saves the box's fields, which the line then says beside its button, „Gespeichert“. */
   saves?: true;
 };
@@ -62,7 +64,7 @@ function lineOf(answer: ActionAnswer<unknown> | null, isBlocked: boolean, isPend
 
 /** An act through the kit's one form wrapper, the passkey touch first where it asks one, its outcome as a line. */
 function useAct({ run, touch = false, done, saves }: Pick<AccountAct, "run" | "touch" | "done" | "saves">) {
-  const { touch: askTouch, isTouching } = usePasskeyTouch(touch);
+  const { run: touched, refusal, isTouching } = usePasskeyTouch(touch);
   const { answer, submit, block, isBlocked, isPending } = useFormAction(
     async (formData: FormData) => {
       const answered = await run(formData);
@@ -71,20 +73,10 @@ function useAct({ run, touch = false, done, saves }: Pick<AccountAct, "run" | "t
     },
     { resetOnLeave: true },
   );
-  // The touch's own refusal: the act never ran, so no answer of its says it.
-  const [untouched, setUntouched] = useState<Copy | null>(null);
 
-  const send = async (formData: FormData) => {
-    setUntouched(null);
-    const refusal = await askTouch();
-    if (refusal !== null) {
-      setUntouched(refusal);
-      return;
-    }
-    submit(formData);
-  };
+  const send = (formData: FormData) => void touched(() => submit(formData));
 
-  const status: FormStatus = untouched !== null ? { tone: "error", text: untouched } : lineOf(answer, isBlocked, isPending, saves === true);
+  const status: FormStatus = refusal !== null ? { tone: "error", text: refusal } : lineOf(answer, isBlocked, isPending, saves === true);
   return { send, block, status, answer, isBusy: isPending || isTouching };
 }
 
@@ -104,17 +96,17 @@ const box = tv({
 
 /**
  * One box of a Konto page, every box the same shape: its 16-px title, one sentence under it saying what the box
- * holds, its content, and a footer band holding the status line and its one act, the secondary button but for an
- * act whose question is a danger's. A box holding one control that acts at once, Darstellung's, is the one
- * exception: its title and sentence at the start and its control at the end of one row, no footer; and a box holding
- * nothing this page acts on, an address change an administrator started, which the old address's stop link ends,
- * shows its content and no footer. A row of the
+ * holds, its content, and a footer band holding the status line and its one act: the primary button for a save,
+ * the danger button for an act whose question is a danger's, the secondary button for every other. A box holding
+ * one control that acts at once, Darstellung's, is the one exception: its title and sentence at the start and its
+ * control at the end of one row, no footer; and a box holding nothing this page acts on, an address change an
+ * administrator started, which the old address's stop link ends, shows its content and no footer. A row of the
  * box (`AccountRows`) answers on the footer's line too. The outcome stands in that line: a refusal in red with the
  * input kept, a field's message under its field; a done act leaves the line empty, the box showing what changed,
  * and the line's answer is cleared once the page is left.
  */
 export function AccountBox(
-  props: { title: Copy; description: Copy } & (
+  props: { title: Words; description: Copy } & (
     { act: AccountAct | undefined; children?: ReactNode; control?: never } | { control: ReactElement; act?: never; children?: never }
   ),
 ) {
@@ -155,18 +147,23 @@ export function AccountBox(
   );
 }
 
+/** A sentence standing on the line in a refusal's red: why an act is closed. */
+const closedLine = (text: Copy): FormStatus => ({ tone: "error", text });
+
 function ActBox({ act, head, children }: { act: AccountAct; head: ReactElement; children?: ReactNode }) {
   const slots = box();
   const { send, block, status, answer, isBusy } = useAct(act);
   // A row's outcome, until the footer's act answers or another row does.
   const [rowStatus, setRowStatus] = useState<FormStatus>(null);
   const form = useRef<HTMLFormElement>(null);
-  const shown = rowStatus ?? (act.closed === undefined ? status : { tone: "error", text: act.closed });
   const isClosed = act.closed !== undefined;
+  // A closed act's line stands whatever its act would say, since it cannot run; the resting line gives way to any answer.
+  const shown =
+    rowStatus ?? (act.closed !== undefined ? closedLine(act.closed) : (status ?? (act.line === undefined ? null : closedLine(act.line))));
 
   const press = () => {
     setRowStatus(null);
-    if (form.current !== null) void send(new FormData(form.current));
+    if (form.current !== null) send(new FormData(form.current));
   };
 
   return (
@@ -194,7 +191,7 @@ function ActBox({ act, head, children }: { act: AccountAct; head: ReactElement; 
           />
           {"label" in act.button ? (
             <Button
-              variant="secondary"
+              variant={act.saves === true ? "primary" : "secondary"}
               type="submit"
               label={act.button.label}
               isBusy={isBusy}
@@ -232,8 +229,12 @@ export function AccountSentence({ parts, record }: { parts: { before: Copy; afte
 /** A row's rename: the dialog asking the one field under the act's title, the field's name its `name`. */
 type Rename = { title: Copy; run: (formData: FormData) => Promise<ActionAnswer>; field: ReactElement };
 
-/** A row's removal: the question first, then the passkey touch where the person holds one, then the act. */
-type Remove = { verb: Verb; subject: Copy; consequence: Copy; touch: boolean; run: () => Promise<ActionAnswer<unknown>> };
+/**
+ * A row's removal: the passkey touch first where the person holds one, then the question, worded from the session
+ * the touch made, then the act. `closed` keeps the button shut where the page knows at render that the act would be
+ * refused; the box's `line` says why.
+ */
+type Remove = { verb: Verb; subject: Copy; consequence: Copy; touch: boolean; closed?: Copy; run: () => Promise<ActionAnswer<unknown>> };
 
 /** One record of a box: its name, the line under it, and its acts as icon buttons at the row's end. */
 export type AccountRow = { id: string; name: RecordText; detail: Copy; rename?: Rename; remove: Remove };
@@ -254,26 +255,45 @@ export function AccountRows({ rows: records }: { rows: ReadonlyArray<AccountRow>
   return (
     <div className={slots.list()}>
       {records.map((record) => (
-        <div
+        <Row
           key={record.id}
-          className={slots.row()}>
-          <div className={slots.words()}>
-            <span
-              className={slots.name()}
-              title={record.name.record}>
-              {record.name.record}
-            </span>
-            <span className={slots.detail()}>{record.detail}</span>
-          </div>
-          {record.rename !== undefined && <RenameAct rename={record.rename} />}
-          <RemoveAct remove={record.remove} />
-        </div>
+          record={record}
+        />
       ))}
     </div>
   );
 }
 
-function RenameAct({ rename }: { rename: Rename }) {
+/** One row: its icon buttons share one name each across the rows, so each is described by its row's name. */
+function Row({ record }: { record: AccountRow }) {
+  const slots = rows();
+  const nameId = useId();
+  return (
+    <div className={slots.row()}>
+      <div className={slots.words()}>
+        <span
+          id={nameId}
+          className={slots.name()}
+          title={record.name.record}>
+          {record.name.record}
+        </span>
+        <span className={slots.detail()}>{record.detail}</span>
+      </div>
+      {record.rename !== undefined && (
+        <RenameAct
+          rename={record.rename}
+          describedBy={nameId}
+        />
+      )}
+      <RemoveAct
+        remove={record.remove}
+        describedBy={nameId}
+      />
+    </div>
+  );
+}
+
+function RenameAct({ rename, describedBy }: { rename: Rename; describedBy: string }) {
   return (
     <Dialog
       title={rename.title}
@@ -283,6 +303,7 @@ function RenameAct({ rename }: { rename: Rename }) {
         <Button
           icon="rename"
           label={COPY.shared.verb.rename}
+          aria-describedby={describedBy}
         />
       }>
       {rename.field}
@@ -290,43 +311,54 @@ function RenameAct({ rename }: { rename: Rename }) {
   );
 }
 
-function RemoveAct({ remove }: { remove: Remove }) {
+function RemoveAct({ remove, describedBy }: { remove: Remove; describedBy: string }) {
   const setLine = useContext(BoxLine);
   const router = useRouter();
-  const { touch: askTouch } = usePasskeyTouch(remove.touch);
-  const [isBusy, setBusy] = useState(false);
+  const { run, isTouching } = usePasskeyTouch(remove.touch);
+  // The touch signed the person in afresh: the page is read again under that session, and the question waits for the
+  // read, so its consequence is worded from the session the act will run under.
+  const [isRefreshing, startRefresh] = useTransition();
+  const [isAsking, setAsking] = useState(false);
+  const [isActing, setActing] = useState(false);
+
+  const ask = async () => {
+    setLine?.(null);
+    const refusal = await run(() => {
+      startRefresh(() => router.refresh());
+      setAsking(true);
+    });
+    if (refusal !== null) setLine?.({ tone: "error", text: refusal });
+  };
 
   const confirm = async () => {
-    setLine?.(null);
-    setBusy(true);
+    setActing(true);
     try {
-      const refusal = await askTouch();
-      if (refusal !== null) {
-        setLine?.({ tone: "error", text: refusal });
-        return;
-      }
       // Through the form wrapper's own answering, so a throw reads the page again as every act's does.
       const answered = await answering(remove.run, router.refresh)(undefined);
       if (!answered.ok) setLine?.({ tone: "error", text: answered.reason ?? COPY.shared.failure.unexpected });
     } finally {
-      setBusy(false);
+      setActing(false);
     }
   };
 
   return (
-    <ConfirmDialog
-      verb={remove.verb}
-      subject={remove.subject}
-      consequence={remove.consequence}
-      tone="danger"
-      onConfirm={confirm}
-      trigger={
-        <Button
-          icon="erasures"
-          label={COPY.shared.verb[remove.verb]}
-          isBusy={isBusy}
-        />
-      }
-    />
+    <>
+      <Button
+        icon="erasures"
+        label={COPY.shared.verb[remove.verb]}
+        aria-describedby={describedBy}
+        isBusy={isTouching || isRefreshing || isActing}
+        isDisabled={remove.closed !== undefined}
+        onPress={() => void ask()}
+      />
+      <ConfirmDialog
+        verb={remove.verb}
+        subject={remove.subject}
+        consequence={remove.consequence}
+        tone="danger"
+        onConfirm={confirm}
+        open={{ isOpen: isAsking && !isRefreshing, onOpenChange: setAsking }}
+      />
+    </>
   );
 }

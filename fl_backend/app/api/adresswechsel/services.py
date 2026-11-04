@@ -55,7 +55,7 @@ def als_utc(moment: Any) -> datetime | None:
 
 
 def gueltig_bis_ab(now: datetime) -> datetime:
-    """When a step asked at `now` lapses: a link to the new mailbox, or the approval asked of the address on file."""
+    """When a link mailed at `now` lapses: the new mailbox's, or the address on file's question on the person's own change."""
 
     return now.astimezone(UTC) + timedelta(hours=ADDRESS_CHANGE_VALID_HOURS)
 
@@ -110,14 +110,14 @@ def compose_record(
     }
 
 
-def compose_link_update(*, now: datetime, freigabe: bool) -> dict[str, Any]:
-    """A fresh deadline for the new mailbox's link, for the address on file's approval or a re-send; its own link stays.
+def compose_link_update(*, now: datetime, released: bool) -> dict[str, Any]:
+    """A fresh deadline for the new mailbox's link, at the address on file's confirmation or a re-send; its own link stays.
 
     The link itself is minted as its mail is handed out, replacing the one before (`owe_the_link_in_session`).
     """
 
     gesetzt: dict[str, Any] = {"valid_until": gueltig_bis_ab(now), "sent_at": german_day(now)}
-    if freigabe:
+    if released:
         gesetzt["released_at"] = now.astimezone(UTC)
 
     return {"$set": gesetzt}
@@ -244,7 +244,7 @@ def build_open_link_terms(token_hash: str) -> dict[str, Any]:
 
 
 def build_lapsed_terms(now: datetime) -> dict[str, Any]:
-    """A live change whose waiting step lapsed at or before `now`: its link, the approval it asked, or its grant's approval."""
+    """A live change whose waiting step lapsed at or before `now`: either link's question, or its grant's approval."""
 
     return {
         **LIVE_TERMS,
@@ -424,7 +424,7 @@ def find_beendet_refusal(*, offen: bool) -> WriteRefusal | None:
 
 
 def find_abgelaufen_refusal(*, abgelaufen: bool) -> WriteRefusal | None:
-    """`link_expired`: the step the change waits on lapsed -- its link, the approval asked, or its grant's approval."""
+    """`link_expired`: the step the change waits on lapsed -- either link's question, or its grant's approval."""
 
     if not abgelaufen:
         return None

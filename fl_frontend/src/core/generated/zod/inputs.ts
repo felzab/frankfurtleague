@@ -168,10 +168,12 @@ export const AddressChangePostAddressChangeAnswerBody = zod.object({
 /**
  * Stop the change the address on file was mailed about: its new address goes, out of every log image of the change too.
  *
- * **Refused nothing but a token no change holds** (`link_invalid`) **and a change ended** (`address_change_ended`): a stop
- * hands nothing over, so it answers past every deadline, a barred address's holder too, until the change ends. The
- * person's own change offers this link no stop before its address on file confirmed it (`link_invalid`): its
- * question's decline is the one way that link ends it then, so one act keeps one ending.
+ * **Refused nothing but a token no change holds, a change ended, and the person's own change before its address on file
+ * confirmed it**: a stop hands nothing over, so it answers past every deadline, a barred address's holder too, until
+ * the change ends. A token no change holds answers `link_invalid` and an ended change `address_change_ended`. The
+ * person's own change offers this link no stop until its address on file confirmed it, and answers `link_invalid` as
+ * the unknown token does, the page offering no stop then: the question's decline is the one way that link ends it
+ * before, so one act keeps one ending. From that confirmation on, the same link is the change's stop on every way.
  * @summary Stop a pending address change
  */
 export const addressChangePostAddressChangeStopBodyTokenMax = 128;
@@ -215,8 +217,8 @@ export const AddressChangeGetAddressChangeViewBody = zod
 /**
  * End a bounded share of the live changes whose waiting step lapsed, and make the due ones take effect.
  *
- * **A lapsed change** -- its link, the approval it asked of the address on file, or its grant's approval by another
- * administrator -- ends as `expired`: its address and reason out of the record and every log image of it
+ * **A lapsed change** -- its new mailbox's link, the question it asked the address on file, or its grant's approval by
+ * another administrator -- ends as `expired`: its address and reason out of the record and every log image of it
  * (`removed`). **A due change**, one whose waiting time has ended and whose grant's move, where its address still
  * holds the grant, was approved, is judged again as its confirmation was: a ban on either address, another pupil
  * signing in on the new one, a grant its approval does not cover, a grant at the new address, or nothing left to move
@@ -331,7 +333,7 @@ export const AddressChangePostAddressChangeApprovalParams = zod.object({
  * (`address_change_barred`), where another pupil has come to sign in on it (`address_change_taken`), where an entry has come to name it,
  * confirmed or not (`address_change_occupied`), where a grant's approval week has passed (`link_expired`), and where the change ended
  * (`address_change_ended`). 404 for an id naming no change, and unless the change waits on the new mailbox: one awaiting the address on
- * file's approval, or confirmed, has no link to re-send.
+ * file's confirmation, or confirmed, has no link to re-send.
  * @summary Send a pending address a fresh link
  */
 export const addressChangeInviteAddressChangePathAddressChangeIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -782,7 +784,7 @@ export const BewerbungenPatchEinwilligungBody = zod
     umfang: zod.enum(["kontaktdaten", "kontaktdaten_whatsapp"]),
   })
   .describe(
-    "A seat holder's own two choices for every seat they hold on one row.\n\nBoth choices on every press: a page that sent one alone would leave the other judged by nothing.",
+    "A seat holder's own two choices for every seat they hold on one row, under any label their kind cites.\n\nBoth choices on every press: a page that sent one alone would leave the other judged by nothing.",
   );
 
 /**
@@ -1045,7 +1047,11 @@ export const identityPostErasureBodyEmailRegExp = new RegExp("@");
 export const IdentityPostErasureBody = zod
   .object({
     anlass: zod.string().min(1).max(identityPostErasureBodyAnlassMax).regex(identityPostErasureBodyAnlassRegExp),
-    email: zod.string().max(identityPostErasureBodyEmailMax).regex(identityPostErasureBodyEmailRegExp),
+    email: zod
+      .string()
+      .max(identityPostErasureBodyEmailMax)
+      .regex(identityPostErasureBodyEmailRegExp)
+      .describe("Its domain, after the last `@`, in ASCII alone, an international one in punycode; else `email_not_accepted`."),
   })
   .describe("The mailbox, and the request the erasure answers, which every log row the erasure files keeps.");
 
@@ -1124,7 +1130,11 @@ export const identityGetErasureViewBodyEmailRegExp = new RegExp("@");
 
 export const IdentityGetErasureViewBody = zod
   .object({
-    email: zod.string().max(identityGetErasureViewBodyEmailMax).regex(identityGetErasureViewBodyEmailRegExp),
+    email: zod
+      .string()
+      .max(identityGetErasureViewBodyEmailMax)
+      .regex(identityGetErasureViewBodyEmailRegExp)
+      .describe("Its domain, after the last `@`, in ASCII alone, an international one in punycode; else `email_not_accepted`."),
   })
   .describe("The mailbox an erasure, its preview or a sign-out of every session is looked up by.");
 
@@ -1175,7 +1185,11 @@ export const identityPostSignOutBodyEmailRegExp = new RegExp("@");
 
 export const IdentityPostSignOutBody = zod
   .object({
-    email: zod.string().max(identityPostSignOutBodyEmailMax).regex(identityPostSignOutBodyEmailRegExp),
+    email: zod
+      .string()
+      .max(identityPostSignOutBodyEmailMax)
+      .regex(identityPostSignOutBodyEmailRegExp)
+      .describe("Its domain, after the last `@`, in ASCII alone, an international one in punycode; else `email_not_accepted`."),
   })
   .describe("The mailbox an erasure, its preview or a sign-out of every session is looked up by.");
 
@@ -2097,8 +2111,10 @@ export const SchiedsrichterPostSchiedsrichterBody = zod.object({
  *
  * Refuses, in this order: an id that is no confirmed referee record of this address (`role_not_held`); a
  * `nachweis_stand` other than the record's own, either choice having moved since the page was served
- * (`choices_stale`); a grant on a retired record (`giving_not_allowed`); `medien` moving to `true` where the
- * stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is missing (`medien_age`). Each refusal writes nothing.
+ * (`choices_stale`); a grant on a retired record (`giving_not_allowed`); a choice moving onto a grant under a label
+ * other than its current wording's, the page loaded before a rewording (`grant_wording_stale`); `medien` moving to
+ * `true` where the stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is missing (`medien_age`). Each
+ * refusal writes nothing.
  *
  * **The caller drops the cached fixture list after a successful answer**, which reads this row; nothing here can.
  * @summary Change a signed-in referee's own publication and media consent
@@ -3139,7 +3155,8 @@ export const SpieleGetSpielVerwaltungParams = zod.object({
  *
  * Refuses, in this order: an address holding no confirmed pupil record (`role_not_held`); a `nachweis_stand`
  * other than the record's own, either choice having moved since the page was served (`choices_stale`); a
- * grant on a retired record (`giving_not_allowed`); `medien` moving to `true` where
+ * grant on a retired record (`giving_not_allowed`); a choice moving onto a grant under a label other than its
+ * current wording's, the page loaded before a rewording (`grant_wording_stale`); `medien` moving to `true` where
  * the stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is missing (`medien_age`). Each
  * refusal writes nothing.
  *
@@ -3870,8 +3887,10 @@ export const TeamsPatchSaisonTeamBody = zod
  *
  * Refuses, in this order: a row on which the address holds no confirmed seat (`role_not_held`); a
  * `nachweis_stand` other than the held seats' own, either choice having moved since the page was served
- * (`choices_stale`); a grant where the row grants no panel (`giving_not_allowed`); `medien` moving to `true`
- * where a held seat's stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is missing (`medien_age`). Each refusal writes nothing.
+ * (`choices_stale`); a grant where the row grants no panel (`giving_not_allowed`); a choice moving onto a grant
+ * under a label other than its current wording's, the page loaded before a rewording (`grant_wording_stale`);
+ * `medien` moving to `true` where a held seat's stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is
+ * missing (`medien_age`). Each refusal writes nothing.
  * @summary Change a seat holder's own WhatsApp and media consent on one team's season
  */
 export const teamsPatchEinwilligungPathTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -3897,7 +3916,7 @@ export const TeamsPatchEinwilligungBody = zod
     umfang: zod.enum(["kontaktdaten", "kontaktdaten_whatsapp"]),
   })
   .describe(
-    "A seat holder's own two choices for every seat they hold on one row.\n\nBoth choices on every press: a page that sent one alone would leave the other judged by nothing.",
+    "A seat holder's own two choices for every seat they hold on one row, under any label their kind cites.\n\nBoth choices on every press: a page that sent one alone would leave the other judged by nothing.",
   );
 
 /**

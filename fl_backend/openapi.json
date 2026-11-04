@@ -209,6 +209,7 @@
           "saison_start_taken_place",
           "invitation_team_not_entered",
           "choices_stale",
+          "grant_wording_stale",
           "medien_age",
           "giving_not_allowed",
           "eligibility_disqualified",
@@ -2077,7 +2078,7 @@
         "type": "object"
       },
       "FLAddressChangeNoticeData": {
-        "description": "The address on file's mail about an address change, its link minted at the hand-out into `stop.token_hashes`.\n\nOn the person's own `account` way the link confirms or declines the change before the new mailbox is asked; on the\nlost-mailbox way it stops the change.",
+        "description": "The address on file's mail about an address change, its link minted at the hand-out into `stop.token_hashes`.\n\nOn the person's own `account` way the link confirms or declines the change before the new mailbox is asked, and once\nit confirmed, stops the change; on the lost-mailbox way it stops the change.",
         "properties": {
           "art": {
             "const": "address_change_notice",
@@ -5285,6 +5286,7 @@
         "description": "The mailbox an erasure, its preview or a sign-out of every session is looked up by.",
         "properties": {
           "email": {
+            "description": "Its domain, after the last `@`, in ASCII alone, an international one in punycode; else `email_not_accepted`.",
             "maxLength": 254,
             "pattern": "@",
             "title": "Email",
@@ -5309,6 +5311,7 @@
             "type": "string"
           },
           "email": {
+            "description": "Its domain, after the last `@`, in ASCII alone, an international one in punycode; else `email_not_accepted`.",
             "maxLength": 254,
             "pattern": "@",
             "title": "Email",
@@ -12555,7 +12558,7 @@
       },
       "FLSeatEinwilligungPayload": {
         "additionalProperties": false,
-        "description": "A seat holder's own two choices for every seat they hold on one row.\n\nBoth choices on every press: a page that sent one alone would leave the other judged by nothing.",
+        "description": "A seat holder's own two choices for every seat they hold on one row, under any label their kind cites.\n\nBoth choices on every press: a page that sent one alone would leave the other judged by nothing.",
         "properties": {
           "medien": {
             "title": "Medien",
@@ -18948,7 +18951,7 @@
     },
     "/api/v0/address_change/confirmation/stop": {
       "post": {
-        "description": "Stop the change the address on file was mailed about: its new address goes, out of every log image of the change too.\n\n**Refused nothing but a token no change holds** (`link_invalid`) **and a change ended** (`address_change_ended`): a stop\nhands nothing over, so it answers past every deadline, a barred address's holder too, until the change ends. The\nperson's own change offers this link no stop before its address on file confirmed it (`link_invalid`): its\nquestion's decline is the one way that link ends it then, so one act keeps one ending.",
+        "description": "Stop the change the address on file was mailed about: its new address goes, out of every log image of the change too.\n\n**Refused nothing but a token no change holds, a change ended, and the person's own change before its address on file\nconfirmed it**: a stop hands nothing over, so it answers past every deadline, a barred address's holder too, until\nthe change ends. A token no change holds answers `link_invalid` and an ended change `address_change_ended`. The\nperson's own change offers this link no stop until its address on file confirmed it, and answers `link_invalid` as\nthe unknown token does, the page offering no stop then: the question's decline is the one way that link ends it\nbefore, so one act keeps one ending. From that confirmation on, the same link is the change's stop on every way.",
         "operationId": "address_change_post_address_change_stop",
         "requestBody": {
           "content": {
@@ -19095,7 +19098,7 @@
     },
     "/api/v0/address_change/sweep": {
       "post": {
-        "description": "End a bounded share of the live changes whose waiting step lapsed, and make the due ones take effect.\n\n**A lapsed change** -- its link, the approval it asked of the address on file, or its grant's approval by another\nadministrator -- ends as `expired`: its address and reason out of the record and every log image of it\n(`removed`). **A due change**, one whose waiting time has ended and whose grant's move, where its address still\nholds the grant, was approved, is judged again as its confirmation was: a ban on either address, another pupil\nsigning in on the new one, a grant its approval does not cover, a grant at the new address, or nothing left to move\nends it discarded, and\n`discarded` counts it, its new address owed a notice that it did not take effect and never why; otherwise\neverything the replaced address holds moves, and `effective` counts it, its completion notice owed. Each notice is owed\nin the Postausgang in its change's own transaction, so none rides on this answer.\n\nEach change is handled in a transaction of its own that judges it again, so one confirmed, stopped, discarded or\nreplaced since this call read it is left standing. **A pass is a run of calls, each handing the next the `nach` the last\nanswered**, the first naming none; it ends at the call answering `nach` null. A call reaches at most a fixed share of the\nchanges after `nach`, in `_id` order, and the pass holds no state on the server. A change whose handling fails is\nlogged by its id and passed, holding back nobody behind it; it stays due, and the next pass tries it again. Where the\nrequest's deadline cuts the call, it stops at that change, warns once, and answers what it did. `remaining` counts\nthe changes standing due after the call, so it is no stopping condition.",
+        "description": "End a bounded share of the live changes whose waiting step lapsed, and make the due ones take effect.\n\n**A lapsed change** -- its new mailbox's link, the question it asked the address on file, or its grant's approval by\nanother administrator -- ends as `expired`: its address and reason out of the record and every log image of it\n(`removed`). **A due change**, one whose waiting time has ended and whose grant's move, where its address still\nholds the grant, was approved, is judged again as its confirmation was: a ban on either address, another pupil\nsigning in on the new one, a grant its approval does not cover, a grant at the new address, or nothing left to move\nends it discarded, and\n`discarded` counts it, its new address owed a notice that it did not take effect and never why; otherwise\neverything the replaced address holds moves, and `effective` counts it, its completion notice owed. Each notice is owed\nin the Postausgang in its change's own transaction, so none rides on this answer.\n\nEach change is handled in a transaction of its own that judges it again, so one confirmed, stopped, discarded or\nreplaced since this call read it is left standing. **A pass is a run of calls, each handing the next the `nach` the last\nanswered**, the first naming none; it ends at the call answering `nach` null. A call reaches at most a fixed share of the\nchanges after `nach`, in `_id` order, and the pass holds no state on the server. A change whose handling fails is\nlogged by its id and passed, holding back nobody behind it; it stays due, and the next pass tries it again. Where the\nrequest's deadline cuts the call, it stops at that change, warns once, and answers what it did. `remaining` counts\nthe changes standing due after the call, so it is no stopping condition.",
         "operationId": "address_change_sweep_address_change",
         "parameters": [
           {
@@ -19537,7 +19540,7 @@
     },
     "/api/v0/address_change/{address_change_id}/invite": {
       "post": {
-        "description": "Owe the new mailbox a fresh link for the change this id names, in the same transaction.\n\nThe previous link stops working once the fresh one is handed out; the deadline restarts now. The stop link stays, so\nthe address on file is mailed nothing again. A lapsed link is no refusal while the change stands, which is until the\nnext hourly pass ends it. Acts on the change the id names alone, so a page showing a change since replaced re-sends\nnothing.\n\nRefused as the start is about who asks (`own_adresse`, `verwaltung_adresse`), where the ban list holds the pending address\n(`address_change_barred`), where another pupil has come to sign in on it (`address_change_taken`), where an entry has come to name it,\nconfirmed or not (`address_change_occupied`), where a grant's approval week has passed (`link_expired`), and where the change ended\n(`address_change_ended`). 404 for an id naming no change, and unless the change waits on the new mailbox: one awaiting the address on\nfile's approval, or confirmed, has no link to re-send.",
+        "description": "Owe the new mailbox a fresh link for the change this id names, in the same transaction.\n\nThe previous link stops working once the fresh one is handed out; the deadline restarts now. The stop link stays, so\nthe address on file is mailed nothing again. A lapsed link is no refusal while the change stands, which is until the\nnext hourly pass ends it. Acts on the change the id names alone, so a page showing a change since replaced re-sends\nnothing.\n\nRefused as the start is about who asks (`own_adresse`, `verwaltung_adresse`), where the ban list holds the pending address\n(`address_change_barred`), where another pupil has come to sign in on it (`address_change_taken`), where an entry has come to name it,\nconfirmed or not (`address_change_occupied`), where a grant's approval week has passed (`link_expired`), and where the change ended\n(`address_change_ended`). 404 for an id naming no change, and unless the change waits on the new mailbox: one awaiting the address on\nfile's confirmation, or confirmed, has no link to re-send.",
         "operationId": "address_change_invite_address_change",
         "parameters": [
           {
@@ -25074,7 +25077,7 @@
     },
     "/api/v0/schiedsrichter/account/{schiedsrichter_id}/einwilligung": {
       "patch": {
-        "description": "Set the two choices of one of the signed-in referee's own consent records: the publication scope and the media consent.\n\nWrites those two on this one referee row, each moved choice with its evidence (`nachweis.<choice>`), and nothing\nelse: the confirmation day, the day given and the wording they confirmed stand, and no fixture is written. The\npublic fixture list reads the scope off this row, so a withdrawal takes the name off every fixture page at that\nlist's next read. A PATCH moving neither choice writes nothing. A GRANT (`umfang` to\n`kader_oeffentlich` or `medien` to `true`) is taken on a live record alone; a withdrawal on a retired one too.\n\nRefuses, in this order: an id that is no confirmed referee record of this address (`role_not_held`); a\n`nachweis_stand` other than the record's own, either choice having moved since the page was served\n(`choices_stale`); a grant on a retired record (`giving_not_allowed`); `medien` moving to `true` where the\nstored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is missing (`medien_age`). Each refusal writes nothing.\n\n**The caller drops the cached fixture list after a successful answer**, which reads this row; nothing here can.",
+        "description": "Set the two choices of one of the signed-in referee's own consent records: the publication scope and the media consent.\n\nWrites those two on this one referee row, each moved choice with its evidence (`nachweis.<choice>`), and nothing\nelse: the confirmation day, the day given and the wording they confirmed stand, and no fixture is written. The\npublic fixture list reads the scope off this row, so a withdrawal takes the name off every fixture page at that\nlist's next read. A PATCH moving neither choice writes nothing. A GRANT (`umfang` to\n`kader_oeffentlich` or `medien` to `true`) is taken on a live record alone; a withdrawal on a retired one too.\n\nRefuses, in this order: an id that is no confirmed referee record of this address (`role_not_held`); a\n`nachweis_stand` other than the record's own, either choice having moved since the page was served\n(`choices_stale`); a grant on a retired record (`giving_not_allowed`); a choice moving onto a grant under a label\nother than its current wording's, the page loaded before a rewording (`grant_wording_stale`); `medien` moving to\n`true` where the stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is missing (`medien_age`). Each\nrefusal writes nothing.\n\n**The caller drops the cached fixture list after a successful answer**, which reads this row; nothing here can.",
         "operationId": "schiedsrichter_patch_einwilligung",
         "parameters": [
           {
@@ -27637,7 +27640,7 @@
     },
     "/api/v0/spieler/account/einwilligung": {
       "patch": {
-        "description": "Set the two choices of the signed-in address's own pupil consent record: the publication scope and the media consent.\n\nWrites those two on this one record, each moved choice with its evidence (`nachweis.<choice>`), and nothing else:\nthe confirmation day, the day given and the wording they confirmed stand, and no other document is written. A\nPATCH moving neither choice writes nothing. A GRANT (`umfang` to `kader_oeffentlich` or `medien` to `true`) is\ntaken on a live record alone; a withdrawal on a retired one too.\n\nRefuses, in this order: an address holding no confirmed pupil record (`role_not_held`); a `nachweis_stand`\nother than the record's own, either choice having moved since the page was served (`choices_stale`); a\ngrant on a retired record (`giving_not_allowed`); `medien` moving to `true` where\nthe stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is missing (`medien_age`). Each\nrefusal writes nothing.\n\n**The caller drops the cached squad lists after a successful answer**: the publication scope decides whether a\nname is served, and nothing here can.",
+        "description": "Set the two choices of the signed-in address's own pupil consent record: the publication scope and the media consent.\n\nWrites those two on this one record, each moved choice with its evidence (`nachweis.<choice>`), and nothing else:\nthe confirmation day, the day given and the wording they confirmed stand, and no other document is written. A\nPATCH moving neither choice writes nothing. A GRANT (`umfang` to `kader_oeffentlich` or `medien` to `true`) is\ntaken on a live record alone; a withdrawal on a retired one too.\n\nRefuses, in this order: an address holding no confirmed pupil record (`role_not_held`); a `nachweis_stand`\nother than the record's own, either choice having moved since the page was served (`choices_stale`); a\ngrant on a retired record (`giving_not_allowed`); a choice moving onto a grant under a label other than its\ncurrent wording's, the page loaded before a rewording (`grant_wording_stale`); `medien` moving to `true` where\nthe stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is missing (`medien_age`). Each\nrefusal writes nothing.\n\n**The caller drops the cached squad lists after a successful answer**: the publication scope decides whether a\nname is served, and nothing here can.",
         "operationId": "spieler_patch_einwilligung",
         "requestBody": {
           "content": {
@@ -30576,7 +30579,7 @@
     },
     "/api/v0/teams/{team_id}/saisons/{saison_id}/account/einwilligung": {
       "patch": {
-        "description": "Set the signed-in person's two consents on every seat they hold on this team's season row: WhatsApp and media.\n\nOne answer for all of them: a person holding two of the row's slots answers once, each choice moving only where it\ndiffers from the row as the page served it, so seats answered apart keep their answers to a choice not changed. No\nother slot of the row and no other row is written, each choice moving with its own evidence and leaving the\nother standing; a press moving no seat writes nothing. A GRANT (`umfang` to `kontaktdaten_whatsapp` or `medien`\nto `true`) is taken on a row of an `active` or `future` season its team has not left; a withdrawal on any row the\nperson confirmed a seat on, a past season's included.\n\nRefuses, in this order: a row on which the address holds no confirmed seat (`role_not_held`); a\n`nachweis_stand` other than the held seats' own, either choice having moved since the page was served\n(`choices_stale`); a grant where the row grants no panel (`giving_not_allowed`); `medien` moving to `true`\nwhere a held seat's stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is missing (`medien_age`). Each refusal writes nothing.",
+        "description": "Set the signed-in person's two consents on every seat they hold on this team's season row: WhatsApp and media.\n\nOne answer for all of them: a person holding two of the row's slots answers once, each choice moving only where it\ndiffers from the row as the page served it, so seats answered apart keep their answers to a choice not changed. No\nother slot of the row and no other row is written, each choice moving with its own evidence and leaving the\nother standing; a press moving no seat writes nothing. A GRANT (`umfang` to `kontaktdaten_whatsapp` or `medien`\nto `true`) is taken on a row of an `active` or `future` season its team has not left; a withdrawal on any row the\nperson confirmed a seat on, a past season's included.\n\nRefuses, in this order: a row on which the address holds no confirmed seat (`role_not_held`); a\n`nachweis_stand` other than the held seats' own, either choice having moved since the page was served\n(`choices_stale`); a grant where the row grants no panel (`giving_not_allowed`); a choice moving onto a grant\nunder a label other than its current wording's, the page loaded before a rewording (`grant_wording_stale`);\n`medien` moving to `true` where a held seat's stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is\nmissing (`medien_age`). Each refusal writes nothing.",
         "operationId": "teams_patch_einwilligung",
         "parameters": [
           {

@@ -32,9 +32,18 @@ type ButtonProps =
     })
   /**
    * An icon alone: `label` is its name, which the tooltip shows. One folding a region, such as the rail,
-   * says whether that region stands open and names it by its id.
+   * says whether that region stands open and names it by its id; one repeated on every row of a list, such as a
+   * row's removal, is described by its row's name, since every row's button carries the same name.
    */
-  | (Act & { icon: IconName; label: Copy; variant?: never; leadingIcon?: never; "aria-expanded"?: boolean; "aria-controls"?: string });
+  | (Act & {
+      icon: IconName;
+      label: Copy;
+      variant?: never;
+      leadingIcon?: never;
+      "aria-expanded"?: boolean;
+      "aria-controls"?: string;
+      "aria-describedby"?: string;
+    });
 
 function Spinner() {
   return (
@@ -70,6 +79,7 @@ export function Button(props: ButtonProps) {
           aria-label={label}
           aria-expanded={props["aria-expanded"]}
           aria-controls={props["aria-controls"]}
+          aria-describedby={props["aria-describedby"]}
           className={buttonLook({ look: "icon", host: "aria" })}>
           {isBusy ? (
             <Spinner />

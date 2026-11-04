@@ -1281,14 +1281,18 @@ class TestTheApproval:
         # change always did; one taking effect at the new mailbox's press owes it nothing.
         assert (told, [(notice["art"], notice["an"]) for notice in notices]) == ([], [("effective", EMAIL)])
 
-    def test_the_address_on_file_s_confirmation_says_the_change_will_wait_on_an_approval(self, mongo_replica_set_url: str):
+    @pytest.mark.parametrize("holds_a_grant", [pytest.param(True, id="a grant holder"), pytest.param(False, id="a pupil alone")])
+    def test_the_address_on_file_s_confirmation_says_whether_the_change_will_wait_on_an_approval(
+        self, mongo_replica_set_url: str, holds_a_grant: bool
+    ):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await granted(database)
+            if holds_a_grant:
+                await granted(database)
             minted = await start(database, client, released=False)
             answered = await answer(database, client, minted.stopp_token)
             return answered.answer, answered.effective, answered.approval_open
 
-        assert on_a_person(mongo_replica_set_url, body) == ("confirmed", False, True)
+        assert on_a_person(mongo_replica_set_url, body) == ("confirmed", False, holds_a_grant)
 
     @staticmethod
     def refused_approval(url: str, *, approver: str, verwaltung: str) -> tuple[str, Any]:

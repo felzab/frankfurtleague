@@ -4,9 +4,10 @@ import { Link } from "@/kit/Link";
 
 import type { ConsentLine } from "@/core/consentWordings";
 
+// Redesign: goes with the three old confirmation views, whose rebuilds read `fl_frontend/src/kit/ConsentLine.tsx`.
 /**
- * A consent line's words, its link among them, for a paragraph a caller places: every page showing a consent renders
- * its line through here, so no page sets the frozen words apart from the others.
+ * A consent line's words, its link among them, for a paragraph a caller places: the three old confirmation views
+ * render their lines through here, in the old pages' grade; the kit's `ConsentLine` is the rebuilt pages'.
  */
 function EinwilligungZeilenTeile({ line }: { line: ConsentLine }) {
   return (

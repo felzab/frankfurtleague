@@ -14,7 +14,7 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
 }
 
 /** The theme's box, once the session is judged: the choice is the browser's, read on no server. */
-async function Darstellung() {
+async function AppearanceContent() {
   await requireAccountSession(ROUTES.accountAppearance.path());
   return (
     <AccountBox
@@ -26,10 +26,10 @@ async function Darstellung() {
 }
 
 /** Darstellung: the theme, the same three glyphs as the account menu's foot, acting at once. */
-export default function DarstellungPage() {
+export default function AccountAppearancePage() {
   return (
     <AccountPage route="accountAppearance">
-      <Darstellung />
+      <AppearanceContent />
     </AccountPage>
   );
 }

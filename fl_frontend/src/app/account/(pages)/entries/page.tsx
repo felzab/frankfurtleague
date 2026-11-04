@@ -7,13 +7,13 @@ import { requireAccountSession } from "@/features/konto/account";
 import { getKontoEinwilligungen } from "@/features/konto/queries";
 import { pageMetadata } from "@/shared/utils/metadata";
 
-import { EintraegeBoxes } from "./EintraegeBoxes";
+import { EntriesBoxes } from "./EntriesBoxes";
 
 import type { Copy } from "@/core/copy";
 import type { FLAccountEinwilligungenResponse } from "@/core/generated/client/types";
 import type { Fact } from "@/kit/Facts";
 import type { Metadata, ResolvingMetadata } from "next";
-import type { Entry } from "./EintraegeBoxes";
+import type { Entry } from "./EntriesBoxes";
 
 export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
   return pageMetadata(parent, ROUTES.accountEntries, ROUTES.accountEntries.path());
@@ -38,7 +38,7 @@ function entriesOf({ spieler, schiedsrichter, registrierungen, seats, bewerbunge
       : [
           {
             id: `spieler-${spieler.spieler_id}`,
-            title: WORDS.spieler,
+            title: COPY.shared.kader,
             description: WORDS.description.spieler,
             facts: [...fact(COPY.shared.name, `${spieler.vorname} ${spieler.nachname ?? ""}`.trim()), ...birthday(spieler.geburtsdatum)],
             save: { kind: "spieler" },
@@ -51,7 +51,7 @@ function entriesOf({ spieler, schiedsrichter, registrierungen, seats, bewerbunge
         ];
   const referee = schiedsrichter.map((row): Entry => ({
     id: `schiedsrichter-${row.schiedsrichter_id}`,
-    title: WORDS.schiedsrichter,
+    title: COPY.shared.schiedsrichter,
     description: WORDS.description.schiedsrichter,
     facts: [
       ...fact(COPY.shared.name, row.name),
@@ -74,14 +74,17 @@ function entriesOf({ spieler, schiedsrichter, registrierungen, seats, bewerbunge
       : [
           {
             id: `registrierung-${row.registrierung_id}`,
-            title: WORDS.spieler,
-            description: WORDS.description.spieler,
+            title: COPY.page.registrierung,
+            description: WORDS.description.registrierung,
             facts: [
               ...fact(COPY.shared.name, `${row.vorname} ${row.nachname}`),
               ...birthday(row.geburtsdatum),
+              // The team's season, or the season alone where the team no longer stands.
               ...fact(
                 WORDS.facts.team,
-                WORDS.registrierung(row.team_name === null ? null : { record: row.team_name }, COPY.shared.saisonName(row.saison_id)),
+                row.team_name === null
+                  ? COPY.shared.saisonName(row.saison_id)
+                  : WORDS.teamSeason({ record: row.team_name }, COPY.shared.saisonName(row.saison_id)),
               ),
             ],
             save: { kind: "registrierung", registrierung_id: row.registrierung_id },
@@ -96,8 +99,8 @@ function entriesOf({ spieler, schiedsrichter, registrierungen, seats, bewerbunge
   );
   const seated = seats.map((seat): Entry => ({
     id: `seat-${seat.team_id}-${seat.saison_id}`,
-    title: WORDS.seats(seat.rollen),
-    description: WORDS.description.seat,
+    title: { record: seat.team_name },
+    description: WORDS.description.seat(seat.rollen),
     facts: fact(WORDS.facts.team, WORDS.teamSeason({ record: seat.team_name }, COPY.shared.saisonName(seat.saison_id))),
     save: { kind: "seat", team_id: seat.team_id, saison_id: seat.saison_id },
     umfang: seat.umfang,
@@ -108,12 +111,10 @@ function entriesOf({ spieler, schiedsrichter, registrierungen, seats, bewerbunge
   }));
   const applied = bewerbungen.map((bewerbung): Entry => ({
     id: `bewerbung-${bewerbung.bewerbung_id}`,
-    title: WORDS.seats(bewerbung.rollen),
-    description: WORDS.description.seat,
-    facts: [
-      ...fact(WORDS.facts.school, bewerbung.schule),
-      ...fact(WORDS.facts.team, WORDS.bewerbung(COPY.shared.saisonName(bewerbung.saison_id))),
-    ],
+    // An application stands for no team yet: titled as its page is, by the season it applies for.
+    title: COPY.page.bewerbung(bewerbung.saison_id),
+    description: WORDS.description.seat(bewerbung.rollen),
+    facts: fact(WORDS.facts.school, bewerbung.schule),
     save: { kind: "bewerbung", bewerbung_id: bewerbung.bewerbung_id },
     umfang: bewerbung.umfang,
     medien: bewerbung.medien,
@@ -126,7 +127,7 @@ function entriesOf({ spieler, schiedsrichter, registrierungen, seats, bewerbunge
 }
 
 /** The person's records, read for the session the page is drawn for. */
-async function Eintraege() {
+async function EntriesContent() {
   await requireAccountSession(ROUTES.accountEntries.path());
   const entries = entriesOf(await getKontoEinwilligungen());
   return entries.length === 0 ? (
@@ -135,15 +136,15 @@ async function Eintraege() {
       glyph="entries"
     />
   ) : (
-    <EintraegeBoxes entries={entries} />
+    <EntriesBoxes entries={entries} />
   );
 }
 
 /** Deine Einträge: each record of the person's own, with its consents. */
-export default function EintraegePage() {
+export default function AccountEntriesPage() {
   return (
     <AccountPage route="accountEntries">
-      <Eintraege />
+      <EntriesContent />
     </AccountPage>
   );
 }

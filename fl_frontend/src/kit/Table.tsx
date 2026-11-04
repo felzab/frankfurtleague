@@ -109,6 +109,8 @@ const table = tv({
     // A linked row's last cell, as narrow as the chevron that says the row leads on; a phone, short of room,
     // leaves the chevron out, the whole row still the link.
     end: "w-0 pe-3 max-lg:hidden",
+    // A prose cell's column label on a phone, drawn for the eye alone: the read head names the column.
+    label: "",
   },
   variants: {
     align: {
@@ -138,13 +140,14 @@ const table = tv({
       only: { head: "lg:hidden", cell: "lg:hidden" },
       shown: {},
     },
-    // On a phone the column labels move into the cells, each cell drawing its own from `data-label` before its words.
+    // On a phone the column heads are read but not drawn, and each cell draws its column's label before its words.
     prose: {
       true: {
-        head: "max-lg:hidden",
+        head: "max-lg:sr-only",
         row: "max-lg:grid max-lg:h-auto max-lg:gap-1 max-lg:px-3 max-lg:py-3",
         name: "w-auto max-w-none py-3 align-top max-lg:px-0 max-lg:py-0 max-lg:font-semibold",
-        cell: "py-3 align-top whitespace-normal max-lg:grid max-lg:grid-cols-[4rem_minmax(0,1fr)] max-lg:gap-x-3 max-lg:px-0 max-lg:before:text-xs max-lg:before:text-fg-muted max-lg:before:content-[attr(data-label)]",
+        cell: "py-3 align-top whitespace-normal max-lg:grid max-lg:grid-cols-[4rem_minmax(0,1fr)] max-lg:gap-x-3 max-lg:px-0",
+        label: "text-xs text-fg-muted lg:hidden",
       },
     },
     linked: {
@@ -258,7 +261,9 @@ function NameCell({ row, barred, compact, prose }: { row: TableRow; barred: Tabl
 /**
  * A list of records: rows 52 px high on desktop and 56 on a phone, lines between them, under a head of
  * muted capitals. A row opens its record, a chevron at its end saying so. Few columns: the name with its plaque
- * and chip, then a few facts.
+ * and chip, then a few facts. The table, its rows and its heads carry their table roles in writing, since a prose
+ * row's `display: grid` on a phone drops the semantics an engine infers from the elements alone; a cell's role
+ * stays the element's own, the lint's table of roles taking a `td` for a grid's cell.
  */
 export function Table({ label, nameLabel, rankLabel, columns, rows, empty, bare = false, compact = false, prose = false }: TableProps) {
   const nameHead = table({ align: "start", compact, prose }).head();
@@ -281,18 +286,23 @@ export function Table({ label, nameLabel, rankLabel, columns, rows, empty, bare 
         <EmptyState {...empty} />
       ) : (
         <table
+          role="table"
           aria-label={label}
           className="w-full border-collapse text-sm">
           <thead>
-            <tr className={columnHead().rule()}>
+            <tr
+              role="row"
+              className={columnHead().rule()}>
               {rankLabel !== undefined && (
                 <th
+                  role="columnheader"
                   scope="col"
                   className={table({ align: "centre", compact }).head()}>
                   {rankLabel}
                 </th>
               )}
               <th
+                role="columnheader"
                 scope="col"
                 className={nameHead}>
                 {nameLabel}
@@ -300,6 +310,7 @@ export function Table({ label, nameLabel, rankLabel, columns, rows, empty, bare 
               {columns.map((column) => (
                 <th
                   key={column.key}
+                  role="columnheader"
                   scope="col"
                   className={table({
                     align: column.figures === true ? "figure" : "start",
@@ -321,6 +332,7 @@ export function Table({ label, nameLabel, rankLabel, columns, rows, empty, bare 
                 <tr
                   key={row.id}
                   id={row.anchor}
+                  role="row"
                   className={table({ ...marks, prose }).row()}>
                   {rankLabel !== undefined && (
                     <td className={table({ align: "centre", figures: true, qualifies: row.qualifies, compact }).cell()}>
@@ -333,24 +345,33 @@ export function Table({ label, nameLabel, rankLabel, columns, rows, empty, bare 
                     compact={compact}
                     prose={prose}
                   />
-                  {columns.map((column) => (
-                    <td
-                      key={column.key}
-                      data-label={prose ? column.label : undefined}
-                      className={table({
-                        align: column.figures === true ? "figure" : "start",
-                        figures: column.figures === true,
-                        strong: column.strong === true,
-                        phone: phoneOf(column),
-                        compact,
-                        prose,
-                      }).cell()}>
-                      <Cell
-                        cell={row.cells[column.key]}
-                        slot={marked.has(column.key)}
-                      />
-                    </td>
-                  ))}
+                  {columns.map((column) => {
+                    const s = table({
+                      align: column.figures === true ? "figure" : "start",
+                      figures: column.figures === true,
+                      strong: column.strong === true,
+                      phone: phoneOf(column),
+                      compact,
+                      prose,
+                    });
+                    return (
+                      <td
+                        key={column.key}
+                        className={s.cell()}>
+                        {prose && (
+                          <span
+                            aria-hidden
+                            className={s.label()}>
+                            {column.label}
+                          </span>
+                        )}
+                        <Cell
+                          cell={row.cells[column.key]}
+                          slot={marked.has(column.key)}
+                        />
+                      </td>
+                    );
+                  })}
                   {isLinked && <td className={table().end()}>{row.href !== undefined && <RowEnd />}</td>}
                 </tr>
               );

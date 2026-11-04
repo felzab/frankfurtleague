@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 
 import { COPY } from "@/core/copy";
+import { ROUTES } from "@/core/routes";
 
 import { ClassicPage, ClassicTitle } from "./ClassicPage";
 import { Facts } from "./Facts";
@@ -31,6 +32,12 @@ export type MailedEnd = EndState;
 export function linkInvalid(next: StatusCardProps["next"]): MailedEnd {
   return { tone: "warn", title: COPY.template.linkInvalid, sentence: COPY.shared.end.linkInvalid, next: next };
 }
+
+/**
+ * The way on from a mailed page to Konto's Anmeldung, where a change is started again and the deletion asked for:
+ * every mailed end leading to Konto takes it.
+ */
+export const TO_ACCOUNT = { label: COPY.shared.end.toAccount, href: ROUTES.accountSignIn.path() } as const satisfies StatusCardProps["next"];
 
 /**
  * What a mailed page shows once its link is read, in one of four states, or an end of its own:

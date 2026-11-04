@@ -23,7 +23,7 @@ from app.api.identity.services import (
     build_loeschung_kader_pipeline,
     build_season_team_pipeline,
     build_unplayed_saison_pipeline,
-    compose_loeschung_ansicht_auf_anfrage,
+    compose_erasure_view,
     find_eigene_adresse_refusal,
     find_fremder_adresswechsel_refusal,
     find_verwaltung_adresse_refusal,
@@ -214,7 +214,7 @@ async def get_erasure_view(
     # A grant holder's change is withheld from whoever the tool refuses it, as the administrators page withholds it: named
     # here, a typed address would answer whether it is that change's new one.
     naming = [row for row in others_naming(subject.adresswechsel, identifier) if verwehrt.get(str(row["adresse"])) != "verwaltung"]
-    ansicht = compose_loeschung_ansicht_auf_anfrage(
+    ansicht = compose_erasure_view(
         identifier,
         saison_team_rows=subject.saison_teams,
         bewerbung_rows=subject.bewerbungen,

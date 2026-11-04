@@ -433,7 +433,7 @@ async def invite_address_change(
     (`address_change_barred`), where another pupil has come to sign in on it (`address_change_taken`), where an entry has come to name it,
     confirmed or not (`address_change_occupied`), where a grant's approval week has passed (`link_expired`), and where the change ended
     (`address_change_ended`). 404 for an id naming no change, and unless the change waits on the new mailbox: one awaiting the address on
-    file's approval, or confirmed, has no link to re-send.
+    file's confirmation, or confirmed, has no link to re-send.
     """
 
     akteur = sign_in_identifier(operator)
@@ -488,7 +488,7 @@ async def invite_address_change(
         updated = await patch_one_in_db(
             collection=adresswechsel_collection,
             db_filter=build_live_filter(address_change_id, build_resendable_terms()),
-            update=compose_link_update(now=germany_now, freigabe=False),
+            update=compose_link_update(now=germany_now, released=False),
             session=session,
             return_document=ReturnDocument.AFTER,
         )
