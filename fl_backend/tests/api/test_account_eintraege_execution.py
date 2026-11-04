@@ -18,7 +18,7 @@ from bson import ObjectId
 from fastapi import FastAPI
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.identitaet.crud import find_eigene_eintraege
+from app.api.identity.crud import find_eigene_eintraege
 from app.api.registrierungen.services import compose_ablehnung_update
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -50,7 +50,7 @@ from tests.worker import worker_database
 
 from .conftest import AUSTRITT, config_for
 
-DATABASE_NAME = worker_database("fl_konto_eintraege_test")
+DATABASE_NAME = worker_database("fl_account_eintraege_test")
 
 CONFIG = config_for(DATABASE_NAME)
 

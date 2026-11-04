@@ -14,7 +14,7 @@ from bson import ObjectId
 
 from app.api.berechtigungen.services import OWNER, holds_an_owners_power, verwaltung_des
 from app.api.bewerbungen.services import build_eigene_bewerbung_filter
-from app.api.identitaet.schemas import FLKontoLoeschungAnsicht, FLLoeschungAnsicht, FLSubjectSeat, FLSubjekt
+from app.api.identity.schemas import FLKontoLoeschungAnsicht, FLLoeschungAnsicht, FLSubjectSeat, FLSubjekt
 from app.api.kontakte.services import rows_seating
 from app.api.registrierungen.services import SUBMITTED, build_eigene_registrierung_filter, build_loeschung_registrierung_filter
 from app.api.schiedsrichter.services import (

@@ -35,7 +35,7 @@ from app.api.adresswechsel.services import (
     ist_abgelaufen,
     neu_zustand,
 )
-from app.api.identitaet.lookup import SubjektLookup
+from app.api.identity.lookup import SubjektLookup
 from app.api.sperrliste.lookup import SperrlisteLookup, sperrliste_saison
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import patch_one_in_db, refuse

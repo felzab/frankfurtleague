@@ -6,7 +6,7 @@ from typing import Any, Final, NamedTuple
 import pytest
 from pydantic import TypeAdapter
 
-from app.api.identitaet.schemas import LoeschungAdresse
+from app.api.identity.schemas import LoeschungAdresse
 from app.shared.folding import canonical_address, league_address, sign_in_identifier
 
 # One table both suites run their own rule and fold over, the frontend half in `fl_frontend/src/core/emailAddress.test.ts`:

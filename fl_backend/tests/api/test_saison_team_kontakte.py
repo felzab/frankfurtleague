@@ -9,7 +9,7 @@ from bson import ObjectId
 from pydantic import ValidationError
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.identitaet.schemas import FLErasureResponse
+from app.api.identity.schemas import FLErasureResponse
 from app.api.teams.admin_router import patch_saison_team_kontakte
 from app.api.teams.schemas import (
     FLKontaktKenntnisnahmePayload,

@@ -417,7 +417,7 @@ class FLSpielerContext(BaseModel):
 class FLSpielerSelf(_SpielerPerson):
     """One pupil record's stored data as its own person reads it: the whole surname and the birthdate, never masked.
 
-    Its consent is the account page's, whose entry extends this (`app/api/konto/schemas.py :: FLAccountSpielerEinwilligung`).
+    Its consent is the account page's, whose entry `FLAccountSpielerEinwilligung` extends this.
     """
 
     spieler_id: CustomObjectId

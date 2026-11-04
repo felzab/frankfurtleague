@@ -12,8 +12,8 @@ from pymongo import AsyncMongoClient, ReturnDocument
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
-from app.api.identitaet.schemas import FLErasureResponse, FLErasureViewResponse
-from app.api.identitaet.services import build_loeschung_seat_pipeline
+from app.api.identity.schemas import FLErasureResponse, FLErasureViewResponse
+from app.api.identity.services import build_loeschung_seat_pipeline
 from app.api.kontakte.crud import loeschen_kontaktperson_in_session
 from app.api.kontakte.services import (
     build_clearing_update,

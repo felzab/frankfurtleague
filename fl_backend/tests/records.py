@@ -3,7 +3,7 @@ from typing import Any
 
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.identitaet.lookup import RecordCollections
+from app.api.identity.lookup import RecordCollections
 from app.core.collections import Collection
 
 

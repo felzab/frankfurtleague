@@ -10,9 +10,9 @@ from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.errors import PyMongoError
 
 from app.api.berechtigungen.crud import verwaltung_of
-from app.api.identitaet.crud import faellige_seite, find_anmeldung, find_subjekt, loeschen_if_still_due, saison_statuses, unreferenced_of
-from app.api.identitaet.lookup import SubjektLookup
-from app.api.identitaet.schemas import (
+from app.api.identity.crud import faellige_seite, find_anmeldung, find_subjekt, loeschen_if_still_due, saison_statuses, unreferenced_of
+from app.api.identity.lookup import SubjektLookup
+from app.api.identity.schemas import (
     FLErasureSweepResponse,
     FLLoeschung,
     FLLoeschungSweepParams,
@@ -22,7 +22,7 @@ from app.api.identitaet.schemas import (
     FLSubjectPayload,
     FLSubjectResponse,
 )
-from app.api.identitaet.services import abgeschlossene_saison_id
+from app.api.identity.services import abgeschlossene_saison_id
 from app.api.sperrliste.lookup import BanList, SperrlisteLookup, hash_gesperrt
 from app.core.codes import Code
 from app.core.config import API_VERSION, BackendConfig, get_app_config

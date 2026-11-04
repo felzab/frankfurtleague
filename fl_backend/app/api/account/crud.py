@@ -12,8 +12,8 @@ Invariants:
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from typing import Any
 
+from app.api.account.services import erteilt_etwas, find_erteilung_refusal, find_konto_fassung_refusal, find_nachweis_stand_refusal
 from app.api.einwilligung.services import find_self_medien_refusal
-from app.api.konto.services import erteilt_etwas, find_erteilung_refusal, find_konto_fassung_refusal, find_nachweis_stand_refusal
 from app.core.crud import refuse
 from app.shared.einwilligung import Seite
 from app.shared.einwilligung_nachweis import FLEinwilligungChoice, is_given

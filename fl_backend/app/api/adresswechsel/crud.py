@@ -45,8 +45,8 @@ from app.api.berechtigungen.antraege import antrag_line, build_offen_filter, end
 from app.api.berechtigungen.crud import grant_in_session, read_berechtigungen, read_the_announced, revoke_in_session
 from app.api.berechtigungen.loeschung import carry_authorship_in_session
 from app.api.berechtigungen.services import compose_fortgefuehrt, genehmigung_steht
-from app.api.identitaet.lookup import RecordCollections
-from app.api.identitaet.services import adresswechsel_einsehbar_verwehrt, eigene_sitze, ist_eigener_schiedsrichter
+from app.api.identity.lookup import RecordCollections
+from app.api.identity.services import adresswechsel_einsehbar_verwehrt, eigene_sitze, ist_eigener_schiedsrichter
 from app.api.kontakte.services import find_matching_slots, rows_seating, same_address
 from app.api.outbox.schemas import (
     FLAddressChangeDiscardedData,
@@ -1070,7 +1070,7 @@ async def verwehrte_adressen(
 ) -> dict[str, FLAddressChangeViewableDenied]:
     """Which of these folded addresses' changes the address tool refuses this administrator, and why; one absent opens.
 
-    Judged by `app/api/identitaet/services.py :: adresswechsel_einsehbar_verwehrt`; the grants are read only where an
+    Judged by `app/api/identity/services.py :: adresswechsel_einsehbar_verwehrt`; the grants are read only where an
     address is asked, most reads serving no change.
     """
 

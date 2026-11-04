@@ -20,8 +20,8 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.bewerbungen.public_router import post_einwilligung
 from app.api.bewerbungen.schemas import FLBewerbungEinwilligungDeclined
 from app.api.bewerbungen.system_router import sweep_saison
-from app.api.identitaet.services import build_loeschung_seat_pipeline
-from app.api.identitaet.wiederherstellung import Read, Window, replay_line
+from app.api.identity.services import build_loeschung_seat_pipeline
+from app.api.identity.wiederherstellung import Read, Window, replay_line
 from app.api.kontakte.crud import loeschen_kontaktperson_in_session
 from app.api.spielbestaetigungen.public_router import get_spielbestaetigung_view
 from app.api.teams.admin_router import patch_saison_team_kontakte, replace_saison_team

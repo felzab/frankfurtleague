@@ -7,17 +7,17 @@ from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.identitaet.crud import funktionen_of, refuse_without_a_seat
-from app.api.identitaet.lookup import SubjektLookup
-from app.api.identitaet.services import ist_eigener_spieler, may_grant_on_spieler
-from app.api.konto.crud import press_einwilligung
-from app.api.konto.services import (
+from app.api.account.crud import press_einwilligung
+from app.api.account.services import (
     KONTO_SEITE_SPIELER,
     compose_person_move,
     compose_spieler_self,
     find_eigener_eintrag_refusal,
     widerruf_line,
 )
+from app.api.identity.crud import funktionen_of, refuse_without_a_seat
+from app.api.identity.lookup import SubjektLookup
+from app.api.identity.services import ist_eigener_spieler, may_grant_on_spieler
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.sperrliste.guard import PERSON_ACTOR_BINDERS, KontaktIdentifier, SpielerIdentifier
 from app.api.spieler.crud import refuse_a_taken_rolle

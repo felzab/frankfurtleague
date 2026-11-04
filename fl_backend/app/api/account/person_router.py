@@ -7,6 +7,27 @@ from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
+from app.api.account.schemas import (
+    FLAccountAddressChangeMintResponse,
+    FLAccountAddressChangeOpen,
+    FLAccountAddressChangePayload,
+    FLAccountAddressChangeReleasePayload,
+    FLAccountAddressChangeResponse,
+    FLAccountEinwilligungenResponse,
+)
+from app.api.account.services import (
+    build_angenommene_bewerbungen_pipeline,
+    build_kontext_teams_pipeline,
+    build_self_bewerbung_pipeline,
+    build_self_registrierung_pipeline,
+    build_self_seat_pipeline,
+    compose_bewerbungssitze_self,
+    compose_registrierungen_self,
+    compose_schiedsrichter_konto,
+    compose_sitze_self,
+    compose_spieler_konto,
+    kontext_zeile,
+)
 from app.api.adresswechsel.crud import (
     end_the_change_in_session,
     ending_line,
@@ -36,30 +57,9 @@ from app.api.adresswechsel.services import (
 )
 from app.api.berechtigungen.crud import read_berechtigungen, read_the_announced
 from app.api.berechtigungen.services import genehmiger_of
-from app.api.identitaet.crud import funktionen_aus
-from app.api.identitaet.lookup import RecordCollections, SubjektLookup
-from app.api.identitaet.services import ist_eigener_schiedsrichter, ist_eigener_spieler, may_grant_on_schiedsrichter, may_grant_on_spieler
-from app.api.konto.schemas import (
-    FLAccountAddressChangeMintResponse,
-    FLAccountAddressChangeOpen,
-    FLAccountAddressChangePayload,
-    FLAccountAddressChangeReleasePayload,
-    FLAccountAddressChangeResponse,
-    FLAccountEinwilligungenResponse,
-)
-from app.api.konto.services import (
-    build_angenommene_bewerbungen_pipeline,
-    build_kontext_teams_pipeline,
-    build_self_bewerbung_pipeline,
-    build_self_registrierung_pipeline,
-    build_self_seat_pipeline,
-    compose_bewerbungssitze_self,
-    compose_registrierungen_self,
-    compose_schiedsrichter_konto,
-    compose_sitze_self,
-    compose_spieler_konto,
-    kontext_zeile,
-)
+from app.api.identity.crud import funktionen_aus
+from app.api.identity.lookup import RecordCollections, SubjektLookup
+from app.api.identity.services import ist_eigener_schiedsrichter, ist_eigener_spieler, may_grant_on_schiedsrichter, may_grant_on_spieler
 from app.api.schiedsrichter.services import build_self_referee_pipeline
 from app.api.sperrliste.guard import PERSON_ACTOR_BINDERS, KontaktIdentifier
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt

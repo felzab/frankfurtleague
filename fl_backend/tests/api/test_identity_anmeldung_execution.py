@@ -10,11 +10,11 @@ from fastapi import FastAPI
 from httpx2 import Response
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.identitaet import crud as identitaet_crud
-from app.api.identitaet.crud import find_subjekt
-from app.api.identitaet.schemas import FLSignInResponse, FLSubjectPayload
-from app.api.identitaet.services import eigene_eintraege
-from app.api.identitaet.system_router import get_sign_in
+from app.api.identity import crud as identity_crud
+from app.api.identity.crud import find_subjekt
+from app.api.identity.schemas import FLSignInResponse, FLSubjectPayload
+from app.api.identity.services import eigene_eintraege
+from app.api.identity.system_router import get_sign_in
 from app.api.registrierungen.services import compose_confirmation_update
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -43,7 +43,7 @@ from tests.worker import worker_database
 
 from .conftest import AUSTRITT, config_for
 
-DATABASE_NAME = worker_database("fl_identitaet_anmeldung_test")
+DATABASE_NAME = worker_database("fl_identity_anmeldung_test")
 
 PATH = f"/api/v{API_VERSION}/identity/sign_in"
 
@@ -257,7 +257,7 @@ def answered(url: str, email: str) -> FLSignInResponse:
 
 def own_records(url: str, email: str) -> frozenset[tuple[str, Any]]:
     async def body(database: AsyncDatabase) -> frozenset[tuple[str, Any]]:
-        _, eintraege = await identitaet_crud.find_eigene_eintraege(sign_in_identifier(email), record_collections(database))
+        _, eintraege = await identity_crud.find_eigene_eintraege(sign_in_identifier(email), record_collections(database))
 
         return eintraege
 
@@ -372,7 +372,7 @@ def test_every_funktion_list_is_drawn_from_the_own_records(monkeypatch: pytest.M
     async def aggregate_many_from_db(*, collection: str, pipeline: Any, session: object = None) -> list[Mapping[str, Any]]:
         return rows.get(collection, [])
 
-    monkeypatch.setattr(identitaet_crud, "aggregate_many_from_db", aggregate_many_from_db)
+    monkeypatch.setattr(identity_crud, "aggregate_many_from_db", aggregate_many_from_db)
     records = record_collections(
         {Collection(name): name for name in ("saison_teams", "saisons", "spieler", "schiedsrichter", "bewerbungen", "registrierungen")}
     )

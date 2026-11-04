@@ -7,8 +7,8 @@ from bson import ObjectId
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.identitaet.crud import funktionen_of
-from app.api.identitaet.schemas import FLSubjekt
+from app.api.identity.crud import funktionen_of
+from app.api.identity.schemas import FLSubjekt
 from app.core.collections import Collection
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.shared.schemas.literals import KONTAKT_ROLLEN

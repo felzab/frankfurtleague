@@ -6,9 +6,9 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.adresswechsel.crud import known_to_the_new_mailbox, others_naming
 from app.api.berechtigungen.crud import pull_the_list_to_judge, read_berechtigungen
-from app.api.identitaet.crud import JEDE_PERSONENGRUPPE, LoeschungJournal, loeschen_everything, resolve_subject
-from app.api.identitaet.schemas import FLAccountErasureViewResponse, FLErasureResponse
-from app.api.identitaet.services import (
+from app.api.identity.crud import JEDE_PERSONENGRUPPE, LoeschungJournal, loeschen_everything, resolve_subject
+from app.api.identity.schemas import FLAccountErasureViewResponse, FLErasureResponse
+from app.api.identity.services import (
     build_season_team_pipeline,
     compose_loeschung_ansicht,
     find_letzter_inhaber_loeschung_refusal,

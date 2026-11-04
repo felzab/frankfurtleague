@@ -38,7 +38,7 @@ from app.api.berechtigungen.antraege import (
 )
 from app.api.berechtigungen.schemas import FLPatchGrantPayload, FLPostGrantPayload
 from app.api.berechtigungen.system_router import post_grants_reconciliation
-from app.api.identitaet.wiederherstellung import Window, plan_replay
+from app.api.identity.wiederherstellung import Window, plan_replay
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.core.codes import Code
 from app.core.collections import Collection

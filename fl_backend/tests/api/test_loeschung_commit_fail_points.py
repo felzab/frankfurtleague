@@ -42,8 +42,8 @@ from .test_adresswechsel_sweep_execution import sweep as an_address_change_call
 from .test_funktionen_loeschung import IDENTIFIER, THEIR_GRANT_OID, a_grant
 from .test_funktionen_loeschung import geloescht_by_the_handler as geloescht_by_the_person
 from .test_funktionen_loeschung import on_a_league as on_their_league
-from .test_identitaet_subjekt_execution import FUTURE_SAISON, VERWALTUNG_STORED, call_subjekt
-from .test_identitaet_subjekt_execution import on_a_league as on_the_subjects_league
+from .test_identity_subjekt_execution import FUTURE_SAISON, VERWALTUNG_STORED, call_subjekt
+from .test_identity_subjekt_execution import on_a_league as on_the_subjects_league
 from .test_journal_replay import PERSON, PUPIL_OID, V, _app, _person, _withdrawal, journalled, served
 from .test_loeschung_auf_anfrage import CONFIG as REQUEST_CONFIG
 from .test_loeschung_auf_anfrage import geloescht_by_the_handler as geloescht_on_request

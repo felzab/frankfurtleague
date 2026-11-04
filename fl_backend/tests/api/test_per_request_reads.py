@@ -9,11 +9,11 @@ import pytest
 from bson import ObjectId
 from pymongo.asynchronous.client_session import AsyncClientSession
 
+from app.api.account import person_router as account_person_router
 from app.api.berechtigungen import crud as grants_crud
-from app.api.identitaet import crud as identity_crud
-from app.api.identitaet import system_router as identity_system_router
-from app.api.identitaet.schemas import FLAnmeldung, FLSubjectPayload, FLSubjekt
-from app.api.konto import person_router as account_person_router
+from app.api.identity import crud as identity_crud
+from app.api.identity import system_router as identity_system_router
+from app.api.identity.schemas import FLAnmeldung, FLSubjectPayload, FLSubjekt
 from app.core.collections import Collection
 from tests.bans import ban_list
 from tests.documents import confirmed_kenntnisnahme

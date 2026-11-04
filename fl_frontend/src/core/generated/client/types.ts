@@ -5606,7 +5606,7 @@ export interface FLSpielerSaisonsResponse {
 /**
  * One pupil record's stored data as its own person reads it: the whole surname and the birthdate, never masked.
  *
- * Its consent is the account page's, whose entry extends this (`app/api/konto/schemas.py :: FLAccountSpielerEinwilligung`).
+ * Its consent is the account page's, whose entry `FLAccountSpielerEinwilligung` extends this.
  */
 export interface FLSpielerSelf {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */

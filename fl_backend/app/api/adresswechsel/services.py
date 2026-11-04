@@ -64,7 +64,7 @@ def wirksam_ab_von(confirmed_at: datetime) -> datetime:
 
 
 def _german_day(now: datetime) -> str:
-    # The day the restore planner judges a link's send by (`app/api/identitaet/wiederherstellung.py :: Window`).
+    # The day the restore planner judges a link's send by (`app/api/identity/wiederherstellung.py :: Window`).
     return now.astimezone(_GERMANY).strftime("%Y-%m-%d")
 
 

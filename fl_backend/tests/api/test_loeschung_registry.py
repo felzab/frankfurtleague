@@ -1,7 +1,7 @@
 """
 API · the erasure registry's decisions a database need not answer
 
-Collections standing in for the reads each decision makes: `app/api/identitaet/crud.py :: LoeschungJournal`'s
+Collections standing in for the reads each decision makes: `app/api/identity/crud.py :: LoeschungJournal`'s
 one `find` after the commit, and the aggregates `:: resolve_subject` sends.
 """
 
@@ -15,8 +15,8 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.errors import NetworkTimeout
 
-from app.api.identitaet.crud import LoeschungJournal, Subject, resolve_subject
-from app.api.identitaet.schemas import FLLoeschung
+from app.api.identity.crud import LoeschungJournal, Subject, resolve_subject
+from app.api.identity.schemas import FLLoeschung
 from app.core.codes import Code
 from app.core.journal import JOURNAL_TOKEN
 from tests.config import build_test_config

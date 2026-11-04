@@ -61,7 +61,7 @@ from app.api.berechtigungen.services import (
     holds_an_owners_power,
     stand_of,
 )
-from app.api.identitaet.services import adresswechsel_einsehbar_verwehrt
+from app.api.identity.services import adresswechsel_einsehbar_verwehrt
 from app.api.outbox.schemas import FLOutboxReference
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, hash_gesperrt
 from app.api.sperrliste.services import withheld_actor
@@ -293,7 +293,7 @@ async def post_grant(
 
     adresse = sign_in_identifier(str(berechtigung_data.email))
     akteur = sign_in_identifier(granted_by)
-    # Keyed from the payload's own value, as the ban write keys it (`app/api/identitaet/system_router.py :: get_subjekt`).
+    # Keyed from the payload's own value, as the ban write keys it (`app/api/identity/system_router.py :: get_subjekt`).
     gehasht = sperrliste.hash_of(str(berechtigung_data.email))
 
     async def judge_and_grant(session: AsyncClientSession) -> tuple[ObjectId, bool]:

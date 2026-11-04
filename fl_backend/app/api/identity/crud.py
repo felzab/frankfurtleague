@@ -21,9 +21,9 @@ from app.api.aktionen.crud import reattribute_administrator_in_session, redact_a
 from app.api.berechtigungen.antraege import loeschen_antraege_in_session
 from app.api.berechtigungen.crud import read_berechtigungen
 from app.api.berechtigungen.loeschung import loeschen_grants_and_authorship_in_session
-from app.api.identitaet.lookup import RecordCollections
-from app.api.identitaet.schemas import FLAnmeldung, FLLoeschung, FLSubjectSchiedsrichter, FLSubjectSeat, FLSubjectSpieler, FLSubjekt
-from app.api.identitaet.services import (
+from app.api.identity.lookup import RecordCollections
+from app.api.identity.schemas import FLAnmeldung, FLLoeschung, FLSubjectSchiedsrichter, FLSubjectSeat, FLSubjectSpieler, FLSubjekt
+from app.api.identity.services import (
     EintragArt,
     awaits_confirmation,
     behaltene_saison_ids,

@@ -28,7 +28,7 @@ from pymongo.errors import OperationFailure
 from app.api.adresswechsel.crud import end_an_emptied_change_in_session
 from app.api.berechtigungen.antraege import compose_antrag
 from app.api.einladungen.services import compose_einladung, compose_widerruf_update
-from app.api.identitaet.crud import JEDE_PERSONENGRUPPE, LOESCHUNG_STEPS, loeschen_everything
+from app.api.identity.crud import JEDE_PERSONENGRUPPE, LOESCHUNG_STEPS, loeschen_everything
 from app.api.registrierungen.person_router import admit
 from app.api.registrierungen.schemas import FLRegistrierungAdmitPayload
 from app.api.registrierungen.services import compose_ablehnung_update

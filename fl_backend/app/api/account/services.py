@@ -14,8 +14,8 @@ from bson import ObjectId
 
 from app.api.bewerbungen.services import bewerbung_schule, build_eigene_bewerbung_filter, mindestalter_for, saison_schule
 from app.api.einwilligung.services import find_fassung_refusal, medien_angeboten
-from app.api.identitaet.schemas import FLSubjectSeat
-from app.api.identitaet.services import eigene_sitze, holds_a_seat, ist_eigene_registrierung
+from app.api.identity.schemas import FLSubjectSeat
+from app.api.identity.services import eigene_sitze, holds_a_seat, ist_eigene_registrierung
 from app.api.kontakte.services import rows_seating
 from app.api.registrierungen.services import build_eigene_registrierung_filter, traegt_wahlen
 from app.core.codes import Code
@@ -269,7 +269,7 @@ def compose_schiedsrichter_konto(row: Mapping[str, Any], *, givable: bool, today
 
 
 def build_self_seat_pipeline(identifier: str) -> list[Mapping[str, Any]]:
-    """Every season row one of whose seats names the address, `app/api/identitaet/services.py :: eigene_sitze` judging each slot.
+    """Every season row one of whose seats names the address, `app/api/identity/services.py :: eigene_sitze` judging each slot.
 
     No `austritt` term: a withdrawal reaches a withdrawn team's seat too.
     """

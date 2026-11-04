@@ -18,6 +18,9 @@ from bson import ObjectId
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
+from app.api.account.person_router import delete_address_change as stop_on_the_account_page
+from app.api.account.person_router import get_address_change, post_address_change, post_address_change_release
+from app.api.account.schemas import FLAccountAddressChangePayload, FLAccountAddressChangeReleasePayload
 from app.api.adresswechsel.admin_router import (
     delete_address_change,
     get_address_change_verwaltung_view,
@@ -33,9 +36,6 @@ from app.api.adresswechsel.schemas import (
     FLAdresswechselSweepParams,
 )
 from app.api.adresswechsel.system_router import sweep_address_change
-from app.api.konto.person_router import delete_address_change as stop_on_the_account_page
-from app.api.konto.person_router import get_address_change, post_address_change, post_address_change_release
-from app.api.konto.schemas import FLAccountAddressChangePayload, FLAccountAddressChangeReleasePayload
 from app.api.outbox.system_router import post_handout
 from app.core.collections import Collection
 from app.core.exceptions import APIError

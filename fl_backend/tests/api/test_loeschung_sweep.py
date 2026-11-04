@@ -24,9 +24,9 @@ from fastapi import FastAPI
 from pymongo import AsyncMongoClient, ReturnDocument
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.identitaet.crud import faellige_seite, saison_statuses
-from app.api.identitaet.schemas import FLLoeschungSweepParams
-from app.api.identitaet.system_router import LOESCHUNGEN_PER_PASS, sweep_erasure
+from app.api.identity.crud import faellige_seite, saison_statuses
+from app.api.identity.schemas import FLLoeschungSweepParams
+from app.api.identity.system_router import LOESCHUNGEN_PER_PASS, sweep_erasure
 from app.api.registrierungen.public_router import post_registrierung
 from app.api.registrierungen.schemas import FLPostRegistrierungPayload
 from app.api.registrierungen.services import compose_ablehnung_update

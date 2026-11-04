@@ -204,7 +204,7 @@ Every ruling below is the sign-up flow as it stands for the next season.
     (`fl_frontend/src/core/signInGate.ts :: mayReceiveSignIn`). A record of its own is one its person
     confirmed, whose consent the account page offers back: a contact seat of any season or of a
     pending application, a pupil or referee row retired or not, and a pending registration carrying
-    a choice (`fl_backend/app/api/identitaet/services.py :: eigene_eintraege`). So a decided
+    a choice (`fl_backend/app/api/identity/services.py :: eigene_eintraege`). So a decided
     application, a declined registration, and an application or registration nobody has confirmed
     admit nobody.
 
@@ -649,7 +649,7 @@ GENEHMIGUNG_TAGE`), when the database deletes it.
   until the remarks go. The request an
   administrator's erasure answers
   (`aktionen.anlass`) stands on every log row that erasure files, for the log's twelve months. It is refused where it holds an address
-  (`fl_backend/app/api/identitaet/schemas.py :: refuse_an_address_in_the_anlass`) and checked for no
+  (`fl_backend/app/api/identity/schemas.py :: refuse_an_address_in_the_anlass`) and checked for no
   name, so a name the administrator types into it stands for those twelve months.
 - **A retired row is never removed because of its age.** A referee who stopped, a club that left
   and a past season all keep their rows, and a player who left a squad keeps theirs until the
@@ -840,7 +840,7 @@ GENEHMIGUNG_TAGE`), when the database deletes it.
   account's deletion link goes sooner, when that secret lapses (`:: row_of`). The published
   notice's retention table says the same (`DatenschutzView.tsx :: FRISTEN`). An erasure of its recipient deletes it
   at once, sent or owed, the sign-in library's deletion link alone excepted
-  (`fl_backend/app/api/identitaet/crud.py :: loeschen_the_mails_in_session`; `docs/glossary.md ::
+  (`fl_backend/app/api/identity/crud.py :: loeschen_the_mails_in_session`; `docs/glossary.md ::
 Zustellstand`). No record the message was about carries it, so a row can outlive that record by
   its thirty days, and no longer. Ruled 2026-10-26. **A Widerspruch empties the seat and keeps its
   link entry**, on an application until the application goes and on a team's season row until a
@@ -900,7 +900,7 @@ Zustellstand`). No record the message was about carries it, so a row can outlive
   `fl_backend/app/api/registrierungen/system_router.py :: sweep_registrierungen` per season, then
   `fl_backend/app/api/adresswechsel/system_router.py :: sweep_address_change`, `POST /address_change/sweep`; and
   `fl_frontend/src/features/saisons/sweep.ts :: runLoeschungSweep`, which calls
-  `fl_backend/app/api/identitaet/system_router.py :: sweep_erasure`). Every job runs on every pass, with no
+  `fl_backend/app/api/identity/system_router.py :: sweep_erasure`). Every job runs on every pass, with no
   switch to hold one back. A pass pings the heartbeat monitor, and `/fail` naming each job that threw or left an owed
   deletion or erasure, so a claim that one of their periods was honoured rests on that report and on each job's
   per-pass line in the frontend's log rather than on reading the data
@@ -939,7 +939,7 @@ Zustellstand`). No record the message was about carries it, so a row can outlive
   request's line keys the address the grant was asked for**, which may be a stranger's an
   administrator mistyped (`fl_backend/app/api/berechtigungen/antraege.py :: antrag_line`); a
   restore replays it, so an ended request does not come back to be approved
-  (`fl_backend/app/api/identitaet/wiederherstellung.py :: _plan_antrag_ende`). The day file keeps each line's whole log
+  (`fl_backend/app/api/identity/wiederherstellung.py :: _plan_antrag_ende`). The day file keeps each line's whole log
   envelope, its trace and span ids among them,
   and the trace id joins the line to the edge's access line, which names the visitor's address for
   that log's eight days. Each line is copied into its day file hourly so that a restore can run

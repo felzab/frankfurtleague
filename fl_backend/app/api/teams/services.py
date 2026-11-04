@@ -1011,7 +1011,7 @@ def seated_identifiers(teams: Sequence[Mapping[str, Any]]) -> list[str]:
 def mit_adresswechseln(teams: Sequence[Mapping[str, Any]], *, live: Mapping[str, Any], denied: Mapping[str, str]) -> list[dict[str, Any]]:
     """The memberships read with each confirmed seat's live address change by id, `live` keyed by the folded address.
 
-    An unconfirmed seat names none: the change moves only confirmed seats (`app/api/identitaet/services.py ::
+    An unconfirmed seat names none: the change moves only confirmed seats (`app/api/identity/services.py ::
     eigene_sitze`).
     """
 

@@ -13,7 +13,7 @@ from pydantic import BaseModel, EmailStr, TypeAdapter, ValidationError
 from pydantic.warnings import UnsupportedFieldAttributeWarning
 
 import app
-from app.api.identitaet.schemas import FLErasureAdressePayload, FLErasurePayload
+from app.api.identity.schemas import FLErasureAdressePayload, FLErasurePayload
 from app.core.codes import Code
 from app.core.config import API_VERSION
 from app.shared.folding import league_address
@@ -165,7 +165,7 @@ ADDRESS_FIELDS = _address_fields()
 # the sweep below comparing nothing and passing.
 KNOWN_ADDRESS_FIELDS = {
     "app.api.bewerbungen.schemas.FLBewerbungKontaktEmailPayload.email",
-    "app.api.identitaet.schemas.FLSubjectPayload.email",
+    "app.api.identity.schemas.FLSubjectPayload.email",
     "app.api.registrierungen.schemas.FLPostRegistrierungPayload.email",
     "app.api.sperrliste.schemas.FLPostSperrlistePayload.email",
     "app.api.teams.schemas._KontaktpersonWritablePayload.email",

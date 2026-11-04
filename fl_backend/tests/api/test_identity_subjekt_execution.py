@@ -10,8 +10,8 @@ from fastapi import FastAPI
 from httpx2 import Response
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.identitaet.schemas import FLSubjectPayload, FLSubjectResponse
-from app.api.identitaet.system_router import get_sign_in, get_subject
+from app.api.identity.schemas import FLSubjectPayload, FLSubjectResponse
+from app.api.identity.system_router import get_sign_in, get_subject
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.main import create_app
@@ -36,7 +36,7 @@ from tests.worker import worker_database
 
 from .conftest import config_for
 
-DATABASE_NAME = worker_database("fl_identitaet_subjekt_test")
+DATABASE_NAME = worker_database("fl_identity_subjekt_test")
 
 PATH = f"/api/v{API_VERSION}/identity/subject"
 
