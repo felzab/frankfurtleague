@@ -124,6 +124,10 @@ export const alterAusserhalb = (mindestalter: number): string =>
  * so the page states the deadline the sweep deletes on rather than a literal of its own.
  */
 export const BEWERBUNG_BESTAETIGUNG_FRIST_TAGE = 14;
+/**
+ * The reminder's clock, which the mails' day-count test holds them to.
+ * @internal
+ */
 export const BEWERBUNG_ERINNERUNG_TAGE = 3;
 
 /**
