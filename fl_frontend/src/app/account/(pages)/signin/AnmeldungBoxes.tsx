@@ -1,5 +1,3 @@
-"use client";
-
 import { AccountBox, AccountSentence } from "@/kit/AccountBox";
 import { Callout } from "@/kit/Callout";
 import { Facts } from "@/kit/Facts";
@@ -25,7 +23,8 @@ export type Pending = {
 /**
  * Anmeldung's two boxes: the address the person signs in with, its change started, or pending and withdrawn; and
  * „Konto löschen“, the press mailing the link the deletion waits on. `held` says the person holds a passkey, whose
- * touch the start asks first; `lastOwner` closes the deletion for the league's last owner.
+ * touch the start asks first; `lastOwner` closes the deletion for the league's last owner. Drawn on the server: each
+ * box's act is a server action's reference, which a Client Component takes as a prop, and nothing here is a closure.
  */
 export function AnmeldungBoxes({
   email,
@@ -44,7 +43,7 @@ export function AnmeldungBoxes({
   const address = (
     <Facts
       look="free"
-      facts={[{ label: COPY.signIn.address, value: { record: email } }]}
+      facts={[{ label: COPY.konto.address.current, value: { record: email } }]}
     />
   );
   return (
