@@ -394,11 +394,12 @@ const IMPORT_BANS = [
   ...BACKGROUND_PASS_BANS,
   // `no-restricted-imports` reads import and export declarations alone, so an `import()` would pass every ban above.
   // The two files spared are the runtime split, Next's documented shape, and the boot, which turns the settings'
-  // failed validation into its refusal.
+  // failed validation into its refusal. The sign-in's browser client is admitted by its specifier in every file: no
+  // ban above names it, so loading it on a press passes none by, and a page carries its weight only once pressed.
   ban(
     "no-restricted-syntax",
     syntax(
-      "ImportExpression",
+      "ImportExpression:not([source.value='@/core/authClient'])",
       "Import a module statically: the import bans read import and export declarations alone, so an `import()` passes every one of them.",
     ),
     PRODUCTION,

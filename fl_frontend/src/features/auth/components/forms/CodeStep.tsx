@@ -9,7 +9,6 @@ import { Button } from "@heroui/react/button";
 import { InputOTP, REGEXP_ONLY_DIGITS } from "@heroui/react/input-otp";
 import { Label } from "@heroui/react/label";
 
-import { authClient } from "@/core/authClient";
 import { SIGN_IN_CODE_LENGTH } from "@/core/signInCode";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { FIELD_ERROR_CLASSES } from "@/shared/components/ui/formFieldStyles";
@@ -127,10 +126,12 @@ export function CodeStep({
     setIsChecking(true);
     setRefusal(null);
 
-    const error = await authClient.signIn.emailOtp({ email: address, otp: typed }).then(
-      (result) => result.error,
-      (failed: unknown) => failed,
-    );
+    const error = await import("@/core/authClient")
+      .then(({ authClient }) => authClient.signIn.emailOtp({ email: address, otp: typed }))
+      .then(
+        (result) => result.error,
+        (failed: unknown) => failed,
+      );
 
     // A confirmation always rests on this code: the library answers a code another tab spent as a wrong one.
     if (error === null) {

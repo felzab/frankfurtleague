@@ -1,12 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { SignInPage } from "@/kit/SignInPage";
 
 import { allowedReturnAddress, RETURN_PARAMETER, withReturnAddress } from "@/core/auth/returnAddress";
-import { authClient } from "@/core/authClient";
 import { COPY } from "@/core/copy";
 import { leaveDocumentFor } from "@/shared/utils/documentNavigation";
 
@@ -32,6 +31,7 @@ async function ceremonyHeld(step: Step): Promise<Held | null> {
     // frame it, and a hand-rolled ceremony would own that pairing without owning the endpoints.
 
     // `createSession`: setting the passkey up signs in with it, ending the code's session in the same step.
+    const { authClient } = await import("@/core/authClient");
     const { error } = enrolling ? await authClient.passkey.addPasskey({ createSession: true }) : await authClient.signIn.passkey();
 
     if (error === null) return null;
@@ -66,6 +66,8 @@ export function PasskeyStep(props: Props) {
   const [isPending, setIsPending] = useState(false);
   const [fehler, setFehler] = useState<Copy | null>(null);
   const worte = WORTE[step];
+  // The library's client fetched once the page stands, as `SignInFlow` fetches it, so the press keeps its gesture.
+  useEffect(() => void import("@/core/authClient").catch(() => undefined), []);
   // The address a mailed link asked for, which both ways on carry where the allowlist holds it.
   const asked = allowedReturnAddress(useSearchParams().get(RETURN_PARAMETER));
 
