@@ -270,7 +270,7 @@ async def sweep_address_change(
     End a bounded share of the live changes whose waiting step lapsed, and make the due ones take effect.
 
     **A lapsed change** -- its link, the approval it asked of the address on file, or its grant's approval by another
-    administrator -- ends as `abgelaufen`: its address and reason out of the record and every log image of it
+    administrator -- ends as `expired`: its address and reason out of the record and every log image of it
     (`removed`). **A due change**, one whose waiting time has ended and whose grant's move, where its address still
     holds the grant, was approved, is judged again as its confirmation was: a ban on either address, another pupil
     signing in on the new one, a grant its approval does not cover, a grant at the new address, or nothing left to move

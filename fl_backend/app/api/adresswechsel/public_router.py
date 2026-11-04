@@ -1,9 +1,9 @@
 from collections.abc import Mapping
 from datetime import datetime
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Depends
-from pymongo import AsyncMongoClient, ReturnDocument
+from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
@@ -18,8 +18,9 @@ from app.api.adresswechsel.crud import (
     take_effect_in_session,
 )
 from app.api.adresswechsel.schemas import (
-    FLAddressChangeAntwortPayload,
-    FLAddressChangeAntwortResponse,
+    FLAddressChangeAnswer,
+    FLAddressChangeAnswerPayload,
+    FLAddressChangeAnswerResponse,
     FLAddressChangeStopResponse,
     FLAddressChangeViewEnded,
     FLAddressChangeViewNew,
@@ -29,6 +30,7 @@ from app.api.adresswechsel.schemas import (
 from app.api.adresswechsel.services import (
     als_utc,
     bisherig_zustand,
+    build_either_link_filter,
     build_open_link_terms,
     build_previous_link_terms,
     compose_confirmation_update,
@@ -37,12 +39,14 @@ from app.api.adresswechsel.services import (
     find_beendet_refusal,
     find_unbekannt_refusal,
     genehmigung_offen,
-    german_day,
     ist_abgelaufen,
     neu_zustand,
+    side_of,
+    wartet_auf,
 )
 from app.api.identity.lookup import SubjektLookup
 from app.api.sperrliste.lookup import SperrlisteLookup, sperrliste_saison
+from app.core.clock import german_day
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import patch_one_in_db, refuse
 from app.core.dependencies import (
@@ -82,7 +86,8 @@ router = APIRouter(
     dependencies=[Depends(verify_access_base), Depends(bind_public_actor)],
 )
 
-# What a link's view and press read: never `grund`, and the addresses for the judgement alone.
+# What a link's view reads: never `grund`, the addresses for the judgement alone, and the new link's hashes, which say
+# which of the two links a token is.
 _FIELDS: Mapping[str, int] = {
     "adresse": 1,
     "email": 1,
@@ -93,6 +98,7 @@ _FIELDS: Mapping[str, int] = {
     "effective_from": 1,
     "approval": 1,
     "ended": 1,
+    "token_hashes": 1,
 }
 
 # Causes the press refuses for the replaced address's sake, which the view reads alike as unconfirmable.
@@ -126,33 +132,30 @@ async def get_address_change_view(
 
     The new mailbox's side is served in a state: once pressed, `confirmed`, or `approval_expired` where its
     approval week lapsed unapproved; else `barred` wherever the ban list holds the address the link was mailed to, then
-    `abgelaufen`, then `not_confirmable` wherever the press would be refused for the address on file's sake or would
+    `expired`, then `not_confirmable` wherever the press would be refused for the address on file's sake or would
     find it holding nothing to move, each a state the confirmation is refused in. Those read alike here, though the press
     answers each by its own code; what keeps the link's holder from telling them apart is the edge, where
     the proxy routes no public call to this service. The address on file's side answers the step the change waits on
-    and until when, `release_open` while the person's own change waits on this link's confirmation, and never whether
-    the new mailbox could confirm, and the day it confirmed once it has.
+    and until when, `release_open` while the person's own change waits on this link's confirmation and `release_expired` once that lapsed,
+    never whether the new mailbox could confirm, and the day it confirmed once it has.
     """
 
     token_hash = hash_token(ansicht_data.token)
     # `find_one` rather than `pull_one_from_db`: a miss is this endpoint's own refusal, never a 404.
-    record = await adresswechsel_collection.find_one({"token_hashes": token_hash}, projection=dict(_FIELDS))
-    seite: Literal["new", "previous"] = "new"
-    if record is None:
-        record = await adresswechsel_collection.find_one({"stop.token_hashes": token_hash}, projection=dict(_FIELDS))
-        seite = "previous"
+    record = await adresswechsel_collection.find_one(build_either_link_filter(token_hash), projection=dict(_FIELDS))
     refuse(find_unbekannt_refusal(found=record is not None))
     assert record is not None
+    side = side_of(record, token_hash)
 
     beendet = record.get("ended")
     if isinstance(beendet, Mapping):
         # Marked UTC first: the driver reads the stored instant back with no offset, which a conversion would take as local.
         ended_at = als_utc(beendet["am"])
         assert ended_at is not None
-        released_at = als_utc(record.get("released_at")) if seite == "previous" else None
+        released_at = als_utc(record.get("released_at")) if side == "previous" else None
         return FLAddressChangeViewResponse(
             view=FLAddressChangeViewEnded(
-                seite=seite,
+                side=side,
                 state="ended",
                 art=beendet["art"],
                 ended_on=german_day(ended_at),
@@ -162,16 +165,17 @@ async def get_address_change_view(
         )
 
     gueltig_bis, wirksam_ab = als_utc(record.get("valid_until")), als_utc(record.get("effective_from"))
-    if seite == "previous":
-        zustand_bisherig = bisherig_zustand(record)
+    if side == "previous":
+        zustand_bisherig = bisherig_zustand(record, now=germany_now)
         released_at = als_utc(record.get("released_at"))
         return FLAddressChangeViewResponse(
             view=FLAddressChangeViewPrevious(
-                seite="previous",
+                side="previous",
                 state=zustand_bisherig,
                 valid_until=gueltig_bis,
                 effective_from=wirksam_ab,
                 way=record["way"],
+                # Only while the person's own change asks this link its question, never once that lapsed.
                 email=str(record["email"]) if zustand_bisherig == "release_open" and record["way"] == "account" else None,
                 released_on=None if released_at is None else german_day(released_at),
             )
@@ -209,7 +213,7 @@ async def get_address_change_view(
 
     return FLAddressChangeViewResponse(
         view=FLAddressChangeViewNew(
-            seite="new",
+            side="new",
             state=zustand,
             valid_until=gueltig_bis,
             effective_from=wirksam_ab,
@@ -224,13 +228,13 @@ async def get_address_change_view(
 
 @router.post(
     "",
-    response_model=FLAddressChangeAntwortResponse,
+    response_model=FLAddressChangeAnswerResponse,
     summary="Confirm or decline a pending address",
     # `uniq_spieler_email` and `uniq_grant_adresse` are published by the duplicate-key trace and stay unreached: the
     # in-session reads of another pupil and of the new address's grant include every row either index holds.
 )
-async def post_address_change_antwort(
-    antwort_data: Annotated[FLAddressChangeAntwortPayload, Body()],
+async def post_address_change_answer(
+    answer_data: Annotated[FLAddressChangeAnswerPayload, Body()],
     adresswechsel_collection: AddressChangeCollection,
     records: SubjektLookup,
     spieler_collection: SpielerCollection,
@@ -250,14 +254,16 @@ async def post_address_change_antwort(
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
     germany_now: datetime = Depends(get_germany_now),
-) -> FLAddressChangeAntwortResponse:
+) -> FLAddressChangeAnswerResponse:
     """
     Record whether the mailbox this link was sent to is the person's: `confirmed` confirms it, `declined` ends the change.
 
     **The person's own change asks the address on file first**: its link's confirmation owes the new mailbox its link,
-    and nothing moves yet; refused `link_expired` past that link's deadline and `address_change_ended` once answered or
-    ended, a decline refused only the latter. Every other link the address on file was mailed answers no confirmation
-    (`link_invalid`).
+    and nothing moves yet, answering `confirmed` with `effective` false, `effective_from` null and `approval_open` saying
+    whether the change will wait on another administrator's approval of the grant it moves; refused `link_expired` past
+    that link's deadline and `address_change_ended` once answered or ended, a decline refused only the latter, and a
+    decline is the one way this link ends the change before it confirmed (`/stop` refuses it). Every other link the
+    address on file was mailed answers no confirmation (`link_invalid`).
 
     The new mailbox's link: **a confirmation moves the person, not a record.** Unless the change waits -- on a waiting time an administrator's
     start with a reason asked, or on another administrator's approval of the grant it moves -- it takes effect in this
@@ -281,34 +287,39 @@ async def post_address_change_antwort(
     `link_barred` tell a caller what the view's `not_confirmable` keeps alike; only the edge keeps them from the link's holder.
     """
 
-    token_hash = hash_token(antwort_data.token)
-    if await adresswechsel_collection.find_one({"token_hashes": token_hash}, {"_id": 1}) is None:
-        return await _answer_for_the_address_on_file(
-            antwort_data,
-            stop_hash=token_hash,
-            adresswechsel_collection=adresswechsel_collection,
-            outbox_collection=outbox_collection,
-            aktionen_collection=aktionen_collection,
-            db=db,
-            config=config,
-            germany_now=germany_now,
-        )
-    # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_gesperrt`).
+    token_hash = hash_token(answer_data.token)
+    # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_gesperrt`), before the read naming which link the
+    # token is: the address on file's answer reads it in vain.
     massgebliche_saison_id = await sperrliste_saison(sperrliste)
     stamp = log_stamp(germany_now)
     journal = Journal()
 
     @journal.attempted
-    async def answer_for_the_mailbox(session: AsyncClientSession) -> FLAddressChangeAntwortResponse | None:
+    async def answer_the_link(session: AsyncClientSession) -> FLAddressChangeAnswerResponse | None:
         """Judge, then write, everything judged read in-session, so a second press is refused by the spent link rather than writing twice."""
 
-        record = await adresswechsel_collection.find_one({"token_hashes": token_hash}, session=session)
+        record = await adresswechsel_collection.find_one(build_either_link_filter(token_hash), session=session)
         refuse(find_unbekannt_refusal(found=record is not None))
         assert record is not None
+        if side_of(record, token_hash) == "previous":
+            return await _answer_for_the_address_on_file(
+                record,
+                answer=answer_data.answer,
+                stop_hash=token_hash,
+                adresswechsel_collection=adresswechsel_collection,
+                outbox_collection=outbox_collection,
+                aktionen_collection=aktionen_collection,
+                config=config,
+                germany_now=germany_now,
+                stamp=stamp,
+                journal=journal,
+                session=session,
+            )
+
         refuse(find_beendet_refusal(offen=record.get("ended") is None and record.get("confirmed_at") is None))
         db_filter = {"_id": record["_id"], **build_open_link_terms(token_hash)}
 
-        if antwort_data.antwort == "declined":
+        if answer_data.answer == "declined":
             await end_the_change_in_session(
                 adresswechsel_collection=adresswechsel_collection,
                 aktionen_collection=aktionen_collection,
@@ -327,7 +338,7 @@ async def post_address_change_antwort(
                     key=config.sperrliste_key,
                 )
             )
-            return FLAddressChangeAntwortResponse(antwort="declined", effective_from=None, approval_open=False, effective=False)
+            return FLAddressChangeAnswerResponse(answer="declined", effective_from=None, approval_open=False, effective=False)
 
         urteil, wirksam = await take_effect_in_session(
             record=record,
@@ -360,7 +371,7 @@ async def post_address_change_antwort(
         if urteil.leer:
             return None
         if wirksam:
-            return FLAddressChangeAntwortResponse(antwort="confirmed", effective_from=None, approval_open=False, effective=True)
+            return FLAddressChangeAnswerResponse(answer="confirmed", effective_from=None, approval_open=False, effective=True)
 
         bestaetigt: Mapping[str, Any] = await patch_one_in_db(
             collection=adresswechsel_collection,
@@ -369,8 +380,8 @@ async def post_address_change_antwort(
             session=session,
             return_document=ReturnDocument.AFTER,
         )
-        return FLAddressChangeAntwortResponse(
-            antwort="confirmed",
+        return FLAddressChangeAnswerResponse(
+            answer="confirmed",
             effective_from=als_utc(bestaetigt.get("effective_from")),
             approval_open=genehmigung_offen(bestaetigt),
             effective=False,
@@ -378,7 +389,7 @@ async def post_address_change_antwort(
 
     async with journal:
         async with transaction_session(db) as session:
-            answered = await session.with_transaction(answer_for_the_mailbox)
+            answered = await session.with_transaction(answer_the_link)
 
     # After the commit, the discard standing: the link now answers how the change ended.
     refuse(find_beendet_refusal(offen=answered is not None))
@@ -388,72 +399,63 @@ async def post_address_change_antwort(
 
 
 async def _answer_for_the_address_on_file(
-    antwort_data: FLAddressChangeAntwortPayload,
+    record: Mapping[str, Any],
     *,
+    answer: FLAddressChangeAnswer,
     stop_hash: str,
     adresswechsel_collection: AsyncCollection,
     outbox_collection: AsyncCollection,
     aktionen_collection: AsyncCollection,
-    db: AsyncMongoClient,
     config: BackendConfig,
     germany_now: datetime,
-) -> FLAddressChangeAntwortResponse:
-    """The address on file's answer to the person's own change: its confirmation owes the new mailbox its link."""
+    stamp: str,
+    journal: Journal,
+    session: AsyncClientSession,
+) -> FLAddressChangeAnswerResponse:
+    """The address on file's answer to the person's own change, in the press's transaction: its confirmation owes the new mailbox its link."""
 
-    stamp = log_stamp(germany_now)
-    journal = Journal()
+    # A link of another way's notice offers its stop alone, so it answers no confirmation.
+    refuse(find_unbekannt_refusal(found=record["way"] == "account"))
+    refuse(find_beendet_refusal(offen=record.get("ended") is None and record.get("released_at") is None))
+    db_filter = {"_id": record["_id"], **build_previous_link_terms(stop_hash)}
 
-    @journal.attempted
-    async def answer_for_the_address_on_file(session: AsyncClientSession) -> FLAddressChangeAntwortResponse:
-        record = await adresswechsel_collection.find_one({"stop.token_hashes": stop_hash}, session=session)
-        # A link of another way's notice offers its stop alone, so it answers no confirmation.
-        refuse(find_unbekannt_refusal(found=record is not None and record["way"] == "account"))
-        assert record is not None
-        refuse(find_beendet_refusal(offen=record.get("ended") is None and record.get("released_at") is None))
-        db_filter = {"_id": record["_id"], **build_previous_link_terms(stop_hash)}
-
-        if antwort_data.antwort == "declined":
-            await end_the_change_in_session(
-                adresswechsel_collection=adresswechsel_collection,
-                aktionen_collection=aktionen_collection,
-                db_filter=db_filter,
-                art="declined",
-                now=germany_now,
-                stamp=stamp,
-                session=session,
-            )
-            journal.note(
-                ending_line(
-                    art="adresswechsel_abgelehnt", neue=str(record["email"]), record_id=record["_id"], am=stamp, key=config.sperrliste_key
-                )
-            )
-            return FLAddressChangeAntwortResponse(antwort="declined", effective_from=None, approval_open=False, effective=False)
-
-        refuse(find_abgelaufen_refusal(abgelaufen=ist_abgelaufen(record, now=germany_now)))
-        released: Mapping[str, Any] = await patch_one_in_db(
-            collection=adresswechsel_collection,
+    if answer == "declined":
+        await end_the_change_in_session(
+            adresswechsel_collection=adresswechsel_collection,
+            aktionen_collection=aktionen_collection,
             db_filter=db_filter,
-            update=compose_link_update(now=germany_now, freigabe=True),
-            session=session,
-            return_document=ReturnDocument.AFTER,
-        )
-        valid_until = als_utc(released["valid_until"])
-        assert valid_until is not None
-        await owe_the_link_in_session(
-            address_change_id=released["_id"],
-            email=str(released["email"]),
-            way="account",
-            valid_until=valid_until,
-            outbox_collection=outbox_collection,
+            art="declined",
             now=germany_now,
+            stamp=stamp,
             session=session,
         )
+        journal.note(
+            ending_line(art="adresswechsel_abgelehnt", neue=str(record["email"]), record_id=record["_id"], am=stamp, key=config.sperrliste_key)
+        )
+        return FLAddressChangeAnswerResponse(answer="declined", effective_from=None, approval_open=False, effective=False)
 
-        return FLAddressChangeAntwortResponse(antwort="confirmed", effective_from=None, approval_open=False, effective=False)
+    refuse(find_abgelaufen_refusal(abgelaufen=ist_abgelaufen(record, now=germany_now)))
+    released: Mapping[str, Any] = await patch_one_in_db(
+        collection=adresswechsel_collection,
+        db_filter=db_filter,
+        update=compose_link_update(now=germany_now, freigabe=True),
+        session=session,
+        return_document=ReturnDocument.AFTER,
+    )
+    valid_until = als_utc(released["valid_until"])
+    assert valid_until is not None
+    await owe_the_link_in_session(
+        address_change_id=released["_id"],
+        email=str(released["email"]),
+        way="account",
+        valid_until=valid_until,
+        outbox_collection=outbox_collection,
+        now=germany_now,
+        session=session,
+    )
 
-    async with journal:
-        async with transaction_session(db) as session:
-            return await session.with_transaction(answer_for_the_address_on_file)
+    # A grant holder's change waits, once the new mailbox confirmed, on another administrator's approval of the move.
+    return FLAddressChangeAnswerResponse(answer="confirmed", effective_from=None, approval_open=genehmigung_offen(released), effective=False)
 
 
 @router.post(
@@ -473,7 +475,9 @@ async def post_address_change_stop(
     Stop the change the address on file was mailed about: its new address goes, out of every log image of the change too.
 
     **Refused nothing but a token no change holds** (`link_invalid`) **and a change ended** (`address_change_ended`): a stop
-    hands nothing over, so it answers past every deadline, a barred address's holder too, until the change ends.
+    hands nothing over, so it answers past every deadline, a barred address's holder too, until the change ends. The
+    person's own change offers this link no stop before its address on file confirmed it (`link_invalid`): its
+    question's decline is the one way that link ends it then, so one act keeps one ending.
     """
 
     stopp_hash = hash_token(stopp_data.token)
@@ -482,10 +486,13 @@ async def post_address_change_stop(
 
     @journal.attempted
     async def stop_the_change(session: AsyncClientSession) -> FLAddressChangeStopResponse:
-        record = await adresswechsel_collection.find_one({"stop.token_hashes": stopp_hash}, {"email": 1, "ended": 1}, session=session)
+        record = await adresswechsel_collection.find_one(
+            {"stop.token_hashes": stopp_hash}, {"email": 1, "ended": 1, "way": 1, "released_at": 1, "confirmed_at": 1}, session=session
+        )
         refuse(find_unbekannt_refusal(found=record is not None))
         assert record is not None
         refuse(find_beendet_refusal(offen=record.get("ended") is None))
+        refuse(find_unbekannt_refusal(found=wartet_auf(record) != "previous_address"))
 
         await end_the_change_in_session(
             adresswechsel_collection=adresswechsel_collection,

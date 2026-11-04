@@ -1,6 +1,6 @@
-from typing import Literal
+from typing import Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
 
 from app.api.outbox.schemas import FLOutboxStatus
 from app.api.spieler.schemas import FLEinwilligung
@@ -14,7 +14,7 @@ from app.shared.schemas.custom import (
     CustomOptionalDateString,
     CustomOptionalString,
 )
-from app.shared.schemas.einwilligung import FLEinwilligungStand, FLSchiedsrichterTextVersions
+from app.shared.schemas.einwilligung import FLEinwilligungStand, FLSchiedsrichterTextVersions, cite_their_kind, refuse_a_stale_grant
 from app.shared.schemas.kontakt import CustomKontaktName, FLKontakt, FLKontaktPayload
 from app.shared.schemas.literals import FLAddressChangeViewableDenied, FLConfirmationState, FLEinwilligungUmfang, FLSortOrder
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
@@ -95,6 +95,12 @@ class FLSchiedsrichterRecord(FLSchiedsrichter, Anchored):
 
     confirmation: FLSchiedsrichterBestaetigungRecord | None = None
 
+    @model_validator(mode="after")
+    def _cites_a_referees_wordings(self) -> Self:
+        if self.einwilligung is not None:
+            cite_their_kind(self.einwilligung.nachweis, FLSchiedsrichterTextVersions)
+        return self
+
 
 FLSchiedsrichterListAdapter = TypeAdapter(list[FLSchiedsrichter])
 
@@ -165,6 +171,11 @@ class FLSchiedsrichterConfirmationPayload(BaseModel):
     medien: bool
     # The wordings the page showed beside the two choices.
     text_versions: FLSchiedsrichterTextVersions
+
+    @model_validator(mode="after")
+    def _grants_name_the_current_wording(self) -> Self:
+        refuse_a_stale_grant(self.text_versions, {"umfang": self.umfang, "medien": self.medien})
+        return self
 
 
 class FLSchiedsrichterConfirmationResponse(BaseAPIResponse):

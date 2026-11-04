@@ -1551,20 +1551,24 @@ class TestThePreview:
         assert "@" not in response.text and GEBURTSDATUM not in response.text
 
     def test_it_counts_no_change_whose_link_has_not_reached_this_mailbox(self, mongo_replica_set_url: str):
-        """An administrator's request still awaiting the address on file has told the new mailbox nothing, and its preview neither."""
+        """A change still awaiting its address on file has told the new mailbox nothing, and neither its preview nor its answer.
+
+        Counted, the answer would tell the erased person that somebody typed their address; the press ends it all the same.
+        """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             asked_first = documents.address_change_document(
-                adresse="noch.gefragt@example.com", email=IDENTIFIER, token_hash=None, day="2126-03-30", way="release"
+                adresse="noch.gefragt@example.com", email=IDENTIFIER, token_hash=None, day="2126-03-30", way="account"
             )
             await database[Collection.ADDRESS_CHANGES].insert_one(asked_first)
             async with app_client(mongo_replica_set_url, app=_app(), now=NOW) as http:
                 preview = (await http.get(f"{PATH}/view", headers=as_person(TYPED))).json()["address_change"]
 
-            return preview, (await geloescht_by_the_handler(database, client)).address_change
+            answered = (await geloescht_by_the_handler(database, client)).address_change
+            return preview, answered, (await the_one(database, Collection.ADDRESS_CHANGES, {"_id": asked_first["_id"]}))["ended"]["art"]
 
         # The seed's two changes alone; the press still ends all three, nothing of the asked one being this address's.
-        assert on_a_league(mongo_replica_set_url, body) == (2, 3)
+        assert on_a_league(mongo_replica_set_url, body) == (2, 2, "discarded")
 
     def test_a_dead_spelling_of_the_address_goes_unnamed_and_goes(self, mongo_replica_set_url: str):
         """A grant typed in capitals admits nobody, so the preview names no tier for it; the press removes it all the same."""

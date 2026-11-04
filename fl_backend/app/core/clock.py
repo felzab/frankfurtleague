@@ -17,3 +17,9 @@ def now() -> datetime:
     """The current instant, in German time: an aware value, so it compares and stores as the same instant in any zone."""
 
     return datetime.now(GERMANY)  # noqa: TID251
+
+
+def german_day(instant: datetime) -> str:
+    """The German day `instant` falls on, as every stored and served day is spelled: a link's send, an act's day."""
+
+    return instant.astimezone(GERMANY).strftime("%Y-%m-%d")

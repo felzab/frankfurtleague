@@ -79,7 +79,7 @@ PAST, ACTIVE = "2025", "2026"
 # One address holding every kind, several records of some and every state of each.
 WILTRUDIS = "wiltrudis.ehrenpreis@schule.de"
 # Asked with its domain in capitals, stored folded.
-KAETHE = "käthe@XN--MLLER-KVA.DE"
+KAETHE = "kaethe@XN--MLLER-KVA.DE"
 NIEMAND = "niemand@schule.de"
 
 TEAMS = [ObjectId(f"6890a1b2c3d4e5f6078600{n:02d}") for n in range(1, 6)]
@@ -198,7 +198,7 @@ async def _seed(database: AsyncDatabase) -> None:
             _referee(REFEREE_LIVE, WILTRUDIS, "Wiltrudis Ehrenpreis"),
             _referee(REFEREE_RETIRED, WILTRUDIS, "Wiltrudis E.", inactive_since="2026-07-01"),
             _referee(REFEREE_UNCONFIRMED, WILTRUDIS, "W. Ehrenpreis", einwilligung=None),
-            _referee(REFEREE_KAETHE, "käthe@xn--mller-kva.de", "Käthe Müller"),
+            _referee(REFEREE_KAETHE, "kaethe@xn--mller-kva.de", "Käthe Müller"),
             # The ghost carries the address too, so a side reaching it would count a row nobody stands behind.
             _referee(GHOST_SCHIEDSRICHTER_ID, WILTRUDIS, "Niemand", inactive_since="2000-01-01"),
         ]
@@ -234,7 +234,7 @@ async def _seed(database: AsyncDatabase) -> None:
             declined,
             # A returning pupil's: no choice on it, their own record standing.
             _registrierung(REGISTRIERUNG_RETURNING, WILTRUDIS, seite="bestaetigung_spieler_wiederkehrend"),
-            _registrierung(REGISTRIERUNG_KAETHE, "käthe@xn--mller-kva.de", vorname="Käthe"),
+            _registrierung(REGISTRIERUNG_KAETHE, "kaethe@xn--mller-kva.de", vorname="Käthe"),
         ]
     )
 

@@ -96,7 +96,7 @@ export const Code = {
   saison_span_below_spielplan_as_stored: "saison_span_below_spielplan_as_stored",
   saison_start_taken_place: "saison_start_taken_place",
   invitation_team_not_entered: "invitation_team_not_entered",
-  wording_not_allowed: "wording_not_allowed",
+  choices_stale: "choices_stale",
   medien_age: "medien_age",
   giving_not_allowed: "giving_not_allowed",
   eligibility_disqualified: "eligibility_disqualified",
@@ -256,7 +256,7 @@ export interface FLAcceptBewerbungResponse {
 }
 
 /**
- * The change a start or an approval wrote, and the mailbox its link is owed in the Postausgang: no link is answered.
+ * The change a start wrote: no link is answered, the one owed the address on file waiting in the Postausgang.
  */
 export interface FLAccountAddressChangeMintResponse {
   email: string;
@@ -284,8 +284,8 @@ export interface FLAddressChangeApprovalState {
 export type FLAddressChangeWaitsOn = (typeof FLAddressChangeWaitsOn)[keyof typeof FLAddressChangeWaitsOn];
 
 export const FLAddressChangeWaitsOn = {
-  release: "release",
-  new_adresse: "new_adresse",
+  previous_address: "previous_address",
+  new_address: "new_address",
   approval: "approval",
   waiting_period: "waiting_period",
 } as const;
@@ -294,7 +294,6 @@ export type FLAddressChangeWay = (typeof FLAddressChangeWay)[keyof typeof FLAddr
 
 export const FLAddressChangeWay = {
   account: "account",
-  release: "release",
   waiting_period: "waiting_period",
 } as const;
 
@@ -316,14 +315,6 @@ export interface FLAccountAddressChangeOpen {
 export interface FLAccountAddressChangePayload {
   /** @maxLength 254 */
   email: string;
-}
-
-/**
- * The change the page showed: an administrator's later start replaces it, and the approval then reaches nothing.
- */
-export interface FLAccountAddressChangeReleasePayload {
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  id: string;
 }
 
 /**
@@ -406,16 +397,16 @@ export interface FLEinwilligungStandPayload {
   umfang: string | null;
 }
 
-export type FLMedienTextVersion = "2026-11-medien-1";
+export type FLSpielerMedienTextVersionInput = "2026-11-medien-1";
 
-export type FLNameKaderTextVersion = "2026-11-name-kader-1";
+export type FLSpielerUmfangTextVersion = "2026-11-name-kader-1";
 
 /**
  * A pupil's two wordings: the name on the squad and the media switch.
  */
 export interface FLSpielerTextVersions {
-  medien: FLMedienTextVersion;
-  umfang: FLNameKaderTextVersion;
+  medien: FLSpielerMedienTextVersionInput;
+  umfang: FLSpielerUmfangTextVersion;
 }
 
 export type FLEinwilligungUmfang = (typeof FLEinwilligungUmfang)[keyof typeof FLEinwilligungUmfang];
@@ -491,11 +482,14 @@ export interface FLAccountRegistrierungEinwilligung {
   vorname: string;
 }
 
-export type FLWhatsappTextVersion = "2026-11-whatsapp-1";
+export type FLSeatUmfangTextVersion = "2026-11-whatsapp-1";
 
-export type FLNameSpielplanTextVersion = "2026-11-name-spielplan-1";
+export type FLMedienTextVersion = "2026-11-medien-1";
 
-export type FLEinwilligungTextVersion = FLWhatsappTextVersion | FLMedienTextVersion | FLNameKaderTextVersion | FLNameSpielplanTextVersion;
+export type FLSchiedsrichterUmfangTextVersion = "2026-11-name-spielplan-1";
+
+export type FLEinwilligungTextVersion =
+  FLSeatUmfangTextVersion | FLMedienTextVersion | FLSpielerUmfangTextVersion | FLSchiedsrichterUmfangTextVersion;
 
 /**
  * When a person set one consent choice, and under which wording.
@@ -861,15 +855,15 @@ export interface FLAddressChangeAdresseResponse {
   email: string | null;
 }
 
-export type FLAddressChangeAntwort = (typeof FLAddressChangeAntwort)[keyof typeof FLAddressChangeAntwort];
+export type FLAddressChangeAnswer = (typeof FLAddressChangeAnswer)[keyof typeof FLAddressChangeAnswer];
 
-export const FLAddressChangeAntwort = {
+export const FLAddressChangeAnswer = {
   confirmed: "confirmed",
   declined: "declined",
 } as const;
 
-export interface FLAddressChangeAntwortPayload {
-  antwort: FLAddressChangeAntwort;
+export interface FLAddressChangeAnswerPayload {
+  answer: FLAddressChangeAnswer;
   /**
    * @minLength 1
    * @maxLength 128
@@ -881,8 +875,8 @@ export interface FLAddressChangeAntwortPayload {
 /**
  * The answer recorded, and no address of the change: the notices an effect owes are queued, never answered.
  */
-export interface FLAddressChangeAntwortResponse {
-  antwort: FLAddressChangeAntwort;
+export interface FLAddressChangeAnswerResponse {
+  answer: FLAddressChangeAnswer;
   approval_open: boolean;
   effective: boolean;
   effective_from: string | null;
@@ -969,8 +963,8 @@ export interface FLAddressChangeMovesResponse {
 /**
  * The address on file's mail about an address change, its link minted at the hand-out into `stop.token_hashes`.
  *
- * On the person's own `account` way the link confirms or declines the change before the new mailbox is asked; on every
- * other way it stops the change.
+ * On the person's own `account` way the link confirms or declines the change before the new mailbox is asked; on the
+ * lost-mailbox way it stops the change.
  */
 export interface FLAddressChangeNoticeData {
   art: "address_change_notice";
@@ -1100,14 +1094,19 @@ export interface FLAddressChangeVerwaltungOpen {
 }
 
 /**
- * The address a change starts on, the address it goes to, and the reason where the address on file is gone.
+ * The address a change starts on, the address it goes to, and how the administrator established who asks for it.
  */
 export interface FLAddressChangeVerwaltungPayload {
   /** @maxLength 254 */
   adresse: string;
   /** @maxLength 254 */
   email: string;
-  grund: string | null;
+  /**
+   * @minLength 1
+   * @maxLength 200
+   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
+   */
+  grund: string;
 }
 
 /**
@@ -1125,9 +1124,9 @@ export interface FLAddressChangeVerwaltungViewResponse {
   possible: boolean;
 }
 
-export type FLAddressChangeViewEndedSeite = (typeof FLAddressChangeViewEndedSeite)[keyof typeof FLAddressChangeViewEndedSeite];
+export type FLAddressChangeViewEndedSide = (typeof FLAddressChangeViewEndedSide)[keyof typeof FLAddressChangeViewEndedSide];
 
-export const FLAddressChangeViewEndedSeite = {
+export const FLAddressChangeViewEndedSide = {
   new: "new",
   previous: "previous",
 } as const;
@@ -1140,7 +1139,7 @@ export interface FLAddressChangeViewEnded {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   ended_on: string;
   released_on: string | null;
-  seite: FLAddressChangeViewEndedSeite;
+  side: FLAddressChangeViewEndedSide;
   state: "ended";
   way: FLAddressChangeWay;
 }
@@ -1163,7 +1162,7 @@ export interface FLAddressChangeViewNew {
   approval_open: boolean | null;
   effective_from: string | null;
   email: string | null;
-  seite: "new";
+  side: "new";
   state: FLAddressChangeViewNewState;
   valid_until: string | null;
   way: FLAddressChangeWay;
@@ -1173,6 +1172,7 @@ export type FLAddressChangeViewPreviousState = (typeof FLAddressChangeViewPrevio
 
 export const FLAddressChangeViewPreviousState = {
   release_open: "release_open",
+  release_expired: "release_expired",
   open: "open",
   approval: "approval",
   waiting_period: "waiting_period",
@@ -1185,7 +1185,7 @@ export interface FLAddressChangeViewPrevious {
   effective_from: string | null;
   email: string | null;
   released_on: string | null;
-  seite: "previous";
+  side: "previous";
   state: FLAddressChangeViewPreviousState;
   valid_until: string | null;
   way: FLAddressChangeWay;
@@ -1551,12 +1551,14 @@ export interface FLBewerbungEinwilligungDeclined {
   token: string;
 }
 
+export type FLSeatMedienTextVersionInput = "2026-11-medien-1";
+
 /**
  * A contact seat's two wordings: the WhatsApp switch and the media switch.
  */
 export interface FLSeatTextVersions {
-  medien: FLMedienTextVersion;
-  umfang: FLWhatsappTextVersion;
+  medien: FLSeatMedienTextVersionInput;
+  umfang: FLSeatUmfangTextVersion;
 }
 
 /**
@@ -4530,12 +4532,14 @@ export interface FLSchiedsrichter {
   version: number;
 }
 
+export type FLSchiedsrichterMedienTextVersionInput = "2026-11-medien-1";
+
 /**
  * A referee's two wordings: the name on the fixtures and the media switch.
  */
 export interface FLSchiedsrichterTextVersions {
-  medien: FLMedienTextVersion;
-  umfang: FLNameSpielplanTextVersion;
+  medien: FLSchiedsrichterMedienTextVersionInput;
+  umfang: FLSchiedsrichterUmfangTextVersion;
 }
 
 /**
@@ -4603,6 +4607,8 @@ export interface FLSchiedsrichterListResponse {
   schiedsrichter: FLSchiedsrichter[];
 }
 
+export type FLSchiedsrichterMedienTextVersionOutput = FLMedienTextVersion;
+
 /**
  * The re-send's answer. Never null: where no link may be minted a refusal answers instead.
  */
@@ -4659,6 +4665,8 @@ export interface FLSeatEinwilligungPayload {
   text_versions: FLSeatTextVersions;
   umfang: FLKontaktKenntnisnahmeUmfang;
 }
+
+export type FLSeatMedienTextVersionOutput = FLMedienTextVersion;
 
 /**
  * The sign-in gate's whole answer: the records' two flags, the ban and the grant, and no record itself.
@@ -5499,6 +5507,8 @@ export interface FLSpielerAdminSingleResponse {
   /** @minLength 1 */
   vorname: string;
 }
+
+export type FLSpielerMedienTextVersionOutput = FLMedienTextVersion;
 
 /**
  * One squad row as seen from its player.

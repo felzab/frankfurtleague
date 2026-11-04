@@ -19,7 +19,7 @@ from zoneinfo import ZoneInfo
 
 from bson import ObjectId
 
-from app.api.adresswechsel.services import ASKS_THE_ADDRESS_ON_FILE_FIRST, compose_record
+from app.api.adresswechsel.services import compose_record
 from app.api.bewerbungen.services import bestaetigungsfrist_from, compose_bestaetigungen, compose_einwilligung
 from app.api.registrierungen.services import compose_bestaetigung, compose_confirmation_update, compose_registrierung
 from app.api.sperrliste.services import SPERRLISTE_SCHLUESSEL_VERSION, adresse_hash
@@ -530,12 +530,12 @@ def address_change_document(
     """A live change's record as a start inserts it at noon of `day` in Germany, its links as their hand-outs minted them.
 
     `token_hash` the new mailbox's, none where its link is not yet owed; the address on file's link a hash nobody holds.
-    A way asking the address on file first owes the new mailbox its link only once that address approved, so a
+    The person's own way owes the new mailbox its link only once its address on file confirmed, so a
     `token_hash` there stands for an approval at the start.
     """
 
     started = datetime.fromisoformat(f"{day}T12:00:00").replace(tzinfo=ZoneInfo("Europe/Berlin"))
-    asked_first = way in ASKS_THE_ADDRESS_ON_FILE_FIRST
+    asked_first = way == "account"
 
     return {
         **compose_record(adresse=adresse, email=email, way=way, grund=None, approval=approval, now=started),

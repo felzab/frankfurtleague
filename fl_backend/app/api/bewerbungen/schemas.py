@@ -33,7 +33,7 @@ from app.shared.schemas.custom import (
     parse_empty_string_to_none,
     validate_external_url,
 )
-from app.shared.schemas.einwilligung import FLEinwilligungStand, FLSeatTextVersions
+from app.shared.schemas.einwilligung import FLEinwilligungStand, FLSeatTextVersions, refuse_a_stale_grant
 from app.shared.schemas.kontakt import CustomEmail
 
 # Imported rather than restated: an application's three people BECOME the junction's three people at
@@ -577,6 +577,13 @@ class FLBewerbungEinwilligungGiven(BaseModel):
     medien: bool
     # The wordings the confirming person saw beside the two switches, which their evidence cites.
     text_versions: FLSeatTextVersions
+
+    @model_validator(mode="after")
+    def _grants_name_the_current_wording(self) -> Self:
+        refuse_a_stale_grant(
+            self.text_versions, {"umfang": "kontaktdaten_whatsapp" if self.whatsapp else "kontaktdaten", "medien": self.medien}
+        )
+        return self
 
 
 class FLBewerbungEinwilligungDeclined(BaseModel):

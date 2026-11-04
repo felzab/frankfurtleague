@@ -52,7 +52,6 @@ RAW_PREFIX = "raw-token-for"
 RAW: Mapping[str, str] = {seat: f"{RAW_PREFIX}-{seat}" for seat in KONTAKT_ROLLEN}
 HASHES: Mapping[str, str] = {seat: hash_token(raw) for seat, raw in RAW.items()}
 
-# What each of the two contact pages stamps today; an answer names the one its view answered.
 
 A_CHILDS_BIRTHDATE = "2018-01-01"
 AN_ADULTS_BIRTHDATE = "1984-05-09"

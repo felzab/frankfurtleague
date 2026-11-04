@@ -25,25 +25,6 @@ export const AccountPostAddressChangeBody = zod.object({
 });
 
 /**
- * Approve the change `id` names, which an administrator started without a reason, owing the new mailbox its link.
- *
- * **Nothing reaches the new mailbox before this press**. Nothing about the new address is
- * judged here either: the approver is owed no answer about it, and the confirmation judges it. **The press approves the
- * change its page showed alone**: an administrator's later start replaces that one, and its id then names an ended change.
- *
- * Refused `address_change_ended` where the change `id` names has ended; 404 where it
- * is no change of this address awaiting its approval; and `link_expired` past the approval's deadline.
- * @summary Approve the address change an administrator asked of the signed-in person
- */
-export const accountPostAddressChangeReleaseBodyIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
-
-export const AccountPostAddressChangeReleaseBody = zod
-  .object({
-    id: zod.string().regex(accountPostAddressChangeReleaseBodyIdRegExp),
-  })
-  .describe("The change the page showed: an administrator's later start replaces it, and the approval then reaches nothing.");
-
-/**
  * List recorded writes newest first, `complete` false where `limit` cut them, an actor's `email` null where the ban list holds it.
  *
  * `collection`, `operation` and `herkunft` take a comma-joined or repeated selection, and each
@@ -78,12 +59,12 @@ export const ActionLogGetActionLogEntryParams = zod.object({
 /**
  * Start a change of the typed address for a person who says they cannot sign in, its mails owed in the same transaction.
  *
- * **Nothing moves here.** Without a `grund` the change asks the address on file first: it is owed the request with its
- * stop link, and nothing goes to the new mailbox until that address approves on its account page. With a `grund`,
- * recording how the administrator established who asks, the new mailbox is owed its link and the address on file a
- * notice with its stop link; the change then takes effect `ADDRESS_CHANGE_WAITING_PERIOD_DAYS` after the new mailbox
- * confirms. Where the address holds a grant, the change also waits on another administrator's approval, never this
- * one's. No link is answered. The address's live change ends replaced.
+ * **Nothing moves here.** The `grund` records how the administrator established who asks, the address on file being
+ * lost: a person who can still sign in there changes it on their own account page. The new mailbox is owed its link
+ * and the address on file a notice with its stop link; the change then takes effect
+ * `ADDRESS_CHANGE_WAITING_PERIOD_DAYS` after the new mailbox confirms. Where the address holds a grant, the change also
+ * waits on another administrator's approval, never this one's. No link is answered. The address's live change ends
+ * replaced.
  *
  * Refused the administrator's own address (`own_adresse`), a grant holder's without an owner's power
  * (`verwaltung_adresse`), the address on file typed again (`address_change_unchanged`), a new address the ban list holds
@@ -96,24 +77,21 @@ export const addressChangePostAddressChangeVerwaltungBodyAdresseMax = 254;
 
 export const addressChangePostAddressChangeVerwaltungBodyEmailMax = 254;
 
-export const addressChangePostAddressChangeVerwaltungBodyGrundOneMax = 200;
+export const addressChangePostAddressChangeVerwaltungBodyGrundMax = 200;
 
-export const addressChangePostAddressChangeVerwaltungBodyGrundOneRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
+export const addressChangePostAddressChangeVerwaltungBodyGrundRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
 
 export const AddressChangePostAddressChangeVerwaltungBody = zod
   .object({
     adresse: zod.string().max(addressChangePostAddressChangeVerwaltungBodyAdresseMax),
     email: zod.string().max(addressChangePostAddressChangeVerwaltungBodyEmailMax),
-    grund: zod.union([
-      zod
-        .string()
-        .min(1)
-        .max(addressChangePostAddressChangeVerwaltungBodyGrundOneMax)
-        .regex(addressChangePostAddressChangeVerwaltungBodyGrundOneRegExp),
-      zod.null(),
-    ]),
+    grund: zod
+      .string()
+      .min(1)
+      .max(addressChangePostAddressChangeVerwaltungBodyGrundMax)
+      .regex(addressChangePostAddressChangeVerwaltungBodyGrundRegExp),
   })
-  .describe("The address a change starts on, the address it goes to, and the reason where the address on file is gone.");
+  .describe("The address a change starts on, the address it goes to, and how the administrator established who asks for it.");
 
 /**
  * Answer the new address of the live change the new mailbox's link token or the change's id names, folded to the sign-in identifier.
@@ -150,9 +128,11 @@ export const AddressChangeGetAddressChangeAdresseBody = zod
  * Record whether the mailbox this link was sent to is the person's: `confirmed` confirms it, `declined` ends the change.
  *
  * **The person's own change asks the address on file first**: its link's confirmation owes the new mailbox its link,
- * and nothing moves yet; refused `link_expired` past that link's deadline and `address_change_ended` once answered or
- * ended, a decline refused only the latter. Every other link the address on file was mailed answers no confirmation
- * (`link_invalid`).
+ * and nothing moves yet, answering `confirmed` with `effective` false, `effective_from` null and `approval_open` saying
+ * whether the change will wait on another administrator's approval of the grant it moves; refused `link_expired` past
+ * that link's deadline and `address_change_ended` once answered or ended, a decline refused only the latter, and a
+ * decline is the one way this link ends the change before it confirmed (`/stop` refuses it). Every other link the
+ * address on file was mailed answers no confirmation (`link_invalid`).
  *
  * The new mailbox's link: **a confirmation moves the person, not a record.** Unless the change waits -- on a waiting time an administrator's
  * start with a reason asked, or on another administrator's approval of the grant it moves -- it takes effect in this
@@ -176,20 +156,22 @@ export const AddressChangeGetAddressChangeAdresseBody = zod
  * `link_barred` tell a caller what the view's `not_confirmable` keeps alike; only the edge keeps them from the link's holder.
  * @summary Confirm or decline a pending address
  */
-export const addressChangePostAddressChangeAntwortBodyTokenMax = 128;
+export const addressChangePostAddressChangeAnswerBodyTokenMax = 128;
 
-export const addressChangePostAddressChangeAntwortBodyTokenRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
+export const addressChangePostAddressChangeAnswerBodyTokenRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
 
-export const AddressChangePostAddressChangeAntwortBody = zod.object({
-  antwort: zod.enum(["confirmed", "declined"]),
-  token: zod.string().min(1).max(addressChangePostAddressChangeAntwortBodyTokenMax).regex(addressChangePostAddressChangeAntwortBodyTokenRegExp),
+export const AddressChangePostAddressChangeAnswerBody = zod.object({
+  answer: zod.enum(["confirmed", "declined"]),
+  token: zod.string().min(1).max(addressChangePostAddressChangeAnswerBodyTokenMax).regex(addressChangePostAddressChangeAnswerBodyTokenRegExp),
 });
 
 /**
  * Stop the change the address on file was mailed about: its new address goes, out of every log image of the change too.
  *
  * **Refused nothing but a token no change holds** (`link_invalid`) **and a change ended** (`address_change_ended`): a stop
- * hands nothing over, so it answers past every deadline, a barred address's holder too, until the change ends.
+ * hands nothing over, so it answers past every deadline, a barred address's holder too, until the change ends. The
+ * person's own change offers this link no stop before its address on file confirmed it (`link_invalid`): its
+ * question's decline is the one way that link ends it then, so one act keeps one ending.
  * @summary Stop a pending address change
  */
 export const addressChangePostAddressChangeStopBodyTokenMax = 128;
@@ -212,12 +194,12 @@ export const AddressChangePostAddressChangeStopBody = zod
  *
  * The new mailbox's side is served in a state: once pressed, `confirmed`, or `approval_expired` where its
  * approval week lapsed unapproved; else `barred` wherever the ban list holds the address the link was mailed to, then
- * `abgelaufen`, then `not_confirmable` wherever the press would be refused for the address on file's sake or would
+ * `expired`, then `not_confirmable` wherever the press would be refused for the address on file's sake or would
  * find it holding nothing to move, each a state the confirmation is refused in. Those read alike here, though the press
  * answers each by its own code; what keeps the link's holder from telling them apart is the edge, where
  * the proxy routes no public call to this service. The address on file's side answers the step the change waits on
- * and until when, `release_open` while the person's own change waits on this link's confirmation, and never whether
- * the new mailbox could confirm, and the day it confirmed once it has.
+ * and until when, `release_open` while the person's own change waits on this link's confirmation and `release_expired` once that lapsed,
+ * never whether the new mailbox could confirm, and the day it confirmed once it has.
  * @summary What one address link opens
  */
 export const addressChangeGetAddressChangeViewBodyTokenMax = 128;
@@ -234,7 +216,7 @@ export const AddressChangeGetAddressChangeViewBody = zod
  * End a bounded share of the live changes whose waiting step lapsed, and make the due ones take effect.
  *
  * **A lapsed change** -- its link, the approval it asked of the address on file, or its grant's approval by another
- * administrator -- ends as `abgelaufen`: its address and reason out of the record and every log image of it
+ * administrator -- ends as `expired`: its address and reason out of the record and every log image of it
  * (`removed`). **A due change**, one whose waiting time has ended and whose grant's move, where its address still
  * holds the grant, was approved, is judged again as its confirmation was: a ban on either address, another pupil
  * signing in on the new one, a grant its approval does not cover, a grant at the new address, or nothing left to move
@@ -774,8 +756,8 @@ export const BewerbungenAcceptBewerbungBody = zod
 /**
  * Withdraw the signed-in person's WhatsApp and media consents on every seat they hold on this pending application.
  *
- * A grant is refused. Refuses, writing nothing: `role_not_held`, `wording_not_allowed` (the choices moved since the
- * page was served) and `giving_not_allowed`.
+ * A grant is refused. Refuses, writing nothing: `role_not_held`, `choices_stale` and
+ * `giving_not_allowed`.
  * @summary Withdraw a seat holder's own WhatsApp and media consent on a pending Bewerbung
  */
 export const bewerbungenPatchEinwilligungPathBewerbungIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -1381,7 +1363,7 @@ export const RegistrierungenPostRegistrierungBody = zod
  * Withdraw the publication scope or the media consent the signed-in pupil gave on their own pending registration.
  *
  * A grant is refused, and a PATCH moving neither writes nothing. Refuses, writing nothing: `role_not_held`,
- * `wording_not_allowed` (the choices moved since the page was served) and `giving_not_allowed`.
+ * `choices_stale` and `giving_not_allowed`.
  * @summary Withdraw a pupil's own publication and media consent on their pending registration
  */
 export const registrierungenPatchEinwilligungPathRegistrierungIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -2115,7 +2097,7 @@ export const SchiedsrichterPostSchiedsrichterBody = zod.object({
  *
  * Refuses, in this order: an id that is no confirmed referee record of this address (`role_not_held`); a
  * `nachweis_stand` other than the record's own, either choice having moved since the page was served
- * (`wording_not_allowed`); a grant on a retired record (`giving_not_allowed`); `medien` moving to `true` where the
+ * (`choices_stale`); a grant on a retired record (`giving_not_allowed`); `medien` moving to `true` where the
  * stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is missing (`medien_age`). Each refusal writes nothing.
  *
  * **The caller drops the cached fixture list after a successful answer**, which reads this row; nothing here can.
@@ -3156,7 +3138,7 @@ export const SpieleGetSpielVerwaltungParams = zod.object({
  * taken on a live record alone; a withdrawal on a retired one too.
  *
  * Refuses, in this order: an address holding no confirmed pupil record (`role_not_held`); a `nachweis_stand`
- * other than the record's own, either choice having moved since the page was served (`wording_not_allowed`); a
+ * other than the record's own, either choice having moved since the page was served (`choices_stale`); a
  * grant on a retired record (`giving_not_allowed`); `medien` moving to `true` where
  * the stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is missing (`medien_age`). Each
  * refusal writes nothing.
@@ -3888,7 +3870,7 @@ export const TeamsPatchSaisonTeamBody = zod
  *
  * Refuses, in this order: a row on which the address holds no confirmed seat (`role_not_held`); a
  * `nachweis_stand` other than the held seats' own, either choice having moved since the page was served
- * (`wording_not_allowed`); a grant where the row grants no panel (`giving_not_allowed`); `medien` moving to `true`
+ * (`choices_stale`); a grant where the row grants no panel (`giving_not_allowed`); `medien` moving to `true`
  * where a held seat's stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is missing (`medien_age`). Each refusal writes nothing.
  * @summary Change a seat holder's own WhatsApp and media consent on one team's season
  */

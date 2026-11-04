@@ -84,7 +84,7 @@ LEFTOVER_VIEW = "leftover_view"
 ADDRESS = {"strasse": "Hanauer Landstraße", "hausnummer": "12a", "plz": "60314", "stadtteil": "Ostend", "stadt": "Frankfurt am Main"}
 
 
-# The seat as its applicant named the person under the form's label, and as that person then confirmed it.
+# The seat as its applicant named the person, and as that person then confirmed it.
 SEATED: Final = {"datum": "2026-01-15"}
 
 

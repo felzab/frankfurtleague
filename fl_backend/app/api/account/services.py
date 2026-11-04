@@ -8,7 +8,7 @@ from what they pass.
 
 from collections.abc import Mapping, Sequence
 from http import HTTPStatus
-from typing import Any, Literal, get_args
+from typing import Any, Final, Literal, get_args
 
 from bson import ObjectId
 
@@ -18,8 +18,8 @@ from app.api.identity.schemas import FLSubjectSeat
 from app.api.identity.services import eigene_sitze, holds_a_seat, ist_eigene_registrierung, saison_status_lookup
 from app.api.kontakte.services import rows_seating
 from app.api.registrierungen.services import build_eigene_registrierung_filter, traegt_wahlen
-from app.api.schiedsrichter.services import build_self_referee_pipeline
-from app.api.spieler.services import build_self_pupil_pipeline
+from app.api.schiedsrichter.services import SELF_REFEREE_ORDER, build_self_referee_pipeline
+from app.api.spieler.services import SELF_PUPIL_ORDER, build_self_pupil_pipeline
 from app.core.codes import Code
 from app.core.collections import Collection as DbCollection
 from app.core.exceptions import WriteRefusal
@@ -149,7 +149,7 @@ def find_eigener_eintrag_refusal(*, gehalten: bool) -> WriteRefusal | None:
 
 
 def find_nachweis_stand_refusal(*, erwartet: Mapping[str, Any], bloecke: Sequence[Any]) -> WriteRefusal | None:
-    """`wording_not_allowed`: a choice's evidence moved since the page was served.
+    """`choices_stale`: a choice's evidence moved since the page was served.
 
     Refused rather than merged: a stale page sends the other choice as it last saw it, and taking that
     would re-grant what the person withdrew elsewhere.
@@ -159,7 +159,7 @@ def find_nachweis_stand_refusal(*, erwartet: Mapping[str, Any], bloecke: Sequenc
         return None
 
     return WriteRefusal(
-        error_code=Code.WORDING_NOT_ALLOWED,
+        error_code=Code.CHOICES_STALE,
         status=HTTPStatus.CONFLICT,
     )
 
@@ -206,7 +206,7 @@ def compose_spieler_self(row: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
-def compose_spieler_konto(row: Mapping[str, Any], *, givable: bool, today: str, team: Mapping[str, Any] | None) -> dict[str, Any]:
+def compose_spieler_account(row: Mapping[str, Any], *, givable: bool, today: str, team: Mapping[str, Any] | None) -> dict[str, Any]:
     """The pupil's account entry: its stored data and its consent. `team` is `kontext_zeile`'s club, as it stands today."""
 
     zeile = kontext_zeile(row)
@@ -241,7 +241,7 @@ def compose_schiedsrichter_self(row: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
-def compose_schiedsrichter_konto(row: Mapping[str, Any], *, givable: bool, today: str) -> dict[str, Any]:
+def compose_schiedsrichter_account(row: Mapping[str, Any], *, givable: bool, today: str) -> dict[str, Any]:
     """One referee row's account entry: its stored data and its consent."""
 
     return {
@@ -292,7 +292,6 @@ def build_self_seat_pipeline(identifier: str) -> list[Mapping[str, Any]]:
                 "as": "bewerbungen",
             }
         },
-        {"$sort": {"saison_id": -1, "name": 1, "team_id": 1}},
     ]
 
 
@@ -444,7 +443,6 @@ def build_self_bewerbung_pipeline(identifier: str) -> list[Mapping[str, Any]]:
             }
         },
         kontext_teams_lookup("team_id"),
-        {"$sort": {"saison_id": -1, "_id": 1}},
     ]
 
 
@@ -506,7 +504,6 @@ def build_self_registrierung_pipeline(identifier: str) -> list[Mapping[str, Any]
             }
         },
         kontext_teams_lookup("team_id"),
-        {"$sort": {"saison_id": -1, "_id": 1}},
     ]
 
 
@@ -550,15 +547,24 @@ def compose_registrierungen_self(
 AccountArm = Literal["spieler", "schiedsrichter", "seats", "bewerbungen", "registrierungen"]
 
 
-def _arm(arm: AccountArm, pipeline: Sequence[Mapping[str, Any]]) -> list[Mapping[str, Any]]:
-    """`pipeline`'s rows, each tagged with its arm and its place in the arm's own order as `_rank`.
+# Each arm's own order, the last key unique so no two rows tie: a past season's row after a running one's.
+SEAT_ORDER: Final[Mapping[str, int]] = {"saison_id": -1, "name": 1, "team_id": 1}
+BEWERBUNG_ORDER: Final[Mapping[str, int]] = {"saison_id": -1, "_id": 1}
+REGISTRIERUNG_ORDER: Final[Mapping[str, int]] = {"saison_id": -1, "_id": 1}
 
-    A union's order is unspecified, its arms' with it, so the place is stored: the `$push` collects the rows in the order
-    the pipeline's `$sort` hands them on, and the unwind numbers them.
+
+def _arm(arm: AccountArm, pipeline: Sequence[Mapping[str, Any]], *, order: Mapping[str, int]) -> list[Mapping[str, Any]]:
+    """`pipeline`'s rows, each tagged with its arm and its place in `order` as `_rank`.
+
+    A union's order is unspecified, its arms' with it, so the place is stored: a `$push` after a `$sort` collects the
+    rows in that order (the manual's `$push` page guarantees it), and the unwind numbers them. Never
+    `$setWindowFields`'s `$documentNumber`, which the server refuses any `sortBy` of more than one key, and an arm's own
+    order needs a unique last key.
     """
 
     return [
         *pipeline,
+        {"$sort": dict(order)},
         {"$group": {"_id": None, "rows": {"$push": "$$ROOT"}}},
         {"$unwind": {"path": "$rows", "includeArrayIndex": "_rank"}},
         {"$replaceWith": {"$mergeObjects": ["$rows", {"_rank": "$_rank", "_arm": arm}]}},
@@ -569,20 +575,28 @@ def build_account_pipeline(identifier: str) -> list[Mapping[str, Any]]:
     """The account page's read, run on `spieler`, each arm tagged and ranked.
 
     The pupil's and the referee's rows by their own pages' selections, and the season rows, pending applications and
-    registrations seating the address.
+    registrations seating the address. Each arm is sorted last, after its lookups, so no stage after it moves its order.
     """
 
-    *pupil_stages, pupil_sort = build_self_pupil_pipeline(identifier)
-
     return [
-        *_arm("spieler", [*pupil_stages, kontext_teams_lookup("kader.team_id"), pupil_sort]),
-        {"$unionWith": {"coll": DbCollection.SCHIEDSRICHTER, "pipeline": _arm("schiedsrichter", build_self_referee_pipeline(identifier))}},
-        {"$unionWith": {"coll": DbCollection.SAISON_TEAMS, "pipeline": _arm("seats", build_self_seat_pipeline(identifier))}},
-        {"$unionWith": {"coll": DbCollection.BEWERBUNGEN, "pipeline": _arm("bewerbungen", build_self_bewerbung_pipeline(identifier))}},
+        *_arm("spieler", [*build_self_pupil_pipeline(identifier), kontext_teams_lookup("kader.team_id")], order=SELF_PUPIL_ORDER),
+        {
+            "$unionWith": {
+                "coll": DbCollection.SCHIEDSRICHTER,
+                "pipeline": _arm("schiedsrichter", build_self_referee_pipeline(identifier), order=SELF_REFEREE_ORDER),
+            }
+        },
+        {"$unionWith": {"coll": DbCollection.SAISON_TEAMS, "pipeline": _arm("seats", build_self_seat_pipeline(identifier), order=SEAT_ORDER)}},
+        {
+            "$unionWith": {
+                "coll": DbCollection.BEWERBUNGEN,
+                "pipeline": _arm("bewerbungen", build_self_bewerbung_pipeline(identifier), order=BEWERBUNG_ORDER),
+            }
+        },
         {
             "$unionWith": {
                 "coll": DbCollection.REGISTRIERUNGEN,
-                "pipeline": _arm("registrierungen", build_self_registrierung_pipeline(identifier)),
+                "pipeline": _arm("registrierungen", build_self_registrierung_pipeline(identifier), order=REGISTRIERUNG_ORDER),
             }
         },
     ]

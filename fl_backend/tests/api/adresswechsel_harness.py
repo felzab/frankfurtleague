@@ -19,8 +19,8 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.account.person_router import delete_address_change as stop_on_the_account_page
-from app.api.account.person_router import get_address_change, post_address_change, post_address_change_release
-from app.api.account.schemas import FLAccountAddressChangePayload, FLAccountAddressChangeReleasePayload
+from app.api.account.person_router import get_address_change, post_address_change
+from app.api.account.schemas import FLAccountAddressChangePayload
 from app.api.adresswechsel.admin_router import (
     delete_address_change,
     get_address_change_verwaltung_view,
@@ -28,9 +28,9 @@ from app.api.adresswechsel.admin_router import (
     post_address_change_approval,
     post_address_change_verwaltung,
 )
-from app.api.adresswechsel.public_router import get_address_change_view, post_address_change_antwort, post_address_change_stop
+from app.api.adresswechsel.public_router import get_address_change_view, post_address_change_answer, post_address_change_stop
 from app.api.adresswechsel.schemas import (
-    FLAddressChangeAntwortPayload,
+    FLAddressChangeAnswerPayload,
     FLAddressChangeVerwaltungPayload,
     FLAddressChangeVerwaltungViewPayload,
     FLAdresswechselSweepParams,
@@ -39,7 +39,6 @@ from app.api.adresswechsel.system_router import sweep_address_change
 from app.api.outbox.system_router import post_handout
 from app.core.collections import Collection
 from app.core.exceptions import APIError
-from app.core.security import PASSKEY_FACTOR, SessionActor
 from app.shared.schemas.bounds import ADDRESS_CHANGE_WAITING_PERIOD_DAYS
 from app.shared.schemas.confirmation import FLTokenPayload
 from tests import documents
@@ -247,20 +246,16 @@ async def granted(database: AsyncDatabase, adresse: str = EMAIL, *, verwaltung: 
     return grant_id
 
 
-def person_actor(*, factor: str | None) -> SessionActor:
-    """The person's session, made a minute ago, by passkey or, with `factor` None, by code."""
-
-    return verified_actor(EMAIL, factor=PASSKEY_FACTOR if factor == PASSKEY_FACTOR else "code")
-
-
 def call(handler: Callable[..., Awaitable[Any]], database: AsyncDatabase, client: AsyncMongoClient, **given: Any) -> Awaitable[Any]:
     """The handler with every collection it names taken off `database` by its parameter's spelling, and the rest defaulted.
 
-    An administrator's call acts as the suite's first administrator, signed in a minute ago, unless the case names another.
+    An administrator's call acts as the suite's first administrator, signed in a minute ago, unless the case names another;
+    a person's as the suite's person, by passkey a minute ago.
     """
 
     supplied: dict[str, Any] = {}
-    for name in inspect.signature(handler).parameters:
+    parameters = inspect.signature(handler).parameters
+    for name in parameters:
         if name in given:
             supplied[name] = given[name]
         elif name.endswith("_collection"):
@@ -282,7 +277,8 @@ def call(handler: Callable[..., Awaitable[Any]], database: AsyncDatabase, client
         elif name == "identifier":
             supplied[name] = EMAIL
         elif name == "actor":
-            supplied[name] = person_actor(factor=PASSKEY_FACTOR)
+            # An administrator's handler names its operator beside its actor, and a person's names none.
+            supplied[name] = verified_actor(given.get("operator", ADMIN) if "operator" in parameters else EMAIL)
 
     if "session" in inspect.signature(handler).parameters and "session" not in given:
         # The request's snapshot session (`app/core/dependencies.py :: SnapshotSession`), open for the handler's run.
@@ -364,22 +360,12 @@ async def start(database: AsyncDatabase, client: AsyncMongoClient, *, email: str
     return Minted(answer=started.answer, token=confirmed.token, stopp_token=started.stopp_token)
 
 
-async def approve_as_the_address(database: AsyncDatabase, client: AsyncMongoClient, address_change_id: ObjectId, **given: Any) -> Minted:
-    payload = FLAccountAddressChangeReleasePayload(id=address_change_id)
-    return await handed_out(
-        database,
-        client,
-        await call(post_address_change_release, database, client, freigabe_data=payload, **given),
-        now=given.get("germany_now", NOW),
-    )
-
-
 def stop_here(database: AsyncDatabase, client: AsyncMongoClient, **given: Any) -> Awaitable[Any]:
     return call(stop_on_the_account_page, database, client, **given)
 
 
 async def administrator_starts(
-    database: AsyncDatabase, client: AsyncMongoClient, *, grund: str | None, adresse: str = EMAIL, email: str = NEW_EMAIL, **given: Any
+    database: AsyncDatabase, client: AsyncMongoClient, *, grund: str, adresse: str = EMAIL, email: str = NEW_EMAIL, **given: Any
 ) -> Minted:
     payload = FLAddressChangeVerwaltungPayload.model_validate({"adresse": adresse, "email": email, "grund": grund})
     return await handed_out(
@@ -419,9 +405,11 @@ def _handed(token: str | None) -> str:
     return token
 
 
-def answer(database: AsyncDatabase, client: AsyncMongoClient, token: str | None, antwort: str = "confirmed", **given: Any) -> Awaitable[Any]:
-    payload = FLAddressChangeAntwortPayload.model_validate({"token": _handed(token), "antwort": antwort})
-    return call(post_address_change_antwort, database, client, antwort_data=payload, **given)
+def answer(
+    database: AsyncDatabase, client: AsyncMongoClient, token: str | None, given_answer: str = "confirmed", **given: Any
+) -> Awaitable[Any]:
+    payload = FLAddressChangeAnswerPayload.model_validate({"token": _handed(token), "answer": given_answer})
+    return call(post_address_change_answer, database, client, answer_data=payload, **given)
 
 
 def stop_by_link(database: AsyncDatabase, client: AsyncMongoClient, token: str | None, **given: Any) -> Awaitable[Any]:

@@ -12,7 +12,6 @@ def record_collections(database: AsyncDatabase | Mapping[Collection, Any], **rep
 
     handles = {
         "saison_teams_collection": database[Collection.SAISON_TEAMS],
-        "saisons_collection": database[Collection.SAISONS],
         "spieler_collection": database[Collection.SPIELER],
         "schiedsrichter_collection": database[Collection.SCHIEDSRICHTER],
         "bewerbungen_collection": database[Collection.BEWERBUNGEN],

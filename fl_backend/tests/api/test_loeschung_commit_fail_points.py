@@ -192,7 +192,7 @@ class TestTheReadsAPerRequestLookupGathers:
     def test_the_subjects_records_ban_and_grant_are_read_at_once(self, mongo_replica_set_url: str):
         """`POST /identity/subject`: the records' three, the ban's running season and the grant, each sent before any answers.
 
-        The ban's own row follows its season, which it needs, and a seat's season follows the seats; neither is a first read.
+        The ban's own row follows its season, which it needs, and a seat's season is joined inside the seats' read; neither is a first read.
         """
 
         async def body(database: AsyncDatabase) -> Any:
@@ -464,7 +464,7 @@ class TestAPersonsOwnPress:
 
         refusal, pressed = served(mongo_replica_set_url, steps)
 
-        assert refusal == (409, Code.WORDING_NOT_ALLOWED, 0, True)
+        assert refusal == (409, Code.CHOICES_STALE, 0, True)
         # The control: the capture reads the line a press that lands leaves.
         assert (pressed, len(journalled(caplog))) == (200, 1)
 

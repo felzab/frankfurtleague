@@ -103,7 +103,7 @@ def spieltag_document(position: int, beginn: str) -> dict[str, Any]:
     }
 
 
-# The seat as its applicant named the person under the form's label, and as that person then confirmed it.
+# The seat as its applicant named the person, and as that person then confirmed it.
 SEATED: Final = {"datum": "2026-01-15"}
 
 
