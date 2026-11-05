@@ -168,6 +168,7 @@ def referee_document(schiedsrichter_id: ObjectId) -> dict[str, Any]:
         "confirmation": {**compose_bestaetigung(today=MINTED_ON), "token_hashes": [TOKEN_HASHES[schiedsrichter_id]]},
         "einwilligung": own_einwilligung_document(text_versions=SCHIEDSRICHTER_TEXT_VERSIONS, confirmed_at=MINTED_ON, media=True),
         "geburtsdatum": GEBURTSDATUM,
+        "version": 0,
     }
 
 
@@ -331,6 +332,8 @@ async def a_referee_with_a_history(database: AsyncDatabase, client: AsyncMongoCl
     """
 
     bisherige = FORMER_KONTAKT[schiedsrichter_id]["email"]
+    served = await database[Collection.SCHIEDSRICHTER].find_one({"_id": schiedsrichter_id}, {"version": 1})
+    assert served is not None
     await patch_schiedsrichter(
         schiedsrichter_id=schiedsrichter_id,
         schiedsrichter_data=FLPatchSchiedsrichterPayload(
@@ -338,6 +341,7 @@ async def a_referee_with_a_history(database: AsyncDatabase, client: AsyncMongoCl
             schule=SCHULE,
             default_payment=DEFAULT_PAYMENT,
             kontakt=FLKontaktPayload(telefon=KONTAKT[schiedsrichter_id]["telefon"], email=bisherige),
+            version=served["version"],
         ),
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         spiele_collection=database[Collection.SPIELE],
@@ -625,6 +629,7 @@ def test_no_write_endpoint_reaches_the_ghost(mongo_replica_set_url: str, press: 
                         schule=SCHULE,
                         default_payment=DEFAULT_PAYMENT,
                         kontakt=FLKontaktPayload(**KONTAKT[SCHIEDSRICHTER_OID]),
+                        version=0,
                     ),
                     schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
                     spiele_collection=database[Collection.SPIELE],

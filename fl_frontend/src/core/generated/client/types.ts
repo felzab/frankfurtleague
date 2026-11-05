@@ -3650,7 +3650,8 @@ export interface FLPatchSchiedsrichterPayload {
    */
   name: string;
   schule: string | null;
-  version?: number | null;
+  /** @minimum 0 */
+  version: number;
 }
 
 /**
@@ -3788,7 +3789,8 @@ export interface FLPatchSpielortPayload {
    * @maxLength 120
    */
   name: string;
-  version?: number | null;
+  /** @minimum 0 */
+  version: number;
 }
 
 export interface FLPatchSpielortResponse {

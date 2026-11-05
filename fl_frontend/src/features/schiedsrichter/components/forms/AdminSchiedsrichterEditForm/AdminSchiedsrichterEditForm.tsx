@@ -43,6 +43,8 @@ type AdminSchiedsrichterEditFormProps = {
     schule: string | null;
     kontakt: FLKontakt;
     default_payment: number;
+    /** The record's version this form opened at, which the save sends back. */
+    version: number;
     // The three the confirmation owns, on no draft field and in no payload: they are read back and
     // never edited, so they travel beside the values rather than through `buildPayload`.
     geburtsdatum: string | null;
@@ -107,6 +109,7 @@ export function AdminSchiedsrichterEditForm({ schiedsrichter, isRetired, pageHea
     schule,
     kontakt,
     default_payment: defaultPayment,
+    version: schiedsrichter.version,
   });
 
   const draftFields: FLSchiedsrichterDraftFields = { name, schule, kontakt, default_payment: defaultPayment };

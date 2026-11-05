@@ -8805,22 +8805,17 @@
             "title": "Schule"
           },
           "version": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Version"
+            "minimum": 0.0,
+            "title": "Version",
+            "type": "integer"
           }
         },
         "required": [
           "kontakt",
           "name",
           "schule",
-          "default_payment"
+          "default_payment",
+          "version"
         ],
         "title": "FLPatchSchiedsrichterPayload",
         "type": "object"
@@ -9135,21 +9130,16 @@
             "type": "string"
           },
           "version": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Version"
+            "minimum": 0.0,
+            "title": "Version",
+            "type": "integer"
           }
         },
         "required": [
           "address",
           "name",
-          "default_mietpreis"
+          "default_mietpreis",
+          "version"
         ],
         "title": "FLPatchSpielortPayload",
         "type": "object"
@@ -28849,7 +28839,7 @@
         ]
       },
       "get": {
-        "description": "Admin-tier as the list is, and for the same two rules (`READ-MONEY-001`, `READ-ADDRESS-001`).\n\nDeactivated ones included -- a historical match's venue is the case worth answering.",
+        "description": "The venue editor's one read: the record, its `version` with it, which the editor's save sends back.\n\nAdmin-tier as the list is, and for the same two rules (`READ-MONEY-001`, `READ-ADDRESS-001`). Retired venues included:\nthe editor reactivates one, and a historical match's venue is the case worth answering.",
         "operationId": "spielorte_get_spielort",
         "parameters": [
           {

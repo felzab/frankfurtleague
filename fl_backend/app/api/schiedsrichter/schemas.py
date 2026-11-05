@@ -54,8 +54,8 @@ class FLPostSchiedsrichterPayload(_SchiedsrichterPayload):
 
 
 class FLPatchSchiedsrichterPayload(_SchiedsrichterPayload):
-    # The `version` the editor was served; absent, the save is checked against nothing.
-    version: int | None = None
+    # The `version` the editor was served, required: a save checked against nothing overwrites a rival's unseen.
+    version: int = Field(ge=0)
 
 
 class FLSchiedsrichterMint(BaseModel):

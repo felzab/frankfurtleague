@@ -37,7 +37,7 @@ export function AdminSpielortEditForm({
   isRetired,
   pageHeader,
 }: {
-  spielort: { id: string; name: string; address: FLAddress; default_mietpreis: number };
+  spielort: { id: string; name: string; address: FLAddress; default_mietpreis: number; version: number };
   /** A fact about the row rather than a field this form commits, so it arrives beside the values. */
   isRetired: boolean;
   pageHeader: EditPageHeaderContent;
@@ -67,6 +67,7 @@ export function AdminSpielortEditForm({
     name,
     address,
     default_mietpreis: defaultMietpreis,
+    version: spielort.version,
   });
 
   const draftFields: FLSpielortDraftFields = { name, address, default_mietpreis: defaultMietpreis };

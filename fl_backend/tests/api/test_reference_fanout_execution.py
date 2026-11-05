@@ -147,6 +147,7 @@ def spielort_document(spielort_id: ObjectId) -> dict[str, Any]:
         "maps_link": seeded_maps_link(SPIELORT_NAMES[spielort_id]),
         "default_mietpreis": SEEDED_DEFAULT_MIETPREIS,
         "inactive_since": None,
+        "version": 0,
     }
 
 
@@ -158,6 +159,7 @@ def schiedsrichter_document(schiedsrichter_id: ObjectId) -> dict[str, Any]:
         "default_payment": SEEDED_DEFAULT_PAYMENT,
         "kontakt": dict(KONTAKT),
         "inactive_since": None,
+        "version": 0,
     }
 
 
@@ -253,10 +255,12 @@ async def rename_the_spielort(
 ) -> FLPatchSpielortResponse:
     """The default rent moves with the name, which is what makes a leaked `mietpreis` visible on the fixtures."""
 
+    served = await database[Collection.SPIELORTE].find_one({"_id": spielort_id}, {"version": 1})
+    assert served is not None
     return await patch_spielort(
         spielort_id=spielort_id,
         spielort_data=FLPatchSpielortPayload.model_validate(
-            {"name": name, "address": dict(ADDRESS), "default_mietpreis": RENAMED_DEFAULT_MIETPREIS}
+            {"name": name, "address": dict(ADDRESS), "default_mietpreis": RENAMED_DEFAULT_MIETPREIS, "version": served["version"]}
         ),
         spielorte_collection=database[Collection.SPIELORTE],
         spiele_collection=database[Collection.SPIELE],
@@ -272,10 +276,12 @@ async def rename_the_schiedsrichter(
 ) -> FLPatchSchiedsrichterResponse:
     """The default fee moves with the name, for the same reason the venue's default rent does."""
 
+    served = await database[Collection.SCHIEDSRICHTER].find_one({"_id": schiedsrichter_id}, {"version": 1})
+    assert served is not None
     return await patch_schiedsrichter(
         schiedsrichter_id=schiedsrichter_id,
         schiedsrichter_data=FLPatchSchiedsrichterPayload.model_validate(
-            {"name": name, "schule": None, "kontakt": dict(KONTAKT), "default_payment": RENAMED_DEFAULT_PAYMENT}
+            {"name": name, "schule": None, "kontakt": dict(KONTAKT), "default_payment": RENAMED_DEFAULT_PAYMENT, "version": served["version"]}
         ),
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         spiele_collection=database[Collection.SPIELE],

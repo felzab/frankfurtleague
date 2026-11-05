@@ -103,6 +103,7 @@ def referee_document(*, email: str | None = EMAIL, **overrides: Any) -> dict[str
         "default_payment": DEFAULT_PAYMENT,
         "kontakt": {"telefon": TELEFON, "email": email},
         "inactive_since": None,
+        "version": 0,
         **overrides,
     }
 
@@ -179,9 +180,11 @@ async def create(database: AsyncDatabase, client: AsyncMongoClient, *, email: st
 
 
 async def correct(database: AsyncDatabase, client: AsyncMongoClient, *, email: str | None, today: str = TODAY) -> Mailed:
+    # The version an editor opened now would be served, as the save sends it back.
+    version = (await stored(database))["version"]
     answer = await patch_schiedsrichter(
         schiedsrichter_id=SCHIEDSRICHTER_OID,
-        schiedsrichter_data=FLPatchSchiedsrichterPayload.model_validate(payload_body(email=email)),
+        schiedsrichter_data=FLPatchSchiedsrichterPayload.model_validate({**payload_body(email=email), "version": version}),
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         spiele_collection=database[Collection.SPIELE],
         outbox_collection=database[Collection.OUTBOX],

@@ -2290,6 +2290,8 @@ export const schiedsrichterPatchSchiedsrichterBodyNameMax = 80;
 export const schiedsrichterPatchSchiedsrichterBodyNameRegExp = new RegExp("^\\p{L}[\\p{L}\\-' ]*$", "u");
 export const schiedsrichterPatchSchiedsrichterBodySchuleOneMax = 120;
 
+export const schiedsrichterPatchSchiedsrichterBodyVersionMin = 0;
+
 export const SchiedsrichterPatchSchiedsrichterBody = zod.object({
   default_payment: zod.int().min(schiedsrichterPatchSchiedsrichterBodyDefaultPaymentMin),
   kontakt: zod.object({
@@ -2302,7 +2304,7 @@ export const SchiedsrichterPatchSchiedsrichterBody = zod.object({
   }),
   name: zod.string().min(1).max(schiedsrichterPatchSchiedsrichterBodyNameMax).regex(schiedsrichterPatchSchiedsrichterBodyNameRegExp),
   schule: zod.union([zod.string().max(schiedsrichterPatchSchiedsrichterBodySchuleOneMax), zod.null()]),
-  version: zod.union([zod.int(), zod.null()]).optional(),
+  version: zod.int().min(schiedsrichterPatchSchiedsrichterBodyVersionMin),
 });
 
 /**
@@ -3500,9 +3502,10 @@ export const SpielorteDeleteSpielortParams = zod.object({
 });
 
 /**
- * Admin-tier as the list is, and for the same two rules (`READ-MONEY-001`, `READ-ADDRESS-001`).
+ * The venue editor's one read: the record, its `version` with it, which the editor's save sends back.
  *
- * Deactivated ones included -- a historical match's venue is the case worth answering.
+ * Admin-tier as the list is, and for the same two rules (`READ-MONEY-001`, `READ-ADDRESS-001`). Retired venues included:
+ * the editor reactivates one, and a historical match's venue is the case worth answering.
  * @summary One Spielort
  */
 export const spielorteGetSpielortPathSpielortIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -3538,6 +3541,8 @@ export const spielortePatchSpielortBodyDefaultMietpreisMin = 0;
 
 export const spielortePatchSpielortBodyNameMax = 120;
 
+export const spielortePatchSpielortBodyVersionMin = 0;
+
 export const SpielortePatchSpielortBody = zod.object({
   address: zod.object({
     hausnummer: zod.string().max(spielortePatchSpielortBodyAddressHausnummerMax).regex(spielortePatchSpielortBodyAddressHausnummerRegExp),
@@ -3548,7 +3553,7 @@ export const SpielortePatchSpielortBody = zod.object({
   }),
   default_mietpreis: zod.int().min(spielortePatchSpielortBodyDefaultMietpreisMin),
   name: zod.string().min(1).max(spielortePatchSpielortBodyNameMax),
-  version: zod.union([zod.int(), zod.null()]).optional(),
+  version: zod.int().min(spielortePatchSpielortBodyVersionMin),
 });
 
 /**

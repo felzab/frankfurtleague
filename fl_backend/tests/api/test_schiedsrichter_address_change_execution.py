@@ -62,6 +62,7 @@ def referee_document(**overrides: Any) -> dict[str, Any]:
         "default_payment": 20,
         "kontakt": {"telefon": TELEFON, "email": EMAIL},
         "inactive_since": None,
+        "version": 0,
         **overrides,
     }
 
@@ -111,10 +112,18 @@ def on_a_league(url: str, body: Body, *, confirmed: bool = True) -> Any:
 
 
 async def save(database: AsyncDatabase, client: AsyncMongoClient, *, email: str) -> Any:
+    served = await database[Collection.SCHIEDSRICHTER].find_one({"_id": SCHIEDSRICHTER_OID}, {"version": 1})
+    assert served is not None
     return await patch_schiedsrichter(
         schiedsrichter_id=SCHIEDSRICHTER_OID,
         schiedsrichter_data=FLPatchSchiedsrichterPayload.model_validate(
-            {"name": NAME, "schule": "Bettina-Schule", "default_payment": 25, "kontakt": {"telefon": TELEFON, "email": email}}
+            {
+                "name": NAME,
+                "schule": "Bettina-Schule",
+                "default_payment": 25,
+                "kontakt": {"telefon": TELEFON, "email": email},
+                "version": served["version"],
+            }
         ),
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         spiele_collection=database[Collection.SPIELE],

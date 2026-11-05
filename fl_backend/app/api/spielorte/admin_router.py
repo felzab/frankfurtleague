@@ -77,9 +77,10 @@ async def get_spielorte(
 
 @router.get(by_id("spielort_id"), response_model=FLSpielorteSingleResponse, summary="One Spielort")
 async def get_spielort(spielort_id: CustomRouteObjectId, spielorte_collection: SpielorteCollection) -> FLSpielorteSingleResponse:
-    """Admin-tier as the list is, and for the same two rules (`READ-MONEY-001`, `READ-ADDRESS-001`).
+    """The venue editor's one read: the record, its `version` with it, which the editor's save sends back.
 
-    Deactivated ones included -- a historical match's venue is the case worth answering.
+    Admin-tier as the list is, and for the same two rules (`READ-MONEY-001`, `READ-ADDRESS-001`). Retired venues included:
+    the editor reactivates one, and a historical match's venue is the case worth answering.
     """
 
     spielort_raw = await pull_one_from_db(collection=spielorte_collection, db_filter={"_id": spielort_id})
