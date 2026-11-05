@@ -10,7 +10,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.saisons.schemas import FLSaisonForfeitErgebnis, FLSaisonRules
-from app.api.spiele.crud import advance_bracket_winners, apply_release_to_spiel, preview_bracket_after_patch
+from app.api.spiele.crud import advance_bracket_winners, apply_release_to_spiel, preview_bracket_after_patch, report_release
 from app.api.spiele.schemas import (
     SONDEREREIGNIS_KEEPING_ITS_SLOT,
     SONDEREREIGNIS_RECORDING_AN_ABSENCE,
@@ -50,6 +50,7 @@ from app.api.spiele.services import (
     find_slot_claims,
     find_state_refusal,
     judge_spieltag_occupancy,
+    voided_results_of,
 )
 from app.core.codes import Code
 from app.core.exceptions import APIError, WriteRefusal
@@ -1155,6 +1156,15 @@ class TestApplyingARelease:
         assert all(release.other_side_present for release in releases)
         assert released.team1 is None and released.team2 is None
         assert released.ergebnis is None and released.elfmeterschiessen is None
+
+    def test_a_fixture_giving_up_both_its_sides_deletes_its_one_result_once(self, saison):
+        """Each release reports the one result, and the admin confirms the deleted results as listed: listed twice, one reads as two."""
+
+        releases, _ = doubly_released_fixture(saison)
+
+        voided = voided_results_of([report_release(release) for release in releases])
+
+        assert [(result.spiel_nr, result.voided_ergebnis) for result in voided] == [(2, "3:1")]
 
 
 def joined(
