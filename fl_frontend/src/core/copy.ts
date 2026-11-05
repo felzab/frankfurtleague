@@ -674,14 +674,10 @@ export const COPY = catalogue({
       openUntil: (day: CalendarDay) => `Offen bis ${formatDatum(day)}`,
       expiredOn: (day: CalendarDay) => `Abgelaufen am ${formatDatum(day)}`,
       objectedOn: (day: CalendarDay) => `Widersprochen am ${formatDatum(day)}`,
-      /** The create dialog's, and a corrected address's while the person has not confirmed: a link goes to the address. */
-      linkGoes: "An diese Adresse geht ein Link zur Bestätigung.",
       /** The example a phone box's message names, from the Federal Network Agency's range for media use. */
       telefonExample: "069 90009123",
       retireConsequence: "Die Person steht für neue Spiele nicht mehr zur Auswahl.",
       reactivateConsequence: "Die Person steht wieder zur Auswahl.",
-      /** A retired referee who has not answered, whom the reactivation asks again. */
-      reactivateWithLink: "Die Person steht wieder zur Auswahl und bekommt einen neuen Link.",
     },
 
     saison: {

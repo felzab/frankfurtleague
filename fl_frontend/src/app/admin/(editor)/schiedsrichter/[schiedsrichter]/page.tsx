@@ -113,8 +113,6 @@ async function readEditor(params: Props["params"]) {
   const retired = referee.inactive_since !== null;
   // A link goes only to an entry waiting on its answer: once it lapses the entry goes, and a new one is entered instead.
   const asking = state === "unanswered" && !found.confirmation_expired && !retired && referee.kontakt.email !== null;
-  // The return asks again whoever has not answered and holds an address a link can go to.
-  const returnAsks = (state === "unanswered" || state === "unasked") && referee.kontakt.email !== null;
 
   return (
     <SchiedsrichterEditor
@@ -132,11 +130,7 @@ async function readEditor(params: Props["params"]) {
       {...(asking ? { sendLink: sendSchiedsrichterLink } : {})}
       danger={
         retired
-          ? {
-              kind: "reactivate",
-              act: reactivateSchiedsrichter,
-              consequence: returnAsks ? WORDS.reactivateWithLink : WORDS.reactivateConsequence,
-            }
+          ? { kind: "reactivate", act: reactivateSchiedsrichter, consequence: WORDS.reactivateConsequence }
           : { kind: "retire", act: retireSchiedsrichter }
       }
     />
