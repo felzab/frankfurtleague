@@ -395,7 +395,7 @@ export function SaisonEditor({
           />
           <ToggleBoxes
             label={WORDS.stufen}
-            name="stufen"
+            errorMessage={editor.fieldErrors?.stufen}
             choices={STUFEN}
             isRequired={required.stufen}
             value={draft.stufen}

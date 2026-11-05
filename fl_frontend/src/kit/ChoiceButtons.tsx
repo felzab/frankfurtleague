@@ -1,9 +1,7 @@
 "use client";
 
-import { useContext, useId } from "react";
+import { useId } from "react";
 
-import { FormValidationContext } from "react-aria-components";
-import { FieldErrorContext } from "react-aria-components/FieldError";
 import { TextContext } from "react-aria-components/Text";
 import { ToggleButton } from "react-aria-components/ToggleButton";
 import { ToggleButtonGroup } from "react-aria-components/ToggleButtonGroup";
@@ -11,7 +9,7 @@ import { ToggleButtonGroup } from "react-aria-components/ToggleButtonGroup";
 import { textOf } from "@/core/copy";
 
 import { MessageLine, RequiredMark } from "./FieldParts";
-import { choiceButton, choiceGroup, fieldLabel, fieldRoot } from "./fieldStyles";
+import { choiceButton, choiceGroup, fieldLabel, fieldRoot, messageLine } from "./fieldStyles";
 import { useDisabled } from "./formClosed";
 import { Icon } from "./Icon";
 import { Tooltip } from "./Tooltip";
@@ -48,45 +46,27 @@ function Head({ id, label, isRequired }: { id: string; label: Copy; isRequired: 
   );
 }
 
-/** No flag of the browser's own check set, which a message the form names for the group carries in place of one. */
-const UNFLAGGED: Omit<ValidityState, "customError" | "valid"> = {
-  badInput: false,
-  patternMismatch: false,
-  rangeOverflow: false,
-  rangeUnderflow: false,
-  stepMismatch: false,
-  tooLong: false,
-  tooShort: false,
-  typeMismatch: false,
-  valueMissing: false,
-};
-
 /**
  * The message line under the buttons. React Aria's button group provides no description slot and no validation, as a
- * field does, so this one provides the id the group's `aria-describedby` names to the description and the error alike,
- * and hands the line the message the form's `validationErrors` name the group by, as a field's own validation would:
- * marked a custom error, so the line shows it as it came.
+ * field does, so this one provides the id the group's `aria-describedby` names to the description and the error alike:
+ * the error the editor's served field errors name the group by, in a field's error line, else the description.
  */
-function GroupMessage({ id, description, errors }: { id: string; description: Copy | undefined; errors: readonly string[] }) {
-  const validation = {
-    isInvalid: errors.length > 0,
-    validationErrors: [...errors],
-    validationDetails: { ...UNFLAGGED, customError: errors.length > 0, valid: errors.length === 0 },
-  };
+function GroupMessage({ id, description, errorMessage }: { id: string; description: Copy | undefined; errorMessage?: Copy }) {
+  if (errorMessage !== undefined) {
+    return (
+      <span
+        id={id}
+        data-kit-message
+        className={messageLine({ tone: "error" })}>
+        {errorMessage}
+      </span>
+    );
+  }
   return (
-    <TextContext.Provider value={{ slots: { description: { id }, errorMessage: { id } } }}>
-      <FieldErrorContext.Provider value={validation}>
-        <MessageLine description={description} />
-      </FieldErrorContext.Provider>
+    <TextContext.Provider value={{ slots: { description: { id } } }}>
+      <MessageLine description={description} />
     </TextContext.Provider>
   );
-}
-
-/** The form's message for the group posting under `name`, as React Aria's `Form` hands every named field its own. */
-function useServedErrors(name: string | undefined): readonly string[] {
-  const served = useContext(FormValidationContext);
-  const errors = name === undefined ? undefined : served[name];
-  return errors === undefined ? [] : [errors].flat();
 }
 
 /** One segment: its words, or its glyph alone with its name in the tooltip. */
@@ -177,7 +157,6 @@ export function Segmented({
       <GroupMessage
         id={descriptionId}
         description={description}
-        errors={[]}
       />
     </div>
   );
@@ -185,23 +164,31 @@ export function Segmented({
 
 /**
  * A small multi-select of short words, such as a season's allowed Stufen: the label above, one box per answer,
- * each chosen box lifted. React Aria's `ToggleButtonGroup` in multiple selection. It posts no form value, so `name`
- * names it alone to the form's `validationErrors`, whose message for it its line shows, as a field's shows its own.
+ * each chosen box lifted. React Aria's `ToggleButtonGroup` in multiple selection. It posts no form value, so its served
+ * refusal comes as `errorMessage`, which its line shows as a field's shows its own.
  */
 export function ToggleBoxes({
   label,
-  name,
   description,
+  errorMessage,
   choices,
   isDisabled = false,
   isRequired = false,
   value,
   defaultValue,
   onChange,
-}: Shared & { name?: string; value?: readonly string[]; defaultValue?: readonly string[]; onChange?: (ids: string[]) => void }) {
+}: Shared & {
+  /**
+   * The served refusal of the group, which the editor's field errors name it by: the boxes post no form value, so the
+   * form's own `validationErrors` cannot reach them as they reach a field.
+   */
+  errorMessage?: Copy;
+  value?: readonly string[];
+  defaultValue?: readonly string[];
+  onChange?: (ids: string[]) => void;
+}) {
   const labelId = useId();
   const descriptionId = useId();
-  const errors = useServedErrors(name);
   return (
     <div className={fieldRoot()}>
       <Head
@@ -211,7 +198,7 @@ export function ToggleBoxes({
       />
       <ToggleButtonGroup
         aria-labelledby={labelId}
-        aria-describedby={description === undefined && errors.length === 0 ? undefined : descriptionId}
+        aria-describedby={description === undefined && errorMessage === undefined ? undefined : descriptionId}
         selectionMode="multiple"
         isDisabled={useDisabled(isDisabled)}
         selectedKeys={value}
@@ -231,7 +218,7 @@ export function ToggleBoxes({
       <GroupMessage
         id={descriptionId}
         description={description}
-        errors={errors}
+        errorMessage={errorMessage}
       />
     </div>
   );
