@@ -11,7 +11,7 @@ from app.api.address_change.services import build_address_filter
 from app.api.berechtigungen.guard import verify_actor_is_admin
 from app.api.outbox.crud import state_of
 from app.api.outbox.schemas import FLOutboxReference
-from app.api.schiedsrichter.crud import name_is_taken, owe_the_confirmation
+from app.api.schiedsrichter.crud import owe_the_confirmation
 from app.api.schiedsrichter.schemas import (
     FLPatchSchiedsrichterPayload,
     FLPatchSchiedsrichterResponse,
@@ -56,6 +56,7 @@ from app.core.crud import (
     build_query,
     build_sort,
     insert_live,
+    is_held_elsewhere,
     patch_one_in_db,
     pull_many_from_db,
     pull_one_from_db,
@@ -213,8 +214,8 @@ async def post_schiedsrichter(
     async def judge_and_create(session: AsyncClientSession) -> Any:
         """Ask after the name and the ban list, then write. Each check is handed the transaction's session, so a retry re-asks it."""
 
-        taken = await name_is_taken(
-            schiedsrichter_collection=schiedsrichter_collection, name=schiedsrichter_data.name, schiedsrichter_id=None, session=session
+        taken = await is_held_elsewhere(
+            collection=schiedsrichter_collection, key="name", value=schiedsrichter_data.name, own_id=None, session=session
         )
         refuse(find_referee_name_refusal(taken=taken))
 
@@ -312,11 +313,8 @@ async def patch_schiedsrichter(
             projection={"kontakt.email": 1, EINWILLIGUNG_FELD: 1, "inactive_since": 1},
             session=session,
         )
-        taken = await name_is_taken(
-            schiedsrichter_collection=schiedsrichter_collection,
-            name=schiedsrichter_data.name,
-            schiedsrichter_id=schiedsrichter_id,
-            session=session,
+        taken = await is_held_elsewhere(
+            collection=schiedsrichter_collection, key="name", value=schiedsrichter_data.name, own_id=schiedsrichter_id, session=session
         )
         refuse(find_referee_name_refusal(taken=taken))
         refuse(find_confirmed_address_refusal(stored=stored, payload_email=email))

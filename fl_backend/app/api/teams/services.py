@@ -1424,6 +1424,19 @@ def find_kontakte_precondition_refusal(*, expected: str, stored: Any) -> WriteRe
     )
 
 
+def find_shorthand_refusal(*, taken: bool) -> WriteRefusal | None:
+    """`duplicate_key` on the shorthand: another club, a retired one included, holds it.
+
+    Takes the answer rather than the lookup, so the caller's read runs in the caller's transaction. The unique index still
+    answers a race between two writes, as `duplicate_key` with no field.
+    """
+
+    if not taken:
+        return None
+
+    return WriteRefusal(error_code=Code.DUPLICATE_KEY, status=HTTPStatus.CONFLICT, fields=(("shorthand",),))
+
+
 def find_club_entry_refusal(*, inactive_since: str | None) -> WriteRefusal | None:
     """Why this CLUB may not be entered into any season, or `None`.
 

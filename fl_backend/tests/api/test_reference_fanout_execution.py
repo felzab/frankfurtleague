@@ -7,9 +7,11 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
-from app.api.teams.admin_router import patch_team
-from app.api.teams.schemas import FLPatchTeamPayload, FLPatchTeamResponse
+from app.api.teams.admin_router import patch_team, post_team
+from app.api.teams.schemas import FLPatchTeamPayload, FLPatchTeamResponse, FLPostTeamPayload
+from app.core.codes import Code
 from app.core.collections import Collection
+from app.core.exceptions import APIError
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.documents import ADDRESS, saison_document, saison_team_document, team_document
 from tests.worker import worker_database
@@ -80,23 +82,27 @@ def on_a_database(url: str, body: Body, *, mutates_schema: bool = False) -> Any:
     return on_the_seed_loop(_run())
 
 
-async def rename_the_team(database: AsyncDatabase, client: AsyncMongoClient, team_id: ObjectId = TEAM_OID) -> FLPatchTeamResponse:
+def team_body(name: str, shorthand: str) -> dict[str, Any]:
+    return {
+        "name": name,
+        "shorthand": shorthand,
+        "description": "",
+        "full_name": f"{name}-Schule",
+        "website_url": WEBSITE_URL,
+        # Sent because the payload defaults none of its fields, not because a rename touches it.
+        "schulform": "gymnasium_g9",
+        "address": dict(ADDRESS),
+    }
+
+
+async def rename_the_team(
+    database: AsyncDatabase, client: AsyncMongoClient, team_id: ObjectId = TEAM_OID, *, shorthand: str = RENAMED_SHORTHAND
+) -> FLPatchTeamResponse:
     """The shorthand moves with the name, because a match card shows whichever of the two fits."""
 
     return await patch_team(
         team_id=team_id,
-        team_data=FLPatchTeamPayload.model_validate(
-            {
-                "name": RENAMED_TEAM,
-                "shorthand": RENAMED_SHORTHAND,
-                "description": "",
-                "full_name": f"{RENAMED_TEAM}-Schule",
-                "website_url": WEBSITE_URL,
-                # Sent because the payload defaults none of its fields, not because a rename touches it.
-                "schulform": "gymnasium_g9",
-                "address": dict(ADDRESS),
-            }
-        ),
+        team_data=FLPatchTeamPayload.model_validate(team_body(RENAMED_TEAM, shorthand)),
         teams_collection=database[Collection.TEAMS],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
@@ -187,6 +193,32 @@ class TestTheClubFanOutReportsWhatItRewrote:
 
         assert team["name"] == RENAMED_TEAM
         assert response.fanned_out_to_saison_teams == 0
+
+
+@pytest.mark.db
+class TestAShorthandAnotherClubHolds:
+    def test_the_create_and_the_save_are_refused_on_the_shorthand_box_and_a_save_keeps_its_own(self, mongo_replica_set_url: str):
+        """Answered by the index alone, the refusal names no field; counted as its own shorthand's holder, every save is refused."""
+
+        taken = TEAM_NAMES[OTHER_TEAM_OID][1]
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            with pytest.raises(APIError) as created:
+                await post_team(
+                    team_data=FLPostTeamPayload.model_validate(team_body("Neue Schule", taken)),
+                    teams_collection=database[Collection.TEAMS],
+                    db=client,
+                )
+            with pytest.raises(APIError) as saved:
+                await rename_the_team(database, client, shorthand=taken)
+            kept = await rename_the_team(database, client, shorthand=TEAM_NAMES[TEAM_OID][1])
+
+            return created.value, saved.value, kept
+
+        created, saved, kept = on_a_database(mongo_replica_set_url, body)
+
+        assert [(refusal.error_code, refusal.fields) for refusal in (created, saved)] == [(Code.DUPLICATE_KEY, (("shorthand",),))] * 2
+        assert kept.fanned_out_to_saison_teams == 1
 
 
 @pytest.mark.db

@@ -30118,7 +30118,7 @@
         ]
       },
       "patch": {
-        "description": "Update a venue on the `version` the editor was served, answering the version stored, which its next save sends.\n\nA fixture names the venue by id and reads its name and `maps_link` at its own read, so nothing else is written; each\nfixture keeps the `mietpreis` agreed for it. Refused where another venue holds the name (`duplicate_key`), by the\nunique index.",
+        "description": "Update a venue on the `version` the editor was served, answering the version stored, which its next save sends.\n\nA fixture names the venue by id and reads its name and `maps_link` at its own read, so nothing else is written; each\nfixture keeps the `mietpreis` agreed for it. Refused where another venue holds the name (`duplicate_key`, naming\n`name`).",
         "operationId": "spielorte_patch_spielort",
         "parameters": [
           {
@@ -30704,7 +30704,7 @@
     },
     "/api/v0/teams": {
       "post": {
-        "description": "Create a club. `shorthand` is unique across every club, retired ones included, so a duplicate is a 409.",
+        "description": "Create a club. `shorthand` is unique across every club, retired ones included: a taken one is refused `duplicate_key`.\n\nThe refusal names `shorthand`.",
         "operationId": "teams_post_team",
         "requestBody": {
           "content": {
@@ -31199,7 +31199,7 @@
         ]
       },
       "patch": {
-        "description": "Update a club, then rewrite the name and shorthand its unfinished seasons' rows carry.\n\nEvery fixture reads its sides' names from their season rows, so a rename reaches the fixtures of each season it\nrewrites; a `past` season keeps the name it was played under.",
+        "description": "Update a club, then rewrite the name and shorthand its unfinished seasons' rows carry.\n\nEvery fixture reads its sides' names from their season rows, so a rename reaches the fixtures of each season it\nrewrites; a `past` season keeps the name it was played under. A shorthand another club holds, a retired one included,\nis refused `duplicate_key`, naming `shorthand`.",
         "operationId": "teams_patch_team",
         "parameters": [
           {

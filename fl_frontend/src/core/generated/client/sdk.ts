@@ -4713,8 +4713,8 @@ export const getSpielortePatchSpielortUrl = (spielortId: string) => {
  * Update a venue on the `version` the editor was served, answering the version stored, which its next save sends.
  *
  * A fixture names the venue by id and reads its name and `maps_link` at its own read, so nothing else is written; each
- * fixture keeps the `mietpreis` agreed for it. Refused where another venue holds the name (`duplicate_key`), by the
- * unique index.
+ * fixture keeps the `mietpreis` agreed for it. Refused where another venue holds the name (`duplicate_key`, naming
+ * `name`).
  * @summary Update a Spielort
  */
 export const spielortePatchSpielort = async (
@@ -4880,7 +4880,9 @@ export const getTeamsPostTeamUrl = () => {
 };
 
 /**
- * Create a club. `shorthand` is unique across every club, retired ones included, so a duplicate is a 409.
+ * Create a club. `shorthand` is unique across every club, retired ones included: a taken one is refused `duplicate_key`.
+ *
+ * The refusal names `shorthand`.
  * @summary Create a team
  */
 export const teamsPostTeam = async (
@@ -5001,7 +5003,8 @@ export const getTeamsPatchTeamUrl = (teamId: string) => {
  * Update a club, then rewrite the name and shorthand its unfinished seasons' rows carry.
  *
  * Every fixture reads its sides' names from their season rows, so a rename reaches the fixtures of each season it
- * rewrites; a `past` season keeps the name it was played under.
+ * rewrites; a `past` season keeps the name it was played under. A shorthand another club holds, a retired one included,
+ * is refused `duplicate_key`, naming `shorthand`.
  * @summary Update a team and fan the rename out
  */
 export const teamsPatchTeam = async (

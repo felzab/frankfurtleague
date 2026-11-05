@@ -83,6 +83,7 @@ from app.api.teams.services import (
     find_replacement_pair_refusal,
     find_replacement_refusal,
     find_retire_refusal,
+    find_shorthand_refusal,
     has_taken_place,
     kontakt_zeile_of,
     links_owed,
@@ -101,6 +102,7 @@ from app.core.crud import (
     aggregate_many_from_db,
     anchor_in_db,
     insert_live,
+    is_held_elsewhere,
     patch_many_in_db,
     patch_one_in_db,
     post_one_to_db,
@@ -277,9 +279,14 @@ async def post_team(
     teams_collection: TeamsCollection,
     db: DBClient,
 ) -> FLCreatedResponse:
-    """Create a club. `shorthand` is unique across every club, retired ones included, so a duplicate is a 409."""
+    """Create a club. `shorthand` is unique across every club, retired ones included: a taken one is refused `duplicate_key`.
+
+    The refusal names `shorthand`.
+    """
 
     async def found_the_club(session: AsyncClientSession) -> InsertOneResult:
+        taken = await is_held_elsewhere(collection=teams_collection, key="shorthand", value=team_data.shorthand, own_id=None, session=session)
+        refuse(find_shorthand_refusal(taken=taken))
         return await insert_live(collection=teams_collection, document=team_data.model_dump(mode="json"), session=session)
 
     async with transaction_session(db) as session:
@@ -307,10 +314,15 @@ async def patch_team(
     Update a club, then rewrite the name and shorthand its unfinished seasons' rows carry.
 
     Every fixture reads its sides' names from their season rows, so a rename reaches the fixtures of each season it
-    rewrites; a `past` season keeps the name it was played under.
+    rewrites; a `past` season keeps the name it was played under. A shorthand another club holds, a retired one included,
+    is refused `duplicate_key`, naming `shorthand`.
     """
 
     async def rename_and_fan_out(session: AsyncClientSession) -> FLPatchTeamResponse:
+        taken = await is_held_elsewhere(
+            collection=teams_collection, key="shorthand", value=team_data.shorthand, own_id=team_id, session=session
+        )
+        refuse(find_shorthand_refusal(taken=taken))
         await patch_one_in_db(
             collection=teams_collection,
             db_filter={"_id": team_id},
