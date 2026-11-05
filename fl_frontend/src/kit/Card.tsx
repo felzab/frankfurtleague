@@ -28,7 +28,7 @@ export type CardProps = {
       chip?: never;
     }
   | {
-      /** Where what the card stands for is, such as a season's state, right after its title. */
+      /** Where what the card stands for is, such as a season's state, at the head's end. */
       chip: ChipProps;
       count?: never;
     }
@@ -44,12 +44,11 @@ export function Card({ title, count, chip, action, body = "rows", children, line
   return (
     <section className={s.root()}>
       <div className={s.head()}>
-        {chip === undefined ? (
-          <h2 className={s.title()}>{textOf(title)}</h2>
-        ) : (
-          // The chip right after the name it belongs to, as on every row and title carrying one.
-          <span className={s.named()}>
-            <h2 className={s.title()}>{textOf(title)}</h2>
+        <h2 className={s.title()}>{textOf(title)}</h2>
+        {/* At the head's end, where a count stands, in the card's every state: the one exception to a chip standing
+            right after its name, ruled for the landing's season card, whose state is the card's, not its title's. */}
+        {chip !== undefined && (
+          <span className={s.end()}>
             <Chip {...chip} />
           </span>
         )}

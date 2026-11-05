@@ -77,6 +77,8 @@ export const card = tv({
     count: "col-start-2 row-start-1 font-numeric text-sm text-fg-muted",
     // A title with its chip after it, the chip keeping its size while the title wraps.
     named: "flex min-w-0 items-center gap-2",
+    // A chip at the head's end, in the count's place: the season card's state.
+    end: "col-start-2 row-start-1 flex self-center",
     line: "col-span-2 text-sm text-fg-muted",
     // A grid item is never narrower than its content by default, so a wide table would be cut at the card's
     // edge; the body shrinks to the card instead, where the table truncates its names or scrolls as its page
