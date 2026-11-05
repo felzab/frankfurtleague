@@ -38,6 +38,8 @@ export const Code = {
   ansetzung_changed: "ansetzung_changed",
   ansetzung_decided: "ansetzung_decided",
   ansetzung_vorschlag_past: "ansetzung_vorschlag_past",
+  ansetzung_vorschlag_past_as_stored: "ansetzung_vorschlag_past_as_stored",
+  ansetzung_vorschlag_unchanged: "ansetzung_vorschlag_unchanged",
   ansetzung_closed: "ansetzung_closed",
   ansetzung_not_enterable: "ansetzung_not_enterable",
   ansetzung_not_discardable: "ansetzung_not_discardable",

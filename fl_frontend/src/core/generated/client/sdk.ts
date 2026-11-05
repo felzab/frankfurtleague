@@ -3736,7 +3736,8 @@ export const getSpielbestaetigungenPostSpielbestaetigungUrl = () => {
  * (`ansetzung_answered`); one closed unanswered (`ansetzung_closed`); a fixture decided, called off or left by a club
  * (`ansetzung_decided`), then one whose date, time, ground or sides moved since the link (`ansetzung_changed`), each
  * as the confirmation pass's close judges the row; an answer after the deadline's day (`ansetzung_frist_past`); a
- * proposal dated before today (`ansetzung_vorschlag_past`); and a proposal the administrator's own save of that date would be
+ * proposal dated before today (`ansetzung_vorschlag_past`); one naming the day and hour the fixture already holds
+ * (`ansetzung_vorschlag_unchanged`, on both boxes); and a proposal the administrator's own save of that date would be
  * refused, judged on what it newly claims and in that save's order: on or after a club's exit
  * (`eligibility_disqualified`), outside the matchday (`spiel_outside_spieltag`), or within four hours of the ground's or the referee's
  * other fixture (`spiel_double_booked`). The reason is stored as typed. Every refusal after the ban's is asked again outside
@@ -3933,10 +3934,11 @@ export const getSpielbestaetigungenAdoptSpielbestaetigungUrl = (spielbestaetigun
  * Move a fixture to the date and hour a club's open decline proposes, through the fixture's own save.
  *
  * Refused as the discard refuses, for any row but an open club decline proposing a date about the fixture's current
- * Ansetzung (`ansetzung_not_discardable`), and for a proposed day gone by (`ansetzung_vorschlag_past`). The fixture is
- * saved as the administrator's save would carry it on the proposed day and hour, everything else kept, so it meets
- * every rule that save meets and is refused as that save is, by its code alone: no refusal names a field, the request
- * carrying no body. The bracket is resolved as that save resolves it. The
+ * Ansetzung (`ansetzung_not_discardable`), and for a proposed day gone by (`ansetzung_vorschlag_past_as_stored`, the
+ * stored proposal's 409). The fixture is saved as the administrator's save would carry it on the proposed day and
+ * hour, everything else kept, so it meets every rule that save meets and is refused as that save is, by its code and
+ * status alone, as the draw answers the season write's refusals: no refusal names a field, the request carrying no
+ * body. The bracket is resolved as that save resolves it. The
  * row is not closed here: the fixture has left the Ansetzung it answers, so its links read `invalid` at once and the
  * next confirmation pass closes every party's row `ansetzung_changed`, owing each party „Spiel verlegt“ and asking it
  * about the new slot. IRREVERSIBLE as a save is: moving the fixture back is another save.

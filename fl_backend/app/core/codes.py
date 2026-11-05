@@ -73,6 +73,10 @@ class Code(StrEnum):
     ANSETZUNG_CHANGED = auto()
     ANSETZUNG_DECIDED = auto()
     ANSETZUNG_VORSCHLAG_PAST = auto()
+    # The adoption's twin: it judges the STORED proposal, the request carrying no body, so a day gone by is a 409.
+    ANSETZUNG_VORSCHLAG_PAST_AS_STORED = auto()
+    # A decline proposing the slot the fixture already holds: adopted, it would save nothing and leave the proposal open.
+    ANSETZUNG_VORSCHLAG_UNCHANGED = auto()
     ANSETZUNG_CLOSED = auto()
     ANSETZUNG_NOT_ENTERABLE = auto()
     ANSETZUNG_NOT_DISCARDABLE = auto()

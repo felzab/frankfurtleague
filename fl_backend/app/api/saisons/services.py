@@ -1,5 +1,4 @@
 from collections.abc import Iterable, Mapping, Sequence
-from dataclasses import replace
 from datetime import date
 from http import HTTPStatus
 from typing import Any
@@ -11,7 +10,7 @@ from app.api.spiele.services import podium_of
 from app.api.teams.schemas import MAX_NUMBER_OF_GROUPS
 from app.api.teams.services import offered_gruppen
 from app.core.codes import Code
-from app.core.exceptions import WriteRefusal
+from app.core.exceptions import WriteRefusal, as_judged_on_stored_state
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.literals import FLGruppenNames, FLSaisonPhase, FLSaisonStatus
 
@@ -424,13 +423,7 @@ def as_the_draw_answers(refusal: WriteRefusal | None) -> WriteRefusal | None:
     a box the draw has not got.
     """
 
-    if refusal is None:
-        return None
-
-    if refusal.error_code in DRAW_TWINS:
-        return WriteRefusal(error_code=DRAW_TWINS[refusal.error_code], status=HTTPStatus.CONFLICT)
-
-    return replace(refusal, fields=(), bounds={})
+    return as_judged_on_stored_state(refusal, twins=DRAW_TWINS)
 
 
 # The projection `holds_a_recorded_fact` reads, beside the predicate itself: a field in one and not
