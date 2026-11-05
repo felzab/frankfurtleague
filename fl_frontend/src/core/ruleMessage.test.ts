@@ -1,7 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { COPY } from "./copy.ts";
-import { ruleMessage } from "./ruleMessage.ts";
+import { dayOf } from "./format.ts";
+import { bornAfter, bornBy, ruleMessage } from "./ruleMessage.ts";
 import { SERVER_COPY } from "./serverCopy.ts";
 
 import type { FLRefusedField } from "./generated/client/types.ts";
@@ -29,6 +30,26 @@ describe("the field patterns over the backend's rules", () => {
     expect(rule("kontakt_telefon_twice")).toStrictEqual({ field: field.taken });
     expect(rule("nichtantreten_with_tore")).toStrictEqual({ field: field.without(COPY.shared.tore) });
     expect(rule("nichtantreten_with_torschuetzen")).toStrictEqual({ field: field.without(COPY.admin.spiel.torschuetzen) });
+  });
+
+  // The harm: the server moves its age floor, and the box names a day the write no longer admits.
+  it("words a refused age as the latest birthdate the floor the refusal carries admits, by Berlin's day", () => {
+    vi.useFakeTimers({ now: new Date("2026-11-04T23:30:00Z"), toFake: ["Date"] });
+    onTestFinished(() => {
+      vi.useRealTimers();
+    });
+    // Half past midnight on 5 November in Berlin, whose day the backend judges an age on.
+    expect(rule("confirmation_age", { min: 16, max: 120 })).toStrictEqual({ field: field.latest(dayOf("2010-11-05")) });
+    expect(rule("confirmation_age", { min: 18, max: 120 })).toStrictEqual({ field: field.latest(dayOf("2008-11-05")) });
+  });
+
+  it("takes the month's last day as the latest birthdate where that year holds no such day", () => {
+    vi.useFakeTimers({ now: new Date("2028-02-29T12:00:00Z"), toFake: ["Date"] });
+    onTestFinished(() => {
+      vi.useRealTimers();
+    });
+    expect(bornBy(17)).toBe("2011-02-28");
+    expect(bornAfter(120)).toBe("1907-03-01");
   });
 
   it("prints a season's year bounds with no thousands separator", () => {

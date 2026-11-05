@@ -42,6 +42,12 @@ const SIGNED = new Intl.NumberFormat("de-DE", { signDisplay: "exceptZero" });
 const EURO = new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" });
 const LIST = new Intl.ListFormat("de-DE", { type: "conjunction" });
 
+// The ISO day's parts, which the Canadian English locale writes in that order.
+const ISO_DAY = new Intl.DateTimeFormat("en-CA", { timeZone: TIME_ZONE, year: "numeric", month: "2-digit", day: "2-digit" });
+
+/** The league's calendar day an instant falls on, as a stored `YYYY-MM-DD` day: the day the backend judges an age on. */
+export const dayIn = (instant: Date): CalendarDay => ISO_DAY.format(instant) as CalendarDay;
+
 function asInstant(day: CalendarDay | Date): Date {
   if (day instanceof Date) return day;
   const [year = 0, month = 1, dayOfMonth = 1] = day.split("-").map(Number);

@@ -4906,8 +4906,11 @@ export const FLSchiedsrichterConfirmationState = {
  * Never a name, the school, the contact details, the fee, the birthdate or the id.
  */
 export interface FLSchiedsrichterConfirmationViewResponse {
+  answered_on: string | null;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   frist: string;
+  /** @exclusiveMinimum 0 */
+  maximum_age: number;
   /** @exclusiveMinimum 0 */
   media_minimum_age: number;
   minimum_age: number;

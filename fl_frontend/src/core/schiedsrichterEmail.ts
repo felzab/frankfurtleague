@@ -2,7 +2,7 @@ import "server-only";
 
 import { COPY } from "./copy";
 import { mailOrigin } from "./emailShell";
-import { dayOf } from "./format";
+import { dayOf, formatDatumLong } from "./format";
 import { ROUTES } from "./routes";
 import { SERVER_COPY } from "./serverCopy";
 
@@ -39,7 +39,8 @@ export function buildSchiedsrichterBestaetigungEmail({ frist }: FLSchiedsrichter
     subjectLine: COPY.page.entryConfirmation,
     origin: site,
     vorname: "",
-    paragraphs: [[PAGE.opening, PAGE.deadline(dayOf(frist))]],
+    // The deadline's day semibold, as the board draws it, between the page's two parts around it.
+    paragraphs: [[PAGE.opening, [`${PAGE.deadline.before} `, { strong: formatDatumLong(dayOf(frist)) }, PAGE.deadline.after]]],
     button: { label: COPY.page.entryConfirmation, href: schiedsrichterBestaetigungsLink(site, token) },
   };
 }
