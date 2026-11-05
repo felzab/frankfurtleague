@@ -2,7 +2,7 @@ import "server-only";
 
 import { KONTAKT_EMAIL, VEREIN_ADDRESS, VEREIN_NAME, VEREINSREGISTER, VORSTAND_JOINTLY } from "./brand";
 import { catalogue, COPY, textOf } from "./copy";
-import { formatDatum, formatDatumLong, formatNumber, formatOrdinal, formatSigned } from "./format";
+import { formatDatum, formatDatumLong, formatList, formatNumber, formatOrdinal, formatSigned } from "./format";
 
 import type { Copy, Words } from "./copy";
 import type { CalendarDay } from "./format";
@@ -22,6 +22,8 @@ const DIFFERENZ = "Diff.";
 const SPIELBETRIEB = "Spielbetrieb";
 const gruppeName = (gruppe: string) => `Gruppe ${gruppe}`;
 const placeName = (platz: number) => `${formatOrdinal(platz)} ${PLATZ}`;
+// Matches by their numbers, „Spiel 4, 7 und 9“, as the match editor's done line names the others it changed.
+const spieleNamed = (nrs: readonly number[]) => `Spiel ${formatList(nrs.map(formatNumber))}`;
 
 // The confirmation pages' shared sentences, each written once: what the typed birthdate is checked for, the deadline
 // of an entry that goes alone, the objection Art. 21 (4) asks to be named explicitly, in the two parts around the
@@ -93,6 +95,12 @@ export const SERVER_COPY = catalogue({
     address_change_unchanged: COPY.account.address.unchanged,
     /** A grant's move nobody but the person could approve. */
     address_change_no_approver: COPY.account.address.noApprover,
+    /** A venue retired while matches still to come are booked there, named by their numbers so they can be moved first. */
+    spielort_still_booked: ({ spiel_nrs }: FLRefusedField["ctx"]) =>
+      Array.isArray(spiel_nrs) && spiel_nrs.length > 0 ? `Der Spielort ist noch für ${spieleNamed(spiel_nrs)} gebucht.` : undefined,
+    /** A referee retired while matches still to come name them, by the matches' numbers. */
+    schiedsrichter_still_assigned: ({ spiel_nrs }: FLRefusedField["ctx"]) =>
+      Array.isArray(spiel_nrs) && spiel_nrs.length > 0 ? `Die Person ist noch für ${spieleNamed(spiel_nrs)} eingeteilt.` : undefined,
     eligibility_disqualified: {
       team1: `${team1} ist aus der Saison ausgeschieden.`,
       team2: `${team2} ist aus der Saison ausgeschieden.`,

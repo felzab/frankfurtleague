@@ -241,7 +241,6 @@ export const ROUTES = {
   },
   adminSpielorte: { path: () => "/admin/spielorte" as const, title: COPY.page.adminSpielorte, crawl: "disallow" },
   /** A venue's own page, named by the venue. */
-  // Session 5: its page is built.
   adminSpielort: {
     path: (spielort: string) => `/admin/spielorte/${spielort}` as const,
     title: null,
