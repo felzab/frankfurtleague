@@ -297,6 +297,17 @@ class TestARetiredBookingOnAReopenedFixture:
             for fault in find_retired_bookings([reopened], retired_venues=retired, retired_referees={})
         ] == [(SLOT_NR, "ort", GROUND_RETIRED_ON)]
 
+    @pytest.mark.parametrize("sonderereignis", SONDEREREIGNIS_WITHOUT_A_RESULT)
+    def test_a_called_off_fixture_keeps_its_retired_booking_unreported(self, a_semi_final_played_at_a_retired_ground, sonderereignis):
+        """A fixture called off owes no result, so its retired row stands lawfully; reported, it is a fault nobody can repair."""
+
+        (played,) = FLSpielJoinedAdminListAdapter.validate_python(
+            [joined_spiel_document(spiel) for spiel in a_semi_final_played_at_a_retired_ground]
+        )
+        called_off = played.model_copy(update={"ergebnis": None, "sonderereignis": sonderereignis})
+
+        assert find_retired_bookings([called_off], retired_venues={ObjectId(RETIRED_GROUND): GROUND_RETIRED_ON}, retired_referees={}) == []
+
     def test_a_save_keeping_it_passes_and_a_save_newly_booking_it_is_refused(self, a_semi_final_played_at_a_retired_ground):
         """Both directions of `booking_unknown_resource`: the state stands because the reopened fixture's next save books nothing."""
 
