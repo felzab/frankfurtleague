@@ -1,4 +1,5 @@
 from collections.abc import Iterable, Mapping, Sequence
+from dataclasses import replace
 from datetime import date
 from http import HTTPStatus
 from typing import Any
@@ -6,6 +7,7 @@ from typing import Any
 from app.api.saisons.schedule import expected_matches, knockout_phases_for, qualifier_count, schedule_for
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.schemas import FLSpiel, is_unplayed
+from app.api.teams.schemas import MAX_NUMBER_OF_GROUPS
 from app.api.teams.services import offered_gruppen
 from app.core.codes import Code
 from app.core.exceptions import WriteRefusal
@@ -175,6 +177,8 @@ def find_rules_refusal(
         return WriteRefusal(
             error_code=Code.RULES_QUALIFIERS_ABOVE_GRUPPE,
             status=HTTPStatus.UNPROCESSABLE_CONTENT,
+            fields=(("rules", "qualifiers_per_gruppe"),),
+            bounds={"max": proposed.teams_per_gruppe},
         )
 
     # The EXCESS again, so a stored violation resubmitted unchanged passes and shrinking it repairs
@@ -184,6 +188,8 @@ def find_rules_refusal(
         return WriteRefusal(
             error_code=Code.RULES_UNENTSCHIEDEN_OUTVALUES_WIN,
             status=HTTPStatus.UNPROCESSABLE_CONTENT,
+            fields=(("rules", "draw_points"),),
+            bounds={"max": proposed.win_points},
         )
 
     qualifiers = proposed.number_of_gruppen * proposed.qualifiers_per_gruppe
@@ -216,6 +222,8 @@ def find_rules_refusal(
         return WriteRefusal(
             error_code=Code.RULES_FORFEIT_UNENTSCHIEDEN_IN_A_KNOCKOUT,
             status=HTTPStatus.UNPROCESSABLE_CONTENT,
+            fields=(("rules", "forfeit_ergebnis", "sieger_tore"),),
+            bounds={"min": proposed.forfeit_ergebnis.verlierer_tore + 1},
         )
 
     if stored is None:
@@ -225,9 +233,13 @@ def find_rules_refusal(
         offered = offered_gruppen(proposed.number_of_gruppen)
         stranded = sorted(gruppe for gruppe, held in occupancy_by_gruppe.items() if held > 0 and gruppe not in offered)
         if stranded:
+            # The groups are a prefix of the closed set, so the fewest that still offer every occupied one run to the last.
+            in_use = max(offered_gruppen(MAX_NUMBER_OF_GROUPS).index(gruppe) for gruppe in stranded) + 1
             return WriteRefusal(
                 error_code=Code.RULES_GRUPPEN_IN_USE,
                 status=HTTPStatus.CONFLICT,
+                fields=(("rules", "number_of_gruppen"),),
+                bounds={"min": in_use},
             )
 
     if proposed.teams_per_gruppe < stored.teams_per_gruppe:
@@ -236,6 +248,8 @@ def find_rules_refusal(
             return WriteRefusal(
                 error_code=Code.RULES_CAPACITY_BELOW_USE,
                 status=HTTPStatus.CONFLICT,
+                fields=(("rules", "teams_per_gruppe"),),
+                bounds={"min": fullest},
             )
 
     # Only where the patch LOWERS it, on `rules_capacity_below_use`'s shape: a cap left where it stands is not
@@ -244,6 +258,8 @@ def find_rules_refusal(
         return WriteRefusal(
             error_code=Code.RULES_KADER_BELOW_USE,
             status=HTTPStatus.CONFLICT,
+            fields=(("rules", "max_kadergroesse"),),
+            bounds={"min": largest_squad},
         )
 
     # Only where the patch LOWERS it: `rules` is required, so a dates-only edit resubmits a count
@@ -252,6 +268,8 @@ def find_rules_refusal(
         return WriteRefusal(
             error_code=Code.RULES_QUALIFIERS_BELOW_WIRING,
             status=HTTPStatus.CONFLICT,
+            fields=(("rules", "qualifiers_per_gruppe"),),
+            bounds={"min": highest_wired_platz},
         )
 
     # Last, being the only check computing the whole schedule. EVERY phase: lowering the qualifier
@@ -291,11 +309,15 @@ def find_saison_span_refusal(
             status=HTTPStatus.UNPROCESSABLE_CONTENT,
         )
 
-    outside = sorted(span for span in spieltag_spans if span[0] < start_date or span[1] > end_date)
-    if outside:
+    # `start` and `end` are the span the dated matchdays need, named on each side the season falls short of.
+    first, last = min((span[0] for span in spieltag_spans), default=start_date), max((span[1] for span in spieltag_spans), default=end_date)
+    short = tuple(path for path, falls_short in ((("start_date",), first < start_date), (("end_date",), last > end_date)) if falls_short)
+    if short:
         return WriteRefusal(
             error_code=Code.SAISON_SPAN_BELOW_SPIELTAGE,
             status=HTTPStatus.CONFLICT,
+            fields=short,
+            bounds={"start": first, "end": last},
         )
 
     return None
@@ -312,12 +334,19 @@ DRAW_TWINS: Mapping[Code, Code] = {
 
 
 def as_the_draw_answers(refusal: WriteRefusal | None) -> WriteRefusal | None:
-    """`refusal` as the draw answers it: under its twin where it weighed a stored value, else unchanged."""
+    """`refusal` as the draw answers it: under its twin where it weighed a stored value, else on the status line alone.
 
-    if refusal is None or refusal.error_code not in DRAW_TWINS:
-        return refusal
+    Never on a field: the draw's payload states the shape under `shape` or not at all, so a path under `rules` names
+    a box the draw has not got.
+    """
 
-    return WriteRefusal(error_code=DRAW_TWINS[refusal.error_code], status=HTTPStatus.CONFLICT)
+    if refusal is None:
+        return None
+
+    if refusal.error_code in DRAW_TWINS:
+        return WriteRefusal(error_code=DRAW_TWINS[refusal.error_code], status=HTTPStatus.CONFLICT)
+
+    return replace(refusal, fields=(), bounds={})
 
 
 # The projection `holds_a_recorded_fact` reads, beside the predicate itself: a field in one and not
