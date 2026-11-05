@@ -35,7 +35,6 @@ from tests import documents
 from tests.bracket_reference import BRACKET_SEEDING
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.isolation import COMMITTED, InterleavedCollection, outcome_of
-from tests.session_headers import fresh_admin_actor
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -214,7 +213,6 @@ async def call_draw(
         db=client,
         spielplan_data=FLGenerateSpielplanPayload(replace=replace, shape=shape),
         today=today,
-        actor=fresh_admin_actor(),
     )
 
 

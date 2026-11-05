@@ -24184,7 +24184,7 @@
         ]
       },
       "post": {
-        "description": "Draw the whole season at once: every matchday and every fixture, undated, in one transaction.\n\n`shape` states the three rules the fixtures come out of, and is stored with them. `replace`\ndeletes both lists first, every fixture's confirmations with them, inside `spielplan_replace_outside_its_window`'s\nwindow and on a season holding no submitted match report (`spielplan_berichte_submitted`), and is refused\n`confirmation_required` from a sign-in or confirmation older than `STEP_UP_WINDOW_HOURS`: nothing writes\nthe removed rows back.",
+        "description": "Draw the whole season at once: every matchday and every fixture, undated, in one transaction.\n\n`shape` states the three rules the fixtures come out of, and is stored with them. `replace`\ndeletes both lists first, every fixture's confirmations with them, inside `spielplan_replace_outside_its_window`'s\nwindow and on a season holding no submitted match report (`spielplan_berichte_submitted`): nothing writes the\nremoved rows back.",
         "operationId": "saisons_post_spielplan",
         "parameters": [
           {

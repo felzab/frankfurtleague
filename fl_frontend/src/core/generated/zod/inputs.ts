@@ -1948,9 +1948,8 @@ export const SaisonsGetSpielplanParams = zod.object({
  *
  * `shape` states the three rules the fixtures come out of, and is stored with them. `replace`
  * deletes both lists first, every fixture's confirmations with them, inside `spielplan_replace_outside_its_window`'s
- * window and on a season holding no submitted match report (`spielplan_berichte_submitted`), and is refused
- * `confirmation_required` from a sign-in or confirmation older than `STEP_UP_WINDOW_HOURS`: nothing writes
- * the removed rows back.
+ * window and on a season holding no submitted match report (`spielplan_berichte_submitted`): nothing writes the
+ * removed rows back.
  * @summary Draw this Saison's Spielplan
  */
 export const SaisonsPostSpielplanParams = zod.object({

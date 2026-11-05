@@ -788,7 +788,6 @@ async def patch_saison_team_kontakte(
     f"{by_id('team_id')}/saisons/{{saison_id}}/replace",
     response_model=FLReplaceSaisonTeamResponse,
     summary="Replace a club in a season, keeping its schedule",
-    dependencies=[Depends(verify_step_up)],
 )
 async def replace_saison_team(
     team_id: CustomRouteObjectId,
@@ -1166,7 +1165,6 @@ async def post_invitation(
     f"{by_id('team_id')}/saisons/{{saison_id}}/invitation",
     response_model=FLInvitationWriteResponse,
     summary="Revoke this team's live registration link for a season",
-    dependencies=[Depends(verify_step_up)],
 )
 async def delete_invitation(
     team_id: CustomRouteObjectId,
@@ -1204,7 +1202,6 @@ async def delete_invitation(
     f"{by_id('team_id')}/saisons/{{saison_id}}/invitation/dispatch",
     response_model=FLInvitationMailResponse,
     summary="Mail this team's live registration link to its confirmed contact seats",
-    dependencies=[Depends(verify_step_up)],
 )
 async def post_invitation_dispatch(
     team_id: CustomRouteObjectId,

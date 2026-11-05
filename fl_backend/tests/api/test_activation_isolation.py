@@ -26,7 +26,6 @@ from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import ADDRESS, rules_document, saison_document, saison_team_document, team_document
 from tests.isolation import MISCOUNTED_JUDGEMENTS, InterleavedCollection, Rival, outcome_of
 from tests.payloads import spiel_patch_body
-from tests.session_headers import fresh_admin_actor
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -188,7 +187,6 @@ async def call_draw(database: AsyncDatabase, client: AsyncMongoClient, saison_id
         db=client,
         spielplan_data=FLGenerateSpielplanPayload(),
         today=TODAY,
-        actor=fresh_admin_actor(),
     )
 
 

@@ -112,7 +112,7 @@ from app.core.dependencies import (
 )
 from app.core.exceptions import DocumentNotFoundError
 from app.core.logging import fl_logger
-from app.core.security import SessionActor, bind_actor, get_actor_email, verify_access_admin, verify_admin_actor, verify_step_up
+from app.core.security import bind_actor, get_actor_email, verify_access_admin
 from app.core.transactions import transaction_session
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.literals import FLGruppenNames
@@ -225,7 +225,6 @@ async def get_saisons_verwaltung(
     response_model=FLPostSaisonResponse,
     status_code=201,
     summary="Create a Saison",
-    dependencies=[Depends(verify_step_up)],
 )
 async def post_saison(
     saison_data: Annotated[FLPostSaisonPayload, Body()],
@@ -448,7 +447,6 @@ async def patch_saison(
     "/{saison_id}/activate",
     response_model=FLActivateSaisonResponse,
     summary="Make this the active Saison",
-    dependencies=[Depends(verify_step_up)],
 )
 async def activate_saison(
     saison_id: str,
@@ -689,7 +687,6 @@ async def post_spielplan(
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
     spielberichte_collection: SpielberichteCollection,
     db: DBClient,
-    actor: Annotated[SessionActor, Depends(verify_admin_actor)],
     # An absent body is `replace: false`, so a first draw needs no confirmation and nothing replaces
     # a season by leaving the flag out.
     spielplan_data: Annotated[FLGenerateSpielplanPayload, Body(default_factory=FLGenerateSpielplanPayload)],
@@ -700,13 +697,9 @@ async def post_spielplan(
 
     `shape` states the three rules the fixtures come out of, and is stored with them. `replace`
     deletes both lists first, every fixture's confirmations with them, inside `spielplan_replace_outside_its_window`'s
-    window and on a season holding no submitted match report (`spielplan_berichte_submitted`), and is refused
-    `confirmation_required` from a sign-in or confirmation older than `STEP_UP_WINDOW_HOURS`: nothing writes
-    the removed rows back.
+    window and on a season holding no submitted match report (`spielplan_berichte_submitted`): nothing writes the
+    removed rows back.
     """
-
-    if spielplan_data.replace:
-        verify_step_up(actor)
 
     # A read first, so an unknown season is a 404 rather than a refusal about what it does not hold.
     await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["_id"])
@@ -913,7 +906,6 @@ async def post_spielplan(
     "/{saison_id}/spielplan",
     response_model=FLUndrawSpielplanResponse,
     summary="Undraw this Saison's Spielplan",
-    dependencies=[Depends(verify_step_up)],
 )
 async def delete_spielplan(
     saison_id: str,
@@ -1295,7 +1287,6 @@ async def get_erasure_preview(
     "/{saison_id}/invitations/dispatch",
     response_model=FLInvitationDispatchResponse,
     summary="Mint every admitted team a link",
-    dependencies=[Depends(verify_step_up)],
 )
 async def post_invitations_dispatch(
     saison_id: str,
