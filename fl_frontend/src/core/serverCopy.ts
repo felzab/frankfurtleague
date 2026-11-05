@@ -2,11 +2,11 @@ import "server-only";
 
 import { KONTAKT_EMAIL, VEREIN_ADDRESS, VEREIN_NAME, VEREINSREGISTER, VORSTAND_JOINTLY } from "./brand";
 import { catalogue, COPY, textOf } from "./copy";
-import { formatDatum, formatDatumLong, formatList, formatNumber, formatOrdinal, formatSigned } from "./format";
+import { formatDatum, formatDatumLong, formatDayAndTime, formatList, formatNumber, formatOrdinal, formatSigned } from "./format";
 
 import type { Copy, Words } from "./copy";
-import type { CalendarDay } from "./format";
-import type { Code, FLRefusedField, Rule } from "./generated/client/types";
+import type { CalendarDay, Uhrzeit } from "./format";
+import type { Code, FLBookingResource, FLOverviewCardName, FLRefusedField, Rule } from "./generated/client/types";
 import type { ROUTES } from "./routes";
 
 /** The route keys of the pages a search engine may list. */
@@ -24,6 +24,9 @@ const gruppeName = (gruppe: string) => `Gruppe ${gruppe}`;
 const placeName = (platz: number) => `${formatOrdinal(platz)} ${PLATZ}`;
 // Matches by their numbers, „Spiel 4, 7 und 9“, as the match editor's done line names the others it changed.
 const spieleNamed = (nrs: readonly number[]) => `Spiel ${formatList(nrs.map(formatNumber))}`;
+// A fixture's slot inside a sentence, „14. März 2027 um 15:30“, or as its row writes it while it lacks either half.
+type Slot = { day: CalendarDay | null; time: Uhrzeit | null };
+const momentOf = ({ day, time }: Slot) => (day === null || time === null ? COPY.spielplan.when(day, time) : formatDayAndTime(day, time));
 
 // The confirmation pages' shared sentences, each written once: what the typed birthdate is checked for, the deadline
 // of an entry that goes alone, the objection Art. 21 (4) asks to be named explicitly, in the two parts around the
@@ -116,6 +119,8 @@ export const SERVER_COPY = catalogue({
      * it, so it reads as the stale page it is.
      */
     schiedsrichter_address_only_per_change: COPY.shared.failure.stale,
+    /** A club's proposed day that has gone by, which „Übernehmen“ would move the fixture into. */
+    ansetzung_vorschlag_past: "Der vorgeschlagene Tag ist vorbei.",
     eligibility_disqualified: {
       team1: `${team1} ist aus der Saison ausgeschieden.`,
       team2: `${team2} ist aus der Saison ausgeschieden.`,
@@ -148,6 +153,66 @@ export const SERVER_COPY = catalogue({
     swapSidesTakenPlace: "Ein Spiel der beiden Teams hat schon stattgefunden.",
     /** A fixture of the club a replacement takes out of the season has taken place, judged as the swap's. */
     replacementSidesTakenPlace: "Ein Spiel des ausscheidenden Teams hat schon stattgefunden.",
+  },
+
+  /**
+   * The administrator's Übersicht: its four cards by the names the read serves them under, and each row's one line
+   * saying what is open there, by the kind of open work.
+   */
+  overview: {
+    card: {
+      due: "Heute und überfällig",
+      ergebnisse: "Ergebnisse",
+      dates: "Termine",
+      bewerbungen: COPY.page.adminBewerbungen,
+    } satisfies Record<FLOverviewCardName, string>,
+    answerDue: "Antwort heute fällig",
+    /** By the deadline the clubs' answer was due on, the earliest where the row's clubs were given several. */
+    answerOverdue: (deadline: CalendarDay) => `Antwort seit ${formatDatum(deadline)} überfällig`,
+    /** What a fixture lacks, by its own word: „Termin“, or the label its box carries in the match editor. */
+    missing: (label: Copy) => `${label} fehlt`,
+    /** A report awaiting the administrator, by the state it reads in. */
+    report: {
+      vorgeschlagen: "Spielbericht nicht übernommen",
+      differing: "Spielbericht weicht vom Ergebnis ab",
+      teams_changed: "Spielbericht nennt andere Teams",
+    },
+    /** A club's proposed date and hour, as a match row writes them; a club the fixture no longer fields is not named. */
+    proposal: (when: Copy, team: Words | null) => (team === null ? `Schlägt ${when} vor` : `${textOf(team)} schlägt ${when} vor`),
+    /** An application, by how many of its contact seats have confirmed their entry. */
+    seatsConfirmed: (confirmed: number, seats: number) =>
+      confirmed === seats
+        ? "Alle Kontaktpersonen bestätigt"
+        : `${formatNumber(confirmed)} von ${formatNumber(seats)} Kontaktpersonen bestätigt`,
+    /** A fault of the bracket or of a fixture's bookings, by its reason, on the fixture it names. */
+    fault: {
+      gruppe_too_small: (gruppe: string, platz: number) => `${gruppeName(gruppe)} hat keinen ${placeName(platz)}`,
+      gruppe_not_run: (gruppe: string) => `${gruppeName(gruppe)} gibt es nicht`,
+      seed_past_the_opening_round: `Gruppenplatz nach der ersten ${COPY.shared.kORunde}`,
+      tie_unresolved: (gruppe: string, platz: number) => `Gleichstand um den ${placeName(platz)} der ${gruppeName(gruppe)}`,
+      spiel_missing: (spiel: number) => `${spieleNamed([spiel])} gibt es nicht`,
+      reference_cycle: (spiel: number) => `Verweis im Kreis über ${spieleNamed([spiel])}`,
+      gruppenphase_feeder: (spiel: number) => `${spieleNamed([spiel])} ist ein Gruppenspiel`,
+      feeder_not_played_first: (spiel: number) => `${spieleNamed([spiel])} liegt nicht in einer früheren Runde`,
+      same_team: "Beide Seiten führen zum selben Team",
+      gruppenphase_fixture_wired: "Gruppenspiel mit Verweis",
+      /** The source by its full name, „2. der Gruppe A“. */
+      source_feeds_another_fixture: (quelle: Copy) => `${quelle} füllt zwei Seiten`,
+      /** The club, and its exit as the club's exit note heads it. */
+      departed_occupant: (team: Words, austritt: Copy) => `${textOf(team)} · ${austritt}`,
+      fielded_twice: (team: Words) => `${textOf(team)} zweimal an diesem Spieltag`,
+      /** By the booking's object, „Spielort“ or „Schiedsrichter“. */
+      retired_booking: (booking: Copy) => `${booking} stillgelegt`,
+      double_booked: { ort: "Spielort doppelt belegt", schiedsrichter: "Schiedsrichter doppelt eingeteilt" } satisfies Record<
+        FLBookingResource,
+        string
+      >,
+    },
+    /** „Übernehmen“'s consequence, by the fixture's slot and the proposed one, each a moment in a sentence. */
+    adoptConsequence: (from: Slot, to: Slot) =>
+      `Das Spiel wird vom ${momentOf(from)} auf den ${momentOf(to)} verlegt, und alle Beteiligten bekommen „Spiel verlegt“.`,
+    /** „Verwerfen“'s, by the slot the fixture keeps and the club that proposed another. */
+    discardConsequence: (at: Slot, team: Words) => `Das Spiel bleibt am ${momentOf(at)}, und ${textOf(team)} bekommt „Termin bleibt“.`,
   },
 
   /**

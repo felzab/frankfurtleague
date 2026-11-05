@@ -211,7 +211,6 @@ export const ROUTES = {
    * Übersicht of the season the site is on, as `/saisons` sends a visitor on to its Spielplan.
    */
   admin: { path: () => "/admin" as const, title: COPY.shared.overview, crawl: "disallow" },
-  // Session 5: its page is built.
   adminOverview: {
     path: (saison: string) => `/admin/saisons/${saison}` as const,
     title: COPY.shared.overview,
@@ -265,6 +264,14 @@ export const ROUTES = {
     title: COPY.page.adminBewerbungen,
     crawl: "disallow",
   },
+  /** One application, named by its school; the Übersicht's applications card opens it. */
+  // Session 6: its page is built at /admin/saisons/<saison>/bewerbungen/<bewerbung>.
+  adminBewerbung: {
+    path: (bewerbung: string) => `/area/admin/bewerbungen/${bewerbung}` as const,
+    title: null,
+    crawl: "disallow",
+  },
+
   // Session 6: its page is built.
   adminTeams: {
     path: (saison: string) => `/admin/saisons/${saison}/teams` as const,
