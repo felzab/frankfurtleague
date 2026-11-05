@@ -176,6 +176,7 @@ export const Code = {
   spielplan_berichte_submitted: "spielplan_berichte_submitted",
   spieltag_occupied: "spieltag_occupied",
   spieltag_occupied_by_the_resolution: "spieltag_occupied_by_the_resolution",
+  voided_results_stale: "voided_results_stale",
   kader_team_not_in_saison: "kader_team_not_in_saison",
   kader_full: "kader_full",
   kader_rolle_taken: "kader_rolle_taken",
@@ -3971,6 +3972,19 @@ export interface FLSpielTeamFieldPayload {
   tore: number | null;
 }
 
+/**
+ * A later fixture's stored result that a save deletes: its ground score, its shoot-out and a no-show, each null where it held none.
+ */
+export interface FLSpielVoidedResult {
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  spiel_id: string;
+  /** @exclusiveMinimum 0 */
+  spiel_nr: number;
+  voided_elfmeterschiessen: FLSpielElfmeterschiessen | null;
+  voided_ergebnis: string | null;
+  voided_sonderereignis: FLSonderereignis | null;
+}
+
 export interface FLPatchSpielDataPayload {
   datum: string | null;
   elfmeterschiessen: FLSpielElfmeterschiessen | null;
@@ -3985,6 +3999,7 @@ export interface FLPatchSpielDataPayload {
   uhrzeit: string | null;
   /** @minimum 0 */
   version: number;
+  voided_results?: FLSpielVoidedResult[];
 }
 
 /**
@@ -4025,6 +4040,8 @@ export interface FLSpielReleasedSide {
  * adoption `adopts_bericht` asked for was stamped, null where none was asked or on a `dry_run`. `recipients`, on a
  * `dry_run` alone and null on a save, is every party the confirmation pass mails about this fixture once it is saved
  * so, and would not as it stands: told of the move, of the referee taken off it, or of its call-off.
+ * `voided_results` is every later result among those fixtures the save deletes, each once, in their numbers' order:
+ * the set a save names in its body to delete them.
  */
 export interface FLPatchSpielDataResponse {
   advanced_to: FLSpielAdvancement[];
@@ -4033,6 +4050,7 @@ export interface FLPatchSpielDataResponse {
   recipients: (FLSpielbestaetigungPartyTeam | FLSpielbestaetigungPartySchiedsrichter)[] | null;
   released_sides: FLSpielReleasedSide[];
   version: number;
+  voided_results: FLSpielVoidedResult[];
 }
 
 /**

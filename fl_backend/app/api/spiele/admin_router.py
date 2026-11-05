@@ -220,7 +220,10 @@ async def patch_spiel(
     adopted, where it still stands at that version about the clubs the save leaves; a miss refuses nothing. A
     `dry_run` answers the same report and writes nothing, and names in `recipients` every party the confirmation pass
     would mail about the fixture once it is saved so: told of its move, of the referee taken off it, or of its call-off,
-    by the pass's own rules. A `past` season's fixture is refused (`saison_past`), the `dry_run` included.
+    by the pass's own rules. A `past` season's fixture is refused (`saison_past`), the `dry_run` included. The save
+    deletes only the later results its body's `voided_results` names, each by its value as its `dry_run` answered it,
+    and is refused whole where it would delete any other set (`voided_results_stale`), judged in its own transaction:
+    a result entered or changed after the question was asked is never deleted unasked.
     """
 
     collections = SpielSaveCollections(

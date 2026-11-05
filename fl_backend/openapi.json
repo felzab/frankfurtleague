@@ -306,6 +306,7 @@
           "spielplan_berichte_submitted",
           "spieltag_occupied",
           "spieltag_occupied_by_the_resolution",
+          "voided_results_stale",
           "kader_team_not_in_saison",
           "kader_full",
           "kader_rolle_taken",
@@ -9344,6 +9345,13 @@
             "minimum": 0.0,
             "title": "Version",
             "type": "integer"
+          },
+          "voided_results": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielVoidedResult"
+            },
+            "title": "Voided Results",
+            "type": "array"
           }
         },
         "required": [
@@ -9364,7 +9372,7 @@
         "type": "object"
       },
       "FLPatchSpielDataResponse": {
-        "description": "Every fixture the save moved beyond its own edit, each with the result it destroyed, and the bracket's faults after it.\n\n`version` is the fixture's own after the save, the one its next save sends; `bericht_adopted` says whether the\nadoption `adopts_bericht` asked for was stamped, null where none was asked or on a `dry_run`. `recipients`, on a\n`dry_run` alone and null on a save, is every party the confirmation pass mails about this fixture once it is saved\nso, and would not as it stands: told of the move, of the referee taken off it, or of its call-off.",
+        "description": "Every fixture the save moved beyond its own edit, each with the result it destroyed, and the bracket's faults after it.\n\n`version` is the fixture's own after the save, the one its next save sends; `bericht_adopted` says whether the\nadoption `adopts_bericht` asked for was stamped, null where none was asked or on a `dry_run`. `recipients`, on a\n`dry_run` alone and null on a save, is every party the confirmation pass mails about this fixture once it is saved\nso, and would not as it stands: told of the move, of the referee taken off it, or of its call-off.\n`voided_results` is every later result among those fixtures the save deletes, each once, in their numbers' order:\nthe set a save names in its body to delete them.",
         "properties": {
           "advanced_to": {
             "items": {
@@ -9429,11 +9437,19 @@
           "version": {
             "title": "Version",
             "type": "integer"
+          },
+          "voided_results": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielVoidedResult"
+            },
+            "title": "Voided Results",
+            "type": "array"
           }
         },
         "required": [
           "advanced_to",
           "released_sides",
+          "voided_results",
           "bracket_faults",
           "version",
           "bericht_adopted",
@@ -13324,6 +13340,7 @@
         "type": "object"
       },
       "FLSpielAdvancement": {
+        "additionalProperties": false,
         "description": "One fixture the bracket resolution rewrote, and the result that rewrite destroyed.\n\nEvery voided field is null where a slot merely filled from empty.",
         "properties": {
           "spiel_id": {
@@ -14353,6 +14370,7 @@
         "type": "object"
       },
       "FLSpielReleasedSide": {
+        "additionalProperties": false,
         "description": "One side another fixture gave up so a team can play this Spieltag, and the result that destroyed.",
         "properties": {
           "side": {
@@ -14697,6 +14715,63 @@
           "tore"
         ],
         "title": "FLSpielTeamFieldPayload",
+        "type": "object"
+      },
+      "FLSpielVoidedResult": {
+        "additionalProperties": false,
+        "description": "A later fixture's stored result that a save deletes: its ground score, its shoot-out and a no-show, each null where it held none.",
+        "properties": {
+          "spiel_id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Spiel Id",
+            "type": "string"
+          },
+          "spiel_nr": {
+            "exclusiveMinimum": 0.0,
+            "title": "Spiel Nr",
+            "type": "integer"
+          },
+          "voided_elfmeterschiessen": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielElfmeterschiessen"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "voided_ergebnis": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]+:[0-9]+$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Voided Ergebnis"
+          },
+          "voided_sonderereignis": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSonderereignis"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "spiel_id",
+          "spiel_nr",
+          "voided_ergebnis",
+          "voided_elfmeterschiessen",
+          "voided_sonderereignis"
+        ],
+        "title": "FLSpielVoidedResult",
         "type": "object"
       },
       "FLSpielVorschlagDiscardedData": {

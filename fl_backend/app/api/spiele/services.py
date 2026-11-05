@@ -41,6 +41,7 @@ from app.api.spiele.schemas import (
     FLSpielTeamField,
     FLSpielTeamFieldJoinedInternal,
     FLSpielTeamFieldPayload,
+    FLSpielVoidedResult,
     is_unplayed,
     records_an_absence,
 )
@@ -1779,6 +1780,44 @@ def find_advancement_occupancy_refusal(season: Sequence[FLSpielCommon], advancem
         error_code=Code.SPIELTAG_OCCUPIED_BY_THE_RESOLUTION,
         status=HTTPStatus.CONFLICT,
     )
+
+
+# The deleted result's own fields, whichever report carries it: a released side's adds which side and whose.
+_VOIDED_FIELDS: Final = frozenset(FLSpielVoidedResult.model_fields)
+
+
+def _voided_key(result: FLSpielVoidedResult) -> str:
+    """One deleted result as a comparable identity: its fixture and each value it held."""
+
+    return result.model_dump_json(include=set(_VOIDED_FIELDS))
+
+
+def voided_results_of(rewrites: Iterable[FLSpielVoidedResult]) -> list[FLSpielVoidedResult]:
+    """Every stored result `rewrites` delete, each once, in their fixtures' numbers' order; a slot filled from empty deletes none.
+
+    One reading for the dry run's answer and the save's judgement, so the set a person confirms is the set the save
+    compares. A fixture releasing both its sides deletes its one result once.
+    """
+
+    voided = {
+        _voided_key(rewrite): FLSpielVoidedResult.model_validate(rewrite.model_dump(include=set(_VOIDED_FIELDS), context={"keep_oid": True}))
+        for rewrite in rewrites
+        if rewrite.voided_ergebnis is not None or rewrite.voided_elfmeterschiessen is not None or rewrite.voided_sonderereignis is not None
+    }
+
+    return sorted(voided.values(), key=lambda result: result.spiel_nr)
+
+
+def find_voided_results_refusal(*, confirmed: Iterable[FLSpielVoidedResult], voided: Iterable[FLSpielVoidedResult]) -> WriteRefusal | None:
+    """Refuse a save deleting later results other than those it confirms, by value.
+
+    By value as well as by fixture, so a result changed since the question was asked is asked about again.
+    """
+
+    if {_voided_key(result) for result in confirmed} == {_voided_key(result) for result in voided}:
+        return None
+
+    return WriteRefusal(error_code=Code.VOIDED_RESULTS_STALE, status=HTTPStatus.CONFLICT)
 
 
 def _quelle_key(quelle: FLSpielQuelle) -> tuple[Any, ...]:

@@ -25,6 +25,7 @@ from app.api.spiele.schemas import (
     FLSpielElfmeterschiessen,
     FLSpielJoinedInternalListAdapter,
     FLSpielListAdapter,
+    FLSpielVoidedResult,
 )
 from app.api.spiele.services import (
     build_spiele_pipeline,
@@ -441,10 +442,16 @@ async def call_patch(
     *,
     dry_run: bool = False,
     uebernimmt_bericht: int | None = None,
+    confirming: list[FLSpielVoidedResult] | None = None,
 ) -> FLPatchSpielDataResponse:
+    """The save as the editor sends it: confirming the later results its own dry run says it deletes, unless `confirming` names them."""
+
+    if not dry_run and confirming is None:
+        confirming = (await call_patch(database, client, spiel_id, spiel_data, dry_run=True)).voided_results
+
     return await patch_spiel(
         spiel_id=spiel_id,
-        spiel_data=spiel_data,
+        spiel_data=spiel_data if confirming is None else spiel_data.model_copy(update={"voided_results": confirming}),
         db=client,
         spiele_collection=database[Collection.SPIELE],
         teams_collection=database[Collection.TEAMS],
@@ -1152,6 +1159,48 @@ class TestAResultThatReordersItsGroupIsPreviewedAsItIsSaved:
         advanced = [(entry.spiel_nr, entry.voided_ergebnis) for entry in run.saved.advanced_to]
         assert advanced == [(HALBFINALE_FROM_GRUPPE_NR, "2:1")]
         assert but_its_bookkeeping(run.preview) == but_its_bookkeeping(run.saved), "the preview answered differently from the save it previews"
+
+
+class TestAResultEnteredAfterTheQuestionIsNotDeletedUnasked:
+    """The save is the gate: it deletes only the later results its body confirms, judged in its own transaction."""
+
+    @pytest.mark.parametrize(
+        ("seeded", "entered"),
+        [pytest.param(None, "2:1", id="entered where none stood"), pytest.param("2:1", "3:1", id="changed from the one asked about")],
+    )
+    def test_the_confirmed_save_is_refused_and_writes_nothing(self, mongo_replica_set_url: str, seeded: str | None, entered: str):
+        """The harm: another administrator's result, saved between the question and its confirmation, deleted unasked."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            spiel_data = await payload_for(database, GRUPPE_DECIDER, team1=side(ALPHA, 5), team2=side(BETA, 0))
+            asked = (await call_patch(database, client, GRUPPE_DECIDER, spiel_data, dry_run=True)).voided_results
+
+            # The semi-final's result entered by another administrator's own save, before the question is confirmed.
+            home, away = (int(goals) for goals in entered.split(":"))
+            await call_patch(
+                database,
+                client,
+                HALBFINALE_FROM_GRUPPE,
+                await payload_for(database, HALBFINALE_FROM_GRUPPE, team1=side(BETA, home), team2=side(GAMMA, away)),
+            )
+            before = await spiele_now(database)
+
+            with pytest.raises(APIError) as refused:
+                await call_patch(database, client, GRUPPE_DECIDER, spiel_data, confirming=asked)
+
+            return asked, refused.value, before, await spiele_now(database)
+
+        played = a_gruppe_fed_semi_final()
+        if seeded is None:
+            played[-1] = {**played[-1], "team1": side(BETA), "team2": side(GAMMA), "ergebnis": None}
+        asked, refused, before, after = on_a_seeded_season(mongo_replica_set_url, body, spiele=played)
+
+        assert [(result.spiel_nr, result.voided_ergebnis) for result in asked] == (
+            [] if seeded is None else [(HALBFINALE_FROM_GRUPPE_NR, seeded)]
+        )
+        assert refused.error_code == Code.VOIDED_RESULTS_STALE
+        assert after == before, "a refused save wrote something"
+        assert after[HALBFINALE_FROM_GRUPPE_NR]["ergebnis"] == entered
 
 
 # The quarter-final corrected so Alpha won it, which hands Alpha the semi-final's first slot and voids

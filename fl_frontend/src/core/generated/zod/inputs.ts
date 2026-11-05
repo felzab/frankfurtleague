@@ -2953,6 +2953,15 @@ export const spielePatchSpielBodyUhrzeitOneRegExp = new RegExp("^([01][0-9]|2[0-
 export const spielePatchSpielBodyUhrzeitThreeRegExp = new RegExp("^\\s*$");
 export const spielePatchSpielBodyVersionMin = 0;
 
+export const spielePatchSpielBodyVoidedResultsItemSpielIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
+export const spielePatchSpielBodyVoidedResultsItemSpielNrExclusiveMin = 0;
+
+export const spielePatchSpielBodyVoidedResultsItemVoidedElfmeterschiessenOneTeam1Min = 0;
+
+export const spielePatchSpielBodyVoidedResultsItemVoidedElfmeterschiessenOneTeam2Min = 0;
+
+export const spielePatchSpielBodyVoidedResultsItemVoidedErgebnisOneRegExp = new RegExp("^[0-9]+:[0-9]+$");
+
 export const SpielePatchSpielBody = zod.object({
   datum: zod.union([
     zod.string().regex(spielePatchSpielBodyDatumOneRegExp),
@@ -3054,6 +3063,32 @@ export const SpielePatchSpielBody = zod.object({
     zod.string().regex(spielePatchSpielBodyUhrzeitThreeRegExp),
   ]),
   version: zod.int().min(spielePatchSpielBodyVersionMin),
+  voided_results: zod
+    .array(
+      zod
+        .object({
+          spiel_id: zod.string().regex(spielePatchSpielBodyVoidedResultsItemSpielIdRegExp),
+          spiel_nr: zod.int().gt(spielePatchSpielBodyVoidedResultsItemSpielNrExclusiveMin),
+          voided_elfmeterschiessen: zod.union([
+            zod
+              .object({
+                team1: zod.int().min(spielePatchSpielBodyVoidedResultsItemVoidedElfmeterschiessenOneTeam1Min),
+                team2: zod.int().min(spielePatchSpielBodyVoidedResultsItemVoidedElfmeterschiessenOneTeam2Min),
+              })
+              .describe("The penalty shoot-out that settled a level knockout fixture: the side with more goals in it won."),
+            zod.null(),
+          ]),
+          voided_ergebnis: zod.union([zod.string().regex(spielePatchSpielBodyVoidedResultsItemVoidedErgebnisOneRegExp), zod.null()]),
+          voided_sonderereignis: zod.union([
+            zod.enum(["ausgefallen", "nichtantreten_team1", "nichtantreten_team2", "abgebrochen", "annulliert"]),
+            zod.null(),
+          ]),
+        })
+        .describe(
+          "A later fixture's stored result that a save deletes: its ground score, its shoot-out and a no-show, each null where it held none.",
+        ),
+    )
+    .optional(),
 });
 
 /**

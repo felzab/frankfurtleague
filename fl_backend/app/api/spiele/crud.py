@@ -57,12 +57,14 @@ from app.api.spiele.services import (
     find_retired_bookings,
     find_slot_claims,
     find_state_refusal,
+    find_voided_results_refusal,
     find_wiring_refusal,
     judge_spieltag_occupancy,
     reopens,
     resolve_bracket,
     slots_booked_against,
     stored_in_slice,
+    voided_results_of,
 )
 from app.api.teams.schemas import FLTeamListAdapter, FLTeamsFilterParams
 from app.api.teams.services import (
@@ -795,6 +797,7 @@ async def preview_spiel_save(
     return FLPatchSpielDataResponse(
         advanced_to=advanced_to,
         released_sides=released_sides,
+        voided_results=voided_results_of([*advanced_to, *released_sides]),
         bracket_faults=bracket_faults,
         version=judged.patched.version,
         bericht_adopted=None,
@@ -847,6 +850,11 @@ async def save_spiel_in_session(
         session=session,
     )
 
+    # Here, in the transaction deleting them and after both rewrites: a result another write entered or changed since the
+    # dry run asked is refused rather than deleted unasked, and the whole save goes back with the refusal.
+    voided_results = voided_results_of([*advanced_to, *released_sides])
+    refuse(find_voided_results_refusal(confirmed=payload.voided_results, voided=voided_results))
+
     # A retirement, the erasure and a rival save at the same hour each judge fixtures and write none of this pass's,
     # so only a write to a row puts what this pass judged in their write sets.
     for booked in (judged.anchored, *booked_again_by_the_release, *booked_again_by_the_resolution):
@@ -882,6 +890,7 @@ async def save_spiel_in_session(
     return FLPatchSpielDataResponse(
         advanced_to=advanced_to,
         released_sides=released_sides,
+        voided_results=voided_results,
         bracket_faults=bracket_faults,
         version=saved[VERSION_FIELD],
         bericht_adopted=uebernommen,
