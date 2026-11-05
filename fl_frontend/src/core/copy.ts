@@ -826,8 +826,7 @@ export const COPY = catalogue({
       /** The save's done line where the write moved other matches too, by their numbers: „Auch Spiel 5 und 7 geändert“. */
       alsoChanged: (spiele: readonly number[]) => `Auch Spiel ${formatList(spiele.map(formatNumber))} geändert`,
 
-      /** The Spiele list: a match row's two facts' heads, its pairing's head, and the chip a match not yet confirmed carries. */
-      termin: "Termin",
+      /** A knockout match's pairing, its editor's box, and the chip a match not yet confirmed carries in the Spiele list. */
       begegnung: "Begegnung",
       provisional: "Vorläufig",
       /** What the result's figures decide, under them in the editor: a club winning by the score, or a draw. */

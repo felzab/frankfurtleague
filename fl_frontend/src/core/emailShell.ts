@@ -233,11 +233,12 @@ function blockHtml(block: NonNullable<Mail["block"]>): Block {
     };
   }
 
-  // The code's box at body size, the address broken anywhere: a URL set at the code's size overflows a phone.
+  // The code's box, the link bold and centred as the code is, at 18 px rather than the code's 32, which a URL
+  // overflows a phone at, and broken anywhere.
   if ("link" in block) {
     return {
-      html: `<table ${TABLE_ATTRS} width="100%" style="${box}"><tr><td style="padding:${GAP.factsInner}px;font-family:${FONT_STACK};${BODY_TEXT}">${linkHtml(block.link, block.link, "word-break:break-all;")}</td></tr></table>`,
-      gap: GAP.block,
+      html: `<table ${TABLE_ATTRS} width="100%" style="${box}"><tr><td align="center" style="padding:${GAP.factsInner + 4}px ${GAP.factsInner}px;font-family:${FONT_STACK};font-size:18px;line-height:26px;font-weight:700;color:${HEADING_COLOR};">${linkHtml(block.link, block.link, "word-break:break-all;")}</td></tr></table>`,
+      gap: GAP.headText,
     };
   }
 

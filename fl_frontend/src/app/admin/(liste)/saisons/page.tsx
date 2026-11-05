@@ -4,7 +4,7 @@ import { ListPage } from "@/kit/ListPage";
 import { TextField } from "@/kit/TextField";
 
 import { COPY } from "@/core/copy";
-import { dayOf, formatNumber, formatPeriod } from "@/core/format";
+import { dayOf, formatDatum, formatNumber } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { createSaison } from "@/features/saisons/createSaison";
 import { nextSaisonOf } from "@/features/saisons/nextSaison";
@@ -23,16 +23,21 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
   return pageMetadata(parent, ROUTES.adminSaisons, ROUTES.adminSaisons.path());
 }
 
-/** One season's row: its name with where it stands, its span and its clubs, opening its editor. */
+/** A count, or the glyph for no value where there is none yet. */
+const countOf = (count: number) => (count === 0 ? COPY.shared.noValue : { record: formatNumber(count) });
+
+/** One season's row: its name with where it stands, its two days, its clubs and its matches, opening its editor. */
 const rowOf = (saison: FLSaisonAdminListed): TableRow => ({
   id: saison.id,
   name: COPY.shared.saisonName(saison.id),
   href: ROUTES.adminSaison.path(saison.id),
   chip: saisonChipOf(saison),
   cells: {
-    zeitraum: { record: formatPeriod(dayOf(saison.start_date), dayOf(saison.end_date)) },
-    // A season holding no club yet shows the glyph for no value, as an undrawn count does.
-    teams: saison.count_teams === 0 ? COPY.shared.noValue : { record: formatNumber(saison.count_teams) },
+    beginn: { record: formatDatum(dayOf(saison.start_date)) },
+    ende: { record: formatDatum(dayOf(saison.end_date)) },
+    teams: countOf(saison.count_teams),
+    // The draw's own count: no match is added or removed outside it, and an undrawn season has none.
+    spiele: countOf(saison.spielplan?.spiele ?? 0),
   },
 });
 
@@ -94,9 +99,12 @@ async function readSaisons(read: ReturnType<typeof getAdminSaisons>) {
     table: {
       label: ROUTES.adminSaisons.title,
       nameLabel: COPY.shared.saison,
+      // A phone's row holds the name, its chip and the start beside them, with room to spare at 390 px.
       columns: [
-        { key: "zeitraum", label: WORDS.zeitraum },
-        { key: "teams", label: COPY.page.teams, figures: true },
+        { key: "beginn", label: WORDS.beginn },
+        { key: "ende", label: WORDS.ende, hideOnPhone: true },
+        { key: "teams", label: COPY.page.teams, figures: true, hideOnPhone: true },
+        { key: "spiele", label: COPY.page.spiele, figures: true, hideOnPhone: true },
       ],
       rows: saisons.toReversed().map(rowOf),
       empty: { kind: "none", plural: ROUTES.adminSaisons.title, glyph: "saisons" } as const,

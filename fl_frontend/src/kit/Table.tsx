@@ -48,10 +48,14 @@ export type TableRow = {
   href?: Route;
   /** A club's plaque before its name. */
   plaque?: Plaque;
-  /** The club's own page: its plaque then opens the club's full name and „Zum Team“ (`PlaquePopover`). */
+  /**
+   * The club's own page: its plaque then opens the club's full name over `plaqueLine`, such as its group, and the
+   * ways to its page and its squad (`PlaquePopover`).
+   */
   plaqueHref?: Route;
+  plaqueLine?: Copy;
   /** A pairing's second side, as a list of matches names a match: its name after the first's, its plaque after both. */
-  versus?: { plaque: Plaque; name: Words; plaqueHref?: Route };
+  versus?: { plaque: Plaque; name: Words; plaqueHref?: Route; plaqueLine?: Copy };
   chip?: ChipProps;
   /** The row's values, by column key; a missing value leaves its cell empty. */
   cells: Readonly<Record<string, TableCell>>;
@@ -102,7 +106,16 @@ export type TableProps = {
    * cells still cut rather than wrapped.
    */
   stack?: boolean;
+  /**
+   * Whether a linked row's chevron stands on a phone too, as on every list opening a record. The Tabelle alone
+   * leaves it out there, the whole row still the link: the owner's ruling for that table, not a matter of room,
+   * since its cells hold the chevron, so `compact` does not decide it.
+   */
+  chevronOnPhone?: boolean;
 };
+
+/** A grid row's chevron on a phone: out of the row's one column, at its end. */
+const PHONE_END = "max-lg:absolute max-lg:end-3 max-lg:top-1/2 max-lg:w-auto max-lg:-translate-y-1/2 max-lg:p-0";
 
 const table = tv({
   slots: {
@@ -117,9 +130,8 @@ const table = tv({
     name: "w-full max-w-0 px-3 py-2",
     // A club's name beside its plaque, read but not drawn on a phone, where the plaque stands for it alone.
     clubName: "max-lg:sr-only",
-    // A linked row's last cell, as narrow as the chevron that says the row leads on; a phone, short of room,
-    // leaves the chevron out, the whole row still the link.
-    end: "w-0 pe-3 max-lg:hidden",
+    // A linked row's last cell, as narrow as the chevron that says the row leads on.
+    end: "w-0 pe-3",
     // A prose or a stacked cell's column label on a phone, drawn for the eye alone: the read head names the column.
     label: "",
   },
@@ -176,6 +188,10 @@ const table = tv({
     linked: {
       true: { row: cardHover() },
     },
+    chevronOnPhone: {
+      true: {},
+      false: { end: "max-lg:hidden" },
+    },
     muted: {
       true: { row: "text-fg-muted" },
     },
@@ -189,6 +205,10 @@ const table = tv({
     { align: "centre", compact: true, class: { head: "max-lg:w-7", cell: "max-lg:w-7" } },
     // Restated after the variants, so a stacked row's grid cell never draws a column the phone leaves out.
     { phone: "hidden", class: { head: "max-lg:hidden", cell: "max-lg:hidden" } },
+    // A prose or a stacked row is one grid column on a phone, so its chevron stands over the row's end, centred on its
+    // height, the row keeping the room for it.
+    { prose: true, chevronOnPhone: true, class: { row: "max-lg:pe-12", end: PHONE_END } },
+    { stack: true, chevronOnPhone: true, class: { row: "max-lg:pe-12", end: PHONE_END } },
   ],
 });
 
@@ -258,12 +278,13 @@ const nameWords = tv({
 });
 
 /** A side's plaque: a button opening the club where the side names its page, else the plaque drawn. */
-function PlaqueOf({ plaque, href, name }: { plaque: Plaque; href: Route | undefined; name: Words }) {
+function PlaqueOf({ plaque, href, name, line }: { plaque: Plaque; href: Route | undefined; name: Words; line: Copy | undefined }) {
   return "record" in plaque && href !== undefined ? (
     <PlaquePopover
       plaque={plaque}
       name={name}
       href={href}
+      {...(line === undefined ? {} : { line })}
     />
   ) : (
     <TeamPlaque plaque={plaque} />
@@ -318,6 +339,7 @@ function NameCell({
             plaque={plaque}
             href={row.plaqueHref}
             name={row.name}
+            line={row.plaqueLine}
           />
         )}
         <span
@@ -338,6 +360,7 @@ function NameCell({
             plaque={versus.plaque}
             href={versus.plaqueHref}
             name={versus.name}
+            line={versus.plaqueLine}
           />
         )}
         {row.chip !== undefined && <Chip {...row.chip} />}
@@ -363,9 +386,12 @@ export function Table({
   compact = false,
   prose = false,
   stack = false,
+  chevronOnPhone = true,
 }: TableProps) {
   const nameHead = table({ align: "start", compact, prose, stack }).head();
   const isLinked = rows.some((row) => row.href !== undefined);
+  // Every row keeps the chevron's room on a phone where some row draws one there.
+  const phoneEnd = { prose, stack, chevronOnPhone: isLinked && chevronOnPhone };
   // The columns where some row carries the mark of fixtures called off, whose every row keeps its slot.
   const marked = new Set(
     columns
@@ -425,7 +451,7 @@ export function Table({
               {isLinked && (
                 <td
                   role="cell"
-                  className={table({ phone: "hidden" }).head()}
+                  className={table({ phone: chevronOnPhone ? "shown" : "hidden", prose, stack }).head()}
                 />
               )}
             </tr>
@@ -438,7 +464,7 @@ export function Table({
                   key={row.id}
                   id={row.anchor}
                   role="row"
-                  className={table({ ...marks, prose, stack }).row()}>
+                  className={table({ ...marks, ...phoneEnd }).row()}>
                   {rankLabel !== undefined && (
                     <td
                       role="cell"
@@ -485,7 +511,7 @@ export function Table({
                   {isLinked && (
                     <td
                       role="cell"
-                      className={table().end()}>
+                      className={table(phoneEnd).end()}>
                       {row.href !== undefined && <RowEnd />}
                     </td>
                   )}
