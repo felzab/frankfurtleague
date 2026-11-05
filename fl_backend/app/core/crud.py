@@ -86,6 +86,7 @@ async def pull_whole_from_db(
     db_filter: Mapping[str, Any],
     # What the read is, for the error alone: "season 2025's fixtures".
     what: str,
+    limit: int = LIST_LIMIT_DEFAULT,
     sort_by: Sequence[tuple[str, int]] | None = None,
     projection: Mapping[str, Any] | list[str] | None = None,
     collation: Mapping[str, Any] | None = None,
@@ -93,21 +94,21 @@ async def pull_whole_from_db(
 ) -> list[Mapping[str, Any]]:
     """Every document `db_filter` matches, for a judgement that must see them all, or a `ValueError`.
 
-    Read one over the cap, so a set past it is DETECTED rather than judged on the page that fits: a dropped fixture or
+    Read one over `limit`, so a set past it is DETECTED rather than judged on the page that fits: a dropped fixture or
     row would read as one that is not there, and a rule judged without it answers wrongly in silence.
     """
 
     documents = await pull_many_from_db(
         collection=collection,
         db_filter=db_filter,
-        limit=LIST_LIMIT_DEFAULT + 1,
+        limit=limit + 1,
         sort_by=sort_by,
         projection=projection,
         collation=collation,
         session=session,
     )
-    if len(documents) > LIST_LIMIT_DEFAULT:
-        raise ValueError(f"{what} number more than {LIST_LIMIT_DEFAULT}, which is more than one read can judge whole")
+    if len(documents) > limit:
+        raise ValueError(f"{what} number more than {limit}, which is more than one read can judge whole")
 
     return documents
 

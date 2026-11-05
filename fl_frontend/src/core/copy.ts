@@ -89,6 +89,8 @@ const UNEXPECTED = "Etwas ist schiefgelaufen";
 
 // The glossary's one spelling, which the season editor's sentence about it takes too.
 const K_O_RUNDE = "K.-o.-Runde";
+/** A group by its letter, „Gruppe A“, which the season's blocks and the replacement's sentence both say. */
+const GRUPPE = (gruppe: string) => `Gruppe ${gruppe}`;
 
 // Words two areas of this one object say alike, each written once and read under both keys: a match's facts and
 // its events as a visitor reads them and as the editor's fields name them, and the sign-in's acts and pages.
@@ -111,14 +113,6 @@ const PRIVACY_NOTICE = "Datenschutz";
 const saisonName = (id: string) => `Saison ${id}`;
 // A team's season, Deine Einträge's fact, which the deletion list's label for a registration names it by.
 const teamSeason = (team: Words, saison: Copy) => `${textOf(team)}, ${saison}`;
-
-/**
- * A range's end: a figure, or a year, which as a season id takes no thousands separator. A year is data, never a
- * string, so no entry taking a bound passes a caller's words through as the catalogue's.
- */
-type Bound = number | { year: number };
-
-const bound = (value: Bound): string => (typeof value === "number" ? formatNumber(value) : String(value.year));
 
 export const COPY = catalogue({
   /** What every area draws from; an area adds a key of its own only for a string this lacks. */
@@ -145,7 +139,7 @@ export const COPY = catalogue({
       exampleDate: "31.12.2026",
       // Reserved as the address example's domain is.
       exampleUrl: "https://example.com",
-      between: (from: Bound, to: Bound) => `Zwischen ${bound(from)} und ${bound(to)}`,
+      between: (from: number, to: number) => `Zwischen ${formatNumber(from)} und ${formatNumber(to)}`,
       // One-sided bounds of a number or of a list, the box's label saying what is counted.
       max: (count: number) => `Höchstens ${formatNumber(count)}`,
       min: (count: number) => `Mindestens ${formatNumber(count)}`,
@@ -277,7 +271,7 @@ export const COPY = catalogue({
      */
     season: {
       /** A group by its letter, „Gruppe A“: the Tabelle's cards, a club's group, the season editor's pickers. */
-      gruppe: (gruppe: string) => `Gruppe ${gruppe}`,
+      gruppe: GRUPPE,
       /** The name of the mark beside a club's figure: how many of its fixtures were called off. */
       cancelled: (count: number) => (count === 1 ? "1 Spiel abgesagt" : `${formatNumber(count)} Spiele abgesagt`),
       /** The mark itself, drawn red on the corner of a club's figure and hidden from a screen reader, which hears `cancelled`. */
@@ -632,6 +626,11 @@ export const COPY = catalogue({
       zusageFrom: "Zusage von",
       /** How the party's agreement reached the league, which the confirmation stores. */
       reason: "Begründung",
+      /**
+       * Why a fixture's save did not run, on the match editor, an Übersicht row's act or the Termin dialog alike: it
+       * would delete a later match's result it was not asked about, a question only the match editor asks.
+       */
+      voidsLater: "Das löscht ein späteres Ergebnis.",
     },
 
     spielort: {
@@ -706,8 +705,6 @@ export const COPY = catalogue({
 
       /** The span a season runs from its start to its end: the list's column and the editor's first box. */
       zeitraum: "Zeitraum",
-      /** A new season's id, which is the year it is played in. */
-      jahr: "Jahr",
       /** A span's two days, the season's and each window's alike. */
       beginn: "Beginn",
       ende: "Ende",
@@ -760,8 +757,6 @@ export const COPY = catalogue({
        * group the rules do not run. One repair reaches all three, entering the clubs as the rules say.
        */
       gruppenOffRules: "Die Gruppen sind nicht so besetzt, wie die Regeln es vorsehen.",
-      /** Why the draw cannot run on a season holding matchdays its read records no Spielplan for. */
-      spieltageHeld: "Diese Saison hat schon Spieltage.",
       recreateConsequence: "Alle Spieltage und Spiele dieser Saison werden gelöscht und neu angelegt.",
       deleteConsequence: "Alle Spieltage und Spiele dieser Saison werden gelöscht.",
 
@@ -775,7 +770,7 @@ export const COPY = catalogue({
       incoming: "Nachrückendes Team",
       /** What the replacement does: the incoming club takes the outgoing one's group and every match of it. */
       replaceConsequence: (incoming: Words, outgoing: Words, gruppe: string) =>
-        `${textOf(incoming)} übernimmt Gruppe ${gruppe} und alle Spiele von ${textOf(outgoing)}.`,
+        `${textOf(incoming)} übernimmt ${GRUPPE(gruppe)} und alle Spiele von ${textOf(outgoing)}.`,
 
       /** Why the draw cannot be redrawn or removed now: reports stand, the season went live, or a match holds an entry. */
       reportsHold: "Spielberichte liegen vor",
@@ -813,6 +808,8 @@ export const COPY = catalogue({
       /** Why the activation cannot run yet: the season the site shows owes results, or this one's matchdays owe dates. */
       unfinished: "Die bisherige Saison hat noch Spiele ohne Ergebnis.",
       undated: "Diese Saison hat noch Spieltage ohne Datum.",
+      /** Why the list's create cannot run: a planned season stands, and a league plans one season at a time. */
+      futureStands: "Eine Saison ist schon geplant.",
     },
 
     spiel: {

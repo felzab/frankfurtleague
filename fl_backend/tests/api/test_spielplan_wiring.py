@@ -9,7 +9,7 @@ from bson import ObjectId
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.saisons.services import find_rules_refusal
 from app.api.saisons.spielplan import EnteredTeam, Spielplan, draw_spielplan
-from app.api.spiele.schemas import FLPatchSpielDataPayload, FLSpiel, FLSpielListAdapter
+from app.api.spiele.schemas import SPIEL_PATCH_WRITTEN_FIELDS, FLPatchSpielDataPayload, FLSpiel, FLSpielListAdapter
 from app.api.spiele.services import find_wiring_refusal, judge_spieltag_occupancy, resolve_bracket
 from app.api.teams.services import DecidedStanding
 from app.shared.schemas.literals import FLGruppenNames
@@ -32,9 +32,9 @@ SHAPE_IDS = (
     "the largest season the rules bounds allow",
 )
 
-# Derived from the payload model rather than listed: a field added there arrives here as a resubmitted
+# Derived from the fields the save writes rather than listed: a field added there arrives here as a resubmitted
 # value instead of silently defaulting, which is what makes this a resubmission of the drawn fixture.
-PAYLOAD_FIELDS: tuple[str, ...] = tuple(FLPatchSpielDataPayload.model_fields)
+PAYLOAD_FIELDS: tuple[str, ...] = tuple(SPIEL_PATCH_WRITTEN_FIELDS)
 
 
 def rules(*, groups: int, teams: int, qualifiers: int) -> FLSaisonRules:

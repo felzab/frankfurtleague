@@ -15,20 +15,29 @@ vi.doMock("next/cache", () => ({ cacheTag: () => void declared.push("cacheTag"),
 // Replaced at the module boundary rather than the season code being reshaped to admit a seam: the
 // real client reaches a backend no test process runs, at a base URL no test run holds.
 /** Every request the doubled client was asked for, cumulative across every pass in this file. */
-const reads = doubleApiClient(({ endpoint }) =>
-  endpoint === "/saisons/list/admin" ? { saisons: [{ id: "2526" }] } : { saison: { id: "2627" } },
-);
+const LIST = "/saisons/list/admin";
+const reads = doubleApiClient(({ endpoint }) => (endpoint.startsWith(LIST) ? { saisons: [{ id: "2526" }] } : { saison: { id: "2627" } }));
 
 serveServerReact();
 
 const { getAdminSaison, getAdminSaisons } = await import("./queries.ts");
 const { resolveSaisonId } = await import("./resolvers.ts");
 
-const adminReads = (): number => reads.filter(({ endpoint }) => endpoint === "/saisons/list/admin").length;
+const listReads = () => reads.filter(({ endpoint }) => endpoint.startsWith(LIST));
+const adminReads = (): number => listReads().length;
 
 describe("the admin season list across a render pass", () => {
   /* First, so a scope that failed to take fails here rather than under every count below. */
   itOpensAScopeThatMemoizes();
+
+  /* Its readers take the newest season off its end, which a list on the backend's default order no longer holds once
+     that default moves, handing the next season an older season's days with nothing on screen saying so. */
+  it("asks for every season oldest first by id", async () => {
+    beginRenderPass();
+    await getAdminSaisons();
+
+    expect(new URL(listReads().at(-1)?.endpoint ?? "", "http://backend").searchParams.toString()).toBe("sort_by=_id&order=asc");
+  });
 
   it("is fetched once when the resolver and the page both read it", async () => {
     beginRenderPass();

@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 
-import { action } from "@/core/action";
+import { action, numberBox } from "@/core/action";
 import { COPY } from "@/core/copy";
 import { saisonsPatchSaison } from "@/core/generated/client/sdk";
 import { SaisonsPatchSaisonBody, SaisonsPatchSaisonParams } from "@/core/generated/zod/inputs";
@@ -15,10 +15,6 @@ const { shape } = SaisonsPatchSaisonBody;
 const rules = shape.rules.shape;
 const [bewerbungShape] = shape.bewerbung.options;
 const [registrierungShape] = shape.registrierung.options;
-
-/** A count's box: digits alone make its figure; empty stays empty and anything else text, which the figure refuses. */
-const count = <Figure extends z.ZodType>(figure: Figure) =>
-  z.preprocess((value) => (value === "" ? null : typeof value === "string" && /^\d+$/.test(value) ? Number(value) : value), figure);
 
 /**
  * A box's value as the editor holds it, held to the write's own rule, which decides what it takes: a cleared date the
@@ -38,16 +34,16 @@ const SaveSaison = z.object({
     .object({
       start: fromBox<string | null, typeof shape.start_date>(shape.start_date),
       end: fromBox<string | null, typeof shape.end_date>(shape.end_date),
-      winPoints: count(rules.win_points),
-      drawPoints: count(rules.draw_points),
+      winPoints: numberBox(rules.win_points),
+      drawPoints: numberBox(rules.draw_points),
       tiebreak: fromBox<string, typeof rules.tiebreak_order>(rules.tiebreak_order),
-      gruppen: count(rules.number_of_gruppen),
-      teamsPerGruppe: count(rules.teams_per_gruppe),
-      qualifiers: count(rules.qualifiers_per_gruppe),
-      maxKader: count(rules.max_kadergroesse),
+      gruppen: numberBox(rules.number_of_gruppen),
+      teamsPerGruppe: numberBox(rules.teams_per_gruppe),
+      qualifiers: numberBox(rules.qualifiers_per_gruppe),
+      maxKader: numberBox(rules.max_kadergroesse),
       stufen: fromBox<readonly string[], typeof rules.allowed_stufen>(rules.allowed_stufen),
-      forfeitWinner: count(rules.forfeit_ergebnis.shape.sieger_tore),
-      forfeitLoser: count(rules.forfeit_ergebnis.shape.verlierer_tore),
+      forfeitWinner: numberBox(rules.forfeit_ergebnis.shape.sieger_tore),
+      forfeitLoser: numberBox(rules.forfeit_ergebnis.shape.verlierer_tore),
       bewerbungStart: day(bewerbungShape.shape.start),
       bewerbungEnd: day(bewerbungShape.shape.end),
       registrierungEnd: day(registrierungShape.shape.end),

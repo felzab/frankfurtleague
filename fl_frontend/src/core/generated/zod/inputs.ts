@@ -1589,81 +1589,21 @@ export const RegistrierungenDeclineBody = zod
   .describe("Why the team declines, from a closed set or not at all.");
 
 /**
- * Create the next season, always `future`, answering the id it minted.
+ * Create the next season, always `future`, from its two days, answering the id it minted.
  *
  * The server names it: the year after the newest stored season's, or the league's first where none is stored, so a
- * season is never created out of turn. Refused while a `future` season stands (`create_saison_future_stands`), so a
- * league holds at most one planned season; two creates racing each other mint one id, and the second is refused
- * `duplicate_key` with no path. Making the season live is a separate step.
+ * season is never created out of turn. Its rules carry on from that newest season, or are the league's first season's
+ * (`FIRST_SAISON_RULES`), and its two windows start closed, each set in the season's own editor. Refused while a
+ * `future` season stands (`create_saison_future_stands`), so a league holds at most one planned season, the loser of
+ * two creates at once included (`find_saison_create_refusal`); then by the rules it carries on and by its span against
+ * them. Making the season live is a separate step.
  * @summary Create a Saison
  */
-export const saisonsPostSaisonBodyBewerbungOneEndRegExp = new RegExp("^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$");
-export const saisonsPostSaisonBodyBewerbungOneStartRegExp = new RegExp("^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$");
 export const saisonsPostSaisonBodyEndDateRegExp = new RegExp("^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$");
-export const saisonsPostSaisonBodyRegistrierungOneEndRegExp = new RegExp("^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$");
-
-export const saisonsPostSaisonBodyRulesDrawPointsMin = 0;
-
-export const saisonsPostSaisonBodyRulesForfeitErgebnisSiegerToreMin = 0;
-
-export const saisonsPostSaisonBodyRulesForfeitErgebnisVerliererToreMin = 0;
-
-export const saisonsPostSaisonBodyRulesMaxKadergroesseExclusiveMin = 0;
-
-export const saisonsPostSaisonBodyRulesNumberOfGruppenExclusiveMin = 0;
-export const saisonsPostSaisonBodyRulesNumberOfGruppenMax = 16;
-
-export const saisonsPostSaisonBodyRulesQualifiersPerGruppeExclusiveMin = 0;
-
-export const saisonsPostSaisonBodyRulesTeamsPerGruppeMin = 2;
-export const saisonsPostSaisonBodyRulesTeamsPerGruppeMax = 16;
-
-export const saisonsPostSaisonBodyRulesWinPointsExclusiveMin = 0;
-
 export const saisonsPostSaisonBodyStartDateRegExp = new RegExp("^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$");
 
 export const SaisonsPostSaisonBody = zod.object({
-  bewerbung: zod.union([
-    zod
-      .object({
-        end: zod.string().regex(saisonsPostSaisonBodyBewerbungOneEndRegExp),
-        start: zod.string().regex(saisonsPostSaisonBodyBewerbungOneStartRegExp),
-      })
-      .describe(
-        "The application window as a season write sends it, judged apart from the season's own span: it may open before the season does.",
-      ),
-    zod.null(),
-  ]),
   end_date: zod.string().regex(saisonsPostSaisonBodyEndDateRegExp),
-  registrierung: zod.union([
-    zod
-      .object({
-        end: zod.string().regex(saisonsPostSaisonBodyRegistrierungOneEndRegExp),
-        offen: zod.boolean(),
-      })
-      .describe(
-        "When a pupil may register for this season: from its activation to `end`, which falls before the season's start.\n\nNo start of its own, the activation being the opening (`app/api/registrierungen/services.py ::\nsaison_nimmt_registrierungen_an`); `offen` pauses the link alone. Its own model rather than an alias of\n`FLSaisonBewerbung` above: the two windows are two decisions an administrator takes apart.",
-      ),
-    zod.null(),
-  ]),
-  rules: zod.object({
-    allowed_stufen: zod.array(zod.enum(["E1", "E2", "Q1", "Q2", "Q3", "Q4"])).min(1),
-    draw_points: zod.int().min(saisonsPostSaisonBodyRulesDrawPointsMin),
-    forfeit_ergebnis: zod
-      .object({
-        sieger_tore: zod.int().min(saisonsPostSaisonBodyRulesForfeitErgebnisSiegerToreMin),
-        verlierer_tore: zod.int().min(saisonsPostSaisonBodyRulesForfeitErgebnisVerliererToreMin),
-      })
-      .describe(
-        "What a fixture is awarded when one side does not appear.\n\nBoth sides' goals rather than a margin, composed at `app/api/spiele/services.py :: apply_payload_to_spiel`.\nA LEVEL award needs a season with no knockout round (`rules_forfeit_unentschieden_in_a_knockout`).",
-      ),
-    max_kadergroesse: zod.int().gt(saisonsPostSaisonBodyRulesMaxKadergroesseExclusiveMin),
-    number_of_gruppen: zod.int().gt(saisonsPostSaisonBodyRulesNumberOfGruppenExclusiveMin).max(saisonsPostSaisonBodyRulesNumberOfGruppenMax),
-    qualifiers_per_gruppe: zod.int().gt(saisonsPostSaisonBodyRulesQualifiersPerGruppeExclusiveMin),
-    teams_per_gruppe: zod.int().min(saisonsPostSaisonBodyRulesTeamsPerGruppeMin).max(saisonsPostSaisonBodyRulesTeamsPerGruppeMax),
-    tiebreak_order: zod.enum(["tordifferenz", "direkter_vergleich"]),
-    win_points: zod.int().gt(saisonsPostSaisonBodyRulesWinPointsExclusiveMin),
-  }),
   start_date: zod.string().regex(saisonsPostSaisonBodyStartDateRegExp),
 });
 
@@ -1674,8 +1614,9 @@ export const SaisonsPostSaisonBody = zod.object({
  * still is, so an admin who cannot see one cannot run the league. `begun` is the start every
  * start lock refuses on, the swap's, the replacement's and the rules freeze's; `taken_place` is what
  * fixes the start date (`saison_start_taken_place`); `decided` is the landing's own rule, all four places of the Finale in.
- * `count_teams` counts every club row of the season, one that left included. `next_saison_id` is the id the next create
- * mints, and `refusals.create` the code that create would be refused with now, by its own judgement, or null.
+ * `count_teams` counts every club row of the season, one that left included, and `count_spiele` its fixtures.
+ * `next_saison_id` is the id the next create mints, and `refusals.create` the code that create would be refused with
+ * now, by its own judgement, or null.
  * @summary Every Saison for the admin surfaces
  */
 export const saisonsGetSaisonsAdminQueryLimitDefault = 1024;
@@ -2899,7 +2840,10 @@ export const SpieleGetSpielParams = zod.object({
  * adopted, where it still stands at that version about the clubs the save leaves; a miss refuses nothing. A
  * `dry_run` answers the same report and writes nothing, and names in `recipients` every party the confirmation pass
  * would mail about the fixture once it is saved so: told of its move, of the referee taken off it, or of its call-off,
- * by the pass's own rules. A `past` season's fixture is refused (`saison_past`), the `dry_run` included.
+ * by the pass's own rules. A `past` season's fixture is refused (`saison_past`), the `dry_run` included. The save
+ * deletes only the later results its body's `voided_results` names, each by its value as its `dry_run` answered it,
+ * and is refused whole where it would delete any other set (`voided_results_stale`), judged in its own transaction:
+ * a result entered or changed after the question was asked is never deleted unasked.
  * @summary Update a Spiel
  */
 export const spielePatchSpielPathSpielIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -2952,6 +2896,15 @@ export const spielePatchSpielBodyTeam2QuelleOneTwoSpielNrExclusiveMin = 0;
 export const spielePatchSpielBodyUhrzeitOneRegExp = new RegExp("^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$");
 export const spielePatchSpielBodyUhrzeitThreeRegExp = new RegExp("^\\s*$");
 export const spielePatchSpielBodyVersionMin = 0;
+
+export const spielePatchSpielBodyVoidedResultsItemSpielIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
+export const spielePatchSpielBodyVoidedResultsItemSpielNrExclusiveMin = 0;
+
+export const spielePatchSpielBodyVoidedResultsItemVoidedElfmeterschiessenOneTeam1Min = 0;
+
+export const spielePatchSpielBodyVoidedResultsItemVoidedElfmeterschiessenOneTeam2Min = 0;
+
+export const spielePatchSpielBodyVoidedResultsItemVoidedErgebnisOneRegExp = new RegExp("^[0-9]+:[0-9]+$");
 
 export const SpielePatchSpielBody = zod.object({
   datum: zod.union([
@@ -3054,6 +3007,32 @@ export const SpielePatchSpielBody = zod.object({
     zod.string().regex(spielePatchSpielBodyUhrzeitThreeRegExp),
   ]),
   version: zod.int().min(spielePatchSpielBodyVersionMin),
+  voided_results: zod
+    .array(
+      zod
+        .object({
+          spiel_id: zod.string().regex(spielePatchSpielBodyVoidedResultsItemSpielIdRegExp),
+          spiel_nr: zod.int().gt(spielePatchSpielBodyVoidedResultsItemSpielNrExclusiveMin),
+          voided_elfmeterschiessen: zod.union([
+            zod
+              .object({
+                team1: zod.int().min(spielePatchSpielBodyVoidedResultsItemVoidedElfmeterschiessenOneTeam1Min),
+                team2: zod.int().min(spielePatchSpielBodyVoidedResultsItemVoidedElfmeterschiessenOneTeam2Min),
+              })
+              .describe("The penalty shoot-out that settled a level knockout fixture: the side with more goals in it won."),
+            zod.null(),
+          ]),
+          voided_ergebnis: zod.union([zod.string().regex(spielePatchSpielBodyVoidedResultsItemVoidedErgebnisOneRegExp), zod.null()]),
+          voided_sonderereignis: zod.union([
+            zod.enum(["ausgefallen", "nichtantreten_team1", "nichtantreten_team2", "abgebrochen", "annulliert"]),
+            zod.null(),
+          ]),
+        })
+        .describe(
+          "A later fixture's stored result that a save deletes: its ground score, its shoot-out and a no-show, each null where it held none.",
+        ),
+    )
+    .optional(),
 });
 
 /**
@@ -3513,7 +3492,9 @@ export const SpieltageGetSpieltagParams = zod.object({
  * Move a matchday's span, answering the matchday's `version` after the save.
  *
  * No fan-out: matches embed no copy, so a re-dated matchday is picked up on the next read. The span is held
- * to its season's, to the days its own fixtures stand on, and its `beginn` to the order its phase is dated in.
+ * to its season's, to the days its own fixtures stand on, and its `beginn` to the order its phase is dated in. A
+ * `past` season's matchday is refused (`saison_past`), as its fixtures' saves are: a finished season's record is
+ * closed.
  * @summary Re-date a Spieltag
  */
 export const spieltagePatchSpieltagPathSpieltagIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -3535,8 +3516,10 @@ export const SpieltagePatchSpieltagBody = zod.object({
 /**
  * Return one matchday by its id for the admin editor, a `future` season's included.
  *
- * The shape of `GET /spieltage/{spieltag_id}`, without its season gate, plus `count_in_phase`, how many matchdays
- * its phase holds: the editor opens a matchday to date it, and that happens before its season is ever activated.
+ * The shape of `GET /spieltage/{spieltag_id}`, without its season gate, plus `count_spieltage_in_phase`, how many
+ * matchdays its phase holds: the editor opens a matchday to date it, and that happens before its season is ever
+ * activated. Beside it its season's `status`, read as the re-dating judges it, so the editor opens read-only on
+ * exactly the season the write refuses (`saison_past`).
  * @summary One Spieltag for the admin editor
  */
 export const spieltageGetSpieltagVerwaltungPathSpieltagIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");

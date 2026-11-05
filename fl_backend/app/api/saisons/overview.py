@@ -28,6 +28,7 @@ from app.api.spielbestaetigungen.services import (
     build_holding_filter,
     build_triage_rows_filter,
     grund_to_end,
+    partei_key,
     parties_told_of_the_change,
     verwerfen_owes_a_notice,
 )
@@ -35,11 +36,11 @@ from app.api.spiele.schemas import (
     SONDEREREIGNIS_COUNTED_AS_ABSAGE,
     FLBracketFault,
     FLSpielbestaetigungPartei,
-    FLSpielbestaetigungParteiListAdapter,
     FLSpielJoinedAdmin,
     FLSpielJoinedInternal,
+    FLSpielRecipient,
 )
-from app.api.spiele.services import build_spiele_pipeline
+from app.api.spiele.services import PARTY_NAME_FIELD, build_party_name_stages, build_spiele_pipeline, recipients_named
 from app.core.collections import Collection
 from app.shared.schemas.custom import CustomDateString, CustomObjectId
 from app.shared.schemas.literals import KONTAKT_ROLLEN
@@ -122,9 +123,9 @@ class FLOverviewSpielbestaetigungRow(BaseModel):
 class FLOverviewVorschlagRow(BaseModel):
     """A club's decline proposing another date and hour, neither adopted nor discarded; its row is the one both acts write.
 
-    Each act's recipients are the parties the backend mails of it, so its question names them: `adoption_recipients`
-    those the confirmation pass tells of the move, `discard_recipients` the club the discard tells the date stands,
-    none once its day has gone by.
+    Each act's recipients are the parties the backend mails of it, each by the name its own record holds, so its question
+    names them: `adoption_recipients` those the confirmation pass tells of the move, `discard_recipients` the club the
+    discard tells the date stands, none once its day has gone by.
     """
 
     kind: Literal["vorschlag_open"]
@@ -132,8 +133,8 @@ class FLOverviewVorschlagRow(BaseModel):
     spielbestaetigung_id: CustomObjectId
     team_id: CustomObjectId
     vorschlag: FLSpielbestaetigungAppointment
-    adoption_recipients: list[FLSpielbestaetigungPartei]
-    discard_recipients: list[FLSpielbestaetigungPartei]
+    adoption_recipients: list[FLSpielRecipient]
+    discard_recipients: list[FLSpielRecipient]
 
 
 class FLOverviewSpielberichtRow(BaseModel):
@@ -214,6 +215,9 @@ def build_overview_pipeline(*, saison_id: str, today: str) -> list[Mapping[str, 
                 "pipeline": [
                     {"$match": {"saison_id": saison_id, **build_holding_filter()}},
                     {"$project": dict.fromkeys(CLOSE_FIELDS, 1)},
+                    # Each party by its own record's name, which both acts' recipients are named by: a standing proposal
+                    # is unclosed, so its club is among these too.
+                    *build_party_name_stages(saison_id=saison_id),
                 ],
                 "as": HELD_ROWS_AS,
             }
@@ -310,6 +314,7 @@ def overview_of(
     held: dict[Any, list[Mapping[str, Any]]] = {}
     for row in read[HELD_ROWS_AS]:
         held.setdefault(row["spiel_id"], []).append(row)
+    names = {partei_key(row[ROW_PARTY]): row.get(PARTY_NAME_FIELD) for row in read[HELD_ROWS_AS]}
 
     parties: dict[Any, list[FLOverviewParty]] = {}
     for row in read[QUEUE_ROWS_AS]:
@@ -330,14 +335,13 @@ def overview_of(
                     spielbestaetigung_id=row["_id"],
                     team_id=row[ROW_PARTY]["team_id"],
                     vorschlag=vorschlag,
-                    adoption_recipients=FLSpielbestaetigungParteiListAdapter.validate_python(
+                    adoption_recipients=recipients_named(
                         parties_told_of_the_change(
                             rows=held.get(spiel.id, []), stored=spiel_raw, changed=adopted, austritte=austritte, today=today
-                        )
+                        ),
+                        names=names,
                     ),
-                    discard_recipients=FLSpielbestaetigungParteiListAdapter.validate_python(
-                        [row[ROW_PARTY]] if verwerfen_owes_a_notice(row=row, today=today) else []
-                    ),
+                    discard_recipients=recipients_named([row[ROW_PARTY]] if verwerfen_owes_a_notice(row=row, today=today) else [], names=names),
                 )
             )
             continue

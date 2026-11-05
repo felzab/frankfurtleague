@@ -4,12 +4,7 @@ import { z } from "zod";
 
 import { action } from "@/core/action";
 import { saisonsPostSaison } from "@/core/generated/client/sdk";
-import { FLSpielerStufe } from "@/core/generated/client/types";
 import { SaisonsPostSaisonBody } from "@/core/generated/zod/inputs";
-
-import { getNewestAdminSaison } from "./queries";
-
-import type { FLSaisonRules } from "@/core/generated/client/types";
 
 const { shape } = SaisonsPostSaisonBody;
 
@@ -20,38 +15,19 @@ const CreateSaisonForm = z.object({
 });
 
 /**
- * The rules a league's first season starts from, where no season holds any to carry on. They are the old create
- * form's starting values, which the new season's editor shows at once and keeps editable until its start.
- *
- * Only that very first season's editable starting value, every later season copying the newest one's: no hardcoded
- * scoring in the sense of `docs/decisions.md`'s `table` line, since the table always reads the season's stored rules,
- * which its own rules box sets.
- */
-const FIRST_SAISON_RULES: FLSaisonRules = {
-  win_points: 3,
-  draw_points: 1,
-  qualifiers_per_gruppe: 2,
-  number_of_gruppen: 2,
-  teams_per_gruppe: 5,
-  tiebreak_order: "tordifferenz",
-  max_kadergroesse: 50,
-  forfeit_ergebnis: { sieger_tore: 3, verlierer_tore: 0 },
-  allowed_stufen: Object.values(FLSpielerStufe),
-};
-
-/**
- * Creates the next season, always planned, from the create dialog's dates; the backend names it. Its rules carry on
- * from the newest season, the likeliest value, and its windows start closed: each is set in the season's own editor.
+ * Creates the next season, always planned, from the create dialog's dates; the backend names it, carries on the newest
+ * season's rules and starts its windows closed, each set in the season's own editor.
  */
 export const createSaison = action({
   lane: "admin",
   name: "createSaison",
   input: CreateSaisonForm,
-  ownWords: ["saison_ends_before_start", "saison_span_below_spielplan", "rules_bracket_impossible"],
+  // A planned season standing, met where another administrator created it after the page was read, the list's act
+  // closing on it otherwise; it is the loser's code of two creates at once too.
+  ownWords: ["saison_ends_before_start", "saison_span_below_spielplan", "rules_bracket_impossible", "create_saison_future_stands"],
   paths: { start_date: "start_date", end_date: "end_date" },
   run: async (form) => {
-    const newest = await getNewestAdminSaison();
-    await saisonsPostSaison({ ...form, rules: newest?.rules ?? FIRST_SAISON_RULES, bewerbung: null, registrierung: null });
+    await saisonsPostSaison(form);
     return { ok: true, value: undefined };
   },
 });

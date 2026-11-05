@@ -13,7 +13,7 @@ const STORED: FLSpieltagAdmin = {
   saison_id: "2027",
   saison_phase: "gruppenphase",
   position: 2,
-  count_in_phase: 5,
+  count_spieltage_in_phase: 5,
   count_spiele: 4,
   beginn: "2027-03-13",
   ende: "2027-03-15",
@@ -32,7 +32,7 @@ vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
 // Next's `updateTag` throws outside a Server Action; whether a write clears the site's cache is `core/action.test.ts`'s.
 vi.mock("next/cache", () => ({ updateTag: () => undefined }));
 vi.mock("@/core/auth/guards", () => ({ judgeAdminRequest: async () => ({ session: {} }) }));
-vi.mock("@/features/spieltage/queries", () => ({ getAdminSpieltag: async () => state.read }));
+vi.mock("@/features/spieltage/queries", () => ({ getAdminSpieltag: async () => ({ saison_status: "active", spieltag: state.read }) }));
 
 doubleApiClient((call) => {
   state.sent.push(JSON.parse(call.body ?? "null"));

@@ -8,6 +8,7 @@ import { useEditor } from "@/kit/useEditor";
 import { COPY } from "@/core/copy";
 
 import type { ActionAnswer } from "@/core/action";
+import type { Copy } from "@/core/copy";
 import type { PageTitle } from "@/kit/RailFrame";
 import type { EditorRecord, EditorSave } from "@/kit/useEditor";
 import type { SpieltagValues } from "./spieltagValues";
@@ -23,12 +24,15 @@ export function SpieltagEditor({
   record,
   save,
   required,
+  closed,
 }: {
   title: PageTitle;
   record: EditorRecord<SpieltagValues>;
   save: (change: EditorSave<SpieltagValues>) => Promise<ActionAnswer<number>>;
   /** Whether the write takes the matchday without each date, read off its schema on the server. */
   required: { beginn: boolean; ende: boolean };
+  /** Why the matchday is closed read-only: its season has finished, and the write refuses every change to it. */
+  closed?: Copy;
 }) {
   const editor = useEditor(record, save);
   const { draft, set } = editor;
@@ -37,6 +41,7 @@ export function SpieltagEditor({
     <EditorPage
       title={title}
       editor={editor}
+      closed={closed}
       sections={[
         {
           id: "zeitraum",

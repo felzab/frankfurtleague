@@ -123,8 +123,9 @@ def booked_image_edits(image: Mapping[str, Any], schiedsrichter_id: Any) -> dict
     if not isinstance(booking, Mapping) or booking.get("schiedsrichter_id") != schiedsrichter_id:
         return {}
 
-    # An image's edits are values set at a path, so a name the image holds is nulled in place rather than unset: an
-    # image recorded while fixtures stored their referee's name keeps it, which the fixture itself no longer holds.
+    # The action log keeps an image as it was recorded, so its booking may carry the referee's name beside the id,
+    # where a stored fixture's holds the id alone; an image's edits are values set at a path, so the name is nulled
+    # in place rather than unset.
     return {**build_ghost_repoint()["$set"], **({"schiedsrichter.name": None} if "name" in booking else {})}
 
 

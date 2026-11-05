@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ListPage } from "@/kit/ListPage";
 import { TextField } from "@/kit/TextField";
 
+import { requires } from "@/core/action";
 import { COPY } from "@/core/copy";
 import { isRecordMissing } from "@/core/errors";
 import { dayOf, formatList, timeOf } from "@/core/format";
@@ -22,7 +23,16 @@ import { VorschlagActs } from "./VorschlagActs";
 import { ZusageDialog } from "./ZusageDialog";
 
 import type { Copy, Words } from "@/core/copy";
-import type { FLBracketFault, FLOverviewRow, FLSpielJoinedAdmin, FLSpielQuelle } from "@/core/generated/client/types";
+import type {
+  FLBracketFault,
+  FLOverviewRow,
+  FLSpielbestaetigungPartySchiedsrichter,
+  FLSpielbestaetigungPartyTeam,
+  FLSpielJoinedAdmin,
+  FLSpielQuelle,
+  FLSpielRecipientSchiedsrichter,
+  FLSpielRecipientTeam,
+} from "@/core/generated/client/types";
 import type { CardActRowProps } from "@/kit/Card";
 import type { Metadata, ResolvingMetadata } from "next";
 import type { ReactElement } from "react";
@@ -33,6 +43,9 @@ type Props = PageProps<"/admin/saisons/[saison]">;
 const WORDS = SERVER_COPY.overview;
 const SPIEL = COPY.admin.spiel;
 const FACTS = COPY.admin.facts;
+
+/** A party of a fixture's confirmation, a club or the booked referee. */
+type Party = FLSpielbestaetigungPartyTeam | FLSpielbestaetigungPartySchiedsrichter;
 
 export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
   const { saison } = await params;
@@ -51,9 +64,22 @@ function clubOf(spiel: FLSpielJoinedAdmin, teamId: string): Words | null {
   return side === undefined || side === null ? null : { record: side.name };
 }
 
-/** Everybody a move mails „Spiel verlegt“: both clubs and the booked referee, by the names the fixture holds. */
-const partiesOf = (spiel: FLSpielJoinedAdmin): string[] =>
-  [spiel.team1?.name, spiel.team2?.name, spiel.schiedsrichter?.name].filter((name): name is string => typeof name === "string");
+/** A party of the fixture by the name the fixture holds for it, `null` where the fixture no longer names it. */
+function partyName(spiel: FLSpielJoinedAdmin, party: Party): Words | null {
+  if (party.art === "team") return clubOf(spiel, party.team_id);
+  const booked = spiel.schiedsrichter;
+  return booked?.schiedsrichter_id === party.schiedsrichter_id && booked.name !== null ? { record: booked.name } : null;
+}
+
+/**
+ * The question's „Mail an“ fact: the parties the backend mails of the act, which it serves beside the row each by the
+ * name its own record holds, in their names' order as the match editor's question lists them, none where the act mails
+ * nobody, so the question names no mail that is never sent.
+ */
+function mailTo(recipients: readonly (FLSpielRecipientTeam | FLSpielRecipientSchiedsrichter)[]) {
+  const names = recipients.map(({ name }) => name).toSorted((one, other) => one.localeCompare(other, "de"));
+  return names.length === 0 ? [] : [{ label: FACTS.mailTo, value: { record: formatList(names) } }];
+}
 
 /** A stored day and hour as the catalogue's sentences take a slot. */
 const slotOf = (datum: string | null, uhrzeit: string | null) => ({ day: dayOf(datum), time: timeOf(uhrzeit) });
@@ -103,7 +129,7 @@ function faultLine(fault: FLBracketFault): Copy {
 }
 
 /** Whether the Zusage's write asks for the party's row, which its segments choose. */
-const PARTY_REQUIRED = !SpielbestaetigungenEnterSpielbestaetigungParams.shape.spielbestaetigung_id.safeParse("").success;
+const PARTY_REQUIRED = requires(SpielbestaetigungenEnterSpielbestaetigungParams.shape.spielbestaetigung_id, "");
 
 /** The box asking how a party's agreement reached the league, drawn here so the write's schema stays on the server. */
 function ReasonField() {
@@ -114,7 +140,7 @@ function ReasonField() {
       name="begruendung"
       width="W3"
       kind="text"
-      isRequired={!SpielbestaetigungenEnterSpielbestaetigungBody.shape.begruendung.safeParse("").success}
+      isRequired={requires(SpielbestaetigungenEnterSpielbestaetigungBody.shape.begruendung, "")}
       maxLength={spielbestaetigungenEnterSpielbestaetigungBodyBegruendungMax}
     />
   );
@@ -128,12 +154,7 @@ function openOf(row: Exclude<FLOverviewRow, { kind: "bewerbung" }>): { line: Cop
     case "spielbestaetigung_overdue": {
       const parties = row.parties.map((party): OpenParty => ({
         id: party.spielbestaetigung_id,
-        name:
-          (party.party.art === "team"
-            ? clubOf(spiel, party.party.team_id)
-            : typeof spiel.schiedsrichter?.name === "string"
-              ? { record: spiel.schiedsrichter.name }
-              : null) ?? nameOf(spiel),
+        name: partyName(spiel, party.party) ?? nameOf(spiel),
       }));
       // The earliest deadline a club of the row was given, which its answer is overdue since.
       const deadline = row.parties.map((party) => party.deadline).toSorted()[0];
@@ -164,18 +185,14 @@ function openOf(row: Exclude<FLOverviewRow, { kind: "bewerbung" }>): { line: Cop
             id={row.spielbestaetigung_id}
             adopt={{
               consequence: WORDS.adoptConsequence,
-              facts: [
-                { label: FACTS.before, value: from },
-                { label: FACTS.after, value: to },
-                { label: FACTS.mailTo, value: { record: formatList(partiesOf(spiel)) } },
-              ],
+              facts: [{ label: FACTS.before, value: from }, { label: FACTS.after, value: to }, ...mailTo(row.adoption_recipients)],
             }}
             discard={{
               consequence: WORDS.discardConsequence,
               facts: [
                 { label: COPY.admin.overview.termin, value: from },
                 { label: COPY.admin.overview.vorschlag, value: to },
-                { label: FACTS.mailTo, value: team ?? nameOf(spiel) },
+                ...mailTo(row.discard_recipients),
               ],
             }}
           />

@@ -7,7 +7,7 @@ from http import HTTPStatus
 from typing import Any, Final, Literal
 
 from app.api.saisons.schemas import FLSaisonRules
-from app.api.spielbestaetigungen.services import ANSETZUNG_QUELLEN, build_closable_filter
+from app.api.spielbestaetigungen.services import ANSETZUNG_QUELLEN, build_closable_filter, partei_key
 from app.api.spiele.schemas import (
     PHASE_RANK,
     SONDEREREIGNIS_KEEPING_ITS_SLOT,
@@ -35,12 +35,15 @@ from app.api.spiele.schemas import (
     FLSpielQuelle,
     FLSpielQuelleGruppe,
     FLSpielQuelleSpiel,
+    FLSpielRecipient,
+    FLSpielRecipientListAdapter,
     FLSpielSchiedsrichterFieldPayload,
     FLSpielSchiedsrichterFieldRecord,
     FLSpielSlotHolder,
     FLSpielTeamField,
     FLSpielTeamFieldJoinedInternal,
     FLSpielTeamFieldPayload,
+    FLSpielVoidedResult,
     is_unplayed,
     records_an_absence,
 )
@@ -1781,6 +1784,44 @@ def find_advancement_occupancy_refusal(season: Sequence[FLSpielCommon], advancem
     )
 
 
+# The deleted result's own fields, whichever report carries it: a released side's adds which side and whose.
+_VOIDED_FIELDS: Final = frozenset(FLSpielVoidedResult.model_fields)
+
+
+def _voided_key(result: FLSpielVoidedResult) -> str:
+    """One deleted result as a comparable identity: its fixture and each value it held."""
+
+    return result.model_dump_json(include=set(_VOIDED_FIELDS))
+
+
+def voided_results_of(rewrites: Iterable[FLSpielVoidedResult]) -> list[FLSpielVoidedResult]:
+    """Every stored result `rewrites` delete, each once, in their fixtures' numbers' order; a slot filled from empty deletes none.
+
+    One reading for the dry run's answer and the save's judgement, so the set a person confirms is the set the save
+    compares. A fixture releasing both its sides deletes its one result once.
+    """
+
+    voided = {
+        _voided_key(rewrite): FLSpielVoidedResult.model_validate(rewrite.model_dump(include=set(_VOIDED_FIELDS), context={"keep_oid": True}))
+        for rewrite in rewrites
+        if rewrite.voided_ergebnis is not None or rewrite.voided_elfmeterschiessen is not None or rewrite.voided_sonderereignis is not None
+    }
+
+    return sorted(voided.values(), key=lambda result: result.spiel_nr)
+
+
+def find_voided_results_refusal(*, confirmed: Iterable[FLSpielVoidedResult], voided: Iterable[FLSpielVoidedResult]) -> WriteRefusal | None:
+    """Refuse a save deleting later results other than those it confirms, by value.
+
+    By value as well as by fixture, so a result changed since the question was asked is asked about again.
+    """
+
+    if {_voided_key(result) for result in confirmed} == {_voided_key(result) for result in voided}:
+        return None
+
+    return WriteRefusal(error_code=Code.VOIDED_RESULTS_STALE, status=HTTPStatus.CONFLICT)
+
+
 def _quelle_key(quelle: FLSpielQuelle) -> tuple[Any, ...]:
     """One source as a hashable identity, so 'the same outcome feeding two slots' is a set lookup."""
 
@@ -1877,3 +1918,53 @@ def find_wiring_refusal(
             return _wiring_refusal()
 
     return None
+
+
+# Where `build_party_name_stages` sets a confirmation row's party's name.
+PARTY_NAME_FIELD: Final = "party_name"
+
+
+def build_party_name_stages(*, saison_id: str) -> list[Mapping[str, Any]]:
+    """Stages setting on each confirmation row the name its party's own record holds: a club's season row, a referee's.
+
+    For a read that names the parties an act mails from the rows it reads, as `recipients_named` takes them.
+    """
+
+    return [
+        {
+            "$lookup": {
+                "from": Collection.SAISON_TEAMS,
+                "localField": "party.team_id",
+                "foreignField": "team_id",
+                "pipeline": [{"$match": {"saison_id": saison_id}}, {"$project": {"_id": 0, "name": 1}}],
+                "as": "club",
+            }
+        },
+        {
+            "$lookup": {
+                "from": Collection.SCHIEDSRICHTER,
+                "localField": "party.schiedsrichter_id",
+                "foreignField": "_id",
+                "pipeline": [{"$project": {"_id": 0, "name": 1}}],
+                "as": "referee",
+            }
+        },
+        {"$set": {PARTY_NAME_FIELD: {"$first": {"$concatArrays": ["$club.name", "$referee.name"]}}}},
+        {"$unset": ["club", "referee"]},
+    ]
+
+
+def recipients_named(parties: Iterable[Mapping[str, Any]], *, names: Mapping[tuple[str, Any], str | None]) -> list[FLSpielRecipient]:
+    """Each party an act mails by the name its own record holds, the one shape every page naming whom an act mails reads.
+
+    Never the ghost, at whom an erasure repoints a referee's rows: it holds no address, so no mail reaches it, and no
+    name. Every other party holds a record, which nothing deletes, so a party `names` lacks is refused rather than
+    dropped from the question in silence.
+    """
+
+    told = [party for party in parties if party.get("schiedsrichter_id") != GHOST_SCHIEDSRICHTER_ID]
+    unnamed = [party for party in told if names.get(partei_key(party)) is None]
+    if unnamed:
+        raise ValueError(f"no record names the parties {unnamed}")
+
+    return FLSpielRecipientListAdapter.validate_python([{**party, "name": names[partei_key(party)]} for party in told])

@@ -1,20 +1,14 @@
 import "server-only";
 
+import { requires } from "@/core/action";
 import { SaisonsPatchSaisonBody, SaisonsPostSaisonBody } from "@/core/generated/zod/inputs";
-
-/**
- * A field is required where the write refuses it empty: an untouched box posts "", a cleared count or day nothing, a
- * choice of several answers none.
- */
-const required = (field: { safeParse: (value: unknown) => { success: boolean } }, empty: "" | null | readonly []) =>
-  !field.safeParse(empty).success;
 
 const create = SaisonsPostSaisonBody.shape;
 
 /** What the create asks of the dialog's two boxes, read on the server so its schema never reaches the browser. */
 export const CREATE_REQUIRED = {
-  start: required(create.start_date, ""),
-  end: required(create.end_date, ""),
+  start: requires(create.start_date, ""),
+  end: requires(create.end_date, ""),
 };
 
 const patch = SaisonsPatchSaisonBody.shape;
@@ -28,21 +22,21 @@ const bewerbung = patch.bewerbung.options[0].shape;
  * window is.
  */
 export const SAISON_REQUIRED = {
-  start: required(patch.start_date, null),
-  end: required(patch.end_date, null),
-  bewerbungStart: required(bewerbung.start, null),
-  bewerbungEnd: required(bewerbung.end, null),
-  winPoints: required(rules.win_points, null),
-  drawPoints: required(rules.draw_points, null),
-  tiebreak: required(rules.tiebreak_order, null),
-  gruppen: required(rules.number_of_gruppen, null),
-  teamsPerGruppe: required(rules.teams_per_gruppe, null),
-  qualifiers: required(rules.qualifiers_per_gruppe, null),
-  maxKader: required(rules.max_kadergroesse, null),
+  start: requires(patch.start_date, null),
+  end: requires(patch.end_date, null),
+  bewerbungStart: requires(bewerbung.start, null),
+  bewerbungEnd: requires(bewerbung.end, null),
+  winPoints: requires(rules.win_points, null),
+  drawPoints: requires(rules.draw_points, null),
+  tiebreak: requires(rules.tiebreak_order, null),
+  gruppen: requires(rules.number_of_gruppen, null),
+  teamsPerGruppe: requires(rules.teams_per_gruppe, null),
+  qualifiers: requires(rules.qualifiers_per_gruppe, null),
+  maxKader: requires(rules.max_kadergroesse, null),
   // An empty choice of Stufen is refused: the season admits at least one.
-  stufen: required(rules.allowed_stufen, []),
-  forfeitWinner: required(rules.forfeit_ergebnis.shape.sieger_tore, null),
-  forfeitLoser: required(rules.forfeit_ergebnis.shape.verlierer_tore, null),
+  stufen: requires(rules.allowed_stufen, []),
+  forfeitWinner: requires(rules.forfeit_ergebnis.shape.sieger_tore, null),
+  forfeitLoser: requires(rules.forfeit_ergebnis.shape.verlierer_tore, null),
 };
 
 export type SaisonRequired = typeof SAISON_REQUIRED;

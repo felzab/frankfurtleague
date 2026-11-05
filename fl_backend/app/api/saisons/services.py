@@ -87,7 +87,8 @@ def find_saison_create_refusal(*, future_stands: bool) -> WriteRefusal | None:
     """`create_saison_future_stands`, with no path: a planned season stands, so the next one is already made.
 
     Takes the answer rather than the lookup, so the caller's read runs in the caller's transaction. Two creates racing
-    each other mint one id, and its `_id` index refuses the second as `duplicate_key`.
+    each other read the same snapshot and mint one id; the second's insert meets the first's as a write conflict, which
+    `with_transaction` retries, and the retry reads the planned season and is refused here.
     """
 
     if not future_stands:
@@ -133,7 +134,7 @@ def find_saison_start_austritt_refusal(*, stored_start_date: str, proposed_start
 
 
 def find_saison_past_refusal(*, saison_status: str) -> WriteRefusal | None:
-    """`saison_past` for a write that a finished season's record no longer takes: a fixture's save, a club's season row.
+    """`saison_past` for a write a finished season's record no longer takes: a fixture's save, a matchday's re-dating, a club's season row.
 
     Pure. A caller's read of `status` stays current through its write set: `activate_saison` anchors the fixtures of every
     season it closes, and the club move anchors the season document the rollover writes.

@@ -144,6 +144,7 @@ export const SERVER_COPY = catalogue({
     activate_target_undrawn: COPY.admin.saison.noDraw,
     activate_saison_unfinished: COPY.admin.saison.unfinished,
     activate_spieltage_undated: COPY.admin.saison.undated,
+    create_saison_future_stands: COPY.admin.saison.futureStands,
     eligibility_disqualified: DISQUALIFIED,
     eligibility_disqualified_team1_as_stored: DISQUALIFIED.team1,
     eligibility_disqualified_team2_as_stored: DISQUALIFIED.team2,
@@ -152,6 +153,11 @@ export const SERVER_COPY = catalogue({
      * standing where the bracket's own wiring leads it too: the same save answers the same, the page being current.
      */
     spieltag_occupied_by_the_resolution: "Der K.-o.-Baum würde ein Team zweimal an diesem Spieltag aufstellen.",
+    /**
+     * A fixture's save, the match editor's or „Übernehmen“'s, that would delete a later result it was not confirmed
+     * to delete, one entered or changed since the question was asked among them: the match editor asks again.
+     */
+    voided_results_stale: COPY.admin.overview.voidsLater,
     /** A matchday's dates: past its season's, short of one of its dated matches, or out of its phase's order of matchdays. */
     spieltag_outside_saison: "Dieser Zeitraum liegt außerhalb der Saison.",
     spieltag_span_below_spiele: "Ein Spiel des Spieltags liegt außerhalb dieses Zeitraums.",

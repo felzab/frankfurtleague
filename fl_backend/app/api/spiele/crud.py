@@ -19,7 +19,6 @@ from app.api.spiele.schemas import (
     FLPatchSpielDataResponse,
     FLSpiel,
     FLSpielAdvancement,
-    FLSpielbestaetigungParteiListAdapter,
     FLSpielCommon,
     FLSpielJoinedInternal,
     FLSpielListAdapter,
@@ -57,12 +56,15 @@ from app.api.spiele.services import (
     find_retired_bookings,
     find_slot_claims,
     find_state_refusal,
+    find_voided_results_refusal,
     find_wiring_refusal,
     judge_spieltag_occupancy,
+    recipients_named,
     reopens,
     resolve_bracket,
     slots_booked_against,
     stored_in_slice,
+    voided_results_of,
 )
 from app.api.teams.schemas import FLTeamListAdapter, FLTeamsFilterParams
 from app.api.teams.services import (
@@ -84,6 +86,7 @@ from app.core.crud import (
     refuse,
 )
 from app.core.readonly import ReadCollection
+from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.shared.einwilligung import is_confirmed
 from app.shared.schemas.bounds import LIST_LIMIT_MAX
 from app.shared.schemas.custom import CustomObjectId
@@ -753,6 +756,29 @@ async def _judge_spiel_save(
     )
 
 
+async def pull_party_names(
+    *,
+    parties: Sequence[Mapping[str, Any]],
+    membership: Mapping[CustomObjectId, SaisonMembership],
+    schiedsrichter_collection: ReadCollection,
+) -> dict[tuple[str, Any], str]:
+    """The name each of `parties` holds on its own record: a club its season row's, already read as `membership`, a referee their own."""
+
+    referee_ids = {party["schiedsrichter_id"] for party in parties if party["art"] == "schiedsrichter"} - {GHOST_SCHIEDSRICHTER_ID}
+    referees = await pull_many_from_db(
+        collection=schiedsrichter_collection,
+        db_filter={"_id": {"$in": list(referee_ids)}},
+        projection={"name": 1},
+        # `_id` is unique, so `len(referee_ids)` rows is the whole answer and the cap can never cut it short.
+        limit=max(len(referee_ids), 1),
+    )
+
+    return {
+        **{("team", team_id): member.name for team_id, member in membership.items()},
+        **{("schiedsrichter", row["_id"]): row["name"] for row in referees},
+    }
+
+
 async def preview_spiel_save(
     *,
     spiel_id: CustomObjectId,
@@ -767,20 +793,23 @@ async def preview_spiel_save(
     """
 
     judged = await _judge_spiel_save(spiel_id=spiel_id, payload=payload, collections=collections, session=None)
-    # The fixture's rows holding their party's question, as the pass's close reads them.
-    rows = await pull_many_from_db(
+    # The fixture's rows holding their party's question, as the pass's close reads them. Whole, as the pass judges
+    # them: a row cut from the read is a mail the question would not name.
+    rows = await pull_whole_from_db(
         collection=spielbestaetigungen_collection,
         db_filter={"spiel_id": spiel_id, **build_holding_filter()},
-        projection=CLOSE_FIELDS,
+        what=f"fixture {spiel_id}'s held confirmations",
         limit=LIST_LIMIT_MAX,
+        projection=CLOSE_FIELDS,
     )
-    recipients = parties_told_of_the_change(
+    told = parties_told_of_the_change(
         rows=rows,
         stored=stored_in_slice(spiel_id, judged.season).model_dump(context={"keep_oid": True}),
         changed=judged.patched.model_dump(context={"keep_oid": True}),
         austritte={team_id: member.departed_from for team_id, member in judged.membership.items() if member.departed_from is not None},
         today=today,
     )
+    names = await pull_party_names(parties=told, membership=judged.membership, schiedsrichter_collection=collections.schiedsrichter)
     advanced_to, released_sides, bracket_faults = await preview_bracket_after_patch(
         teams_collection=collections.teams,
         saison_id=judged.saison_id,
@@ -793,10 +822,11 @@ async def preview_spiel_save(
     return FLPatchSpielDataResponse(
         advanced_to=advanced_to,
         released_sides=released_sides,
+        voided_results=voided_results_of([*advanced_to, *released_sides]),
         bracket_faults=bracket_faults,
         version=judged.patched.version,
         bericht_adopted=None,
-        recipients=FLSpielbestaetigungParteiListAdapter.validate_python(recipients),
+        recipients=recipients_named(told, names=names),
     )
 
 
@@ -845,6 +875,11 @@ async def save_spiel_in_session(
         session=session,
     )
 
+    # Here, in the transaction deleting them and after both rewrites: a result another write entered or changed since the
+    # dry run asked is refused rather than deleted unasked, and the whole save goes back with the refusal.
+    voided_results = voided_results_of([*advanced_to, *released_sides])
+    refuse(find_voided_results_refusal(confirmed=payload.voided_results, voided=voided_results))
+
     # A retirement, the erasure and a rival save at the same hour each judge fixtures and write none of this pass's,
     # so only a write to a row puts what this pass judged in their write sets.
     for booked in (judged.anchored, *booked_again_by_the_release, *booked_again_by_the_resolution):
@@ -880,6 +915,7 @@ async def save_spiel_in_session(
     return FLPatchSpielDataResponse(
         advanced_to=advanced_to,
         released_sides=released_sides,
+        voided_results=voided_results,
         bracket_faults=bracket_faults,
         version=saved[VERSION_FIELD],
         bericht_adopted=uebernommen,

@@ -5,7 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationInfo, 
 from app.api.spiele.schemas import FLSpielJoined, FLSpielJoinedAdmin
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SAISON_ID_LENGTH
 from app.shared.schemas.custom import CustomDateString, CustomObjectId, CustomVersion, refuse_reversed_span
-from app.shared.schemas.literals import FLSaisonPhase, FLSortOrder
+from app.shared.schemas.literals import FLSaisonPhase, FLSaisonStatus, FLSortOrder
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
 
@@ -41,8 +41,9 @@ FLSpieltagListAdapter = TypeAdapter(list[FLSpieltag])
 class FLSpieltagAdmin(FLSpieltag):
     """A matchday as its editor reads it, with how many matchdays its phase holds, by which a page names a round's legs."""
 
-    # DERIVED, on no document: the phase's matchdays as the season stores them, this one included.
-    count_in_phase: int = Field(ge=1)
+    # DERIVED, on no document: the phase's matchdays as the season stores them, this one included. Named as the public
+    # schemas name the same count.
+    count_spieltage_in_phase: int = Field(ge=1)
 
 
 class FLSpieltageFilterParams(BaseModel):
@@ -141,7 +142,14 @@ class FLSpieltageSingleResponse(BaseAPIResponse):
 
 
 class FLSpieltagAdminResponse(BaseAPIResponse):
+    """One matchday for its editor, and its season's status, by which the editor opens a finished season's read-only.
+
+    On the response rather than on the matchday, as the match editor's read serves it: a matchday carries no
+    season-scoped state.
+    """
+
     spieltag: FLSpieltagAdmin
+    saison_status: FLSaisonStatus
 
 
 class FLSpieltagWriteResponse(BaseAPIResponse):

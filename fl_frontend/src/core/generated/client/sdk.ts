@@ -2457,12 +2457,14 @@ export const getSaisonsPostSaisonUrl = () => {
 };
 
 /**
- * Create the next season, always `future`, answering the id it minted.
+ * Create the next season, always `future`, from its two days, answering the id it minted.
  *
  * The server names it: the year after the newest stored season's, or the league's first where none is stored, so a
- * season is never created out of turn. Refused while a `future` season stands (`create_saison_future_stands`), so a
- * league holds at most one planned season; two creates racing each other mint one id, and the second is refused
- * `duplicate_key` with no path. Making the season live is a separate step.
+ * season is never created out of turn. Its rules carry on from that newest season, or are the league's first season's
+ * (`FIRST_SAISON_RULES`), and its two windows start closed, each set in the season's own editor. Refused while a
+ * `future` season stands (`create_saison_future_stands`), so a league holds at most one planned season, the loser of
+ * two creates at once included (`find_saison_create_refusal`); then by the rules it carries on and by its span against
+ * them. Making the season live is a separate step.
  * @summary Create a Saison
  */
 export const saisonsPostSaison = async (
@@ -2534,8 +2536,9 @@ export const getSaisonsGetSaisonsAdminUrl = (params?: SaisonsGetSaisonsAdminPara
  * still is, so an admin who cannot see one cannot run the league. `begun` is the start every
  * start lock refuses on, the swap's, the replacement's and the rules freeze's; `taken_place` is what
  * fixes the start date (`saison_start_taken_place`); `decided` is the landing's own rule, all four places of the Finale in.
- * `count_teams` counts every club row of the season, one that left included. `next_saison_id` is the id the next create
- * mints, and `refusals.create` the code that create would be refused with now, by its own judgement, or null.
+ * `count_teams` counts every club row of the season, one that left included, and `count_spiele` its fixtures.
+ * `next_saison_id` is the id the next create mints, and `refusals.create` the code that create would be refused with
+ * now, by its own judgement, or null.
  * @summary Every Saison for the admin surfaces
  */
 export const saisonsGetSaisonsAdmin = async (
@@ -4103,7 +4106,10 @@ export const getSpielePatchSpielUrl = (spielId: string, params?: SpielePatchSpie
  * adopted, where it still stands at that version about the clubs the save leaves; a miss refuses nothing. A
  * `dry_run` answers the same report and writes nothing, and names in `recipients` every party the confirmation pass
  * would mail about the fixture once it is saved so: told of its move, of the referee taken off it, or of its call-off,
- * by the pass's own rules. A `past` season's fixture is refused (`saison_past`), the `dry_run` included.
+ * by the pass's own rules. A `past` season's fixture is refused (`saison_past`), the `dry_run` included. The save
+ * deletes only the later results its body's `voided_results` names, each by its value as its `dry_run` answered it,
+ * and is refused whole where it would delete any other set (`voided_results_stale`), judged in its own transaction:
+ * a result entered or changed after the question was asked is never deleted unasked.
  * @summary Update a Spiel
  */
 export const spielePatchSpiel = async (
@@ -4762,7 +4768,9 @@ export const getSpieltagePatchSpieltagUrl = (spieltagId: string) => {
  * Move a matchday's span, answering the matchday's `version` after the save.
  *
  * No fan-out: matches embed no copy, so a re-dated matchday is picked up on the next read. The span is held
- * to its season's, to the days its own fixtures stand on, and its `beginn` to the order its phase is dated in.
+ * to its season's, to the days its own fixtures stand on, and its `beginn` to the order its phase is dated in. A
+ * `past` season's matchday is refused (`saison_past`), as its fixtures' saves are: a finished season's record is
+ * closed.
  * @summary Re-date a Spieltag
  */
 export const spieltagePatchSpieltag = async (
@@ -4797,8 +4805,10 @@ export const getSpieltageGetSpieltagVerwaltungUrl = (spieltagId: string) => {
 /**
  * Return one matchday by its id for the admin editor, a `future` season's included.
  *
- * The shape of `GET /spieltage/{spieltag_id}`, without its season gate, plus `count_in_phase`, how many matchdays
- * its phase holds: the editor opens a matchday to date it, and that happens before its season is ever activated.
+ * The shape of `GET /spieltage/{spieltag_id}`, without its season gate, plus `count_spieltage_in_phase`, how many
+ * matchdays its phase holds: the editor opens a matchday to date it, and that happens before its season is ever
+ * activated. Beside it its season's `status`, read as the re-dating judges it, so the editor opens read-only on
+ * exactly the season the write refuses (`saison_past`).
  * @summary One Spieltag for the admin editor
  */
 export const spieltageGetSpieltagVerwaltung = async (

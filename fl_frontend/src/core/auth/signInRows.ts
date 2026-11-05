@@ -138,8 +138,9 @@ export async function unlessUnsettled(settle: () => Promise<void>): Promise<void
 }
 
 /**
- * Whether a deletion link would mail past its address's hour: counted on the code's own rows, so one bound
- * holds every mail sent at the person's own request.
+ * Whether a deletion link would mail past its address's hour: counted on the code's own rows, so the two mails
+ * a signed-out visitor can ask for share one bound, and a capped one answers as if it were sent, never saying
+ * whether the address is known. A signed-in start, the address change's, is bounded by the backend and may say so.
  */
 export async function deletionLinkCapped(context: BoundContext, email: string): Promise<boolean> {
   const perAddress = await boundIdentifier(MAIL_ROW_PREFIX, email, context.secret);

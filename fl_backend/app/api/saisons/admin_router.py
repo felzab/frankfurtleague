@@ -34,7 +34,13 @@ from app.api.identity.crud import due_count, saison_statuses
 from app.api.identity.schemas import FLErasurePreviewResponse
 from app.api.identity.services import closed_by, statuses_after_activating
 from app.api.outbox.services import enqueue_mails
-from app.api.saisons.crud import count_teams_by_saison, pull_create_state, pull_finale_by_saison, saisons_with_a_fixture_taken_place
+from app.api.saisons.crud import (
+    count_spiele_by_saison,
+    count_teams_by_saison,
+    pull_create_state,
+    pull_finale_by_saison,
+    saisons_with_a_fixture_taken_place,
+)
 from app.api.saisons.schemas import (
     FLActivateSaisonResponse,
     FLGenerateSpielplanPayload,
@@ -49,6 +55,7 @@ from app.api.saisons.schemas import (
     FLSaisonAdminListAdapter,
     FLSaisonAdminResponse,
     FLSaisonAdminTeam,
+    FLSaisonDrawn,
     FLSaisonRules,
     FLSaisonsAdminListResponse,
     FLSaisonsAdminRefusals,
@@ -192,8 +199,9 @@ async def get_saisons_admin(
     still is, so an admin who cannot see one cannot run the league. `begun` is the start every
     start lock refuses on, the swap's, the replacement's and the rules freeze's; `taken_place` is what
     fixes the start date (`saison_start_taken_place`); `decided` is the landing's own rule, all four places of the Finale in.
-    `count_teams` counts every club row of the season, one that left included. `next_saison_id` is the id the next create
-    mints, and `refusals.create` the code that create would be refused with now, by its own judgement, or null.
+    `count_teams` counts every club row of the season, one that left included, and `count_spiele` its fixtures.
+    `next_saison_id` is the id the next create mints, and `refusals.create` the code that create would be refused with
+    now, by its own judgement, or null.
     """
 
     db_filter = build_query(filters, terms={"status"})
@@ -207,13 +215,14 @@ async def get_saisons_admin(
     )
 
     saison_ids = [str(raw["_id"]) for raw in saisons_raw]
-    taken_place, finale_by_saison, teams_by_saison, (next_id, future_stands) = await asyncio.gather(
+    taken_place, finale_by_saison, teams_by_saison, spiele_by_saison, create_state = await asyncio.gather(
         saisons_with_a_fixture_taken_place(spiele_collection=spiele_collection, saison_ids=saison_ids, session=None),
         pull_finale_by_saison(spiele_collection=spiele_collection, saison_ids=saison_ids),
         count_teams_by_saison(saison_teams_collection=saison_teams_collection, saison_ids=saison_ids),
+        count_spiele_by_saison(spiele_collection=spiele_collection, saison_ids=saison_ids),
         pull_create_state(saisons_collection=saisons_collection),
     )
-    create_refusal = find_saison_create_refusal(future_stands=future_stands)
+    create_refusal = find_saison_create_refusal(future_stands=create_state.future_stands)
     saisons = [
         {
             **with_schedule(raw),
@@ -221,13 +230,14 @@ async def get_saisons_admin(
             "taken_place": raw["_id"] in taken_place,
             "decided": decided_podium(finale_by_saison.get(str(raw["_id"]), [])) is not None,
             "count_teams": teams_by_saison.get(str(raw["_id"]), 0),
+            "count_spiele": spiele_by_saison.get(str(raw["_id"]), 0),
         }
         for raw in saisons_raw
     ]
 
     return FLSaisonsAdminListResponse(
         saisons=FLSaisonAdminListAdapter.validate_python(saisons),
-        next_saison_id=next_id,
+        next_saison_id=create_state.saison_id,
         refusals=FLSaisonsAdminRefusals(create=None if create_refusal is None else create_refusal.error_code),
     )
 
@@ -320,6 +330,18 @@ async def get_saison_admin(
         ),
     )
     recorded_fixtures = sum(1 for spiel in recorded_rows if holds_a_recorded_fact(spiel))
+    # The rows a first draw refuses on, and the undraw and the replace remove: the season is drawn exactly while it holds
+    # one, whatever its watermark says, so the editor offers the draw's acts where their writes take them.
+    watermark = saison_raw.get("spielplan")
+    spielplan = (
+        None
+        if count_spieltage == 0 and not recorded_rows
+        else FLSaisonDrawn(
+            spieltage=count_spieltage,
+            spiele=len(recorded_rows),
+            generated_at=None if watermark is None else FLSaisonSpielplan.model_validate(watermark).generated_at,
+        )
+    )
 
     def code_of(refusal: WriteRefusal | None) -> Code | None:
         return None if refusal is None else refusal.error_code
@@ -373,7 +395,7 @@ async def get_saison_admin(
         ],
         incoming_clubs=[FLSaisonAdminClub.model_validate(club) for club in clubs if club["_id"] not in entered],
         shapes=workable_shapes(saison.rules),
-        count_spieltage=count_spieltage,
+        spielplan=spielplan,
         refusals=FLSaisonActRefusals(
             activate=code_of(activation[1]),
             # The draw's own judgement of the stored rules, the ones both presses draw, over the clubs entered.
@@ -408,39 +430,40 @@ async def post_saison(
     db: DBClient,
 ) -> FLPostSaisonResponse:
     """
-    Create the next season, always `future`, answering the id it minted.
+    Create the next season, always `future`, from its two days, answering the id it minted.
 
     The server names it: the year after the newest stored season's, or the league's first where none is stored, so a
-    season is never created out of turn. Refused while a `future` season stands (`create_saison_future_stands`), so a
-    league holds at most one planned season; two creates racing each other mint one id, and the second is refused
-    `duplicate_key` with no path. Making the season live is a separate step.
+    season is never created out of turn. Its rules carry on from that newest season, or are the league's first season's
+    (`FIRST_SAISON_RULES`), and its two windows start closed, each set in the season's own editor. Refused while a
+    `future` season stands (`create_saison_future_stands`), so a league holds at most one planned season, the loser of
+    two creates at once included (`find_saison_create_refusal`); then by the rules it carries on and by its span against
+    them. Making the season live is a separate step.
     """
 
-    refuse(
-        find_rules_refusal(
-            stored=None,
-            proposed=saison_data.rules,
-            occupancy_by_gruppe={},
-            highest_wired_platz=0,
-        )
-    )
-
-    # After the rules: an impossible bracket makes the implied matchday count meaningless.
-    refuse(
-        find_saison_span_refusal(
-            start_date=saison_data.start_date,
-            end_date=saison_data.end_date,
-            rules=saison_data.rules,
-            spieltag_spans=[],
-        )
-    )
-
     async def enter_the_season(session: AsyncClientSession) -> InsertOneResult:
-        saison_id, future_stands = await pull_create_state(saisons_collection=saisons_collection, session=session)
-        refuse(find_saison_create_refusal(future_stands=future_stands))
+        # Inside the transaction, so the id, the rules and the planned season are judged on one snapshot.
+        state = await pull_create_state(saisons_collection=saisons_collection, session=session)
+        refuse(find_saison_create_refusal(future_stands=state.future_stands))
+        refuse(find_rules_refusal(stored=None, proposed=state.rules, occupancy_by_gruppe={}, highest_wired_platz=0))
+        # After the rules: an impossible bracket makes the implied matchday count meaningless.
+        refuse(
+            find_saison_span_refusal(
+                start_date=saison_data.start_date,
+                end_date=saison_data.end_date,
+                rules=state.rules,
+                spieltag_spans=[],
+            )
+        )
         return await post_one_to_db(
             collection=saisons_collection,
-            document={**saison_data.model_dump(mode="json"), "_id": saison_id, "status": "future"},
+            document={
+                **saison_data.model_dump(mode="json"),
+                "rules": state.rules.model_dump(mode="json"),
+                "bewerbung": None,
+                "registrierung": None,
+                "_id": state.saison_id,
+                "status": "future",
+            },
             session=session,
         )
 
@@ -1085,7 +1108,7 @@ async def post_spielplan(
                 )
             )
 
-        watermark = FLSaisonSpielplan(generated_at=today, spieltage=len(drawn.spieltage), spiele=len(drawn.spiele))
+        watermark = FLSaisonSpielplan(generated_at=today)
         # ONE `$set` inside the transaction: the shape and the draw it produced are one fact, so one
         # write carries one pre-image -- the season before either moved. Two would log a `before`
         # holding rules that were never the season's.
@@ -1103,8 +1126,8 @@ async def post_spielplan(
 
         return FLGenerateSpielplanResponse(
             saison_id=saison_id,
-            spieltage=watermark.spieltage,
-            spiele=watermark.spiele,
+            spieltage=len(drawn.spieltage),
+            spiele=len(drawn.spiele),
             generated_at=watermark.generated_at,
             removed_spieltage=removed_spieltage,
             removed_spiele=removed_spiele,
@@ -1175,9 +1198,8 @@ async def delete_spielplan(
         removed_spiele = await delete_many_from_db(collection=spiele_collection, db_filter={"saison_id": saison_id}, session=session)
         removed_spieltage = await delete_many_from_db(collection=spieltage_collection, db_filter={"saison_id": saison_id}, session=session)
 
-        # INSIDE the transaction holding both removals: a season
-        # keeping its watermark while its fixtures are gone reads as drawn, and `$unset` is the shape
-        # a season nobody has drawn carries.
+        # INSIDE the transaction holding both removals: a season keeping its watermark while its fixtures
+        # are gone would date a draw it no longer holds, and `$unset` is the shape a season nobody has drawn carries.
         before = await patch_one_in_db(
             collection=saisons_collection,
             db_filter={"_id": saison_id},
