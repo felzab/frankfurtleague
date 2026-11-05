@@ -8872,7 +8872,7 @@
           "bewerbung": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/FLSaisonBewerbung"
+                "$ref": "#/components/schemas/FLSaisonBewerbungPayload"
               },
               {
                 "type": "null"
@@ -9815,7 +9815,7 @@
           "bewerbung": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/FLSaisonBewerbung"
+                "$ref": "#/components/schemas/FLSaisonBewerbungPayload"
               },
               {
                 "type": "null"
@@ -11604,6 +11604,27 @@
           "end"
         ],
         "title": "FLSaisonBewerbung",
+        "type": "object"
+      },
+      "FLSaisonBewerbungPayload": {
+        "description": "The application window as a season write sends it, judged apart from the season's own span: it may open before the season does.",
+        "properties": {
+          "end": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "End",
+            "type": "string"
+          },
+          "start": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "start",
+          "end"
+        ],
+        "title": "FLSaisonBewerbungPayload",
         "type": "object"
       },
       "FLSaisonForfeitErgebnis": {
@@ -18904,6 +18925,8 @@
       },
       "Rule": {
         "enum": [
+          "acceptance_with_proposal",
+          "acceptance_with_reason",
           "address_in_free_text",
           "bewerbung_window_ends_before_start",
           "date_not_in_calendar",
@@ -26365,7 +26388,7 @@
     },
     "/api/v0/schiedsrichter/{schiedsrichter_id}": {
       "delete": {
-        "description": "Deactivate a referee. SOFT, for the same reason as venues: a played match names them by id.",
+        "description": "Deactivate a referee. SOFT, for the same reason as venues: a played match names them by id.\n\nRefused while an unplayed fixture still books them (`schiedsrichter_still_assigned`), naming the path's id with\nthose fixtures' `spiel_nrs` and their `count` as its bounds.",
         "operationId": "schiedsrichter_delete_schiedsrichter",
         "parameters": [
           {

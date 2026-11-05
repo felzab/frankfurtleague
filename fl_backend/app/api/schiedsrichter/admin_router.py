@@ -374,7 +374,11 @@ async def delete_schiedsrichter(
     db: DBClient,
     today: str = Depends(get_german_date_str),
 ) -> None:
-    """Deactivate a referee. SOFT, for the same reason as venues: a played match names them by id."""
+    """Deactivate a referee. SOFT, for the same reason as venues: a played match names them by id.
+
+    Refused while an unplayed fixture still books them (`schiedsrichter_still_assigned`), naming the path's id with
+    those fixtures' `spiel_nrs` and their `count` as its bounds.
+    """
 
     async def retire_the_referee(session: AsyncClientSession) -> Mapping[str, Any]:
         """Judge the referee's unplayed fixtures, then stamp them. Everything judged is read in-session, so a retry re-judges it."""

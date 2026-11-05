@@ -105,6 +105,19 @@ class FLSaisonBewerbung(BaseModel):
     end: CustomDateString
 
 
+class FLSaisonBewerbungPayload(FLSaisonBewerbung):
+    """The application window as a season write sends it, judged apart from the season's own span: it may open before the season does."""
+
+    # At the window's `end`, which a field validator here places on that date, the box a reversed window is repaired on.
+    @field_validator("end")
+    @classmethod
+    def the_application_window_ends_after_it_opens(cls, end: str, info: ValidationInfo) -> str:
+        if "start" in info.data:
+            refuse_reversed_span(start=info.data["start"], end=end, kind="bewerbung_window_ends_before_start")
+
+        return end
+
+
 class FLSaisonRegistrierung(BaseModel):
     """When a pupil may register for this season: from its activation to `end`, which falls before the season's start.
 
@@ -177,18 +190,8 @@ class _SaisonPayload(_SaisonWritable):
 
         return end_date
 
-    @field_validator("bewerbung")
-    @classmethod
-    def the_application_window_ends_after_it_opens(cls, bewerbung: FLSaisonBewerbung | None) -> FLSaisonBewerbung | None:
-        """Judged apart from the season's own span: a window may legitimately open before the season does."""
-
-        # `refuse_reversed_span`'s rule, spelled here because that helper raises at the validator's own field, the window.
-        if bewerbung is not None and bewerbung.end < bewerbung.start:
-            raise _refused_at_the_end(
-                bewerbung, "bewerbung_window_ends_before_start", "the span ends before it starts", {"start": bewerbung.start}
-            )
-
-        return bewerbung
+    # The window's own payload, which judges its span at its `end`.
+    bewerbung: FLSaisonBewerbungPayload | None
 
     @field_validator("registrierung")
     @classmethod

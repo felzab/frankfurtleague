@@ -3303,6 +3303,9 @@ export const getSchiedsrichterDeleteSchiedsrichterUrl = (schiedsrichterId: strin
 
 /**
  * Deactivate a referee. SOFT, for the same reason as venues: a played match names them by id.
+ *
+ * Refused while an unplayed fixture still books them (`schiedsrichter_still_assigned`), naming the path's id with
+ * those fixtures' `spiel_nrs` and their `count` as its bounds.
  * @summary Deactivate a Schiedsrichter (soft delete)
  */
 export const schiedsrichterDeleteSchiedsrichter = async (

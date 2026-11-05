@@ -1631,7 +1631,7 @@ export const SaisonsPostSaisonBody = zod.object({
         start: zod.string().regex(saisonsPostSaisonBodyBewerbungOneStartRegExp),
       })
       .describe(
-        "When the league accepts applications for this season: while today lies between `start` and `end`, both included.\n\nNo flag beside the span: closing early is moving `end` to today (`app/api/bewerbungen/services.py ::\nsaison_nimmt_bewerbungen_an`).",
+        "The application window as a season write sends it, judged apart from the season's own span: it may open before the season does.",
       ),
     zod.null(),
   ]),
@@ -1749,7 +1749,7 @@ export const SaisonsPatchSaisonBody = zod.object({
         start: zod.string().regex(saisonsPatchSaisonBodyBewerbungOneStartRegExp),
       })
       .describe(
-        "When the league accepts applications for this season: while today lies between `start` and `end`, both included.\n\nNo flag beside the span: closing early is moving `end` to today (`app/api/bewerbungen/services.py ::\nsaison_nimmt_bewerbungen_an`).",
+        "The application window as a season write sends it, judged apart from the season's own span: it may open before the season does.",
       ),
     zod.null(),
   ]),
@@ -2257,6 +2257,9 @@ export const SchiedsrichterGetConfirmationViewBody = zod
 
 /**
  * Deactivate a referee. SOFT, for the same reason as venues: a played match names them by id.
+ *
+ * Refused while an unplayed fixture still books them (`schiedsrichter_still_assigned`), naming the path's id with
+ * those fixtures' `spiel_nrs` and their `count` as its bounds.
  * @summary Deactivate a Schiedsrichter (soft delete)
  */
 export const schiedsrichterDeleteSchiedsrichterPathSchiedsrichterIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");

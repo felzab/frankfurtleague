@@ -313,6 +313,8 @@ class Code(StrEnum):
 # `StrEnum`: pydantic takes the error's kind as a `LiteralString`, which no enum member is. Raised through
 # `app/core/exceptions.py :: rule_refusal`, whose parameter takes nothing else.
 type Rule = Literal[
+    "acceptance_with_proposal",
+    "acceptance_with_reason",
     "address_in_free_text",
     "bewerbung_window_ends_before_start",
     "date_not_in_calendar",

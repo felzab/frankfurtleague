@@ -3757,12 +3757,9 @@ export interface FLPatchKaderRowPayload {
 }
 
 /**
- * When the league accepts applications for this season: while today lies between `start` and `end`, both included.
- *
- * No flag beside the span: closing early is moving `end` to today (`app/api/bewerbungen/services.py ::
- * saison_nimmt_bewerbungen_an`).
+ * The application window as a season write sends it, judged apart from the season's own span: it may open before the season does.
  */
-export interface FLSaisonBewerbung {
+export interface FLSaisonBewerbungPayload {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   end: string;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
@@ -3828,7 +3825,7 @@ export interface FLSaisonRules {
 }
 
 export interface FLPatchSaisonPayload {
-  bewerbung: FLSaisonBewerbung | null;
+  bewerbung: FLSaisonBewerbungPayload | null;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   end_date: string;
   registrierung: FLSaisonRegistrierung | null;
@@ -4176,7 +4173,7 @@ export interface FLPostRegistrierungResponse {
 }
 
 export interface FLPostSaisonPayload {
-  bewerbung: FLSaisonBewerbung | null;
+  bewerbung: FLSaisonBewerbungPayload | null;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   end_date: string;
   /**
@@ -4526,6 +4523,19 @@ export interface FLReplaceSaisonTeamResponse {
   /** @pattern ^[A-Z]{3}$ */
   shorthand: string;
   trikot_farbe: FLTrikotFarbe | null;
+}
+
+/**
+ * When the league accepts applications for this season: while today lies between `start` and `end`, both included.
+ *
+ * No flag beside the span: closing early is moving `end` to today (`app/api/bewerbungen/services.py ::
+ * saison_nimmt_bewerbungen_an`).
+ */
+export interface FLSaisonBewerbung {
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  end: string;
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  start: string;
 }
 
 /**
@@ -6356,6 +6366,8 @@ export type FLWhatsappTextVersion = "2026-11-whatsapp-1";
 export type Rule = (typeof Rule)[keyof typeof Rule];
 
 export const Rule = {
+  acceptance_with_proposal: "acceptance_with_proposal",
+  acceptance_with_reason: "acceptance_with_reason",
   address_in_free_text: "address_in_free_text",
   bewerbung_window_ends_before_start: "bewerbung_window_ends_before_start",
   date_not_in_calendar: "date_not_in_calendar",

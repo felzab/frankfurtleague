@@ -3,9 +3,14 @@ from typing import Any
 
 import pytest
 from bson import ObjectId
+from pydantic import BaseModel, ValidationError
 
 from app.api.spielbestaetigungen.crud import ANSICHT_SPIEL_FIELDS, verein_fields
-from app.api.spielbestaetigungen.schemas import FLSpielbestaetigungAppointment
+from app.api.spielbestaetigungen.schemas import (
+    FLSpielbestaetigungAntwortPayload,
+    FLSpielbestaetigungAppointment,
+    FLSpielbestaetigungSchiedsrichterAntwortPayload,
+)
 from app.api.spielbestaetigungen.services import (
     AnsetzungLage,
     ansetzung_stand_of,
@@ -437,3 +442,53 @@ class TestAProposalBeforeToday:
         """A club proposing today is refused with a sentence saying its date has passed, which it has not."""
 
         assert find_vorschlag_vergangen_refusal(vorschlag=FLSpielbestaetigungAppointment(datum=TODAY, uhrzeit="18:00:00"), today=TODAY) is None
+
+
+PROPOSED = {"datum": DATUM, "uhrzeit": "18:00:00"}
+
+
+@pytest.mark.parametrize(
+    ("model", "body", "refused"),
+    [
+        (
+            FLSpielbestaetigungAntwortPayload,
+            {"antwort": "declined", "vorschlag": None, "begruendung": None},
+            ("vorschlag", "decline_without_proposal"),
+        ),
+        (
+            FLSpielbestaetigungAntwortPayload,
+            {"antwort": "zugesagt", "vorschlag": PROPOSED, "begruendung": None},
+            ("vorschlag", "acceptance_with_proposal"),
+        ),
+        (
+            FLSpielbestaetigungAntwortPayload,
+            {"antwort": "zugesagt", "vorschlag": None, "begruendung": "Halle"},
+            ("begruendung", "acceptance_with_reason"),
+        ),
+        (
+            FLSpielbestaetigungSchiedsrichterAntwortPayload,
+            {"antwort": "declined", "begruendung": None},
+            ("begruendung", "decline_without_reason"),
+        ),
+        (
+            FLSpielbestaetigungSchiedsrichterAntwortPayload,
+            {"antwort": "zugesagt", "begruendung": "Krank"},
+            ("begruendung", "acceptance_with_reason"),
+        ),
+    ],
+    ids=[
+        "club-decline-without-date",
+        "club-acceptance-with-date",
+        "club-acceptance-with-reason",
+        "referee-decline-without-reason",
+        "referee-acceptance-with-reason",
+    ],
+)
+def test_an_answers_shape_rule_is_refused_on_the_box_it_names(model: type[BaseModel], body: Mapping[str, Any], refused: tuple[str, str]):
+    """At the body root, or as a bare `ValueError`, the page can place the refusal on no box and words no reason."""
+
+    token = {"token": "a-link"} if model is FLSpielbestaetigungAntwortPayload else {}
+    with pytest.raises(ValidationError) as failure:
+        model.model_validate({**token, **body})
+
+    assert [(error["loc"], error["type"]) for error in failure.value.errors()] == [((refused[0],), refused[1])]
