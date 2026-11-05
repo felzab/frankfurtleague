@@ -16,7 +16,7 @@ from app.api.berechtigungen.services import OWNER, admin_tier_of, holds_an_owner
 from app.api.bewerbungen.services import build_eigene_bewerbung_filter
 from app.api.identity.schemas import FLAccountErasureView, FLErasureView, FLSubject, FLSubjectSeat
 from app.api.kontakte.services import rows_seating
-from app.api.registrierungen.services import SUBMITTED, build_eigene_registrierung_filter, build_loeschung_registrierung_filter
+from app.api.registrierungen.services import SUBMITTED, build_eigene_registrierung_filter, build_erasure_registrierung_filter
 from app.api.schiedsrichter.services import (
     build_self_referee_filter,
     build_unplayed_assignment_filter,
@@ -141,7 +141,7 @@ def build_erasure_pupil_pipeline(identifier: str) -> list[Mapping[str, Any]]:
 
 def build_erasure_registrierung_pipeline(identifier: str) -> list[Mapping[str, Any]]:
     return [
-        {"$match": build_loeschung_registrierung_filter(identifier)},
+        {"$match": build_erasure_registrierung_filter(identifier)},
         {"$project": {"saison_id": 1, "team_id": 1, "status": 1, "email": 1, "vorname": 1, "nachname": 1}},
         {"$sort": {"saison_id": 1, "_id": 1}},
     ]
@@ -794,16 +794,16 @@ def open_addresses(registrierung_rows: Iterable[Mapping[str, Any]]) -> frozenset
     return frozenset(row["email"] for row in registrierung_rows if row.get("status") == SUBMITTED and isinstance(row.get("email"), str))
 
 
-def erasure_due(*, email: Any, kader_saison_ids: Iterable[str], open: AbstractSet[str], kept: frozenset[str] | None) -> bool:
+def erasure_due(*, email: Any, kader_saison_ids: Iterable[str], pending_addresses: AbstractSet[str], kept: frozenset[str] | None) -> bool:
     """Whether one pupil is due, judged in the erasure's own transaction.
 
     A retired squad row keeps its pupil as a live one does: removing a player retires the row.
     """
 
-    return kept is not None and isinstance(email, str) and email not in open and kept.isdisjoint(kader_saison_ids)
+    return kept is not None and isinstance(email, str) and email not in pending_addresses and kept.isdisjoint(kader_saison_ids)
 
 
-def build_erasure_due_pipeline(*, kept: frozenset[str], open: AbstractSet[str]) -> list[Mapping[str, Any]]:
+def build_erasure_due_pipeline(*, kept: frozenset[str], pending_addresses: AbstractSet[str]) -> list[Mapping[str, Any]]:
     """Every due pupil's id and address: `erasure_due` as one read.
 
     An addressless pupil is never read: the registry erases by address.
@@ -811,7 +811,7 @@ def build_erasure_due_pipeline(*, kept: frozenset[str], open: AbstractSet[str]) 
 
     return [
         # The sentinel holds no address, so the `$type` term keeps it out.
-        {"$match": {"email": {"$type": "string", "$nin": sorted(open)}}},
+        {"$match": {"email": {"$type": "string", "$nin": sorted(pending_addresses)}}},
         {
             "$lookup": {
                 "from": DbCollection.SAISON_SPIELER,
@@ -828,17 +828,17 @@ def build_erasure_due_pipeline(*, kept: frozenset[str], open: AbstractSet[str]) 
 
 
 def build_erasure_due_page_pipeline(
-    *, kept: frozenset[str], open: AbstractSet[str], after: ObjectId | None, size: int
+    *, kept: frozenset[str], pending_addresses: AbstractSet[str], after: ObjectId | None, size: int
 ) -> list[Mapping[str, Any]]:
     """The due pupils after `after` in `_id` order, at most `size`, beside how many are due in all, as ONE document."""
 
-    seite: list[Mapping[str, Any]] = [{"$sort": {"_id": 1}}, {"$limit": size}]
+    page: list[Mapping[str, Any]] = [{"$sort": {"_id": 1}}, {"$limit": size}]
 
     return [
-        *build_erasure_due_pipeline(kept=kept, open=open),
-        {"$facet": {"seite": seite if after is None else [{"$match": {"_id": {"$gt": after}}}, *seite], "count": [{"$count": "count"}]}},
+        *build_erasure_due_pipeline(kept=kept, pending_addresses=pending_addresses),
+        {"$facet": {"page": page if after is None else [{"$match": {"_id": {"$gt": after}}}, *page], "count": [{"$count": "count"}]}},
     ]
 
 
-def build_erasure_due_count_pipeline(*, kept: frozenset[str], open: AbstractSet[str]) -> list[Mapping[str, Any]]:
-    return [*build_erasure_due_pipeline(kept=kept, open=open), {"$count": "count"}]
+def build_erasure_due_count_pipeline(*, kept: frozenset[str], pending_addresses: AbstractSet[str]) -> list[Mapping[str, Any]]:
+    return [*build_erasure_due_pipeline(kept=kept, pending_addresses=pending_addresses), {"$count": "count"}]

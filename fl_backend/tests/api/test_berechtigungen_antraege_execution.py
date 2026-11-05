@@ -34,7 +34,7 @@ from app.api.berechtigungen.antraege import (
     approval_request_line,
     compose_approval_request,
     end_the_approval_requests_about_in_session,
-    loeschen_antraege_in_session,
+    erase_approval_requests_in_session,
 )
 from app.api.berechtigungen.schemas import FLPatchGrantPayload, FLPostGrantPayload
 from app.api.berechtigungen.system_router import post_grants_reconciliation
@@ -734,7 +734,7 @@ async def anna_geloescht(database: AsyncDatabase, client: AsyncMongoClient, _: O
     """The erasure's request step on its own transaction, as `erase_everything` runs it for Anna."""
 
     async def step(session: AsyncClientSession) -> int:
-        return await loeschen_antraege_in_session(
+        return await erase_approval_requests_in_session(
             grant_approval_requests_collection=database[Collection.GRANT_APPROVAL_REQUESTS],
             outbox_collection=database[Collection.OUTBOX],
             identifier=ANNA,
@@ -893,7 +893,7 @@ class TestTheLoeschungTakesEveryRequestOfTheAddress:
             async def step(session: AsyncClientSession) -> list[int]:
                 collection = database[Collection.GRANT_APPROVAL_REQUESTS]
                 return [
-                    await loeschen_antraege_in_session(
+                    await erase_approval_requests_in_session(
                         grant_approval_requests_collection=collection,
                         outbox_collection=database[Collection.OUTBOX],
                         identifier=identifier,

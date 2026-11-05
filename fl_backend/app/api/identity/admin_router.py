@@ -405,15 +405,15 @@ async def post_sign_out(
     """
 
     identifier = sign_in_identifier(sign_out_data.email)
-    actor = sign_in_identifier(operator)
-    refuse(find_own_address_refusal(identifier=identifier, actor=actor))
+    actor_identifier = sign_in_identifier(operator)
+    refuse(find_own_address_refusal(identifier=identifier, actor=actor_identifier))
 
     async def log_the_act(session: AsyncClientSession) -> None:
         grants = await read_berechtigungen(grants_collection=grants_collection, session=session)
         announced = await read_the_announced(grants_announced_collection=grants_announced_collection, session=session)
         refuse(
             find_admin_address_refusal(
-                identifier=identifier, actor=actor, auth_time=auth_time, grants=grants, announced=announced, protected=OWNER_ONLY
+                identifier=identifier, actor=actor_identifier, auth_time=auth_time, grants=grants, announced=announced, protected=OWNER_ONLY
             )
         )
 

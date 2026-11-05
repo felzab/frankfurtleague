@@ -30,7 +30,7 @@ _QUEUED_SITES = (*(f"data.{site}.address" for site in _GRANT_SITES), "data.chang
 
 
 @dataclass(frozen=True)
-class GeloeschtGrantsAndAuthorship:
+class ErasedGrantsAndAuthorship:
     removed_berechtigungen: int
     removed_announced: int
     # The notices this erasure owes, its own grant's ending among them, before each is owed to every administrator.
@@ -161,7 +161,7 @@ async def _set_authored(collection: AsyncCollection, field: str, identifier: str
     return marked.modified_count
 
 
-async def loeschen_grants_and_authorship_in_session(
+async def erase_grants_and_authorship_in_session(
     *,
     grants_collection: AsyncCollection,
     grants_announced_collection: AsyncCollection,
@@ -182,7 +182,7 @@ async def loeschen_grants_and_authorship_in_session(
     now: datetime,
     # REQUIRED: the grants, the notices and the authored records go in one transaction or none.
     session: AsyncClientSession,
-) -> GeloeschtGrantsAndAuthorship:
+) -> ErasedGrantsAndAuthorship:
     """Removes an `owner` grant and breaks the floor of two, refusing neither.
 
     Who may erase an owner is the caller's judgement, and so is any line once the transaction commits.
@@ -257,7 +257,7 @@ async def loeschen_grants_and_authorship_in_session(
     marked += await _set_authored(ban_list_collection, "created_by", identifier, ERASED_ACTOR_MARKER, session)
     marked += await _set_authored(invitations_collection, "created_by", identifier, ERASED_ACTOR_MARKER, session)
 
-    return GeloeschtGrantsAndAuthorship(
+    return ErasedGrantsAndAuthorship(
         removed_berechtigungen=len(grant_ids),
         removed_announced=len(records),
         queued_outbox=len(notices),

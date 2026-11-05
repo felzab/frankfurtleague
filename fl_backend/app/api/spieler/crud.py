@@ -174,7 +174,7 @@ class PersonGeloescht(NamedTuple):
     redacted_aktionen: int
 
 
-async def loeschen_person_in_session(
+async def erase_person_in_session(
     *,
     spieler_collection: AsyncCollection,
     saison_spieler_collection: AsyncCollection,

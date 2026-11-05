@@ -63,10 +63,10 @@ BEWERBUNG_DECIDED = "bewerbung.entschieden@schule.de"
 BEWERBUNG_UNCONFIRMED = "bewerbung.unbestaetigt@schule.de"
 SPIELER_ACTIVE = "spieler.aktiv@schule.de"
 SPIELER_FORMER = "spieler.ehemalig@schule.de"
-WHISTLE_ACTIVE = "pfeife.aktiv@schule.de"
-WHISTLE_RETIRED = "pfeife.ruhestand@schule.de"
-WHISTLE_OPEN = "pfeife.offen@schule.de"
-WHISTLE_RETIRED_OPEN = "pfeife.ruhestand.offen@schule.de"
+SCHIEDSRICHTER_ACTIVE = "pfeife.aktiv@schule.de"
+SCHIEDSRICHTER_RETIRED = "pfeife.ruhestand@schule.de"
+SCHIEDSRICHTER_OPEN = "pfeife.offen@schule.de"
+SCHIEDSRICHTER_RETIRED_OPEN = "pfeife.ruhestand.offen@schule.de"
 GHOST = "geist@schule.de"
 # A registration stored as every payload stores an address, folded, and asked in another spelling.
 REGISTERED = "rita.registriert@schule.de"
@@ -87,10 +87,10 @@ BEWERBUNG_DECIDED_OID = ObjectId("6890a1b2c3d4e5f607860012")
 BEWERBUNG_UNCONFIRMED_OID = ObjectId("6890a1b2c3d4e5f607860013")
 SPIELER_ACTIVE_OID = ObjectId("6890a1b2c3d4e5f607860021")
 SPIELER_FORMER_OID = ObjectId("6890a1b2c3d4e5f607860022")
-WHISTLE_ACTIVE_OID = ObjectId("6890a1b2c3d4e5f607860031")
-WHISTLE_RETIRED_OID = ObjectId("6890a1b2c3d4e5f607860032")
-WHISTLE_OPEN_OID = ObjectId("6890a1b2c3d4e5f607860033")
-WHISTLE_RETIRED_OPEN_OID = ObjectId("6890a1b2c3d4e5f607860034")
+SCHIEDSRICHTER_ACTIVE_OID = ObjectId("6890a1b2c3d4e5f607860031")
+SCHIEDSRICHTER_RETIRED_OID = ObjectId("6890a1b2c3d4e5f607860032")
+SCHIEDSRICHTER_OPEN_OID = ObjectId("6890a1b2c3d4e5f607860033")
+SCHIEDSRICHTER_RETIRED_OPEN_OID = ObjectId("6890a1b2c3d4e5f607860034")
 REGISTRIERUNG_OID = ObjectId("6890a1b2c3d4e5f607860041")
 REGISTRIERUNG_DECLINED_OID = ObjectId("6890a1b2c3d4e5f607860042")
 REGISTRIERUNG_OPEN_OID = ObjectId("6890a1b2c3d4e5f607860043")
@@ -191,10 +191,16 @@ async def _seed(database: AsyncDatabase) -> None:
     )
     await database[Collection.SCHIEDSRICHTER].insert_many(
         [
-            _referee(WHISTLE_ACTIVE_OID, WHISTLE_ACTIVE, "A. Aktiv"),
-            _referee(WHISTLE_RETIRED_OID, WHISTLE_RETIRED, "B. Ruhestand", inactive_since="2026-03-01"),
-            _referee(WHISTLE_OPEN_OID, WHISTLE_OPEN, "C. Offen", einwilligung=None),
-            _referee(WHISTLE_RETIRED_OPEN_OID, WHISTLE_RETIRED_OPEN, "E. Ruhestand-Offen", inactive_since="2026-03-01", einwilligung=None),
+            _referee(SCHIEDSRICHTER_ACTIVE_OID, SCHIEDSRICHTER_ACTIVE, "A. Aktiv"),
+            _referee(SCHIEDSRICHTER_RETIRED_OID, SCHIEDSRICHTER_RETIRED, "B. Ruhestand", inactive_since="2026-03-01"),
+            _referee(SCHIEDSRICHTER_OPEN_OID, SCHIEDSRICHTER_OPEN, "C. Offen", einwilligung=None),
+            _referee(
+                SCHIEDSRICHTER_RETIRED_OPEN_OID,
+                SCHIEDSRICHTER_RETIRED_OPEN,
+                "E. Ruhestand-Offen",
+                inactive_since="2026-03-01",
+                einwilligung=None,
+            ),
             # The ghost as no write leaves it: an address, a stamp, not retired, so its id alone keeps it out.
             _referee(GHOST_SCHIEDSRICHTER_ID, GHOST, "D. Geist"),
         ]
@@ -278,8 +284,8 @@ class TestWhatCountsAsAnOwnRecord:
             pytest.param(BEWERBUNG_OPEN, ("bewerbungen", BEWERBUNG_OPEN_OID), id="a seat on a pending application"),
             pytest.param(SPIELER_ACTIVE, ("spieler", SPIELER_ACTIVE_OID), id="a live pupil"),
             pytest.param(SPIELER_FORMER, ("spieler", SPIELER_FORMER_OID), id="a retired pupil"),
-            pytest.param(WHISTLE_ACTIVE, ("schiedsrichter", WHISTLE_ACTIVE_OID), id="a live referee"),
-            pytest.param(WHISTLE_RETIRED, ("schiedsrichter", WHISTLE_RETIRED_OID), id="a retired referee"),
+            pytest.param(SCHIEDSRICHTER_ACTIVE, ("schiedsrichter", SCHIEDSRICHTER_ACTIVE_OID), id="a live referee"),
+            pytest.param(SCHIEDSRICHTER_RETIRED, ("schiedsrichter", SCHIEDSRICHTER_RETIRED_OID), id="a retired referee"),
             pytest.param(REGISTERED, ("registrierungen", REGISTRIERUNG_OID), id="a registration confirmed with a choice"),
             pytest.param(
                 REGISTERED_WITHOUT_CHOICE,
@@ -300,9 +306,9 @@ class TestWhatCountsAsAnOwnRecord:
             pytest.param(SEAT_OPEN, id="an unconfirmed seat"),
             pytest.param(BEWERBUNG_DECIDED, id="a seat on a decided application"),
             pytest.param(BEWERBUNG_UNCONFIRMED, id="an unconfirmed seat on a pending application"),
-            pytest.param(WHISTLE_OPEN, id="an unconfirmed referee"),
-            pytest.param(WHISTLE_RETIRED_OPEN, id="an unconfirmed retired referee"),
-            pytest.param(WHISTLE_ACTIVE.replace("@schule.de", "@anderswo.de"), id="a confirmed referee's local part at another domain"),
+            pytest.param(SCHIEDSRICHTER_OPEN, id="an unconfirmed referee"),
+            pytest.param(SCHIEDSRICHTER_RETIRED_OPEN, id="an unconfirmed retired referee"),
+            pytest.param(SCHIEDSRICHTER_ACTIVE.replace("@schule.de", "@anderswo.de"), id="a confirmed referee's local part at another domain"),
             pytest.param(SEAT_EXITED_OPEN, id="an unconfirmed seat on a withdrawn team's row"),
             pytest.param(GHOST, id="the placeholder referee"),
             pytest.param(REGISTERED_DECLINED, id="a declined registration"),
@@ -328,7 +334,7 @@ class TestTheFlagsBesideIt:
     def test_an_address_sharing_only_a_local_part_with_an_unconfirmed_referee_awaits_nothing(self, mongo_replica_set_url: str):
         """The address pre-filter reads that referee's row, and only the fold after the read keeps the flag down and the gate shut."""
 
-        answer = answered(mongo_replica_set_url, WHISTLE_OPEN.replace("@schule.de", "@anderswo.de"))
+        answer = answered(mongo_replica_set_url, SCHIEDSRICHTER_OPEN.replace("@schule.de", "@anderswo.de"))
 
         assert (answer.unconfirmed, answer.account) == (False, False)
 

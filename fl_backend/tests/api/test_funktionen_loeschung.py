@@ -34,7 +34,7 @@ from app.api.registrierungen.schemas import FLRegistrierungAdmitPayload
 from app.api.registrierungen.services import compose_ablehnung_update
 from app.api.sperrliste.services import compose_barred_until_saison_id
 from app.api.spielbestaetigungen.services import halter_of
-from app.api.spieler.crud import loeschen_person_in_session
+from app.api.spieler.crud import erase_person_in_session
 from app.api.spieler.services import build_ghost_spieler
 from app.core.codes import Code
 from app.core.collections import Collection
@@ -779,18 +779,18 @@ def by_passkey(email: str) -> dict[str, str]:
     return {**ADMIN_KEY, **actor_headers(email, signed_in_before_s=1, factor=PASSKEY_FACTOR)}
 
 
-async def geloescht_over_http(url: str, *, email: str = TYPED, headers: Mapping[str, str] | None = None) -> Any:
+async def erased_over_http(url: str, *, email: str = TYPED, headers: Mapping[str, str] | None = None) -> Any:
     async with app_client(url, app=_app(), now=NOW) as http:
         return await http.post(PATH, headers=headers or as_person(email))
 
 
-async def geloescht_by_the_handler(database: AsyncDatabase, client: AsyncMongoClient, *, identifier: str = IDENTIFIER, **replaced: Any) -> Any:
+async def erased_by_the_handler(database: AsyncDatabase, client: AsyncMongoClient, *, identifier: str = IDENTIFIER, **replaced: Any) -> Any:
     """The route's own function, outside a request: what a case needs to catch the driver's failure itself."""
 
     return await erased(database, client, identifier, germany_now=NOW, **replaced)
 
 
-async def geloescht_in_scope(
+async def erased_in_scope(
     database: AsyncDatabase, client: AsyncMongoClient, scope: frozenset[Any], *, identifier: str = IDENTIFIER, **replaced: Any
 ) -> Any:
     async def erase(session: Any) -> Any:
@@ -837,7 +837,7 @@ class TestNothingOfTheirsIsLeftAnywhere:
             if holding_a_grant:
                 await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, "administration")
             before = await scanned(database, *THEIR_VALUES, *BYSTANDERS_IN_THE_LOG)
-            response = await geloescht_over_http(mongo_replica_set_url, headers=by_passkey(TYPED))
+            response = await erased_over_http(mongo_replica_set_url, headers=by_passkey(TYPED))
 
             return before, response.status_code, await scanned(database, *THEIR_VALUES, *BYSTANDER_VALUES)
 
@@ -861,7 +861,7 @@ class TestWhatStandsBesideThem:
 
     def test_the_bystanders_seats_stand_and_theirs_is_empty(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await geloescht_over_http(mongo_replica_set_url)
+            await erased_over_http(mongo_replica_set_url)
 
             row = await database[Collection.SAISON_TEAMS].find_one()
             bewerbung = await database[Collection.BEWERBUNGEN].find_one({"_id": BEWERBUNG_OID})
@@ -895,7 +895,7 @@ class TestWhatStandsBesideThem:
         """The row is the address on file's person's until the change takes effect, so the change alone ends."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await geloescht_over_http(mongo_replica_set_url)
+            await erased_over_http(mongo_replica_set_url)
 
             return await the_one(database, Collection.ADDRESS_CHANGES, {"_id": change_id}), await the_one(database, collection, {"_id": row_id})
 
@@ -909,7 +909,7 @@ class TestWhatStandsBesideThem:
 
     def test_their_fixture_names_the_ghost_and_no_name_and_keeps_its_fee(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await geloescht_over_http(mongo_replica_set_url)
+            await erased_over_http(mongo_replica_set_url)
 
             return {row["_id"]: row["schiedsrichter"] async for row in database[Collection.SPIELE].find()}
 
@@ -928,7 +928,7 @@ class TestWhatStandsBesideThem:
             return image["party"]["schiedsrichter_id"], (image["antwort"] or {}).get("begruendung", "unanswered")
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await geloescht_over_http(mongo_replica_set_url)
+            await erased_over_http(mongo_replica_set_url)
 
             rows = await database[Collection.SPIELBESTAETIGUNGEN].find().sort("_id", 1).to_list(length=None)
             logged = await database[Collection.ACTION_LOG].find({"collection": str(Collection.SPIELBESTAETIGUNGEN)}).to_list(length=None)
@@ -951,7 +951,7 @@ class TestWhatStandsBesideThem:
             return image["bericht"]["submitted_by"]["schiedsrichter_id"]
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await geloescht_over_http(mongo_replica_set_url)
+            await erased_over_http(mongo_replica_set_url)
 
             reports = await database[Collection.SPIELBERICHTE].find().sort("_id").to_list(length=None)
             logged = await database[Collection.ACTION_LOG].find({"collection": str(Collection.SPIELBERICHTE)}).to_list(length=None)
@@ -969,7 +969,7 @@ class TestWhatStandsBesideThem:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             before = await what_elsewhere_holds(database)
-            await geloescht_over_http(mongo_replica_set_url)
+            await erased_over_http(mongo_replica_set_url)
 
             return before, await what_elsewhere_holds(database)
 
@@ -983,7 +983,7 @@ class TestTheLogNamesNobodyInTheirPlace:
         """Their own rows are this erasure's too: written under their pseudonym before the log's step ran, last."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await geloescht_over_http(mongo_replica_set_url)
+            await erased_over_http(mongo_replica_set_url)
 
             return await database[Collection.ACTION_LOG].find().to_list(length=None)
 
@@ -994,7 +994,7 @@ class TestTheLogNamesNobodyInTheirPlace:
             for row in rows
             if row["collection"] == str(Collection.SAISON_SPIELER) and (row["before"] or {}).get("spieler_id") == OTHER_PUPIL_OID
         ]
-        loeschungen = [row for row in rows if row["request"] is not None and row["request"]["path"] == PATH]
+        erasures = [row for row in rows if row["request"] is not None and row["request"]["path"] == PATH]
 
         assert [row["actor"] for row in as_administrator] == [{"kind": "admin_session", "email": ERASED_ACTOR_MARKER}]
         assert [row["actor"] for row in as_a_seat_holder] == [
@@ -1002,8 +1002,8 @@ class TestTheLogNamesNobodyInTheirPlace:
         ]
         # An actor-only redaction: the image is another document's and stays, unstamped.
         assert all(row["before"] is not None and row["redacted_at"] is None for row in [*as_administrator, *as_a_seat_holder])
-        assert loeschungen, "the erasure filed no row of its own, so the assertion below holds of nothing"
-        assert {row["actor"]["pseudonym"] for row in loeschungen} == {ERASED_ACTOR_MARKER}
+        assert erasures, "the erasure filed no row of its own, so the assertion below holds of nothing"
+        assert {row["actor"]["pseudonym"] for row in erasures} == {ERASED_ACTOR_MARKER}
 
 
 class TestTheSentinels:
@@ -1011,7 +1011,7 @@ class TestTheSentinels:
         """A name here is published on every erased pupil's surviving entry; a record here is counted as a consent."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await geloescht_over_http(mongo_replica_set_url)
+            await erased_over_http(mongo_replica_set_url)
 
             return await database[Collection.SPIELER].find_one({"_id": GHOST_SPIELER_ID})
 
@@ -1029,7 +1029,7 @@ class TestTheSentinelIsNobodyToLoeschen:
             await database[Collection.SPIELER].insert_one(build_ghost_spieler())
 
             async def erase(session: Any) -> Any:
-                return await loeschen_person_in_session(
+                return await erase_person_in_session(
                     spieler_collection=database[Collection.SPIELER],
                     saison_spieler_collection=database[Collection.SAISON_SPIELER],
                     spielberichte_collection=database[Collection.SPIELBERICHTE],
@@ -1065,7 +1065,7 @@ class TestOneTransaction:
             )
 
             with pytest.raises(OperationFailure) as failure:
-                await geloescht_by_the_handler(database, client)
+                await erased_by_the_handler(database, client)
 
             return (
                 failure.value.code,
@@ -1107,7 +1107,7 @@ class TestTheGrantsLeftBehind:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, "administration")
 
-            return (await geloescht_over_http(mongo_replica_set_url, headers=by_passkey(TYPED))).json()["grants"]
+            return (await erased_over_http(mongo_replica_set_url, headers=by_passkey(TYPED))).json()["grants"]
 
         with caplog.at_level(logging.WARNING):
             removed = on_a_league(mongo_replica_set_url, body)
@@ -1119,7 +1119,7 @@ class TestTheGrantsLeftBehind:
 class TestTheJournal:
     def test_one_line_per_loeschung_names_the_journal_hash_and_no_address(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            return (await geloescht_over_http(mongo_replica_set_url)).status_code
+            return (await erased_over_http(mongo_replica_set_url)).status_code
 
         with caplog.at_level(logging.INFO):
             status = on_a_league(mongo_replica_set_url, body)
@@ -1152,7 +1152,7 @@ class TestTheLastOwner:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, "owner")
             before = await everything_in(database)
-            outcome = await outcome_of(geloescht_by_the_handler(database, client))
+            outcome = await outcome_of(erased_by_the_handler(database, client))
 
             return outcome, before == await everything_in(database)
 
@@ -1172,7 +1172,7 @@ class TestTheLastOwner:
                 ban_document(OTHER_OWNER, until=compose_barred_until_saison_id(governing_saison_id=SAISON_ID))
             )
 
-            return await outcome_of(geloescht_by_the_handler(database, client))
+            return await outcome_of(erased_by_the_handler(database, client))
 
         assert on_a_league(mongo_replica_set_url, body) == Code.LAST_OWNER_ERASURE
 
@@ -1180,7 +1180,7 @@ class TestTheLastOwner:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, "owner")
             await a_grant(database, OTHER_OWNER_OID, OTHER_OWNER, "owner")
-            outcome = await outcome_of(geloescht_by_the_handler(database, client))
+            outcome = await outcome_of(erased_by_the_handler(database, client))
 
             return outcome, await database[Collection.GRANTS].find({"admin_tier": "owner"}, {"_id": 1}).to_list(length=None)
 
@@ -1195,10 +1195,10 @@ class TestTheLastOwner:
             rival: list[str] = []
 
             async def the_other_owner_loescht_themselves() -> None:
-                rival.append(await outcome_of(geloescht_by_the_handler(database, client, identifier=OTHER_OWNER)))
+                rival.append(await outcome_of(erased_by_the_handler(database, client, identifier=OTHER_OWNER)))
 
             grants = OwnersLoeschenAtOnce(database[Collection.GRANTS], the_other_owner_loescht_themselves)
-            outcome = await outcome_of(geloescht_by_the_handler(database, client, grants_collection=grants))
+            outcome = await outcome_of(erased_by_the_handler(database, client, grants_collection=grants))
 
             return grants, outcome, rival, await database[Collection.GRANTS].count_documents({"admin_tier": "owner"})
 
@@ -1217,7 +1217,7 @@ class TestTheScope:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, "administration")
-            await geloescht_in_scope(database, client, frozenset({"spieler"}))
+            await erased_in_scope(database, client, frozenset({"spieler"}))
 
             return (
                 await database[Collection.SPIELER].count_documents({"_id": PUPIL_OID}),
@@ -1308,7 +1308,7 @@ class TestEachStepWritesWhatItDeclares:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, "administration")
             recorded: dict[str, Any] = {name: WritesRecorded(handle, writes) for name, handle in erasure_collections(database).items()}
-            await geloescht_in_scope(database, client, EACH_PERSON_GROUP, **recorded)
+            await erased_in_scope(database, client, EACH_PERSON_GROUP, **recorded)
 
         on_a_league(mongo_replica_set_url, body)
 
@@ -1322,7 +1322,7 @@ class TestEachStepWritesWhatItDeclares:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             recorded: dict[str, Any] = {name: WritesRecorded(handle, writes) for name, handle in erasure_collections(database).items()}
-            await geloescht_in_scope(database, client, frozenset({"spieler"}), identifier="gwendolyn@example.com", **recorded)
+            await erased_in_scope(database, client, frozenset({"spieler"}), identifier="gwendolyn@example.com", **recorded)
 
             return await the_one(database, Collection.ADDRESS_CHANGES, {"_id": MOVING_PUPIL_CHANGE_OID})
 
@@ -1337,7 +1337,7 @@ class TestEachStepWritesWhatItDeclares:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await pending_changes(database, (THEIR_CHANGE_OID, IDENTIFIER, "neu.adresse@anderswo.org", "their-own-change", "2126-03-30"))
-            await geloescht_in_scope(database, client, frozenset({"spieler"}))
+            await erased_in_scope(database, client, frozenset({"spieler"}))
 
             return await the_one(database, Collection.ADDRESS_CHANGES, {"_id": THEIR_CHANGE_OID})
 
@@ -1414,7 +1414,7 @@ class TestAnAdmissionInsideTheLoeschung:
                 )
 
             registrations = RegistrationsAdmittedInside(database[Collection.REGISTRIERUNGEN], admission)
-            answer = await geloescht_by_the_handler(database, client, registrierungen_collection=registrations)
+            answer = await erased_by_the_handler(database, client, registrierungen_collection=registrations)
 
             return (
                 registrations,
@@ -1463,7 +1463,7 @@ class TestAPersonHoldingNoFunktion:
             else:
                 await an_admittable_registration(database)
 
-            response = await geloescht_over_http(mongo_replica_set_url)
+            response = await erased_over_http(mongo_replica_set_url)
 
             return response.status_code, await where_held(database, VORNAME)
 
@@ -1489,7 +1489,7 @@ class TestThePreview:
             async with app_client(mongo_replica_set_url, app=_app(), now=NOW) as http:
                 preview = (await http.get(f"{PATH}/view", headers=as_person(TYPED))).json()["address_change"]
 
-            answered = (await geloescht_by_the_handler(database, client)).address_change
+            answered = (await erased_by_the_handler(database, client)).address_change
             return preview, answered, (await the_one(database, Collection.ADDRESS_CHANGES, {"_id": asked_first["_id"]}))["ended"]["kind"]
 
         # The seed's two changes alone; the press still ends all three, nothing of the asked one being this address's.

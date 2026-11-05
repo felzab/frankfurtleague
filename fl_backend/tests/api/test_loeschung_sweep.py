@@ -230,7 +230,7 @@ WHOLE = 1000
 
 
 async def population(database: AsyncDatabase) -> list[Any]:
-    seite, _ = await erasure_due_page(
+    page, _ = await erasure_due_page(
         await saison_statuses(saisons_collection=database[Collection.SAISONS]),
         after=None,
         size=WHOLE,
@@ -238,7 +238,7 @@ async def population(database: AsyncDatabase) -> list[Any]:
         registrierungen_collection=database[Collection.REGISTRIERUNGEN],
     )
 
-    return [row["_id"] for row in seite]
+    return [row["_id"] for row in page]
 
 
 class WrittenAfterThePopulationRead:

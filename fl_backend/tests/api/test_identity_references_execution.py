@@ -51,12 +51,12 @@ SEAT_EXITED = "sitz.ausgetreten@schule.de"
 BEWERBUNG_OPEN = "bewerbung.offen@schule.de"
 BEWERBUNG_UNCONFIRMED = "bewerbung.unbestaetigt@schule.de"
 SPIELER_FORMER = "spieler.ehemalig@schule.de"
-WHISTLE_RETIRED = "pfeife.ruhestand@schule.de"
+SCHIEDSRICHTER_RETIRED = "pfeife.ruhestand@schule.de"
 REGISTERED = "rita.registriert@schule.de"
 ADMIN = "verena.verwaltung@schule.de"
 # Barred while the running season lasts, the one holding a referee record and the other nothing: a ban
 # keeps no account, so the record alone decides.
-BARRED_WHISTLE = "gesa.pfeife@schule.de"
+BARRED_SCHIEDSRICHTER = "gesa.pfeife@schule.de"
 BARRED = "gerda.gesperrt@schule.de"
 # Today's address rule refuses a local part beyond ASCII, so no ban can be keyed under this one, and no
 # record holds it: a ban keeping no account, it is judged as any other.
@@ -84,12 +84,12 @@ ASKED = [
     BEWERBUNG_OPEN,
     BEWERBUNG_UNCONFIRMED,
     "Spieler.Ehemalig@Schule.DE",
-    WHISTLE_RETIRED,
+    SCHIEDSRICHTER_RETIRED,
     GHOST_SCHIEDSRICHTER,
     REGISTERED,
     REGISTERED_OPEN,
     ADMIN,
-    BARRED_WHISTLE,
+    BARRED_SCHIEDSRICHTER,
     BARRED,
     OUTSIDE_THE_RULE,
     NOBODY,
@@ -171,8 +171,8 @@ async def _seed(database: AsyncDatabase, *, owner: str | None) -> None:
     )
     await database[Collection.SCHIEDSRICHTER].insert_many(
         [
-            _referee(ObjectId(), WHISTLE_RETIRED, "B. Ruhestand", inactive_since="2026-03-01"),
-            _referee(ObjectId(), BARRED_WHISTLE, "G. Pfeife"),
+            _referee(ObjectId(), SCHIEDSRICHTER_RETIRED, "B. Ruhestand", inactive_since="2026-03-01"),
+            _referee(ObjectId(), BARRED_SCHIEDSRICHTER, "G. Pfeife"),
             # The ghost, for the sentinel's reason above.
             _referee(GHOST_SCHIEDSRICHTER_ID, GHOST_SCHIEDSRICHTER, "D. Geist"),
         ]
@@ -181,7 +181,7 @@ async def _seed(database: AsyncDatabase, *, owner: str | None) -> None:
         [_registrierung(REGISTERED, confirmed=True), _registrierung(REGISTERED_OPEN, confirmed=False)]
     )
     await database[Collection.BAN_LIST].insert_many(
-        [ban_document(BARRED_WHISTLE, until=ACTIVE_SAISON), ban_document(BARRED, until=ACTIVE_SAISON)]
+        [ban_document(BARRED_SCHIEDSRICHTER, until=ACTIVE_SAISON), ban_document(BARRED, until=ACTIVE_SAISON)]
     )
     granted = datetime(2026, 1, 1, tzinfo=UTC)
     await database[Collection.GRANTS].insert_one(
@@ -238,10 +238,10 @@ class TestWhatKeepsAnAccount:
             pytest.param(BEWERBUNG_OPEN, id="a pending application's confirmed seat"),
             pytest.param(BEWERBUNG_UNCONFIRMED, id="a pending application's unconfirmed seat"),
             pytest.param("Spieler.Ehemalig@Schule.DE", id="a retired pupil, asked in capitals"),
-            pytest.param(WHISTLE_RETIRED, id="a retired referee"),
+            pytest.param(SCHIEDSRICHTER_RETIRED, id="a retired referee"),
             pytest.param(REGISTERED, id="a confirmed pending registration"),
             pytest.param(ADMIN, id="a grant the comparison has not seen"),
-            pytest.param(BARRED_WHISTLE, id="a referee record at a barred address"),
+            pytest.param(BARRED_SCHIEDSRICHTER, id="a referee record at a barred address"),
         ],
     )
     def test_an_address_a_record_or_grant_holds_is_never_answered(self, mongo_replica_set_url: str, email: str):

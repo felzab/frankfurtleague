@@ -16,7 +16,7 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.berechtigungen.loeschung import GeloeschtGrantsAndAuthorship, loeschen_grants_and_authorship_in_session
+from app.api.berechtigungen.loeschung import ErasedGrantsAndAuthorship, erase_grants_and_authorship_in_session
 from app.api.berechtigungen.schemas import FLGrantSnapshot
 from app.api.berechtigungen.services import compose_notice
 from app.api.einladungen.services import compose_einladung
@@ -231,9 +231,9 @@ def on_a_league(url: str, body: Body) -> Any:
 
 async def erase(
     database: AsyncDatabase, client: AsyncMongoClient, *, changed_by: str = DORA, identifier: str = ERIKA
-) -> GeloeschtGrantsAndAuthorship:
-    async def step(session: AsyncClientSession) -> GeloeschtGrantsAndAuthorship:
-        return await loeschen_grants_and_authorship_in_session(
+) -> ErasedGrantsAndAuthorship:
+    async def step(session: AsyncClientSession) -> ErasedGrantsAndAuthorship:
+        return await erase_grants_and_authorship_in_session(
             grants_collection=database[Collection.GRANTS],
             grants_announced_collection=database[Collection.GRANTS_ANNOUNCED],
             outbox_collection=database[Collection.OUTBOX],
@@ -279,7 +279,7 @@ async def queued_for(database: AsyncDatabase, grant_id: ObjectId) -> list[Mappin
 
 class TestHerGrantsGo:
     def test_every_grant_her_address_holds_goes_her_owner_grant_and_a_dead_spelling_included(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[GeloeschtGrantsAndAuthorship, set[ObjectId], set[ObjectId]]:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[ErasedGrantsAndAuthorship, set[ObjectId], set[ObjectId]]:
             result = await erase(database, client)
 
             return result, await ids_in(database, Collection.GRANTS), await ids_in(database, Collection.GRANTS_ANNOUNCED)

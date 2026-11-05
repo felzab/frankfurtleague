@@ -30,7 +30,7 @@ from app.api.berechtigungen.admin_router import (
     post_grant,
 )
 from app.api.berechtigungen.crud import owe_in_session
-from app.api.berechtigungen.loeschung import loeschen_grants_and_authorship_in_session
+from app.api.berechtigungen.loeschung import erase_grants_and_authorship_in_session
 from app.api.berechtigungen.schemas import (
     FLGrantSnapshot,
     FLPatchGrantPayload,
@@ -1222,7 +1222,7 @@ class TestTheComparison:
             await grant(database, client, als=BERND)
 
             async def step(session: AsyncClientSession) -> Any:
-                return await loeschen_grants_and_authorship_in_session(
+                return await erase_grants_and_authorship_in_session(
                     grants_collection=database[Collection.GRANTS],
                     grants_announced_collection=database[Collection.GRANTS_ANNOUNCED],
                     outbox_collection=database[Collection.OUTBOX],

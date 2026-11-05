@@ -22,7 +22,7 @@ from app.api.bewerbungen.schemas import FLBewerbungEinwilligungDeclined
 from app.api.bewerbungen.system_router import sweep_saison
 from app.api.identity.journal_replay import Read, Window, replay_line
 from app.api.identity.services import build_erasure_seat_pipeline
-from app.api.kontakte.crud import loeschen_kontaktperson_in_session
+from app.api.kontakte.crud import erase_kontaktperson_in_session
 from app.api.spielbestaetigungen.public_router import get_spielbestaetigung_view
 from app.api.teams.admin_router import patch_saison_team_kontakte, replace_saison_team
 from app.api.teams.schemas import FLPatchSaisonTeamKontaktePayload, FLReplaceSaisonTeamPayload, kontakte_stand_of
@@ -283,7 +283,7 @@ async def replace_the_club(database: AsyncDatabase, client: AsyncMongoClient) ->
     )
 
 
-async def loeschen_the_trainer(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+async def erase_the_trainer(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
     """The erasure registry's seat member, given the rows the person erasure reads for it."""
 
     identifier = "ida@example.com"
@@ -292,7 +292,7 @@ async def loeschen_the_trainer(database: AsyncDatabase, client: AsyncMongoClient
         rows = await aggregate_many_from_db(
             collection=database[Collection.SAISON_TEAMS], pipeline=build_erasure_seat_pipeline(identifier), session=session
         )
-        return await loeschen_kontaktperson_in_session(
+        return await erase_kontaktperson_in_session(
             saison_teams_collection=database[Collection.SAISON_TEAMS],
             bewerbungen_collection=database[Collection.BEWERBUNGEN],
             action_log_collection=database[Collection.ACTION_LOG],
@@ -384,7 +384,7 @@ class TestEverySeatWriteVoidsItsLinks:
             pytest.param(hand_the_trainer_on, {"trainer"}, "active", ALL, id="the contacts save handing a seat on"),
             pytest.param(empty_the_trainer, {"trainer"}, "active", ALL, id="the contacts save emptying a seat"),
             pytest.param(replace_the_club, ALL, "active", ALL, id="the club's replacement"),
-            pytest.param(loeschen_the_trainer, {"trainer"}, "active", ALL, id="the person erasure's seat member"),
+            pytest.param(erase_the_trainer, {"trainer"}, "active", ALL, id="the person erasure's seat member"),
             # The season's end strips every team row of the season, a club whose block was empty already included.
             pytest.param(clear_the_blocks, ALL, "past", set(), id="the sweep clearing a past season's blocks"),
             pytest.param(contradict, {"trainer"}, "active", ALL, id="the Widerspruch on the season row"),
@@ -489,7 +489,7 @@ class TestALeavingContactsReasonsGo:
     @pytest.mark.parametrize(
         "write",
         [
-            pytest.param(loeschen_the_trainer, id="their erasure"),
+            pytest.param(erase_the_trainer, id="their erasure"),
             pytest.param(contradict, id="their Widerspruch on the season row"),
             pytest.param(replay_the_widerspruch, id="the replay of that Widerspruch"),
         ],
@@ -555,7 +555,7 @@ class TestALeavingPersonsLinksLeaveTheLog:
     @pytest.mark.parametrize(
         ("write", "gone"),
         [
-            pytest.param(loeschen_the_trainer, {"trainer"}, id="their erasure"),
+            pytest.param(erase_the_trainer, {"trainer"}, id="their erasure"),
             pytest.param(contradict, {"trainer"}, id="their Widerspruch"),
             pytest.param(replay_the_widerspruch, {"trainer"}, id="the replay of their Widerspruch"),
             # A seat handed on is no leaving of a person: the season row's own images keep the predecessor too.

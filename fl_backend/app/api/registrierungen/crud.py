@@ -111,7 +111,7 @@ async def nummern_rows(
     )
 
 
-async def loeschen_registrierungen_in_session(
+async def erase_registrierungen_in_session(
     *,
     registrierungen_collection: AsyncCollection,
     action_log_collection: AsyncCollection,

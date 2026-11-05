@@ -135,7 +135,7 @@ async def get_einwilligungen(
 # is: the change crosses every Funktion the address holds.
 
 
-def _open(record: Mapping[str, Any], *, now: datetime) -> FLAccountAddressChangeOpen:
+def _pending_addresses(record: Mapping[str, Any], *, now: datetime) -> FLAccountAddressChangeOpen:
     approval = record.get("approval")
     approval_state = None
     if isinstance(approval, Mapping):
@@ -167,7 +167,7 @@ async def _address_change_answer(
 ) -> FLAccountAddressChangeResponse:
     record = await address_changes_collection.find_one(build_address_filter(identifier), session=session)
 
-    return FLAccountAddressChangeResponse(open=None if record is None else _open(record, now=now))
+    return FLAccountAddressChangeResponse(open=None if record is None else _pending_addresses(record, now=now))
 
 
 @router.get("/address_change", response_model=FLAccountAddressChangeResponse, summary="The address change pending on a signed-in person")

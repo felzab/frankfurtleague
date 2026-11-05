@@ -411,10 +411,10 @@ def find_unknown_refusal(*, found: bool) -> WriteRefusal | None:
     return WriteRefusal(error_code=Code.LINK_INVALID, status=HTTPStatus.NOT_FOUND)
 
 
-def find_ended_refusal(*, open: bool) -> WriteRefusal | None:
+def find_ended_refusal(*, is_open: bool) -> WriteRefusal | None:
     """`address_change_ended`: the change this link or id names has ended, or this link was answered already."""
 
-    if open:
+    if is_open:
         return None
 
     return WriteRefusal(
@@ -527,10 +527,10 @@ def find_no_approver_refusal(*, approver: int) -> WriteRefusal | None:
     )
 
 
-def find_no_approval_open_refusal(*, open: bool) -> WriteRefusal | None:
+def find_no_approval_open_refusal(*, is_open: bool) -> WriteRefusal | None:
     """`address_change_no_approval_open`: the change asks no approval, or was given it already."""
 
-    if open:
+    if is_open:
         return None
 
     return WriteRefusal(

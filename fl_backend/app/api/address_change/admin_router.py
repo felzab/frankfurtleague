@@ -139,12 +139,12 @@ async def _pull_the_change(
     record = await address_changes_collection.find_one({"_id": address_change_id}, session=session)
     if record is None:
         raise DocumentNotFoundError()
-    refuse(find_ended_refusal(open=record.get("ended") is None))
+    refuse(find_ended_refusal(is_open=record.get("ended") is None))
 
     return record
 
 
-def _open(record: Mapping[str, Any], *, delivery: FLOutboxStatus | None, now: datetime) -> FLAddressChangeAdminOpen:
+def _pending_addresses(record: Mapping[str, Any], *, delivery: FLOutboxStatus | None, now: datetime) -> FLAddressChangeAdminOpen:
     approval = record.get("approval")
 
     return FLAddressChangeAdminOpen(
@@ -204,7 +204,7 @@ async def get_address_change_admin_view(
     kept, and `address_change_ended` where it ended.
     """
 
-    actor = sign_in_identifier(operator)
+    actor_identifier = sign_in_identifier(operator)
 
     # Every read in the request's snapshot session, so the tool names the records of one moment; never a transaction, a
     # read writing nothing having no conflict to retry for.
@@ -214,7 +214,7 @@ async def get_address_change_admin_view(
         identifier = sign_in_identifier(str(view_data.address))
     await _refuse_the_address(
         identifier,
-        actor=actor,
+        actor=actor_identifier,
         auth_time=auth_time,
         grants_collection=grants_collection,
         grants_announced_collection=grants_announced_collection,
@@ -230,7 +230,7 @@ async def get_address_change_admin_view(
         address=identifier,
         holdings=_holdings(holdings),
         possible=not holdings.empty,
-        open=None if open is None else _open(open, delivery=delivery, now=germany_now),
+        open=None if open is None else _pending_addresses(open, delivery=delivery, now=germany_now),
     )
 
 
@@ -299,7 +299,7 @@ async def post_address_change_admin(
     """
 
     identifier, email, grund = sign_in_identifier(str(address_change_data.address)), str(address_change_data.email), address_change_data.grund
-    actor = sign_in_identifier(operator)
+    actor_identifier = sign_in_identifier(operator)
     way: FLAddressChangeWay = "waiting_period"
     hashed = ban_list.hash_of(email)
     # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_barred`).
@@ -310,7 +310,7 @@ async def post_address_change_admin(
     async def judge_and_start_the_change(session: AsyncClientSession) -> FLAddressChangeAdminMintResponse:
         grants, announced = await _refuse_the_address(
             identifier,
-            actor=actor,
+            actor=actor_identifier,
             auth_time=auth_time,
             grants_collection=grants_collection,
             grants_announced_collection=grants_announced_collection,
@@ -343,7 +343,7 @@ async def post_address_change_admin(
         )
         if holdings.grant is not None:
             await _refuse_without_approver(
-                holdings, actor=actor, grants=grants, announced=announced, ban_list=ban_list, now=germany_now, session=session
+                holdings, actor=actor_identifier, grants=grants, announced=announced, ban_list=ban_list, now=germany_now, session=session
             )
 
         record = compose_record(
@@ -353,7 +353,7 @@ async def post_address_change_admin(
             grund=grund,
             approval=None
             if holdings.grant is None
-            else compose_approval(admin_tier=str(holdings.grant["admin_tier"]), started_by=actor, now=germany_now),
+            else compose_approval(admin_tier=str(holdings.grant["admin_tier"]), started_by=actor_identifier, now=germany_now),
             now=germany_now,
         )
         address_change_id = await start_the_change_in_session(
@@ -432,7 +432,7 @@ async def invite_address_change(
     file's confirmation, or confirmed, has no link to re-send.
     """
 
-    actor = sign_in_identifier(operator)
+    actor_identifier = sign_in_identifier(operator)
     # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_barred`).
     governing_saison_id = await ban_list_saison(ban_list)
 
@@ -441,7 +441,7 @@ async def invite_address_change(
         identifier = str(record["address"])
         await _refuse_the_address(
             identifier,
-            actor=actor,
+            actor=actor_identifier,
             auth_time=auth_time,
             grants_collection=grants_collection,
             grants_announced_collection=grants_announced_collection,
@@ -535,7 +535,7 @@ async def delete_address_change(
     (`address_change_ended`); 404 for an id naming no change.
     """
 
-    actor = sign_in_identifier(operator)
+    actor_identifier = sign_in_identifier(operator)
     stamp = log_stamp(germany_now)
     journal = Journal()
 
@@ -544,7 +544,7 @@ async def delete_address_change(
         record = await _pull_the_change(address_changes_collection, address_change_id, session=session)
         await _refuse_the_address(
             str(record["address"]),
-            actor=actor,
+            actor=actor_identifier,
             auth_time=auth_time,
             grants_collection=grants_collection,
             grants_announced_collection=grants_announced_collection,
@@ -626,7 +626,7 @@ async def post_address_change_approval(
     id naming no change. A sign-in or confirmation older than `ENROLMENT_WINDOW_MINUTES` is refused `confirmation_required`, as a grant's is.
     """
 
-    actor = sign_in_identifier(operator)
+    actor_identifier = sign_in_identifier(operator)
     # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_barred`).
     governing_saison_id = await ban_list_saison(ban_list)
     journal = Journal()
@@ -634,13 +634,13 @@ async def post_address_change_approval(
     @journal.attempted
     async def approve_the_change(session: AsyncClientSession) -> FLAddressChangeApprovalResponse | None:
         record = await _pull_the_change(address_changes_collection, address_change_id, session=session)
-        refuse(find_no_approval_open_refusal(open=approval_open(record)))
+        refuse(find_no_approval_open_refusal(is_open=approval_open(record)))
         refuse(find_expired_refusal(expired=is_expired(record, now=germany_now)))
         grants = await read_berechtigungen(grants_collection=grants_collection, session=session)
         announced = await read_the_announced(grants_announced_collection=grants_announced_collection, session=session)
-        owner = holds_an_owners_power(actor=actor, auth_time=auth_time, grants=grants, announced=announced)
+        owner = holds_an_owners_power(actor=actor_identifier, auth_time=auth_time, grants=grants, announced=announced)
         denied = approval_denied(
-            target=record["address"], approval=record["approval"], actor=actor, owner=owner, grants=grants, announced=announced
+            target=record["address"], approval=record["approval"], actor=actor_identifier, owner=owner, grants=grants, announced=announced
         )
         refuse(find_approval_denied_refusal(denied=denied))
 
@@ -648,7 +648,7 @@ async def post_address_change_approval(
         approved = await patch_one_in_db(
             collection=address_changes_collection,
             db_filter=build_live_filter(address_change_id, {"approval.approved_at": None}),
-            update=compose_approved_update(actor=actor, now=germany_now),
+            update=compose_approved_update(actor=actor_identifier, now=germany_now),
             session=session,
             return_document=ReturnDocument.AFTER,
         )

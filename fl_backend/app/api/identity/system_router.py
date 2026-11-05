@@ -294,21 +294,21 @@ async def sweep_erasure(
 
     statuses = await saison_statuses(saisons_collection=saisons_collection)
     # One past the share, so a call ending exactly at the share's last pupil can tell whether any follow.
-    seite, count = await erasure_due_page(
+    page, count = await erasure_due_page(
         statuses,
         after=params.after,
         size=ERASURES_PER_PASS + 1,
         spieler_collection=spieler_collection,
         registrierungen_collection=registrierungen_collection,
     )
-    share = seite[:ERASURES_PER_PASS]
+    share = page[:ERASURES_PER_PASS]
     # One instant for every redaction this call makes, as one erasure's steps share one.
     stamp = log_stamp(germany_now)
 
     spieler, saison_spieler, registrierungen = 0, 0, 0
     erased_count, skipped, failed = 0, 0, 0
     reached: Any = None
-    abgebrochen = False
+    broke_off = False
     for row in share:
         reached = row["_id"]
 
@@ -357,7 +357,7 @@ async def sweep_erasure(
                         "erasure_unanswered": uncertain,
                     },
                 )
-                abgebrochen = True
+                broke_off = True
                 break
 
             # The id and what locates the failure, never a value: a line naming the pupil would outlive the erasure it reports.
@@ -387,5 +387,5 @@ async def sweep_erasure(
         skipped=skipped,
         failed=failed,
         remaining=count - erased_count - skipped,
-        after=reached if abgebrochen or len(seite) > ERASURES_PER_PASS else None,
+        after=reached if broke_off or len(page) > ERASURES_PER_PASS else None,
     )

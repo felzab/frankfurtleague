@@ -57,10 +57,10 @@ ALSO = "zugleich.sitz@schule.de"
 ONLY_OPEN = "nur.offen@schule.de"
 MIXED = "gemischt@schule.de"
 FORMER = "ehemalig@schule.de"
-RETIREMENT_WHISTLE = "ruhestand.pfeife@schule.de"
+RETIREMENT_SCHIEDSRICHTER = "ruhestand.pfeife@schule.de"
 RETIREMENT_OPEN = "ruhestand.offen@schule.de"
-WHISTLE_WITHOUT_RECORD = "pfeife.ohne@schule.de"
-WHISTLE_NULL_RECORD = "pfeife.null@schule.de"
+SCHIEDSRICHTER_WITHOUT_RECORD = "pfeife.ohne@schule.de"
+SCHIEDSRICHTER_NULL_RECORD = "pfeife.null@schule.de"
 GHOST = "geist@schule.de"
 NOBODY = "niemand.hierverzeichnet@example.com"
 # A confirmed seat on a `past` season beside an unconfirmed one on the `active` season, and an
@@ -222,10 +222,10 @@ async def _seed(database: AsyncDatabase) -> None:
             _schiedsrichter(SCHIEDSRICHTER_UNCONFIRMED_OID, ONLY_OPEN, "A. Offen", einwilligung=None),
             _schiedsrichter(SCHIEDSRICHTER_MIXED_OID, MIXED, "B. Gemischt", einwilligung=CONFIRMED),
             _schiedsrichter(
-                SCHIEDSRICHTER_RETIREMENT_OID, RETIREMENT_WHISTLE, "C. Ruhestand", einwilligung=CONFIRMED, inactive_since="2026-03-01"
+                SCHIEDSRICHTER_RETIREMENT_OID, RETIREMENT_SCHIEDSRICHTER, "C. Ruhestand", einwilligung=CONFIRMED, inactive_since="2026-03-01"
             ),
-            _schiedsrichter(SCHIEDSRICHTER_WITHOUT_RECORD_OID, WHISTLE_WITHOUT_RECORD, "D. Ohne"),
-            _schiedsrichter(SCHIEDSRICHTER_NULL_RECORD_OID, WHISTLE_NULL_RECORD, "E. Null", einwilligung=None),
+            _schiedsrichter(SCHIEDSRICHTER_WITHOUT_RECORD_OID, SCHIEDSRICHTER_WITHOUT_RECORD, "D. Ohne"),
+            _schiedsrichter(SCHIEDSRICHTER_NULL_RECORD_OID, SCHIEDSRICHTER_NULL_RECORD, "E. Null", einwilligung=None),
             _schiedsrichter(
                 SCHIEDSRICHTER_RETIREMENT_OPEN_OID, RETIREMENT_OPEN, "F. Ruhestand-Offen", einwilligung=None, inactive_since="2026-03-01"
             ),
@@ -309,7 +309,7 @@ class TestTheConfirmationNarrowing:
 
         assert [seat.rolle for seat in answered(seeded_league, ALSO).seats] == ["trainer"]
 
-    @pytest.mark.parametrize("email", [WHISTLE_WITHOUT_RECORD, WHISTLE_NULL_RECORD], ids=["no record", "null record"])
+    @pytest.mark.parametrize("email", [SCHIEDSRICHTER_WITHOUT_RECORD, SCHIEDSRICHTER_NULL_RECORD], ids=["no record", "null record"])
     def test_an_unconfirmed_referee_grants_nothing(self, seeded_league: str, email: str):
         """The shapes a referee row holds before its person answers, each read as unconfirmed rather than raising."""
 
@@ -398,7 +398,7 @@ class TestTheRetirementNarrowing:
     def test_a_retired_referee_grants_nothing(self, seeded_league: str):
         """Confirmed, so only the retirement keeps it out."""
 
-        answer = answered(seeded_league, RETIREMENT_WHISTLE)
+        answer = answered(seeded_league, RETIREMENT_SCHIEDSRICHTER)
 
         assert is_empty(answer)
         assert answer.unconfirmed is False

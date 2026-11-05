@@ -311,7 +311,7 @@ async def post_address_change_answer(
                 session=session,
             )
 
-        refuse(find_ended_refusal(open=record.get("ended") is None and record.get("confirmed_at") is None))
+        refuse(find_ended_refusal(is_open=record.get("ended") is None and record.get("confirmed_at") is None))
         db_filter = {"_id": record["_id"], **build_open_link_terms(token_hash)}
 
         if answer_data.answer == "declined":
@@ -388,7 +388,7 @@ async def post_address_change_answer(
             answered = await session.with_transaction(answer_the_link)
 
     # After the commit, the discard standing: the link now answers how the change ended.
-    refuse(find_ended_refusal(open=answered is not None))
+    refuse(find_ended_refusal(is_open=answered is not None))
     assert answered is not None
 
     return answered
@@ -412,7 +412,7 @@ async def _answer_for_the_address_on_file(
 
     # A link of another way's notice offers its stop alone, so it answers no confirmation.
     refuse(find_unknown_refusal(found=record["way"] == "account"))
-    refuse(find_ended_refusal(open=record.get("ended") is None and record.get("released_at") is None))
+    refuse(find_ended_refusal(is_open=record.get("ended") is None and record.get("released_at") is None))
     db_filter = {"_id": record["_id"], **build_previous_link_terms(stop_hash)}
 
     if answer == "declined":
@@ -492,7 +492,7 @@ async def post_address_change_stop(
         )
         refuse(find_unknown_refusal(found=record is not None))
         assert record is not None
-        refuse(find_ended_refusal(open=record.get("ended") is None))
+        refuse(find_ended_refusal(is_open=record.get("ended") is None))
         refuse(find_unknown_refusal(found=not asks_the_address_on_file(record)))
 
         await end_the_change_in_session(

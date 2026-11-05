@@ -59,7 +59,7 @@ from app.api.outbox.schemas import (
     FLOutboxStatus,
 )
 from app.api.outbox.services import SIGN_IN_KINDS, OwedMail, enqueue_mails
-from app.api.registrierungen.services import build_loeschung_registrierung_filter, registrierung_ist_bestaetigt
+from app.api.registrierungen.services import build_erasure_registrierung_filter, registrierung_ist_bestaetigt
 from app.api.schiedsrichter.services import build_self_referee_filter, vorname_of
 from app.api.sperrliste.lookup import BanList, Saison, barred_addresses
 from app.api.spielbestaetigungen.services import (
@@ -166,7 +166,7 @@ async def read_the_holdings(
     registrierungen = await aggregate_many_from_db(
         collection=records.registrierungen_collection,
         pipeline=[
-            {"$match": build_loeschung_registrierung_filter(identifier)},
+            {"$match": build_erasure_registrierung_filter(identifier)},
             {"$project": dict(_REGISTRIERUNG_FIELDS)},
             {"$sort": {"_id": 1}},
         ],
@@ -206,7 +206,7 @@ async def address_taken(email: str, *, records: RecordCollections, occupancy: Oc
         (records.schiedsrichter_collection, build_self_referee_filter(folded)),
         (records.saison_teams_collection, rows_seating(folded)),
         (records.bewerbungen_collection, rows_seating(folded)),
-        (records.registrierungen_collection, build_loeschung_registrierung_filter(folded)),
+        (records.registrierungen_collection, build_erasure_registrierung_filter(folded)),
         # As stored, as the account sweep reads it: a row the comparison has not seen yet still keeps an account.
         (occupancy.grants_collection, {"address": folded}),
         (occupancy.grant_approval_requests_collection, {"address": folded, **build_open_filter(occupancy.now)}),
