@@ -253,7 +253,7 @@ class TestWhoMayNotApprove:
     def test_four_eyes_the_owner_s_tier_and_a_grant_older_than_the_request(
         self, approval: dict[str, Any], actor: str, owner: bool, denied: str | None
     ):
-        assert genehmigung_verwehrt(betroffen=CHANGED, approval=approval, actor=actor, owner=owner, grants=GRANTS, announced=[]) == denied
+        assert genehmigung_verwehrt(target=CHANGED, approval=approval, actor=actor, owner=owner, grants=GRANTS, announced=[]) == denied
 
 
 class TestWhetherAnApprovalStillStands:
@@ -294,4 +294,4 @@ class TestWhetherAnApprovalStillStands:
     def test_it_stands_only_while_its_approver_may_approve_it(
         self, approval: dict[str, Any], grants: list[dict[str, Any]], barred: set[str], stands: bool
     ):
-        assert genehmigung_steht(betroffen=CHANGED, approval=approval, grants=grants, announced=[], barred=barred) is stands
+        assert genehmigung_steht(target=CHANGED, approval=approval, grants=grants, announced=[], barred=barred) is stands

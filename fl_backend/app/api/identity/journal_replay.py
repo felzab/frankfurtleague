@@ -477,7 +477,7 @@ async def _plan_address_change_effective(
         # Judged as the effect judges it: an approver revoked or demoted in the restored database approves nothing. Never
         # barred there: a ban the snapshot holds predates the approval, which the actor check would then have refused.
         or not genehmigung_steht(
-            betroffen=record["adresse"],
+            target=record["adresse"],
             approval=approval,
             grants=await read_berechtigungen(grants_collection=database[Collection.GRANTS], session=session),
             announced=await read_the_announced(grants_announced_collection=database[Collection.GRANTS_ANNOUNCED], session=session),

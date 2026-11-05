@@ -178,11 +178,11 @@ class Code(StrEnum):
     KONTAKT_SAISON_PAST = auto()
     # 403 and not 409, `grant_only_owner`'s precedent: the refusal is about who asks. An administrator's
     # own records go through their account page, or through an owner (`admin_address`).
-    OWN_ADRESSE = auto()
+    OWN_ADDRESS = auto()
     # Refused rather than warned of: with no owner left nobody may make one or change a tier again, and only
     # a database paste could hand the administration on.
     LAST_OWNER_ERASURE = auto()
-    # 403 for who asks, as `own_adresse`: without it an administrator ends another's grant, which a revoke
+    # 403 for who asks, as `own_address`: without it an administrator ends another's grant, which a revoke
     # reserves to an owner (`grant_only_owner`).
     ADMIN_ADDRESS = auto()
     # 403 for who asks, as `admin_address`: an erasure ends every change naming its address, and ending a grant

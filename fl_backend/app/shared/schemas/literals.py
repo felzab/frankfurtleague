@@ -128,8 +128,8 @@ type FLApprovalDenied = Literal["own", "started", "owner", "younger"]
 type FLAddressChangeWay = Literal["account", "waiting_period"]
 
 # Why the address tool refuses this reader an address's change, served beside every id a page links into
-# it: `own` their own address, `admin_tier` a grant holder's without an owner's power.
-type FLAddressChangeViewableDenied = Literal["own", "admin_tier"]
+# it: `own_address` their own address, `admin_address` a grant holder's without an owner's power.
+type FLAddressChangeViewableDenied = Literal["own_address", "admin_address"]
 
 # What the change waits on: the address on file's confirmation of the person's own change through the link it was
 # mailed, the new mailbox's link, another administrator's approval of a grant's move once the new mailbox confirmed,

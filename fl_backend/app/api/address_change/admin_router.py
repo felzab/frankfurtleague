@@ -116,7 +116,7 @@ async def _refuse_the_address(
 ) -> tuple[list[Mapping[str, Any]], list[Mapping[str, Any]]]:
     """The erasure tool's two refusals about who asks, judged on the grants read here, which the caller reuses.
 
-    The administrator's own address (`own_adresse`), and a grant holder's unless they hold an owner's power (`admin_address`).
+    The administrator's own address (`own_address`), and a grant holder's unless they hold an owner's power (`admin_address`).
     """
 
     refuse(find_own_address_refusal(identifier=identifier, actor=actor))
@@ -199,7 +199,7 @@ async def get_address_change_admin_view(
     ADMIN TIER, the address tool's read, keyed by the address the administrator types or by a change a page links to;
     never a hash. `possible` where the address holds anything a change moves, a grant included. Stores nothing.
 
-    Refused as the erasure's reveal is: the administrator's own address (`own_adresse`), and an address holding a live
+    Refused as the erasure's reveal is: the administrator's own address (`own_address`), and an address holding a live
     grant unless the administrator holds an owner's power (`admin_address`). A change id answers 404 where no change is
     kept, and `address_change_ended` where it ended.
     """
@@ -291,7 +291,7 @@ async def post_address_change_admin(
     waits on another administrator's approval, never this one's. No link is answered. The address's live change ends
     replaced.
 
-    Refused the administrator's own address (`own_adresse`), a grant holder's without an owner's power
+    Refused the administrator's own address (`own_address`), a grant holder's without an owner's power
     (`admin_address`), the address on file typed again (`address_change_unchanged`), a new address the ban list holds
     (`address_change_barred`), an address holding nothing a change moves (`address_change_nothing`), a new address another pupil signs in on
     where the change moves a pupil (`address_change_taken`), a new address any entry names, confirmed or not (`address_change_occupied`), and a
@@ -425,7 +425,7 @@ async def invite_address_change(
     next hourly pass ends it. Acts on the change the id names alone, so a page showing a change since replaced re-sends
     nothing.
 
-    Refused as the start is about who asks (`own_adresse`, `admin_address`), where the ban list holds the pending address
+    Refused as the start is about who asks (`own_address`, `admin_address`), where the ban list holds the pending address
     (`address_change_barred`), where another pupil has come to sign in on it (`address_change_taken`), where an entry has come to name it,
     confirmed or not (`address_change_occupied`), where a grant's approval week has passed (`link_expired`), and where the change ended
     (`address_change_ended`). 404 for an id naming no change, and unless the change waits on the new mailbox: one awaiting the address on
@@ -531,7 +531,7 @@ async def delete_address_change(
     bring back a change confirmed in its waiting time to take effect. Nothing is mailed. Acts on the change the id names
     alone, so a page showing a change since replaced discards nothing.
 
-    Refused as the start is about who asks (`own_adresse`, `admin_address`), and where the change ended
+    Refused as the start is about who asks (`own_address`, `admin_address`), and where the change ended
     (`address_change_ended`); 404 for an id naming no change.
     """
 
@@ -640,7 +640,7 @@ async def post_address_change_approval(
         announced = await read_the_announced(grants_announced_collection=grants_announced_collection, session=session)
         owner = holds_an_owners_power(actor=actor, auth_time=auth_time, grants=grants, announced=announced)
         denied = genehmigung_verwehrt(
-            betroffen=record["adresse"], approval=record["approval"], actor=actor, owner=owner, grants=grants, announced=announced
+            target=record["adresse"], approval=record["approval"], actor=actor, owner=owner, grants=grants, announced=announced
         )
         refuse(find_approval_denied_refusal(denied=denied))
 

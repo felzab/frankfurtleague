@@ -5,7 +5,7 @@ from app.api.berechtigungen.schemas import FLUtcInstant
 from app.api.schiedsrichter.schemas import FLSchiedsrichterSelfPerson
 from app.api.spieler.schemas import FLSpielerSelfPerson
 from app.shared.schemas.custom import CustomObjectId, CustomOptionalDateString
-from app.shared.schemas.einwilligung import FLEinwilligungStand
+from app.shared.schemas.einwilligung import FLEinwilligungState
 from app.shared.schemas.kontakt import CustomEmail
 from app.shared.schemas.literals import (
     FLAddressChangeWaitsOn,
@@ -34,7 +34,7 @@ class FLAccountSpielerEinwilligung(FLSpielerSelfPerson):
     # Required: only a confirmed record is served, so the block is always there.
     einwilligung: FLAccountEinwilligung
     # What the consent PATCH echoes back, computed by the function its precondition compares with.
-    evidence_state: FLEinwilligungStand
+    evidence_state: FLEinwilligungState
     # Served rather than derived on the page, which would judge a grant with a second copy of the rule.
     givable: bool
     media_offered: bool
@@ -46,7 +46,7 @@ class FLAccountSchiedsrichterEinwilligung(FLSchiedsrichterSelfPerson):
     """One referee record on the account page: the stored data its box shows and the consent the page moves."""
 
     einwilligung: FLAccountEinwilligung
-    evidence_state: FLEinwilligungStand
+    evidence_state: FLEinwilligungState
     givable: bool
     media_offered: bool
     media_minimum_age: int = Field(gt=0)
@@ -68,7 +68,7 @@ class FLAccountSeatEinwilligung(BaseModel):
     umfang: FLKontaktKenntnisnahmeUmfang
     media: bool
     # Over every held slot, for `FLAccountSpielerEinwilligung.evidence_state`'s reason.
-    evidence_state: FLEinwilligungStand
+    evidence_state: FLEinwilligungState
     media_offered: bool
     givable: bool
     # One per entry: the control's own words name the media floor every held seat shares.
@@ -90,7 +90,7 @@ class FLAccountBewerbungSeatEinwilligung(BaseModel):
     # For `FLAccountSeatEinwilligung`'s reasons.
     umfang: FLKontaktKenntnisnahmeUmfang
     media: bool
-    evidence_state: FLEinwilligungStand
+    evidence_state: FLEinwilligungState
 
 
 class FLAccountRegistrierungEinwilligung(BaseModel):
@@ -104,7 +104,7 @@ class FLAccountRegistrierungEinwilligung(BaseModel):
     # and offers no consent control, the person's own record holding their choices.
     umfang: FLEinwilligungUmfang | None
     media: bool | None
-    evidence_state: FLEinwilligungStand
+    evidence_state: FLEinwilligungState
     # As the registration stores them: the facts the account page's box names its pupil by.
     vorname: str
     nachname: str

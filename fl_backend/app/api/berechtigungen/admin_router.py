@@ -204,7 +204,7 @@ def _adresswechsel_zeile(
     barred: Set[str],
 ) -> FLGrantAddressChange:
     approval, way = record["approval"], record["way"]
-    denied = genehmigung_verwehrt(betroffen=record["adresse"], approval=approval, actor=actor, owner=owner, grants=grants, announced=announced)
+    denied = genehmigung_verwehrt(target=record["adresse"], approval=approval, actor=actor, owner=owner, grants=grants, announced=announced)
     # `admin_address`'s reach: the tool refuses a non-owner an owner's address, so this row tells them no more of it.
     withheld = denied == "owner"
     email = str(record["email"])
@@ -249,7 +249,7 @@ def _antrag_zeile(
         asked_at=approval["asked_at"],
         until=approval["until"],
         stands=antrag_steht(approval_request, grants=grants, announced=announced, barred=barred),
-        denied=genehmigung_verwehrt(betroffen=adresse, approval=approval, actor=actor, owner=owner, grants=grants, announced=announced),
+        denied=genehmigung_verwehrt(target=adresse, approval=approval, actor=actor, owner=owner, grants=grants, announced=announced),
     )
 
 
@@ -746,7 +746,7 @@ async def post_approval_request_approval(
         refuse(
             find_approval_denied_refusal(
                 denied=genehmigung_verwehrt(
-                    betroffen=adresse, approval=approval_request["approval"], actor=actor, owner=owner, grants=grants, announced=records
+                    target=adresse, approval=approval_request["approval"], actor=actor, owner=owner, grants=grants, announced=records
                 )
             )
         )
@@ -851,7 +851,7 @@ async def delete_approval_request(
         grants = await read_berechtigungen(grants_collection=grants_collection, session=session)
         records = await read_the_announced(grants_announced_collection=grants_announced_collection, session=session)
         denied = genehmigung_verwehrt(
-            betroffen=approval_request["adresse"],
+            target=approval_request["adresse"],
             approval=approval_request["approval"],
             actor=actor,
             owner=holds_an_owners_power(actor=actor, auth_time=auth_time, grants=grants, announced=records),

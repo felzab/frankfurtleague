@@ -113,7 +113,7 @@ export const Code = {
   kontakt_seat_barred: "kontakt_seat_barred",
   kontakt_row_without_saison: "kontakt_row_without_saison",
   kontakt_saison_past: "kontakt_saison_past",
-  own_adresse: "own_adresse",
+  own_address: "own_address",
   last_owner_erasure: "last_owner_erasure",
   admin_address: "admin_address",
   foreign_address_change: "foreign_address_change",
@@ -326,11 +326,11 @@ export interface FLAccountAddressChangeResponse {
 }
 
 /**
- * Each choice's stand where the account page was served, null where the record carried no evidence for it.
+ * Each choice's state where the account page was served, null where the record carried no evidence for it.
  *
  * A consent PATCH's precondition, echoed back as served, never a secret.
  */
-export interface FLEinwilligungStand {
+export interface FLEinwilligungState {
   media: string | null;
   umfang: string | null;
 }
@@ -358,7 +358,7 @@ export const FLKontaktKenntnisnahmeUmfang = {
 export interface FLAccountBewerbungSeatEinwilligung {
   /** @pattern ^[0-9a-fA-F]{24}$ */
   bewerbung_id: string;
-  evidence_state: FLEinwilligungStand;
+  evidence_state: FLEinwilligungState;
   media: boolean;
   /** @minItems 1 */
   rollen: FLKontaktRolle[];
@@ -385,7 +385,7 @@ export interface FLAccountEinwilligung {
   umfang: FLEinwilligungUmfang;
 }
 
-export interface FLEinwilligungStandPayload {
+export interface FLEinwilligungStatePayload {
   media: string | null;
   umfang: string | null;
 }
@@ -406,7 +406,7 @@ export interface FLSpielerTextVersions {
  * A pupil's or a registration's own two choices on their record.
  */
 export interface FLAccountEinwilligungPayload {
-  evidence_state: FLEinwilligungStandPayload;
+  evidence_state: FLEinwilligungStatePayload;
   media: boolean;
   text_versions: FLSpielerTextVersions;
   umfang: FLEinwilligungUmfang;
@@ -416,7 +416,7 @@ export interface FLAccountEinwilligungPayload {
  * One pending registration its pupil confirmed: its choices to withdraw, and what it stores.
  */
 export interface FLAccountRegistrierungEinwilligung {
-  evidence_state: FLEinwilligungStand;
+  evidence_state: FLEinwilligungState;
   geburtsdatum: string | null;
   media: boolean | null;
   nachname: string;
@@ -438,7 +438,7 @@ export interface FLKontakt {
  */
 export interface FLAccountSchiedsrichterEinwilligung {
   einwilligung: FLAccountEinwilligung;
-  evidence_state: FLEinwilligungStand;
+  evidence_state: FLEinwilligungState;
   geburtsdatum: string | null;
   givable: boolean;
   kontakt: FLKontakt;
@@ -458,7 +458,7 @@ export interface FLAccountSchiedsrichterEinwilligung {
  * Per season row and not per slot: one person holding two of a row's slots answers one choice for both.
  */
 export interface FLAccountSeatEinwilligung {
-  evidence_state: FLEinwilligungStand;
+  evidence_state: FLEinwilligungState;
   givable: boolean;
   media: boolean;
   /** @exclusiveMinimum 0 */
@@ -478,7 +478,7 @@ export interface FLAccountSeatEinwilligung {
  */
 export interface FLAccountSpielerEinwilligung {
   einwilligung: FLAccountEinwilligung;
-  evidence_state: FLEinwilligungStand;
+  evidence_state: FLEinwilligungState;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   geburtsdatum: string;
   givable: boolean;
@@ -1067,8 +1067,8 @@ export interface FLAddressChangeViewResponse {
 export type FLAddressChangeViewableDenied = (typeof FLAddressChangeViewableDenied)[keyof typeof FLAddressChangeViewableDenied];
 
 export const FLAddressChangeViewableDenied = {
-  own: "own",
-  admin_tier: "admin_tier",
+  own_address: "own_address",
+  admin_address: "admin_address",
 } as const;
 
 export type FLAddressChangeWaitingPeriodDays = 7;
@@ -2271,21 +2271,21 @@ export interface FLErasureViewAddressChange {
   viewable_denied: FLAddressChangeViewableDenied | null;
 }
 
-export type FLErasureViewApprovalRequestRolle = (typeof FLErasureViewApprovalRequestRolle)[keyof typeof FLErasureViewApprovalRequestRolle];
+export type FLErasureViewApprovalRequestParty = (typeof FLErasureViewApprovalRequestParty)[keyof typeof FLErasureViewApprovalRequestParty];
 
-export const FLErasureViewApprovalRequestRolle = {
-  betroffen: "betroffen",
-  gestellt: "gestellt",
+export const FLErasureViewApprovalRequestParty = {
+  target: "target",
+  requester: "requester",
 } as const;
 
 /**
- * An open request for a grant, about the address (`betroffen`) or made by it (`gestellt`), which the erasure removes.
+ * An open request for a grant, about the address (`target`) or made by it (`requester`), which the erasure removes.
  */
 export interface FLErasureViewApprovalRequest {
   admin_tier: FLAdminTier;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   approval_request_id: string;
-  rolle: FLErasureViewApprovalRequestRolle;
+  party: FLErasureViewApprovalRequestParty;
 }
 
 export interface FLErasureViewBewerbung {
@@ -4479,7 +4479,7 @@ export interface FLSchiedsrichterTextVersions {
  * A referee's own two choices on their record.
  */
 export interface FLSchiedsrichterAccountEinwilligungPayload {
-  evidence_state: FLEinwilligungStandPayload;
+  evidence_state: FLEinwilligungStatePayload;
   media: boolean;
   text_versions: FLSchiedsrichterTextVersions;
   umfang: FLEinwilligungUmfang;
@@ -4583,7 +4583,7 @@ export interface FLSchiedsrichterSingleResponse {
  * Both choices on every press: a page that sent one alone would leave the other judged by nothing.
  */
 export interface FLSeatEinwilligungPayload {
-  evidence_state: FLEinwilligungStandPayload;
+  evidence_state: FLEinwilligungStatePayload;
   media: boolean;
   text_versions: FLSeatTextVersions;
   umfang: FLKontaktKenntnisnahmeUmfang;
@@ -4607,6 +4607,8 @@ export interface FLSignInResponse {
 export interface FLSignOutResponse {
   [key: string]: unknown;
 }
+
+export type FLSignatoryMinAgeYears = 18;
 
 export type FLSortOrder = (typeof FLSortOrder)[keyof typeof FLSortOrder];
 
@@ -5944,8 +5946,6 @@ export interface FLUndrawSpielplanResponse {
   spieltage: number;
   watermark_cleared: boolean;
 }
-
-export type FLVertretungMinAgeYears = 18;
 
 export type FLWhatsappTextVersion = "2026-11-whatsapp-1";
 

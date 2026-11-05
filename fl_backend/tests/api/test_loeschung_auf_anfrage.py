@@ -320,8 +320,8 @@ EXPECTED_ANSICHT = {
     "own_address_change": None,
     # A grant asked for their address and one they asked for another's.
     "approval_requests": [
-        {"approval_request_id": str(ANTRAG_FOR_THEM_OID), "admin_tier": "administration", "rolle": "betroffen"},
-        {"approval_request_id": str(ANTRAG_BY_THEM_OID), "admin_tier": "administration", "rolle": "gestellt"},
+        {"approval_request_id": str(ANTRAG_FOR_THEM_OID), "admin_tier": "administration", "party": "target"},
+        {"approval_request_id": str(ANTRAG_BY_THEM_OID), "admin_tier": "administration", "party": "requester"},
     ],
     "admin_tier": "administration",
     "barred": False,
@@ -384,7 +384,7 @@ class TestTheRegistryRunsWhole:
 
 @pytest.mark.db
 class TestTheirOwnAddress:
-    """`own_adresse`: an administrator's own address goes through their account page, or through another administrator."""
+    """`own_address`: an administrator's own address goes through their account page, or through another administrator."""
 
     @pytest.mark.parametrize(
         ("path", "body"),
@@ -402,7 +402,7 @@ class TestTheirOwnAddress:
 
         response, untouched = on_a_league(mongo_replica_set_url, run)
 
-        assert (response.status_code, response.json()["error_code"], untouched) == (403, Code.OWN_ADRESSE, True)
+        assert (response.status_code, response.json()["error_code"], untouched) == (403, Code.OWN_ADDRESS, True)
 
 
 @pytest.mark.db

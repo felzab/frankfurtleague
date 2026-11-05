@@ -525,7 +525,7 @@ async def judge_the_effect_in_session(
     # leaves no approval standing.
     by = approval.get("approved_by")
     stands = genehmigung_steht(
-        betroffen=old,
+        target=old,
         approval=approval,
         grants=await read_berechtigungen(grants_collection=grants_collection, session=session),
         announced=await read_the_announced(grants_announced_collection=grants_announced_collection, session=session),

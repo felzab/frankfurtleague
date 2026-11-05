@@ -76,8 +76,8 @@ class FLEinwilligungEvidenceSet(BaseReadModel):
     media: FLEinwilligungEvidence | None = None
 
 
-class FLEinwilligungStand(BaseModel):
-    """Each choice's stand where the account page was served, null where the record carried no evidence for it.
+class FLEinwilligungState(BaseModel):
+    """Each choice's state where the account page was served, null where the record carried no evidence for it.
 
     A consent PATCH's precondition, echoed back as served, never a secret.
     """
@@ -89,7 +89,7 @@ class FLEinwilligungStand(BaseModel):
 
 # As a press echoes it. Forbidden rather than ignored: a key the precondition does not compare would
 # read as judged.
-class FLEinwilligungStandPayload(FLEinwilligungStand):
+class FLEinwilligungStatePayload(FLEinwilligungState):
     model_config = ConfigDict(extra="forbid")
 
 
@@ -192,7 +192,7 @@ class _OwnEinwilligungPayload(BaseModel):
     umfang: FLEinwilligungUmfang
     media: bool
     # The record's `evidence_state` as the page was served it.
-    evidence_state: FLEinwilligungStandPayload
+    evidence_state: FLEinwilligungStatePayload
 
 
 class FLAccountEinwilligungPayload(_OwnEinwilligungPayload):
@@ -219,4 +219,4 @@ class FLSeatEinwilligungPayload(BaseModel):
     media: bool
     text_versions: FLSeatTextVersions
     # The row's `evidence_state` as the page was served it.
-    evidence_state: FLEinwilligungStandPayload
+    evidence_state: FLEinwilligungStatePayload

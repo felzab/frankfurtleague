@@ -326,15 +326,15 @@ class FLErasureViewOwnAddressChange(BaseModel):
     address_change_id: CustomObjectId
 
 
-FLErasureRequestParty = Literal["betroffen", "gestellt"]
+FLErasureRequestParty = Literal["target", "requester"]
 
 
 class FLErasureViewApprovalRequest(BaseModel):
-    """An open request for a grant, about the address (`betroffen`) or made by it (`gestellt`), which the erasure removes."""
+    """An open request for a grant, about the address (`target`) or made by it (`requester`), which the erasure removes."""
 
     approval_request_id: CustomObjectId
     admin_tier: FLAdminTier
-    rolle: FLErasureRequestParty
+    party: FLErasureRequestParty
 
 
 class FLErasureView(BaseModel):

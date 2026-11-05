@@ -42,8 +42,8 @@ BEWERBUNG_KONTAKT_MAX_AGE_YEARS: Final = 120
 
 # The Ansprechperson's floor and the Stellvertretung's: those two sign what binds the school, which
 # asks contractual capacity rather than the age a person consents for themselves at.
-type FLVertretungMinAgeYears = Literal[18]
-CONTACT_MIN_AGE_YEARS: Final[FLVertretungMinAgeYears] = 18
+type FLSignatoryMinAgeYears = Literal[18]
+SIGNATORY_MIN_AGE_YEARS: Final[FLSignatoryMinAgeYears] = 18
 
 # How long an application's three people have to confirm their own seats before it is deleted; a
 # re-send restarts the clock. Days rather than a date, so the deadline is derived from the mint and
@@ -221,7 +221,7 @@ MEDIA_MIN_AGE_YEARS: Final[FLMedienMinAgeYears] = 18
 CONSENT_BOUNDS: Final = (
     FLBewerbungConfirmationDeadlineDays,
     FLBewerbungKontaktMinAgeYears,
-    FLVertretungMinAgeYears,
+    FLSignatoryMinAgeYears,
     FLSchiedsrichterConfirmationFristDays,
     FLRegistrierungMinAgeYears,
     FLMedienMinAgeYears,

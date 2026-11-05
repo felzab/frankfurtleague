@@ -37,9 +37,9 @@ from app.shared.schemas.bounds import (
     BEWERBUNG_CONFIRMATION_DEADLINE_DAYS,
     BEWERBUNG_KONTAKT_MIN_AGE_YEARS,
     BEWERBUNG_REMINDER_DAYS,
-    CONTACT_MIN_AGE_YEARS,
     LIST_LIMIT_MAX,
     SAISON_ID_LENGTH,
+    SIGNATORY_MIN_AGE_YEARS,
 )
 from app.shared.schemas.custom import fold_shorthand
 from app.shared.schemas.literals import KONTAKT_ROLLEN, FLKontaktEnteredBy, FLKontaktRolle, FLTrikotFarbe
@@ -312,8 +312,8 @@ def compose_einwilligung(*, today: str, entered_by: FLKontaktEnteredBy) -> dict[
 # Every seat, so a fourth one is a `KeyError` at the confirmation rather than a silent sixteen.
 SEAT_MIN_AGE_YEARS: Mapping[str, int] = {
     "trainer": BEWERBUNG_KONTAKT_MIN_AGE_YEARS,
-    "ansprechperson": CONTACT_MIN_AGE_YEARS,
-    "stellvertretung": CONTACT_MIN_AGE_YEARS,
+    "ansprechperson": SIGNATORY_MIN_AGE_YEARS,
+    "stellvertretung": SIGNATORY_MIN_AGE_YEARS,
 }
 
 

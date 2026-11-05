@@ -1101,7 +1101,7 @@ class TestTheToolsStart:
         assert self.refused_start(mongo_replica_set_url, email=TYPED) == (Code.ADDRESS_CHANGE_UNCHANGED, 0)
 
     def test_the_administrator_s_own_address_is_refused(self, mongo_replica_set_url: str):
-        assert self.refused_start(mongo_replica_set_url, adresse=ADMIN) == (Code.OWN_ADRESSE, 0)
+        assert self.refused_start(mongo_replica_set_url, adresse=ADMIN) == (Code.OWN_ADDRESS, 0)
 
     def test_a_grant_holder_s_address_is_refused_without_an_owner_s_power(self, mongo_replica_set_url: str):
         assert self.refused_start(mongo_replica_set_url, "grant") == (Code.ADMIN_ADDRESS, 0)
@@ -1160,7 +1160,7 @@ class TestTheTool:
         assert on_a_person(mongo_replica_set_url, body) is None
 
     @pytest.mark.parametrize("route", ["read-by-address", "read-by-id", "re-send", "discard"])
-    @pytest.mark.parametrize(("whose", "refused"), [("own", Code.OWN_ADRESSE), ("grant-holder", Code.ADMIN_ADDRESS)])
+    @pytest.mark.parametrize(("whose", "refused"), [("own", Code.OWN_ADDRESS), ("grant-holder", Code.ADMIN_ADDRESS)])
     def test_who_asks_is_refused_on_every_route_the_start_refuses_it(self, mongo_replica_set_url: str, route: str, whose: str, refused: str):
         """An administrator's own address, and a grant holder's for anyone without an owner's power: each route its own read."""
 
@@ -1437,7 +1437,7 @@ class TestEveryLinkIntoTheToolSaysWhetherItOpens:
                 await tool_read(database, client, address_change_id=minted.id, operator=reader)
                 denied = None
             except APIError as refused:
-                denied = {Code.OWN_ADRESSE: "own", Code.ADMIN_ADDRESS: "admin_tier"}[refused.error_code]
+                denied = {Code.OWN_ADDRESS: "own_address", Code.ADMIN_ADDRESS: "admin_address"}[refused.error_code]
 
             pupils = await call(get_spieler_saisons, database, client, operator=reader)
             referee = await call(get_schiedsrichter_by_id, database, client, schiedsrichter_id=REFEREE_OID, today=TODAY, operator=reader)
@@ -1462,14 +1462,14 @@ class TestEveryLinkIntoTheToolSaysWhetherItOpens:
 
         minted, denied, served = on_a_person(mongo_replica_set_url, body)
 
-        assert denied == {EMAIL: "own", ADMIN: "admin_tier" if grant else None, OWNER: None}[reader]
+        assert denied == {EMAIL: "own_address", ADMIN: "admin_address" if grant else None, OWNER: None}[reader]
         expected = {
             "pupils": [(minted, denied)],
             "referee": (minted, denied),
             # The Trainer and the Stellvertretung wait on no change of the person's; the Stellvertretung is unconfirmed.
             "seats": (minted, {"trainer": None, "ansprechperson": denied, "stellvertretung": None}),
             # Withheld where the tool refuses it as a grant holder's: a typed address would learn it is that change's new one.
-            "reveal": [] if denied == "admin_tier" else [(minted, denied)],
+            "reveal": [] if denied == "admin_address" else [(minted, denied)],
         }
         if grant:
             expected["approval"] = (minted, denied)

@@ -355,7 +355,7 @@ def genehmiger_of(
 
 def genehmigung_verwehrt(
     *,
-    betroffen: Any,
+    target: Any,
     approval: Mapping[str, Any],
     actor: str,
     owner: bool,
@@ -367,7 +367,7 @@ def genehmigung_verwehrt(
     `owner` is whether their session holds an owner's power now.
     """
 
-    if betroffen == actor:
+    if target == actor:
         return "own"
     if approval.get("started_by") == actor:
         return "started"
@@ -382,7 +382,7 @@ def genehmigung_verwehrt(
 
 def genehmigung_steht(
     *,
-    betroffen: Any,
+    target: Any,
     approval: Mapping[str, Any],
     grants: Sequence[Mapping[str, Any]],
     announced: Sequence[Mapping[str, Any]],
@@ -394,7 +394,7 @@ def genehmigung_steht(
     """
 
     by = approval.get("approved_by")
-    if not isinstance(by, str) or by in barred or by in {betroffen, approval.get("started_by")}:
+    if not isinstance(by, str) or by in barred or by in {target, approval.get("started_by")}:
         return False
 
     return haelt_seit(by, admin_tier=str(approval.get("admin_tier")), before=approval["asked_at"], grants=grants, announced=announced)

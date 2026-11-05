@@ -66,7 +66,7 @@ export const ActionLogGetActionLogEntryParams = zod.object({
  * waits on another administrator's approval, never this one's. No link is answered. The address's live change ends
  * replaced.
  *
- * Refused the administrator's own address (`own_adresse`), a grant holder's without an owner's power
+ * Refused the administrator's own address (`own_address`), a grant holder's without an owner's power
  * (`admin_address`), the address on file typed again (`address_change_unchanged`), a new address the ban list holds
  * (`address_change_barred`), an address holding nothing a change moves (`address_change_nothing`), a new address another pupil signs in on
  * where the change moves a pupil (`address_change_taken`), a new address any entry names, confirmed or not (`address_change_occupied`), and a
@@ -258,7 +258,7 @@ export const AddressChangePostAddressChangeMovesDoneBody = zod.object({
  * ADMIN TIER, the address tool's read, keyed by the address the administrator types or by a change a page links to;
  * never a hash. `possible` where the address holds anything a change moves, a grant included. Stores nothing.
  *
- * Refused as the erasure's reveal is: the administrator's own address (`own_adresse`), and an address holding a live
+ * Refused as the erasure's reveal is: the administrator's own address (`own_address`), and an address holding a live
  * grant unless the administrator holds an owner's power (`admin_address`). A change id answers 404 where no change is
  * kept, and `address_change_ended` where it ended.
  * @summary Show what an address holds that a change moves, and its live change
@@ -283,7 +283,7 @@ export const AddressChangeGetAddressChangeAdminViewBody = zod
  * bring back a change confirmed in its waiting time to take effect. Nothing is mailed. Acts on the change the id names
  * alone, so a page showing a change since replaced discards nothing.
  *
- * Refused as the start is about who asks (`own_adresse`, `admin_address`), and where the change ended
+ * Refused as the start is about who asks (`own_address`, `admin_address`), and where the change ended
  * (`address_change_ended`); 404 for an id naming no change.
  * @summary Discard a pending address change
  */
@@ -325,7 +325,7 @@ export const AddressChangePostAddressChangeApprovalParams = zod.object({
  * next hourly pass ends it. Acts on the change the id names alone, so a page showing a change since replaced re-sends
  * nothing.
  *
- * Refused as the start is about who asks (`own_adresse`, `admin_address`), where the ban list holds the pending address
+ * Refused as the start is about who asks (`own_address`, `admin_address`), where the ban list holds the pending address
  * (`address_change_barred`), where another pupil has come to sign in on it (`address_change_taken`), where an entry has come to name it,
  * confirmed or not (`address_change_occupied`), where a grant's approval week has passed (`link_expired`), and where the change ended
  * (`address_change_ended`). 404 for an id naming no change, and unless the change waits on the new mailbox: one awaiting the address on
@@ -1017,7 +1017,7 @@ export const GrantsPatchGrantBody = zod.object({
  *
  * ADMIN TIER, a step-up write. It runs the erasure `POST /identity/account/erasure` runs and refuses nothing about the
  * person's own state: a pupil in a live squad and a referee booked on a fixture still to be played are erased on one pass.
- * Three refusals are about who asks. The administrator's own address is refused (`own_adresse`): their account page
+ * Three refusals are about who asks. The administrator's own address is refused (`own_address`): their account page
  * serves it, or an owner. An address holding a live grant is refused unless the administrator holds an owner's power,
  * signed in since becoming one (`admin_address`), judged inside the write: erasing it removes the grant, whatever grants
  * remain, so it asks what a revoke asks, an owner's power and a sign-in `ENROLMENT_WINDOW_MINUTES` old at most. Every
@@ -1097,8 +1097,8 @@ export const IdentitySweepErasureQueryParams = zod.object({
  * records standing, beside why the address tool refuses that change this administrator, or null where it opens it; a change
  * of an address holding a grant is left out for an administrator without an owner's power, as the administrators page
  * withholds it, since naming it would answer whether a typed address is its new one. The address's own live change is
- * named by its id, ending with the records it would move. Every request for a grant about the address (`betroffen`) or
- * made by it (`gestellt`) is named by its id and the tier it asks; a lapsed one is gone to every reader already and is
+ * named by its id, ending with the records it would move. Every request for a grant about the address (`target`) or
+ * made by it (`requester`) is named by its id and the tier it asks; a lapsed one is gone to every reader already and is
  * left out, though the erasure removes its row too. A squad
  * row and a referee row each carry the day it was retired, null while live, and a referee row every season holding a
  * fixture still to be played that it is booked on, as `schiedsrichter_still_assigned` judges one. Reached and not named: the fixtures
@@ -1116,7 +1116,7 @@ export const IdentitySweepErasureQueryParams = zod.object({
  * `admin_tier` is the tier of the live grant the address holds, or null. `barred` is whether a standing ban holds the
  * address, judged as a stored address is; the erasure leaves a ban standing. Stores nothing.
  *
- * Refused as the erasure is: the administrator's own address (`own_adresse`), an address holding a live grant unless
+ * Refused as the erasure is: the administrator's own address (`own_address`), an address holding a live grant unless
  * the administrator holds an owner's power (`admin_address`).
  * @summary Show what an erasure of an address would remove
  */
@@ -1170,7 +1170,7 @@ export const IdentityGetSignInBody = zod
  * and no address, filter, image or count. Nothing bars the address and nothing is mailed; a person signs in again as before.
  *
  * Refused so that a refused call ends no session: from a sign-in older than the step-up window (`confirmation_required`), the
- * administrator's own address (`own_adresse`), an address holding an `owner` grant unless the administrator holds an
+ * administrator's own address (`own_address`), an address holding an `owner` grant unless the administrator holds an
  * owner's power (`admin_address`). Unlike the erasure, it
  * ends another administrator's sessions for an administrator holding no owner's power: signing in again repairs it.
  * @summary Log the ending of every session an address holds

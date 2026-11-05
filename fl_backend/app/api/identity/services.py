@@ -319,7 +319,7 @@ def compose_erasure_view(
                 {
                     "approval_request_id": row["_id"],
                     "admin_tier": row["approval"]["admin_tier"],
-                    "rolle": "betroffen" if row["adresse"] == identifier else "gestellt",
+                    "party": "target" if row["adresse"] == identifier else "requester",
                 }
                 for row in approval_request_rows
             ],
@@ -538,19 +538,19 @@ def find_last_owner_erasure_refusal(*, identifier: str, grants: Iterable[Mapping
 
 
 def is_own_address(*, identifier: str, actor: str) -> bool:
-    """`own_adresse`'s judgement, both folded: the refusal raises on it, and a read serving whether the tool opens an address asks it."""
+    """`own_address`'s judgement, both folded: the refusal raises on it, and a read serving whether the tool opens an address asks it."""
 
     return identifier == actor
 
 
 def find_own_address_refusal(*, identifier: str, actor: str) -> WriteRefusal | None:
-    """`own_adresse`: an administrator's route on a mailbox refuses the mailbox they act as, both folded."""
+    """`own_address`: an administrator's route on a mailbox refuses the mailbox they act as, both folded."""
 
     if not is_own_address(identifier=identifier, actor=actor):
         return None
 
     return WriteRefusal(
-        error_code=Code.OWN_ADRESSE,
+        error_code=Code.OWN_ADDRESS,
         status=HTTPStatus.FORBIDDEN,
     )
 
@@ -644,9 +644,9 @@ def address_change_viewable_denied(
     """
 
     if is_own_address(identifier=identifier, actor=actor):
-        return "own"
+        return "own_address"
     if admin_address_denied(identifier=identifier, actor=actor, auth_time=auth_time, grants=grants, announced=announced, protected=EACH_ADMIN):
-        return "admin_tier"
+        return "admin_address"
 
     return None
 
