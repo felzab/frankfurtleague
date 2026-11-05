@@ -23,6 +23,10 @@ const CreateSaisonForm = z.object({
 /**
  * The rules a league's first season starts from, where no season holds any to carry on. They are the old create
  * form's starting values, which the new season's editor shows at once and keeps editable until its start.
+ *
+ * Only that very first season's editable starting value, every later season copying the newest one's: no hardcoded
+ * scoring in the sense of `docs/decisions.md`'s `table` line, since the table always reads the season's stored rules,
+ * which its own rules box sets.
  */
 const FIRST_SAISON_RULES: FLSaisonRules = {
   win_points: 3,
