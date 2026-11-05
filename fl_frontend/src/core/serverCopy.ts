@@ -452,7 +452,7 @@ export const SERVER_COPY = catalogue({
         text: "Dein Team bekommt einen Link, über den sich dein Jahrgang registriert. Die Kontaktpersonen nehmen die Spieler in den Kader auf.",
       },
       /** The band while no window is open; an open window's deadline is the season card's `windowUntil`. */
-      closed: "Das Bewerbungsfenster ist geschlossen.",
+      closed: "Das Bewerbungsfenster ist gerade geschlossen. Versuche es nächste Saison.",
       /** The school's door while a window is open, where the band and the season card carry its date. */
       opened: "Das Bewerbungsfenster ist offen.",
     },
