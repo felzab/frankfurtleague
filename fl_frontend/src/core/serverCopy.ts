@@ -2,7 +2,7 @@ import "server-only";
 
 import { KONTAKT_EMAIL, VEREIN_ADDRESS, VEREIN_NAME, VEREINSREGISTER, VORSTAND_JOINTLY } from "./brand";
 import { catalogue, COPY, textOf } from "./copy";
-import { formatDatum, formatDatumLong, formatNumber, formatOrdinal, formatSigned } from "./format";
+import { formatDatum, formatDatumLong, formatList, formatNumber, formatOrdinal, formatSigned } from "./format";
 
 import type { Copy, Words } from "./copy";
 import type { CalendarDay } from "./format";
@@ -22,18 +22,28 @@ const DIFFERENZ = "Diff.";
 const SPIELBETRIEB = "Spielbetrieb";
 const gruppeName = (gruppe: string) => `Gruppe ${gruppe}`;
 const placeName = (platz: number) => `${formatOrdinal(platz)} ${PLATZ}`;
+// Matches by their numbers, „Spiel 4, 7 und 9“, as the match editor's done line names the others it changed.
+const spieleNamed = (nrs: readonly number[]) => `Spiel ${formatList(nrs.map(formatNumber))}`;
 
 // The confirmation pages' shared sentences, each written once: what the typed birthdate is checked for, the deadline
 // of an entry that goes alone, the objection Art. 21 (4) asks to be named explicitly, in the two parts around the
 // league's address, and the privacy notice's link, around its title.
 const ageCheck = (minAge: number) => `Mit deinem Geburtsdatum prüfen wir, ob du mindestens ${formatNumber(minAge)} Jahre alt bist.`;
-const entryDeadline = (until: CalendarDay) => `Bestätigst du nicht bis zum ${formatDatumLong(until)}, löschen wir deinen Eintrag.`;
+// In the two parts around its day, which a mail sets semibold between them.
+const ENTRY_DEADLINE = { before: "Bestätigst du nicht bis zum", after: ", löschen wir deinen Eintrag." };
+const entryDeadline = (until: CalendarDay) => `${ENTRY_DEADLINE.before} ${formatDatumLong(until)}${ENTRY_DEADLINE.after}`;
 const OBJECTION_RIGHT = {
   before:
     "Du kannst der Verarbeitung deiner Angaben jederzeit widersprechen, aus Gründen, die sich aus deiner besonderen Situation ergeben (Art. 21 DSGVO). Eine formlose E-Mail an ",
   after: " genügt.",
 };
 const MORE = { before: "Mehr unter ", after: "." };
+// What an objection does to an entry that stands alone, a contact's season row's and a referee's alike.
+const OBJECTION_DELETES_ENTRY = "Widersprichst du, löschen wir deinen Eintrag.";
+// A referee's confirmation's opening, which its mail opens on too, and what the league stores of the entry.
+const REFEREE_OPENING = "Die Liga hat dich als Schiedsrichterin oder Schiedsrichter für ihre Spiele eingetragen.";
+const REFEREE_STORED =
+  "Wir speichern deinen Namen, deine Kontaktdaten, dein Honorar, dein Geburtsdatum und deine Schule, wenn sie angegeben ist, bis du oder die Liga den Eintrag beenden.";
 
 /**
  * The bounds the frontend's code holds that the privacy notice's retention table states, passed by its page. An hour
@@ -93,6 +103,19 @@ export const SERVER_COPY = catalogue({
     address_change_unchanged: COPY.account.address.unchanged,
     /** A grant's move nobody but the person could approve. */
     address_change_no_approver: COPY.account.address.noApprover,
+    /** A venue retired while matches still to come are booked there, named by their numbers so they can be moved first. */
+    spielort_still_booked: ({ spiel_nrs }: FLRefusedField["ctx"]) =>
+      Array.isArray(spiel_nrs) && spiel_nrs.length > 0 ? `Der Spielort ist noch für ${spieleNamed(spiel_nrs)} gebucht.` : undefined,
+    /** A referee retired while matches still to come name them, by the matches' numbers. */
+    schiedsrichter_still_assigned: ({ spiel_nrs }: FLRefusedField["ctx"]) =>
+      Array.isArray(spiel_nrs) && spiel_nrs.length > 0 ? `Die Person ist noch für ${spieleNamed(spiel_nrs)} eingeteilt.` : undefined,
+    /** A referee's address the ban list holds, where a create, a save or a return would mail it a link. */
+    schiedsrichter_address_barred: "Diese E-Mail-Adresse steht auf der Sperrliste.",
+    /**
+     * A confirmed referee's address, which the editor shows read-only: only a page read before the confirmation sends
+     * it, so it reads as the stale page it is.
+     */
+    schiedsrichter_address_only_per_change: COPY.shared.failure.stale,
     eligibility_disqualified: {
       team1: `${team1} ist aus der Saison ausgeschieden.`,
       team2: `${team2} ist aus der Saison ausgeschieden.`,
@@ -738,7 +761,7 @@ export const SERVER_COPY = catalogue({
     objectionEffect: {
       application: "Widersprichst du, entfernen wir deine Angaben aus der Bewerbung und schreiben das der Person, die sie eingereicht hat.",
       self: "Widersprichst du, entfernen wir deine Angaben aus der Bewerbung.",
-      seasonRow: "Widersprichst du, löschen wir deinen Eintrag.",
+      seasonRow: OBJECTION_DELETES_ENTRY,
     },
     /** The Art. 21 (4) sentence, its own paragraph, around the league's address, which the page sets as a link. */
     objectionRight: OBJECTION_RIGHT,
@@ -746,21 +769,26 @@ export const SERVER_COPY = catalogue({
     more: MORE,
   },
 
-  // Session 5: its page reads these.
   /**
-   * The fixed text of a referee's confirmation page, `ROUTES.schiedsrichterConfirmation`, built as
-   * `kontaktConfirmation` is: who entered the person and for what, what is stored and until when, the deadline, what
-   * the birthdate is checked for, the objection and the privacy notice's link. The referee's floor is the backend's
-   * alone, so the page passes the one its read serves.
+   * The fixed text of a referee's confirmation page, `ROUTES.schiedsrichterConfirmation`: who named the person and for
+   * what, what is stored and until when, the deadline, and what an objection does, the page's one sentence before its
+   * two acts. The age floor is the birthdate field's bound, read off the link's view; the Art. 21 objection with the
+   * league's address stands in the first-contact mail, and each consent's line names the privacy notice.
    */
   schiedsrichterConfirmation: {
-    opening: "Die Liga hat dich als Schiedsrichterin oder Schiedsrichter für ihre Spiele eingetragen.",
-    stored:
-      "Wir speichern deinen Namen, deine Kontaktdaten, dein Honorar, dein Geburtsdatum und deine Schule, wenn sie angegeben ist, bis du oder die Liga den Eintrag beenden.",
-    ageCheck,
-    deadline: entryDeadline,
-    objectionRight: OBJECTION_RIGHT,
-    more: MORE,
+    /** The page's and the mail's first sentence. */
+    opening: REFEREE_OPENING,
+    /** The deadline in the two parts around its day: the mail sets the day semibold, the page writes it plain. */
+    deadline: ENTRY_DEADLINE,
+    question: (until: CalendarDay) => [REFEREE_OPENING, REFEREE_STORED, entryDeadline(until), OBJECTION_DELETES_ENTRY].join(" "),
+    /**
+     * The two ends of an answer, each its title and its one sentence; a link opened again after it says the title with
+     * the day (`COPY.shared.end.doneOn`).
+     */
+    confirmed: "Eintrag bestätigt",
+    confirmedSentence: "Mit der Adresse, an die dieser Link ging, meldest du dich an.",
+    objected: "Widersprochen",
+    objectedSentence: "Wir löschen deinen Eintrag.",
   },
 
   // Session 8: its page reads these.

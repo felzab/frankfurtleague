@@ -116,7 +116,7 @@ export const ADDRESS_HAUSNUMMER_MAX_LENGTH = 16;
 
 /**
  * `FLAddressPayload`, what every write payload embeds, judged in the browser: the venue, club and application forms
- * (`AdminSpielortEditForm.tsx`, `AdminTeamEditForm.tsx`, `BewerbungForm.tsx`) parse their slice's payload, which embeds
+ * (`AdminCreateSpielortForm.tsx`, `AdminTeamEditForm.tsx`, `BewerbungForm.tsx`) parse their slice's payload, which embeds
  * this, and the generated Zod is `server-only`.
  */
 export const FLAddressPayloadSchema = z.object({
@@ -197,21 +197,3 @@ export const KontaktEmailSchema = addressSchema(
     abort: true,
   }),
 );
-
-/**
- * What the two referee payloads embed: the write is where the address rule applies and a refusal reaches a box. Judged
- * in the browser by the referee forms (`AdminCreateSchiedsrichterForm.tsx`, `AdminSchiedsrichterEditForm.tsx`), which
- * the `server-only` generated Zod cannot serve.
- */
-export const FLKontaktPayloadSchema = z.object({
-  // The message has to sit on the union: with `.or()` the branch messages are unreachable and zod falls
-  // back to its own English.
-  telefon: z
-    .union([z.string().regex(PHONE_REGEX), z.string().trim().length(0)], {
-      error: "Bitte gib eine gültige Telefonnummer ein.",
-    })
-    .nullable(),
-  // Required where the telephone is not: an administrator enters a referee, and the address is how
-  // that person learns of it.
-  email: KontaktEmailSchema,
-}) satisfies z.ZodType<wire.FLKontaktPayload>;

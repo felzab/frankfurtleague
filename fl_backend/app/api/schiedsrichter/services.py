@@ -302,6 +302,21 @@ def state_of(*, einwilligung: Any, confirmation: Mapping[str, Any], today: str, 
     return "expired" if link_is_over(frist=confirmation["frist"], today=today) else "valid"
 
 
+def answered_on_of(*, state: FLSchiedsrichterConfirmationState, einwilligung: Any, confirmation: Mapping[str, Any]) -> str | None:
+    """The day of the answer `state` shows, the consent's or the objection's; `None` where it shows none.
+
+    Off the state rather than the record, so a barred link names no day its page does not show.
+    """
+
+    if state == "confirmed":
+        return str(einwilligung["confirmed_at"])
+
+    if state == "declined":
+        return str(confirmation["declined_at"])
+
+    return None
+
+
 def find_unknown_token_refusal(*, found: bool) -> WriteRefusal | None:
     """Why this token opens nothing, or `None`.
 
@@ -358,25 +373,20 @@ def find_confirmation_barred_refusal(*, barred: bool) -> WriteRefusal | None:
 
 
 def find_alter_refusal(*, geburtsdatum: str, today: str) -> WriteRefusal | None:
-    """Why the typed date is refused, or `None`. Judged BEFORE any write, so a mistyped year spends nothing."""
+    """Why the typed date is refused, or `None`. Judged BEFORE any write, so a mistyped year spends nothing.
 
-    age = whole_years_between(born=geburtsdatum, today=today)
+    The bounds go with the refusal, so the field's message names the range the write judges.
+    """
 
-    if age < SCHIEDSRICHTER_MIN_AGE_YEARS:
-        return WriteRefusal(
-            error_code=Code.CONFIRMATION_AGE,
-            status=HTTPStatus.UNPROCESSABLE_CONTENT,
-            fields=(("geburtsdatum",),),
-        )
+    if SCHIEDSRICHTER_MIN_AGE_YEARS <= whole_years_between(born=geburtsdatum, today=today) <= BEWERBUNG_KONTAKT_MAX_AGE_YEARS:
+        return None
 
-    if age > BEWERBUNG_KONTAKT_MAX_AGE_YEARS:
-        return WriteRefusal(
-            error_code=Code.CONFIRMATION_AGE,
-            status=HTTPStatus.UNPROCESSABLE_CONTENT,
-            fields=(("geburtsdatum",),),
-        )
-
-    return None
+    return WriteRefusal(
+        error_code=Code.CONFIRMATION_AGE,
+        status=HTTPStatus.UNPROCESSABLE_CONTENT,
+        fields=(("geburtsdatum",),),
+        bounds={"min": SCHIEDSRICHTER_MIN_AGE_YEARS, "max": BEWERBUNG_KONTAKT_MAX_AGE_YEARS},
+    )
 
 
 def find_media_refusal(*, geburtsdatum: str, media: bool, today: str) -> WriteRefusal | None:

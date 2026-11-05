@@ -3133,9 +3133,9 @@ export const getSchiedsrichterPostConfirmationUrl = () => {
  *
  * Refuses, in this order: a token no referee holds (`link_invalid`), an entry already answered, confirmed or
  * declined (`confirmation_exists`), a link whose deadline has passed (`link_expired`), a link mailed to an address the ban
- * list holds now, whenever the link was minted (`link_barred`), an age outside what this consent asks
- * (`confirmation_age`), and a media consent from a referee below `media_minimum_age` (`media_age`) -- the last two
- * judged before anything is written, so a mistyped year spends nothing.
+ * list holds now, whenever the link was minted (`link_barred`), an age outside `minimum_age` to `maximum_age`
+ * (`confirmation_age`, carrying the two as its bounds `min` and `max`), and a media consent from a referee below
+ * `media_minimum_age` (`media_age`) -- the last two judged before anything is written, so a mistyped year spends nothing.
  *
  * **The caller drops the cached fixture list after a successful answer**, which reads this record. Nothing here can:
  * a withheld name would go on being served for as long as that entry lives.
@@ -3210,7 +3210,7 @@ export const getSchiedsrichterGetConfirmationViewUrl = () => {
 };
 
 /**
- * Answer what this token opens: the link's state and deadline, and both age floors.
+ * Answer what this token opens: the link's state and deadline, the age bounds, and the day of the person's own answer.
  *
  * **Nothing else** (`READ-REFEREE-002`): never a name, the school, the contact details, the fee, the birthdate or the
  * entry's id, all of which are behind `READ-CONTACT-001`. The link went to an address an administrator typed and nobody has
@@ -3220,7 +3220,8 @@ export const getSchiedsrichterGetConfirmationViewUrl = () => {
  * Refuses only a token no referee holds (`link_invalid`): a confirmed or an expired link
  * is SERVED in that state rather than refused, so a reopened link shows what became of it. The state is `barred`,
  * ahead of every other, wherever the ban list holds the address the link was mailed to (`link_barred`),
- * so the page offers a barred referee nothing to press.
+ * so the page offers a barred referee nothing to press. `answered_on` is the day the state's answer was given, the
+ * consent's or the objection's, and null on every state showing none.
  * @summary What one Schiedsrichter confirmation link opens
  */
 export const schiedsrichterGetConfirmationView = async (
