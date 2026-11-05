@@ -1,11 +1,11 @@
 from collections.abc import Collection, Mapping
-from typing import Any
+from typing import Any, NamedTuple
 
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.bewerbungen.services import SAISON_NOT_ENDED_FILTER, saison_nimmt_bewerbungen_an
-from app.api.saisons.schemas import FLSaisonRules
+from app.api.saisons.schemas import FIRST_SAISON_RULES, FLSaisonRules
 from app.api.saisons.services import has_started, next_saison_id
 from app.api.spiele.schemas import FLSpielJoinedInternal, FLSpielJoinedInternalListAdapter
 from app.api.spiele.services import build_spiele_pipeline
@@ -13,17 +13,37 @@ from app.api.teams.services import TAKEN_PLACE_FIELDS, has_taken_place
 from app.core.crud import aggregate_many_from_db, pull_many_from_db, pull_one_from_db
 from app.core.exceptions import DocumentNotFoundError
 from app.core.readonly import ReadCollection
+from app.shared.schemas.bounds import SAISON_ID_LENGTH
 
 CURRENT_SAISON_FILTER = {"status": "active"}
 
 
-async def pull_create_state(*, saisons_collection: ReadCollection, session: AsyncClientSession | None = None) -> tuple[str, bool]:
-    """The id the next create mints, and whether a `future` season stands: what the create judges and the list serves."""
+class CreateState(NamedTuple):
+    """What the next create makes and judges: the id it mints, the rules it carries on, and whether a `future` season stands."""
 
-    newest = await saisons_collection.find_one({}, projection={"_id": 1}, sort=[("_id", -1)], session=session)
+    saison_id: str
+    rules: FLSaisonRules
+    future_stands: bool
+
+
+async def pull_create_state(*, saisons_collection: ReadCollection, session: AsyncClientSession | None = None) -> CreateState:
+    """What the create judges and makes, the list serving its id and its refusal off the same read.
+
+    The rules are the newest season's, the likeliest value, or the league's first season's where none is stored.
+    """
+
+    # Among the ids that are a year alone, the greatest by string order being the newest: one stored row of another
+    # shape, written by hand, would otherwise answer 500 for the list it appears in and for every create.
+    newest = await saisons_collection.find_one(
+        {"_id": {"$regex": f"^[0-9]{{{SAISON_ID_LENGTH}}}$"}}, projection={"_id": 1, "rules": 1}, sort=[("_id", -1)], session=session
+    )
     future = await saisons_collection.find_one({"status": "future"}, projection={"_id": 1}, session=session)
 
-    return next_saison_id(None if newest is None else str(newest["_id"])), future is not None
+    return CreateState(
+        saison_id=next_saison_id(None if newest is None else str(newest["_id"])),
+        rules=FIRST_SAISON_RULES if newest is None else FLSaisonRules.model_validate(newest["rules"]),
+        future_stands=future is not None,
+    )
 
 
 async def pull_active_saison_id(saisons_collection: AsyncCollection) -> str:
@@ -128,6 +148,20 @@ async def count_teams_by_saison(*, saison_teams_collection: ReadCollection, sais
     )
 
     return {str(row["_id"]): int(row["teams"]) for row in rows}
+
+
+async def count_spiele_by_saison(*, spiele_collection: ReadCollection, saison_ids: Collection[str]) -> dict[str, int]:
+    """How many fixtures each of these seasons holds, counted on every read; a season holding none is absent.
+
+    Off the stored fixtures, which every draw write judges, never off a stored copy of the count.
+    """
+
+    rows = await aggregate_many_from_db(
+        collection=spiele_collection,
+        pipeline=[{"$match": {"saison_id": {"$in": list(saison_ids)}}}, {"$group": {"_id": "$saison_id", "spiele": {"$sum": 1}}}],
+    )
+
+    return {str(row["_id"]): int(row["spiele"]) for row in rows}
 
 
 async def nachnominierung_laeuft_in(*, saisons_collection: ReadCollection, saison_id: str, today: str) -> bool:

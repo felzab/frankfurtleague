@@ -1,6 +1,6 @@
 from collections.abc import Mapping
 from datetime import date, datetime, time, timedelta
-from typing import Annotated, Final, Literal, LiteralString
+from typing import Annotated, Final, Literal, LiteralString, get_args
 
 from pydantic import (
     BaseModel,
@@ -81,15 +81,13 @@ class FLSaisonRules(BaseModel):
 
 
 class FLSaisonSpielplan(BaseModel):
-    """What the generator left behind on the season it wrote.
+    """The day the draw last wrote the season's Spielplan, the one fact of a draw no stored matchday or fixture gives.
 
-    Counts rather than a hash: these are the two numbers an admin can compare against the page in
-    front of them, and a hash answers no question anyone standing there is asking.
+    No counts: what a season holds is counted off its stored matchdays and fixtures, which every write judges, so a
+    stored copy could only drift from them (`FLSaisonDrawn`).
     """
 
     generated_at: CustomDateString
-    spieltage: int = Field(ge=0)
-    spiele: int = Field(ge=0)
 
 
 class FLSaisonBewerbung(BaseModel):
@@ -142,11 +140,14 @@ class FLSaisonPhaseSchedule(BaseModel):
 
 # Private, so the read model and both payloads state these fields once, and the base itself
 # publishes no OpenAPI component.
-class _SaisonWritable(BaseModel):
+class _SaisonSpan(BaseModel):
     # No span check at this level: `refuse_reversed_span` is payload-only, and a read refusing a
     # stored reversal would hide the row from the edit that repairs it.
     start_date: CustomDateString
     end_date: CustomDateString
+
+
+class _SaisonWritable(_SaisonSpan):
     rules: FLSaisonRules
     # NO default, so the payloads have none: `PATCH` replaces the season wholesale, and an omitted
     # key would close the application window as an edit nobody asked for.
@@ -169,7 +170,7 @@ def _refused_at_the_end(
     )
 
 
-class _SaisonPayload(_SaisonWritable):
+class _SaisonSpanPayload(_SaisonSpan):
     model_config = ConfigDict(extra="forbid")
 
     # Field validators, each at the end its rule judges, reading the start off `info.data`: a model validator's refusal sits at
@@ -188,6 +189,8 @@ class _SaisonPayload(_SaisonWritable):
 
         return end_date
 
+
+class _SaisonPayload(_SaisonSpanPayload, _SaisonWritable):
     # The window's own payload, which judges its span at its `end`.
     bewerbung: FLSaisonBewerbungPayload | None
 
@@ -221,9 +224,6 @@ class _SaisonStored(_SaisonWritable):
 
     status: FLSaisonStatus
 
-    # DEFAULTED: the season's creation writes no key, the generator being what writes it.
-    spielplan: FLSaisonSpielplan | None = None
-
     # 0 until a write raises it, as the create stamps it.
     version: int = 0
 
@@ -236,6 +236,10 @@ class FLSaison(_SaisonStored, BaseReadModel):
 
 class FLSaisonRecord(_SaisonStored, Anchored):
     """A season as `saisons` stores it: no derived schedule."""
+
+    # DEFAULTED: the season's creation writes no key, the draw being what writes it. Stored and never served: the
+    # editor serves its day inside `FLSaisonDrawn`, beside the counts of what the season holds.
+    spielplan: FLSaisonSpielplan | None = None
 
 
 class FLSaisonAdmin(FLSaison):
@@ -253,11 +257,13 @@ class FLSaisonAdmin(FLSaison):
 
 
 class FLSaisonAdminListed(FLSaisonAdmin):
-    """One season as the admin list shows it: the editor's season and how many clubs it holds."""
+    """One season as the admin list shows it: the editor's season and how many clubs and matches it holds."""
 
     # COUNTED per read off `saison_teams`, never stored: every row, a club that left included, since a team never leaves
     # a season and the season's Teams page lists it with its Austritt.
     count_teams: int = Field(ge=0)
+    # COUNTED per read off `spiele`, never stored, as the editor counts them (`FLSaisonDrawn`).
+    count_spiele: int = Field(ge=0)
 
 
 FLSaisonAdminListAdapter = TypeAdapter(list[FLSaisonAdminListed])
@@ -277,10 +283,27 @@ class FLSaisonsFilterParams(BaseModel):
 FIRST_SAISON_YEAR: Final = 2026
 
 
-# No `id`: the create makes the next season, which the server names (`app/api/saisons/services.py ::
-# next_saison_id`), so no typed year can name one out of turn. A class of its own, since a private base publishes no
-# OpenAPI component and the generated client names the create's body by it.
-class FLPostSaisonPayload(_SaisonPayload):
+# The rules a league's first season starts from, where no season holds any to carry on. Only that very first season's
+# editable starting value, which its editor shows at once and keeps editable until its start, every later season copying
+# the newest one's: no hardcoded scoring in the sense of `docs/decisions.md`'s `table` line, since the table always
+# reads the season's stored rules, which its own rules box sets.
+FIRST_SAISON_RULES: Final = FLSaisonRules(
+    win_points=3,
+    draw_points=1,
+    qualifiers_per_gruppe=2,
+    number_of_gruppen=2,
+    teams_per_gruppe=5,
+    tiebreak_order="tordifferenz",
+    max_kadergroesse=50,
+    forfeit_ergebnis=FLSaisonForfeitErgebnis(sieger_tore=3, verlierer_tore=0),
+    allowed_stufen=list(get_args(FLSpielerStufe.__value__)),
+)
+
+
+# The season's two days alone: the create makes the next season, which the server names
+# (`app/api/saisons/services.py :: next_saison_id`) and gives the newest season's rules, so no typed year can name one
+# out of turn and no client restates the carry-over; its windows start closed, each set in the season's own editor.
+class FLPostSaisonPayload(_SaisonSpanPayload):
     pass
 
 
@@ -439,7 +462,7 @@ class FLGenerateSpielplanResponse(BaseAPIResponse):
     """What the draw wrote, and what a confirmed replace deleted first, flat rather than nested.
 
     An admin reads the written counts without a second request, and they are the same numbers the
-    season's own watermark keeps, so the two can be compared by eye.
+    season editor then counts off the stored matchdays and fixtures, so the two can be compared by eye.
     """
 
     # No `extra="forbid"` here: the rule reaches request bodies alone, and this
@@ -481,18 +504,32 @@ class FLSaisonActRefusals(BaseReadModel):
     undraw: Code | None
 
 
+class FLSaisonDrawn(BaseReadModel):
+    """A season's Spielplan as every write judges it: the matchdays and fixtures it holds, and the day the draw wrote them.
+
+    Counted per read off the stored rows, the facts a first draw refuses on (`spielplan_already_drawn`,
+    `spielplan_spieltage_held`) and the undraw and the replace remove, so the editor shows the draw's acts exactly where
+    those writes take them. `generated_at` is the draw's own day, `null` on a season whose rows no draw dated.
+    """
+
+    spieltage: int = Field(ge=0)
+    spiele: int = Field(ge=0)
+    generated_at: CustomDateString | None
+
+
 class FLSaisonAdminResponse(BaseAPIResponse):
     """What the season editor shows, in one read: its season, clubs, shapes and matchdays, its acts' states and its registration links.
 
     `shapes` is every shape the season's other rules admit, judged as the draw judges a shape it is given;
-    `count_spieltage` is the matchdays the season holds; `invitations` holds one row per club, in `teams`' order.
+    `spielplan` is the Spielplan the season holds, `null` while it holds no matchday and no fixture; `invitations`
+    holds one row per club, in `teams`' order.
     """
 
     saison: FLSaisonAdmin
     teams: list[FLSaisonAdminTeam]
     incoming_clubs: list[FLSaisonAdminClub]
     shapes: list[FLSpielplanShape]
-    count_spieltage: int = Field(ge=0)
+    spielplan: FLSaisonDrawn | None
     refusals: FLSaisonActRefusals
     invitations: list[FLInvitationLinkRow]
 

@@ -143,6 +143,55 @@ async function FiltersOnceRead({ filters }: { filters: Promise<ReadonlyArray<Fil
   return <Filters filters={await filters} />;
 }
 
+/**
+ * A record created where its list shows: the dialog's act, and why it cannot run on the list as it stands, which the
+ * page read, the button disabled and the reason in the line under it.
+ */
+export type ListCreate = DialogAct & { locked?: Copy };
+
+/** The create act's place while what it makes is read, at its button's height, so the toolbar keeps its height. */
+function CreateSpace() {
+  return (
+    <div
+      aria-hidden
+      className="h-8 pointer-coarse:h-10"
+    />
+  );
+}
+
+/** The create act at the toolbar row's end, its button opening the dialog over the list. */
+function CreateAct({ create }: { create: ListCreate }) {
+  const { locked, ...act } = create;
+  return (
+    <div className="grid justify-items-end gap-1">
+      <Dialog
+        {...act}
+        trigger={
+          <Button
+            variant="primary"
+            leadingIcon="create"
+            label={actLabel(act.act)}
+            isDisabled={locked !== undefined}
+          />
+        }
+      />
+      {/* A standing reason, as a danger row's stands in its second line. */}
+      {locked !== undefined && (
+        <span
+          role="status"
+          className="text-xs text-fg-muted">
+          {locked}
+        </span>
+      )}
+    </div>
+  );
+}
+
+/** The create act once what it makes is read. */
+async function CreateOnceRead({ create }: { create: Promise<ListCreate> }) {
+  return <CreateAct create={await create} />;
+}
+
 /** The list once its content is read, in the boundary's place. */
 async function ListBody({ list }: { list: ListContent }) {
   switch (list.kind) {
@@ -253,8 +302,12 @@ export function ListPage({
    * are, so it waits in a boundary of its own and stands in the toolbar once read.
    */
   filters?: Promise<ReadonlyArray<Filter>>;
-  /** A record created where its list shows: the dialog's title, its act, its fields and the action. */
-  create?: DialogAct;
+  /**
+   * A record created where its list shows: the dialog's title, its act, its fields and the action. Read with the list
+   * where what it makes is the list's to say, as the Saisons list names the next season, so it waits in a boundary of
+   * its own and stands in the toolbar once read.
+   */
+  create?: ListCreate | Promise<ListCreate>;
   list: ListContent;
 }) {
   const search = list.kind === "table" || list.kind === "spiele" || list.kind === "tiles" ? list.search : undefined;
@@ -275,16 +328,13 @@ export function ListPage({
             )}
             {create !== undefined && (
               <div className="ms-auto">
-                <Dialog
-                  {...create}
-                  trigger={
-                    <Button
-                      variant="primary"
-                      leadingIcon="create"
-                      label={actLabel(create.act)}
-                    />
-                  }
-                />
+                {create instanceof Promise ? (
+                  <Suspense fallback={<CreateSpace />}>
+                    <CreateOnceRead create={create} />
+                  </Suspense>
+                ) : (
+                  <CreateAct create={create} />
+                )}
               </div>
             )}
           </div>

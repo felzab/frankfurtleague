@@ -144,6 +144,7 @@ export const SERVER_COPY = catalogue({
     activate_target_undrawn: COPY.admin.saison.noDraw,
     activate_saison_unfinished: COPY.admin.saison.unfinished,
     activate_spieltage_undated: COPY.admin.saison.undated,
+    create_saison_future_stands: COPY.admin.saison.futureStands,
     eligibility_disqualified: DISQUALIFIED,
     eligibility_disqualified_team1_as_stored: DISQUALIFIED.team1,
     eligibility_disqualified_team2_as_stored: DISQUALIFIED.team2,

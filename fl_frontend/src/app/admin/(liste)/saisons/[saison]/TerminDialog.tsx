@@ -49,7 +49,10 @@ export function TerminDialog({
       changes: { datum: posted(form, DATUM), uhrzeit: posted(form, UHRZEIT) },
     });
     // The note names the other fixtures the save moved, which the dialog stays open to say.
-    return answer.ok ? { ok: true, value: undefined, ...(answer.note === undefined ? {} : { note: answer.note }) } : answer;
+    if (answer.ok) return { ok: true, value: undefined, ...(answer.note === undefined ? {} : { note: answer.note }) };
+    // A save held back for its question deletes a later result, which only a stale bracket's resolution sets off from a
+    // date alone: the match editor asks it, and this dialog says so rather than stand open with nothing written.
+    return answer.ask === undefined ? answer : { ok: false, reason: COPY.admin.overview.voidsLater };
   };
 
   return (
