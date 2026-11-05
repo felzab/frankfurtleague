@@ -94,7 +94,8 @@ def with_the_slot_cleared(season: tuple[FLSpiel, ...], spiel_id: Any) -> tuple[F
 def payload_of(raw: Mapping[str, Any]) -> FLPatchSpielDataPayload:
     """The drawn fixture resubmitted unchanged -- the body `PATCH /spiele/{spiel_id}` carries when nothing was edited."""
 
-    return FLPatchSpielDataPayload.model_validate({field: raw.get(field) for field in PAYLOAD_FIELDS})
+    # A drawn fixture is composed before its insert stamps a version, so the editor reads it at 0.
+    return FLPatchSpielDataPayload.model_validate({field: raw.get(field) for field in PAYLOAD_FIELDS} | {"version": raw.get("version", 0)})
 
 
 class TestTheShapesAreSeasonsThatCanExist:
