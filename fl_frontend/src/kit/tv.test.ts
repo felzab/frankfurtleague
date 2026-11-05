@@ -17,6 +17,7 @@ const CLOSED = {
   text: { utility: "text", known: "text-[1px]" },
   radius: { utility: "rounded", known: "rounded-[1px]" },
   blur: { utility: "backdrop-blur", known: "backdrop-blur-[1px]" },
+  "background-image": { utility: "bg", known: "bg-none" },
 } as const;
 
 /** Every class `tokens.css`'s theme names in those namespaces. Parsed by PostCSS, so a commented-out name is not read. */
@@ -25,14 +26,15 @@ function themeClasses(): Array<{ token: string; own: string; known: string }> {
   const found: Array<{ token: string; own: string; known: string }> = [];
   postcss.parse(readFileSync(file, "utf8"), { from: file }).walkAtRules("theme", (theme) => {
     theme.walkDecls(/^--/, ({ prop }) => {
-      const [, namespace, name] = /^--([a-z]+)-(.+)$/.exec(prop) ?? [];
+      const namespace = (Object.keys(CLOSED) as Array<keyof typeof CLOSED>).find((key) => prop.startsWith(`--${key}-`));
+      const name = namespace === undefined ? undefined : prop.slice(`--${namespace}-`.length);
       // A sub-property such as `--text-xs--line-height` names no class of its own.
-      if (namespace === undefined || name === undefined || name.includes("--") || !(namespace in CLOSED)) return;
-      const { utility, known } = CLOSED[namespace as keyof typeof CLOSED];
+      if (namespace === undefined || name === undefined || name.includes("--")) return;
+      const { utility, known } = CLOSED[namespace];
       found.push({ token: prop, own: `${utility}-${name}`, known });
     });
   });
-  assert(found.length > 0, "tokens.css's theme names no width, shadow, letterfit, size, corner or blur");
+  assert(found.length > 0, "tokens.css's theme names no width, shadow, letterfit, size, corner, blur or image");
   return found;
 }
 
@@ -47,5 +49,10 @@ describe("the kit's recipe builder", () => {
 
   it("keeps a theme shadow beside a shadow colour", () => {
     expect(tv({ base: "shadow-menu", variants: { tinted: { true: "shadow-fg" } } })({ tinted: true })).toBe("shadow-menu shadow-fg");
+  });
+
+  // The hover layer is laid over a fill: read as a fill colour, it would drop the fill under it, or be dropped.
+  it("keeps the hover layer beside a fill", () => {
+    expect(tv({ base: "bg-bg-muted", variants: { hovered: { true: "bg-layer" } } })({ hovered: true })).toBe("bg-bg-muted bg-layer");
   });
 });

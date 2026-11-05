@@ -205,6 +205,27 @@ describe("a table on a phone", () => {
     for (const head of screen.getAllByRole("columnheader")) expect(head.classList).toContain("max-lg:sr-only");
   });
 
+  // A stacked phone row's chevron is the row's end column, spanning the lines of the cells the phone draws, so it stands
+  // centred on the row: a span one short leaves it level with the first lines, one long adds an empty line under the
+  // row, and neither shows anywhere but on a phone. A column the phone leaves out draws no line.
+  it("spans a stacked phone row's chevron over every line the phone draws", () => {
+    render(
+      <Table
+        {...props([{ id: "1", name: { record: "Goethe" }, href: "/saisons/2027", cells: { stadtteil: { record: "Nordend" } } }])}
+        columns={[
+          { key: "stadtteil", label: COPY.shared.startelf },
+          { key: "minute", label: COPY.shared.bank },
+          { key: "hidden", label: COPY.shared.saison, hideOnPhone: true },
+        ]}
+        stack
+      />,
+    );
+    const end = screen.getByRole("link", { name: "Goethe" }).closest("tr")?.lastElementChild;
+    expect(end?.querySelector("svg")).not.toBe(null);
+    expect(end?.classList).toContain("max-lg:col-start-2");
+    expect((end as HTMLElement | null)?.style.gridRow).toBe("1 / span 3");
+  });
+
   // A cell collapsing white space would join a reason's written lines into one, and nothing on the page would say so;
   // jsdom applies no stylesheet, so the kept breaks are read from the cell's words and its class.
   it("keeps the line breaks of a column of written text, in a row and in a stacked phone row", () => {

@@ -16,8 +16,10 @@ const placeholder = tv({
     // Drawn invisible and shown once the wait passes `--loading-delay`, Next's way of keeping a fast load from
     // flashing a placeholder. The longhands, never the `animation` shorthand: under reduced motion
     // `--motion-in` is unset, which would invalidate the whole shorthand and leave the box invisible, where it
-    // invalidates the duration alone, which falls back to 0s, so the box appears at once.
-    root: "opacity-0 [animation-delay:var(--loading-delay)] [animation-duration:var(--motion-in)] [animation-fill-mode:forwards] [animation-name:kit-appear]",
+    // invalidates the duration alone, which falls back to 0s, so the box appears at once. Nothing in it can be pressed,
+    // so nothing in it answers the pointer: a placeholder drawn with a control's or a row's recipe borrows its box, never
+    // its hover or its hand, and `pointer-events` is inherited, so this holds for every part inside.
+    root: "pointer-events-none opacity-0 [animation-delay:var(--loading-delay)] [animation-duration:var(--motion-in)] [animation-fill-mode:forwards] [animation-name:kit-appear]",
     // The base fill, one step off the ground the bar stands on (`--bg-hover`), so a bar shows on the page, a card and
     // a card's head alike, the head redeclaring the step as its own (`cardStyles.ts :: headGround`); with a lighter
     // band sweeping across it every two seconds, under reduced motion too: a loading indicator that stops reads as stuck.

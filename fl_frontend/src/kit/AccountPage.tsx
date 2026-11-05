@@ -2,7 +2,7 @@ import NextLink from "next/link";
 
 import { COPY } from "@/core/copy";
 
-import { cardSurface, stacked } from "./cardStyles";
+import { cardHover, cardSurface, stacked } from "./cardStyles";
 import { EmptyState } from "./EmptyState";
 import { Icon } from "./Icon";
 import { PageWait } from "./PageFade";
@@ -57,7 +57,7 @@ export type AccountEntry = { id: string; label: Copy; icon: IconName; href: Rout
 const list = tv({
   slots: {
     root: cardSurface({ class: "overflow-hidden" }),
-    row: `flex h-14 items-center gap-3 ${stacked()} px-4 text-sm font-medium text-fg`,
+    row: `flex h-14 items-center gap-3 ${stacked()} px-4 text-sm font-medium text-fg ${cardHover()}`,
     glyph: "text-fg-muted",
     words: "min-w-0 flex-1 truncate",
   },
