@@ -79,9 +79,10 @@ exclude-newer = "1 day"
 
 [tool.ruff]
 line-length = 144
-# The packages below `app` and the test tree carry no `__init__.py` (pytest's importlib mode needs
-# none), and ruff judges a module's name (N999) only inside a package it can see.
-namespace-packages = ["app", "tests"]
+# The packages below `app`, the test tree and the gate's three script folders carry no `__init__.py`
+# (pytest's importlib mode needs none), and ruff judges a module's name (N999) only inside a package it
+# can see. Paths resolve from this file, which `scripts/ruff.toml` extends.
+namespace-packages = ["app", "tests", "../scripts/checks", "../scripts/lib", "../scripts/tests"]
 
 [tool.ruff.lint]
 select = [
