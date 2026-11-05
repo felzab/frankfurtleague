@@ -147,6 +147,7 @@ function sectionsOf(saison: LandingSaison | null, window: FLBewerbungWindow | nu
       </LandingSection>
       <Doors
         eyebrow={words.doors.eyebrow}
+        more={{ label: COPY.page.contact, href: ROUTES.contact.path() }}
         school={
           window === null
             ? undefined

@@ -491,7 +491,7 @@ export const SERVER_COPY = catalogue({
 
     /** The ways in: the school's while a window is open, and the question's; the heading counts them. */
     doors: {
-      eyebrow: "Mitmachen",
+      eyebrow: "Bei Anliegen",
       title: (withSchool: boolean) => (withSchool ? "Zwei Wege zu uns" : "Wege zu uns"),
       school: { title: "Deine Schule will antreten" },
       question: {
