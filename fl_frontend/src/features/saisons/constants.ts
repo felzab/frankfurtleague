@@ -1,36 +1,14 @@
 import { COPY } from "@/core/copy";
 import { FLSaisonPhase } from "@/core/generated/client/types";
-import { TEAMS_EINTRAG } from "@/features/admin/constants";
 
 import type { Copy } from "@/core/copy";
-import type { FLSaisonRulesTiebreakOrder } from "@/core/generated/client/types";
 import type { PillTone } from "@/shared/components/ui/badges";
-
-export const SAISONS_CRUD_COPY = {
-  searchLabel: "Saisons suchen",
-  searchPlaceholder: "z.B. 2027",
-  /** The create trigger's words, which the route's loading placeholder also lays out, so its box is the trigger's own. */
-  createLabel: "Neue Saison anlegen",
-} as const;
 
 /**
  * The phases in the competition's own playing order, which `PHASE_RANK` in
  * `fl_frontend/src/features/spiele/utils.ts` ranks against: the backend declares `FLSaisonPhase` in that order.
  */
 export const SAISON_PHASE_OPTIONS: readonly FLSaisonPhase[] = Object.values(FLSaisonPhase);
-
-/**
- * `2 ** (knockout rounds)`, mirroring `fl_backend/app/api/spiele/schemas.py :: MAX_QUALIFIERS`.
- * Derived so a new round raises it at both ends.
- */
-export const MAX_QUALIFIERS = 2 ** (SAISON_PHASE_OPTIONS.length - 1);
-
-/**
- * The smallest bracket the rules take, mirroring `fl_backend/app/api/spiele/schemas.py :: MIN_QUALIFIERS`:
- * one with semi-finals, so a match for third place and four places. Derived from the rounds the Halbfinale opens,
- * as the cap is, so both ends read one phase order.
- */
-export const MIN_QUALIFIERS = 2 ** (SAISON_PHASE_OPTIONS.length - SAISON_PHASE_OPTIONS.indexOf(FLSaisonPhase.halbfinale));
 
 /**
  * Each phase's German name, spelled once in the catalogue, for every surface. Not an export from
@@ -52,134 +30,8 @@ export const PHASE_TINTS: Record<FLSaisonPhase, PillTone> = {
   finale: "finale",
 };
 
-/** One step of the chain, as the picker renders it under the trigger. */
-export type TiebreakRung = {
-  /** What this step compares. */
-  readonly label: string;
-  /** The condition this step decides under, plus what happens without it, or `null` where it always decides. */
-  readonly caveat: string | null;
-};
-
-type TiebreakOption = {
-  readonly value: FLSaisonRulesTiebreakOrder;
-  /** Names the CRITERION, for the picker's trigger and the change list. */
-  readonly label: string;
-  /**
-   * The whole chain in this option's order, mirroring
-   * `fl_backend/app/api/teams/services.py :: _break_tie`. **Bounded, ending in a stated tie**: that
-   * function makes one pass and never walks back up.
-   */
-  readonly ladder: readonly TiebreakRung[];
-};
-
-/** The first rung of both chains: `_tiers` bands a group by points before `_break_tie` sees it. */
-const PUNKTE_RUNG: TiebreakRung = { label: "Punkte", caveat: null };
-
-/** The goal keys, in the order `_goal_key` reads them. */
-const TORE_RUNG: TiebreakRung = { label: "Tordifferenz, dann Tore aus allen Spielen", caveat: null };
-
-/**
- * The ways a season separates clubs level on points, in the picker's order. Every wording lives
- * here as one fact: a surface writing its own German would describe the same rule differently.
- */
-export const TIEBREAK_ORDER_OPTIONS: readonly TiebreakOption[] = [
-  {
-    value: "tordifferenz",
-    label: "Tordifferenz",
-    ladder: [
-      PUNKTE_RUNG,
-      TORE_RUNG,
-      {
-        label: "Die Spiele der punktgleichen Teams untereinander",
-        // `_break_tie` recomputes the mini-table over the teams still level and drops it whole where
-        // they have not all met, so what is left below this rung is a genuine tie.
-        caveat: "Nur wenn alle schon gegeneinander gespielt haben.",
-      },
-    ],
-  },
-  {
-    value: "direkter_vergleich",
-    label: "Direkter Vergleich",
-    ladder: [
-      PUNKTE_RUNG,
-      {
-        label: "Die Spiele der punktgleichen Teams untereinander",
-        // An incomplete head-to-head sets `lead_table` back to `None`, which is exactly the chain
-        // above: the goal keys lead and the mini-table follows them.
-        caveat: "Nur wenn alle schon gegeneinander gespielt haben. Sonst führt die Tordifferenz.",
-      },
-      TORE_RUNG,
-    ],
-  },
-];
-
-/** What both chains end in, stated rather than implied: `_break_tie` reports a set it cannot split as one tie. */
-export const TIEBREAK_LADDER_TAIL = "Bleibt es gleich, stehen die Teams gleichauf.";
-
-// The find cannot miss: the parse refuses anything outside the closed set before a render sees it.
-const tiebreakOption = (value: FLSaisonRulesTiebreakOrder): TiebreakOption | undefined =>
-  TIEBREAK_ORDER_OPTIONS.find((option) => option.value === value);
-
-export function tiebreakLabel(value: FLSaisonRulesTiebreakOrder): string {
-  return tiebreakOption(value)?.label ?? "";
-}
-
-/** The chain this option applies, top rung first. */
-export function tiebreakLadder(value: FLSaisonRulesTiebreakOrder): readonly TiebreakRung[] {
-  return tiebreakOption(value)?.ladder ?? [];
-}
-
 /**
  * Mirroring the backend's `SAISON_ID_LENGTH` (`fl_backend/app/shared/schemas/bounds.py`). `saisons._id` is the string
  * every `saison_id` references, so a width only one tier moved breaks every row pointing at it.
  */
 export const SAISON_ID_LENGTH = 4;
-
-/**
- * Mirrors `fl_backend/app/api/saisons/services.py :: RECORDED_FACT_FIELDS`, which closes both draw
- * windows. Two articles and not one joined list: German inflects the article and the conjunction,
- * so a builder would need to know which sentence it is in.
- */
-export const RECORDED_FACTS_NONE =
-  "kein Ergebnis, kein Ausfall, kein Ort, kein Schiedsrichter, keine Notiz und keine von Hand geänderte Herkunft";
-export const RECORDED_FACTS_ANY = "ein Ergebnis, ein Ausfall, ein Ort, ein Schiedsrichter, eine Notiz oder eine von Hand geänderte Herkunft";
-
-/**
- * `spielplan_berichte_submitted`, for the Spielplan panel's closed control and for the refusal alike: no page takes a report
- * back, so the way on is the one the draw does not need, editing the fixtures.
- */
-export const SPIELBERICHTE_HALTEN_DEN_SPIELPLAN =
-  "Für diese Saison sind Spielberichte eingereicht. Solange ein Spielbericht vorliegt, lässt sich der Spielplan weder neu auslosen noch zurücknehmen. Ändere die Spiele stattdessen einzeln.";
-
-/** The season editor's panels, each named by its heading where a sentence sends the reader to it, so a renamed panel takes the sentence with it. */
-export const ZEITRAUM_ABSCHNITT = "Zeitraum";
-export const REGELN_ABSCHNITT = "Regeln";
-export const SPIELPLAN_ABSCHNITT = "Spielplan";
-
-/** The Spielplan panel's two operations, which its closed press names by these labels: one spelling for the choice and the sentence. */
-export const SPIELPLAN_NEU_ANLEGEN = "Neu anlegen";
-export const SPIELPLAN_ZURUECKNEHMEN = "Zurücknehmen";
-
-/**
- * Here rather than in `actions.ts`, which as a `"use server"` module exports actions alone: the draw's
- * `spielplan_gruppen_off_rules` refusal and the press closed ahead of it read this one sentence, so neither can
- * say what the other does not.
- */
-export const GRUPPEN_OFF_RULES =
-  "Für einen Spielplan muss jede Gruppe dieser Saison genau so viele Teams halten, wie die Regeln vorsehen, und kein Team darf in " +
-  `einer Gruppe stehen, die diese Saison nicht anbietet. Passe die Gruppen unter „${TEAMS_EINTRAG.label}“ an.`;
-
-/**
- * `activate_spieltage_undated`'s one sentence, here for `GRUPPEN_OFF_RULES`' reason: the rollover's blocked
- * reason and the action's arm both return it. The backend raises the code in English, as its three
- * siblings do, so this is the only German for it.
- */
-export const SPIELTAGE_UNDATED = "Umstellen geht erst, wenn jeder Spieltag ein Datum hat.";
-
-/**
- * The two of `fl_backend/app/api/saisons/services.py :: FROZEN_RULES_FIELDS` a save has to warn
- * about, hand-copied and split by reach: one moves every total, the other moves none and only the
- * order under them.
- */
-export const RESCORING_RULES_FIELDS = ["win_points", "draw_points"] as const;
-export const PLACING_RULES_FIELDS = ["tiebreak_order"] as const;

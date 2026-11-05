@@ -20,9 +20,3 @@ export const textLink = tv({
   },
   defaultVariants: { tone: "brand" },
 });
-
-/**
- * A toggle, or a row's own way in. A link inside text takes `textLink` however standalone it looks:
- * its base underlines for every caller because colour alone is not a link.
- */
-export const BRAND_INK_OUTSIDE_PROSE_CLASSES = `${BRAND_GRADE_CLASSES} transition-colors`;

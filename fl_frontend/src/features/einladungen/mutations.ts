@@ -1,17 +1,6 @@
-import {
-  saisonsPostInvitationsDispatch,
-  teamsDeleteInvitation,
-  teamsPostInvitation,
-  teamsPostInvitationDispatch,
-} from "@/core/generated/client/sdk";
+import { teamsDeleteInvitation, teamsPostInvitation, teamsPostInvitationDispatch } from "@/core/generated/client/sdk";
 
-import type {
-  FLInvitationDispatchPayload,
-  FLInvitationDispatchResponse,
-  FLInvitationMailResponse,
-  FLInvitationMintResponse,
-  FLInvitationWriteResponse,
-} from "@/core/generated/client/types";
+import type { FLInvitationMailResponse, FLInvitationMintResponse, FLInvitationWriteResponse } from "@/core/generated/client/types";
 
 // Both ids go in the PATH, never the body — a backend payload model that saw one refuses the whole
 // body.
@@ -36,15 +25,4 @@ export async function mailEinladung({
   einladung_id: string;
 }): Promise<FLInvitationMailResponse> {
   return teamsPostInvitationDispatch(team_id, saison_id, { invitation_id: einladung_id });
-}
-
-/**
- * The SEASON's resource, not a loop over the teams': the unit of work is the season, and a per-team
- * route would be the loop this press exists to remove.
- */
-export async function postEinladungVersand({
-  id,
-  resend: erneut,
-}: { id: string } & FLInvitationDispatchPayload): Promise<FLInvitationDispatchResponse> {
-  return saisonsPostInvitationsDispatch(id, { resend: erneut });
 }

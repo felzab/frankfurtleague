@@ -163,6 +163,22 @@ const STALE: ReadonlySet<Code> = new Set<Code>([
   // A rule the screen does not word, its input holding every rule the API publishes: the page is older than the API.
   "payload_refused",
   "body_unreadable",
+  // A season's dates, rules, draw, swap, replacement and links, each of which the season editor closes off its own read
+  // before it is pressed: the season moved since the page was served.
+  "saison_start_taken_place",
+  "rules_saison_started",
+  "rules_shape_after_spielplan",
+  "spielplan_already_drawn",
+  "spielplan_spieltage_held",
+  "spielplan_replace_outside_its_window",
+  "spielplan_undraw_outside_its_window",
+  "spielplan_berichte_submitted",
+  "swap_not_a_swap",
+  "swap_saison_started",
+  "replace_saison_started",
+  "replace_incoming_already_entered",
+  "replace_one_team_on_both_ends",
+  "invitation_team_not_entered",
 ]);
 
 /** The admin guard's refusals, each in the words of what repairs it. */
@@ -344,7 +360,7 @@ function worded<Schema extends z.ZodType>(
     return placed(
       declared,
       code,
-      fields.map(({ path, ctx }) => ({ path, ...ruleMessage({ kind: code, ctx }) })),
+      fields.map(({ path, ctx }) => ({ path, ...ruleMessage({ kind: code, ctx, path }) })),
     );
   }
   // A phrase names no field of its own, so a code naming none has nothing to place it on.

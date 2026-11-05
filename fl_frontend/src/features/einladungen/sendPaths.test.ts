@@ -2,7 +2,7 @@ import { doubleActionRequest } from "@/test-support/actionDoubles.ts";
 import { doubleApiClient } from "@/test-support/apiClientDouble.ts";
 import { doubleOutbox } from "@/test-support/mailDouble.ts";
 import { refused } from "@/test-support/refusals.ts";
-import { assert, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 /* The real client reaches a backend no test process runs, so it is replaced; what each press is told is read off the
    endpoint's answer, the mails themselves being the backend's to owe. */
@@ -21,7 +21,7 @@ doubleActionRequest();
 vi.doMock("@/core/config.ts", () => CONFIG);
 vi.doMock("@/features/teams/queries.ts", () => TEAMS);
 
-const { mailEinladungAction, postEinladungVersandAction } = await import("./actions.ts");
+const { mailEinladungAction } = await import("./actions.ts");
 
 const SAISON_ID = "2627";
 const TEAM_ID = "a".repeat(24);
@@ -80,32 +80,5 @@ describe("what the single invite press answers", () => {
 
     expect(res.success).toBe(false);
     expect(sentence(res)).toContain("Dieser Link ist nicht mehr der offene Link dieses Teams");
-  });
-});
-
-describe("what the season-wide press answers", () => {
-  const zeile = (teamId: string, uebersprungen: string | null, adressen: string[]) => ({
-    team_id: teamId,
-    team_name: "Team",
-    recipient: adressen.map(empfaenger),
-    skipped: uebersprungen,
-    replaced_link: false,
-    had_link: false,
-  });
-
-  it("counts the teams it reached over the teams it meant to write to, never those the rule passed over", async () => {
-    apiAnswer = () => ({
-      saison_id: SAISON_ID,
-      rows: [
-        zeile("1".repeat(24), null, ["a@b.de"]),
-        zeile("2".repeat(24), "mint_failed", []),
-        zeile("3".repeat(24), "no_confirmed_kontaktperson", []),
-      ],
-    });
-
-    const res = await postEinladungVersandAction({ id: SAISON_ID });
-
-    assert(res.success);
-    expect([res.erreicht, res.gemeint, sentence(res)]).toStrictEqual([1, 2, "Registrierungslinks gesendet: 1 von 2 Teams."]);
   });
 });

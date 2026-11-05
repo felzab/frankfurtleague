@@ -17,34 +17,14 @@ serveServerReact();
 // Each case its own request, as each page load is: a memoised read would otherwise answer one case from the case before it.
 beforeEach(beginRenderPass);
 
-const { calls } = doubleApiAnswers(({ endpoint }) =>
-  Promise.resolve(
-    endpoint.includes("/preview")
-      ? { saison_id: SAISON_ID, rows: [] }
-      : { saison_id: SAISON_ID, team_id: TEAM_ID, invitation: null, running: true },
-  ),
-);
+const { calls } = doubleApiAnswers(() => Promise.resolve({ saison_id: SAISON_ID, team_id: TEAM_ID, invitation: null, running: true }));
 
-const { getEinladung, getEinladungVersandVorschau } = await import("./queries.ts");
+const { getEinladung } = await import("./queries.ts");
 
 const TEAM_ID = "a".repeat(24);
 const SAISON_ID = "2627";
 
 describe("the invite slice's reads", () => {
-  /* The preview describes the press it is shown before: read WITHOUT the re-send choice it answers
-     over the other rule, and the page then lists one set of teams while the press writes to
-     another. */
-  it("carries the re-send choice into the preview's query string, both ways", async () => {
-    await getEinladungVersandVorschau(SAISON_ID, false);
-    await getEinladungVersandVorschau(SAISON_ID, true);
-
-    const vorschau = `/saisons/${SAISON_ID}/invitations/dispatch/preview`;
-    expect(requestsOf(calls)).toStrictEqual([
-      { endpoint: `${vorschau}?resend=false`, method: "GET", body: undefined },
-      { endpoint: `${vorschau}?resend=true`, method: "GET", body: undefined },
-    ]);
-  });
-
   it("addresses one team's invite by both ids in the path", async () => {
     await getEinladung(TEAM_ID, SAISON_ID);
 
