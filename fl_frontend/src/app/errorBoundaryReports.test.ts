@@ -188,7 +188,7 @@ describe("the rail frame's own boundary", () => {
     const quiet = vi.spyOn(console, "error").mockImplementation(() => undefined);
     onTestFinished(() => quiet.mockRestore());
 
-    render(underNext(h(RailFrameBoundary, { groups: [], bar: [], home }, h(FailingRead)), ROUTED));
+    render(underNext(h(RailFrameBoundary, { groups: [], bar: ["uebersicht"], home }, h(FailingRead)), ROUTED));
     await act(() => Promise.resolve());
     const reports = sent.mock.calls.map(([input, init]) => ({ address: String(input), method: init?.method }));
 

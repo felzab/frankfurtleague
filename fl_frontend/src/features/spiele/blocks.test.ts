@@ -6,6 +6,7 @@ import { SERVER_COPY } from "@/core/serverCopy";
 
 import { ereignisOf, matchdayOf, matchRowOf, outcomeFor, popupFactsOf, vorschauOf, whenOf } from "./blocks";
 
+import type { Copy } from "@/core/copy";
 import type { FLSonderereignis, FLSpielJoined } from "@/core/generated/client/types";
 
 const GOETHE = "0".repeat(24);
@@ -112,7 +113,7 @@ describe("what befell a match", () => {
 describe("the match editor's Vorschau", () => {
   // The line under the editor's title is the one place the editor says what the match holds as stored: a branch read
   // wrongly would call a cancelled match unplayed, or hide a stored score, on a page reviewed in one state at a time.
-  const vorschau = (result: string) =>
+  const vorschau = (result: Copy) =>
     COPY.admin.spiel.vorschau(COPY.page.spiel({ record: "Goethe" }, { record: "Helmholtz" }), whenOf(spiel(null)), result);
 
   it("says the stored result, an abandoned match's included", () => {
