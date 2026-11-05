@@ -1,5 +1,6 @@
 import { COPY } from "@/core/copy";
 
+import { CardGrid } from "./CardGrid";
 import { card, cardSurface, stacked } from "./cardStyles";
 import { tv } from "./tv";
 
@@ -244,8 +245,7 @@ function Waiting({ className, layout, children }: { className: string; layout: s
 const cardRows = tv({
   extend: skeleton,
   slots: {
-    // The Übersicht's grid (`CardGrid`), each card the kit's card: its title in the head's band, then its rows.
-    grid: "grid gap-6 lg:grid-cols-2",
+    // Each card the kit's card: its title in the head's band, then its rows.
     cardBox: card().root(),
     cardHead: card().head(),
     // A card row's name over its one line, at the row's height (`Card.tsx :: CardActRow`).
@@ -253,30 +253,35 @@ const cardRows = tv({
   },
 });
 
-/** The Übersicht's four cards, two a row from `lg`, each its title's band over three rows of a name and a line. */
+/**
+ * The Übersicht's four cards in the Übersicht's own grid (`CardGrid`), two a row from `lg`, each its title's band over
+ * three rows of a name and a line.
+ */
 function CardRowsSkeleton() {
   const slots = cardRows();
   return (
     <Waiting
       className={slots.root()}
-      layout={slots.grid()}>
-      {[0, 1, 2, 3].map((index) => (
-        <div
-          key={index}
-          className={slots.cardBox()}>
-          <div className={slots.cardHead()}>
-            <span className={slots.bar({ class: "w-1/3" })} />
-          </div>
-          {[0, 1, 2].map((at) => (
-            <div
-              key={at}
-              className={slots.cardRow()}>
-              <span className={slots.bar({ class: "w-1/2" })} />
-              <span className={slots.bar({ class: "h-3 w-1/3" })} />
+      layout="">
+      <CardGrid>
+        {[0, 1, 2, 3].map((index) => (
+          <div
+            key={index}
+            className={slots.cardBox()}>
+            <div className={slots.cardHead()}>
+              <span className={slots.bar({ class: "w-1/3" })} />
             </div>
-          ))}
-        </div>
-      ))}
+            {[0, 1, 2].map((at) => (
+              <div
+                key={at}
+                className={slots.cardRow()}>
+                <span className={slots.bar({ class: "w-1/2" })} />
+                <span className={slots.bar({ class: "h-3 w-1/3" })} />
+              </div>
+            ))}
+          </div>
+        ))}
+      </CardGrid>
     </Waiting>
   );
 }
