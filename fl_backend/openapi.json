@@ -8540,11 +8540,16 @@
         "type": "string"
       },
       "FLOverviewParty": {
-        "description": "One party's open confirmation row, a club's or the booked referee's: the row „Zusage eintragen“ records its agreement on.",
+        "description": "One party's open confirmation row, a club's or the booked referee's: the row „Zusage eintragen“ records its agreement on.\n\n`name` is the one its own record holds, as each act's recipients are named, so the page names every party one way.",
         "properties": {
           "deadline": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Deadline",
+            "type": "string"
+          },
+          "name": {
+            "minLength": 1,
+            "title": "Name",
             "type": "string"
           },
           "party": {
@@ -8574,6 +8579,7 @@
         "required": [
           "spielbestaetigung_id",
           "party",
+          "name",
           "deadline"
         ],
         "title": "FLOverviewParty",

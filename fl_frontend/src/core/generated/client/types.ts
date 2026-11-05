@@ -3639,10 +3639,14 @@ export interface FLSpielbestaetigungPartySchiedsrichter {
 
 /**
  * One party's open confirmation row, a club's or the booked referee's: the row „Zusage eintragen“ records its agreement on.
+ *
+ * `name` is the one its own record holds, as each act's recipients are named, so the page names every party one way.
  */
 export interface FLOverviewParty {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   deadline: string;
+  /** @minLength 1 */
+  name: string;
   party: FLSpielbestaetigungPartyTeam | FLSpielbestaetigungPartySchiedsrichter;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   spielbestaetigung_id: string;

@@ -26,8 +26,6 @@ import type { Copy, Words } from "@/core/copy";
 import type {
   FLBracketFault,
   FLOverviewRow,
-  FLSpielbestaetigungPartySchiedsrichter,
-  FLSpielbestaetigungPartyTeam,
   FLSpielJoinedAdmin,
   FLSpielQuelle,
   FLSpielRecipientSchiedsrichter,
@@ -44,9 +42,6 @@ const WORDS = SERVER_COPY.overview;
 const SPIEL = COPY.admin.spiel;
 const FACTS = COPY.admin.facts;
 
-/** A party of a fixture's confirmation, a club or the booked referee. */
-type Party = FLSpielbestaetigungPartyTeam | FLSpielbestaetigungPartySchiedsrichter;
-
 export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
   const { saison } = await params;
   return pageMetadata(parent, ROUTES.adminOverview, ROUTES.adminOverview.path(saison));
@@ -62,13 +57,6 @@ const nameOf = (spiel: FLSpielJoinedAdmin): Copy =>
 function clubOf(spiel: FLSpielJoinedAdmin, teamId: string): Words | null {
   const side = [spiel.team1, spiel.team2].find((team) => team?.team_id === teamId);
   return side === undefined || side === null ? null : { record: side.name };
-}
-
-/** A party of the fixture by the name the fixture holds for it, `null` where the fixture no longer names it. */
-function partyName(spiel: FLSpielJoinedAdmin, party: Party): Words | null {
-  if (party.art === "team") return clubOf(spiel, party.team_id);
-  const booked = spiel.schiedsrichter;
-  return booked?.schiedsrichter_id === party.schiedsrichter_id && booked.name !== null ? { record: booked.name } : null;
 }
 
 /**
@@ -152,10 +140,7 @@ function openOf(row: Exclude<FLOverviewRow, { kind: "bewerbung" }>): { line: Cop
   switch (row.kind) {
     case "spielbestaetigung_due":
     case "spielbestaetigung_overdue": {
-      const parties = row.parties.map((party): OpenParty => ({
-        id: party.spielbestaetigung_id,
-        name: partyName(spiel, party.party) ?? nameOf(spiel),
-      }));
+      const parties = row.parties.map((party): OpenParty => ({ id: party.spielbestaetigung_id, name: { record: party.name } }));
       // The earliest deadline a club of the row was given, which its answer is overdue since.
       const deadline = row.parties.map((party) => party.deadline).toSorted()[0];
       const line = row.kind === "spielbestaetigung_due" || deadline === undefined ? WORDS.answerDue : WORDS.answerOverdue(dayOf(deadline));

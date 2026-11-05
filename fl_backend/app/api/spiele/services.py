@@ -1927,7 +1927,8 @@ PARTY_NAME_FIELD: Final = "party_name"
 def build_party_name_stages(*, saison_id: str) -> list[Mapping[str, Any]]:
     """Stages setting on each confirmation row the name its party's own record holds: a club's season row, a referee's.
 
-    For a read that names the parties an act mails from the rows it reads, as `recipients_named` takes them.
+    For a read that names the parties of the rows it reads: whom an act mails, as `recipients_named` takes them, and
+    whose agreement the Übersicht enters (`app/api/saisons/overview.py :: FLOverviewParty`).
     """
 
     return [

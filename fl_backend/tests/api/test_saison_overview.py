@@ -243,7 +243,7 @@ class TestEachKindLandsOnItsCard:
         }
 
     def test_each_row_carries_what_its_act_writes(self, seeded_url: str):
-        """The acts' inputs: a proposal's row and its slot and whom each act mails, each owed party's row, an application's seats.
+        """The acts' inputs: a proposal's row and its slot and whom each act mails, each owed party's row and name, an application's seats.
 
         A referee left off the owed parties cannot be entered from the page; a recipient the page guesses names a mail the
         backend never sends, or misses one it does.
@@ -273,8 +273,8 @@ class TestEachKindLandsOnItsCard:
         assert proposed["discard_recipients"] == [{**away, "name": "Goethe"}]
         assert sorted(overdue["parties"], key=str) == sorted(
             [
-                {"spielbestaetigung_id": str(ROWS[0]["_id"]), "party": home, "deadline": "2026-03-14"},
-                {"spielbestaetigung_id": str(ROWS[5]["_id"]), "party": referee, "deadline": "2026-03-14"},
+                {"spielbestaetigung_id": str(ROWS[0]["_id"]), "party": home, "name": "Lessing", "deadline": "2026-03-14"},
+                {"spielbestaetigung_id": str(ROWS[5]["_id"]), "party": referee, "name": "Anna Körner", "deadline": "2026-03-14"},
             ],
             key=str,
         )
