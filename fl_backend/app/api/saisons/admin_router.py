@@ -11,7 +11,7 @@ from pymongo.errors import PyMongoError
 from pymongo.results import InsertOneResult
 
 from app.api.berechtigungen.guard import verify_actor_is_admin
-from app.api.einladungen.crud import owed_einladung_mails, versendete_einladungen
+from app.api.einladungen.crud import owed_einladung_mails
 from app.api.einladungen.schemas import (
     FLEinladung,
     FLInvitationDispatchPayload,
@@ -238,7 +238,6 @@ async def get_saison_admin(
     teams_collection: TeamsCollection,
     spielberichte_collection: SpielberichteCollection,
     invitations_collection: InvitationsCollection,
-    outbox_collection: OutboxCollection,
     ban_list: BanListLookup,
     today: str = Depends(get_german_date_str),
 ) -> FLSaisonAdminResponse:
@@ -306,7 +305,6 @@ async def get_saison_admin(
                 saison_id=saison_id,
                 saison_teams_collection=saison_teams_collection,
                 invitations_collection=invitations_collection,
-                outbox_collection=outbox_collection,
                 ban_list=ban_list,
                 resend=False,
             ),
@@ -1264,7 +1262,6 @@ async def _plan_the_dispatch(
     saison_id: str,
     saison_teams_collection: AsyncCollection,
     invitations_collection: AsyncCollection,
-    outbox_collection: AsyncCollection,
     ban_list: BanList,
     resend: bool,
 ) -> list[_PlannedTeam]:
@@ -1285,7 +1282,6 @@ async def _plan_the_dispatch(
         projection=dict(WITHOUT_TOKEN_HASH),
     )
     by_team = {row["team_id"]: row for row in live}
-    versendet = await versendete_einladungen(outbox_collection=outbox_collection, einladung_ids=[row["_id"] for row in live])
     barred = await _barred_recipients(ban_list, entered)
 
     planned: list[_PlannedTeam] = []
@@ -1295,7 +1291,6 @@ async def _plan_the_dispatch(
             austritt=team.get("austritt"),
             kontakte=team.get("kontakte"),
             einladung_raw=einladung_raw,
-            versendet=einladung_raw is not None and einladung_raw["_id"] in versendet,
             resend=resend,
             barred=barred,
         )
@@ -1348,14 +1343,10 @@ async def _mail_one_team(
             projection=dict(WITHOUT_TOKEN_HASH),
             session=session,
         )
-        versendet = bool(live) and bool(
-            await versendete_einladungen(outbox_collection=outbox_collection, einladung_ids=[live[0]["_id"]], session=session)
-        )
         plan = plan_einladung_versand(
             austritt=team.get("austritt"),
             kontakte=team.get("kontakte"),
             einladung_raw=live[0] if live else None,
-            versendet=versendet,
             resend=resend,
             barred=barred,
         )
@@ -1451,7 +1442,6 @@ async def get_invitations_dispatch_preview(
     saison_teams_collection: SaisonTeamsCollection,
     invitations_collection: InvitationsCollection,
     saisons_collection: SaisonsCollection,
-    outbox_collection: OutboxCollection,
     ban_list: BanListLookup,
     resend: bool = False,
 ) -> FLInvitationDispatchPreviewResponse:
@@ -1459,7 +1449,7 @@ async def get_invitations_dispatch_preview(
     Per team of this season, the mailboxes the send would write to and the reason it would skip a team — and it writes nothing itself.
 
     Decided by the function the send itself decides by, so the list read here is the list performed. `resend` mirrors the send's own
-    switch: left false, a team whose live link already has a mail owed or sent reads as `already_sent`, and pressing the send with
+    switch: left false, a team whose live link was already sent, by the day stored on it, reads as `already_sent`, and pressing the send with
     `resend` true instead makes this preview's own answer wrong unless the same value is asked for here.
 
     **`replaced_link` is the warning this list carries**: the send mints for every team it answers, so a team already holding a link has that
@@ -1467,8 +1457,8 @@ async def get_invitations_dispatch_preview(
     so a page offering the press reads that fact here or nowhere.
 
     Five skips, each an ordinary state rather than a refusal: the team has left this season, it holds no contact block, no seat of that
-    block has been confirmed by its own person, every confirmed seat's address is on the ban list, or its live link already has a mail
-    owed or sent and `resend` is false. A season holding
+    block has been confirmed by its own person, every confirmed seat's address is on the ban list, or its live link was already
+    sent and `resend` is false. A season holding
     no team answers an empty list. One row per MAILBOX, so a person sitting in two seats is named once. 404 where no season holds that id.
     """
 
@@ -1478,7 +1468,6 @@ async def get_invitations_dispatch_preview(
         saison_id=saison_id,
         saison_teams_collection=saison_teams_collection,
         invitations_collection=invitations_collection,
-        outbox_collection=outbox_collection,
         ban_list=ban_list,
         resend=resend,
     )
@@ -1558,10 +1547,11 @@ async def post_invitations_dispatch(
     press. A team this skips is left exactly as it was.
 
     Five skips, each an ordinary state rather than a refusal: the team has left this season, it holds no contact block, no seat of that block
-    has been confirmed by its own person, every confirmed seat's address is on the ban list, or its live link already has a mail owed or
-    sent and `resend` is false. **The ban is read once ahead of every team**, so a team the mailer could reach nobody of keeps the link it
-    holds rather than losing it to a press that mails nobody. **The fifth is read off the last mail owed about the live link**, so pressing
-    twice mails nobody twice, while a link whose mail was given up or barred is sent again. **The first is read off the junction row's
+    has been confirmed by its own person, every confirmed seat's address is on the ban list, or its live link was already sent and
+    `resend` is false. **The ban is read once ahead of every team**, so a team the mailer could reach nobody of keeps the link it
+    holds rather than losing it to a press that mails nobody. **The fifth is read off the day the live link was sent, stored on it**,
+    never off the Postausgang, whose row is erased a retention after it settles: pressing twice mails nobody twice, and a link a club
+    holds is replaced only by a deliberate resend. **The first is read off the junction row's
     `austritt` record**, so a team out of the season by either route is passed over; minting for one team by hand is not refused, that
     being a deliberate act rather than a bulk one.
 

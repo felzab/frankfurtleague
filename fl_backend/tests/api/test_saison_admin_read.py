@@ -99,7 +99,6 @@ async def read(database: AsyncDatabase) -> FLSaisonAdminResponse:
         teams_collection=database[Collection.TEAMS],
         spielberichte_collection=database[Collection.SPIELBERICHTE],
         invitations_collection=database[Collection.INVITATIONS],
-        outbox_collection=database[Collection.OUTBOX],
         ban_list=ban_list(database),
         today=TODAY,
     )

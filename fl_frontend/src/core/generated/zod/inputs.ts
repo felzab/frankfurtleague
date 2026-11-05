@@ -1866,10 +1866,11 @@ export const SaisonsSwapGruppenBody = zod
  * press. A team this skips is left exactly as it was.
  *
  * Five skips, each an ordinary state rather than a refusal: the team has left this season, it holds no contact block, no seat of that block
- * has been confirmed by its own person, every confirmed seat's address is on the ban list, or its live link already has a mail owed or
- * sent and `resend` is false. **The ban is read once ahead of every team**, so a team the mailer could reach nobody of keeps the link it
- * holds rather than losing it to a press that mails nobody. **The fifth is read off the last mail owed about the live link**, so pressing
- * twice mails nobody twice, while a link whose mail was given up or barred is sent again. **The first is read off the junction row's
+ * has been confirmed by its own person, every confirmed seat's address is on the ban list, or its live link was already sent and
+ * `resend` is false. **The ban is read once ahead of every team**, so a team the mailer could reach nobody of keeps the link it
+ * holds rather than losing it to a press that mails nobody. **The fifth is read off the day the live link was sent, stored on it**,
+ * never off the Postausgang, whose row is erased a retention after it settles: pressing twice mails nobody twice, and a link a club
+ * holds is replaced only by a deliberate resend. **The first is read off the junction row's
  * `austritt` record**, so a team out of the season by either route is passed over; minting for one team by hand is not refused, that
  * being a deliberate act rather than a bulk one.
  *
@@ -1895,7 +1896,7 @@ export const SaisonsPostInvitationsDispatchBody = zod.object({
  * Per team of this season, the mailboxes the send would write to and the reason it would skip a team — and it writes nothing itself.
  *
  * Decided by the function the send itself decides by, so the list read here is the list performed. `resend` mirrors the send's own
- * switch: left false, a team whose live link already has a mail owed or sent reads as `already_sent`, and pressing the send with
+ * switch: left false, a team whose live link was already sent, by the day stored on it, reads as `already_sent`, and pressing the send with
  * `resend` true instead makes this preview's own answer wrong unless the same value is asked for here.
  *
  * **`replaced_link` is the warning this list carries**: the send mints for every team it answers, so a team already holding a link has that
@@ -1903,8 +1904,8 @@ export const SaisonsPostInvitationsDispatchBody = zod.object({
  * so a page offering the press reads that fact here or nowhere.
  *
  * Five skips, each an ordinary state rather than a refusal: the team has left this season, it holds no contact block, no seat of that
- * block has been confirmed by its own person, every confirmed seat's address is on the ban list, or its live link already has a mail
- * owed or sent and `resend` is false. A season holding
+ * block has been confirmed by its own person, every confirmed seat's address is on the ban list, or its live link was already
+ * sent and `resend` is false. A season holding
  * no team answers an empty list. One row per MAILBOX, so a person sitting in two seats is named once. 404 where no season holds that id.
  * @summary Who the send would reach
  */
