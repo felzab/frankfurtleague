@@ -203,23 +203,20 @@ def placed(response: Response) -> dict[str, list[tuple[str, Any]]]:
 @pytest.mark.db
 class TestEachKindLandsOnItsCard:
     def test_every_kind_is_on_its_card_and_nothing_else_is(self, seeded_url: str):
-        """A kind left out of the read, or one the filter widened to another season or a stale row, changes a list here."""
+        """A kind left out, one widened to another season or a stale row, or a fixture twice on a card changes a list here."""
 
         response = answered(seeded_url, PATH)
 
         assert response.status_code == 200
         assert placed(response) == {
             "due": [("spielbestaetigung_overdue", OVERDUE), ("spielbestaetigung_due", DUE_TODAY)],
-            "ergebnisse": [("ergebnis_missing", UNPLAYED), ("spielbericht_open", REPORTED)],
+            "ergebnisse": [("spielbericht_open", REPORTED), ("ergebnis_missing", UNPLAYED)],
             "dates": [
                 ("vorschlag_open", PROPOSED),
-                ("date_missing", UNDATED),
-                ("time_missing", UNDATED),
-                ("spielort_missing", UNDATED),
-                # Dated before undated within a kind.
+                # Lacking its slot, its ground and its referee, the fixture stands once, for the first of them.
+                ("termin_missing", UNDATED),
+                # The referee's own decline is a referee missing, one row.
                 ("schiedsrichter_missing", DECLINED),
-                ("schiedsrichter_missing", UNDATED),
-                ("schiedsrichter_declined", DECLINED),
                 ("team_missing", OPEN_SIDE),
                 ("bracket_fault", CLASH_FIRST),
                 ("bracket_fault", CLASH_SECOND),

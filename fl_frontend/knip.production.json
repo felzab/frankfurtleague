@@ -19,10 +19,7 @@
   ],
   // Built ahead of their first page, each named with the session that first uses it, which deletes
   // its line here and in `knip.json`.
-  "ignoreFiles": [
-    // Session 5.
-    "src/kit/CardGrid.tsx"
-  ],
+  "ignoreFiles": [],
   // An export no production module reads yet but its own says so on itself, `@awaitsProduction` and the
   // page it waits for, which exempts it here (`knip.json` has the other tag). A tagged export that gains
   // its reader is a tag hint, which fails the run until the tag goes.

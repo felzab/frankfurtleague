@@ -2,7 +2,8 @@ import { Suspense } from "react";
 
 import { BracketTree } from "./BracketTree";
 import { Button } from "./Button";
-import { Card } from "./Card";
+import { Card, CardActRow } from "./Card";
+import { CardGrid } from "./CardGrid";
 import { cardSurface } from "./cardStyles";
 import { Dialog } from "./Dialog";
 import { actLabel } from "./dialogAct";
@@ -17,6 +18,7 @@ import { Tabs } from "./Tabs";
 
 import type { Copy } from "@/core/copy";
 import type { ComponentProps, ReactNode } from "react";
+import type { CardActRowProps } from "./Card";
 import type { DialogAct } from "./dialogAct";
 import type { EmptyStateProps } from "./EmptyState";
 import type { Filter } from "./Filters";
@@ -52,6 +54,14 @@ type GroupsContent = {
   empty: EmptyStateProps;
 };
 
+/**
+ * Open work, one card per kind in its order of reading, such as the administrator's Übersicht: each card's title
+ * over its records, every card drawn every day, one with nothing waiting saying so.
+ */
+type CardsContent = {
+  cards: ReadonlyArray<{ id: string; title: Copy; rows: ReadonlyArray<CardActRowProps & { id: string }> }>;
+};
+
 /** The K.-o.-Baum, or why there is none yet. */
 type TreeContent = {
   /** The tree's rounds and the third place; `null` before the draw. */
@@ -77,6 +87,7 @@ type ListContent =
     }
   | { kind: "spieltage"; content: Promise<SpieltageContent> }
   | { kind: "groups"; content: Promise<GroupsContent> }
+  | { kind: "cards"; content: Promise<CardsContent> }
   | { kind: "tree"; content: Promise<TreeContent> }
   | { kind: "spiele"; /** The search field's name. */ search: ListSearch; content: Promise<SpieleContent> }
   | { kind: "tiles"; /** The search field's name. */ search: ListSearch; content: Promise<TilesContent> };
@@ -85,6 +96,7 @@ type ListContent =
 const WAIT: Readonly<Record<ListContent["kind"], SkeletonShape>> = {
   table: "table",
   groups: "table",
+  cards: "cardRows",
   spieltage: "cards",
   tree: "cards",
   spiele: "cards",
@@ -165,6 +177,30 @@ async function ListBody({ list }: { list: ListContent }) {
         ))
       );
     }
+    case "cards": {
+      const { cards } = await list.content;
+      return (
+        <CardGrid>
+          {cards.map((entry) => (
+            <Card
+              key={entry.id}
+              title={entry.title}
+              count={entry.rows.length}>
+              {entry.rows.length === 0 ? (
+                <EmptyState kind="clear" />
+              ) : (
+                entry.rows.map(({ id, ...row }) => (
+                  <CardActRow
+                    key={id}
+                    {...row}
+                  />
+                ))
+              )}
+            </Card>
+          ))}
+        </CardGrid>
+      );
+    }
     case "tree": {
       const { tree, empty } = await list.content;
       return tree === null ? <EmptyBox empty={empty} /> : <BracketTree {...tree} />;
@@ -196,8 +232,8 @@ async function ListBody({ list }: { list: ListContent }) {
  * creating a record over the list; then the list. The list is a table whose rows open their records,
  * „Weitere 50 laden“ under it only while the server reports more rows; or, for the season's matches, the
  * matchday tabs, one matchday at a time, opening on the one the server names; or one card per group, its
- * head naming the group over its table, as the Tabelle stands its groups one under another; or the
- * K.-o.-Baum; or matches the filters left, which the search narrows, as the Spielsuche lists them; or the
+ * head naming the group over its table, as the Tabelle stands its groups one under another; or open work
+ * as cards of rows, two a row from `lg`, as the Übersicht sets its kinds; or the K.-o.-Baum; or matches the filters left, which the search narrows, as the Spielsuche lists them; or the
  * clubs the filters left as school tiles, which the search narrows, as Teams lists them. A list with nothing
  * in it shows its empty state in its place.
  *
