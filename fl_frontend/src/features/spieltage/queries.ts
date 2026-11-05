@@ -1,10 +1,9 @@
 import { cache } from "react";
 
-import { isRecordMissing } from "@/core/errors";
-import { spieltageGetSpieltageVerwaltung, spieltageGetSpieltagVerwaltung } from "@/core/generated/client/sdk";
+import { spieltageGetSpieltageVerwaltung } from "@/core/generated/client/sdk";
 import { runAdminRead } from "@/shared/utils/adminRead";
 
-import type { FLSpieltageListResponse, FLSpieltageSingleResponse, SpieltageGetSpieltageVerwaltungParams } from "@/core/generated/client/types";
+import type { FLSpieltageListResponse, SpieltageGetSpieltageVerwaltungParams } from "@/core/generated/client/types";
 
 /** One in-flight admin matchday read per filter set, held for the length of one render pass. */
 const adminSpieltageInFlight = cache((): Map<string, Promise<FLSpieltageListResponse>> => new Map());
@@ -24,16 +23,3 @@ export function getAdminSpieltage(filters: SpieltageGetSpieltageVerwaltungParams
 
   return started;
 }
-
-/**
- * The one matchday the editor loads, admin-tier for `getAdminSpieltage`'s reason. `null` on a 404,
- * which the editor turns into `notFound()`. **Uncached**.
- */
-export const getAdminSpieltagById = cache(async (spieltagId: string): Promise<FLSpieltageSingleResponse | null> =>
-  runAdminRead(() =>
-    spieltageGetSpieltagVerwaltung(spieltagId).catch((error: unknown) => {
-      if (isRecordMissing(error)) return null;
-      throw error;
-    }),
-  ),
-);

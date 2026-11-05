@@ -4,7 +4,6 @@ import { TEAMS_EINTRAG } from "@/features/admin/constants";
 
 import type { Copy } from "@/core/copy";
 import type { FLSaisonRulesTiebreakOrder } from "@/core/generated/client/types";
-import type { PillTone } from "@/shared/components/ui/badges";
 
 export const SAISONS_CRUD_COPY = {
   searchLabel: "Saisons suchen",
@@ -38,19 +37,6 @@ export const MIN_QUALIFIERS = 2 ** (SAISON_PHASE_OPTIONS.length - SAISON_PHASE_O
  * Spieltag's composed name need the label and render nothing.
  */
 export const PHASE_LABELS: Readonly<Record<FLSaisonPhase, Copy>> = COPY.shared.phase;
-
-/**
- * A phase added to `FLSaisonPhase` with no member in
- * `fl_frontend/src/shared/components/ui/badges.ts :: PillTone` fails this annotation, which is what
- * pins the two sets together without `badges.ts` importing a feature.
- */
-export const PHASE_TINTS: Record<FLSaisonPhase, PillTone> = {
-  gruppenphase: "gruppenphase",
-  achtelfinale: "achtelfinale",
-  viertelfinale: "viertelfinale",
-  halbfinale: "halbfinale",
-  finale: "finale",
-};
 
 /** One step of the chain, as the picker renders it under the trigger. */
 export type TiebreakRung = {

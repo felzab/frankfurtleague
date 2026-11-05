@@ -64,15 +64,8 @@ export const ADMIN_SHELL_FALLBACK = {
   },
 } as const satisfies { label: string; hint: SidemenuHint };
 
-/** `/area/admin/spiele/[spiel_id]` gets no nav entry: the nav renders a link per entry, and there is no fixture index to link to. */
-export const ADMIN_SHELL_UNLISTED_SECTIONS = {
-  spiele: {
-    label: "Spiele",
-    hint: {
-      lead: "Ein einzelnes Spiel bearbeiten.",
-    },
-  },
-} as const satisfies Readonly<Record<string, { label: string; hint: SidemenuHint }>>;
+/** The old frame's pages that get no nav entry, the nav rendering a link per entry: none stands today. */
+export const ADMIN_SHELL_UNLISTED_SECTIONS = {} as const satisfies Readonly<Record<string, { label: string; hint: SidemenuHint }>>;
 
 /** The page of fixtures waiting on an entry, named where the erasure sends a reader to it, so a rename reaches both. */
 export const HANDLUNGSBEDARF_EINTRAG = {
@@ -228,13 +221,6 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
     ],
   },
 
-  // Structure first, lookup last — not alphabetical: the Spieltage and the Finalrunden are what a
-  // season is built from, and the Spielsuche is how one fixture in it is found.
-  {
-    category_name: "Spielbetrieb",
-    sub_options: [SPIELTAGE_EINTRAG, FINALRUNDEN_EINTRAG, SPIELSUCHE_EINTRAG],
-  },
-
   {
     category_name: "Vereine",
     sub_options: [
@@ -273,33 +259,8 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
     ],
   },
 
-  // What gets booked ONTO a fixture rather than belonging to a club, which is why a referee sits
-  // beside a pitch and not beside a player.
-  {
-    category_name: "Ansetzung",
-    sub_options: [
-      {
-        id: "schiedsrichter",
-        label: "Schiedsrichter",
-        iconName: "Person",
-        hint: {
-          lead: "Alle Schiedsrichter, mit Kontakt und Honorar.",
-        },
-      },
-      {
-        id: "spielorte",
-        label: "Spielorte",
-        iconName: "MapPin",
-        hint: {
-          lead: "Alle Austragungsorte, mit Adresse und Miete.",
-        },
-      },
-    ],
-  },
-
-  // Its own group rather than rows under „Ansetzung“ or „Protokoll“: who may enter is neither a fixture
-  // nor a record of what an administrator did, and a group of its own keeps the other two answering
-  // for themselves.
+  // Its own group rather than rows under „Protokoll“: who may enter is no record of what an administrator
+  // did, and a group of its own keeps the log answering for itself.
   {
     category_name: "Zugang",
     sub_options: [

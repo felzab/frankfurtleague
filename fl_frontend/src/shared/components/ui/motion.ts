@@ -8,13 +8,6 @@
 export const PAGE_RISE_CLASSES = "animate-in duration-(--motion-slow) ease-(--motion-ease-enter) fade-in slide-in-from-bottom-2";
 
 /**
- * Tier 2, a card collection. Goes on the `role="list"` container, not its items. The unit is the
- * card, never anything inside one — a card is one stop for the eye, so animating its contents
- * apart makes a whole assemble itself.
- */
-export const CARDS_CASCADE_CLASSES = "cards-cascade";
-
-/**
  * Tier 3, a section unfolding inside a page already in view. Short on purpose — it carries a
  * sentence that has just escalated, so it must not make the reader wait.
  */

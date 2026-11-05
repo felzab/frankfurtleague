@@ -1,5 +1,4 @@
 import type {
-  FLSpielbestaetigung,
   FLSpielJoined,
   FLSpielSchiedsrichterField,
   FLSpielSchiedsrichterFieldPublic,
@@ -52,34 +51,6 @@ export function spielFields(overrides: Partial<SpielFields> = {}): SpielFields {
     notiz: null,
     ansetzung_confirmed: null,
     for_third_place: false,
-    ...overrides,
-  };
-}
-
-/**
- * Team 1's open row about `spielFields`' fixture dated 2026-08-05 at 18:00 on no ground. A case dates the fixture to
- * match, or moves one input to make the row about an Ansetzung the fixture left.
- */
-export function spielbestaetigungFields(overrides: Partial<FLSpielbestaetigung> = {}): FLSpielbestaetigung {
-  return {
-    id: "6890a1b2c3d4e5f607182a01",
-    saison_id: "2026",
-    spiel_id: "6890a1b2c3d4e5f607182930",
-    party: { art: "team", team_id: "6890a1b2c3d4e5f607182932" },
-    ansetzung: {
-      datum: "2026-08-05",
-      uhrzeit: "18:00:00",
-      spielort_id: null,
-      team1_id: "6890a1b2c3d4e5f607182932",
-      team2_id: "6890a1b2c3d4e5f607182933",
-      stand: "0".repeat(64),
-    },
-    frist: "2026-07-29",
-    asked_at: "2026-07-29",
-    reminded_at: null,
-    kontakte: { trainer: { delivery: null }, ansprechperson: { delivery: null }, stellvertretung: null },
-    antwort: null,
-    closed: null,
     ...overrides,
   };
 }

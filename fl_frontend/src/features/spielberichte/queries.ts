@@ -1,29 +1,15 @@
 import { cache } from "react";
 
-import {
-  spielberichteGetSelf,
-  spielberichteGetSpielberichtBericht,
-  spielberichteGetSpielberichte,
-  spielberichteGetSpielberichtVerwaltung,
-} from "@/core/generated/client/sdk";
+import { spielberichteGetSelf, spielberichteGetSpielberichtBericht, spielberichteGetSpielberichte } from "@/core/generated/client/sdk";
 import { runAdminRead } from "@/shared/utils/adminRead";
 import { runPersonRead } from "@/shared/utils/personRead";
 
 import type {
-  FLSpielberichtAdminResponse,
   FLSpielberichteSaisonResponse,
   FLSpielberichteSelfResponse,
   FLSpielberichtSchiedsrichterResponse,
   SpielberichteGetSpielberichteParams,
 } from "@/core/generated/client/types";
-
-/**
- * One fixture's report as the administrator reads it, remarks and reasons included, with its state. Uncached: an
- * admin-tier read.
- */
-export async function getAdminSpielbericht(spielId: string): Promise<FLSpielberichtAdminResponse> {
-  return runAdminRead(() => spielberichteGetSpielberichtVerwaltung(spielId));
-}
 
 /** Every report of a season holding a block, each with its state: what the season editor counts. */
 export async function getSpielberichteZustaende(filters: SpielberichteGetSpielberichteParams = {}): Promise<FLSpielberichteSaisonResponse> {

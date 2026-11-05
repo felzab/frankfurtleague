@@ -1,6 +1,5 @@
 import { FLEinwilligungScope } from "@/core/generated/client/types";
 import { BEWERBUNG_MAX_ALTER } from "@/features/bewerbungen/constants";
-import { PLACEHOLDER } from "@/shared/utils/format";
 
 import type { FLSchiedsrichterConfirmationFristDays } from "@/core/generated/client/types";
 
@@ -103,15 +102,4 @@ export function bookedSchiedsrichterName({ schiedsrichter_id, name, name_is_publ
   return schiedsrichter_id === GHOST_SCHIEDSRICHTER_ID || name_is_public === false
     ? SCHIEDSRICHTER_ANONYM_LABEL
     : SCHIEDSRICHTER_OHNE_NAMEN_LABEL;
-}
-
-/**
- * The word a FIXTURE's referee cell shows.
- *
- * Its own helper because the obvious spelling reads both absences through one chain —
- * `schiedsrichter?.name ?? PLACEHOLDER.entity` — which falls through to the no-referee placeholder for
- * a fixture that does hold one.
- */
-export function spielSchiedsrichterAnzeige(schiedsrichter: GebuchterSchiedsrichter | null): string {
-  return schiedsrichter === null ? PLACEHOLDER.entity : bookedSchiedsrichterName(schiedsrichter);
 }
