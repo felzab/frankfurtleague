@@ -23,7 +23,7 @@ vi.mock("next/navigation", async (original) => ({
 
 describe("the sign-in's send", () => {
   it("empties its status line while a send is on its way, so the same refusal twice is announced twice", async () => {
-    const refusal = { ok: false, reason: COPY.shared.botCheck.confirm } as const;
+    const refusal = { ok: false, reason: COPY.shared.botCheck } as const;
     const second = Promise.withResolvers<typeof refusal>();
     vi.mocked(handleSignIn).mockResolvedValueOnce(refusal).mockReturnValueOnce(second.promise);
     render(
