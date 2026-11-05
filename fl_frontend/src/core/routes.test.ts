@@ -57,6 +57,7 @@ const LEAGUE_WORDS: Readonly<Record<string, string>> = {
   saisons: "Saison",
   spiel: "Spiel",
   spiele: "Spiel",
+  spieltage: "Spieltag",
   team: "Team",
   teams: "Team",
   spieler: "Spieler",

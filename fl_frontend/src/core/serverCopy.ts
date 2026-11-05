@@ -145,6 +145,11 @@ export const SERVER_COPY = catalogue({
     eligibility_disqualified: DISQUALIFIED,
     eligibility_disqualified_team1_as_stored: DISQUALIFIED.team1,
     eligibility_disqualified_team2_as_stored: DISQUALIFIED.team2,
+    /**
+     * A save after which the bracket would field one club in two matches of one matchday, a club picked by hand
+     * standing where the bracket's own wiring leads it too: the same save answers the same, the page being current.
+     */
+    spieltag_occupied_by_the_resolution: "Der K.-o.-Baum würde ein Team zweimal an diesem Spieltag aufstellen.",
     /** A matchday's dates: past its season's, short of one of its dated matches, or out of its phase's order of matchdays. */
     spieltag_outside_saison: "Dieser Zeitraum liegt außerhalb der Saison.",
     spieltag_span_below_spiele: "Ein Spiel des Spieltags liegt außerhalb dieses Zeitraums.",
@@ -274,6 +279,8 @@ export const SERVER_COPY = catalogue({
       /** The block's rows of a move, beside the slot's own: the moment it left and the one it moved to. */
       previous: "Bisher",
       next: "Neu",
+      /** The moment a move left, where the move also changed the sides: the pairing that slot held, then the moment. */
+      previousPairing: (spiel: Words, moment: string) => `${textOf(spiel)}, ${moment}`,
       /** A move whose new slot is asked later, by the reader: a club is asked, a referee booked. */
       askedLater: {
         team: "Zum neuen Termin bekommst du eine neue Anfrage.",

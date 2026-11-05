@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useEffectEvent, useState } from "react";
+import { useState } from "react";
 
 import { AdoptLine } from "@/kit/AdoptLine";
 import { ComboBox } from "@/kit/ComboBox";
@@ -21,7 +21,7 @@ import { COPY } from "@/core/copy";
 import { admitsShootOut } from "@/features/spiele/shootOut";
 
 import { SpielortFields } from "../../../../../SpielortFields";
-import { isNoShow, NO_SONDEREREIGNIS, takesNoResult } from "./spielValues";
+import { adoptsBerichtOf, holdsProposal, isNoShow, NO_SONDEREREIGNIS, takesNoResult } from "./spielValues";
 
 import type { ActionAnswer } from "@/core/action";
 import type { Copy, Words } from "@/core/copy";
@@ -38,8 +38,8 @@ import type { SpielValues } from "./spielValues";
 const WORDS = COPY.admin.spiel;
 const ORT = COPY.admin.spielort;
 
-/** A club a knockout match's side may be given by hand; one the write would not field carries why. */
-export type Club = { id: string; name: string; note?: Copy };
+/** A club a knockout match's side may be given by hand, with its Kürzel; one the write would not field carries why. */
+export type Club = { id: string; name: string; shorthand: string; note?: Copy };
 
 /** The referee's proposal as „Übernehmen“ carries it into the result's fields, with the report's version it stamps. */
 export type Adoption = { version: number; text: Copy; values: Partial<SpielValues> };
@@ -50,66 +50,20 @@ type Booking = { option: Option; price: number };
 /** What a save sends: the changes, and the report's version where the result was carried over from it. */
 type Sent = EditorSave<SpielValues> & { adoptsBericht: number | null };
 
-/** Each field by its own label, as the Vorschau names the changes. */
-const LABELS: Readonly<Record<keyof SpielValues, Copy>> = {
-  team1: WORDS.team1,
-  team2: WORDS.team2,
-  datum: WORDS.datum,
-  uhrzeit: WORDS.uhrzeit,
-  spielort: ORT.object,
-  mietpreis: ORT.mietpreis,
-  schiedsrichter: COPY.shared.schiedsrichter,
-  honorar: WORDS.honorar,
-  hasResult: WORDS.ergebnis,
-  tore1: COPY.shared.tore,
-  tore2: COPY.shared.tore,
-  shootOut1: WORDS.elfmeterschiessen,
-  shootOut2: WORDS.elfmeterschiessen,
-  sonderereignis: WORDS.sonderereignis,
-  notiz: WORDS.notiz,
-};
-
-/** The fields whose change can move the bracket after the match, which a dry run asks about before the save. */
-const MOVES_THE_BRACKET = ["team1", "team2", "hasResult", "tore1", "tore2", "shootOut1", "shootOut2", "sonderereignis"] as const;
-
-/** One debounce for a dry run, settled before a hand reaches „Speichern“ after the last figure. */
-const PREVIEW_DELAY_MS = 450;
-
 const goals = (text: string) => (text === "" ? null : Number(text));
-
-/**
- * The later matches whose results the present changes would delete, from the write's own dry run: a debounced
- * question per draft, its answer standing only over the draft it was asked for. No answer, while one is on its way
- * or where the run failed, asks nothing before the save, whose done line still names every match it moved.
- */
-function useVoided(changes: Partial<SpielValues>, ask: (changes: Partial<SpielValues>) => Promise<ActionAnswer<readonly number[]>>) {
-  const moving = MOVES_THE_BRACKET.some((key) => key in changes);
-  const key = JSON.stringify(MOVES_THE_BRACKET.map((field) => changes[field] ?? null));
-  const [answered, setAnswered] = useState<{ key: string; voided: readonly number[] } | null>(null);
-  const run = useEffectEvent(async (asked: string) => {
-    const answer = await ask(changes).catch(() => null);
-    setAnswered({ key: asked, voided: answer?.ok === true ? answer.value : [] });
-  });
-  useEffect(() => {
-    if (!moving) return undefined;
-    const timer = setTimeout(() => void run(key), PREVIEW_DELAY_MS);
-    return () => clearTimeout(timer);
-  }, [key, moving]);
-  return moving && answered?.key === key ? answered.voided : [];
-}
 
 /**
  * The match editor: a knockout match's two clubs; the Ansetzung's day, time, venue and price, referee and fee; the
  * result, entered by the switch the board drew, its goals as one score, a shoot-out's pair appearing by itself on
  * level knockout goals, and the referee's proposal carried over by „Übernehmen“; the Sonderereignis, in a box of its
- * own; the note; and the report's goals and every party's answer, read-only. Saved together from the editor's bar, which asks first where the
- * save would delete a later match's result.
+ * own; the note; and the report's goals and every party's answer, read-only. Saved together from the editor's bar;
+ * a save that would delete a later match's result the server holds back with its question, which the bar asks.
  */
 export function SpielEditor({
   title,
+  vorschau,
   record,
   save,
-  preview,
   phase,
   sides,
   quellen,
@@ -127,9 +81,10 @@ export function SpielEditor({
   closed,
 }: {
   title: PageTitle;
+  /** The line under the title: the match as it is stored, read on the server. */
+  vorschau: Copy;
   record: EditorRecord<SpielValues>;
   save: (sent: Sent) => Promise<ActionAnswer<number>>;
-  preview: (sent: Sent) => Promise<ActionAnswer<readonly number[]>>;
   phase: FLSaisonPhase;
   /** Each side's club as stored, by its name and its plaque, `null` while the side is open. */
   sides: { team1: ScoreSide | null; team2: ScoreSide | null };
@@ -156,30 +111,22 @@ export function SpielEditor({
 }) {
   // „Übernehmen“ was pressed, so the save stamps the report adopted while the fields still hold its proposal.
   const [adopted, setAdopted] = useState(false);
-  const holdsProposal = (draft: SpielValues) =>
-    adoption !== null && Object.entries(adoption.values).every(([key, value]) => draft[key as keyof SpielValues] === value);
   const editor = useEditor(record, (change) =>
-    save({
-      ...change,
-      adoptsBericht: adopted && adoption !== null && holdsProposal({ ...record.values, ...change.changes }) ? adoption.version : null,
-    }),
+    save({ ...change, adoptsBericht: adoptsBerichtOf(adoption, adopted, { ...record.values, ...change.changes }) }),
   );
-  const { draft, set, changes } = editor;
-  const voided = useVoided(changes, (asked) => preview({ id: record.id, version: record.version, adoptsBericht: null, changes: asked }));
+  const { draft, set } = editor;
   // The create dialog, opened from the venue list's last entry with the name typed into the field; the dialog closes
   // this state itself when Next hides the page.
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState("");
 
-  const clubName = (id: string | null): Words | null => {
-    const club = id === null ? undefined : clubs?.find((each) => each.id === id);
-    return club === undefined ? null : { record: club.name };
-  };
-  // Each side's field named by its club, as it now stands in the draft, and by its place while the side is open; a
-  // club picked by hand and not yet saved carries no plaque, its Kürzel not being among the clubs the picker lists.
+  const clubOf = (id: string | null) => (id === null ? undefined : clubs?.find((each) => each.id === id));
+  // Each side's field named by its club, as it now stands in the draft, a club picked by hand with the plaque the
+  // picker's list carries for it, and by its place while the side is open.
   const sideOf = (side: "team1" | "team2"): ScoreSide => {
     if (draft[side] === record.values[side] && sides[side] !== null) return sides[side];
-    return { name: clubName(draft[side]) ?? WORDS[side], plaque: null };
+    const club = clubOf(draft[side]);
+    return club === undefined ? { name: WORDS[side], plaque: null } : { name: { record: club.name }, plaque: { record: club.shorthand } };
   };
   const scoreSides: readonly [ScoreSide, ScoreSide] = [sideOf("team1"), sideOf("team2")];
   const sideNames: readonly [Words, Words] = [scoreSides[0].name, scoreSides[1].name];
@@ -252,10 +199,9 @@ export function SpielEditor({
   return (
     <EditorPage
       title={title}
-      lead={editor.count === 0 ? undefined : WORDS.changed([...new Set(Object.keys(changes).map((key) => LABELS[key as keyof SpielValues]))])}
+      lead={vorschau}
       editor={editor}
       closed={closed}
-      warning={() => (voided.length === 0 ? null : { subject: WORDS.ergebnis, consequence: WORDS.voids(voided) })}
       sections={withBegegnung([
         {
           id: "ansetzung",
@@ -388,6 +334,8 @@ export function SpielEditor({
               {shootOut && (
                 <ScorePair
                   label={WORDS.elfmeterschiessen}
+                  // Its caption tells it from the goals' pair above, which reads the same clubs over the same fields.
+                  captioned
                   sides={scoreSides}
                   names={["shootOut1", "shootOut2"]}
                   values={[draft.shootOut1, draft.shootOut2]}
@@ -397,7 +345,7 @@ export function SpielEditor({
                   {...(shootOutTyped ? {} : { consequence: WORDS.shootOutMissing })}
                 />
               )}
-              {adoption !== null && !holdsProposal(draft) && (
+              {adoption !== null && !holdsProposal(adoption, draft) && (
                 <AdoptLine
                   text={adoption.text}
                   onAdopt={() => {

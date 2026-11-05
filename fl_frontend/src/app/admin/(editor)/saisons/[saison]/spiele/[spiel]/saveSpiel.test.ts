@@ -65,12 +65,16 @@ const NOTHING_MOVED: FLPatchSpielDataResponse = {
 
 const VOIDED_NONE = { voided_ergebnis: null, voided_elfmeterschiessen: null, voided_sonderereignis: null };
 
-/** The fixture the save reads before its write, every payload it sends, and what the write answers. */
+/**
+ * The fixture the save reads before its write, every payload it writes, what the write answers, and what the write's
+ * dry run, asked first, reports.
+ */
 const state = vi.hoisted(() => ({
   read: null as unknown,
   sent: [] as unknown[],
   refusal: null as unknown,
   answer: null as unknown,
+  dryRun: null as unknown,
 }));
 
 vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
@@ -79,19 +83,30 @@ vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
 vi.mock("next/cache", () => ({ updateTag: () => undefined }));
 vi.mock("@/core/auth/guards", () => ({ judgeAdminRequest: async () => ({ session: {} }) }));
 
+// The editor's view as far as the save reads it: the fixture, and the referees and clubs it names parties by.
 vi.mock("@/features/spiele/queries", () => ({
-  getAdminSpiel: async () => (state.read === null ? null : { spiel: state.read }),
+  getAdminSpiel: async () =>
+    state.read === null
+      ? null
+      : {
+          spiel: state.read,
+          schiedsrichter: [{ id: "64b000000000000000000006", name: "Lena Brandt" }],
+          teams: [{ id: "64b00000000000000000000a", name: "Lessing-Gymnasium" }],
+        },
 }));
 
 // The backend client itself is replaced, so the write runs through the real generated call and the real dispatch,
 // which counts it and takes it back where the backend refuses it.
 const calls = doubleApiClient((call) => {
-  state.sent.push(JSON.parse(call.body ?? "null"));
   if (state.refusal !== null) throw state.refusal;
+  if (call.endpoint.includes("dry_run=true")) return state.dryRun;
+  state.sent.push(JSON.parse(call.body ?? "null"));
   return state.answer;
 });
 
-const { previewSpiel, saveSpiel } = await import("./saveSpiel");
+const { saveSpiel } = await import("./saveSpiel");
+
+const DRY_RUN = `/spiele/${SPIEL_ID}?dry_run=true`;
 
 /** The write's 409, naming the body field it judged where it is about one. */
 const refusal = (serverErrorCode: Code, about?: readonly string[]) =>
@@ -113,6 +128,7 @@ beforeEach(() => {
   state.sent = [];
   state.refusal = null;
   state.answer = NOTHING_MOVED;
+  state.dryRun = NOTHING_MOVED;
 });
 
 /** A save of these changes on the version the editor was read at, carrying over no report. */
@@ -128,8 +144,11 @@ describe("the match editor's save", () => {
     const answer = await saveSpiel(saving({ uhrzeit: "18:00:00" }));
 
     expect(answer).toEqual({ ok: true, value: 4 });
-    // The write itself, never its dry run, and no report stamped.
-    expect(calls.map(({ endpoint, method }) => ({ endpoint, method }))).toStrictEqual([{ endpoint: `/spiele/${SPIEL_ID}`, method: "PATCH" }]);
+    // The dry run first, deleting nothing here, then the write itself, and no report stamped.
+    expect(calls.map(({ endpoint, method }) => ({ endpoint, method }))).toStrictEqual([
+      { endpoint: DRY_RUN, method: "PATCH" },
+      { endpoint: `/spiele/${SPIEL_ID}`, method: "PATCH" },
+    ]);
     expect(state.sent).toEqual([{ ...SENT_AS_STORED, uhrzeit: "18:00:00" }]);
   });
 
@@ -144,7 +163,7 @@ describe("the match editor's save", () => {
   it("stamps the report the result was carried over from", async () => {
     await saveSpiel({ ...saving({ tore1: "3", tore2: "1" }), adoptsBericht: 2 });
 
-    expect(calls.map(({ endpoint }) => endpoint)).toStrictEqual([`/spiele/${SPIEL_ID}?adopts_bericht=2`]);
+    expect(calls.map(({ endpoint }) => endpoint)).toStrictEqual([DRY_RUN, `/spiele/${SPIEL_ID}?adopts_bericht=2`]);
     // Goals no longer level: the shoot-out goes, as the write drops it.
     expect(state.sent).toMatchObject([{ team1: { tore: 3 }, team2: { tore: 1 }, elfmeterschiessen: null }]);
   });
@@ -272,13 +291,16 @@ describe("the match editor's save", () => {
     state.refusal = refusal("saison_past");
     expect(await saveSpiel(save)).toEqual({ ok: false, errorCode: "saison_past", reason: SERVER_COPY.refusalLine.saison_past });
 
+    // The bracket fielding a club twice names no field, and a reload would answer the same: its sentence, never the stale line.
+    state.refusal = refusal("spieltag_occupied_by_the_resolution");
+    expect(await saveSpiel(save)).toEqual({
+      ok: false,
+      errorCode: "spieltag_occupied_by_the_resolution",
+      reason: SERVER_COPY.refusalLine.spieltag_occupied_by_the_resolution,
+    });
+
     // The editor offers only the clubs the write takes, so a team's refusal means the fixture changed under it.
-    for (const code of [
-      "ergebnis_side_emptied",
-      "spieltag_occupied",
-      "spieltag_occupied_by_the_resolution",
-      "eligibility_team_not_in_saison",
-    ] as const) {
+    for (const code of ["ergebnis_side_emptied", "spieltag_occupied", "eligibility_team_not_in_saison"] as const) {
       state.refusal = refusal(code);
       expect(await saveSpiel(save), code).toEqual({ ok: false, errorCode: code, reason: COPY.shared.failure.stale });
     }
@@ -289,9 +311,10 @@ describe("the match editor's save", () => {
   });
 });
 
-describe("the match editor's dry run", () => {
-  it("asks the write's own dry run, answering only the later matches whose results it would delete", async () => {
-    state.answer = {
+// The harm: a save deleting later matches' stored results unasked, which only its done line names afterwards.
+describe("the match editor's question before it deletes a later result", () => {
+  beforeEach(() => {
+    state.dryRun = {
       ...NOTHING_MOVED,
       advanced_to: [
         { spiel_id: "64b000000000000000000007", spiel_nr: 33, ...VOIDED_NONE, voided_ergebnis: "1:0" },
@@ -302,10 +325,55 @@ describe("the match editor's dry run", () => {
         { spiel_id: "64b000000000000000000009", spiel_nr: 31, side: "team1", team_name: "Linde", ...VOIDED_NONE, voided_ergebnis: "2:0" },
       ],
     } satisfies FLPatchSpielDataResponse;
+  });
 
-    const answer = await previewSpiel(saving({ tore1: "3", tore2: "1" }));
+  const QUESTION = { subject: COPY.admin.spiel.ergebnis, consequence: COPY.admin.spiel.voids([31, 33]), confirm: "31,33" };
 
-    expect(answer).toEqual({ ok: true, value: [31, 33] });
-    expect(calls.map(({ endpoint }) => endpoint)).toStrictEqual([`/spiele/${SPIEL_ID}?dry_run=true`]);
+  it("holds the save back with its question, naming the matches the write's own dry run would delete, and writes nothing", async () => {
+    const answer = await saveSpiel(saving({ tore1: "3", tore2: "1" }));
+
+    expect(answer).toEqual({ ok: false, ask: QUESTION });
+    expect(calls.map(({ endpoint }) => endpoint)).toStrictEqual([DRY_RUN]);
+    expect(state.sent).toEqual([]);
+  });
+
+  it("writes once the person confirmed exactly the matches it deletes", async () => {
+    const answer = await saveSpiel({ ...saving({ tore1: "3", tore2: "1" }), confirm: QUESTION.confirm });
+
+    expect(answer).toMatchObject({ ok: true, value: 4 });
+    expect(calls.map(({ endpoint }) => endpoint)).toStrictEqual([DRY_RUN, `/spiele/${SPIEL_ID}`]);
+  });
+
+  it("names under its question whom the save mails, by the editor's own names, and asks again where they change", async () => {
+    state.dryRun = {
+      ...(state.dryRun as FLPatchSpielDataResponse),
+      recipients: [
+        { art: "team", team_id: "64b000000000000000000004" },
+        { art: "team", team_id: PICKED },
+        { art: "schiedsrichter", schiedsrichter_id: "64b000000000000000000006" },
+      ],
+    };
+    const mailed = "Ernst-Reuter-Schule, Lessing-Gymnasium und Lena Brandt";
+
+    const answer = await saveSpiel(saving({ team1: PICKED }));
+
+    expect(answer).toEqual({
+      ok: false,
+      ask: {
+        ...QUESTION,
+        facts: [{ label: COPY.admin.facts.mailTo, value: { record: mailed } }],
+        confirm: "31,33;Ernst-Reuter-Schule;Lessing-Gymnasium;Lena Brandt",
+      },
+    });
+    // A confirmation of the deletions alone covers no mail it was not shown.
+    expect(await saveSpiel({ ...saving({ team1: PICKED }), confirm: QUESTION.confirm })).toMatchObject({ ok: false });
+    expect(state.sent).toEqual([]);
+  });
+
+  it("asks again where the save would now delete other results than those confirmed", async () => {
+    const answer = await saveSpiel({ ...saving({ tore1: "3", tore2: "1" }), confirm: "33" });
+
+    expect(answer).toEqual({ ok: false, ask: QUESTION });
+    expect(state.sent).toEqual([]);
   });
 });

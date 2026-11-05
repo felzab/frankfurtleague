@@ -19,7 +19,6 @@ import type { Copy } from "@/core/copy";
 import type { ReactElement } from "react";
 import type { ChipProps } from "./Chip";
 import type { ConfirmDialogProps } from "./ConfirmDialog";
-import type { SaveWarning } from "./EditorBar";
 import type { PageTitle } from "./RailFrame";
 import type { Editor, EditorValue } from "./useEditor";
 
@@ -128,14 +127,14 @@ export function EditorPage<Values extends Record<string, EditorValue>>({
   editor,
   sections,
   danger,
-  warning,
   closed,
 }: {
   title: PageTitle;
   chip?: ChipProps;
   /**
-   * The Vorschau: one line under the title saying how the record reads, such as a match's pairing, its score and
-   * its outcome, or that no result is stored yet.
+   * The Vorschau: one line under the title saying a fact about the record as it is stored, such as a match's pairing,
+   * its day and its result or that none is stored yet, or that the website shows a season. Never the unsaved
+   * changes, which the bar's status line counts.
    */
   lead?: Copy;
   /** The reason the record is closed read-only, such as its season having finished; absent while it is open. */
@@ -144,8 +143,6 @@ export function EditorPage<Values extends Record<string, EditorValue>>({
   sections: readonly [EditorSection, ...EditorSection[]];
   /** The danger box: its title, naming what its acts are about, and its rows. */
   danger?: { title: Copy; acts: ReadonlyArray<DangerAct> };
-  /** The question a save of these changes asks first, only for a consequence beyond the record. */
-  warning?: (changes: Partial<Values>) => SaveWarning | null;
 }) {
   const form = useRef<HTMLFormElement>(null);
 
@@ -159,7 +156,8 @@ export function EditorPage<Values extends Record<string, EditorValue>>({
           <EditorBar
             status={editor.status}
             isPending={editor.isPending}
-            warning={warning?.(editor.changes) ?? null}
+            // A save the server held back asks its question from the bar, before it goes again.
+            question={{ asked: editor.question, confirm: editor.confirm, decline: editor.decline }}
             onSave={() => form.current?.requestSubmit()}
           />
         ) : undefined

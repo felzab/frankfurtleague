@@ -859,8 +859,9 @@ export const COPY = catalogue({
       spielberichtUndBestaetigungen: "Spielbericht und Bestätigungen",
       spielbericht: "Spielbericht",
       bestaetigungen: "Bestätigungen",
-      /** The Vorschau under the editor's title: the fields changed and not yet saved, each by its own label. */
-      changed: (labels: readonly Copy[]) => formatList(labels),
+      /** The Vorschau under the editor's title: the match as stored, its pairing, when it is played and its result. */
+      vorschau: (pairing: Copy, when: Copy, result: Copy) => `${pairing} · ${when} · ${result}`,
+      noResult: "Noch kein Ergebnis",
       /** A club picked by hand over the side's source, which the side no longer follows once saved. */
       replacesQuelle: (quelle: Copy) => `Ersetzt ${quelle}`,
       /** Why a club cannot take a side: it stands on another match of the matchday, or has left the season. */
