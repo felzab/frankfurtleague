@@ -80,6 +80,7 @@ class Code(StrEnum):
     ANSETZUNG_CLOSED = auto()
     ANSETZUNG_NOT_ENTERABLE = auto()
     ANSETZUNG_NOT_DISCARDABLE = auto()
+    ANSETZUNG_NOT_ADOPTABLE = auto()
     ANSETZUNG_FOREIGN_ROW = auto()
     # A tier's key missing or wrong, whichever tier: the path names the tier.
     ACCESS_KEY_REFUSED = auto()

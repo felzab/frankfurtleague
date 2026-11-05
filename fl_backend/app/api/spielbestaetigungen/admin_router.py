@@ -26,6 +26,7 @@ from app.api.spielbestaetigungen.services import (
     compose_closing_update,
     compose_eintragen_update,
     eintragen_refusal,
+    find_adoption_refusal,
     find_eintragen_refusal,
     find_verwerfen_refusal,
     find_vorschlag_vergangen_refusal,
@@ -296,8 +297,8 @@ async def adopt_spielbestaetigung(
     """
     Move a fixture to the date and hour a club's open decline proposes, through the fixture's own save.
 
-    Refused as the discard refuses, for any row but an open club decline proposing a date about the fixture's current
-    Ansetzung (`ansetzung_not_discardable`), and for a proposed day gone by (`ansetzung_vorschlag_past_as_stored`, the
+    Refused for any row but an open club decline proposing a date about the fixture's current Ansetzung, the row a
+    discard closes (`ansetzung_not_adoptable`), and for a proposed day gone by (`ansetzung_vorschlag_past_as_stored`, the
     stored proposal's 409). The fixture is saved as the administrator's save would carry it on the proposed day and
     hour, everything else kept, so it meets every rule that save meets and is refused as that save is, by its code and
     status alone, as the draw answers the season write's refusals: no refusal names a field, the request carrying no
@@ -331,7 +332,7 @@ async def adopt_spielbestaetigung(
         )
         # The whole fixture: the save carries every field of it but the day and the hour.
         spiel = await pull_one_from_db(collection=spiele_collection, db_filter={"_id": row["spiel_id"]}, session=session)
-        refuse(find_verwerfen_refusal(spielbestaetigung_raw=row, spiel=spiel))
+        refuse(find_adoption_refusal(spielbestaetigung_raw=row, spiel=spiel))
         vorschlag = FLSpielbestaetigungAppointment.model_validate(row["antwort"]["vorschlag"])
         refuse(as_judged_on_stored_state(find_vorschlag_vergangen_refusal(vorschlag=vorschlag, today=today), twins=ADOPTION_TWINS))
 

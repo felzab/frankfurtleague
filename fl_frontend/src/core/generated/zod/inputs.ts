@@ -2754,8 +2754,8 @@ export const SpielbestaetigungenGetSpielbestaetigungViewBody = zod
 /**
  * Move a fixture to the date and hour a club's open decline proposes, through the fixture's own save.
  *
- * Refused as the discard refuses, for any row but an open club decline proposing a date about the fixture's current
- * Ansetzung (`ansetzung_not_discardable`), and for a proposed day gone by (`ansetzung_vorschlag_past_as_stored`, the
+ * Refused for any row but an open club decline proposing a date about the fixture's current Ansetzung, the row a
+ * discard closes (`ansetzung_not_adoptable`), and for a proposed day gone by (`ansetzung_vorschlag_past_as_stored`, the
  * stored proposal's 409). The fixture is saved as the administrator's save would carry it on the proposed day and
  * hour, everything else kept, so it meets every rule that save meets and is refused as that save is, by its code and
  * status alone, as the draw answers the season write's refusals: no refusal names a field, the request carrying no

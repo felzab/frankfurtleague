@@ -1180,7 +1180,7 @@ class TestTheAdoption:
 
         assert moved_to == PROPOSAL
         # Left for the pass to close, which tells every party of the move alike; a second adoption finds the proposal spent.
-        assert (closed, again) == (None, Code.ANSETZUNG_NOT_DISCARDABLE)
+        assert (closed, again) == (None, Code.ANSETZUNG_NOT_ADOPTABLE)
 
     def test_a_discard_landing_inside_the_adoption_leaves_the_fixture_where_it_stands(self, mongo_replica_set_url: str):
         """Both committing, the club would be told the date stands and every party asked about the date its proposal named."""
@@ -1201,7 +1201,7 @@ class TestTheAdoption:
 
         outcome, slot, grund = on_a_fixture(mongo_replica_set_url, body)
 
-        assert (outcome, grund) == (Code.ANSETZUNG_NOT_DISCARDABLE, "discarded")
+        assert (outcome, grund) == (Code.ANSETZUNG_NOT_ADOPTABLE, "discarded")
         assert slot != PROPOSAL
 
     @pytest.mark.parametrize(

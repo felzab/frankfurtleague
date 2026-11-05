@@ -599,20 +599,33 @@ def build_triage_rows_filter(*, saison_id: str, today: str) -> dict[str, Any]:
     }
 
 
-def find_verwerfen_refusal(*, spielbestaetigung_raw: Mapping[str, Any], spiel: Mapping[str, Any]) -> WriteRefusal | None:
-    """`build_verwerfbar_filter` asked of the row read, and the row about the fixture as it stands."""
+def holds_an_open_proposal(*, spielbestaetigung_raw: Mapping[str, Any], spiel: Mapping[str, Any]) -> bool:
+    """`build_verwerfbar_filter` asked of the row read, and the row about the fixture as it stands: what a discard and an adoption act on."""
 
     partei, antwort = spielbestaetigung_raw.get("party") or {}, spielbestaetigung_raw.get("antwort") or {}
-    if (
+
+    return (
         partei.get("art") == "team"
         and antwort.get("art") == "declined"
         and antwort.get("vorschlag") is not None
         and spielbestaetigung_raw.get("closed") is None
         and ansetzung_stand_of(spiel) == spielbestaetigung_raw["ansetzung"]["stand"]
-    ):
+    )
+
+
+def find_verwerfen_refusal(*, spielbestaetigung_raw: Mapping[str, Any], spiel: Mapping[str, Any]) -> WriteRefusal | None:
+    """Why a discard of this row must be refused, or `None`."""
+
+    return None if holds_an_open_proposal(spielbestaetigung_raw=spielbestaetigung_raw, spiel=spiel) else verwerfen_refusal()
+
+
+def find_adoption_refusal(*, spielbestaetigung_raw: Mapping[str, Any], spiel: Mapping[str, Any]) -> WriteRefusal | None:
+    """Why an adoption of this row must be refused, or `None`: the discard's condition, under the adoption's own code."""
+
+    if holds_an_open_proposal(spielbestaetigung_raw=spielbestaetigung_raw, spiel=spiel):
         return None
 
-    return verwerfen_refusal()
+    return WriteRefusal(error_code=Code.ANSETZUNG_NOT_ADOPTABLE, status=HTTPStatus.CONFLICT)
 
 
 # --- A REFEREE'S OWN ROWS: the panel's read and the referee's answer, signed in rather than by a link.

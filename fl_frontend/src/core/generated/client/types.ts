@@ -43,6 +43,7 @@ export const Code = {
   ansetzung_closed: "ansetzung_closed",
   ansetzung_not_enterable: "ansetzung_not_enterable",
   ansetzung_not_discardable: "ansetzung_not_discardable",
+  ansetzung_not_adoptable: "ansetzung_not_adoptable",
   ansetzung_foreign_row: "ansetzung_foreign_row",
   access_key_refused: "access_key_refused",
   missing_actor: "missing_actor",
