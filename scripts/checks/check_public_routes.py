@@ -21,6 +21,7 @@ Invariants:
 - A reserved metadata name this reader cannot place refuses; an image convention supplied as an
   image file runs no module and stands outside the population.
 - An intercepted URL has one intercepting page, with no route group above its intercepting segment.
+- A metered exact match and its trailing-slash twin are both metered and bound a body alike.
 """
 
 from __future__ import annotations
@@ -218,6 +219,8 @@ class Location:
     # route by whether there is one at all.
     limits: frozenset[tuple[str, ...]]
     line: int
+    # Its own `client_max_body_size`, or None where it inherits the server block's.
+    body_cap: str | None = None
 
     @property
     def zones(self) -> frozenset[str]:
@@ -356,6 +359,8 @@ def read_location(directive: Directive, source: str, redirected: frozenset[str] 
     if any(child.name == "location" for child in block):
         raise NginxSyntax(f"{source}:{directive.line}: a location nested inside a location, whose match order this reader does not resolve")
     limits = frozenset(child.args for child in block if child.name == "limit_req")
+    # The first, nginx refusing a second at load (`nginx -t`, which the gate runs over these files).
+    body_cap = next((" ".join(child.args) for child in block if child.name == "client_max_body_size"), None)
     # Refused rather than read as a prefix: `@fallback` would cover every handler whose URL starts
     # with it, which is none of them, and reading it as coverage is the one direction this check
     # may not fail in.
@@ -368,15 +373,15 @@ def read_location(directive: Directive, source: str, redirected: frozenset[str] 
     if any(child.name == "return" for child in block):
         raise NginxSyntax(f"{source}:{directive.line}: a location answering with `return`, which forwards no route this reader can account for")
     if len(directive.args) == 1:
-        return Location(False, path, limits, directive.line)
+        return Location(False, path, limits, directive.line, body_cap)
     if len(directive.args) == 2:
         modifier, path = directive.args
         if modifier == "=":
-            return Location(True, path, limits, directive.line)
+            return Location(True, path, limits, directive.line, body_cap)
         # `^~` still matches a prefix; a regex matches on something this reader cannot compare a
         # directory tree against, so it refuses rather than calling the handler uncovered.
         if modifier == "^~":
-            return Location(False, path, limits, directive.line)
+            return Location(False, path, limits, directive.line, body_cap)
         raise NginxSyntax(f"{source}:{directive.line}: the location modifier {modifier!r}, which selects by something other than a path prefix")
     raise NginxSyntax(f"{source}:{directive.line}: a location taking {len(directive.args)} argument(s)")
 
@@ -907,13 +912,15 @@ def undeclared(where: tuple[Location, ...], answering: tuple[Handler, ...], serv
 
 
 def twins(where: tuple[Location, ...]) -> list[Finding]:
-    """Every metered exact match whose trailing-slash counterpart is not metered too.
+    """Every metered exact match whose trailing-slash counterpart is not metered too, or bounds its body otherwise.
 
     The pair costs no correctness, Next answering the slashed form with a 308; what it closes is
-    upstream work past the meter (`docs/ops/spec.md`).
+    upstream work past the meter and past the body cap (`docs/ops/spec.md`), so a twin left on the
+    server block's cap buffers the body its canonical refuses.
     """
     findings: list[Finding] = []
-    paths = {one.path for one in where if one.exact and one.metered}
+    exact = {one.path: one for one in where if one.exact}
+    paths = {path for path, one in exact.items() if one.metered}
     for path in sorted(paths):
         if path.endswith(TRAILING_SLASH):
             canonical = path[: -len(TRAILING_SLASH)]
@@ -921,7 +928,22 @@ def twins(where: tuple[Location, ...]) -> list[Finding]:
                 findings.append(_twinless(path, canonical, "canonical"))
         elif path + TRAILING_SLASH not in paths:
             findings.append(_twinless(path, path + TRAILING_SLASH, "trailing-slash twin"))
+        elif exact[path + TRAILING_SLASH].body_cap != exact[path].body_cap:
+            findings.append(_uncapped(exact[path], exact[path + TRAILING_SLASH]))
     return findings
+
+
+def _uncapped(canonical: Location, twin: Location) -> Finding:
+    """The finding for a trailing-slash pair bounding its body at two sizes."""
+
+    def cap(one: Location) -> str:
+        return "the server block's cap" if one.body_cap is None else f"`client_max_body_size {one.body_cap}`"
+
+    return Finding(
+        "fail",
+        f"{twin.path} takes a body up to {cap(twin)} and its canonical {canonical.path} up to {cap(canonical)}\n"
+        f"{CONTINUATION}a twin carries its canonical's cap, or the other form buffers the body the canonical refuses",
+    )
 
 
 def _twinless(path: str, missing: str, role: str) -> Finding:
