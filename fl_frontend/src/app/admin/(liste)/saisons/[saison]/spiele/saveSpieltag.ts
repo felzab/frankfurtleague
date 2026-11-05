@@ -25,8 +25,9 @@ export const saveSpieltag = action({
   lane: "admin",
   name: "saveSpieltag",
   input: SaveSpieltag,
-  // A span ending before it begins is the dialog's own check, its end taking no day before its start.
-  ownWords: ["spieltag_outside_saison", "spieltag_span_below_spiele", "spieltag_beginn_out_of_order"],
+  ownWords: ["spieltag_ends_before_start", "spieltag_outside_saison", "spieltag_span_below_spiele", "spieltag_beginn_out_of_order"],
+  // The span's own rule names the end it refuses, as the dialog's own check does before the send.
+  paths: { ende: "ende" },
   run: async ({ id, version, beginn, ende }) => {
     await spieltagePatchSpieltag(id, { beginn, ende, version });
     return { ok: true, value: undefined };

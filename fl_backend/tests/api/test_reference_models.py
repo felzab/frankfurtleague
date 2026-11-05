@@ -496,7 +496,10 @@ class TestTheMatchdaysSpan:
         with pytest.raises(ValidationError) as failure:
             FLPatchSpieltagPayload.model_validate({"beginn": "2026-09-05", "ende": "2026-09-04"})
 
-        assert [error["type"] for error in failure.value.errors()] == ["spieltag_ends_before_start"]
+        # At the end it judges, as the wire's path names it: a refusal at the model's own path reaches no box.
+        assert [(error["type"], error["loc"], error.get("ctx")) for error in failure.value.errors()] == [
+            ("spieltag_ends_before_start", ("ende",), {"start": "2026-09-05"})
+        ]
 
 
 class TestSaison:
