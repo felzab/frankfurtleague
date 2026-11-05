@@ -19,7 +19,9 @@ describe("a navigating menu's current entry", () => {
     vi.restoreAllMocks();
   });
 
-  it("is marked as the rail marks the current page, with no check and no dot", async () => {
+  // A chosen entry is told from the rest by its check as well as its green words; with the check gone, the colour
+  // alone marks it, which a reader who cannot tell green apart cannot see, and nothing else would say so.
+  it("is marked as every list marks its chosen entry, its check at the end", async () => {
     render(
       <Menu
         label={COPY.shared.saison}
@@ -42,10 +44,10 @@ describe("a navigating menu's current entry", () => {
 
     const chosen = screen.getByRole("menuitemradio", { name: "2027" });
     expect(chosen.hasAttribute("data-selected")).toBe(true);
-    expect(chosen.querySelector("svg")).toBe(null);
-    // The entry holds its words alone: no dot before them.
-    expect(chosen.children.length).toBe(1);
-    expect(screen.getByRole("menuitemradio", { name: "2026" }).hasAttribute("data-selected")).toBe(false);
+    expect(chosen.lastElementChild?.querySelector("svg")).not.toBe(null);
+    const other = screen.getByRole("menuitemradio", { name: "2026" });
+    expect(other.hasAttribute("data-selected")).toBe(false);
+    expect(other.querySelector("svg")).toBe(null);
   });
 });
 

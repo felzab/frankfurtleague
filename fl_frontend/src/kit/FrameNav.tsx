@@ -260,7 +260,8 @@ function useCurrent(entries: ReadonlyArray<{ href: Route }>) {
   );
 }
 
-// The current entry is marked as every navigating list marks its place, the link carrying `data-selected`.
+// The current entry carries the rail's own mark of the page it is on (`entryMark`'s `place`), the link carrying
+// `data-selected`; a menu's chosen entry is marked otherwise, by its check.
 // Collapsed, the entry clips its words past its glyph's box (`railGlyph`).
 const railEntry = tv({
   base: "flex h-8 items-center gap-3 overflow-hidden rounded-lg px-3 text-sm font-medium whitespace-nowrap transition-colors duration-(--motion-state) hover:bg-layer pointer-coarse:h-10",

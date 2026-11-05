@@ -365,15 +365,16 @@ export const menuItem = tv({
 });
 
 /**
- * How a list marks its chosen entry, by what choosing it means, in every list that has one. A form's value,
- * in a select's, a combo box's or a menu's choice: the row tinted 12 % of the link green, its check at the
- * end. A navigating menu's current place: the rail's mark of the current page, the muted fill with the words
- * in the link green, and no check.
+ * How a chosen entry is marked. In every list, a select's, a combo box's and a menu's, a navigating menu's current
+ * place among them: its words in the link green and its check at the end, which the list draws, with no fill, so
+ * the entry under the pointer or the keys, chosen or not, takes the one hover layer alone (`focus.css`). The rail's
+ * current page is a place of the frame rather than a list's choice, and keeps its own mark: the muted fill with the
+ * words in the link green.
  */
 export const entryMark = tv({
   variants: {
     mark: {
-      value: "data-selected:bg-brand/12",
+      chosen: "data-selected:text-brand",
       place: "data-selected:bg-bg-muted data-selected:text-brand",
     },
   },
@@ -395,9 +396,9 @@ export const choiceGroup = tv({
 
 /**
  * One answer of that choice, semibold once chosen. The chosen segment is raised out of its frame, the
- * highlight fill inside a 1-px control edge, as GitHub Primer's segmented control draws it; a chosen box lifts
- * to the surface, its edge one grade stronger, so the edge tells it from its neighbours too. Under the pointer and
- * pressed, chosen or not, each takes the one hover layer.
+ * highlight fill inside a 1-px control edge, as GitHub Primer's segmented control draws it; a chosen box takes the
+ * link green's edge and its 12 % tint, as a chosen form value is tinted, so an accepted box stands apart from a
+ * declined one on a card as on the page. Under the pointer and pressed, chosen or not, each takes the one hover layer.
  */
 export const choiceButton = tv({
   base: "inline-flex cursor-pointer items-center justify-center text-sm font-medium whitespace-nowrap text-fg transition-colors duration-(--motion-state) data-disabled:cursor-default data-disabled:opacity-50 data-selected:font-semibold",
@@ -410,7 +411,7 @@ export const choiceButton = tv({
       segmented:
         "relative h-full rounded-md border border-transparent before:absolute before:-inset-x-px before:-inset-y-1 data-hovered:bg-layer data-pressed:bg-layer data-selected:border-border-control data-selected:bg-bg-muted",
       boxes:
-        "h-8 min-w-16 rounded-lg border border-border-control bg-transparent px-3 data-hovered:bg-layer data-pressed:bg-layer data-selected:border-fg-muted data-selected:bg-bg-surface pointer-coarse:h-10",
+        "h-8 min-w-16 rounded-lg border border-border-control bg-transparent px-3 data-hovered:bg-layer data-pressed:bg-layer data-selected:border-brand data-selected:bg-brand/12 pointer-coarse:h-10",
     },
     // A segment holds words at the boxes' width, or a glyph alone, as wide as a control is tall, muted until chosen.
     content: {
