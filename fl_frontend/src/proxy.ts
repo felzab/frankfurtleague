@@ -79,8 +79,9 @@ export const config = {
     {
       source: "/(area|admin|account)/:path*",
       missing: [
-        // No `value`, so it matches the header whatever it carries, a partial prefetch's `2` and `3` among them. A full
-        // prefetch sends no header and runs the proxy.
+        // No `value`, so it matches the header whatever it carries: `1` on the route tree and on every segment a link's
+        // partial prefetch fetches, `2` and `3` on a runtime prefetch (`next/dist/client/components/segment-cache/
+        // cache.js`). A full prefetch, a link's `prefetch={true}`, sends none and runs the proxy.
         { type: "header", key: "next-router-prefetch" },
         { type: "header", key: "purpose", value: "prefetch" },
       ],

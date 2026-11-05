@@ -12,6 +12,8 @@
 //   round drawn but not yet decided;
 // - venues with and without rent, one retired and one with a name long enough to test a row's width;
 //   referees, every one with the address both referee payloads require, one retired and one unanswered;
+// - one club's confirmed Trainer, whose decline proposes another day for next week's fixture, standing on the
+//   Übersicht for „Übernehmen“ and „Verwerfen“;
 // - an owner and four administrators.
 //
 // Every journey that writes signs in as a person no other journey signs in as, since one journey's
@@ -37,7 +39,7 @@
 // - It empties every collection of the application database first and never touches `auth`, the
 //   sign-in store the frontend keeps beside it.
 
-/* global db, ObjectId, print */
+/* global db, ObjectId, print, require */
 
 const GERMANY = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Berlin", year: "numeric", month: "2-digit", day: "2-digit" });
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -477,6 +479,80 @@ running.saisonTeams.find((row) => row.name === "Weide").austritt = {
   datum: day(-12),
 };
 
+// --- A club's Kontakt, and the date it proposes ---------------------------------------------------
+
+// Birke's Trainer, seated by the league (`fl_backend/app/api/bewerbungen/services.py :: compose_einwilligung`) and
+// confirmed through her own link (`:: compose_confirmation_update`): no WhatsApp and no media, each choice evidenced
+// under a seat's wordings (`fl_backend/app/shared/schemas/einwilligung.py :: FLSeatTextVersions`).
+const TRAINERIN = {
+  vorname: "Berta",
+  nachname: "Birkner",
+  email: "berta.birkner@example.com",
+  telefon: "+49 170 1234567",
+  geburtsdatum: day(-40 * 365),
+  einwilligung: {
+    scope: "kontaktdaten",
+    date: day(-62),
+    confirmed_at: CONSENTED,
+    media: false,
+    entered_by: "liga",
+    evidence: {
+      scope: { at: `${CONSENTED}T10:00:00+00:00`, text_version: "2026-11-whatsapp-1" },
+      media: { at: `${CONSENTED}T10:00:00+00:00`, text_version: LABELS.media },
+    },
+  },
+};
+running.saisonTeams.find((row) => row.name === "Birke").kontakte = {
+  trainer: TRAINERIN,
+  ansprechperson: null,
+  stellvertretung: null,
+  trainer_is_also: null,
+};
+
+// The digest of a fixture's Ansetzung, as `fl_backend/app/api/spielbestaetigungen/services.py :: _digest` writes it: a
+// row whose `stand` is not its fixture's is about a slot the fixture left, which neither act takes.
+const { createHash } = require("crypto");
+function ansetzungOf(spiel) {
+  const values = {
+    datum: spiel.datum,
+    uhrzeit: spiel.uhrzeit,
+    spielort_id: spiel.ort.spielort_id,
+    team1_id: spiel.team1.team_id,
+    team2_id: spiel.team2.team_id,
+  };
+  const canonical = Object.values(values)
+    .map((value) => (typeof value === "string" ? value : value.toHexString()))
+    .join("|");
+  return { ...values, stand: createHash("sha256").update(canonical, "utf8").digest("hex") };
+}
+
+// Match 11, Birke against Linde next week, asked about two weeks ago, as the pass asks a fixture three weeks out
+// (`:: letzter_anfrage_tag`) and dates its deadline a week ahead of it (`:: frist_of`), and declined by Birke's
+// Trainer three days ago for the next day at the same hour, which clashes with no other fixture's ground or referee.
+// The link she pressed is the seed's fiction, so her seat holds no hash: the seed owes no mail.
+const PROPOSED = running.spiele.find((row) => row.spiel_nr === 11);
+const PROPOSALS = [
+  {
+    _id: ObjectId(),
+    saison_id: "2027",
+    spiel_id: PROPOSED._id,
+    party: { art: "team", team_id: club.Birke._id },
+    ansetzung: ansetzungOf(PROPOSED),
+    frist: day(0),
+    asked_at: day(-14),
+    reminded_at: null,
+    kontakte: { trainer: { token_hashes: [], email: TRAINERIN.email }, ansprechperson: null, stellvertretung: null },
+    antwort: {
+      art: "declined",
+      am: day(-3),
+      von: { art: "kontakt", rolle: "trainer" },
+      vorschlag: { datum: day(8), uhrzeit: PROPOSED.uhrzeit },
+      begruendung: "Am Spieltag ist unsere Halle belegt.",
+    },
+    closed: null,
+  },
+];
+
 // The erased pupils' sentinel, as `fl_backend/app/api/spieler/services.py :: build_ghost_spieler` writes it.
 const GHOST_SPIELER = {
   _id: ObjectId("000000000000000000000001"),
@@ -605,5 +681,12 @@ for (const [name, documents] of Object.entries(DOCUMENTS)) {
 // `version`, and its record model refuses one.
 const announced = db.getCollection("berechtigungen_angekuendigt").insertMany(ANNOUNCED, { ordered: true }).insertedIds;
 print(`seeded berechtigungen_angekuendigt: ${Object.keys(announced).length} document(s)`);
+
+// The confirmations are no form's edit either, and their first carries the count the adoption's anchor advances.
+const proposals = db.getCollection("spielbestaetigungen").insertMany(
+  PROPOSALS.map((document, index) => (index === 0 ? { ...document, bounded_writes: 1 } : document)),
+  { ordered: true },
+).insertedIds;
+print(`seeded spielbestaetigungen: ${Object.keys(proposals).length} document(s)`);
 
 print(`made-up seed written to '${db.getName()}', today being ${TODAY}`);
