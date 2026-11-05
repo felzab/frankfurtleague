@@ -160,8 +160,6 @@ export const COPY = catalogue({
       tooManyAttempts: "Zu viele Versuche in kurzer Zeit.",
       /** An administrator's grant is gone or was never held: no sign-in and no retry repairs it. */
       accessGone: "Dein Zugang zur Verwaltung besteht nicht mehr.",
-      /** The backend left the grant unread: nothing ran, and a sign-in would meet the same outage. */
-      accessUnchecked: "Dein Zugang zur Verwaltung ließ sich gerade nicht prüfen.",
     },
 
     /** Beside the save button once the record is stored. */
@@ -671,7 +669,7 @@ export const COPY = catalogue({
 
     schiedsrichter: {
       search: "Schiedsrichter suchen",
-      /** The chip after the name of a referee who has not confirmed their entry. */
+      /** A referee who has not confirmed their entry: the chip after the name, and the note on the match editor's closed choice. */
       unconfirmed: "Unbestätigt",
       /** The editor's sections beyond the record's own name: how to reach the person, and what became of their link. */
       kontaktdaten: "Kontaktdaten",
@@ -756,9 +754,9 @@ export const COPY = catalogue({
        * Why the draw cannot run: a group holds more or fewer teams than the rules give each, or a club stands in a
        * group the rules do not run. One repair reaches all three, entering the clubs as the rules say.
        */
-      gruppenOffRules: "Die Gruppen sind nicht so besetzt, wie die Regeln es vorsehen.",
-      recreateConsequence: "Alle Spieltage und Spiele dieser Saison werden gelöscht und neu angelegt.",
-      deleteConsequence: "Alle Spieltage und Spiele dieser Saison werden gelöscht.",
+      gruppenOffRules: "Die Gruppen passen nicht zu den Regeln.",
+      recreateConsequence: "Alle Spieltage und Spiele werden gelöscht und neu angelegt.",
+      deleteConsequence: "Alle Spieltage und Spiele werden gelöscht.",
 
       /** The group swap's two clubs; the swap exchanges their groups. */
       swapFirst: "Erstes Team",
@@ -772,10 +770,13 @@ export const COPY = catalogue({
       replaceConsequence: (incoming: Words, outgoing: Words, gruppe: string) =>
         `${textOf(incoming)} übernimmt ${GRUPPE(gruppe)} und alle Spiele von ${textOf(outgoing)}.`,
 
-      /** Why the draw cannot be redrawn or removed now: reports stand, the season went live, or a match holds an entry. */
+      /**
+       * Why the draw cannot be redrawn or removed now: reports stand, the season went live, or a match holds something
+       * entered since the draw beyond its date.
+       */
       reportsHold: "Spielberichte liegen vor",
       lockedSinceActivation: "Seit der Umstellung gesperrt",
-      entriesHold: "Spiele haben schon Einträge",
+      entriesHold: "Spiele sind schon bearbeitet",
 
       /** Each team's registration link as its row states it, by what the press would do with it. */
       linkSentOn: (day: CalendarDay) => `Gesendet am ${formatDatum(day)}`,
@@ -785,19 +786,9 @@ export const COPY = catalogue({
       addressBarred: "Adresse auf der Sperrliste",
       /** The registration links' done line, the rows saying the rest. */
       sentTo: (count: number) => (count === 1 ? "An 1 Team gesendet" : `An ${formatNumber(count)} Teams gesendet`),
-      /**
-       * The registration links' send: how many teams it mails, and how many of them hold a link that stops opening,
-       * none, all or some.
-       */
-      dispatchConsequence: (count: number, replacing: number) => {
-        if (replacing === 0)
-          return count === 1 ? "1 Team bekommt seinen Link per E-Mail." : `${formatNumber(count)} Teams bekommen ihren Link per E-Mail.`;
-        if (replacing === count)
-          return count === 1
-            ? "1 Team bekommt einen neuen Link, und sein bisheriger gilt nicht mehr."
-            : `${formatNumber(count)} Teams bekommen einen neuen Link, und ihr bisheriger gilt nicht mehr.`;
-        return `${formatNumber(count)} Teams bekommen ihren Link per E-Mail, und bei ${formatNumber(replacing)} davon gilt der bisherige nicht mehr.`;
-      },
+      /** The registration links' send: how many teams it mails. */
+      dispatchConsequence: (count: number) =>
+        count === 1 ? "1 Team bekommt seinen Link per E-Mail." : `${formatNumber(count)} Teams bekommen ihren Link per E-Mail.`,
 
       /** The activation: the season the site shows, and its subject, „Auf Saison 2027 umstellen?“. */
       isCurrent: "Die Website zeigt diese Saison.",
@@ -865,11 +856,9 @@ export const COPY = catalogue({
       /** Why a club cannot take a side: it stands on another match of the matchday, or has left the season. */
       onSpieltag: "Spielt schon an diesem Spieltag",
       departed: "Aus der Saison ausgeschieden",
-      /** A referee who has not confirmed their entry, whom no match can be booked onto yet. */
-      unconfirmed: "Noch nicht bestätigt",
       elfmeterschiessen: "Elfmeterschießen",
       /** Level knockout goals saved without a shoot-out leave the match undecided, and the bracket after it. */
-      shootOutMissing: "Ohne Elfmeterschießen wartet der K.-o.-Baum.",
+      shootOutMissing: "Ohne Elfmeterschießen steht kein Sieger fest.",
       /** An event after which the match carries no result, chosen over a stored one. */
       resultDropped: (score: Copy) => `Ergebnis ${score} wird verworfen`,
       /** The referee's proposal, which „Übernehmen“ carries into the fields: „Laut Spielbericht 3:1“. */

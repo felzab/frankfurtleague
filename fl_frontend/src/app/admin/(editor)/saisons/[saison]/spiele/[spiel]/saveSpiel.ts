@@ -132,7 +132,6 @@ const OWN_WORDS = [
   "state_ergebnis_on_a_non_event",
   "state_nichtantreten_without_two_sides",
   "booking_unknown_resource",
-  "booking_unconfirmed_schiedsrichter",
   "spiel_double_booked",
   "eligibility_disqualified",
   "elfmeterschiessen_without_winner",

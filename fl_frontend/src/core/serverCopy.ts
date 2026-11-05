@@ -28,7 +28,7 @@ const spieleNamed = (nrs: readonly number[]) => `Spiel ${formatList(nrs.map(form
 // path it names, the adoption, which names none, by a code of its own per resource and side.
 const DOUBLE_BOOKED = {
   ort: "Der Spielort ist zu dieser Zeit schon belegt.",
-  schiedsrichter: "Die eingeteilte Person pfeift zu dieser Zeit schon ein anderes Spiel.",
+  schiedsrichter: "Die eingeteilte Person pfeift zu dieser Zeit schon.",
 };
 const DISQUALIFIED = {
   team1: `${team1} ist aus der Saison ausgeschieden.`,
@@ -48,7 +48,7 @@ const OBJECTION_RIGHT = {
   after: " genügt.",
 };
 const MORE = { before: "Mehr unter ", after: "." };
-// What an objection does to an entry that stands alone, a contact's season row's and a referee's alike.
+// What an objection does to a contact's seat on a season row, an entry that stands alone.
 const OBJECTION_DELETES_ENTRY = "Widersprichst du, löschen wir deinen Eintrag.";
 // A referee's confirmation's opening, which its mail opens on too, and what the league stores of the entry.
 const REFEREE_OPENING = "Die Liga hat dich als Schiedsrichterin oder Schiedsrichter für ihre Spiele eingetragen.";
@@ -98,11 +98,14 @@ export const SERVER_COPY = catalogue({
     saison_past: "Diese Saison ist abgeschlossen.",
     spiel_outside_spieltag: "Dieses Datum liegt außerhalb des Spieltags.",
     state_nichtantreten_without_two_sides: "Beide Teams stehen noch nicht fest.",
+    /**
+     * A retired venue or referee a fixture keeps where its save reopens it, which the editor shows marked: a deleted one
+     * is a page read before the deletion, which the same sentence sends to the same box.
+     */
     booking_unknown_resource: {
-      ort: "Der Spielort ist stillgelegt oder gelöscht.",
-      schiedsrichter: "Die eingeteilte Person ist stillgelegt oder gelöscht.",
+      ort: "Der Spielort ist stillgelegt.",
+      schiedsrichter: "Die eingeteilte Person ist stillgelegt.",
     },
-    booking_unconfirmed_schiedsrichter: "Die eingeteilte Person hat ihren Eintrag noch nicht bestätigt.",
     spiel_double_booked: DOUBLE_BOOKED,
     spiel_double_booked_spielort_as_stored: DOUBLE_BOOKED.ort,
     spiel_double_booked_schiedsrichter_as_stored: DOUBLE_BOOKED.schiedsrichter,
@@ -122,25 +125,19 @@ export const SERVER_COPY = catalogue({
       Array.isArray(spiel_nrs) && spiel_nrs.length > 0 ? `Die Person ist noch für ${spieleNamed(spiel_nrs)} eingeteilt.` : undefined,
     /** A referee's address the ban list holds, where a create, a save or a return would mail it a link. */
     schiedsrichter_address_barred: "Diese E-Mail-Adresse steht auf der Sperrliste.",
-    /**
-     * A confirmed referee's address, which the editor shows read-only: only a page read before the confirmation sends
-     * it, so it reads as the stale page it is.
-     */
-    schiedsrichter_address_only_per_change: COPY.shared.failure.stale,
     /** A club's stored proposed day that has gone by, which „Übernehmen“ would move the fixture into. */
     ansetzung_vorschlag_past_as_stored: "Der vorgeschlagene Tag ist vorbei.",
     // A season's rules and its activation, each a fact the person reads off the season editor itself.
     rules_bracket_impossible: COPY.admin.saison.bracketImpossible,
     rules_spiele_over_one_read: COPY.admin.saison.tooManySpiele,
     spielplan_gruppen_off_rules: COPY.admin.saison.gruppenOffRules,
+    // Redesign: goes with the old team editor, its last reader; the season editor answers the code as a stale page.
     /**
      * A fixture of either club the group swap would trade has taken place, as
      * `fl_backend/app/api/teams/services.py :: has_taken_place` judges it: a result, a recorded no-show or
      * abandonment, or one side's goals.
      */
     swap_sides_taken_place: "Ein Spiel der beiden Teams hat schon stattgefunden.",
-    /** A fixture of the club a replacement takes out of the season has taken place, judged as the swap's. */
-    replace_sides_taken_place: "Ein Spiel des ausscheidenden Teams hat schon stattgefunden.",
     activate_target_undrawn: COPY.admin.saison.noDraw,
     activate_saison_unfinished: COPY.admin.saison.unfinished,
     activate_spieltage_undated: COPY.admin.saison.undated,
@@ -152,7 +149,7 @@ export const SERVER_COPY = catalogue({
      * A save after which the bracket would field one club in two matches of one matchday, a club picked by hand
      * standing where the bracket's own wiring leads it too: the same save answers the same, the page being current.
      */
-    spieltag_occupied_by_the_resolution: "Der K.-o.-Baum würde ein Team zweimal an diesem Spieltag aufstellen.",
+    spieltag_occupied_by_the_resolution: "Ein Team spielt dann zweimal an diesem Spieltag.",
     /**
      * A fixture's save, the match editor's or „Übernehmen“'s, that would delete a later result it was not confirmed
      * to delete, one entered or changed since the question was asked among them: the match editor asks again.
@@ -160,7 +157,7 @@ export const SERVER_COPY = catalogue({
     voided_results_stale: COPY.admin.overview.voidsLater,
     /** A matchday's dates: past its season's, short of one of its dated matches, or out of its phase's order of matchdays. */
     spieltag_outside_saison: "Dieser Zeitraum liegt außerhalb der Saison.",
-    spieltag_span_below_spiele: "Ein Spiel des Spieltags liegt außerhalb dieses Zeitraums.",
+    spieltag_span_below_spiele: "Ein Spiel liegt außerhalb dieses Zeitraums.",
     spieltag_beginn_out_of_order: "Der Beginn passt nicht in die Reihenfolge der Spieltage.",
   } satisfies Partial<Record<Code, string | Readonly<Record<string, string>> | ((context: FLRefusedField["ctx"]) => string | undefined)>>,
 
@@ -209,20 +206,16 @@ export const SERVER_COPY = catalogue({
       confirmed === seats
         ? "Alle Kontaktpersonen bestätigt"
         : `${formatNumber(confirmed)} von ${formatNumber(seats)} Kontaktpersonen bestätigt`,
-    /** A fault of the bracket or of a fixture's bookings, by its reason, on the fixture it names. */
+    /**
+     * A fault of the bracket or of a fixture's bookings, by its reason, on the fixture it names: a group short of the
+     * place a side waits on, a tie no rule breaks, and a club or a booking the administrator can change each say
+     * which; every fault in the bracket's wiring, which nobody repairs from a screen, says only that the bracket is
+     * faulty.
+     */
     fault: {
       gruppe_too_small: (gruppe: string, platz: number) => `${gruppeName(gruppe)} hat keinen ${placeName(platz)}`,
-      gruppe_not_run: (gruppe: string) => `${gruppeName(gruppe)} gibt es nicht`,
-      seed_past_the_opening_round: `Gruppenplatz nach der ersten ${COPY.shared.kORunde}`,
       tie_unresolved: (gruppe: string, platz: number) => `Gleichstand um den ${placeName(platz)} der ${gruppeName(gruppe)}`,
-      spiel_missing: (spiel: number) => `${spieleNamed([spiel])} gibt es nicht`,
-      reference_cycle: (spiel: number) => `Verweis im Kreis über ${spieleNamed([spiel])}`,
-      gruppenphase_feeder: (spiel: number) => `${spieleNamed([spiel])} ist ein Gruppenspiel`,
-      feeder_not_played_first: (spiel: number) => `${spieleNamed([spiel])} liegt nicht in einer früheren Runde`,
-      same_team: "Beide Seiten führen zum selben Team",
-      gruppenphase_fixture_wired: "Gruppenspiel mit Verweis",
-      /** The source by its full name, „2. der Gruppe A“. */
-      source_feeds_another_fixture: (quelle: Copy) => `${quelle} füllt zwei Seiten`,
+      wiring: `${COPY.shared.kOBaum} fehlerhaft`,
       /** The club, and its exit as the club's exit note heads it. */
       departed_occupant: (team: Words, austritt: Copy) => `${textOf(team)} · ${austritt}`,
       fielded_twice: (team: Words) => `${textOf(team)} zweimal an diesem Spieltag`,
@@ -878,7 +871,9 @@ export const SERVER_COPY = catalogue({
     opening: REFEREE_OPENING,
     /** The deadline in the two parts around its day: the mail sets the day semibold, the page writes it plain. */
     deadline: ENTRY_DEADLINE,
-    question: (until: CalendarDay) => [REFEREE_OPENING, REFEREE_STORED, entryDeadline(until), OBJECTION_DELETES_ENTRY].join(" "),
+    /** Both answers that end the entry, an unanswered deadline and an objection, in one clause: either deletes it alike. */
+    question: (until: CalendarDay) =>
+      `${REFEREE_OPENING} ${REFEREE_STORED} ${ENTRY_DEADLINE.before} ${formatDatumLong(until)} oder widersprichst du${ENTRY_DEADLINE.after}`,
     /** The two ends of an answer, each a title; a link opened again after it titles it with the day (`COPY.shared.end.doneOn`). */
     confirmed: "Eintrag bestätigt",
     objected: "Widersprochen",

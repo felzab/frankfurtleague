@@ -143,7 +143,6 @@ async function readEditor(params: Props["params"]) {
           },
         })),
         mailed: mailed.length,
-        replacing: mailed.filter((row) => row.replaced_link).length,
       }}
       holder={holder}
       acts={{

@@ -73,8 +73,8 @@ export type SaisonFacts = {
   locked: { activate?: Copy; create?: Copy; recreate?: Copy; undraw?: Copy };
 };
 
-/** The registration links: each team's row, how many teams the press would mail, and how many of those hold a link it replaces. */
-export type SaisonLinks = { rows: readonly TableRow[]; mailed: number; replacing: number };
+/** The registration links: each team's row, and how many teams the press would mail. */
+export type SaisonLinks = { rows: readonly TableRow[]; mailed: number };
 
 /** The acts the editor's sections and its danger rows press, each a server action naming its season. */
 export type SaisonActs = {
@@ -517,7 +517,7 @@ export function SaisonEditor({
           confirm={{
             verb: "send",
             subject: WORDS.registrierungslinks,
-            consequence: WORDS.dispatchConsequence(links.mailed, links.replacing),
+            consequence: WORDS.dispatchConsequence(links.mailed),
             tone: "primary",
           }}
           run={() => acts.sendLinks({ saison_id: saison })}>

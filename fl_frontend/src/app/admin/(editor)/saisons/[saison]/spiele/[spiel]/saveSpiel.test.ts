@@ -276,7 +276,6 @@ describe("the match editor's save", () => {
       ["state_nichtantreten_without_two_sides", ["sonderereignis"], refusalLine.state_nichtantreten_without_two_sides],
       ["booking_unknown_resource", ["ort", "spielort_id"], refusalLine.booking_unknown_resource.ort],
       ["booking_unknown_resource", ["schiedsrichter", "schiedsrichter_id"], refusalLine.booking_unknown_resource.schiedsrichter],
-      ["booking_unconfirmed_schiedsrichter", ["schiedsrichter", "schiedsrichter_id"], refusalLine.booking_unconfirmed_schiedsrichter],
       ["spiel_double_booked", ["ort", "spielort_id"], refusalLine.spiel_double_booked.ort],
       ["spiel_double_booked", ["schiedsrichter", "schiedsrichter_id"], refusalLine.spiel_double_booked.schiedsrichter],
       ["eligibility_disqualified", ["team1", "team_id"], refusalLine.eligibility_disqualified.team1],
@@ -299,8 +298,13 @@ describe("the match editor's save", () => {
       reason: SERVER_COPY.refusalLine.spieltag_occupied_by_the_resolution,
     });
 
-    // The editor offers only the clubs the write takes, so a team's refusal means the fixture changed under it.
-    for (const code of ["ergebnis_side_emptied", "spieltag_occupied", "eligibility_team_not_in_saison"] as const) {
+    // The editor offers only the clubs and the referees the write takes, so their refusal means a record changed under it.
+    for (const code of [
+      "ergebnis_side_emptied",
+      "spieltag_occupied",
+      "eligibility_team_not_in_saison",
+      "booking_unconfirmed_schiedsrichter",
+    ] as const) {
       state.refusal = refusal(code);
       expect(await saveSpiel(save), code).toEqual({ ok: false, errorCode: code, reason: COPY.shared.failure.stale });
     }
