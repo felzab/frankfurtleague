@@ -3632,7 +3632,7 @@ export const getSpielbestaetigungenGetSpielbestaetigungenUrl = (params: Spielbes
 /**
  * Every confirmation row of the season, or of its one fixture.
  *
- * Newest first, closed rows included. No seat's link hashes and no answer's holder digest are served. Every row still
+ * Newest first, closed rows included. No seat's link hashes and no seat's address are served. Every row still
  * holding its party's question is served; `limit` cuts the others, and `complete` is false where it left the
  * oldest of them out. Each seat holding a link names what became of the last mail owed to it. A season no document
  * has answers no rows rather than 404.

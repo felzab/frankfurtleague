@@ -62,13 +62,7 @@ from app.api.outbox.services import SIGN_IN_KINDS, OwedMail, enqueue_mails
 from app.api.registrierungen.services import build_erasure_registrierung_filter, registrierung_ist_bestaetigt
 from app.api.schiedsrichter.services import build_self_referee_filter, vorname_of
 from app.api.sperrliste.lookup import BanList, Saison, barred_addresses
-from app.api.spielbestaetigungen.services import (
-    build_contact_reason_images_filter,
-    build_contact_reasons_filter,
-    contact_reason_image_edits,
-    halter_of,
-    seat_void_of,
-)
+from app.api.spielbestaetigungen.services import seat_void_of
 from app.api.spieler.crud import another_pupil_holds
 from app.api.spieler.services import build_self_pupil_filter
 from app.api.teams.crud import void_moved_seats
@@ -789,15 +783,7 @@ async def move_the_address_in_session(
             session=session,
         )
 
-    await _rekey_the_person(
-        holdings.identifier,
-        new_address,
-        spielbestaetigungen_collection=spielbestaetigungen_collection,
-        action_log_collection=action_log_collection,
-        key=key,
-        stamp=stamp,
-        session=session,
-    )
+    await _rekey_the_person(holdings.identifier, new_address, action_log_collection=action_log_collection, key=key, session=session)
     await end_the_change_in_session(
         address_changes_collection=address_changes_collection,
         action_log_collection=action_log_collection,
@@ -988,46 +974,17 @@ async def _move_the_grant(
 
 
 async def _rekey_the_person(
-    old: str,
-    new_address: str,
-    *,
-    spielbestaetigungen_collection: AsyncCollection,
-    action_log_collection: AsyncCollection,
-    key: SecretStr,
-    stamp: str,
-    session: AsyncClientSession,
+    old: str, new_address: str, *, action_log_collection: AsyncCollection, key: SecretStr, session: AsyncClientSession
 ) -> None:
-    """The digests naming the person by the replaced address, re-keyed rather than recorded, so an erasure of the new one reaches them.
+    """The log's pseudonym of the person by the replaced address, re-keyed rather than recorded, so an erasure of the new one reaches it.
 
-    Kept on a record instead, every erasure step would have to read them.
+    Kept on a record instead, every erasure step would have to read it.
     """
 
     await patch_many_in_db(
         collection=action_log_collection,
         db_filter={"actor.pseudonym": actor_pseudonym(old, key=key)},
         update={"$set": {"actor.pseudonym": actor_pseudonym(new_address, key=key)}},
-        session=session,
-    )
-
-    before, after = halter_of(old, key=key), halter_of(new_address, key=key)
-    answered = await aggregate_many_from_db(
-        collection=spielbestaetigungen_collection,
-        pipeline=[{"$match": build_contact_reasons_filter([before])}, {"$project": {"saison_id": 1}}],
-        session=session,
-    )
-    if answered:
-        await patch_many_in_db(
-            collection=spielbestaetigungen_collection,
-            # Ids and their seasons alone, never the digest: the log keeps a fan-out's filter as text.
-            db_filter={"saison_id": {"$in": sorted({row["saison_id"] for row in answered})}, "_id": {"$in": [row["_id"] for row in answered]}},
-            update={"$set": {"antwort.von.halter": after}},
-            session=session,
-        )
-    await redact_images_in_session(
-        action_log_collection=action_log_collection,
-        db_filter=build_contact_reason_images_filter([before]),
-        judge=lambda image: {"antwort.von.halter": after} if contact_reason_image_edits(image, [before]) else {},
-        stamp=stamp,
         session=session,
     )
 

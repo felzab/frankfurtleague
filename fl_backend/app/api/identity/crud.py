@@ -72,7 +72,6 @@ from app.api.schiedsrichter.crud import ensure_ghost_schiedsrichter, erase_refer
 from app.api.sperrliste.lookup import BanList
 from app.api.spielberichte.crud import repoint_referee_reports_in_session
 from app.api.spielbestaetigungen.crud import erase_referee_confirmations_in_session
-from app.api.spielbestaetigungen.services import halter_of
 from app.api.spieler.crud import ensure_ghost_spieler, erase_person_in_session
 from app.core.codes import Code
 from app.core.collections import Collection
@@ -698,7 +697,6 @@ async def erase_everything(
                 spielbestaetigungen_collection=spielbestaetigungen_collection,
                 action_log_collection=action_log_collection,
                 identifier=identifier,
-                key=key,
                 saison_team_rows=subject.saison_teams,
                 bewerbung_rows=subject.bewerbungen,
                 stamp=stamp,
@@ -901,7 +899,6 @@ class ErasureJournal[Erased: FLErasure]:
             person_hash=erasure_journal_hash(self._identifier, key=self._key),
             kind="erasure",
             pseudonym=actor_pseudonym(self._identifier, key=self._key),
-            halter=halter_of(self._identifier, key=self._key),
         )
         journal_logger.info(line.text())
 

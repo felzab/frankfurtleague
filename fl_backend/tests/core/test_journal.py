@@ -24,16 +24,13 @@ from app.shared.einwilligung_evidence import FLEinwilligungChoice
 
 PERSON = "a" * 64
 PSEUDONYM = "c" * 64
-HALTER = "d" * 64
 BEFORE = "e" * 64
 RECORD = ObjectId("6890a1b2c3d4e5f607860001")
 AT = "2026-10-15T10:00:00+00:00"
 JOURNAL_LOGGER = f"{FL_LOGGER_NAME}.{JOURNAL_LOGGER_SUFFIX}"
 
 LINES = {
-    "an erasure": JournalLine(person_hash=PERSON, kind="erasure", pseudonym=PSEUDONYM, halter=HALTER),
-    # As every erasure was journalled before the line named its holder digest.
-    "an erasure naming no holder": JournalLine(person_hash=PERSON, kind="erasure", pseudonym=PSEUDONYM),
+    "an erasure": JournalLine(person_hash=PERSON, kind="erasure", pseudonym=PSEUDONYM),
     # As every erasure was journalled before the line named its pseudonym.
     "an older erasure": JournalLine(person_hash=PERSON, kind="erasure"),
     "a withdrawal": JournalLine(
@@ -74,8 +71,7 @@ LINES = {
 
 def test_an_erasure_is_spelled_as_the_export_and_the_restore_read_it():
     """Written out rather than composed: a change to the line's spelling is a change to every day file's."""
-    assert LINES["an erasure"].text() == f"{JOURNAL_TOKEN} {PERSON} erasure pseudonym={PSEUDONYM} halter={HALTER}"
-    assert LINES["an erasure naming no holder"].text() == f"{JOURNAL_TOKEN} {PERSON} erasure pseudonym={PSEUDONYM}"
+    assert LINES["an erasure"].text() == f"{JOURNAL_TOKEN} {PERSON} erasure pseudonym={PSEUDONYM}"
     assert LINES["an older erasure"].text() == f"{JOURNAL_TOKEN} {PERSON} erasure"
     assert LINES["a withdrawal"].text() == (
         f"{JOURNAL_TOKEN} {PERSON} withdrawal spieler/{RECORD} at={AT} text_version.scope=2026-11-name-kader-1 "
@@ -96,7 +92,7 @@ def test_every_act_reads_back_as_it_was_written(line: JournalLine):
 def test_the_replay_names_a_line_by_its_act_alone(line: JournalLine):
     """The log outlives the day files by eleven months, so a replay's row names no keyed hash; nor the token, which reads as an erasure."""
     assert line.act().startswith(line.kind)
-    assert all(keyed not in line.act() for keyed in (PERSON, PSEUDONYM, HALTER, BEFORE, JOURNAL_TOKEN))
+    assert all(keyed not in line.act() for keyed in (PERSON, PSEUDONYM, BEFORE, JOURNAL_TOKEN))
 
 
 @pytest.mark.parametrize(
@@ -129,11 +125,6 @@ def test_the_replay_names_a_line_by_its_act_alone(line: JournalLine):
             id="a choice naming a pseudonym",
         ),
         pytest.param(f"{JOURNAL_TOKEN} {PERSON} erasure pseudonym=anna@example.com", id="an address for the pseudonym"),
-        pytest.param(
-            f"{JOURNAL_TOKEN} {PERSON} address_change_declined address_changes/{RECORD} at={AT} halter={HALTER}",
-            id="a choice naming a holder digest",
-        ),
-        pytest.param(f"{JOURNAL_TOKEN} {PERSON} erasure halter=anna@example.com", id="an address for the holder digest"),
         pytest.param(f"{JOURNAL_TOKEN} {PERSON} address_change_declined address_changes/{RECORD} at={AT} wer=ich", id="a value no act carries"),
         pytest.param(
             f"{JOURNAL_TOKEN} {PERSON} address_change_effective address_changes/{RECORD} at={AT}", id="an effect naming no replaced address"

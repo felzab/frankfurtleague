@@ -50,10 +50,10 @@ from app.api.bewerbungen.services import (
 )
 from app.api.identity.crud import unattribute_pseudonym_in_session
 from app.api.identity.lookup import RecordCollections
-from app.api.kontakte.crud import redact_the_decliner, remove_the_holders_reasons, remove_their_reasons
+from app.api.kontakte.crud import redact_the_decliner, remove_the_seats_reasons
 from app.api.sperrliste.lookup import BanList
 from app.api.spielbestaetigungen.crud import redact_seat_entries_in_images
-from app.api.spielbestaetigungen.services import build_contact_reason_images_filter, build_contact_reasons_filter, kontakte_ohne, seat_void_of
+from app.api.spielbestaetigungen.services import HeldSeats, kontakte_ohne, seat_void_of
 from app.api.teams.crud import void_moved_seats
 from app.core import clock
 from app.core.clock import german_day
@@ -341,11 +341,10 @@ async def _plan_objection(
                 action_log_collection=database[Collection.ACTION_LOG], voids=voids, stamp=log_stamp(now), session=session
             )
             # As the link's answer takes them, which the restored rows and images hold again.
-            await remove_their_reasons(
+            await remove_the_seats_reasons(
                 spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
                 action_log_collection=database[Collection.ACTION_LOG],
-                addresses=seat_addresses(kontakte=row.get("kontakte"), seats=open),
-                key=key,
+                held=[HeldSeats(saison_id=row["saison_id"], team_id=row["team_id"], seats=tuple(open))],
                 stamp=log_stamp(now),
                 session=session,
             )
@@ -534,45 +533,26 @@ async def pseudonym_traces(database: AsyncDatabase, pseudonym: str, *, session: 
     return [row["_id"] async for row in database[Collection.ACTION_LOG].find({"actor.pseudonym": pseudonym}, {"_id": 1}, session=session)]
 
 
-async def _plan_pseudonym(line: JournalLine, database: AsyncDatabase, *, session: AsyncClientSession | None, now: datetime) -> Plan:
-    """An erasure whose address the restored database holds nowhere: what its pseudonym still marks, and the reasons its holder digest finds.
+async def _plan_pseudonym(line: JournalLine, database: AsyncDatabase, *, session: AsyncClientSession | None) -> Plan:
+    """An erasure whose address the restored database holds nowhere: what its pseudonym still marks.
 
     Held nowhere by its caller's walk, which no transaction could hold; held anywhere, the page's erasure takes them.
     """
 
-    pseudonym, halter = line.pseudonym, line.halter
+    pseudonym = line.pseudonym
     rows = [] if pseudonym is None else await pseudonym_traces(database, pseudonym, session=session)
-    # The rows, and the log's images an undraw's removal left of rows standing nowhere now.
-    reasons = (
-        0
-        if halter is None
-        else await database[Collection.SPIELBESTAETIGUNGEN].count_documents(build_contact_reasons_filter([halter]), session=session)
-        + await database[Collection.ACTION_LOG].count_documents(build_contact_reason_images_filter([halter]), session=session)
-    )
-    if not rows and not reasons:
+    if pseudonym is None or not rows:
         return Plan("already done", detail="its address is held nowhere in the restored database, and nothing keyed on its person is left")
 
     shown = ", ".join(str(row_id) for row_id in rows[:3]) + (", …" if len(rows) > 3 else "")
-    detail = (
-        f"its address is held nowhere in the restored database, but its pseudonym still marks {len(rows)} log row(s)"
-        f"{f' ({shown})' if rows else ''}, and {reasons} confirmation(s) or log image(s) hold a reason of theirs"
-    )
+    detail = f"its address is held nowhere in the restored database, but its pseudonym still marks {len(rows)} log row(s) ({shown})"
 
-    # The erasure's own pseudonym and reason steps, and the one row the log keeps of an act writing none of the logged collections.
+    # The erasure's own pseudonym step, and the one row the log keeps of an act writing none of the logged collections.
     async def rewrite_pseudonym(session: AsyncClientSession) -> Any:
-        if pseudonym is not None:
-            await unattribute_pseudonym_in_session(action_log_collection=database[Collection.ACTION_LOG], pseudonym=pseudonym, session=session)
-            await post_one_to_db(
-                collection=database[Collection.ACTION_LOG], document=act_row("pseudonyme", operation="patch_many"), session=session
-            )
-        if halter is not None:
-            await remove_the_holders_reasons(
-                spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
-                action_log_collection=database[Collection.ACTION_LOG],
-                halter=[halter],
-                stamp=log_stamp(now),
-                session=session,
-            )
+        await unattribute_pseudonym_in_session(action_log_collection=database[Collection.ACTION_LOG], pseudonym=pseudonym, session=session)
+        await post_one_to_db(
+            collection=database[Collection.ACTION_LOG], document=act_row("pseudonyme", operation="patch_many"), session=session
+        )
 
     return Plan("to replay", rewrite_pseudonym, detail)
 
@@ -597,7 +577,7 @@ async def plan_replay(
         case "approval_request_declined" | "approval_request_withdrawn" | "approval_request_ended":
             return await _plan_approval_request_end(line, database, key=key, session=session, now=now)
         case "erasure":
-            return await _plan_pseudonym(line, database, session=session, now=now)
+            return await _plan_pseudonym(line, database, session=session)
 
 
 async def replay_line(entry: Read, client: AsyncMongoClient, database: AsyncDatabase, *, key: SecretStr, now: datetime, window: Window) -> Plan:
@@ -666,7 +646,7 @@ async def run_replay(
             left["erasures to run"] += 1
             _print_held(held[line.person_hash], out)
             continue
-        if line.kind == "erasure" and line.pseudonym is None and line.halter is None:
+        if line.kind == "erasure" and line.pseudonym is None:
             print("    its address is held nowhere in the restored database: nothing to run", file=out)
             continue
         if _erased_after(entry, gone, erased_at) and line.before is not None and held[line.before]:

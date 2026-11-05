@@ -48,7 +48,6 @@ from app.shared.tokens import hash_token
 from tests import documents
 from tests.api import test_spielbestaetigung_sweep_refusal as budget
 from tests.bans import ban_list
-from tests.config import build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import ban_document, kontaktperson_document
 from tests.erasure import erased
@@ -676,8 +675,6 @@ def answered(antwort: Literal["zugesagt", "declined"]) -> dict[str, Any]:
     return compose_antwort_update(
         antwort=antwort,
         seat="trainer",
-        address=None,
-        key=build_test_config().sperrliste_key,
         vorschlag=FLSpielbestaetigungAppointment(datum=days_after(day=NEXT_WEEK, days=1), uhrzeit="18:00:00")
         if antwort == "declined"
         else None,

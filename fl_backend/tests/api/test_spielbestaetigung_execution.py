@@ -6,8 +6,6 @@ pressed, the proposal judged as the administrator's save of that date is judged,
 fixture.
 """
 
-import hashlib
-import hmac
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from datetime import datetime
 from typing import Any
@@ -49,7 +47,6 @@ from app.shared.schemas.literals import KONTAKT_ROLLEN
 from app.shared.tokens import hash_token
 from tests import documents
 from tests.bans import ban_list
-from tests.config import build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.erasure import erased
 from tests.isolation import COMMITTED, InterleavedCollection, outcome_of
@@ -91,11 +88,6 @@ PEOPLE = {
 }
 NAMES = {TEAM1: ("Adler", "ADX"), TEAM2: ("Biber", "BIX")}
 REFEREE = "Otto Gruber"
-
-# Spelled out rather than through the code under test: the stellvertretung's address on the sign-in fold, keyed under the
-# suite's master by the holder's own label, so an unkeyed digest or another purpose's label fails here.
-_HALTER_KEY = hmac.new(build_test_config().sperrliste_key.get_secret_value().encode("utf-8"), b"halter-v1", hashlib.sha256).digest()
-KLARA = hmac.new(_HALTER_KEY, b"klara@example.com", hashlib.sha256).hexdigest()
 
 
 def address(team_id: ObjectId, seat: str) -> str:
@@ -509,30 +501,13 @@ class TestTheSeatTheAnswerRecords:
         assert row["antwort"] == {
             "art": "zugesagt",
             "am": TODAY,
-            "von": {"art": "kontakt", "rolle": "stellvertretung", "halter": KLARA},
+            "von": {"art": "kontakt", "rolle": "stellvertretung"},
             "vorschlag": None,
             "begruendung": None,
         }
         assert second == Code.ANSETZUNG_ANSWERED
         # The other club's row is its own question.
         assert other["antwort"] is None
-
-    def test_the_holder_recorded_is_the_seats_address_as_it_stands_on_the_fold_a_holder_is_told_apart_by(self, mongo_replica_set_url: str):
-        """Re-typed since the mint, a spelling the fold reads as the same inbox: the person's erasure must still find the reason."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SAISON_TEAMS].update_one(
-                {"team_id": TEAM1}, {"$set": {"kontakte.stellvertretung.email": " Klara@EXAMPLE.com "}}
-            )
-            await ablehnen(database, client, token(TEAM1, "stellvertretung"), ("2027-05-15", "18:00:00"), begruendung="Die Halle ist belegt")
-
-            return await row_now(database, ROW1), await read_view(database, token(TEAM1, "stellvertretung"))
-
-        row, view = on_a_fixture(mongo_replica_set_url, body)
-
-        assert row["antwort"]["von"] == {"art": "kontakt", "rolle": "stellvertretung", "halter": KLARA}
-        # Stored for the erasure alone: the reopened link names the role and nothing of the holder.
-        assert view.answered_by is not None and view.answered_by.model_dump() == {"art": "kontakt", "rolle": "stellvertretung"}
 
     def test_a_mirrored_pair_sharing_one_link_records_the_first_seat_in_order(self, mongo_replica_set_url: str):
         """One person on two seats holds one hash: resolved to a seat rather than to nothing."""
@@ -1029,7 +1004,7 @@ class TestTheAdministratorsZusage:
 
         assert on_a_fixture(mongo_replica_set_url, body) == (
             Code.ANSETZUNG_NOT_ENTERABLE,
-            {"art": "kontakt", "rolle": "stellvertretung", "halter": KLARA},
+            {"art": "kontakt", "rolle": "stellvertretung"},
         )
 
     def test_a_seats_answer_landing_inside_the_settle_is_the_one_answer(self, mongo_replica_set_url: str):
@@ -1047,7 +1022,7 @@ class TestTheAdministratorsZusage:
 
         outcome, by, judged = on_a_fixture(mongo_replica_set_url, body)
 
-        assert (outcome, by) == (Code.ANSETZUNG_NOT_ENTERABLE, {"art": "kontakt", "rolle": "stellvertretung", "halter": KLARA})
+        assert (outcome, by) == (Code.ANSETZUNG_NOT_ENTERABLE, {"art": "kontakt", "rolle": "stellvertretung"})
         # Driven, not reasoned: the rival surfaces as a write conflict, so the refusal is the retry's read and never the filter.
         assert judged == 2
 
@@ -1144,14 +1119,14 @@ class TestTheDiscard:
         assert on_a_fixture(mongo_replica_set_url, body) == (Code.ANSETZUNG_NOT_DISCARDABLE, None, 1)
 
 
-# What the administrator's read resolves of a row: every stored path but a seat's hashes and address and the answer's holder.
-ADMIN_READ_WITHHOLDS = ("token_hashes", "email", "halter")
+# What the administrator's read resolves of a row: every stored path but a seat's hashes and address.
+ADMIN_READ_WITHHOLDS = ("token_hashes", "email")
 NEIGHBOURS_ROW = ObjectId("6890a1b2c3d4e5f607d50053")
 LAST_SEASONS_ROW = ObjectId("6890a1b2c3d4e5f607d50054")
 
 
 class TestWhatTheAdministratorsReadServes:
-    def test_the_seasons_rows_newest_first_with_no_hash_or_holder_loaded(self, mongo_replica_set_url: str):
+    def test_the_seasons_rows_newest_first_with_no_hash_or_address_loaded(self, mongo_replica_set_url: str):
         """Asserted on what the driver handed back: the read model declares neither, so a response check passes with no projection."""
 
         rows = [
@@ -1171,7 +1146,7 @@ class TestWhatTheAdministratorsReadServes:
         season, loaded, one_fixture, stored = on_a_fixture(mongo_replica_set_url, body, rows=rows)
 
         # The premise: the row read holds both in the database.
-        assert stored["antwort"]["von"]["halter"] == KLARA and stored["kontakte"]["trainer"]["token_hashes"]
+        assert stored["kontakte"]["trainer"]["token_hashes"] and stored["kontakte"]["trainer"]["email"]
         assert [row.id for row in season.spielbestaetigungen] == [NEIGHBOURS_ROW, ROW2, ROW1]
         assert season.complete
         assert not [path for document in loaded for path in leaf_paths(document) if path.rsplit(".", 1)[-1] in ADMIN_READ_WITHHOLDS]
@@ -1249,7 +1224,7 @@ class _RivalAfterTheList:
 DECLINE = {
     "art": "declined",
     "am": TODAY,
-    "von": {"art": "kontakt", "rolle": "trainer", "halter": None},
+    "von": {"art": "kontakt", "rolle": "trainer"},
     "vorschlag": {"datum": PROPOSAL[0], "uhrzeit": PROPOSAL[1]},
     "begruendung": None,
 }
@@ -1321,7 +1296,7 @@ class ConfirmationsRunningARivalBeforeTheFirstFanOut(InterleavedCollection):
 class TestAnAnswerAndItsWritersLoeschungCross:
     """The answer writes its row and the erasure voids the writer's entry on it, so one retries.
 
-    Without that conflict a holder digest stored under an erasure's snapshot would stand until the season's end.
+    Without that conflict a reason stored under an erasure's snapshot would stand until the season's end.
     """
 
     def test_an_loeschung_landing_inside_the_answer_leaves_the_link_dead_and_nothing_stored(self, mongo_replica_set_url: str):
@@ -1344,8 +1319,8 @@ class TestAnAnswerAndItsWritersLoeschungCross:
         assert passes == 1
         assert (outcome, row["antwort"], row["kontakte"]["trainer"]) == (Code.LINK_INVALID, None, None)
 
-    def test_an_answer_landing_inside_the_loeschung_has_its_reason_and_digest_taken(self, mongo_replica_set_url: str):
-        """The erasure run again finds the digest the answer stored, and nulls it with the reason; the way and the role stay."""
+    def test_an_answer_landing_inside_the_loeschung_has_its_reason_taken(self, mongo_replica_set_url: str):
+        """The erasure run again finds the reason the answer stored from the seat, and nulls it; the way and the role stay."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             async def answer_as_the_trainer() -> None:
@@ -1360,7 +1335,7 @@ class TestAnAnswerAndItsWritersLoeschungCross:
 
         # Serially, the erasure's void and its reasons' write: a third arrival is the void run again after the conflict.
         confirmations.assert_landed_inside(serially=2)
-        assert (row["antwort"]["art"], row["antwort"]["von"]) == ("declined", {"art": "kontakt", "rolle": "trainer", "halter": None})
+        assert (row["antwort"]["art"], row["antwort"]["von"]) == ("declined", {"art": "kontakt", "rolle": "trainer"})
         assert (row["antwort"]["begruendung"], row["kontakte"]["trainer"]) == (None, None)
 
 
