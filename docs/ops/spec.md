@@ -388,7 +388,10 @@ action past the action burst or answers it otherwise than with the sentence.
 
 **A body cap below the server block's `20M` is set at the location it bounds.** The application
 form's `64k` cap alone is measured, 2026-08-30: a 100,049-byte POST is refused `413` at the edge,
-while a 4,049-byte POST reaches the handler.
+while a 4,049-byte POST reaches the handler. **A server action's body is bounded by Next and never
+at a location**: posted to any page path, it meets the server block's `20M` there, so a cap at the
+page it answers on bounds nothing a script cannot step around. Next refuses one past its
+`serverActions.bodySizeLimit`, 1 MB by default, which `fl_frontend/next.config.ts` leaves standing.
 
 **A zone has been observed refusing, and what that establishes is the MECHANISM, not the numbers.**
 A burst at the Kürzel check was refused past the burst as `429` (not nginx's `503` default), the
