@@ -8,6 +8,7 @@ import nextTs from "eslint-config-next/typescript";
 import betterTailwindcss from "eslint-plugin-better-tailwindcss";
 import { getDefaultSelectors } from "eslint-plugin-better-tailwindcss/defaults";
 import { MatcherType, SelectorKind } from "eslint-plugin-better-tailwindcss/types";
+import checkFile from "eslint-plugin-check-file";
 import jsxA11y from "eslint-plugin-jsx-a11y";
 import { defineConfig, globalIgnores } from "eslint/config";
 
@@ -1319,6 +1320,15 @@ const BAN_BLOCKS = [
 
 const JS_FILES = ["**/*.{js,mjs,cjs,jsx,ts,mts,cts,tsx}"];
 
+// The name shapes, as micromatch's extended globs, in the forms eslint-plugin-check-file writes its own conventions.
+const KEBAB = "+([a-z])*([a-z0-9])*(-+([a-z0-9]))";
+const CAMEL = "+([a-z])*([a-z0-9])*([A-Z]*([a-z0-9]))";
+const PASCAL = "*([A-Z]*([a-z0-9]))";
+const PARAM = "+([a-z])*([a-z0-9])*(_+([a-z0-9]))";
+/** A route folder: kebab-case, or a dynamic segment named as its param, a catch-all, a group, an intercepted route or a slot. */
+const ROUTE_FOLDER_CASE = String.raw`@(${KEBAB}|\[${PARAM}\]|\[...${CAMEL}\]|\(${KEBAB}\)|\(.\)${KEBAB}|\@${KEBAB})`;
+/** A module after its main export, a component after its component. */
+const MODULE_FILE_CASE = `@(${CAMEL}|${PASCAL})`;
 
 const eslintConfig = defineConfig([
   ...nextVitals,
@@ -1470,6 +1480,26 @@ const eslintConfig = defineConfig([
       "jsx-a11y/no-interactive-element-to-noninteractive-role": [
         "error",
         { ...jsxA11y.flatConfigs.recommended.rules["jsx-a11y/no-interactive-element-to-noninteractive-role"][1], td: ["cell"] },
+      ],
+    },
+  },
+
+  // File and folder names by kind (`docs/writing.md`): every folder kebab-case, a route folder in the App Router's own
+  // forms around it, a dynamic segment named as its param; every module camelCase and every component PascalCase,
+  // before its middle extensions. Next.js's kebab-case file conventions keep Next's names. A file or folder a later
+  // session deletes or rebuilds passes through the suppressions file until that session renames it.
+  {
+    files: ["src/**/*.{ts,tsx}", "e2e/**/*.ts"],
+    plugins: { "check-file": checkFile },
+    rules: {
+      "check-file/folder-naming-convention": [
+        "error",
+        { "src/!(app)/**/": "KEBAB_CASE", "src/app/**/": ROUTE_FOLDER_CASE, "e2e/**/": "KEBAB_CASE" },
+      ],
+      "check-file/filename-naming-convention": [
+        "error",
+        { "src/**/!(not-found|global-error).{ts,tsx}": MODULE_FILE_CASE, "e2e/**/*.ts": MODULE_FILE_CASE },
+        { ignoreMiddleExtensions: true },
       ],
     },
   },

@@ -94,6 +94,11 @@
       "count": 4
     }
   },
+  "src/app/area/admin/action_required/page.tsx": {
+    "check-file/folder-naming-convention": {
+      "count": 1
+    }
+  },
   "src/app/area/admin/administratoren/loading.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 1
@@ -406,73 +411,6 @@
       "count": 24
     }
   },
-  "src/features/admin/actions.ts": {
-    "fl/server-action": {
-      "count": 1
-    }
-  },
-  "src/features/admin/components/providers/AdminStepUpProvider.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 2
-    }
-  },
-  "src/features/admin/components/ui/AdminShell.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/features/admin/components/views/AdminBracketWiringView.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 13
-    },
-    "no-restricted-syntax": {
-      "count": 18
-    },
-    "react/forbid-component-props": {
-      "count": 11
-    },
-    "react/jsx-no-literals": {
-      "count": 4
-    }
-  },
-  "src/features/admin/components/views/AdminSpielEditView.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 2
-    },
-    "no-restricted-syntax": {
-      "count": 2
-    }
-  },
-  "src/features/admin/components/views/AdminSpieleActionRequiredView.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 10
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 6
-    },
-    "no-restricted-syntax": {
-      "count": 16
-    },
-    "react/forbid-component-props": {
-      "count": 7
-    },
-    "react/jsx-no-literals": {
-      "count": 1
-    }
-  },
-  "src/features/admin/constants.ts": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 17
-    },
-    "no-restricted-syntax": {
-      "count": 36
-    }
-  },
-  "src/features/admin/utils.ts": {
-    "no-restricted-syntax": {
-      "count": 13
-    }
-  },
   "src/features/address-change/actions.ts": {
     "fl/server-action": {
       "count": 5
@@ -483,6 +421,9 @@
       "count": 14
     },
     "better-tailwindcss/no-restricted-classes": {
+      "count": 1
+    },
+    "check-file/folder-naming-convention": {
       "count": 1
     },
     "no-restricted-syntax": {
@@ -565,6 +506,73 @@
   "src/features/address-change/refusals.ts": {
     "no-restricted-syntax": {
       "count": 7
+    }
+  },
+  "src/features/admin/actions.ts": {
+    "fl/server-action": {
+      "count": 1
+    }
+  },
+  "src/features/admin/components/providers/AdminStepUpProvider.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 2
+    }
+  },
+  "src/features/admin/components/ui/AdminShell.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    }
+  },
+  "src/features/admin/components/views/AdminBracketWiringView.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 13
+    },
+    "no-restricted-syntax": {
+      "count": 18
+    },
+    "react/forbid-component-props": {
+      "count": 11
+    },
+    "react/jsx-no-literals": {
+      "count": 4
+    }
+  },
+  "src/features/admin/components/views/AdminSpielEditView.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 2
+    },
+    "no-restricted-syntax": {
+      "count": 2
+    }
+  },
+  "src/features/admin/components/views/AdminSpieleActionRequiredView.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 10
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 6
+    },
+    "no-restricted-syntax": {
+      "count": 16
+    },
+    "react/forbid-component-props": {
+      "count": 7
+    },
+    "react/jsx-no-literals": {
+      "count": 1
+    }
+  },
+  "src/features/admin/constants.ts": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 17
+    },
+    "no-restricted-syntax": {
+      "count": 36
+    }
+  },
+  "src/features/admin/utils.ts": {
+    "no-restricted-syntax": {
+      "count": 13
     }
   },
   "src/features/aktionen/components/collections/AdminAktionenTable.tsx": {
@@ -789,6 +797,9 @@
     "@typescript-eslint/no-restricted-imports": {
       "count": 4
     },
+    "check-file/folder-naming-convention": {
+      "count": 1
+    },
     "no-restricted-syntax": {
       "count": 7
     },
@@ -802,6 +813,9 @@
   "src/features/bewerbungen/components/forms/BewerbungForm/FormKontaktpersonenSection.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 9
+    },
+    "check-file/folder-naming-convention": {
+      "count": 1
     },
     "no-restricted-syntax": {
       "count": 12
@@ -820,6 +834,9 @@
     "better-tailwindcss/no-restricted-classes": {
       "count": 3
     },
+    "check-file/folder-naming-convention": {
+      "count": 1
+    },
     "no-restricted-syntax": {
       "count": 29
     },
@@ -834,6 +851,9 @@
     "@typescript-eslint/no-restricted-imports": {
       "count": 12
     },
+    "check-file/folder-naming-convention": {
+      "count": 1
+    },
     "no-restricted-syntax": {
       "count": 14
     },
@@ -842,6 +862,16 @@
     },
     "react/jsx-no-literals": {
       "count": 5
+    }
+  },
+  "src/features/bewerbungen/components/forms/BewerbungForm/kaderBounds.ts": {
+    "check-file/folder-naming-convention": {
+      "count": 1
+    }
+  },
+  "src/features/bewerbungen/components/forms/BewerbungForm/useBewerbungDraft.ts": {
+    "check-file/folder-naming-convention": {
+      "count": 1
     }
   },
   "src/features/bewerbungen/components/ui/BewerbungInstagramBand.tsx": {
@@ -1095,6 +1125,9 @@
     "@typescript-eslint/no-restricted-imports": {
       "count": 11
     },
+    "check-file/folder-naming-convention": {
+      "count": 1
+    },
     "no-restricted-syntax": {
       "count": 5
     },
@@ -1112,6 +1145,9 @@
     "better-tailwindcss/no-restricted-classes": {
       "count": 1
     },
+    "check-file/folder-naming-convention": {
+      "count": 1
+    },
     "no-restricted-syntax": {
       "count": 12
     },
@@ -1125,6 +1161,9 @@
   "src/features/funktionen/components/forms/AdminLoeschungForm/FormPersonLoeschenSection.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 14
+    },
+    "check-file/folder-naming-convention": {
+      "count": 1
     },
     "no-restricted-syntax": {
       "count": 11
@@ -1233,6 +1272,9 @@
     "@typescript-eslint/no-restricted-imports": {
       "count": 9
     },
+    "check-file/folder-naming-convention": {
+      "count": 1
+    },
     "react/forbid-component-props": {
       "count": 1
     }
@@ -1240,6 +1282,9 @@
   "src/features/kontakte/components/forms/AdminKontakteEditForm/FormKontaktEinladen.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 5
+    },
+    "check-file/folder-naming-convention": {
+      "count": 1
     },
     "no-restricted-syntax": {
       "count": 3
@@ -1251,6 +1296,9 @@
   "src/features/kontakte/components/forms/AdminKontakteEditForm/FormKontakteLoeschenSection.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 10
+    },
+    "check-file/folder-naming-convention": {
+      "count": 1
     },
     "no-restricted-syntax": {
       "count": 13
@@ -1266,6 +1314,9 @@
     "@typescript-eslint/no-restricted-imports": {
       "count": 14
     },
+    "check-file/folder-naming-convention": {
+      "count": 1
+    },
     "no-restricted-syntax": {
       "count": 16
     },
@@ -1278,6 +1329,9 @@
   },
   "src/features/kontakte/components/forms/AdminKontakteEditForm/banners.ts": {
     "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "check-file/folder-naming-convention": {
       "count": 1
     },
     "no-restricted-syntax": {
@@ -1450,6 +1504,9 @@
     "@typescript-eslint/no-restricted-imports": {
       "count": 9
     },
+    "check-file/folder-naming-convention": {
+      "count": 1
+    },
     "react/forbid-component-props": {
       "count": 1
     }
@@ -1457,6 +1514,9 @@
   "src/features/saisons/components/forms/AdminSaisonEditForm/FormBewerbungSection.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 8
+    },
+    "check-file/folder-naming-convention": {
+      "count": 1
     },
     "no-restricted-syntax": {
       "count": 8
@@ -1471,6 +1531,9 @@
   "src/features/saisons/components/forms/AdminSaisonEditForm/FormEinladungVersandSection.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 12
+    },
+    "check-file/folder-naming-convention": {
+      "count": 1
     },
     "no-restricted-syntax": {
       "count": 31
@@ -1489,6 +1552,9 @@
     "better-tailwindcss/no-restricted-classes": {
       "count": 2
     },
+    "check-file/folder-naming-convention": {
+      "count": 1
+    },
     "no-restricted-syntax": {
       "count": 17
     },
@@ -1499,9 +1565,17 @@
       "count": 7
     }
   },
+  "src/features/saisons/components/forms/AdminSaisonEditForm/FormRegelnSection.test.ts": {
+    "check-file/folder-naming-convention": {
+      "count": 1
+    }
+  },
   "src/features/saisons/components/forms/AdminSaisonEditForm/FormRegelnSection.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 8
+    },
+    "check-file/folder-naming-convention": {
+      "count": 1
     },
     "no-restricted-syntax": {
       "count": 20
@@ -1517,6 +1591,9 @@
     "@typescript-eslint/no-restricted-imports": {
       "count": 8
     },
+    "check-file/folder-naming-convention": {
+      "count": 1
+    },
     "no-restricted-syntax": {
       "count": 8
     },
@@ -1531,6 +1608,9 @@
     "@typescript-eslint/no-restricted-imports": {
       "count": 12
     },
+    "check-file/folder-naming-convention": {
+      "count": 1
+    },
     "no-restricted-syntax": {
       "count": 38
     },
@@ -1544,6 +1624,9 @@
   "src/features/saisons/components/forms/AdminSaisonEditForm/FormSpielplanSection.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 18
+    },
+    "check-file/folder-naming-convention": {
+      "count": 1
     },
     "no-restricted-syntax": {
       "count": 37
@@ -1562,6 +1645,9 @@
     "better-tailwindcss/no-restricted-classes": {
       "count": 2
     },
+    "check-file/folder-naming-convention": {
+      "count": 1
+    },
     "no-restricted-syntax": {
       "count": 19
     },
@@ -1576,6 +1662,9 @@
     "@typescript-eslint/no-restricted-imports": {
       "count": 7
     },
+    "check-file/folder-naming-convention": {
+      "count": 1
+    },
     "no-restricted-syntax": {
       "count": 5
     },
@@ -1586,15 +1675,51 @@
       "count": 2
     }
   },
+  "src/features/saisons/components/forms/AdminSaisonEditForm/banners.test.ts": {
+    "check-file/folder-naming-convention": {
+      "count": 1
+    }
+  },
   "src/features/saisons/components/forms/AdminSaisonEditForm/banners.ts": {
     "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "check-file/folder-naming-convention": {
       "count": 1
     },
     "no-restricted-syntax": {
       "count": 7
     }
   },
+  "src/features/saisons/components/forms/AdminSaisonEditForm/blockedReasons.test.ts": {
+    "check-file/folder-naming-convention": {
+      "count": 1
+    }
+  },
+  "src/features/saisons/components/forms/AdminSaisonEditForm/blockedReasons.ts": {
+    "check-file/folder-naming-convention": {
+      "count": 1
+    }
+  },
+  "src/features/saisons/components/forms/AdminSaisonEditForm/replacementOffer.test.ts": {
+    "check-file/folder-naming-convention": {
+      "count": 1
+    }
+  },
+  "src/features/saisons/components/forms/AdminSaisonEditForm/replacementOffer.ts": {
+    "check-file/folder-naming-convention": {
+      "count": 1
+    }
+  },
+  "src/features/saisons/components/forms/AdminSaisonEditForm/spielplanShape.test.ts": {
+    "check-file/folder-naming-convention": {
+      "count": 1
+    }
+  },
   "src/features/saisons/components/forms/AdminSaisonEditForm/spielplanShape.ts": {
+    "check-file/folder-naming-convention": {
+      "count": 1
+    },
     "no-restricted-syntax": {
       "count": 3
     }
@@ -1740,6 +1865,9 @@
     "@typescript-eslint/no-restricted-imports": {
       "count": 9
     },
+    "check-file/folder-naming-convention": {
+      "count": 1
+    },
     "react/forbid-component-props": {
       "count": 1
     }
@@ -1747,6 +1875,9 @@
   "src/features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/FormBestaetigungSection.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 10
+    },
+    "check-file/folder-naming-convention": {
+      "count": 1
     },
     "no-restricted-syntax": {
       "count": 12
@@ -1762,6 +1893,9 @@
     "@typescript-eslint/no-restricted-imports": {
       "count": 7
     },
+    "check-file/folder-naming-convention": {
+      "count": 1
+    },
     "no-restricted-syntax": {
       "count": 4
     },
@@ -1775,6 +1909,9 @@
   "src/features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/FormKontaktSection.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 9
+    },
+    "check-file/folder-naming-convention": {
+      "count": 1
     },
     "no-restricted-syntax": {
       "count": 11
@@ -1790,6 +1927,9 @@
     "@typescript-eslint/no-restricted-imports": {
       "count": 8
     },
+    "check-file/folder-naming-convention": {
+      "count": 1
+    },
     "no-restricted-syntax": {
       "count": 7
     },
@@ -1800,8 +1940,16 @@
       "count": 2
     }
   },
+  "src/features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/banners.test.ts": {
+    "check-file/folder-naming-convention": {
+      "count": 1
+    }
+  },
   "src/features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/banners.ts": {
     "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "check-file/folder-naming-convention": {
       "count": 1
     },
     "no-restricted-syntax": {
@@ -1992,6 +2140,9 @@
     "@typescript-eslint/no-restricted-imports": {
       "count": 9
     },
+    "check-file/folder-naming-convention": {
+      "count": 1
+    },
     "no-restricted-syntax": {
       "count": 2
     },
@@ -2002,6 +2153,9 @@
   "src/features/spielberichte/components/forms/SpielberichtForm/FormBemerkungenSection.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 9
+    },
+    "check-file/folder-naming-convention": {
+      "count": 1
     },
     "no-restricted-syntax": {
       "count": 5
@@ -2017,6 +2171,9 @@
     "@typescript-eslint/no-restricted-imports": {
       "count": 5
     },
+    "check-file/folder-naming-convention": {
+      "count": 1
+    },
     "no-restricted-syntax": {
       "count": 16
     },
@@ -2027,6 +2184,9 @@
   "src/features/spielberichte/components/forms/SpielberichtForm/FormTorschuetzenSection.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 7
+    },
+    "check-file/folder-naming-convention": {
+      "count": 1
     },
     "no-restricted-syntax": {
       "count": 18
@@ -2042,6 +2202,9 @@
     "@typescript-eslint/no-restricted-imports": {
       "count": 9
     },
+    "check-file/folder-naming-convention": {
+      "count": 1
+    },
     "no-restricted-syntax": {
       "count": 14
     },
@@ -2056,6 +2219,9 @@
     "@typescript-eslint/no-restricted-imports": {
       "count": 10
     },
+    "check-file/folder-naming-convention": {
+      "count": 1
+    },
     "no-restricted-syntax": {
       "count": 2
     },
@@ -2066,6 +2232,9 @@
   "src/features/spielberichte/components/forms/SpielberichtForm/eintragFelder.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 10
+    },
+    "check-file/folder-naming-convention": {
+      "count": 1
     },
     "no-restricted-syntax": {
       "count": 1
@@ -2078,6 +2247,9 @@
     }
   },
   "src/features/spielberichte/components/forms/SpielberichtForm/spielberichtDraft.ts": {
+    "check-file/folder-naming-convention": {
+      "count": 1
+    },
     "no-restricted-syntax": {
       "count": 8
     }
@@ -2265,6 +2437,9 @@
     "@typescript-eslint/no-restricted-imports": {
       "count": 9
     },
+    "check-file/folder-naming-convention": {
+      "count": 1
+    },
     "no-restricted-syntax": {
       "count": 3
     },
@@ -2276,6 +2451,9 @@
     "@typescript-eslint/no-restricted-imports": {
       "count": 3
     },
+    "check-file/folder-naming-convention": {
+      "count": 1
+    },
     "no-restricted-syntax": {
       "count": 1
     },
@@ -2286,6 +2464,9 @@
   "src/features/spiele/components/forms/AdminEditSpielDataForm/FormAnsetzungSection.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 5
+    },
+    "check-file/folder-naming-convention": {
+      "count": 1
     },
     "no-restricted-syntax": {
       "count": 7
@@ -2301,6 +2482,9 @@
     "@typescript-eslint/no-restricted-imports": {
       "count": 3
     },
+    "check-file/folder-naming-convention": {
+      "count": 1
+    },
     "no-restricted-syntax": {
       "count": 1
     },
@@ -2311,6 +2495,9 @@
   "src/features/spiele/components/forms/AdminEditSpielDataForm/FormErgebnisSection.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 10
+    },
+    "check-file/folder-naming-convention": {
+      "count": 1
     },
     "no-restricted-syntax": {
       "count": 16
@@ -2329,6 +2516,9 @@
     "better-tailwindcss/no-restricted-classes": {
       "count": 1
     },
+    "check-file/folder-naming-convention": {
+      "count": 1
+    },
     "no-restricted-syntax": {
       "count": 5
     },
@@ -2341,6 +2531,9 @@
       "count": 10
     },
     "better-tailwindcss/no-restricted-classes": {
+      "count": 1
+    },
+    "check-file/folder-naming-convention": {
       "count": 1
     },
     "no-restricted-syntax": {
@@ -2360,6 +2553,9 @@
     "better-tailwindcss/no-restricted-classes": {
       "count": 1
     },
+    "check-file/folder-naming-convention": {
+      "count": 1
+    },
     "no-restricted-syntax": {
       "count": 2
     },
@@ -2373,6 +2569,9 @@
   "src/features/spiele/components/forms/AdminEditSpielDataForm/FormSonderereignisSection.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 14
+    },
+    "check-file/folder-naming-convention": {
+      "count": 1
     },
     "no-restricted-syntax": {
       "count": 10
@@ -2389,6 +2588,9 @@
       "count": 4
     },
     "better-tailwindcss/no-restricted-classes": {
+      "count": 1
+    },
+    "check-file/folder-naming-convention": {
       "count": 1
     },
     "no-restricted-syntax": {
@@ -2408,6 +2610,9 @@
     "better-tailwindcss/no-restricted-classes": {
       "count": 3
     },
+    "check-file/folder-naming-convention": {
+      "count": 1
+    },
     "no-restricted-syntax": {
       "count": 32
     },
@@ -2424,6 +2629,9 @@
     },
     "better-tailwindcss/no-restricted-classes": {
       "count": 3
+    },
+    "check-file/folder-naming-convention": {
+      "count": 1
     },
     "no-restricted-syntax": {
       "count": 11
@@ -2442,6 +2650,9 @@
     "better-tailwindcss/no-restricted-classes": {
       "count": 1
     },
+    "check-file/folder-naming-convention": {
+      "count": 1
+    },
     "no-restricted-syntax": {
       "count": 18
     },
@@ -2452,11 +2663,19 @@
       "count": 3
     }
   },
+  "src/features/spiele/components/forms/AdminEditSpielDataForm/SpielExpectedContext.tsx": {
+    "check-file/folder-naming-convention": {
+      "count": 1
+    }
+  },
   "src/features/spiele/components/forms/AdminEditSpielDataForm/SpielRail.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 6
     },
     "better-tailwindcss/no-restricted-classes": {
+      "count": 1
+    },
+    "check-file/folder-naming-convention": {
       "count": 1
     },
     "no-restricted-syntax": {
@@ -2476,6 +2695,9 @@
     "better-tailwindcss/no-restricted-classes": {
       "count": 1
     },
+    "check-file/folder-naming-convention": {
+      "count": 1
+    },
     "no-restricted-syntax": {
       "count": 1
     },
@@ -2483,12 +2705,30 @@
       "count": 1
     }
   },
+  "src/features/spiele/components/forms/AdminEditSpielDataForm/banners.test.ts": {
+    "check-file/folder-naming-convention": {
+      "count": 1
+    }
+  },
   "src/features/spiele/components/forms/AdminEditSpielDataForm/banners.ts": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 1
     },
+    "check-file/folder-naming-convention": {
+      "count": 1
+    },
     "no-restricted-syntax": {
       "count": 16
+    }
+  },
+  "src/features/spiele/components/forms/AdminEditSpielDataForm/suppressEnterSubmit.ts": {
+    "check-file/folder-naming-convention": {
+      "count": 1
+    }
+  },
+  "src/features/spiele/components/forms/AdminEditSpielDataForm/useVoidPreview.ts": {
+    "check-file/folder-naming-convention": {
+      "count": 1
     }
   },
   "src/features/spiele/components/modals/SpielDetailsModal.tsx": {
@@ -2661,6 +2901,9 @@
     "@typescript-eslint/no-restricted-imports": {
       "count": 9
     },
+    "check-file/folder-naming-convention": {
+      "count": 1
+    },
     "react/forbid-component-props": {
       "count": 1
     }
@@ -2668,6 +2911,9 @@
   "src/features/spieler/components/forms/AdminSpielerEditForm/FormAdresseSection.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 4
+    },
+    "check-file/folder-naming-convention": {
+      "count": 1
     },
     "no-restricted-syntax": {
       "count": 5
@@ -2683,6 +2929,9 @@
     "better-tailwindcss/no-restricted-classes": {
       "count": 2
     },
+    "check-file/folder-naming-convention": {
+      "count": 1
+    },
     "no-restricted-syntax": {
       "count": 11
     },
@@ -2696,6 +2945,9 @@
   "src/features/spieler/components/forms/AdminSpielerEditForm/FormEinwilligungSection.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 5
+    },
+    "check-file/folder-naming-convention": {
+      "count": 1
     },
     "no-restricted-syntax": {
       "count": 7
@@ -2714,6 +2966,9 @@
     "better-tailwindcss/no-restricted-classes": {
       "count": 2
     },
+    "check-file/folder-naming-convention": {
+      "count": 1
+    },
     "no-restricted-syntax": {
       "count": 17
     },
@@ -2728,6 +2983,9 @@
     "@typescript-eslint/no-restricted-imports": {
       "count": 9
     },
+    "check-file/folder-naming-convention": {
+      "count": 1
+    },
     "no-restricted-syntax": {
       "count": 8
     },
@@ -2738,8 +2996,16 @@
       "count": 3
     }
   },
+  "src/features/spieler/components/forms/AdminSpielerEditForm/banners.test.ts": {
+    "check-file/folder-naming-convention": {
+      "count": 1
+    }
+  },
   "src/features/spieler/components/forms/AdminSpielerEditForm/banners.ts": {
     "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "check-file/folder-naming-convention": {
       "count": 1
     },
     "no-restricted-syntax": {
@@ -2767,6 +3033,9 @@
     "better-tailwindcss/no-restricted-classes": {
       "count": 2
     },
+    "check-file/folder-naming-convention": {
+      "count": 1
+    },
     "no-restricted-syntax": {
       "count": 8
     },
@@ -2779,6 +3048,9 @@
       "count": 10
     },
     "better-tailwindcss/no-restricted-classes": {
+      "count": 1
+    },
+    "check-file/folder-naming-convention": {
       "count": 1
     },
     "no-restricted-syntax": {
@@ -2798,6 +3070,9 @@
     "better-tailwindcss/no-restricted-classes": {
       "count": 1
     },
+    "check-file/folder-naming-convention": {
+      "count": 1
+    },
     "no-restricted-syntax": {
       "count": 11
     },
@@ -2812,6 +3087,9 @@
     "better-tailwindcss/no-restricted-classes": {
       "count": 1
     },
+    "check-file/folder-naming-convention": {
+      "count": 1
+    },
     "no-restricted-syntax": {
       "count": 3
     },
@@ -2820,6 +3098,9 @@
     }
   },
   "src/features/spieler/components/forms/KaderZeileEditForm/kaderZeileDraftStatus.ts": {
+    "check-file/folder-naming-convention": {
+      "count": 1
+    },
     "no-restricted-syntax": {
       "count": 4
     }
@@ -2969,6 +3250,9 @@
     "@typescript-eslint/no-restricted-imports": {
       "count": 9
     },
+    "check-file/folder-naming-convention": {
+      "count": 1
+    },
     "react/forbid-component-props": {
       "count": 1
     }
@@ -2976,6 +3260,9 @@
   "src/features/spielorte/components/forms/AdminSpielortEditForm/FormAdresseSection.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 6
+    },
+    "check-file/folder-naming-convention": {
+      "count": 1
     },
     "no-restricted-syntax": {
       "count": 5
@@ -2987,6 +3274,9 @@
   "src/features/spielorte/components/forms/AdminSpielortEditForm/FormMieteSection.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 7
+    },
+    "check-file/folder-naming-convention": {
+      "count": 1
     },
     "no-restricted-syntax": {
       "count": 4
@@ -3002,6 +3292,9 @@
     "@typescript-eslint/no-restricted-imports": {
       "count": 8
     },
+    "check-file/folder-naming-convention": {
+      "count": 1
+    },
     "no-restricted-syntax": {
       "count": 5
     },
@@ -3012,8 +3305,16 @@
       "count": 1
     }
   },
+  "src/features/spielorte/components/forms/AdminSpielortEditForm/banners.test.ts": {
+    "check-file/folder-naming-convention": {
+      "count": 1
+    }
+  },
   "src/features/spielorte/components/forms/AdminSpielortEditForm/banners.ts": {
     "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "check-file/folder-naming-convention": {
       "count": 1
     },
     "no-restricted-syntax": {
@@ -3094,9 +3395,17 @@
       "count": 5
     }
   },
+  "src/features/spieltage/components/forms/AdminSpieltagEditForm/AdminSpieltagEditForm.test.ts": {
+    "check-file/folder-naming-convention": {
+      "count": 1
+    }
+  },
   "src/features/spieltage/components/forms/AdminSpieltagEditForm/AdminSpieltagEditForm.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 9
+    },
+    "check-file/folder-naming-convention": {
+      "count": 1
     },
     "react/forbid-component-props": {
       "count": 1
@@ -3105,6 +3414,9 @@
   "src/features/spieltage/components/forms/AdminSpieltagEditForm/FormZeitraumSection.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 7
+    },
+    "check-file/folder-naming-convention": {
+      "count": 1
     },
     "no-restricted-syntax": {
       "count": 6
@@ -3116,8 +3428,16 @@
       "count": 3
     }
   },
+  "src/features/spieltage/components/forms/AdminSpieltagEditForm/banners.test.ts": {
+    "check-file/folder-naming-convention": {
+      "count": 1
+    }
+  },
   "src/features/spieltage/components/forms/AdminSpieltagEditForm/banners.ts": {
     "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "check-file/folder-naming-convention": {
       "count": 1
     },
     "no-restricted-syntax": {
@@ -3205,6 +3525,9 @@
     "@typescript-eslint/no-restricted-imports": {
       "count": 9
     },
+    "check-file/folder-naming-convention": {
+      "count": 1
+    },
     "react/forbid-component-props": {
       "count": 1
     }
@@ -3214,6 +3537,9 @@
       "count": 8
     },
     "better-tailwindcss/no-restricted-classes": {
+      "count": 1
+    },
+    "check-file/folder-naming-convention": {
       "count": 1
     },
     "no-restricted-syntax": {
@@ -3230,6 +3556,9 @@
     "better-tailwindcss/no-restricted-classes": {
       "count": 1
     },
+    "check-file/folder-naming-convention": {
+      "count": 1
+    },
     "no-restricted-syntax": {
       "count": 7
     },
@@ -3243,6 +3572,9 @@
   "src/features/teams/components/forms/AdminTeamEditForm/FormEinladungSection.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 21
+    },
+    "check-file/folder-naming-convention": {
+      "count": 1
     },
     "no-restricted-syntax": {
       "count": 28
@@ -3258,6 +3590,9 @@
     "@typescript-eslint/no-restricted-imports": {
       "count": 5
     },
+    "check-file/folder-naming-convention": {
+      "count": 1
+    },
     "no-restricted-syntax": {
       "count": 5
     },
@@ -3271,6 +3606,9 @@
     },
     "better-tailwindcss/no-restricted-classes": {
       "count": 2
+    },
+    "check-file/folder-naming-convention": {
+      "count": 1
     },
     "no-restricted-syntax": {
       "count": 29
@@ -3289,6 +3627,9 @@
     "better-tailwindcss/no-restricted-classes": {
       "count": 3
     },
+    "check-file/folder-naming-convention": {
+      "count": 1
+    },
     "no-restricted-syntax": {
       "count": 19
     },
@@ -3299,12 +3640,30 @@
       "count": 9
     }
   },
+  "src/features/teams/components/forms/AdminTeamEditForm/banners.test.ts": {
+    "check-file/folder-naming-convention": {
+      "count": 1
+    }
+  },
   "src/features/teams/components/forms/AdminTeamEditForm/banners.ts": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 1
     },
+    "check-file/folder-naming-convention": {
+      "count": 1
+    },
     "no-restricted-syntax": {
       "count": 8
+    }
+  },
+  "src/features/teams/components/forms/AdminTeamEditForm/fanOutNotes.test.ts": {
+    "check-file/folder-naming-convention": {
+      "count": 1
+    }
+  },
+  "src/features/teams/components/forms/AdminTeamEditForm/fanOutNotes.ts": {
+    "check-file/folder-naming-convention": {
+      "count": 1
     }
   },
   "src/features/teams/components/forms/GruppeSelect.tsx": {
