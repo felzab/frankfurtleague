@@ -8,12 +8,14 @@ import { COPY } from "@/core/copy";
 
 import { Button } from "./Button";
 import { ActRow, DialogOverlay, useOpenUntilHidden } from "./Dialog";
+import { Facts } from "./Facts";
 import { StatusLine } from "./FieldParts";
 
 import type { ActionAnswer } from "@/core/action";
 import type { Copy, Verb } from "@/core/copy";
 import type { ReactElement } from "react";
 import type { HeldOpen } from "./Dialog";
+import type { Fact } from "./Facts";
 
 /** What opens the question: its own trigger, or the open state another control holds, as the kit's `Dialog` takes it. */
 type Opening =
@@ -35,6 +37,11 @@ export type ConfirmDialogProps = {
   subject: Copy;
   /** One sentence built from the data: what the act does and to how much. */
   consequence: Copy;
+  /**
+   * What the sentence is about, as label and value rows under it: a move's old and new slot and whom it mails, or the
+   * counts an act removes. A question whose sentence says it all takes none.
+   */
+  facts?: ReadonlyArray<Fact>;
   /** `danger` for a destructive act, `primary` for one that is merely irreversible. */
   tone: "danger" | "primary";
   /**
@@ -45,12 +52,12 @@ export type ConfirmDialogProps = {
 } & Opening;
 
 /**
- * The question before an act that cannot be undone: the act and its record, one sentence of consequence,
- * „Zurück“ and the act's verb, the status line beside them as every form's stands beside its acts. It has no close
+ * The question before an act that cannot be undone: the act and its record, one short sentence of consequence over
+ * the facts it rests on, as the „Spiel verlegt“ mail sets a move's slots as rows, „Zurück“ and the act's verb, the status line beside them as every form's stands beside its acts. It has no close
  * mark; Escape and „Zurück“ are the way out. A refusal stands until the next press or until the dialog closes; the
  * line is empty while the act runs, so the same refusal twice is announced twice.
  */
-export function ConfirmDialog({ verb, subject, consequence, tone, trigger, open, onConfirm }: ConfirmDialogProps) {
+export function ConfirmDialog({ verb, subject, consequence, facts, tone, trigger, open, onConfirm }: ConfirmDialogProps) {
   const [isOpen, setOpen] = useOpenUntilHidden(open);
   const [isBusy, startAct] = useTransition();
   const [refusal, setRefusal] = useState<Copy | null>(null);
@@ -78,6 +85,7 @@ export function ConfirmDialog({ verb, subject, consequence, tone, trigger, open,
           {COPY.shared.question(subject, verb)}
         </Heading>
         <p className="text-sm text-fg-muted">{consequence}</p>
+        {facts !== undefined && facts.length > 0 && <Facts facts={facts} />}
         <ActRow>
           <StatusLine
             status={refusal === null ? null : { tone: "error", text: refusal }}

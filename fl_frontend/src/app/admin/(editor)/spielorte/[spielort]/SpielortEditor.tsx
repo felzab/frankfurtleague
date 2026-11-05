@@ -20,8 +20,8 @@ const WORDS = COPY.admin.spielort;
 type Act = (input: { id: string }) => Promise<ActionAnswer>;
 
 /**
- * The venue editor: its name, its address and its price in the three sections the create dialog groups them in,
- * saved together from the editor's bar, and the danger box retiring the venue, or bringing a retired one back.
+ * The venue editor: its name and its price, then its address, saved together from the editor's bar, and the danger
+ * box retiring the venue, or bringing a retired one back.
  */
 export function SpielortEditor({
   title,
@@ -74,22 +74,35 @@ export function SpielortEditor({
       title={title}
       chip={retired ? { tone: "neutral", label: WORDS.retired } : undefined}
       editor={editor}
-      danger={[danger]}
+      danger={{ title: COPY.admin.stilllegung, acts: [danger] }}
       sections={[
         {
           id: "spielort",
           title: WORDS.object,
+          // The price is the venue's own, as its name is, so it stands in the venue's box.
           fields: (
-            <TextField
-              label={COPY.shared.name}
-              name="name"
-              width="W3"
-              kind="text"
-              isRequired={required.name}
-              maxLength={max.name}
-              value={draft.name}
-              onChange={(name) => set("name", name)}
-            />
+            <>
+              <TextField
+                label={COPY.shared.name}
+                name="name"
+                width="W3"
+                kind="text"
+                isRequired={required.name}
+                maxLength={max.name}
+                value={draft.name}
+                onChange={(name) => set("name", name)}
+              />
+              <TextField
+                label={WORDS.mietpreis}
+                name="mietpreis"
+                width="C5"
+                kind="digits"
+                unit={COPY.shared.unit.euro}
+                isRequired={required.mietpreis}
+                value={draft.mietpreis}
+                onChange={(mietpreis) => set("mietpreis", mietpreis)}
+              />
+            </>
           ),
         },
         {
@@ -159,22 +172,6 @@ export function SpielortEditor({
                 />
               </FieldPair>
             </>
-          ),
-        },
-        {
-          id: "konditionen",
-          title: WORDS.terms,
-          fields: (
-            <TextField
-              label={WORDS.mietpreis}
-              name="mietpreis"
-              width="C5"
-              kind="digits"
-              unit={COPY.shared.unit.euro}
-              isRequired={required.mietpreis}
-              value={draft.mietpreis}
-              onChange={(mietpreis) => set("mietpreis", mietpreis)}
-            />
           ),
         },
       ]}

@@ -55,10 +55,11 @@ type EmailAutofill = "email" | "username";
 
 /**
  * A single line at its width, its keyboard set by `kind`; a URL names the example its message shows. A score is
- * `C2`; a postcode, whole euros or a house number `C5`; a name, an address, a phone number or a URL the column.
+ * `C2`; a postcode, whole euros or a house number `C5`; a name, an address, a phone number or a URL `W3`, a long
+ * field up to the form's cap; `column` such a field in a column narrower than the cap, which it fills.
  */
 type SingleLine = {
-  width: "C2" | "C5" | "W3";
+  width: "C2" | "C5" | "W3" | "column";
 } & (
   | { kind: "text"; autofill?: Autofill; example?: never; unit?: never }
   /** `unit` stands after the field, outside it, as „€“ after a price. */

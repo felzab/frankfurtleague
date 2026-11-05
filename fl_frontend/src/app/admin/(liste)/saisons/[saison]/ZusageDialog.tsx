@@ -29,9 +29,12 @@ export type OpenParty = { id: string; name: Words };
  */
 export function ZusageDialog({
   parties,
+  partyRequired,
   children,
 }: {
   parties: readonly [OpenParty, ...OpenParty[]];
+  /** Whether the write asks for the party's row, read off its schema on the server. */
+  partyRequired: boolean;
   /** The reason's box, posting under the name `enterZusage` reads it by. */
   children: ReactNode;
 }) {
@@ -56,6 +59,7 @@ export function ZusageDialog({
       <Segmented
         label={WORDS.zusageFrom}
         choices={parties.map((party) => ({ id: party.id, label: party.name }))}
+        isRequired={partyRequired}
         value={chosen}
         onChange={choose}
       />

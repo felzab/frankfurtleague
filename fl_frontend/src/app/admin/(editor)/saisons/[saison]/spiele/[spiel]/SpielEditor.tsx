@@ -29,6 +29,7 @@ import type { FLSaisonPhase, FLSonderereignis } from "@/core/generated/client/ty
 import type { EditorSection } from "@/kit/EditorPage";
 import type { Option } from "@/kit/OptionList";
 import type { PageTitle } from "@/kit/RailFrame";
+import type { ScoreOutcome, ScoreSide } from "@/kit/ScorePair";
 import type { TableRow } from "@/kit/Table";
 import type { EditorRecord, EditorSave } from "@/kit/useEditor";
 import type { SpielortRules } from "../../../../../spielortRules";
@@ -100,8 +101,8 @@ function useVoided(changes: Partial<SpielValues>, ask: (changes: Partial<SpielVa
 /**
  * The match editor: a knockout match's two clubs; the Ansetzung's day, time, venue and price, referee and fee; the
  * result, entered by the switch the board drew, its goals as one score, a shoot-out's pair appearing by itself on
- * level knockout goals, the Sonderereignis and the referee's proposal carried over by „Übernehmen“; the note; and the
- * report's goals and every party's answer, read-only. Saved together from the editor's bar, which asks first where the
+ * level knockout goals, and the referee's proposal carried over by „Übernehmen“; the Sonderereignis, in a box of its
+ * own; the note; and the report's goals and every party's answer, read-only. Saved together from the editor's bar, which asks first where the
  * save would delete a later match's result.
  */
 export function SpielEditor({
@@ -130,8 +131,8 @@ export function SpielEditor({
   save: (sent: Sent) => Promise<ActionAnswer<number>>;
   preview: (sent: Sent) => Promise<ActionAnswer<readonly number[]>>;
   phase: FLSaisonPhase;
-  /** Each side's club as stored, `null` while the side is open. */
-  sides: { team1: Words | null; team2: Words | null };
+  /** Each side's club as stored, by its name and its plaque, `null` while the side is open. */
+  sides: { team1: ScoreSide | null; team2: ScoreSide | null };
   /** Where each side comes from in the bracket, in full, `null` where it follows nothing. */
   quellen: { team1: Copy | null; team2: Copy | null };
   /** A knockout match's clubs to pick its sides from; `null` on a group match, whose sides the draw sets. */
@@ -174,11 +175,14 @@ export function SpielEditor({
     const club = id === null ? undefined : clubs?.find((each) => each.id === id);
     return club === undefined ? null : { record: club.name };
   };
-  // Each side's field named by its club, as it now stands in the draft, and by its place while the side is open.
-  const sideNames: readonly [Words, Words] = [
-    (draft.team1 === record.values.team1 ? sides.team1 : clubName(draft.team1)) ?? WORDS.team1,
-    (draft.team2 === record.values.team2 ? sides.team2 : clubName(draft.team2)) ?? WORDS.team2,
-  ];
+  // Each side's field named by its club, as it now stands in the draft, and by its place while the side is open; a
+  // club picked by hand and not yet saved carries no plaque, its Kürzel not being among the clubs the picker lists.
+  const sideOf = (side: "team1" | "team2"): ScoreSide => {
+    if (draft[side] === record.values[side] && sides[side] !== null) return sides[side];
+    return { name: clubName(draft[side]) ?? WORDS[side], plaque: null };
+  };
+  const scoreSides: readonly [ScoreSide, ScoreSide] = [sideOf("team1"), sideOf("team2")];
+  const sideNames: readonly [Words, Words] = [scoreSides[0].name, scoreSides[1].name];
   const bothSides = draft.team1 !== null && draft.team2 !== null;
   const sonderereignis = draft.sonderereignis === NO_SONDEREREIGNIS ? null : (draft.sonderereignis as FLSonderereignis);
   // A result is entered on a match that was played, an abandoned one included; a no-show's is composed, and a match
@@ -196,6 +200,20 @@ export function SpielEditor({
             : { team1: Number(record.values.shootOut1), team2: Number(record.values.shootOut2) },
         )
       : null;
+
+  /**
+   * What the typed goals decide, after a shoot-out with its goals added: who wins and by what, or a draw; nothing
+   * while a figure the decision reads is missing.
+   */
+  const outcomeOf = (tore: readonly [string, string], shootOutGoals: readonly [string, string] | null): ScoreOutcome | null => {
+    if (tore.includes("") || shootOutGoals?.includes("") === true) return null;
+    const scored = { team1: Number(tore[0]), team2: Number(tore[1]) };
+    const added = shootOutGoals === null ? null : { team1: Number(shootOutGoals[0]), team2: Number(shootOutGoals[1]) };
+    const score = WORDS.score(scored, added);
+    const [one, other] = [scored.team1 + (added?.team1 ?? 0), scored.team2 + (added?.team2 ?? 0)];
+    if (one === other) return { text: WORDS.drawn(score), tone: "draw" };
+    return { text: WORDS.wins(one > other ? sideNames[0] : sideNames[1], score), tone: "win" };
+  };
 
   /** A side's club picker: the clubs of the season, the other side's own and any the write would not field disabled. */
   const sidePicker = (side: "team1" | "team2", other: string | null) => (
@@ -344,24 +362,25 @@ export function SpielEditor({
           title: WORDS.ergebnis,
           fields: (
             <>
-              {/* Revealing the result states the fact: on once a result is stored, and only once both sides stand. */}
-              {resultShown && (
-                <Switch
-                  label={COPY.shared.withObject(WORDS.ergebnis, "enter")}
-                  name="hasResult"
-                  isSelected={draft.hasResult}
-                  isDisabled={!bothSides}
-                  onChange={(on) => set("hasResult", on)}
-                  {...(bothSides ? {} : { description: WORDS.needsBothSides })}
-                />
-              )}
+              {/* Revealing the result states the fact: on once a result is stored, and only once both sides stand. A
+                  Sonderereignis composing the result, or leaving the match without one, closes it with that reason. */}
+              <Switch
+                label={COPY.shared.withObject(WORDS.ergebnis, "enter")}
+                name="hasResult"
+                isSelected={resultShown && draft.hasResult}
+                isDisabled={!bothSides || !resultShown}
+                onChange={(on) => set("hasResult", on)}
+                {...(!resultShown ? { description: WORDS.byEvent } : bothSides ? {} : { description: WORDS.needsBothSides })}
+              />
               {scored && (
                 <ScorePair
                   label={COPY.shared.tore}
-                  sides={sideNames}
+                  sides={scoreSides}
                   names={["tore1", "tore2"]}
                   values={[draft.tore1, draft.tore2]}
                   onChange={(side, value) => set(side === 0 ? "tore1" : "tore2", value)}
+                  // Level knockout goals decide nothing: the shoot-out's pair below says what they come to.
+                  outcome={shootOut ? null : outcomeOf([draft.tore1, draft.tore2], null)}
                   isRequired={scored}
                 />
               )}
@@ -369,10 +388,11 @@ export function SpielEditor({
               {shootOut && (
                 <ScorePair
                   label={WORDS.elfmeterschiessen}
-                  sides={sideNames}
+                  sides={scoreSides}
                   names={["shootOut1", "shootOut2"]}
                   values={[draft.shootOut1, draft.shootOut2]}
                   onChange={(side, value) => set(side === 0 ? "shootOut1" : "shootOut2", value)}
+                  outcome={outcomeOf([draft.tore1, draft.tore2], [draft.shootOut1, draft.shootOut2])}
                   isRequired={shootOutTyped}
                   {...(shootOutTyped ? {} : { consequence: WORDS.shootOutMissing })}
                 />
@@ -388,18 +408,25 @@ export function SpielEditor({
                   }}
                 />
               )}
-              <Select
-                label={WORDS.sonderereignis}
-                name="sonderereignis"
-                options={sonderereignisse}
-                width="fit"
-                value={draft.sonderereignis}
-                onChange={(id) => {
-                  if (id !== null) set("sonderereignis", id);
-                }}
-                {...(storedScore !== null && !resultShown ? { consequence: WORDS.resultDropped(storedScore) } : {})}
-              />
             </>
+          ),
+        },
+        // What happened beyond the play, which decides whether the box above takes a result at all.
+        {
+          id: "sonderereignis",
+          title: WORDS.sonderereignis,
+          fields: (
+            <Select
+              label={WORDS.sonderereignis}
+              name="sonderereignis"
+              options={sonderereignisse}
+              width="fit"
+              value={draft.sonderereignis}
+              onChange={(id) => {
+                if (id !== null) set("sonderereignis", id);
+              }}
+              {...(storedScore !== null && !resultShown ? { consequence: WORDS.resultDropped(storedScore) } : {})}
+            />
           ),
         },
         {

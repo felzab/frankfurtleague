@@ -96,6 +96,8 @@ export function mapAnsetzungRefusal(error: unknown): SpielbestaetigungRefusal | 
     // proposal survives it.
     case "ansetzung_vorschlag_past":
       return { fieldErrors: { "vorschlag.datum": "Dieses Datum liegt in der Vergangenheit." } };
+    case "ansetzung_vorschlag_unchanged":
+      return { fieldErrors: { "vorschlag.datum": "Das ist schon der angesetzte Termin." } };
     case "spiel_outside_spieltag":
       return { fieldErrors: { "vorschlag.datum": "Dieses Datum liegt außerhalb des Spieltags." } };
     case "eligibility_disqualified":

@@ -8,7 +8,7 @@ import { ToggleButtonGroup } from "react-aria-components/ToggleButtonGroup";
 
 import { textOf } from "@/core/copy";
 
-import { MessageLine } from "./FieldParts";
+import { MessageLine, RequiredMark } from "./FieldParts";
 import { choiceButton, choiceGroup, fieldLabel, fieldRoot } from "./fieldStyles";
 import { useDisabled } from "./formClosed";
 import { Icon } from "./Icon";
@@ -26,19 +26,22 @@ type Shared = {
   description?: Copy;
   choices: readonly Choice[];
   isDisabled?: boolean;
+  /** The write takes no record without an answer here: the asterisk after the label, as every required field shows. */
+  isRequired?: boolean;
 };
 
 /**
- * The label above the buttons. React Aria's button group takes no `Label`, so the group is named by this
- * line's id. It carries no asterisk: a segmented choice is never empty, and a group of boxes is not checked
- * for an answer.
+ * The label above the buttons, its asterisk after it where the write requires an answer, as a field's label carries
+ * it. React Aria's button group takes no `Label`, so the group is named by this line's id. The mark says the rule
+ * alone: a segmented choice is never empty, and a group of boxes left empty is answered by the write's refusal.
  */
-function Head({ id, label }: { id: string; label: Copy }) {
+function Head({ id, label, isRequired }: { id: string; label: Copy; isRequired: boolean }) {
   return (
     <span
       id={id}
       className={fieldLabel()}>
       {label}
+      <RequiredMark isRequired={isRequired} />
     </span>
   );
 }
@@ -96,6 +99,7 @@ export function Segmented({
   description,
   choices,
   isDisabled = false,
+  isRequired = false,
   value,
   defaultValue,
   onChange,
@@ -136,6 +140,7 @@ export function Segmented({
       <Head
         id={labelId}
         label={label}
+        isRequired={isRequired}
       />
       {group}
       <GroupMessage
@@ -155,6 +160,7 @@ export function ToggleBoxes({
   description,
   choices,
   isDisabled = false,
+  isRequired = false,
   value,
   defaultValue,
   onChange,
@@ -166,6 +172,7 @@ export function ToggleBoxes({
       <Head
         id={labelId}
         label={label}
+        isRequired={isRequired}
       />
       <ToggleButtonGroup
         aria-labelledby={labelId}

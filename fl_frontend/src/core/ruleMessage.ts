@@ -100,6 +100,8 @@ const PATTERNED = {
       : side === "end_date" && typeof end === "string"
         ? field.earliest(dayOf(end))
         : undefined,
+  // A start moved later than a stored exit allows, an exit recorded since the start the season had: `latest` is that start.
+  saison_start_austritt_stored: ({ latest }: Context) => (typeof latest === "string" ? field.latest(dayOf(latest)) : undefined),
   // An exit dated before the season's start, when the replacement is the route: the season's start is the earliest day.
   austritt_before_saison_start: ({ earliest }: Context) => (typeof earliest === "string" ? field.earliest(dayOf(earliest)) : undefined),
 } satisfies Partial<Record<Rule | Code, (context: Context, path: Path) => Copy | undefined>>;

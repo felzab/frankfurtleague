@@ -24,8 +24,8 @@ export const groupHeading = tv({ base: "text-xs font-medium text-fg-muted" });
 
 /**
  * A form's or a settings page's group of fields: a box exactly as tall as its content under its 16-px
- * title, a one-control section included. One ⓘ may follow the title. An editor's last box holds the
- * danger rows, the one place its irreversible and retiring acts stand.
+ * title, a one-control section included. One ⓘ may follow the title. An editor's danger box is one too, holding
+ * the danger rows, the one place its irreversible and retiring acts stand.
  */
 export function Section({
   title,
@@ -39,7 +39,7 @@ export function Section({
   help?: Copy;
   /** Why the fields under the title cannot change, in the hue a closed act's reason takes, visible under the title. */
   note?: Copy;
-  /** An editor's irreversible and retiring acts, one row each, after the box's fields: `EditorPage`'s danger rows. */
+  /** An editor's irreversible and retiring acts, one row each, filling the box's width: `EditorPage`'s danger rows. */
   danger?: ReactNode;
   children?: ReactNode;
 }) {

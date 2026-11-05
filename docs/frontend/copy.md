@@ -132,8 +132,10 @@ Each pattern is an entry of `COPY.shared`; what the entry cannot say is when it 
 - **A busy button** keeps its label and shows a spinner named `loading`; no „Speichert …“.
 - **An empty list** says `empty.search`, `empty.filter` or `empty.none` with its own plural;
   `empty.filter` only where the list keeps a filter.
-- **A confirmation** asks `question` with the verb, says one sentence of consequence, carries that verb
-  on its button and `back` as the way back; never „Ja“.
+- **A confirmation** asks `question` with the verb, says one short sentence of consequence, carries that
+  verb on its button and `back` as the way back; never „Ja“. What the sentence rests on stands under it
+  as facts rows, never inside it: a move's old and new slot, the season a switch leaves and takes, the
+  counts an act removes, and whom the act mails.
 - **A status card** is a mark, a title and its way on, with no sentence: a not-found, an error, a
   state with nothing to show yet such as `end.noSaison`, and every end of a page a mail opens.
 - **A page a mail opens** ends in a status card: done, already done titled with what the person did
