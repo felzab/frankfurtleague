@@ -176,7 +176,6 @@ import type {
   FLSpielbestaetigungSchiedsrichterAntwortResponse,
   FLSpielbestaetigungSweepResponse,
   FLSpielbestaetigungViewResponse,
-  FLSpieleActionRequiredResponse,
   FLSpieleAdminListResponse,
   FLSpieleAdminSingleResponse,
   FLSpielerAdminSingleResponse,
@@ -214,7 +213,6 @@ import type {
   SpielberichteGetSpielberichteParams,
   SpielberichteGetSpielberichtVerwaltungParams,
   SpielbestaetigungenGetSpielbestaetigungenParams,
-  SpieleGetSpieleActionRequiredParams,
   SpieleGetSpieleVerwaltungParams,
   SpielePatchSpielParams,
   SpielorteGetSpielorteParams,
@@ -3991,32 +3989,6 @@ export const spielbestaetigungenEnterSpielbestaetigung = async (
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
     body: JSON.stringify(fLSpielbestaetigungEnterPayload),
-  });
-};
-
-export const getSpieleGetSpieleActionRequiredUrl = (params?: SpieleGetSpieleActionRequiredParams) => {
-  const stringifiedParams = serializeQuery(params);
-
-  return stringifiedParams.length > 0 ? `/api/v0/spiele/action_required?${stringifiedParams}` : `/api/v0/spiele/action_required`;
-};
-
-/**
- * List one season's Spiele needing the administrator, with the bracket's faults and every report's state.
- *
- * The season is `saison_id`'s, else the active one, answering 404 while none is. A fixture qualifies when it is
- * called off; lacks a date, time, venue or referee; is past without a result; has a knockout side with neither
- * team nor source; holds a report not adopted as it stands; is put before the administrator by a club's
- * unclosed confirmation; or carries a bracket fault, a booking onto a retired venue or referee and a claim within
- * four hours of another fixture's among them.
- * @summary Spiele needing attention
- */
-export const spieleGetSpieleActionRequired = async (
-  params?: SpieleGetSpieleActionRequiredParams,
-  options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLSpieleActionRequiredResponse> => {
-  return adminKeyTransport<FLSpieleActionRequiredResponse>(getSpieleGetSpieleActionRequiredUrl(params), {
-    ...options,
-    method: "GET",
   });
 };
 

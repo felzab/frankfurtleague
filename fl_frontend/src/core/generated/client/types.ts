@@ -5522,18 +5522,6 @@ export interface FLSpielbestaetigungenSelfResponse {
 }
 
 /**
- * The matches needing attention, why the bracket ones do, and every report's state.
- *
- * A fault joins its match by `spiel_id`, never `spiel_nr`, unique within one season only; `spiele` carries every
- * match a fault or an open report names.
- */
-export interface FLSpieleActionRequiredResponse {
-  bracket_faults: FLBracketFault[];
-  spielberichte: FLSpielberichtStateEntry[];
-  spiele: FLSpielJoinedAdmin[];
-}
-
-/**
  * The admin surfaces' fixture list, each referee's whole name and the money included.
  */
 export interface FLSpieleAdminListResponse {
@@ -6318,10 +6306,6 @@ export type SpielbestaetigungenGetSpielbestaetigungenParams = {
    * @maximum 1024
    */
   limit?: number;
-};
-
-export type SpieleGetSpieleActionRequiredParams = {
-  saison_id?: string | null;
 };
 
 export type SpieleGetSpieleVerwaltungParams = {

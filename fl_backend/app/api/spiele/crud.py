@@ -11,9 +11,7 @@ from app.api.spiele.schemas import (
     FLSpiel,
     FLSpielAdvancement,
     FLSpielCommon,
-    FLSpielJoinedAdmin,
     FLSpielJoinedInternal,
-    FLSpielJoinedInternalListAdapter,
     FLSpielListAdapter,
     FLSpielQuelleGruppe,
     FLSpielReleasedSide,
@@ -32,7 +30,6 @@ from app.api.spiele.services import (
     SlotClaim,
     SpieltagRelease,
     build_slot_holder_filter,
-    build_spiele_pipeline,
     find_advancement_occupancy_refusal,
     find_departed_occupants,
     find_double_bookings,
@@ -119,44 +116,6 @@ async def _resolve_one_saison(
         advancements=resolution.advancements,
         bracket_faults=[*resolution.bracket_faults, *find_gruppen_not_run(spiele, number_of_gruppen=rules.number_of_gruppen)],
     )
-
-
-async def find_bracket_faults(
-    spiele_collection: AsyncCollection,
-    teams_collection: AsyncCollection,
-    saisons_collection: AsyncCollection,
-    spielorte_collection: AsyncCollection,
-    schiedsrichter_collection: AsyncCollection,
-    saison_id: str,
-) -> tuple[list[FLBracketFault], list[FLSpielJoinedAdmin]]:
-    """Every derived fault in one season, and the fixtures they name."""
-
-    # The INTERNAL fixture: `find_departed_occupants` orders a fault on the DAY a club left, which
-    # no served side carries. The declared return is the admin shape the caller answers with.
-    spiele = FLSpielJoinedInternalListAdapter.validate_python(
-        await aggregate_many_from_db(collection=spiele_collection, pipeline=build_spiele_pipeline(db_filter={"saison_id": saison_id}))
-    )
-
-    # `find_one` rather than `pull_one_from_db`'s 404: the attention read this report is unioned into
-    # answers an id naming no season with an empty list, so the report cannot refuse it.
-    saison_raw = await saisons_collection.find_one({"_id": saison_id}, {"rules": 1})
-    if saison_raw is None:
-        return [], []
-
-    faults = await bracket_faults_of(
-        spiele=spiele,
-        rules=FLSaisonRules.model_validate(saison_raw["rules"]),
-        saison_id=saison_id,
-        spiele_collection=spiele_collection,
-        teams_collection=teams_collection,
-        spielorte_collection=spielorte_collection,
-        schiedsrichter_collection=schiedsrichter_collection,
-    )
-
-    faulted_ids = {fault.spiel_id for fault in faults}
-    faulted_spiele: list[FLSpielJoinedAdmin] = [spiel for spiel in spiele if spiel.id in faulted_ids]
-
-    return faults, faulted_spiele
 
 
 async def bracket_faults_of(

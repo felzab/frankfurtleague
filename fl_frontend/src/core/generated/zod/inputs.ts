@@ -2936,20 +2936,6 @@ export const SpielbestaetigungenEnterSpielbestaetigungBody = zod
   );
 
 /**
- * List one season's Spiele needing the administrator, with the bracket's faults and every report's state.
- *
- * The season is `saison_id`'s, else the active one, answering 404 while none is. A fixture qualifies when it is
- * called off; lacks a date, time, venue or referee; is past without a result; has a knockout side with neither
- * team nor source; holds a report not adopted as it stands; is put before the administrator by a club's
- * unclosed confirmation; or carries a bracket fault, a booking onto a retired venue or referee and a claim within
- * four hours of another fixture's among them.
- * @summary Spiele needing attention
- */
-export const SpieleGetSpieleActionRequiredQueryParams = zod.object({
-  saison_id: zod.union([zod.string(), zod.null()]).optional(),
-});
-
-/**
  * List one season's Spiele, the active one's unless `saison_id` names another, a planned season's included, in the admin shape.
  *
  * Each referee carries their whole name, and each booking its money.
