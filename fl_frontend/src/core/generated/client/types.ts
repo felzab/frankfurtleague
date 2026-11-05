@@ -3277,25 +3277,6 @@ export const FLSpielRequestDataKind = {
 } as const;
 
 /**
- * A club's request to confirm a fixture, or the reminder of it, each carrying a link of its own.
- */
-export interface FLSpielRequestData {
-  ansetzung: FLSpielMailAnsetzung;
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  frist: string;
-  kind: FLSpielRequestDataKind;
-  team: string;
-}
-
-/**
- * A referee's word that they are booked onto a fixture, which they answer on their own panel.
- */
-export interface FLSpielEinteilungData {
-  ansetzung: FLSpielMailAnsetzung;
-  kind: "spiel_einteilung";
-}
-
-/**
  * A fixture's slot as a mail names it: its two sides in the fixture's order, its day and its hour.
  */
 export interface FLSpielMailAppointment {
@@ -3307,12 +3288,46 @@ export interface FLSpielMailAppointment {
   uhrzeit: string;
 }
 
-export type FLSpielNoticeDataKind = (typeof FLSpielNoticeDataKind)[keyof typeof FLSpielNoticeDataKind];
+/**
+ * A club's request to confirm a fixture, or the reminder of it, each carrying a link of its own.
+ */
+export interface FLSpielRequestData {
+  ansetzung: FLSpielMailAnsetzung;
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  frist: string;
+  kind: FLSpielRequestDataKind;
+  moved_from: FLSpielMailAppointment | null;
+  team: string;
+}
 
-export const FLSpielNoticeDataKind = {
-  spiel_new_scheduled: "spiel_new_scheduled",
-  spiel_abgesagt: "spiel_abgesagt",
+/**
+ * A referee's word that they are booked onto a fixture, which they answer on their own panel.
+ */
+export interface FLSpielEinteilungData {
+  ansetzung: FLSpielMailAnsetzung;
+  kind: "spiel_einteilung";
+  moved_from: FLSpielMailAppointment | null;
+}
+
+export type FLSpielMovedDataRecipient = (typeof FLSpielMovedDataRecipient)[keyof typeof FLSpielMovedDataRecipient];
+
+export const FLSpielMovedDataRecipient = {
+  team: "team",
+  schiedsrichter: "schiedsrichter",
 } as const;
+
+/**
+ * A party's word that a fixture it was asked about left that slot, owed where no request about its new slot goes now.
+ *
+ * The mail's own request carries the move where the new slot is asked at once (`FLSpielRequestData.moved_from`).
+ */
+export interface FLSpielMovedData {
+  appointment: FLSpielMailAppointment;
+  asked_again: boolean;
+  kind: "spiel_new_scheduled";
+  moved_to: FLSpielMailAppointment | null;
+  recipient: FLSpielMovedDataRecipient;
+}
 
 export type FLSpielNoticeDataRecipient = (typeof FLSpielNoticeDataRecipient)[keyof typeof FLSpielNoticeDataRecipient];
 
@@ -3322,11 +3337,11 @@ export const FLSpielNoticeDataRecipient = {
 } as const;
 
 /**
- * A party's word that a fixture it was asked about moved or was called off: the slot it was asked about.
+ * A party's word that a fixture it was asked about was called off: the slot it was asked about.
  */
 export interface FLSpielNoticeData {
   appointment: FLSpielMailAppointment;
-  kind: FLSpielNoticeDataKind;
+  kind: "spiel_abgesagt";
   recipient: FLSpielNoticeDataRecipient;
 }
 
@@ -3395,6 +3410,7 @@ export interface FLOutboxHandout {
     | FLSchiedsrichterConfirmationData
     | FLSpielRequestData
     | FLSpielEinteilungData
+    | FLSpielMovedData
     | FLSpielNoticeData
     | FLSpielEinteilungLiftedData
     | FLSpielVorschlagDiscardedData

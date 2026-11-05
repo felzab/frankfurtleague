@@ -3762,8 +3762,9 @@ export const getSpielbestaetigungenSweepSpielbestaetigungenUrl = (saisonId: stri
  * counting it as that club's agreement.
  *
  * A closing owes its party a notice in its own transaction where the party's first request or Einteilung was owed,
- * about a day today or later: for a move, the slot it left or the one the fixture holds now; for a referee taken off
- * the fixture -- ahead of a move it shares a close with, and never for the referee's own decline, which closed its row
+ * about a day today or later: for a move, „Spiel verlegt“, naming the slot it left and the one the fixture holds now
+ * where the party is still one of its sides or its referee and that slot has a day, an hour and both sides; for a
+ * referee taken off the fixture -- ahead of a move it shares a close with, and never for the referee's own decline, which closed its row
  * as it was given -- and for a call-off, the slot the row was about. A club is told at every address its season row's
  * seats hold now, a referee at the address their record holds; a party nobody is left to tell is told nothing.
  *
@@ -3776,7 +3777,11 @@ export const getSpielbestaetigungenSweepSpielbestaetigungenUrl = (saisonId: stri
  * Each seat holding an address is owed one link, a person holding two seats one link naming both, each minted when the
  * mail is handed out, and the row is stamped as asked; a referee row is owed its Einteilung, with no link. An open row's
  * occupied seat holding no link -- its holder replaced, newly seated, or a ban since lifted -- is owed one too. A
- * fixture holding an unclosed row about an Ansetzung it has left is asked once the close has shut it, the close owing
+ * party still asked by a fixture that moved to a slot the mint asks today is the mint's, never the close's: in the
+ * transaction asking about the new slot, the mint closes the party's row about the slot left `ansetzung_changed`, and
+ * the request or Einteilung it owes names the slot left, the one mail telling of the move; a party it owes no request,
+ * its answer about the new slot standing or no seat of its reachable, is owed the move's notice instead. A fixture
+ * holding any other unclosed row about an Ansetzung it has left is asked once the close has shut it, the close owing
  * its notice first.
  *
  * The one reminder owes a fresh link per person on each team row never reminded whose deadline lies the reminder's

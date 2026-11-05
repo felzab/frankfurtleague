@@ -12,6 +12,7 @@ from app.api.outbox.schemas import (
     FLSpielEinteilungLiftedData,
     FLSpielMailAnsetzung,
     FLSpielMailAppointment,
+    FLSpielMovedData,
     FLSpielNoticeData,
     FLSpielVorschlagDiscardedData,
 )
@@ -1012,8 +1013,7 @@ def notice_daten_of(*, grund: FLSpielbestaetigungGrund, partei_art: str, appoint
     """The notice a closing for `grund`, or a discard, owes a party of `partei_art`."""
 
     empfaenger = "schiedsrichter" if partei_art == "schiedsrichter" else "team"
-    if grund == "ansetzung_changed":
-        return FLSpielNoticeData(kind="spiel_new_scheduled", recipient=empfaenger, appointment=appointment)
+    # A move's notice is `moved_notice_of`'s, which names the slot moved to as well.
     if grund == "abgesagt":
         return FLSpielNoticeData(kind="spiel_abgesagt", recipient=empfaenger, appointment=appointment)
     if grund == "schiedsrichter_switched":
@@ -1022,6 +1022,50 @@ def notice_daten_of(*, grund: FLSpielbestaetigungGrund, partei_art: str, appoint
         return FLSpielVorschlagDiscardedData(kind="spiel_vorschlag_discarded", appointment=appointment)
 
     raise ValueError(f"a closing for {grund} owes no notice")
+
+
+def moved_notice_of(
+    *, partei_art: str, appointment: FLSpielMailAppointment, moved_to: FLSpielMailAppointment | None, asked_again: bool
+) -> FLSpielMovedData:
+    """The „Spiel verlegt“ notice a party of `partei_art` is owed where no request about the fixture's new slot goes now."""
+
+    return FLSpielMovedData(
+        kind="spiel_new_scheduled",
+        recipient="schiedsrichter" if partei_art == "schiedsrichter" else "team",
+        appointment=appointment,
+        moved_to=moved_to,
+        asked_again=asked_again,
+    )
+
+
+def spiel_mail_slot_of(spiel: Mapping[str, Any]) -> FLSpielMailAppointment | None:
+    """The slot a fixture holds now, as a notice of its move names it, or `None` where it lacks a day, an hour or a side."""
+
+    datum, uhrzeit, team1, team2 = spiel.get("datum"), spiel.get("uhrzeit"), spiel.get("team1"), spiel.get("team2")
+    if not (isinstance(datum, str) and isinstance(uhrzeit, str) and isinstance(team1, Mapping) and isinstance(team2, Mapping)):
+        return None
+
+    return FLSpielMailAppointment(team1=str(team1["name"]), team2=str(team2["name"]), datum=datum, uhrzeit=uhrzeit)
+
+
+def still_a_party(*, row: Mapping[str, Any], spiel: Mapping[str, Any]) -> bool:
+    """Whether the row's party is one the fixture asks as it stands: a side, or its referee."""
+
+    return partei_key(row["party"]) in {partei_key(partei) for partei in parteien_of(spiel)}
+
+
+def asked_with_its_move(*, row: Mapping[str, Any], spiel: Mapping[str, Any], austritte: Mapping[Any, str], today: str) -> bool:
+    """Whether this row about a slot its fixture left is the mint's to close: its party still the fixture's, the new slot asked today.
+
+    The mint closes it in the transaction asking about the new slot, so the request is the one mail telling of the
+    move; the close step leaves it, and tells of any other move at once.
+    """
+
+    return (
+        grund_to_close(row=row, spiel=spiel, austritte=austritte, today=today) == "ansetzung_changed"
+        and still_a_party(row=row, spiel=spiel)
+        and anfrage_is_due(spiel=spiel, austritte=austritte, today=today)
+    )
 
 
 def bezug_of(*, spielbestaetigung_id: Any, seat: FLKontaktRolle | None) -> FLOutboxReference:
