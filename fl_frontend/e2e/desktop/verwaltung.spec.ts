@@ -27,7 +27,8 @@ const NEW_VENUE = "Sportplatz Ulmenring";
  * matchday is the season's first still to be played, which the Spiele list opens on.
  */
 const SAISON = "2027";
-const PAIRING = "Kastanie – Eiche";
+// The match card's link is named by all its words, the date and the plaques among them, as the Spielplan's is.
+const PAIRING = /Kastanie.*Eiche/;
 
 /**
  * Whether the document, or the box any table scrolls in, scrolls sideways, which no page may. The kit's
@@ -41,7 +42,7 @@ const scrollsSideways = (page: Page) =>
     ),
   );
 
-/** The match's id, read off its row in the season's Spiele list, whose link opens its editor. */
+/** The match's id, read off its card in the season's Spiele list, whose link opens its editor. */
 async function spielId(page: Page): Promise<string> {
   await page.goto(`/admin/saisons/${SAISON}/spiele`);
   const href = await page.getByRole("main").getByRole("link", { name: PAIRING }).getAttribute("href");

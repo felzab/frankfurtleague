@@ -30,6 +30,12 @@ import type { Route } from "next";
 /** A match's two sides, each a club or, while the draw has not settled it, where it comes from: the public read's and the admin read's alike. */
 type Sides = Pick<FLSpielJoined, "team1" | "team2" | "team1_quelle" | "team2_quelle">;
 
+/** What a match's result is read from: the public read's and the admin read's alike. */
+type Played = Pick<FLSpielJoined, "ergebnis" | "elfmeterschiessen" | "team1" | "team2">;
+
+/** What a match's row is built from: the public read's and the admin read's alike. */
+type Listed = Sides & Played & Pick<FLSpielJoined, "id" | "saison_id" | "for_third_place" | "datum" | "uhrzeit">;
+
 /** A match's matchday as the page reads serve it beside the match: its `position`, and its phase's count of matchdays. */
 type Matchday = Pick<FLSpielPageResponse, "spieltag_position" | "count_spieltage_in_phase">;
 
@@ -47,7 +53,7 @@ export function matchdayOf(spiel: Pick<FLSpielJoined, "saison_phase" | "for_thir
  * `ergebnis` from these and reads it only as the mark that the match was played. A hand edit holding
  * `ergebnis` without both sides' goals shows no result, as the bracket counts none.
  */
-function toreOf(spiel: FLSpielJoined): Pair | null {
+function toreOf(spiel: Played): Pair | null {
   const team1 = spiel.team1?.tore ?? null;
   const team2 = spiel.team2?.tore ?? null;
   return spiel.ergebnis === null || team1 === null || team2 === null ? null : { team1, team2 };
@@ -91,7 +97,7 @@ export function sidesOf(spiel: Sides): { team1: SpielSide; team2: SpielSide } {
 }
 
 /** The result as the kit's rows and heads take it, and nothing until one is entered. */
-function resultOf(spiel: FLSpielJoined): Pick<SpielRowProps, "result"> {
+function resultOf(spiel: Played): Pick<SpielRowProps, "result"> {
   const tore = toreOf(spiel);
   if (tore === null) return {};
   return { result: { tore, ...(spiel.elfmeterschiessen === null ? {} : { elfmeterschiessen: spiel.elfmeterschiessen }) } };
@@ -104,7 +110,7 @@ export const whenOf = (spiel: Pick<FLSpielJoined, "datum" | "uhrzeit">): Copy =>
  * A match as a row or a card of a match list, the whole of it a link to the match, which opens as the pop-up
  * over the page. The third-place match says so before its date, the one line every form of the row shows.
  */
-export function matchRowOf(spiel: FLSpielJoined): SpielRowProps & { id: string } {
+export function matchRowOf(spiel: Listed): SpielRowProps & { id: string } {
   const when = whenOf(spiel);
   return {
     id: spiel.id,
