@@ -15,8 +15,8 @@ from pydantic import BaseModel, ValidationError
 from pymongo import ASCENDING
 
 from app.api.address_change.schemas import (
+    FLAddressChangeAddressPayload,
     FLAddressChangeAdminPayload,
-    FLAddressChangeAdressePayload,
     FLAddressChangeAnswerPayload,
     FLAddressChangeViewEnded,
     FLAddressChangeViewNew,
@@ -88,13 +88,13 @@ class TestTheSystemsReadOfTheNewAddress:
     )
     def test_it_names_exactly_one_key(self, key: dict[str, str]):
         with pytest.raises(ValidationError):
-            FLAddressChangeAdressePayload.model_validate(key)
+            FLAddressChangeAddressPayload.model_validate(key)
 
     def test_the_base_key_is_refused_as_the_wrong_credential(self):
         """The links' own key: a browser-facing route holding it would hand any link holder the new mailbox."""
 
         response = TestClient(application(), raise_server_exceptions=False).post(
-            f"/api/v{API_VERSION}/address_change/adresse", headers=BASE_AUTH, json={"token": "t" * 43}
+            f"/api/v{API_VERSION}/address_change/address", headers=BASE_AUTH, json={"token": "t" * 43}
         )
 
         assert (response.status_code, response.json()["error_code"]) == (401, Code.ACCESS_KEY_REFUSED)
@@ -150,7 +150,7 @@ class TestTheLostMailboxsStart:
     def test_it_is_refused_without_a_reason(self, grund: Any, assert_rejects):
         """The change hands the records over without the address on file, so it stands on a recorded reason."""
 
-        payload: dict[str, Any] = {"adresse": CHANGED, "email": "neu@beispielschule.de"}
+        payload: dict[str, Any] = {"address": CHANGED, "email": "neu@beispielschule.de"}
         if grund is not ...:
             payload["grund"] = grund
 
@@ -182,7 +182,7 @@ CARRIED_OWNER = {"granted_since": BEFORE, "owner_since": BEFORE}
 
 
 def a_grant(
-    adresse: str,
+    address: str,
     admin_tier: str,
     *,
     at: datetime = BEFORE,
@@ -193,7 +193,7 @@ def a_grant(
 
     return {
         "_id": ObjectId.from_datetime(at),
-        "adresse": adresse,
+        "address": address,
         "admin_tier": admin_tier,
         "granted_by": OWNER,
         "granted_at": at,

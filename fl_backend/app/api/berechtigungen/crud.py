@@ -26,7 +26,7 @@ from app.api.berechtigungen.services import (
 )
 from app.api.outbox.schemas import FLGrantData, FLOutboxReference
 from app.api.outbox.services import OwedMail, enqueue_mails
-from app.api.sperrliste.lookup import BanList, adressen_gesperrt
+from app.api.sperrliste.lookup import BanList, barred_addresses
 from app.core.collections import Collection
 from app.core.crud import (
     aggregate_many_from_db,
@@ -43,7 +43,7 @@ from app.shared.schemas.literals import FLAdminTier
 async def read_berechtigungen(*, grants_collection: ReadCollection, session: AsyncClientSession | None = None) -> list[Mapping[str, Any]]:
     """Every grant, by address, and unbounded: the floor and the recipients are both judged over the whole list."""
 
-    return await aggregate_many_from_db(collection=grants_collection, pipeline=[{"$sort": {"adresse": ASCENDING}}], session=session)
+    return await aggregate_many_from_db(collection=grants_collection, pipeline=[{"$sort": {"address": ASCENDING}}], session=session)
 
 
 async def pull_the_list_to_judge(
@@ -74,7 +74,7 @@ async def pull_the_list_to_judge(
 async def _grant_and_its_record_in(
     *,
     grants_collection: ReadCollection,
-    adresse: str,
+    address: str,
     fields: list[str],
     # The request's snapshot session (`app/core/dependencies.py :: SnapshotSession`), or a commit landing between the
     # row's read and the join pairs the row before it with the record after.
@@ -88,15 +88,15 @@ async def _grant_and_its_record_in(
     found = await aggregate_many_from_db(
         collection=grants_collection,
         pipeline=[
-            {"$match": {"adresse": adresse}},
+            {"$match": {"address": address}},
             {"$limit": 1},
-            {"$project": {field: 1 for field in [*fields, "adresse", "granted_at", "gefunden_am", "gesehen_am"]}},
+            {"$project": {field: 1 for field in [*fields, "address", "granted_at", "gefunden_am", "gesehen_am"]}},
             {
                 "$lookup": {
                     "from": Collection.GRANTS_ANNOUNCED,
                     "localField": "_id",
                     "foreignField": "_id",
-                    "pipeline": [{"$project": {"adresse": 1, "admin_tier": 1}}],
+                    "pipeline": [{"$project": {"address": 1, "admin_tier": 1}}],
                     "as": "angekuendigt",
                 }
             },
@@ -110,7 +110,7 @@ async def _grant_and_its_record_in(
 
 
 async def verwaltung_of(
-    *, grants_collection: ReadCollection, adresse: str, session: AsyncClientSession
+    *, grants_collection: ReadCollection, address: str, session: AsyncClientSession
 ) -> tuple[FLAdminTier, datetime, datetime | None] | None:
     """The tier this address holds, and when the grant and the tier took effect, or `None`.
 
@@ -119,7 +119,7 @@ async def verwaltung_of(
     """
 
     grant = await _grant_and_its_record_in(
-        grants_collection=grants_collection, adresse=adresse, fields=["admin_tier", "appointed_at"], session=session
+        grants_collection=grants_collection, address=address, fields=["admin_tier", "appointed_at"], session=session
     )
     if grant is None:
         return None
@@ -152,8 +152,8 @@ async def live_unbarred_grant_since(
     # frontend's own grant read moments before, so the ban read that order would spare is almost never spared. The ban
     # read takes no session, so the gathered pair never runs two operations on one.
     grant, barred = await asyncio.gather(
-        _grant_and_its_record_in(grants_collection=grants_collection, adresse=identifier, fields=[], session=session),
-        adressen_gesperrt(sperrliste, [identifier]),
+        _grant_and_its_record_in(grants_collection=grants_collection, address=identifier, fields=[], session=session),
+        barred_addresses(sperrliste, [identifier]),
     )
     if grant is None or barred:
         return None
@@ -189,39 +189,39 @@ async def owe_in_session(
     holders: set[str] = set()
     if an is None:
         grants = await read_berechtigungen(grants_collection=grants_collection, session=session)
-        holders = {str(row["adresse"]) for row in grants}
+        holders = {str(row["address"]) for row in grants}
 
     mails: list[OwedMail] = []
     for mitteilung in mitteilungen:
         data = FLGrantData.model_validate(mitteilung.data)
-        genannt = {stand.adresse for stand in (data.now, data.before) if stand is not None and stand.adresse is not None}
+        genannt = {stand.address for stand in (data.now, data.before) if stand is not None and stand.address is not None}
         mails.extend(
             OwedMail(
                 # The write's own instant and the notice's origin keep two notices about one grant apart: a revoke owes
                 # a database edit's notice beside its own (`revoke_in_session`).
-                key=f"grant/{mitteilung.grant_id}/{data.change}/{data.author}/{now.isoformat()}/{adresse}",
-                an=adresse,
+                key=f"grant/{mitteilung.grant_id}/{data.change}/{data.author}/{now.isoformat()}/{address}",
+                an=address,
                 data=data,
                 reference=reference,
             )
-            for adresse in sorted(set(an) if an is not None else holders | genannt)
+            for address in sorted(set(an) if an is not None else holders | genannt)
         )
     await enqueue_mails(outbox_collection=outbox_collection, session=session, mails=mails, now=now)
 
 
-async def withhold_in_the_postausgang(*, outbox_collection: AsyncCollection, adresse: str, session: AsyncClientSession) -> None:
+async def withhold_in_the_postausgang(*, outbox_collection: AsyncCollection, address: str, session: AsyncClientSession) -> None:
     """Every grant notice still owed naming this folded address, as a grant's address or as its actor, withheld in place."""
 
     for site in ("now", "before"):
         await patch_many_in_db(
             collection=outbox_collection,
-            db_filter={**OFFENE_MITTEILUNG, f"data.{site}.adresse": adresse},
-            update={"$set": {f"data.{site}.adresse": None, "data.withheld": "barred"}},
+            db_filter={**OFFENE_MITTEILUNG, f"data.{site}.address": address},
+            update={"$set": {f"data.{site}.address": None, "data.withheld": "barred"}},
             session=session,
         )
     await patch_many_in_db(
         collection=outbox_collection,
-        db_filter={**OFFENE_MITTEILUNG, "data.changed_by": adresse},
+        db_filter={**OFFENE_MITTEILUNG, "data.changed_by": address},
         # No reason: it is the grant address's, and a null actor on an application's change says it alone.
         update={"$set": {"data.changed_by": None}},
         session=session,
@@ -238,7 +238,7 @@ async def read_the_announced(
 
 async def grant_in_session(
     *,
-    adresse: str,
+    address: str,
     admin_tier: str,
     granted_by: str,
     barred: Set[str],
@@ -256,7 +256,7 @@ async def grant_in_session(
     """
 
     document: dict[str, Any] = {
-        "adresse": adresse,
+        "address": address,
         "admin_tier": admin_tier,
         # The bound actor rather than a payload field, so the grant and its `aktionen` row name one person.
         "granted_by": granted_by,

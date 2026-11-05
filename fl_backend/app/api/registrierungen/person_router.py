@@ -47,7 +47,7 @@ from app.api.registrierungen.services import (
 )
 from app.api.saisons.services import has_started
 from app.api.sperrliste.guard import PERSON_ACTOR_BINDERS, KontaktIdentifier, SpielerIdentifier
-from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
+from app.api.sperrliste.lookup import SperrlisteLookup, barred_addresses, sperrliste_saison
 from app.api.spieler.crud import refuse_a_full_squad
 from app.core.collections import Collection
 from app.core.config import API_VERSION, BackendConfig, get_app_config
@@ -132,7 +132,7 @@ async def get_open_registrierungen(
 
         persons = await persons_at(
             spieler_collection=spieler_collection,
-            adressen=[sign_in_identifier(str(row["email"])) for row in bestaetigte],
+            addresses=[sign_in_identifier(str(row["email"])) for row in bestaetigte],
             session=session,
         )
         by_address = {person["email"]: person for person in persons}
@@ -213,7 +213,7 @@ async def admit(
 
     Refuses, in this order: no pending registration with this id (404), no seat on its team's season
     (`role_not_held`), a registration the pupil has not confirmed (`registrierung_unconfirmed`), an address the ban list
-    holds (`registrierung_adresse_barred`, worded to the team as neutrally as to the pupil), a Stufe the season does not offer
+    holds (`registrierung_address_barred`, worded to the team as neutrally as to the pupil), a Stufe the season does not offer
     (`registrierung_stufe_not_allowed`), a registration confirmed on the returning pupil's page whose address holds no stored
     person (`registrierung_person_missing`: it carries no choice, so it admits nobody, and the pupil registers again), a
     `spieler_id` that is not the person this registration may be admitted into (`registrierung_person_not_named`), a person
@@ -238,9 +238,7 @@ async def admit(
 
         # Inside the transaction, with no season anchor: a ban writes no registration, so only this
         # read orders a ban entered between the team's read and its press.
-        barred = await adressen_gesperrt(
-            sperrliste, [str(registrierung_raw["email"])], governing_saison_id=governing_saison_id, session=session
-        )
+        barred = await barred_addresses(sperrliste, [str(registrierung_raw["email"])], governing_saison_id=governing_saison_id, session=session)
         refuse(find_barred_refusal(barred=bool(barred)))
 
         # The one read of the season: its rules for the level and the cap, its `start_date` for the Nachnominierung marker.
@@ -250,13 +248,13 @@ async def admit(
         erlaubte_stufen = list((saison_raw.get("rules") or {}).get("allowed_stufen") or [])
         refuse(find_stufe_refusal(stufe=registrierung_raw.get("stufe"), allowed_stufen=erlaubte_stufen))
 
-        adresse = sign_in_identifier(str(registrierung_raw["email"]))
-        resolved = await persons_at(spieler_collection=spieler_collection, adressen=[adresse], session=session)
-        adresse_raw = resolved[0] if resolved else None
+        address = sign_in_identifier(str(registrierung_raw["email"]))
+        resolved = await persons_at(spieler_collection=spieler_collection, addresses=[address], session=session)
+        address_raw = resolved[0] if resolved else None
         # Before the body is judged: the team's answer cannot stand in for the person the pupil confirmed as.
-        refuse(find_person_fehlt_refusal(registrierung_raw=registrierung_raw, adresse_raw=adresse_raw))
-        refuse(find_person_refusal(registrierung_raw=registrierung_raw, adresse_raw=adresse_raw, spieler_id=aufnahme_data.spieler_id))
-        person_raw = adresse_raw
+        refuse(find_person_fehlt_refusal(registrierung_raw=registrierung_raw, address_raw=address_raw))
+        refuse(find_person_refusal(registrierung_raw=registrierung_raw, address_raw=address_raw, spieler_id=aufnahme_data.spieler_id))
+        person_raw = address_raw
         spieler_id = person_raw["_id"] if person_raw is not None else ObjectId()
 
         kader_raw = (
@@ -279,7 +277,7 @@ async def admit(
         if person_raw is None:
             await post_one_to_db(
                 collection=spieler_collection,
-                document=compose_person(spieler_id=spieler_id, registrierung_raw=registrierung_raw, adresse=adresse),
+                document=compose_person(spieler_id=spieler_id, registrierung_raw=registrierung_raw, address=address),
                 session=session,
             )
         else:
@@ -290,7 +288,7 @@ async def admit(
             await patch_one_in_db(
                 collection=spieler_collection,
                 db_filter={"_id": spieler_id},
-                update=compose_person_update(registrierung_raw=registrierung_raw, saved=(saved or {}).get("einwilligung"), adresse=adresse),
+                update=compose_person_update(registrierung_raw=registrierung_raw, saved=(saved or {}).get("einwilligung"), address=address),
                 session=session,
                 return_document=ReturnDocument.BEFORE,
             )

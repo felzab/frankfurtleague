@@ -13,7 +13,7 @@ from app.core.collections import Collection
 
 # Where a mailed invitation link lives. No address to judge: the row names none, its recipients standing on the season row, and the
 # link is the team's rather than a person's credential. Never superseding: a link copied off the mint stays valid beside the mailed ones.
-EINLADUNG_LINK: Final = FLOutboxLink(paths=["token_hashes"], adressen=[], replaced=False)
+EINLADUNG_LINK: Final = FLOutboxLink(paths=["token_hashes"], addresses=[], replaced=False)
 
 
 def einladung_bezug(invitation_id: Any) -> FLOutboxReference:

@@ -80,7 +80,7 @@ export const Code = {
   bewerbung_kontakt_email_taken: "bewerbung_kontakt_email_taken",
   bewerbung_key_differing: "bewerbung_key_differing",
   bewerbung_token_past_deadline: "bewerbung_token_past_deadline",
-  bewerbung_adresse_barred: "bewerbung_adresse_barred",
+  bewerbung_address_barred: "bewerbung_address_barred",
   bewerbung_kontakt_barred: "bewerbung_kontakt_barred",
   bewerbung_seat_differently_seated: "bewerbung_seat_differently_seated",
   booking_unknown_resource: "booking_unknown_resource",
@@ -122,7 +122,7 @@ export const Code = {
   registrierung_stufe_not_allowed: "registrierung_stufe_not_allowed",
   confirmation_exists: "confirmation_exists",
   registrierung_kader_full: "registrierung_kader_full",
-  registrierung_adresse_barred: "registrierung_adresse_barred",
+  registrierung_address_barred: "registrierung_address_barred",
   registrierung_key_differing: "registrierung_key_differing",
   registrierung_unconfirmed: "registrierung_unconfirmed",
   registrierung_person_not_named: "registrierung_person_not_named",
@@ -154,9 +154,9 @@ export const Code = {
   rules_spiele_over_one_read: "rules_spiele_over_one_read",
   rules_forfeit_unentschieden_in_a_knockout_as_stored: "rules_forfeit_unentschieden_in_a_knockout_as_stored",
   schiedsrichter_retired: "schiedsrichter_retired",
-  schiedsrichter_no_adresse: "schiedsrichter_no_adresse",
-  schiedsrichter_adresse_barred: "schiedsrichter_adresse_barred",
-  schiedsrichter_adresse_only_per_change: "schiedsrichter_adresse_only_per_change",
+  schiedsrichter_no_address: "schiedsrichter_no_address",
+  schiedsrichter_address_barred: "schiedsrichter_address_barred",
+  schiedsrichter_address_only_per_change: "schiedsrichter_address_only_per_change",
   ban_list_no_saison: "ban_list_no_saison",
   ban_list_admin: "ban_list_admin",
   spielplan_already_drawn: "spielplan_already_drawn",
@@ -564,9 +564,9 @@ export interface FLAccountErasureViewResponse {
 
 export type FLActionLogEntryDbFilter = { [key: string]: string } | null;
 
-export type FLActorWithAdresseRowKind = (typeof FLActorWithAdresseRowKind)[keyof typeof FLActorWithAdresseRowKind];
+export type FLActorWithAddressRowKind = (typeof FLActorWithAddressRowKind)[keyof typeof FLActorWithAddressRowKind];
 
-export const FLActorWithAdresseRowKind = {
+export const FLActorWithAddressRowKind = {
   admin_session: "admin_session",
   system: "system",
   public: "public",
@@ -575,10 +575,10 @@ export const FLActorWithAdresseRowKind = {
 /**
  * An actor named by `email` as both reads serve one: the stored actor, its address withheld where the ban list holds it.
  */
-export interface FLActorWithAdresseRow {
+export interface FLActorWithAddressRow {
   email: string | null;
   email_barred: boolean;
-  kind: FLActorWithAdresseRowKind;
+  kind: FLActorWithAddressRowKind;
 }
 
 export type FLActorPersonFunktion = (typeof FLActorPersonFunktion)[keyof typeof FLActorPersonFunktion];
@@ -618,7 +618,7 @@ export interface FLActionLogEntryRequest {
  * One recorded write.
  */
 export interface FLActionLogEntry {
-  actor: FLActorWithAdresseRow | FLActorPerson;
+  actor: FLActorWithAddressRow | FLActorPerson;
   anlass: string | null;
   at: string;
   collection: string;
@@ -650,7 +650,7 @@ export type FLActionLogEntryWithBeforeDbFilter = { [key: string]: string } | nul
  * One recorded write with the document it replaced, which only the single-row read serves.
  */
 export interface FLActionLogEntryWithBefore {
-  actor: FLActorWithAdresseRow | FLActorPerson;
+  actor: FLActorWithAddressRow | FLActorPerson;
   anlass: string | null;
   at: string;
   before: FLActionLogEntryWithBeforeBefore;
@@ -702,6 +702,21 @@ export interface FLAddress {
   stadtteil: string;
   /** @minLength 1 */
   strasse: string;
+}
+
+/**
+ * Exactly one key: the new mailbox's link token, or the change an approval names.
+ */
+export interface FLAddressChangeAddressPayload {
+  address_change_id?: string | null;
+  token?: string | null;
+}
+
+/**
+ * A live change's new address and nothing else, server to server alone.
+ */
+export interface FLAddressChangeAddressResponse {
+  email: string | null;
 }
 
 /**
@@ -811,7 +826,7 @@ export interface FLAddressChangeAdminOpen {
  */
 export interface FLAddressChangeAdminPayload {
   /** @maxLength 254 */
-  adresse: string;
+  address: string;
   /** @maxLength 254 */
   email: string;
   /**
@@ -826,30 +841,15 @@ export interface FLAddressChangeAdminPayload {
  * Exactly one key: the address typed, or the change a page links to.
  */
 export interface FLAddressChangeAdminViewPayload {
+  address?: string | null;
   address_change_id?: string | null;
-  adresse?: string | null;
 }
 
 export interface FLAddressChangeAdminViewResponse {
-  adresse: string;
+  address: string;
   holdings: FLAddressChangeAdminHoldings;
   open: FLAddressChangeAdminOpen | null;
   possible: boolean;
-}
-
-/**
- * Exactly one key: the new mailbox's link token, or the change an approval names.
- */
-export interface FLAddressChangeAdressePayload {
-  address_change_id?: string | null;
-  token?: string | null;
-}
-
-/**
- * A live change's new address and nothing else, server to server alone.
- */
-export interface FLAddressChangeAdresseResponse {
-  email: string | null;
 }
 
 export type FLAddressChangeAnswer = (typeof FLAddressChangeAnswer)[keyof typeof FLAddressChangeAnswer];
@@ -2192,7 +2192,7 @@ export interface FLEinwilligung {
 /**
  * The mailbox an erasure, its preview or a sign-out of every session is looked up by.
  */
-export interface FLErasureAdressePayload {
+export interface FLErasureAddressPayload {
   /**
    * Its domain, after the last `@`, in ASCII alone, an international one in punycode; else `email_not_accepted`.
    * @maxLength 254
@@ -2491,8 +2491,8 @@ export interface FLGrantApprovalRequestDeclinedResponse {
  * One request as the list serves it, while it may still be decided.
  */
 export interface FLGrantApprovalRequestRow {
+  address: string | null;
   admin_tier: FLAdminTier;
-  adresse: string | null;
   asked_at: string;
   barred: boolean;
   denied: FLApprovalDenied | null;
@@ -2532,8 +2532,8 @@ export const FLGrantDataWithheld = {
  * One grant's address and tier at one moment.
  */
 export interface FLGrantSnapshot {
+  address: string | null;
   admin_tier: FLAdminTier;
-  adresse: string | null;
 }
 
 /**
@@ -2559,9 +2559,9 @@ export interface FLGrantReconciliationResponse {
  * One grant as the list serves it.
  */
 export interface FLGrantRow {
+  address: string | null;
   address_change: FLGrantAddressChange | null;
   admin_tier: FLAdminTier;
-  adresse: string | null;
   barred: boolean;
   granted_at: string;
   granted_by: string | null;

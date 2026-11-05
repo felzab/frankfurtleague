@@ -8,8 +8,8 @@ from app.api.aktionen.crud import redact_images_in_session
 from app.api.outbox.schemas import FLOutboxLink, FLOutboxReference, FLSchiedsrichterConfirmationData
 from app.api.outbox.services import OwedMail, enqueue_mails
 from app.api.schiedsrichter.services import (
-    ADRESSE_PFAD,
-    TOKEN_HASHES_PFAD,
+    ADDRESS_PATH,
+    TOKEN_HASHES_PATH,
     booked_image_edits,
     build_assignment_filter,
     build_booked_image_filter,
@@ -49,7 +49,7 @@ async def owe_the_bestaetigung(
                 an=email,
                 data=FLSchiedsrichterConfirmationData(art="schiedsrichter_confirmation", frist=frist),
                 reference=FLOutboxReference(collection=Collection.SCHIEDSRICHTER, id=schiedsrichter_id, seat=None),
-                link=FLOutboxLink(paths=[TOKEN_HASHES_PFAD], adressen=[ADRESSE_PFAD], replaced=True),
+                link=FLOutboxLink(paths=[TOKEN_HASHES_PATH], addresses=[ADDRESS_PATH], replaced=True),
             )
         ],
         now=now,

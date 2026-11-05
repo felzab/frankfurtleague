@@ -438,14 +438,14 @@ IDA = "ida@example.com"
 UNDRAWN_SPIEL_OIDS = [ObjectId(f"6890a1b2c3d4e5f607b6005{position}") for position in range(2)]
 
 
-def declined(row: str, team_id: ObjectId, spiel: Mapping[str, Any], rolle: str, adresse: str, begruendung: str) -> dict[str, Any]:
-    """A row the team declined from `rolle`'s link, pressed by `adresse`, giving a reason; closed since, as a move closes an answered row."""
+def declined(row: str, team_id: ObjectId, spiel: Mapping[str, Any], rolle: str, address: str, begruendung: str) -> dict[str, Any]:
+    """A row the team declined from `rolle`'s link, pressed by `address`, giving a reason; closed since, as a move closes an answered row."""
 
     return confirmation_row(
         row,
         team_id,
         spiel,
-        antwort=documents.kontakt_antwort_document(rolle, adresse, begruendung=begruendung),
+        antwort=documents.kontakt_antwort_document(rolle, address, begruendung=begruendung),
         closed={"at": TODAY, "grund": "ansetzung_changed"},
     )
 

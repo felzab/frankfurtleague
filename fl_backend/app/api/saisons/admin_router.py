@@ -66,7 +66,7 @@ from app.api.saisons.services import (
     with_schedule,
 )
 from app.api.saisons.spielplan import EnteredTeam, draw_spielplan
-from app.api.sperrliste.lookup import BanList, SperrlisteLookup, adressen_gesperrt
+from app.api.sperrliste.lookup import BanList, SperrlisteLookup, barred_addresses
 from app.api.spielberichte.crud import anchor_the_season_reported_in, count_eingereichte_berichte
 from app.api.spiele.schemas import KNOCKOUT_PHASES, FLSpielListAdapter
 from app.api.teams.services import (
@@ -1107,9 +1107,9 @@ async def _entered_teams(*, saison_teams_collection: AsyncCollection, saison_id:
 async def _gesperrte_empfaenger(sperrliste: BanList, entered: Sequence[Mapping[str, Any]]) -> set[str]:
     """Every stored address of the season's confirmed seats a standing ban holds, one read for all its teams."""
 
-    adressen = [person.email for team in entered for person in bestaetigte_empfaenger(kontakte=team.get("kontakte"))]
+    addresses = [person.email for team in entered for person in bestaetigte_empfaenger(kontakte=team.get("kontakte"))]
 
-    return await adressen_gesperrt(sperrliste, adressen) if adressen else set()
+    return await barred_addresses(sperrliste, addresses) if addresses else set()
 
 
 async def _mail_one_team(

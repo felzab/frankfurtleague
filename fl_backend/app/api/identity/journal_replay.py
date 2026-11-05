@@ -45,7 +45,7 @@ from app.api.bewerbungen.services import (
     compose_decline_update,
     compose_saison_decline_update,
     objection_is_announced,
-    seat_adressen,
+    seat_addresses,
     seat_is_answered,
 )
 from app.api.identity.crud import unattribute_pseudonym_in_session
@@ -338,7 +338,7 @@ async def _plan_objection(
             await remove_their_reasons(
                 spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
                 action_log_collection=database[Collection.ACTION_LOG],
-                adressen=seat_adressen(kontakte=row.get("kontakte"), seats=open),
+                addresses=seat_addresses(kontakte=row.get("kontakte"), seats=open),
                 key=key,
                 stamp=log_stamp(now),
                 session=session,
@@ -349,7 +349,7 @@ async def _plan_objection(
             action_log_collection=database[Collection.ACTION_LOG],
             collection=home,
             row_id=row["_id"],
-            adressen=seat_adressen(kontakte=row.get("kontakte"), seats=open),
+            addresses=seat_addresses(kontakte=row.get("kontakte"), seats=open),
             stamp=log_stamp(now),
             session=session,
         )
@@ -409,13 +409,13 @@ async def _plan_request_end(
     """An ended request the restore brought back, removed again; one lapsed since is gone to every reader already."""
 
     approval_request = await database[Collection.GRANT_APPROVAL_REQUESTS].find_one(
-        {"_id": line.record_id}, {"adresse": 1, "approval": 1}, session=session
+        {"_id": line.record_id}, {"address": 1, "approval": 1}, session=session
     )
     if approval_request is None:
         return Plan("no such record")
     if not ist_offen(approval_request, now=now):
         return Plan("already done")
-    if not _holds(approval_request.get("adresse"), line, key):
+    if not _holds(approval_request.get("address"), line, key):
         return Plan("left for review")
 
     async def rewrite_the_end(session: AsyncClientSession) -> Any:
@@ -466,7 +466,7 @@ async def _plan_address_change_effective(
         return Plan("left for review", detail="the restored change names another address: its person starts the change again")
 
     records = _records_of(database)
-    holdings = await read_the_holdings(str(record["adresse"]), records=records, grants_collection=database[Collection.GRANTS], session=session)
+    holdings = await read_the_holdings(str(record["address"]), records=records, grants_collection=database[Collection.GRANTS], session=session)
     if holdings.empty:
         return Plan("left for review", detail="the address it replaced holds nothing in the restored database")
     approval = record.get("approval")
@@ -477,7 +477,7 @@ async def _plan_address_change_effective(
         # Judged as the effect judges it: an approver revoked or demoted in the restored database approves nothing. Never
         # barred there: a ban the snapshot holds predates the approval, which the actor check would then have refused.
         or not genehmigung_steht(
-            target=record["adresse"],
+            target=record["address"],
             approval=approval,
             grants=await read_berechtigungen(grants_collection=database[Collection.GRANTS], session=session),
             announced=await read_the_announced(grants_announced_collection=database[Collection.GRANTS_ANNOUNCED], session=session),

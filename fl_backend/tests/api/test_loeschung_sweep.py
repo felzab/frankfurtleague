@@ -373,7 +373,7 @@ async def one_address_in_four_roles(database: AsyncDatabase) -> None:
     await database[Collection.GRANTS].insert_one(
         {
             "_id": GRANT,
-            "adresse": ADDRESS,
+            "address": ADDRESS,
             "admin_tier": "administration",
             "granted_by": "PLAYGROUND",
             "granted_at": datetime(2026, 1, 1, tzinfo=UTC),

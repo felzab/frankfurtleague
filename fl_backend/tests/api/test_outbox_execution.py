@@ -78,7 +78,7 @@ def utc(moment: datetime) -> datetime:
 
 
 # The one record's link: its array, minted while the record still names the recipient.
-LINK = FLOutboxLink(paths=["token_hashes"], adressen=["email"], replaced=False)
+LINK = FLOutboxLink(paths=["token_hashes"], addresses=["email"], replaced=False)
 
 
 async def owe(
@@ -234,7 +234,7 @@ class TestTheDrain:
         saison_team = ObjectId("6890a1b2c3d4e5f607f30002")
         spec = FLOutboxLink(
             paths=["kontakte.trainer.token_hashes", "kontakte.betreuer.token_hashes"],
-            adressen=["kontakte.trainer.email", "kontakte.betreuer.email"],
+            addresses=["kontakte.trainer.email", "kontakte.betreuer.email"],
             replaced=False,
         )
         reference = FLOutboxReference(collection=Collection.SAISON_TEAMS, id=saison_team, seat="trainer")
@@ -305,7 +305,7 @@ class TestTheDrain:
     def test_a_mail_whose_link_supersedes_drops_the_older_one_still_waiting_to_go_again(self, mongo_replica_set_url: str):
         """Handed out after the newer mail, the older one would supersede the newer link, and the newest mail opens nothing."""
 
-        replacing = FLOutboxLink(paths=["token_hashes"], adressen=["email"], replaced=True)
+        replacing = FLOutboxLink(paths=["token_hashes"], addresses=["email"], replaced=True)
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             older = await owe(database, client, "link/1", link=True, spec=replacing)

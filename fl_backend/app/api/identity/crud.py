@@ -512,8 +512,8 @@ async def erase_the_mails_in_session(
         data = row.get("data") or {}
         withheld: dict[str, Any] = {}
         for site in ("now", "before"):
-            if theirs((data.get(site) or {}).get("adresse")):
-                withheld |= {f"data.{site}.adresse": None, "data.withheld": "erased"}
+            if theirs((data.get(site) or {}).get("address")):
+                withheld |= {f"data.{site}.address": None, "data.withheld": "erased"}
         if theirs(data.get("changed_by")):
             withheld["data.changed_by"] = ERASED_ACTOR_MARKER
         if withheld:
@@ -924,7 +924,7 @@ async def unreferenced_of(
     """Which of these addresses no record references.
 
     Each collection is read once for the whole batch rather than once per address, which is what
-    `app/shared/schemas/bounds.py :: REFERENCES_ADRESSEN_MAX` is measured against.
+    `app/shared/schemas/bounds.py :: REFERENCES_ADDRESSES_MAX` is measured against.
     """
 
     folded = sorted({sign_in_identifier(identifier) for identifier in identifiers})

@@ -910,7 +910,7 @@ class TestAKuerzelARetiredClubStillHolds:
 
 
 class TestABannedContactAddress:
-    """`bewerbung_adresse_barred`: an address the ban list holds applies for nobody, on whichever seat it stands."""
+    """`bewerbung_address_barred`: an address the ban list holds applies for nobody, on whichever seat it stands."""
 
     @pytest.mark.parametrize("seat", ["trainer", "ansprechperson", "stellvertretung"])
     def test_a_banned_address_on_any_seat_is_refused_and_stores_nothing(self, mongo_replica_set_url: str, seat: str):
@@ -921,7 +921,7 @@ class TestABannedContactAddress:
 
             return failure.value.error_code, await database[Collection.BEWERBUNGEN].count_documents({})
 
-        assert on_a_league(mongo_replica_set_url, body) == (Code.BEWERBUNG_ADRESSE_BARRED, 0)
+        assert on_a_league(mongo_replica_set_url, body) == (Code.BEWERBUNG_ADDRESS_BARRED, 0)
 
     def test_a_replay_after_an_address_was_banned_owes_nothing_and_the_banned_mail_is_held(self, mongo_replica_set_url: str):
         """The replay answers the stored application; the ban is the drain's to apply, to the mail the first press owed."""

@@ -252,7 +252,7 @@ class TestARenewalFromTheSamePersonsLaterAnswers:
             ),
         }
 
-        update = compose_person_update(registrierung_raw=registrierung, saved=saved, adresse="ida@example.com")
+        update = compose_person_update(registrierung_raw=registrierung, saved=saved, address="ida@example.com")
         set_fields = update["$set"]
 
         assert set(update) == {"$set"}

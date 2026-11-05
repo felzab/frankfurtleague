@@ -788,7 +788,7 @@ def test_the_server_reads_each_pattern_as_python_does_and_misses_nothing_the_fol
         )
         read: dict[str, set[ObjectId]] = {}
         for identifier in SERVER_IDENTIFIERS:
-            # Any stored string serves the pattern: the grant erasure it reads for asks it of `berechtigungen.adresse`.
+            # Any stored string serves the pattern: the grant erasure it reads for asks it of `berechtigungen.address`.
             pipeline = [{"$match": {"kontakte.trainer.email": same_address(identifier)}}]
             read[identifier] = {row["_id"] for row in await (await database[Collection.SAISON_TEAMS].aggregate(pipeline)).to_list()}
 

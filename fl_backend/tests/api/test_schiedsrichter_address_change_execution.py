@@ -131,7 +131,7 @@ async def request(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
     """An administrator's start through the address tool, with a reason, so the new mailbox is owed its link at once."""
 
     return await post_address_change_admin(
-        address_change_data=FLAddressChangeAdminPayload.model_validate({"adresse": EMAIL, "email": NEW_EMAIL, "grund": GRUND}),
+        address_change_data=FLAddressChangeAdminPayload.model_validate({"address": EMAIL, "email": NEW_EMAIL, "grund": GRUND}),
         address_changes_collection=database[Collection.ADDRESS_CHANGES],
         records=record_collections(database),
         spieler_collection=database[Collection.SPIELER],
@@ -163,7 +163,7 @@ async def refused_code(call: Awaitable[Any]) -> str:
 
 
 class TestTheSaveOnAConfirmedReferee:
-    """`schiedsrichter_adresse_only_per_change`: a confirmed referee's address is who signs in as them, and the save moves it never."""
+    """`schiedsrichter_address_only_per_change`: a confirmed referee's address is who signs in as them, and the save moves it never."""
 
     @pytest.mark.parametrize("retired", [False, True], ids=["serving", "retired"])
     def test_a_save_moving_it_is_refused_and_nothing_of_the_save_lands(self, mongo_replica_set_url: str, retired: bool):
@@ -176,7 +176,7 @@ class TestTheSaveOnAConfirmedReferee:
 
         code, before, row = on_a_league(mongo_replica_set_url, body)
 
-        assert code == Code.SCHIEDSRICHTER_ADRESSE_ONLY_PER_CHANGE
+        assert code == Code.SCHIEDSRICHTER_ADDRESS_ONLY_PER_CHANGE
         assert row == before
 
     def test_a_save_keeping_it_with_its_domain_respelled_lands_and_leaves_a_pending_change_standing(self, mongo_replica_set_url: str):

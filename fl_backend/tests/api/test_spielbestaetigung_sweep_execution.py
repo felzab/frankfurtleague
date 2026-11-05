@@ -676,7 +676,7 @@ def answered(antwort: Literal["zugesagt", "declined"]) -> dict[str, Any]:
     return compose_antwort_update(
         antwort=antwort,
         seat="trainer",
-        adresse=None,
+        address=None,
         key=build_test_config().sperrliste_key,
         vorschlag=FLSpielbestaetigungAppointment(datum=days_after(day=NEXT_WEEK, days=1), uhrzeit="18:00:00")
         if antwort == "declined"

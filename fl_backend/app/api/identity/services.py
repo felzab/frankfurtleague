@@ -312,14 +312,14 @@ def compose_erasure_view(
                 for row in registrierung_rows
             ],
             "address_change": [
-                {"address_change_id": row["_id"], "viewable_denied": denied.get(str(row.get("adresse")))} for row in address_change_rows
+                {"address_change_id": row["_id"], "viewable_denied": denied.get(str(row.get("address")))} for row in address_change_rows
             ],
             "own_address_change": None if own_address_change is None else {"address_change_id": own_address_change["_id"]},
             "approval_requests": [
                 {
                     "approval_request_id": row["_id"],
                     "admin_tier": row["approval"]["admin_tier"],
-                    "party": "target" if row["adresse"] == identifier else "requester",
+                    "party": "target" if row["address"] == identifier else "requester",
                 }
                 for row in approval_request_rows
             ],
@@ -518,7 +518,7 @@ def find_role_refusal(*, seats: Iterable[FLSubjectSeat], team_id: ObjectId, sais
 def holds_an_owner_grant(identifier: str, grants: Iterable[Mapping[str, Any]]) -> bool:
     """Whether this folded address holds one of these live grants as an `owner`."""
 
-    return any(grant["adresse"] == identifier and grant["admin_tier"] == OWNER for grant in grants)
+    return any(grant["address"] == identifier and grant["admin_tier"] == OWNER for grant in grants)
 
 
 def find_last_owner_erasure_refusal(*, identifier: str, grants: Iterable[Mapping[str, Any]], barred: Iterable[str]) -> WriteRefusal | None:
@@ -527,7 +527,7 @@ def find_last_owner_erasure_refusal(*, identifier: str, grants: Iterable[Mapping
     `grants` are the live ones. A barred `owner` admits nobody, so it is no owner here, as for a demotion.
     """
 
-    owners = {str(grant["adresse"]) for grant in grants if grant["admin_tier"] == OWNER} - set(barred)
+    owners = {str(grant["address"]) for grant in grants if grant["admin_tier"] == OWNER} - set(barred)
     if owners != {identifier}:
         return None
 
@@ -609,7 +609,7 @@ def find_admin_address_refusal(
 
 def find_foreign_address_change_refusal(
     *,
-    adressen: Iterable[str],
+    addresses: Iterable[str],
     actor: str,
     auth_time: int,
     grants: Sequence[Mapping[str, Any]],
@@ -617,15 +617,15 @@ def find_foreign_address_change_refusal(
 ) -> WriteRefusal | None:
     """`foreign_address_change`: without an owner's power, an erasure ends no pending change of an address holding a protected grant.
 
-    A protected grant is one `ADDRESS_CHANGE_PROTECTED` names. `adressen` are the changes' own addresses, never the one erased; the
+    A protected grant is one `ADDRESS_CHANGE_PROTECTED` names. `addresses` are the changes' own addresses, never the one erased; the
     message names none of them.
     """
 
     if not any(
         admin_address_denied(
-            identifier=adresse, actor=actor, auth_time=auth_time, grants=grants, announced=announced, protected=ADDRESS_CHANGE_PROTECTED
+            identifier=address, actor=actor, auth_time=auth_time, grants=grants, announced=announced, protected=ADDRESS_CHANGE_PROTECTED
         )
-        for adresse in adressen
+        for address in addresses
     ):
         return None
 
@@ -717,7 +717,7 @@ def referenced_addresses(
         # The one kind narrowed to its pupil's confirmation, as the gate narrows it, each row judged on its
         # own fold: the set holds every address a record names, so a row read for another mailbox adds its own.
         *(row.get("email") for row in registrierung_rows if is_own_registrierung(row, folded(row.get("email")) or "")),
-        *(row.get("adresse") for row in grant_rows),
+        *(row.get("address") for row in grant_rows),
         # An effect owing its account's carry: swept before it is carried, the account and its passkeys are gone.
         *(row["move"]["old"] for row in carry_rows),
     )

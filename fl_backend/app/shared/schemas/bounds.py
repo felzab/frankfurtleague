@@ -111,7 +111,7 @@ LIST_LIMIT_MAX: Final = 1024
 # The most addresses one references call judges, about a millisecond each: 250 took a median of 0.24 s
 # over 400 season rows and 2,000 pupils (a local server, 2026-10-15), far inside
 # `app/core/middlewares.py :: REQUEST_DEADLINE_S` on a slower one.
-REFERENCES_ADRESSEN_MAX: Final = 250
+REFERENCES_ADDRESSES_MAX: Final = 250
 
 # How long the action log keeps a row, counted from the write it recorded. Seconds because that is
 # the unit `create_index(expireAfterSeconds=)` takes, and a plain year because the database counts

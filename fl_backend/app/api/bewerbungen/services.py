@@ -774,7 +774,7 @@ def paired_seat(*, kontakte: Any, confirmations: Any, seat: str) -> FLKontaktRol
     return other if other is not None and seat_stands(kontakte=kontakte, confirmations=confirmations, seat=other) else None
 
 
-def seat_adressen(*, kontakte: Any, seats: Iterable[str]) -> set[str]:
+def seat_addresses(*, kontakte: Any, seats: Iterable[str]) -> set[str]:
     """The stored address of each of these seats that still holds one.
 
     One helper for the consent and the view, so the page shows the ban for exactly the addresses a
@@ -939,7 +939,7 @@ def build_erneut_filter(*, bewerbung_id: Any, seats: Sequence[str]) -> Mapping[s
 
 
 def find_barred_refusal(*, barred: bool) -> WriteRefusal | None:
-    """`bewerbung_adresse_barred`: the ban list holds one of the addresses a submission names.
+    """`bewerbung_address_barred`: the ban list holds one of the addresses a submission names.
 
     Takes the answer rather than the lookup, so the caller's reads run in the caller's transaction.
     """
@@ -950,7 +950,7 @@ def find_barred_refusal(*, barred: bool) -> WriteRefusal | None:
     # NEUTRAL and naming no seat, as the registration's refusal is: a stranger learns nothing about a
     # list, and 403 because what fails is who is applying rather than the season's state.
     return WriteRefusal(
-        error_code=Code.BEWERBUNG_ADRESSE_BARRED,
+        error_code=Code.BEWERBUNG_ADDRESS_BARRED,
         status=HTTPStatus.FORBIDDEN,
     )
 
@@ -959,7 +959,7 @@ def find_kontakt_gesperrt_refusal(*, barred: bool) -> WriteRefusal | None:
     """`bewerbung_kontakt_barred`: an administrator's correction or reseat names an address the ban list holds.
 
     409 where the public form's is 403: an administrator's write naming it is about the entry it writes,
-    as the referee editor's `schiedsrichter_adresse_barred` is.
+    as the referee editor's `schiedsrichter_address_barred` is.
     """
 
     if not barred:
@@ -1376,7 +1376,7 @@ def bewerbung_link(seats: Sequence[str], *, replaced: bool) -> FLOutboxLink:
 
     return FLOutboxLink(
         paths=[f"confirmations.{seat}.token_hashes" for seat in seats],
-        adressen=[f"kontakte.{seat}.email" for seat in seats],
+        addresses=[f"kontakte.{seat}.email" for seat in seats],
         replaced=replaced,
     )
 
@@ -1411,7 +1411,7 @@ def ausstehende_personen(*, kontakte: Any, seats: Sequence[str]) -> list[FLBewer
     return personen
 
 
-def personen_mit_adresse(*, kontakte: Any, seats: Sequence[str] = KONTAKT_ROLLEN) -> list[tuple[str, list[FLKontaktRolle]]]:
+def people_with_address(*, kontakte: Any, seats: Sequence[str] = KONTAKT_ROLLEN) -> list[tuple[str, list[FLKontaktRolle]]]:
     """Each person these seats name who holds an address, with the seats they hold, the Trainer last.
 
     One address is one person (the submission refuses two people at one), so the seats sharing an address are the one
@@ -1453,7 +1453,7 @@ def owed_at_submission(*, bewerbung_id: Any, kontakte: Any, saison_id: str, schu
     """
 
     mails: list[OwedMail] = []
-    for email, seats in personen_mit_adresse(kontakte=kontakte):
+    for email, seats in people_with_address(kontakte=kontakte):
         stamm = f"{Sammlung.BEWERBUNGEN}/{bewerbung_id}"
         if "ansprechperson" not in seats:
             mails.append(
@@ -1645,7 +1645,7 @@ def dubletten_schluessel_of(cells: Sequence[Mapping[str, Any]]) -> list[str]:
     return sorted(schluessel for schluessel, count in held.items() if count > 1)
 
 
-def entscheider_adressen(rows: Iterable[Mapping[str, Any]]) -> list[str]:
+def decider_addresses(rows: Iterable[Mapping[str, Any]]) -> list[str]:
     """Every administrator these stored applications name as their decider, folded as the ban list is asked."""
 
     return [sign_in_identifier(FLBewerbungEntscheidung.model_validate(row["decision"]).by) for row in rows if row.get("decision") is not None]

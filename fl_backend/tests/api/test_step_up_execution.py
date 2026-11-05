@@ -284,7 +284,7 @@ class TestTheRefereesSave:
 
         async def body(database: AsyncDatabase, http: AsyncClient) -> tuple[bool, Any]:
             response = await http.post(
-                f"/api/v{API_VERSION}/address_change", headers=OLDER, json={"adresse": REFEREE_EMAIL, "email": MOVED_EMAIL, "grund": None}
+                f"/api/v{API_VERSION}/address_change", headers=OLDER, json={"address": REFEREE_EMAIL, "email": MOVED_EMAIL, "grund": None}
             )
             stored = await database[Collection.SCHIEDSRICHTER].find_one({"_id": SCHIEDSRICHTER_ID})
             return refused(response), stored and (stored["kontakt"]["email"], await database[Collection.ADDRESS_CHANGES].count_documents({}))
@@ -332,7 +332,7 @@ ERASED_ADMINISTRATOR = "zugang.anfrage@example.com"
 async def an_administrators_grant(database: AsyncDatabase) -> None:
     await database[Collection.GRANTS].insert_one(
         {
-            "adresse": ERASED_ADMINISTRATOR,
+            "address": ERASED_ADMINISTRATOR,
             "admin_tier": "administration",
             "granted_by": "PLAYGROUND",
             "granted_at": datetime(2026, 1, 1, tzinfo=UTC),
@@ -357,7 +357,7 @@ class TestAnErasureOnRequestEndingAGrant:
             response = await http.post(self.URL, headers=OLDER, json=an_erasure_of(ERASED_ADMINISTRATOR))
             return (
                 refused(response),
-                await database[Collection.GRANTS].count_documents({"adresse": ERASED_ADMINISTRATOR}),
+                await database[Collection.GRANTS].count_documents({"address": ERASED_ADMINISTRATOR}),
                 await database[Collection.ACTION_LOG].count_documents({}) - logged,
             )
 

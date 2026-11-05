@@ -89,25 +89,25 @@ DECLINED_BY_HER, DECLINED_BY_DORA = ObjectId("6890a1b2c3d4e5f607a60001"), Object
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
-def grant_row(grant_id: ObjectId, adresse: str, admin_tier: str, granted_by: str) -> dict[str, Any]:
+def grant_row(grant_id: ObjectId, address: str, admin_tier: str, granted_by: str) -> dict[str, Any]:
     return {
         "_id": grant_id,
-        "adresse": adresse,
+        "address": address,
         "admin_tier": admin_tier,
         "granted_by": granted_by,
         "granted_at": datetime(2026, 1, 1, tzinfo=UTC),
     }
 
 
-def announced(grant_id: ObjectId, adresse: str, admin_tier: str) -> dict[str, Any]:
-    return {"_id": grant_id, "adresse": adresse, "admin_tier": admin_tier, "angekuendigt_am": datetime(2026, 1, 2, tzinfo=UTC)}
+def announced(grant_id: ObjectId, address: str, admin_tier: str) -> dict[str, Any]:
+    return {"_id": grant_id, "address": address, "admin_tier": admin_tier, "angekuendigt_am": datetime(2026, 1, 2, tzinfo=UTC)}
 
 
 def notice(
     row_id: ObjectId, grant_id: ObjectId, art: Any, current: str | None, before: str | None, by: str, *, barred: frozenset[str] = frozenset()
 ) -> dict[str, Any]:
-    def stand(adresse: str | None) -> FLGrantSnapshot | None:
-        return None if adresse is None else FLGrantSnapshot(adresse=adresse, admin_tier="administration")
+    def stand(address: str | None) -> FLGrantSnapshot | None:
+        return None if address is None else FLGrantSnapshot(address=address, admin_tier="administration")
 
     mitteilung = compose_mitteilung(
         grant_id=grant_id, art=art, current=stand(current), before=stand(before), changed_by=by, now=QUEUED, barred=barred
@@ -178,7 +178,7 @@ async def a_league_she_administered(database: AsyncDatabase) -> None:
         [
             announced(ERIKA_ID, ERIKA, "owner"),
             announced(DORA_ID, DORA, "owner"),
-            *(announced(grant_id, adresse, "administration") for grant_id, adresse in ((BERND_ID, BERND), (CLARA_ID, CLARA), (NAHE_ID, NAHE))),
+            *(announced(grant_id, address, "administration") for grant_id, address in ((BERND_ID, BERND), (CLARA_ID, CLARA), (NAHE_ID, NAHE))),
         ]
     )
     await database[Collection.OUTBOX].insert_many(
@@ -325,7 +325,7 @@ class TestTheNotices:
                 "art": "revoked",
                 "author": "anwendung",
                 "now": None,
-                "before": {"adresse": None, "admin_tier": "owner"},
+                "before": {"address": None, "admin_tier": "owner"},
                 "changed_by": DORA,
                 "withheld": "erased",
             }
@@ -348,9 +348,9 @@ class TestTheNotices:
 
             return [(row["art"], row["author"], row["now"], row["before"], row["withheld"]) for row in await queued_for(database, ERIKA_ID)]
 
-        withheld = {"adresse": None, "admin_tier": "owner"}
+        withheld = {"address": None, "admin_tier": "owner"}
         assert on_a_league(mongo_replica_set_url, body) == [
-            ("changed", "datenbank", withheld, {"adresse": None, "admin_tier": "administration"}, "erased"),
+            ("changed", "datenbank", withheld, {"address": None, "admin_tier": "administration"}, "erased"),
             ("revoked", "anwendung", None, withheld, "erased"),
         ]
 
@@ -358,7 +358,7 @@ class TestTheNotices:
         """Repointed in the database and not yet compared: the record is hers, the grant somebody else's."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[set[ObjectId], set[ObjectId], list[tuple[Any, ...]]]:
-            await database[Collection.GRANTS_ANNOUNCED].update_one({"_id": NAHE_ID}, {"$set": {"adresse": ERIKA}})
+            await database[Collection.GRANTS_ANNOUNCED].update_one({"_id": NAHE_ID}, {"$set": {"address": ERIKA}})
             await erase(database, client)
             queued = [(row["art"], row["author"], row["before"], row["withheld"]) for row in await queued_for(database, NAHE_ID)]
 
@@ -368,7 +368,7 @@ class TestTheNotices:
 
         assert NAHE_ID in grants
         assert NAHE_ID not in records
-        assert queued == [("revoked", "datenbank", {"adresse": None, "admin_tier": "administration"}, "erased")]
+        assert queued == [("revoked", "datenbank", {"address": None, "admin_tier": "administration"}, "erased")]
 
     def test_every_notice_queued_before_her_loeschung_names_her_nowhere_and_no_other_moves(self, mongo_replica_set_url: str):
         """Her grant's address withheld under its own reason; her as the actor, the marker; a ban's reason kept beside it."""
@@ -393,15 +393,15 @@ class TestTheNotices:
 
         before, after, withheld = on_a_league(mongo_replica_set_url, body)
 
-        bernd = {"adresse": BERND, "admin_tier": "administration"}
+        bernd = {"address": BERND, "admin_tier": "administration"}
         assert after[NAMING_HER_GRANT] == (
-            {"adresse": None, "admin_tier": "administration"},
-            {"adresse": None, "admin_tier": "administration"},
+            {"address": None, "admin_tier": "administration"},
+            {"address": None, "admin_tier": "administration"},
             DORA,
             "erased",
         )
         assert after[MADE_BY_HER] == (bernd, None, ERASED_ACTOR_MARKER, None)
-        assert after[A_BARRED_GRANT_BY_HER] == (None, {"adresse": None, "admin_tier": "administration"}, ERASED_ACTOR_MARKER, "barred")
+        assert after[A_BARRED_GRANT_BY_HER] == (None, {"address": None, "admin_tier": "administration"}, ERASED_ACTOR_MARKER, "barred")
         assert after[NOT_HERS] == before[NOT_HERS]
         assert after[BY_HER_LOCAL_PART_ELSEWHERE] == before[BY_HER_LOCAL_PART_ELSEWHERE]
         # The notice made at her local part elsewhere is counted nowhere: the fold drops it before any write is sent.

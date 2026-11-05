@@ -595,7 +595,7 @@ class TestABarredAddress:
 
         code, before, after = on_a_league(mongo_replica_set_url, body)
 
-        assert code == Code.REGISTRIERUNG_ADRESSE_BARRED
+        assert code == Code.REGISTRIERUNG_ADDRESS_BARRED
         assert after == before
 
     def test_a_ban_entered_between_the_read_and_the_press_is_refused(self, mongo_replica_set_url: str):
@@ -609,7 +609,7 @@ class TestABarredAddress:
         aufnehmbar, code, stored = on_a_league(mongo_replica_set_url, body)
 
         assert aufnehmbar is True
-        assert code == Code.REGISTRIERUNG_ADRESSE_BARRED
+        assert code == Code.REGISTRIERUNG_ADDRESS_BARRED
         assert stored == []
 
 

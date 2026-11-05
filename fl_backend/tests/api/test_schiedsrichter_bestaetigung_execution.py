@@ -301,7 +301,7 @@ class TestTheCreateIsTheInvitation:
 
         refused, rows = on_a_league(mongo_replica_set_url, body, referees=[])
 
-        assert refused.error_code == Code.SCHIEDSRICHTER_ADRESSE_BARRED
+        assert refused.error_code == Code.SCHIEDSRICHTER_ADDRESS_BARRED
         assert rows == 0
 
     def test_a_league_that_has_run_no_season_still_invites(self, mongo_replica_set_url: str):
@@ -325,7 +325,7 @@ class TestTheCreateIsTheInvitation:
 
             return refused.value
 
-        assert on_a_league(mongo_replica_set_url, body, referees=[]).error_code == Code.SCHIEDSRICHTER_ADRESSE_BARRED
+        assert on_a_league(mongo_replica_set_url, body, referees=[]).error_code == Code.SCHIEDSRICHTER_ADDRESS_BARRED
 
 
 class TestACorrectedAddressReMintsAndRetiresTheOldLink:
@@ -417,7 +417,7 @@ class TestACorrectedAddressReMintsAndRetiresTheOldLink:
 
         refused, row, fixture = on_a_league(mongo_replica_set_url, body)
 
-        assert refused.error_code == Code.SCHIEDSRICHTER_ADRESSE_BARRED
+        assert refused.error_code == Code.SCHIEDSRICHTER_ADDRESS_BARRED
         assert row["kontakt"]["email"] == EMAIL
         assert fixture["schiedsrichter"] == BOOKING
 
@@ -541,7 +541,7 @@ class TestTheReSend:
 
         refused, row = on_a_league(mongo_replica_set_url, body, referees=[referee_document(email=None)])
 
-        assert refused.error_code == Code.SCHIEDSRICHTER_NO_ADRESSE
+        assert refused.error_code == Code.SCHIEDSRICHTER_NO_ADDRESS
         assert BESTAETIGUNG_FELD not in row
 
     def test_a_stored_address_no_payload_would_take_is_refused_as_none(self, mongo_replica_set_url: str):
@@ -555,7 +555,7 @@ class TestTheReSend:
 
         refused, row = on_a_league(mongo_replica_set_url, body, referees=[referee_document(email=UNFOLDABLE_EMAIL)])
 
-        assert refused.error_code == Code.SCHIEDSRICHTER_NO_ADRESSE
+        assert refused.error_code == Code.SCHIEDSRICHTER_NO_ADDRESS
         assert BESTAETIGUNG_FELD not in row
 
     def test_an_address_on_the_ban_list_is_refused(self, mongo_replica_set_url: str):
@@ -569,7 +569,7 @@ class TestTheReSend:
 
         refused, row = on_a_league(mongo_replica_set_url, body, referees=[referee_document(email=BANNED_EMAIL)])
 
-        assert refused.error_code == Code.SCHIEDSRICHTER_ADRESSE_BARRED
+        assert refused.error_code == Code.SCHIEDSRICHTER_ADDRESS_BARRED
         assert BESTAETIGUNG_FELD not in row
 
     def test_the_ghost_answers_not_found_rather_than_a_refusal(self, mongo_replica_set_url: str):
@@ -671,7 +671,7 @@ class TestTheReactivation:
 
         refused, row = on_a_league(mongo_replica_set_url, body, referees=[referee_document(email=BANNED_EMAIL, **RETIRED)])
 
-        assert refused.error_code == Code.SCHIEDSRICHTER_ADRESSE_BARRED
+        assert refused.error_code == Code.SCHIEDSRICHTER_ADDRESS_BARRED
         assert row["inactive_since"] == RETIRED["inactive_since"]
         assert BESTAETIGUNG_FELD not in row
 

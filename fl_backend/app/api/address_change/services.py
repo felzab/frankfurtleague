@@ -7,7 +7,7 @@ records it moves is read from the address when it takes effect (`app/api/address
 Invariants:
 - Every instant is stored as a BSON date and compared as one; a filter on one always carries `$type: "date"`, so a null
   never compares.
-- Every read of a live change carries `LIVE_TERMS`, the filter `uniq_address_change_adresse` indexes.
+- Every read of a live change carries `LIVE_TERMS`, the filter `uniq_address_change_address` indexes.
 """
 
 import unicodedata
@@ -38,11 +38,11 @@ ADDRESS_CHANGE_END_KINDS: Final[tuple[str, ...]] = get_args(FLAddressChangeEndAr
 # The tier of the grant a change moves ranked, and so who may approve it: `owner` another owner alone.
 _RANK: Final[Mapping[str, int]] = {"administration": 0, "owner": 1}
 
-# The one filter every read of a live change carries: `uniq_address_change_adresse` indexes these rows alone.
+# The one filter every read of a live change carries: `uniq_address_change_address` indexes these rows alone.
 LIVE_TERMS: Final[Mapping[str, Any]] = {"ended": {"$type": "null"}}
 
 # A `$lookup` joining on the address carries these beside its key, for `build_address_filter`'s reason.
-LIVE_KEYED_TERMS: Final[Mapping[str, Any]] = {"adresse": {"$type": "string"}, **LIVE_TERMS}
+LIVE_KEYED_TERMS: Final[Mapping[str, Any]] = {"address": {"$type": "string"}, **LIVE_TERMS}
 
 
 def as_utc(moment: Any) -> datetime | None:
@@ -81,7 +81,7 @@ def compose_approval(*, admin_tier: str, started_by: str, now: datetime) -> dict
 
 def compose_record(
     *,
-    adresse: str,
+    address: str,
     email: str,
     way: FLAddressChangeWay,
     grund: str | None,
@@ -94,7 +94,7 @@ def compose_record(
     """
 
     return {
-        "adresse": adresse,
+        "address": address,
         "email": email,
         "way": way,
         "token_hashes": [],
@@ -140,13 +140,13 @@ def compose_approved_update(*, actor: str, now: datetime) -> dict[str, Any]:
     return {"$set": {"approval.approved_at": now.astimezone(UTC), "approval.approved_by": actor}}
 
 
-def build_owed_carry_filter(adressen: list[str]) -> dict[str, Any]:
+def build_owed_carry_filter(addresses: list[str]) -> dict[str, Any]:
     """The ended changes still owing to carry a sign-in account off one of these folded addresses.
 
     No index serves it: a carry is owed from an effect until the frontend reports it done, seconds as a rule.
     """
 
-    return {"move.old": {"$in": adressen}}
+    return {"move.old": {"$in": addresses}}
 
 
 def compose_approval_withdrawn_update() -> dict[str, Any]:
@@ -163,7 +163,7 @@ def compose_end_update(*, art: FLAddressChangeEndArt, now: datetime) -> dict[str
 
     return {
         "$set": {
-            "adresse": None,
+            "address": None,
             "email": None,
             "grund": None,
             "approval": None,
@@ -178,29 +178,29 @@ def build_live_filter(address_change_id: Any, terms: Mapping[str, Any] | None = 
     return {"_id": address_change_id, **LIVE_TERMS, **(terms or {})}
 
 
-def build_address_filter(adresse: str) -> dict[str, Any]:
-    """The live change of one folded address, which `uniq_address_change_adresse` answers by equality.
+def build_address_filter(address: str) -> dict[str, Any]:
+    """The live change of one folded address, which `uniq_address_change_address` answers by equality.
 
     The key's type stated beside its value: the planner reads an equality as no subset of the index's `$type` term.
     """
 
-    return {"adresse": {"$eq": adresse, "$type": "string"}, **LIVE_TERMS}
+    return {"address": {"$eq": address, "$type": "string"}, **LIVE_TERMS}
 
 
-def build_addresses_filter(adressen: list[str]) -> dict[str, Any]:
+def build_addresses_filter(addresses: list[str]) -> dict[str, Any]:
     """The live changes of these folded addresses, for `build_address_filter`'s reason."""
 
-    return {"adresse": {"$in": adressen, "$type": "string"}, **LIVE_TERMS}
+    return {"address": {"$in": addresses, "$type": "string"}, **LIVE_TERMS}
 
 
-def build_awaiting_approval_filter(adressen: list[str], *, now: datetime) -> dict[str, Any]:
+def build_awaiting_approval_filter(addresses: list[str], *, now: datetime) -> dict[str, Any]:
     """The live changes of these folded addresses awaiting their grant's approval, no step lapsed: what the administrators page offers.
 
     A lapsed one is refused `link_expired`, so the reload that refusal asks for must not offer it.
     """
 
     return {
-        **build_addresses_filter(adressen),
+        **build_addresses_filter(addresses),
         "approval.approved_at": {"$type": "null"},
         # `is_expired`'s judgement, negated: one lapse rule for the press, the pass and this list.
         "$nor": build_lapsed_terms(now)["$or"],
@@ -268,7 +268,7 @@ def build_due_terms(now: datetime) -> dict[str, Any]:
     }
 
 
-# Where a `$lookup` of the address's grant row lands, the unique index serving it (`uniq_grant_adresse`).
+# Where a `$lookup` of the address's grant row lands, the unique index serving it (`uniq_grant_address`).
 HELD: Final = "_berechtigung"
 
 
@@ -471,13 +471,13 @@ def find_taken_refusal(*, taken: bool) -> WriteRefusal | None:
     )
 
 
-def find_unchanged_refusal(*, adresse: str, folded: str) -> WriteRefusal | None:
+def find_unchanged_refusal(*, address: str, folded: str) -> WriteRefusal | None:
     """`address_change_unchanged`: the typed address signs in as the one on file, so it would ask a mailbox already proved.
 
-    `folded` is the typed address's sign-in identifier, which the caller folds; `adresse` is one already.
+    `folded` is the typed address's sign-in identifier, which the caller folds; `address` is one already.
     """
 
-    if folded != adresse:
+    if folded != address:
         return None
 
     # Naming neither address: the message reaches the refusal's log line.

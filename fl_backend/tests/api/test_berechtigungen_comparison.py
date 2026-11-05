@@ -23,8 +23,8 @@ TYPED = datetime(2026, 1, 1, 9, 0)
 FOUND = datetime(2026, 4, 1, 10, 30)
 
 
-def row(grant_id: ObjectId, adresse: str, admin_tier: str = "administration") -> dict[str, Any]:
-    return {"_id": grant_id, "adresse": adresse, "admin_tier": admin_tier}
+def row(grant_id: ObjectId, address: str, admin_tier: str = "administration") -> dict[str, Any]:
+    return {"_id": grant_id, "address": address, "admin_tier": admin_tier}
 
 
 def kinds(grants: list[dict[str, Any]], announced: list[dict[str, Any]]) -> list[tuple[ObjectId, str]]:
@@ -55,7 +55,7 @@ def test_an_address_repointed_under_one_id_is_the_old_ones_removal_and_the_new_o
     changes = compare(grants=[row(FIRST, "berta@schule.de", "owner")], announced=[row(FIRST, "anna@schule.de")])
 
     assert [
-        (art, current and (current.adresse, current.admin_tier), before and (before.adresse, before.admin_tier))
+        (art, current and (current.address, current.admin_tier), before and (before.address, before.admin_tier))
         for _, art, current, before in changes
     ] == [("revoked", None, ("anna@schule.de", "administration")), ("granted", ("berta@schule.de", "owner"), None)]
 
@@ -89,7 +89,7 @@ def test_a_promotion_found_in_place_is_one_the_comparison_dates_and_a_demotion_a
 
 
 # A record matching the row, as the reconciliation or a grant made here leaves one.
-ANNOUNCED = {"adresse": "anna@schule.de"}
+ANNOUNCED = {"address": "anna@schule.de"}
 
 # Generated at a paste a month after `TYPED`, and before `FOUND`.
 PASTED = datetime(2026, 2, 1, 9, 0, tzinfo=UTC)
@@ -97,7 +97,7 @@ PASTED_ID = ObjectId.from_datetime(PASTED)
 
 
 def stored(**fields: Any) -> dict[str, Any]:
-    return {"_id": PASTED_ID, "adresse": "anna@schule.de", "granted_at": TYPED, **fields}
+    return {"_id": PASTED_ID, "address": "anna@schule.de", "granted_at": TYPED, **fields}
 
 
 class TestWhenAGrantTookEffect:
@@ -134,7 +134,7 @@ class TestWhenAGrantTookEffect:
     def test_an_address_changed_in_place_before_any_pass_found_it_admits_nobody(self):
         """Its dates are the address before's, and nothing records when the change was made."""
 
-        assert granted_since(stored(adresse="berta@schule.de", gefunden_am=FOUND), ANNOUNCED) is None
+        assert granted_since(stored(address="berta@schule.de", gefunden_am=FOUND), ANNOUNCED) is None
 
     def test_the_instant_is_the_utc_one_the_driver_read_back_without_an_offset(self):
         """Compared against an epoch second, a naive instant taken for local time would move every grant by the host's offset."""
@@ -145,7 +145,7 @@ class TestWhenAGrantTookEffect:
 
 
 # The record of an `owner` grant, and a promotion made after the grant was found.
-ANNOUNCED_OWNER = {"adresse": "anna@schule.de", "admin_tier": "owner"}
+ANNOUNCED_OWNER = {"address": "anna@schule.de", "admin_tier": "owner"}
 PROMOTED = datetime(2026, 5, 1, 8, 0)
 
 
@@ -181,7 +181,7 @@ class TestWhenAnOwnersPowerTookEffect:
         "row",
         [
             pytest.param(stored(admin_tier="administration", gefunden_am=FOUND), id="demoted in the database, the record still an owner's"),
-            pytest.param(stored(admin_tier="owner", adresse="berta@schule.de", gefunden_am=FOUND), id="no grant at all"),
+            pytest.param(stored(admin_tier="owner", address="berta@schule.de", gefunden_am=FOUND), id="no grant at all"),
         ],
     )
     def test_a_row_holding_no_owners_tier_now_dates_none(self, row: dict[str, Any]):

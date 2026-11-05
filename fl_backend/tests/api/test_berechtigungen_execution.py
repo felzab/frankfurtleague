@@ -102,12 +102,12 @@ def _served() -> FastAPI:
     return create_app(CONFIG)
 
 
-def grant_document(grant_id: ObjectId, adresse: str, admin_tier: str) -> dict[str, Any]:
+def grant_document(grant_id: ObjectId, address: str, admin_tier: str) -> dict[str, Any]:
     """As the Playground paste writes one."""
 
     return {
         "_id": grant_id,
-        "adresse": adresse,
+        "address": address,
         "admin_tier": admin_tier,
         "granted_by": "PLAYGROUND",
         "granted_at": datetime(2026, 1, 1, tzinfo=UTC),
@@ -273,7 +273,7 @@ async def change(
 
 
 async def tiers(database: AsyncDatabase) -> dict[str, str]:
-    return {str(row["adresse"]): str(row["admin_tier"]) async for row in database[Collection.GRANTS].find()}
+    return {str(row["address"]): str(row["admin_tier"]) async for row in database[Collection.GRANTS].find()}
 
 
 async def a_second_owner(database: AsyncDatabase) -> None:
@@ -384,7 +384,7 @@ class Aborting:
 
 
 async def addresses(database: AsyncDatabase) -> list[str]:
-    return sorted([str(row["adresse"]) async for row in database[Collection.GRANTS].find()])
+    return sorted([str(row["address"]) async for row in database[Collection.GRANTS].find()])
 
 
 async def refusal_of(call: Awaitable[Any]) -> str:
@@ -426,7 +426,7 @@ def summary(notices: list[Notice]) -> list[tuple[str, str | None, str | None]]:
     for notice in notices:
         state = notice.now or notice.before
         assert state is not None
-        summarised.append((notice.art, state.adresse, notice.changed_by))
+        summarised.append((notice.art, state.address, notice.changed_by))
 
     return summarised
 
@@ -443,7 +443,7 @@ class TestWhatAGrantStoresAndOwes:
         stored = on_a_league(mongo_replica_set_url, body)
 
         assert stored == {
-            "adresse": NEU,
+            "address": NEU,
             "admin_tier": "administration",
             "granted_by": APPROVER[ANNA],
             "granted_at": NOW.astimezone(UTC).replace(tzinfo=None),
@@ -491,8 +491,8 @@ class TestAReplayOwesNothingTwice:
             mitteilung = compose_mitteilung(
                 grant_id=ANNA_ID,
                 art="changed",
-                current=FLGrantSnapshot(adresse=ANNA, admin_tier="owner"),
-                before=FLGrantSnapshot(adresse=ANNA, admin_tier="administration"),
+                current=FLGrantSnapshot(address=ANNA, admin_tier="owner"),
+                before=FLGrantSnapshot(address=ANNA, admin_tier="administration"),
                 changed_by=OWNER,
                 now=NOW,
                 barred=(),
@@ -565,7 +565,7 @@ class TestTheNoticeMovesWithItsChange:
                     await administering(BERND, lambda: approved_aborting(answer.created_id))
 
             return (
-                await database[Collection.GRANTS].count_documents({"adresse": NEU}),
+                await database[Collection.GRANTS].count_documents({"address": NEU}),
                 await database[Collection.OUTBOX].count_documents({"data.change": "granted"}),
                 await database[Collection.GRANT_APPROVAL_REQUESTS].count_documents({}),
             )
@@ -625,7 +625,7 @@ class TestTheListWithholdsABarredAddress:
             await database[Collection.BAN_LIST].insert_one(ban_document(BERND, until=STANDING))
             listed = await list_the_grants(database, client)
 
-            return [(row.adresse, row.barred, row.admin_tier) for row in listed.grants]
+            return [(row.address, row.barred, row.admin_tier) for row in listed.grants]
 
         assert on_a_league(mongo_replica_set_url, body) == [
             (ANNA, False, "administration"),
@@ -642,7 +642,7 @@ class TestTheListWithholdsABarredAddress:
             await database[Collection.BAN_LIST].insert_one(ban_document(ANNA, until=STANDING))
             listed = await list_the_grants(database, client)
 
-            return [(row.adresse, row.granted_by, row.granted_by_barred) for row in listed.grants]
+            return [(row.address, row.granted_by, row.granted_by_barred) for row in listed.grants]
 
         assert on_a_league(mongo_replica_set_url, body) == [
             (BERND, "PLAYGROUND", False),
@@ -739,8 +739,8 @@ class TestAnOwnerChangesATier:
             [
                 (
                     "changed",
-                    {"adresse": ANNA, "admin_tier": "owner"},
-                    {"adresse": ANNA, "admin_tier": "administration"},
+                    {"address": ANNA, "admin_tier": "owner"},
+                    {"address": ANNA, "admin_tier": "administration"},
                     "anwendung",
                     OWNER,
                 )
@@ -1125,7 +1125,7 @@ class TestTheComparison:
             await database[Collection.GRANTS].insert_one(grant_document(DEAD_ID, NEU, "administration"))
             answer = await compared(database, client)
 
-            return [(change.now.adresse if change.now else None, change.barred) for change in answer], [change.an for change in answer]
+            return [(change.now.address if change.now else None, change.barred) for change in answer], [change.an for change in answer]
 
         # Owed to the barred holder as to every other, whom the hand-out then stops.
         assert on_a_league(mongo_replica_set_url, body) == ([(None, True)], [sorted([OWNER, ANNA, BERND, NEU])])
@@ -1189,7 +1189,7 @@ class TestTheComparison:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[list[tuple[Any, ...]], list[Any]]:
             await told(database, client)
-            await database[Collection.GRANTS].update_one({"_id": BERND_ID}, {"$set": {"adresse": NEU}})
+            await database[Collection.GRANTS].update_one({"_id": BERND_ID}, {"$set": {"address": NEU}})
             answer = await compared(database, client)
             await database[Collection.OUTBOX].update_many({"state": "open"}, {"$set": {"state": "sent"}})
 
@@ -1200,8 +1200,8 @@ class TestTheComparison:
                     change.author,
                     change.changed_by,
                     change.geaendert_von_gesperrt,
-                    change.now.adresse if change.now else None,
-                    change.before.adresse if change.before else None,
+                    change.now.address if change.now else None,
+                    change.before.address if change.before else None,
                 )
                 for change in answer
             ], (await compared(database, client))
@@ -1244,8 +1244,8 @@ class TestTheComparison:
             return [
                 (
                     change.art,
-                    change.now.adresse if change.now else None,
-                    change.before.adresse if change.before else None,
+                    change.now.address if change.now else None,
+                    change.before.address if change.before else None,
                     change.changed_by,
                     change.geaendert_von_gesperrt,
                     change.barred,
@@ -1303,7 +1303,7 @@ class TestWhatTheComparisonStampsOnAGrant:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> dict[ObjectId, Any]:
             await told(database, client)
-            await database[Collection.GRANTS].update_one({"_id": BERND_ID}, {"$set": {"adresse": NEU}})
+            await database[Collection.GRANTS].update_one({"_id": BERND_ID}, {"$set": {"address": NEU}})
             await database[Collection.GRANTS].update_one({"_id": ANNA_ID}, {"$set": {"admin_tier": "owner"}})
             await compared(database, client, now=LATER)
 
@@ -1419,7 +1419,7 @@ Edit = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[tuple[str, int]]]
 async def an_address_changed_in_place(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, int]:
     await told(database, client)
     signed_in = int(time.time()) - 60
-    await database[Collection.GRANTS].update_one({"_id": BERND_ID}, {"$set": {"adresse": NEU}})
+    await database[Collection.GRANTS].update_one({"_id": BERND_ID}, {"$set": {"address": NEU}})
 
     return NEU, signed_in
 
@@ -1583,14 +1583,14 @@ class TestTheMountedRouteReadsTheGrants:
                 asked = await http.post(
                     f"/api/v{API_VERSION}/grants", headers=StampedHeaders(ANNA.upper(), ADMIN_KEY), json={"email": NEU_TYPED}
                 )
-                approval_request = await database[Collection.GRANT_APPROVAL_REQUESTS].find_one({"adresse": NEU})
+                approval_request = await database[Collection.GRANT_APPROVAL_REQUESTS].find_one({"address": NEU})
                 assert approval_request is not None
                 approval = await http.post(
                     f"/api/v{API_VERSION}/grants/approval_requests/{approval_request['_id']}/approval",
                     headers=StampedHeaders(BERND.upper(), ADMIN_KEY),
                 )
 
-            stored = await database[Collection.GRANTS].find_one({"adresse": NEU})
+            stored = await database[Collection.GRANTS].find_one({"address": NEU})
             [queued_row] = await queued(database)
             logged = await database[Collection.ACTION_LOG].find_one({"collection": str(Collection.GRANTS), "operation": "insert"})
 
@@ -1630,7 +1630,7 @@ class TestTheMountedRouteReadsTheGrants:
             async with app_client(mongo_replica_set_url, app=_served()) as http:
                 listed = await http.get(f"/api/v{API_VERSION}/grants", headers=StampedHeaders(ANNA, ADMIN_KEY))
 
-            [erteilt_am] = [row["granted_at"] for row in listed.json()["grants"] if row["adresse"] == NEU]
+            [erteilt_am] = [row["granted_at"] for row in listed.json()["grants"] if row["address"] == NEU]
             [notice] = await owed(database)
             assert notice.changed_at is not None
 

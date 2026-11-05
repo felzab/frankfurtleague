@@ -73,7 +73,7 @@ export const ActionLogGetActionLogEntryParams = zod.object({
  * grant nobody could approve (`address_change_no_approver`).
  * @summary Start an address change for a person who says they cannot sign in
  */
-export const addressChangePostAddressChangeAdminBodyAdresseMax = 254;
+export const addressChangePostAddressChangeAdminBodyAddressMax = 254;
 
 export const addressChangePostAddressChangeAdminBodyEmailMax = 254;
 
@@ -83,7 +83,7 @@ export const addressChangePostAddressChangeAdminBodyGrundRegExp = new RegExp("^[
 
 export const AddressChangePostAddressChangeAdminBody = zod
   .object({
-    adresse: zod.string().max(addressChangePostAddressChangeAdminBodyAdresseMax),
+    address: zod.string().max(addressChangePostAddressChangeAdminBodyAddressMax),
     email: zod.string().max(addressChangePostAddressChangeAdminBodyEmailMax),
     grund: zod.string().min(1).max(addressChangePostAddressChangeAdminBodyGrundMax).regex(addressChangePostAddressChangeAdminBodyGrundRegExp),
   })
@@ -99,21 +99,21 @@ export const AddressChangePostAddressChangeAdminBody = zod
  * address only in the answer.
  * @summary Say which address a live change would move to
  */
-export const addressChangeGetAddressChangeAdresseBodyAddressChangeIdOneRegExp = new RegExp("^[0-9a-fA-F]{24}$");
-export const addressChangeGetAddressChangeAdresseBodyTokenOneMax = 128;
+export const addressChangeGetAddressChangeAddressBodyAddressChangeIdOneRegExp = new RegExp("^[0-9a-fA-F]{24}$");
+export const addressChangeGetAddressChangeAddressBodyTokenOneMax = 128;
 
-export const addressChangeGetAddressChangeAdresseBodyTokenOneRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
+export const addressChangeGetAddressChangeAddressBodyTokenOneRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
 
-export const AddressChangeGetAddressChangeAdresseBody = zod
+export const AddressChangeGetAddressChangeAddressBody = zod
   .object({
-    address_change_id: zod.union([zod.string().regex(addressChangeGetAddressChangeAdresseBodyAddressChangeIdOneRegExp), zod.null()]).optional(),
+    address_change_id: zod.union([zod.string().regex(addressChangeGetAddressChangeAddressBodyAddressChangeIdOneRegExp), zod.null()]).optional(),
     token: zod
       .union([
         zod
           .string()
           .min(1)
-          .max(addressChangeGetAddressChangeAdresseBodyTokenOneMax)
-          .regex(addressChangeGetAddressChangeAdresseBodyTokenOneRegExp),
+          .max(addressChangeGetAddressChangeAddressBodyTokenOneMax)
+          .regex(addressChangeGetAddressChangeAddressBodyTokenOneRegExp),
         zod.null(),
       ])
       .optional(),
@@ -263,15 +263,16 @@ export const AddressChangePostAddressChangeMovesDoneBody = zod.object({
  * kept, and `address_change_ended` where it ended.
  * @summary Show what an address holds that a change moves, and its live change
  */
+export const addressChangeGetAddressChangeAdminViewBodyAddressOneMax = 254;
+
 export const addressChangeGetAddressChangeAdminViewBodyAddressChangeIdOneRegExp = new RegExp("^[0-9a-fA-F]{24}$");
-export const addressChangeGetAddressChangeAdminViewBodyAdresseOneMax = 254;
 
 export const AddressChangeGetAddressChangeAdminViewBody = zod
   .object({
+    address: zod.union([zod.string().max(addressChangeGetAddressChangeAdminViewBodyAddressOneMax), zod.null()]).optional(),
     address_change_id: zod
       .union([zod.string().regex(addressChangeGetAddressChangeAdminViewBodyAddressChangeIdOneRegExp), zod.null()])
       .optional(),
-    adresse: zod.union([zod.string().max(addressChangeGetAddressChangeAdminViewBodyAdresseOneMax), zod.null()]).optional(),
   })
   .describe("Exactly one key: the address typed, or the change a page links to.");
 
@@ -373,7 +374,7 @@ export const BewerbungenGetBewerbungenQueryParams = zod.object({
  * application it holds, stores none and owes nothing again. The same key over other details is refused
  * (`bewerbung_key_differing`).
  *
- * An address the ban list holds, on any seat, is refused (`bewerbung_adresse_barred`) on a first press.
+ * An address the ban list holds, on any seat, is refused (`bewerbung_address_barred`) on a first press.
  * @summary Submit a Bewerbung
  */
 export const bewerbungenPostBewerbungBodyKaderExpectedSizeMax = 200;
@@ -1540,7 +1541,7 @@ export const RegistrierungenSweepRegistrierungenParams = zod.object({
  *
  * Refuses, in this order: no pending registration with this id (404), no seat on its team's season
  * (`role_not_held`), a registration the pupil has not confirmed (`registrierung_unconfirmed`), an address the ban list
- * holds (`registrierung_adresse_barred`, worded to the team as neutrally as to the pupil), a Stufe the season does not offer
+ * holds (`registrierung_address_barred`, worded to the team as neutrally as to the pupil), a Stufe the season does not offer
  * (`registrierung_stufe_not_allowed`), a registration confirmed on the returning pupil's page whose address holds no stored
  * person (`registrierung_person_missing`: it carries no choice, so it admits nobody, and the pupil registers again), a
  * `spieler_id` that is not the person this registration may be admitted into (`registrierung_person_not_named`), a person
@@ -2068,7 +2069,7 @@ export const SchiedsrichterGetSchiedsrichterQueryParams = zod.object({
  * whether this person is asked, because a referee nobody asked is a name nobody consented to
  * publish. The link goes out through the Postausgang, which mints it; the answer names the address and the deadline.
  *
- * Refused `schiedsrichter_adresse_barred` where the address given is on the ban list.
+ * Refused `schiedsrichter_address_barred` where the address given is on the ban list.
  * @summary Create a Schiedsrichter
  */
 export const schiedsrichterPostSchiedsrichterBodyDefaultPaymentMin = 0;
@@ -2236,14 +2237,14 @@ export const SchiedsrichterGetSchiedsrichterByIdParams = zod.object({
  * new address, named in `confirmation`: the old link was posted to a mailbox nobody reads, and
  * leaving it live is a credential in the wrong inbox.
  *
- * **A CONFIRMED referee's address is refused here** (`schiedsrichter_adresse_only_per_change`), retired or not: it is who signs in as the
+ * **A CONFIRMED referee's address is refused here** (`schiedsrichter_address_only_per_change`), retired or not: it is who signs in as the
  * person, and moves only through an address change: the address tool, `POST /address_change`, or the person's own account page.
  * A save keeping it lands, a pending change standing.
  *
  * **A RETIRED unconfirmed referee's corrected address is stored and mails nothing**: no consent is
  * collected for a role nobody gives them. Their old link is retired all the same, and the
  * reactivation mints the fresh one. Where a link is minted, a banned new address is refused
- * `schiedsrichter_adresse_barred`. A save retiring or minting a link is refused `confirmation_required` from a
+ * `schiedsrichter_address_barred`. A save retiring or minting a link is refused `confirmation_required` from a
  * sign-in or confirmation older than `STEP_UP_WINDOW_HOURS`.
  *
  * The ghost answers 404 here as it does to every read: a name written onto it would appear on the
@@ -2289,8 +2290,8 @@ export const SchiedsrichterPatchSchiedsrichterBody = zod.object({
  *
  * Refused where the referee is retired (`schiedsrichter_retired`), where they have already
  * answered (`confirmation_exists`), where they carry no email address
- * (`schiedsrichter_no_adresse`), and where that address is on the ban list
- * (`schiedsrichter_adresse_barred`). 404 for an id no referee holds, an erased referee's among them, and
+ * (`schiedsrichter_no_address`), and where that address is on the ban list
+ * (`schiedsrichter_address_barred`). 404 for an id no referee holds, an erased referee's among them, and
  * for the ghost, which every by-id route filters out.
  *
  * **A referee who has already answered is refused rather than sent a second link**: the
@@ -2311,7 +2312,7 @@ export const SchiedsrichterInviteSchiedsrichterParams = zod.object({
  * retired referee's save stores a new address and mails nothing, so coming back is what
  * asks them. A row holding no address a link can go to comes back unasked, and so does one whose
  * person has answered. Where a link is minted, an address on the ban list is refused
- * `schiedsrichter_adresse_barred` and the row stays retired, and one from a sign-in or confirmation older than
+ * `schiedsrichter_address_barred` and the row stays retired, and one from a sign-in or confirmation older than
  * `STEP_UP_WINDOW_HOURS` is refused `confirmation_required`.
  *
  * The ghost answers 404 here too: cleared on it, the picker would offer a bookable row with no

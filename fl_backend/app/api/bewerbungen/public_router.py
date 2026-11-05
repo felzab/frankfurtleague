@@ -65,7 +65,7 @@ from app.api.bewerbungen.services import (
     saison_schule,
     saison_zustand_of,
     season_has_ended,
-    seat_adressen,
+    seat_addresses,
     seat_holding,
     seat_opens_nobody,
     seat_vorname,
@@ -75,7 +75,7 @@ from app.api.einwilligung.services import find_self_media_refusal
 from app.api.kontakte.crud import redact_the_decliner, remove_their_reasons
 from app.api.outbox.schemas import FLBewerbungObjectionData, FLBewerbungPerson
 from app.api.outbox.services import OwedMail, enqueue_mails
-from app.api.sperrliste.lookup import BanList, SperrlisteLookup, adressen_gesperrt, hashes_gesperrt, sperrliste_saison
+from app.api.sperrliste.lookup import BanList, SperrlisteLookup, barred_addresses, hashes_gesperrt, sperrliste_saison
 from app.api.spielbestaetigungen.crud import redact_seat_entries_in_images
 from app.api.spielbestaetigungen.services import kontakte_ohne, seat_void_of
 from app.api.teams.crud import void_moved_seats
@@ -304,7 +304,7 @@ async def post_bewerbung(
     application it holds, stores none and owes nothing again. The same key over other details is refused
     (`bewerbung_key_differing`).
 
-    An address the ban list holds, on any seat, is refused (`bewerbung_adresse_barred`) on a first press.
+    An address the ban list holds, on any seat, is refused (`bewerbung_address_barred`) on a first press.
     """
 
     schluessel = None if idempotency_key is None else str(idempotency_key)
@@ -455,7 +455,7 @@ async def _saison_ansicht(
     zugleich = saison_link_pair(kontakte=row.get("kontakte"), confirmations=row.get("confirmations"), seat=seat, token_hash=token_hash)
     seats = (seat,) if zugleich is None else (seat, zugleich)
 
-    barred = await adressen_gesperrt(sperrliste, seat_adressen(kontakte=row.get("kontakte"), seats=seats))
+    barred = await barred_addresses(sperrliste, seat_addresses(kontakte=row.get("kontakte"), seats=seats))
     # As the press reads it: no season is ever deleted, so a miss is a broken invariant rather than a 404.
     saison_raw = await saisons_collection.find_one({"_id": row["saison_id"]}, projection={"status": 1})
     assert saison_raw is not None
@@ -522,7 +522,7 @@ async def get_einwilligung_view(
     zugleich = paired_seat(kontakte=bewerbung_raw.get("kontakte"), confirmations=bewerbung_raw.get("confirmations"), seat=seat)
     seats = (seat,) if zugleich is None else (seat, zugleich)
 
-    barred = await adressen_gesperrt(sperrliste, seat_adressen(kontakte=bewerbung_raw.get("kontakte"), seats=seats))
+    barred = await barred_addresses(sperrliste, seat_addresses(kontakte=bewerbung_raw.get("kontakte"), seats=seats))
 
     state = zustand_of(bewerbung_raw=bewerbung_raw, seat=seat, today=today, barred=bool(barred))
     refuse(find_unknown_token_refusal(seat=None if seat_opens_nobody(slot=slot, state=state) else seat))
@@ -577,8 +577,8 @@ async def post_einwilligung(
 
     def journal_the_widerspruch(home: Collection, row: Mapping[str, Any], seat: str, seats: tuple[str, ...]) -> None:
         # Keyed on the link's own seat, whose person pressed; an emptied one holds nobody a replay could find again.
-        for adresse in seat_adressen(kontakte=row.get("kontakte"), seats=(seat,)):
-            hashed = erasure_journal_hash(adresse, key=config.sperrliste_key)
+        for address in seat_addresses(kontakte=row.get("kontakte"), seats=(seat,)):
+            hashed = erasure_journal_hash(address, key=config.sperrliste_key)
             journal.note(JournalLine(person_hash=hashed, art="objection", collection=home, record_id=row["_id"], at=at, seats=seats))
 
     async def answer_on_the_season_row(session: AsyncClientSession) -> FLSaisonTeamEinwilligungAntwortResponse:
@@ -613,8 +613,8 @@ async def post_einwilligung(
 
             # Asked at the press, however old the link, as the application's consent asks it;
             # never of the Widerspruch below.
-            barred = await adressen_gesperrt(
-                sperrliste, seat_adressen(kontakte=kontakte, seats=seats), governing_saison_id=governing_saison_id, session=session
+            barred = await barred_addresses(
+                sperrliste, seat_addresses(kontakte=kontakte, seats=seats), governing_saison_id=governing_saison_id, session=session
             )
             refuse(find_einwilligung_gesperrt_refusal(barred=bool(barred)))
             refuse(find_alter_refusal(geburtsdatum=geburtsdatum, today=today, minimum_age=mindestalter_for(seats)))
@@ -664,7 +664,7 @@ async def post_einwilligung(
         await remove_their_reasons(
             spielbestaetigungen_collection=spielbestaetigungen_collection,
             action_log_collection=action_log_collection,
-            adressen=seat_adressen(kontakte=kontakte, seats=seats),
+            addresses=seat_addresses(kontakte=kontakte, seats=seats),
             key=config.sperrliste_key,
             stamp=at,
             session=session,
@@ -676,7 +676,7 @@ async def post_einwilligung(
             action_log_collection=action_log_collection,
             collection=Collection.SAISON_TEAMS,
             row_id=row["_id"],
-            adressen=seat_adressen(kontakte=kontakte, seats=seats),
+            addresses=seat_addresses(kontakte=kontakte, seats=seats),
             stamp=at,
             session=session,
         )
@@ -730,8 +730,8 @@ async def post_einwilligung(
 
             # Asked at the press rather than only at the mint, so a ban entered after the link went out
             # stops it here. Never of the decline below: a barred person asking to be removed is not refused.
-            barred = await adressen_gesperrt(
-                sperrliste, seat_adressen(kontakte=kontakte, seats=seats), governing_saison_id=governing_saison_id, session=session
+            barred = await barred_addresses(
+                sperrliste, seat_addresses(kontakte=kontakte, seats=seats), governing_saison_id=governing_saison_id, session=session
             )
             refuse(find_einwilligung_gesperrt_refusal(barred=bool(barred)))
             # Over BOTH seats, so a Trainer who also sits in one of the other two is judged as the
@@ -778,7 +778,7 @@ async def post_einwilligung(
             action_log_collection=action_log_collection,
             collection=Collection.BEWERBUNGEN,
             row_id=bewerbung_raw["_id"],
-            adressen=seat_adressen(kontakte=kontakte, seats=seats),
+            addresses=seat_addresses(kontakte=kontakte, seats=seats),
             stamp=at,
             session=session,
         )

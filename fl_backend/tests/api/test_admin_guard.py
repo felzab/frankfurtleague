@@ -133,7 +133,7 @@ SYSTEM_WRITES = [
     ("/api/v0/outbox/sign_in", "post"),
     ("/api/v0/outbox/event", "post"),
     # A POST storing nothing, exempt for the identity reads' reason: the frontend's server asks a live change's new address.
-    ("/api/v0/address_change/adresse", "post"),
+    ("/api/v0/address_change/address", "post"),
 ]
 
 MUTATIONS = [

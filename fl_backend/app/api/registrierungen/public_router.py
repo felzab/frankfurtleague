@@ -48,7 +48,7 @@ from app.api.registrierungen.services import (
     zustand_of,
 )
 from app.api.saisons.services import has_started
-from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, hash_gesperrt, sperrliste_saison
+from app.api.sperrliste.lookup import SperrlisteLookup, barred_addresses, hash_gesperrt, sperrliste_saison
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db, post_one_to_db, pull_one_from_db, refuse
@@ -389,7 +389,7 @@ async def get_confirmation_view(
     person = await person_at_the_address(spieler_collection=spieler_collection, registrierung_raw=raw, session=None)
     seite = seite_of(registrierung_raw=raw, person_raw=person)
 
-    barred = await adressen_gesperrt(sperrliste, [str(raw.get("email") or "")])
+    barred = await barred_addresses(sperrliste, [str(raw.get("email") or "")])
 
     return FLRegistrierungConfirmationViewResponse(
         state=zustand_of(registrierung_raw=raw, today=today, barred=bool(barred)),
@@ -461,7 +461,7 @@ async def post_confirmation(
         assert geburtsdatum is not None
         # Asked at the press rather than only at the mint: a ban entered after the link went out
         # stops it here, and one lifted while it runs lets it answer again.
-        barred = await adressen_gesperrt(sperrliste, [str(raw.get("email") or "")], governing_saison_id=governing_saison_id, session=session)
+        barred = await barred_addresses(sperrliste, [str(raw.get("email") or "")], governing_saison_id=governing_saison_id, session=session)
         refuse(find_confirmation_barred_refusal(barred=bool(barred)))
         refuse(find_alter_refusal(geburtsdatum=geburtsdatum, today=today))
         refuse(find_medien_refusal(geburtsdatum=geburtsdatum, media=antwort_data.media is True, today=today))

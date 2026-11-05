@@ -96,7 +96,7 @@ async def get_subject(
     subject, barred, grant = await asyncio.gather(
         find_subject(identifier, records),
         hash_gesperrt(sperrliste, ban_key),
-        verwaltung_of(grants_collection=grants_collection, adresse=identifier, session=session),
+        verwaltung_of(grants_collection=grants_collection, address=identifier, session=session),
     )
     admin_tier, granted_since, owner_since = (None, None, None) if grant is None else grant
 
@@ -129,7 +129,7 @@ async def get_sign_in(
     sign_in, barred, grant = await asyncio.gather(
         find_sign_in(identifier, records),
         hash_gesperrt(sperrliste, ban_key),
-        verwaltung_of(grants_collection=grants_collection, adresse=identifier, session=session),
+        verwaltung_of(grants_collection=grants_collection, address=identifier, session=session),
     )
 
     return FLSignInResponse(**sign_in.model_dump(), barred=barred, admin_tier=None if grant is None else grant[0])

@@ -224,9 +224,9 @@ async def _seed(database: AsyncDatabase) -> None:
         [
             {
                 "_id": change_id,
-                **documents.address_change_document(adresse=adresse, email=NEW_ADDRESS, token_hash=hash_token(link), day=TODAY),
+                **documents.address_change_document(address=address, email=NEW_ADDRESS, token_hash=hash_token(link), day=TODAY),
             }
-            for change_id, adresse, link in (
+            for change_id, address, link in (
                 (PUPIL_CHANGE_OID, MOVING_PUPIL, PUPIL_ADDRESS_LINK),
                 (REFEREE_CHANGE_OID, MOVING_REFEREE, REFEREE_ADDRESS_LINK),
             )
@@ -896,7 +896,7 @@ class TestADiscardedChange:
 
         waiting = {
             **documents.address_change_document(
-                adresse=MOVING_PUPIL, email=NEW_ADDRESS, token_hash=hash_token(PUPIL_ADDRESS_LINK), day=TODAY, way="waiting_period"
+                address=MOVING_PUPIL, email=NEW_ADDRESS, token_hash=hash_token(PUPIL_ADDRESS_LINK), day=TODAY, way="waiting_period"
             ),
             "_id": PUPIL_CHANGE_OID,
             "valid_until": None,

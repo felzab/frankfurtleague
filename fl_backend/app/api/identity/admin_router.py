@@ -10,7 +10,7 @@ from app.api.berechtigungen.crud import read_berechtigungen, read_the_announced
 from app.api.berechtigungen.guard import verify_actor_is_admin
 from app.api.identity.crud import EACH_PERSON_GROUP, ErasureJournal, erase_everything, resolve_subject
 from app.api.identity.schemas import (
-    FLErasureAdressePayload,
+    FLErasureAddressPayload,
     FLErasurePayload,
     FLErasureResponse,
     FLErasureViewResponse,
@@ -28,7 +28,7 @@ from app.api.identity.services import (
     find_foreign_address_change_refusal,
     find_own_address_refusal,
 )
-from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt
+from app.api.sperrliste.lookup import SperrlisteLookup, barred_addresses
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import aggregate_many_from_db, post_one_to_db, refuse
 from app.core.dependencies import (
@@ -93,7 +93,7 @@ router = APIRouter(
     openapi_extra=SAFE,
 )
 async def get_erasure_view(
-    view_data: Annotated[FLErasureAdressePayload, Body()],
+    view_data: Annotated[FLErasureAddressPayload, Body()],
     saison_teams_collection: SaisonTeamsReadCollection,
     bewerbungen_collection: BewerbungenReadCollection,
     schiedsrichter_collection: SchiedsrichterReadCollection,
@@ -196,24 +196,24 @@ async def get_erasure_view(
     )
     # The stored-address judgement, as the Postausgang's hand-out judges a mail's address: an address no rule
     # keys a ban under answers false, where keying the payload's spelling would raise.
-    barred = await adressen_gesperrt(sperrliste, [view_data.email], session=session)
+    barred = await barred_addresses(sperrliste, [view_data.email], session=session)
     approval_request_rows = await read_the_antraege_of(
         grant_approval_requests_collection=grant_approval_requests_collection, identifier=identifier, now=germany_now, session=session
     )
 
     denied: dict[str, FLAddressChangeViewableDenied] = {
-        str(row["adresse"]): grund
+        str(row["address"]): grund
         for row in others_naming(subject.address_change, identifier)
         if (
             grund := address_change_viewable_denied(
-                str(row["adresse"]), actor=actor_identifier, auth_time=auth_time, grants=grants, announced=announced
+                str(row["address"]), actor=actor_identifier, auth_time=auth_time, grants=grants, announced=announced
             )
         )
         is not None
     }
     # A grant holder's change is withheld from whoever the tool refuses it, as the administrators page withholds it: named
     # here, a typed address would answer whether it is that change's new one.
-    naming = [row for row in others_naming(subject.address_change, identifier) if denied.get(str(row["adresse"])) != "admin_address"]
+    naming = [row for row in others_naming(subject.address_change, identifier) if denied.get(str(row["address"])) != "admin_address"]
     view = compose_erasure_view(
         identifier,
         saison_team_rows=subject.saison_teams,
@@ -223,14 +223,14 @@ async def get_erasure_view(
         registrierung_rows=subject.registrierungen,
         address_change_rows=naming,
         denied=denied,
-        own_address_change=next((row for row in subject.address_change if row.get("adresse") == identifier), None),
+        own_address_change=next((row for row in subject.address_change if row.get("address") == identifier), None),
         approval_request_rows=approval_request_rows,
         kader_rows=kader_rows,
         team_rows=team_rows,
         unplayed_rows=unplayed_rows,
     )
     # A live row is its own fold, so equality is the fold's judgement.
-    own = next((grant for grant in grants if grant["adresse"] == identifier), None)
+    own = next((grant for grant in grants if grant["address"] == identifier), None)
 
     return FLErasureViewResponse(**view.model_dump(), admin_tier=None if own is None else own["admin_tier"], barred=bool(barred))
 
@@ -304,7 +304,7 @@ async def post_erasure(
         )
         # Ending a live grant asks what a revoke asks. A live row is its own fold,
         # so equality is the fold's judgement.
-        if any(grant["adresse"] == identifier for grant in grants):
+        if any(grant["address"] == identifier for grant in grants):
             verify_recent_confirmation(actor)
 
         # Ahead of the erasure's first write, and in its snapshot: a retry judges the changes afresh.
@@ -322,7 +322,7 @@ async def post_erasure(
         # Ending a grant holder's change is a discard, which only an owner makes.
         refuse(
             find_foreign_address_change_refusal(
-                adressen=[str(row["adresse"]) for row in others_naming(subject.address_change, identifier)],
+                addresses=[str(row["address"]) for row in others_naming(subject.address_change, identifier)],
                 actor=actor_identifier,
                 auth_time=auth_time,
                 grants=grants,
@@ -383,7 +383,7 @@ async def post_erasure(
     dependencies=[Depends(verify_step_up)],
 )
 async def post_sign_out(
-    sign_out_data: Annotated[FLErasureAdressePayload, Body()],
+    sign_out_data: Annotated[FLErasureAddressPayload, Body()],
     action_log_collection: ActionLogCollection,
     grants_collection: GrantsCollection,
     grants_announced_collection: GrantsAnnouncedCollection,

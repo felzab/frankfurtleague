@@ -18,7 +18,7 @@ from app.api.spielbestaetigungen.services import (
     grund_to_close,
     grund_to_end,
     proposal_payload,
-    seat_adresse,
+    seat_address,
     zustand_of,
 )
 from app.api.spiele.schemas import FLSpiel
@@ -286,7 +286,7 @@ class TestTheProjectionsHoldEverythingTheJudgesRead:
 
         assert zustand_of(spielbestaetigung_raw=zeile(), lage=situation, today=TODAY, barred=False, vorschlag_offen=None) == "valid"
         ansicht_ansetzung_of(situation.spiel)
-        seat_adresse(lage=situation, spielbestaetigung_raw=zeile(), seat="trainer")
+        seat_address(lage=situation, spielbestaetigung_raw=zeile(), seat="trainer")
 
         # The premise: `entscheidung_of` read the fixture to its last test.
         assert {"ergebnis", "sonderereignis", "team2.tore", "austritt.datum"} <= spiel_seen | vereine_seen
@@ -303,7 +303,7 @@ class TestTheProjectionsHoldEverythingTheJudgesRead:
         )
 
         assert find_spent_link_refusal(spielbestaetigung_raw=zeile(), lage=situation, today=TODAY) is None
-        seat_adresse(lage=situation, spielbestaetigung_raw=zeile(), seat="trainer")
+        seat_address(lage=situation, spielbestaetigung_raw=zeile(), seat="trainer")
 
         assert {"austritt.datum", "kontakte.trainer.email"} <= vereine_seen
         projection = verein_fields(team_id=TEAM1, seat="trainer")

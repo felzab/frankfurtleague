@@ -4,8 +4,8 @@ from pydantic import SecretStr, ValidationError
 from app.api.sperrliste.schemas import FLPostSperrlistePayload
 from app.api.sperrliste.services import (
     SPERRLISTE_SCHLUESSEL_VERSION,
-    adresse_hash,
-    stored_adresse_hash,
+    address_hash,
+    stored_address_hash,
 )
 from app.shared.sub_keys import derive_sub_key
 
@@ -31,24 +31,24 @@ class TestTheStoredFormOfAnAddress:
     def test_every_spelling_of_one_address_reaches_one_row(self, typed: str):
         """The whole of what makes the ban a ban: a spelling that hashes apart is an address the list holds and does not refuse."""
 
-        assert adresse_hash(typed, key=KEY) == adresse_hash(ADDRESS, key=KEY)
+        assert address_hash(typed, key=KEY) == address_hash(ADDRESS, key=KEY)
 
     def test_another_address_reaches_another_row(self):
         """The control: a fold wide enough to collapse two people would pass every case above."""
 
-        assert adresse_hash("anna.mueller@mullerschule.de", key=KEY) != adresse_hash(ADDRESS, key=KEY)
+        assert address_hash("anna.mueller@mullerschule.de", key=KEY) != address_hash(ADDRESS, key=KEY)
 
     def test_a_stored_address_no_ban_can_key_is_barred_by_none_rather_than_refused(self):
         """The Postausgang's hand-out judges every address it holds in one read: one stored address raising would stop every mail."""
 
-        assert stored_adresse_hash("jürgen@schule.de", key=KEY) is None
-        assert stored_adresse_hash(ADDRESS, key=KEY) == adresse_hash(ADDRESS, key=KEY)
+        assert stored_address_hash("jürgen@schule.de", key=KEY) is None
+        assert stored_address_hash(ADDRESS, key=KEY) == address_hash(ADDRESS, key=KEY)
 
 
 class TestTheConstructionItself:
     """The known answer.
 
-    Every other case here compares `adresse_hash` with itself, so a construction swapped end for
+    Every other case here compares `address_hash` with itself, so a construction swapped end for
     end — the key as the message, the message as the key — passes all of them.
     """
 
@@ -60,7 +60,7 @@ class TestTheConstructionItself:
     KNOWN_DIGEST = "47becdc104b529bb0b5e03a01443193e87d6c177fbc05fec92c86bd1591bb7c4"
 
     def test_the_stored_form_is_the_value_computed_outside_this_package(self):
-        assert adresse_hash(self.KNOWN_ADDRESS, key=self.KNOWN_MASTER) == self.KNOWN_DIGEST
+        assert address_hash(self.KNOWN_ADDRESS, key=self.KNOWN_MASTER) == self.KNOWN_DIGEST
 
     @pytest.mark.parametrize("typed", ["anna@xn--mller-kva.de", "Anna@XN--MLLER-KVA.DE"], ids=["as stored", "in capitals"])
     def test_an_international_domain_keys_decoded_as_every_stored_ban_was_keyed(self, typed: str):
@@ -72,7 +72,7 @@ class TestTheConstructionItself:
         sub_key = derive_sub_key(self.KNOWN_MASTER, SPERRLISTE_SCHLUESSEL_VERSION)
         decoded = hmac.new(sub_key, "anna@müller.de".encode(), hashlib.sha256).hexdigest()
 
-        assert adresse_hash(typed, key=self.KNOWN_MASTER) == decoded
+        assert address_hash(typed, key=self.KNOWN_MASTER) == decoded
 
 
 class TestWhatTheHashRefuses:
@@ -81,13 +81,13 @@ class TestWhatTheHashRefuses:
         """Loud rather than silent: a digest over junk matches no row and reports nothing."""
 
         with pytest.raises(ValueError):
-            adresse_hash(value, key=KEY)
+            address_hash(value, key=KEY)
 
     def test_the_refusal_quotes_nothing_of_the_value(self):
         """The library's own message carries the rejected value, and this slice keeps addresses out of every traceback."""
 
         with pytest.raises(ValueError) as raised:
-            adresse_hash(f"{SECRET}-Geheim@", key=KEY)
+            address_hash(f"{SECRET}-Geheim@", key=KEY)
 
         assert SECRET.lower() not in str(raised.value).lower()
         assert raised.value.__cause__ is None

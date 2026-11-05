@@ -82,18 +82,18 @@ function joinPresent(parts, separator) {
  * The search string the public match facts hand to a map search, never a URL, as
  * `fl_backend/app/api/spielorte/admin_router.py :: _maps_link` writes it.
  */
-function mapsLink(name, adresse) {
-  const strasse = joinPresent([adresse.strasse, adresse.hausnummer], " ");
-  const ort = joinPresent([adresse.plz, adresse.stadtteil, adresse.stadt], " ");
+function mapsLink(name, address) {
+  const strasse = joinPresent([address.strasse, address.hausnummer], " ");
+  const ort = joinPresent([address.plz, address.stadtteil, address.stadt], " ");
   return `${name}, ${joinPresent([strasse, ort], ", ")}, Deutschland`;
 }
 
-function venue(name, rent, adresse, inactiveSince) {
+function venue(name, rent, address, inactiveSince) {
   return {
     _id: ObjectId(),
     name,
-    address: adresse,
-    maps_link: mapsLink(name, adresse),
+    address,
+    maps_link: mapsLink(name, address),
     default_mietpreis: rent,
     inactive_since: inactiveSince,
   };
@@ -173,9 +173,9 @@ const GRANTS = [
   ["admin.telefon@example.com", "administration"],
   ["admin.editor@example.com", "administration"],
   ["admin.verwaltung@example.com", "administration"],
-].map(([adresse, admin_tier]) => ({
+].map(([address, admin_tier]) => ({
   _id: ObjectId(),
-  adresse,
+  address,
   admin_tier,
   granted_by: "MADE-UP-SEED",
   granted_at: GRANTED_AT,
@@ -183,7 +183,7 @@ const GRANTS = [
 }));
 
 // The announced record of each, keyed by its grant's id: `fl_backend/app/api/berechtigungen/services.py :: compose_announced`.
-const ANNOUNCED = GRANTS.map(({ _id, adresse, admin_tier }) => ({ _id, adresse, admin_tier, angekuendigt_am: GRANTED_AT }));
+const ANNOUNCED = GRANTS.map(({ _id, address, admin_tier }) => ({ _id, address, admin_tier, angekuendigt_am: GRANTED_AT }));
 
 // --- Seasons -------------------------------------------------------------------------------------
 

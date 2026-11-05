@@ -25,7 +25,7 @@ from app.api.schiedsrichter.services import (
     find_unknown_token_refusal,
     zustand_of,
 )
-from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
+from app.api.sperrliste.lookup import SperrlisteLookup, barred_addresses, sperrliste_saison
 from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db, refuse
 from app.core.dependencies import (
@@ -89,7 +89,7 @@ async def get_confirmation_view(
     bestaetigung = raw[BESTAETIGUNG_FELD]
     einwilligung = raw.get(EINWILLIGUNG_FELD)
 
-    barred = await adressen_gesperrt(sperrliste, [str((raw.get("kontakt") or {}).get("email") or "")])
+    barred = await barred_addresses(sperrliste, [str((raw.get("kontakt") or {}).get("email") or "")])
 
     return FLSchiedsrichterConfirmationViewResponse(
         state=zustand_of(einwilligung=einwilligung, confirmation=bestaetigung, today=today, barred=bool(barred)),
@@ -156,7 +156,7 @@ async def post_confirmation(
         refuse(find_expired_token_refusal(frist=raw[BESTAETIGUNG_FELD]["frist"], today=today))
         # Asked at the press rather than only at the mint: a ban entered after the link went out
         # stops it here, and one lifted while it runs lets it answer again.
-        barred = await adressen_gesperrt(
+        barred = await barred_addresses(
             sperrliste, [str((raw.get("kontakt") or {}).get("email") or "")], governing_saison_id=governing_saison_id, session=session
         )
         refuse(find_confirmation_barred_refusal(barred=bool(barred)))

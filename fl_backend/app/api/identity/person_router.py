@@ -15,7 +15,7 @@ from app.api.identity.services import (
     holds_an_owner_grant,
 )
 from app.api.sperrliste.guard import PERSON_ACTOR_BINDERS, KontaktIdentifier
-from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt
+from app.api.sperrliste.lookup import SperrlisteLookup, barred_addresses
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import aggregate_many_from_db, refuse
 from app.core.dependencies import (
@@ -116,7 +116,7 @@ async def post_account_erasure(
             # Rereads this snapshot's rows and writes each, so two owners erasing themselves at once conflict, and
             # the one retried finds itself the last.
             await pull_the_list_to_judge(grants_collection=grants_collection, session=session)
-            barred = await adressen_gesperrt(sperrliste, [str(grant["adresse"]) for grant in grants], session=session)
+            barred = await barred_addresses(sperrliste, [str(grant["address"]) for grant in grants], session=session)
             refuse(find_last_owner_erasure_refusal(identifier=identifier, grants=grants, barred=barred))
 
         erased = await erase_everything(
@@ -227,12 +227,12 @@ async def get_account_erasure_view(
         # The press's own judgement, on this snapshot rather than the press's: two owners can still leave between them.
         grants = await read_berechtigungen(grants_collection=grants_collection, session=session)
         # A live row is its own fold, so equality is the fold's judgement.
-        own = next((grant for grant in grants if grant["adresse"] == identifier), None)
+        own = next((grant for grant in grants if grant["address"] == identifier), None)
         last_owner = holds_an_owner_grant(identifier, grants) and (
             find_last_owner_erasure_refusal(
                 identifier=identifier,
                 grants=grants,
-                barred=await adressen_gesperrt(sperrliste, [str(grant["adresse"]) for grant in grants], session=session),
+                barred=await barred_addresses(sperrliste, [str(grant["address"]) for grant in grants], session=session),
             )
             is not None
         )

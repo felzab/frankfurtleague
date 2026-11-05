@@ -84,10 +84,10 @@ def grants_for_the_suite() -> list[dict[str, Any]]:
             # found dates no earlier than its id, so an id minted at the
             # seed would postdate every session a case signs.
             "_id": ObjectId(ObjectId.from_datetime(pasted).binary[:4] + index.to_bytes(8, "big")),
-            "adresse": adresse,
+            "address": address,
             "admin_tier": "owner" if index == 0 else "administration",
             "granted_by": "PLAYGROUND",
             "granted_at": pasted,
         }
-        for index, adresse in enumerate(ADMINISTRATORS)
+        for index, address in enumerate(ADMINISTRATORS)
     ]

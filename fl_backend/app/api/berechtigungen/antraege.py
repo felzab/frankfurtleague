@@ -30,11 +30,11 @@ from app.shared.schemas.bounds import APPROVAL_DAYS
 from app.shared.schemas.literals import FLAdminTier, FLApprovalDenied
 
 
-def compose_antrag(*, adresse: str, admin_tier: str, grant_id: ObjectId | None, started_by: str, now: datetime) -> dict[str, Any]:
+def compose_antrag(*, address: str, admin_tier: str, grant_id: ObjectId | None, started_by: str, now: datetime) -> dict[str, Any]:
     """The whole request a grant or a promotion inserts, its `approval` the block an address change's approval keeps."""
 
     return {
-        "adresse": adresse,
+        "address": address,
         "grant_id": grant_id,
         "approval": {
             "admin_tier": admin_tier,
@@ -93,8 +93,8 @@ async def read_the_antraege_of(
     return await aggregate_many_from_db(
         collection=grant_approval_requests_collection,
         pipeline=[
-            {"$match": {"$or": [{"adresse": identifier}, {"approval.started_by": identifier}], **build_offen_filter(now)}},
-            {"$project": {"adresse": 1, "approval.admin_tier": 1, "approval.asked_at": 1}},
+            {"$match": {"$or": [{"address": identifier}, {"approval.started_by": identifier}], **build_offen_filter(now)}},
+            {"$project": {"address": 1, "approval.admin_tier": 1, "approval.asked_at": 1}},
             {"$sort": {"approval.asked_at": ASCENDING, "_id": ASCENDING}},
         ],
         session=session,
@@ -118,7 +118,7 @@ async def pull_the_antrag(
 
 
 async def clear_the_address_in_session(
-    *, grant_approval_requests_collection: AsyncCollection, adresse: str, now: datetime, session: AsyncClientSession
+    *, grant_approval_requests_collection: AsyncCollection, address: str, now: datetime, session: AsyncClientSession
 ) -> None:
     """Refuse a second request for this folded address, and remove a lapsed one the unique index would hold against it.
 
@@ -127,7 +127,7 @@ async def clear_the_address_in_session(
 
     rows = await aggregate_many_from_db(
         collection=grant_approval_requests_collection,
-        pipeline=[{"$match": {"adresse": adresse}}, {"$project": {"approval.until": 1}}],
+        pipeline=[{"$match": {"address": address}}, {"$project": {"approval.until": 1}}],
         session=session,
     )
     refuse(find_antrag_offen_refusal(open=any(ist_offen(row, now=now) for row in rows)))
@@ -209,7 +209,7 @@ async def end_the_antraege_about_in_session(
     *,
     grant_approval_requests_collection: AsyncCollection,
     outbox_collection: AsyncCollection,
-    adresse: str,
+    address: str,
     now: datetime,
     session: AsyncClientSession,
 ) -> list[Mapping[str, Any]]:
@@ -220,7 +220,7 @@ async def end_the_antraege_about_in_session(
 
     rows = await aggregate_many_from_db(
         collection=grant_approval_requests_collection,
-        pipeline=[{"$match": {"adresse": adresse}}, {"$project": {"adresse": 1, "approval": 1}}],
+        pipeline=[{"$match": {"address": address}}, {"$project": {"address": 1, "approval": 1}}],
         session=session,
     )
     for row in rows:
@@ -250,7 +250,7 @@ async def loeschen_antraege_in_session(
 
     rows = await aggregate_many_from_db(
         collection=grant_approval_requests_collection,
-        pipeline=[{"$match": {"$or": [{"adresse": identifier}, {"approval.started_by": identifier}]}}, {"$project": {"_id": 1}}],
+        pipeline=[{"$match": {"$or": [{"address": identifier}, {"approval.started_by": identifier}]}}, {"$project": {"_id": 1}}],
         session=session,
     )
     if rows:
@@ -272,7 +272,7 @@ def antrag_line(*, approval_request: Mapping[str, Any], art: AntragEndeLine, at:
     """An ended request's line, so a restore from before its end does not bring it back to be approved."""
 
     return JournalLine(
-        person_hash=erasure_journal_hash(str(approval_request["adresse"]), key=key),
+        person_hash=erasure_journal_hash(str(approval_request["address"]), key=key),
         art=art,
         collection=Collection.GRANT_APPROVAL_REQUESTS,
         record_id=approval_request["_id"],

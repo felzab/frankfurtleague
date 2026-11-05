@@ -16,8 +16,8 @@ from pydantic import SecretStr
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.saisons.crud import pull_massgebliche_saison_id
-from app.api.sperrliste.crud import address_is_gesperrt, gesperrte_adressen, gesperrte_hashes
-from app.api.sperrliste.services import adresse_hash
+from app.api.sperrliste.crud import address_is_gesperrt, gesperrte_hashes, read_barred_addresses
+from app.api.sperrliste.services import address_hash
 from app.core.config import BackendConfig, get_app_config
 from app.core.dependencies import BanListReadCollection, SaisonsReadCollection
 from app.core.readonly import ReadCollection
@@ -39,10 +39,10 @@ class BanList:
     saisons_collection: ReadCollection
     key: SecretStr
 
-    def hash_of(self, adresse: str) -> str:
+    def hash_of(self, address: str) -> str:
         """The stored form of an address a payload carries, keyed from its own spelling."""
 
-        return adresse_hash(adresse, key=self.key)
+        return address_hash(address, key=self.key)
 
 
 async def sperrliste_saison(sperrliste: BanList, *, session: AsyncClientSession | None = None) -> str | None:
@@ -55,17 +55,17 @@ async def _saison(sperrliste: BanList, saison: Saison, *, session: AsyncClientSe
     return await sperrliste_saison(sperrliste, session=session) if isinstance(saison, RunningSeason) else saison
 
 
-async def adressen_gesperrt(
+async def barred_addresses(
     sperrliste: BanList,
-    adressen: Iterable[str],
+    addresses: Iterable[str],
     *,
     session: AsyncClientSession | None = None,
     governing_saison_id: Saison = RUNNING_SEASON,
 ) -> set[str]:
-    """Which of these stored addresses a standing ban holds (`app/api/sperrliste/crud.py :: gesperrte_adressen`)."""
+    """Which of these stored addresses a standing ban holds (`app/api/sperrliste/crud.py :: read_barred_addresses`)."""
 
-    return await gesperrte_adressen(
-        adressen,
+    return await read_barred_addresses(
+        addresses,
         ban_list_collection=sperrliste.ban_list_collection,
         key=sperrliste.key,
         governing_saison_id=await _saison(sperrliste, governing_saison_id, session=session),
@@ -84,7 +84,7 @@ async def hash_gesperrt(
 
     return await address_is_gesperrt(
         ban_list_collection=sperrliste.ban_list_collection,
-        adresse_hash=hashed,
+        address_hash=hashed,
         governing_saison_id=await _saison(sperrliste, governing_saison_id, session=session),
         session=session,
     )
@@ -101,7 +101,7 @@ async def hashes_gesperrt(
 
     return await gesperrte_hashes(
         ban_list_collection=sperrliste.ban_list_collection,
-        adresse_hashes=hashes,
+        address_hashes=hashes,
         governing_saison_id=await _saison(sperrliste, governing_saison_id, session=session),
         session=session,
     )

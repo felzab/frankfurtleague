@@ -81,7 +81,7 @@ def a_change(position: int, *, minted: str, **fields: Any) -> dict[str, Any]:
 
     return {
         **documents.address_change_document(
-            adresse=on_file(position), email=pending(position), token_hash=hash_token(f"t{position}"), day=minted
+            address=on_file(position), email=pending(position), token_hash=hash_token(f"t{position}"), day=minted
         ),
         "_id": numbered(position),
         **fields,
@@ -235,7 +235,7 @@ class TestALapsedChangeEndsOnceItsDeadlinePassed:
         answer, ended, standing, held = on_a_league(mongo_replica_set_url, body)
 
         assert (answer.removed, answer.discarded, answer.effective, answer.remaining, answer.after) == (1, 0, 0, 0, None)
-        assert (ended["ended"]["art"], ended["adresse"], ended["email"]) == ("expired", None, None)
+        assert (ended["ended"]["art"], ended["address"], ended["email"]) == ("expired", None, None)
         assert standing == [numbered(2)]
         assert held == {pending(1): []}
 
@@ -373,7 +373,7 @@ class TestEachCallTakesAShare:
             positions = range(ADDRESS_CHANGE_PER_PASS + 1)
             await database[Collection.ADDRESS_CHANGES].insert_many([parked(position) for position in positions])
             await database[Collection.GRANTS].insert_many(
-                [{**grants_for_the_suite()[1], "_id": ObjectId(), "adresse": on_file(position)} for position in positions]
+                [{**grants_for_the_suite()[1], "_id": ObjectId(), "address": on_file(position)} for position in positions]
             )
             return await sweep(database, client), await live(database)
 

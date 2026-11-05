@@ -20,7 +20,7 @@ from app.api.bewerbungen.services import (
     next_saison_id,
     owed_link,
     owed_loeschung,
-    personen_mit_adresse,
+    people_with_address,
     reminder_seats,
     schule_name,
     season_after_has_ended,
@@ -218,7 +218,7 @@ async def sweep_saison(
             row["_id"]: personen
             for row, personen in batch.judged(
                 rows,
-                lambda row: personen_mit_adresse(
+                lambda row: people_with_address(
                     kontakte=row.get("kontakte"),
                     seats=reminder_seats(bewerbung_raw=row, today=today, unerreichbar=unerreichbare_seats(row=row, lagen=lagen)),
                 ),

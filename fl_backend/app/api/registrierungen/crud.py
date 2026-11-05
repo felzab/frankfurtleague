@@ -14,7 +14,7 @@ from app.api.registrierungen.services import (
     PERSON_IDENTITY_FIELDS,
     SUBMITTED,
     WITHOUT_TOKEN_HASHES,
-    build_adressen_filter,
+    build_addresses_filter,
     build_offene_filter,
     build_registrierungen_sort,
 )
@@ -41,7 +41,7 @@ async def person_at_the_address(
     """The one person `uniq_spieler_email` holds to this registration's address, matched on the folded form `spieler.email` stores."""
 
     return await spieler_collection.find_one(
-        build_adressen_filter([sign_in_identifier(str(registrierung_raw.get("email") or ""))]),
+        build_addresses_filter([sign_in_identifier(str(registrierung_raw.get("email") or ""))]),
         projection=list(PERSON_ANSICHT_FIELDS),
         session=session,
     )
@@ -85,16 +85,16 @@ async def pull_offene_registrierungen(
 
 
 async def persons_at(
-    *, spieler_collection: AsyncCollection, adressen: Sequence[str], session: AsyncClientSession | None
+    *, spieler_collection: AsyncCollection, addresses: Sequence[str], session: AsyncClientSession | None
 ) -> list[Mapping[str, Any]]:
     """The stored persons these folded addresses resolve to, one per address under `uniq_spieler_email`."""
 
-    if not adressen:
+    if not addresses:
         return []
 
     return await aggregate_many_from_db(
         collection=spieler_collection,
-        pipeline=[{"$match": build_adressen_filter(adressen)}, {"$project": {field: 1 for field in PERSON_FIELDS}}],
+        pipeline=[{"$match": build_addresses_filter(addresses)}, {"$project": {field: 1 for field in PERSON_FIELDS}}],
         session=session,
     )
 

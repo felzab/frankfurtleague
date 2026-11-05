@@ -236,7 +236,7 @@ def build_spieler_saisons_pipeline() -> list[Mapping[str, Any]]:
             "$lookup": {
                 "from": Collection.ADDRESS_CHANGES,
                 "localField": "email",
-                "foreignField": "adresse",
+                "foreignField": "address",
                 # The live change alone: a tombstone's null address would meet every pupil holding none.
                 "pipeline": [{"$match": dict(LIVE_KEYED_TERMS)}, {"$project": {"_id": 1}}],
                 "as": "address_changes",

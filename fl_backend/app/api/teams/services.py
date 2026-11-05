@@ -1332,7 +1332,7 @@ def owed_kontakt_link(
             reference=kontakt_bezug(row["_id"], seats),
             link=FLOutboxLink(
                 paths=[f"confirmations.{seat}.token_hashes" for seat in seats],
-                adressen=[f"kontakte.{seat}.email" for seat in seats],
+                addresses=[f"kontakte.{seat}.email" for seat in seats],
                 replaced=True,
             ),
         ),

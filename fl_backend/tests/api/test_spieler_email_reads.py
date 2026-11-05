@@ -115,7 +115,7 @@ async def the_gate_read(database: AsyncDatabase, client: AsyncMongoClient, regis
 async def the_references_read(database: AsyncDatabase, client: AsyncMongoClient, registrierung_id: ObjectId) -> Any:
     # The league's owner, without whom the read refuses before its answer.
     await database[Collection.GRANTS].insert_one(
-        {"_id": ObjectId(), "adresse": ANNA, "admin_tier": "owner", "granted_by": "PLAYGROUND", "granted_at": NOW}
+        {"_id": ObjectId(), "address": ANNA, "admin_tier": "owner", "granted_by": "PLAYGROUND", "granted_at": NOW}
     )
 
     return await unreferenced_of(
@@ -227,7 +227,7 @@ async def the_address_change_request(database: AsyncDatabase, client: AsyncMongo
     """The holder check, shared with the re-send, the link's view and its confirmation (`app/api/spieler/crud.py :: another_pupil_holds`)."""
 
     return await post_address_change_admin(
-        address_change_data=FLAddressChangeAdminPayload(adresse=FOLDED_EMAIL, email="thessaly.neu@beispielschule.de", grund="Ausweis gesehen"),
+        address_change_data=FLAddressChangeAdminPayload(address=FOLDED_EMAIL, email="thessaly.neu@beispielschule.de", grund="Ausweis gesehen"),
         address_changes_collection=database[Collection.ADDRESS_CHANGES],
         records=record_collections(database),
         spieler_collection=database[Collection.SPIELER],

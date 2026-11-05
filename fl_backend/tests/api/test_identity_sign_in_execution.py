@@ -219,10 +219,10 @@ async def _seed(database: AsyncDatabase) -> None:
     await database[Collection.BAN_LIST].insert_one(ban_document(BARRED, until=ACTIVE_SAISON))
     granted = datetime(2026, 1, 1, tzinfo=UTC)
     await database[Collection.GRANTS].insert_one(
-        {"_id": GRANT_OID, "adresse": ADMIN, "admin_tier": "administration", "granted_by": "PLAYGROUND", "granted_at": granted}
+        {"_id": GRANT_OID, "address": ADMIN, "admin_tier": "administration", "granted_by": "PLAYGROUND", "granted_at": granted}
     )
     await database[Collection.GRANTS_ANNOUNCED].insert_one(
-        {"_id": GRANT_OID, "adresse": ADMIN, "admin_tier": "administration", "angekuendigt_am": granted}
+        {"_id": GRANT_OID, "address": ADMIN, "admin_tier": "administration", "angekuendigt_am": granted}
     )
 
 

@@ -29,7 +29,7 @@ from app.api.outbox.services import (
     retry_update,
     row_of,
 )
-from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt
+from app.api.sperrliste.lookup import SperrlisteLookup, barred_addresses
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import patch_many_in_db, post_one_to_db, pull_many_from_db, stamp_in_db
@@ -63,7 +63,7 @@ def _link_record_filter(row: Mapping[str, Any]) -> dict[str, Any]:
 
     return {
         "_id": row["reference"]["id"],
-        **{address_path: row["an"] for address_path in link["adressen"]},
+        **{address_path: row["an"] for address_path in link["addresses"]},
         **{parent: {"$type": "object"} for parent in sorted(parents)},
     }
 
@@ -124,7 +124,7 @@ async def post_handout(
 
         # The ban is judged here, at the last moment before the send, rather than when the mail was owed.
         judged = {str(row["an"]) for row in due if row["art"] not in UNBARRED}
-        barred = await adressen_gesperrt(sperrliste, judged, session=session) if judged else set()
+        barred = await barred_addresses(sperrliste, judged, session=session) if judged else set()
         barred_ids = [row["_id"] for row in due if row["art"] not in UNBARRED and row["an"] in barred]
         dropped_ids: list[Any] = []
 
