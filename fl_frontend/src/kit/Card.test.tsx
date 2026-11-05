@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
 
-import { Card, CardLink } from "./Card";
+import { Card, CardActRow, CardLink } from "./Card";
 import { CardFold } from "./CardFold";
 import { Table } from "./Table";
 
@@ -107,6 +107,31 @@ describe("a card", () => {
     // jsdom draws no layout: the stretch is held by the root's packing, which gives spare height to no row.
     const roots = screen.getAllByRole("heading", { level: 2 }).map((heading) => heading.closest("section") ?? heading.parentElement);
     expect(roots.map((root) => root?.classList.contains("content-start"))).toEqual([true, true]);
+  });
+
+  // The owner's rule: every row that leads somewhere ends in the chevron, a row with acts too. A row whose chevron gave
+  // way to its acts looks finished on desktop and phone alike, and nothing but an eye would see the chevron gone.
+  it("ends a row in the chevron after its acts, as a row with none ends", () => {
+    render(
+      <>
+        <CardActRow
+          href="/saisons/2027"
+          name={{ record: "Helmholtzschule" }}
+          line={{ record: "Termin fehlt" }}
+          acts={<span>acts</span>}
+        />
+        <CardActRow
+          href="/saisons/2026"
+          name={{ record: "Bettinaschule" }}
+          line={{ record: "Ergebnis fehlt" }}
+        />
+      </>,
+    );
+    for (const name of ["Helmholtzschule", "Bettinaschule"]) {
+      const row = screen.getByRole("link", { name }).closest(".relative.grid");
+      expect(row?.lastElementChild?.querySelector("svg"), name).not.toBe(null);
+    }
+    expect(screen.getByText("acts").parentElement?.nextElementSibling?.querySelector("svg")).not.toBe(null);
   });
 
   it("makes a chooser's card one link, its title and line read as its name", () => {
