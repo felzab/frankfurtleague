@@ -2,8 +2,8 @@ import re
 from typing import Annotated, Final
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints
-from pydantic_core import PydanticCustomError
 
+from app.core.exceptions import rule_refusal
 from app.shared.schemas.bounds import BAN_LIST_REASON_MAX_LENGTH, SAISON_ID_LENGTH
 from app.shared.schemas.custom import SINGLE_LINE_PATTERN, CustomDateString, CustomNonEmptyString, CustomObjectId
 from app.shared.schemas.kontakt import CustomEmail
@@ -22,7 +22,7 @@ def refuse_an_address_in_the_reason(value: str) -> str:
     """
 
     if ADDRESS_IN_FREE_TEXT.search(value) is not None:
-        raise PydanticCustomError("address_in_free_text", "the text holds an email address")
+        raise rule_refusal("address_in_free_text", "the text holds an email address")
 
     return value
 

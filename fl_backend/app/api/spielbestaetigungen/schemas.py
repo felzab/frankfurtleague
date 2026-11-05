@@ -1,10 +1,10 @@
 from typing import Annotated, Literal, Self
 
 from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints, model_validator
-from pydantic_core import PydanticCustomError
 
 from app.api.outbox.schemas import FLOutboxStatus
 from app.api.spiele.schemas import FLSpielOrtFieldPublic
+from app.core.exceptions import rule_refusal
 from app.shared.schemas.actor import FLByAdmin
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SPIELBESTAETIGUNG_BEGRUENDUNG_MAX_LENGTH
 from app.shared.schemas.confirmation import CustomToken
@@ -285,7 +285,7 @@ class FLSpielbestaetigungAntwortPayload(BaseModel):
         """A 422 like every shape rule about the body: the page offers no decline without a date, and no reason beside an acceptance."""
 
         if self.antwort == "declined" and self.vorschlag is None:
-            raise PydanticCustomError("decline_without_proposal", "a decline proposes another date")
+            raise rule_refusal("decline_without_proposal", "a decline proposes another date")
 
         if self.antwort == "zugesagt" and (self.vorschlag is not None or self.begruendung is not None):
             raise ValueError("an acceptance carries no proposal and no reason")
@@ -347,7 +347,7 @@ class FLSpielbestaetigungSchiedsrichterAntwortPayload(BaseModel):
         """A 422 like every shape rule about the body: the panel offers no decline without a reason."""
 
         if self.antwort == "declined" and self.begruendung is None:
-            raise PydanticCustomError("decline_without_reason", "a decline names its reason")
+            raise rule_refusal("decline_without_reason", "a decline names its reason")
 
         if self.antwort == "zugesagt" and self.begruendung is not None:
             raise ValueError("an acceptance carries no reason")

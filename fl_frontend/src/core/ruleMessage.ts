@@ -5,7 +5,7 @@ import { dayOf } from "./format";
 import { SERVER_COPY } from "./serverCopy";
 
 import type { Copy } from "./copy";
-import type { FLRefusedField } from "./generated/client/types";
+import type { FLRefusedField, Rule } from "./generated/client/types";
 
 const { field, failure } = COPY.shared;
 
@@ -42,7 +42,7 @@ const PATTERNED = {
   // A no-show's report carries no play: the league composes its goals, and nobody scored them.
   nichtantreten_with_tore: () => field.without(COPY.shared.tore),
   nichtantreten_with_torschuetzen: () => field.without(COPY.admin.spiel.torschuetzen),
-} satisfies Readonly<Record<string, (context: Context) => Copy | undefined>>;
+} satisfies Partial<Record<Rule, (context: Context) => Copy | undefined>>;
 
 /** Every rule a refused payload can name that the catalogue words: by a pattern, or by `SERVER_COPY.ruleLine`'s sentence. */
 export type WordedRule = keyof typeof PATTERNED | keyof typeof SERVER_COPY.ruleLine;

@@ -4,10 +4,10 @@ from collections.abc import Mapping
 from typing import Annotated, Any, Final, Literal
 
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, TypeAdapter, model_validator
-from pydantic_core import PydanticCustomError
 
 from app.api.teams.schemas import FLAustritt
 from app.core.crud import Anchored
+from app.core.exceptions import rule_refusal
 from app.shared.schemas.bounds import (
     LIST_LIMIT_DEFAULT,
     LIST_LIMIT_MAX,
@@ -322,7 +322,7 @@ class FLSpielElfmeterschiessen(BaseModel):
         """Refuse a level shoot-out: the one value this field could hold and still name nobody."""
 
         if self.team1 == self.team2:
-            raise PydanticCustomError("elfmeterschiessen_without_winner", "a shoot-out ends with one side ahead")
+            raise rule_refusal("elfmeterschiessen_without_winner", "a shoot-out ends with one side ahead")
 
         return self
 

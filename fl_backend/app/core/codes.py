@@ -12,6 +12,7 @@ and `app/api/address_change/public_router.py :: post_address_change_answer` (`ad
 """
 
 from enum import StrEnum, auto
+from typing import Literal
 
 
 class Code(StrEnum):
@@ -298,3 +299,33 @@ class Code(StrEnum):
     WIRING_GRUPPE_NOT_RUN = auto()
     UNHANDLED_CRASH = auto()
     STORED_DATA_INVALID = auto()
+
+
+# Every domain rule's kind: a refused payload's field carries one where a `PydanticCustomError` broke it. Published as
+# the API's `Rule`, so the frontend's rule phrases are keyed by it as its code phrases are by `Code`. A `Literal`, not a
+# `StrEnum`: pydantic takes the error's kind as a `LiteralString`, which no enum member is. Raised through
+# `app/core/exceptions.py :: rule_refusal`, whose parameter takes nothing else.
+type Rule = Literal[
+    "address_in_free_text",
+    "bewerbung_window_ends_before_start",
+    "date_not_in_calendar",
+    "decline_without_proposal",
+    "decline_without_reason",
+    "elfmeterschiessen_without_draw",
+    "elfmeterschiessen_without_winner",
+    "email_not_accepted",
+    "ergebnis_missing_tore",
+    "good_spieler_exceed_kader",
+    "grant_wording_stale",
+    "kontakt_email_twice",
+    "kontakt_telefon_twice",
+    "nichtantreten_with_tore",
+    "nichtantreten_with_torschuetzen",
+    "registrierung_window_ends_before_start",
+    "saison_ends_before_start",
+    "saison_year_out_of_range",
+    "spieltag_ends_before_start",
+    "text_version_of_another_wording",
+    "torschuetzen_not_matching_tore",
+    "url_not_accepted",
+]

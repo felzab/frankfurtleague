@@ -5949,6 +5949,33 @@ export interface FLUndrawSpielplanResponse {
 
 export type FLWhatsappTextVersion = "2026-11-whatsapp-1";
 
+export type Rule = (typeof Rule)[keyof typeof Rule];
+
+export const Rule = {
+  address_in_free_text: "address_in_free_text",
+  bewerbung_window_ends_before_start: "bewerbung_window_ends_before_start",
+  date_not_in_calendar: "date_not_in_calendar",
+  decline_without_proposal: "decline_without_proposal",
+  decline_without_reason: "decline_without_reason",
+  elfmeterschiessen_without_draw: "elfmeterschiessen_without_draw",
+  elfmeterschiessen_without_winner: "elfmeterschiessen_without_winner",
+  email_not_accepted: "email_not_accepted",
+  ergebnis_missing_tore: "ergebnis_missing_tore",
+  good_spieler_exceed_kader: "good_spieler_exceed_kader",
+  grant_wording_stale: "grant_wording_stale",
+  kontakt_email_twice: "kontakt_email_twice",
+  kontakt_telefon_twice: "kontakt_telefon_twice",
+  nichtantreten_with_tore: "nichtantreten_with_tore",
+  nichtantreten_with_torschuetzen: "nichtantreten_with_torschuetzen",
+  registrierung_window_ends_before_start: "registrierung_window_ends_before_start",
+  saison_ends_before_start: "saison_ends_before_start",
+  saison_year_out_of_range: "saison_year_out_of_range",
+  spieltag_ends_before_start: "spieltag_ends_before_start",
+  text_version_of_another_wording: "text_version_of_another_wording",
+  torschuetzen_not_matching_tore: "torschuetzen_not_matching_tore",
+  url_not_accepted: "url_not_accepted",
+} as const;
+
 /**
  * Bad Request
  */

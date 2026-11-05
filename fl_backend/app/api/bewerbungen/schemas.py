@@ -1,10 +1,10 @@
 from typing import Annotated, Literal, Self
 
 from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints, TypeAdapter, model_validator
-from pydantic_core import PydanticCustomError
 
 from app.api.outbox.schemas import FLOutboxStatus
 from app.api.teams.schemas import FLSaisonTeamKontakte, FLSaisonTeamKontaktePayload, _KontaktpersonWritablePayload
+from app.core.exceptions import rule_refusal
 from app.shared.age import whole_years_between
 from app.shared.schemas.addresses import FLAddress, FLAddressPayload
 from app.shared.schemas.bounds import (
@@ -412,7 +412,7 @@ class FLBewerbungKaderPayload(FLBewerbungKader):
         """
 
         if self.good_spieler > self.expected_size:
-            raise PydanticCustomError("good_spieler_exceed_kader", "more strong players than the expected squad", {"max": self.expected_size})
+            raise rule_refusal("good_spieler_exceed_kader", "more strong players than the expected squad", {"max": self.expected_size})
 
         return self
 

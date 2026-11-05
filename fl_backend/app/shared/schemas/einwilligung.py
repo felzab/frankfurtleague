@@ -2,8 +2,8 @@ from collections.abc import Mapping
 from typing import Any, ClassVar, Final, Literal, TypeAliasType, get_args, get_origin
 
 from pydantic import BaseModel, ConfigDict
-from pydantic_core import PydanticCustomError
 
+from app.core.exceptions import rule_refusal
 from app.shared.einwilligung_evidence import CHOICES, FLEinwilligungChoice, TextVersions, is_given
 from app.shared.schemas.literals import FLEinwilligungScope, FLKontaktKenntnisnahmeScope
 from app.shared.schemas.responses import BaseReadModel
@@ -161,7 +161,7 @@ def refuse_a_stale_grant(text_versions: PressTextVersions, set_fields: Mapping[F
 
     stale = stale_grants(text_versions, set_fields)
     if stale:
-        raise PydanticCustomError("grant_wording_stale", "a grant names its choice's current wording", {"choice": stale[0]})
+        raise rule_refusal("grant_wording_stale", "a grant names its choice's current wording", {"choice": stale[0]})
 
 
 def cite_their_kind(evidence_set: FLEinwilligungEvidenceSet, kind: type[_TextVersions]) -> FLEinwilligungEvidenceSet:
@@ -171,9 +171,7 @@ def cite_their_kind(evidence_set: FLEinwilligungEvidenceSet, kind: type[_TextVer
         evidence = getattr(evidence_set, choice)
         receipts = [] if evidence is None else [evidence, evidence.given_before]
         if any(receipt is not None and receipt.text_version not in kind.cited(choice) for receipt in receipts):
-            raise PydanticCustomError(
-                "text_version_of_another_wording", "the evidence cites a wording its choice never shows", {"choice": choice}
-            )
+            raise rule_refusal("text_version_of_another_wording", "the evidence cites a wording its choice never shows", {"choice": choice})
 
     return evidence_set
 

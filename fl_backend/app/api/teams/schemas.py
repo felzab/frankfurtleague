@@ -16,10 +16,10 @@ from pydantic import (
     computed_field,
     model_validator,
 )
-from pydantic_core import PydanticCustomError
 
 from app.api.outbox.schemas import FLOutboxStatus
 from app.core.crud import Anchored
+from app.core.exceptions import rule_refusal
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.addresses import FLAddress, FLAddressPayload
 from app.shared.schemas.bounds import (
@@ -396,11 +396,11 @@ class FLSaisonTeamKontaktePayload(FLSaisonTeamKontakte):
         # On the sign-in fold: two seats one sign-in reaches are one identity.
         emails = [sign_in_identifier(person.email) for person in people]
         if len(set(emails)) != len(emails):
-            raise PydanticCustomError("kontakt_email_twice", "two contact persons share one email address")
+            raise rule_refusal("kontakt_email_twice", "two contact persons share one email address")
 
         telefone = [normalise_telefon(person.telefon) for person in people]
         if len(set(telefone)) != len(telefone):
-            raise PydanticCustomError("kontakt_telefon_twice", "two contact persons share one telephone number")
+            raise rule_refusal("kontakt_telefon_twice", "two contact persons share one telephone number")
 
         return self
 
