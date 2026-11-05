@@ -33,7 +33,7 @@ import type { ScoreOutcome, ScoreSide } from "@/kit/ScorePair";
 import type { TableRow } from "@/kit/Table";
 import type { EditorRecord, EditorSave } from "@/kit/useEditor";
 import type { SpielortRules } from "../../../../../spielortRules";
-import type { SpielValues } from "./spielValues";
+import type { Proposal, SpielValues } from "./spielValues";
 
 const WORDS = COPY.admin.spiel;
 const ORT = COPY.admin.spielort;
@@ -41,8 +41,8 @@ const ORT = COPY.admin.spielort;
 /** A club a knockout match's side may be given by hand, with its Kürzel; one the write would not field carries why. */
 export type Club = { id: string; name: string; shorthand: string; note?: Copy };
 
-/** The referee's proposal as „Übernehmen“ carries it into the result's fields, with the report's version it stamps. */
-export type Adoption = { version: number; text: Copy; values: Partial<SpielValues> };
+/** The referee's proposal with the line saying it, „Laut Spielbericht 3:1“, beside „Übernehmen“. */
+export type Adoption = Proposal & { text: Copy };
 
 /** A record to book, a venue or a referee, and what the match pays them unless set otherwise. */
 type Booking = { option: Option; price: number };
