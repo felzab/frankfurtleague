@@ -105,10 +105,9 @@ def token(team_id: ObjectId, seat: str, nth: int = 0) -> str:
     return f"{NAMES[team_id][0].lower()}-{seat}-{nth}"
 
 
+# As the fixture stores it, naming nothing: a club's name is joined from its season row.
 def side(team_id: ObjectId) -> dict[str, Any]:
-    name, shorthand = NAMES[team_id]
-
-    return {"team_id": team_id, "name": name, "shorthand": shorthand, "tore": None}
+    return {"team_id": team_id, "tore": None}
 
 
 def fixture(spiel_id: ObjectId = SPIEL, *, spiel_nr: int = 1, saison_id: str = SAISON_ID, **fields: Any) -> dict[str, Any]:
@@ -119,8 +118,8 @@ def fixture(spiel_id: ObjectId = SPIEL, *, spiel_nr: int = 1, saison_id: str = S
         "team2": side(TEAM2),
         "datum": DATUM,
         "uhrzeit": UHRZEIT,
-        "ort": {"spielort_id": SPIELORT, "name": "Halle Ost", "maps_link": "Halle Ost, Frankfurt", "mietpreis": 40},
-        "schiedsrichter": {"schiedsrichter_id": SCHIEDSRICHTER, "name": REFEREE, "payment": 20},
+        "ort": {"spielort_id": SPIELORT, "mietpreis": 40},
+        "schiedsrichter": {"schiedsrichter_id": SCHIEDSRICHTER, "payment": 20},
         "notiz": "Flutlicht",
     }
 
@@ -392,7 +391,7 @@ class TestAFixtureRemovedBetweenTheViewsTwoReads:
 
 
 class ReadsRecorded:
-    """A collection keeping every document its `find_one` and its `find` answered.
+    """A collection keeping every document its `find_one`, its `find` and its `aggregate` answered.
 
     Delegating rather than a stub: mongod applies the projection, and a stub would hand back whatever the handler asked for.
     """
@@ -411,6 +410,9 @@ class ReadsRecorded:
 
     def find(self, *args: Any, **kwargs: Any) -> Any:
         return _ListedInto(self._collection.find(*args, **kwargs), self.loaded)
+
+    async def aggregate(self, *args: Any, **kwargs: Any) -> Any:
+        return _ListedInto(await self._collection.aggregate(*args, **kwargs), self.loaded)
 
 
 class _ListedInto:

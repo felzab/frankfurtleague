@@ -10,7 +10,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from app.api.berechtigungen.guard import verify_actor_is_admin
 from app.api.outbox.crud import states_of
 from app.api.outbox.services import enqueue_mails
-from app.api.spielbestaetigungen.crud import anchor_the_mailboxes_told, pull_admin_rows
+from app.api.spielbestaetigungen.crud import anchor_the_mailboxes_told, pull_admin_rows, pull_named_spiele
 from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigung,
     FLSpielbestaetigungAppointment,
@@ -204,12 +204,16 @@ async def discard_spielbestaetigung(
     """
 
     async def judged(row: Mapping[str, Any], session: AsyncClientSession | None) -> Mapping[str, Any]:
-        spiel = await pull_one_from_db(
-            collection=spiele_collection,
+        # Through the name join: the notice names the clubs as the fixture fields them.
+        found = await pull_named_spiele(
+            spiele_collection=spiele_collection,
             db_filter={"_id": row["spiel_id"]},
-            projection=[*ANSETZUNG_QUELLEN.values(), "team1.name", "team2.name"],
+            projection={key: 1 for key in (*ANSETZUNG_QUELLEN.values(), "team1.name", "team2.name")},
             session=session,
         )
+        if not found:
+            raise DocumentNotFoundError()
+        spiel = found[0]
         refuse(find_verwerfen_refusal(spielbestaetigung_raw=row, spiel=spiel))
 
         return spiel

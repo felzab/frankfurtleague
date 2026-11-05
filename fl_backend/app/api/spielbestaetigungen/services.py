@@ -412,7 +412,10 @@ def stand_moved(*, spielbestaetigung_raw: Mapping[str, Any], lage: AnsetzungLage
 
 
 def ansicht_ansetzung_of(spiel: Mapping[str, Any]) -> FLSpielbestaetigungViewAnsetzung:
-    """The fixture as it stands, for a row about that very Ansetzung: every value is the fixture's, none filled in from a row."""
+    """The fixture as it stands, for a row about that very Ansetzung: every value is the fixture's, none filled in from a row.
+
+    Its names are the join's (`app/api/spielbestaetigungen/crud.py :: pull_named_spiele`): the stored fixture holds none.
+    """
 
     # Absent rather than null where a projection met a fixture without a ground.
     ort = spiel.get("ort")

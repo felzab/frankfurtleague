@@ -43,7 +43,7 @@ REFEREE = "Otto Gruber"
 
 
 def spiel(**overrides: Any) -> dict[str, Any]:
-    """A raw fixture as the collection stores it: dated, both sides, a ground and a referee."""
+    """A fixture as the name join serves it: dated, both sides, a ground and a referee; `FLSpiel` reads it as stored."""
 
     return {
         "_id": ObjectId("650000000000000000000109"),
