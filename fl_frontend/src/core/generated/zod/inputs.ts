@@ -3562,8 +3562,8 @@ export const SpieltagePatchSpieltagBody = zod.object({
 /**
  * Return one matchday by its id for the admin editor, a `future` season's included.
  *
- * Same shape as `GET /spieltage/{spieltag_id}`, without its season gate: the editor opens a
- * matchday to date it, and that happens before its season is ever activated.
+ * The shape of `GET /spieltage/{spieltag_id}`, without its season gate, plus `count_in_phase`, how many matchdays
+ * its phase holds: the editor opens a matchday to date it, and that happens before its season is ever activated.
  * @summary One Spieltag for the admin editor
  */
 export const spieltageGetSpieltagVerwaltungPathSpieltagIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");

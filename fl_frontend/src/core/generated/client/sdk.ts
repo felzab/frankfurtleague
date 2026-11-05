@@ -191,6 +191,7 @@ import type {
   FLSpielorteSingleResponse,
   FLSpielPageResponse,
   FLSpielplanResponse,
+  FLSpieltagAdminResponse,
   FLSpieltageListResponse,
   FLSpieltageSingleResponse,
   FLSpieltagWriteResponse,
@@ -4829,15 +4830,15 @@ export const getSpieltageGetSpieltagVerwaltungUrl = (spieltagId: string) => {
 /**
  * Return one matchday by its id for the admin editor, a `future` season's included.
  *
- * Same shape as `GET /spieltage/{spieltag_id}`, without its season gate: the editor opens a
- * matchday to date it, and that happens before its season is ever activated.
+ * The shape of `GET /spieltage/{spieltag_id}`, without its season gate, plus `count_in_phase`, how many matchdays
+ * its phase holds: the editor opens a matchday to date it, and that happens before its season is ever activated.
  * @summary One Spieltag for the admin editor
  */
 export const spieltageGetSpieltagVerwaltung = async (
   spieltagId: string,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLSpieltageSingleResponse> => {
-  return adminKeyTransport<FLSpieltageSingleResponse>(getSpieltageGetSpieltagVerwaltungUrl(spieltagId), {
+): Promise<FLSpieltagAdminResponse> => {
+  return adminKeyTransport<FLSpieltagAdminResponse>(getSpieltageGetSpieltagVerwaltungUrl(spieltagId), {
     ...options,
     method: "GET",
   });

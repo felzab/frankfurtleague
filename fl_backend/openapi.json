@@ -17619,6 +17619,94 @@
         "title": "FLSpieltag",
         "type": "object"
       },
+      "FLSpieltagAdmin": {
+        "description": "A matchday as its editor reads it, with how many matchdays its phase holds, by which a page names a round's legs.",
+        "properties": {
+          "beginn": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Beginn"
+          },
+          "count_in_phase": {
+            "minimum": 1.0,
+            "title": "Count In Phase",
+            "type": "integer"
+          },
+          "count_spiele": {
+            "minimum": 0.0,
+            "title": "Count Spiele",
+            "type": "integer"
+          },
+          "ende": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ende"
+          },
+          "id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "position": {
+            "minimum": 1.0,
+            "title": "Position",
+            "type": "integer"
+          },
+          "saison_id": {
+            "maxLength": 4,
+            "minLength": 4,
+            "title": "Saison Id",
+            "type": "string"
+          },
+          "saison_phase": {
+            "$ref": "#/components/schemas/FLSaisonPhase"
+          },
+          "version": {
+            "default": 0,
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "beginn",
+          "ende",
+          "position",
+          "saison_phase",
+          "saison_id",
+          "version",
+          "count_spiele",
+          "count_in_phase"
+        ],
+        "title": "FLSpieltagAdmin",
+        "type": "object"
+      },
+      "FLSpieltagAdminResponse": {
+        "properties": {
+          "spieltag": {
+            "$ref": "#/components/schemas/FLSpieltagAdmin"
+          }
+        },
+        "required": [
+          "spieltag"
+        ],
+        "title": "FLSpieltagAdminResponse",
+        "type": "object"
+      },
       "FLSpieltagWriteResponse": {
         "properties": {
           "spieltag_id": {
@@ -30460,7 +30548,7 @@
     },
     "/api/v0/spieltage/{spieltag_id}/verwaltung": {
       "get": {
-        "description": "Return one matchday by its id for the admin editor, a `future` season's included.\n\nSame shape as `GET /spieltage/{spieltag_id}`, without its season gate: the editor opens a\nmatchday to date it, and that happens before its season is ever activated.",
+        "description": "Return one matchday by its id for the admin editor, a `future` season's included.\n\nThe shape of `GET /spieltage/{spieltag_id}`, without its season gate, plus `count_in_phase`, how many matchdays\nits phase holds: the editor opens a matchday to date it, and that happens before its season is ever activated.",
         "operationId": "spieltage_get_spieltag_verwaltung",
         "parameters": [
           {
@@ -30479,7 +30567,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLSpieltageSingleResponse"
+                  "$ref": "#/components/schemas/FLSpieltagAdminResponse"
                 }
               }
             },

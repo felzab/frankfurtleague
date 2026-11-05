@@ -10,10 +10,10 @@ from app.api.berechtigungen.guard import verify_actor_is_admin
 from app.api.saisons.crud import pull_saison_id_and_rules
 from app.api.spieltage.schemas import (
     FLPatchSpieltagPayload,
-    FLSpieltag,
+    FLSpieltagAdmin,
+    FLSpieltagAdminResponse,
     FLSpieltageFilterParams,
     FLSpieltageListResponse,
-    FLSpieltageSingleResponse,
     FLSpieltagListAdapter,
     FLSpieltagWriteResponse,
 )
@@ -85,27 +85,32 @@ async def get_spieltage_verwaltung(
 # public router owns that path at this same prefix, so whichever router registered first would answer both.
 @router.get(
     f"{by_id('spieltag_id')}/verwaltung",
-    response_model=FLSpieltageSingleResponse,
+    response_model=FLSpieltagAdminResponse,
     summary="One Spieltag for the admin editor",
 )
 async def get_spieltag_verwaltung(
     spieltag_id: CustomRouteObjectId,
     spieltage_collection: SpieltageCollection,
     saisons_collection: SaisonsCollection,
-) -> FLSpieltageSingleResponse:
+) -> FLSpieltagAdminResponse:
     """
     Return one matchday by its id for the admin editor, a `future` season's included.
 
-    Same shape as `GET /spieltage/{spieltag_id}`, without its season gate: the editor opens a
-    matchday to date it, and that happens before its season is ever activated.
+    The shape of `GET /spieltage/{spieltag_id}`, without its season gate, plus `count_in_phase`, how many matchdays
+    its phase holds: the editor opens a matchday to date it, and that happens before its season is ever activated.
     """
 
     spieltag_raw = await pull_one_from_db(collection=spieltage_collection, db_filter={"_id": spieltag_id})
 
     # Its OWN season, as the base read resolves it: `count_spiele` derives from that season's rules.
     _, rules = await pull_saison_id_and_rules(saisons_collection=saisons_collection, saison_id=str(spieltag_raw["saison_id"]))
+    count_in_phase = await spieltage_collection.count_documents(
+        {"saison_id": spieltag_raw["saison_id"], "saison_phase": spieltag_raw["saison_phase"]}
+    )
 
-    return FLSpieltageSingleResponse(spieltag=FLSpieltag.model_validate(with_expected_matches(spieltag_raw, rules)))
+    return FLSpieltagAdminResponse(
+        spieltag=FLSpieltagAdmin.model_validate({**with_expected_matches(spieltag_raw, rules), "count_in_phase": count_in_phase})
+    )
 
 
 async def _refuse_an_out_of_order_beginn(

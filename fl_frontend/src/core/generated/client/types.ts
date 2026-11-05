@@ -5993,6 +5993,33 @@ export interface FLSpieltag {
   version: number;
 }
 
+/**
+ * A matchday as its editor reads it, with how many matchdays its phase holds, by which a page names a round's legs.
+ */
+export interface FLSpieltagAdmin {
+  beginn: string | null;
+  /** @minimum 1 */
+  count_in_phase: number;
+  /** @minimum 0 */
+  count_spiele: number;
+  ende: string | null;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  id: string;
+  /** @minimum 1 */
+  position: number;
+  /**
+   * @minLength 4
+   * @maxLength 4
+   */
+  saison_id: string;
+  saison_phase: FLSaisonPhase;
+  version: number;
+}
+
+export interface FLSpieltagAdminResponse {
+  spieltag: FLSpieltagAdmin;
+}
+
 export interface FLSpieltagWriteResponse {
   /** @pattern ^[0-9a-fA-F]{24}$ */
   spieltag_id: string;
