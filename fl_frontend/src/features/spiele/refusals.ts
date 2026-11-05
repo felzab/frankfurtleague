@@ -54,15 +54,7 @@ export function mapSpielRefusal(error: unknown): { error?: string; fieldErrors?:
       }),
     };
   }
-  // Never on the picker: the draft's own choice is not at fault, the slot moved under it.
-  if (error.serverErrorCode === "booking_schiedsrichter_moved") {
-    return {
-      error: buildRefusal({
-        reason: "Die Schiedsrichtereinteilung dieses Spiels hat sich geändert, seit Du es geöffnet hast, etwa weil die Person abgesagt hat",
-        repair: "Lade die Seite neu und trage Deine Änderung dort erneut ein",
-      }),
-    };
-  }
+
   if (error.serverErrorCode === "spiel_double_booked") {
     return {
       error: buildRefusal({

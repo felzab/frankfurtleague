@@ -142,7 +142,6 @@ type Lane<Schema extends z.ZodType, Value> = AdminLane<Schema, Value> | PersonLa
 const STALE: ReadonlySet<Code> = new Set<Code>([
   "document_not_found",
   "version_stale",
-  "booking_schiedsrichter_moved",
   "wiring_unsupported",
   "wiring_seed_past_the_opening_round",
   "wiring_gruppe_not_run",

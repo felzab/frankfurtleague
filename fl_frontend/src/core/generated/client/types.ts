@@ -85,7 +85,6 @@ export const Code = {
   bewerbung_seat_differently_seated: "bewerbung_seat_differently_seated",
   booking_unknown_resource: "booking_unknown_resource",
   booking_unconfirmed_schiedsrichter: "booking_unconfirmed_schiedsrichter",
-  booking_schiedsrichter_moved: "booking_schiedsrichter_moved",
   spiel_double_booked: "spiel_double_booked",
   spiel_outside_spieltag: "spiel_outside_spieltag",
   spieltag_outside_saison: "spieltag_outside_saison",
@@ -3944,14 +3943,13 @@ export interface FLPatchSpielDataPayload {
   notiz: string | null;
   ort: FLSpielOrtFieldPayload | null;
   schiedsrichter: FLSpielSchiedsrichterFieldPayload | null;
-  schiedsrichter_stand: string | null;
   sonderereignis: FLSonderereignis | null;
   team1: FLSpielTeamFieldPayload | null;
   team1_quelle: FLSpielQuelle | null;
   team2: FLSpielTeamFieldPayload | null;
   team2_quelle: FLSpielQuelle | null;
   uhrzeit: string | null;
-  version?: number | null;
+  version: number;
 }
 
 /**
@@ -4899,6 +4897,102 @@ export interface FLSperrlisteWriteResponse {
   sperrliste_id: string;
 }
 
+export type FLSpielberichtVorschlagSonderereignis =
+  (typeof FLSpielberichtVorschlagSonderereignis)[keyof typeof FLSpielberichtVorschlagSonderereignis] | null;
+
+export const FLSpielberichtVorschlagSonderereignis = {
+  abgebrochen: "abgebrochen",
+  nichtantreten_team1: "nichtantreten_team1",
+  nichtantreten_team2: "nichtantreten_team2",
+} as const;
+
+/**
+ * The referee's proposed result, which only the administrator's own save applies.
+ *
+ * Both counts null on a no-show alone: the save composes its goals from the season's forfeit, which typed goals
+ * could never equal.
+ */
+export interface FLSpielberichtVorschlag {
+  elfmeterschiessen: FLSpielElfmeterschiessen | null;
+  sonderereignis: FLSpielberichtVorschlagSonderereignis;
+  team1_tore: number | null;
+  team2_tore: number | null;
+}
+
+/**
+ * A pupil a report may name or names, with the names their record holds, both null where an erasure took the record.
+ */
+export interface FLSpielberichtSpieler {
+  nachname: string | null;
+  nummer: string | null;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  spieler_id: string;
+  vorname: string | null;
+}
+
+/**
+ * The clubs the fixture fielded at the block's last write, null on a slot then open.
+ *
+ * Stamped by every write and on no payload: entries go by side, and a knockout correction can re-field one.
+ */
+export interface FLSpielberichtSeiten {
+  team1: string | null;
+  team2: string | null;
+}
+
+/**
+ * One goal. A null `spieler_id` is a scorer nobody named and nothing else: an erasure never nulls an entry, which would read as one.
+ */
+export interface FLSpielberichtTorschuetze {
+  eigentor: boolean;
+  /** @pattern ^[0-9]{1,3}(\+[0-9]{1,2})?$ */
+  minute: string;
+  seite: FLSpielSeite;
+  spieler_id: string | null;
+}
+
+/**
+ * The fixture's report as the editor's Spielbericht section shows it: its goals and the result they propose.
+ *
+ * `version` is the one an adoption names (`adopts_bericht`), `seiten` the clubs the report is about, and `named`
+ * each pupil a goal names, by the names their record holds.
+ */
+export interface FLSpielEditorBericht {
+  ergebnis_vorschlag: FLSpielberichtVorschlag;
+  named: FLSpielberichtSpieler[];
+  seiten: FLSpielberichtSeiten;
+  state: FLSpielberichtState;
+  torschuetzen: FLSpielberichtTorschuetze[];
+  version: number;
+}
+
+/**
+ * A referee the editor offers: their whole name, the fee they default to, whether they confirmed their entry, and the day they retired.
+ */
+export interface FLSpielEditorSchiedsrichter {
+  confirmed: boolean;
+  /** @minimum 0 */
+  default_payment: number;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  id: string;
+  inactive_since: string | null;
+  /** @minLength 1 */
+  name: string;
+}
+
+/**
+ * A venue the editor offers: its name, the rent it defaults to, and the day it retired, null while it serves.
+ */
+export interface FLSpielEditorSpielort {
+  /** @minimum 0 */
+  default_mietpreis: number;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  id: string;
+  inactive_since: string | null;
+  /** @minLength 1 */
+  name: string;
+}
+
 /**
  * One pupil an entry names, as the base tier serves them; no record id (`READ-PUPIL-005`).
  *
@@ -4992,28 +5086,6 @@ export const FLSpielStatus = {
   unknown: "unknown",
 } as const;
 
-export type FLSpielberichtVorschlagSonderereignis =
-  (typeof FLSpielberichtVorschlagSonderereignis)[keyof typeof FLSpielberichtVorschlagSonderereignis] | null;
-
-export const FLSpielberichtVorschlagSonderereignis = {
-  abgebrochen: "abgebrochen",
-  nichtantreten_team1: "nichtantreten_team1",
-  nichtantreten_team2: "nichtantreten_team2",
-} as const;
-
-/**
- * The referee's proposed result, which only the administrator's own save applies.
- *
- * Both counts null on a no-show alone: the save composes its goals from the season's forfeit, which typed goals
- * could never equal.
- */
-export interface FLSpielberichtVorschlag {
-  elfmeterschiessen: FLSpielElfmeterschiessen | null;
-  sonderereignis: FLSpielberichtVorschlagSonderereignis;
-  team1_tore: number | null;
-  team2_tore: number | null;
-}
-
 /**
  * One card as stored, its reason null on a red card and on every card once the end of the season after the match strips the reasons.
  */
@@ -5027,31 +5099,10 @@ export interface FLSpielberichtKarte {
   spieler_id: string;
 }
 
-/**
- * The clubs the fixture fielded at the block's last write, null on a slot then open.
- *
- * Stamped by every write and on no payload: entries go by side, and a knockout correction can re-field one.
- */
-export interface FLSpielberichtSeiten {
-  team1: string | null;
-  team2: string | null;
-}
-
 export interface FLSpielberichtVonSchiedsrichter {
   art: "schiedsrichter";
   /** @pattern ^[0-9a-fA-F]{24}$ */
   schiedsrichter_id: string;
-}
-
-/**
- * One goal. A null `spieler_id` is a scorer nobody named and nothing else: an erasure never nulls an entry, which would read as one.
- */
-export interface FLSpielberichtTorschuetze {
-  eigentor: boolean;
-  /** @pattern ^[0-9]{1,3}(\+[0-9]{1,2})?$ */
-  minute: string;
-  seite: FLSpielSeite;
-  spieler_id: string | null;
 }
 
 /**
@@ -5073,17 +5124,6 @@ export interface FLSpielberichtBericht {
   submitted_by: FLSpielberichtVonSchiedsrichter | FLByAdmin;
   torschuetzen: FLSpielberichtTorschuetze[];
   version: number;
-}
-
-/**
- * A pupil a report may name or names, with the names their record holds, both null where an erasure took the record.
- */
-export interface FLSpielberichtSpieler {
-  nachname: string | null;
-  nummer: string | null;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  spieler_id: string;
-  vorname: string | null;
 }
 
 /**
@@ -5527,14 +5567,18 @@ export interface FLSpieleAdminListResponse {
 }
 
 /**
- * One fixture for the admin editor, money included, and its season's status.
+ * One fixture for the match editor, money and `version` included, and all its sections offer and show beside it.
  *
- * On the response rather than on the fixture: the editor alone asks it, to open a finished season's match
- * read-only, which the save refuses (`saison_past`), and a fixture carries no season-scoped state.
+ * `saison_status` on the response rather than on the fixture: the editor alone asks it, to open a finished season's
+ * match read-only, which the save refuses (`saison_past`), and a fixture carries no season-scoped state.
  */
 export interface FLSpieleAdminSingleResponse {
   saison_status: FLSaisonStatus;
+  schiedsrichter: FLSpielEditorSchiedsrichter[];
   spiel: FLSpielJoinedAdmin;
+  spielbericht: FLSpielEditorBericht | null;
+  spielbestaetigungen: FLSpielbestaetigung[];
+  spielorte: FLSpielEditorSpielort[];
 }
 
 export interface FLSpieleSingleResponse {

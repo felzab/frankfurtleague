@@ -4020,8 +4020,13 @@ export const getSpieleGetSpielVerwaltungUrl = (spielId: string) => {
 };
 
 /**
- * Return one match in the admin shape, money included, for the editor, with its season's status.
- * @summary One Spiel for the admin editor
+ * The match editor's one read: the fixture in the admin shape, money and `version` included, and its season's status.
+ *
+ * Beside it every live venue and referee to book, the fixture's own where it has retired, each referee saying whether
+ * they confirmed their entry; the fixture's report as its Spielbericht section shows it, its goals, its proposal and
+ * the state it reads in, null where none stands; and the fixture's confirmation rows as the confirmations' read serves
+ * them. `document_not_found` for an id no fixture holds.
+ * @summary One Spiel and all the match editor offers and shows beside it
  */
 export const spieleGetSpielVerwaltung = async (
   spielId: string,

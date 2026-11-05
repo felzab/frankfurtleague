@@ -1288,22 +1288,6 @@ def find_new_bookings(stored: FLSpiel, payload: FLPatchSpielDataPayload, rules: 
     )
 
 
-def find_referee_stand_refusal(stored: FLSpiel, payload: FLPatchSpielDataPayload) -> WriteRefusal | None:
-    """`booking_schiedsrichter_moved`: the payload keeps the referee its editor was served, and the fixture books another or none since.
-
-    Never a payload naming another referee or none, a decision about the slot as it stands.
-    """
-
-    held = _chosen_references(stored).schiedsrichter_id
-    if held == payload.schiedsrichter_stand or _chosen_references(payload).schiedsrichter_id != payload.schiedsrichter_stand:
-        return None
-
-    return WriteRefusal(
-        error_code=Code.BOOKING_SCHIEDSRICHTER_MOVED,
-        status=HTTPStatus.CONFLICT,
-    )
-
-
 # Where the save's payload holds each resource: a refusal about one names it, so the editor marks that field.
 RESOURCE_PATHS: Final[Mapping[Literal["Spielort", "Schiedsrichter"], FieldPath]] = {
     "Spielort": ("ort", "spielort_id"),

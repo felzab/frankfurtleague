@@ -2885,7 +2885,6 @@ export const spielePatchSpielBodyOrtOneSpielortIdRegExp = new RegExp("^[0-9a-fA-
 export const spielePatchSpielBodySchiedsrichterOnePaymentMin = 0;
 
 export const spielePatchSpielBodySchiedsrichterOneSchiedsrichterIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
-export const spielePatchSpielBodySchiedsrichterStandOneRegExp = new RegExp("^[0-9a-fA-F]{24}$");
 export const spielePatchSpielBodyTeam1OneTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
 export const spielePatchSpielBodyTeam1OneToreOneMin = 0;
 
@@ -2937,7 +2936,6 @@ export const SpielePatchSpielBody = zod.object({
       .describe("The referee as the save sends it: who, and what this fixture pays them."),
     zod.null(),
   ]),
-  schiedsrichter_stand: zod.union([zod.string().regex(spielePatchSpielBodySchiedsrichterStandOneRegExp), zod.null()]),
   sonderereignis: zod.union([zod.enum(["ausgefallen", "nichtantreten_team1", "nichtantreten_team2", "abgebrochen", "annulliert"]), zod.null()]),
   team1: zod.union([
     zod
@@ -3004,12 +3002,17 @@ export const SpielePatchSpielBody = zod.object({
     zod.null(),
     zod.string().regex(spielePatchSpielBodyUhrzeitThreeRegExp),
   ]),
-  version: zod.union([zod.int(), zod.null()]).optional(),
+  version: zod.int(),
 });
 
 /**
- * Return one match in the admin shape, money included, for the editor, with its season's status.
- * @summary One Spiel for the admin editor
+ * The match editor's one read: the fixture in the admin shape, money and `version` included, and its season's status.
+ *
+ * Beside it every live venue and referee to book, the fixture's own where it has retired, each referee saying whether
+ * they confirmed their entry; the fixture's report as its Spielbericht section shows it, its goals, its proposal and
+ * the state it reads in, null where none stands; and the fixture's confirmation rows as the confirmations' read serves
+ * them. `document_not_found` for an id no fixture holds.
+ * @summary One Spiel and all the match editor offers and shows beside it
  */
 export const spieleGetSpielVerwaltungPathSpielIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
 

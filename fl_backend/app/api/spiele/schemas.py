@@ -29,7 +29,6 @@ from app.shared.schemas.literals import (
     FLAustrittType,
     FLGruppenNames,
     FLSaisonPhase,
-    FLSaisonStatus,
     FLSonderereignis,
     FLSortOrder,
     FLSpielSeite,
@@ -531,13 +530,9 @@ class FLPatchSpielDataPayload(BaseModel):
     # The bound is the log row's ceiling (`app/shared/schemas/bounds.py`), no read model's business.
     notiz: str | None = Field(max_length=SPIEL_NOTIZ_MAX_LENGTH)
 
-    # A precondition, written nowhere: the referee the editor was served, null for an empty slot. Required with no
-    # default, as `kontakte_stand` is: an omitted precondition judges nothing
-    # (`app/api/spiele/services.py :: find_referee_stand_refusal`).
-    schiedsrichter_stand: CustomObjectId | None
-
-    # The `version` the editor was served; absent, as the old form sends it, the save is checked against nothing.
-    version: int | None = None
+    # The `version` the editor was served, with no default: the save is refused once another write has raised it
+    # (`version_stale`), a referee's decline emptying the slot among them.
+    version: int
 
     @model_validator(mode="before")
     @classmethod
@@ -547,9 +542,9 @@ class FLPatchSpielDataPayload(BaseModel):
         return data
 
 
-# What the wholesale save writes: the payload's fields, its two preconditions apart. `version` reaches the write from the
+# What the wholesale save writes: the payload's fields, its precondition apart. `version` reaches the write from the
 # payload alone: the composed fixture carries the stored one, against which every save would pass.
-SPIEL_PATCH_WRITTEN_FIELDS: Final = frozenset(FLPatchSpielDataPayload.model_fields) - {"schiedsrichter_stand", "version"}
+SPIEL_PATCH_WRITTEN_FIELDS: Final = frozenset(FLPatchSpielDataPayload.model_fields) - {"version"}
 
 
 # The stored and the served shapes both extend THIS rather than one extending the other: they differ
@@ -696,17 +691,6 @@ class FLSpieleAdminListResponse(BaseAPIResponse):
 
 class FLSpieleSingleResponse(BaseAPIResponse):
     spiel: FLSpielJoined
-
-
-class FLSpieleAdminSingleResponse(BaseAPIResponse):
-    """One fixture for the admin editor, money included, and its season's status.
-
-    On the response rather than on the fixture: the editor alone asks it, to open a finished season's match
-    read-only, which the save refuses (`saison_past`), and a fixture carries no season-scoped state.
-    """
-
-    spiel: FLSpielJoinedAdmin
-    saison_status: FLSaisonStatus
 
 
 # Private for `_BracketFault`'s reason: the reports state the destroyed result once.

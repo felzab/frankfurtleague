@@ -394,7 +394,7 @@ def proposal_payload(stored: FLSpiel, vorschlag: FLSpielbestaetigungAppointment)
         ),
         # No judge reads the note.
         notiz=None,
-        schiedsrichter_stand=None if stored.schiedsrichter is None else stored.schiedsrichter.schiedsrichter_id,
+        version=stored.version,
     )
 
 

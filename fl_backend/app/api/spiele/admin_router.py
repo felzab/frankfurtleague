@@ -11,13 +11,12 @@ from app.api.spiele.crud import (
     preview_spiel_save,
     save_spiel_in_session,
 )
+from app.api.spiele.editor import FLSpieleAdminSingleResponse, read_spiel_editor
 from app.api.spiele.schemas import (
     FLPatchSpielDataPayload,
     FLPatchSpielDataResponse,
     FLSpieleAdminListResponse,
-    FLSpieleAdminSingleResponse,
     FLSpieleFilterParams,
-    FLSpielJoinedAdmin,
     FLSpielJoinedAdminListAdapter,
 )
 from app.api.spiele.services import (
@@ -26,21 +25,24 @@ from app.api.spiele.services import (
     build_spiele_sort,
 )
 from app.core.config import API_VERSION
-from app.core.crud import aggregate_many_from_db, pull_one_from_db
+from app.core.crud import aggregate_many_from_db
 from app.core.dependencies import (
     DBClient,
+    OutboxCollection,
     SaisonsCollection,
+    SaisonSpielerCollection,
     SaisonTeamsCollection,
     SchiedsrichterCollection,
     SpielberichteCollection,
+    SpielbestaetigungenCollection,
     SpieleCollection,
+    SpielerCollection,
     SpielorteCollection,
     SpieltageCollection,
     TeamsCollection,
     get_german_date_str,
     get_germany_now,
 )
-from app.core.exceptions import DocumentNotFoundError
 from app.core.routing import SAFE_WHEN, by_id
 from app.core.security import bind_actor, verify_access_admin
 from app.core.transactions import transaction_session
@@ -94,25 +96,41 @@ async def get_spiele_verwaltung(
 @router.get(
     f"{by_id('spiel_id')}/verwaltung",
     response_model=FLSpieleAdminSingleResponse,
-    summary="One Spiel for the admin editor",
+    summary="One Spiel and all the match editor offers and shows beside it",
 )
 async def get_spiel_verwaltung(
-    spiel_id: CustomRouteObjectId, spiele_collection: SpieleCollection, saisons_collection: SaisonsCollection
+    spiel_id: CustomRouteObjectId,
+    spiele_collection: SpieleCollection,
+    saisons_collection: SaisonsCollection,
+    spielorte_collection: SpielorteCollection,
+    schiedsrichter_collection: SchiedsrichterCollection,
+    saison_spieler_collection: SaisonSpielerCollection,
+    spieler_collection: SpielerCollection,
+    spielberichte_collection: SpielberichteCollection,
+    spielbestaetigungen_collection: SpielbestaetigungenCollection,
+    outbox_collection: OutboxCollection,
 ) -> FLSpieleAdminSingleResponse:
-    """Return one match in the admin shape, money included, for the editor, with its season's status."""
+    """
+    The match editor's one read: the fixture in the admin shape, money and `version` included, and its season's status.
 
-    spiele_raw = await aggregate_many_from_db(
-        collection=spiele_collection,
-        pipeline=build_spiele_pipeline(db_filter={"_id": spiel_id}),
-        limit=1,
+    Beside it every live venue and referee to book, the fixture's own where it has retired, each referee saying whether
+    they confirmed their entry; the fixture's report as its Spielbericht section shows it, its goals, its proposal and
+    the state it reads in, null where none stands; and the fixture's confirmation rows as the confirmations' read serves
+    them. `document_not_found` for an id no fixture holds.
+    """
+
+    return await read_spiel_editor(
+        spiel_id=spiel_id,
+        spiele_collection=spiele_collection,
+        saisons_collection=saisons_collection,
+        spielorte_collection=spielorte_collection,
+        schiedsrichter_collection=schiedsrichter_collection,
+        saison_spieler_collection=saison_spieler_collection,
+        spieler_collection=spieler_collection,
+        spielberichte_collection=spielberichte_collection,
+        spielbestaetigungen_collection=spielbestaetigungen_collection,
+        outbox_collection=outbox_collection,
     )
-    if not spiele_raw:
-        raise DocumentNotFoundError()
-
-    spiel = FLSpielJoinedAdmin.model_validate(spiele_raw[0])
-    # Read as the save's judgement reads it, so the editor opens read-only on exactly the season the write refuses.
-    saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": spiel.saison_id}, projection=["status"])
-    return FLSpieleAdminSingleResponse(spiel=spiel, saison_status=saison_raw["status"])
 
 
 async def previewing(

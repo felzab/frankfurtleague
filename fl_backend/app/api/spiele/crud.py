@@ -50,7 +50,6 @@ from app.api.spiele.services import (
     find_eligibility_refusal,
     find_fixture_date_refusal,
     find_gruppen_not_run,
-    find_referee_stand_refusal,
     find_references_to_anchor,
     find_result_removal_refusal,
     find_retired_bookings,
@@ -731,10 +730,6 @@ async def _judge_spiel_save(
     )
     # Before the clash: whether a ground exists at all is more basic than who else is on it.
     refuse(find_booking_refusal(spiel_id, payload, season, resolved, rules))
-
-    # Off the slice this transaction judges, so a save retried after a referee's decline conflicted with it meets the
-    # slot the decline left; after the booking refusal, which names an erased referee as its own case.
-    refuse(find_referee_stand_refusal(stored, payload))
 
     # Read last, before the one rule it feeds: it spans every season's fixtures.
     booked = await pull_booked_slots(

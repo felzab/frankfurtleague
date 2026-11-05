@@ -197,7 +197,6 @@
           "bewerbung_seat_differently_seated",
           "booking_unknown_resource",
           "booking_unconfirmed_schiedsrichter",
-          "booking_schiedsrichter_moved",
           "spiel_double_booked",
           "spiel_outside_spieltag",
           "spieltag_outside_saison",
@@ -9185,18 +9184,6 @@
               }
             ]
           },
-          "schiedsrichter_stand": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9a-fA-F]{24}$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Schiedsrichter Stand"
-          },
           "sonderereignis": {
             "anyOf": [
               {
@@ -9264,15 +9251,8 @@
             "title": "Uhrzeit"
           },
           "version": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Version"
+            "title": "Version",
+            "type": "integer"
           }
         },
         "required": [
@@ -9287,7 +9267,7 @@
           "ort",
           "schiedsrichter",
           "notiz",
-          "schiedsrichter_stand"
+          "version"
         ],
         "title": "FLPatchSpielDataPayload",
         "type": "object"
@@ -12867,6 +12847,133 @@
         "title": "FLSpielAdvancement",
         "type": "object"
       },
+      "FLSpielEditorBericht": {
+        "description": "The fixture's report as the editor's Spielbericht section shows it: its goals and the result they propose.\n\n`version` is the one an adoption names (`adopts_bericht`), `seiten` the clubs the report is about, and `named`\neach pupil a goal names, by the names their record holds.",
+        "properties": {
+          "ergebnis_vorschlag": {
+            "$ref": "#/components/schemas/FLSpielberichtVorschlag"
+          },
+          "named": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielberichtSpieler"
+            },
+            "title": "Named",
+            "type": "array"
+          },
+          "seiten": {
+            "$ref": "#/components/schemas/FLSpielberichtSeiten"
+          },
+          "state": {
+            "$ref": "#/components/schemas/FLSpielberichtState"
+          },
+          "torschuetzen": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielberichtTorschuetze"
+            },
+            "title": "Torschuetzen",
+            "type": "array"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "state",
+          "version",
+          "ergebnis_vorschlag",
+          "seiten",
+          "torschuetzen",
+          "named"
+        ],
+        "title": "FLSpielEditorBericht",
+        "type": "object"
+      },
+      "FLSpielEditorSchiedsrichter": {
+        "description": "A referee the editor offers: their whole name, the fee they default to, whether they confirmed their entry, and the day they retired.",
+        "properties": {
+          "confirmed": {
+            "title": "Confirmed",
+            "type": "boolean"
+          },
+          "default_payment": {
+            "minimum": 0.0,
+            "title": "Default Payment",
+            "type": "integer"
+          },
+          "id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "inactive_since": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inactive Since"
+          },
+          "name": {
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "default_payment",
+          "confirmed",
+          "inactive_since"
+        ],
+        "title": "FLSpielEditorSchiedsrichter",
+        "type": "object"
+      },
+      "FLSpielEditorSpielort": {
+        "description": "A venue the editor offers: its name, the rent it defaults to, and the day it retired, null while it serves.",
+        "properties": {
+          "default_mietpreis": {
+            "minimum": 0.0,
+            "title": "Default Mietpreis",
+            "type": "integer"
+          },
+          "id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "inactive_since": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inactive Since"
+          },
+          "name": {
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "default_mietpreis",
+          "inactive_since"
+        ],
+        "title": "FLSpielEditorSpielort",
+        "type": "object"
+      },
       "FLSpielEinteilungData": {
         "description": "A referee's word that they are booked onto a fixture, which they answer on their own panel.",
         "properties": {
@@ -15954,18 +16061,53 @@
         "type": "object"
       },
       "FLSpieleAdminSingleResponse": {
-        "description": "One fixture for the admin editor, money included, and its season's status.\n\nOn the response rather than on the fixture: the editor alone asks it, to open a finished season's match\nread-only, which the save refuses (`saison_past`), and a fixture carries no season-scoped state.",
+        "description": "One fixture for the match editor, money and `version` included, and all its sections offer and show beside it.\n\n`saison_status` on the response rather than on the fixture: the editor alone asks it, to open a finished season's\nmatch read-only, which the save refuses (`saison_past`), and a fixture carries no season-scoped state.",
         "properties": {
           "saison_status": {
             "$ref": "#/components/schemas/FLSaisonStatus"
           },
+          "schiedsrichter": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielEditorSchiedsrichter"
+            },
+            "title": "Schiedsrichter",
+            "type": "array"
+          },
           "spiel": {
             "$ref": "#/components/schemas/FLSpielJoinedAdmin"
+          },
+          "spielbericht": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielEditorBericht"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "spielbestaetigungen": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielbestaetigung"
+            },
+            "title": "Spielbestaetigungen",
+            "type": "array"
+          },
+          "spielorte": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielEditorSpielort"
+            },
+            "title": "Spielorte",
+            "type": "array"
           }
         },
         "required": [
           "spiel",
-          "saison_status"
+          "saison_status",
+          "spielorte",
+          "schiedsrichter",
+          "spielbericht",
+          "spielbestaetigungen"
         ],
         "title": "FLSpieleAdminSingleResponse",
         "type": "object"
@@ -27353,7 +27495,7 @@
     },
     "/api/v0/spiele/{spiel_id}/verwaltung": {
       "get": {
-        "description": "Return one match in the admin shape, money included, for the editor, with its season's status.",
+        "description": "The match editor's one read: the fixture in the admin shape, money and `version` included, and its season's status.\n\nBeside it every live venue and referee to book, the fixture's own where it has retired, each referee saying whether\nthey confirmed their entry; the fixture's report as its Spielbericht section shows it, its goals, its proposal and\nthe state it reads in, null where none stands; and the fixture's confirmation rows as the confirmations' read serves\nthem. `document_not_found` for an id no fixture holds.",
         "operationId": "spiele_get_spiel_verwaltung",
         "parameters": [
           {
@@ -27420,7 +27562,7 @@
             "AdminKey": []
           }
         ],
-        "summary": "One Spiel for the admin editor",
+        "summary": "One Spiel and all the match editor offers and shows beside it",
         "tags": [
           "spiele"
         ]

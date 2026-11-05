@@ -132,9 +132,7 @@ class Code(StrEnum):
     # Judged on the same references: a referee booked before confirming would be mailed an Einteilung for a panel that
     # address cannot open. A code of its own, the way out being the person's confirmation rather than a reactivation.
     BOOKING_UNCONFIRMED_SCHIEDSRICHTER = auto()
-    # A referee's own decline empties the slot outside this route, under an editor still showing them: a wholesale save
-    # keeping them would book them again unasked, and the next pass mail them for the fixture they just declined.
-    BOOKING_SCHIEDSRICHTER_MOVED = auto()
+
     SPIEL_DOUBLE_BOOKED = auto()
     SPIEL_OUTSIDE_SPIELTAG = auto()
     SPIELTAG_OUTSIDE_SAISON = auto()

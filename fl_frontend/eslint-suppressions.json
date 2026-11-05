@@ -2813,7 +2813,7 @@
   },
   "src/features/spiele/refusals.ts": {
     "no-restricted-syntax": {
-      "count": 5
+      "count": 4
     }
   },
   "src/features/spiele/utils.ts": {
