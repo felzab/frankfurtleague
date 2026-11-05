@@ -348,7 +348,7 @@ function season({ id, status, start, end, drawn, groups, dates, play, knockout =
     end_date: end,
     status,
     rules: RULES,
-    spielplan: { generated_at: drawn, spieltage: spieltage.length, spiele: spiele.length },
+    spielplan: { generated_at: drawn },
     bewerbung: null,
     registrierung: null,
   };
