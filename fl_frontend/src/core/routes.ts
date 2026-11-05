@@ -22,10 +22,12 @@ export type RouteEntry = {
   readonly title: Copy | ((...names: never) => Copy) | null;
   readonly crawl: Crawl;
   /**
-   * The row of the menu entry the page belongs to, where its address lies under another entry's: a frame marks
-   * that entry and leads back to it rather than to the entry the address lies under (`kit/navPlace.tsx :: placeOf`).
+   * The menu entry the page belongs to, where its address lies under another entry's: a frame marks that entry and
+   * leads back to it rather than to the entry the address lies under (`kit/navPlace.tsx :: placeOf`). `entry` is the
+   * entry's row; `pattern` is the address the page answers at as its route folder writes it, each dynamic segment
+   * `[name]`, which `routes.test.ts` holds to a page folder of the tree.
    */
-  readonly place?: string;
+  readonly place?: { readonly entry: string; readonly pattern: `/${string}` };
 };
 
 /**
@@ -222,7 +224,7 @@ export const ROUTES = {
     path: (saison: string) => `/admin/saisons/${saison}/settings` as const,
     title: COPY.shared.saisonName,
     crawl: "disallow",
-    place: "adminSaisons",
+    place: { entry: "adminSaisons", pattern: "/admin/saisons/[saison]/settings" },
   },
   adminSpiele: {
     path: (saison: string) => `/admin/saisons/${saison}/spiele` as const,
@@ -237,7 +239,7 @@ export const ROUTES = {
     path: (saison: string, spieltag: string) => `/admin/saisons/${saison}/spieltage/${spieltag}` as const,
     title: null,
     crawl: "disallow",
-    place: "adminSpiele",
+    place: { entry: "adminSpiele", pattern: "/admin/saisons/[saison]/spieltage/[spieltag]" },
   },
   /** The match editor, named by the match's two teams as the match's own page is. */
   adminSpiel: {
