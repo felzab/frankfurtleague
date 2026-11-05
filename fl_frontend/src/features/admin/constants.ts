@@ -88,7 +88,7 @@ export const HANDLUNGSBEDARF_EINTRAG = {
 } as const satisfies SidemenuStructureSubOption<AdminIconName>;
 
 /** The season list's entry, named where a taken season id sends a reader to the existing season, so a rename reaches both. */
-export const SAISONS_EINTRAG = {
+const SAISONS_EINTRAG = {
   id: "saisons",
   label: "Saisons",
   iconName: "Sliders",
@@ -100,7 +100,7 @@ export const SAISONS_EINTRAG = {
 } as const satisfies SidemenuStructureSubOption<AdminIconName>;
 
 /** The season's matchdays, named where the season editor sends a reader to date them, so a rename reaches both. */
-export const SPIELTAGE_EINTRAG = {
+const SPIELTAGE_EINTRAG = {
   id: "spieltage",
   label: "Spieltage",
   iconName: "Calendar",
@@ -113,7 +113,7 @@ export const SPIELTAGE_EINTRAG = {
 } as const satisfies SidemenuStructureSubOption<AdminIconName>;
 
 /** The knockout rounds' entry, named where the season list says what an empty league leaves blank, so a rename reaches both. */
-export const FINALRUNDEN_EINTRAG = {
+const FINALRUNDEN_EINTRAG = {
   id: "finalrunden",
   label: "Finalrunden",
   iconName: "Medal",
@@ -123,7 +123,7 @@ export const FINALRUNDEN_EINTRAG = {
 } as const satisfies SidemenuStructureSubOption<AdminIconName>;
 
 /** The fixture search's entry, named where the season list says what an empty league leaves blank, so a rename reaches both. */
-export const SPIELSUCHE_EINTRAG = {
+const SPIELSUCHE_EINTRAG = {
   id: "spielsuche",
   label: "Spielsuche",
   iconName: "Magnifier",

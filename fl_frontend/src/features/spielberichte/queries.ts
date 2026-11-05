@@ -1,20 +1,13 @@
 import { cache } from "react";
 
-import {
-  spielberichteGetSelf,
-  spielberichteGetSpielberichtBericht,
-  spielberichteGetSpielberichte,
-  spielberichteGetSpielberichtVerwaltung,
-} from "@/core/generated/client/sdk";
+import { spielberichteGetSelf, spielberichteGetSpielberichtBericht, spielberichteGetSpielberichtVerwaltung } from "@/core/generated/client/sdk";
 import { runAdminRead } from "@/shared/utils/adminRead";
 import { runPersonRead } from "@/shared/utils/personRead";
 
 import type {
   FLSpielberichtAdminResponse,
-  FLSpielberichteSaisonResponse,
   FLSpielberichteSelfResponse,
   FLSpielberichtSchiedsrichterResponse,
-  SpielberichteGetSpielberichteParams,
   SpielberichteGetSpielberichtVerwaltungParams,
 } from "@/core/generated/client/types";
 
@@ -27,11 +20,6 @@ export async function getAdminSpielbericht(
   params: SpielberichteGetSpielberichtVerwaltungParams = {},
 ): Promise<FLSpielberichtAdminResponse> {
   return runAdminRead(() => spielberichteGetSpielberichtVerwaltung(spielId, params));
-}
-
-/** Every report of a season holding a block, each with its state: what the season editor counts. */
-export async function getSpielberichteZustaende(filters: SpielberichteGetSpielberichteParams = {}): Promise<FLSpielberichteSaisonResponse> {
-  return runAdminRead(() => spielberichteGetSpielberichte(filters));
 }
 
 /** What the booked referee's form opens on; refused `bericht_not_officiated` once the fixture is booked to somebody else. */

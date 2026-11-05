@@ -141,7 +141,7 @@ const incomingHeaders = new Headers();
 export const NEXT_HEADERS_DOUBLE = { headers: () => Promise.resolve(new Headers(incomingHeaders)) };
 
 /** One line an action logged: its level, its message, the fields beside them, and an error line's attached error. */
-export type LoggedLine = { level: "debug" | "info" | "warn" | "error"; message: string; meta: unknown; attached?: unknown };
+type LoggedLine = { level: "debug" | "info" | "warn" | "error"; message: string; meta: unknown; attached?: unknown };
 
 /**
  * An attached error's message and stack as thrown, before the real logger's address scrub: a suite's address check
@@ -155,7 +155,7 @@ function writtenOf(error: unknown): unknown {
  * Every line logged since the case began, `doubleActionRequest` emptying it before each case. Recorded
  * rather than written: every refusal an action logs would otherwise reach the run's output as an error line.
  */
-export const loggedLines: LoggedLine[] = [];
+const loggedLines: LoggedLine[] = [];
 
 /** The request trace each line was written under, which the real logger stamps where the line's own fields name none. */
 const traceOfLine = new WeakMap<LoggedLine, string | undefined>();

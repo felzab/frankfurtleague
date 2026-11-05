@@ -1,5 +1,3 @@
-import { KADER_ABSCHNITT } from "@/features/spieler/constants";
-
 import { EINWILLIGUNG_UMFANG, GRUPPEN_OPTIONS, KONTAKT_ROLLEN, TRIKOT_FARBE_OPTIONS, WEBSITE_URL_SCHEME } from "./constants";
 
 import type {
@@ -31,44 +29,6 @@ export const buildGruppeOffer = (saisonId: string, rules: FLSaisonRules, members
     occupied: occupied.get(gruppe) ?? 0,
     capacity: rules.teams_per_gruppe,
   }));
-};
-
-/**
- * `kader_team_not_in_saison` judges the row's `team_id` on the PATCH as well as on the reactivate, so a row
- * reassigned to a club this season holds comes back without its own club returning.
- */
-const SQUAD_REPAIR = `Um einen solchen Eintrag zu reaktivieren, bearbeite den Spieler und weise den Eintrag im Bereich „${KADER_ABSCHNITT}“ einem Team dieser Saison zu.`;
-
-/**
- * What one replacement moved, for the report that follows it. The squad half says AUSTRAGEN: this
- * write stamps `saison_spieler` rows, and STILLLEGEN is what happens to the person across the league.
- */
-export const describeReplacementUmfang = ({
-  fannedOutToSpiele,
-  ausgetrageneSquadRows,
-}: {
-  fannedOutToSpiele: number;
-  ausgetrageneSquadRows: number;
-}): string => {
-  const spiele =
-    fannedOutToSpiele === 0
-      ? "Für das ausscheidende Team war noch kein Spiel angesetzt."
-      : fannedOutToSpiele === 1
-        ? "Ein angesetztes Spiel wurde übernommen."
-        : `${String(fannedOutToSpiele)} angesetzte Spiele wurden übernommen.`;
-
-  // The count is of LIVE rows, so zero says the squad stood empty and never that the club had no
-  // players: one whose players were all ausgetragen first — the usual order — reports zero too.
-  if (ausgetrageneSquadRows === 0) return `${spiele} Im Kader des ausscheidenden Teams stand kein Spieler.`;
-
-  // Below the zero arm and never beside it: German counts nothing with a word, so „0 Kadereinträge“
-  // must not be composed at all, not even to be discarded.
-  const ausgetragen =
-    ausgetrageneSquadRows === 1
-      ? "Ein Kadereintrag des ausscheidenden Teams wurde ausgetragen."
-      : `${String(ausgetrageneSquadRows)} Kadereinträge des ausscheidenden Teams wurden ausgetragen.`;
-
-  return `${spiele} ${ausgetragen} ${SQUAD_REPAIR}`;
 };
 
 /**

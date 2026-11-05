@@ -1,80 +1,8 @@
-import {
-  identitySweepErasure,
-  saisonsActivateSaison,
-  saisonsDeleteSpielplan,
-  saisonsPatchSaison,
-  saisonsPostSaison,
-  saisonsPostSpielplan,
-  saisonsSwapGruppen,
-} from "@/core/generated/client/sdk";
+import { identitySweepErasure, saisonsSwapGruppen } from "@/core/generated/client/sdk";
 
-import type {
-  FLActivateSaisonResponse,
-  FLErasureSweepResponse,
-  FLGenerateSpielplanPayload,
-  FLGenerateSpielplanResponse,
-  FLPatchSaisonPayload,
-  FLPostSaisonPayload,
-  FLPostSaisonResponse,
-  FLSwapGruppenPayload,
-  FLSwapGruppenResponse,
-  FLUndrawSpielplanResponse,
-} from "@/core/generated/client/types";
+import type { FLErasureSweepResponse, FLSwapGruppenPayload, FLSwapGruppenResponse } from "@/core/generated/client/types";
 
-// The one create whose payload carries its own id: `saisons._id` is chosen rather than generated, so
-// a reuse is refused by the index and comes back as `duplicate_key`, no rule's code.
-export async function postSaison({
-  id,
-  start_date,
-  end_date,
-  rules,
-  bewerbung,
-  registrierung,
-}: FLPostSaisonPayload): Promise<FLPostSaisonResponse> {
-  return saisonsPostSaison({ id, start_date, end_date, rules, bewerbung, registrierung });
-}
-
-/** The old editor's payload: the write's body beside the season it names, which the path carries. */
-export async function patchSaison({
-  id,
-  start_date,
-  end_date,
-  rules,
-  bewerbung,
-  registrierung,
-  version,
-}: FLPatchSaisonPayload & { id: string }): Promise<void> {
-  return saisonsPatchSaison(id, { start_date, end_date, rules, bewerbung, registrierung, version });
-}
-
-/** Promotes this season and demotes the incumbent in one transaction. No body: the id is the whole argument. */
-export async function activateSaison({ id }: { id: string }): Promise<FLActivateSaisonResponse> {
-  return saisonsActivateSaison(id);
-}
-
-/**
- * Draws the season's matchdays and fixtures in one transaction. **`replace` makes the same call
- * DESTRUCTIVE** and nothing writes the removed rows back. `shape`
- * moves the three shape rules with them. Nothing here retries on a 409.
- */
-export async function generateSpielplan({
-  id,
-  replace,
-  shape,
-}: FLGenerateSpielplanPayload & { id: string }): Promise<FLGenerateSpielplanResponse> {
-  // `{}` where the caller named no flag, which the endpoint reads as the first draw: a key left `undefined` is
-  // dropped by the serialisation.
-  return saisonsPostSpielplan(id, { replace, shape });
-}
-
-/**
- * Removes the season's matchdays, fixtures and watermark in one transaction. **Destructive with no
- * inverse**. No body: the id is the whole argument.
- */
-export async function undrawSpielplan({ id }: { id: string }): Promise<FLUndrawSpielplanResponse> {
-  return saisonsDeleteSpielplan(id);
-}
-
+// Session 6: goes with the old team editor, the group swap's last old caller.
 /**
  * **One request and not two junction PATCHes.** Two calls leave a window in which one group is a club
  * short and the other a club over, permanently so if the second fails. The same transaction rewrites

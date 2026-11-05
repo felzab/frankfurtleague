@@ -10,7 +10,7 @@ import { toActionErrorResult } from "@/shared/utils/actionError.ts";
 
 import { labelBadge } from "../../shared/components/ui/badges.ts";
 import { buildTeamBanners } from "../teams/components/forms/AdminTeamEditForm/banners.ts";
-import { mapAlreadyEnteredRefusal, mapCreatedClubEntryRefusal, mapEntryRefusal, mapReplacementRefusal } from "../teams/refusals.ts";
+import { mapAlreadyEnteredRefusal, mapCreatedClubEntryRefusal, mapEntryRefusal } from "../teams/refusals.ts";
 import { ADRESSE_KORRIGIEREN, BEWERBUNG_GRUND_MAX_LENGTH, ERNEUT_OHNE_ADRESSE } from "./constants.ts";
 import { mapEinwilligungErneutRefusal, mapKontaktEmailRefusal, mapKontaktSitzRefusal, mapTriageRefusal } from "./refusals.ts";
 import { FLAblehnenBewerbungPayloadSchema } from "./schemas.ts";
@@ -461,7 +461,6 @@ const RETIRED_RENDERINGS = renderingsOf([
   ...renderedBy("the triage", mapTriageRefusal(refused("team_retired"), "bestehendes_team")),
   ...renderedBy("the club editor's entry", mapEntryRefusal(refused("team_retired"))),
   ...renderedBy("the team create's entry", mapCreatedClubEntryRefusal(refused("team_retired"))),
-  ...renderedBy("the club editor's replacement", mapReplacementRefusal(refused("team_retired"))),
   ...SAISON_STATUSES.flatMap(retiredBannerOn),
 ]);
 
