@@ -1602,7 +1602,6 @@ export const saisonsPostSaisonBodyIdMax = 4;
 
 export const saisonsPostSaisonBodyIdRegExp = new RegExp("^[0-9]+$");
 export const saisonsPostSaisonBodyRegistrierungOneEndRegExp = new RegExp("^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$");
-export const saisonsPostSaisonBodyRegistrierungOneVonRegExp = new RegExp("^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$");
 
 export const saisonsPostSaisonBodyRulesDrawPointsMin = 0;
 
@@ -1629,11 +1628,10 @@ export const SaisonsPostSaisonBody = zod.object({
     zod
       .object({
         end: zod.string().regex(saisonsPostSaisonBodyBewerbungOneEndRegExp),
-        offen: zod.boolean(),
         start: zod.string().regex(saisonsPostSaisonBodyBewerbungOneStartRegExp),
       })
       .describe(
-        "When the league accepts applications for this season.\n\nThe two halves that record it: the span, and the `offen` flag an administrator sets beside it.",
+        "When the league accepts applications for this season: while today lies between `start` and `end`, both included.\n\nNo flag beside the span: closing early is moving `end` to today (`app/api/bewerbungen/services.py ::\nsaison_nimmt_bewerbungen_an`).",
       ),
     zod.null(),
   ]),
@@ -1644,10 +1642,9 @@ export const SaisonsPostSaisonBody = zod.object({
       .object({
         end: zod.string().regex(saisonsPostSaisonBodyRegistrierungOneEndRegExp),
         offen: zod.boolean(),
-        von: zod.string().regex(saisonsPostSaisonBodyRegistrierungOneVonRegExp),
       })
       .describe(
-        "When a pupil may register for this season.\n\nIts own model rather than an alias of `FLSaisonBewerbung` above: the two windows are two\ndecisions an administrator takes apart, and one component name on both would publish them as one.",
+        "When a pupil may register for this season: from its activation to `end`, which falls before the season's start.\n\nNo start of its own, the activation being the opening (`app/api/registrierungen/services.py ::\nsaison_nimmt_registrierungen_an`); `offen` pauses the link alone. Its own model rather than an alias of\n`FLSaisonBewerbung` above: the two windows are two decisions an administrator takes apart.",
       ),
     zod.null(),
   ]),
@@ -1722,7 +1719,6 @@ export const saisonsPatchSaisonBodyBewerbungOneEndRegExp = new RegExp("^[0-9]{4}
 export const saisonsPatchSaisonBodyBewerbungOneStartRegExp = new RegExp("^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$");
 export const saisonsPatchSaisonBodyEndDateRegExp = new RegExp("^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$");
 export const saisonsPatchSaisonBodyRegistrierungOneEndRegExp = new RegExp("^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$");
-export const saisonsPatchSaisonBodyRegistrierungOneVonRegExp = new RegExp("^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$");
 
 export const saisonsPatchSaisonBodyRulesDrawPointsMin = 0;
 
@@ -1749,11 +1745,10 @@ export const SaisonsPatchSaisonBody = zod.object({
     zod
       .object({
         end: zod.string().regex(saisonsPatchSaisonBodyBewerbungOneEndRegExp),
-        offen: zod.boolean(),
         start: zod.string().regex(saisonsPatchSaisonBodyBewerbungOneStartRegExp),
       })
       .describe(
-        "When the league accepts applications for this season.\n\nThe two halves that record it: the span, and the `offen` flag an administrator sets beside it.",
+        "When the league accepts applications for this season: while today lies between `start` and `end`, both included.\n\nNo flag beside the span: closing early is moving `end` to today (`app/api/bewerbungen/services.py ::\nsaison_nimmt_bewerbungen_an`).",
       ),
     zod.null(),
   ]),
@@ -1763,10 +1758,9 @@ export const SaisonsPatchSaisonBody = zod.object({
       .object({
         end: zod.string().regex(saisonsPatchSaisonBodyRegistrierungOneEndRegExp),
         offen: zod.boolean(),
-        von: zod.string().regex(saisonsPatchSaisonBodyRegistrierungOneVonRegExp),
       })
       .describe(
-        "When a pupil may register for this season.\n\nIts own model rather than an alias of `FLSaisonBewerbung` above: the two windows are two\ndecisions an administrator takes apart, and one component name on both would publish them as one.",
+        "When a pupil may register for this season: from its activation to `end`, which falls before the season's start.\n\nNo start of its own, the activation being the opening (`app/api/registrierungen/services.py ::\nsaison_nimmt_registrierungen_an`); `offen` pauses the link alone. Its own model rather than an alias of\n`FLSaisonBewerbung` above: the two windows are two decisions an administrator takes apart.",
       ),
     zod.null(),
   ]),

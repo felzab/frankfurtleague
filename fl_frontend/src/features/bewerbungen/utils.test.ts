@@ -163,7 +163,6 @@ describe("which season a row belongs to", () => {
 describe("which state the window puts the page in", () => {
   const fenster = (overrides: Partial<FLBewerbungWindowResponse> = {}): FLBewerbungWindowResponse => ({
     saison_id: "2627",
-    offen: true,
     start: "2026-05-01",
     end: "2026-07-31",
     running: false,
@@ -175,7 +174,7 @@ describe("which state the window puts the page in", () => {
      here, the page would offer the form for as long as the two clocks disagree. */
   it("takes the running answer from the server and never re-derives it", () => {
     expect(fensterZustand(fenster({ running: true }), "2020-01-01")).toBe("running");
-    expect(fensterZustand(fenster({ running: true, offen: false }), "2099-01-01")).toBe("running");
+    expect(fensterZustand(fenster({ running: true }), "2099-01-01")).toBe("running");
   });
 
   /* Each closed answer is a different sentence: one says when to come back, one that the season is
@@ -183,14 +182,6 @@ describe("which state the window puts the page in", () => {
   it("separates a window that has not opened from one that is over", () => {
     expect(fensterZustand(fenster(), "2026-04-30")).toBe("noch-nicht");
     expect(fensterZustand(fenster(), "2026-08-01")).toBe("vorbei");
-  });
-
-  /* Shut by the league rather than by a date, so neither date answer is true of it: nothing has run
-     out, and nothing opens on a day this window names. */
-  it("reads a window the league closed as closed, whatever the dates say", () => {
-    expect(fensterZustand(fenster({ offen: false }), "2026-04-30")).toBe("closed");
-    expect(fensterZustand(fenster({ offen: false }), "2026-06-01")).toBe("closed");
-    expect(fensterZustand(fenster({ offen: false }), "2026-08-01")).toBe("closed");
   });
 
   /* `laeuft` false inside an open span is this clock disagreeing with the server's. Answered
@@ -206,11 +197,10 @@ describe("which state the window puts the page in", () => {
   });
 
   /* An ended season takes no application again, so every date answer would send a school to wait
-     for a window that never reopens: the span still running, the league's switch off, a span not
+     for a window that never reopens: the span still running or a span not
      yet begun. */
-  it("reads every window of a season that has ended as over, whatever its dates and its switch say", () => {
+  it("reads every window of a season that has ended as over, whatever its dates say", () => {
     expect(fensterZustand(fenster({ saison_ended: true }), "2026-06-01")).toBe("vorbei");
-    expect(fensterZustand(fenster({ saison_ended: true, offen: false }), "2026-06-01")).toBe("vorbei");
     expect(fensterZustand(fenster({ saison_ended: true }), "2026-04-30")).toBe("vorbei");
   });
 });

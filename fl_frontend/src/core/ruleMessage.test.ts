@@ -15,7 +15,6 @@ describe("the field patterns over the backend's rules", () => {
     const start = "2026-09-01";
     expect(rule("saison_ends_before_start", { start })).toStrictEqual({ field: field.earliest(start) });
     expect(rule("bewerbung_window_ends_before_start", { start })).toStrictEqual({ field: field.earliest(start) });
-    expect(rule("registrierung_window_ends_before_start", { start })).toStrictEqual({ field: field.earliest(start) });
     expect(rule("spieltag_ends_before_start", { start })).toStrictEqual({ field: field.earliest(start) });
     expect(rule("good_spieler_exceed_kader", { max: 8 })).toStrictEqual({ field: field.max(8) });
     for (const kind of ["ergebnis_missing_tore", "decline_without_proposal", "decline_without_reason"]) {

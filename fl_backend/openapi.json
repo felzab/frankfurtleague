@@ -4277,10 +4277,6 @@
             "title": "End",
             "type": "string"
           },
-          "offen": {
-            "title": "Offen",
-            "type": "boolean"
-          },
           "running": {
             "title": "Running",
             "type": "boolean"
@@ -4301,7 +4297,6 @@
         },
         "required": [
           "saison_id",
-          "offen",
           "start",
           "end",
           "running",
@@ -10969,16 +10964,12 @@
         "type": "object"
       },
       "FLSaisonBewerbung": {
-        "description": "When the league accepts applications for this season.\n\nThe two halves that record it: the span, and the `offen` flag an administrator sets beside it.",
+        "description": "When the league accepts applications for this season: while today lies between `start` and `end`, both included.\n\nNo flag beside the span: closing early is moving `end` to today (`app/api/bewerbungen/services.py ::\nsaison_nimmt_bewerbungen_an`).",
         "properties": {
           "end": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "End",
             "type": "string"
-          },
-          "offen": {
-            "title": "Offen",
-            "type": "boolean"
           },
           "start": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -10987,7 +10978,6 @@
           }
         },
         "required": [
-          "offen",
           "start",
           "end"
         ],
@@ -11106,7 +11096,7 @@
         "type": "object"
       },
       "FLSaisonRegistrierung": {
-        "description": "When a pupil may register for this season.\n\nIts own model rather than an alias of `FLSaisonBewerbung` above: the two windows are two\ndecisions an administrator takes apart, and one component name on both would publish them as one.",
+        "description": "When a pupil may register for this season: from its activation to `end`, which falls before the season's start.\n\nNo start of its own, the activation being the opening (`app/api/registrierungen/services.py ::\nsaison_nimmt_registrierungen_an`); `offen` pauses the link alone. Its own model rather than an alias of\n`FLSaisonBewerbung` above: the two windows are two decisions an administrator takes apart.",
         "properties": {
           "end": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -11116,16 +11106,10 @@
           "offen": {
             "title": "Offen",
             "type": "boolean"
-          },
-          "von": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Von",
-            "type": "string"
           }
         },
         "required": [
           "offen",
-          "von",
           "end"
         ],
         "title": "FLSaisonRegistrierung",
@@ -17844,7 +17828,7 @@
           "kontakt_telefon_twice",
           "nichtantreten_with_tore",
           "nichtantreten_with_torschuetzen",
-          "registrierung_window_ends_before_start",
+          "registrierung_window_reaches_saison_start",
           "saison_ends_before_start",
           "saison_year_out_of_range",
           "spieltag_ends_before_start",

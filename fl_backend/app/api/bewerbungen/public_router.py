@@ -171,7 +171,6 @@ async def get_window(
 
     return FLBewerbungWindowResponse(
         saison_id=saison_id,
-        offen=bool(bewerbung["offen"]),
         start=str(bewerbung["start"]),
         end=str(bewerbung["end"]),
         running=saison_nimmt_bewerbungen_an(saison_status=saison_status, bewerbung=bewerbung, today=today),

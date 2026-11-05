@@ -51,9 +51,6 @@ CONFIG = build_test_config()
 WIRE_CONFIG = CONFIG.model_copy(update={"db_base_name": DATABASE_NAME})
 
 SAISON_ID = "2026"
-# A season the league has not reached, whose link a pupil may already hold: the pair a ban is
-# counted over, the reference season being the running one rather than this.
-SPAETERE_SAISON_ID = "2027"
 TODAY = "2026-04-01"
 # Every season's start unless a case says so: after `TODAY`, so an entry made today is an ordinary one.
 AFTER_TODAY = "2026-04-20"
@@ -69,13 +66,11 @@ OTHER_TEAM_OID = ObjectId("6890a1b2c3d4e5f607960002")
 EINLADUNG_OID = ObjectId("6890a1b2c3d4e5f607960003")
 OTHER_EINLADUNG_OID = ObjectId("6890a1b2c3d4e5f607960004")
 REVOKED_EINLADUNG_OID = ObjectId("6890a1b2c3d4e5f607960005")
-SPAETERE_EINLADUNG_OID = ObjectId("6890a1b2c3d4e5f607960006")
 
 # The raw link values, which exist in the seed and in a recipient's inbox and nowhere else.
 TOKEN = "hwGqQ4kP6yJr3VnZbT8sXeM2dLuF9aCwR1oY5iN7pKg"
 OTHER_TOKEN = "3pLm9XqW2vTc7bYhK4sD8fRn6gJz1uE5aQoI0wN3yVt"
 REVOKED_TOKEN = "Zt5rYb8nK2wQ7xM4jL9cV6sD1fH3gP0aU5eI7oT2mXk"
-SPAETERE_TOKEN = "Qw7eR2tY5uI8oP1aS4dF7gH0jK3lZ6xC9vB2nM5qW8e"
 
 TEAM_NAME = "Zorbanax"
 TEAM_FULL_NAME = "Zorbanax-Gesamtschule"
@@ -84,7 +79,7 @@ OTHER_TEAM_NAME = "Quillhilde"
 PUPIL_EMAIL = "thessaly@beispielschule.de"
 BANNED_EMAIL = "wraxlington@beispielschule.de"
 
-OPEN_WINDOW: Mapping[str, Any] = {"offen": True, "von": "2026-03-01", "end": "2026-04-30"}
+OPEN_WINDOW: Mapping[str, Any] = {"offen": True, "end": "2026-04-30"}
 
 RULES: Mapping[str, Any] = documents.rules_document(
     number_of_gruppen=2,
@@ -161,7 +156,6 @@ def on_a_league(
     banned: str | None = None,
     banned_until: str = STANDING,
     saison_status: str = "active",
-    spaetere_saison: bool = False,
     start_date: str = AFTER_TODAY,
 ) -> Any:
     """A clean database carrying the shipped indexes, so a duplicate production would refuse fails here too.
@@ -182,15 +176,6 @@ def on_a_league(
                     einladung_document(REVOKED_EINLADUNG_OID, TEAM_OID, REVOKED_TOKEN, revoked_at="2026-03-20"),
                 ]
             )
-
-            # A later season the same team plays, with a link of its own: the reference season is
-            # then the running one and the invite's is not, which is the pair a ban is counted over.
-            if spaetere_saison:
-                await database[Collection.SAISONS].insert_one(saison_document(SPAETERE_SAISON_ID, "future", registrierung))
-                await database[Collection.SAISON_TEAMS].insert_one(junction_document(SPAETERE_SAISON_ID, TEAM_OID, TEAM_NAME))
-                await database[Collection.INVITATIONS].insert_one(
-                    einladung_document(SPAETERE_EINLADUNG_OID, TEAM_OID, SPAETERE_TOKEN, saison_id=SPAETERE_SAISON_ID)
-                )
 
             if squad:
                 await database[Collection.SAISON_SPIELER].insert_many(
@@ -669,21 +654,8 @@ class TestWhatASubmissionIsRefused:
 
         assert outcome == (Code.REGISTRIERUNG_CLOSED, 0)
 
-    def test_a_link_opened_after_the_windows_last_day_is_refused(self, mongo_replica_set_url: str):
-        """The invite carries no expiry of its own: the window is what it stops opening at."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
-            with pytest.raises(APIError) as refused:
-                await register(database, client)
-
-            return refused.value.error_code
-
-        outcome = on_a_league(mongo_replica_set_url, body, registrierung={**OPEN_WINDOW, "end": "2026-03-31"})
-
-        assert outcome == Code.REGISTRIERUNG_CLOSED
-
     def test_a_season_that_has_ended_is_refused_while_its_dates_still_run(self, mongo_replica_set_url: str):
-        """The window's dates run and its flag is on: only the season's status closes it, as minting the link already does."""
+        """The window's end is still ahead and its link is not paused: only the season's status closes it, as minting the link already does."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, int]:
             with pytest.raises(APIError) as refused:
@@ -780,31 +752,9 @@ class TestWhatASubmissionIsRefused:
         assert on_a_league(mongo_replica_set_url, body, banned=BANNED_EMAIL) == 1
 
 
-class TestWhichSeasonABanIsCountedFrom:
-    """The REFERENCE season decides, never the season the link is for.
-
-    A pupil may hold a link for a season the league has not reached, and counting from that one
-    lifts a ban early.
-    """
-
-    def test_a_ban_covering_the_running_season_refuses_a_link_for_a_later_one(self, mongo_replica_set_url: str):
-        """The bound lies between the two seasons: counted from the invite's, this ban would have lapsed."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
-            with pytest.raises(APIError) as refused:
-                await register(database, client, token=SPAETERE_TOKEN, email=BANNED_EMAIL)
-
-            return refused.value.error_code
-
-        outcome = on_a_league(
-            mongo_replica_set_url, body, spaetere_saison=True, banned=BANNED_EMAIL, banned_until=SAISON_ID, saison_status="active"
-        )
-
-        assert SAISON_ID < SPAETERE_SAISON_ID
-        assert outcome == Code.REGISTRIERUNG_ADDRESS_BARRED
-
+class TestALapsedBan:
     def test_a_lapsed_ban_refuses_nobody(self, mongo_replica_set_url: str):
-        """The other arm, so a check ignoring the bound would pass this case as well as the one above."""
+        """The bound counted from the season the league is on: a check ignoring it would bar a pupil the ban no longer covers."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> int:
             await register(database, client, email=BANNED_EMAIL)
@@ -812,19 +762,6 @@ class TestWhichSeasonABanIsCountedFrom:
             return await database[Collection.REGISTRIERUNGEN].count_documents({})
 
         assert on_a_league(mongo_replica_set_url, body, banned=BANNED_EMAIL, banned_until="2025") == 1
-
-    def test_a_league_no_season_has_run_judges_on_the_hash_alone(self, mongo_replica_set_url: str):
-        """One `future` season and nothing that ever ran: the reference read answers nothing, and a ban still bars."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
-            with pytest.raises(APIError) as refused:
-                await register(database, client, email=BANNED_EMAIL)
-
-            return refused.value.error_code
-
-        outcome = on_a_league(mongo_replica_set_url, body, saison_status="future", banned=BANNED_EMAIL, banned_until="2025")
-
-        assert outcome == Code.REGISTRIERUNG_ADDRESS_BARRED
 
 
 class TestWhatTheInvitesOwnReadAnswers:
@@ -908,17 +845,15 @@ class TestWhatTheInvitesOwnReadAnswers:
 
         assert on_a_league(mongo_replica_set_url, run) == (True, False)
 
-    def test_a_future_season_is_read_and_registered_for(self, mongo_replica_set_url: str):
-        """The withheld-season guard is waived on both operations, and a season taking registrations is normally `future`.
+    def test_a_season_not_yet_activated_is_read_as_a_shut_window(self, mongo_replica_set_url: str):
+        """The withheld-season guard is waived for the invite's read, and a link minted before the activation opens no form yet.
 
-        Calling `resolve_public_saison` here would 404 the whole flow; the invite is the
-        authorisation instead.
+        Calling `resolve_public_saison` here would 404 the link; the invite is the authorisation instead.
         """
 
-        async def run(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, int]:
+        async def run(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, bool]:
             answer = await view(database)
-            await register(database, client)
 
-            return answer.saison_status, await database[Collection.REGISTRIERUNGEN].count_documents({})
+            return answer.saison_status, answer.running
 
-        assert on_a_league(mongo_replica_set_url, run, saison_status="future") == ("future", 1)
+        assert on_a_league(mongo_replica_set_url, run, saison_status="future") == ("future", False)

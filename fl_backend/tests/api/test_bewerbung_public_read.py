@@ -56,11 +56,10 @@ WINDOWLESS_SAISON = "2024"
 
 # Named because two corpora seed it: a case building its own season still has to be the one the
 # colour read serves, and a span drifting from `seeded_url`'s would make it the one it refuses.
-RUNNING_WINDOW: Mapping[str, Any] = {"offen": True, "start": "2026-03-01", "end": "2026-04-30"}
+RUNNING_WINDOW: Mapping[str, Any] = {"start": "2026-03-01", "end": "2026-04-30"}
 
-# The three near-misses, each ruled out by ONE term of the open-window query and by nothing else.
+# The two near-misses, each ruled out by ONE term of the open-window query and by nothing else.
 # Each sorts AHEAD of the answer, so a query dropping that term picks it rather than `2026`.
-FLAG_OFF_SAISON = "2027"
 NOT_YET_OPEN_SAISON = "2028"
 ALREADY_CLOSED_SAISON = "2029"
 
@@ -131,13 +130,11 @@ def seed_the_public_corpus(mongo_url: str) -> Iterator[str]:
         database[Collection.SAISONS].insert_many(
             [
                 _saison(OPEN_SAISON, bewerbung=dict(RUNNING_WINDOW)),
-                _saison(SHUT_SAISON, bewerbung={"offen": True, "start": "2025-03-01", "end": "2025-04-30"}),
-                # A span holding today, and the flag off: the one term that rules it out.
-                _saison(FLAG_OFF_SAISON, bewerbung={"offen": False, "start": "2026-03-01", "end": "2026-04-30"}),
-                # The flag on, and a span that has not begun: the opening date is what rules it out.
-                _saison(NOT_YET_OPEN_SAISON, bewerbung={"offen": True, "start": "2026-09-01", "end": "2026-10-31"}),
-                # The flag on, and a span already over: the closing date is what rules it out.
-                _saison(ALREADY_CLOSED_SAISON, bewerbung={"offen": True, "start": "2026-01-01", "end": "2026-02-28"}),
+                _saison(SHUT_SAISON, bewerbung={"start": "2025-03-01", "end": "2025-04-30"}),
+                # A span that has not begun: the opening date is what rules it out.
+                _saison(NOT_YET_OPEN_SAISON, bewerbung={"start": "2026-09-01", "end": "2026-10-31"}),
+                # A span already over: the closing date is what rules it out.
+                _saison(ALREADY_CLOSED_SAISON, bewerbung={"start": "2026-01-01", "end": "2026-02-28"}),
                 # No key at all, as every season stored before the field existed carries none.
                 _saison(WINDOWLESS_SAISON, bewerbung=None),
             ]
@@ -229,7 +226,7 @@ class TestTheWindowReads:
     def test_the_open_window_is_the_season_whose_span_holds_today(self, seeded_url: str):
         """Two near-misses sort ahead of the answer, so a read judging less than the whole predicate picks one of them instead.
 
-        The predicate's boundary days are `tests/api/test_registrierung_window.py`'s, at the default tier: this case holds
+        The predicate's boundary days are `tests/api/test_saison_windows.py`'s, at the default tier: this case holds
         only that the landing applies it.
         """
 
@@ -238,13 +235,12 @@ class TestTheWindowReads:
     @pytest.mark.parametrize(
         "saison_id",
         [
-            pytest.param(FLAG_OFF_SAISON, id="a span holding today with the flag off"),
-            pytest.param(NOT_YET_OPEN_SAISON, id="the flag on and a span not yet begun"),
-            pytest.param(ALREADY_CLOSED_SAISON, id="the flag on and a span already over"),
+            pytest.param(NOT_YET_OPEN_SAISON, id="a span not yet begun"),
+            pytest.param(ALREADY_CLOSED_SAISON, id="a span already over"),
         ],
     )
     def test_a_near_miss_is_served_as_not_running(self, seeded_url: str, saison_id: str):
-        """Each is ruled out by one term alone, so the three together pin every half of the judgement."""
+        """Each is ruled out by one term alone, so the two together pin both halves of the judgement."""
 
         response = answered(seeded_url, f"{PREFIX}/window/{saison_id}")
 
@@ -265,7 +261,6 @@ class TestTheWindowReads:
 
         assert response.status_code == 200
         assert response.json()["running"] is False
-        assert response.json()["offen"] is True
         assert response.json()["start"] == "2025-03-01"
 
     def test_a_season_recording_no_window_is_told_from_one_no_document_names(self, seeded_url: str):
@@ -292,7 +287,7 @@ class TestTheWindowReads:
 
         body = answered(seeded_url, f"{PREFIX}/window/{OPEN_SAISON}").json()
 
-        assert set(body) == {"saison_id", "offen", "start", "end", "running", "saison_ended"}
+        assert set(body) == {"saison_id", "start", "end", "running", "saison_ended"}
 
 
 class TestTheAssignedColoursRead:
@@ -350,9 +345,8 @@ class TestTheAssignedColoursRead:
         [
             # Non-vacuous: this season HAS an assignment, so an ungated read would answer 200 with it.
             pytest.param(SHUT_SAISON, id="a window whose span has passed"),
-            pytest.param(FLAG_OFF_SAISON, id="a span holding today with the flag off"),
-            pytest.param(NOT_YET_OPEN_SAISON, id="the flag on and a span not yet begun"),
-            pytest.param(ALREADY_CLOSED_SAISON, id="the flag on and a span already over"),
+            pytest.param(NOT_YET_OPEN_SAISON, id="a span not yet begun"),
+            pytest.param(ALREADY_CLOSED_SAISON, id="a span already over"),
             pytest.param(WINDOWLESS_SAISON, id="a season carrying no window"),
             pytest.param("1999", id="a season no document names"),
         ],

@@ -1816,7 +1816,6 @@ export interface FLBewerbungWindow {
 export interface FLBewerbungWindowResponse {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   end: string;
-  offen: boolean;
   running: boolean;
   saison_ended: boolean;
   saison_id: string;
@@ -3490,30 +3489,29 @@ export interface FLPatchKaderRowPayload {
 }
 
 /**
- * When the league accepts applications for this season.
+ * When the league accepts applications for this season: while today lies between `start` and `end`, both included.
  *
- * The two halves that record it: the span, and the `offen` flag an administrator sets beside it.
+ * No flag beside the span: closing early is moving `end` to today (`app/api/bewerbungen/services.py ::
+ * saison_nimmt_bewerbungen_an`).
  */
 export interface FLSaisonBewerbung {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   end: string;
-  offen: boolean;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   start: string;
 }
 
 /**
- * When a pupil may register for this season.
+ * When a pupil may register for this season: from its activation to `end`, which falls before the season's start.
  *
- * Its own model rather than an alias of `FLSaisonBewerbung` above: the two windows are two
- * decisions an administrator takes apart, and one component name on both would publish them as one.
+ * No start of its own, the activation being the opening (`app/api/registrierungen/services.py ::
+ * saison_nimmt_registrierungen_an`); `offen` pauses the link alone. Its own model rather than an alias of
+ * `FLSaisonBewerbung` above: the two windows are two decisions an administrator takes apart.
  */
 export interface FLSaisonRegistrierung {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   end: string;
   offen: boolean;
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  von: string;
 }
 
 /**
@@ -5967,7 +5965,7 @@ export const Rule = {
   kontakt_telefon_twice: "kontakt_telefon_twice",
   nichtantreten_with_tore: "nichtantreten_with_tore",
   nichtantreten_with_torschuetzen: "nichtantreten_with_torschuetzen",
-  registrierung_window_ends_before_start: "registrierung_window_ends_before_start",
+  registrierung_window_reaches_saison_start: "registrierung_window_reaches_saison_start",
   saison_ends_before_start: "saison_ends_before_start",
   saison_year_out_of_range: "saison_year_out_of_range",
   spieltag_ends_before_start: "spieltag_ends_before_start",

@@ -426,7 +426,7 @@ def _pressed(served: FastAPI, url: str, stand_in: Callable[[AsyncCollection], An
                     SAISON_ID,
                     "active",
                     rules=rules_document(number_of_gruppen=2, max_kadergroesse=50, allowed_stufen=["E1"]),
-                    registrierung={"offen": True, "von": "2026-03-01", "end": "2026-04-30"},
+                    registrierung={"offen": True, "end": "2026-04-30"},
                 )
             )
             await database[Collection.SAISON_TEAMS].insert_many([_junction_row(team_id) for team_id in TEAM_NAMES])

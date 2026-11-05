@@ -1,4 +1,4 @@
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timedelta
 from typing import Annotated, Final, Literal, Self
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter, model_validator
@@ -79,25 +79,25 @@ class FLSaisonSpielplan(BaseModel):
 
 
 class FLSaisonBewerbung(BaseModel):
-    """When the league accepts applications for this season.
+    """When the league accepts applications for this season: while today lies between `start` and `end`, both included.
 
-    The two halves that record it: the span, and the `offen` flag an administrator sets beside it.
+    No flag beside the span: closing early is moving `end` to today (`app/api/bewerbungen/services.py ::
+    saison_nimmt_bewerbungen_an`).
     """
 
-    offen: bool
     start: CustomDateString
     end: CustomDateString
 
 
 class FLSaisonRegistrierung(BaseModel):
-    """When a pupil may register for this season.
+    """When a pupil may register for this season: from its activation to `end`, which falls before the season's start.
 
-    Its own model rather than an alias of `FLSaisonBewerbung` above: the two windows are two
-    decisions an administrator takes apart, and one component name on both would publish them as one.
+    No start of its own, the activation being the opening (`app/api/registrierungen/services.py ::
+    saison_nimmt_registrierungen_an`); `offen` pauses the link alone. Its own model rather than an alias of
+    `FLSaisonBewerbung` above: the two windows are two decisions an administrator takes apart.
     """
 
     offen: bool
-    von: CustomDateString
     end: CustomDateString
 
 
@@ -152,11 +152,17 @@ class _SaisonPayload(_SaisonWritable):
         return self
 
     @model_validator(mode="after")
-    def the_registration_window_ends_after_it_opens(self) -> Self:
-        """Its own validator rather than a branch inside the one above: two windows are two refusals, and a shared one names neither."""
+    def the_registration_window_ends_before_the_season_starts(self) -> Self:
+        """Registration closes before the season's first day: a pupil joining once play has begun is a Nachnominierung, not a registration.
 
-        if self.registrierung is not None:
-            refuse_reversed_span(start=self.registrierung.von, end=self.registrierung.end, kind="registrierung_window_ends_before_start")
+        `latest` is the last day the window may end on, the day before `start_date`.
+        """
+
+        if self.registrierung is not None and self.registrierung.end >= self.start_date:
+            latest = (date.fromisoformat(self.start_date) - timedelta(days=1)).isoformat()
+            raise rule_refusal(
+                "registrierung_window_reaches_saison_start", "the registration window reaches the season's start", {"latest": latest}
+            )
 
         return self
 

@@ -72,20 +72,6 @@ def find_unknown_einladung_refusal(*, einladung_raw: Mapping[str, Any] | None) -
     )
 
 
-def registrierungsfenster_laeuft(*, registrierung: Any, today: str) -> bool:
-    """Whether this season's registration window runs on `today`: `offen`, AND the day inside the span.
-
-    The window is null or the whole object the season form writes, as `app/api/bewerbungen/services.py ::
-    window_is_running` reads its own. Both ends compared: span ordering is enforced on the season PAYLOAD
-    alone, so a stored reversal is reachable.
-    """
-
-    if registrierung is None:
-        return False
-
-    return bool(registrierung["offen"]) and str(registrierung["von"]) <= today <= str(registrierung["end"])
-
-
 # The partial filter `uniq_invitation_live` is built on, spelled as it is: the equality with `None`
 # does not imply it, so a read spelled that way scans every invite. The record model requires the key
 # (`app/api/einladungen/schemas.py :: FLEinladungRecord`), so the two select the same rows.

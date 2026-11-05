@@ -10,11 +10,6 @@ from http import HTTPStatus
 from typing import Any, Final
 
 from app.api.bewerbungen.services import days_after, latest_decision_due, one_month_after, season_has_ended
-
-# The window predicate is the invite slice's, and `saison_nimmt_registrierungen_an` below answers
-# every `running` a link is shown with and this flow's refusal, so a link and the write it opens
-# cannot disagree.
-from app.api.einladungen.services import registrierungsfenster_laeuft
 from app.api.outbox.schemas import FLOutboxLink
 from app.api.registrierungen.schemas import FLRegistrierungEntscheidung, FLRegistrierungSeite
 
@@ -46,13 +41,18 @@ SUBMITTED = "submitted"
 
 
 def saison_nimmt_registrierungen_an(*, saison_status: Any, registrierung: Any, today: str) -> bool:
-    """Whether this season takes a registration on `today`.
+    """Whether this season takes a registration on `today`: the season the site is on, its link not paused, `today` up to its window's `end`.
 
-    A finished season's window is over for good, whatever dates it still stores: a link minted
-    while the season was `future` outlives the season, and the dates alone would still admit.
+    The window opens at the activation, so a `future` season takes none whatever its window says, and a `past` one is
+    over for good, a link minted earlier outliving it. The window is null or the whole object the season form writes,
+    `end` included. One predicate answers every `running` a link is shown with and this flow's refusal, so a link and
+    the write it opens cannot disagree.
     """
 
-    return not season_has_ended(saison_status=saison_status) and registrierungsfenster_laeuft(registrierung=registrierung, today=today)
+    if registrierung is None or saison_status != "active":
+        return False
+
+    return bool(registrierung["offen"]) and today <= str(registrierung["end"])
 
 
 def find_fenster_refusal(*, saison_status: Any, registrierung: Any, today: str) -> WriteRefusal | None:

@@ -321,7 +321,7 @@ type Rule = Literal[
     "kontakt_telefon_twice",
     "nichtantreten_with_tore",
     "nichtantreten_with_torschuetzen",
-    "registrierung_window_ends_before_start",
+    "registrierung_window_reaches_saison_start",
     "saison_ends_before_start",
     "saison_year_out_of_range",
     "spieltag_ends_before_start",

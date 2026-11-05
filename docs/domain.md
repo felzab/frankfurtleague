@@ -94,13 +94,14 @@ brought up to date.
 
 - **Created** — always `future`. Nothing an admin submits sets `status`, and the activation below is the only
   code path in the system that writes it.
-- **Applications** — a school applies while the season's own window is open and the season has not ended
-  (`bewerbung_window_closed`). Accepting
-  one creates the club where it is new and writes its junction row, held to the same entry rules a direct
-  entry meets.
-- **Registration** — the season records a second window of its own, `registrierung`, set on the season editor
-  and open exactly when its flag is on, the day falls inside its span and the season has not ended. It is judged apart from the
-  application window above and from the season's own dates, so the two may run in any order or not at all.
+- **Applications** — a school applies while the day falls between the two dates of the season's own window,
+  both included, and the season has not ended (`bewerbung_window_closed`); closing the window early is moving its
+  end to today. Accepting one creates the club where it is new and writes its junction row, held to the same entry
+  rules a direct entry meets.
+- **Registration** — the season records a second window of its own, `registrierung`, which holds an end alone: it
+  opens when the season is activated and runs to that end, which falls before the season's start
+  (`registrierung_window_reaches_saison_start`), and its `offen` flag pauses the link without moving either. It is
+  judged apart from the application window above, so the two may run in any order or not at all.
 - **Entry** — a club takes a place in a group only while the season is `future` (`entry_saison_not_future`), only in a
   group the season runs (`entry_gruppe_not_offered`), and only while that group has room (`entry_gruppe_full`).
 - **The draw** — `POST /saisons/{saison_id}/spielplan` composes every matchday and every fixture of the

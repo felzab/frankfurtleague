@@ -581,8 +581,8 @@ class TestSaison:
         newest = clock.now().year + 1
         year = FIRST_SAISON_YEAR - 1 if side == "before the first season" else newest + 1
         body = {"id": str(year), "rules": saison()["rules"], "start_date": "2026-01-01", "end_date": "2026-06-30"}
-        body["bewerbung"] = {"offen": True, "start": "2025-11-01", "end": "2025-12-15"}
-        body["registrierung"] = {"offen": False, "von": "2026-01-05", "end": "2026-02-05"}
+        body["bewerbung"] = {"start": "2025-11-01", "end": "2025-12-15"}
+        body["registrierung"] = {"offen": False, "end": "2025-12-20"}
 
         with pytest.raises(ValidationError) as failure:
             FLPostSaisonPayload.model_validate(body)
@@ -605,8 +605,8 @@ class TestTheSeasonsSpans:
             "start_date": stored["start_date"],
             "end_date": stored["end_date"],
             "rules": stored["rules"],
-            "bewerbung": {"offen": True, "start": "2025-09-01", "end": "2025-10-31"},
-            "registrierung": {"offen": True, "von": "2025-11-01", "end": "2025-12-15"},
+            "bewerbung": {"start": "2025-09-01", "end": "2025-10-31"},
+            "registrierung": {"offen": True, "end": "2025-12-15"},
             **overrides,
         }
 
@@ -615,14 +615,14 @@ class TestTheSeasonsSpans:
         parsed = FLPatchSaisonPayload.model_validate(self.payload(saison))
 
         assert parsed.bewerbung is not None
-        assert parsed.bewerbung.offen is True
+        assert parsed.registrierung is not None
 
     def test_accepts_no_window_at_all(self, saison):
         """`None` is the season with nothing recorded, which the span rule has nothing to say about."""
-        assert FLPatchSaisonPayload.model_validate(self.payload(saison, bewerbung=None)).bewerbung is None
+        assert FLPatchSaisonPayload.model_validate(self.payload(saison, bewerbung=None, registrierung=None)).bewerbung is None
 
     def test_refuses_a_window_ending_before_it_opens(self, saison):
-        reversed_window = {"offen": False, "start": "2025-10-31", "end": "2025-09-01"}
+        reversed_window = {"start": "2025-10-31", "end": "2025-09-01"}
 
         with pytest.raises(ValidationError) as failure:
             FLPatchSaisonPayload.model_validate(self.payload(saison, bewerbung=reversed_window))
@@ -631,7 +631,7 @@ class TestTheSeasonsSpans:
 
     def test_judges_the_window_apart_from_the_season_it_belongs_to(self, saison):
         """A window may legitimately open and close before the season's first day."""
-        before_the_saison = {"offen": False, "start": "2025-01-01", "end": "2025-02-01"}
+        before_the_saison = {"start": "2025-01-01", "end": "2025-02-01"}
 
         assert FLPatchSaisonPayload.model_validate(self.payload(saison, bewerbung=before_the_saison)).bewerbung is not None
 
@@ -642,31 +642,16 @@ class TestTheSeasonsSpans:
 
         assert [error["type"] for error in failure.value.errors()] == ["saison_ends_before_start"]
 
-    def test_accepts_a_registration_window_that_runs_forwards(self, saison):
-        """The floor for the registration half: without it the refusal below could pass for a reason nobody is testing."""
-        parsed = FLPatchSaisonPayload.model_validate(self.payload(saison))
-
-        assert parsed.registrierung is not None
-        assert parsed.registrierung.offen is True
-
-    def test_accepts_no_registration_window_at_all(self, saison):
-        """`None` is the season taking no registrations, which the span rule has nothing to say about."""
-        assert FLPatchSaisonPayload.model_validate(self.payload(saison, registrierung=None)).registrierung is None
-
-    def test_refuses_a_registration_window_ending_before_it_opens(self, saison):
-        """The third caller's own kind: the two windows raise different kinds, and one moved alone is what this catches."""
-        reversed_window = {"offen": False, "von": "2025-12-15", "end": "2025-11-01"}
+    def test_refuses_a_registration_window_reaching_the_season_s_start_and_names_its_last_day(self, saison):
+        """A window running into the season would take registrations once play has begun; the line is worded from `latest`."""
+        on_the_start = {"offen": True, "end": saison()["start_date"]}
 
         with pytest.raises(ValidationError) as failure:
-            FLPatchSaisonPayload.model_validate(self.payload(saison, registrierung=reversed_window))
+            FLPatchSaisonPayload.model_validate(self.payload(saison, registrierung=on_the_start))
 
-        assert [error["type"] for error in failure.value.errors()] == ["registrierung_window_ends_before_start"]
-
-    def test_judges_the_registration_window_apart_from_the_application_window(self, saison):
-        """Two decisions rather than one span: registration may legitimately close before applications do."""
-        overlapping = {"offen": True, "von": "2025-08-01", "end": "2025-09-15"}
-
-        assert FLPatchSaisonPayload.model_validate(self.payload(saison, registrierung=overlapping)).registrierung is not None
+        assert [(error["type"], error.get("ctx")) for error in failure.value.errors()] == [
+            ("registrierung_window_reaches_saison_start", {"latest": "2025-12-31"})
+        ]
 
 
 class TestTheSeasonsWindowsAreRequiredWithNoDefault:
@@ -806,8 +791,8 @@ class TestTheWritePathStripsBeforeItCountsCharacters:
         }
         # The stored rows minus what only storage carries, which is what each create payload takes.
         new_saison = {"id": saison()["_id"], "rules": saison()["rules"], "start_date": "2026-01-01", "end_date": "2026-06-30"}
-        new_saison["bewerbung"] = {"offen": True, "start": "2025-11-01", "end": "2025-12-15"}
-        new_saison["registrierung"] = {"offen": False, "von": "2026-01-05", "end": "2026-02-05"}
+        new_saison["bewerbung"] = {"start": "2025-11-01", "end": "2025-12-15"}
+        new_saison["registrierung"] = {"offen": False, "end": "2025-12-20"}
         new_saison_spieler = {key: value for key, value in saison_spieler().items() if key in FLPostSaisonSpielerPayload.model_fields}
         new_saison_team = {"saison_id": saison()["_id"], "gruppe": "A"}
 

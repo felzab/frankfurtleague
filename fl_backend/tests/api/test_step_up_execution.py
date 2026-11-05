@@ -59,7 +59,7 @@ SCHIEDSRICHTER_ID = ObjectId("6890a1b2c3d4e5f607950011")
 REFEREE_EMAIL = "collina@example.com"
 MOVED_EMAIL = "collina.pierluigi@example.com"
 
-REGISTRIERUNG: dict[str, Any] = {"offen": True, "von": "2026-03-01", "end": "2026-04-30"}
+REGISTRIERUNG: dict[str, Any] = {"offen": True, "end": "2026-04-30"}
 
 Body = Callable[[AsyncDatabase, AsyncClient], Awaitable[Any]]
 

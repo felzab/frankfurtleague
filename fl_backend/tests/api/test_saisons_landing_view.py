@@ -37,7 +37,7 @@ DAY_1, DAY_2 = ObjectId("6890a1b2c3d4e5f607440011"), ObjectId("6890a1b2c3d4e5f60
 FINALE_DAY = ObjectId("6890a1b2c3d4e5f607440013")
 
 # Open today, and for the season after the one the site is on, which the frame withholds.
-OPEN_WINDOW = {"offen": True, "start": "2026-03-01", "end": "2026-03-31"}
+OPEN_WINDOW = {"start": "2026-03-01", "end": "2026-03-31"}
 
 
 def side(team_id: ObjectId, name: str, tore: int | None) -> dict[str, Any]:
