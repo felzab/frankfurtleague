@@ -13,11 +13,11 @@ import { statusOf, useFormAction } from "./useFormAction";
 import type { ActionAnswer } from "@/core/action";
 import type { Copy } from "@/core/copy";
 import type { ReactNode } from "react";
-import type { ConfirmDialogProps } from "./ConfirmDialog";
+import type { ConfirmWords } from "./ConfirmDialog";
 import type { FormStatus } from "./useFormAction";
 
 /** The question an act asks before it runs; its button then carries the question's verb and tone. */
-type Question = Omit<ConfirmDialogProps, "trigger" | "open" | "onConfirm">;
+type Question = ConfirmWords;
 
 const NO_INPUTS: ReadonlyArray<unknown> = [];
 

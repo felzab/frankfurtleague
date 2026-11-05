@@ -21,7 +21,7 @@ import { usePasskeyTouch } from "./usePasskeyTouch";
 import type { ActionAnswer } from "@/core/action";
 import type { Copy, RecordText, Verb, Words } from "@/core/copy";
 import type { ReactElement, ReactNode } from "react";
-import type { ConfirmDialogProps } from "./ConfirmDialog";
+import type { ConfirmWords } from "./ConfirmDialog";
 import type { FormStatus } from "./useFormAction";
 
 /**
@@ -31,7 +31,7 @@ import type { FormStatus } from "./useFormAction";
 type Run = (formData: FormData) => Promise<ActionAnswer<unknown>>;
 
 /** The question an act asks before it runs; its button then carries the question's verb and record. */
-type Question = Omit<ConfirmDialogProps, "trigger" | "open" | "onConfirm">;
+type Question = ConfirmWords;
 
 /** The one act a box's footer holds, beside its status line. */
 export type AccountAct = {
