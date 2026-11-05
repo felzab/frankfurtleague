@@ -1,45 +1,11 @@
-import { COPY, textOf } from "@/core/copy";
+import { textOf } from "@/core/copy";
 
-import { Button } from "./Button";
 import { cardSurface } from "./cardStyles";
-import { ConfirmDialog } from "./ConfirmDialog";
 import { HelpPopover } from "./HelpPopover";
 import { tv } from "./tv";
 
 import type { Copy, Words } from "@/core/copy";
 import type { ReactNode } from "react";
-import type { ConfirmDialogProps } from "./ConfirmDialog";
-
-/**
- * An irreversible or retiring act, which stands as one row in an editor's last box: its name and its
- * consequence at the left, its button at the right, which asks before it acts.
- */
-export type DangerAct = {
-  name: Copy;
-  consequence: Copy;
-  /** The question its button opens; the button carries the question's verb and tone. */
-  confirm: Omit<ConfirmDialogProps, "trigger" | "open">;
-};
-
-function DangerRow({ act }: { act: DangerAct }) {
-  return (
-    <div className="flex min-h-14 items-center gap-3 rounded-lg border border-[color-mix(in_srgb,var(--danger)_45%,var(--border))] px-4 py-2 lg:min-h-13">
-      <div className="grid min-w-0 flex-1 text-sm">
-        <span className="font-semibold">{act.name}</span>
-        <span className="text-xs text-fg-muted">{act.consequence}</span>
-      </div>
-      <ConfirmDialog
-        {...act.confirm}
-        trigger={
-          <Button
-            variant={act.confirm.tone}
-            label={COPY.shared.verb[act.confirm.verb]}
-          />
-        }
-      />
-    </div>
-  );
-}
 
 /**
  * A section's title, 16 px semibold, one step under the page's: an editor's or a Konto page's box, a read
@@ -73,8 +39,8 @@ export function Section({
   help?: Copy;
   /** Why the fields under the title cannot change, in the hue a closed act's reason takes, visible under the title. */
   note?: Copy;
-  /** An editor's irreversible and retiring acts, one row each, after the box's fields. */
-  danger?: ReadonlyArray<DangerAct>;
+  /** An editor's irreversible and retiring acts, one row each, after the box's fields: `EditorPage`'s danger rows. */
+  danger?: ReactNode;
   children?: ReactNode;
 }) {
   return (
@@ -93,12 +59,7 @@ export function Section({
       {/* Each child at its own width: a field fills the column itself, a button among the fields keeps its. 8 px
           apart, each field's message line, always there, holding the rest of the space between two fields. */}
       {children !== undefined && <div className="grid justify-items-start gap-2">{children}</div>}
-      {danger?.map((act) => (
-        <DangerRow
-          key={act.name}
-          act={act}
-        />
-      ))}
+      {danger}
     </section>
   );
 }

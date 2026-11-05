@@ -1,9 +1,10 @@
 import { textOf } from "@/core/copy";
 
-import { card } from "./cardStyles";
+import { card, cardHover, stacked } from "./cardStyles";
 import { Chip } from "./Chip";
 import { Link } from "./Link";
 import { RowEnd } from "./RowEnd";
+import { tv } from "./tv";
 
 import type { Copy, Words } from "@/core/copy";
 import type { Route } from "next";
@@ -105,6 +106,70 @@ export function CardRow({ href, name, chip, detail }: { href: Route; name: Words
       </span>
       {detail !== undefined && <span className="flex shrink-0 items-center font-numeric text-fg-muted">{textOf(detail)}</span>}
       <RowEnd />
+    </div>
+  );
+}
+
+const actRow = tv({
+  slots: {
+    root: `relative grid min-h-14 gap-x-3 gap-y-2 ${stacked()} px-4 py-3 text-sm lg:min-h-13 ${cardHover()}`,
+    words: "grid min-w-0 gap-0.5",
+    name: "flex min-w-0 items-center gap-2",
+    line: "text-xs text-fg-muted",
+    // Positioned above the row's stretched link, so a press on an act does the act rather than open the record.
+    acts: "relative z-10 flex items-center gap-2 lg:justify-self-end",
+  },
+  variants: {
+    // With acts, one column on a phone, the acts under the words, and from `lg` the acts at the row's end; with
+    // none, the chevron at the row's end at every width.
+    acts: {
+      true: { root: "lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center" },
+      false: { root: "grid-cols-[minmax(0,1fr)_auto] items-center" },
+    },
+  },
+});
+
+/**
+ * One record in a card's rows whose open work is done where it shows: its name with its chip, one line saying
+ * what is open, and its acts, one or two kit buttons, under the words on a phone and at the row's end from
+ * `lg`, so the name keeps the phone's whole width. The whole row opens the record through its name, as every
+ * card row does; a row with no act ends in the chevron instead.
+ * @awaitsPage the Übersicht's cards
+ * @awaitsProduction the Übersicht's cards
+ */
+export function CardActRow({
+  href,
+  name,
+  chip,
+  line,
+  acts,
+}: {
+  href: Route;
+  name: Words;
+  chip?: ChipProps;
+  line: Words;
+  /** The row's acts, such as „Übernehmen“ and „Verwerfen“; none where the open work is done in the record. */
+  acts?: ReactElement;
+}) {
+  const s = actRow({ acts: acts !== undefined });
+  return (
+    <div className={s.root()}>
+      <span className={s.words()}>
+        <span className={s.name()}>
+          <span
+            title={textOf(name)}
+            className="min-w-0 truncate font-medium">
+            <Link
+              href={href}
+              placement="row"
+              label={name}
+            />
+          </span>
+          {chip !== undefined && <Chip {...chip} />}
+        </span>
+        <span className={s.line()}>{textOf(line)}</span>
+      </span>
+      {acts === undefined ? <RowEnd /> : <span className={s.acts()}>{acts}</span>}
     </div>
   );
 }

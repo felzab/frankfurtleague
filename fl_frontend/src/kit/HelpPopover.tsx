@@ -7,6 +7,7 @@ import { COPY } from "@/core/copy";
 
 import { Button } from "./Button";
 import { useOpenUntilHidden } from "./Dialog";
+import { popoverSurface } from "./fieldStyles";
 
 import type { Copy } from "@/core/copy";
 
@@ -29,7 +30,7 @@ export function HelpPopover({ subject, text }: { /** The section's title, which 
         offset={4}
         crossOffset={-8}
         data-kit-focus
-        className="w-popover max-w-panel rounded-lg border border-border bg-bg-overlay p-3 text-sm text-fg shadow-menu transition-opacity duration-(--motion-in) data-entering:opacity-0 data-exiting:opacity-0 data-exiting:duration-(--motion-out)">
+        className={popoverSurface({ width: "help" })}>
         <AriaDialog
           aria-label={subject}
           data-kit-focus>

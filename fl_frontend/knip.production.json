@@ -21,7 +21,11 @@
   // its line here and in `knip.json`.
   "ignoreFiles": [
     // Session 5.
-    "src/kit/Switch.tsx"
+    "src/kit/Switch.tsx",
+    "src/kit/CardGrid.tsx",
+    "src/kit/ScorePair.tsx",
+    "src/kit/AdoptLine.tsx",
+    "src/kit/SpieltagHead.tsx"
   ],
   // An export no production module reads yet but its own says so on itself, `@awaitsProduction` and the
   // page it waits for, which exempts it here (`knip.json` has the other tag). A tagged export that gains

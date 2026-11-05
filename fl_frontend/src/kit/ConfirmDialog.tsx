@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 
 import { Dialog as AriaDialog, DialogTrigger, Heading } from "react-aria-components/Dialog";
 
@@ -8,7 +8,9 @@ import { COPY } from "@/core/copy";
 
 import { Button } from "./Button";
 import { ActRow, DialogOverlay, useOpenUntilHidden } from "./Dialog";
+import { StatusLine } from "./FieldParts";
 
+import type { ActionAnswer } from "@/core/action";
 import type { Copy, Verb } from "@/core/copy";
 import type { ReactElement } from "react";
 import type { HeldOpen } from "./Dialog";
@@ -35,17 +37,30 @@ export type ConfirmDialogProps = {
   consequence: Copy;
   /** `danger` for a destructive act, `primary` for one that is merely irreversible. */
   tone: "danger" | "primary";
-  /** Does the act; the dialog closes once it has run. */
-  onConfirm: () => void | Promise<void>;
+  /**
+   * Does the act. The dialog closes once it has run, unless the act answers with a refusal, such as a venue still
+   * booked: the dialog then stays open with the refusal in its status line beside the acts.
+   */
+  onConfirm: () => void | Promise<void> | Promise<ActionAnswer<unknown>>;
 } & Opening;
 
 /**
  * The question before an act that cannot be undone: the act and its record, one sentence of consequence,
- * „Zurück“ and the act's verb. It has no close mark; Escape and „Zurück“ are the way out.
+ * „Zurück“ and the act's verb, the status line beside them as every form's stands beside its acts. It has no close
+ * mark; Escape and „Zurück“ are the way out. A refusal stands until the next press or until the dialog closes; the
+ * line is empty while the act runs, so the same refusal twice is announced twice.
  */
 export function ConfirmDialog({ verb, subject, consequence, tone, trigger, open, onConfirm }: ConfirmDialogProps) {
   const [isOpen, setOpen] = useOpenUntilHidden(open);
   const [isBusy, startAct] = useTransition();
+  const [refusal, setRefusal] = useState<Copy | null>(null);
+  // A refusal goes with the dialog however it closes, its holder's state or the page hiding included, so it never
+  // greets the next opening: reset while rendering, as React's guide adjusts state to a changed prop.
+  const [wasOpen, setWasOpen] = useState(isOpen);
+  if (isOpen !== wasOpen) {
+    setWasOpen(isOpen);
+    if (!isOpen) setRefusal(null);
+  }
 
   const overlay = (
     <DialogOverlay
@@ -64,6 +79,10 @@ export function ConfirmDialog({ verb, subject, consequence, tone, trigger, open,
         </Heading>
         <p className="text-sm text-fg-muted">{consequence}</p>
         <ActRow>
+          <StatusLine
+            status={refusal === null ? null : { tone: "error", text: refusal }}
+            placement="row"
+          />
           <Button
             variant="secondary"
             label={COPY.shared.back}
@@ -76,8 +95,13 @@ export function ConfirmDialog({ verb, subject, consequence, tone, trigger, open,
             isBusy={isBusy}
             onPress={() =>
               startAct(async () => {
-                await onConfirm();
-                startAct(() => setOpen(false));
+                setRefusal(null);
+                const answer = await onConfirm();
+                // An update after the `await` commits outside the transition unless it opens one of its own.
+                startAct(() => {
+                  if (answer !== undefined && !answer.ok) setRefusal(answer.reason ?? COPY.shared.failure.unexpected);
+                  else setOpen(false);
+                });
               })
             }
           />

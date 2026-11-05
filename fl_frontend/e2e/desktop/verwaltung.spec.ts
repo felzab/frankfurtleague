@@ -97,11 +97,12 @@ test("an administrator creates a venue over the Spielorte list, then moves a mat
   const uhrzeit = page.getByRole("group", { name: /^Uhrzeit/ });
   await uhrzeit.getByRole("spinbutton").first().click();
   await page.keyboard.type("1830");
-  // The editor's save bar stands below `main` in no landmark of its own, so its line is read over the page.
-  await expect(page.getByText("1 Änderung", { exact: true })).toBeVisible();
+  // The editor's save bar is a landmark of its own, named by its act, so its line is read inside it.
+  const bar = page.getByRole("region", { name: "Speichern" });
+  await expect(bar.getByText("1 Änderung", { exact: true })).toBeVisible();
 
-  await page.getByRole("button", { name: "Speichern" }).click();
-  await expect(page.getByText("Gespeichert", { exact: true })).toBeVisible();
+  await bar.getByRole("button", { name: "Speichern" }).click();
+  await expect(bar.getByText("Gespeichert", { exact: true })).toBeVisible();
 
   // Read back from the server: the match now kicks off at 18:30.
   await page.reload();
