@@ -48,7 +48,9 @@ def _on(url: str, stored: list[tuple[str, str]], body: Any, **fields: Any) -> An
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME) as (_, database):
             for saison_id, status in stored:
-                await database[Collection.SAISONS].insert_one(documents.saison_document(saison_id, status, **fields))
+                # A row whose id is no year still carries real days, so the list reads it as it reads any season.
+                days = {} if saison_id.isdigit() else {"start_date": "2025-01-01", "end_date": "2025-06-30"}
+                await database[Collection.SAISONS].insert_one(documents.saison_document(saison_id, status, **days, **fields))
 
             return await body(database)
 
@@ -61,6 +63,8 @@ class TestTheCreateMakesTheNextSeason:
         [
             pytest.param([], str(FIRST_SAISON_YEAR), id="the-league's-first"),
             pytest.param([("2026", "past"), ("2027", "active")], "2028", id="the-year-after-the-newest"),
+            # Sorted after every year by string order, so a create reading it as the newest answers 500.
+            pytest.param([("2027", "active"), ("abcd", "past")], "2028", id="the-year-after-the-newest-past-an-odd-row"),
         ],
     )
     def test_the_list_serves_the_id_the_create_mints(self, mongo_replica_set_url: str, stored: list[tuple[str, str]], minted: str):
@@ -75,7 +79,7 @@ class TestTheCreateMakesTheNextSeason:
         listed_id, refusal, created_id, seasons = _on(mongo_replica_set_url, stored, body)
 
         assert (listed_id, refusal, created_id) == (minted, None, minted)
-        assert seasons == [*stored, (minted, "future")]
+        assert seasons == sorted([*stored, (minted, "future")])
 
     @pytest.mark.parametrize(
         ("stored", "carried"),

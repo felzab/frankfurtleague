@@ -13,6 +13,7 @@ from app.api.teams.services import TAKEN_PLACE_FIELDS, has_taken_place
 from app.core.crud import aggregate_many_from_db, pull_many_from_db, pull_one_from_db
 from app.core.exceptions import DocumentNotFoundError
 from app.core.readonly import ReadCollection
+from app.shared.schemas.bounds import SAISON_ID_LENGTH
 
 CURRENT_SAISON_FILTER = {"status": "active"}
 
@@ -31,7 +32,11 @@ async def pull_create_state(*, saisons_collection: ReadCollection, session: Asyn
     The rules are the newest season's, the likeliest value, or the league's first season's where none is stored.
     """
 
-    newest = await saisons_collection.find_one({}, projection={"_id": 1, "rules": 1}, sort=[("_id", -1)], session=session)
+    # Among the ids that are a year alone, the greatest by string order being the newest: one stored row of another
+    # shape, written by hand, would otherwise answer 500 for the list it appears in and for every create.
+    newest = await saisons_collection.find_one(
+        {"_id": {"$regex": f"^[0-9]{{{SAISON_ID_LENGTH}}}$"}}, projection={"_id": 1, "rules": 1}, sort=[("_id", -1)], session=session
+    )
     future = await saisons_collection.find_one({"status": "future"}, projection={"_id": 1}, session=session)
 
     return CreateState(
