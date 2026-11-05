@@ -197,7 +197,7 @@ CLUBS = {ObjectId(f"6890a1b2c3d4e5f6073400{index:02d}"): "ABCD"[index // 4] for 
 OUTGOING_SAISON_ID = "2025"
 A_DAY = "2026-04-01"
 
-Act = Literal["activate", "recreate", "undraw"]
+Act = Literal["activate", "create", "recreate", "undraw"]
 State = Callable[[AsyncDatabase], Awaitable[None]]
 
 
@@ -213,6 +213,12 @@ async def a_report_submitted(database: AsyncDatabase) -> None:
     spiel = await database[Collection.SPIELE].find_one({"saison_id": SAISON_ID, "spiel_nr": 1})
     assert spiel is not None
     await database[Collection.SPIELBERICHTE].insert_one(spielbericht_document(spiel))
+
+
+async def a_club_short(database: AsyncDatabase) -> None:
+    """One group a club short of the stored rules' size, which the draw refuses until it is filled."""
+
+    await database[Collection.SAISON_TEAMS].delete_one({"saison_id": SAISON_ID, "team_id": next(iter(CLUBS))})
 
 
 async def the_season_active(database: AsyncDatabase) -> None:
@@ -262,7 +268,7 @@ async def pressed(act: Act, database: AsyncDatabase, client: AsyncMongoClient) -
             )
         )
 
-    return await refused_by(drawn(database, client, replace=True))
+    return await refused_by(drawn(database, client, replace=act == "recreate"))
 
 
 def drawn(database: AsyncDatabase, client: AsyncMongoClient, *, replace: bool) -> Awaitable[Any]:
@@ -286,6 +292,9 @@ class TestTheEditorsActsAreRefusedAsTheirWritesRefuse:
     @pytest.mark.parametrize(
         ("act", "draw", "state", "refused"),
         [
+            pytest.param("create", False, as_drawn, None, id="a first draw of full groups"),
+            pytest.param("create", False, a_club_short, Code.SPIELPLAN_GRUPPEN_OFF_RULES, id="a first draw a club short"),
+            pytest.param("create", True, as_drawn, Code.SPIELPLAN_ALREADY_DRAWN, id="a first draw of a drawn season"),
             pytest.param("recreate", True, as_drawn, None, id="a redraw of a season nothing is recorded on"),
             pytest.param("recreate", True, a_result_entered, Code.SPIELPLAN_REPLACE_OUTSIDE_ITS_WINDOW, id="a redraw past a result"),
             pytest.param("recreate", True, a_report_submitted, Code.SPIELPLAN_BERICHTE_SUBMITTED, id="a redraw over a report"),

@@ -65,7 +65,6 @@ from app.api.saisons.services import (
     decided_podium,
     find_activation_refusal,
     find_berichte_refusal,
-    find_replace_window_refusal,
     find_rules_freeze_refusal,
     find_rules_refusal,
     find_saison_id_refusal,
@@ -253,7 +252,7 @@ async def get_saison_admin(
     exactly the pairs and rows those writes refuse; `begun` closes both before either is pressed. `incoming_clubs` is
     every club still in the league holding no row of the season, which is what the replacement admits.
 
-    `refusals` names, per danger act, the refusal its write would answer now, by that write's own judgement, so the editor
+    `refusals` names, per act, the refusal its write would answer now, by that write's own judgement, so the editor
     offers an act exactly where the write takes it. `invitations` is the registration links' press planned by the function
     the press decides each team by, `resend` left false, beside each team's live link and the day it was last sent.
     Read outside a transaction: a write landing between this read and a press is judged by the press. 404 where no
@@ -343,6 +342,22 @@ async def get_saison_admin(
         }
     )
 
+    # Withdrawn rows included, as the draw counts them: a club that left keeps its place.
+    occupancy: dict[FLGruppenNames, int] = {}
+    for row in rows:
+        occupancy[row["gruppe"]] = occupancy.get(row["gruppe"], 0) + 1
+
+    def draw_refusal(*, replace: bool) -> WriteRefusal | None:
+        return find_spielplan_refusal(
+            saison_status=saison_status,
+            fixtures_drawn=len(recorded_rows),
+            spieltage_held=count_spieltage,
+            rules=saison.rules,
+            occupancy_by_gruppe=occupancy,
+            replace=replace,
+            recorded_fixtures=recorded_fixtures,
+        )
+
     return FLSaisonAdminResponse(
         saison=saison,
         teams=[
@@ -360,12 +375,9 @@ async def get_saison_admin(
         count_spieltage=count_spieltage,
         refusals=FLSaisonActRefusals(
             activate=code_of(activation[1]),
-            # `find_spielplan_refusal` asks the window of every replace first; its `saison_past` is unreachable once the
-            # window is open, the window opening on `future` alone, and its group sizes are the picked shape's.
-            recreate=code_of(
-                find_replace_window_refusal(saison_status=saison_status, recorded_fixtures=recorded_fixtures)
-                or find_berichte_refusal(berichte=berichte)
-            ),
+            # The draw's own judgement of the stored rules, the ones both presses draw, over the clubs entered.
+            create=code_of(draw_refusal(replace=False)),
+            recreate=code_of(draw_refusal(replace=True) or find_berichte_refusal(berichte=berichte)),
             undraw=code_of(_find_undraw_refusal_of(saison_status=saison_status, recorded_fixtures=recorded_fixtures, berichte=berichte)),
         ),
         invitations=[

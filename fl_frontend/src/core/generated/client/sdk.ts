@@ -2640,7 +2640,7 @@ export const getSaisonsGetSaisonAdminUrl = (saisonId: string) => {
  * exactly the pairs and rows those writes refuse; `begun` closes both before either is pressed. `incoming_clubs` is
  * every club still in the league holding no row of the season, which is what the replacement admits.
  *
- * `refusals` names, per danger act, the refusal its write would answer now, by that write's own judgement, so the editor
+ * `refusals` names, per act, the refusal its write would answer now, by that write's own judgement, so the editor
  * offers an act exactly where the write takes it. `invitations` is the registration links' press planned by the function
  * the press decides each team by, `resend` left false, beside each team's live link and the day it was last sent.
  * Read outside a transaction: a write landing between this read and a press is judged by the press. 404 where no

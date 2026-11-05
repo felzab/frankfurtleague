@@ -4577,14 +4577,14 @@ export interface FLSaison {
 }
 
 /**
- * Why each of the editor's three danger acts would be refused if pressed now, judged by its write's own rules; null where it takes it.
+ * Why each of the editor's season acts would be refused if pressed now, judged by its write's own rules; null where it takes it.
  *
- * `activate` and `undraw` are their writes' whole judgement. `recreate` is the part of a confirmed redraw no shape
- * changes, its planning window and then the reports it would delete: the shape's own refusals come with the press, the
- * shapes offered being those the draw admits.
+ * `activate` and `undraw` are their writes' whole judgement. `create` and `recreate` are the draw's judgement of the
+ * stored rules the editor's presses draw, over the clubs entered, `recreate` then the reports it would delete.
  */
 export interface FLSaisonActRefusals {
   activate: Code | null;
+  create: Code | null;
   recreate: Code | null;
   undraw: Code | null;
 }

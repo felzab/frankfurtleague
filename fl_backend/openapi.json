@@ -11201,9 +11201,19 @@
         "type": "object"
       },
       "FLSaisonActRefusals": {
-        "description": "Why each of the editor's three danger acts would be refused if pressed now, judged by its write's own rules; null where it takes it.\n\n`activate` and `undraw` are their writes' whole judgement. `recreate` is the part of a confirmed redraw no shape\nchanges, its planning window and then the reports it would delete: the shape's own refusals come with the press, the\nshapes offered being those the draw admits.",
+        "description": "Why each of the editor's season acts would be refused if pressed now, judged by its write's own rules; null where it takes it.\n\n`activate` and `undraw` are their writes' whole judgement. `create` and `recreate` are the draw's judgement of the\nstored rules the editor's presses draw, over the clubs entered, `recreate` then the reports it would delete.",
         "properties": {
           "activate": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Code"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "create": {
             "anyOf": [
               {
                 "$ref": "#/components/schemas/Code"
@@ -11236,6 +11246,7 @@
         },
         "required": [
           "activate",
+          "create",
           "recreate",
           "undraw"
         ],
@@ -24644,7 +24655,7 @@
     },
     "/api/v0/saisons/{saison_id}/admin": {
       "get": {
-        "description": "Return what the season editor shows in one read: its season, clubs, shapes and matchdays, its acts' states and its links.\n\nThe season is served a `future` one included, with its `version`, whether it has started (`begun`), whether a\nfixture of it has taken place (`taken_place`) and whether it is decided (`decided`), by the landing's own rule.\n\nEach club's two flags are what the group swap's and the replacement's `sides_taken_place` read, so a picker closes\nexactly the pairs and rows those writes refuse; `begun` closes both before either is pressed. `incoming_clubs` is\nevery club still in the league holding no row of the season, which is what the replacement admits.\n\n`refusals` names, per danger act, the refusal its write would answer now, by that write's own judgement, so the editor\noffers an act exactly where the write takes it. `invitations` is the registration links' press planned by the function\nthe press decides each team by, `resend` left false, beside each team's live link and the day it was last sent.\nRead outside a transaction: a write landing between this read and a press is judged by the press. 404 where no\nseason holds that id.",
+        "description": "Return what the season editor shows in one read: its season, clubs, shapes and matchdays, its acts' states and its links.\n\nThe season is served a `future` one included, with its `version`, whether it has started (`begun`), whether a\nfixture of it has taken place (`taken_place`) and whether it is decided (`decided`), by the landing's own rule.\n\nEach club's two flags are what the group swap's and the replacement's `sides_taken_place` read, so a picker closes\nexactly the pairs and rows those writes refuse; `begun` closes both before either is pressed. `incoming_clubs` is\nevery club still in the league holding no row of the season, which is what the replacement admits.\n\n`refusals` names, per act, the refusal its write would answer now, by that write's own judgement, so the editor\noffers an act exactly where the write takes it. `invitations` is the registration links' press planned by the function\nthe press decides each team by, `resend` left false, beside each team's live link and the day it was last sent.\nRead outside a transaction: a write landing between this read and a press is judged by the press. 404 where no\nseason holds that id.",
         "operationId": "saisons_get_saison_admin",
         "parameters": [
           {
