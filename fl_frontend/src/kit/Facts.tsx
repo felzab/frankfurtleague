@@ -12,18 +12,29 @@ import type { ChipProps } from "./Chip";
 import type { IconName } from "./Icon";
 
 /**
- * One fact: its label, and its value as a record's data, a link to it on the site, or a link to it on
- * another site, such as a venue on a map. An absent value is left out.
+ * One fact: its label, and its value as a record's data, a link to it on the site, a link to it on
+ * another site, such as a venue on a map, or a way to reach a person. An absent value is left out.
  */
 export type Fact = {
   label: Copy;
   /** A small muted glyph before the label, as the match pop-up leads each of its facts (Notion's property pattern). */
   glyph?: IconName;
 } & (
-  | { value: Words; /** Figures, set in Inter with columns that line up. */ figures?: boolean; link?: never; elsewhere?: never }
-  | { link: { href: Route; label: Words }; value?: never; figures?: never; elsewhere?: never }
+  | {
+      value: Words;
+      /** Figures, set in Inter with columns that line up. */ figures?: boolean;
+      link?: never;
+      elsewhere?: never;
+      contact?: never;
+    }
+  | { link: { href: Route; label: Words }; value?: never; figures?: never; elsewhere?: never; contact?: never }
   /** Another site's address, which `Link` opens in a new tab, leaving the site's page in place. */
-  | { elsewhere: { href: `https://${string}`; label: Words }; value?: never; figures?: never; link?: never }
+  | { elsewhere: { href: `https://${string}`; label: Words }; value?: never; figures?: never; link?: never; contact?: never }
+  /**
+   * A mail address as a mail link, or a phone number as a call link, the address or number its words: contact data
+   * is reached, not copied, so no copy button stands beside it.
+   */
+  | { contact: { href: `mailto:${string}` | `tel:${string}`; label: Words }; value?: never; figures?: never; link?: never; elsewhere?: never }
 );
 
 const facts = tv({
@@ -91,7 +102,7 @@ export function Facts({
       <dl className={list()}>
         {rows.map((fact) => {
           const { row, term, detail } = facts({ look, figures: fact.figures === true });
-          const to = fact.link ?? fact.elsewhere;
+          const to = fact.link ?? fact.elsewhere ?? fact.contact;
           const nth = above.get(fact.label) ?? 0;
           above.set(fact.label, nth + 1);
           return (

@@ -11,11 +11,12 @@ import { FieldLabel, MessageLine } from "./FieldParts";
 import { fieldFrame, fieldRoot, fieldUnit } from "./fieldStyles";
 import { useDisabled } from "./formClosed";
 
-import type { Copy } from "@/core/copy";
+import type { Copy, Words } from "@/core/copy";
 import type { Constraints } from "./FieldParts";
 
 type Shared = {
-  label: Copy;
+  /** The catalogue's words, or a record's own, such as a score field named by its club. */
+  label: Words;
   isRequired?: boolean;
   isDisabled?: boolean;
   name?: string;

@@ -39,8 +39,12 @@ export function EditorBar({
   );
   return (
     // On desktop as tall as the rail's foot beside it (`--rail-foot`, from `tokens.css`), so the two top
-    // hairlines are one line.
-    <div className="sticky bottom-0 z-10 flex h-14 items-center gap-4 border-t border-border bg-bg px-4 lg:h-(--rail-foot) lg:px-8">
+    // hairlines are one line. A landmark of its own, named by its act: the bar stands after `main`, and content
+    // outside every landmark is passed over by a screen reader moving between them.
+    <div
+      role="region"
+      aria-label={COPY.shared.verb.save}
+      className="sticky bottom-0 z-10 flex h-14 items-center gap-4 border-t border-border bg-bg px-4 lg:h-(--rail-foot) lg:px-8">
       <StatusLine
         status={status}
         placement="row"

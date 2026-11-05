@@ -63,14 +63,17 @@ describe("a table's name cell", () => {
         ])}
       />,
     );
-    const link = screen.getByRole("link", { name: (accessible) => accessible.includes(LONG) });
+    const link = screen.getByRole("link", { name: LONG });
     expect(link.getAttribute("data-kit-focus")).toBe("row");
-    expect(link.textContent).toBe(`GOE${LONG}`);
 
     const words = screen.getByText(LONG);
     expect(words.closest("a")).toBe(link);
     expect(words.classList).toContain("max-lg:sr-only");
-    expect(screen.getByText("GOE").closest("a")).toBe(link);
+    // The plaque stands outside the link and the span cutting the name, so the cut never takes it; the link's
+    // stretched box, drawn over the whole row, still opens the club from it.
+    const plaque = screen.getByText("GOE");
+    expect(plaque.closest("a")).toBe(null);
+    expect(plaque.parentElement).toBe(screen.getByTitle(LONG).parentElement);
 
     // Nothing between the link and its row is positioned or clipped, so the stretched link covers the row.
     const row = link.closest("tr");
@@ -192,6 +195,32 @@ describe("a table on a phone", () => {
       expect(head.classList).toContain("max-lg:sr-only");
       expect(head.classList).not.toContain("max-lg:hidden");
     }
+  });
+
+  // A stacked row on a phone draws its facts one under another with its column heads hidden from sight: a cell left
+  // without its drawn label shows a bare „3:1“ or a bare date, which no reader can place, and every check stays green.
+  it("draws each cell of a stacked row after its column's label on a phone, the heads still read", () => {
+    render(
+      <Table
+        {...props([
+          {
+            id: "1",
+            name: { record: "Kastanie" },
+            plaque: { record: "KAS" },
+            versus: { plaque: { record: "EIC" }, name: { record: "Eiche" } },
+            href: "/saisons/2027",
+            cells: { stadtteil: { record: "3:1" } },
+          },
+        ])}
+        stack
+      />,
+    );
+    const cell = screen.getByText("3:1").closest("td");
+    const label = cell?.firstElementChild;
+    expect(label?.textContent).toBe(COPY.shared.startelf);
+    expect(label?.getAttribute("aria-hidden")).toBe("true");
+    expect(label?.classList).toContain("lg:hidden");
+    for (const head of screen.getAllByRole("columnheader")) expect(head.classList).toContain("max-lg:sr-only");
   });
 
   // A row drawn as a grid on a phone loses the table semantics an engine infers from its elements, so the table, its

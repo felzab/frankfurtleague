@@ -937,14 +937,14 @@ const DESIGN_BANS = [
     [
       ["Popover"],
       "Popover",
-      ["src/kit/HelpPopover.tsx", "src/kit/OptionList.tsx", "src/kit/DateField.tsx", "src/kit/Menu.tsx"],
-      "Help opens in `HelpPopover`; a list, a calendar and a menu open in their own control.",
+      ["src/kit/HelpPopover.tsx", "src/kit/PlaquePopover.tsx", "src/kit/OptionList.tsx", "src/kit/DateField.tsx", "src/kit/Menu.tsx"],
+      "Help opens in `HelpPopover`, a club from its plaque in `PlaquePopover`; a list, a calendar and a menu open in their own control.",
     ],
     [
       ["Dialog"],
       "Dialog",
-      ["src/kit/Dialog.tsx", "src/kit/ConfirmDialog.tsx", "src/kit/Sheet.tsx", "src/kit/HelpPopover.tsx"],
-      "A dialog is the kit's `Dialog`, `Sheet` or `ConfirmDialog`.",
+      ["src/kit/Dialog.tsx", "src/kit/ConfirmDialog.tsx", "src/kit/Sheet.tsx", "src/kit/HelpPopover.tsx", "src/kit/PlaquePopover.tsx"],
+      "A dialog is the kit's `Dialog`, `Sheet`, `ConfirmDialog` or a pop-up's own (`HelpPopover`, `PlaquePopover`).",
     ],
     [
       ["Modal", "ModalOverlay"],

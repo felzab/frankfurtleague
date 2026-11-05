@@ -21,6 +21,11 @@ export type RouteEntry = {
   readonly path: (...segments: never) => `/${string}`;
   readonly title: Copy | ((...names: never) => Copy) | null;
   readonly crawl: Crawl;
+  /**
+   * The row of the menu entry the page belongs to, where its address lies under another entry's: a frame marks
+   * that entry and leads back to it rather than to the entry the address lies under (`kit/navPlace.tsx :: placeOf`).
+   */
+  readonly place?: string;
 };
 
 /**
@@ -55,6 +60,7 @@ export const ADDRESS_WORDS = [
   "passkey",
   "search",
   "security",
+  "settings",
   "signin",
   "sponsors",
   // The one exception, two German words naming no league thing: the Impressum is a duty under German law, and
@@ -200,6 +206,11 @@ export const ROUTES = {
     crawl: "disallow",
   },
 
+  /**
+   * The administration's root, which a link uses where it cannot know the season: its page sends the reader on to the
+   * Übersicht of the season the site is on, as `/saisons` sends a visitor on to its Spielplan.
+   */
+  admin: { path: () => "/admin" as const, title: COPY.shared.overview, crawl: "disallow" },
   // Session 5: its page is built.
   adminOverview: {
     path: (saison: string) => `/admin/saisons/${saison}` as const,
@@ -208,6 +219,14 @@ export const ROUTES = {
   },
   // Session 5: its page is built.
   adminSaisons: { path: () => "/admin/saisons" as const, title: COPY.page.adminSaisons, crawl: "disallow" },
+  /** A season's editor, named by the season. Its address lies under the season's Übersicht, and it belongs to the list. */
+  // Session 5: its page is built.
+  adminSaison: {
+    path: (saison: string) => `/admin/saisons/${saison}/settings` as const,
+    title: COPY.shared.saisonName,
+    crawl: "disallow",
+    place: "adminSaisons",
+  },
   // Session 5: its page is built.
   adminSpiele: {
     path: (saison: string) => `/admin/saisons/${saison}/spiele` as const,

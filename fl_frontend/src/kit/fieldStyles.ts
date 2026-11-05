@@ -313,6 +313,22 @@ export const menuPopover = tv({
   },
 });
 
+/**
+ * The pop-up a short text opens in, anchored to its control and dimming nothing: the help behind a section's ⓘ and
+ * a club behind its plaque, on one surface. Help is a few sentences, set at the help popover's 320 px so they wrap
+ * at one measure; a club's name and its link are a few words, so that pop-up is as wide as they are, never
+ * narrower than 192 px. Neither is wider than the screen.
+ */
+export const popoverSurface = tv({
+  base: "max-w-panel rounded-lg border border-border bg-bg-overlay p-3 text-sm text-fg shadow-menu transition-opacity duration-(--motion-in) data-entering:opacity-0 data-exiting:opacity-0 data-exiting:duration-(--motion-out)",
+  variants: {
+    width: {
+      help: "w-popover",
+      fit: "min-w-48",
+    },
+  },
+});
+
 /** One entry of that menu: a fill when the pointer or the arrow keys reach it. */
 export const menuItem = tv({
   base: "flex min-h-8 cursor-default items-center justify-between gap-2 rounded-md px-3 text-sm text-fg data-disabled:opacity-50 pointer-coarse:min-h-10 pointer-coarse:text-base",
