@@ -4,7 +4,7 @@ import { useId } from "react";
 
 import { ERGEBNIS_SEPARATOR } from "@/core/format";
 
-import { cardSurface } from "./cardStyles";
+import { cardSurface, smallCaps } from "./cardStyles";
 import { messageLine } from "./fieldStyles";
 import { TeamPlaque } from "./TeamPlaque";
 import { TextField } from "./TextField";
@@ -23,6 +23,8 @@ const scorePair = tv({
   slots: {
     // A box of its own inside the section's, so the score reads as the one value it is, apart from the switch above.
     panel: cardSurface({ class: "grid w-full gap-2 p-4" }),
+    // The kit's label rung, centred over the clubs as the row under it is.
+    caption: smallCaps({ class: "text-center" }),
     // Each side takes half the row the colon leaves, so a club's name over its field has room to stand.
     row: "grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-end gap-3",
     // The plaque over the field, which stands centred under it.
@@ -47,7 +49,10 @@ const HUE = { win: "success", draw: "warn" } as const;
  * A score as one value in one row at every width (D279, D342), drawn as the match head draws a match (D358 kopf B):
  * each side's plaque over its club's name over its two-digit field, the colon between them on the fields' line, the
  * whole centred in a box of its own. The result's goals and a shoot-out's alike. `label`, „Tore“ or
- * „Elfmeterschießen“, names the group for a screen reader; the box and the clubs say it on the screen.
+ * „Elfmeterschießen“, names the group. The two boxes otherwise read alike, the same clubs over the same fields, so a
+ * `captioned` pair, the shoot-out's, sets its label over the clubs in the kit's label rung, the caption being the
+ * group's name on the screen and for a screen reader alike; the goals' pair, standing first, names itself to a
+ * screen reader alone.
  *
  * Each field keeps its own message line for its value's error; the pair's one line under both fields, centred as
  * they are, says what the pair as a whole sets off, such as level knockout goals leaving the bracket waiting, else
@@ -62,8 +67,11 @@ export function ScorePair({
   consequence,
   outcome,
   isRequired = false,
+  captioned = false,
 }: {
   label: Copy;
+  /** Whether `label` stands over the clubs as the pair's visible caption, as the shoot-out's does. */
+  captioned?: boolean;
   /** The two clubs, home first. */
   sides: readonly [ScoreSide, ScoreSide];
   /** The two fields' names, as the form posts them. */
@@ -77,6 +85,7 @@ export function ScorePair({
   isRequired?: boolean;
 }) {
   const lineId = useId();
+  const captionId = useId();
   const said = consequence ?? outcome?.text;
   const tone = outcome === undefined || outcome === null ? "none" : HUE[outcome.tone];
   const slots = scorePair({ tone: consequence === undefined ? tone : "warn" });
@@ -100,9 +109,17 @@ export function ScorePair({
   return (
     <div
       role="group"
-      aria-label={label}
+      // A caption names the group itself, so its words stand once, for the screen and a screen reader alike.
+      {...(captioned ? { "aria-labelledby": captionId } : { "aria-label": label })}
       aria-describedby={said === undefined ? undefined : lineId}
       className={slots.panel()}>
+      {captioned && (
+        <p
+          id={captionId}
+          className={slots.caption()}>
+          {label}
+        </p>
+      )}
       <div className={slots.row()}>
         {field(0)}
         {/* On the fields' own line: a box as tall as a control over a place as tall as their message line, 4 px

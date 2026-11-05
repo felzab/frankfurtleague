@@ -336,6 +336,8 @@ export function SpielEditor({
               {shootOut && (
                 <ScorePair
                   label={WORDS.elfmeterschiessen}
+                  // Its caption tells it from the goals' pair above, which reads the same clubs over the same fields.
+                  captioned
                   sides={scoreSides}
                   names={["shootOut1", "shootOut2"]}
                   values={[draft.shootOut1, draft.shootOut2]}
