@@ -418,7 +418,7 @@ export function SpielEditor({
                 columns={[
                   { key: "answer", label: WORDS.answer },
                   { key: "proposal", label: COPY.admin.overview.vorschlag },
-                  { key: "reason", label: WORDS.reason },
+                  { key: "reason", label: WORDS.reason, written: true },
                 ]}
                 rows={answers}
                 empty={{ kind: "none", plural: WORDS.bestaetigungen }}

@@ -16098,7 +16098,7 @@
               {
                 "maxLength": 500,
                 "minLength": 1,
-                "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
+                "pattern": "^[^\\x00\\v\\f\\u0085\\u2028\\u2029]*$",
                 "type": "string"
               },
               {
@@ -16219,7 +16219,7 @@
           "begruendung": {
             "maxLength": 500,
             "minLength": 1,
-            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
+            "pattern": "^[^\\x00\\v\\f\\u0085\\u2028\\u2029]*$",
             "title": "Begruendung",
             "type": "string"
           }
@@ -16324,7 +16324,7 @@
               {
                 "maxLength": 500,
                 "minLength": 1,
-                "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
+                "pattern": "^[^\\x00\\v\\f\\u0085\\u2028\\u2029]*$",
                 "type": "string"
               },
               {

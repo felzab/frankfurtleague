@@ -26,6 +26,8 @@ type TableColumn = {
   figures?: boolean;
   /** The column that decides, such as points: its figures in the strong weight. */
   strong?: boolean;
+  /** Text a person wrote, such as a Begründung, which keeps the line breaks it was written with. */
+  written?: boolean;
 } & (
   | { /** Left out on a phone, where the row keeps its name and two facts. */ hideOnPhone?: boolean; phoneOnly?: never }
   /** Drawn on a phone alone, such as one column standing for several the phone leaves out. */
@@ -184,6 +186,11 @@ const table = tv({
         label: "text-xs text-fg-muted lg:hidden",
       },
     },
+    // Text a person wrote keeps its breaks: one line per written line, as every cell keeps its line, and wrapping
+    // inside its lines where a prose table or a stacked phone row wraps its cells (the compound rules below).
+    written: {
+      true: { cell: "whitespace-pre" },
+    },
     linked: {
       true: { row: cardHover() },
     },
@@ -208,6 +215,8 @@ const table = tv({
     // height, the row keeping the room for it.
     { prose: true, chevronOnPhone: true, class: { row: "max-lg:pe-12", end: PHONE_END } },
     { stack: true, chevronOnPhone: true, class: { row: "max-lg:pe-12", end: PHONE_END } },
+    { written: true, prose: true, class: { cell: "whitespace-pre-line" } },
+    { written: true, stack: true, class: { cell: "max-lg:whitespace-pre-line" } },
   ],
 });
 
@@ -461,6 +470,7 @@ export function Table({
                       align: column.figures === true ? "figure" : "start",
                       figures: column.figures === true,
                       strong: column.strong === true,
+                      written: column.written === true,
                       phone: phoneOf(column),
                       compact,
                       prose,

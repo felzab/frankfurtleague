@@ -190,6 +190,10 @@ PERSON_NAME_PATTERN = r"^\p{L}[\p{L}\-' ]*$"
 # the frontend strips what `str.strip` strips, White_Space and U+001C to U+001F.
 SINGLE_LINE_PATTERN = r"^[^\x00\n\v\f\r\u0085\u2028\u2029]*$"
 
+# A paragraph a person writes, such as a Begr\u00fcndung: its line breaks kept, the line feed and the carriage return a
+# browser's text area sends before it, and the other characters `SINGLE_LINE_PATTERN` refuses still refused.
+PARAGRAPH_PATTERN = r"^[^\x00\v\f\u0085\u2028\u2029]*$"
+
 # Byte-for-byte the regex zod uses for `z.regexes.domain`, because `ExternalUrlSchema` tests the
 # parsed hostname against exactly this and both ends must accept or reject a value alike.
 DOMAIN_REGEX = re.compile(r"^(?=.{1,253}$)([a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,63}$")

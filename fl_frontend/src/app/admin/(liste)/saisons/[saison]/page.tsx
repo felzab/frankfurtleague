@@ -126,7 +126,8 @@ function ReasonField() {
       label={COPY.admin.overview.reason}
       // The name `enterZusage` reads the reason by.
       name="begruendung"
-      width="W3"
+      // A paragraph: a reason a person writes, at four lines, its line breaks kept.
+      width="W4"
       kind="text"
       isRequired={requires(SpielbestaetigungenEnterSpielbestaetigungBody.shape.begruendung, "")}
       maxLength={spielbestaetigungenEnterSpielbestaetigungBodyBegruendungMax}

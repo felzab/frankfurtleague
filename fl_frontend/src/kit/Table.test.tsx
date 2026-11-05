@@ -205,6 +205,24 @@ describe("a table on a phone", () => {
     for (const head of screen.getAllByRole("columnheader")) expect(head.classList).toContain("max-lg:sr-only");
   });
 
+  // A cell collapsing white space would join a reason's written lines into one, and nothing on the page would say so;
+  // jsdom applies no stylesheet, so the kept breaks are read from the cell's words and its class.
+  it("keeps the line breaks of a column of written text, in a row and in a stacked phone row", () => {
+    const reason = "Halle belegt\nAb 18 Uhr frei";
+    render(
+      <Table
+        {...props([{ id: "1", name: { record: "Goethe" }, cells: { reason: { record: reason } } }])}
+        columns={[{ key: "reason", label: COPY.admin.overview.reason, written: true }]}
+        stack
+      />,
+    );
+    const cell = screen.getByText(/Halle belegt/).closest("td");
+    expect(cell?.textContent).toContain(reason);
+    expect(cell?.classList).toContain("whitespace-pre");
+    expect(cell?.classList).toContain("max-lg:whitespace-pre-line");
+    expect(cell?.classList).not.toContain("whitespace-nowrap");
+  });
+
   // A row drawn as a grid on a phone loses the table semantics an engine infers from its elements, so the table, its
   // rows, its heads and its cells say their roles in writing; a part left without one reads as a plain box there.
   it("writes the table's, its rows', its heads' and its cells' roles, so a row drawn as a grid keeps its semantics", () => {

@@ -2546,7 +2546,7 @@ export const SpielbestaetigungenGetSpielbestaetigungenQueryParams = zod.object({
  */
 export const spielbestaetigungenPostSpielbestaetigungBodyBegruendungOneMax = 500;
 
-export const spielbestaetigungenPostSpielbestaetigungBodyBegruendungOneRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
+export const spielbestaetigungenPostSpielbestaetigungBodyBegruendungOneRegExp = new RegExp("^[^\\x00\\v\\f\\u0085\\u2028\\u2029]*$");
 export const spielbestaetigungenPostSpielbestaetigungBodyTokenMax = 128;
 
 export const spielbestaetigungenPostSpielbestaetigungBodyTokenRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
@@ -2717,7 +2717,7 @@ export const SpielbestaetigungenPostSchiedsrichterAntwortParams = zod.object({
 
 export const spielbestaetigungenPostSchiedsrichterAntwortBodyBegruendungOneMax = 500;
 
-export const spielbestaetigungenPostSchiedsrichterAntwortBodyBegruendungOneRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
+export const spielbestaetigungenPostSchiedsrichterAntwortBodyBegruendungOneRegExp = new RegExp("^[^\\x00\\v\\f\\u0085\\u2028\\u2029]*$");
 
 export const SpielbestaetigungenPostSchiedsrichterAntwortBody = zod
   .object({
@@ -2771,7 +2771,7 @@ export const SpielbestaetigungenEnterSpielbestaetigungParams = zod.object({
 
 export const spielbestaetigungenEnterSpielbestaetigungBodyBegruendungMax = 500;
 
-export const spielbestaetigungenEnterSpielbestaetigungBodyBegruendungRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
+export const spielbestaetigungenEnterSpielbestaetigungBodyBegruendungRegExp = new RegExp("^[^\\x00\\v\\f\\u0085\\u2028\\u2029]*$");
 
 export const SpielbestaetigungenEnterSpielbestaetigungBody = zod
   .object({
