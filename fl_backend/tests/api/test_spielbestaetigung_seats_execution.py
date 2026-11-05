@@ -113,12 +113,9 @@ def link(row: str, seat: str) -> str:
 
 
 def fixture(spiel_id: ObjectId, *, saison_id: str = SAISON_ID, spiel_nr: int = 1) -> dict[str, Any]:
-    """This team at home to the other, as the league's schedule holds it."""
+    """This team at home to the other, as the league's schedule stores it, naming neither."""
 
-    sides = {
-        f"team{position}": {"team_id": team_id, "name": name, "shorthand": shorthand, "tore": None}
-        for position, (team_id, name, shorthand) in enumerate(((TEAM_OID, "Adler", "ADX"), (OTHER_TEAM_OID, "Falken", "FAX")), start=1)
-    }
+    sides = {f"team{position}": {"team_id": team_id, "tore": None} for position, team_id in enumerate((TEAM_OID, OTHER_TEAM_OID), start=1)}
 
     return documents.spiel_document(
         spiel_id=spiel_id, saison_id=saison_id, spiel_nr=spiel_nr, spieltag_id=SPIELTAG_OID, datum="2026-04-18", uhrzeit="14:00:00", **sides

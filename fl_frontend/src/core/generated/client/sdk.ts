@@ -3044,7 +3044,8 @@ export const getSchiedsrichterPostSchiedsrichterUrl = () => {
  * whether this person is asked, because a referee nobody asked is a name nobody consented to
  * publish. The link goes out through the Postausgang, which mints it; the answer names the address and the deadline.
  *
- * Refused `schiedsrichter_address_barred` where the address given is on the ban list.
+ * Refused where another referee holds the name (`duplicate_key`, naming `name`), then
+ * `schiedsrichter_address_barred` where the address given is on the ban list.
  * @summary Create a Schiedsrichter
  */
 export const schiedsrichterPostSchiedsrichter = async (
@@ -3335,6 +3336,8 @@ export const getSchiedsrichterPatchSchiedsrichterUrl = (schiedsrichterId: string
  * collected for a role nobody gives them. Their old link is retired all the same, and the
  * reactivation mints the fresh one. Where a link is minted, a banned new address is refused
  * `schiedsrichter_address_barred`.
+ *
+ * Refused where another referee holds the name (`duplicate_key`, naming `name`), ahead of the address's refusals.
  *
  * The ghost answers 404 here as it does to every read: a name written onto it would appear on the
  * fixtures of every referee already erased.
@@ -3891,6 +3894,33 @@ export const spielbestaetigungenGetSpielbestaetigungView = async (
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
     body: JSON.stringify(fLTokenPayload),
+  });
+};
+
+export const getSpielbestaetigungenAdoptSpielbestaetigungUrl = (spielbestaetigungId: string) => {
+  return `/api/v0/spielbestaetigungen/${encodeURIComponent(String(spielbestaetigungId))}/adopt`;
+};
+
+/**
+ * Move a fixture to the date and hour a club's open decline proposes, through the fixture's own save.
+ *
+ * Refused as the discard refuses, for any row but an open club decline proposing a date about the fixture's current
+ * Ansetzung (`ansetzung_not_discardable`), and for a proposed day gone by (`ansetzung_vorschlag_past`). The fixture is
+ * saved as the administrator's save would carry it on the proposed day and hour, everything else kept, so it meets
+ * every rule that save meets and is refused as that save is, by its code alone: no refusal names a field, the request
+ * carrying no body. The bracket is resolved as that save resolves it. The
+ * row is not closed here: the fixture has left the Ansetzung it answers, so its links read `invalid` at once and the
+ * next confirmation pass closes every party's row `ansetzung_changed`, owing each party „Spiel verlegt“ and asking it
+ * about the new slot. IRREVERSIBLE as a save is: moving the fixture back is another save.
+ * @summary Adopt a club's proposed date
+ */
+export const spielbestaetigungenAdoptSpielbestaetigung = async (
+  spielbestaetigungId: string,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<void> => {
+  return adminKeyTransport<void>(getSpielbestaetigungenAdoptSpielbestaetigungUrl(spielbestaetigungId), {
+    ...options,
+    method: "POST",
   });
 };
 

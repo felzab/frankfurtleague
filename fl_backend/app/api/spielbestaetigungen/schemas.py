@@ -4,6 +4,7 @@ from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Fie
 
 from app.api.outbox.schemas import FLOutboxStatus
 from app.api.spiele.schemas import FLSpielOrtFieldPublic
+from app.core.crud import Anchored
 from app.core.exceptions import rule_refusal
 from app.shared.schemas.actor import FLByAdmin
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SPIELBESTAETIGUNG_BEGRUENDUNG_MAX_LENGTH
@@ -183,7 +184,7 @@ class FLSpielbestaetigungKontakteRecord(BaseModel):
     stellvertretung: FLSpielbestaetigungSitzRecord | None
 
 
-class FLSpielbestaetigungRecord(_FLSpielbestaetigungFelder):
+class FLSpielbestaetigungRecord(_FLSpielbestaetigungFelder, Anchored):
     """One confirmation as `spielbestaetigungen` stores it, with the keys no read serves."""
 
     kontakte: FLSpielbestaetigungKontakteRecord | None
