@@ -83,6 +83,7 @@ export function CardPlaceholder({
     title === undefined ? (
       <PlaceholderLine
         text={s.title({ class: "flex-1" })}
+        ground="head"
         width="w-1/3"
       />
     ) : (
@@ -94,14 +95,14 @@ export function CardPlaceholder({
         {chip ? (
           <span className={s.named()}>
             {name}
-            <span className={placeholderBar("h-5 w-16")} />
+            <span className={placeholderBar("h-5 w-16", "head")} />
           </span>
         ) : (
           name
         )}
         {count && (
           <span className={s.count()}>
-            <span className={placeholderBar("h-3 w-4")} />
+            <span className={placeholderBar("h-3 w-4", "head")} />
           </span>
         )}
       </div>

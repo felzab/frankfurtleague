@@ -150,14 +150,16 @@ function SidePlaceholder() {
   const style = head();
   return (
     <span className={style.side()}>
-      <span className={placeholderBar("h-6 w-10")} />
+      <span className={placeholderBar("h-6 w-10", "head")} />
       <PlaceholderLine
+        ground="head"
         text="text-sm"
-        width="w-24 max-w-full"
+        width="w-24"
       />
       <PlaceholderLine
+        ground="head"
         text={style.standing()}
-        width="w-20 max-w-full"
+        width="w-20"
       />
     </span>
   );
@@ -172,6 +174,7 @@ export function SpielHeadPlaceholder() {
   return (
     <div className={style.root()}>
       <PlaceholderLine
+        ground="head"
         text={style.eyebrow()}
         width="w-24"
       />
@@ -179,7 +182,7 @@ export function SpielHeadPlaceholder() {
         <SidePlaceholder />
         <span className="grid justify-items-center pt-0.5">
           <span className="flex h-[1em] items-center text-3xl leading-none">
-            <span className={placeholderBar("h-[0.75em] w-16")} />
+            <span className={placeholderBar("h-[0.75em] w-16", "head")} />
           </span>
           <span className="h-4" />
         </span>

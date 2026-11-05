@@ -27,16 +27,18 @@ const placeholder = tv({
     words: "h-[0.75em]",
   },
   variants: {
-    // On the dark-green band, the bars are the band's white, faint, as the band's words are white.
+    // On a card's head band, whose dark fill is the muted fill itself, the bars take the head's own step above it, as a
+    // folded head lifts under the pointer; on the dark-green band, the band's white, faint, as the band's words are white.
     ground: {
       page: {},
+      head: { bar: "bg-bg-card-head-hover" },
       band: { bar: "bg-on-brand/20" },
     },
   },
 });
 
-/** Where a placeholder stands: on the page's or a card's ground, or on the dark-green band. */
-type Ground = "page" | "band";
+/** Where a placeholder stands: on the page's or a card's ground, on a card's head band, or on the dark-green band. */
+export type Ground = "page" | "head" | "band";
 
 /**
  * A season's name while the season is read, as words for a placeholder's width alone: every season is named by its
