@@ -1667,6 +1667,8 @@ export const saisonsPatchSaisonBodyRulesForfeitErgebnisSiegerToreMin = 0;
 
 export const saisonsPatchSaisonBodyRulesForfeitErgebnisVerliererToreMin = 0;
 
+export const saisonsPatchSaisonBodyRulesLossPointsMin = 0;
+
 export const saisonsPatchSaisonBodyRulesMaxKadergroesseExclusiveMin = 0;
 
 export const saisonsPatchSaisonBodyRulesNumberOfGruppenExclusiveMin = 0;
@@ -1717,6 +1719,7 @@ export const SaisonsPatchSaisonBody = zod.object({
       .describe(
         "What a fixture is awarded when one side does not appear.\n\nBoth sides' goals rather than a margin, composed at `app/api/spiele/services.py :: apply_payload_to_spiel`.\nA LEVEL award needs a season with no knockout round (`rules_forfeit_unentschieden_in_a_knockout`).",
       ),
+    loss_points: zod.int().min(saisonsPatchSaisonBodyRulesLossPointsMin),
     max_kadergroesse: zod.int().gt(saisonsPatchSaisonBodyRulesMaxKadergroesseExclusiveMin),
     number_of_gruppen: zod.int().gt(saisonsPatchSaisonBodyRulesNumberOfGruppenExclusiveMin).max(saisonsPatchSaisonBodyRulesNumberOfGruppenMax),
     qualifiers_per_gruppe: zod.int().gt(saisonsPatchSaisonBodyRulesQualifiersPerGruppeExclusiveMin),

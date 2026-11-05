@@ -28,6 +28,7 @@ export const SAISON_REQUIRED = {
   bewerbungEnd: requires(bewerbung.end, null),
   winPoints: requires(rules.win_points, null),
   drawPoints: requires(rules.draw_points, null),
+  lossPoints: requires(rules.loss_points, null),
   tiebreak: requires(rules.tiebreak_order, null),
   gruppen: requires(rules.number_of_gruppen, null),
   teamsPerGruppe: requires(rules.teams_per_gruppe, null),

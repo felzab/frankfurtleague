@@ -235,6 +235,7 @@ const ANNOUNCED = GRANTS.map(({ _id, address, admin_tier }) => ({ _id, address, 
 const RULES = {
   win_points: 3,
   draw_points: 1,
+  loss_points: 0,
   qualifiers_per_gruppe: 2,
   number_of_gruppen: 2,
   teams_per_gruppe: 4,
