@@ -277,7 +277,7 @@ class TestThePersonsStart:
     def test_a_start_pressed_again_inside_the_interval_is_refused_with_the_seconds_left(self, mongo_replica_set_url: str):
         """Unrefused, a script repeating the start mails the address on file at every press and spends the league's quota.
 
-        A server action posts the start from any page, past the pair the edge sets on Konto.
+        A server action posts the start from any page, so no edge location bounds it.
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
