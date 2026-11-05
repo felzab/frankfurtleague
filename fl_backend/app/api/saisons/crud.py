@@ -130,6 +130,20 @@ async def count_teams_by_saison(*, saison_teams_collection: ReadCollection, sais
     return {str(row["_id"]): int(row["teams"]) for row in rows}
 
 
+async def count_spiele_by_saison(*, spiele_collection: ReadCollection, saison_ids: Collection[str]) -> dict[str, int]:
+    """How many fixtures each of these seasons holds, counted on every read; a season holding none is absent.
+
+    Off the stored fixtures, which every draw write judges, never off a stored copy of the count.
+    """
+
+    rows = await aggregate_many_from_db(
+        collection=spiele_collection,
+        pipeline=[{"$match": {"saison_id": {"$in": list(saison_ids)}}}, {"$group": {"_id": "$saison_id", "spiele": {"$sum": 1}}}],
+    )
+
+    return {str(row["_id"]): int(row["spiele"]) for row in rows}
+
+
 async def nachnominierung_laeuft_in(*, saisons_collection: ReadCollection, saison_id: str, today: str) -> bool:
     """Whether an entry into this season's squads on `today` is a Nachnominierung: one made once the season has started.
 

@@ -759,8 +759,6 @@ export const COPY = catalogue({
        * group the rules do not run. One repair reaches all three, entering the clubs as the rules say.
        */
       gruppenOffRules: "Die Gruppen sind nicht so besetzt, wie die Regeln es vorsehen.",
-      /** Why the draw cannot run on a season holding matchdays its read records no Spielplan for. */
-      spieltageHeld: "Diese Saison hat schon Spieltage.",
       recreateConsequence: "Alle Spieltage und Spiele dieser Saison werden gelöscht und neu angelegt.",
       deleteConsequence: "Alle Spieltage und Spiele dieser Saison werden gelöscht.",
 

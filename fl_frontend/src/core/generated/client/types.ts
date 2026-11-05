@@ -2449,7 +2449,7 @@ export interface FLGenerateSpielplanPayload {
  * What the draw wrote, and what a confirmed replace deleted first, flat rather than nested.
  *
  * An admin reads the written counts without a second request, and they are the same numbers the
- * season's own watermark keeps, so the two can be compared by eye.
+ * season editor then counts off the stored matchdays and fixtures, so the two can be compared by eye.
  */
 export interface FLGenerateSpielplanResponse {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
@@ -4555,21 +4555,6 @@ export interface FLSaisonPhaseSchedule {
   spieltage: number;
 }
 
-/**
- * What the generator left behind on the season it wrote.
- *
- * Counts rather than a hash: these are the two numbers an admin can compare against the page in
- * front of them, and a hash answers no question anyone standing there is asking.
- */
-export interface FLSaisonSpielplan {
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  generated_at: string;
-  /** @minimum 0 */
-  spiele: number;
-  /** @minimum 0 */
-  spieltage: number;
-}
-
 export interface FLSaison {
   bewerbung: FLSaisonBewerbung | null;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
@@ -4582,7 +4567,6 @@ export interface FLSaison {
   registrierung: FLSaisonRegistrierung | null;
   rules: FLSaisonRules;
   schedule: FLSaisonPhaseSchedule[];
-  spielplan: FLSaisonSpielplan | null;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   start_date: string;
   status: FLSaisonStatus;
@@ -4619,7 +4603,6 @@ export interface FLSaisonAdmin {
   registrierung: FLSaisonRegistrierung | null;
   rules: FLSaisonRules;
   schedule: FLSaisonPhaseSchedule[];
-  spielplan: FLSaisonSpielplan | null;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   start_date: string;
   status: FLSaisonStatus;
@@ -4638,11 +4621,13 @@ export interface FLSaisonAdminClub {
 }
 
 /**
- * One season as the admin list shows it: the editor's season and how many clubs it holds.
+ * One season as the admin list shows it: the editor's season and how many clubs and matches it holds.
  */
 export interface FLSaisonAdminListed {
   begun: boolean;
   bewerbung: FLSaisonBewerbung | null;
+  /** @minimum 0 */
+  count_spiele: number;
   /** @minimum 0 */
   count_teams: number;
   decided: boolean;
@@ -4656,12 +4641,26 @@ export interface FLSaisonAdminListed {
   registrierung: FLSaisonRegistrierung | null;
   rules: FLSaisonRules;
   schedule: FLSaisonPhaseSchedule[];
-  spielplan: FLSaisonSpielplan | null;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   start_date: string;
   status: FLSaisonStatus;
   taken_place: boolean;
   version: number;
+}
+
+/**
+ * A season's Spielplan as every write judges it: the matchdays and fixtures it holds, and the day the draw wrote them.
+ *
+ * Counted per read off the stored rows, the facts a first draw refuses on (`spielplan_already_drawn`,
+ * `spielplan_spieltage_held`) and the undraw and the replace remove, so the editor shows the draw's acts exactly where
+ * those writes take them. `generated_at` is the draw's own day, `null` on a season whose rows no draw dated.
+ */
+export interface FLSaisonDrawn {
+  generated_at: string | null;
+  /** @minimum 0 */
+  spiele: number;
+  /** @minimum 0 */
+  spieltage: number;
 }
 
 /**
@@ -4687,16 +4686,16 @@ export interface FLSaisonAdminTeam {
  * What the season editor shows, in one read: its season, clubs, shapes and matchdays, its acts' states and its registration links.
  *
  * `shapes` is every shape the season's other rules admit, judged as the draw judges a shape it is given;
- * `count_spieltage` is the matchdays the season holds; `invitations` holds one row per club, in `teams`' order.
+ * `spielplan` is the Spielplan the season holds, `null` while it holds no matchday and no fixture; `invitations`
+ * holds one row per club, in `teams`' order.
  */
 export interface FLSaisonAdminResponse {
-  /** @minimum 0 */
-  count_spieltage: number;
   incoming_clubs: FLSaisonAdminClub[];
   invitations: FLInvitationLinkRow[];
   refusals: FLSaisonActRefusals;
   saison: FLSaisonAdmin;
   shapes: FLSpielplanShape[];
+  spielplan: FLSaisonDrawn | null;
   teams: FLSaisonAdminTeam[];
 }
 

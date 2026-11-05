@@ -5868,7 +5868,7 @@
         "type": "object"
       },
       "FLGenerateSpielplanResponse": {
-        "description": "What the draw wrote, and what a confirmed replace deleted first, flat rather than nested.\n\nAn admin reads the written counts without a second request, and they are the same numbers the\nseason's own watermark keeps, so the two can be compared by eye.",
+        "description": "What the draw wrote, and what a confirmed replace deleted first, flat rather than nested.\n\nAn admin reads the written counts without a second request, and they are the same numbers the\nseason editor then counts off the stored matchdays and fixtures, so the two can be compared by eye.",
         "properties": {
           "generated_at": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -11194,16 +11194,6 @@
             "title": "Schedule",
             "type": "array"
           },
-          "spielplan": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLSaisonSpielplan"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
           "start_date": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Start Date",
@@ -11226,7 +11216,6 @@
           "registrierung",
           "id",
           "status",
-          "spielplan",
           "version",
           "schedule"
         ],
@@ -11338,16 +11327,6 @@
             "title": "Schedule",
             "type": "array"
           },
-          "spielplan": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLSaisonSpielplan"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
           "start_date": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Start Date",
@@ -11374,7 +11353,6 @@
           "registrierung",
           "id",
           "status",
-          "spielplan",
           "version",
           "schedule",
           "begun",
@@ -11410,7 +11388,7 @@
         "type": "object"
       },
       "FLSaisonAdminListed": {
-        "description": "One season as the admin list shows it: the editor's season and how many clubs it holds.",
+        "description": "One season as the admin list shows it: the editor's season and how many clubs and matches it holds.",
         "properties": {
           "begun": {
             "title": "Begun",
@@ -11425,6 +11403,11 @@
                 "type": "null"
               }
             ]
+          },
+          "count_spiele": {
+            "minimum": 0.0,
+            "title": "Count Spiele",
+            "type": "integer"
           },
           "count_teams": {
             "minimum": 0.0,
@@ -11466,16 +11449,6 @@
             "title": "Schedule",
             "type": "array"
           },
-          "spielplan": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLSaisonSpielplan"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
           "start_date": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Start Date",
@@ -11502,25 +11475,20 @@
           "registrierung",
           "id",
           "status",
-          "spielplan",
           "version",
           "schedule",
           "begun",
           "taken_place",
           "decided",
-          "count_teams"
+          "count_teams",
+          "count_spiele"
         ],
         "title": "FLSaisonAdminListed",
         "type": "object"
       },
       "FLSaisonAdminResponse": {
-        "description": "What the season editor shows, in one read: its season, clubs, shapes and matchdays, its acts' states and its registration links.\n\n`shapes` is every shape the season's other rules admit, judged as the draw judges a shape it is given;\n`count_spieltage` is the matchdays the season holds; `invitations` holds one row per club, in `teams`' order.",
+        "description": "What the season editor shows, in one read: its season, clubs, shapes and matchdays, its acts' states and its registration links.\n\n`shapes` is every shape the season's other rules admit, judged as the draw judges a shape it is given;\n`spielplan` is the Spielplan the season holds, `null` while it holds no matchday and no fixture; `invitations`\nholds one row per club, in `teams`' order.",
         "properties": {
-          "count_spieltage": {
-            "minimum": 0.0,
-            "title": "Count Spieltage",
-            "type": "integer"
-          },
           "incoming_clubs": {
             "items": {
               "$ref": "#/components/schemas/FLSaisonAdminClub"
@@ -11548,6 +11516,16 @@
             "title": "Shapes",
             "type": "array"
           },
+          "spielplan": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSaisonDrawn"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "teams": {
             "items": {
               "$ref": "#/components/schemas/FLSaisonAdminTeam"
@@ -11561,7 +11539,7 @@
           "teams",
           "incoming_clubs",
           "shapes",
-          "count_spieltage",
+          "spielplan",
           "refusals",
           "invitations"
         ],
@@ -11658,6 +11636,40 @@
           "end"
         ],
         "title": "FLSaisonBewerbungPayload",
+        "type": "object"
+      },
+      "FLSaisonDrawn": {
+        "description": "A season's Spielplan as every write judges it: the matchdays and fixtures it holds, and the day the draw wrote them.\n\nCounted per read off the stored rows, the facts a first draw refuses on (`spielplan_already_drawn`,\n`spielplan_spieltage_held`) and the undraw and the replace remove, so the editor shows the draw's acts exactly where\nthose writes take them. `generated_at` is the draw's own day, `null` on a season whose rows no draw dated.",
+        "properties": {
+          "generated_at": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Generated At"
+          },
+          "spiele": {
+            "minimum": 0.0,
+            "title": "Spiele",
+            "type": "integer"
+          },
+          "spieltage": {
+            "minimum": 0.0,
+            "title": "Spieltage",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "spieltage",
+          "spiele",
+          "generated_at"
+        ],
+        "title": "FLSaisonDrawn",
         "type": "object"
       },
       "FLSaisonForfeitErgebnis": {
@@ -11968,33 +11980,6 @@
           "version"
         ],
         "title": "FLSaisonSpielerResponse",
-        "type": "object"
-      },
-      "FLSaisonSpielplan": {
-        "description": "What the generator left behind on the season it wrote.\n\nCounts rather than a hash: these are the two numbers an admin can compare against the page in\nfront of them, and a hash answers no question anyone standing there is asking.",
-        "properties": {
-          "generated_at": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Generated At",
-            "type": "string"
-          },
-          "spiele": {
-            "minimum": 0.0,
-            "title": "Spiele",
-            "type": "integer"
-          },
-          "spieltage": {
-            "minimum": 0.0,
-            "title": "Spieltage",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "generated_at",
-          "spieltage",
-          "spiele"
-        ],
-        "title": "FLSaisonSpielplan",
         "type": "object"
       },
       "FLSaisonStatus": {
@@ -24699,7 +24684,7 @@
     },
     "/api/v0/saisons/list/admin": {
       "get": {
-        "description": "List every season, the `future` ones every base-tier read withholds included, each with its start, play and decision states.\n\nThe admin surfaces read here because a season is created `future` and clubs are entered while it\nstill is, so an admin who cannot see one cannot run the league. `begun` is the start every\nstart lock refuses on, the swap's, the replacement's and the rules freeze's; `taken_place` is what\nfixes the start date (`saison_start_taken_place`); `decided` is the landing's own rule, all four places of the Finale in.\n`count_teams` counts every club row of the season, one that left included. `next_saison_id` is the id the next create\nmints, and `refusals.create` the code that create would be refused with now, by its own judgement, or null.",
+        "description": "List every season, the `future` ones every base-tier read withholds included, each with its start, play and decision states.\n\nThe admin surfaces read here because a season is created `future` and clubs are entered while it\nstill is, so an admin who cannot see one cannot run the league. `begun` is the start every\nstart lock refuses on, the swap's, the replacement's and the rules freeze's; `taken_place` is what\nfixes the start date (`saison_start_taken_place`); `decided` is the landing's own rule, all four places of the Finale in.\n`count_teams` counts every club row of the season, one that left included, and `count_spiele` its fixtures.\n`next_saison_id` is the id the next create mints, and `refusals.create` the code that create would be refused with\nnow, by its own judgement, or null.",
         "operationId": "saisons_get_saisons_admin",
         "parameters": [
           {

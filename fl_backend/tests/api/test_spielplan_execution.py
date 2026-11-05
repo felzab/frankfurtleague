@@ -424,12 +424,12 @@ class TestACleanDrawWritesTheWholeSeason:
         assert (drawn.response.spieltage, drawn.response.spiele) == expected
         assert drawn.response.saison_id == SAISON_ID
 
-    def test_the_watermark_carries_the_same_pair_and_the_day_it_was_drawn(self, mongo_replica_set_url: str):
-        """The two numbers an admin compares against the page in front of them; a watermark disagreeing with the season is the whole damage."""
+    def test_the_watermark_carries_the_day_it_was_drawn_alone(self, mongo_replica_set_url: str):
+        """The day no stored row gives; a count stored beside it could only drift from the rows every write judges."""
 
         drawn = a_drawn_season(mongo_replica_set_url)
 
-        assert drawn.saison["spielplan"] == {"generated_at": TODAY, "spieltage": len(drawn.spieltage), "spiele": len(drawn.spiele)}
+        assert drawn.saison["spielplan"] == {"generated_at": TODAY}
         assert drawn.response.generated_at == TODAY
 
 
@@ -1248,7 +1248,7 @@ class TestAConfirmedReplaceRedrawsTheWholeSeason:
 
         replaced = a_replaced_season(mongo_replica_set_url)
 
-        assert replaced.watermark == {"generated_at": REDRAWN_TODAY, "spieltage": len(replaced.spieltage), "spiele": len(replaced.spiele)}
+        assert replaced.watermark == {"generated_at": REDRAWN_TODAY}
 
     def test_the_response_reports_what_the_replace_removed(self, mongo_replica_set_url: str):
         """Discard either `DeleteResult` and this fails: the response would restate the request's flag rather than count what is gone."""
@@ -1394,7 +1394,7 @@ class TestAnAbortedReplaceLeavesTheSeasonStanding:
         # On the code, so this cannot pass because the replace fell before it deleted anything.
         assert aborted.write_error == DOCUMENT_VALIDATION_FAILED, f"expected the validator to refuse the write, got {aborted.write_error}"
         assert aborted.refused_field == "datum"
-        assert aborted.watermark == {"generated_at": TODAY, "spieltage": aborted.spieltage, "spiele": aborted.spiele}
+        assert aborted.watermark == {"generated_at": TODAY}
         # The first draw's three rows and nothing else: the deletes are recorded in-session, so the
         # abort takes their rows back too.
         assert aborted.log == 3
@@ -1420,7 +1420,7 @@ class TestTheReplaceWindowIsReachedThroughTheRoute:
 
         assert refused.error_code == Code.SPIELPLAN_REPLACE_OUTSIDE_ITS_WINDOW
         assert surviving == standing
-        assert watermark == {"generated_at": TODAY, "spieltage": drawn.spieltage, "spiele": drawn.spiele}
+        assert watermark == {"generated_at": TODAY}
 
     @pytest.mark.parametrize("record", RECORDS_CLOSING_THE_WINDOW)
     def test_a_single_recorded_fixture_is_refused_the_replace(self, mongo_replica_set_url: str, record: dict[str, Any]):
@@ -1647,7 +1647,7 @@ class TestAReplaceRedrawsTheSeasonFromTheShapeItCarries:
 
         assert replaced.rules["qualifiers_per_gruppe"] == QUALIFIERS
         assert (len(replaced.spieltage), len(replaced.spiele)) == expected
-        assert replaced.watermark == {"generated_at": REDRAWN_TODAY, "spieltage": expected[0], "spiele": expected[1]}
+        assert replaced.watermark == {"generated_at": REDRAWN_TODAY}
 
 
 @dataclass(frozen=True)
@@ -1800,4 +1800,4 @@ class TestAnAbortedRedrawLeavesTheOldRulesWithTheOldDraw:
         assert code == DOCUMENT_VALIDATION_FAILED, f"expected the validator to refuse the write, got {code}"
         assert rules == rules_document(), "the season took a shape whose draw was rolled back"
         assert kept_its_draw, "a rolled-back redraw left the season's own draw removed"
-        assert watermark == {"generated_at": TODAY, "spieltage": drawn.spieltage, "spiele": drawn.spiele}
+        assert watermark == {"generated_at": TODAY}

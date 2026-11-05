@@ -1674,8 +1674,9 @@ export const SaisonsPostSaisonBody = zod.object({
  * still is, so an admin who cannot see one cannot run the league. `begun` is the start every
  * start lock refuses on, the swap's, the replacement's and the rules freeze's; `taken_place` is what
  * fixes the start date (`saison_start_taken_place`); `decided` is the landing's own rule, all four places of the Finale in.
- * `count_teams` counts every club row of the season, one that left included. `next_saison_id` is the id the next create
- * mints, and `refusals.create` the code that create would be refused with now, by its own judgement, or null.
+ * `count_teams` counts every club row of the season, one that left included, and `count_spiele` its fixtures.
+ * `next_saison_id` is the id the next create mints, and `refusals.create` the code that create would be refused with
+ * now, by its own judgement, or null.
  * @summary Every Saison for the admin surfaces
  */
 export const saisonsGetSaisonsAdminQueryLimitDefault = 1024;

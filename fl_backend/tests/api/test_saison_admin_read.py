@@ -334,3 +334,49 @@ class TestTheEditorsActsAreRefusedAsTheirWritesRefuse:
         served, answered = on_the_seed_loop(_run())
 
         assert (served, answered) == (refused, refused)
+
+
+class TestTheEditorReadsTheDrawOffTheStoredRows:
+    """A first draw offered on a season holding matchdays is a press the draw refuses, and no row is left to remove them."""
+
+    @pytest.mark.parametrize(
+        "watermark",
+        [
+            pytest.param(True, id="a season the draw wrote"),
+            pytest.param(False, id="a season holding matchdays and no watermark"),
+        ],
+    )
+    def test_a_season_holding_its_rows_is_served_drawn_and_its_draw_acts(self, mongo_replica_set_url: str, watermark: bool):
+        async def _run() -> tuple[FLSaisonAdminResponse, int, int]:
+            async with a_clean_database(mongo_replica_set_url, DATABASE_NAME) as (client, database):
+                await database[Collection.SAISONS].insert_one(saison_document(SAISON_ID, "future", start_date=START))
+                await database[Collection.SAISON_TEAMS].insert_many(
+                    [
+                        saison_team_document(SAISON_ID, team_id, f"Schule {index}", f"S{chr(65 + index)}X", gruppe=gruppe)
+                        for index, (team_id, gruppe) in enumerate(CLUBS.items())
+                    ]
+                )
+                await drawn(database, client, replace=False)
+                if not watermark:
+                    await database[Collection.SAISONS].update_one({"_id": SAISON_ID}, {"$unset": {"spielplan": ""}})
+
+                return (
+                    await read(database),
+                    await database[Collection.SPIELTAGE].count_documents({"saison_id": SAISON_ID}),
+                    await database[Collection.SPIELE].count_documents({"saison_id": SAISON_ID}),
+                )
+
+        view, spieltage, spiele = on_the_seed_loop(_run())
+
+        assert view.spielplan is not None
+        assert (view.spielplan.spieltage, view.spielplan.spiele) == (spieltage, spiele)
+        assert view.spielplan.generated_at == (TODAY if watermark else None)
+        # Closed as drawn, and both acts taking a drawn season back offered.
+        assert (view.refusals.create, view.refusals.recreate, view.refusals.undraw) == (Code.SPIELPLAN_ALREADY_DRAWN, None, None)
+
+    def test_a_season_holding_no_rows_is_served_undrawn(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> FLSaisonAdminResponse:
+            await database[Collection.SPIELE].delete_many({"saison_id": SAISON_ID})
+            return await read(database)
+
+        assert on_a_season(mongo_replica_set_url, body).spielplan is None

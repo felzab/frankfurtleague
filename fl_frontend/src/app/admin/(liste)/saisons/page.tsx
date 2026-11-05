@@ -35,8 +35,7 @@ const rowOf = (saison: FLSaisonAdminListed): TableRow => ({
     beginn: { record: formatDatum(dayOf(saison.start_date)) },
     ende: { record: formatDatum(dayOf(saison.end_date)) },
     teams: countOf(saison.count_teams),
-    // The draw's own count: no match is added or removed outside it, and an undrawn season has none.
-    spiele: countOf(saison.spielplan?.spiele ?? 0),
+    spiele: countOf(saison.count_spiele),
   },
 });
 

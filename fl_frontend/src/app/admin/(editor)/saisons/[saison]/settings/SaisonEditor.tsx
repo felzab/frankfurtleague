@@ -64,7 +64,11 @@ export type SaisonFacts = {
   isCurrent: boolean;
   /** The season the site shows, which the switch onto this one leaves; `null` before the league's first. */
   siteShows: string | null;
-  spielplan: { spieltage: number; spiele: number; drawnOn: CalendarDay } | null;
+  /**
+   * The Spielplan the season holds, counted off its stored matchdays and fixtures as the draw's writes judge them;
+   * `drawnOn` is `null` where no draw dated them.
+   */
+  spielplan: { spieltage: number; spiele: number; drawnOn: CalendarDay | null } | null;
   /** Why the draw and each danger act cannot run now, by the refusal its write would answer, which the read serves. */
   blocked: { activate?: Copy; create?: Copy; recreate?: Copy; undraw?: Copy };
 };
@@ -465,7 +469,9 @@ export function SaisonEditor({
             facts={[
               { label: COPY.spielplan.spieltage, value: { record: formatNumber(facts.spielplan.spieltage) }, figures: true },
               { label: COPY.page.spiele, value: { record: formatNumber(facts.spielplan.spiele) }, figures: true },
-              { label: WORDS.drawnOn, value: { record: formatDatum(facts.spielplan.drawnOn) }, figures: true },
+              ...(facts.spielplan.drawnOn === null
+                ? []
+                : [{ label: WORDS.drawnOn, value: { record: formatDatum(facts.spielplan.drawnOn) }, figures: true }]),
             ]}
           />
         ),

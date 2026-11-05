@@ -81,15 +81,13 @@ class FLSaisonRules(BaseModel):
 
 
 class FLSaisonSpielplan(BaseModel):
-    """What the generator left behind on the season it wrote.
+    """The day the draw last wrote the season's Spielplan, the one fact of a draw no stored matchday or fixture gives.
 
-    Counts rather than a hash: these are the two numbers an admin can compare against the page in
-    front of them, and a hash answers no question anyone standing there is asking.
+    No counts: what a season holds is counted off its stored matchdays and fixtures, which every write judges, so a
+    stored copy could only drift from them (`FLSaisonDrawn`).
     """
 
     generated_at: CustomDateString
-    spieltage: int = Field(ge=0)
-    spiele: int = Field(ge=0)
 
 
 class FLSaisonBewerbung(BaseModel):
@@ -221,9 +219,6 @@ class _SaisonStored(_SaisonWritable):
 
     status: FLSaisonStatus
 
-    # DEFAULTED: the season's creation writes no key, the generator being what writes it.
-    spielplan: FLSaisonSpielplan | None = None
-
     # 0 until a write raises it, as the create stamps it.
     version: int = 0
 
@@ -236,6 +231,10 @@ class FLSaison(_SaisonStored, BaseReadModel):
 
 class FLSaisonRecord(_SaisonStored, Anchored):
     """A season as `saisons` stores it: no derived schedule."""
+
+    # DEFAULTED: the season's creation writes no key, the draw being what writes it. Stored and never served: the
+    # editor serves its day inside `FLSaisonDrawn`, beside the counts of what the season holds.
+    spielplan: FLSaisonSpielplan | None = None
 
 
 class FLSaisonAdmin(FLSaison):
@@ -253,11 +252,13 @@ class FLSaisonAdmin(FLSaison):
 
 
 class FLSaisonAdminListed(FLSaisonAdmin):
-    """One season as the admin list shows it: the editor's season and how many clubs it holds."""
+    """One season as the admin list shows it: the editor's season and how many clubs and matches it holds."""
 
     # COUNTED per read off `saison_teams`, never stored: every row, a club that left included, since a team never leaves
     # a season and the season's Teams page lists it with its Austritt.
     count_teams: int = Field(ge=0)
+    # COUNTED per read off `spiele`, never stored, as the editor counts them (`FLSaisonDrawn`).
+    count_spiele: int = Field(ge=0)
 
 
 FLSaisonAdminListAdapter = TypeAdapter(list[FLSaisonAdminListed])
@@ -439,7 +440,7 @@ class FLGenerateSpielplanResponse(BaseAPIResponse):
     """What the draw wrote, and what a confirmed replace deleted first, flat rather than nested.
 
     An admin reads the written counts without a second request, and they are the same numbers the
-    season's own watermark keeps, so the two can be compared by eye.
+    season editor then counts off the stored matchdays and fixtures, so the two can be compared by eye.
     """
 
     # No `extra="forbid"` here: the rule reaches request bodies alone, and this
@@ -481,18 +482,32 @@ class FLSaisonActRefusals(BaseReadModel):
     undraw: Code | None
 
 
+class FLSaisonDrawn(BaseReadModel):
+    """A season's Spielplan as every write judges it: the matchdays and fixtures it holds, and the day the draw wrote them.
+
+    Counted per read off the stored rows, the facts a first draw refuses on (`spielplan_already_drawn`,
+    `spielplan_spieltage_held`) and the undraw and the replace remove, so the editor shows the draw's acts exactly where
+    those writes take them. `generated_at` is the draw's own day, `null` on a season whose rows no draw dated.
+    """
+
+    spieltage: int = Field(ge=0)
+    spiele: int = Field(ge=0)
+    generated_at: CustomDateString | None
+
+
 class FLSaisonAdminResponse(BaseAPIResponse):
     """What the season editor shows, in one read: its season, clubs, shapes and matchdays, its acts' states and its registration links.
 
     `shapes` is every shape the season's other rules admit, judged as the draw judges a shape it is given;
-    `count_spieltage` is the matchdays the season holds; `invitations` holds one row per club, in `teams`' order.
+    `spielplan` is the Spielplan the season holds, `null` while it holds no matchday and no fixture; `invitations`
+    holds one row per club, in `teams`' order.
     """
 
     saison: FLSaisonAdmin
     teams: list[FLSaisonAdminTeam]
     incoming_clubs: list[FLSaisonAdminClub]
     shapes: list[FLSpielplanShape]
-    count_spieltage: int = Field(ge=0)
+    spielplan: FLSaisonDrawn | None
     refusals: FLSaisonActRefusals
     invitations: list[FLInvitationLinkRow]
 
