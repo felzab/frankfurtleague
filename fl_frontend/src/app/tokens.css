@@ -327,6 +327,9 @@
   --container-field: calc(
     31ch + 1.625rem
   ); /* a form's long field from lg: about 30 characters of its own text and its caret, inside its 12-px insets and 1-px edges */
+  --container-field-long: calc(
+    41ch + 1.625rem
+  ); /* a long name's field from lg, a venue's: about 40 characters, measured as the long field is */
   --container-form: 47.5rem; /* the form column: a classic form page's, an editor's and a read page's */
   --container-classic: 61rem; /* the classic frame's header and footer */
   --container-content: 80rem; /* a rail page's content */

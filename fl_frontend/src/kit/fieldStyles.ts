@@ -105,6 +105,9 @@ export const fieldFrame = tv({
       // and 40 on a touch screen as every field's button is.
       C10: "h-8 w-[calc(11ch+1.375rem+2rem)] pointer-coarse:h-10 pointer-coarse:w-[calc(11ch+1.375rem+2.5rem)]",
       W3: `h-8 w-full ${columnCap()} pointer-coarse:h-10`,
+      // A long name, past the 30 characters a person's name or an address takes, such as a venue's: the column up to
+      // about 40 characters from `lg`, sized by the same measure.
+      W3L: "h-8 w-full text-sm lg:max-w-field-long pointer-coarse:h-10 pointer-coarse:text-base",
       // A long field in a column narrower than the cap, which fills that column as a phone's field fills its row: the
       // search over a list, at the reading width its toolbar gives it, and the sign-in's address in its column.
       column: "h-8 w-full pointer-coarse:h-10",
@@ -135,8 +138,8 @@ export const fieldFrame = tv({
   compoundVariants: [
     { width: ["C2", "C5", "C10"], inset: "full", class: "px-2.5" },
     { width: ["C2", "C5", "C10"], inset: "start", class: "ps-2.5" },
-    { width: ["W3", "column", "W4", "fit"], inset: "full", class: "px-3" },
-    { width: ["W3", "column", "W4", "fit"], inset: "start", class: "ps-3" },
+    { width: ["W3", "W3L", "column", "W4", "fit"], inset: "full", class: "px-3" },
+    { width: ["W3", "W3L", "column", "W4", "fit"], inset: "start", class: "ps-3" },
   ],
 });
 

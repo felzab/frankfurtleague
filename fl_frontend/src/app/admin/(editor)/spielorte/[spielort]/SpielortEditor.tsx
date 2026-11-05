@@ -85,7 +85,7 @@ export function SpielortEditor({
               <TextField
                 label={COPY.shared.name}
                 name="name"
-                width="W3"
+                width="W3L"
                 kind="text"
                 isRequired={required.name}
                 maxLength={max.name}

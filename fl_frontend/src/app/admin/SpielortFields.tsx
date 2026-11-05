@@ -29,7 +29,7 @@ export function SpielortFields({
       <TextField
         label={COPY.shared.name}
         name="name"
-        width="W3"
+        width="W3L"
         kind="text"
         defaultValue={name}
         isRequired={required.name}
