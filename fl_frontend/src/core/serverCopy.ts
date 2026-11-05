@@ -112,6 +112,8 @@ export const SERVER_COPY = catalogue({
     address_change_unchanged: COPY.account.address.unchanged,
     /** A grant's move nobody but the person could approve. */
     address_change_no_approver: COPY.account.address.noApprover,
+    /** A person's own start pressed again too soon after the last mail its change owed: the edge's own rate refusal. */
+    address_change_started_recently: COPY.shared.failure.tooManyAttempts,
     /** A venue retired while matches still to come are booked there, named by their numbers so they can be moved first. */
     spielort_still_booked: ({ spiel_nrs }: FLRefusedField["ctx"]) =>
       Array.isArray(spiel_nrs) && spiel_nrs.length > 0 ? `Der Spielort ist noch für ${spieleNamed(spiel_nrs)} gebucht.` : undefined,

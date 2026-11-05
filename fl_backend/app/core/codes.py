@@ -58,6 +58,9 @@ class Code(StrEnum):
     ADDRESS_CHANGE_REPLACED_BARRED = auto()
     ADDRESS_CHANGE_TAKEN = auto()
     ADDRESS_CHANGE_UNCHANGED = auto()
+    # A 429: a person's own start pressed again inside the interval its mail stands for, which the edge's pair cannot
+    # hold, a server action reaching the start from any page.
+    ADDRESS_CHANGE_STARTED_RECENTLY = auto()
     ADDRESS_CHANGE_BARRED = auto()
     ADDRESS_CHANGE_NOTHING = auto()
     ADDRESS_CHANGE_NO_APPROVER = auto()

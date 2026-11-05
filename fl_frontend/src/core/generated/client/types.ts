@@ -24,6 +24,7 @@ export const Code = {
   address_change_replaced_barred: "address_change_replaced_barred",
   address_change_taken: "address_change_taken",
   address_change_unchanged: "address_change_unchanged",
+  address_change_started_recently: "address_change_started_recently",
   address_change_barred: "address_change_barred",
   address_change_nothing: "address_change_nothing",
   address_change_no_approver: "address_change_no_approver",
@@ -6450,6 +6451,11 @@ export type N410Response = FLFailureBody;
  * Unprocessable Content
  */
 export type N422Response = FLFailureBody;
+
+/**
+ * Too Many Requests
+ */
+export type N429Response = FLFailureBody;
 
 /**
  * Internal Server Error

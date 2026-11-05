@@ -22,6 +22,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.address_change.schemas import FLAddressChangeAddressPayload
 from app.api.address_change.services import (
+    ADDRESS_CHANGE_RESTART_SECONDS,
     build_address_filter,
 )
 from app.api.address_change.system_router import get_address_change_address
@@ -166,6 +167,10 @@ class TestTheAccountPagesRead:
         assert (NEW_EMAIL in served, "lenore.q" in served, "neupost" in served) == (False, False, False)
 
 
+# Past the interval a person's start waits after the mail its address's live change last owed.
+RESTART = timedelta(seconds=ADDRESS_CHANGE_RESTART_SECONDS)
+
+
 class TestThePersonsStart:
     def test_it_writes_one_record_keyed_by_the_address_with_both_links(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -269,6 +274,30 @@ class TestThePersonsStart:
 
         assert on_a_person(mongo_replica_set_url, body) == (Code.ADDRESS_CHANGE_NO_APPROVER, "owner")
 
+    def test_a_start_pressed_again_inside_the_interval_is_refused_with_the_seconds_left(self, mongo_replica_set_url: str):
+        """Unrefused, a script repeating the start mails the address on file at every press and spends the league's quota.
+
+        A server action posts the start from any page, past the pair the edge sets on Konto.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            first = await start(database, client)
+            mails = len(await owed(database))
+            with pytest.raises(APIError) as refused:
+                await start(database, client, email=FOREIGN_EMAIL, germany_now=NOW + RESTART - timedelta(seconds=10))
+            live = await database[Collection.ADDRESS_CHANGES].find({"ended": None}, {"_id": 1}).to_list(None)
+
+            return refused.value, [row["_id"] for row in live], first.id, len(await owed(database)) - mails
+
+        refusal, live, first, mailed = on_a_person(mongo_replica_set_url, body)
+
+        assert (refusal.status_code, refusal.error_code, refusal.headers) == (
+            429,
+            Code.ADDRESS_CHANGE_STARTED_RECENTLY,
+            {"Retry-After": "10"},
+        )
+        assert (live, mailed) == ([first], 0)
+
     def test_it_replaces_the_live_change_whose_links_then_answer_how_it_ended(
         self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture
     ):
@@ -277,7 +306,7 @@ class TestThePersonsStart:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             first = await administrator_starts(database, client, grund=GRUND, email=FOREIGN_EMAIL)
             with journal_of(caplog) as journal:
-                second = await start(database, client)
+                second = await start(database, client, germany_now=NOW + RESTART)
 
             return (
                 first,
@@ -1185,7 +1214,7 @@ class TestTheTool:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             first = await administrator_starts(database, client, grund=GRUND)
-            later = await start(database, client)
+            later = await start(database, client, germany_now=NOW + RESTART)
             stale = await refused_code(discard(database, client, first.id))
             with journal_of(caplog) as journal:
                 await discard(database, client, later.id)
@@ -2400,7 +2429,8 @@ class TestTwoStartsAtOnce:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             committed = asyncio.Event()
             held = _HeldAfterItsRead(database[Collection.ADDRESS_CHANGES], committed)
-            task = asyncio.ensure_future(start(database, client, address_changes_collection=cast(Any, held)))
+            # Past the restart interval, so the retry meeting the rival's change replaces it rather than waiting.
+            task = asyncio.ensure_future(start(database, client, address_changes_collection=cast(Any, held), germany_now=NOW + RESTART))
             await held.until_held(task)
             try:
                 rival = await administrator_starts(database, client, grund=GRUND, email=FOREIGN_EMAIL)
@@ -2415,7 +2445,8 @@ class TestTwoStartsAtOnce:
 
         reads, failures, live, minted, rival_end = on_a_person(mongo_replica_set_url, body)
 
-        assert reads == 2
+        # Two attempts, each reading the live change twice: for the restart refusal, then for the change it replaces.
+        assert reads == 4
         assert failures == ["OperationFailure:112"]
         assert live == [minted]
         assert rival_end["kind"] == "replaced"

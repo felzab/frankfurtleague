@@ -13,9 +13,10 @@ import * as zod from "zod";
  * **Nothing about the new address is judged here** -- the ban list, another pupil, a grant it holds -- so this start
  * answers alike whatever the new address holds.
  *
- * Refused `address_change_nothing` where the address holds nothing a change moves; `address_change_unchanged` where the
- * typed address is the one signed in; and `address_change_no_approver` where nobody could approve the grant's move, the
- * last owner making another first.
+ * Refused `address_change_started_recently`, a 429 whose `Retry-After` names the seconds left, where the address's
+ * live change owed its last mail less than `ADDRESS_CHANGE_RESTART_SECONDS` ago; `address_change_nothing` where the
+ * address holds nothing a change moves; `address_change_unchanged` where the typed address is the one signed in; and
+ * `address_change_no_approver` where nobody could approve the grant's move, the last owner making another first.
  * @summary Start a change of the signed-in person's address
  */
 export const accountPostAddressChangeBodyEmailMax = 254;

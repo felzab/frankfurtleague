@@ -37,6 +37,7 @@ from app.api.address_change.services import (
     compose_record,
     find_no_approver_refusal,
     find_nothing_refusal,
+    find_restart_refusal,
     find_unchanged_refusal,
     is_expired,
     masked_address,
@@ -221,9 +222,10 @@ async def post_address_change(
     **Nothing about the new address is judged here** -- the ban list, another pupil, a grant it holds -- so this start
     answers alike whatever the new address holds.
 
-    Refused `address_change_nothing` where the address holds nothing a change moves; `address_change_unchanged` where the
-    typed address is the one signed in; and `address_change_no_approver` where nobody could approve the grant's move, the
-    last owner making another first.
+    Refused `address_change_started_recently`, a 429 whose `Retry-After` names the seconds left, where the address's
+    live change owed its last mail less than `ADDRESS_CHANGE_RESTART_SECONDS` ago; `address_change_nothing` where the
+    address holds nothing a change moves; `address_change_unchanged` where the typed address is the one signed in; and
+    `address_change_no_approver` where nobody could approve the grant's move, the last owner making another first.
     """
 
     email = address_change_data.email
@@ -231,6 +233,11 @@ async def post_address_change(
 
     @journal.attempted
     async def start_the_change(session: AsyncClientSession) -> FLAccountAddressChangeMintResponse:
+        # First: a press repeated inside the interval asks nothing of the records.
+        live = await address_changes_collection.find_one(build_address_filter(identifier), {"valid_until": 1}, session=session)
+        restart = find_restart_refusal(live_valid_until=None if live is None else live["valid_until"], now=germany_now)
+        if restart is not None:
+            raise restart
         holdings = await read_the_holdings(identifier, records=records, grants_collection=grants_collection, session=session)
         refuse(find_nothing_refusal(empty=holdings.empty))
         refuse(find_unchanged_refusal(address=identifier, folded=sign_in_identifier(email)))
