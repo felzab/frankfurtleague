@@ -33,12 +33,12 @@ from app.api.spiele.services import (
     judge_spieltag_occupancy,
     stored_in_slice,
 )
-from app.core.crud import GERMAN_COLLATION, aggregate_many_from_db, pull_many_from_db, pull_one_from_db
+from app.core.crud import GERMAN_COLLATION, aggregate_many_from_db, pull_many_from_db, pull_one_from_db, pull_whole_from_db
 from app.core.exceptions import DocumentNotFoundError
 from app.core.readonly import ReadCollection
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.shared.einwilligung import is_confirmed
-from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX
+from app.shared.schemas.bounds import LIST_LIMIT_MAX
 from app.shared.schemas.custom import CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
 from app.shared.schemas.literals import FLSaisonStatus
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
@@ -67,7 +67,7 @@ class FLSpielEditorSchiedsrichter(BaseReadModel):
 
 
 class FLSpielEditorTeam(BaseReadModel):
-    """A club a knockout fixture's Begegnung offers for either side, by the name its season row holds.
+    """A club a knockout fixture's Begegnung offers for either side, by the name and shorthand its season row holds.
 
     `on_spieltag`: the club stands on another fixture of this matchday, which a save fielding it here either moves it
     off or is refused for. `fieldable`: a save fielding it on this fixture as it stands passes the write's eligibility
@@ -76,6 +76,8 @@ class FLSpielEditorTeam(BaseReadModel):
 
     id: CustomObjectId
     name: CustomNonEmptyString
+    # The plaque a side picked and not yet saved shows, as a fielded side's joined block carries it.
+    shorthand: CustomNonEmptyString
     on_spieltag: bool
     fieldable: bool
 
@@ -149,36 +151,35 @@ async def _teams_of(
 ) -> list[FLSpielEditorTeam]:
     """Every club holding a row for the fixture's season, in the German order of their names, each judged by the write's own rules."""
 
-    # One over the cap, as the save reads its season, so a truncated season is detected rather than judged.
+    # Whole, as the save reads its season.
     season_raw, membership, ordered = await asyncio.gather(
-        pull_many_from_db(collection=spiele_collection, db_filter={"saison_id": spiel.saison_id}, limit=LIST_LIMIT_DEFAULT + 1),
+        pull_whole_from_db(collection=spiele_collection, db_filter={"saison_id": spiel.saison_id}, what=f"season {spiel.saison_id}'s fixtures"),
         pull_saison_membership(saison_teams_collection=saison_teams_collection, saison_id=spiel.saison_id),
         pull_many_from_db(
             collection=saison_teams_collection,
             db_filter={"saison_id": spiel.saison_id},
             limit=LIST_LIMIT_MAX,
             sort_by=[("name", 1)],
-            projection=["team_id"],
+            projection=["team_id", "shorthand"],
             collation=GERMAN_COLLATION,
         ),
     )
-    if len(season_raw) > LIST_LIMIT_DEFAULT:
-        raise ValueError(f"season {spiel.saison_id} holds more than {LIST_LIMIT_DEFAULT} fixtures, which is more than one read can judge")
-
     season = FLSpielListAdapter.validate_python(season_raw)
     stored = stored_in_slice(spiel.id, season)
 
-    def judged(team_id: CustomObjectId, member: SaisonMembership) -> FLSpielEditorTeam:
+    def judged(row: Mapping[str, Any], member: SaisonMembership) -> FLSpielEditorTeam:
+        team_id = row["team_id"]
         payload = _fielding(stored, team_id)
         verdict = judge_spieltag_occupancy(spiel.id, payload, season, membership)
         return FLSpielEditorTeam(
             id=team_id,
             name=member.name,
+            shorthand=row["shorthand"],
             on_spieltag=verdict.refusal is not None or len(verdict.releases) > 0,
             fieldable=verdict.refusal is None and find_eligibility_refusal(spiel.id, payload, season, membership) is None,
         )
 
-    return [judged(row["team_id"], membership[row["team_id"]]) for row in ordered if row["team_id"] in membership]
+    return [judged(row, membership[row["team_id"]]) for row in ordered if row["team_id"] in membership]
 
 
 async def _spielbericht_of(

@@ -8,6 +8,7 @@ import { COPY } from "@/core/copy";
 
 import { Button } from "./Button";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { DraftUnsaved, useDraftUnsaved } from "./draftUnsaved";
 import { EditorBar } from "./EditorBar";
 import { FormClosed } from "./formClosed";
 import { formColumn, RailPage } from "./RailFrame";
@@ -18,7 +19,6 @@ import type { Copy } from "@/core/copy";
 import type { ReactElement } from "react";
 import type { ChipProps } from "./Chip";
 import type { ConfirmDialogProps } from "./ConfirmDialog";
-import type { SaveWarning } from "./EditorBar";
 import type { PageTitle } from "./RailFrame";
 import type { Editor, EditorValue } from "./useEditor";
 
@@ -39,10 +39,11 @@ export type DangerAct = {
   /** The question its button opens; the button carries the question's verb and tone. */
   confirm: Omit<ConfirmDialogProps, "trigger" | "open">;
   /**
-   * The passkey touch before the question, for an act on its fixed list: whether the person holds a passkey,
-   * which the page read, and the address the page was drawn for (`usePasskeyTouch`).
+   * The passkey touch before the question, for an act on its fixed list: the address the page was drawn for
+   * (`usePasskeyTouch`). An editor is an administrator's page, and an administrator signs in by passkey alone, so the
+   * person always holds one.
    */
-  touch?: { held: boolean; holder: string };
+  touch?: { holder: string };
   /**
    * Why the act cannot run on the record as it stands, which the page read: the button disabled, and this reason in
    * the row's second line in place of the consequence.
@@ -57,9 +58,12 @@ export type DangerAct = {
  */
 function DangerRow({ act }: { act: DangerAct }) {
   const [isAsking, setAsking] = useState(false);
-  const { run, refusal, isTouching } = usePasskeyTouch(act.touch?.held ?? false, act.touch?.holder);
+  const { run, refusal, isTouching } = usePasskeyTouch(act.touch !== undefined, act.touch?.holder);
   const label = COPY.shared.verb[act.confirm.verb];
-  const isBlocked = act.blocked !== undefined;
+  const unsaved = useDraftUnsaved();
+  // What the record holds closes an act before an unsaved draft does: the draft's save would not open it.
+  const blocked = act.blocked ?? unsaved;
+  const isBlocked = blocked !== undefined;
   return (
     <div className="flex min-h-14 items-center gap-3 rounded-lg border border-[color-mix(in_srgb,var(--danger)_45%,var(--border))] px-4 py-2 lg:min-h-13">
       <div className="grid min-w-0 flex-1 text-sm">
@@ -68,7 +72,7 @@ function DangerRow({ act }: { act: DangerAct }) {
         <span
           role="status"
           className={refusal === null ? "text-xs text-fg-muted" : "text-xs text-danger"}>
-          {refusal ?? act.blocked ?? act.consequence}
+          {refusal ?? blocked ?? act.consequence}
         </span>
       </div>
       {act.touch === undefined ? (
@@ -123,14 +127,14 @@ export function EditorPage<Values extends Record<string, EditorValue>>({
   editor,
   sections,
   danger,
-  warning,
   closed,
 }: {
   title: PageTitle;
   chip?: ChipProps;
   /**
-   * The Vorschau: one line under the title saying how the record reads, such as a match's pairing, its score and
-   * its outcome, or that no result is stored yet.
+   * The Vorschau: one line under the title saying a fact about the record as it is stored, such as a match's pairing,
+   * its day and its result or that none is stored yet, or that the website shows a season. Never the unsaved
+   * changes, which the bar's status line counts.
    */
   lead?: Copy;
   /** The reason the record is closed read-only, such as its season having finished; absent while it is open. */
@@ -139,8 +143,6 @@ export function EditorPage<Values extends Record<string, EditorValue>>({
   sections: readonly [EditorSection, ...EditorSection[]];
   /** The danger box: its title, naming what its acts are about, and its rows. */
   danger?: { title: Copy; acts: ReadonlyArray<DangerAct> };
-  /** The question a save of these changes asks first, only for a consequence beyond the record. */
-  warning?: (changes: Partial<Values>) => SaveWarning | null;
 }) {
   const form = useRef<HTMLFormElement>(null);
 
@@ -154,7 +156,8 @@ export function EditorPage<Values extends Record<string, EditorValue>>({
           <EditorBar
             status={editor.status}
             isPending={editor.isPending}
-            warning={warning?.(editor.changes) ?? null}
+            // A save the server held back asks its question from the bar, before it goes again.
+            question={{ asked: editor.question, confirm: editor.confirm, decline: editor.decline }}
             onSave={() => form.current?.requestSubmit()}
           />
         ) : undefined
@@ -171,27 +174,29 @@ export function EditorPage<Values extends Record<string, EditorValue>>({
         className={formColumn()}>
         {lead !== undefined && <p className="text-sm text-fg-muted">{lead}</p>}
         <FormClosed value={closed !== undefined}>
-          {sections.map((section, index) => (
-            <Section
-              key={section.id}
-              title={section.title}
-              help={section.help}
-              // A closed record's one reason covers every field, so it stands alone, under the first box's title.
-              note={closed === undefined ? section.note : index === 0 ? closed : undefined}>
-              {section.fields}
-            </Section>
-          ))}
-          {closed === undefined && danger !== undefined && danger.acts.length > 0 && (
-            <Section
-              title={danger.title}
-              danger={danger.acts.map((act) => (
-                <DangerRow
-                  key={act.name}
-                  act={act}
-                />
-              ))}
-            />
-          )}
+          <DraftUnsaved value={editor.count > 0 ? COPY.template.draftUnsaved : undefined}>
+            {sections.map((section, index) => (
+              <Section
+                key={section.id}
+                title={section.title}
+                help={section.help}
+                // A closed record's one reason covers every field, so it stands alone, under the first box's title.
+                note={closed === undefined ? section.note : index === 0 ? closed : undefined}>
+                {section.fields}
+              </Section>
+            ))}
+            {closed === undefined && danger !== undefined && danger.acts.length > 0 && (
+              <Section
+                title={danger.title}
+                danger={danger.acts.map((act) => (
+                  <DangerRow
+                    key={act.name}
+                    act={act}
+                  />
+                ))}
+              />
+            )}
+          </DraftUnsaved>
         </FormClosed>
       </Form>
     </RailPage>

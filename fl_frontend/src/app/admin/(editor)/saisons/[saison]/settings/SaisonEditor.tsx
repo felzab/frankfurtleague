@@ -65,12 +65,12 @@ export type SaisonFacts = {
   /** The season the site shows, which the switch onto this one leaves; `null` before the league's first. */
   siteShows: string | null;
   spielplan: { spieltage: number; spiele: number; drawnOn: CalendarDay } | null;
-  /** Why each danger act cannot run now, by the refusal its write would answer, which the read serves. */
-  blocked: { activate?: Copy; recreate?: Copy; undraw?: Copy };
+  /** Why the draw and each danger act cannot run now, by the refusal its write would answer, which the read serves. */
+  blocked: { activate?: Copy; create?: Copy; recreate?: Copy; undraw?: Copy };
 };
 
-/** The registration links: each team's row, and how many teams the press would mail, a held link replaced or not. */
-export type SaisonLinks = { rows: readonly TableRow[]; mailed: number; replacing: boolean };
+/** The registration links: each team's row, how many teams the press would mail, and how many of those hold a link it replaces. */
+export type SaisonLinks = { rows: readonly TableRow[]; mailed: number; replacing: number };
 
 /** The acts the editor's sections and its danger rows press, each a server action naming its season. */
 export type SaisonActs = {
@@ -232,7 +232,7 @@ export function SaisonEditor({
   // The application window is none or both of its days, so each is asked for once either holds one.
   const bewerbungSet = draft.bewerbungStart !== null || draft.bewerbungEnd !== null;
 
-  const touch = { held: true, holder };
+  const touch = { holder };
   const of = { saison_id: saison, holder };
 
   const sections: [EditorSection, ...EditorSection[]] = [
@@ -395,6 +395,7 @@ export function SaisonEditor({
           />
           <ToggleBoxes
             label={WORDS.stufen}
+            name="stufen"
             choices={STUFEN}
             isRequired={required.stufen}
             value={draft.stufen}
@@ -456,6 +457,7 @@ export function SaisonEditor({
             label={COPY.shared.withObject(SPIELPLAN, "create")}
             variant="primary"
             isDisabled={isClosed}
+            blocked={facts.blocked.create}
             run={() => acts.draw({ saison_id: saison })}
           />
         ) : (

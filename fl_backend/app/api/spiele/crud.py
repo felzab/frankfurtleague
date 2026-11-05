@@ -11,6 +11,7 @@ from app.api.saisons.schemas import FLSaisonRules
 from app.api.saisons.services import find_saison_past_refusal
 from app.api.spielberichte.crud import stamp_the_adoption
 from app.api.spielberichte.services import seiten_of
+from app.api.spielbestaetigungen.services import CLOSE_FIELDS, build_holding_filter, parties_told_of_the_change
 from app.api.spiele.schemas import (
     SPIEL_PATCH_WRITTEN_FIELDS,
     FLBracketFault,
@@ -18,6 +19,7 @@ from app.api.spiele.schemas import (
     FLPatchSpielDataResponse,
     FLSpiel,
     FLSpielAdvancement,
+    FLSpielbestaetigungParteiListAdapter,
     FLSpielCommon,
     FLSpielJoinedInternal,
     FLSpielListAdapter,
@@ -71,10 +73,19 @@ from app.api.teams.services import (
     build_team_pipeline,
     offered_gruppen,
 )
-from app.core.crud import VERSION_FIELD, aggregate_many_from_db, anchor_in_db, patch_one_in_db, pull_many_from_db, pull_one_from_db, refuse
+from app.core.crud import (
+    VERSION_FIELD,
+    aggregate_many_from_db,
+    anchor_in_db,
+    patch_one_in_db,
+    pull_many_from_db,
+    pull_one_from_db,
+    pull_whole_from_db,
+    refuse,
+)
 from app.core.readonly import ReadCollection
 from app.shared.einwilligung import is_confirmed
-from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
+from app.shared.schemas.bounds import LIST_LIMIT_MAX
 from app.shared.schemas.custom import CustomObjectId
 from app.shared.schemas.literals import FLGruppenNames, FLSpielSeite
 
@@ -468,17 +479,11 @@ async def advance_bracket_winners(
     edit triggered it and a second run writes nothing.
     """
 
-    # One over the cap, so a truncated season is DETECTED rather than resolved: a dropped fixture
-    # reads as a dangling source, and the bracket written back would be resolved from a season
-    # with a hole in it.
-    spiele_raw = await pull_many_from_db(
-        collection=spiele_collection,
-        db_filter={"saison_id": saison_id},
-        limit=LIST_LIMIT_DEFAULT + 1,
-        session=session,
+    # Whole: a dropped fixture reads as a dangling source, and the bracket written back would be resolved from a
+    # season with a hole in it.
+    spiele_raw = await pull_whole_from_db(
+        collection=spiele_collection, db_filter={"saison_id": saison_id}, what=f"season {saison_id}'s fixtures", session=session
     )
-    if len(spiele_raw) > LIST_LIMIT_DEFAULT:
-        raise ValueError(f"season {saison_id} holds more than {LIST_LIMIT_DEFAULT} fixtures, which is more than one read can resolve")
 
     spiele = FLSpielListAdapter.validate_python(spiele_raw)
 
@@ -649,6 +654,7 @@ class _JudgedSave:
     releases: list[SpieltagRelease]
     patched: FLSpiel
     anchored: BookedReferences
+    membership: dict[CustomObjectId, SaisonMembership]
 
 
 async def _judge_spiel_save(
@@ -675,14 +681,11 @@ async def _judge_spiel_save(
     )
     rules = FLSaisonRules.model_validate(saison_raw["rules"])
 
-    # One over the cap, so a truncated season is DETECTED rather than judged: a dropped fixture leaves
-    # `find_wiring_refusal` reporting a live `spiel_nr` as no such match, and `judge_spieltag_occupancy` blind to a
-    # release it owes.
-    season_raw = await pull_many_from_db(
-        collection=collections.spiele, db_filter={"saison_id": saison_id}, limit=LIST_LIMIT_DEFAULT + 1, session=session
+    # Whole: a dropped fixture leaves `find_wiring_refusal` reporting a live `spiel_nr` as no such match, and
+    # `judge_spieltag_occupancy` blind to a release it owes.
+    season_raw = await pull_whole_from_db(
+        collection=collections.spiele, db_filter={"saison_id": saison_id}, what=f"season {saison_id}'s fixtures", session=session
     )
-    if len(season_raw) > LIST_LIMIT_DEFAULT:
-        raise ValueError(f"season {saison_id} holds more than {LIST_LIMIT_DEFAULT} fixtures, which is more than one read can judge")
 
     season = FLSpielListAdapter.validate_python(season_raw)
     stored = stored_in_slice(spiel_id, season)
@@ -746,18 +749,38 @@ async def _judge_spiel_save(
         # Returned rather than left to the caller to derive, so every transaction judging here anchors what the two
         # rules above judged.
         anchored=find_references_to_anchor(stored, payload, rules),
+        membership=membership,
     )
 
 
 async def preview_spiel_save(
-    *, spiel_id: CustomObjectId, payload: FLPatchSpielDataPayload, collections: SpielSaveCollections
+    *,
+    spiel_id: CustomObjectId,
+    payload: FLPatchSpielDataPayload,
+    collections: SpielSaveCollections,
+    spielbestaetigungen_collection: ReadCollection,
+    today: str,
 ) -> FLPatchSpielDataResponse:
-    """What this payload would move and destroy, judged against the season as it stands and written nowhere.
+    """What this payload would move, destroy and have the confirmation pass mail, judged against the season as it stands, written nowhere.
 
     No transaction: a preview that took a write lock would be paying for a question.
     """
 
     judged = await _judge_spiel_save(spiel_id=spiel_id, payload=payload, collections=collections, session=None)
+    # The fixture's rows holding their party's question, as the pass's close reads them.
+    rows = await pull_many_from_db(
+        collection=spielbestaetigungen_collection,
+        db_filter={"spiel_id": spiel_id, **build_holding_filter()},
+        projection=CLOSE_FIELDS,
+        limit=LIST_LIMIT_MAX,
+    )
+    recipients = parties_told_of_the_change(
+        rows=rows,
+        stored=stored_in_slice(spiel_id, judged.season).model_dump(context={"keep_oid": True}),
+        changed=judged.patched.model_dump(context={"keep_oid": True}),
+        austritte={team_id: member.departed_from for team_id, member in judged.membership.items() if member.departed_from is not None},
+        today=today,
+    )
     advanced_to, released_sides, bracket_faults = await preview_bracket_after_patch(
         teams_collection=collections.teams,
         saison_id=judged.saison_id,
@@ -773,6 +796,7 @@ async def preview_spiel_save(
         bracket_faults=bracket_faults,
         version=judged.patched.version,
         bericht_adopted=None,
+        recipients=FLSpielbestaetigungParteiListAdapter.validate_python(recipients),
     )
 
 
@@ -859,4 +883,5 @@ async def save_spiel_in_session(
         bracket_faults=bracket_faults,
         version=saved[VERSION_FIELD],
         bericht_adopted=uebernommen,
+        recipients=None,
     )

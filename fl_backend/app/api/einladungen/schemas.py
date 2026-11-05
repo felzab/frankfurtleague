@@ -102,7 +102,7 @@ type FLInvitationSkipReason = Literal[
 
 
 class _EinladungVersandZeile(BaseModel):
-    """What the preview and the press both say about one team."""
+    """What the season editor's rows and the press both say about one team."""
 
     team_id: CustomObjectId
     # The junction row's own copy of the club's name, so the list reads as the season's teams do
@@ -113,10 +113,6 @@ class _EinladungVersandZeile(BaseModel):
     # Served rather than derived: a row carries no trace of the invitation the team holds, so a
     # caller cannot tell a team whose link this press kills from one that never had a link.
     replaced_link: bool
-
-
-class FLInvitationDispatchPreviewRow(_EinladungVersandZeile):
-    """One team as the preview reports it. It mints nothing, so it answers no link."""
 
 
 class FLInvitationLinkRow(_EinladungVersandZeile):
@@ -162,13 +158,6 @@ class FLInvitationMailResponse(BaseAPIResponse):
 
     invitation_id: CustomObjectId
     recipient: list[FLInvitationRecipient]
-
-
-class FLInvitationDispatchPreviewResponse(BaseAPIResponse):
-    """Who the press would mail, over the same rule the press then performs."""
-
-    saison_id: CustomNonEmptyString
-    rows: list[FLInvitationDispatchPreviewRow]
 
 
 class FLInvitationDispatchResponse(BaseAPIResponse):

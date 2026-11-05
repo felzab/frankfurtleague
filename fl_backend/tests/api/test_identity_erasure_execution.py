@@ -454,12 +454,11 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
                 spieltag_id=SPIELTAG_OID,
                 datum="2126-03-15",
                 uhrzeit="14:00:00",
-                schiedsrichter={"schiedsrichter_id": referee_id, "name": name, "payment": PAYMENT},
+                # As a fixture stores its referee, naming nobody: the name is joined from the referee's row.
+                schiedsrichter={"schiedsrichter_id": referee_id, "payment": PAYMENT},
                 ergebnis="2:1",
             )
-            for spiel_nr, (spiel_id, referee_id, name) in enumerate(
-                ((THEIR_SPIEL_OID, REFEREE_OID, REFEREE_NAME), (OTHER_SPIEL_OID, OTHER_REFEREE_OID, "Bernd Kraus")), start=1
-            )
+            for spiel_nr, (spiel_id, referee_id) in enumerate(((THEIR_SPIEL_OID, REFEREE_OID), (OTHER_SPIEL_OID, OTHER_REFEREE_OID)), start=1)
         ]
     )
     await database[Collection.REGISTRIERUNGEN].insert_many(

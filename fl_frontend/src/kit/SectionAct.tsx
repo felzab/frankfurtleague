@@ -6,6 +6,7 @@ import { COPY } from "@/core/copy";
 
 import { Button } from "./Button";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { useDraftUnsaved } from "./draftUnsaved";
 import { StatusLine } from "./FieldParts";
 import { statusOf, useFormAction } from "./useFormAction";
 
@@ -35,7 +36,9 @@ const sameInputs = (now: ReadonlyArray<unknown>, then: ReadonlyArray<unknown>) =
  * act's own note where it has one. A done line speaks of the inputs it was pressed on: it goes once one of `inputs`
  * changes, as the editor's bar trades its „Gespeichert“ for the next edit, and once the page is left. `isDisabled`
  * closes the button while its inputs are incomplete, the section's fields showing what is missing, or while the press
- * would reach nobody.
+ * would reach nobody. `blocked` closes it where its write would refuse the record as it stands, which the page read,
+ * the reason in the act's line in place of its outcome, as a danger row's `blocked` stands in its row; inside an editor
+ * whose draft holds unsaved changes the act is closed the same way (`useDraftUnsaved`).
  */
 export function SectionAct({
   children,
@@ -45,6 +48,7 @@ export function SectionAct({
   run,
   inputs = NO_INPUTS,
   isDisabled = false,
+  blocked,
 }: {
   /** The act's inputs: the kit's fields, each holding its own value for `run` to read. */
   children?: ReactNode;
@@ -55,6 +59,7 @@ export function SectionAct({
   /** The values `run` reads; none for an act taking no input. */
   inputs?: ReadonlyArray<unknown>;
   isDisabled?: boolean;
+  blocked?: Copy;
 }) {
   const { answer, submit, isPending } = useFormAction(run, { resetOnLeave: true });
   // The inputs of the last press, whose answer the line shows only while they still hold.
@@ -66,7 +71,13 @@ export function SectionAct({
   useLayoutEffect(() => () => setDone(null), []);
   const answered: FormStatus =
     confirm === undefined ? statusOf(answer, false, isPending) : done === null ? null : { tone: "saved", text: done };
-  const status = sameInputs(inputs, pressedOn) ? answered : null;
+  const outcome = sameInputs(inputs, pressedOn) ? answered : null;
+  const unsaved = useDraftUnsaved();
+  // What the record holds closes the act before an unsaved draft does: the draft's save would not open it.
+  const reason = blocked ?? unsaved;
+  // A standing reason, never an outcome, so it stands outside the line's live region, as the editor's count does.
+  const status: FormStatus = reason === undefined ? outcome : { tone: "changes", text: reason };
+  const isClosed = isDisabled || reason !== undefined;
 
   return (
     <>
@@ -76,7 +87,7 @@ export function SectionAct({
           variant={variant}
           label={label}
           isBusy={isPending}
-          isDisabled={isDisabled}
+          isDisabled={isClosed}
           onPress={() => {
             setPressedOn(inputs);
             submit(undefined);
@@ -97,7 +108,7 @@ export function SectionAct({
             <Button
               variant={variant}
               label={label}
-              isDisabled={isDisabled}
+              isDisabled={isClosed}
             />
           }
         />

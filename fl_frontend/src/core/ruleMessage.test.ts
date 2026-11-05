@@ -58,6 +58,7 @@ describe("the field patterns over the backend's rules", () => {
       expect(rule(kind, { min: 5 }), kind).toStrictEqual({ field: field.min(5) });
     }
     expect(rule("austritt_before_saison_start", { earliest: "2027-03-01" })).toStrictEqual({ field: field.earliest("2027-03-01") });
+    expect(rule("saison_span_below_spielplan", { earliest: "2027-06-12" })).toStrictEqual({ field: field.earliest("2027-06-12") });
   });
 
   it("words the span the matchdays need on each side by the side the refusal names", () => {
@@ -65,11 +66,6 @@ describe("the field patterns over the backend's rules", () => {
     expect(rule("saison_span_below_spieltage", span, ["start_date"])).toStrictEqual({ field: field.latest("2027-03-06") });
     expect(rule("saison_span_below_spieltage", span, ["end_date"])).toStrictEqual({ field: field.earliest("2027-06-26") });
     expect(rule("saison_span_below_spieltage", span, [])).toStrictEqual({ line: failure.unexpected });
-  });
-
-  it("prints a season's year bounds with no thousands separator", () => {
-    expect(rule("saison_year_out_of_range", { min: 2026, max: 2027 })).toStrictEqual({ field: field.between({ year: 2026 }, { year: 2027 }) });
-    expect(field.between({ year: 2026 }, { year: 2027 })).toBe("Zwischen 2026 und 2027");
   });
 
   it("words a rule no pattern holds as its sentence on the status line, and anything else, a missing bound among it, as unexpected there", () => {

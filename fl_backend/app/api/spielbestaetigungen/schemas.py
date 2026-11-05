@@ -3,7 +3,7 @@ from typing import Annotated, Literal
 from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints, ValidationInfo, field_validator
 
 from app.api.outbox.schemas import FLOutboxStatus
-from app.api.spiele.schemas import FLSpielOrtFieldPublic
+from app.api.spiele.schemas import FLSpielbestaetigungPartei, FLSpielOrtFieldPublic
 from app.core.crud import Anchored
 from app.core.exceptions import rule_refusal
 from app.shared.schemas.actor import FLByAdmin
@@ -51,19 +51,6 @@ CustomSpielbestaetigungBegruendung = Annotated[
     AfterValidator(str.strip),
     StringConstraints(min_length=1),
 ]
-
-
-class FLSpielbestaetigungPartyTeam(BaseModel):
-    art: Literal["team"]
-    team_id: CustomObjectId
-
-
-class FLSpielbestaetigungPartySchiedsrichter(BaseModel):
-    art: Literal["schiedsrichter"]
-    schiedsrichter_id: CustomObjectId
-
-
-FLSpielbestaetigungPartei = Annotated[FLSpielbestaetigungPartyTeam | FLSpielbestaetigungPartySchiedsrichter, Field(discriminator="art")]
 
 
 class FLSpielbestaetigungAnsetzung(BaseModel):

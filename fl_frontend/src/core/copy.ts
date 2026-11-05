@@ -431,6 +431,8 @@ export const COPY = catalogue({
     changes: "Änderungen",
     changesPending: (count: number) => (count === 1 ? "1 Änderung" : `${formatNumber(count)} Änderungen`),
     changesLost: (count: number) => (count === 1 ? "1 Änderung geht verloren." : `${formatNumber(count)} Änderungen gehen verloren.`),
+    /** In an editor's act's own line while its draft holds unsaved changes, which close every act of it. */
+    draftUnsaved: "Gesperrt, solange Änderungen ungespeichert sind",
     /** The chip after an editor's title while its record is closed read-only, its season finished. */
     closed: "Abgeschlossen",
     /** A save refused for its fields: the fields say what, the status line that some are off. */
@@ -724,8 +726,7 @@ export const COPY = catalogue({
       registrierungslinks: "Registrierungslinks",
       umstellung: "Umstellung",
       /** The danger box's title, by what its rows are about: the draw's regeneration and removal, the switch, or both. */
-      dangerBox: (draw: boolean, activation: boolean) =>
-        draw && activation ? "Spielplan und Umstellung" : draw ? "Spielplan verwerfen" : "Umstellung",
+      dangerBox: (draw: boolean, activation: boolean) => (draw && activation ? "Spielplan und Umstellung" : draw ? "Spielplan" : "Umstellung"),
 
       winPoints: "Punkte pro Sieg",
       drawPoints: "Punkte pro Unentschieden",
@@ -753,6 +754,13 @@ export const COPY = catalogue({
       /** When the Spielplan was drawn, beside its counts. */
       drawnOn: "Angelegt",
       noDraw: "Noch kein Spielplan.",
+      /**
+       * Why the draw cannot run: a group holds more or fewer teams than the rules give each, or a club stands in a
+       * group the rules do not run. One repair reaches all three, entering the clubs as the rules say.
+       */
+      gruppenOffRules: "Die Gruppen sind nicht so besetzt, wie die Regeln es vorsehen.",
+      /** Why the draw cannot run on a season holding matchdays its read records no Spielplan for. */
+      spieltageHeld: "Diese Saison hat schon Spieltage.",
       recreateConsequence: "Alle Spieltage und Spiele dieser Saison werden gelöscht und neu angelegt.",
       deleteConsequence: "Alle Spieltage und Spiele dieser Saison werden gelöscht.",
 
@@ -781,13 +789,18 @@ export const COPY = catalogue({
       addressBarred: "Adresse auf der Sperrliste",
       /** The registration links' done line, the rows saying the rest. */
       sentTo: (count: number) => (count === 1 ? "An 1 Team gesendet" : `An ${formatNumber(count)} Teams gesendet`),
-      /** The registration links' send: how many teams it mails, and whether a link one of them holds stops opening. */
-      dispatchConsequence: (count: number, replacing: boolean) => {
-        if (!replacing)
+      /**
+       * The registration links' send: how many teams it mails, and how many of them hold a link that stops opening,
+       * none, all or some.
+       */
+      dispatchConsequence: (count: number, replacing: number) => {
+        if (replacing === 0)
           return count === 1 ? "1 Team bekommt seinen Link per E-Mail." : `${formatNumber(count)} Teams bekommen ihren Link per E-Mail.`;
-        return count === 1
-          ? "1 Team bekommt einen neuen Link, und sein bisheriger gilt nicht mehr."
-          : `${formatNumber(count)} Teams bekommen einen neuen Link, und ihr bisheriger gilt nicht mehr.`;
+        if (replacing === count)
+          return count === 1
+            ? "1 Team bekommt einen neuen Link, und sein bisheriger gilt nicht mehr."
+            : `${formatNumber(count)} Teams bekommen einen neuen Link, und ihr bisheriger gilt nicht mehr.`;
+        return `${formatNumber(count)} Teams bekommen ihren Link per E-Mail, und bei ${formatNumber(replacing)} davon gilt der bisherige nicht mehr.`;
       },
 
       /** The activation: the season the site shows, and its subject, „Auf Saison 2027 umstellen?“. */
@@ -849,8 +862,9 @@ export const COPY = catalogue({
       spielberichtUndBestaetigungen: "Spielbericht und Bestätigungen",
       spielbericht: "Spielbericht",
       bestaetigungen: "Bestätigungen",
-      /** The Vorschau under the editor's title: the fields changed and not yet saved, each by its own label. */
-      changed: (labels: readonly Copy[]) => formatList(labels),
+      /** The Vorschau under the editor's title: the match as stored, its pairing, when it is played and its result. */
+      vorschau: (pairing: Copy, when: Copy, result: Copy) => `${pairing} · ${when} · ${result}`,
+      noResult: "Noch kein Ergebnis",
       /** A club picked by hand over the side's source, which the side no longer follows once saved. */
       replacesQuelle: (quelle: Copy) => `Ersetzt ${quelle}`,
       /** Why a club cannot take a side: it stands on another match of the matchday, or has left the season. */

@@ -109,7 +109,13 @@ class WriteRefusal:
         )
 
 
-def as_judged_on_stored_state(refusal: WriteRefusal | None, *, twins: Mapping[Code, Code]) -> WriteRefusal | None:
+# A write's twin of each code it shares with a payload write: by the code alone, or, where one code covers several
+# fields, by the first name of the path it judged, as the catalogue keys a sentence by that name, since the twin names
+# no path for the catalogue to read.
+type Twins = Mapping[Code, Code | Mapping[str, Code]]
+
+
+def as_judged_on_stored_state(refusal: WriteRefusal | None, *, twins: Twins) -> WriteRefusal | None:
     """`refusal` as a write judging stored values it carries no body for answers it.
 
     Under its twin, a 409, where `twins` names one for a code a payload write shares, else its code and status alone:
@@ -119,8 +125,12 @@ def as_judged_on_stored_state(refusal: WriteRefusal | None, *, twins: Mapping[Co
     if refusal is None:
         return None
 
-    if refusal.error_code in twins:
-        return WriteRefusal(error_code=twins[refusal.error_code], status=HTTPStatus.CONFLICT)
+    twin = twins.get(refusal.error_code)
+    if isinstance(twin, Mapping):
+        head = refusal.fields[0][0] if refusal.fields else None
+        twin = twin.get(head) if isinstance(head, str) else None
+    if twin is not None:
+        return WriteRefusal(error_code=twin, status=HTTPStatus.CONFLICT)
 
     return replace(refusal, fields=(), bounds={})
 

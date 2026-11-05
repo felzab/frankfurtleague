@@ -38,6 +38,13 @@ class FLSpieltag(FLSpieltagRecord, BaseReadModel):
 FLSpieltagListAdapter = TypeAdapter(list[FLSpieltag])
 
 
+class FLSpieltagAdmin(FLSpieltag):
+    """A matchday as its editor reads it, with how many matchdays its phase holds, by which a page names a round's legs."""
+
+    # DERIVED, on no document: the phase's matchdays as the season stores them, this one included.
+    count_in_phase: int = Field(ge=1)
+
+
 class FLSpieltageFilterParams(BaseModel):
     saison_id: str | None = None
     saison_phase: Literal["playoffs"] | FLSaisonPhase | None = None
@@ -133,5 +140,11 @@ class FLSpieltageSingleResponse(BaseAPIResponse):
     spieltag: FLSpieltag
 
 
+class FLSpieltagAdminResponse(BaseAPIResponse):
+    spieltag: FLSpieltagAdmin
+
+
 class FLSpieltagWriteResponse(BaseAPIResponse):
     spieltag_id: CustomObjectId
+    # The matchday's version after the save, which the editor's next save sends.
+    version: int

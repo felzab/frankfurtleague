@@ -126,11 +126,15 @@ async def move_the_seasons_end(database: AsyncDatabase, end_date: str) -> Any:
 
 
 async def re_date(database: AsyncDatabase, spieltag_id: ObjectId, *, beginn: str, ende: str) -> Any:
-    """The whole of `PATCH /spieltage/{spieltag_id}`, the payload carrying the span and the version an editor opened now is served."""
+    """The whole of `PATCH /spieltage/{spieltag_id}`, the payload carrying the span and the version an editor opened now is served.
+
+    The answer's `version` is the one the editor's next save sends: one short of the stored count, and that save is
+    refused as stale though nothing else wrote.
+    """
 
     stored = await database.spieltage.find_one({"_id": spieltag_id}, {"version": 1})
     assert stored is not None
-    await patch_spieltag(
+    answered = await patch_spieltag(
         spieltag_id=spieltag_id,
         spieltag_data=FLPatchSpieltagPayload(beginn=beginn, ende=ende, version=stored["version"]),
         spieltage_collection=database.spieltage,
@@ -138,8 +142,10 @@ async def re_date(database: AsyncDatabase, spieltag_id: ObjectId, *, beginn: str
         spiele_collection=database.spiele,
         db=database.client,
     )
+    saved = await database.spieltage.find_one({"_id": spieltag_id})
+    assert saved is not None and answered.version == saved["version"], "the save answered a version it did not store"
 
-    return await database.spieltage.find_one({"_id": spieltag_id})
+    return saved
 
 
 class TestASeasonKeepsCoveringTheMatchdaysItStores:

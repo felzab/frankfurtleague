@@ -6,7 +6,7 @@ from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.bewerbungen.services import SAISON_NOT_ENDED_FILTER, saison_nimmt_bewerbungen_an
 from app.api.saisons.schemas import FLSaisonRules
-from app.api.saisons.services import has_started
+from app.api.saisons.services import has_started, next_saison_id
 from app.api.spiele.schemas import FLSpielJoinedInternal, FLSpielJoinedInternalListAdapter
 from app.api.spiele.services import build_spiele_pipeline
 from app.api.teams.services import TAKEN_PLACE_FIELDS, has_taken_place
@@ -15,6 +15,15 @@ from app.core.exceptions import DocumentNotFoundError
 from app.core.readonly import ReadCollection
 
 CURRENT_SAISON_FILTER = {"status": "active"}
+
+
+async def pull_create_state(*, saisons_collection: ReadCollection, session: AsyncClientSession | None = None) -> tuple[str, bool]:
+    """The id the next create mints, and whether a `future` season stands: what the create judges and the list serves."""
+
+    newest = await saisons_collection.find_one({}, projection={"_id": 1}, sort=[("_id", -1)], session=session)
+    future = await saisons_collection.find_one({"status": "future"}, projection={"_id": 1}, session=session)
+
+    return next_saison_id(None if newest is None else str(newest["_id"])), future is not None
 
 
 async def pull_active_saison_id(saisons_collection: AsyncCollection) -> str:

@@ -42,9 +42,14 @@ const moment = ({ datum, uhrzeit }: FLSpielMailAppointment): string => formatDay
 /** A sentence whose moment stands semibold between its two parts. */
 const around = (before: string, value: string, after: string): Sentence => [before, { strong: value }, after];
 
-/** A move's rows: the moment it left, and the one it moved to where it holds one. */
+/**
+ * A move's rows: the moment it left, and the one it moved to where it holds one. The block stands under the new
+ * pairing, so where the move also changed the sides, the row of the slot left names the pairing it held.
+ */
 function moveFacts(from: FLSpielMailAppointment, to: FLSpielMailAppointment | null): Fact[] {
-  return [{ label: WORDS.previous, value: moment(from) }, ...(to === null ? [] : [{ label: WORDS.next, value: moment(to) }])];
+  const sidesChanged = to !== null && (from.team1 !== to.team1 || from.team2 !== to.team2);
+  const previous = sidesChanged ? WORDS.previousPairing(paarung(from), moment(from)) : moment(from);
+  return [{ label: WORDS.previous, value: previous }, ...(to === null ? [] : [{ label: WORDS.next, value: moment(to) }])];
 }
 
 /**

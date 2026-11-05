@@ -724,11 +724,30 @@ class FLSpielReleasedSide(_VoidedResult):
     team_name: str = Field(min_length=1)
 
 
+# One party a fixture's Ansetzung asks to confirm it: a side, or the booked referee. Beside the fixture, since the
+# confirmation rows store it and the save's dry run names it.
+class FLSpielbestaetigungPartyTeam(BaseModel):
+    art: Literal["team"]
+    team_id: CustomObjectId
+
+
+class FLSpielbestaetigungPartySchiedsrichter(BaseModel):
+    art: Literal["schiedsrichter"]
+    schiedsrichter_id: CustomObjectId
+
+
+FLSpielbestaetigungPartei = Annotated[FLSpielbestaetigungPartyTeam | FLSpielbestaetigungPartySchiedsrichter, Field(discriminator="art")]
+
+FLSpielbestaetigungParteiListAdapter: TypeAdapter[list[FLSpielbestaetigungPartei]] = TypeAdapter(list[FLSpielbestaetigungPartei])
+
+
 class FLPatchSpielDataResponse(BaseAPIResponse):
     """Every fixture the save moved beyond its own edit, each with the result it destroyed, and the bracket's faults after it.
 
     `version` is the fixture's own after the save, the one its next save sends; `bericht_adopted` says whether the
-    adoption `adopts_bericht` asked for was stamped, null where none was asked or on a `dry_run`.
+    adoption `adopts_bericht` asked for was stamped, null where none was asked or on a `dry_run`. `recipients`, on a
+    `dry_run` alone and null on a save, is every party the confirmation pass mails about this fixture once it is saved
+    so, and would not as it stands: told of the move, of the referee taken off it, or of its call-off.
     """
 
     advanced_to: list[FLSpielAdvancement] = Field(default_factory=list)
@@ -736,3 +755,4 @@ class FLPatchSpielDataResponse(BaseAPIResponse):
     bracket_faults: list[FLBracketFault] = Field(default_factory=list)
     version: int
     bericht_adopted: bool | None
+    recipients: list[FLSpielbestaetigungPartei] | None

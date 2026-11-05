@@ -71,6 +71,24 @@
         },
         "description": "Unprocessable Content"
       },
+      "429": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/FLFailureBody"
+            }
+          }
+        },
+        "description": "Too Many Requests",
+        "headers": {
+          "Retry-After": {
+            "description": "Seconds to wait before asking again",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        }
+      },
       "500": {
         "content": {
           "application/json": {
@@ -125,6 +143,7 @@
           "database_failed",
           "unknown_outcome",
           "activate_saison_unfinished",
+          "create_saison_future_stands",
           "saison_past",
           "activate_target_undrawn",
           "activate_spieltage_undated",
@@ -135,6 +154,7 @@
           "address_change_replaced_barred",
           "address_change_taken",
           "address_change_unchanged",
+          "address_change_started_recently",
           "address_change_barred",
           "address_change_nothing",
           "address_change_no_approver",
@@ -155,6 +175,7 @@
           "ansetzung_closed",
           "ansetzung_not_enterable",
           "ansetzung_not_discardable",
+          "ansetzung_not_adoptable",
           "ansetzung_foreign_row",
           "access_key_refused",
           "missing_actor",
@@ -200,6 +221,8 @@
           "booking_unknown_resource",
           "booking_unconfirmed_schiedsrichter",
           "spiel_double_booked",
+          "spiel_double_booked_spielort_as_stored",
+          "spiel_double_booked_schiedsrichter_as_stored",
           "spiel_outside_spieltag",
           "spieltag_outside_saison",
           "spieltag_span_below_spiele",
@@ -215,6 +238,8 @@
           "media_age",
           "giving_not_allowed",
           "eligibility_disqualified",
+          "eligibility_disqualified_team1_as_stored",
+          "eligibility_disqualified_team2_as_stored",
           "eligibility_team_not_in_saison",
           "entry_saison_not_future",
           "entry_gruppe_not_offered",
@@ -247,7 +272,7 @@
           "replace_saison_started",
           "replace_incoming_already_entered",
           "replace_one_team_on_both_ends",
-          "sides_taken_place",
+          "replace_sides_taken_place",
           "ergebnis_side_emptied",
           "retire_blocked",
           "spielort_still_booked",
@@ -289,6 +314,7 @@
           "state_nichtantreten_without_two_sides",
           "swap_not_a_swap",
           "swap_saison_started",
+          "swap_sides_taken_place",
           "austritt_before_saison_start",
           "payload_refused",
           "body_unreadable",
@@ -6426,74 +6452,6 @@
         "title": "FLInvitationDispatchPayload",
         "type": "object"
       },
-      "FLInvitationDispatchPreviewResponse": {
-        "description": "Who the press would mail, over the same rule the press then performs.",
-        "properties": {
-          "rows": {
-            "items": {
-              "$ref": "#/components/schemas/FLInvitationDispatchPreviewRow"
-            },
-            "title": "Rows",
-            "type": "array"
-          },
-          "saison_id": {
-            "minLength": 1,
-            "title": "Saison Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "saison_id",
-          "rows"
-        ],
-        "title": "FLInvitationDispatchPreviewResponse",
-        "type": "object"
-      },
-      "FLInvitationDispatchPreviewRow": {
-        "description": "One team as the preview reports it. It mints nothing, so it answers no link.",
-        "properties": {
-          "recipient": {
-            "items": {
-              "$ref": "#/components/schemas/FLInvitationRecipient"
-            },
-            "title": "Recipient",
-            "type": "array"
-          },
-          "replaced_link": {
-            "title": "Replaced Link",
-            "type": "boolean"
-          },
-          "skipped": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLInvitationSkipReason"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "team_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Team Id",
-            "type": "string"
-          },
-          "team_name": {
-            "minLength": 1,
-            "title": "Team Name",
-            "type": "string"
-          }
-        },
-        "required": [
-          "team_id",
-          "team_name",
-          "recipient",
-          "skipped",
-          "replaced_link"
-        ],
-        "title": "FLInvitationDispatchPreviewRow",
-        "type": "object"
-      },
       "FLInvitationDispatchResponse": {
         "description": "What the press did, per admitted team of the season.",
         "properties": {
@@ -8581,27 +8539,40 @@
         "type": "string"
       },
       "FLOverviewParty": {
-        "description": "One club's open confirmation row: the row „Zusage eintragen“ records the club's agreement on.",
+        "description": "One party's open confirmation row, a club's or the booked referee's: the row „Zusage eintragen“ records its agreement on.",
         "properties": {
           "deadline": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Deadline",
             "type": "string"
           },
+          "party": {
+            "discriminator": {
+              "mapping": {
+                "schiedsrichter": "#/components/schemas/FLSpielbestaetigungPartySchiedsrichter",
+                "team": "#/components/schemas/FLSpielbestaetigungPartyTeam"
+              },
+              "propertyName": "art"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielbestaetigungPartyTeam"
+              },
+              {
+                "$ref": "#/components/schemas/FLSpielbestaetigungPartySchiedsrichter"
+              }
+            ],
+            "title": "Party"
+          },
           "spielbestaetigung_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Spielbestaetigung Id",
-            "type": "string"
-          },
-          "team_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Team Id",
             "type": "string"
           }
         },
         "required": [
           "spielbestaetigung_id",
-          "team_id",
+          "party",
           "deadline"
         ],
         "title": "FLOverviewParty",
@@ -8686,7 +8657,7 @@
         "type": "object"
       },
       "FLOverviewSpielbestaetigungRow": {
-        "description": "A fixture whose clubs owe their answer: overdue where one club's deadline has passed, else due today.",
+        "description": "A fixture whose parties owe their answer: overdue where one party's deadline has passed, else due today.",
         "properties": {
           "kind": {
             "$ref": "#/components/schemas/FLOverviewAnswerKind"
@@ -8711,8 +8682,50 @@
         "type": "object"
       },
       "FLOverviewVorschlagRow": {
-        "description": "A club's decline proposing another date and hour, neither adopted nor discarded; its row is the one both acts write.",
+        "description": "A club's decline proposing another date and hour, neither adopted nor discarded; its row is the one both acts write.\n\nEach act's recipients are the parties the backend mails of it, so its question names them: `adoption_recipients`\nthose the confirmation pass tells of the move, `discard_recipients` the club the discard tells the date stands,\nnone once its day has gone by.",
         "properties": {
+          "adoption_recipients": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "schiedsrichter": "#/components/schemas/FLSpielbestaetigungPartySchiedsrichter",
+                  "team": "#/components/schemas/FLSpielbestaetigungPartyTeam"
+                },
+                "propertyName": "art"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/FLSpielbestaetigungPartyTeam"
+                },
+                {
+                  "$ref": "#/components/schemas/FLSpielbestaetigungPartySchiedsrichter"
+                }
+              ]
+            },
+            "title": "Adoption Recipients",
+            "type": "array"
+          },
+          "discard_recipients": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "schiedsrichter": "#/components/schemas/FLSpielbestaetigungPartySchiedsrichter",
+                  "team": "#/components/schemas/FLSpielbestaetigungPartyTeam"
+                },
+                "propertyName": "art"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/FLSpielbestaetigungPartyTeam"
+                },
+                {
+                  "$ref": "#/components/schemas/FLSpielbestaetigungPartySchiedsrichter"
+                }
+              ]
+            },
+            "title": "Discard Recipients",
+            "type": "array"
+          },
           "kind": {
             "const": "vorschlag_open",
             "title": "Kind",
@@ -8740,7 +8753,9 @@
           "spiel",
           "spielbestaetigung_id",
           "team_id",
-          "vorschlag"
+          "vorschlag",
+          "adoption_recipients",
+          "discard_recipients"
         ],
         "title": "FLOverviewVorschlagRow",
         "type": "object"
@@ -9349,7 +9364,7 @@
         "type": "object"
       },
       "FLPatchSpielDataResponse": {
-        "description": "Every fixture the save moved beyond its own edit, each with the result it destroyed, and the bracket's faults after it.\n\n`version` is the fixture's own after the save, the one its next save sends; `bericht_adopted` says whether the\nadoption `adopts_bericht` asked for was stamped, null where none was asked or on a `dry_run`.",
+        "description": "Every fixture the save moved beyond its own edit, each with the result it destroyed, and the bracket's faults after it.\n\n`version` is the fixture's own after the save, the one its next save sends; `bericht_adopted` says whether the\nadoption `adopts_bericht` asked for was stamped, null where none was asked or on a `dry_run`. `recipients`, on a\n`dry_run` alone and null on a save, is every party the confirmation pass mails about this fixture once it is saved\nso, and would not as it stands: told of the move, of the referee taken off it, or of its call-off.",
         "properties": {
           "advanced_to": {
             "items": {
@@ -9376,6 +9391,34 @@
             "title": "Bracket Faults",
             "type": "array"
           },
+          "recipients": {
+            "anyOf": [
+              {
+                "items": {
+                  "discriminator": {
+                    "mapping": {
+                      "schiedsrichter": "#/components/schemas/FLSpielbestaetigungPartySchiedsrichter",
+                      "team": "#/components/schemas/FLSpielbestaetigungPartyTeam"
+                    },
+                    "propertyName": "art"
+                  },
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/FLSpielbestaetigungPartyTeam"
+                    },
+                    {
+                      "$ref": "#/components/schemas/FLSpielbestaetigungPartySchiedsrichter"
+                    }
+                  ]
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recipients"
+          },
           "released_sides": {
             "items": {
               "$ref": "#/components/schemas/FLSpielReleasedSide"
@@ -9393,7 +9436,8 @@
           "released_sides",
           "bracket_faults",
           "version",
-          "bericht_adopted"
+          "bericht_adopted",
+          "recipients"
         ],
         "title": "FLPatchSpielDataResponse",
         "type": "object"
@@ -9824,13 +9868,6 @@
             "title": "End Date",
             "type": "string"
           },
-          "id": {
-            "maxLength": 4,
-            "minLength": 4,
-            "pattern": "^[0-9]+$",
-            "title": "Id",
-            "type": "string"
-          },
           "registrierung": {
             "anyOf": [
               {
@@ -9855,8 +9892,7 @@
           "end_date",
           "rules",
           "bewerbung",
-          "registrierung",
-          "id"
+          "registrierung"
         ],
         "title": "FLPostSaisonPayload",
         "type": "object"
@@ -11533,7 +11569,7 @@
         "type": "object"
       },
       "FLSaisonAdminTeam": {
-        "description": "One club's row of the season as the editor's swap and replacement sections list it, graded as each write judges it.\n\nBoth flags are `app/api/teams/services.py :: has_taken_place` over the row's fixtures, the predicate each write's\n`sides_taken_place` reads: over its group fixtures for the swap, which rewrites those alone, so a pair is closed\nwhere either club's is; over every fixture for the replacement, which hands the whole schedule over.",
+        "description": "One club's row of the season as the editor's swap and replacement sections list it, graded as each write judges it.\n\nBoth flags are `app/api/teams/services.py :: has_taken_place` over the row's fixtures, the predicate each write's\nrefusal reads: over its group fixtures for the swap's `swap_sides_taken_place`, the swap rewriting those alone, so\na pair is closed where either club's is; over every fixture for the replacement's `replace_sides_taken_place`, the\nreplacement handing the whole schedule over.",
         "properties": {
           "austritt": {
             "anyOf": [
@@ -12432,12 +12468,22 @@
         "type": "object"
       },
       "FLSaisonsAdminListResponse": {
+        "description": "Every season, with the id the next create mints and why a create would be refused now.",
         "properties": {
           "format": {
             "const": "list",
             "default": "list",
             "title": "Format",
             "type": "string"
+          },
+          "next_saison_id": {
+            "maxLength": 4,
+            "minLength": 4,
+            "title": "Next Saison Id",
+            "type": "string"
+          },
+          "refusals": {
+            "$ref": "#/components/schemas/FLSaisonsAdminRefusals"
           },
           "saisons": {
             "items": {
@@ -12449,9 +12495,31 @@
         },
         "required": [
           "format",
-          "saisons"
+          "saisons",
+          "next_saison_id",
+          "refusals"
         ],
         "title": "FLSaisonsAdminListResponse",
+        "type": "object"
+      },
+      "FLSaisonsAdminRefusals": {
+        "description": "Why the list's act would be refused if pressed now, by its write's own judgement; null where it takes it.",
+        "properties": {
+          "create": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Code"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "create"
+        ],
+        "title": "FLSaisonsAdminRefusals",
         "type": "object"
       },
       "FLSaisonsSingleResponse": {
@@ -13444,7 +13512,7 @@
         "type": "object"
       },
       "FLSpielEditorTeam": {
-        "description": "A club a knockout fixture's Begegnung offers for either side, by the name its season row holds.\n\n`on_spieltag`: the club stands on another fixture of this matchday, which a save fielding it here either moves it\noff or is refused for. `fieldable`: a save fielding it on this fixture as it stands passes the write's eligibility\nand occupancy rules (`find_eligibility_refusal`, `judge_spieltag_occupancy`), judged on the side it already holds.",
+        "description": "A club a knockout fixture's Begegnung offers for either side, by the name and shorthand its season row holds.\n\n`on_spieltag`: the club stands on another fixture of this matchday, which a save fielding it here either moves it\noff or is refused for. `fieldable`: a save fielding it on this fixture as it stands passes the write's eligibility\nand occupancy rules (`find_eligibility_refusal`, `judge_spieltag_occupancy`), judged on the side it already holds.",
         "properties": {
           "fieldable": {
             "title": "Fieldable",
@@ -13463,11 +13531,17 @@
           "on_spieltag": {
             "title": "On Spieltag",
             "type": "boolean"
+          },
+          "shorthand": {
+            "minLength": 1,
+            "title": "Shorthand",
+            "type": "string"
           }
         },
         "required": [
           "id",
           "name",
+          "shorthand",
           "on_spieltag",
           "fieldable"
         ],
@@ -17613,16 +17687,109 @@
         "title": "FLSpieltag",
         "type": "object"
       },
+      "FLSpieltagAdmin": {
+        "description": "A matchday as its editor reads it, with how many matchdays its phase holds, by which a page names a round's legs.",
+        "properties": {
+          "beginn": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Beginn"
+          },
+          "count_in_phase": {
+            "minimum": 1.0,
+            "title": "Count In Phase",
+            "type": "integer"
+          },
+          "count_spiele": {
+            "minimum": 0.0,
+            "title": "Count Spiele",
+            "type": "integer"
+          },
+          "ende": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ende"
+          },
+          "id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "position": {
+            "minimum": 1.0,
+            "title": "Position",
+            "type": "integer"
+          },
+          "saison_id": {
+            "maxLength": 4,
+            "minLength": 4,
+            "title": "Saison Id",
+            "type": "string"
+          },
+          "saison_phase": {
+            "$ref": "#/components/schemas/FLSaisonPhase"
+          },
+          "version": {
+            "default": 0,
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "beginn",
+          "ende",
+          "position",
+          "saison_phase",
+          "saison_id",
+          "version",
+          "count_spiele",
+          "count_in_phase"
+        ],
+        "title": "FLSpieltagAdmin",
+        "type": "object"
+      },
+      "FLSpieltagAdminResponse": {
+        "properties": {
+          "spieltag": {
+            "$ref": "#/components/schemas/FLSpieltagAdmin"
+          }
+        },
+        "required": [
+          "spieltag"
+        ],
+        "title": "FLSpieltagAdminResponse",
+        "type": "object"
+      },
       "FLSpieltagWriteResponse": {
         "properties": {
           "spieltag_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Spieltag Id",
             "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
           }
         },
         "required": [
-          "spieltag_id"
+          "spieltag_id",
+          "version"
         ],
         "title": "FLSpieltagWriteResponse",
         "type": "object"
@@ -18879,7 +19046,6 @@
           "nichtantreten_with_torschuetzen",
           "registrierung_window_reaches_saison_start",
           "saison_ends_before_start",
-          "saison_year_out_of_range",
           "spieltag_ends_before_start",
           "text_version_of_another_wording",
           "torschuetzen_not_matching_tore",
@@ -18952,6 +19118,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -19013,6 +19183,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -19033,7 +19207,7 @@
         ]
       },
       "post": {
-        "description": "Start a change of the address the person signs in on, its first mail owed in the same transaction and no link answered.\n\n**The address on file confirms first**: it is owed a link, and only its confirmation owes the new mailbox the\nsecond; **everything the address holds as its person's own moves when the new mailbox confirms**, each link within\n`ADDRESS_CHANGE_VALID_HOURS`, and declining either ends the change. Where it holds a grant, the change also waits on\nanother administrator's approval, an owner's for an owner's grant. The address's live change ends replaced, an\nadministrator's too: a sign-in at the address on file proves the mailbox is not lost.\n**Nothing about the new address is judged here** -- the ban list, another pupil, a grant it holds -- so this start\nanswers alike whatever the new address holds.\n\nRefused `address_change_nothing` where the address holds nothing a change moves; `address_change_unchanged` where the\ntyped address is the one signed in; and `address_change_no_approver` where nobody could approve the grant's move, the\nlast owner making another first.",
+        "description": "Start a change of the address the person signs in on, its first mail owed in the same transaction and no link answered.\n\n**The address on file confirms first**: it is owed a link, and only its confirmation owes the new mailbox the\nsecond; **everything the address holds as its person's own moves when the new mailbox confirms**, each link within\n`ADDRESS_CHANGE_VALID_HOURS`, and declining either ends the change. Where it holds a grant, the change also waits on\nanother administrator's approval, an owner's for an owner's grant. The address's live change ends replaced, an\nadministrator's too: a sign-in at the address on file proves the mailbox is not lost.\n**Nothing about the new address is judged here** -- the ban list, another pupil, a grant it holds -- so this start\nanswers alike whatever the new address holds.\n\nRefused `address_change_started_recently`, a 429 whose `Retry-After` names the seconds left, where the address's\nlive change owed its last mail less than `ADDRESS_CHANGE_RESTART_SECONDS` ago; `address_change_nothing` where the\naddress holds nothing a change moves; `address_change_unchanged` where the typed address is the one signed in; and\n`address_change_no_approver` where nobody could approve the grant's move, the last owner making another first.",
         "operationId": "account_post_address_change",
         "requestBody": {
           "content": {
@@ -19083,6 +19257,10 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -19146,6 +19324,10 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -19322,6 +19504,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -19397,6 +19583,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -19470,6 +19660,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -19542,6 +19736,10 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -19617,6 +19815,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -19690,6 +19892,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -19762,6 +19968,10 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -19846,6 +20056,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -19908,6 +20122,10 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -19982,6 +20200,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -20054,6 +20276,10 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -20131,6 +20357,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -20206,6 +20436,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -20280,6 +20514,10 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -20432,6 +20670,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -20521,6 +20763,10 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -20625,6 +20871,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -20697,6 +20947,10 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -20773,6 +21027,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -20836,6 +21094,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -20898,6 +21160,10 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -20973,6 +21239,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -21046,6 +21316,10 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -21129,6 +21403,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -21203,6 +21481,10 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -21289,6 +21571,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -21366,6 +21652,10 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -21452,6 +21742,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -21535,6 +21829,10 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -21630,6 +21928,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -21724,6 +22026,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -21786,6 +22092,10 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -21857,6 +22167,10 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -21933,6 +22247,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -22008,6 +22326,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -22070,6 +22392,10 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -22145,6 +22471,10 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -22229,6 +22559,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -22292,6 +22626,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -22354,6 +22692,10 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -22427,6 +22769,10 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -22510,6 +22856,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -22582,6 +22932,10 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -22657,6 +23011,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -22730,6 +23088,10 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -22805,6 +23167,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -22877,6 +23243,10 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -22952,6 +23322,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -23014,6 +23388,10 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -23088,6 +23466,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -23153,6 +23535,10 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -23302,6 +23688,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -23392,6 +23782,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -23470,6 +23864,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -23542,6 +23940,10 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -23616,6 +24018,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -23689,6 +24095,10 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -23796,6 +24206,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -23869,6 +24283,10 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -23955,6 +24373,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -24040,6 +24462,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -24062,7 +24488,7 @@
     },
     "/api/v0/saisons": {
       "post": {
-        "description": "Create a season, always `future`.\n\nThe id is supplied rather than generated -- it is the string every `saison_id` elsewhere\nreferences, so reusing one is refused `duplicate_key`, naming `id`. Making the season live is a separate step.",
+        "description": "Create the next season, always `future`, answering the id it minted.\n\nThe server names it: the year after the newest stored season's, or the league's first where none is stored, so a\nseason is never created out of turn. Refused while a `future` season stands (`create_saison_future_stands`), so a\nleague holds at most one planned season; two creates racing each other mint one id, and the second is refused\n`duplicate_key` with no path. Making the season live is a separate step.",
         "operationId": "saisons_post_saison",
         "requestBody": {
           "content": {
@@ -24112,6 +24538,10 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -24176,6 +24606,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -24239,6 +24673,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -24261,7 +24699,7 @@
     },
     "/api/v0/saisons/list/admin": {
       "get": {
-        "description": "List every season, the `future` ones every base-tier read withholds included, each with its start, play and decision states.\n\nThe admin surfaces read here because a season is created `future` and clubs are entered while it\nstill is, so an admin who cannot see one cannot run the league. `begun` is the start every\nstart lock refuses on, the swap's, the replacement's and the rules freeze's; `taken_place` is what\nfixes the start date (`saison_start_taken_place`); `decided` is the landing's own rule, all four places of the Finale in.\n`count_teams` counts every club row of the season, one that left included.",
+        "description": "List every season, the `future` ones every base-tier read withholds included, each with its start, play and decision states.\n\nThe admin surfaces read here because a season is created `future` and clubs are entered while it\nstill is, so an admin who cannot see one cannot run the league. `begun` is the start every\nstart lock refuses on, the swap's, the replacement's and the rules freeze's; `taken_place` is what\nfixes the start date (`saison_start_taken_place`); `decided` is the landing's own rule, all four places of the Finale in.\n`count_teams` counts every club row of the season, one that left included. `next_saison_id` is the id the next create\nmints, and `refusals.create` the code that create would be refused with now, by its own judgement, or null.",
         "operationId": "saisons_get_saisons_admin",
         "parameters": [
           {
@@ -24361,6 +24799,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -24434,6 +24876,10 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -24517,6 +24963,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -24591,6 +25041,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -24613,7 +25067,7 @@
     },
     "/api/v0/saisons/{saison_id}/admin": {
       "get": {
-        "description": "Return what the season editor shows in one read: its season, clubs, shapes and matchdays, its acts' states and its links.\n\nThe season is served a `future` one included, with its `version`, whether it has started (`begun`), whether a\nfixture of it has taken place (`taken_place`) and whether it is decided (`decided`), by the landing's own rule.\n\nEach club's two flags are what the group swap's and the replacement's `sides_taken_place` read, so a picker closes\nexactly the pairs and rows those writes refuse; `begun` closes both before either is pressed. `incoming_clubs` is\nevery club still in the league holding no row of the season, which is what the replacement admits.\n\n`refusals` names, per act, the refusal its write would answer now, by that write's own judgement, so the editor\noffers an act exactly where the write takes it. `invitations` is the registration links' press planned by the function\nthe press decides each team by, `resend` left false, beside each team's live link and the day it was last sent.\nRead outside a transaction: a write landing between this read and a press is judged by the press. 404 where no\nseason holds that id.",
+        "description": "Return what the season editor shows in one read: its season, clubs, shapes and matchdays, its acts' states and its links.\n\nThe season is served a `future` one included, with its `version`, whether it has started (`begun`), whether a\nfixture of it has taken place (`taken_place`) and whether it is decided (`decided`), by the landing's own rule.\n\nEach club's two flags are what the group swap's `swap_sides_taken_place` and the replacement's\n`replace_sides_taken_place` read, so a picker closes exactly the pairs and rows those writes refuse; `begun` closes\nboth before either is pressed. `incoming_clubs` is every club still in the league holding no row of the season,\nwhich is what the replacement admits.\n\n`refusals` names, per act, the refusal its write would answer now, by that write's own judgement, so the editor\noffers an act exactly where the write takes it. `invitations` is the registration links' press planned by the function\nthe press decides each team by, `resend` left false, beside each team's live link and the day it was last sent.\nRead outside a transaction: a write landing between this read and a press is judged by the press. 404 where no\nseason holds that id.",
         "operationId": "saisons_get_saison_admin",
         "parameters": [
           {
@@ -24664,6 +25118,10 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -24738,6 +25196,10 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -24823,6 +25285,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -24845,7 +25311,7 @@
     },
     "/api/v0/saisons/{saison_id}/invitations/dispatch": {
       "post": {
-        "description": "Give every admitted team of this season a fresh registration link and owe it to the team's confirmed seats, one mail each.\n\n**Every team mailed gets a fresh invite, and any link that team already held is REVOKED in the same per-team transaction** — the\ncopy in somebody's inbox opens nothing from that moment. The mails are owed in that transaction too, each minting its link when it is\nhanded out; no link is answered. `replaced_link` says of each row whether a link died for it, and the preview answers it before the\npress. A team this skips is left exactly as it was.\n\nFive skips, each an ordinary state rather than a refusal: the team has left this season, it holds no contact block, no seat of that block\nhas been confirmed by its own person, every confirmed seat's address is on the ban list, or its live link was already sent and\n`resend` is false. **The ban is read once ahead of every team**, so a team the mailer could reach nobody of keeps the link it\nholds rather than losing it to a press that mails nobody. **The fifth is read off the day the live link was sent, stored on it**,\nnever off the Postausgang, whose row is erased a retention after it settles: pressing twice mails nobody twice, and a link a club\nholds is replaced only by a deliberate resend. **The first is read off the junction row's\n`austritt` record**, so a team out of the season by either route is passed over; minting for one team by hand is not refused, that\nbeing a deliberate act rather than a bulk one.\n\nRefused where the season has ended (`saison_past`); 404 where no season holds that id; a season holding no team answers an\nempty list.\n\n**An administrator whose access is revoked while the mailing runs is refused `actor_not_admin` at the next team**: every team done before\nthat point holds its fresh link and its mails, and running the mailing again, as an administrator who still holds access, skips those\nteams and reaches the rest.",
+        "description": "Give every admitted team of this season a fresh registration link and owe it to the team's confirmed seats, one mail each.\n\n**Every team mailed gets a fresh invite, and any link that team already held is REVOKED in the same per-team transaction** — the\ncopy in somebody's inbox opens nothing from that moment. The mails are owed in that transaction too, each minting its link when it is\nhanded out; no link is answered. `replaced_link` says of each row whether a link died for it, and the season editor's rows answer it\nbefore the press. A team this skips is left exactly as it was.\n\nFive skips, each an ordinary state rather than a refusal: the team has left this season, it holds no contact block, no seat of that block\nhas been confirmed by its own person, every confirmed seat's address is on the ban list, or its live link was already sent and\n`resend` is false. **The ban is read once ahead of every team**, so a team the mailer could reach nobody of keeps the link it\nholds rather than losing it to a press that mails nobody. **The fifth is read off the day the live link was sent, stored on it**,\nnever off the Postausgang, whose row is erased a retention after it settles: pressing twice mails nobody twice, and a link a club\nholds is replaced only by a deliberate resend. **The first is read off the junction row's\n`austritt` record**, so a team out of the season by either route is passed over; minting for one team by hand is not refused, that\nbeing a deliberate act rather than a bulk one.\n\nRefused where the season has ended (`saison_past`); 404 where no season holds that id; a season holding no team answers an\nempty list.\n\n**An administrator whose access is revoked while the mailing runs is refused `actor_not_admin` at the next team**: every team done before\nthat point holds its fresh link and its mails, and running the mailing again, as an administrator who still holds access, skips those\nteams and reaches the rest.",
         "operationId": "saisons_post_invitations_dispatch",
         "parameters": [
           {
@@ -24907,6 +25373,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -24922,90 +25392,6 @@
           }
         ],
         "summary": "Mint every admitted team a link",
-        "tags": [
-          "saisons"
-        ]
-      }
-    },
-    "/api/v0/saisons/{saison_id}/invitations/dispatch/preview": {
-      "get": {
-        "description": "Per team of this season, the mailboxes the send would write to and the reason it would skip a team — and it writes nothing itself.\n\nDecided by the function the send itself decides by, so the list read here is the list performed. `resend` mirrors the send's own\nswitch: left false, a team whose live link was already sent, by the day stored on it, reads as `already_sent`, and pressing the send with\n`resend` true instead makes this preview's own answer wrong unless the same value is asked for here.\n\n**`replaced_link` is the warning this list carries**: the send mints for every team it answers, so a team already holding a link has that\nlink REVOKED and the copy in somebody's inbox opens nothing from that moment. A row carries no trace of the invitation the team holds,\nso a page offering the press reads that fact here or nowhere.\n\nFive skips, each an ordinary state rather than a refusal: the team has left this season, it holds no contact block, no seat of that\nblock has been confirmed by its own person, every confirmed seat's address is on the ban list, or its live link was already\nsent and `resend` is false. A season holding\nno team answers an empty list. One row per MAILBOX, so a person sitting in two seats is named once. 404 where no season holds that id.",
-        "operationId": "saisons_get_invitations_dispatch_preview",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "saison_id",
-            "required": true,
-            "schema": {
-              "title": "Saison Id",
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "resend",
-            "required": false,
-            "schema": {
-              "default": false,
-              "title": "Resend",
-              "type": "boolean"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLInvitationDispatchPreviewResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "AdminKey": []
-          }
-        ],
-        "summary": "Who the send would reach",
         "tags": [
           "saisons"
         ]
@@ -25064,6 +25450,10 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -25138,6 +25528,10 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -25223,6 +25617,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -25297,6 +25695,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -25368,6 +25770,10 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -25450,6 +25856,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -25524,6 +25934,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -25597,6 +26011,10 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -25681,6 +26099,10 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -25813,6 +26235,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -25883,6 +26309,10 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -25962,6 +26392,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -26035,6 +26469,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -26100,6 +26538,10 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -26174,6 +26616,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -26238,6 +26684,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -26300,6 +26750,10 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -26368,6 +26822,10 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -26441,6 +26899,10 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -26525,6 +26987,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -26599,6 +27065,10 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -26675,6 +27145,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -26737,6 +27211,10 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -26808,6 +27286,10 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -26883,6 +27365,10 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -26965,6 +27451,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -27027,6 +27517,10 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -27102,6 +27596,10 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -27195,6 +27693,10 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -27299,6 +27801,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -27370,6 +27876,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -27433,6 +27943,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -27495,6 +28009,10 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -27570,6 +28088,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -27643,6 +28165,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -27666,7 +28192,7 @@
     },
     "/api/v0/spielbestaetigungen/{spielbestaetigung_id}/adopt": {
       "post": {
-        "description": "Move a fixture to the date and hour a club's open decline proposes, through the fixture's own save.\n\nRefused as the discard refuses, for any row but an open club decline proposing a date about the fixture's current\nAnsetzung (`ansetzung_not_discardable`), and for a proposed day gone by (`ansetzung_vorschlag_past_as_stored`, the\nstored proposal's 409). The fixture is saved as the administrator's save would carry it on the proposed day and\nhour, everything else kept, so it meets every rule that save meets and is refused as that save is, by its code and\nstatus alone, as the draw answers the season write's refusals: no refusal names a field, the request carrying no\nbody. The bracket is resolved as that save resolves it. The\nrow is not closed here: the fixture has left the Ansetzung it answers, so its links read `invalid` at once and the\nnext confirmation pass closes every party's row `ansetzung_changed`, owing each party „Spiel verlegt“ and asking it\nabout the new slot. IRREVERSIBLE as a save is: moving the fixture back is another save.",
+        "description": "Move a fixture to the date and hour a club's open decline proposes, through the fixture's own save.\n\nRefused for any row but an open club decline proposing a date about the fixture's current Ansetzung, the row a\ndiscard closes (`ansetzung_not_adoptable`), and for a proposed day gone by (`ansetzung_vorschlag_past_as_stored`, the\nstored proposal's 409). The fixture is saved as the administrator's save would carry it on the proposed day and\nhour, everything else kept, so it meets every rule that save meets and is refused as that save is, by its code and\nstatus alone, as the draw answers the season write's refusals: no refusal names a field, the request carrying no\nbody. A code the save names a field by is answered under its twin for that field instead, a 409: the ground or the\nreferee booked beside the proposed slot (`spiel_double_booked_spielort_as_stored`,\n`spiel_double_booked_schiedsrichter_as_stored`), a side out of the season by then\n(`eligibility_disqualified_team1_as_stored`, `eligibility_disqualified_team2_as_stored`). The bracket is resolved\nas that save resolves it. The\nrow is not closed here: the fixture has left the Ansetzung it answers, so its links read `invalid` at once and the\nnext confirmation pass closes every party's row `ansetzung_changed`, owing each party „Spiel verlegt“ and asking it\nabout the new slot. IRREVERSIBLE as a save is: moving the fixture back is another save.",
         "operationId": "spielbestaetigungen_adopt_spielbestaetigung",
         "parameters": [
           {
@@ -27711,6 +28237,10 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -27797,6 +28327,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -27864,6 +28398,10 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -27942,6 +28480,10 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -28119,6 +28661,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -28195,6 +28741,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -28270,6 +28820,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -28290,7 +28844,7 @@
         ]
       },
       "patch": {
-        "description": "Save one Spiel wholesale and resolve the season's bracket, answering every fixture the save moved beyond it.\n\nThe fixture stores no name: every read joins it. With `adopts_bericht` the save also stamps the fixture's Spielbericht\nadopted, where it still stands at that version about the clubs the save leaves; a miss refuses nothing. A\n`dry_run` answers the same report and writes nothing. A `past` season's fixture is refused (`saison_past`), the\n`dry_run` included.",
+        "description": "Save one Spiel wholesale and resolve the season's bracket, answering every fixture the save moved beyond it.\n\nThe fixture stores no name: every read joins it. With `adopts_bericht` the save also stamps the fixture's Spielbericht\nadopted, where it still stands at that version about the clubs the save leaves; a miss refuses nothing. A\n`dry_run` answers the same report and writes nothing, and names in `recipients` every party the confirmation pass\nwould mail about the fixture once it is saved so: told of its move, of the referee taken off it, or of its call-off,\nby the pass's own rules. A `past` season's fixture is refused (`saison_past`), the `dry_run` included.",
         "operationId": "spiele_patch_spiel",
         "parameters": [
           {
@@ -28384,6 +28938,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -28460,6 +29018,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -28525,6 +29087,10 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -28609,6 +29175,10 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -28703,6 +29273,10 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -28806,6 +29380,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -28880,6 +29458,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -28943,6 +29525,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -29005,6 +29591,10 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -29081,6 +29671,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -29153,6 +29747,10 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -29237,6 +29835,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -29311,6 +29913,10 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -29397,6 +30003,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -29480,6 +30090,10 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -29573,6 +30187,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -29656,6 +30274,10 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -29769,6 +30391,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -29840,6 +30466,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -29907,6 +30537,10 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -29980,6 +30614,10 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -30064,6 +30702,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -30131,6 +30773,10 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -30274,6 +30920,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -30349,6 +30999,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -30369,7 +31023,7 @@
         ]
       },
       "patch": {
-        "description": "Move a matchday's span.\n\nNo fan-out: matches embed no copy, so a re-dated matchday is picked up on the next read. The span is held\nto its season's, to the days its own fixtures stand on, and its `beginn` to the order its phase is dated in.",
+        "description": "Move a matchday's span, answering the matchday's `version` after the save.\n\nNo fan-out: matches embed no copy, so a re-dated matchday is picked up on the next read. The span is held\nto its season's, to the days its own fixtures stand on, and its `beginn` to the order its phase is dated in.",
         "operationId": "spieltage_patch_spieltag",
         "parameters": [
           {
@@ -30432,6 +31086,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -30454,7 +31112,7 @@
     },
     "/api/v0/spieltage/{spieltag_id}/verwaltung": {
       "get": {
-        "description": "Return one matchday by its id for the admin editor, a `future` season's included.\n\nSame shape as `GET /spieltage/{spieltag_id}`, without its season gate: the editor opens a\nmatchday to date it, and that happens before its season is ever activated.",
+        "description": "Return one matchday by its id for the admin editor, a `future` season's included.\n\nThe shape of `GET /spieltage/{spieltag_id}`, without its season gate, plus `count_in_phase`, how many matchdays\nits phase holds: the editor opens a matchday to date it, and that happens before its season is ever activated.",
         "operationId": "spieltage_get_spieltag_verwaltung",
         "parameters": [
           {
@@ -30473,7 +31131,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLSpieltageSingleResponse"
+                  "$ref": "#/components/schemas/FLSpieltagAdminResponse"
                 }
               }
             },
@@ -30506,6 +31164,10 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -30569,6 +31231,10 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -30637,6 +31303,10 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -30828,6 +31498,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -30890,6 +31564,10 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -30958,6 +31636,10 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -31062,6 +31744,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -31145,6 +31831,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -31212,6 +31902,10 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -31297,6 +31991,10 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -31392,6 +32090,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -31479,6 +32181,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -31563,6 +32269,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -31645,6 +32355,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -31726,6 +32440,10 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -31821,6 +32539,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -31915,6 +32637,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -32007,6 +32733,10 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -32102,6 +32832,10 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -32185,6 +32919,10 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",

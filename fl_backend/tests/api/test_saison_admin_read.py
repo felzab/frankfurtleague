@@ -146,7 +146,7 @@ class TestTheEditorGradesAsTheWritesRefuse:
         graded, refusal = on_a_season(mongo_replica_set_url, body)
 
         assert graded is closed
-        assert refusal == (Code.SIDES_TAKEN_PLACE if closed else None)
+        assert refusal == (Code.SWAP_SIDES_TAKEN_PLACE if closed else None)
 
     @pytest.mark.parametrize(
         ("team_id", "closed"),
@@ -186,7 +186,7 @@ class TestTheEditorGradesAsTheWritesRefuse:
         graded, incoming, refusal = on_a_season(mongo_replica_set_url, body)
 
         assert graded is closed
-        assert refusal == (Code.SIDES_TAKEN_PLACE if closed else None)
+        assert refusal == (Code.REPLACE_SIDES_TAKEN_PLACE if closed else None)
         # The one club the replacement admits: still in the league, holding no row of the season.
         assert incoming == [INCOMING]
 

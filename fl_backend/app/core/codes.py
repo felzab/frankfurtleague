@@ -28,6 +28,9 @@ class Code(StrEnum):
     UNKNOWN_OUTCOME = auto()
     # Activating demotes the incumbent to `past`, whose rules then stay frozen (`rules_saison_started`).
     ACTIVATE_SAISON_UNFINISHED = auto()
+    # A season created while a `future` one stands: the next season is the one a create makes, so a league holds at
+    # most one planned season, and the planned one is where its next season is set up.
+    CREATE_SAISON_FUTURE_STANDS = auto()
     # A write a `past` season refuses: its activation, the draw, the group swap, the replacement, a fixture's save, a
     # club's season row, a link's mint and a referee's report. Not every write: a club's contacts, an invitation's
     # revocation and the administrator's correction of a report stay open on purpose, and the season's own edit refuses
@@ -55,6 +58,9 @@ class Code(StrEnum):
     ADDRESS_CHANGE_REPLACED_BARRED = auto()
     ADDRESS_CHANGE_TAKEN = auto()
     ADDRESS_CHANGE_UNCHANGED = auto()
+    # A 429: a person's own start pressed again inside the interval its mail stands for, which the edge's pair cannot
+    # hold, a server action reaching the start from any page.
+    ADDRESS_CHANGE_STARTED_RECENTLY = auto()
     ADDRESS_CHANGE_BARRED = auto()
     ADDRESS_CHANGE_NOTHING = auto()
     ADDRESS_CHANGE_NO_APPROVER = auto()
@@ -80,6 +86,7 @@ class Code(StrEnum):
     ANSETZUNG_CLOSED = auto()
     ANSETZUNG_NOT_ENTERABLE = auto()
     ANSETZUNG_NOT_DISCARDABLE = auto()
+    ANSETZUNG_NOT_ADOPTABLE = auto()
     ANSETZUNG_FOREIGN_ROW = auto()
     # A tier's key missing or wrong, whichever tier: the path names the tier.
     ACCESS_KEY_REFUSED = auto()
@@ -138,6 +145,9 @@ class Code(StrEnum):
     BOOKING_UNCONFIRMED_SCHIEDSRICHTER = auto()
 
     SPIEL_DOUBLE_BOOKED = auto()
+    # The adoption's twins, one per resource: it judges the fixture's STORED ground and referee, so no path names which.
+    SPIEL_DOUBLE_BOOKED_SPIELORT_AS_STORED = auto()
+    SPIEL_DOUBLE_BOOKED_SCHIEDSRICHTER_AS_STORED = auto()
     SPIEL_OUTSIDE_SPIELTAG = auto()
     SPIELTAG_OUTSIDE_SAISON = auto()
     # `spiel_outside_spieltag`'s mirror: shrinking the span is the other way to break the same containment.
@@ -168,6 +178,9 @@ class Code(StrEnum):
     MEDIA_AGE = auto()
     GIVING_NOT_ALLOWED = auto()
     ELIGIBILITY_DISQUALIFIED = auto()
+    # The adoption's twins, one per side: it judges the fixture's STORED sides, so no path names which.
+    ELIGIBILITY_DISQUALIFIED_TEAM1_AS_STORED = auto()
+    ELIGIBILITY_DISQUALIFIED_TEAM2_AS_STORED = auto()
     ELIGIBILITY_TEAM_NOT_IN_SAISON = auto()
     ENTRY_SAISON_NOT_FUTURE = auto()
     ENTRY_GRUPPE_NOT_OFFERED = auto()
@@ -220,11 +233,11 @@ class Code(StrEnum):
     # Apart from `replace_incoming_already_entered`, being the payload's own fault: no season makes a club its own
     # replacement.
     REPLACE_ONE_TEAM_ON_BOTH_ENDS = auto()
-    # One code for the swap and the replacement, as `booking_unknown_resource` covers two resources: one rule read
-    # against two writes. Neither moves `tore`, so a fixture that has taken place would hand its record to another club.
-    # Its own code beside the two `..._saison_started`: before the start this is a result entered early, which a
-    # cleared result repairs.
-    SIDES_TAKEN_PLACE = auto()
+    # The replacement moves no `tore`, so a fixture that has taken place would hand its record to the incoming club.
+    # Its own code beside `replace_saison_started`: before the start this is a result entered early, which a cleared
+    # result repairs. The swap's twin of the same rule is `swap_sides_taken_place`, a code per act, since the two refuse
+    # with no path a sentence could tell them apart by.
+    REPLACE_SIDES_TAKEN_PLACE = auto()
     ERGEBNIS_SIDE_EMPTIED = auto()
     RETIRE_BLOCKED = auto()
     # A played fixture never blocks: its `ort` is an embedded record. Its bounds name the fixtures that do, `spiel_nrs`
@@ -291,6 +304,8 @@ class Code(StrEnum):
     # decides is none: the person's pick is what is refused, so a 422 naming both boxes.
     SWAP_NOT_A_SWAP = auto()
     SWAP_SAISON_STARTED = auto()
+    # `replace_sides_taken_place`'s rule read against the swap, which moves no `tore` either.
+    SWAP_SIDES_TAKEN_PLACE = auto()
     # An exit recorded before the season's start date: before the start a club out of the season is replaced, so no
     # fixture of an unstarted season, which the swap alone rewrites, fields a departed club.
     AUSTRITT_BEFORE_SAISON_START = auto()
@@ -332,7 +347,6 @@ type Rule = Literal[
     "nichtantreten_with_torschuetzen",
     "registrierung_window_reaches_saison_start",
     "saison_ends_before_start",
-    "saison_year_out_of_range",
     "spieltag_ends_before_start",
     "text_version_of_another_wording",
     "torschuetzen_not_matching_tore",

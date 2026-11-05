@@ -4,7 +4,6 @@ import { z } from "zod";
 
 import { action, PAGE_HOLDER } from "@/core/action";
 import { COPY } from "@/core/copy";
-import { APIBadStatusError } from "@/core/errors";
 import {
   saisonsActivateSaison,
   saisonsDeleteSpielplan,
@@ -19,10 +18,6 @@ import {
   TeamsReplaceSaisonTeamBody,
   TeamsReplaceSaisonTeamParams,
 } from "@/core/generated/zod/inputs";
-import { SERVER_COPY } from "@/core/serverCopy";
-
-import type { ActionAnswer } from "@/core/action";
-import type { Copy } from "@/core/copy";
 
 const SAISON = { saison_id: SaisonsSwapGruppenParams.shape.saison_id };
 
@@ -33,28 +28,18 @@ const OfSaison = z.object(SAISON);
 const TouchedOfSaison = z.object({ ...SAISON, ...PAGE_HOLDER });
 
 /**
- * The one refusal a swap and a replacement share, `sides_taken_place`, worded for the act that met it: the code names
- * no field, so the catalogue cannot tell the two apart by its path. The editor's pickers close every pair and row it
- * refuses, so it is met only where a match took place after the page was read.
+ * What a draw and its regeneration word: the stored rules' shape, and the clubs entered short of or past it. The
+ * editor closes both acts on the read's own judgement of the groups, so a press meets that refusal only where clubs
+ * moved after the page was read.
  */
-async function sidesWorded(write: () => Promise<unknown>, sentence: Copy): Promise<ActionAnswer> {
-  try {
-    await write();
-  } catch (error) {
-    if (error instanceof APIBadStatusError && error.serverErrorCode === "sides_taken_place") {
-      return { ok: false, errorCode: error.serverErrorCode, reason: sentence };
-    }
-    throw error;
-  }
-  return { ok: true, value: undefined };
-}
+const DRAW_WORDS = ["rules_bracket_impossible", "rules_spiele_over_one_read", "spielplan_gruppen_off_rules", "saison_past"] as const;
 
 /** Draws the season's Spielplan from its stored rules, a first draw, which the undraw takes back whole. */
 export const drawSpielplan = action({
   lane: "admin",
   name: "drawSpielplan",
   input: OfSaison,
-  ownWords: ["rules_bracket_impossible", "rules_spiele_over_one_read", "saison_past"],
+  ownWords: DRAW_WORDS,
   run: async ({ saison_id }) => {
     await saisonsPostSpielplan(saison_id, { replace: false });
     return { ok: true, value: undefined };
@@ -67,7 +52,7 @@ export const recreateSpielplan = action({
   name: "recreateSpielplan",
   passkey: true,
   input: TouchedOfSaison,
-  ownWords: ["rules_bracket_impossible", "rules_spiele_over_one_read", "saison_past"],
+  ownWords: DRAW_WORDS,
   run: async ({ saison_id }) => {
     await saisonsPostSpielplan(saison_id, { replace: true });
     return { ok: true, value: undefined };
@@ -100,23 +85,35 @@ export const activateSaison = action({
   },
 });
 
-/** Exchanges two clubs' groups, every group match of either rewritten in the same write. */
+/**
+ * Exchanges two clubs' groups, every group match of either rewritten in the same write. The editor's pickers close
+ * every pair a match of which has taken place, so `swap_sides_taken_place` meets only a match played after the read.
+ */
 export const swapGruppen = action({
   lane: "admin",
   name: "swapGruppen",
   input: SaisonsSwapGruppenBody.extend(SAISON),
-  ownWords: ["saison_past"],
-  run: async ({ saison_id, ...pair }) => sidesWorded(() => saisonsSwapGruppen(saison_id, pair), SERVER_COPY.admin.swapSidesTakenPlace),
+  ownWords: ["swap_sides_taken_place", "saison_past"],
+  run: async ({ saison_id, ...pair }) => {
+    await saisonsSwapGruppen(saison_id, pair);
+    return { ok: true, value: undefined };
+  },
 });
 
-/** Hands a club's row of the season, and its whole schedule, to a club the season does not hold. */
+/**
+ * Hands a club's row of the season, and its whole schedule, to a club the season does not hold. The editor's picker
+ * closes every club a match of which has taken place, so `replace_sides_taken_place` meets only one played after the
+ * read.
+ */
 export const replaceTeam = action({
   lane: "admin",
   name: "replaceTeam",
   input: TeamsReplaceSaisonTeamBody.extend({ ...SAISON, team_id: TeamsReplaceSaisonTeamParams.shape.team_id }),
-  ownWords: ["saison_past"],
-  run: async ({ saison_id, team_id, incoming_team_id }) =>
-    sidesWorded(() => teamsReplaceSaisonTeam(team_id, saison_id, { incoming_team_id }), SERVER_COPY.admin.replacementSidesTakenPlace),
+  ownWords: ["replace_sides_taken_place", "saison_past"],
+  run: async ({ saison_id, team_id, incoming_team_id }) => {
+    await teamsReplaceSaisonTeam(team_id, saison_id, { incoming_team_id });
+    return { ok: true, value: undefined };
+  },
 });
 
 /** Mails every admitted team of the season a fresh registration link, passing over those the preview passes over. */

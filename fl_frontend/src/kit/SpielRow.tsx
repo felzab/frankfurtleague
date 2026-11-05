@@ -26,8 +26,6 @@ export type SpielRowProps = {
   team2: SpielSide;
   /** Absent until a result is entered, so an unplayed match never reads 0:0. */
   result?: { tore: Pair; elfmeterschiessen?: Pair };
-  /** The phase, by its catalogue name. */
-  phase?: Copy;
   /** The row's one chip, after when it is played, such as „Vorläufig“ on a match whose date is not confirmed. */
   chip?: ChipProps;
 };
@@ -39,12 +37,12 @@ export type SpielRowProps = {
  */
 const forms = tv({
   slots: {
-    line: "grid min-h-14 grid-cols-[9.5rem_minmax(0,1fr)_6rem_minmax(0,1fr)_6rem_auto] grid-rows-[1.5rem_1rem] content-center items-center gap-x-3 px-4 text-sm @max-2xl:hidden",
+    line: "grid min-h-14 grid-cols-[9.5rem_minmax(0,1fr)_6rem_minmax(0,1fr)_auto] grid-rows-[1.5rem_1rem] content-center items-center gap-x-3 px-4 text-sm @max-2xl:hidden",
     card: "grid grid-cols-[minmax(0,1fr)_auto] grid-rows-[1rem_1.5rem_1.5rem] items-center gap-x-3 gap-y-1 px-4 py-3 text-base @2xl:hidden",
   },
   variants: {
     chips: {
-      true: { line: "grid-cols-[14rem_minmax(0,1fr)_6rem_minmax(0,1fr)_6rem_auto]", card: "grid-rows-[1.25rem_1.5rem_1.5rem]" },
+      true: { line: "grid-cols-[14rem_minmax(0,1fr)_6rem_minmax(0,1fr)_auto]", card: "grid-rows-[1.25rem_1.5rem_1.5rem]" },
     },
   },
 });
@@ -160,12 +158,12 @@ const whenWords = tv({ base: "min-w-0 font-numeric text-fg-muted", variants: { c
 
 /**
  * A match in a list, the whole row a link to it. In a wide list one line, 56 px: when with the row's chip beside
- * it, the first side, the score with „n. E.“ centred under it, the second side, the phase, the chevron. In a
+ * it, the first side, the score with „n. E.“ centred under it, the second side, the chevron. In a
  * narrow one a card of two lines under the date line, which holds the chip, each side with its goals at the right,
  * „n. E.“ on the date line, and no chevron; every row the same height with or without a shoot-out. `chips` is the
  * list's: whether some row of it carries a chip.
  */
-function SpielRow({ href, when, team1, team2, result, phase, chip, chips }: SpielRowProps & { chips: boolean }) {
+function SpielRow({ href, when, team1, team2, result, chip, chips }: SpielRowProps & { chips: boolean }) {
   const score = figures(result);
   const shootOut = score?.shootOut === true ? COPY.shared.afterElfmeterschiessen : null;
   const form = forms({ chips });
@@ -209,9 +207,8 @@ function SpielRow({ href, when, team1, team2, result, phase, chip, chips }: Spie
               part="team2"
             />
           </span>
-          <span className="col-start-5 row-span-2 row-start-1 text-end text-xs whitespace-nowrap text-fg-muted">{phase}</span>
           {/* A row in a list says it leads on; the phone's form stands as a card of its own and says nothing. */}
-          <span className="col-start-6 row-span-2 row-start-1 flex self-stretch">
+          <span className="col-start-5 row-span-2 row-start-1 flex self-stretch">
             <RowEnd />
           </span>
         </span>

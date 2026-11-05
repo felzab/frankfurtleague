@@ -430,7 +430,7 @@ class TestTheRefusalsReadTheRealDocuments:
             spiele=[gruppen_fixture(1, ALPHA, ALPHA_RIVAL, ergebnis="2:1", tore=(2, 1)), gruppen_fixture(2, BETA_RIVAL, BETA)],
         )
 
-        assert code == Code.SIDES_TAKEN_PLACE
+        assert code == Code.SWAP_SIDES_TAKEN_PLACE
         assert stored[ALPHA] == "A" and stored[BETA] == "B", "a refused swap moved a junction row"
         assert sides == {1: (ALPHA, ALPHA_RIVAL), 2: (BETA_RIVAL, BETA)}, "a refused swap rewrote a fixture"
 

@@ -75,7 +75,6 @@ import type {
   FLGrantStufeResponse,
   FLGrantWriteResponse,
   FLInvitationDispatchPayload,
-  FLInvitationDispatchPreviewResponse,
   FLInvitationDispatchResponse,
   FLInvitationMailPayload,
   FLInvitationMailResponse,
@@ -191,6 +190,7 @@ import type {
   FLSpielorteSingleResponse,
   FLSpielPageResponse,
   FLSpielplanResponse,
+  FLSpieltagAdminResponse,
   FLSpieltageListResponse,
   FLSpieltageSingleResponse,
   FLSpieltagWriteResponse,
@@ -210,7 +210,6 @@ import type {
   IdentitySweepErasureParams,
   RegistrierungenGetOpenRegistrierungenParams,
   RegistrierungenGetRegistrierungenParams,
-  SaisonsGetInvitationsDispatchPreviewParams,
   SaisonsGetSaisonsAdminParams,
   SchiedsrichterGetSchiedsrichterParams,
   SpielberichteGetSpielberichteParams,
@@ -282,9 +281,10 @@ export const getAccountPostAddressChangeUrl = () => {
  * **Nothing about the new address is judged here** -- the ban list, another pupil, a grant it holds -- so this start
  * answers alike whatever the new address holds.
  *
- * Refused `address_change_nothing` where the address holds nothing a change moves; `address_change_unchanged` where the
- * typed address is the one signed in; and `address_change_no_approver` where nobody could approve the grant's move, the
- * last owner making another first.
+ * Refused `address_change_started_recently`, a 429 whose `Retry-After` names the seconds left, where the address's
+ * live change owed its last mail less than `ADDRESS_CHANGE_RESTART_SECONDS` ago; `address_change_nothing` where the
+ * address holds nothing a change moves; `address_change_unchanged` where the typed address is the one signed in; and
+ * `address_change_no_approver` where nobody could approve the grant's move, the last owner making another first.
  * @summary Start a change of the signed-in person's address
  */
 export const accountPostAddressChange = async (
@@ -2457,10 +2457,12 @@ export const getSaisonsPostSaisonUrl = () => {
 };
 
 /**
- * Create a season, always `future`.
+ * Create the next season, always `future`, answering the id it minted.
  *
- * The id is supplied rather than generated -- it is the string every `saison_id` elsewhere
- * references, so reusing one is refused `duplicate_key`, naming `id`. Making the season live is a separate step.
+ * The server names it: the year after the newest stored season's, or the league's first where none is stored, so a
+ * season is never created out of turn. Refused while a `future` season stands (`create_saison_future_stands`), so a
+ * league holds at most one planned season; two creates racing each other mint one id, and the second is refused
+ * `duplicate_key` with no path. Making the season live is a separate step.
  * @summary Create a Saison
  */
 export const saisonsPostSaison = async (
@@ -2532,7 +2534,8 @@ export const getSaisonsGetSaisonsAdminUrl = (params?: SaisonsGetSaisonsAdminPara
  * still is, so an admin who cannot see one cannot run the league. `begun` is the start every
  * start lock refuses on, the swap's, the replacement's and the rules freeze's; `taken_place` is what
  * fixes the start date (`saison_start_taken_place`); `decided` is the landing's own rule, all four places of the Finale in.
- * `count_teams` counts every club row of the season, one that left included.
+ * `count_teams` counts every club row of the season, one that left included. `next_saison_id` is the id the next create
+ * mints, and `refusals.create` the code that create would be refused with now, by its own judgement, or null.
  * @summary Every Saison for the admin surfaces
  */
 export const saisonsGetSaisonsAdmin = async (
@@ -2635,9 +2638,10 @@ export const getSaisonsGetSaisonAdminUrl = (saisonId: string) => {
  * The season is served a `future` one included, with its `version`, whether it has started (`begun`), whether a
  * fixture of it has taken place (`taken_place`) and whether it is decided (`decided`), by the landing's own rule.
  *
- * Each club's two flags are what the group swap's and the replacement's `sides_taken_place` read, so a picker closes
- * exactly the pairs and rows those writes refuse; `begun` closes both before either is pressed. `incoming_clubs` is
- * every club still in the league holding no row of the season, which is what the replacement admits.
+ * Each club's two flags are what the group swap's `swap_sides_taken_place` and the replacement's
+ * `replace_sides_taken_place` read, so a picker closes exactly the pairs and rows those writes refuse; `begun` closes
+ * both before either is pressed. `incoming_clubs` is every club still in the league holding no row of the season,
+ * which is what the replacement admits.
  *
  * `refusals` names, per act, the refusal its write would answer now, by that write's own judgement, so the editor
  * offers an act exactly where the write takes it. `invitations` is the registration links' press planned by the function
@@ -2725,8 +2729,8 @@ export const getSaisonsPostInvitationsDispatchUrl = (saisonId: string) => {
  *
  * **Every team mailed gets a fresh invite, and any link that team already held is REVOKED in the same per-team transaction** — the
  * copy in somebody's inbox opens nothing from that moment. The mails are owed in that transaction too, each minting its link when it is
- * handed out; no link is answered. `replaced_link` says of each row whether a link died for it, and the preview answers it before the
- * press. A team this skips is left exactly as it was.
+ * handed out; no link is answered. `replaced_link` says of each row whether a link died for it, and the season editor's rows answer it
+ * before the press. A team this skips is left exactly as it was.
  *
  * Five skips, each an ordinary state rather than a refusal: the team has left this season, it holds no contact block, no seat of that block
  * has been confirmed by its own person, every confirmed seat's address is on the ban list, or its live link was already sent and
@@ -2767,42 +2771,6 @@ export const saisonsPostInvitationsDispatch = async (
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
     body: JSON.stringify(fLInvitationDispatchPayload),
-  });
-};
-
-export const getSaisonsGetInvitationsDispatchPreviewUrl = (saisonId: string, params?: SaisonsGetInvitationsDispatchPreviewParams) => {
-  const stringifiedParams = serializeQuery(params);
-
-  return stringifiedParams.length > 0
-    ? `/api/v0/saisons/${encodeURIComponent(String(saisonId))}/invitations/dispatch/preview?${stringifiedParams}`
-    : `/api/v0/saisons/${encodeURIComponent(String(saisonId))}/invitations/dispatch/preview`;
-};
-
-/**
- * Per team of this season, the mailboxes the send would write to and the reason it would skip a team — and it writes nothing itself.
- *
- * Decided by the function the send itself decides by, so the list read here is the list performed. `resend` mirrors the send's own
- * switch: left false, a team whose live link was already sent, by the day stored on it, reads as `already_sent`, and pressing the send with
- * `resend` true instead makes this preview's own answer wrong unless the same value is asked for here.
- *
- * **`replaced_link` is the warning this list carries**: the send mints for every team it answers, so a team already holding a link has that
- * link REVOKED and the copy in somebody's inbox opens nothing from that moment. A row carries no trace of the invitation the team holds,
- * so a page offering the press reads that fact here or nowhere.
- *
- * Five skips, each an ordinary state rather than a refusal: the team has left this season, it holds no contact block, no seat of that
- * block has been confirmed by its own person, every confirmed seat's address is on the ban list, or its live link was already
- * sent and `resend` is false. A season holding
- * no team answers an empty list. One row per MAILBOX, so a person sitting in two seats is named once. 404 where no season holds that id.
- * @summary Who the send would reach
- */
-export const saisonsGetInvitationsDispatchPreview = async (
-  saisonId: string,
-  params?: SaisonsGetInvitationsDispatchPreviewParams,
-  options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLInvitationDispatchPreviewResponse> => {
-  return adminKeyTransport<FLInvitationDispatchPreviewResponse>(getSaisonsGetInvitationsDispatchPreviewUrl(saisonId, params), {
-    ...options,
-    method: "GET",
   });
 };
 
@@ -3914,12 +3882,16 @@ export const getSpielbestaetigungenAdoptSpielbestaetigungUrl = (spielbestaetigun
 /**
  * Move a fixture to the date and hour a club's open decline proposes, through the fixture's own save.
  *
- * Refused as the discard refuses, for any row but an open club decline proposing a date about the fixture's current
- * Ansetzung (`ansetzung_not_discardable`), and for a proposed day gone by (`ansetzung_vorschlag_past_as_stored`, the
+ * Refused for any row but an open club decline proposing a date about the fixture's current Ansetzung, the row a
+ * discard closes (`ansetzung_not_adoptable`), and for a proposed day gone by (`ansetzung_vorschlag_past_as_stored`, the
  * stored proposal's 409). The fixture is saved as the administrator's save would carry it on the proposed day and
  * hour, everything else kept, so it meets every rule that save meets and is refused as that save is, by its code and
  * status alone, as the draw answers the season write's refusals: no refusal names a field, the request carrying no
- * body. The bracket is resolved as that save resolves it. The
+ * body. A code the save names a field by is answered under its twin for that field instead, a 409: the ground or the
+ * referee booked beside the proposed slot (`spiel_double_booked_spielort_as_stored`,
+ * `spiel_double_booked_schiedsrichter_as_stored`), a side out of the season by then
+ * (`eligibility_disqualified_team1_as_stored`, `eligibility_disqualified_team2_as_stored`). The bracket is resolved
+ * as that save resolves it. The
  * row is not closed here: the fixture has left the Ansetzung it answers, so its links read `invalid` at once and the
  * next confirmation pass closes every party's row `ansetzung_changed`, owing each party „Spiel verlegt“ and asking it
  * about the new slot. IRREVERSIBLE as a save is: moving the fixture back is another save.
@@ -4129,8 +4101,9 @@ export const getSpielePatchSpielUrl = (spielId: string, params?: SpielePatchSpie
  *
  * The fixture stores no name: every read joins it. With `adopts_bericht` the save also stamps the fixture's Spielbericht
  * adopted, where it still stands at that version about the clubs the save leaves; a miss refuses nothing. A
- * `dry_run` answers the same report and writes nothing. A `past` season's fixture is refused (`saison_past`), the
- * `dry_run` included.
+ * `dry_run` answers the same report and writes nothing, and names in `recipients` every party the confirmation pass
+ * would mail about the fixture once it is saved so: told of its move, of the referee taken off it, or of its call-off,
+ * by the pass's own rules. A `past` season's fixture is refused (`saison_past`), the `dry_run` included.
  * @summary Update a Spiel
  */
 export const spielePatchSpiel = async (
@@ -4786,7 +4759,7 @@ export const getSpieltagePatchSpieltagUrl = (spieltagId: string) => {
 };
 
 /**
- * Move a matchday's span.
+ * Move a matchday's span, answering the matchday's `version` after the save.
  *
  * No fan-out: matches embed no copy, so a re-dated matchday is picked up on the next read. The span is held
  * to its season's, to the days its own fixtures stand on, and its `beginn` to the order its phase is dated in.
@@ -4824,15 +4797,15 @@ export const getSpieltageGetSpieltagVerwaltungUrl = (spieltagId: string) => {
 /**
  * Return one matchday by its id for the admin editor, a `future` season's included.
  *
- * Same shape as `GET /spieltage/{spieltag_id}`, without its season gate: the editor opens a
- * matchday to date it, and that happens before its season is ever activated.
+ * The shape of `GET /spieltage/{spieltag_id}`, without its season gate, plus `count_in_phase`, how many matchdays
+ * its phase holds: the editor opens a matchday to date it, and that happens before its season is ever activated.
  * @summary One Spieltag for the admin editor
  */
 export const spieltageGetSpieltagVerwaltung = async (
   spieltagId: string,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLSpieltageSingleResponse> => {
-  return adminKeyTransport<FLSpieltageSingleResponse>(getSpieltageGetSpieltagVerwaltungUrl(spieltagId), {
+): Promise<FLSpieltagAdminResponse> => {
+  return adminKeyTransport<FLSpieltagAdminResponse>(getSpieltageGetSpieltagVerwaltungUrl(spieltagId), {
     ...options,
     method: "GET",
   });

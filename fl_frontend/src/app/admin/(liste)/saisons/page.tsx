@@ -1,7 +1,6 @@
 import { DateField } from "@/kit/DateField";
 import { FieldPair } from "@/kit/FieldPair";
 import { ListPage } from "@/kit/ListPage";
-import { TextField } from "@/kit/TextField";
 
 import { COPY } from "@/core/copy";
 import { dayOf, formatDatum, formatNumber } from "@/core/format";
@@ -64,14 +63,6 @@ async function CreateFields({ read }: { read: ReturnType<typeof getAdminSaisons>
   const next = nextSaisonOf((await read).saisons.at(-1));
   return (
     <>
-      <TextField
-        label={WORDS.jahr}
-        name="id"
-        width="C5"
-        kind="digits"
-        isRequired={CREATE_REQUIRED.id}
-        defaultValue={next.id}
-      />
       {/* A season's two days are one value, sharing their row at every width. */}
       <FieldPair
         short="both"

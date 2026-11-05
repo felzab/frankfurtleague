@@ -26,6 +26,7 @@ from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigungSweepResponse,
 )
 from app.api.spielbestaetigungen.services import (
+    CLOSE_FIELDS,
     AnsetzungLage,
     anfrage_is_due,
     ansetzung_stand_of,
@@ -98,8 +99,6 @@ MINTS_PER_PASS: Final = 26
 REMINDERS_PER_PASS: Final = 24
 
 WHAT: Final = "Confirmation"
-
-CLOSE_FIELDS: Final = ["spiel_id", "party", "ansetzung", "asked_at", "closed"]
 
 
 def _by(rows: Iterable[Mapping[str, Any]], key: str) -> dict[Any, Mapping[str, Any]]:
@@ -628,17 +627,9 @@ async def sweep_spielbestaetigungen(
                                 reference=bezug_of(spielbestaetigung_id=row["_id"], seat=None),
                             )
                         )
-                    # Their row about the new slot stands already, so the move is told on its own.
-                    elif told is not None and moved_from is not None and address is not None:
-                        plan.refereed.add(partei["schiedsrichter_id"])
-                        plan.mails.append(
-                            OwedMail(
-                                key=f"spielbestaetigung/{told['_id']}/ansetzung_changed",
-                                an=address,
-                                data=moved_notice_of(partei_art=partei["art"], appointment=moved_from, moved_to=moved_to, asked_again=False),
-                                reference=bezug_of(spielbestaetigung_id=told["_id"], seat=None),
-                            )
-                        )
+                    # A referee's row about the slot the fixture holds never stands beside an open one about a slot it
+                    # left, so no move is told here: this transaction closes every row its insert supersedes, and the one
+                    # close a held row outlives, `discarded`, is a club's alone.
                     continue
 
                 kontakte = junctions[partei["team_id"]].get("kontakte")

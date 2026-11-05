@@ -1,6 +1,7 @@
 /**
  * E2E · the administration's spike pages: an administrator creates a venue in the dialog over the
- * Spielorte list and finds it there, then moves a match's kick-off in the match editor and saves it.
+ * Spielorte list and finds it there, moves a match's kick-off in the match editor and saves it, then
+ * opens the match's matchday in its editor.
  * One journey, one sign-in: an administrator's second sign-in would ask for the passkey the first set
  * up, which a new browser context does not hold. Desktop alone: the administration is desktop-first,
  * and the passkey it requires is desktop's (`fl_frontend/playwright.config.ts`).
@@ -23,10 +24,12 @@ const NEW_VENUE = "Sportplatz Ulmenring";
 
 /**
  * The running season's match 6, today at 16:00 between Kastanie and Eiche, the only match today at its
- * venue and with its referee, so a later kick-off meets no clash (`scripts/ops/seed/seed.js`). Today's
- * matchday is the season's first still to be played, which the Spiele list opens on.
+ * venue and with its referee, so a later kick-off meets no clash (`scripts/ops/seed/seed.js`). It stands on
+ * the group stage's second matchday, which the Spiele list is opened on by its address, so the journey edits
+ * that match whatever matchday the list would open on by itself.
  */
 const SAISON = "2027";
+const MATCHDAY = "gruppenphase-2";
 // The match card's link is named by all its words, the date and the plaques among them, as the Spielplan's is.
 const PAIRING = /Kastanie.*Eiche/;
 
@@ -42,16 +45,19 @@ const scrollsSideways = (page: Page) =>
     ),
   );
 
-/** The match's id, read off its card in the season's Spiele list, whose link opens its editor. */
+/** The match's id, read off its card on its matchday's tab of the season's Spiele list, whose link opens its editor. */
 async function spielId(page: Page): Promise<string> {
-  await page.goto(`/admin/saisons/${SAISON}/spiele`);
+  await page.goto(`/admin/saisons/${SAISON}/spiele?tab=${MATCHDAY}`);
   const href = await page.getByRole("main").getByRole("link", { name: PAIRING }).getAttribute("href");
   const id = new RegExp(`^/admin/saisons/${SAISON}/spiele/([0-9a-f]{24})$`).exec(href ?? "")?.[1];
-  if (id === undefined) throw new Error(`no editor link for ${PAIRING} on the Spiele list's opening matchday`);
+  if (id === undefined) throw new Error(`no editor link for ${PAIRING} on the Spiele list's ${MATCHDAY} tab`);
   return id;
 }
 
-test("an administrator creates a venue over the Spielorte list, then moves a match's kick-off in its editor", async ({ page, context }) => {
+test("an administrator creates a venue over the Spielorte list, moves a match's kick-off in its editor and opens its matchday's", async ({
+  page,
+  context,
+}) => {
   await signInWithCode(page, ADMINISTRATOR);
   await enrolPasskey(page, context);
 
@@ -105,4 +111,12 @@ test("an administrator creates a venue over the Spielorte list, then moves a mat
   await page.reload();
   await expect(uhrzeit.getByRole("spinbutton").first()).toHaveText("18");
   await expect(uhrzeit.getByRole("spinbutton").nth(1)).toHaveText("30");
+
+  // --- The matchday editor -----------------------------------------------------------------------
+
+  // The matchday's „Bearbeiten“ leads to an editor page of its own, named as its tab is, on its one read.
+  await page.goto(`/admin/saisons/${SAISON}/spiele?tab=${MATCHDAY}`);
+  await page.getByRole("main").getByRole("link", { name: "Bearbeiten", exact: true }).click();
+  await expect(page.getByRole("banner").getByRole("heading", { level: 1, name: "2. Spieltag" })).toBeVisible();
+  await expect(page.getByRole("group", { name: /^Beginn/ })).toBeVisible();
 });

@@ -50,7 +50,8 @@ export function VorschlagActs({
         subject={SUBJECT}
         consequence={discard.consequence}
         facts={discard.facts}
-        tone="danger"
+        // Keeping the stored date destroys nothing, so its question asks in the neutral primary, as „Übernehmen“'s does.
+        tone="primary"
         onConfirm={() => discardVorschlag({ id })}
         trigger={
           <Button

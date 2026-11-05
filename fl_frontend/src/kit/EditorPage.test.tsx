@@ -9,6 +9,7 @@ import { COPY } from "@/core/copy";
 import { EditorPage } from "./EditorPage";
 import { EditorShell } from "./EditorShell";
 import { RailColumn, RailFrame } from "./RailFrame";
+import { SectionAct } from "./SectionAct";
 import { TextField } from "./TextField";
 import { useEditor } from "./useEditor";
 
@@ -97,6 +98,80 @@ describe("an editor closed read-only", () => {
     expect(screen.getByText(reason)).toBeTruthy();
     expect(screen.getByText(COPY.template.closed)).toBeTruthy();
     expect(screen.queryByRole("button", { name: COPY.shared.verb.save })).toBeNull();
+  });
+});
+
+/** An editor holding an act of its own in a section and one in its danger box, each writing the record. */
+function ActingEditor({ act }: { act: () => Promise<ActionAnswer> }) {
+  const editor = useEditor({ id: "ort-1", version: 1, values: { name: "Riedberg" } }, saved);
+  return (
+    <EditorPage
+      title={{ record: "Riedberg" }}
+      editor={editor}
+      sections={[
+        {
+          id: "ort",
+          title: NAME,
+          fields: (
+            <>
+              <TextField
+                label={NAME}
+                name="name"
+                width="W3"
+                kind="text"
+                value={editor.draft.name}
+                onChange={(name) => editor.set("name", name)}
+              />
+              <SectionAct
+                label={COPY.shared.withObject(COPY.page.spielplan, "create")}
+                run={act}
+              />
+            </>
+          ),
+        },
+      ]}
+      danger={{
+        title: COPY.admin.stilllegung,
+        acts: [
+          {
+            name: COPY.shared.withObject(COPY.admin.spielort.object, "retire"),
+            consequence: COPY.admin.spielort.retireConsequence,
+            confirm: {
+              verb: "retire",
+              subject: COPY.admin.spielort.object,
+              consequence: COPY.admin.spielort.retireConsequence,
+              tone: "danger",
+              onConfirm: act,
+            },
+          },
+        ],
+      }}
+    />
+  );
+}
+
+// An act raises the record's version and runs on the stored values: pressed under a draft, it would act on values the
+// boxes show changed, and the draft's save would then be refused as stale.
+describe("an editor's own acts", () => {
+  const sectionAct = () => screen.getByRole("button", { name: COPY.shared.withObject(COPY.page.spielplan, "create") });
+  const dangerAct = () => screen.getByRole("button", { name: COPY.shared.verb.retire });
+
+  it("stand open while the draft holds no change", () => {
+    render(<ActingEditor act={vi.fn()} />);
+
+    expect(sectionAct().hasAttribute("disabled")).toBe(false);
+    expect(dangerAct().hasAttribute("disabled")).toBe(false);
+    expect(screen.queryByText(COPY.template.draftUnsaved)).toBeNull();
+  });
+
+  it("close while the draft holds a change, each saying why in its own line", async () => {
+    render(<ActingEditor act={vi.fn()} />);
+
+    await userEvent.type(screen.getByRole("textbox"), " Nord");
+
+    expect(sectionAct().hasAttribute("disabled")).toBe(true);
+    expect(dangerAct().hasAttribute("disabled")).toBe(true);
+    expect(screen.getAllByText(COPY.template.draftUnsaved)).toHaveLength(2);
   });
 });
 

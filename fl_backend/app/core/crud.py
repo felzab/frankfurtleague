@@ -80,6 +80,38 @@ async def pull_many_from_db(
     return await cursor.limit(limit).to_list(length=limit)
 
 
+async def pull_whole_from_db(
+    *,
+    collection: ReadCollection,
+    db_filter: Mapping[str, Any],
+    # What the read is, for the error alone: "season 2025's fixtures".
+    what: str,
+    sort_by: Sequence[tuple[str, int]] | None = None,
+    projection: Mapping[str, Any] | list[str] | None = None,
+    collation: Mapping[str, Any] | None = None,
+    session: AsyncClientSession | None = None,
+) -> list[Mapping[str, Any]]:
+    """Every document `db_filter` matches, for a judgement that must see them all, or a `ValueError`.
+
+    Read one over the cap, so a set past it is DETECTED rather than judged on the page that fits: a dropped fixture or
+    row would read as one that is not there, and a rule judged without it answers wrongly in silence.
+    """
+
+    documents = await pull_many_from_db(
+        collection=collection,
+        db_filter=db_filter,
+        limit=LIST_LIMIT_DEFAULT + 1,
+        sort_by=sort_by,
+        projection=projection,
+        collation=collation,
+        session=session,
+    )
+    if len(documents) > LIST_LIMIT_DEFAULT:
+        raise ValueError(f"{what} number more than {LIST_LIMIT_DEFAULT}, which is more than one read can judge whole")
+
+    return documents
+
+
 # Every document of an `EDITED_COLLECTIONS` member carries this count of its writes: 0 when created, raised by every
 # update through the two patch helpers below, and never by an anchor, which changes nothing a reader sees. A save
 # passes the count its form was read at as `expected_version`, and matches only while the count stands there:

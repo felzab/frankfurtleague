@@ -23,7 +23,7 @@ import { TURNSTILE_FIELD } from "./turnstileToken";
 import { fieldMessage } from "./zodGerman";
 
 import type { AdminRefusal, JudgedSession } from "./auth/guards";
-import type { Copy } from "./copy";
+import type { Words as CatalogueWords, Copy } from "./copy";
 import type { Code, FLRefusedField } from "./generated/client/types";
 import type { Role } from "./roles";
 import type { WordedRule } from "./ruleMessage";
@@ -38,7 +38,21 @@ import type { SubjectSession } from "./subject";
  * its fields alone may leave the line to the form.
  */
 export type ActionAnswer<Value = undefined> =
-  { ok: true; value: Value; note?: Copy } | { ok: false; fieldErrors?: Readonly<Record<string, Copy>>; reason?: Copy; errorCode?: Code };
+  | { ok: true; value: Value; note?: Copy }
+  | { ok: false; fieldErrors?: Readonly<Record<string, Copy>>; reason?: Copy; errorCode?: Code; ask?: SaveQuestion };
+
+/**
+ * A save the server holds back until the person confirms what it would set off beyond the record, such as the later
+ * results a match's new score deletes: the question its editor asks, the facts it rests on, and `confirm`, the token a
+ * confirmed send carries back. The token names what was confirmed, so a save that would now set off something else
+ * is asked about again rather than let through.
+ */
+export type SaveQuestion = {
+  subject: Copy;
+  consequence: Copy;
+  facts?: ReadonlyArray<{ readonly label: Copy; readonly value: CatalogueWords }>;
+  confirm: string;
+};
 
 /** A code the catalogue words in a person's own terms: `SERVER_COPY.refusal`'s keys, and `SERVER_COPY.refusalLine`'s. */
 type WordedCode = keyof typeof SERVER_COPY.refusal | keyof typeof SERVER_COPY.refusalLine;
@@ -179,11 +193,11 @@ const STALE: ReadonlySet<Code> = new Set<Code>([
   // setting one words them as its own.
   "ergebnis_side_emptied",
   "spieltag_occupied",
-  "spieltag_occupied_by_the_resolution",
   "eligibility_team_not_in_saison",
   // A fixture's confirmation answered, closed or left by its fixture since the page offering an act on it was read.
   "ansetzung_not_enterable",
   "ansetzung_not_discardable",
+  "ansetzung_not_adoptable",
   "ansetzung_foreign_row",
   // A rule the screen does not word, its input holding every rule the API publishes: the page is older than the API.
   "payload_refused",
@@ -203,6 +217,8 @@ const STALE: ReadonlySet<Code> = new Set<Code>([
   "replace_saison_started",
   "replace_incoming_already_entered",
   "replace_one_team_on_both_ends",
+  // The replacement's incoming club retired since the page listed it, which lists none retired.
+  "team_retired",
   "invitation_team_not_entered",
   // A referee's fresh link, which the editor offers only to a live entry with an address and no answer yet: the
   // referee moved since the page was served.

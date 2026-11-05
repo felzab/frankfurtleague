@@ -233,3 +233,46 @@ describe("an editor's refused save", () => {
     expect(result.current.status).toStrictEqual({ tone: "error", text: COPY.shared.failure.stale });
   });
 });
+
+// The harm: a confirmation reaching a draft it was not asked about, or a question nobody can answer.
+describe("an editor's save the server holds back for a question", () => {
+  const QUESTION = { subject: COPY.admin.spiel.ergebnis, consequence: COPY.admin.spiel.voids([31]), confirm: "31" };
+
+  /** A server holding every save back for its question. */
+  const heldBack = () => editorOn(STORED, async () => ({ ok: false, ask: QUESTION }));
+
+  it("asks its question, saying nothing failed, and sends the same save again with its token once confirmed", async () => {
+    const { result, save } = heldBack();
+    save.mockImplementation(async (change) => (change.confirm === QUESTION.confirm ? { ok: true, value: 2 } : { ok: false, ask: QUESTION }));
+
+    act(() => result.current.set("plz", "60439"));
+    await press(result.current.submit);
+    expect(result.current.question).toStrictEqual(QUESTION);
+    expect(result.current.status).toStrictEqual({ tone: "changes", text: COPY.template.changesPending(1) });
+
+    await press(result.current.confirm);
+    expect(save).toHaveBeenLastCalledWith({ id: "ort-1", version: 1, changes: { plz: "60439" }, confirm: "31" });
+    expect(result.current.question).toBeNull();
+  });
+
+  it("drops its question when declined, sending nothing", async () => {
+    const { result, save } = heldBack();
+
+    act(() => result.current.set("plz", "60439"));
+    await press(result.current.submit);
+    act(() => result.current.decline());
+
+    expect(result.current.question).toBeNull();
+    expect(save).toHaveBeenCalledOnce();
+  });
+
+  it("drops its question at the next edit, which it was not asked about", async () => {
+    const { result } = heldBack();
+
+    act(() => result.current.set("plz", "60439"));
+    await press(result.current.submit);
+    act(() => result.current.set("name", "SC Riedberg"));
+
+    expect(result.current.question).toBeNull();
+  });
+});

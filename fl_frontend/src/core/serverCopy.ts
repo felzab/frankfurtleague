@@ -24,6 +24,16 @@ const gruppeName = COPY.shared.season.gruppe;
 const placeName = (platz: number) => `${formatOrdinal(platz)} ${PLATZ}`;
 // Matches by their numbers, „Spiel 4, 7 und 9“, as the match editor's done line names the others it changed.
 const spieleNamed = (nrs: readonly number[]) => `Spiel ${formatList(nrs.map(formatNumber))}`;
+// A fixture's ground or referee booked at its time elsewhere, and a side out of the season: the save keys each by the
+// path it names, the adoption, which names none, by a code of its own per resource and side.
+const DOUBLE_BOOKED = {
+  ort: "Der Spielort ist zu dieser Zeit schon belegt.",
+  schiedsrichter: "Die eingeteilte Person pfeift zu dieser Zeit schon ein anderes Spiel.",
+};
+const DISQUALIFIED = {
+  team1: `${team1} ist aus der Saison ausgeschieden.`,
+  team2: `${team2} ist aus der Saison ausgeschieden.`,
+};
 
 // The confirmation pages' shared sentences, each written once: what the typed birthdate is checked for, the deadline
 // of an entry that goes alone, the objection Art. 21 (4) asks to be named explicitly, in the two parts around the
@@ -93,16 +103,17 @@ export const SERVER_COPY = catalogue({
       schiedsrichter: "Die eingeteilte Person ist stillgelegt oder gelöscht.",
     },
     booking_unconfirmed_schiedsrichter: "Die eingeteilte Person hat ihren Eintrag noch nicht bestätigt.",
-    spiel_double_booked: {
-      ort: "Der Spielort ist zu dieser Zeit schon belegt.",
-      schiedsrichter: "Die eingeteilte Person pfeift zu dieser Zeit schon ein anderes Spiel.",
-    },
+    spiel_double_booked: DOUBLE_BOOKED,
+    spiel_double_booked_spielort_as_stored: DOUBLE_BOOKED.ort,
+    spiel_double_booked_schiedsrichter_as_stored: DOUBLE_BOOKED.schiedsrichter,
     /** The league's last owner, whose erasure would leave the administration owned by nobody. */
     last_owner_erasure: "Du bist die letzte Inhaberin oder der letzte Inhaber der Verwaltung.",
     /** A person's own address change to the address they already sign in with. */
     address_change_unchanged: COPY.account.address.unchanged,
     /** A grant's move nobody but the person could approve. */
     address_change_no_approver: COPY.account.address.noApprover,
+    /** A person's own start pressed again too soon after the last mail its change owed: the edge's own rate refusal. */
+    address_change_started_recently: COPY.shared.failure.tooManyAttempts,
     /** A venue retired while matches still to come are booked there, named by their numbers so they can be moved first. */
     spielort_still_booked: ({ spiel_nrs }: FLRefusedField["ctx"]) =>
       Array.isArray(spiel_nrs) && spiel_nrs.length > 0 ? `Der Spielort ist noch für ${spieleNamed(spiel_nrs)} gebucht.` : undefined,
@@ -121,13 +132,26 @@ export const SERVER_COPY = catalogue({
     // A season's rules and its activation, each a fact the person reads off the season editor itself.
     rules_bracket_impossible: COPY.admin.saison.bracketImpossible,
     rules_spiele_over_one_read: COPY.admin.saison.tooManySpiele,
+    spielplan_gruppen_off_rules: COPY.admin.saison.gruppenOffRules,
+    /**
+     * A fixture of either club the group swap would trade has taken place, as
+     * `fl_backend/app/api/teams/services.py :: has_taken_place` judges it: a result, a recorded no-show or
+     * abandonment, or one side's goals.
+     */
+    swap_sides_taken_place: "Ein Spiel der beiden Teams hat schon stattgefunden.",
+    /** A fixture of the club a replacement takes out of the season has taken place, judged as the swap's. */
+    replace_sides_taken_place: "Ein Spiel des ausscheidenden Teams hat schon stattgefunden.",
     activate_target_undrawn: COPY.admin.saison.noDraw,
     activate_saison_unfinished: COPY.admin.saison.unfinished,
     activate_spieltage_undated: COPY.admin.saison.undated,
-    eligibility_disqualified: {
-      team1: `${team1} ist aus der Saison ausgeschieden.`,
-      team2: `${team2} ist aus der Saison ausgeschieden.`,
-    },
+    eligibility_disqualified: DISQUALIFIED,
+    eligibility_disqualified_team1_as_stored: DISQUALIFIED.team1,
+    eligibility_disqualified_team2_as_stored: DISQUALIFIED.team2,
+    /**
+     * A save after which the bracket would field one club in two matches of one matchday, a club picked by hand
+     * standing where the bracket's own wiring leads it too: the same save answers the same, the page being current.
+     */
+    spieltag_occupied_by_the_resolution: "Der K.-o.-Baum würde ein Team zweimal an diesem Spieltag aufstellen.",
     /** A matchday's dates: past its season's, short of one of its dated matches, or out of its phase's order of matchdays. */
     spieltag_outside_saison: "Dieser Zeitraum liegt außerhalb der Saison.",
     spieltag_span_below_spiele: "Ein Spiel des Spieltags liegt außerhalb dieses Zeitraums.",
@@ -148,18 +172,6 @@ export const SERVER_COPY = catalogue({
   /** The image a shared link's preview shows, by its alt, which a screen reader reads in the preview's place. */
   shareImage: {
     alt: `${COPY.brand.name}, die Fußballliga der Frankfurter Oberstufen: der Pokal über dem Schriftzug`,
-  },
-
-  /** The administration's lines its old pages answer through their server actions, until each page's rebuild. */
-  admin: {
-    /**
-     * A fixture of either club the group swap would trade has taken place, as
-     * `fl_backend/app/api/teams/services.py :: has_taken_place` judges it: a result, a recorded no-show or
-     * abandonment, or one side's goals.
-     */
-    swapSidesTakenPlace: "Ein Spiel der beiden Teams hat schon stattgefunden.",
-    /** A fixture of the club a replacement takes out of the season has taken place, judged as the swap's. */
-    replacementSidesTakenPlace: "Ein Spiel des ausscheidenden Teams hat schon stattgefunden.",
   },
 
   /**
@@ -272,6 +284,8 @@ export const SERVER_COPY = catalogue({
        */
       previous: COPY.admin.facts.before,
       next: COPY.admin.facts.after,
+      /** The moment a move left, where the move also changed the sides: the pairing that slot held, then the moment. */
+      previousPairing: (spiel: Words, moment: string) => `${textOf(spiel)}, ${moment}`,
       /** A move whose new slot is asked later, by the reader: a club is asked, a referee booked. */
       askedLater: {
         team: "Zum neuen Termin bekommst du eine neue Anfrage.",

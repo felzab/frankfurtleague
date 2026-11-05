@@ -37,7 +37,7 @@ from app.api.spiele.schemas import (
 from app.api.teams.services import has_taken_place, seats_changing_holder
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import WriteRefusal
+from app.core.exceptions import Twins, WriteRefusal
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.shared.schemas.bounds import (
     SPIEL_CONFIRMATION_FRIST_DAYS,
@@ -380,8 +380,19 @@ def find_vorschlag_unchanged_refusal(*, vorschlag: FLSpielbestaetigungAppointmen
     )
 
 
-# What the adoption answers under a 409 twin: each judges the stored proposal, which a payload write judges as its body.
-ADOPTION_TWINS: Mapping[Code, Code] = {Code.ANSETZUNG_VORSCHLAG_PAST: Code.ANSETZUNG_VORSCHLAG_PAST_AS_STORED}
+# What the adoption answers under a 409 twin: each judges the stored proposal or the stored fixture, which a payload
+# write judges as its body. A code the catalogue words by its path gets a twin per path, the adoption naming none.
+ADOPTION_TWINS: Twins = {
+    Code.ANSETZUNG_VORSCHLAG_PAST: Code.ANSETZUNG_VORSCHLAG_PAST_AS_STORED,
+    Code.SPIEL_DOUBLE_BOOKED: {
+        "ort": Code.SPIEL_DOUBLE_BOOKED_SPIELORT_AS_STORED,
+        "schiedsrichter": Code.SPIEL_DOUBLE_BOOKED_SCHIEDSRICHTER_AS_STORED,
+    },
+    Code.ELIGIBILITY_DISQUALIFIED: {
+        "team1": Code.ELIGIBILITY_DISQUALIFIED_TEAM1_AS_STORED,
+        "team2": Code.ELIGIBILITY_DISQUALIFIED_TEAM2_AS_STORED,
+    },
+}
 
 
 def judged_as_a_proposal(refusal: WriteRefusal | None) -> WriteRefusal | None:
@@ -570,13 +581,13 @@ def verwerfen_refusal() -> WriteRefusal:
 
 
 def build_triage_rows_filter(*, saison_id: str, today: str) -> dict[str, Any]:
-    """This season's team rows putting their fixture in the administrator's queue.
+    """This season's rows putting their fixture in the administrator's queue, a club's or its referee's.
 
-    A standing proposal, a deadline passed unanswered, or due today and asked today or never: `asked_at` stands in
-    for the mint day no row stores.
+    A club's standing proposal, or any party's deadline passed unanswered, or due today and asked today or never:
+    `asked_at` stands in for the mint day no row stores.
     """
 
-    open = {"party.art": "team", **build_answerable_filter()}
+    open = build_answerable_filter()
 
     return {
         "saison_id": saison_id,
@@ -588,20 +599,33 @@ def build_triage_rows_filter(*, saison_id: str, today: str) -> dict[str, Any]:
     }
 
 
-def find_verwerfen_refusal(*, spielbestaetigung_raw: Mapping[str, Any], spiel: Mapping[str, Any]) -> WriteRefusal | None:
-    """`build_verwerfbar_filter` asked of the row read, and the row about the fixture as it stands."""
+def holds_an_open_proposal(*, spielbestaetigung_raw: Mapping[str, Any], spiel: Mapping[str, Any]) -> bool:
+    """`build_verwerfbar_filter` asked of the row read, and the row about the fixture as it stands: what a discard and an adoption act on."""
 
     partei, antwort = spielbestaetigung_raw.get("party") or {}, spielbestaetigung_raw.get("antwort") or {}
-    if (
+
+    return (
         partei.get("art") == "team"
         and antwort.get("art") == "declined"
         and antwort.get("vorschlag") is not None
         and spielbestaetigung_raw.get("closed") is None
         and ansetzung_stand_of(spiel) == spielbestaetigung_raw["ansetzung"]["stand"]
-    ):
+    )
+
+
+def find_verwerfen_refusal(*, spielbestaetigung_raw: Mapping[str, Any], spiel: Mapping[str, Any]) -> WriteRefusal | None:
+    """Why a discard of this row must be refused, or `None`."""
+
+    return None if holds_an_open_proposal(spielbestaetigung_raw=spielbestaetigung_raw, spiel=spiel) else verwerfen_refusal()
+
+
+def find_adoption_refusal(*, spielbestaetigung_raw: Mapping[str, Any], spiel: Mapping[str, Any]) -> WriteRefusal | None:
+    """Why an adoption of this row must be refused, or `None`: the discard's condition, under the adoption's own code."""
+
+    if holds_an_open_proposal(spielbestaetigung_raw=spielbestaetigung_raw, spiel=spiel):
         return None
 
-    return verwerfen_refusal()
+    return WriteRefusal(error_code=Code.ANSETZUNG_NOT_ADOPTABLE, status=HTTPStatus.CONFLICT)
 
 
 # --- A REFEREE'S OWN ROWS: the panel's read and the referee's answer, signed in rather than by a link.
@@ -807,6 +831,10 @@ def _day_passed(*, ansetzung: Mapping[str, Any], today: str) -> bool:
     return bool(ansetzung["datum"] < today)
 
 
+# What `grund_to_end` and `notice_owed` read of a row: the projection every reader of the close's judgement takes.
+CLOSE_FIELDS: Final = ["spiel_id", "party", "ansetzung", "asked_at", "closed"]
+
+
 def grund_to_end(
     *, row: Mapping[str, Any], spiel: Mapping[str, Any], austritte: Mapping[Any, str], today: str
 ) -> FLSpielbestaetigungGrund | None:
@@ -1007,6 +1035,32 @@ def notice_owed(*, row: Mapping[str, Any], grund: FLSpielbestaetigungGrund, spie
     return (
         row.get("asked_at") is not None and grund in GRUENDE_OWING_A_NOTICE and _notice_to_come(row=row, grund=grund, spiel=spiel, today=today)
     )
+
+
+def parties_told_of_the_change(
+    *,
+    rows: Iterable[Mapping[str, Any]],
+    stored: Mapping[str, Any],
+    changed: Mapping[str, Any],
+    austritte: Mapping[Any, str],
+    today: str,
+) -> list[Mapping[str, Any]]:
+    """The party of each of a fixture's `rows` holding its question that the pass closes owing a notice once `stored` is `changed`.
+
+    Judged by the close's own rules (`grund_to_end`, `notice_owed`), so the page naming whom an act mails and the pass
+    mailing them cannot disagree; a row the close ends as the fixture stands is no mail of the change. Whether a party
+    is reached is the pass's: a club with no seat holding an address, or a referee with none, is told nothing.
+    """
+
+    told: list[Mapping[str, Any]] = []
+    for row in rows:
+        grund = grund_to_end(row=row, spiel=changed, austritte=austritte, today=today)
+        if grund is None or grund == grund_to_end(row=row, spiel=stored, austritte=austritte, today=today):
+            continue
+        if notice_owed(row=row, grund=grund, spiel=changed, today=today):
+            told.append(row["party"])
+
+    return told
 
 
 def verwerfen_owes_a_notice(*, row: Mapping[str, Any], today: str) -> bool:

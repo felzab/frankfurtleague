@@ -654,7 +654,7 @@ class TestAStartedSeasonIsNotReplaced:
             spiele=[gruppen_fixture(1, WITHDRAWN, RIVAL, ergebnis="1:0", tore=(1, 0)), gruppen_fixture(2, RIVAL, WITHDRAWN)],
         )
 
-        assert code == Code.SIDES_TAKEN_PLACE
+        assert code == Code.REPLACE_SIDES_TAKEN_PLACE
         assert row is not None, "the junction row was handed over anyway"
         assert spiele[2]["team2"] == side(WITHDRAWN), "the fan-out ran before the refusal, or outside the transaction"
 

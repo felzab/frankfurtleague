@@ -13,6 +13,7 @@ export const Code = {
   database_failed: "database_failed",
   unknown_outcome: "unknown_outcome",
   activate_saison_unfinished: "activate_saison_unfinished",
+  create_saison_future_stands: "create_saison_future_stands",
   saison_past: "saison_past",
   activate_target_undrawn: "activate_target_undrawn",
   activate_spieltage_undated: "activate_spieltage_undated",
@@ -23,6 +24,7 @@ export const Code = {
   address_change_replaced_barred: "address_change_replaced_barred",
   address_change_taken: "address_change_taken",
   address_change_unchanged: "address_change_unchanged",
+  address_change_started_recently: "address_change_started_recently",
   address_change_barred: "address_change_barred",
   address_change_nothing: "address_change_nothing",
   address_change_no_approver: "address_change_no_approver",
@@ -43,6 +45,7 @@ export const Code = {
   ansetzung_closed: "ansetzung_closed",
   ansetzung_not_enterable: "ansetzung_not_enterable",
   ansetzung_not_discardable: "ansetzung_not_discardable",
+  ansetzung_not_adoptable: "ansetzung_not_adoptable",
   ansetzung_foreign_row: "ansetzung_foreign_row",
   access_key_refused: "access_key_refused",
   missing_actor: "missing_actor",
@@ -88,6 +91,8 @@ export const Code = {
   booking_unknown_resource: "booking_unknown_resource",
   booking_unconfirmed_schiedsrichter: "booking_unconfirmed_schiedsrichter",
   spiel_double_booked: "spiel_double_booked",
+  spiel_double_booked_spielort_as_stored: "spiel_double_booked_spielort_as_stored",
+  spiel_double_booked_schiedsrichter_as_stored: "spiel_double_booked_schiedsrichter_as_stored",
   spiel_outside_spieltag: "spiel_outside_spieltag",
   spieltag_outside_saison: "spieltag_outside_saison",
   spieltag_span_below_spiele: "spieltag_span_below_spiele",
@@ -103,6 +108,8 @@ export const Code = {
   media_age: "media_age",
   giving_not_allowed: "giving_not_allowed",
   eligibility_disqualified: "eligibility_disqualified",
+  eligibility_disqualified_team1_as_stored: "eligibility_disqualified_team1_as_stored",
+  eligibility_disqualified_team2_as_stored: "eligibility_disqualified_team2_as_stored",
   eligibility_team_not_in_saison: "eligibility_team_not_in_saison",
   entry_saison_not_future: "entry_saison_not_future",
   entry_gruppe_not_offered: "entry_gruppe_not_offered",
@@ -135,7 +142,7 @@ export const Code = {
   replace_saison_started: "replace_saison_started",
   replace_incoming_already_entered: "replace_incoming_already_entered",
   replace_one_team_on_both_ends: "replace_one_team_on_both_ends",
-  sides_taken_place: "sides_taken_place",
+  replace_sides_taken_place: "replace_sides_taken_place",
   ergebnis_side_emptied: "ergebnis_side_emptied",
   retire_blocked: "retire_blocked",
   spielort_still_booked: "spielort_still_booked",
@@ -177,6 +184,7 @@ export const Code = {
   state_nichtantreten_without_two_sides: "state_nichtantreten_without_two_sides",
   swap_not_a_swap: "swap_not_a_swap",
   swap_saison_started: "swap_saison_started",
+  swap_sides_taken_place: "swap_sides_taken_place",
   austritt_before_saison_start: "austritt_before_saison_start",
   payload_refused: "payload_refused",
   body_unreadable: "body_unreadable",
@@ -2633,28 +2641,6 @@ export const FLInvitationSkipReason = {
 } as const;
 
 /**
- * One team as the preview reports it. It mints nothing, so it answers no link.
- */
-export interface FLInvitationDispatchPreviewRow {
-  recipient: FLInvitationRecipient[];
-  replaced_link: boolean;
-  skipped: FLInvitationSkipReason | null;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  team_id: string;
-  /** @minLength 1 */
-  team_name: string;
-}
-
-/**
- * Who the press would mail, over the same rule the press then performs.
- */
-export interface FLInvitationDispatchPreviewResponse {
-  rows: FLInvitationDispatchPreviewRow[];
-  /** @minLength 1 */
-  saison_id: string;
-}
-
-/**
  * One team as the press left it: `recipient` are owed the team's link, which each mail's hand-out mints.
  */
 export interface FLInvitationDispatchRow {
@@ -3638,20 +3624,31 @@ export const FLOverviewSpielbestaetigungRowKind = {
   spielbestaetigung_overdue: "spielbestaetigung_overdue",
 } as const;
 
-/**
- * One club's open confirmation row: the row „Zusage eintragen“ records the club's agreement on.
- */
-export interface FLOverviewParty {
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  deadline: string;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  spielbestaetigung_id: string;
+export interface FLSpielbestaetigungPartyTeam {
+  art: "team";
   /** @pattern ^[0-9a-fA-F]{24}$ */
   team_id: string;
 }
 
+export interface FLSpielbestaetigungPartySchiedsrichter {
+  art: "schiedsrichter";
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  schiedsrichter_id: string;
+}
+
 /**
- * A fixture whose clubs owe their answer: overdue where one club's deadline has passed, else due today.
+ * One party's open confirmation row, a club's or the booked referee's: the row „Zusage eintragen“ records its agreement on.
+ */
+export interface FLOverviewParty {
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  deadline: string;
+  party: FLSpielbestaetigungPartyTeam | FLSpielbestaetigungPartySchiedsrichter;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  spielbestaetigung_id: string;
+}
+
+/**
+ * A fixture whose parties owe their answer: overdue where one party's deadline has passed, else due today.
  */
 export interface FLOverviewSpielbestaetigungRow {
   kind: FLOverviewSpielbestaetigungRowKind;
@@ -3677,8 +3674,14 @@ export interface FLSpielbestaetigungAppointment {
 
 /**
  * A club's decline proposing another date and hour, neither adopted nor discarded; its row is the one both acts write.
+ *
+ * Each act's recipients are the parties the backend mails of it, so its question names them: `adoption_recipients`
+ * those the confirmation pass tells of the move, `discard_recipients` the club the discard tells the date stands,
+ * none once its day has gone by.
  */
 export interface FLOverviewVorschlagRow {
+  adoption_recipients: (FLSpielbestaetigungPartyTeam | FLSpielbestaetigungPartySchiedsrichter)[];
+  discard_recipients: (FLSpielbestaetigungPartyTeam | FLSpielbestaetigungPartySchiedsrichter)[];
   kind: FLOverviewVorschlagRowKind;
   spiel: FLSpielJoinedAdmin;
   /** @pattern ^[0-9a-fA-F]{24}$ */
@@ -4019,12 +4022,15 @@ export interface FLSpielReleasedSide {
  * Every fixture the save moved beyond its own edit, each with the result it destroyed, and the bracket's faults after it.
  *
  * `version` is the fixture's own after the save, the one its next save sends; `bericht_adopted` says whether the
- * adoption `adopts_bericht` asked for was stamped, null where none was asked or on a `dry_run`.
+ * adoption `adopts_bericht` asked for was stamped, null where none was asked or on a `dry_run`. `recipients`, on a
+ * `dry_run` alone and null on a save, is every party the confirmation pass mails about this fixture once it is saved
+ * so, and would not as it stands: told of the move, of the referee taken off it, or of its call-off.
  */
 export interface FLPatchSpielDataResponse {
   advanced_to: FLSpielAdvancement[];
   bericht_adopted: boolean | null;
   bracket_faults: FLBracketFault[];
+  recipients: (FLSpielbestaetigungPartyTeam | FLSpielbestaetigungPartySchiedsrichter)[] | null;
   released_sides: FLSpielReleasedSide[];
   version: number;
 }
@@ -4179,12 +4185,6 @@ export interface FLPostSaisonPayload {
   bewerbung: FLSaisonBewerbungPayload | null;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   end_date: string;
-  /**
-   * @minLength 4
-   * @maxLength 4
-   * @pattern ^[0-9]+$
-   */
-  id: string;
   registrierung: FLSaisonRegistrierung | null;
   rules: FLSaisonRules;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
@@ -4668,8 +4668,9 @@ export interface FLSaisonAdminListed {
  * One club's row of the season as the editor's swap and replacement sections list it, graded as each write judges it.
  *
  * Both flags are `app/api/teams/services.py :: has_taken_place` over the row's fixtures, the predicate each write's
- * `sides_taken_place` reads: over its group fixtures for the swap, which rewrites those alone, so a pair is closed
- * where either club's is; over every fixture for the replacement, which hands the whole schedule over.
+ * refusal reads: over its group fixtures for the swap's `swap_sides_taken_place`, the swap rewriting those alone, so
+ * a pair is closed where either club's is; over every fixture for the replacement's `replace_sides_taken_place`, the
+ * replacement handing the whole schedule over.
  */
 export interface FLSaisonAdminTeam {
   austritt: FLAustritt | null;
@@ -4815,8 +4816,24 @@ export interface FLSaisonTeamsResponse {
   teams: FLSaisonTeamEntry[];
 }
 
+/**
+ * Why the list's act would be refused if pressed now, by its write's own judgement; null where it takes it.
+ */
+export interface FLSaisonsAdminRefusals {
+  create: Code | null;
+}
+
+/**
+ * Every season, with the id the next create mints and why a create would be refused now.
+ */
 export interface FLSaisonsAdminListResponse {
   format: "list";
+  /**
+   * @minLength 4
+   * @maxLength 4
+   */
+  next_saison_id: string;
+  refusals: FLSaisonsAdminRefusals;
   saisons: FLSaisonAdminListed[];
 }
 
@@ -5170,7 +5187,7 @@ export interface FLSpielEditorSpielort {
 }
 
 /**
- * A club a knockout fixture's Begegnung offers for either side, by the name its season row holds.
+ * A club a knockout fixture's Begegnung offers for either side, by the name and shorthand its season row holds.
  *
  * `on_spieltag`: the club stands on another fixture of this matchday, which a save fielding it here either moves it
  * off or is refused for. `fieldable`: a save fielding it on this fixture as it stands passes the write's eligibility
@@ -5183,6 +5200,8 @@ export interface FLSpielEditorTeam {
   /** @minLength 1 */
   name: string;
   on_spieltag: boolean;
+  /** @minLength 1 */
+  shorthand: string;
 }
 
 /**
@@ -5544,18 +5563,6 @@ export interface FLSpielbestaetigungKontakte {
   ansprechperson: FLSpielbestaetigungSeat | null;
   stellvertretung: FLSpielbestaetigungSeat | null;
   trainer: FLSpielbestaetigungSeat | null;
-}
-
-export interface FLSpielbestaetigungPartyTeam {
-  art: "team";
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  team_id: string;
-}
-
-export interface FLSpielbestaetigungPartySchiedsrichter {
-  art: "schiedsrichter";
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  schiedsrichter_id: string;
 }
 
 /**
@@ -5986,9 +5993,37 @@ export interface FLSpieltag {
   version: number;
 }
 
+/**
+ * A matchday as its editor reads it, with how many matchdays its phase holds, by which a page names a round's legs.
+ */
+export interface FLSpieltagAdmin {
+  beginn: string | null;
+  /** @minimum 1 */
+  count_in_phase: number;
+  /** @minimum 0 */
+  count_spiele: number;
+  ende: string | null;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  id: string;
+  /** @minimum 1 */
+  position: number;
+  /**
+   * @minLength 4
+   * @maxLength 4
+   */
+  saison_id: string;
+  saison_phase: FLSaisonPhase;
+  version: number;
+}
+
+export interface FLSpieltagAdminResponse {
+  spieltag: FLSpieltagAdmin;
+}
+
 export interface FLSpieltagWriteResponse {
   /** @pattern ^[0-9a-fA-F]{24}$ */
   spieltag_id: string;
+  version: number;
 }
 
 export interface FLSpieltageListResponse {
@@ -6376,7 +6411,6 @@ export const Rule = {
   nichtantreten_with_torschuetzen: "nichtantreten_with_torschuetzen",
   registrierung_window_reaches_saison_start: "registrierung_window_reaches_saison_start",
   saison_ends_before_start: "saison_ends_before_start",
-  saison_year_out_of_range: "saison_year_out_of_range",
   spieltag_ends_before_start: "spieltag_ends_before_start",
   text_version_of_another_wording: "text_version_of_another_wording",
   torschuetzen_not_matching_tore: "torschuetzen_not_matching_tore",
@@ -6417,6 +6451,11 @@ export type N410Response = FLFailureBody;
  * Unprocessable Content
  */
 export type N422Response = FLFailureBody;
+
+/**
+ * Too Many Requests
+ */
+export type N429Response = FLFailureBody;
 
 /**
  * Internal Server Error
@@ -6510,10 +6549,6 @@ export const SaisonsGetSaisonsAdminOrder = {
   asc: "asc",
   desc: "desc",
 } as const;
-
-export type SaisonsGetInvitationsDispatchPreviewParams = {
-  resend?: boolean;
-};
 
 export type SchiedsrichterGetSchiedsrichterParams = {
   default_payment?: number | null;

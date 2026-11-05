@@ -10,6 +10,7 @@ import { COPY } from "@/core/copy";
 import { FieldLabel, MessageLine } from "./FieldParts";
 import { fieldFrame, fieldRoot, fieldUnit } from "./fieldStyles";
 import { useDisabled } from "./formClosed";
+import { tv } from "./tv";
 
 import type { Copy, Words } from "@/core/copy";
 import type { Constraints } from "./FieldParts";
@@ -25,6 +26,11 @@ type Shared = {
   onChange?: (value: string) => void;
   maxLength?: number;
   minLength?: number;
+  /**
+   * Where the label, the field and its line stand in the field's column: from its start, or centred, as each of a
+   * score's two figures stands under its club. A centred label is cut where it outruns the column.
+   */
+  align?: "start" | "center";
 };
 
 /**
@@ -90,6 +96,19 @@ const KINDS = {
   search: { type: "search", inputMode: undefined, autoComplete: undefined, pattern: undefined },
 } as const;
 
+/** The field's column, its parts standing from its start or centred in it. */
+const root = tv({
+  extend: fieldRoot,
+  variants: {
+    align: {
+      start: "",
+      // The label is the root's own first child, which a centred column lets shrink to its text, so it is held to
+      // the column's width and cut there.
+      center: "items-center text-center [&>label]:max-w-full [&>label]:truncate",
+    },
+  },
+});
+
 /** The example a malformed value is shown, by kind; a URL names its own. */
 const EXAMPLE = { email: COPY.shared.field.exampleAddress, digits: COPY.shared.field.exampleDigits } as const;
 
@@ -105,7 +124,7 @@ function LineWithError({ constraints }: { constraints: Constraints }) {
  * committed or the form submitted, never while typing.
  */
 export function TextField(props: TextFieldProps) {
-  const { label, description, consequence, isRequired = false, isDisabled = false, width, kind, maxLength, minLength } = props;
+  const { label, description, consequence, isRequired = false, isDisabled = false, width, kind, maxLength, minLength, align = "start" } = props;
   const keys = KINDS[kind];
   const constraints: Constraints = {
     maxLength,
@@ -131,7 +150,7 @@ export function TextField(props: TextFieldProps) {
 
   return (
     <AriaTextField
-      className={fieldRoot()}
+      className={root({ align })}
       name={props.name}
       value={props.value}
       defaultValue={props.defaultValue}

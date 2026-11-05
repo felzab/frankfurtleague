@@ -15,8 +15,6 @@ from app.api.einladungen.crud import owed_einladung_mails
 from app.api.einladungen.schemas import (
     FLEinladung,
     FLInvitationDispatchPayload,
-    FLInvitationDispatchPreviewResponse,
-    FLInvitationDispatchPreviewRow,
     FLInvitationDispatchResponse,
     FLInvitationDispatchRow,
     FLInvitationLinkRow,
@@ -36,7 +34,7 @@ from app.api.identity.crud import due_count, saison_statuses
 from app.api.identity.schemas import FLErasurePreviewResponse
 from app.api.identity.services import closed_by, statuses_after_activating
 from app.api.outbox.services import enqueue_mails
-from app.api.saisons.crud import count_teams_by_saison, pull_finale_by_saison, saisons_with_a_fixture_taken_place
+from app.api.saisons.crud import count_teams_by_saison, pull_create_state, pull_finale_by_saison, saisons_with_a_fixture_taken_place
 from app.api.saisons.schemas import (
     FLActivateSaisonResponse,
     FLGenerateSpielplanPayload,
@@ -53,6 +51,7 @@ from app.api.saisons.schemas import (
     FLSaisonAdminTeam,
     FLSaisonRules,
     FLSaisonsAdminListResponse,
+    FLSaisonsAdminRefusals,
     FLSaisonsFilterParams,
     FLSaisonSpielplan,
     FLSwapGruppenPayload,
@@ -67,7 +66,7 @@ from app.api.saisons.services import (
     find_berichte_refusal,
     find_rules_freeze_refusal,
     find_rules_refusal,
-    find_saison_id_refusal,
+    find_saison_create_refusal,
     find_saison_span_refusal,
     find_saison_start_austritt_refusal,
     find_saison_start_refusal,
@@ -105,6 +104,7 @@ from app.core.crud import (
     post_one_to_db,
     pull_many_from_db,
     pull_one_from_db,
+    pull_whole_from_db,
     refuse,
 )
 from app.core.dependencies import (
@@ -129,7 +129,6 @@ from app.core.exceptions import WriteRefusal
 from app.core.logging import fl_logger
 from app.core.security import bind_actor, get_actor_email, verify_access_admin
 from app.core.transactions import transaction_session
-from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.literals import FLGruppenNames
 
 router = APIRouter(
@@ -193,7 +192,8 @@ async def get_saisons_admin(
     still is, so an admin who cannot see one cannot run the league. `begun` is the start every
     start lock refuses on, the swap's, the replacement's and the rules freeze's; `taken_place` is what
     fixes the start date (`saison_start_taken_place`); `decided` is the landing's own rule, all four places of the Finale in.
-    `count_teams` counts every club row of the season, one that left included.
+    `count_teams` counts every club row of the season, one that left included. `next_saison_id` is the id the next create
+    mints, and `refusals.create` the code that create would be refused with now, by its own judgement, or null.
     """
 
     db_filter = build_query(filters, terms={"status"})
@@ -207,11 +207,13 @@ async def get_saisons_admin(
     )
 
     saison_ids = [str(raw["_id"]) for raw in saisons_raw]
-    taken_place, finale_by_saison, teams_by_saison = await asyncio.gather(
+    taken_place, finale_by_saison, teams_by_saison, (next_id, future_stands) = await asyncio.gather(
         saisons_with_a_fixture_taken_place(spiele_collection=spiele_collection, saison_ids=saison_ids, session=None),
         pull_finale_by_saison(spiele_collection=spiele_collection, saison_ids=saison_ids),
         count_teams_by_saison(saison_teams_collection=saison_teams_collection, saison_ids=saison_ids),
+        pull_create_state(saisons_collection=saisons_collection),
     )
+    create_refusal = find_saison_create_refusal(future_stands=future_stands)
     saisons = [
         {
             **with_schedule(raw),
@@ -223,7 +225,11 @@ async def get_saisons_admin(
         for raw in saisons_raw
     ]
 
-    return FLSaisonsAdminListResponse(saisons=FLSaisonAdminListAdapter.validate_python(saisons))
+    return FLSaisonsAdminListResponse(
+        saisons=FLSaisonAdminListAdapter.validate_python(saisons),
+        next_saison_id=next_id,
+        refusals=FLSaisonsAdminRefusals(create=None if create_refusal is None else create_refusal.error_code),
+    )
 
 
 # Declared after `/list/admin`, which it would otherwise answer with `list` as a season id; a static suffix rather than
@@ -247,9 +253,10 @@ async def get_saison_admin(
     The season is served a `future` one included, with its `version`, whether it has started (`begun`), whether a
     fixture of it has taken place (`taken_place`) and whether it is decided (`decided`), by the landing's own rule.
 
-    Each club's two flags are what the group swap's and the replacement's `sides_taken_place` read, so a picker closes
-    exactly the pairs and rows those writes refuse; `begun` closes both before either is pressed. `incoming_clubs` is
-    every club still in the league holding no row of the season, which is what the replacement admits.
+    Each club's two flags are what the group swap's `swap_sides_taken_place` and the replacement's
+    `replace_sides_taken_place` read, so a picker closes exactly the pairs and rows those writes refuse; `begun` closes
+    both before either is pressed. `incoming_clubs` is every club still in the league holding no row of the season,
+    which is what the replacement admits.
 
     `refusals` names, per act, the refusal its write would answer now, by that write's own judgement, so the editor
     offers an act exactly where the write takes it. `invitations` is the registration links' press planned by the function
@@ -265,28 +272,31 @@ async def get_saison_admin(
     # Two groups of reads sent at once, because `asyncio.gather`'s typing stops at six.
     (rows, fixtures, count_spieltage, clubs, finale_by_saison), (activation, recorded_rows, berichte, planned) = await asyncio.gather(
         asyncio.gather(
-            pull_many_from_db(
+            # Each whole, as `fl_backend/app/api/spiele/crud.py :: advance_bracket_winners` reads its season: a truncated
+            # list grades a club open whose taken-place fixture fell past the page, and offers a club the replacement
+            # refuses as entered.
+            pull_whole_from_db(
                 collection=saison_teams_collection,
                 db_filter={"saison_id": saison_id},
+                what=f"season {saison_id}'s clubs",
                 projection=["team_id", "name", "shorthand", "gruppe", "austritt"],
                 sort_by=build_sort(sort_by="name", order="asc"),
                 collation=GERMAN_COLLATION,
-                limit=LIST_LIMIT_DEFAULT + 1,
             ),
-            pull_many_from_db(
+            pull_whole_from_db(
                 collection=spiele_collection,
                 db_filter={"saison_id": saison_id},
+                what=f"season {saison_id}'s fixtures",
                 projection=["saison_phase", "team1.team_id", "team2.team_id", *TAKEN_PLACE_FIELDS],
-                limit=LIST_LIMIT_DEFAULT + 1,
             ),
             spieltage_collection.count_documents({"saison_id": saison_id}),
-            pull_many_from_db(
+            pull_whole_from_db(
                 collection=teams_collection,
                 db_filter={"inactive_since": None},
+                what="the league's clubs",
                 projection=["name", "shorthand"],
                 sort_by=build_sort(sort_by="name", order="asc"),
                 collation=GERMAN_COLLATION,
-                limit=LIST_LIMIT_DEFAULT + 1,
             ),
             pull_finale_by_saison(spiele_collection=spiele_collection, saison_ids=[saison_id]),
         ),
@@ -306,7 +316,6 @@ async def get_saison_admin(
                 saison_teams_collection=saison_teams_collection,
                 invitations_collection=invitations_collection,
                 ban_list=ban_list,
-                resend=False,
             ),
         ),
     )
@@ -314,12 +323,6 @@ async def get_saison_admin(
 
     def code_of(refusal: WriteRefusal | None) -> Code | None:
         return None if refusal is None else refusal.error_code
-
-    # One over the cap, as `fl_backend/app/api/spiele/crud.py :: advance_bracket_winners` asks: a truncated list grades a
-    # club open whose taken-place fixture fell past the page, and offers a club the replacement refuses as entered.
-    for listed, what in ((rows, "teams"), (fixtures, "fixtures"), (clubs, "clubs")):
-        if len(listed) > LIST_LIMIT_DEFAULT:
-            raise ValueError(f"season {saison_id} reads more than {LIST_LIMIT_DEFAULT} {what}, which is more than one read can grade")
 
     played = [spiel for spiel in fixtures if has_taken_place(spiel)]
 
@@ -405,10 +408,12 @@ async def post_saison(
     db: DBClient,
 ) -> FLPostSaisonResponse:
     """
-    Create a season, always `future`.
+    Create the next season, always `future`, answering the id it minted.
 
-    The id is supplied rather than generated -- it is the string every `saison_id` elsewhere
-    references, so reusing one is refused `duplicate_key`, naming `id`. Making the season live is a separate step.
+    The server names it: the year after the newest stored season's, or the league's first where none is stored, so a
+    season is never created out of turn. Refused while a `future` season stands (`create_saison_future_stands`), so a
+    league holds at most one planned season; two creates racing each other mint one id, and the second is refused
+    `duplicate_key` with no path. Making the season live is a separate step.
     """
 
     refuse(
@@ -431,12 +436,11 @@ async def post_saison(
     )
 
     async def enter_the_season(session: AsyncClientSession) -> InsertOneResult:
-        holder = await saisons_collection.find_one({"_id": saison_data.id}, projection={"_id": 1}, session=session)
-        refuse(find_saison_id_refusal(taken=holder is not None))
+        saison_id, future_stands = await pull_create_state(saisons_collection=saisons_collection, session=session)
+        refuse(find_saison_create_refusal(future_stands=future_stands))
         return await post_one_to_db(
             collection=saisons_collection,
-            # `_id` rather than `id`: this payload's `id` IS the document key.
-            document={**saison_data.model_dump(mode="json", exclude={"id"}), "_id": saison_data.id, "status": "future"},
+            document={**saison_data.model_dump(mode="json"), "_id": saison_id, "status": "future"},
             session=session,
         )
 
@@ -692,20 +696,13 @@ async def _pull_recorded_fact_rows(
     records than the season holds, and the window opens on work the removal would destroy.
     """
 
-    stored_spiele = await pull_many_from_db(
+    return await pull_whole_from_db(
         collection=spiele_collection,
         db_filter={"saison_id": saison_id},
+        what=f"season {saison_id}'s fixtures",
         projection=list(RECORDED_FACT_FIELDS),
-        limit=LIST_LIMIT_DEFAULT + 1,
         session=session,
     )
-
-    if len(stored_spiele) > LIST_LIMIT_DEFAULT:
-        raise ValueError(
-            f"season {saison_id} holds more than {LIST_LIMIT_DEFAULT} fixtures, more than one read can weigh a replace or an undraw against"
-        )
-
-    return stored_spiele
 
 
 def _find_undraw_refusal_of(*, saison_status: str, recorded_fixtures: int, berichte: int) -> WriteRefusal | None:
@@ -958,21 +955,16 @@ async def post_spielplan(
         # under `FLSaisonRules`' own types.
         rules = stored_rules if spielplan_data.shape is None else stored_rules.model_copy(update=spielplan_data.shape.model_dump())
 
-        entered_rows = await pull_many_from_db(
+        # Whole: a truncated entry list draws a season short of teams and weighs a group occupancy no group holds.
+        entered_rows = await pull_whole_from_db(
             collection=saison_teams_collection,
             db_filter={"saison_id": saison_id},
+            what=f"season {saison_id}'s clubs",
             # `name` and `shorthand` off the JUNCTION: that is the name the season is played under,
             # and `teams` may since have been renamed.
             projection=["team_id", "gruppe", "name", "shorthand"],
-            limit=LIST_LIMIT_DEFAULT + 1,
             session=session,
         )
-
-        # One over the cap, as `fl_backend/app/api/spiele/crud.py :: advance_bracket_winners` asks:
-        # a truncated entry list draws a season short of teams and
-        # weighs a group occupancy no group holds.
-        if len(entered_rows) > LIST_LIMIT_DEFAULT:
-            raise ValueError(f"season {saison_id} holds more than {LIST_LIMIT_DEFAULT} entry rows, which is more than one read can draw from")
 
         occupancy: dict[FLGruppenNames, int] = {}
         for row in entered_rows:
@@ -1226,19 +1218,14 @@ async def _entered_teams(*, saison_teams_collection: AsyncCollection, saison_id:
     reason): a truncated list silently leaves teams unmailed, which is what this press exists to stop.
     """
 
-    entered = await pull_many_from_db(
+    return await pull_whole_from_db(
         collection=saison_teams_collection,
         db_filter={"saison_id": saison_id},
+        what=f"season {saison_id}'s clubs",
         projection=["team_id", "name", "kontakte", "austritt"],
         sort_by=build_sort(sort_by="name", order="asc"),
         collation=GERMAN_COLLATION,
-        limit=LIST_LIMIT_DEFAULT + 1,
     )
-
-    if len(entered) > LIST_LIMIT_DEFAULT:
-        raise ValueError(f"season {saison_id} holds more than {LIST_LIMIT_DEFAULT} teams, which is more than one read can mail in one press")
-
-    return entered
 
 
 async def _barred_recipients(ban_list: BanList, entered: Sequence[Mapping[str, Any]]) -> set[str]:
@@ -1263,11 +1250,11 @@ async def _plan_the_dispatch(
     saison_teams_collection: AsyncCollection,
     invitations_collection: AsyncCollection,
     ban_list: BanList,
-    resend: bool,
 ) -> list[_PlannedTeam]:
     """Every team of the season planned by `plan_einladung_versand`, the function the press decides each team by.
 
-    Read outside any transaction, for the preview and the editor's read: the press plans each team again in its own.
+    `resend` left false, as the editor's press sends it. Read outside any transaction, for the editor's read: the press
+    plans each team again in its own.
     """
 
     entered = await _entered_teams(saison_teams_collection=saison_teams_collection, saison_id=saison_id)
@@ -1291,7 +1278,7 @@ async def _plan_the_dispatch(
             austritt=team.get("austritt"),
             kontakte=team.get("kontakte"),
             einladung_raw=einladung_raw,
-            resend=resend,
+            resend=False,
             barred=barred,
         )
         planned.append(_PlannedTeam(team=team, live=einladung_raw, plan=plan))
@@ -1433,61 +1420,6 @@ async def _mail_one_team(
 
 
 @router.get(
-    "/{saison_id}/invitations/dispatch/preview",
-    response_model=FLInvitationDispatchPreviewResponse,
-    summary="Who the send would reach",
-)
-async def get_invitations_dispatch_preview(
-    saison_id: str,
-    saison_teams_collection: SaisonTeamsCollection,
-    invitations_collection: InvitationsCollection,
-    saisons_collection: SaisonsCollection,
-    ban_list: BanListLookup,
-    resend: bool = False,
-) -> FLInvitationDispatchPreviewResponse:
-    """
-    Per team of this season, the mailboxes the send would write to and the reason it would skip a team — and it writes nothing itself.
-
-    Decided by the function the send itself decides by, so the list read here is the list performed. `resend` mirrors the send's own
-    switch: left false, a team whose live link was already sent, by the day stored on it, reads as `already_sent`, and pressing the send with
-    `resend` true instead makes this preview's own answer wrong unless the same value is asked for here.
-
-    **`replaced_link` is the warning this list carries**: the send mints for every team it answers, so a team already holding a link has that
-    link REVOKED and the copy in somebody's inbox opens nothing from that moment. A row carries no trace of the invitation the team holds,
-    so a page offering the press reads that fact here or nowhere.
-
-    Five skips, each an ordinary state rather than a refusal: the team has left this season, it holds no contact block, no seat of that
-    block has been confirmed by its own person, every confirmed seat's address is on the ban list, or its live link was already
-    sent and `resend` is false. A season holding
-    no team answers an empty list. One row per MAILBOX, so a person sitting in two seats is named once. 404 where no season holds that id.
-    """
-
-    await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["_id"])
-
-    planned = await _plan_the_dispatch(
-        saison_id=saison_id,
-        saison_teams_collection=saison_teams_collection,
-        invitations_collection=invitations_collection,
-        ban_list=ban_list,
-        resend=resend,
-    )
-
-    return FLInvitationDispatchPreviewResponse(
-        saison_id=saison_id,
-        rows=[
-            FLInvitationDispatchPreviewRow(
-                team_id=team.team["team_id"],
-                team_name=team.team["name"],
-                recipient=team.plan.recipient,
-                skipped=team.plan.skipped,
-                replaced_link=team.plan.replaced_link,
-            )
-            for team in planned
-        ],
-    )
-
-
-@router.get(
     "/{saison_id}/erasure/preview",
     response_model=FLErasurePreviewResponse,
     summary="How many pupils activating this season would delete",
@@ -1543,8 +1475,8 @@ async def post_invitations_dispatch(
 
     **Every team mailed gets a fresh invite, and any link that team already held is REVOKED in the same per-team transaction** — the
     copy in somebody's inbox opens nothing from that moment. The mails are owed in that transaction too, each minting its link when it is
-    handed out; no link is answered. `replaced_link` says of each row whether a link died for it, and the preview answers it before the
-    press. A team this skips is left exactly as it was.
+    handed out; no link is answered. `replaced_link` says of each row whether a link died for it, and the season editor's rows answer it
+    before the press. A team this skips is left exactly as it was.
 
     Five skips, each an ordinary state rather than a refusal: the team has left this season, it holds no contact block, no seat of that block
     has been confirmed by its own person, every confirmed seat's address is on the ban list, or its live link was already sent and

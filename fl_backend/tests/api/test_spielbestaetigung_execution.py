@@ -745,6 +745,12 @@ async def book_the_referee_beside_it(database: AsyncDatabase) -> None:
     )
 
 
+async def book_the_ground_beside_it(database: AsyncDatabase) -> None:
+    await database[Collection.SPIELE].insert_one(
+        fixture(NEIGHBOUR, spiel_nr=2, datum=PROPOSAL[0], uhrzeit="19:00:00", schiedsrichter=None, team1=None, team2=None)
+    )
+
+
 async def let_a_club_leave_before_the_proposal(database: AsyncDatabase) -> None:
     exit_record = {"type": "rueckzug", "grund": "Schule zieht zurück", "datum": PROPOSAL[0]}
     await database[Collection.SAISON_TEAMS].update_one({"team_id": TEAM2}, {"$set": {"austritt": exit_record}})
@@ -1174,7 +1180,7 @@ class TestTheAdoption:
 
         assert moved_to == PROPOSAL
         # Left for the pass to close, which tells every party of the move alike; a second adoption finds the proposal spent.
-        assert (closed, again) == (None, Code.ANSETZUNG_NOT_DISCARDABLE)
+        assert (closed, again) == (None, Code.ANSETZUNG_NOT_ADOPTABLE)
 
     def test_a_discard_landing_inside_the_adoption_leaves_the_fixture_where_it_stands(self, mongo_replica_set_url: str):
         """Both committing, the club would be told the date stands and every party asked about the date its proposal named."""
@@ -1195,7 +1201,7 @@ class TestTheAdoption:
 
         outcome, slot, grund = on_a_fixture(mongo_replica_set_url, body)
 
-        assert (outcome, grund) == (Code.ANSETZUNG_NOT_DISCARDABLE, "discarded")
+        assert (outcome, grund) == (Code.ANSETZUNG_NOT_ADOPTABLE, "discarded")
         assert slot != PROPOSAL
 
     @pytest.mark.parametrize(
@@ -1205,12 +1211,23 @@ class TestTheAdoption:
             pytest.param(None, "2027-05-16", Code.ANSETZUNG_VORSCHLAG_PAST_AS_STORED, id="the-proposed-day-gone-by"),
             # The save's own refusal of the proposed day, which names a box of a body this request has not got.
             pytest.param(narrow_the_matchday, TODAY, Code.SPIEL_OUTSIDE_SPIELTAG, id="the-save-refusing-the-day"),
+            # The save's refusals the catalogue words by their path, each under its twin for that path.
+            pytest.param(book_the_ground_beside_it, TODAY, Code.SPIEL_DOUBLE_BOOKED_SPIELORT_AS_STORED, id="the-ground-booked-beside-it"),
+            pytest.param(
+                book_the_referee_beside_it, TODAY, Code.SPIEL_DOUBLE_BOOKED_SCHIEDSRICHTER_AS_STORED, id="the-referee-booked-beside-it"
+            ),
+            pytest.param(
+                let_a_club_leave_before_the_proposal, TODAY, Code.ELIGIBILITY_DISQUALIFIED_TEAM2_AS_STORED, id="a-side-out-by-the-new-day"
+            ),
         ],
     )
     def test_a_refused_adoption_names_no_box_and_leaves_the_fixture_where_it_stands(
         self, mongo_replica_set_url: str, since: Callable[[AsyncDatabase], Awaitable[None]] | None, today: str, code: Code
     ):
-        """Moved anyway, the fixture lands on a day gone by or outside its matchday; refused naming a box, the press has none to mark."""
+        """Moved anyway, the fixture lands on a day gone by, outside its matchday, on a booked ground or referee, or fields a club gone.
+
+        Refused naming a box, the press has none to mark; refused under a code the catalogue words by its path, it words none.
+        """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await ablehnen(database, client, token(TEAM1, "trainer"), PROPOSAL, begruendung=REASON)
@@ -1359,7 +1376,8 @@ class TestTheQueueListsAFixtureItsConfirmationsPutThere:
     def test_the_fixture_is_listed_where_a_clubs_row_asks_for_the_administrator(
         self, mongo_replica_set_url: str, row1: dict[str, Any], today: str, moved: bool, listed: bool
     ):
-        # The other club agreed, so ROW1 alone decides; the referee's row is overdue whatever the case, and lists nothing.
+        # The other club and the referee agreed, so ROW1 alone decides; a referee's row owing its answer lists the fixture
+        # as a club's does (`test_saison_overview.py :: TestEachKindLandsOnItsCard`).
         agreed = {"antwort": {**DECLINE, "art": "zugesagt", "vorschlag": None}}
         referee = documents.spielbestaetigung_document(
             fixture(),
@@ -1367,6 +1385,7 @@ class TestTheQueueListsAFixtureItsConfirmationsPutThere:
             frist="2027-04-30",
             asked_at=TODAY,
             kontakte=None,
+            antwort={"art": "zugesagt", "am": TODAY, "von": {"art": "schiedsrichter"}, "vorschlag": None, "begruendung": None},
         )
         rows = [{**confirmation(ROW1, TEAM1), **row1}, confirmation(ROW2, TEAM2, **agreed), referee]
 
@@ -1724,9 +1743,15 @@ class TestAReassignmentLandingMidAnswer:
 
 
 async def speichern(
-    database: AsyncDatabase, client: AsyncMongoClient, geladen: Mapping[str, Any], *, spiele: Any = None, **overrides: Any
+    database: AsyncDatabase,
+    client: AsyncMongoClient,
+    geladen: Mapping[str, Any],
+    *,
+    spiele: Any = None,
+    dry_run: bool = False,
+    **overrides: Any,
 ) -> Any:
-    """The administrator's save from an editor that loaded `geladen`, changing what `overrides` names."""
+    """The administrator's save from an editor that loaded `geladen`, changing what `overrides` names, or its dry run."""
 
     return await patch_spiel(
         spiel_id=SPIEL,
@@ -1740,7 +1765,9 @@ async def speichern(
         spielorte_collection=database[Collection.SPIELORTE],
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         spielberichte_collection=database[Collection.SPIELBERICHTE],
-        dry_run=False,
+        spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+        today=TODAY,
+        dry_run=dry_run,
     )
 
 
@@ -1778,6 +1805,53 @@ class TestASaveFromAnEditorOpenedBeforeTheDecline:
             return (await spiel_now(database))["schiedsrichter"]["schiedsrichter_id"]
 
         assert on_a_refereed_fixture(mongo_replica_set_url, body) == SCHIEDSRICHTER
+
+
+# As the dry run serves each party.
+CLUB1, CLUB2, OTTOS = (
+    {"art": "team", "team_id": str(TEAM1)},
+    {"art": "team", "team_id": str(TEAM2)},
+    {"art": "schiedsrichter", "schiedsrichter_id": str(SCHIEDSRICHTER)},
+)
+
+
+class TestTheDryRunNamesWhomTheSaveHasThePassMail:
+    """The match editor's warning reads the dry run's `recipients`: a copy of the pass's rules on the page would drift from them."""
+
+    @pytest.mark.parametrize(
+        ("overrides", "told"),
+        [
+            pytest.param({"uhrzeit": "19:30:00"}, [CLUB1, CLUB2, OTTOS], id="a-move-tells-every-party-asked"),
+            pytest.param({"schiedsrichter": None}, [OTTOS], id="the-referee-taken-off-is-told-alone"),
+            pytest.param({"notiz": "Halle umgebucht"}, [], id="a-note-tells-nobody"),
+        ],
+    )
+    def test_the_dry_run_names_the_parties_the_pass_tells(
+        self, mongo_replica_set_url: str, overrides: dict[str, Any], told: list[dict[str, Any]]
+    ):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            preview = await speichern(database, client, await spiel_now(database), dry_run=True, **overrides)
+
+            return preview.recipients, (await spiel_now(database))["uhrzeit"]
+
+        recipients, uhrzeit = on_a_refereed_fixture(mongo_replica_set_url, body)
+
+        assert sorted((party.model_dump() for party in recipients), key=str) == sorted(told, key=str)
+        assert uhrzeit == UHRZEIT, "the dry run wrote the fixture"
+
+    def test_a_party_never_asked_is_told_nothing(self, mongo_replica_set_url: str):
+        """The pass owes a notice only once its request was owed, so a club never asked hears of a move by its request."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            preview = await speichern(database, client, await spiel_now(database), dry_run=True, uhrzeit="19:30:00")
+
+            return preview.recipients
+
+        rows = [confirmation(ROW1, TEAM1), {**confirmation(ROW2, TEAM2), "asked_at": None}, referee_row()]
+
+        assert sorted((party.model_dump() for party in on_a_refereed_fixture(mongo_replica_set_url, body, rows=rows)), key=str) == sorted(
+            [CLUB1, OTTOS], key=str
+        )
 
 
 class TestARowAnswersOnlyToItsOwnReferee:

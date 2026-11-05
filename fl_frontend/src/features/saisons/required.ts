@@ -11,9 +11,8 @@ const required = (field: { safeParse: (value: unknown) => { success: boolean } }
 
 const create = SaisonsPostSaisonBody.shape;
 
-/** What the create asks of the dialog's three boxes, read on the server so its schema never reaches the browser. */
+/** What the create asks of the dialog's two boxes, read on the server so its schema never reaches the browser. */
 export const CREATE_REQUIRED = {
-  id: required(create.id, ""),
   start: required(create.start_date, ""),
   end: required(create.end_date, ""),
 };
