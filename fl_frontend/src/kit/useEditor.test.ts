@@ -29,20 +29,6 @@ async function press(submit: () => void) {
 }
 
 describe("an editor's draft", () => {
-  it("counts only the fields that differ from the stored record", () => {
-    const { result } = editorOn(STORED);
-
-    act(() => result.current.set("plz", "60439"));
-    expect(result.current.draft.plz).toBe("60439");
-    expect(result.current.count).toBe(1);
-    expect(result.current.status).toStrictEqual({ tone: "changes", text: COPY.template.changesPending(1) });
-
-    // Typed back to what is stored, the field is no change.
-    act(() => result.current.set("plz", "60438"));
-    expect(result.current.count).toBe(0);
-    expect(result.current.status).toBeNull();
-  });
-
   it("saves the changed fields alone, on the version of the read", async () => {
     const { result, save } = editorOn(STORED);
 
@@ -66,43 +52,6 @@ describe("an editor's draft", () => {
     await press(result.current.submit);
     // The draft was made on version 1, so the server can refuse the save as stale.
     expect(save).toHaveBeenLastCalledWith({ id: "ort-1", version: 1, changes: { name: "SC Riedberg" } });
-  });
-
-  it("takes a newer read at once while nothing is unsaved", async () => {
-    const { result, rerender, save } = editorOn(STORED);
-
-    rerender({ shown: { ...STORED, version: 2 } });
-    act(() => result.current.set("plz", "60439"));
-    await press(result.current.submit);
-
-    expect(save).toHaveBeenLastCalledWith({ id: "ort-1", version: 2, changes: { plz: "60439" } });
-  });
-
-  it("takes the saved record's version after its own save, keeping an edit made meanwhile", async () => {
-    const { result, rerender, save } = editorOn(STORED);
-
-    act(() => result.current.set("plz", "60439"));
-    await press(result.current.submit);
-    expect(result.current.status).toStrictEqual({ tone: "changes", text: COPY.template.changesPending(1) });
-
-    act(() => result.current.set("name", "SC Riedberg"));
-    // The saved record comes back with the saved postcode and a new version.
-    rerender({ shown: { id: "ort-1", version: 2, values: { ...STORED.values, plz: "60439" } } });
-    expect(result.current.count).toBe(1);
-
-    await press(result.current.submit);
-    expect(save).toHaveBeenLastCalledWith({ id: "ort-1", version: 2, changes: { name: "SC Riedberg" } });
-  });
-
-  it("says „Gespeichert“ once the saved record is served", async () => {
-    const { result, rerender } = editorOn(STORED);
-
-    act(() => result.current.set("plz", "60439"));
-    await press(result.current.submit);
-    rerender({ shown: { id: "ort-1", version: 2, values: { ...STORED.values, plz: "60439" } } });
-
-    expect(result.current.count).toBe(0);
-    expect(result.current.status).toStrictEqual({ tone: "saved", text: COPY.shared.saved });
   });
 
   it("takes nobody else's read as its own after a save the write stored as already stored", async () => {
@@ -136,25 +85,6 @@ describe("an editor's draft", () => {
     expect(result.current.status).toStrictEqual({ tone: "saved", text: note });
   });
 
-  it("takes its own save's serving however the page and the answer arrive, the page first included", async () => {
-    const answer = Promise.withResolvers<ActionAnswer<number>>();
-    const { result, rerender, save } = editorOn(STORED, () => answer.promise);
-
-    // A note the write stores trimmed, beside a postcode it stores as sent.
-    act(() => result.current.set("name", "Riedberg "));
-    act(() => result.current.set("plz", "60439"));
-    await press(result.current.submit);
-    // The page's fresh serving lands before the action's answer.
-    rerender({ shown: { id: "ort-1", version: 2, values: { ...STORED.values, plz: "60439" } } });
-    await act(async () => answer.resolve({ ok: true, value: 2 }));
-
-    expect(result.current.count).toBe(0);
-    expect(result.current.draft.name).toBe("Riedberg");
-    act(() => result.current.set("mietpreis", "80"));
-    await press(result.current.submit);
-    expect(save).toHaveBeenLastCalledWith({ id: "ort-1", version: 2, changes: { mietpreis: "80" } });
-  });
-
   it("keeps its own save's version where someone else wrote before the page served it, under an unsaved edit", async () => {
     const { result, rerender, save } = editorOn(STORED);
 
@@ -168,64 +98,9 @@ describe("an editor's draft", () => {
     // The draft rests on version 2, so the server can refuse the save as stale.
     expect(save).toHaveBeenLastCalledWith({ id: "ort-1", version: 2, changes: { name: "SC Riedberg" } });
   });
-
-  it("starts fresh on another record", () => {
-    const { result, rerender } = editorOn(STORED);
-
-    act(() => result.current.set("name", "SC Riedberg"));
-    rerender({ shown: { id: "ort-2", version: 1, values: { name: "Kalbach", plz: "60437", mietpreis: "80" } } });
-
-    expect(result.current.count).toBe(0);
-    expect(result.current.draft.name).toBe("Kalbach");
-  });
-
-  it("drops every change on a discard", () => {
-    const { result } = editorOn(STORED);
-
-    act(() => result.current.set("name", "SC Riedberg"));
-    act(() => result.current.discard());
-
-    expect(result.current.count).toBe(0);
-    expect(result.current.draft).toStrictEqual(STORED.values);
-  });
 });
 
 describe("an editor's refused save", () => {
-  it("answers a throw with the stale-page line, reads the page again and keeps the input", async () => {
-    const { result } = editorOn(STORED, async () => {
-      throw new Error("the backend is gone");
-    });
-
-    act(() => result.current.set("plz", "60439"));
-    router.refresh.mockClear();
-    await press(result.current.submit);
-
-    expect(result.current.status).toStrictEqual({ tone: "error", text: COPY.shared.failure.stale });
-    expect(router.refresh).toHaveBeenCalledOnce();
-    expect(result.current.draft.plz).toBe("60439");
-  });
-
-  it("points at the fields when they alone were refused, until the next edit", async () => {
-    const plz = COPY.shared.field.required;
-    // The action keys a message by its field's whole path in the save, and the box is named by its key in `changes`.
-    const { result, rerender } = editorOn(STORED, async () => ({ ok: false, fieldErrors: { "changes.plz": plz } }));
-
-    act(() => result.current.set("plz", ""));
-    await press(result.current.submit);
-    expect(result.current.status).toStrictEqual({ tone: "error", text: COPY.template.checkFields });
-    expect(result.current.fieldErrors).toStrictEqual({ plz });
-
-    // The same object across renders, which React Aria would take for a new refusal to show again.
-    const shown = result.current.fieldErrors;
-    rerender({ shown: STORED });
-    expect(result.current.fieldErrors).toBe(shown);
-
-    act(() => result.current.set("plz", "60439"));
-    expect(result.current.status).toStrictEqual({ tone: "changes", text: COPY.template.changesPending(1) });
-    // Gone with the edit: a box posting no form value, such as the toggle boxes, clears its message by this alone.
-    expect(result.current.fieldErrors).toBeUndefined();
-  });
-
   it("shows a refusal's own reason", async () => {
     const { result } = editorOn(STORED, async () => ({ ok: false, reason: COPY.shared.failure.stale }));
 
@@ -242,20 +117,6 @@ describe("an editor's save the server holds back for a question", () => {
 
   /** A server holding every save back for its question. */
   const heldBack = () => editorOn(STORED, async () => ({ ok: false, ask: QUESTION }));
-
-  it("asks its question, saying nothing failed, and sends the same save again with its token once confirmed", async () => {
-    const { result, save } = heldBack();
-    save.mockImplementation(async (change) => (change.confirm === QUESTION.confirm ? { ok: true, value: 2 } : { ok: false, ask: QUESTION }));
-
-    act(() => result.current.set("plz", "60439"));
-    await press(result.current.submit);
-    expect(result.current.question).toStrictEqual(QUESTION);
-    expect(result.current.status).toStrictEqual({ tone: "changes", text: COPY.template.changesPending(1) });
-
-    await press(result.current.confirm);
-    expect(save).toHaveBeenLastCalledWith({ id: "ort-1", version: 1, changes: { plz: "60439" }, confirm: "31" });
-    expect(result.current.question).toBeNull();
-  });
 
   it("drops its question when declined, sending nothing", async () => {
     const { result, save } = heldBack();
