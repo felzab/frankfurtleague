@@ -22,7 +22,7 @@ from app.api.schiedsrichter.services import (
     find_alter_refusal,
     find_confirmation_barred_refusal,
     find_expired_token_refusal,
-    find_medien_refusal,
+    find_media_refusal,
     find_unknown_token_refusal,
     zustand_of,
 )
@@ -162,7 +162,7 @@ async def post_confirmation(
         )
         refuse(find_confirmation_barred_refusal(barred=bool(barred)))
         refuse(find_alter_refusal(geburtsdatum=antwort_data.geburtsdatum, today=today))
-        refuse(find_medien_refusal(geburtsdatum=antwort_data.geburtsdatum, media=antwort_data.media, today=today))
+        refuse(find_media_refusal(geburtsdatum=antwort_data.geburtsdatum, media=antwort_data.media, today=today))
 
         await patch_one_in_db(
             collection=schiedsrichter_collection,

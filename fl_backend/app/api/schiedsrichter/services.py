@@ -378,7 +378,7 @@ def find_alter_refusal(*, geburtsdatum: str, today: str) -> WriteRefusal | None:
     return None
 
 
-def find_medien_refusal(*, geburtsdatum: str, media: bool, today: str) -> WriteRefusal | None:
+def find_media_refusal(*, geburtsdatum: str, media: bool, today: str) -> WriteRefusal | None:
     """Why this referee's media consent is refused, or `None`.
 
     Only a `True` is judged: a `False` publishes nothing, and refusing it would refuse the answer the
