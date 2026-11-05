@@ -98,6 +98,23 @@ describe("the season editor's save", () => {
     expect(answer).toEqual({ ok: false, errorCode: "rules_gruppen_in_use", fieldErrors: { "changes.gruppen": COPY.shared.field.min(3) } });
   });
 
+  /* A window with one day gone would be sent as no window, deleting the whole window under „Gespeichert“. */
+  it.each(["bewerbungStart", "bewerbungEnd"] as const)(
+    "refuses an application window left without its %s, before the write",
+    async (cleared) => {
+      const answer = await saveSaison({ id: "2027", version: 3, changes: { [cleared]: null } });
+
+      expect(answer).toEqual({ ok: false, fieldErrors: { [`changes.${cleared}`]: COPY.shared.field.required } });
+      expect(stand.sent).toEqual([]);
+    },
+  );
+
+  it("sends no application window once both its days are cleared", async () => {
+    await saveSaison({ id: "2027", version: 3, changes: { bewerbungStart: null, bewerbungEnd: null } });
+
+    expect(stand.sent).toEqual([expect.objectContaining({ bewerbung: null })]);
+  });
+
   it("words the span the matchdays need on the side of the season that falls short", async () => {
     const span = { start: "2027-03-13", end: "2027-06-26" };
     stand.refusal = refusal("saison_span_below_spieltage", [bodyField(["end_date"], "saison_span_below_spieltage", span)]);
