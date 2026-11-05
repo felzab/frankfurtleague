@@ -20,6 +20,10 @@ class FLEinladung(BaseReadModel):
     # Required as a KEY and null while the invite stands: `uniq_invitation_live` reaches the rows
     # holding null, so a row that could omit it would fall outside the one-live-invite rule.
     revoked_at: CustomOptionalDateString
+    # The German day the link's mails were last owed to the team's confirmed seats, by the season's press or the team's own;
+    # null where none ever was, a link minted for copying. Stored rather than read off `outbox`, whose rows are erased a
+    # retention after their final state (`app/api/outbox/services.py :: RETENTION`).
+    sent_at: CustomOptionalDateString
 
 
 class FLEinladungRecord(FLEinladung):
@@ -113,6 +117,18 @@ class _EinladungVersandZeile(BaseModel):
 
 class FLInvitationDispatchPreviewRow(_EinladungVersandZeile):
     """One team as the preview reports it. It mints nothing, so it answers no link."""
+
+
+class FLInvitationLinkRow(_EinladungVersandZeile):
+    """One team as the season editor's registration links list it: today's preview of the press, and the link the team holds.
+
+    The preview is the press's own plan with `resend` left false, as the editor's press sends it.
+    """
+
+    # Whether the team holds a live link, which `replaced_link` alone cannot say of a team the press skips.
+    has_link: bool
+    # The live link's `sent_at`: the day its mails were last owed, null where it never was mailed or the team holds none.
+    sent_at: CustomOptionalDateString
 
 
 class FLInvitationDispatchRow(_EinladungVersandZeile):

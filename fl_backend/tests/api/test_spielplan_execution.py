@@ -17,6 +17,7 @@ from app.api.saisons.schemas import (
     FLGenerateSpielplanPayload,
     FLGenerateSpielplanResponse,
     FLPatchSaisonPayload,
+    FLPatchSaisonResponse,
     FLSaisonRules,
     FLSpielplanShape,
     FLUndrawSpielplanResponse,
@@ -243,7 +244,7 @@ async def stored_rules(database: AsyncDatabase) -> dict[str, Any]:
     return stored["rules"]
 
 
-async def call_patch_rules(database: AsyncDatabase, **overrides: Any) -> None:
+async def call_patch_rules(database: AsyncDatabase, **overrides: Any) -> FLPatchSaisonResponse:
     """The whole rules object every time, `rules` being required on the patch, so a case names only the value it changes.
 
     The seed's own dates, so `saison_span_below_spieltage` and `saison_span_below_spielplan` cannot be what a refusal is about,

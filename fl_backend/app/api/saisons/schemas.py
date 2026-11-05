@@ -15,12 +15,13 @@ from pydantic import (
 )
 from pydantic_core import InitErrorDetails
 
+from app.api.einladungen.schemas import FLInvitationLinkRow
 from app.api.spielberichte.schemas import FLSpielberichtPublic
 from app.api.spiele.schemas import FLSpielJoined
 from app.api.spieler.schemas import FLSpielerPublic
 from app.api.teams.schemas import MAX_NUMBER_OF_GROUPS, FLAustritt, FLSaisonTeamEntry, FLTabelleRow, FLTeamPageClub
 from app.core import clock
-from app.core.codes import Rule
+from app.core.codes import Code, Rule
 
 # Imported rather than restated. Acyclic: no model of `teams` imports this file --
 # `teams/services.py` does, and no model there.
@@ -245,9 +246,20 @@ class FLSaisonAdmin(FLSaison):
     # DERIVED per read by `app/api/teams/services.py :: has_taken_place` over every fixture of the season: true,
     # the start date is fixed (`saison_start_taken_place`), so the field closes exactly where the edit refuses.
     taken_place: bool
+    # DERIVED per read by `app/api/saisons/services.py :: decided_podium` over the season's Finale, the rule the landing
+    # reads its `decided` state by, so the list, the editor and the landing say one word of one season.
+    decided: bool
 
 
-FLSaisonAdminListAdapter = TypeAdapter(list[FLSaisonAdmin])
+class FLSaisonAdminListed(FLSaisonAdmin):
+    """One season as the admin list shows it: the editor's season and how many clubs it holds."""
+
+    # COUNTED per read off `saison_teams`, never stored: every row, a club that left included, since a team never leaves
+    # a season and the season's Teams page lists it with its Austritt.
+    count_teams: int = Field(ge=0)
+
+
+FLSaisonAdminListAdapter = TypeAdapter(list[FLSaisonAdminListed])
 
 
 class FLSaisonsFilterParams(BaseModel):
@@ -364,7 +376,7 @@ class FLSaisonAdminClub(BaseReadModel):
 
 class FLSaisonsAdminListResponse(BaseAPIResponse):
     format: Literal["list"] = "list"
-    saisons: list[FLSaisonAdmin]
+    saisons: list[FLSaisonAdminListed]
 
 
 class FLSaisonFrameEntry(BaseReadModel):
@@ -471,11 +483,24 @@ class FLUndrawSpielplanResponse(BaseAPIResponse):
     watermark_cleared: bool
 
 
+class FLSaisonActRefusals(BaseReadModel):
+    """Why each of the editor's three danger acts would be refused if pressed now, judged by its write's own rules; null where it takes it.
+
+    `activate` and `undraw` are their writes' whole judgement. `recreate` is the part of a confirmed redraw no shape
+    changes, its planning window and then the reports it would delete: the shape's own refusals come with the press, the
+    shapes offered being those the draw admits.
+    """
+
+    activate: Code | None
+    recreate: Code | None
+    undraw: Code | None
+
+
 class FLSaisonAdminResponse(BaseAPIResponse):
-    """What the season editor shows, in one read: the season, its clubs, the clubs a replacement may bring in, its shapes and its matchdays.
+    """What the season editor shows, in one read: its season, clubs, shapes and matchdays, its acts' states and its registration links.
 
     `shapes` is every shape the season's other rules admit, judged as the draw judges a shape it is given;
-    `count_spieltage` is the matchdays the season holds.
+    `count_spieltage` is the matchdays the season holds; `invitations` holds one row per club, in `teams`' order.
     """
 
     saison: FLSaisonAdmin
@@ -483,6 +508,8 @@ class FLSaisonAdminResponse(BaseAPIResponse):
     incoming_clubs: list[FLSaisonAdminClub]
     shapes: list[FLSpielplanShape]
     count_spieltage: int = Field(ge=0)
+    refusals: FLSaisonActRefusals
+    invitations: list[FLInvitationLinkRow]
 
 
 class FLTeamPageSpiel(FLSpielJoined):

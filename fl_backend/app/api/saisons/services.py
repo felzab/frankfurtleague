@@ -6,7 +6,8 @@ from typing import Any
 
 from app.api.saisons.schedule import expected_matches, knockout_phases_for, qualifier_count, schedule_for
 from app.api.saisons.schemas import MAX_TEAMS_PER_GROUP, MIN_TEAMS_PER_GROUP, FLSaisonRules, FLSpielplanShape
-from app.api.spiele.schemas import FLSpiel, is_unplayed
+from app.api.spiele.schemas import FLSpiel, FLSpielJoinedInternal, FLSpielTeamFieldJoinedInternal, is_unplayed
+from app.api.spiele.services import podium_of
 from app.api.teams.schemas import MAX_NUMBER_OF_GROUPS
 from app.api.teams.services import offered_gruppen
 from app.core.codes import Code
@@ -48,6 +49,30 @@ def has_started(*, start_date: str, today: str) -> bool:
     """
 
     return start_date <= today
+
+
+type DecidedPodium = tuple[
+    FLSpielTeamFieldJoinedInternal | None,
+    FLSpielTeamFieldJoinedInternal | None,
+    FLSpielTeamFieldJoinedInternal | None,
+    FLSpielTeamFieldJoinedInternal | None,
+]
+
+
+def decided_podium(finale: Sequence[FLSpielJoinedInternal]) -> DecidedPodium | None:
+    """A season's four places once all four are in, else `None`: the one rule the landing, the admin list and the editor call it decided by.
+
+    Every season ends in a knockout (`find_rules_refusal` refuses rules drawing none), so the Finale's matchday places
+    it, and every bracket the rules admit plays a match for third place: it is decided once all four places are in, a
+    played final beside an unplayed match for third place still running. A place decided once its club had left is
+    vacant, its side `None`, and still a place in (`app/api/spiele/services.py :: podium_of`).
+    """
+
+    match [side for _, side in podium_of(finale)]:
+        case [first_place, second_place, third_place, fourth_place]:
+            return (first_place, second_place, third_place, fourth_place)
+        case _:
+            return None
 
 
 def find_saison_id_refusal(*, taken: bool) -> WriteRefusal | None:
@@ -526,6 +551,22 @@ def _planning_window_is_open(*, saison_status: str, recorded_fixtures: int) -> b
     return saison_status == PLANNING_STATUS and recorded_fixtures == 0
 
 
+def find_replace_window_refusal(*, saison_status: str, recorded_fixtures: int) -> WriteRefusal | None:
+    """`spielplan_replace_outside_its_window`: a replace asked outside the planning window, or `None`.
+
+    Apart from `find_spielplan_refusal`, which asks it of every replace, because it is the part of a replace's judgement no
+    shape changes: the season editor serves it as the regeneration's state before any shape is picked.
+    """
+
+    if _planning_window_is_open(saison_status=saison_status, recorded_fixtures=recorded_fixtures):
+        return None
+
+    return WriteRefusal(
+        error_code=Code.SPIELPLAN_REPLACE_OUTSIDE_ITS_WINDOW,
+        status=HTTPStatus.CONFLICT,
+    )
+
+
 def find_spielplan_refusal(
     *,
     saison_status: str,
@@ -559,11 +600,8 @@ def find_spielplan_refusal(
 
     # Whether the season holds anything to delete or not: the flag is the operation the caller asked
     # for, and one flag meaning a replace here and a first draw there is the ambiguity this closes.
-    if replace and not _planning_window_is_open(saison_status=saison_status, recorded_fixtures=recorded_fixtures):
-        return WriteRefusal(
-            error_code=Code.SPIELPLAN_REPLACE_OUTSIDE_ITS_WINDOW,
-            status=HTTPStatus.CONFLICT,
-        )
+    if replace and (window_refusal := find_replace_window_refusal(saison_status=saison_status, recorded_fixtures=recorded_fixtures)):
+        return window_refusal
 
     # `past` alone, never `future`-only: activation is one-way, so a season activated before its draw
     # would otherwise be unschedulable for good, and `activate_target_undrawn` keeps the state rare. A

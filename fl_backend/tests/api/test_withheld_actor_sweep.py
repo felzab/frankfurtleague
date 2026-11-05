@@ -187,7 +187,9 @@ def _seed(url: str, *, ban_until: str | None) -> None:
             ]
         )
         database[Collection.INVITATIONS].insert_one(
-            compose_einladung(saison_id=SAISON_ID, team_id=TEAM_OID, token_hashes=["a" * 64], created_by=BARRED, today="2026-04-01")
+            compose_einladung(
+                saison_id=SAISON_ID, team_id=TEAM_OID, token_hashes=["a" * 64], created_by=BARRED, today="2026-04-01", sent_at=None
+            )
         )
         database[Collection.BEWERBUNGEN].insert_one(
             {**bewerbung_document(1, status="declined"), "decision": {"made_at": "2026-04-02", "by": BARRED, "grund": "Kein Platz"}}

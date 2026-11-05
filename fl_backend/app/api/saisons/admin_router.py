@@ -1,7 +1,7 @@
 import asyncio
 from collections.abc import Mapping, Sequence
 from datetime import datetime
-from typing import Annotated, Any
+from typing import Annotated, Any, NamedTuple
 
 from fastapi import APIRouter, Body, Depends
 from pymongo import AsyncMongoClient, ReturnDocument
@@ -13,15 +13,18 @@ from pymongo.results import InsertOneResult
 from app.api.berechtigungen.guard import verify_actor_is_admin
 from app.api.einladungen.crud import owed_einladung_mails, versendete_einladungen
 from app.api.einladungen.schemas import (
+    FLEinladung,
     FLInvitationDispatchPayload,
     FLInvitationDispatchPreviewResponse,
     FLInvitationDispatchPreviewRow,
     FLInvitationDispatchResponse,
     FLInvitationDispatchRow,
+    FLInvitationLinkRow,
 )
 from app.api.einladungen.services import (
     LIVE_EINLADUNG,
     WITHOUT_TOKEN_HASH,
+    EinladungVersandPlan,
     bestaetigte_empfaenger,
     build_live_team_filter,
     compose_einladung,
@@ -33,7 +36,7 @@ from app.api.identity.crud import due_count, saison_statuses
 from app.api.identity.schemas import FLErasurePreviewResponse
 from app.api.identity.services import closed_by, statuses_after_activating
 from app.api.outbox.services import enqueue_mails
-from app.api.saisons.crud import saisons_with_a_fixture_taken_place
+from app.api.saisons.crud import count_teams_by_saison, pull_finale_by_saison, saisons_with_a_fixture_taken_place
 from app.api.saisons.schemas import (
     FLActivateSaisonResponse,
     FLGenerateSpielplanPayload,
@@ -42,6 +45,7 @@ from app.api.saisons.schemas import (
     FLPatchSaisonResponse,
     FLPostSaisonPayload,
     FLPostSaisonResponse,
+    FLSaisonActRefusals,
     FLSaisonAdmin,
     FLSaisonAdminClub,
     FLSaisonAdminListAdapter,
@@ -58,8 +62,10 @@ from app.api.saisons.schemas import (
 from app.api.saisons.services import (
     RECORDED_FACT_FIELDS,
     as_the_draw_answers,
+    decided_podium,
     find_activation_refusal,
     find_berichte_refusal,
+    find_replace_window_refusal,
     find_rules_freeze_refusal,
     find_rules_refusal,
     find_saison_id_refusal,
@@ -119,7 +125,7 @@ from app.core.dependencies import (
     get_german_date_str,
     get_germany_now,
 )
-from app.core.exceptions import DocumentNotFoundError
+from app.core.exceptions import DocumentNotFoundError, WriteRefusal
 from app.core.logging import fl_logger
 from app.core.security import bind_actor, get_actor_email, verify_access_admin
 from app.core.transactions import transaction_session
@@ -196,16 +202,18 @@ async def _rewrite_gruppenphase_sides(
 async def get_saisons_admin(
     saisons_collection: SaisonsCollection,
     spiele_collection: SpieleCollection,
+    saison_teams_collection: SaisonTeamsCollection,
     filters: FLSaisonsFilterParams = Depends(),
     today: str = Depends(get_german_date_str),
 ) -> FLSaisonsAdminListResponse:
     """
-    List every season, the `future` ones every base-tier read withholds included, each with whether it has started and has been played.
+    List every season, the `future` ones every base-tier read withholds included, each with its start, play and decision states.
 
     The admin surfaces read here because a season is created `future` and clubs are entered while it
     still is, so an admin who cannot see one cannot run the league. `begun` is the start every
     start lock refuses on, the swap's, the replacement's and the rules freeze's; `taken_place` is what
-    fixes the start date (`saison_start_taken_place`).
+    fixes the start date (`saison_start_taken_place`); `decided` is the landing's own rule, all four places of the Finale in.
+    `count_teams` counts every club row of the season, one that left included.
     """
 
     db_filter = build_query(filters, terms={"status"})
@@ -218,11 +226,20 @@ async def get_saisons_admin(
         sort_by=db_sort,
     )
 
-    taken_place = await saisons_with_a_fixture_taken_place(
-        spiele_collection=spiele_collection, saison_ids=[raw["_id"] for raw in saisons_raw], session=None
+    saison_ids = [str(raw["_id"]) for raw in saisons_raw]
+    taken_place, finale_by_saison, teams_by_saison = await asyncio.gather(
+        saisons_with_a_fixture_taken_place(spiele_collection=spiele_collection, saison_ids=saison_ids, session=None),
+        pull_finale_by_saison(spiele_collection=spiele_collection, saison_ids=saison_ids),
+        count_teams_by_saison(saison_teams_collection=saison_teams_collection, saison_ids=saison_ids),
     )
     saisons = [
-        {**with_schedule(raw), "begun": has_started(start_date=str(raw["start_date"]), today=today), "taken_place": raw["_id"] in taken_place}
+        {
+            **with_schedule(raw),
+            "begun": has_started(start_date=str(raw["start_date"]), today=today),
+            "taken_place": raw["_id"] in taken_place,
+            "decided": decided_podium(finale_by_saison.get(str(raw["_id"]), [])) is not None,
+            "count_teams": teams_by_saison.get(str(raw["_id"]), 0),
+        }
         for raw in saisons_raw
     ]
 
@@ -239,46 +256,86 @@ async def get_saison_admin(
     spiele_collection: SpieleCollection,
     spieltage_collection: SpieltageCollection,
     teams_collection: TeamsCollection,
+    spielberichte_collection: SpielberichteCollection,
+    invitations_collection: InvitationsCollection,
+    outbox_collection: OutboxCollection,
+    ban_list: BanListLookup,
     today: str = Depends(get_german_date_str),
 ) -> FLSaisonAdminResponse:
     """
-    Return what the season editor shows in one read: the season and its clubs, the clubs a replacement may bring in, its shapes and matchdays.
+    Return what the season editor shows in one read: its season, clubs, shapes and matchdays, its acts' states and its links.
 
-    The season is served a `future` one included, with its `version`, whether it has started (`begun`) and whether a
-    fixture of it has taken place (`taken_place`).
+    The season is served a `future` one included, with its `version`, whether it has started (`begun`), whether a
+    fixture of it has taken place (`taken_place`) and whether it is decided (`decided`), by the landing's own rule.
 
     Each club's two flags are what the group swap's and the replacement's `sides_taken_place` read, so a picker closes
     exactly the pairs and rows those writes refuse; `begun` closes both before either is pressed. `incoming_clubs` is
-    every club still in the league holding no row of the season, which is what the replacement admits. 404 where no
+    every club still in the league holding no row of the season, which is what the replacement admits.
+
+    `refusals` names, per danger act, the refusal its write would answer now, by that write's own judgement, so the editor
+    offers an act exactly where the write takes it. `invitations` is the registration links' press planned by the function
+    the press decides each team by, `resend` left false, beside each team's live link and the day it was last sent.
+    Read outside a transaction: a write landing between this read and a press is judged by the press. 404 where no
     season holds that id.
     """
 
-    saison_raw, rows, fixtures, count_spieltage, clubs = await asyncio.gather(
-        pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}),
-        pull_many_from_db(
-            collection=saison_teams_collection,
-            db_filter={"saison_id": saison_id},
-            projection=["team_id", "name", "shorthand", "gruppe", "austritt"],
-            sort_by=build_sort(sort_by="name", order="asc"),
-            collation=GERMAN_COLLATION,
-            limit=LIST_LIMIT_DEFAULT + 1,
+    # First and alone: a season id naming nothing raises the 404 here, and the activation is judged on the status read.
+    saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id})
+    saison_status = str(saison_raw["status"])
+
+    # Two groups of reads sent at once, because `asyncio.gather`'s typing stops at six.
+    (rows, fixtures, count_spieltage, clubs, finale_by_saison), (activation, recorded_rows, berichte, planned) = await asyncio.gather(
+        asyncio.gather(
+            pull_many_from_db(
+                collection=saison_teams_collection,
+                db_filter={"saison_id": saison_id},
+                projection=["team_id", "name", "shorthand", "gruppe", "austritt"],
+                sort_by=build_sort(sort_by="name", order="asc"),
+                collation=GERMAN_COLLATION,
+                limit=LIST_LIMIT_DEFAULT + 1,
+            ),
+            pull_many_from_db(
+                collection=spiele_collection,
+                db_filter={"saison_id": saison_id},
+                projection=["saison_phase", "team1.team_id", "team2.team_id", *TAKEN_PLACE_FIELDS],
+                limit=LIST_LIMIT_DEFAULT + 1,
+            ),
+            spieltage_collection.count_documents({"saison_id": saison_id}),
+            pull_many_from_db(
+                collection=teams_collection,
+                db_filter={"inactive_since": None},
+                projection=["name", "shorthand"],
+                sort_by=build_sort(sort_by="name", order="asc"),
+                collation=GERMAN_COLLATION,
+                limit=LIST_LIMIT_DEFAULT + 1,
+            ),
+            pull_finale_by_saison(spiele_collection=spiele_collection, saison_ids=[saison_id]),
         ),
-        pull_many_from_db(
-            collection=spiele_collection,
-            db_filter={"saison_id": saison_id},
-            projection=["saison_phase", "team1.team_id", "team2.team_id", *TAKEN_PLACE_FIELDS],
-            limit=LIST_LIMIT_DEFAULT + 1,
-        ),
-        spieltage_collection.count_documents({"saison_id": saison_id}),
-        pull_many_from_db(
-            collection=teams_collection,
-            db_filter={"inactive_since": None},
-            projection=["name", "shorthand"],
-            sort_by=build_sort(sort_by="name", order="asc"),
-            collation=GERMAN_COLLATION,
-            limit=LIST_LIMIT_DEFAULT + 1,
+        asyncio.gather(
+            _judge_the_activation(
+                saison_id=saison_id,
+                target_status=saison_status,
+                saisons_collection=saisons_collection,
+                spiele_collection=spiele_collection,
+                spieltage_collection=spieltage_collection,
+                session=None,
+            ),
+            _pull_recorded_fact_rows(spiele_collection=spiele_collection, saison_id=saison_id, session=None),
+            count_eingereichte_berichte(spielberichte_collection=spielberichte_collection, saison_id=saison_id, session=None),
+            _plan_the_dispatch(
+                saison_id=saison_id,
+                saison_teams_collection=saison_teams_collection,
+                invitations_collection=invitations_collection,
+                outbox_collection=outbox_collection,
+                ban_list=ban_list,
+                resend=False,
+            ),
         ),
     )
+    recorded_fixtures = sum(1 for spiel in recorded_rows if holds_a_recorded_fact(spiel))
+
+    def code_of(refusal: WriteRefusal | None) -> Code | None:
+        return None if refusal is None else refusal.error_code
 
     # One over the cap, as `fl_backend/app/api/spiele/crud.py :: advance_bracket_winners` asks: a truncated list grades a
     # club open whose taken-place fixture fell past the page, and offers a club the replacement refuses as entered.
@@ -297,7 +354,12 @@ async def get_saison_admin(
 
     entered = {row["team_id"] for row in rows}
     saison = FLSaisonAdmin.model_validate(
-        {**with_schedule(saison_raw), "begun": has_started(start_date=str(saison_raw["start_date"]), today=today), "taken_place": bool(played)}
+        {
+            **with_schedule(saison_raw),
+            "begun": has_started(start_date=str(saison_raw["start_date"]), today=today),
+            "taken_place": bool(played),
+            "decided": decided_podium(finale_by_saison.get(saison_id, [])) is not None,
+        }
     )
 
     return FLSaisonAdminResponse(
@@ -315,6 +377,28 @@ async def get_saison_admin(
         incoming_clubs=[FLSaisonAdminClub.model_validate(club) for club in clubs if club["_id"] not in entered],
         shapes=workable_shapes(saison.rules),
         count_spieltage=count_spieltage,
+        refusals=FLSaisonActRefusals(
+            activate=code_of(activation[1]),
+            # `find_spielplan_refusal` asks the window of every replace first; its `saison_past` is unreachable once the
+            # window is open, the window opening on `future` alone, and its group sizes are the picked shape's.
+            recreate=code_of(
+                find_replace_window_refusal(saison_status=saison_status, recorded_fixtures=recorded_fixtures)
+                or find_berichte_refusal(berichte=berichte)
+            ),
+            undraw=code_of(_find_undraw_refusal_of(saison_status=saison_status, recorded_fixtures=recorded_fixtures, berichte=berichte)),
+        ),
+        invitations=[
+            FLInvitationLinkRow(
+                team_id=team.team["team_id"],
+                team_name=team.team["name"],
+                recipient=team.plan.recipient,
+                skipped=team.plan.skipped,
+                replaced_link=team.plan.replaced_link,
+                has_link=team.live is not None,
+                sent_at=None if team.live is None else FLEinladung.model_validate(team.live).sent_at,
+            )
+            for team in planned
+        ],
     )
 
 
@@ -545,6 +629,89 @@ async def patch_saison(
     return patched
 
 
+async def _judge_the_activation(
+    *,
+    saison_id: str,
+    target_status: str,
+    saisons_collection: AsyncCollection,
+    spiele_collection: AsyncCollection,
+    spieltage_collection: AsyncCollection,
+    session: AsyncClientSession | None,
+) -> tuple[list[Any], WriteRefusal | None]:
+    """The seasons activating this one would close, and why it must be refused, or `None`.
+
+    Read by the activation in its transaction and by the editor's read outside one, so the act the editor offers is the act
+    the write takes.
+    """
+
+    # `$ne` on the target, so re-activating the current season is not blocked by its own fixtures.
+    outgoing = await pull_many_from_db(
+        collection=saisons_collection,
+        db_filter={"status": "active", "_id": {"$ne": saison_id}},
+        projection={"_id": 1},
+        session=session,
+    )
+    outgoing_ids = [row["_id"] for row in outgoing]
+
+    # Empty where nothing BUT the target holds `active` -- a fresh league, or a re-activation.
+    unplayed: list[int] = []
+    if outgoing_ids:
+        unplayed = unplayed_spiel_nrs(
+            FLSpielListAdapter.validate_python(
+                await pull_many_from_db(collection=spiele_collection, db_filter={"saison_id": {"$in": outgoing_ids}}, session=session)
+            )
+        )
+
+    # One call, so which of the two refusals an admin is shown stays the service's decision.
+    # The target's OWN fixtures, not the outgoing season's: a league going live with nothing drawn
+    # has no repair, activation writing `status` one way only.
+    target_fixtures = await spiele_collection.count_documents({"saison_id": saison_id}, session=session)
+
+    # In-session for `target_status`'s reason, and `beginn` alone: `ende` is dated with it, and a
+    # matchday half-dated is a shape no write here produces.
+    undated_spieltage = await spieltage_collection.count_documents({"saison_id": saison_id, "beginn": None}, session=session)
+
+    return outgoing_ids, find_activation_refusal(
+        target_status=target_status,
+        target_fixtures=target_fixtures,
+        undated_spieltage=undated_spieltage,
+        outgoing_unplayed=unplayed,
+    )
+
+
+async def _pull_recorded_fact_rows(
+    *, spiele_collection: AsyncCollection, saison_id: str, session: AsyncClientSession | None
+) -> list[Mapping[str, Any]]:
+    """The season's fixtures as `holds_a_recorded_fact` reads them, which the planning window of the replace and the undraw turns on.
+
+    The predicate's own fields, so the projection cannot fall behind what it reads: a venue, a referee or an admin's note
+    is work a replace would destroy, and the window closes on one exactly as on a result. Read one over the cap and
+    refused past it, as `fl_backend/app/api/spiele/crud.py :: advance_bracket_winners` asks: a truncated list counts fewer
+    records than the season holds, and the window opens on work the removal would destroy.
+    """
+
+    stored_spiele = await pull_many_from_db(
+        collection=spiele_collection,
+        db_filter={"saison_id": saison_id},
+        projection=list(RECORDED_FACT_FIELDS),
+        limit=LIST_LIMIT_DEFAULT + 1,
+        session=session,
+    )
+
+    if len(stored_spiele) > LIST_LIMIT_DEFAULT:
+        raise ValueError(
+            f"season {saison_id} holds more than {LIST_LIMIT_DEFAULT} fixtures, more than one read can weigh a replace or an undraw against"
+        )
+
+    return stored_spiele
+
+
+def _find_undraw_refusal_of(*, saison_status: str, recorded_fixtures: int, berichte: int) -> WriteRefusal | None:
+    """The undraw's whole judgement, in its order: its window, then the reports it would delete."""
+
+    return find_undraw_refusal(saison_status=saison_status, recorded_fixtures=recorded_fixtures) or find_berichte_refusal(berichte=berichte)
+
+
 @router.post(
     "/{saison_id}/activate",
     response_model=FLActivateSaisonResponse,
@@ -573,43 +740,15 @@ async def activate_saison(
         target_raw = await pull_one_from_db(
             collection=saisons_collection, db_filter={"_id": saison_id}, projection={"status": 1}, session=session
         )
-        target_status = str(target_raw["status"])
-
-        # `$ne` on the target, so re-activating the current season is not blocked by its own fixtures.
-        outgoing = await pull_many_from_db(
-            collection=saisons_collection,
-            db_filter={"status": "active", "_id": {"$ne": saison_id}},
-            projection={"_id": 1},
+        outgoing_ids, refusal = await _judge_the_activation(
+            saison_id=saison_id,
+            target_status=str(target_raw["status"]),
+            saisons_collection=saisons_collection,
+            spiele_collection=spiele_collection,
+            spieltage_collection=spieltage_collection,
             session=session,
         )
-        outgoing_ids = [row["_id"] for row in outgoing]
-
-        # Empty where nothing BUT the target holds `active` -- a fresh league, or a re-activation.
-        unplayed: list[int] = []
-        if outgoing_ids:
-            unplayed = unplayed_spiel_nrs(
-                FLSpielListAdapter.validate_python(
-                    await pull_many_from_db(collection=spiele_collection, db_filter={"saison_id": {"$in": outgoing_ids}}, session=session)
-                )
-            )
-
-        # One call, so which of the two refusals an admin is shown stays the service's decision.
-        # The target's OWN fixtures, not the outgoing season's: a league going live with nothing drawn
-        # has no repair, activation writing `status` one way only.
-        target_fixtures = await spiele_collection.count_documents({"saison_id": saison_id}, session=session)
-
-        # In-session for `target_status`'s reason, and `beginn` alone: `ende` is dated with it, and a
-        # matchday half-dated is a shape no write here produces.
-        undated_spieltage = await spieltage_collection.count_documents({"saison_id": saison_id, "beginn": None}, session=session)
-
-        refuse(
-            find_activation_refusal(
-                target_status=target_status,
-                target_fixtures=target_fixtures,
-                undated_spieltage=undated_spieltage,
-                outgoing_unplayed=unplayed,
-            )
-        )
+        refuse(refusal)
 
         # BEFORE the promotion: `uniq_saison_active` is checked at each write rather than at the
         # commit, so promoting first meets the incumbent and aborts the rollover.
@@ -843,24 +982,7 @@ async def post_spielplan(
         # LISTED rather than counted, as the group swap's callback lists its own: one read answers
         # `spielplan_already_drawn` and supplies what `spielplan_replace_outside_its_window` weighs, so the two cannot
         # disagree about what a replace would destroy.
-        stored_spiele = await pull_many_from_db(
-            collection=spiele_collection,
-            db_filter={"saison_id": saison_id},
-            # The predicate's own fields, so the projection cannot fall behind what it reads: a
-            # venue, a referee or an admin's note is work a replace would destroy, and
-            # `spielplan_replace_outside_its_window`'s window closes on one exactly as on a result.
-            projection=list(RECORDED_FACT_FIELDS),
-            limit=LIST_LIMIT_DEFAULT + 1,
-            session=session,
-        )
-
-        # One over the cap, as `fl_backend/app/api/spiele/crud.py :: advance_bracket_winners` asks:
-        # a truncated list counts fewer records than the season holds,
-        # and `spielplan_replace_outside_its_window`'s window opens on work a replace would then destroy.
-        if len(stored_spiele) > LIST_LIMIT_DEFAULT:
-            raise ValueError(
-                f"season {saison_id} holds more than {LIST_LIMIT_DEFAULT} fixtures, which is more than one read can weigh a replace against"
-            )
+        stored_spiele = await _pull_recorded_fact_rows(spiele_collection=spiele_collection, saison_id=saison_id, session=session)
 
         refuse(
             find_spielplan_refusal(
@@ -1037,33 +1159,15 @@ async def delete_spielplan(
 
         # The stored rows, never the watermark: a season drawn outside this API carries none, and its
         # fixtures are as much a record as one this endpoint wrote.
-        stored_spiele = await pull_many_from_db(
-            collection=spiele_collection,
-            db_filter={"saison_id": saison_id},
-            projection=list(RECORDED_FACT_FIELDS),
-            limit=LIST_LIMIT_DEFAULT + 1,
-            session=session,
-        )
-
-        # One over the cap, as `fl_backend/app/api/spiele/crud.py :: advance_bracket_winners` asks:
-        # a truncated list counts fewer records than the season holds,
-        # and `spielplan_undraw_outside_its_window`'s window opens on a result the removals below would destroy.
-        if len(stored_spiele) > LIST_LIMIT_DEFAULT:
-            raise ValueError(
-                f"season {saison_id} holds more than {LIST_LIMIT_DEFAULT} fixtures, which is more than one read can weigh an undraw against"
-            )
+        stored_spiele = await _pull_recorded_fact_rows(spiele_collection=spiele_collection, saison_id=saison_id, session=session)
 
         refuse(
-            find_undraw_refusal(
+            _find_undraw_refusal_of(
                 saison_status=str(saison_raw["status"]),
                 recorded_fixtures=sum(1 for spiel in stored_spiele if holds_a_recorded_fact(spiel)),
-            )
-        )
-        refuse(
-            find_berichte_refusal(
                 berichte=await count_eingereichte_berichte(
                     spielberichte_collection=spielberichte_collection, saison_id=saison_id, session=session
-                )
+                ),
             )
         )
 
@@ -1145,6 +1249,59 @@ async def _barred_recipients(ban_list: BanList, entered: Sequence[Mapping[str, A
     return await barred_addresses(ban_list, addresses) if addresses else set()
 
 
+class _PlannedTeam(NamedTuple):
+    """One team as a press made now would treat it, beside the live link it holds."""
+
+    team: Mapping[str, Any]
+    live: Mapping[str, Any] | None
+    plan: EinladungVersandPlan
+
+
+async def _plan_the_dispatch(
+    *,
+    saison_id: str,
+    saison_teams_collection: AsyncCollection,
+    invitations_collection: AsyncCollection,
+    outbox_collection: AsyncCollection,
+    ban_list: BanList,
+    resend: bool,
+) -> list[_PlannedTeam]:
+    """Every team of the season planned by `plan_einladung_versand`, the function the press decides each team by.
+
+    Read outside any transaction, for the preview and the editor's read: the press plans each team again in its own.
+    """
+
+    entered = await _entered_teams(saison_teams_collection=saison_teams_collection, saison_id=saison_id)
+    team_ids = [team["team_id"] for team in entered]
+
+    # Keyed on the teams just read rather than on the season alone: `uniq_invitation_live` makes that
+    # at most one row per team, so this read cannot truncate and report a mailed team as unmailed.
+    live = await pull_many_from_db(
+        collection=invitations_collection,
+        db_filter={"saison_id": saison_id, "team_id": {"$in": team_ids}, **LIVE_EINLADUNG},
+        limit=len(team_ids) or 1,
+        projection=dict(WITHOUT_TOKEN_HASH),
+    )
+    by_team = {row["team_id"]: row for row in live}
+    versendet = await versendete_einladungen(outbox_collection=outbox_collection, einladung_ids=[row["_id"] for row in live])
+    barred = await _barred_recipients(ban_list, entered)
+
+    planned: list[_PlannedTeam] = []
+    for team in entered:
+        einladung_raw = by_team.get(team["team_id"])
+        plan = plan_einladung_versand(
+            austritt=team.get("austritt"),
+            kontakte=team.get("kontakte"),
+            einladung_raw=einladung_raw,
+            versendet=einladung_raw is not None and einladung_raw["_id"] in versendet,
+            resend=resend,
+            barred=barred,
+        )
+        planned.append(_PlannedTeam(team=team, live=einladung_raw, plan=plan))
+
+    return planned
+
+
 async def _mail_one_team(
     *,
     invitations_collection: AsyncCollection,
@@ -1224,7 +1381,9 @@ async def _mail_one_team(
         post_operation = await post_one_to_db(
             collection=invitations_collection,
             # No link of its own: each mail below mints one at its hand-out.
-            document=compose_einladung(saison_id=saison_id, team_id=team["team_id"], token_hashes=[], created_by=created_by, today=today),
+            document=compose_einladung(
+                saison_id=saison_id, team_id=team["team_id"], token_hashes=[], created_by=created_by, today=today, sent_at=today
+            ),
             session=session,
         )
         await enqueue_mails(
@@ -1313,43 +1472,28 @@ async def get_invitations_dispatch_preview(
 
     await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["_id"])
 
-    entered = await _entered_teams(saison_teams_collection=saison_teams_collection, saison_id=saison_id)
-    team_ids = [team["team_id"] for team in entered]
-
-    # Keyed on the teams just read rather than on the season alone: `uniq_invitation_live` makes that
-    # at most one row per team, so this read cannot truncate and report a mailed team as unmailed.
-    live = await pull_many_from_db(
-        collection=invitations_collection,
-        db_filter={"saison_id": saison_id, "team_id": {"$in": team_ids}, **LIVE_EINLADUNG},
-        limit=len(team_ids) or 1,
-        projection=dict(WITHOUT_TOKEN_HASH),
+    planned = await _plan_the_dispatch(
+        saison_id=saison_id,
+        saison_teams_collection=saison_teams_collection,
+        invitations_collection=invitations_collection,
+        outbox_collection=outbox_collection,
+        ban_list=ban_list,
+        resend=resend,
     )
-    by_team = {row["team_id"]: row for row in live}
-    versendet = await versendete_einladungen(outbox_collection=outbox_collection, einladung_ids=[row["_id"] for row in live])
-    barred = await _barred_recipients(ban_list, entered)
 
-    zeilen: list[FLInvitationDispatchPreviewRow] = []
-    for team in entered:
-        einladung_raw = by_team.get(team["team_id"])
-        plan = plan_einladung_versand(
-            austritt=team.get("austritt"),
-            kontakte=team.get("kontakte"),
-            einladung_raw=einladung_raw,
-            versendet=einladung_raw is not None and einladung_raw["_id"] in versendet,
-            resend=resend,
-            barred=barred,
-        )
-        zeilen.append(
+    return FLInvitationDispatchPreviewResponse(
+        saison_id=saison_id,
+        rows=[
             FLInvitationDispatchPreviewRow(
-                team_id=team["team_id"],
-                team_name=team["name"],
-                recipient=plan.recipient,
-                skipped=plan.skipped,
-                replaced_link=plan.replaced_link,
+                team_id=team.team["team_id"],
+                team_name=team.team["name"],
+                recipient=team.plan.recipient,
+                skipped=team.plan.skipped,
+                replaced_link=team.plan.replaced_link,
             )
-        )
-
-    return FLInvitationDispatchPreviewResponse(saison_id=saison_id, rows=zeilen)
+            for team in planned
+        ],
+    )
 
 
 @router.get(
