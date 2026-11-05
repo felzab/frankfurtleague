@@ -10,6 +10,7 @@ import { saisonsGetSaisonOverview } from "@/core/generated/client/sdk";
 import {
   SpielbestaetigungenEnterSpielbestaetigungBody,
   spielbestaetigungenEnterSpielbestaetigungBodyBegruendungMax,
+  SpielbestaetigungenEnterSpielbestaetigungParams,
 } from "@/core/generated/zod/inputs";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
@@ -96,6 +97,9 @@ function faultLine(fault: FLBracketFault): Copy {
   }
 }
 
+/** Whether the Zusage's write asks for the party's row, which its segments choose. */
+const PARTY_REQUIRED = !SpielbestaetigungenEnterSpielbestaetigungParams.shape.spielbestaetigung_id.safeParse("").success;
+
 /** The box asking how a party's agreement reached the league, drawn here so the write's schema stays on the server. */
 function ReasonField() {
   return (
@@ -130,7 +134,9 @@ function openOf(row: Exclude<FLOverviewRow, { kind: "bewerbung" }>): { line: Cop
         : {
             line,
             acts: (
-              <ZusageDialog parties={[first, ...rest]}>
+              <ZusageDialog
+                parties={[first, ...rest]}
+                partyRequired={PARTY_REQUIRED}>
                 <ReasonField />
               </ZusageDialog>
             ),

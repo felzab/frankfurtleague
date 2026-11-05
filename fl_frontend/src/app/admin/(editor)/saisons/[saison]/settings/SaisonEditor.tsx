@@ -227,6 +227,9 @@ export function SaisonEditor({
     .toSorted((one, other) => Number(one) - Number(other))
     .map((value): Option => ({ id: value, label: { record: value } }));
 
+  // The application window is none or both of its days, so each is asked for once either holds one.
+  const bewerbungSet = draft.bewerbungStart !== null || draft.bewerbungEnd !== null;
+
   const touch = { held: true, holder };
   const of = { saison_id: saison, holder };
 
@@ -349,6 +352,7 @@ export function SaisonEditor({
           <ToggleBoxes
             label={WORDS.stufen}
             choices={STUFEN}
+            isRequired={required.stufen}
             value={draft.stufen}
             onChange={(ids) => set("stufen", ids)}
           />
@@ -393,12 +397,14 @@ export function SaisonEditor({
           <DateField
             label={WORDS.beginn}
             name="bewerbungStart"
+            isRequired={bewerbungSet && required.bewerbungStart}
             value={draft.bewerbungStart}
             onChange={(day) => set("bewerbungStart", day)}
           />
           <DateField
             label={WORDS.ende}
             name="bewerbungEnd"
+            isRequired={bewerbungSet && required.bewerbungEnd}
             value={draft.bewerbungEnd}
             onChange={(day) => set("bewerbungEnd", day)}
           />
