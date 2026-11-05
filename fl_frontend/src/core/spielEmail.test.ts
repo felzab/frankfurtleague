@@ -40,3 +40,32 @@ describe("the fixture confirmation's link", () => {
     expect(() => mailFor("spiel_request", data, { token: null, secret: null, origin: ORIGIN })).toThrow(/handed out without one/);
   });
 });
+
+/* A move told on its own reaches a party to be asked again alike with one whose answer about the new slot stands and one
+   the move took off the fixture, and nothing but `asked_again` keeps the other two from being promised a request that
+   never comes. */
+describe("the notice of a move", () => {
+  const left = { team1: "Ernst-Reuter-Schule", team2: "Goethe-Gymnasium", datum: "2026-11-20", uhrzeit: "14:30:00" };
+  const next = { ...left, datum: "2026-11-27" };
+  const shapes = [next, null].flatMap((movedTo) =>
+    [true, false].map((askedAgain) => ({ movedTo, askedAgain, slot: movedTo === null ? "no new slot" : "a new slot" })),
+  );
+
+  it.each(shapes)(
+    "promises the next request or Einteilung only where it follows: $slot, asked again $askedAgain",
+    ({ movedTo, askedAgain }) => {
+      for (const [recipient, promise] of [
+        ["team", "neue Anfrage"],
+        ["schiedsrichter", "neue Einteilung"],
+      ] as const) {
+        const mail = mailFor(
+          "spiel_new_scheduled",
+          { kind: "spiel_new_scheduled", recipient, appointment: left, moved_to: movedTo, asked_again: askedAgain },
+          { token: null, secret: null, origin: ORIGIN },
+        );
+
+        expect(JSON.stringify(mail).includes(promise)).toBe(askedAgain);
+      }
+    },
+  );
+});

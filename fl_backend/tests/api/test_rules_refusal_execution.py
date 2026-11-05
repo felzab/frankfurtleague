@@ -154,7 +154,7 @@ async def stored_season(database: AsyncDatabase) -> Mapping[str, Any]:
 
 
 async def saved_rules(database: AsyncDatabase) -> Mapping[str, Any]:
-    """The rules the season holds after a save, which answers 204 and none."""
+    """The rules the season holds after a save, which answers its version alone."""
 
     stored = await database[Collection.SAISONS].find_one({"_id": SAISON_ID})
     assert stored is not None
@@ -215,6 +215,21 @@ class TestTheSquadCapIsJudgedAgainstTheSeasonsOwnLiveRows:
         refusal = on_a_database(mongo_replica_set_url, body)
 
         assert refusal.error_code == Code.RULES_KADER_BELOW_USE
+
+
+class TestTheSaveAnswersTheVersionItStored:
+    def test_the_answered_version_is_the_one_the_next_save_must_send(self, mongo_replica_set_url: str):
+        """The editor takes its next base from this answer: the version read before the write would refuse every second save as stale."""
+
+        async def body(database: AsyncDatabase) -> tuple[int, Any, Mapping[str, Any]]:
+            opened = (await stored_season(database))["version"]
+            answered = await patch_the_rules(database, max_kadergroesse=PERMITTED_KADER)
+
+            return opened, answered, await stored_season(database)
+
+        opened, answered, stored = on_a_database(mongo_replica_set_url, body)
+
+        assert (answered.version, stored["version"]) == (opened + 1, opened + 1)
 
 
 class TestTheDrawItselfIsWhatFreezesTheShape:

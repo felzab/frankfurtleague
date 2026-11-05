@@ -1,15 +1,42 @@
 // Apart from the Zod map, which `instrumentation.ts` installs on both runtimes: the rule phrases are the server's
 // own catalogue, which neither instrumentation bundle is to carry.
+import { now } from "./clock";
 import { COPY } from "./copy";
-import { dayOf } from "./format";
+import { dayIn, dayOf } from "./format";
 import { SERVER_COPY } from "./serverCopy";
 
 import type { Copy } from "./copy";
+import type { CalendarDay } from "./format";
 import type { Code, FLRefusedField, Rule } from "./generated/client/types";
 
 const { field, failure } = COPY.shared;
 
 type Context = FLRefusedField["ctx"];
+
+/**
+ * The latest birthdate that is `years` old today in Berlin: the same day that many years back, or the month's last day
+ * where that year holds no such day, as a person born on 29 February turns a year older on 28 February.
+ */
+export function bornBy(years: number): CalendarDay {
+  const [year, month, day] = dayIn(now()).split("-").map(Number) as [number, number, number];
+  const lastOfMonth = new Date(Date.UTC(year - years, month, 0)).getUTCDate();
+  // Midday UTC, the same calendar day in Berlin all year.
+  return dayIn(new Date(Date.UTC(year - years, month - 1, Math.min(day, lastOfMonth), 12)));
+}
+
+/** The earliest birthdate at most `years` old today: the day after the latest that is a year older. */
+export function bornAfter(years: number): CalendarDay {
+  const [year, month, day] = bornBy(years + 1)
+    .split("-")
+    .map(Number) as [number, number, number];
+  return dayIn(new Date(Date.UTC(year, month - 1, day + 1, 12)));
+}
+
+/**
+ * An age the write refused, by its range in whole years: the latest birthdate the floor admits, the box's own latest
+ * day, which the field's own check names first. A date past the ceiling the box's earliest day catches before the send.
+ */
+const ageRange = ({ min, max }: Context) => (typeof min === "number" && typeof max === "number" ? field.latest(bornBy(min)) : undefined);
 
 /** A span's end: earliest its start, which the backend's rule names, as the end box's own earliest day reads. */
 const notBeforeStart = ({ start }: Context) => (typeof start === "string" ? field.earliest(dayOf(start)) : undefined);
@@ -29,6 +56,8 @@ const PATTERNED = {
   bewerbung_window_ends_before_start: notBeforeStart,
   spieltag_ends_before_start: notBeforeStart,
   good_spieler_exceed_kader: ({ max }: Context) => (typeof max === "number" ? field.max(max) : undefined),
+  // The confirmation pages' birthdate, refused for an age outside the range the write names.
+  confirmation_age: ageRange,
   // A box left empty that the rule requires once another box is set.
   ergebnis_missing_tore: () => field.required,
   decline_without_proposal: () => field.required,

@@ -1,8 +1,10 @@
 import "server-only";
 
-import { BRAND_NAME, mailOrigin } from "./emailShell";
-import { dayOf, formatDatum } from "./format";
+import { COPY } from "./copy";
+import { mailOrigin } from "./emailShell";
+import { dayOf, formatDatumLong } from "./format";
 import { ROUTES } from "./routes";
+import { SERVER_COPY } from "./serverCopy";
 
 import type { Mail } from "./emailShell";
 import type { FLSchiedsrichterConfirmationData } from "./generated/client/types";
@@ -17,39 +19,28 @@ function schiedsrichterBestaetigungsLink(origin: string, token: string): string 
   return `${origin}${ROUTES.schiedsrichterConfirmation.path()}?token=${encodeURIComponent(token)}`;
 }
 
+const PAGE = SERVER_COPY.schiedsrichterConfirmation;
+
 // No name: an administrator typed this address and nobody has confirmed it, so behind a typo its
 // reader is a stranger, owed none. No season: a referee's entry is bound to none, so the deadline is
 // the only date here.
 /**
- * What one referee is asked to confirm, from the facts the Postausgang row holds and the link its hand-out minted.
- * `origin` is the serving origin, never `fl_frontend/src/core/brand.ts :: SITE_URL`; `token` is a bearer credential and
- * is never taken apart here.
+ * What one referee is asked to confirm, from the facts the Postausgang row holds and the link its hand-out minted: the
+ * page's title and its opening and deadline sentences, as the erasure mail takes its page's words. `origin` is the
+ * serving origin, never `fl_frontend/src/core/brand.ts :: SITE_URL`; `token` is a bearer credential and is never taken
+ * apart here.
  */
 export function buildSchiedsrichterBestaetigungEmail({ frist }: FLSchiedsrichterConfirmationData, { origin, token }: MailLink): Mail {
   const site = mailOrigin(origin);
-  const fristText = formatDatum(dayOf(frist));
 
   return {
+    // A first contact, so the shell closes on the „not you“ line and the objection.
     kind: "firstContact",
-    subjectLine: "Dein Eintrag als Schiedsrichterin oder Schiedsrichter",
+    subjectLine: COPY.page.entryConfirmation,
     origin: site,
     vorname: "",
-    paragraphs: [
-      [
-        `Die Verwaltung der ${BRAND_NAME} hat Dich als Schiedsrichterin oder Schiedsrichter eingetragen.`,
-        [
-          { strong: "Bitte bestätige, dass das stimmt" },
-          ": Erst danach kannst Du auf der Website Ansetzungen annehmen und Spielberichte einreichen.",
-        ],
-      ],
-      // Both answers are named before the press: a reader who came to confirm an entry and meets a
-      // publication choice was asked something the message did not say.
-      [
-        "Auf der Seite trägst Du Dein Geburtsdatum ein und entscheidest, was im Spielplan von Deinem Namen zu sehen ist.",
-        ["Der Link ist bis zum ", { strong: fristText }, " gültig und funktioniert nur einmal."],
-        "Ist er abgelaufen, schickt die Verwaltung Dir auf Wunsch einen neuen.",
-      ],
-    ],
-    button: { label: "Eintrag bestätigen", href: schiedsrichterBestaetigungsLink(site, token) },
+    // The deadline's day semibold, as the board draws it, between the page's two parts around it.
+    paragraphs: [[PAGE.opening, [`${PAGE.deadline.before} `, { strong: formatDatumLong(dayOf(frist)) }, PAGE.deadline.after]]],
+    button: { label: COPY.page.entryConfirmation, href: schiedsrichterBestaetigungsLink(site, token) },
   };
 }

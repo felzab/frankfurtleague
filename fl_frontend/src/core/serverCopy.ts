@@ -2,7 +2,7 @@ import "server-only";
 
 import { KONTAKT_EMAIL, VEREIN_ADDRESS, VEREIN_NAME, VEREINSREGISTER, VORSTAND_JOINTLY } from "./brand";
 import { catalogue, COPY, textOf } from "./copy";
-import { formatDatum, formatDatumLong, formatNumber, formatOrdinal, formatSigned } from "./format";
+import { formatDatum, formatDatumLong, formatList, formatNumber, formatOrdinal, formatSigned } from "./format";
 
 import type { Copy, Words } from "./copy";
 import type { CalendarDay } from "./format";
@@ -22,18 +22,28 @@ const DIFFERENZ = "Diff.";
 const SPIELBETRIEB = "Spielbetrieb";
 const gruppeName = (gruppe: string) => `Gruppe ${gruppe}`;
 const placeName = (platz: number) => `${formatOrdinal(platz)} ${PLATZ}`;
+// Matches by their numbers, „Spiel 4, 7 und 9“, as the match editor's done line names the others it changed.
+const spieleNamed = (nrs: readonly number[]) => `Spiel ${formatList(nrs.map(formatNumber))}`;
 
 // The confirmation pages' shared sentences, each written once: what the typed birthdate is checked for, the deadline
 // of an entry that goes alone, the objection Art. 21 (4) asks to be named explicitly, in the two parts around the
 // league's address, and the privacy notice's link, around its title.
 const ageCheck = (minAge: number) => `Mit deinem Geburtsdatum prüfen wir, ob du mindestens ${formatNumber(minAge)} Jahre alt bist.`;
-const entryDeadline = (until: CalendarDay) => `Bestätigst du nicht bis zum ${formatDatumLong(until)}, löschen wir deinen Eintrag.`;
+// In the two parts around its day, which a mail sets semibold between them.
+const ENTRY_DEADLINE = { before: "Bestätigst du nicht bis zum", after: ", löschen wir deinen Eintrag." };
+const entryDeadline = (until: CalendarDay) => `${ENTRY_DEADLINE.before} ${formatDatumLong(until)}${ENTRY_DEADLINE.after}`;
 const OBJECTION_RIGHT = {
   before:
     "Du kannst der Verarbeitung deiner Angaben jederzeit widersprechen, aus Gründen, die sich aus deiner besonderen Situation ergeben (Art. 21 DSGVO). Eine formlose E-Mail an ",
   after: " genügt.",
 };
 const MORE = { before: "Mehr unter ", after: "." };
+// What an objection does to an entry that stands alone, a contact's season row's and a referee's alike.
+const OBJECTION_DELETES_ENTRY = "Widersprichst du, löschen wir deinen Eintrag.";
+// A referee's confirmation's opening, which its mail opens on too, and what the league stores of the entry.
+const REFEREE_OPENING = "Die Liga hat dich als Schiedsrichterin oder Schiedsrichter für ihre Spiele eingetragen.";
+const REFEREE_STORED =
+  "Wir speichern deinen Namen, deine Kontaktdaten, dein Honorar, dein Geburtsdatum und deine Schule, wenn sie angegeben ist, bis du oder die Liga den Eintrag beenden.";
 
 /**
  * The bounds the frontend's code holds that the privacy notice's retention table states, passed by its page. An hour
@@ -93,6 +103,19 @@ export const SERVER_COPY = catalogue({
     address_change_unchanged: COPY.account.address.unchanged,
     /** A grant's move nobody but the person could approve. */
     address_change_no_approver: COPY.account.address.noApprover,
+    /** A venue retired while matches still to come are booked there, named by their numbers so they can be moved first. */
+    spielort_still_booked: ({ spiel_nrs }: FLRefusedField["ctx"]) =>
+      Array.isArray(spiel_nrs) && spiel_nrs.length > 0 ? `Der Spielort ist noch für ${spieleNamed(spiel_nrs)} gebucht.` : undefined,
+    /** A referee retired while matches still to come name them, by the matches' numbers. */
+    schiedsrichter_still_assigned: ({ spiel_nrs }: FLRefusedField["ctx"]) =>
+      Array.isArray(spiel_nrs) && spiel_nrs.length > 0 ? `Die Person ist noch für ${spieleNamed(spiel_nrs)} eingeteilt.` : undefined,
+    /** A referee's address the ban list holds, where a create, a save or a return would mail it a link. */
+    schiedsrichter_address_barred: "Diese E-Mail-Adresse steht auf der Sperrliste.",
+    /**
+     * A confirmed referee's address, which the editor shows read-only: only a page read before the confirmation sends
+     * it, so it reads as the stale page it is.
+     */
+    schiedsrichter_address_only_per_change: COPY.shared.failure.stale,
     eligibility_disqualified: {
       team1: `${team1} ist aus der Saison ausgeschieden.`,
       team2: `${team2} ist aus der Saison ausgeschieden.`,
@@ -128,8 +151,8 @@ export const SERVER_COPY = catalogue({
   },
 
   /**
-   * The mail shell's own lines, and the words of the account's mails; every other mail's sentences are its template's
-   * until its area's session rewrites them.
+   * The mail shell's own lines, and the words of the account's, the fixtures' and the referee's mails; every other
+   * mail's sentences are its template's until its area's session rewrites them.
    */
   mail: {
     /** The one greeting: the first name where it is known. */
@@ -151,6 +174,60 @@ export const SERVER_COPY = catalogue({
 
     /** A mailed link's deadline, by the hours its lifetime counts. */
     linkValidFor: (hours: number) => `Der Link gilt ${formatNumber(hours)} Stunden.`,
+
+    /**
+     * The fixture mails: a club asked to confirm a fixture's slot, a referee booked onto it, and the word of what became
+     * of either. Each subject names the day; a sentence's moment is set semibold between its two parts, whose spaces
+     * they hold.
+     */
+    spiel: {
+      requestSubject: (day: CalendarDay) => `Spieltermin am ${formatDatumLong(day)} bestätigen`,
+      reminderSubject: (day: CalendarDay) => `Erinnerung: Spieltermin am ${formatDatumLong(day)}`,
+      /** Both answers named before the press, as the page offers both. */
+      confirmAsk: (team: Words) => `Bestätige den Termin für ${textOf(team)} oder schlag einen anderen vor.`,
+      answerMissing: (team: Words) => `Die Antwort von ${textOf(team)} fehlt noch.`,
+      /** Around the deadline. */
+      answerUntil: { before: "Antworte bis zum ", after: "." },
+      /** Any seat of the club answers and the first press binds, so a later reader meets a link already spent. */
+      firstAnswerCounts: "Es gilt die erste Antwort aus deinem Team.",
+
+      /** A move, by the day the fixture moved to, or by the day it left where it holds no new one yet. */
+      movedSubject: (day: CalendarDay) => `Spiel verlegt auf den ${formatDatumLong(day)}`,
+      movedFromSubject: (day: CalendarDay) => `Spiel am ${formatDatumLong(day)} verlegt`,
+      moved: (spiel: Words) => `${textOf(spiel)} ist verlegt.`,
+      /** The block's rows of a move, beside the slot's own: the moment it left and the one it moved to. */
+      previous: "Bisher",
+      next: "Neu",
+      /** A move whose new slot is asked later, by the reader: a club is asked, a referee booked. */
+      askedLater: {
+        team: "Zum neuen Termin bekommst du eine neue Anfrage.",
+        schiedsrichter: "Zum neuen Termin bekommst du eine neue Einteilung.",
+      },
+      /** A club taken off a fixture it was asked about, around the moment it was asked about. */
+      voidSubject: (day: CalendarDay) => `Nicht mehr angefragt: Spiel am ${formatDatumLong(day)}`,
+      void: { before: (spiel: Words) => `Die Anfrage zu ${textOf(spiel)} am `, after: " gilt nicht mehr." },
+
+      /** A call-off, around its moment, and what a reinstated fixture brings each reader. */
+      cancelledSubject: (day: CalendarDay) => `Spiel am ${formatDatumLong(day)} fällt aus`,
+      cancelled: { before: (spiel: Words) => `${textOf(spiel)} am `, after: " fällt aus." },
+      reinstated: {
+        team: "Wird das Spiel neu angesetzt, bekommst du eine neue Anfrage.",
+        schiedsrichter: "Wird das Spiel neu angesetzt, bekommst du eine neue Einteilung.",
+      },
+
+      /** The referee's Einteilung, which they answer on their own Übersicht, signed in. */
+      bookedSubject: (day: CalendarDay) => `Einteilung: Spiel am ${formatDatumLong(day)}`,
+      booked: (spiel: Words) => `Du pfeifst ${textOf(spiel)}.`,
+      sayYesOrNo: "Sag zu oder ab.",
+      /** A referee taken off a fixture, around the moment they were booked for. */
+      unbookedSubject: (day: CalendarDay) => `Nicht mehr eingeteilt: Spiel am ${formatDatumLong(day)}`,
+      unbooked: { before: (spiel: Words) => `Du pfeifst ${textOf(spiel)} am `, after: " nicht mehr." },
+
+      /** A club's proposal the league discarded, around the moment that stands. */
+      keptSubject: (day: CalendarDay) => `Termin bleibt: Spiel am ${formatDatumLong(day)}`,
+      kept: { before: (spiel: Words) => `${textOf(spiel)} bleibt am `, after: "." },
+      keptDiscarded: "Den Vorschlag deines Teams hat die Liga verworfen.",
+    },
 
     /** The sign-in code: no button, since a link carrying the code would sign in whoever opened a forwarded mail. */
     signInCode: {
@@ -680,7 +757,7 @@ export const SERVER_COPY = catalogue({
     objectionEffect: {
       application: "Widersprichst du, entfernen wir deine Angaben aus der Bewerbung und schreiben das der Person, die sie eingereicht hat.",
       self: "Widersprichst du, entfernen wir deine Angaben aus der Bewerbung.",
-      seasonRow: "Widersprichst du, löschen wir deinen Eintrag.",
+      seasonRow: OBJECTION_DELETES_ENTRY,
     },
     /** The Art. 21 (4) sentence, its own paragraph, around the league's address, which the page sets as a link. */
     objectionRight: OBJECTION_RIGHT,
@@ -688,21 +765,26 @@ export const SERVER_COPY = catalogue({
     more: MORE,
   },
 
-  // Session 5: its page reads these.
   /**
-   * The fixed text of a referee's confirmation page, `ROUTES.schiedsrichterConfirmation`, built as
-   * `kontaktConfirmation` is: who entered the person and for what, what is stored and until when, the deadline, what
-   * the birthdate is checked for, the objection and the privacy notice's link. The referee's floor is the backend's
-   * alone, so the page passes the one its read serves.
+   * The fixed text of a referee's confirmation page, `ROUTES.schiedsrichterConfirmation`: who named the person and for
+   * what, what is stored and until when, the deadline, and what an objection does, the page's one sentence before its
+   * two acts. The age floor is the birthdate field's bound, read off the link's view; the Art. 21 objection with the
+   * league's address stands in the first-contact mail, and each consent's line names the privacy notice.
    */
   schiedsrichterConfirmation: {
-    opening: "Die Liga hat dich als Schiedsrichterin oder Schiedsrichter für ihre Spiele eingetragen.",
-    stored:
-      "Wir speichern deinen Namen, deine Kontaktdaten, dein Honorar, dein Geburtsdatum und deine Schule, wenn sie angegeben ist, bis du oder die Liga den Eintrag beenden.",
-    ageCheck,
-    deadline: entryDeadline,
-    objectionRight: OBJECTION_RIGHT,
-    more: MORE,
+    /** The page's and the mail's first sentence. */
+    opening: REFEREE_OPENING,
+    /** The deadline in the two parts around its day: the mail sets the day semibold, the page writes it plain. */
+    deadline: ENTRY_DEADLINE,
+    question: (until: CalendarDay) => [REFEREE_OPENING, REFEREE_STORED, entryDeadline(until), OBJECTION_DELETES_ENTRY].join(" "),
+    /**
+     * The two ends of an answer, each its title and its one sentence; a link opened again after it says the title with
+     * the day (`COPY.shared.end.doneOn`).
+     */
+    confirmed: "Eintrag bestätigt",
+    confirmedSentence: "Mit der Adresse, an die dieser Link ging, meldest du dich an.",
+    objected: "Widersprochen",
+    objectedSentence: "Wir löschen deinen Eintrag.",
   },
 
   // Session 8: its page reads these.

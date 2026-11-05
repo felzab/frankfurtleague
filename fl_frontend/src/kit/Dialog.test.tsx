@@ -133,6 +133,31 @@ describe("the kit's confirmation", () => {
 
     expectTheSharedOverlay(screen.getByRole("alertdialog"));
   });
+
+  // The harm: a refused retirement closing its question, the reason it was refused shown nowhere.
+  it("stays open on a refused act, its reason in the status line beside the acts", async () => {
+    const reason = COPY.shared.failure.stale;
+    render(
+      <ConfirmDialog
+        verb="retire"
+        subject={NAME}
+        consequence={COPY.admin.spielort.retireConsequence}
+        tone="danger"
+        trigger={
+          <Button
+            variant="danger"
+            label={COPY.shared.verb.retire}
+          />
+        }
+        onConfirm={async () => ({ ok: false, reason })}
+      />,
+    );
+    await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.retire }));
+    await userEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: COPY.shared.verb.retire }));
+
+    const question = await screen.findByRole("alertdialog");
+    await waitFor(() => expect(within(question).getByRole("status").textContent).toBe(reason));
+  });
 });
 
 /** A control opening its dialog through an open state of its own, a plain one. */

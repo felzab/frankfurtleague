@@ -20,12 +20,11 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
   return pageMetadata(parent, ROUTES.adminSpielorte, ROUTES.adminSpielorte.path());
 }
 
-/** One venue's row: its name, „Stillgelegt“ and muted once retired, its street and its price. */
-const zeile = (ort: FLSpielort): TableRow => ({
+/** One venue's row, opening its editor: its name, „Stillgelegt“ and muted once retired, its street and its price. */
+const rowOf = (ort: FLSpielort): TableRow => ({
   id: ort.id,
   name: { record: ort.name },
-  // No `href` while no venue page answers at `ROUTES.adminSpielort`: a row linking there would open the
-  // not-found page. The record page brings the link back.
+  href: ROUTES.adminSpielort.path(ort.id),
   ...(ort.inactive_since === null ? {} : { chip: { tone: "neutral" as const, label: WORDS.retired }, muted: true }),
   cells: {
     adresse: WORDS.strasseWithHausnummer(ort.address.strasse, ort.address.hausnummer),
@@ -60,7 +59,7 @@ async function readSpielorte() {
         { key: "adresse", label: WORDS.address, hideOnPhone: true },
         { key: "mietpreis", label: WORDS.mietpreis, figures: true },
       ],
-      rows: spielorte.map(zeile),
+      rows: spielorte.map(rowOf),
       empty: { kind: "none", plural: ROUTES.adminSpielorte.title, glyph: "spielorte" } as const,
     },
   };

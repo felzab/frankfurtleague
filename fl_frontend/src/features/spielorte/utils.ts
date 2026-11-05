@@ -1,4 +1,3 @@
-import { buildMapsSearchUrl } from "@/core/maps";
 import { formatAddressFull } from "@/shared/utils/format";
 
 import type { FLSpielort } from "@/core/generated/client/types";
@@ -9,9 +8,4 @@ import type { FLSpielort } from "@/core/generated/client/types";
  */
 export function mapsQuery(ort: Pick<FLSpielort, "name" | "address">): string {
   return `${ort.name}, ${formatAddressFull(ort.address)}`;
-}
-
-/** Not in `shared`, which may not import a `features` type. */
-export function formatMapsLink(ort: FLSpielort): string {
-  return buildMapsSearchUrl(mapsQuery(ort));
 }

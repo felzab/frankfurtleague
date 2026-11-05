@@ -98,6 +98,7 @@ import type {
   FLPatchGrantPayload,
   FLPatchKaderRowPayload,
   FLPatchSaisonPayload,
+  FLPatchSaisonResponse,
   FLPatchSaisonSpielerPayload,
   FLPatchSaisonTeamKontaktePayload,
   FLPatchSaisonTeamKontakteResponse,
@@ -2459,7 +2460,7 @@ export const getSaisonsPostSaisonUrl = () => {
  * Create a season, always `future`.
  *
  * The id is supplied rather than generated -- it is the string every `saison_id` elsewhere
- * references, so reusing one comes back 409. Making the season live is a separate step.
+ * references, so reusing one is refused `duplicate_key`, naming `id`. Making the season live is a separate step.
  * @summary Create a Saison
  */
 export const saisonsPostSaison = async (
@@ -2525,12 +2526,13 @@ export const getSaisonsGetSaisonsAdminUrl = (params?: SaisonsGetSaisonsAdminPara
 };
 
 /**
- * List every season, the `future` ones every base-tier read withholds included, each with whether it has started and has been played.
+ * List every season, the `future` ones every base-tier read withholds included, each with its start, play and decision states.
  *
  * The admin surfaces read here because a season is created `future` and clubs are entered while it
  * still is, so an admin who cannot see one cannot run the league. `begun` is the start every
  * start lock refuses on, the swap's, the replacement's and the rules freeze's; `taken_place` is what
- * fixes the start date (`saison_start_taken_place`).
+ * fixes the start date (`saison_start_taken_place`); `decided` is the landing's own rule, all four places of the Finale in.
+ * `count_teams` counts every club row of the season, one that left included.
  * @summary Every Saison for the admin surfaces
  */
 export const saisonsGetSaisonsAdmin = async (
@@ -2568,20 +2570,19 @@ export const getSaisonsPatchSaisonUrl = (saisonId: string) => {
 };
 
 /**
- * Update a season's dates and rules. `status` is on no payload.
+ * Update a season's dates and rules on the `version` the editor was served, answering the version stored, which its next save sends.
  *
- * Editing the points moves every league table on the NEXT READ, standings being derived. What a
- * started or drawn season has fixed is refused, as is a rule narrowed below what it holds. The start
- * date moves until a fixture of the season has taken place (`saison_start_taken_place`); the rules
- * freeze reads the STORED start, so a season started too early is unlocked by one save moving its
- * start and a second changing its rules.
+ * `status` is on no payload. Editing the points moves every league table on the NEXT READ, standings being derived. What a
+ * started or drawn season has fixed is refused, as is a rule narrowed below what it holds. The start date moves until a
+ * fixture of the season has taken place (`saison_start_taken_place`); the rules freeze reads the STORED start, so a season
+ * started too early is unlocked by one save moving its start and a second changing its rules.
  * @summary Update a Saison's dates and rules
  */
 export const saisonsPatchSaison = async (
   saisonId: string,
   fLPatchSaisonPayload: FLPatchSaisonPayload,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<void> => {
+): Promise<FLPatchSaisonResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
@@ -2594,7 +2595,7 @@ export const saisonsPatchSaison = async (
     }
     return headers;
   };
-  return adminKeyTransport<void>(getSaisonsPatchSaisonUrl(saisonId), {
+  return adminKeyTransport<FLPatchSaisonResponse>(getSaisonsPatchSaisonUrl(saisonId), {
     ...options,
     method: "PATCH",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
@@ -2628,14 +2629,19 @@ export const getSaisonsGetSaisonAdminUrl = (saisonId: string) => {
 };
 
 /**
- * Return what the season editor shows in one read: the season and its clubs, the clubs a replacement may bring in, its shapes and matchdays.
+ * Return what the season editor shows in one read: its season, clubs, shapes and matchdays, its acts' states and its links.
  *
- * The season is served a `future` one included, with its `version`, whether it has started (`begun`) and whether a
- * fixture of it has taken place (`taken_place`).
+ * The season is served a `future` one included, with its `version`, whether it has started (`begun`), whether a
+ * fixture of it has taken place (`taken_place`) and whether it is decided (`decided`), by the landing's own rule.
  *
  * Each club's two flags are what the group swap's and the replacement's `sides_taken_place` read, so a picker closes
  * exactly the pairs and rows those writes refuse; `begun` closes both before either is pressed. `incoming_clubs` is
- * every club still in the league holding no row of the season, which is what the replacement admits. 404 where no
+ * every club still in the league holding no row of the season, which is what the replacement admits.
+ *
+ * `refusals` names, per danger act, the refusal its write would answer now, by that write's own judgement, so the editor
+ * offers an act exactly where the write takes it. `invitations` is the registration links' press planned by the function
+ * the press decides each team by, `resend` left false, beside each team's live link and the day it was last sent.
+ * Read outside a transaction: a write landing between this read and a press is judged by the press. 404 where no
  * season holds that id.
  * @summary One Saison for the admin editor
  */
@@ -5217,8 +5223,9 @@ export const getTeamsPostInvitationDispatchUrl = (teamId: string, saisonId: stri
  *
  * The write mints nothing and revokes nothing: each mail mints a link of its own when it is handed out, so a link copied off the mint
  * stays valid beside the mailed ones. `recipient` names who is owed it, one entry per stored address, and is empty where nobody has
- * confirmed a seat, which owes nothing. Pressed twice on one day, the second owes nothing again; a later day's press mails the seats
- * afresh. A barred address is stopped when its mail is handed out.
+ * confirmed a seat, which owes nothing. Where it owes anyone, the row's `sent_at` becomes today, the day the season editor shows. Pressed
+ * twice on one day, the second owes nothing again; a later day's press mails the seats afresh. A barred address is stopped when its mail
+ * is handed out.
  *
  * 404 where `invitation_id` is not this team's live invite for the season, a link replaced or withdrawn since the caller read it among
  * them, and where the season holds no row for the team.

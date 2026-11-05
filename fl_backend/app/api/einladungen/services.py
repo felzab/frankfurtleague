@@ -94,8 +94,13 @@ def find_live_einladung_filter(*, token_hash: str) -> Mapping[str, Any]:
     return {"token_hashes": token_hash, **LIVE_EINLADUNG}
 
 
-def compose_einladung(*, saison_id: str, team_id: Any, token_hashes: list[str], created_by: str, today: str) -> dict[str, Any]:
-    """One live row: the hash of the link a mint answers for copying, or none where the press's mails mint every link."""
+def compose_einladung(
+    *, saison_id: str, team_id: Any, token_hashes: list[str], created_by: str, today: str, sent_at: str | None
+) -> dict[str, Any]:
+    """One live row: the hash of the link a mint answers for copying, or none where the press's mails mint every link.
+
+    `sent_at` is today where the same write owes the link's mails, as the season's press does, and null on a mint for copying.
+    """
 
     return {
         "saison_id": saison_id,
@@ -104,7 +109,14 @@ def compose_einladung(*, saison_id: str, team_id: Any, token_hashes: list[str], 
         "created_at": today,
         "created_by": created_by,
         "revoked_at": None,
+        "sent_at": sent_at,
     }
+
+
+def compose_sent_update(*, today: str) -> Mapping[str, Any]:
+    """What owing a live link's mails to its seats writes on the row: the day, which the season editor shows as the day it was sent."""
+
+    return {"$set": {"sent_at": today}}
 
 
 def compose_revocation_update(*, today: str) -> Mapping[str, Any]:

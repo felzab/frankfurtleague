@@ -14,6 +14,7 @@ import type {
   FLGenerateSpielplanPayload,
   FLGenerateSpielplanResponse,
   FLPatchSaisonPayload,
+  FLPatchSaisonResponse,
   FLPostSaisonPayload,
   FLPostSaisonResponse,
   FLSwapGruppenPayload,
@@ -43,7 +44,7 @@ export async function patchSaison({
   bewerbung,
   registrierung,
   version,
-}: FLPatchSaisonPayload & { id: string }): Promise<void> {
+}: FLPatchSaisonPayload & { id: string }): Promise<FLPatchSaisonResponse> {
   return saisonsPatchSaison(id, { start_date, end_date, rules, bewerbung, registrierung, version });
 }
 
