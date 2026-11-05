@@ -83,20 +83,19 @@ export const columnCap = tv({ base: "text-sm lg:max-w-field pointer-coarse:text-
  * The edge a value is typed into: 32 px with a mouse, 40 px and 16-px text on a touch screen, transparent inside
  * its control edge, as every control is, so it takes the fill of the page or the card it stands on, as the
  * secondary button does. The edge is an inset ring, as the switch's track draws its own, so the frame's parts fill
- * its whole height by the touch rule at this file's head; each inset is a pixel wider than the space it leaves, the
- * edge lying inside it. Inside a pair sharing its row on a phone
- * (`FieldPair`'s `data-pair`), it fills its side of the row: a percentage minimum adds nothing to the width
- * the side is laid out at, so the side starts from the field's width class and the frame then fills what
- * the side grew to.
+ * its whole height by the touch rule at this file's head, the edge lying inside the frame's inset. Inside a pair
+ * sharing its row on a phone (`FieldPair`'s `data-pair`), it fills its side of the row: a percentage minimum adds
+ * nothing to the width the side is laid out at, so the side starts from the field's width class and the frame then
+ * fills what the side grew to.
  */
 export const fieldFrame = tv({
   base: "rounded-lg bg-transparent text-sm text-fg inset-ring inset-ring-border-control transition-[color,outline-color,box-shadow] duration-(--motion-state) group-data-invalid:inset-ring-danger data-disabled:opacity-50 data-invalid:inset-ring-danger max-lg:in-data-pair:min-w-full pointer-coarse:text-base",
   variants: {
     // A field is as wide as its value. The short widths are counted in characters, as the GOV.UK Design
     // System sizes its fixed-width inputs, so they grow with the reader's font size: each holds its count
-    // of characters and one more for the caret, inside the two 11-px insets, each a 1-px edge and 10 px of
-    // space (1.375 rem together). Then a long field, the column up to `columnCap`; the column at four lines for a
-    // paragraph, free text taking the whole column; and a field filling the column it stands in, uncapped.
+    // of characters and one more for the caret, inside the two 10-px insets, with 2 px to spare (1.375 rem
+    // together). Then a long field, the column up to `columnCap`; the column at four lines for a paragraph, free
+    // text taking the whole column; and a field filling the column it stands in, uncapped.
     width: {
       // A score.
       C2: "h-8 w-[calc(3ch+1.375rem)] pointer-coarse:h-10",
@@ -111,10 +110,10 @@ export const fieldFrame = tv({
       column: "h-8 w-full pointer-coarse:h-10",
       // A select of a few short choices: as wide as its longest choice, which `Select` lays in the frame unseen.
       fit: "h-8 w-fit max-w-full min-w-40 pointer-coarse:h-10",
-      W4: "min-h-26 w-full resize-none py-2.25",
+      W4: "min-h-26 w-full resize-none py-2",
     },
     // A frame holding the value alone takes the padding; a frame grouping a value and a button keeps its
-    // start. The padding is set per width below: the short widths take 10 px inside the edge, the long ones 12 px.
+    // start. The padding is set per width below: the short widths take 10 px, the long ones 12 px.
     inset: {
       full: "",
       start: "",
@@ -124,7 +123,7 @@ export const fieldFrame = tv({
     // A select's trigger holds its value and the arrow beside it, the arrow inside the frame's end.
     layout: {
       value: "",
-      trigger: "flex items-center justify-between gap-2 pe-2.25 text-start",
+      trigger: "flex items-center justify-between gap-2 pe-2 text-start",
       // A date or a combo box: the typed value, then a button as tall and as wide as the field.
       group: "flex items-center overflow-hidden",
     },
@@ -134,10 +133,10 @@ export const fieldFrame = tv({
     },
   },
   compoundVariants: [
-    { width: ["C2", "C5", "C10"], inset: "full", class: "px-2.75" },
-    { width: ["C2", "C5", "C10"], inset: "start", class: "ps-2.75" },
-    { width: ["W3", "column", "W4", "fit"], inset: "full", class: "px-3.25" },
-    { width: ["W3", "column", "W4", "fit"], inset: "start", class: "ps-3.25" },
+    { width: ["C2", "C5", "C10"], inset: "full", class: "px-2.5" },
+    { width: ["C2", "C5", "C10"], inset: "start", class: "ps-2.5" },
+    { width: ["W3", "column", "W4", "fit"], inset: "full", class: "px-3" },
+    { width: ["W3", "column", "W4", "fit"], inset: "start", class: "ps-3" },
   ],
 });
 
@@ -159,7 +158,7 @@ export const fieldButton = tv({ base: "flex h-full w-8 shrink-0 items-center jus
 export const groupInput = tv({ base: "h-full min-w-0 flex-1 bg-transparent" });
 
 /** A search field's magnifier, at the frame's start. */
-export const searchGlyph = tv({ base: "flex shrink-0 items-center ps-3.25 pe-2 text-fg-muted" });
+export const searchGlyph = tv({ base: "flex shrink-0 items-center ps-3 pe-2 text-fg-muted" });
 
 /** A search field's text, without the clearing cross WebKit draws inside a search input. */
 export const searchInput = tv({ base: "h-full min-w-0 flex-1 bg-transparent [&::-webkit-search-cancel-button]:hidden" });
