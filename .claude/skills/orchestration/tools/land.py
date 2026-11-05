@@ -183,11 +183,17 @@ def _tail(done: subprocess.CompletedProcess[bytes]) -> list[str]:
     return (done.stdout + done.stderr).decode("utf-8", "replace").strip().splitlines()[-15:]
 
 
-def type_check(root: Path, touched: list[str]) -> list[str]:
-    """Each touched package's type checker run over the merged tree, after any install it moved; the packages checked."""
+def install(root: Path, touched: list[str]) -> None:
+    """Each install a merged manifest or lockfile implies, run before anything the merged tree executes."""
+    # Before the regeneration too: its client generator runs through pnpm, which refuses a modules directory
+    # older than the merged lockfile.
     for manifests, command in INSTALLS:
         if any(path in manifests for path in touched) and (done := _run(command, root)).returncode != 0:
             raise Stop(5, f"`{' '.join(command)}` exited {done.returncode} for the merged manifests:", *_tail(done))
+
+
+def type_check(root: Path, touched: list[str]) -> list[str]:
+    """Each touched package's type checker run over the merged tree; the packages checked."""
     checked: list[str] = []
     for prefixes, command, where in TYPE_CHECKS:
         if not any(path.startswith(prefixes) for path in touched):
@@ -289,6 +295,7 @@ def land(register: Path, branch: str, after_dispatch: bool = False) -> int:
                 raise Stop(7, f"git merge --no-ff --no-commit {branch} failed with no file in conflict")
             merged = resolve(conflicted, written)
         touched = git("diff", "--cached", "--name-only", "HEAD").split()
+        install(root, touched)
         moved = regenerate(root, written) if any(path.startswith(REGENERATED_FROM) for path in touched) else []
         if git("diff", "--name-only", "--diff-filter=U").split():
             raise Stop(3, "a conflict is still unresolved after the regeneration")
