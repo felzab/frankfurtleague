@@ -228,7 +228,7 @@ season-independent · `"playoffs"` is not a stored value · a no-show still coun
 ### `Quelle` — where a side of a fixture comes from
 
 **Is:** `team1_quelle` and `team2_quelle` — a structural reference naming what feeds that side of the bracket, a group placing or a match outcome, never display text.\
-**In code:** `fl_backend/app/api/spiele/schemas.py :: FLSpielQuelle`, resolved by `fl_backend/app/api/spiele/services.py :: resolve_bracket`, rendered by `fl_frontend/src/features/spiele/utils.ts :: formatQuelle`.\
+**In code:** `fl_backend/app/api/spiele/schemas.py :: FLSpielQuelle`, resolved by `fl_backend/app/api/spiele/services.py :: resolve_bracket`, rendered by `fl_frontend/src/features/spiele/blocks.ts :: quelleWords`.\
 **Trap:** it is not paired with the team field beside it — all four combinations are legitimate stored states — and while a reference stands it owns the slot, so a hand-set team is a 409 and is reverted on the next save. Clearing the reference is the only manual override.\
 **See:** the `Herkunft` entry below for the German the editor labels this with and the three other things that word names.
 
