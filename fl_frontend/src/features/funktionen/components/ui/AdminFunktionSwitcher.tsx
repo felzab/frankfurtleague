@@ -20,13 +20,13 @@ export async function AdminFunktionSwitcher() {
 
   // The lookup the session's verdict was read from, memoised per render: a lookup failing here failed
   // there first, and the verdict answered it with no session.
-  const subjekt = await lookUpSubject(email);
+  const records = await lookUpSubject(email);
 
-  const { roles: funktionen } = rolesOf({ email: email, admin: true, subject: subjekt });
+  const { roles } = rolesOf({ email: email, isAdmin: true, records });
 
   return (
     <FunktionSwitcher
-      orte={funktionOrteOf(funktionen)}
+      orte={funktionOrteOf(roles)}
       ohneOrt={ADMIN_SHELL_FALLBACK.label}
       mitBereich
     />

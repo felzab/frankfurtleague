@@ -186,7 +186,7 @@ export function kontakteEditorKey(
 ): string {
   const team = { id, name, shorthand, inactive_since };
   if (membership === null) return JSON.stringify({ team, saison, membership });
-  const { confirmations: _bestaetigungen, address_change: _address_change, ...gesaet } = membership;
+  const { confirmations: _confirmations, address_change: _address_change, ...gesaet } = membership;
 
   return JSON.stringify({ team, saison, membership: gesaet });
 }
@@ -203,8 +203,8 @@ const kontaktpersonPayload = (person: KontaktpersonDraft | null): FLKontaktperso
         // No `geburtsdatum`: the date is the person's own to enter at their confirmation, so the
         // server carries the stored seat's forward and this editor may not name one at all.
         einwilligung: {
-          umfang: EINWILLIGUNG_UMFANG,
-          datum: person.einwilligung.datum,
+          scope: EINWILLIGUNG_UMFANG,
+          date: person.einwilligung.date,
         },
       };
 

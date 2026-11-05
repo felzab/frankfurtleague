@@ -8,69 +8,69 @@ import { REFERENZEN_ADRESSEN_MAX } from "./constants";
 import { postReferenzen } from "./mutations";
 
 /** What one pass did, by count and never by address: the scheduler's pass line is all that records it. */
-type Zaehlung = {
-  unreferenziert: number;
-  geloescht: number;
-  bereits_geloescht: number;
-  fehlgeschlagen: number;
+type AccountSweepCount = {
+  unreferenced: number;
+  deleted: number;
+  already_deleted: number;
+  failed: number;
 };
 
 /**
  * One pass over every sign-in account, deleting those no record references, for the scheduler
  * (`fl_frontend/src/instrumentationNode.ts :: armScheduler`), which runs one pass at a time. A store that lists
- * nothing rejects, for the heartbeat to name; the pass resolves to what it did, `offen` the accounts it could not judge
+ * nothing rejects, for the heartbeat to name; the pass resolves to what it did, `open` the accounts it could not judge
  * or delete.
  */
-export async function runKontoSweep(): Promise<{ count: Zaehlung; open: number }> {
-  const konten = await listAccounts();
-  const zaehlung: Zaehlung = { unreferenziert: 0, geloescht: 0, bereits_geloescht: 0, fehlgeschlagen: 0 };
+export async function runAccountSweep(): Promise<{ count: AccountSweepCount; open: number }> {
+  const accounts = await listAccounts();
+  const count: AccountSweepCount = { unreferenced: 0, deleted: 0, already_deleted: 0, failed: 0 };
 
   // Batch by batch, each within the read's ceiling: a larger one, or an empty one, is refused whole,
   // every pass alike, and the sweep would then delete nothing ever after.
-  for (let start = 0; start < konten.length; start += REFERENZEN_ADRESSEN_MAX) {
-    const batch = konten.slice(start, start + REFERENZEN_ADRESSEN_MAX);
-    let unreferenziert: readonly string[];
+  for (let start = 0; start < accounts.length; start += REFERENZEN_ADRESSEN_MAX) {
+    const batch = accounts.slice(start, start + REFERENZEN_ADRESSEN_MAX);
+    let unreferenced: readonly string[];
 
     try {
-      ({ unreferenced: unreferenziert } = await postReferenzen({ identifiers: batch }));
+      ({ unreferenced } = await postReferenzen({ identifiers: batch }));
     } catch (error) {
       // Kept, every one: an answer that never came says nothing about any address in it.
-      zaehlung.fehlgeschlagen += batch.length;
-      logKontoFailure("account.references_failed", error, batch.length);
+      count.failed += batch.length;
+      logAccountFailure("account.references_failed", error, batch.length);
       continue;
     }
 
-    zaehlung.unreferenziert += unreferenziert.length;
+    count.unreferenced += unreferenced.length;
     // One at a time: each delete is a transaction of its own, and its ask is meant to come just before it.
-    for (const adresse of unreferenziert) {
-      await loescheKonto(adresse, zaehlung);
+    for (const address of unreferenced) {
+      await deleteUnreferencedAccount(address, count);
     }
   }
 
-  return { count: zaehlung, open: zaehlung.fehlgeschlagen };
+  return { count, open: count.failed };
 }
 
 /** One account, deleted only where the read answers its address unreferenced again, alone. */
-async function loescheKonto(adresse: string, zaehlung: Zaehlung): Promise<void> {
+async function deleteUnreferencedAccount(address: string, count: AccountSweepCount): Promise<void> {
   try {
     // Asked again immediately before the delete rather than trusted from the batch: a record entered
     // since then keeps its account, and the race narrows to the seconds between this answer and the delete.
-    const { unreferenced: unreferenziert } = await postReferenzen({ identifiers: [adresse] });
-    if (!unreferenziert.includes(adresse)) return;
+    const { unreferenced } = await postReferenzen({ identifiers: [address] });
+    if (!unreferenced.includes(address)) return;
 
-    if (await deleteAccountFor(adresse)) zaehlung.geloescht += 1;
-    else zaehlung.bereits_geloescht += 1;
+    if (await deleteAccountFor(address)) count.deleted += 1;
+    else count.already_deleted += 1;
   } catch (error) {
-    zaehlung.fehlgeschlagen += 1;
-    logKontoFailure("account.delete_failed", error);
+    count.failed += 1;
+    logAccountFailure("account.delete_failed", error);
   }
 }
 
 /** The step and the error's name, never the address: a failure on this path routinely carries it. */
-function logKontoFailure(event: "account.references_failed" | "account.delete_failed", error: unknown, anzahl?: number): void {
+function logAccountFailure(event: "account.references_failed" | "account.delete_failed", error: unknown, batchSize?: number): void {
   logger.error(event, undefined, {
     name: error instanceof Error ? error.name : undefined,
     ...requestOf(error),
-    anzahl: anzahl,
+    count: batchSize,
   });
 }

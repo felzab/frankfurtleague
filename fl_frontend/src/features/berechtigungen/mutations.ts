@@ -26,8 +26,8 @@ export async function deleteBerechtigung({ id }: FLBerechtigungKeyPayload): Prom
   return grantsDeleteGrant(id);
 }
 
-export async function patchBerechtigung({ id, verwaltung }: FLPatchGrantPayload): Promise<FLGrantStufeResponse> {
-  return grantsPatchGrant(id, { admin_tier: verwaltung });
+export async function patchBerechtigung({ id, admin_tier }: FLPatchGrantPayload): Promise<FLGrantStufeResponse> {
+  return grantsPatchGrant(id, { admin_tier });
 }
 
 export async function postAntragGenehmigung({ id }: FLBerechtigungAntragKeyPayload): Promise<FLGrantWriteResponse> {

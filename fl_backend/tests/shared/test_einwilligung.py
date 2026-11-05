@@ -122,16 +122,16 @@ def _replaced(kind: type[FLSeatTextVersions] | type[FLSpielerTextVersions] | typ
     """`kind`'s labels with `choice`'s replaced, an instance a payload's field takes as it is: Pydantic revalidates none."""
 
     labels = {**kind.current, choice: STALE}
-    return kind.model_construct(umfang=labels["umfang"], media=labels["media"])
+    return kind.model_construct(scope=labels["scope"], media=labels["media"])
 
 
-def _seat_answer(*, umfang: str, media: bool, text_versions: Any) -> Any:
+def _seat_answer(*, scope: str, media: bool, text_versions: Any) -> Any:
     return TypeAdapter(FLBewerbungEinwilligungAntwortPayload).validate_python(
         {
             "antwort": "given",
             "token": "raw-trainer",
             "geburtsdatum": "1984-05-09",
-            "whatsapp": umfang == "kontaktdaten_whatsapp",
+            "whatsapp": scope == "kontaktdaten_whatsapp",
             "media": media,
             "text_versions": text_versions,
         }
@@ -139,9 +139,9 @@ def _seat_answer(*, umfang: str, media: bool, text_versions: Any) -> Any:
 
 
 def _confirmation(model: type[BaseModel]) -> Callable[..., Any]:
-    def validate(*, umfang: str, media: bool, text_versions: Any) -> Any:
+    def validate(*, scope: str, media: bool, text_versions: Any) -> Any:
         return model.model_validate(
-            {"token": "raw-link", "geburtsdatum": "1984-05-09", "umfang": umfang, "media": media, "text_versions": text_versions}
+            {"token": "raw-link", "geburtsdatum": "1984-05-09", "scope": scope, "media": media, "text_versions": text_versions}
         )
 
     return validate
@@ -162,6 +162,6 @@ class TestAConfirmationGrantsUnderItsCurrentWording:
     @pytest.mark.parametrize("choice", CHOICES)
     def test_a_grant_under_a_replaced_label_is_refused(self, validate: Callable[..., Any], kind: Any, giving: str, choice: str):
         with pytest.raises(ValidationError) as refused:
-            validate(umfang=giving, media=True, text_versions=_replaced(kind, choice))
+            validate(scope=giving, media=True, text_versions=_replaced(kind, choice))
 
         assert [error["type"] for error in refused.value.errors()] == ["grant_wording_stale"]

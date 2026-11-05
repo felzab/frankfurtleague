@@ -31,12 +31,12 @@ const SPIELER: FLSpielerWithMemberships = {
   geburtsdatum: "2009-05-04",
   // As the pupil's own confirmation stamps it, each choice evidenced under its wording.
   einwilligung: {
-    umfang: "kader_oeffentlich",
-    datum: "2026-09-01",
+    scope: "kader_oeffentlich",
+    date: "2026-09-01",
     confirmed_at: "2026-09-01",
     media: false,
     evidence: {
-      umfang: { at: "2026-09-01T10:00:00Z", text_version: SPIELER_TEXT_VERSIONS.umfang, given_before: null },
+      scope: { at: "2026-09-01T10:00:00Z", text_version: SPIELER_TEXT_VERSIONS.scope, given_before: null },
       media: { at: "2026-09-01T10:00:00Z", text_version: SPIELER_TEXT_VERSIONS.media, given_before: null },
     },
   },

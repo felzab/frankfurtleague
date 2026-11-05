@@ -13,7 +13,7 @@ from app.api.bewerbungen.services import SWEEP_PAGE
 from app.api.outbox.crud import states_of
 from app.api.outbox.schemas import FLOutboxStatus, FLSpielEinteilungData, FLSpielRequestData
 from app.api.outbox.services import OwedMail, enqueue_mails
-from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
+from app.api.sperrliste.lookup import SperrlisteLookup, barred_addresses, sperrliste_saison
 from app.api.spielbestaetigungen.crud import anchor_the_mailboxes_told, anchor_the_referees_told, anchor_the_seats_minted
 from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigungGrund,
@@ -36,7 +36,7 @@ from app.api.spielbestaetigungen.services import (
     compose_spielbestaetigung,
     grund_to_close,
     grund_to_end,
-    kontakt_adresse,
+    kontakt_address,
     link_groups,
     notice_daten_of,
     notice_owed,
@@ -166,14 +166,14 @@ async def _gesperrt(
 ) -> set[str]:
     """Every seat address of these clubs the ban list holds, asked before a share is cut so it never fills with barred seats."""
 
-    adressen = [
-        adresse
+    addresses = [
+        address
         for junction in junctions.values()
         for seat in KONTAKT_ROLLEN
-        if (adresse := kontakt_adresse(kontakte=junction.get("kontakte"), seat=seat))
+        if (address := kontakt_address(kontakte=junction.get("kontakte"), seat=seat))
     ]
 
-    return await adressen_gesperrt(sperrliste, adressen, governing_saison_id=governing_saison_id, session=session)
+    return await barred_addresses(sperrliste, addresses, governing_saison_id=governing_saison_id, session=session)
 
 
 @dataclass
@@ -191,12 +191,12 @@ class _Links:
 def _links_of(*, kontakte: Any, seats: Iterable[str], barred: set[str]) -> _Links:
     """One link per person over the occupied `seats` no ban holds; a barred seat is counted and written nothing, so it stays due."""
 
-    occupied = [seat for seat in seats if kontakt_adresse(kontakte=kontakte, seat=seat) is not None]
-    reachable = [seat for seat in occupied if kontakt_adresse(kontakte=kontakte, seat=seat) not in barred]
+    occupied = [seat for seat in seats if kontakt_address(kontakte=kontakte, seat=seat) is not None]
+    reachable = [seat for seat in occupied if kontakt_address(kontakte=kontakte, seat=seat) not in barred]
 
     return _Links(
         groups=[
-            (str(kontakt_adresse(kontakte=kontakte, seat=gruppe[0])), gruppe) for gruppe in link_groups(kontakte=kontakte, seats=reachable)
+            (str(kontakt_address(kontakte=kontakte, seat=gruppe[0])), gruppe) for gruppe in link_groups(kontakte=kontakte, seats=reachable)
         ],
         withheld=len(occupied) - len(reachable),
     )
@@ -207,14 +207,14 @@ def _anfrage(
     row: Mapping[str, Any],
     spiel: Mapping[str, Any],
     links: _Links,
-    art: Literal["spiel_request", "spiel_reminder"],
+    kind: Literal["spiel_request", "spiel_reminder"],
     schluessel_of: Callable[[str], str],
 ) -> list[OwedMail]:
     """A team row's request or reminder, one mail per link, each minting its link into the seats it answers."""
 
     view = ansicht_ansetzung_of(spiel)
     team = view.team1_name if seite_of(row) == "team1" else view.team2_name
-    data = FLSpielRequestData(art=art, team=team, ansetzung=spiel_mail_ansetzung_of(view), frist=row["frist"])
+    data = FLSpielRequestData(kind=kind, team=team, ansetzung=spiel_mail_ansetzung_of(view), frist=row["frist"])
 
     return [
         OwedMail(
@@ -404,7 +404,7 @@ async def sweep_spielbestaetigungen(
         refuse_a_stalled_page(read=len(rows), moved=len(taken) + len(batch.refused), page=SWEEP_PAGE, clock="close", saison_id=saison_id)
 
         owing = [row for row in taken if notice_owed(row=row, grund=gruende[row["_id"]], spiel=spiele[row["spiel_id"]], today=today)]
-        adressen = await _referee_addresses(
+        addresses = await _referee_addresses(
             schiedsrichter_collection=schiedsrichter_collection,
             ids=[row["party"]["schiedsrichter_id"] for row in owing if row["party"]["art"] == "schiedsrichter"],
             session=session,
@@ -423,7 +423,7 @@ async def sweep_spielbestaetigungen(
                 grund=grund, partei_art=partei["art"], appointment=spiel_mail_termin_of(spielbestaetigung_raw=row, names=names)
             )
             if partei["art"] == "schiedsrichter":
-                address = adressen.get(partei["schiedsrichter_id"])
+                address = addresses.get(partei["schiedsrichter_id"])
                 if address is not None:
                     told_referees.add(partei["schiedsrichter_id"])
                     mails.append(
@@ -541,7 +541,7 @@ async def sweep_spielbestaetigungen(
                                 key=f"spielbestaetigung/{row['_id']}/einteilung",
                                 an=address,
                                 data=FLSpielEinteilungData(
-                                    art="spiel_einteilung", ansetzung=spiel_mail_ansetzung_of(ansicht_ansetzung_of(spiel))
+                                    kind="spiel_einteilung", ansetzung=spiel_mail_ansetzung_of(ansicht_ansetzung_of(spiel))
                                 ),
                                 reference=bezug_of(spielbestaetigung_id=row["_id"], seat=None),
                             )
@@ -588,7 +588,7 @@ async def sweep_spielbestaetigungen(
                         row=row,
                         spiel=spiel,
                         links=links,
-                        art="spiel_request",
+                        kind="spiel_request",
                         schluessel_of=lambda seat, row_id=row["_id"]: f"spielbestaetigung/{row_id}/anfrage/{seat}/{ObjectId()}",
                     )
 
@@ -697,7 +697,7 @@ async def sweep_spielbestaetigungen(
                 row=row,
                 spiel=spiel,
                 links=links,
-                art="spiel_reminder",
+                kind="spiel_reminder",
                 schluessel_of=lambda seat: f"spielbestaetigung/{row['_id']}/erinnerung/{today}/{seat}",
             )
             return _Owed(mails=mails, emails=links.emails, marked=True)

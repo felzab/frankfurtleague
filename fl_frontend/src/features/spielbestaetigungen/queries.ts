@@ -43,7 +43,7 @@ export async function getSpielbestaetigungAnsicht(token: string): Promise<Spielb
       // Narrowed here and never at the page, which would carry the clubs, the date and the proposal
       // regardless: a dead link's panel names nothing of the fixture, an answered one the seat alone.
       (view): SpielbestaetigungAnsicht => {
-        const { state: state } = view;
+        const { state } = view;
         if (state === "valid" || state === "vorschlag") return { zustand: state, ansicht: view };
         // The view serves no close reason, so the day the link asked about decides, on Berlin's calendar as the
         // backend's: a link to a match already due must not say the league will still set its date.

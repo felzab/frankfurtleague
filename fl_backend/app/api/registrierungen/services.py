@@ -26,7 +26,7 @@ from app.core.crud import build_sort
 from app.core.exceptions import WriteRefusal
 from app.shared.age import whole_years_between
 from app.shared.einwilligung import is_confirmed
-from app.shared.einwilligung_evidence import TextVersions, compose_born, compose_renewed
+from app.shared.einwilligung_evidence import TextVersions, compose_initial, compose_renewed
 from app.shared.folding import person_name_key, sign_in_identifier
 from app.shared.schemas.bounds import (
     BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
@@ -122,7 +122,7 @@ def find_kader_refusal(*, squad_size: int, max_kadergroesse: int) -> WriteRefusa
 
 
 def find_barred_refusal(*, barred: bool) -> WriteRefusal | None:
-    """`registrierung_adresse_barred`: the ban list holds the address this registration was typed with.
+    """`registrierung_address_barred`: the ban list holds the address this registration was typed with.
 
     Takes the answer rather than the lookup, so the caller's read runs in the caller's transaction.
     """
@@ -133,7 +133,7 @@ def find_barred_refusal(*, barred: bool) -> WriteRefusal | None:
     # NEUTRAL: an administrator is told plainly what a visitor is told neutrally, so a stranger
     # learns from this that the address is unusable and nothing about a list.
     return WriteRefusal(
-        error_code=Code.REGISTRIERUNG_ADRESSE_BARRED,
+        error_code=Code.REGISTRIERUNG_ADDRESS_BARRED,
         status=HTTPStatus.FORBIDDEN,
     )
 
@@ -183,7 +183,7 @@ def compose_registrierung(
 
 # Where a registration's mailed link lives, and the address it is minted for while the row still holds it. Never
 # superseding: a reminder's link joins the first one, so a pupil still reading the first mail is not punished by the chase.
-REGISTRIERUNG_LINK: Final = FLOutboxLink(paths=["confirmation.token_hashes"], adressen=["email"], replaced=False)
+REGISTRIERUNG_LINK: Final = FLOutboxLink(paths=["confirmation.token_hashes"], addresses=["email"], replaced=False)
 
 
 def compose_bestaetigung(*, today: str, frist: str) -> dict[str, Any]:
@@ -376,7 +376,7 @@ def find_confirmation_barred_refusal(*, barred: bool) -> WriteRefusal | None:
     if not barred:
         return None
 
-    # 403 and named plainly, where the submission's `registrierung_adresse_barred` is neutral: whoever holds the mailed token
+    # 403 and named plainly, where the submission's `registrierung_address_barred` is neutral: whoever holds the mailed token
     # holds that mailbox, as a sign-in code's holder does, and the ban's own mail has told them.
     return WriteRefusal(
         error_code=Code.LINK_BARRED,
@@ -408,14 +408,14 @@ def find_alter_refusal(*, geburtsdatum: str, today: str) -> WriteRefusal | None:
     return None
 
 
-def build_adressen_filter(adressen: Iterable[str]) -> Mapping[str, Any]:
+def build_addresses_filter(addresses: Iterable[str]) -> Mapping[str, Any]:
     """The persons stored under these folded addresses, matched as `uniq_spieler_email` serves it.
 
     The `$type` term is the index's partial filter: an equality alone does not imply it, and without
     it the planner scans every person.
     """
 
-    return {"email": {"$in": sorted(set(adressen)), "$type": "string"}}
+    return {"email": {"$in": sorted(set(addresses)), "$type": "string"}}
 
 
 # Which fields say WHO a stored person is, as `app/api/teams/services.py :: SEAT_IDENTITY_FIELDS`
@@ -465,14 +465,14 @@ def gespeichertes_geburtsdatum(*, seite: FLRegistrierungSeite, person_raw: Mappi
     return person_raw["geburtsdatum"] if seite == SEITE_WIEDERKEHREND and person_raw is not None else None
 
 
-def find_wahlen_refusal(*, seite: FLRegistrierungSeite, umfang: Any, media: Any, text_versions: Any, geburtsdatum: Any) -> WriteRefusal | None:
+def find_wahlen_refusal(*, seite: FLRegistrierungSeite, scope: Any, media: Any, text_versions: Any, geburtsdatum: Any) -> WriteRefusal | None:
     """`registrierung_choices_unsuitable`: the body answers what its page did not ask, or leaves out what it did.
 
     Both choices, their wordings and a birthdate on the new pupil's page, none of the four on the returning pupil's.
     """
 
     asked = seite == SEITE_NEU
-    if all((value is not None) == asked for value in (umfang, media, text_versions, geburtsdatum)):
+    if all((value is not None) == asked for value in (scope, media, text_versions, geburtsdatum)):
         return None
 
     return WriteRefusal(
@@ -499,7 +499,7 @@ def find_medien_refusal(*, geburtsdatum: str, media: bool, today: str) -> WriteR
 
 
 def compose_confirmation_update(
-    *, geburtsdatum: str, umfang: str | None, media: bool | None, text_versions: TextVersions | None, today: str, at: str
+    *, geburtsdatum: str, scope: str | None, media: bool | None, text_versions: TextVersions | None, today: str, at: str
 ) -> Mapping[str, Any]:
     """The ONE `$set` a confirmation is: the whole consent record beside the date.
 
@@ -507,22 +507,22 @@ def compose_confirmation_update(
     would hold a birthdate nobody had yet consented to the league keeping.
     """
 
-    if umfang is None and media is None:
+    if scope is None and media is None:
         # The returning pupil's page asked nothing, so the record holds no choice, no evidence and no
-        # `datum`, the day a consent was given.
+        # `date`, the day a consent was given.
         return {"$set": {"geburtsdatum": geburtsdatum, "einwilligung": {"confirmed_at": today}}}
 
-    if umfang is None or media is None or text_versions is None:
+    if scope is None or media is None or text_versions is None:
         raise ValueError("a confirmation answers both choices or neither, as `find_wahlen_refusal` holds a body to its page")
 
     # Born whole rather than moved: the submission stores no record and a second press is refused, so
     # no earlier choice stands on this block; the admission carries its evidence onto the person.
-    record = compose_born(
+    record = compose_initial(
         block={
-            "umfang": umfang,
-            # `datum` and `confirmed_at` are one day here: this press is both the giving of the
+            "scope": scope,
+            # `date` and `confirmed_at` are one day here: this press is both the giving of the
             # consent and the confirming of it.
-            "datum": today,
+            "date": today,
             "confirmed_at": today,
             "media": media,
         },
@@ -704,13 +704,13 @@ def person_weicht_ab(*, registrierung_raw: Mapping[str, Any], spieler_raw: Mappi
     return spieler_raw.get("geburtsdatum") != registrierung_raw.get("geburtsdatum")
 
 
-def find_person_fehlt_refusal(*, registrierung_raw: Mapping[str, Any], adresse_raw: Mapping[str, Any] | None) -> WriteRefusal | None:
+def find_person_fehlt_refusal(*, registrierung_raw: Mapping[str, Any], address_raw: Mapping[str, Any] | None) -> WriteRefusal | None:
     """`registrierung_person_missing`: a returning pupil's registration whose person its address holds nobody for.
 
     It carries no choice, so it cannot create a person; registering again asks them.
     """
 
-    if adresse_raw is not None or traegt_wahlen(registrierung_raw.get("einwilligung")):
+    if address_raw is not None or traegt_wahlen(registrierung_raw.get("einwilligung")):
         return None
 
     return WriteRefusal(
@@ -722,7 +722,7 @@ def find_person_fehlt_refusal(*, registrierung_raw: Mapping[str, Any], adresse_r
 def find_person_refusal(
     *,
     registrierung_raw: Mapping[str, Any],
-    adresse_raw: Mapping[str, Any] | None,
+    address_raw: Mapping[str, Any] | None,
     spieler_id: Any,
 ) -> WriteRefusal | None:
     """`registrierung_person_not_named`: the body names nobody this registration may be admitted into.
@@ -731,9 +731,9 @@ def find_person_refusal(
     differ. Otherwise it names nobody, for a new person.
     """
 
-    if adresse_raw is not None:
-        answered = spieler_id == adresse_raw["_id"] or (
-            spieler_id is None and not person_weicht_ab(registrierung_raw=registrierung_raw, spieler_raw=adresse_raw)
+    if address_raw is not None:
+        answered = spieler_id == address_raw["_id"] or (
+            spieler_id is None and not person_weicht_ab(registrierung_raw=registrierung_raw, spieler_raw=address_raw)
         )
     else:
         answered = spieler_id is None
@@ -784,7 +784,7 @@ def nummern_im_kader(rows: Iterable[Mapping[str, Any]]) -> frozenset[str]:
     return frozenset(nummer for row in rows if isinstance(nummer := row.get("nummer"), str))
 
 
-def _person_fields(*, registrierung_raw: Mapping[str, Any], adresse: str) -> dict[str, Any]:
+def _person_fields(*, registrierung_raw: Mapping[str, Any], address: str) -> dict[str, Any]:
     # Here and not in the `spieler` record model, which admits a null forename for the erased pupils'
     # sentinel alone: every person the admission writes passes here, and the administrator's edit
     # requires one by its payload.
@@ -793,7 +793,7 @@ def _person_fields(*, registrierung_raw: Mapping[str, Any], adresse: str) -> dic
 
     return {
         **{field: registrierung_raw[field] for field in (*PERSON_IDENTITY_FIELDS, "geburtsdatum")},
-        "email": adresse,
+        "email": address,
         "inactive_since": None,
     }
 
@@ -801,17 +801,17 @@ def _person_fields(*, registrierung_raw: Mapping[str, Any], adresse: str) -> dic
 def traegt_wahlen(einwilligung: Any) -> bool:
     """Whether a registration's record carries its pupil's choices, which a returning pupil's confirmation never does."""
 
-    return isinstance(einwilligung, Mapping) and "umfang" in einwilligung
+    return isinstance(einwilligung, Mapping) and "scope" in einwilligung
 
 
-def compose_person_update(*, registrierung_raw: Mapping[str, Any], saved: Any, adresse: str) -> Mapping[str, Any]:
+def compose_person_update(*, registrierung_raw: Mapping[str, Any], saved: Any, address: str) -> Mapping[str, Any]:
     """What an admission writes onto a matched person: the registration's name, address, and what its page asked.
 
     RENEWED as the new pupil's page promised, each choice only where set later; `saved` is read
     in the admission's transaction.
     """
 
-    fields = _person_fields(registrierung_raw=registrierung_raw, adresse=adresse)
+    fields = _person_fields(registrierung_raw=registrierung_raw, address=address)
     # Only the sentinel stores a null record, so a matched person holding none is that row or a hand
     # edit: renewing fails on the dotted paths below, and leaving it keeps a person nobody asked.
     if not isinstance(saved, Mapping):
@@ -834,10 +834,10 @@ def compose_person_update(*, registrierung_raw: Mapping[str, Any], saved: Any, a
     return {"$set": {**fields, **renewed}}
 
 
-def compose_person(*, spieler_id: Any, registrierung_raw: Mapping[str, Any], adresse: str) -> dict[str, Any]:
+def compose_person(*, spieler_id: Any, registrierung_raw: Mapping[str, Any], address: str) -> dict[str, Any]:
     """A new person, from the registration alone: its record carried whole, evidence included."""
 
-    fields = _person_fields(registrierung_raw=registrierung_raw, adresse=adresse)
+    fields = _person_fields(registrierung_raw=registrierung_raw, address=address)
 
     if not traegt_wahlen(registrierung_raw["einwilligung"]):
         # Refused ahead of every write by `find_person_fehlt_refusal`; reaching here is a caller that skipped it.
@@ -874,7 +874,7 @@ def compose_ablehnung_update(*, by: str, grund: Any, today: str) -> Mapping[str,
     return {"$set": {"status": DECLINED, "decision": {"made_at": today, "by": by, "grund": grund}}}
 
 
-def entscheider_adressen(rows: Iterable[Mapping[str, Any]]) -> list[str]:
+def decider_addresses(rows: Iterable[Mapping[str, Any]]) -> list[str]:
     """Every decider these stored registrations name, folded as the ban list is asked."""
 
     return [

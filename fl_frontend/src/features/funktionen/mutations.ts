@@ -1,7 +1,7 @@
 import { identityGetErasureView, identityGetReferences, identityPostErasure, identityPostSignOut } from "@/core/generated/client/sdk";
 
 import type {
-  FLErasureAdressePayload,
+  FLErasureAddressPayload,
   FLErasurePayload,
   FLErasureResponse,
   FLErasureViewResponse,
@@ -22,7 +22,7 @@ export async function postReferenzen(payload: FLReferencesPayload): Promise<FLRe
  * The address travels in the BODY: a path or a query would file it in the access log and in `aktionen.request.path`.
  * Hence a POST even for the read, a GET's body having no defined semantics (RFC 9110 §9.3.1).
  */
-export async function readLoeschungAnsicht(payload: FLErasureAdressePayload): Promise<FLErasureViewResponse> {
+export async function readLoeschungAnsicht(payload: FLErasureAddressPayload): Promise<FLErasureViewResponse> {
   return identityGetErasureView(payload);
 }
 
@@ -32,6 +32,6 @@ export async function loeschenAufAnfrage(payload: FLErasurePayload): Promise<FLE
 }
 
 /** Files the sign-out on the log, naming no address, before the caller ends a single session. */
-export async function recordAbmeldung(payload: FLErasureAdressePayload): Promise<void> {
+export async function recordAbmeldung(payload: FLErasureAddressPayload): Promise<void> {
   await identityPostSignOut(payload);
 }

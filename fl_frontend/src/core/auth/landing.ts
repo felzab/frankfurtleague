@@ -56,16 +56,16 @@ async function landingOf(requestHeaders: Headers): Promise<Landing> {
 
   // An unread lookup is the backend down: `/area` answers it with the person area's outage panel, its
   // own lookup failing, where `/signin` would mail no code and say nothing.
-  const subjectRecord = await subjectOrNull(served.user.email);
-  if (subjectRecord === null) return { destination: "/area", served: served, subject: null };
+  const records = await subjectOrNull(served.user.email);
+  if (records === null) return { destination: "/area", served: served, subject: null };
 
   // The ban itself, never read through the grant: every guard behind `/area` refuses a barred session,
   // and one left standing serves again on the ban's lift with no sign-in.
-  if (subjectRecord.barred) return ended(read);
+  if (records.barred) return ended(read);
 
   // As the person guard builds it (`fl_frontend/src/core/subject.ts`), off this one lookup.
-  const subject = { email: asSignInIdentifier(served.user.email), admin: isAdminSession(served, subjectRecord), subject: subjectRecord };
-  return { destination: await destinationOf(served, subjectRecord), served: served, subject: subject };
+  const subject = { email: asSignInIdentifier(served.user.email), isAdmin: isAdminSession(served, records), records };
+  return { destination: await destinationOf(served, records), served: served, subject: subject };
 }
 
 /**
@@ -102,23 +102,23 @@ export type PasskeyStep = { readonly step: "enrol" | "assert" | "offer"; readonl
  * The one answer both functions around it give, so the landing never sends a session to a page that
  * then has nothing to show it and sends it back.
  */
-async function passkeyStepOf(served: ServedSession, admin: boolean): Promise<PasskeyStep["step"] | null> {
-  if (admin ? !isAdminWithinWindow(served) : !isWithinPersonLifetime(served.session)) return null;
+async function passkeyStepOf(served: ServedSession, isAdmin: boolean): Promise<PasskeyStep["step"] | null> {
+  if (isAdmin ? !isAdminWithinWindow(served) : !isWithinPersonLifetime(served.session)) return null;
   // A session the passkey already made needs no card, whatever it holds.
   if (served.session.authFactor === PASSKEY_FACTOR) return null;
 
   // Past the library's `freshAge` the enrolment is refused, so no card offers one.
   const mayEnrol = isFreshForEnrolment(served.session);
-  if (!admin && !mayEnrol) return null;
+  if (!isAdmin && !mayEnrol) return null;
 
   // The question `refuseEnrolment` puts to the adapter, by the same user id: they agree or the page
   // offers a control the server refuses.
   const held = await passkeysOf(served.user.id);
 
-  if (held.length > 0) return admin ? "assert" : null;
+  if (held.length > 0) return isAdmin ? "assert" : null;
   if (!mayEnrol) return null;
 
-  return admin ? "enrol" : "offer";
+  return isAdmin ? "enrol" : "offer";
 }
 
 /** `null` where that page is not the caller's to see. */

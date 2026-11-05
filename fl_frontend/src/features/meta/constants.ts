@@ -5,7 +5,7 @@ import type { Sponsor } from "@/kit/TileGrid";
 // pages it feeds change once or twice a year.
 
 /** What an organiser does, keyed into the catalogue's roles. */
-export type OrganiserRole = "vorstand" | "spielbetrieb" | "website" | "communication";
+export type OrganiserRole = "vorstand" | "spielbetrieb" | "website" | "kommunikation";
 
 /** The people who run the league, by their first names, in the order the landing and About show them. */
 export const ORGANISERS: ReadonlyArray<{ name: string; role: OrganiserRole }> = [
@@ -16,7 +16,7 @@ export const ORGANISERS: ReadonlyArray<{ name: string; role: OrganiserRole }> = 
   { name: "Nick", role: "spielbetrieb" },
   { name: "Vincent", role: "spielbetrieb" },
   { name: "Felix", role: "website" },
-  { name: "Jonathan", role: "communication" },
+  { name: "Jonathan", role: "kommunikation" },
 ];
 
 /**

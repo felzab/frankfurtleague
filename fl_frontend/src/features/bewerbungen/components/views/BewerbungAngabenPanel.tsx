@@ -210,9 +210,9 @@ export function BewerbungAngabenPanel({
                     {bewerbung.status === "submitted" && (
                       <>
                         <Angabe label={KONTAKT_WHATSAPP_FRAGE}>
-                          {KONTAKT_WHATSAPP_LABELS[person.einwilligung.umfang]}
+                          {KONTAKT_WHATSAPP_LABELS[person.einwilligung.scope]}
                           <Beleg
-                            evidence={person.einwilligung.evidence.umfang}
+                            evidence={person.einwilligung.evidence.scope}
                             bestaetigung={bestaetigungOf(person.einwilligung)}
                           />
                         </Angabe>

@@ -5,13 +5,13 @@ from app.api.berechtigungen.schemas import FLUtcInstant
 from app.api.schiedsrichter.schemas import FLSchiedsrichterSelfPerson
 from app.api.spieler.schemas import FLSpielerSelfPerson
 from app.shared.schemas.custom import CustomObjectId, CustomOptionalDateString
-from app.shared.schemas.einwilligung import FLEinwilligungStand
+from app.shared.schemas.einwilligung import FLEinwilligungState
 from app.shared.schemas.kontakt import CustomEmail
 from app.shared.schemas.literals import (
     FLAddressChangeWaitsOn,
     FLAddressChangeWay,
-    FLEinwilligungUmfang,
-    FLKontaktKenntnisnahmeUmfang,
+    FLEinwilligungScope,
+    FLKontaktKenntnisnahmeScope,
     FLKontaktRolle,
 )
 from app.shared.schemas.responses import BaseAPIResponse
@@ -24,7 +24,7 @@ class FLAccountEinwilligung(BaseModel):
     precondition a press echoes.
     """
 
-    umfang: FLEinwilligungUmfang
+    scope: FLEinwilligungScope
     media: bool
 
 
@@ -34,7 +34,7 @@ class FLAccountSpielerEinwilligung(FLSpielerSelfPerson):
     # Required: only a confirmed record is served, so the block is always there.
     einwilligung: FLAccountEinwilligung
     # What the consent PATCH echoes back, computed by the function its precondition compares with.
-    evidence_state: FLEinwilligungStand
+    evidence_state: FLEinwilligungState
     # Served rather than derived on the page, which would judge a grant with a second copy of the rule.
     givable: bool
     media_offered: bool
@@ -46,7 +46,7 @@ class FLAccountSchiedsrichterEinwilligung(FLSchiedsrichterSelfPerson):
     """One referee record on the account page: the stored data its box shows and the consent the page moves."""
 
     einwilligung: FLAccountEinwilligung
-    evidence_state: FLEinwilligungStand
+    evidence_state: FLEinwilligungState
     givable: bool
     media_offered: bool
     media_minimum_age: int = Field(gt=0)
@@ -65,10 +65,10 @@ class FLAccountSeatEinwilligung(BaseModel):
     # Never empty: an entry exists for a held seat alone, and the published floor is what the page parses against.
     rollen: list[FLKontaktRolle] = Field(min_length=1)
     # Each on where any held slot's is, so a withdrawal stays offered.
-    umfang: FLKontaktKenntnisnahmeUmfang
+    scope: FLKontaktKenntnisnahmeScope
     media: bool
     # Over every held slot, for `FLAccountSpielerEinwilligung.evidence_state`'s reason.
-    evidence_state: FLEinwilligungStand
+    evidence_state: FLEinwilligungState
     media_offered: bool
     givable: bool
     # One per entry: the control's own words name the media floor every held seat shares.
@@ -88,9 +88,9 @@ class FLAccountBewerbungSeatEinwilligung(BaseModel):
     # For `FLAccountSeatEinwilligung.rollen`'s reason.
     rollen: list[FLKontaktRolle] = Field(min_length=1)
     # For `FLAccountSeatEinwilligung`'s reasons.
-    umfang: FLKontaktKenntnisnahmeUmfang
+    scope: FLKontaktKenntnisnahmeScope
     media: bool
-    evidence_state: FLEinwilligungStand
+    evidence_state: FLEinwilligungState
 
 
 class FLAccountRegistrierungEinwilligung(BaseModel):
@@ -102,9 +102,9 @@ class FLAccountRegistrierungEinwilligung(BaseModel):
     saison_id: str
     # Both null on a returning pupil's registration, which asked none: the page shows its stored data
     # and offers no consent control, the person's own record holding their choices.
-    umfang: FLEinwilligungUmfang | None
+    scope: FLEinwilligungScope | None
     media: bool | None
-    evidence_state: FLEinwilligungStand
+    evidence_state: FLEinwilligungState
     # As the registration stores them: the facts the account page's box names its pupil by.
     vorname: str
     nachname: str

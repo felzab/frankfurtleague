@@ -33,7 +33,7 @@ describe("a store whose context fails before any transaction opens", () => {
   });
 
   it("answers a passkey's removal as a rollback", async () => {
-    const answer = await removePasskey({ id: "an-account", admin: false }, "a-passkey").catch((failed: unknown) => failed);
+    const answer = await removePasskey({ id: "an-account", isAdmin: false }, "a-passkey").catch((failed: unknown) => failed);
 
     assert.ok(answer instanceof RolledBackError, `the caller was told ${String(answer)} rather than of a removal that never ran`);
   });

@@ -1,4 +1,4 @@
-import { FLEinwilligungUmfang } from "@/core/generated/client/types";
+import { FLEinwilligungScope } from "@/core/generated/client/types";
 import { BEWERBUNG_MAX_ALTER } from "@/features/bewerbungen/constants";
 
 import type { FLMedienMinAgeYears, FLRegistrierungMinAgeYears } from "@/core/generated/client/types";
@@ -34,12 +34,12 @@ export const REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE = 7;
 export const REGISTRIERUNG_MIN_ALTER = 16 satisfies FLRegistrierungMinAgeYears;
 
 // For the published notice as well, which states the media floor for pupils and referees alike;
-// checked against `fl_backend/app/shared/schemas/bounds.py :: MEDIEN_MIN_AGE_YEARS` as the floor above
+// checked against `fl_backend/app/shared/schemas/bounds.py :: MEDIA_MIN_AGE_YEARS` as the floor above
 // is, and the pages take the served `medien_mindestalter` for the reason given above.
 export const MEDIEN_MIN_ALTER = 18 satisfies FLMedienMinAgeYears;
 
 /** The two publication scopes, both in one list: a control offering one answer and a blank reads as a default. */
-export const EINWILLIGUNG_UMFANG_OPTIONS: readonly FLEinwilligungUmfang[] = Object.values(FLEinwilligungUmfang);
+export const EINWILLIGUNG_UMFANG_OPTIONS: readonly FLEinwilligungScope[] = Object.values(FLEinwilligungScope);
 
 // Both bounds, never the floor alone: named for the floor, a mistyped year would answer a
 // 190-year-old date with „mindestens 16“, which is a different fault.

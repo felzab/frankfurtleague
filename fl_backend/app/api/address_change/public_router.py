@@ -89,7 +89,7 @@ router = APIRouter(
 # What a link's view reads: never `grund`, the addresses for the judgement alone, and the new link's hashes, which say
 # which of the two links a token is.
 _FIELDS: Mapping[str, int] = {
-    "adresse": 1,
+    "address": 1,
     "email": 1,
     "way": 1,
     "released_at": 1,
@@ -157,7 +157,7 @@ async def get_address_change_view(
             view=FLAddressChangeViewEnded(
                 side=side,
                 state="ended",
-                art=ended["art"],
+                kind=ended["kind"],
                 ended_on=german_day(ended_at),
                 way=record["way"],
                 released_on=None if released_at is None else german_day(released_at),
@@ -184,7 +184,7 @@ async def get_address_change_view(
     barred, not_confirmable = False, False
     if record.get("confirmed_at") is None:
         # Every judgement the press makes, read here too, so the page never offers a confirmation the press refuses.
-        holdings = await read_the_holdings(str(record["adresse"]), records=records, grants_collection=grants_collection, session=None)
+        holdings = await read_the_holdings(str(record["address"]), records=records, grants_collection=grants_collection, session=None)
         verdict = await judge_the_effect_in_session(
             record=record,
             holdings=holdings,
@@ -228,7 +228,7 @@ async def get_address_change_view(
     "",
     response_model=FLAddressChangeAnswerResponse,
     summary="Confirm or decline a pending address",
-    # `uniq_spieler_email` and `uniq_grant_adresse` are published by the duplicate-key trace and stay unreached: the
+    # `uniq_spieler_email` and `uniq_grant_address` are published by the duplicate-key trace and stay unreached: the
     # in-session reads of another pupil and of the new address's grant include every row either index holds.
 )
 async def post_address_change_answer(
@@ -319,14 +319,14 @@ async def post_address_change_answer(
                 address_changes_collection=address_changes_collection,
                 action_log_collection=action_log_collection,
                 db_filter=db_filter,
-                art="declined",
+                kind="declined",
                 now=germany_now,
                 stamp=stamp,
                 session=session,
             )
             journal.note(
                 ending_line(
-                    art="address_change_declined",
+                    kind="address_change_declined",
                     new_address=str(record["email"]),
                     record_id=record["_id"],
                     at=stamp,
@@ -420,14 +420,14 @@ async def _answer_for_the_address_on_file(
             address_changes_collection=address_changes_collection,
             action_log_collection=action_log_collection,
             db_filter=db_filter,
-            art="declined",
+            kind="declined",
             now=germany_now,
             stamp=stamp,
             session=session,
         )
         journal.note(
             ending_line(
-                art="address_change_declined", new_address=str(record["email"]), record_id=record["_id"], at=stamp, key=config.sperrliste_key
+                kind="address_change_declined", new_address=str(record["email"]), record_id=record["_id"], at=stamp, key=config.sperrliste_key
             )
         )
         return FLAddressChangeAnswerResponse(answer="declined", effective_from=None, approval_open=False, effective=False)
@@ -499,14 +499,14 @@ async def post_address_change_stop(
             address_changes_collection=address_changes_collection,
             action_log_collection=action_log_collection,
             db_filter={"_id": record["_id"]},
-            art="stopped",
+            kind="stopped",
             now=germany_now,
             stamp=stamp,
             session=session,
         )
         journal.note(
             ending_line(
-                art="address_change_stopped",
+                kind="address_change_stopped",
                 new_address=str(record["email"]),
                 record_id=record["_id"],
                 at=stamp,

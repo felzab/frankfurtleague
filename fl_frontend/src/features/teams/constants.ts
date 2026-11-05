@@ -7,7 +7,7 @@ import type { Copy } from "@/core/copy";
 import type {
   FLAustrittType,
   FLKontaktEnteredBy,
-  FLKontaktKenntnisnahmeUmfang,
+  FLKontaktKenntnisnahmeScope,
   FLSchulform,
   FLTrainerAlso,
   FLTrikotFarbe,
@@ -213,7 +213,7 @@ export const WEBSITE_URL_SCHEME = "https://";
 
 /** What an administrator's readout labels a seat's contact scope with, and its two values keyed by the scope. */
 export const KONTAKT_WHATSAPP_FRAGE = "WhatsApp";
-export const KONTAKT_WHATSAPP_LABELS: Readonly<Record<FLKontaktKenntnisnahmeUmfang, string>> = {
+export const KONTAKT_WHATSAPP_LABELS: Readonly<Record<FLKontaktKenntnisnahmeScope, string>> = {
   kontaktdaten_whatsapp: "erlaubt",
   kontaktdaten: "nicht erlaubt",
 };

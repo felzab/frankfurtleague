@@ -34,7 +34,7 @@ class TestASlotAndItsBookkeepingMoveTogether:
 
     @pytest.mark.parametrize("seats", [("trainer",), ("trainer", "ansprechperson"), KONTAKT_ROLLEN])
     def test_a_decline_stamps_the_entry_of_every_seat_it_empties(self, seats: tuple[str, ...]):
-        update = written(compose_decline_update(seats=seats, today=TODAY, angekuendigt=False))
+        update = written(compose_decline_update(seats=seats, today=TODAY, announced=False))
 
         for seat in seats:
             assert update[f"kontakte.{seat}"] is None

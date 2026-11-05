@@ -139,7 +139,7 @@ export function AdresswechselBeantragen({
       stepUp,
       router,
       pending: setSendet,
-      write: () => beantrageAdresswechselAction({ adresse: adresse, email: entwurf.email, grund: entwurf.grund }),
+      write: () => beantrageAdresswechselAction({ address: adresse, email: entwurf.email, grund: entwurf.grund }),
       repair: START_OHNE_ANTWORT,
     });
     if (res === null) return;

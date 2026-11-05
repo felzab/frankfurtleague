@@ -61,7 +61,7 @@ import { formatSpielDatum } from "@/shared/utils/format";
 import { reportRefusedConfirmation } from "@/shared/utils/linkConfirmation";
 import { postPublicForm, UNKLAR_TITEL } from "@/shared/utils/publicSubmit";
 
-import type { FLEinwilligungUmfang, FLSchiedsrichterConfirmationViewResponse } from "@/core/generated/client/types";
+import type { FLEinwilligungScope, FLSchiedsrichterConfirmationViewResponse } from "@/core/generated/client/types";
 import type { FLSchiedsrichterConfirmationPayload } from "@/features/schiedsrichter/schemas";
 import type { SchiedsrichterLinkZustand } from "@/features/schiedsrichter/types";
 import type { PublicEnvelope } from "@/shared/utils/publicSubmit";
@@ -75,7 +75,7 @@ import type { CalendarDate } from "@internationalized/date";
 export type SchiedsrichterBestaetigungStart =
   { zustand: "valid"; ansicht: FLSchiedsrichterConfirmationViewResponse; token: string } | { zustand: SchiedsrichterLinkZustand | "unlesbar" };
 
-type Gespeichert = { geburtsdatum: string; umfang: FLEinwilligungUmfang; media: boolean };
+type Gespeichert = { geburtsdatum: string; umfang: FLEinwilligungScope; media: boolean };
 
 type Stand = SchiedsrichterBestaetigungStart | ({ zustand: "erfolg" } & Gespeichert);
 
@@ -92,7 +92,7 @@ const TITEL: Record<Exclude<Stand["zustand"], "barred">, string> = {
 // The DRAFT's shape rather than the payload's: `umfang` stands unanswered until it is picked, and
 // a draft that could not hold "unanswered" would send a choice nobody made.
 /** The date mid-entry is a string, `""` being the empty picker; the judged shape is the payload's. */
-type Entwurf = { geburtsdatum: string; umfang: FLEinwilligungUmfang | null; media: boolean };
+type Entwurf = { geburtsdatum: string; umfang: FLEinwilligungScope | null; media: boolean };
 
 const LEERER_ENTWURF: Entwurf = { geburtsdatum: "", umfang: null, media: false };
 
@@ -108,7 +108,7 @@ function antwortPayload(token: string, entwurf: Entwurf, medienAngeboten: boolea
     geburtsdatum: entwurf.geburtsdatum,
     // The schema refuses a null, which is the refusal an unanswered question owes: the submit reports
     // it at the chips rather than sending a scope this person never picked.
-    umfang: entwurf.umfang as FLEinwilligungUmfang,
+    scope: entwurf.umfang as FLEinwilligungScope,
     // Never the draft's own `true` where no switch stands: one given before the date moved below the
     // media age would send a consent this page withheld.
     media: medienAngeboten && entwurf.media,
@@ -247,9 +247,9 @@ function SchiedsrichterFormPanel({
             name="umfang"
             value={entwurf.umfang ?? ""}
             className="w-full">
-            <Label className={FIELD_LABEL_CLASSES}>{SCHIEDSRICHTER_WORDINGS.umfang.question}</Label>
+            <Label className={FIELD_LABEL_CLASSES}>{SCHIEDSRICHTER_WORDINGS.scope.question}</Label>
             <ToggleButtonGroup
-              aria-label={SCHIEDSRICHTER_WORDINGS.umfang.question}
+              aria-label={SCHIEDSRICHTER_WORDINGS.scope.question}
               size="sm"
               isDetached
               selectionMode="single"
@@ -269,7 +269,7 @@ function SchiedsrichterFormPanel({
                   key={umfang}
                   id={umfang}
                   className={OPTION_CHIP_CLASSES}>
-                  {SCHIEDSRICHTER_WORDINGS.umfang.options[umfang]}
+                  {SCHIEDSRICHTER_WORDINGS.scope.options[umfang]}
                 </ToggleButton>
               ))}
             </ToggleButtonGroup>
@@ -279,7 +279,7 @@ function SchiedsrichterFormPanel({
             <Input className="hidden" />
             <FieldError className={FIELD_ERROR_CLASSES} />
           </TextField>
-          <EinwilligungZeile line={SCHIEDSRICHTER_WORDINGS.umfang.line} />
+          <EinwilligungZeile line={SCHIEDSRICHTER_WORDINGS.scope.line} />
         </section>
 
         <section className="flex flex-col gap-y-3">

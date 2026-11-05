@@ -10,7 +10,7 @@ from app.core.exceptions import WriteRefusal
 from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SCHIEDSRICHTER_ID
 from app.shared.age import whole_years_between
 from app.shared.einwilligung import is_confirmed
-from app.shared.einwilligung_evidence import TextVersions, compose_born
+from app.shared.einwilligung_evidence import TextVersions, compose_initial
 from app.shared.folding import league_address, sign_in_identifier
 from app.shared.schemas.bounds import (
     BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
@@ -159,8 +159,8 @@ def find_referee_retire_refusal(*, upcoming_spiel_nrs: Sequence[int]) -> WriteRe
 BESTAETIGUNG_FELD: Final = "confirmation"
 
 # Where the hand-out stores the hashes of the links it mints, and the address it mints them for.
-TOKEN_HASHES_PFAD: Final = f"{BESTAETIGUNG_FELD}.token_hashes"
-ADRESSE_PFAD: Final = "kontakt.email"
+TOKEN_HASHES_PATH: Final = f"{BESTAETIGUNG_FELD}.token_hashes"
+ADDRESS_PATH: Final = "kontakt.email"
 
 EINWILLIGUNG_FELD: Final = "einwilligung"
 
@@ -183,23 +183,23 @@ def compose_mint_update(*, today: str) -> dict[str, Any]:
     return {BESTAETIGUNG_FELD: compose_bestaetigung(today=today)}
 
 
-def compose_einwilligung(*, umfang: str, media: bool, today: str) -> dict[str, Any]:
+def compose_einwilligung(*, scope: str, media: bool, today: str) -> dict[str, Any]:
     """The record as the person's own press writes it.
 
-    `datum` and `confirmed_at` are one day here where a pupil's are two: nobody enters this record
+    `date` and `confirmed_at` are one day here where a pupil's are two: nobody enters this record
     administratively, so it is given and confirmed in the same press.
     """
 
     return {
-        "umfang": umfang,
-        "datum": today,
+        "scope": scope,
+        "date": today,
         "confirmed_at": today,
         "media": media,
     }
 
 
 def compose_confirmation_update(
-    *, geburtsdatum: str, umfang: str, media: bool, text_versions: TextVersions, today: str, at: str
+    *, geburtsdatum: str, scope: str, media: bool, text_versions: TextVersions, today: str, at: str
 ) -> Mapping[str, Any]:
     """The ONE `$set` a confirmation is.
 
@@ -209,7 +209,7 @@ def compose_confirmation_update(
 
     # Born whole rather than moved: the stamp refusal admits only a row whose stored block no answer
     # of this referee's stands on, and a dotted `$set` under a null block aborts the transaction.
-    record = compose_born(block=compose_einwilligung(umfang=umfang, media=media, today=today), at=at, text_versions=text_versions)
+    record = compose_initial(block=compose_einwilligung(scope=scope, media=media, today=today), at=at, text_versions=text_versions)
 
     return {"$set": {"geburtsdatum": geburtsdatum, EINWILLIGUNG_FELD: record}}
 
@@ -217,7 +217,7 @@ def compose_confirmation_update(
 def build_token_filter(*, token_hash: str) -> Mapping[str, Any]:
     """The hash alone finds the referee. No `inactive_since` term: a person retired after the mint still owns the answer they give."""
 
-    return {TOKEN_HASHES_PFAD: token_hash}
+    return {TOKEN_HASHES_PATH: token_hash}
 
 
 def vorname_of(name: Any) -> str | None:
@@ -306,7 +306,7 @@ def find_confirmation_barred_refusal(*, barred: bool) -> WriteRefusal | None:
     if not barred:
         return None
 
-    # 403 where the editor's `schiedsrichter_adresse_barred` is 409: this caller is the barred person, holding the mailbox the
+    # 403 where the editor's `schiedsrichter_address_barred` is 409: this caller is the barred person, holding the mailbox the
     # token was sent to, where the editor's is an administrator writing about an entry.
     return WriteRefusal(
         error_code=Code.LINK_BARRED,
@@ -387,7 +387,7 @@ def find_missing_address_refusal(*, email: Any) -> WriteRefusal | None:
             return None
 
     return WriteRefusal(
-        error_code=Code.SCHIEDSRICHTER_NO_ADRESSE,
+        error_code=Code.SCHIEDSRICHTER_NO_ADDRESS,
         status=HTTPStatus.CONFLICT,
     )
 
@@ -399,7 +399,7 @@ def find_barred_refusal(*, barred: bool) -> WriteRefusal | None:
         return None
 
     return WriteRefusal(
-        error_code=Code.SCHIEDSRICHTER_ADRESSE_BARRED,
+        error_code=Code.SCHIEDSRICHTER_ADDRESS_BARRED,
         status=HTTPStatus.CONFLICT,
     )
 
@@ -416,15 +416,15 @@ def save_moves_the_link(*, stored: Mapping[str, Any], payload_email: str) -> boo
     Either is a step-up write, a link granting its holder the answer (`app/core/security.py :: verify_step_up`).
     """
 
-    # A CONFIRMED referee's address is never the save's (`find_bestaetigte_adresse_refusal`).
+    # A CONFIRMED referee's address is never the save's (`find_confirmed_address_refusal`).
     if is_confirmed(einwilligung=stored.get(EINWILLIGUNG_FELD)):
         return False
 
     return _address_moves(stored=stored, payload_email=payload_email)
 
 
-def find_bestaetigte_adresse_refusal(*, stored: Mapping[str, Any], payload_email: str) -> WriteRefusal | None:
-    """`schiedsrichter_adresse_only_per_change`: a save moving a CONFIRMED referee's address, which keys their sign-in.
+def find_confirmed_address_refusal(*, stored: Mapping[str, Any], payload_email: str) -> WriteRefusal | None:
+    """`schiedsrichter_address_only_per_change`: a save moving a CONFIRMED referee's address, which keys their sign-in.
 
     Only an address change moves it. Refused whole: landing the rest, an editor stale on the address would lose its other fields unseen.
     """
@@ -433,7 +433,7 @@ def find_bestaetigte_adresse_refusal(*, stored: Mapping[str, Any], payload_email
         return None
 
     return WriteRefusal(
-        error_code=Code.SCHIEDSRICHTER_ADRESSE_ONLY_PER_CHANGE,
+        error_code=Code.SCHIEDSRICHTER_ADDRESS_ONLY_PER_CHANGE,
         status=HTTPStatus.CONFLICT,
     )
 

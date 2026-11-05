@@ -337,13 +337,13 @@ async def handed_out(
     for mail, row_id in zip(mails, row_ids, strict=True):
         row = confirmations.get(row_id) or {}
         data = mail.data.model_dump()
-        art = data["art"]
-        if art == "kontakt_confirmation":
+        kind = data["kind"]
+        if kind == "kontakt_confirmation":
             set_aside += 1
             continue
         seats = [pfad.split(".")[1] for pfad in (stored[mail.id]["link"] or {}).get("paths", [])] or [stored[mail.id]["reference"]["seat"]]
-        if art in ("spiel_request", "spiel_reminder"):
-            key = (art, row_id)
+        if kind in ("spiel_request", "spiel_reminder"):
+            key = (kind, row_id)
             seite = seite_of(row)
             # The club the request names is the one on the side its seats answer for, as the fixture spells it.
             assert data["team"] == fixtures[row["spiel_id"]][seite]["name"], (data["team"], seite)
@@ -357,35 +357,35 @@ async def handed_out(
                     ansetzung=Ansetzung(datum=data["ansetzung"]["datum"], uhrzeit=data["ansetzung"]["uhrzeit"]),
                     links=[],
                 )
-                (pass_.anfragen if art == "spiel_request" else pass_.erinnerungen).append(grouped[key])
+                (pass_.anfragen if kind == "spiel_request" else pass_.erinnerungen).append(grouped[key])
             assert mail.token is not None
             grouped[key].links.append(Link(address=mail.an, rollen=seats, token=mail.token))
             continue
-        if art == "spiel_einteilung":
+        if kind == "spiel_einteilung":
             pass_.einteilungen.append(Einteilung(spielbestaetigung_id=row_id, spiel_id=row.get("spiel_id"), address=mail.an))
             continue
 
         termin = data["appointment"]
         old = FLSpielbestaetigungAppointment(datum=termin["datum"], uhrzeit=termin["uhrzeit"])
         names = {"team1_name": termin["team1"], "team2_name": termin["team2"]}
-        to_a_referee = art == "spiel_einteilung_lifted" or data.get("recipient") == "schiedsrichter"
+        to_a_referee = kind == "spiel_einteilung_lifted" or data.get("recipient") == "schiedsrichter"
         if to_a_referee:
             notice = RefereeNotice(spielbestaetigung_id=row_id, spiel_id=row.get("spiel_id"), old=old, address=mail.an, **names)
             {
                 "spiel_new_scheduled": pass_.schiedsrichter_neue_ansetzungen,
                 "spiel_abgesagt": pass_.schiedsrichter_spiel_abgesagt,
                 "spiel_einteilung_lifted": pass_.schiedsrichter_gewechselt,
-            }[art].append(notice)
+            }[kind].append(notice)
             continue
 
-        key = (art, row_id)
+        key = (kind, row_id)
         if key not in grouped:
             grouped[key] = TeamNotice(spielbestaetigung_id=row_id, spiel_id=row.get("spiel_id"), old=old, recipient=[], **names)
             {
                 "spiel_new_scheduled": pass_.neue_ansetzungen,
                 "spiel_abgesagt": pass_.spiel_abgesagt,
                 "spiel_vorschlag_discarded": pass_.vorschlag_verworfen,
-            }[art].append(grouped[key])
+            }[kind].append(grouped[key])
         grouped[key].recipient.append(Empfaenger(address=mail.an, rollen=seats))
 
     assert set_aside == kontakt_links, f"{set_aside} contacts mails handed out where the case owed {kontakt_links}"
@@ -568,7 +568,7 @@ class TestTheSweepAsksAboutNothingItCannotHelp:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             first = await sweep(database, client)
             second = await a_pass(database, client)
-            owed = await database[Collection.OUTBOX].find({}, {"an": 1, "art": 1, "_id": 0}).to_list()
+            owed = await database[Collection.OUTBOX].find({}, {"an": 1, "kind": 1, "_id": 0}).to_list()
 
             return first, second, owed, await rows(database)
 
@@ -576,7 +576,7 @@ class TestTheSweepAsksAboutNothingItCannotHelp:
 
         assert (len(first.anfragen), len(first.einteilungen), second.mails) == (2, 1, 0)
         # One row per recipient: each seat's holder asked by a link of their own, and the referee told.
-        assert sorted((mail["art"], mail["an"]) for mail in owed) == sorted(
+        assert sorted((mail["kind"], mail["an"]) for mail in owed) == sorted(
             [
                 ("spiel_einteilung", REFEREE_EMAIL),
                 *[("spiel_request", address(team_id, seat)) for team_id in (ALPHA, BETA) for seat in KONTAKT_ROLLEN],
@@ -676,7 +676,7 @@ def answered(antwort: Literal["zugesagt", "declined"]) -> dict[str, Any]:
     return compose_antwort_update(
         antwort=antwort,
         seat="trainer",
-        adresse=None,
+        address=None,
         key=build_test_config().sperrliste_key,
         vorschlag=FLSpielbestaetigungAppointment(datum=days_after(day=NEXT_WEEK, days=1), uhrzeit="18:00:00")
         if antwort == "declined"
@@ -883,9 +883,9 @@ class TestTheVoidNoticeGoesAheadOfTheFreshRequest:
 
         handed = on_a_league(mongo_replica_set_url, body, spiele=[fixture(SPIEL, 1, NEXT_WEEK)])
 
-        arten = [mail.data.art for mail in handed]
-        assert Counter(arten) == {"spiel_new_scheduled": 7, "spiel_request": 6, "spiel_einteilung": 1}
-        assert arten.index("spiel_request") > max(position for position, art in enumerate(arten) if art == "spiel_new_scheduled")
+        kinds = [mail.data.kind for mail in handed]
+        assert Counter(kinds) == {"spiel_new_scheduled": 7, "spiel_request": 6, "spiel_einteilung": 1}
+        assert kinds.index("spiel_request") > max(position for position, kind in enumerate(kinds) if kind == "spiel_new_scheduled")
 
 
 class TestAMoveIsAnnouncedOnlyToAPartyMailed:
@@ -1058,7 +1058,7 @@ def a_payload_person(vorname: str, nachname: str, telefon: str) -> dict[str, Any
         "nachname": nachname,
         "email": f"{vorname.lower()}@example.com",
         "telefon": telefon,
-        "einwilligung": {"umfang": "kontaktdaten", "datum": "2026-03-01"},
+        "einwilligung": {"scope": "kontaktdaten", "date": "2026-03-01"},
     }
 
 

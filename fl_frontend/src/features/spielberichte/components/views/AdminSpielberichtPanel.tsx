@@ -97,7 +97,7 @@ function BerichtInhalt({
 }) {
   const saisonHref = useSaisonHref();
   const { lesen } = stand;
-  const { bericht, state: state, spiel } = lesen;
+  const { bericht, state, spiel } = lesen;
   // Both writes refuse a called-off fixture (`bericht_abgesagt`), and its result is no proposal's to set.
   const istAbgesagt = state === "abgesagt";
   // A proposal by side about clubs that left: its score beside this fixture's clubs would read as theirs, as the card's

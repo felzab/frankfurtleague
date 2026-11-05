@@ -19,7 +19,7 @@ class FLEinladung(BaseReadModel):
     created_by: CustomNonEmptyString
     # Required as a KEY and null while the invite stands: `uniq_invitation_live` reaches the rows
     # holding null, so a row that could omit it would fall outside the one-live-invite rule.
-    widerrufen_am: CustomOptionalDateString
+    revoked_at: CustomOptionalDateString
 
 
 class FLEinladungRecord(FLEinladung):

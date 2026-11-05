@@ -109,7 +109,7 @@ def registration(registrierung_id: ObjectId, team_id: ObjectId, *, confirmed: bo
             geburtsdatum="2009-05-04",
             today="2126-03-31",
             at="2126-03-31T08:00:00+00:00",
-            umfang="intern",
+            scope="intern",
             media=False,
         )
         if confirmed
@@ -237,11 +237,11 @@ def on_a_person(url: str, database_name: str, body: Body, *, pupil: bool = True,
     return on_the_seed_loop(_run())
 
 
-async def granted(database: AsyncDatabase, adresse: str = EMAIL, *, admin_tier: str = "administration") -> ObjectId:
-    """A grant at `adresse`, written as the Playground writes one, before the clock's first sight of it."""
+async def granted(database: AsyncDatabase, address: str = EMAIL, *, admin_tier: str = "administration") -> ObjectId:
+    """A grant at `address`, written as the Playground writes one, before the clock's first sight of it."""
 
     grant_id = ObjectId()
-    await database[Collection.GRANTS].insert_one({**grants_for_the_suite()[1], "_id": grant_id, "adresse": adresse, "admin_tier": admin_tier})
+    await database[Collection.GRANTS].insert_one({**grants_for_the_suite()[1], "_id": grant_id, "address": address, "admin_tier": admin_tier})
 
     return grant_id
 
@@ -325,9 +325,9 @@ async def handed_out(database: AsyncDatabase, client: AsyncMongoClient, answer: 
         )
     ).mails:
         mails += claim.mails
-    links = {_LINKS[mail.data.art]: mail.token for mail in mails if mail.data.art in _LINKS}
-    held = [mail.id for mail in mails if mail.data.art in _LINKS]
-    others = [mail.id for mail in mails if mail.data.art not in _LINKS]
+    links = {_LINKS[mail.data.kind]: mail.token for mail in mails if mail.data.kind in _LINKS}
+    held = [mail.id for mail in mails if mail.data.kind in _LINKS]
+    others = [mail.id for mail in mails if mail.data.kind not in _LINKS]
     if held:
         await database[Collection.OUTBOX].update_many({"_id": {"$in": held}}, {"$set": {"state": "sent"}})
     if others:
@@ -365,9 +365,9 @@ def stop_here(database: AsyncDatabase, client: AsyncMongoClient, **given: Any) -
 
 
 async def administrator_starts(
-    database: AsyncDatabase, client: AsyncMongoClient, *, grund: str, adresse: str = EMAIL, email: str = NEW_EMAIL, **given: Any
+    database: AsyncDatabase, client: AsyncMongoClient, *, grund: str, address: str = EMAIL, email: str = NEW_EMAIL, **given: Any
 ) -> Minted:
-    payload = FLAddressChangeAdminPayload.model_validate({"adresse": adresse, "email": email, "grund": grund})
+    payload = FLAddressChangeAdminPayload.model_validate({"address": address, "email": email, "grund": grund})
     return await handed_out(
         database,
         client,
@@ -446,11 +446,11 @@ async def owed(database: AsyncDatabase) -> list[dict[str, Any]]:
     """The notices the ends owe, in the order the drain hands them out: their kind, their recipient and whom they greet."""
 
     rows = database[Collection.OUTBOX].find(
-        {"art": {"$in": ["address_change_effective", "address_change_discarded"]}, "state": "open"}, sort=[("recorded_at", 1), ("_id", 1)]
+        {"kind": {"$in": ["address_change_effective", "address_change_discarded"]}, "state": "open"}, sort=[("recorded_at", 1), ("_id", 1)]
     )
     return [
         {
-            "art": row["art"].removeprefix("address_change_"),
+            "kind": row["kind"].removeprefix("address_change_"),
             "an": row["an"],
             **({"vorname": row["data"]["vorname"]} if "vorname" in row["data"] else {}),
         }

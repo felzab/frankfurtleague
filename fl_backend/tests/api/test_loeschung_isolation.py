@@ -100,7 +100,7 @@ async def a_league(database: AsyncDatabase) -> None:
             "token_hashes": [hash_token(EINLADUNG_TOKEN)],
             "created_at": "2026-03-15",
             "created_by": "admin@frankfurtleague.de",
-            "widerrufen_am": None,
+            "revoked_at": None,
         }
     )
     await database[Collection.BEWERBUNGEN].insert_one(
@@ -135,7 +135,7 @@ async def a_league(database: AsyncDatabase) -> None:
     )
     # As the Stellvertretung's own Widerspruch leaves it, the one state a seat is filled again from.
     await database[Collection.BEWERBUNGEN].update_one(
-        {"_id": STEPPED_OUT_OID}, compose_decline_update(seats=["stellvertretung"], today="2026-03-20", angekuendigt=False)
+        {"_id": STEPPED_OUT_OID}, compose_decline_update(seats=["stellvertretung"], today="2026-03-20", announced=False)
     )
     await database[Collection.SPIELER].insert_one(spieler_document(PUPIL_OID, "Wraxlington", "Muster", email=PUPIL_EMAIL))
     await database[Collection.SCHIEDSRICHTER].insert_one(
@@ -159,7 +159,7 @@ SEATED = {
     "nachname": "Quillfeather",
     "email": TYPED,
     "telefon": TELEFON,
-    "einwilligung": {"umfang": "kontaktdaten", "datum": "2026-03-01"},
+    "einwilligung": {"scope": "kontaktdaten", "date": "2026-03-01"},
 }
 BESIDE = {**SEATED, "vorname": "Ottilie", "nachname": "Andere", "email": "ottilie.andere@example.com", "telefon": "+49 69 5550404"}
 

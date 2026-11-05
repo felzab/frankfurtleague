@@ -8,7 +8,7 @@ describe("the act a consent choice is read back with", () => {
   it("names the choice's own act, in Berlin time, over the confirmation's", () => {
     const sentence = beschreibeNachweis(
       { at: "2026-10-03T22:30:00Z", text_version: "2026-11-name-kader-1", given_before: null },
-      { am: "2026-03-14" },
+      { at: "2026-03-14" },
     );
 
     expect(sentence).toBe("seit 04.10.2026, 00:30 Uhr, Fassung 2026-11-name-kader-1");
@@ -21,7 +21,7 @@ describe("the act a consent choice is read back with", () => {
         text_version: "2026-11-medien-1",
         given_before: { at: "2026-09-01T10:00:00Z", text_version: "2026-11-medien-1" },
       },
-      { am: "2026-03-14" },
+      { at: "2026-03-14" },
     );
 
     expect(sentence).toBe(
@@ -36,12 +36,12 @@ describe("the act a consent choice is read back with", () => {
   /* A contact seat confirmed before choices carried their own evidence is kept with its confirmation's day as its whole
      proof: „Nicht bestätigt“ under it would contradict the confirmation read out above. */
   it("reads a confirmed record's choice with no evidence of its own as standing on the confirmation", () => {
-    expect(beschreibeNachweis(null, { am: "2026-03-14" })).toBe("seit der Bestätigung am 14.03.2026");
+    expect(beschreibeNachweis(null, { at: "2026-03-14" })).toBe("seit der Bestätigung am 14.03.2026");
   });
 
   /* The read model refuses no stored instant, so one it cannot read arrives here rather than failing. */
   it("keeps an unreadable instant as stored rather than failing the panel", () => {
-    expect(beschreibeNachweis({ at: "kaputt", text_version: "2026-11-medien-1", given_before: null }, { am: "2026-03-14" })).toBe(
+    expect(beschreibeNachweis({ at: "kaputt", text_version: "2026-11-medien-1", given_before: null }, { at: "2026-03-14" })).toBe(
       "seit kaputt, Fassung 2026-11-medien-1",
     );
   });

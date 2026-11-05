@@ -55,7 +55,7 @@ class TestWhichPageTheLinkOpens:
         "vorname": "Quillhilde",
         "nachname": "Brackenmoor",
         "geburtsdatum": "2009-05-09",
-        "einwilligung": einwilligung(umfang="intern", media=True),
+        "einwilligung": einwilligung(scope="intern", media=True),
     }
 
     @pytest.mark.parametrize(
@@ -126,7 +126,7 @@ class TestAPersonIsNeverWrittenNameless:
         "vorname": "Quillhilde",
         "nachname": "Brackenmoor",
         "geburtsdatum": "2009-05-09",
-        "einwilligung": own_einwilligung_document(text_versions=SPIELER_TEXT_VERSIONS, confirmed_at=TODAY, umfang="intern"),
+        "einwilligung": own_einwilligung_document(text_versions=SPIELER_TEXT_VERSIONS, confirmed_at=TODAY, scope="intern"),
     }
     # A registration carrying no choice, which renews nothing on the person's record.
     RETURNING = {
@@ -142,23 +142,23 @@ class TestAPersonIsNeverWrittenNameless:
         nameless = {**self.NEW, "vorname": vorname}
 
         with pytest.raises(ValueError, match="no forename"):
-            compose_person(spieler_id="a-new-id", registrierung_raw=nameless, adresse="quillhilde@example.com")
+            compose_person(spieler_id="a-new-id", registrierung_raw=nameless, address="quillhilde@example.com")
         with pytest.raises(ValueError, match="no forename"):
-            compose_person_update(registrierung_raw=nameless, saved=self.NEW["einwilligung"], adresse="quillhilde@example.com")
+            compose_person_update(registrierung_raw=nameless, saved=self.NEW["einwilligung"], address="quillhilde@example.com")
 
     @pytest.mark.parametrize("registrierung_raw", [NEW, RETURNING], ids=("new page", "returning page"))
     def test_a_matched_person_holding_no_record_is_admitted_into_by_neither_page(self, registrierung_raw: Mapping[str, Any]):
         """The returning page is the load-bearing case: renewing nothing, it would leave the person standing with no record."""
 
         with pytest.raises(ValueError, match="no consent record"):
-            compose_person_update(registrierung_raw=registrierung_raw, saved=None, adresse="quillhilde@example.com")
+            compose_person_update(registrierung_raw=registrierung_raw, saved=None, address="quillhilde@example.com")
 
 
 def antwort(**overrides: Any) -> dict[str, Any]:
     return {
         "token": RAW,
         "geburtsdatum": "2009-05-09",
-        "umfang": "intern",
+        "scope": "intern",
         "media": False,
         "text_versions": dict(SPIELER_TEXT_VERSIONS),
         **overrides,
@@ -166,7 +166,7 @@ def antwort(**overrides: Any) -> dict[str, Any]:
 
 
 class TestWhatTheAnswerPayloadRefuses:
-    @pytest.mark.parametrize("field", ["token", "geburtsdatum", "umfang", "media", "text_versions"])
+    @pytest.mark.parametrize("field", ["token", "geburtsdatum", "scope", "media", "text_versions"])
     def test_every_field_is_required(self, field: str, assert_rejects):
         """`media` above all: defaulted, an off switch would store this model's answer where the person's belongs."""
 

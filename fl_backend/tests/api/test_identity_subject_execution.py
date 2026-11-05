@@ -229,16 +229,13 @@ async def _seed(database: AsyncDatabase) -> None:
         ]
     )
     grants = [
-        _grant(GRANT_OWNER_OID, ADMIN_OWNER, "owner") | {"gefunden_am": GRANT_FOUND},
+        _grant(GRANT_OWNER_OID, ADMIN_OWNER, "owner") | {"found_at": GRANT_FOUND},
         _grant(GRANT_STORED_OID, ADMIN_STORED, "administration"),
     ]
     await database[Collection.GRANTS].insert_many(grants)
     # Both announced: the `owner` grant found by the reconciliation, the other made by the grant route.
     await database[Collection.GRANTS_ANNOUNCED].insert_many(
-        [
-            {"_id": grant["_id"], "adresse": grant["adresse"], "admin_tier": grant["admin_tier"], "angekuendigt_am": GRANT_FOUND}
-            for grant in grants
-        ]
+        [{"_id": grant["_id"], "address": grant["address"], "admin_tier": grant["admin_tier"], "announced_at": GRANT_FOUND} for grant in grants]
     )
 
 
@@ -248,10 +245,10 @@ GRANT_FOUND = datetime(2026, 1, 2, 8, 30, tzinfo=UTC)
 GRANT_PROMOTED = datetime(2026, 2, 1, 9, 0, tzinfo=UTC)
 
 
-def _grant(grant_id: ObjectId, adresse: str, admin_tier: str) -> dict[str, Any]:
+def _grant(grant_id: ObjectId, address: str, admin_tier: str) -> dict[str, Any]:
     """A grant as the Playground or the grant route stores one: the folded identifier and its tier."""
 
-    return {"_id": grant_id, "adresse": adresse, "admin_tier": admin_tier, "granted_by": "PLAYGROUND", "granted_at": GRANT_TYPED}
+    return {"_id": grant_id, "address": address, "admin_tier": admin_tier, "granted_by": "PLAYGROUND", "granted_at": GRANT_TYPED}
 
 
 def on_a_league(url: str, body: Body) -> Any:
@@ -439,7 +436,7 @@ class TestTheGrant:
         """Its row still carries the address before's dates, so a tier dated by them would admit the new holder's older sessions."""
 
         async def repointed(database: AsyncDatabase) -> FLSubjectResponse:
-            await database[Collection.GRANTS].update_one({"_id": GRANT_STORED_OID}, {"$set": {"adresse": BYSTANDER}})
+            await database[Collection.GRANTS].update_one({"_id": GRANT_STORED_OID}, {"$set": {"address": BYSTANDER}})
 
             return await call_subject(database, BYSTANDER)
 
@@ -483,7 +480,7 @@ class TestTheGrant:
         """As a row put back after the reconciliation erased its record stands: every date it carries predates its return."""
 
         async def put_back(database: AsyncDatabase) -> FLSubjectResponse:
-            await database[Collection.GRANTS].update_one({"_id": GRANT_STORED_OID}, {"$set": {"gesehen_am": GRANT_FOUND}})
+            await database[Collection.GRANTS].update_one({"_id": GRANT_STORED_OID}, {"$set": {"seen_at": GRANT_FOUND}})
             await database[Collection.GRANTS_ANNOUNCED].delete_one({"_id": GRANT_STORED_OID})
 
             return await call_subject(database, ADMIN_STORED)

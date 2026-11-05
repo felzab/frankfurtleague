@@ -10,7 +10,7 @@ import { logger } from "../logging";
 import { ROUTES } from "../routes";
 import { HOUR_MS } from "../timeUnits";
 
-import type { FLOutboxSignInPayload, FLPasskeyDataArt } from "../generated/client/types";
+import type { FLOutboxSignInPayload, FLPasskeyDataKind } from "../generated/client/types";
 
 /**
  * Owes one mail of the sign-in library through the Postausgang, which the write drains at once. A secret -- the code, the
@@ -36,9 +36,9 @@ export async function oweSignInMail(
  * A failed notice leaves the change standing: a passkey row rolled back for an unreachable backend is a lockout the
  * reader never asked for. The account page is spelled on the serving origin by the drain, never `brand.ts :: SITE_URL`.
  */
-export async function notifyPasskey(art: FLPasskeyDataArt, email: string): Promise<void> {
+export async function notifyPasskey(kind: FLPasskeyDataKind, email: string): Promise<void> {
   try {
-    await oweSignInMail(email, { art: art, instant: now().toISOString(), account: ROUTES.accountSecurity.path() });
+    await oweSignInMail(email, { kind, instant: now().toISOString(), account: ROUTES.accountSecurity.path() });
   } catch (failed) {
     // Name only, as the code's own send writes one: a failure here routinely carries the address.
     logger.error("auth.passkey_notice_failed", undefined, {
@@ -58,5 +58,5 @@ export async function notifyPasskeyRemoved(email: string): Promise<void> {
  * library swallows a throw from here, logging it.
  */
 export async function sendDeletionLink({ user, token }: { user: { email: string }; token: string }): Promise<void> {
-  await oweSignInMail(user.email, { art: "account_erasure" }, { value: token, validMs: ERASURE_LINK_VALID_HOURS * HOUR_MS });
+  await oweSignInMail(user.email, { kind: "account_erasure" }, { value: token, validMs: ERASURE_LINK_VALID_HOURS * HOUR_MS });
 }

@@ -23,16 +23,16 @@ const AdresswechselGrundSchema = singleLineName(
 export const FLAdresswechselVerwaltungAnsichtPayloadSchema = z
   .object({
     // Nullable as well as optional, as the backend's: it reads a null key as an absent one, so the one-key check below does too.
-    adresse: KontaktEmailSchema.nullable().optional(),
-    adresswechsel_id: CustomObjectIdStringSchema.nullable().optional(),
+    address: KontaktEmailSchema.nullable().optional(),
+    address_change_id: CustomObjectIdStringSchema.nullable().optional(),
   })
-  .refine(({ adresse, adresswechsel_id }) => (adresse == null) !== (adresswechsel_id == null), {
+  .refine(({ address, address_change_id }) => (address == null) !== (address_change_id == null), {
     error: "Gib eine E-Mail-Adresse ein.",
   });
 
 /** The start's draft, for a person who says they cannot sign in: its reason starts the waiting time. */
 export const FLAdresswechselVerwaltungPayloadSchema = z.object({
-  adresse: KontaktEmailSchema,
+  address: KontaktEmailSchema,
   email: KontaktEmailSchema,
   grund: AdresswechselGrundSchema,
 });

@@ -2,8 +2,8 @@ import { ROUTES } from "./routes";
 
 import type { Route } from "next";
 import type {
+  FLEinwilligungScope,
   FLEinwilligungTextVersion,
-  FLEinwilligungUmfang,
   FLMediaTextVersion,
   FLNameKaderTextVersion,
   FLNameSpielplanTextVersion,
@@ -19,8 +19,8 @@ export type ConsentLine = ReadonlyArray<string | { readonly href: Route; readonl
 /** A consent given by one switch: the switch's own sentence, its whole label, and the line under it. */
 type SwitchWording = { readonly label: string; readonly line: ConsentLine };
 
-/** A consent given by picking one of the scopes `umfang` stores: the question, each option by the value it writes, and the line. */
-type ScopeWording = { readonly question: string; readonly options: Readonly<Record<FLEinwilligungUmfang, string>>; readonly line: ConsentLine };
+/** A consent given by picking one of the scopes `scope` stores: the question, each option by the value it writes, and the line. */
+type ScopeWording = { readonly question: string; readonly options: Readonly<Record<FLEinwilligungScope, string>>; readonly line: ConsentLine };
 
 const PRIVACY_NOTICE = ROUTES.privacyNotice.path();
 
@@ -82,26 +82,26 @@ export const CONSENT_WORDINGS = {
 // may name, though the request schema admits every label its kind's records cite so a withdrawal from an older page
 // still reaches. Checked against the backend's current labels, so a rewording that moves one fails here rather than
 // refusing every grant from the page.
-export const SEAT_TEXT_VERSIONS = { umfang: "2026-11-whatsapp-1", media: "2026-11-medien-1" } as const satisfies FLSeatTextVersions & {
-  readonly umfang: FLWhatsappTextVersion;
+export const SEAT_TEXT_VERSIONS = { scope: "2026-11-whatsapp-1", media: "2026-11-medien-1" } as const satisfies FLSeatTextVersions & {
+  readonly scope: FLWhatsappTextVersion;
   readonly media: FLMediaTextVersion;
 };
-export const SPIELER_TEXT_VERSIONS = { umfang: "2026-11-name-kader-1", media: "2026-11-medien-1" } as const satisfies FLSpielerTextVersions & {
-  readonly umfang: FLNameKaderTextVersion;
+export const SPIELER_TEXT_VERSIONS = { scope: "2026-11-name-kader-1", media: "2026-11-medien-1" } as const satisfies FLSpielerTextVersions & {
+  readonly scope: FLNameKaderTextVersion;
   readonly media: FLMediaTextVersion;
 };
 export const SCHIEDSRICHTER_TEXT_VERSIONS = {
-  umfang: "2026-11-name-spielplan-1",
+  scope: "2026-11-name-spielplan-1",
   media: "2026-11-medien-1",
-} as const satisfies FLSchiedsrichterTextVersions & { readonly umfang: FLNameSpielplanTextVersion; readonly media: FLMediaTextVersion };
+} as const satisfies FLSchiedsrichterTextVersions & { readonly scope: FLNameSpielplanTextVersion; readonly media: FLMediaTextVersion };
 
 /** The words a kind's page shows beside its two choices, read off its labels so a page shows what its press stamps. */
-export const SEAT_WORDINGS = { umfang: CONSENT_WORDINGS[SEAT_TEXT_VERSIONS.umfang], media: CONSENT_WORDINGS[SEAT_TEXT_VERSIONS.media] };
+export const SEAT_WORDINGS = { scope: CONSENT_WORDINGS[SEAT_TEXT_VERSIONS.scope], media: CONSENT_WORDINGS[SEAT_TEXT_VERSIONS.media] };
 export const SPIELER_WORDINGS = {
-  umfang: CONSENT_WORDINGS[SPIELER_TEXT_VERSIONS.umfang],
+  scope: CONSENT_WORDINGS[SPIELER_TEXT_VERSIONS.scope],
   media: CONSENT_WORDINGS[SPIELER_TEXT_VERSIONS.media],
 };
 export const SCHIEDSRICHTER_WORDINGS = {
-  umfang: CONSENT_WORDINGS[SCHIEDSRICHTER_TEXT_VERSIONS.umfang],
+  scope: CONSENT_WORDINGS[SCHIEDSRICHTER_TEXT_VERSIONS.scope],
   media: CONSENT_WORDINGS[SCHIEDSRICHTER_TEXT_VERSIONS.media],
 };

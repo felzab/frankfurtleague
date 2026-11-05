@@ -73,10 +73,10 @@ async function loadJobs(): Promise<{
   return {
     jobs: [
       { name: "bewerbungen", run: bewerbungen.runBewerbungSweep },
-      { name: "account", run: account.runKontoSweep },
+      { name: "account", run: account.runAccountSweep },
       { name: "erasure", run: erasure.runErasureSweep },
       { name: "spielbestaetigungen", run: spiele.runSpielSweep },
-      { name: "grants", run: grants.runBerechtigungenAbgleich },
+      { name: "grants", run: grants.runGrantsReconciliation },
     ],
     drain: mail.drainOutbox,
     takeDrainCounts: mail.takeDrainCounts,

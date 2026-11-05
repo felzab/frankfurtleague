@@ -332,7 +332,7 @@ def _seeded_link(team_id: ObjectId) -> dict[str, Any]:
         "token_hashes": [hash_token(f"seeded-{team_id}")],
         "created_at": "2026-03-15",
         "created_by": "admin@frankfurtleague.de",
-        "widerrufen_am": None,
+        "revoked_at": None,
     }
 
 
@@ -450,7 +450,7 @@ def _pressed(served: FastAPI, url: str, stand_in: Callable[[AsyncCollection], An
                 del served.dependency_overrides[invitations]
 
             live = {
-                team_id: [row["_id"] async for row in database[Collection.INVITATIONS].find({"team_id": team_id, "widerrufen_am": None})]
+                team_id: [row["_id"] async for row in database[Collection.INVITATIONS].find({"team_id": team_id, "revoked_at": None})]
                 for team_id in TEAM_NAMES
             }
 

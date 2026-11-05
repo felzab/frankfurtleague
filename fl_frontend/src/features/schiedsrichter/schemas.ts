@@ -1,7 +1,7 @@
 import z from "zod";
 
 import { SCHIEDSRICHTER_TEXT_VERSIONS } from "@/core/consentWordings";
-import { FLEinwilligungUmfang } from "@/core/generated/client/types";
+import { FLEinwilligungScope } from "@/core/generated/client/types";
 import { BEWERBUNG_TOKEN_MAX_LENGTH } from "@/features/bewerbungen/constants";
 import { geburtsdatumSpanne } from "@/features/bewerbungen/utils";
 import { LINK_FASSUNG_FEHLT, textVersionsSchema } from "@/features/spieler/schemas";
@@ -88,7 +88,7 @@ const bestaetigungToken = z
  * and a scope in the record would leave the page and the row disagreeing about what „intern“ means.
  */
 // The message an UNANSWERED control raises as well as a drifted one: nothing preselects this choice.
-const FLSchiedsrichterUmfangSchema = z.enum(FLEinwilligungUmfang, {
+const FLSchiedsrichterScopeSchema = z.enum(FLEinwilligungScope, {
   error: "Bitte wähle aus, was im Spielplan stehen darf.",
 });
 
@@ -101,7 +101,7 @@ const FLSchiedsrichterUmfangSchema = z.enum(FLEinwilligungUmfang, {
 export const FLSchiedsrichterBestaetigungPayloadSchema = z.object({
   token: bestaetigungToken,
   geburtsdatum: CustomDateStringSchema,
-  umfang: FLSchiedsrichterUmfangSchema,
+  scope: FLSchiedsrichterScopeSchema,
   // Never optional: the record stores the key either way, so an omitted one would store the model's
   // default in place of the person's answer.
   media: z.boolean(),

@@ -31,7 +31,7 @@ import { appToast } from "@/shared/utils/appToast";
 import { ANTWORT_UNKLAR, UNKLAR_TITEL } from "@/shared/utils/publicSubmit";
 
 import type { ActionAnswer } from "@/core/action";
-import type { FLAddressChangeEndArt, FLAddressChangeWay } from "@/core/generated/client/types";
+import type { FLAddressChangeEndKind, FLAddressChangeWay } from "@/core/generated/client/types";
 import type {
   AddressChangeLinkState,
   AddressChangePressed,
@@ -84,7 +84,7 @@ const TITEL: Record<Exclude<AddressChangeStart["state"], "barred" | "ended">, st
  * How an ended change reads from each side. A link answers after the end, so the holder of the address on file
  * learns that a change took effect rather than being told the address still holds.
  */
-const ENDE: Record<FLAddressChangeEndArt, Record<Beendet["side"], { titel: string; satz: string }>> = {
+const ENDE: Record<FLAddressChangeEndKind, Record<Beendet["side"], { titel: string; satz: string }>> = {
   effective: {
     new: { titel: "Adresse bestätigt", satz: "Die neue E-Mail-Adresse gilt jetzt. Melde Dich mit ihr neu an." },
     previous: {
@@ -215,7 +215,7 @@ function AblehnenButton({ antwort }: { antwort: Presse }) {
 
 const AKTIONEN_CLASSES = "flex w-full flex-col items-stretch gap-2 sm:flex-row sm:justify-end";
 
-function AntwortPanel({ gueltigBis, way: way, antwort }: { gueltigBis: string; way: FLAddressChangeWay; antwort: Presse }) {
+function AntwortPanel({ gueltigBis, way, antwort }: { gueltigBis: string; way: FLAddressChangeWay; antwort: Presse }) {
   const { sende, isPending, gedrueckt } = antwort;
 
   return (
@@ -292,7 +292,7 @@ function stoppSatz(zustand: OldViewPreviousState, way: FLAddressChangeWay, wirks
  */
 function StoppPanel({
   zustand,
-  way: way,
+  way,
   wirksamAb,
   antwort,
 }: {

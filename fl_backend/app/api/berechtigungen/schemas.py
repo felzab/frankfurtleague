@@ -21,11 +21,11 @@ FLUtcInstant = Annotated[datetime, AfterValidator(as_utc)]
 
 # What happened to one grant: added, removed, or its tier changed in place, by the tier change or by
 # a database edit. An address changed in place is a removal and a grant, never `changed`.
-FLBerechtigungAenderungArt = Literal["granted", "revoked", "changed"]
+FLGrantChangeKind = Literal["granted", "revoked", "changed"]
 
 # What a grant's notice tells: a change to a grant, or, no change of one yet, a grant or promotion asked for, waiting on
 # an approval (`app/api/outbox/schemas.py :: FLGrantData`).
-FLBerechtigungMitteilungArt = Literal[FLBerechtigungAenderungArt, Literal["requested"]]
+FLGrantNoticeKind = Literal[FLGrantChangeKind, Literal["requested"]]
 
 # Who made a queued change: an administrator through the application, or an edit in the database.
 # Stated, since a null actor also stands for one whose address is withheld.
@@ -37,7 +37,7 @@ FLBerechtigungUrheber = Literal["anwendung", "datenbank"]
 FLBerechtigungVorenthalten = Literal["barred", "erased"]
 
 
-class FLBerechtigungFortgefuehrt(BaseModel):
+class FLGrantCarried(BaseModel):
     """The since-whens a grant moved by its holder's own address change carries of the row it replaced."""
 
     granted_since: datetime
@@ -49,7 +49,7 @@ class FLBerechtigung(Anchored):
     """One grant as the collection stores it, its address folded as the sign-in folds it."""
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
-    adresse: CustomNonEmptyString
+    address: CustomNonEmptyString
     admin_tier: FLAdminTier
     # An administrator's address for a grant made here, `app/core/recording.py :: ERASED_ACTOR_MARKER`
     # once they are erased, and the marker the paste names itself by for one made in the Playground.
@@ -57,15 +57,15 @@ class FLBerechtigung(Anchored):
     granted_at: datetime
     # Absent until a comparison finds the row new, and never written by a grant made here: a paste's
     # `granted_at` is whatever was typed, and an address changed in place keeps the old one.
-    gefunden_am: datetime | None = None
+    found_at: datetime | None = None
     # Written once, by the first pass to read the row, or by the write here that first
     # records it: a row carrying it and no record was edited after it was seen.
-    gesehen_am: datetime | None = None
+    seen_at: datetime | None = None
     # When the row last became `owner` by a promotion, written by the tier change and by a comparison
     # finding one made in the database: an older session holds no owner's power.
     appointed_at: datetime | None = None
     # Written by an address change's move alone, read by the four-eyes rule and never by a session's check.
-    fortgefuehrt: FLBerechtigungFortgefuehrt | None = None
+    carried: FLGrantCarried | None = None
     # 0 until a write raises it, as the grant's insert stamps it.
     version: int = 0
 
@@ -98,10 +98,10 @@ class FLGrantRow(BaseModel):
 
     id: CustomObjectId
     # Null exactly where `barred` is set: a barred address is answered on no route.
-    adresse: str | None
+    address: str | None
     barred: bool
     admin_tier: FLAdminTier
-    # Null exactly where `granted_by_barred` is set, as `adresse` is beside `barred`.
+    # Null exactly where `granted_by_barred` is set, as `address` is beside `barred`.
     granted_by: str | None
     granted_by_barred: bool
     granted_at: FLUtcInstant
@@ -111,7 +111,7 @@ class FLGrantRow(BaseModel):
     version: int
 
 
-class FLBerechtigungAntragGenehmigung(BaseModel):
+class FLGrantApprovalRequestApproval(BaseModel):
     """What a request waits on, the block an address change's approval keeps too, so one judgement reads both."""
 
     # The tier the request asks for, and the one its approver and its requester must hold.
@@ -122,15 +122,15 @@ class FLBerechtigungAntragGenehmigung(BaseModel):
     started_by: CustomNonEmptyString
 
 
-class FLBerechtigungAntrag(BaseModel):
+class FLGrantApprovalRequest(BaseModel):
     """One request as the collection stores it: never an approval, which writes the grant and removes the request at once."""
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
     # Folded: the address the grant goes to, or the address of the grant a promotion names.
-    adresse: CustomNonEmptyString
+    address: CustomNonEmptyString
     # The grant a promotion raises, null for a grant: its approval finds nothing where that grant has gone since.
     grant_id: CustomObjectId | None
-    approval: FLBerechtigungAntragGenehmigung
+    approval: FLGrantApprovalRequestApproval
 
 
 class FLGrantApprovalRequestRow(BaseModel):
@@ -138,7 +138,7 @@ class FLGrantApprovalRequestRow(BaseModel):
 
     id: CustomObjectId
     # Null exactly where `barred` is set, as on a grant's row.
-    adresse: str | None
+    address: str | None
     barred: bool
     grant_id: CustomObjectId | None
     admin_tier: FLAdminTier
@@ -213,14 +213,14 @@ class FLGrantSnapshot(BaseModel):
     """One grant's address and tier at one moment."""
 
     # Null where the address was barred when it was written or is barred now, or its holder is erased.
-    adresse: str | None
+    address: str | None
     admin_tier: FLAdminTier
 
 
-class FLBerechtigungAngekuendigt(BaseModel):
+class FLGrantAnnounced(BaseModel):
     """One row of the announced record: keyed on the grant's own id, with the moment it was recorded."""
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
-    adresse: CustomNonEmptyString
+    address: CustomNonEmptyString
     admin_tier: FLAdminTier
-    angekuendigt_am: datetime
+    announced_at: datetime

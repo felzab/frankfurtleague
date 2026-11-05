@@ -25,18 +25,18 @@ export function AdminBerechtigungStufePanel({
   berechtigungId,
   adresse,
   erteiltAm,
-  verwaltung,
+  adminTier,
   eigene,
 }: {
   berechtigungId: string;
   /** `null` where the address is withheld, the grant's day then naming the row. */
   adresse: string | null;
   erteiltAm: string;
-  verwaltung: FLAdminTier;
+  adminTier: FLAdminTier;
   /** The signed-in owner's own grant, which this control steps down. */
   eigene: boolean;
 }) {
-  const ziel: FLAdminTier = verwaltung === "owner" ? "administration" : "owner";
+  const ziel: FLAdminTier = adminTier === "owner" ? "administration" : "owner";
   const { resting, name, armed, running, folge } = stufeWorte({ adresse, erteiltAm, ziel, own: eigene });
   // The enrolment's window, as the action's: the prompt asks before a press the server would refuse.
   const twoPress = useTwoPressConfirm({ stepUp: "enrolment" });
@@ -48,7 +48,7 @@ export function AdminBerechtigungStufePanel({
     const landing = focusAfterWrite();
     press(async () => {
       // A rejected action may still have saved, and uncaught here it takes the page down with it.
-      const res = await patchBerechtigungAction({ id: berechtigungId, verwaltung: ziel }).catch(rejectedWrite(router));
+      const res = await patchBerechtigungAction({ id: berechtigungId, admin_tier: ziel }).catch(rejectedWrite(router));
 
       if (!res.success) {
         appToast.failure("Stufe nicht geändert", res);

@@ -274,13 +274,13 @@ class TestEinwilligung:
     """The consent record: what may be published, and whether anyone confirmed it."""
 
     def test_accepts_a_collected_consent(self, spieler, einwilligung):
-        collected = einwilligung(umfang="kader_oeffentlich")
+        collected = einwilligung(scope="kader_oeffentlich")
 
         einwilligung = FLSpieler.model_validate(spieler(einwilligung=collected)).einwilligung
 
-        assert einwilligung is not None and einwilligung.umfang == "kader_oeffentlich"
+        assert einwilligung is not None and einwilligung.scope == "kader_oeffentlich"
 
-    @pytest.mark.parametrize("field", ["umfang", "datum", "confirmed_at", "media", "evidence"])
+    @pytest.mark.parametrize("field", ["scope", "date", "confirmed_at", "media", "evidence"])
     def test_requires_every_key(self, einwilligung, field, assert_rejects):
         """Each key a stored record carries, so a model accepting one fewer would let the read-back pass a row missing it."""
 
@@ -290,26 +290,26 @@ class TestEinwilligung:
         assert_rejects(FLEinwilligung, incomplete, field)
 
     def test_a_media_consent_is_read_beside_the_publication_scope_and_not_inside_it(self, einwilligung):
-        """Two independent answers: a reader asking `umfang` whether a photo may be published gets the wrong question's answer."""
+        """Two independent answers: a reader asking `scope` whether a photo may be published gets the wrong question's answer."""
 
-        parsed = FLEinwilligung.model_validate(einwilligung(umfang="kader_oeffentlich", media=True))
+        parsed = FLEinwilligung.model_validate(einwilligung(scope="kader_oeffentlich", media=True))
 
         assert parsed.media is True
-        assert parsed.umfang == "kader_oeffentlich"
+        assert parsed.scope == "kader_oeffentlich"
 
     @pytest.mark.parametrize(
         ("field", "value"),
         [
             # A scope somebody invented where the two the league publishes under already exist.
-            ("umfang", "oeffentlich"),
-            ("umfang", "kader"),
+            ("scope", "oeffentlich"),
+            ("scope", "kader"),
         ],
     )
     def test_rejects_a_value_outside_its_closed_set(self, einwilligung, field, value, assert_rejects):
         assert_rejects(FLEinwilligung, einwilligung(**{field: value}), field)
 
     def test_rejects_a_date_that_is_not_a_calendar_day(self, einwilligung, assert_rejects):
-        assert_rejects(FLEinwilligung, einwilligung(datum="2026-02-31"), "datum")
+        assert_rejects(FLEinwilligung, einwilligung(date="2026-02-31"), "date")
 
     def test_the_patch_payload_carries_no_consent_field(self):
         """`patch_spieler` `$set`s this model's whole dump, so a field here would let a name correction rewrite what somebody agreed to."""
@@ -348,7 +348,7 @@ class TestTheConsentRecordStoredAndReadBack:
         )
 
         assert parsed.einwilligung is not None
-        assert (parsed.einwilligung.umfang, parsed.einwilligung.media) == ("kader_oeffentlich", True)
+        assert (parsed.einwilligung.scope, parsed.einwilligung.media) == ("kader_oeffentlich", True)
 
 
 class TestSaisonSpielerRow:
@@ -797,7 +797,7 @@ class TestTheWritePathStripsBeforeItCountsCharacters:
             "nachname": "Koerner",
             "email": "a.koerner@example.de",
             "telefon": "+49 170 1234567",
-            "einwilligung": {"umfang": "kontaktdaten", "datum": "2026-01-15"},
+            "einwilligung": {"scope": "kontaktdaten", "date": "2026-01-15"},
         }
         saison_team = {
             "gruppe": "A",

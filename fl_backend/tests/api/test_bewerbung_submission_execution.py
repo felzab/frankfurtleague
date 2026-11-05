@@ -242,8 +242,8 @@ class TestWhatASubmissionStores:
             # Born with the applicant's acknowledgement, naming the application as who seated the
             # person, and no evidence: no person has set a choice yet.
             assert stored["kontakte"][seat]["einwilligung"] == {
-                "umfang": "kontaktdaten",
-                "datum": TODAY,
+                "scope": "kontaktdaten",
+                "date": TODAY,
                 "confirmed_at": None,
                 "media": False,
                 "entered_by": "bewerbung",
@@ -329,7 +329,7 @@ class TestWhatTheCreateOwes:
                 "key": f"{stamm}/confirmation/stellvertretung",
                 "an": KONTAKTE["stellvertretung"]["email"],
                 "data": {
-                    "art": "bewerbung_confirmation",
+                    "kind": "bewerbung_confirmation",
                     "saison_id": SAISON_ID,
                     "schule": EXISTING_NAME,
                     "rollen": ["stellvertretung"],
@@ -340,7 +340,7 @@ class TestWhatTheCreateOwes:
                 "key": f"{stamm}/confirmation/trainer",
                 "an": KONTAKTE["trainer"]["email"],
                 "data": {
-                    "art": "bewerbung_confirmation",
+                    "kind": "bewerbung_confirmation",
                     "saison_id": SAISON_ID,
                     "schule": EXISTING_NAME,
                     "rollen": ["trainer"],
@@ -351,7 +351,7 @@ class TestWhatTheCreateOwes:
                 "key": f"{stamm}/received",
                 "an": KONTAKTE["ansprechperson"]["email"],
                 "data": {
-                    "art": "bewerbung_received",
+                    "kind": "bewerbung_received",
                     "saison_id": SAISON_ID,
                     "rollen": ["ansprechperson"],
                     "pending": [
@@ -501,7 +501,7 @@ class TestTheSubmissionKey:
     @pytest.mark.parametrize(
         "emptying",
         [
-            pytest.param(compose_decline_update(seats=("stellvertretung",), today=TODAY, angekuendigt=False), id="a Widerspruch"),
+            pytest.param(compose_decline_update(seats=("stellvertretung",), today=TODAY, announced=False), id="a Widerspruch"),
             pytest.param(build_clearing_update(("stellvertretung",), confirmations=True), id="a contact erasure"),
         ],
     )
@@ -910,7 +910,7 @@ class TestAKuerzelARetiredClubStillHolds:
 
 
 class TestABannedContactAddress:
-    """`bewerbung_adresse_barred`: an address the ban list holds applies for nobody, on whichever seat it stands."""
+    """`bewerbung_address_barred`: an address the ban list holds applies for nobody, on whichever seat it stands."""
 
     @pytest.mark.parametrize("seat", ["trainer", "ansprechperson", "stellvertretung"])
     def test_a_banned_address_on_any_seat_is_refused_and_stores_nothing(self, mongo_replica_set_url: str, seat: str):
@@ -921,7 +921,7 @@ class TestABannedContactAddress:
 
             return failure.value.error_code, await database[Collection.BEWERBUNGEN].count_documents({})
 
-        assert on_a_league(mongo_replica_set_url, body) == (Code.BEWERBUNG_ADRESSE_BARRED, 0)
+        assert on_a_league(mongo_replica_set_url, body) == (Code.BEWERBUNG_ADDRESS_BARRED, 0)
 
     def test_a_replay_after_an_address_was_banned_owes_nothing_and_the_banned_mail_is_held(self, mongo_replica_set_url: str):
         """The replay answers the stored application; the ban is the drain's to apply, to the mail the first press owed."""

@@ -82,18 +82,18 @@ function joinPresent(parts, separator) {
  * The search string the public match facts hand to a map search, never a URL, as
  * `fl_backend/app/api/spielorte/admin_router.py :: _maps_link` writes it.
  */
-function mapsLink(name, adresse) {
-  const strasse = joinPresent([adresse.strasse, adresse.hausnummer], " ");
-  const ort = joinPresent([adresse.plz, adresse.stadtteil, adresse.stadt], " ");
+function mapsLink(name, address) {
+  const strasse = joinPresent([address.strasse, address.hausnummer], " ");
+  const ort = joinPresent([address.plz, address.stadtteil, address.stadt], " ");
   return `${name}, ${joinPresent([strasse, ort], ", ")}, Deutschland`;
 }
 
-function venue(name, rent, adresse, inactiveSince) {
+function venue(name, rent, address, inactiveSince) {
   return {
     _id: ObjectId(),
     name,
-    address: adresse,
-    maps_link: mapsLink(name, adresse),
+    address,
+    maps_link: mapsLink(name, address),
     default_mietpreis: rent,
     inactive_since: inactiveSince,
   };
@@ -116,7 +116,7 @@ function referee(name, schule, payment, email, inactiveSince) {
 // label (`fl_frontend/src/core/consentWordings.ts`): a pupil's (`SPIELER_TEXT_VERSIONS`), whose media wording every
 // kind shares.
 const CONSENTED = day(-60);
-const LABELS = { umfang: "2026-11-name-kader-1", media: "2026-11-medien-1" };
+const LABELS = { scope: "2026-11-name-kader-1", media: "2026-11-medien-1" };
 
 // A journey's person: a referee no fixture books, as their own confirmation leaves the row
 // (`fl_backend/app/api/schiedsrichter/services.py :: compose_confirmation_update`), in its one write: the birthdate and
@@ -130,11 +130,11 @@ function journeyPerson(name, email) {
     ...referee(name, null, 20, email, null),
     geburtsdatum: day(-20 * 365),
     einwilligung: {
-      umfang: "intern",
-      datum: CONSENTED,
+      scope: "intern",
+      date: CONSENTED,
       confirmed_at: CONSENTED,
       media: false,
-      evidence: { umfang: evidence("2026-11-name-spielplan-1"), media: evidence(LABELS.media) },
+      evidence: { scope: evidence("2026-11-name-spielplan-1"), media: evidence(LABELS.media) },
     },
   };
 }
@@ -173,17 +173,17 @@ const GRANTS = [
   ["admin.telefon@example.com", "administration"],
   ["admin.editor@example.com", "administration"],
   ["admin.verwaltung@example.com", "administration"],
-].map(([adresse, admin_tier]) => ({
+].map(([address, admin_tier]) => ({
   _id: ObjectId(),
-  adresse,
+  address,
   admin_tier,
   granted_by: "MADE-UP-SEED",
   granted_at: GRANTED_AT,
-  gesehen_am: GRANTED_AT,
+  seen_at: GRANTED_AT,
 }));
 
 // The announced record of each, keyed by its grant's id: `fl_backend/app/api/berechtigungen/services.py :: compose_announced`.
-const ANNOUNCED = GRANTS.map(({ _id, adresse, admin_tier }) => ({ _id, adresse, admin_tier, angekuendigt_am: GRANTED_AT }));
+const ANNOUNCED = GRANTS.map(({ _id, address, admin_tier }) => ({ _id, address, admin_tier, announced_at: GRANTED_AT }));
 
 // --- Seasons -------------------------------------------------------------------------------------
 
@@ -454,11 +454,11 @@ function pupil(vorname, nachname) {
     email: `${vorname}.${nachname}@schule.example`.toLowerCase(),
     geburtsdatum: day(-16 * 365),
     einwilligung: {
-      umfang: "kader_oeffentlich",
-      datum: CONSENTED,
+      scope: "kader_oeffentlich",
+      date: CONSENTED,
       confirmed_at: CONSENTED,
       media: false,
-      evidence: { umfang: evidence("umfang"), media: evidence("media") },
+      evidence: { scope: evidence("scope"), media: evidence("media") },
     },
     inactive_since: null,
   };

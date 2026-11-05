@@ -61,10 +61,10 @@ vi.doMock("@/core/db.ts", () => ({
   },
 }));
 vi.doMock("@/features/bewerbungen/sweep.ts", () => ({ runBewerbungSweep: job("bewerbungen") }));
-vi.doMock("@/features/funktionen/sweep.ts", () => ({ runKontoSweep: job("account") }));
+vi.doMock("@/features/funktionen/sweep.ts", () => ({ runAccountSweep: job("account") }));
 vi.doMock("@/features/saisons/sweep.ts", () => ({ runErasureSweep: job("erasure") }));
 vi.doMock("@/features/spielbestaetigungen/sweep.ts", () => ({ runSpielSweep: job("spielbestaetigungen") }));
-vi.doMock("@/features/berechtigungen/abgleich.ts", () => ({ runBerechtigungenAbgleich: job("grants") }));
+vi.doMock("@/features/berechtigungen/abgleich.ts", () => ({ runGrantsReconciliation: job("grants") }));
 vi.doMock("@/core/mail.ts", () => ({
   drainOutbox: async () => {
     ran.push("outbox");

@@ -92,7 +92,7 @@ async def seed(database: AsyncDatabase) -> ObjectId:
             frist="2026-04-06",
             confirmed={
                 "geburtsdatum": "2009-05-04",
-                "umfang": "intern",
+                "scope": "intern",
                 "media": False,
                 "text_versions": SPIELER_TEXT_VERSIONS,
                 "today": "2026-03-31",
@@ -115,7 +115,7 @@ async def the_gate_read(database: AsyncDatabase, client: AsyncMongoClient, regis
 async def the_references_read(database: AsyncDatabase, client: AsyncMongoClient, registrierung_id: ObjectId) -> Any:
     # The league's owner, without whom the read refuses before its answer.
     await database[Collection.GRANTS].insert_one(
-        {"_id": ObjectId(), "adresse": ANNA, "admin_tier": "owner", "granted_by": "PLAYGROUND", "granted_at": NOW}
+        {"_id": ObjectId(), "address": ANNA, "admin_tier": "owner", "granted_by": "PLAYGROUND", "granted_at": NOW}
     )
 
     return await unreferenced_of(
@@ -186,7 +186,7 @@ async def the_own_record_press(database: AsyncDatabase, client: AsyncMongoClient
     return await patch_einwilligung(
         einwilligung_data=FLAccountEinwilligungPayload.model_validate(
             {
-                "umfang": "intern",
+                "scope": "intern",
                 "media": False,
                 "text_versions": dict(documents.SPIELER_TEXT_VERSIONS),
                 # The stand the account page served for the record as the corpus seeds it.
@@ -227,7 +227,7 @@ async def the_address_change_request(database: AsyncDatabase, client: AsyncMongo
     """The holder check, shared with the re-send, the link's view and its confirmation (`app/api/spieler/crud.py :: another_pupil_holds`)."""
 
     return await post_address_change_admin(
-        address_change_data=FLAddressChangeAdminPayload(adresse=FOLDED_EMAIL, email="thessaly.neu@beispielschule.de", grund="Ausweis gesehen"),
+        address_change_data=FLAddressChangeAdminPayload(address=FOLDED_EMAIL, email="thessaly.neu@beispielschule.de", grund="Ausweis gesehen"),
         address_changes_collection=database[Collection.ADDRESS_CHANGES],
         records=record_collections(database),
         spieler_collection=database[Collection.SPIELER],

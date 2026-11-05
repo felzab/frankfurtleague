@@ -28,7 +28,7 @@ const kontaktpersonPayload = (overrides: Record<string, unknown> = {}) => ({
   nachname: "Mustermann",
   email: "erika@beispiel.de",
   telefon: "069 1234567",
-  einwilligung: { umfang: "kontaktdaten", datum: "2025-09-01" },
+  einwilligung: { scope: "kontaktdaten", date: "2025-09-01" },
   ...overrides,
 });
 

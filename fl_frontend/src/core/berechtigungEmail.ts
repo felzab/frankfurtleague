@@ -75,7 +75,7 @@ const GESPERRTER_URHEBER = "einer gesperrten Adresse";
 const UNGENANNTER_URHEBER = "einer nicht genannten Adresse";
 
 /** The change's sentence, a named address set in the emphasis grade. */
-function aenderungsSatz({ art, adresse, owner: owner }: Zugangsaenderung): readonly Run[] {
+function aenderungsSatz({ art, adresse, owner }: Zugangsaenderung): readonly Run[] {
   const subject: Run = typeof adresse === "string" ? { strong: adresse } : OHNE_ADRESSE[adresse.withheld];
 
   switch (art) {
@@ -118,7 +118,7 @@ function urheberSatz(urheber: Urheber, verb: string): readonly Run[] {
 
 /** A grant's address as the notice names it, or why it is withheld: a barred one, or an erased person's. */
 function adresseOf(data: FLGrantData, stand: FLGrantSnapshot | null): string | Vorenthalten {
-  return stand?.adresse ?? { withheld: data.withheld ?? "barred" };
+  return stand?.address ?? { withheld: data.withheld ?? "barred" };
 }
 
 /**
@@ -126,7 +126,7 @@ function adresseOf(data: FLGrantData, stand: FLGrantSnapshot | null): string | V
  * removal and the new address's grant, so a `geaendert` is a change of tier alone.
  */
 function zugangsaenderungOf(data: FLGrantData): Zugangsaenderung {
-  const stand = data.change === "revoked" ? data.before : data.now;
+  const stand = data.change === "revoked" ? data.before : data.current;
 
   return { art: data.change, adresse: adresseOf(data, stand), owner: stand?.admin_tier === "owner" };
 }

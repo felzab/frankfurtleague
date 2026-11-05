@@ -125,7 +125,7 @@ async def get_spielbericht_verwaltung(
             session=session,
         )
         dokument = await spielberichte_collection.find_one({"spiel_id": spiel_id}, session=session)
-        genannt = await pull_genannt(
+        named = await pull_genannt(
             spieler_collection=spieler_collection,
             lage=lage,
             kader_offen=kader,
@@ -133,7 +133,7 @@ async def get_spielbericht_verwaltung(
             session=session,
         )
 
-    return _admin_ansicht(lage, kader_offen=kader, named=genannt, dokument=dokument)
+    return _admin_ansicht(lage, kader_offen=kader, named=named, dokument=dokument)
 
 
 @router.patch(
@@ -209,7 +209,7 @@ async def patch_spielbericht(
         if saved is None:
             # After the insert, so a rival first write meets it there rather than blocking on the season.
             await anchor_the_season_reported_in(saisons_collection=saisons_collection, saison_id=lage.spiel["saison_id"], session=session)
-        genannt = await pull_genannt(
+        named = await pull_genannt(
             spieler_collection=spieler_collection, lage=lage, kader_offen=True, bericht=dokument.get("bericht"), session=session
         )
 
@@ -224,7 +224,7 @@ async def patch_spielbericht(
         judge_bericht(lage=current, payload=payload, saved=block, new=new, today=today)
 
         # The report as written, in the shape of the panel's read; no client reads it, the page reading again after the save.
-        return _admin_ansicht(lage, kader_offen=True, named=genannt, dokument=dokument)
+        return _admin_ansicht(lage, kader_offen=True, named=named, dokument=dokument)
 
     async with transaction_session(db) as session:
         return await session.with_transaction(write_the_report)

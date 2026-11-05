@@ -77,13 +77,13 @@ const alterTermin = (datum: string, uhrzeit: string): Run => ({ strong: `${datum
  * A club's request to confirm a fixture, or the reminder of it, to one mailbox of one of its teams. No name and no seat:
  * the administrator typed this address, so behind a typo its reader is a stranger, owed none.
  */
-export function buildSpielAnfrageEmail({ art, team, ansetzung: facts, frist }: FLSpielRequestData, { origin, token }: MailLink): Mail {
+export function buildSpielAnfrageEmail({ kind, team, ansetzung: facts, frist }: FLSpielRequestData, { origin, token }: MailLink): Mail {
   const ansetzung = ansetzungText(facts);
   const spiel = `${ansetzung.team1} gegen ${ansetzung.team2} am ${ansetzung.datumText}`;
 
   return {
     kind: "notice",
-    subjectLine: art === "spiel_request" ? `Bitte bestätigen: ${spiel}` : `Erinnerung: ${spiel} bestätigen`,
+    subjectLine: kind === "spiel_request" ? `Bitte bestätigen: ${spiel}` : `Erinnerung: ${spiel} bestätigen`,
     // Through `mailOrigin` once, for the footer: the link is spelled by its own function, so a second derivation here
     // could send the two versions to different hosts.
     origin: mailOrigin(origin),
@@ -91,7 +91,7 @@ export function buildSpielAnfrageEmail({ art, team, ansetzung: facts, frist }: F
     paragraphs: [
       [
         // The first request says the fixture is set, the reminder that the team's answer is still owed.
-        art === "spiel_request"
+        kind === "spiel_request"
           ? ["Die Verwaltung der ", BRAND_NAME, " hat das Spiel ", ...paarung(ansetzung.team1, ansetzung.team2), " angesetzt."]
           : ["Für das Spiel ", ...paarung(ansetzung.team1, ansetzung.team2), " steht die Antwort Deines Teams noch aus."],
         // Both answers named before the press, as the page offers both: a reader expecting one button meets two.
@@ -107,7 +107,7 @@ export function buildSpielAnfrageEmail({ art, team, ansetzung: facts, frist }: F
         "Es gilt die erste Antwort aus Deinem Team, danach funktioniert der Link nicht mehr.",
         "Kommt bis dahin keine Antwort, legt die Verwaltung der Liga den Termin fest.",
         // A reminder carries a fresh link, and the first request's still answers beside it.
-        ...(art === "spiel_reminder" ? ["Der Link aus der ersten Anfrage funktioniert weiterhin."] : []),
+        ...(kind === "spiel_reminder" ? ["Der Link aus der ersten Anfrage funktioniert weiterhin."] : []),
       ],
     ],
     button: { label: "Spieltermin bestätigen", href: spielBestaetigungsLink(origin, token) },
@@ -177,10 +177,10 @@ const ABGESAGT_SAETZE: Record<FLSpielNoticeDataRecipient, readonly [string, stri
  * it knows. A move names no new slot, the next request stating it; a call-off has no button and no name, nothing being
  * left to answer and the address perhaps having changed hands since the request.
  */
-export function buildSpielHinweisEmail({ art, recipient: empfaenger, appointment: alt }: FLSpielNoticeData, { origin }: MailOrigin): Mail {
+export function buildSpielHinweisEmail({ kind, recipient: empfaenger, appointment: alt }: FLSpielNoticeData, { origin }: MailOrigin): Mail {
   const { team1, team2 } = alt;
 
-  if (art === "spiel_new_scheduled") {
+  if (kind === "spiel_new_scheduled") {
     return {
       kind: "notice",
       subjectLine: `Neu angesetzt: ${team1} gegen ${team2}`,

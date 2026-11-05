@@ -5,7 +5,7 @@ from pydantic import BaseModel, ConfigDict
 from pydantic_core import PydanticCustomError
 
 from app.shared.einwilligung_evidence import CHOICES, FLEinwilligungChoice, TextVersions, is_given
-from app.shared.schemas.literals import FLEinwilligungUmfang, FLKontaktKenntnisnahmeUmfang
+from app.shared.schemas.literals import FLEinwilligungScope, FLKontaktKenntnisnahmeScope
 from app.shared.schemas.responses import BaseReadModel
 
 # The label of each consent's CURRENT wording, the one a grant names: a page loaded before a deploy moved a label shows
@@ -23,17 +23,15 @@ CURRENT_TEXT_VERSIONS: Final = (FLWhatsappTextVersion, FLMediaTextVersion, FLNam
 # Every label a record of each kind may cite for each choice: the current one and each it replaced. A rewording moves the
 # current `Literal` above and adds the label it replaced here, so a record citing that label still reads, and a withdrawal
 # from a page still showing its words is still taken: taking a consent back is never harder than giving it.
-type FLSeatUmfangTextVersion = FLWhatsappTextVersion
-type FLSpielerUmfangTextVersion = FLNameKaderTextVersion
-type FLSchiedsrichterUmfangTextVersion = FLNameSpielplanTextVersion
+type FLSeatScopeTextVersion = FLWhatsappTextVersion
+type FLSpielerScopeTextVersion = FLNameKaderTextVersion
+type FLSchiedsrichterScopeTextVersion = FLNameSpielplanTextVersion
 # One for every kind, each showing the one media wording: three aliases of the one label would each be published
 # twice, Pydantic rendering an alias another references once as its `const` and one referenced more often as a `$ref`.
 type FLCitedMediaTextVersion = FLMediaTextVersion
 # Every label any record cites, as `fl_frontend/src/core/consentWordings.ts :: CONSENT_WORDINGS` keys their words, which
 # that map is checked against through the published contract.
-type FLEinwilligungTextVersion = (
-    FLSeatUmfangTextVersion | FLSpielerUmfangTextVersion | FLSchiedsrichterUmfangTextVersion | FLCitedMediaTextVersion
-)
+type FLEinwilligungTextVersion = FLSeatScopeTextVersion | FLSpielerScopeTextVersion | FLSchiedsrichterScopeTextVersion | FLCitedMediaTextVersion
 
 
 def labels_of(alias: Any) -> frozenset[str]:
@@ -72,24 +70,24 @@ class FLEinwilligungEvidence(FLEinwilligungReceipt, BaseReadModel):
 class FLEinwilligungEvidenceSet(BaseReadModel):
     """Each choice's evidence, null until its person sets it: a record no person has answered carries none."""
 
-    umfang: FLEinwilligungEvidence | None = None
+    scope: FLEinwilligungEvidence | None = None
     media: FLEinwilligungEvidence | None = None
 
 
-class FLEinwilligungStand(BaseModel):
-    """Each choice's stand where the account page was served, null where the record carried no evidence for it.
+class FLEinwilligungState(BaseModel):
+    """Each choice's state where the account page was served, null where the record carried no evidence for it.
 
     A consent PATCH's precondition, echoed back as served, never a secret.
     """
 
     # Required with no default, as `kontakte_stand` is: an omitted precondition judges nothing.
-    umfang: str | None
+    scope: str | None
     media: str | None
 
 
 # As a press echoes it. Forbidden rather than ignored: a key the precondition does not compare would
 # read as judged.
-class FLEinwilligungStandPayload(FLEinwilligungStand):
+class FLEinwilligungStatePayload(FLEinwilligungState):
     model_config = ConfigDict(extra="forbid")
 
 
@@ -112,27 +110,27 @@ class _TextVersions(BaseModel):
 class FLSeatTextVersions(_TextVersions):
     """A contact seat's two wordings: the WhatsApp switch and the media switch."""
 
-    current = {"umfang": _current(FLWhatsappTextVersion), "media": _current(FLMediaTextVersion)}
+    current = {"scope": _current(FLWhatsappTextVersion), "media": _current(FLMediaTextVersion)}
 
-    umfang: FLSeatUmfangTextVersion
+    scope: FLSeatScopeTextVersion
     media: FLCitedMediaTextVersion
 
 
 class FLSpielerTextVersions(_TextVersions):
     """A pupil's two wordings: the name on the squad and the media switch."""
 
-    current = {"umfang": _current(FLNameKaderTextVersion), "media": _current(FLMediaTextVersion)}
+    current = {"scope": _current(FLNameKaderTextVersion), "media": _current(FLMediaTextVersion)}
 
-    umfang: FLSpielerUmfangTextVersion
+    scope: FLSpielerScopeTextVersion
     media: FLCitedMediaTextVersion
 
 
 class FLSchiedsrichterTextVersions(_TextVersions):
     """A referee's two wordings: the name on the fixtures and the media switch."""
 
-    current = {"umfang": _current(FLNameSpielplanTextVersion), "media": _current(FLMediaTextVersion)}
+    current = {"scope": _current(FLNameSpielplanTextVersion), "media": _current(FLMediaTextVersion)}
 
-    umfang: FLSchiedsrichterUmfangTextVersion
+    scope: FLSchiedsrichterScopeTextVersion
     media: FLCitedMediaTextVersion
 
 
@@ -142,7 +140,7 @@ type PressTextVersions = FLSeatTextVersions | FLSpielerTextVersions | FLSchiedsr
 def by_choice(text_versions: PressTextVersions) -> TextVersions:
     """A press's labels keyed by the choice each evidences, as the evidence writers take them."""
 
-    return {"umfang": text_versions.umfang, "media": text_versions.media}
+    return {"scope": text_versions.scope, "media": text_versions.media}
 
 
 def stale_grants(text_versions: PressTextVersions, set_fields: Mapping[FLEinwilligungChoice, Any]) -> list[FLEinwilligungChoice]:
@@ -189,10 +187,10 @@ class _OwnEinwilligungPayload(BaseModel):
     # reset the person's other choice.
     model_config = ConfigDict(extra="forbid")
 
-    umfang: FLEinwilligungUmfang
+    scope: FLEinwilligungScope
     media: bool
     # The record's `evidence_state` as the page was served it.
-    evidence_state: FLEinwilligungStandPayload
+    evidence_state: FLEinwilligungStatePayload
 
 
 class FLAccountEinwilligungPayload(_OwnEinwilligungPayload):
@@ -215,8 +213,8 @@ class FLSeatEinwilligungPayload(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    umfang: FLKontaktKenntnisnahmeUmfang
+    scope: FLKontaktKenntnisnahmeScope
     media: bool
     text_versions: FLSeatTextVersions
     # The row's `evidence_state` as the page was served it.
-    evidence_state: FLEinwilligungStandPayload
+    evidence_state: FLEinwilligungStatePayload

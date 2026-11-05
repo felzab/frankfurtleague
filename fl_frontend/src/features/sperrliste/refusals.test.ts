@@ -70,15 +70,15 @@ describe("the list read ahead of the ban", () => {
   /* Both refuse an administrator's address, which the ban then refuses as `ban_list_admin`: one sentence on one
      box, whether the read foresees the refusal or the ban answers it. */
   it("lands the reader's own address and an owner's on the address box in the ban's words", () => {
-    for (const code of ["own_adresse", "admin_address"] as const) {
+    for (const code of ["own_address", "admin_address"] as const) {
       expect(mapAnsichtRefusal(refused(code)), code).toStrictEqual(mapSperreRefusal(refusedWith(409, "ban_list_admin")));
     }
   });
 
   /* The rest are the shared reader's, so a rule the read gains fails here rather than reading as a field it never names. */
   it("words no other refusal the read publishes", () => {
-    const worded = refusalCodes("own_adresse", "admin_address").filter((code) => mapAnsichtRefusal(refused(code)) !== null);
+    const worded = refusalCodes("own_address", "admin_address").filter((code) => mapAnsichtRefusal(refused(code)) !== null);
 
-    expect(worded).toStrictEqual(["own_adresse", "admin_address"]);
+    expect(worded).toStrictEqual(["own_address", "admin_address"]);
   });
 });

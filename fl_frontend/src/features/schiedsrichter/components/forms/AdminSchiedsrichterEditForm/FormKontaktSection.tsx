@@ -16,7 +16,7 @@ import type { FLAddressChangeViewableDenied, FLKontakt } from "@/core/generated/
 import type { SchiedsrichterFieldPath } from "@/features/schiedsrichter/schiedsrichterDraftStatus";
 
 /**
- * A confirmed referee's address, which the save refuses to move (`schiedsrichter_adresse_only_per_change`): shown, with the
+ * A confirmed referee's address, which the save refuses to move (`schiedsrichter_address_only_per_change`): shown, with the
  * change pending at it, and changed nowhere on this page, as the pupil editor shows its own.
  */
 export type BestaetigteAdresse = { email: string; adresswechselId: string | null; adresswechselVerwehrt: FLAddressChangeViewableDenied | null };

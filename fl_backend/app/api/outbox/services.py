@@ -16,12 +16,12 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.outbox.schemas import (
-    FLOutboxArt,
     FLOutboxData,
     FLOutboxDeliveryState,
+    FLOutboxKind,
     FLOutboxLink,
     FLOutboxReference,
-    FLOutboxResultArt,
+    FLOutboxResultKind,
     FLOutboxRowState,
 )
 from app.core.crud import patch_many_in_db, post_many_to_db
@@ -48,13 +48,13 @@ DELIVERY_DEADLINE: Final = timedelta(days=2)
 RETENTION: Final = timedelta(days=30)
 
 # The sign-in library's kinds, each tried once: its own repair of a failed code is a fresh one.
-SIGN_IN_ARTEN: Final[frozenset[FLOutboxArt]] = frozenset({"sign_in_code", "passkey_added", "passkey_erased", "account_erasure"})
+SIGN_IN_KINDS: Final[frozenset[FLOutboxKind]] = frozenset({"sign_in_code", "passkey_added", "passkey_erased", "account_erasure"})
 
 # The one kind of mail a ban does not stop: the ban's own notice.
-UNBARRED: Final[frozenset[FLOutboxArt]] = frozenset({"ban"})
+UNBARRED: Final[frozenset[FLOutboxKind]] = frozenset({"ban"})
 
 # The final state each reported outcome settles a row in; a send to be tried again ends there only where it may not be.
-FINAL_STATE: Final[Mapping[FLOutboxResultArt, FLOutboxRowState]] = {
+FINAL_STATE: Final[Mapping[FLOutboxResultKind, FLOutboxRowState]] = {
     "sent": "sent",
     "held": "held",
     "abandon": "abandoned",
@@ -76,7 +76,7 @@ FOLLOWS: Final[Mapping[FLOutboxDeliveryState, tuple[FLOutboxDeliveryState | None
 class OwedMail:
     """One mail a league write owes one recipient.
 
-    `data` is the kind's member of `app/api/outbox/schemas.py :: FLOutboxData`, whose `art` is the row's.
+    `data` is the kind's member of `app/api/outbox/schemas.py :: FLOutboxData`, whose `kind` is the row's.
     `key` is the mail's identity: the same on a replay of the write, so the replay finds the row its first run
     wrote and owes nothing twice, and distinct for every recipient and every mail the write owes. `link` mints a link at
     the hand-out on the record `reference` names.
@@ -150,7 +150,7 @@ def row_of(mail: OwedMail, *, now: datetime, secret: str | None, valid_until: da
 
     return {
         "key": mail.key,
-        "art": mail.data.art,
+        "kind": mail.data.kind,
         "an": mail.an,
         # JSON, so an instant keeps its offset and reads back as the aware value its member requires.
         "data": mail.data.model_dump(mode="json"),

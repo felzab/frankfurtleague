@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Any, Final
 
-from app.api.aktionen.schemas import FLAktorAdapter, FLAktorMitAdresse
+from app.api.aktionen.schemas import FLActorWithAddress, FLAktorAdapter
 from app.api.kontakte.services import same_address
 from app.api.sperrliste.services import withheld_actor
 from app.core.collections import Collection as DbCollection
@@ -13,11 +13,11 @@ from app.shared.folding import sign_in_identifier
 from app.shared.schemas.custom import parse_object_id
 
 
-def akteur_adressen(rows: Iterable[Mapping[str, Any]]) -> list[str]:
+def actor_addresses(rows: Iterable[Mapping[str, Any]]) -> list[str]:
     """Every address an actor of these stored rows is named by, folded as the ban list is asked."""
 
     return [
-        sign_in_identifier(actor.email) for row in rows if isinstance(actor := FLAktorAdapter.validate_python(row["actor"]), FLAktorMitAdresse)
+        sign_in_identifier(actor.email) for row in rows if isinstance(actor := FLAktorAdapter.validate_python(row["actor"]), FLActorWithAddress)
     ]
 
 
@@ -28,7 +28,7 @@ def mit_vorenthaltenem_akteur(row: Mapping[str, Any], barred: Collection[str]) -
     """
 
     actor = FLAktorAdapter.validate_python(row["actor"])
-    if not isinstance(actor, FLAktorMitAdresse):
+    if not isinstance(actor, FLActorWithAddress):
         return dict(row)
 
     email = withheld_actor(actor.email, barred)
@@ -78,7 +78,7 @@ class ImageAddress:
 IMAGE_ADDRESSES: Final[Mapping[DbCollection, tuple[ImageAddress, ...]]] = MappingProxyType(
     {
         DbCollection.GRANTS: (
-            ImageAddress("adresse", "adresse", None),
+            ImageAddress("address", "address", None),
             ImageAddress("granted_by", "granted_by", ERASED_ACTOR_MARKER),
         ),
         DbCollection.BAN_LIST: (ImageAddress("created_by", "created_by", ERASED_ACTOR_MARKER),),
@@ -90,14 +90,14 @@ IMAGE_ADDRESSES: Final[Mapping[DbCollection, tuple[ImageAddress, ...]]] = Mappin
         DbCollection.SPIELER: (ImageAddress("email", "email", None),),
         # Either address of a change, and the administrators who started or approved one, whose marker keeps the image valid.
         DbCollection.ADDRESS_CHANGES: (
-            ImageAddress("adresse", "adresse", None),
+            ImageAddress("address", "address", None),
             ImageAddress("email", "email", None),
             ImageAddress("approval.started_by", "approval.started_by", ERASED_ACTOR_MARKER),
             ImageAddress("approval.approved_by", "approval.approved_by", ERASED_ACTOR_MARKER),
         ),
         # A decided request's: the address it was about, and the administrator who made it, whose marker keeps the image valid.
         DbCollection.GRANT_APPROVAL_REQUESTS: (
-            ImageAddress("adresse", "adresse", None),
+            ImageAddress("address", "address", None),
             ImageAddress("approval.started_by", "approval.started_by", ERASED_ACTOR_MARKER),
         ),
     }

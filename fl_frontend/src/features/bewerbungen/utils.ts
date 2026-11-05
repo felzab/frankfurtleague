@@ -108,7 +108,7 @@ export function describeAufnahme({ createdTeam, gruppe, saisonId }: { createdTea
 export function geburtsdatumSpanne(today: string, mindestalter: number): { frueheste: string; spaeteste: string } {
   const heute = parseDate(today);
 
-  // The day AFTER one year past the ceiling: `fl_backend/app/shared/alter.py :: whole_years_between`
+  // The day AFTER one year past the ceiling: `fl_backend/app/shared/age.py :: whole_years_between`
   // accepts a birthday not yet reached this year, and a calendar subtraction clamps 29 February onto
   // the day before 1 March where that year has none.
   return {
@@ -179,7 +179,7 @@ export function mapBewerbungSubmitRefusal(
       };
     // A banner naming no seat, as a 403 carries no field, and neutral as the registration's is: a
     // stranger learns nothing about a list, and the person it concerns already knows why.
-    case "bewerbung_adresse_barred":
+    case "bewerbung_address_barred":
       return {
         error: buildRefusal({
           reason: "Mit einer der angegebenen E-Mail-Adressen ist keine Bewerbung möglich",

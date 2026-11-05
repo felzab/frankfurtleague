@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
       }
 
       // The echo alone: this person is shown what was stored for them and nothing else the write knows.
-      return { success: true as const, umfang: antwort.umfang, media: antwort.media, bestaetigt_am: antwort.confirmed_at };
+      return { success: true as const, umfang: antwort.scope, media: antwort.media, bestaetigt_am: antwort.confirmed_at };
     },
   });
 }

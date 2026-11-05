@@ -16,7 +16,7 @@ from app.shared.schemas.custom import (
 )
 from app.shared.schemas.einwilligung import FLSchiedsrichterTextVersions, cite_their_kind, refuse_a_stale_grant
 from app.shared.schemas.kontakt import CustomKontaktName, FLKontakt, FLKontaktPayload
-from app.shared.schemas.literals import FLAddressChangeViewableDenied, FLConfirmationState, FLEinwilligungUmfang, FLSortOrder
+from app.shared.schemas.literals import FLAddressChangeViewableDenied, FLConfirmationState, FLEinwilligungScope, FLSortOrder
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
 
@@ -165,7 +165,7 @@ class FLSchiedsrichterConfirmationPayload(BaseModel):
 
     token: CustomToken
     geburtsdatum: CustomDateString
-    umfang: FLEinwilligungUmfang
+    scope: FLEinwilligungScope
     # Required rather than defaulted: a page that omitted it would store the model's answer in place
     # of the person's, and an off switch is an answer.
     media: bool
@@ -174,7 +174,7 @@ class FLSchiedsrichterConfirmationPayload(BaseModel):
 
     @model_validator(mode="after")
     def _grants_name_the_current_wording(self) -> Self:
-        refuse_a_stale_grant(self.text_versions, {"umfang": self.umfang, "media": self.media})
+        refuse_a_stale_grant(self.text_versions, {"scope": self.scope, "media": self.media})
         return self
 
 
@@ -185,7 +185,7 @@ class FLSchiedsrichterConfirmationResponse(BaseAPIResponse):
     caller holding a leaked token learns nothing it did not already post.
     """
 
-    umfang: FLEinwilligungUmfang
+    scope: FLEinwilligungScope
     media: bool
     confirmed_at: CustomDateString
 

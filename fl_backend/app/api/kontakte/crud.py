@@ -66,7 +66,7 @@ async def remove_their_reasons(
     *,
     spielbestaetigungen_collection: AsyncCollection,
     action_log_collection: AsyncCollection,
-    adressen: Iterable[str],
+    addresses: Iterable[str],
     key: SecretStr,
     stamp: str,
     session: AsyncClientSession,
@@ -79,7 +79,7 @@ async def remove_their_reasons(
     await remove_the_holders_reasons(
         spielbestaetigungen_collection=spielbestaetigungen_collection,
         action_log_collection=action_log_collection,
-        halter={halter_of(adresse, key=key) for adresse in adressen},
+        halter={halter_of(address, key=key) for address in addresses},
         stamp=stamp,
         session=session,
     )
@@ -175,7 +175,7 @@ async def loeschen_kontaktperson_in_session(
     await remove_their_reasons(
         spielbestaetigungen_collection=spielbestaetigungen_collection,
         action_log_collection=action_log_collection,
-        adressen=[identifier],
+        addresses=[identifier],
         key=key,
         stamp=stamp,
         session=session,
@@ -206,7 +206,7 @@ async def redact_the_decliner(
     action_log_collection: AsyncCollection,
     collection: Collection,
     row_id: Any,
-    adressen: Iterable[str],
+    addresses: Iterable[str],
     stamp: str,
     session: AsyncClientSession,
 ) -> None:
@@ -218,7 +218,7 @@ async def redact_the_decliner(
     await redact_seats_in_documents(
         action_log_collection=action_log_collection,
         documents=[(collection, [row_id])],
-        identifiers={sign_in_identifier(adresse) for adresse in adressen},
+        identifiers={sign_in_identifier(address) for address in addresses},
         # The link stays with the seat, its decline recorded on it, as the live write leaves it.
         links=False,
         stamp=stamp,

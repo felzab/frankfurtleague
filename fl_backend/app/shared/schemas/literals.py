@@ -83,7 +83,7 @@ type FLKontaktRow = Literal["open", "saison_past", "ausgetreten"]
 # Wider than the administrative payload's: the WhatsApp scope is the person's own, set on their
 # confirmation page and moved by their account page's seat PATCH; an administrator's payload offering it
 # would transcribe one.
-type FLKontaktKenntnisnahmeUmfang = Literal["kontaktdaten", "kontaktdaten_whatsapp"]
+type FLKontaktKenntnisnahmeScope = Literal["kontaktdaten", "kontaktdaten_whatsapp"]
 
 # Who put this person in the seat: the applicant on the form, or the league's administration (a reseat,
 # the contacts editor). Not `admin_tier`, the access tier's word (`docs/glossary.md :: admin_tier`).
@@ -100,7 +100,7 @@ type FLSpielerPosition = Literal["Tor", "Abwehr", "Mittelfeld", "Angriff"]
 type FLSpielerStufe = Literal["E1", "E2", "Q1", "Q2", "Q3", "Q4"]
 
 # What a pupil or a referee agreed may be published about them.
-type FLEinwilligungUmfang = Literal["kader_oeffentlich", "intern"]
+type FLEinwilligungScope = Literal["kader_oeffentlich", "intern"]
 
 # TWO members and not three: an admission deletes the row, its content having become the person and the
 # squad row, so a state naming an admitted registration would be one no document is ever read in.
@@ -128,8 +128,8 @@ type FLApprovalDenied = Literal["own", "started", "owner", "younger"]
 type FLAddressChangeWay = Literal["account", "waiting_period"]
 
 # Why the address tool refuses this reader an address's change, served beside every id a page links into
-# it: `own` their own address, `admin_tier` a grant holder's without an owner's power.
-type FLAddressChangeViewableDenied = Literal["own", "admin_tier"]
+# it: `own_address` their own address, `admin_address` a grant holder's without an owner's power.
+type FLAddressChangeViewableDenied = Literal["own_address", "admin_address"]
 
 # What the change waits on: the address on file's confirmation of the person's own change through the link it was
 # mailed, the new mailbox's link, another administrator's approval of a grant's move once the new mailbox confirmed,
@@ -138,4 +138,4 @@ type FLAddressChangeWaitsOn = Literal["previous_address", "new_address", "approv
 
 # How a change ended. `discarded` is every discard: an administrator's, the pass's refusal when due,
 # nothing left to move, and an erasure's.
-type FLAddressChangeEndArt = Literal["effective", "declined", "stopped", "expired", "replaced", "discarded"]
+type FLAddressChangeEndKind = Literal["effective", "declined", "stopped", "expired", "replaced", "discarded"]

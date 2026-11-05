@@ -136,8 +136,8 @@ describe("the re-send the editor's panel presses", () => {
   for (const [code, fragment] of [
     ["schiedsrichter_retired", /stillgelegt/],
     ["confirmation_exists", /schon bestätigt/],
-    ["schiedsrichter_no_adresse", /keine verwendbare E-Mail-Adresse hinterlegt/],
-    ["schiedsrichter_adresse_barred", /Sperrliste/],
+    ["schiedsrichter_no_address", /keine verwendbare E-Mail-Adresse hinterlegt/],
+    ["schiedsrichter_address_barred", /Sperrliste/],
   ] as const) {
     it(`words ${code} at the panel`, async () => {
       mint = () => {
@@ -252,7 +252,7 @@ describe("the reactivation of an unanswered referee", () => {
 
   it("words the ban the return is refused on", async () => {
     reactivate = () => {
-      throw refused("schiedsrichter_adresse_barred");
+      throw refused("schiedsrichter_address_barred");
     };
 
     const res = await reactivateSchiedsrichterAction({ id: SCHIEDSRICHTER_ID });

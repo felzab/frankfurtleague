@@ -161,13 +161,13 @@ function BestaetigungAngaben({
           isSelected={entwurf.whatsapp}
           onChange={(whatsapp) => onEntwurf({ ...entwurf, whatsapp: whatsapp })}>
           <Switch.Content className={panel.switchContent()}>
-            {SEAT_WORDINGS.umfang.label}
+            {SEAT_WORDINGS.scope.label}
             <Switch.Control className={panel.switchControl()}>
               <Switch.Thumb />
             </Switch.Control>
           </Switch.Content>
         </Switch>
-        <EinwilligungZeile line={SEAT_WORDINGS.umfang.line} />
+        <EinwilligungZeile line={SEAT_WORDINGS.scope.line} />
 
         {/* The pupil's and the referee's pages ask it so: the switch from the served age, its line with it. */}
         {medienAngeboten && (

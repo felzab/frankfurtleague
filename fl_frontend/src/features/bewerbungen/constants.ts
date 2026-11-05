@@ -5,7 +5,7 @@ import type {
   FLBewerbungConfirmationDeadlineDays,
   FLBewerbungKontaktMinAgeYears,
   FLBewerbungStatus,
-  FLVertretungMinAgeYears,
+  FLSignatoryMinAgeYears,
 } from "@/core/generated/client/types";
 import type { KontaktRolle } from "@/features/teams/constants";
 import type { PillTone } from "@/shared/components/ui/badges";
@@ -115,10 +115,10 @@ export const rollenLangform = (rollen: readonly (KontaktRolle | null)[]): string
 
 /**
  * The floor the Ansprechperson and the Stellvertretung clear, checked against
- * `fl_backend/app/shared/schemas/bounds.py :: VERTRETUNG_MIN_AGE_YEARS` as the contact's floor is. Those two sign what
+ * `fl_backend/app/shared/schemas/bounds.py :: SIGNATORY_MIN_AGE_YEARS` as the contact's floor is. Those two sign what
  * binds the school, which asks contractual capacity rather than the age a person consents for themselves at.
  */
-export const VERTRETUNG_MIN_ALTER = 18 satisfies FLVertretungMinAgeYears;
+export const VERTRETUNG_MIN_ALTER = 18 satisfies FLSignatoryMinAgeYears;
 
 // Both bounds, never the floor alone: named for the floor, a mistyped year would answer a
 // 190-year-old date with „mindestens 16“, which is a different fault.

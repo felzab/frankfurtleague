@@ -42,7 +42,7 @@ function entriesOf({ spieler, schiedsrichter, registrierungen, seats, bewerbunge
             description: WORDS.description.spieler,
             facts: [...fact(COPY.shared.name, `${spieler.vorname} ${spieler.nachname ?? ""}`.trim()), ...birthday(spieler.geburtsdatum)],
             save: { kind: "spieler" },
-            umfang: spieler.einwilligung.umfang,
+            scope: spieler.einwilligung.scope,
             media: spieler.einwilligung.media,
             evidence: spieler.evidence_state,
             givable: spieler.givable,
@@ -61,7 +61,7 @@ function entriesOf({ spieler, schiedsrichter, registrierungen, seats, bewerbunge
       ...fact(WORDS.facts.phone, row.kontakt.telefon),
     ],
     save: { kind: "schiedsrichter", schiedsrichter_id: row.schiedsrichter_id },
-    umfang: row.einwilligung.umfang,
+    scope: row.einwilligung.scope,
     media: row.einwilligung.media,
     evidence: row.evidence_state,
     givable: row.givable,
@@ -69,7 +69,7 @@ function entriesOf({ spieler, schiedsrichter, registrierungen, seats, bewerbunge
   }));
   // A returning pupil's registration asks no choice: their record holds the choices.
   const registered = registrierungen.flatMap((row): Entry[] =>
-    row.umfang === null || row.media === null
+    row.scope === null || row.media === null
       ? []
       : [
           {
@@ -88,7 +88,7 @@ function entriesOf({ spieler, schiedsrichter, registrierungen, seats, bewerbunge
               ),
             ],
             save: { kind: "registrierung", registrierung_id: row.registrierung_id },
-            umfang: row.umfang,
+            scope: row.scope,
             media: row.media,
             evidence: row.evidence_state,
             // Withdraw-only: a grant on a pending registration waits on its team's admission.
@@ -103,7 +103,7 @@ function entriesOf({ spieler, schiedsrichter, registrierungen, seats, bewerbunge
     description: WORDS.description.seat(seat.rollen),
     facts: fact(WORDS.facts.team, WORDS.teamSeason({ record: seat.team_name }, COPY.shared.saisonName(seat.saison_id))),
     save: { kind: "seat", team_id: seat.team_id, saison_id: seat.saison_id },
-    umfang: seat.umfang,
+    scope: seat.scope,
     media: seat.media,
     evidence: seat.evidence_state,
     givable: seat.givable,
@@ -116,7 +116,7 @@ function entriesOf({ spieler, schiedsrichter, registrierungen, seats, bewerbunge
     description: WORDS.description.seat(bewerbung.rollen),
     facts: fact(WORDS.facts.school, bewerbung.schule),
     save: { kind: "bewerbung", bewerbung_id: bewerbung.bewerbung_id },
-    umfang: bewerbung.umfang,
+    scope: bewerbung.scope,
     media: bewerbung.media,
     evidence: bewerbung.evidence_state,
     // Withdraw-only: a grant on a pending application is its confirmation page's alone.

@@ -2,7 +2,7 @@
 SHARED · the evidence each consent choice keeps, and the one way a writer composes it
 
 Art. 7(1) DSGVO puts the proof of a consent on the league. Each choice a person makes on their
-record, `umfang` and `media`, keeps when they set it and under which wording, and a withdrawal keeps
+record, `scope` and `media`, keeps when they set it and under which wording, and a withdrawal keeps
 the grant it ended: proof for as long as the record stands, bounded at one act per choice.
 
 Invariants:
@@ -22,8 +22,8 @@ from typing import Any, Final, Literal
 EVIDENCE: Final = "evidence"
 GIVEN_BEFORE: Final = "given_before"
 
-FLEinwilligungChoice = Literal["umfang", "media"]
-CHOICES: Final[tuple[FLEinwilligungChoice, ...]] = ("umfang", "media")
+FLEinwilligungChoice = Literal["scope", "media"]
+CHOICES: Final[tuple[FLEinwilligungChoice, ...]] = ("scope", "media")
 
 # The label of the wording each choice was given under, as a press's `text_versions` names them: the two choices of
 # one press stand beside two wordings.
@@ -31,7 +31,7 @@ type TextVersions = Mapping[FLEinwilligungChoice, str]
 
 # The values that GRANT, across both vocabularies; every other value of a choice withholds. A
 # contact seat's `kontaktdaten` is the acknowledgement alone, and WhatsApp the consent on top of it.
-_GIVING: Final[Mapping[str, tuple[object, ...]]] = {"umfang": ("kader_oeffentlich", "kontaktdaten_whatsapp"), "media": (True,)}
+_GIVING: Final[Mapping[str, tuple[object, ...]]] = {"scope": ("kader_oeffentlich", "kontaktdaten_whatsapp"), "media": (True,)}
 
 
 def is_given(choice: FLEinwilligungChoice, value: Any) -> bool:
@@ -134,7 +134,7 @@ def compose_renewed(*, path: str, saved: Mapping[str, Any], renewed: Mapping[str
     A choice moves only where it was set there later, and only with evidence to carry.
     """
 
-    # The confirmation's day, `datum` with it, only from a confirmation no older than the stored one:
+    # The confirmation's day, `date` with it, only from a confirmation no older than the stored one:
     # an older registration admitted after a newer one would date the record backwards.
     new_at, old_at = renewed.get("confirmed_at"), saved.get("confirmed_at")
     younger = not (isinstance(old_at, str) and old_at) or (isinstance(new_at, str) and new_at >= old_at)
@@ -155,7 +155,7 @@ def compose_renewed(*, path: str, saved: Mapping[str, Any], renewed: Mapping[str
     return set_fields
 
 
-def compose_born(*, block: Mapping[str, Any], at: str, text_versions: TextVersions) -> dict[str, Any]:
+def compose_initial(*, block: Mapping[str, Any], at: str, text_versions: TextVersions) -> dict[str, Any]:
     """A block its person's own confirmation writes whole, each choice it holds evidenced under that choice's label."""
 
     if EVIDENCE in block:

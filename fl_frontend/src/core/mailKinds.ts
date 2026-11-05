@@ -42,13 +42,13 @@ import type { FLOutboxHandout } from "./generated/client/types";
  */
 export const OUTBOX_TAG = "outbox_id";
 
-/** One owed mail's facts: a member of the backend's discriminated union, its `art` naming the kind. */
+/** One owed mail's facts: a member of the backend's discriminated union, its `kind` naming the kind. */
 type OutboxData = FLOutboxHandout["data"];
 
-type OutboxKind = OutboxData["art"];
+type OutboxKind = OutboxData["kind"];
 
-/** The member whose `art` admits `A`, read per member: one member may carry two kinds, as the passkey notices do. */
-type Member<D, A> = D extends { art: infer K } ? (A extends K ? D : never) : never;
+/** The member whose `kind` admits `A`, read per member: one member may carry two kinds, as the passkey notices do. */
+type Member<D, A> = D extends { kind: infer K } ? (A extends K ? D : never) : never;
 
 /** Each kind's own member, so a builder is handed its kind's typed facts and no other's. */
 type DataPerKind = { [A in OutboxKind]: Member<OutboxData, A> };

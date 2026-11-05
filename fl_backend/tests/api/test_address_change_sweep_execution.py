@@ -81,7 +81,7 @@ def a_change(position: int, *, minted: str, **fields: Any) -> dict[str, Any]:
 
     return {
         **documents.address_change_document(
-            adresse=on_file(position), email=pending(position), token_hash=hash_token(f"t{position}"), day=minted
+            address=on_file(position), email=pending(position), token_hash=hash_token(f"t{position}"), day=minted
         ),
         "_id": numbered(position),
         **fields,
@@ -235,7 +235,7 @@ class TestALapsedChangeEndsOnceItsDeadlinePassed:
         answer, ended, standing, held = on_a_league(mongo_replica_set_url, body)
 
         assert (answer.removed, answer.discarded, answer.effective, answer.remaining, answer.after) == (1, 0, 0, 0, None)
-        assert (ended["ended"]["art"], ended["adresse"], ended["email"]) == ("expired", None, None)
+        assert (ended["ended"]["kind"], ended["address"], ended["email"]) == ("expired", None, None)
         assert standing == [numbered(2)]
         assert held == {pending(1): []}
 
@@ -261,7 +261,7 @@ class TestADueChangeTakesEffect:
 
         assert answer.effective == 1
         # The lost-mailbox way greets nobody.
-        assert notices == [{"art": "effective", "an": on_file(1), "vorname": None}]
+        assert notices == [{"kind": "effective", "an": on_file(1), "vorname": None}]
         assert addresses == [pending(1)]
 
     @pytest.mark.parametrize("barred", ["on_file", "pending"])
@@ -281,8 +281,8 @@ class TestADueChangeTakesEffect:
         answer, ended, notices = on_a_league(mongo_replica_set_url, body)
 
         assert (answer.discarded, answer.effective) == (1, 0)
-        assert notices == [{"art": "discarded", "an": pending(1)}]
-        assert (ended["ended"]["art"], ended["email"]) == ("discarded", None)
+        assert notices == [{"kind": "discarded", "an": pending(1)}]
+        assert (ended["ended"]["kind"], ended["email"]) == ("discarded", None)
 
     def test_a_change_finding_nothing_to_move_is_refused_alike(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -373,7 +373,7 @@ class TestEachCallTakesAShare:
             positions = range(ADDRESS_CHANGE_PER_PASS + 1)
             await database[Collection.ADDRESS_CHANGES].insert_many([parked(position) for position in positions])
             await database[Collection.GRANTS].insert_many(
-                [{**grants_for_the_suite()[1], "_id": ObjectId(), "adresse": on_file(position)} for position in positions]
+                [{**grants_for_the_suite()[1], "_id": ObjectId(), "address": on_file(position)} for position in positions]
             )
             return await sweep(database, client), await live(database)
 
@@ -425,7 +425,7 @@ class TestOneChangeHoldsBackNoOther:
         assert standing == [numbered(1)]
         [failure] = [record for record in caplog.records if getattr(record, "error_code", None) == Code.UNHANDLED_CRASH]
         assert (failure.levelname, failure.getMessage()) == ("ERROR", "address_change.sweep_row_failed")
-        assert (getattr(failure, "art", None), getattr(failure, "step", None), getattr(failure, "address_change_id", None)) == (
+        assert (getattr(failure, "kind", None), getattr(failure, "step", None), getattr(failure, "address_change_id", None)) == (
             "lapsed",
             "end",
             str(numbered(1)),

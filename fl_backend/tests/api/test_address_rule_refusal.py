@@ -9,7 +9,7 @@ from pydantic import BaseModel, TypeAdapter, ValidationError
 from pydantic.warnings import UnsupportedFieldAttributeWarning
 
 import app
-from app.api.identity.schemas import FLErasureAdressePayload, FLErasurePayload
+from app.api.identity.schemas import FLErasureAddressPayload, FLErasurePayload
 from app.shared.folding import league_address
 from app.shared.schemas.bounds import KONTAKT_EMAIL_MAX_LENGTH
 
@@ -153,7 +153,7 @@ class TestEveryAddressPayloadHoldsTheSameRule:
 
 # The lookup the reveal and the sign-out take, and the erasure's, which takes it beside the request it answers.
 ERASURE_PAYLOADS: Mapping[str, Callable[[str], Any]] = {
-    "the lookup": lambda email: FLErasureAdressePayload(email=email),
+    "the lookup": lambda email: FLErasureAddressPayload(email=email),
     "the erasure": lambda email: FLErasurePayload(email=email, anlass="Mail vom 30.03.2026"),
 }
 

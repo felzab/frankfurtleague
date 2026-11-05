@@ -5,7 +5,7 @@ from fastapi import APIRouter, Body, Depends
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
+from app.api.sperrliste.lookup import SperrlisteLookup, barred_addresses, sperrliste_saison
 from app.api.spielbestaetigungen.crud import ANSICHT_SPIEL_FIELDS, pull_ansetzung_lage, pull_vorschlag_offen, verein_fields
 from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigungAntwortPayload,
@@ -29,7 +29,7 @@ from app.api.spielbestaetigungen.services import (
     find_vorschlag_vergangen_refusal,
     first_press_refusal,
     proposal_payload,
-    seat_adresse,
+    seat_address,
     seat_holding,
     seite_of,
     stand_moved,
@@ -123,8 +123,8 @@ async def get_spielbestaetigung_view(
     # The row read outside any transaction: an undraw or a replace committing since took the fixture and the row together.
     refuse(find_unknown_link_refusal(seat=None if lage is None else seat))
     assert lage is not None
-    adresse = seat_adresse(lage=lage, spielbestaetigung_raw=row, seat=seat)
-    barred = bool(await adressen_gesperrt(sperrliste, [] if adresse is None else [adresse]))
+    address = seat_address(lage=lage, spielbestaetigung_raw=row, seat=seat)
+    barred = bool(await barred_addresses(sperrliste, [] if address is None else [address]))
     vorschlag_offen = await pull_vorschlag_offen(spielbestaetigungen_collection=spielbestaetigungen_collection, spielbestaetigung_raw=row)
 
     state = zustand_of(spielbestaetigung_raw=row, lage=lage, today=today, barred=barred, vorschlag_offen=vorschlag_offen)
@@ -216,9 +216,9 @@ async def post_spielbestaetigung(
         )
         # One snapshot with the row, and the fixture is removed with its rows in one transaction.
         assert lage is not None
-        adresse = seat_adresse(lage=lage, spielbestaetigung_raw=row, seat=seat)
-        barred = await adressen_gesperrt(
-            sperrliste, [] if adresse is None else [adresse], governing_saison_id=governing_saison_id, session=session
+        address = seat_address(lage=lage, spielbestaetigung_raw=row, seat=seat)
+        barred = await barred_addresses(
+            sperrliste, [] if address is None else [address], governing_saison_id=governing_saison_id, session=session
         )
         # The ban alone is not asked again below: one committing after this read bars the next press, and an answer
         # given before it stands.
@@ -266,7 +266,7 @@ async def post_spielbestaetigung(
                 update=compose_antwort_update(
                     antwort=antwort_data.antwort,
                     seat=seat,
-                    adresse=adresse,
+                    address=address,
                     key=sperrliste.key,
                     vorschlag=vorschlag,
                     begruendung=antwort_data.begruendung,

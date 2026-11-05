@@ -164,7 +164,7 @@ async def sweep(database: AsyncDatabase, client: AsyncMongoClient, saison_id: st
 async def reminded(database: AsyncDatabase) -> list[Mapping[str, Any]]:
     """Every reminder owed, oldest first."""
 
-    return await database[Collection.OUTBOX].find({"art": "registrierung_reminder"}).sort("_id", 1).to_list(length=None)
+    return await database[Collection.OUTBOX].find({"kind": "registrierung_reminder"}).sort("_id", 1).to_list(length=None)
 
 
 async def reminded_ids(database: AsyncDatabase) -> list[ObjectId]:

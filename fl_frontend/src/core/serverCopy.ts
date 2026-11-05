@@ -301,7 +301,7 @@ export const SERVER_COPY = catalogue({
       eyebrow: "Organisation",
       title: "Wer dahintersteht",
       /** What each organiser does, under their first name. */
-      role: { vorstand: "Vorstand", spielbetrieb: SPIELBETRIEB, website: "Website", communication: "Kommunikation" },
+      role: { vorstand: "Vorstand", spielbetrieb: SPIELBETRIEB, website: "Website", kommunikation: "Kommunikation" },
     },
 
     /** The ways in: the school's while a window is open, and the question's; the heading counts them. */

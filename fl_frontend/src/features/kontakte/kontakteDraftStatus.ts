@@ -54,7 +54,7 @@ const readPerson = (rolle: KontaktRolle) => (source: FLKontakteDraftFields) => {
 const readEinwilligung = (rolle: KontaktRolle) => (source: FLKontakteDraftFields) => {
   const record = seatOf(rolle)(source)?.einwilligung ?? null;
   if (record === null) return null;
-  const datum = record.datum === "" ? nichtHinterlegt("Datum") : `ab ${formatSpielDatum(record.datum)}`;
+  const datum = record.date === "" ? nichtHinterlegt("Datum") : `ab ${formatSpielDatum(record.date)}`;
 
   // Who seated the person, where the record says: a new seat's is the save's to stamp, so it is
   // never guessed.
@@ -67,7 +67,7 @@ const readEinwilligung = (rolle: KontaktRolle) => (source: FLKontakteDraftFields
  */
 const personErrorPaths = (path: string): string[] => [path, `${path}.vorname`, `${path}.nachname`, `${path}.email`, `${path}.telefon`];
 
-const einwilligungErrorPaths = (path: string): string[] => [path, `${path}.datum`];
+const einwilligungErrorPaths = (path: string): string[] => [path, `${path}.date`];
 
 /**
  * Every path one seat's failures land under. Exported because the editor re-judges exactly this set

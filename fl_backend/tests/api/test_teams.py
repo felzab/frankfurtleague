@@ -321,7 +321,7 @@ class TestAContactRecordReadsBackHoweverItWasStored:
     # The consent's source and the birthdate are the server's and on no payload,
     # so a body carrying either would fail on that key
     # rather than on the one each case below is about.
-    SENT = {"vorname": "Anke", "einwilligung": {"umfang": "kontaktdaten", "datum": "2026-01-15"}, **REFUSED}
+    SENT = {"vorname": "Anke", "einwilligung": {"scope": "kontaktdaten", "date": "2026-01-15"}, **REFUSED}
 
     STORED = {
         **SENT,

@@ -63,7 +63,7 @@ import { postPublicForm, UNKLAR_TITEL } from "@/shared/utils/publicSubmit";
 import { EINWILLIGUNG_UMFANG_OPTIONS } from "../../constants";
 import { buildRegistrierungBestaetigungPayloadSchema } from "../../schemas";
 
-import type { FLEinwilligungUmfang, FLRegistrierungConfirmationViewResponse } from "@/core/generated/client/types";
+import type { FLEinwilligungScope, FLRegistrierungConfirmationViewResponse } from "@/core/generated/client/types";
 import type { PublicEnvelope } from "@/shared/utils/publicSubmit";
 import type { Key } from "@heroui/react/rac";
 import type { CalendarDate } from "@internationalized/date";
@@ -103,9 +103,9 @@ const TITEL: Record<Exclude<Stand["zustand"], "barred">, string> = {
  * The words are the wording's, so a record reproduces the question beside the answer it holds; the
  * order is this page's, which no record cites.
  */
-const UMFANG_OPTIONEN: readonly { value: FLEinwilligungUmfang; label: string }[] = EINWILLIGUNG_UMFANG_OPTIONS.map((value) => ({
+const UMFANG_OPTIONEN: readonly { value: FLEinwilligungScope; label: string }[] = EINWILLIGUNG_UMFANG_OPTIONS.map((value) => ({
   value: value,
-  label: SPIELER_WORDINGS.umfang.options[value],
+  label: SPIELER_WORDINGS.scope.options[value],
 }));
 
 /** The empty string is a date nobody has entered yet, which the picker shows as empty rather than refuses. */
@@ -114,15 +114,15 @@ function toCalendarDate(stored: string): CalendarDate | null {
 }
 
 /** The two choices the new pupil's page took, in the words of the wording it showed: its answer panel's readout. */
-function wahlZeilen(umfang: FLEinwilligungUmfang | null, media: boolean | null) {
+function wahlZeilen(umfang: FLEinwilligungScope | null, media: boolean | null) {
   return [
-    ...(umfang === null ? [] : [{ label: "Auf der Website", value: SPIELER_WORDINGS.umfang.options[umfang] }]),
+    ...(umfang === null ? [] : [{ label: "Auf der Website", value: SPIELER_WORDINGS.scope.options[umfang] }]),
     ...(media === null ? [] : [medienZeile(media)]),
   ];
 }
 
 type Antwort =
-  | { success: true; ergebnis: "confirmed"; geburtsdatum: string | null; umfang: FLEinwilligungUmfang | null; media: boolean | null }
+  | { success: true; ergebnis: "confirmed"; geburtsdatum: string | null; umfang: FLEinwilligungScope | null; media: boolean | null }
   | (PublicEnvelope & { success: false; zustand?: SpielerLinkZustand });
 
 /**
@@ -258,7 +258,7 @@ function SpielerBestaetigungForm({
   const [isPending, startSending] = useTransition();
   // Nothing preselected: a media switch that opened on and a scope already picked are consents nobody
   // gave on this page.
-  const [entwurf, setEntwurf] = useState<{ geburtsdatum: string; umfang: FLEinwilligungUmfang | null; media: boolean }>({
+  const [entwurf, setEntwurf] = useState<{ geburtsdatum: string; umfang: FLEinwilligungScope | null; media: boolean }>({
     geburtsdatum: "",
     umfang: null,
     media: false,
@@ -447,10 +447,10 @@ function WahlenAbschnitte({
   switchContentClassName,
   switchControlClassName,
 }: {
-  umfang: FLEinwilligungUmfang | null;
+  umfang: FLEinwilligungScope | null;
   media: boolean;
   medienAngeboten: boolean;
-  onUmfang: (umfang: FLEinwilligungUmfang) => void;
+  onUmfang: (umfang: FLEinwilligungScope) => void;
   onMedien: (medien: boolean) => void;
   switchContentClassName: string;
   switchControlClassName: string;
@@ -467,9 +467,9 @@ function WahlenAbschnitte({
           value={umfang ?? ""}
           onChange={() => undefined}
           className="flex w-full flex-col gap-y-1">
-          <Label className={FIELD_LABEL_CLASSES}>{SPIELER_WORDINGS.umfang.question}</Label>
+          <Label className={FIELD_LABEL_CLASSES}>{SPIELER_WORDINGS.scope.question}</Label>
           <ToggleButtonGroup
-            aria-label={SPIELER_WORDINGS.umfang.question}
+            aria-label={SPIELER_WORDINGS.scope.question}
             size="sm"
             isDetached
             selectionMode="single"
@@ -496,7 +496,7 @@ function WahlenAbschnitte({
           <Input className="hidden" />
           <FieldError className={FIELD_ERROR_CLASSES} />
         </TextField>
-        <EinwilligungZeile line={SPIELER_WORDINGS.umfang.line} />
+        <EinwilligungZeile line={SPIELER_WORDINGS.scope.line} />
       </section>
 
       <section className="flex flex-col gap-y-3">

@@ -52,8 +52,8 @@ export const getAccountSession = cache(async (): Promise<JudgedSession | null> =
   // On every request, as the person guard's: a session its ban's ending missed is no session here.
   if (subject.barred) return null;
 
-  const judged = { ...served, admin: subject.admin_tier !== null };
-  if (judged.admin) return isAdminSession(served, subject) ? judged : null;
+  const judged = { ...served, isAdmin: subject.admin_tier !== null };
+  if (judged.isAdmin) return isAdminSession(served, subject) ? judged : null;
 
   return isWithinPersonLifetime(served.session) ? judged : null;
 });
@@ -62,7 +62,7 @@ export const getAccountSession = cache(async (): Promise<JudgedSession | null> =
  * A served session beside the grant this request read for its address, which a step-up judges it by.
  * Held for the request alone: a stamp on the stored row would outlive a revoke made in the database.
  */
-export type JudgedSession = ServedSession & { readonly admin: boolean };
+export type JudgedSession = ServedSession & { readonly isAdmin: boolean };
 
 export function isAdminWithinWindow(served: ServedSession): boolean {
   // A refreshed `updatedAt` shows none of the idle gap before it, and the mark does.
@@ -78,7 +78,7 @@ function passesButForItsGrant(served: ServedSession): boolean {
  * Whether this served session may act as an administrator — its address holding a grant it was made
  * since, inside both of the administrator's figures, and made by the passkey rather than by a mailed code alone.
  */
-export function isAdminSession(served: ServedSession, { admin_tier, granted_since: granted_since }: Grant): boolean {
+export function isAdminSession(served: ServedSession, { admin_tier, granted_since }: Grant): boolean {
   // A passkey enrolled before the grant still admits, on a sign-in after it: the grant is the privilege,
   // and a passkey the factor it asks, enrolled on the mailbox's own authority (`docs/ops/runbooks.md` §3).
   return admin_tier !== null && madeSince(served.session.createdAt, granted_since) && passesButForItsGrant(served);
@@ -127,7 +127,7 @@ const readAdminRequest = cache(
     const actor = requestActorOf(served, "admin");
     if (actor === null) return { refused: "signIn" };
 
-    return { session: { ...served, admin: true }, actor: actor };
+    return { session: { ...served, isAdmin: true }, actor: actor };
   }),
 );
 

@@ -105,7 +105,7 @@ export const AdminBerechtigungenList = memo(function AdminBerechtigungenList({
                 {/* A barred address is withheld on every route, so the row names the state instead, as its search reads it. */}
                 <span className={IDENTITY_NAME_CLASSES}>
                   <VonOderGesperrt
-                    von={berechtigung.adresse}
+                    von={berechtigung.address}
                     gesperrt={berechtigung.barred}
                   />
                 </span>
@@ -131,7 +131,7 @@ export const AdminBerechtigungenList = memo(function AdminBerechtigungenList({
           {berechtigung.address_change !== null && (
             <div className="-mx-1 flex flex-col gap-3 border-t border-border/50 pt-2">
               <AdminBerechtigungGenehmigenPanel
-                adresse={berechtigung.adresse}
+                adresse={berechtigung.address}
                 adresswechsel={berechtigung.address_change}
               />
             </div>
@@ -144,16 +144,16 @@ export const AdminBerechtigungenList = memo(function AdminBerechtigungenList({
               {inhaberAdresse !== null && (
                 <AdminBerechtigungStufePanel
                   berechtigungId={berechtigung.id}
-                  adresse={berechtigung.adresse}
+                  adresse={berechtigung.address}
                   erteiltAm={erteiltTag(berechtigung.granted_at)}
-                  verwaltung={berechtigung.admin_tier}
-                  eigene={berechtigung.adresse === inhaberAdresse}
+                  adminTier={berechtigung.admin_tier}
+                  eigene={berechtigung.address === inhaberAdresse}
                 />
               )}
               {berechtigung.admin_tier !== "owner" && (
                 <AdminBerechtigungEntziehenPanel
                   berechtigungId={berechtigung.id}
-                  adresse={berechtigung.adresse}
+                  adresse={berechtigung.address}
                   erteiltAm={erteiltTag(berechtigung.granted_at)}
                   darfEntziehen={inhaberAdresse !== null}
                 />

@@ -291,8 +291,8 @@ class TestWhatAConfirmationWrites:
         # No label on the block and the stored speaker gone: whether the person answered is the stamp's
         # to say, and which words each choice was given under its evidence's.
         assert trainer["einwilligung"] == {
-            "umfang": "kontaktdaten_whatsapp",
-            "datum": "2026-03-20",
+            "scope": "kontaktdaten_whatsapp",
+            "date": "2026-03-20",
             "confirmed_at": TODAY,
             "media": False,
             # The seating's, which the answer leaves standing.
@@ -300,7 +300,7 @@ class TestWhatAConfirmationWrites:
             # Each choice's evidence under its own wording: the WhatsApp grant, and the media answer
             # withholding.
             "evidence": {
-                "umfang": {"at": "2026-04-01T10:30:00+00:00", "text_version": documents.SEAT_TEXT_VERSIONS["umfang"]},
+                "scope": {"at": "2026-04-01T10:30:00+00:00", "text_version": documents.SEAT_TEXT_VERSIONS["scope"]},
                 "media": {"at": "2026-04-01T10:30:00+00:00", "text_version": documents.SEAT_TEXT_VERSIONS["media"]},
             },
         }
@@ -317,7 +317,7 @@ class TestWhatAConfirmationWrites:
 
             return await stored(database)
 
-        assert on_a_league(mongo_replica_set_url, body)["kontakte"]["trainer"]["einwilligung"]["umfang"] == "kontaktdaten"
+        assert on_a_league(mongo_replica_set_url, body)["kontakte"]["trainer"]["einwilligung"]["scope"] == "kontaktdaten"
 
     def test_the_other_seats_are_untouched(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -529,10 +529,10 @@ class TestWhatAWiderspruchOwesTheSubmitter:
 
         assert on_a_league(mongo_replica_set_url, body) == [
             {
-                "key": f"{Collection.BEWERBUNGEN}/{BEWERBUNG_OID}/widerspruch/stellvertretung",
+                "key": f"{Collection.BEWERBUNGEN}/{BEWERBUNG_OID}/objection/stellvertretung",
                 "an": "quillhilde@example.com",
                 "data": {
-                    "art": "bewerbung_objection",
+                    "kind": "bewerbung_objection",
                     "saison_id": SAISON_ID,
                     "rollen": ["ansprechperson"],
                     # Off the read before the decline: nothing left in the record names whose entry was refused.
@@ -590,7 +590,7 @@ class TestAResend:
         assert old_code == Code.LINK_INVALID
         assert (view.state, view.rolle) == ("valid", "trainer")
         assert (response.rolle, response.confirmation_deadline) == ("trainer", "2026-04-15")
-        assert (mail.an, mail.data.art) == ("wraxlington@example.com", "bewerbung_confirmation")
+        assert (mail.an, mail.data.kind) == ("wraxlington@example.com", "bewerbung_confirmation")
         assert document["confirmation_deadline"] == "2026-04-15"
         assert document["confirmations"]["trainer"] == {
             "token_hashes": [hash_token(mail.token or "")],

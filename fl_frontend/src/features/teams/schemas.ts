@@ -68,10 +68,10 @@ export const FLTrikotFarbeSchema = z.enum(FLTrikotFarbe, {
 export const FLKontaktKenntnisnahmePayloadSchema = z.object({
   // Written by the form from `EINWILLIGUNG_UMFANG` rather than picked: one scope exists, so a control
   // offering it would ask a question with one answer.
-  umfang: z.literal("kontaktdaten", { error: "Die Kenntnisnahme gilt ausschließlich für Kontaktdaten." }),
+  scope: z.literal("kontaktdaten", { error: "Die Kenntnisnahme gilt ausschließlich für Kontaktdaten." }),
   // No `eingetragen_von` and no `bestaetigt_am`: both are the server's to compose, and a payload that
   // could name the stamp would let an administrator file a transcription as the person's own answer.
-  datum: CustomDateStringSchema,
+  date: CustomDateStringSchema,
 });
 
 /** German throughout: the team editor binds it to its inputs. */

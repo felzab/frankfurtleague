@@ -42,14 +42,14 @@ FLAktorKind = Literal["admin_session", "person_session", "system", "public"]
 type FLActionLogEntryHerkunft = Literal["person", "system", "public"]
 
 
-class FLAktorMitAdresse(BaseModel):
+class FLActorWithAddress(BaseModel):
     """An actor the row names by `email`: an administrator's address, or a sentinel."""
 
     kind: Literal["admin_session", "system", "public"]
     email: str
 
 
-class FLActorWithAdresseRow(FLAktorMitAdresse):
+class FLActorWithAddressRow(FLActorWithAddress):
     """An actor named by `email` as both reads serve one: the stored actor, its address withheld where the ban list holds it."""
 
     # Null exactly where `email_barred` is set, as the grants list withholds its actors.
@@ -71,13 +71,13 @@ class FLActorPerson(BaseModel):
 
 # On `kind`, so a person's row can never be read as carrying an address, nor an administrator's as
 # carrying none.
-FLAktor = Annotated[FLAktorMitAdresse | FLActorPerson, Field(discriminator="kind")]
+FLAktor = Annotated[FLActorWithAddress | FLActorPerson, Field(discriminator="kind")]
 
 # The stored actor, judged before its address is withheld: a row the stored shape refuses fails
 # rather than being served withheld.
 FLAktorAdapter = TypeAdapter(FLAktor)
 
-FLAktorZeile = Annotated[FLActorWithAdresseRow | FLActorPerson, Field(discriminator="kind")]
+FLAktorZeile = Annotated[FLActorWithAddressRow | FLActorPerson, Field(discriminator="kind")]
 
 
 def herkunft_of_kind(kind: FLAktorKind) -> FLActionLogEntryHerkunft:

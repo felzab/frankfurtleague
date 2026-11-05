@@ -138,7 +138,7 @@ A_CHILDS_BIRTHDATE = "2018-01-01"
 
 # What the junction's own editor sends for one person's consent: the source and the stamp are on no
 # payload.
-JUNCTION_EINWILLIGUNG: Mapping[str, Any] = {"umfang": "kontaktdaten", "datum": TODAY}
+JUNCTION_EINWILLIGUNG: Mapping[str, Any] = {"scope": "kontaktdaten", "date": TODAY}
 
 
 class TestNoBirthdateOnAnyPayload:
@@ -330,8 +330,8 @@ class TestWhatTheServerComposes:
         composed = compose_einwilligung(today=TODAY, entered_by="bewerbung")
 
         assert composed == {
-            "umfang": "kontaktdaten",
-            "datum": TODAY,
+            "scope": "kontaktdaten",
+            "date": TODAY,
             "confirmed_at": None,
             "media": False,
             "entered_by": "bewerbung",
@@ -343,8 +343,8 @@ class TestWhatTheServerComposes:
         composed = compose_kontakte(kontakte=FLBewerbungKontaktePayload.model_validate(kontakte()).model_dump(mode="json"), today=TODAY)
 
         assert set(composed["trainer"]["einwilligung"]) == {
-            "umfang",
-            "datum",
+            "scope",
+            "date",
             "confirmed_at",
             "media",
             "entered_by",
@@ -375,7 +375,7 @@ class TestWhatTheServerComposes:
         with pytest.raises(ValidationError):
             FLBewerbungKontaktpersonPayload.model_validate(person(einwilligung={"given": False}))
 
-    @pytest.mark.parametrize("field", ["umfang", "entered_by", "datum", "confirmed_at"])
+    @pytest.mark.parametrize("field", ["scope", "entered_by", "date", "confirmed_at"])
     def test_a_client_may_not_name_a_field_the_server_composes(self, field: str):
         """`extra="forbid"`: a body naming one of these could claim a person's own consent or its seating, or backdate or pre-confirm one."""
 

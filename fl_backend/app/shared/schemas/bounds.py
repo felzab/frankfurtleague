@@ -42,8 +42,8 @@ BEWERBUNG_KONTAKT_MAX_AGE_YEARS: Final = 120
 
 # The Ansprechperson's floor and the Stellvertretung's: those two sign what binds the school, which
 # asks contractual capacity rather than the age a person consents for themselves at.
-type FLVertretungMinAgeYears = Literal[18]
-CONTACT_MIN_AGE_YEARS: Final[FLVertretungMinAgeYears] = 18
+type FLSignatoryMinAgeYears = Literal[18]
+SIGNATORY_MIN_AGE_YEARS: Final[FLSignatoryMinAgeYears] = 18
 
 # How long an application's three people have to confirm their own seats before it is deleted; a
 # re-send restarts the clock. Days rather than a date, so the deadline is derived from the mint and
@@ -111,7 +111,7 @@ LIST_LIMIT_MAX: Final = 1024
 # The most addresses one references call judges, about a millisecond each: 250 took a median of 0.24 s
 # over 400 season rows and 2,000 pupils (a local server, 2026-10-15), far inside
 # `app/core/middlewares.py :: REQUEST_DEADLINE_S` on a slower one.
-REFERENCES_ADRESSEN_MAX: Final = 250
+REFERENCES_ADDRESSES_MAX: Final = 250
 
 # How long the action log keeps a row, counted from the write it recorded. Seconds because that is
 # the unit `create_index(expireAfterSeconds=)` takes, and a plain year because the database counts
@@ -221,7 +221,7 @@ MEDIA_MIN_AGE_YEARS: Final[FLMedienMinAgeYears] = 18
 CONSENT_BOUNDS: Final = (
     FLBewerbungConfirmationDeadlineDays,
     FLBewerbungKontaktMinAgeYears,
-    FLVertretungMinAgeYears,
+    FLSignatoryMinAgeYears,
     FLSchiedsrichterConfirmationFristDays,
     FLRegistrierungMinAgeYears,
     FLMedienMinAgeYears,

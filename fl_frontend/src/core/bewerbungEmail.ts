@@ -328,13 +328,10 @@ export function buildBewerbungGeloeschtEmail({ saison_id, rollen, pending: ausst
   };
 }
 
-/** What the submitter is told when a person refuses their entry; `abgelehnt` was read before the decline emptied it. */
-export function buildBewerbungWiderspruchEmail(
-  { saison_id, rollen, declined: abgelehnt, frist }: FLBewerbungObjectionData,
-  { origin }: MailOrigin,
-): Mail {
+/** What the submitter is told when a person refuses their entry; `declined` was read before the decline emptied it. */
+export function buildBewerbungWiderspruchEmail({ saison_id, rollen, declined, frist }: FLBewerbungObjectionData, { origin }: MailOrigin): Mail {
   const site = mailOrigin(origin);
-  const wer = personName(abgelehnt);
+  const wer = personName(declined);
 
   return {
     kind: "notice",

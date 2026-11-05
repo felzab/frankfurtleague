@@ -24,7 +24,7 @@ from app.api.outbox.schemas import (
     FLOutboxHandoutResponse,
     FLOutboxLink,
     FLOutboxReference,
-    FLOutboxResultArt,
+    FLOutboxResultKind,
     FLOutboxResultPayload,
     FLOutboxResultResponse,
     FLOutboxSignInPayload,
@@ -57,7 +57,7 @@ NOW = datetime(2126, 4, 16, 12, 30, tzinfo=UTC)
 INVITATION = ObjectId("6890a1b2c3d4e5f607f30001")
 REFERENCE = FLOutboxReference(collection=Collection.INVITATIONS, id=INVITATION, seat=None)
 NORA = "nora.neu@beispielschule.de"
-BAN = FLBanData(art="ban", grund="Falsches Geburtsdatum", barred_until_saison_id="2127")
+BAN = FLBanData(kind="ban", grund="Falsches Geburtsdatum", barred_until_saison_id="2127")
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
@@ -78,7 +78,7 @@ def utc(moment: datetime) -> datetime:
 
 
 # The one record's link: its array, minted while the record still names the recipient.
-LINK = FLOutboxLink(paths=["token_hashes"], adressen=["email"], replaced=False)
+LINK = FLOutboxLink(paths=["token_hashes"], addresses=["email"], replaced=False)
 
 
 async def owe(
@@ -123,7 +123,7 @@ async def reported(
     database: AsyncDatabase,
     lease: str | None,
     row_id: ObjectId,
-    result: FLOutboxResultArt,
+    result: FLOutboxResultKind,
     *,
     now: datetime = NOW,
     grund: str | None = None,
@@ -234,7 +234,7 @@ class TestTheDrain:
         saison_team = ObjectId("6890a1b2c3d4e5f607f30002")
         spec = FLOutboxLink(
             paths=["kontakte.trainer.token_hashes", "kontakte.betreuer.token_hashes"],
-            adressen=["kontakte.trainer.email", "kontakte.betreuer.email"],
+            addresses=["kontakte.trainer.email", "kontakte.betreuer.email"],
             replaced=False,
         )
         reference = FLOutboxReference(collection=Collection.SAISON_TEAMS, id=saison_team, seat="trainer")
@@ -273,7 +273,7 @@ class TestTheDrain:
     def test_a_mail_to_a_barred_address_stops_at_the_hand_out_and_the_bans_own_notice_goes(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.BAN_LIST].insert_one(ban_document(NORA, until="2999"))
-            code = await owe(database, client, "anmeldecode/1", data=FLSignInCodeData(art="sign_in_code"))
+            code = await owe(database, client, "anmeldecode/1", data=FLSignInCodeData(kind="sign_in_code"))
             ban = await owe(database, client, "ban/1")
             answer = await claimed(database, client)
 
@@ -305,7 +305,7 @@ class TestTheDrain:
     def test_a_mail_whose_link_supersedes_drops_the_older_one_still_waiting_to_go_again(self, mongo_replica_set_url: str):
         """Handed out after the newer mail, the older one would supersede the newer link, and the newest mail opens nothing."""
 
-        replacing = FLOutboxLink(paths=["token_hashes"], adressen=["email"], replaced=True)
+        replacing = FLOutboxLink(paths=["token_hashes"], addresses=["email"], replaced=True)
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             older = await owe(database, client, "link/1", link=True, spec=replacing)
@@ -334,7 +334,7 @@ class TestTheSignInCode:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             for position in range(PAGE):
                 await owe(database, client, f"ban/{position}")
-            code = await owe(database, client, "anmeldecode/1", data=FLSignInCodeData(art="sign_in_code"))
+            code = await owe(database, client, "anmeldecode/1", data=FLSignInCodeData(kind="sign_in_code"))
             answer = await claimed(database, client)
 
             return code, [mail.id for mail in answer.mails]
@@ -351,7 +351,7 @@ class TestTheSignInCode:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await post_sign_in(
                 sign_in_data=FLOutboxSignInPayload(
-                    an=NORA, data=FLSignInCodeData(art="sign_in_code"), secret="chiffrat", valid_until=valid_until
+                    an=NORA, data=FLSignInCodeData(kind="sign_in_code"), secret="chiffrat", valid_until=valid_until
                 ),
                 outbox_collection=database[Collection.OUTBOX],
                 now=NOW,

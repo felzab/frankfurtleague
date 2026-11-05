@@ -49,7 +49,7 @@ const SCHON_BESTAETIGT_GRUND = "Diese Person hat ihren Eintrag schon bestätigt.
 function LinkStand({
   confirmation: bestaetigung,
   offenUndAbgelaufen,
-  delivery: delivery,
+  delivery,
 }: {
   confirmation: FLConfirmation;
   offenUndAbgelaufen: boolean;
@@ -79,9 +79,9 @@ function EinwilligungStand({ einwilligung, geburtsdatum }: { einwilligung: FLEin
   return (
     <dl className={FIELD_PAIR_CLASSES}>
       <Angabe label="Veröffentlichung">
-        {SCHIEDSRICHTER_UMFANG_LABELS[einwilligung.umfang]}
+        {SCHIEDSRICHTER_UMFANG_LABELS[einwilligung.scope]}
         <Beleg
-          evidence={einwilligung.evidence.umfang}
+          evidence={einwilligung.evidence.scope}
           bestaetigung={bestaetigungOf(einwilligung)}
         />
       </Angabe>
@@ -113,7 +113,7 @@ export function FormBestaetigungSection({
   isRetired,
   confirmation: bestaetigung,
   istAbgelaufen,
-  delivery: delivery,
+  delivery,
   einwilligung,
   geburtsdatum,
   isDirty,

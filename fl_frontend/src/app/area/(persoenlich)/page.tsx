@@ -12,9 +12,9 @@ export default async function PersoenlichStartPage() {
 
   // An address holding a grant, past the administrator's window or short of the passkey, owes a fresh
   // sign-in or its passkey step, which the sign-in's landing sends it on to, not a person's landing.
-  if (!subject.admin && subject.subject.admin_tier !== null) redirect(ROUTES.signInLanding.path());
+  if (!subject.isAdmin && subject.records.admin_tier !== null) redirect(ROUTES.signInLanding.path());
 
-  const { roles: roles, unconfirmed: unbestaetigt } = rolesOf(subject);
+  const { roles, unconfirmed: unbestaetigt } = rolesOf(subject);
   const ziele = zieleOf(roles);
 
   if (ziele.length === 0)

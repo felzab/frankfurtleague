@@ -22,7 +22,7 @@ const person = (overrides: Partial<KontaktpersonDraft> = {}): KontaktpersonDraft
   email: "erika@beispiel.de",
   telefon: "069 1234567",
   geburtsdatum: "1990-01-01",
-  einwilligung: kenntnisnahme({ datum: "2025-09-01", confirmed_at: "2025-09-02" }),
+  einwilligung: kenntnisnahme({ date: "2025-09-01", confirmed_at: "2025-09-02" }),
   ...overrides,
 });
 
@@ -174,9 +174,9 @@ describe("mirroredJudgedPaths", () => {
       "kontakte.ansprechperson.email",
       "kontakte.trainer.email",
     ]);
-    expect(mirroredJudgedPaths(["kontakte.ansprechperson.einwilligung.datum"], "ansprechperson")).toStrictEqual([
-      "kontakte.ansprechperson.einwilligung.datum",
-      "kontakte.trainer.einwilligung.datum",
+    expect(mirroredJudgedPaths(["kontakte.ansprechperson.einwilligung.date"], "ansprechperson")).toStrictEqual([
+      "kontakte.ansprechperson.einwilligung.date",
+      "kontakte.trainer.einwilligung.date",
     ]);
   });
 

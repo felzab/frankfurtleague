@@ -12,7 +12,7 @@ from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.aktionen.admin_router import get_action_log
 from app.api.aktionen.schemas import FLActionLogEntry, FLActionLogEntryWithBefore, FLAktionenFilterParams, FLAktionenListAdapter
-from app.api.aktionen.services import akteur_adressen, mit_vorenthaltenem_akteur
+from app.api.aktionen.services import actor_addresses, mit_vorenthaltenem_akteur
 from app.core.collections import Collection
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from tests.bans import ban_list
@@ -159,13 +159,13 @@ class TestABarredActorIsWithheldOnBothReads:
 
         row = stored_row(actor={"kind": "admin_session", "email": "Admin@Example.INVALID"})
 
-        assert akteur_adressen([row]) == ["admin@example.invalid"]
-        assert mit_vorenthaltenem_akteur(row, set(akteur_adressen([row])))["actor"]["email"] is None
+        assert actor_addresses([row]) == ["admin@example.invalid"]
+        assert mit_vorenthaltenem_akteur(row, set(actor_addresses([row])))["actor"]["email"] is None
 
     def test_a_person_carries_no_address_to_ask_about(self):
         person = stored_row(actor={"kind": "person_session", "pseudonym": "3f9a07c2" + "d" * 56, "funktion": "spieler"})
 
-        assert akteur_adressen([person]) == []
+        assert actor_addresses([person]) == []
 
     def test_the_image_is_served_as_recorded(self):
         """The read a restore starts from: an image with its addresses withheld would restore a document the write never replaced."""
@@ -268,7 +268,7 @@ class _LogCollection:
             cell = (str(document["collection"]), str(document["operation"]))
             tally[cell] = tally.get(cell, 0) + 1
 
-        return _LogCells([{"_id": {"collection": area, "operation": art}, "count": held} for (area, art), held in tally.items()])
+        return _LogCells([{"_id": {"collection": area, "operation": kind}, "count": held} for (area, kind), held in tally.items()])
 
     def find(self, filter: Any, projection: Any = None, collation: Any = None, session: Any = None) -> _LogCollection:
         self.requested_filter = filter

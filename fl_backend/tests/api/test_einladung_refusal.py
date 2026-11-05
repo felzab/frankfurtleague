@@ -29,7 +29,7 @@ def kontakte(*, trainer: Any = None, ansprechperson: Any = None, stellvertretung
     }
 
 
-EINLADUNG: dict[str, Any] = {"saison_id": "2026", "widerrufen_am": None}
+EINLADUNG: dict[str, Any] = {"saison_id": "2026", "revoked_at": None}
 
 
 def lage(stand: str, *, delivery: str | None = None) -> FLOutboxStatus:

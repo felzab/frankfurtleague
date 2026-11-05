@@ -23,7 +23,7 @@ const FRIST = "2026-09-18";
 
 const AUSSTEHEND = [{ vorname: "Jonas", rollen: ["trainer" as const] }];
 
-const EIN_SITZ: Omit<FLBewerbungLinkData, "art"> = {
+const EIN_SITZ: Omit<FLBewerbungLinkData, "kind"> = {
   saison_id: "2627",
   schule: "Ernst-Reuter-Schule",
   rollen: ["ansprechperson"],
@@ -31,19 +31,19 @@ const EIN_SITZ: Omit<FLBewerbungLinkData, "art"> = {
 };
 
 const MESSAGES = [
-  ["the link mail", buildBewerbungBestaetigungEmail({ ...EIN_SITZ, art: "bewerbung_confirmation" }, LINK)],
-  ["the reminder", buildBewerbungErinnerungEmail({ ...EIN_SITZ, art: "bewerbung_reminder" }, LINK)],
+  ["the link mail", buildBewerbungBestaetigungEmail({ ...EIN_SITZ, kind: "bewerbung_confirmation" }, LINK)],
+  ["the reminder", buildBewerbungErinnerungEmail({ ...EIN_SITZ, kind: "bewerbung_reminder" }, LINK)],
   [
     "the receipt",
     buildBewerbungEingangEmail(
-      { art: "bewerbung_received", saison_id: "2627", rollen: ["ansprechperson"], pending: AUSSTEHEND, frist: FRIST },
+      { kind: "bewerbung_received", saison_id: "2627", rollen: ["ansprechperson"], pending: AUSSTEHEND, frist: FRIST },
       LINK,
     ),
   ],
   [
     "the deletion notice",
     buildBewerbungGeloeschtEmail(
-      { art: "bewerbung_erasure", saison_id: "2627", rollen: ["ansprechperson"], pending: AUSSTEHEND },
+      { kind: "bewerbung_erasure", saison_id: "2627", rollen: ["ansprechperson"], pending: AUSSTEHEND },
       { origin: ORIGIN },
     ),
   ],
@@ -51,7 +51,7 @@ const MESSAGES = [
     "the seat's decline notice",
     buildBewerbungWiderspruchEmail(
       {
-        art: "bewerbung_objection",
+        kind: "bewerbung_objection",
         saison_id: "2627",
         rollen: ["ansprechperson"],
         declined: { vorname: "Mira", rollen: ["stellvertretung"] },

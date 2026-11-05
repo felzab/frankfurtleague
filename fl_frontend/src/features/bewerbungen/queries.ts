@@ -106,7 +106,7 @@ export async function getEinwilligungAnsicht(token: string): Promise<Einwilligun
       // Narrowed here and never at the page, which would carry the school and the season regardless: a
       // dead link's panel names nothing of the seat. An emptied seat arrives as an unknown token.
       (view): EinwilligungAnsicht => {
-        const { state: state } = view;
+        const { state } = view;
         // A closed season row's link still takes a Widerspruch, so it keeps its read as an open one does.
         if (state !== "valid" && state !== "saison_past") return { zustand: state, quelle: view.quelle };
 

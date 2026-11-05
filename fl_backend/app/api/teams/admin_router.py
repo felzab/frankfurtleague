@@ -13,7 +13,7 @@ from app.api.address_change.crud import denied_addresses
 from app.api.address_change.services import build_addresses_filter
 from app.api.aktionen.crud import redact_images_in_session
 from app.api.berechtigungen.guard import verify_actor_is_admin
-from app.api.bewerbungen.services import seat_adressen, seat_named
+from app.api.bewerbungen.services import seat_addresses, seat_named
 from app.api.einladungen.crud import einladung_bezug, owed_einladung_mails
 from app.api.einladungen.schemas import (
     FLEinladung,
@@ -29,7 +29,7 @@ from app.api.einladungen.services import (
     bestaetigte_empfaenger,
     build_live_team_filter,
     compose_einladung,
-    compose_widerruf_update,
+    compose_revocation_update,
     find_saison_vorbei_refusal,
     find_team_in_saison_refusal,
 )
@@ -41,7 +41,7 @@ from app.api.registrierungen.services import saison_nimmt_registrierungen_an
 from app.api.saisons.crud import pull_saison_id_and_rules
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.saisons.services import find_saison_past_refusal, has_started
-from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
+from app.api.sperrliste.lookup import SperrlisteLookup, barred_addresses, sperrliste_saison
 from app.api.sperrliste.services import withheld_actor
 from app.api.spielbestaetigungen.services import seat_void_of
 from app.api.teams.crud import pull_a_club_to_enter, refuse_a_full_gruppe, void_moved_seats
@@ -207,16 +207,16 @@ async def get_team_saisons(
     """
 
     teams_raw = await aggregate_many_from_db(collection=teams_collection, pipeline=build_team_saisons_pipeline(), collation=GERMAN_COLLATION)
-    adressen = seated_identifiers(teams_raw)
+    addresses = seated_identifiers(teams_raw)
     live = (
         {
-            row["adresse"]: row["_id"]
+            row["address"]: row["_id"]
             for row in await aggregate_many_from_db(
                 collection=address_changes_collection,
-                pipeline=[{"$match": build_addresses_filter(adressen)}, {"$project": {"adresse": 1}}],
+                pipeline=[{"$match": build_addresses_filter(addresses)}, {"$project": {"address": 1}}],
             )
         }
-        if adressen
+        if addresses
         else {}
     )
     denied = await denied_addresses(
@@ -688,9 +688,9 @@ async def patch_saison_team_kontakte(
         owed = links_owed(kontakte=kontakte, stored=stored.get("kontakte"))
         # A ban committing after this read conflicts with the save on the saver's own grant row, which
         # the ban's judgement writes with every other (`pull_the_list_to_judge`), so the retry reads it.
-        barred = await adressen_gesperrt(
+        barred = await barred_addresses(
             sperrliste,
-            {adresse for seats in owed for adresse in seat_adressen(kontakte=kontakte, seats=seats)},
+            {address for seats in owed for address in seat_addresses(kontakte=kontakte, seats=seats)},
             governing_saison_id=governing_saison_id,
             session=session,
         )
@@ -1017,8 +1017,8 @@ async def invite_kontakt(
         assert isinstance(kontakte, Mapping)
 
         seats = seats_one_link_answers(kontakte=kontakte, seat=rolle)
-        barred = await adressen_gesperrt(
-            sperrliste, seat_adressen(kontakte=kontakte, seats=seats), governing_saison_id=governing_saison_id, session=session
+        barred = await barred_addresses(
+            sperrliste, seat_addresses(kontakte=kontakte, seats=seats), governing_saison_id=governing_saison_id, session=session
         )
         refuse(find_kontakt_sitz_gesperrt_refusal(barred=bool(barred)))
 
@@ -1114,7 +1114,7 @@ async def post_invitation(
         withdrawn = await patch_many_in_db(
             collection=invitations_collection,
             db_filter=build_live_team_filter(saison_id=saison_id, team_id=team_id),
-            update=compose_widerruf_update(today=today),
+            update=compose_revocation_update(today=today),
             session=session,
         )
         # Judged on what this transaction voided, which aborts with the refusal: only a link somebody
@@ -1174,7 +1174,7 @@ async def delete_invitation(
         return await patch_one_in_db(
             collection=invitations_collection,
             db_filter=build_live_team_filter(saison_id=saison_id, team_id=team_id),
-            update=compose_widerruf_update(today=today),
+            update=compose_revocation_update(today=today),
             session=session,
             return_document=ReturnDocument.BEFORE,
         )
@@ -1288,7 +1288,7 @@ async def get_invitation(
     if live:
         # As stored first, so a row the stored shape refuses fails here rather than being served withheld.
         erstellt_von = FLEinladung.model_validate(live[0]).created_by
-        barred = await adressen_gesperrt(sperrliste, [sign_in_identifier(erstellt_von)])
+        barred = await barred_addresses(sperrliste, [sign_in_identifier(erstellt_von)])
         withheld = withheld_actor(erstellt_von, barred)
         lage = await state_of(outbox_collection=outbox_collection, reference=einladung_bezug(live[0]["_id"]))
         einladung = FLInvitationRow.model_validate({**live[0], "created_by": withheld, "created_by_barred": withheld is None, "delivery": lage})

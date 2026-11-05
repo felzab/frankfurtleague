@@ -46,7 +46,7 @@ export const removePasskeyAction = action({
     );
     let removal: Awaited<ReturnType<typeof removePasskey>>;
     try {
-      removal = await removePasskey({ id: served.user.id, admin: served.admin }, id);
+      removal = await removePasskey({ id: served.user.id, isAdmin: served.isAdmin }, id);
     } catch (failed) {
       // A rollback removed nothing, so the shared failure line stands and a press again is safe.
       if (failed instanceof RolledBackError) throw failed;

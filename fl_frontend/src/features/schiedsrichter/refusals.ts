@@ -36,14 +36,14 @@ export function mapRetireRefusal(error: unknown): string | null {
 export function mapReactivateRefusal(error: unknown): string | null {
   if (!isRefusal(error)) return null;
 
-  return error.serverErrorCode === "schiedsrichter_adresse_barred" ? SPERRLISTE_ADRESSE_GESPERRT : null;
+  return error.serverErrorCode === "schiedsrichter_address_barred" ? SPERRLISTE_ADRESSE_GESPERRT : null;
 }
 
 /** `null` where the refusal is something else. It lands on the address box, which is the value the list refused. */
 export function mapGesperrteAdresseRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
   if (!isRefusal(error)) return null;
 
-  return error.serverErrorCode === "schiedsrichter_adresse_barred"
+  return error.serverErrorCode === "schiedsrichter_address_barred"
     ? { fieldErrors: { "kontakt.email": SPERRLISTE_ADRESSE_GESPERRT_FELD } }
     : null;
 }
@@ -62,9 +62,9 @@ export function mapEinladenRefusal(error: unknown): string | null {
       });
     case "confirmation_exists":
       return SCHON_BESTAETIGT;
-    case "schiedsrichter_no_adresse":
+    case "schiedsrichter_no_address":
       return KEINE_ADRESSE;
-    case "schiedsrichter_adresse_barred":
+    case "schiedsrichter_address_barred":
       return SPERRLISTE_ADRESSE_GESPERRT;
     default:
       return null;
@@ -93,7 +93,7 @@ export const KEINE_ADRESSE = buildRefusal({
 export function mapBestaetigteAdresseRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
   if (!isRefusal(error)) return null;
 
-  return error.serverErrorCode === "schiedsrichter_adresse_only_per_change" ? { error: BESTAETIGTE_ADRESSE } : null;
+  return error.serverErrorCode === "schiedsrichter_address_only_per_change" ? { error: BESTAETIGTE_ADRESSE } : null;
 }
 
 // Both causes named: on the second the administrator touched no address, so the rule alone explains a change they never made.

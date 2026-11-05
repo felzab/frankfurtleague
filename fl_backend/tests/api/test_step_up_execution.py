@@ -104,7 +104,7 @@ async def a_live_link(database: AsyncDatabase) -> None:
             "token_hashes": [hash_token("seeded")],
             "created_at": "2026-03-15",
             "created_by": ADMIN,
-            "widerrufen_am": None,
+            "revoked_at": None,
         }
     )
 
@@ -115,7 +115,7 @@ class TestTheClubsLink:
     def test_a_mint_voiding_a_live_link_from_an_older_sign_in_is_refused_and_voids_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, http: AsyncClient) -> tuple[bool, list[Any]]:
             response = await http.post(self.URL, headers=OLDER)
-            live = await database[Collection.INVITATIONS].find({"widerrufen_am": None}, {"token_hashes": 1, "_id": 0}).to_list()
+            live = await database[Collection.INVITATIONS].find({"revoked_at": None}, {"token_hashes": 1, "_id": 0}).to_list()
             return refused(response), live
 
         assert on_a_season(mongo_replica_set_url, body, seed=a_live_link) == (True, [{"token_hashes": [hash_token("seeded")]}])
@@ -165,7 +165,7 @@ class TestTheClubsContacts:
             "email": "ida@example.com",
             "telefon": "+4917010000001",
             # A seat the applicant's form would store, so the step-up alone refuses.
-            "einwilligung": {"umfang": "kontaktdaten", "datum": "2026-03-01"},
+            "einwilligung": {"scope": "kontaktdaten", "date": "2026-03-01"},
         }
 
         async def body(database: AsyncDatabase, http: AsyncClient) -> tuple[bool, Any]:
@@ -182,7 +182,7 @@ class TestTheClubsContacts:
         confirmed = kontaktperson_document(
             "Ida",
             confirmed_at="2026-03-02",
-            einwilligung={"datum": "2026-03-01"},
+            einwilligung={"date": "2026-03-01"},
             nachname="Musterfrau",
             email="ida@example.com",
             telefon="+4917010000001",
@@ -234,7 +234,7 @@ def a_referee(*, confirmed: bool = False, retired: bool = False) -> dict[str, An
         **(
             {
                 "einwilligung": own_einwilligung_document(
-                    text_versions=SCHIEDSRICHTER_TEXT_VERSIONS, confirmed_at="2026-03-21", umfang="intern"
+                    text_versions=SCHIEDSRICHTER_TEXT_VERSIONS, confirmed_at="2026-03-21", scope="intern"
                 ),
                 "geburtsdatum": "1984-05-09",
             }
@@ -284,7 +284,7 @@ class TestTheRefereesSave:
 
         async def body(database: AsyncDatabase, http: AsyncClient) -> tuple[bool, Any]:
             response = await http.post(
-                f"/api/v{API_VERSION}/address_change", headers=OLDER, json={"adresse": REFEREE_EMAIL, "email": MOVED_EMAIL, "grund": None}
+                f"/api/v{API_VERSION}/address_change", headers=OLDER, json={"address": REFEREE_EMAIL, "email": MOVED_EMAIL, "grund": None}
             )
             stored = await database[Collection.SCHIEDSRICHTER].find_one({"_id": SCHIEDSRICHTER_ID})
             return refused(response), stored and (stored["kontakt"]["email"], await database[Collection.ADDRESS_CHANGES].count_documents({}))
@@ -332,7 +332,7 @@ ERASED_ADMINISTRATOR = "zugang.anfrage@example.com"
 async def an_administrators_grant(database: AsyncDatabase) -> None:
     await database[Collection.GRANTS].insert_one(
         {
-            "adresse": ERASED_ADMINISTRATOR,
+            "address": ERASED_ADMINISTRATOR,
             "admin_tier": "administration",
             "granted_by": "PLAYGROUND",
             "granted_at": datetime(2026, 1, 1, tzinfo=UTC),
@@ -357,7 +357,7 @@ class TestAnErasureOnRequestEndingAGrant:
             response = await http.post(self.URL, headers=OLDER, json=an_erasure_of(ERASED_ADMINISTRATOR))
             return (
                 refused(response),
-                await database[Collection.GRANTS].count_documents({"adresse": ERASED_ADMINISTRATOR}),
+                await database[Collection.GRANTS].count_documents({"address": ERASED_ADMINISTRATOR}),
                 await database[Collection.ACTION_LOG].count_documents({}) - logged,
             )
 

@@ -24,7 +24,7 @@ type SubjectRecords = {
   // carries it set, so only a caller of the lookup itself ever reads it `true`.
   readonly barred: boolean;
   // The grant the address holds, stored and never derived: whether it may act as an administrator is
-  // `SubjectSession["admin"]`, which the session's factor and window narrow further.
+  // `SubjectSession["isAdmin"]`, which the session's factor and window narrow further.
   readonly admin_tier: FLSubjectResponse["admin_tier"];
   // When that grant took effect, which the same verdict holds the session's own making against.
   readonly granted_since: FLSubjectResponse["granted_since"];
@@ -33,10 +33,10 @@ type SubjectRecords = {
 };
 
 /**
- * `admin` is the administrator's whole verdict (`fl_frontend/src/core/auth/guards.ts :: isAdminSession`),
+ * `isAdmin` is the administrator's whole verdict (`fl_frontend/src/core/auth/guards.ts :: isAdminSession`),
  * so a control gated on it admits exactly the sessions the administrator's own lane admits.
  */
-export type SubjectSession = { readonly email: string; readonly admin: boolean; readonly subject: SubjectRecords };
+export type SubjectSession = { readonly email: string; readonly isAdmin: boolean; readonly records: SubjectRecords };
 
 // React's `cache`, never `"use cache"`, which would hand one request's session to another: a layout,
 // a guard and a page of one render pass share one session read, one lookup and one actor.
@@ -55,11 +55,11 @@ const judgeSubjectSession = cache(async (): Promise<{ subject: SubjectSession; a
   if (email === "") return null;
 
   // The records and the two flags, never the parsed body (`fl_frontend/src/core/signInGate.ts :: lookUpSubject`).
-  const subject = await lookUpSubject(email);
+  const records = await lookUpSubject(email);
 
   // On every request rather than only at the ban: a session minted racing the ban, or one its ending
   // missed, is no session here.
-  if (subject.barred) return null;
+  if (records.barred) return null;
 
   // Built here rather than at the write: a person's route refuses a request naming no session
   // (`fl_backend/app/api/sperrliste/guard.py :: person_actor_binder`).
@@ -67,7 +67,7 @@ const judgeSubjectSession = cache(async (): Promise<{ subject: SubjectSession; a
   if (actor === null) return null;
 
   // Off the lookup this guard already made, so the verdict costs no second read.
-  return { subject: { email: email, admin: isAdminSession(served, subject), subject: subject }, actor: actor };
+  return { subject: { email: email, isAdmin: isAdminSession(served, records), records }, actor: actor };
 });
 
 /**

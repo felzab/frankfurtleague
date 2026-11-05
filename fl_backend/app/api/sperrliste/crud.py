@@ -13,7 +13,7 @@ from pymongo import DESCENDING
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.sperrliste.services import stored_adresse_hash
+from app.api.sperrliste.services import stored_address_hash
 from app.core.crud import aggregate_many_from_db, pull_many_from_db
 from app.core.readonly import ReadCollection
 
@@ -66,14 +66,14 @@ async def read_sperrliste_page(
 async def address_is_gesperrt(
     *,
     ban_list_collection: ReadCollection,
-    adresse_hash: str,
+    address_hash: str,
     # May be read before the caller's transaction, every rollover erasing what it lapses in the one
     # moving the season: an older reference matches as a sequential
     # order would. Never for a ban's bound, written from it.
     governing_saison_id: str | None,
     session: AsyncClientSession | None = None,
 ) -> bool:
-    """Whether a ban on this hash still stands, `uniq_sperrliste_adresse_hash` serving the equality half.
+    """Whether a ban on this hash still stands, `uniq_ban_list_address_hash` serving the equality half.
 
     The bound is compared rather than assumed gone: the write that moves the season read here is the
     one that removes what it lapsed.
@@ -83,7 +83,7 @@ async def address_is_gesperrt(
     # must carry no part of a ban past the lane that may read it.
     found = await pull_many_from_db(
         collection=ban_list_collection,
-        db_filter={"adresse_hash": adresse_hash, **_standing(governing_saison_id)},
+        db_filter={"address_hash": address_hash, **_standing(governing_saison_id)},
         limit=1,
         projection=["_id"],
         session=session,
@@ -95,7 +95,7 @@ async def address_is_gesperrt(
 async def gesperrte_hashes(
     *,
     ban_list_collection: ReadCollection,
-    adresse_hashes: Iterable[str],
+    address_hashes: Iterable[str],
     governing_saison_id: str | None,
     session: AsyncClientSession | None = None,
 ) -> set[str]:
@@ -105,23 +105,23 @@ async def gesperrte_hashes(
     sized on.
     """
 
-    asked = sorted(set(adresse_hashes))
+    asked = sorted(set(address_hashes))
     if not asked:
         return set()
 
     found = await pull_many_from_db(
         collection=ban_list_collection,
-        db_filter={"adresse_hash": {"$in": asked}, **_standing(governing_saison_id)},
+        db_filter={"address_hash": {"$in": asked}, **_standing(governing_saison_id)},
         limit=len(asked),
-        projection=["adresse_hash"],
+        projection=["address_hash"],
         session=session,
     )
 
-    return {str(row["adresse_hash"]) for row in found}
+    return {str(row["address_hash"]) for row in found}
 
 
-async def gesperrte_adressen(
-    adressen: Iterable[str],
+async def read_barred_addresses(
+    addresses: Iterable[str],
     *,
     ban_list_collection: ReadCollection,
     key: SecretStr,
@@ -131,18 +131,18 @@ async def gesperrte_adressen(
     """Which of these stored addresses a standing ban holds, in `gesperrte_hashes`' one read.
 
     One today's rule refuses is barred by none, as no ban can key it
-    (`app/api/sperrliste/services.py :: stored_adresse_hash`).
+    (`app/api/sperrliste/services.py :: stored_address_hash`).
     """
 
-    hashes = {adresse: hashed for adresse in set(adressen) if (hashed := stored_adresse_hash(adresse, key=key)) is not None}
+    hashes = {address: hashed for address in set(addresses) if (hashed := stored_address_hash(address, key=key)) is not None}
     barred = await gesperrte_hashes(
         ban_list_collection=ban_list_collection,
-        adresse_hashes=hashes.values(),
+        address_hashes=hashes.values(),
         governing_saison_id=governing_saison_id,
         session=session,
     )
 
-    return {adresse for adresse, hashed in hashes.items() if hashed in barred}
+    return {address for address, hashed in hashes.items() if hashed in barred}
 
 
 def _standing(governing_saison_id: str | None) -> Mapping[str, Any]:

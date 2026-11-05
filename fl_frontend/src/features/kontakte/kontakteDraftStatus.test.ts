@@ -15,7 +15,7 @@ const person = (overrides: Partial<KontaktpersonDraft> = {}): KontaktpersonDraft
   email: "erika@beispiel.de",
   telefon: "069 1234567",
   geburtsdatum: "1990-01-01",
-  einwilligung: kenntnisnahme({ datum: "2025-09-01", confirmed_at: "2025-09-02" }),
+  einwilligung: kenntnisnahme({ date: "2025-09-01", confirmed_at: "2025-09-02" }),
   ...overrides,
 });
 
@@ -141,10 +141,10 @@ describe("deriveKontakteDraftStatus", () => {
       draft: block({
         trainer: person({
           // As the editor opens a seat: nobody has seated its person yet.
-          einwilligung: kenntnisnahme({ datum: "", confirmed_at: null, entered_by: null }),
+          einwilligung: kenntnisnahme({ date: "", confirmed_at: null, entered_by: null }),
         }),
       }),
-      fieldErrors: { "kontakte.trainer.einwilligung.datum": "Bitte gib an, wann die Kenntnisnahme erfasst wurde." },
+      fieldErrors: { "kontakte.trainer.einwilligung.date": "Bitte gib an, wann die Kenntnisnahme erfasst wurde." },
     });
 
     const row = status.byPath.get("kontakte.trainer.einwilligung");
@@ -225,7 +225,7 @@ const candidatePaths = (rolle: KontaktRolle): string[] => [
   `kontakte.${rolle}.telefon`,
   `kontakte.${rolle}.geburtsdatum`,
   `kontakte.${rolle}.einwilligung`,
-  `kontakte.${rolle}.einwilligung.datum`,
+  `kontakte.${rolle}.einwilligung.date`,
 ];
 
 /** The paths whose message a row of the change list actually picks up. */
@@ -250,7 +250,7 @@ describe("kontaktSeatPaths", () => {
     expect([...kontaktSeatPaths("trainer")].sort()).toStrictEqual([
       "kontakte.trainer",
       "kontakte.trainer.einwilligung",
-      "kontakte.trainer.einwilligung.datum",
+      "kontakte.trainer.einwilligung.date",
       "kontakte.trainer.email",
       "kontakte.trainer.nachname",
       "kontakte.trainer.telefon",

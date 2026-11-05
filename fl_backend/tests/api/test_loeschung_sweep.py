@@ -373,7 +373,7 @@ async def one_address_in_four_roles(database: AsyncDatabase) -> None:
     await database[Collection.GRANTS].insert_one(
         {
             "_id": GRANT,
-            "adresse": ADDRESS,
+            "address": ADDRESS,
             "admin_tier": "administration",
             "granted_by": "PLAYGROUND",
             "granted_at": datetime(2026, 1, 1, tzinfo=UTC),
@@ -551,7 +551,7 @@ async def a_running_season_open_to_its_team(database: AsyncDatabase) -> None:
             "token_hashes": [hash_token(EINLADUNG_TOKEN)],
             "created_at": "2026-03-15",
             "created_by": "admin@frankfurtleague.de",
-            "widerrufen_am": None,
+            "revoked_at": None,
         }
     )
 

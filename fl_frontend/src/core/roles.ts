@@ -50,7 +50,7 @@ export function isSeatAt(role: Role, teamId: string, saisonId: string): role is 
  * "confirmed" for the two tiers to part on.
  */
 export function rolesOf(subject: SubjectSession): { roles: Role[]; unconfirmed: boolean } {
-  const { seats, spieler, schiedsrichter, unconfirmed } = subject.subject;
+  const { seats, spieler, schiedsrichter, unconfirmed } = subject.records;
 
   const roles: Role[] = [
     // Per seat and never per team: one junction row seats one person twice where the trainer is also
@@ -68,7 +68,7 @@ export function rolesOf(subject: SubjectSession): { roles: Role[]; unconfirmed: 
     // Neither row is season-scoped, so neither is narrowed.
     ...spieler.map((row): SpielerRole => ({ art: "spieler", spieler_id: row.spieler_id })),
     ...schiedsrichter.map((row): SchiedsrichterRole => ({ art: "schiedsrichter", schiedsrichter_id: row.schiedsrichter_id })),
-    ...(subject.admin ? [{ art: "administration" } satisfies AdministrationRole] : []),
+    ...(subject.isAdmin ? [{ art: "administration" } satisfies AdministrationRole] : []),
   ];
 
   return { roles: roles, unconfirmed: unconfirmed };

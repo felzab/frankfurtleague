@@ -32,7 +32,7 @@ export async function enrolmentSignIn(email: string): Promise<SignInRecords> {
 }
 
 /** The records where an unread read offers nothing: `null` where the backend could not say. */
-export async function subjectOrNull(email: string): Promise<SubjectSession["subject"] | null> {
+export async function subjectOrNull(email: string): Promise<SubjectSession["records"] | null> {
   try {
     return await lookUpSubject(asSignInIdentifier(email));
   } catch (failed) {

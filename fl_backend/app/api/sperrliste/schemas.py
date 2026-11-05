@@ -43,7 +43,7 @@ class FLSperrlisteEintrag(BaseModel):
 class FLSperrlisteEintragRecord(FLSperrlisteEintrag):
     """One ban as `sperrliste` stores it: the lookup key and the version of the key it was taken under."""
 
-    adresse_hash: str
+    address_hash: str
     key_version: str
 
 

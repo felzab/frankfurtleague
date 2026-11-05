@@ -73,7 +73,7 @@ const kontaktperson = (vorname: string): FLKontaktperson => ({
   email: `${vorname.toLowerCase()}@beispiel.de`,
   telefon: "069 1234567",
   geburtsdatum: "1990-01-01",
-  einwilligung: kenntnisnahme({ datum: "2025-09-01", confirmed_at: "2025-09-02" }),
+  einwilligung: kenntnisnahme({ date: "2025-09-01", confirmed_at: "2025-09-02" }),
 });
 
 const club = (kontakte: FLSaisonTeamKontakte | null): FLTeamWithMemberships => ({

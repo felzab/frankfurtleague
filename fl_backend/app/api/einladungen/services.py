@@ -89,7 +89,7 @@ def registrierungsfenster_laeuft(*, registrierung: Any, today: str) -> bool:
 # The partial filter `uniq_invitation_live` is built on, spelled as it is: the equality with `None`
 # does not imply it, so a read spelled that way scans every invite. The record model requires the key
 # (`app/api/einladungen/schemas.py :: FLEinladungRecord`), so the two select the same rows.
-LIVE_EINLADUNG: Mapping[str, Any] = {"widerrufen_am": {"$type": "null"}}
+LIVE_EINLADUNG: Mapping[str, Any] = {"revoked_at": {"$type": "null"}}
 
 
 def build_live_team_filter(*, saison_id: str, team_id: Any) -> Mapping[str, Any]:
@@ -117,14 +117,14 @@ def compose_einladung(*, saison_id: str, team_id: Any, token_hashes: list[str], 
         "token_hashes": token_hashes,
         "created_at": today,
         "created_by": created_by,
-        "widerrufen_am": None,
+        "revoked_at": None,
     }
 
 
-def compose_widerruf_update(*, today: str) -> Mapping[str, Any]:
+def compose_revocation_update(*, today: str) -> Mapping[str, Any]:
     """What revoking writes. The row stays: a reissue's history is what says which link a bounce was about."""
 
-    return {"$set": {"widerrufen_am": today}}
+    return {"$set": {"revoked_at": today}}
 
 
 def einladung_ist_versendet(*, lage: FLOutboxStatus | None) -> bool:
@@ -186,7 +186,7 @@ def plan_einladung_versand(
     """Who this team's link goes to, or why it is skipped. The preview and the press both read it.
 
     `versendet` is `einladung_ist_versendet` of the team's live invite. `barred` holds the stored addresses a standing ban
-    holds, as `app/api/sperrliste/lookup.py :: adressen_gesperrt` answers them.
+    holds, as `app/api/sperrliste/lookup.py :: barred_addresses` answers them.
     """
 
     # The record's PRESENCE, never its `type` and never a flag beside it: a team is out of the
