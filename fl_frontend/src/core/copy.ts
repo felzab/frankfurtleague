@@ -671,7 +671,7 @@ export const COPY = catalogue({
 
     schiedsrichter: {
       search: "Schiedsrichter suchen",
-      /** The chip after the name of a referee who has not confirmed their entry. */
+      /** A referee who has not confirmed their entry: the chip after the name, and the note on the match editor's closed choice. */
       unconfirmed: "Unbestätigt",
       /** The editor's sections beyond the record's own name: how to reach the person, and what became of their link. */
       kontaktdaten: "Kontaktdaten",
@@ -858,11 +858,9 @@ export const COPY = catalogue({
       /** Why a club cannot take a side: it stands on another match of the matchday, or has left the season. */
       onSpieltag: "Spielt schon an diesem Spieltag",
       departed: "Aus der Saison ausgeschieden",
-      /** A referee who has not confirmed their entry, whom no match can be booked onto yet. */
-      unconfirmed: "Noch nicht bestätigt",
       elfmeterschiessen: "Elfmeterschießen",
       /** Level knockout goals saved without a shoot-out leave the match undecided, and the bracket after it. */
-      shootOutMissing: "Ohne Elfmeterschießen wartet der K.-o.-Baum.",
+      shootOutMissing: "Ohne Elfmeterschießen steht kein Sieger fest.",
       /** An event after which the match carries no result, chosen over a stored one. */
       resultDropped: (score: Copy) => `Ergebnis ${score} wird verworfen`,
       /** The referee's proposal, which „Übernehmen“ carries into the fields: „Laut Spielbericht 3:1“. */

@@ -227,6 +227,8 @@ const STALE: ReadonlySet<Code> = new Set<Code>([
   "schiedsrichter_retired",
   "confirmation_exists",
   "schiedsrichter_no_address",
+  // A referee who has not confirmed, whom the match editor offers only as a closed choice.
+  "booking_unconfirmed_schiedsrichter",
 ]);
 
 /** The admin guard's refusals, each in the words of what repairs it. */

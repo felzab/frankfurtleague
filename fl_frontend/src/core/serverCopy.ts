@@ -28,7 +28,7 @@ const spieleNamed = (nrs: readonly number[]) => `Spiel ${formatList(nrs.map(form
 // path it names, the adoption, which names none, by a code of its own per resource and side.
 const DOUBLE_BOOKED = {
   ort: "Der Spielort ist zu dieser Zeit schon belegt.",
-  schiedsrichter: "Die eingeteilte Person pfeift zu dieser Zeit schon ein anderes Spiel.",
+  schiedsrichter: "Die eingeteilte Person pfeift zu dieser Zeit schon.",
 };
 const DISQUALIFIED = {
   team1: `${team1} ist aus der Saison ausgeschieden.`,
@@ -98,11 +98,14 @@ export const SERVER_COPY = catalogue({
     saison_past: "Diese Saison ist abgeschlossen.",
     spiel_outside_spieltag: "Dieses Datum liegt außerhalb des Spieltags.",
     state_nichtantreten_without_two_sides: "Beide Teams stehen noch nicht fest.",
+    /**
+     * A retired venue or referee a fixture keeps where its save reopens it, which the editor shows marked: a deleted one
+     * is a page read before the deletion, which the same sentence sends to the same box.
+     */
     booking_unknown_resource: {
-      ort: "Der Spielort ist stillgelegt oder gelöscht.",
-      schiedsrichter: "Die eingeteilte Person ist stillgelegt oder gelöscht.",
+      ort: "Der Spielort ist stillgelegt.",
+      schiedsrichter: "Die eingeteilte Person ist stillgelegt.",
     },
-    booking_unconfirmed_schiedsrichter: "Die eingeteilte Person hat ihren Eintrag noch nicht bestätigt.",
     spiel_double_booked: DOUBLE_BOOKED,
     spiel_double_booked_spielort_as_stored: DOUBLE_BOOKED.ort,
     spiel_double_booked_schiedsrichter_as_stored: DOUBLE_BOOKED.schiedsrichter,
@@ -151,7 +154,7 @@ export const SERVER_COPY = catalogue({
      * A save after which the bracket would field one club in two matches of one matchday, a club picked by hand
      * standing where the bracket's own wiring leads it too: the same save answers the same, the page being current.
      */
-    spieltag_occupied_by_the_resolution: "Der K.-o.-Baum würde ein Team zweimal an diesem Spieltag aufstellen.",
+    spieltag_occupied_by_the_resolution: "Ein Team spielt dann zweimal an diesem Spieltag.",
     /**
      * A fixture's save, the match editor's or „Übernehmen“'s, that would delete a later result it was not confirmed
      * to delete, one entered or changed since the question was asked among them: the match editor asks again.
@@ -159,7 +162,7 @@ export const SERVER_COPY = catalogue({
     voided_results_stale: COPY.admin.overview.voidsLater,
     /** A matchday's dates: past its season's, short of one of its dated matches, or out of its phase's order of matchdays. */
     spieltag_outside_saison: "Dieser Zeitraum liegt außerhalb der Saison.",
-    spieltag_span_below_spiele: "Ein Spiel des Spieltags liegt außerhalb dieses Zeitraums.",
+    spieltag_span_below_spiele: "Ein Spiel liegt außerhalb dieses Zeitraums.",
     spieltag_beginn_out_of_order: "Der Beginn passt nicht in die Reihenfolge der Spieltage.",
   } satisfies Partial<Record<Code, string | Readonly<Record<string, string>> | ((context: FLRefusedField["ctx"]) => string | undefined)>>,
 

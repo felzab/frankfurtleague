@@ -272,7 +272,7 @@ async function readEditor(params: Props["params"]) {
             ? { id: person.id, label: { record: person.name }, isDisabled: true, note: COPY.shared.retired }
             : person.confirmed
               ? { id: person.id, label: { record: person.name } }
-              : { id: person.id, label: { record: person.name }, isDisabled: true, note: WORDS.unconfirmed },
+              : { id: person.id, label: { record: person.name }, isDisabled: true, note: COPY.admin.schiedsrichter.unconfirmed },
         price: person.default_payment,
       }))}
       sonderereignisse={sonderereignisse}
