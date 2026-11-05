@@ -1,5 +1,6 @@
 import { AccountPage } from "@/kit/AccountPage";
 
+import { requires } from "@/core/action";
 import { passkeysOf } from "@/core/auth/passkeys";
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
@@ -48,7 +49,7 @@ async function SignInContent() {
       pending={change.open === null ? null : pendingOf(change.open)}
       held={held}
       lastOwner={lastOwner ? SERVER_COPY.refusalLine.last_owner_erasure : undefined}
-      addressRequired={!SignInPayloadSchema.shape.email.safeParse("").success}
+      addressRequired={requires(SignInPayloadSchema.shape.email, "")}
     />
   );
 }

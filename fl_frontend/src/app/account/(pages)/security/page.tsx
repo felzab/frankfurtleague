@@ -1,5 +1,6 @@
 import { AccountPage } from "@/kit/AccountPage";
 
+import { requires } from "@/core/action";
 import { PASSKEY_LIMIT } from "@/core/auth/enrolment";
 import { isFreshForEnrolment, PASSKEY_FACTOR } from "@/core/auth/sessionStamps";
 import { COPY } from "@/core/copy";
@@ -46,7 +47,7 @@ async function SecurityContent() {
       // An administrator's last passkey is their only way into the administration, which the removal refuses.
       lastKept={served.isAdmin && stand.rows.length === 1 ? COPY.account.passkeys.lastKept : undefined}
       devices={COPY.account.devices.description(devices)}
-      name={{ required: !PasskeyNameSchema.safeParse("").success, max: PASSKEY_NAME_MAX }}
+      name={{ required: requires(PasskeyNameSchema, ""), max: PASSKEY_NAME_MAX }}
     />
   );
 }
