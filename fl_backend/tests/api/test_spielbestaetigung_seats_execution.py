@@ -3,7 +3,7 @@ API · every write moving a season seat's holder voids that seat's links on its 
 
 Each writer of an existing season row's seats is driven against the shipped indexes, and straight after it commits,
 with no sweep run, each link is opened through the link's own view (`app/api/spielbestaetigungen/public_router.py ::
-get_spielbestaetigung_ansicht`): a link it refuses with `link_ungueltig` is voided. A contact's erasure and their
+get_spielbestaetigung_view`): a link it refuses with `link_ungueltig` is voided. A contact's erasure and their
 Widerspruch also take every reason they typed, matched on the holder each answer stored.
 """
 

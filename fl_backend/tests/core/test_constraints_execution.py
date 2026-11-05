@@ -587,7 +587,7 @@ def test_only_an_open_confirmation_meets_the_rule(mongo_url: str):
 
 
 def _raised(failure: RuntimeError, named: str) -> str:
-    """The refusal names what it was building and carries the driver's, which `app/core/constraints.py :: _run` diagnoses."""
+    """The refusal names what it was building and carries the driver's, as `app/core/constraints.py :: _apply_unique_index` raises it."""
 
     if named not in str(failure):
         return f"raised the wrong thing: {failure}"
@@ -699,7 +699,7 @@ ACTION_LOG_QUEUE_FILTERS: list[dict[str, Any]] = [
 TALLY_TRACE_ID = "0123456789abcdef0123456789abcdef"
 
 # Every shape the tally's own `$match` can hold, the facet terms reaching the read alone
-# (`app/api/aktionen/admin_router.py :: get_aktionen`). All four, because the planner is asked afresh
+# (`app/api/aktionen/admin_router.py :: get_action_log`). All four, because the planner is asked afresh
 # for each.
 ACTION_LOG_TALLY_FILTERS: list[dict[str, Any]] = [
     {},

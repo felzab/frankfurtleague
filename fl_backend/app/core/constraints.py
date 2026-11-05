@@ -153,7 +153,7 @@ class SupportIndex:
 SUPPORT_INDEXES: Sequence[SupportIndex] = (
     # `_id` is in the key because the read SORTS by it: with `at` alone MongoDB cannot walk this
     # index and scans the whole log instead -- measured, and the log holds twelve months of writes
-    # (`app/api/aktionen/admin_router.py :: get_aktionen`).
+    # (`app/api/aktionen/admin_router.py :: get_action_log`).
     SupportIndex(
         Collection.ACTION_LOG,
         "action_log_queue",

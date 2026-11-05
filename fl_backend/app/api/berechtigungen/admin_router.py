@@ -290,7 +290,7 @@ async def post_grant(
 
     address = sign_in_identifier(str(berechtigung_data.email))
     actor = sign_in_identifier(granted_by)
-    # Keyed from the payload's own value, as the ban write keys it (`app/api/identity/system_router.py :: get_subjekt`).
+    # Keyed from the payload's own value, as the ban write keys it (`app/api/identity/system_router.py :: get_subject`).
     hashed = ban_list.hash_of(str(berechtigung_data.email))
 
     async def judge_and_grant(session: AsyncClientSession) -> tuple[ObjectId, bool]:

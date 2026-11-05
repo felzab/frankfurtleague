@@ -136,7 +136,7 @@ SEEDED_ROLES: dict[ObjectId, tuple[tuple[str, str, str], str | None]] = {
 
 
 def person(nachname: str, telefon: str) -> dict[str, Any]:
-    """Every field `app/core/constraints.py :: _KONTAKTPERSON` requires, all six of them present."""
+    """Every field `app/api/teams/schemas.py :: FLKontaktperson` requires, all six of them present."""
 
     email, _, _ = PEOPLE[nachname]
 

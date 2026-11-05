@@ -34,7 +34,7 @@ router = APIRouter(
 )
 
 
-# `/account/einwilligung`, its own segment, for `app/api/teams/person_router.py :: get_team_sitze`'s reason.
+# `/account/einwilligung`, its own segment, for `app/api/teams/person_router.py :: get_team_seats`'s reason.
 @router.patch(
     "/{bewerbung_id:objectid}/account/einwilligung",
     status_code=status.HTTP_204_NO_CONTENT,

@@ -108,7 +108,7 @@ STAMP = "2026-01-20"
 
 
 def _person(email: str, *, confirmed_at: str | None = STAMP) -> dict[str, Any]:
-    """Every field `app/core/constraints.py :: _KONTAKTPERSON` requires, the address and the stamp the only ones a case reads.
+    """Every field `app/api/teams/schemas.py :: FLKontaktperson` requires, the address and the stamp the only ones a case reads.
 
     Stamped by default: the lookup answers a seat only once its own person has confirmed it.
     """
