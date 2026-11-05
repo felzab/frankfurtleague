@@ -222,6 +222,8 @@ describe("an editor's refused save", () => {
 
     act(() => result.current.set("plz", "60439"));
     expect(result.current.status).toStrictEqual({ tone: "changes", text: COPY.template.changesPending(1) });
+    // Gone with the edit: a box posting no form value, such as the toggle boxes, clears its message by this alone.
+    expect(result.current.fieldErrors).toBeUndefined();
   });
 
   it("shows a refusal's own reason", async () => {
