@@ -13,6 +13,7 @@ import { userEvent } from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy.ts";
+import { ROUTES } from "@/core/routes.ts";
 
 import type { Copy } from "@/core/copy.ts";
 import type { ComponentType } from "react";
@@ -102,9 +103,15 @@ describe.each(BOUNDARIES)("the error boundary $shown", ({ file, shown }) => {
 /* The labels a status card's one way on takes, each leading home in its frame: the start page, an area's root. */
 const WAYS_ON: readonly string[] = Object.values(COPY.shared.end).filter((entry): entry is Copy => typeof entry === "string");
 
+/* Where each frame's way home leads: the administration's root under its segment, the start page everywhere else. A
+   boundary under a frame this map does not name fails below until it is given its root. */
+const HOME: ReadonlyArray<{ under: string; home: string }> = [{ under: "admin/", home: ROUTES.admin.path() }];
+const homeOf = (shown: string) => HOME.find(({ under }) => shown.startsWith(under))?.home ?? ROUTES.home.path();
+
 /* A boundary on the status card: its one act is the way on its frame names, never a retry. */
 describe.each(LINKING)("the error boundary $shown", ({ file, shown }) => {
-  it("leads on by one link as its one act", async () => {
+  // The harm: a boundary whose one way on leads somewhere other than its frame's home, its label still right.
+  it("leads on by one link to its frame's home as its one act", async () => {
     const Boundary = await boundaryOf(file);
 
     render(underNext(h(Boundary, { error: new Error("gepflanzt"), retry: () => undefined }), ROUTED));
@@ -112,6 +119,7 @@ describe.each(LINKING)("the error boundary $shown", ({ file, shown }) => {
     // Among the frame's own links, such as the logo's, the card's is the one a way on names.
     const waysOn = screen.getAllByRole("link").filter((link) => WAYS_ON.includes(link.textContent ?? ""));
     expect(waysOn, `${shown}: its ways on`).toHaveLength(1);
+    expect(waysOn[0]?.getAttribute("href"), `${shown}: where its way on leads`).toBe(homeOf(shown));
     expect(screen.queryByRole("button"), `${shown}: offers a retry beside its link`).toBeNull();
   });
 });

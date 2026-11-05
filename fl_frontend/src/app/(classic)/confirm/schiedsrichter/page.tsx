@@ -1,12 +1,13 @@
 import { MAILED_PAGE_METADATA, MailedPage, TO_ACCOUNT } from "@/kit/MailedPage";
 
+import { requires } from "@/core/action";
+import { now } from "@/core/clock";
 import { COPY } from "@/core/copy";
 import { APIBadStatusError } from "@/core/errors";
-import { dayOf } from "@/core/format";
+import { bornAfter, bornBy, dayIn, dayOf } from "@/core/format";
 import { schiedsrichterGetConfirmationView } from "@/core/generated/client/sdk";
 import { SchiedsrichterPostConfirmationBody } from "@/core/generated/zod/inputs";
 import { ROUTES } from "@/core/routes";
-import { bornAfter, bornBy } from "@/core/ruleMessage";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { runWithIncomingTrace } from "@/core/traceScope";
 import { pageMetadata } from "@/shared/utils/metadata";
@@ -17,14 +18,15 @@ import { END, TO_HOME } from "./ends";
 
 import type { FLSchiedsrichterConfirmationViewResponse } from "@/core/generated/client/types";
 import type { MailedState } from "@/kit/MailedPage";
-import type { NextPageProps } from "@/shared/types/types";
 import type { Metadata, ResolvingMetadata } from "next";
 
-/** A row no crawler fetches, and no referrer: the URL carries the link's token, which stays in this address (D569). */
+/** A row no crawler fetches, and no referrer: the URL carries the link's token, which stays in this address. */
 export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
   const row = ROUTES.schiedsrichterConfirmation;
   return { ...(await pageMetadata(parent, row, row.path())), ...MAILED_PAGE_METADATA };
 }
+
+type Props = PageProps<"/confirm/schiedsrichter">;
 
 const WORDS = SERVER_COPY.schiedsrichterConfirmation;
 
@@ -32,8 +34,8 @@ const INVALID: MailedState = { state: "ungueltig", next: TO_HOME };
 
 const { shape } = SchiedsrichterPostConfirmationBody;
 
-/** An answer is required where the confirmation's write takes no `null` for it, as its generated type says. */
-const REQUIRED = { geburtsdatum: !shape.geburtsdatum.safeParse(null).success, scope: !shape.scope.safeParse(null).success };
+/** What the confirmation's write asks of the two answers, a day and a choice that post nothing while unanswered. */
+const REQUIRED = { geburtsdatum: requires(shape.geburtsdatum, null), scope: requires(shape.scope, null) };
 
 /**
  * `/confirm/schiedsrichter`, the link a referee's entry mails them, on the mailed-page template: the question, with
@@ -41,7 +43,7 @@ const REQUIRED = { geburtsdatum: !shape.geburtsdatum.safeParse(null).success, sc
  * person did and on which day; and the link no longer valid, an expired, mistyped or tampered link and a barred
  * address alike.
  */
-export default function SchiedsrichterConfirmationPage({ searchParams }: NextPageProps) {
+export default function SchiedsrichterConfirmationPage({ searchParams }: Props) {
   return <MailedPage page={readState(searchParams)} />;
 }
 
@@ -69,7 +71,7 @@ function alreadyDone(view: FLSchiedsrichterConfirmationViewResponse, kind: "conf
     : { state: "alreadyDone", title: COPY.shared.end.doneOn(title, day), next: TO_HOME, declined: true };
 }
 
-async function readState(searchParams: NextPageProps["searchParams"]): Promise<MailedState> {
+async function readState(searchParams: Props["searchParams"]): Promise<MailedState> {
   const { token } = await searchParams;
   // A missing or repeated parameter is no link at all.
   if (typeof token !== "string" || token === "") return INVALID;
@@ -78,7 +80,7 @@ async function readState(searchParams: NextPageProps["searchParams"]): Promise<M
   if (view === null) return INVALID;
 
   switch (view.state) {
-    // The entry goes when its link lapses, so an expired one stands only until the database's monitor next runs.
+    // The entry goes when its link lapses, so an expired one stands only until the hourly pass next erases.
     case "expired":
     case "barred":
       return INVALID;
@@ -86,7 +88,9 @@ async function readState(searchParams: NextPageProps["searchParams"]): Promise<M
       return alreadyDone(view, "confirmed");
     case "declined":
       return alreadyDone(view, "objected");
-    case "valid":
+    case "valid": {
+      // Berlin's day, which the backend judges the age on.
+      const today = dayIn(now());
       return {
         state: "question",
         title: COPY.page.entryConfirmation,
@@ -97,12 +101,13 @@ async function readState(searchParams: NextPageProps["searchParams"]): Promise<M
         children: (
           <ConfirmationFields
             // The range the write judges, as the link's view serves it.
-            earliestBirth={bornAfter(view.maximum_age)}
-            latestBirth={bornBy(view.minimum_age)}
-            mediaLatestBirth={bornBy(view.media_minimum_age)}
+            earliestBirth={bornAfter(today, view.maximum_age)}
+            latestBirth={bornBy(today, view.minimum_age)}
+            mediaLatestBirth={bornBy(today, view.media_minimum_age)}
             required={REQUIRED}
           />
         ),
       };
+    }
   }
 }

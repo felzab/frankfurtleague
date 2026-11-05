@@ -93,6 +93,27 @@ type Run<Schema extends z.ZodType, Context, Value> = (input: z.output<Schema>, c
  */
 export const PAGE_HOLDER = { holder: z.string().min(1).max(KONTAKT_EMAIL_MAX_LENGTH) };
 
+/** A published rule a field's value is held to, or an action's own reading of a box over it. */
+type Rule = { readonly safeParse: (value: unknown) => { readonly success: boolean } };
+
+/**
+ * Whether a write requires a field, which its box's asterisk says: whether its rule refuses what the box sends while
+ * empty, `""` for a text box passed on as typed, `null` for a figure, a day or a box read as no value
+ * (`numberBox`, `blankIsNull`), `[]` for a choice of several with none picked. Read on the server, so the schema
+ * never reaches the browser.
+ */
+export const requires = (rule: Rule, empty: "" | null | readonly []): boolean => !rule.safeParse(empty).success;
+
+/**
+ * A digit box's text held to its rule as a number: an empty box no value, digits alone their figure, anything else the
+ * text as typed, which the rule refuses in its own words.
+ */
+export const numberBox = <Figure extends z.ZodType>(rule: Figure) =>
+  z.preprocess((value) => (value === "" ? null : typeof value === "string" && /^\d+$/.test(value) ? Number(value) : value), rule);
+
+/** A text box whose emptiness is no value, held to its rule: an empty box `null`, anything else as typed. */
+export const blankIsNull = <Text extends z.ZodType>(rule: Text) => z.preprocess((value) => (value === "" ? null : value), rule);
+
 /** Declarable only over an input carrying `PAGE_HOLDER`, so no such act is posted without it. */
 type Held<Schema extends z.ZodType> = z.output<Schema> extends { readonly holder: string } ? unknown : never;
 
@@ -183,6 +204,11 @@ const STALE: ReadonlySet<Code> = new Set<Code>([
   "replace_incoming_already_entered",
   "replace_one_team_on_both_ends",
   "invitation_team_not_entered",
+  // A referee's fresh link, which the editor offers only to a live entry with an address and no answer yet: the
+  // referee moved since the page was served.
+  "schiedsrichter_retired",
+  "confirmation_exists",
+  "schiedsrichter_no_address",
 ]);
 
 /** The admin guard's refusals, each in the words of what repairs it. */
@@ -214,28 +240,8 @@ function stripped(value: unknown): unknown {
   return value;
 }
 
-/** One property of an input's JSON Schema, as far as its list-ness shows. */
-type Property = { readonly type?: unknown; readonly anyOf?: readonly Property[] };
-
-const takesList = ({ type, anyOf }: Property): boolean => type === "array" || (anyOf?.some(takesList) ?? false);
-
-/**
- * A posted form as an object, each box under its name, and a name the input takes as a list read with `getAll`: a
- * group of boxes posts one entry per ticked box, so one ticked box is a list of one, which only the schema can tell
- * from a single value. Read off the input's JSON Schema, the one public reading of a schema's shape, as Conform's and
- * zod-form-data's coercions read it; a name posted nowhere stays absent, as a box group with none ticked posts nothing.
- */
-function posted(raw: unknown, input: z.ZodType): unknown {
-  if (!(raw instanceof FormData)) return raw;
-  const form: Record<string, unknown> = Object.fromEntries(raw);
-  const { properties = {} } = z.toJSONSchema(input, { io: "input", unrepresentable: "any" }) as {
-    properties?: Readonly<Record<string, Property>>;
-  };
-  for (const [name, property] of Object.entries(properties)) {
-    if (takesList(property) && raw.has(name)) form[name] = raw.getAll(name);
-  }
-  return form;
-}
+/** A posted form as an object, each box under its name, a name posted twice keeping its last value. */
+const posted = (raw: unknown): unknown => (raw instanceof FormData ? Object.fromEntries(raw) : raw);
 
 /**
  * The box an issue belongs to: its path's names joined by dots, up to the first index, where a list's box holds every
@@ -261,7 +267,7 @@ function parsed<Schema extends z.ZodType>(
 ): { input: z.output<Schema> } | { answer: ActionAnswer<never> } {
   const examples: Readonly<Record<string, Copy | undefined>> = declared.examples ?? {};
   const fieldErrors: Record<string, Copy> = {};
-  const result = declared.input.safeParse(stripped(posted(raw, declared.input)), {
+  const result = declared.input.safeParse(stripped(posted(raw)), {
     error: (issue) => {
       const path = issue.path ?? [];
       const field = fieldOf(path);

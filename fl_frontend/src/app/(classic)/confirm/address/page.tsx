@@ -19,7 +19,6 @@ import { doneOnEnd } from "./ends";
 import type { Copy } from "@/core/copy";
 import type { FLAddressChangeViewResponse } from "@/core/generated/client/types";
 import type { MailedState } from "@/kit/MailedPage";
-import type { NextPageProps } from "@/shared/types/types";
 import type { Metadata, ResolvingMetadata } from "next";
 import type { Side } from "./ends";
 
@@ -33,15 +32,17 @@ const WORDS = SERVER_COPY.addressChange;
 
 const INVALID: MailedState = { state: "ungueltig", next: TO_ACCOUNT };
 
+type Props = PageProps<"/confirm/address">;
+
 /**
  * `/confirm/address`, both links of an address change, the token saying which: the person's own change on the
  * mailed-page template, the address on file asked first, then the new mailbox, each confirming or declining.
  */
-export default function AddressChangeConfirmationPage({ searchParams }: NextPageProps) {
+export default function AddressChangeConfirmationPage({ searchParams }: Props) {
   return <MailedPage page={readState(searchParams)} />;
 }
 
-async function readState(searchParams: NextPageProps["searchParams"]): Promise<MailedState> {
+async function readState(searchParams: Props["searchParams"]): Promise<MailedState> {
   const { token } = await searchParams;
   // A missing or repeated parameter is no link at all.
   if (typeof token !== "string" || token === "") return INVALID;

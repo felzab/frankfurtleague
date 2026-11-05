@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 
-import { action } from "@/core/action";
+import { action, numberBox } from "@/core/action";
 import { COPY } from "@/core/copy";
 import { spielortePatchSpielort } from "@/core/generated/client/sdk";
 import { SpielortePatchSpielortBody, SpielortePatchSpielortParams } from "@/core/generated/zod/inputs";
@@ -14,9 +14,6 @@ import type { ActionAnswer } from "@/core/action";
 
 const { shape } = SpielortePatchSpielortBody;
 const address = shape.address.shape;
-
-// Digits alone make a price; anything else stays text, which the price's own schema refuses.
-const price = z.preprocess((value) => (typeof value === "string" && /^\d+$/.test(value) ? Number(value) : value), shape.default_mietpreis);
 
 /** What the editor's boxes send, each held to the venue write's own published rule for it. */
 const SaveSpielort = z.object({
@@ -31,7 +28,7 @@ const SaveSpielort = z.object({
       plz: address.plz,
       stadtteil: address.stadtteil,
       stadt: address.stadt,
-      mietpreis: price,
+      mietpreis: numberBox(shape.default_mietpreis),
     })
     .partial(),
 });
