@@ -10,15 +10,15 @@ from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.address_change.services import build_awaiting_approval_filter
 from app.api.berechtigungen.antraege import (
-    antrag_line,
-    antrag_steht,
+    approval_request_line,
+    approval_request_stands,
     clear_the_address_in_session,
-    compose_antrag,
-    find_antrag_verfallen_refusal,
+    compose_approval_request,
     find_approval_denied_refusal,
-    pull_the_antrag,
-    read_the_antraege,
-    remove_the_antrag_in_session,
+    find_approval_request_lapsed_refusal,
+    pull_the_approval_request,
+    read_the_approval_requests,
+    remove_the_approval_request_in_session,
     settle_the_requesters_notices_in_session,
 )
 from app.api.berechtigungen.crud import (
@@ -46,9 +46,11 @@ from app.api.berechtigungen.schemas import (
 )
 from app.api.berechtigungen.services import (
     OWNER,
+    approval_denied,
+    approver_of,
     compare,
     compose_announced,
-    compose_mitteilung,
+    compose_notice,
     find_barred_refusal,
     find_inhaber_refusal,
     find_letzter_inhaber_refusal,
@@ -56,10 +58,8 @@ from app.api.berechtigungen.services import (
     find_nur_inhaber_refusal,
     find_vorhanden_refusal,
     found_ids,
-    genehmiger_of,
-    genehmigung_verwehrt,
     holds_an_owners_power,
-    stand_of,
+    snapshot_of,
 )
 from app.api.identity.services import address_change_viewable_denied
 from app.api.outbox.schemas import FLOutboxReference
@@ -133,14 +133,16 @@ async def get_grants(
     async with db.start_session(snapshot=True) as session:
         rows = await read_berechtigungen(grants_collection=grants_collection, session=session)
         announced = await read_the_announced(grants_announced_collection=grants_announced_collection, session=session)
-        antraege = await read_the_antraege(grant_approval_requests_collection=grant_approval_requests_collection, now=now, session=session)
+        approval_requests = await read_the_approval_requests(
+            grant_approval_requests_collection=grant_approval_requests_collection, now=now, session=session
+        )
         grants = [FLBerechtigung.model_validate(row) for row in rows]
         barred = await barred_addresses(
             sperrliste,
             [grant.address for grant in grants]
             + [sign_in_identifier(grant.granted_by) for grant in grants]
-            + [str(approval_request["address"]) for approval_request in antraege]
-            + [str(approval_request["approval"]["started_by"]) for approval_request in antraege],
+            + [str(approval_request["address"]) for approval_request in approval_requests]
+            + [str(approval_request["approval"]["started_by"]) for approval_request in approval_requests],
             session=session,
         )
         wartend = {
@@ -187,8 +189,8 @@ async def get_grants(
     return FLGrantsListResponse(
         grants=served,
         approval_requests=[
-            _antrag_zeile(approval_request, actor=actor, owner=owner, grants=rows, announced=announced, barred=barred)
-            for approval_request in antraege
+            _approval_request_row(approval_request, actor=actor, owner=owner, grants=rows, announced=announced, barred=barred)
+            for approval_request in approval_requests
         ],
     )
 
@@ -204,7 +206,7 @@ def _adresswechsel_zeile(
     barred: Set[str],
 ) -> FLGrantAddressChange:
     approval, way = record["approval"], record["way"]
-    denied = genehmigung_verwehrt(target=record["address"], approval=approval, actor=actor, owner=owner, grants=grants, announced=announced)
+    denied = approval_denied(target=record["address"], approval=approval, actor=actor, owner=owner, grants=grants, announced=announced)
     # `admin_address`'s reach: the tool refuses a non-owner an owner's address, so this row tells them no more of it.
     withheld = denied == "owner"
     email = str(record["email"])
@@ -226,7 +228,7 @@ def _adresswechsel_zeile(
     )
 
 
-def _antrag_zeile(
+def _approval_request_row(
     approval_request: Mapping[str, Any],
     *,
     actor: str,
@@ -248,8 +250,8 @@ def _antrag_zeile(
         started_by_barred=by is None,
         asked_at=approval["asked_at"],
         until=approval["until"],
-        stands=antrag_steht(approval_request, grants=grants, announced=announced, barred=barred),
-        denied=genehmigung_verwehrt(target=address, approval=approval, actor=actor, owner=owner, grants=grants, announced=announced),
+        stands=approval_request_stands(approval_request, grants=grants, announced=announced, barred=barred),
+        denied=approval_denied(target=address, approval=approval, actor=actor, owner=owner, grants=grants, announced=announced),
     )
 
 
@@ -303,7 +305,7 @@ async def post_grant(
         await clear_the_address_in_session(
             grant_approval_requests_collection=grant_approval_requests_collection, address=address, now=now, session=session
         )
-        if approver := await _genehmiger(
+        if approver := await _approver(
             ADMINISTRATION,
             excepted={address, actor},
             grants=grants,
@@ -314,7 +316,7 @@ async def post_grant(
         ):
             created = await post_one_to_db(
                 collection=grant_approval_requests_collection,
-                document=compose_antrag(address=address, admin_tier=ADMINISTRATION, grant_id=None, started_by=actor, now=now),
+                document=compose_approval_request(address=address, admin_tier=ADMINISTRATION, grant_id=None, started_by=actor, now=now),
                 session=session,
             )
             await _queue_the_request(
@@ -346,9 +348,9 @@ async def post_grant(
         return created_id, False
 
     async with transaction_session(db) as session:
-        created_id, beantragt = await session.with_transaction(judge_and_grant)
+        created_id, requested = await session.with_transaction(judge_and_grant)
 
-    return FLPostGrantResponse(created_id=created_id, requested=beantragt)
+    return FLPostGrantResponse(created_id=created_id, requested=requested)
 
 
 async def _queue_the_request(
@@ -367,7 +369,7 @@ async def _queue_the_request(
 
     await owe_in_session(
         [
-            compose_mitteilung(
+            compose_notice(
                 grant_id=approval_request_id,
                 kind="requested",
                 current=FLGrantSnapshot.model_validate({"address": address, "admin_tier": admin_tier}),
@@ -387,7 +389,7 @@ async def _queue_the_request(
     )
 
 
-async def _genehmiger(
+async def _approver(
     admin_tier: str,
     *,
     excepted: Set[str],
@@ -405,7 +407,7 @@ async def _genehmiger(
     announced = await read_the_announced(grants_announced_collection=grants_announced_collection, session=session)
     barred = await barred_addresses(sperrliste, [str(row["address"]) for row in grants], session=session)
 
-    return genehmiger_of(admin_tier=admin_tier, excepted=excepted, grants=grants, announced=announced, barred=barred, before=now)
+    return approver_of(admin_tier=admin_tier, excepted=excepted, grants=grants, announced=announced, barred=barred, before=now)
 
 
 @router.delete(
@@ -520,7 +522,7 @@ async def patch_grant(
     promotion of an address on the ban list is refused (`grant_barred`), one whose request waits already
     (`grant_approval_request_open`), and a demotion leaving no live, unbarred owner (`grant_last_owner`). Naming the tier the grant
     holds changes nothing and answers 200. The change reaches the next request; its announcement is queued in the same transaction, after
-    any change to the row made in the database and not yet announced, and a grant found that way is stamped `gefunden_am` as
+    any change to the row made in the database and not yet announced, and a grant found that way is stamped `found_at` as
     `POST /grants/reconciliation` stamps one. A sign-in or confirmation older than `ENROLMENT_WINDOW_MINUTES` is refused
     `confirmation_required`, as the grant's is.
     """
@@ -555,7 +557,7 @@ async def patch_grant(
             await clear_the_address_in_session(
                 grant_approval_requests_collection=grant_approval_requests_collection, address=str(grant["address"]), now=now, session=session
             )
-            if approver := await _genehmiger(
+            if approver := await _approver(
                 OWNER,
                 excepted={str(grant["address"]), actor},
                 grants=grants,
@@ -566,7 +568,9 @@ async def patch_grant(
             ):
                 created = await post_one_to_db(
                     collection=grant_approval_requests_collection,
-                    document=compose_antrag(address=str(grant["address"]), admin_tier=OWNER, grant_id=grant_id, started_by=actor, now=now),
+                    document=compose_approval_request(
+                        address=str(grant["address"]), admin_tier=OWNER, grant_id=grant_id, started_by=actor, now=now
+                    ),
                     session=session,
                 )
                 await _queue_the_request(
@@ -611,9 +615,9 @@ async def patch_grant(
         return False
 
     async with transaction_session(db) as session:
-        beantragt = await session.with_transaction(judge_and_change)
+        requested = await session.with_transaction(judge_and_change)
 
-    return FLGrantStufeResponse(grant_id=grant_id, requested=beantragt)
+    return FLGrantStufeResponse(grant_id=grant_id, requested=requested)
 
 
 async def _move_the_tier_in_session(
@@ -646,8 +650,8 @@ async def _move_the_tier_in_session(
         update={
             "$set": {
                 "admin_tier": admin_tier,
-                **({"gefunden_am": now} if found_ids(pending) else {}),
-                **({"gesehen_am": now} if grant.get("gesehen_am") is None else {}),
+                **({"found_at": now} if found_ids(pending) else {}),
+                **({"seen_at": now} if grant.get("seen_at") is None else {}),
                 # Its owner's power dates from now, so the promoted holder's older sessions keep
                 # administering and hold none of it.
                 **({"appointed_at": now} if admin_tier == OWNER else {}),
@@ -659,15 +663,15 @@ async def _move_the_tier_in_session(
         return_document=ReturnDocument.BEFORE,
     )
 
-    before = stand_of(grant)
+    before = snapshot_of(grant)
     current = before.model_copy(update={"admin_tier": admin_tier})
     await owe_in_session(
         [
             *(
-                compose_mitteilung(grant_id=changed_id, kind=kind, current=was, before=before, changed_by=None, now=now, barred=barred)
+                compose_notice(grant_id=changed_id, kind=kind, current=was, before=before, changed_by=None, now=now, barred=barred)
                 for changed_id, kind, was, before in pending
             ),
-            compose_mitteilung(
+            compose_notice(
                 grant_id=grant_id,
                 kind="changed",
                 current=current,
@@ -686,7 +690,7 @@ async def _move_the_tier_in_session(
     await erase_many_from_db(collection=grants_announced_collection, db_filter={"_id": grant_id}, session=session)
     await post_one_to_db(
         collection=grants_announced_collection,
-        document=compose_announced(grant_id=grant_id, stand=current, now=now),
+        document=compose_announced(grant_id=grant_id, snapshot=current, now=now),
         session=session,
     )
 
@@ -727,10 +731,10 @@ async def post_approval_request_approval(
 
     actor = sign_in_identifier(operator)
 
-    async def approve_the_antrag(session: AsyncClientSession) -> ObjectId:
+    async def approve_the_approval_request(session: AsyncClientSession) -> ObjectId:
         """Read the request and anchor the list, judge the approver and the requester, then remove the request and make the act."""
 
-        approval_request = await pull_the_antrag(
+        approval_request = await pull_the_approval_request(
             grant_approval_requests_collection=grant_approval_requests_collection,
             approval_request_id=approval_request_id,
             now=now,
@@ -745,15 +749,19 @@ async def post_approval_request_approval(
         owner = holds_an_owners_power(actor=actor, auth_time=auth_time, grants=grants, announced=records)
         refuse(
             find_approval_denied_refusal(
-                denied=genehmigung_verwehrt(
+                denied=approval_denied(
                     target=address, approval=approval_request["approval"], actor=actor, owner=owner, grants=grants, announced=records
                 )
             )
         )
-        refuse(find_antrag_verfallen_refusal(stands=antrag_steht(approval_request, grants=grants, announced=records, barred=barred)))
+        refuse(
+            find_approval_request_lapsed_refusal(
+                stands=approval_request_stands(approval_request, grants=grants, announced=records, barred=barred)
+            )
+        )
 
         # Removed by the write that reads it, so a second approval, a refusal or an erasure beside this one conflicts and finds none.
-        await remove_the_antrag_in_session(
+        await remove_the_approval_request_in_session(
             grant_approval_requests_collection=grant_approval_requests_collection,
             outbox_collection=outbox_collection,
             approval_request_id=approval_request_id,
@@ -801,7 +809,7 @@ async def post_approval_request_approval(
         return grant["_id"]
 
     async with transaction_session(db) as session:
-        grant_id = await session.with_transaction(approve_the_antrag)
+        grant_id = await session.with_transaction(approve_the_approval_request)
 
     return FLGrantWriteResponse(grant_id=grant_id)
 
@@ -841,8 +849,8 @@ async def delete_approval_request(
     journal = Journal()
 
     @journal.attempted
-    async def refuse_the_antrag(session: AsyncClientSession) -> None:
-        approval_request = await pull_the_antrag(
+    async def refuse_the_approval_request(session: AsyncClientSession) -> None:
+        approval_request = await pull_the_approval_request(
             grant_approval_requests_collection=grant_approval_requests_collection,
             approval_request_id=approval_request_id,
             now=now,
@@ -850,7 +858,7 @@ async def delete_approval_request(
         )
         grants = await read_berechtigungen(grants_collection=grants_collection, session=session)
         records = await read_the_announced(grants_announced_collection=grants_announced_collection, session=session)
-        denied = genehmigung_verwehrt(
+        denied = approval_denied(
             target=approval_request["address"],
             approval=approval_request["approval"],
             actor=actor,
@@ -859,10 +867,10 @@ async def delete_approval_request(
             announced=records,
         )
         # Its requester withdraws it: who made a request may always take it back.
-        zurueckgezogen = denied == "started"
-        refuse(find_approval_denied_refusal(denied=None if zurueckgezogen else denied))
+        withdrawn = denied == "started"
+        refuse(find_approval_denied_refusal(denied=None if withdrawn else denied))
 
-        await remove_the_antrag_in_session(
+        await remove_the_approval_request_in_session(
             grant_approval_requests_collection=grant_approval_requests_collection,
             outbox_collection=outbox_collection,
             approval_request_id=approval_request_id,
@@ -870,9 +878,9 @@ async def delete_approval_request(
             session=session,
         )
         journal.note(
-            antrag_line(
+            approval_request_line(
                 approval_request=approval_request,
-                kind="approval_request_withdrawn" if zurueckgezogen else "approval_request_declined",
+                kind="approval_request_withdrawn" if withdrawn else "approval_request_declined",
                 at=log_stamp(now),
                 key=config.sperrliste_key,
             )
@@ -880,6 +888,6 @@ async def delete_approval_request(
 
     async with journal:
         async with transaction_session(db) as session:
-            await session.with_transaction(refuse_the_antrag)
+            await session.with_transaction(refuse_the_approval_request)
 
     return FLGrantApprovalRequestDeclinedResponse(approval_request_id=approval_request_id)

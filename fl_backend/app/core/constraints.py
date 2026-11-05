@@ -50,7 +50,7 @@ UNIQUE_INDEXES: Sequence[UniqueIndex] = (
     # It is also the READ path: the sign-up check is one indexed equality against this key, so
     # dropping the index costs a collection scan per submission as well as the rule.
     UniqueIndex(Collection.BAN_LIST, "uniq_ban_list_address_hash", ("address_hash",), "one entry per banned address"),
-    # `$type` rather than the equality `{"widerrufen_am": None}`, which also matches a row missing
+    # `$type` rather than the equality `{"revoked_at": None}`, which also matches a row missing
     # the key: MongoDB's manual names `$type` among the operators a `partialFilterExpression`
     # supports and names no null form at all
     # (https://www.mongodb.com/docs/manual/core/index-partial/, which moves without us; read
@@ -60,7 +60,7 @@ UNIQUE_INDEXES: Sequence[UniqueIndex] = (
         "uniq_invitation_live",
         ("saison_id", "team_id"),
         "one live invite per team per season",
-        partial_filter={"widerrufen_am": {"$type": "null"}},
+        partial_filter={"revoked_at": {"$type": "null"}},
     ),
     # `$type` for the reason above: a missing key indexes as null, so without the filter the second
     # keyless submission would collide with the first.

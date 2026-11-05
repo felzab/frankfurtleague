@@ -25,7 +25,7 @@ from app.api.registrierungen.services import compose_bestaetigung, compose_confi
 from app.api.sperrliste.services import SPERRLISTE_SCHLUESSEL_VERSION, address_hash
 from app.api.spielbestaetigungen.services import compose_ansetzung, halter_of
 from app.core.recording import log_stamp
-from app.shared.einwilligung_evidence import CHOICES, EVIDENCE, TextVersions, compose_born, compose_receipt
+from app.shared.einwilligung_evidence import CHOICES, EVIDENCE, TextVersions, compose_initial, compose_receipt
 from app.shared.schemas.einwilligung import FLMediaTextVersion, FLNameKaderTextVersion, FLNameSpielplanTextVersion, FLWhatsappTextVersion
 from app.shared.schemas.literals import KONTAKT_ROLLEN, FLAddressChangeWay, FLKontaktEnteredBy
 from app.shared.tokens import hash_token
@@ -65,7 +65,7 @@ def confirmed_instant(tag: str) -> str:
 
 # A pupil's record as their own confirmation wrote it and their admission carried it onto the person,
 # publishing the name and no media.
-EINWILLIGUNG: Final[Mapping[str, Any]] = compose_born(
+EINWILLIGUNG: Final[Mapping[str, Any]] = compose_initial(
     block={
         "scope": "kader_oeffentlich",
         "date": "2026-01-20",
@@ -469,7 +469,7 @@ def own_einwilligung_document(*, text_versions: TextVersions, confirmed_at: str,
     `fields` laid over the block.
     """
 
-    born = compose_born(
+    born = compose_initial(
         block={
             "scope": "kader_oeffentlich",
             "date": confirmed_at,

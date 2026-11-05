@@ -26,7 +26,7 @@ from app.api.address_change.services import (
 )
 from app.api.address_change.system_router import get_address_change_address
 from app.api.berechtigungen.admin_router import delete_approval_request, get_grants
-from app.api.berechtigungen.antraege import compose_antrag
+from app.api.berechtigungen.antraege import compose_approval_request
 from app.api.berechtigungen.crud import live_unbarred_grant_since
 from app.api.einladungen.services import compose_einladung
 from app.api.identity.admin_router import get_erasure_view, post_erasure
@@ -840,7 +840,7 @@ async def held_by_another(database: AsyncDatabase, what: str) -> None:
             )
         case "a-grant-request":
             await database[Collection.GRANT_APPROVAL_REQUESTS].insert_one(
-                compose_antrag(address=NEW_EMAIL, admin_tier="administration", grant_id=None, started_by=ADMIN, now=NOW)
+                compose_approval_request(address=NEW_EMAIL, admin_tier="administration", grant_id=None, started_by=ADMIN, now=NOW)
             )
         case "a-pupil":
             await database[Collection.SPIELER].insert_one(
@@ -1548,7 +1548,7 @@ class TestTheMovedGrant:
         moved = grants[NEW_EMAIL]
         assert (moved["admin_tier"], moved["granted_by"], moved["_id"] != old_grant) == ("administration", SECOND_ADMIN, True)
         # Each notice as the approver is owed it: the paste no comparison has seen yet first, as a revoke announces one.
-        assert [(row["change"], (row["now"] or row["before"] or {}).get("address"), row["changed_by"]) for row in outbox] == [
+        assert [(row["change"], (row["current"] or row["before"] or {}).get("address"), row["changed_by"]) for row in outbox] == [
             ("granted", EMAIL, None),
             ("revoked", EMAIL, SECOND_ADMIN),
             ("granted", NEW_EMAIL, SECOND_ADMIN),
@@ -1669,7 +1669,7 @@ class TestTheAdministratorFollowsTheirMove:
                 patch_one_in_db(
                     collection=database[Collection.GRANTS],
                     db_filter={"address": FOREIGN_EMAIL},
-                    update={"$set": {"gesehen_am": NOW}},
+                    update={"$set": {"seen_at": NOW}},
                     return_document=ReturnDocument.BEFORE,
                 ),
             )
@@ -1726,7 +1726,7 @@ class TestTheAdministratorFollowsTheirMove:
                     patch_one_in_db(
                         collection=database[Collection.GRANTS],
                         db_filter=grant,
-                        update={"$set": {"gesehen_am": NOW}},
+                        update={"$set": {"seen_at": NOW}},
                         return_document=ReturnDocument.BEFORE,
                     ),
                 )
@@ -1788,9 +1788,9 @@ class TestTheAdministratorFollowsTheirMove:
         assert on_a_person(mongo_replica_set_url, body) == {NEW_EMAIL: []}
 
 
-ANTRAG_OID = ObjectId("6890a1b2c3d4e5f6078500a1")
+APPROVAL_REQUEST_OID = ObjectId("6890a1b2c3d4e5f6078500a1")
 # The day before the suite's clock, inside the request's week.
-ANTRAG_GESTELLT = NOW - timedelta(days=1)
+APPROVAL_REQUEST_ASKED_AT = NOW - timedelta(days=1)
 
 
 async def requested(database: AsyncDatabase, *, address: str, started_by: str) -> None:
@@ -1798,8 +1798,10 @@ async def requested(database: AsyncDatabase, *, address: str, started_by: str) -
 
     await database[Collection.GRANT_APPROVAL_REQUESTS].insert_one(
         {
-            "_id": ANTRAG_OID,
-            **compose_antrag(address=address, admin_tier="administration", grant_id=None, started_by=started_by, now=ANTRAG_GESTELLT),
+            "_id": APPROVAL_REQUEST_OID,
+            **compose_approval_request(
+                address=address, admin_tier="administration", grant_id=None, started_by=started_by, now=APPROVAL_REQUEST_ASKED_AT
+            ),
         }
     )
 
@@ -1816,7 +1818,7 @@ class TestTheRequestsForAGrantAnEffectMeets:
             minted = await start(database, client)
             await approve(database, client, minted.id)
             await answer(database, client, minted.token)
-            carried = await row(database, Collection.GRANT_APPROVAL_REQUESTS, ANTRAG_OID)
+            carried = await row(database, Collection.GRANT_APPROVAL_REQUESTS, APPROVAL_REQUEST_OID)
             await erase(database, client, NEW_EMAIL)
             left = await database[Collection.GRANT_APPROVAL_REQUESTS].count_documents({})
             return carried["approval"]["started_by"], left, await where_held(database, EMAIL, folded=True)
@@ -1832,13 +1834,13 @@ class TestTheRequestsForAGrantAnEffectMeets:
             minted = await start(database, client)
             with journal_of(caplog) as journal:
                 await answer(database, client, minted.token)
-            return minted.id, await database[Collection.GRANT_APPROVAL_REQUESTS].find_one({"_id": ANTRAG_OID}), journal
+            return minted.id, await database[Collection.GRANT_APPROVAL_REQUESTS].find_one({"_id": APPROVAL_REQUEST_OID}), journal
 
         change_id, approval_request, journal = on_a_person(mongo_replica_set_url, body)
 
         assert approval_request is None
         assert [(line.kind, line.record_id) for line in journal] == [
-            ("approval_request_ended", ANTRAG_OID),
+            ("approval_request_ended", APPROVAL_REQUEST_OID),
             ("address_change_effective", change_id),
         ]
         # Keyed as a refusal's line is, by the address the request was about.
@@ -1850,7 +1852,7 @@ class TestTheRequestsForAGrantAnEffectMeets:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await requested(database, address=EMAIL, started_by=ADMIN)
             # Refused before the change, through its route, which keeps its image.
-            await call(delete_approval_request, database, client, approval_request_id=ANTRAG_OID, operator=SECOND_ADMIN)
+            await call(delete_approval_request, database, client, approval_request_id=APPROVAL_REQUEST_OID, operator=SECOND_ADMIN)
             await confirmed_and_moved(database, client)
             await erase(database, client, NEW_EMAIL)
             return await where_held(database, EMAIL, folded=True)
@@ -1871,7 +1873,7 @@ class TestTheRequestsForAGrantAnEffectMeets:
             if request_ != "none":
                 await requested(database, address=EMAIL, started_by=ADMIN)
             if request_ == "refused before the change":
-                await call(delete_approval_request, database, client, approval_request_id=ANTRAG_OID, operator=SECOND_ADMIN)
+                await call(delete_approval_request, database, client, approval_request_id=APPROVAL_REQUEST_OID, operator=SECOND_ADMIN)
             minted = await start(database, client)
             await approve(database, client, minted.id, operator=SECOND_ADMIN)
             await answer(database, client, minted.token)

@@ -208,7 +208,7 @@ async def get_spielbericht_bericht(
         completed = ist_abgeschlossen(lage)
         kader_offen = kader_ist_offen(lage, today=today)
         dokument = await spielberichte_collection.find_one({"spiel_id": spiel_id}, session=session)
-        genannt = await pull_genannt(
+        named = await pull_genannt(
             spieler_collection=spieler_collection,
             lage=lage,
             kader_offen=kader_offen,
@@ -217,7 +217,7 @@ async def get_spielbericht_bericht(
         )
 
     return FLSpielberichtSchiedsrichterResponse.model_validate(
-        {**compose_ansicht(lage, kader_offen=kader_offen, named=genannt, dokument=dokument), "completed": completed}
+        {**compose_ansicht(lage, kader_offen=kader_offen, named=named, dokument=dokument), "completed": completed}
     )
 
 
@@ -309,7 +309,7 @@ async def put_spielbericht_bericht(
         if saved is None:
             # After the insert, so a rival first write meets it there rather than blocking on the season.
             await anchor_the_season_reported_in(saisons_collection=saisons_collection, saison_id=lage.spiel["saison_id"], session=session)
-        genannt = await pull_genannt(
+        named = await pull_genannt(
             spieler_collection=spieler_collection, lage=lage, kader_offen=True, bericht=dokument.get("bericht"), session=session
         )
 
@@ -334,7 +334,7 @@ async def put_spielbericht_bericht(
         judge_bericht(lage=current, payload=payload, saved=block, new=new, today=today)
 
         angelegt = saved is None or saved.get("bericht") is None
-        view = {**compose_ansicht(lage, kader_offen=True, named=genannt, dokument=dokument), "completed": False}
+        view = {**compose_ansicht(lage, kader_offen=True, named=named, dokument=dokument), "completed": False}
 
         return FLSpielberichtSchiedsrichterResponse.model_validate(view), angelegt
 

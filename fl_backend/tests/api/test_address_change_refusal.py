@@ -23,7 +23,7 @@ from app.api.address_change.schemas import (
     FLAddressChangeViewPrevious,
 )
 from app.api.address_change.services import is_expired, masked_address, previous_state
-from app.api.berechtigungen.services import genehmigung_steht, genehmigung_verwehrt
+from app.api.berechtigungen.services import approval_denied, approval_stands
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -187,7 +187,7 @@ def a_grant(
     *,
     at: datetime = BEFORE,
     appointed_at: datetime | None = None,
-    fortgefuehrt: dict[str, Any] | None = None,
+    carried: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """A grant pasted at `at`, which no reconciliation has seen: its date is its own and its id's."""
 
@@ -198,7 +198,7 @@ def a_grant(
         "granted_by": OWNER,
         "granted_at": at,
         **({} if appointed_at is None else {"appointed_at": appointed_at}),
-        **({} if fortgefuehrt is None else {"fortgefuehrt": fortgefuehrt}),
+        **({} if carried is None else {"carried": carried}),
     }
 
 
@@ -208,10 +208,10 @@ GRANTS = [
     a_grant(SECOND_OWNER, "owner"),
     a_grant(LATE, "administration", at=AFTER),
     a_grant(PROMOTED, "owner", appointed_at=AFTER),
-    a_grant(MOVED, "administration", at=AFTER, fortgefuehrt=CARRIED_ADMINISTRATION),
-    a_grant(MOVED_OWNER, "owner", at=AFTER, fortgefuehrt=CARRIED_OWNER),
-    a_grant(MOVED_DEMOTED, "administration", at=AFTER, fortgefuehrt=CARRIED_OWNER),
-    a_grant(MOVED_REPROMOTED, "owner", at=AFTER, appointed_at=AFTER, fortgefuehrt=CARRIED_OWNER),
+    a_grant(MOVED, "administration", at=AFTER, carried=CARRIED_ADMINISTRATION),
+    a_grant(MOVED_OWNER, "owner", at=AFTER, carried=CARRIED_OWNER),
+    a_grant(MOVED_DEMOTED, "administration", at=AFTER, carried=CARRIED_OWNER),
+    a_grant(MOVED_REPROMOTED, "owner", at=AFTER, appointed_at=AFTER, carried=CARRIED_OWNER),
 ]
 
 
@@ -253,7 +253,7 @@ class TestWhoMayNotApprove:
     def test_four_eyes_the_owner_s_tier_and_a_grant_older_than_the_request(
         self, approval: dict[str, Any], actor: str, owner: bool, denied: str | None
     ):
-        assert genehmigung_verwehrt(target=CHANGED, approval=approval, actor=actor, owner=owner, grants=GRANTS, announced=[]) == denied
+        assert approval_denied(target=CHANGED, approval=approval, actor=actor, owner=owner, grants=GRANTS, announced=[]) == denied
 
 
 class TestWhetherAnApprovalStillStands:
@@ -294,4 +294,4 @@ class TestWhetherAnApprovalStillStands:
     def test_it_stands_only_while_its_approver_may_approve_it(
         self, approval: dict[str, Any], grants: list[dict[str, Any]], barred: set[str], stands: bool
     ):
-        assert genehmigung_steht(target=CHANGED, approval=approval, grants=grants, announced=[], barred=barred) is stands
+        assert approval_stands(target=CHANGED, approval=approval, grants=grants, announced=[], barred=barred) is stands

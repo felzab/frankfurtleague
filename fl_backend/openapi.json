@@ -6154,12 +6154,7 @@
             ],
             "title": "Changed By"
           },
-          "kind": {
-            "const": "grant",
-            "title": "Kind",
-            "type": "string"
-          },
-          "now": {
+          "current": {
             "anyOf": [
               {
                 "$ref": "#/components/schemas/FLGrantSnapshot"
@@ -6168,6 +6163,11 @@
                 "type": "null"
               }
             ]
+          },
+          "kind": {
+            "const": "grant",
+            "title": "Kind",
+            "type": "string"
           },
           "withheld": {
             "anyOf": [
@@ -6189,7 +6189,7 @@
           "kind",
           "change",
           "author",
-          "now",
+          "current",
           "before",
           "changed_by",
           "changed_at",
@@ -6775,17 +6775,7 @@
             "title": "Id",
             "type": "string"
           },
-          "saison_id": {
-            "minLength": 1,
-            "title": "Saison Id",
-            "type": "string"
-          },
-          "team_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Team Id",
-            "type": "string"
-          },
-          "widerrufen_am": {
+          "revoked_at": {
             "anyOf": [
               {
                 "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -6795,7 +6785,17 @@
                 "type": "null"
               }
             ],
-            "title": "Widerrufen Am"
+            "title": "Revoked At"
+          },
+          "saison_id": {
+            "minLength": 1,
+            "title": "Saison Id",
+            "type": "string"
+          },
+          "team_id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Team Id",
+            "type": "string"
           }
         },
         "required": [
@@ -6804,7 +6804,7 @@
           "team_id",
           "created_at",
           "created_by",
-          "widerrufen_am",
+          "revoked_at",
           "created_by_barred",
           "delivery"
         ],
@@ -21106,7 +21106,7 @@
         ]
       },
       "patch": {
-        "description": "Make an administrator an owner, or an owner an administrator; an owner steps down by naming their own grant.\n\nOnly an `owner` changes a tier (`grant_only_owner`), judged on the actor's own grant inside the transaction, and before\nanything about the target is answered; an owner's sign-in older than the moment they became one is refused the same.\n\n**Four eyes on a promotion**: where another owner could approve it -- a live, unbarred `owner` grant in effect now, neither this\nowner nor the promoted address -- the tier is not moved: a request is, answered with `requested` set, and the promotion takes\neffect only on that approval (`POST /grants/approval_requests/{approval_request_id}/approval`). A lone owner promotes alone. A demotion\nand a step-down take effect at once.\n\nA promotion holds for a sign-in after it alone: the promoted administrator's older sessions keep administering and take no owner's\nstep until they sign in again. A demotion takes the tier from every session at once. 404 where no live grant has the id. A\npromotion of an address on the ban list is refused (`grant_barred`), one whose request waits already\n(`grant_approval_request_open`), and a demotion leaving no live, unbarred owner (`grant_last_owner`). Naming the tier the grant\nholds changes nothing and answers 200. The change reaches the next request; its announcement is queued in the same transaction, after\nany change to the row made in the database and not yet announced, and a grant found that way is stamped `gefunden_am` as\n`POST /grants/reconciliation` stamps one. A sign-in or confirmation older than `ENROLMENT_WINDOW_MINUTES` is refused\n`confirmation_required`, as the grant's is.",
+        "description": "Make an administrator an owner, or an owner an administrator; an owner steps down by naming their own grant.\n\nOnly an `owner` changes a tier (`grant_only_owner`), judged on the actor's own grant inside the transaction, and before\nanything about the target is answered; an owner's sign-in older than the moment they became one is refused the same.\n\n**Four eyes on a promotion**: where another owner could approve it -- a live, unbarred `owner` grant in effect now, neither this\nowner nor the promoted address -- the tier is not moved: a request is, answered with `requested` set, and the promotion takes\neffect only on that approval (`POST /grants/approval_requests/{approval_request_id}/approval`). A lone owner promotes alone. A demotion\nand a step-down take effect at once.\n\nA promotion holds for a sign-in after it alone: the promoted administrator's older sessions keep administering and take no owner's\nstep until they sign in again. A demotion takes the tier from every session at once. 404 where no live grant has the id. A\npromotion of an address on the ban list is refused (`grant_barred`), one whose request waits already\n(`grant_approval_request_open`), and a demotion leaving no live, unbarred owner (`grant_last_owner`). Naming the tier the grant\nholds changes nothing and answers 200. The change reaches the next request; its announcement is queued in the same transaction, after\nany change to the row made in the database and not yet announced, and a grant found that way is stamped `found_at` as\n`POST /grants/reconciliation` stamps one. A sign-in or confirmation older than `ENROLMENT_WINDOW_MINUTES` is refused\n`confirmation_required`, as the grant's is.",
         "operationId": "grants_patch_grant",
         "parameters": [
           {

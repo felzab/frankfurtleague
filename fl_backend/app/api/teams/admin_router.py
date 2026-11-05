@@ -29,7 +29,7 @@ from app.api.einladungen.services import (
     bestaetigte_empfaenger,
     build_live_team_filter,
     compose_einladung,
-    compose_widerruf_update,
+    compose_revocation_update,
     find_saison_vorbei_refusal,
     find_team_in_saison_refusal,
 )
@@ -1114,7 +1114,7 @@ async def post_invitation(
         withdrawn = await patch_many_in_db(
             collection=invitations_collection,
             db_filter=build_live_team_filter(saison_id=saison_id, team_id=team_id),
-            update=compose_widerruf_update(today=today),
+            update=compose_revocation_update(today=today),
             session=session,
         )
         # Judged on what this transaction voided, which aborts with the refusal: only a link somebody
@@ -1174,7 +1174,7 @@ async def delete_invitation(
         return await patch_one_in_db(
             collection=invitations_collection,
             db_filter=build_live_team_filter(saison_id=saison_id, team_id=team_id),
-            update=compose_widerruf_update(today=today),
+            update=compose_revocation_update(today=today),
             session=session,
             return_document=ReturnDocument.BEFORE,
         )

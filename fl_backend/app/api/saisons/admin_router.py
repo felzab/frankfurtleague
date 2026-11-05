@@ -24,7 +24,7 @@ from app.api.einladungen.services import (
     bestaetigte_empfaenger,
     build_live_team_filter,
     compose_einladung,
-    compose_widerruf_update,
+    compose_revocation_update,
     find_saison_vorbei_refusal,
     plan_einladung_versand,
 )
@@ -1184,7 +1184,7 @@ async def _mail_one_team(
             await patch_many_in_db(
                 collection=invitations_collection,
                 db_filter=build_live_team_filter(saison_id=saison_id, team_id=team["team_id"]),
-                update=compose_widerruf_update(today=today),
+                update=compose_revocation_update(today=today),
                 session=session,
             )
 

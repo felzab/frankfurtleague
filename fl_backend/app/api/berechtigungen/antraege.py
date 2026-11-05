@@ -17,7 +17,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.berechtigungen.schemas import as_utc
-from app.api.berechtigungen.services import haelt_seit
+from app.api.berechtigungen.services import holds_since
 from app.api.outbox.services import final_update
 from app.core.codes import Code
 from app.core.collections import Collection
@@ -30,7 +30,7 @@ from app.shared.schemas.bounds import APPROVAL_DAYS
 from app.shared.schemas.literals import FLAdminTier, FLApprovalDenied
 
 
-def compose_antrag(*, address: str, admin_tier: str, grant_id: ObjectId | None, started_by: str, now: datetime) -> dict[str, Any]:
+def compose_approval_request(*, address: str, admin_tier: str, grant_id: ObjectId | None, started_by: str, now: datetime) -> dict[str, Any]:
     """The whole request a grant or a promotion inserts, its `approval` the block an address change's approval keeps."""
 
     return {
@@ -38,7 +38,7 @@ def compose_antrag(*, address: str, admin_tier: str, grant_id: ObjectId | None, 
         "grant_id": grant_id,
         "approval": {
             "admin_tier": admin_tier,
-            # Its approver held their grant since then (`app/api/berechtigungen/services.py :: haelt_seit`).
+            # Its approver held their grant since then (`app/api/berechtigungen/services.py :: holds_since`).
             "asked_at": now.astimezone(UTC),
             # The address change's week: an approver away for a weekend is no reason to ask again.
             "until": now.astimezone(UTC) + timedelta(days=APPROVAL_DAYS),
@@ -47,7 +47,7 @@ def compose_antrag(*, address: str, admin_tier: str, grant_id: ObjectId | None, 
     }
 
 
-def build_offen_filter(now: datetime) -> dict[str, Any]:
+def build_open_filter(now: datetime) -> dict[str, Any]:
     """The requests not yet lapsed, the term every read carries: a row's presence says nothing."""
 
     return {"approval.until": {"$gt": now.astimezone(UTC)}}
@@ -57,7 +57,7 @@ def ist_offen(approval_request: Mapping[str, Any], *, now: datetime) -> bool:
     return as_utc(approval_request["approval"]["until"]) > now.astimezone(UTC)
 
 
-def antrag_steht(
+def approval_request_stands(
     approval_request: Mapping[str, Any], *, grants: Sequence[Mapping[str, Any]], announced: Sequence[Mapping[str, Any]], barred: Set[str]
 ) -> bool:
     """Whether the request's requester still holds, since before it and unbarred, the tier it asks for.
@@ -68,24 +68,24 @@ def antrag_steht(
     approval = approval_request["approval"]
     by = str(approval["started_by"])
 
-    return by not in barred and haelt_seit(
+    return by not in barred and holds_since(
         by, admin_tier=str(approval["admin_tier"]), before=approval["asked_at"], grants=grants, announced=announced
     )
 
 
-async def read_the_antraege(
+async def read_the_approval_requests(
     *, grant_approval_requests_collection: AsyncCollection, now: datetime, session: AsyncClientSession | None = None
 ) -> list[Mapping[str, Any]]:
     """Every request not yet lapsed, oldest first, unbounded: one per address, as few as the grants that make them."""
 
     return await aggregate_many_from_db(
         collection=grant_approval_requests_collection,
-        pipeline=[{"$match": build_offen_filter(now)}, {"$sort": {"approval.asked_at": ASCENDING, "_id": ASCENDING}}],
+        pipeline=[{"$match": build_open_filter(now)}, {"$sort": {"approval.asked_at": ASCENDING, "_id": ASCENDING}}],
         session=session,
     )
 
 
-async def read_the_antraege_of(
+async def read_the_approval_requests_of(
     *, grant_approval_requests_collection: ReadCollection, identifier: str, now: datetime, session: AsyncClientSession | None
 ) -> list[Mapping[str, Any]]:
     """Every request not yet lapsed about this folded address or made by it, oldest first: what an erasure of it removes."""
@@ -93,7 +93,7 @@ async def read_the_antraege_of(
     return await aggregate_many_from_db(
         collection=grant_approval_requests_collection,
         pipeline=[
-            {"$match": {"$or": [{"address": identifier}, {"approval.started_by": identifier}], **build_offen_filter(now)}},
+            {"$match": {"$or": [{"address": identifier}, {"approval.started_by": identifier}], **build_open_filter(now)}},
             {"$project": {"address": 1, "approval.admin_tier": 1, "approval.asked_at": 1}},
             {"$sort": {"approval.asked_at": ASCENDING, "_id": ASCENDING}},
         ],
@@ -101,14 +101,14 @@ async def read_the_antraege_of(
     )
 
 
-async def pull_the_antrag(
+async def pull_the_approval_request(
     *, grant_approval_requests_collection: AsyncCollection, approval_request_id: ObjectId, now: datetime, session: AsyncClientSession
 ) -> Mapping[str, Any]:
     """The request this id names, or 404 where none stands: decided, withdrawn, erased or lapsed alike."""
 
     found = await aggregate_many_from_db(
         collection=grant_approval_requests_collection,
-        pipeline=[{"$match": {"_id": approval_request_id, **build_offen_filter(now)}}],
+        pipeline=[{"$match": {"_id": approval_request_id, **build_open_filter(now)}}],
         session=session,
     )
     if not found:
@@ -130,7 +130,7 @@ async def clear_the_address_in_session(
         pipeline=[{"$match": {"address": address}}, {"$project": {"approval.until": 1}}],
         session=session,
     )
-    refuse(find_antrag_offen_refusal(open=any(ist_offen(row, now=now) for row in rows)))
+    refuse(find_approval_request_open_refusal(open=any(ist_offen(row, now=now) for row in rows)))
     if rows:
         await delete_many_from_db(
             collection=grant_approval_requests_collection, db_filter={"_id": {"$in": [row["_id"] for row in rows]}}, session=session
@@ -138,19 +138,19 @@ async def clear_the_address_in_session(
 
 
 async def settle_the_notices_in_session(
-    *, outbox_collection: AsyncCollection, antrag_ids: Sequence[ObjectId], now: datetime, session: AsyncClientSession
+    *, outbox_collection: AsyncCollection, approval_request_ids: Sequence[ObjectId], now: datetime, session: AsyncClientSession
 ) -> None:
     """A decided or erased request's notices still unsent, settled as gone: nothing is left to approve.
 
     One a drain holds already is sent all the same, its claim settling it.
     """
 
-    if antrag_ids:
+    if approval_request_ids:
         await patch_many_in_db(
             collection=outbox_collection,
             db_filter={
                 "reference.collection": str(Collection.GRANT_APPROVAL_REQUESTS),
-                "reference.id": {"$in": list(antrag_ids)},
+                "reference.id": {"$in": list(approval_request_ids)},
                 "reference.seat": None,
                 "state": "open",
             },
@@ -171,7 +171,7 @@ async def settle_the_requesters_notices_in_session(
     """The unsent notices of the open requests this folded address made and its grant no longer carries.
 
     Every one where the grant went (`admin_tier` None), and those asking `admin_tier` alone where the holder lost that
-    tier. The requests stay, `antrag_steht` refusing their approval; their mail goes, since no approver could act on it.
+    tier. The requests stay, `approval_request_stands` refusing their approval; their mail goes, since no approver could act on it.
     """
 
     rows = await aggregate_many_from_db(
@@ -181,17 +181,19 @@ async def settle_the_requesters_notices_in_session(
                 "$match": {
                     "approval.started_by": started_by,
                     **({} if admin_tier is None else {"approval.admin_tier": admin_tier}),
-                    **build_offen_filter(now),
+                    **build_open_filter(now),
                 }
             },
             {"$project": {"_id": 1}},
         ],
         session=session,
     )
-    await settle_the_notices_in_session(outbox_collection=outbox_collection, antrag_ids=[row["_id"] for row in rows], now=now, session=session)
+    await settle_the_notices_in_session(
+        outbox_collection=outbox_collection, approval_request_ids=[row["_id"] for row in rows], now=now, session=session
+    )
 
 
-async def remove_the_antrag_in_session(
+async def remove_the_approval_request_in_session(
     *,
     grant_approval_requests_collection: AsyncCollection,
     outbox_collection: AsyncCollection,
@@ -202,10 +204,12 @@ async def remove_the_antrag_in_session(
     """Remove a decided request, its image kept: who asked, for what and when stays on the log beside the grant it made."""
 
     await delete_many_from_db(collection=grant_approval_requests_collection, db_filter={"_id": approval_request_id}, session=session)
-    await settle_the_notices_in_session(outbox_collection=outbox_collection, antrag_ids=[approval_request_id], now=now, session=session)
+    await settle_the_notices_in_session(
+        outbox_collection=outbox_collection, approval_request_ids=[approval_request_id], now=now, session=session
+    )
 
 
-async def end_the_antraege_about_in_session(
+async def end_the_approval_requests_about_in_session(
     *,
     grant_approval_requests_collection: AsyncCollection,
     outbox_collection: AsyncCollection,
@@ -224,7 +228,7 @@ async def end_the_antraege_about_in_session(
         session=session,
     )
     for row in rows:
-        await remove_the_antrag_in_session(
+        await remove_the_approval_request_in_session(
             grant_approval_requests_collection=grant_approval_requests_collection,
             outbox_collection=outbox_collection,
             approval_request_id=row["_id"],
@@ -258,17 +262,17 @@ async def loeschen_antraege_in_session(
             collection=grant_approval_requests_collection, db_filter={"_id": {"$in": [row["_id"] for row in rows]}}, session=session
         )
         await settle_the_notices_in_session(
-            outbox_collection=outbox_collection, antrag_ids=[row["_id"] for row in rows], now=now, session=session
+            outbox_collection=outbox_collection, approval_request_ids=[row["_id"] for row in rows], now=now, session=session
         )
 
     return len(rows)
 
 
 # How a request ended, as its journal line names it: the replay tells again whom the end told.
-AntragEndeLine = Literal["approval_request_declined", "approval_request_withdrawn", "approval_request_ended"]
+ApprovalRequestEndLine = Literal["approval_request_declined", "approval_request_withdrawn", "approval_request_ended"]
 
 
-def antrag_line(*, approval_request: Mapping[str, Any], kind: AntragEndeLine, at: str, key: SecretStr) -> JournalLine:
+def approval_request_line(*, approval_request: Mapping[str, Any], kind: ApprovalRequestEndLine, at: str, key: SecretStr) -> JournalLine:
     """An ended request's line, so a restore from before its end does not bring it back to be approved."""
 
     return JournalLine(
@@ -280,7 +284,7 @@ def antrag_line(*, approval_request: Mapping[str, Any], kind: AntragEndeLine, at
     )
 
 
-def find_antrag_offen_refusal(*, open: bool) -> WriteRefusal | None:
+def find_approval_request_open_refusal(*, open: bool) -> WriteRefusal | None:
     """`grant_approval_request_open`: a request for this address waits already, which its approver or a refusal decides first."""
 
     if not open:
@@ -320,7 +324,7 @@ def find_approval_denied_refusal(*, denied: FLApprovalDenied | None) -> WriteRef
     )
 
 
-def find_antrag_verfallen_refusal(*, stands: bool) -> WriteRefusal | None:
+def find_approval_request_lapsed_refusal(*, stands: bool) -> WriteRefusal | None:
     """`grant_approval_request_lapsed`: the request's requester does not hold, since before it, the tier it asks for."""
 
     if stands:

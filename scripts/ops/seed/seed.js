@@ -179,11 +179,11 @@ const GRANTS = [
   admin_tier,
   granted_by: "MADE-UP-SEED",
   granted_at: GRANTED_AT,
-  gesehen_am: GRANTED_AT,
+  seen_at: GRANTED_AT,
 }));
 
 // The announced record of each, keyed by its grant's id: `fl_backend/app/api/berechtigungen/services.py :: compose_announced`.
-const ANNOUNCED = GRANTS.map(({ _id, address, admin_tier }) => ({ _id, address, admin_tier, angekuendigt_am: GRANTED_AT }));
+const ANNOUNCED = GRANTS.map(({ _id, address, admin_tier }) => ({ _id, address, admin_tier, announced_at: GRANTED_AT }));
 
 // --- Seasons -------------------------------------------------------------------------------------
 

@@ -26,8 +26,8 @@ from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
 from app.api.address_change.crud import end_an_emptied_change_in_session
-from app.api.berechtigungen.antraege import compose_antrag
-from app.api.einladungen.services import compose_einladung, compose_widerruf_update
+from app.api.berechtigungen.antraege import compose_approval_request
+from app.api.einladungen.services import compose_einladung, compose_revocation_update
 from app.api.identity.crud import EACH_PERSON_GROUP, ERASURE_STEPS, erase_everything
 from app.api.registrierungen.person_router import admit
 from app.api.registrierungen.schemas import FLRegistrierungAdmitPayload
@@ -267,8 +267,8 @@ OTHER_REPORT_OID = ObjectId("6890a1b2c3d4e5f607b000b2")
 OWED_CARRY_OID = ObjectId("6890a1b2c3d4e5f607b000d1")
 SENT_NOTICE_OID = ObjectId("6890a1b2c3d4e5f607b000d2")
 # The request for a grant of their address, and the one they asked for another's.
-ANTRAG_FOR_THEM_OID = ObjectId("6890a1b2c3d4e5f607b000e1")
-ANTRAG_BY_THEM_OID = ObjectId("6890a1b2c3d4e5f607b000e2")
+APPROVAL_REQUEST_FOR_THEM_OID = ObjectId("6890a1b2c3d4e5f607b000e1")
+APPROVAL_REQUEST_BY_THEM_OID = ObjectId("6890a1b2c3d4e5f607b000e2")
 THEIR_REMARKS = "Flutlicht fiel in der 70. Minute aus."
 
 
@@ -473,14 +473,14 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
     await database[Collection.GRANT_APPROVAL_REQUESTS].insert_many(
         [
             {
-                "_id": ANTRAG_FOR_THEM_OID,
-                **compose_antrag(
+                "_id": APPROVAL_REQUEST_FOR_THEM_OID,
+                **compose_approval_request(
                     address=IDENTIFIER, admin_tier="administration", grant_id=None, started_by="quillhilde@example.com", now=FAR_OFF
                 ),
             },
             {
-                "_id": ANTRAG_BY_THEM_OID,
-                **compose_antrag(
+                "_id": APPROVAL_REQUEST_BY_THEM_OID,
+                **compose_approval_request(
                     address="neu.kollegin@example.com", admin_tier="administration", grant_id=None, started_by=IDENTIFIER, now=FAR_OFF
                 ),
             },
@@ -546,7 +546,7 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
     # And of the records they made, each image keeping them as its author: the address pass's alone to reach.
     await edited(database, Collection.GRANTS, GRANTED_BY_THEM_OID, {"$set": {"granted_at": datetime(2126, 1, 2, tzinfo=UTC)}})
     await edited(database, Collection.BAN_LIST, BANNED_BY_THEM_OID, {"$set": {"grund": "Doppelte Anmeldung"}})
-    await edited(database, Collection.INVITATIONS, INVITED_BY_THEM_OID, compose_widerruf_update(today=TODAY))
+    await edited(database, Collection.INVITATIONS, INVITED_BY_THEM_OID, compose_revocation_update(today=TODAY))
     await edited(database, Collection.BEWERBUNGEN, DECIDED_BY_THEM_OID, {"$set": {"wunschgegner": "Gast-Schule"}})
     await edited(database, Collection.REGISTRIERUNGEN, DECLINED_BY_THEM_OID, {"$set": {"nummer": "12"}})
     await their_confirmations(database)
@@ -691,7 +691,7 @@ async def records_they_made_holding_no_grant(database: AsyncDatabase) -> None:
         }
     )
     await database[Collection.GRANTS_ANNOUNCED].insert_one(
-        {"_id": GRANTED_BY_THEM_OID, "address": "bramblewick.admin@example.com", "admin_tier": "administration", "angekuendigt_am": GRANTED}
+        {"_id": GRANTED_BY_THEM_OID, "address": "bramblewick.admin@example.com", "admin_tier": "administration", "announced_at": GRANTED}
     )
     await database[Collection.BAN_LIST].insert_many(
         [
@@ -744,7 +744,7 @@ async def a_grant(database: AsyncDatabase, grant_id: ObjectId, address: str, adm
         {"_id": grant_id, "address": address, "admin_tier": admin_tier, "granted_by": "PLAYGROUND", "granted_at": GRANTED}
     )
     await database[Collection.GRANTS_ANNOUNCED].insert_one(
-        {"_id": grant_id, "address": address, "admin_tier": admin_tier, "angekuendigt_am": GRANTED}
+        {"_id": grant_id, "address": address, "admin_tier": admin_tier, "announced_at": GRANTED}
     )
 
 

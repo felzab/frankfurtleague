@@ -229,16 +229,13 @@ async def _seed(database: AsyncDatabase) -> None:
         ]
     )
     grants = [
-        _grant(GRANT_OWNER_OID, ADMIN_OWNER, "owner") | {"gefunden_am": GRANT_FOUND},
+        _grant(GRANT_OWNER_OID, ADMIN_OWNER, "owner") | {"found_at": GRANT_FOUND},
         _grant(GRANT_STORED_OID, ADMIN_STORED, "administration"),
     ]
     await database[Collection.GRANTS].insert_many(grants)
     # Both announced: the `owner` grant found by the reconciliation, the other made by the grant route.
     await database[Collection.GRANTS_ANNOUNCED].insert_many(
-        [
-            {"_id": grant["_id"], "address": grant["address"], "admin_tier": grant["admin_tier"], "angekuendigt_am": GRANT_FOUND}
-            for grant in grants
-        ]
+        [{"_id": grant["_id"], "address": grant["address"], "admin_tier": grant["admin_tier"], "announced_at": GRANT_FOUND} for grant in grants]
     )
 
 
@@ -483,7 +480,7 @@ class TestTheGrant:
         """As a row put back after the reconciliation erased its record stands: every date it carries predates its return."""
 
         async def put_back(database: AsyncDatabase) -> FLSubjectResponse:
-            await database[Collection.GRANTS].update_one({"_id": GRANT_STORED_OID}, {"$set": {"gesehen_am": GRANT_FOUND}})
+            await database[Collection.GRANTS].update_one({"_id": GRANT_STORED_OID}, {"$set": {"seen_at": GRANT_FOUND}})
             await database[Collection.GRANTS_ANNOUNCED].delete_one({"_id": GRANT_STORED_OID})
 
             return await call_subject(database, ADMIN_STORED)

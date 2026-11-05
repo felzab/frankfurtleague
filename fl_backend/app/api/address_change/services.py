@@ -69,7 +69,7 @@ def compose_approval(*, admin_tier: str, started_by: str, now: datetime) -> dict
 
     return {
         "admin_tier": admin_tier,
-        # Its approver held their grant since then (`app/api/berechtigungen/services.py :: haelt_seit`).
+        # Its approver held their grant since then (`app/api/berechtigungen/services.py :: holds_since`).
         "asked_at": now.astimezone(UTC),
         "until": now.astimezone(UTC) + timedelta(days=APPROVAL_DAYS),
         # Folded, as `granted_by` stores an administrator: the one compared with the approver.

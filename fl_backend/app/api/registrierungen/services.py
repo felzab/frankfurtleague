@@ -26,7 +26,7 @@ from app.core.crud import build_sort
 from app.core.exceptions import WriteRefusal
 from app.shared.age import whole_years_between
 from app.shared.einwilligung import is_confirmed
-from app.shared.einwilligung_evidence import TextVersions, compose_born, compose_renewed
+from app.shared.einwilligung_evidence import TextVersions, compose_initial, compose_renewed
 from app.shared.folding import person_name_key, sign_in_identifier
 from app.shared.schemas.bounds import (
     BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
@@ -517,7 +517,7 @@ def compose_confirmation_update(
 
     # Born whole rather than moved: the submission stores no record and a second press is refused, so
     # no earlier choice stands on this block; the admission carries its evidence onto the person.
-    record = compose_born(
+    record = compose_initial(
         block={
             "scope": scope,
             # `date` and `confirmed_at` are one day here: this press is both the giving of the

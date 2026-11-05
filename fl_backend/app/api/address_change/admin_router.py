@@ -57,7 +57,7 @@ from app.api.address_change.services import (
 )
 from app.api.berechtigungen.crud import read_berechtigungen, read_the_announced
 from app.api.berechtigungen.guard import verify_actor_is_admin
-from app.api.berechtigungen.services import genehmiger_of, genehmigung_verwehrt, holds_an_owners_power
+from app.api.berechtigungen.services import approval_denied, approver_of, holds_an_owners_power
 from app.api.identity.lookup import SubjectLookup
 from app.api.identity.services import EACH_ADMIN, find_admin_address_refusal, find_own_address_refusal
 from app.api.outbox.schemas import FLOutboxStatus
@@ -248,7 +248,7 @@ async def _refuse_without_approver(
 
     assert holdings.grant is not None
     barred = await barred_addresses(sperrliste, [str(row["address"]) for row in grants], session=session)
-    approver = genehmiger_of(
+    approver = approver_of(
         admin_tier=str(holdings.grant["admin_tier"]),
         excepted={holdings.identifier, actor},
         grants=grants,
@@ -639,7 +639,7 @@ async def post_address_change_approval(
         grants = await read_berechtigungen(grants_collection=grants_collection, session=session)
         announced = await read_the_announced(grants_announced_collection=grants_announced_collection, session=session)
         owner = holds_an_owners_power(actor=actor, auth_time=auth_time, grants=grants, announced=announced)
-        denied = genehmigung_verwehrt(
+        denied = approval_denied(
             target=record["address"], approval=record["approval"], actor=actor, owner=owner, grants=grants, announced=announced
         )
         refuse(find_approval_denied_refusal(denied=denied))

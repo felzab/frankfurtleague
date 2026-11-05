@@ -2545,8 +2545,8 @@ export interface FLGrantData {
   change: FLGrantDataChange;
   changed_at: string | null;
   changed_by: string | null;
+  current: FLGrantSnapshot | null;
   kind: "grant";
-  now: FLGrantSnapshot | null;
   withheld: FLGrantDataWithheld;
 }
 
@@ -2725,11 +2725,11 @@ export interface FLInvitationRow {
   delivery: FLOutboxStatus | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
+  revoked_at: string | null;
   /** @minLength 1 */
   saison_id: string;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   team_id: string;
-  widerrufen_am: string | null;
 }
 
 /**

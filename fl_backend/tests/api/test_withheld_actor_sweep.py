@@ -22,7 +22,7 @@ from fastapi import FastAPI
 from fastapi.routing import APIRoute
 from pymongo import MongoClient
 
-from app.api.berechtigungen.antraege import compose_antrag
+from app.api.berechtigungen.antraege import compose_approval_request
 from app.api.einladungen.services import compose_einladung
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.core.collections import Collection
@@ -171,7 +171,7 @@ def _seed(url: str, *, ban_until: str | None) -> None:
         )
         # Asked on the real clock: the list serves a request only until its `until`, and the TTL index removes it then.
         database[Collection.GRANT_APPROVAL_REQUESTS].insert_one(
-            compose_antrag(
+            compose_approval_request(
                 address="antrag.verwalterin@beispielschule.de",
                 admin_tier="administration",
                 grant_id=None,

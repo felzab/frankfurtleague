@@ -104,7 +104,7 @@ async def a_live_link(database: AsyncDatabase) -> None:
             "token_hashes": [hash_token("seeded")],
             "created_at": "2026-03-15",
             "created_by": ADMIN,
-            "widerrufen_am": None,
+            "revoked_at": None,
         }
     )
 
@@ -115,7 +115,7 @@ class TestTheClubsLink:
     def test_a_mint_voiding_a_live_link_from_an_older_sign_in_is_refused_and_voids_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, http: AsyncClient) -> tuple[bool, list[Any]]:
             response = await http.post(self.URL, headers=OLDER)
-            live = await database[Collection.INVITATIONS].find({"widerrufen_am": None}, {"token_hashes": 1, "_id": 0}).to_list()
+            live = await database[Collection.INVITATIONS].find({"revoked_at": None}, {"token_hashes": 1, "_id": 0}).to_list()
             return refused(response), live
 
         assert on_a_season(mongo_replica_set_url, body, seed=a_live_link) == (True, [{"token_hashes": [hash_token("seeded")]}])

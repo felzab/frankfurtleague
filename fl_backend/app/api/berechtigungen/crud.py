@@ -16,13 +16,13 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.berechtigungen.services import (
-    Mitteilung,
+    Notice,
     compare,
     compose_announced,
-    compose_mitteilung,
+    compose_notice,
     granted_since,
     owner_since,
-    stand_of,
+    snapshot_of,
 )
 from app.api.outbox.schemas import FLGrantData, FLOutboxReference
 from app.api.outbox.services import OwedMail, enqueue_mails
@@ -90,14 +90,14 @@ async def _grant_and_its_record_in(
         pipeline=[
             {"$match": {"address": address}},
             {"$limit": 1},
-            {"$project": {field: 1 for field in [*fields, "address", "granted_at", "gefunden_am", "gesehen_am"]}},
+            {"$project": {field: 1 for field in [*fields, "address", "granted_at", "found_at", "seen_at"]}},
             {
                 "$lookup": {
                     "from": Collection.GRANTS_ANNOUNCED,
                     "localField": "_id",
                     "foreignField": "_id",
                     "pipeline": [{"$project": {"address": 1, "admin_tier": 1}}],
-                    "as": "angekuendigt",
+                    "as": "announced",
                 }
             },
         ],
@@ -106,10 +106,10 @@ async def _grant_and_its_record_in(
     if not found:
         return None
 
-    return found[0], next(iter(found[0]["angekuendigt"]), None)
+    return found[0], next(iter(found[0]["announced"]), None)
 
 
-async def verwaltung_of(
+async def read_admin_tier_of(
     *, grants_collection: ReadCollection, address: str, session: AsyncClientSession
 ) -> tuple[FLAdminTier, datetime, datetime | None] | None:
     """The tier this address holds, and when the grant and the tier took effect, or `None`.
@@ -124,14 +124,14 @@ async def verwaltung_of(
     if grant is None:
         return None
 
-    row, angekuendigt = grant
-    since = granted_since(row, angekuendigt)
+    row, announced = grant
+    since = granted_since(row, announced)
     if since is None:
         return None
 
     # The tier in effect rather than the row's: a promotion made in the database and not yet found is
     # no session's, so it is answered as the administrator it still is.
-    owner = owner_since(row, angekuendigt)
+    owner = owner_since(row, announced)
 
     return ("administration" if owner is None else "owner"), since, owner
 
@@ -162,11 +162,11 @@ async def live_unbarred_grant_since(
 
 
 # A grant's notice still to be handed out: the one shape a ban or an erasure rewrites, a sent one being past saying.
-OFFENE_MITTEILUNG: Final[Mapping[str, Any]] = {"state": "open", "kind": "grant"}
+OPEN_NOTICE: Final[Mapping[str, Any]] = {"state": "open", "kind": "grant"}
 
 
 async def owe_in_session(
-    mitteilungen: Sequence[Mitteilung],
+    notices: Sequence[Notice],
     *,
     outbox_collection: AsyncCollection,
     grants_collection: AsyncCollection,
@@ -184,7 +184,7 @@ async def owe_in_session(
     (`app/api/outbox/system_router.py :: post_handout`).
     """
 
-    if not mitteilungen:
+    if not notices:
         return
     holders: set[str] = set()
     if an is None:
@@ -192,36 +192,36 @@ async def owe_in_session(
         holders = {str(row["address"]) for row in grants}
 
     mails: list[OwedMail] = []
-    for mitteilung in mitteilungen:
-        data = FLGrantData.model_validate(mitteilung.data)
-        genannt = {stand.address for stand in (data.now, data.before) if stand is not None and stand.address is not None}
+    for notice in notices:
+        data = FLGrantData.model_validate(notice.data)
+        named = {snapshot.address for snapshot in (data.current, data.before) if snapshot is not None and snapshot.address is not None}
         mails.extend(
             OwedMail(
                 # The write's own instant and the notice's origin keep two notices about one grant apart: a revoke owes
                 # a database edit's notice beside its own (`revoke_in_session`).
-                key=f"grant/{mitteilung.grant_id}/{data.change}/{data.author}/{now.isoformat()}/{address}",
+                key=f"grant/{notice.grant_id}/{data.change}/{data.author}/{now.isoformat()}/{address}",
                 an=address,
                 data=data,
                 reference=reference,
             )
-            for address in sorted(set(an) if an is not None else holders | genannt)
+            for address in sorted(set(an) if an is not None else holders | named)
         )
     await enqueue_mails(outbox_collection=outbox_collection, session=session, mails=mails, now=now)
 
 
-async def withhold_in_the_postausgang(*, outbox_collection: AsyncCollection, address: str, session: AsyncClientSession) -> None:
+async def withhold_in_the_outbox(*, outbox_collection: AsyncCollection, address: str, session: AsyncClientSession) -> None:
     """Every grant notice still owed naming this folded address, as a grant's address or as its actor, withheld in place."""
 
-    for site in ("now", "before"):
+    for site in ("current", "before"):
         await patch_many_in_db(
             collection=outbox_collection,
-            db_filter={**OFFENE_MITTEILUNG, f"data.{site}.address": address},
+            db_filter={**OPEN_NOTICE, f"data.{site}.address": address},
             update={"$set": {f"data.{site}.address": None, "data.withheld": "barred"}},
             session=session,
         )
     await patch_many_in_db(
         collection=outbox_collection,
-        db_filter={**OFFENE_MITTEILUNG, "data.changed_by": address},
+        db_filter={**OPEN_NOTICE, "data.changed_by": address},
         # No reason: it is the grant address's, and a null actor on an application's change says it alone.
         update={"$set": {"data.changed_by": None}},
         session=session,
@@ -247,8 +247,8 @@ async def grant_in_session(
     outbox_collection: AsyncCollection,
     now: datetime,
     session: AsyncClientSession,
-    # A move's alone: the replaced row's since-whens (`app/api/berechtigungen/services.py :: compose_fortgefuehrt`).
-    fortgefuehrt: Mapping[str, Any] | None = None,
+    # A move's alone: the replaced row's since-whens (`app/api/berechtigungen/services.py :: compose_carried`).
+    carried: Mapping[str, Any] | None = None,
 ) -> ObjectId:
     """Write a grant and its announced row and owe its notice, answering its id.
 
@@ -263,23 +263,23 @@ async def grant_in_session(
         "granted_at": now,
         # Seen as it is written, so a copy of it put back after a revoke reads as an edit rather
         # than a fresh paste.
-        "gesehen_am": now,
-        **({} if fortgefuehrt is None else {"fortgefuehrt": fortgefuehrt}),
+        "seen_at": now,
+        **({} if carried is None else {"carried": carried}),
     }
     created = await post_one_to_db(collection=grants_collection, document=document, session=session)
 
-    stand = stand_of(document)
+    snapshot = snapshot_of(document)
     await post_one_to_db(
         collection=grants_announced_collection,
-        document=compose_announced(grant_id=created.inserted_id, stand=stand, now=now),
+        document=compose_announced(grant_id=created.inserted_id, snapshot=snapshot, now=now),
         session=session,
     )
     await owe_in_session(
         [
-            compose_mitteilung(
+            compose_notice(
                 grant_id=created.inserted_id,
                 kind="granted",
-                current=stand,
+                current=snapshot,
                 before=None,
                 changed_by=granted_by,
                 now=now,
@@ -313,16 +313,16 @@ async def revoke_in_session(
     A database edit nobody was told of goes out first, or the revoke's notice would be its only trace.
     """
 
-    mitteilungen = [
-        compose_mitteilung(grant_id=changed_id, kind=kind, current=current, before=before, changed_by=None, now=now, barred=barred)
+    notices = [
+        compose_notice(grant_id=changed_id, kind=kind, current=current, before=before, changed_by=None, now=now, barred=barred)
         for changed_id, kind, current, before in compare(grants=[grant], announced=announced)
     ]
-    mitteilungen.append(
-        compose_mitteilung(
+    notices.append(
+        compose_notice(
             grant_id=grant["_id"],
             kind="revoked",
             current=None,
-            before=stand_of(grant),
+            before=snapshot_of(grant),
             changed_by=revoked_by,
             now=now,
             barred=barred,
@@ -335,7 +335,7 @@ async def revoke_in_session(
     await erase_many_from_db(collection=grants_announced_collection, db_filter={"_id": grant["_id"]}, session=session)
     # After the removal, so the holders told are the ones who remain, and the revoked one through the notice's `before`.
     await owe_in_session(
-        mitteilungen,
+        notices,
         outbox_collection=outbox_collection,
         grants_collection=grants_collection,
         now=now,

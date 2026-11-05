@@ -767,7 +767,7 @@ async def post_einwilligung(
         updated_raw = await patch_one_in_db(
             collection=bewerbungen_collection,
             db_filter={"_id": bewerbung_raw["_id"]},
-            update=compose_decline_update(seats=seats, today=today, angekuendigt=objection_is_announced(kontakte=kontakte, seats=seats)),
+            update=compose_decline_update(seats=seats, today=today, announced=objection_is_announced(kontakte=kontakte, seats=seats)),
             session=session,
             return_document=ReturnDocument.AFTER,
         )

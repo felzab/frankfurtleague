@@ -38,9 +38,9 @@ from app.api.address_change.crud import (
     read_the_holdings,
 )
 from app.api.address_change.services import covers
-from app.api.berechtigungen.antraege import ist_offen, remove_the_antrag_in_session
+from app.api.berechtigungen.antraege import ist_offen, remove_the_approval_request_in_session
 from app.api.berechtigungen.crud import read_berechtigungen, read_the_announced
-from app.api.berechtigungen.services import genehmigung_steht
+from app.api.berechtigungen.services import approval_stands
 from app.api.bewerbungen.services import (
     compose_decline_update,
     compose_saison_decline_update,
@@ -94,7 +94,7 @@ def _objection_update(home: Collection, *, kontakte: Mapping[str, Any], seats: S
     if home == Collection.SAISON_TEAMS:
         return compose_saison_decline_update(seats=seats, today=today)
 
-    return compose_decline_update(seats=seats, today=today, angekuendigt=objection_is_announced(kontakte=kontakte, seats=seats))
+    return compose_decline_update(seats=seats, today=today, announced=objection_is_announced(kontakte=kontakte, seats=seats))
 
 
 # The ending each ending line replays, as its press ended the change.
@@ -403,7 +403,7 @@ async def _plan_address_change(
     return Plan("to replay", rewrite_the_ending)
 
 
-async def _plan_request_end(
+async def _plan_approval_request_end(
     line: JournalLine, database: AsyncDatabase, *, key: SecretStr, session: AsyncClientSession | None, now: datetime
 ) -> Plan:
     """An ended request the restore brought back, removed again; one lapsed since is gone to every reader already."""
@@ -420,7 +420,7 @@ async def _plan_request_end(
 
     async def rewrite_the_end(session: AsyncClientSession) -> Any:
         # The request's notice the restore brought back is settled with it, as the end settled it.
-        await remove_the_antrag_in_session(
+        await remove_the_approval_request_in_session(
             grant_approval_requests_collection=database[Collection.GRANT_APPROVAL_REQUESTS],
             outbox_collection=database[Collection.OUTBOX],
             approval_request_id=approval_request["_id"],
@@ -476,7 +476,7 @@ async def _plan_address_change_effective(
         or (approval or {}).get("approved_at") is None
         # Judged as the effect judges it: an approver revoked or demoted in the restored database approves nothing. Never
         # barred there: a ban the snapshot holds predates the approval, which the actor check would then have refused.
-        or not genehmigung_steht(
+        or not approval_stands(
             target=record["address"],
             approval=approval,
             grants=await read_berechtigungen(grants_collection=database[Collection.GRANTS], session=session),
@@ -589,7 +589,7 @@ async def plan_replay(
         case "address_change_effective":
             return await _plan_address_change_effective(line, database, key=key, session=session, now=now)
         case "approval_request_declined" | "approval_request_withdrawn" | "approval_request_ended":
-            return await _plan_request_end(line, database, key=key, session=session, now=now)
+            return await _plan_approval_request_end(line, database, key=key, session=session, now=now)
         case "erasure":
             return await _plan_pseudonym(line, database, session=session, now=now)
 

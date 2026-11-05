@@ -155,7 +155,7 @@ def compose_renewed(*, path: str, saved: Mapping[str, Any], renewed: Mapping[str
     return set_fields
 
 
-def compose_born(*, block: Mapping[str, Any], at: str, text_versions: TextVersions) -> dict[str, Any]:
+def compose_initial(*, block: Mapping[str, Any], at: str, text_versions: TextVersions) -> dict[str, Any]:
     """A block its person's own confirmation writes whole, each choice it holds evidenced under that choice's label."""
 
     if EVIDENCE in block:

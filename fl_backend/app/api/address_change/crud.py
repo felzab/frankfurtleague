@@ -42,10 +42,10 @@ from app.api.aktionen.crud import (
     reattribute_administrator_in_session,
     redact_images_in_session,
 )
-from app.api.berechtigungen.antraege import antrag_line, build_offen_filter, end_the_antraege_about_in_session
+from app.api.berechtigungen.antraege import approval_request_line, build_open_filter, end_the_approval_requests_about_in_session
 from app.api.berechtigungen.crud import grant_in_session, read_berechtigungen, read_the_announced, revoke_in_session
 from app.api.berechtigungen.loeschung import carry_authorship_in_session
-from app.api.berechtigungen.services import compose_fortgefuehrt, genehmigung_steht
+from app.api.berechtigungen.services import approval_stands, compose_carried
 from app.api.identity.lookup import RecordCollections
 from app.api.identity.services import address_change_viewable_denied, is_own_schiedsrichter, own_seats
 from app.api.kontakte.services import find_matching_slots, rows_seating, same_address
@@ -209,7 +209,7 @@ async def address_taken(email: str, *, records: RecordCollections, occupancy: Oc
         (records.registrierungen_collection, build_loeschung_registrierung_filter(folded)),
         # As stored, as the account sweep reads it: a row the comparison has not seen yet still keeps an account.
         (occupancy.grants_collection, {"address": folded}),
-        (occupancy.grant_approval_requests_collection, {"address": folded, **build_offen_filter(occupancy.now)}),
+        (occupancy.grant_approval_requests_collection, {"address": folded, **build_open_filter(occupancy.now)}),
         # The account still standing there until its own carry moves it off.
         (occupancy.address_changes_collection, build_owed_carry_filter([folded])),
     ]
@@ -351,7 +351,7 @@ class Verdict:
     empty: bool
     waits: bool
     # The approval given does not stand: its approver lost the grant, the tier or their standing since, so the change
-    # waits on another (`app/api/berechtigungen/services.py :: genehmigung_steht`).
+    # waits on another (`app/api/berechtigungen/services.py :: approval_stands`).
     withdrawn: bool = False
 
 
@@ -524,7 +524,7 @@ async def judge_the_effect_in_session(
     # Judged again here rather than kept from the press: a revoke, a demotion, a ban or an erasure of the approver since
     # leaves no approval standing.
     by = approval.get("approved_by")
-    stands = genehmigung_steht(
+    stands = approval_stands(
         target=old,
         approval=approval,
         grants=await read_berechtigungen(grants_collection=grants_collection, session=session),
@@ -676,7 +676,7 @@ async def take_effect_in_session(
     )
     # A line for each request the effect ended, so a restore from before it does not bring one back.
     for approval_request in ended:
-        journal.note(antrag_line(approval_request=approval_request, kind="approval_request_ended", at=stamp, key=key))
+        journal.note(approval_request_line(approval_request=approval_request, kind="approval_request_ended", at=stamp, key=key))
     journal.note(effective_line(record=record, now=now, key=key))
 
     return verdict, True
@@ -802,7 +802,7 @@ async def move_the_address_in_session(
     )
 
     # Before the images' carry below, which takes the replaced address out of the image an ended request keeps.
-    ended = await end_the_antraege_about_in_session(
+    ended = await end_the_approval_requests_about_in_session(
         grant_approval_requests_collection=grant_approval_requests_collection,
         outbox_collection=outbox_collection,
         address=holdings.identifier,
@@ -976,7 +976,7 @@ async def _move_the_grant(
         now=now,
         session=session,
         # The four-eyes rule dates the person, not the mailbox.
-        fortgefuehrt=compose_fortgefuehrt(grant, announced[0] if announced else None),
+        carried=compose_carried(grant, announced[0] if announced else None),
     )
 
 

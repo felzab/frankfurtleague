@@ -101,7 +101,7 @@ def club_document(team_id: ObjectId, name: str) -> dict[str, Any]:
 
 
 def einladung_document(
-    invitation_id: ObjectId, team_id: ObjectId, token: str, *, widerrufen_am: str | None = None, saison_id: str = SAISON_ID
+    invitation_id: ObjectId, team_id: ObjectId, token: str, *, revoked_at: str | None = None, saison_id: str = SAISON_ID
 ) -> dict[str, Any]:
     return {
         "_id": invitation_id,
@@ -110,7 +110,7 @@ def einladung_document(
         "token_hashes": [hash_token(token)],
         "created_at": "2026-03-15",
         "created_by": "admin@frankfurtleague.de",
-        "widerrufen_am": widerrufen_am,
+        "revoked_at": revoked_at,
     }
 
 
@@ -179,7 +179,7 @@ def on_a_league(
                 [
                     einladung_document(EINLADUNG_OID, TEAM_OID, TOKEN),
                     einladung_document(OTHER_EINLADUNG_OID, OTHER_TEAM_OID, OTHER_TOKEN),
-                    einladung_document(REVOKED_EINLADUNG_OID, TEAM_OID, REVOKED_TOKEN, widerrufen_am="2026-03-20"),
+                    einladung_document(REVOKED_EINLADUNG_OID, TEAM_OID, REVOKED_TOKEN, revoked_at="2026-03-20"),
                 ]
             )
 
@@ -463,7 +463,7 @@ class TestTheSubmissionKey:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             first = await register(database, client, key=SCHLUESSEL)
-            await database[Collection.INVITATIONS].update_one({"_id": EINLADUNG_OID}, {"$set": {"widerrufen_am": TODAY}})
+            await database[Collection.INVITATIONS].update_one({"_id": EINLADUNG_OID}, {"$set": {"revoked_at": TODAY}})
             second = await register(database, client, key=SCHLUESSEL)
 
             return first.registrierung_id, second.registrierung_id

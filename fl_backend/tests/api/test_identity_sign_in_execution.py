@@ -222,7 +222,7 @@ async def _seed(database: AsyncDatabase) -> None:
         {"_id": GRANT_OID, "address": ADMIN, "admin_tier": "administration", "granted_by": "PLAYGROUND", "granted_at": granted}
     )
     await database[Collection.GRANTS_ANNOUNCED].insert_one(
-        {"_id": GRANT_OID, "address": ADMIN, "admin_tier": "administration", "angekuendigt_am": granted}
+        {"_id": GRANT_OID, "address": ADMIN, "admin_tier": "administration", "announced_at": granted}
     )
 
 
