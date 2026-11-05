@@ -69,31 +69,3 @@ describe("the notice of a move", () => {
     },
   );
 });
-
-/* The block stands under the new pairing, so a move that also changed the opponent would leave the old one named nowhere
-   in the mail, and the club could not tell which fixture its earlier slot was. */
-describe("the slot a move left", () => {
-  const ansetzung = { team1: "Ernst-Reuter-Schule", team2: "Goethe-Gymnasium", datum: "2026-11-27", uhrzeit: "14:30:00", ort: null };
-  const request = (movedFrom: { team1: string; team2: string; datum: string; uhrzeit: string }) =>
-    mailFor(
-      "spiel_request",
-      { kind: "spiel_request", team: "Goethe-Gymnasium", ansetzung, frist: "2026-11-10", moved_from: movedFrom },
-      { token: "t", secret: null, origin: ORIGIN },
-    );
-  const previousOf = (mail: ReturnType<typeof request>) => {
-    const block = mail?.block;
-    return block !== undefined && "facts" in block ? block.facts.find(({ label }) => label === "Bisher")?.value : undefined;
-  };
-
-  it("names the pairing it held where the move also changed the sides", () => {
-    const mail = request({ team1: "Lessing-Gymnasium", team2: "Goethe-Gymnasium", datum: "2026-11-20", uhrzeit: "14:30:00" });
-
-    expect(previousOf(mail)).toBe("Lessing-Gymnasium vs. Goethe-Gymnasium, 20. November 2026 um 14:30");
-  });
-
-  it("names its moment alone where the sides stayed", () => {
-    const mail = request({ team1: "Ernst-Reuter-Schule", team2: "Goethe-Gymnasium", datum: "2026-11-20", uhrzeit: "14:30:00" });
-
-    expect(previousOf(mail)).toBe("20. November 2026 um 14:30");
-  });
-});

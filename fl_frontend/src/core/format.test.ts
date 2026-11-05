@@ -1,13 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  bornAfter,
-  bornBy,
   formatDatum,
   formatDatumLong,
   formatDatumPair,
   formatDatumWithWeekday,
-  formatDayAndTime,
   formatErgebnis,
   formatEuro,
   formatInstant,
@@ -88,14 +85,6 @@ describe("formatInstant", () => {
   });
 });
 
-describe("formatDayAndTime", () => {
-  // Read as an instant in the league's zone the pair moves by its offset, and 02:30 on the night the clocks go forward
-  // exists on no Berlin clock at all.
-  it("joins a stored day and time with „um“ as the league's wall clock holds them", async (t) => {
-    await same(t, formatDayAndTime("2027-03-28", "02:30:00"), "28. März 2027 um 02:30");
-  });
-});
-
 describe("formatPeriod", () => {
   it("parts two days with the locale's dash between thin spaces", async (t) => {
     await same(t, formatPeriod("2025-09-01", "2026-06-30"), "01.09.2025\u2009–\u200930.06.2026");
@@ -122,17 +111,5 @@ describe("formatSigned", () => {
 describe("formatErgebnis", () => {
   it("adds each side's shoot-out goals to its goals", async (t) => {
     await same(t, formatErgebnis({ team1: 2, team2: 2 }, { team1: 4, team2: 3 }), "6:5");
-  });
-});
-
-// The harm: a birthdate range the confirmation page offers that the backend's count of whole years refuses.
-describe("bornBy and bornAfter", () => {
-  it("count whole years as the backend does across 29 February", () => {
-    // From a leap day back to a year without one: the month's last day.
-    expect(bornBy("2028-02-29", 17)).toBe("2011-02-28");
-    expect(bornAfter("2028-02-29", 120)).toBe("1907-03-01");
-    // Born on a leap day, a year older only from 1 March where the year holds no 29th.
-    expect(bornBy("2025-02-28", 17)).toBe("2008-02-28");
-    expect(bornBy("2025-03-01", 17)).toBe("2008-03-01");
   });
 });

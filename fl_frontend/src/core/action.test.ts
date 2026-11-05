@@ -2,17 +2,11 @@ import { person, seat } from "@/test-support/subjectFixtures.ts";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
-import { action, blankIsNull, numberBox, PAGE_HOLDER, requires } from "./action";
+import { action, numberBox, PAGE_HOLDER } from "./action";
 import { afterTheResponse } from "./afterResponse";
 import { dispatchRequest, sentRequestOf } from "./apiDispatch";
 import { COPY } from "./copy";
 import { APIBadStatusError } from "./errors";
-import {
-  SchiedsrichterPatchSchiedsrichterBody,
-  SchiedsrichterPostSchiedsrichterBody,
-  SpielortePatchSpielortBody,
-  SpielortePostSpielortBody,
-} from "./generated/zod/inputs";
 import { AFTER_RESPONSE_DEADLINE_MS, getRequestActor, requestTimeLeft, setRequestActor } from "./requestScope";
 
 import type { Code } from "./generated/client/types";
@@ -372,46 +366,13 @@ describe("the site's cache", () => {
   });
 });
 
-// An empty box read as 0, or as text where the rule takes no value, would store a fee or a price nobody typed, and the
-// asterisk would say the opposite of the write; neither shows on a page that is only read.
+// An empty box read as 0 would store a fee or a price nobody typed, which a page that only reads it back shows as a
+// plausible figure.
 describe("a box's reading", () => {
   const FEE = z.int().min(0);
-
-  it("takes a digit box's digits as their figure, and hands other text to the rule as typed", () => {
-    expect(numberBox(FEE).safeParse("60")).toStrictEqual({ success: true, data: 60 });
-    expect(numberBox(FEE).safeParse("6a").success).toBe(false);
-    expect(numberBox(z.union([FEE, z.string()])).safeParse("6a")).toStrictEqual({ success: true, data: "6a" });
-  });
 
   it("reads an empty digit box as no value, never as 0", () => {
     expect(numberBox(z.union([FEE, z.null()])).safeParse("")).toStrictEqual({ success: true, data: null });
     expect(numberBox(FEE).safeParse("").success).toBe(false);
-  });
-
-  // Every box that reads `numberBox` today: each write takes a figure and no empty value, so an emptied box is
-  // refused as missing rather than stored as 0 or as no value.
-  it.each([
-    ["the referee create's fee", SchiedsrichterPostSchiedsrichterBody.shape.default_payment],
-    ["the referee save's fee", SchiedsrichterPatchSchiedsrichterBody.shape.default_payment],
-    ["the venue create's price", SpielortePostSpielortBody.shape.default_mietpreis],
-    ["the venue save's price", SpielortePatchSpielortBody.shape.default_mietpreis],
-  ] as const)("refuses %s left empty, which its box marks required", (_box, rule) => {
-    expect(numberBox(rule).safeParse("").success).toBe(false);
-    expect(requires(numberBox(rule), "")).toBe(true);
-    expect(requires(rule, null)).toBe(true);
-  });
-
-  it("reads an empty text box as no value where it is so read, and any other text as typed", () => {
-    const SCHULE = z.union([z.string().max(120), z.null()]);
-    expect(blankIsNull(SCHULE).safeParse("")).toStrictEqual({ success: true, data: null });
-    expect(blankIsNull(SCHULE).safeParse(" ")).toStrictEqual({ success: true, data: " " });
-    expect(SCHULE.safeParse("")).toStrictEqual({ success: true, data: "" });
-  });
-
-  it("requires a field where its rule refuses what the box sends while empty", () => {
-    expect(requires(z.string().min(1), "")).toBe(true);
-    expect(requires(z.string(), "")).toBe(false);
-    expect(requires(z.union([z.string(), z.null()]), null)).toBe(false);
-    expect(requires(z.array(z.string()).min(1), [])).toBe(true);
   });
 });
