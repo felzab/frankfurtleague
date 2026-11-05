@@ -1,18 +1,31 @@
+from collections.abc import Mapping
 from datetime import date, datetime, time, timedelta
-from typing import Annotated, Final, Literal, Self
+from typing import Annotated, Final, Literal, LiteralString
 
-from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter, model_validator
+from pydantic import (
+    AfterValidator,
+    BaseModel,
+    ConfigDict,
+    Field,
+    StringConstraints,
+    TypeAdapter,
+    ValidationError,
+    ValidationInfo,
+    field_validator,
+)
+from pydantic_core import InitErrorDetails
 
 from app.api.spielberichte.schemas import FLSpielberichtPublic
 from app.api.spiele.schemas import FLSpielJoined
 from app.api.spieler.schemas import FLSpielerPublic
 from app.api.teams.schemas import MAX_NUMBER_OF_GROUPS, FLAustritt, FLSaisonTeamEntry, FLTabelleRow, FLTeamPageClub
 from app.core import clock
+from app.core.codes import Rule
 
 # Imported rather than restated. Acyclic: no model of `teams` imports this file --
 # `teams/services.py` does, and no model there.
 from app.core.crud import Anchored
-from app.core.exceptions import rule_refusal
+from app.core.exceptions import Bound, rule_refusal
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SAISON_ID_LENGTH
 from app.shared.schemas.custom import CustomDateString, CustomObjectId, CustomTimeString, refuse_reversed_span
 from app.shared.schemas.literals import FLGruppenNames, FLSaisonPhase, FLSaisonStatus, FLSortOrder, FLSpielerStufe
@@ -130,43 +143,73 @@ class _SaisonWritable(BaseModel):
     registrierung: FLSaisonRegistrierung | None
 
 
+def _refused_at_the_end(
+    window: FLSaisonBewerbung | FLSaisonRegistrierung, rule: Rule, message: LiteralString, bounds: Mapping[str, Bound]
+) -> ValidationError:
+    """`rule_refusal`'s refusal placed on a window's `end`, which the field validator naming the window prefixes with its own key.
+
+    A line error at `("end",)`, as `pydantic_core.InitErrorDetails` spells one: a field validator's own refusal sits at its
+    field, the window, which is no box a form can mark.
+    """
+
+    return ValidationError.from_exception_data(
+        type(window).__name__, [InitErrorDetails(type=rule_refusal(rule, message, bounds), loc=("end",), input=window.end)]
+    )
+
+
 class _SaisonPayload(_SaisonWritable):
     model_config = ConfigDict(extra="forbid")
 
-    @model_validator(mode="after")
-    def the_season_ends_after_it_starts(self) -> Self:
+    # Field validators, each at the end its rule judges, reading the start off `info.data`: a model validator's refusal sits at
+    # the model, a path no box answers. `start_date` is declared first, so it is validated first; where it failed it is absent
+    # from `info.data`, and its own refusal is the one answered.
+    @field_validator("end_date")
+    @classmethod
+    def the_season_ends_after_it_starts(cls, end_date: str, info: ValidationInfo) -> str:
         """Judged on every edit, a `past` season's included: its end date stays editable so a mistyped one can be repaired.
 
         Its start date is fixed once a fixture has taken place, which `saison_start_taken_place` refuses on the stored season.
         """
 
-        refuse_reversed_span(start=self.start_date, end=self.end_date, kind="saison_ends_before_start")
+        if "start_date" in info.data:
+            refuse_reversed_span(start=info.data["start_date"], end=end_date, kind="saison_ends_before_start")
 
-        return self
+        return end_date
 
-    @model_validator(mode="after")
-    def the_application_window_ends_after_it_opens(self) -> Self:
+    @field_validator("bewerbung")
+    @classmethod
+    def the_application_window_ends_after_it_opens(cls, bewerbung: FLSaisonBewerbung | None) -> FLSaisonBewerbung | None:
         """Judged apart from the season's own span: a window may legitimately open before the season does."""
 
-        if self.bewerbung is not None:
-            refuse_reversed_span(start=self.bewerbung.start, end=self.bewerbung.end, kind="bewerbung_window_ends_before_start")
+        # `refuse_reversed_span`'s rule, spelled here because that helper raises at the validator's own field, the window.
+        if bewerbung is not None and bewerbung.end < bewerbung.start:
+            raise _refused_at_the_end(
+                bewerbung, "bewerbung_window_ends_before_start", "the span ends before it starts", {"start": bewerbung.start}
+            )
 
-        return self
+        return bewerbung
 
-    @model_validator(mode="after")
-    def the_registration_window_ends_before_the_season_starts(self) -> Self:
+    @field_validator("registrierung")
+    @classmethod
+    def the_registration_window_ends_before_the_season_starts(
+        cls, registrierung: FLSaisonRegistrierung | None, info: ValidationInfo
+    ) -> FLSaisonRegistrierung | None:
         """Registration closes before the season's first day: a pupil joining once play has begun is a Nachnominierung, not a registration.
 
         `latest` is the last day the window may end on, the day before `start_date`.
         """
 
-        if self.registrierung is not None and self.registrierung.end >= self.start_date:
-            latest = (date.fromisoformat(self.start_date) - timedelta(days=1)).isoformat()
-            raise rule_refusal(
-                "registrierung_window_reaches_saison_start", "the registration window reaches the season's start", {"latest": latest}
+        start_date = info.data.get("start_date")
+        if registrierung is not None and start_date is not None and registrierung.end >= start_date:
+            latest = (date.fromisoformat(start_date) - timedelta(days=1)).isoformat()
+            raise _refused_at_the_end(
+                registrierung,
+                "registrierung_window_reaches_saison_start",
+                "the registration window reaches the season's start",
+                {"latest": latest},
             )
 
-        return self
+        return registrierung
 
 
 class _SaisonStored(_SaisonWritable):
