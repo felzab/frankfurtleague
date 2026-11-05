@@ -1047,14 +1047,14 @@ def seats_link(seats: Sequence[FLKontaktRolle]) -> FLOutboxLink:
     )
 
 
-def team_notices(*, spielbestaetigung_raw: Mapping[str, Any], kontakte: Any, data: FLOutboxData, anlass: str) -> list[OwedMail]:
+def team_notices(*, spielbestaetigung_raw: Mapping[str, Any], kontakte: Any, data: FLOutboxData, occasion: str) -> list[OwedMail]:
     """A team row's notice, one mail per address its club's season row holds now, keyed by the row, the occasion and the seat."""
 
     row_id = spielbestaetigung_raw["_id"]
 
     return [
         OwedMail(
-            key=f"spielbestaetigung/{row_id}/{anlass}/{rollen[0]}",
+            key=f"spielbestaetigung/{row_id}/{occasion}/{rollen[0]}",
             an=address,
             data=data,
             reference=bezug_of(spielbestaetigung_id=row_id, seat=rollen[0]),

@@ -441,7 +441,7 @@ async def sweep_spielbestaetigungen(
             junction = junctions.get(partei["team_id"])
             if junction is None:
                 continue
-            told = team_notices(spielbestaetigung_raw=row, kontakte=junction.get("kontakte"), data=data, anlass=grund)
+            told = team_notices(spielbestaetigung_raw=row, kontakte=junction.get("kontakte"), data=data, occasion=grund)
             if told:
                 told_clubs.add(junction["_id"])
                 mails += told

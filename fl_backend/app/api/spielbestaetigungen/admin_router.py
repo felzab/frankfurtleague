@@ -238,7 +238,7 @@ async def discard_spielbestaetigung(
             mails = (
                 []
                 if verein is None
-                else team_notices(spielbestaetigung_raw=row, kontakte=verein.get("kontakte"), data=data, anlass="discarded")
+                else team_notices(spielbestaetigung_raw=row, kontakte=verein.get("kontakte"), data=data, occasion="discarded")
             )
             if verein is not None and mails:
                 # A seat emptied or an address moved beside this write conflicts with it rather than leaving the old mailbox told.
