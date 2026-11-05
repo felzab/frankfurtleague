@@ -20,8 +20,8 @@ import { pressLinkWrite } from "@/shared/utils/linkWrite";
 import type { FLKontaktRolle } from "@/core/generated/client/types";
 
 /**
- * A fresh link for one stored, unconfirmed seat, on the referee's pattern
- * (`fl_frontend/src/features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/FormBestaetigungSection.tsx`):
+ * A fresh link for one stored, unconfirmed seat, as the referee editor's „Link senden“ does
+ * (`fl_frontend/src/app/admin/(editor)/schiedsrichter/[schiedsrichter]/SchiedsrichterEditor.tsx`):
  * the editor's save mints one only for a person it newly seats, so a lapsed or lost link is replaced here.
  */
 export function FormKontaktEinladen({
