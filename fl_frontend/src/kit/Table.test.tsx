@@ -243,10 +243,25 @@ describe("a table on a phone", () => {
     for (const cell of cells) expect(cell.getAttribute("role")).toBe("cell");
   });
 
-  it("leaves the chevron out, the whole row still the link", () => {
-    render(<Table {...props([{ id: "1", name: { record: "Goethe" }, href: "/saisons/2027", cells: { stadtteil: { record: "Nordend" } } }])} />);
-    const row = screen.getByRole("link", { name: "Goethe" }).closest("tr");
-    expect(row?.lastElementChild?.classList).toContain("max-lg:hidden");
+  // The chevron says a row leads on, on a phone too; the Tabelle alone leaves it out there. A class slipping back onto
+  // every table hides it again on each list opening a record, and no other check sees a phone.
+  it("ends a linked row with the chevron, but where the table leaves it out, the whole row still the link", () => {
+    const linked = props([{ id: "1", name: { record: "Goethe" }, href: "/saisons/2027", cells: { stadtteil: { record: "Nordend" } } }]);
+    const { unmount } = render(<Table {...linked} />);
+    const shown = screen.getByRole("link", { name: "Goethe" }).closest("tr");
+    expect(shown?.lastElementChild?.querySelector("svg")).not.toBe(null);
+    expect(shown?.lastElementChild?.classList).not.toContain("max-lg:hidden");
+    expect(screen.getByRole("table").querySelector("thead tr")?.lastElementChild?.classList).not.toContain("max-lg:hidden");
+    unmount();
+
+    render(
+      <Table
+        {...linked}
+        chevronOnPhone={false}
+      />,
+    );
+    const left = screen.getByRole("link", { name: "Goethe" }).closest("tr");
+    expect(left?.lastElementChild?.classList).toContain("max-lg:hidden");
     expect(screen.getByRole("table").querySelector("thead tr")?.lastElementChild?.classList).toContain("max-lg:hidden");
   });
 });
