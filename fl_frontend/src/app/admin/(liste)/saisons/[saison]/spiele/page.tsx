@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 
+import { Link } from "@/kit/Link";
 import { ListPage } from "@/kit/ListPage";
 import { SpielList } from "@/kit/SpielRow";
 import { SpieltagHead } from "@/kit/SpieltagHead";
@@ -7,14 +8,11 @@ import { chosenTab } from "@/kit/tabChoice";
 
 import { COPY } from "@/core/copy";
 import { dayOf } from "@/core/format";
-import { SpieltagePatchSpieltagBody } from "@/core/generated/zod/inputs";
 import { ROUTES } from "@/core/routes";
 import { ereignisOf, matchRowOf } from "@/features/spiele/blocks";
 import { getAdminSpielplan } from "@/features/spiele/queries";
 import { spieltagNamer } from "@/features/spieltage/utils";
 import { pageMetadata } from "@/shared/utils/metadata";
-
-import { SpieltagDialog } from "./SpieltagDialog";
 
 import type { FLSpielJoinedAdmin } from "@/core/generated/client/types";
 import type { ChipProps } from "@/kit/Chip";
@@ -25,12 +23,6 @@ import type { Metadata, ResolvingMetadata } from "next";
 type Props = PageProps<"/admin/saisons/[saison]/spiele">;
 
 const WORDS = COPY.admin.spiel;
-
-/** The matchday write's two dates, each required where its schema takes no empty one. */
-const DATES_REQUIRED = {
-  beginn: !SpieltagePatchSpieltagBody.shape.beginn.safeParse(null).success,
-  ende: !SpieltagePatchSpieltagBody.shape.ende.safeParse(null).success,
-};
 
 export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
   const { saison } = await params;
@@ -60,7 +52,7 @@ function cardOf(saison: string, spiel: FLSpielJoinedAdmin): SpielRowProps & { id
 /**
  * The season's one „Spiele“ list: its matchdays as tabs, one at a time, opening on the matchday the address names
  * (`?tab=<phase>-<position>`, as the Spielplan's), else on the one still to be played; over each matchday's matches its
- * dates and its „Bearbeiten“, the matchday's dialog.
+ * dates and its „Bearbeiten“, leading to the matchday's editor.
  */
 export default function SpielePage({ params, searchParams }: Props) {
   return (
@@ -86,35 +78,30 @@ async function readSpieltage(params: Props["params"], searchParams: Props["searc
         : {
             label: COPY.spielplan.spieltage,
             selectedKey: chosenTab(await searchParams, spieltage.map(keyOf), keyOf(opening)),
-            tabs: spieltage.map((spieltag) => {
-              const beginn = dayOf(spieltag.beginn);
-              const ende = dayOf(spieltag.ende);
-              return {
-                id: keyOf(spieltag),
-                label: nameOf(spieltag),
-                panel: (
-                  <>
-                    <SpieltagHead
-                      dates={WORDS.span(beginn, ende)}
-                      act={
-                        <SpieltagDialog
-                          // A new version is a fresh dialog, its fields taking the dates as now stored.
-                          key={`${spieltag.id}-${String(spieltag.version)}`}
-                          id={spieltag.id}
-                          version={spieltag.version}
-                          stored={{ beginn, ende }}
-                          required={DATES_REQUIRED}
-                        />
-                      }
-                    />
-                    <SpielList
-                      matches={spieltag.spiele.map((spiel) => cardOf(saison, spiel))}
-                      layout="cards"
-                    />
-                  </>
-                ),
-              };
-            }),
+            tabs: spieltage.map((spieltag) => ({
+              id: keyOf(spieltag),
+              label: nameOf(spieltag),
+              panel: (
+                <>
+                  <SpieltagHead
+                    dates={WORDS.span(dayOf(spieltag.beginn), dayOf(spieltag.ende))}
+                    act={
+                      // Every editor is a page of its own: the matchday's opens on its own read.
+                      <Link
+                        href={ROUTES.adminSpieltag.path(saison, spieltag.id)}
+                        placement="button"
+                        look="secondary"
+                        label={COPY.shared.verb.edit}
+                      />
+                    }
+                  />
+                  <SpielList
+                    matches={spieltag.spiele.map((spiel) => cardOf(saison, spiel))}
+                    layout="cards"
+                  />
+                </>
+              ),
+            })),
           },
     empty: { kind: "none", plural: COPY.page.spiele, glyph: "spielplan" },
   };

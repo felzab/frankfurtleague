@@ -229,6 +229,16 @@ export const ROUTES = {
     title: COPY.page.spiele,
     crawl: "disallow",
   },
+  /**
+   * A matchday's editor, named by the matchday as its tab is. Its address lies under the season's Übersicht, and it
+   * belongs to the Spiele list it is opened from.
+   */
+  adminSpieltag: {
+    path: (saison: string, spieltag: string) => `/admin/saisons/${saison}/spieltage/${spieltag}` as const,
+    title: null,
+    crawl: "disallow",
+    place: "adminSpiele",
+  },
   /** The match editor, named by the match's two teams as the match's own page is. */
   adminSpiel: {
     path: (saison: string, spiel: string) => `/admin/saisons/${saison}/spiele/${spiel}` as const,

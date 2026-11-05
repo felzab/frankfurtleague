@@ -17,8 +17,25 @@ export function currentOf<Href extends string>(path: string, hrefs: ReadonlyArra
 
 type Row = (typeof ROUTES)[keyof typeof ROUTES];
 
-/** The rows declaring the entry their page belongs to, each a season's page, its address built from the season alone. */
+/**
+ * The rows declaring the entry their page belongs to, each a season's page, its address built from the season and, for
+ * a record's page, the record's id after it.
+ */
 const PLACED = Object.values(ROUTES).filter((row): row is Extract<Row, { place: string }> => "place" in row);
+
+/** A segment no address holds, standing for any one segment of the address in a placed row's pattern. */
+const ANY_SEGMENT = "\u0000";
+
+/**
+ * Whether the path is the row's page in this season: segment by segment, the season filled in and every further
+ * segment the row's address takes, a record's id, matching any one.
+ */
+function isPageOf(row: (typeof PLACED)[number], saison: string, path: string) {
+  const ids = Array.from({ length: Math.max(0, row.path.length - 1) }, () => ANY_SEGMENT);
+  const pattern = (row.path as (...segments: string[]) => string)(saison, ...ids).split("/");
+  const segments = path.split("/");
+  return pattern.length === segments.length && pattern.every((segment, index) => segment === ANY_SEGMENT || segment === segments[index]);
+}
 
 /**
  * The entry a page belongs to: the one its route declares (`RouteEntry.place`), where its address lies under another
@@ -28,7 +45,7 @@ const PLACED = Object.values(ROUTES).filter((row): row is Extract<Row, { place: 
  * mark is right before the page hydrates. `saison` is the season the address names, if any.
  */
 export function placeOf<Href extends string>(path: string, saison: string | undefined, hrefs: ReadonlyArray<Href>) {
-  const row = saison === undefined ? undefined : PLACED.find((each) => each.path(saison) === path);
+  const row = saison === undefined ? undefined : PLACED.find((each) => isPageOf(each, saison, path));
   if (row !== undefined && saison !== undefined) {
     // A place that is a season's page takes the season, and one that is the league's ignores it.
     const declared = (ROUTES[row.place].path as (season: string) => string)(saison);
