@@ -1,4 +1,4 @@
-from app.api.saisons.services import find_saison_start_refusal, has_started
+from app.api.saisons.services import find_saison_start_austritt_refusal, find_saison_start_refusal, has_started
 from app.core.codes import Code
 
 # The day every case is judged on, so the stored start is the only thing a case moves.
@@ -37,3 +37,12 @@ class TestTheStartIsFixedOnceAFixtureHasTakenPlace:
         """The way a season frozen too early is unlocked."""
 
         assert find_saison_start_refusal(stored_start_date="2026-03-01", proposed_start_date="2026-05-01", taken_place=False) is None
+
+
+class TestTheStartMovesNoLaterPastAStoredExit:
+    def test_the_stored_start_resubmitted_passes(self):
+        """Every season save carries `start_date`, so refusing the stored one would leave a season with an exit uneditable."""
+
+        assert (
+            find_saison_start_austritt_refusal(stored_start_date="2026-03-01", proposed_start_date="2026-03-01", austritt_stored=True) is None
+        )
