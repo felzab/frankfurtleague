@@ -86,7 +86,6 @@ from app.core.crud import (
     refuse,
 )
 from app.core.readonly import ReadCollection
-from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.shared.einwilligung import is_confirmed
 from app.shared.schemas.bounds import LIST_LIMIT_MAX
 from app.shared.schemas.custom import CustomObjectId
@@ -764,7 +763,7 @@ async def pull_party_names(
 ) -> dict[tuple[str, Any], str]:
     """The name each of `parties` holds on its own record: a club its season row's, already read as `membership`, a referee their own."""
 
-    referee_ids = {party["schiedsrichter_id"] for party in parties if party["art"] == "schiedsrichter"} - {GHOST_SCHIEDSRICHTER_ID}
+    referee_ids = {party["schiedsrichter_id"] for party in parties if party["art"] == "schiedsrichter"}
     referees = await pull_many_from_db(
         collection=schiedsrichter_collection,
         db_filter={"_id": {"$in": list(referee_ids)}},
