@@ -18,7 +18,7 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
 }
 
 /**
- * About: the one paragraph, the three sections the landing's pillars show as cards, the
+ * About: the league's two paragraphs, the three sections the landing's pillars show as cards, the
  * practical ones as short prose, and the organisers' row, which holds what the old Organisation page held.
  */
 export default function AboutPage() {
@@ -26,7 +26,7 @@ export default function AboutPage() {
   return (
     <ClassicPage width="form">
       <ClassicTitle text={COPY.page.about} />
-      <Prose blocks={[{ kind: "paragraph", text: [words.paragraph] }]} />
+      <Prose blocks={words.paragraphs.map((paragraph) => ({ kind: "paragraph" as const, text: [paragraph] }))} />
       <Pillars
         items={[
           { glyph: "pupils", ...words.about.who },

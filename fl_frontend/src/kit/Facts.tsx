@@ -2,6 +2,7 @@ import { textOf } from "@/core/copy";
 
 import { cardSurface, stacked } from "./cardStyles";
 import { Chip } from "./Chip";
+import { CutText } from "./CutText";
 import { Icon } from "./Icon";
 import { Link } from "./Link";
 import { PlaceholderLine } from "./Skeleton";
@@ -115,11 +116,10 @@ export function Facts({
     <div className="@container grid w-full gap-2 text-sm">
       {subject !== undefined && (
         <p className="flex min-w-0 items-center gap-2 text-base font-semibold">
-          <span
+          <CutText
+            text={textOf(subject.name)}
             className="min-w-0 truncate"
-            title={textOf(subject.name)}>
-            {textOf(subject.name)}
-          </span>
+          />
           {subject.chip !== undefined && <Chip {...subject.chip} />}
         </p>
       )}

@@ -89,7 +89,7 @@ const Threads = ({ className }: GlyphProps) => (
 const GLYPHS = {
   // A record created where its list shows, before the act's label.
   create: Plus,
-  // „Anmelden“ at the collapsed rail's foot: an arrow into a door frame.
+  // „Konto“ at the collapsed rail's foot, signed out, leading to the sign-in: an arrow into a door frame.
   signin: LogIn,
   expand: ChevronDown,
   // The theme row's three: the moon for the dark theme, the sun for the light, the screen for the system's.

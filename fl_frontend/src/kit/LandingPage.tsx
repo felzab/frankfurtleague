@@ -35,7 +35,8 @@ const hero = tv({
     root: "grid items-start gap-x-12 lg:grid-cols-[minmax(0,1fr)_25rem]",
     title: "pb-6 font-heading text-3xl tracking-display uppercase lg:col-start-1 lg:row-start-1",
     words: "grid content-start gap-6 pb-8 lg:col-start-1 lg:row-start-2 lg:pb-0",
-    lead: "text-base text-fg-muted",
+    // The lead's paragraphs, 12 px apart, a step closer than the words and the acts under them.
+    lead: "grid gap-3 text-base text-fg-muted",
     acts: "flex flex-wrap gap-3",
     aside: "min-w-0 lg:col-start-2 lg:row-span-2 lg:row-start-1",
     // Board: the gap between the landing's sections, 48 px on a phone and 64 px from `lg`.
@@ -55,15 +56,26 @@ function Parts({ words, aside, sections }: { words: ReactNode; aside: ReactNode;
   );
 }
 
+/** The lead's paragraphs under the tagline, the same once read and while the read waits, the page knowing them first. */
+function Lead({ lead }: { lead: ReadonlyArray<Copy> }) {
+  return (
+    <div className={hero().lead()}>
+      {lead.map((paragraph) => (
+        <p key={paragraph}>{paragraph}</p>
+      ))}
+    </div>
+  );
+}
+
 /** The parts once the read has landed. */
-async function Read({ lead, content }: { lead: Copy; content: Promise<LandingContent> }) {
+async function Read({ lead, content }: { lead: ReadonlyArray<Copy>; content: Promise<LandingContent> }) {
   const { primary, secondary, aside, sections } = await content;
   const slots = hero();
   return (
     <Parts
       words={
         <>
-          <p className={slots.lead()}>{lead}</p>
+          <Lead lead={lead} />
           <div className={slots.acts()}>
             <Link
               href={primary.href}
@@ -103,7 +115,8 @@ export function LandingPage({
 }: {
   /** The tagline, the page's one heading. */
   title: Copy;
-  lead: Copy;
+  /** The paragraphs under the tagline. */
+  lead: ReadonlyArray<Copy>;
   content: Promise<LandingContent>;
 }) {
   const slots = hero();
@@ -116,7 +129,7 @@ export function LandingPage({
             <Parts
               words={
                 <>
-                  <p className={slots.lead()}>{lead}</p>
+                  <Lead lead={lead} />
                   <Waiting layout={slots.acts()}>
                     <span className={buttonPlaceholder("w-28")} />
                     <span className={buttonPlaceholder("w-36")} />

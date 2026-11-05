@@ -11,15 +11,18 @@ type LineStep = { title: Copy; text: Copy };
 const line = tv({
   extend: checkpoint,
   slots: {
-    // Laid along the line across four columns from `lg`; one under another below it, where four do not fit.
-    list: "grid lg:grid-cols-4 lg:gap-4",
+    // Laid along the line across four columns from `lg`; one under another below it, where four do not fit. From
+    // `lg` the stages share two rows, the titles' and the texts', each stage a subgrid of them, so a title running to
+    // two lines moves every stage's text down alike.
+    list: "grid lg:grid-cols-4 lg:grid-rows-[auto_1fr] lg:gap-4",
     // Each stage is the line's stretch from its point to the next, so the last stage draws none: down the left
     // on a phone, along the top from `lg`, through the point's middle either way.
-    line: "relative grid grid-cols-[1.5rem_minmax(0,1fr)] gap-x-4 pb-6 before:top-6 before:bottom-0 before:left-[calc(0.75rem-1px)] last:pb-0 last:before:hidden lg:grid-cols-1 lg:pt-8 lg:pb-0 lg:before:top-[calc(0.75rem-1px)] lg:before:right-[-1rem] lg:before:bottom-auto lg:before:left-8 lg:before:border-t-2 lg:before:border-l-0",
-    point: "lg:absolute lg:top-0 lg:left-0",
-    body: "grid gap-1",
+    line: "relative grid grid-cols-[1.5rem_minmax(0,1fr)] content-start gap-x-4 gap-y-1 pb-6 before:top-6 before:bottom-0 before:left-[calc(0.75rem-1px)] last:pb-0 last:before:hidden lg:row-span-2 lg:grid-cols-1 lg:grid-rows-subgrid lg:pt-8 lg:pb-0 lg:before:top-[calc(0.75rem-1px)] lg:before:right-[-1rem] lg:before:bottom-auto lg:before:left-8 lg:before:border-t-2 lg:before:border-l-0",
+    // Beside the title and its text on a phone, in their first line; from `lg` over them, on the line, placed in no
+    // row, so it is positioned against the stage's own box rather than a row's area.
+    point: "row-span-2 lg:absolute lg:top-0 lg:left-0 lg:row-auto",
     title: "text-base font-semibold",
-    text: "text-sm text-fg-muted",
+    text: "col-start-2 text-sm text-fg-muted lg:col-start-1",
   },
 });
 
@@ -37,10 +40,8 @@ export function StepsLine({ items }: { items: readonly LineStep[] }) {
             className={slots.point()}>
             {formatNumber(index + 1)}
           </span>
-          <div className={slots.body()}>
-            <h3 className={slots.title()}>{item.title}</h3>
-            <p className={slots.text()}>{item.text}</p>
-          </div>
+          <h3 className={slots.title()}>{item.title}</h3>
+          <p className={slots.text()}>{item.text}</p>
         </li>
       ))}
     </ol>

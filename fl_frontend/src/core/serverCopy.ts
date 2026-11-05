@@ -408,8 +408,14 @@ export const SERVER_COPY = catalogue({
   landing: {
     /** The hero's one heading. */
     tagline: "Frankfurts Abi-Jahrgänge spielen um den Titel",
-    /** The one paragraph the league describes itself with, under the tagline and at the head of About. */
-    paragraph: `${COPY.brand.description} Ehrenamtliche aus den Jahrgängen organisieren die Liga.`,
+    /**
+     * The two paragraphs the league describes itself with, under the tagline and at the head of About: what the league
+     * is, then who stands behind a team and who runs it.
+     */
+    paragraphs: [
+      COPY.brand.description,
+      "Hinter jedem Team steht eine ganze Schule, die zu den Spielen kommt und mitfiebert. Ehrenamtliche aus den Jahrgängen organisieren die Liga, von der Bewerbung bis zum Finale.",
+    ],
     /** The way to apply while a window is open: the hero's second act, the steps' band and the school's door. */
     toBewerbung: "Zur Bewerbung",
 
@@ -452,7 +458,7 @@ export const SERVER_COPY = catalogue({
         text: "Dein Team bekommt einen Link, über den sich dein Jahrgang registriert. Die Kontaktpersonen nehmen die Spieler in den Kader auf.",
       },
       /** The band while no window is open; an open window's deadline is the season card's `windowUntil`. */
-      closed: "Das Bewerbungsfenster ist geschlossen.",
+      closed: "Das Bewerbungsfenster ist gerade geschlossen. Versuche es nächste Saison.",
       /** The school's door while a window is open, where the band and the season card carry its date. */
       opened: "Das Bewerbungsfenster ist offen.",
     },
@@ -470,13 +476,14 @@ export const SERVER_COPY = catalogue({
       finale: "Das Spiel um den Titel.",
     },
 
-    /** The season in four counts. */
+    /** The league in four counts, over every season the public reads. */
     figures: {
-      title: (saison: string) => `${COPY.shared.saisonName(saison)} in Zahlen`,
+      eyebrow: "Statistiken",
+      title: "Die Liga in Zahlen",
+      saisons: "Saisons",
       schulen: "Schulen",
-      tore: COPY.shared.tore,
       spiele: COPY.page.spiele,
-      spieltage: COPY.spielplan.spieltage,
+      tore: COPY.shared.tore,
     },
 
     organisers: {
@@ -486,9 +493,12 @@ export const SERVER_COPY = catalogue({
       role: { vorstand: "Vorstand", spielbetrieb: SPIELBETRIEB, website: "Website", kommunikation: "Kommunikation" },
     },
 
+    /** The eyebrow over the sponsors' section, whose title is the sponsors page's own. */
+    sponsors: { eyebrow: "Unterstützung" },
+
     /** The ways in: the school's while a window is open, and the question's; the heading counts them. */
     doors: {
-      eyebrow: "Mitmachen",
+      eyebrow: "Bei Anliegen",
       title: (withSchool: boolean) => (withSchool ? "Zwei Wege zu uns" : "Wege zu uns"),
       school: { title: "Deine Schule will antreten" },
       question: {

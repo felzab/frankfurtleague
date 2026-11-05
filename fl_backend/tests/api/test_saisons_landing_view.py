@@ -27,6 +27,7 @@ VACATED_DATABASE_NAME = worker_database("fl_saisons_landing_view_vacated_test")
 THIRD_UNPLAYED_DATABASE_NAME = worker_database("fl_saisons_landing_view_third_unplayed_test")
 MARKED_DATABASE_NAME = worker_database("fl_saisons_landing_view_third_place_mark_test")
 EMPTY_DATABASE_NAME = worker_database("fl_saisons_landing_view_empty_test")
+LEAGUE_DATABASE_NAME = worker_database("fl_saisons_landing_view_league_test")
 
 SAISON, NEXT = "2026", "2027"
 TODAY = "2026-03-05"
@@ -136,7 +137,7 @@ async def landing_of(database: AsyncDatabase) -> Any:
     return await get_landing(
         saisons_collection=database[Collection.SAISONS],
         spiele_collection=database[Collection.SPIELE],
-        spieltage_collection=database[Collection.SPIELTAGE],
+        saison_teams_collection=database[Collection.SAISON_TEAMS],
         teams_collection=database[Collection.TEAMS],
         today=TODAY,
     )
@@ -158,7 +159,8 @@ def test_a_running_season_shows_its_latest_results_its_next_matches_and_its_figu
 
     assert (type(saison), saison.id, saison.state) == (FLLandingRunning, SAISON, "running")
     assert ([spiel.spiel_nr for spiel in saison.recent], [spiel.spiel_nr for spiel in saison.upcoming]) == ([3], [4])
-    assert saison.counts.model_dump() == {"count_tore": 7, "count_spiele": 3, "count_spieltage": 2}
+    # The retired club is in no figure, the planned season beside it in none either.
+    assert response.counts.model_dump() == {"count_saisons": 1, "count_schulen": 2, "count_spiele": 3, "count_tore": 7}
     assert [team.name for team in saison.teams] == ["Alpha", "Beta"]
     assert response.bewerbung_window.model_dump() == {"saison_id": NEXT, "end": "2026-03-31"}
 
@@ -211,10 +213,11 @@ def test_a_season_past_its_start_date_runs_before_its_first_match(mongo_url: str
         mongo_url, STARTED_DATABASE_NAME, {Collection.SPIELTAGE: [spieltag(DAY_1, 1)], Collection.SPIELE: [match(1, DAY_1, "2026-03-10", None)]}
     )
 
-    saison = landing(mongo_url, STARTED_DATABASE_NAME).saison
+    response = landing(mongo_url, STARTED_DATABASE_NAME)
+    saison = response.saison
 
     assert (type(saison), saison.recent, [spiel.spiel_nr for spiel in saison.upcoming]) == (FLLandingRunning, [], [1])
-    assert saison.counts.model_dump() == {"count_tore": 0, "count_spiele": 0, "count_spieltage": 1}
+    assert response.counts.model_dump() == {"count_saisons": 1, "count_schulen": 0, "count_spiele": 0, "count_tore": 0}
 
 
 @pytest.mark.parametrize(
@@ -234,7 +237,7 @@ def test_a_season_whose_final_is_played_shows_its_podium(mongo_url: str):
     """The match for third place and the final, read off the Finale's matchday through the joined shape the landing serves.
 
     Neither names a source, as a match an admin cleared by hand names none, so the read marks the match for third place by
-    its number. Its goals count the Finale's beside the group phase's, as the season's own figure.
+    its number. The league's goals count the Finale's beside the group phase's.
     """
 
     seeded(
@@ -250,11 +253,12 @@ def test_a_season_whose_final_is_played_shows_its_podium(mongo_url: str):
         },
     )
 
-    saison = landing(mongo_url, DECIDED_DATABASE_NAME).saison
+    response = landing(mongo_url, DECIDED_DATABASE_NAME)
+    saison = response.saison
 
     assert (type(saison), saison.state) == (FLLandingDecided, "decided")
     assert [place and place.name for place in saison.podium] == ["Alpha", "Beta", "Dora", "Cara"]
-    assert saison.counts.count_tore == 7
+    assert response.counts.count_tore == 7
 
 
 @pytest.mark.db
@@ -345,6 +349,61 @@ def test_the_read_marks_the_match_for_third_place_only_on_a_finale_of_the_draws_
     rows = on_the_seed_loop(read(shared_client(mongo_url)[MARKED_DATABASE_NAME]))
 
     assert {row["spiel_nr"]: row[FOR_THIRD_PLACE] for row in rows} == marked
+
+
+@pytest.mark.db
+def test_the_league_figures_count_every_season_the_public_reads_each_club_once(mongo_url: str):
+    """Last season's and this one's matches and clubs add up, a club playing both counted once; a planned season's are left out.
+
+    A club that left the league after last season keeps its place there, as last season's Teams page lists it. A wrong
+    sum would read as the league's record on the landing, and nothing on the page could show it wrong.
+    """
+
+    past, next_day = "2025", ObjectId("6890a1b2c3d4e5f607440014")
+    cara = ObjectId("6890a1b2c3d4e5f607440005")
+
+    async def _seed() -> None:
+        async with a_clean_database(mongo_url, LEAGUE_DATABASE_NAME) as (_, database):
+            await database[Collection.SAISONS].insert_many(
+                [
+                    documents.saison_document(past, "past"),
+                    documents.saison_document(SAISON, "active"),
+                    documents.saison_document(NEXT, "future"),
+                ]
+            )
+            await database[Collection.TEAMS].insert_many(
+                [
+                    documents.team_document(ALPHA, "Alpha", "ALP"),
+                    documents.team_document(BETA, "Beta", "BET"),
+                    documents.team_document(RETIRED, "Gamma", "GAM", inactive_since="2025-08-01"),
+                    documents.team_document(cara, "Cara", "CAR"),
+                ]
+            )
+            await database[Collection.SAISON_TEAMS].insert_many(
+                [
+                    documents.saison_team_document(past, ALPHA, "Alpha", "ALP"),
+                    documents.saison_team_document(past, RETIRED, "Gamma", "GAM"),
+                    documents.saison_team_document(SAISON, ALPHA, "Alpha", "ALP"),
+                    documents.saison_team_document(SAISON, BETA, "Beta", "BET"),
+                    documents.saison_team_document(NEXT, cara, "Cara", "CAR"),
+                ]
+            )
+            await database[Collection.SPIELE].insert_many(
+                [
+                    {**match(1, DAY_1, "2025-02-20", (3, 2)), "saison_id": past},
+                    match(1, DAY_1, "2026-02-20", (1, 1)),
+                    # Unplayed: no figure counts it.
+                    match(2, DAY_2, "2026-03-20", None),
+                    # A planned season's fixture carrying goals all the same: the public reads no figure of it.
+                    {**match(1, next_day, "2027-02-20", (5, 0)), "saison_id": NEXT},
+                ]
+            )
+
+    on_the_seed_loop(_seed())
+
+    counts = landing(mongo_url, LEAGUE_DATABASE_NAME).counts
+
+    assert counts.model_dump() == {"count_saisons": 2, "count_schulen": 3, "count_spiele": 2, "count_tore": 7}
 
 
 @pytest.mark.db

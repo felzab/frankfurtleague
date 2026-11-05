@@ -19,8 +19,9 @@ const link = tv({
     // link is its record's name, stretched over the row it stands in, so the whole row opens the record.
     // A card's link is the whole card, filling under the pointer as a row does.
     placement: {
-      text: "text-brand underline",
-      standalone: "text-brand",
+      // Under the pointer a link in text thickens its line, and a link standing alone takes one, as a link answers.
+      text: "text-brand underline hover:decoration-2",
+      standalone: "text-brand hover:underline",
       // A line of detail that leads on, such as a team's place under its name: muted until the pointer is over it.
       detail: "text-fg-muted transition-colors duration-(--motion-state) hover:text-fg",
       // A row's name takes its row's colour, muted in a row that no longer counts.
@@ -37,16 +38,18 @@ const link = tv({
 /**
  * A link the frames draw themselves, as tall as every control, 32 px under a mouse and 40 px under a finger,
  * coloured by the ground it stands on: the classic header's on the dark-green band, the title strip's legal
- * pages, „Anmelden“ at the rail's foot.
+ * pages, „Konto“ at a signed-out rail's foot.
  */
 export const frameLink = tv({
   base: "flex h-8 items-center rounded-lg px-3 text-sm font-medium whitespace-nowrap transition-colors duration-(--motion-state) pointer-coarse:h-10",
   variants: {
+    // On the band, under the pointer, the band's green takes the step the primary button's hover takes on the same
+    // green, so every link of the band answers the pointer, the one in full white too.
     tone: {
-      // On the band: the page the visitor is on, and „Anmelden“, in full white.
-      band: "text-on-brand",
+      // On the band: the page the visitor is on, and „Konto“, in full white.
+      band: "text-on-brand hover:bg-brand-solid-hover",
       // On the band, every other page: the white dimmed until the pointer is over it.
-      bandMuted: "text-on-brand/75 hover:text-on-brand",
+      bandMuted: "text-on-brand/75 hover:bg-brand-solid-hover hover:text-on-brand",
       // The title strip's: muted until the pointer is over it.
       strip: "text-fg-muted hover:text-fg",
       // The rail's foot: filled under the pointer as the rail's entries are.

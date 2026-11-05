@@ -1,8 +1,6 @@
 import { placeholderBar } from "./Skeleton";
 import { tv } from "./tv";
 
-import type { Ground } from "./Skeleton";
-
 /**
  * The look of everything that acts or leads on as a button: the kit's `Button`, and the kit's `Link` drawn
  * as a primary or a secondary button or as a glyph alone. Kept apart from both so a server-rendered link and
@@ -10,7 +8,7 @@ import type { Ground } from "./Skeleton";
  */
 export const buttonLook = tv({
   // The border colour is named on every variant: HeroUI's base sheet colours every element's border.
-  base: "inline-flex h-8 shrink-0 items-center justify-center gap-2 rounded-lg border text-sm font-medium whitespace-nowrap transition-colors duration-(--motion-state) data-disabled:opacity-50 pointer-coarse:h-10",
+  base: "inline-flex h-8 shrink-0 cursor-pointer items-center justify-center gap-2 rounded-lg border text-sm font-medium whitespace-nowrap transition-colors duration-(--motion-state) data-disabled:cursor-default data-disabled:opacity-50 pointer-coarse:h-10",
   variants: {
     look: {
       primary: "border-transparent bg-brand-solid px-3.5 text-on-brand",
@@ -33,14 +31,14 @@ export const buttonLook = tv({
   compoundVariants: [
     { look: "primary", host: "aria", class: "data-hovered:bg-brand-solid-hover data-pressed:bg-brand-solid-hover" },
     { look: "primary", host: "link", class: "hover:bg-brand-solid-hover active:bg-brand-solid-hover" },
-    // One step above the card, so the hover shows on a raised card as on the page and in an overlay; the edge
-    // keeps its 3:1 against the ground around it.
-    { look: "secondary", host: "aria", class: "data-hovered:bg-bg-muted data-pressed:bg-bg-muted" },
-    { look: "secondary", host: "link", class: "hover:bg-bg-muted active:bg-bg-muted" },
-    { look: "icon", host: "aria", class: "data-hovered:bg-bg-muted data-pressed:bg-bg-muted" },
-    { look: "icon", host: "link", class: "hover:bg-bg-muted active:bg-bg-muted" },
-    { look: "quiet", host: "aria", class: "data-hovered:bg-bg-muted data-hovered:text-fg data-pressed:bg-bg-muted data-pressed:text-fg" },
-    { look: "quiet", host: "link", class: "hover:bg-bg-muted hover:text-fg active:bg-bg-muted active:text-fg" },
+    // One step off the ground it stands on (`--bg-hover`), so the hover shows on the page, a raised card, an overlay
+    // and a card's head alike; the edge keeps its 3:1 against the ground around it.
+    { look: "secondary", host: "aria", class: "data-hovered:bg-bg-hover data-pressed:bg-bg-hover" },
+    { look: "secondary", host: "link", class: "hover:bg-bg-hover active:bg-bg-hover" },
+    { look: "icon", host: "aria", class: "data-hovered:bg-bg-hover data-pressed:bg-bg-hover" },
+    { look: "icon", host: "link", class: "hover:bg-bg-hover active:bg-bg-hover" },
+    { look: "quiet", host: "aria", class: "data-hovered:bg-bg-hover data-hovered:text-fg data-pressed:bg-bg-hover data-pressed:text-fg" },
+    { look: "quiet", host: "link", class: "hover:bg-bg-hover hover:text-fg active:bg-bg-hover active:text-fg" },
     { look: "danger", host: "aria", class: "data-hovered:bg-danger-solid-hover data-pressed:bg-danger-solid-hover" },
   ],
 });
@@ -49,6 +47,6 @@ export const buttonLook = tv({
  * A button while what it acts on is read: a bar of the button's height and corners, `width` wide, such as a label's
  * width or the full width of a column whose buttons fill it.
  */
-export function buttonPlaceholder(width: string, ground: Ground = "page") {
-  return placeholderBar(`h-8 rounded-lg pointer-coarse:h-10 ${width}`, ground);
+export function buttonPlaceholder(width: string) {
+  return placeholderBar(`h-8 rounded-lg pointer-coarse:h-10 ${width}`);
 }

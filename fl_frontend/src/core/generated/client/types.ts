@@ -3055,23 +3055,6 @@ export interface FLKontaktpersonPayload {
 }
 
 /**
- * Three of the season's four figures, counted on every read: its goals, its matches and its matchdays.
- *
- * The fourth, its clubs, is the length of the `teams` served beside them. `count_spiele` is every match of any phase the
- * Tabelle would count, one carrying an `ergebnis`, a forfeit among them, so a season before its first played match reads
- * 0; `count_tore` is both sides' goals summed over the same matches: a forfeit's awarded goals among them, a shoot-out's
- * never.
- */
-export interface FLLandingCounts {
-  /** @minimum 0 */
-  count_spiele: number;
-  /** @minimum 0 */
-  count_spieltage: number;
-  /** @minimum 0 */
-  count_tore: number;
-}
-
-/**
  * A club as the landing names it, on the opening match or the podium, under the name and shorthand it plays the season under.
  */
 export interface FLLandingSide {
@@ -3112,7 +3095,6 @@ export interface FLSaisonTeamEntry {
  * Before its start date: its opening match, the earliest dated group match, null while none is.
  */
 export interface FLLandingBeforeStart {
-  counts: FLLandingCounts;
   id: string;
   opening_spiel: FLLandingOpeningSpiel | null;
   start: string;
@@ -3121,10 +3103,27 @@ export interface FLLandingBeforeStart {
 }
 
 /**
+ * The league's four figures over every season the public reads, counted on every read and never stored.
+ *
+ * `count_saisons` is those seasons; `count_schulen` the clubs that took part in any of them, each counted once;
+ * `count_spiele` every match of any phase the Tabelle would count, one carrying an `ergebnis`, a forfeit among them;
+ * `count_tore` both sides' goals summed over the same matches, a forfeit's awarded goals among them, a shoot-out's never.
+ */
+export interface FLLandingCounts {
+  /** @minimum 0 */
+  count_saisons: number;
+  /** @minimum 0 */
+  count_schulen: number;
+  /** @minimum 0 */
+  count_spiele: number;
+  /** @minimum 0 */
+  count_tore: number;
+}
+
+/**
  * Once all four places are in: places one to four in their order.
  */
 export interface FLLandingDecided {
-  counts: FLLandingCounts;
   id: string;
   /**
    * @minItems 4
@@ -3140,7 +3139,6 @@ export interface FLLandingDecided {
  * From its start date: the latest result and the next match, at most one of each, empty where there is none.
  */
 export interface FLLandingRunning {
-  counts: FLLandingCounts;
   id: string;
   recent: FLSpielJoined[];
   start: string;
@@ -3150,10 +3148,11 @@ export interface FLLandingRunning {
 }
 
 /**
- * The landing's facts: the season the site is on, null for a league that has none, and an open window.
+ * The landing's facts: the season the site is on, null for a league that has none, an open window, and the league's figures.
  */
 export interface FLLandingResponse {
   bewerbung_window: FLBewerbungWindow | null;
+  counts: FLLandingCounts;
   saison: FLLandingBeforeStart | FLLandingRunning | FLLandingDecided | null;
 }
 
@@ -5650,7 +5649,7 @@ export interface FLSpielbestaetigungEnterPayload {
   /**
    * @minLength 1
    * @maxLength 500
-   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
+   * @pattern ^[^\x00\v\f\u0085\u2028\u2029]*$
    */
   begruendung: string;
 }

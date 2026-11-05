@@ -3,6 +3,8 @@ import { Suspense } from "react";
 import { COPY, textOf } from "@/core/copy";
 
 import { Callout } from "./Callout";
+import { headGround } from "./cardStyles";
+import { CutText } from "./CutText";
 import { RouteDialog } from "./Dialog";
 import { Facts } from "./Facts";
 import { Link } from "./Link";
@@ -44,7 +46,7 @@ export type SpielHeadProps = {
 const head = tv({
   extend: sideMarks,
   slots: {
-    root: "grid justify-items-center gap-4 bg-bg-card-head p-6",
+    root: `grid justify-items-center gap-4 ${headGround()} p-6`,
     eyebrow: "text-xs font-medium text-fg-muted",
     side: "grid min-w-0 justify-items-center gap-2 text-center",
     // Cut with „…“ where the side's third of the head is too narrow, as a phone's is for a long name.
@@ -74,9 +76,9 @@ function Side({ side, score, part }: { side: SpielHeadSide; score: Figures; part
   return (
     <span className={style.side()}>
       <TeamPlaque plaque={side.plaque} />
-      <span
-        className={style.name()}
-        title={textOf(side.name)}>
+      <CutText
+        text={textOf(side.name)}
+        className={style.name()}>
         {side.href === undefined ? (
           textOf(side.name)
         ) : (
@@ -86,7 +88,7 @@ function Side({ side, score, part }: { side: SpielHeadSide; score: Figures; part
             label={side.name}
           />
         )}
-      </span>
+      </CutText>
       {side.standing !== undefined && (
         <span className={style.standing()}>
           <Link
@@ -150,14 +152,12 @@ function SidePlaceholder() {
   const style = head();
   return (
     <span className={style.side()}>
-      <span className={placeholderBar("h-6 w-10", "head")} />
+      <span className={placeholderBar("h-6 w-10")} />
       <PlaceholderLine
-        ground="head"
         text="text-sm"
         width="w-24"
       />
       <PlaceholderLine
-        ground="head"
         text={style.standing()}
         width="w-20"
       />
@@ -174,7 +174,6 @@ export function SpielHeadPlaceholder() {
   return (
     <div className={style.root()}>
       <PlaceholderLine
-        ground="head"
         text={style.eyebrow()}
         width="w-24"
       />
@@ -182,7 +181,7 @@ export function SpielHeadPlaceholder() {
         <SidePlaceholder />
         <span className="grid justify-items-center pt-0.5">
           <span className="flex h-[1em] items-center text-3xl leading-none">
-            <span className={placeholderBar("h-[0.75em] w-16", "head")} />
+            <span className={placeholderBar("h-[0.75em] w-16")} />
           </span>
           <span className="h-4" />
         </span>

@@ -1,6 +1,7 @@
 import { textOf } from "@/core/copy";
 
 import { cardSurface } from "./cardStyles";
+import { CutText } from "./CutText";
 import { Link } from "./Link";
 import { placeholderBar, PlaceholderLine } from "./Skeleton";
 import { figures, goalsOf, look, sideMarks } from "./SpielRow";
@@ -34,12 +35,11 @@ function Line({ side, score, part }: { side: SpielSide; score: Figures; part: "t
       <span className={style.name()}>
         <TeamPlaque plaque={side.plaque} />
         {/* A phone's card draws the plaque alone, the name still the link's words for a screen reader; desktop
-            sets the name, or a side's source, beside it, cut with „…“ and whole in its title. */}
-        <span
-          title={name}
-          className="min-w-0 truncate max-lg:sr-only">
-          {name}
-        </span>
+            sets the name, or a side's source, beside it, cut with „…“ and whole in its title while it is cut. */}
+        <CutText
+          text={name}
+          className="min-w-0 truncate max-lg:sr-only"
+        />
       </span>
       <span className={style.goals()}>{goalsOf(score, part)}</span>
     </span>

@@ -36,7 +36,7 @@ import type { ReactElement, ReactNode } from "react";
 import type { ChipProps } from "./Chip";
 import type { AccountRead, FrameSaisons, RailGroup } from "./FrameNav";
 
-/** The rail's foot: the account signed in, which streams in, or „Anmelden“ where nobody is. */
+/** The rail's foot: the account signed in, which streams in, or „Konto“ leading to the sign-in where nobody is. */
 type RailFoot = { kind: "account"; account: AccountRead } | { kind: "signIn"; href: Route };
 
 /** The phone bar's pages, by their entries' ids: up to four, „Mehr“ and the account taking the other places. */
@@ -80,11 +80,11 @@ export function RailFrame({
   children: ReactNode;
 }) {
   const account = foot.kind === "account" ? foot.account : undefined;
-  // Signed out, the phone reaches „Anmelden“ and the two legal pages through „Mehr“ (the strip carries them on desktop).
+  // Signed out, the phone reaches „Konto“, the way to the sign-in, and the two legal pages through „Mehr“ (the strip carries them on desktop).
   const extra =
     foot.kind === "signIn"
       ? [
-          { label: COPY.shared.verb.signIn, href: foot.href },
+          { label: COPY.template.account, href: foot.href },
           { label: COPY.page.legalNotice, href: ROUTES.legalNotice.path() },
           { label: COPY.page.privacyNotice, href: ROUTES.privacyNotice.path() },
         ]
@@ -122,7 +122,7 @@ export function RailFrame({
               ) : (
                 // Drawn as an entry is, its glyph before its words: collapsed, the glyph alone stands centred
                 // and the tooltip names it.
-                <RailTooltip label={COPY.shared.verb.signIn}>
+                <RailTooltip label={COPY.template.account}>
                   <NextLink
                     href={foot.href}
                     data-kit-focus="ring"
@@ -133,7 +133,7 @@ export function RailFrame({
                         size={18}
                       />
                     </span>
-                    <span className={railFade()}>{COPY.shared.verb.signIn}</span>
+                    <span className={railFade()}>{COPY.template.account}</span>
                   </NextLink>
                 </RailTooltip>
               )}
@@ -158,7 +158,9 @@ export function RailFrame({
 export function RailColumn({ editor = false, back, children }: { editor?: boolean; back?: Route; children: ReactNode }) {
   return (
     <>
-      <header className="@container sticky top-0 z-20 flex h-(--rail-band) shrink-0 items-center gap-2 bg-brand-solid px-4 text-on-brand [--focus-ring:var(--on-brand)] lg:hidden">
+      {/* The band and the bar are pictures of their own in a page's cross-fade, so the page scrolled under them is
+          not drawn over them (`tokens.css`). */}
+      <header className="@container sticky top-0 z-20 flex h-(--rail-band) shrink-0 items-center gap-2 bg-brand-solid px-4 text-on-brand [--focus-ring:var(--on-brand)] [view-transition-name:band] lg:hidden">
         {editor ? (
           // The list's address needs the season the rail fills in, read while the band streams.
           <Suspense fallback={<EditorBackPlaceholder />}>

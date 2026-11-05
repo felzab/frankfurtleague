@@ -13,14 +13,17 @@ vi.mock("next/link", () => ({
 }));
 vi.mock("next/server", async (original) => ({ ...(await original<object>()), connection: async () => undefined }));
 
-/** The landing's read each case serves: no season yet, and the window a case sets. */
-const landing = vi.hoisted((): { current: FLLandingResponse } => ({ current: { saison: null, bewerbung_window: null } }));
+/** The landing's read each case serves: no season yet, no figures, and the window a case sets. */
+const landing = vi.hoisted((): { counts: FLLandingResponse["counts"]; current: FLLandingResponse } => {
+  const counts = { count_saisons: 0, count_schulen: 0, count_spiele: 0, count_tore: 0 };
+  return { counts, current: { saison: null, bewerbung_window: null, counts } };
+});
 
 vi.mock("./landing", async (original) => ({ ...(await original<object>()), readLanding: async () => landing.current }));
 
 /** The landing's whole server render for the window given: the document a browser shows before hydrating. */
 async function rendered(window: FLLandingResponse["bewerbung_window"]) {
-  landing.current = { saison: null, bewerbung_window: window };
+  landing.current = { saison: null, bewerbung_window: window, counts: landing.counts };
   const stream = await renderToReadableStream(<HomePage />);
   await stream.allReady;
   return new Response(stream).text();

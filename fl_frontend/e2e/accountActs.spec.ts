@@ -99,7 +99,7 @@ test("a person changes their address: the address on file confirms first, then t
   await expect(page.getByRole("main").getByRole("heading", { name: "E-Mail-Adresse bestätigen" })).toBeVisible();
   await page.getByRole("button", { name: "Bestätigen" }).click();
   await expect(page.getByRole("main").getByRole("heading", { name: "Adresse bestätigt", exact: true })).toBeVisible();
-  // In the page's own end: the classic header holds an „Anmelden“ of its own on a desktop.
+  // In the page's own end: the classic header holds a link to the sign-in of its own on a desktop.
   const signInHere = page.getByRole("main").getByRole("link", { name: "Anmelden" });
   await expect(signInHere).toBeVisible();
 

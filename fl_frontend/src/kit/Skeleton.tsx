@@ -18,27 +18,26 @@ const placeholder = tv({
     // `--motion-in` is unset, which would invalidate the whole shorthand and leave the box invisible, where it
     // invalidates the duration alone, which falls back to 0s, so the box appears at once.
     root: "opacity-0 [animation-delay:var(--loading-delay)] [animation-duration:var(--motion-in)] [animation-fill-mode:forwards] [animation-name:kit-appear]",
-    // The base fill, with a lighter band sweeping across it every two seconds, under reduced motion too: a
-    // loading indicator that stops reads as stuck.
-    bar: "relative block shrink-0 overflow-hidden rounded-md bg-bg-muted after:absolute after:inset-0 after:animate-[kit-shimmer_2s_linear_infinite] after:bg-linear-to-r after:from-transparent after:via-[rgb(255_255_255/0.55)] after:to-transparent dark:after:via-[rgb(255_255_255/0.09)]",
+    // The base fill, one step off the ground the bar stands on (`--bg-hover`), so a bar shows on the page, a card and
+    // a card's head alike, the head redeclaring the step as its own (`cardStyles.ts :: headGround`); with a lighter
+    // band sweeping across it every two seconds, under reduced motion too: a loading indicator that stops reads as stuck.
+    bar: "relative block shrink-0 overflow-hidden rounded-md bg-bg-hover after:absolute after:inset-0 after:animate-[kit-shimmer_2s_linear_infinite] after:bg-linear-to-r after:from-transparent after:via-[rgb(255_255_255/0.55)] after:to-transparent dark:after:via-[rgb(255_255_255/0.09)]",
     // One line of text: as tall as the line the text's own size sets (`1lh`), the bar inside it a little taller than
     // the letters' height, so a line of placeholders stands where the line of words will.
     line: "flex h-lh min-w-0 items-center",
     words: "h-[0.75em]",
   },
   variants: {
-    // On a card's head band, whose dark fill is the muted fill itself, the bars take the head's own step above it, as a
-    // folded head lifts under the pointer; on the dark-green band, the band's white, faint, as the band's words are white.
+    // On the dark-green band, the band's white, faint, as the band's words are white.
     ground: {
       page: {},
-      head: { bar: "bg-bg-card-head-hover" },
       band: { bar: "bg-on-brand/20" },
     },
   },
 });
 
-/** Where a placeholder stands: on the page's or a card's ground, on a card's head band, or on the dark-green band. */
-export type Ground = "page" | "head" | "band";
+/** Where a placeholder stands: on a ground that sets its own step, the page's, a card's or a card's head, or on the dark-green band. */
+export type Ground = "page" | "band";
 
 /**
  * A season's name while the season is read, as words for a placeholder's width alone: every season is named by its

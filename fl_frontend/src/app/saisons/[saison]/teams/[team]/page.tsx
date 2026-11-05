@@ -180,7 +180,7 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
                       name: personOf(spieler),
                       cells: cellsOf(spieler),
                     })),
-                    empty: { kind: "none", plural: COPY.page.teamKader },
+                    empty: { kind: "none", plural: COPY.page.teamKader, one: true },
                   },
                 ],
               },

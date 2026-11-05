@@ -83,16 +83,30 @@ class TestTheAnswersShape:
             {"antwort": "declined", "vorschlag": None, "begruendung": "Halle belegt"},
             {"antwort": "zugesagt", "vorschlag": VORSCHLAG, "begruendung": None},
             {"antwort": "zugesagt", "vorschlag": None, "begruendung": "danke"},
-            {"antwort": "declined", "vorschlag": VORSCHLAG, "begruendung": "eine\nzweite Zeile"},
+            # A control character, written as its code point so the file shows it, stays refused in a paragraph.
+            {"antwort": "declined", "vorschlag": VORSCHLAG, "begruendung": f"Halle{chr(0x0B)}belegt"},
             {"antwort": "declined", "vorschlag": VORSCHLAG, "begruendung": "x" * (SPIELBESTAETIGUNG_BEGRUENDUNG_MAX_LENGTH + 1)},
             {"antwort": "declined", "vorschlag": {**VORSCHLAG, "ort": "x"}, "begruendung": None},
             {"antwort": "zugesagt", "vorschlag": None},
         ],
-        ids=["decline-without-date", "accept-with-date", "accept-with-reason", "two-lines", "over-bound", "extra-key", "key-omitted"],
+        ids=["decline-without-date", "accept-with-date", "accept-with-reason", "control-character", "over-bound", "extra-key", "key-omitted"],
     )
     def test_is_refused(self, body: dict[str, Any]):
         with pytest.raises(ValidationError):
             FLSpielbestaetigungAntwortPayload.model_validate({"token": "t", **body})
+
+    @pytest.mark.parametrize("line_break", ["\n", "\r\n"], ids=["LF", "CRLF"])
+    def test_a_reason_keeps_its_line_breaks(self, line_break: str):
+        """A reason keeps the line breaks its text area sends.
+
+        Refused or flattened, the person's words would be lost or merged, and nothing on the page would say so.
+        """
+        reason = f"Halle belegt{line_break}Ab 18 Uhr frei"
+        parsed = FLSpielbestaetigungAntwortPayload.model_validate(
+            {"token": "t", "antwort": "declined", "vorschlag": VORSCHLAG, "begruendung": reason}
+        )
+
+        assert parsed.begruendung == reason
 
     def test_an_empty_reason_is_none(self):
         parsed = FLSpielbestaetigungAntwortPayload.model_validate(

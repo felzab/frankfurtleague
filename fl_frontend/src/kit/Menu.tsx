@@ -73,9 +73,9 @@ export type MenuProps = {
 
 type Size = "desktop" | "phone";
 
-// An entry that acts keeps the arrow; an entry with an address renders an `a`, which shows the pointing hand
-// as every link does, so it takes `menuEntry` alone.
-const item = tv({ extend: menuEntry, base: "cursor-default" });
+// An entry that acts shows the pointing hand, as every control does; an entry with an address renders an `a`, which
+// shows it as every link does, so it takes `menuEntry` alone.
+const item = tv({ extend: menuEntry, base: "cursor-pointer" });
 
 // The foot's row under its separator, at the entries' inset and grade.
 const foot = tv({
@@ -148,7 +148,7 @@ function LinkItem({ link, size }: { link: MenuLink; size: Size }) {
       href={link.href}
       routerOptions={link.routerOptions}
       textValue={detail === undefined ? textOf(link.label) : `${textOf(link.label)} ${detail}`}
-      data-kit-focus="item"
+      data-kit-focus="option"
       // A two-line entry grows past the one line's height.
       className={`${menuEntry({ size, class: link.detail === undefined ? "" : "h-auto" })} ${entryMark({ mark: "place" })}`}>
       <Entry
@@ -174,7 +174,7 @@ function LinkList({ label, links, size, onBack }: { label: Copy; links: Readonly
           textValue={COPY.shared.back}
           shouldCloseOnSelect={false}
           onAction={onBack}
-          data-kit-focus="item"
+          data-kit-focus="option"
           className={item({ size })}>
           <Entry
             label={COPY.shared.back}
@@ -223,7 +223,7 @@ function Group({ entries, size, onOpenSubmenu }: { entries: ReadonlyArray<MenuEn
               key={entry.label}
               textValue={entry.label}
               onAction={entry.onAction}
-              data-kit-focus="item"
+              data-kit-focus="option"
               className={item({ size })}>
               <Entry
                 label={entry.label}
@@ -239,7 +239,7 @@ function Group({ entries, size, onOpenSubmenu }: { entries: ReadonlyArray<MenuEn
             // On a phone the entry opens a second sheet over the first, so the menu stays open.
             shouldCloseOnSelect={size === "desktop"}
             onAction={size === "phone" ? () => onOpenSubmenu(index) : undefined}
-            data-kit-focus="item"
+            data-kit-focus="option"
             className={item({ size })}>
             <Entry
               label={entry.label}
