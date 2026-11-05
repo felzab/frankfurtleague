@@ -637,6 +637,32 @@ export const COPY = catalogue({
       addressLine: (street: Copy, plz: string, stadt: string) => `${street}, ${plz} ${stadt}`,
     },
 
+    /** A referee's fee for a match: the referee's own default, and a match's booking. */
+    honorar: "Honorar",
+
+    schiedsrichter: {
+      search: "Schiedsrichter suchen",
+      /** The chip after the name of a referee who has not confirmed their entry. */
+      unconfirmed: "Unbestätigt",
+      /** The editor's sections beyond the record's own name: how to reach the person, and what became of their link. */
+      kontaktdaten: "Kontaktdaten",
+      bestaetigung: "Bestätigung",
+      /** The fact saying where the referee's confirmation stands, one of the four lines below. */
+      state: "Stand",
+      confirmedOn: (day: CalendarDay) => `Bestätigt am ${formatDatum(day)}`,
+      openUntil: (day: CalendarDay) => `Offen bis ${formatDatum(day)}`,
+      expiredOn: (day: CalendarDay) => `Abgelaufen am ${formatDatum(day)}`,
+      objectedOn: (day: CalendarDay) => `Widersprochen am ${formatDatum(day)}`,
+      /** The create dialog's, and a corrected address's while the person has not confirmed: a link goes to the address. */
+      linkGoes: "An diese Adresse geht ein Link zur Bestätigung.",
+      /** The example a phone box's message names, from the Federal Network Agency's range for media use. */
+      telefonExample: "069 90009123",
+      retireConsequence: "Die Person steht für neue Spiele nicht mehr zur Auswahl.",
+      reactivateConsequence: "Die Person steht wieder zur Auswahl.",
+      /** A retired referee who has not answered, whom the reactivation asks again. */
+      reactivateWithLink: "Die Person steht wieder zur Auswahl und bekommt einen neuen Link.",
+    },
+
     saison: {
       /**
        * The groups and the qualifiers per group multiply to no bracket the league plays: the form's own check, the

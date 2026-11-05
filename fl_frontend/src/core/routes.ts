@@ -246,10 +246,15 @@ export const ROUTES = {
     title: null,
     crawl: "disallow",
   },
-  // Session 5: its page is built.
   adminSchiedsrichter: {
     path: () => "/admin/schiedsrichter" as const,
     title: COPY.page.adminSchiedsrichter,
+    crawl: "disallow",
+  },
+  /** A referee's own page, named by the referee: the list's word is the person's too, so the key names the record. */
+  adminSchiedsrichterRecord: {
+    path: (schiedsrichter: string) => `/admin/schiedsrichter/${schiedsrichter}` as const,
+    title: null,
     crawl: "disallow",
   },
   // Applications, teams, squads and registrations are a season's in the data, so their lists carry the season as
