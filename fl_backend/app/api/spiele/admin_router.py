@@ -9,15 +9,12 @@ from app.api.berechtigungen.guard import verify_actor_is_admin
 from app.api.saisons.crud import pull_active_saison_id
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.saisons.services import find_saison_past_refusal
-from app.api.spielberichte.crud import pull_zustaende, stamp_the_adoption
-from app.api.spielberichte.schemas import FLSpieleActionRequiredResponse
-from app.api.spielberichte.services import BERICHT_ZUSTAENDE_OFFEN, seiten_of
-from app.api.spielbestaetigungen.services import ansetzung_stand_of, build_triage_rows_filter
+from app.api.spielberichte.crud import stamp_the_adoption
+from app.api.spielberichte.services import seiten_of
 from app.api.spiele.crud import (
     advance_bracket_winners,
     anchor_a_booked_referee,
     anchor_a_booked_venue,
-    find_bracket_faults,
     preview_bracket_after_patch,
     pull_booked_referee,
     pull_booked_slots,
@@ -27,7 +24,6 @@ from app.api.spiele.crud import (
     release_spieltag_sides,
 )
 from app.api.spiele.schemas import (
-    SONDEREREIGNIS_RECORDING_AN_ABSENCE,
     SPIEL_PATCH_WRITTEN_FIELDS,
     FLPatchSpielDataPayload,
     FLPatchSpielDataResponse,
@@ -68,7 +64,6 @@ from app.core.dependencies import (
     SaisonTeamsCollection,
     SchiedsrichterCollection,
     SpielberichteCollection,
-    SpielbestaetigungenCollection,
     SpieleCollection,
     SpielorteCollection,
     SpieltageCollection,
@@ -81,7 +76,7 @@ from app.core.routing import SAFE_WHEN, by_id
 from app.core.security import bind_actor, verify_access_admin
 from app.core.transactions import transaction_session
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
-from app.shared.schemas.custom import CustomObjectId, CustomRouteObjectId
+from app.shared.schemas.custom import CustomRouteObjectId
 
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/spiele",
@@ -112,7 +107,7 @@ async def get_spiele_verwaltung(
     if filters.saison_id is None:
         filters.saison_id = await pull_active_saison_id(saisons_collection=saisons_collection)
 
-    # The joined pipeline, for `get_spiele_action_required`'s reason: a plain `find` drops `austritt`.
+    # The joined pipeline, as the public reads use: a plain `find` drops `austritt`.
     spiele_raw = await aggregate_many_from_db(
         collection=spiele_collection,
         pipeline=build_spiele_pipeline(
@@ -124,111 +119,6 @@ async def get_spiele_verwaltung(
     )
 
     return FLSpieleAdminListResponse(spiele=FLSpielJoinedAdminListAdapter.validate_python(spiele_raw))
-
-
-@router.get(
-    "/action_required",
-    response_model=FLSpieleActionRequiredResponse,
-    summary="Spiele needing attention",
-)
-async def get_spiele_action_required(
-    spiele_collection: SpieleCollection,
-    teams_collection: TeamsCollection,
-    saisons_collection: SaisonsCollection,
-    spielorte_collection: SpielorteCollection,
-    schiedsrichter_collection: SchiedsrichterCollection,
-    spielbestaetigungen_collection: SpielbestaetigungenCollection,
-    spielberichte_collection: SpielberichteCollection,
-    saison_id: str | None = None,
-    today: str = Depends(get_german_date_str),
-) -> FLSpieleActionRequiredResponse:
-    """List one season's Spiele needing the administrator, with the bracket's faults and every report's state.
-
-    The season is `saison_id`'s, else the active one, answering 404 while none is. A fixture qualifies when it is
-    called off; lacks a date, time, venue or referee; is past without a result; has a knockout side with neither
-    team nor source; holds a report not adopted as it stands; is put before the administrator by a club's
-    unclosed confirmation; or carries a bracket fault, a booking onto a retired venue or referee and a claim within
-    four hours of another fixture's among them.
-    """
-
-    # Resolved as every other admin read resolves an omitted season: the selector sends none for the
-    # running one, so spanning the archive here would bury its queue under every other season's.
-    if saison_id is None:
-        saison_id = await pull_active_saison_id(saisons_collection=saisons_collection)
-
-    # The joined pipeline, as the public reads use: the raw shape carries no `austritt`, so
-    # this list would silently omit a badge the grids show.
-    spiele_raw = await aggregate_many_from_db(
-        collection=spiele_collection,
-        pipeline=build_spiele_pipeline(
-            db_filter={
-                "saison_id": saison_id,
-                "$or": [
-                    {"sonderereignis": {"$in": list(SONDEREREIGNIS_RECORDING_AN_ABSENCE)}},
-                    {"datum": None},
-                    {"uhrzeit": None},
-                    {"ort": None},
-                    {"schiedsrichter": None},
-                    {"datum": {"$lt": today}, "ergebnis": None},
-                    {
-                        "saison_phase": {"$ne": "gruppenphase"},
-                        "$or": [
-                            {"team1": None, "team1_quelle": None},
-                            {"team2": None, "team2_quelle": None},
-                        ],
-                    },
-                ],
-            }
-        ),
-    )
-    spiele = FLSpielJoinedAdminListAdapter.validate_python(spiele_raw)
-
-    # The SAME scope as the read above: a fault is unioned into that list, so a fault swept from a
-    # season the list does not cover would surface a fixture the admin did not ask about.
-    bracket_faults, faulted_spiele = await find_bracket_faults(
-        spiele_collection=spiele_collection,
-        teams_collection=teams_collection,
-        saisons_collection=saisons_collection,
-        spielorte_collection=spielorte_collection,
-        schiedsrichter_collection=schiedsrichter_collection,
-        saison_id=saison_id,
-    )
-
-    by_id: dict[CustomObjectId, FLSpielJoinedAdmin] = {spiel.id: spiel for spiel in spiele}
-    for spiel in faulted_spiele:
-        by_id.setdefault(spiel.id, spiel)
-
-    # A fixture a confirmation names may lack nothing above: rows are minted only for one with its day, time,
-    # ground and both sides. Grouped per fixture, so the read is bounded by the season's fixtures, never its rows.
-    angefragt = await aggregate_many_from_db(
-        collection=spielbestaetigungen_collection,
-        pipeline=[
-            {"$match": build_triage_rows_filter(saison_id=saison_id, today=today)},
-            {"$group": {"_id": "$spiel_id", "staende": {"$addToSet": "$ansetzung.stand"}}},
-        ],
-    )
-    staende = {row["_id"]: set(row["staende"]) for row in angefragt if row["_id"] not in by_id}
-    if staende:
-        for spiel_raw in await aggregate_many_from_db(
-            collection=spiele_collection, pipeline=build_spiele_pipeline(db_filter={"saison_id": saison_id, "_id": {"$in": list(staende)}})
-        ):
-            # A row about an Ansetzung the fixture has left asks the administrator nothing: the next pass closes it.
-            if ansetzung_stand_of(spiel_raw) in staende[spiel_raw["_id"]]:
-                spiel = FLSpielJoinedAdmin.model_validate(spiel_raw)
-                by_id.setdefault(spiel.id, spiel)
-
-    # A report awaiting the administrator sits on a fixture the read above passes over -- one played today, or one whose
-    # result stands -- so it is unioned in as a fault's is; the reports' own read serves the states.
-    berichte = await pull_zustaende(spielberichte_collection=spielberichte_collection, saison_id=saison_id)
-    open = [entry.spiel_id for entry in berichte if entry.state in BERICHT_ZUSTAENDE_OFFEN and entry.spiel_id not in by_id]
-    if open:
-        berichtet_raw = await aggregate_many_from_db(
-            collection=spiele_collection, pipeline=build_spiele_pipeline(db_filter={"saison_id": saison_id, "_id": {"$in": open}})
-        )
-        for spiel in FLSpielJoinedAdminListAdapter.validate_python(berichtet_raw):
-            by_id.setdefault(spiel.id, spiel)
-
-    return FLSpieleActionRequiredResponse(spiele=list(by_id.values()), bracket_faults=bracket_faults, spielberichte=berichte)
 
 
 # A static suffix rather than a second `GET /{spiel_id}`: the public router owns that path at this

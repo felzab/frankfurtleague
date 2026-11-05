@@ -142,21 +142,14 @@ export function geltendeBestaetigungen(
   );
 }
 
-// The three triage predicates over a row `geltendeBestaetigungen` kept, each a club's row alone: a referee answers
-// until the match day rather than by the row's deadline, and their decline is a category of its own.
+// Two predicates over a row `geltendeBestaetigungen` kept, each a club's row alone: a referee answers until the match
+// day rather than by the row's deadline.
 
 export const istVorschlagOffen = (zeile: FLSpielbestaetigung): boolean =>
   zeile.party.art === "team" && zeile.closed === null && zeile.antwort?.art === "declined" && zeile.antwort.vorschlag !== null;
 
-export const istUeberfaellig = (zeile: FLSpielbestaetigung, today: string): boolean =>
+const istUeberfaellig = (zeile: FLSpielbestaetigung, today: string): boolean =>
   zeile.party.art === "team" && zeile.antwort === null && zeile.frist < today;
-
-/**
- * Due on the day it is asked: no mint day is stored, so a row due today and asked today or not yet stands for one
- * minted inside the deadline's days. The backend's queue reads the same three fields.
- */
-export const istSofortFaellig = (zeile: FLSpielbestaetigung, today: string): boolean =>
-  zeile.party.art === "team" && zeile.antwort === null && zeile.frist === today && (zeile.asked_at === null || zeile.asked_at === today);
 
 /**
  * The referee's own decline while the slot it emptied stays empty. Never among `geltendeBestaetigungen`: the decline
