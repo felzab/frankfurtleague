@@ -93,6 +93,27 @@ type Run<Schema extends z.ZodType, Context, Value> = (input: z.output<Schema>, c
  */
 export const PAGE_HOLDER = { holder: z.string().min(1).max(KONTAKT_EMAIL_MAX_LENGTH) };
 
+/** A published rule a field's value is held to, or an action's own reading of a box over it. */
+type Rule = { readonly safeParse: (value: unknown) => { readonly success: boolean } };
+
+/**
+ * Whether a write requires a field, which its box's asterisk says: whether its rule refuses what the box sends while
+ * empty, `""` for a text box passed on as typed, `null` for a figure, a day or a box read as no value
+ * (`numberBox`, `blankIsNull`), `[]` for a choice of several with none picked. Read on the server, so the schema
+ * never reaches the browser.
+ */
+export const requires = (rule: Rule, empty: "" | null | readonly []): boolean => !rule.safeParse(empty).success;
+
+/**
+ * A digit box's text held to its rule as a number: an empty box no value, digits alone their figure, anything else the
+ * text as typed, which the rule refuses in its own words.
+ */
+export const numberBox = <Figure extends z.ZodType>(rule: Figure) =>
+  z.preprocess((value) => (value === "" ? null : typeof value === "string" && /^\d+$/.test(value) ? Number(value) : value), rule);
+
+/** A text box whose emptiness is no value, held to its rule: an empty box `null`, anything else as typed. */
+export const blankIsNull = <Text extends z.ZodType>(rule: Text) => z.preprocess((value) => (value === "" ? null : value), rule);
+
 /** Declarable only over an input carrying `PAGE_HOLDER`, so no such act is posted without it. */
 type Held<Schema extends z.ZodType> = z.output<Schema> extends { readonly holder: string } ? unknown : never;
 

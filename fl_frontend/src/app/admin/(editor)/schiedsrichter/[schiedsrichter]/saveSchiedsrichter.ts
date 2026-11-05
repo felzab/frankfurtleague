@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 
-import { action } from "@/core/action";
+import { action, blankIsNull, numberBox } from "@/core/action";
 import { COPY } from "@/core/copy";
 import { schiedsrichterPatchSchiedsrichter } from "@/core/generated/client/sdk";
 import { SchiedsrichterPatchSchiedsrichterBody, SchiedsrichterPatchSchiedsrichterParams } from "@/core/generated/zod/inputs";
@@ -15,11 +15,10 @@ import type { ActionAnswer } from "@/core/action";
 const { shape } = SchiedsrichterPatchSchiedsrichterBody;
 const kontakt = shape.kontakt.shape;
 
-// An empty box is no value; digits alone make a fee, anything else stays text, which the fee's own schema refuses.
-const orNull = (value: unknown) => (value === "" ? null : value);
-const fee = z.preprocess((value) => (typeof value === "string" && /^\d+$/.test(value) ? Number(value) : value), shape.default_payment);
-
-/** What the editor's boxes send, each held to the referee write's own published rule for it. */
+/**
+ * What the editor's boxes send, each held to the referee write's own published rule for it: an empty box but the
+ * name's is no value, as `fieldRules.ts` marks them.
+ */
 const SaveSchiedsrichter = z.object({
   id: SchiedsrichterPatchSchiedsrichterParams.shape.schiedsrichter_id,
   // The referee's version as the editor read it.
@@ -27,10 +26,10 @@ const SaveSchiedsrichter = z.object({
   changes: z
     .object({
       name: shape.name,
-      schule: z.preprocess(orNull, shape.schule),
-      email: kontakt.email,
-      telefon: z.preprocess(orNull, kontakt.telefon),
-      honorar: fee,
+      schule: blankIsNull(shape.schule),
+      email: blankIsNull(kontakt.email),
+      telefon: blankIsNull(kontakt.telefon),
+      honorar: numberBox(shape.default_payment),
     })
     .partial(),
 });

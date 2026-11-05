@@ -1,39 +1,63 @@
 import "server-only";
 
+import { requires } from "@/core/action";
 import {
+  SpielortePatchSpielortBody,
+  spielortePatchSpielortBodyAddressHausnummerMax,
+  spielortePatchSpielortBodyAddressStadtMax,
+  spielortePatchSpielortBodyAddressStadtteilMax,
+  spielortePatchSpielortBodyAddressStrasseMax,
+  spielortePatchSpielortBodyNameMax,
   SpielortePostSpielortBody,
   spielortePostSpielortBodyAddressHausnummerMax,
   spielortePostSpielortBodyAddressStadtMax,
   spielortePostSpielortBodyAddressStadtteilMax,
   spielortePostSpielortBodyAddressStrasseMax,
+  spielortePostSpielortBodyNameMax,
 } from "@/core/generated/zod/inputs";
 
-/** The fields of a new venue, by the names its form posts. */
+/** The fields of a venue, by the names its create dialog and its editor post. */
 export type SpielortField = "name" | "strasse" | "hausnummer" | "plz" | "stadtteil" | "stadt" | "mietpreis";
 
-/** What the create's write asks of each field, read on the server so its schema never reaches the browser. */
+/** What a venue write asks of each field, read on the server so its schema never reaches the browser. */
 export type SpielortRules = { required: Readonly<Record<SpielortField, boolean>>; maxLength: Readonly<Partial<Record<SpielortField, number>>> };
 
-const { shape } = SpielortePostSpielortBody;
-const address = shape.address.shape;
+type Body = typeof SpielortePostSpielortBody | typeof SpielortePatchSpielortBody;
 
-/** A field is required where the write refuses it empty: an untouched text box posts "", an untouched figure nothing. */
-const required = (field: { safeParse: (value: unknown) => { success: boolean } }, empty: "" | null) => !field.safeParse(empty).success;
+/** An untouched text box posts "", and the price's box sends no figure (`numberBox`). */
+const requiredOf = ({ shape }: Body): SpielortRules["required"] => {
+  const address = shape.address.shape;
+  return {
+    name: requires(shape.name, ""),
+    strasse: requires(address.strasse, ""),
+    hausnummer: requires(address.hausnummer, ""),
+    plz: requires(address.plz, ""),
+    stadtteil: requires(address.stadtteil, ""),
+    stadt: requires(address.stadt, ""),
+    mietpreis: requires(shape.default_mietpreis, null),
+  };
+};
 
+/** The create's rules, which the dialog over the venue list and over the match editor holds its boxes to. */
 export const SPIELORT_RULES: SpielortRules = {
-  required: {
-    name: required(shape.name, ""),
-    strasse: required(address.strasse, ""),
-    hausnummer: required(address.hausnummer, ""),
-    plz: required(address.plz, ""),
-    stadtteil: required(address.stadtteil, ""),
-    stadt: required(address.stadt, ""),
-    mietpreis: required(shape.default_mietpreis, null),
-  },
+  required: requiredOf(SpielortePostSpielortBody),
   maxLength: {
+    name: spielortePostSpielortBodyNameMax,
     strasse: spielortePostSpielortBodyAddressStrasseMax,
     hausnummer: spielortePostSpielortBodyAddressHausnummerMax,
     stadtteil: spielortePostSpielortBodyAddressStadtteilMax,
     stadt: spielortePostSpielortBodyAddressStadtMax,
+  },
+};
+
+/** The save's rules, which the venue editor holds its boxes to. */
+export const SPIELORT_SAVE_RULES: SpielortRules = {
+  required: requiredOf(SpielortePatchSpielortBody),
+  maxLength: {
+    name: spielortePatchSpielortBodyNameMax,
+    strasse: spielortePatchSpielortBodyAddressStrasseMax,
+    hausnummer: spielortePatchSpielortBodyAddressHausnummerMax,
+    stadtteil: spielortePatchSpielortBodyAddressStadtteilMax,
+    stadt: spielortePatchSpielortBodyAddressStadtMax,
   },
 };

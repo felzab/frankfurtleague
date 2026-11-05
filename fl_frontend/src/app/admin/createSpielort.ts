@@ -2,16 +2,13 @@
 
 import { z } from "zod";
 
-import { action } from "@/core/action";
+import { action, numberBox } from "@/core/action";
 import { COPY } from "@/core/copy";
 import { spielortePostSpielort } from "@/core/generated/client/sdk";
 import { SpielortePostSpielortBody } from "@/core/generated/zod/inputs";
 
 const { shape } = SpielortePostSpielortBody;
 const address = shape.address.shape;
-
-// Digits alone make a price; anything else stays text, which the price's own schema refuses.
-const price = z.preprocess((value) => (typeof value === "string" && /^\d+$/.test(value) ? Number(value) : value), shape.default_mietpreis);
 
 /** The create dialog's boxes, by the names they post under, each held to the create's own published rule. */
 const CreateSpielortForm = z.object({
@@ -21,7 +18,7 @@ const CreateSpielortForm = z.object({
   plz: address.plz,
   stadtteil: address.stadtteil,
   stadt: address.stadt,
-  mietpreis: price,
+  mietpreis: numberBox(shape.default_mietpreis),
 });
 
 /**

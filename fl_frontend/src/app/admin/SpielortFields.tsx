@@ -33,6 +33,7 @@ export function SpielortFields({
         kind="text"
         defaultValue={name}
         isRequired={required.name}
+        maxLength={maxLength.name}
       />
       <TextField
         label={WORDS.mietpreis}

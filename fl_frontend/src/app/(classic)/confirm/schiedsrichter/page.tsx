@@ -1,5 +1,6 @@
 import { MAILED_PAGE_METADATA, MailedPage, TO_ACCOUNT } from "@/kit/MailedPage";
 
+import { requires } from "@/core/action";
 import { COPY } from "@/core/copy";
 import { APIBadStatusError } from "@/core/errors";
 import { dayOf } from "@/core/format";
@@ -32,8 +33,8 @@ const INVALID: MailedState = { state: "ungueltig", next: TO_HOME };
 
 const { shape } = SchiedsrichterPostConfirmationBody;
 
-/** An answer is required where the confirmation's write takes no `null` for it, as its generated type says. */
-const REQUIRED = { geburtsdatum: !shape.geburtsdatum.safeParse(null).success, scope: !shape.scope.safeParse(null).success };
+/** What the confirmation's write asks of the two answers, a day and a choice that post nothing while unanswered. */
+const REQUIRED = { geburtsdatum: requires(shape.geburtsdatum, null), scope: requires(shape.scope, null) };
 
 /**
  * `/confirm/schiedsrichter`, the link a referee's entry mails them, on the mailed-page template: the question, with
