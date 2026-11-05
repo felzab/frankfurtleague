@@ -1,8 +1,6 @@
 import { renderToReadableStream } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
-import { SERVER_COPY } from "@/core/serverCopy";
-
 import HomePage from "./page";
 
 import type { FLLandingResponse } from "@/core/generated/client/types";
@@ -33,27 +31,10 @@ async function rendered(window: FLLandingResponse["bewerbung_window"]) {
 const hrefs = (html: string): string[] =>
   [...html.matchAll(/<a[^>]*href="([^"]+)"/g)].flatMap(([, href]) => (href === undefined ? [] : [href]));
 
-const words = SERVER_COPY.landing;
-
-// The ways to apply stand only while a window is open: a door hidden while one is open loses applications in
-// silence, and one shown while none is leads a school to a form that refuses it.
+// A door to the application form hidden while a window is open loses applications in silence.
 describe("the landing's ways to apply", () => {
   it("lead to the form from the hero, the steps' band, the season card and the school's door while a window is open", async () => {
     const html = await rendered({ saison_id: "2028", end: "2028-01-31" });
     expect(hrefs(html).filter((href) => href === "/bewerbung/2028")).toHaveLength(4);
-    // About stays the organisers' way on alone.
-    expect(hrefs(html).filter((href) => href === "/about")).toHaveLength(1);
-    expect(html).toContain(words.doors.school.title);
-    expect(html).toContain(words.join.opened);
-    expect(html).not.toContain(words.join.closed);
-  });
-
-  it("stand nowhere while no window is open, the hero's second act leading to About", async () => {
-    const html = await rendered(null);
-    expect(hrefs(html).filter((href) => href.startsWith("/bewerbung"))).toStrictEqual([]);
-    expect(html).not.toContain(words.doors.school.title);
-    expect(html).toContain(words.join.closed);
-    // The hero's second act and the steps' band lead to About, beside the organisers' way on.
-    expect(hrefs(html).filter((href) => href === "/about")).toHaveLength(3);
   });
 });

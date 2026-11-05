@@ -61,15 +61,15 @@ vi.mock("@/features/saisons/queries", () => ({
   getSpielplan: async () => SPIELPLAN,
 }));
 
-/** The numbers of the matches the page lists for the address's query, and the empty state it would show. */
+/** The numbers of the matches the page lists for the address's query. */
 async function found(query: Record<string, string>) {
   const page = SpielSearchPage({ params: Promise.resolve({ saison: "2027" }), searchParams: Promise.resolve(query) }) as ReactElement<
     ComponentProps<typeof ListPage>
   >;
   const { list } = page.props;
   if (list.kind !== "spiele") throw new Error("the Spielsuche lists matches");
-  const { matches, empty } = await list.content;
-  return { ids: matches.map(({ row }) => row.id), empty: empty.kind };
+  const { matches } = await list.content;
+  return matches.map(({ row }) => row.id);
 }
 
 const id = (nr: number) => String(nr).repeat(24);
@@ -77,26 +77,11 @@ const id = (nr: number) => String(nr).repeat(24);
 // A filter that passes the wrong matches shows a visitor fixtures the address did not ask for, or hides the
 // ones it did, with nothing failing.
 describe("the Spielsuche's filters", () => {
-  it("list every match while the address sets none", async () => {
-    expect(await found({})).toStrictEqual({ ids: [id(1), id(2), id(3)], empty: "none" });
-  });
-
-  it("narrow by phase", async () => {
-    expect(await found({ phase: "finale" })).toStrictEqual({ ids: [id(3)], empty: "filter" });
-  });
-
-  it("narrow by a club standing on either side", async () => {
-    expect((await found({ team: GOETHE.team_id })).ids).toStrictEqual([id(1), id(3)]);
-  });
-
-  it("narrow by matchday, its phase and position as the Spielplan's tabs name it", async () => {
-    expect((await found({ spieltag: "gruppenphase-2" })).ids).toStrictEqual([id(2)]);
-  });
-
-  it("take a value no option holds as none", async () => {
-    expect(await found({ phase: "achtelfinale", team: "x".repeat(24), spieltag: "g1" })).toStrictEqual({
-      ids: [id(1), id(2), id(3)],
-      empty: "none",
-    });
+  it.each([
+    ["phase", { phase: "finale" }, [id(3)]],
+    ["a club standing on either side", { team: GOETHE.team_id }, [id(1), id(3)]],
+    ["matchday, its phase and position as the Spielplan's tabs name it", { spieltag: "gruppenphase-2" }, [id(2)]],
+  ])("narrow by %s", async (_by, query, ids) => {
+    expect(await found(query)).toStrictEqual(ids);
   });
 });

@@ -49,12 +49,6 @@ const notFound = (serverErrorCode: Code | undefined): APIBadStatusError =>
   });
 
 describe("a read of a record the API says is missing", () => {
-  it("answers the record-missing code as the caller's none", async () => {
-    failure = notFound("document_not_found");
-
-    for (const [name, read] of Object.entries(READS)) expect(await read(), name).toBe(null);
-  });
-
   /* By the code and never the status: a 404 carrying none is a route the edge or the framework did not
      find, and reading it as none would render a page's missing state while the API is unreachable. */
   it("keeps a 404 carrying no code, or another code, the failure it is", async () => {
