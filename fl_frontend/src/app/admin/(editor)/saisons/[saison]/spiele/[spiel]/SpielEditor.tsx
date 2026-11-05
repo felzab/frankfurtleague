@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useEffectEvent, useState } from "react";
+import { useState } from "react";
 
 import { AdoptLine } from "@/kit/AdoptLine";
 import { ComboBox } from "@/kit/ComboBox";
@@ -69,47 +69,19 @@ const LABELS: Readonly<Record<keyof SpielValues, Copy>> = {
   notiz: WORDS.notiz,
 };
 
-/** The fields whose change can move the bracket after the match, which a dry run asks about before the save. */
-const MOVES_THE_BRACKET = ["team1", "team2", "hasResult", "tore1", "tore2", "shootOut1", "shootOut2", "sonderereignis"] as const;
-
-/** One debounce for a dry run, settled before a hand reaches „Speichern“ after the last figure. */
-const PREVIEW_DELAY_MS = 450;
-
 const goals = (text: string) => (text === "" ? null : Number(text));
-
-/**
- * The later matches whose results the present changes would delete, from the write's own dry run: a debounced
- * question per draft, its answer standing only over the draft it was asked for. No answer, while one is on its way
- * or where the run failed, asks nothing before the save, whose done line still names every match it moved.
- */
-function useVoided(changes: Partial<SpielValues>, ask: (changes: Partial<SpielValues>) => Promise<ActionAnswer<readonly number[]>>) {
-  const moving = MOVES_THE_BRACKET.some((key) => key in changes);
-  const key = JSON.stringify(MOVES_THE_BRACKET.map((field) => changes[field] ?? null));
-  const [answered, setAnswered] = useState<{ key: string; voided: readonly number[] } | null>(null);
-  const run = useEffectEvent(async (asked: string) => {
-    const answer = await ask(changes).catch(() => null);
-    setAnswered({ key: asked, voided: answer?.ok === true ? answer.value : [] });
-  });
-  useEffect(() => {
-    if (!moving) return undefined;
-    const timer = setTimeout(() => void run(key), PREVIEW_DELAY_MS);
-    return () => clearTimeout(timer);
-  }, [key, moving]);
-  return moving && answered?.key === key ? answered.voided : [];
-}
 
 /**
  * The match editor: a knockout match's two clubs; the Ansetzung's day, time, venue and price, referee and fee; the
  * result, entered by the switch the board drew, its goals as one score, a shoot-out's pair appearing by itself on
  * level knockout goals, and the referee's proposal carried over by „Übernehmen“; the Sonderereignis, in a box of its
- * own; the note; and the report's goals and every party's answer, read-only. Saved together from the editor's bar, which asks first where the
- * save would delete a later match's result.
+ * own; the note; and the report's goals and every party's answer, read-only. Saved together from the editor's bar;
+ * a save that would delete a later match's result the server holds back with its question, which the bar asks.
  */
 export function SpielEditor({
   title,
   record,
   save,
-  preview,
   phase,
   sides,
   quellen,
@@ -129,7 +101,6 @@ export function SpielEditor({
   title: PageTitle;
   record: EditorRecord<SpielValues>;
   save: (sent: Sent) => Promise<ActionAnswer<number>>;
-  preview: (sent: Sent) => Promise<ActionAnswer<readonly number[]>>;
   phase: FLSaisonPhase;
   /** Each side's club as stored, by its name and its plaque, `null` while the side is open. */
   sides: { team1: ScoreSide | null; team2: ScoreSide | null };
@@ -165,7 +136,6 @@ export function SpielEditor({
     }),
   );
   const { draft, set, changes } = editor;
-  const voided = useVoided(changes, (asked) => preview({ id: record.id, version: record.version, adoptsBericht: null, changes: asked }));
   // The create dialog, opened from the venue list's last entry with the name typed into the field; the dialog closes
   // this state itself when Next hides the page.
   const [creating, setCreating] = useState(false);
@@ -255,7 +225,6 @@ export function SpielEditor({
       lead={editor.count === 0 ? undefined : WORDS.changed([...new Set(Object.keys(changes).map((key) => LABELS[key as keyof SpielValues]))])}
       editor={editor}
       closed={closed}
-      warning={() => (voided.length === 0 ? null : { subject: WORDS.ergebnis, consequence: WORDS.voids(voided) })}
       sections={withBegegnung([
         {
           id: "ansetzung",

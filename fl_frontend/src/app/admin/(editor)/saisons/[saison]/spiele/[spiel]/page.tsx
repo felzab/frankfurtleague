@@ -16,7 +16,7 @@ import { resolveObjectIdParam } from "@/shared/utils/routeParams";
 
 import { createSpielort } from "../../../../../createSpielort";
 import { SPIELORT_RULES } from "../../../../../spielortRules";
-import { previewSpiel, saveSpiel } from "./saveSpiel";
+import { saveSpiel } from "./saveSpiel";
 import { SpielEditor } from "./SpielEditor";
 import { NO_SONDEREREIGNIS, valuesOf } from "./spielValues";
 
@@ -247,7 +247,6 @@ async function readEditor(params: Props["params"]) {
       title={nameOf(saved)}
       record={{ id: saved.id, version: saved.version, values: valuesOf(saved) }}
       save={saveSpiel}
-      preview={previewSpiel}
       phase={saved.saison_phase}
       sides={{
         team1: saved.team1 === null ? null : { name: { record: saved.team1.name }, plaque: { record: saved.team1.shorthand } },

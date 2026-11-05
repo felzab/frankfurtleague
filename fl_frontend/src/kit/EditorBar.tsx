@@ -1,42 +1,40 @@
 "use client";
 
+import { useState } from "react";
+
 import { COPY } from "@/core/copy";
 
 import { Button } from "./Button";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { StatusLine } from "./FieldParts";
 
-import type { Copy } from "@/core/copy";
+import type { SaveQuestion } from "@/core/action";
 import type { FormStatus } from "./useFormAction";
 
-/** A save whose change reaches beyond the record, such as the mails a moved match sends, asks this first. */
-export type SaveWarning = { subject: Copy; consequence: Copy };
+/** The question the server held a save back for, and the person's two answers to it. */
+export type BarQuestion = { asked: SaveQuestion | null; confirm: () => void; decline: () => void };
 
 /**
  * The editor's one save: a bar at the bottom of the viewport, from the rail's separator to the edge, holding
  * the status line that is always there and „Speichern“, never disabled; on a phone it stands where the
- * bottom bar stood. A save with a consequence beyond the record asks first, naming it.
+ * bottom bar stood. A save whose change reaches beyond the record, such as later results a match's new score
+ * deletes, is held back by the server with its question, which the bar asks; confirmed, the save goes again.
  */
 export function EditorBar({
   status,
   isPending,
-  warning,
+  question,
   onSave,
 }: {
   status: FormStatus;
   isPending: boolean;
-  /** The question a save of the present changes asks first, or `null` where it asks none. */
-  warning: SaveWarning | null;
+  question: BarQuestion;
   onSave: () => void;
 }) {
-  const save = (onPress?: () => void) => (
-    <Button
-      variant="primary"
-      label={COPY.shared.verb.save}
-      isBusy={isPending}
-      onPress={onPress}
-    />
-  );
+  // The words of the last question asked, which the dialog keeps while it fades out. It stays mounted from the
+  // first render, closed, as a held dialog must: one mounted open is closed again by its own cleanup.
+  const [shown, setShown] = useState(question.asked);
+  if (question.asked !== null && question.asked !== shown) setShown(question.asked);
   return (
     // On desktop as tall as the rail's foot beside it (`--rail-foot`, from `tokens.css`), so the two top
     // hairlines are one line. A landmark of its own, named by its act: the bar stands after `main`, and content
@@ -49,18 +47,27 @@ export function EditorBar({
         status={status}
         placement="row"
       />
-      {warning === null ? (
-        save(onSave)
-      ) : (
-        <ConfirmDialog
-          verb="save"
-          subject={warning.subject}
-          consequence={warning.consequence}
-          tone="primary"
-          trigger={save()}
-          onConfirm={onSave}
-        />
-      )}
+      <Button
+        variant="primary"
+        label={COPY.shared.verb.save}
+        isBusy={isPending}
+        onPress={onSave}
+      />
+      <ConfirmDialog
+        verb="save"
+        // No question is asked before the first, so the dialog's words are then never shown.
+        subject={shown?.subject ?? COPY.shared.verb.save}
+        consequence={shown?.consequence ?? COPY.shared.verb.save}
+        {...(shown?.facts === undefined ? {} : { facts: shown.facts })}
+        tone="primary"
+        open={{
+          isOpen: question.asked !== null,
+          onOpenChange: (isOpen) => {
+            if (!isOpen) question.decline();
+          },
+        }}
+        onConfirm={question.confirm}
+      />
     </div>
   );
 }

@@ -11,7 +11,7 @@ import { admitsShootOut } from "@/features/spiele/shootOut";
 
 import { isNoShow, NO_SONDEREREIGNIS, takesNoResult, valuesOf } from "./spielValues";
 
-import type { ActionAnswer } from "@/core/action";
+import type { ActionAnswer, SaveQuestion } from "@/core/action";
 import type { Copy } from "@/core/copy";
 import type { FLPatchSpielDataPayload, FLPatchSpielDataResponse, FLSpielJoinedAdmin } from "@/core/generated/client/types";
 
@@ -35,6 +35,8 @@ const SaveSpiel = z.object({
   version: shape.version,
   // The report's version the result was carried over from by „Übernehmen“, which the save stamps adopted.
   adoptsBericht: z.union([z.int().min(1), z.null()]),
+  // The token of the question the person confirmed, naming what they confirmed the save would delete.
+  confirm: z.string().optional(),
   changes: z
     .object({
       team1: z.union([teamShape.shape.team_id, z.null()]),
@@ -152,33 +154,6 @@ async function sending(id: string, changes: Changes) {
   return payloadOf(read.spiel, changes);
 }
 
-/**
- * Saves the match editor's changes, answering the fixture's new version, which the editor takes as its own. The
- * version sent is the one the editor was read at: where the fixture has changed since, the write refuses the save as
- * stale (`version_stale`) rather than writing over it. A result carried over from the report stamps it adopted.
- */
-export const saveSpiel = action({
-  lane: "admin",
-  name: "saveSpiel",
-  input: SaveSpiel,
-  ownWords: OWN_WORDS,
-  // The boxes a field pattern's phrase lands on; every other refusal here is a sentence naming its field itself.
-  paths: { sonderereignis: "changes.sonderereignis" },
-  examples: { "changes.mietpreis": COPY.admin.spielort.mietpreisExample },
-  run: async ({ id, version, adoptsBericht, changes }): Promise<ActionAnswer<number>> => {
-    const payload = await sending(id, changes);
-    if ("ok" in payload) return payload;
-
-    const written = await spielePatchSpiel(id, { ...payload, version }, adoptsBericht === null ? undefined : { adopts_bericht: adoptsBericht });
-
-    // The other fixtures the write changed: a later round's occupant or result, or a side it released on the same
-    // Spieltag. The match's own page says what changed there.
-    const value = written.version;
-    const changed = numbersOf([...written.advanced_to, ...written.released_sides]);
-    return changed.length === 0 ? { ok: true, value } : { ok: true, value, note: COPY.admin.spiel.alsoChanged(changed) };
-  },
-});
-
 /** The later matches whose stored result a write would delete: a dry run's report, never a guess. */
 const voidedBy = (report: FLPatchSpielDataResponse) =>
   numbersOf(
@@ -188,17 +163,46 @@ const voidedBy = (report: FLPatchSpielDataResponse) =>
   );
 
 /**
- * What saving these changes would delete beyond the fixture: the numbers of the later matches whose results the write
- * would void, from the write's own dry run, which writes nothing. The editor asks before a save that voids any.
+ * The question a save asks before it deletes a later match's result, `null` for a save deleting none. Its token
+ * names the matches, so a confirmation covers exactly the results it was shown.
  */
-export const previewSpiel = action({
+function questionOf(voided: readonly number[]): SaveQuestion | null {
+  if (voided.length === 0) return null;
+  return { subject: COPY.admin.spiel.ergebnis, consequence: COPY.admin.spiel.voids(voided), confirm: voided.join(",") };
+}
+
+/**
+ * Saves the match editor's changes, answering the fixture's new version, which the editor takes as its own. The
+ * version sent is the one the editor was read at: where the fixture has changed since, the write refuses the save as
+ * stale (`version_stale`) rather than writing over it. A result carried over from the report stamps it adopted.
+ *
+ * Every save first asks the write's own dry run what it would delete, on the server, so no ordering of presses and no
+ * failed or unfinished check on the page lets a deletion through unasked: a save deleting a later match's result is
+ * held back with its question unless it carries the token of a question naming exactly those matches. A dry run the
+ * write refuses is that refusal, answered as the write's would be.
+ */
+export const saveSpiel = action({
   lane: "admin",
-  name: "previewSpiel",
+  name: "saveSpiel",
   input: SaveSpiel,
-  run: async ({ id, version, changes }): Promise<ActionAnswer<readonly number[]>> => {
+  ownWords: OWN_WORDS,
+  // The boxes a field pattern's phrase lands on; every other refusal here is a sentence naming its field itself.
+  paths: { sonderereignis: "changes.sonderereignis" },
+  examples: { "changes.mietpreis": COPY.admin.spielort.mietpreisExample },
+  run: async ({ id, version, adoptsBericht, changes, confirm }): Promise<ActionAnswer<number>> => {
     const payload = await sending(id, changes);
     if ("ok" in payload) return payload;
-    const report = await spielePatchSpiel(id, { ...payload, version }, { dry_run: true });
-    return { ok: true, value: voidedBy(report) };
+    const sent = { ...payload, version };
+
+    const question = questionOf(voidedBy(await spielePatchSpiel(id, sent, { dry_run: true })));
+    if (question !== null && question.confirm !== confirm) return { ok: false, ask: question };
+
+    const written = await spielePatchSpiel(id, sent, adoptsBericht === null ? undefined : { adopts_bericht: adoptsBericht });
+
+    // The other fixtures the write changed: a later round's occupant or result, or a side it released on the same
+    // Spieltag. The match's own page says what changed there.
+    const value = written.version;
+    const changed = numbersOf([...written.advanced_to, ...written.released_sides]);
+    return changed.length === 0 ? { ok: true, value } : { ok: true, value, note: COPY.admin.spiel.alsoChanged(changed) };
   },
 });
