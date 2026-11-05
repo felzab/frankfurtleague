@@ -215,7 +215,7 @@ async def ban(database: AsyncDatabase, client: AsyncMongoClient, *, email: str) 
     )
 
 
-async def view(database: AsyncDatabase, token: str | None, *, today: str = TODAY) -> Any:
+async def read_view(database: AsyncDatabase, token: str | None, *, today: str = TODAY) -> Any:
     assert token is not None, "the write owed no link to open"
 
     return await get_confirmation_view(
@@ -281,7 +281,7 @@ class TestTheCreateIsTheInvitation:
             response = await create(database, client)
             assert response.answer.confirmation is not None
 
-            return await view(database, response.token)
+            return await read_view(database, response.token)
 
         view = on_a_league(mongo_replica_set_url, body, referees=[])
 
@@ -351,7 +351,7 @@ class TestACorrectedAddressReMintsAndRetiresTheOldLink:
             await correct(database, client, email=CORRECTED_EMAIL)
 
             with pytest.raises(APIError) as refused:
-                await view(database, first.token)
+                await read_view(database, first.token)
 
             return refused.value
 
@@ -378,7 +378,7 @@ class TestACorrectedAddressReMintsAndRetiresTheOldLink:
             saved = await correct(database, client, email=CORRECTED_EMAIL)
 
             with pytest.raises(APIError) as old_link:
-                await view(database, first.token)
+                await read_view(database, first.token)
 
             return saved, await stored(database), old_link.value
 
@@ -454,7 +454,7 @@ class TestTheReSend:
             await resend(database, client)
 
             with pytest.raises(APIError) as refused:
-                await view(database, first.token)
+                await read_view(database, first.token)
 
             return refused.value
 
@@ -781,7 +781,7 @@ class TestTheConfirmation:
             await erased(database, client, EMAIL, germany_now=NOW)
 
             with pytest.raises(APIError) as refused:
-                await view(database, minted.token)
+                await read_view(database, minted.token)
 
             return refused.value, await database[Collection.SCHIEDSRICHTER].count_documents({"_id": SCHIEDSRICHTER_OID})
 
@@ -836,7 +836,7 @@ class TestTheMediaAge:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             minted = await resend(database, client)
 
-            return await view(database, minted.token)
+            return await read_view(database, minted.token)
 
         assert on_a_league(mongo_replica_set_url, body).media_minimum_age == MEDIA_MIN_AGE_YEARS
 
@@ -975,7 +975,7 @@ class TestTheViewOfALinkToABarredAddress:
             minted = await resend(database, client)
             await ban(database, client, email=EMAIL)
 
-            return (await view(database, minted.token)).state
+            return (await read_view(database, minted.token)).state
 
         assert on_a_league(mongo_replica_set_url, body) == "barred"
 
@@ -986,7 +986,7 @@ class TestTheViewOfALinkToABarredAddress:
             minted = await resend(database, client)
             await ban(database, client, email=BANNED_EMAIL)
 
-            return (await view(database, minted.token)).state
+            return (await read_view(database, minted.token)).state
 
         assert on_a_league(mongo_replica_set_url, body) == "valid"
 
@@ -994,10 +994,10 @@ class TestTheViewOfALinkToABarredAddress:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, str]:
             minted = await resend(database, client)
             await ban(database, client, email=EMAIL)
-            barred = (await view(database, minted.token)).state
+            barred = (await read_view(database, minted.token)).state
             await database[Collection.BAN_LIST].delete_many({})
 
-            return barred, (await view(database, minted.token)).state
+            return barred, (await read_view(database, minted.token)).state
 
         assert on_a_league(mongo_replica_set_url, body) == ("barred", "valid")
 
@@ -1008,7 +1008,7 @@ class TestTheViewOfALinkToABarredAddress:
             minted = await resend(database, client)
             await database[Collection.BAN_LIST].insert_one(documents.ban_document(EMAIL, until=LAPSED))
 
-            return (await view(database, minted.token)).state
+            return (await read_view(database, minted.token)).state
 
         assert on_a_league(mongo_replica_set_url, body) == "valid"
 
@@ -1020,6 +1020,6 @@ class TestTheViewOfALinkToABarredAddress:
             await confirm(database, client, minted.token)
             await ban(database, client, email=EMAIL)
 
-            return (await view(database, minted.token)).state
+            return (await read_view(database, minted.token)).state
 
         assert on_a_league(mongo_replica_set_url, body) == "barred"
