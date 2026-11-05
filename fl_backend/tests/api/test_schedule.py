@@ -268,6 +268,14 @@ class TestTheLargestLegalSeasonFitsInOneRead:
         # A sweep refusing everything would satisfy the assertion above without proving anything.
         assert accepted > 0
 
+    def test_a_stored_season_past_the_cap_resubmitted_unchanged_passes(self):
+        """`rules` is required on the patch, so a refused resubmission would leave a season stored past the cap uneditable, dates included."""
+
+        assert (
+            find_rules_refusal(stored=widest_legal_rules(), proposed=widest_legal_rules(), occupancy_by_gruppe={}, highest_wired_platz=0)
+            is None
+        )
+
 
 class TestTheSeasonCarriesItsSchedule:
     """A matchday's `count_spiele` is read off the season it holds, so a path skipping the injection answers 500."""
