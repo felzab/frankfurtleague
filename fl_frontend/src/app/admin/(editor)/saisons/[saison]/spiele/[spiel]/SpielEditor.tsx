@@ -38,8 +38,8 @@ import type { SpielValues } from "./spielValues";
 const WORDS = COPY.admin.spiel;
 const ORT = COPY.admin.spielort;
 
-/** A club a knockout match's side may be given by hand; one the write would not field carries why. */
-export type Club = { id: string; name: string; note?: Copy };
+/** A club a knockout match's side may be given by hand, with its Kürzel; one the write would not field carries why. */
+export type Club = { id: string; name: string; shorthand: string; note?: Copy };
 
 /** The referee's proposal as „Übernehmen“ carries it into the result's fields, with the report's version it stamps. */
 export type Adoption = { version: number; text: Copy; values: Partial<SpielValues> };
@@ -120,15 +120,13 @@ export function SpielEditor({
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState("");
 
-  const clubName = (id: string | null): Words | null => {
-    const club = id === null ? undefined : clubs?.find((each) => each.id === id);
-    return club === undefined ? null : { record: club.name };
-  };
-  // Each side's field named by its club, as it now stands in the draft, and by its place while the side is open; a
-  // club picked by hand and not yet saved carries no plaque, its Kürzel not being among the clubs the picker lists.
+  const clubOf = (id: string | null) => (id === null ? undefined : clubs?.find((each) => each.id === id));
+  // Each side's field named by its club, as it now stands in the draft, a club picked by hand with the plaque the
+  // picker's list carries for it, and by its place while the side is open.
   const sideOf = (side: "team1" | "team2"): ScoreSide => {
     if (draft[side] === record.values[side] && sides[side] !== null) return sides[side];
-    return { name: clubName(draft[side]) ?? WORDS[side], plaque: null };
+    const club = clubOf(draft[side]);
+    return club === undefined ? { name: WORDS[side], plaque: null } : { name: { record: club.name }, plaque: { record: club.shorthand } };
   };
   const scoreSides: readonly [ScoreSide, ScoreSide] = [sideOf("team1"), sideOf("team2")];
   const sideNames: readonly [Words, Words] = [scoreSides[0].name, scoreSides[1].name];

@@ -219,8 +219,8 @@ function clubsOf(view: FLSpieleAdminSingleResponse): Club[] | null {
   return (
     view.teams?.map((team) =>
       team.fieldable
-        ? { id: team.id, name: team.name }
-        : { id: team.id, name: team.name, note: team.on_spieltag ? WORDS.onSpieltag : WORDS.departed },
+        ? { id: team.id, name: team.name, shorthand: team.shorthand }
+        : { id: team.id, name: team.name, shorthand: team.shorthand, note: team.on_spieltag ? WORDS.onSpieltag : WORDS.departed },
     ) ?? null
   );
 }
