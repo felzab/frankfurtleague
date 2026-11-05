@@ -386,11 +386,6 @@
       "count": 3
     }
   },
-  "src/core/schiedsrichterEmail.ts": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
   "src/core/sessionLifetimes.ts": {
     "no-restricted-syntax": {
       "count": 1
