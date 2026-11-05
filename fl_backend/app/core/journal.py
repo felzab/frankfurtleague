@@ -188,9 +188,6 @@ def _read_value(choice: str, spelled: str) -> Any:
     return {"true": True, "false": False}.get(spelled, spelled) if choice == "media" else spelled
 
 
-# A line's keys as the host's day files spell them, which the export and the replay match, beside the field each fills.
-_LINE_KEYS: Final[Mapping[str, str]] = {"seats": "seats", "before": "before"}
-
 # The key a choice's label is spelled under, the choice after it.
 _TEXT_VERSION: Final = "text_version."
 
@@ -235,7 +232,7 @@ def parse_line(message: str) -> JournalLine | None:
         if (
             not separator
             or not value
-            or _LINE_KEYS.get(key, key) in fields
+            or key in fields
             or key in choices
             or (key.startswith(_TEXT_VERSION) and key.removeprefix(_TEXT_VERSION) in text_versions)
         ):
@@ -249,7 +246,7 @@ def parse_line(message: str) -> JournalLine | None:
         elif key == "seats":
             fields["seats"] = tuple(value.split(","))
         elif key in ("at", "pseudonym", "halter", "before"):
-            fields[_LINE_KEYS.get(key, key)] = value
+            fields[key] = value
         else:
             raise ValueError("a journal line names a value no act carries")
     if press_label:
