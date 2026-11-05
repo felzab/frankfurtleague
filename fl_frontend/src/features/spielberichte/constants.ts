@@ -63,11 +63,3 @@ export const SPIELBERICHT_ZUSTAND_TONE: Record<FLSpielberichtState, PillTone> = 
   abgesagt: "danger",
   teams_changed: "warning",
 };
-
-/**
- * The states awaiting the administrator, named rather than read off the others: a state added later awaits nobody
- * until it is named here. Mirrors `fl_backend/app/api/spielberichte/services.py :: BERICHT_ZUSTAENDE_OFFEN`, which
- * decides the fixtures the triage unions in.
- */
-const ZUSTAENDE_OFFEN = ["vorgeschlagen", "differing", "teams_changed"] as const satisfies readonly FLSpielberichtState[];
-export const SPIELBERICHT_ZUSTAENDE_OFFEN: ReadonlySet<FLSpielberichtState> = new Set(ZUSTAENDE_OFFEN);

@@ -17,6 +17,8 @@ from pydantic import ValidationError
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
+from app.api.saisons.overview import FLOverviewSpielbestaetigungRow, FLOverviewVorschlagRow
+from app.api.saisons.overview_router import get_saison_overview
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spielbestaetigungen.admin_router import discard_spielbestaetigung, enter_spielbestaetigung, get_spielbestaetigungen
 from app.api.spielbestaetigungen.person_router import get_self, post_schiedsrichter_antwort
@@ -34,7 +36,7 @@ from app.api.spielbestaetigungen.schemas import (
 from app.api.spielbestaetigungen.services import (
     build_held_filter,
 )
-from app.api.spiele.admin_router import get_spiele_action_required, patch_spiel
+from app.api.spiele.admin_router import patch_spiel
 from app.api.spiele.crud import advance_bracket_winners
 from app.api.spiele.schemas import FLPatchSpielDataPayload
 from app.api.teams.admin_router import replace_saison_team
@@ -1263,19 +1265,22 @@ class TestTheQueueListsAFixtureItsConfirmationsPutThere:
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> set[Any]:
             if moved:
                 await database[Collection.SPIELE].update_one({"_id": SPIEL}, {"$set": {"uhrzeit": "19:30:00"}})
-            queue = await get_spiele_action_required(
+            overview = await get_saison_overview(
+                saison_id=SAISON_ID,
+                saisons_collection=database[Collection.SAISONS],
                 spiele_collection=database[Collection.SPIELE],
                 teams_collection=database[Collection.TEAMS],
-                saisons_collection=database[Collection.SAISONS],
                 spielorte_collection=database[Collection.SPIELORTE],
                 schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-                spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
-                spielberichte_collection=database[Collection.SPIELBERICHTE],
-                saison_id=SAISON_ID,
                 today=today,
             )
 
-            return {spiel.id for spiel in queue.spiele}
+            return {
+                row.spiel.id
+                for card in overview.cards
+                for row in card.rows
+                if isinstance(row, FLOverviewSpielbestaetigungRow | FLOverviewVorschlagRow)
+            }
 
         assert on_a_fixture(mongo_replica_set_url, body, rows=rows) == ({SPIEL} if listed else set())
 
