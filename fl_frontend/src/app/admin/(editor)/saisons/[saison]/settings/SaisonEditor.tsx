@@ -8,7 +8,7 @@ import { ComboBox } from "@/kit/ComboBox";
 import { DateField } from "@/kit/DateField";
 import { EditorPage } from "@/kit/EditorPage";
 import { Facts } from "@/kit/Facts";
-import { FieldColumns } from "@/kit/FieldPair";
+import { FieldColumns } from "@/kit/FieldColumns";
 import { SectionAct } from "@/kit/SectionAct";
 import { Select } from "@/kit/Select";
 import { Table } from "@/kit/Table";

@@ -1,7 +1,8 @@
 import { textOf } from "@/core/copy";
 
 import { cardSurface } from "./cardStyles";
-import { FieldColumns, FieldPairPlaceholder, FieldPlaceholder, subgroup } from "./FieldPair";
+import { FieldColumns, subgroup } from "./FieldColumns";
+import { FieldPairPlaceholder, FieldPlaceholder } from "./FieldPair";
 import { HelpPopover } from "./HelpPopover";
 import { PlaceholderLine } from "./Skeleton";
 import { tv } from "./tv";
