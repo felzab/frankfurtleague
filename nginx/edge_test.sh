@@ -15,7 +15,8 @@
 # - No visitor is named in the container's own streams.
 # - Each upstream is found by name as nginx serves, and the capabilities the model grants are enough
 #   to start it.
-# - `docs/ops/spec.md` §1.3's server-action, link-page and account-page pairs, and the code check's.
+# - `docs/ops/spec.md` §1.3's server-action and link-page pairs, and the code check's.
+# - A server action's body and the crash report's, on both its paths, each taken at its cap and refused past it.
 #
 #   ./nginx/edge_test.sh --verbose   print the access line every case was graded on
 #   ./nginx/edge_test.sh --help
@@ -100,6 +101,8 @@ server {
     access_log off;
     add_header X-Seen-Traceparent $http_traceparent always;
     add_header X-Seen-Next-Action $http_next_action always;
+    # Any body, so a 413 the body caps' cases read is the edge's and never the stub's own 1m default.
+    client_max_body_size 0;
 STUB
   for name in "${!SECURITY_HEADERS[@]}"; do printf '    add_header %s "upstream" always;\n' "$name"; done
   # Setting no header, so it forwards every one the edge sent as the edge sent it, to the listener
@@ -774,14 +777,6 @@ done
 spent_request link-json -A "$LINK_MARKER" -X POST -H "Content-Type: application/json" --data '{}' "${BASE}/confirm/spiel?token=${TOK}"
 spent_request link-head -A "$LINK_MARKER" --head "${BASE}/confirm/spiel?token=${TOK}"
 
-# Konto's pair, on JSON posts to one of its pages the action pair's key leaves out, so only `account` can refuse.
-# Its burst read off the file, flooded past with five more for the refill the run takes.
-ACCOUNT_BURST="$(sed -n 's/^[[:space:]]*limit_req zone=account burst=\([0-9]*\) nodelay;$/\1/p' "${REPO_ROOT}/nginx/shared/site.conf" | head -n 1)"
-[[ -n "$ACCOUNT_BURST" ]] || refuse "nginx/shared/site.conf declares no account burst this test can read."
-for _ in $(seq 1 $(( ACCOUNT_BURST + 5 ))); do
-  action_request account-flood -X POST -H "Content-Type: application/json" --data '{}' "${BASE}/account/signin"
-done
-
 # The code check's pair, read off its own block and flooded past with five more: the library's prefix
 # block meters the same path five times as loosely, so a check fallen back to it answers no 429 here.
 CODE_BURST="$(sed -n '/^location = \/api\/auth\/sign-in\/email-otp {$/,/^}$/s/^[[:space:]]*limit_req zone=confirmation burst=\([0-9]*\) nodelay;$/\1/p' "${REPO_ROOT}/nginx/shared/site.conf")"
@@ -957,7 +952,6 @@ expect_action link-json some:429
 grade_spent link-json
 expect_action link-head some:429
 grade_spent link-head head
-expect_action account-flood some:429
 expect_action code-flood some:429
 
 # A refusal's error line repeats the request line, live token included, so `limit_req_log_level` keeps
@@ -979,6 +973,52 @@ if [[ -n "$LINK_ERRORS" ]]; then
   detail "the error log holds a live token: ${LINK_ERRORS}"
   ACTION_FAILURES=$(( ACTION_FAILURES + 1 ))
 fi
+
+# --- the body caps --------------------------------------------------------------------------------
+
+# Each cap posted at its figure and one byte past it: the byte past holds a cap raised or dropped, which
+# lets the edge buffer a body the application refuses, and the figure holds one lowered, which refuses a
+# body the application takes. The figures are the application's own, written here rather than read off
+# `nginx/shared/site.conf`, which is what they judge.
+BODY_FAILURES=0
+# Next's `serverActions.bodySizeLimit` at its default, `1024 * 1024` in
+# `next/dist/server/app-render/action-handler.js`, which `fl_frontend/next.config.ts` leaves standing.
+# Every page path takes a server action, so `/` stands for the server block's cap.
+ACTION_BODY_MAX=1048576
+# Room for the largest report `fl_frontend/src/app/api/client-error/route.ts :: ClientErrorReportSchema`
+# takes, as `nginx/shared/site.conf :: location = /api/client-error` reasons it; its twin carries the same.
+REPORT_BODY_MAX=32768
+BODY_CASES=(
+  "/|${ACTION_BODY_MAX}"
+  "/api/client-error|${REPORT_BODY_MAX}"
+  "/api/client-error/|${REPORT_BODY_MAX}"
+)
+BODY_LABELS=()
+BODY_WANTED=()
+BODY_REQUESTS=()
+for case_line in "${BODY_CASES[@]}"; do
+  body_path="${case_line%%|*}"
+  body_max="${case_line#*|}"
+  for body_size in "$body_max" $(( body_max + 1 )); do
+    [[ -f "${SCRATCH}/body-${body_size}" ]] || head -c "$body_size" /dev/zero > "${SCRATCH}/body-${body_size}"
+    BODY_LABELS+=( "${body_size} bytes to ${body_path}" )
+    if (( body_size > body_max )); then BODY_WANTED+=( 413 ); else BODY_WANTED+=( 200 ); fi
+    if (( ${#BODY_REQUESTS[@]} > 0 )); then BODY_REQUESTS+=( --next ); fi
+    # A type the action pair's key leaves out, so no zone refuses first; no `Expect`, so each answer is
+    # the body's verdict. The relative path, for the MSYS reason at the streams' 413 above.
+    BODY_REQUESTS+=( -s -o /dev/null -w '%{http_code}\n' --max-time 10 -H "Host: localhost" -H "Expect:"
+      -H "Content-Type: application/octet-stream" --data-binary "@${SCRATCH_NAME}/body-${body_size}" "${BASE}${body_path}" )
+  done
+done
+mapfile -t BODY_STATUSES < <(curl "${BODY_REQUESTS[@]}" || true)
+for _j in "${!BODY_LABELS[@]}"; do
+  _status="${BODY_STATUSES[_j]:-none}"; _status="${_status%$'\r'}"
+  if [[ "$_status" != "${BODY_WANTED[_j]}" ]]; then
+    fail "BODY ${BODY_LABELS[_j]}"
+    detail "expected ${BODY_WANTED[_j]}, nginx answered ${_status}"
+    BODY_FAILURES=$(( BODY_FAILURES + 1 ))
+  fi
+done
 
 # --- the Control API the deploy reloads through ----------------------------------------------------
 
@@ -1328,8 +1368,8 @@ for edge in local prod; do
   if verbose; then info "the ${edge} edge answered from the moved backend only after ${MOVED_AFTER[$edge]}s"; fi
 done
 
-if (( HEADER_FAILURES + ACTION_FAILURES + CONTROL_FAILURES + RESOLVE_FAILURES > 0 )); then
-  die "${HEADER_FAILURES} header, ${ACTION_FAILURES} server-action, ${CONTROL_FAILURES} Control API and ${RESOLVE_FAILURES} upstream cases failed.
+if (( HEADER_FAILURES + ACTION_FAILURES + BODY_FAILURES + CONTROL_FAILURES + RESOLVE_FAILURES > 0 )); then
+  die "${HEADER_FAILURES} header, ${ACTION_FAILURES} server-action, ${BODY_FAILURES} body-cap, ${CONTROL_FAILURES} Control API and ${RESOLVE_FAILURES} upstream cases failed.
 Each is what nginx SENT or ANSWERED, or what reached Next through it."
 fi
 
@@ -1339,6 +1379,6 @@ ${UPSTREAM_READ} of those paths handing Next the edge's own traceparent, an empt
 Next-Action handed to no one, server
 actions metered on their own pair and nothing else metered by it, refused in plain text an action reads, every link page
 metered on every request under every spelling, its load refused with the edge's own page and no token reaching the error log, the
-account page's posts metered on its own pair, the Control API applying a reload, refusing a bad one, dumping the checkout and closed to the worker,
+the code check metered on its own pair, every body cap taking its figure and refusing a byte past it, the Control API applying a reload, refusing a bad one, dumping the checkout and closed to the worker,
 every upstream named through a variable and found through Docker's DNS alone, holding an answer ${RESOLVER_VALID}s, both edges reaching a backend recreated at a new address
 without a reload, and each upstream's redirect naming itself handed back as the visitor's origin"

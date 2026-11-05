@@ -812,9 +812,14 @@ class TestTheSeasonWidePress:
     """One press over a season whose four teams sit in the four states it can meet."""
 
     def test_the_editor_and_the_press_decide_the_same_rows(self, mongo_replica_set_url: str):
-        """Two readers of one rule is how the editor starts telling an administrator something the press then contradicts."""
+        """Two readers of one rule is how the editor starts telling an administrator something the press then contradicts.
+
+        The team holding a link nobody was sent loses it to the press, so the question before it counts a link that dies:
+        an editor answering no link replaced would ask about none.
+        """
 
         async def body(database: AsyncDatabase) -> Any:
+            await database[Collection.INVITATIONS].insert_one(einladung_row(TWO_SEATS))
             shown = await editor(database)
             done = await press(database)
 
@@ -826,6 +831,8 @@ class TestTheSeasonWidePress:
         # is what an editor missing a team passes.
         assert shown == done
         assert len(shown) == len(TEAM_NAMES)
+        # The premise: one row kills a link, so the comparison holds `replaced_link` at true as well as at false.
+        assert [team for team, _, _, replaced in shown if replaced] == [str(TWO_SEATS)]
 
     def test_each_team_is_skipped_for_its_own_reason(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:

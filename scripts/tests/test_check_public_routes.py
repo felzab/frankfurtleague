@@ -345,6 +345,38 @@ def test_a_metered_twin_missing_its_canonical_is_a_finding():
     assert "canonical" in details(findings)
 
 
+CAP = "        client_max_body_size 32k;\n"
+
+
+@pytest.mark.parametrize(
+    ("canonical", "twin"),
+    [
+        pytest.param(CAP, "", id="the-twin-on-the-server-block-s-cap"),
+        pytest.param("", CAP, id="the-canonical-on-the-server-block-s-cap"),
+        pytest.param(CAP, "        client_max_body_size 64k;\n", id="the-two-on-different-caps"),
+    ],
+)
+def test_a_twin_bounding_its_body_unlike_its_canonical_is_a_finding(canonical: str, twin: str):
+    """The slashed form buffers what the canonical refuses, and the edge test posts to neither twin of the other caps."""
+    findings = routes.twins(
+        served(
+            block("location = /api/client-error", ZONE, canonical, PASS),
+            block("location = /api/client-error/", ZONE, twin, PASS),
+            CATCH_ALL,
+        )
+    )
+
+    assert severities(findings) == ["fail"]
+    assert "/api/client-error/" in details(findings)
+
+
+def test_a_twin_on_its_canonical_s_cap_is_no_finding():
+    """The control: the pair as `nginx/shared/site.conf` writes it."""
+    pair = block("location = /api/client-error", ZONE, CAP, PASS) + block("location = /api/client-error/", ZONE, CAP, PASS)
+
+    assert routes.twins(served(pair, CATCH_ALL)) == []
+
+
 def test_an_unmetered_exact_match_owes_no_twin():
     """`= /api/v0/system/is_live` carries no zone deliberately, so the pair rule must not reach it."""
     probe = exact("/api/v0/system/is_live", metered=False)

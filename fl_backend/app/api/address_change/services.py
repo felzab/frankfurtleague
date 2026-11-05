@@ -472,8 +472,8 @@ def find_taken_refusal(*, taken: bool) -> WriteRefusal | None:
     )
 
 
-# The edge's own documented rate for a person's start, one mail every thirty seconds (`nginx/shared/site.conf`'s Konto
-# locations), held here because a server action posts its start from any page, past the pair those locations set.
+# One mail every thirty seconds for a person's start, held here rather than at the edge: a server action posts its
+# start from any page, so no location nginx meters by its path bounds it.
 ADDRESS_CHANGE_RESTART_SECONDS: Final = 30
 
 
