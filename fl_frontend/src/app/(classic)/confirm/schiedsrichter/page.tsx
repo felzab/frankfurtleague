@@ -18,7 +18,6 @@ import { END, TO_HOME } from "./ends";
 
 import type { FLSchiedsrichterConfirmationViewResponse } from "@/core/generated/client/types";
 import type { MailedState } from "@/kit/MailedPage";
-import type { NextPageProps } from "@/shared/types/types";
 import type { Metadata, ResolvingMetadata } from "next";
 
 /** A row no crawler fetches, and no referrer: the URL carries the link's token, which stays in this address (D569). */
@@ -26,6 +25,8 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
   const row = ROUTES.schiedsrichterConfirmation;
   return { ...(await pageMetadata(parent, row, row.path())), ...MAILED_PAGE_METADATA };
 }
+
+type Props = PageProps<"/confirm/schiedsrichter">;
 
 const WORDS = SERVER_COPY.schiedsrichterConfirmation;
 
@@ -42,7 +43,7 @@ const REQUIRED = { geburtsdatum: requires(shape.geburtsdatum, null), scope: requ
  * person did and on which day; and the link no longer valid, an expired, mistyped or tampered link and a barred
  * address alike.
  */
-export default function SchiedsrichterConfirmationPage({ searchParams }: NextPageProps) {
+export default function SchiedsrichterConfirmationPage({ searchParams }: Props) {
   return <MailedPage page={readState(searchParams)} />;
 }
 
@@ -70,7 +71,7 @@ function alreadyDone(view: FLSchiedsrichterConfirmationViewResponse, kind: "conf
     : { state: "alreadyDone", title: COPY.shared.end.doneOn(title, day), next: TO_HOME, declined: true };
 }
 
-async function readState(searchParams: NextPageProps["searchParams"]): Promise<MailedState> {
+async function readState(searchParams: Props["searchParams"]): Promise<MailedState> {
   const { token } = await searchParams;
   // A missing or repeated parameter is no link at all.
   if (typeof token !== "string" || token === "") return INVALID;
