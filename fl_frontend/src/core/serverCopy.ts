@@ -24,6 +24,16 @@ const gruppeName = COPY.shared.season.gruppe;
 const placeName = (platz: number) => `${formatOrdinal(platz)} ${PLATZ}`;
 // Matches by their numbers, „Spiel 4, 7 und 9“, as the match editor's done line names the others it changed.
 const spieleNamed = (nrs: readonly number[]) => `Spiel ${formatList(nrs.map(formatNumber))}`;
+// A fixture's ground or referee booked at its time elsewhere, and a side out of the season: the save keys each by the
+// path it names, the adoption, which names none, by a code of its own per resource and side.
+const DOUBLE_BOOKED = {
+  ort: "Der Spielort ist zu dieser Zeit schon belegt.",
+  schiedsrichter: "Die eingeteilte Person pfeift zu dieser Zeit schon ein anderes Spiel.",
+};
+const DISQUALIFIED = {
+  team1: `${team1} ist aus der Saison ausgeschieden.`,
+  team2: `${team2} ist aus der Saison ausgeschieden.`,
+};
 
 // The confirmation pages' shared sentences, each written once: what the typed birthdate is checked for, the deadline
 // of an entry that goes alone, the objection Art. 21 (4) asks to be named explicitly, in the two parts around the
@@ -93,10 +103,9 @@ export const SERVER_COPY = catalogue({
       schiedsrichter: "Die eingeteilte Person ist stillgelegt oder gelöscht.",
     },
     booking_unconfirmed_schiedsrichter: "Die eingeteilte Person hat ihren Eintrag noch nicht bestätigt.",
-    spiel_double_booked: {
-      ort: "Der Spielort ist zu dieser Zeit schon belegt.",
-      schiedsrichter: "Die eingeteilte Person pfeift zu dieser Zeit schon ein anderes Spiel.",
-    },
+    spiel_double_booked: DOUBLE_BOOKED,
+    spiel_double_booked_spielort_as_stored: DOUBLE_BOOKED.ort,
+    spiel_double_booked_schiedsrichter_as_stored: DOUBLE_BOOKED.schiedsrichter,
     /** The league's last owner, whose erasure would leave the administration owned by nobody. */
     last_owner_erasure: "Du bist die letzte Inhaberin oder der letzte Inhaber der Verwaltung.",
     /** A person's own address change to the address they already sign in with. */
@@ -125,10 +134,9 @@ export const SERVER_COPY = catalogue({
     activate_target_undrawn: COPY.admin.saison.noDraw,
     activate_saison_unfinished: COPY.admin.saison.unfinished,
     activate_spieltage_undated: COPY.admin.saison.undated,
-    eligibility_disqualified: {
-      team1: `${team1} ist aus der Saison ausgeschieden.`,
-      team2: `${team2} ist aus der Saison ausgeschieden.`,
-    },
+    eligibility_disqualified: DISQUALIFIED,
+    eligibility_disqualified_team1_as_stored: DISQUALIFIED.team1,
+    eligibility_disqualified_team2_as_stored: DISQUALIFIED.team2,
     /** A matchday's dates: past its season's, short of one of its dated matches, or out of its phase's order of matchdays. */
     spieltag_outside_saison: "Dieser Zeitraum liegt außerhalb der Saison.",
     spieltag_span_below_spiele: "Ein Spiel des Spieltags liegt außerhalb dieses Zeitraums.",
