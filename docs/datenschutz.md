@@ -30,13 +30,13 @@ one stand in [section 11](#11-open-and-owed-a-decision). Other files cite sectio
 ## 1. Responsibility and the request route
 
 - **The controller is the association**, `fl_frontend/src/core/brand.ts :: VEREIN_NAME` at
-  `:: VEREIN_ANSCHRIFT`, reached at `:: KONTAKT_EMAIL`, and represented by its board
+  `:: VEREIN_ADDRESS`, reached at `:: KONTAKT_EMAIL`, and represented by its board
   (`:: VORSTAND`). No school and no individual is the controller; the league is run by its pupils as
   an association, and a school-law basis is unavailable. No data protection officer is appointed.
 - **A person who signs in changes or withdraws their own consents on the account page**, each record
   they hold a box of its own on Konto's „Deine Einträge“, saved by its „Speichern“
   (`fl_frontend/src/app/account/(pages)/entries/EntriesBoxes.tsx :: EntriesBoxes`, each save an action of
-  `fl_frontend/src/features/konto/personActions.ts`).
+  `fl_frontend/src/features/account/personActions.ts`).
 - **Every other request goes to the contact address**: access, rectification, erasure, objection
   and a withdrawal by mail.
   [`ops/runbooks.md`](ops/runbooks.md#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it)
@@ -82,13 +82,13 @@ one stand in [section 11](#11-open-and-owed-a-decision). Other files cite sectio
   person's date reaches the database; a stored date no confirmation stamped is judged by nothing,
   and clearing one is
   [a runbook step](ops/runbooks.md#11-a-contact-seats-birthdate-that-no-confirmation-stamped).
-- **A media consent is taken only from 18** (`fl_backend/app/shared/schemas/bounds.py :: MEDIEN_MIN_AGE_YEARS`): the switch shows only from
+- **A media consent is taken only from 18** (`fl_backend/app/shared/schemas/bounds.py :: MEDIA_MIN_AGE_YEARS`): the switch shows only from
   that age, and each confirmation refuses a `true` from anyone younger
   (`fl_backend/app/api/registrierungen/services.py :: find_medien_refusal`,
   `fl_backend/app/api/schiedsrichter/services.py :: find_medien_refusal`,
-  `fl_backend/app/api/einwilligung/services.py :: find_self_medien_refusal`).
+  `fl_backend/app/api/einwilligung/services.py :: find_self_media_refusal`).
 - **Each consent choice keeps its own evidence**: when its person last set it, under which wording's
-  label, and on a withdrawal the grant it ended (`fl_backend/app/shared/einwilligung_nachweis.py`).
+  label, and on a withdrawal the grant it ended (`fl_backend/app/shared/einwilligung_evidence.py`).
   The labels are `fl_frontend/src/core/consentWordings.ts :: CONSENT_WORDINGS`' keys, each frozen
   with its words, and only the person's own act grants a choice or stamps its evidence. Once, at the
   switch, a paste re-points every stored label to the current wording, so a record stamped before
@@ -149,7 +149,7 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
   - Data: a club's name, school, address and description, and a team's reason for leaving a season,
     all public; free text may name a person.
 - **Sign-in and accounts** (the `auth` database: `user`, `session`, `account`, `verification`,
-  `passkey`; `adresswechsel`).
+  `passkey`; `address_changes`).
   - Purpose and basis: signing a person in to their own records and keeping the account safe; Art.
     6(1)(f).
   - People and data: everyone who signed in, and the address of anyone who submits the sign-in form,
@@ -173,7 +173,7 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
   - Data: each write's actor, an administrator by address and a person by pseudonym
     (`fl_backend/app/core/recording.py :: PersonActor`), the full prior document of the record it
     changed, and an erasure's request (`anlass`); each journal line's keyed hashes of an address
-    (`fl_backend/app/core/journal.py :: DATENSAETZE`).
+    (`fl_backend/app/core/journal.py :: RECORDS`).
   - Recipients: administrators.
 - **Mail** (`outbox`; mail to the league; WhatsApp).
   - Purpose and basis: telling people what concerns them, and answering them; Art. 6(1)(f),
@@ -244,7 +244,7 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
   by `fl_backend/app/api/identity/person_router.py :: post_account_erasure`, which refuses only the
   administration's last live owner, and anyone else by mail, through an administrator's
   `fl_backend/app/api/identity/admin_router.py :: post_erasure`. Both run
-  `fl_backend/app/api/identity/crud.py :: loeschen_everything`, and each lists the records it
+  `fl_backend/app/api/identity/crud.py :: erase_everything`, and each lists the records it
   reaches for confirmation first, read through the erasure's own selection.
 - **One address is one person: enforced among pupils, and assumed across the collections.** Every
   record stored under a folded address (`fl_backend/app/shared/folding.py :: sign_in_identifier`) is
@@ -266,7 +266,7 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
   every row they wrote under that address; every reason they typed in a fixture answer, found by the
   holder digest, with their seats' links; every mail owed or sent to them but the deletion link
   that asked for the erasure
-  (`fl_backend/app/api/identity/crud.py :: loeschen_the_mails_in_session`); a pending address change of theirs; every grant the address
+  (`fl_backend/app/api/identity/crud.py :: erase_the_mails_in_session`); a pending address change of theirs; every grant the address
   holds; and the sign-in account at the address, an account at an earlier address going with the
   account sweep (section 6).
 - **What outlives an erasure:**
@@ -285,7 +285,7 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
     report's remarks naming a pupil by name or by shirt number, and an erasure's `anlass`;
   - the deletion link's Postausgang row, until its secret lapses with the link, 24 hours after it was
     minted (`fl_backend/app/api/outbox/services.py :: row_of`,
-    `fl_frontend/src/core/loeschungEmail.ts :: ERASURE_LINK_VALID_HOURS`);
+    `fl_frontend/src/core/erasureEmail.ts :: ERASURE_LINK_VALID_HOURS`);
   - a registration link's entry, which names no subject, and the action log's rows written under an
     earlier address's pseudonym, until the log's twelve months.
 - **A retired row is never removed because of its age**: a referee who stopped, a club that left and
@@ -308,10 +308,10 @@ Each bound is read from the symbol beside it; nothing compares this table with t
 | A registration undecided at its season's end | Deleted then                                                                                                                                | `fl_backend/app/api/registrierungen/services.py :: undecided_loeschung_is_due`                                                                                        |
 | A declined registration                      | One calendar month after the decision                                                                                                       | `:: decline_loeschung_is_due`                                                                                                                                         |
 | An admitted registration                     | Deleted in the admission's own transaction                                                                                                  | `fl_backend/app/api/registrierungen/person_router.py :: admit`                                                                                                        |
-| A pupil                                      | Once the season after their last squad season has ended, at the activation and its hourly pass                                              | `fl_frontend/src/features/saisons/sweep.ts :: runLoeschungSweep`                                                                                                      |
+| A pupil                                      | Once the season after their last squad season has ended, at the activation and its hourly pass                                              | `fl_frontend/src/features/saisons/sweep.ts :: runErasureSweep`                                                                                                        |
 | A registration link's entry                  | No clock; the link ends with its season's window, or when withdrawn or replaced                                                             | `fl_backend/app/api/registrierungen/services.py :: saison_nimmt_registrierungen_an`                                                                                   |
 | A referee                                    | Until an administrator deletes the row or the referee asks; a link lasts 14 days                                                            | `fl_backend/app/shared/schemas/bounds.py :: SCHIEDSRICHTER_CONFIRMATION_FRIST_DAYS`                                                                                   |
-| A ban                                        | Five full seasons after the one it was entered under, removed by the activation past it                                                     | `fl_backend/app/shared/schemas/bounds.py :: SPERRE_DURATION_SAISONS`                                                                                                  |
+| A ban                                        | Five full seasons after the one it was entered under, removed by the activation past it                                                     | `fl_backend/app/shared/schemas/bounds.py :: BAN_DURATION_SAISONS`                                                                                                     |
 | A grant                                      | Until revoked or erased                                                                                                                     | `fl_backend/app/api/berechtigungen/admin_router.py :: delete_grant`                                                                                                   |
 | A pending grant request                      | A week after it was asked, unless decided, withdrawn or ended sooner                                                                        | `fl_backend/app/shared/schemas/bounds.py :: APPROVAL_DAYS`, `fl_backend/app/core/constraints.py :: TTL_INDEXES`                                                       |
 | An address change                            | Each link 24 hours, a lapsed change ended within the hour; an ended change keeps no address and no reason and goes 30 days after its end    | `fl_backend/app/shared/schemas/bounds.py :: ADDRESS_CHANGE_VALID_HOURS`, `:: ADDRESS_CHANGE_RETENTION_DAYS`                                                           |
@@ -404,7 +404,7 @@ Every store of section 6 ends by one of four triggers, each with its mechanism:
 - **The purpose standing**: a referee, a grant, a club's record, deleted by a decision and nothing
   else.
 
-The hourly scheduler (`fl_frontend/src/instrumentation-node.ts :: armScheduler`) runs every pass with
+The hourly scheduler (`fl_frontend/src/instrumentationNode.ts :: armScheduler`) runs every pass with
 no switch to hold one back, and pings the heartbeat monitor, naming on `/fail` each job that threw or
 left a due deletion; a claim that a period was honoured rests on that and on each job's line in the
 log ([`ops/runbooks.md`](ops/runbooks.md#9-checking-that-the-hourly-passes-have-run)). A deletion
