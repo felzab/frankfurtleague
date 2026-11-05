@@ -98,6 +98,7 @@ async function readGroups(params: Props["params"]) {
         rankLabel: column.platz,
         columns: COLUMNS,
         compact: true,
+        chevronOnPhone: false,
         rows: rows.map((row) => rowOf(saison, row, tabelle.qualifiers_per_gruppe, rows)),
         empty: { kind: "none", plural: COPY.page.tabelle },
       } satisfies TableProps,

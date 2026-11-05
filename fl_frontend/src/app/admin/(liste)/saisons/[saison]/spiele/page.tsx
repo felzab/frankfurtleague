@@ -1,26 +1,25 @@
 import { notFound } from "next/navigation";
 
 import { ListPage } from "@/kit/ListPage";
+import { SpielList } from "@/kit/SpielRow";
 import { SpieltagHead } from "@/kit/SpieltagHead";
 import { chosenTab } from "@/kit/tabChoice";
-import { Table } from "@/kit/Table";
 
 import { COPY } from "@/core/copy";
 import { dayOf } from "@/core/format";
 import { SpieltagePatchSpieltagBody } from "@/core/generated/zod/inputs";
 import { ROUTES } from "@/core/routes";
-import { SERVER_COPY } from "@/core/serverCopy";
-import { ereignisOf, sidesOf, whenOf } from "@/features/spiele/blocks";
+import { ereignisOf, matchRowOf } from "@/features/spiele/blocks";
 import { getAdminSpielplan } from "@/features/spiele/queries";
 import { spieltagNamer } from "@/features/spieltage/utils";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import { SpieltagDialog } from "./SpieltagDialog";
 
-import type { FLSpielJoinedAdmin, FLSpielTeamFieldJoined } from "@/core/generated/client/types";
+import type { FLSpielJoinedAdmin } from "@/core/generated/client/types";
 import type { ChipProps } from "@/kit/Chip";
 import type { SpieltageContent } from "@/kit/ListPage";
-import type { TableRow } from "@/kit/Table";
+import type { SpielRowProps } from "@/kit/SpielRow";
 import type { Metadata, ResolvingMetadata } from "next";
 
 type Props = PageProps<"/admin/saisons/[saison]/spiele">;
@@ -45,39 +44,16 @@ function chipOf(spiel: FLSpielJoinedAdmin): ChipProps | undefined {
   return spiel.ansetzung_confirmed === false ? { tone: "warn", label: WORDS.provisional } : undefined;
 }
 
-/** A played match's score as its row reads it, after a shoot-out marked so; nothing until a result is entered. */
-function scoreOf(spiel: FLSpielJoinedAdmin) {
-  const team1 = spiel.team1?.tore ?? null;
-  const team2 = spiel.team2?.tore ?? null;
-  return spiel.ergebnis === null || team1 === null || team2 === null
-    ? COPY.shared.noValue
-    : WORDS.score({ team1, team2 }, spiel.elfmeterschiessen);
-}
-
 /**
- * One match's row, opening its editor: the pairing with each club's plaque, which opens the club, its chip, and the
- * two facts, when it is played and its result. A side the draw has not settled shows where it comes from.
+ * One match's card, opening its editor: as the Spielplan shows it, the pairing with each side's goals, and beside
+ * when it is played its chip. A side the draw has not settled shows where it comes from.
  */
-function rowOf(saison: string, spiel: FLSpielJoinedAdmin): TableRow {
-  const { team1, team2 } = sidesOf(spiel);
-  const clubOf = (team: FLSpielTeamFieldJoined | null) => (team === null ? {} : { plaqueHref: ROUTES.team.path(saison, team.team_id) });
-  const when = whenOf(spiel);
+function cardOf(saison: string, spiel: FLSpielJoinedAdmin): SpielRowProps & { id: string } {
   const chip = chipOf(spiel);
   return {
-    id: spiel.id,
+    ...matchRowOf(spiel),
     href: ROUTES.adminSpiel.path(saison, spiel.id),
-    name: team1.name,
-    plaque: team1.plaque,
-    ...clubOf(spiel.team1),
-    versus: { name: team2.name, plaque: team2.plaque, ...clubOf(spiel.team2) },
     ...(chip === undefined ? {} : { chip }),
-    // A match nothing more is played in, called off or struck out among them, reads muted, as a row that no longer counts.
-    muted: spiel.sonderereignis !== null,
-    cells: {
-      // The third-place match says so before its date, as every match row does.
-      termin: spiel.for_third_place ? SERVER_COPY.season.labelled(SERVER_COPY.season.thirdPlace, when) : when,
-      ergebnis: scoreOf(spiel),
-    },
   };
 }
 
@@ -131,16 +107,9 @@ async function readSpieltage(params: Props["params"], searchParams: Props["searc
                         />
                       }
                     />
-                    <Table
-                      label={nameOf(spieltag)}
-                      nameLabel={WORDS.begegnung}
-                      columns={[
-                        { key: "termin", label: WORDS.termin },
-                        { key: "ergebnis", label: WORDS.ergebnis, figures: true },
-                      ]}
-                      rows={spieltag.spiele.map((spiel) => rowOf(saison, spiel))}
-                      empty={{ kind: "none", plural: COPY.page.spiele, glyph: "spielplan" }}
-                      stack
+                    <SpielList
+                      matches={spieltag.spiele.map((spiel) => cardOf(saison, spiel))}
+                      layout="cards"
                     />
                   </>
                 ),

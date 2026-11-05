@@ -128,7 +128,9 @@ export function OneShotForm({
         }}
         className="grid gap-6">
         {children !== undefined && <div className="grid justify-items-start gap-4">{children}</div>}
-        <div className="grid gap-3">
+        {/* Full width on a phone; from `lg` each act as wide as its label, centred in the column, as a status card
+            sets its way on, with the status line centred under them. */}
+        <div className="grid gap-3 lg:justify-items-center lg:text-center">
           <Button
             variant="primary"
             type="submit"
