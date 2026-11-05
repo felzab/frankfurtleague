@@ -26,7 +26,7 @@ code it governs, or in the commit that first wrote its words, which `git log -S 
 
 - **cache** — Split the one site-wide cache tag by resource or season; give a league read a lifetime
   past `minutes`
-- **spiele** — Move the Spiel write path to `admin`; let its form read `useAdmin()`
+- **spiele** — Let `features/spiele` import `features/admin` or a route under `app/admin`
 - **pages** — Remove the `await connection()` from a session read, from `runWithIncomingTrace` or ahead of
   a cached read a render reaches before any request value
 - **lint** — Scope a cross-feature import lint to anything but `core` and `shared`
@@ -35,7 +35,7 @@ code it governs, or in the commit that first wrote its words, which `git log -S 
 - **forms** — Judge a typed field between keystrokes; return the editor to a dialog
 - **spiele** — Guess a voided result rather than dry-running it
 - **admin** — Hide a triage tab on a zero count; order sections off anything but the label table
-- **finalrunden** — Write from `/area/admin/finalrunden`; render its wiring as cards
+- **spiele** — Write from the „Spiele“ list; save a match outside `saveSpiel`
 - **admin** — Give a shell page a second `h1`; make a sidemenu `hint` optional
 - **saisons** — Fetch the season list inside `resolveSaisonId` when `?saison_id=` is absent; drop
   `resolveSaisonId`'s redirect or `SaisonSelector`'s fallback
@@ -82,7 +82,6 @@ code it governs, or in the commit that first wrote its words, which `git log -S 
 - **spiele** — Refuse a `sonderereignis` that would overwrite a stored result; keep it out of the dry
   run's report
 - **spiele** — Add a POST or a DELETE to `/spiele`
-- **spiele** — Make `from_today` a partition, or `computeSpielStatus` a filter
 - **saisons** — Make `inactive_since` a boolean; revive a retired row by creating it
 - **saisons** — Add an austritt boolean beside the record
 - **saisons** — Write `status` outside the activate endpoint; DELETE a season row; drop the rollover
@@ -90,8 +89,8 @@ code it governs, or in the commit that first wrote its words, which `git log -S 
 - **spieltage** — Refuse a manual pick as unqualified; field a team twice in a Spieltag
 - **spieltage** — Derive a `Spieltag`'s position rather than reading it; write one outside the draw;
   store or serve its German label
-- **spieltage** — Add a reorder endpoint for `spieltage`; move the rollover off its page; re-sort its
-  list
+- **spieltage** — Add a reorder endpoint; move the rollover off the season editor; re-sort the matchday
+  tabs
 - **spieler** — Widen a squad row's `position` or `stufe` past their `Literal`s; drop `E2`
 - **swap** — Split the group swap into two writes; relax the move lock to serve it
 - **swap** — Refuse a swap for anything beyond its pair, a finished season, the season's start and its sides
