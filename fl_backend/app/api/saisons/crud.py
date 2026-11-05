@@ -7,8 +7,10 @@ from pymongo.asynchronous.collection import AsyncCollection
 from app.api.bewerbungen.services import SAISON_NOT_ENDED_FILTER, saison_nimmt_bewerbungen_an
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.saisons.services import has_started
+from app.api.spiele.schemas import FLSpielJoinedInternal, FLSpielJoinedInternalListAdapter
+from app.api.spiele.services import build_spiele_pipeline
 from app.api.teams.services import TAKEN_PLACE_FIELDS, has_taken_place
-from app.core.crud import pull_many_from_db, pull_one_from_db
+from app.core.crud import aggregate_many_from_db, pull_many_from_db, pull_one_from_db
 from app.core.exceptions import DocumentNotFoundError
 from app.core.readonly import ReadCollection
 
@@ -84,6 +86,39 @@ async def saisons_with_a_fixture_taken_place(
                     break
 
     return found
+
+
+async def pull_finale_by_saison(*, spiele_collection: ReadCollection, saison_ids: Collection[str]) -> dict[str, list[FLSpielJoinedInternal]]:
+    """Each of these seasons' Finale matches, joined as every match read joins them, keyed by season; a season holding none is absent.
+
+    One read for every season asked about: `build_spiele_pipeline` marks the match for third place per fixture's own season,
+    so `app/api/saisons/services.py :: decided_podium` reads each season's list as it reads the landing's.
+    """
+
+    by_saison: dict[str, list[FLSpielJoinedInternal]] = {}
+    for spiel in FLSpielJoinedInternalListAdapter.validate_python(
+        await aggregate_many_from_db(
+            collection=spiele_collection,
+            pipeline=build_spiele_pipeline(db_filter={"saison_id": {"$in": list(saison_ids)}, "saison_phase": "finale"}),
+        )
+    ):
+        by_saison.setdefault(spiel.saison_id, []).append(spiel)
+
+    return by_saison
+
+
+async def count_teams_by_saison(*, saison_teams_collection: ReadCollection, saison_ids: Collection[str]) -> dict[str, int]:
+    """How many clubs each of these seasons holds, counted on every read; a season holding none is absent.
+
+    Every row, a club that left included: a team never leaves a season, and the season's Teams page lists it with its Austritt.
+    """
+
+    rows = await aggregate_many_from_db(
+        collection=saison_teams_collection,
+        pipeline=[{"$match": {"saison_id": {"$in": list(saison_ids)}}}, {"$group": {"_id": "$saison_id", "teams": {"$sum": 1}}}],
+    )
+
+    return {str(row["_id"]): int(row["teams"]) for row in rows}
 
 
 async def nachnominierung_laeuft_in(*, saisons_collection: ReadCollection, saison_id: str, today: str) -> bool:

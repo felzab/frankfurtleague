@@ -30,6 +30,7 @@ from app.api.einladungen.services import (
     build_live_team_filter,
     compose_einladung,
     compose_revocation_update,
+    compose_sent_update,
     find_saison_vorbei_refusal,
     find_team_in_saison_refusal,
 )
@@ -1141,6 +1142,8 @@ async def post_invitation(
             token_hashes=[token_hash],
             created_by=created_by,
             today=today,
+            # Minted for copying: nothing is mailed until the team's own press owes it.
+            sent_at=None,
         )
         post_operation = await post_one_to_db(collection=invitations_collection, document=document, session=session)
 
@@ -1219,8 +1222,9 @@ async def post_invitation_dispatch(
 
     The write mints nothing and revokes nothing: each mail mints a link of its own when it is handed out, so a link copied off the mint
     stays valid beside the mailed ones. `recipient` names who is owed it, one entry per stored address, and is empty where nobody has
-    confirmed a seat, which owes nothing. Pressed twice on one day, the second owes nothing again; a later day's press mails the seats
-    afresh. A barred address is stopped when its mail is handed out.
+    confirmed a seat, which owes nothing. Where it owes anyone, the row's `sent_at` becomes today, the day the season editor shows. Pressed
+    twice on one day, the second owes nothing again; a later day's press mails the seats afresh. A barred address is stopped when its mail
+    is handed out.
 
     404 where `invitation_id` is not this team's live invite for the season, a link replaced or withdrawn since the caller read it among
     them, and where the season holds no row for the team.
@@ -1241,6 +1245,16 @@ async def post_invitation_dispatch(
             session=session,
         )
         empfaenger = bestaetigte_empfaenger(kontakte=row.get("kontakte"))
+        # Only where a mail is owed: a press reaching nobody sent nothing, and the row keeps the day it last was.
+        if empfaenger:
+            await patch_one_in_db(
+                collection=invitations_collection,
+                db_filter={"_id": mail_data.invitation_id},
+                update=compose_sent_update(today=today),
+                expected_version=None,
+                session=session,
+                return_document=ReturnDocument.BEFORE,
+            )
         await enqueue_mails(
             outbox_collection=outbox_collection,
             session=session,

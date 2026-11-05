@@ -12,6 +12,7 @@ from app.api.saisons.schemas import (
     FLActivateSaisonResponse,
     FLGenerateSpielplanPayload,
     FLPatchSaisonPayload,
+    FLPatchSaisonResponse,
     FLSaisonRules,
 )
 from app.api.spiele.admin_router import patch_spiel
@@ -261,7 +262,7 @@ async def fixtures_now(database: AsyncDatabase, saison_id: str) -> int:
 
 async def call_patch_rules(
     database: AsyncDatabase, client: AsyncMongoClient, *, saisons_collection: Any, start_date: str | None = None, **overrides: Any
-) -> None:
+) -> FLPatchSaisonResponse:
     """The target's seeded dates and whole rules every time, `rules` being required on the patch, so a case names only the value it moves."""
 
     seeded = seeded_saison(TARGET, "future")

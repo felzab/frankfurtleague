@@ -172,7 +172,11 @@ class TestTheAdminTierReadsEverySeason:
 def admin_read(filters: FLSaisonsFilterParams) -> Body:
     async def body(database: AsyncDatabase) -> Any:
         return await get_saisons_admin(
-            saisons_collection=database[Collection.SAISONS], spiele_collection=database[Collection.SPIELE], filters=filters, today=TODAY
+            saisons_collection=database[Collection.SAISONS],
+            spiele_collection=database[Collection.SPIELE],
+            saison_teams_collection=database[Collection.SAISON_TEAMS],
+            filters=filters,
+            today=TODAY,
         )
 
     return body
