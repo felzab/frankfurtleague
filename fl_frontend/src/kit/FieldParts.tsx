@@ -15,8 +15,11 @@ import type { CalendarDay } from "@/core/format";
 import type { ValidationResult } from "react-aria-components/FieldError";
 import type { FormStatus } from "./useFormAction";
 
-/** One answer of a fixed choice, a word or a phrase: a radio group's, a segmented control's or a toggle box's. */
-export type Choice = { id: string; label: Copy };
+/**
+ * One answer of a fixed choice, a radio group's, a segmented control's or a toggle box's: the catalogue's word or phrase,
+ * or a record's own, such as a club's name.
+ */
+export type Choice = { id: string; label: Words };
 
 /** What a field's message needs to name the rule its value broke. */
 export type Constraints = {

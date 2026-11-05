@@ -92,7 +92,7 @@ export function RadioGroup({
                         isInvalid={isInvalid}
                       />
                       <span className={card.words()}>
-                        <span className={card.title()}>{choice.label}</span>
+                        <span className={card.title()}>{textOf(choice.label)}</span>
                         <span className={card.line()}>{choice.line}</span>
                       </span>
                     </>
