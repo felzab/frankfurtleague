@@ -38,7 +38,7 @@ const link = tv({
 /**
  * A link the frames draw themselves, as tall as every control, 32 px under a mouse and 40 px under a finger,
  * coloured by the ground it stands on: the classic header's on the dark-green band, the title strip's legal
- * pages, „Anmelden“ at the rail's foot.
+ * pages, „Konto“ at a signed-out rail's foot.
  */
 export const frameLink = tv({
   base: "flex h-8 items-center rounded-lg px-3 text-sm font-medium whitespace-nowrap transition-colors duration-(--motion-state) pointer-coarse:h-10",
@@ -46,7 +46,7 @@ export const frameLink = tv({
     // On the band, under the pointer, the band's green takes the step the primary button's hover takes on the same
     // green, so every link of the band answers the pointer, the one in full white too.
     tone: {
-      // On the band: the page the visitor is on, and „Anmelden“, in full white.
+      // On the band: the page the visitor is on, and „Konto“, in full white.
       band: "text-on-brand hover:bg-brand-solid-hover",
       // On the band, every other page: the white dimmed until the pointer is over it.
       bandMuted: "text-on-brand/75 hover:bg-brand-solid-hover hover:text-on-brand",

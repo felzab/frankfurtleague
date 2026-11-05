@@ -34,7 +34,7 @@ function SeasonEntry({ read, look }: { read: Promise<HeaderLink | null>; look: "
 }
 
 /**
- * The classic header's links and „Anmelden“ on the band: in a row from 1024 px, and on a phone behind one
+ * The classic header's links and „Konto“, the way to the sign-in, on the band: in a row from 1024 px, and on a phone behind one
  * button opening them as a sheet. The season's entry leads them once its read lands; while it waits it holds no
  * width and the band its fixed height, so nothing beside it moves up or down.
  */
@@ -80,7 +80,7 @@ export function HeaderLinks({
         href={signIn}
         data-kit-focus="ring"
         className={frameLink({ tone: "band", class: "ms-auto hidden lg:flex" })}>
-        {COPY.shared.verb.signIn}
+        {COPY.template.account}
       </NextLink>
       <div className="ms-auto lg:hidden">
         <FreshPerPage>
@@ -106,7 +106,7 @@ export function HeaderLinks({
                   />
                 </Suspense>
               )}
-              {[...links, { label: COPY.shared.verb.signIn, href: signIn }].map((link) => (
+              {[...links, { label: COPY.template.account, href: signIn }].map((link) => (
                 <NextLink
                   key={link.href}
                   href={link.href}

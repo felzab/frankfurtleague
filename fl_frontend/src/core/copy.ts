@@ -409,7 +409,10 @@ export const COPY = catalogue({
     less: "Weniger",
     /** The name of a frame's menu, the rail's and the phone bar's. */
     navigation: "Navigation",
-    /** The account's place: the rail's account row and the phone bar's avatar. */
+    /**
+     * The account's place: the rail's account row and the phone bar's avatar, and, one word signed in and out alike,
+     * the frames' link to the sign-in, which a signed-in person passes on from to their area.
+     */
     account: "Konto",
     /** The classic header's button opening its links on a phone. */
     menu: "Menü",

@@ -60,7 +60,7 @@ async function SeasonGroup({ pages }: { pages: Promise<ReadonlyArray<HeaderLink>
 /**
  * The classic public frame, which a layout places around the landing, About, Kontakt, the sponsors page,
  * the legal pages, the application form, the pages a mail opens and the sign-in: the dark-green band with
- * the logo, its links and „Anmelden“ at the top, the footer at the foot. The footer holds the logo and the
+ * the logo, its links and „Konto“, the way to the sign-in, at the top, the footer at the foot. The footer holds the logo and the
  * league's line at the left with Instagram and Threads as glyph links under them, the question door's, and to
  * their right three link groups, „Saison“, „Liga“ closed by „Sponsoren“, and „Rechtliches“, two a row on a
  * phone; under them the sponsors' logos under „Mit Unterstützung von“ above the © line.
@@ -80,9 +80,9 @@ export function ClassicFrame({
 }: {
   /** The season the site is on, the header's first entry once its read lands; null where the league has none. */
   season?: Promise<HeaderLink | null>;
-  /** The header's links, between the logo and „Anmelden“. */
+  /** The header's links, between the logo and „Konto“, the way to the sign-in. */
   links: ReadonlyArray<HeaderLink>;
-  /** Where „Anmelden“ leads. */
+  /** Where „Konto“, the way to the sign-in, leads. */
   signIn: Route;
   /** The pages of the season the site is on, the footer's „Saison“ group once read; null where the league has none. */
   seasonPages: Promise<ReadonlyArray<HeaderLink> | null>;

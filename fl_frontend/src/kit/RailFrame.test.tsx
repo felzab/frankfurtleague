@@ -160,7 +160,7 @@ describe("the rail's collapse", () => {
     expect(screen.getByRole("button", { name: COPY.template.sidebar.expand })).toBe(toggle);
     expect(railLink(rail)?.textContent).toBe(COPY.page.adminSpielorte);
     // The signed-out foot is an entry too: its words fade, and stay its name.
-    expect(within(rail).getByRole("link", { name: COPY.shared.verb.signIn })).toBeTruthy();
+    expect(within(rail).getByRole("link", { name: COPY.template.account })).toBeTruthy();
     logo.focus();
     await userEvent.tab();
     expect(document.activeElement).toBe(railLink(rail));
