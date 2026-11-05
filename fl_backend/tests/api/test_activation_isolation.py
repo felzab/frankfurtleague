@@ -664,6 +664,7 @@ class TestARolloverLandingMidSaveIsJudgedAgain:
                     saisons_collection=cast(Any, seasons),
                     spiele_collection=database[Collection.SPIELE],
                     db=client,
+                    today=TODAY,
                 )
             )
 

@@ -513,13 +513,15 @@ async def patch_saison_team(
     saisons_collection: SaisonsCollection,
     spiele_collection: SpieleCollection,
     db: DBClient,
+    today: str = Depends(get_german_date_str),
 ) -> FLSaisonTeamResponse:
     """
     Rewrite a team's row for one season: group, exit record and kit colour.
 
     All three are required and replaced WHOLESALE: an omitted key is a 422, never a team reinstated.
     The contact block is `PATCH .../kontakte`'s, and stays correctable there on a `past` season, which
-    refuses this write (`saison_past`).
+    refuses this write (`saison_past`). A new or changed exit is refused until the season's start date
+    (`austritt_before_saison_start`, its `earliest` the start): before it, the replacement takes a club out.
     """
 
     async def move_the_club(session: AsyncClientSession) -> tuple[Mapping[str, Any], Mapping[str, Any]]:
@@ -546,11 +548,13 @@ async def patch_saison_team(
         # On the anchored season's stored start, so a start moved under this write conflicts and the retry judges the
         # exit against the date it left.
         austritt = saison_team_data.austritt
+        start_date = str(saison_raw["start_date"])
         refuse(
             find_austritt_refusal(
                 proposed=None if austritt is None else austritt.model_dump(mode="json"),
                 stored=existing_raw.get("austritt"),
-                start_date=str(saison_raw["start_date"]),
+                start_date=start_date,
+                started=has_started(start_date=start_date, today=today),
             )
         )
 

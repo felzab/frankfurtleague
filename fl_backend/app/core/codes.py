@@ -149,6 +149,9 @@ class Code(StrEnum):
     # The start every start lock reads, fixed once a fixture of the season has taken place: moved after play, it would
     # reopen the rules, the swap and the replacement on a season somebody already played.
     SAISON_START_TAKEN_PLACE = auto()
+    # A start moved later while a club's exit is stored: the season would read as not started again, reopening the group
+    # swap, which would field a departed club, on a season whose exits are recorded only once it has started.
+    SAISON_START_AUSTRITT_STORED = auto()
     INVITATION_TEAM_NOT_ENTERED = auto()
     # A consent press whose page was served choices that have moved since, on any of the account page's records: one
     # code, so the page maps one refusal however many writes share it.
@@ -284,8 +287,8 @@ class Code(StrEnum):
     # decides is none: the person's pick is what is refused, so a 422 naming both boxes.
     SWAP_NOT_A_SWAP = auto()
     SWAP_SAISON_STARTED = auto()
-    # An exit dated before the season starts: before the start a club out of the season is replaced, so no fixture
-    # of an unstarted season, which the swap alone rewrites, fields a departed club.
+    # An exit recorded before the season's start date: before the start a club out of the season is replaced, so no
+    # fixture of an unstarted season, which the swap alone rewrites, fields a departed club.
     AUSTRITT_BEFORE_SAISON_START = auto()
     PAYLOAD_REFUSED = auto()
     # A body no field could be read from: malformed syntax, RFC 9110's 400, never a refused payload's 422.

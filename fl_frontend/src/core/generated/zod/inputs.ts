@@ -1707,7 +1707,8 @@ export const SaisonsGetSaisonParams = zod.object({
  *
  * `status` is on no payload. Editing the points moves every league table on the NEXT READ, standings being derived. What a
  * started or drawn season has fixed is refused, as is a rule narrowed below what it holds. The start date moves until a
- * fixture of the season has taken place (`saison_start_taken_place`); the rules freeze reads the STORED start, so a season
+ * fixture of the season has taken place (`saison_start_taken_place`), and later only while no club's exit is stored
+ * (`saison_start_austritt_stored`, its `latest` the stored start); the rules freeze reads the STORED start, so a season
  * started too early is unlocked by one save moving its start and a second changing its rules.
  * @summary Update a Saison's dates and rules
  */
@@ -3771,7 +3772,8 @@ export const TeamsPostSaisonTeamBody = zod
  *
  * All three are required and replaced WHOLESALE: an omitted key is a 422, never a team reinstated.
  * The contact block is `PATCH .../kontakte`'s, and stays correctable there on a `past` season, which
- * refuses this write (`saison_past`).
+ * refuses this write (`saison_past`). A new or changed exit is refused until the season's start date
+ * (`austritt_before_saison_start`, its `earliest` the start): before it, the replacement takes a club out.
  * @summary Rewrite a team's season row: group, exit record and kit colour
  */
 export const teamsPatchSaisonTeamPathTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");

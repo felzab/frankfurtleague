@@ -206,6 +206,7 @@
           "spieltag_beginn_out_of_order",
           "saison_span_below_spielplan_as_stored",
           "saison_start_taken_place",
+          "saison_start_austritt_stored",
           "invitation_team_not_entered",
           "choices_stale",
           "grant_wording_stale",
@@ -24479,7 +24480,7 @@
         ]
       },
       "patch": {
-        "description": "Update a season's dates and rules on the `version` the editor was served, answering the version stored, which its next save sends.\n\n`status` is on no payload. Editing the points moves every league table on the NEXT READ, standings being derived. What a\nstarted or drawn season has fixed is refused, as is a rule narrowed below what it holds. The start date moves until a\nfixture of the season has taken place (`saison_start_taken_place`); the rules freeze reads the STORED start, so a season\nstarted too early is unlocked by one save moving its start and a second changing its rules.",
+        "description": "Update a season's dates and rules on the `version` the editor was served, answering the version stored, which its next save sends.\n\n`status` is on no payload. Editing the points moves every league table on the NEXT READ, standings being derived. What a\nstarted or drawn season has fixed is refused, as is a rule narrowed below what it holds. The start date moves until a\nfixture of the season has taken place (`saison_start_taken_place`), and later only while no club's exit is stored\n(`saison_start_austritt_stored`, its `latest` the stored start); the rules freeze reads the STORED start, so a season\nstarted too early is unlocked by one save moving its start and a second changing its rules.",
         "operationId": "saisons_patch_saison",
         "parameters": [
           {
@@ -31419,7 +31420,7 @@
     },
     "/api/v0/teams/{team_id}/saisons/{saison_id}": {
       "patch": {
-        "description": "Rewrite a team's row for one season: group, exit record and kit colour.\n\nAll three are required and replaced WHOLESALE: an omitted key is a 422, never a team reinstated.\nThe contact block is `PATCH .../kontakte`'s, and stays correctable there on a `past` season, which\nrefuses this write (`saison_past`).",
+        "description": "Rewrite a team's row for one season: group, exit record and kit colour.\n\nAll three are required and replaced WHOLESALE: an omitted key is a 422, never a team reinstated.\nThe contact block is `PATCH .../kontakte`'s, and stays correctable there on a `past` season, which\nrefuses this write (`saison_past`). A new or changed exit is refused until the season's start date\n(`austritt_before_saison_start`, its `earliest` the start): before it, the replacement takes a club out.",
         "operationId": "teams_patch_saison_team",
         "parameters": [
           {

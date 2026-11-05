@@ -70,6 +70,7 @@ from app.api.saisons.services import (
     find_rules_refusal,
     find_saison_id_refusal,
     find_saison_span_refusal,
+    find_saison_start_austritt_refusal,
     find_saison_start_refusal,
     find_spielplan_refusal,
     find_undraw_refusal,
@@ -458,7 +459,8 @@ async def patch_saison(
 
     `status` is on no payload. Editing the points moves every league table on the NEXT READ, standings being derived. What a
     started or drawn season has fixed is refused, as is a rule narrowed below what it holds. The start date moves until a
-    fixture of the season has taken place (`saison_start_taken_place`); the rules freeze reads the STORED start, so a season
+    fixture of the season has taken place (`saison_start_taken_place`), and later only while no club's exit is stored
+    (`saison_start_austritt_stored`, its `latest` the stored start); the rules freeze reads the STORED start, so a season
     started too early is unlocked by one save moving its start and a second changing its rules.
     """
 
@@ -470,12 +472,15 @@ async def patch_saison(
         # overwritten. A season id naming nothing raises the 404 here.
         stored_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, session=session)
 
-        # Disqualified rows included: a team never leaves a season.
+        # Disqualified rows included: a team never leaves a season. The same read says whether any club's exit is
+        # stored, which a start moved later must not leave on a season reading as unstarted.
         occupancy: dict[Any, int] = {}
-        async for row in saison_teams_collection.find({"saison_id": saison_id}, {"gruppe": 1}, session=session):
+        austritt_stored = False
+        async for row in saison_teams_collection.find({"saison_id": saison_id}, {"gruppe": 1, "austritt": 1}, session=session):
             gruppe = row.get("gruppe")
             if gruppe is not None:
                 occupancy[gruppe] = occupancy.get(gruppe, 0) + 1
+            austritt_stored = austritt_stored or row.get("austritt") is not None
 
         # Both sides, because a `quelle` sits on either; 0 where no slot is group-seeded. Judged on
         # the snapshot and never re-read below: `rules_qualifiers_below_wiring`, the only refusal that reads it,
@@ -550,6 +555,13 @@ async def patch_saison(
                 stored_start_date=str(stored_raw["start_date"]),
                 proposed_start_date=saison_data.start_date,
                 taken_place=taken_place,
+            )
+        )
+        refuse(
+            find_saison_start_austritt_refusal(
+                stored_start_date=str(stored_raw["start_date"]),
+                proposed_start_date=saison_data.start_date,
+                austritt_stored=austritt_stored,
             )
         )
         # The STORED start, in this transaction's snapshot: the date on the payload is what the edit

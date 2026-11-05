@@ -94,6 +94,7 @@ export const Code = {
   spieltag_beginn_out_of_order: "spieltag_beginn_out_of_order",
   saison_span_below_spielplan_as_stored: "saison_span_below_spielplan_as_stored",
   saison_start_taken_place: "saison_start_taken_place",
+  saison_start_austritt_stored: "saison_start_austritt_stored",
   invitation_team_not_entered: "invitation_team_not_entered",
   choices_stale: "choices_stale",
   grant_wording_stale: "grant_wording_stale",

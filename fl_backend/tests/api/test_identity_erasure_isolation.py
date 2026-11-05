@@ -196,6 +196,7 @@ async def junction_patched(database: AsyncDatabase, client: AsyncMongoClient, va
         saisons_collection=database[Collection.SAISONS],
         spiele_collection=database[Collection.SPIELE],
         db=client,
+        today=TODAY,
     )
 
 

@@ -406,6 +406,7 @@ class TestAGroupMoveLandingMidEntryIsJudgedAgain:
                     saisons_collection=saisons,
                     spiele_collection=database[Collection.SPIELE],
                     db=client,
+                    today=STANDING_FIRST,
                 )
 
             async def the_rival_enters_the_group() -> None:

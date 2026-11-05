@@ -109,6 +109,25 @@ def find_saison_start_refusal(*, stored_start_date: str, proposed_start_date: st
     )
 
 
+def find_saison_start_austritt_refusal(*, stored_start_date: str, proposed_start_date: str, austritt_stored: bool) -> WriteRefusal | None:
+    """Why moving this season's start later must be refused, or `None`: a club's exit is stored.
+
+    An exit is recorded only from the start date (`austritt_before_saison_start`); a start moved later would make the
+    season read as unstarted again and reopen the group swap, which would then field a club that has left. An earlier
+    start, or the stored one resubmitted, passes. `latest` is the latest start the save may set: the stored one.
+    """
+
+    if not austritt_stored or proposed_start_date <= stored_start_date:
+        return None
+
+    return WriteRefusal(
+        error_code=Code.SAISON_START_AUSTRITT_STORED,
+        status=HTTPStatus.CONFLICT,
+        fields=(("start_date",),),
+        bounds={"latest": stored_start_date},
+    )
+
+
 def find_saison_past_refusal(*, saison_status: str) -> WriteRefusal | None:
     """`saison_past` for a write that a finished season's record no longer takes: a fixture's save, a club's season row.
 
