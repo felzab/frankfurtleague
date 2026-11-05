@@ -1688,7 +1688,7 @@ async def images_of_every_strip_edit_set(database: AsyncDatabase, client: AsyncM
         await patch_one_in_db(
             collection=confirmations,
             db_filter={"_id": row["_id"]},
-            update={"$set": {"reminded_at": []}},
+            update={"$set": {"reminded_at": None}},
             expected_version=None,
             return_document=ReturnDocument.BEFORE,
         )
@@ -1785,7 +1785,7 @@ class TestTheSeasonsEndStripsItsConfirmations:
                 await patch_one_in_db(
                     collection=confirmations,
                     db_filter={"_id": row["_id"]},
-                    update={"$set": {"reminded_at": []}},
+                    update={"$set": {"reminded_at": None}},
                     expected_version=None,
                     return_document=ReturnDocument.BEFORE,
                 )
@@ -1888,7 +1888,7 @@ class TestTheSeasonsEndStripsItsConfirmations:
                 await patch_one_in_db(
                     collection=confirmations,
                     db_filter={"_id": row["_id"]},
-                    update={"$set": {"reminded_at": []}},
+                    update={"$set": {"reminded_at": None}},
                     expected_version=None,
                     return_document=ReturnDocument.BEFORE,
                 )

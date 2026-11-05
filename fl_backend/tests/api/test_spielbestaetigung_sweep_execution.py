@@ -1120,23 +1120,24 @@ class TestTheGhostIsAskedNothing:
         assert ({row["party"]["art"] for row in stored}, len(stored), answer.einteilungen) == ({"team"}, 2, [])
 
 
-# Fourteen days out, so the deadline falls a week before the fixture and both reminders inside it.
+# Fourteen days out, so the deadline falls a week before the fixture and the reminder inside it.
 FORTNIGHT = days_after(day=TODAY, days=14)
 FRIST = days_after(day=FORTNIGHT, days=-7)
-FIRST_REMINDER = days_after(day=FRIST, days=-3)
-SECOND_REMINDER = days_after(day=FRIST, days=-1)
+REMINDER = days_after(day=FRIST, days=-3)
 
 
 class TestEveryMailedLinkLivesToTheDeadline:
-    """Each seat's request link and both reminders' still name the seat after the second reminder went."""
+    """Each seat's request link and the reminder's still name the seat on the deadline's eve, which mails nothing."""
 
-    def test_three_links_a_seat_each_find_the_row_and_the_seat(self, mongo_replica_set_url: str):
+    def test_two_links_a_seat_each_find_the_row_and_the_seat(self, mongo_replica_set_url: str):
+        """A second reminder on any later day would mail every seat again, where the league owes one reminder."""
+
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             mailed: dict[str, list[str]] = {seat: [] for seat in KONTAKT_ROLLEN}
             answers = [await sweep(database, client)]
             answers += [
                 await sweep(database, client, today=day)
-                for day in (FIRST_REMINDER, days_after(day=FIRST_REMINDER, days=1), SECOND_REMINDER, SECOND_REMINDER)
+                for day in (REMINDER, days_after(day=REMINDER, days=1), days_after(day=FRIST, days=-1), FRIST)
             ]
             for answer in answers:
                 for request in [*answer.anfragen, *answer.erinnerungen]:
@@ -1158,9 +1159,9 @@ class TestEveryMailedLinkLivesToTheDeadline:
 
         answers, resolved, alpha = on_a_league(mongo_replica_set_url, body, spiele=[fixture(SPIEL, 1, FORTNIGHT)])
 
-        assert [len(answer.erinnerungen) for answer in answers] == [0, 2, 0, 2, 0]
-        assert resolved == {seat: [seat, seat, seat] for seat in KONTAKT_ROLLEN}
-        assert alpha["reminded_at"] == [FIRST_REMINDER, SECOND_REMINDER]
+        assert [len(answer.erinnerungen) for answer in answers] == [0, 2, 0, 0, 0]
+        assert resolved == {seat: [seat, seat] for seat in KONTAKT_ROLLEN}
+        assert alpha["reminded_at"] == REMINDER
         assert alpha["frist"] == FRIST
 
 
@@ -1239,7 +1240,7 @@ class TestTheReminderSkipsARowTheCloseWouldShut:
 
         assert standing["frist"] == days_after(day=TODAY, days=3)
         assert (answer.closed, standing["closed"]) == (CLOSES_PER_PASS, None)
-        assert (answer.erinnerungen, answer.anfragen, standing["reminded_at"]) == ([], [], [])
+        assert (answer.erinnerungen, answer.anfragen, standing["reminded_at"]) == ([], [], None)
 
 
 class TestOneRowHoldsBackNoOther:
@@ -1341,7 +1342,7 @@ class TestEachPerRowLoopCostsTheRoundTripsItsShareIsSizedAt:
         few, twice = self._twice(
             mongo_replica_set_url,
             seed,
-            lambda database, client: a_pass(database, client, today=FIRST_REMINDER),
+            lambda database, client: a_pass(database, client, today=REMINDER),
             junctions=[junction(ALPHA), junction(BETA, kontakte=None)],
         )
 
@@ -1367,7 +1368,7 @@ class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[Any, Counter[str]]:
             await database[Collection.SPIELE].insert_many([moved, reminded])
-            await sweep(database, client, today=days_after(day=FIRST_REMINDER, days=-1))
+            await sweep(database, client, today=days_after(day=REMINDER, days=-1))
             await database[Collection.SPIELE].update_one({"_id": SPIEL}, {"$set": {"uhrzeit": "19:00:00"}})
             await database[Collection.SPIELBESTAETIGUNGEN].update_one(
                 {"spiel_id": OTHER_SPIEL, "party.team_id": ALPHA}, {"$set": {"kontakte.trainer": None}}
@@ -1376,7 +1377,7 @@ class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
             await database[Collection.ACTION_LOG].delete_many({})
 
             return await commands_by_name(
-                mongo_replica_set_url, DATABASE_NAME, lambda database, client: a_pass(database, client, today=FIRST_REMINDER)
+                mongo_replica_set_url, DATABASE_NAME, lambda database, client: a_pass(database, client, today=REMINDER)
             )
 
         answer, names = on_a_league(mongo_replica_set_url, body, spiele=[])
@@ -1600,8 +1601,8 @@ class TestASeatMintedAfreshOnAReminderDay:
             await database[Collection.SPIELBESTAETIGUNGEN].update_one(
                 {"party.team_id": ALPHA}, {"$set": {f"kontakte.{seat}": None for seat in emptied}}
             )
-            first = await sweep(database, client, today=FIRST_REMINDER)
-            later = await sweep(database, client, today=FIRST_REMINDER)
+            first = await sweep(database, client, today=REMINDER)
+            later = await sweep(database, client, today=REMINDER)
 
             return first, later, row_of(await rows(database), team_id=ALPHA)
 
@@ -1614,14 +1615,14 @@ class TestASeatMintedAfreshOnAReminderDay:
         reminded = {request.seite: sorted(link.address for link in request.links) for request in first.erinnerungen}
         assert asked == [("team1", [address(ALPHA, "trainer")])]
         assert reminded["team1"] == sorted([address(ALPHA, "ansprechperson"), address(ALPHA, "stellvertretung")])
-        assert (later.anfragen, later.erinnerungen, alpha["reminded_at"]) == ([], [], [FIRST_REMINDER])
+        assert (later.anfragen, later.erinnerungen, alpha["reminded_at"]) == ([], [], REMINDER)
 
     def test_a_row_whose_every_seat_was_minted_afresh_is_marked_reminded_and_sent_no_reminder_later(self, mongo_replica_set_url: str):
         first, later, alpha = self._passes(mongo_replica_set_url, list(KONTAKT_ROLLEN))
 
         assert [request.seite for request in first.anfragen] == ["team1"]
         assert [request.seite for request in first.erinnerungen] == ["team2"]
-        assert (later.anfragen, later.erinnerungen, alpha["reminded_at"]) == ([], [], [FIRST_REMINDER])
+        assert (later.anfragen, later.erinnerungen, alpha["reminded_at"]) == ([], [], REMINDER)
 
 
 class TestTheReminderPassesOverASeatTheProviderRefused:
@@ -1633,7 +1634,7 @@ class TestTheReminderPassesOverASeatTheProviderRefused:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await sweep(database, client)
             await a_bounce_on(database, team_id=ALPHA, seat="trainer")
-            return await sweep(database, client, today=FIRST_REMINDER)
+            return await sweep(database, client, today=REMINDER)
 
         answer = on_a_league(mongo_replica_set_url, body, spiele=[fixture(SPIEL, 1, FORTNIGHT, schiedsrichter=None)])
 

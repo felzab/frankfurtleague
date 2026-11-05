@@ -40,8 +40,7 @@ from app.core.exceptions import WriteRefusal
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.shared.schemas.bounds import (
     SPIEL_CONFIRMATION_FRIST_DAYS,
-    SPIEL_REMINDER_DAYS_FIRST,
-    SPIEL_REMINDER_DAYS_SECOND,
+    SPIEL_REMINDER_DAYS,
     SPIEL_REQUEST_LEAD_TIME_DAYS,
 )
 from app.shared.schemas.literals import KONTAKT_ROLLEN, FLKontaktRolle, FLSpielSeite
@@ -861,7 +860,7 @@ def compose_spielbestaetigung(
         "ansetzung": compose_ansetzung(spiel),
         "frist": frist_of(datum=spiel["datum"], today=today),
         "asked_at": today if asked else None,
-        "reminded_at": [],
+        "reminded_at": None,
         # A referee answers signed in rather than by a link.
         "kontakte": (
             None
@@ -901,14 +900,8 @@ def link_groups(*, kontakte: Any, seats: Sequence[str]) -> list[list[FLKontaktRo
     return list(groups.values())
 
 
-def erinnerung_tage(*, today: str) -> list[str]:
-    """The deadlines a row is reminded of today, each reminder falling its count of days before the deadline."""
-
-    return [days_after(day=today, days=tage) for tage in (SPIEL_REMINDER_DAYS_FIRST, SPIEL_REMINDER_DAYS_SECOND)]
-
-
 def build_erinnerung_filter(*, saison_id: str, today: str, inserted: Sequence[Any]) -> dict[str, Any]:
-    """The season's open team rows whose reminder is due today: their request owed on an earlier day, nobody reminded today.
+    """The season's open team rows whose one reminder is due today: never reminded, their request owed on an earlier day.
 
     Never a row this pass inserted.
     """
@@ -918,8 +911,8 @@ def build_erinnerung_filter(*, saison_id: str, today: str, inserted: Sequence[An
         **build_answerable_filter(),
         "_id": {"$nin": list(inserted)},
         "party.art": "team",
-        "frist": {"$in": erinnerung_tage(today=today)},
-        "reminded_at": {"$ne": today},
+        "frist": days_after(day=today, days=SPIEL_REMINDER_DAYS),
+        "reminded_at": None,
         "asked_at": {"$nin": [None, today]},
     }
 
@@ -934,7 +927,7 @@ def compose_erinnerung_update(*, emails: Mapping[str, str], today: str, reminded
     if emails:
         update["$set"] = {f"kontakte.{seat}.email": email for seat, email in emails.items()}
     if reminded:
-        update["$push"] = {"reminded_at": today}
+        update.setdefault("$set", {})["reminded_at"] = today
 
     return update
 

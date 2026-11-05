@@ -5195,8 +5195,7 @@ export interface FLSpielbestaetigung {
   id: string;
   kontakte: FLSpielbestaetigungKontakte | null;
   party: FLSpielbestaetigungPartyTeam | FLSpielbestaetigungPartySchiedsrichter;
-  /** @items.pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  reminded_at: string[];
+  reminded_at: string | null;
   saison_id: string;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   spiel_id: string;

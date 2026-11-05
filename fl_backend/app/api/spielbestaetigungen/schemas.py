@@ -153,7 +153,8 @@ class _FLSpielbestaetigungFelder(BaseModel):
     frist: CustomDateString
     # Null from the mint until it owes the party a mail, so a row nobody could be asked on reads as never asked.
     asked_at: CustomOptionalDateString
-    reminded_at: list[CustomDateString]
+    # The day the one reminder went, null until it does.
+    reminded_at: CustomOptionalDateString
     antwort: FLSpielbestaetigungAntwort | None
     closed: FLSpielbestaetigungClosed | None
 

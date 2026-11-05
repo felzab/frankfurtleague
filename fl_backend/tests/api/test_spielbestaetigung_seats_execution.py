@@ -505,7 +505,7 @@ class TestALeavingContactsReasonsGo:
                 await patch_one_in_db(
                     collection=collection,
                     db_filter={"_id": row["_id"]},
-                    update={"$set": {"reminded_at": [TODAY]}},
+                    update={"$set": {"reminded_at": TODAY}},
                     expected_version=None,
                     return_document=ReturnDocument.BEFORE,
                 )
@@ -572,7 +572,7 @@ class TestALeavingPersonsLinksLeaveTheLog:
             await patch_one_in_db(
                 collection=database[Collection.SPIELBESTAETIGUNGEN],
                 db_filter={"_id": ROWS["answered"]["_id"]},
-                update={"$set": {"reminded_at": [TODAY]}},
+                update={"$set": {"reminded_at": TODAY}},
                 expected_version=None,
                 return_document=ReturnDocument.BEFORE,
             )

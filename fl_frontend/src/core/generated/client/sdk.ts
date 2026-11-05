@@ -3779,9 +3779,9 @@ export const getSpielbestaetigungenSweepSpielbestaetigungenUrl = (saisonId: stri
  * fixture holding an unclosed row about an Ansetzung it has left is asked once the close has shut it, the close owing
  * its notice first.
  *
- * The reminder owes a fresh link per person on each team row whose deadline lies a reminder's count of days away
- * (`app/shared/schemas/bounds.py :: SPIEL_REMINDER_DAYS_FIRST`, `:: SPIEL_ERINNERUNG_TAGE_ZWEITE`), minted beside the
- * links already mailed so every one of them answers until the deadline, and stamps the day. It passes over each seat
+ * The one reminder owes a fresh link per person on each team row never reminded whose deadline lies the reminder's
+ * days away (`app/shared/schemas/bounds.py :: SPIEL_REMINDER_DAYS`), minted beside the links already mailed so every
+ * one of them answers until the deadline, and stamps the day. It passes over each seat
  * whose last mail did not arrive, and reminds no row this pass inserted nor one whose request was owed today; where
  * this pass's mint owed one of a row's seats a fresh link, that request is the seat's message of the day and the row's
  * other seats are reminded beside it.

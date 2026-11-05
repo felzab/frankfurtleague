@@ -363,7 +363,7 @@ async def their_confirmations(database: AsyncDatabase) -> None:
         THEIR_CONFIRMATION_OID,
         {"$set": {"closed": {"at": "2126-03-04", "grund": "schiedsrichter_switched"}}},
     )
-    await edited(database, Collection.SPIELBESTAETIGUNGEN, OTHER_CONFIRMATION_OID, {"$set": {"reminded_at": ["2126-03-05"]}})
+    await edited(database, Collection.SPIELBESTAETIGUNGEN, OTHER_CONFIRMATION_OID, {"$set": {"reminded_at": "2126-03-05"}})
     async with database.client.start_session() as session:
         await delete_many_from_db(collection=confirmations, db_filter={"saison_id": UNDRAWN_SAISON_ID}, session=session)
 
