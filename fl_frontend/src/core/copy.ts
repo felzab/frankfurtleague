@@ -624,6 +624,11 @@ export const COPY = catalogue({
       zusageFrom: "Zusage von",
       /** How the party's agreement reached the league, which the confirmation stores. */
       reason: "Begründung",
+      /**
+       * Why a row's act did not run: the save would delete a later match's result, a question only the match editor
+       * asks before it does.
+       */
+      voidsLater: "Das löscht ein späteres Ergebnis und geht nur im Spiel selbst.",
     },
 
     spielort: {
