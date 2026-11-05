@@ -109,8 +109,8 @@ export const SERVER_COPY = catalogue({
     spiel_double_booked: DOUBLE_BOOKED,
     spiel_double_booked_spielort_as_stored: DOUBLE_BOOKED.ort,
     spiel_double_booked_schiedsrichter_as_stored: DOUBLE_BOOKED.schiedsrichter,
-    /** The league's last owner, whose erasure would leave the administration owned by nobody. */
-    last_owner_erasure: "Du bist die letzte Inhaberin oder der letzte Inhaber der Verwaltung.",
+    /** The league's last owner, whose erasure would leave the administration owned by nobody: the glossary's screen word. */
+    last_owner_erasure: "Du bist die letzte Inhaberin oder der letzte Inhaber.",
     /** A person's own address change to the address they already sign in with. */
     address_change_unchanged: COPY.account.address.unchanged,
     /** A grant's move nobody but the person could approve. */

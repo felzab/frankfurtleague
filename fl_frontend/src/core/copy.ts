@@ -517,7 +517,8 @@ export const COPY = catalogue({
       /** A grant's move waits on another administrator, who approves it apart from both links. */
       grantNote: "Eine andere Person aus der Verwaltung muss die Änderung genehmigen.",
       unchanged: "Das ist schon deine E-Mail-Adresse.",
-      noApprover: "Gerade kann niemand aus der Verwaltung die Änderung genehmigen.",
+      /** A grant's move nobody but its holder could approve: the last owner's, or the one grant standing. */
+      noApprover: "Niemand kann die Änderung genehmigen.",
     },
     erasure: {
       // What outlives an erasure is the privacy notice's to list. Konto's deletion box and the deletion mail read this
