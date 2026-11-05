@@ -1912,6 +1912,22 @@ export const SaisonsGetKoRundeParams = zod.object({
 });
 
 /**
+ * The administrator's Übersicht for one season: its open work on four cards, every card served, an empty one included.
+ *
+ * In order: `due`, each fixture whose clubs owe their answer past its deadline or by today; `ergebnisse`, each fixture
+ * played without a result, and each report not adopted as it stands; `dates`, each club's open date proposal, each
+ * fixture lacking its date, time, venue, referee or, in the knockout stage, a side's club and source, each referee's own
+ * decline while the slot stays empty, and each fault of the bracket or its bookings; `bewerbungen`, each undecided
+ * application to play the season. A fixture called off or struck out lacks nothing. Each row carries what its act
+ * needs: the fixture with its `version`, each open party's confirmation row, a proposal's row and its date and hour.
+ * Answers 404 for a season that does not exist. Writes nothing.
+ * @summary One Saison's open work, card by card
+ */
+export const SaisonsGetSaisonOverviewParams = zod.object({
+  saison_id: zod.string(),
+});
+
+/**
  * One match as its page and its pop-up show it, each side of a group match with its group and `platz`; 404 outside a readable season.
  *
  * Its report's line-ups whenever a club entered one, the scorers and cards only while the report is adopted and

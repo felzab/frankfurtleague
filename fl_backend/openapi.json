@@ -8399,6 +8399,281 @@
         "title": "FLOutboxStatus",
         "type": "object"
       },
+      "FLOverviewAnswerKind": {
+        "enum": [
+          "spielbestaetigung_overdue",
+          "spielbestaetigung_due"
+        ],
+        "type": "string"
+      },
+      "FLOverviewBewerbungRow": {
+        "description": "One undecided application to play the season, by its school's name and how many of its seats have confirmed.",
+        "properties": {
+          "bewerbung_id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Bewerbung Id",
+            "type": "string"
+          },
+          "kind": {
+            "const": "bewerbung",
+            "title": "Kind",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "seats": {
+            "title": "Seats",
+            "type": "integer"
+          },
+          "seats_confirmed": {
+            "title": "Seats Confirmed",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "kind",
+          "bewerbung_id",
+          "name",
+          "seats_confirmed",
+          "seats"
+        ],
+        "title": "FLOverviewBewerbungRow",
+        "type": "object"
+      },
+      "FLOverviewBracketFaultRow": {
+        "description": "One derived fault of the season's bracket or bookings, on the fixture it names.",
+        "properties": {
+          "fault": {
+            "$ref": "#/components/schemas/FLBracketFault"
+          },
+          "kind": {
+            "const": "bracket_fault",
+            "title": "Kind",
+            "type": "string"
+          },
+          "spiel": {
+            "$ref": "#/components/schemas/FLSpielJoinedAdmin"
+          }
+        },
+        "required": [
+          "kind",
+          "spiel",
+          "fault"
+        ],
+        "title": "FLOverviewBracketFaultRow",
+        "type": "object"
+      },
+      "FLOverviewCard": {
+        "description": "One card and its rows, ordered by `CARD_OF`'s kinds, then each fixture's day, undated last, then its number.",
+        "properties": {
+          "card": {
+            "$ref": "#/components/schemas/FLOverviewCardName"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/FLOverviewRow"
+            },
+            "title": "Rows",
+            "type": "array"
+          }
+        },
+        "required": [
+          "card",
+          "rows"
+        ],
+        "title": "FLOverviewCard",
+        "type": "object"
+      },
+      "FLOverviewCardName": {
+        "enum": [
+          "due",
+          "ergebnisse",
+          "dates",
+          "bewerbungen"
+        ],
+        "type": "string"
+      },
+      "FLOverviewGapKind": {
+        "enum": [
+          "ergebnis_missing",
+          "date_missing",
+          "time_missing",
+          "spielort_missing",
+          "schiedsrichter_missing",
+          "schiedsrichter_declined",
+          "team_missing"
+        ],
+        "type": "string"
+      },
+      "FLOverviewParty": {
+        "description": "One club's open confirmation row: the row „Zusage eintragen“ records the club's agreement on.",
+        "properties": {
+          "deadline": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Deadline",
+            "type": "string"
+          },
+          "spielbestaetigung_id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Spielbestaetigung Id",
+            "type": "string"
+          },
+          "team_id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Team Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "spielbestaetigung_id",
+          "team_id",
+          "deadline"
+        ],
+        "title": "FLOverviewParty",
+        "type": "object"
+      },
+      "FLOverviewRow": {
+        "discriminator": {
+          "mapping": {
+            "bewerbung": "#/components/schemas/FLOverviewBewerbungRow",
+            "bracket_fault": "#/components/schemas/FLOverviewBracketFaultRow",
+            "date_missing": "#/components/schemas/FLOverviewSpielRow",
+            "ergebnis_missing": "#/components/schemas/FLOverviewSpielRow",
+            "schiedsrichter_declined": "#/components/schemas/FLOverviewSpielRow",
+            "schiedsrichter_missing": "#/components/schemas/FLOverviewSpielRow",
+            "spielbericht_open": "#/components/schemas/FLOverviewSpielberichtRow",
+            "spielbestaetigung_due": "#/components/schemas/FLOverviewSpielbestaetigungRow",
+            "spielbestaetigung_overdue": "#/components/schemas/FLOverviewSpielbestaetigungRow",
+            "spielort_missing": "#/components/schemas/FLOverviewSpielRow",
+            "team_missing": "#/components/schemas/FLOverviewSpielRow",
+            "time_missing": "#/components/schemas/FLOverviewSpielRow",
+            "vorschlag_open": "#/components/schemas/FLOverviewVorschlagRow"
+          },
+          "propertyName": "kind"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/FLOverviewSpielRow"
+          },
+          {
+            "$ref": "#/components/schemas/FLOverviewSpielbestaetigungRow"
+          },
+          {
+            "$ref": "#/components/schemas/FLOverviewVorschlagRow"
+          },
+          {
+            "$ref": "#/components/schemas/FLOverviewSpielberichtRow"
+          },
+          {
+            "$ref": "#/components/schemas/FLOverviewBracketFaultRow"
+          },
+          {
+            "$ref": "#/components/schemas/FLOverviewBewerbungRow"
+          }
+        ]
+      },
+      "FLOverviewSpielRow": {
+        "description": "A fixture lacking what its kind names, or played and still without a result; its act is the match editor's.",
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/FLOverviewGapKind"
+          },
+          "spiel": {
+            "$ref": "#/components/schemas/FLSpielJoinedAdmin"
+          }
+        },
+        "required": [
+          "kind",
+          "spiel"
+        ],
+        "title": "FLOverviewSpielRow",
+        "type": "object"
+      },
+      "FLOverviewSpielberichtRow": {
+        "description": "A report awaiting the administrator: not adopted, changed since its adoption, or written for other clubs.",
+        "properties": {
+          "kind": {
+            "const": "spielbericht_open",
+            "title": "Kind",
+            "type": "string"
+          },
+          "spiel": {
+            "$ref": "#/components/schemas/FLSpielJoinedAdmin"
+          },
+          "state": {
+            "$ref": "#/components/schemas/FLSpielberichtState"
+          }
+        },
+        "required": [
+          "kind",
+          "spiel",
+          "state"
+        ],
+        "title": "FLOverviewSpielberichtRow",
+        "type": "object"
+      },
+      "FLOverviewSpielbestaetigungRow": {
+        "description": "A fixture whose clubs owe their answer: overdue past its deadline, or due today and asked today or not yet.",
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/FLOverviewAnswerKind"
+          },
+          "parties": {
+            "items": {
+              "$ref": "#/components/schemas/FLOverviewParty"
+            },
+            "title": "Parties",
+            "type": "array"
+          },
+          "spiel": {
+            "$ref": "#/components/schemas/FLSpielJoinedAdmin"
+          }
+        },
+        "required": [
+          "kind",
+          "spiel",
+          "parties"
+        ],
+        "title": "FLOverviewSpielbestaetigungRow",
+        "type": "object"
+      },
+      "FLOverviewVorschlagRow": {
+        "description": "A club's decline proposing another date and hour, neither adopted nor discarded; its row is the one both acts write.",
+        "properties": {
+          "kind": {
+            "const": "vorschlag_open",
+            "title": "Kind",
+            "type": "string"
+          },
+          "spiel": {
+            "$ref": "#/components/schemas/FLSpielJoinedAdmin"
+          },
+          "spielbestaetigung_id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Spielbestaetigung Id",
+            "type": "string"
+          },
+          "team_id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Team Id",
+            "type": "string"
+          },
+          "vorschlag": {
+            "$ref": "#/components/schemas/FLSpielbestaetigungAppointment"
+          }
+        },
+        "required": [
+          "kind",
+          "spiel",
+          "spielbestaetigung_id",
+          "team_id",
+          "vorschlag"
+        ],
+        "title": "FLOverviewVorschlagRow",
+        "type": "object"
+      },
       "FLPasskeyData": {
         "properties": {
           "account": {
@@ -11068,6 +11343,22 @@
           "active_saison_id"
         ],
         "title": "FLSaisonFrameResponse",
+        "type": "object"
+      },
+      "FLSaisonOverviewResponse": {
+        "properties": {
+          "cards": {
+            "items": {
+              "$ref": "#/components/schemas/FLOverviewCard"
+            },
+            "title": "Cards",
+            "type": "array"
+          }
+        },
+        "required": [
+          "cards"
+        ],
+        "title": "FLSaisonOverviewResponse",
         "type": "object"
       },
       "FLSaisonPhase": {
@@ -23966,6 +24257,80 @@
           }
         ],
         "summary": "One Saison's K.-o.-Runde",
+        "tags": [
+          "saisons"
+        ]
+      }
+    },
+    "/api/v0/saisons/{saison_id}/overview": {
+      "get": {
+        "description": "The administrator's Übersicht for one season: its open work on four cards, every card served, an empty one included.\n\nIn order: `due`, each fixture whose clubs owe their answer past its deadline or by today; `ergebnisse`, each fixture\nplayed without a result, and each report not adopted as it stands; `dates`, each club's open date proposal, each\nfixture lacking its date, time, venue, referee or, in the knockout stage, a side's club and source, each referee's own\ndecline while the slot stays empty, and each fault of the bracket or its bookings; `bewerbungen`, each undecided\napplication to play the season. A fixture called off or struck out lacks nothing. Each row carries what its act\nneeds: the fixture with its `version`, each open party's confirmation row, a proposal's row and its date and hour.\nAnswers 404 for a season that does not exist. Writes nothing.",
+        "operationId": "saisons_get_saison_overview",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "saison_id",
+            "required": true,
+            "schema": {
+              "title": "Saison Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSaisonOverviewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "$ref": "#/components/responses/400",
+            "description": "Bad Request"
+          },
+          "401": {
+            "$ref": "#/components/responses/401",
+            "description": "Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/403",
+            "description": "Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/404",
+            "description": "Not Found"
+          },
+          "409": {
+            "$ref": "#/components/responses/409",
+            "description": "Conflict"
+          },
+          "410": {
+            "$ref": "#/components/responses/410",
+            "description": "Gone"
+          },
+          "422": {
+            "$ref": "#/components/responses/422",
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "$ref": "#/components/responses/500",
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/503",
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "AdminKey": []
+          }
+        ],
+        "summary": "One Saison's open work, card by card",
         "tags": [
           "saisons"
         ]

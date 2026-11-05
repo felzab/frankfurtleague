@@ -112,6 +112,7 @@ NAMES_NO_ADMINISTRATOR: dict[str, str] = {
     "/api/v0/saisons/list/verwaltung": "seasons and their rules",
     "/api/v0/saisons/{saison_id}/invitations/dispatch/preview": f"the teams a mailing would reach, their seats being {_PERSON_RECORDS}",
     "/api/v0/saisons/{saison_id}/erasure/preview": "how many pupils an activation deletes, counted and never named",
+    "/api/v0/saisons/{saison_id}/overview": "fixtures, their open confirmation rows and reports by state, and applications by their school's name",
     "/api/v0/schiedsrichter": f"referees, {_PERSON_RECORDS}",
     "/api/v0/schiedsrichter/{schiedsrichter_id:objectid}": f"one referee, {_PERSON_RECORDS}",
     "/api/v0/spielbestaetigungen": 'fixture confirmations, an administrator\'s answer recorded as `{art: "admin"}` with no address',
