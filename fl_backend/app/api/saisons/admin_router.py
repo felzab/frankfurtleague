@@ -36,7 +36,7 @@ from app.api.identity.crud import due_count, saison_statuses
 from app.api.identity.schemas import FLErasurePreviewResponse
 from app.api.identity.services import closed_by, statuses_after_activating
 from app.api.outbox.services import enqueue_mails
-from app.api.saisons.crud import count_teams_by_saison, pull_finale_by_saison, saisons_with_a_fixture_taken_place
+from app.api.saisons.crud import count_teams_by_saison, pull_create_state, pull_finale_by_saison, saisons_with_a_fixture_taken_place
 from app.api.saisons.schemas import (
     FLActivateSaisonResponse,
     FLGenerateSpielplanPayload,
@@ -53,6 +53,7 @@ from app.api.saisons.schemas import (
     FLSaisonAdminTeam,
     FLSaisonRules,
     FLSaisonsAdminListResponse,
+    FLSaisonsAdminRefusals,
     FLSaisonsFilterParams,
     FLSaisonSpielplan,
     FLSwapGruppenPayload,
@@ -67,7 +68,7 @@ from app.api.saisons.services import (
     find_berichte_refusal,
     find_rules_freeze_refusal,
     find_rules_refusal,
-    find_saison_id_refusal,
+    find_saison_create_refusal,
     find_saison_span_refusal,
     find_saison_start_austritt_refusal,
     find_saison_start_refusal,
@@ -193,7 +194,8 @@ async def get_saisons_admin(
     still is, so an admin who cannot see one cannot run the league. `begun` is the start every
     start lock refuses on, the swap's, the replacement's and the rules freeze's; `taken_place` is what
     fixes the start date (`saison_start_taken_place`); `decided` is the landing's own rule, all four places of the Finale in.
-    `count_teams` counts every club row of the season, one that left included.
+    `count_teams` counts every club row of the season, one that left included. `next_saison_id` is the id the next create
+    mints, and `refusals.create` the code that create would be refused with now, by its own judgement, or null.
     """
 
     db_filter = build_query(filters, terms={"status"})
@@ -207,11 +209,13 @@ async def get_saisons_admin(
     )
 
     saison_ids = [str(raw["_id"]) for raw in saisons_raw]
-    taken_place, finale_by_saison, teams_by_saison = await asyncio.gather(
+    taken_place, finale_by_saison, teams_by_saison, (next_id, future_stands) = await asyncio.gather(
         saisons_with_a_fixture_taken_place(spiele_collection=spiele_collection, saison_ids=saison_ids, session=None),
         pull_finale_by_saison(spiele_collection=spiele_collection, saison_ids=saison_ids),
         count_teams_by_saison(saison_teams_collection=saison_teams_collection, saison_ids=saison_ids),
+        pull_create_state(saisons_collection=saisons_collection),
     )
+    create_refusal = find_saison_create_refusal(future_stands=future_stands)
     saisons = [
         {
             **with_schedule(raw),
@@ -223,7 +227,11 @@ async def get_saisons_admin(
         for raw in saisons_raw
     ]
 
-    return FLSaisonsAdminListResponse(saisons=FLSaisonAdminListAdapter.validate_python(saisons))
+    return FLSaisonsAdminListResponse(
+        saisons=FLSaisonAdminListAdapter.validate_python(saisons),
+        next_saison_id=next_id,
+        refusals=FLSaisonsAdminRefusals(create=None if create_refusal is None else create_refusal.error_code),
+    )
 
 
 # Declared after `/list/admin`, which it would otherwise answer with `list` as a season id; a static suffix rather than
@@ -403,10 +411,12 @@ async def post_saison(
     db: DBClient,
 ) -> FLPostSaisonResponse:
     """
-    Create a season, always `future`.
+    Create the next season, always `future`, answering the id it minted.
 
-    The id is supplied rather than generated -- it is the string every `saison_id` elsewhere
-    references, so reusing one is refused `duplicate_key`, naming `id`. Making the season live is a separate step.
+    The server names it: the year after the newest stored season's, or the league's first where none is stored, so a
+    season is never created out of turn. Refused while a `future` season stands (`create_saison_future_stands`), so a
+    league holds at most one planned season; two creates racing each other mint one id, and the second is refused
+    `duplicate_key` with no path. Making the season live is a separate step.
     """
 
     refuse(
@@ -429,12 +439,11 @@ async def post_saison(
     )
 
     async def enter_the_season(session: AsyncClientSession) -> InsertOneResult:
-        holder = await saisons_collection.find_one({"_id": saison_data.id}, projection={"_id": 1}, session=session)
-        refuse(find_saison_id_refusal(taken=holder is not None))
+        saison_id, future_stands = await pull_create_state(saisons_collection=saisons_collection, session=session)
+        refuse(find_saison_create_refusal(future_stands=future_stands))
         return await post_one_to_db(
             collection=saisons_collection,
-            # `_id` rather than `id`: this payload's `id` IS the document key.
-            document={**saison_data.model_dump(mode="json", exclude={"id"}), "_id": saison_data.id, "status": "future"},
+            document={**saison_data.model_dump(mode="json"), "_id": saison_id, "status": "future"},
             session=session,
         )
 

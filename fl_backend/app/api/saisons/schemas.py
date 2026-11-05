@@ -3,11 +3,9 @@ from datetime import date, datetime, time, timedelta
 from typing import Annotated, Final, Literal, LiteralString
 
 from pydantic import (
-    AfterValidator,
     BaseModel,
     ConfigDict,
     Field,
-    StringConstraints,
     TypeAdapter,
     ValidationError,
     ValidationInfo,
@@ -274,43 +272,16 @@ class FLSaisonsFilterParams(BaseModel):
     order: FLSortOrder = Field(default="asc")
 
 
-# The league's FIRST season, and the floor an id may not fall below. A LITERAL because it is a fact
-# about this league's own history; the ceiling below is a fact about the calendar and is computed.
+# The league's FIRST season, the id a create mints where no season is stored. A LITERAL because it is a fact about
+# this league's own history.
 FIRST_SAISON_YEAR: Final = 2026
 
 
-def refuse_a_saison_year_outside_the_league(value: str) -> str:
-    """The half a digits-only pattern cannot express: an alternation over the legal years would be a literal somebody maintains."""
-
-    # Read PER VALIDATION: a ceiling computed at import pins the year the process started, so the
-    # first January after a long-running deploy would refuse next season's id.
-    newest = clock.now().year + 1
-
-    # `int` is total only because the pattern ran first: drop it and `int`'s own message carries the
-    # rejected value into the log.
-    if not FIRST_SAISON_YEAR <= int(value) <= newest:
-        raise rule_refusal(
-            "saison_year_out_of_range", "the season id names a year outside the league's", {"min": FIRST_SAISON_YEAR, "max": newest}
-        )
-
-    return value
-
-
+# No `id`: the create makes the next season, which the server names (`app/api/saisons/services.py ::
+# next_saison_id`), so no typed year can name one out of turn. A class of its own, since a private base publishes no
+# OpenAPI component and the generated client names the create's body by it.
 class FLPostSaisonPayload(_SaisonPayload):
-    # CHOSEN, not generated: `saisons._id` is the string every `saison_id` references, so this is
-    # the one create payload carrying an id. No strip: the digits refuse a padded id rather than repair
-    # it, and constraints set after a validator would leave the pattern out of the published schema.
-
-    # `[0-9]` and never `\d`, which pydantic's Rust engine reads as `\p{Nd}`: an Arabic-Indic or
-    # fullwidth year parses as a number, sorts nowhere near its neighbours and can never be retyped.
-
-    # The width is `SAISON_ID_LENGTH`'s alone: a pattern spelling it as well would refuse an id of the
-    # declared length the moment that constant moves, every mirror having followed it.
-    id: Annotated[
-        str,
-        StringConstraints(min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH, pattern=r"^[0-9]+$"),
-        AfterValidator(refuse_a_saison_year_outside_the_league),
-    ]
+    pass
 
 
 # The patch shape IS `_SaisonPayload`, and stays a name of its own: a private base publishes no
@@ -378,9 +349,19 @@ class FLSaisonAdminClub(BaseReadModel):
     shorthand: str
 
 
+class FLSaisonsAdminRefusals(BaseReadModel):
+    """Why the list's act would be refused if pressed now, by its write's own judgement; null where it takes it."""
+
+    create: Code | None
+
+
 class FLSaisonsAdminListResponse(BaseAPIResponse):
+    """Every season, with the id the next create mints and why a create would be refused now."""
+
     format: Literal["list"] = "list"
     saisons: list[FLSaisonAdminListed]
+    next_saison_id: str = Field(min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH)
+    refusals: FLSaisonsAdminRefusals
 
 
 class FLSaisonFrameEntry(BaseReadModel):

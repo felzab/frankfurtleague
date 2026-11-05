@@ -30,7 +30,6 @@ const { createSaison } = await import("./createSaison");
 
 const posted = () => {
   const formData = new FormData();
-  formData.set("id", "2029");
   formData.set("start_date", "2029-03-03");
   formData.set("end_date", "2029-06-30");
   return formData;
@@ -48,7 +47,6 @@ describe("the season create", () => {
     const [read, write] = requestsOf(calls);
     expect(new URL(read?.endpoint ?? "", "http://backend").searchParams.toString()).toBe("sort_by=_id&order=desc&limit=1");
     expect(write?.body).toStrictEqual({
-      id: "2029",
       start_date: "2029-03-03",
       end_date: "2029-06-30",
       rules: NEWEST_RULES,

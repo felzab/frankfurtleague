@@ -28,6 +28,9 @@ class Code(StrEnum):
     UNKNOWN_OUTCOME = auto()
     # Activating demotes the incumbent to `past`, whose rules then stay frozen (`rules_saison_started`).
     ACTIVATE_SAISON_UNFINISHED = auto()
+    # A season created while a `future` one stands: the next season is the one a create makes, so a league holds at
+    # most one planned season, and the planned one is where its next season is set up.
+    CREATE_SAISON_FUTURE_STANDS = auto()
     # A write a `past` season refuses: its activation, the draw, the group swap, the replacement, a fixture's save, a
     # club's season row, a link's mint and a referee's report. Not every write: a club's contacts, an invitation's
     # revocation and the administrator's correction of a report stay open on purpose, and the season's own edit refuses
@@ -341,7 +344,6 @@ type Rule = Literal[
     "nichtantreten_with_torschuetzen",
     "registrierung_window_reaches_saison_start",
     "saison_ends_before_start",
-    "saison_year_out_of_range",
     "spieltag_ends_before_start",
     "text_version_of_another_wording",
     "torschuetzen_not_matching_tore",

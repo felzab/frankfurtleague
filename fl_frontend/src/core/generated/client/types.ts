@@ -13,6 +13,7 @@ export const Code = {
   database_failed: "database_failed",
   unknown_outcome: "unknown_outcome",
   activate_saison_unfinished: "activate_saison_unfinished",
+  create_saison_future_stands: "create_saison_future_stands",
   saison_past: "saison_past",
   activate_target_undrawn: "activate_target_undrawn",
   activate_spieltage_undated: "activate_spieltage_undated",
@@ -4200,12 +4201,6 @@ export interface FLPostSaisonPayload {
   bewerbung: FLSaisonBewerbungPayload | null;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   end_date: string;
-  /**
-   * @minLength 4
-   * @maxLength 4
-   * @pattern ^[0-9]+$
-   */
-  id: string;
   registrierung: FLSaisonRegistrierung | null;
   rules: FLSaisonRules;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
@@ -4837,8 +4832,24 @@ export interface FLSaisonTeamsResponse {
   teams: FLSaisonTeamEntry[];
 }
 
+/**
+ * Why the list's act would be refused if pressed now, by its write's own judgement; null where it takes it.
+ */
+export interface FLSaisonsAdminRefusals {
+  create: Code | null;
+}
+
+/**
+ * Every season, with the id the next create mints and why a create would be refused now.
+ */
 export interface FLSaisonsAdminListResponse {
   format: "list";
+  /**
+   * @minLength 4
+   * @maxLength 4
+   */
+  next_saison_id: string;
+  refusals: FLSaisonsAdminRefusals;
   saisons: FLSaisonAdminListed[];
 }
 
@@ -6416,7 +6427,6 @@ export const Rule = {
   nichtantreten_with_torschuetzen: "nichtantreten_with_torschuetzen",
   registrierung_window_reaches_saison_start: "registrierung_window_reaches_saison_start",
   saison_ends_before_start: "saison_ends_before_start",
-  saison_year_out_of_range: "saison_year_out_of_range",
   spieltag_ends_before_start: "spieltag_ends_before_start",
   text_version_of_another_wording: "text_version_of_another_wording",
   torschuetzen_not_matching_tore: "torschuetzen_not_matching_tore",

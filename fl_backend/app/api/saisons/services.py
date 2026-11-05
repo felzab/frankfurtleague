@@ -4,7 +4,7 @@ from http import HTTPStatus
 from typing import Any
 
 from app.api.saisons.schedule import expected_matches, knockout_phases_for, qualifier_count, schedule_for
-from app.api.saisons.schemas import MAX_TEAMS_PER_GROUP, MIN_TEAMS_PER_GROUP, FLSaisonRules, FLSpielplanShape
+from app.api.saisons.schemas import FIRST_SAISON_YEAR, MAX_TEAMS_PER_GROUP, MIN_TEAMS_PER_GROUP, FLSaisonRules, FLSpielplanShape
 from app.api.spiele.schemas import FLSpiel, FLSpielJoinedInternal, FLSpielTeamFieldJoinedInternal, is_unplayed
 from app.api.spiele.services import podium_of
 from app.api.teams.schemas import MAX_NUMBER_OF_GROUPS
@@ -74,21 +74,26 @@ def decided_podium(finale: Sequence[FLSpielJoinedInternal]) -> DecidedPodium | N
             return None
 
 
-def find_saison_id_refusal(*, taken: bool) -> WriteRefusal | None:
-    """`duplicate_key` on the id: a season already holds it, so the create dialog's year field can say so.
+def next_saison_id(newest_id: str | None) -> str:
+    """The id the create mints: the year after the newest stored season's, or the league's first where none is stored.
 
-    Takes the answer rather than the lookup, so the caller's read runs in the caller's transaction. The `_id` index still
-    answers a race between two creates, as `duplicate_key` with no field.
+    A season's id is its year in `SAISON_ID_LENGTH` digits, so the newest is the greatest.
     """
 
-    if not taken:
+    return str(FIRST_SAISON_YEAR) if newest_id is None else str(int(newest_id) + 1)
+
+
+def find_saison_create_refusal(*, future_stands: bool) -> WriteRefusal | None:
+    """`create_saison_future_stands`, with no path: a planned season stands, so the next one is already made.
+
+    Takes the answer rather than the lookup, so the caller's read runs in the caller's transaction. Two creates racing
+    each other mint one id, and its `_id` index refuses the second as `duplicate_key`.
+    """
+
+    if not future_stands:
         return None
 
-    return WriteRefusal(
-        error_code=Code.DUPLICATE_KEY,
-        status=HTTPStatus.CONFLICT,
-        fields=(("id",),),
-    )
+    return WriteRefusal(error_code=Code.CREATE_SAISON_FUTURE_STANDS, status=HTTPStatus.CONFLICT)
 
 
 def find_saison_start_refusal(*, stored_start_date: str, proposed_start_date: str, taken_place: bool) -> WriteRefusal | None:

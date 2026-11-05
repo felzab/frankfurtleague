@@ -3,8 +3,8 @@ from typing import Any
 import pytest
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.saisons.admin_router import post_saison
-from app.api.saisons.schemas import FLPostSaisonPayload
+from app.api.saisons.admin_router import get_saisons_admin, post_saison
+from app.api.saisons.schemas import FIRST_SAISON_YEAR, FLPostSaisonPayload, FLSaisonsFilterParams
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
@@ -16,40 +16,86 @@ pytestmark = pytest.mark.db
 
 DATABASE_NAME = worker_database("fl_saison_create_test")
 
-TAKEN_ID = "2026"
+TODAY = "2026-03-15"
 
 
-class TestACreateUnderATakenIdIsRefusedOnTheId:
-    def test_the_refusal_names_the_id_and_writes_nothing(self, mongo_replica_set_url: str):
-        """The `_id` index alone answers `duplicate_key` naming no field, so the create dialog's year box would show nothing."""
+def _payload() -> FLPostSaisonPayload:
+    stored = documents.saison_document("2026", "active")
 
-        async def _run() -> tuple[APIError, Any]:
-            async with a_clean_database(mongo_replica_set_url, DATABASE_NAME) as (_, database):
-                stored = documents.saison_document(TAKEN_ID, "active")
-                await database[Collection.SAISONS].insert_one(stored)
-                with pytest.raises(APIError) as refused:
-                    await post_saison(
-                        saison_data=FLPostSaisonPayload.model_validate(
-                            {
-                                "id": TAKEN_ID,
-                                "start_date": stored["start_date"],
-                                "end_date": stored["end_date"],
-                                "rules": stored["rules"],
-                                "bewerbung": None,
-                                "registrierung": None,
-                            }
-                        ),
-                        saisons_collection=database[Collection.SAISONS],
-                        db=database.client,
-                    )
+    return FLPostSaisonPayload.model_validate(
+        {
+            "start_date": stored["start_date"],
+            "end_date": stored["end_date"],
+            "rules": stored["rules"],
+            "bewerbung": None,
+            "registrierung": None,
+        }
+    )
 
-                return refused.value, await _seasons(database)
 
-        refusal, seasons = on_the_seed_loop(_run())
+async def _create(database: AsyncDatabase) -> Any:
+    return await post_saison(saison_data=_payload(), saisons_collection=database[Collection.SAISONS], db=database.client)
 
-        assert (refusal.status_code, refusal.error_code, refusal.fields) == (409, Code.DUPLICATE_KEY, (("id",),))
-        assert seasons == [(TAKEN_ID, "active")]
+
+async def _listed(database: AsyncDatabase) -> Any:
+    return await get_saisons_admin(
+        saisons_collection=database[Collection.SAISONS],
+        spiele_collection=database[Collection.SPIELE],
+        saison_teams_collection=database[Collection.SAISON_TEAMS],
+        filters=FLSaisonsFilterParams(),
+        today=TODAY,
+    )
 
 
 async def _seasons(database: AsyncDatabase) -> list[tuple[str, str]]:
-    return [(row["_id"], row["status"]) async for row in database[Collection.SAISONS].find({}, {"status": 1})]
+    return [(row["_id"], row["status"]) async for row in database[Collection.SAISONS].find({}, {"status": 1}).sort("_id", 1)]
+
+
+def _on(url: str, stored: list[tuple[str, str]], body: Any) -> Any:
+    async def _run() -> Any:
+        async with a_clean_database(url, DATABASE_NAME) as (_, database):
+            for saison_id, status in stored:
+                await database[Collection.SAISONS].insert_one(documents.saison_document(saison_id, status))
+
+            return await body(database)
+
+    return on_the_seed_loop(_run())
+
+
+class TestTheCreateMakesTheNextSeason:
+    @pytest.mark.parametrize(
+        ("stored", "minted"),
+        [
+            pytest.param([], str(FIRST_SAISON_YEAR), id="the-league's-first"),
+            pytest.param([("2026", "past"), ("2027", "active")], "2028", id="the-year-after-the-newest"),
+        ],
+    )
+    def test_the_list_serves_the_id_the_create_mints(self, mongo_replica_set_url: str, stored: list[tuple[str, str]], minted: str):
+        """The page names the season its press makes from the list; a list and a create counting apart name a season never made."""
+
+        async def body(database: AsyncDatabase) -> Any:
+            listed = await _listed(database)
+            created = await _create(database)
+
+            return listed.next_saison_id, listed.refusals.create, created.created_id, await _seasons(database)
+
+        listed_id, refusal, created_id, seasons = _on(mongo_replica_set_url, stored, body)
+
+        assert (listed_id, refusal, created_id) == (minted, None, minted)
+        assert seasons == [*stored, (minted, "future")]
+
+    def test_a_planned_season_standing_refuses_the_create_and_the_list_says_so(self, mongo_replica_set_url: str):
+        """A second planned season would be one created out of turn; the list naming no refusal offers a press the write refuses."""
+
+        async def body(database: AsyncDatabase) -> Any:
+            listed = await _listed(database)
+            with pytest.raises(APIError) as refused:
+                await _create(database)
+
+            return listed.refusals.create, refused.value, await _seasons(database)
+
+        listed_refusal, refusal, seasons = _on(mongo_replica_set_url, [("2026", "active"), ("2027", "future")], body)
+
+        assert listed_refusal == Code.CREATE_SAISON_FUTURE_STANDS
+        assert (refusal.status_code, refusal.error_code, refusal.fields) == (409, Code.CREATE_SAISON_FUTURE_STANDS, ())
+        assert seasons == [("2026", "active"), ("2027", "future")]

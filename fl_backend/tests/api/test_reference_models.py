@@ -6,7 +6,7 @@ import pytest
 from bson import ObjectId
 from pydantic import BaseModel, ValidationError
 
-from app.api.saisons.schemas import FIRST_SAISON_YEAR, FLPatchSaisonPayload, FLPostSaisonPayload, FLSaison
+from app.api.saisons.schemas import FLPatchSaisonPayload, FLSaison
 from app.api.schiedsrichter.schemas import FLPatchSchiedsrichterPayload, FLPostSchiedsrichterPayload, FLSchiedsrichter
 from app.api.spiele.schemas import MAX_QUALIFIERS, FLSpielBooking
 from app.api.spieler.schemas import (
@@ -31,7 +31,6 @@ from app.api.teams.schemas import (
     FLPostSaisonTeamPayload,
     FLPostTeamPayload,
 )
-from app.core import clock
 from app.shared.schemas.bounds import KONTAKT_NAME_MAX_LENGTH, SAISON_ID_LENGTH
 from app.shared.schemas.literals import FLGruppenNames
 from tests.database import a_clean_database, on_the_seed_loop
@@ -583,22 +582,6 @@ class TestSaison:
         with pytest.raises(ValidationError):
             FLSaison.model_validate(saison(**{field: "2026-04-31"}))
 
-    @pytest.mark.parametrize("side", ["before the first season", "past next year"])
-    def test_a_year_outside_the_league_names_both_bounds(self, saison, side):
-        """The frontend words the line from `min` and `max`, so a key renamed or dropped here reads as the unexpected line there."""
-        newest = clock.now().year + 1
-        year = FIRST_SAISON_YEAR - 1 if side == "before the first season" else newest + 1
-        body = {"id": str(year), "rules": saison()["rules"], "start_date": "2026-01-01", "end_date": "2026-06-30"}
-        body["bewerbung"] = {"start": "2025-11-01", "end": "2025-12-15"}
-        body["registrierung"] = {"offen": False, "end": "2025-12-20"}
-
-        with pytest.raises(ValidationError) as failure:
-            FLPostSaisonPayload.model_validate(body)
-
-        assert [(error["type"], error.get("ctx")) for error in failure.value.errors()] == [
-            ("saison_year_out_of_range", {"min": FIRST_SAISON_YEAR, "max": newest})
-        ]
-
 
 class TestTheSeasonsSpans:
     """`refuse_reversed_span` under every caller, each naming its span by a kind of its own."""
@@ -727,7 +710,6 @@ STRIPPED_WRITE_FIELDS = [
     "team.full_name",
     "team.name",
     "team.shorthand",
-    "saison.id",
     "saison_team.saison_id",
     "saison_spieler.saison_id",
     "kontaktperson.nachname",
@@ -738,7 +720,6 @@ STRIPPED_WRITE_FIELDS = [
 # The fixed-width ids, whose ceiling is counted on arrival, and every `CustomKontaktName`, whose pattern
 # is: a padded value is refused rather than stored stripped.
 PADDING_REFUSED_FIELDS = [
-    "saison.id",
     "saison_team.saison_id",
     "saison_spieler.saison_id",
     "kontaktperson.nachname",
@@ -805,9 +786,6 @@ class TestTheWritePathStripsBeforeItCountsCharacters:
             "trikot_farbe": None,
         }
         # The stored rows minus what only storage carries, which is what each create payload takes.
-        new_saison = {"id": saison()["_id"], "rules": saison()["rules"], "start_date": "2026-01-01", "end_date": "2026-06-30"}
-        new_saison["bewerbung"] = {"start": "2025-11-01", "end": "2025-12-15"}
-        new_saison["registrierung"] = {"offen": False, "end": "2025-12-20"}
         new_saison_spieler = {key: value for key, value in saison_spieler().items() if key in FLPostSaisonSpielerPayload.model_fields}
         new_saison_team = {"saison_id": saison()["_id"], "gruppe": "A"}
 
@@ -822,9 +800,8 @@ class TestTheWritePathStripsBeforeItCountsCharacters:
             "team.name": (FLPostTeamPayload, team_payload, ("name",)),
             # The width is a floor as well as a ceiling, so a padded value has to reach it stripped.
             "team.shorthand": (FLPostTeamPayload, team_payload, ("shorthand",)),
-            # Three independent declarations of the season id, so a strip dropped from one is
-            # invisible to the other two's clauses.
-            "saison.id": (FLPostSaisonPayload, new_saison, ("id",)),
+            # Two independent declarations of the season id, so a strip dropped from one is
+            # invisible to the other's clauses.
             "saison_team.saison_id": (FLPostSaisonTeamPayload, new_saison_team, ("saison_id",)),
             "saison_spieler.saison_id": (FLPostSaisonSpielerPayload, new_saison_spieler, ("saison_id",)),
             "kontaktperson.nachname": (FLKontaktpersonPayload, kontaktperson, ("nachname",)),

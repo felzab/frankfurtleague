@@ -1588,19 +1588,17 @@ export const RegistrierungenDeclineBody = zod
   .describe("Why the team declines, from a closed set or not at all.");
 
 /**
- * Create a season, always `future`.
+ * Create the next season, always `future`, answering the id it minted.
  *
- * The id is supplied rather than generated -- it is the string every `saison_id` elsewhere
- * references, so reusing one is refused `duplicate_key`, naming `id`. Making the season live is a separate step.
+ * The server names it: the year after the newest stored season's, or the league's first where none is stored, so a
+ * season is never created out of turn. Refused while a `future` season stands (`create_saison_future_stands`), so a
+ * league holds at most one planned season; two creates racing each other mint one id, and the second is refused
+ * `duplicate_key` with no path. Making the season live is a separate step.
  * @summary Create a Saison
  */
 export const saisonsPostSaisonBodyBewerbungOneEndRegExp = new RegExp("^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$");
 export const saisonsPostSaisonBodyBewerbungOneStartRegExp = new RegExp("^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$");
 export const saisonsPostSaisonBodyEndDateRegExp = new RegExp("^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$");
-export const saisonsPostSaisonBodyIdMin = 4;
-export const saisonsPostSaisonBodyIdMax = 4;
-
-export const saisonsPostSaisonBodyIdRegExp = new RegExp("^[0-9]+$");
 export const saisonsPostSaisonBodyRegistrierungOneEndRegExp = new RegExp("^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$");
 
 export const saisonsPostSaisonBodyRulesDrawPointsMin = 0;
@@ -1636,7 +1634,6 @@ export const SaisonsPostSaisonBody = zod.object({
     zod.null(),
   ]),
   end_date: zod.string().regex(saisonsPostSaisonBodyEndDateRegExp),
-  id: zod.string().min(saisonsPostSaisonBodyIdMin).max(saisonsPostSaisonBodyIdMax).regex(saisonsPostSaisonBodyIdRegExp),
   registrierung: zod.union([
     zod
       .object({
@@ -1676,7 +1673,8 @@ export const SaisonsPostSaisonBody = zod.object({
  * still is, so an admin who cannot see one cannot run the league. `begun` is the start every
  * start lock refuses on, the swap's, the replacement's and the rules freeze's; `taken_place` is what
  * fixes the start date (`saison_start_taken_place`); `decided` is the landing's own rule, all four places of the Finale in.
- * `count_teams` counts every club row of the season, one that left included.
+ * `count_teams` counts every club row of the season, one that left included. `next_saison_id` is the id the next create
+ * mints, and `refusals.create` the code that create would be refused with now, by its own judgement, or null.
  * @summary Every Saison for the admin surfaces
  */
 export const saisonsGetSaisonsAdminQueryLimitDefault = 1024;

@@ -15,7 +15,6 @@ const { shape } = SaisonsPostSaisonBody;
 
 /** The create dialog's boxes, by the names they post under, each held to the create's own published rule. */
 const CreateSaisonForm = z.object({
-  id: shape.id,
   start_date: shape.start_date,
   end_date: shape.end_date,
 });
@@ -41,22 +40,15 @@ const FIRST_SAISON_RULES: FLSaisonRules = {
 };
 
 /**
- * Creates a season, always planned, from the create dialog's year and dates. Its rules carry on from the newest
- * season, the likeliest value, and its windows start closed: each is set in the season's own editor. A year another
- * season holds, or one outside the league's, is refused on the year's box; the dialog stays open with its input kept.
+ * Creates the next season, always planned, from the create dialog's dates; the backend names it. Its rules carry on
+ * from the newest season, the likeliest value, and its windows start closed: each is set in the season's own editor.
  */
 export const createSaison = action({
   lane: "admin",
   name: "createSaison",
   input: CreateSaisonForm,
-  ownWords: [
-    "duplicate_key",
-    "saison_year_out_of_range",
-    "saison_ends_before_start",
-    "saison_span_below_spielplan",
-    "rules_bracket_impossible",
-  ],
-  paths: { id: "id", start_date: "start_date", end_date: "end_date" },
+  ownWords: ["saison_ends_before_start", "saison_span_below_spielplan", "rules_bracket_impossible"],
+  paths: { start_date: "start_date", end_date: "end_date" },
   run: async (form) => {
     const newest = await getNewestAdminSaison();
     await saisonsPostSaison({ ...form, rules: newest?.rules ?? FIRST_SAISON_RULES, bewerbung: null, registrierung: null });

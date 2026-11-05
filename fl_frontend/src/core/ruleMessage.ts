@@ -57,9 +57,6 @@ const atLeast = ({ min }: Context) => (typeof min === "number" ? field.min(min) 
  * (`fl_backend/app/core/exceptions.py :: APIError`); a code whose phrase names none stays `SERVER_COPY.refusal`'s.
  */
 const PATTERNED = {
-  // A season's id is its year, which takes no thousands separator.
-  saison_year_out_of_range: ({ min, max }: Context) =>
-    typeof min === "number" && typeof max === "number" ? field.between({ year: min }, { year: max }) : undefined,
   saison_ends_before_start: notBeforeStart,
   bewerbung_window_ends_before_start: notBeforeStart,
   spieltag_ends_before_start: notBeforeStart,

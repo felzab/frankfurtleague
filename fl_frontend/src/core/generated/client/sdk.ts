@@ -2458,10 +2458,12 @@ export const getSaisonsPostSaisonUrl = () => {
 };
 
 /**
- * Create a season, always `future`.
+ * Create the next season, always `future`, answering the id it minted.
  *
- * The id is supplied rather than generated -- it is the string every `saison_id` elsewhere
- * references, so reusing one is refused `duplicate_key`, naming `id`. Making the season live is a separate step.
+ * The server names it: the year after the newest stored season's, or the league's first where none is stored, so a
+ * season is never created out of turn. Refused while a `future` season stands (`create_saison_future_stands`), so a
+ * league holds at most one planned season; two creates racing each other mint one id, and the second is refused
+ * `duplicate_key` with no path. Making the season live is a separate step.
  * @summary Create a Saison
  */
 export const saisonsPostSaison = async (
@@ -2533,7 +2535,8 @@ export const getSaisonsGetSaisonsAdminUrl = (params?: SaisonsGetSaisonsAdminPara
  * still is, so an admin who cannot see one cannot run the league. `begun` is the start every
  * start lock refuses on, the swap's, the replacement's and the rules freeze's; `taken_place` is what
  * fixes the start date (`saison_start_taken_place`); `decided` is the landing's own rule, all four places of the Finale in.
- * `count_teams` counts every club row of the season, one that left included.
+ * `count_teams` counts every club row of the season, one that left included. `next_saison_id` is the id the next create
+ * mints, and `refusals.create` the code that create would be refused with now, by its own judgement, or null.
  * @summary Every Saison for the admin surfaces
  */
 export const saisonsGetSaisonsAdmin = async (

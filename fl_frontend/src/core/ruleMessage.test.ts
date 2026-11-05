@@ -77,11 +77,6 @@ describe("the field patterns over the backend's rules", () => {
     expect(rule("saison_span_below_spieltage", span, [])).toStrictEqual({ line: failure.unexpected });
   });
 
-  it("prints a season's year bounds with no thousands separator", () => {
-    expect(rule("saison_year_out_of_range", { min: 2026, max: 2027 })).toStrictEqual({ field: field.between({ year: 2026 }, { year: 2027 }) });
-    expect(field.between({ year: 2026 }, { year: 2027 })).toBe("Zwischen 2026 und 2027");
-  });
-
   it("words a rule no pattern holds as its sentence on the status line, and anything else, a missing bound among it, as unexpected there", () => {
     expect(rule("elfmeterschiessen_without_draw")).toStrictEqual({ line: SERVER_COPY.ruleLine.elfmeterschiessen_without_draw });
     expect(rule("good_spieler_exceed_kader")).toStrictEqual({ line: failure.unexpected });
