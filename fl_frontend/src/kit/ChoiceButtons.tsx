@@ -6,6 +6,8 @@ import { TextContext } from "react-aria-components/Text";
 import { ToggleButton } from "react-aria-components/ToggleButton";
 import { ToggleButtonGroup } from "react-aria-components/ToggleButtonGroup";
 
+import { textOf } from "@/core/copy";
+
 import { MessageLine } from "./FieldParts";
 import { choiceButton, choiceGroup, fieldLabel, fieldRoot } from "./fieldStyles";
 import { useDisabled } from "./formClosed";
@@ -76,7 +78,7 @@ function Segment({ choice }: { choice: Choice | GlyphChoice }) {
       id={choice.id}
       data-kit-focus="ring"
       className={choiceButton({ kind: "segmented" })}>
-      {choice.label}
+      {textOf(choice.label)}
     </ToggleButton>
   );
 }
@@ -181,7 +183,7 @@ export function ToggleBoxes({
             id={choice.id}
             data-kit-focus="ring"
             className={choiceButton({ kind: "boxes" })}>
-            {choice.label}
+            {textOf(choice.label)}
           </ToggleButton>
         ))}
       </ToggleButtonGroup>
