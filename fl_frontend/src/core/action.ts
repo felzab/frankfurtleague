@@ -182,6 +182,8 @@ const STALE: ReadonlySet<Code> = new Set<Code>([
   "replace_saison_started",
   "replace_incoming_already_entered",
   "replace_one_team_on_both_ends",
+  // The replacement's incoming club retired since the page listed it, which lists none retired.
+  "team_retired",
   "invitation_team_not_entered",
 ]);
 
