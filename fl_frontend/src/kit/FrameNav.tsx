@@ -19,7 +19,7 @@ import { Icon } from "./Icon";
 import { useLeaveGuard } from "./LeaveGuard";
 import { menuEntry } from "./Link";
 import { Menu } from "./Menu";
-import { currentOf, FreshPerPage } from "./navPlace";
+import { currentOf, FreshPerPage, placeOf } from "./navPlace";
 import { RailTooltip, useRailCollapsed } from "./RailState";
 import { railFade, railGlyph } from "./railStyles";
 import { groupHeading } from "./Section";
@@ -245,8 +245,10 @@ function AccountMenu({
 }
 
 function useCurrent(entries: ReadonlyArray<{ href: Route }>) {
-  return currentOf(
+  const { saison } = useParams();
+  return placeOf(
     usePathname(),
+    typeof saison === "string" ? saison : undefined,
     entries.map((entry) => entry.href),
   );
 }
@@ -591,8 +593,9 @@ export function BackControl({ href }: { href: Route }) {
 }
 
 /**
- * „‹ Zurück“ in an editor's band, to the list the rail marks for the editor's address: a record's page lies
- * under its list, so the way back is read from the address rather than declared by each editor.
+ * „‹ Zurück“ in an editor's band, to the list the rail marks for the editor: a record's page lies under its list,
+ * so the way back is read from the address rather than declared by each editor, but for an editor whose route
+ * declares the list it belongs to (`placeOf`).
  */
 export function EditorBack() {
   const groups = useEntries(useContext(MenuContext)?.groups ?? []);
