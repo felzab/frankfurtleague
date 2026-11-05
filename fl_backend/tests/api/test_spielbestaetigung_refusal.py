@@ -21,7 +21,7 @@ from app.api.spielbestaetigungen.services import (
     seat_address,
     zustand_of,
 )
-from app.api.spiele.schemas import FLSpiel
+from app.api.spiele.schemas import SPIEL_PATCH_WRITTEN_FIELDS, FLSpiel
 from app.core.codes import Code
 
 TEAM1 = ObjectId("650000000000000000000101")
@@ -417,17 +417,19 @@ class TestWhatTheViewStatesOfTheFixture:
 
 class TestTheProposalIsTheFixtureOnItsNewDate:
     def test_only_the_day_and_the_hour_move(self):
-        """Every reference and the event kept, so the judges weigh the claims a moved date makes and nothing else."""
+        """Every field the save writes is kept but the slot.
+
+        A field dropped is a claim the judges weigh that the move does not make, and the adoption, saving this payload,
+        would erase it, the note among them.
+        """
 
         stored = FLSpiel.model_validate(spiel())
         proposed = proposal_payload(stored, FLSpielbestaetigungAppointment(datum="2027-05-15", uhrzeit="17:00:00"))
+        kept = set(SPIEL_PATCH_WRITTEN_FIELDS - {"datum", "uhrzeit"})
 
         assert (proposed.datum, proposed.uhrzeit) == ("2027-05-15", "17:00:00")
-        assert proposed.ort is not None and stored.ort is not None and proposed.ort.spielort_id == stored.ort.spielort_id
-        assert proposed.schiedsrichter is not None and proposed.schiedsrichter.schiedsrichter_id == SCHIEDSRICHTER
-        # Against the stored sides, spelled out: the exit judge weighs exactly the clubs the fixture already fields.
-        sides = [None if side is None else (side.team_id, side.tore) for side in (proposed.team1, proposed.team2)]
-        assert (sides, proposed.sonderereignis) == ([(TEAM1, None), (TEAM2, None)], None)
+        assert proposed.model_dump(include=kept) == stored.model_dump(include=kept)
+        assert proposed.version == stored.version
 
 
 class TestAProposalBeforeToday:

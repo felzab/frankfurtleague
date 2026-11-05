@@ -1,4 +1,3 @@
-from dataclasses import replace
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends
@@ -28,6 +27,7 @@ from app.api.spielbestaetigungen.services import (
     find_unknown_link_refusal,
     find_vorschlag_vergangen_refusal,
     first_press_refusal,
+    judged_as_a_proposal,
     proposal_payload,
     seat_address,
     seat_holding,
@@ -54,7 +54,7 @@ from app.core.dependencies import (
     TeamsReadCollection,
     get_german_date_str,
 )
-from app.core.exceptions import DocumentNotFoundError, WriteRefusal
+from app.core.exceptions import DocumentNotFoundError
 from app.core.routing import SAFE
 from app.core.security import bind_public_actor, verify_access_base
 from app.core.transactions import transaction_session
@@ -67,12 +67,6 @@ router = APIRouter(
     prefix=f"/api/v{API_VERSION}/spielbestaetigungen",
     dependencies=[Depends(verify_access_base), Depends(bind_public_actor)],
 )
-
-
-def judged_as_a_proposal(refusal: WriteRefusal | None) -> WriteRefusal | None:
-    """The fixture save's refusal, naming no field: the paths it names are the save's, which this body does not carry."""
-
-    return None if refusal is None else replace(refusal, fields=())
 
 
 @router.post(

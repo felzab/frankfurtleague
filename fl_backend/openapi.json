@@ -27381,6 +27381,74 @@
         "x-safe": true
       }
     },
+    "/api/v0/spielbestaetigungen/{spielbestaetigung_id}/adopt": {
+      "post": {
+        "description": "Move a fixture to the date and hour a club's open decline proposes, through the fixture's own save.\n\nRefused as the discard refuses, for any row but an open club decline proposing a date about the fixture's current\nAnsetzung (`ansetzung_not_discardable`), and for a proposed day gone by (`ansetzung_vorschlag_past`). The fixture is\nsaved as the administrator's save would carry it on the proposed day and hour, everything else kept, so it meets\nevery rule that save meets and is refused as that save is, by its code alone: no refusal names a field, the request\ncarrying no body. The bracket is resolved as that save resolves it. The\nrow is not closed here: the fixture has left the Ansetzung it answers, so its links read `invalid` at once and the\nnext confirmation pass closes every party's row `ansetzung_changed`, owing each party „Spiel verlegt“ and asking it\nabout the new slot. IRREVERSIBLE as a save is: moving the fixture back is another save.",
+        "operationId": "spielbestaetigungen_adopt_spielbestaetigung",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "spielbestaetigung_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Spielbestaetigung Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "400": {
+            "$ref": "#/components/responses/400",
+            "description": "Bad Request"
+          },
+          "401": {
+            "$ref": "#/components/responses/401",
+            "description": "Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/403",
+            "description": "Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/404",
+            "description": "Not Found"
+          },
+          "409": {
+            "$ref": "#/components/responses/409",
+            "description": "Conflict"
+          },
+          "410": {
+            "$ref": "#/components/responses/410",
+            "description": "Gone"
+          },
+          "422": {
+            "$ref": "#/components/responses/422",
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "$ref": "#/components/responses/500",
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/503",
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "AdminKey": []
+          }
+        ],
+        "summary": "Adopt a club's proposed date",
+        "tags": [
+          "spielbestaetigungen"
+        ]
+      }
+    },
     "/api/v0/spielbestaetigungen/{spielbestaetigung_id}/antwort": {
       "post": {
         "description": "Record the signed-in referee's answer about one fixture they are booked on: they accept it, or decline it giving a reason.\n\nThe first answer binds, as a club's does. A decline also takes the referee off the fixture, writing its referee\nnull and nothing else of it -- no other fixture is resolved again and no club is told -- and closes the row, so\nbooking the same referee again asks them afresh. The reason is stored as typed, for the administrator, and goes at\nthe season's end. Answering is open until the fixture's day, whatever deadline a club's row of the same fixture\ncarries.\n\nRefuses, in this order: an address holding no live, confirmed referee record (`role_not_held`); an id naming no\nrow of an `active` season, or a row naming none of those records (`ansetzung_foreign_row`, one answer for both); a row\nalready answered, by them or by the league for them (`ansetzung_answered`); one closed unanswered\n(`ansetzung_closed`); a fixture decided, called off or left by a club (`ansetzung_decided`), then one whose date,\ntime, ground or sides moved since the row, or which books another referee or none (`ansetzung_changed`); and a\nfixture whose day has gone by (`ansetzung_frist_past`). An acceptance is judged again outside the transaction just\nbefore answering, so a move or a reassignment landing mid-answer refuses it rather than letting it stand.\n\n**The caller drops the cached fixture list after a successful answer**: an acceptance can put the referee's name\non the public fixture, and a decline takes it off.",

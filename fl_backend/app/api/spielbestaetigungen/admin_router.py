@@ -1,5 +1,6 @@
 from collections.abc import Mapping, Sequence
 from datetime import datetime
+from http import HTTPStatus
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Depends, Query, status
@@ -12,6 +13,7 @@ from app.api.outbox.services import enqueue_mails
 from app.api.spielbestaetigungen.crud import anchor_the_mailboxes_told, pull_admin_rows
 from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigung,
+    FLSpielbestaetigungAppointment,
     FLSpielbestaetigungenFilterParams,
     FLSpielbestaetigungenListResponse,
     FLSpielbestaetigungEnterPayload,
@@ -26,26 +28,37 @@ from app.api.spielbestaetigungen.services import (
     eintragen_refusal,
     find_eintragen_refusal,
     find_verwerfen_refusal,
+    find_vorschlag_vergangen_refusal,
+    judged_as_a_proposal,
     notice_daten_of,
+    proposal_payload,
     spiel_mail_termin_of,
     team_notices,
     vereinsnamen_of,
     verwerfen_owes_a_notice,
     verwerfen_refusal,
 )
+from app.api.spiele.crud import SpielSaveCollections, save_spiel_in_session
+from app.api.spiele.schemas import FLSpiel
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.crud import patch_one_in_db, pull_many_from_db, pull_one_from_db, refuse
+from app.core.crud import anchor_in_db, patch_one_in_db, pull_many_from_db, pull_one_from_db, refuse
 from app.core.dependencies import (
     DBClient,
     OutboxCollection,
+    SaisonsCollection,
     SaisonTeamsCollection,
+    SchiedsrichterCollection,
+    SpielberichteCollection,
     SpielbestaetigungenCollection,
     SpieleCollection,
+    SpielorteCollection,
+    SpieltageCollection,
+    TeamsCollection,
     get_german_date_str,
     get_germany_now,
 )
-from app.core.exceptions import DocumentNotFoundError
+from app.core.exceptions import APIError, DocumentNotFoundError
 from app.core.readonly import ReadCollection
 from app.core.routing import by_id
 from app.core.security import bind_actor, verify_access_admin
@@ -255,3 +268,81 @@ async def discard_spielbestaetigung(
 
     async with transaction_session(db) as session:
         await session.with_transaction(discard_the_proposal)
+
+
+@router.post(
+    f"{by_id('spielbestaetigung_id')}/adopt",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Adopt a club's proposed date",
+)
+async def adopt_spielbestaetigung(
+    spielbestaetigung_id: CustomRouteObjectId,
+    spielbestaetigungen_collection: SpielbestaetigungenCollection,
+    spiele_collection: SpieleCollection,
+    teams_collection: TeamsCollection,
+    saisons_collection: SaisonsCollection,
+    saison_teams_collection: SaisonTeamsCollection,
+    spieltage_collection: SpieltageCollection,
+    spielorte_collection: SpielorteCollection,
+    schiedsrichter_collection: SchiedsrichterCollection,
+    spielberichte_collection: SpielberichteCollection,
+    db: DBClient,
+    today: str = Depends(get_german_date_str),
+    now: datetime = Depends(get_germany_now),
+) -> None:
+    """
+    Move a fixture to the date and hour a club's open decline proposes, through the fixture's own save.
+
+    Refused as the discard refuses, for any row but an open club decline proposing a date about the fixture's current
+    Ansetzung (`ansetzung_not_discardable`), and for a proposed day gone by (`ansetzung_vorschlag_past`). The fixture is
+    saved as the administrator's save would carry it on the proposed day and hour, everything else kept, so it meets
+    every rule that save meets and is refused as that save is, by its code alone: no refusal names a field, the request
+    carrying no body. The bracket is resolved as that save resolves it. The
+    row is not closed here: the fixture has left the Ansetzung it answers, so its links read `invalid` at once and the
+    next confirmation pass closes every party's row `ansetzung_changed`, owing each party „Spiel verlegt“ and asking it
+    about the new slot. IRREVERSIBLE as a save is: moving the fixture back is another save.
+    """
+
+    collections = SpielSaveCollections(
+        spiele=spiele_collection,
+        teams=teams_collection,
+        saisons=saisons_collection,
+        saison_teams=saison_teams_collection,
+        spieltage=spieltage_collection,
+        spielorte=spielorte_collection,
+        schiedsrichter=schiedsrichter_collection,
+        spielberichte=spielberichte_collection,
+    )
+
+    async def adopt_the_proposal(session: AsyncClientSession) -> None:
+        row = await pull_one_from_db(
+            collection=spielbestaetigungen_collection,
+            db_filter={"_id": spielbestaetigung_id},
+            projection=["saison_id", "spiel_id", "party", "ansetzung", "antwort", "closed"],
+            session=session,
+        )
+        # The whole fixture: the save carries every field of it but the day and the hour.
+        spiel = await pull_one_from_db(collection=spiele_collection, db_filter={"_id": row["spiel_id"]}, session=session)
+        refuse(find_verwerfen_refusal(spielbestaetigung_raw=row, spiel=spiel))
+        vorschlag = FLSpielbestaetigungAppointment.model_validate(row["antwort"]["vorschlag"])
+        refuse(judged_as_a_proposal(find_vorschlag_vergangen_refusal(vorschlag=vorschlag, today=today)))
+
+        # A discard of the same proposal writes this row, so the two conflict and the retry refuses the later one: a club
+        # is never told both that its date was taken and that the date stands.
+        await anchor_in_db(collection=spielbestaetigungen_collection, db_filter={"_id": spielbestaetigung_id}, session=session)
+        try:
+            await save_spiel_in_session(
+                spiel_id=row["spiel_id"],
+                payload=proposal_payload(FLSpiel.model_validate(spiel), vorschlag),
+                collections=collections,
+                adopts_bericht=None,
+                now=now,
+                session=session,
+            )
+        except APIError as refused:
+            # Its code alone, as `judged_as_a_proposal` answers: the paths the save names are its body's, and this
+            # request carries none.
+            raise APIError(HTTPStatus(refused.status_code), refused.error_code) from refused
+
+    async with transaction_session(db) as session:
+        await session.with_transaction(adopt_the_proposal)

@@ -2750,6 +2750,25 @@ export const SpielbestaetigungenGetSpielbestaetigungViewBody = zod
   .describe("The token of the link a person opened, in the body: a token in a URL reaches the edge's access line.");
 
 /**
+ * Move a fixture to the date and hour a club's open decline proposes, through the fixture's own save.
+ *
+ * Refused as the discard refuses, for any row but an open club decline proposing a date about the fixture's current
+ * Ansetzung (`ansetzung_not_discardable`), and for a proposed day gone by (`ansetzung_vorschlag_past`). The fixture is
+ * saved as the administrator's save would carry it on the proposed day and hour, everything else kept, so it meets
+ * every rule that save meets and is refused as that save is, by its code alone: no refusal names a field, the request
+ * carrying no body. The bracket is resolved as that save resolves it. The
+ * row is not closed here: the fixture has left the Ansetzung it answers, so its links read `invalid` at once and the
+ * next confirmation pass closes every party's row `ansetzung_changed`, owing each party „Spiel verlegt“ and asking it
+ * about the new slot. IRREVERSIBLE as a save is: moving the fixture back is another save.
+ * @summary Adopt a club's proposed date
+ */
+export const spielbestaetigungenAdoptSpielbestaetigungPathSpielbestaetigungIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
+
+export const SpielbestaetigungenAdoptSpielbestaetigungParams = zod.object({
+  spielbestaetigung_id: zod.string().regex(spielbestaetigungenAdoptSpielbestaetigungPathSpielbestaetigungIdRegExp),
+});
+
+/**
  * Record the signed-in referee's answer about one fixture they are booked on: they accept it, or decline it giving a reason.
  *
  * The first answer binds, as a club's does. A decline also takes the referee off the fixture, writing its referee

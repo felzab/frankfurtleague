@@ -3888,6 +3888,33 @@ export const spielbestaetigungenGetSpielbestaetigungView = async (
   });
 };
 
+export const getSpielbestaetigungenAdoptSpielbestaetigungUrl = (spielbestaetigungId: string) => {
+  return `/api/v0/spielbestaetigungen/${encodeURIComponent(String(spielbestaetigungId))}/adopt`;
+};
+
+/**
+ * Move a fixture to the date and hour a club's open decline proposes, through the fixture's own save.
+ *
+ * Refused as the discard refuses, for any row but an open club decline proposing a date about the fixture's current
+ * Ansetzung (`ansetzung_not_discardable`), and for a proposed day gone by (`ansetzung_vorschlag_past`). The fixture is
+ * saved as the administrator's save would carry it on the proposed day and hour, everything else kept, so it meets
+ * every rule that save meets and is refused as that save is, by its code alone: no refusal names a field, the request
+ * carrying no body. The bracket is resolved as that save resolves it. The
+ * row is not closed here: the fixture has left the Ansetzung it answers, so its links read `invalid` at once and the
+ * next confirmation pass closes every party's row `ansetzung_changed`, owing each party „Spiel verlegt“ and asking it
+ * about the new slot. IRREVERSIBLE as a save is: moving the fixture back is another save.
+ * @summary Adopt a club's proposed date
+ */
+export const spielbestaetigungenAdoptSpielbestaetigung = async (
+  spielbestaetigungId: string,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<void> => {
+  return adminKeyTransport<void>(getSpielbestaetigungenAdoptSpielbestaetigungUrl(spielbestaetigungId), {
+    ...options,
+    method: "POST",
+  });
+};
+
 export const getSpielbestaetigungenPostSchiedsrichterAntwortUrl = (spielbestaetigungId: string) => {
   return `/api/v0/spielbestaetigungen/${encodeURIComponent(String(spielbestaetigungId))}/antwort`;
 };
