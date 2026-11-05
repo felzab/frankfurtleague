@@ -227,7 +227,6 @@ export const ROUTES = {
     crawl: "disallow",
     place: "adminSaisons",
   },
-  // Session 5: its page is built.
   adminSpiele: {
     path: (saison: string) => `/admin/saisons/${saison}/spiele` as const,
     title: COPY.page.spiele,

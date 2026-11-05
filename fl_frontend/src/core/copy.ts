@@ -2,15 +2,17 @@ import {
   formatDatum,
   formatDatumLong,
   formatDatumWithWeekday,
+  formatErgebnis,
   formatInstant,
   formatList,
   formatNumber,
   formatOrdinal,
+  formatPeriod,
   formatUhrzeit,
 } from "./format";
 import { rollenText } from "./teamVocabulary";
 
-import type { CalendarDay, Uhrzeit } from "./format";
+import type { CalendarDay, Pair, Uhrzeit } from "./format";
 import type { FLKontaktRolle } from "./generated/client/types";
 
 declare const copyBrand: unique symbol;
@@ -91,6 +93,10 @@ const K_O_RUNDE = "K.-o.-Runde";
 // Words two areas of this one object say alike, each written once and read under both keys: a match's facts and
 // its events as a visitor reads them and as the editor's fields name them, and the sign-in's acts and pages.
 const SPIEL_FACT = { datum: "Datum", uhrzeit: "Uhrzeit" } as const;
+// A match or a matchday not dated yet, as a match row and a matchday's line say it.
+const DATE_OPEN = "Termin offen";
+// The mark beside a score a shoot-out decided.
+const AFTER_ELFMETERSCHIESSEN = "n. E.";
 const SONDEREREIGNIS = { ausgefallen: "Ausgefallen", abgebrochen: "Abgebrochen", annulliert: "Annulliert" } as const;
 const SIGN_IN = "Anmeldung";
 const SIGN_IN_WITH_PASSKEY = "Mit Passkey anmelden";
@@ -235,7 +241,7 @@ export const COPY = catalogue({
     /** A knockout matchday where its phase spans several, „Viertelfinale (2)“: the phase's name and the matchday's place in it. */
     knockoutRound: (phase: Copy, position: number) => `${phase} (${formatNumber(position)})`,
     /** The mark a result decided in a shoot-out carries, under the score in a match row and a match's head. */
-    afterElfmeterschiessen: "n. E.",
+    afterElfmeterschiessen: AFTER_ELFMETERSCHIESSEN,
     /**
      * The two routes out of a season, each in its three wordings: `label` names the record, `state` the club's
      * resulting state, `kuerzel` the badge. `AUSTRITT_OPTIONS` serves them to every surface, so no two can name
@@ -344,7 +350,7 @@ export const COPY = catalogue({
     spieltage: "Spieltage",
     /** When a match is played, as its row shows it; until it is dated, what is still to settle. */
     when: (day: CalendarDay | null, time: Uhrzeit | null) =>
-      day === null ? "Termin offen" : time === null ? formatDatumWithWeekday(day) : `${formatDatumWithWeekday(day)} · ${formatUhrzeit(time)}`,
+      day === null ? DATE_OPEN : time === null ? formatDatumWithWeekday(day) : `${formatDatumWithWeekday(day)} · ${formatUhrzeit(time)}`,
 
     /** A side the draw has not settled: its source short in the dashed plaque, and in full as its name. */
     quelle: {
@@ -673,6 +679,20 @@ export const COPY = catalogue({
       needsBothSides: "Nur mit beiden Teams",
       /** The save's done line where the write moved other matches too, by their numbers: „Auch Spiel 5 und 7 geändert“. */
       alsoChanged: (spiele: readonly number[]) => `Auch Spiel ${formatList(spiele.map(formatNumber))} geändert`,
+
+      /** The Spiele list: a match row's two facts' heads, its pairing's head, and the chip a match not yet confirmed carries. */
+      termin: "Termin",
+      begegnung: "Begegnung",
+      provisional: "Vorläufig",
+      /** A row's result: the goals, and after a shoot-out each side's goals and shoot-out goals added, marked „n. E.“. */
+      score: (tore: Pair, elfmeterschiessen: Pair | null) =>
+        elfmeterschiessen === null ? formatErgebnis(tore) : `${formatErgebnis(tore, elfmeterschiessen)} ${AFTER_ELFMETERSCHIESSEN}`,
+      /** A matchday's dates over its matches, until it is dated what is still to settle. */
+      span: (beginn: CalendarDay | null, ende: CalendarDay | null) =>
+        beginn === null || ende === null ? DATE_OPEN : formatPeriod(beginn, ende),
+      /** The matchday dialog's two dates. */
+      beginn: "Beginn",
+      ende: "Ende",
     },
   },
 

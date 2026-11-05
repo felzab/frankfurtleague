@@ -16,8 +16,7 @@
     // Session 5.
     "src/kit/CardGrid.tsx",
     "src/kit/ScorePair.tsx",
-    "src/kit/AdoptLine.tsx",
-    "src/kit/SpieltagHead.tsx"
+    "src/kit/AdoptLine.tsx"
   ],
   // An export waiting for its first page says so on itself, with the page it waits for: `@awaitsPage` where
   // no other module reads it, which this run honours, and `@awaitsProduction` where no production module

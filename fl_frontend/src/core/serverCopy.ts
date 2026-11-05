@@ -97,6 +97,10 @@ export const SERVER_COPY = catalogue({
       team1: `${team1} ist aus der Saison ausgeschieden.`,
       team2: `${team2} ist aus der Saison ausgeschieden.`,
     },
+    /** A matchday's dates: past its season's, short of one of its dated matches, or out of its phase's order of matchdays. */
+    spieltag_outside_saison: "Dieser Zeitraum liegt außerhalb der Saison.",
+    spieltag_span_below_spiele: "Ein Spiel des Spieltags liegt außerhalb dieses Zeitraums.",
+    spieltag_beginn_out_of_order: "Der Beginn passt nicht in die Reihenfolge der Spieltage.",
   } satisfies Partial<Record<Code, string | Readonly<Record<string, string>> | ((context: FLRefusedField["ctx"]) => string | undefined)>>,
 
   /**

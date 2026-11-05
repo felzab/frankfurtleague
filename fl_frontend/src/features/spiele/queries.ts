@@ -1,10 +1,15 @@
 import { cache } from "react";
 
 import { isRecordMissing } from "@/core/errors";
-import { spieleGetSpieleVerwaltung, spieleGetSpielVerwaltung } from "@/core/generated/client/sdk";
+import { spieleGetSpieleSpielplan, spieleGetSpieleVerwaltung, spieleGetSpielVerwaltung } from "@/core/generated/client/sdk";
 import { runAdminRead } from "@/shared/utils/adminRead";
 
-import type { FLSpieleAdminListResponse, FLSpieleAdminSingleResponse, SpieleGetSpieleVerwaltungParams } from "@/core/generated/client/types";
+import type {
+  FLSpieleAdminListResponse,
+  FLSpieleAdminSingleResponse,
+  FLSpieleSpielplanAdminResponse,
+  SpieleGetSpieleVerwaltungParams,
+} from "@/core/generated/client/types";
 
 /** One in-flight admin fixture read per filter set, held for the length of one render pass. */
 const adminSpieleInFlight = cache((): Map<string, Promise<FLSpieleAdminListResponse>> => new Map());
@@ -38,6 +43,20 @@ export async function getAdminSpiel(spielId: string): Promise<FLSpieleAdminSingl
     // `null` for "no such fixture", which the editor page turns into `notFound()`. Every other
     // status still throws.
     spieleGetSpielVerwaltung(spielId).catch((error: unknown) => {
+      if (isRecordMissing(error)) return null;
+      throw error;
+    }),
+  );
+}
+
+/**
+ * One season's matchdays and their matches for the administrator's „Spiele“ list, with the matchday it opens on, a
+ * planned season's included. `null` for a season id naming no season, which the page answers as not found.
+ * **Uncached**, as every admin read.
+ */
+export async function getAdminSpielplan(saisonId: string): Promise<FLSpieleSpielplanAdminResponse | null> {
+  return runAdminRead(() =>
+    spieleGetSpieleSpielplan({ saison_id: saisonId }).catch((error: unknown) => {
       if (isRecordMissing(error)) return null;
       throw error;
     }),
