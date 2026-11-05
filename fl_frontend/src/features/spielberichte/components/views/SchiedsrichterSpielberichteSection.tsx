@@ -87,7 +87,7 @@ export function SchiedsrichterSpielberichteSection({ spiele }: { spiele: Schieds
 
 /** One fixture's card; `sent` null on an ended season's, whose report stands and only opens to be read. */
 function SpielKarte({ spiel, sent }: { spiel: FLSpielberichtPersonEarlierEntry; sent: boolean | null }) {
-  const paarung = `${spiel.team1_name ?? PLACEHOLDER.slot} gegen ${spiel.team2_name ?? PLACEHOLDER.slot}`;
+  const paarung = `${spiel.team1_name ?? PLACEHOLDER.slot} vs. ${spiel.team2_name ?? PLACEHOLDER.slot}`;
   const datum = spiel.datum === null ? nichtHinterlegt("Termin") : formatSpielDatum(spiel.datum);
   const words = sent === false ? "Spielbericht eintragen" : "Spielbericht ansehen";
 

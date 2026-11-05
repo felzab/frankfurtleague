@@ -55,7 +55,6 @@ async function readState(): Promise<MailedState> {
       state: "ende",
       tone: "info",
       title: COPY.page.accountErasure,
-      sentence: WORDS.signedOut,
       next: { label: COPY.shared.verb.signIn, href: withReturnAddress(ROUTES.signIn.path(), link) as Route },
     };
   }

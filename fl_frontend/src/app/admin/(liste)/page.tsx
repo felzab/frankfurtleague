@@ -29,7 +29,7 @@ async function readSaison(): Promise<StatusCardProps> {
   if (saison !== undefined) redirect(ROUTES.adminOverview.path(saison.id));
   return {
     tone: "info",
-    sentence: COPY.shared.empty.none(COPY.shared.saison),
+    title: COPY.shared.end.noSaison,
     next: { label: COPY.shared.end.toSaisons, href: ROUTES.adminSaisons.path() },
   };
 }

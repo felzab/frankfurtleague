@@ -21,11 +21,6 @@ export const LINK_INVALID: EndState = linkInvalid(TO_HOME);
  * person may now do with the address the link went to; an objection, on the danger tint, to the start page.
  */
 export const END = {
-  confirmed: {
-    tone: "success",
-    title: WORDS.confirmed,
-    sentence: WORDS.confirmedSentence,
-    next: { label: COPY.shared.verb.signIn, href: ROUTES.signIn.path() },
-  },
-  objected: { tone: "danger", title: WORDS.objected, sentence: WORDS.objectedSentence, next: TO_HOME },
+  confirmed: { tone: "success", title: WORDS.confirmed, next: { label: COPY.shared.verb.signIn, href: ROUTES.signIn.path() } },
+  objected: { tone: "danger", title: WORDS.objected, next: TO_HOME },
 } as const satisfies Readonly<Record<string, EndState>>;

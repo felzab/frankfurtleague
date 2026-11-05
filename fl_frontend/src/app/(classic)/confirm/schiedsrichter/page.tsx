@@ -65,8 +65,8 @@ function alreadyDone(view: FLSchiedsrichterConfirmationViewResponse, kind: "conf
   const day = dayOf(view.answered_on);
   const { title } = END[kind];
   return kind === "confirmed"
-    ? { state: "alreadyDone", title, sentence: COPY.shared.end.doneOn(title, day), next: TO_ACCOUNT }
-    : { state: "alreadyDone", title, sentence: COPY.shared.end.doneOn(title, day), next: TO_HOME, declined: true };
+    ? { state: "alreadyDone", title: COPY.shared.end.doneOn(title, day), next: TO_ACCOUNT }
+    : { state: "alreadyDone", title: COPY.shared.end.doneOn(title, day), next: TO_HOME, declined: true };
 }
 
 async function readState(searchParams: NextPageProps["searchParams"]): Promise<MailedState> {

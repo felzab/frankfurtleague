@@ -74,7 +74,7 @@ export default async function SchiedsrichterSpielberichtPage({ params }: NextPag
       kontext={kontext}
       stored={read.bericht}
       header={{
-        title: `${kontext.team1Name} gegen ${kontext.team2Name}`,
+        title: `${kontext.team1Name} vs. ${kontext.team2Name}`,
         chip: <span className="muted-meta">{formatSpielDatum(spiel.datum)}</span>,
       }}
       zurueckHref={SCHIEDSRICHTER_HREF}

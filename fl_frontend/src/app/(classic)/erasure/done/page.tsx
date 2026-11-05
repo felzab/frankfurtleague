@@ -24,8 +24,9 @@ export default function AccountErasedPage() {
       frame="classic"
       tone="success"
       title={SERVER_COPY.accountErasure.done}
-      sentence={SERVER_COPY.accountErasure.doneSentence}
       next={{ label: COPY.shared.end.toHome, href: ROUTES.home.path() }}
+      // What outlives the deletion is the notice's to list.
+      quiet={{ label: ROUTES.privacyNotice.title, href: ROUTES.privacyNotice.path() }}
     />
   );
 }
