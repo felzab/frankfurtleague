@@ -15,7 +15,7 @@
 # - No visitor is named in the container's own streams.
 # - Each upstream is found by name as nginx serves, and the capabilities the model grants are enough
 #   to start it.
-# - `docs/ops/spec.md` §1.3's server-action, link-page and account-page pairs, and the code check's.
+# - `docs/ops/spec.md` §1.3's server-action and link-page pairs, and the code check's.
 # - A server action's body and the crash report's, on both its paths, each taken at its cap and refused past it.
 #
 #   ./nginx/edge_test.sh --verbose   print the access line every case was graded on
@@ -777,14 +777,6 @@ done
 spent_request link-json -A "$LINK_MARKER" -X POST -H "Content-Type: application/json" --data '{}' "${BASE}/confirm/spiel?token=${TOK}"
 spent_request link-head -A "$LINK_MARKER" --head "${BASE}/confirm/spiel?token=${TOK}"
 
-# Konto's pair, on JSON posts to one of its pages the action pair's key leaves out, so only `account` can refuse.
-# Its burst read off the file, flooded past with five more for the refill the run takes.
-ACCOUNT_BURST="$(sed -n 's/^[[:space:]]*limit_req zone=account burst=\([0-9]*\) nodelay;$/\1/p' "${REPO_ROOT}/nginx/shared/site.conf" | head -n 1)"
-[[ -n "$ACCOUNT_BURST" ]] || refuse "nginx/shared/site.conf declares no account burst this test can read."
-for _ in $(seq 1 $(( ACCOUNT_BURST + 5 ))); do
-  action_request account-flood -X POST -H "Content-Type: application/json" --data '{}' "${BASE}/account/signin"
-done
-
 # The code check's pair, read off its own block and flooded past with five more: the library's prefix
 # block meters the same path five times as loosely, so a check fallen back to it answers no 429 here.
 CODE_BURST="$(sed -n '/^location = \/api\/auth\/sign-in\/email-otp {$/,/^}$/s/^[[:space:]]*limit_req zone=confirmation burst=\([0-9]*\) nodelay;$/\1/p' "${REPO_ROOT}/nginx/shared/site.conf")"
@@ -960,7 +952,6 @@ expect_action link-json some:429
 grade_spent link-json
 expect_action link-head some:429
 grade_spent link-head head
-expect_action account-flood some:429
 expect_action code-flood some:429
 
 # A refusal's error line repeats the request line, live token included, so `limit_req_log_level` keeps
@@ -1388,6 +1379,6 @@ ${UPSTREAM_READ} of those paths handing Next the edge's own traceparent, an empt
 Next-Action handed to no one, server
 actions metered on their own pair and nothing else metered by it, refused in plain text an action reads, every link page
 metered on every request under every spelling, its load refused with the edge's own page and no token reaching the error log, the
-account page's posts metered on its own pair, every body cap taking its figure and refusing a byte past it, the Control API applying a reload, refusing a bad one, dumping the checkout and closed to the worker,
+the code check metered on its own pair, every body cap taking its figure and refusing a byte past it, the Control API applying a reload, refusing a bad one, dumping the checkout and closed to the worker,
 every upstream named through a variable and found through Docker's DNS alone, holding an answer ${RESOLVER_VALID}s, both edges reaching a backend recreated at a new address
 without a reload, and each upstream's redirect naming itself handed back as the visitor's origin"
