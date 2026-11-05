@@ -101,9 +101,6 @@ class JournalLine:
     # An erasure's person as the action log keys them (`app/core/security.py :: actor_pseudonym`): the
     # one way a replay finds those rows where the restored database holds the address nowhere. Absent on an older line.
     pseudonym: str | None = None
-    # An erasure's person as their fixture answers stored them (`app/api/spielbestaetigungen/services.py :: halter_of`), for
-    # the pseudonym's reason: a restore brings their reasons back with no address beside them. Absent on an older line.
-    halter: str | None = None
     # The address a change taking effect replaced, by its journal hash: where an erasure of the new address follows, the
     # restored database holds the moved records at this one.
     before: str | None = None
@@ -113,8 +110,6 @@ class JournalLine:
             raise ValueError("a journal line names its person by a journal hash")
         if self.pseudonym is not None and (self.kind != "erasure" or not _HASH.fullmatch(self.pseudonym)):
             raise ValueError("an erasure's line alone names its person's log pseudonym")
-        if self.halter is not None and (self.kind != "erasure" or not _HASH.fullmatch(self.halter)):
-            raise ValueError("an erasure's line alone names its person's holder digest")
         if (self.kind == "address_change_effective") != (self.before is not None) or (
             self.before is not None and not _HASH.fullmatch(self.before)
         ):
@@ -154,11 +149,7 @@ class JournalLine:
     def text(self) -> str:
         """The line as the stream carries it."""
 
-        keyed = [
-            f"{name}={value}"
-            for name, value in (("pseudonym", self.pseudonym), ("halter", self.halter), ("before", self.before))
-            if value is not None
-        ]
+        keyed = [f"{name}={value}" for name, value in (("pseudonym", self.pseudonym), ("before", self.before)) if value is not None]
 
         return " ".join([JOURNAL_TOKEN, self.person_hash, self.act(), *keyed])
 
@@ -245,7 +236,7 @@ def parse_line(message: str) -> JournalLine | None:
             press_label = True
         elif key == "seats":
             fields["seats"] = tuple(value.split(","))
-        elif key in ("at", "pseudonym", "halter", "before"):
+        elif key in ("at", "pseudonym", "before"):
             fields[key] = value
         else:
             raise ValueError("a journal line names a value no act carries")

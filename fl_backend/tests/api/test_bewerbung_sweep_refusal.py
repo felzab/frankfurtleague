@@ -330,7 +330,7 @@ ROUND_TRIPS_A_ROW = 3
 
 # The worst call's commands beside its rows, counted on the wire by
 # `fl_backend/tests/api/test_bewerbung_sweep_execution.py :: TestTheWorstCallSendsTheCommandsItsBudgetCounts`.
-SWEEP_OTHER_COMMANDS = 88
+SWEEP_OTHER_COMMANDS = 70
 
 
 # The per-command cost, the widest of fifteen whole passes at a full share timed locally, 2026-10-20.

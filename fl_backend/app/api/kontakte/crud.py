@@ -1,7 +1,6 @@
 from collections.abc import Iterable, Mapping, Sequence, Set
 from typing import Any, NamedTuple
 
-from pydantic import SecretStr
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
@@ -17,16 +16,16 @@ from app.api.kontakte.services import (
 )
 from app.api.spielbestaetigungen.crud import redact_seat_entries_in_images
 from app.api.spielbestaetigungen.services import (
-    build_contact_reason_images_filter,
-    build_contact_reasons_filter,
-    contact_reason_image_edits,
-    halter_of,
+    HeldSeats,
+    build_seat_reason_images_filter,
+    build_seat_reasons_filter,
     kontakte_ohne,
+    seat_reason_image_edits,
     seat_void_of,
 )
 from app.api.teams.crud import void_moved_seats
 from app.core.collections import Collection
-from app.core.crud import aggregate_many_from_db, patch_many_in_db, patch_one_in_db
+from app.core.crud import patch_many_in_db, patch_one_in_db
 from app.core.recording import RedactionTarget, build_redaction_filter
 from app.shared.folding import sign_in_identifier
 
@@ -67,63 +66,37 @@ async def clear_seats(
     return cleared
 
 
-async def remove_their_reasons(
+async def remove_the_seats_reasons(
     *,
     spielbestaetigungen_collection: AsyncCollection,
     action_log_collection: AsyncCollection,
-    addresses: Iterable[str],
-    key: SecretStr,
+    # The seats whose holder an erasure or a Widerspruch takes, each with its team and season.
+    held: Sequence[HeldSeats],
     stamp: str,
     session: AsyncClientSession,
 ) -> None:
-    """Every reason these addresses' holders typed, from any seat, out of the confirmation rows and their log images.
+    """Every reason typed from these seats out of the confirmation rows and their log images, matched by team, season and role.
 
-    Matched on the holder the answer stored, never the seat, whose earlier or later holder's reason stays.
+    An answer records the seat and never its holder, so this is the one way a seat holder's erasure reaches a reason.
     """
 
-    await remove_the_holders_reasons(
-        spielbestaetigungen_collection=spielbestaetigungen_collection,
-        action_log_collection=action_log_collection,
-        halter={halter_of(address, key=key) for address in addresses},
-        stamp=stamp,
-        session=session,
-    )
-
-
-async def remove_the_holders_reasons(
-    *,
-    spielbestaetigungen_collection: AsyncCollection,
-    action_log_collection: AsyncCollection,
-    # Digests `app/api/spielbestaetigungen/services.py :: halter_of` made: a restore's replay holds no address.
-    halter: Iterable[str],
-    stamp: str,
-    session: AsyncClientSession,
-) -> None:
-    """`remove_their_reasons` by the digests the answers stored."""
-
-    digests = sorted(set(halter))
-    if not digests:
+    held = [seats for seats in held if seats.seats]
+    if not held:
         return
 
-    rows = await aggregate_many_from_db(
+    # The filter names a season, a team and a role, none of them the person, so the log may keep it as the fan-out's.
+    await patch_many_in_db(
         collection=spielbestaetigungen_collection,
-        pipeline=[{"$match": build_contact_reasons_filter(digests)}, {"$project": {"saison_id": 1}}],
+        db_filter=build_seat_reasons_filter(held),
+        update={"$set": {"antwort.begruendung": None}},
         session=session,
     )
-    if rows:
-        await patch_many_in_db(
-            collection=spielbestaetigungen_collection,
-            # Ids and their seasons alone, never the digest: the log keeps a fan-out's filter as text.
-            db_filter={"saison_id": {"$in": sorted({row["saison_id"] for row in rows})}, "_id": {"$in": [row["_id"] for row in rows]}},
-            update={"$set": {"antwort.begruendung": None, "antwort.von.halter": None}},
-            session=session,
-        )
 
     # Every image of such a row the log keeps, an undraw's removal among them, which no row standing now reaches.
     await redact_images_in_session(
         action_log_collection=action_log_collection,
-        db_filter=build_contact_reason_images_filter(digests),
-        judge=lambda image: contact_reason_image_edits(image, digests),
+        db_filter=build_seat_reason_images_filter(held),
+        judge=lambda image: seat_reason_image_edits(image, held),
         stamp=stamp,
         session=session,
     )
@@ -141,7 +114,6 @@ async def erase_kontaktperson_in_session(
     action_log_collection: AsyncCollection,
     spielbestaetigungen_collection: AsyncCollection,
     identifier: str,
-    key: SecretStr,
     # The rows naming the address in a seat, of every status, each carrying its seats' addresses and its
     # `confirmations`, read unbounded in the caller's transaction BEFORE any clearing: a cleared row stops matching.
     saison_team_rows: Sequence[Mapping[str, Any]],
@@ -176,12 +148,11 @@ async def erase_kontaktperson_in_session(
         await void_moved_seats(spielbestaetigungen_collection=spielbestaetigungen_collection, voids=voids, session=session)
         # Their links' hashes and the delivery records of the mails they went in, as the season row's own clearing takes them.
         await redact_seat_entries_in_images(action_log_collection=action_log_collection, voids=voids, stamp=stamp, session=session)
-    # Seated now or not: a seat they have left keeps the reasons they typed from it until this.
-    await remove_their_reasons(
+    # The seats they hold now: a reason typed from a seat they have left goes with its season's end.
+    await remove_the_seats_reasons(
         spielbestaetigungen_collection=spielbestaetigungen_collection,
         action_log_collection=action_log_collection,
-        addresses=[identifier],
-        key=key,
+        held=[HeldSeats(saison_id=row["saison_id"], team_id=row["team_id"], seats=slots) for row, slots in held],
         stamp=stamp,
         session=session,
     )

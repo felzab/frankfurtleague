@@ -36,7 +36,6 @@ from app.api.identity.schemas import FLErasureAddressPayload, FLErasurePayload
 from app.api.registrierungen.public_router import get_confirmation_view
 from app.api.registrierungen.services import compose_ablehnung_update, erinnerung_is_due
 from app.api.schiedsrichter.admin_router import get_schiedsrichter_by_id
-from app.api.spielbestaetigungen.services import halter_of
 from app.api.spieler.admin_router import get_spieler_saisons
 from app.api.teams.admin_router import get_team_saisons
 from app.core.codes import Code
@@ -2170,8 +2169,8 @@ class TestWhatTheEffectLeavesTheLoeschung:
 
         assert on_a_person(mongo_replica_set_url, body)["email"] == NEW_EMAIL
 
-    def test_the_log_s_pseudonym_and_an_answer_s_holder_digest_follow_the_person(self, mongo_replica_set_url: str):
-        """Both are keyed on the address; left on the replaced one, an erasure of the new one never finds them."""
+    def test_the_log_s_pseudonym_follows_the_person(self, mongo_replica_set_url: str):
+        """It is keyed on the address; left on the replaced one, an erasure of the new one never finds it."""
 
         spiel = documents.spiel_document(
             spiel_id=ObjectId(),
@@ -2188,7 +2187,7 @@ class TestWhatTheEffectLeavesTheLoeschung:
             party={"art": "team", "team_id": TEAM_OID},
             _id=ANSWERED_OID,
             asked_at="2126-03-30",
-            antwort=documents.kontakt_antwort_document("ansprechperson", TYPED, begruendung="Wir sind auf Klassenfahrt"),
+            antwort=documents.kontakt_antwort_document("ansprechperson", begruendung="Wir sind auf Klassenfahrt"),
         )
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -2208,21 +2207,11 @@ class TestWhatTheEffectLeavesTheLoeschung:
             await confirmed_and_moved(database, client)
 
             log = database[Collection.ACTION_LOG]
-            return (
-                (await row(database, Collection.SPIELBESTAETIGUNGEN, ANSWERED_OID))["antwort"],
-                {
-                    address: (
-                        await log.count_documents({"actor.pseudonym": actor_pseudonym(address, key=KEY)}),
-                        await log.count_documents({"before.antwort.von.halter": halter_of(address, key=KEY)}),
-                    )
-                    for address in (EMAIL, NEW_EMAIL)
-                },
-            )
+            return {
+                address: await log.count_documents({"actor.pseudonym": actor_pseudonym(address, key=KEY)}) for address in (EMAIL, NEW_EMAIL)
+            }
 
-        antwort, log = on_a_person(mongo_replica_set_url, body)
-
-        assert (antwort["von"]["halter"], antwort["begruendung"]) == (halter_of(NEW_EMAIL, key=KEY), "Wir sind auf Klassenfahrt")
-        assert log == {EMAIL: (0, 0), NEW_EMAIL: (1, 1)}
+        assert on_a_person(mongo_replica_set_url, body) == {EMAIL: 0, NEW_EMAIL: 1}
 
     def test_a_seat_holder_s_decision_on_another_s_registration_follows_them_with_its_image(self, mongo_replica_set_url: str):
         """A seat holder holding no grant declines under their own address; left behind, it is an address nobody's erasure finds."""

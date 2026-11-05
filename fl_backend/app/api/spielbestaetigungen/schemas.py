@@ -153,7 +153,8 @@ class _FLSpielbestaetigungFelder(BaseModel):
     frist: CustomDateString
     # Null from the mint until it owes the party a mail, so a row nobody could be asked on reads as never asked.
     asked_at: CustomOptionalDateString
-    reminded_at: list[CustomDateString]
+    # The day the one reminder went, null until it does.
+    reminded_at: CustomOptionalDateString
     antwort: FLSpielbestaetigungAntwort | None
     closed: FLSpielbestaetigungClosed | None
 
@@ -182,24 +183,10 @@ class FLSpielbestaetigungKontakteRecord(BaseModel):
     stellvertretung: FLSpielbestaetigungSitzRecord | None
 
 
-class FLSpielbestaetigungVonKontaktRecord(FLSpielbestaetigungVonKontakt):
-    """The pressed seat as stored: the digest of its holder's address, kept for that person's erasure."""
-
-    halter: str | None = None
-
-
-class FLSpielbestaetigungAntwortRecord(FLSpielbestaetigungAntwort):
-    von: Annotated[
-        FLSpielbestaetigungVonKontaktRecord | FLByAdmin | FLSpielbestaetigungVonSchiedsrichter,
-        Field(discriminator="art"),
-    ]
-
-
 class FLSpielbestaetigungRecord(_FLSpielbestaetigungFelder):
     """One confirmation as `spielbestaetigungen` stores it, with the keys no read serves."""
 
     kontakte: FLSpielbestaetigungKontakteRecord | None
-    antwort: FLSpielbestaetigungAntwortRecord | None
 
 
 # --- The ADMINISTRATOR: the season's rows read, a row settled on its party's behalf, a proposal discarded.

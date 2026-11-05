@@ -277,13 +277,6 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         )
         for seat in KONTAKT_ROLLEN
     ),
-    # A collection with no retention bound, read inside every contact erasure's and Widerspruch's transaction.
-    SupportIndex(
-        Collection.SPIELBESTAETIGUNGEN,
-        "spielbestaetigungen_antwort_von_halter",
-        (("antwort.von.halter", ASCENDING),),
-        "the reasons a leaving contact typed, from whichever seat",
-    ),
     # Read on every load of a referee's own panel, and inside every referee erasure's transaction, neither stating a
     # fixture the season-leading index could narrow by.
     SupportIndex(
@@ -298,7 +291,7 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         (("saison_id", ASCENDING),),
         "a season's reports, which the triage's read and a replace's or an undraw's removal filter on",
     ),
-    # For `spielbestaetigungen_antwort_von_halter`'s reason: the reports are kept with no retention bound.
+    # The reports are kept with no retention bound, and this read names no season the season-leading index could narrow by.
     SupportIndex(
         Collection.SPIELBERICHTE,
         "spielberichte_submitted_by_schiedsrichter_id",

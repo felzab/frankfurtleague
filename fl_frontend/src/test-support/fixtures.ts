@@ -76,7 +76,7 @@ export function spielbestaetigungFields(overrides: Partial<FLSpielbestaetigung> 
     },
     frist: "2026-07-29",
     asked_at: "2026-07-29",
-    reminded_at: [],
+    reminded_at: null,
     kontakte: { trainer: { delivery: null }, ansprechperson: { delivery: null }, stellvertretung: null },
     antwort: null,
     closed: null,

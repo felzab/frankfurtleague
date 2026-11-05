@@ -11,6 +11,7 @@ import type {
   FLSpielEinteilungData,
   FLSpielEinteilungLiftedData,
   FLSpielMailAnsetzung,
+  FLSpielMovedData,
   FLSpielNoticeData,
   FLSpielNoticeDataRecipient,
   FLSpielRequestData,
@@ -177,7 +178,10 @@ const ABGESAGT_SAETZE: Record<FLSpielNoticeDataRecipient, readonly [string, stri
  * it knows. A move names no new slot, the next request stating it; a call-off has no button and no name, nothing being
  * left to answer and the address perhaps having changed hands since the request.
  */
-export function buildSpielHinweisEmail({ kind, recipient: empfaenger, appointment: alt }: FLSpielNoticeData, { origin }: MailOrigin): Mail {
+export function buildSpielHinweisEmail(
+  { kind, recipient: empfaenger, appointment: alt }: FLSpielMovedData | FLSpielNoticeData,
+  { origin }: MailOrigin,
+): Mail {
   const { team1, team2 } = alt;
 
   if (kind === "spiel_new_scheduled") {

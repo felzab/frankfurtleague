@@ -8033,7 +8033,7 @@
                 "spiel_abgesagt": "#/components/schemas/FLSpielNoticeData",
                 "spiel_einteilung": "#/components/schemas/FLSpielEinteilungData",
                 "spiel_einteilung_lifted": "#/components/schemas/FLSpielEinteilungLiftedData",
-                "spiel_new_scheduled": "#/components/schemas/FLSpielNoticeData",
+                "spiel_new_scheduled": "#/components/schemas/FLSpielMovedData",
                 "spiel_reminder": "#/components/schemas/FLSpielRequestData",
                 "spiel_request": "#/components/schemas/FLSpielRequestData",
                 "spiel_vorschlag_discarded": "#/components/schemas/FLSpielVorschlagDiscardedData"
@@ -8076,6 +8076,9 @@
               },
               {
                 "$ref": "#/components/schemas/FLSpielEinteilungData"
+              },
+              {
+                "$ref": "#/components/schemas/FLSpielMovedData"
               },
               {
                 "$ref": "#/components/schemas/FLSpielNoticeData"
@@ -12930,11 +12933,22 @@
             "const": "spiel_einteilung",
             "title": "Kind",
             "type": "string"
+          },
+          "moved_from": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielMailAppointment"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
           "kind",
-          "ansetzung"
+          "ansetzung",
+          "moved_from"
         ],
         "title": "FLSpielEinteilungData",
         "type": "object"
@@ -13447,17 +13461,58 @@
         "title": "FLSpielMailAppointment",
         "type": "object"
       },
+      "FLSpielMovedData": {
+        "description": "A party's word that a fixture it was asked about left that slot, owed where no request about its new slot goes now.\n\nThe mail's own request carries the move where the new slot is asked at once (`FLSpielRequestData.moved_from`).",
+        "properties": {
+          "appointment": {
+            "$ref": "#/components/schemas/FLSpielMailAppointment"
+          },
+          "asked_again": {
+            "title": "Asked Again",
+            "type": "boolean"
+          },
+          "kind": {
+            "const": "spiel_new_scheduled",
+            "title": "Kind",
+            "type": "string"
+          },
+          "moved_to": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielMailAppointment"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "recipient": {
+            "enum": [
+              "team",
+              "schiedsrichter"
+            ],
+            "title": "Recipient",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "recipient",
+          "appointment",
+          "moved_to",
+          "asked_again"
+        ],
+        "title": "FLSpielMovedData",
+        "type": "object"
+      },
       "FLSpielNoticeData": {
-        "description": "A party's word that a fixture it was asked about moved or was called off: the slot it was asked about.",
+        "description": "A party's word that a fixture it was asked about was called off: the slot it was asked about.",
         "properties": {
           "appointment": {
             "$ref": "#/components/schemas/FLSpielMailAppointment"
           },
           "kind": {
-            "enum": [
-              "spiel_new_scheduled",
-              "spiel_abgesagt"
-            ],
+            "const": "spiel_abgesagt",
             "title": "Kind",
             "type": "string"
           },
@@ -13757,6 +13812,16 @@
             "title": "Kind",
             "type": "string"
           },
+          "moved_from": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielMailAppointment"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "team": {
             "title": "Team",
             "type": "string"
@@ -13766,7 +13831,8 @@
           "kind",
           "team",
           "ansetzung",
-          "frist"
+          "frist",
+          "moved_from"
         ],
         "title": "FLSpielRequestData",
         "type": "object"
@@ -15236,12 +15302,16 @@
             "title": "Party"
           },
           "reminded_at": {
-            "items": {
-              "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-              "type": "string"
-            },
-            "title": "Reminded At",
-            "type": "array"
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reminded At"
           },
           "saison_id": {
             "title": "Saison Id",
@@ -26524,7 +26594,7 @@
     },
     "/api/v0/spielbestaetigungen": {
       "get": {
-        "description": "Every confirmation row of the season, or of its one fixture.\n\nNewest first, closed rows included. No seat's link hashes and no answer's holder digest are served. Every row still\nholding its party's question is served; `limit` cuts the others, and `complete` is false where it left the\noldest of them out. Each seat holding a link names what became of the last mail owed to it. A season no document\nhas answers no rows rather than 404.",
+        "description": "Every confirmation row of the season, or of its one fixture.\n\nNewest first, closed rows included. No seat's link hashes and no seat's address are served. Every row still\nholding its party's question is served; `limit` cuts the others, and `complete` is false where it left the\noldest of them out. Each seat holding a link names what became of the last mail owed to it. A season no document\nhas answers no rows rather than 404.",
         "operationId": "spielbestaetigungen_get_spielbestaetigungen",
         "parameters": [
           {
@@ -26824,7 +26894,7 @@
     },
     "/api/v0/spielbestaetigungen/sweep/{saison_id}": {
       "post": {
-        "description": "Close, mint and remind one season's fixture confirmations, as of today in Europe/Berlin, and answer what it did, counted.\n\nEach mail is owed through the Postausgang in the transaction that writes its row.\n\nThe close shuts every row not yet closed, answered or not, whose fixture moved, was decided, was called off, lost a club\nto an `austritt` dated on or before its day, or -- a referee's row -- names another referee or none; failing all of\nthose, a row whose fixture's day is before today closes `spiel_past`, so nobody is asked about a past date. A\nclub's decline closed `discarded` is closed again for each of those but a move and a referee change, in the pass\nthat closes an agreement beside it, and once the day it was about has passed: the public fixture then stops\ncounting it as that club's agreement.\n\nA closing owes its party a notice in its own transaction where the party's first request or Einteilung was owed,\nabout a day today or later: for a move, the slot it left or the one the fixture holds now; for a referee taken off\nthe fixture -- ahead of a move it shares a close with, and never for the referee's own decline, which closed its row\nas it was given -- and for a call-off, the slot the row was about. A club is told at every address its season row's\nseats hold now, a referee at the address their record holds; a party nobody is left to tell is told nothing.\n\nThe mint asks about every fixture dated strictly after today and at most the answer window ahead that has its time and\nground, both sides, no result and no `sonderereignis`, and that the close would not shut: one row per side and one for\nits booked referee, unless a row about that party and that Ansetzung is still unclosed, or was closed `discarded`: a\ndecline the administrator discarded is the party's one answer to that Ansetzung. A fixture booked onto the erased\nreferee's ghost gets no referee row, the ghost holding no address. The deadline falls the notice period\n(`app/shared/schemas/bounds.py :: SPIEL_CONFIRMATION_FRIST_DAYS`) before the fixture, or today where that has passed.\nEach seat holding an address is owed one link, a person holding two seats one link naming both, each minted when the\nmail is handed out, and the row is stamped as asked; a referee row is owed its Einteilung, with no link. An open row's\noccupied seat holding no link -- its holder replaced, newly seated, or a ban since lifted -- is owed one too. A\nfixture holding an unclosed row about an Ansetzung it has left is asked once the close has shut it, the close owing\nits notice first.\n\nThe reminder owes a fresh link per person on each team row whose deadline lies a reminder's count of days away\n(`app/shared/schemas/bounds.py :: SPIEL_REMINDER_DAYS_FIRST`, `:: SPIEL_ERINNERUNG_TAGE_ZWEITE`), minted beside the\nlinks already mailed so every one of them answers until the deadline, and stamps the day. It passes over each seat\nwhose last mail did not arrive, and reminds no row this pass inserted nor one whose request was owed today; where\nthis pass's mint owed one of a row's seats a fresh link, that request is the seat's message of the day and the row's\nother seats are reminded beside it.\n\nA seat whose address the ban list holds is owed nothing and has nothing written, so it stays due and a later pass asks\nit once the ban is lifted.\n\nEach step takes a bounded share and leaves the rest due. A row whose write fails is passed over alone, logged by id\nand counted in `failed`; any other failure is raised, every step committed before it standing with its mails.\n\nA season that is not `active` is passed by whole -- nothing closed, minted or reminded -- so a mistyped call, or one for\na season ended since the listing, mails nobody. 404 where no season has the id.",
+        "description": "Close, mint and remind one season's fixture confirmations, as of today in Europe/Berlin, and answer what it did, counted.\n\nEach mail is owed through the Postausgang in the transaction that writes its row.\n\nThe close shuts every row not yet closed, answered or not, whose fixture moved, was decided, was called off, lost a club\nto an `austritt` dated on or before its day, or -- a referee's row -- names another referee or none; failing all of\nthose, a row whose fixture's day is before today closes `spiel_past`, so nobody is asked about a past date. A\nclub's decline closed `discarded` is closed again for each of those but a move and a referee change, in the pass\nthat closes an agreement beside it, and once the day it was about has passed: the public fixture then stops\ncounting it as that club's agreement.\n\nA closing owes its party a notice in its own transaction where the party's first request or Einteilung was owed,\nabout a day today or later: for a move, „Spiel verlegt“, naming the slot it left and the one the fixture holds now\nwhere the party is still one of its sides or its referee and that slot has a day, an hour and both sides; for a\nreferee taken off the fixture -- ahead of a move it shares a close with, and never for the referee's own decline, which closed its row\nas it was given -- and for a call-off, the slot the row was about. A club is told at every address its season row's\nseats hold now, a referee at the address their record holds; a party nobody is left to tell is told nothing.\n\nThe mint asks about every fixture dated strictly after today and at most the answer window ahead that has its time and\nground, both sides, no result and no `sonderereignis`, and that the close would not shut: one row per side and one for\nits booked referee, unless a row about that party and that Ansetzung is still unclosed, or was closed `discarded`: a\ndecline the administrator discarded is the party's one answer to that Ansetzung. A fixture booked onto the erased\nreferee's ghost gets no referee row, the ghost holding no address. The deadline falls the notice period\n(`app/shared/schemas/bounds.py :: SPIEL_CONFIRMATION_FRIST_DAYS`) before the fixture, or today where that has passed.\nEach seat holding an address is owed one link, a person holding two seats one link naming both, each minted when the\nmail is handed out, and the row is stamped as asked; a referee row is owed its Einteilung, with no link. An open row's\noccupied seat holding no link -- its holder replaced, newly seated, or a ban since lifted -- is owed one too. A\nparty still asked by a fixture that moved to a slot the mint asks today is the mint's, never the close's: in the\ntransaction asking about the new slot, the mint closes the party's row about the slot left `ansetzung_changed`, and\nthe request or Einteilung it owes names the slot left, the one mail telling of the move; a party it owes no request,\nits answer about the new slot standing or no seat of its reachable, is owed the move's notice instead. A fixture\nholding any other unclosed row about an Ansetzung it has left is asked once the close has shut it, the close owing\nits notice first.\n\nThe one reminder owes a fresh link per person on each team row never reminded whose deadline lies the reminder's\ndays away (`app/shared/schemas/bounds.py :: SPIEL_REMINDER_DAYS`), minted beside the links already mailed so every\none of them answers until the deadline, and stamps the day. It passes over each seat\nwhose last mail did not arrive, and reminds no row this pass inserted nor one whose request was owed today; where\nthis pass's mint owed one of a row's seats a fresh link, that request is the seat's message of the day and the row's\nother seats are reminded beside it.\n\nA seat whose address the ban list holds is owed nothing and has nothing written, so it stays due and a later pass asks\nit once the ban is lifted.\n\nEach step takes a bounded share and leaves the rest due. A row whose write fails is passed over alone, logged by id\nand counted in `failed`; any other failure is raised, every step committed before it standing with its mails.\n\nA season that is not `active` is passed by whole -- nothing closed, minted or reminded -- so a mistyped call, or one for\na season ended since the listing, mails nobody. 404 where no season has the id.",
         "operationId": "spielbestaetigungen_sweep_spielbestaetigungen",
         "parameters": [
           {

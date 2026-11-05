@@ -15,7 +15,6 @@ from app.api.spielbestaetigungen.services import (
     build_referee_images_filter,
     build_referee_rows_filter,
     build_season_entries_filter,
-    build_season_halter_filter,
     build_season_images_filter,
     build_season_reasons_filter,
     build_seat_entry_images_filter,
@@ -252,7 +251,7 @@ async def strip_the_seasons_confirmations(
     # REQUIRED: the season's end judged in the same snapshot, so an activation since the caller's read keeps the rows.
     session: AsyncClientSession,
 ) -> int:
-    """At the season's end, every link entry, reason and holder digest left on the season's rows and their images.
+    """At the season's end, every link entry and reason left on the season's rows and their images.
 
     A replaced club's rows, a referee's and an administrator's reason among them; each answer's way and role stay as the
     record.
@@ -269,12 +268,6 @@ async def strip_the_seasons_confirmations(
         collection=spielbestaetigungen_collection,
         db_filter=build_season_reasons_filter(saison_id),
         update={"$set": {"antwort.begruendung": None}},
-        session=session,
-    )
-    await patch_many_in_db(
-        collection=spielbestaetigungen_collection,
-        db_filter=build_season_halter_filter(saison_id),
-        update={"$set": {"antwort.von.halter": None}},
         session=session,
     )
 

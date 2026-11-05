@@ -503,20 +503,16 @@ address as the sign-in box folds it, in lower case
 (`fl_frontend/src/core/emailAddress.ts :: asSignInIdentifier`), and the `session`, `account` and
 `passkey` rows whose `userId` is that row's `_id`.
 
-**A contact person's fixture confirmations are found from their address only through its digest.**
-A seat's answer stores neither the address nor a name: the reason its holder typed
-(`antwort.begruendung`) sits beside a keyed digest of the holder's address (`antwort.von.halter`),
-so compute that address's digest under `secrets/sperrliste_key` — the same derivation
-`fl_backend/app/api/spielbestaetigungen/services.py :: halter_of` performs, label and fold included
-— and look it up against `spielbestaetigungen.antwort.von.halter`, which finds every answer they
-gave from any seat. The paste belongs in the operator's own checklist, as the ban's does (below).
-Their seats' links and the delivery records of the messages that carried them sit under
+**A contact person's fixture confirmations are found from the seats they hold.**
+A seat's answer stores neither the address nor a name, only the seat it came from
+(`antwort.von.rolle`) beside the reason typed from it (`antwort.begruendung`).
+Their seats' answers, links and the delivery records of the messages that carried them sit under
 `kontakte.<seat>` on their club's rows of each season in which they hold a seat now (`saison_id`,
 `party.team_id`), read beside that season's contact block, which says whose seat it is: a seat they
 have left took its entries off every row of that team and season, answered and closed ones too. Send the fixture, the answer, its day and the
-reason, and never the digest, the value that identifies them.
+reason.
 **Once the season's contact block is cleared, its rows keep the answers alone**: the reasons, the
-digests, the links and the delivery records go with the block
+links and the delivery records go with the block
 ([`../datenschutz.md`](../datenschutz.md#6-retention-is-bounded-where-a-bound-was-chosen)), so an
 answer for that season names nobody to send.
 
@@ -853,8 +849,7 @@ sign being a second ban of an address already on the list admitted rather than r
 action log's pseudonyms of signed-in people too, so a replacement leaves one person's rows under two
 pseudonyms and the older can never be recomputed; the erasure journal's hashes, so every line
 written before a replacement matches no address a restore holds and its erasure cannot be run again
-after the restore (§13); and the digests naming who answered a fixture confirmation, so an erasure
-after a replacement finds none of the reasons its person typed before it. Treat it as
+after the restore (§13). Treat it as
 the one backend secret with no recovery: back it up where the database's own access details are
 backed up, and where it is genuinely gone, clear the list and enter the bans again from whatever
 record names the addresses.
@@ -1430,8 +1425,8 @@ stream, and so did every consent a person withdrew, every Widerspruch made throu
 every address change declined, stopped or discarded (by an administrator, by a later start replacing it, by
 finding nothing left to move, or by the hourly pass refusing it when due) and every one taking effect, and every
 request for a grant refused, withdrawn or ended by its address changing, each naming its person by a keyed hash
-and never by an address, an erasure's line also by the pseudonym the log keys their signed-in rows by and by
-the digest their fixture answers carry, whether its commit landed or lost its answer. §7's day files keep those lines outside the database for thirty days. **Once the restore has
+and never by an address, an erasure's line also by the pseudonym the log keys their signed-in rows by,
+whether its commit landed or lost its answer. §7's day files keep those lines outside the database for thirty days. **Once the restore has
 completed, run the export once more**, which reads every journal line the backend's stream and the
 deploy copies of those thirty days still hold into the day files:
 
@@ -1464,11 +1459,10 @@ the export wrote no file for. Each line is listed by its act and its record, nev
   "held nowhere". Every stored spelling is matched, folded as the sign-in folds it. The `auth`
   database is not read, an account whose
   address no league record holds going with the account sweep's first pass after the hold (§5). Held nowhere,
-  the address leaves its pseudonym and its holder digest: where the pseudonym still marks log rows,
-  or the digest still finds a confirmation or a log image holding a reason of theirs,
+  the address leaves its pseudonym: where the pseudonym still marks log rows,
   which a restore brings back with the snapshot, the listing says how many, with the log rows' ids,
   and reads `to replay`; a line naming
-  neither a pseudonym nor a holder digest reads `nothing to run`.
+  no pseudonym reads `nothing to run`.
 - **An address change that took effect before its person's erasure**, where the restored database
   holds the new address nowhere, is listed as an erasure, at the address it replaced: a snapshot from
   before the change holds the person's records there.
@@ -1491,8 +1485,7 @@ unreadable, naming files and never a value; and 3 or more where it crashed, a 1 
 again in a transaction of its own. A choice is written as its person's own press wrote it, the same
 update and the same log redaction, its evidence stamped with the instant on its line, the moment the
 person acted and never the replay's.
-An erasure held nowhere has its pseudonym's log rows marked and every reason
-its holder digest finds nulled with the digest, on the rows and in the log's images, as the erasure
+An erasure held nowhere has its pseudonym's log rows marked, as the erasure
 did; the log keeps one row under „Pseudonyme“ for the marks. The action log records each under
 the system, its call reading `REPLAY` and the line's act, record and journalling instant, never its
 person nor the journal's token, and a second run writes nothing. **An end that told somebody

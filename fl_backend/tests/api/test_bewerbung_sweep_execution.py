@@ -1654,7 +1654,7 @@ def a_declined_confirmation(team_id: ObjectId, saison_id: str) -> dict[str, Any]
         party={"art": "team", "team_id": team_id},
         asked_at=f"{saison_id}-04-01",
         kontakte={seat: {"token_hashes": ["b" * 64], "delivery": delivered} for seat in KONTAKT_ROLLEN},
-        antwort=documents.kontakt_antwort_document("trainer", "trainer@example.com", begruendung="Wir sind auf Klassenfahrt"),
+        antwort=documents.kontakt_antwort_document("trainer", begruendung="Wir sind auf Klassenfahrt"),
         closed={"at": f"{saison_id}-04-19", "grund": "spiel_past"},
     )
 
@@ -1663,21 +1663,13 @@ def a_declined_confirmation(team_id: ObjectId, saison_id: str) -> dict[str, Any]
 IMAGES_A_FIRST_BATCH = 101
 
 
-def a_strip_edit_set(mask: int, begruendung: bool, halter: bool) -> dict[str, Any]:
-    """A row holding the seats `mask` names and, where asked, a reason and a holder digest: one set of fields the strip nulls."""
+def a_strip_edit_set(mask: int, begruendung: bool) -> dict[str, Any]:
+    """A row holding the seats `mask` names and, where asked, a reason: one set of fields the strip nulls."""
 
     row = a_declined_confirmation(CLUB_OID, SAISON_ID)
     row["kontakte"] = {seat: row["kontakte"][seat] if mask >> bit & 1 else None for bit, seat in enumerate(KONTAKT_ROLLEN)}
-    antwort = row["antwort"]
-    row["antwort"] = (
-        {
-            **antwort,
-            "begruendung": antwort["begruendung"] if begruendung else None,
-            "von": {**antwort["von"], "halter": antwort["von"]["halter"] if halter else None},
-        }
-        if begruendung or halter
-        else None
-    )
+    if not begruendung:
+        row["antwort"] = None
 
     return row
 
@@ -1685,16 +1677,10 @@ def a_strip_edit_set(mask: int, begruendung: bool, halter: bool) -> dict[str, An
 async def images_of_every_strip_edit_set(database: AsyncDatabase, client: AsyncMongoClient) -> None:
     """An image for each set of fields the strip can null, single images past the read's first batch, and an undraw's list.
 
-    A reason and a digest apart: an administrator's settle reason holds no digest, a Zusage no reason.
+    A reason apart from the seats: an administrator's settle reason holds no seat, a Zusage no reason.
     """
 
-    edit_sets = [
-        (mask, begruendung, halter)
-        for mask in range(2 ** len(KONTAKT_ROLLEN))
-        for begruendung in (False, True)
-        for halter in (False, True)
-        if mask or begruendung or halter
-    ]
+    edit_sets = [(mask, begruendung) for mask in range(2 ** len(KONTAKT_ROLLEN)) for begruendung in (False, True) if mask or begruendung]
     confirmations = database[Collection.SPIELBESTAETIGUNGEN]
     for position in range(IMAGES_A_FIRST_BATCH + 1):
         row = a_strip_edit_set(*edit_sets[position % len(edit_sets)])
@@ -1702,13 +1688,13 @@ async def images_of_every_strip_edit_set(database: AsyncDatabase, client: AsyncM
         await patch_one_in_db(
             collection=confirmations,
             db_filter={"_id": row["_id"]},
-            update={"$set": {"reminded_at": []}},
+            update={"$set": {"reminded_at": None}},
             expected_version=None,
             return_document=ReturnDocument.BEFORE,
         )
 
     # An undraw's removal, whose one log row holds every removed row's image in a list.
-    undrawn = [a_strip_edit_set(1, True, True), a_strip_edit_set(2, False, True)]
+    undrawn = [a_strip_edit_set(1, True), a_strip_edit_set(2, False)]
     await confirmations.insert_many(undrawn)
     async with client.start_session() as session:
         await session.with_transaction(
@@ -1799,7 +1785,7 @@ class TestTheSeasonsEndStripsItsConfirmations:
                 await patch_one_in_db(
                     collection=confirmations,
                     db_filter={"_id": row["_id"]},
-                    update={"$set": {"reminded_at": []}},
+                    update={"$set": {"reminded_at": None}},
                     expected_version=None,
                     return_document=ReturnDocument.BEFORE,
                 )
@@ -1817,7 +1803,7 @@ class TestTheSeasonsEndStripsItsConfirmations:
         # The premise: the pass cleared the season's one block, which is what owes the strip.
         assert response.kontakt_blocks_emptied == 1
         kept = rows["own"]["antwort"]
-        stripped = {**kept, "begruendung": None, "von": {**kept["von"], "halter": None}}
+        stripped = {**kept, "begruendung": None}
         for name in ("own", "replaced"):
             for left in (stored[name], images[name]):
                 assert (left["antwort"], left["kontakte"]) == (stripped, dict.fromkeys(KONTAKT_ROLLEN)), name
@@ -1838,11 +1824,7 @@ class TestTheSeasonsEndStripsItsConfirmations:
         response, stripped = on_a_league(mongo_replica_set_url, body, status="past", next_status="past")
 
         assert (response.kontakt_blocks_emptied, response.failed) == (0, 0)
-        assert (stripped["antwort"]["begruendung"], stripped["antwort"]["von"]["halter"], stripped["kontakte"]) == (
-            None,
-            None,
-            dict.fromkeys(KONTAKT_ROLLEN),
-        )
+        assert (stripped["antwort"]["begruendung"], stripped["kontakte"]) == (None, dict.fromkeys(KONTAKT_ROLLEN))
 
     def test_a_strip_failing_holds_back_no_block_and_is_passed_over_under_the_season(
         self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture
@@ -1906,7 +1888,7 @@ class TestTheSeasonsEndStripsItsConfirmations:
                 await patch_one_in_db(
                     collection=confirmations,
                     db_filter={"_id": row["_id"]},
-                    update={"$set": {"reminded_at": []}},
+                    update={"$set": {"reminded_at": None}},
                     expected_version=None,
                     return_document=ReturnDocument.BEFORE,
                 )
