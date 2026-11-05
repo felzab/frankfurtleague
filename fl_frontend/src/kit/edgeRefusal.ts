@@ -3,7 +3,7 @@
  * a rejected action as its error's message only under a content type of exactly `text/plain`: so ASCII,
  * sent with no charset.
  */
-export const EDGE_REFUSAL_BODY = "Zu viele Versuche in kurzer Zeit. Warte einen Moment und versuche es dann erneut.";
+export const EDGE_REFUSAL_BODY = "Zu viele Versuche.";
 
 /** An action's rejection that is the edge's own rate refusal: the press reached nothing behind the edge. */
 export function isEdgeRefusal(error: unknown): boolean {
