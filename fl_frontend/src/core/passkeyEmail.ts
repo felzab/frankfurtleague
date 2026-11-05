@@ -28,9 +28,9 @@ const ERASED: PasskeyEvent = {
 };
 
 /** What a builder is handed; `account` is a path on `origin`, the account's Sicherheit page, which the row carries. */
-type Anlass = { instant: Date; origin: string; account: string };
+type Occasion = { instant: Date; origin: string; account: string };
 
-function build(event: PasskeyEvent, { instant, origin, account }: Anlass): Mail {
+function build(event: PasskeyEvent, { instant, origin, account }: Occasion): Mail {
   const site = mailOrigin(origin);
 
   return {
@@ -44,10 +44,10 @@ function build(event: PasskeyEvent, { instant, origin, account }: Anlass): Mail 
   };
 }
 
-export function buildPasskeyAddedEmail(anlass: Anlass): Mail {
-  return build(ADDED, anlass);
+export function buildPasskeyAddedEmail(occasion: Occasion): Mail {
+  return build(ADDED, occasion);
 }
 
-export function buildPasskeyErasedEmail(anlass: Anlass): Mail {
-  return build(ERASED, anlass);
+export function buildPasskeyErasedEmail(occasion: Occasion): Mail {
+  return build(ERASED, occasion);
 }

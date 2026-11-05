@@ -7,6 +7,7 @@ from typing import Any
 
 import pytest
 from bson import ObjectId
+from fastapi import Response
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import DuplicateKeyError, OperationFailure, PyMongoError
@@ -21,7 +22,7 @@ from app.api.saisons.schemas import (
     FLSpielplanShape,
     FLUndrawSpielplanResponse,
 )
-from app.api.spielberichte.admin_router import patch_spielbericht
+from app.api.spielberichte.person_router import put_spielbericht_bericht
 from app.api.spielberichte.schemas import FLSpielberichtBerichtPayload, FLSpielberichtPayload
 from app.api.spiele.schemas import KNOCKOUT_PHASES, FLSpiel
 from app.api.spieltage.schemas import FLSpieltag
@@ -29,12 +30,13 @@ from app.api.spieltage.services import with_expected_matches
 from app.api.teams.services import offered_gruppen
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import APIError, DocumentNotFoundError
+from app.core.exceptions import APIError
 from app.core.logging import trace_id_var
 from tests import documents
 from tests.bracket_reference import BRACKET_SEEDING
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.isolation import COMMITTED, InterleavedCollection, outcome_of
+from tests.records import record_collections
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -216,10 +218,12 @@ async def call_draw(
     )
 
 
-async def call_undraw(database: AsyncDatabase, client: AsyncMongoClient, *, spielberichte_collection: Any = None) -> FLUndrawSpielplanResponse:
+async def call_undraw(
+    database: AsyncDatabase, client: AsyncMongoClient, *, spielberichte_collection: Any = None, saisons_collection: Any = None
+) -> FLUndrawSpielplanResponse:
     return await delete_spielplan(
         saison_id=SAISON_ID,
-        saisons_collection=database[Collection.SAISONS],
+        saisons_collection=database[Collection.SAISONS] if saisons_collection is None else saisons_collection,
         spiele_collection=database[Collection.SPIELE],
         spieltage_collection=database[Collection.SPIELTAGE],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
@@ -374,14 +378,9 @@ def junction_by_team(drawn: DrawnSeason) -> dict[Any, Mapping[str, Any]]:
 
 
 def side_from(junction_row: Mapping[str, Any]) -> dict[str, Any]:
-    """One side as a drawn fixture must store it: the club, the season's own name for it, and no goals."""
+    """One side as a drawn fixture must store it: the club and no goals, its name joined at read off the row."""
 
-    return {
-        "team_id": junction_row["team_id"],
-        "name": junction_row["name"],
-        "shorthand": junction_row["shorthand"],
-        "tore": None,
-    }
+    return {"team_id": junction_row["team_id"], "tore": None}
 
 
 def group_fixtures(drawn: DrawnSeason) -> list[dict[str, Any]]:
@@ -526,8 +525,8 @@ class TestTheGroupPhaseIsEachGroupsOwnRoundRobin:
             assert len(pairs) == len(set(pairs)), f"gruppe {gruppe} draws a pair more than once"
             assert set(pairs) == {frozenset(pair) for pair in combinations(ids, 2)}
 
-    def test_each_side_is_stored_under_the_name_the_junction_carries(self, mongo_replica_set_url: str):
-        """The name the season is played under, off the row rather than off `teams`, and no goals: a drawn fixture has not happened."""
+    def test_each_side_is_stored_as_the_club_the_junction_holds(self, mongo_replica_set_url: str):
+        """The club and no goals, a drawn fixture having not happened, and no name, which every read joins off the row."""
 
         drawn = a_drawn_season(mongo_replica_set_url)
         junction = junction_by_team(drawn)
@@ -991,13 +990,17 @@ class TestASubmittedReportKeepsTheSpielplanFromAReplace:
         assert passes == 1
 
 
-# How long the removal holds its commit for the report's write. The hold lets go once the report's anchor meets the
-# removal's season write, the crossing proved, so this bounds only a run that never crosses.
+# How long the report holds its commit for the removal. The hold lets go once the removal's anchor meets the report's
+# season write, the crossing proved, so this bounds only a run that never crosses.
 HOLD_S = 2.0
 
 # The race cases' fixture is played the day before their report is written.
 PLAYED_ON = "2026-08-20"
 REPORTED_ON = "2026-08-21"
+
+# The referee the race cases' fixture is booked to, whose own route writes the report.
+REPORTING_REFEREE = ObjectId("6890a1b2c3d4e5f607760103")
+REPORTING_REFEREE_EMAIL = "otto.gruber@example.com"
 
 # A goalless report, the least a write takes.
 NULL_NULL = FLSpielberichtBerichtPayload.model_validate(
@@ -1017,31 +1020,15 @@ async def held_until(event: asyncio.Event) -> None:
         return
 
 
-class SaisonsHeldAfterTheirWatermark:
-    """The replace's season collection, holding the replace open once its watermark write ran, for the report to land."""
+class SpieleHeldAfterTheReportsLastJudgement:
+    """The report's fixture collection, holding the write open once its judgement outside the transaction read the fixture.
 
-    def __init__(self, collection: Any, *, written: asyncio.Event, other: asyncio.Event) -> None:
+    That read is the write's last before its commit, so whatever lands during the hold is judged by nothing but the anchor.
+    """
+
+    def __init__(self, collection: Any, *, judged: asyncio.Event, other: asyncio.Event) -> None:
         self._collection = collection
-        self._written = written
-        self._other = other
-
-    def __getattr__(self, name: str) -> Any:
-        return getattr(self._collection, name)
-
-    async def find_one_and_update(self, *args: Any, **kwargs: Any) -> Any:
-        result = await self._collection.find_one_and_update(*args, **kwargs)
-        if "spielplan" in kwargs.get("update", {}).get("$set", {}):
-            self._written.set()
-            await held_until(self._other)
-        return result
-
-
-class BerichteHeldAfterTheirCountOutside:
-    """The undraw's report collection, holding the undraw open once its count outside the transaction answered, for the report to land."""
-
-    def __init__(self, collection: Any, *, counted: asyncio.Event, other: asyncio.Event) -> None:
-        self._collection = collection
-        self._counted = counted
+        self._judged = judged
         self._other = other
 
     def __getattr__(self, name: str) -> Any:
@@ -1049,20 +1036,20 @@ class BerichteHeldAfterTheirCountOutside:
 
     async def aggregate(self, *args: Any, **kwargs: Any) -> Any:
         cursor = await self._collection.aggregate(*args, **kwargs)
-        if kwargs.get("session") is not None:
+        if kwargs.get("session") is not None or self._judged.is_set():
             return cursor
 
-        # Read whole before the hold, so the count answers what stood before the report landed.
+        # Read whole before the hold, so the judgement answers the fixture as it stood before the removal.
         rows = await cursor.to_list()
-        self._counted.set()
+        self._judged.set()
         await held_until(self._other)
 
-        return CountedRows(rows)
+        return ReadRows(rows)
 
 
 @dataclass(frozen=True)
-class CountedRows:
-    """The rows a held count read, handed back as the cursor that read them would."""
+class ReadRows:
+    """The rows a held read took, handed back as the cursor that read them would."""
 
     rows: list[Any]
 
@@ -1070,12 +1057,12 @@ class CountedRows:
         return self.rows[:length] if length is not None else self.rows
 
 
-# Never `tests/isolation.py :: InterleavedCollection`, which awaits its rival inside the write: a report nested in the
-# open removal conflicts on every retry, and the removal cannot commit until the server kills its transaction.
-class ReportsAnchorMeetingTheRemoval:
-    """Counts each time the report's season anchor meets a write the removal holds open, and says so.
+# Never `tests/isolation.py :: InterleavedCollection`, which awaits its rival inside the write: a removal nested in the
+# open report conflicts on every retry, and the report cannot commit until the server kills its transaction.
+class RemovalsAnchorMeetingTheReport:
+    """Counts each time the removal's season anchor meets the write the report holds open, and says so.
 
-    That meeting is the crossing: a report arriving after the removal's commit meets nothing, yet passes every other assertion.
+    That meeting is the crossing: a removal arriving after the report's commit meets nothing, yet passes every other assertion.
     """
 
     def __init__(self, collection: Any, *, met: asyncio.Event) -> None:
@@ -1096,41 +1083,55 @@ class ReportsAnchorMeetingTheRemoval:
             raise
 
 
-async def an_admin_first_report(
-    database: AsyncDatabase, client: AsyncMongoClient, *, spiel_id: ObjectId, landed: asyncio.Event, saisons: Any = None
-) -> str:
-    """Through the administrator's route, so its own call of the season's anchor is the one under test."""
+async def a_referees_first_report(database: AsyncDatabase, client: AsyncMongoClient, *, spiel_id: ObjectId, spiele: Any) -> str:
+    """Through the referee's route, so its own call of the season's anchor is the one under test."""
 
-    try:
-        await patch_spielbericht(
+    return await outcome_of(
+        put_spielbericht_bericht(
             spiel_id=spiel_id,
             bericht_data=FLSpielberichtPayload(bericht=NULL_NULL, bericht_stand=None),
-            spiele_collection=database[Collection.SPIELE],
-            saisons_collection=database[Collection.SAISONS] if saisons is None else saisons,
+            response=Response(),
+            identifier=REPORTING_REFEREE_EMAIL,
+            spiele_collection=spiele,
+            saisons_collection=database[Collection.SAISONS],
             saison_spieler_collection=database[Collection.SAISON_SPIELER],
             spieler_collection=database[Collection.SPIELER],
             spielberichte_collection=database[Collection.SPIELBERICHTE],
+            records=record_collections(database),
             db=client,
             today=REPORTED_ON,
             now=datetime(2026, 8, 21, 12, tzinfo=UTC),
         )
-    # The fixture the draw's removal took, as the report's own write answers it.
-    except DocumentNotFoundError as gone:
-        return str(gone.error_code)
-    finally:
-        landed.set()
-
-    return COMMITTED
+    )
 
 
 async def a_reportable_fixture(database: AsyncDatabase) -> ObjectId:
-    """A group fixture dated before the report's day, which keeps the removal's window open: a date is no recorded fact."""
+    """A group fixture played before the report's day and booked to the reporting referee.
 
+    The booking is a recorded fact, which closes the removal's window, so each race takes it off before the removal judges.
+    """
+
+    await database[Collection.SCHIEDSRICHTER].insert_one(
+        documents.schiedsrichter_document(
+            REPORTING_REFEREE,
+            email=REPORTING_REFEREE_EMAIL,
+            name="Otto Gruber",
+            default_payment=20,
+            einwilligung=documents.own_einwilligung_document(text_versions=documents.SCHIEDSRICHTER_TEXT_VERSIONS, confirmed_at="2026-01-10"),
+        )
+    )
     spiel = await database[Collection.SPIELE].find_one({"saison_id": SAISON_ID, "saison_phase": "gruppenphase"})
     assert spiel is not None, "the premise: the season is drawn"
-    await database[Collection.SPIELE].update_one({"_id": spiel["_id"]}, {"$set": {"datum": PLAYED_ON}})
+    await database[Collection.SPIELE].update_one(
+        {"_id": spiel["_id"]},
+        {"$set": {"datum": PLAYED_ON, "schiedsrichter": {"schiedsrichter_id": REPORTING_REFEREE, "name": "Otto Gruber", "payment": 20}}},
+    )
 
     return spiel["_id"]
+
+
+async def take_the_referee_off(database: AsyncDatabase, spiel_id: ObjectId) -> None:
+    await database[Collection.SPIELE].update_one({"_id": spiel_id}, {"$set": {"schiedsrichter": None}})
 
 
 async def orphaned_reports(database: AsyncDatabase) -> list[ObjectId]:
@@ -1139,60 +1140,57 @@ async def orphaned_reports(database: AsyncDatabase) -> list[ObjectId]:
     return [row["_id"] async for row in database[Collection.SPIELBERICHTE].find() if row["spiel_id"] not in standing]
 
 
-class TestAFirstReportCrossingADrawsRemovalMeetsItOnTheSeason:
-    """The report's tail, every judgement past, lands inside the removal before its commit."""
+Removal = Callable[[Any], Awaitable[Any]]
 
-    def test_a_report_landing_inside_a_same_day_redraw_never_outlives_it(self, mongo_replica_set_url: str):
+
+async def a_report_crossed_by(database: AsyncDatabase, client: AsyncMongoClient, removal: Removal) -> Any:
+    """The report passes both its judgements on the booked fixture; the booking goes, and the removal runs inside the report's hold."""
+
+    spiel_id = await a_reportable_fixture(database)
+    # Set by the removal's anchor meeting the report, whichever retry meets it first: the hold's end.
+    judged, met = asyncio.Event(), asyncio.Event()
+    spiele = SpieleHeldAfterTheReportsLastJudgement(database[Collection.SPIELE], judged=judged, other=met)
+    anchors = RemovalsAnchorMeetingTheReport(database[Collection.SAISONS], met=met)
+
+    async def the_removal() -> str:
+        await held_until(judged)
+        await take_the_referee_off(database, spiel_id)
+        return await outcome_of(removal(anchors))
+
+    outcomes = await asyncio.gather(a_referees_first_report(database, client, spiel_id=spiel_id, spiele=spiele), the_removal())
+
+    return outcomes, await orphaned_reports(database), anchors.conflicts
+
+
+class TestAFirstReportCrossingADrawsRemovalMeetsItOnTheSeason:
+    """The removal lands inside the report's tail, every judgement past, before the report's commit."""
+
+    def test_a_same_day_redraw_landing_inside_a_report_never_leaves_it_orphaned(self, mongo_replica_set_url: str):
         """The redraw's watermark write changes nothing, so only its own anchor writes the season the report anchors."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await call_draw(database, client)
-            spiel_id = await a_reportable_fixture(database)
-            # Set by the report's landing or by its anchor meeting the replace, whichever comes first: the hold's end.
-            watermark_written, released = asyncio.Event(), asyncio.Event()
-            anchors = ReportsAnchorMeetingTheRemoval(database[Collection.SAISONS], met=released)
-
-            async def report() -> str:
-                await held_until(watermark_written)
-                return await an_admin_first_report(database, client, spiel_id=spiel_id, landed=released, saisons=anchors)
-
-            saisons = SaisonsHeldAfterTheirWatermark(database[Collection.SAISONS], written=watermark_written, other=released)
-            outcomes = await asyncio.gather(
-                report(),
-                # The same day's redraw, whose watermark write changes nothing.
-                outcome_of(call_draw(database, client, replace=True, saisons_collection=saisons)),
+            return await a_report_crossed_by(
+                database, client, lambda saisons: call_draw(database, client, replace=True, saisons_collection=saisons)
             )
-
-            return outcomes, await orphaned_reports(database), anchors.conflicts
 
         (report, replace), orphans, conflicts = on_a_seeded_saison(mongo_replica_set_url, body)
 
-        assert conflicts > 0, "the report's anchor never met the replace inside it, so nothing below is the crossing"
+        assert conflicts > 0, "the replace's anchor never met the report inside it, so nothing below is the crossing"
         assert orphans == [], f"a report outlives the replace: the report {report!r}, the replace {replace!r}"
         assert COMMITTED in (report, replace), "neither side landed"
 
-    def test_a_report_landing_inside_an_undraw_of_a_season_holding_no_watermark_never_outlives_it(self, mongo_replica_set_url: str):
+    def test_an_undraw_of_a_season_holding_no_watermark_landing_inside_a_report_never_leaves_it_orphaned(self, mongo_replica_set_url: str):
         """A season drawn outside this API holds no watermark, so the undraw's `$unset` changes nothing and only its anchor meets the report."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await call_draw(database, client)
             await database[Collection.SAISONS].update_one({"_id": SAISON_ID}, {"$unset": {"spielplan": ""}})
-            spiel_id = await a_reportable_fixture(database)
-            counted, released = asyncio.Event(), asyncio.Event()
-            anchors = ReportsAnchorMeetingTheRemoval(database[Collection.SAISONS], met=released)
-
-            async def report() -> str:
-                await held_until(counted)
-                return await an_admin_first_report(database, client, spiel_id=spiel_id, landed=released, saisons=anchors)
-
-            berichte = BerichteHeldAfterTheirCountOutside(database[Collection.SPIELBERICHTE], counted=counted, other=released)
-            outcomes = await asyncio.gather(report(), outcome_of(call_undraw(database, client, spielberichte_collection=berichte)))
-
-            return outcomes, await orphaned_reports(database), anchors.conflicts
+            return await a_report_crossed_by(database, client, lambda saisons: call_undraw(database, client, saisons_collection=saisons))
 
         (report, undraw), orphans, conflicts = on_a_seeded_saison(mongo_replica_set_url, body)
 
-        assert conflicts > 0, "the report's anchor never met the undraw inside it, so nothing below is the crossing"
+        assert conflicts > 0, "the undraw's anchor never met the report inside it, so nothing below is the crossing"
         assert orphans == [], f"a report outlives the undraw: the report {report!r}, the undraw {undraw!r}"
         assert COMMITTED in (report, undraw), "neither side landed"
 

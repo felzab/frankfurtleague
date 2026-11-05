@@ -19,6 +19,7 @@ from app.core.collections import Collection
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import (
+    ADDRESS,
     SCHIEDSRICHTER_TEXT_VERSIONS,
     own_einwilligung_document,
     schiedsrichter_document,
@@ -64,17 +65,15 @@ class TestTheJoinedDisqualification:
         assert match_3["team2"]["austritt"] == AUSTRITT
 
     def test_the_season_is_the_fixtures_own_and_not_a_resolved_one(self, league: SeededLeague) -> None:
-        """Every match read runs this pipeline, so keying on `team_id` alone badges a match played before the decision."""
+        """Every match read runs this pipeline, so keying on `team_id` alone badges a match played before the decision.
+
+        And names it as the club is called now, where a past season keeps the name it was played under.
+        """
 
         match_8 = spiel(league, 8, saison_id=PRIOR_SAISON)
 
-        assert match_8["team2"]["name"] == "Lessing"
+        assert match_8["team2"]["name"] == "Lessing 2025"
         assert match_8["team2"]["austritt"] is None
-
-    def test_a_side_whose_team_holds_no_row_for_the_season_carries_null(self, league: SeededLeague) -> None:
-        """No junction row is no disqualification: that is `eligibility_team_not_in_saison`'s fact, and this field answers another one."""
-
-        assert spiel(league, 8, saison_id=PRIOR_SAISON)["team1"]["austritt"] is None
 
 
 class TestWhatTheMergeMustNotBreak:
@@ -199,6 +198,33 @@ async def joined(database: AsyncDatabase) -> dict[str, Any]:
 
 async def verdict(database: AsyncDatabase) -> bool | None:
     return (await joined(database))[ANSETZUNG_CONFIRMED]
+
+
+class TestAFixtureNamesItsVenueAsItIsCalledNow:
+    def test_a_venue_renamed_after_a_past_fixture_shows_its_new_name_there(self, mongo_url: str):
+        """A copy stored on the fixture would go on naming the ground as it was called before the rename."""
+
+        fixture = {**a_fixture(), "datum": "2025-09-20", "ort": {"spielort_id": VERDICT_SPIELORT_ID, "mietpreis": 80}}
+
+        async def body(database: AsyncDatabase) -> Mapping[str, Any]:
+            await database[Collection.SPIELORTE].insert_one(
+                {
+                    "_id": VERDICT_SPIELORT_ID,
+                    "name": "Sportplatz Ost",
+                    "address": dict(ADDRESS),
+                    "maps_link": "Sportplatz Ost, Frankfurt",
+                    "default_mietpreis": 80,
+                    "inactive_since": None,
+                }
+            )
+            await database[Collection.SPIELORTE].update_one(
+                {"_id": VERDICT_SPIELORT_ID}, {"$set": {"name": "Sporthalle Ost", "maps_link": "Sporthalle Ost, Frankfurt"}}
+            )
+            return (await joined(database))["ort"]
+
+        ort = on_a_fixture(mongo_url, fixture, [], body)
+
+        assert ort == {"spielort_id": VERDICT_SPIELORT_ID, "mietpreis": 80, "name": "Sporthalle Ost", "maps_link": "Sporthalle Ost, Frankfurt"}
 
 
 class TestTheVerdictReadsTheAnsetzungAsItStandsNow:

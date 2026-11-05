@@ -214,14 +214,6 @@
       "count": 2
     }
   },
-  "src/app/area/admin/spiele/[spiel_id]/spielbericht/page.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 2
-    },
-    "no-restricted-syntax": {
-      "count": 4
-    }
-  },
   "src/app/area/admin/spieler/[spieler_id]/loading.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 1
@@ -346,19 +338,9 @@
       "count": 3
     }
   },
-  "src/core/schiedsrichterEmail.ts": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
   "src/core/sessionLifetimes.ts": {
     "no-restricted-syntax": {
       "count": 1
-    }
-  },
-  "src/core/spielEmail.ts": {
-    "no-restricted-syntax": {
-      "count": 3
     }
   },
   "src/core/teamVocabulary.ts": {
@@ -1914,11 +1896,6 @@
       "count": 1
     }
   },
-  "src/features/spielberichte/actions.ts": {
-    "fl/server-action": {
-      "count": 1
-    }
-  },
   "src/features/spielberichte/components/forms/SpielberichtForm/AuswahlSelect.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 9
@@ -1989,7 +1966,7 @@
       "count": 1
     },
     "no-restricted-syntax": {
-      "count": 14
+      "count": 12
     },
     "react/forbid-component-props": {
       "count": 9
@@ -2047,13 +2024,13 @@
   },
   "src/features/spielberichte/components/views/AdminSpielberichtPanel.tsx": {
     "@typescript-eslint/no-restricted-imports": {
-      "count": 8
+      "count": 7
     },
     "no-restricted-syntax": {
       "count": 16
     },
     "react/forbid-component-props": {
-      "count": 5
+      "count": 3
     },
     "react/jsx-no-literals": {
       "count": 9
@@ -2121,7 +2098,7 @@
       "count": 1
     },
     "no-restricted-syntax": {
-      "count": 15
+      "count": 10
     }
   },
   "src/features/spielbestaetigungen/actions.ts": {
@@ -2636,7 +2613,7 @@
   },
   "src/features/spiele/refusals.ts": {
     "no-restricted-syntax": {
-      "count": 5
+      "count": 4
     }
   },
   "src/features/spiele/utils.ts": {

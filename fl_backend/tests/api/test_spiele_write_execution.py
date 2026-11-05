@@ -14,7 +14,7 @@ from pymongo.errors import OperationFailure
 from app.api.saisons.overview import FLOverviewBracketFaultRow
 from app.api.saisons.overview_router import get_saison_overview
 from app.api.spiele.admin_router import patch_spiel
-from app.api.spiele.crud import apply_release_to_spiel
+from app.api.spiele.crud import apply_release_to_spiel, pull_saison_membership
 from app.api.spiele.schemas import (
     SONDEREREIGNIS_NO_SHOW,
     FLBracketFault,
@@ -91,7 +91,9 @@ GRUPPE_HELD_OTHER_NR = 13
 
 
 def side(team_id: ObjectId, tore: int | None = None) -> dict[str, Any]:
-    return {"team_id": team_id, "name": NAMES[team_id][0], "shorthand": NAMES[team_id][1], "tore": tore}
+    """A side as a fixture stores it: the club and its goals, its name joined at read."""
+
+    return {"team_id": team_id, "tore": tore}
 
 
 def team_document(team_id: ObjectId) -> dict[str, Any]:
@@ -369,19 +371,15 @@ def referee_documents() -> list[dict[str, Any]]:
 
 
 def booking(spielort_id: ObjectId, mietpreis: int = 80) -> dict[str, Any]:
-    """A venue as a fixture STORES it, under the name the venue itself carries -- which is what a save composes back."""
+    """A venue as a fixture STORES it: the ground and this fixture's rent, its name joined at read."""
 
-    name, _ = VENUES[spielort_id]
-
-    return {"spielort_id": spielort_id, "name": name, "maps_link": f"{name}, Frankfurt", "mietpreis": mietpreis}
+    return {"spielort_id": spielort_id, "mietpreis": mietpreis}
 
 
 def assignment(schiedsrichter_id: ObjectId, payment: int = 20) -> dict[str, Any]:
-    """A referee as a fixture STORES them, the venue's `booking` counterpart -- and the fee is the money half of the same asymmetry."""
+    """A referee as a fixture STORES them, the venue's `booking` counterpart: the fee is this fixture's, the name joined at read."""
 
-    name, _ = REFEREES[schiedsrichter_id]
-
-    return {"schiedsrichter_id": schiedsrichter_id, "name": name, "payment": payment}
+    return {"schiedsrichter_id": schiedsrichter_id, "payment": payment}
 
 
 def one_venue_twice(*, sonderereignis: str | None) -> list[dict[str, Any]]:
@@ -592,8 +590,8 @@ class TestTheBookingRefusalIsReachedThroughTheRoute:
 
         assert (code, spiele[GRUPPE_FILLING_NR]["sonderereignis"]) == (Code.BOOKING_UNKNOWN_RESOURCE, "ausgefallen")
 
-    def test_a_live_venue_is_stored_under_the_name_the_venue_carries(self, mongo_replica_set_url: str):
-        """The composition end to end: the ground and the rent are the payload's, the name and the link the venue's."""
+    def test_a_live_venue_is_stored_as_the_payload_books_it(self, mongo_replica_set_url: str):
+        """End to end: the ground and the rent are the payload's, and the document holds nothing the read joins."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             spiel_data = await payload_for(database, GRUPPE_FILLING, ort={"spielort_id": SPIELORT, "mietpreis": 95})
@@ -605,8 +603,8 @@ class TestTheBookingRefusalIsReachedThroughTheRoute:
 
         assert spiele[GRUPPE_FILLING_NR]["ort"] == booking(SPIELORT, mietpreis=95)
 
-    def test_a_live_referee_is_stored_under_the_name_the_referee_carries(self, mongo_replica_set_url: str):
-        """The same composition on the other reference, whose fee is what the league pays out -- and the venue's case cannot speak for it."""
+    def test_a_live_referee_is_stored_as_the_payload_books_them(self, mongo_replica_set_url: str):
+        """The same on the other reference, whose fee is what the league pays out -- and the venue's case cannot speak for it."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             assigned = {"schiedsrichter_id": SCHIEDSRICHTER, "payment": 35}
@@ -680,25 +678,6 @@ class TestAHandEditedFixtureOfAnotherSeasonAnswersTheRefusal:
         answered = on_a_seeded_season(mongo_replica_set_url, body, spiele=an_unbooked_spieltag())
 
         assert answered == (ValidationError if raises else Code.BOOKING_UNKNOWN_RESOURCE)
-
-
-class TestASavedSideIsNamedByTheSeason:
-    def test_the_stored_name_comes_from_the_junction_rather_than_the_payload(self, mongo_replica_set_url: str):
-        """A club renamed while the season runs: the fixture's copy is rewritten from the junction on the next save of it."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SAISON_TEAMS].update_one({"team_id": GAMMA}, {"$set": {"name": "Gamma-Schule", "shorthand": "GSX"}})
-            spiel_data = await payload_for(database, GRUPPE_FILLING)
-            await call_patch(database, client, GRUPPE_FILLING, spiel_data)
-
-            return await spiele_now(database)
-
-        spiele = on_a_seeded_season(mongo_replica_set_url, body, spiele=an_unbooked_spieltag())
-
-        assert spiele[GRUPPE_FILLING_NR]["team1"] == {"team_id": GAMMA, "name": "Gamma-Schule", "shorthand": "GSX", "tore": None}
-        # Composed from its OWN row, which the rename above did not touch: the change followed the
-        # junction rather than one name reaching every side.
-        assert spiele[GRUPPE_FILLING_NR]["team2"] == side(DELTA)
 
 
 class TestTheStateRefusalIsReachedThroughTheRoute:
@@ -818,7 +797,7 @@ class TestASavedResultCarriesThroughTheBracket:
 
         assert spiele[VIERTELFINALE_NR]["ergebnis"] == "3:1"
 
-        assert spiele[HALBFINALE_NR]["team1"] == {"team_id": ALPHA, "name": "Alpha", "shorthand": "ALX", "tore": None}
+        assert spiele[HALBFINALE_NR]["team1"] == side(ALPHA)
         assert spiele[HALBFINALE_NR]["ergebnis"] is None
         # The stale shoot-out is the damage: the bracket would name a winner the goals no longer support.
         assert spiele[HALBFINALE_NR]["elfmeterschiessen"] is None, "the shoot-out outlived the side that won it"
@@ -985,7 +964,9 @@ class TestAReleaseWritesWhatThePureModelPredicts:
 
             spiel_data = await payload_for(database, GRUPPE_FILLING, team1=side(ALPHA))
             # The handler's own judgement, over the season it is about to read: what the model is then handed.
-            (release,) = judge_spieltag_occupancy(GRUPPE_FILLING, spiel_data, season).releases
+            (release,) = judge_spieltag_occupancy(
+                GRUPPE_FILLING, spiel_data, season, await pull_saison_membership(database[Collection.SAISON_TEAMS], SAISON_ID)
+            ).releases
 
             preview = await call_patch(database, client, GRUPPE_FILLING, spiel_data, dry_run=True)
             after_preview = await read_spiel(database, GRUPPE_HELD)
@@ -1037,7 +1018,9 @@ class TestAReleaseWritesWhatThePureModelPredicts:
             before = next(spiel for spiel in season if spiel.id == GRUPPE_HELD)
 
             spiel_data = await payload_for(database, GRUPPE_FILLING, team1=side(ALPHA), team2=side(BETA))
-            releases = judge_spieltag_occupancy(GRUPPE_FILLING, spiel_data, season).releases
+            releases = judge_spieltag_occupancy(
+                GRUPPE_FILLING, spiel_data, season, await pull_saison_membership(database[Collection.SAISON_TEAMS], SAISON_ID)
+            ).releases
 
             # Folded rather than applied once, which is what the preview does with a repeated
             # `spiel_id`: the second release is modelled against the first one's result.
@@ -1094,7 +1077,9 @@ class TestAReleaseWritesWhatThePureModelPredicts:
             by_id = {spiel.id: spiel for spiel in season}
 
             spiel_data = await payload_for(database, GRUPPE_FILLING, team1=side(ALPHA), team2=side(BETA))
-            releases = judge_spieltag_occupancy(GRUPPE_FILLING, spiel_data, season).releases
+            releases = judge_spieltag_occupancy(
+                GRUPPE_FILLING, spiel_data, season, await pull_saison_membership(database[Collection.SAISON_TEAMS], SAISON_ID)
+            ).releases
 
             saved = await call_patch(database, client, GRUPPE_FILLING, spiel_data)
 

@@ -12,12 +12,10 @@ import { PAGE_RISE_CLASSES } from "@/shared/components/ui/motion";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { useEditorExit } from "@/shared/hooks/useEditorExit";
 import { useSaveShortcut } from "@/shared/hooks/useSaveShortcut";
-import { useStepUp } from "@/shared/hooks/useStepUp";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 
-import { patchAdminSpielberichtAction } from "../../../actions";
 import { putSpielberichtAction } from "../../../personActions";
 import { spielberichtFormSchema } from "../../../schemas";
 import { FormBemerkungenSection } from "./FormBemerkungenSection";
@@ -29,7 +27,6 @@ import { deriveSpielberichtDraftStatus, eroeffnungOf, formPayloadOf, wirePayload
 import type { FLSpielberichtBericht } from "@/core/generated/client/types";
 import type { EditPageHeaderContent } from "@/shared/components/ui/EditPageHeader";
 import type { RailBanner } from "@/shared/components/ui/railBanner";
-import type { SpielberichtLeser } from "../../../utils";
 import type { SpielberichtDraft, SpielberichtKontext } from "./spielberichtDraft";
 
 /** The block as the form edits it, and its counter, which the write names as the version it was composed on. */
@@ -50,19 +47,14 @@ const teamsGeaendert = (geleert: boolean): RailBanner => ({
   inline: null,
 });
 
-/**
- * The whole report, one editor for both readers: the booked referee's PUT and the administrator's step-up PATCH
- * take one body. No undo is offered: neither lane has a replay route.
- */
+/** The whole report as its booked referee writes it. No undo is offered: the write has no replay route. */
 export function SpielberichtForm({
-  leser,
   spielId,
   kontext,
   stored,
   header,
   zurueckHref,
 }: {
-  leser: SpielberichtLeser;
   spielId: string;
   kontext: SpielberichtKontext;
   stored: GespeicherterBericht | null;
@@ -71,7 +63,6 @@ export function SpielberichtForm({
   zurueckHref: string;
 }) {
   const [isPending, startSaving] = useTransition();
-  const stepUp = useStepUp();
 
   const eroeffnung = eroeffnungOf(stored, kontext);
   const { saved } = eroeffnung;
@@ -117,31 +108,25 @@ export function SpielberichtForm({
 
   useSaveShortcut(formRef, !isPending && !isConfirmingDiscard && isDirty);
 
-  const write = () => {
-    // The administrator's correction is a step-up write; the referee's lane holds no step-up page, so it never prompts.
-    stepUp.confirmThen(leser === "admin", () =>
-      startSaving(async () => {
-        const payload = wirePayloadOf(draft, stored?.version ?? null);
-        // A rejected action may still have saved, and uncaught here it takes the editor down with it.
-        const res = await (leser === "admin" ? patchAdminSpielberichtAction(spielId, payload) : putSpielberichtAction(spielId, payload)).catch(
-          unansweredAction,
-        );
-        // Wrapped again: React leaves an update after an `await` outside the transition that awaited.
-        startSaving(() => {
-          if (!res.success) {
-            reportSubmitFailure(res, { spielbericht: formPayloadOf(draft) });
-            return;
-          }
+  const write = () =>
+    startSaving(async () => {
+      const payload = wirePayloadOf(draft, stored?.version ?? null);
+      // A rejected action may still have saved, and uncaught here it takes the editor down with it.
+      const res = await putSpielberichtAction(spielId, payload).catch(unansweredAction);
+      // Wrapped again: React leaves an update after an `await` outside the transition that awaited.
+      startSaving(() => {
+        if (!res.success) {
+          reportSubmitFailure(res, { spielbericht: formPayloadOf(draft) });
+          return;
+        }
 
-          setSubmitFieldErrors({}, {});
-          setHasSaved(true);
-          appToast.success(res.message ?? "Spielbericht gespeichert");
-          resetDraftToStored();
-          leavePage();
-        });
-      }),
-    );
-  };
+        setSubmitFieldErrors({}, {});
+        setHasSaved(true);
+        appToast.success(res.message ?? "Spielbericht gespeichert");
+        resetDraftToStored();
+        leavePage();
+      });
+    });
 
   return (
     <div className={`${PAGE_RISE_CLASSES} flex min-h-0 w-full flex-1 flex-col`}>
@@ -166,7 +151,6 @@ export function SpielberichtForm({
               />
             }>
             <FormVorschlagSection
-              leser={leser}
               kontext={kontext}
               draft={draft}
               onChange={change}
@@ -207,8 +191,7 @@ export function SpielberichtForm({
           </EditFormLayout>
 
           <FormActionBar
-            isPending={isPending || stepUp.isPrompting}
-            stepUp={stepUp}
+            isPending={isPending}
             isLeaving={isLeaving}
             onCancel={requestLeave}
           />

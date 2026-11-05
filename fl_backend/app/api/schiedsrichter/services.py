@@ -91,11 +91,11 @@ def build_unplayed_assignment_filter(schiedsrichter_id: Any) -> Mapping[str, Any
 def build_ghost_repoint() -> Mapping[str, Any]:
     """What a fixture's booking becomes once the person behind it is deleted.
 
-    `payment` stays: it records what THIS match agreed. The ghost has
-    no name, and every surface reads a null one.
+    `payment` stays: it records what THIS match agreed. The ghost has no name, so every read joins a null one. The
+    `$unset` takes off a name a fixture still holds as a copy, which would otherwise outlive the person.
     """
 
-    return {"$set": {"schiedsrichter.schiedsrichter_id": GHOST_SCHIEDSRICHTER_ID, "schiedsrichter.name": None}}
+    return {"$set": {"schiedsrichter.schiedsrichter_id": GHOST_SCHIEDSRICHTER_ID}, "$unset": {"schiedsrichter.name": ""}}
 
 
 def build_booked_image_filter(schiedsrichter_id: Any) -> Mapping[str, Any]:
@@ -123,7 +123,8 @@ def booked_image_edits(image: Mapping[str, Any], schiedsrichter_id: Any) -> dict
     if not isinstance(booking, Mapping) or booking.get("schiedsrichter_id") != schiedsrichter_id:
         return {}
 
-    return dict(build_ghost_repoint()["$set"])
+    # An image's edits are values set at a path, so a name the image holds is nulled in place rather than unset.
+    return {**build_ghost_repoint()["$set"], **({"schiedsrichter.name": None} if "name" in booking else {})}
 
 
 def first_stamped(*, stored: Mapping[str, Any], field: str, today: str) -> str:
