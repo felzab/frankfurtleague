@@ -86,7 +86,7 @@ export async function enrolPasskey(page: Page, context: BrowserContext): Promise
   await context.credentials.install();
   await page.reload();
   await page.getByRole("button", { name: "Jetzt einrichten" }).click();
-  // Every administrator lands on the Übersicht, which a session short of the passkey would leave for
-  // `/area/admin` and the passkey step (`fl_frontend/src/core/auth/landing.ts :: destinationOf`).
+  // Every administrator lands on `/area`, which a session short of the passkey would leave for the
+  // passkey step (`fl_frontend/src/core/auth/landing.ts :: destinationOf`).
   await expect(page).toHaveURL((url) => url.pathname === "/area");
 }

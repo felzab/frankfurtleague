@@ -1,4 +1,5 @@
 import { formatList } from "@/core/format";
+import { ROUTES } from "@/core/routes";
 import { EINSAETZE_TITEL, VERWALTUNG_TITEL } from "@/core/seitenNamen";
 import { KONTAKT_ROLLEN } from "@/features/teams/constants";
 
@@ -18,7 +19,7 @@ function funktionHref(funktion: Role): string {
     case "schiedsrichter":
       return "/area/schiedsrichter";
     case "administration":
-      return "/area/admin";
+      return ROUTES.admin.path();
   }
 }
 
