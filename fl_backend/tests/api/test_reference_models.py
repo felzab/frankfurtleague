@@ -513,6 +513,10 @@ class TestSaison:
         """A draw cannot cost points."""
         assert_rejects(FLSaison, saison(rules={**saison()["rules"], "draw_points": -1}), "draw_points")
 
+    def test_rejects_negative_loss_points(self, saison, assert_rejects):
+        """A loss cannot cost points either, so a club's total never falls below zero."""
+        assert_rejects(FLSaison, saison(rules={**saison()["rules"], "loss_points": -1}), "loss_points")
+
     def test_accepts_zero_draw_points(self, saison):
         """The asymmetry with wins: a draw worth nothing is a legal rule set."""
         rules = {**saison()["rules"], "draw_points": 0}
