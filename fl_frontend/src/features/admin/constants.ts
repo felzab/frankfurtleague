@@ -67,7 +67,10 @@ export const ADMIN_SHELL_FALLBACK = {
 /** The old frame's pages that get no nav entry, the nav rendering a link per entry: none stands today. */
 export const ADMIN_SHELL_UNLISTED_SECTIONS = {} as const satisfies Readonly<Record<string, { label: string; hint: SidemenuHint }>>;
 
-/** The page of fixtures waiting on an entry, named where the erasure sends a reader to it, so a rename reaches both. */
+/**
+ * The old pages' name for the fixtures waiting on an entry, which the administrator's Übersicht shows: named in the
+ * erasure's and the rollover's sentences until their pages are rebuilt, and in no menu.
+ */
 export const HANDLUNGSBEDARF_EINTRAG = {
   id: "action_required",
   label: "Handlungsbedarf",
@@ -201,12 +204,11 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
     sub_options: [SAISONS_EINTRAG],
   },
 
-  // Grouped by what an admin DOES here: both are queues worked down to nothing, where every list
-  // below is one to look something up in.
+  // Grouped by what an admin DOES here: a queue worked down to nothing, where every list below is one to look
+  // something up in.
   {
     category_name: "Zu erledigen",
     sub_options: [
-      HANDLUNGSBEDARF_EINTRAG,
       {
         id: "bewerbungen",
         label: "Bewerbungen",
