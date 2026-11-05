@@ -631,9 +631,8 @@ export const COPY = catalogue({
       /** The object of „Spielort anlegen“. */
       object: "Spielort",
       search: "Spielorte suchen",
-      /** The create dialog's two groups: the address's lines, and the record's terms, the price among them. */
+      /** The create dialog's group of the address's lines, and the editor's box holding them. */
       address: "Adresse",
-      terms: "Konditionen",
       strasse: "Straße",
       hausnummer: "Nr.",
       plz: "PLZ",
@@ -660,6 +659,8 @@ export const COPY = catalogue({
 
     /** A referee's fee for a match: the referee's own default, and a match's booking. */
     honorar: "Honorar",
+    /** A venue's and a referee's danger box, holding the act retiring the record or bringing it back. */
+    stilllegung: "Stilllegung",
 
     schiedsrichter: {
       search: "Schiedsrichter suchen",
@@ -670,6 +671,8 @@ export const COPY = catalogue({
       bestaetigung: "Bestätigung",
       /** The fact saying where the referee's confirmation stands, one of the four lines below. */
       state: "Stand",
+      /** The fact beside it: the day the last link went to the person. */
+      linkSent: "Link gesendet",
       confirmedOn: (day: CalendarDay) => `Bestätigt am ${formatDatum(day)}`,
       openUntil: (day: CalendarDay) => `Offen bis ${formatDatum(day)}`,
       expiredOn: (day: CalendarDay) => `Abgelaufen am ${formatDatum(day)}`,
@@ -701,8 +704,13 @@ export const COPY = catalogue({
       beginn: "Beginn",
       ende: "Ende",
 
-      /** The editor's boxes, in the order of a season's life: its dates and rules, then what happens in it. */
-      regeln: "Regeln",
+      /**
+       * The editor's boxes, in the order of a season's life: its dates, its rules one box per what they govern (its
+       * scoring, its groups and knockout stage, its squads), its windows, then what happens in it.
+       */
+      wertung: "Wertung",
+      gruppenUndKoRunde: `Gruppen und ${K_O_RUNDE}`,
+      /** The goals a no-show is scored with, named over their two boxes in the Wertung box. */
       forfeit: "Wertung bei Nichtantreten",
       bewerbungsfenster: "Bewerbungsfenster",
       registrierungsfenster: "Registrierungsfenster",
@@ -710,6 +718,9 @@ export const COPY = catalogue({
       ersatz: "Ersatz",
       registrierungslinks: "Registrierungslinks",
       umstellung: "Umstellung",
+      /** The danger box's title, by what its rows are about: the draw's regeneration and removal, the switch, or both. */
+      dangerBox: (draw: boolean, activation: boolean) =>
+        draw && activation ? "Spielplan und Umstellung" : draw ? "Spielplan verwerfen" : "Umstellung",
 
       winPoints: "Punkte pro Sieg",
       drawPoints: "Punkte pro Unentschieden",
@@ -806,6 +817,8 @@ export const COPY = catalogue({
       annulliert: SONDEREREIGNIS.annulliert,
       /** Why a no-show cannot be picked while a side is open. */
       needsBothSides: "Nur mit beiden Teams",
+      /** Why the result's switch is closed: the Sonderereignis composes the result, or leaves the match without one. */
+      byEvent: "Folgt aus dem Sonderereignis",
       /** The save's done line where the write moved other matches too, by their numbers: „Auch Spiel 5 und 7 geändert“. */
       alsoChanged: (spiele: readonly number[]) => `Auch Spiel ${formatList(spiele.map(formatNumber))} geändert`,
 

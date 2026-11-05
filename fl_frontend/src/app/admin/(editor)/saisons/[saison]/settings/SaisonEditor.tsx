@@ -262,10 +262,10 @@ export function SaisonEditor({
       ),
     },
     {
-      id: "regeln",
-      title: WORDS.regeln,
-      // The start fixes the scoring and the seeding; a standing draw fixes the counts it was drawn from.
-      ...(facts.begun ? { note: WORDS.lockedSinceStart } : drawn ? { note: WORDS.lockedByDraw } : {}),
+      id: "wertung",
+      title: WORDS.wertung,
+      // The start fixes the points and the tiebreak; a no-show's goals stay open all season.
+      ...(facts.begun ? { note: WORDS.lockedSinceStart } : {}),
       fields: (
         <>
           <FieldPair
@@ -304,6 +304,40 @@ export function SaisonEditor({
               if (id !== null) set("tiebreak", id);
             }}
           />
+          {/* The goals a no-show is scored with, named as one value: their own labels say no more than a score's. */}
+          <FieldPair
+            label={WORDS.forfeit}
+            short="both"
+            phone="pair">
+            <TextField
+              label={WORDS.forfeitWinner}
+              name="forfeitWinner"
+              width="C2"
+              kind="digits"
+              isRequired={required.forfeitWinner}
+              value={draft.forfeitWinner}
+              onChange={(value) => set("forfeitWinner", value)}
+            />
+            <TextField
+              label={WORDS.forfeitLoser}
+              name="forfeitLoser"
+              width="C2"
+              kind="digits"
+              isRequired={required.forfeitLoser}
+              value={draft.forfeitLoser}
+              onChange={(value) => set("forfeitLoser", value)}
+            />
+          </FieldPair>
+        </>
+      ),
+    },
+    {
+      id: "gruppen",
+      title: WORDS.gruppenUndKoRunde,
+      // A standing draw fixes the counts it was drawn from, and the start the qualifiers.
+      ...(drawn ? { note: WORDS.lockedByDraw } : facts.begun ? { note: WORDS.lockedSinceStart } : {}),
+      fields: (
+        <>
           <FieldPair
             short="both"
             phone="pair">
@@ -340,6 +374,14 @@ export function SaisonEditor({
               if (id !== null) set("qualifiers", id);
             }}
           />
+        </>
+      ),
+    },
+    {
+      id: "kader",
+      title: COPY.shared.kader,
+      fields: (
+        <>
           <TextField
             label={WORDS.maxKader}
             name="maxKader"
@@ -357,34 +399,6 @@ export function SaisonEditor({
             onChange={(ids) => set("stufen", ids)}
           />
         </>
-      ),
-    },
-    {
-      id: "forfeit",
-      title: WORDS.forfeit,
-      fields: (
-        <FieldPair
-          short="both"
-          phone="pair">
-          <TextField
-            label={WORDS.forfeitWinner}
-            name="forfeitWinner"
-            width="C2"
-            kind="digits"
-            isRequired={required.forfeitWinner}
-            value={draft.forfeitWinner}
-            onChange={(value) => set("forfeitWinner", value)}
-          />
-          <TextField
-            label={WORDS.forfeitLoser}
-            name="forfeitLoser"
-            width="C2"
-            kind="digits"
-            isRequired={required.forfeitLoser}
-            value={draft.forfeitLoser}
-            onChange={(value) => set("forfeitLoser", value)}
-          />
-        </FieldPair>
       ),
     },
     {
@@ -568,7 +582,8 @@ export function SaisonEditor({
       editor={editor}
       closed={closed}
       sections={sections}
-      danger={danger}
+      // Titled by what its rows are about: the draw's two acts, the switch onto the season, or both.
+      danger={{ title: WORDS.dangerBox(drawn, !facts.isCurrent), acts: danger }}
     />
   );
 }

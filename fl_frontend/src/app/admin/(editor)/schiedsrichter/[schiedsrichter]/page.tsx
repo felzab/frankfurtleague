@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { EditorShell } from "@/kit/EditorShell";
 
 import { COPY } from "@/core/copy";
-import { dayOf } from "@/core/format";
+import { dayOf, formatDatum } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { confirmationStateOf } from "@/features/schiedsrichter/confirmationState";
@@ -87,22 +87,16 @@ function standingOf({ schiedsrichter: referee, confirmation_expired: expired }: 
   }
 }
 
-/** The Bestätigung's facts: where it stands, then the address as a mail link and the phone as a call link (D190). */
+/**
+ * The Bestätigung's facts: where it stands, and the day the last link went, a fresh one replacing it; the address and
+ * the phone stand in their own fields above, each reached from there.
+ */
 function confirmationFacts(read: FLSchiedsrichterSingleResponse): Fact[] {
-  const { email, telefon } = read.schiedsrichter.kontakt;
   const standing = standingOf(read);
+  const sent = read.schiedsrichter.confirmation?.sent_at ?? null;
   return [
     ...(standing === null ? [] : [{ label: WORDS.state, value: standing }]),
-    ...(email === null ? [] : [{ label: COPY.signIn.address, contact: { href: `mailto:${email}` as const, label: { record: email } } }]),
-    ...(telefon === null
-      ? []
-      : // A call link dials the digits alone; the number reads as it was entered.
-        [
-          {
-            label: COPY.account.entries.facts.phone,
-            contact: { href: `tel:${telefon.replaceAll(" ", "")}` as const, label: { record: telefon } },
-          },
-        ]),
+    ...(sent === null ? [] : [{ label: WORDS.linkSent, value: { record: formatDatum(dayOf(sent)) }, figures: true }]),
   ];
 }
 

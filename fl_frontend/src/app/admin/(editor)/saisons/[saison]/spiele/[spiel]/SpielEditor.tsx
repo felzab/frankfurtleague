@@ -100,8 +100,8 @@ function useVoided(changes: Partial<SpielValues>, ask: (changes: Partial<SpielVa
 /**
  * The match editor: a knockout match's two clubs; the Ansetzung's day, time, venue and price, referee and fee; the
  * result, entered by the switch the board drew, its goals as one score, a shoot-out's pair appearing by itself on
- * level knockout goals, the Sonderereignis and the referee's proposal carried over by „Übernehmen“; the note; and the
- * report's goals and every party's answer, read-only. Saved together from the editor's bar, which asks first where the
+ * level knockout goals, and the referee's proposal carried over by „Übernehmen“; the Sonderereignis, in a box of its
+ * own; the note; and the report's goals and every party's answer, read-only. Saved together from the editor's bar, which asks first where the
  * save would delete a later match's result.
  */
 export function SpielEditor({
@@ -344,17 +344,16 @@ export function SpielEditor({
           title: WORDS.ergebnis,
           fields: (
             <>
-              {/* Revealing the result states the fact: on once a result is stored, and only once both sides stand. */}
-              {resultShown && (
-                <Switch
-                  label={COPY.shared.withObject(WORDS.ergebnis, "enter")}
-                  name="hasResult"
-                  isSelected={draft.hasResult}
-                  isDisabled={!bothSides}
-                  onChange={(on) => set("hasResult", on)}
-                  {...(bothSides ? {} : { description: WORDS.needsBothSides })}
-                />
-              )}
+              {/* Revealing the result states the fact: on once a result is stored, and only once both sides stand. A
+                  Sonderereignis composing the result, or leaving the match without one, closes it with that reason. */}
+              <Switch
+                label={COPY.shared.withObject(WORDS.ergebnis, "enter")}
+                name="hasResult"
+                isSelected={resultShown && draft.hasResult}
+                isDisabled={!bothSides || !resultShown}
+                onChange={(on) => set("hasResult", on)}
+                {...(!resultShown ? { description: WORDS.byEvent } : bothSides ? {} : { description: WORDS.needsBothSides })}
+              />
               {scored && (
                 <ScorePair
                   label={COPY.shared.tore}
@@ -388,18 +387,25 @@ export function SpielEditor({
                   }}
                 />
               )}
-              <Select
-                label={WORDS.sonderereignis}
-                name="sonderereignis"
-                options={sonderereignisse}
-                width="fit"
-                value={draft.sonderereignis}
-                onChange={(id) => {
-                  if (id !== null) set("sonderereignis", id);
-                }}
-                {...(storedScore !== null && !resultShown ? { consequence: WORDS.resultDropped(storedScore) } : {})}
-              />
             </>
+          ),
+        },
+        // What happened beyond the play, which decides whether the box above takes a result at all.
+        {
+          id: "sonderereignis",
+          title: WORDS.sonderereignis,
+          fields: (
+            <Select
+              label={WORDS.sonderereignis}
+              name="sonderereignis"
+              options={sonderereignisse}
+              width="fit"
+              value={draft.sonderereignis}
+              onChange={(id) => {
+                if (id !== null) set("sonderereignis", id);
+              }}
+              {...(storedScore !== null && !resultShown ? { consequence: WORDS.resultDropped(storedScore) } : {})}
+            />
           ),
         },
         {

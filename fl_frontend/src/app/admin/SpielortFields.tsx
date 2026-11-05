@@ -9,11 +9,11 @@ import type { SpielortRules } from "./spielortRules";
 const WORDS = COPY.admin.spielort;
 
 /**
- * A new venue's inputs, in the create dialog over the venue list and over the match editor alike: its name,
- * then its address under „Adresse“ and its price under „Konditionen“, each a group of the dialog. Each posts
- * under its own name, which `createSpielort` reads. The street and its number, and the postcode and its
- * town, each form one line of the address and share a row at every width, the postcode before its town as a
- * German address writes it.
+ * A new venue's inputs, in the create dialog over the venue list and over the match editor alike: its name and its
+ * price, the venue's own as in its editor's first box, then its address under „Adresse“, a group of the dialog. Each
+ * posts under its own name, which `createSpielort` reads. The street and its number, and the postcode and its town,
+ * each form one line of the address and share a row at every width, the postcode before its town as a German address
+ * writes it.
  */
 export function SpielortFields({
   rules,
@@ -33,6 +33,14 @@ export function SpielortFields({
         kind="text"
         defaultValue={name}
         isRequired={required.name}
+      />
+      <TextField
+        label={WORDS.mietpreis}
+        name="mietpreis"
+        width="C5"
+        kind="digits"
+        unit={COPY.shared.unit.euro}
+        isRequired={required.mietpreis}
       />
       <FieldGroup name={WORDS.address}>
         <FieldPair
@@ -86,16 +94,6 @@ export function SpielortFields({
             maxLength={maxLength.stadt}
           />
         </FieldPair>
-      </FieldGroup>
-      <FieldGroup name={WORDS.terms}>
-        <TextField
-          label={WORDS.mietpreis}
-          name="mietpreis"
-          width="C5"
-          kind="digits"
-          unit={COPY.shared.unit.euro}
-          isRequired={required.mietpreis}
-        />
       </FieldGroup>
     </>
   );

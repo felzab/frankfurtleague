@@ -35,9 +35,9 @@ type Act = (input: { id: string }) => Promise<ActionAnswer>;
 type Address = { kind: "fixed"; confirmed: Copy } | { kind: "asks" };
 
 /**
- * The referee editor: the person, how to reach them and their fee, saved together from the editor's bar; where their
- * confirmation stands, with their address and phone as links to write or call them (D190), and the act mailing a
- * fresh link while they have not answered; and the danger box retiring them, or bringing a retired one back.
+ * The referee editor: the person and their fee, and how to reach them, saved together from the editor's bar; where
+ * their confirmation stands and the day their last link went, and the act mailing a fresh link while they have not
+ * answered; and the danger box retiring them, or bringing a retired one back.
  */
 export function SchiedsrichterEditor({
   title,
@@ -57,7 +57,7 @@ export function SchiedsrichterEditor({
   /** What the save asks of each box, read on the server. */
   rules: SchiedsrichterRules;
   address: Address;
-  /** The Bestätigung's facts: where it stands, and the stored address and phone as links. */
+  /** The Bestätigung's facts: where it stands, and the day the last link went. */
   confirmation: readonly Fact[];
   /** Mails a fresh link, offered only while the person's entry waits on their answer. */
   sendLink?: Act;
@@ -106,7 +106,7 @@ export function SchiedsrichterEditor({
       title={title}
       chip={chip}
       editor={editor}
-      danger={[dangerAct]}
+      danger={{ title: COPY.admin.stilllegung, acts: [dangerAct] }}
       sections={[
         {
           id: "schiedsrichter",
@@ -132,6 +132,17 @@ export function SchiedsrichterEditor({
                 maxLength={max.schule}
                 value={draft.schule}
                 onChange={(schule) => set("schule", schule)}
+              />
+              {/* The fee is the person's own, as their name is, so it stands in their box. */}
+              <TextField
+                label={COPY.admin.honorar}
+                name="honorar"
+                width="C5"
+                kind="digits"
+                unit={COPY.shared.unit.euro}
+                isRequired={required.honorar}
+                value={draft.honorar}
+                onChange={(honorar) => set("honorar", honorar)}
               />
             </>
           ),
@@ -176,39 +187,28 @@ export function SchiedsrichterEditor({
             </>
           ),
         },
-        {
-          id: "konditionen",
-          title: COPY.admin.spielort.terms,
-          fields: (
-            <TextField
-              label={COPY.admin.honorar}
-              name="honorar"
-              width="C5"
-              kind="digits"
-              unit={COPY.shared.unit.euro}
-              isRequired={required.honorar}
-              value={draft.honorar}
-              onChange={(honorar) => set("honorar", honorar)}
-            />
-          ),
-        },
-        {
-          id: "bestaetigung",
-          title: WORDS.bestaetigung,
-          fields: (
-            <>
-              <Facts facts={confirmation} />
-              {sendLink !== undefined && (
-                <Button
-                  variant="secondary"
-                  label={COPY.shared.withObject(COPY.account.address.link, "send")}
-                  isBusy={isSending}
-                  onPress={() => send(sendLink)}
-                />
-              )}
-            </>
-          ),
-        },
+        // Nothing to say before a first link has gone, as for a retired entry never asked.
+        ...(confirmation.length === 0 && sendLink === undefined
+          ? []
+          : [
+              {
+                id: "bestaetigung",
+                title: WORDS.bestaetigung,
+                fields: (
+                  <>
+                    {confirmation.length > 0 && <Facts facts={confirmation} />}
+                    {sendLink !== undefined && (
+                      <Button
+                        variant="secondary"
+                        label={COPY.shared.withObject(COPY.account.address.link, "send")}
+                        isBusy={isSending}
+                        onPress={() => send(sendLink)}
+                      />
+                    )}
+                  </>
+                ),
+              },
+            ]),
       ]}
     />
   );
