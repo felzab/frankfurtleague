@@ -1394,7 +1394,7 @@ def find_kontakt_sitz_refusal(*, kontakte: Any, seat: str) -> WriteRefusal | Non
     return None
 
 
-def find_kontakt_sitz_gesperrt_refusal(*, barred: bool) -> WriteRefusal | None:
+def find_kontakt_seat_barred_refusal(*, barred: bool) -> WriteRefusal | None:
     """`kontakt_seat_barred`: a seat's newly seated or re-sent address is on the ban list, so no link may be minted for it.
 
     409, as every administrator's write naming a barred address is.

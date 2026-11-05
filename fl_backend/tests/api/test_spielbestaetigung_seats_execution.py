@@ -222,7 +222,7 @@ async def links_answering(database: AsyncDatabase) -> dict[str, set[str]]:
                     saison_teams_collection=database[Collection.SAISON_TEAMS],
                     spielorte_collection=database[Collection.SPIELORTE],
                     teams_collection=database[Collection.TEAMS],
-                    sperrliste=ban_list(database),
+                    ban_list=ban_list(database),
                     today=TODAY,
                 )
             except APIError as refused:
@@ -248,7 +248,7 @@ async def save(database: AsyncDatabase, client: AsyncMongoClient, kontakte: Mapp
         saisons_collection=database[Collection.SAISONS],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
         outbox_collection=database[Collection.OUTBOX],
-        sperrliste=ban_list(database),
+        ban_list=ban_list(database),
         db=client,
         actor=fresh_admin_actor(),
         today=TODAY,
@@ -339,7 +339,7 @@ async def contradict(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
         action_log_collection=database[Collection.ACTION_LOG],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
         outbox_collection=database[Collection.OUTBOX],
-        sperrliste=ban_list(database),
+        ban_list=ban_list(database),
         db=client,
         config=CONFIG,
         today=TODAY,

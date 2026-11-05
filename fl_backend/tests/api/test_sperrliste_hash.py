@@ -3,7 +3,7 @@ from pydantic import SecretStr, ValidationError
 
 from app.api.sperrliste.schemas import FLPostSperrlistePayload
 from app.api.sperrliste.services import (
-    SPERRLISTE_SCHLUESSEL_VERSION,
+    BAN_LIST_KEY_VERSION,
     address_hash,
     stored_address_hash,
 )
@@ -69,7 +69,7 @@ class TestTheConstructionItself:
         import hashlib
         import hmac
 
-        sub_key = derive_sub_key(self.KNOWN_MASTER, SPERRLISTE_SCHLUESSEL_VERSION)
+        sub_key = derive_sub_key(self.KNOWN_MASTER, BAN_LIST_KEY_VERSION)
         decoded = hmac.new(sub_key, "anna@müller.de".encode(), hashlib.sha256).hexdigest()
 
         assert address_hash(typed, key=self.KNOWN_MASTER) == decoded

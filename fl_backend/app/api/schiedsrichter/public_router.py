@@ -25,7 +25,7 @@ from app.api.schiedsrichter.services import (
     find_unknown_token_refusal,
     zustand_of,
 )
-from app.api.sperrliste.lookup import SperrlisteLookup, barred_addresses, sperrliste_saison
+from app.api.sperrliste.lookup import BanListLookup, ban_list_saison, barred_addresses
 from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db, refuse
 from app.core.dependencies import (
@@ -62,7 +62,7 @@ router = APIRouter(
 async def get_confirmation_view(
     view_data: Annotated[FLTokenPayload, Body()],
     schiedsrichter_collection: SchiedsrichterReadCollection,
-    sperrliste: SperrlisteLookup,
+    ban_list: BanListLookup,
     today: str = Depends(get_german_date_str),
 ) -> FLSchiedsrichterConfirmationViewResponse:
     """
@@ -89,7 +89,7 @@ async def get_confirmation_view(
     bestaetigung = raw[BESTAETIGUNG_FELD]
     einwilligung = raw.get(EINWILLIGUNG_FELD)
 
-    barred = await barred_addresses(sperrliste, [str((raw.get("kontakt") or {}).get("email") or "")])
+    barred = await barred_addresses(ban_list, [str((raw.get("kontakt") or {}).get("email") or "")])
 
     return FLSchiedsrichterConfirmationViewResponse(
         state=zustand_of(einwilligung=einwilligung, confirmation=bestaetigung, today=today, barred=bool(barred)),
@@ -109,7 +109,7 @@ async def get_confirmation_view(
 async def post_confirmation(
     antwort_data: Annotated[FLSchiedsrichterConfirmationPayload, Body()],
     schiedsrichter_collection: SchiedsrichterCollection,
-    sperrliste: SperrlisteLookup,
+    ban_list: BanListLookup,
     db: DBClient,
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
@@ -133,8 +133,8 @@ async def post_confirmation(
     """
 
     token_hash = hash_token(antwort_data.token)
-    # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_gesperrt`).
-    governing_saison_id = await sperrliste_saison(sperrliste)
+    # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_barred`).
+    governing_saison_id = await ban_list_saison(ban_list)
 
     async def answer_for_the_person(session: AsyncClientSession) -> FLSchiedsrichterConfirmationResponse:
         """Judge, then write, everything judged read in-session.
@@ -157,7 +157,7 @@ async def post_confirmation(
         # Asked at the press rather than only at the mint: a ban entered after the link went out
         # stops it here, and one lifted while it runs lets it answer again.
         barred = await barred_addresses(
-            sperrliste, [str((raw.get("kontakt") or {}).get("email") or "")], governing_saison_id=governing_saison_id, session=session
+            ban_list, [str((raw.get("kontakt") or {}).get("email") or "")], governing_saison_id=governing_saison_id, session=session
         )
         refuse(find_confirmation_barred_refusal(barred=bool(barred)))
         refuse(find_alter_refusal(geburtsdatum=antwort_data.geburtsdatum, today=today))

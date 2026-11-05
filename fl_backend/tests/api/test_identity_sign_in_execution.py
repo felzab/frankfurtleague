@@ -246,7 +246,7 @@ async def call_sign_in(database: AsyncDatabase, email: str) -> FLSignInResponse:
         return await get_sign_in(
             sign_in_data=FLSubjectPayload(email=email),
             records=record_collections(database),
-            sperrliste=ban_list(database),
+            ban_list=ban_list(database),
             grants_collection=database[Collection.GRANTS],
             session=session,
         )

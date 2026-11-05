@@ -171,7 +171,7 @@ async def geloescht_by_the_handler(
     return await post_erasure(
         erasure_data=FLErasurePayload(email=email, anlass=anlass),
         **erasure_collections(database, **replaced),
-        sperrliste=ban_list(database),
+        ban_list=ban_list(database),
         # Refusing none: the window is held over HTTP, in `tests/api/test_step_up_execution.py`.
         actor=fresh_admin_actor(),
         db=client,
@@ -199,7 +199,7 @@ async def revealed(database: AsyncDatabase, client: AsyncMongoClient, email: str
             grants_announced_collection=database[Collection.GRANTS_ANNOUNCED],
             grant_approval_requests_collection=database[Collection.GRANT_APPROVAL_REQUESTS],
             address_changes_collection=database[Collection.ADDRESS_CHANGES],
-            sperrliste=ban_list(database),
+            ban_list=ban_list(database),
             session=session,
             config=CONFIG,
             operator=OPERATOR,

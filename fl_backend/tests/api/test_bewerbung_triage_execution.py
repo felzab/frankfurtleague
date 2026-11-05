@@ -32,7 +32,7 @@ from app.api.bewerbungen.schemas import (
 )
 from app.api.bewerbungen.services import bestaetigungsfrist_from, compose_new_club
 from app.api.outbox.crud import states_of
-from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
+from app.api.sperrliste.services import compose_barred_until_saison_id
 from app.api.teams.admin_router import post_team
 from app.api.teams.schemas import FLPostTeamPayload
 from app.core.codes import Code
@@ -1070,7 +1070,7 @@ class TestTheQueueTheTriageIsWorkedDown:
             response = await get_bewerbungen(
                 bewerbungen_collection=database[Collection.BEWERBUNGEN],
                 outbox_collection=database[Collection.OUTBOX],
-                sperrliste=ban_list(database),
+                ban_list=ban_list(database),
                 filters=FLBewerbungenFilterParams(),
             )
 
@@ -1249,7 +1249,7 @@ CORRECTED_EMAIL = "sekretariat@zorbanax.example.de"
 
 
 # Composed by the production helper rather than spelled, so a drifted bound cannot leave these cases passing over a lapsed row.
-STANDING = compose_gesperrt_bis_saison_id(governing_saison_id=SAISON_ID)
+STANDING = compose_barred_until_saison_id(governing_saison_id=SAISON_ID)
 
 
 REFUSED_MESSAGE = "49a3999c-0ce1-4ea6-ab68-afcd6dc2e794"
@@ -1282,7 +1282,7 @@ async def correct(
         teams_collection=database[Collection.TEAMS],
         outbox_collection=database[Collection.OUTBOX],
         germany_now=MAIL_NOW,
-        sperrliste=ban_list(database),
+        ban_list=ban_list(database),
         db=client,
         today=TODAY,
     )
@@ -1558,7 +1558,7 @@ async def resend(database: AsyncDatabase, seat: str, *, bewerbungen: Any = None,
         teams_collection=database[Collection.TEAMS],
         outbox_collection=database[Collection.OUTBOX],
         germany_now=MAIL_NOW,
-        sperrliste=ban_list(database, saisons=saisons),
+        ban_list=ban_list(database, saisons=saisons),
         db=database.client,
         today=TODAY,
     )
@@ -1657,7 +1657,7 @@ class TestAResendRacingAnAnswer:
                     bewerbungen_collection=database[Collection.BEWERBUNGEN],
                     teams_collection=database[Collection.TEAMS],
                     outbox_collection=database[Collection.OUTBOX],
-                    sperrliste=ban_list(database),
+                    ban_list=ban_list(database),
                     db=client,
                     today=TODAY,
                     germany_now=MAIL_NOW,
@@ -1774,7 +1774,7 @@ async def reseat(
         teams_collection=database[Collection.TEAMS],
         outbox_collection=database[Collection.OUTBOX],
         germany_now=MAIL_NOW,
-        sperrliste=ban_list(database),
+        ban_list=ban_list(database),
         db=client,
         today=TODAY,
     )
@@ -1798,7 +1798,7 @@ async def answer_for(database: AsyncDatabase, client: AsyncMongoClient, token: s
         action_log_collection=database[Collection.ACTION_LOG],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
         outbox_collection=database[Collection.OUTBOX],
-        sperrliste=ban_list(database),
+        ban_list=ban_list(database),
         db=client,
         config=build_test_config(),
         today=TODAY,

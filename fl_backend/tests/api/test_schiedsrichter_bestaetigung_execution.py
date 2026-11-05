@@ -167,7 +167,7 @@ async def create(database: AsyncDatabase, client: AsyncMongoClient, *, email: st
         schiedsrichter_data=FLPostSchiedsrichterPayload.model_validate(payload_body(email=email)),
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         outbox_collection=database[Collection.OUTBOX],
-        sperrliste=ban_list(database),
+        ban_list=ban_list(database),
         db=client,
         today=today,
         now=MAIL_NOW,
@@ -183,7 +183,7 @@ async def correct(database: AsyncDatabase, client: AsyncMongoClient, *, email: s
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         spiele_collection=database[Collection.SPIELE],
         outbox_collection=database[Collection.OUTBOX],
-        sperrliste=ban_list(database),
+        ban_list=ban_list(database),
         db=client,
         today=today,
         now=MAIL_NOW,
@@ -200,7 +200,7 @@ async def resend(
         schiedsrichter_id=schiedsrichter_id,
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         outbox_collection=database[Collection.OUTBOX],
-        sperrliste=ban_list(database),
+        ban_list=ban_list(database),
         db=client,
         today=today,
         now=MAIL_NOW,
@@ -221,7 +221,7 @@ async def read_view(database: AsyncDatabase, token: str | None, *, today: str = 
     return await get_confirmation_view(
         view_data=FLTokenPayload(token=token),
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-        sperrliste=ban_list(database),
+        ban_list=ban_list(database),
         today=today,
     )
 
@@ -239,7 +239,7 @@ async def confirm(database: AsyncDatabase, client: AsyncMongoClient, token: str 
     return await post_confirmation(
         antwort_data=FLSchiedsrichterConfirmationPayload.model_validate(body),
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-        sperrliste=ban_list(database),
+        ban_list=ban_list(database),
         db=client,
         today=today,
         germany_now=NOW,
@@ -600,7 +600,7 @@ async def reactivate(database: AsyncDatabase, client: AsyncMongoClient) -> Maile
         schiedsrichter_id=SCHIEDSRICHTER_OID,
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         outbox_collection=database[Collection.OUTBOX],
-        sperrliste=ban_list(database),
+        ban_list=ban_list(database),
         db=client,
         today=TODAY,
         now=MAIL_NOW,

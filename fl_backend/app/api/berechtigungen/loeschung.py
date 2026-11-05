@@ -173,7 +173,7 @@ async def loeschen_grants_and_authorship_in_session(
     # its parameter's spelling, never through the ban list's attribute.
     ban_list_collection: AsyncCollection,
     # Answers which other address in a queued notice is barred.
-    sperrliste: BanList,
+    ban_list: BanList,
     # Folded (`app/shared/folding.py :: sign_in_identifier`).
     identifier: str,
     # Who the erasure is attributed to: an administrator's address, or `identifier` itself on the
@@ -222,7 +222,7 @@ async def loeschen_grants_and_authorship_in_session(
         for snapshot in (current, before)
         if snapshot is not None and snapshot.address is not None and not _names(snapshot.address, identifier)
     } | ({sign_in_identifier(changed_by)} - {identifier})
-    barred = await barred_addresses(sperrliste, others, session=session) if others else set()
+    barred = await barred_addresses(ban_list, others, session=session) if others else set()
 
     notices = [
         _withheld(

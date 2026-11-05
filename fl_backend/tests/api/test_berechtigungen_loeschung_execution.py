@@ -23,7 +23,7 @@ from app.api.einladungen.services import compose_einladung
 from app.api.outbox.schemas import FLGrantData
 from app.api.outbox.services import DELIVERY_DEADLINE, RETENTION
 from app.api.registrierungen.services import compose_ablehnung_update
-from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
+from app.api.sperrliste.services import compose_barred_until_saison_id
 from app.core.collections import Collection
 from app.core.recording import ERASED_ACTOR_MARKER
 from tests.bans import ban_list
@@ -41,7 +41,7 @@ NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 QUEUED = datetime(2026, 3, 31, 9, 0, tzinfo=UTC)
 TODAY = "2026-04-01"
 RUNNING = "2026"
-STANDING = compose_gesperrt_bis_saison_id(governing_saison_id=RUNNING)
+STANDING = compose_barred_until_saison_id(governing_saison_id=RUNNING)
 
 # The person erased, an owner. Distinctive, so the whole-database scan finding it is no coincidence.
 ERIKA = "erika.zwirbelmoos@frankfurtleague.de"
@@ -241,7 +241,7 @@ async def erase(
             registrierungen_collection=database[Collection.REGISTRIERUNGEN],
             invitations_collection=database[Collection.INVITATIONS],
             ban_list_collection=database[Collection.BAN_LIST],
-            sperrliste=ban_list(database),
+            ban_list=ban_list(database),
             identifier=identifier,
             changed_by=changed_by,
             now=NOW,

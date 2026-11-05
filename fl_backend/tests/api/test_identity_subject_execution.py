@@ -274,7 +274,7 @@ async def call_subject(database: AsyncDatabase, email: str) -> FLSubjectResponse
         return await get_subject(
             subject_data=FLSubjectPayload(email=email),
             records=record_collections(database),
-            sperrliste=ban_list(database),
+            ban_list=ban_list(database),
             grants_collection=database[Collection.GRANTS],
             session=session,
         )
@@ -379,7 +379,7 @@ class TestEveryAddressReadWalksAnIndex:
                     await get_sign_in(
                         sign_in_data=FLSubjectPayload(email=IDENTIFIER),
                         records=record_collections(watched),
-                        sperrliste=ban_list(watched),
+                        ban_list=ban_list(watched),
                         grants_collection=watched[Collection.GRANTS],
                         session=session,
                     )

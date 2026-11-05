@@ -11,7 +11,7 @@ from app.api.registrierungen.services import (
     mit_vorenthaltener_entscheidung,
     registrierung_ist_bestaetigt,
 )
-from app.api.sperrliste.lookup import SperrlisteLookup, barred_addresses
+from app.api.sperrliste.lookup import BanListLookup, barred_addresses
 from app.core.config import API_VERSION
 from app.core.crud import pull_many_from_db
 from app.core.dependencies import RegistrierungenCollection
@@ -33,7 +33,7 @@ FLRegistrierungenFilters = Annotated[FLRegistrierungenFilterParams, Query()]
 @router.get("", response_model=FLRegistrierungenListResponse, summary="List Registrierungen")
 async def get_registrierungen(
     registrierungen_collection: RegistrierungenCollection,
-    sperrliste: SperrlisteLookup,
+    ban_list: BanListLookup,
     filters: FLRegistrierungenFilters,
 ) -> FLRegistrierungenListResponse:
     """Every pending registration, newest first, narrowed by season, team and status.
@@ -65,7 +65,7 @@ async def get_registrierungen(
 
     # Sliced before validation, so the probe row is never parsed and never reaches the wire.
     served = read[: filters.limit]
-    barred = await barred_addresses(sperrliste, decider_addresses(served))
+    barred = await barred_addresses(ban_list, decider_addresses(served))
 
     return FLRegistrierungenListResponse(
         registrierungen=FLRegistrierungListAdapter.validate_python(

@@ -13,7 +13,7 @@ from app.api.bewerbungen.services import SWEEP_PAGE
 from app.api.outbox.crud import states_of
 from app.api.outbox.schemas import FLOutboxStatus, FLSpielEinteilungData, FLSpielRequestData
 from app.api.outbox.services import OwedMail, enqueue_mails
-from app.api.sperrliste.lookup import SperrlisteLookup, barred_addresses, sperrliste_saison
+from app.api.sperrliste.lookup import BanListLookup, ban_list_saison, barred_addresses
 from app.api.spielbestaetigungen.crud import anchor_the_mailboxes_told, anchor_the_referees_told, anchor_the_seats_minted
 from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigungGrund,
@@ -157,9 +157,9 @@ async def _referee_addresses(
     return {referee["_id"]: (referee.get("kontakt") or {}).get("email") or None for referee in referees}
 
 
-async def _gesperrt(
+async def _barred(
     *,
-    sperrliste: SperrlisteLookup,
+    ban_list: BanListLookup,
     junctions: Mapping[Any, Mapping[str, Any]],
     governing_saison_id: str | None,
     session: AsyncClientSession,
@@ -173,7 +173,7 @@ async def _gesperrt(
         if (address := kontakt_address(kontakte=junction.get("kontakte"), seat=seat))
     ]
 
-    return await barred_addresses(sperrliste, addresses, governing_saison_id=governing_saison_id, session=session)
+    return await barred_addresses(ban_list, addresses, governing_saison_id=governing_saison_id, session=session)
 
 
 @dataclass
@@ -308,7 +308,7 @@ async def sweep_spielbestaetigungen(
     saisons_collection: SaisonsCollection,
     schiedsrichter_collection: SchiedsrichterCollection,
     outbox_collection: OutboxCollection,
-    sperrliste: SperrlisteLookup,
+    ban_list: BanListLookup,
     db: DBClient,
     today: str = Depends(get_german_date_str),
     now: datetime = Depends(get_germany_now),
@@ -367,7 +367,7 @@ async def sweep_spielbestaetigungen(
         return FLSpielbestaetigungSweepResponse(saison_id=saison_id, closed=0, asked=0, reminded=0, mails=0, failed=0)
 
     # Outside the transactions, whose callbacks may run again, as the application sweep reads it.
-    governing_saison_id = await sperrliste_saison(sperrliste)
+    governing_saison_id = await ban_list_saison(ban_list)
 
     async def close(session: AsyncClientSession, batch: Batch) -> _Closed:
         """Judge every row holding its question against its fixture as it stands, then close a share, owing each notice.
@@ -515,7 +515,7 @@ async def sweep_spielbestaetigungen(
             ids=[partei["schiedsrichter_id"] for spiel in spiele for partei in parteien_of(spiel) if partei["art"] == "schiedsrichter"],
             session=session,
         )
-        barred = await _gesperrt(sperrliste=sperrliste, junctions=junctions, governing_saison_id=governing_saison_id, session=session)
+        barred = await _barred(ban_list=ban_list, junctions=junctions, governing_saison_id=governing_saison_id, session=session)
 
         def plan_of(spiel: Mapping[str, Any]) -> _MintPlan:
             plan = _MintPlan()
@@ -660,7 +660,7 @@ async def sweep_spielbestaetigungen(
             session=session,
         )
         austritte = _austritte(junctions)
-        barred = await _gesperrt(sperrliste=sperrliste, junctions=junctions, governing_saison_id=governing_saison_id, session=session)
+        barred = await _barred(ban_list=ban_list, junctions=junctions, governing_saison_id=governing_saison_id, session=session)
         lagen = await states_of(
             outbox_collection=outbox_collection,
             collection=Collection.SPIELBESTAETIGUNGEN,

@@ -25,7 +25,7 @@ from app.api.registrierungen.schemas import (
 from app.api.registrierungen.services import (
     compose_confirmation_update,
 )
-from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
+from app.api.sperrliste.services import compose_barred_until_saison_id
 from app.api.spieler.services import build_ghost_spieler
 from app.core.codes import Code
 from app.core.collections import Collection
@@ -90,7 +90,7 @@ TOKEN = "hwGqQ4kP6yJr3VnZbT8sXeM2dLuF9aCwR1oY5iN7pKg"
 
 RULES: Mapping[str, Any] = documents.rules_document(max_kadergroesse=3, allowed_stufen=["Q1", "Q2"])
 
-STANDING = compose_gesperrt_bis_saison_id(governing_saison_id=SAISON_ID)
+STANDING = compose_barred_until_saison_id(governing_saison_id=SAISON_ID)
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
@@ -246,7 +246,7 @@ async def admit(
             spieler_collection=database[Collection.SPIELER] if spieler is None else spieler,
         ),
         action_log_collection=database[Collection.ACTION_LOG],
-        sperrliste=ban_list(database),
+        ban_list=ban_list(database),
         db=client,
         today=TODAY,
         germany_now=NOW,
@@ -402,7 +402,7 @@ class TestWhatAnAdmissionWrites:
                 ),
                 registrierungen_collection=database[Collection.REGISTRIERUNGEN],
                 spieler_collection=database[Collection.SPIELER],
-                sperrliste=ban_list(database),
+                ban_list=ban_list(database),
                 db=client,
                 today=TODAY,
                 germany_now=NOW,
@@ -860,7 +860,7 @@ async def confirm_as_returning(database: AsyncDatabase, client: AsyncMongoClient
         ),
         registrierungen_collection=database[Collection.REGISTRIERUNGEN],
         spieler_collection=database[Collection.SPIELER],
-        sperrliste=ban_list(database),
+        ban_list=ban_list(database),
         db=client,
         today=TODAY,
         germany_now=NOW,
@@ -968,7 +968,7 @@ class TestAReturningRegistration:
                 registrierungen_collection=database[Collection.REGISTRIERUNGEN],
                 teams_collection=database[Collection.TEAMS],
                 spieler_collection=database[Collection.SPIELER],
-                sperrliste=ban_list(database),
+                ban_list=ban_list(database),
                 today=TODAY,
             )
             held = (await database[Collection.SPIELER].find_one({"_id": stored_id}) or {})["einwilligung"]

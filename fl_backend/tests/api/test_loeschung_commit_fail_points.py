@@ -196,7 +196,7 @@ class TestTheReadsAPerRequestLookupGathers:
                     return await live_unbarred_grant_since(
                         ADMIN_STORED,
                         grants_collection=held[database.name][Collection.GRANTS],
-                        sperrliste=ban_list(held[database.name]),
+                        ban_list=ban_list(held[database.name]),
                         session=session,
                     )
 

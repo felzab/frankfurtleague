@@ -23,7 +23,7 @@ from app.api.identity.schemas import (
     FLSubjectResponse,
 )
 from app.api.identity.services import completed_saison_id
-from app.api.sperrliste.lookup import BanList, SperrlisteLookup, hash_gesperrt
+from app.api.sperrliste.lookup import BanList, BanListLookup, hash_barred
 from app.core.codes import Code
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.dependencies import (
@@ -75,7 +75,7 @@ router = APIRouter(
 async def get_subject(
     subject_data: Annotated[FLSubjectPayload, Body()],
     records: SubjectLookup,
-    sperrliste: SperrlisteLookup,
+    ban_list: BanListLookup,
     grants_collection: GrantsReadCollection,
     session: SnapshotSession,
 ) -> FLSubjectResponse:
@@ -89,13 +89,13 @@ async def get_subject(
 
     # Keyed from the payload's own value, as the ban write keys it: that payload type runs the rule
     # `league_address` runs, so an address the hash would refuse was answered 422 before here.
-    ban_key = sperrliste.hash_of(str(subject_data.email))
+    ban_key = ban_list.hash_of(str(subject_data.email))
 
     # Concurrently, every page a signed-in person or an administrator renders waiting on this answer:
     # the records, the ban and the grant cost the longest of the three rather than their sum.
     subject, barred, grant = await asyncio.gather(
         find_subject(identifier, records),
-        hash_gesperrt(sperrliste, ban_key),
+        hash_barred(ban_list, ban_key),
         read_admin_tier_of(grants_collection=grants_collection, address=identifier, session=session),
     )
     admin_tier, granted_since, owner_since = (None, None, None) if grant is None else grant
@@ -112,7 +112,7 @@ async def get_subject(
 async def get_sign_in(
     sign_in_data: Annotated[FLSubjectPayload, Body()],
     records: SubjectLookup,
-    sperrliste: SperrlisteLookup,
+    ban_list: BanListLookup,
     grants_collection: GrantsReadCollection,
     session: SnapshotSession,
 ) -> FLSignInResponse:
@@ -123,12 +123,12 @@ async def get_sign_in(
 
     # Keyed as `get_subject` keys, for its reason.
     identifier = sign_in_identifier(str(sign_in_data.email))
-    ban_key = sperrliste.hash_of(str(sign_in_data.email))
+    ban_key = ban_list.hash_of(str(sign_in_data.email))
 
     # Concurrently, for `get_subject`'s reason: a sign-in waits on this answer.
     sign_in, barred, grant = await asyncio.gather(
         find_sign_in(identifier, records),
-        hash_gesperrt(sperrliste, ban_key),
+        hash_barred(ban_list, ban_key),
         read_admin_tier_of(grants_collection=grants_collection, address=identifier, session=session),
     )
 
@@ -191,7 +191,7 @@ async def _erase_one(
     ban_list_collection: AsyncCollection,
     address_changes_collection: AsyncCollection,
     grant_approval_requests_collection: AsyncCollection,
-    sperrliste: BanList,
+    ban_list: BanList,
     db: AsyncMongoClient,
     key: SecretStr,
     stamp: str,
@@ -220,7 +220,7 @@ async def _erase_one(
             ban_list_collection=ban_list_collection,
             address_changes_collection=address_changes_collection,
             grant_approval_requests_collection=grant_approval_requests_collection,
-            sperrliste=sperrliste,
+            ban_list=ban_list,
             key=key,
             stamp=stamp,
             now=now,
@@ -256,7 +256,7 @@ async def sweep_erasure(
     ban_list_collection: BanListCollection,
     address_changes_collection: AddressChangeCollection,
     grant_approval_requests_collection: GrantApprovalRequestsCollection,
-    sperrliste: SperrlisteLookup,
+    ban_list: BanListLookup,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
     germany_now: datetime = Depends(get_germany_now),
@@ -335,7 +335,7 @@ async def sweep_erasure(
                 ban_list_collection=ban_list_collection,
                 address_changes_collection=address_changes_collection,
                 grant_approval_requests_collection=grant_approval_requests_collection,
-                sperrliste=sperrliste,
+                ban_list=ban_list,
                 db=db,
                 key=config.sperrliste_key,
                 stamp=stamp,

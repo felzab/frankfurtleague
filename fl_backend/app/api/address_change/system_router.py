@@ -29,7 +29,7 @@ from app.api.address_change.services import (
     is_expired,
 )
 from app.api.identity.lookup import RecordCollections, SubjectLookup
-from app.api.sperrliste.lookup import BanList, SperrlisteLookup, sperrliste_saison
+from app.api.sperrliste.lookup import BanList, BanListLookup, ban_list_saison
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION, BackendConfig, get_app_config
@@ -142,7 +142,7 @@ async def _make_the_due_change_take_effect(
     row: Mapping[str, Any],
     *,
     records: RecordCollections,
-    sperrliste: BanList,
+    ban_list: BanList,
     governing_saison_id: str | None,
     address_changes_collection: AsyncCollection,
     spieler_collection: AsyncCollection,
@@ -179,7 +179,7 @@ async def _make_the_due_change_take_effect(
         verdict, effective = await take_effect_in_session(
             record=record,
             records=records,
-            sperrliste=sperrliste,
+            ban_list=ban_list,
             governing_saison_id=governing_saison_id,
             address_changes_collection=address_changes_collection,
             spieler_collection=spieler_collection,
@@ -260,7 +260,7 @@ async def sweep_address_change(
     grant_approval_requests_collection: GrantApprovalRequestsCollection,
     invitations_collection: InvitationsCollection,
     ban_list_collection: BanListCollection,
-    sperrliste: SperrlisteLookup,
+    ban_list: BanListLookup,
     action_log_collection: ActionLogCollection,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
@@ -297,9 +297,9 @@ async def sweep_address_change(
     seite = [{"_id": row["_id"], "due": not is_expired(row, now=germany_now)} for row in read["seite"]]
     count = sum(row["count"] for row in read["count"])
     stamp = log_stamp(germany_now)
-    # Outside every change's transaction (`app/api/sperrliste/crud.py :: address_is_gesperrt`), and only where a due change
+    # Outside every change's transaction (`app/api/sperrliste/crud.py :: address_is_barred`), and only where a due change
     # asks the ban list: a page of lapses reads no season.
-    governing_saison_id = await sperrliste_saison(sperrliste) if any(row["due"] for row in seite[:ADDRESS_CHANGE_PER_PASS]) else None
+    governing_saison_id = await ban_list_saison(ban_list) if any(row["due"] for row in seite[:ADDRESS_CHANGE_PER_PASS]) else None
 
     removed, skipped = 0, 0
     discarded, effective = 0, 0
@@ -314,7 +314,7 @@ async def sweep_address_change(
                 ergebnis = await _make_the_due_change_take_effect(
                     row,
                     records=records,
-                    sperrliste=sperrliste,
+                    ban_list=ban_list,
                     governing_saison_id=governing_saison_id,
                     address_changes_collection=address_changes_collection,
                     spieler_collection=spieler_collection,

@@ -35,7 +35,7 @@ async def drained(database: AsyncDatabase, client: AsyncMongoClient, *, now: dat
     mails: list[FLOutboxHandout] = []
     while True:
         answer = await post_handout(
-            outbox_collection=database[Collection.OUTBOX], sperrliste=ban_list(database), db=database, db_client=client, now=claimable(now)
+            outbox_collection=database[Collection.OUTBOX], ban_list=ban_list(database), db=database, db_client=client, now=claimable(now)
         )
         if answer.lease is None:
             return mails

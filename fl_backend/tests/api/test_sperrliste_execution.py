@@ -11,8 +11,8 @@ from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import DuplicateKeyError
 
 from app.api.sperrliste.admin_router import delete_sperrliste_entry, get_sperrliste
-from app.api.sperrliste.crud import address_is_gesperrt, read_sperrliste_page
-from app.api.sperrliste.services import SPERRLISTE_SCHLUESSEL_VERSION, address_hash
+from app.api.sperrliste.crud import address_is_barred, read_sperrliste_page
+from app.api.sperrliste.services import BAN_LIST_KEY_VERSION, address_hash
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError, DocumentNotFoundError
@@ -92,7 +92,7 @@ async def listed(database: AsyncDatabase) -> Any:
 
     return await get_sperrliste(
         ban_list_collection=database[Collection.BAN_LIST],
-        sperrliste=ban_list(database),
+        ban_list=ban_list(database),
     )
 
 
@@ -133,7 +133,7 @@ class TestWhatABanStores:
             assert stored is not None
             return stored["key_version"]
 
-        assert on_a_clean_list(mongo_replica_set_url, body) == SPERRLISTE_SCHLUESSEL_VERSION
+        assert on_a_clean_list(mongo_replica_set_url, body) == BAN_LIST_KEY_VERSION
 
     def test_no_part_of_the_banned_address_reaches_the_row(self, mongo_replica_set_url: str):
         """The whole point of the collection, and the half nothing else in the suite would notice going wrong."""
@@ -253,7 +253,7 @@ class TestTheCheckASignUpWillAsk:
             await ban(database, client)
 
             return [
-                await address_is_gesperrt(
+                await address_is_barred(
                     ban_list_collection=database[Collection.BAN_LIST],
                     address_hash=address_hash(typed, key=CONFIG.sperrliste_key),
                     governing_saison_id=ACTIVE_SAISON_ID,
@@ -269,7 +269,7 @@ class TestTheCheckASignUpWillAsk:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> bool:
             await ban(database, client)
 
-            return await address_is_gesperrt(
+            return await address_is_barred(
                 ban_list_collection=database[Collection.BAN_LIST],
                 address_hash=address_hash(OTHER, key=CONFIG.sperrliste_key),
                 governing_saison_id=ACTIVE_SAISON_ID,
@@ -288,7 +288,7 @@ class TestTheCheckASignUpWillAsk:
                 db=client,
             )
 
-            return await address_is_gesperrt(
+            return await address_is_barred(
                 ban_list_collection=database[Collection.BAN_LIST],
                 address_hash=address_hash(BANNED, key=CONFIG.sperrliste_key),
                 governing_saison_id=ACTIVE_SAISON_ID,
@@ -519,7 +519,7 @@ class TestTheKeyTheRowsWereTakenUnder:
                 )
             )
 
-            return await address_is_gesperrt(
+            return await address_is_barred(
                 ban_list_collection=database[Collection.BAN_LIST],
                 address_hash=address_hash(BANNED, key=CONFIG.sperrliste_key),
                 governing_saison_id=ACTIVE_SAISON_ID,

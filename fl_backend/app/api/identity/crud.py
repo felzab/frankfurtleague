@@ -648,7 +648,7 @@ async def erase_everything(
     ban_list_collection: AsyncCollection,
     address_changes_collection: AsyncCollection,
     grant_approval_requests_collection: AsyncCollection,
-    sperrliste: BanList,
+    ban_list: BanList,
     # Whom the grant notice names as ending the person's grant: the person on their own request, the
     # administrator on theirs.
     changed_by: str,
@@ -817,7 +817,7 @@ async def erase_everything(
                 registrierungen_collection=registrierungen_collection,
                 invitations_collection=invitations_collection,
                 ban_list_collection=ban_list_collection,
-                sperrliste=sperrliste,
+                ban_list=ban_list,
                 identifier=identifier,
                 changed_by=changed_by,
                 now=now,
@@ -1041,7 +1041,7 @@ async def erase_if_still_due(
     ban_list_collection: AsyncCollection,
     address_changes_collection: AsyncCollection,
     grant_approval_requests_collection: AsyncCollection,
-    sperrliste: BanList,
+    ban_list: BanList,
     key: SecretStr,
     stamp: str,
     now: datetime,
@@ -1107,7 +1107,7 @@ async def erase_if_still_due(
         ban_list_collection=ban_list_collection,
         address_changes_collection=address_changes_collection,
         grant_approval_requests_collection=grant_approval_requests_collection,
-        sperrliste=sperrliste,
+        ban_list=ban_list,
         # Read by the grants step alone, which this scope never runs.
         changed_by=SYSTEM_ACTOR_EMAIL,
         key=key,

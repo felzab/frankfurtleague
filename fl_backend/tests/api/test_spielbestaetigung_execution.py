@@ -216,7 +216,7 @@ async def read_view(
         saison_teams_collection=either(database, Collection.SAISON_TEAMS, saison_teams),
         spielorte_collection=database[Collection.SPIELORTE],
         teams_collection=database[Collection.TEAMS],
-        sperrliste=ban_list(database),
+        ban_list=ban_list(database),
         today=today,
     )
 
@@ -248,7 +248,7 @@ async def antworten(
         spiele_collection=either(database, Collection.SPIELE, spiele),
         saison_teams_collection=either(database, Collection.SAISON_TEAMS, saison_teams),
         spieltage_collection=either(database, Collection.SPIELTAGE, spieltage),
-        sperrliste=ban_list(database),
+        ban_list=ban_list(database),
         db=client,
         today=today,
     )

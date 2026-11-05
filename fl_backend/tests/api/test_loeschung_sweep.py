@@ -174,7 +174,7 @@ async def run(database: AsyncDatabase, client: AsyncMongoClient, *, after: Any =
     return await sweep_erasure(
         params=FLErasureSweepParams(after=after),
         **erasure_collections(database, **({"saisons_collection": database[Collection.SAISONS]} | replaced)),
-        sperrliste=ban_list(database),
+        ban_list=ban_list(database),
         db=client,
         config=CONFIG,
         germany_now=NOW,

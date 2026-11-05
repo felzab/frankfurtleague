@@ -45,8 +45,8 @@ from app.api.bewerbungen.services import (
     dubletten_schluessel_of,
     find_acceptance_subject_refusal,
     find_already_answered_refusal,
+    find_kontakt_barred_refusal,
     find_kontakt_email_refusal,
-    find_kontakt_gesperrt_refusal,
     find_new_club_refusal,
     find_reseat_refusal,
     find_sitz_inhaber_refusal,
@@ -64,7 +64,7 @@ from app.api.outbox.crud import states_of
 from app.api.outbox.schemas import FLBewerbungAbsageData, FLBewerbungZusageData
 from app.api.outbox.services import OwedMail, enqueue_mails
 from app.api.saisons.schemas import FLSaisonRules
-from app.api.sperrliste.lookup import BanList, SperrlisteLookup, barred_addresses, hash_gesperrt, sperrliste_saison
+from app.api.sperrliste.lookup import BanList, BanListLookup, ban_list_saison, barred_addresses, hash_barred
 from app.api.teams.crud import pull_a_club_to_enter, refuse_a_full_gruppe
 from app.api.teams.services import find_club_entry_refusal
 from app.core.collections import Collection
@@ -104,12 +104,12 @@ FLBewerbungenFilters = Annotated[FLBewerbungenFilterParams, Query()]
 async def _as_served(
     rows: Sequence[Mapping[str, Any]],
     *,
-    sperrliste: BanList,
+    ban_list: BanList,
     outbox_collection: AsyncCollection,
 ) -> list[dict[str, Any]]:
     # Concurrently: the ban list and the Postausgang are two collections, and neither read waits on the other.
     barred, lagen = await asyncio.gather(
-        barred_addresses(sperrliste, decider_addresses(rows)),
+        barred_addresses(ban_list, decider_addresses(rows)),
         states_of(outbox_collection=outbox_collection, collection=Collection.BEWERBUNGEN, ids=[row["_id"] for row in rows]),
     )
 
@@ -120,7 +120,7 @@ async def _as_served(
 async def get_bewerbungen(
     bewerbungen_collection: BewerbungenCollection,
     outbox_collection: OutboxCollection,
-    sperrliste: SperrlisteLookup,
+    ban_list: BanListLookup,
     filters: FLBewerbungenFilters,
 ) -> FLBewerbungenListResponse:
     """Every application, newest first, narrowed by `saison_id` with `saison_reference` and by any of the three statuses.
@@ -169,9 +169,7 @@ async def get_bewerbungen(
     # would hand whoever writes them the power to 500 this page. Answering short leaves the
     # administrator a usable list, and `complete` reports the cut.
     return FLBewerbungenListResponse(
-        bewerbungen=FLBewerbungListAdapter.validate_python(
-            await _as_served(served, sperrliste=sperrliste, outbox_collection=outbox_collection)
-        ),
+        bewerbungen=FLBewerbungListAdapter.validate_python(await _as_served(served, ban_list=ban_list, outbox_collection=outbox_collection)),
         complete=len(read) <= filters.limit,
         count_per_status=dict(zip(get_args(FLBewerbungStatus.__value__), counted, strict=True)),
         count_per_saison_reference=dict(zip(saisonbezug_terms, bezogen, strict=True)),
@@ -184,7 +182,7 @@ async def get_bewerbung(
     bewerbung_id: CustomRouteObjectId,
     bewerbungen_collection: BewerbungenCollection,
     outbox_collection: OutboxCollection,
-    sperrliste: SperrlisteLookup,
+    ban_list: BanListLookup,
     today: str = Depends(get_german_date_str),
 ) -> FLBewerbungSingleResponse:
     """One application, its decision's administrator withheld as the list withholds it.
@@ -193,7 +191,7 @@ async def get_bewerbung(
     """
 
     bewerbung_raw = await pull_one_from_db(collection=bewerbungen_collection, db_filter={"_id": bewerbung_id}, projection=WITHOUT_TOKEN_HASHES)
-    [served] = await _as_served([bewerbung_raw], sperrliste=sperrliste, outbox_collection=outbox_collection)
+    [served] = await _as_served([bewerbung_raw], ban_list=ban_list, outbox_collection=outbox_collection)
 
     return FLBewerbungSingleResponse(
         bewerbung=FLBewerbung(**served),
@@ -476,7 +474,7 @@ async def resend_einwilligung(
     bewerbungen_collection: BewerbungenCollection,
     teams_collection: TeamsCollection,
     outbox_collection: OutboxCollection,
-    sperrliste: SperrlisteLookup,
+    ban_list: BanListLookup,
     db: DBClient,
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
@@ -506,8 +504,8 @@ async def resend_einwilligung(
         # pair's details equal and the correction moves both. Only a hand edit could part them.
         slots = [kontakte.get(held) for held in seats] if isinstance(kontakte, Mapping) else []
         addresses = {str(slot["email"]) for slot in slots if isinstance(slot, Mapping) and slot.get("email")}
-        barred = await barred_addresses(sperrliste, addresses, governing_saison_id=governing_saison_id, session=session)
-        refuse(find_kontakt_gesperrt_refusal(barred=bool(barred)))
+        barred = await barred_addresses(ban_list, addresses, governing_saison_id=governing_saison_id, session=session)
+        refuse(find_kontakt_barred_refusal(barred=bool(barred)))
 
     # A 404 rather than a 422, as a malformed path id answers: the segment names no seat any
     # application has, which is a miss and not a body fault.
@@ -540,10 +538,10 @@ async def resend_einwilligung(
     # The judgement is in the FILTER, so a decision or an answer landing after the read leaves the row
     # untouched rather than overwritten.
     async def mint_on(seats: tuple[FLKontaktRolle, ...]) -> Mapping[str, Any]:
-        async def mint_unless_gesperrt(session: AsyncClientSession) -> Mapping[str, Any]:
+        async def mint_unless_barred(session: AsyncClientSession) -> Mapping[str, Any]:
             """Write, then ask the ban list of the addresses the write found; a barred one aborts the write."""
 
-            governing_saison_id = await sperrliste_saison(sperrliste, session=session)
+            governing_saison_id = await ban_list_saison(ban_list, session=session)
             matched = await patch_one_in_db(
                 collection=bewerbungen_collection,
                 db_filter=build_erneut_filter(bewerbung_id=bewerbung_id, seats=seats),
@@ -574,7 +572,7 @@ async def resend_einwilligung(
             return matched
 
         async with transaction_session(db) as session:
-            return await session.with_transaction(mint_unless_gesperrt)
+            return await session.with_transaction(mint_unless_barred)
 
     try:
         matched = await mint_on(seats)
@@ -606,7 +604,7 @@ async def post_kontakt_email(
     bewerbungen_collection: BewerbungenCollection,
     teams_collection: TeamsCollection,
     outbox_collection: OutboxCollection,
-    sperrliste: SperrlisteLookup,
+    ban_list: BanListLookup,
     db: DBClient,
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
@@ -630,9 +628,9 @@ async def post_kontakt_email(
     """
 
     # Outside the transaction, whose callback may run again, as the referee editor reads both
-    # (`app/api/sperrliste/crud.py :: address_is_gesperrt`).
-    hashed = sperrliste.hash_of(email_data.email)
-    governing_saison_id = await sperrliste_saison(sperrliste)
+    # (`app/api/sperrliste/crud.py :: address_is_barred`).
+    hashed = ban_list.hash_of(email_data.email)
+    governing_saison_id = await ban_list_saison(ban_list)
     # Outside the callback, for the re-send's reason.
     nonce = secrets.token_hex(8)
 
@@ -669,8 +667,8 @@ async def post_kontakt_email(
         # Asked over the seats this write does NOT reach, so a mirrored pair moving to one new address
         # together is not refused for sharing it with itself.
         refuse(find_kontakt_email_refusal(kontakte=kontakte, seats=seats, email=email_data.email))
-        barred = await hash_gesperrt(sperrliste, hashed, governing_saison_id=governing_saison_id, session=session)
-        refuse(find_kontakt_gesperrt_refusal(barred=barred))
+        barred = await hash_barred(ban_list, hashed, governing_saison_id=governing_saison_id, session=session)
+        refuse(find_kontakt_barred_refusal(barred=barred))
 
         bestaetigungsfrist = bestaetigungsfrist_from(today=today)
 
@@ -719,7 +717,7 @@ async def post_kontakt_seat(
     bewerbungen_collection: BewerbungenCollection,
     teams_collection: TeamsCollection,
     outbox_collection: OutboxCollection,
-    sperrliste: SperrlisteLookup,
+    ban_list: BanListLookup,
     db: DBClient,
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
@@ -744,8 +742,8 @@ async def post_kontakt_seat(
     """
 
     # Outside the transaction, as the correction reads both.
-    hashed = sperrliste.hash_of(sitz_data.email)
-    governing_saison_id = await sperrliste_saison(sperrliste)
+    hashed = ban_list.hash_of(sitz_data.email)
+    governing_saison_id = await ban_list_saison(ban_list)
     # Outside the callback, for the re-send's reason.
     nonce = secrets.token_hex(8)
 
@@ -778,8 +776,8 @@ async def post_kontakt_seat(
         # Asked over the seats this write does NOT reach, as the correction asks it: a mirrored pair
         # is one person, and comparing them against each other would refuse every such reseat.
         refuse(find_kontakt_email_refusal(kontakte=kontakte, seats=seats, email=sitz_data.email))
-        barred = await hash_gesperrt(sperrliste, hashed, governing_saison_id=governing_saison_id, session=session)
-        refuse(find_kontakt_gesperrt_refusal(barred=barred))
+        barred = await hash_barred(ban_list, hashed, governing_saison_id=governing_saison_id, session=session)
+        refuse(find_kontakt_barred_refusal(barred=barred))
 
         bestaetigungsfrist = bestaetigungsfrist_from(today=today)
 

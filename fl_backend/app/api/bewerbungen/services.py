@@ -955,7 +955,7 @@ def find_barred_refusal(*, barred: bool) -> WriteRefusal | None:
     )
 
 
-def find_kontakt_gesperrt_refusal(*, barred: bool) -> WriteRefusal | None:
+def find_kontakt_barred_refusal(*, barred: bool) -> WriteRefusal | None:
     """`bewerbung_kontakt_barred`: an administrator's correction or reseat names an address the ban list holds.
 
     409 where the public form's is 403: an administrator's write naming it is about the entry it writes,
@@ -971,7 +971,7 @@ def find_kontakt_gesperrt_refusal(*, barred: bool) -> WriteRefusal | None:
     )
 
 
-def find_einwilligung_gesperrt_refusal(*, barred: bool) -> WriteRefusal | None:
+def find_einwilligung_barred_refusal(*, barred: bool) -> WriteRefusal | None:
     """`link_barred`: the ban list holds the address a confirmation link was mailed to, however long ago it was minted.
 
     Asked of a consent alone: a Widerspruch empties the seat, which is what a barred person is owed.

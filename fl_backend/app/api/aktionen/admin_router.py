@@ -15,7 +15,7 @@ from app.api.aktionen.schemas import (
 )
 from app.api.aktionen.services import actor_addresses, build_aktionen_sort, document_id_term, mit_vorenthaltenem_akteur
 from app.api.berechtigungen.guard import verify_actor_is_admin
-from app.api.sperrliste.lookup import BanList, SperrlisteLookup, barred_addresses
+from app.api.sperrliste.lookup import BanList, BanListLookup, barred_addresses
 from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db, build_query, pull_many_from_db, pull_one_from_db
 from app.core.dependencies import ActionLogCollection
@@ -113,8 +113,8 @@ def _tally(cells: Sequence[Mapping[str, Any]], *, counted: str, held: Mapping[st
     return totals
 
 
-async def _as_served(rows: Sequence[Mapping[str, Any]], *, sperrliste: BanList) -> list[dict[str, Any]]:
-    barred = await barred_addresses(sperrliste, actor_addresses(rows))
+async def _as_served(rows: Sequence[Mapping[str, Any]], *, ban_list: BanList) -> list[dict[str, Any]]:
+    barred = await barred_addresses(ban_list, actor_addresses(rows))
 
     return [mit_vorenthaltenem_akteur(row, barred) for row in rows]
 
@@ -122,7 +122,7 @@ async def _as_served(rows: Sequence[Mapping[str, Any]], *, sperrliste: BanList) 
 @router.get("", response_model=FLActionLogListResponse, summary="List recorded admin actions")
 async def get_action_log(
     action_log_collection: ActionLogCollection,
-    sperrliste: SperrlisteLookup,
+    ban_list: BanListLookup,
     filters: FLAktionenFilters,
 ) -> FLActionLogListResponse:
     """List recorded writes newest first, `complete` false where `limit` cut them, an actor's `email` null where the ban list holds it.
@@ -163,7 +163,7 @@ async def get_action_log(
     cells = _facet_cells(grouped)
 
     return FLActionLogListResponse(
-        action_log=FLAktionenListAdapter.validate_python(await _as_served(served, sperrliste=sperrliste)),
+        action_log=FLAktionenListAdapter.validate_python(await _as_served(served, ban_list=ban_list)),
         complete=len(read) <= filters.limit,
         count_per_collection=_tally(cells, counted="collection", held={"operation": filters.operation, "herkunft": filters.herkunft}),
         count_per_operation=_tally(cells, counted="operation", held={"collection": filters.collection, "herkunft": filters.herkunft}),
@@ -175,11 +175,11 @@ async def get_action_log(
 async def get_action_log_entry(
     action_log_entry_id: CustomRouteObjectId,
     action_log_collection: ActionLogCollection,
-    sperrliste: SperrlisteLookup,
+    ban_list: BanListLookup,
 ) -> FLActionLogEntrySingleResponse:
     """One recorded write with the document it replaced, served as recorded; the actor is withheld as the list withholds it."""
 
     aktion_raw = await pull_one_from_db(collection=action_log_collection, db_filter={"_id": action_log_entry_id})
-    [served] = await _as_served([aktion_raw], sperrliste=sperrliste)
+    [served] = await _as_served([aktion_raw], ban_list=ban_list)
 
     return FLActionLogEntrySingleResponse(action_log_entry=FLActionLogEntryWithBefore(**served))

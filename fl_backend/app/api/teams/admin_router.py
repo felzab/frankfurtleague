@@ -41,7 +41,7 @@ from app.api.registrierungen.services import saison_nimmt_registrierungen_an
 from app.api.saisons.crud import pull_saison_id_and_rules
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.saisons.services import find_saison_past_refusal, has_started
-from app.api.sperrliste.lookup import SperrlisteLookup, barred_addresses, sperrliste_saison
+from app.api.sperrliste.lookup import BanListLookup, ban_list_saison, barred_addresses
 from app.api.sperrliste.services import withheld_actor
 from app.api.spielbestaetigungen.services import seat_void_of
 from app.api.teams.crud import pull_a_club_to_enter, refuse_a_full_gruppe, void_moved_seats
@@ -74,7 +74,7 @@ from app.api.teams.services import (
     compose_kontakte_herkunft,
     find_club_entry_refusal,
     find_gruppe_move_refusal,
-    find_kontakt_sitz_gesperrt_refusal,
+    find_kontakt_seat_barred_refusal,
     find_kontakt_sitz_refusal,
     find_kontakt_zeile_refusal,
     find_kontakte_precondition_refusal,
@@ -625,7 +625,7 @@ async def patch_saison_team_kontakte(
     saisons_collection: SaisonsCollection,
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
     outbox_collection: OutboxCollection,
-    sperrliste: SperrlisteLookup,
+    ban_list: BanListLookup,
     db: DBClient,
     actor: Annotated[SessionActor, Depends(verify_admin_actor)],
     today: str = Depends(get_german_date_str),
@@ -665,8 +665,8 @@ async def patch_saison_team_kontakte(
     payload = kontakte_data.model_dump(mode="json")
     # Outside the callback, so a retried transaction owes this save's mails once and a second save its own.
     nonce = secrets.token_hex(8)
-    # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_gesperrt`).
-    governing_saison_id = await sperrliste_saison(sperrliste)
+    # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_barred`).
+    governing_saison_id = await ban_list_saison(ban_list)
 
     async def rewrite_the_block(session: AsyncClientSession) -> FLPatchSaisonTeamKontakteResponse:
         # In session, so the precondition judges what this write will land on. Read outside one, an
@@ -689,14 +689,14 @@ async def patch_saison_team_kontakte(
         # A ban committing after this read conflicts with the save on the saver's own grant row, which
         # the ban's judgement writes with every other (`pull_the_list_to_judge`), so the retry reads it.
         barred = await barred_addresses(
-            sperrliste,
+            ban_list,
             {address for seats in owed for address in seat_addresses(kontakte=kontakte, seats=seats)},
             governing_saison_id=governing_saison_id,
             session=session,
         )
         # Refused, never stored unmailed: that person would learn nothing of the entry. A ban landing
         # after the save is the press's.
-        refuse(find_kontakt_sitz_gesperrt_refusal(barred=bool(barred)))
+        refuse(find_kontakt_seat_barred_refusal(barred=bool(barred)))
 
         entry = compose_kontakt_bestaetigung(today=today)
         minted = {seat: entry for seats in owed for seat in seats}
@@ -970,7 +970,7 @@ async def invite_kontakt(
     saison_teams_collection: SaisonTeamsCollection,
     saisons_collection: SaisonsCollection,
     outbox_collection: OutboxCollection,
-    sperrliste: SperrlisteLookup,
+    ban_list: BanListLookup,
     db: DBClient,
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
@@ -997,8 +997,8 @@ async def invite_kontakt(
 
     # Outside the callback, so a retried transaction owes this press's mail once and a second press its own.
     nonce = secrets.token_hex(8)
-    # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_gesperrt`).
-    governing_saison_id = await sperrliste_saison(sperrliste)
+    # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_barred`).
+    governing_saison_id = await ban_list_saison(ban_list)
 
     async def judge_and_mint(session: AsyncClientSession) -> FLKontaktInviteResponse:
         """Judge the seat, ask the ban, then replace the link and owe its mail, everything judged read in-session for a retry to re-judge."""
@@ -1018,9 +1018,9 @@ async def invite_kontakt(
 
         seats = seats_one_link_answers(kontakte=kontakte, seat=rolle)
         barred = await barred_addresses(
-            sperrliste, seat_addresses(kontakte=kontakte, seats=seats), governing_saison_id=governing_saison_id, session=session
+            ban_list, seat_addresses(kontakte=kontakte, seats=seats), governing_saison_id=governing_saison_id, session=session
         )
-        refuse(find_kontakt_sitz_gesperrt_refusal(barred=bool(barred)))
+        refuse(find_kontakt_seat_barred_refusal(barred=bool(barred)))
 
         entry = compose_kontakt_bestaetigung(today=today)
         await patch_one_in_db(
@@ -1259,7 +1259,7 @@ async def get_invitation(
     invitations_collection: InvitationsCollection,
     saisons_collection: SaisonsCollection,
     outbox_collection: OutboxCollection,
-    sperrliste: SperrlisteLookup,
+    ban_list: BanListLookup,
     today: str = Depends(get_german_date_str),
 ) -> FLInvitationResponse:
     """
@@ -1288,7 +1288,7 @@ async def get_invitation(
     if live:
         # As stored first, so a row the stored shape refuses fails here rather than being served withheld.
         erstellt_von = FLEinladung.model_validate(live[0]).created_by
-        barred = await barred_addresses(sperrliste, [sign_in_identifier(erstellt_von)])
+        barred = await barred_addresses(ban_list, [sign_in_identifier(erstellt_von)])
         withheld = withheld_actor(erstellt_von, barred)
         lage = await state_of(outbox_collection=outbox_collection, reference=einladung_bezug(live[0]["_id"]))
         einladung = FLInvitationRow.model_validate({**live[0], "created_by": withheld, "created_by_barred": withheld is None, "delivery": lage})

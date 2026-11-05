@@ -42,7 +42,7 @@ async def ban_through_the_route(
     return await post_sperrliste_entry(
         ban_list_data=FLPostSperrlistePayload(email=email, grund=grund, notify=notify),
         ban_list_collection=database[Collection.BAN_LIST],
-        sperrliste=ban_list(database, saisons=saisons),
+        ban_list=ban_list(database, saisons=saisons),
         saisons_collection=database[Collection.SAISONS] if saisons is None else saisons,
         grants_collection=database[Collection.GRANTS] if grants is None else grants,
         outbox_collection=database[Collection.OUTBOX],

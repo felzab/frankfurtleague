@@ -39,7 +39,7 @@ from app.api.berechtigungen.schemas import (
 from app.api.berechtigungen.services import compose_notice
 from app.api.berechtigungen.system_router import post_grants_reconciliation
 from app.api.sperrliste.admin_router import delete_sperrliste_entry
-from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
+from app.api.sperrliste.services import compose_barred_until_saison_id
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -127,7 +127,7 @@ def the_three_grants() -> list[dict[str, Any]]:
 
 
 # Composed by the production helper rather than spelled, so a drifted bound cannot leave these cases passing over a lapsed row.
-STANDING = compose_gesperrt_bis_saison_id(governing_saison_id=RUNNING)
+STANDING = compose_barred_until_saison_id(governing_saison_id=RUNNING)
 
 
 def on_a_league(url: str, body: Body, *, grants: list[dict[str, Any]] | None = None) -> Any:
@@ -178,7 +178,7 @@ async def approved(
             grants_announced_collection=database[Collection.GRANTS_ANNOUNCED],
             outbox_collection=database[Collection.OUTBOX],
             grant_approval_requests_collection=database[Collection.GRANT_APPROVAL_REQUESTS],
-            sperrliste=ban_list(database),
+            ban_list=ban_list(database),
             db=client,
             operator=als,
             auth_time=int(time.time()),
@@ -207,7 +207,7 @@ async def grant(
             grants_announced_collection=database[Collection.GRANTS_ANNOUNCED],
             outbox_collection=database[Collection.OUTBOX],
             grant_approval_requests_collection=database[Collection.GRANT_APPROVAL_REQUESTS],
-            sperrliste=ban_list(database),
+            ban_list=ban_list(database),
             db=client,
             granted_by=als,
             # Asked on the real clock: the request lapses a week after it, and the TTL monitor would remove one asked at
@@ -230,7 +230,7 @@ async def revoke(database: AsyncDatabase, client: AsyncMongoClient, grant_id: Ob
             grants_announced_collection=database[Collection.GRANTS_ANNOUNCED],
             outbox_collection=database[Collection.OUTBOX],
             grant_approval_requests_collection=database[Collection.GRANT_APPROVAL_REQUESTS],
-            sperrliste=ban_list(database),
+            ban_list=ban_list(database),
             db=client,
             revoked_by=als,
             # A session made this second, so only a case dating the actor's promotion is judged by it.
@@ -261,7 +261,7 @@ async def change(
             grants_announced_collection=database[Collection.GRANTS_ANNOUNCED],
             outbox_collection=database[Collection.OUTBOX],
             grant_approval_requests_collection=database[Collection.GRANT_APPROVAL_REQUESTS],
-            sperrliste=ban_list(database),
+            ban_list=ban_list(database),
             db=client,
             changed_by=als,
             auth_time=int(time.time()),
@@ -402,7 +402,7 @@ async def compared(database: AsyncDatabase, client: AsyncMongoClient, *, now: da
             grants_collection=grants if grants is not None else database[Collection.GRANTS],
             grants_announced_collection=database[Collection.GRANTS_ANNOUNCED],
             outbox_collection=database[Collection.OUTBOX],
-            sperrliste=ban_list(database),
+            ban_list=ban_list(database),
             db=client,
             now=now,
         )
@@ -533,7 +533,7 @@ class TestTheNoticeMovesWithItsChange:
                     grants_announced_collection=database[Collection.GRANTS_ANNOUNCED],
                     outbox_collection=outbox,
                     grant_approval_requests_collection=database[Collection.GRANT_APPROVAL_REQUESTS],
-                    sperrliste=ban_list(database),
+                    ban_list=ban_list(database),
                     db=client,
                     granted_by=OWNER,
                     # On the real clock, so the TTL monitor leaves the request standing for the approval below.
@@ -547,7 +547,7 @@ class TestTheNoticeMovesWithItsChange:
                     grants_announced_collection=database[Collection.GRANTS_ANNOUNCED],
                     outbox_collection=aborting,
                     grant_approval_requests_collection=database[Collection.GRANT_APPROVAL_REQUESTS],
-                    sperrliste=ban_list(database),
+                    ban_list=ban_list(database),
                     db=client,
                     operator=BERND,
                     auth_time=int(time.time()),
@@ -583,7 +583,7 @@ class TestTheNoticeMovesWithItsChange:
                     grants_announced_collection=cast(AsyncCollection, Aborting(database[Collection.GRANTS_ANNOUNCED], "delete_many")),
                     outbox_collection=database[Collection.OUTBOX],
                     grant_approval_requests_collection=database[Collection.GRANT_APPROVAL_REQUESTS],
-                    sperrliste=ban_list(database),
+                    ban_list=ban_list(database),
                     db=client,
                     revoked_by=OWNER,
                     auth_time=int(time.time()),
@@ -609,7 +609,7 @@ async def list_the_grants(database: AsyncDatabase, client: AsyncMongoClient, als
         grants_announced_collection=database[Collection.GRANTS_ANNOUNCED],
         address_changes_collection=database[Collection.ADDRESS_CHANGES],
         grant_approval_requests_collection=database[Collection.GRANT_APPROVAL_REQUESTS],
-        sperrliste=ban_list(database),
+        ban_list=ban_list(database),
         db=client,
         operator=als,
         auth_time=int(time.time()),
@@ -1230,7 +1230,7 @@ class TestTheComparison:
                     registrierungen_collection=database[Collection.REGISTRIERUNGEN],
                     invitations_collection=database[Collection.INVITATIONS],
                     ban_list_collection=database[Collection.BAN_LIST],
-                    sperrliste=ban_list(database),
+                    ban_list=ban_list(database),
                     identifier=ANNA,
                     changed_by=OWNER,
                     now=NOW,

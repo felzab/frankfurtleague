@@ -48,7 +48,7 @@ from app.api.identity.crud import roles_from
 from app.api.identity.lookup import SubjectLookup
 from app.api.identity.services import is_own_schiedsrichter, is_own_spieler, may_grant_on_schiedsrichter, may_grant_on_spieler
 from app.api.sperrliste.guard import PERSON_ACTOR_BINDERS, KontaktIdentifier
-from app.api.sperrliste.lookup import SperrlisteLookup, barred_addresses
+from app.api.sperrliste.lookup import BanListLookup, barred_addresses
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import aggregate_many_from_db, refuse
 from app.core.dependencies import (
@@ -204,7 +204,7 @@ async def post_address_change(
     grants_collection: GrantsCollection,
     grants_announced_collection: GrantsAnnouncedCollection,
     outbox_collection: OutboxCollection,
-    sperrliste: SperrlisteLookup,
+    ban_list: BanListLookup,
     action_log_collection: ActionLogCollection,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
@@ -239,7 +239,7 @@ async def post_address_change(
         if holdings.grant is not None:
             grants = await read_berechtigungen(grants_collection=grants_collection, session=session)
             announced = await read_the_announced(grants_announced_collection=grants_announced_collection, session=session)
-            barred = await barred_addresses(sperrliste, [str(row["address"]) for row in grants], session=session)
+            barred = await barred_addresses(ban_list, [str(row["address"]) for row in grants], session=session)
             admin_tier = str(holdings.grant["admin_tier"])
             approver = approver_of(
                 admin_tier=admin_tier, excepted={identifier}, grants=grants, announced=announced, barred=barred, before=germany_now

@@ -171,7 +171,7 @@ async def sweep(database: AsyncDatabase, client: AsyncMongoClient, *, after: Any
         grant_approval_requests_collection=database[Collection.GRANT_APPROVAL_REQUESTS],
         invitations_collection=database[Collection.INVITATIONS],
         ban_list_collection=database[Collection.BAN_LIST],
-        sperrliste=ban_list(database),
+        ban_list=ban_list(database),
         action_log_collection=database[Collection.ACTION_LOG],
         db=client,
         config=build_test_config(),

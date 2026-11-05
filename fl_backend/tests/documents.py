@@ -22,7 +22,7 @@ from bson import ObjectId
 from app.api.address_change.services import compose_record
 from app.api.bewerbungen.services import bestaetigungsfrist_from, compose_bestaetigungen, compose_einwilligung
 from app.api.registrierungen.services import compose_bestaetigung, compose_confirmation_update, compose_registrierung
-from app.api.sperrliste.services import SPERRLISTE_SCHLUESSEL_VERSION, address_hash
+from app.api.sperrliste.services import BAN_LIST_KEY_VERSION, address_hash
 from app.api.spielbestaetigungen.services import compose_ansetzung, halter_of
 from app.core.recording import log_stamp
 from app.shared.einwilligung_evidence import CHOICES, EVIDENCE, TextVersions, compose_initial, compose_receipt
@@ -432,7 +432,7 @@ def ban_document(address: str, *, until: str, **fields: Any) -> dict[str, Any]:
     return {
         "_id": ObjectId(),
         "address_hash": address_hash(address, key=build_test_config().sperrliste_key),
-        "key_version": SPERRLISTE_SCHLUESSEL_VERSION,
+        "key_version": BAN_LIST_KEY_VERSION,
         "grund": "Falsches Geburtsdatum bei der Anmeldung",
         "created_by": "admin@frankfurtleague.de",
         "created_at": "2026-03-15",

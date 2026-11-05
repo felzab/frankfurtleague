@@ -11,7 +11,7 @@ from typing import Annotated, Final, get_args
 
 from fastapi import Depends
 
-from app.api.sperrliste.lookup import SperrlisteLookup, barred_addresses
+from app.api.sperrliste.lookup import BanListLookup, barred_addresses
 from app.core.codes import Code
 from app.core.config import BackendConfig, get_app_config
 from app.core.exceptions import APIError
@@ -23,12 +23,12 @@ from app.shared.folding import sign_in_identifier
 async def verify_person_is_unbarred(
     # First, so a request naming nobody is refused before the ban read opens the database.
     actor: Annotated[SessionActor, Depends(verify_person_actor)],
-    sperrliste: SperrlisteLookup,
+    ban_list: BanListLookup,
 ) -> SessionActor:
     """Refuse a person the ban list holds, read per request: the frontend's guard misses a ban entered since."""
 
     # Keyed as the grant check keys its own ban read.
-    if await barred_addresses(sperrliste, [sign_in_identifier(actor.email)]):
+    if await barred_addresses(ban_list, [sign_in_identifier(actor.email)]):
         raise APIError(HTTPStatus.FORBIDDEN, Code.PERSON_BARRED)
 
     return actor

@@ -140,7 +140,7 @@ async def live_unbarred_grant_since(
     identifier: str,
     *,
     grants_collection: ReadCollection,
-    sperrliste: BanList,
+    ban_list: BanList,
     session: AsyncClientSession,
 ) -> datetime | None:
     """The actor check's question: when the live grant this identifier holds took effect, read by one equality beside the ban list's.
@@ -153,7 +153,7 @@ async def live_unbarred_grant_since(
     # read takes no session, so the gathered pair never runs two operations on one.
     grant, barred = await asyncio.gather(
         _grant_and_its_record_in(grants_collection=grants_collection, address=identifier, fields=[], session=session),
-        barred_addresses(sperrliste, [identifier]),
+        barred_addresses(ban_list, [identifier]),
     )
     if grant is None or barred:
         return None

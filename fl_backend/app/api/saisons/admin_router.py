@@ -66,7 +66,7 @@ from app.api.saisons.services import (
     with_schedule,
 )
 from app.api.saisons.spielplan import EnteredTeam, draw_spielplan
-from app.api.sperrliste.lookup import BanList, SperrlisteLookup, barred_addresses
+from app.api.sperrliste.lookup import BanList, BanListLookup, barred_addresses
 from app.api.spielberichte.crud import anchor_the_season_reported_in, count_eingereichte_berichte
 from app.api.spiele.schemas import KNOCKOUT_PHASES, FLSpielListAdapter
 from app.api.teams.services import (
@@ -1104,12 +1104,12 @@ async def _entered_teams(*, saison_teams_collection: AsyncCollection, saison_id:
     return entered
 
 
-async def _gesperrte_empfaenger(sperrliste: BanList, entered: Sequence[Mapping[str, Any]]) -> set[str]:
+async def _barred_recipients(ban_list: BanList, entered: Sequence[Mapping[str, Any]]) -> set[str]:
     """Every stored address of the season's confirmed seats a standing ban holds, one read for all its teams."""
 
     addresses = [person.email for team in entered for person in bestaetigte_empfaenger(kontakte=team.get("kontakte"))]
 
-    return await barred_addresses(sperrliste, addresses) if addresses else set()
+    return await barred_addresses(ban_list, addresses) if addresses else set()
 
 
 async def _mail_one_team(
@@ -1258,7 +1258,7 @@ async def get_invitations_dispatch_preview(
     invitations_collection: InvitationsCollection,
     saisons_collection: SaisonsCollection,
     outbox_collection: OutboxCollection,
-    sperrliste: SperrlisteLookup,
+    ban_list: BanListLookup,
     resend: bool = False,
 ) -> FLInvitationDispatchPreviewResponse:
     """
@@ -1293,7 +1293,7 @@ async def get_invitations_dispatch_preview(
     )
     by_team = {row["team_id"]: row for row in live}
     versendet = await versendete_einladungen(outbox_collection=outbox_collection, einladung_ids=[row["_id"] for row in live])
-    barred = await _gesperrte_empfaenger(sperrliste, entered)
+    barred = await _barred_recipients(ban_list, entered)
 
     zeilen: list[FLInvitationDispatchPreviewRow] = []
     for team in entered:
@@ -1365,7 +1365,7 @@ async def post_invitations_dispatch(
     invitations_collection: InvitationsCollection,
     saisons_collection: SaisonsCollection,
     outbox_collection: OutboxCollection,
-    sperrliste: SperrlisteLookup,
+    ban_list: BanListLookup,
     db: DBClient,
     created_by: str = Depends(get_actor_email),
     today: str = Depends(get_german_date_str),
@@ -1400,7 +1400,7 @@ async def post_invitations_dispatch(
 
     entered = await _entered_teams(saison_teams_collection=saison_teams_collection, saison_id=saison_id)
     # Read once ahead of the loop, as the withdrawal and the contacts are: a retry re-decides on them as they stood.
-    barred = await _gesperrte_empfaenger(sperrliste, entered)
+    barred = await _barred_recipients(ban_list, entered)
 
     # Sequential rather than gathered: each team opens its own session, and sixteen at once would
     # hold sixteen against a pool sized for the whole application.

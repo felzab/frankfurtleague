@@ -132,7 +132,7 @@ async def the_confirmation_view(database: AsyncDatabase, client: AsyncMongoClien
         registrierungen_collection=database[Collection.REGISTRIERUNGEN],
         teams_collection=database[Collection.TEAMS],
         spieler_collection=database[Collection.SPIELER],
-        sperrliste=ban_list(database),
+        ban_list=ban_list(database),
         today=TODAY,
     )
 
@@ -162,7 +162,7 @@ async def the_admission(database: AsyncDatabase, client: AsyncMongoClient, regis
         spieler_collection=database[Collection.SPIELER],
         records=record_collections(database),
         action_log_collection=database[Collection.ACTION_LOG],
-        sperrliste=ban_list(database),
+        ban_list=ban_list(database),
         db=client,
         today=TODAY,
         germany_now=NOW,
@@ -213,7 +213,7 @@ async def the_loeschung_preview(database: AsyncDatabase, client: AsyncMongoClien
         registrierungen_collection=database[Collection.REGISTRIERUNGEN],
         address_changes_collection=database[Collection.ADDRESS_CHANGES],
         grants_collection=database[Collection.GRANTS],
-        sperrliste=ban_list(database),
+        ban_list=ban_list(database),
         db=client,
         config=build_test_config(),
     )
@@ -235,7 +235,7 @@ async def the_address_change_request(database: AsyncDatabase, client: AsyncMongo
         grants_announced_collection=database[Collection.GRANTS_ANNOUNCED],
         outbox_collection=database[Collection.OUTBOX],
         grant_approval_requests_collection=database[Collection.GRANT_APPROVAL_REQUESTS],
-        sperrliste=ban_list(database),
+        ban_list=ban_list(database),
         action_log_collection=database[Collection.ACTION_LOG],
         db=client,
         operator=ANNA,

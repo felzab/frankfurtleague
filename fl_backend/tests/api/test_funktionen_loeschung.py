@@ -32,7 +32,7 @@ from app.api.identity.crud import EACH_PERSON_GROUP, ERASURE_STEPS, erase_everyt
 from app.api.registrierungen.person_router import admit
 from app.api.registrierungen.schemas import FLRegistrierungAdmitPayload
 from app.api.registrierungen.services import compose_ablehnung_update
-from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
+from app.api.sperrliste.services import compose_barred_until_saison_id
 from app.api.spielbestaetigungen.services import halter_of
 from app.api.spieler.crud import loeschen_person_in_session
 from app.api.spieler.services import build_ghost_spieler
@@ -695,7 +695,7 @@ async def records_they_made_holding_no_grant(database: AsyncDatabase) -> None:
     )
     await database[Collection.BAN_LIST].insert_many(
         [
-            ban_document(address, until=compose_gesperrt_bis_saison_id(governing_saison_id=SAISON_ID), _id=ban_id, created_by=by)
+            ban_document(address, until=compose_barred_until_saison_id(governing_saison_id=SAISON_ID), _id=ban_id, created_by=by)
             for address, ban_id, by in (
                 ("gebannt@beispiel.de", BANNED_BY_THEM_OID, IDENTIFIER),
                 ("gebannt-zwei@beispiel.de", BANNED_BY_THEM_PASTED_OID, PASTED),
@@ -798,7 +798,7 @@ async def geloescht_in_scope(
             identifier,
             scope=scope,
             **erasure_collections(database, **replaced),
-            sperrliste=ban_list(database),
+            ban_list=ban_list(database),
             changed_by=IDENTIFIER,
             key=CONFIG.sperrliste_key,
             stamp=TODAY,
@@ -1169,7 +1169,7 @@ class TestTheLastOwner:
             await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, "owner")
             await a_grant(database, OTHER_OWNER_OID, OTHER_OWNER, "owner")
             await database[Collection.BAN_LIST].insert_one(
-                ban_document(OTHER_OWNER, until=compose_gesperrt_bis_saison_id(governing_saison_id=SAISON_ID))
+                ban_document(OTHER_OWNER, until=compose_barred_until_saison_id(governing_saison_id=SAISON_ID))
             )
 
             return await outcome_of(geloescht_by_the_handler(database, client))
@@ -1407,7 +1407,7 @@ class TestAnAdmissionInsideTheLoeschung:
                     spieler_collection=database[Collection.SPIELER],
                     records=record_collections(database),
                     action_log_collection=database[Collection.ACTION_LOG],
-                    sperrliste=ban_list(database),
+                    ban_list=ban_list(database),
                     db=client,
                     today=TODAY,
                     germany_now=NOW,

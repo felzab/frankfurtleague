@@ -24,7 +24,7 @@ from app.api.bewerbungen.system_router import (
     sweep_saison,
 )
 from app.api.saisons.admin_router import activate_saison
-from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
+from app.api.sperrliste.services import compose_barred_until_saison_id
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -220,7 +220,7 @@ async def view(database: AsyncDatabase, token: str) -> Any:
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
         teams_collection=database[Collection.TEAMS],
-        sperrliste=ban_list(database),
+        ban_list=ban_list(database),
         today=TODAY,
     )
 
@@ -292,7 +292,7 @@ async def resend(database: AsyncDatabase, seat: str) -> Any:
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         teams_collection=database[Collection.TEAMS],
         outbox_collection=database[Collection.OUTBOX],
-        sperrliste=ban_list(database),
+        ban_list=ban_list(database),
         db=database.client,
         today=TODAY,
         germany_now=MAIL_NOW,
@@ -547,7 +547,7 @@ class TestAnApplicationWhoseNoticeCannotArrive:
 
 
 # Composed by the production helper rather than spelled, so a drifted bound cannot leave these cases passing over a lapsed row.
-STANDING = compose_gesperrt_bis_saison_id(governing_saison_id=SAISON_ID)
+STANDING = compose_barred_until_saison_id(governing_saison_id=SAISON_ID)
 
 
 # An address today's rule refuses, its local part being no ASCII: a stored row may hold one, and no

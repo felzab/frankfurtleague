@@ -115,7 +115,7 @@ async def stored_by_key(database: AsyncDatabase, key: str) -> dict[str, Any]:
 
 async def claimed(database: AsyncDatabase, client: AsyncMongoClient, *, now: datetime = NOW) -> FLOutboxHandoutResponse:
     return await post_handout(
-        outbox_collection=database[Collection.OUTBOX], sperrliste=ban_list(database), db=database, db_client=client, now=claimable(now)
+        outbox_collection=database[Collection.OUTBOX], ban_list=ban_list(database), db=database, db_client=client, now=claimable(now)
     )
 
 
