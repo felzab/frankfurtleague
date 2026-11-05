@@ -19,6 +19,8 @@ from fastapi import FastAPI
 from httpx2 import Response
 from pymongo import MongoClient
 
+from app.api.saisons.overview import _gaps
+from app.api.spiele.schemas import FLSpielJoinedInternal
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.main import create_app
@@ -247,3 +249,34 @@ class TestEachKindLandsOnItsCard:
 
     def test_a_season_that_does_not_exist_is_not_found(self, seeded_url: str):
         assert answered(seeded_url, f"/api/v{API_VERSION}/saisons/1999/overview").status_code == 404
+
+
+def joined(**fields: Any) -> FLSpielJoinedInternal:
+    """One fixture of the season as the read joins it, its two clubs named, every gap but those `fields` open closed."""
+
+    closed = {
+        "datum": "2026-04-01",
+        "uhrzeit": "18:00:00",
+        "ort": {"spielort_id": SPIELORT, "name": "Halle Ost", "maps_link": "Halle Ost, Frankfurt", "mietpreis": 40},
+        "schiedsrichter": {"schiedsrichter_id": SCHIEDSRICHTER, "name": "Anna Körner", "payment": 20, "name_is_public": True},
+        "team1": {"team_id": HOME, "name": "Lessing", "shorthand": "LES", "tore": None},
+        "team2": {"team_id": AWAY, "name": "Goethe", "shorthand": "GOE", "tore": None},
+    }
+    stored = documents.spiel_document(spiel_id=ObjectId(), saison_id=SAISON, spiel_nr=1, spieltag_id=ObjectId(), **{**closed, **fields})
+
+    return FLSpielJoinedInternal.model_validate(documents.joined_spiel_document(stored))
+
+
+class TestWhatAFixtureStillLacks:
+    """The gaps the Übersicht's dates card lists, judged without the database: a gap missed leaves a fixture unprepared unseen."""
+
+    def test_a_dated_fixture_with_no_time_still_lacks_its_date(self):
+        assert _gaps(joined(uhrzeit=None), today=TODAY) == ["termin_missing"]
+
+    def test_a_knockout_side_awaiting_its_source_is_no_missing_club(self):
+        """Its club arrives with the bracket's resolution: listed, it asks the administrator to pick a club the draw will place."""
+
+        sourced = joined(saison_phase="halbfinale", team2=None, team2_quelle={"type": "gruppe", "gruppe": "A", "platz": 1})
+        open_side = joined(saison_phase="halbfinale", team2=None)
+
+        assert (_gaps(sourced, today=TODAY), _gaps(open_side, today=TODAY)) == ([], ["team_missing"])
