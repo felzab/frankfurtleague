@@ -193,6 +193,8 @@ export const COPY = catalogue({
       search: (plural: Copy) => `Keine ${plural} für diese Suche.`,
       filter: (plural: Copy) => `Keine ${plural} für diese Filter.`,
       none: (plural: Copy) => `Noch keine ${plural}.`,
+      /** A list that is one record named by a masculine or neuter noun, a team's „Kader“: „Noch kein Kader.“ */
+      noneOne: (noun: Copy) => `Noch kein ${noun}.`,
       /** An Übersicht card holding no open work: nothing is waiting, where `none` would say something is still to come. */
       nothingOpen: "Nichts offen.",
     },
