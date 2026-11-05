@@ -96,7 +96,7 @@ function confirmationFacts(read: FLSchiedsrichterSingleResponse): Fact[] {
   const sent = read.schiedsrichter.confirmation?.sent_at ?? null;
   return [
     ...(standing === null ? [] : [{ label: WORDS.state, value: standing }]),
-    ...(sent === null ? [] : [{ label: WORDS.linkSent, value: { record: formatDatum(dayOf(sent)) }, figures: true }]),
+    ...(sent === null ? [] : [{ label: COPY.shared.toast.linkSent, value: { record: formatDatum(dayOf(sent)) }, figures: true }]),
   ];
 }
 

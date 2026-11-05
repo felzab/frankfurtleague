@@ -173,7 +173,10 @@ export const COPY = catalogue({
     /** Beside the save button once the record is stored. */
     saved: "Gespeichert",
 
-    /** The five toast titles; a toast carries no body. */
+    /**
+     * The five toast titles; a toast carries no body. `linkSent` labels the referee editor's fact for the day the last
+     * link went too, the same words for the same event.
+     */
     toast: {
       // Redesign: `copied` and `signedOut` are read once copying and signing out each toast through the kit.
       copied: "Kopiert",
@@ -673,8 +676,6 @@ export const COPY = catalogue({
       bestaetigung: "Bestätigung",
       /** The fact saying where the referee's confirmation stands, one of the four lines below. */
       state: "Stand",
-      /** The fact beside it: the day the last link went to the person. */
-      linkSent: "Link gesendet",
       /** Beside the act that mailed a fresh link, and the save whose corrected address did: the address it went to. */
       sentTo: (address: string) => `An ${address} gesendet`,
       confirmedOn: (day: CalendarDay) => `Bestätigt am ${formatDatum(day)}`,
