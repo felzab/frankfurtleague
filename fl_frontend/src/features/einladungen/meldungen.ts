@@ -1,25 +1,8 @@
 /**
- * The sentences the invite's presses report, in their own module rather than inside
+ * The sentence the invite's single press reports, in its own module rather than inside
  * `fl_frontend/src/features/einladungen/actions.ts`: every export of an `actions.ts` is a
  * `runAdminMutation` callback, and a sentence per count is what a case has to reach.
  */
-
-/** The season with nothing to send: no team of it is admitted, so the press writes to nobody. */
-export const KEINE_TEAMS = "Diese Saison hat noch kein Team aufgenommen.";
-
-/**
- * Counted over the `gemeint` teams the press meant to write to: one the rule passed over is no shortfall. A team
- * alone gets its own sentence, saying the team's side under a title naming the link's.
- */
-export function versandSatz(gemailt: number, gemeint: number, teams: number): string {
-  if (teams === 0) return KEINE_TEAMS;
-  if (gemeint === 0) return teams === 1 ? "Das Team wurde übersprungen." : "Jedes Team wurde übersprungen.";
-  // Zero is the answer a local stack always gives, every send being withheld outside production,
-  // so the shortfall is spelled rather than folded into a word.
-  if (gemeint === 1) return gemailt === 1 ? "Der Link ging an das Team." : "Das Team hat keinen neuen Link bekommen.";
-
-  return `Registrierungslinks gesendet: ${String(gemailt)} von ${String(gemeint)} Teams.`;
-}
 
 /**
  * **No numeral stands before a plural noun**: „an 1 Adressen“ is what a count interpolated into one

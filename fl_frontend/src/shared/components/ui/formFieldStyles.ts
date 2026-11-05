@@ -80,9 +80,6 @@ export const FORM_SECTION_HEADING_CLASSES = "fluid-xxs font-bold tracking-widest
  */
 export const FIELD_PAIR_CLASSES = "grid w-full grid-cols-1 gap-4 sm:grid-cols-2";
 
-/** `FIELD_PAIR_CLASSES`'s three-up sibling, and spelled beside it for the same reason: more than one panel renders this grid. */
-export const FIELD_TRIO_CLASSES = "grid w-full grid-cols-1 gap-4 sm:grid-cols-3";
-
 /**
  * The one marker disc. Two can share a label row — the match editor's Fehlt/Offen beside Geändert — and a
  * disc that measured differently from its neighbour read as a second idea rather than the same one.

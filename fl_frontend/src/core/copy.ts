@@ -11,7 +11,7 @@ import {
 import { rollenText } from "./teamVocabulary";
 
 import type { CalendarDay, Uhrzeit } from "./format";
-import type { FLKontaktRolle } from "./generated/client/types";
+import type { FLKontaktRolle, FLSpielerStufe } from "./generated/client/types";
 
 declare const copyBrand: unique symbol;
 
@@ -263,6 +263,8 @@ export const COPY = catalogue({
      * rest, which only the server draws, stand in `SERVER_COPY.season`.
      */
     season: {
+      /** A group by its letter, „Gruppe A“: the Tabelle's cards, a club's group, the season editor's pickers. */
+      gruppe: (gruppe: string) => `Gruppe ${gruppe}`,
       /** The name of the mark beside a club's figure: how many of its fixtures were called off. */
       cancelled: (count: number) => (count === 1 ? "1 Spiel abgesagt" : `${formatNumber(count)} Spiele abgesagt`),
       /** The mark itself, drawn red on the corner of a club's figure and hidden from a screen reader, which hears `cancelled`. */
@@ -675,6 +677,95 @@ export const COPY = catalogue({
        * (`fl_backend/app/api/teams/services.py :: has_taken_place`).
        */
       startFixed: "Steht fest, seit ein Spiel stattgefunden hat",
+
+      /** The span a season runs from its start to its end: the list's column and the editor's first box. */
+      zeitraum: "Zeitraum",
+      /** A new season's id, which is the year it is played in. */
+      jahr: "Jahr",
+      /** A span's two days, the season's and each window's alike. */
+      beginn: "Beginn",
+      ende: "Ende",
+
+      /** The editor's boxes, in the order of a season's life: its dates and rules, then what happens in it. */
+      regeln: "Regeln",
+      forfeit: "Wertung bei Nichtantreten",
+      bewerbungsfenster: "Bewerbungsfenster",
+      registrierungsfenster: "Registrierungsfenster",
+      gruppentausch: "Gruppentausch",
+      ersatz: "Ersatz",
+      registrierungslinks: "Registrierungslinks",
+      umstellung: "Umstellung",
+
+      winPoints: "Punkte pro Sieg",
+      drawPoints: "Punkte pro Unentschieden",
+      tiebreak: "Bei Punktgleichheit",
+      tordifferenz: "Tordifferenz",
+      direkterVergleich: "Direkter Vergleich",
+      gruppen: "Gruppen",
+      teamsPerGruppe: "Teams pro Gruppe",
+      qualifiers: "Qualifikanten pro Gruppe",
+      forfeitWinner: "Tore des Siegers",
+      forfeitLoser: "Tore des Verlierers",
+      maxKader: "Maximale Kadergröße",
+      stufen: "Stufen",
+      /** Each school level by its short name, as a squad row and the season's choice of them print it. */
+      stufe: { E1: "E1", E2: "E2", Q1: "Q1", Q2: "Q2", Q3: "Q3", Q4: "Q4" } satisfies Record<FLSpielerStufe, string>,
+      /** The fixture list these counts would draw is longer than one read lists, which every season page reads it in. */
+      tooManySpiele: "Aus diesen Zahlen entstehen zu viele Spiele.",
+      /** Under a box's title once the season's start has passed, which fixes its scoring, its seeding and its clubs. */
+      lockedSinceStart: "Seit Saisonbeginn gesperrt",
+      /** Under the rules' title while a Spielplan stands: the counts it was drawn from move only with a new draw. */
+      lockedByDraw: "Gesperrt, solange ein Spielplan steht",
+      /** The registration link paused: the window stands, and a link opens nothing until the box is cleared. */
+      registrierungPaused: "Registrierung pausiert",
+
+      /** When the Spielplan was drawn, beside its counts. */
+      drawnOn: "Angelegt",
+      noDraw: "Noch kein Spielplan.",
+      recreateConsequence: "Alle Spieltage und Spiele dieser Saison werden gelöscht und neu angelegt.",
+      deleteConsequence: "Alle Spieltage und Spiele dieser Saison werden gelöscht.",
+
+      /** The group swap's two clubs; the swap exchanges their groups. */
+      swapFirst: "Erstes Team",
+      swapSecond: "Zweites Team",
+      /** A club or a pair a swap or a replacement can no longer move: one of its matches has taken place. */
+      tookPlace: "Ein Spiel hat stattgefunden",
+      /** The replacement's two clubs: the one leaving the season, and the one taking over its row. */
+      outgoing: "Ausscheidendes Team",
+      incoming: "Nachrückendes Team",
+      /** What the replacement does: the incoming club takes the outgoing one's group and every match of it. */
+      replaceConsequence: (incoming: Words, outgoing: Words, gruppe: string) =>
+        `${textOf(incoming)} übernimmt Gruppe ${gruppe} und alle Spiele von ${textOf(outgoing)}.`,
+
+      /** Why the draw cannot be redrawn or removed now: reports stand, the season went live, or a match holds an entry. */
+      reportsHold: "Spielberichte liegen vor",
+      lockedSinceActivation: "Seit der Umstellung gesperrt",
+      entriesHold: "Spiele haben schon Einträge",
+
+      /** Each team's registration link as its row states it, by what the press would do with it. */
+      linkSentOn: (day: CalendarDay) => `Gesendet am ${formatDatum(day)}`,
+      linkNotSent: "Nicht gesendet",
+      noLinkYet: "Noch kein Link",
+      noConfirmedAddress: "Keine bestätigte Adresse",
+      addressBarred: "Adresse auf der Sperrliste",
+      /** The registration links' done line, the rows saying the rest. */
+      sentTo: (count: number) => (count === 1 ? "An 1 Team gesendet" : `An ${formatNumber(count)} Teams gesendet`),
+      /** The registration links' send: how many teams it mails, and whether a link one of them holds stops opening. */
+      dispatchConsequence: (count: number, replacing: boolean) => {
+        if (!replacing)
+          return count === 1 ? "1 Team bekommt seinen Link per E-Mail." : `${formatNumber(count)} Teams bekommen ihren Link per E-Mail.`;
+        return count === 1
+          ? "1 Team bekommt einen neuen Link, und sein bisheriger gilt nicht mehr."
+          : `${formatNumber(count)} Teams bekommen einen neuen Link, und ihr bisheriger gilt nicht mehr.`;
+      },
+
+      /** The activation: the season the site shows, and its subject, „Auf Saison 2027 umstellen?“. */
+      isCurrent: "Die Website zeigt diese Saison.",
+      onto: (saison: string) => `Auf ${saisonName(saison)}`,
+      activateConsequence: (saison: string) => `Die Website zeigt ab sofort ${saisonName(saison)}.`,
+      /** Why the activation cannot run yet: the season the site shows owes results, or this one's matchdays owe dates. */
+      unfinished: "Die bisherige Saison hat noch Spiele ohne Ergebnis.",
+      undated: "Diese Saison hat noch Spieltage ohne Datum.",
     },
 
     spiel: {

@@ -10,14 +10,13 @@ import { refusalResult, refuseUnconfirmed, runAdminMutation } from "@/shared/uti
 import { buildRefusal } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
-import { adressenSatz, versandSatz } from "./meldungen";
-import { deleteEinladung, mailEinladung, postEinladung, postEinladungVersand } from "./mutations";
-import { getEinladung, getEinladungVersandVorschau } from "./queries";
+import { adressenSatz } from "./meldungen";
+import { deleteEinladung, mailEinladung, postEinladung } from "./mutations";
+import { getEinladung } from "./queries";
 import { mapEinladungRefusal } from "./refusals";
-import { EinladungMailenEingabeSchema, FLEinladungKeyPayloadSchema, FLEinladungVersandPayloadSchema } from "./schemas";
+import { EinladungMailenEingabeSchema, FLEinladungKeyPayloadSchema } from "./schemas";
 
-import type { FLInvitationDispatchPreviewRow, FLInvitationDispatchRow } from "@/core/generated/client/types";
-import type { ActionResult, QueryResult } from "@/shared/types/types";
+import type { ActionResult } from "@/shared/types/types";
 import type { z } from "zod";
 
 /**
@@ -136,63 +135,5 @@ export async function deleteEinladungAction(rawPayload: z.input<typeof FLEinladu
     await deleteEinladung(validated.data);
 
     return { success: true, message: "Der Link öffnet ab sofort nichts mehr." };
-  });
-}
-
-/**
- * Who the bulk send would write to, and why it would pass each of the others over. **Read-only**: it
- * reports what the press would do and writes nothing, as the fixture save's dry run does
- * (`fl_frontend/src/features/spiele/actions.ts :: previewAdminSpielDataAction`).
- */
-export async function previewEinladungVersandAction(
-  rawPayload: z.input<typeof FLEinladungVersandPayloadSchema>,
-): Promise<QueryResult<{ zeilen: readonly FLInvitationDispatchPreviewRow[] }>> {
-  return runAdminMutation("previewEinladungVersandAction", async () => {
-    const validated = FLEinladungVersandPayloadSchema.safeParse(rawPayload);
-
-    if (!validated.success) {
-      return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
-    }
-
-    // `?? false` for the endpoint's own default: the payload mirrors a request that may omit the
-    // key, and this read has to name a value either way to describe the press it precedes.
-    const vorschau = await getEinladungVersandVorschau(validated.data.id, validated.data.erneut ?? false);
-
-    return { success: true, zeilen: vorschau.rows };
-  });
-}
-
-/**
- * One press for every admitted team of the season: the endpoint gives each team it reaches a fresh link and owes it
- * to the team's confirmed seats in the same write, over the rule the preview read.
- */
-export async function postEinladungVersandAction(
-  rawPayload: z.input<typeof FLEinladungVersandPayloadSchema>,
-): Promise<ActionResult<{ zeilen: readonly FLInvitationDispatchRow[]; gemeint: number; erreicht: number }>> {
-  return runAdminMutation("postEinladungVersandAction", { stepUp: true }, async () => {
-    const validated = FLEinladungVersandPayloadSchema.safeParse(rawPayload);
-
-    if (!validated.success) {
-      return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
-    }
-
-    let versandOperation;
-    try {
-      versandOperation = await postEinladungVersand(validated.data);
-    } catch (error) {
-      const refusal = mapEinladungRefusal(error);
-      if (refusal !== null) return refusalResult(refusal);
-      throw error;
-    }
-
-    const { rows: zeilen } = versandOperation;
-    // Every team this press meant to write to: a pass-over by the rule the preview showed is none, the league's own
-    // failure to mint is one.
-    const gemeint = zeilen.filter(
-      (zeile) => zeile.skipped === null || zeile.skipped === "mint_failed" || zeile.skipped === "mint_uncertain",
-    ).length;
-    const erreicht = zeilen.filter((zeile) => zeile.recipient.length > 0).length;
-
-    return { success: true, zeilen: zeilen, message: versandSatz(erreicht, gemeint, zeilen.length), gemeint: gemeint, erreicht: erreicht };
   });
 }

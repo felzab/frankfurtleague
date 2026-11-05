@@ -169,26 +169,6 @@
       "count": 4
     }
   },
-  "src/app/area/admin/saisons/[saison_id]/loading.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/app/area/admin/saisons/[saison_id]/page.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 2
-    }
-  },
-  "src/app/area/admin/saisons/loading.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/app/area/admin/saisons/page.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 4
-    }
-  },
   "src/app/area/admin/sperrliste/loading.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 1
@@ -1010,7 +990,7 @@
   },
   "src/features/einladungen/actions.ts": {
     "fl/server-action": {
-      "count": 5
+      "count": 3
     },
     "no-restricted-syntax": {
       "count": 3
@@ -1371,292 +1351,12 @@
   },
   "src/features/saisons/actions.ts": {
     "fl/server-action": {
-      "count": 6
-    }
-  },
-  "src/features/saisons/components/collections/AdminSaisonsTable.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 10
-    },
-    "better-tailwindcss/no-restricted-classes": {
       "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 12
-    },
-    "react/forbid-component-props": {
-      "count": 15
-    },
-    "react/jsx-no-literals": {
-      "count": 5
-    }
-  },
-  "src/features/saisons/components/forms/AdminCreateSaisonForm.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 8
-    },
-    "no-restricted-syntax": {
-      "count": 18
-    },
-    "react/forbid-component-props": {
-      "count": 14
-    },
-    "react/jsx-no-literals": {
-      "count": 19
-    }
-  },
-  "src/features/saisons/components/forms/AdminSaisonEditForm/AdminSaisonEditForm.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 9
-    },
-    "check-file/folder-naming-convention": {
-      "count": 1
-    },
-    "react/forbid-component-props": {
-      "count": 1
-    }
-  },
-  "src/features/saisons/components/forms/AdminSaisonEditForm/FormBewerbungSection.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 8
-    },
-    "check-file/folder-naming-convention": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 8
-    },
-    "react/forbid-component-props": {
-      "count": 5
-    },
-    "react/jsx-no-literals": {
-      "count": 4
-    }
-  },
-  "src/features/saisons/components/forms/AdminSaisonEditForm/FormEinladungVersandSection.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 12
-    },
-    "check-file/folder-naming-convention": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 31
-    },
-    "react/forbid-component-props": {
-      "count": 4
-    },
-    "react/jsx-no-literals": {
-      "count": 6
-    }
-  },
-  "src/features/saisons/components/forms/AdminSaisonEditForm/FormGruppenSwapSection.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 11
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 2
-    },
-    "check-file/folder-naming-convention": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 17
-    },
-    "react/forbid-component-props": {
-      "count": 3
-    },
-    "react/jsx-no-literals": {
-      "count": 7
-    }
-  },
-  "src/features/saisons/components/forms/AdminSaisonEditForm/FormRegelnSection.test.ts": {
-    "check-file/folder-naming-convention": {
-      "count": 1
-    }
-  },
-  "src/features/saisons/components/forms/AdminSaisonEditForm/FormRegelnSection.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 8
-    },
-    "check-file/folder-naming-convention": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 20
-    },
-    "react/forbid-component-props": {
-      "count": 6
-    },
-    "react/jsx-no-literals": {
-      "count": 16
-    }
-  },
-  "src/features/saisons/components/forms/AdminSaisonEditForm/FormRegistrierungSection.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 8
-    },
-    "check-file/folder-naming-convention": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 8
-    },
-    "react/forbid-component-props": {
-      "count": 6
-    },
-    "react/jsx-no-literals": {
-      "count": 4
-    }
-  },
-  "src/features/saisons/components/forms/AdminSaisonEditForm/FormRolloverSection.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 12
-    },
-    "check-file/folder-naming-convention": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 38
-    },
-    "react/forbid-component-props": {
-      "count": 3
-    },
-    "react/jsx-no-literals": {
-      "count": 20
-    }
-  },
-  "src/features/saisons/components/forms/AdminSaisonEditForm/FormSpielplanSection.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 18
-    },
-    "check-file/folder-naming-convention": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 37
-    },
-    "react/forbid-component-props": {
-      "count": 8
-    },
-    "react/jsx-no-literals": {
-      "count": 18
-    }
-  },
-  "src/features/saisons/components/forms/AdminSaisonEditForm/FormTeamErsatzSection.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 14
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 2
-    },
-    "check-file/folder-naming-convention": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 19
-    },
-    "react/forbid-component-props": {
-      "count": 3
-    },
-    "react/jsx-no-literals": {
-      "count": 14
-    }
-  },
-  "src/features/saisons/components/forms/AdminSaisonEditForm/FormZeitraumSection.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 7
-    },
-    "check-file/folder-naming-convention": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 5
-    },
-    "react/forbid-component-props": {
-      "count": 1
-    },
-    "react/jsx-no-literals": {
-      "count": 2
-    }
-  },
-  "src/features/saisons/components/forms/AdminSaisonEditForm/banners.test.ts": {
-    "check-file/folder-naming-convention": {
-      "count": 1
-    }
-  },
-  "src/features/saisons/components/forms/AdminSaisonEditForm/banners.ts": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    },
-    "check-file/folder-naming-convention": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 7
-    }
-  },
-  "src/features/saisons/components/forms/AdminSaisonEditForm/blockedReasons.test.ts": {
-    "check-file/folder-naming-convention": {
-      "count": 1
-    }
-  },
-  "src/features/saisons/components/forms/AdminSaisonEditForm/blockedReasons.ts": {
-    "check-file/folder-naming-convention": {
-      "count": 1
-    }
-  },
-  "src/features/saisons/components/forms/AdminSaisonEditForm/replacementOffer.test.ts": {
-    "check-file/folder-naming-convention": {
-      "count": 1
-    }
-  },
-  "src/features/saisons/components/forms/AdminSaisonEditForm/replacementOffer.ts": {
-    "check-file/folder-naming-convention": {
-      "count": 1
-    }
-  },
-  "src/features/saisons/components/forms/AdminSaisonEditForm/spielplanShape.test.ts": {
-    "check-file/folder-naming-convention": {
-      "count": 1
-    }
-  },
-  "src/features/saisons/components/forms/AdminSaisonEditForm/spielplanShape.ts": {
-    "check-file/folder-naming-convention": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 3
-    }
-  },
-  "src/features/saisons/components/forms/SaisonFormControls.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 9
-    },
-    "no-restricted-syntax": {
-      "count": 12
-    },
-    "react/forbid-component-props": {
-      "count": 15
     }
   },
   "src/features/saisons/components/forms/StufenPicker.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 7
-    },
     "better-tailwindcss/no-restricted-classes": {
       "count": 5
-    },
-    "no-restricted-syntax": {
-      "count": 1
-    },
-    "react/forbid-component-props": {
-      "count": 5
-    }
-  },
-  "src/features/saisons/components/modals/AdminCreateSaisonModal.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
     }
   },
   "src/features/saisons/components/ui/SaisonBadge.tsx": {
@@ -1700,41 +1400,7 @@
       "count": 2
     }
   },
-  "src/features/saisons/components/views/AdminSaisonEditView.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 2
-    },
-    "no-restricted-syntax": {
-      "count": 2
-    }
-  },
-  "src/features/saisons/components/views/AdminSaisonsView.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 2
-    },
-    "no-restricted-syntax": {
-      "count": 2
-    }
-  },
   "src/features/saisons/constants.ts": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 6
-    }
-  },
-  "src/features/saisons/saisonDraftStatus.ts": {
-    "no-restricted-syntax": {
-      "count": 13
-    }
-  },
-  "src/features/saisons/schemas.ts": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
-  "src/features/saisons/shapeOffer.ts": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 1
     }
@@ -3091,7 +2757,7 @@
   },
   "src/features/teams/actions.ts": {
     "fl/server-action": {
-      "count": 7
+      "count": 6
     }
   },
   "src/features/teams/components/collections/AdminKontakteList.tsx": {
@@ -4383,7 +4049,7 @@
   },
   "src/shared/components/ui/textLink.ts": {
     "better-tailwindcss/no-restricted-classes": {
-      "count": 2
+      "count": 1
     }
   },
   "src/shared/hooks/useConfirmationWindows.ts": {

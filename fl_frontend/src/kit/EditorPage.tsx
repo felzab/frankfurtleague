@@ -43,6 +43,11 @@ export type DangerAct = {
    * which the page read, and the address the page was drawn for (`usePasskeyTouch`).
    */
   touch?: { held: boolean; holder: string };
+  /**
+   * Why the act cannot run on the record as it stands, which the page read: the button disabled, and this reason in
+   * the row's second line in place of the consequence.
+   */
+  blocked?: Copy;
 };
 
 /**
@@ -54,6 +59,7 @@ function DangerRow({ act }: { act: DangerAct }) {
   const [isAsking, setAsking] = useState(false);
   const { run, refusal, isTouching } = usePasskeyTouch(act.touch?.held ?? false, act.touch?.holder);
   const label = COPY.shared.verb[act.confirm.verb];
+  const isBlocked = act.blocked !== undefined;
   return (
     <div className="flex min-h-14 items-center gap-3 rounded-lg border border-[color-mix(in_srgb,var(--danger)_45%,var(--border))] px-4 py-2 lg:min-h-13">
       <div className="grid min-w-0 flex-1 text-sm">
@@ -62,7 +68,7 @@ function DangerRow({ act }: { act: DangerAct }) {
         <span
           role="status"
           className={refusal === null ? "text-xs text-fg-muted" : "text-xs text-danger"}>
-          {refusal ?? act.consequence}
+          {refusal ?? act.blocked ?? act.consequence}
         </span>
       </div>
       {act.touch === undefined ? (
@@ -72,6 +78,7 @@ function DangerRow({ act }: { act: DangerAct }) {
             <Button
               variant={act.confirm.tone}
               label={label}
+              isDisabled={isBlocked}
             />
           }
         />
@@ -81,6 +88,7 @@ function DangerRow({ act }: { act: DangerAct }) {
             variant={act.confirm.tone}
             label={label}
             isBusy={isTouching}
+            isDisabled={isBlocked}
             onPress={() => void run(() => setAsking(true))}
           />
           <ConfirmDialog
