@@ -105,7 +105,7 @@ class TestARecordCitesItsKindsWordings:
             stored = document()
             receipt = block(stored)[EVIDENCE][choice]
             if cited_by == "the grant it ended":
-                receipt["given_before"] = {"am": receipt["am"], "text_version": other}
+                receipt["given_before"] = {"at": receipt["at"], "text_version": other}
             else:
                 receipt["text_version"] = other
             with pytest.raises(ValidationError) as refused:

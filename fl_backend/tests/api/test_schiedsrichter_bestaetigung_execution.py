@@ -211,7 +211,7 @@ async def resend(
 
 async def ban(database: AsyncDatabase, client: AsyncMongoClient, *, email: str) -> Any:
     return await ban_through_the_route(
-        database, client, email=email, grund="Wiederholte Falschangaben", von="admin@frankfurtleague.de", today=TODAY
+        database, client, email=email, grund="Wiederholte Falschangaben", by="admin@frankfurtleague.de", today=TODAY
     )
 
 
@@ -695,8 +695,8 @@ class TestTheConfirmation:
             "confirmed_at": TODAY,
             "media": True,
             "evidence": {
-                "umfang": {"am": "2026-04-01T10:30:00+00:00", "text_version": TEXT_VERSIONS["umfang"]},
-                "media": {"am": "2026-04-01T10:30:00+00:00", "text_version": TEXT_VERSIONS["media"]},
+                "umfang": {"at": "2026-04-01T10:30:00+00:00", "text_version": TEXT_VERSIONS["umfang"]},
+                "media": {"at": "2026-04-01T10:30:00+00:00", "text_version": TEXT_VERSIONS["media"]},
             },
         }
         assert (response.umfang, response.media, response.confirmed_at) == ("kader_oeffentlich", True, TODAY)
@@ -930,7 +930,7 @@ class TestALinkToABarredAddress:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             minted = await resend(database, client)
-            await database[Collection.BAN_LIST].insert_one(documents.ban_document(EMAIL, bis=LAPSED))
+            await database[Collection.BAN_LIST].insert_one(documents.ban_document(EMAIL, until=LAPSED))
             await confirm(database, client, minted.token)
 
             return await stored(database)
@@ -1006,7 +1006,7 @@ class TestTheViewOfALinkToABarredAddress:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
             minted = await resend(database, client)
-            await database[Collection.BAN_LIST].insert_one(documents.ban_document(EMAIL, bis=LAPSED))
+            await database[Collection.BAN_LIST].insert_one(documents.ban_document(EMAIL, until=LAPSED))
 
             return (await view(database, minted.token)).state
 

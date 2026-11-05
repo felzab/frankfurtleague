@@ -169,14 +169,14 @@ def verify_person_actor(actor: Annotated[SessionActor, Depends(get_session_actor
     return actor
 
 
-def signed_in_since(auth_time: int, seit: datetime) -> bool:
-    """Whether a sign-in at `auth_time` is no older than `seit`, for a grant's date and an owner's alike.
+def signed_in_since(auth_time: int, since: datetime) -> bool:
+    """Whether a sign-in at `auth_time` is no older than `since`, for a grant's date and an owner's alike.
 
     Judged to the second `auth_time` is floored to, so nothing the frontend's guard admits is refused
     here.
     """
 
-    return auth_time >= int(seit.timestamp())
+    return auth_time >= int(since.timestamp())
 
 
 def get_actor_auth_time(actor: Annotated[SessionActor, Depends(verify_admin_actor)]) -> int:

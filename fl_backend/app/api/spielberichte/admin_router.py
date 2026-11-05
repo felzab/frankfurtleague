@@ -195,13 +195,13 @@ async def patch_spielbericht(
         judge_bericht(lage=lage, payload=payload, saved=block, new=new, today=today)
 
         await anchor_the_pupils_named(spieler_collection=spieler_collection, spieler_ids=set().union(*new.values()), session=session)
-        von: FLSpielberichtVon = FLByAdmin(art="admin")
+        by: FLSpielberichtVon = FLByAdmin(art="admin")
         dokument = await write_bericht(
             spielberichte_collection=spielberichte_collection,
             spiel_raw=lage.spiel,
             saved=saved,
             payload=payload,
-            von=von,
+            by=by,
             now=now,
             version=bericht_data.version,
             session=session,

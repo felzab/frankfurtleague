@@ -139,10 +139,10 @@ def _open(record: Mapping[str, Any], *, now: datetime) -> FLAccountAddressChange
     approval = record.get("approval")
     approval_state = None
     if isinstance(approval, Mapping):
-        bis = as_utc(approval.get("bis"))
-        assert bis is not None
+        until = as_utc(approval.get("until"))
+        assert until is not None
         approval_state = FLAddressChangeApprovalState(
-            admin_tier=approval["admin_tier"], approved=approval.get("approved_at") is not None, bis=bis
+            admin_tier=approval["admin_tier"], approved=approval.get("approved_at") is not None, until=until
         )
 
     return FLAccountAddressChangeOpen(
@@ -326,7 +326,7 @@ async def delete_address_change(
                 art="address_change_stopped",
                 new_address=str(stored["email"]),
                 record_id=stored["_id"],
-                am=stamp,
+                at=stamp,
                 key=config.sperrliste_key,
             )
         )

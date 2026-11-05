@@ -209,18 +209,18 @@ def _adresswechsel_zeile(
     withheld = denied == "owner"
     email = str(record["email"])
     # On the person's own start the starter is the address on file, the row's own.
-    von = None if way == "account" else str(approval["started_by"])
+    by = None if way == "account" else str(approval["started_by"])
 
     return FLGrantAddressChange(
         id=record["_id"],
         email=None if withheld or email in barred else email,
         email_barred=email in barred,
         way=way,
-        started_by=None if withheld else withheld_actor(von, barred),
-        started_by_barred=von is not None and withheld_actor(von, barred) is None,
+        started_by=None if withheld else withheld_actor(by, barred),
+        started_by_barred=by is not None and withheld_actor(by, barred) is None,
         grund=None if withheld else record.get("grund"),
         confirmed=record.get("confirmed_at") is not None,
-        bis=approval["bis"],
+        until=approval["until"],
         denied=denied,
         viewable_denied=address_change_viewable_denied(record["adresse"], actor=actor, auth_time=auth_time, grants=grants, announced=announced),
     )
@@ -236,7 +236,7 @@ def _antrag_zeile(
     barred: Set[str],
 ) -> FLGrantApprovalRequestRow:
     adresse, approval = str(approval_request["adresse"]), approval_request["approval"]
-    von = withheld_actor(str(approval["started_by"]), barred)
+    by = withheld_actor(str(approval["started_by"]), barred)
 
     return FLGrantApprovalRequestRow(
         id=approval_request["_id"],
@@ -244,10 +244,10 @@ def _antrag_zeile(
         barred=adresse in barred,
         grant_id=approval_request["grant_id"],
         admin_tier=approval["admin_tier"],
-        started_by=von,
-        started_by_barred=von is None,
+        started_by=by,
+        started_by_barred=by is None,
         asked_at=approval["asked_at"],
-        bis=approval["bis"],
+        until=approval["until"],
         stands=antrag_steht(approval_request, grants=grants, announced=announced, barred=barred),
         denied=genehmigung_verwehrt(betroffen=adresse, approval=approval, actor=actor, owner=owner, grants=grants, announced=announced),
     )
@@ -873,7 +873,7 @@ async def delete_approval_request(
             antrag_line(
                 approval_request=approval_request,
                 art="approval_request_withdrawn" if zurueckgezogen else "approval_request_declined",
-                am=log_stamp(now),
+                at=log_stamp(now),
                 key=config.sperrliste_key,
             )
         )

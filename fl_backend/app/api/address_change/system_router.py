@@ -76,8 +76,8 @@ router = APIRouter(
 ADDRESS_CHANGE_PER_PASS: Final = 4
 
 
-def _pipeline(*, now: datetime, nach: Any, size: int) -> list[dict[str, Any]]:
-    """Every lapsed and due change after `nach`, in `_id` order, at most `size`, with the count, as ONE document.
+def _pipeline(*, now: datetime, after: Any, size: int) -> list[dict[str, Any]]:
+    """Every lapsed and due change after `after`, in `_id` order, at most `size`, with the count, as ONE document.
 
     No index serves the instants: the collection holds live changes and recent tombstones alone.
     """
@@ -99,8 +99,8 @@ def _pipeline(*, now: datetime, nach: Any, size: int) -> list[dict[str, Any]]:
         {"$match": {"$nor": [build_parked_terms(now)]}},
         # What `is_expired` labels a lapse by: a confirmed change whose approval's week passed holds a `effective_from` too,
         # and is no due change for that.
-        {"$project": {"_id": 1, "valid_until": 1, "approval.bis": 1, "approval.approved_at": 1}},
-        {"$facet": {"seite": seite if nach is None else [{"$match": {"_id": {"$gt": nach}}}, *seite], "count": [{"$count": "count"}]}},
+        {"$project": {"_id": 1, "valid_until": 1, "approval.until": 1, "approval.approved_at": 1}},
+        {"$facet": {"seite": seite if after is None else [{"$match": {"_id": {"$gt": after}}}, *seite], "count": [{"$count": "count"}]}},
     ]
 
 
@@ -227,7 +227,7 @@ async def _make_the_due_change_take_effect(
                     art="address_change_discarded_notified",
                     new_address=str(record["email"]),
                     record_id=record["_id"],
-                    am=stamp,
+                    at=stamp,
                     key=key,
                 )
             )
@@ -280,9 +280,9 @@ async def sweep_address_change(
     in the Postausgang in its change's own transaction, so none rides on this answer.
 
     Each change is handled in a transaction of its own that judges it again, so one confirmed, stopped, discarded or
-    replaced since this call read it is left standing. **A pass is a run of calls, each handing the next the `nach` the last
-    answered**, the first naming none; it ends at the call answering `nach` null. A call reaches at most a fixed share of the
-    changes after `nach`, in `_id` order, and the pass holds no state on the server. A change whose handling fails is
+    replaced since this call read it is left standing. **A pass is a run of calls, each handing the next the `after` the last
+    answered**, the first naming none; it ends at the call answering `after` null. A call reaches at most a fixed share of the
+    changes after `after`, in `_id` order, and the pass holds no state on the server. A change whose handling fails is
     logged by its id and passed, holding back nobody behind it; it stays due, and the next pass tries it again. Where the
     request's deadline cuts the call, it stops at that change, warns once, and answers what it did. `remaining` counts
     the changes standing due after the call, so it is no stopping condition.
@@ -291,7 +291,7 @@ async def sweep_address_change(
     [read] = await aggregate_many_from_db(
         collection=address_change_collection,
         # One past the share, so a call ending exactly at the share's last row can tell whether any follow.
-        pipeline=_pipeline(now=germany_now, nach=params.nach, size=ADDRESS_CHANGE_PER_PASS + 1),
+        pipeline=_pipeline(now=germany_now, after=params.after, size=ADDRESS_CHANGE_PER_PASS + 1),
     )
     # The lapse and the due terms are disjoint, so the lapse's own judgement parts them.
     seite = [{"_id": row["_id"], "due": not is_expired(row, now=germany_now)} for row in read["seite"]]
@@ -393,7 +393,7 @@ async def sweep_address_change(
         discarded=discarded,
         effective=effective,
         remaining=count - removed - discarded - effective - skipped,
-        nach=reached if abgebrochen or len(seite) > ADDRESS_CHANGE_PER_PASS else None,
+        after=reached if abgebrochen or len(seite) > ADDRESS_CHANGE_PER_PASS else None,
     )
 
 
@@ -417,7 +417,7 @@ async def get_address_change_moves(address_change_collection: AddressChangeColle
     )
 
     return FLAddressChangeMovesResponse(
-        moves=[FLAddressChangeOpenMove(id=row["_id"], von=row["move"]["von"], nach=row["move"]["nach"]) for row in owed]
+        moves=[FLAddressChangeOpenMove(id=row["_id"], old=row["move"]["old"], new=row["move"]["new"]) for row in owed]
     )
 
 

@@ -154,7 +154,7 @@ def _registrierung(oid: ObjectId, email: str, *, confirmed: bool = True, **field
             "media": False,
             "text_versions": SPIELER_TEXT_VERSIONS,
             "today": "2026-01-03",
-            "am": "2026-01-03T08:00:00+00:00",
+            "at": "2026-01-03T08:00:00+00:00",
         },
         **fields,
     )
@@ -212,11 +212,11 @@ async def _seed(database: AsyncDatabase) -> None:
             REGISTERED_WITHOUT_CHOICE,
             confirmed=False,
             **compose_confirmation_update(
-                geburtsdatum="2009-05-04", umfang=None, media=None, text_versions=None, today="2026-01-03", am="2026-01-03T08:00:00+00:00"
+                geburtsdatum="2009-05-04", umfang=None, media=None, text_versions=None, today="2026-01-03", at="2026-01-03T08:00:00+00:00"
             )["$set"],
         )
     )
-    await database[Collection.BAN_LIST].insert_one(ban_document(BARRED, bis=ACTIVE_SAISON))
+    await database[Collection.BAN_LIST].insert_one(ban_document(BARRED, until=ACTIVE_SAISON))
     granted = datetime(2026, 1, 1, tzinfo=UTC)
     await database[Collection.GRANTS].insert_one(
         {"_id": GRANT_OID, "adresse": ADMIN, "admin_tier": "administration", "granted_by": "PLAYGROUND", "granted_at": granted}

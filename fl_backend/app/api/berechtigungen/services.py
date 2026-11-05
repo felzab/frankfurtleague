@@ -34,7 +34,7 @@ def granted_since(row: Mapping[str, Any], angekuendigt: Mapping[str, Any] | None
     Two readings would let the frontend's guard and this side judge one session against two instants.
     """
 
-    seit = as_utc(row.get("gefunden_am") or row["granted_at"])
+    since = as_utc(row.get("gefunden_am") or row["granted_at"])
     if angekuendigt is None:
         # Seen before and its record gone since: repointed past the pass
         # that erased its record, or put back whole. Every date it carries, its id's included, is from
@@ -44,11 +44,11 @@ def granted_since(row: Mapping[str, Any], angekuendigt: Mapping[str, Any] | None
 
         # A paste nothing has seen, whose typed date can lie before it: never earlier than the id the
         # Playground generated as it inserted the row, so its holder's first sign-in still admits.
-        return max(seit, row["_id"].generation_time)
+        return max(since, row["_id"].generation_time)
 
     # An address changed in place before the comparison found it: nothing dates the change, and the
     # dates the row carries are the address before's.
-    return seit if angekuendigt.get("adresse") == row.get("adresse") else None
+    return since if angekuendigt.get("adresse") == row.get("adresse") else None
 
 
 def owner_since(row: Mapping[str, Any], angekuendigt: Mapping[str, Any] | None) -> datetime | None:
@@ -57,8 +57,8 @@ def owner_since(row: Mapping[str, Any], angekuendigt: Mapping[str, Any] | None) 
     A session older than it keeps administering and holds none of an owner's.
     """
 
-    seit = granted_since(row, angekuendigt)
-    if seit is None or row.get("admin_tier") != OWNER:
+    since = granted_since(row, angekuendigt)
+    if since is None or row.get("admin_tier") != OWNER:
         return None
 
     # Promoted in the database and not yet found: nothing dates the edit, so no session holds the tier
@@ -68,7 +68,7 @@ def owner_since(row: Mapping[str, Any], angekuendigt: Mapping[str, Any] | None) 
 
     ernannt_am = row.get("appointed_at")
 
-    return seit if ernannt_am is None else max(seit, as_utc(ernannt_am))
+    return since if ernannt_am is None else max(since, as_utc(ernannt_am))
 
 
 def found_ids(
@@ -117,9 +117,9 @@ def holds_an_owners_power(*, actor: str, auth_time: int, grants: Sequence[Mappin
 
     row = next((grant for grant in grants if grant["adresse"] == actor), None)
     record = None if row is None else next((entry for entry in announced if entry["_id"] == row["_id"]), None)
-    seit = None if row is None else owner_since(row, record)
+    since = None if row is None else owner_since(row, record)
 
-    return seit is not None and signed_in_since(auth_time, seit)
+    return since is not None and signed_in_since(auth_time, since)
 
 
 def find_nur_inhaber_refusal(
@@ -293,13 +293,13 @@ def vier_augen_seit(row: Mapping[str, Any], angekuendigt: Mapping[str, Any] | No
     The person's, not the mailbox's: a row their own address change moved keeps the dates it replaced.
     """
 
-    seit = (owner_since if admin_tier == OWNER else granted_since)(row, angekuendigt)
+    since = (owner_since if admin_tier == OWNER else granted_since)(row, angekuendigt)
     getragen = (row.get("fortgefuehrt") or {}).get("owner_since" if admin_tier == OWNER else "granted_since")
     # A promotion since the move dates an owner's tier afresh, as a demotion took the carried one.
-    if seit is None or getragen is None or (admin_tier == OWNER and row.get("appointed_at") is not None):
-        return seit
+    if since is None or getragen is None or (admin_tier == OWNER and row.get("appointed_at") is not None):
+        return since
 
-    return min(seit, as_utc(getragen))
+    return min(since, as_utc(getragen))
 
 
 def compose_fortgefuehrt(row: Mapping[str, Any], angekuendigt: Mapping[str, Any] | None) -> dict[str, Any] | None:
@@ -324,9 +324,9 @@ def haelt_seit(
     if row is None:
         return False
     record = next((entry for entry in announced if entry["_id"] == row["_id"]), None)
-    seit = vier_augen_seit(row, record, admin_tier=admin_tier)
+    since = vier_augen_seit(row, record, admin_tier=admin_tier)
 
-    return seit is not None and seit <= as_utc(before)
+    return since is not None and since <= as_utc(before)
 
 
 def genehmiger_of(
@@ -393,8 +393,8 @@ def genehmigung_steht(
     An approval never outlives its approver's grant, their owner's tier, or a ban since.
     """
 
-    von = approval.get("approved_by")
-    if not isinstance(von, str) or von in barred or von in {betroffen, approval.get("started_by")}:
+    by = approval.get("approved_by")
+    if not isinstance(by, str) or by in barred or by in {betroffen, approval.get("started_by")}:
         return False
 
-    return haelt_seit(von, admin_tier=str(approval.get("admin_tier")), before=approval["asked_at"], grants=grants, announced=announced)
+    return haelt_seit(by, admin_tier=str(approval.get("admin_tier")), before=approval["asked_at"], grants=grants, announced=announced)

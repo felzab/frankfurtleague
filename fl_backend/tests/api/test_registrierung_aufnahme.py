@@ -209,7 +209,7 @@ def registrierung_document(
             "media": False,
             "text_versions": SPIELER_TEXT_VERSIONS,
             "today": "2026-03-31",
-            "am": "2026-03-31T08:00:00+00:00",
+            "at": "2026-03-31T08:00:00+00:00",
         },
         **fields,
     )
@@ -345,12 +345,12 @@ def a_stored_person(spieler_id: ObjectId, *, email: str | None = FOLDED_EMAIL, *
 
 # A person's record as their own earlier confirmation left it, both choices granted, and the evidence each choice left.
 STORED_AM = "2026-01-20T11:00:00+00:00"
-STORED_GRANT = {choice: {"am": STORED_AM, "text_version": label} for choice, label in SPIELER_TEXT_VERSIONS.items()}
+STORED_GRANT = {choice: {"at": STORED_AM, "text_version": label} for choice, label in SPIELER_TEXT_VERSIONS.items()}
 
 
 def granted_by_an_earlier_registration() -> dict[str, Any]:
     return documents.own_einwilligung_document(
-        text_versions=documents.SPIELER_TEXT_VERSIONS, confirmed_at="2026-01-20", am=STORED_AM, media=True
+        text_versions=documents.SPIELER_TEXT_VERSIONS, confirmed_at="2026-01-20", at=STORED_AM, media=True
     )
 
 
@@ -587,7 +587,7 @@ class TestABarredAddress:
     def test_the_admission_refuses_it_and_writes_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             registrierung_id = await seed(database, registrierung_document())
-            await database[Collection.BAN_LIST].insert_one(documents.ban_document(FOLDED_EMAIL, bis=STANDING))
+            await database[Collection.BAN_LIST].insert_one(documents.ban_document(FOLDED_EMAIL, until=STANDING))
             before = await snapshot(database)
             code = await refused(admit(database, client, registrierung_id))
 
@@ -602,7 +602,7 @@ class TestABarredAddress:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             registrierung_id = await seed(database, registrierung_document())
             listed = await read(database, client)
-            await database[Collection.BAN_LIST].insert_one(documents.ban_document(TYPED_EMAIL, bis=STANDING))
+            await database[Collection.BAN_LIST].insert_one(documents.ban_document(TYPED_EMAIL, until=STANDING))
 
             return listed.registrierungen[0].admissible, await refused(admit(database, client, registrierung_id)), await persons(database)
 
@@ -703,7 +703,7 @@ class TestThePersonAnAdmissionNames:
             media=True,
             text_versions=SPIELER_TEXT_VERSIONS,
             today="2026-03-31",
-            am="2026-03-31T08:00:00+00:00",
+            at="2026-03-31T08:00:00+00:00",
         )["$set"]["einwilligung"]
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -711,7 +711,7 @@ class TestThePersonAnAdmissionNames:
             registrierung_id = await seed(database, registrierung_document(einwilligung=confirmed))
             stored = (await database[Collection.SPIELER].find_one({"_id": stored_id}) or {})["einwilligung"]
             press = compose_person_move(
-                saved=stored, chosen={"media": False}, am="2026-04-01T09:00:00+00:00", text_versions=SPIELER_TEXT_VERSIONS
+                saved=stored, chosen={"media": False}, at="2026-04-01T09:00:00+00:00", text_versions=SPIELER_TEXT_VERSIONS
             )
             assert press is not None, "the press moved nothing, so this case proves nothing"
             await database[Collection.SPIELER].update_one({"_id": stored_id}, press)
@@ -726,7 +726,7 @@ class TestThePersonAnAdmissionNames:
         assert (einwilligung["media"], einwilligung["evidence"]["media"]) == (
             False,
             {
-                "am": "2026-04-01T09:00:00+00:00",
+                "at": "2026-04-01T09:00:00+00:00",
                 "text_version": KONTO_LABEL,
                 "given_before": STORED_GRANT["media"],
             },
@@ -736,7 +736,7 @@ class TestThePersonAnAdmissionNames:
         assert (einwilligung["umfang"], einwilligung["evidence"]["umfang"]) == (
             "intern",
             {
-                "am": "2026-03-31T08:00:00+00:00",
+                "at": "2026-03-31T08:00:00+00:00",
                 "text_version": SPIELER_TEXT_VERSIONS["umfang"],
                 "given_before": STORED_GRANT["umfang"],
             },
@@ -753,7 +753,7 @@ class TestThePersonAnAdmissionNames:
             media=True,
             text_versions=SPIELER_TEXT_VERSIONS,
             today="2026-03-31",
-            am="2026-03-31T08:00:00+00:00",
+            at="2026-03-31T08:00:00+00:00",
         )["$set"]["einwilligung"]
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -786,7 +786,7 @@ class TestThePersonAnAdmissionNames:
         assert (einwilligung["media"], einwilligung["evidence"]["media"]) == (
             False,
             {
-                "am": "2026-04-01T07:00:00+00:00",
+                "at": "2026-04-01T07:00:00+00:00",
                 "text_version": KONTO_LABEL,
                 "given_before": STORED_GRANT["media"],
             },
@@ -973,7 +973,7 @@ class TestAReturningRegistration:
             )
             held = (await database[Collection.SPIELER].find_one({"_id": stored_id}) or {})["einwilligung"]
             press = compose_person_move(
-                saved=held, chosen={"media": False}, am="2026-04-01T09:00:00+00:00", text_versions=SPIELER_TEXT_VERSIONS
+                saved=held, chosen={"media": False}, at="2026-04-01T09:00:00+00:00", text_versions=SPIELER_TEXT_VERSIONS
             )
             assert press is not None, "the withdrawal moved nothing, so this case proves nothing"
             await database[Collection.SPIELER].update_one({"_id": stored_id}, press)
@@ -1156,7 +1156,7 @@ class TestTheDecline:
 
         passes, stored = on_a_league(mongo_replica_set_url, body)
 
-        assert stored is not None and stored["decision"] == {"made_at": TODAY, "von": THEO, "grund": "other_person"}
+        assert stored is not None and stored["decision"] == {"made_at": TODAY, "by": THEO, "grund": "other_person"}
         assert passes == 2, "one read is a decline that wrote over the rival's decision without a retry"
 
     @pytest.mark.parametrize("grund", [None, "other_person"])
@@ -1170,7 +1170,7 @@ class TestTheDecline:
 
         before, after, owed = on_a_league(mongo_replica_set_url, body)
 
-        assert after == {**before, "status": "declined", "decision": {"made_at": TODAY, "von": THEO, "grund": grund}}
+        assert after == {**before, "status": "declined", "decision": {"made_at": TODAY, "by": THEO, "grund": grund}}
         # The confirmed pupil's note, owed in the decline's own transaction.
         assert [(row["an"], row["data"]["team"], row["data"]["grund"]) for row in owed] == [(FOLDED_EMAIL, "Zorbanax", grund)]
 

@@ -201,10 +201,10 @@ async def get_bewerbung(
     )
 
 
-def _entscheidung(*, today: str, von: str, grund: str | None) -> dict[str, Any]:
+def _entscheidung(*, today: str, by: str, grund: str | None) -> dict[str, Any]:
     """The decision block both endpoints write, so the two cannot spell one field differently."""
 
-    return {"made_at": today, "von": von, "grund": grund}
+    return {"made_at": today, "by": by, "grund": grund}
 
 
 async def _schule_text(*, bewerbung_raw: Mapping[str, Any], teams_collection: AsyncCollection, session: AsyncClientSession) -> str:
@@ -239,7 +239,7 @@ async def accept_bewerbung(
     outbox_collection: OutboxCollection,
     db: DBClient,
     today: str = Depends(get_german_date_str),
-    von: str = Depends(get_actor_email),
+    by: str = Depends(get_actor_email),
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLAcceptBewerbungResponse:
     """
@@ -356,7 +356,7 @@ async def accept_bewerbung(
             # `team_id` too: a new school's application named none until this write, and without it
             # nothing joins the accepted application to the club it produced. `kontakte` stays as answered:
             # only the season row's copy moves after.
-            update={"$set": {"status": "accepted", "team_id": team_id, "decision": _entscheidung(today=today, von=von, grund=None)}},
+            update={"$set": {"status": "accepted", "team_id": team_id, "decision": _entscheidung(today=today, by=by, grund=None)}},
             session=session,
             return_document=ReturnDocument.BEFORE,
         )
@@ -413,7 +413,7 @@ async def decline_bewerbung(
     outbox_collection: OutboxCollection,
     db: DBClient,
     today: str = Depends(get_german_date_str),
-    von: str = Depends(get_actor_email),
+    by: str = Depends(get_actor_email),
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLDeclineBewerbungResponse:
     """
@@ -437,7 +437,7 @@ async def decline_bewerbung(
         await patch_one_in_db(
             collection=bewerbungen_collection,
             db_filter={"_id": bewerbung_id},
-            update={"$set": {"status": "declined", "decision": _entscheidung(today=today, von=von, grund=ablehnung_data.grund)}},
+            update={"$set": {"status": "declined", "decision": _entscheidung(today=today, by=by, grund=ablehnung_data.grund)}},
             session=session,
             return_document=ReturnDocument.BEFORE,
         )

@@ -271,7 +271,7 @@ async def end_the_change_in_session(
 EndingArt = Literal["address_change_declined", "address_change_stopped", "address_change_discarded", "address_change_discarded_notified"]
 
 
-def ending_line(*, art: EndingArt, new_address: str, record_id: ObjectId, am: str, key: SecretStr) -> JournalLine:
+def ending_line(*, art: EndingArt, new_address: str, record_id: ObjectId, at: str, key: SecretStr) -> JournalLine:
     """A decline's, a stop's or a discard's line, so a restore does not bring the change back to act."""
 
     return JournalLine(
@@ -279,7 +279,7 @@ def ending_line(*, art: EndingArt, new_address: str, record_id: ObjectId, am: st
         art=art,
         collection=Collection.ADDRESS_CHANGES,
         record_id=record_id,
-        am=am,
+        at=at,
     )
 
 
@@ -294,7 +294,7 @@ def effective_line(*, record: Mapping[str, Any], now: datetime, key: SecretStr) 
         art="address_change_effective",
         collection=Collection.ADDRESS_CHANGES,
         record_id=record["_id"],
-        am=log_stamp(now),
+        at=log_stamp(now),
         before=erasure_journal_hash(str(record["adresse"]), key=key),
     )
 
@@ -327,7 +327,7 @@ async def start_the_change_in_session(
             session=session,
         )
         journal.note(
-            ending_line(art="address_change_discarded", new_address=str(replaced["email"]), record_id=replaced["_id"], am=stamp, key=key)
+            ending_line(art="address_change_discarded", new_address=str(replaced["email"]), record_id=replaced["_id"], at=stamp, key=key)
         )
 
     # Two starts on one address meet at `uniq_address_change_adresse` as a write conflict, which the transaction retries.
@@ -523,13 +523,13 @@ async def judge_the_effect_in_session(
 
     # Judged again here rather than kept from the press: a revoke, a demotion, a ban or an erasure of the approver since
     # leaves no approval standing.
-    von = approval.get("approved_by")
+    by = approval.get("approved_by")
     stands = genehmigung_steht(
         betroffen=old,
         approval=approval,
         grants=await read_berechtigungen(grants_collection=grants_collection, session=session),
         announced=await read_the_announced(grants_announced_collection=grants_announced_collection, session=session),
-        barred=await adressen_gesperrt(sperrliste, [von], session=session) if isinstance(von, str) else set(),
+        barred=await adressen_gesperrt(sperrliste, [by], session=session) if isinstance(by, str) else set(),
     )
 
     return Verdict(cause=None, empty=False, waits=not stands, withdrawn=not stands)
@@ -646,7 +646,7 @@ async def take_effect_in_session(
                 art="address_change_discarded_notified" if notify else "address_change_discarded",
                 new_address=str(record["email"]),
                 record_id=record["_id"],
-                am=stamp,
+                at=stamp,
                 key=key,
             )
         )
@@ -676,7 +676,7 @@ async def take_effect_in_session(
     )
     # A line for each request the effect ended, so a restore from before it does not bring one back.
     for approval_request in ended:
-        journal.note(antrag_line(approval_request=approval_request, art="approval_request_ended", am=stamp, key=key))
+        journal.note(antrag_line(approval_request=approval_request, art="approval_request_ended", at=stamp, key=key))
     journal.note(effective_line(record=record, now=now, key=key))
 
     return verdict, True
@@ -766,14 +766,14 @@ async def move_the_address_in_session(
         )
 
     if holdings.grant is not None:
-        von = (record.get("approval") or {}).get("approved_by")
+        by = (record.get("approval") or {}).get("approved_by")
         # The judgement refuses a grant its approval does not cover; this guards the replay, which judges differently.
-        if not isinstance(von, str):
+        if not isinstance(by, str):
             raise RuntimeError("a grant moves only on an approval naming its approver")
         await _move_the_grant(
             holdings.grant,
             new_address=sign_in_identifier(new_address),
-            von=von,
+            by=by,
             sperrliste=sperrliste,
             grants_collection=grants_collection,
             grants_announced_collection=grants_announced_collection,
@@ -849,13 +849,13 @@ async def move_the_address_in_session(
     # An earlier effect's carry still owed takes its account to where the person is now, and an erasure there finds it.
     # Read, then written by id: the log keeps a fan-out's filter as text, address and all.
     owed = await aggregate_many_from_db(
-        collection=address_change_collection, pipeline=[{"$match": {"move.nach": old}}, {"$project": {"_id": 1}}], session=session
+        collection=address_change_collection, pipeline=[{"$match": {"move.new": old}}, {"$project": {"_id": 1}}], session=session
     )
     if owed:
         await patch_many_in_db(
             collection=address_change_collection,
             db_filter={"_id": {"$in": [row["_id"] for row in owed]}},
-            update={"$set": {"move.nach": new}},
+            update={"$set": {"move.new": new}},
             session=session,
         )
     await _carry_the_mail(outbox_collection, old, new, session=session)
@@ -871,7 +871,7 @@ async def move_the_address_in_session(
                     "person_hash": erasure_journal_hash(new, key=key),
                     "before": erasure_journal_hash(old, key=key),
                 },
-                **({} if record["way"] == "waiting_period" else {"move": {"von": old, "nach": new}}),
+                **({} if record["way"] == "waiting_period" else {"move": {"old": old, "new": new}}),
             }
         },
         session=session,
@@ -937,7 +937,7 @@ async def _move_the_grant(
     grant: Mapping[str, Any],
     *,
     new_address: str,
-    von: str,
+    by: str,
     sperrliste: BanList,
     grants_collection: AsyncCollection,
     grants_announced_collection: AsyncCollection,
@@ -953,11 +953,11 @@ async def _move_the_grant(
     announced = await aggregate_many_from_db(
         collection=grants_announced_collection, pipeline=[{"$match": {"_id": grant["_id"]}}], session=session
     )
-    barred = await adressen_gesperrt(sperrliste, [von], session=session)
+    barred = await adressen_gesperrt(sperrliste, [by], session=session)
     await revoke_in_session(
         grant=grant,
         announced=announced,
-        revoked_by=von,
+        revoked_by=by,
         barred=barred,
         grants_collection=grants_collection,
         grants_announced_collection=grants_announced_collection,
@@ -968,7 +968,7 @@ async def _move_the_grant(
     await grant_in_session(
         adresse=new_address,
         admin_tier=str(grant["admin_tier"]),
-        granted_by=von,
+        granted_by=by,
         barred=barred,
         grants_collection=grants_collection,
         grants_announced_collection=grants_announced_collection,
@@ -1153,7 +1153,7 @@ async def end_the_address_changes_in_session(
     # it would move one to. By id, as every write here.
     owed = await aggregate_many_from_db(
         collection=address_change_collection,
-        pipeline=[{"$match": {"$or": [{"move.von": identifier}, {"move.nach": identifier}]}}, {"$project": {"_id": 1}}],
+        pipeline=[{"$match": {"$or": [{"move.old": identifier}, {"move.new": identifier}]}}, {"$project": {"_id": 1}}],
         session=session,
     )
     if owed:

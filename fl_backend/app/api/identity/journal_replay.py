@@ -223,8 +223,8 @@ def _holds(address: Any, line: JournalLine, key: SecretStr) -> bool:
 def _withdrawable(block: Mapping[str, Any], line: JournalLine) -> dict[FLEinwilligungChoice, Any]:
     """The line's choices that still grant on `block` by an act no later than the line's: a later grant is its person's last word."""
 
-    assert line.am is not None
-    made = datetime.fromisoformat(line.am)
+    assert line.at is not None
+    made = datetime.fromisoformat(line.at)
 
     def set_since(choice: FLEinwilligungChoice) -> bool:
         evidenced = receipt_of(block, choice)
@@ -234,7 +234,7 @@ def _withdrawable(block: Mapping[str, Any], line: JournalLine) -> dict[FLEinwill
 
 
 async def _plan_withdrawal(line: JournalLine, database: AsyncDatabase, *, key: SecretStr, session: AsyncClientSession | None) -> Plan:
-    assert line.collection is not None and line.am is not None
+    assert line.collection is not None and line.at is not None
     collection = database[line.collection]
     row = await collection.find_one({"_id": line.record_id}, session=session)
     if row is None:
@@ -245,7 +245,7 @@ async def _plan_withdrawal(line: JournalLine, database: AsyncDatabase, *, key: S
         if not _holds(_PERSON_ADDRESS[line.collection](row), line, key) or not isinstance(block, Mapping):
             return Plan("left for review")
         chosen = _withdrawable(block, line)
-        update = compose_person_move(saved=block, chosen=chosen, am=line.am, text_versions=line.text_versions) if chosen else None
+        update = compose_person_move(saved=block, chosen=chosen, at=line.at, text_versions=line.text_versions) if chosen else None
     else:
         kontakte = row.get("kontakte") or {}
         seats = {
@@ -261,7 +261,7 @@ async def _plan_withdrawal(line: JournalLine, database: AsyncDatabase, *, key: S
         set_fields: dict[str, Any] = {}
         for slot, block in seats.items():
             chosen = _withdrawable(block, line)
-            moved = compose_seat_move(seats={slot: block}, chosen=chosen, am=line.am, text_versions=line.text_versions) if chosen else None
+            moved = compose_seat_move(seats={slot: block}, chosen=chosen, at=line.at, text_versions=line.text_versions) if chosen else None
             set_fields |= moved["$set"] if moved is not None else {}
         update = {"$set": set_fields} if set_fields else None
 
@@ -279,7 +279,7 @@ async def _plan_withdrawal(line: JournalLine, database: AsyncDatabase, *, key: S
 async def _plan_objection(
     line: JournalLine, database: AsyncDatabase, *, key: SecretStr, session: AsyncClientSession | None, now: datetime, window: Window
 ) -> Plan:
-    assert line.collection is not None and line.am is not None
+    assert line.collection is not None and line.at is not None
     home = line.collection
     collection = database[home]
     row = await collection.find_one({"_id": line.record_id}, session=session)
@@ -287,7 +287,7 @@ async def _plan_objection(
         return Plan("no such record")
 
     kontakte, confirmations = row.get("kontakte") or {}, row.get("confirmations")
-    declined_on = german_day(datetime.fromisoformat(line.am))
+    declined_on = german_day(datetime.fromisoformat(line.at))
 
     def linked_since(slot: str) -> bool | None:
         # A link the restored site sent is a seating since, which the decline must not empty.
@@ -380,8 +380,8 @@ async def _plan_address_change(
 
     # The address judged above, so a change replaced since this plan was made is not taken with it.
     db_filter = {"_id": record["_id"], "email": record["email"]}
-    assert line.am is not None
-    pressed_at = datetime.fromisoformat(line.am)
+    assert line.at is not None
+    pressed_at = datetime.fromisoformat(line.at)
 
     # The ending's own body, which writes the press's own update and redaction. Ended at
     # the press's instant, which its record's expiry counts from; the redaction happens now, so its stamp is the replay's.

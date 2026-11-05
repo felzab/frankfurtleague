@@ -96,8 +96,8 @@ async def listed(database: AsyncDatabase) -> Any:
     )
 
 
-async def ban(database: AsyncDatabase, client: AsyncMongoClient, *, email: str = BANNED, grund: str = GRUND, von: str = ADMIN) -> Any:
-    return await ban_through_the_route(database, client, email=email, grund=grund, von=von, today=TODAY)
+async def ban(database: AsyncDatabase, client: AsyncMongoClient, *, email: str = BANNED, grund: str = GRUND, by: str = ADMIN) -> Any:
+    return await ban_through_the_route(database, client, email=email, grund=grund, by=by, today=TODAY)
 
 
 async def rows_of(database: AsyncDatabase) -> list[Mapping[str, Any]]:
@@ -209,7 +209,7 @@ class TestASecondBanOfOneAddress:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> None:
             await ban(database, client)
-            duplicate = ban_document(BANNED_RETYPED, bis=LAST_COVERED)
+            duplicate = ban_document(BANNED_RETYPED, until=LAST_COVERED)
 
             with pytest.raises(DuplicateKeyError):
                 await database[Collection.BAN_LIST].insert_one(duplicate)
@@ -325,7 +325,7 @@ class TestWhatTheListServes:
             await ban(database, client, email=OTHER)
             # Revoked as a paste revokes, then barred through the route by another administrator.
             await database[Collection.GRANTS].delete_one({"adresse": ADMIN})
-            await ban(database, client, email=ADMIN, von=grants_for_the_suite()[0]["adresse"])
+            await ban(database, client, email=ADMIN, by=grants_for_the_suite()[0]["adresse"])
 
             served = await listed(database)
 
@@ -511,7 +511,7 @@ class TestTheKeyTheRowsWereTakenUnder:
             await database[Collection.BAN_LIST].insert_one(
                 ban_document(
                     BANNED,
-                    bis=LAST_COVERED,
+                    until=LAST_COVERED,
                     # Keyed under the previous master and labelled as the builder labels every row,
                     # which a row written before a rotation would carry: nothing closes the set of labels,
                     # so the old population stays readable.

@@ -581,8 +581,8 @@ class TestSaison:
         newest = clock.now().year + 1
         year = FIRST_SAISON_YEAR - 1 if side == "before the first season" else newest + 1
         body = {"id": str(year), "rules": saison()["rules"], "start_date": "2026-01-01", "end_date": "2026-06-30"}
-        body["bewerbung"] = {"offen": True, "von": "2025-11-01", "bis": "2025-12-15"}
-        body["registrierung"] = {"offen": False, "von": "2026-01-05", "bis": "2026-02-05"}
+        body["bewerbung"] = {"offen": True, "start": "2025-11-01", "end": "2025-12-15"}
+        body["registrierung"] = {"offen": False, "von": "2026-01-05", "end": "2026-02-05"}
 
         with pytest.raises(ValidationError) as failure:
             FLPostSaisonPayload.model_validate(body)
@@ -605,8 +605,8 @@ class TestTheSeasonsSpans:
             "start_date": stored["start_date"],
             "end_date": stored["end_date"],
             "rules": stored["rules"],
-            "bewerbung": {"offen": True, "von": "2025-09-01", "bis": "2025-10-31"},
-            "registrierung": {"offen": True, "von": "2025-11-01", "bis": "2025-12-15"},
+            "bewerbung": {"offen": True, "start": "2025-09-01", "end": "2025-10-31"},
+            "registrierung": {"offen": True, "von": "2025-11-01", "end": "2025-12-15"},
             **overrides,
         }
 
@@ -622,7 +622,7 @@ class TestTheSeasonsSpans:
         assert FLPatchSaisonPayload.model_validate(self.payload(saison, bewerbung=None)).bewerbung is None
 
     def test_refuses_a_window_ending_before_it_opens(self, saison):
-        reversed_window = {"offen": False, "von": "2025-10-31", "bis": "2025-09-01"}
+        reversed_window = {"offen": False, "start": "2025-10-31", "end": "2025-09-01"}
 
         with pytest.raises(ValidationError) as failure:
             FLPatchSaisonPayload.model_validate(self.payload(saison, bewerbung=reversed_window))
@@ -631,7 +631,7 @@ class TestTheSeasonsSpans:
 
     def test_judges_the_window_apart_from_the_season_it_belongs_to(self, saison):
         """A window may legitimately open and close before the season's first day."""
-        before_the_saison = {"offen": False, "von": "2025-01-01", "bis": "2025-02-01"}
+        before_the_saison = {"offen": False, "start": "2025-01-01", "end": "2025-02-01"}
 
         assert FLPatchSaisonPayload.model_validate(self.payload(saison, bewerbung=before_the_saison)).bewerbung is not None
 
@@ -655,7 +655,7 @@ class TestTheSeasonsSpans:
 
     def test_refuses_a_registration_window_ending_before_it_opens(self, saison):
         """The third caller's own kind: the two windows raise different kinds, and one moved alone is what this catches."""
-        reversed_window = {"offen": False, "von": "2025-12-15", "bis": "2025-11-01"}
+        reversed_window = {"offen": False, "von": "2025-12-15", "end": "2025-11-01"}
 
         with pytest.raises(ValidationError) as failure:
             FLPatchSaisonPayload.model_validate(self.payload(saison, registrierung=reversed_window))
@@ -664,7 +664,7 @@ class TestTheSeasonsSpans:
 
     def test_judges_the_registration_window_apart_from_the_application_window(self, saison):
         """Two decisions rather than one span: registration may legitimately close before applications do."""
-        overlapping = {"offen": True, "von": "2025-08-01", "bis": "2025-09-15"}
+        overlapping = {"offen": True, "von": "2025-08-01", "end": "2025-09-15"}
 
         assert FLPatchSaisonPayload.model_validate(self.payload(saison, registrierung=overlapping)).registrierung is not None
 
@@ -806,8 +806,8 @@ class TestTheWritePathStripsBeforeItCountsCharacters:
         }
         # The stored rows minus what only storage carries, which is what each create payload takes.
         new_saison = {"id": saison()["_id"], "rules": saison()["rules"], "start_date": "2026-01-01", "end_date": "2026-06-30"}
-        new_saison["bewerbung"] = {"offen": True, "von": "2025-11-01", "bis": "2025-12-15"}
-        new_saison["registrierung"] = {"offen": False, "von": "2026-01-05", "bis": "2026-02-05"}
+        new_saison["bewerbung"] = {"offen": True, "start": "2025-11-01", "end": "2025-12-15"}
+        new_saison["registrierung"] = {"offen": False, "von": "2026-01-05", "end": "2026-02-05"}
         new_saison_spieler = {key: value for key, value in saison_spieler().items() if key in FLPostSaisonSpielerPayload.model_fields}
         new_saison_team = {"saison_id": saison()["_id"], "gruppe": "A"}
 

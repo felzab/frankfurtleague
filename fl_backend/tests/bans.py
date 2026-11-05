@@ -31,7 +31,7 @@ async def ban_through_the_route(
     *,
     email: str,
     grund: str,
-    von: str,
+    by: str,
     today: str,
     saisons: Any = None,
     grants: Any = None,
@@ -48,7 +48,7 @@ async def ban_through_the_route(
         outbox_collection=database[Collection.OUTBOX],
         db=client,
         config=_CONFIG,
-        created_by=von,
+        created_by=by,
         today=today,
         now=datetime.fromisoformat(today).replace(hour=12, tzinfo=ZoneInfo("Europe/Berlin")),
     )

@@ -132,7 +132,7 @@ def _registrierung(email: str, *, confirmed: bool) -> dict[str, Any]:
             "media": False,
             "text_versions": SPIELER_TEXT_VERSIONS,
             "today": "2026-01-03",
-            "am": "2026-01-03T08:00:00+00:00",
+            "at": "2026-01-03T08:00:00+00:00",
         },
     )
 
@@ -180,7 +180,9 @@ async def _seed(database: AsyncDatabase, *, owner: str | None) -> None:
     await database[Collection.REGISTRIERUNGEN].insert_many(
         [_registrierung(REGISTERED, confirmed=True), _registrierung(REGISTERED_OPEN, confirmed=False)]
     )
-    await database[Collection.BAN_LIST].insert_many([ban_document(BARRED_WHISTLE, bis=ACTIVE_SAISON), ban_document(BARRED, bis=ACTIVE_SAISON)])
+    await database[Collection.BAN_LIST].insert_many(
+        [ban_document(BARRED_WHISTLE, until=ACTIVE_SAISON), ban_document(BARRED, until=ACTIVE_SAISON)]
+    )
     granted = datetime(2026, 1, 1, tzinfo=UTC)
     await database[Collection.GRANTS].insert_one(
         {"_id": GRANT_OID, "adresse": ADMIN, "admin_tier": "administration", "granted_by": "PLAYGROUND", "granted_at": granted}

@@ -33,8 +33,8 @@ CONFIRMED: Final[Mapping[str, Any]] = {
     "confirmed_at": "2026-04-01",
     "media": True,
     "evidence": {
-        "umfang": {"am": GIVEN_AT, "text_version": CONFIRMED_LABELS["umfang"]},
-        "media": {"am": GIVEN_AT, "text_version": CONFIRMED_LABEL},
+        "umfang": {"at": GIVEN_AT, "text_version": CONFIRMED_LABELS["umfang"]},
+        "media": {"at": GIVEN_AT, "text_version": CONFIRMED_LABEL},
     },
 }
 
@@ -43,8 +43,8 @@ MEDIA_WITHDRAWN: Final[Mapping[str, Any]] = {
     **CONFIRMED,
     "media": False,
     "evidence": {
-        "umfang": {"am": GIVEN_AT, "text_version": CONFIRMED_LABELS["umfang"]},
-        "media": {"am": WITHDRAWN_AT, "text_version": ACCOUNT_LABEL, "given_before": {"am": GIVEN_AT, "text_version": CONFIRMED_LABEL}},
+        "umfang": {"at": GIVEN_AT, "text_version": CONFIRMED_LABELS["umfang"]},
+        "media": {"at": WITHDRAWN_AT, "text_version": ACCOUNT_LABEL, "given_before": {"at": GIVEN_AT, "text_version": CONFIRMED_LABEL}},
     },
 }
 
@@ -80,32 +80,32 @@ class TestTheEvidenceOfOneChoice:
     def test_a_grant_keeps_when_and_under_which_label_and_nothing_else(self):
         """No speaker: only the person's own write stamps evidence, so a field naming one would say nothing."""
 
-        assert compose_receipt(saved=MEDIA_WITHDRAWN, choice="media", value=True, am=LATER, text_version=ACCOUNT_LABEL) == {
-            "am": LATER,
+        assert compose_receipt(saved=MEDIA_WITHDRAWN, choice="media", value=True, at=LATER, text_version=ACCOUNT_LABEL) == {
+            "at": LATER,
             "text_version": ACCOUNT_LABEL,
         }
 
     def test_a_withdrawal_keeps_the_grant_it_ended(self):
-        assert compose_receipt(saved=CONFIRMED, choice="media", value=False, am=WITHDRAWN_AT, text_version=ACCOUNT_LABEL) == {
-            "am": WITHDRAWN_AT,
+        assert compose_receipt(saved=CONFIRMED, choice="media", value=False, at=WITHDRAWN_AT, text_version=ACCOUNT_LABEL) == {
+            "at": WITHDRAWN_AT,
             "text_version": ACCOUNT_LABEL,
-            "given_before": {"am": GIVEN_AT, "text_version": CONFIRMED_LABEL},
+            "given_before": {"at": GIVEN_AT, "text_version": CONFIRMED_LABEL},
         }
 
     def test_a_withdrawal_restated_keeps_the_grant_the_first_one_ended(self):
         """Not the first withdrawal itself: what a withdrawal proves is the grant it ended."""
 
-        assert compose_receipt(saved=MEDIA_WITHDRAWN, choice="media", value=False, am=LATER, text_version=ACCOUNT_LABEL) == {
-            "am": LATER,
+        assert compose_receipt(saved=MEDIA_WITHDRAWN, choice="media", value=False, at=LATER, text_version=ACCOUNT_LABEL) == {
+            "at": LATER,
             "text_version": ACCOUNT_LABEL,
-            "given_before": {"am": GIVEN_AT, "text_version": CONFIRMED_LABEL},
+            "given_before": {"at": GIVEN_AT, "text_version": CONFIRMED_LABEL},
         }
 
     def test_a_seat_answered_without_whatsapp_keeps_no_earlier_grant(self):
         """`kontaktdaten` withholds, so a seat's first answer declining WhatsApp is a withdrawal of nothing."""
 
-        assert compose_receipt(saved=SEATED, choice="umfang", value="kontaktdaten", am=LATER, text_version="v6") == {
-            "am": LATER,
+        assert compose_receipt(saved=SEATED, choice="umfang", value="kontaktdaten", at=LATER, text_version="v6") == {
+            "at": LATER,
             "text_version": "v6",
         }
 
@@ -118,19 +118,19 @@ class TestTheTwoShapesOfAWrite:
             path="einwilligung",
             saved=CONFIRMED,
             set_fields={"media": False},
-            am=WITHDRAWN_AT,
+            at=WITHDRAWN_AT,
             text_versions={"umfang": "unread", "media": ACCOUNT_LABEL},
         ) == {
             "einwilligung.media": False,
             "einwilligung.evidence.media": {
-                "am": WITHDRAWN_AT,
+                "at": WITHDRAWN_AT,
                 "text_version": ACCOUNT_LABEL,
-                "given_before": {"am": GIVEN_AT, "text_version": CONFIRMED_LABEL},
+                "given_before": {"at": GIVEN_AT, "text_version": CONFIRMED_LABEL},
             },
         }
 
     def test_a_record_born_whole_carries_each_choice_it_holds_evidenced_under_its_own_label(self):
-        born = compose_born(block=AS_PRESSED, am=GIVEN_AT, text_versions=CONFIRMED_LABELS)
+        born = compose_born(block=AS_PRESSED, at=GIVEN_AT, text_versions=CONFIRMED_LABELS)
 
         assert born == CONFIRMED
 
@@ -138,7 +138,7 @@ class TestTheTwoShapesOfAWrite:
         """Born over stored evidence, a withdrawal's earlier grant would go in one `$set`."""
 
         with pytest.raises(ValueError):
-            compose_born(block=MEDIA_WITHDRAWN, am=LATER, text_versions=CONFIRMED_LABELS)
+            compose_born(block=MEDIA_WITHDRAWN, at=LATER, text_versions=CONFIRMED_LABELS)
 
 
 # A registration confirmed between the record's confirmation and its withdrawal: scope narrowed, media granted.
@@ -149,8 +149,8 @@ REGISTERED: Final[Mapping[str, Any]] = {
     "confirmed_at": "2026-04-15",
     "media": True,
     "evidence": {
-        "umfang": {"am": REGISTERED_AT, "text_version": "2026-10-spielerseite-5"},
-        "media": {"am": REGISTERED_AT, "text_version": "2026-10-spielerseite-5"},
+        "umfang": {"at": REGISTERED_AT, "text_version": "2026-10-spielerseite-5"},
+        "media": {"at": REGISTERED_AT, "text_version": "2026-10-spielerseite-5"},
     },
 }
 
@@ -171,16 +171,16 @@ class TestARenewalFromTheSamePersonsLaterAnswers:
         assert (update["einwilligung.umfang"], update["einwilligung.evidence.umfang"]) == (
             "intern",
             {
-                "am": REGISTERED_AT,
+                "at": REGISTERED_AT,
                 "text_version": "2026-10-spielerseite-5",
-                "given_before": {"am": GIVEN_AT, "text_version": CONFIRMED_LABELS["umfang"]},
+                "given_before": {"at": GIVEN_AT, "text_version": CONFIRMED_LABELS["umfang"]},
             },
         )
 
     def test_an_older_answer_on_the_first_choice_leaves_a_newer_one_on_the_second_to_renew(self):
         """The mirror, the stored scope set after the registration: its media withdrawal still lands, naming the grant it ended."""
 
-        scope_moved_later = {**CONFIRMED, "evidence": {**CONFIRMED["evidence"], "umfang": {"am": LATER, "text_version": ACCOUNT_LABEL}}}
+        scope_moved_later = {**CONFIRMED, "evidence": {**CONFIRMED["evidence"], "umfang": {"at": LATER, "text_version": ACCOUNT_LABEL}}}
 
         update = renew(scope_moved_later, {**REGISTERED, "media": False})
 
@@ -188,9 +188,9 @@ class TestARenewalFromTheSamePersonsLaterAnswers:
         assert (update["einwilligung.media"], update["einwilligung.evidence.media"]) == (
             False,
             {
-                "am": REGISTERED_AT,
+                "at": REGISTERED_AT,
                 "text_version": "2026-10-spielerseite-5",
-                "given_before": {"am": GIVEN_AT, "text_version": CONFIRMED_LABEL},
+                "given_before": {"at": GIVEN_AT, "text_version": CONFIRMED_LABEL},
             },
         )
 
@@ -233,7 +233,7 @@ class TestARenewalFromTheSamePersonsLaterAnswers:
                 "confirmed_at": "2025-09-01",
                 "media": True,
             },
-            am="2025-09-01T08:00:00+00:00",
+            at="2025-09-01T08:00:00+00:00",
             text_versions={"umfang": "2025-09", "media": "2025-09"},
         )
         registrierung = {
@@ -247,7 +247,7 @@ class TestARenewalFromTheSamePersonsLaterAnswers:
                     "confirmed_at": "2026-10-01",
                     "media": False,
                 },
-                am="2026-10-01T08:00:00+00:00",
+                at="2026-10-01T08:00:00+00:00",
                 text_versions={"umfang": "2026-10-spielerseite-5", "media": "2026-10-spielerseite-5"},
             ),
         }
@@ -258,9 +258,9 @@ class TestARenewalFromTheSamePersonsLaterAnswers:
         assert set(update) == {"$set"}
 
         stamp = {
-            "am": "2026-10-01T08:00:00+00:00",
+            "at": "2026-10-01T08:00:00+00:00",
             "text_version": "2026-10-spielerseite-5",
-            "given_before": {"am": "2025-09-01T08:00:00+00:00", "text_version": "2025-09"},
+            "given_before": {"at": "2025-09-01T08:00:00+00:00", "text_version": "2025-09"},
         }
         assert {key: value for key, value in set_fields.items() if key.startswith("einwilligung.")} == {
             "einwilligung.umfang": "intern",
@@ -275,7 +275,7 @@ class TestARenewalFromTheSamePersonsLaterAnswers:
         """Two spellings of one instant are a tie, which a comparison of the strings would order."""
 
         # `CONFIRMED`'s scope was set at `GIVEN_AT`, spelled here in German summer time.
-        offset = {**REGISTERED, "evidence": {**REGISTERED["evidence"], "umfang": {"am": "2026-04-01T12:30:00+02:00", "text_version": "x"}}}
+        offset = {**REGISTERED, "evidence": {**REGISTERED["evidence"], "umfang": {"at": "2026-04-01T12:30:00+02:00", "text_version": "x"}}}
 
         assert "einwilligung.umfang" not in renew(CONFIRMED, offset)
 
@@ -286,7 +286,7 @@ class TestTheStandAPressEchoes:
     def test_a_grant_and_its_withdrawal_in_one_second_answer_two_stands(self):
         """The evidence is stamped to the second, so an instant leaves a page served between the two acts its stand, and it re-grants."""
 
-        receipt = {"am": WITHDRAWN_AT, "text_version": ACCOUNT_LABEL}
+        receipt = {"at": WITHDRAWN_AT, "text_version": ACCOUNT_LABEL}
         granted = {**CONFIRMED, "media": True, "evidence": {**CONFIRMED["evidence"], "media": receipt}}
         withdrawn = {**CONFIRMED, "media": False, "evidence": {**CONFIRMED["evidence"], "media": receipt}}
 
@@ -300,11 +300,11 @@ class TestTheStandAPressEchoes:
         each choice by its own.
         """
 
-        receipt = {"am": WITHDRAWN_AT, "text_version": ACCOUNT_LABEL}
-        media = {"am": GIVEN_AT, "text_version": CONFIRMED_LABEL}
+        receipt = {"at": WITHDRAWN_AT, "text_version": ACCOUNT_LABEL}
+        media = {"at": GIVEN_AT, "text_version": CONFIRMED_LABEL}
         granted = {**SEATED, "umfang": "kontaktdaten_whatsapp", "evidence": {"umfang": receipt, "media": media}}
         withdrawn = {**granted, "umfang": "kontaktdaten"}
-        renewed = {**granted, "evidence": {"umfang": {"am": LATER, "text_version": ACCOUNT_LABEL}, "media": media}}
+        renewed = {**granted, "evidence": {"umfang": {"at": LATER, "text_version": ACCOUNT_LABEL}, "media": media}}
 
         stands = [evidence_state_of(blocks=[block]) for block in (granted, withdrawn, renewed)]
 
@@ -317,7 +317,7 @@ class TestTheStandAPressEchoes:
         moved = {
             **MEDIA_WITHDRAWN,
             "media": True,
-            "evidence": {**MEDIA_WITHDRAWN["evidence"], "media": {"am": LATER, "text_version": ACCOUNT_LABEL}},
+            "evidence": {**MEDIA_WITHDRAWN["evidence"], "media": {"at": LATER, "text_version": ACCOUNT_LABEL}},
         }
 
         assert evidence_state_of(blocks=[CONFIRMED, MEDIA_WITHDRAWN])["media"] != evidence_state_of(blocks=[CONFIRMED, moved])["media"]

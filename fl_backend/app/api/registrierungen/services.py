@@ -499,7 +499,7 @@ def find_medien_refusal(*, geburtsdatum: str, media: bool, today: str) -> WriteR
 
 
 def compose_confirmation_update(
-    *, geburtsdatum: str, umfang: str | None, media: bool | None, text_versions: TextVersions | None, today: str, am: str
+    *, geburtsdatum: str, umfang: str | None, media: bool | None, text_versions: TextVersions | None, today: str, at: str
 ) -> Mapping[str, Any]:
     """The ONE `$set` a confirmation is: the whole consent record beside the date.
 
@@ -526,7 +526,7 @@ def compose_confirmation_update(
             "confirmed_at": today,
             "media": media,
         },
-        am=am,
+        at=at,
         text_versions=text_versions,
     )
 
@@ -870,15 +870,15 @@ def compose_kader_fields(*, registrierung_raw: Mapping[str, Any], team_id: Any, 
     return fields
 
 
-def compose_ablehnung_update(*, von: str, grund: Any, today: str) -> Mapping[str, Any]:
-    return {"$set": {"status": DECLINED, "decision": {"made_at": today, "von": von, "grund": grund}}}
+def compose_ablehnung_update(*, by: str, grund: Any, today: str) -> Mapping[str, Any]:
+    return {"$set": {"status": DECLINED, "decision": {"made_at": today, "by": by, "grund": grund}}}
 
 
 def entscheider_adressen(rows: Iterable[Mapping[str, Any]]) -> list[str]:
     """Every decider these stored registrations name, folded as the ban list is asked."""
 
     return [
-        sign_in_identifier(FLRegistrierungEntscheidung.model_validate(row["decision"]).von) for row in rows if row.get("decision") is not None
+        sign_in_identifier(FLRegistrierungEntscheidung.model_validate(row["decision"]).by) for row in rows if row.get("decision") is not None
     ]
 
 
@@ -890,6 +890,6 @@ def mit_vorenthaltener_entscheidung(row: Mapping[str, Any], barred: Collection[s
 
     # As stored first, so a decision the stored shape refuses fails rather than being served withheld.
     entscheidung = FLRegistrierungEntscheidung.model_validate(row["decision"])
-    von = withheld_actor(entscheidung.von, barred)
+    by = withheld_actor(entscheidung.by, barred)
 
-    return {**row, "decision": {**entscheidung.model_dump(), "von": von, "by_barred": von is None}}
+    return {**row, "decision": {**entscheidung.model_dump(), "by": by, "by_barred": by is None}}

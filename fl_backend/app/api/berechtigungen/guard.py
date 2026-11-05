@@ -30,11 +30,11 @@ async def verify_actor_is_admin(
 
     # Folded, as every grant is stored, or a mixed-case identifier locks an administrator out of the
     # panel. Either tier admits: `owner` holds every power `administration` does.
-    seit = await live_unbarred_grant_since(
+    since = await live_unbarred_grant_since(
         sign_in_identifier(actor.email), grants_collection=grants_collection, sperrliste=sperrliste, session=session
     )
-    if seit is None:
+    if since is None:
         raise APIError(HTTPStatus.FORBIDDEN, Code.ACTOR_NOT_ADMIN)
 
-    if not signed_in_since(actor.auth_time, seit):
+    if not signed_in_since(actor.auth_time, since):
         raise refused_session()

@@ -150,7 +150,7 @@ async def get_address_change_view(
     ended = record.get("ended")
     if isinstance(ended, Mapping):
         # Marked UTC first: the driver reads the stored instant back with no offset, which a conversion would take as local.
-        ended_at = as_utc(ended["am"])
+        ended_at = as_utc(ended["at"])
         assert ended_at is not None
         released_at = as_utc(record.get("released_at")) if side == "previous" else None
         return FLAddressChangeViewResponse(
@@ -329,7 +329,7 @@ async def post_address_change_answer(
                     art="address_change_declined",
                     new_address=str(record["email"]),
                     record_id=record["_id"],
-                    am=stamp,
+                    at=stamp,
                     key=config.sperrliste_key,
                 )
             )
@@ -427,7 +427,7 @@ async def _answer_for_the_address_on_file(
         )
         journal.note(
             ending_line(
-                art="address_change_declined", new_address=str(record["email"]), record_id=record["_id"], am=stamp, key=config.sperrliste_key
+                art="address_change_declined", new_address=str(record["email"]), record_id=record["_id"], at=stamp, key=config.sperrliste_key
             )
         )
         return FLAddressChangeAnswerResponse(answer="declined", effective_from=None, approval_open=False, effective=False)
@@ -509,7 +509,7 @@ async def post_address_change_stop(
                 art="address_change_stopped",
                 new_address=str(record["email"]),
                 record_id=record["_id"],
-                am=stamp,
+                at=stamp,
                 key=config.sperrliste_key,
             )
         )

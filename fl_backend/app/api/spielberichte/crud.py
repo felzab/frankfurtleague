@@ -153,7 +153,7 @@ async def write_bericht(
     spiel_raw: Mapping[str, Any],
     saved: Mapping[str, Any] | None,
     payload: FLSpielberichtBerichtPayload,
-    von: FLSpielberichtVon,
+    by: FLSpielberichtVon,
     now: datetime,
     # REQUIRED with no default: the `version` the form was served, or None for a write naming none, so no caller
     # leaves the check out unasked.
@@ -179,14 +179,14 @@ async def write_bericht(
             document={
                 "saison_id": spiel_raw["saison_id"],
                 "spiel_id": spiel_raw["_id"],
-                "bericht": compose_neuer_bericht(payload, von=von, seiten=seiten, now=now),
+                "bericht": compose_neuer_bericht(payload, by=by, seiten=seiten, now=now),
             },
             session=session,
         )
         return await pull_one_from_db(collection=spielberichte_collection, db_filter={"spiel_id": spiel_raw["_id"]}, session=session)
 
     update = (
-        {"$set": {"bericht": compose_neuer_bericht(payload, von=von, seiten=seiten, now=now)}}
+        {"$set": {"bericht": compose_neuer_bericht(payload, by=by, seiten=seiten, now=now)}}
         if saved.get("bericht") is None
         else compose_bericht_update(payload, seiten=seiten, now=now)
     )

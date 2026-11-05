@@ -42,7 +42,7 @@ class FLRegistrierungEntscheidung(BaseModel):
     """Who declined this registration, when, and why."""
 
     made_at: CustomDateString
-    von: CustomNonEmptyString
+    by: CustomNonEmptyString
     grund: str | None
 
 
@@ -50,7 +50,7 @@ class FLRegistrierungDecisionRow(FLRegistrierungEntscheidung):
     """A decision as the list serves it: the stored one, its decider withheld where the ban list holds that address."""
 
     # Null exactly where `by_barred` is set, as the grants list withholds its actors.
-    von: CustomNonEmptyString | None
+    by: CustomNonEmptyString | None
     by_barred: bool
 
 

@@ -138,8 +138,8 @@ async def carry_authorship_in_session(
     """
 
     carried = await _set_authored(grants_collection, "granted_by", old, new_address, session)
-    carried += await _set_authored(bewerbungen_collection, "decision.von", old, new_address, session)
-    carried += await _set_authored(registrierungen_collection, "decision.von", old, new_address, session)
+    carried += await _set_authored(bewerbungen_collection, "decision.by", old, new_address, session)
+    carried += await _set_authored(registrierungen_collection, "decision.by", old, new_address, session)
     carried += await _set_authored(ban_list_collection, "created_by", old, new_address, session)
     carried += await _set_authored(invitations_collection, "created_by", old, new_address, session)
     # A moved requester's request stays theirs, approvable as before: carried so it holds no
@@ -226,10 +226,10 @@ async def loeschen_grants_and_authorship_in_session(
 
     mitteilungen = [
         _withheld(
-            compose_mitteilung(grant_id=grant_id, art=art, current=current, before=before, changed_by=von, now=now, barred=barred),
+            compose_mitteilung(grant_id=grant_id, art=art, current=current, before=before, changed_by=by, now=now, barred=barred),
             identifier,
         )
-        for grant_id, art, current, before, von in changes
+        for grant_id, art, current, before, by in changes
     ]
 
     # Owed before this erasure's own: they are not yet withheld, and this erasure's carry no address of the person.
@@ -252,8 +252,8 @@ async def loeschen_grants_and_authorship_in_session(
 
     # Fields an address change's effect carries too (`fl_backend/app/api/berechtigungen/loeschung.py :: carry_authorship_in_session`).
     marked = await _set_authored(grants_collection, "granted_by", identifier, ERASED_ACTOR_MARKER, session)
-    marked += await _set_authored(bewerbungen_collection, "decision.von", identifier, ERASED_ACTOR_MARKER, session)
-    marked += await _set_authored(registrierungen_collection, "decision.von", identifier, ERASED_ACTOR_MARKER, session)
+    marked += await _set_authored(bewerbungen_collection, "decision.by", identifier, ERASED_ACTOR_MARKER, session)
+    marked += await _set_authored(registrierungen_collection, "decision.by", identifier, ERASED_ACTOR_MARKER, session)
     marked += await _set_authored(ban_list_collection, "created_by", identifier, ERASED_ACTOR_MARKER, session)
     marked += await _set_authored(invitations_collection, "created_by", identifier, ERASED_ACTOR_MARKER, session)
 

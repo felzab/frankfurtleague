@@ -719,7 +719,7 @@ def referenced_addresses(
         *(row.get("email") for row in registrierung_rows if is_own_registrierung(row, folded(row.get("email")) or "")),
         *(row.get("adresse") for row in grant_rows),
         # An effect owing its account's carry: swept before it is carried, the account and its passkeys are gone.
-        *(row["move"]["von"] for row in carry_rows),
+        *(row["move"]["old"] for row in carry_rows),
     )
 
     return frozenset(address for address in map(folded, stored) if address is not None)
@@ -828,15 +828,15 @@ def build_erasure_due_pipeline(*, kept: frozenset[str], open: AbstractSet[str]) 
 
 
 def build_erasure_due_page_pipeline(
-    *, kept: frozenset[str], open: AbstractSet[str], nach: ObjectId | None, size: int
+    *, kept: frozenset[str], open: AbstractSet[str], after: ObjectId | None, size: int
 ) -> list[Mapping[str, Any]]:
-    """The due pupils after `nach` in `_id` order, at most `size`, beside how many are due in all, as ONE document."""
+    """The due pupils after `after` in `_id` order, at most `size`, beside how many are due in all, as ONE document."""
 
     seite: list[Mapping[str, Any]] = [{"$sort": {"_id": 1}}, {"$limit": size}]
 
     return [
         *build_erasure_due_pipeline(kept=kept, open=open),
-        {"$facet": {"seite": seite if nach is None else [{"$match": {"_id": {"$gt": nach}}}, *seite], "count": [{"$count": "count"}]}},
+        {"$facet": {"seite": seite if after is None else [{"$match": {"_id": {"$gt": after}}}, *seite], "count": [{"$count": "count"}]}},
     ]
 
 

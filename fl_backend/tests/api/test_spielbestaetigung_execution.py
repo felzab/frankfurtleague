@@ -353,7 +353,7 @@ class TestWhatALinkOpens:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.SPIELBESTAETIGUNGEN].update_one(
-                {"_id": ROW2}, {"$set": {"closed": {"am": TODAY, "grund": "spiel_decided"}}}
+                {"_id": ROW2}, {"$set": {"closed": {"at": TODAY, "grund": "spiel_decided"}}}
             )
             closed = await read_view(database, token(TEAM2, "trainer"))
             unknown = [await outcome_of(read_view(database, "geraten")), await outcome_of(antworten(database, client, "geraten"))]
@@ -665,7 +665,7 @@ class TestAHandEditedFixtureOfAnotherSeasonAnswersTheRefusal:
 class TestALinkToAnAddressBarredAfterTheMint:
     def test_the_view_shows_the_ban_the_answer_is_refused_and_a_lift_lets_it_answer(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            ban = documents.ban_document("klara@example.com", bis=SAISON_ID)
+            ban = documents.ban_document("klara@example.com", until=SAISON_ID)
             await database[Collection.BAN_LIST].insert_one(ban)
 
             view = await read_view(database, token(TEAM1, "stellvertretung"))
@@ -955,7 +955,7 @@ class TestADiscardedDeclineIsNoProposalInFrontOfTheOtherClub:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await ablehnen(database, client, token(TEAM1, "trainer"), ("2027-05-15", "17:00:00"))
             standing = await read_view(database, token(TEAM2, "trainer"))
-            await database[Collection.SPIELBESTAETIGUNGEN].update_one({"_id": ROW1}, {"$set": {"closed": {"am": TODAY, "grund": "discarded"}}})
+            await database[Collection.SPIELBESTAETIGUNGEN].update_one({"_id": ROW1}, {"$set": {"closed": {"at": TODAY, "grund": "discarded"}}})
 
             return standing, await read_view(database, token(TEAM2, "trainer"))
 
@@ -1045,9 +1045,9 @@ class TestTheAdministratorsZusage:
 
             return outcome, (await row_now(database, ROW1))["antwort"]["von"], confirmations.judged
 
-        outcome, von, judged = on_a_fixture(mongo_replica_set_url, body)
+        outcome, by, judged = on_a_fixture(mongo_replica_set_url, body)
 
-        assert (outcome, von) == (Code.ANSETZUNG_NOT_ENTERABLE, {"art": "kontakt", "rolle": "stellvertretung", "halter": KLARA})
+        assert (outcome, by) == (Code.ANSETZUNG_NOT_ENTERABLE, {"art": "kontakt", "rolle": "stellvertretung", "halter": KLARA})
         # Driven, not reasoned: the rival surfaces as a write conflict, so the refusal is the retry's read and never the filter.
         assert judged == 2
 
@@ -1064,7 +1064,7 @@ class TestTheDiscard:
 
         declined, row, owed = on_a_fixture(mongo_replica_set_url, body)
 
-        assert (row["antwort"], row["closed"]) == (declined, {"am": TODAY, "grund": "discarded"})
+        assert (row["antwort"], row["closed"]) == (declined, {"at": TODAY, "grund": "discarded"})
         # Owed the club in the discard's own transaction, the fixture's day being to come: every address its seats hold.
         assert sorted((mail["an"], mail["art"], mail["reference"]["seat"]) for mail in owed) == sorted(
             (address(TEAM1, seat), "spiel_vorschlag_discarded", seat) for seat in KONTAKT_ROLLEN
@@ -1103,7 +1103,7 @@ class TestTheDiscard:
 
             async def the_pass_closes_it() -> None:
                 await database[Collection.SPIELBESTAETIGUNGEN].update_one(
-                    {"_id": ROW1}, {"$set": {"closed": {"am": TODAY, "grund": "ansetzung_changed"}}}
+                    {"_id": ROW1}, {"$set": {"closed": {"at": TODAY, "grund": "ansetzung_changed"}}}
                 )
 
             confirmations = ConfirmationsCountingTheJudgements(database[Collection.SPIELBESTAETIGUNGEN], the_pass_closes_it)
@@ -1183,7 +1183,7 @@ class TestWhatTheAdministratorsReadServes:
         The page is the caller's, so two of three closed rows cut it, and `complete` says so.
         """
 
-        closed = {"closed": {"am": TODAY, "grund": "ansetzung_changed"}}
+        closed = {"closed": {"at": TODAY, "grund": "ansetzung_changed"}}
         overdue = {**confirmation(ObjectId("6890a1b2c3d4e5f600000000"), TEAM2, hashes={}), "frist": "2027-04-30"}
         rows = [overdue, *(confirmation(ObjectId(f"6890a1b2c3d4e5f6{index:08x}"), TEAM1, hashes={}, **closed) for index in range(1, 4))]
 
@@ -1203,7 +1203,7 @@ class TestWhatTheAdministratorsReadServes:
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
             async def close() -> None:
                 await database[Collection.SPIELBESTAETIGUNGEN].update_one(
-                    {"_id": ROW1}, {"$set": {"closed": {"am": TODAY, "grund": "ansetzung_changed"}}}
+                    {"_id": ROW1}, {"$set": {"closed": {"at": TODAY, "grund": "ansetzung_changed"}}}
                 )
 
             confirmations = ConfirmationsRunningARivalAfterTheFirstRead(database[Collection.SPIELBESTAETIGUNGEN], close)
@@ -1268,7 +1268,7 @@ class TestTheQueueListsAFixtureItsConfirmationsPutThere:
             pytest.param({"asked_at": None}, FRIST, False, True, id="due-today-and-never-asked"),
             pytest.param({}, FRIST, False, False, id="due-today-and-asked-days-ago"),
             pytest.param({"antwort": DECLINE}, TODAY, True, False, id="a-proposal-about-an-ansetzung-left"),
-            pytest.param({"antwort": DECLINE, "closed": {"am": TODAY, "grund": "discarded"}}, TODAY, False, False, id="a-discarded-proposal"),
+            pytest.param({"antwort": DECLINE, "closed": {"at": TODAY, "grund": "discarded"}}, TODAY, False, False, id="a-discarded-proposal"),
         ],
     )
     def test_the_fixture_is_listed_where_a_clubs_row_asks_for_the_administrator(
@@ -1523,7 +1523,7 @@ class TestARefereesDeclineReturnsTheFixture:
             "vorschlag": None,
             "begruendung": DECLINE_REASON,
         }
-        assert row["closed"] == {"am": TODAY, "grund": "schiedsrichter_declined"}
+        assert row["closed"] == {"at": TODAY, "grund": "schiedsrichter_declined"}
 
     def test_the_panel_reads_the_closed_row_as_the_referees_own_decline(self, mongo_replica_set_url: str):
         """Closed in the decline's write, the row must not read `invalid`, which a referee change ranks ahead of any answer."""
@@ -1824,7 +1824,7 @@ class TestTheRefereesOwnRows:
         """
 
         moved = {**referee_row()["ansetzung"], "datum": EARLIER_DAY, "uhrzeit": "17:00:00", "stand": "alt"}
-        earlier = referee_row(EARLIER_ROW, ansetzung=moved, closed={"am": TODAY, "grund": "ansetzung_changed"})
+        earlier = referee_row(EARLIER_ROW, ansetzung=moved, closed={"at": TODAY, "grund": "ansetzung_changed"})
         utes = referee_row(ObjectId("6890a1b2c3d4e5f607d50063"), schiedsrichter_id=UTE)
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -1874,7 +1874,7 @@ class TestTheRefereesOwnRows:
 
         moved = {**referee_row()["ansetzung"], "datum": EARLIER_DAY, "stand": "alt"}
         history = [
-            referee_row(ObjectId(f"6890a1b2c3d4e5f6070{number:05x}"), ansetzung=moved, closed={"am": TODAY, "grund": "ansetzung_changed"})
+            referee_row(ObjectId(f"6890a1b2c3d4e5f6070{number:05x}"), ansetzung=moved, closed={"at": TODAY, "grund": "ansetzung_changed"})
             for number in range(LIST_LIMIT_MAX)
         ]
 

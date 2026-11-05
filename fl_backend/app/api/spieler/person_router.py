@@ -333,7 +333,7 @@ async def patch_einwilligung(
     eigener_eintrag = build_self_pupil_filter(identifier)
     chosen: dict[FLEinwilligungChoice, object] = {"umfang": einwilligung_data.umfang, "media": einwilligung_data.media}
     # One instant for the evidence and its journal line, so a replay stamps the moment the person pressed.
-    am = log_stamp(germany_now)
+    at = log_stamp(germany_now)
     journal = Journal()
 
     @journal.attempted
@@ -356,7 +356,7 @@ async def patch_einwilligung(
             today=today,
         )
 
-        update = compose_person_move(saved=saved, chosen=chosen, am=am, text_versions=by_choice(einwilligung_data.text_versions))
+        update = compose_person_move(saved=saved, chosen=chosen, at=at, text_versions=by_choice(einwilligung_data.text_versions))
         if update is not None:
             await patch_one_in_db(
                 collection=spieler_collection,
@@ -371,7 +371,7 @@ async def patch_einwilligung(
             record_id=row["_id"],
             blocks=[saved],
             chosen=chosen,
-            am=am,
+            at=at,
             text_versions=by_choice(einwilligung_data.text_versions),
         )
         if line is not None:

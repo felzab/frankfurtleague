@@ -63,7 +63,7 @@ ENTERED_NAME, ENTERED_SHORTHAND = "Cassiopeia", "CAX"
 # Free, unlike `EXISTING_SHORTHAND`, which `uniq_shorthand` already holds.
 NEW_SCHOOL_SHORTHAND = "ZXX"
 
-OPEN_WINDOW: Mapping[str, Any] = {"offen": True, "von": "2026-03-01", "bis": "2026-04-30"}
+OPEN_WINDOW: Mapping[str, Any] = {"offen": True, "start": "2026-03-01", "end": "2026-04-30"}
 
 
 def person(vorname: str, *, telefon: str, email: str | None = None) -> dict[str, Any]:
@@ -617,7 +617,7 @@ class TestTheRefusalsTheWritePathAnswers:
         [
             pytest.param(None, id="no window recorded"),
             pytest.param({**OPEN_WINDOW, "offen": False}, id="the flag turned off"),
-            pytest.param({"offen": True, "von": "2026-05-01", "bis": "2026-05-31"}, id="a span this day is outside"),
+            pytest.param({"offen": True, "start": "2026-05-01", "end": "2026-05-31"}, id="a span this day is outside"),
         ],
     )
     def test_a_season_taking_no_applications_refuses(self, mongo_replica_set_url: str, bewerbung: Any):
@@ -915,7 +915,7 @@ class TestABannedContactAddress:
     @pytest.mark.parametrize("seat", ["trainer", "ansprechperson", "stellvertretung"])
     def test_a_banned_address_on_any_seat_is_refused_and_stores_nothing(self, mongo_replica_set_url: str, seat: str):
         async def body(database: AsyncDatabase) -> tuple[str, int]:
-            await database[Collection.BAN_LIST].insert_one(ban_document(KONTAKTE[seat]["email"], bis=STANDING))
+            await database[Collection.BAN_LIST].insert_one(ban_document(KONTAKTE[seat]["email"], until=STANDING))
             with pytest.raises(APIError) as failure:
                 await submit(database)
 
@@ -928,7 +928,7 @@ class TestABannedContactAddress:
 
         async def body(database: AsyncDatabase) -> Any:
             first = await submit(database, key=SCHLUESSEL)
-            await database[Collection.BAN_LIST].insert_one(ban_document(KONTAKTE["stellvertretung"]["email"], bis=STANDING))
+            await database[Collection.BAN_LIST].insert_one(ban_document(KONTAKTE["stellvertretung"]["email"], until=STANDING))
             before = await database[Collection.BEWERBUNGEN].find_one({})
             second = await submit(database, key=SCHLUESSEL)
             after = await database[Collection.BEWERBUNGEN].find({}).to_list()

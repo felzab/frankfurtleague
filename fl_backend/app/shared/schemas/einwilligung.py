@@ -57,7 +57,7 @@ class FLEinwilligungReceipt(BaseModel):
 
     # An instant in UTC (`app/core/recording.py :: log_stamp`), where the block carries a day: two
     # acts on one day are ordered by it.
-    am: str
+    at: str
     # The words the person was shown for this choice. Any record's label on a read, and its own kind's and choice's on
     # the record model `app/readback.py` judges (`cite_their_kind`).
     text_version: FLEinwilligungTextVersion

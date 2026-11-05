@@ -146,14 +146,14 @@ def find_new_club_refusal(*, club_document: Mapping[str, Any]) -> WriteRefusal |
 def window_is_running(*, bewerbung: Any, today: str) -> bool:
     """Whether this season's application window runs on `today`: `offen`, AND the day inside the span.
 
-    Both ends are compared rather than assuming `von <= bis`: span ordering is enforced on the
+    Both ends are compared rather than assuming `start <= end`: span ordering is enforced on the
     season PAYLOAD alone, so a stored reversal is reachable.
     """
 
     if bewerbung is None:
         return False
 
-    return bool(bewerbung["offen"]) and str(bewerbung["von"]) <= today <= str(bewerbung["bis"])
+    return bool(bewerbung["offen"]) and str(bewerbung["start"]) <= today <= str(bewerbung["end"])
 
 
 def saison_nimmt_bewerbungen_an(*, saison_status: Any, bewerbung: Any, today: str) -> bool:
@@ -829,7 +829,7 @@ def compose_confirmation_update(
     text_versions: TextVersions,
     whatsapp: bool,
     media: bool,
-    am: str,
+    at: str,
 ) -> Mapping[str, Any]:
     """The ONE update a confirmation is, on every seat the person holds.
 
@@ -849,7 +849,7 @@ def compose_confirmation_update(
                 path=pfad,
                 saved=kontakte[seat]["einwilligung"],
                 set_fields={"umfang": KONTAKT_UMFANG_WHATSAPP if whatsapp else KONTAKT_UMFANG, "media": media},
-                am=am,
+                at=at,
                 text_versions=text_versions,
             )
         )
@@ -1648,7 +1648,7 @@ def dubletten_schluessel_of(cells: Sequence[Mapping[str, Any]]) -> list[str]:
 def entscheider_adressen(rows: Iterable[Mapping[str, Any]]) -> list[str]:
     """Every administrator these stored applications name as their decider, folded as the ban list is asked."""
 
-    return [sign_in_identifier(FLBewerbungEntscheidung.model_validate(row["decision"]).von) for row in rows if row.get("decision") is not None]
+    return [sign_in_identifier(FLBewerbungEntscheidung.model_validate(row["decision"]).by) for row in rows if row.get("decision") is not None]
 
 
 def mit_vorenthaltener_entscheidung(row: Mapping[str, Any], barred: Collection[str]) -> dict[str, Any]:
@@ -1659,9 +1659,9 @@ def mit_vorenthaltener_entscheidung(row: Mapping[str, Any], barred: Collection[s
 
     # As stored first, so a decision the stored shape refuses fails rather than being served withheld.
     entscheidung = FLBewerbungEntscheidung.model_validate(row["decision"])
-    von = withheld_actor(entscheidung.von, barred)
+    by = withheld_actor(entscheidung.by, barred)
 
-    return {**row, "decision": {**entscheidung.model_dump(), "von": von, "by_barred": von is None}}
+    return {**row, "decision": {**entscheidung.model_dump(), "by": by, "by_barred": by is None}}
 
 
 def seat_lage(*, row: Mapping[str, Any], lagen: Mapping[tuple[Any, str | None], FLOutboxStatus], seat: str) -> FLOutboxStatus | None:

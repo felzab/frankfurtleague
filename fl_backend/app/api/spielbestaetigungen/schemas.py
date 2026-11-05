@@ -137,7 +137,7 @@ class FLSpielbestaetigungAntwort(BaseModel):
 
 
 class FLSpielbestaetigungClosed(BaseModel):
-    am: CustomDateString
+    at: CustomDateString
     grund: FLSpielbestaetigungGrund
 
 

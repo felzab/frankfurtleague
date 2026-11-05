@@ -114,7 +114,7 @@ def a_step(step: str, *, lapsed: bool) -> dict[str, Any]:
         return {**released, "valid_until": deadline, "confirmed_at": None, "approval": None}
     confirmed = {"valid_until": None, "confirmed_at": NOW - timedelta(days=1)}
     if step == "approval":
-        return {**released, **confirmed, "effective_from": None, "approval": {"bis": deadline, "approved_at": None}}
+        return {**released, **confirmed, "effective_from": None, "approval": {"until": deadline, "approved_at": None}}
     # The lost-mailbox way's waiting time: its end is the effect, never a lapse.
     return {"way": "waiting_period", "released_at": None, **confirmed, "effective_from": NOW + timedelta(days=3), "approval": None}
 
@@ -219,7 +219,7 @@ def a_change(*, started_by: str, admin_tier: str = "administration", approved_by
     return {
         "admin_tier": admin_tier,
         "asked_at": NOW,
-        "bis": NOW + timedelta(days=7),
+        "until": NOW + timedelta(days=7),
         "started_by": started_by,
         "approved_at": None if approved_by is None else NOW,
         "approved_by": approved_by,

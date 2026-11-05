@@ -66,7 +66,7 @@ SPIELBESTAETIGUNG_OID = ObjectId("6890a1b2c3d4e5f60720000e")
 SPIEL_OID = ObjectId("6890a1b2c3d4e5f60720000f")
 ADDRESS_CHANGE_OID = ObjectId("6890a1b2c3d4e5f6072000a1")
 APPROVAL_REQUEST_OID = ObjectId("6890a1b2c3d4e5f6072000a2")
-# Far off, so the TTL index on `approval.bis` leaves a request standing through every case that inserts one.
+# Far off, so the TTL index on `approval.until` leaves a request standing through every case that inserts one.
 APPROVAL_REQUEST_FILED = datetime(2126, 1, 1, tzinfo=UTC)
 # A submission key as a public form mints it (`app/api/bewerbungen/public_router.py :: post_bewerbung`).
 IDEMPOTENCY_KEY = "1b4e28ba-2fa1-4d2b-883f-0016d3cca427"
@@ -333,7 +333,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
         "address_changes": {
             "_id": ADDRESS_CHANGE_OID,
             **address_change_document(adresse="alt@example.invalid", email="neu@example.invalid", token_hash="a" * 64, day="2026-03-16"),
-            "move": {"von": "vorher@example.invalid", "nach": "alt@example.invalid"},
+            "move": {"old": "vorher@example.invalid", "new": "alt@example.invalid"},
         },
         # A promotion asked, so `grant_id` is an id rather than the null a grant's request holds.
         "berechtigungen_antraege": {
@@ -501,7 +501,7 @@ def test_each_unique_index_refuses_the_second_document(mongo_url: str, collectio
 def test_two_ended_changes_of_one_address_are_both_kept(mongo_url: str):
     """An ending nulls the address, so a filter on `ended` alone would hold every tombstone under one null key."""
 
-    ended = {"adresse": None, "email": None, "ended": {"art": "declined", "am": datetime(2026, 3, 17, tzinfo=UTC)}}
+    ended = {"adresse": None, "email": None, "ended": {"art": "declined", "at": datetime(2026, 3, 17, tzinfo=UTC)}}
 
     async def body(database: AsyncDatabase) -> int:
         await database.address_changes.insert_one(valid_document("address_changes", **ended))
@@ -576,7 +576,7 @@ def test_only_an_open_confirmation_meets_the_rule(mongo_url: str):
         await database.spielbestaetigungen.insert_one(valid_documents()["spielbestaetigungen"])
         await database.spielbestaetigungen.insert_one(valid_document("spielbestaetigungen", _id=TEAM_OID, antwort=antwort))
         await database.spielbestaetigungen.insert_one(
-            valid_document("spielbestaetigungen", _id=SPIELER_OID, closed={"am": "2026-03-02", "grund": "abgesagt"})
+            valid_document("spielbestaetigungen", _id=SPIELER_OID, closed={"at": "2026-03-02", "grund": "abgesagt"})
         )
         await database.spielbestaetigungen.insert_one(
             valid_document("spielbestaetigungen", _id=SPIELTAG_OID, party={"art": "team", "team_id": OTHER_TEAM_OID})

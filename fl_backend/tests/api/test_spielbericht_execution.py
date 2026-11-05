@@ -295,9 +295,9 @@ class TestTheFirstWriteCreatesAndEveryWriteRaisesTheVersion:
             answered = await patch(database, client, bericht())
             return answered, (await stored(database))[0]["bericht"]["submitted_by"]
 
-        answered, von = on_the_league(mongo_replica_set_url, body)
+        answered, by = on_the_league(mongo_replica_set_url, body)
 
-        assert von == {"art": "admin"}
+        assert by == {"art": "admin"}
         # No result stands on the fixture, so the report proposes.
         assert answered.state == "vorgeschlagen"
 

@@ -55,7 +55,7 @@ NOT_ENTERED = ObjectId("6890a1b2c3d4e5f607260005")
 
 SEEDED_EINLADUNG = ObjectId("6890a1b2c3d4e5f607260011")
 
-REGISTRIERUNG: Mapping[str, Any] = {"offen": True, "von": "2026-03-01", "bis": "2026-04-30"}
+REGISTRIERUNG: Mapping[str, Any] = {"offen": True, "von": "2026-03-01", "end": "2026-04-30"}
 
 TEAM_NAMES = {TWO_SEATS: "Adler", UNCONFIRMED: "Bieber", NO_BLOCK: "Cronberg", ALREADY_MAILED: "Dornbusch", WITHDRAWN: "Eschborn"}
 
@@ -696,7 +696,7 @@ class TestTheStateRead:
             await mint(database, TWO_SEATS)
             if barred:
                 await database[Collection.BAN_LIST].insert_one(
-                    ban_document(ADMIN, bis=compose_gesperrt_bis_saison_id(governing_saison_id=SAISON_ID))
+                    ban_document(ADMIN, until=compose_gesperrt_bis_saison_id(governing_saison_id=SAISON_ID))
                 )
             state = await read_state(database, TWO_SEATS)
 
@@ -824,7 +824,7 @@ class TestTheSeasonWidePress:
 
         async def body(database: AsyncDatabase) -> Any:
             await database[Collection.BAN_LIST].insert_many(
-                [ban_document("Bramblewick@Example.com", bis=bound), ban_document("quillhilde@example.com", bis=bound)]
+                [ban_document("Bramblewick@Example.com", until=bound), ban_document("quillhilde@example.com", until=bound)]
             )
             await database[Collection.INVITATIONS].insert_one(einladung_row(TWO_SEATS))
             shown = await preview(database)
@@ -845,7 +845,7 @@ class TestTheSeasonWidePress:
 
         async def body(database: AsyncDatabase) -> Any:
             await database[Collection.BAN_LIST].insert_one(
-                ban_document("bramblewick@example.com", bis=compose_gesperrt_bis_saison_id(governing_saison_id=SAISON_ID))
+                ban_document("bramblewick@example.com", until=compose_gesperrt_bis_saison_id(governing_saison_id=SAISON_ID))
             )
             done = await press(database)
 

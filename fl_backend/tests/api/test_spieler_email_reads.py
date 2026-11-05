@@ -96,7 +96,7 @@ async def seed(database: AsyncDatabase) -> ObjectId:
                 "media": False,
                 "text_versions": SPIELER_TEXT_VERSIONS,
                 "today": "2026-03-31",
-                "am": "2026-03-31T08:00:00+00:00",
+                "at": "2026-03-31T08:00:00+00:00",
             },
         )
     )

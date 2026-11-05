@@ -40,10 +40,10 @@ def is_given(choice: FLEinwilligungChoice, value: Any) -> bool:
     return any(value is giving or (isinstance(giving, str) and value == giving) for giving in _GIVING[choice])
 
 
-def compose_receipt(*, saved: Mapping[str, Any], choice: FLEinwilligungChoice, value: Any, am: str, text_version: str) -> dict[str, Any]:
+def compose_receipt(*, saved: Mapping[str, Any], choice: FLEinwilligungChoice, value: Any, at: str, text_version: str) -> dict[str, Any]:
     """The evidence a choice set to `value` keeps, `saved` being the block as it stood before the act."""
 
-    receipt: dict[str, Any] = {"am": am, "text_version": text_version}
+    receipt: dict[str, Any] = {"at": at, "text_version": text_version}
     if is_given(choice, value):
         return receipt
 
@@ -64,7 +64,7 @@ def compose_receipt(*, saved: Mapping[str, Any], choice: FLEinwilligungChoice, v
 
 
 def compose_choices(
-    *, path: str, saved: Mapping[str, Any], set_fields: Mapping[FLEinwilligungChoice, Any], am: str, text_versions: TextVersions
+    *, path: str, saved: Mapping[str, Any], set_fields: Mapping[FLEinwilligungChoice, Any], at: str, text_versions: TextVersions
 ) -> dict[str, Any]:
     """The dotted `$set` moving these choices and their evidence on the block at `path`, read in the writer's transaction.
 
@@ -75,7 +75,7 @@ def compose_choices(
     for choice, value in set_fields.items():
         set_document[f"{path}.{choice}"] = value
         set_document[f"{path}.{EVIDENCE}.{choice}"] = compose_receipt(
-            saved=saved, choice=choice, value=value, am=am, text_version=text_versions[choice]
+            saved=saved, choice=choice, value=value, at=at, text_version=text_versions[choice]
         )
 
     return set_document
@@ -92,7 +92,7 @@ def _at_of(block: Mapping[str, Any], choice: FLEinwilligungChoice) -> datetime |
     evidence_set = block.get(EVIDENCE)
     receipt = evidence_set.get(choice) if isinstance(evidence_set, Mapping) else None
 
-    return datetime.fromisoformat(receipt["am"]) if isinstance(receipt, Mapping) and isinstance(receipt.get("am"), str) else None
+    return datetime.fromisoformat(receipt["at"]) if isinstance(receipt, Mapping) and isinstance(receipt.get("at"), str) else None
 
 
 def evidence_state_of(*, blocks: Sequence[Any]) -> dict[str, str | None]:
@@ -119,13 +119,13 @@ def evidence_state_of(*, blocks: Sequence[Any]) -> dict[str, str | None]:
 def receipt_of(block: Mapping[str, Any], choice: FLEinwilligungChoice) -> tuple[datetime, dict[str, str]] | None:
     """When a block's choice was set, and its evidence; `None` where no evidence says, its person never having set it."""
 
-    am = _at_of(block, choice)
-    if am is None:
+    at = _at_of(block, choice)
+    if at is None:
         return None
 
     receipt = block[EVIDENCE][choice]
 
-    return am, {"am": receipt["am"], "text_version": receipt["text_version"]}
+    return at, {"at": receipt["at"], "text_version": receipt["text_version"]}
 
 
 def compose_renewed(*, path: str, saved: Mapping[str, Any], renewed: Mapping[str, Any]) -> dict[str, Any]:
@@ -149,20 +149,20 @@ def compose_renewed(*, path: str, saved: Mapping[str, Any], renewed: Mapping[str
         set_fields[f"{path}.{choice}"] = renewed[choice]
         # Judged against the stored block, so a withdrawal names the grant it ended there.
         set_fields[f"{path}.{EVIDENCE}.{choice}"] = compose_receipt(
-            saved=saved, choice=choice, value=renewed[choice], am=new[1]["am"], text_version=new[1]["text_version"]
+            saved=saved, choice=choice, value=renewed[choice], at=new[1]["at"], text_version=new[1]["text_version"]
         )
 
     return set_fields
 
 
-def compose_born(*, block: Mapping[str, Any], am: str, text_versions: TextVersions) -> dict[str, Any]:
+def compose_born(*, block: Mapping[str, Any], at: str, text_versions: TextVersions) -> dict[str, Any]:
     """A block its person's own confirmation writes whole, each choice it holds evidenced under that choice's label."""
 
     if EVIDENCE in block:
         raise ValueError("a block being born carries no evidence of its own")
 
     evidence = {
-        choice: compose_receipt(saved={}, choice=choice, value=block[choice], am=am, text_version=text_versions[choice])
+        choice: compose_receipt(saved={}, choice=choice, value=block[choice], at=at, text_version=text_versions[choice])
         for choice in CHOICES
         if choice in block
     }

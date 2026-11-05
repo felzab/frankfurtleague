@@ -300,8 +300,8 @@ class TestWhatAConfirmationWrites:
             # Each choice's evidence under its own wording: the WhatsApp grant, and the media answer
             # withholding.
             "evidence": {
-                "umfang": {"am": "2026-04-01T10:30:00+00:00", "text_version": documents.SEAT_TEXT_VERSIONS["umfang"]},
-                "media": {"am": "2026-04-01T10:30:00+00:00", "text_version": documents.SEAT_TEXT_VERSIONS["media"]},
+                "umfang": {"at": "2026-04-01T10:30:00+00:00", "text_version": documents.SEAT_TEXT_VERSIONS["umfang"]},
+                "media": {"at": "2026-04-01T10:30:00+00:00", "text_version": documents.SEAT_TEXT_VERSIONS["media"]},
             },
         }
         # NOT nulled on use: single use is the stamp's doing, so the reopened link can show its state.
@@ -364,7 +364,7 @@ class TestTheMediaConsent:
 
         # The answer carries what it stored, as the referee's answer does.
         assert response.media is einwilligung["media"] is True
-        assert einwilligung["evidence"]["media"] == {"am": "2026-04-01T10:30:00+00:00", "text_version": documents.SEAT_TEXT_VERSIONS["media"]}
+        assert einwilligung["evidence"]["media"] == {"at": "2026-04-01T10:30:00+00:00", "text_version": documents.SEAT_TEXT_VERSIONS["media"]}
 
     def test_a_trainer_below_the_media_age_giving_medien_is_refused_and_spends_nothing(self, mongo_replica_set_url: str):
         """Seventeen clears the Trainer's own floor and not the media one, so the age refusal stays silent and this one speaks."""
@@ -625,7 +625,7 @@ class TestAResend:
         assert on_a_league(mongo_replica_set_url, body) == Code.BEWERBUNG_SEAT_ALREADY_ANSWERED
 
     def test_a_decided_application_gets_no_new_link(self, mongo_replica_set_url: str):
-        decided = bewerbung_document(status="declined", decision={"made_at": YESTERDAY, "von": "admin", "grund": "kein Platz"})
+        decided = bewerbung_document(status="declined", decision={"made_at": YESTERDAY, "by": "admin", "grund": "kein Platz"})
 
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> str:
             with pytest.raises(APIError) as conflict:
@@ -654,13 +654,13 @@ def address_of(seat: str, document: Mapping[str, Any] | None = None) -> str:
 
 
 async def ban(database: AsyncDatabase, address: str) -> None:
-    await database[Collection.BAN_LIST].insert_one(ban_document(address, bis=STANDING))
+    await database[Collection.BAN_LIST].insert_one(ban_document(address, until=STANDING))
 
 
-async def ban_under_a_running_season(database: AsyncDatabase, address: str, *, bis: str) -> None:
+async def ban_under_a_running_season(database: AsyncDatabase, address: str, *, until: str) -> None:
     """A ban's bound is read against the running season only where one runs; with none, every row bars."""
     await database[Collection.SAISONS].insert_one(saison_document(SAISON_ID, "active"))
-    await database[Collection.BAN_LIST].insert_one(ban_document(address, bis=bis))
+    await database[Collection.BAN_LIST].insert_one(ban_document(address, until=until))
 
 
 def decline(database: AsyncDatabase, client: AsyncMongoClient, seat: str) -> Any:
@@ -702,7 +702,7 @@ class TestALinkToABarredAddress:
         """A check asking nothing once a season runs would let every barred person confirm."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
-            await ban_under_a_running_season(database, address_of("stellvertretung"), bis=STANDING)
+            await ban_under_a_running_season(database, address_of("stellvertretung"), until=STANDING)
 
             with pytest.raises(APIError) as refused:
                 await answer(database, client, RAW["stellvertretung"])

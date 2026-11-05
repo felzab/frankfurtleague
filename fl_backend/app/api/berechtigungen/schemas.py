@@ -86,7 +86,7 @@ class FLGrantAddressChange(BaseModel):
     grund: str | None
     # Whether the new mailbox has confirmed, so the approval would make the change take effect.
     confirmed: bool
-    bis: FLUtcInstant
+    until: FLUtcInstant
     # Why the reader may not approve it, or null where they may.
     denied: FLApprovalDenied | None
     # Why the address tool refuses it the reader, null where it opens it: a refused approval sends them to discard it there.
@@ -117,7 +117,7 @@ class FLBerechtigungAntragGenehmigung(BaseModel):
     # The tier the request asks for, and the one its approver and its requester must hold.
     admin_tier: FLAdminTier
     asked_at: datetime
-    bis: datetime
+    until: datetime
     # Folded, as `granted_by` stores an administrator.
     started_by: CustomNonEmptyString
 
@@ -146,7 +146,7 @@ class FLGrantApprovalRequestRow(BaseModel):
     started_by: str | None
     started_by_barred: bool
     asked_at: FLUtcInstant
-    bis: FLUtcInstant
+    until: FLUtcInstant
     # Whether its requester still holds, since before it, the tier it asks for: a request outlives no revoke, demotion or ban
     # of the person who made it.
     stands: bool

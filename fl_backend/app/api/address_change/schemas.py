@@ -41,7 +41,7 @@ class FLAddressChangeApproval(BaseModel):
 
     admin_tier: FLAdminTier
     asked_at: datetime
-    bis: datetime
+    until: datetime
     started_by: str
     approved_at: datetime | None
     approved_by: str | None
@@ -49,7 +49,7 @@ class FLAddressChangeApproval(BaseModel):
 
 class FLAddressChangeEnded(BaseModel):
     art: FLAddressChangeEndArt
-    am: datetime
+    at: datetime
 
 
 class FLAddressChangeMoved(BaseModel):
@@ -62,8 +62,8 @@ class FLAddressChangeMoved(BaseModel):
 class FLAddressChangeMove(BaseModel):
     """The sign-in account an effect still owes to carry, from the replaced address to the new one, both folded."""
 
-    von: str
-    nach: str
+    old: str
+    new: str
 
 
 class FLAddressChange(BaseModel):
@@ -106,8 +106,8 @@ class FLAddressChangeRecord(FLAddressChange):
 class FLAddressChangeOpenMove(BaseModel):
     # The ended change that owes it.
     id: CustomObjectId
-    von: str
-    nach: str
+    old: str
+    new: str
 
 
 class FLAddressChangeMovesResponse(BaseAPIResponse):
@@ -159,7 +159,7 @@ class FLAddressChangeApprovalState(BaseModel):
     # `owner`: another owner approves.
     admin_tier: FLAdminTier
     approved: bool
-    bis: FLUtcInstant
+    until: FLUtcInstant
 
 
 # --- The two links, public.
@@ -278,7 +278,7 @@ class FLAddressChangeAdminApproval(BaseModel):
     """
 
     admin_tier: FLAdminTier
-    bis: FLUtcInstant
+    until: FLUtcInstant
     approved_at: FLUtcInstant | None
 
 
@@ -345,7 +345,7 @@ class FLAddressChangeApprovalResponse(BaseAPIResponse):
 class FLAddressChangeSweepParams(BaseModel):
     """Where in one pass the call starts: after the change the call before it reached, or at the lowest id where none is named."""
 
-    nach: CustomObjectId | None = None
+    after: CustomObjectId | None = None
 
 
 class FLAddressChangeSweepResponse(BaseAPIResponse):
@@ -357,5 +357,5 @@ class FLAddressChangeSweepResponse(BaseAPIResponse):
     effective: int = Field(ge=0)
     # A change whose ending or effect failed among them: it stays due, so a caller looping on this alone never ends.
     remaining: int
-    # The last change this call reached, for the next call's `nach`; null once it reached the end, which ends the pass.
-    nach: CustomObjectId | None
+    # The last change this call reached, for the next call's `after`; null once it reached the end, which ends the pass.
+    after: CustomObjectId | None

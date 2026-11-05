@@ -279,8 +279,8 @@ async def sweep_erasure(
     fixed marker in their place. A contact seat, a referee record, a grant and anything else held at the same
     address stand, and so do the log images naming them.
 
-    **A pass is a run of calls, each handing the next the `nach` the last answered**, the first naming none; it ends at the call
-    answering `nach` null. A call reaches at most a fixed share of the due pupils after `nach`, in `_id` order, and the pass
+    **A pass is a run of calls, each handing the next the `after` the last answered**, the first naming none; it ends at the call
+    answering `after` null. A call reaches at most a fixed share of the due pupils after `after`, in `_id` order, and the pass
     holds no state on the server. A pupil whose deletion fails, the database refusing it or anything else, is counted
     `failed`, logged by id and passed, so a failing record holds back nobody behind it in the pass; it stays due, and
     the next pass tries it again. Where the request's deadline cuts the call, it stops at that pupil, warns once, and answers
@@ -296,7 +296,7 @@ async def sweep_erasure(
     # One past the share, so a call ending exactly at the share's last pupil can tell whether any follow.
     seite, count = await erasure_due_page(
         statuses,
-        nach=params.nach,
+        after=params.after,
         size=ERASURES_PER_PASS + 1,
         spieler_collection=spieler_collection,
         registrierungen_collection=registrierungen_collection,
@@ -387,5 +387,5 @@ async def sweep_erasure(
         skipped=skipped,
         failed=failed,
         remaining=count - erased_count - skipped,
-        nach=reached if abgebrochen or len(seite) > ERASURES_PER_PASS else None,
+        after=reached if abgebrochen or len(seite) > ERASURES_PER_PASS else None,
     )

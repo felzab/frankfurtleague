@@ -334,7 +334,7 @@ async def answer(
 
 
 async def ban(database: AsyncDatabase, client: AsyncMongoClient, email: str) -> Any:
-    return await ban_through_the_route(database, client, email=email, grund="Wiederholte Falschangaben", von=ADMIN, today=TODAY)
+    return await ban_through_the_route(database, client, email=email, grund="Wiederholte Falschangaben", by=ADMIN, today=TODAY)
 
 
 async def row_now(database: AsyncDatabase, row_id: ObjectId = ROW_OID) -> dict[str, Any]:
@@ -471,7 +471,7 @@ class TestABarredAddressIsRefused:
 
     def test_a_save_seating_a_barred_address_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
-            await database[Collection.BAN_LIST].insert_one(documents.ban_document("jonas@example.com", bis="2030"))
+            await database[Collection.BAN_LIST].insert_one(documents.ban_document("jonas@example.com", until="2030"))
             before = await row_now(database)
 
             return await refused(save(database, THREE)), before, await row_now(database)
@@ -512,7 +512,7 @@ class TestABarredAddressIsRefused:
 
     def test_a_resend_to_a_barred_address_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
-            await database[Collection.BAN_LIST].insert_one(documents.ban_document("ida@example.com", bis="2030"))
+            await database[Collection.BAN_LIST].insert_one(documents.ban_document("ida@example.com", until="2030"))
             before = await row_now(database)
 
             return await refused(resend(database, "trainer")), before, await row_now(database)
@@ -526,7 +526,7 @@ class TestABarredAddressIsRefused:
         """The control: a check refusing every re-send would pass the case above."""
 
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
-            await database[Collection.BAN_LIST].insert_one(documents.ban_document("jonas@example.com", bis="2030"))
+            await database[Collection.BAN_LIST].insert_one(documents.ban_document("jonas@example.com", until="2030"))
 
             return await resend(database, "trainer")
 
@@ -1349,7 +1349,7 @@ def accepted(kontakte: Mapping[str, Any]) -> dict[str, Any]:
         kontakte=dict(kontakte),
         submitted_at="2026-03-01",
         team_id=TEAM_OID,
-        decision={"made_at": "2026-03-25", "von": ADMIN, "grund": None},
+        decision={"made_at": "2026-03-25", "by": ADMIN, "grund": None},
     )
 
 

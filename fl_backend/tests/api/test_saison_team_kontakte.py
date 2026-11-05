@@ -849,8 +849,8 @@ class TestAKeptRecordKeepsItsEvidence:
             "media": True,
             "entered_by": "bewerbung",
             "evidence": {
-                "umfang": {"am": "2026-03-15T09:00:00+00:00", "text_version": SEAT_TEXT_VERSIONS["umfang"]},
-                "media": {"am": "2026-03-20T09:00:00+00:00", "text_version": SEAT_TEXT_VERSIONS["media"]},
+                "umfang": {"at": "2026-03-15T09:00:00+00:00", "text_version": SEAT_TEXT_VERSIONS["umfang"]},
+                "media": {"at": "2026-03-20T09:00:00+00:00", "text_version": SEAT_TEXT_VERSIONS["media"]},
             },
         }
         seeded = {**PARTLY_CONFIRMED, "trainer": {**PARTLY_CONFIRMED["trainer"], "einwilligung": confirmed}}

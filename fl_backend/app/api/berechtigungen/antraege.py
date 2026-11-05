@@ -1,7 +1,7 @@
 """
 API · the grants' requests: a grant or a promotion to owner waiting on a second administrator's approval
 
-Every read filters on `bis`, so a lapsed request is gone the moment it lapses, whatever the TTL monitor has not yet
+Every read filters on `until`, so a lapsed request is gone the moment it lapses, whatever the TTL monitor has not yet
 removed or a restore has put back.
 """
 
@@ -41,7 +41,7 @@ def compose_antrag(*, adresse: str, admin_tier: str, grant_id: ObjectId | None, 
             # Its approver held their grant since then (`app/api/berechtigungen/services.py :: haelt_seit`).
             "asked_at": now.astimezone(UTC),
             # The address change's week: an approver away for a weekend is no reason to ask again.
-            "bis": now.astimezone(UTC) + timedelta(days=APPROVAL_DAYS),
+            "until": now.astimezone(UTC) + timedelta(days=APPROVAL_DAYS),
             "started_by": started_by,
         },
     }
@@ -50,11 +50,11 @@ def compose_antrag(*, adresse: str, admin_tier: str, grant_id: ObjectId | None, 
 def build_offen_filter(now: datetime) -> dict[str, Any]:
     """The requests not yet lapsed, the term every read carries: a row's presence says nothing."""
 
-    return {"approval.bis": {"$gt": now.astimezone(UTC)}}
+    return {"approval.until": {"$gt": now.astimezone(UTC)}}
 
 
 def ist_offen(approval_request: Mapping[str, Any], *, now: datetime) -> bool:
-    return as_utc(approval_request["approval"]["bis"]) > now.astimezone(UTC)
+    return as_utc(approval_request["approval"]["until"]) > now.astimezone(UTC)
 
 
 def antrag_steht(
@@ -66,10 +66,10 @@ def antrag_steht(
     """
 
     approval = approval_request["approval"]
-    von = str(approval["started_by"])
+    by = str(approval["started_by"])
 
-    return von not in barred and haelt_seit(
-        von, admin_tier=str(approval["admin_tier"]), before=approval["asked_at"], grants=grants, announced=announced
+    return by not in barred and haelt_seit(
+        by, admin_tier=str(approval["admin_tier"]), before=approval["asked_at"], grants=grants, announced=announced
     )
 
 
@@ -127,7 +127,7 @@ async def clear_the_address_in_session(
 
     rows = await aggregate_many_from_db(
         collection=grants_approval_requests_collection,
-        pipeline=[{"$match": {"adresse": adresse}}, {"$project": {"approval.bis": 1}}],
+        pipeline=[{"$match": {"adresse": adresse}}, {"$project": {"approval.until": 1}}],
         session=session,
     )
     refuse(find_antrag_offen_refusal(open=any(ist_offen(row, now=now) for row in rows)))
@@ -268,7 +268,7 @@ async def loeschen_antraege_in_session(
 AntragEndeLine = Literal["approval_request_declined", "approval_request_withdrawn", "approval_request_ended"]
 
 
-def antrag_line(*, approval_request: Mapping[str, Any], art: AntragEndeLine, am: str, key: SecretStr) -> JournalLine:
+def antrag_line(*, approval_request: Mapping[str, Any], art: AntragEndeLine, at: str, key: SecretStr) -> JournalLine:
     """An ended request's line, so a restore from before its end does not bring it back to be approved."""
 
     return JournalLine(
@@ -276,7 +276,7 @@ def antrag_line(*, approval_request: Mapping[str, Any], art: AntragEndeLine, am:
         art=art,
         collection=Collection.GRANT_APPROVAL_REQUESTS,
         record_id=approval_request["_id"],
-        am=am,
+        at=at,
     )
 
 

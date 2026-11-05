@@ -103,13 +103,13 @@ SEVENTEEN_BIRTHDATE = "2008-10-04"
 
 # The instant each seeded record's own confirmation was pressed, and the evidence it left on each choice.
 CONFIRMED_AT = "2026-09-02T08:00:00+00:00"
-CONFIRMED_RECEIPT = {choice: {"am": CONFIRMED_AT, "text_version": label} for choice, label in SCHIEDSRICHTER_TEXT_VERSIONS.items()}
+CONFIRMED_RECEIPT = {choice: {"at": CONFIRMED_AT, "text_version": label} for choice, label in SCHIEDSRICHTER_TEXT_VERSIONS.items()}
 
 
 def _einwilligung(*, text_versions: TextVersions = SCHIEDSRICHTER_TEXT_VERSIONS, **fields: Any) -> dict[str, Any]:
     """A referee's record as their confirmation left it, or with `text_versions` a pupil's."""
 
-    return own_einwilligung_document(text_versions=text_versions, confirmed_at="2026-09-02", am=CONFIRMED_AT, **fields)
+    return own_einwilligung_document(text_versions=text_versions, confirmed_at="2026-09-02", at=CONFIRMED_AT, **fields)
 
 
 def _referee(referee_id: ObjectId, email: str, name: str, **fields: Any) -> dict[str, Any]:
@@ -126,7 +126,7 @@ def _block(einwilligung: dict[str, Any]) -> dict[str, Any]:
 
 
 # `NOW` in UTC, as evidence spells its instant.
-AM = "2026-10-03T10:00:00+00:00"
+AT = "2026-10-03T10:00:00+00:00"
 
 
 def _payload(*, umfang: str = "kader_oeffentlich", media: bool = False, stand: Mapping[str, Any] | None = None) -> dict[str, Any]:
@@ -167,7 +167,7 @@ async def _served_stand(http: AsyncClient, email: str, arm: str, **key: str) -> 
 
 # The instant each seeded seat's own confirmation was pressed, and the evidence it left on each choice.
 SEAT_ANSWERED_AT = "2026-09-03T08:00:00+00:00"
-SEAT_RECEIPT = {choice: {"am": SEAT_ANSWERED_AT, "text_version": label} for choice, label in SEAT_TEXT_VERSIONS.items()}
+SEAT_RECEIPT = {choice: {"at": SEAT_ANSWERED_AT, "text_version": label} for choice, label in SEAT_TEXT_VERSIONS.items()}
 
 
 def _seat(email: str, *, confirmed_at: str | None = "2026-09-03", **einwilligung: Any) -> dict[str, Any]:
@@ -176,7 +176,7 @@ def _seat(email: str, *, confirmed_at: str | None = "2026-09-03", **einwilligung
     return kontaktperson_document(
         "Ortrud",
         confirmed_at=confirmed_at,
-        am=SEAT_ANSWERED_AT,
+        at=SEAT_ANSWERED_AT,
         email=email,
         telefon="+49 69 5550101",
         geburtsdatum=ADULT_BIRTHDATE,
@@ -335,7 +335,7 @@ class TestTheTwoChoices:
         assert _block(after[REFEREE_OID]["einwilligung"]) == {**_block(before[REFEREE_OID]["einwilligung"]), "umfang": "intern"}
         # The moved choice alone, under the account control's label, naming the grant its confirmation gave.
         assert after[REFEREE_OID]["einwilligung"][EVIDENCE] == {
-            "umfang": {"am": AM, "text_version": SCHIEDSRICHTER_TEXT_VERSIONS["umfang"], "given_before": CONFIRMED_RECEIPT["umfang"]},
+            "umfang": {"at": AT, "text_version": SCHIEDSRICHTER_TEXT_VERSIONS["umfang"], "given_before": CONFIRMED_RECEIPT["umfang"]},
             "media": CONFIRMED_RECEIPT["media"],
         }
         assert {key: value for key, value in after.items() if key != REFEREE_OID} == {
@@ -348,7 +348,7 @@ class TestTheTwoChoices:
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
             await database[Collection.SCHIEDSRICHTER].update_one(
                 {"_id": REFEREE_OID},
-                {"$set": {"einwilligung.evidence.media": {"am": AM, "text_version": SCHIEDSRICHTER_TEXT_VERSIONS["media"]}}},
+                {"$set": {"einwilligung.evidence.media": {"at": AT, "text_version": SCHIEDSRICHTER_TEXT_VERSIONS["media"]}}},
             )
             before = await _records(database)
             response = await http.patch(_referee_path(REFEREE_OID), json=_payload(umfang="intern"), headers=_person(IDENTIFIER))
@@ -383,7 +383,7 @@ class TestTheTwoChoices:
         assert _block(after[REFEREE_OID]["einwilligung"]) == _block(_einwilligung(media=True))
         assert after[REFEREE_OID]["einwilligung"][EVIDENCE] == {
             "umfang": CONFIRMED_RECEIPT["umfang"],
-            "media": {"am": AM, "text_version": SCHIEDSRICHTER_TEXT_VERSIONS["media"]},
+            "media": {"at": AT, "text_version": SCHIEDSRICHTER_TEXT_VERSIONS["media"]},
         }
 
 
@@ -579,7 +579,7 @@ class TestTheAccountPagesRead:
 
 # A seated grant's withdrawal, naming the grant the seat's own confirmation gave.
 SEAT_WITHDRAWAL = {
-    choice: {"am": AM, "text_version": label, "given_before": SEAT_RECEIPT[choice]} for choice, label in SEAT_TEXT_VERSIONS.items()
+    choice: {"at": AT, "text_version": label, "given_before": SEAT_RECEIPT[choice]} for choice, label in SEAT_TEXT_VERSIONS.items()
 }
 
 
@@ -701,7 +701,7 @@ class TestTheSeatsMediaChoice:
         async def withdrawn_elsewhere(database: AsyncDatabase) -> None:
             await database[Collection.SAISON_TEAMS].update_one(
                 {"team_id": TEAM_B_OID, "saison_id": ACTIVE_SAISON},
-                {"$set": {"kontakte.stellvertretung.einwilligung.evidence.media": {"am": AM, "text_version": SEAT_TEXT_VERSIONS["media"]}}},
+                {"$set": {"kontakte.stellvertretung.einwilligung.evidence.media": {"at": AT, "text_version": SEAT_TEXT_VERSIONS["media"]}}},
             )
 
         response, before, after = served(
@@ -786,7 +786,7 @@ class TestTheSeatsWhatsAppChoice:
     def test_moving_the_scope_leaves_the_media_consent_and_its_evidence_standing(self, mongo_replica_set_url: str):
         """The media evidence seeded first, so a write setting the block's evidence whole is seen to drop it."""
 
-        media_receipt = {"am": "2026-09-20T08:00:00+00:00", "text_version": SEAT_TEXT_VERSIONS["media"]}
+        media_receipt = {"at": "2026-09-20T08:00:00+00:00", "text_version": SEAT_TEXT_VERSIONS["media"]}
 
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
             await _whatsapp_on_every_held_seat(database)
@@ -990,7 +990,7 @@ class TestAPendingApplicationsSeats:
             assert (einwilligung["umfang"], einwilligung["media"], einwilligung[EVIDENCE]) == (
                 "kontaktdaten",
                 True,
-                {"umfang": {**SEAT_WITHDRAWAL["umfang"], "am": AM}, "media": SEAT_RECEIPT["media"]},
+                {"umfang": {**SEAT_WITHDRAWAL["umfang"], "at": AT}, "media": SEAT_RECEIPT["media"]},
             )
 
     def test_a_press_from_a_page_served_older_evidence_is_refused_and_unwritten(self, mongo_replica_set_url: str):
@@ -1014,7 +1014,7 @@ REGISTRIERUNG_DECLINED = ObjectId("6890a1b2c3d4e5f607850063")
 REGISTRIERUNG_RETURNING = ObjectId("6890a1b2c3d4e5f607850064")
 REGISTRIERUNG_BYSTANDER = ObjectId("6890a1b2c3d4e5f607850065")
 # The new pupil's grant, evidenced by the confirmation that gave it.
-REGISTRIERUNG_GRANT = {"am": "2026-09-21T08:00:00+00:00", "text_version": SPIELER_TEXT_VERSIONS["umfang"]}
+REGISTRIERUNG_GRANT = {"at": "2026-09-21T08:00:00+00:00", "text_version": SPIELER_TEXT_VERSIONS["umfang"]}
 
 
 def _registrierung(oid: ObjectId, email: str, *, seite: FLRegistrierungSeite | None = "bestaetigung_spieler", **choices: Any) -> dict[str, Any]:
@@ -1024,7 +1024,7 @@ def _registrierung(oid: ObjectId, email: str, *, seite: FLRegistrierungSeite | N
     confirmed = (
         None
         if seite is None
-        else registrierung_confirmed(geburtsdatum=SEVENTEEN_BIRTHDATE, today="2026-09-21", am=REGISTRIERUNG_GRANT["am"], **chosen)
+        else registrierung_confirmed(geburtsdatum=SEVENTEEN_BIRTHDATE, today="2026-09-21", at=REGISTRIERUNG_GRANT["at"], **chosen)
     )
 
     return registrierung_document(
@@ -1048,7 +1048,7 @@ async def _registrierungen(database: AsyncDatabase, **choices: Any) -> None:
     """The person's own registration; one of theirs in each state that leaves nothing to change; a stranger's."""
 
     declined = _registrierung(REGISTRIERUNG_DECLINED, REFEREE_STORED)
-    declined.update(compose_ablehnung_update(von="verwaltung@schule.de", grund=None, today="2026-09-22")["$set"])
+    declined.update(compose_ablehnung_update(by="verwaltung@schule.de", grund=None, today="2026-09-22")["$set"])
     await database[Collection.REGISTRIERUNGEN].insert_many(
         [
             _registrierung(REGISTRIERUNG_OWN, REFEREE_STORED, **choices),
@@ -1100,7 +1100,7 @@ class TestAPendingRegistration:
         einwilligung = after[REGISTRIERUNG_OWN]["einwilligung"]
         assert (einwilligung["umfang"], einwilligung[EVIDENCE]["umfang"]) == (
             "intern",
-            {"am": AM, "text_version": SPIELER_TEXT_VERSIONS["umfang"], "given_before": REGISTRIERUNG_GRANT},
+            {"at": AT, "text_version": SPIELER_TEXT_VERSIONS["umfang"], "given_before": REGISTRIERUNG_GRANT},
         )
         stood = before[REGISTRIERUNG_OWN]["einwilligung"]
         # The other choice, its evidence and the days the pupil confirmed all stand.

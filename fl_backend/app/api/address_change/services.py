@@ -71,7 +71,7 @@ def compose_approval(*, admin_tier: str, started_by: str, now: datetime) -> dict
         "admin_tier": admin_tier,
         # Its approver held their grant since then (`app/api/berechtigungen/services.py :: haelt_seit`).
         "asked_at": now.astimezone(UTC),
-        "bis": now.astimezone(UTC) + timedelta(days=APPROVAL_DAYS),
+        "until": now.astimezone(UTC) + timedelta(days=APPROVAL_DAYS),
         # Folded, as `granted_by` stores an administrator: the one compared with the approver.
         "started_by": started_by,
         "approved_at": None,
@@ -146,7 +146,7 @@ def build_owed_carry_filter(adressen: list[str]) -> dict[str, Any]:
     No index serves it: a carry is owed from an effect until the frontend reports it done, seconds as a rule.
     """
 
-    return {"move.von": {"$in": adressen}}
+    return {"move.old": {"$in": adressen}}
 
 
 def compose_approval_withdrawn_update() -> dict[str, Any]:
@@ -167,7 +167,7 @@ def compose_end_update(*, art: FLAddressChangeEndArt, now: datetime) -> dict[str
             "email": None,
             "grund": None,
             "approval": None,
-            "ended": {"art": art, "am": now.astimezone(UTC)},
+            "ended": {"art": art, "at": now.astimezone(UTC)},
         }
     }
 
@@ -250,7 +250,7 @@ def build_lapsed_terms(now: datetime) -> dict[str, Any]:
         **LIVE_TERMS,
         "$or": [
             {"valid_until": {"$type": "date", "$lte": now}},
-            {"approval.bis": {"$type": "date", "$lte": now}, "approval.approved_at": {"$type": "null"}},
+            {"approval.until": {"$type": "date", "$lte": now}, "approval.approved_at": {"$type": "null"}},
         ],
     }
 
@@ -281,7 +281,7 @@ def build_parked_terms(now: datetime) -> dict[str, Any]:
     return {
         "confirmed_at": {"$type": "date"},
         "approval.approved_at": {"$type": "null"},
-        "approval.bis": {"$type": "date", "$gt": now},
+        "approval.until": {"$type": "date", "$gt": now},
         f"{HELD}.0": {"$exists": True},
     }
 
@@ -296,9 +296,9 @@ def is_expired(record: Mapping[str, Any], *, now: datetime) -> bool:
     approval = record.get("approval")
     if not isinstance(approval, Mapping) or approval.get("approved_at") is not None:
         return False
-    bis = as_utc(approval.get("bis"))
+    until = as_utc(approval.get("until"))
 
-    return bis is not None and bis <= now
+    return until is not None and until <= now
 
 
 def approval_open(record: Mapping[str, Any]) -> bool:

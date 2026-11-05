@@ -88,8 +88,8 @@ NOW_UTC = "2026-10-03T10:00:00+00:00"
 # The evidence the record already carries: the scope granted on the account page, the media answer
 # at the confirmation. Two acts, so a press is seen to restamp the choice it moves and no other.
 EARLIER_EVIDENCE = {
-    "umfang": {"am": "2026-09-20T17:30:00+00:00", "text_version": SPIELER_TEXT_VERSIONS["umfang"]},
-    "media": {"am": "2026-09-02T08:00:00+00:00", "text_version": SPIELER_TEXT_VERSIONS["media"]},
+    "umfang": {"at": "2026-09-20T17:30:00+00:00", "text_version": SPIELER_TEXT_VERSIONS["umfang"]},
+    "media": {"at": "2026-09-02T08:00:00+00:00", "text_version": SPIELER_TEXT_VERSIONS["media"]},
 }
 # Seventeen on `NOW`, eighteen a day later: the floor is judged on the day, not the year.
 SEVENTEEN_BIRTHDATE = "2008-10-04"
@@ -100,7 +100,7 @@ CONFIRMED_AT = "2026-09-02T08:00:00+00:00"
 
 
 def _einwilligung(**fields: Any) -> dict[str, Any]:
-    return own_einwilligung_document(text_versions=SPIELER_TEXT_VERSIONS, confirmed_at="2026-09-02", am=CONFIRMED_AT, **fields)
+    return own_einwilligung_document(text_versions=SPIELER_TEXT_VERSIONS, confirmed_at="2026-09-02", at=CONFIRMED_AT, **fields)
 
 
 # What a page serves for a record seeded granting media, which the retired and the young pupil's are or become.
@@ -377,7 +377,7 @@ class TestTheEvidence:
 
         assert response.status_code == 204, response.text
         assert after[PUPIL_OID]["einwilligung"][EVIDENCE] == {
-            "umfang": {"am": NOW_UTC, "text_version": SPIELER_TEXT_VERSIONS["umfang"], "given_before": EARLIER_EVIDENCE["umfang"]},
+            "umfang": {"at": NOW_UTC, "text_version": SPIELER_TEXT_VERSIONS["umfang"], "given_before": EARLIER_EVIDENCE["umfang"]},
             "media": EARLIER_EVIDENCE["media"],
         }
 
@@ -398,7 +398,7 @@ class TestTheEvidence:
         assert between["given_before"] == EARLIER_EVIDENCE["umfang"], "the withdrawal named no earlier grant, so this case proves nothing"
         # Bounded at one act per choice: the grant standing drops the withdrawal's earlier grant.
         assert after[PUPIL_OID]["einwilligung"][EVIDENCE] == {
-            "umfang": {"am": NOW_UTC, "text_version": SPIELER_TEXT_VERSIONS["umfang"]},
+            "umfang": {"at": NOW_UTC, "text_version": SPIELER_TEXT_VERSIONS["umfang"]},
             "media": EARLIER_EVIDENCE["media"],
         }
         assert _block(after[PUPIL_OID]["einwilligung"]) == _block(_einwilligung())

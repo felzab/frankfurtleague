@@ -224,8 +224,8 @@ async def _seed(database: AsyncDatabase) -> None:
     )
     await database[Collection.BAN_LIST].insert_many(
         [
-            ban_document(BARRED_BANNED, bis=FUTURE_SAISON, _id=BAN_ACTIVE_OID),
-            ban_document(EXPIRED, bis=PAST_SAISON, _id=BAN_LAPSED_OID),
+            ban_document(BARRED_BANNED, until=FUTURE_SAISON, _id=BAN_ACTIVE_OID),
+            ban_document(EXPIRED, until=PAST_SAISON, _id=BAN_LAPSED_OID),
         ]
     )
     grants = [

@@ -104,13 +104,13 @@ def announced(grant_id: ObjectId, adresse: str, admin_tier: str) -> dict[str, An
 
 
 def notice(
-    row_id: ObjectId, grant_id: ObjectId, art: Any, current: str | None, before: str | None, von: str, *, barred: frozenset[str] = frozenset()
+    row_id: ObjectId, grant_id: ObjectId, art: Any, current: str | None, before: str | None, by: str, *, barred: frozenset[str] = frozenset()
 ) -> dict[str, Any]:
     def stand(adresse: str | None) -> FLGrantSnapshot | None:
         return None if adresse is None else FLGrantSnapshot(adresse=adresse, admin_tier="administration")
 
     mitteilung = compose_mitteilung(
-        grant_id=grant_id, art=art, current=stand(current), before=stand(before), changed_by=von, now=QUEUED, barred=barred
+        grant_id=grant_id, art=art, current=stand(current), before=stand(before), changed_by=by, now=QUEUED, barred=barred
     )
 
     # Owed to Dora, as `app/api/outbox/services.py :: enqueue_mails` stores a row: her copy of the notice.
@@ -135,18 +135,18 @@ def notice(
     }
 
 
-def decided(bewerbung_id: ObjectId, von: str) -> dict[str, Any]:
+def decided(bewerbung_id: ObjectId, by: str) -> dict[str, Any]:
     return bewerbung_document(
         bewerbung_id,
         RUNNING,
         "declined",
         kontakte=kontakte_document(),
         submitted_at="2026-03-01",
-        decision={"made_at": "2026-03-10", "von": von, "grund": "Keine Halle"},
+        decision={"made_at": "2026-03-10", "by": by, "grund": "Keine Halle"},
     )
 
 
-def declined(registrierung_id: ObjectId, von: str) -> dict[str, Any]:
+def declined(registrierung_id: ObjectId, by: str) -> dict[str, Any]:
     stored = registrierung_document(
         registrierung_id,
         f"pupil-{registrierung_id}@beispiel.de",
@@ -159,7 +159,7 @@ def declined(registrierung_id: ObjectId, von: str) -> dict[str, Any]:
         frist="2026-03-27",
     )
 
-    return {**stored, **compose_ablehnung_update(von=von, grund="Nicht in der Stufe", today="2026-03-22")["$set"]}
+    return {**stored, **compose_ablehnung_update(by=by, grund="Nicht in der Stufe", today="2026-03-22")["$set"]}
 
 
 async def a_league_she_administered(database: AsyncDatabase) -> None:
@@ -192,8 +192,8 @@ async def a_league_she_administered(database: AsyncDatabase) -> None:
     )
     await database[Collection.BAN_LIST].insert_many(
         [
-            ban_document(f"gebannt-{number}@beispiel.de", bis=STANDING, _id=ban_id, created_by=von)
-            for number, (ban_id, von) in enumerate(
+            ban_document(f"gebannt-{number}@beispiel.de", until=STANDING, _id=ban_id, created_by=by)
+            for number, (ban_id, by) in enumerate(
                 (
                     (BAN_BY_HER, ERIKA),
                     (BAN_BY_HER_TYPED, ERIKA_TYPED),
@@ -208,9 +208,9 @@ async def a_league_she_administered(database: AsyncDatabase) -> None:
         [
             {
                 "_id": invite_id,
-                **compose_einladung(saison_id=RUNNING, team_id=ObjectId(), token_hashes=[f"hash-{invite_id}"], created_by=von, today=TODAY),
+                **compose_einladung(saison_id=RUNNING, team_id=ObjectId(), token_hashes=[f"hash-{invite_id}"], created_by=by, today=TODAY),
             }
-            for invite_id, von in ((INVITE_BY_HER, ERIKA), (INVITE_BY_DORA, DORA))
+            for invite_id, by in ((INVITE_BY_HER, ERIKA), (INVITE_BY_DORA, DORA))
         ]
     )
     await database[Collection.BEWERBUNGEN].insert_many([decided(DECIDED_BY_HER, ERIKA), decided(DECIDED_BY_DORA, DORA)])
@@ -417,8 +417,8 @@ class TestTheRecordsSheMade:
         (Collection.BAN_LIST, BAN_BY_HER, ("created_by",)),
         (Collection.BAN_LIST, BAN_BY_HER_TYPED, ("created_by",)),
         (Collection.INVITATIONS, INVITE_BY_HER, ("created_by",)),
-        (Collection.BEWERBUNGEN, DECIDED_BY_HER, ("decision", "von")),
-        (Collection.REGISTRIERUNGEN, DECLINED_BY_HER, ("decision", "von")),
+        (Collection.BEWERBUNGEN, DECIDED_BY_HER, ("decision", "by")),
+        (Collection.REGISTRIERUNGEN, DECLINED_BY_HER, ("decision", "by")),
     )
 
     BYSTANDERS = (
@@ -427,8 +427,8 @@ class TestTheRecordsSheMade:
         (Collection.BAN_LIST, BAN_BY_NAHE, ("created_by",), NAHE),
         (Collection.BAN_LIST, BAN_BY_LANGES_S, ("created_by",), LANGES_S),
         (Collection.INVITATIONS, INVITE_BY_DORA, ("created_by",), DORA),
-        (Collection.BEWERBUNGEN, DECIDED_BY_DORA, ("decision", "von"), DORA),
-        (Collection.REGISTRIERUNGEN, DECLINED_BY_DORA, ("decision", "von"), DORA),
+        (Collection.BEWERBUNGEN, DECIDED_BY_DORA, ("decision", "by"), DORA),
+        (Collection.REGISTRIERUNGEN, DECLINED_BY_DORA, ("decision", "by"), DORA),
     )
 
     @staticmethod

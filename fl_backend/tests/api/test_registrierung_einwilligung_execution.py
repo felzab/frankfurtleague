@@ -36,7 +36,7 @@ SAISON_ID = "2026"
 TODAY = "2026-04-01"
 # The press's instant, and the UTC spelling its entry records it under.
 NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
-AM = "2026-04-01T10:30:00+00:00"
+AT = "2026-04-01T10:30:00+00:00"
 YESTERDAY = "2026-03-31"
 TOMORROW = "2026-04-02"
 
@@ -275,8 +275,8 @@ class TestWhatAConfirmationWrites:
             "confirmed_at": TODAY,
             "media": False,
             "evidence": {
-                "umfang": {"am": AM, "text_version": THIS_SEASONS_LABELS["umfang"]},
-                "media": {"am": AM, "text_version": THIS_SEASONS_LABELS["media"]},
+                "umfang": {"at": AT, "text_version": THIS_SEASONS_LABELS["umfang"]},
+                "media": {"at": AT, "text_version": THIS_SEASONS_LABELS["media"]},
             },
         }
         # NOT nulled on use: single use is the stamp's doing, so the reopened link can show its state.
@@ -455,7 +455,7 @@ class TestTheLinkIsSpentByTheStamp:
     def test_a_decided_registration_takes_no_answer_either(self, mongo_replica_set_url: str):
         """One code for both: a pupil whose registration was declined while their link stood open is told the link is over, not why."""
 
-        entscheidung = {"made_at": YESTERDAY, "von": "admin", "grund": "kein Platz"}
+        entscheidung = {"made_at": YESTERDAY, "by": "admin", "grund": "kein Platz"}
         declined = registrierung_document(status="declined", decision=entscheidung)
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
@@ -506,8 +506,8 @@ class TestTheMediaAge:
 STANDING = compose_gesperrt_bis_saison_id(governing_saison_id=SAISON_ID)
 
 
-async def ban(database: AsyncDatabase, address: str, *, bis: str = STANDING) -> None:
-    await database[Collection.BAN_LIST].insert_one(documents.ban_document(address, bis=bis))
+async def ban(database: AsyncDatabase, address: str, *, until: str = STANDING) -> None:
+    await database[Collection.BAN_LIST].insert_one(documents.ban_document(address, until=until))
 
 
 class TestALinkToABarredAddress:

@@ -1029,7 +1029,7 @@ def a_reason_of_theirs(saison_id: str = LATER_SAISON) -> dict[str, Any]:
         a_fixture_of(TEAM_A_OID, saison_id=saison_id),
         party={"art": "team", "team_id": TEAM_A_OID},
         antwort=documents.kontakt_antwort_document("trainer", GELOESCHT_EMAIL, begruendung="Wir sind auf Klassenfahrt"),
-        closed={"am": "2026-04-02", "grund": "ansetzung_changed"},
+        closed={"at": "2026-04-02", "grund": "ansetzung_changed"},
     )
 
 

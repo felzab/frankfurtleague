@@ -53,7 +53,7 @@ SAISON_ID = "2026"
 LATER_SAISON_ID = "2027"
 TODAY = "2026-04-01"
 NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
-AM = "2026-04-01T10:30:00+00:00"
+AT = "2026-04-01T10:30:00+00:00"
 
 TEAM_OID = ObjectId("6890a1b2c3d4e5f607b60001")
 OTHER_TEAM_OID = ObjectId("6890a1b2c3d4e5f607b60002")
@@ -301,7 +301,7 @@ async def loeschen_the_trainer(database: AsyncDatabase, client: AsyncMongoClient
             key=CONFIG.sperrliste_key,
             saison_team_rows=rows,
             bewerbung_rows=[],
-            stamp=AM,
+            stamp=AT,
             session=session,
         )
 
@@ -355,7 +355,7 @@ async def replay_the_widerspruch(database: AsyncDatabase, client: AsyncMongoClie
         art="objection",
         collection=Collection.SAISON_TEAMS,
         record_id=ROW_OID,
-        am=AM,
+        at=AT,
         seats=("trainer",),
     )
     # The snapshot taken the morning the links went, so the row's links are the snapshot's own.
@@ -446,7 +446,7 @@ def declined(row: str, team_id: ObjectId, spiel: Mapping[str, Any], rolle: str, 
         team_id,
         spiel,
         antwort=documents.kontakt_antwort_document(rolle, adresse, begruendung=begruendung),
-        closed={"am": TODAY, "grund": "ansetzung_changed"},
+        closed={"at": TODAY, "grund": "ansetzung_changed"},
     )
 
 
@@ -540,7 +540,7 @@ class TestAnAnsweredRowsLinkOutlivesNoHolder:
 
         async def hand_on_then_bar(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await hand_the_trainer_on(database, client)
-            await database[Collection.BAN_LIST].insert_one(documents.ban_document("lea@example.com", bis=SAISON_ID))
+            await database[Collection.BAN_LIST].insert_one(documents.ban_document("lea@example.com", until=SAISON_ID))
 
         links, stored_answers, _ = on_a_league(mongo_replica_set_url, hand_on_then_bar)
 
@@ -566,7 +566,7 @@ class TestALeavingPersonsLinksLeaveTheLog:
         found: dict[str, Any] = {}
 
         async def after_an_image(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            delivered = {"message_id": "msg-1", "state": "delivered", "grund": None, "am": "2026-04-01T09:00:00+00:00"}
+            delivered = {"message_id": "msg-1", "state": "delivered", "grund": None, "at": "2026-04-01T09:00:00+00:00"}
             await database[Collection.SPIELBESTAETIGUNGEN].update_one(
                 {"_id": ROWS["answered"]["_id"]}, {"$set": {"kontakte.trainer.delivery": delivered}}
             )

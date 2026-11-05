@@ -166,7 +166,7 @@ def _registrierung(
     confirmed = (
         None
         if seite is None
-        else registrierung_confirmed(geburtsdatum="2008-05-09", today="2026-09-21", am="2026-09-21T08:00:00+00:00", **chosen)
+        else registrierung_confirmed(geburtsdatum="2008-05-09", today="2026-09-21", at="2026-09-21T08:00:00+00:00", **chosen)
     )
 
     return registrierung_document(
@@ -225,7 +225,7 @@ async def _seed(database: AsyncDatabase) -> None:
         ]
     )
     declined = _registrierung(REGISTRIERUNG_DECLINED, WILTRUDIS)
-    declined.update(compose_ablehnung_update(von="verwaltung@schule.de", grund=None, today="2026-09-22")["$set"])
+    declined.update(compose_ablehnung_update(by="verwaltung@schule.de", grund=None, today="2026-09-22")["$set"])
     await database[Collection.REGISTRIERUNGEN].insert_many(
         [
             _registrierung(REGISTRIERUNG_NEW, WILTRUDIS),

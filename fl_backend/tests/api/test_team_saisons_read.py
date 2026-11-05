@@ -113,7 +113,7 @@ def read_the_links(
             assert len(mails) == len(owed)
             for mail, (_, event) in zip(mails, owed, strict=True):
                 if event is not None:
-                    event_data = FLOutboxEventPayload(id=mail.id, state=event, grund=None, am=MAIL_NOW)
+                    event_data = FLOutboxEventPayload(id=mail.id, state=event, grund=None, at=MAIL_NOW)
                     await post_event(event_data=event_data, outbox_collection=database[Collection.OUTBOX])
             roh = await aggregate_many_from_db(collection=database[Collection.TEAMS], pipeline=build_team_saisons_pipeline())
             return roh, await get_team_saisons(

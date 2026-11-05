@@ -106,7 +106,7 @@ async def listed(database: AsyncDatabase) -> Any:
 
 
 async def ban(database: AsyncDatabase, client: AsyncMongoClient, *, email: str = BANNED) -> Any:
-    return await ban_through_the_route(database, client, email=email, grund=GRUND, von=ADMIN, today=TODAY)
+    return await ban_through_the_route(database, client, email=email, grund=GRUND, by=ADMIN, today=TODAY)
 
 
 async def is_gesperrt(database: AsyncDatabase, *, against: str | None, email: str = BANNED) -> bool:

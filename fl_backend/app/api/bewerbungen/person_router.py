@@ -57,7 +57,7 @@ async def patch_einwilligung(
 
     pressed: dict[FLEinwilligungChoice, object] = {"umfang": einwilligung_data.umfang, "media": einwilligung_data.media}
     # For `app/api/spieler/person_router.py :: patch_einwilligung`'s reason: a replay stamps the moment the person pressed.
-    am = log_stamp(germany_now)
+    at = log_stamp(germany_now)
     journal = Journal()
 
     @journal.attempted
@@ -84,7 +84,7 @@ async def patch_einwilligung(
         update = compose_seat_move(
             seats={slot: seat["einwilligung"] for slot, seat in seats.items()},
             chosen=chosen,
-            am=am,
+            at=at,
             text_versions=by_choice(einwilligung_data.text_versions),
         )
         if update is not None:
@@ -101,7 +101,7 @@ async def patch_einwilligung(
             record_id=bewerbung["_id"],
             blocks=[seat["einwilligung"] for seat in seats.values()],
             chosen=chosen,
-            am=am,
+            at=at,
             text_versions=by_choice(einwilligung_data.text_versions),
         )
         if line is not None:

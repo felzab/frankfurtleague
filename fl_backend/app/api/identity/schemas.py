@@ -367,7 +367,7 @@ class FLSignOutResponse(BaseAPIResponse):
 class FLErasureSweepParams(BaseModel):
     """Where in one pass the call starts: after the pupil the call before it reached, or at the lowest id where none is named."""
 
-    nach: CustomObjectId | None = None
+    after: CustomObjectId | None = None
 
 
 class FLErasureSweepResponse(BaseAPIResponse):
@@ -383,8 +383,8 @@ class FLErasureSweepResponse(BaseAPIResponse):
     failed: int
     # The failed among them: a person whose erasure failed stays due, so a caller looping on this alone never ends.
     remaining: int
-    # The last pupil this call reached, for the next call's `nach`; null once it reached the end, which ends the pass.
-    nach: CustomObjectId | None
+    # The last pupil this call reached, for the next call's `after`; null once it reached the end, which ends the pass.
+    after: CustomObjectId | None
 
 
 class FLErasurePreviewResponse(BaseAPIResponse):

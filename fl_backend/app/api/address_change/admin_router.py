@@ -475,8 +475,8 @@ async def invite_address_change(
         )
         # A grant's approval week that lapsed ends the change at the next pass: a fresh link would be refused on its press.
         approval = record.get("approval")
-        bis = as_utc(approval.get("bis")) if isinstance(approval, Mapping) and approval.get("approved_at") is None else None
-        refuse(find_expired_refusal(expired=bis is not None and bis <= germany_now))
+        until = as_utc(approval.get("until")) if isinstance(approval, Mapping) and approval.get("approved_at") is None else None
+        refuse(find_expired_refusal(expired=until is not None and until <= germany_now))
 
         # The filter is the judgement: a change awaiting its approval or confirmed is the 404 here.
         updated = await patch_one_in_db(
@@ -564,7 +564,7 @@ async def delete_address_change(
                 art="address_change_discarded",
                 new_address=str(record["email"]),
                 record_id=address_change_id,
-                am=stamp,
+                at=stamp,
                 key=config.sperrliste_key,
             )
         )

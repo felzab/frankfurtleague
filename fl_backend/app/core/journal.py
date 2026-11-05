@@ -92,7 +92,7 @@ class JournalLine:
     collection: Collection | None = None
     record_id: ObjectId | None = None
     # The instant the act's evidence was stamped with, as `app/core/recording.py :: log_stamp` spells it.
-    am: str | None = None
+    at: str | None = None
     # A withdrawal's values, each withholding, and the label each was set under.
     text_versions: Mapping[FLEinwilligungChoice, str] = field(default_factory=lambda: MappingProxyType({}))
     choices: Mapping[FLEinwilligungChoice, Any] = field(default_factory=lambda: MappingProxyType({}))
@@ -124,7 +124,7 @@ class JournalLine:
             if (
                 self.collection is not None
                 or self.record_id is not None
-                or self.am is not None
+                or self.at is not None
                 or self.text_versions
                 or self.choices
                 or self.seats
@@ -134,7 +134,7 @@ class JournalLine:
 
         if self.collection not in RECORDS[self.art] or self.record_id is None:
             raise ValueError(f"a {self.art} line names a record of {sorted(RECORDS[self.art])}")
-        if self.am is None or datetime.fromisoformat(self.am).tzinfo is None:
+        if self.at is None or datetime.fromisoformat(self.at).tzinfo is None:
             raise ValueError("a choice's line carries the instant it was made, with its offset")
 
         withdrawn = (
@@ -168,8 +168,8 @@ class JournalLine:
         tokens: list[str] = [self.art]
         if self.collection is not None:
             tokens.append(f"{self.collection}/{self.record_id}")
-        if self.am is not None:
-            tokens.append(f"am={self.am}")
+        if self.at is not None:
+            tokens.append(f"at={self.at}")
         # In `CHOICES`'s order, so one act is spelled one way.
         tokens.extend(f"{_TEXT_VERSION}{choice}={self.text_versions[choice]}" for choice in CHOICES if choice in self.text_versions)
         tokens.extend(f"{choice}={_spelled(self.choices[choice])}" for choice in CHOICES if choice in self.choices)
@@ -248,7 +248,7 @@ def parse_line(message: str) -> JournalLine | None:
             press_label = True
         elif key == "seats":
             fields["seats"] = tuple(value.split(","))
-        elif key in ("am", "pseudonym", "halter", "before"):
+        elif key in ("at", "pseudonym", "halter", "before"):
             fields[_LINE_KEYS.get(key, key)] = value
         else:
             raise ValueError("a journal line names a value no act carries")

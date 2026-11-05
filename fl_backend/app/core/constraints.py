@@ -407,12 +407,12 @@ TTL_INDEXES: Sequence[TTLIndex] = (
         ACTION_LOG_ENTRY_RETENTION_SECONDS,
         "a log row is kept for twelve months after the write it recorded",
     ),
-    # A live change never expires, holding no date at `ended.am`: the hourly pass ends it, taking its address out of the
+    # A live change never expires, holding no date at `ended.at`: the hourly pass ends it, taking its address out of the
     # log images, which a TTL deletion never would.
     TTLIndex(
         Collection.ADDRESS_CHANGES,
         "address_change_ended_at",
-        "ended.am",
+        "ended.at",
         ADDRESS_CHANGE_RETENTION_DAYS * 86400,
         "an ended address change is removed once its tombstone's retention has passed",
     ),
@@ -420,7 +420,7 @@ TTL_INDEXES: Sequence[TTLIndex] = (
     TTLIndex(
         Collection.GRANT_APPROVAL_REQUESTS,
         "grant_approval_requests_until",
-        "approval.bis",
+        "approval.until",
         0,
         "a request nobody decided is removed once the TTL monitor next passes after it lapsed",
     ),

@@ -74,7 +74,7 @@ class TestTheRecordTheConfirmationWrites:
             media=True,
             text_versions=SCHIEDSRICHTER_TEXT_VERSIONS,
             today=TODAY,
-            am=CONFIRMED_AT,
+            at=CONFIRMED_AT,
         )
 
         assert set(update) == {"$set"}
@@ -89,12 +89,12 @@ class TestTheRecordTheConfirmationWrites:
             media=True,
             text_versions=SCHIEDSRICHTER_TEXT_VERSIONS,
             today=TODAY,
-            am=CONFIRMED_AT,
+            at=CONFIRMED_AT,
         )
 
         assert update["$set"][EINWILLIGUNG_FELD]["evidence"] == {
-            "umfang": {"am": CONFIRMED_AT, "text_version": SCHIEDSRICHTER_TEXT_VERSIONS["umfang"]},
-            "media": {"am": CONFIRMED_AT, "text_version": SCHIEDSRICHTER_TEXT_VERSIONS["media"]},
+            "umfang": {"at": CONFIRMED_AT, "text_version": SCHIEDSRICHTER_TEXT_VERSIONS["umfang"]},
+            "media": {"at": CONFIRMED_AT, "text_version": SCHIEDSRICHTER_TEXT_VERSIONS["media"]},
         }
 
     def test_the_record_carries_the_media_answer_even_when_it_is_off(self):

@@ -449,7 +449,7 @@ def bericht_unveraendert(
 
 
 def compose_neuer_bericht(
-    payload: FLSpielberichtBerichtPayload, *, von: FLSpielberichtVon, seiten: Mapping[FLSpielSeite, ObjectId | None], now: datetime
+    payload: FLSpielberichtBerichtPayload, *, by: FLSpielberichtVon, seiten: Mapping[FLSpielSeite, ObjectId | None], now: datetime
 ) -> dict[str, Any]:
     """The block's first write: version 1, and no adoption."""
 
@@ -457,7 +457,7 @@ def compose_neuer_bericht(
         **payload.model_dump(context={"keep_oid": True}),
         "seiten": dict(seiten),
         "submitted_at": now,
-        "submitted_by": von.model_dump(context={"keep_oid": True}),
+        "submitted_by": by.model_dump(context={"keep_oid": True}),
         "changed_at": now,
         "version": 1,
         "adopted_at": None,
@@ -540,8 +540,8 @@ def build_referee_report_images_filter(schiedsrichter_ids: Sequence[Any]) -> Map
 def referee_report_image_edits(image: Mapping[str, Any], schiedsrichter_ids: Sequence[Any]) -> dict[str, Any]:
     """One report image naming one of these referees, repointed as the report itself is; its remarks and entries stay."""
 
-    von = (image.get("bericht") or {}).get("submitted_by")
-    if not isinstance(von, Mapping) or von.get("schiedsrichter_id") not in schiedsrichter_ids:
+    by = (image.get("bericht") or {}).get("submitted_by")
+    if not isinstance(by, Mapping) or by.get("schiedsrichter_id") not in schiedsrichter_ids:
         return {}
 
     return {"bericht.submitted_by.schiedsrichter_id": GHOST_SCHIEDSRICHTER_ID}

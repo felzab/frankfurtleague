@@ -83,7 +83,7 @@ def registrierungsfenster_laeuft(*, registrierung: Any, today: str) -> bool:
     if registrierung is None:
         return False
 
-    return bool(registrierung["offen"]) and str(registrierung["von"]) <= today <= str(registrierung["bis"])
+    return bool(registrierung["offen"]) and str(registrierung["von"]) <= today <= str(registrierung["end"])
 
 
 # The partial filter `uniq_invitation_live` is built on, spelled as it is: the equality with `None`

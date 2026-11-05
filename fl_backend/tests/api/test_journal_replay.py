@@ -75,7 +75,7 @@ KEY = CONFIG.sperrliste_key
 NOW = datetime(2126, 10, 3, 12, 0, tzinfo=ZoneInfo("Europe/Berlin"))
 TODAY = "2126-10-03"
 # `NOW` as the evidence spells it, written out so a replay stamping its own clock cannot agree with it.
-AM = "2126-10-03T10:00:00+00:00"
+AT = "2126-10-03T10:00:00+00:00"
 # The replay runs a day later: whatever it stamps from its own clock differs from what the press stamped.
 REPLAY_NOW = datetime(2126, 10, 4, 9, 0, tzinfo=UTC)
 # The snapshot taken the morning of the presses, the restore ended the next morning: a link sent on the presses' day is the snapshot's.
@@ -249,7 +249,7 @@ async def _seed(database: AsyncDatabase) -> None:
             confirmed=registrierung_confirmed(
                 geburtsdatum=ADULT,
                 today="2126-09-21",
-                am="2126-09-21T08:00:00+00:00",
+                at="2126-09-21T08:00:00+00:00",
                 umfang="kader_oeffentlich",
                 media=True,
             ),
@@ -477,11 +477,11 @@ def restored_and_replayed(url: str, caplog: pytest.LogCaptureFixture, press: str
     return served(url, steps)
 
 
-def _ended_at(record: dict[str, Any], am: datetime) -> dict[str, Any]:
-    """`record` as ended at `am`, as the database hands an instant back."""
+def _ended_at(record: dict[str, Any], at: datetime) -> dict[str, Any]:
+    """`record` as ended at `at`, as the database hands an instant back."""
 
-    assert as_utc(record["ended"]["am"]) != am, "the press and the replay ran at one instant, so the case compares nothing"
-    return {**record, "ended": {**record["ended"], "am": am.replace(tzinfo=None)}}
+    assert as_utc(record["ended"]["at"]) != at, "the press and the replay ran at one instant, so the case compares nothing"
+    return {**record, "ended": {**record["ended"], "at": at.replace(tzinfo=None)}}
 
 
 class TestEachPressAndItsReplay:
@@ -494,7 +494,7 @@ class TestEachPressAndItsReplay:
         assert line is not None
 
         assert outcome["status"] == (204 if press in ANSWERING_NOTHING else 200)
-        assert (line.collection, line.record_id, line.am) == (collection, record_id, AM)
+        assert (line.collection, line.record_id, line.at) == (collection, record_id, AT)
         assert line.person_hash == erasure_journal_hash(PERSONS.get(press, PERSON), key=KEY)
         # No address: the day files keep the line thirty days.
         assert "@" not in outcome["lines"][0]
@@ -519,7 +519,7 @@ class TestARecordTheLineNoLongerFits:
             art="withdrawal",
             collection=Collection.SPIELER,
             record_id=MOVING_PUPIL_OID,
-            am=AM,
+            at=AT,
             text_versions={"media": SPIELER_TEXT_VERSIONS["media"]},
             choices={"media": False},
         )
@@ -556,7 +556,7 @@ class TestTheListing:
             art="withdrawal",
             collection=Collection.SPIELER,
             record_id=PUPIL_OID,
-            am=AM,
+            at=AT,
             text_versions={"media": SPIELER_TEXT_VERSIONS["media"]},
             choices={"media": False},
         )
@@ -565,7 +565,7 @@ class TestTheListing:
             art="withdrawal",
             collection=Collection.SCHIEDSRICHTER,
             record_id=REFEREE_OID,
-            am="2126-10-03T12:30:00+00:00",
+            at="2126-10-03T12:30:00+00:00",
             text_versions={"media": SCHIEDSRICHTER_TEXT_VERSIONS["media"]},
             choices={"media": False},
         )
@@ -576,7 +576,7 @@ class TestTheListing:
             ("2126-10-03T11:30:00+00:00", withdrawal.text()),
             ("2126-10-03T11:40:00+00:00", f"{JOURNAL_TOKEN} {'b' * 64} vergessen"),
             # An id bson's own reader would raise `InvalidId` on: counted as unreadable, never a traceback.
-            ("2126-10-03T11:50:00+00:00", f"{JOURNAL_TOKEN} {'b' * 64} address_change_declined address_changes/{'z' * 24} am={AM}"),
+            ("2126-10-03T11:50:00+00:00", f"{JOURNAL_TOKEN} {'b' * 64} address_change_declined address_changes/{'z' * 24} at={AT}"),
             # After the restore's end: the restored site's own act, which stands as its person made it.
             ("2126-10-03T12:30:01+00:00", on_the_restored_site.text()),
         )

@@ -977,7 +977,7 @@ def compose_seats_update(*, emails: Mapping[str, str], today: str, asked: bool) 
 
 
 def compose_closing_update(*, grund: FLSpielbestaetigungGrund, today: str) -> dict[str, Any]:
-    return {"$set": {"closed": {"am": today, "grund": grund}}}
+    return {"$set": {"closed": {"at": today, "grund": grund}}}
 
 
 # --- The NOTICES a closing owes, owed through the Postausgang in the closing's own transaction.

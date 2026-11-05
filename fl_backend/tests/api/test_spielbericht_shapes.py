@@ -386,7 +386,7 @@ class TestALaterWriteRaisesTheVersionAndKeepsTheAdoption:
     def test_the_first_write_is_version_one_and_unadopted(self):
         block = compose_neuer_bericht(
             FLSpielberichtBerichtPayload.model_validate(payload(1, 0, [tor("team1", LIVE1)])),
-            von=FLSpielberichtVonSchiedsrichter(art="schiedsrichter", schiedsrichter_id=SCHIEDSRICHTER),
+            by=FLSpielberichtVonSchiedsrichter(art="schiedsrichter", schiedsrichter_id=SCHIEDSRICHTER),
             seiten=SEITEN,
             now=NOW,
         )

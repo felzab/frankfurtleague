@@ -356,7 +356,7 @@ async def their_confirmations(database: AsyncDatabase) -> None:
         database,
         Collection.SPIELBESTAETIGUNGEN,
         THEIR_CONFIRMATION_OID,
-        {"$set": {"closed": {"am": "2126-03-04", "grund": "schiedsrichter_switched"}}},
+        {"$set": {"closed": {"at": "2126-03-04", "grund": "schiedsrichter_switched"}}},
     )
     await edited(database, Collection.SPIELBESTAETIGUNGEN, OTHER_CONFIRMATION_OID, {"$set": {"reminded_at": ["2126-03-05"]}})
     async with database.client.start_session() as session:
@@ -463,7 +463,7 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
             a_registration(
                 DECLINED_OID,
                 IDENTIFIER,
-                **compose_ablehnung_update(von="quillhilde@example.com", grund=None, today="2126-03-28")["$set"],
+                **compose_ablehnung_update(by="quillhilde@example.com", grund=None, today="2126-03-28")["$set"],
             ),
         ]
     )
@@ -502,8 +502,8 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
             **documents.address_change_document(adresse="vorher.zorbanax@example.org", email=IDENTIFIER, token_hash=None, day="2126-03-01"),
             "adresse": None,
             "email": None,
-            "ended": {"art": "effective", "am": NOW},
-            "move": {"von": "vorher.zorbanax@example.org", "nach": IDENTIFIER},
+            "ended": {"art": "effective", "at": NOW},
+            "move": {"old": "vorher.zorbanax@example.org", "new": IDENTIFIER},
             "moved": {
                 "person_hash": erasure_journal_hash(IDENTIFIER, key=CONFIG.sperrliste_key),
                 "before": erasure_journal_hash("vorher.zorbanax@example.org", key=CONFIG.sperrliste_key),
@@ -695,8 +695,8 @@ async def records_they_made_holding_no_grant(database: AsyncDatabase) -> None:
     )
     await database[Collection.BAN_LIST].insert_many(
         [
-            ban_document(address, bis=compose_gesperrt_bis_saison_id(governing_saison_id=SAISON_ID), _id=ban_id, created_by=von)
-            for address, ban_id, von in (
+            ban_document(address, until=compose_gesperrt_bis_saison_id(governing_saison_id=SAISON_ID), _id=ban_id, created_by=by)
+            for address, ban_id, by in (
                 ("gebannt@beispiel.de", BANNED_BY_THEM_OID, IDENTIFIER),
                 ("gebannt-zwei@beispiel.de", BANNED_BY_THEM_PASTED_OID, PASTED),
             )
@@ -718,7 +718,7 @@ async def records_they_made_holding_no_grant(database: AsyncDatabase) -> None:
             kontakte=kontakte_document(),
             submitted_at="2126-03-01",
             schule=new_schule_document("Abgelehnt", "ABX"),
-            decision={"made_at": "2126-03-10", "von": IDENTIFIER, "grund": "Keine Halle"},
+            decision={"made_at": "2126-03-10", "by": IDENTIFIER, "grund": "Keine Halle"},
         )
     )
     declined = registrierung_document(
@@ -733,7 +733,7 @@ async def records_they_made_holding_no_grant(database: AsyncDatabase) -> None:
         frist="2126-03-27",
     )
     await database[Collection.REGISTRIERUNGEN].insert_one(
-        {**declined, **compose_ablehnung_update(von=IDENTIFIER, grund=None, today="2126-03-22")["$set"]}
+        {**declined, **compose_ablehnung_update(by=IDENTIFIER, grund=None, today="2126-03-22")["$set"]}
     )
 
 
@@ -1169,7 +1169,7 @@ class TestTheLastOwner:
             await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, "owner")
             await a_grant(database, OTHER_OWNER_OID, OTHER_OWNER, "owner")
             await database[Collection.BAN_LIST].insert_one(
-                ban_document(OTHER_OWNER, bis=compose_gesperrt_bis_saison_id(governing_saison_id=SAISON_ID))
+                ban_document(OTHER_OWNER, until=compose_gesperrt_bis_saison_id(governing_saison_id=SAISON_ID))
             )
 
             return await outcome_of(geloescht_by_the_handler(database, client))
@@ -1381,7 +1381,7 @@ async def an_admittable_registration(database: AsyncDatabase) -> None:
                 "media": False,
                 "text_versions": SPIELER_TEXT_VERSIONS,
                 "today": YESTERDAY,
-                "am": "2126-03-31T08:00:00+00:00",
+                "at": "2126-03-31T08:00:00+00:00",
             },
         )
     )

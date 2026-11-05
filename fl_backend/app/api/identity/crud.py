@@ -946,7 +946,7 @@ async def unreferenced_of(
         read_berechtigungen(grants_collection=grants_collection),
         aggregate_many_from_db(
             collection=address_change_collection,
-            pipeline=[{"$match": build_owed_carry_filter(folded)}, {"$project": {"move.von": 1}}],
+            pipeline=[{"$match": build_owed_carry_filter(folded)}, {"$project": {"move.old": 1}}],
         ),
     )
 
@@ -986,12 +986,12 @@ async def _open(registrierungen_collection: AsyncCollection) -> frozenset[str]:
 async def erasure_due_page(
     statuses: Mapping[str, FLSaisonStatus],
     *,
-    nach: ObjectId | None,
+    after: ObjectId | None,
     size: int,
     spieler_collection: AsyncCollection,
     registrierungen_collection: AsyncCollection,
 ) -> tuple[list[Mapping[str, Any]], int]:
-    """The due pupils after `nach`, at most `size` with their id and address, and how many are due in all.
+    """The due pupils after `after`, at most `size` with their id and address, and how many are due in all.
 
     Read outside any transaction; each erasure judges its pupil again in its own.
     """
@@ -1000,7 +1000,7 @@ async def erasure_due_page(
     if kept is None:
         return [], 0
 
-    pipeline = build_erasure_due_page_pipeline(kept=kept, open=await _open(registrierungen_collection), nach=nach, size=size)
+    pipeline = build_erasure_due_page_pipeline(kept=kept, open=await _open(registrierungen_collection), after=after, size=size)
     [read] = await aggregate_many_from_db(collection=spieler_collection, pipeline=pipeline)
 
     return read["seite"], sum(row["count"] for row in read["count"])

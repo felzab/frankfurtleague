@@ -60,7 +60,7 @@ TEAM = ObjectId("6890a1b2c3d4e5f607840051")
 ASKED_FOR_THEM = ObjectId("6890a1b2c3d4e5f607840071")
 ASKED_BY_THEM = ObjectId("6890a1b2c3d4e5f607840072")
 
-ENTSCHEIDUNG = {"made_at": "2026-03-01", "von": GELOESCHT, "grund": "Zu spät eingereicht"}
+ENTSCHEIDUNG = {"made_at": "2026-03-01", "by": GELOESCHT, "grund": "Zu spät eingereicht"}
 
 
 def grant(grant_id: ObjectId, adresse: str, granted_by: str) -> dict[str, Any]:
@@ -82,7 +82,7 @@ async def a_league_holding_their_images(database: AsyncDatabase, client: AsyncMo
     # Their own grant's tier change, and a grant they made revoked: the second keeps an array of images.
     await patched(database, Collection.GRANTS, OWN_GRANT, {"$set": {"admin_tier": "owner"}})
     await patched(database, Collection.GRANTS, CONTROL_GRANT, {"$set": {"admin_tier": "owner"}})
-    ban = documents.ban_document("gesperrt@example.com", bis="2030", created_by=GELOESCHT)
+    ban = documents.ban_document("gesperrt@example.com", until="2030", created_by=GELOESCHT)
     await database[Collection.BAN_LIST].insert_one(ban)
     await database[Collection.INVITATIONS].insert_one(
         {
@@ -231,8 +231,8 @@ class TestTheJudgement:
             (Collection.GRANTS, "granted_by"),
             (Collection.BAN_LIST, "created_by"),
             (Collection.INVITATIONS, "created_by"),
-            (Collection.BEWERBUNGEN, "decision.von"),
-            (Collection.REGISTRIERUNGEN, "decision.von"),
+            (Collection.BEWERBUNGEN, "decision.by"),
+            (Collection.REGISTRIERUNGEN, "decision.by"),
             (Collection.ADDRESS_CHANGES, "approval.started_by"),
             (Collection.ADDRESS_CHANGES, "approval.approved_by"),
             (Collection.GRANT_APPROVAL_REQUESTS, "approval.started_by"),
@@ -279,7 +279,7 @@ def test_each_image_keeps_everything_but_the_address(mongo_replica_set_url: str)
     einladung = image_of(log, Collection.INVITATIONS, EINLADUNG)["before"]
     assert (einladung["created_by"], einladung["token_hashes"]) == (ERASED_ACTOR_MARKER, ["h" * 64])
     for collection, document_id in ((Collection.BEWERBUNGEN, BEWERBUNG), (Collection.REGISTRIERUNGEN, REGISTRIERUNG)):
-        assert image_of(log, collection, document_id)["before"]["decision"] == {**ENTSCHEIDUNG, "von": ERASED_ACTOR_MARKER}
+        assert image_of(log, collection, document_id)["before"]["decision"] == {**ENTSCHEIDUNG, "by": ERASED_ACTOR_MARKER}
     readdressed = image_of(log, Collection.SCHIEDSRICHTER, READDRESSED_REFEREE)["before"]
     assert (readdressed["kontakt"]["email"], readdressed["name"]) == (None, "Hiltrud Kesselring")
     readdressed_pupil = image_of(log, Collection.SPIELER, READDRESSED_PUPIL)["before"]

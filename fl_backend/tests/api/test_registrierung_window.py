@@ -5,9 +5,9 @@ import pytest
 from app.api.bewerbungen.services import window_is_running
 from app.api.einladungen.services import registrierungsfenster_laeuft
 
-VON, BIS = "2026-03-01", "2026-04-30"
+START, END = "2026-03-01", "2026-04-30"
 
-OPEN_WINDOW: dict[str, Any] = {"offen": True, "von": VON, "bis": BIS}
+OPEN_WINDOW: dict[str, Any] = {"offen": True, "von": START, "end": END}
 
 # A day inside the span, so a case moving one field moves the only thing under test.
 INSIDE = "2026-04-01"
@@ -35,10 +35,10 @@ class TestBothBoundaryDays:
     """
 
     def test_the_first_day_of_the_span_is_inside_it(self):
-        assert registrierungsfenster_laeuft(registrierung=window(), today=VON) is True
+        assert registrierungsfenster_laeuft(registrierung=window(), today=START) is True
 
     def test_the_last_day_of_the_span_is_inside_it(self):
-        assert registrierungsfenster_laeuft(registrierung=window(), today=BIS) is True
+        assert registrierungsfenster_laeuft(registrierung=window(), today=END) is True
 
     def test_the_day_before_the_span_is_outside_it(self):
         assert registrierungsfenster_laeuft(registrierung=window(), today="2026-02-28") is False
@@ -47,9 +47,9 @@ class TestBothBoundaryDays:
         assert registrierungsfenster_laeuft(registrierung=window(), today="2026-05-01") is False
 
     def test_a_reversed_span_covers_no_day(self):
-        """A stored `von` after `bis` is reachable, and comparing one end alone would open the window for ever."""
+        """A stored `von` after `end` is reachable, and comparing one end alone would open the window for ever."""
 
-        assert registrierungsfenster_laeuft(registrierung=window(von=BIS, bis=VON), today=INSIDE) is False
+        assert registrierungsfenster_laeuft(registrierung=window(von=END, end=START), today=INSIDE) is False
 
 
 class TestTheTwoWindowPredicatesMeanOneThing:
@@ -62,8 +62,8 @@ class TestTheTwoWindowPredicatesMeanOneThing:
     @pytest.mark.parametrize(
         ("block", "today"),
         [
-            (OPEN_WINDOW, VON),
-            (OPEN_WINDOW, BIS),
+            (OPEN_WINDOW, START),
+            (OPEN_WINDOW, END),
             (OPEN_WINDOW, "2026-02-28"),
             (OPEN_WINDOW, "2026-05-01"),
             ({**OPEN_WINDOW, "offen": False}, INSIDE),

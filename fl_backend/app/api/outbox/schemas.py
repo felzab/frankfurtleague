@@ -401,7 +401,7 @@ class FLOutboxLink(BaseModel):
 class FLOutboxDelivery(BaseModel):
     state: FLOutboxDeliveryState
     grund: str | None
-    am: datetime
+    at: datetime
 
 
 class FLOutboxStatus(BaseReadModel):
@@ -545,7 +545,7 @@ class FLOutboxEventPayload(BaseModel):
     state: FLOutboxDeliveryState
     grund: CustomDeliveryGrund | None
     # The provider's stamp, stored with the state; the order of states decides, never the order of stamps.
-    am: AwareDatetime
+    at: AwareDatetime
 
 
 class FLOutboxEventResponse(BaseAPIResponse):

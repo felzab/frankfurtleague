@@ -509,7 +509,7 @@ async def a_bounce_on(database: AsyncDatabase, *, team_id: ObjectId, seat: str) 
     (row,) = await rows(database, **{"party.team_id": team_id})
     await database[Collection.OUTBOX].update_many(
         {"reference.id": row["_id"], "reference.seat": seat},
-        {"$set": {"delivery": FLOutboxDelivery(state="undeliverable", grund="NoEmail", am=MAIL_NOW).model_dump()}},
+        {"$set": {"delivery": FLOutboxDelivery(state="undeliverable", grund="NoEmail", at=MAIL_NOW).model_dump()}},
     )
 
 
@@ -980,7 +980,7 @@ class TestARowClosesOnceItsDayHasPassed:
 
         assert on_the_day.closed == 0
         assert after.closed == 3
-        assert [(row["closed"]["am"], row["closed"]["grund"]) for row in stored] == [(day_after, "spiel_past")] * 3
+        assert [(row["closed"]["at"], row["closed"]["grund"]) for row in stored] == [(day_after, "spiel_past")] * 3
         assert row_of(stored, team_id=ALPHA)["antwort"] == answered["antwort"]
         # A day gone by is no new Ansetzung: nobody is told it moved, nor asked again.
         assert (after.neue_ansetzungen, after.schiedsrichter_neue_ansetzungen, after.anfragen, after.einteilungen) == ([], [], [], [])
@@ -1174,7 +1174,7 @@ class TestABarredSeatIsMintedNothingAndStaysDue:
         barred = address(ALPHA, "stellvertretung")
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            ban = ban_document(barred, bis=SAISON_ID)
+            ban = ban_document(barred, until=SAISON_ID)
             await database[Collection.BAN_LIST].insert_one(ban)
             first = await sweep(database, client)
             after_first = row_of(await rows(database), team_id=ALPHA)
@@ -1460,7 +1460,7 @@ class TestEverySeasonSizedReadSendsOneGetMore:
             )
             await database[Collection.SPIELBESTAETIGUNGEN].insert_many(mailed)
             await database[Collection.BAN_LIST].insert_many(
-                [ban_document(f"sitz{position}x0@example.com", bis=SAISON_ID) for position in range(2 * count)]
+                [ban_document(f"sitz{position}x0@example.com", until=SAISON_ID) for position in range(2 * count)]
             )
 
             return await commands_by_name(mongo_replica_set_url, DATABASE_NAME, lambda database, client: a_pass(database, client))
@@ -1678,7 +1678,7 @@ class TestARefereeTakenOffIsToldOnlyWhereTheyWereTold:
 
         second, (old,) = on_a_league(mongo_replica_set_url, body, spiele=[fixture(SPIEL, 1, NEXT_WEEK)])
 
-        assert old["closed"] == {"am": after_the_day, "grund": "schiedsrichter_switched"}
+        assert old["closed"] == {"at": after_the_day, "grund": "schiedsrichter_switched"}
         assert second.schiedsrichter_gewechselt == []
 
     def test_their_own_decline_tells_them_nothing(self, mongo_replica_set_url: str):

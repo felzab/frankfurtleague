@@ -172,8 +172,8 @@ async def get_window(
     return FLBewerbungWindowResponse(
         saison_id=saison_id,
         offen=bool(bewerbung["offen"]),
-        von=str(bewerbung["von"]),
-        bis=str(bewerbung["bis"]),
+        start=str(bewerbung["start"]),
+        end=str(bewerbung["end"]),
         running=saison_nimmt_bewerbungen_an(saison_status=saison_status, bewerbung=bewerbung, today=today),
         saison_ended=season_has_ended(saison_status=saison_status),
     )
@@ -572,14 +572,14 @@ async def post_einwilligung(
     # answer that asks the ban.
     governing_saison_id = await sperrliste_saison(sperrliste) if antwort_data.antwort == "given" else None
     # One instant for the decline's day and its journal line, so a replay records the day the person declined on.
-    am = log_stamp(germany_now)
+    at = log_stamp(germany_now)
     journal = Journal()
 
     def journal_the_widerspruch(home: Collection, row: Mapping[str, Any], seat: str, seats: tuple[str, ...]) -> None:
         # Keyed on the link's own seat, whose person pressed; an emptied one holds nobody a replay could find again.
         for adresse in seat_adressen(kontakte=row.get("kontakte"), seats=(seat,)):
             hashed = erasure_journal_hash(adresse, key=config.sperrliste_key)
-            journal.note(JournalLine(person_hash=hashed, art="objection", collection=home, record_id=row["_id"], am=am, seats=seats))
+            journal.note(JournalLine(person_hash=hashed, art="objection", collection=home, record_id=row["_id"], at=at, seats=seats))
 
     async def answer_on_the_season_row(session: AsyncClientSession) -> FLSaisonTeamEinwilligungAntwortResponse:
         """The application's judgement in its order, on the season row holding the token; a miss there is the unknown-token refusal."""
@@ -631,7 +631,7 @@ async def post_einwilligung(
                     text_versions=by_choice(antwort_data.text_versions),
                     whatsapp=antwort_data.whatsapp,
                     media=antwort_data.media,
-                    am=log_stamp(germany_now),
+                    at=log_stamp(germany_now),
                 ),
                 session=session,
                 return_document=ReturnDocument.BEFORE,
@@ -659,14 +659,14 @@ async def post_einwilligung(
             )
         ]
         await void_moved_seats(spielbestaetigungen_collection=spielbestaetigungen_collection, voids=voids, session=session)
-        await redact_seat_entries_in_images(action_log_collection=action_log_collection, voids=voids, stamp=am, session=session)
+        await redact_seat_entries_in_images(action_log_collection=action_log_collection, voids=voids, stamp=at, session=session)
         # As an erasure takes them: the person's reasons on every confirmation, from whichever seat they typed them.
         await remove_their_reasons(
             spielbestaetigungen_collection=spielbestaetigungen_collection,
             action_log_collection=action_log_collection,
             adressen=seat_adressen(kontakte=kontakte, seats=seats),
             key=config.sperrliste_key,
-            stamp=am,
+            stamp=at,
             session=session,
         )
 
@@ -677,7 +677,7 @@ async def post_einwilligung(
             collection=Collection.SAISON_TEAMS,
             row_id=row["_id"],
             adressen=seat_adressen(kontakte=kontakte, seats=seats),
-            stamp=am,
+            stamp=at,
             session=session,
         )
         journal_the_widerspruch(Collection.SAISON_TEAMS, row, seat, seats)
@@ -750,7 +750,7 @@ async def post_einwilligung(
                     text_versions=by_choice(antwort_data.text_versions),
                     whatsapp=antwort_data.whatsapp,
                     media=antwort_data.media,
-                    am=log_stamp(germany_now),
+                    at=log_stamp(germany_now),
                 ),
                 session=session,
                 return_document=ReturnDocument.AFTER,
@@ -779,7 +779,7 @@ async def post_einwilligung(
             collection=Collection.BEWERBUNGEN,
             row_id=bewerbung_raw["_id"],
             adressen=seat_adressen(kontakte=kontakte, seats=seats),
-            stamp=am,
+            stamp=at,
             session=session,
         )
         journal_the_widerspruch(Collection.BEWERBUNGEN, bewerbung_raw, seat, seats)

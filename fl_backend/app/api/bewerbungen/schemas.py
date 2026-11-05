@@ -128,7 +128,7 @@ class FLBewerbungEntscheidung(BaseModel):
     """Who decided this application, when, and on a decline why."""
 
     made_at: CustomDateString
-    von: str
+    by: str
     # Null on an acceptance: what an acceptance did is the club and the junction row it wrote, and a
     # reason field filled in with "angenommen" would be a second, weaker record of that.
     grund: str | None
@@ -138,7 +138,7 @@ class FLBewerbungDecisionRow(FLBewerbungEntscheidung):
     """A decision as every read serves it: the stored one, its administrator withheld where the ban list holds that address."""
 
     # Null exactly where `by_barred` is set, as the grants list withholds its actors.
-    von: str | None
+    by: str | None
     by_barred: bool
 
 
@@ -482,8 +482,8 @@ class FLBewerbungWindowResponse(BaseAPIResponse):
 
     saison_id: str
     offen: bool
-    von: CustomDateString
-    bis: CustomDateString
+    start: CustomDateString
+    end: CustomDateString
     # The whole judgement, computed server-side: `offen` AND today inside the span. Served rather
     # than left to the client, which would re-derive it against a clock this server does not share.
     running: bool

@@ -169,7 +169,7 @@ def _seed(url: str, *, ban_until: str | None) -> None:
                 },
             ]
         )
-        # Asked on the real clock: the list serves a request only until its `bis`, and the TTL index removes it then.
+        # Asked on the real clock: the list serves a request only until its `until`, and the TTL index removes it then.
         database[Collection.GRANT_APPROVAL_REQUESTS].insert_one(
             compose_antrag(
                 adresse="antrag.verwalterin@beispielschule.de",
@@ -181,21 +181,21 @@ def _seed(url: str, *, ban_until: str | None) -> None:
         )
         database[Collection.BAN_LIST].insert_many(
             [
-                ban_document(OTHER, bis=STANDING, created_by=BARRED),
-                *([] if ban_until is None else [ban_document(BARRED, bis=ban_until, created_by=OWNER)]),
+                ban_document(OTHER, until=STANDING, created_by=BARRED),
+                *([] if ban_until is None else [ban_document(BARRED, until=ban_until, created_by=OWNER)]),
             ]
         )
         database[Collection.INVITATIONS].insert_one(
             compose_einladung(saison_id=SAISON_ID, team_id=TEAM_OID, token_hashes=["a" * 64], created_by=BARRED, today="2026-04-01")
         )
         database[Collection.BEWERBUNGEN].insert_one(
-            {**bewerbung_document(1, status="declined"), "decision": {"made_at": "2026-04-02", "von": BARRED, "grund": "Kein Platz"}}
+            {**bewerbung_document(1, status="declined"), "decision": {"made_at": "2026-04-02", "by": BARRED, "grund": "Kein Platz"}}
         )
         database[Collection.REGISTRIERUNGEN].insert_one(
             {
                 **registrierung_document(REGISTRIERUNG_OID, vorname="Thessaly"),
                 "status": "declined",
-                "decision": {"made_at": "2026-04-03", "von": BARRED, "grund": None},
+                "decision": {"made_at": "2026-04-03", "by": BARRED, "grund": None},
             }
         )
         # The real clock, never a date: the retention index removes a row a year past `at_date`, so a

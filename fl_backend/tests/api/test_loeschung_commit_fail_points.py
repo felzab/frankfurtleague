@@ -156,7 +156,7 @@ class TestTheReadsAPerRequestLookupGathers:
         """
 
         async def body(database: AsyncDatabase) -> Any:
-            await database[Collection.BAN_LIST].insert_one(ban_document(ADMIN_STORED, bis=FUTURE_SAISON))
+            await database[Collection.BAN_LIST].insert_one(ban_document(ADMIN_STORED, until=FUTURE_SAISON))
 
             return await _first_reads(mongo_replica_set_url, database, lambda held: call_subject(held[database.name], ADMIN_STORED))
 

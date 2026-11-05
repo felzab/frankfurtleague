@@ -162,7 +162,7 @@ async def _seed(database: AsyncDatabase) -> None:
             _row(C_PUPIL, TEAM_C, nummer="4"),
         ]
     )
-    await database[Collection.BAN_LIST].insert_one(ban_document(BARRED, bis=FUTURE_SAISON))
+    await database[Collection.BAN_LIST].insert_one(ban_document(BARRED, until=FUTURE_SAISON))
 
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]

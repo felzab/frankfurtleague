@@ -301,7 +301,7 @@ async def put_spielbericht_bericht(
             spiel_raw=lage.spiel,
             saved=saved,
             payload=payload,
-            von=FLSpielberichtVonSchiedsrichter(art="schiedsrichter", schiedsrichter_id=lage.spiel["schiedsrichter"]["schiedsrichter_id"]),
+            by=FLSpielberichtVonSchiedsrichter(art="schiedsrichter", schiedsrichter_id=lage.spiel["schiedsrichter"]["schiedsrichter_id"]),
             now=now,
             version=bericht_data.version,
             session=session,

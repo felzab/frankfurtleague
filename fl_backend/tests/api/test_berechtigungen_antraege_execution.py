@@ -2,7 +2,7 @@
 API · four eyes on a grant and a promotion: the request, its lone paths, who decides it, its races, its lapse and its journal
 
 Against a replica set, every write in a transaction, each handler called directly with the actor its binder binds. A century
-ahead of the real clock where a case allows: a request lapses at `bis`, and the TTL monitor
+ahead of the real clock where a case allows: a request lapses at `until`, and the TTL monitor
 deletes a lapsed one at its next pass, under a case reading it back.
 """
 
@@ -282,7 +282,7 @@ class TestFourEyesOnAGrant:
                 "approval": {
                     "admin_tier": "administration",
                     "asked_at": NOW.astimezone(UTC).replace(tzinfo=None),
-                    "bis": (NOW + timedelta(days=APPROVAL_DAYS)).astimezone(UTC).replace(tzinfo=None),
+                    "until": (NOW + timedelta(days=APPROVAL_DAYS)).astimezone(UTC).replace(tzinfo=None),
                     "started_by": ANNA,
                 },
             }
@@ -329,7 +329,7 @@ class TestFourEyesOnAGrant:
         """A barred colleague approves nothing, so a request would only lapse."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.BAN_LIST].insert_one(ban_document(BERND, bis=STANDING))
+            await database[Collection.BAN_LIST].insert_one(ban_document(BERND, until=STANDING))
             return (await ask(database, client, als=OWNER)).requested
 
         assert on_a_league(mongo_replica_set_url, body, grants=[THREE[0], THREE[2]]) is False
@@ -498,7 +498,7 @@ class TestOneRequestPerAddress:
         on_a_league(mongo_replica_set_url, body)
 
     def test_a_restored_lapsed_request_is_gone_to_every_reader(self, mongo_replica_set_url: str):
-        """A restore puts back a row its TTL index had removed, and nothing journals a lapse: the reads' own `bis` term holds it.
+        """A restore puts back a row its TTL index had removed, and nothing journals a lapse: the reads' own `until` term holds it.
 
         Listed by nobody, decided by nobody, and replaced by the next request about its address.
         """
@@ -576,7 +576,7 @@ class TestWhoMayDecide:
             "administration",
             True,
         )
-        assert (by_anna.asked_at, by_anna.bis) == (
+        assert (by_anna.asked_at, by_anna.until) == (
             NOW.astimezone(UTC),
             (NOW + timedelta(days=APPROVAL_DAYS)).astimezone(UTC),
         )
@@ -651,7 +651,7 @@ class TestARequestOutlivesNoRequester:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             antrag_id = await asked_for(database, client)
-            await database[Collection.BAN_LIST].insert_one(ban_document(ANNA, bis=STANDING))
+            await database[Collection.BAN_LIST].insert_one(ban_document(ANNA, until=STANDING))
             return await outcome(approve(database, client, antrag_id, als=BERND))
 
         assert on_a_league(mongo_replica_set_url, body) == Code.GRANT_APPROVAL_REQUEST_LAPSED
@@ -665,7 +665,7 @@ class TestTheApprovalJudgesTheAddressAgain:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             antrag_id = await asked_for(database, client)
-            await database[Collection.BAN_LIST].insert_one(ban_document(NEU, bis=STANDING))
+            await database[Collection.BAN_LIST].insert_one(ban_document(NEU, until=STANDING))
             (served,) = (await listed(database, client)).approval_requests
             approved = await outcome(approve(database, client, antrag_id, als=BERND))
             return (served.adresse, served.barred), approved, NEU in await tiers(database), len(await antraege(database))
@@ -676,7 +676,7 @@ class TestTheApprovalJudgesTheAddressAgain:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await tier(database, client, BERND_ID)
             (approval_request,) = await antraege(database)
-            await database[Collection.BAN_LIST].insert_one(ban_document(BERND, bis=STANDING))
+            await database[Collection.BAN_LIST].insert_one(ban_document(BERND, until=STANDING))
             return await outcome(approve(database, client, approval_request["_id"], als=ANNA)), (await tiers(database))[BERND]
 
         assert on_a_league(mongo_replica_set_url, body, grants=TWO_OWNERS) == (Code.GRANT_BARRED, "administration")
@@ -847,7 +847,7 @@ class TestTheReplayEndsTheRestoredRequest:
                     (approval_request,) = await ended(database, client, NEU)
                     lines.append(
                         antrag_line(
-                            approval_request=approval_request, art="approval_request_ended", am=log_stamp(NOW), key=CONFIG.sperrliste_key
+                            approval_request=approval_request, art="approval_request_ended", at=log_stamp(NOW), key=CONFIG.sperrliste_key
                         )
                     )
                 else:

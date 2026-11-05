@@ -831,7 +831,7 @@ class _WindowCollection:
 
 # The day the window below is judged against, sitting inside its span.
 COLOUR_READ_TODAY = "2026-04-01"
-COLOUR_READ_WINDOW: Mapping[str, Any] = {"offen": True, "von": "2026-03-01", "bis": "2026-04-30"}
+COLOUR_READ_WINDOW: Mapping[str, Any] = {"offen": True, "start": "2026-03-01", "end": "2026-04-30"}
 
 
 def _colours_for(junction: _DistinctCollection, *, bewerbung: Any, status: str = "future") -> Any:
@@ -899,9 +899,9 @@ class TestTheColoursASeasonHasAlreadyAssigned:
         "bewerbung",
         [
             pytest.param(None, id="a season carrying no window"),
-            pytest.param({"offen": False, "von": "2026-03-01", "bis": "2026-04-30"}, id="a span holding today with the flag off"),
-            pytest.param({"offen": True, "von": "2026-05-01", "bis": "2026-06-30"}, id="the flag on and a span not yet begun"),
-            pytest.param({"offen": True, "von": "2026-01-01", "bis": "2026-02-28"}, id="the flag on and a span already over"),
+            pytest.param({"offen": False, "start": "2026-03-01", "end": "2026-04-30"}, id="a span holding today with the flag off"),
+            pytest.param({"offen": True, "start": "2026-05-01", "end": "2026-06-30"}, id="the flag on and a span not yet begun"),
+            pytest.param({"offen": True, "start": "2026-01-01", "end": "2026-02-28"}, id="the flag on and a span already over"),
         ],
     )
     def test_a_season_not_taking_applications_never_reaches_the_junction(self, bewerbung: Any):

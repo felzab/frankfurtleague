@@ -84,7 +84,7 @@ OTHER_TEAM_NAME = "Quillhilde"
 PUPIL_EMAIL = "thessaly@beispielschule.de"
 BANNED_EMAIL = "wraxlington@beispielschule.de"
 
-OPEN_WINDOW: Mapping[str, Any] = {"offen": True, "von": "2026-03-01", "bis": "2026-04-30"}
+OPEN_WINDOW: Mapping[str, Any] = {"offen": True, "von": "2026-03-01", "end": "2026-04-30"}
 
 RULES: Mapping[str, Any] = documents.rules_document(
     number_of_gruppen=2,
@@ -203,7 +203,7 @@ def on_a_league(
                 )
 
             if banned is not None:
-                await database[Collection.BAN_LIST].insert_one(documents.ban_document(banned, bis=banned_bis))
+                await database[Collection.BAN_LIST].insert_one(documents.ban_document(banned, until=banned_bis))
 
             return await body(database, client)
 
@@ -266,7 +266,7 @@ async def admit_as_the_team(database: AsyncDatabase, client: AsyncMongoClient, r
         media=False,
         text_versions=SPIELER_TEXT_VERSIONS,
         today=TODAY,
-        am="2026-03-31T08:00:00+00:00",
+        at="2026-03-31T08:00:00+00:00",
     )
     await database[Collection.REGISTRIERUNGEN].update_one({"_id": registrierung_id}, dict(confirmation))
     seat = documents.kontaktperson_document("Anna", confirmed_at=TODAY)
@@ -678,7 +678,7 @@ class TestWhatASubmissionIsRefused:
 
             return refused.value.error_code
 
-        outcome = on_a_league(mongo_replica_set_url, body, registrierung={**OPEN_WINDOW, "bis": "2026-03-31"})
+        outcome = on_a_league(mongo_replica_set_url, body, registrierung={**OPEN_WINDOW, "end": "2026-03-31"})
 
         assert outcome == Code.REGISTRIERUNG_CLOSED
 

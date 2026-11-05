@@ -273,7 +273,7 @@ def registration(registrierung_id: ObjectId, status: str) -> dict[str, str]:
 async def their_requests_open(database: AsyncDatabase) -> None:
     """The seed's two requests, asked far off so no TTL pass removes them and so lapsed at the suite's clock, open again."""
 
-    await database[Collection.GRANT_APPROVAL_REQUESTS].update_many({}, {"$set": {"approval.bis": NOW + timedelta(days=1)}})
+    await database[Collection.GRANT_APPROVAL_REQUESTS].update_many({}, {"$set": {"approval.until": NOW + timedelta(days=1)}})
 
 
 # Every record the seed's person holds, as the page links each: compared whole, so every key at every depth is asserted.

@@ -139,9 +139,9 @@ class TestWhenAGrantTookEffect:
     def test_the_instant_is_the_utc_one_the_driver_read_back_without_an_offset(self):
         """Compared against an epoch second, a naive instant taken for local time would move every grant by the host's offset."""
 
-        seit = granted_since(stored(), ANNOUNCED)
+        since = granted_since(stored(), ANNOUNCED)
 
-        assert seit is not None and seit.utcoffset() == timedelta(0)
+        assert since is not None and since.utcoffset() == timedelta(0)
 
 
 # The record of an `owner` grant, and a promotion made after the grant was found.

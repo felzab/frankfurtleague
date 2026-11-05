@@ -83,8 +83,8 @@ IMAGE_ADDRESSES: Final[Mapping[DbCollection, tuple[ImageAddress, ...]]] = Mappin
         ),
         DbCollection.BAN_LIST: (ImageAddress("created_by", "created_by", ERASED_ACTOR_MARKER),),
         DbCollection.INVITATIONS: (ImageAddress("created_by", "created_by", ERASED_ACTOR_MARKER),),
-        DbCollection.BEWERBUNGEN: (ImageAddress("decision.von", "decision.von", ERASED_ACTOR_MARKER),),
-        DbCollection.REGISTRIERUNGEN: (ImageAddress("decision.von", "decision.von", ERASED_ACTOR_MARKER),),
+        DbCollection.BEWERBUNGEN: (ImageAddress("decision.by", "decision.by", ERASED_ACTOR_MARKER),),
+        DbCollection.REGISTRIERUNGEN: (ImageAddress("decision.by", "decision.by", ERASED_ACTOR_MARKER),),
         # A row since re-addressed: the referee step reaches only the rows naming the person now.
         DbCollection.SCHIEDSRICHTER: (ImageAddress("kontakt.email", "kontakt.email", None),),
         DbCollection.SPIELER: (ImageAddress("email", "email", None),),

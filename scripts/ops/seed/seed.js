@@ -125,7 +125,7 @@ const LABELS = { umfang: "2026-11-name-kader-1", media: "2026-11-medien-1" };
 // (`fl_backend/app/api/identity/services.py :: is_own_schiedsrichter`), so an address change or an erasure moves
 // nothing of a row without one.
 function journeyPerson(name, email) {
-  const evidence = (textVersion) => ({ am: `${CONSENTED}T10:00:00+00:00`, text_version: textVersion });
+  const evidence = (textVersion) => ({ at: `${CONSENTED}T10:00:00+00:00`, text_version: textVersion });
   return {
     ...referee(name, null, 20, email, null),
     geburtsdatum: day(-20 * 365),
@@ -446,7 +446,7 @@ const GHOST_SPIELER = {
 
 // Each pupil's consent, publishing the name and no media, on the day and under the labels above `REFEREES`.
 function pupil(vorname, nachname) {
-  const evidence = (choice) => ({ am: `${CONSENTED}T10:00:00+00:00`, text_version: LABELS[choice] });
+  const evidence = (choice) => ({ at: `${CONSENTED}T10:00:00+00:00`, text_version: LABELS[choice] });
   return {
     _id: ObjectId(),
     vorname,
