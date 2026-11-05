@@ -152,7 +152,7 @@ async def a_sent_mail(database: AsyncDatabase, invitation_id: ObjectId, an: str)
                 team_name="Seeded",
                 saison_id=SAISON_ID,
                 recipient=[FLInvitationRecipient(rolle="trainer", vorname="Fendrick", email=an)],
-                anlass="versand",
+                occasion="versand",
             ),
             now=MAIL_NOW,
         )

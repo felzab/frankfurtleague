@@ -1249,7 +1249,7 @@ async def post_invitation_dispatch(
                 team_name=str(row["name"]),
                 saison_id=saison_id,
                 recipient=empfaenger,
-                anlass=f"mail/{today}",
+                occasion=f"mail/{today}",
             ),
             now=germany_now,
         )

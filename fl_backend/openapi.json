@@ -6412,18 +6412,6 @@
         "title": "FLInvitationData",
         "type": "object"
       },
-      "FLInvitationDispatchGrund": {
-        "enum": [
-          "austritt_entered",
-          "mint_failed",
-          "mint_uncertain",
-          "no_kontaktblock",
-          "no_confirmed_kontaktperson",
-          "kontakte_barred",
-          "already_sent"
-        ],
-        "type": "string"
-      },
       "FLInvitationDispatchPayload": {
         "additionalProperties": false,
         "properties": {
@@ -6476,7 +6464,7 @@
           "skipped": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/FLInvitationDispatchGrund"
+                "$ref": "#/components/schemas/FLInvitationSkipReason"
               },
               {
                 "type": "null"
@@ -6555,7 +6543,7 @@
           "skipped": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/FLInvitationDispatchGrund"
+                "$ref": "#/components/schemas/FLInvitationSkipReason"
               },
               {
                 "type": "null"
@@ -6804,6 +6792,18 @@
         ],
         "title": "FLInvitationRow",
         "type": "object"
+      },
+      "FLInvitationSkipReason": {
+        "enum": [
+          "austritt_entered",
+          "mint_failed",
+          "mint_uncertain",
+          "no_kontaktblock",
+          "no_confirmed_kontaktperson",
+          "kontakte_barred",
+          "already_sent"
+        ],
+        "type": "string"
       },
       "FLInvitationViewResponse": {
         "description": "What an invite's holder is told before they type anything, and the bounds the form is held to.",

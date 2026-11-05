@@ -10,7 +10,7 @@ from http import HTTPStatus
 from typing import Any, NamedTuple
 
 from app.api.bewerbungen.services import seat_named
-from app.api.einladungen.schemas import FLInvitationDispatchGrund, FLInvitationRecipient
+from app.api.einladungen.schemas import FLInvitationRecipient, FLInvitationSkipReason
 from app.api.outbox.schemas import FLOutboxStatus
 from app.core.codes import Code
 from app.core.exceptions import WriteRefusal
@@ -160,7 +160,7 @@ class EinladungVersandPlan(NamedTuple):
     """What one team's row says, before anything is minted."""
 
     recipient: list[FLInvitationRecipient]
-    skipped: FLInvitationDispatchGrund | None
+    skipped: FLInvitationSkipReason | None
     #: Whether minting for this team kills a link somebody may already hold. False on every skip,
     #: which is what leaves a skipped team exactly as it was.
     replaced_link: bool

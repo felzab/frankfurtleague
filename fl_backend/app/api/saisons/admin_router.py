@@ -1133,7 +1133,7 @@ async def _mail_one_team(
                 team_name=team["name"],
                 saison_id=saison_id,
                 recipient=plan.recipient,
-                anlass="versand",
+                occasion="versand",
             ),
             now=now,
         )

@@ -2603,18 +2603,6 @@ export interface FLInvitationData {
   team: string;
 }
 
-export type FLInvitationDispatchGrund = (typeof FLInvitationDispatchGrund)[keyof typeof FLInvitationDispatchGrund];
-
-export const FLInvitationDispatchGrund = {
-  austritt_entered: "austritt_entered",
-  mint_failed: "mint_failed",
-  mint_uncertain: "mint_uncertain",
-  no_kontaktblock: "no_kontaktblock",
-  no_confirmed_kontaktperson: "no_confirmed_kontaktperson",
-  kontakte_barred: "kontakte_barred",
-  already_sent: "already_sent",
-} as const;
-
 export interface FLInvitationDispatchPayload {
   resend?: boolean;
 }
@@ -2630,13 +2618,25 @@ export interface FLInvitationRecipient {
   vorname: string;
 }
 
+export type FLInvitationSkipReason = (typeof FLInvitationSkipReason)[keyof typeof FLInvitationSkipReason];
+
+export const FLInvitationSkipReason = {
+  austritt_entered: "austritt_entered",
+  mint_failed: "mint_failed",
+  mint_uncertain: "mint_uncertain",
+  no_kontaktblock: "no_kontaktblock",
+  no_confirmed_kontaktperson: "no_confirmed_kontaktperson",
+  kontakte_barred: "kontakte_barred",
+  already_sent: "already_sent",
+} as const;
+
 /**
  * One team as the preview reports it. It mints nothing, so it answers no link.
  */
 export interface FLInvitationDispatchPreviewRow {
   recipient: FLInvitationRecipient[];
   replaced_link: boolean;
-  skipped: FLInvitationDispatchGrund | null;
+  skipped: FLInvitationSkipReason | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   team_id: string;
   /** @minLength 1 */
@@ -2659,7 +2659,7 @@ export interface FLInvitationDispatchRow {
   had_link: boolean | null;
   recipient: FLInvitationRecipient[];
   replaced_link: boolean;
-  skipped: FLInvitationDispatchGrund | null;
+  skipped: FLInvitationSkipReason | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   team_id: string;
   /** @minLength 1 */
