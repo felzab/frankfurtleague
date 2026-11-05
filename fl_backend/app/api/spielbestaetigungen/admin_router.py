@@ -48,7 +48,7 @@ from app.core.dependencies import (
 from app.core.exceptions import DocumentNotFoundError
 from app.core.readonly import ReadCollection
 from app.core.routing import by_id
-from app.core.security import bind_actor, verify_access_admin, verify_step_up
+from app.core.security import bind_actor, verify_access_admin
 from app.core.transactions import transaction_session
 from app.shared.schemas.custom import CustomRouteObjectId
 
@@ -116,7 +116,6 @@ async def get_spielbestaetigungen(
     f"{by_id('spielbestaetigung_id')}/enter",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Record a party's Zusage on its behalf",
-    dependencies=[Depends(verify_step_up)],
 )
 async def enter_spielbestaetigung(
     spielbestaetigung_id: CustomRouteObjectId,
@@ -167,7 +166,6 @@ async def enter_spielbestaetigung(
     f"{by_id('spielbestaetigung_id')}/discard",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Discard a club's proposed date",
-    dependencies=[Depends(verify_step_up)],
 )
 async def discard_spielbestaetigung(
     spielbestaetigung_id: CustomRouteObjectId,
