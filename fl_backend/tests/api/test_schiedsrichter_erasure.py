@@ -181,7 +181,7 @@ def fixture_document(schiedsrichter_id: ObjectId, spiel_id: ObjectId, spiel_nr: 
         spieltag_id=SPIELTAG_OID,
         datum="2126-03-15",
         uhrzeit="14:00:00",
-        schiedsrichter={"schiedsrichter_id": schiedsrichter_id, "name": REFEREE_NAMES[schiedsrichter_id], "payment": DEFAULT_PAYMENT},
+        schiedsrichter={"schiedsrichter_id": schiedsrichter_id, "payment": DEFAULT_PAYMENT},
         ergebnis="2:1",
     )
 
@@ -198,7 +198,7 @@ def fixture_documents() -> list[dict[str, Any]]:
 # What every repointed fixture holds afterwards: the ghost's id, no name, and the fee this match itself agreed.
 REPOINTED_BOOKING: dict[str, Any] = {"schiedsrichter_id": GHOST_SCHIEDSRICHTER_ID, "payment": DEFAULT_PAYMENT}
 
-# What every repointed image of a fixture holds: the same, the name its copy held nulled in place.
+# What a repointed image recorded while fixtures stored their referee's name holds: the same, that name nulled in place.
 REPOINTED_IMAGE: dict[str, Any] = {**REPOINTED_BOOKING, "name": None}
 
 
@@ -247,13 +247,10 @@ class TestTheGhostTheFixturesAreHandedTo:
         assert ghost["_id"] == GHOST_SCHIEDSRICHTER_ID
         assert ghost["default_payment"] == 0
 
-    def test_the_repoint_moves_the_reference_and_the_name_and_nothing_else(self):
+    def test_the_repoint_moves_the_reference_and_nothing_else(self):
         """One whole update asserted rather than membership: a repoint also clearing `payment` would rewrite what a match cost."""
 
-        assert build_ghost_repoint() == {
-            "$set": {"schiedsrichter.schiedsrichter_id": GHOST_SCHIEDSRICHTER_ID},
-            "$unset": {"schiedsrichter.name": ""},
-        }
+        assert build_ghost_repoint() == {"$set": {"schiedsrichter.schiedsrichter_id": GHOST_SCHIEDSRICHTER_ID}}
 
     def test_a_nulled_name_reaches_the_base_tier_as_a_null_and_not_as_an_initial(self):
         """`READ-REFEREE-001`'s reduction composes a forename and an initial, and one composed from nothing would read as a name."""
@@ -742,11 +739,7 @@ def test_another_referees_fixture_keeps_its_assignment(mongo_replica_set_url: st
 
     fixtures = on_a_league(mongo_replica_set_url, body)
 
-    assert fixtures[OTHER_SPIEL_OID]["schiedsrichter"] == {
-        "schiedsrichter_id": OTHER_SCHIEDSRICHTER_OID,
-        "name": REFEREE_NAMES[OTHER_SCHIEDSRICHTER_OID],
-        "payment": DEFAULT_PAYMENT,
-    }
+    assert fixtures[OTHER_SPIEL_OID]["schiedsrichter"] == {"schiedsrichter_id": OTHER_SCHIEDSRICHTER_OID, "payment": DEFAULT_PAYMENT}
 
 
 def fixtures_after_erasure(url: str) -> dict[Any, Mapping[str, Any]]:
@@ -900,11 +893,15 @@ async def fixture_log_rows(database: AsyncDatabase) -> list[Mapping[str, Any]]:
 def test_every_fixture_image_holding_their_name_is_repointed_and_stamped(mongo_replica_set_url: str):
     """Kills a redaction reaching the referee's own rows alone, and one taking the match's earlier states with the booking.
 
-    The image is filed under the FIXTURE's id, out of `build_redaction_filter`'s reach, the name inside
-    it a copy.
+    The image is filed under the FIXTURE's id, out of `build_redaction_filter`'s reach. Each holds the name a fixture
+    stored as a copy when the image was recorded, which the fixture itself no longer holds: an image outlives the shape.
     """
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+        await database[Collection.ACTION_LOG].update_many(
+            {"collection": str(Collection.SPIELE), "before.schiedsrichter.schiedsrichter_id": SCHIEDSRICHTER_OID},
+            {"$set": {"before.schiedsrichter.name": REFEREE_NAMES[SCHIEDSRICHTER_OID]}},
+        )
         seeded = await fixture_log_rows(database)
         await erase_the_referee(database, client)
 
@@ -942,15 +939,7 @@ def test_an_image_of_a_fixture_since_reassigned_is_repointed_too(mongo_replica_s
         await patch_one_in_db(
             collection=database[Collection.SPIELE],
             db_filter={"_id": reassigned},
-            update={
-                "$set": {
-                    "schiedsrichter": {
-                        "schiedsrichter_id": OTHER_SCHIEDSRICHTER_OID,
-                        "name": REFEREE_NAMES[OTHER_SCHIEDSRICHTER_OID],
-                        "payment": DEFAULT_PAYMENT,
-                    }
-                }
-            },
+            update={"$set": {"schiedsrichter": {"schiedsrichter_id": OTHER_SCHIEDSRICHTER_OID, "payment": DEFAULT_PAYMENT}}},
             expected_version=None,
             return_document=ReturnDocument.BEFORE,
         )
@@ -962,7 +951,7 @@ def test_an_image_of_a_fixture_since_reassigned_is_repointed_too(mongo_replica_s
 
     # Two: the seeded reschedule and the reassignment, both filed before the erasure ran.
     assert len(rows) == 2, f"the reassignment filed no row of its own: {rows}"
-    assert [row["before"]["schiedsrichter"] for row in rows] == [REPOINTED_IMAGE] * 2
+    assert [row["before"]["schiedsrichter"] for row in rows] == [REPOINTED_BOOKING] * 2
     assert {row["redacted_at"] for row in rows} == {REDACTED_AT}
 
 
@@ -988,7 +977,7 @@ def test_every_image_in_the_array_a_removal_files_is_repointed_too(mongo_replica
     (row,) = on_a_league(mongo_replica_set_url, body)
 
     assert sorted(row["document_id"]) == sorted(removed), "the removal filed no array of the ids it took"
-    assert [image["schiedsrichter"] for image in row["before"]] == [REPOINTED_IMAGE] * len(removed)
+    assert [image["schiedsrichter"] for image in row["before"]] == [REPOINTED_BOOKING] * len(removed)
     assert row["redacted_at"] == REDACTED_AT
 
 
@@ -1123,11 +1112,7 @@ def test_a_refused_redaction_takes_the_repoint_back(mongo_replica_set_url: str):
     code, fixtures = on_a_league(mongo_replica_set_url, body, mutates_schema=True)
 
     assert code == DOCUMENT_VALIDATION_FAILED, f"expected the validator to refuse the redaction, got code {code}"
-    assert fixtures[PLAYED_SPIEL_OID]["schiedsrichter"] == {
-        "schiedsrichter_id": SCHIEDSRICHTER_OID,
-        "name": REFEREE_NAMES[SCHIEDSRICHTER_OID],
-        "payment": DEFAULT_PAYMENT,
-    }
+    assert fixtures[PLAYED_SPIEL_OID]["schiedsrichter"] == {"schiedsrichter_id": SCHIEDSRICHTER_OID, "payment": DEFAULT_PAYMENT}
 
 
 class TestTheNameRuleReachesEveryRow:
