@@ -356,8 +356,9 @@ class FLSaisonAdminTeam(BaseReadModel):
     """One club's row of the season as the editor's swap and replacement sections list it, graded as each write judges it.
 
     Both flags are `app/api/teams/services.py :: has_taken_place` over the row's fixtures, the predicate each write's
-    `sides_taken_place` reads: over its group fixtures for the swap, which rewrites those alone, so a pair is closed
-    where either club's is; over every fixture for the replacement, which hands the whole schedule over.
+    refusal reads: over its group fixtures for the swap's `swap_sides_taken_place`, the swap rewriting those alone, so
+    a pair is closed where either club's is; over every fixture for the replacement's `replace_sides_taken_place`, the
+    replacement handing the whole schedule over.
     """
 
     team_id: CustomObjectId

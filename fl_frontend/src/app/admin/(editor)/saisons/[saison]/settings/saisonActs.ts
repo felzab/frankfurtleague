@@ -33,15 +33,18 @@ const OfSaison = z.object(SAISON);
 const TouchedOfSaison = z.object({ ...SAISON, ...PAGE_HOLDER });
 
 /**
- * The one refusal a swap and a replacement share, `sides_taken_place`, worded for the act that met it: the code names
- * no field, so the catalogue cannot tell the two apart by its path. The editor's pickers close every pair and row it
+ * The swap's and the replacement's refusal of a fixture that has taken place, `swap_sides_taken_place` and
+ * `replace_sides_taken_place`, worded for the act that met it. The editor's pickers close every pair and row it
  * refuses, so it is met only where a match took place after the page was read.
  */
 async function sidesWorded(write: () => Promise<unknown>, sentence: Copy): Promise<ActionAnswer> {
   try {
     await write();
   } catch (error) {
-    if (error instanceof APIBadStatusError && error.serverErrorCode === "sides_taken_place") {
+    if (
+      error instanceof APIBadStatusError &&
+      (error.serverErrorCode === "swap_sides_taken_place" || error.serverErrorCode === "replace_sides_taken_place")
+    ) {
       return { ok: false, errorCode: error.serverErrorCode, reason: sentence };
     }
     throw error;

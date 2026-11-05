@@ -35,11 +35,11 @@ describe("the old team editor's group swap", () => {
   });
 
   it("answers every refusal the group swap publishes", async () => {
-    for (const code of refusalCodes("swap_not_a_swap", "swap_saison_started", "saison_past", "sides_taken_place")) {
+    for (const code of refusalCodes("swap_not_a_swap", "swap_saison_started", "saison_past", "swap_sides_taken_place")) {
       expect(answerShown(code, mapSwapRefusal), `${code} reaches the admin as a generic failure`).not.toBe(null);
     }
     await assertEachAnswered({
-      codes: refusalCodes("swap_not_a_swap", "swap_saison_started", "saison_past", "sides_taken_place"),
+      codes: refusalCodes("swap_not_a_swap", "swap_saison_started", "saison_past", "swap_sides_taken_place"),
       refuseWith: answerWith,
       act: () => swapGruppenAction({ saison_id: SAISON_ID, team1_id: TEAM1_ID, team2_id: TEAM2_ID }),
       mapped: mapSwapRefusal,

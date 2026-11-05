@@ -4,7 +4,7 @@ import { isRefusal } from "@/shared/utils/actionError";
 
 /**
  * The group swap's refusals, or `null`. The first three mean the picture moved under a stale page, so
- * each says to reload; `sides_taken_place` has no client counterpart and arrives on a current page, so it names a
+ * each says to reload; `swap_sides_taken_place` has no client counterpart and arrives on a current page, so it names a
  * repair.
  */
 export function mapSwapRefusal(error: unknown): string | null {
@@ -20,7 +20,7 @@ export function mapSwapRefusal(error: unknown): string | null {
     case "swap_saison_started":
       return "Diese Saison hat inzwischen begonnen. Lade die Seite neu.";
     // Before the start, so a result entered early: the swap moves no goals and would hand it to the other club.
-    case "sides_taken_place":
+    case "swap_sides_taken_place":
       return SERVER_COPY.admin.swapSidesTakenPlace;
     default:
       return null;

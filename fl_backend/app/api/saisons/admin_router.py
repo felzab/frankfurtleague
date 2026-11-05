@@ -247,9 +247,10 @@ async def get_saison_admin(
     The season is served a `future` one included, with its `version`, whether it has started (`begun`), whether a
     fixture of it has taken place (`taken_place`) and whether it is decided (`decided`), by the landing's own rule.
 
-    Each club's two flags are what the group swap's and the replacement's `sides_taken_place` read, so a picker closes
-    exactly the pairs and rows those writes refuse; `begun` closes both before either is pressed. `incoming_clubs` is
-    every club still in the league holding no row of the season, which is what the replacement admits.
+    Each club's two flags are what the group swap's `swap_sides_taken_place` and the replacement's
+    `replace_sides_taken_place` read, so a picker closes exactly the pairs and rows those writes refuse; `begun` closes
+    both before either is pressed. `incoming_clubs` is every club still in the league holding no row of the season,
+    which is what the replacement admits.
 
     `refusals` names, per act, the refusal its write would answer now, by that write's own judgement, so the editor
     offers an act exactly where the write takes it. `invitations` is the registration links' press planned by the function

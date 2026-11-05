@@ -1587,7 +1587,7 @@ def find_gruppe_swap_refusal(
 
     if taken_place:
         return WriteRefusal(
-            error_code=Code.SIDES_TAKEN_PLACE,
+            error_code=Code.SWAP_SIDES_TAKEN_PLACE,
             status=HTTPStatus.CONFLICT,
         )
 
@@ -1656,7 +1656,7 @@ def find_replacement_refusal(
 
     if taken_place:
         return WriteRefusal(
-            error_code=Code.SIDES_TAKEN_PLACE,
+            error_code=Code.REPLACE_SIDES_TAKEN_PLACE,
             status=HTTPStatus.CONFLICT,
         )
 

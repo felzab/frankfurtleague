@@ -140,7 +140,7 @@ export const Code = {
   replace_saison_started: "replace_saison_started",
   replace_incoming_already_entered: "replace_incoming_already_entered",
   replace_one_team_on_both_ends: "replace_one_team_on_both_ends",
-  sides_taken_place: "sides_taken_place",
+  replace_sides_taken_place: "replace_sides_taken_place",
   ergebnis_side_emptied: "ergebnis_side_emptied",
   retire_blocked: "retire_blocked",
   spielort_still_booked: "spielort_still_booked",
@@ -182,6 +182,7 @@ export const Code = {
   state_nichtantreten_without_two_sides: "state_nichtantreten_without_two_sides",
   swap_not_a_swap: "swap_not_a_swap",
   swap_saison_started: "swap_saison_started",
+  swap_sides_taken_place: "swap_sides_taken_place",
   austritt_before_saison_start: "austritt_before_saison_start",
   payload_refused: "payload_refused",
   body_unreadable: "body_unreadable",
@@ -4673,8 +4674,9 @@ export interface FLSaisonAdminListed {
  * One club's row of the season as the editor's swap and replacement sections list it, graded as each write judges it.
  *
  * Both flags are `app/api/teams/services.py :: has_taken_place` over the row's fixtures, the predicate each write's
- * `sides_taken_place` reads: over its group fixtures for the swap, which rewrites those alone, so a pair is closed
- * where either club's is; over every fixture for the replacement, which hands the whole schedule over.
+ * refusal reads: over its group fixtures for the swap's `swap_sides_taken_place`, the swap rewriting those alone, so
+ * a pair is closed where either club's is; over every fixture for the replacement's `replace_sides_taken_place`, the
+ * replacement handing the whole schedule over.
  */
 export interface FLSaisonAdminTeam {
   austritt: FLAustritt | null;
