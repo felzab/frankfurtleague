@@ -22,7 +22,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.bewerbungen.public_router import get_einwilligung_view, post_einwilligung
 from app.api.bewerbungen.schemas import FLBewerbungEinwilligungAntwortPayload
 from app.api.bewerbungen.services import SEAT_MIN_AGE_YEARS, bestaetigungsfrist_from
-from app.api.identity.crud import funktionen_of
+from app.api.identity.crud import roles_of
 from app.api.saisons.admin_router import activate_saison
 from app.api.teams.admin_router import invite_kontakt, patch_saison_team_kontakte, replace_saison_team
 from app.api.teams.schemas import FLPatchSaisonTeamKontaktePayload, FLReplaceSaisonTeamPayload, kontakte_stand_of
@@ -283,7 +283,7 @@ async def replace(database: AsyncDatabase) -> Any:
         spiele_collection=database[Collection.SPIELE],
         saison_spieler_collection=database[Collection.SAISON_SPIELER],
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
-        aktionen_collection=database[Collection.ACTION_LOG],
+        action_log_collection=database[Collection.ACTION_LOG],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
         db=database.client,
         today=TODAY,
@@ -291,9 +291,9 @@ async def replace(database: AsyncDatabase) -> Any:
     )
 
 
-async def ansicht(database: AsyncDatabase, token: str, *, today: str = TODAY, saison_teams: Any = None) -> Any:
+async def read_view(database: AsyncDatabase, token: str, *, today: str = TODAY, saison_teams: Any = None) -> Any:
     return await get_einwilligung_view(
-        ansicht_data=FLTokenPayload(token=token),
+        view_data=FLTokenPayload(token=token),
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         saison_teams_collection=database[Collection.SAISON_TEAMS] if saison_teams is None else saison_teams,
         saisons_collection=database[Collection.SAISONS],
@@ -309,20 +309,20 @@ async def answer(
     *,
     antwort: str = "given",
     today: str = TODAY,
-    medien: bool = False,
+    media: bool = False,
     saisons: Any = None,
     saison_teams: Any = None,
 ) -> Any:
     body: dict[str, Any] = {"token": token, "antwort": antwort}
     if antwort == "given":
-        body |= {"geburtsdatum": AN_ADULTS_BIRTHDATE, "whatsapp": True, "medien": medien, "text_versions": dict(documents.SEAT_TEXT_VERSIONS)}
+        body |= {"geburtsdatum": AN_ADULTS_BIRTHDATE, "whatsapp": True, "media": media, "text_versions": dict(documents.SEAT_TEXT_VERSIONS)}
 
     return await post_einwilligung(
         antwort_data=TypeAdapter(FLBewerbungEinwilligungAntwortPayload).validate_python(body),
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         saison_teams_collection=database[Collection.SAISON_TEAMS] if saison_teams is None else saison_teams,
         saisons_collection=database[Collection.SAISONS] if saisons is None else saisons,
-        aktionen_collection=database[Collection.ACTION_LOG],
+        action_log_collection=database[Collection.ACTION_LOG],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
         outbox_collection=database[Collection.OUTBOX],
         sperrliste=ban_list(database),
@@ -334,7 +334,7 @@ async def answer(
 
 
 async def ban(database: AsyncDatabase, client: AsyncMongoClient, email: str) -> Any:
-    return await ban_through_the_route(database, client, email=email, grund="Wiederholte Falschangaben", von=ADMIN, today=TODAY)
+    return await ban_through_the_route(database, client, email=email, grund="Wiederholte Falschangaben", by=ADMIN, today=TODAY)
 
 
 async def row_now(database: AsyncDatabase, row_id: ObjectId = ROW_OID) -> dict[str, Any]:
@@ -353,9 +353,9 @@ async def refused(call: Awaitable[Any]) -> str:
 
 async def seats_of(database: AsyncDatabase, client: AsyncMongoClient, email: str) -> list[tuple[str, str]]:
     async with client.start_session() as session:
-        subjekt = await funktionen_of(email, record_collections(database), session=session)
+        subject = await roles_of(email, record_collections(database), session=session)
 
-    return [(sitz.saison_id, sitz.rolle) for sitz in subjekt.seats]
+    return [(seat.saison_id, seat.rolle) for seat in subject.seats]
 
 
 class TestTheSaveMintsForEachPersonItNewlySeats:
@@ -382,7 +382,7 @@ class TestTheSaveMintsForEachPersonItNewlySeats:
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
             response = await save(database, THREE)
 
-            return response, [await ansicht(database, mint.token) for mint in response.confirmations]
+            return response, [await read_view(database, mint.token) for mint in response.confirmations]
 
         response, views = on_a_league(mongo_replica_set_url, body)
 
@@ -399,7 +399,7 @@ class TestTheSaveMintsForEachPersonItNewlySeats:
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
             response = await save(database, PAIRED)
 
-            return response, await row_now(database), await ansicht(database, response.confirmations[0].token)
+            return response, await row_now(database), await read_view(database, response.confirmations[0].token)
 
         response, row, view = on_a_league(mongo_replica_set_url, body)
 
@@ -428,7 +428,7 @@ class TestTheSaveMintsForEachPersonItNewlySeats:
             first = await save(database, THREE)
             again = await save(database, THREE)
 
-            return first, again, await ansicht(database, first.confirmations[0].token)
+            return first, again, await read_view(database, first.confirmations[0].token)
 
         first, again, view = on_a_league(mongo_replica_set_url, body)
 
@@ -443,9 +443,9 @@ class TestTheSaveMintsForEachPersonItNewlySeats:
             old_token = next(mint.token for mint in first.confirmations if mint.rollen == ["ansprechperson"])
 
             with pytest.raises(APIError) as refusal:
-                await ansicht(database, old_token)
+                await read_view(database, old_token)
 
-            return handed, refusal.value.error_code, await ansicht(database, handed.confirmations[0].token)
+            return handed, refusal.value.error_code, await read_view(database, handed.confirmations[0].token)
 
         handed, code, view = on_a_league(mongo_replica_set_url, body)
 
@@ -458,7 +458,7 @@ class TestTheSaveMintsForEachPersonItNewlySeats:
             first = await save(database, THREE)
             await save(database, {**THREE, "stellvertretung": None})
 
-            return await refused(ansicht(database, first.confirmations[2].token)), await row_now(database)
+            return await refused(read_view(database, first.confirmations[2].token)), await row_now(database)
 
         code, row = on_a_league(mongo_replica_set_url, body)
 
@@ -471,7 +471,7 @@ class TestABarredAddressIsRefused:
 
     def test_a_save_seating_a_barred_address_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
-            await database[Collection.SPERRLISTE].insert_one(documents.ban_document("jonas@example.com", bis="2030"))
+            await database[Collection.BAN_LIST].insert_one(documents.ban_document("jonas@example.com", until="2030"))
             before = await row_now(database)
 
             return await refused(save(database, THREE)), before, await row_now(database)
@@ -488,7 +488,7 @@ class TestABarredAddressIsRefused:
             code = await refused(save(database, {**THREE, "ansprechperson": person("Lea")}))
             old_token = next(mint.token for mint in first.confirmations if mint.rollen == ["ansprechperson"])
 
-            return code, await ansicht(database, old_token), await row_now(database)
+            return code, await read_view(database, old_token), await row_now(database)
 
         code, view, row = on_a_league(mongo_replica_set_url, body)
 
@@ -512,7 +512,7 @@ class TestABarredAddressIsRefused:
 
     def test_a_resend_to_a_barred_address_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
-            await database[Collection.SPERRLISTE].insert_one(documents.ban_document("ida@example.com", bis="2030"))
+            await database[Collection.BAN_LIST].insert_one(documents.ban_document("ida@example.com", until="2030"))
             before = await row_now(database)
 
             return await refused(resend(database, "trainer")), before, await row_now(database)
@@ -526,7 +526,7 @@ class TestABarredAddressIsRefused:
         """The control: a check refusing every re-send would pass the case above."""
 
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
-            await database[Collection.SPERRLISTE].insert_one(documents.ban_document("jonas@example.com", bis="2030"))
+            await database[Collection.BAN_LIST].insert_one(documents.ban_document("jonas@example.com", until="2030"))
 
             return await resend(database, "trainer")
 
@@ -538,7 +538,7 @@ class TestTheResend:
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
             response = await resend(database, "ansprechperson")
 
-            return response, await row_now(database), await ansicht(database, response.bestaetigung.token)
+            return response, await row_now(database), await read_view(database, response.bestaetigung.token)
 
         response, row, view = on_a_league(mongo_replica_set_url, body, kontakte=STORED_UNCONFIRMED)
 
@@ -556,7 +556,7 @@ class TestTheResend:
             first = await save(database, THREE)
             again = await resend(database, "trainer", today="2026-04-05")
 
-            return first, again, await refused(ansicht(database, first.confirmations[0].token)), await row_now(database)
+            return first, again, await refused(read_view(database, first.confirmations[0].token)), await row_now(database)
 
         first, again, code, row = on_a_league(mongo_replica_set_url, body)
 
@@ -617,7 +617,7 @@ SAISON_ANSICHT_RESOLVES = frozenset(
     | {"kontakte.trainer_is_also", "saison_id", "name", "austritt"}
 )
 SAISON_ANTWORT_RESOLVES = (
-    SAISON_ANSICHT_RESOLVES | _seat_paths("kontakte", "einwilligung.umfang", "einwilligung.medien", "einwilligung.nachweis") | {"_id"}
+    SAISON_ANSICHT_RESOLVES | _seat_paths("kontakte", "einwilligung.umfang", "einwilligung.media", "einwilligung.evidence") | {"_id"}
 )
 
 
@@ -628,7 +628,7 @@ class TestWhatASeasonRowsLinkLoads:
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> list[Any]:
             response = await save(database, THREE)
             recorder = ReadsRecorded(database[Collection.SAISON_TEAMS])
-            await ansicht(database, response.confirmations[1].token, saison_teams=recorder)
+            await read_view(database, response.confirmations[1].token, saison_teams=recorder)
 
             return loaded_by_the_link(recorder)
 
@@ -653,7 +653,7 @@ class TestWhatASeasonRowsLinkLoads:
 
 class TestTheLinkConfirms:
     def test_confirming_stamps_the_seat_and_the_seat_then_grants_its_panel(self, mongo_replica_set_url: str):
-        """`funktionen_of` answers a seat only once its own person has confirmed it, so before the press it answers nothing."""
+        """`roles_of` answers a seat only once its own person has confirmed it, so before the press it answers nothing."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             response = await save(database, THREE)
@@ -708,7 +708,7 @@ class TestTheLinkConfirms:
 
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
             response = await save(database, PAIRED)
-            view = await ansicht(database, response.confirmations[0].token)
+            view = await read_view(database, response.confirmations[0].token)
             await answer(database, response.confirmations[0].token)
 
             return response, view, await row_now(database)
@@ -732,7 +732,7 @@ class TestTheLinkConfirms:
             token = response.confirmations[2].token
             answered = await answer(database, token, antwort="declined")
 
-            return answered, await row_now(database), await ansicht(database, token)
+            return answered, await row_now(database), await read_view(database, token)
 
         answered, row, view = on_a_league(mongo_replica_set_url, body)
 
@@ -856,7 +856,7 @@ class TestTheLinkConfirms:
 
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
             response = await save(database, THREE)
-            view = await ansicht(database, response.confirmations[0].token)
+            view = await read_view(database, response.confirmations[0].token)
             await answer(database, response.confirmations[0].token)
 
             return view, await row_now(database), await row_now(database, OTHER_ROW_OID)
@@ -875,8 +875,8 @@ class TestTheDeadline:
             token = response.confirmations[0].token
 
             return (
-                await ansicht(database, token, today=FRIST),
-                await ansicht(database, token, today=AFTER_THE_DEADLINE),
+                await read_view(database, token, today=FRIST),
+                await read_view(database, token, today=AFTER_THE_DEADLINE),
                 await refused(answer(database, token, today=AFTER_THE_DEADLINE)),
             )
 
@@ -905,7 +905,7 @@ class TestABanAfterTheMint:
             await ban(database, client, "ida@example.com")
             token = response.confirmations[0].token
 
-            return await ansicht(database, token), await refused(answer(database, token)), await row_now(database)
+            return await read_view(database, token), await refused(answer(database, token)), await row_now(database)
 
         view, code, row = on_a_league(mongo_replica_set_url, body)
 
@@ -932,16 +932,16 @@ class TestABanAfterTheMint:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             response = await save(database, THREE)
             await ban(database, client, "ida@example.com")
-            await database[Collection.SPERRLISTE].delete_many({})
+            await database[Collection.BAN_LIST].delete_many({})
             token = response.confirmations[0].token
 
-            return await ansicht(database, token), await answer(database, token, medien=True)
+            return await read_view(database, token), await answer(database, token, media=True)
 
         view, answered = on_a_league(mongo_replica_set_url, body)
 
         assert view.state == "valid"
         # The answer carries the media consent it stored, as the application's does.
-        assert (answered.ergebnis, answered.medien) == ("confirmed", True)
+        assert (answered.ergebnis, answered.media) == ("confirmed", True)
 
 
 class TestARowsPeopleLeavingTakeTheirLinks:
@@ -950,7 +950,7 @@ class TestARowsPeopleLeavingTakeTheirLinks:
             response = await save(database, THREE)
             await replace(database)
 
-            return [await refused(ansicht(database, mint.token)) for mint in response.confirmations], await row_now(database)
+            return [await refused(read_view(database, mint.token)) for mint in response.confirmations], await row_now(database)
 
         codes, row = on_a_league(mongo_replica_set_url, body)
 
@@ -962,7 +962,7 @@ class TestARowsPeopleLeavingTakeTheirLinks:
             response = await save(database, THREE)
             await save(database, None)
 
-            return [await refused(ansicht(database, mint.token)) for mint in response.confirmations], await row_now(database)
+            return [await refused(read_view(database, mint.token)) for mint in response.confirmations], await row_now(database)
 
         codes, row = on_a_league(mongo_replica_set_url, body)
 
@@ -974,7 +974,7 @@ class TestARowsPeopleLeavingTakeTheirLinks:
             response = await save(database, THREE)
             await erased(database, database.client, "jonas@example.com", germany_now=NOW)
 
-            return await refused(ansicht(database, response.confirmations[1].token))
+            return await refused(read_view(database, response.confirmations[1].token))
 
         assert on_a_league(mongo_replica_set_url, body) == Code.LINK_INVALID
 
@@ -985,7 +985,7 @@ class TestARowsPeopleLeavingTakeTheirLinks:
             response = await save(database, THREE)
             await database[Collection.SAISON_TEAMS].update_one({"_id": ROW_OID}, {"$set": {"kontakte.ansprechperson": None}})
 
-            return await refused(ansicht(database, response.confirmations[1].token))
+            return await refused(read_view(database, response.confirmations[1].token))
 
         assert on_a_league(mongo_replica_set_url, body) == Code.LINK_INVALID
 
@@ -1077,7 +1077,7 @@ class TestAnApplicationsLinkIsAnsweredAsBefore:
                     sent_at=TODAY,
                 )
             )
-            view = await ansicht(database, f"{raw}-trainer")
+            view = await read_view(database, f"{raw}-trainer")
             answered = await answer(database, f"{raw}-trainer")
 
             return view, answered
@@ -1118,19 +1118,19 @@ class TestARowNoLongerInTheSeason:
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
             response = await save(database, THREE)
             token = response.confirmations[0].token
-            view = await ansicht(database, token)
+            view = await read_view(database, token)
             consent = await refused(answer(database, token))
 
             return response, view, consent, await answer(database, token, antwort="declined"), await row_now(database)
 
-        response, view, consent, widerspruch, row = on_a_league(mongo_replica_set_url, body, saison_status=saison_status, row_fields=row_fields)
+        response, view, consent, objection, row = on_a_league(mongo_replica_set_url, body, saison_status=saison_status, row_fields=row_fields)
 
         assert [(mint.rollen, mint.row) for mint in response.confirmations] == [
             (["trainer"], zeile),
             (["ansprechperson"], zeile),
             (["stellvertretung"], zeile),
         ]
-        assert (view.state, consent, widerspruch.ergebnis) == ("saison_past", Code.KONTAKT_SAISON_PAST, "declined")
+        assert (view.state, consent, objection.ergebnis) == ("saison_past", Code.KONTAKT_SAISON_PAST, "declined")
         assert row["kontakte"]["trainer"] is None
 
     @pytest.mark.parametrize(
@@ -1180,11 +1180,11 @@ class TestALinkOutlivingItsSeason:
     def test_its_view_offers_a_widerspruch_alone_and_its_refused_consent_writes_nothing(self, mongo_replica_set_url: str, how: str, row: str):
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
             token = (await save(database, THREE)).confirmations[0].token
-            open_view = await ansicht(database, token)
+            open_view = await read_view(database, token)
             await self.closed(database, how)
             before = await row_now(database)
 
-            return open_view, await ansicht(database, token), await refused(answer(database, token)), before, await row_now(database)
+            return open_view, await read_view(database, token), await refused(answer(database, token)), before, await row_now(database)
 
         open_view, view, code, before, after = on_a_league(mongo_replica_set_url, body)
 
@@ -1200,7 +1200,7 @@ class TestALinkOutlivingItsSeason:
             token = (await save(database, THREE)).confirmations[0].token
             await self.closed(database, "past")
 
-            view = await ansicht(database, token, today=AFTER_THE_DEADLINE)
+            view = await read_view(database, token, today=AFTER_THE_DEADLINE)
 
             return view, await refused(answer(database, token, antwort="declined", today=AFTER_THE_DEADLINE))
 
@@ -1217,11 +1217,11 @@ class TestALinkOutlivingItsSeason:
             await self.closed(database, how)
             answered = await answer(database, token, antwort="declined")
 
-            return answered, await row_now(database), await ansicht(database, token)
+            return answered, await row_now(database), await read_view(database, token)
 
         answered, row, reopened = on_a_league(mongo_replica_set_url, body)
 
-        assert (answered.ergebnis, answered.medien) == ("declined", False)
+        assert (answered.ergebnis, answered.media) == ("declined", False)
         assert row["kontakte"]["trainer"] is None
         # Its answer outranks the closed row, as `barred` and `confirmed` do.
         assert reopened.state == "declined"
@@ -1261,7 +1261,7 @@ class TestARolloverInsideTheConsentPress:
                     saisons_collection=database[Collection.SAISONS],
                     spiele_collection=database[Collection.SPIELE],
                     spieltage_collection=database[Collection.SPIELTAGE],
-                    sperrliste_collection=database[Collection.SPERRLISTE],
+                    ban_list_collection=database[Collection.BAN_LIST],
                     db=client,
                 )
 
@@ -1294,7 +1294,7 @@ class TestTheLinkLookupWalksAnIndex:
             _, plans = await plans_of_sent_reads(
                 mongo_replica_set_url,
                 database,
-                lambda watched, _client: ansicht(watched, token),
+                lambda watched, _client: read_view(watched, token),
                 lambda collection, command: collection in lookups and "$or" in (command.get("filter") or {}),
             )
 
@@ -1349,7 +1349,7 @@ def accepted(kontakte: Mapping[str, Any]) -> dict[str, Any]:
         kontakte=dict(kontakte),
         submitted_at="2026-03-01",
         team_id=TEAM_OID,
-        decision={"made_at": "2026-03-25", "von": ADMIN, "grund": None},
+        decision={"made_at": "2026-03-25", "by": ADMIN, "grund": None},
     )
 
 

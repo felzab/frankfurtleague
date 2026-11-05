@@ -8,13 +8,13 @@ from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import WriteRefusal
 from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SCHIEDSRICHTER_ID
-from app.shared.alter import whole_years_between
+from app.shared.age import whole_years_between
 from app.shared.einwilligung import is_confirmed
-from app.shared.einwilligung_nachweis import TextVersions, compose_geboren
+from app.shared.einwilligung_evidence import TextVersions, compose_born
 from app.shared.folding import league_address, sign_in_identifier
 from app.shared.schemas.bounds import (
     BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
-    MEDIEN_MIN_AGE_YEARS,
+    MEDIA_MIN_AGE_YEARS,
     SCHIEDSRICHTER_CONFIRMATION_FRIST_DAYS,
     SCHIEDSRICHTER_MIN_AGE_YEARS,
 )
@@ -183,7 +183,7 @@ def compose_mint_update(*, today: str) -> dict[str, Any]:
     return {BESTAETIGUNG_FELD: compose_bestaetigung(today=today)}
 
 
-def compose_einwilligung(*, umfang: str, medien: bool, today: str) -> dict[str, Any]:
+def compose_einwilligung(*, umfang: str, media: bool, today: str) -> dict[str, Any]:
     """The record as the person's own press writes it.
 
     `datum` and `confirmed_at` are one day here where a pupil's are two: nobody enters this record
@@ -194,12 +194,12 @@ def compose_einwilligung(*, umfang: str, medien: bool, today: str) -> dict[str, 
         "umfang": umfang,
         "datum": today,
         "confirmed_at": today,
-        "medien": medien,
+        "media": media,
     }
 
 
 def compose_confirmation_update(
-    *, geburtsdatum: str, umfang: str, medien: bool, text_versions: TextVersions, today: str, am: str
+    *, geburtsdatum: str, umfang: str, media: bool, text_versions: TextVersions, today: str, at: str
 ) -> Mapping[str, Any]:
     """The ONE `$set` a confirmation is.
 
@@ -209,7 +209,7 @@ def compose_confirmation_update(
 
     # Born whole rather than moved: the stamp refusal admits only a row whose stored block no answer
     # of this referee's stands on, and a dotted `$set` under a null block aborts the transaction.
-    record = compose_geboren(block=compose_einwilligung(umfang=umfang, medien=medien, today=today), am=am, text_versions=text_versions)
+    record = compose_born(block=compose_einwilligung(umfang=umfang, media=media, today=today), at=at, text_versions=text_versions)
 
     return {"$set": {"geburtsdatum": geburtsdatum, EINWILLIGUNG_FELD: record}}
 
@@ -300,7 +300,7 @@ def find_already_confirmed_refusal(*, einwilligung: Any) -> WriteRefusal | None:
     )
 
 
-def find_bestaetigung_gesperrt_refusal(*, barred: bool) -> WriteRefusal | None:
+def find_confirmation_barred_refusal(*, barred: bool) -> WriteRefusal | None:
     """`link_barred`: the ban list holds the address this link was mailed to, however long ago it was minted."""
 
     if not barred:
@@ -336,20 +336,20 @@ def find_alter_refusal(*, geburtsdatum: str, today: str) -> WriteRefusal | None:
     return None
 
 
-def find_medien_refusal(*, geburtsdatum: str, medien: bool, today: str) -> WriteRefusal | None:
+def find_medien_refusal(*, geburtsdatum: str, media: bool, today: str) -> WriteRefusal | None:
     """Why this referee's media consent is refused, or `None`.
 
     Only a `True` is judged: a `False` publishes nothing, and refusing it would refuse the answer the
     page sends every referee below the floor.
     """
 
-    if not medien or whole_years_between(born=geburtsdatum, today=today) >= MEDIEN_MIN_AGE_YEARS:
+    if not media or whole_years_between(born=geburtsdatum, today=today) >= MEDIA_MIN_AGE_YEARS:
         return None
 
     return WriteRefusal(
-        error_code=Code.MEDIEN_AGE,
+        error_code=Code.MEDIA_AGE,
         status=HTTPStatus.UNPROCESSABLE_CONTENT,
-        fields=(("medien",),),
+        fields=(("media",),),
     )
 
 
@@ -392,7 +392,7 @@ def find_missing_address_refusal(*, email: Any) -> WriteRefusal | None:
     )
 
 
-def find_gesperrt_refusal(*, barred: bool) -> WriteRefusal | None:
+def find_barred_refusal(*, barred: bool) -> WriteRefusal | None:
     """Why no link may be sent to this address, or `None`. Worded for the administrator who typed it, every site raising it being admin-tier."""
 
     if not barred:
@@ -523,7 +523,7 @@ SELF_REFEREE_ORDER: Final[Mapping[str, int]] = {"_id": 1}
 
 
 def build_self_referee_pipeline(identifier: str) -> list[Mapping[str, Any]]:
-    """The referee rows the referee's own page reads, each a candidate for `app/api/identity/services.py :: ist_eigener_schiedsrichter`.
+    """The referee rows the referee's own page reads, each a candidate for `app/api/identity/services.py :: is_own_schiedsrichter`.
 
     Unbounded: a capped list reads as a person holding fewer records.
     """

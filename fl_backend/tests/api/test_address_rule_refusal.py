@@ -152,18 +152,18 @@ class TestEveryAddressPayloadHoldsTheSameRule:
 
 
 # The lookup the reveal and the sign-out take, and the erasure's, which takes it beside the request it answers.
-LOESCHUNG_PAYLOADS: Mapping[str, Callable[[str], Any]] = {
+ERASURE_PAYLOADS: Mapping[str, Callable[[str], Any]] = {
     "the lookup": lambda email: FLErasureAdressePayload(email=email),
     "the erasure": lambda email: FLErasurePayload(email=email, anlass="Mail vom 30.03.2026"),
 }
 
 
-class TestTheLoeschungLooksUpWhatAnyRuleStored:
+class TestTheErasureLooksUpWhatAnyRuleStored:
     """GDPR Art. 17: a seat stored before today's rules may hold an address they refuse, and refusing it here leaves that person unerasable."""
 
-    @pytest.mark.parametrize("payload", list(LOESCHUNG_PAYLOADS.values()), ids=list(LOESCHUNG_PAYLOADS))
+    @pytest.mark.parametrize("payload", list(ERASURE_PAYLOADS.values()), ids=list(ERASURE_PAYLOADS))
     @pytest.mark.parametrize("email", [*BEYOND_ASCII, pytest.param("anna..mueller@schule.de", id="an address the installed EmailStr refuses")])
-    def test_the_loeschung_takes_an_address_no_address_rule_admits(self, email: str, payload: Callable[[str], Any]):
+    def test_the_erasure_takes_an_address_no_address_rule_admits(self, email: str, payload: Callable[[str], Any]):
         assert payload(email).email == email
 
     @pytest.mark.parametrize(
@@ -174,7 +174,7 @@ class TestTheLoeschungLooksUpWhatAnyRuleStored:
             pytest.param(f"{'a' * KONTAKT_EMAIL_MAX_LENGTH}@schule.de", id="past the ceiling"),
         ],
     )
-    @pytest.mark.parametrize("payload", list(LOESCHUNG_PAYLOADS.values()), ids=list(LOESCHUNG_PAYLOADS))
-    def test_the_loeschung_refuses_what_names_no_stored_seat(self, email: str, payload: Callable[[str], Any]):
+    @pytest.mark.parametrize("payload", list(ERASURE_PAYLOADS.values()), ids=list(ERASURE_PAYLOADS))
+    def test_the_erasure_refuses_what_names_no_stored_seat(self, email: str, payload: Callable[[str], Any]):
         with pytest.raises(ValidationError):
             payload(email)

@@ -231,14 +231,14 @@ async def discard_spielbestaetigung(
                 session=session,
             )
             verein = next((verein for verein in vereine if verein["team_id"] == row["party"]["team_id"]), None)
-            namen = vereinsnamen_of(spielbestaetigung_raw=row, lage=AnsetzungLage(spiel=spiel, vereine=vereine))
-            daten = notice_daten_of(
-                grund="discarded", partei_art="team", appointment=spiel_mail_termin_of(spielbestaetigung_raw=row, namen=namen)
+            names = vereinsnamen_of(spielbestaetigung_raw=row, lage=AnsetzungLage(spiel=spiel, vereine=vereine))
+            data = notice_daten_of(
+                grund="discarded", partei_art="team", appointment=spiel_mail_termin_of(spielbestaetigung_raw=row, names=names)
             )
             mails = (
                 []
                 if verein is None
-                else team_notices(spielbestaetigung_raw=row, kontakte=verein.get("kontakte"), data=daten, anlass="discarded")
+                else team_notices(spielbestaetigung_raw=row, kontakte=verein.get("kontakte"), data=data, anlass="discarded")
             )
             if verein is not None and mails:
                 # A seat emptied or an address moved beside this write conflicts with it rather than leaving the old mailbox told.

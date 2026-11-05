@@ -60,8 +60,8 @@ from tests.payloads import spiel_patch_body
 from tests.session_headers import fresh_admin_actor
 from tests.worker import worker_database
 
-from .adresswechsel_harness import answer as answer_the_change
-from .adresswechsel_harness import start as start_the_change
+from .address_change_harness import answer as answer_the_change
+from .address_change_harness import start as start_the_change
 
 DATABASE_NAME = worker_database("fl_schiedsrichter_anonymisierung_test")
 
@@ -166,7 +166,7 @@ def referee_document(schiedsrichter_id: ObjectId) -> dict[str, Any]:
         # Seeded because the erasure adds no `$set` for any of the three: a row carrying none of
         # them would let a nulling write pass every case below.
         "confirmation": {**compose_bestaetigung(today=MINTED_ON), "token_hashes": [TOKEN_HASHES[schiedsrichter_id]]},
-        "einwilligung": own_einwilligung_document(text_versions=SCHIEDSRICHTER_TEXT_VERSIONS, confirmed_at=MINTED_ON, medien=True),
+        "einwilligung": own_einwilligung_document(text_versions=SCHIEDSRICHTER_TEXT_VERSIONS, confirmed_at=MINTED_ON, media=True),
         "geburtsdatum": GEBURTSDATUM,
     }
 
@@ -582,10 +582,10 @@ def test_the_single_read_answers_for_neither_the_geloescht_referee_nor_the_ghost
                 await get_schiedsrichter_by_id(
                     schiedsrichter_id=schiedsrichter_id,
                     schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-                    adresswechsel_collection=database[Collection.ADDRESS_CHANGES],
+                    address_change_collection=database[Collection.ADDRESS_CHANGES],
                     today=TODAY,
-                    berechtigungen_collection=database[Collection.GRANTS],
-                    berechtigungen_angekuendigt_collection=database[Collection.GRANTS_ANNOUNCED],
+                    grants_collection=database[Collection.GRANTS],
+                    grants_announced_collection=database[Collection.GRANTS_ANNOUNCED],
                     outbox_collection=database[Collection.OUTBOX],
                     operator=ADMINISTRATORS[0],
                     auth_time=int(time.time()),

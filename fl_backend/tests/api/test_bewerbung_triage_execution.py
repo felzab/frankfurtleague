@@ -230,7 +230,7 @@ async def accept(
         outbox_collection=database[Collection.OUTBOX],
         db=client,
         today=TODAY,
-        von=ADMIN_EMAIL,
+        by=ADMIN_EMAIL,
         germany_now=MAIL_NOW,
     )
 
@@ -253,7 +253,7 @@ async def decline(database: AsyncDatabase, bewerbung_id: ObjectId, *, grund: str
         teams_collection=database[Collection.TEAMS],
         outbox_collection=database[Collection.OUTBOX],
         today=TODAY,
-        von=ADMIN_EMAIL,
+        by=ADMIN_EMAIL,
         db=database.client,
         germany_now=MAIL_NOW,
     )
@@ -328,7 +328,7 @@ class TestAnAcceptanceEntersTheSchool:
 
         # The write the acceptance owes the application: without it a new school's row names no club.
         assert (stored["status"], stored["team_id"]) == ("accepted", created["_id"])
-        assert stored["decision"] == {"made_at": TODAY, "von": ADMIN_EMAIL, "grund": None}
+        assert stored["decision"] == {"made_at": TODAY, "by": ADMIN_EMAIL, "grund": None}
         assert (response.team_id, response.created_team, response.gruppe) == (created["_id"], True, "A")
 
     def test_an_application_naming_an_existing_club_creates_none(self, mongo_replica_set_url: str):
@@ -376,7 +376,7 @@ class TestAnAcceptanceEntersTheSchool:
                 {"_id": PICKED_BEWERBUNG},
                 {
                     "$set": {
-                        **{f"kontakte.{slot}.einwilligung.entered_by": von for slot, von in seated.items()},
+                        **{f"kontakte.{slot}.einwilligung.entered_by": by for slot, by in seated.items()},
                         # The Trainer confirmed: entry carries a stamped seat whole, an unstamped one recomposed.
                         "kontakte.trainer.einwilligung.confirmed_at": TODAY,
                     }
@@ -755,7 +755,7 @@ class TestADuplicateShorthandIsAConflictAndNotHalfAClub:
 
 @pytest.mark.db
 class TestWhoTheDecisionNames:
-    """`decision.von` is the request's bound actor, so it and the `aktionen` row cannot disagree.
+    """`decision.by` is the request's bound actor, so it and the `aktionen` row cannot disagree.
 
     Served rather than called: calling the endpoint directly would resolve neither
     `bind_actor` nor `get_actor_email`, proving nothing about their order.
@@ -773,8 +773,8 @@ class TestWhoTheDecisionNames:
         status_code, entscheidung = on_a_league(mongo_replica_set_url, body)
 
         assert status_code == 200, "the served acceptance did not succeed, so what it stored proves nothing"
-        assert entscheidung["von"] == ADMIN_EMAIL
-        assert entscheidung["von"] != SYSTEM_ACTOR_EMAIL
+        assert entscheidung["by"] == ADMIN_EMAIL
+        assert entscheidung["by"] != SYSTEM_ACTOR_EMAIL
         # The injected clock reached it too, so the date is the request's rather than the wall's.
         assert (entscheidung["made_at"], entscheidung["grund"]) == (TODAY, None)
 
@@ -790,7 +790,7 @@ class TestWhoTheDecisionNames:
         rows, entscheidung = on_a_league(mongo_replica_set_url, body)
 
         assert len(rows) == 1, f"the acceptance recorded {len(rows)} rows against the application, not one"
-        assert rows[0]["actor"] == {"kind": "admin_session", "email": entscheidung["von"]}
+        assert rows[0]["actor"] == {"kind": "admin_session", "email": entscheidung["by"]}
 
     def test_a_served_decline_names_the_administrator_as_well(self, mongo_replica_set_url: str):
         """The decline is a second endpoint writing a block of its own, so the acceptance's proof says nothing about it.
@@ -807,8 +807,8 @@ class TestWhoTheDecisionNames:
         status_code, entscheidung = on_a_league(mongo_replica_set_url, body)
 
         assert status_code == 200, "the served decline did not succeed, so what it stored proves nothing"
-        assert entscheidung["von"] == ADMIN_EMAIL
-        assert entscheidung["von"] != SYSTEM_ACTOR_EMAIL
+        assert entscheidung["by"] == ADMIN_EMAIL
+        assert entscheidung["by"] != SYSTEM_ACTOR_EMAIL
         assert entscheidung["made_at"] == TODAY
 
 
@@ -857,7 +857,7 @@ class TestADeclineTouchesNothingElse:
         status, entscheidung, team_id, rows = on_a_league(mongo_replica_set_url, body)
 
         assert status == "declined"
-        assert entscheidung == {"made_at": TODAY, "von": ADMIN_EMAIL, "grund": GRUND}
+        assert entscheidung == {"made_at": TODAY, "by": ADMIN_EMAIL, "grund": GRUND}
         # Left as the applicant picked it: a decline creates no reference and clears none.
         assert (team_id, rows) == (EXISTING_OID, [])
 
@@ -1018,7 +1018,7 @@ class TestTwoDeclinesAtOnce:
                     outbox_collection=database[Collection.OUTBOX],
                     germany_now=MAIL_NOW,
                     today=TODAY,
-                    von=OTHER_ADMIN_EMAIL,
+                    by=OTHER_ADMIN_EMAIL,
                     db=database.client,
                 )
             # With the first committed before it, the second is refused at its read and never reaches the write.
@@ -1045,7 +1045,7 @@ class TestTwoDeclinesAtOnce:
                     outbox_collection=database[Collection.OUTBOX],
                     germany_now=MAIL_NOW,
                     today=TODAY,
-                    von=OTHER_ADMIN_EMAIL,
+                    by=OTHER_ADMIN_EMAIL,
                     db=database.client,
                 )
 
@@ -1229,7 +1229,7 @@ class TestADeclineLandingInsideAnAcceptance:
                     germany_now=MAIL_NOW,
                     db=client,
                     today=TODAY,
-                    von=OTHER_ADMIN_EMAIL,
+                    by=OTHER_ADMIN_EMAIL,
                 )
             # With the decline committed before it, the acceptance is refused at its read and never reaches the patch.
             racing.assert_landed_inside(serially=0)
@@ -1249,7 +1249,7 @@ CORRECTED_EMAIL = "sekretariat@zorbanax.example.de"
 
 
 # Composed by the production helper rather than spelled, so a drifted bound cannot leave these cases passing over a lapsed row.
-STANDING = compose_gesperrt_bis_saison_id(massgebliche_saison_id=SAISON_ID)
+STANDING = compose_gesperrt_bis_saison_id(governing_saison_id=SAISON_ID)
 
 
 REFUSED_MESSAGE = "49a3999c-0ce1-4ea6-ab68-afcd6dc2e794"
@@ -1298,17 +1298,17 @@ async def seed_a_pair_whose_seats_diverge(
 
     kontakte = confirmed_kontakte(open_seat=open_seat)
     kontakte["trainer_is_also"] = open_seat
-    bestaetigungen = dict(BESTAETIGUNGEN)
+    confirmations = dict(BESTAETIGUNGEN)
 
     if stepped_out:
         # Written rather than driven: `post_einwilligung` pairs off that same claim, and its decline
         # would empty the confirmed seat this fixture exists to keep.
         kontakte[open_seat] = None
-        bestaetigungen[open_seat] = {**BESTAETIGUNGEN[open_seat], "declined_at": "2026-03-25"}
+        confirmations[open_seat] = {**BESTAETIGUNGEN[open_seat], "declined_at": "2026-03-25"}
 
     await database[Collection.BEWERBUNGEN].insert_one(
         bewerbung_document(
-            bewerbung_id, team_id=EXISTING_OID, kontakte=kontakte, confirmations=bestaetigungen, confirmation_deadline="2026-04-20"
+            bewerbung_id, team_id=EXISTING_OID, kontakte=kontakte, confirmations=confirmations, confirmation_deadline="2026-04-20"
         )
     )
 
@@ -1699,7 +1699,7 @@ class TestAResendRacingAnAnswer:
             address = str(before["kontakte"]["ansprechperson"]["email"])
 
             async def ban() -> None:
-                await database[Collection.SPERRLISTE].insert_one(ban_document(address, bis=STANDING))
+                await database[Collection.BAN_LIST].insert_one(ban_document(address, until=STANDING))
 
             with pytest.raises(APIError) as refused:
                 await resend(database, "ansprechperson", bewerbungen=MissesTheFirstWrite(database[Collection.BEWERBUNGEN], meanwhile=ban))
@@ -1790,12 +1790,12 @@ async def answer_for(database: AsyncDatabase, client: AsyncMongoClient, token: s
     return await post_einwilligung(
         # A Widerspruch unless the case answers otherwise, and then a consent naming its own date and labels.
         antwort_data=TypeAdapter(FLBewerbungEinwilligungAntwortPayload).validate_python(
-            {"token": token, **({"whatsapp": False, "medien": False, **answer} if answer else {"antwort": "declined"})}
+            {"token": token, **({"whatsapp": False, "media": False, **answer} if answer else {"antwort": "declined"})}
         ),
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
-        aktionen_collection=database[Collection.ACTION_LOG],
+        action_log_collection=database[Collection.ACTION_LOG],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
         outbox_collection=database[Collection.OUTBOX],
         sperrliste=ban_list(database),
@@ -1864,7 +1864,7 @@ class TestSeatingAnotherPersonInAnEmptiedSeat:
                 "umfang": "kontaktdaten",
                 "datum": TODAY,
                 "confirmed_at": None,
-                "medien": False,
+                "media": False,
                 "entered_by": "liga",
             },
         }
@@ -2068,7 +2068,7 @@ class TestABannedContactAddress:
 
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
             before = await seed_an_open_ansprechperson_seat(database)
-            await database[Collection.SPERRLISTE].insert_one(ban_document(str(before["kontakte"]["ansprechperson"]["email"]), bis=STANDING))
+            await database[Collection.BAN_LIST].insert_one(ban_document(str(before["kontakte"]["ansprechperson"]["email"]), until=STANDING))
             with pytest.raises(APIError) as failure:
                 await resend(database, "ansprechperson")
 
@@ -2084,7 +2084,7 @@ class TestABannedContactAddress:
 
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
             await seed_an_open_ansprechperson_seat(database)
-            await database[Collection.SPERRLISTE].insert_one(ban_document(CORRECTED_EMAIL, bis=STANDING))
+            await database[Collection.BAN_LIST].insert_one(ban_document(CORRECTED_EMAIL, until=STANDING))
 
             return await resend(database, "ansprechperson")
 
@@ -2106,7 +2106,7 @@ class TestABannedContactAddress:
     def test_a_correction_naming_a_banned_address_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await seed_a_bounced_application(database, client)
-            await database[Collection.SPERRLISTE].insert_one(ban_document(CORRECTED_EMAIL, bis=STANDING))
+            await database[Collection.BAN_LIST].insert_one(ban_document(CORRECTED_EMAIL, until=STANDING))
             before = await stored_bewerbung(database, CORRECTION_BEWERBUNG)
             with pytest.raises(APIError) as failure:
                 await correct(database, client, "ansprechperson")
@@ -2121,7 +2121,7 @@ class TestABannedContactAddress:
     def test_a_reseat_naming_a_banned_address_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await seed_an_application_a_seat_was_declined_on(database, client)
-            await database[Collection.SPERRLISTE].insert_one(ban_document(RESEAT_PERSON["email"], bis=STANDING))
+            await database[Collection.BAN_LIST].insert_one(ban_document(RESEAT_PERSON["email"], until=STANDING))
             before = await stored_bewerbung(database, RESEAT_BEWERBUNG)
             with pytest.raises(APIError) as failure:
                 await reseat(database, client, "ansprechperson")

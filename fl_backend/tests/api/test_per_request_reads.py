@@ -14,11 +14,11 @@ from pymongo import AsyncMongoClient, monitoring
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.account.person_router import get_einwilligungen
-from app.api.identity.crud import find_subjekt, funktionen_of
+from app.api.identity.crud import find_subject, roles_of
 from app.core.collections import Collection
 from tests.records import record_collections
 
-from .test_identity_subjekt_execution import IDENTIFIER, on_a_league
+from .test_identity_subject_execution import IDENTIFIER, on_a_league
 
 pytestmark = pytest.mark.db
 
@@ -58,7 +58,7 @@ def test_the_subject_lookup_answers_a_seats_season_from_the_seat_read(mongo_repl
     """`POST /identity/subject` answers every signed-in render: a season read after the seats is a second round trip on every page."""
 
     async def body(database: AsyncDatabase) -> Any:
-        return await _counted(mongo_replica_set_url, database, lambda _, db: find_subjekt(IDENTIFIER, record_collections(db)))
+        return await _counted(mongo_replica_set_url, database, lambda _, db: find_subject(IDENTIFIER, record_collections(db)))
 
     answer, sent = on_a_league(mongo_replica_set_url, body)
 
@@ -73,7 +73,7 @@ def test_a_person_endpoint_reads_the_three_role_records_in_its_session(mongo_rep
     async def body(database: AsyncDatabase) -> Any:
         async def judged(client: AsyncMongoClient, db: AsyncDatabase) -> Any:
             async with client.start_session(snapshot=True) as session:
-                return await funktionen_of(IDENTIFIER, record_collections(db), session=session), session.session_id
+                return await roles_of(IDENTIFIER, record_collections(db), session=session), session.session_id
 
         return await _counted(mongo_replica_set_url, database, judged)
 

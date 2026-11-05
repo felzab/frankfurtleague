@@ -62,7 +62,9 @@ PUPIL_EMAIL = "wraxlington@example.com"
 REFEREE_OID = ObjectId("6890a1b2c3d4e5f607e10005")
 STEPPED_OUT_OID = ObjectId("6890a1b2c3d4e5f607e10007")
 
-OPEN_WINDOW = {"offen": True, "von": "2026-03-01", "bis": "2026-04-30"}
+OPEN_WINDOW = {"offen": True, "start": "2026-03-01", "end": "2026-04-30"}
+# The registration window's own shape: it stores its start as `von`.
+OPEN_REGISTRATION_WINDOW = {"offen": True, "von": "2026-03-01", "end": "2026-04-30"}
 
 REFEREE_NAME = "Bernd Kraus"
 TELEFON = "+49 69 5550202"
@@ -86,7 +88,7 @@ async def a_league(database: AsyncDatabase) -> None:
     """
 
     await database[Collection.SAISONS].insert_one(
-        saison_document(SAISON_ID, "active", registrierung=dict(OPEN_WINDOW), bewerbung=dict(OPEN_WINDOW))
+        saison_document(SAISON_ID, "active", registrierung=dict(OPEN_REGISTRATION_WINDOW), bewerbung=dict(OPEN_WINDOW))
     )
     await database[Collection.TEAMS].insert_one(team_document(TEAM_OID, "Lindenschule", "LSX"))
     await database[Collection.SAISON_TEAMS].insert_one(saison_team_document(SAISON_ID, TEAM_OID, "Lindenschule", "LSX", kontakte=None))
@@ -263,7 +265,7 @@ class TestAWriteKeepingTheirSeatInsideTheLoeschungLeavesNothing:
                 filed.append(await database[Collection.ACTION_LOG].count_documents(on_the_row) - rows_before)
 
             grants = GrantsReadThenRival(database[Collection.GRANTS], keep_the_seat)
-            outcome = await outcome_of(erased(database, client, TYPED, germany_now=NOW, berechtigungen_collection=grants))
+            outcome = await outcome_of(erased(database, client, TYPED, germany_now=NOW, grants_collection=grants))
 
             return outcome, written, filed, (await club_row(database))["kontakte"]["trainer"], await where_folded_to(database, IDENTIFIER)
 

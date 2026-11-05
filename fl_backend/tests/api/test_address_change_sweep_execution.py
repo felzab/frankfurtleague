@@ -2,7 +2,7 @@
 API · the address change's clock against the shipped indexes: lapses end, due changes take effect, each judged again
 
 A live change whose step lapsed ends within the hour, and a confirmed change whose waiting time ended takes effect or is
-refused, the refused one's new address answered alone. The share's sizing is `tests/api/test_adresswechsel_sweep_refusal.py`'s.
+refused, the refused one's new address answered alone. The share's sizing is `tests/api/test_address_change_sweep_refusal.py`'s.
 """
 
 import re
@@ -18,10 +18,10 @@ from bson import ObjectId
 from pymongo import AsyncMongoClient, ReturnDocument
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.adresswechsel.schemas import FLAddressChangeMovesDonePayload, FLAdresswechselSweepParams
-from app.api.adresswechsel.services import compose_genehmigung, wirksam_ab_von
-from app.api.adresswechsel.system_router import (
-    ADRESSWECHSEL_PER_PASS,
+from app.api.address_change.schemas import FLAddressChangeMovesDonePayload, FLAddressChangeSweepParams
+from app.api.address_change.services import compose_approval, effective_from_confirmed
+from app.api.address_change.system_router import (
+    ADDRESS_CHANGE_PER_PASS,
     get_address_change_moves,
     post_address_change_moves_done,
     sweep_address_change,
@@ -44,12 +44,12 @@ from tests.whole_database import where_held
 from tests.wire import commands_by_name, commands_sent
 from tests.worker import worker_database
 
-from .adresswechsel_harness import owed
-from .test_adresswechsel_sweep_refusal import COMMANDS_A_DUE_PERSON, COMMANDS_A_LAPSE, OTHER_COMMANDS, SEASON_READ
+from .address_change_harness import owed
+from .test_address_change_sweep_refusal import COMMANDS_A_DUE_PERSON, COMMANDS_A_LAPSE, OTHER_COMMANDS, SEASON_READ
 
 pytestmark = pytest.mark.db
 
-DATABASE_NAME = worker_database("fl_adresswechsel_sweep_test")
+DATABASE_NAME = worker_database("fl_address_change_sweep_test")
 
 # Minted at noon on these days, the link lapsed at noon today, half an hour before `NOW`, and lapses tomorrow.
 MINTED_TO_LAPSE_YESTERDAY = "2126-04-15"
@@ -97,7 +97,7 @@ def confirmed_on(change: dict[str, Any], confirmed_at: datetime) -> dict[str, An
         "valid_until": None,
         "grund": "Postfach gelöscht, telefonisch bestätigt",
         "confirmed_at": confirmed_at,
-        "effective_from": wirksam_ab_von(confirmed_at),
+        "effective_from": effective_from_confirmed(confirmed_at),
     }
 
 
@@ -154,25 +154,25 @@ def on_a_league(url: str, body: Body, *, mutates_schema: bool = False) -> Any:
     return on_the_seed_loop(_run())
 
 
-async def sweep(database: AsyncDatabase, client: AsyncMongoClient, *, nach: Any = None, **replaced: Any) -> Any:
+async def sweep(database: AsyncDatabase, client: AsyncMongoClient, *, after: Any = None, **replaced: Any) -> Any:
     return await sweep_address_change(
-        params=FLAdresswechselSweepParams(nach=nach),
-        records=record_collections(database, **{name: value for name, value in replaced.items() if name != "adresswechsel_collection"}),
-        adresswechsel_collection=replaced.get("adresswechsel_collection", database[Collection.ADDRESS_CHANGES]),
+        params=FLAddressChangeSweepParams(after=after),
+        records=record_collections(database, **{name: value for name, value in replaced.items() if name != "address_change_collection"}),
+        address_change_collection=replaced.get("address_change_collection", database[Collection.ADDRESS_CHANGES]),
         spieler_collection=replaced.get("spieler_collection", database[Collection.SPIELER]),
         schiedsrichter_collection=replaced.get("schiedsrichter_collection", database[Collection.SCHIEDSRICHTER]),
         saison_teams_collection=replaced.get("saison_teams_collection", database[Collection.SAISON_TEAMS]),
         bewerbungen_collection=replaced.get("bewerbungen_collection", database[Collection.BEWERBUNGEN]),
         registrierungen_collection=replaced.get("registrierungen_collection", database[Collection.REGISTRIERUNGEN]),
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
-        berechtigungen_collection=database[Collection.GRANTS],
-        berechtigungen_angekuendigt_collection=database[Collection.GRANTS_ANNOUNCED],
+        grants_collection=database[Collection.GRANTS],
+        grants_announced_collection=database[Collection.GRANTS_ANNOUNCED],
         outbox_collection=database[Collection.OUTBOX],
-        berechtigungen_antraege_collection=database[Collection.GRANT_APPROVAL_REQUESTS],
-        einladungen_collection=database[Collection.INVITATIONS],
-        sperrliste_collection=database[Collection.SPERRLISTE],
+        grants_approval_requests_collection=database[Collection.GRANT_APPROVAL_REQUESTS],
+        invitations_collection=database[Collection.INVITATIONS],
+        ban_list_collection=database[Collection.BAN_LIST],
         sperrliste=ban_list(database),
-        aktionen_collection=database[Collection.ACTION_LOG],
+        action_log_collection=database[Collection.ACTION_LOG],
         db=client,
         config=build_test_config(),
         germany_now=NOW,
@@ -184,12 +184,12 @@ CALLS_A_PASS = 5
 
 
 async def a_pass(database: AsyncDatabase, client: AsyncMongoClient) -> list[Any]:
-    """Calls handing each the `nach` the last answered, until one answers null, as the hourly pass loops."""
+    """Calls handing each the `after` the last answered, until one answers null, as the hourly pass loops."""
 
     answers = [await sweep(database, client)]
-    while answers[-1].nach is not None:
-        assert len(answers) < CALLS_A_PASS, f"the pass did not end in {CALLS_A_PASS} calls: {[answer.nach for answer in answers]}"
-        answers.append(await sweep(database, client, nach=answers[-1].nach))
+    while answers[-1].after is not None:
+        assert len(answers) < CALLS_A_PASS, f"the pass did not end in {CALLS_A_PASS} calls: {[answer.after for answer in answers]}"
+        answers.append(await sweep(database, client, after=answers[-1].after))
 
     return answers
 
@@ -234,7 +234,7 @@ class TestALapsedChangeEndsOnceItsDeadlinePassed:
 
         answer, ended, standing, held = on_a_league(mongo_replica_set_url, body)
 
-        assert (answer.removed, answer.discarded, answer.effective, answer.remaining, answer.nach) == (1, 0, 0, 0, None)
+        assert (answer.removed, answer.discarded, answer.effective, answer.remaining, answer.after) == (1, 0, 0, 0, None)
         assert (ended["ended"]["art"], ended["adresse"], ended["email"]) == ("expired", None, None)
         assert standing == [numbered(2)]
         assert held == {pending(1): []}
@@ -272,7 +272,7 @@ class TestADueChangeTakesEffect:
             await a_due_person(database, 1)
             address = on_file(1) if barred == "on_file" else pending(1)
             await ban_through_the_route(
-                database, client, email=address, grund="Falschangaben", von="admin@frankfurtleague.de", today="2126-04-16"
+                database, client, email=address, grund="Falschangaben", by="admin@frankfurtleague.de", today="2126-04-16"
             )
 
             answer = await sweep(database, client)
@@ -327,7 +327,7 @@ class TestEachChangeIsJudgedAgainInItsOwnTransaction:
                 )
 
             answer = await sweep(
-                database, client, adresswechsel_collection=WrittenAfterTheRead(database[Collection.ADDRESS_CHANGES], send_it_again)
+                database, client, address_change_collection=WrittenAfterTheRead(database[Collection.ADDRESS_CHANGES], send_it_again)
             )
 
             return (answer.removed, answer.remaining), await live(database)
@@ -342,16 +342,16 @@ class TestEachCallTakesAShare:
     def test_a_share_and_one_more_take_a_pass_of_two_calls(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.ADDRESS_CHANGES].insert_many(
-                [a_change(position, minted=MINTED_TO_LAPSE_YESTERDAY) for position in range(ADRESSWECHSEL_PER_PASS + 1)]
+                [a_change(position, minted=MINTED_TO_LAPSE_YESTERDAY) for position in range(ADDRESS_CHANGE_PER_PASS + 1)]
             )
             answers = await a_pass(database, client)
             later = await sweep(database, client)
 
-            return [(answer.removed, answer.remaining, answer.nach) for answer in answers], (later.removed, later.remaining, later.nach)
+            return [(answer.removed, answer.remaining, answer.after) for answer in answers], (later.removed, later.remaining, later.after)
 
         answers, later = on_a_league(mongo_replica_set_url, body)
 
-        assert answers == [(ADRESSWECHSEL_PER_PASS, 1, numbered(ADRESSWECHSEL_PER_PASS - 1)), (1, 0, None)]
+        assert answers == [(ADDRESS_CHANGE_PER_PASS, 1, numbered(ADDRESS_CHANGE_PER_PASS - 1)), (1, 0, None)]
         assert later == (0, 0, None)
 
     def test_changes_parked_on_an_approval_take_no_share(self, mongo_replica_set_url: str):
@@ -366,11 +366,11 @@ class TestEachCallTakesAShare:
                 "way": "account",
                 "valid_until": None,
                 "confirmed_at": CONFIRMED_TO_WAIT,
-                "approval": compose_genehmigung(verwaltung="administration", started_by=on_file(position), now=CONFIRMED_TO_WAIT),
+                "approval": compose_approval(admin_tier="administration", started_by=on_file(position), now=CONFIRMED_TO_WAIT),
             }
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            positions = range(ADRESSWECHSEL_PER_PASS + 1)
+            positions = range(ADDRESS_CHANGE_PER_PASS + 1)
             await database[Collection.ADDRESS_CHANGES].insert_many([parked(position) for position in positions])
             await database[Collection.GRANTS].insert_many(
                 [{**grants_for_the_suite()[1], "_id": ObjectId(), "adresse": on_file(position)} for position in positions]
@@ -379,8 +379,8 @@ class TestEachCallTakesAShare:
 
         answer, standing = on_a_league(mongo_replica_set_url, body)
 
-        assert (answer.effective, answer.remaining, answer.nach) == (0, 0, None)
-        assert len(standing) == ADRESSWECHSEL_PER_PASS + 1
+        assert (answer.effective, answer.remaining, answer.after) == (0, 0, None)
+        assert len(standing) == ADDRESS_CHANGE_PER_PASS + 1
 
 
 class NotTheDatabases(Exception):
@@ -413,10 +413,10 @@ class TestOneChangeHoldsBackNoOther:
                 [a_change(position, minted=MINTED_TO_LAPSE_YESTERDAY) for position in (1, 2)]
             )
             answer = await sweep(
-                database, client, adresswechsel_collection=RaisesOnOneChange(database[Collection.ADDRESS_CHANGES], numbered(1))
+                database, client, address_change_collection=RaisesOnOneChange(database[Collection.ADDRESS_CHANGES], numbered(1))
             )
 
-            return (answer.removed, answer.remaining, answer.nach), await live(database)
+            return (answer.removed, answer.remaining, answer.after), await live(database)
 
         with caplog.at_level("ERROR"):
             counts, standing = on_a_league(mongo_replica_set_url, body)
@@ -425,7 +425,7 @@ class TestOneChangeHoldsBackNoOther:
         assert standing == [numbered(1)]
         [failure] = [record for record in caplog.records if getattr(record, "error_code", None) == Code.UNHANDLED_CRASH]
         assert (failure.levelname, failure.getMessage()) == ("ERROR", "address_change.sweep_row_failed")
-        assert (getattr(failure, "art", None), getattr(failure, "schritt", None), getattr(failure, "address_change_id", None)) == (
+        assert (getattr(failure, "art", None), getattr(failure, "step", None), getattr(failure, "address_change_id", None)) == (
             "lapsed",
             "end",
             str(numbered(1)),
@@ -460,8 +460,8 @@ class TestOneChangeHoldsBackNoOther:
     def test_a_share_of_failing_changes_holds_back_none_behind_it_in_the_pass(self, mongo_replica_set_url: str):
         """Restart each call at the lowest id and the same share fails every call, the last change never reached."""
 
-        failing = range(ADRESSWECHSEL_PER_PASS)
-        last = ADRESSWECHSEL_PER_PASS
+        failing = range(ADDRESS_CHANGE_PER_PASS)
+        last = ADDRESS_CHANGE_PER_PASS
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             changes = [a_change(position, minted=MINTED_TO_LAPSE_YESTERDAY) for position in failing]
@@ -541,11 +541,11 @@ class TestTheDeadlineStopsTheCall:
 
         answer, dear, moved = on_a_league(mongo_replica_set_url, body)
 
-        assert (answer.effective, answer.remaining, answer.nach) == (1, 1, numbered(2))
+        assert (answer.effective, answer.remaining, answer.after) == (1, 1, numbered(2))
         assert (dear, moved) == ([on_file(2)], [on_file(2)])
 
 
-FEW = ADRESSWECHSEL_PER_PASS // 2
+FEW = ADDRESS_CHANGE_PER_PASS // 2
 
 
 async def _cleared(database: AsyncDatabase) -> None:
@@ -600,36 +600,36 @@ class TestADueChangeCostsTheCommandsItsShareIsSizedAt:
 
 class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
     def test_a_full_share(self, mongo_replica_set_url: str):
-        """`tests/api/test_adresswechsel_sweep_refusal.py`'s budget: a share and one more lapsed.
+        """`tests/api/test_address_change_sweep_refusal.py`'s budget: a share and one more lapsed.
 
         A command added to the call turns this red, so the share is judged against the deadline again.
         """
 
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[Any, Counter[str]]:
             await with_history(
-                database, *(a_change(position, minted=MINTED_TO_LAPSE_YESTERDAY) for position in range(ADRESSWECHSEL_PER_PASS + 1))
+                database, *(a_change(position, minted=MINTED_TO_LAPSE_YESTERDAY) for position in range(ADDRESS_CHANGE_PER_PASS + 1))
             )
 
             return await commands_by_name(mongo_replica_set_url, DATABASE_NAME, sweep)
 
         answer, names = on_a_league(mongo_replica_set_url, body)
 
-        assert answer.removed == ADRESSWECHSEL_PER_PASS
-        assert names.total() - ADRESSWECHSEL_PER_PASS * COMMANDS_A_LAPSE == OTHER_COMMANDS, names
+        assert answer.removed == ADDRESS_CHANGE_PER_PASS
+        assert names.total() - ADDRESS_CHANGE_PER_PASS * COMMANDS_A_LAPSE == OTHER_COMMANDS, names
 
     def test_a_full_share_of_due_changes_asking_the_running_season(self, mongo_replica_set_url: str):
         """The page's own read beside the season it asks once, which the per-change count's difference cancels out."""
 
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[Any, Counter[str]]:
-            for position in range(ADRESSWECHSEL_PER_PASS + 1):
+            for position in range(ADDRESS_CHANGE_PER_PASS + 1):
                 await a_due_person(database, position)
 
             return await commands_by_name(mongo_replica_set_url, DATABASE_NAME, sweep)
 
         answer, names = on_a_league(mongo_replica_set_url, body)
 
-        assert answer.effective == ADRESSWECHSEL_PER_PASS
-        assert names.total() - ADRESSWECHSEL_PER_PASS * COMMANDS_A_DUE_PERSON == OTHER_COMMANDS + SEASON_READ, names
+        assert answer.effective == ADDRESS_CHANGE_PER_PASS
+        assert names.total() - ADDRESS_CHANGE_PER_PASS * COMMANDS_A_DUE_PERSON == OTHER_COMMANDS + SEASON_READ, names
 
 
 class TestTheOwedCarries:
@@ -639,17 +639,17 @@ class TestTheOwedCarries:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.ADDRESS_CHANGES].insert_many(
                 [
-                    {**a_change(position, minted="2126-04-01"), "move": {"von": on_file(position), "nach": pending(position)}}
+                    {**a_change(position, minted="2126-04-01"), "move": {"old": on_file(position), "new": pending(position)}}
                     for position in (1, 2)
                 ]
             )
-            listed = (await get_address_change_moves(adresswechsel_collection=database[Collection.ADDRESS_CHANGES])).moves
+            listed = (await get_address_change_moves(address_change_collection=database[Collection.ADDRESS_CHANGES])).moves
             payload = FLAddressChangeMovesDonePayload(ids=[numbered(1)])
-            first = await post_address_change_moves_done(erledigt_data=payload, adresswechsel_collection=database[Collection.ADDRESS_CHANGES])
-            again = await post_address_change_moves_done(erledigt_data=payload, adresswechsel_collection=database[Collection.ADDRESS_CHANGES])
-            left = (await get_address_change_moves(adresswechsel_collection=database[Collection.ADDRESS_CHANGES])).moves
+            first = await post_address_change_moves_done(done_data=payload, address_change_collection=database[Collection.ADDRESS_CHANGES])
+            again = await post_address_change_moves_done(done_data=payload, address_change_collection=database[Collection.ADDRESS_CHANGES])
+            left = (await get_address_change_moves(address_change_collection=database[Collection.ADDRESS_CHANGES])).moves
 
-            return [(row.id, row.von, row.nach) for row in listed], first.done, again.done, [row.id for row in left]
+            return [(row.id, row.old, row.new) for row in listed], first.done, again.done, [row.id for row in left]
 
         assert on_a_league(mongo_replica_set_url, body) == (
             [(numbered(1), on_file(1), pending(1)), (numbered(2), on_file(2), pending(2))],

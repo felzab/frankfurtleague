@@ -47,7 +47,7 @@ def seeded_url(mongo_replica_set_url: str) -> Iterator[str]:
         granted = {
             "_id": ObjectId(),
             "adresse": GRANTED_AT_THE_SEED,
-            "verwaltung": "administration",
+            "admin_tier": "administration",
             "granted_by": "PLAYGROUND",
             "granted_at": now,
         }

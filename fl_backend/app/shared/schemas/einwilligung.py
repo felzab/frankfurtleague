@@ -4,21 +4,21 @@ from typing import Any, ClassVar, Final, Literal, TypeAliasType, get_args, get_o
 from pydantic import BaseModel, ConfigDict
 from pydantic_core import PydanticCustomError
 
-from app.shared.einwilligung_nachweis import CHOICES, FLEinwilligungChoice, TextVersions, is_given
+from app.shared.einwilligung_evidence import CHOICES, FLEinwilligungChoice, TextVersions, is_given
 from app.shared.schemas.literals import FLEinwilligungUmfang, FLKontaktKenntnisnahmeUmfang
 from app.shared.schemas.responses import BaseReadModel
 
 # The label of each consent's CURRENT wording, the one a grant names: a page loaded before a deploy moved a label shows
 # words a grant's record would then cite.
 type FLWhatsappTextVersion = Literal["2026-11-whatsapp-1"]
-type FLMedienTextVersion = Literal["2026-11-medien-1"]
+type FLMediaTextVersion = Literal["2026-11-medien-1"]
 type FLNameKaderTextVersion = Literal["2026-11-name-kader-1"]
 type FLNameSpielplanTextVersion = Literal["2026-11-name-spielplan-1"]
 
 # Published as schemas of their own (`app/main.py :: with_mirrored_constants`), though no operation names one alone: each
 # label constant `fl_frontend/src/core/consentWordings.ts` sends on a grant is checked against them, so a rewording that
 # moves one here and leaves the page's label behind fails the frontend's type check rather than refusing every grant.
-CURRENT_TEXT_VERSIONS: Final = (FLWhatsappTextVersion, FLMedienTextVersion, FLNameKaderTextVersion, FLNameSpielplanTextVersion)
+CURRENT_TEXT_VERSIONS: Final = (FLWhatsappTextVersion, FLMediaTextVersion, FLNameKaderTextVersion, FLNameSpielplanTextVersion)
 
 # Every label a record of each kind may cite for each choice: the current one and each it replaced. A rewording moves the
 # current `Literal` above and adds the label it replaced here, so a record citing that label still reads, and a withdrawal
@@ -28,11 +28,11 @@ type FLSpielerUmfangTextVersion = FLNameKaderTextVersion
 type FLSchiedsrichterUmfangTextVersion = FLNameSpielplanTextVersion
 # One for every kind, each showing the one media wording: three aliases of the one label would each be published
 # twice, Pydantic rendering an alias another references once as its `const` and one referenced more often as a `$ref`.
-type FLCitedMedienTextVersion = FLMedienTextVersion
+type FLCitedMediaTextVersion = FLMediaTextVersion
 # Every label any record cites, as `fl_frontend/src/core/consentWordings.ts :: CONSENT_WORDINGS` keys their words, which
 # that map is checked against through the published contract.
 type FLEinwilligungTextVersion = (
-    FLSeatUmfangTextVersion | FLSpielerUmfangTextVersion | FLSchiedsrichterUmfangTextVersion | FLCitedMedienTextVersion
+    FLSeatUmfangTextVersion | FLSpielerUmfangTextVersion | FLSchiedsrichterUmfangTextVersion | FLCitedMediaTextVersion
 )
 
 
@@ -52,28 +52,28 @@ def _current(alias: TypeAliasType) -> str:
     return label
 
 
-class FLEinwilligungBeleg(BaseModel):
+class FLEinwilligungReceipt(BaseModel):
     """When a person set one consent choice, and under which wording."""
 
     # An instant in UTC (`app/core/recording.py :: log_stamp`), where the block carries a day: two
     # acts on one day are ordered by it.
-    am: str
+    at: str
     # The words the person was shown for this choice. Any record's label on a read, and its own kind's and choice's on
     # the record model `app/readback.py` judges (`cite_their_kind`).
     text_version: FLEinwilligungTextVersion
 
 
-class FLEinwilligungNachweis(FLEinwilligungBeleg, BaseReadModel):
+class FLEinwilligungEvidence(FLEinwilligungReceipt, BaseReadModel):
     """The evidence one consent choice keeps: the act that set its value, and on a withdrawal the grant it ended."""
 
-    given_before: FLEinwilligungBeleg | None = None
+    given_before: FLEinwilligungReceipt | None = None
 
 
-class FLEinwilligungNachweise(BaseReadModel):
+class FLEinwilligungEvidenceSet(BaseReadModel):
     """Each choice's evidence, null until its person sets it: a record no person has answered carries none."""
 
-    umfang: FLEinwilligungNachweis | None = None
-    medien: FLEinwilligungNachweis | None = None
+    umfang: FLEinwilligungEvidence | None = None
+    media: FLEinwilligungEvidence | None = None
 
 
 class FLEinwilligungStand(BaseModel):
@@ -84,7 +84,7 @@ class FLEinwilligungStand(BaseModel):
 
     # Required with no default, as `kontakte_stand` is: an omitted precondition judges nothing.
     umfang: str | None
-    medien: str | None
+    media: str | None
 
 
 # As a press echoes it. Forbidden rather than ignored: a key the precondition does not compare would
@@ -112,28 +112,28 @@ class _TextVersions(BaseModel):
 class FLSeatTextVersions(_TextVersions):
     """A contact seat's two wordings: the WhatsApp switch and the media switch."""
 
-    current = {"umfang": _current(FLWhatsappTextVersion), "medien": _current(FLMedienTextVersion)}
+    current = {"umfang": _current(FLWhatsappTextVersion), "media": _current(FLMediaTextVersion)}
 
     umfang: FLSeatUmfangTextVersion
-    medien: FLCitedMedienTextVersion
+    media: FLCitedMediaTextVersion
 
 
 class FLSpielerTextVersions(_TextVersions):
     """A pupil's two wordings: the name on the squad and the media switch."""
 
-    current = {"umfang": _current(FLNameKaderTextVersion), "medien": _current(FLMedienTextVersion)}
+    current = {"umfang": _current(FLNameKaderTextVersion), "media": _current(FLMediaTextVersion)}
 
     umfang: FLSpielerUmfangTextVersion
-    medien: FLCitedMedienTextVersion
+    media: FLCitedMediaTextVersion
 
 
 class FLSchiedsrichterTextVersions(_TextVersions):
     """A referee's two wordings: the name on the fixtures and the media switch."""
 
-    current = {"umfang": _current(FLNameSpielplanTextVersion), "medien": _current(FLMedienTextVersion)}
+    current = {"umfang": _current(FLNameSpielplanTextVersion), "media": _current(FLMediaTextVersion)}
 
     umfang: FLSchiedsrichterUmfangTextVersion
-    medien: FLCitedMedienTextVersion
+    media: FLCitedMediaTextVersion
 
 
 type PressTextVersions = FLSeatTextVersions | FLSpielerTextVersions | FLSchiedsrichterTextVersions
@@ -142,42 +142,42 @@ type PressTextVersions = FLSeatTextVersions | FLSpielerTextVersions | FLSchiedsr
 def by_choice(text_versions: PressTextVersions) -> TextVersions:
     """A press's labels keyed by the choice each evidences, as the evidence writers take them."""
 
-    return {"umfang": text_versions.umfang, "medien": text_versions.medien}
+    return {"umfang": text_versions.umfang, "media": text_versions.media}
 
 
-def stale_grants(text_versions: PressTextVersions, gesetzt: Mapping[FLEinwilligungChoice, Any]) -> list[FLEinwilligungChoice]:
-    """The choices `gesetzt` grants under any label but their current one; a withdrawal names any its kind cites."""
+def stale_grants(text_versions: PressTextVersions, set_fields: Mapping[FLEinwilligungChoice, Any]) -> list[FLEinwilligungChoice]:
+    """The choices `set_fields` grants under any label but their current one; a withdrawal names any its kind cites."""
 
     return [
         choice
-        for choice, value in gesetzt.items()
+        for choice, value in set_fields.items()
         if is_given(choice, value) and getattr(text_versions, choice) != text_versions.current[choice]
     ]
 
 
-def refuse_a_stale_grant(text_versions: PressTextVersions, gesetzt: Mapping[FLEinwilligungChoice, Any]) -> None:
+def refuse_a_stale_grant(text_versions: PressTextVersions, set_fields: Mapping[FLEinwilligungChoice, Any]) -> None:
     """A confirmation's refusal of a grant under a replaced label: every choice it sets is a first answer, so each grant moves.
 
     The account presses judge it in their writer instead (`app/api/account/services.py :: find_grant_wording_refusal`).
     """
 
-    stale = stale_grants(text_versions, gesetzt)
+    stale = stale_grants(text_versions, set_fields)
     if stale:
         raise PydanticCustomError("grant_wording_stale", "a grant names its choice's current wording", {"choice": stale[0]})
 
 
-def cite_their_kind(nachweise: FLEinwilligungNachweise, kind: type[_TextVersions]) -> FLEinwilligungNachweise:
+def cite_their_kind(evidence_set: FLEinwilligungEvidenceSet, kind: type[_TextVersions]) -> FLEinwilligungEvidenceSet:
     """Refuse evidence citing a label its kind's record never shows for that choice, as `app/readback.py` judges a record."""
 
     for choice in CHOICES:
-        nachweis = getattr(nachweise, choice)
-        belege = [] if nachweis is None else [nachweis, nachweis.given_before]
-        if any(beleg is not None and beleg.text_version not in kind.cited(choice) for beleg in belege):
+        evidence = getattr(evidence_set, choice)
+        receipts = [] if evidence is None else [evidence, evidence.given_before]
+        if any(receipt is not None and receipt.text_version not in kind.cited(choice) for receipt in receipts):
             raise PydanticCustomError(
                 "text_version_of_another_wording", "the evidence cites a wording its choice never shows", {"choice": choice}
             )
 
-    return nachweise
+    return evidence_set
 
 
 # The account presses' payloads take any label their kind cites, a grant's included: only a choice the press moves onto
@@ -190,9 +190,9 @@ class _OwnEinwilligungPayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     umfang: FLEinwilligungUmfang
-    medien: bool
-    # The record's `nachweis_stand` as the page was served it.
-    nachweis_stand: FLEinwilligungStandPayload
+    media: bool
+    # The record's `evidence_state` as the page was served it.
+    evidence_state: FLEinwilligungStandPayload
 
 
 class FLAccountEinwilligungPayload(_OwnEinwilligungPayload):
@@ -216,7 +216,7 @@ class FLSeatEinwilligungPayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     umfang: FLKontaktKenntnisnahmeUmfang
-    medien: bool
+    media: bool
     text_versions: FLSeatTextVersions
-    # The row's `nachweis_stand` as the page was served it.
-    nachweis_stand: FLEinwilligungStandPayload
+    # The row's `evidence_state` as the page was served it.
+    evidence_state: FLEinwilligungStandPayload

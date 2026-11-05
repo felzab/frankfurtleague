@@ -24,14 +24,14 @@ from app.api.sperrliste.services import withheld_actor
 from app.core.codes import Code
 from app.core.crud import build_sort
 from app.core.exceptions import WriteRefusal
-from app.shared.alter import whole_years_between
+from app.shared.age import whole_years_between
 from app.shared.einwilligung import is_confirmed
-from app.shared.einwilligung_nachweis import TextVersions, compose_erneuert, compose_geboren
+from app.shared.einwilligung_evidence import TextVersions, compose_born, compose_renewed
 from app.shared.folding import person_name_key, sign_in_identifier
 from app.shared.schemas.bounds import (
     BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
     LIST_LIMIT_MAX,
-    MEDIEN_MIN_AGE_YEARS,
+    MEDIA_MIN_AGE_YEARS,
     REGISTRIERUNG_MIN_AGE_YEARS,
     REGISTRIERUNG_REMINDER_DAYS,
 )
@@ -121,7 +121,7 @@ def find_kader_refusal(*, squad_size: int, max_kadergroesse: int) -> WriteRefusa
     )
 
 
-def find_gesperrt_refusal(*, barred: bool) -> WriteRefusal | None:
+def find_barred_refusal(*, barred: bool) -> WriteRefusal | None:
     """`registrierung_adresse_barred`: the ban list holds the address this registration was typed with.
 
     Takes the answer rather than the lookup, so the caller's read runs in the caller's transaction.
@@ -200,14 +200,14 @@ def compose_bestaetigung(*, today: str, frist: str) -> dict[str, Any]:
 # (`app/api/bewerbungen/services.py :: payload_fingerabdruck`).
 
 
-def find_abweichender_fingerabdruck_refusal(*, gespeichert: Any, fingerabdruck: str) -> WriteRefusal | None:
+def find_abweichender_fingerabdruck_refusal(*, saved: Any, fingerabdruck: str) -> WriteRefusal | None:
     """Why this key cannot be replayed, or `None`: it already carries a registration sent with other details.
 
     Refused rather than answered as the stored one, which would tell the pupil a changed field had
     arrived.
     """
 
-    if gespeichert == fingerabdruck:
+    if saved == fingerabdruck:
         return None
 
     return WriteRefusal(
@@ -370,7 +370,7 @@ def find_already_confirmed_refusal(*, einwilligung: Any) -> WriteRefusal | None:
     )
 
 
-def find_bestaetigung_gesperrt_refusal(*, barred: bool) -> WriteRefusal | None:
+def find_confirmation_barred_refusal(*, barred: bool) -> WriteRefusal | None:
     """`link_barred`: the ban list holds the address this link was mailed to, however long ago it was minted."""
 
     if not barred:
@@ -465,14 +465,14 @@ def gespeichertes_geburtsdatum(*, seite: FLRegistrierungSeite, person_raw: Mappi
     return person_raw["geburtsdatum"] if seite == SEITE_WIEDERKEHREND and person_raw is not None else None
 
 
-def find_wahlen_refusal(*, seite: FLRegistrierungSeite, umfang: Any, medien: Any, text_versions: Any, geburtsdatum: Any) -> WriteRefusal | None:
+def find_wahlen_refusal(*, seite: FLRegistrierungSeite, umfang: Any, media: Any, text_versions: Any, geburtsdatum: Any) -> WriteRefusal | None:
     """`registrierung_choices_unsuitable`: the body answers what its page did not ask, or leaves out what it did.
 
     Both choices, their wordings and a birthdate on the new pupil's page, none of the four on the returning pupil's.
     """
 
-    gefragt = seite == SEITE_NEU
-    if all((wert is not None) == gefragt for wert in (umfang, medien, text_versions, geburtsdatum)):
+    asked = seite == SEITE_NEU
+    if all((value is not None) == asked for value in (umfang, media, text_versions, geburtsdatum)):
         return None
 
     return WriteRefusal(
@@ -481,25 +481,25 @@ def find_wahlen_refusal(*, seite: FLRegistrierungSeite, umfang: Any, medien: Any
     )
 
 
-def find_medien_refusal(*, geburtsdatum: str, medien: bool, today: str) -> WriteRefusal | None:
+def find_medien_refusal(*, geburtsdatum: str, media: bool, today: str) -> WriteRefusal | None:
     """Why this pupil's media consent is refused, or `None`.
 
     Only a `True` is judged: a `False` publishes nothing, and refusing it would refuse the answer the
     page sends every pupil below the floor.
     """
 
-    if not medien or whole_years_between(born=geburtsdatum, today=today) >= MEDIEN_MIN_AGE_YEARS:
+    if not media or whole_years_between(born=geburtsdatum, today=today) >= MEDIA_MIN_AGE_YEARS:
         return None
 
     return WriteRefusal(
-        error_code=Code.MEDIEN_AGE,
+        error_code=Code.MEDIA_AGE,
         status=HTTPStatus.UNPROCESSABLE_CONTENT,
-        fields=(("medien",),),
+        fields=(("media",),),
     )
 
 
 def compose_confirmation_update(
-    *, geburtsdatum: str, umfang: str | None, medien: bool | None, text_versions: TextVersions | None, today: str, am: str
+    *, geburtsdatum: str, umfang: str | None, media: bool | None, text_versions: TextVersions | None, today: str, at: str
 ) -> Mapping[str, Any]:
     """The ONE `$set` a confirmation is: the whole consent record beside the date.
 
@@ -507,26 +507,26 @@ def compose_confirmation_update(
     would hold a birthdate nobody had yet consented to the league keeping.
     """
 
-    if umfang is None and medien is None:
+    if umfang is None and media is None:
         # The returning pupil's page asked nothing, so the record holds no choice, no evidence and no
         # `datum`, the day a consent was given.
         return {"$set": {"geburtsdatum": geburtsdatum, "einwilligung": {"confirmed_at": today}}}
 
-    if umfang is None or medien is None or text_versions is None:
+    if umfang is None or media is None or text_versions is None:
         raise ValueError("a confirmation answers both choices or neither, as `find_wahlen_refusal` holds a body to its page")
 
     # Born whole rather than moved: the submission stores no record and a second press is refused, so
     # no earlier choice stands on this block; the admission carries its evidence onto the person.
-    record = compose_geboren(
+    record = compose_born(
         block={
             "umfang": umfang,
             # `datum` and `confirmed_at` are one day here: this press is both the giving of the
             # consent and the confirming of it.
             "datum": today,
             "confirmed_at": today,
-            "medien": medien,
+            "media": media,
         },
-        am=am,
+        at=at,
         text_versions=text_versions,
     )
 
@@ -762,14 +762,14 @@ def find_schon_im_kader_refusal(*, kader_raw: Mapping[str, Any] | None) -> Write
     )
 
 
-def find_schon_aufgenommen_refusal(*, gespeichert: Any, fingerabdruck: str) -> WriteRefusal | None:
+def find_schon_aufgenommen_refusal(*, saved: Any, fingerabdruck: str) -> WriteRefusal | None:
     """Why a key an admission carried onto a squad row is refused: other details, or `registrierung_already_admitted`.
 
     Never `None`: no registration is left to answer as the first, and a fresh one would register an
     admitted pupil twice.
     """
 
-    if (abweichend := find_abweichender_fingerabdruck_refusal(gespeichert=gespeichert, fingerabdruck=fingerabdruck)) is not None:
+    if (abweichend := find_abweichender_fingerabdruck_refusal(saved=saved, fingerabdruck=fingerabdruck)) is not None:
         return abweichend
 
     return WriteRefusal(
@@ -804,17 +804,17 @@ def traegt_wahlen(einwilligung: Any) -> bool:
     return isinstance(einwilligung, Mapping) and "umfang" in einwilligung
 
 
-def compose_person_update(*, registrierung_raw: Mapping[str, Any], gespeichert: Any, adresse: str) -> Mapping[str, Any]:
+def compose_person_update(*, registrierung_raw: Mapping[str, Any], saved: Any, adresse: str) -> Mapping[str, Any]:
     """What an admission writes onto a matched person: the registration's name, address, and what its page asked.
 
-    RENEWED as the new pupil's page promised, each choice only where set later; `gespeichert` is read
+    RENEWED as the new pupil's page promised, each choice only where set later; `saved` is read
     in the admission's transaction.
     """
 
     fields = _person_fields(registrierung_raw=registrierung_raw, adresse=adresse)
     # Only the sentinel stores a null record, so a matched person holding none is that row or a hand
     # edit: renewing fails on the dotted paths below, and leaving it keeps a person nobody asked.
-    if not isinstance(gespeichert, Mapping):
+    if not isinstance(saved, Mapping):
         raise ValueError("a matched person holding no consent record is no person to admit")
 
     if not traegt_wahlen(registrierung_raw["einwilligung"]):
@@ -825,13 +825,13 @@ def compose_person_update(*, registrierung_raw: Mapping[str, Any], gespeichert: 
 
         return {"$set": fields}
 
-    erneuert = compose_erneuert(
+    renewed = compose_renewed(
         path="einwilligung",
-        saved=gespeichert,
-        erneuert=registrierung_raw["einwilligung"],
+        saved=saved,
+        renewed=registrierung_raw["einwilligung"],
     )
 
-    return {"$set": {**fields, **erneuert}}
+    return {"$set": {**fields, **renewed}}
 
 
 def compose_person(*, spieler_id: Any, registrierung_raw: Mapping[str, Any], adresse: str) -> dict[str, Any]:
@@ -870,15 +870,15 @@ def compose_kader_fields(*, registrierung_raw: Mapping[str, Any], team_id: Any, 
     return fields
 
 
-def compose_ablehnung_update(*, von: str, grund: Any, today: str) -> Mapping[str, Any]:
-    return {"$set": {"status": DECLINED, "decision": {"made_at": today, "von": von, "grund": grund}}}
+def compose_ablehnung_update(*, by: str, grund: Any, today: str) -> Mapping[str, Any]:
+    return {"$set": {"status": DECLINED, "decision": {"made_at": today, "by": by, "grund": grund}}}
 
 
 def entscheider_adressen(rows: Iterable[Mapping[str, Any]]) -> list[str]:
     """Every decider these stored registrations name, folded as the ban list is asked."""
 
     return [
-        sign_in_identifier(FLRegistrierungEntscheidung.model_validate(row["decision"]).von) for row in rows if row.get("decision") is not None
+        sign_in_identifier(FLRegistrierungEntscheidung.model_validate(row["decision"]).by) for row in rows if row.get("decision") is not None
     ]
 
 
@@ -890,6 +890,6 @@ def mit_vorenthaltener_entscheidung(row: Mapping[str, Any], barred: Collection[s
 
     # As stored first, so a decision the stored shape refuses fails rather than being served withheld.
     entscheidung = FLRegistrierungEntscheidung.model_validate(row["decision"])
-    von = withheld_actor(entscheidung.von, barred)
+    by = withheld_actor(entscheidung.by, barred)
 
-    return {**row, "decision": {**entscheidung.model_dump(), "von": von, "by_barred": von is None}}
+    return {**row, "decision": {**entscheidung.model_dump(), "by": by, "by_barred": by is None}}

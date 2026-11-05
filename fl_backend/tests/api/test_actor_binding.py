@@ -298,7 +298,7 @@ def test_the_public_binder_names_the_public_whatever_the_headers_say():
 
     def probe() -> dict[str, bool]:
         seen.append((actor_var.get(), request_var.get()))
-        return {"erreicht": True}
+        return {"reached": True}
 
     app.add_api_route(PUBLIC_PROBE, probe, methods=["POST"], dependencies=[Depends(bind_public_actor)])
     response = TestClient(app, raise_server_exceptions=False).post(PUBLIC_PROBE, headers=actor_headers(ACTOR))
@@ -336,7 +336,7 @@ PERSON_PROBE = "/api/v0/person-probe"
 
 
 def _probe() -> dict[str, bool]:
-    return {"erreicht": True}
+    return {"reached": True}
 
 
 def person_client() -> TestClient:

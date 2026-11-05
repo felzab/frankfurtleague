@@ -41,7 +41,7 @@ FACET_TALLY: Final[Sequence[Mapping[str, Any]]] = (
     {
         "$group": {
             "_id": {"collection": "$collection", "operation": "$operation", "kind": "$actor.kind"},
-            "anzahl": {"$sum": 1},
+            "count": {"$sum": 1},
         }
     },
 )
@@ -83,7 +83,7 @@ def _facet_cells(grouped: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
                 # Folded once here rather than inside each tally. `None` where no category names the
                 # kind, which belongs under no origin and still counts for its area.
                 "herkunft": None if kind is None else HERKUNFT_JE_KIND.get(str(kind)),
-                "anzahl": cell["anzahl"],
+                "count": cell["count"],
             }
         )
 
@@ -108,7 +108,7 @@ def _tally(cells: Sequence[Mapping[str, Any]], *, counted: str, held: Mapping[st
         if value is None:
             continue
 
-        totals[value] = totals.get(value, 0) + cell["anzahl"]
+        totals[value] = totals.get(value, 0) + cell["count"]
 
     return totals
 
@@ -121,7 +121,7 @@ async def _as_served(rows: Sequence[Mapping[str, Any]], *, sperrliste: BanList) 
 
 @router.get("", response_model=FLActionLogListResponse, summary="List recorded admin actions")
 async def get_action_log(
-    aktionen_collection: ActionLogCollection,
+    action_log_collection: ActionLogCollection,
     sperrliste: SperrlisteLookup,
     filters: FLAktionenFilters,
 ) -> FLActionLogListResponse:
@@ -139,11 +139,11 @@ async def get_action_log(
         # Counted per option instead, this is a read per option, and `action_log_target` indexes the
         # area alone: every operation's own count would scan the log.
         aggregate_many_from_db(
-            collection=aktionen_collection,
+            collection=action_log_collection,
             pipeline=[{"$match": beyond_the_facets}, *FACET_TALLY],
         ),
         pull_many_from_db(
-            collection=aktionen_collection,
+            collection=action_log_collection,
             db_filter={
                 **beyond_the_facets,
                 **_facet_term("collection", filters.collection),
@@ -174,12 +174,12 @@ async def get_action_log(
 @router.get(by_id("action_log_entry_id"), response_model=FLActionLogEntrySingleResponse, summary="One recorded admin action")
 async def get_action_log_entry(
     action_log_entry_id: CustomRouteObjectId,
-    aktionen_collection: ActionLogCollection,
+    action_log_collection: ActionLogCollection,
     sperrliste: SperrlisteLookup,
 ) -> FLActionLogEntrySingleResponse:
     """One recorded write with the document it replaced, served as recorded; the actor is withheld as the list withholds it."""
 
-    aktion_raw = await pull_one_from_db(collection=aktionen_collection, db_filter={"_id": action_log_entry_id})
+    aktion_raw = await pull_one_from_db(collection=action_log_collection, db_filter={"_id": action_log_entry_id})
     [served] = await _as_served([aktion_raw], sperrliste=sperrliste)
 
     return FLActionLogEntrySingleResponse(action_log_entry=FLActionLogEntryWithBefore(**served))

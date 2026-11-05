@@ -7,8 +7,8 @@ from bson import ObjectId
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.identity.crud import funktionen_of
-from app.api.identity.schemas import FLSubjekt
+from app.api.identity.crud import roles_of
+from app.api.identity.schemas import FLSubject
 from app.core.collections import Collection
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.shared.schemas.literals import KONTAKT_ROLLEN
@@ -19,7 +19,7 @@ from tests.worker import worker_database
 
 from .conftest import AUSTRITT, unwritten
 
-DATABASE_NAME = worker_database("fl_funktionen_test")
+DATABASE_NAME = worker_database("fl_roles_test")
 
 PAST_SAISON = "2425"
 ACTIVE_SAISON = "2526"
@@ -55,13 +55,13 @@ TIMES = "zeiten.sitz@schule.de"
 WITHOUT_STAMP = "ohne.stempel@schule.de"
 ALSO = "zugleich.sitz@schule.de"
 ONLY_OPEN = "nur.offen@schule.de"
-GEMISCHT = "gemischt@schule.de"
+MIXED = "gemischt@schule.de"
 FORMER = "ehemalig@schule.de"
-RETIREMENT_PFEIFE = "ruhestand.pfeife@schule.de"
+RETIREMENT_WHISTLE = "ruhestand.pfeife@schule.de"
 RETIREMENT_OPEN = "ruhestand.offen@schule.de"
-PFEIFE_WITHOUT_RECORD = "pfeife.ohne@schule.de"
-PFEIFE_NULL_RECORD = "pfeife.null@schule.de"
-GEIST = "geist@schule.de"
+WHISTLE_WITHOUT_RECORD = "pfeife.ohne@schule.de"
+WHISTLE_NULL_RECORD = "pfeife.null@schule.de"
+GHOST = "geist@schule.de"
 NOBODY = "niemand.hierverzeichnet@example.com"
 # A confirmed seat on a `past` season beside an unconfirmed one on the `active` season, and an
 # unconfirmed `past` seat alone: the flag is judged over what could grant a panel.
@@ -77,7 +77,7 @@ ANSPRECHPERSON = "post@strasse.de"
 SPIELER_ONLY_OPEN_OID = ObjectId("6890a1b2c3d4e5f607830021")
 SPIELER_FORMER_OID = ObjectId("6890a1b2c3d4e5f607830023")
 SCHIEDSRICHTER_UNCONFIRMED_OID = ObjectId("6890a1b2c3d4e5f607830031")
-SCHIEDSRICHTER_GEMISCHT_OID = ObjectId("6890a1b2c3d4e5f607830032")
+SCHIEDSRICHTER_MIXED_OID = ObjectId("6890a1b2c3d4e5f607830032")
 SCHIEDSRICHTER_RETIREMENT_OID = ObjectId("6890a1b2c3d4e5f607830033")
 SCHIEDSRICHTER_WITHOUT_RECORD_OID = ObjectId("6890a1b2c3d4e5f607830034")
 SCHIEDSRICHTER_NULL_RECORD_OID = ObjectId("6890a1b2c3d4e5f607830035")
@@ -196,7 +196,7 @@ async def _seed(database: AsyncDatabase) -> None:
                 ACTIVE_SAISON,
                 TEAM_D_OID,
                 ROW_NAME_D,
-                trainer=_seat(GEMISCHT, confirmed_at=None),
+                trainer=_seat(MIXED, confirmed_at=None),
                 ansprechperson=_seat(PAST_AND_OPEN, confirmed_at=None),
             ),
             _junction(
@@ -220,18 +220,18 @@ async def _seed(database: AsyncDatabase) -> None:
     await database[Collection.SCHIEDSRICHTER].insert_many(
         [
             _schiedsrichter(SCHIEDSRICHTER_UNCONFIRMED_OID, ONLY_OPEN, "A. Offen", einwilligung=None),
-            _schiedsrichter(SCHIEDSRICHTER_GEMISCHT_OID, GEMISCHT, "B. Gemischt", einwilligung=CONFIRMED),
+            _schiedsrichter(SCHIEDSRICHTER_MIXED_OID, MIXED, "B. Gemischt", einwilligung=CONFIRMED),
             _schiedsrichter(
-                SCHIEDSRICHTER_RETIREMENT_OID, RETIREMENT_PFEIFE, "C. Ruhestand", einwilligung=CONFIRMED, inactive_since="2026-03-01"
+                SCHIEDSRICHTER_RETIREMENT_OID, RETIREMENT_WHISTLE, "C. Ruhestand", einwilligung=CONFIRMED, inactive_since="2026-03-01"
             ),
-            _schiedsrichter(SCHIEDSRICHTER_WITHOUT_RECORD_OID, PFEIFE_WITHOUT_RECORD, "D. Ohne"),
-            _schiedsrichter(SCHIEDSRICHTER_NULL_RECORD_OID, PFEIFE_NULL_RECORD, "E. Null", einwilligung=None),
+            _schiedsrichter(SCHIEDSRICHTER_WITHOUT_RECORD_OID, WHISTLE_WITHOUT_RECORD, "D. Ohne"),
+            _schiedsrichter(SCHIEDSRICHTER_NULL_RECORD_OID, WHISTLE_NULL_RECORD, "E. Null", einwilligung=None),
             _schiedsrichter(
                 SCHIEDSRICHTER_RETIREMENT_OPEN_OID, RETIREMENT_OPEN, "F. Ruhestand-Offen", einwilligung=None, inactive_since="2026-03-01"
             ),
             # The ghost as no write leaves it -- an address, a stamp, not retired -- so that its id is
             # the one thing left keeping it out of every answer.
-            _schiedsrichter(GHOST_SCHIEDSRICHTER_ID, GEIST, None, einwilligung=CONFIRMED),
+            _schiedsrichter(GHOST_SCHIEDSRICHTER_ID, GHOST, None, einwilligung=CONFIRMED),
         ]
     )
 
@@ -250,23 +250,23 @@ def seeded_league(mongo_replica_set_url: str) -> Iterator[str]:
         yield mongo_replica_set_url
 
 
-async def _ask(database: AsyncDatabase, email: str, session: AsyncClientSession) -> FLSubjekt:
-    return await funktionen_of(email, record_collections(database), session=session)
+async def _ask(database: AsyncDatabase, email: str, session: AsyncClientSession) -> FLSubject:
+    return await roles_of(email, record_collections(database), session=session)
 
 
-def answered(url: str, email: str) -> FLSubjekt:
-    async def _run() -> FLSubjekt:
+def answered(url: str, email: str) -> FLSubject:
+    async def _run() -> FLSubject:
         async with shared_client(url).start_session() as session:
             return await _ask(shared_client(url)[DATABASE_NAME], email, session)
 
     return on_the_seed_loop(_run())
 
 
-def seats(answer: FLSubjekt) -> list[tuple[str, ObjectId, str, str, str]]:
+def seats(answer: FLSubject) -> list[tuple[str, ObjectId, str, str, str]]:
     return [(seat.saison_id, seat.team_id, seat.rolle, seat.team_name, seat.saison_status) for seat in answer.seats]
 
 
-def is_empty(answer: FLSubjekt) -> bool:
+def is_empty(answer: FLSubject) -> bool:
     return (answer.seats, answer.spieler, answer.schiedsrichter) == ([], [], [])
 
 
@@ -309,7 +309,7 @@ class TestTheConfirmationNarrowing:
 
         assert [seat.rolle for seat in answered(seeded_league, ALSO).seats] == ["trainer"]
 
-    @pytest.mark.parametrize("email", [PFEIFE_WITHOUT_RECORD, PFEIFE_NULL_RECORD], ids=["no record", "null record"])
+    @pytest.mark.parametrize("email", [WHISTLE_WITHOUT_RECORD, WHISTLE_NULL_RECORD], ids=["no record", "null record"])
     def test_an_unconfirmed_referee_grants_nothing(self, seeded_league: str, email: str):
         """The shapes a referee row holds before its person answers, each read as unconfirmed rather than raising."""
 
@@ -334,10 +334,10 @@ class TestTheConfirmationNarrowing:
     def test_one_confirmed_record_beside_an_unconfirmed_one_leaves_the_flag_down(self, seeded_league: str):
         """Kills a flag set by ANY unconfirmed record: a person holding a Funktion is not awaiting their own confirmation."""
 
-        answer = answered(seeded_league, GEMISCHT)
+        answer = answered(seeded_league, MIXED)
 
         assert ([row.schiedsrichter_id for row in answer.schiedsrichter], answer.spieler, answer.unconfirmed) == (
-            [SCHIEDSRICHTER_GEMISCHT_OID],
+            [SCHIEDSRICHTER_MIXED_OID],
             [],
             False,
         )
@@ -348,7 +348,7 @@ class TestTheConfirmationNarrowing:
         The seat and the referee are stamped, the pupil brought back and the past season made `future`, in a transaction aborted after.
         """
 
-        async def _run() -> tuple[FLSubjekt, FLSubjekt, FLSubjekt, FLSubjekt]:
+        async def _run() -> tuple[FLSubject, FLSubject, FLSubject, FLSubject]:
             client = shared_client(seeded_league)
             database = client[DATABASE_NAME]
 
@@ -398,7 +398,7 @@ class TestTheRetirementNarrowing:
     def test_a_retired_referee_grants_nothing(self, seeded_league: str):
         """Confirmed, so only the retirement keeps it out."""
 
-        answer = answered(seeded_league, RETIREMENT_PFEIFE)
+        answer = answered(seeded_league, RETIREMENT_WHISTLE)
 
         assert is_empty(answer)
         assert answer.unconfirmed is False
@@ -411,7 +411,7 @@ class TestTheRetirementNarrowing:
     def test_the_ghost_grants_nothing_whatever_its_row_holds(self, seeded_league: str):
         """Its null address and its retirement keep it out as written; the seed gives it neither, so its id is what this pins."""
 
-        assert answered(seeded_league, GEIST).schiedsrichter == []
+        assert answered(seeded_league, GHOST).schiedsrichter == []
 
 
 @pytest.mark.parametrize("identifier", ["", " \u3000\ufeff"], ids=["empty", "blank"])
@@ -421,4 +421,4 @@ def test_an_identifier_folding_to_nothing_is_refused_before_any_read(identifier:
     unreachable = cast(Any, object())
 
     with pytest.raises(ValueError, match="empty identifier"):
-        asyncio.run(funktionen_of(identifier, unreachable, session=unreachable))
+        asyncio.run(roles_of(identifier, unreachable, session=unreachable))

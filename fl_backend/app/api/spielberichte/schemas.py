@@ -5,7 +5,7 @@ from pydantic_core import PydanticCustomError
 
 from app.api.berechtigungen.schemas import FLUtcInstant
 from app.api.spiele.schemas import SONDEREREIGNIS_NO_SHOW, FLBracketFault, FLSpielElfmeterschiessen, FLSpielJoinedAdmin
-from app.shared.schemas.actor import FLVonAdmin
+from app.shared.schemas.actor import FLByAdmin
 from app.shared.schemas.bounds import SPIELBERICHT_BEMERKUNGEN_MAX_LENGTH, SPIELBERICHT_ENTRIES_MAX
 from app.shared.schemas.custom import (
     CustomDateString,
@@ -102,7 +102,7 @@ class FLSpielberichtVonSchiedsrichter(BaseModel):
     schiedsrichter_id: CustomObjectId
 
 
-FLSpielberichtVon = Annotated[FLSpielberichtVonSchiedsrichter | FLVonAdmin, Field(discriminator="art")]
+FLSpielberichtVon = Annotated[FLSpielberichtVonSchiedsrichter | FLByAdmin, Field(discriminator="art")]
 
 
 class FLSpielberichtSeiten(BaseModel):
@@ -133,7 +133,7 @@ class FLSpielberichtBericht(BaseModel):
     changed_at: FLUtcInstant
     version: int
     adopted_at: FLUtcInstant | None
-    adopted_by: FLVonAdmin | None
+    adopted_by: FLByAdmin | None
     adopted_version: int | None
 
 

@@ -8,14 +8,14 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.account.crud import press_einwilligung
 from app.api.account.services import (
-    compose_sitz_move,
-    find_eigener_eintrag_refusal,
-    geaenderte_sitz_wahlen,
-    widerruf_line,
+    changed_seat_choices,
+    compose_seat_move,
+    find_own_entry_refusal,
+    withdrawal_line,
 )
-from app.api.identity.crud import funktionen_of, refuse_without_a_seat
-from app.api.identity.lookup import SubjektLookup
-from app.api.identity.services import eigene_sitze, holds_a_seat, seat_is_confirmed
+from app.api.identity.crud import refuse_without_a_seat, roles_of
+from app.api.identity.lookup import SubjectLookup
+from app.api.identity.services import holds_a_seat, own_seats, seat_is_confirmed
 from app.api.sperrliste.guard import PERSON_ACTOR_BINDERS, KontaktIdentifier
 from app.api.teams.schemas import FLTeamSeat, FLTeamSeatsResponse
 from app.core.collections import Collection
@@ -31,7 +31,7 @@ from app.core.journal import Journal
 from app.core.recording import log_stamp
 from app.core.security import erasure_journal_hash, verify_access_admin
 from app.core.transactions import transaction_session
-from app.shared.einwilligung_nachweis import FLEinwilligungChoice
+from app.shared.einwilligung_evidence import FLEinwilligungChoice
 from app.shared.schemas.custom import CustomRouteObjectId
 from app.shared.schemas.einwilligung import FLSeatEinwilligungPayload, by_choice
 from app.shared.schemas.literals import KONTAKT_ROLLEN
@@ -65,7 +65,7 @@ async def get_team_seats(
     saison_id: str,
     identifier: KontaktIdentifier,
     saison_teams_collection: SaisonTeamsCollection,
-    records: SubjektLookup,
+    records: SubjectLookup,
     db: DBClient,
 ) -> FLTeamSeatsResponse:
     """
@@ -101,7 +101,7 @@ async def patch_einwilligung(
     einwilligung_data: Annotated[FLSeatEinwilligungPayload, Body()],
     identifier: KontaktIdentifier,
     saison_teams_collection: SaisonTeamsCollection,
-    records: SubjektLookup,
+    records: SubjectLookup,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
     today: str = Depends(get_german_date_str),
@@ -113,21 +113,21 @@ async def patch_einwilligung(
     One answer for all of them: a person holding two of the row's slots answers once, each choice moving only where it
     differs from the row as the page served it, so seats answered apart keep their answers to a choice not changed. No
     other slot of the row and no other row is written, each choice moving with its own evidence and leaving the
-    other standing; a press moving no seat writes nothing. A GRANT (`umfang` to `kontaktdaten_whatsapp` or `medien`
+    other standing; a press moving no seat writes nothing. A GRANT (`umfang` to `kontaktdaten_whatsapp` or `media`
     to `true`) is taken on a row of an `active` or `future` season its team has not left; a withdrawal on any row the
     person confirmed a seat on, a past season's included.
 
     Refuses, in this order: a row on which the address holds no confirmed seat (`role_not_held`); a
-    `nachweis_stand` other than the held seats' own, either choice having moved since the page was served
+    `evidence_state` other than the held seats' own, either choice having moved since the page was served
     (`choices_stale`); a grant where the row grants no panel (`giving_not_allowed`); a choice moving onto a grant
     under a label other than its current wording's, the page loaded before a rewording (`grant_wording_stale`);
-    `medien` moving to `true` where a held seat's stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is
-    missing (`medien_age`). Each refusal writes nothing.
+    `media` moving to `true` where a held seat's stored birthdate does not reach `MEDIA_MIN_AGE_YEARS` today or is
+    missing (`media_age`). Each refusal writes nothing.
     """
 
-    gedrueckt: dict[FLEinwilligungChoice, object] = {"umfang": einwilligung_data.umfang, "medien": einwilligung_data.medien}
+    pressed: dict[FLEinwilligungChoice, object] = {"umfang": einwilligung_data.umfang, "media": einwilligung_data.media}
     # For `app/api/spieler/person_router.py :: patch_einwilligung`'s reason: a replay stamps the moment the person pressed.
-    am = log_stamp(germany_now)
+    at = log_stamp(germany_now)
     journal = Journal()
 
     @journal.attempted
@@ -137,31 +137,31 @@ async def patch_einwilligung(
             {f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_ROLLEN for field in ("email", "geburtsdatum", "einwilligung")},
             session=session,
         )
-        rollen = [] if row is None else eigene_sitze(row, identifier)
-        refuse(find_eigener_eintrag_refusal(gehalten=bool(rollen)))
+        rollen = [] if row is None else own_seats(row, identifier)
+        refuse(find_own_entry_refusal(held=bool(rollen)))
         assert row is not None
-        sitze = {slot: row["kontakte"][slot] for slot in rollen}
-        gewaehlt = geaenderte_sitz_wahlen(bloecke=[sitz["einwilligung"] for sitz in sitze.values()], gedrueckt=gedrueckt)
+        seats = {slot: row["kontakte"][slot] for slot in rollen}
+        chosen = changed_seat_choices(blocks=[seat["einwilligung"] for seat in seats.values()], pressed=pressed)
 
-        async def darf_erteilen() -> bool:
+        async def may_give() -> bool:
             # The panel narrowing a grant waits on: a `past` season's seat and a withdrawn team's grant none.
-            subjekt = await funktionen_of(identifier, records, session=session)
-            return holds_a_seat(subjekt.seats, team_id=team_id, saison_id=saison_id)
+            subject = await roles_of(identifier, records, session=session)
+            return holds_a_seat(subject.seats, team_id=team_id, saison_id=saison_id)
 
         await press_einwilligung(
-            bloecke=[sitz["einwilligung"] for sitz in sitze.values()],
-            geburtsdaten=[sitz.get("geburtsdatum") for sitz in sitze.values()],
-            gewaehlt=gewaehlt,
-            nachweis_stand=einwilligung_data.nachweis_stand.model_dump(),
+            blocks=[seat["einwilligung"] for seat in seats.values()],
+            birth_dates=[seat.get("geburtsdatum") for seat in seats.values()],
+            chosen=chosen,
+            evidence_state=einwilligung_data.evidence_state.model_dump(),
             text_versions=einwilligung_data.text_versions,
-            darf_erteilen=darf_erteilen,
+            may_give=may_give,
             today=today,
         )
 
-        update = compose_sitz_move(
-            sitze={slot: sitz["einwilligung"] for slot, sitz in sitze.items()},
-            gewaehlt=gewaehlt,
-            am=am,
+        update = compose_seat_move(
+            seats={slot: seat["einwilligung"] for slot, seat in seats.items()},
+            chosen=chosen,
+            at=at,
             text_versions=by_choice(einwilligung_data.text_versions),
         )
         if update is not None:
@@ -172,13 +172,13 @@ async def patch_einwilligung(
                 session=session,
                 return_document=ReturnDocument.BEFORE,
             )
-        line = widerruf_line(
+        line = withdrawal_line(
             person_hash=erasure_journal_hash(identifier, key=config.sperrliste_key),
             collection=Collection.SAISON_TEAMS,
             record_id=row["_id"],
-            bloecke=[sitz["einwilligung"] for sitz in sitze.values()],
-            gewaehlt=gewaehlt,
-            am=am,
+            blocks=[seat["einwilligung"] for seat in seats.values()],
+            chosen=chosen,
+            at=at,
             text_versions=by_choice(einwilligung_data.text_versions),
         )
         if line is not None:

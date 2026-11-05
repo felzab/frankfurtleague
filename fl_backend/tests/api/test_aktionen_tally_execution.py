@@ -160,7 +160,7 @@ def answered(mongo_url: str, **filters: Any) -> FLActionLogListResponse:
             await database[Collection.ACTION_LOG].insert_many(seeded_log())
 
             return await get_action_log(
-                aktionen_collection=database[Collection.ACTION_LOG],
+                action_log_collection=database[Collection.ACTION_LOG],
                 sperrliste=ban_list(database),
                 filters=FLAktionenFilterParams.model_validate(filters),
             )

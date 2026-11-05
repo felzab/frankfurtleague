@@ -2,7 +2,7 @@
 API · the address change's pure judgements: the masked address, the link's view, who may not approve a change, and the system's read
 
 Apart from a database, so the default tier holds them; the routes that serve and refuse on them are
-`tests/api/test_adresswechsel_execution.py`'s.
+`tests/api/test_address_change_execution.py`'s.
 """
 
 from datetime import UTC, datetime, timedelta
@@ -14,15 +14,15 @@ from fastapi.testclient import TestClient
 from pydantic import BaseModel, ValidationError
 from pymongo import ASCENDING
 
-from app.api.adresswechsel.schemas import (
+from app.api.address_change.schemas import (
+    FLAddressChangeAdminPayload,
     FLAddressChangeAdressePayload,
     FLAddressChangeAnswerPayload,
-    FLAddressChangeVerwaltungPayload,
     FLAddressChangeViewEnded,
     FLAddressChangeViewNew,
     FLAddressChangeViewPrevious,
 )
-from app.api.adresswechsel.services import bisherig_zustand, ist_abgelaufen, maskierte_adresse
+from app.api.address_change.services import is_expired, masked_address, previous_state
 from app.api.berechtigungen.services import genehmigung_steht, genehmigung_verwehrt
 from app.core.codes import Code
 from app.core.collections import Collection
@@ -48,7 +48,7 @@ class TestTheMask:
         ],
     )
     def test_it_shows_the_first_letters_and_the_last_label_and_never_the_length(self, email: str, masked: str):
-        assert maskierte_adresse(email) == masked
+        assert masked_address(email) == masked
 
 
 class TestWhatALeakedLinkLearns:
@@ -114,7 +114,7 @@ def a_step(step: str, *, lapsed: bool) -> dict[str, Any]:
         return {**released, "valid_until": deadline, "confirmed_at": None, "approval": None}
     confirmed = {"valid_until": None, "confirmed_at": NOW - timedelta(days=1)}
     if step == "approval":
-        return {**released, **confirmed, "effective_from": None, "approval": {"bis": deadline, "approved_at": None}}
+        return {**released, **confirmed, "effective_from": None, "approval": {"until": deadline, "approved_at": None}}
     # The lost-mailbox way's waiting time: its end is the effect, never a lapse.
     return {"way": "waiting_period", "released_at": None, **confirmed, "effective_from": NOW + timedelta(days=3), "approval": None}
 
@@ -140,9 +140,9 @@ class TestTheAddressOnFilesState:
     def test_the_link_shows_its_step_and_lapses_only_its_own_question(self, step: str, lapsed: bool, state: str):
         record = a_step(step, lapsed=lapsed)
         # The control: each lapsed row is lapsed as the pass judges it, so the row passing is the guard's doing.
-        assert ist_abgelaufen(record, now=NOW) is lapsed
+        assert is_expired(record, now=NOW) is lapsed
 
-        assert bisherig_zustand(record, now=NOW) == state
+        assert previous_state(record, now=NOW) == state
 
 
 class TestTheLostMailboxsStart:
@@ -154,7 +154,7 @@ class TestTheLostMailboxsStart:
         if grund is not ...:
             payload["grund"] = grund
 
-        assert_rejects(FLAddressChangeVerwaltungPayload, payload, "grund")
+        assert_rejects(FLAddressChangeAdminPayload, payload, "grund")
 
 
 class TestTheLinksLookups:
@@ -177,13 +177,13 @@ MOVED_OWNER = "inhaberin.neu@frankfurtleague.de"
 MOVED_DEMOTED = "zurueckgestuft@frankfurtleague.de"
 MOVED_REPROMOTED = "wieder.befoerdert@frankfurtleague.de"
 BEFORE, AFTER = NOW - timedelta(days=1), NOW + timedelta(hours=1)
-CARRIED_ADMINISTRATION = {"berechtigt_seit": BEFORE, "inhaber_seit": None}
-CARRIED_OWNER = {"berechtigt_seit": BEFORE, "inhaber_seit": BEFORE}
+CARRIED_ADMINISTRATION = {"granted_since": BEFORE, "owner_since": None}
+CARRIED_OWNER = {"granted_since": BEFORE, "owner_since": BEFORE}
 
 
 def a_grant(
     adresse: str,
-    verwaltung: str,
+    admin_tier: str,
     *,
     at: datetime = BEFORE,
     appointed_at: datetime | None = None,
@@ -194,7 +194,7 @@ def a_grant(
     return {
         "_id": ObjectId.from_datetime(at),
         "adresse": adresse,
-        "verwaltung": verwaltung,
+        "admin_tier": admin_tier,
         "granted_by": OWNER,
         "granted_at": at,
         **({} if appointed_at is None else {"appointed_at": appointed_at}),
@@ -215,11 +215,11 @@ GRANTS = [
 ]
 
 
-def a_change(*, started_by: str, verwaltung: str = "administration", approved_by: str | None = None) -> dict[str, Any]:
+def a_change(*, started_by: str, admin_tier: str = "administration", approved_by: str | None = None) -> dict[str, Any]:
     return {
-        "verwaltung": verwaltung,
+        "admin_tier": admin_tier,
         "asked_at": NOW,
-        "bis": NOW + timedelta(days=7),
+        "until": NOW + timedelta(days=7),
         "started_by": started_by,
         "approved_at": None if approved_by is None else NOW,
         "approved_by": approved_by,
@@ -228,21 +228,21 @@ def a_change(*, started_by: str, verwaltung: str = "administration", approved_by
 
 class TestWhoMayNotApprove:
     @pytest.mark.parametrize(
-        ("approval", "akteur", "inhaber", "denied"),
+        ("approval", "actor", "owner", "denied"),
         [
             pytest.param(a_change(started_by=CHANGED), CHANGED, True, "own", id="the changed address, an owner or not"),
             pytest.param(a_change(started_by=OWNER), OWNER, True, "started", id="the administrator who started it"),
-            pytest.param(a_change(started_by=OWNER, verwaltung="owner"), ADMIN, False, "owner", id="an owner's grant, no owner's power"),
-            pytest.param(a_change(started_by=OWNER, verwaltung="owner"), SECOND_OWNER, True, None, id="an owner's grant, another owner"),
+            pytest.param(a_change(started_by=OWNER, admin_tier="owner"), ADMIN, False, "owner", id="an owner's grant, no owner's power"),
+            pytest.param(a_change(started_by=OWNER, admin_tier="owner"), SECOND_OWNER, True, None, id="an owner's grant, another owner"),
             pytest.param(a_change(started_by=CHANGED), ADMIN, False, None, id="the person's own start, another administrator"),
             pytest.param(a_change(started_by=CHANGED), LATE, False, "younger", id="an administrator granted after the request"),
-            pytest.param(a_change(started_by=OWNER, verwaltung="owner"), PROMOTED, True, "younger", id="an owner promoted after the request"),
+            pytest.param(a_change(started_by=OWNER, admin_tier="owner"), PROMOTED, True, "younger", id="an owner promoted after the request"),
             pytest.param(a_change(started_by=CHANGED), MOVED, False, None, id="an administrator whose own address changed since"),
             pytest.param(
-                a_change(started_by=OWNER, verwaltung="owner"), MOVED_OWNER, True, None, id="an owner whose own address changed since"
+                a_change(started_by=OWNER, admin_tier="owner"), MOVED_OWNER, True, None, id="an owner whose own address changed since"
             ),
             pytest.param(
-                a_change(started_by=OWNER, verwaltung="owner"),
+                a_change(started_by=OWNER, admin_tier="owner"),
                 MOVED_REPROMOTED,
                 True,
                 "younger",
@@ -251,9 +251,9 @@ class TestWhoMayNotApprove:
         ],
     )
     def test_four_eyes_the_owner_s_tier_and_a_grant_older_than_the_request(
-        self, approval: dict[str, Any], akteur: str, inhaber: bool, denied: str | None
+        self, approval: dict[str, Any], actor: str, owner: bool, denied: str | None
     ):
-        assert genehmigung_verwehrt(betroffen=CHANGED, approval=approval, akteur=akteur, inhaber=inhaber, grants=GRANTS, announced=[]) == denied
+        assert genehmigung_verwehrt(betroffen=CHANGED, approval=approval, actor=actor, owner=owner, grants=GRANTS, announced=[]) == denied
 
 
 class TestWhetherAnApprovalStillStands:
@@ -266,8 +266,8 @@ class TestWhetherAnApprovalStillStands:
             pytest.param(a_change(started_by=CHANGED, approved_by=ADMIN), GRANTS[1:], set(), False, id="its approver's grant revoked since"),
             pytest.param(a_change(started_by=CHANGED, approved_by=ADMIN), GRANTS, {ADMIN}, False, id="its approver barred since"),
             pytest.param(
-                a_change(started_by=OWNER, verwaltung="owner", approved_by=SECOND_OWNER),
-                [*GRANTS[:2], {**GRANTS[2], "verwaltung": "administration"}, *GRANTS[3:]],
+                a_change(started_by=OWNER, admin_tier="owner", approved_by=SECOND_OWNER),
+                [*GRANTS[:2], {**GRANTS[2], "admin_tier": "administration"}, *GRANTS[3:]],
                 set(),
                 False,
                 id="an owner's change, its approver demoted since",
@@ -276,14 +276,14 @@ class TestWhetherAnApprovalStillStands:
             # The effect of their own change carried `approved_by` to the row it granted afresh.
             pytest.param(a_change(started_by=CHANGED, approved_by=MOVED), GRANTS, set(), True, id="its approver's own address changed since"),
             pytest.param(
-                a_change(started_by=OWNER, verwaltung="owner", approved_by=MOVED_OWNER),
+                a_change(started_by=OWNER, admin_tier="owner", approved_by=MOVED_OWNER),
                 GRANTS,
                 set(),
                 True,
                 id="an owner's change, its approver's own address changed since",
             ),
             pytest.param(
-                a_change(started_by=OWNER, verwaltung="owner", approved_by=MOVED_DEMOTED),
+                a_change(started_by=OWNER, admin_tier="owner", approved_by=MOVED_DEMOTED),
                 GRANTS,
                 set(),
                 False,

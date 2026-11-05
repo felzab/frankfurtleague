@@ -3,7 +3,7 @@ from typing import Annotated, Literal, Self
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
-from app.api.adresswechsel.services import FLAdresswechselBisherigZustand, FLAdresswechselNeuZustand
+from app.api.address_change.services import FLAddressChangeNewState, FLAddressChangePreviousState
 from app.api.berechtigungen.schemas import FLUtcInstant
 from app.api.outbox.schemas import FLOutboxStatus
 from app.api.sperrliste.schemas import refuse_an_address_in_the_reason
@@ -16,7 +16,7 @@ from app.shared.schemas.custom import (
     CustomObjectId,
 )
 from app.shared.schemas.kontakt import CustomEmail
-from app.shared.schemas.literals import FLAddressChangeEndArt, FLAddressChangeWaitsOn, FLAddressChangeWay, FLVerwaltung
+from app.shared.schemas.literals import FLAddressChangeEndArt, FLAddressChangeWaitsOn, FLAddressChangeWay, FLAdminTier
 from app.shared.schemas.responses import BaseAPIResponse
 
 type FLAddressChangeAnswer = Literal["confirmed", "declined"]
@@ -24,7 +24,7 @@ type FLAddressChangeAnswer = Literal["confirmed", "declined"]
 # How an administrator checked who asks, where the address on file is gone: the erasure occasion's ceiling, being
 # copied onto the start's log row as that occasion is. An address typed here would outlive every redaction of the change.
 # The ceiling counts what arrives and the strip runs after it, so the published `maxLength` is the one the write keeps.
-CustomAdresswechselGrund = Annotated[
+CustomAddressChangeReason = Annotated[
     str,
     StringConstraints(max_length=ERASURE_ANLASS_MAX_LENGTH, pattern=SINGLE_LINE_PATTERN),
     AfterValidator(str.strip),
@@ -33,40 +33,40 @@ CustomAdresswechselGrund = Annotated[
 ]
 
 
-# --- The record as `adresswechsel` stores it.
+# --- The record as `address_changes` stores it.
 
 
-class FLAdresswechselGenehmigung(BaseModel):
+class FLAddressChangeApproval(BaseModel):
     """The approval a change moving a grant waits on."""
 
-    verwaltung: FLVerwaltung
+    admin_tier: FLAdminTier
     asked_at: datetime
-    bis: datetime
+    until: datetime
     started_by: str
     approved_at: datetime | None
     approved_by: str | None
 
 
-class FLAdresswechselBeendet(BaseModel):
+class FLAddressChangeEnded(BaseModel):
     art: FLAddressChangeEndArt
-    am: datetime
+    at: datetime
 
 
-class FLAdresswechselUmgezogen(BaseModel):
+class FLAddressChangeMoved(BaseModel):
     """The effect's two addresses as the erasure journal hashes them: the new one, and the one it replaced."""
 
     person_hash: str
     before: str
 
 
-class FLAdresswechselUmzug(BaseModel):
+class FLAddressChangeMove(BaseModel):
     """The sign-in account an effect still owes to carry, from the replaced address to the new one, both folded."""
 
-    von: str
-    nach: str
+    old: str
+    new: str
 
 
-class FLAdresswechsel(BaseModel):
+class FLAddressChange(BaseModel):
     """One change. Its hashes are whole credentials, read by their links' lookups alone and on no read model."""
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
@@ -80,34 +80,34 @@ class FLAdresswechsel(BaseModel):
     grund: str | None
     confirmed_at: datetime | None
     effective_from: datetime | None
-    approval: FLAdresswechselGenehmigung | None
-    ended: FLAdresswechselBeendet | None
+    approval: FLAddressChangeApproval | None
+    ended: FLAddressChangeEnded | None
     # Set by an effect that carries the account, which the ended record keeps until the carry is done; absent otherwise.
-    move: FLAdresswechselUmzug | None = Field(default=None)
+    move: FLAddressChangeMove | None = Field(default=None)
     # Set by every effect, until the erasure of the new address takes it.
-    moved: FLAdresswechselUmgezogen | None = Field(default=None)
+    moved: FLAddressChangeMoved | None = Field(default=None)
 
 
-class FLAdresswechselStopp(BaseModel):
+class FLAddressChangeStop(BaseModel):
     """The address on file's link: the person's own change's confirmation or decline until it confirms, then every way's stop."""
 
     token_hashes: list[str]
 
 
-class FLAdresswechselRecord(FLAdresswechsel):
-    """One change as `adresswechsel` stores it, its two links' hashes with it, each minted as its mail is handed out."""
+class FLAddressChangeRecord(FLAddressChange):
+    """One change as `address_changes` stores it, its two links' hashes with it, each minted as its mail is handed out."""
 
     # Empty until the new mailbox's link is handed out, which on the person's own change waits until its address on file
     # confirms.
     token_hashes: list[str]
-    stop: FLAdresswechselStopp
+    stop: FLAddressChangeStop
 
 
 class FLAddressChangeOpenMove(BaseModel):
     # The ended change that owes it.
     id: CustomObjectId
-    von: str
-    nach: str
+    old: str
+    new: str
 
 
 class FLAddressChangeMovesResponse(BaseAPIResponse):
@@ -157,9 +157,9 @@ class FLAddressChangeApprovalState(BaseModel):
     """The approval a change of the person's own grant waits on, as their account page reads it: never who gave it."""
 
     # `owner`: another owner approves.
-    verwaltung: FLVerwaltung
+    admin_tier: FLAdminTier
     approved: bool
-    bis: FLUtcInstant
+    until: FLUtcInstant
 
 
 # --- The two links, public.
@@ -169,7 +169,7 @@ class FLAddressChangeViewNew(BaseModel):
     """What the new mailbox's link opens while the change stands."""
 
     side: Literal["new"]
-    state: FLAdresswechselNeuZustand
+    state: FLAddressChangeNewState
     # Null exactly where the change is confirmed: it waits on no deadline of this link's.
     valid_until: FLUtcInstant | None
     effective_from: FLUtcInstant | None
@@ -185,7 +185,7 @@ class FLAddressChangeViewPrevious(BaseModel):
     """What the address on file's link opens: the step the change waits on, never whether the new mailbox could confirm it."""
 
     side: Literal["previous"]
-    state: FLAdresswechselBisherigZustand
+    state: FLAddressChangePreviousState
     valid_until: FLUtcInstant | None
     effective_from: FLUtcInstant | None
     way: FLAddressChangeWay
@@ -244,7 +244,7 @@ class FLAddressChangeStopResponse(BaseAPIResponse):
 # --- The administrator's tool, keyed by the address it types.
 
 
-class FLAddressChangeVerwaltungViewPayload(BaseModel):
+class FLAddressChangeAdminViewPayload(BaseModel):
     """Exactly one key: the address typed, or the change a page links to."""
 
     model_config = ConfigDict(extra="forbid")
@@ -260,7 +260,7 @@ class FLAddressChangeVerwaltungViewPayload(BaseModel):
         return self
 
 
-class FLAddressChangeVerwaltungHoldings(BaseModel):
+class FLAddressChangeAdminHoldings(BaseModel):
     """What the address holds that a change moves, counted: the tool names the kinds, the editors the records."""
 
     spieler: int = Field(ge=0)
@@ -268,21 +268,21 @@ class FLAddressChangeVerwaltungHoldings(BaseModel):
     seats: int = Field(ge=0)
     bewerbung_seats: int = Field(ge=0)
     registrierungen: int = Field(ge=0)
-    grant: FLVerwaltung | None
+    grant: FLAdminTier | None
 
 
-class FLAddressChangeVerwaltungApproval(BaseModel):
+class FLAddressChangeAdminApproval(BaseModel):
     """The approval a change moving a grant waits on, read-only here: the administrators page approves it.
 
     Never who approved: a barred administrator's address is answered on no read.
     """
 
-    verwaltung: FLVerwaltung
-    bis: FLUtcInstant
+    admin_tier: FLAdminTier
+    until: FLUtcInstant
     approved_at: FLUtcInstant | None
 
 
-class FLAddressChangeVerwaltungOpen(BaseModel):
+class FLAddressChangeAdminOpen(BaseModel):
     """The address's live change whole, admin tier: the new address and the reason included, never a hash."""
 
     id: CustomObjectId
@@ -299,17 +299,17 @@ class FLAddressChangeVerwaltungOpen(BaseModel):
     delivery: FLOutboxStatus | None
     # Judged as the hourly pass ends one, so the tool marks a lapsed change without a clock of its own.
     expired: bool
-    approval: FLAddressChangeVerwaltungApproval | None
+    approval: FLAddressChangeAdminApproval | None
 
 
-class FLAddressChangeVerwaltungViewResponse(BaseAPIResponse):
+class FLAddressChangeAdminViewResponse(BaseAPIResponse):
     adresse: str
-    holdings: FLAddressChangeVerwaltungHoldings
+    holdings: FLAddressChangeAdminHoldings
     possible: bool
-    open: FLAddressChangeVerwaltungOpen | None
+    open: FLAddressChangeAdminOpen | None
 
 
-class FLAddressChangeVerwaltungPayload(BaseModel):
+class FLAddressChangeAdminPayload(BaseModel):
     """The address a change starts on, the address it goes to, and how the administrator established who asks for it."""
 
     model_config = ConfigDict(extra="forbid")
@@ -317,10 +317,10 @@ class FLAddressChangeVerwaltungPayload(BaseModel):
     adresse: CustomEmail
     email: CustomEmail
     # Never null: the change hands the records over without the address on file, so it stands on a recorded reason.
-    grund: CustomAdresswechselGrund
+    grund: CustomAddressChangeReason
 
 
-class FLAddressChangeVerwaltungMintResponse(BaseAPIResponse):
+class FLAddressChangeAdminMintResponse(BaseAPIResponse):
     """A started or re-sent change, whose mails are owed in the Postausgang: no link is answered."""
 
     id: CustomObjectId
@@ -342,10 +342,10 @@ class FLAddressChangeApprovalResponse(BaseAPIResponse):
 # --- The hourly pass.
 
 
-class FLAdresswechselSweepParams(BaseModel):
+class FLAddressChangeSweepParams(BaseModel):
     """Where in one pass the call starts: after the change the call before it reached, or at the lowest id where none is named."""
 
-    nach: CustomObjectId | None = None
+    after: CustomObjectId | None = None
 
 
 class FLAddressChangeSweepResponse(BaseAPIResponse):
@@ -357,5 +357,5 @@ class FLAddressChangeSweepResponse(BaseAPIResponse):
     effective: int = Field(ge=0)
     # A change whose ending or effect failed among them: it stays due, so a caller looping on this alone never ends.
     remaining: int
-    # The last change this call reached, for the next call's `nach`; null once it reached the end, which ends the pass.
-    nach: CustomObjectId | None
+    # The last change this call reached, for the next call's `after`; null once it reached the end, which ends the pass.
+    after: CustomObjectId | None

@@ -95,12 +95,12 @@ def _withholding(data: Mapping[str, Any], identifier: str) -> dict[str, Any]:
 def _withheld(mitteilung: Mitteilung, identifier: str) -> Mitteilung:
     """A composed notice as `_withholding` leaves it, so no row owed carries the address."""
 
-    daten = dict(mitteilung.data)
+    data = dict(mitteilung.data)
     for path, value in _withholding(mitteilung.data, identifier).items():
         head, _, tail = path.partition(".")
-        daten[head] = {**daten[head], tail: value} if tail else value
+        data[head] = {**data[head], tail: value} if tail else value
 
-    return Mitteilung(grant_id=mitteilung.grant_id, data=daten)
+    return Mitteilung(grant_id=mitteilung.grant_id, data=data)
 
 
 async def _withhold_queued(outbox_collection: AsyncCollection, identifier: str, session: AsyncClientSession) -> int:
@@ -121,15 +121,15 @@ async def _withhold_queued(outbox_collection: AsyncCollection, identifier: str, 
 
 async def carry_authorship_in_session(
     *,
-    berechtigungen_collection: AsyncCollection,
-    berechtigungen_antraege_collection: AsyncCollection,
+    grants_collection: AsyncCollection,
+    grants_approval_requests_collection: AsyncCollection,
     bewerbungen_collection: AsyncCollection,
     registrierungen_collection: AsyncCollection,
-    einladungen_collection: AsyncCollection,
-    sperrliste_collection: AsyncCollection,
+    invitations_collection: AsyncCollection,
+    ban_list_collection: AsyncCollection,
     # Both folded (`app/shared/folding.py :: sign_in_identifier`).
-    alt: str,
-    neue: str,
+    old: str,
+    new_address: str,
     session: AsyncClientSession,
 ) -> int:
     """Re-key every record the person made to the new address, whatever they hold now.
@@ -137,14 +137,14 @@ async def carry_authorship_in_session(
     Each collection named by its own parameter, as the erasure names them, so the traces resolve every write.
     """
 
-    carried = await _set_authored(berechtigungen_collection, "granted_by", alt, neue, session)
-    carried += await _set_authored(bewerbungen_collection, "decision.von", alt, neue, session)
-    carried += await _set_authored(registrierungen_collection, "decision.von", alt, neue, session)
-    carried += await _set_authored(sperrliste_collection, "created_by", alt, neue, session)
-    carried += await _set_authored(einladungen_collection, "created_by", alt, neue, session)
+    carried = await _set_authored(grants_collection, "granted_by", old, new_address, session)
+    carried += await _set_authored(bewerbungen_collection, "decision.by", old, new_address, session)
+    carried += await _set_authored(registrierungen_collection, "decision.by", old, new_address, session)
+    carried += await _set_authored(ban_list_collection, "created_by", old, new_address, session)
+    carried += await _set_authored(invitations_collection, "created_by", old, new_address, session)
     # A moved requester's request stays theirs, approvable as before: carried so it holds no
     # address an erasure at the new one misses.
-    carried += await _set_authored(berechtigungen_antraege_collection, "approval.started_by", alt, neue, session)
+    carried += await _set_authored(grants_approval_requests_collection, "approval.started_by", old, new_address, session)
 
     return carried
 
@@ -163,15 +163,15 @@ async def _set_authored(collection: AsyncCollection, field: str, identifier: str
 
 async def loeschen_grants_and_authorship_in_session(
     *,
-    berechtigungen_collection: AsyncCollection,
-    berechtigungen_angekuendigt_collection: AsyncCollection,
+    grants_collection: AsyncCollection,
+    grants_announced_collection: AsyncCollection,
     outbox_collection: AsyncCollection,
     bewerbungen_collection: AsyncCollection,
     registrierungen_collection: AsyncCollection,
-    einladungen_collection: AsyncCollection,
+    invitations_collection: AsyncCollection,
     # By name, as every collection a write reaches: the duplicate-key trace resolves a collection by
     # its parameter's spelling, never through the ban list's attribute.
-    sperrliste_collection: AsyncCollection,
+    ban_list_collection: AsyncCollection,
     # Answers which other address in a queued notice is barred.
     sperrliste: BanList,
     # Folded (`app/shared/folding.py :: sign_in_identifier`).
@@ -189,14 +189,14 @@ async def loeschen_grants_and_authorship_in_session(
     """
 
     # Both read before the removals below, after which neither a grant nor its record matches.
-    grants = await _rows_naming(berechtigungen_collection, ("adresse",), identifier, session, whole=True)
+    grants = await _rows_naming(grants_collection, ("adresse",), identifier, session, whole=True)
     grant_ids = [grant["_id"] for grant in grants]
     # Keyed on one of those grants whatever address it holds, or holding this address under another
     # grant's id: either is what the administrators were told of this person's access.
     records = [
         record
         for record in await aggregate_many_from_db(
-            collection=berechtigungen_angekuendigt_collection,
+            collection=grants_announced_collection,
             pipeline=[{"$match": {"$or": [{"_id": {"$in": grant_ids}}, {"adresse": same_address(identifier)}]}}],
             session=session,
         )
@@ -218,18 +218,18 @@ async def loeschen_grants_and_authorship_in_session(
 
     others = {
         stand.adresse
-        for _, _, jetzt, vorher, _ in changes
-        for stand in (jetzt, vorher)
+        for _, _, current, before, _ in changes
+        for stand in (current, before)
         if stand is not None and stand.adresse is not None and not _names(stand.adresse, identifier)
     } | ({sign_in_identifier(changed_by)} - {identifier})
     barred = await adressen_gesperrt(sperrliste, others, session=session) if others else set()
 
     mitteilungen = [
         _withheld(
-            compose_mitteilung(grant_id=grant_id, art=art, jetzt=jetzt, before=vorher, changed_by=von, now=now, barred=barred),
+            compose_mitteilung(grant_id=grant_id, art=art, current=current, before=before, changed_by=by, now=now, barred=barred),
             identifier,
         )
-        for grant_id, art, jetzt, vorher, von in changes
+        for grant_id, art, current, before, by in changes
     ]
 
     # Owed before this erasure's own: they are not yet withheld, and this erasure's carry no address of the person.
@@ -237,27 +237,25 @@ async def loeschen_grants_and_authorship_in_session(
 
     # No image of either: a grant's image is the address itself, and the announced record is bookkeeping.
     if grant_ids:
-        await erase_many_from_db(collection=berechtigungen_collection, db_filter={"_id": {"$in": grant_ids}}, session=session)
+        await erase_many_from_db(collection=grants_collection, db_filter={"_id": {"$in": grant_ids}}, session=session)
     if records:
-        await erase_many_from_db(
-            collection=berechtigungen_angekuendigt_collection, db_filter={"_id": {"$in": list(records_by_id)}}, session=session
-        )
+        await erase_many_from_db(collection=grants_announced_collection, db_filter={"_id": {"$in": list(records_by_id)}}, session=session)
 
     # After the removals, so the person is no holder told: every administrator who remains is.
     await owe_in_session(
         mitteilungen,
         outbox_collection=outbox_collection,
-        berechtigungen_collection=berechtigungen_collection,
+        grants_collection=grants_collection,
         now=now,
         session=session,
     )
 
     # Fields an address change's effect carries too (`fl_backend/app/api/berechtigungen/loeschung.py :: carry_authorship_in_session`).
-    marked = await _set_authored(berechtigungen_collection, "granted_by", identifier, ERASED_ACTOR_MARKER, session)
-    marked += await _set_authored(bewerbungen_collection, "decision.von", identifier, ERASED_ACTOR_MARKER, session)
-    marked += await _set_authored(registrierungen_collection, "decision.von", identifier, ERASED_ACTOR_MARKER, session)
-    marked += await _set_authored(sperrliste_collection, "created_by", identifier, ERASED_ACTOR_MARKER, session)
-    marked += await _set_authored(einladungen_collection, "created_by", identifier, ERASED_ACTOR_MARKER, session)
+    marked = await _set_authored(grants_collection, "granted_by", identifier, ERASED_ACTOR_MARKER, session)
+    marked += await _set_authored(bewerbungen_collection, "decision.by", identifier, ERASED_ACTOR_MARKER, session)
+    marked += await _set_authored(registrierungen_collection, "decision.by", identifier, ERASED_ACTOR_MARKER, session)
+    marked += await _set_authored(ban_list_collection, "created_by", identifier, ERASED_ACTOR_MARKER, session)
+    marked += await _set_authored(invitations_collection, "created_by", identifier, ERASED_ACTOR_MARKER, session)
 
     return GeloeschtGrantsAndAuthorship(
         removed_berechtigungen=len(grant_ids),

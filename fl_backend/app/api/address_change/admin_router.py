@@ -6,60 +6,60 @@ from fastapi import APIRouter, Body, Depends
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.adresswechsel.crud import (
-    Belegung,
-    Bestand,
-    adresse_belegt,
+from app.api.address_change.crud import (
+    Holdings,
+    Occupancy,
+    address_taken,
     end_the_change_in_session,
     ending_line,
-    lage_of_the_link,
     owe_the_link_in_session,
     owe_the_notice_in_session,
-    read_the_bestand,
+    read_the_holdings,
     refusal_of,
     start_the_change_in_session,
+    state_of_the_link,
     take_effect_in_session,
 )
-from app.api.adresswechsel.schemas import (
+from app.api.address_change.schemas import (
+    FLAddressChangeAdminApproval,
+    FLAddressChangeAdminHoldings,
+    FLAddressChangeAdminMintResponse,
+    FLAddressChangeAdminOpen,
+    FLAddressChangeAdminPayload,
+    FLAddressChangeAdminViewPayload,
+    FLAddressChangeAdminViewResponse,
     FLAddressChangeApprovalResponse,
     FLAddressChangeIdResponse,
-    FLAddressChangeVerwaltungApproval,
-    FLAddressChangeVerwaltungHoldings,
-    FLAddressChangeVerwaltungMintResponse,
-    FLAddressChangeVerwaltungOpen,
-    FLAddressChangeVerwaltungPayload,
-    FLAddressChangeVerwaltungViewPayload,
-    FLAddressChangeVerwaltungViewResponse,
 )
-from app.api.adresswechsel.services import (
-    als_utc,
+from app.api.address_change.services import (
+    approval_open,
+    as_utc,
     build_address_filter,
     build_live_filter,
     build_resendable_terms,
-    compose_genehmigt_update,
-    compose_genehmigung,
+    compose_approval,
+    compose_approved_update,
     compose_link_update,
     compose_record,
-    find_abgelaufen_refusal,
-    find_beendet_refusal,
-    find_belegt_refusal,
-    find_genehmigung_verwehrt_refusal,
-    find_gesperrt_refusal,
-    find_kein_genehmiger_refusal,
-    find_keine_genehmigung_offen_refusal,
-    find_nichts_refusal,
-    find_unveraendert_refusal,
-    find_vergeben_refusal,
-    genehmigung_offen,
-    ist_abgelaufen,
-    ist_faellig,
-    wartet_auf,
+    find_approval_denied_refusal,
+    find_barred_refusal,
+    find_ended_refusal,
+    find_expired_refusal,
+    find_no_approval_open_refusal,
+    find_no_approver_refusal,
+    find_nothing_refusal,
+    find_occupied_refusal,
+    find_taken_refusal,
+    find_unchanged_refusal,
+    is_due,
+    is_expired,
+    waits_on,
 )
 from app.api.berechtigungen.crud import read_berechtigungen, read_the_announced
 from app.api.berechtigungen.guard import verify_actor_is_admin
 from app.api.berechtigungen.services import genehmiger_of, genehmigung_verwehrt, holds_an_owners_power
-from app.api.identity.lookup import SubjektLookup
-from app.api.identity.services import JEDE_VERWALTUNG, find_eigene_adresse_refusal, find_verwaltung_adresse_refusal
+from app.api.identity.lookup import SubjectLookup
+from app.api.identity.services import EACH_ADMIN, find_admin_address_refusal, find_own_address_refusal
 from app.api.outbox.schemas import FLOutboxStatus
 from app.api.sperrliste.lookup import BanList, SperrlisteLookup, adressen_gesperrt, hash_gesperrt, sperrliste_saison
 from app.api.spieler.crud import another_pupil_holds
@@ -69,6 +69,7 @@ from app.core.dependencies import (
     ActionLogCollection,
     AddressChangeCollection,
     AddressChangeReadCollection,
+    BanListCollection,
     BewerbungenCollection,
     DBClient,
     GrantApprovalRequestsCollection,
@@ -83,7 +84,6 @@ from app.core.dependencies import (
     SaisonTeamsCollection,
     SchiedsrichterCollection,
     SnapshotSession,
-    SperrlisteCollection,
     SpielbestaetigungenCollection,
     SpielerCollection,
     get_germany_now,
@@ -108,23 +108,23 @@ router = APIRouter(
 async def _refuse_the_address(
     identifier: str,
     *,
-    akteur: str,
+    actor: str,
     auth_time: int,
-    berechtigungen_collection: ReadCollection,
-    berechtigungen_angekuendigt_collection: ReadCollection,
+    grants_collection: ReadCollection,
+    grants_announced_collection: ReadCollection,
     session: AsyncClientSession,
 ) -> tuple[list[Mapping[str, Any]], list[Mapping[str, Any]]]:
     """The erasure tool's two refusals about who asks, judged on the grants read here, which the caller reuses.
 
-    The administrator's own address (`own_adresse`), and a grant holder's unless they hold an owner's power (`verwaltung_adresse`).
+    The administrator's own address (`own_adresse`), and a grant holder's unless they hold an owner's power (`admin_address`).
     """
 
-    refuse(find_eigene_adresse_refusal(identifier=identifier, akteur=akteur))
-    grants = await read_berechtigungen(berechtigungen_collection=berechtigungen_collection, session=session)
-    announced = await read_the_announced(berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection, session=session)
+    refuse(find_own_address_refusal(identifier=identifier, actor=actor))
+    grants = await read_berechtigungen(grants_collection=grants_collection, session=session)
+    announced = await read_the_announced(grants_announced_collection=grants_announced_collection, session=session)
     refuse(
-        find_verwaltung_adresse_refusal(
-            identifier=identifier, akteur=akteur, auth_time=auth_time, grants=grants, announced=announced, geschuetzt=JEDE_VERWALTUNG
+        find_admin_address_refusal(
+            identifier=identifier, actor=actor, auth_time=auth_time, grants=grants, announced=announced, protected=EACH_ADMIN
         )
     )
 
@@ -132,67 +132,67 @@ async def _refuse_the_address(
 
 
 async def _pull_the_change(
-    adresswechsel_collection: ReadCollection, address_change_id: Any, *, session: AsyncClientSession | None
+    address_change_collection: ReadCollection, address_change_id: Any, *, session: AsyncClientSession | None
 ) -> Mapping[str, Any]:
     """The change an id names, ended or not: 404 where none is kept, `address_change_ended` where it ended."""
 
-    record = await adresswechsel_collection.find_one({"_id": address_change_id}, session=session)
+    record = await address_change_collection.find_one({"_id": address_change_id}, session=session)
     if record is None:
         raise DocumentNotFoundError()
-    refuse(find_beendet_refusal(offen=record.get("ended") is None))
+    refuse(find_ended_refusal(open=record.get("ended") is None))
 
     return record
 
 
-def _offen(record: Mapping[str, Any], *, delivery: FLOutboxStatus | None, now: datetime) -> FLAddressChangeVerwaltungOpen:
-    genehmigung = record.get("approval")
+def _open(record: Mapping[str, Any], *, delivery: FLOutboxStatus | None, now: datetime) -> FLAddressChangeAdminOpen:
+    approval = record.get("approval")
 
-    return FLAddressChangeVerwaltungOpen(
+    return FLAddressChangeAdminOpen(
         id=record["_id"],
         email=record["email"],
         way=record["way"],
         grund=record.get("grund"),
-        waits_on=wartet_auf(record),
+        waits_on=waits_on(record),
         sent_at=record["sent_at"],
-        valid_until=als_utc(record.get("valid_until")),
-        released_at=als_utc(record.get("released_at")),
-        confirmed_at=als_utc(record.get("confirmed_at")),
-        effective_from=als_utc(record.get("effective_from")),
+        valid_until=as_utc(record.get("valid_until")),
+        released_at=as_utc(record.get("released_at")),
+        confirmed_at=as_utc(record.get("confirmed_at")),
+        effective_from=as_utc(record.get("effective_from")),
         delivery=delivery,
-        expired=ist_abgelaufen(record, now=now),
-        approval=None if not isinstance(genehmigung, Mapping) else FLAddressChangeVerwaltungApproval.model_validate(genehmigung),
+        expired=is_expired(record, now=now),
+        approval=None if not isinstance(approval, Mapping) else FLAddressChangeAdminApproval.model_validate(approval),
     )
 
 
-def _bestand(holdings: Bestand) -> FLAddressChangeVerwaltungHoldings:
-    return FLAddressChangeVerwaltungHoldings(
+def _holdings(holdings: Holdings) -> FLAddressChangeAdminHoldings:
+    return FLAddressChangeAdminHoldings(
         spieler=0 if holdings.spieler is None else 1,
         schiedsrichter=len(holdings.schiedsrichter),
-        seats=sum(len(slots) for _, slots in holdings.sitze),
+        seats=sum(len(slots) for _, slots in holdings.seats),
         bewerbung_seats=sum(len(slots) for _, slots in holdings.bewerbung_seats),
         registrierungen=len(holdings.registrierungen),
-        grant=None if holdings.grant is None else holdings.grant["verwaltung"],
+        grant=None if holdings.grant is None else holdings.grant["admin_tier"],
     )
 
 
 @router.post(
     "/view",
-    response_model=FLAddressChangeVerwaltungViewResponse,
+    response_model=FLAddressChangeAdminViewResponse,
     summary="Show what an address holds that a change moves, and its live change",
     openapi_extra=SAFE,
 )
-async def get_address_change_verwaltung_view(
-    ansicht_data: Annotated[FLAddressChangeVerwaltungViewPayload, Body()],
-    adresswechsel_collection: AddressChangeReadCollection,
+async def get_address_change_admin_view(
+    view_data: Annotated[FLAddressChangeAdminViewPayload, Body()],
+    address_change_collection: AddressChangeReadCollection,
     outbox_collection: OutboxReadCollection,
-    records: SubjektLookup,
-    berechtigungen_collection: GrantsReadCollection,
-    berechtigungen_angekuendigt_collection: GrantsAnnouncedReadCollection,
+    records: SubjectLookup,
+    grants_collection: GrantsReadCollection,
+    grants_announced_collection: GrantsAnnouncedReadCollection,
     session: SnapshotSession,
     operator: str = Depends(get_actor_email),
     auth_time: int = Depends(get_actor_auth_time),
     germany_now: datetime = Depends(get_germany_now),
-) -> FLAddressChangeVerwaltungViewResponse:
+) -> FLAddressChangeAdminViewResponse:
     """
     Answer what the typed address holds that a change moves, by kind, and its live change whole, the new address and reason included.
 
@@ -200,44 +200,44 @@ async def get_address_change_verwaltung_view(
     never a hash. `possible` where the address holds anything a change moves, a grant included. Stores nothing.
 
     Refused as the erasure's reveal is: the administrator's own address (`own_adresse`), and an address holding a live
-    grant unless the administrator holds an owner's power (`verwaltung_adresse`). A change id answers 404 where no change is
+    grant unless the administrator holds an owner's power (`admin_address`). A change id answers 404 where no change is
     kept, and `address_change_ended` where it ended.
     """
 
-    akteur = sign_in_identifier(operator)
+    actor = sign_in_identifier(operator)
 
     # Every read in the request's snapshot session, so the tool names the records of one moment; never a transaction, a
     # read writing nothing having no conflict to retry for.
-    if ansicht_data.address_change_id is not None:
-        identifier = str((await _pull_the_change(adresswechsel_collection, ansicht_data.address_change_id, session=session))["adresse"])
+    if view_data.address_change_id is not None:
+        identifier = str((await _pull_the_change(address_change_collection, view_data.address_change_id, session=session))["adresse"])
     else:
-        identifier = sign_in_identifier(str(ansicht_data.adresse))
+        identifier = sign_in_identifier(str(view_data.adresse))
     await _refuse_the_address(
         identifier,
-        akteur=akteur,
+        actor=actor,
         auth_time=auth_time,
-        berechtigungen_collection=berechtigungen_collection,
-        berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
+        grants_collection=grants_collection,
+        grants_announced_collection=grants_announced_collection,
         session=session,
     )
-    bestand = await read_the_bestand(identifier, records=records, berechtigungen_collection=berechtigungen_collection, session=session)
-    offen = await adresswechsel_collection.find_one(build_address_filter(identifier), session=session)
-    zustellung = (
-        None if offen is None else await lage_of_the_link(outbox_collection=outbox_collection, address_change_id=offen["_id"], session=session)
+    holdings = await read_the_holdings(identifier, records=records, grants_collection=grants_collection, session=session)
+    open = await address_change_collection.find_one(build_address_filter(identifier), session=session)
+    delivery = (
+        None if open is None else await state_of_the_link(outbox_collection=outbox_collection, address_change_id=open["_id"], session=session)
     )
 
-    return FLAddressChangeVerwaltungViewResponse(
+    return FLAddressChangeAdminViewResponse(
         adresse=identifier,
-        holdings=_bestand(bestand),
-        possible=not bestand.leer,
-        open=None if offen is None else _offen(offen, delivery=zustellung, now=germany_now),
+        holdings=_holdings(holdings),
+        possible=not holdings.empty,
+        open=None if open is None else _open(open, delivery=delivery, now=germany_now),
     )
 
 
-async def _refuse_without_genehmiger(
-    holdings: Bestand,
+async def _refuse_without_approver(
+    holdings: Holdings,
     *,
-    akteur: str,
+    actor: str,
     grants: list[Mapping[str, Any]],
     announced: list[Mapping[str, Any]],
     sperrliste: BanList,
@@ -247,40 +247,40 @@ async def _refuse_without_genehmiger(
     """Refused `address_change_no_approver` where nobody but the start's actor could approve a change of this address's grant."""
 
     assert holdings.grant is not None
-    gesperrt = await adressen_gesperrt(sperrliste, [str(row["adresse"]) for row in grants], session=session)
-    genehmiger = genehmiger_of(
-        verwaltung=str(holdings.grant["verwaltung"]),
-        ausgenommen={holdings.identifier, akteur},
+    barred = await adressen_gesperrt(sperrliste, [str(row["adresse"]) for row in grants], session=session)
+    approver = genehmiger_of(
+        admin_tier=str(holdings.grant["admin_tier"]),
+        excepted={holdings.identifier, actor},
         grants=grants,
         announced=announced,
-        barred=gesperrt,
-        vor=now,
+        barred=barred,
+        before=now,
     )
-    refuse(find_kein_genehmiger_refusal(genehmiger=len(genehmiger)))
+    refuse(find_no_approver_refusal(approver=len(approver)))
 
 
 @router.post(
     "",
-    response_model=FLAddressChangeVerwaltungMintResponse,
+    response_model=FLAddressChangeAdminMintResponse,
     summary="Start an address change for a person who says they cannot sign in",
     dependencies=[Depends(verify_step_up)],
 )
-async def post_address_change_verwaltung(
-    adresswechsel_data: Annotated[FLAddressChangeVerwaltungPayload, Body()],
-    adresswechsel_collection: AddressChangeCollection,
-    records: SubjektLookup,
+async def post_address_change_admin(
+    address_change_data: Annotated[FLAddressChangeAdminPayload, Body()],
+    address_change_collection: AddressChangeCollection,
+    records: SubjectLookup,
     spieler_collection: SpielerCollection,
-    berechtigungen_collection: GrantsCollection,
-    berechtigungen_angekuendigt_collection: GrantsAnnouncedCollection,
+    grants_collection: GrantsCollection,
+    grants_announced_collection: GrantsAnnouncedCollection,
     outbox_collection: OutboxCollection,
-    berechtigungen_antraege_collection: GrantApprovalRequestsCollection,
+    grants_approval_requests_collection: GrantApprovalRequestsCollection,
     sperrliste: SperrlisteLookup,
-    aktionen_collection: ActionLogCollection,
+    action_log_collection: ActionLogCollection,
     db: DBClient,
     operator: str = Depends(get_actor_email),
     auth_time: int = Depends(get_actor_auth_time),
     germany_now: datetime = Depends(get_germany_now),
-) -> FLAddressChangeVerwaltungMintResponse:
+) -> FLAddressChangeAdminMintResponse:
     """
     Start a change of the typed address for a person who says they cannot sign in, its mails owed in the same transaction.
 
@@ -292,78 +292,74 @@ async def post_address_change_verwaltung(
     replaced.
 
     Refused the administrator's own address (`own_adresse`), a grant holder's without an owner's power
-    (`verwaltung_adresse`), the address on file typed again (`address_change_unchanged`), a new address the ban list holds
+    (`admin_address`), the address on file typed again (`address_change_unchanged`), a new address the ban list holds
     (`address_change_barred`), an address holding nothing a change moves (`address_change_nothing`), a new address another pupil signs in on
     where the change moves a pupil (`address_change_taken`), a new address any entry names, confirmed or not (`address_change_occupied`), and a
     grant nobody could approve (`address_change_no_approver`).
     """
 
-    identifier, email, grund = sign_in_identifier(str(adresswechsel_data.adresse)), str(adresswechsel_data.email), adresswechsel_data.grund
-    akteur = sign_in_identifier(operator)
-    weg: FLAddressChangeWay = "waiting_period"
-    gehasht = sperrliste.hash_of(email)
+    identifier, email, grund = sign_in_identifier(str(address_change_data.adresse)), str(address_change_data.email), address_change_data.grund
+    actor = sign_in_identifier(operator)
+    way: FLAddressChangeWay = "waiting_period"
+    hashed = sperrliste.hash_of(email)
     # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_gesperrt`).
-    massgebliche_saison_id = await sperrliste_saison(sperrliste)
+    governing_saison_id = await sperrliste_saison(sperrliste)
     journal = Journal()
 
     @journal.attempted
-    async def judge_and_start_the_change(session: AsyncClientSession) -> FLAddressChangeVerwaltungMintResponse:
+    async def judge_and_start_the_change(session: AsyncClientSession) -> FLAddressChangeAdminMintResponse:
         grants, announced = await _refuse_the_address(
             identifier,
-            akteur=akteur,
+            actor=actor,
             auth_time=auth_time,
-            berechtigungen_collection=berechtigungen_collection,
-            berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
+            grants_collection=grants_collection,
+            grants_announced_collection=grants_announced_collection,
             session=session,
         )
-        refuse(find_unveraendert_refusal(adresse=identifier, folded=sign_in_identifier(email)))
-        refuse(
-            find_gesperrt_refusal(
-                barred=await hash_gesperrt(sperrliste, gehasht, massgebliche_saison_id=massgebliche_saison_id, session=session)
-            )
-        )
+        refuse(find_unchanged_refusal(adresse=identifier, folded=sign_in_identifier(email)))
+        refuse(find_barred_refusal(barred=await hash_gesperrt(sperrliste, hashed, governing_saison_id=governing_saison_id, session=session)))
 
-        bestand = await read_the_bestand(identifier, records=records, berechtigungen_collection=berechtigungen_collection, session=session)
-        refuse(find_nichts_refusal(leer=bestand.leer))
-        vergeben = bestand.spieler is not None and await another_pupil_holds(
-            spieler_collection=spieler_collection, identifier=sign_in_identifier(email), spieler_id=bestand.spieler["_id"], session=session
+        holdings = await read_the_holdings(identifier, records=records, grants_collection=grants_collection, session=session)
+        refuse(find_nothing_refusal(empty=holdings.empty))
+        taken = holdings.spieler is not None and await another_pupil_holds(
+            spieler_collection=spieler_collection, identifier=sign_in_identifier(email), spieler_id=holdings.spieler["_id"], session=session
         )
-        refuse(find_vergeben_refusal(vergeben=vergeben))
+        refuse(find_taken_refusal(taken=taken))
         # Judged here too, its reader trusted: a change its confirmation would refuse goes nowhere.
         refuse(
-            find_belegt_refusal(
-                belegt=await adresse_belegt(
+            find_occupied_refusal(
+                occupied=await address_taken(
                     email,
                     records=records,
-                    belegung=Belegung(
-                        berechtigungen_collection=berechtigungen_collection,
-                        berechtigungen_antraege_collection=berechtigungen_antraege_collection,
-                        adresswechsel_collection=adresswechsel_collection,
+                    occupancy=Occupancy(
+                        grants_collection=grants_collection,
+                        grants_approval_requests_collection=grants_approval_requests_collection,
+                        address_change_collection=address_change_collection,
                         now=germany_now,
                     ),
                     session=session,
                 )
             )
         )
-        if bestand.grant is not None:
-            await _refuse_without_genehmiger(
-                bestand, akteur=akteur, grants=grants, announced=announced, sperrliste=sperrliste, now=germany_now, session=session
+        if holdings.grant is not None:
+            await _refuse_without_approver(
+                holdings, actor=actor, grants=grants, announced=announced, sperrliste=sperrliste, now=germany_now, session=session
             )
 
         record = compose_record(
             adresse=identifier,
             email=email,
-            way=weg,
+            way=way,
             grund=grund,
             approval=None
-            if bestand.grant is None
-            else compose_genehmigung(verwaltung=str(bestand.grant["verwaltung"]), started_by=akteur, now=germany_now),
+            if holdings.grant is None
+            else compose_approval(admin_tier=str(holdings.grant["admin_tier"]), started_by=actor, now=germany_now),
             now=germany_now,
         )
         address_change_id = await start_the_change_in_session(
             record=record,
-            adresswechsel_collection=adresswechsel_collection,
-            aktionen_collection=aktionen_collection,
+            address_change_collection=address_change_collection,
+            action_log_collection=action_log_collection,
             key=sperrliste.key,
             now=germany_now,
             journal=journal,
@@ -373,7 +369,7 @@ async def post_address_change_verwaltung(
         await owe_the_notice_in_session(
             address_change_id=address_change_id,
             adresse=identifier,
-            way=weg,
+            way=way,
             valid_until=record["valid_until"],
             # Greeting nobody: the lost address on file may have passed to a stranger.
             vorname=None,
@@ -384,14 +380,14 @@ async def post_address_change_verwaltung(
         await owe_the_link_in_session(
             address_change_id=address_change_id,
             email=email,
-            way=weg,
+            way=way,
             valid_until=record["valid_until"],
             outbox_collection=outbox_collection,
             now=germany_now,
             session=session,
         )
 
-        return FLAddressChangeVerwaltungMintResponse(id=address_change_id, way=weg, valid_until=record["valid_until"], email=email)
+        return FLAddressChangeAdminMintResponse(id=address_change_id, way=way, valid_until=record["valid_until"], email=email)
 
     # ONE transaction over the judgement and the write: a record written outside it would stand with a live link an
     # administrator was then told had been refused.
@@ -402,25 +398,25 @@ async def post_address_change_verwaltung(
 
 @router.post(
     f"{by_id('address_change_id')}/invite",
-    response_model=FLAddressChangeVerwaltungMintResponse,
+    response_model=FLAddressChangeAdminMintResponse,
     summary="Send a pending address a fresh link",
     dependencies=[Depends(verify_step_up)],
 )
 async def invite_address_change(
     address_change_id: CustomRouteObjectId,
-    adresswechsel_collection: AddressChangeCollection,
+    address_change_collection: AddressChangeCollection,
     outbox_collection: OutboxCollection,
-    records: SubjektLookup,
+    records: SubjectLookup,
     spieler_collection: SpielerCollection,
-    berechtigungen_collection: GrantsCollection,
-    berechtigungen_angekuendigt_collection: GrantsAnnouncedCollection,
-    berechtigungen_antraege_collection: GrantApprovalRequestsCollection,
+    grants_collection: GrantsCollection,
+    grants_announced_collection: GrantsAnnouncedCollection,
+    grants_approval_requests_collection: GrantApprovalRequestsCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
     operator: str = Depends(get_actor_email),
     auth_time: int = Depends(get_actor_auth_time),
     germany_now: datetime = Depends(get_germany_now),
-) -> FLAddressChangeVerwaltungMintResponse:
+) -> FLAddressChangeAdminMintResponse:
     """
     Owe the new mailbox a fresh link for the change this id names, in the same transaction.
 
@@ -429,50 +425,48 @@ async def invite_address_change(
     next hourly pass ends it. Acts on the change the id names alone, so a page showing a change since replaced re-sends
     nothing.
 
-    Refused as the start is about who asks (`own_adresse`, `verwaltung_adresse`), where the ban list holds the pending address
+    Refused as the start is about who asks (`own_adresse`, `admin_address`), where the ban list holds the pending address
     (`address_change_barred`), where another pupil has come to sign in on it (`address_change_taken`), where an entry has come to name it,
     confirmed or not (`address_change_occupied`), where a grant's approval week has passed (`link_expired`), and where the change ended
     (`address_change_ended`). 404 for an id naming no change, and unless the change waits on the new mailbox: one awaiting the address on
     file's confirmation, or confirmed, has no link to re-send.
     """
 
-    akteur = sign_in_identifier(operator)
+    actor = sign_in_identifier(operator)
     # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_gesperrt`).
-    massgebliche_saison_id = await sperrliste_saison(sperrliste)
+    governing_saison_id = await sperrliste_saison(sperrliste)
 
-    async def judge_and_remint_the_change(session: AsyncClientSession) -> FLAddressChangeVerwaltungMintResponse:
-        record = await _pull_the_change(adresswechsel_collection, address_change_id, session=session)
+    async def judge_and_remint_the_change(session: AsyncClientSession) -> FLAddressChangeAdminMintResponse:
+        record = await _pull_the_change(address_change_collection, address_change_id, session=session)
         identifier = str(record["adresse"])
         await _refuse_the_address(
             identifier,
-            akteur=akteur,
+            actor=actor,
             auth_time=auth_time,
-            berechtigungen_collection=berechtigungen_collection,
-            berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
+            grants_collection=grants_collection,
+            grants_announced_collection=grants_announced_collection,
             session=session,
         )
         email = str(record["email"])
         refuse(
-            find_gesperrt_refusal(
-                barred=await hash_gesperrt(
-                    sperrliste, sperrliste.hash_of(email), massgebliche_saison_id=massgebliche_saison_id, session=session
-                )
+            find_barred_refusal(
+                barred=await hash_gesperrt(sperrliste, sperrliste.hash_of(email), governing_saison_id=governing_saison_id, session=session)
             )
         )
-        bestand = await read_the_bestand(identifier, records=records, berechtigungen_collection=berechtigungen_collection, session=session)
-        vergeben = bestand.spieler is not None and await another_pupil_holds(
-            spieler_collection=spieler_collection, identifier=sign_in_identifier(email), spieler_id=bestand.spieler["_id"], session=session
+        holdings = await read_the_holdings(identifier, records=records, grants_collection=grants_collection, session=session)
+        taken = holdings.spieler is not None and await another_pupil_holds(
+            spieler_collection=spieler_collection, identifier=sign_in_identifier(email), spieler_id=holdings.spieler["_id"], session=session
         )
-        refuse(find_vergeben_refusal(vergeben=vergeben))
+        refuse(find_taken_refusal(taken=taken))
         refuse(
-            find_belegt_refusal(
-                belegt=await adresse_belegt(
+            find_occupied_refusal(
+                occupied=await address_taken(
                     email,
                     records=records,
-                    belegung=Belegung(
-                        berechtigungen_collection=berechtigungen_collection,
-                        berechtigungen_antraege_collection=berechtigungen_antraege_collection,
-                        adresswechsel_collection=adresswechsel_collection,
+                    occupancy=Occupancy(
+                        grants_collection=grants_collection,
+                        grants_approval_requests_collection=grants_approval_requests_collection,
+                        address_change_collection=address_change_collection,
                         now=germany_now,
                     ),
                     session=session,
@@ -480,32 +474,32 @@ async def invite_address_change(
             )
         )
         # A grant's approval week that lapsed ends the change at the next pass: a fresh link would be refused on its press.
-        genehmigung = record.get("approval")
-        bis = als_utc(genehmigung.get("bis")) if isinstance(genehmigung, Mapping) and genehmigung.get("approved_at") is None else None
-        refuse(find_abgelaufen_refusal(abgelaufen=bis is not None and bis <= germany_now))
+        approval = record.get("approval")
+        until = as_utc(approval.get("until")) if isinstance(approval, Mapping) and approval.get("approved_at") is None else None
+        refuse(find_expired_refusal(expired=until is not None and until <= germany_now))
 
         # The filter is the judgement: a change awaiting its approval or confirmed is the 404 here.
         updated = await patch_one_in_db(
-            collection=adresswechsel_collection,
+            collection=address_change_collection,
             db_filter=build_live_filter(address_change_id, build_resendable_terms()),
             update=compose_link_update(now=germany_now, released=False),
             session=session,
             return_document=ReturnDocument.AFTER,
         )
-        gueltig_bis = als_utc(updated["valid_until"])
-        assert gueltig_bis is not None
+        valid_until = as_utc(updated["valid_until"])
+        assert valid_until is not None
 
         await owe_the_link_in_session(
             address_change_id=address_change_id,
             email=email,
             way=updated["way"],
-            valid_until=gueltig_bis,
+            valid_until=valid_until,
             outbox_collection=outbox_collection,
             now=germany_now,
             session=session,
         )
 
-        return FLAddressChangeVerwaltungMintResponse(id=address_change_id, way=updated["way"], valid_until=gueltig_bis, email=email)
+        return FLAddressChangeAdminMintResponse(id=address_change_id, way=updated["way"], valid_until=valid_until, email=email)
 
     async with transaction_session(db) as session:
         return await session.with_transaction(judge_and_remint_the_change)
@@ -519,10 +513,10 @@ async def invite_address_change(
 )
 async def delete_address_change(
     address_change_id: CustomRouteObjectId,
-    adresswechsel_collection: AddressChangeCollection,
-    berechtigungen_collection: GrantsCollection,
-    berechtigungen_angekuendigt_collection: GrantsAnnouncedCollection,
-    aktionen_collection: ActionLogCollection,
+    address_change_collection: AddressChangeCollection,
+    grants_collection: GrantsCollection,
+    grants_announced_collection: GrantsAnnouncedCollection,
+    action_log_collection: ActionLogCollection,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
     operator: str = Depends(get_actor_email),
@@ -537,28 +531,28 @@ async def delete_address_change(
     bring back a change confirmed in its waiting time to take effect. Nothing is mailed. Acts on the change the id names
     alone, so a page showing a change since replaced discards nothing.
 
-    Refused as the start is about who asks (`own_adresse`, `verwaltung_adresse`), and where the change ended
+    Refused as the start is about who asks (`own_adresse`, `admin_address`), and where the change ended
     (`address_change_ended`); 404 for an id naming no change.
     """
 
-    akteur = sign_in_identifier(operator)
+    actor = sign_in_identifier(operator)
     stamp = log_stamp(germany_now)
     journal = Journal()
 
     @journal.attempted
     async def discard_the_change(session: AsyncClientSession) -> FLAddressChangeIdResponse:
-        record = await _pull_the_change(adresswechsel_collection, address_change_id, session=session)
+        record = await _pull_the_change(address_change_collection, address_change_id, session=session)
         await _refuse_the_address(
             str(record["adresse"]),
-            akteur=akteur,
+            actor=actor,
             auth_time=auth_time,
-            berechtigungen_collection=berechtigungen_collection,
-            berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
+            grants_collection=grants_collection,
+            grants_announced_collection=grants_announced_collection,
             session=session,
         )
         await end_the_change_in_session(
-            adresswechsel_collection=adresswechsel_collection,
-            aktionen_collection=aktionen_collection,
+            address_change_collection=address_change_collection,
+            action_log_collection=action_log_collection,
             db_filter={"_id": address_change_id},
             art="discarded",
             now=germany_now,
@@ -567,10 +561,10 @@ async def delete_address_change(
         )
         journal.note(
             ending_line(
-                art="adresswechsel_verworfen",
-                neue=str(record["email"]),
+                art="address_change_discarded",
+                new_address=str(record["email"]),
                 record_id=address_change_id,
-                am=stamp,
+                at=stamp,
                 key=config.sperrliste_key,
             )
         )
@@ -592,22 +586,22 @@ async def delete_address_change(
 )
 async def post_address_change_approval(
     address_change_id: CustomRouteObjectId,
-    adresswechsel_collection: AddressChangeCollection,
-    records: SubjektLookup,
+    address_change_collection: AddressChangeCollection,
+    records: SubjectLookup,
     spieler_collection: SpielerCollection,
     schiedsrichter_collection: SchiedsrichterCollection,
     saison_teams_collection: SaisonTeamsCollection,
     bewerbungen_collection: BewerbungenCollection,
     registrierungen_collection: RegistrierungenCollection,
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
-    berechtigungen_collection: GrantsCollection,
-    berechtigungen_angekuendigt_collection: GrantsAnnouncedCollection,
+    grants_collection: GrantsCollection,
+    grants_announced_collection: GrantsAnnouncedCollection,
     outbox_collection: OutboxCollection,
-    berechtigungen_antraege_collection: GrantApprovalRequestsCollection,
-    einladungen_collection: InvitationsCollection,
-    sperrliste_collection: SperrlisteCollection,
+    grants_approval_requests_collection: GrantApprovalRequestsCollection,
+    invitations_collection: InvitationsCollection,
+    ban_list_collection: BanListCollection,
     sperrliste: SperrlisteLookup,
-    aktionen_collection: ActionLogCollection,
+    action_log_collection: ActionLogCollection,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
     operator: str = Depends(get_actor_email),
@@ -632,73 +626,73 @@ async def post_address_change_approval(
     id naming no change. A sign-in or confirmation older than `ENROLMENT_WINDOW_MINUTES` is refused `confirmation_required`, as a grant's is.
     """
 
-    akteur = sign_in_identifier(operator)
+    actor = sign_in_identifier(operator)
     # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_gesperrt`).
-    massgebliche_saison_id = await sperrliste_saison(sperrliste)
+    governing_saison_id = await sperrliste_saison(sperrliste)
     journal = Journal()
 
     @journal.attempted
     async def approve_the_change(session: AsyncClientSession) -> FLAddressChangeApprovalResponse | None:
-        record = await _pull_the_change(adresswechsel_collection, address_change_id, session=session)
-        refuse(find_keine_genehmigung_offen_refusal(offen=genehmigung_offen(record)))
-        refuse(find_abgelaufen_refusal(abgelaufen=ist_abgelaufen(record, now=germany_now)))
-        grants = await read_berechtigungen(berechtigungen_collection=berechtigungen_collection, session=session)
-        announced = await read_the_announced(berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection, session=session)
-        inhaber = holds_an_owners_power(akteur=akteur, auth_time=auth_time, grants=grants, announced=announced)
-        verwehrt = genehmigung_verwehrt(
-            betroffen=record["adresse"], approval=record["approval"], akteur=akteur, inhaber=inhaber, grants=grants, announced=announced
+        record = await _pull_the_change(address_change_collection, address_change_id, session=session)
+        refuse(find_no_approval_open_refusal(open=approval_open(record)))
+        refuse(find_expired_refusal(expired=is_expired(record, now=germany_now)))
+        grants = await read_berechtigungen(grants_collection=grants_collection, session=session)
+        announced = await read_the_announced(grants_announced_collection=grants_announced_collection, session=session)
+        owner = holds_an_owners_power(actor=actor, auth_time=auth_time, grants=grants, announced=announced)
+        denied = genehmigung_verwehrt(
+            betroffen=record["adresse"], approval=record["approval"], actor=actor, owner=owner, grants=grants, announced=announced
         )
-        refuse(find_genehmigung_verwehrt_refusal(denied=verwehrt))
+        refuse(find_approval_denied_refusal(denied=denied))
 
         # The filter is the judgement: a rival's approval committed since the read is the miss.
         approved = await patch_one_in_db(
-            collection=adresswechsel_collection,
+            collection=address_change_collection,
             db_filter=build_live_filter(address_change_id, {"approval.approved_at": None}),
-            update=compose_genehmigt_update(akteur=akteur, now=germany_now),
+            update=compose_approved_update(actor=actor, now=germany_now),
             session=session,
             return_document=ReturnDocument.AFTER,
         )
-        if not ist_faellig(approved, now=germany_now):
+        if not is_due(approved, now=germany_now):
             return FLAddressChangeApprovalResponse(id=address_change_id, effective=False)
 
-        urteil, wirksam = await take_effect_in_session(
+        verdict, effective = await take_effect_in_session(
             record=approved,
             records=records,
             sperrliste=sperrliste,
-            massgebliche_saison_id=massgebliche_saison_id,
-            adresswechsel_collection=adresswechsel_collection,
+            governing_saison_id=governing_saison_id,
+            address_change_collection=address_change_collection,
             spieler_collection=spieler_collection,
             schiedsrichter_collection=schiedsrichter_collection,
             saison_teams_collection=saison_teams_collection,
             bewerbungen_collection=bewerbungen_collection,
             registrierungen_collection=registrierungen_collection,
             spielbestaetigungen_collection=spielbestaetigungen_collection,
-            berechtigungen_collection=berechtigungen_collection,
-            berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
+            grants_collection=grants_collection,
+            grants_announced_collection=grants_announced_collection,
             outbox_collection=outbox_collection,
-            berechtigungen_antraege_collection=berechtigungen_antraege_collection,
-            einladungen_collection=einladungen_collection,
-            sperrliste_collection=sperrliste_collection,
-            aktionen_collection=aktionen_collection,
+            grants_approval_requests_collection=grants_approval_requests_collection,
+            invitations_collection=invitations_collection,
+            ban_list_collection=ban_list_collection,
+            action_log_collection=action_log_collection,
             key=config.sperrliste_key,
             now=germany_now,
             journal=journal,
             session=session,
             # Its new mailbox confirmed and was told the change waits on this approval.
-            mitteilen=True,
+            notify=True,
         )
-        refuse(refusal_of(urteil.ursache))
-        if urteil.leer:
+        refuse(refusal_of(verdict.cause))
+        if verdict.empty:
             return None
 
-        return FLAddressChangeApprovalResponse(id=address_change_id, effective=wirksam)
+        return FLAddressChangeApprovalResponse(id=address_change_id, effective=effective)
 
     async with journal:
         async with transaction_session(db) as session:
             approved = await session.with_transaction(approve_the_change)
 
     # After the commit, the discard standing: this approval found nothing left to move and ended the change.
-    refuse(find_nichts_refusal(leer=approved is None))
+    refuse(find_nothing_refusal(empty=approved is None))
     assert approved is not None
 
     return approved

@@ -219,7 +219,7 @@ async def pull_spielorte_public(
 
 async def redact_seat_entries_in_images(
     *,
-    aktionen_collection: AsyncCollection,
+    action_log_collection: AsyncCollection,
     voids: Sequence[SeatVoid | None],
     stamp: str,
     # REQUIRED for `redact_images_in_session`'s reason.
@@ -235,7 +235,7 @@ async def redact_seat_entries_in_images(
         return 0
 
     return await redact_images_in_session(
-        aktionen_collection=aktionen_collection,
+        action_log_collection=action_log_collection,
         db_filter=build_seat_entry_images_filter(voided),
         judge=lambda image: seat_entry_image_edits(image, voided),
         stamp=stamp,
@@ -246,7 +246,7 @@ async def redact_seat_entries_in_images(
 async def strip_the_seasons_confirmations(
     *,
     spielbestaetigungen_collection: AsyncCollection,
-    aktionen_collection: AsyncCollection,
+    action_log_collection: AsyncCollection,
     saison_id: str,
     stamp: str,
     # REQUIRED: the season's end judged in the same snapshot, so an activation since the caller's read keeps the rows.
@@ -279,7 +279,7 @@ async def strip_the_seasons_confirmations(
     )
 
     return await redact_images_in_session(
-        aktionen_collection=aktionen_collection,
+        action_log_collection=action_log_collection,
         db_filter=build_season_images_filter(saison_id),
         judge=lambda image: season_end_image_edits(image, saison_id),
         stamp=stamp,
@@ -293,7 +293,7 @@ async def strip_the_seasons_confirmations(
 async def loeschen_referee_confirmations_in_session(
     *,
     spielbestaetigungen_collection: AsyncCollection,
-    aktionen_collection: AsyncCollection,
+    action_log_collection: AsyncCollection,
     schiedsrichter_ids: Sequence[CustomObjectId],
     # The caller's, so every redaction of one erasure carries one instant.
     stamp: str,
@@ -315,7 +315,7 @@ async def loeschen_referee_confirmations_in_session(
         session=session,
     )
 
-    geloescht = 0
+    erased_count = 0
     if rows:
         # Removed, never repointed as the fixtures are: the sweep mints the ghost no row.
         # Ids and their seasons alone, never the referee's id: the log keeps an erasure's filter as text.
@@ -324,10 +324,10 @@ async def loeschen_referee_confirmations_in_session(
             db_filter={"saison_id": {"$in": sorted({row["saison_id"] for row in rows})}, "_id": {"$in": [row["_id"] for row in rows]}},
             session=session,
         )
-        geloescht = removed.deleted_count
+        erased_count = removed.deleted_count
         # Whole, as every record an erasure removes: the row is theirs, so its earlier states are too.
         await redact_log_rows_in_db(
-            action_log_collection=aktionen_collection,
+            action_log_collection=action_log_collection,
             targets=[(Collection.SPIELBESTAETIGUNGEN, [row["_id"] for row in rows])],
             at=stamp,
             session=session,
@@ -336,14 +336,14 @@ async def loeschen_referee_confirmations_in_session(
     # Then every other image naming them, which only their part of leaves: an undraw's array holds rows long gone
     # beside other parties', the referee's id and reason among them.
     await redact_images_in_session(
-        aktionen_collection=aktionen_collection,
+        action_log_collection=action_log_collection,
         db_filter=build_referee_images_filter(schiedsrichter_ids),
         judge=lambda image: referee_image_edits(image, schiedsrichter_ids),
         stamp=stamp,
         session=session,
     )
 
-    return geloescht
+    return erased_count
 
 
 # --- The PASS's mint.

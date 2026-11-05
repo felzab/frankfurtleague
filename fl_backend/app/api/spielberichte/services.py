@@ -137,12 +137,12 @@ def seiten_of(spiel_raw: Mapping[str, Any]) -> dict[FLSpielSeite, ObjectId | Non
     return {seite: team_id_of(spiel_raw, seite) for seite in SEITEN}
 
 
-def seiten_geaendert(gespeichert: Mapping[str, Any], spiel_raw: Mapping[str, Any]) -> frozenset[FLSpielSeite]:
+def seiten_geaendert(saved: Mapping[str, Any], spiel_raw: Mapping[str, Any]) -> frozenset[FLSpielSeite]:
     """The sides on which the fixture fields another club than the report's last write found there."""
 
-    jetzt = seiten_of(spiel_raw)
+    current = seiten_of(spiel_raw)
 
-    return frozenset(seite for seite in SEITEN if gespeichert[seite] != jetzt[seite])
+    return frozenset(seite for seite in SEITEN if saved[seite] != current[seite])
 
 
 def live_kader(lage: BerichtLage, seite: FLSpielSeite) -> list[Mapping[str, Any]]:
@@ -169,16 +169,16 @@ def genannte_ids(bericht: Mapping[str, Any] | FLSpielberichtBerichtPayload | Non
 
 
 def neu_genannt(
-    payload: FLSpielberichtBerichtPayload, gespeichert: Mapping[str, Any] | None, spiel_raw: Mapping[str, Any]
+    payload: FLSpielberichtBerichtPayload, saved: Mapping[str, Any] | None, spiel_raw: Mapping[str, Any]
 ) -> dict[FLSpielSeite, set[ObjectId]]:
     """The pupils this write names that the stored block did not name on that side, the only ones judged against the squad.
 
     So a correction keeps a scorer ausgetragen or erased since the match.
     """
 
-    stored = genannte_ids(gespeichert)
+    stored = genannte_ids(saved)
     # A side fielding another club since keeps none: its stored pupils played for the club that left it.
-    for seite in set() if gespeichert is None else seiten_geaendert(gespeichert["seiten"], spiel_raw):
+    for seite in set() if saved is None else seiten_geaendert(saved["seiten"], spiel_raw):
         stored[seite] = set()
 
     return {seite: ids - stored[seite] for seite, ids in genannte_ids(payload).items()}
@@ -271,14 +271,14 @@ def kader_ist_offen(lage: BerichtLage, *, today: str) -> bool:
     return nimmt_einen_bericht(lage.spiel, today=today) and not ist_abgeschlossen(lage)
 
 
-def find_bericht_stand_refusal(*, stand: int | None, gespeichert: Mapping[str, Any] | None) -> WriteRefusal | None:
+def find_bericht_stand_refusal(*, stand: int | None, saved: Mapping[str, Any] | None) -> WriteRefusal | None:
     """`bericht_meanwhile_changed`: the write was composed on the version standing now, or on none where none stands.
 
     Judged on the transaction's read: a write committing meanwhile, a crossing first one included, conflicts with this
     one, whose retry is refused.
     """
 
-    if stand == (None if gespeichert is None else gespeichert["version"]):
+    if stand == (None if saved is None else saved["version"]):
         return None
 
     return WriteRefusal(
@@ -287,12 +287,12 @@ def find_bericht_stand_refusal(*, stand: int | None, gespeichert: Mapping[str, A
     )
 
 
-def find_nicht_im_kader_refusal(*, lage: BerichtLage, neu: Mapping[FLSpielSeite, set[ObjectId]]) -> WriteRefusal | None:
+def find_nicht_im_kader_refusal(*, lage: BerichtLage, new: Mapping[FLSpielSeite, set[ObjectId]]) -> WriteRefusal | None:
     """`bericht_not_in_kader`: a pupil newly named on a side is in that side's live squad of the season."""
 
     for seite in SEITEN:
         kader = {row["spieler_id"] for row in live_kader(lage, seite)}
-        if not neu[seite] <= kader:
+        if not new[seite] <= kader:
             return WriteRefusal(
                 error_code=Code.BERICHT_NOT_IN_KADER,
                 status=HTTPStatus.CONFLICT,
@@ -301,7 +301,7 @@ def find_nicht_im_kader_refusal(*, lage: BerichtLage, neu: Mapping[FLSpielSeite,
     return None
 
 
-def find_grund_fehlt_refusal(*, payload: FLSpielberichtBerichtPayload, gespeichert: Mapping[str, Any] | None) -> WriteRefusal | None:
+def find_grund_fehlt_refusal(*, payload: FLSpielberichtBerichtPayload, saved: Mapping[str, Any] | None) -> WriteRefusal | None:
     """`bericht_grund_missing`: a caution names its reason unless the stored block holds it stripped, which a correction would otherwise invent.
 
     A card has no id: the same side, pupil and colour is the same card, its minute correctable.
@@ -311,9 +311,7 @@ def find_grund_fehlt_refusal(*, payload: FLSpielberichtBerichtPayload, gespeiche
         return karte["seite"], karte["spieler_id"], karte["farbe"]
 
     gestrippt = Counter(
-        schluessel(karte)
-        for karte in ([] if gespeichert is None else gespeichert["karten"])
-        if karte["farbe"] != "rot" and karte["grund"] is None
+        schluessel(karte) for karte in ([] if saved is None else saved["karten"]) if karte["farbe"] != "rot" and karte["grund"] is None
     )
     for karte in payload.model_dump(context={"keep_oid": True})["karten"]:
         if karte["farbe"] == "rot" or karte["grund"] is not None:
@@ -336,8 +334,8 @@ def judge_bericht(
     *,
     lage: BerichtLage,
     payload: FLSpielberichtBerichtPayload,
-    gespeichert: Mapping[str, Any] | None,
-    neu: Mapping[FLSpielSeite, set[ObjectId]],
+    saved: Mapping[str, Any] | None,
+    new: Mapping[FLSpielSeite, set[ObjectId]],
     today: str,
 ) -> None:
     """Every refusal both writers of a report owe, in order."""
@@ -345,8 +343,8 @@ def judge_bericht(
     refuse(find_nicht_gespielt_refusal(datum=lage.spiel.get("datum"), today=today))
     refuse(find_abgesagt_refusal(sonderereignis=lage.spiel.get("sonderereignis")))
     refuse(find_elfmeter_in_der_gruppe_refusal(spiel_raw=lage.spiel, payload=payload))
-    refuse(find_nicht_im_kader_refusal(lage=lage, neu=neu))
-    refuse(find_grund_fehlt_refusal(payload=payload, gespeichert=gespeichert))
+    refuse(find_nicht_im_kader_refusal(lage=lage, new=new))
+    refuse(find_grund_fehlt_refusal(payload=payload, saved=saved))
 
 
 def vorschlag_entspricht(vorschlag: FLSpielberichtVorschlag, spiel_raw: Mapping[str, Any]) -> bool:
@@ -365,9 +363,9 @@ def vorschlag_entspricht(vorschlag: FLSpielberichtVorschlag, spiel_raw: Mapping[
 
     # `app/api/spiele/services.py :: apply_payload_to_spiel`'s rule: a level knockout keeps its shoot-out, so one saved
     # without the proposed shoot-out is not the proposal.
-    gespeichert = spiel_raw.get("elfmeterschiessen")
+    saved = spiel_raw.get("elfmeterschiessen")
 
-    return (None if gespeichert is None else FLSpielElfmeterschiessen.model_validate(gespeichert)) == vorschlag.elfmeterschiessen
+    return (None if saved is None else FLSpielElfmeterschiessen.model_validate(saved)) == vorschlag.elfmeterschiessen
 
 
 # The states awaiting the administrator, which the triage lists: an adopted report awaits nothing, and one on a match
@@ -436,7 +434,7 @@ def compose_ansicht(
 
 
 def bericht_unveraendert(
-    payload: FLSpielberichtBerichtPayload, gespeichert: Mapping[str, Any] | None, seiten: Mapping[FLSpielSeite, ObjectId | None]
+    payload: FLSpielberichtBerichtPayload, saved: Mapping[str, Any] | None, seiten: Mapping[FLSpielSeite, ObjectId | None]
 ) -> bool:
     """Whether the stored block already says what the payload says, for the clubs `seiten` names, so a save of it writes nothing.
 
@@ -444,14 +442,14 @@ def bericht_unveraendert(
     """
 
     return (
-        gespeichert is not None
-        and gespeichert.get("seiten") == seiten
-        and all(gespeichert.get(key) == value for key, value in payload.model_dump(context={"keep_oid": True}).items())
+        saved is not None
+        and saved.get("seiten") == seiten
+        and all(saved.get(key) == value for key, value in payload.model_dump(context={"keep_oid": True}).items())
     )
 
 
 def compose_neuer_bericht(
-    payload: FLSpielberichtBerichtPayload, *, von: FLSpielberichtVon, seiten: Mapping[FLSpielSeite, ObjectId | None], now: datetime
+    payload: FLSpielberichtBerichtPayload, *, by: FLSpielberichtVon, seiten: Mapping[FLSpielSeite, ObjectId | None], now: datetime
 ) -> dict[str, Any]:
     """The block's first write: version 1, and no adoption."""
 
@@ -459,7 +457,7 @@ def compose_neuer_bericht(
         **payload.model_dump(context={"keep_oid": True}),
         "seiten": dict(seiten),
         "submitted_at": now,
-        "submitted_by": von.model_dump(context={"keep_oid": True}),
+        "submitted_by": by.model_dump(context={"keep_oid": True}),
         "changed_at": now,
         "version": 1,
         "adopted_at": None,
@@ -542,8 +540,8 @@ def build_referee_report_images_filter(schiedsrichter_ids: Sequence[Any]) -> Map
 def referee_report_image_edits(image: Mapping[str, Any], schiedsrichter_ids: Sequence[Any]) -> dict[str, Any]:
     """One report image naming one of these referees, repointed as the report itself is; its remarks and entries stay."""
 
-    von = (image.get("bericht") or {}).get("submitted_by")
-    if not isinstance(von, Mapping) or von.get("schiedsrichter_id") not in schiedsrichter_ids:
+    by = (image.get("bericht") or {}).get("submitted_by")
+    if not isinstance(by, Mapping) or by.get("schiedsrichter_id") not in schiedsrichter_ids:
         return {}
 
     return {"bericht.submitted_by.schiedsrichter_id": GHOST_SCHIEDSRICHTER_ID}

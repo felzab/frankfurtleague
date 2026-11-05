@@ -1,6 +1,6 @@
 import pytest
 
-from app.shared.alter import whole_years_between
+from app.shared.age import whole_years_between
 
 
 class TestWholeYears:

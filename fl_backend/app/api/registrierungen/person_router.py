@@ -7,11 +7,11 @@ from fastapi import APIRouter, Body, Depends, Query, status
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.account.crud import press_widerruf
-from app.api.account.services import compose_person_move, find_eigener_eintrag_refusal, widerruf_line
+from app.api.account.crud import press_withdrawal
+from app.api.account.services import compose_person_move, find_own_entry_refusal, withdrawal_line
 from app.api.identity.crud import refuse_without_a_seat
-from app.api.identity.lookup import SubjektLookup
-from app.api.identity.services import ist_eigene_registrierung
+from app.api.identity.lookup import SubjectLookup
+from app.api.identity.services import is_own_registrierung
 from app.api.outbox.schemas import FLOutboxReference, FLRegistrierungAbsageData
 from app.api.outbox.services import OwedMail, enqueue_mails
 from app.api.registrierungen.crud import (
@@ -34,7 +34,7 @@ from app.api.registrierungen.services import (
     compose_kader_fields,
     compose_person,
     compose_person_update,
-    find_gesperrt_refusal,
+    find_barred_refusal,
     find_person_fehlt_refusal,
     find_person_refusal,
     find_schon_im_kader_refusal,
@@ -76,7 +76,7 @@ from app.core.recording import log_stamp
 from app.core.routing import by_id
 from app.core.security import erasure_journal_hash, verify_access_admin
 from app.core.transactions import transaction_session
-from app.shared.einwilligung_nachweis import FLEinwilligungChoice
+from app.shared.einwilligung_evidence import FLEinwilligungChoice
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.custom import CustomRouteObjectId
 from app.shared.schemas.einwilligung import FLAccountEinwilligungPayload, by_choice
@@ -102,7 +102,7 @@ async def get_open_registrierungen(
     registrierungen_collection: RegistrierungenCollection,
     saison_spieler_collection: SaisonSpielerCollection,
     spieler_collection: SpielerCollection,
-    records: SubjektLookup,
+    records: SubjectLookup,
     db: DBClient,
 ) -> FLOpenRegistrierungenResponse:
     """
@@ -188,8 +188,8 @@ async def admit(
     saison_spieler_collection: SaisonSpielerCollection,
     saisons_collection: SaisonsCollection,
     spieler_collection: SpielerCollection,
-    records: SubjektLookup,
-    aktionen_collection: ActionLogCollection,
+    records: SubjectLookup,
+    action_log_collection: ActionLogCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
     today: str = Depends(get_german_date_str),
@@ -222,7 +222,7 @@ async def admit(
     """
 
     # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_gesperrt`).
-    massgebliche_saison_id = await sperrliste_saison(sperrliste)
+    governing_saison_id = await sperrliste_saison(sperrliste)
 
     async def admit_the_pupil(session: AsyncClientSession) -> FLRegistrierungAdmissionResponse:
         """Judge, then write the person, the squad row and the erasure. Everything judged is read in-session."""
@@ -238,10 +238,10 @@ async def admit(
 
         # Inside the transaction, with no season anchor: a ban writes no registration, so only this
         # read orders a ban entered between the team's read and its press.
-        gesperrt = await adressen_gesperrt(
-            sperrliste, [str(registrierung_raw["email"])], massgebliche_saison_id=massgebliche_saison_id, session=session
+        barred = await adressen_gesperrt(
+            sperrliste, [str(registrierung_raw["email"])], governing_saison_id=governing_saison_id, session=session
         )
-        refuse(find_gesperrt_refusal(barred=bool(gesperrt)))
+        refuse(find_barred_refusal(barred=bool(barred)))
 
         # The one read of the season: its rules for the level and the cap, its `start_date` for the Nachnominierung marker.
         saison_raw = await pull_one_from_db(
@@ -286,13 +286,11 @@ async def admit(
             # Read here, not by the address lookup, which serves no consent record:
             # a choice the person moved after confirming the
             # registration stands.
-            gespeichert = await spieler_collection.find_one({"_id": spieler_id}, projection={"einwilligung": 1}, session=session)
+            saved = await spieler_collection.find_one({"_id": spieler_id}, projection={"einwilligung": 1}, session=session)
             await patch_one_in_db(
                 collection=spieler_collection,
                 db_filter={"_id": spieler_id},
-                update=compose_person_update(
-                    registrierung_raw=registrierung_raw, gespeichert=(gespeichert or {}).get("einwilligung"), adresse=adresse
-                ),
+                update=compose_person_update(registrierung_raw=registrierung_raw, saved=(saved or {}).get("einwilligung"), adresse=adresse),
                 session=session,
                 return_document=ReturnDocument.BEFORE,
             )
@@ -325,7 +323,7 @@ async def admit(
             collection=registrierungen_collection, db_filter={"_id": registrierung_id, "saison_id": saison_id}, session=session
         )
         await redact_log_rows_in_db(
-            action_log_collection=aktionen_collection,
+            action_log_collection=action_log_collection,
             targets=[(Collection.REGISTRIERUNGEN, [registrierung_id])],
             at=log_stamp(germany_now),
             session=session,
@@ -361,7 +359,7 @@ async def decline(
     registrierungen_collection: RegistrierungenCollection,
     saison_teams_collection: SaisonTeamsCollection,
     outbox_collection: OutboxCollection,
-    records: SubjektLookup,
+    records: SubjectLookup,
     db: DBClient,
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
@@ -392,7 +390,7 @@ async def decline(
             # By `_id` alone: a decision landing after the read conflicts with this write, and the retry's
             # read finds nothing pending (`TestTheDecline`), so no status term is reached.
             db_filter={"_id": registrierung_id},
-            update=compose_ablehnung_update(von=identifier, grund=ablehnung_data.grund, today=today),
+            update=compose_ablehnung_update(by=identifier, grund=ablehnung_data.grund, today=today),
             session=session,
             return_document=ReturnDocument.BEFORE,
         )
@@ -459,9 +457,9 @@ async def patch_einwilligung(
     `choices_stale` and `giving_not_allowed`.
     """
 
-    gewaehlt: dict[FLEinwilligungChoice, object] = {"umfang": einwilligung_data.umfang, "medien": einwilligung_data.medien}
+    chosen: dict[FLEinwilligungChoice, object] = {"umfang": einwilligung_data.umfang, "media": einwilligung_data.media}
     # For `app/api/spieler/person_router.py :: patch_einwilligung`'s reason: a replay stamps the moment the person pressed.
-    am = log_stamp(germany_now)
+    at = log_stamp(germany_now)
     journal = Journal()
 
     @journal.attempted
@@ -471,24 +469,18 @@ async def patch_einwilligung(
             {"_id": registrierung_id}, projection={"status": 1, "email": 1, "einwilligung": 1}, session=session
         )
         # A returning pupil's is the address's own and holds no choice to withdraw, its person's own record holding them.
-        refuse(
-            find_eigener_eintrag_refusal(
-                gehalten=row is not None and ist_eigene_registrierung(row, identifier) and traegt_wahlen(row["einwilligung"])
-            )
-        )
+        refuse(find_own_entry_refusal(held=row is not None and is_own_registrierung(row, identifier) and traegt_wahlen(row["einwilligung"])))
         assert row is not None
-        gespeichert = row["einwilligung"]
+        saved = row["einwilligung"]
 
         # Withdraw-only: a pending registration grants no panel to answer a grant against.
-        await press_widerruf(
-            bloecke=[gespeichert],
-            gewaehlt=gewaehlt,
-            nachweis_stand=einwilligung_data.nachweis_stand.model_dump(),
+        await press_withdrawal(
+            blocks=[saved],
+            chosen=chosen,
+            evidence_state=einwilligung_data.evidence_state.model_dump(),
         )
 
-        update = compose_person_move(
-            gespeichert=gespeichert, gewaehlt=gewaehlt, am=am, text_versions=by_choice(einwilligung_data.text_versions)
-        )
+        update = compose_person_move(saved=saved, chosen=chosen, at=at, text_versions=by_choice(einwilligung_data.text_versions))
         if update is not None:
             await patch_one_in_db(
                 collection=registrierungen_collection,
@@ -497,13 +489,13 @@ async def patch_einwilligung(
                 session=session,
                 return_document=ReturnDocument.BEFORE,
             )
-        line = widerruf_line(
+        line = withdrawal_line(
             person_hash=erasure_journal_hash(identifier, key=config.sperrliste_key),
             collection=Collection.REGISTRIERUNGEN,
             record_id=row["_id"],
-            bloecke=[gespeichert],
-            gewaehlt=gewaehlt,
-            am=am,
+            blocks=[saved],
+            chosen=chosen,
+            at=at,
             text_versions=by_choice(einwilligung_data.text_versions),
         )
         if line is not None:

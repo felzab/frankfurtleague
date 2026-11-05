@@ -131,19 +131,19 @@ def the_corpus() -> list[dict[str, Any]]:
     return [
         application(REMIND_OID),
         application(DELETE_OID, confirmation_deadline=YESTERDAY),
-        application(DECLINED_OID, status="declined", decision={"made_at": "2026-02-15", "von": "admin", "grund": "kein Platz"}),
+        application(DECLINED_OID, status="declined", decision={"made_at": "2026-02-15", "by": "admin", "grund": "kein Platz"}),
         application(
             ACCEPTED_OID,
             status="accepted",
             team_id=CLUB_OID,
             schule=None,
-            decision={"made_at": "2026-03-01", "von": "admin", "grund": None},
+            decision={"made_at": "2026-03-01", "by": "admin", "grund": None},
         ),
         application(
             OTHER_SEASON_OID,
             saison_id=OTHER_SAISON_ID,
             status="declined",
-            decision={"made_at": "2025-01-15", "von": "admin", "grund": "kein Platz"},
+            decision={"made_at": "2025-01-15", "by": "admin", "grund": "kein Platz"},
         ),
     ]
 
@@ -203,7 +203,7 @@ async def sweep(database: AsyncDatabase, client: AsyncMongoClient, saison_id: st
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
         teams_collection=database[Collection.TEAMS],
-        aktionen_collection=database[Collection.ACTION_LOG],
+        action_log_collection=database[Collection.ACTION_LOG],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
         spielberichte_collection=database[Collection.SPIELBERICHTE],
         outbox_collection=database[Collection.OUTBOX],
@@ -213,9 +213,9 @@ async def sweep(database: AsyncDatabase, client: AsyncMongoClient, saison_id: st
     )
 
 
-async def ansicht(database: AsyncDatabase, token: str) -> Any:
+async def view(database: AsyncDatabase, token: str) -> Any:
     return await get_einwilligung_view(
-        ansicht_data=FLTokenPayload(token=token),
+        view_data=FLTokenPayload(token=token),
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
@@ -278,8 +278,8 @@ async def confirm_every_seat(database: AsyncDatabase, bewerbung_id: ObjectId) ->
             today=MAILED_ON_THE_MARK,
             text_versions=SEAT_TEXT_VERSIONS,
             whatsapp=False,
-            medien=False,
-            am=f"{MAILED_ON_THE_MARK}T08:00:00+00:00",
+            media=False,
+            at=f"{MAILED_ON_THE_MARK}T08:00:00+00:00",
         ),
         return_document=ReturnDocument.BEFORE,
     )
@@ -344,8 +344,8 @@ class TestTheReminderClock:
             assert paired.token is not None
 
             return (
-                await ansicht(database, f"{REMIND_OID}-trainer"),
-                await ansicht(database, paired.token),
+                await view(database, f"{REMIND_OID}-trainer"),
+                await view(database, paired.token),
                 paired.token,
                 await stored(database, REMIND_OID),
             )
@@ -377,22 +377,22 @@ class TestTheReminderClock:
             tot = []
             for gone in (reminders["wraxlington@example.com"] or "", f"{REMIND_OID}-trainer", f"{REMIND_OID}-ansprechperson"):
                 with pytest.raises(APIError) as conflict:
-                    await ansicht(database, gone)
+                    await view(database, gone)
                 tot.append(conflict.value.error_code)
 
             return (
                 tot,
-                (await ansicht(database, fresh.token)).state,
+                (await view(database, fresh.token)).state,
                 # The Stellvertretung is nobody's pair, so its own reminder link is untouched.
-                (await ansicht(database, reminders["bramblewick@example.com"] or "")).state,
+                (await view(database, reminders["bramblewick@example.com"] or "")).state,
                 fresh.token,
                 await stored(database, REMIND_OID),
             )
 
-        tot, zustand, fremd_zustand, fresh_token, document = on_a_league(mongo_replica_set_url, body)
+        tot, state, fremd_zustand, fresh_token, document = on_a_league(mongo_replica_set_url, body)
 
         assert tot == [Code.LINK_INVALID] * 3
-        assert (zustand, fremd_zustand) == ("valid", "valid")
+        assert (state, fremd_zustand) == ("valid", "valid")
         assert document is not None
         # One link answering both, each entry written back as the create writes it, and the reminder owed again.
         for rolle in ("trainer", "ansprechperson"):
@@ -528,9 +528,9 @@ class TestAnApplicationWhoseNoticeCannotArrive:
 
             return response.erased, await stored(database, DELETE_OID), await owed(database, "bewerbung_erasure")
 
-        geloescht, document, notices = on_a_league(mongo_replica_set_url, body)
+        erased_count, document, notices = on_a_league(mongo_replica_set_url, body)
 
-        assert geloescht == 0
+        assert erased_count == 0
         assert document is not None, "an application whose deletion notice cannot be delivered was erased anyway"
         assert notices == []
 
@@ -547,7 +547,7 @@ class TestAnApplicationWhoseNoticeCannotArrive:
 
 
 # Composed by the production helper rather than spelled, so a drifted bound cannot leave these cases passing over a lapsed row.
-STANDING = compose_gesperrt_bis_saison_id(massgebliche_saison_id=SAISON_ID)
+STANDING = compose_gesperrt_bis_saison_id(governing_saison_id=SAISON_ID)
 
 
 # An address today's rule refuses, its local part being no ASCII: a stored row may hold one, and no
@@ -571,7 +571,7 @@ class TestABarredMailbox:
 
     def test_the_barred_mailbox_is_handed_nothing_and_its_seat_keeps_its_first_link_alone(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SPERRLISTE].insert_one(ban_document("bramblewick@example.com", bis=STANDING))
+            await database[Collection.BAN_LIST].insert_one(ban_document("bramblewick@example.com", until=STANDING))
             await sweep(database, client, now=MAIL_NOW)
 
             reminders = [mail.an for mail in await drained(database, client) if mail.data.art == "bewerbung_reminder"]
@@ -793,7 +793,7 @@ class TestTheSeasonAndOneClock:
             "sent_at": "2026-03-02",
             "frist": "2026-03-16",
             "declined_at": None,
-            "delivery": {"message_id": "msg-1", "state": "delivered", "grund": None, "am": "2026-03-02T10:00:00+01:00"},
+            "delivery": {"message_id": "msg-1", "state": "delivered", "grund": None, "at": "2026-03-02T10:00:00+01:00"},
         }
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -944,7 +944,7 @@ class TestAnActivationInsideAnLoeschenTransactionKeepsTheSeasonsRows:
         Planned below a season that has ended, so the call's own read finds both clocks due.
         """
 
-        accepted = {"status": "accepted", "decision": {"made_at": "2026-03-01", "von": "admin", "grund": None}}
+        accepted = {"status": "accepted", "decision": {"made_at": "2026-03-01", "by": "admin", "grund": None}}
         report = a_report(SAISON_ID)
         declined = a_declined_confirmation(CLUB_OID, SAISON_ID)
 
@@ -967,7 +967,7 @@ class TestAnActivationInsideAnLoeschenTransactionKeepsTheSeasonsRows:
                     saisons_collection=database[Collection.SAISONS],
                     spiele_collection=database[Collection.SPIELE],
                     spieltage_collection=database[Collection.SPIELTAGE],
-                    sperrliste_collection=database[Collection.SPERRLISTE],
+                    ban_list_collection=database[Collection.BAN_LIST],
                     db=client,
                 )
 
@@ -983,7 +983,7 @@ class TestAnActivationInsideAnLoeschenTransactionKeepsTheSeasonsRows:
                     saison_teams_collection=reaching(Collection.SAISON_TEAMS),
                     saisons_collection=database[Collection.SAISONS],
                     teams_collection=database[Collection.TEAMS],
-                    aktionen_collection=database[Collection.ACTION_LOG],
+                    action_log_collection=database[Collection.ACTION_LOG],
                     spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
                     spielberichte_collection=database[Collection.SPIELBERICHTE],
                     outbox_collection=database[Collection.OUTBOX],
@@ -1033,7 +1033,7 @@ SECOND_OID = ObjectId("6890a1b2c3d4e5f607960007")
 SECOND_CLUB_OID = ObjectId("6890a1b2c3d4e5f607960012")
 SECOND_JUNCTION_OID = ObjectId("6890a1b2c3d4e5f607960022")
 
-DECLINED = {"status": "declined", "decision": {"made_at": "2026-02-15", "von": "admin", "grund": "kein Platz"}}
+DECLINED = {"status": "declined", "decision": {"made_at": "2026-02-15", "by": "admin", "grund": "kein Platz"}}
 
 
 async def refuse_writes_breaking(database: AsyncDatabase, collection: Collection, schema: Mapping[str, Any]) -> None:
@@ -1135,7 +1135,7 @@ class TestOneRowHoldsBackNoOther:
     def test_a_refused_loeschung_by_the_acceptance_clock(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.BEWERBUNGEN].insert_one(
-                application(SECOND_OID, status="accepted", decision={"made_at": "2026-03-01", "von": "admin", "grund": None})
+                application(SECOND_OID, status="accepted", decision={"made_at": "2026-03-01", "by": "admin", "grund": None})
             )
             await refuse_the_redaction_of(database, Collection.BEWERBUNGEN, ACCEPTED_OID)
             answer = await sweep(database, client)
@@ -1181,9 +1181,9 @@ class TestOneRowHoldsBackNoOther:
             return (answer.erased, answer.failed), await stored(database, DELETE_OID), await stored(database, SECOND_OID), notices
 
         with caplog.at_level(logging.ERROR, logger=FL_LOGGER_NAME):
-            geloeschte, refused, other, notices = on_a_league(mongo_replica_set_url, body, mutates_schema=True)
+            erased, refused, other, notices = on_a_league(mongo_replica_set_url, body, mutates_schema=True)
 
-        assert (geloeschte, refused is not None, other) == ((1, 1), True, None)
+        assert (erased, refused is not None, other) == ((1, 1), True, None)
         # The refused row's notice went with its transaction: nobody is told of an erasure that did not happen.
         assert [notice["key"] for notice in notices] == [f"{Collection.BEWERBUNGEN}/{SECOND_OID}/erasure"]
         assert passed_over(caplog) == [("ERROR", Code.DATABASE_FAILED, "Application", str(DELETE_OID), "fourteen-day", f"{REFUSED_TRACE_ID}")]
@@ -1570,7 +1570,7 @@ class TestAPageAndOneMoreIsDrained:
 
     def test_every_declined_application_due_goes_in_one_pass(self, mongo_replica_set_url: str):
         overflow = SWEEP_PAGE + 5
-        declined = {"status": "declined", "decision": {"made_at": "2026-02-15", "von": "admin", "grund": None}}
+        declined = {"status": "declined", "decision": {"made_at": "2026-02-15", "by": "admin", "grund": None}}
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.BEWERBUNGEN].delete_many({})
@@ -1599,7 +1599,7 @@ class TestAPageAndOneMoreIsDrained:
             "status": "accepted",
             "team_id": CLUB_OID,
             "schule": None,
-            "decision": {"made_at": "2026-03-01", "von": "admin", "grund": None},
+            "decision": {"made_at": "2026-03-01", "by": "admin", "grund": None},
         }
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -1614,8 +1614,8 @@ class TestAPageAndOneMoreIsDrained:
     def test_a_page_of_decisions_inside_their_month_does_not_hide_one_that_is_due(self, mongo_replica_set_url: str):
         """The fresh decisions are seeded first, so a read not narrowed to the due ones fills its page with them and refuses the pass."""
 
-        fresh = {"status": "declined", "decision": {"made_at": "2026-03-31", "von": "admin", "grund": None}}
-        due = {"status": "declined", "decision": {"made_at": "2026-02-15", "von": "admin", "grund": None}}
+        fresh = {"status": "declined", "decision": {"made_at": "2026-03-31", "by": "admin", "grund": None}}
+        due = {"status": "declined", "decision": {"made_at": "2026-02-15", "by": "admin", "grund": None}}
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             seeded = [application(numbered(position), **fresh) for position in range(SWEEP_PAGE + 1)]
@@ -1644,7 +1644,7 @@ def a_declined_confirmation(team_id: ObjectId, saison_id: str) -> dict[str, Any]
         team1={"team_id": team_id},
         team2={"team_id": CLUB_OID},
     )
-    delivered = {"message_id": "msg-1", "state": "delivered", "grund": None, "am": f"{saison_id}-04-02T09:00:00+00:00"}
+    delivered = {"message_id": "msg-1", "state": "delivered", "grund": None, "at": f"{saison_id}-04-02T09:00:00+00:00"}
 
     return documents.spielbestaetigung_document(
         fixture,
@@ -1652,7 +1652,7 @@ def a_declined_confirmation(team_id: ObjectId, saison_id: str) -> dict[str, Any]
         asked_at=f"{saison_id}-04-01",
         kontakte={seat: {"token_hashes": ["b" * 64], "delivery": delivered} for seat in KONTAKT_ROLLEN},
         antwort=documents.kontakt_antwort_document("trainer", "trainer@example.com", begruendung="Wir sind auf Klassenfahrt"),
-        closed={"am": f"{saison_id}-04-19", "grund": "spiel_past"},
+        closed={"at": f"{saison_id}-04-19", "grund": "spiel_past"},
     )
 
 

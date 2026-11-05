@@ -48,8 +48,8 @@ def warned(rows: Sequence[Mapping[str, Any]], caplog: pytest.LogCaptureFixture) 
     return [record.getMessage() for record in caplog.records]
 
 
-OWNER = {"adresse": "inhaberin@frankfurtleague.de", "verwaltung": "owner"}
-ADMINISTRATOR = {"adresse": "anna@frankfurtleague.de", "verwaltung": "administration"}
+OWNER = {"adresse": "inhaberin@frankfurtleague.de", "admin_tier": "owner"}
+ADMINISTRATOR = {"adresse": "anna@frankfurtleague.de", "admin_tier": "administration"}
 
 
 def test_a_list_holding_an_owner_and_live_addresses_says_nothing(caplog):

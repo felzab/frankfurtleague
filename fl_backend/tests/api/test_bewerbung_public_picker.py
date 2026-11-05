@@ -82,7 +82,7 @@ class TestTheKuerzelCheck:
     """ONE neutral answer: it names no club, and does not tell an active one from a retired one."""
 
     @pytest.mark.parametrize(
-        ("shorthand", "vergeben"),
+        ("shorthand", "taken"),
         [
             pytest.param("ZEX", True, id="a live club's"),
             pytest.param("zex", True, id="a live club's asked in lower case, folded as a submission folds it"),
@@ -90,11 +90,11 @@ class TestTheKuerzelCheck:
             pytest.param("QQX", False, id="one nobody holds"),
         ],
     )
-    def test_a_taken_kuerzel_answers_taken(self, seeded_url: str, shorthand: str, vergeben: bool):
+    def test_a_taken_kuerzel_answers_taken(self, seeded_url: str, shorthand: str, taken: bool):
         response = answered(seeded_url, f"{PREFIX}/kuerzel/{shorthand}")
 
         assert response.status_code == 200
-        assert response.json()["taken"] is vergeben
+        assert response.json()["taken"] is taken
 
     def test_the_answer_names_no_club(self, seeded_url: str):
         """A shape distinguishing a retired holder from a live one would publish which schools have left."""
