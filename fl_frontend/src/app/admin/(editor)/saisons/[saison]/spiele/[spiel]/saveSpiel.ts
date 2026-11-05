@@ -124,9 +124,11 @@ function payloadOf(saved: FLSpielJoinedAdmin, changes: Changes): Omit<FLPatchSpi
 
 /**
  * The codes the match write answers that this editor words, each a person causes knowingly from it; a team's
- * refusal is the stale-page line, the editor offering only the clubs the write takes.
+ * refusal is the stale-page line, the editor offering only the clubs the write takes, but for the bracket fielding a
+ * club twice, which a hand-picked side causes on a current page and a resend meets again.
  */
 const OWN_WORDS = [
+  "spieltag_occupied_by_the_resolution",
   "spiel_outside_spieltag",
   "state_ergebnis_on_a_non_event",
   "state_nichtantreten_without_two_sides",

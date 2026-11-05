@@ -128,6 +128,11 @@ export const SERVER_COPY = catalogue({
       team1: `${team1} ist aus der Saison ausgeschieden.`,
       team2: `${team2} ist aus der Saison ausgeschieden.`,
     },
+    /**
+     * A save after which the bracket would field one club in two matches of one matchday, a club picked by hand
+     * standing where the bracket's own wiring leads it too: the same save answers the same, the page being current.
+     */
+    spieltag_occupied_by_the_resolution: "Der K.-o.-Baum würde ein Team zweimal an diesem Spieltag aufstellen.",
     /** A matchday's dates: past its season's, short of one of its dated matches, or out of its phase's order of matchdays. */
     spieltag_outside_saison: "Dieser Zeitraum liegt außerhalb der Saison.",
     spieltag_span_below_spiele: "Ein Spiel des Spieltags liegt außerhalb dieses Zeitraums.",

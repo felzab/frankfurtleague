@@ -271,13 +271,16 @@ describe("the match editor's save", () => {
     state.refusal = refusal("saison_past");
     expect(await saveSpiel(save)).toEqual({ ok: false, errorCode: "saison_past", reason: SERVER_COPY.refusalLine.saison_past });
 
+    // The bracket fielding a club twice names no field, and a reload would answer the same: its sentence, never the stale line.
+    state.refusal = refusal("spieltag_occupied_by_the_resolution");
+    expect(await saveSpiel(save)).toEqual({
+      ok: false,
+      errorCode: "spieltag_occupied_by_the_resolution",
+      reason: SERVER_COPY.refusalLine.spieltag_occupied_by_the_resolution,
+    });
+
     // The editor offers only the clubs the write takes, so a team's refusal means the fixture changed under it.
-    for (const code of [
-      "ergebnis_side_emptied",
-      "spieltag_occupied",
-      "spieltag_occupied_by_the_resolution",
-      "eligibility_team_not_in_saison",
-    ] as const) {
+    for (const code of ["ergebnis_side_emptied", "spieltag_occupied", "eligibility_team_not_in_saison"] as const) {
       state.refusal = refusal(code);
       expect(await saveSpiel(save), code).toEqual({ ok: false, errorCode: code, reason: COPY.shared.failure.stale });
     }

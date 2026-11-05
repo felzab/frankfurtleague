@@ -158,7 +158,6 @@ const STALE: ReadonlySet<Code> = new Set<Code>([
   // setting one words them as its own.
   "ergebnis_side_emptied",
   "spieltag_occupied",
-  "spieltag_occupied_by_the_resolution",
   "eligibility_team_not_in_saison",
   // A fixture's confirmation answered, closed or left by its fixture since the page offering an act on it was read.
   "ansetzung_not_enterable",
