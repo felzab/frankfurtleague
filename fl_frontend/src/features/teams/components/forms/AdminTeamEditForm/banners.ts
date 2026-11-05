@@ -17,7 +17,7 @@ type TeamBannerId =
 
 // `saison-kein-eintritt` is where the season panel explains a CLOSED entry, named for the place
 // rather than for either of the two conditions that close it.
-type TeamBannerSpot = "gruppe" | "saison-eintritt" | "saison-kein-eintritt" | "austritt-eintrag" | "austritt-aufhebung";
+type TeamBannerSpot = "gruppe" | "saison-eintritt" | "saison-kein-eintritt" | "austritt-entry" | "austritt-aufhebung";
 
 export type TeamBanner = RailBanner<TeamBannerId> & { inline: TeamBannerSpot | null };
 
@@ -120,7 +120,7 @@ export function buildTeamBanners({
       title: "Der Grund wird veröffentlicht",
       // The team page and nowhere else: a served fixture side carries the exit TYPE and no reason.
       body: "Er steht danach auf der öffentlichen Teamseite.",
-      inline: "austritt-eintrag",
+      inline: "austritt-entry",
     });
   }
 

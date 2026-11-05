@@ -35,5 +35,5 @@ async def a_mail_that_bounced(
         )
     await database[Collection.OUTBOX].update_one(
         {"key": key},
-        {"$set": {"state": "sent", "delivery": {"state": "undeliverable", "grund": "NoEmail", "am": now}}},
+        {"$set": {"state": "sent", "delivery": {"state": "undeliverable", "grund": "NoEmail", "at": now}}},
     )

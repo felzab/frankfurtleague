@@ -30,6 +30,6 @@ export async function register() {
 
   // Every Node API stays in that module: the Edge compile still reads this file, and flags one
   // spelled here even past the return above.
-  const { registerOnNode } = await import("./instrumentation-node");
+  const { registerOnNode } = await import("./instrumentationNode");
   await registerOnNode();
 }

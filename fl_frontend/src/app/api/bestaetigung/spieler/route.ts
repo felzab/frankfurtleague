@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
         ergebnis: antwort.ergebnis,
         geburtsdatum: antwort.geburtsdatum,
         umfang: antwort.umfang,
-        medien: antwort.medien,
+        media: antwort.media,
       };
     },
   });

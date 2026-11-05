@@ -36,7 +36,7 @@ SAISON_ID = "2026"
 TODAY = "2026-04-01"
 # The press's instant, and the UTC spelling its entry records it under.
 NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
-AM = "2026-04-01T10:30:00+00:00"
+AT = "2026-04-01T10:30:00+00:00"
 YESTERDAY = "2026-03-31"
 TOMORROW = "2026-04-02"
 
@@ -79,7 +79,7 @@ def einwilligung(**overrides: Any) -> dict[str, Any]:
     """The returning pupil's record as their own confirmation of an earlier season left it."""
 
     stored = documents.own_einwilligung_document(
-        text_versions=documents.SPIELER_TEXT_VERSIONS, confirmed_at="2025-09-02", umfang="intern", medien=True
+        text_versions=documents.SPIELER_TEXT_VERSIONS, confirmed_at="2025-09-02", umfang="intern", media=True
     )
 
     return {**stored, **overrides}
@@ -150,9 +150,9 @@ def on_a_league(
     return on_the_seed_loop(_run())
 
 
-async def ansicht(database: AsyncDatabase, token: str, *, spieler_collection: Any = None, registrierungen_collection: Any = None) -> Any:
+async def view(database: AsyncDatabase, token: str, *, spieler_collection: Any = None, registrierungen_collection: Any = None) -> Any:
     return await get_confirmation_view(
-        ansicht_data=FLTokenPayload(token=token),
+        view_data=FLTokenPayload(token=token),
         registrierungen_collection=database[Collection.REGISTRIERUNGEN] if registrierungen_collection is None else registrierungen_collection,
         teams_collection=database[Collection.TEAMS],
         spieler_collection=database[Collection.SPIELER] if spieler_collection is None else spieler_collection,
@@ -167,7 +167,7 @@ async def answer(database: AsyncDatabase, client: AsyncMongoClient, token: str, 
         "geburtsdatum": AT_THE_FLOOR,
         "umfang": "kader_oeffentlich",
         # Off, because the default date is sixteen: a media consent is refused below eighteen.
-        "medien": False,
+        "media": False,
         "text_versions": THIS_SEASONS_LABELS,
         **overrides,
     }
@@ -198,7 +198,7 @@ class TestWhatALinkOpens:
     def test_the_link_carries_no_other_teams_name_and_nothing_else_of_the_registration(self, mongo_replica_set_url: str):
         """A leaked link learns what the mail it arrived in already said, and never a name, the address, the number or the Stufe."""
 
-        rendered = on_a_league(mongo_replica_set_url, lambda database, _: ansicht(database, RAW)).model_dump_json()
+        rendered = on_a_league(mongo_replica_set_url, lambda database, _: view(database, RAW)).model_dump_json()
 
         registration = registrierung_document()
         assert OTHER_TEAM_NAME not in rendered and OTHER_SCHOOL not in rendered
@@ -207,7 +207,7 @@ class TestWhatALinkOpens:
         assert registration["position"] not in rendered and registration["stufe"] not in rendered
 
     def test_a_first_timer_is_asked_for_a_date(self, mongo_replica_set_url: str):
-        response = on_a_league(mongo_replica_set_url, lambda database, _: ansicht(database, RAW))
+        response = on_a_league(mongo_replica_set_url, lambda database, _: view(database, RAW))
 
         assert response.seite == SEITE_NEU
 
@@ -219,7 +219,7 @@ class TestWhatALinkOpens:
     def test_a_returning_pupil_is_told_a_date_is_stored_and_shown_none_of_it(self, mongo_replica_set_url: str, person: dict[str, Any]):
         """A returning pupil's page asks neither a choice nor the stored birthdate, and the link serves none of the three."""
 
-        response = on_a_league(mongo_replica_set_url, lambda database, _: ansicht(database, RAW), spieler=[person])
+        response = on_a_league(mongo_replica_set_url, lambda database, _: view(database, RAW), spieler=[person])
 
         assert response.seite == SEITE_WIEDERKEHREND
         assert A_RETURNING_PUPILS_BIRTHDATE not in response.model_dump_json()
@@ -229,7 +229,7 @@ class TestWhatALinkOpens:
 
         unconfirmed = spieler_document(SPIELER_OID, einwilligung=None)
 
-        response = on_a_league(mongo_replica_set_url, lambda database, _: ansicht(database, RAW), spieler=[unconfirmed])
+        response = on_a_league(mongo_replica_set_url, lambda database, _: view(database, RAW), spieler=[unconfirmed])
 
         assert response.seite == SEITE_NEU
 
@@ -243,14 +243,14 @@ class TestWhatALinkOpens:
         sibling = registrierung_document(vorname="Bramblewick")
         held = [spieler_document(SPIELER_OID)]
 
-        response = on_a_league(mongo_replica_set_url, lambda database, _: ansicht(database, RAW), registrierungen=[sibling], spieler=held)
+        response = on_a_league(mongo_replica_set_url, lambda database, _: view(database, RAW), registrierungen=[sibling], spieler=held)
 
         assert response.seite == SEITE_NEU
 
     def test_a_token_no_registration_holds_is_refused(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> str:
             with pytest.raises(APIError) as conflict:
-                await ansicht(database, "a-stranger's-guess")
+                await view(database, "a-stranger's-guess")
 
             return conflict.value.error_code
 
@@ -273,15 +273,15 @@ class TestWhatAConfirmationWrites:
             "umfang": "kader_oeffentlich",
             "datum": TODAY,
             "confirmed_at": TODAY,
-            "medien": False,
-            "nachweis": {
-                "umfang": {"am": AM, "text_version": THIS_SEASONS_LABELS["umfang"]},
-                "medien": {"am": AM, "text_version": THIS_SEASONS_LABELS["medien"]},
+            "media": False,
+            "evidence": {
+                "umfang": {"at": AT, "text_version": THIS_SEASONS_LABELS["umfang"]},
+                "media": {"at": AT, "text_version": THIS_SEASONS_LABELS["media"]},
             },
         }
         # NOT nulled on use: single use is the stamp's doing, so the reopened link can show its state.
         assert document["confirmation"]["token_hashes"] == [TOKEN_HASH]
-        assert (response.ergebnis, response.geburtsdatum, response.umfang, response.medien) == (
+        assert (response.ergebnis, response.geburtsdatum, response.umfang, response.media) == (
             "confirmed",
             AT_THE_FLOOR,
             "kader_oeffentlich",
@@ -312,13 +312,13 @@ class TestWhatAConfirmationWrites:
         """Publication and media are two consents under one record, so an off switch is stored rather than derived from the scope."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await answer(database, client, RAW, umfang="intern", medien=False)
+            await answer(database, client, RAW, umfang="intern", media=False)
 
             return await stored(database)
 
         record = on_a_league(mongo_replica_set_url, body)["einwilligung"]
 
-        assert (record["umfang"], record["medien"]) == ("intern", False)
+        assert (record["umfang"], record["media"]) == ("intern", False)
 
     def test_a_returning_pupils_press_stores_the_stamp_alone(self, mongo_replica_set_url: str):
         """The page asked no choice and no date, so the stored date is written and echoed nowhere.
@@ -328,7 +328,7 @@ class TestWhatAConfirmationWrites:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             held = await database[Collection.SPIELER].find_one({"_id": SPIELER_OID})
-            response = await answer(database, client, RAW, geburtsdatum=None, umfang=None, medien=None, text_versions=None)
+            response = await answer(database, client, RAW, geburtsdatum=None, umfang=None, media=None, text_versions=None)
 
             return response, await stored(database), held, await database[Collection.SPIELER].find_one({"_id": SPIELER_OID})
 
@@ -336,7 +336,7 @@ class TestWhatAConfirmationWrites:
 
         assert document["einwilligung"] == {"confirmed_at": TODAY}
         assert document["geburtsdatum"] == A_RETURNING_PUPILS_BIRTHDATE
-        assert (response.ergebnis, response.geburtsdatum, response.umfang, response.medien) == ("confirmed", None, None, None)
+        assert (response.ergebnis, response.geburtsdatum, response.umfang, response.media) == ("confirmed", None, None, None)
         assert person == held
 
     def test_a_stored_date_below_the_floor_is_refused_and_spends_nothing(self, mongo_replica_set_url: str):
@@ -344,11 +344,11 @@ class TestWhatAConfirmationWrites:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             with pytest.raises(APIError) as refused:
-                await answer(database, client, RAW, geburtsdatum=None, umfang=None, medien=None, text_versions=None)
+                await answer(database, client, RAW, geburtsdatum=None, umfang=None, media=None, text_versions=None)
 
             return refused.value.error_code, await stored(database)
 
-        too_young = spieler_document(SPIELER_OID, geburtsdatum=A_DAY_SHORT, einwilligung=einwilligung(medien=False))
+        too_young = spieler_document(SPIELER_OID, geburtsdatum=A_DAY_SHORT, einwilligung=einwilligung(media=False))
         code, document = on_a_league(mongo_replica_set_url, body, spieler=[too_young])
 
         assert code == Code.CONFIRMATION_AGE
@@ -369,18 +369,18 @@ class TestTheChoicesThePageAsks:
     @pytest.mark.parametrize(
         ("held", "label", "wahlen"),
         [
-            pytest.param([], THIS_SEASONS_LABELS, {"umfang": None, "medien": None}, id="the new pupil's page, sent no choice"),
-            pytest.param([], THIS_SEASONS_LABELS, {"medien": None}, id="the new pupil's page, sent no media answer"),
+            pytest.param([], THIS_SEASONS_LABELS, {"umfang": None, "media": None}, id="the new pupil's page, sent no choice"),
+            pytest.param([], THIS_SEASONS_LABELS, {"media": None}, id="the new pupil's page, sent no media answer"),
             pytest.param([], None, {}, id="the new pupil's page, sent no labels"),
-            pytest.param([spieler_document(SPIELER_OID)], None, {"umfang": "intern", "medien": False}, id="the returning page, sent both"),
-            pytest.param([spieler_document(SPIELER_OID)], None, {"umfang": None, "medien": True}, id="the returning page, sent a media grant"),
+            pytest.param([spieler_document(SPIELER_OID)], None, {"umfang": "intern", "media": False}, id="the returning page, sent both"),
+            pytest.param([spieler_document(SPIELER_OID)], None, {"umfang": None, "media": True}, id="the returning page, sent a media grant"),
             pytest.param(
-                [spieler_document(SPIELER_OID)], THIS_SEASONS_LABELS, {"umfang": None, "medien": None}, id="the returning page, sent labels"
+                [spieler_document(SPIELER_OID)], THIS_SEASONS_LABELS, {"umfang": None, "media": None}, id="the returning page, sent labels"
             ),
             pytest.param(
                 [spieler_document(SPIELER_OID)],
                 None,
-                {"umfang": None, "medien": None},
+                {"umfang": None, "media": None},
                 id="the returning page, sent a date",
             ),
             pytest.param([], THIS_SEASONS_LABELS, {"geburtsdatum": None}, id="the new pupil's page, sent no date"),
@@ -404,20 +404,20 @@ class TestTheChoicesThePageAsks:
 
 class TestTheLinkIsSpentByTheStamp:
     def test_a_second_press_is_refused_and_the_first_answer_stands(self, mongo_replica_set_url: str):
-        """The first answer carries `medien`, so a refused press that overwrote either half of the pair turns this red."""
+        """The first answer carries `media`, so a refused press that overwrote either half of the pair turns this red."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await answer(database, client, RAW, geburtsdatum=AT_THE_MEDIA_AGE, medien=True)
+            await answer(database, client, RAW, geburtsdatum=AT_THE_MEDIA_AGE, media=True)
 
             with pytest.raises(APIError) as conflict:
-                await answer(database, client, RAW, umfang="intern", medien=False)
+                await answer(database, client, RAW, umfang="intern", media=False)
 
-            return conflict.value.error_code, await stored(database), await ansicht(database, RAW)
+            return conflict.value.error_code, await stored(database), await view(database, RAW)
 
         code, document, view = on_a_league(mongo_replica_set_url, body)
 
         assert code == Code.CONFIRMATION_EXISTS
-        assert (document["einwilligung"]["umfang"], document["einwilligung"]["medien"]) == ("kader_oeffentlich", True)
+        assert (document["einwilligung"]["umfang"], document["einwilligung"]["media"]) == ("kader_oeffentlich", True)
         assert view.state == "confirmed"
 
     def test_an_age_refusal_spends_nothing(self, mongo_replica_set_url: str):
@@ -427,7 +427,7 @@ class TestTheLinkIsSpentByTheStamp:
             with pytest.raises(APIError) as conflict:
                 await answer(database, client, RAW, geburtsdatum=A_DAY_SHORT)
 
-            return conflict.value.error_code, await ansicht(database, RAW), await stored(database), await log_rows(database)
+            return conflict.value.error_code, await view(database, RAW), await stored(database), await log_rows(database)
 
         code, view, document, rows = on_a_league(mongo_replica_set_url, body)
 
@@ -455,7 +455,7 @@ class TestTheLinkIsSpentByTheStamp:
     def test_a_decided_registration_takes_no_answer_either(self, mongo_replica_set_url: str):
         """One code for both: a pupil whose registration was declined while their link stood open is told the link is over, not why."""
 
-        entscheidung = {"made_at": YESTERDAY, "von": "admin", "grund": "kein Platz"}
+        entscheidung = {"made_at": YESTERDAY, "by": "admin", "grund": "kein Platz"}
         declined = registrierung_document(status="declined", decision=entscheidung)
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
@@ -485,29 +485,29 @@ A_DAY_SHORT_OF_THE_MEDIA_AGE = "2008-04-02"
 
 
 class TestTheMediaAge:
-    """`medien_age` at the endpoint: the refusal is wired in, and judged before the write."""
+    """`media_age` at the endpoint: the refusal is wired in, and judged before the write."""
 
     def test_a_yes_a_day_short_of_the_media_age_is_refused_and_spends_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             with pytest.raises(APIError) as conflict:
-                await answer(database, client, RAW, geburtsdatum=A_DAY_SHORT_OF_THE_MEDIA_AGE, medien=True)
+                await answer(database, client, RAW, geburtsdatum=A_DAY_SHORT_OF_THE_MEDIA_AGE, media=True)
 
             return conflict.value.error_code, await stored(database), await log_rows(database)
 
         code, document, rows = on_a_league(mongo_replica_set_url, body)
 
-        assert code == Code.MEDIEN_AGE
+        assert code == Code.MEDIA_AGE
         assert document == registrierung_document()
         assert rows == []
 
 
 # Composed by the production helper rather than spelled: a hand-written bound that drifted from it
 # would leave these cases passing over a lapsed row.
-STANDING = compose_gesperrt_bis_saison_id(massgebliche_saison_id=SAISON_ID)
+STANDING = compose_gesperrt_bis_saison_id(governing_saison_id=SAISON_ID)
 
 
-async def ban(database: AsyncDatabase, address: str, *, bis: str = STANDING) -> None:
-    await database[Collection.SPERRLISTE].insert_one(documents.ban_document(address, bis=bis))
+async def ban(database: AsyncDatabase, address: str, *, until: str = STANDING) -> None:
+    await database[Collection.BAN_LIST].insert_one(documents.ban_document(address, until=until))
 
 
 class TestALinkToABarredAddress:

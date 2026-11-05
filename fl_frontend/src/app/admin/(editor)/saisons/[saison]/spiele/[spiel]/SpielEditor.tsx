@@ -24,8 +24,8 @@ import type { EditorRecord, EditorSave } from "@/kit/useEditor";
 import type { SpielortRegeln } from "../../../../../spielortRegeln";
 import type { SpielWerte } from "./spielWerte";
 
-const WORTE = COPY.verwaltung.spiel;
-const ORT = COPY.verwaltung.spielort;
+const WORDS = COPY.admin.spiel;
+const ORT = COPY.admin.spielort;
 
 /**
  * The match editor's shell: the Ansetzung's day, time, venue and price, a new venue created in a dialog
@@ -62,8 +62,8 @@ export function SpielEditor({
   const { draft, set } = editor;
   // The create dialog, opened from the venue list's last entry with the name typed into the field; the dialog closes
   // this state itself when Next hides the page.
-  const [neu, setNeu] = useState(false);
-  const [neuerName, setNeuerName] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [newName, setNewName] = useState("");
 
   return (
     <EditorPage
@@ -73,7 +73,7 @@ export function SpielEditor({
       sections={[
         {
           id: "ansetzung",
-          title: WORTE.ansetzung,
+          title: WORDS.ansetzung,
           fields: (
             <>
               {/* A day and its time are one value, sharing their row at every width. */}
@@ -81,13 +81,13 @@ export function SpielEditor({
                 short="both"
                 phone="pair">
                 <DateField
-                  label={WORTE.datum}
+                  label={WORDS.datum}
                   name="datum"
                   value={draft.datum}
                   onChange={(datum) => set("datum", datum)}
                 />
                 <TimeField
-                  label={WORTE.uhrzeit}
+                  label={WORDS.uhrzeit}
                   name="uhrzeit"
                   value={draft.uhrzeit}
                   onChange={(uhrzeit) => set("uhrzeit", uhrzeit)}
@@ -104,14 +104,14 @@ export function SpielEditor({
                   onChange={(spielort) => {
                     set("spielort", spielort);
                     // A venue chosen brings its own price, which the person may still change for this match.
-                    const gewaehlt = spielorte.find((ort) => ort.option.id === spielort);
-                    if (gewaehlt !== undefined) set("mietpreis", String(gewaehlt.mietpreis));
+                    const chosen = spielorte.find((ort) => ort.option.id === spielort);
+                    if (chosen !== undefined) set("mietpreis", String(chosen.mietpreis));
                   }}
                   create={{
                     label: ORT.createEntry,
                     onCreate: (typed) => {
-                      setNeuerName(typed);
-                      setNeu(true);
+                      setNewName(typed);
+                      setCreating(true);
                     },
                   }}
                 />
@@ -133,10 +133,10 @@ export function SpielEditor({
                 title={COPY.shared.withObject(ORT.object, "create")}
                 act={{ verb: "create", object: ORT.object }}
                 action={spielortAnlegen}
-                open={{ isOpen: neu, onOpenChange: setNeu }}>
+                open={{ isOpen: creating, onOpenChange: setCreating }}>
                 <SpielortFelder
                   regeln={spielortRegeln}
-                  name={neuerName}
+                  name={newName}
                 />
               </Dialog>
             </>
@@ -144,10 +144,10 @@ export function SpielEditor({
         },
         {
           id: "ergebnis",
-          title: WORTE.ergebnis,
+          title: WORDS.ergebnis,
           fields: (
             <Select
-              label={WORTE.sonderereignis}
+              label={WORDS.sonderereignis}
               name="sonderereignis"
               options={sonderereignisse}
               width="fit"
@@ -160,10 +160,10 @@ export function SpielEditor({
         },
         {
           id: "notiz",
-          title: WORTE.notiz,
+          title: WORDS.notiz,
           fields: (
             <TextField
-              label={WORTE.notiz}
+              label={WORDS.notiz}
               name="notiz"
               width="W4"
               kind="text"

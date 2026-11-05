@@ -8,7 +8,7 @@ import { parseDate } from "@internationalized/date";
 import { FieldError } from "@heroui/react/field-error";
 import { Input } from "@heroui/react/input";
 
-import { AdresswechselOffen } from "@/features/adresswechsel/components/ui/AdresswechselHinweis";
+import { AdresswechselOffen } from "@/features/address-change/components/ui/AdresswechselHinweis";
 import { LinkStandAngaben } from "@/features/bewerbungen/components/ui/LinkStandAngaben";
 import { ALL_SEAT_PATHS } from "@/features/kontakte/kontakteDraftStatus";
 import { applySeatPresence, applySharedSeat, mirroredJudgedPaths } from "@/features/kontakte/utils";
@@ -387,7 +387,7 @@ function KontaktpersonFields({
           <AdresswechselOffen
             adresswechselId={adresswechsel.id}
             adresse={adresswechsel.adresse}
-            verwehrt={adresswechsel.denied}
+            denied={adresswechsel.denied}
           />
         )}
 
@@ -540,7 +540,7 @@ function KontaktpersonInputs({
               <Input className={FIELD_INPUT_CLASSES} />
             </TextField>
             <Beleg
-              nachweis={person.einwilligung.nachweis.umfang}
+              evidence={person.einwilligung.evidence.umfang}
               bestaetigung={bestaetigungOf(person.einwilligung)}
             />
           </div>
@@ -548,13 +548,13 @@ function KontaktpersonInputs({
           <div className="flex flex-col gap-y-1">
             <TextField
               isReadOnly
-              value={person.einwilligung.medien ? EINWILLIGUNG_MEDIEN_LABELS.erteilt : EINWILLIGUNG_MEDIEN_LABELS.nicht_erteilt}
+              value={person.einwilligung.media ? EINWILLIGUNG_MEDIEN_LABELS.given : EINWILLIGUNG_MEDIEN_LABELS.nicht_erteilt}
               onChange={() => undefined}>
               <FieldLabel<KontakteFieldPath> path={`kontakte.${rolle}.einwilligung`}>{EINWILLIGUNG_MEDIEN_FRAGE}</FieldLabel>
               <Input className={FIELD_INPUT_CLASSES} />
             </TextField>
             <Beleg
-              nachweis={person.einwilligung.nachweis.medien}
+              evidence={person.einwilligung.evidence.media}
               bestaetigung={bestaetigungOf(person.einwilligung)}
             />
           </div>

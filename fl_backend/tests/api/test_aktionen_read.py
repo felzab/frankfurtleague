@@ -268,7 +268,7 @@ class _LogCollection:
             cell = (str(document["collection"]), str(document["operation"]))
             tally[cell] = tally.get(cell, 0) + 1
 
-        return _LogCells([{"_id": {"collection": area, "operation": art}, "anzahl": held} for (area, art), held in tally.items()])
+        return _LogCells([{"_id": {"collection": area, "operation": art}, "count": held} for (area, art), held in tally.items()])
 
     def find(self, filter: Any, projection: Any = None, collation: Any = None, session: Any = None) -> _LogCollection:
         self.requested_filter = filter
@@ -335,8 +335,8 @@ def run_list(log: _LogCollection, **filters: Any) -> Any:
 
     return asyncio.run(
         get_action_log(
-            aktionen_collection=cast(AsyncCollection, log),
-            sperrliste=ban_list({Collection.SPERRLISTE: _NothingStored(), Collection.SAISONS: _NothingStored()}),
+            action_log_collection=cast(AsyncCollection, log),
+            sperrliste=ban_list({Collection.BAN_LIST: _NothingStored(), Collection.SAISONS: _NothingStored()}),
             filters=FLAktionenFilterParams.model_validate(filters),
         )
     )

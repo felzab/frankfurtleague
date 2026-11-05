@@ -29,8 +29,8 @@ globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
   return answer();
 }) as typeof fetch;
 
-const { PRUEFUNG_GESTOERT, turnstileRefusal } = await import("./turnstile.ts");
-const { MENSCH_BESTAETIGEN } = await import("./turnstileToken.ts");
+const { CHECK_DISRUPTED, turnstileRefusal } = await import("./turnstile.ts");
+const { CONFIRM_HUMAN } = await import("./turnstileToken.ts");
 
 const SITEVERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify";
 
@@ -63,7 +63,7 @@ describe("the bot check's verdict on a submission", () => {
   /* Asked nothing: Cloudflare could only answer either with a judgement against it. */
   it("refuses a missing, empty or overlong token without asking Cloudflare", async () => {
     for (const token of [null, "", "x".repeat(2049)]) {
-      expect(await turnstileRefusal(token), `passed ${JSON.stringify(token?.slice(0, 8))}`).toBe(MENSCH_BESTAETIGEN);
+      expect(await turnstileRefusal(token), `passed ${JSON.stringify(token?.slice(0, 8))}`).toBe(CONFIRM_HUMAN);
     }
 
     expect(asked).toStrictEqual([]);
@@ -72,7 +72,7 @@ describe("the bot check's verdict on a submission", () => {
   it("refuses a token Cloudflare judged, a spent one and a forged one alike", async () => {
     for (const codes of [["invalid-input-response"], ["timeout-or-duplicate"], ["internal-error", "invalid-input-response"], []]) {
       answers = [() => json({ success: false, "error-codes": codes })];
-      expect(await turnstileRefusal(TEST_TOKEN), `passed on ${codes.join(", ") || "no code"}`).toBe(MENSCH_BESTAETIGEN);
+      expect(await turnstileRefusal(TEST_TOKEN), `passed on ${codes.join(", ") || "no code"}`).toBe(CONFIRM_HUMAN);
     }
 
     expect(logs, "a judged refusal wrote a line").toStrictEqual([]);
@@ -88,7 +88,7 @@ describe("a request of ours Cloudflare refuses", () => {
     it(`refuses the submission on ${code}, with a sentence of its own and one line naming the code and no token`, async () => {
       answers = [() => json({ success: false, "error-codes": [code] }, 400)];
 
-      expect(await turnstileRefusal(TEST_TOKEN)).toBe(PRUEFUNG_GESTOERT);
+      expect(await turnstileRefusal(TEST_TOKEN)).toBe(CHECK_DISRUPTED);
       expect(asked.length, "a request Cloudflare refused was asked again").toBe(1);
       expect(logs.map(({ message }) => message)).toStrictEqual(["turnstile.request_refused"]);
       expect(logs[0]?.meta ?? "").toMatch(new RegExp(`"codes":"${code}","status":400`));
@@ -101,7 +101,7 @@ describe("a request of ours Cloudflare refuses", () => {
     it(`refuses the submission on a ${String(status)} naming no code, with that sentence and one line naming the status`, async () => {
       answers = [() => new Response("<html>", { status: status })];
 
-      expect(await turnstileRefusal(TEST_TOKEN)).toBe(PRUEFUNG_GESTOERT);
+      expect(await turnstileRefusal(TEST_TOKEN)).toBe(CHECK_DISRUPTED);
       expect(asked.length, "a request Cloudflare refused was asked again").toBe(1);
       expect(logs.map(({ message }) => message)).toStrictEqual(["turnstile.request_refused"]);
       expect(logs[0]?.meta ?? "").toMatch(new RegExp(`"status":${String(status)}`));
@@ -125,7 +125,7 @@ describe("Cloudflare's own failure", () => {
   it("is judged by the retry's answer where the retry judged the token", async () => {
     answers = [judged(["internal-error"]), judged(["invalid-input-response"])];
 
-    expect(await turnstileRefusal(TEST_TOKEN)).toBe(MENSCH_BESTAETIGEN);
+    expect(await turnstileRefusal(TEST_TOKEN)).toBe(CONFIRM_HUMAN);
   });
 
   it("lets the submission through after a second internal-error, with one line", async () => {

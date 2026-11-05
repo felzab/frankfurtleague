@@ -35,31 +35,31 @@ EINLADUNG: dict[str, Any] = {"saison_id": "2026", "widerrufen_am": None}
 def lage(stand: str, *, delivery: str | None = None) -> FLOutboxStatus:
     """The last mail owed about an invite, as the outbox serves it."""
 
-    gemeldet = None if delivery is None else {"state": delivery, "grund": None, "am": "2026-03-29T10:00:00+00:00"}
+    gemeldet = None if delivery is None else {"state": delivery, "grund": None, "at": "2026-03-29T10:00:00+00:00"}
 
     return FLOutboxStatus.model_validate({"state": stand, "delivery": gemeldet})
 
 
 class TestTheWindowALinkExpiresWith:
     def test_a_season_taking_registrations_today_is_running(self):
-        assert registrierungsfenster_laeuft(registrierung={"offen": True, "von": "2026-03-01", "bis": "2026-04-30"}, today="2026-04-01")
+        assert registrierungsfenster_laeuft(registrierung={"offen": True, "von": "2026-03-01", "end": "2026-04-30"}, today="2026-04-01")
 
     def test_both_ends_are_inside_the_span(self):
         """The day the window opens and the day it shuts, which an exclusive comparison silently drops."""
 
-        window = {"offen": True, "von": "2026-03-01", "bis": "2026-04-30"}
+        window = {"offen": True, "von": "2026-03-01", "end": "2026-04-30"}
 
         assert registrierungsfenster_laeuft(registrierung=window, today="2026-03-01")
         assert registrierungsfenster_laeuft(registrierung=window, today="2026-04-30")
 
     def test_a_day_before_the_span_is_not(self):
-        assert not registrierungsfenster_laeuft(registrierung={"offen": True, "von": "2026-03-01", "bis": "2026-04-30"}, today="2026-02-28")
+        assert not registrierungsfenster_laeuft(registrierung={"offen": True, "von": "2026-03-01", "end": "2026-04-30"}, today="2026-02-28")
 
     def test_a_day_after_the_span_is_not(self):
-        assert not registrierungsfenster_laeuft(registrierung={"offen": True, "von": "2026-03-01", "bis": "2026-04-30"}, today="2026-05-01")
+        assert not registrierungsfenster_laeuft(registrierung={"offen": True, "von": "2026-03-01", "end": "2026-04-30"}, today="2026-05-01")
 
     def test_a_closed_window_is_not_running_inside_its_own_span(self):
-        assert not registrierungsfenster_laeuft(registrierung={"offen": False, "von": "2026-03-01", "bis": "2026-04-30"}, today="2026-04-01")
+        assert not registrierungsfenster_laeuft(registrierung={"offen": False, "von": "2026-03-01", "end": "2026-04-30"}, today="2026-04-01")
 
     def test_a_season_with_no_window_at_all_is_not_running(self):
         assert not registrierungsfenster_laeuft(registrierung=None, today="2026-04-01")

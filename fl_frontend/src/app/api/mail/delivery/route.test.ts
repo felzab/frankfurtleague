@@ -126,7 +126,7 @@ describe("what one delivery event leaves on its Postausgang row", () => {
       ),
     );
 
-    const expected: FLOutboxEventPayload = { id: ROW_ID, state: "undeliverable", grund: "Suppressed", am: EVENT_AT };
+    const expected: FLOutboxEventPayload = { id: ROW_ID, state: "undeliverable", grund: "Suppressed", at: EVENT_AT };
     expect(res.status).toBe(200);
     expect(forwarded).toStrictEqual([expected]);
   });

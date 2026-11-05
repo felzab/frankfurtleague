@@ -153,8 +153,8 @@ def test_the_memberships_read_never_serves_the_sentinel_and_a_person_holding_no_
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
         memberships = await get_spieler_saisons(
             spieler_collection=database[Collection.SPIELER],
-            berechtigungen_collection=database[Collection.GRANTS],
-            berechtigungen_angekuendigt_collection=database[Collection.GRANTS_ANNOUNCED],
+            grants_collection=database[Collection.GRANTS],
+            grants_announced_collection=database[Collection.GRANTS_ANNOUNCED],
             operator=ADMINISTRATORS[0],
             auth_time=int(time.time()),
         )

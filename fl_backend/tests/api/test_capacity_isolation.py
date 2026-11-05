@@ -454,7 +454,7 @@ class TestAnAcceptanceLandingMidEntryIsJudgedAgain:
                     outbox_collection=database[Collection.OUTBOX],
                     db=client,
                     today=ACCEPTED_ON,
-                    von=ACCEPTED_BY,
+                    by=ACCEPTED_BY,
                     germany_now=MAIL_NOW,
                 )
 

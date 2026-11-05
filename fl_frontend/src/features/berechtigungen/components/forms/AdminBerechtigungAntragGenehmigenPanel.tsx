@@ -71,7 +71,7 @@ export function AdminBerechtigungAntragGenehmigenPanel({
     <div className="flex w-full flex-col gap-3">
       {isConfirming && (
         <ConfirmReveal>
-          <p className="fluid-xxs leading-normal font-medium text-foreground">{FOLGE[antrag.verwaltung]}</p>
+          <p className="fluid-xxs leading-normal font-medium text-foreground">{FOLGE[antrag.admin_tier]}</p>
         </ConfirmReveal>
       )}
 

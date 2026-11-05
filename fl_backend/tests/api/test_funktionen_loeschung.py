@@ -25,10 +25,10 @@ from pymongo import AsyncMongoClient, ReturnDocument
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
-from app.api.adresswechsel.crud import end_an_emptied_change_in_session
+from app.api.address_change.crud import end_an_emptied_change_in_session
 from app.api.berechtigungen.antraege import compose_antrag
 from app.api.einladungen.services import compose_einladung, compose_widerruf_update
-from app.api.identity.crud import JEDE_PERSONENGRUPPE, LOESCHUNG_STEPS, loeschen_everything
+from app.api.identity.crud import EACH_PERSON_GROUP, ERASURE_STEPS, erase_everything
 from app.api.registrierungen.person_router import admit
 from app.api.registrierungen.schemas import FLRegistrierungAdmitPayload
 from app.api.registrierungen.services import compose_ablehnung_update
@@ -356,7 +356,7 @@ async def their_confirmations(database: AsyncDatabase) -> None:
         database,
         Collection.SPIELBESTAETIGUNGEN,
         THEIR_CONFIRMATION_OID,
-        {"$set": {"closed": {"am": "2126-03-04", "grund": "schiedsrichter_switched"}}},
+        {"$set": {"closed": {"at": "2126-03-04", "grund": "schiedsrichter_switched"}}},
     )
     await edited(database, Collection.SPIELBESTAETIGUNGEN, OTHER_CONFIRMATION_OID, {"$set": {"reminded_at": ["2126-03-05"]}})
     async with database.client.start_session() as session:
@@ -463,7 +463,7 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
             a_registration(
                 DECLINED_OID,
                 IDENTIFIER,
-                **compose_ablehnung_update(von="quillhilde@example.com", grund=None, today="2126-03-28")["$set"],
+                **compose_ablehnung_update(by="quillhilde@example.com", grund=None, today="2126-03-28")["$set"],
             ),
         ]
     )
@@ -475,13 +475,13 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
             {
                 "_id": ANTRAG_FOR_THEM_OID,
                 **compose_antrag(
-                    adresse=IDENTIFIER, verwaltung="administration", grant_id=None, started_by="quillhilde@example.com", now=FAR_OFF
+                    adresse=IDENTIFIER, admin_tier="administration", grant_id=None, started_by="quillhilde@example.com", now=FAR_OFF
                 ),
             },
             {
                 "_id": ANTRAG_BY_THEM_OID,
                 **compose_antrag(
-                    adresse="neu.kollegin@example.com", verwaltung="administration", grant_id=None, started_by=IDENTIFIER, now=FAR_OFF
+                    adresse="neu.kollegin@example.com", admin_tier="administration", grant_id=None, started_by=IDENTIFIER, now=FAR_OFF
                 ),
             },
         ]
@@ -502,8 +502,8 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
             **documents.address_change_document(adresse="vorher.zorbanax@example.org", email=IDENTIFIER, token_hash=None, day="2126-03-01"),
             "adresse": None,
             "email": None,
-            "ended": {"art": "effective", "am": NOW},
-            "move": {"von": "vorher.zorbanax@example.org", "nach": IDENTIFIER},
+            "ended": {"art": "effective", "at": NOW},
+            "move": {"old": "vorher.zorbanax@example.org", "new": IDENTIFIER},
             "moved": {
                 "person_hash": erasure_journal_hash(IDENTIFIER, key=CONFIG.sperrliste_key),
                 "before": erasure_journal_hash("vorher.zorbanax@example.org", key=CONFIG.sperrliste_key),
@@ -514,7 +514,7 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
     await database[Collection.OUTBOX].insert_one(
         {
             "_id": SENT_NOTICE_OID,
-            "key": f"adresswechsel/{OWED_CARRY_OID}/effective",
+            "key": f"address_changes/{OWED_CARRY_OID}/effective",
             "art": "address_change_effective",
             "an": "vorher.zorbanax@example.org",
             "secret": None,
@@ -545,7 +545,7 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
         await edited(database, Collection.ADDRESS_CHANGES, change_id, {"$set": {"sent_at": "2126-03-30"}})
     # And of the records they made, each image keeping them as its author: the address pass's alone to reach.
     await edited(database, Collection.GRANTS, GRANTED_BY_THEM_OID, {"$set": {"granted_at": datetime(2126, 1, 2, tzinfo=UTC)}})
-    await edited(database, Collection.SPERRLISTE, BANNED_BY_THEM_OID, {"$set": {"grund": "Doppelte Anmeldung"}})
+    await edited(database, Collection.BAN_LIST, BANNED_BY_THEM_OID, {"$set": {"grund": "Doppelte Anmeldung"}})
     await edited(database, Collection.INVITATIONS, INVITED_BY_THEM_OID, compose_widerruf_update(today=TODAY))
     await edited(database, Collection.BEWERBUNGEN, DECIDED_BY_THEM_OID, {"$set": {"wunschgegner": "Gast-Schule"}})
     await edited(database, Collection.REGISTRIERUNGEN, DECLINED_BY_THEM_OID, {"$set": {"nummer": "12"}})
@@ -555,7 +555,7 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
     # Written AS the person: their own record as a pupil, and another pupil's squad row as a seat holder.
     await acting(
         PersonActor(pseudonym=PSEUDONYM, role="spieler"),
-        lambda: edited(database, Collection.SPIELER, PUPIL_OID, {"$set": {"einwilligung.medien": False}}),
+        lambda: edited(database, Collection.SPIELER, PUPIL_OID, {"$set": {"einwilligung.media": False}}),
     )
     await acting(
         PersonActor(pseudonym=PSEUDONYM, role="kontakt"),
@@ -685,18 +685,18 @@ async def records_they_made_holding_no_grant(database: AsyncDatabase) -> None:
         {
             "_id": GRANTED_BY_THEM_OID,
             "adresse": "bramblewick.admin@example.com",
-            "verwaltung": "administration",
+            "admin_tier": "administration",
             "granted_by": IDENTIFIER,
             "granted_at": GRANTED,
         }
     )
     await database[Collection.GRANTS_ANNOUNCED].insert_one(
-        {"_id": GRANTED_BY_THEM_OID, "adresse": "bramblewick.admin@example.com", "verwaltung": "administration", "angekuendigt_am": GRANTED}
+        {"_id": GRANTED_BY_THEM_OID, "adresse": "bramblewick.admin@example.com", "admin_tier": "administration", "angekuendigt_am": GRANTED}
     )
-    await database[Collection.SPERRLISTE].insert_many(
+    await database[Collection.BAN_LIST].insert_many(
         [
-            ban_document(address, bis=compose_gesperrt_bis_saison_id(massgebliche_saison_id=SAISON_ID), _id=ban_id, created_by=von)
-            for address, ban_id, von in (
+            ban_document(address, until=compose_gesperrt_bis_saison_id(governing_saison_id=SAISON_ID), _id=ban_id, created_by=by)
+            for address, ban_id, by in (
                 ("gebannt@beispiel.de", BANNED_BY_THEM_OID, IDENTIFIER),
                 ("gebannt-zwei@beispiel.de", BANNED_BY_THEM_PASTED_OID, PASTED),
             )
@@ -718,7 +718,7 @@ async def records_they_made_holding_no_grant(database: AsyncDatabase) -> None:
             kontakte=kontakte_document(),
             submitted_at="2126-03-01",
             schule=new_schule_document("Abgelehnt", "ABX"),
-            decision={"made_at": "2126-03-10", "von": IDENTIFIER, "grund": "Keine Halle"},
+            decision={"made_at": "2126-03-10", "by": IDENTIFIER, "grund": "Keine Halle"},
         )
     )
     declined = registrierung_document(
@@ -733,18 +733,18 @@ async def records_they_made_holding_no_grant(database: AsyncDatabase) -> None:
         frist="2126-03-27",
     )
     await database[Collection.REGISTRIERUNGEN].insert_one(
-        {**declined, **compose_ablehnung_update(von=IDENTIFIER, grund=None, today="2126-03-22")["$set"]}
+        {**declined, **compose_ablehnung_update(by=IDENTIFIER, grund=None, today="2126-03-22")["$set"]}
     )
 
 
-async def a_grant(database: AsyncDatabase, grant_id: ObjectId, adresse: str, verwaltung: str) -> None:
+async def a_grant(database: AsyncDatabase, grant_id: ObjectId, adresse: str, admin_tier: str) -> None:
     """A grant and its announced row, granted by a paste, for the cases about a grant the address holds."""
 
     await database[Collection.GRANTS].insert_one(
-        {"_id": grant_id, "adresse": adresse, "verwaltung": verwaltung, "granted_by": "PLAYGROUND", "granted_at": GRANTED}
+        {"_id": grant_id, "adresse": adresse, "admin_tier": admin_tier, "granted_by": "PLAYGROUND", "granted_at": GRANTED}
     )
     await database[Collection.GRANTS_ANNOUNCED].insert_one(
-        {"_id": grant_id, "adresse": adresse, "verwaltung": verwaltung, "angekuendigt_am": GRANTED}
+        {"_id": grant_id, "adresse": adresse, "admin_tier": admin_tier, "angekuendigt_am": GRANTED}
     )
 
 
@@ -793,8 +793,8 @@ async def geloescht_by_the_handler(database: AsyncDatabase, client: AsyncMongoCl
 async def geloescht_in_scope(
     database: AsyncDatabase, client: AsyncMongoClient, scope: frozenset[Any], *, identifier: str = IDENTIFIER, **replaced: Any
 ) -> Any:
-    async def loeschen(session: Any) -> Any:
-        return await loeschen_everything(
+    async def erase(session: Any) -> Any:
+        return await erase_everything(
             identifier,
             scope=scope,
             **erasure_collections(database, **replaced),
@@ -807,7 +807,7 @@ async def geloescht_in_scope(
         )
 
     async with transaction_session(client) as session:
-        return await session.with_transaction(loeschen)
+        return await session.with_transaction(erase)
 
 
 class TestNothingOfTheirsIsLeftAnywhere:
@@ -1028,12 +1028,12 @@ class TestTheSentinelIsNobodyToLoeschen:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.SPIELER].insert_one(build_ghost_spieler())
 
-            async def loeschen(session: Any) -> Any:
+            async def erase(session: Any) -> Any:
                 return await loeschen_person_in_session(
                     spieler_collection=database[Collection.SPIELER],
                     saison_spieler_collection=database[Collection.SAISON_SPIELER],
                     spielberichte_collection=database[Collection.SPIELBERICHTE],
-                    aktionen_collection=database[Collection.ACTION_LOG],
+                    action_log_collection=database[Collection.ACTION_LOG],
                     spieler_id=GHOST_SPIELER_ID,
                     stamp=TODAY,
                     session=session,
@@ -1041,7 +1041,7 @@ class TestTheSentinelIsNobodyToLoeschen:
 
             with pytest.raises(DocumentNotFoundError):
                 async with transaction_session(client) as session:
-                    await session.with_transaction(loeschen)
+                    await session.with_transaction(erase)
 
             return await database[Collection.SPIELER].count_documents({"_id": GHOST_SPIELER_ID})
 
@@ -1130,7 +1130,7 @@ class TestTheJournal:
         halter = halter_of(IDENTIFIER, key=CONFIG.sperrliste_key)
 
         assert status == 200
-        assert lines == [f"{JOURNAL_TOKEN} {expected} loeschung pseudonym={PSEUDONYM} halter={halter}"]
+        assert lines == [f"{JOURNAL_TOKEN} {expected} erasure pseudonym={PSEUDONYM} halter={halter}"]
         # Its own label: under the log's, every choice's line would name the pseudonym the erasure's line alone names.
         assert expected != PSEUDONYM
 
@@ -1168,8 +1168,8 @@ class TestTheLastOwner:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, "owner")
             await a_grant(database, OTHER_OWNER_OID, OTHER_OWNER, "owner")
-            await database[Collection.SPERRLISTE].insert_one(
-                ban_document(OTHER_OWNER, bis=compose_gesperrt_bis_saison_id(massgebliche_saison_id=SAISON_ID))
+            await database[Collection.BAN_LIST].insert_one(
+                ban_document(OTHER_OWNER, until=compose_gesperrt_bis_saison_id(governing_saison_id=SAISON_ID))
             )
 
             return await outcome_of(geloescht_by_the_handler(database, client))
@@ -1182,7 +1182,7 @@ class TestTheLastOwner:
             await a_grant(database, OTHER_OWNER_OID, OTHER_OWNER, "owner")
             outcome = await outcome_of(geloescht_by_the_handler(database, client))
 
-            return outcome, await database[Collection.GRANTS].find({"verwaltung": "owner"}, {"_id": 1}).to_list(length=None)
+            return outcome, await database[Collection.GRANTS].find({"admin_tier": "owner"}, {"_id": 1}).to_list(length=None)
 
         assert on_a_league(mongo_replica_set_url, body) == (COMMITTED, [{"_id": OTHER_OWNER_OID}])
 
@@ -1198,9 +1198,9 @@ class TestTheLastOwner:
                 rival.append(await outcome_of(geloescht_by_the_handler(database, client, identifier=OTHER_OWNER)))
 
             grants = OwnersLoeschenAtOnce(database[Collection.GRANTS], the_other_owner_loescht_themselves)
-            outcome = await outcome_of(geloescht_by_the_handler(database, client, berechtigungen_collection=grants))
+            outcome = await outcome_of(geloescht_by_the_handler(database, client, grants_collection=grants))
 
-            return grants, outcome, rival, await database[Collection.GRANTS].count_documents({"verwaltung": "owner"})
+            return grants, outcome, rival, await database[Collection.GRANTS].count_documents({"admin_tier": "owner"})
 
         grants, outcome, rival, owners = on_a_league(mongo_replica_set_url, body)
 
@@ -1243,8 +1243,8 @@ class TestTheScope:
 
 
 # The registry's steps by the code each runs, so a write can be put down to the step it was made in.
-[EMPTIED] = [step for step in LOESCHUNG_STEPS if step.run is end_an_emptied_change_in_session]
-_STEP_OF_CODE = {step.run.__code__: step.run.__name__ for step in LOESCHUNG_STEPS}
+[EMPTIED] = [step for step in ERASURE_STEPS if step.run is end_an_emptied_change_in_session]
+_STEP_OF_CODE = {step.run.__code__: step.run.__name__ for step in ERASURE_STEPS}
 
 
 def _running_step() -> str | None:
@@ -1308,12 +1308,12 @@ class TestEachStepWritesWhatItDeclares:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, "administration")
             recorded: dict[str, Any] = {name: WritesRecorded(handle, writes) for name, handle in erasure_collections(database).items()}
-            await geloescht_in_scope(database, client, JEDE_PERSONENGRUPPE, **recorded)
+            await geloescht_in_scope(database, client, EACH_PERSON_GROUP, **recorded)
 
         on_a_league(mongo_replica_set_url, body)
 
         # The whole erasure ends every change naming the address first, leaving the emptied change's step nothing: its own case.
-        assert writes == {step.run.__name__: {str(collection) for collection in step.reaches} for step in LOESCHUNG_STEPS if step != EMPTIED}
+        assert writes == {step.run.__name__: {str(collection) for collection in step.reaches} for step in ERASURE_STEPS if step != EMPTIED}
 
     def test_a_pupils_loeschung_ends_the_change_of_an_address_it_empties_writing_what_that_step_declares(self, mongo_replica_set_url: str):
         """Gwendolyn holds a pupil row alone, so the season's erasure of it leaves her change nothing to move."""
@@ -1378,10 +1378,10 @@ async def an_admittable_registration(database: AsyncDatabase) -> None:
             confirmed={
                 "geburtsdatum": GEBURTSDATUM,
                 "umfang": "intern",
-                "medien": False,
+                "media": False,
                 "text_versions": SPIELER_TEXT_VERSIONS,
                 "today": YESTERDAY,
-                "am": "2126-03-31T08:00:00+00:00",
+                "at": "2126-03-31T08:00:00+00:00",
             },
         )
     )
@@ -1406,7 +1406,7 @@ class TestAnAdmissionInsideTheLoeschung:
                     saisons_collection=database[Collection.SAISONS],
                     spieler_collection=database[Collection.SPIELER],
                     records=record_collections(database),
-                    aktionen_collection=database[Collection.ACTION_LOG],
+                    action_log_collection=database[Collection.ACTION_LOG],
                     sperrliste=ban_list(database),
                     db=client,
                     today=TODAY,

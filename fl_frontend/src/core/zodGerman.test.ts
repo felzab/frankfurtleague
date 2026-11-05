@@ -59,7 +59,7 @@ describe("the one German field map", () => {
     const form = z.object({ adresse: z.object({ plz: z.string().regex(/^\d{5}$/) }) });
 
     expect(message(form, { adresse: { plz: "6031" } }, { "adresse.plz": field.exampleDigits })).toBe(field.format(field.exampleDigits));
-    expect(message(z.email(), "kein-at")).toBe(field.format(field.exampleAddress));
+    expect(message(z.email(), "no-at")).toBe(field.format(field.exampleAddress));
   });
 
   it("answers what no pattern words with the one unexpected line, never Zod's English", () => {

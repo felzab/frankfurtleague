@@ -33,7 +33,7 @@ export async function runPersonMutation<T extends { success: boolean }>(
   claimed: SeatClaim,
   fn: (held: PersonHeld) => Promise<T>,
 ): Promise<T | ActionFailure> {
-  const verdict: { grund: Extract<Refusal, "keine_sitzung" | "kein_sitz"> } = { grund: "keine_sitzung" };
+  const verdict: { grund: Extract<Refusal, "no_session" | "no_seat"> } = { grund: "no_session" };
 
   // A request can hand a server action anything at all, so the claim is read as possibly absent: an
   // address it does not carry holds no seat.
@@ -50,7 +50,7 @@ export async function runPersonMutation<T extends { success: boolean }>(
 
     if (subject !== null && erster !== undefined) return { subject: subject, seats: [erster, ...weitere] };
 
-    verdict.grund = subject === null ? "keine_sitzung" : "kein_sitz";
+    verdict.grund = subject === null ? "no_session" : "no_seat";
     logRefused(mutationName, verdict.grund);
     return null;
   };
@@ -58,7 +58,7 @@ export async function runPersonMutation<T extends { success: boolean }>(
   return runGuardedMutation(
     mutationName,
     // Each refusal in the words of its repair: a sign-in for a lapsed session, a reload for a seat gone.
-    { lane: "Person", resolve, forbidden: () => Promise.resolve(verdict.grund === "keine_sitzung" ? ANMELDUNG_ABGELAUFEN : SITZ_WEG) },
+    { lane: "Person", resolve, forbidden: () => Promise.resolve(verdict.grund === "no_session" ? ANMELDUNG_ABGELAUFEN : SITZ_WEG) },
     fn,
   );
 }
@@ -75,7 +75,7 @@ export async function runPersonRecordMutation<T extends { success: boolean }>(
     // Never narrowed through `rolesOf`: a withdrawal must reach a past season's seat and a retired
     // record, which no Funktion carries.
     const subject = await getSubjectSession();
-    if (subject === null) logRefused(mutationName, "keine_sitzung");
+    if (subject === null) logRefused(mutationName, "no_session");
 
     return subject;
   };

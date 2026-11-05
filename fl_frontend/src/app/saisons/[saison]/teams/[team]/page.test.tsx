@@ -64,7 +64,7 @@ describe("the club page's server render", () => {
       { type: "disqualifikation", datum: "2027-04-02", grund: "Nicht angetreten" },
     ] as const) {
       const html = await rendered(page(austritt));
-      expect(html, austritt.type).toContain(COPY.shared.austrittSeit(austrittZustand(austritt.type), austritt.datum));
+      expect(html, austritt.type).toContain(COPY.shared.austrittSince(austrittZustand(austritt.type), austritt.datum));
       expect(html, austritt.type).toContain(austritt.grund);
     }
   });

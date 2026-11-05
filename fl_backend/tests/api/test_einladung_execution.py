@@ -55,7 +55,7 @@ NOT_ENTERED = ObjectId("6890a1b2c3d4e5f607260005")
 
 SEEDED_EINLADUNG = ObjectId("6890a1b2c3d4e5f607260011")
 
-REGISTRIERUNG: Mapping[str, Any] = {"offen": True, "von": "2026-03-01", "bis": "2026-04-30"}
+REGISTRIERUNG: Mapping[str, Any] = {"offen": True, "von": "2026-03-01", "end": "2026-04-30"}
 
 TEAM_NAMES = {TWO_SEATS: "Adler", UNCONFIRMED: "Bieber", NO_BLOCK: "Cronberg", ALREADY_MAILED: "Dornbusch", WITHDRAWN: "Eschborn"}
 
@@ -163,7 +163,7 @@ async def mint(database: AsyncDatabase, team_id: ObjectId, *, saison_id: str = S
     return await post_invitation(
         team_id=team_id,
         saison_id=saison_id,
-        einladungen_collection=einladungen if einladungen is not None else database[Collection.INVITATIONS],
+        invitations_collection=einladungen if einladungen is not None else database[Collection.INVITATIONS],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
         db=database.client,
@@ -175,7 +175,7 @@ async def mint(database: AsyncDatabase, team_id: ObjectId, *, saison_id: str = S
 
 async def revoke(database: AsyncDatabase, team_id: ObjectId) -> Any:
     return await delete_invitation(
-        team_id=team_id, saison_id=SAISON_ID, einladungen_collection=database[Collection.INVITATIONS], today=TODAY, db=database.client
+        team_id=team_id, saison_id=SAISON_ID, invitations_collection=database[Collection.INVITATIONS], today=TODAY, db=database.client
     )
 
 
@@ -183,7 +183,7 @@ async def read_state(database: AsyncDatabase, team_id: ObjectId, *, today: str =
     return await get_invitation(
         team_id=team_id,
         saison_id=SAISON_ID,
-        einladungen_collection=database[Collection.INVITATIONS],
+        invitations_collection=database[Collection.INVITATIONS],
         saisons_collection=database[Collection.SAISONS],
         outbox_collection=database[Collection.OUTBOX],
         sperrliste=ban_list(database),
@@ -195,7 +195,7 @@ async def preview(database: AsyncDatabase, *, resend: bool = False) -> Any:
     return await get_invitations_dispatch_preview(
         saison_id=SAISON_ID,
         saison_teams_collection=database[Collection.SAISON_TEAMS],
-        einladungen_collection=database[Collection.INVITATIONS],
+        invitations_collection=database[Collection.INVITATIONS],
         saisons_collection=database[Collection.SAISONS],
         outbox_collection=database[Collection.OUTBOX],
         sperrliste=ban_list(database),
@@ -208,7 +208,7 @@ async def press(database: AsyncDatabase, *, resend: bool = False) -> Any:
         saison_id=SAISON_ID,
         versand_data=FLInvitationDispatchPayload(resend=resend),
         saison_teams_collection=database[Collection.SAISON_TEAMS],
-        einladungen_collection=database[Collection.INVITATIONS],
+        invitations_collection=database[Collection.INVITATIONS],
         saisons_collection=database[Collection.SAISONS],
         outbox_collection=database[Collection.OUTBOX],
         sperrliste=ban_list(database),
@@ -695,8 +695,8 @@ class TestTheStateRead:
         async def body(database: AsyncDatabase) -> Any:
             await mint(database, TWO_SEATS)
             if barred:
-                await database[Collection.SPERRLISTE].insert_one(
-                    ban_document(ADMIN, bis=compose_gesperrt_bis_saison_id(massgebliche_saison_id=SAISON_ID))
+                await database[Collection.BAN_LIST].insert_one(
+                    ban_document(ADMIN, until=compose_gesperrt_bis_saison_id(governing_saison_id=SAISON_ID))
                 )
             state = await read_state(database, TWO_SEATS)
 
@@ -725,7 +725,7 @@ async def mail(database: AsyncDatabase, team_id: ObjectId, invitation_id: Any) -
         team_id=team_id,
         saison_id=SAISON_ID,
         mail_data=FLInvitationMailPayload(invitation_id=invitation_id),
-        einladungen_collection=database[Collection.INVITATIONS],
+        invitations_collection=database[Collection.INVITATIONS],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         outbox_collection=database[Collection.OUTBOX],
         db=database.client,
@@ -820,11 +820,11 @@ class TestTheSeasonWidePress:
         One seat is banned in another spelling than the row stores, as the ban list is read off stored addresses.
         """
 
-        bound = compose_gesperrt_bis_saison_id(massgebliche_saison_id=SAISON_ID)
+        bound = compose_gesperrt_bis_saison_id(governing_saison_id=SAISON_ID)
 
         async def body(database: AsyncDatabase) -> Any:
-            await database[Collection.SPERRLISTE].insert_many(
-                [ban_document("Bramblewick@Example.com", bis=bound), ban_document("quillhilde@example.com", bis=bound)]
+            await database[Collection.BAN_LIST].insert_many(
+                [ban_document("Bramblewick@Example.com", until=bound), ban_document("quillhilde@example.com", until=bound)]
             )
             await database[Collection.INVITATIONS].insert_one(einladung_row(TWO_SEATS))
             shown = await preview(database)
@@ -844,8 +844,8 @@ class TestTheSeasonWidePress:
         """The control: one reachable person is a team the press exists to reach; the mailer keeps the barred seat out."""
 
         async def body(database: AsyncDatabase) -> Any:
-            await database[Collection.SPERRLISTE].insert_one(
-                ban_document("bramblewick@example.com", bis=compose_gesperrt_bis_saison_id(massgebliche_saison_id=SAISON_ID))
+            await database[Collection.BAN_LIST].insert_one(
+                ban_document("bramblewick@example.com", until=compose_gesperrt_bis_saison_id(governing_saison_id=SAISON_ID))
             )
             done = await press(database)
 
@@ -1032,7 +1032,7 @@ class TestTheSeasonWidePress:
                 saison_id=SAISON_ID,
                 versand_data=FLInvitationDispatchPayload(resend=True),
                 saison_teams_collection=database[Collection.SAISON_TEAMS],
-                einladungen_collection=collection,
+                invitations_collection=collection,
                 saisons_collection=database[Collection.SAISONS],
                 outbox_collection=database[Collection.OUTBOX],
                 sperrliste=ban_list(database),

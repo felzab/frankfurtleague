@@ -17,7 +17,7 @@ import { authSecret, frontend_config } from "../config";
 import { signInStore } from "../db";
 import { asSignInIdentifier } from "../emailAddress";
 import { BRAND_NAME } from "../emailShell";
-import { ERASURE_LINK_VALID_HOURS } from "../loeschungEmail";
+import { ERASURE_LINK_VALID_HOURS } from "../erasureEmail";
 import { logger } from "../logging";
 import { declaredCredentialId, PASSKEY_ASSERTION_PATH } from "../passkeyCeremony";
 import { passkeyLastUse } from "../passkeyLastUse";
@@ -646,7 +646,7 @@ const authOptions = (origin: URL, client: MongoClient) =>
         // would name an enrolment a later refusal never made.
         if (ctx.path === PASSKEY_REGISTRATION_PATH) {
           const enrolled = await getSessionFromCtx(ctx);
-          if (enrolled !== null) await notifyPasskey("passkey_hinzugefuegt", enrolled.user.email);
+          if (enrolled !== null) await notifyPasskey("passkey_added", enrolled.user.email);
         }
 
         // The touch reads whom the assertion signed in, to refuse another account's passkey before the act it guards; the
@@ -689,7 +689,7 @@ const authOptions = (origin: URL, client: MongoClient) =>
           // Awaited: the one caller a stranger reaches, `fl_frontend/src/features/auth/actions.ts :: handleSignIn`,
           // runs this whole send behind its response, and the library's own send route is closed (`DISABLED_PATHS`).
           try {
-            await oweSignInMail(email, { art: "sign_in_code" }, { wert: otp, gueltigMs: CODE_VALIDITY_SECONDS * 1000 });
+            await oweSignInMail(email, { art: "sign_in_code" }, { value: otp, validMs: CODE_VALIDITY_SECONDS * 1000 });
           } catch (failed) {
             // Name only: a failure on this path routinely carries the submitted address, and
             // `fl_frontend/src/core/logging.ts` writes its message and stack, an address alone scrubbed.

@@ -65,7 +65,7 @@ async def clear_seats(
 async def remove_their_reasons(
     *,
     spielbestaetigungen_collection: AsyncCollection,
-    aktionen_collection: AsyncCollection,
+    action_log_collection: AsyncCollection,
     adressen: Iterable[str],
     key: SecretStr,
     stamp: str,
@@ -78,7 +78,7 @@ async def remove_their_reasons(
 
     await remove_the_holders_reasons(
         spielbestaetigungen_collection=spielbestaetigungen_collection,
-        aktionen_collection=aktionen_collection,
+        action_log_collection=action_log_collection,
         halter={halter_of(adresse, key=key) for adresse in adressen},
         stamp=stamp,
         session=session,
@@ -88,7 +88,7 @@ async def remove_their_reasons(
 async def remove_the_holders_reasons(
     *,
     spielbestaetigungen_collection: AsyncCollection,
-    aktionen_collection: AsyncCollection,
+    action_log_collection: AsyncCollection,
     # Digests `app/api/spielbestaetigungen/services.py :: halter_of` made: a restore's replay holds no address.
     halter: Iterable[str],
     stamp: str,
@@ -116,7 +116,7 @@ async def remove_the_holders_reasons(
 
     # Every image of such a row the log keeps, an undraw's removal among them, which no row standing now reaches.
     await redact_images_in_session(
-        aktionen_collection=aktionen_collection,
+        action_log_collection=action_log_collection,
         db_filter=build_contact_reason_images_filter(digests),
         judge=lambda image: contact_reason_image_edits(image, digests),
         stamp=stamp,
@@ -133,7 +133,7 @@ async def loeschen_kontaktperson_in_session(
     *,
     saison_teams_collection: AsyncCollection,
     bewerbungen_collection: AsyncCollection,
-    aktionen_collection: AsyncCollection,
+    action_log_collection: AsyncCollection,
     spielbestaetigungen_collection: AsyncCollection,
     identifier: str,
     key: SecretStr,
@@ -170,11 +170,11 @@ async def loeschen_kontaktperson_in_session(
         ]
         await void_moved_seats(spielbestaetigungen_collection=spielbestaetigungen_collection, voids=voids, session=session)
         # Their links' hashes and the delivery records of the mails they went in, as the season row's own clearing takes them.
-        await redact_seat_entries_in_images(aktionen_collection=aktionen_collection, voids=voids, stamp=stamp, session=session)
+        await redact_seat_entries_in_images(action_log_collection=action_log_collection, voids=voids, stamp=stamp, session=session)
     # Seated now or not: a seat they have left keeps the reasons they typed from it until this.
     await remove_their_reasons(
         spielbestaetigungen_collection=spielbestaetigungen_collection,
-        aktionen_collection=aktionen_collection,
+        action_log_collection=action_log_collection,
         adressen=[identifier],
         key=key,
         stamp=stamp,
@@ -188,10 +188,10 @@ async def loeschen_kontaktperson_in_session(
         (Collection.BEWERBUNGEN, [row["_id"] for row in bewerbung_rows]),
     ]
     redacted = await redact_seats_in_documents(
-        aktionen_collection=aktionen_collection, documents=reached, identifiers={identifier}, links=True, stamp=stamp, session=session
+        action_log_collection=action_log_collection, documents=reached, identifiers={identifier}, links=True, stamp=stamp, session=session
     )
     redacted += await redact_images_in_session(
-        aktionen_collection=aktionen_collection,
+        action_log_collection=action_log_collection,
         db_filter=build_seat_images_filter(identifier),
         judge=lambda image: seat_image_edits(image, (identifier,), links=True),
         stamp=stamp,
@@ -203,7 +203,7 @@ async def loeschen_kontaktperson_in_session(
 
 async def redact_the_decliner(
     *,
-    aktionen_collection: AsyncCollection,
+    action_log_collection: AsyncCollection,
     collection: Collection,
     row_id: Any,
     adressen: Iterable[str],
@@ -216,7 +216,7 @@ async def redact_the_decliner(
     """
 
     await redact_seats_in_documents(
-        aktionen_collection=aktionen_collection,
+        action_log_collection=action_log_collection,
         documents=[(collection, [row_id])],
         identifiers={sign_in_identifier(adresse) for adresse in adressen},
         # The link stays with the seat, its decline recorded on it, as the live write leaves it.
@@ -228,7 +228,7 @@ async def redact_the_decliner(
 
 async def redact_seats_in_documents(
     *,
-    aktionen_collection: AsyncCollection,
+    action_log_collection: AsyncCollection,
     documents: Sequence[RedactionTarget],
     # Folded (`app/shared/folding.py :: sign_in_identifier`): every image is judged on the fold.
     identifiers: Set[str],
@@ -242,11 +242,11 @@ async def redact_seats_in_documents(
 
     # Read whole before any image is judged: a name is theirs wherever ANY image of the document
     # seats it at their address, the write's own pre-image included.
-    rows = await read_imaged_rows(aktionen_collection=aktionen_collection, db_filter=build_redaction_filter(documents), session=session)
+    rows = await read_imaged_rows(action_log_collection=action_log_collection, db_filter=build_redaction_filter(documents), session=session)
     found = departing_names(rows, identifiers)
 
     return await redact_rows_in_session(
-        aktionen_collection=aktionen_collection,
+        action_log_collection=action_log_collection,
         rows=rows,
         judge=lambda image: seat_image_edits(image, identifiers, links=links, names=found.get(image.get("_id"), frozenset()) | names),
         stamp=stamp,

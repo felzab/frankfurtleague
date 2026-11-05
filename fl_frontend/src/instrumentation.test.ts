@@ -62,7 +62,7 @@ vi.doMock("@/core/db.ts", () => ({
 }));
 vi.doMock("@/features/bewerbungen/sweep.ts", () => ({ runBewerbungSweep: job("bewerbungen") }));
 vi.doMock("@/features/funktionen/sweep.ts", () => ({ runKontoSweep: job("account") }));
-vi.doMock("@/features/saisons/sweep.ts", () => ({ runLoeschungSweep: job("erasure") }));
+vi.doMock("@/features/saisons/sweep.ts", () => ({ runErasureSweep: job("erasure") }));
 vi.doMock("@/features/spielbestaetigungen/sweep.ts", () => ({ runSpielSweep: job("spielbestaetigungen") }));
 vi.doMock("@/features/berechtigungen/abgleich.ts", () => ({ runBerechtigungenAbgleich: job("grants") }));
 vi.doMock("@/core/mail.ts", () => ({
@@ -78,8 +78,8 @@ vi.doMock("@/core/mail.ts", () => ({
 
 const { register } = await import("./instrumentation.ts");
 
-const SEKUNDE_MS = 1000;
-const MINUTE_MS = 60 * SEKUNDE_MS;
+const SECOND_MS = 1000;
+const MINUTE_MS = 60 * SECOND_MS;
 const HOUR_MS = 60 * MINUTE_MS;
 
 const EVERY_JOB = ["bewerbungen", "account", "erasure", "spielbestaetigungen", "grants", "outbox"];
@@ -161,7 +161,7 @@ describe("the one scheduler", () => {
   /* Nothing at the boot, where the backend may not answer yet after a deploy; the first pass a minute in, so a
      container recreated daily still runs one; then hourly. Every job each pass, the drain last, sending what they owed. */
   it("runs every job and then the drain a minute after a production boot, and again each hour", async () => {
-    const seen = await bootAndStep("production", [0, MINUTE_MS, HOUR_MS - MINUTE_MS - SEKUNDE_MS, SEKUNDE_MS]);
+    const seen = await bootAndStep("production", [0, MINUTE_MS, HOUR_MS - MINUTE_MS - SECOND_MS, SECOND_MS]);
 
     expect(seen).toStrictEqual([[], EVERY_JOB, EVERY_JOB, [...EVERY_JOB, ...EVERY_JOB]]);
   });

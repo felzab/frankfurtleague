@@ -204,7 +204,7 @@ export function AdminSaisonEditForm({
   const changeBewerbung = (next: FLSaisonBewerbung | null) => {
     setBewerbung(next);
     if (next === null) {
-      validatePaths("saison", { ...buildPayload(), bewerbung: next }, ["bewerbung", "bewerbung.offen", "bewerbung.von", "bewerbung.bis"]);
+      validatePaths("saison", { ...buildPayload(), bewerbung: next }, ["bewerbung", "bewerbung.offen", "bewerbung.start", "bewerbung.end"]);
     }
   };
 
@@ -216,7 +216,7 @@ export function AdminSaisonEditForm({
         "registrierung",
         "registrierung.offen",
         "registrierung.von",
-        "registrierung.bis",
+        "registrierung.end",
       ]);
     }
   };
@@ -244,7 +244,7 @@ export function AdminSaisonEditForm({
     hasSpielplan: spielplan.spielplan !== null,
     hasDrawnSpiele,
     spieltageCount: spielplan.spieltageCount,
-    erfassteSpieleCount: spielplan.bestand.erfasst,
+    erfassteSpieleCount: spielplan.holdings.erfasst,
     eingereichteBerichteCount: spielplan.eingereichteBerichte,
   };
 
@@ -256,7 +256,7 @@ export function AdminSaisonEditForm({
       : saison.status !== "future"
         ? "closed"
         : // The undraw's own order: a recorded fact names its way back first.
-          spielplan.bestand.erfasst === 0 && spielplan.eingereichteBerichte > 0
+          spielplan.holdings.erfasst === 0 && spielplan.eingereichteBerichte > 0
           ? "berichtet"
           : "recorded";
 

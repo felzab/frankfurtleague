@@ -72,8 +72,8 @@ const FLSaisonRulesSchema = z.object({
  */
 const FLSaisonBewerbungSchema = z.object({
   offen: z.boolean(),
-  von: CustomDateStringSchema,
-  bis: CustomDateStringSchema,
+  start: CustomDateStringSchema,
+  end: CustomDateStringSchema,
 });
 
 /**
@@ -83,10 +83,8 @@ const FLSaisonBewerbungSchema = z.object({
 const FLSaisonRegistrierungSchema = z.object({
   offen: z.boolean(),
   von: CustomDateStringSchema,
-  bis: CustomDateStringSchema,
+  end: CustomDateStringSchema,
 });
-
-type Fenster = z.infer<typeof FLSaisonBewerbungSchema> | z.infer<typeof FLSaisonRegistrierungSchema>;
 
 /**
  * Every field naming a season already stored, at one width. `saisonIdField` below MINTS one and
@@ -109,7 +107,7 @@ const groupCannotOverQualify = {
 // On the rules as a whole, which no control is named: the two counts together are at fault, so the form's one
 // failure line says it, as the write's refusal of the same rule does.
 const bracketMustHaveAShape = {
-  error: COPY.verwaltung.saison.bracketImpossible,
+  error: COPY.admin.saison.bracketImpossible,
   path: ["rules"],
 };
 
@@ -131,21 +129,21 @@ const endsAfterItStarts = {
 // record: an issue keyed to no field reaches neither the change list's row nor an input.
 const windowEndsAfterItOpens = {
   error: "Das Ende darf nicht vor dem Beginn der Bewerbungsfrist liegen.",
-  path: ["bewerbung", "bis"],
+  path: ["bewerbung", "end"],
 };
 
 /**
  * Judged apart from the season's own span, as the model validator judges it: a window may
- * legitimately open before the season does. `null` is the season taking no applications, which this
- * rule has nothing to say about.
+ * legitimately open before the season does. A window that is `null` is the season taking no
+ * applications, which this rule has nothing to say about.
  */
-const windowRunsForwards = (fenster: Fenster | null) => fenster === null || fenster.bis >= fenster.von;
+const windowRunsForwards = (opens: string, ends: string) => ends >= opens;
 
 // The sentence `the_registration_window_ends_after_it_opens` raises, worded for its own window:
 // one message over both would name neither panel's field.
 const registrationWindowEndsAfterItOpens = {
   error: "Das Ende darf nicht vor dem Beginn der Registrierungsfrist liegen.",
-  path: ["registrierung", "bis"],
+  path: ["registrierung", "end"],
 };
 
 /**
@@ -203,8 +201,11 @@ export const FLPostSaisonPayloadSchema = z
     ...saisonPayloadFields,
   })
   .refine((saison) => saison.end_date >= saison.start_date, endsAfterItStarts)
-  .refine((saison) => windowRunsForwards(saison.bewerbung), windowEndsAfterItOpens)
-  .refine((saison) => windowRunsForwards(saison.registrierung), registrationWindowEndsAfterItOpens)
+  .refine((saison) => saison.bewerbung === null || windowRunsForwards(saison.bewerbung.start, saison.bewerbung.end), windowEndsAfterItOpens)
+  .refine(
+    (saison) => saison.registrierung === null || windowRunsForwards(saison.registrierung.von, saison.registrierung.end),
+    registrationWindowEndsAfterItOpens,
+  )
   .refine((saison) => saison.rules.qualifiers_per_gruppe <= saison.rules.teams_per_gruppe, groupCannotOverQualify)
   .refine((saison) => hasPlayableBracket(saison.rules), bracketMustHaveAShape);
 
@@ -215,8 +216,11 @@ export const FLPatchSaisonPayloadSchema = z
     ...saisonPayloadFields,
   })
   .refine((saison) => saison.end_date >= saison.start_date, endsAfterItStarts)
-  .refine((saison) => windowRunsForwards(saison.bewerbung), windowEndsAfterItOpens)
-  .refine((saison) => windowRunsForwards(saison.registrierung), registrationWindowEndsAfterItOpens);
+  .refine((saison) => saison.bewerbung === null || windowRunsForwards(saison.bewerbung.start, saison.bewerbung.end), windowEndsAfterItOpens)
+  .refine(
+    (saison) => saison.registrierung === null || windowRunsForwards(saison.registrierung.von, saison.registrierung.end),
+    registrationWindowEndsAfterItOpens,
+  );
 
 /** An id in the path and no request body. */
 export const FLActivateSaisonPayloadSchema = z.object({

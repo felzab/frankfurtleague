@@ -4,9 +4,9 @@
  */
 const UNVARIED = {
   umfang: "kontaktdaten",
-  medien: false,
+  media: false,
   entered_by: "bewerbung",
-  nachweis: { umfang: null, medien: null },
+  evidence: { umfang: null, media: null },
 } as const;
 
 // Typed by its call site rather than by `FLKontaktKenntnisnahme`: `shared` imports no `features`, and the

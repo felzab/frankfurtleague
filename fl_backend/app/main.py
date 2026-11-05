@@ -9,9 +9,9 @@ from pydantic import TypeAdapter
 from pydantic.json_schema import JsonSchemaMode, models_json_schema
 
 from app.api.account.person_router import router as account_person_router
-from app.api.adresswechsel.admin_router import router as address_change_admin_router
-from app.api.adresswechsel.public_router import router as address_change_public_router
-from app.api.adresswechsel.system_router import router as address_change_system_router
+from app.api.address_change.admin_router import router as address_change_admin_router
+from app.api.address_change.public_router import router as address_change_public_router
+from app.api.address_change.system_router import router as address_change_system_router
 from app.api.aktionen.admin_router import router as action_log_admin_router
 from app.api.berechtigungen.admin_router import router as grants_admin_router
 from app.api.berechtigungen.system_router import router as grants_system_router
@@ -33,7 +33,7 @@ from app.api.saisons.public_router import router as saisons_public_router
 from app.api.schiedsrichter.admin_router import router as schiedsrichter_admin_router
 from app.api.schiedsrichter.person_router import router as schiedsrichter_person_router
 from app.api.schiedsrichter.public_router import router as schiedsrichter_public_router
-from app.api.sperrliste.admin_router import router as sperrliste_admin_router
+from app.api.sperrliste.admin_router import router as ban_list_admin_router
 from app.api.spielberichte.admin_router import router as spielberichte_admin_router
 from app.api.spielberichte.person_router import router as spielberichte_person_router
 from app.api.spielbestaetigungen.admin_router import router as spielbestaetigungen_admin_router
@@ -82,7 +82,7 @@ ROUTERS: Mapping[str, tuple[APIRouter, ...]] = {
     ),
     "saisons": (saisons_public_router, saisons_admin_router),
     "schiedsrichter": (schiedsrichter_admin_router, schiedsrichter_public_router, schiedsrichter_person_router),
-    "sperrliste": (sperrliste_admin_router,),
+    "sperrliste": (ban_list_admin_router,),
     "spielberichte": (spielberichte_admin_router, spielberichte_person_router),
     "spielbestaetigungen": (
         spielbestaetigungen_public_router,

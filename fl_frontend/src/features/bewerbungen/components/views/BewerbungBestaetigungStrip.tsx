@@ -328,7 +328,7 @@ function SitzZeile({
             className="size-3.5"
             aria-hidden="true"
           />
-          {sitz.satz}
+          {sitz.sentence}
         </span>
 
         {/* Between the seat's own state and the re-send, so a refused delivery reads next to the link

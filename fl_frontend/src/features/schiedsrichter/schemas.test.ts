@@ -74,7 +74,7 @@ describe("the birth date the page's own schema accepts", () => {
     const mindestalter = 16;
     const spaeteste = parseDate(getGermanTodayStr()).subtract({ years: mindestalter });
     const schema = buildSchiedsrichterBestaetigungPayloadSchema(mindestalter);
-    const antwort = { token: "kein-echtes-token", umfang: "intern", medien: false, text_versions: SCHIEDSRICHTER_TEXT_VERSIONS };
+    const antwort = { token: "kein-echtes-token", umfang: "intern", media: false, text_versions: SCHIEDSRICHTER_TEXT_VERSIONS };
 
     expect(schema.safeParse({ ...antwort, geburtsdatum: spaeteste.toString() }).success, "the latest date the floor allows is refused").toBe(
       true,

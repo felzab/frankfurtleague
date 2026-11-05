@@ -28,14 +28,14 @@ vi.mock("./Toast", async (original) => ({ ...(await original<Record<string, unkn
 const ADDRESS = "verwaltung@example.com";
 
 // An administrator: the grant stores no name.
-const ACCOUNT: Account = { role: COPY.verwaltung.role, address: { record: ADDRESS } };
+const ACCOUNT: Account = { role: COPY.admin.role, address: { record: ADDRESS } };
 
 /** The frame of a one-page area around a page, its account read as given. */
 async function renderFrame(account: Promise<Account | null>) {
   await act(async () =>
     render(
       <RailFrame
-        groups={[{ entries: [{ id: "spielorte", label: COPY.page.verwaltungSpielorte, href: "/admin/spielorte", icon: "search" }] }]}
+        groups={[{ entries: [{ id: "spielorte", label: COPY.page.adminSpielorte, href: "/admin/spielorte", icon: "search" }] }]}
         bar={["spielorte"]}
         foot={{ kind: "account", account }}>
         <p>Seite</p>
@@ -46,7 +46,7 @@ async function renderFrame(account: Promise<Account | null>) {
 
 /** Opens the account menu from the rail's row, which holds the role. */
 async function openMenu() {
-  const row = screen.getByText(COPY.verwaltung.role).closest("button");
+  const row = screen.getByText(COPY.admin.role).closest("button");
   if (row === null) throw new Error("the account row is no button");
   await userEvent.click(row);
 }
@@ -63,11 +63,11 @@ describe("the rail frame's account", () => {
     await renderFrame(account);
 
     expect(screen.getByText("Seite")).toBeTruthy();
-    expect(screen.getAllByRole("link", { name: COPY.page.verwaltungSpielorte }).length).toBeGreaterThan(0);
-    expect(screen.queryByText(COPY.verwaltung.role)).toBeNull();
+    expect(screen.getAllByRole("link", { name: COPY.page.adminSpielorte }).length).toBeGreaterThan(0);
+    expect(screen.queryByText(COPY.admin.role)).toBeNull();
 
     await act(async () => resolve(ACCOUNT));
-    expect(screen.getByText(COPY.verwaltung.role)).toBeTruthy();
+    expect(screen.getByText(COPY.admin.role)).toBeTruthy();
   });
 
   it("shows no account for a session the area turns away", async () => {
@@ -83,7 +83,7 @@ describe("the rail's entries", () => {
     await renderFrame(Promise.resolve(ACCOUNT));
 
     const current = screen
-      .getAllByRole("link", { name: COPY.page.verwaltungSpielorte })
+      .getAllByRole("link", { name: COPY.page.adminSpielorte })
       .find((link) => link.getAttribute("aria-current") === "page");
     expect(current?.hasAttribute("data-selected")).toBe(true);
   });
@@ -94,12 +94,12 @@ async function renderPage() {
   await act(async () =>
     render(
       <RailFrame
-        groups={[{ entries: [{ id: "spielorte", label: COPY.page.verwaltungSpielorte, href: "/admin/spielorte", icon: "search" }] }]}
+        groups={[{ entries: [{ id: "spielorte", label: COPY.page.adminSpielorte, href: "/admin/spielorte", icon: "search" }] }]}
         bar={["spielorte"]}
         foot={{ kind: "signIn", href: ROUTES.signIn.path() }}>
         <RailPage
           scope="area"
-          title={{ route: "verwaltungSpielorte" }}>
+          title={{ route: "adminSpielorte" }}>
           <p>Seite</p>
         </RailPage>
       </RailFrame>,
@@ -135,7 +135,7 @@ describe("a rail page's title", () => {
 
 /** The rail's own link for the entry, apart from the phone bar's for the same page. */
 function railLink(rail: HTMLElement) {
-  return screen.getAllByRole("link", { name: COPY.page.verwaltungSpielorte }).find((link) => rail.contains(link));
+  return screen.getAllByRole("link", { name: COPY.page.adminSpielorte }).find((link) => rail.contains(link));
 }
 
 describe("the rail's collapse", () => {
@@ -158,13 +158,13 @@ describe("the rail's collapse", () => {
     await userEvent.click(toggle);
     expect(toggle.getAttribute("aria-expanded")).toBe("false");
     expect(screen.getByRole("button", { name: COPY.template.sidebar.expand })).toBe(toggle);
-    expect(railLink(rail)?.textContent).toBe(COPY.page.verwaltungSpielorte);
+    expect(railLink(rail)?.textContent).toBe(COPY.page.adminSpielorte);
     // The signed-out foot is an entry too: its words fade, and stay its name.
     expect(within(rail).getByRole("link", { name: COPY.shared.verb.signIn })).toBeTruthy();
     logo.focus();
     await userEvent.tab();
     expect(document.activeElement).toBe(railLink(rail));
-    expect(screen.getByRole("tooltip").textContent).toBe(COPY.page.verwaltungSpielorte);
+    expect(screen.getByRole("tooltip").textContent).toBe(COPY.page.adminSpielorte);
   });
 
   it("toggles with Ctrl+B, and with Cmd+B on a Mac, from anywhere on the page", async () => {

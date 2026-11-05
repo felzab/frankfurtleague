@@ -6,7 +6,7 @@ import { COPY } from "@/core/copy";
 
 import type { SpielortRegeln } from "./spielortRegeln";
 
-const WORTE = COPY.verwaltung.spielort;
+const WORDS = COPY.admin.spielort;
 
 /**
  * A new venue's inputs, in the create dialog over the venue list and over the match editor alike: its name,
@@ -34,12 +34,12 @@ export function SpielortFelder({
         defaultValue={name}
         isRequired={pflicht.name}
       />
-      <FieldGroup name={WORTE.address}>
+      <FieldGroup name={WORDS.address}>
         <FieldPair
           short="second"
           phone="pair">
           <TextField
-            label={WORTE.strasse}
+            label={WORDS.strasse}
             name="strasse"
             width="W3"
             kind="text"
@@ -47,7 +47,7 @@ export function SpielortFelder({
             maxLength={hoechstens.strasse}
           />
           <TextField
-            label={WORTE.hausnummer}
+            label={WORDS.hausnummer}
             name="hausnummer"
             width="C5"
             kind="text"
@@ -56,7 +56,7 @@ export function SpielortFelder({
           />
         </FieldPair>
         <TextField
-          label={WORTE.stadtteil}
+          label={WORDS.stadtteil}
           name="stadtteil"
           width="W3"
           kind="text"
@@ -67,7 +67,7 @@ export function SpielortFelder({
           short="first"
           phone="pair">
           <TextField
-            label={WORTE.plz}
+            label={WORDS.plz}
             name="plz"
             width="C5"
             kind="digits"
@@ -77,19 +77,19 @@ export function SpielortFelder({
             minLength={5}
           />
           <TextField
-            label={WORTE.stadt}
+            label={WORDS.stadt}
             name="stadt"
             width="W3"
             kind="text"
-            defaultValue={WORTE.stadtDefault}
+            defaultValue={WORDS.stadtDefault}
             isRequired={pflicht.stadt}
             maxLength={hoechstens.stadt}
           />
         </FieldPair>
       </FieldGroup>
-      <FieldGroup name={WORTE.terms}>
+      <FieldGroup name={WORDS.terms}>
         <TextField
-          label={WORTE.mietpreis}
+          label={WORDS.mietpreis}
           name="mietpreis"
           width="C5"
           kind="digits"

@@ -21,7 +21,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import PyMongoError
 
 from app.api.berechtigungen.crud import live_unbarred_grant_since
-from app.api.identity.crud import find_subjekt_in_session
+from app.api.identity.crud import find_subject_in_session
 from app.api.spielbestaetigungen.services import halter_of
 from app.core.codes import Code
 from app.core.collections import Collection
@@ -39,12 +39,12 @@ from . import test_spiele_write_execution as fixture_saves
 from .test_funktionen_loeschung import IDENTIFIER, THEIR_GRANT_OID, a_grant
 from .test_funktionen_loeschung import geloescht_by_the_handler as geloescht_by_the_person
 from .test_funktionen_loeschung import on_a_league as on_their_league
-from .test_identity_anmeldung_execution import GESPERRT as SIGN_IN_GESPERRT
-from .test_identity_anmeldung_execution import call_anmeldung
-from .test_identity_anmeldung_execution import on_a_league as on_the_sign_ins_league
-from .test_identity_subjekt_execution import FUTURE_SAISON, VERWALTUNG_STORED, call_subjekt
-from .test_identity_subjekt_execution import IDENTIFIER as SUBJECTS_SEAT_HOLDER
-from .test_identity_subjekt_execution import on_a_league as on_the_subjects_league
+from .test_identity_sign_in_execution import BARRED as SIGN_IN_GESPERRT
+from .test_identity_sign_in_execution import call_sign_in
+from .test_identity_sign_in_execution import on_a_league as on_the_sign_ins_league
+from .test_identity_subject_execution import ADMIN_STORED, FUTURE_SAISON, call_subject
+from .test_identity_subject_execution import IDENTIFIER as SUBJECTS_SEAT_HOLDER
+from .test_identity_subject_execution import on_a_league as on_the_subjects_league
 from .test_journal_replay import PERSON, PUPIL_OID, V, _app, _person, _withdrawal, journalled, served
 from .test_loeschung_auf_anfrage import CONFIG as REQUEST_CONFIG
 from .test_loeschung_auf_anfrage import geloescht_by_the_handler as geloescht_on_request
@@ -156,14 +156,14 @@ class TestTheReadsAPerRequestLookupGathers:
         """
 
         async def body(database: AsyncDatabase) -> Any:
-            await database[Collection.SPERRLISTE].insert_one(ban_document(VERWALTUNG_STORED, bis=FUTURE_SAISON))
+            await database[Collection.BAN_LIST].insert_one(ban_document(ADMIN_STORED, until=FUTURE_SAISON))
 
-            return await _first_reads(mongo_replica_set_url, database, lambda held: call_subjekt(held[database.name], VERWALTUNG_STORED))
+            return await _first_reads(mongo_replica_set_url, database, lambda held: call_subject(held[database.name], ADMIN_STORED))
 
         answer, sent = on_the_subjects_league(mongo_replica_set_url, body)
 
         # The premise first: the ban and the grant answered what was seeded, so the order below is of reads that ran.
-        assert (answer.barred, answer.verwaltung) == (True, "administration")
+        assert (answer.barred, answer.admin_tier) == (True, "administration")
         first_reads = (Collection.GRANTS, Collection.SAISONS, Collection.SAISON_TEAMS, Collection.SCHIEDSRICHTER, Collection.SPIELER)
         assert sent == sorted(map(str, first_reads)), "the endpoint awaited one read before sending the next"
 
@@ -171,7 +171,7 @@ class TestTheReadsAPerRequestLookupGathers:
         """`POST /identity/sign_in`, the one read paying for the two kinds granting no panel: all seven first reads at once."""
 
         async def body(database: AsyncDatabase) -> Any:
-            return await _first_reads(mongo_replica_set_url, database, lambda held: call_anmeldung(held[database.name], SIGN_IN_GESPERRT))
+            return await _first_reads(mongo_replica_set_url, database, lambda held: call_sign_in(held[database.name], SIGN_IN_GESPERRT))
 
         answer, sent = on_the_sign_ins_league(mongo_replica_set_url, body)
 
@@ -194,8 +194,8 @@ class TestTheReadsAPerRequestLookupGathers:
             async def check(held: AsyncMongoClient) -> Any:
                 async with held.start_session() as session:
                     return await live_unbarred_grant_since(
-                        VERWALTUNG_STORED,
-                        berechtigungen_collection=held[database.name][Collection.GRANTS],
+                        ADMIN_STORED,
+                        grants_collection=held[database.name][Collection.GRANTS],
                         sperrliste=ban_list(held[database.name]),
                         session=session,
                     )
@@ -215,7 +215,7 @@ class TestTheReadsAPerRequestLookupGathers:
                 records = record_collections(held[database.name])
                 async with held.start_session() as session:
                     return await session.with_transaction(
-                        lambda transaction: find_subjekt_in_session(SUBJECTS_SEAT_HOLDER, records, session=transaction)
+                        lambda transaction: find_subject_in_session(SUBJECTS_SEAT_HOLDER, records, session=transaction)
                     )
 
             return await _first_reads(mongo_replica_set_url, database, lookup)
@@ -318,15 +318,15 @@ class TestAnLoeschungOnRequest:
             return commits.answered, answer.spieler
 
         with caplog.at_level(logging.INFO):
-            refused, geloescht = on_the_administrators_league(mongo_replica_set_url, body)
+            refused, erased_count = on_the_administrators_league(mongo_replica_set_url, body)
 
         assert journal_lines(caplog) == [
-            f"{JOURNAL_TOKEN} {erasure_journal_hash(IDENTIFIER, key=REQUEST_CONFIG.sperrliste_key)} loeschung "
+            f"{JOURNAL_TOKEN} {erasure_journal_hash(IDENTIFIER, key=REQUEST_CONFIG.sperrliste_key)} erasure "
             f"pseudonym={actor_pseudonym(IDENTIFIER, key=REQUEST_CONFIG.sperrliste_key)} "
             f"halter={halter_of(IDENTIFIER, key=REQUEST_CONFIG.sperrliste_key)}"
         ]
         # The premise last: one commit refused, so the line above is the rerun's alone.
-        assert (refused, geloescht) == ([WRITE_CONFLICT, None], 1)
+        assert (refused, erased_count) == ([WRITE_CONFLICT, None], 1)
 
     def test_a_commit_whose_answer_is_lost_is_journalled_all_the_same(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         """Catches a route journalling once its commit answers: this one landed and answered only that its time ran out."""
@@ -350,7 +350,7 @@ class TestAnLoeschungOnRequest:
         # The premise first, so a failure names its cause: one commit ran, its answer was lost, and the erasure landed.
         assert (commits, labelled, after) == ([MAX_TIME_EXPIRED], True, {IDENTIFIER: []})
         assert journal_lines(caplog) == [
-            f"{JOURNAL_TOKEN} {erasure_journal_hash(IDENTIFIER, key=REQUEST_CONFIG.sperrliste_key)} loeschung "
+            f"{JOURNAL_TOKEN} {erasure_journal_hash(IDENTIFIER, key=REQUEST_CONFIG.sperrliste_key)} erasure "
             f"pseudonym={actor_pseudonym(IDENTIFIER, key=REQUEST_CONFIG.sperrliste_key)} "
             f"halter={halter_of(IDENTIFIER, key=REQUEST_CONFIG.sperrliste_key)}"
         ]
@@ -381,7 +381,7 @@ class TestAPersonsOwnPress:
     def test_a_press_whose_commit_answer_is_lost_is_journalled_all_the_same(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         """Catches the journal left to a commit that answered: this one landed and answered only that its time ran out."""
 
-        withdrawn = {"umfang": "intern", "medien": False}
+        withdrawn = {"umfang": "intern", "media": False}
 
         async def chosen(database: AsyncDatabase) -> dict[str, Any]:
             stored = await database[Collection.SPIELER].find_one({"_id": PUPIL_OID})
@@ -409,13 +409,13 @@ class TestAPersonsOwnPress:
     def test_a_press_on_a_stale_stand_journals_nothing(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         """Refused before it writes, so it leaves no line; the same page's next press, standing on the record, journals one."""
 
-        stale = {"umfang": "a" * 64, "medien": None}
+        stale = {"umfang": "a" * 64, "media": None}
 
         async def steps(http: AsyncClient, database: AsyncDatabase, _: AsyncMongoClient) -> Any:
             before = await database[Collection.SPIELER].find_one({"_id": PUPIL_OID})
-            withdrawal = _withdrawal("konto_spieler", umfang="intern", medien=False)
+            withdrawal = _withdrawal("konto_spieler", umfang="intern", media=False)
             with caplog.at_level(logging.INFO):
-                refused = await http.patch(CONSENT_PRESS, json={**withdrawal, "nachweis_stand": stale}, headers=_person(PERSON))
+                refused = await http.patch(CONSENT_PRESS, json={**withdrawal, "evidence_state": stale}, headers=_person(PERSON))
                 refused_lines = len(journalled(caplog))
                 after_the_refusal = await database[Collection.SPIELER].find_one({"_id": PUPIL_OID})
                 pressed = await http.patch(CONSENT_PRESS, json=withdrawal, headers=_person(PERSON))

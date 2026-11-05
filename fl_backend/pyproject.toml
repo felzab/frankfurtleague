@@ -79,6 +79,9 @@ exclude-newer = "1 day"
 
 [tool.ruff]
 line-length = 144
+# The packages below `app` and the test tree carry no `__init__.py` (pytest's importlib mode needs
+# none), and ruff judges a module's name (N999) only inside a package it can see.
+namespace-packages = ["app", "tests"]
 
 [tool.ruff.lint]
 select = [
@@ -118,6 +121,8 @@ select = [
     "PLE2513",  # invalid-character-esc
     "PLE2514",  # invalid-character-nul
     "PLE2515",  # invalid-character-zero-width-space
+    # A module or package name is snake_case (PEP 8), the one case `docs/writing.md` gives Python files.
+    "N999",  # invalid-module-name
 ]
 ignore = ["B008"]
 # The `G` rules read only a call on a receiver they know to be a logger, and `fl_logger.info(f"…")`

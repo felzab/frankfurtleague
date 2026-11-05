@@ -19,7 +19,7 @@ def ban_list(database: AsyncDatabase | Mapping[Collection, Any], *, saisons: Any
     """The list under the suite's own key, which is the one `tests/documents.py :: ban_document` hashes a seeded ban under."""
 
     return BanList(
-        database[Collection.SPERRLISTE],
+        database[Collection.BAN_LIST],
         database[Collection.SAISONS] if saisons is None else saisons,
         _CONFIG.sperrliste_key,
     )
@@ -31,7 +31,7 @@ async def ban_through_the_route(
     *,
     email: str,
     grund: str,
-    von: str,
+    by: str,
     today: str,
     saisons: Any = None,
     grants: Any = None,
@@ -40,15 +40,15 @@ async def ban_through_the_route(
     """A ban as an administrator enters it: its own transaction and the anchors it writes, where `ban_document` seeds the row alone."""
 
     return await post_sperrliste_entry(
-        sperrliste_data=FLPostSperrlistePayload(email=email, grund=grund, notify=notify),
-        sperrliste_collection=database[Collection.SPERRLISTE],
+        ban_list_data=FLPostSperrlistePayload(email=email, grund=grund, notify=notify),
+        ban_list_collection=database[Collection.BAN_LIST],
         sperrliste=ban_list(database, saisons=saisons),
         saisons_collection=database[Collection.SAISONS] if saisons is None else saisons,
-        berechtigungen_collection=database[Collection.GRANTS] if grants is None else grants,
+        grants_collection=database[Collection.GRANTS] if grants is None else grants,
         outbox_collection=database[Collection.OUTBOX],
         db=client,
         config=_CONFIG,
-        created_by=von,
+        created_by=by,
         today=today,
         now=datetime.fromisoformat(today).replace(hour=12, tzinfo=ZoneInfo("Europe/Berlin")),
     )

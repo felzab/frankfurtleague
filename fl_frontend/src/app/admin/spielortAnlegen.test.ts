@@ -37,7 +37,7 @@ const FELDER: Readonly<Record<SpielortFeld, string>> = {
 
 const formular = (felder: Partial<Record<SpielortFeld, string>> = {}) => {
   const formData = new FormData();
-  for (const [name, wert] of Object.entries({ ...FELDER, ...felder })) formData.set(name, wert);
+  for (const [name, value] of Object.entries({ ...FELDER, ...felder })) formData.set(name, value);
   return formData;
 };
 
@@ -85,7 +85,7 @@ describe("the venue dialog's create", () => {
   it("keeps a price that is no figure back on its box, sending nothing", async () => {
     expect(await spielortAnlegen(formular({ mietpreis: "60 Euro" }))).toStrictEqual({
       ok: false,
-      fieldErrors: { mietpreis: COPY.shared.field.format(COPY.verwaltung.spielort.mietpreisExample) },
+      fieldErrors: { mietpreis: COPY.shared.field.format(COPY.admin.spielort.mietpreisExample) },
     });
     expect(calls).toStrictEqual([]);
   });

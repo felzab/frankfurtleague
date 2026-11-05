@@ -48,7 +48,7 @@ const ABGELEHNT: FLBewerbungConfirmation = { ...OFFEN, declined_at: "2026-09-04"
 /** What the last mail to a seat reached, as the provider's events leave it on its Postausgang row and the read judges it. */
 const zugestellt = (stand: FLOutboxDeliveryState, unzustellbar: boolean): FLBewerbungConfirmation => ({
   ...OFFEN,
-  delivery: { state: "sent", delivery: { state: stand, grund: null, am: "2026-09-01T10:15:00.000Z" }, undeliverable: unzustellbar },
+  delivery: { state: "sent", delivery: { state: stand, grund: null, at: "2026-09-01T10:15:00.000Z" }, undeliverable: unzustellbar },
 });
 
 /** Three seats, each named by the state it is in, so a case says its own fixture. */
@@ -104,7 +104,7 @@ describe("a seat an erasure emptied", () => {
     const seat2 = seatOf(standsOf2(GELOESCHT), "ansprechperson");
 
     expect(seat2.stand.art).toBe("erased");
-    expect(seat2.satz).toBe("Keine Bestätigung mehr möglich");
+    expect(seat2.sentence).toBe("Keine Bestätigung mehr möglich");
     expect(seat2.name).toBe(null);
   });
 
@@ -259,15 +259,15 @@ describe("what a seat's own refusal is called", () => {
   it("names it with the queue badge's word rather than the application status's", () => {
     const seat2 = seatOf(standsOf2(DECLINED), "ansprechperson");
 
-    expect(seat2.satz).toBe("Widersprochen am 04.09.2026");
-    assert.ok(!seat2.satz.includes("Abgelehnt"), "a seat's refusal is called what the league calls its own decision");
+    expect(seat2.sentence).toBe("Widersprochen am 04.09.2026");
+    assert.ok(!seat2.sentence.includes("Abgelehnt"), "a seat's refusal is called what the league calls its own decision");
   });
 
   /* The strip's row and the queue's chip are one word in two positions, the participle where a day
      follows it and the noun where the chip stands alone; two roots would read as two states. */
   it("shares that word with the chip the queue shows for the same row", () => {
     expect(endstand(standsOf2(DECLINED))).toBe("Widerspruch");
-    expect(seatOf(standsOf2(DECLINED), "ansprechperson").satz).toMatch(/^Widerspr/);
+    expect(seatOf(standsOf2(DECLINED), "ansprechperson").sentence).toMatch(/^Widerspr/);
   });
 });
 
@@ -438,10 +438,10 @@ describe("a seat nobody answered on an application already decided", () => {
     const trainer = seatOf(standsOf2(ENTSCHIEDEN), "trainer");
 
     expect(trainer.stand.art).toBe("unbeantwortet");
-    expect(trainer.satz).toBe("Keine Bestätigung mehr möglich");
-    expect(trainer.satz).not.toMatch(/Ausstehend/);
+    expect(trainer.sentence).toBe("Keine Bestätigung mehr möglich");
+    expect(trainer.sentence).not.toMatch(/Ausstehend/);
     // The same application still open is the state the decided one differs from.
-    expect(seatOf(standsOf2(seatsOf()), "trainer").satz).toMatch(/^Ausstehend, Link gesendet am/);
+    expect(seatOf(standsOf2(seatsOf()), "trainer").sentence).toMatch(/^Ausstehend, Link gesendet am/);
   });
 
   /* The decision moves only the seats still waiting: a confirmation and a Widerspruch are answers
@@ -449,8 +449,8 @@ describe("a seat nobody answered on an application already decided", () => {
   it("keeps every answer a person gave", () => {
     const stands = standsOf2(ENTSCHIEDEN);
 
-    expect(seatOf(stands, "ansprechperson").satz).toBe("Bestätigt am 02.09.2026");
-    expect(seatOf(stands, "stellvertretung").satz).toBe("Widersprochen am 04.09.2026");
+    expect(seatOf(stands, "ansprechperson").sentence).toBe("Bestätigt am 02.09.2026");
+    expect(seatOf(stands, "stellvertretung").sentence).toBe("Widersprochen am 04.09.2026");
   });
 
   /* The count is still over the seats that confirmed, and the queue's chip names only what a person

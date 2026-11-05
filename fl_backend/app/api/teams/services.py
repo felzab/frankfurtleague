@@ -40,7 +40,7 @@ AS_NAME = "saison_data"
 SAISON_PAST_AS_NAME = "saison_past_data"
 STATISTIK_AS_NAME = "statistik_data"
 ABSAGE_AS_NAME = "absage_data"
-ABSAGE_COUNT_NAME = "anzahl"
+ABSAGE_COUNT_NAME = "count"
 
 # Derived from the model, so a field added to `FLTeamStatistik` cannot be forgotten here.
 ZERO_STATISTIK: Mapping[str, int] = {field_name: 0 for field_name in FLTeamStatistik.model_fields}
@@ -965,19 +965,19 @@ def mit_linkstand(
     """
 
     def judged(row: Mapping[str, Any]) -> Any:
-        bestaetigungen = row.get("confirmations")
-        if not isinstance(bestaetigungen, Mapping):
-            return bestaetigungen
+        confirmations = row.get("confirmations")
+        if not isinstance(confirmations, Mapping):
+            return confirmations
 
-        def abgelaufen(seat: str, link: Mapping[str, Any]) -> bool:
-            offen = not seat_is_answered(kontakte=row.get("kontakte"), confirmations=bestaetigungen, seat=seat)
-            return offen and saison_link_is_over(frist=link.get("frist"), today=today)
+        def expired(seat: str, link: Mapping[str, Any]) -> bool:
+            open = not seat_is_answered(kontakte=row.get("kontakte"), confirmations=confirmations, seat=seat)
+            return open and saison_link_is_over(frist=link.get("frist"), today=today)
 
         return {
-            seat: {**link, "expired": abgelaufen(seat, link), "delivery": lagen.get((row["_id"], _lage_sitz(row, seat)))}
+            seat: {**link, "expired": expired(seat, link), "delivery": lagen.get((row["_id"], _lage_sitz(row, seat)))}
             if isinstance(link, Mapping)
             else link
-            for seat, link in bestaetigungen.items()
+            for seat, link in confirmations.items()
         }
 
     def served(row: Mapping[str, Any]) -> dict[str, Any]:
@@ -1012,7 +1012,7 @@ def mit_adresswechseln(teams: Sequence[Mapping[str, Any]], *, live: Mapping[str,
     """The memberships read with each confirmed seat's live address change by id, `live` keyed by the folded address.
 
     An unconfirmed seat names none: the change moves only confirmed seats (`app/api/identity/services.py ::
-    eigene_sitze`).
+    own_seats`).
     """
 
     def gesehen(row: Mapping[str, Any], seat: str) -> Any:
@@ -1136,14 +1136,14 @@ def compose_kontakte_herkunft(*, kontakte: Mapping[str, Any] | None, stored: Any
         if einwilligung is None:
             # Born afresh: nothing of a person who left travels to the
             # one seated, and nobody filling a seat for another person may give their media consent.
-            einwilligung = {**als_unbestaetigt(seat["einwilligung"]), "medien": False, "entered_by": "liga"}
+            einwilligung = {**als_unbestaetigt(seat["einwilligung"]), "media": False, "entered_by": "liga"}
         composed[slot] = {**seat, "geburtsdatum": _geburtsdatum_held_by(stored_slot, seat=seat), "einwilligung": einwilligung}
 
     return composed
 
 
 # --- The CONFIRMATION LINK a seat an administrator typed in is mailed, stored beside the slot at
-# `bestaetigungen.<slot>` as an application keeps its own.
+# `confirmations.<slot>` as an application keeps its own.
 
 
 def compose_kontakt_bestaetigung(*, today: str) -> dict[str, Any]:
@@ -1409,14 +1409,14 @@ def find_kontakt_sitz_gesperrt_refusal(*, barred: bool) -> WriteRefusal | None:
     )
 
 
-def find_kontakte_precondition_refusal(*, erwartet: str, stored: Any) -> WriteRefusal | None:
+def find_kontakte_precondition_refusal(*, expected: str, stored: Any) -> WriteRefusal | None:
     """Why this save may not land on the block the row now holds, or `None`.
 
     Refused whole rather than merged into the changed paths: an erasure clearing one seat leaves the
     whole open editor stale.
     """
 
-    if kontakte_stand_of(stored) == erwartet:
+    if kontakte_stand_of(stored) == expected:
         return None
 
     return WriteRefusal(

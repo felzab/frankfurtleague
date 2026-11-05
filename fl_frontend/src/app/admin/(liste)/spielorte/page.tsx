@@ -14,21 +14,21 @@ import type { FLSpielort } from "@/core/generated/client/types";
 import type { TableRow } from "@/kit/Table";
 import type { Metadata, ResolvingMetadata } from "next";
 
-const WORTE = COPY.verwaltung.spielort;
+const WORDS = COPY.admin.spielort;
 
 export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
-  return pageMetadata(parent, ROUTES.verwaltungSpielorte, ROUTES.verwaltungSpielorte.path());
+  return pageMetadata(parent, ROUTES.adminSpielorte, ROUTES.adminSpielorte.path());
 }
 
 /** One venue's row: its name, „Stillgelegt“ and muted once retired, its street and its price. */
 const zeile = (ort: FLSpielort): TableRow => ({
   id: ort.id,
   name: { record: ort.name },
-  // No `href` while no venue page answers at `ROUTES.verwaltungSpielort`: a row linking there would open the
+  // No `href` while no venue page answers at `ROUTES.adminSpielort`: a row linking there would open the
   // not-found page. The record page brings the link back.
-  ...(ort.inactive_since === null ? {} : { chip: { tone: "neutral" as const, label: WORTE.retired }, muted: true }),
+  ...(ort.inactive_since === null ? {} : { chip: { tone: "neutral" as const, label: WORDS.retired }, muted: true }),
   cells: {
-    adresse: WORTE.strasseWithHausnummer(ort.address.strasse, ort.address.hausnummer),
+    adresse: WORDS.strasseWithHausnummer(ort.address.strasse, ort.address.hausnummer),
     mietpreis: { record: formatEuro(ort.default_mietpreis) },
   },
 });
@@ -37,14 +37,14 @@ const zeile = (ort: FLSpielort): TableRow => ({
 export default function SpielortePage() {
   return (
     <ListPage
-      head={{ scope: "area", title: { route: "verwaltungSpielorte" } }}
+      head={{ scope: "area", title: { route: "adminSpielorte" } }}
       create={{
-        title: COPY.shared.withObject(WORTE.object, "create"),
-        act: { verb: "create", object: WORTE.object },
+        title: COPY.shared.withObject(WORDS.object, "create"),
+        act: { verb: "create", object: WORDS.object },
         action: spielortAnlegen,
         children: <SpielortFelder regeln={SPIELORT_REGELN} />,
       }}
-      list={{ kind: "table", search: { label: WORTE.search }, content: readSpielorte() }}
+      list={{ kind: "table", search: { label: WORDS.search }, content: readSpielorte() }}
     />
   );
 }
@@ -54,14 +54,14 @@ async function readSpielorte() {
   const { spielorte } = await getSpielorte({ include_inactive: true });
   return {
     table: {
-      label: ROUTES.verwaltungSpielorte.title,
+      label: ROUTES.adminSpielorte.title,
       nameLabel: COPY.shared.name,
       columns: [
-        { key: "adresse", label: WORTE.address, hideOnPhone: true },
-        { key: "mietpreis", label: WORTE.mietpreis, figures: true },
+        { key: "adresse", label: WORDS.address, hideOnPhone: true },
+        { key: "mietpreis", label: WORDS.mietpreis, figures: true },
       ],
       rows: spielorte.map(zeile),
-      empty: { kind: "none", plural: ROUTES.verwaltungSpielorte.title, glyph: "spielorte" } as const,
+      empty: { kind: "none", plural: ROUTES.adminSpielorte.title, glyph: "spielorte" } as const,
     },
   };
 }

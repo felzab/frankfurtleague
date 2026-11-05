@@ -91,11 +91,11 @@ def test_a_match_without_an_ergebnis_does_not_count(league: SeededLeague):
 
 
 def test_an_ergebnis_without_goal_counts_does_not_count(league: SeededLeague):
-    """Without the goal-count filters this match groups as a 0:0 draw, giving Lessing a fourth match and Ohne its first."""
+    """Without the goal-count filters this match groups as a 0:0 draw, giving Lessing a fourth match and Without its first."""
     figures = table(league)
 
     assert figures["Lessing"]["count_gespielte_spiele"] == 3
-    assert figures["Ohne"]["count_gespielte_spiele"] == 0
+    assert figures["Without"]["count_gespielte_spiele"] == 0
 
 
 def test_a_match_from_another_season_does_not_count(league: SeededLeague):
@@ -115,26 +115,26 @@ class TestACalledOffFixture:
     """The two counts are deliberately not a partition: a forfeit is in this figure and in `count_gespielte_spiele` both."""
 
     def test_it_is_counted_for_both_teams(self, league: SeededLeague):
-        """The `$expr` reaches either side: Ohne holds slot two of Spiel 10 and slot one of Spiel 13, so a one-slot match leaves it on 1."""
+        """The `$expr` reaches either side: Without holds slot two of Spiel 10 and slot one of Spiel 13, so a one-slot match leaves it on 1."""
         figures = table(league)
 
         assert figures["Helmholtz"]["count_abgesagte_spiele"] == 1
-        assert figures["Ohne"]["count_abgesagte_spiele"] == 2
+        assert figures["Without"]["count_abgesagte_spiele"] == 2
 
     def test_an_abandoned_fixture_is_counted_as_played_and_not_as_an_absage(self, league: SeededLeague):
         """The distinction one flag could not draw: Spiel 14 was abandoned with a score, so it reaches one figure and not the other."""
-        komplett = table(league)["Komplett"]
+        komplett = table(league)["Complete"]
 
         assert komplett["count_gespielte_spiele"] == 2
         assert komplett["siege"] == 2
         assert komplett["count_abgesagte_spiele"] == 0
 
     def test_an_annulled_fixture_is_an_absage_and_never_a_match_played(self, league: SeededLeague):
-        """Spiel 13 did not take place, so it joins the absage Ohne's Spiel 10 earns while the played figure stays where it was."""
-        ohne = table(league)["Ohne"]
+        """Spiel 13 did not take place, so it joins the absage Without's Spiel 10 earns while the played figure stays where it was."""
+        without = table(league)["Without"]
 
-        assert ohne["count_gespielte_spiele"] == 0
-        assert ohne["count_abgesagte_spiele"] == 2
+        assert without["count_gespielte_spiele"] == 0
+        assert without["count_abgesagte_spiele"] == 2
 
     def test_it_moves_none_of_the_figures_the_table_is_built_from(self, league: SeededLeague):
         """An accumulator admitting a cancellation lands it in `unentschieden`, since `$eq: [null, null]` is true."""
@@ -163,8 +163,8 @@ class TestACalledOffFixture:
         assert table(league, scope="total")["Helmholtz"]["count_abgesagte_spiele"] == 2
 
     def test_a_team_with_no_cancellation_reads_zero(self, league: SeededLeague):
-        """Komplett rather than a team with no match: only a team `$group` produced a document for proves the `$ifNull`."""
-        assert table(league)["Komplett"]["count_abgesagte_spiele"] == 0
+        """Complete rather than a team with no match: only a team `$group` produced a document for proves the `$ifNull`."""
+        assert table(league)["Complete"]["count_abgesagte_spiele"] == 0
 
 
 def test_wins_draws_and_losses_partition_the_matches(league: SeededLeague):
@@ -187,15 +187,15 @@ def test_a_defeat_is_worth_nothing(league: SeededLeague):
 
 def test_a_team_with_no_counting_match_is_served_zeroes(league: SeededLeague):
     """`$group` emits nothing for an empty input, so this is the `$ifNull` fallback; one missing key fails response validation."""
-    ohne = table(league)["Ohne"]
+    without = table(league)["Without"]
 
-    assert set(ohne) == set(FLTeamStatistik.model_fields)
-    assert set(value for field, value in ohne.items() if field != "count_abgesagte_spiele") == {0}
+    assert set(without) == set(FLTeamStatistik.model_fields)
+    assert set(value for field, value in without.items() if field != "count_abgesagte_spiele") == {0}
 
 
 def test_a_team_with_no_junction_row_disappears(league: SeededLeague):
-    """Fremd exists in `teams` and plays a 2026 match, so only the missing junction row can drop it."""
-    unseasoned = "Fremd"
+    """Foreign exists in `teams` and plays a 2026 match, so only the missing junction row can drop it."""
+    unseasoned = "Foreign"
 
     assert unseasoned in league.team_oids, "the club this case is about is no longer seeded"
     assert unseasoned not in table(league)
@@ -204,7 +204,7 @@ def test_a_team_with_no_junction_row_disappears(league: SeededLeague):
 def test_the_junction_supplies_gruppe_and_disqualification(league: SeededLeague):
     by_name = {row["name"]: row for row in rows(league)}
 
-    assert by_name["Ohne"]["gruppe"] == "B"
+    assert by_name["Without"]["gruppe"] == "B"
     # The whole record travels, not a flag: a projection flattening it to a boolean would pass a presence check.
     assert by_name["Lessing"]["austritt"] == AUSTRITT
     assert by_name["Helmholtz"]["austritt"] is None
@@ -250,11 +250,11 @@ def test_a_stored_statistik_on_the_junction_is_ignored(league: SeededLeague):
 
 
 def test_the_result_validates_as_the_response_model(league: SeededLeague):
-    """Validating through the adapter proves the projection carries every field `FLTeam` requires, Ohne's fallback included."""
+    """Validating through the adapter proves the projection carries every field `FLTeam` requires, Without's fallback included."""
     teams = FLTeamListAdapter.validate_python(rows(league))
 
-    assert {team.name for team in teams} == {"Helmholtz", "Bock", "Lessing", "Ohne", "Komplett"}
-    assert next(team for team in teams if team.name == "Ohne").statistik.punkte == 0
+    assert {team.name for team in teams} == {"Helmholtz", "Bock", "Lessing", "Without", "Complete"}
+    assert next(team for team in teams if team.name == "Without").statistik.punkte == 0
 
 
 def test_a_single_team_query_returns_only_that_team(league: SeededLeague):
@@ -267,7 +267,7 @@ def test_a_single_team_query_returns_only_that_team(league: SeededLeague):
 
 def test_the_table_comes_back_sorted_by_name(league: SeededLeague):
     """The `$sort` is the last stage before `$limit`, so it orders the derived rows rather than the raw teams."""
-    assert [row["name"] for row in rows(league)] == ["Bock", "Helmholtz", "Komplett", "Lessing", "Ohne"]
+    assert [row["name"] for row in rows(league)] == ["Bock", "Helmholtz", "Complete", "Lessing", "Without"]
 
 
 def test_the_id_is_the_teams_own_id_not_the_junctions(league: SeededLeague):

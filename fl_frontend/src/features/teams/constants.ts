@@ -58,7 +58,7 @@ type AustrittOption = {
   /** Names the RECORD, for the editor's picker and the change list. */
   readonly label: Copy;
   /** Names the CLUB's resulting state, for anything reading `… seit <Datum>`. */
-  readonly zustand: Copy;
+  readonly state: Copy;
   /** The two-letter badge a table cell and the team popover have room for. */
   readonly kuerzel: Copy;
 };
@@ -79,7 +79,7 @@ export const AUSTRITT_OPTIONS: readonly AustrittOption[] = [
 
 /** The state a club is in once the record exists — `Disqualifiziert seit …`, `Zurückgezogen seit …`. */
 export function austrittZustand(type: FLAustrittType): Copy {
-  return AUSTRITT_WORDS[type].zustand;
+  return AUSTRITT_WORDS[type].state;
 }
 
 /** The badge form, for a table cell, a popover or a chip, where only two letters have room. */
@@ -200,8 +200,8 @@ export const EINGETRAGEN_VON_OPTIONS: readonly EingetragenVonOption[] = [
 ];
 
 /** The Herkunft every surface renders for a contact seat: who seated the person. */
-export function eingetragenVonLabel(von: FLKontaktEnteredBy): string {
-  return EINGETRAGEN_VON_LABELS[von];
+export function eingetragenVonLabel(by: FLKontaktEnteredBy): string {
+  return EINGETRAGEN_VON_LABELS[by];
 }
 
 /**

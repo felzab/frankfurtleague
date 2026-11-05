@@ -12,11 +12,11 @@ import type { ReactElement } from "react";
 const read = vi.hoisted(() => ({ view: null as FLAddressChangeViewResponse["view"] | null }));
 
 vi.mock("@/core/traceScope", () => ({ runWithIncomingTrace: <T,>(fn: () => Promise<T>) => fn() }));
-vi.mock("@/features/adresswechsel/mutations", async (original) => ({
+vi.mock("@/features/address-change/mutations", async (original) => ({
   ...(await original<object>()),
   postAddressChangeView: async () => ({ view: read.view }),
 }));
-vi.mock("@/features/adresswechsel/konto", () => ({ accountAtNewAddress: async () => false }));
+vi.mock("@/features/address-change/account", () => ({ accountAtNewAddress: async () => false }));
 
 const WORDS = SERVER_COPY.addressChange;
 const DAY = "2026-11-04";
@@ -38,7 +38,7 @@ const ended = { state: "ended", ended_on: DAY, way: "account", released_on: null
 describe("the person's own change, on a link opened again", () => {
   it("says the address on file confirmed it, and when, once it has", async () => {
     const state = await stateFor({ ...live, side: "previous", state: "open", released_on: DAY });
-    expect(state).toMatchObject({ state: "schonErledigt", sentence: COPY.shared.end.doneOn(WORDS.previous.confirmed, DAY) });
+    expect(state).toMatchObject({ state: "alreadyDone", sentence: COPY.shared.end.doneOn(WORDS.previous.confirmed, DAY) });
   });
 
   it("names each answer and its day once the change ended, and calls every other end void", async () => {

@@ -172,13 +172,13 @@ describe("the facets a fixture list is narrowed by", () => {
   });
 
   it("finds a club whichever side of the fixture it played on", () => {
-    const heim = spiel(5, { team1: team(GAMMA, "TSV Gamma", "GA"), team2: team(ALPHA, "FC Alpha", "AL") });
-    const auswaerts = spiel(6, { team1: team(ALPHA, "FC Alpha", "AL"), team2: team(GAMMA, "TSV Gamma", "GA") });
-    const facets = buildSpielFacets({ spiele: [heim, auswaerts], today: TODAY, isAdmin: true });
+    const home = spiel(5, { team1: team(GAMMA, "TSV Gamma", "GA"), team2: team(ALPHA, "FC Alpha", "AL") });
+    const away = spiel(6, { team1: team(ALPHA, "FC Alpha", "AL"), team2: team(GAMMA, "TSV Gamma", "GA") });
+    const facets = buildSpielFacets({ spiele: [home, away], today: TODAY, isAdmin: true });
     const selection = readFacetSelection(facets, new URLSearchParams(`team=${GAMMA}`));
 
     expect(facets.find((facet) => facet.param === "team")?.options.length, "a club playing both sides is offered twice").toBe(2);
-    expect(applyFacets([heim, auswaerts], facets, selection)).toStrictEqual([heim, auswaerts]);
+    expect(applyFacets([home, away], facets, selection)).toStrictEqual([home, away]);
   });
 
   it("answers with every gap a fixture has, and `vollstaendig` only where it has none", () => {

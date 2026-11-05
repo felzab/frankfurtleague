@@ -8,8 +8,8 @@ import type { FLSpielberichtVorschlag } from "@/core/generated/client/types";
  * wears the house's mark, which a screen reader speaks in full rather than as two letters.
  */
 export function VorschlagText({ vorschlag }: { vorschlag: FLSpielberichtVorschlag }) {
-  const ereignis = vorschlag.sonderereignis === null ? null : SONDEREREIGNIS_LABELS[vorschlag.sonderereignis];
-  if (vorschlag.team1_tore === null || vorschlag.team2_tore === null) return ereignis;
+  const event = vorschlag.sonderereignis === null ? null : SONDEREREIGNIS_LABELS[vorschlag.sonderereignis];
+  if (vorschlag.team1_tore === null || vorschlag.team2_tore === null) return event;
 
   const { elfmeterschiessen } = vorschlag;
   return (
@@ -21,7 +21,7 @@ export function VorschlagText({ vorschlag }: { vorschlag: FLSpielberichtVorschla
           <ImElfmeterschiessen />)
         </>
       )}
-      {ereignis !== null && `, ${ereignis}`}
+      {event !== null && `, ${event}`}
     </>
   );
 }

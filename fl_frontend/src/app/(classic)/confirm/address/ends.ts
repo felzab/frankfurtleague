@@ -46,11 +46,11 @@ export function endOf(side: Side, answer: "confirmed" | "declined", approvalOpen
 export function doneOnEnd(side: Side, answer: "confirmed" | "declined", day: CalendarDay) {
   return answer === "declined"
     ? {
-        state: "schonErledigt" as const,
+        state: "alreadyDone" as const,
         title: WORDS.declined,
         sentence: COPY.shared.end.doneOn(WORDS.declined, day),
         next: TO_HOME,
         declined: true,
       }
-    : { state: "schonErledigt" as const, title: DONE[side], sentence: COPY.shared.end.doneOn(DONE[side], day), next: TO_ACCOUNT };
+    : { state: "alreadyDone" as const, title: DONE[side], sentence: COPY.shared.end.doneOn(DONE[side], day), next: TO_ACCOUNT };
 }

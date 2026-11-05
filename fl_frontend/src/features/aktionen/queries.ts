@@ -1,18 +1,18 @@
 import { actionLogGetActionLog } from "@/core/generated/client/sdk";
 import { runAdminRead } from "@/shared/utils/adminRead";
-import { parseLeserichtung } from "@/shared/utils/leserichtung";
+import { parseReadingDirection } from "@/shared/utils/readingDirection";
 
 import { aktionenLogFacetTerms } from "./facets";
 
 import type { FLActionLogListResponse } from "@/core/generated/client/types";
-import type { Leserichtung } from "@/shared/utils/leserichtung";
+import type { ReadingDirection } from "@/shared/utils/readingDirection";
 
 /** The single-row narrowings a row's own actions write, `null` where the URL names neither. */
 export type AktionenLogSubjekt = { dokumentId: string | null; vorgangId: string | null };
 
 // Anything but one plain value reads as no narrowing, so a hand-edited URL falls back to the whole
 // log rather than 404ing — the rule the read order keeps too
-// (`fl_frontend/src/shared/utils/leserichtung.ts :: parseLeserichtung`).
+// (`fl_frontend/src/shared/utils/readingDirection.ts :: parseReadingDirection`).
 const einzeln = (value: string | string[] | undefined): string | null => (typeof value === "string" && value !== "" ? value : null);
 
 /**
@@ -26,7 +26,7 @@ export const getAktionen = async (
   filters: ReturnType<typeof aktionenLogFacetTerms> & {
     trace_id?: string;
     document_id?: string;
-    order?: Leserichtung;
+    order?: ReadingDirection;
   } = {},
 ): Promise<FLActionLogListResponse> => {
   return runAdminRead(() => actionLogGetActionLog(filters));
@@ -53,6 +53,6 @@ export async function getAktionenLog(params: Readonly<Record<string, string | st
     // search over the rows it left would miss one row's older history.
     trace_id: vorgangId ?? undefined,
     document_id: dokumentId ?? undefined,
-    order: parseLeserichtung(params),
+    order: parseReadingDirection(params),
   });
 }

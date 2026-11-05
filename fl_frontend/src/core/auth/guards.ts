@@ -3,17 +3,17 @@ import "server-only";
 import { cache } from "react";
 
 import { asSignInIdentifier } from "../emailAddress";
+import { madeSince } from "../grant";
 import { oncePerRequest, setRequestActor } from "../requestScope";
 import { ADMIN_LIFETIME } from "../sessionLifetimes";
-import { lookUpSubjekt } from "../signInGate";
-import { madeSince } from "../verwaltung";
-import { verwaltungOrNull } from "./gateReads";
+import { lookUpSubject } from "../signInGate";
+import { grantOrNull } from "./gateReads";
 import { auth } from "./library";
 import { readRequestSession } from "./session";
 import { CODE_FACTOR, isPasskeyTouch, isWithinPersonLifetime, PASSKEY_FACTOR, withinLifetime } from "./sessionStamps";
 
+import type { Grant } from "../grant";
 import type { ActorLane, RequestActor } from "../requestScope";
-import type { Verwaltung } from "../verwaltung";
 import type { ServedSession } from "./session";
 
 /**
@@ -47,13 +47,13 @@ export const getAccountSession = cache(async (): Promise<JudgedSession | null> =
 
   // An unread grant throws rather than falling to the person's lane, which takes a mailed code. The
   // ban and the grant come in this one lookup, which the person guard of a render shares.
-  const subjekt = await lookUpSubjekt(asSignInIdentifier(served.user.email));
+  const subject = await lookUpSubject(asSignInIdentifier(served.user.email));
 
   // On every request, as the person guard's: a session its ban's ending missed is no session here.
-  if (subjekt.barred) return null;
+  if (subject.barred) return null;
 
-  const judged = { ...served, verwaltung: subjekt.verwaltung !== null };
-  if (judged.verwaltung) return isAdminSession(served, subjekt) ? judged : null;
+  const judged = { ...served, admin: subject.admin_tier !== null };
+  if (judged.admin) return isAdminSession(served, subject) ? judged : null;
 
   return isWithinPersonLifetime(served.session) ? judged : null;
 });
@@ -62,7 +62,7 @@ export const getAccountSession = cache(async (): Promise<JudgedSession | null> =
  * A served session beside the grant this request read for its address, which a step-up judges it by.
  * Held for the request alone: a stamp on the stored row would outlive a revoke made in the database.
  */
-export type JudgedSession = ServedSession & { readonly verwaltung: boolean };
+export type JudgedSession = ServedSession & { readonly admin: boolean };
 
 export function isAdminWithinWindow(served: ServedSession): boolean {
   // A refreshed `updatedAt` shows none of the idle gap before it, and the mark does.
@@ -78,10 +78,10 @@ function passesButForItsGrant(served: ServedSession): boolean {
  * Whether this served session may act as an administrator — its address holding a grant it was made
  * since, inside both of the administrator's figures, and made by the passkey rather than by a mailed code alone.
  */
-export function isAdminSession(served: ServedSession, { verwaltung, granted_since: berechtigt_seit }: Verwaltung): boolean {
+export function isAdminSession(served: ServedSession, { admin_tier, granted_since: granted_since }: Grant): boolean {
   // A passkey enrolled before the grant still admits, on a sign-in after it: the grant is the privilege,
   // and a passkey the factor it asks, enrolled on the mailbox's own authority (`docs/ops/runbooks.md` §3).
-  return verwaltung !== null && madeSince(served.session.createdAt, berechtigt_seit) && passesButForItsGrant(served);
+  return admin_tier !== null && madeSince(served.session.createdAt, granted_since) && passesButForItsGrant(served);
 }
 
 /**
@@ -117,17 +117,17 @@ const readAdminRequest = cache(
     if (!served) return { refused: "signIn" };
 
     // An unread grant admits nobody, so the administration is shut while the backend is.
-    const verwaltung = await verwaltungOrNull(served.user.email);
-    if (verwaltung === null) return { refused: "unread" };
-    if (verwaltung.verwaltung === null) return { refused: passesButForItsGrant(served) ? "grantGone" : "noGrant" };
+    const grant = await grantOrNull(served.user.email);
+    if (grant === null) return { refused: "unread" };
+    if (grant.admin_tier === null) return { refused: passesButForItsGrant(served) ? "grantGone" : "noGrant" };
     // A session made before its grant among them, which a sign-in after the grant repairs.
-    if (!isAdminSession(served, verwaltung)) return { refused: "signIn" };
+    if (!isAdminSession(served, grant)) return { refused: "signIn" };
 
     // A session no actor can state truthfully is repaired by signing in afresh.
     const actor = requestActorOf(served, "admin");
     if (actor === null) return { refused: "signIn" };
 
-    return { session: { ...served, verwaltung: true }, actor: actor };
+    return { session: { ...served, admin: true }, actor: actor };
   }),
 );
 

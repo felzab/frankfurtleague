@@ -172,7 +172,7 @@ def discarded(fixture: Mapping[str, Any], team_id: ObjectId) -> dict[str, Any]:
 
     abgelehnt = {**zugesagt(), "art": "declined", "vorschlag": {"datum": "2026-05-03", "uhrzeit": "17:00:00"}, "begruendung": "Halle belegt"}
 
-    return a_row(fixture, team_id, antwort=abgelehnt, closed={"am": "2026-04-21", "grund": "discarded"})
+    return a_row(fixture, team_id, antwort=abgelehnt, closed={"at": "2026-04-21", "grund": "discarded"})
 
 
 Body = Callable[[AsyncDatabase], Awaitable[Any]]
@@ -226,7 +226,7 @@ class TestTheVerdictReadsTheAnsetzungAsItStandsNow:
         fixture = a_fixture()
         rows = [
             a_row(fixture, VERDICT_HOME, antwort=zugesagt()),
-            a_row(fixture, VERDICT_AWAY, antwort=zugesagt(), closed={"am": "2026-04-21", "grund": "abgesagt"}),
+            a_row(fixture, VERDICT_AWAY, antwort=zugesagt(), closed={"at": "2026-04-21", "grund": "abgesagt"}),
         ]
 
         assert on_a_fixture(mongo_url, fixture, rows, verdict) is False
@@ -335,8 +335,8 @@ PUBLIC_REFEREE_NAME = "Ada K."
 EARLIER_ROW = ObjectId("6890a1b2c3d4e5f607250041")
 LATER_ROW = ObjectId("6890a1b2c3d4e5f607250042")
 DECLINED = {"art": "declined", "am": "2026-04-20", "von": {"art": "schiedsrichter"}, "vorschlag": None, "begruendung": "Verhindert"}
-CLOSED_BY_THE_DECLINE = {"am": "2026-04-20", "grund": "schiedsrichter_declined"}
-CLOSED_BY_A_MOVE = {"am": "2026-04-21", "grund": "ansetzung_changed"}
+CLOSED_BY_THE_DECLINE = {"at": "2026-04-20", "grund": "schiedsrichter_declined"}
+CLOSED_BY_A_MOVE = {"at": "2026-04-21", "grund": "ansetzung_changed"}
 
 
 def published() -> dict[str, Any]:
@@ -415,13 +415,13 @@ class TestTheRefereeIsServedOnceAgreed:
         """The referee replaced before them holds the only row, closed for the change; the booked one holds none yet."""
 
         fixture = a_refereed_fixture()
-        rows = [a_referee_row(fixture, party=REPLACED_REFEREE, closed={"am": "2026-04-21", "grund": "schiedsrichter_switched"})]
+        rows = [a_referee_row(fixture, party=REPLACED_REFEREE, closed={"at": "2026-04-21", "grund": "schiedsrichter_switched"})]
 
         assert withheld(on_a_refereed_fixture(mongo_url, rows, joined, fixture=fixture))
 
     def test_a_request_closed_unanswered_withholds_them(self, mongo_url: str):
         fixture = a_refereed_fixture()
-        rows = [a_referee_row(fixture, closed={"am": "2026-05-03", "grund": "spiel_past"})]
+        rows = [a_referee_row(fixture, closed={"at": "2026-05-03", "grund": "spiel_past"})]
 
         assert withheld(on_a_refereed_fixture(mongo_url, rows, joined, fixture=fixture))
 
@@ -460,7 +460,7 @@ class TestTheRefereeIsServedOnceAgreed:
         """The join carries a club's discard for the clubs' verdict, and the gate's party term keeps it out of the referee's."""
 
         fixture = a_refereed_fixture()
-        rows = [a_row(fixture, VERDICT_HOME, antwort=zugesagt(), closed={"am": "2026-04-21", "grund": "discarded"})]
+        rows = [a_row(fixture, VERDICT_HOME, antwort=zugesagt(), closed={"at": "2026-04-21", "grund": "discarded"})]
 
         assert on_a_refereed_fixture(mongo_url, rows, einsatz, fixture=fixture) is False
 

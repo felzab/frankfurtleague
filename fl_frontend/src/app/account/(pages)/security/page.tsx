@@ -4,8 +4,8 @@ import { PASSKEY_LIMIT } from "@/core/auth/enrolment";
 import { isFreshForEnrolment, PASSKEY_FACTOR } from "@/core/auth/sessionStamps";
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
-import { requireAccountSession } from "@/features/konto/account";
-import { devicesOf } from "@/features/konto/security";
+import { requireAccountSession } from "@/features/account/account";
+import { devicesOf } from "@/features/account/security";
 import { heldPasskeysOf } from "@/features/passkeys/held";
 import { PASSKEY_NAME_MAX, PasskeyNameSchema } from "@/features/passkeys/schemas";
 import { pageMetadata } from "@/shared/utils/metadata";
@@ -44,7 +44,7 @@ async function SecurityContent() {
       passkeys={stand.rows}
       setUpClosed={setUpClosedOf(served, stand)}
       // An administrator's last passkey is their only way into the administration, which the removal refuses.
-      lastKept={served.verwaltung && stand.rows.length === 1 ? COPY.account.passkeys.lastKept : undefined}
+      lastKept={served.admin && stand.rows.length === 1 ? COPY.account.passkeys.lastKept : undefined}
       devices={COPY.account.devices.description(devices)}
       name={{ required: !PasskeyNameSchema.safeParse("").success, max: PASSKEY_NAME_MAX }}
     />

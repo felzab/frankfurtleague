@@ -87,7 +87,7 @@ const ERROR_LOOKUP: readonly (readonly [FieldErrors, string | null])[] = [
   [{ slot: "Auf dem eigenen Pfad." }, null],
   [{ "slot.other": "Auf dem zweiten Pfad." }, "Auf dem zweiten Pfad."],
   [{ "slot.label": "Auf dem ersten Pfad.", "slot.other": "Auf dem zweiten Pfad." }, "Auf dem ersten Pfad."],
-  [{ nirgendwo: "Auf gar keinem Pfad." }, null],
+  [{ nowhere: "Auf gar keinem Pfad." }, null],
 ];
 
 describe("deriveDraftStatus", () => {
@@ -183,7 +183,7 @@ describe("deriveDraftStatus", () => {
   });
 
   it("lands a message no descriptor claims on no row at all", () => {
-    const status = derive({ draft: draftFrom({}), fieldErrors: { slot: "Auf dem eigenen Pfad.", nirgendwo: "Auf gar keinem Pfad." } });
+    const status = derive({ draft: draftFrom({}), fieldErrors: { slot: "Auf dem eigenen Pfad.", nowhere: "Auf gar keinem Pfad." } });
 
     expect(status.invalid).toStrictEqual([]);
   });

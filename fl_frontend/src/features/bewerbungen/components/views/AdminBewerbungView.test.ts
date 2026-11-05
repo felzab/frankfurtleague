@@ -106,7 +106,7 @@ describe("the Zusage where the write would be refused", () => {
     renderPage({
       ...OFFEN,
       status: "declined",
-      decision: { made_at: "2026-09-10", von: "Admin", by_barred: false, grund: "Kein Platz." },
+      decision: { made_at: "2026-09-10", by: "Admin", by_barred: false, grund: "Kein Platz." },
     });
 
     // First: a page that rendered nothing holds neither panel either.

@@ -26,11 +26,11 @@ const KEINE_BESTAETIGUNGEN: SaisonBestaetigungen = { bySpielId: new Map(), austr
  * the day of a fixture it fields, every exit a row about its fixture's Ansetzung can meet.
  */
 export function saisonBestaetigungen(
-  bestaetigungen: readonly FLSpielbestaetigung[],
+  confirmations: readonly FLSpielbestaetigung[],
   bracketFaults: readonly FLBracketFault[],
 ): SaisonBestaetigungen {
   return {
-    bySpielId: groupBestaetigungenBySpielId(bestaetigungen),
+    bySpielId: groupBestaetigungenBySpielId(confirmations),
     austritte: new Map(
       bracketFaults.flatMap((fault) => (fault.reason === "departed_occupant" ? [[fault.team_id, fault.ausgeschieden_seit] as const] : [])),
     ),
@@ -149,7 +149,7 @@ export function categorizeActionRequired<
   today: string,
   bracketFaults: readonly FLBracketFault[] = [],
   // The season's rows, as `bracketFaults` read, never derived: the editor passes none for the reason it passes no faults.
-  bestaetigungen: SaisonBestaetigungen = KEINE_BESTAETIGUNGEN,
+  confirmations: SaisonBestaetigungen = KEINE_BESTAETIGUNGEN,
   // Read, never derived, as the faults are: the backend judges a report against the stored result and its adoption.
   spielberichte: readonly Pick<FLSpielberichtStateEntry, "spiel_id" | "state">[] = [],
 ): Record<ActionRequiredCategory, T[]> {
@@ -196,7 +196,7 @@ export function categorizeActionRequired<
     if (spiel.uhrzeit === null) categorized.uhrzeit_missing.push(spiel);
     if (spiel.ort === null) categorized.ort_missing.push(spiel);
     if (spiel.schiedsrichter === null) categorized.schiedsrichter_missing.push(spiel);
-    if (schiedsrichterAbsage(bestaetigungen.bySpielId.get(spiel.id) ?? [], spiel) !== undefined) {
+    if (schiedsrichterAbsage(confirmations.bySpielId.get(spiel.id) ?? [], spiel) !== undefined) {
       categorized.schiedsrichter_abgesagt.push(spiel);
     }
 
@@ -214,7 +214,7 @@ export function categorizeActionRequired<
       categorized.besetzung_missing.push(spiel);
     }
 
-    const zeilen = geltendeBestaetigungen(bestaetigungen.bySpielId.get(spiel.id) ?? [], spiel, { austritte: bestaetigungen.austritte, today });
+    const zeilen = geltendeBestaetigungen(confirmations.bySpielId.get(spiel.id) ?? [], spiel, { austritte: confirmations.austritte, today });
     if (zeilen.some(istVorschlagOffen)) categorized.vorschlag_offen.push(spiel);
     if (zeilen.some((zeile) => istUeberfaellig(zeile, today))) categorized.bestaetigung_ueberfaellig.push(spiel);
     if (zeilen.some((zeile) => istSofortFaellig(zeile, today))) categorized.bestaetigung_sofort.push(spiel);
@@ -250,16 +250,16 @@ export function buildActionRequiredSections({
   spiele,
   today,
   bracketFaults,
-  bestaetigungen,
+  confirmations,
   spielberichte,
 }: {
   spiele: FLSpiel[];
   today: string;
   bracketFaults: readonly FLBracketFault[];
-  bestaetigungen: SaisonBestaetigungen;
+  confirmations: SaisonBestaetigungen;
   spielberichte: readonly FLSpielberichtStateEntry[];
 }): readonly FLActionRequiredSection[] {
-  const categorized = categorizeActionRequired(spiele, today, bracketFaults, bestaetigungen, spielberichte);
+  const categorized = categorizeActionRequired(spiele, today, bracketFaults, confirmations, spielberichte);
 
   return typedObjectEntries(ACTION_REQUIRED_LABELS).map(([category]) => ({
     category,

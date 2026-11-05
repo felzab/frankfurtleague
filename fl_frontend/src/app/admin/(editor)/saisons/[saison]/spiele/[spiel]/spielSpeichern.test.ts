@@ -47,8 +47,8 @@ const NICHTS_BEWEGT: FLPatchSpielDataResponse = {
 
 /** The fixture the save reads before its write, every payload it sends, and what the write answers. */
 const stand = vi.hoisted(() => ({
-  gelesen: null as unknown,
-  gesendet: [] as unknown[],
+  read: null as unknown,
+  sent: [] as unknown[],
   ablehnung: null as unknown,
   antwort: null as unknown,
 }));
@@ -60,13 +60,13 @@ vi.mock("next/cache", () => ({ updateTag: () => undefined }));
 vi.mock("@/core/auth/guards", () => ({ judgeAdminRequest: async () => ({ session: {} }) }));
 
 vi.mock("@/features/spiele/queries", () => ({
-  getAdminSpiel: async () => (stand.gelesen === null ? null : { spiel: stand.gelesen }),
+  getAdminSpiel: async () => (stand.read === null ? null : { spiel: stand.read }),
 }));
 
 // The backend client itself is replaced, so the write runs through the real generated call and the real dispatch,
 // which counts it and takes it back where the backend refuses it.
 const calls = doubleApiClient((call) => {
-  stand.gesendet.push(JSON.parse(call.body ?? "null"));
+  stand.sent.push(JSON.parse(call.body ?? "null"));
   if (stand.ablehnung !== null) throw stand.ablehnung;
   return stand.antwort;
 });
@@ -89,8 +89,8 @@ const refusal = (serverErrorCode: Code, about?: readonly string[]) =>
 
 beforeEach(() => {
   calls.length = 0;
-  stand.gelesen = GESPEICHERT;
-  stand.gesendet = [];
+  stand.read = GESPEICHERT;
+  stand.sent = [];
   stand.ablehnung = null;
   stand.antwort = NICHTS_BEWEGT;
 });
@@ -105,7 +105,7 @@ describe("the match editor's save", () => {
     expect(answer).toEqual({ ok: true, value: 4 });
     // The write itself, never its dry run.
     expect(calls.map(({ endpoint, method }) => ({ endpoint, method }))).toStrictEqual([{ endpoint: `/spiele/${SPIEL_ID}`, method: "PATCH" }]);
-    expect(stand.gesendet).toEqual([
+    expect(stand.sent).toEqual([
       {
         datum: "2027-03-14",
         uhrzeit: "18:00:00",
@@ -143,7 +143,7 @@ describe("the match editor's save", () => {
     expect(answer).toEqual({
       ok: true,
       value: 4,
-      note: COPY.verwaltung.spiel.alsoChanged([31]),
+      note: COPY.admin.spiel.alsoChanged([31]),
     });
   });
 
@@ -164,22 +164,22 @@ describe("the match editor's save", () => {
 
     const answer = await spielSpeichern({ id: SPIEL_ID, version: VERSION, changes: { uhrzeit: "18:00:00" } });
 
-    expect(answer).toEqual({ ok: true, value: 4, note: COPY.verwaltung.spiel.alsoChanged([7, 12, 31]) });
+    expect(answer).toEqual({ ok: true, value: 4, note: COPY.admin.spiel.alsoChanged([7, 12, 31]) });
   });
 
   it("answers as stale a fixture gone since the editor read it, writing nothing", async () => {
-    stand.gelesen = null;
+    stand.read = null;
 
     const answer = await spielSpeichern({ id: SPIEL_ID, version: VERSION, changes: { uhrzeit: "18:00:00" } });
 
     expect(answer).toEqual({ ok: false, reason: COPY.shared.failure.stale });
-    expect(stand.gesendet).toEqual([]);
+    expect(stand.sent).toEqual([]);
   });
 
   it("drops the shoot-out with the event that ends the match's play, as today's editor does", async () => {
     await spielSpeichern({ id: SPIEL_ID, version: VERSION, changes: { sonderereignis: "nichtantreten_team2" } });
 
-    expect(stand.gesendet).toMatchObject([{ sonderereignis: "nichtantreten_team2", elfmeterschiessen: null }]);
+    expect(stand.sent).toMatchObject([{ sonderereignis: "nichtantreten_team2", elfmeterschiessen: null }]);
   });
 
   it("drops a no-show's awarded goals with the no-show, so they never stand as a played result", async () => {
@@ -193,13 +193,13 @@ describe("the match editor's save", () => {
     };
     const { version } = nichtangetreten;
 
-    stand.gelesen = nichtangetreten;
+    stand.read = nichtangetreten;
     for (const sonderereignis of [KEIN_SONDEREREIGNIS, "annulliert", "nichtantreten_team1"]) {
       // Each save is made on the no-show as stored.
       await spielSpeichern({ id: SPIEL_ID, version, changes: { sonderereignis } });
     }
 
-    expect(stand.gesendet).toMatchObject([
+    expect(stand.sent).toMatchObject([
       { sonderereignis: null, team1: { tore: null }, team2: { tore: null } },
       { sonderereignis: "annulliert", team1: { tore: null }, team2: { tore: null } },
       // Still a no-show, the other side's: the write composes the award afresh, whatever goals it is sent.
@@ -210,7 +210,7 @@ describe("the match editor's save", () => {
   it("books no venue and no price where the venue is cleared", async () => {
     await spielSpeichern({ id: SPIEL_ID, version: VERSION, changes: { spielort: null, mietpreis: "" } });
 
-    expect(stand.gesendet).toMatchObject([{ ort: null }]);
+    expect(stand.sent).toMatchObject([{ ort: null }]);
   });
 
   it("keeps back a price that is not a figure on its field, writing nothing", async () => {
@@ -218,16 +218,16 @@ describe("the match editor's save", () => {
 
     expect(answer).toEqual({
       ok: false,
-      fieldErrors: { "changes.mietpreis": COPY.shared.field.format(COPY.verwaltung.spielort.mietpreisExample) },
+      fieldErrors: { "changes.mietpreis": COPY.shared.field.format(COPY.admin.spielort.mietpreisExample) },
     });
-    expect(stand.gesendet).toEqual([]);
+    expect(stand.sent).toEqual([]);
   });
 
   it("asks for a price while a venue is chosen, writing nothing", async () => {
     const answer = await spielSpeichern({ id: SPIEL_ID, version: VERSION, changes: { mietpreis: "" } });
 
     expect(answer).toEqual({ ok: false, fieldErrors: { "changes.mietpreis": COPY.shared.field.required } });
-    expect(stand.gesendet).toEqual([]);
+    expect(stand.sent).toEqual([]);
   });
 
   it("places the write's refusal on the field that caused it, in the status line, or on the stale-page line", async () => {

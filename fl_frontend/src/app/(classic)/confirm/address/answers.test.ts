@@ -16,10 +16,10 @@ const held = vi.hoisted(() => ({
 
 vi.mock("next/headers", () => ({ headers: () => Promise.resolve(new Headers()) }));
 vi.mock("next/cache", () => ({ updateTag: () => undefined }));
-vi.mock("@/features/adresswechsel/konto", () => ({
+vi.mock("@/features/address-change/account", () => ({
   accountAtNewAddress: async ({ token }: { token: string }) => held.accountAtTheNewAddress && token === held.newLink,
 }));
-vi.mock("@/features/adresswechsel/mutations", async (original) => ({
+vi.mock("@/features/address-change/mutations", async (original) => ({
   ...(await original<object>()),
   postAddressChangeAnswer: async (payload: unknown) => {
     held.posted.push(payload);
@@ -27,7 +27,7 @@ vi.mock("@/features/adresswechsel/mutations", async (original) => ({
     return held.answered;
   },
 }));
-vi.mock("@/features/adresswechsel/umzug", () => ({
+vi.mock("@/features/address-change/umzug", () => ({
   runAddressChangeMoves: () => {
     held.carries += 1;
     return held.carry();

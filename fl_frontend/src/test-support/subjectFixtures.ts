@@ -24,9 +24,9 @@ export const NO_RECORDS: SubjectSession["subject"] = deepFrozen({
   schiedsrichter: [],
   unconfirmed: false,
   barred: false,
-  verwaltung: null,
+  admin_tier: null,
   granted_since: null,
-  inhaber_seit: null,
+  owner_since: null,
 });
 
 /**
@@ -52,7 +52,7 @@ export function answerAt(endpoint: string, held: LookupFixture): Record<string, 
     unconfirmed: subject.unconfirmed ?? false,
     account: account,
     barred: subject.barred ?? false,
-    verwaltung: subject.verwaltung ?? null,
+    admin_tier: subject.admin_tier ?? null,
   };
 }
 

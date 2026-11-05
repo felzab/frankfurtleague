@@ -1,6 +1,6 @@
 "use client";
 
-import { EINSEHBAR_VERWEHRT } from "@/features/adresswechsel/einsehbar";
+import { EINSEHBAR_VERWEHRT } from "@/features/address-change/einsehbar";
 import { ANTRAG_WAS } from "@/features/berechtigungen/constants";
 import { rollenLangform } from "@/features/bewerbungen/constants";
 import { SPERRE_ANSICHT_COPY, SPERRE_ANSICHT_VERWEISE, spieleNeuBesetzen } from "@/features/sperrliste/constants";
@@ -76,8 +76,8 @@ const EINTRAEGE: Eintraege = {
       };
     }),
   // At the seat's own season: the contacts editor addresses the selected season's three seats alone.
-  seats: (sitze) =>
-    sitze.map(({ team_id, saison_id, team_name, rolle, vorname, nachname }) => ({
+  seats: (seats) =>
+    seats.map(({ team_id, saison_id, team_name, rolle, vorname, nachname }) => ({
       text: `${rollenLangform([rolle])} bei ${team_name}, Saison ${saison_id}: ${nameOf(vorname, nachname)}`,
       verweise: [{ label: SPERRE_ANSICHT_VERWEISE.kontakte, href: withSaisonId(`/area/admin/kontakte/${team_id}`, saison_id) }],
     })),
@@ -116,8 +116,8 @@ const EINTRAEGE: Eintraege = {
           },
         ],
   // A change the tool refuses this reader carries no link there, its line saying where it opens instead.
-  address_change: (adresswechsel, saisonHref) =>
-    adresswechsel.map(({ address_change_id: adresswechsel_id, viewable_denied: einsehbar_verwehrt }) =>
+  address_change: (addressChange, saisonHref) =>
+    addressChange.map(({ address_change_id: adresswechsel_id, viewable_denied: einsehbar_verwehrt }) =>
       einsehbar_verwehrt === null
         ? {
             text: "Eine laufende Adressänderung auf diese Adresse",
@@ -132,41 +132,41 @@ const EINTRAEGE: Eintraege = {
     ),
   // Decided on the administrators page, where whoever may decide one finds it: no link reaches a single request there.
   approval_requests: (antraege) =>
-    antraege.map(({ rolle, verwaltung }) => ({
-      text: `${rolle === "betroffen" ? "Ein offener Antrag für diese Adresse" : "Ein offener Antrag, den diese Adresse gestellt hat"}: ${ANTRAG_WAS[verwaltung]}`,
+    antraege.map(({ rolle, admin_tier: admin_tier }) => ({
+      text: `${rolle === "betroffen" ? "Ein offener Antrag für diese Adresse" : "Ein offener Antrag, den diese Adresse gestellt hat"}: ${ANTRAG_WAS[admin_tier]}`,
       verweise: [],
     })),
 };
 
 /** One kind's records, its builder and its records correlated through the kind they share. */
-function eintraegeDer<Art extends keyof SperreAnsicht>(art: Art, ansicht: SperreAnsicht, saisonHref: SaisonHref): Eintrag[] {
-  return EINTRAEGE[art](ansicht[art], saisonHref);
+function eintraegeDer<Art extends keyof SperreAnsicht>(art: Art, view: SperreAnsicht, saisonHref: SaisonHref): Eintrag[] {
+  return EINTRAEGE[art](view[art], saisonHref);
 }
 
 /** What the address holds, in the ban's armed reveal ahead of the ban. */
-export function AdminSperreAnsichtList({ ansicht }: { ansicht: SperreAnsicht }) {
+export function AdminSperreAnsichtList({ view }: { view: SperreAnsicht }) {
   const saisonHref = useSaisonHref();
-  const eintraege = (Object.keys(EINTRAEGE) as (keyof SperreAnsicht)[]).flatMap((art) => eintraegeDer(art, ansicht, saisonHref));
+  const entries = (Object.keys(EINTRAEGE) as (keyof SperreAnsicht)[]).flatMap((art) => eintraegeDer(art, view, saisonHref));
   // The edit is asked only where a record has a tool for it. No administrator edits a registration, and a declined one
   // has nothing left for the ban to end: its sentence stands only where one is pending.
   const lead = [
     SPERRE_ANSICHT_COPY.lead,
-    ...(eintraege.some(({ verweise }) => verweise.length > 0) ? [SPERRE_ANSICHT_COPY.bearbeiten] : []),
-    ...(ansicht.registrierungen.some(({ status }) => status !== "declined") ? [SPERRE_ANSICHT_COPY.registrierungen] : []),
+    ...(entries.some(({ verweise }) => verweise.length > 0) ? [SPERRE_ANSICHT_COPY.bearbeiten] : []),
+    ...(view.registrierungen.some(({ status }) => status !== "declined") ? [SPERRE_ANSICHT_COPY.registrierungen] : []),
   ].join(" ");
 
   return (
     <div className="flex w-full flex-col gap-y-2">
       <h3 className={FORM_SECTION_HEADING_CLASSES}>{SPERRE_ANSICHT_COPY.heading}</h3>
 
-      {eintraege.length === 0 ? (
+      {entries.length === 0 ? (
         <p className={ZEILE_CLASSES}>{SPERRE_ANSICHT_COPY.leer}</p>
       ) : (
         <>
           <p className={ZEILE_CLASSES}>{lead}</p>
           <ul className={`${ZEILE_CLASSES} flex list-disc flex-col gap-y-2 pl-5`}>
             {/* Derived per answer and never reordered, which is what makes the index a key: two seats can read alike. */}
-            {eintraege.map(({ text, verweise }, stelle) => (
+            {entries.map(({ text, verweise }, stelle) => (
               <li key={stelle}>
                 <span className="flex flex-col gap-y-1">
                   {text}

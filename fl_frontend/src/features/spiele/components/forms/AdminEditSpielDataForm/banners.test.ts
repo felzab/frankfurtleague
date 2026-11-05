@@ -75,84 +75,84 @@ const ANFRAGE_IS_DUE_ROWS: unknown = [
   {
     fall: "a fixture set in full, three days out",
     anders: {},
-    gefragt: true,
+    asked: true,
   },
   {
     fall: "tomorrow",
     anders: {
       tage: 1,
     },
-    gefragt: true,
+    asked: true,
   },
   {
     fall: "the last day the pass asks about",
     anders: {
       tage: 21,
     },
-    gefragt: true,
+    asked: true,
   },
   {
     fall: "a day past the last the pass asks about",
     anders: {
       tage: 22,
     },
-    gefragt: false,
+    asked: false,
   },
   {
     fall: "today",
     anders: {
       tage: 0,
     },
-    gefragt: false,
+    asked: false,
   },
   {
     fall: "yesterday",
     anders: {
       tage: -1,
     },
-    gefragt: false,
+    asked: false,
   },
   {
     fall: "no date",
     anders: {
       tage: null,
     },
-    gefragt: false,
+    asked: false,
   },
   {
     fall: "no kick-off",
     anders: {
       uhrzeit: null,
     },
-    gefragt: false,
+    asked: false,
   },
   {
     fall: "no ground",
     anders: {
       spielort: null,
     },
-    gefragt: false,
+    asked: false,
   },
   {
     fall: "no first side",
     anders: {
       team1: null,
     },
-    gefragt: false,
+    asked: false,
   },
   {
     fall: "no second side",
     anders: {
       team2: null,
     },
-    gefragt: false,
+    asked: false,
   },
   {
     fall: "a lone goal count",
     anders: {
       tore: 2,
     },
-    gefragt: false,
+    asked: false,
   },
   {
     fall: "a lone shoot-out",
@@ -162,49 +162,49 @@ const ANFRAGE_IS_DUE_ROWS: unknown = [
         team2: 3,
       },
     },
-    gefragt: false,
+    asked: false,
   },
   {
     fall: "called off",
     anders: {
       sonderereignis: "ausgefallen",
     },
-    gefragt: false,
+    asked: false,
   },
   {
     fall: "a no-show",
     anders: {
       sonderereignis: "nichtantreten_team1",
     },
-    gefragt: false,
+    asked: false,
   },
   {
     fall: "abandoned",
     anders: {
       sonderereignis: "abgebrochen",
     },
-    gefragt: false,
+    asked: false,
   },
   {
     fall: "the second club gone before the day",
     anders: {
       austritt_tage: 1,
     },
-    gefragt: false,
+    asked: false,
   },
   {
     fall: "the second club gone on the day",
     anders: {
       austritt_tage: 3,
     },
-    gefragt: false,
+    asked: false,
   },
   {
     fall: "the second club gone after the day",
     anders: {
       austritt_tage: 4,
     },
-    gefragt: true,
+    asked: true,
   },
 ];
 
@@ -227,7 +227,7 @@ const ANFRAGE_IS_DUE = z
         sonderereignis: FLSonderereignisSchema.optional(),
         austritt_tage: z.int().optional(),
       }),
-      gefragt: z.boolean(),
+      asked: z.boolean(),
     }),
   )
   .parse(ANFRAGE_IS_DUE_ROWS);
@@ -634,14 +634,14 @@ describe("buildSpielBanners", () => {
   /* The case a window check alone gets wrong: no pass asks about a fixture whose day has come. The deadline's last
      day still raises it, the first day past it does not. */
   it("raises nothing for a date in the past or today, whatever else is true, and nothing past the window", () => {
-    for (const [datum, gespeichert] of [
+    for (const [datum, saved] of [
       [tagNach(-2), tagNach(30)],
       [tagNach(-2), tagNach(3)],
       [HEUTE, tagNach(30)],
       [tagNach(SPIEL_BESTAETIGUNG_FRIST_TAGE + 1), tagNach(30)],
       [null, tagNach(3)],
     ] as const) {
-      assert.ok(!sofort({ ansetzung: angesetzt(datum), storedAnsetzung: angesetzt(gespeichert) }), `raised for ${String(datum)}`);
+      assert.ok(!sofort({ ansetzung: angesetzt(datum), storedAnsetzung: angesetzt(saved) }), `raised for ${String(datum)}`);
     }
     assert.ok(
       sofort({ ansetzung: angesetzt(tagNach(SPIEL_BESTAETIGUNG_FRIST_TAGE)), storedAnsetzung: angesetzt(tagNach(30)) }),
@@ -656,12 +656,9 @@ describe("buildSpielBanners", () => {
 
   /* Every input of the stand moves it, so each mints afresh and warns where the date is near. */
   it("raises it for a save moving any one input of the Ansetzung", () => {
-    const gespeichert = angesetzt(tagNach(3));
+    const saved = angesetzt(tagNach(3));
     for (const anders of [{ uhrzeit: "18:00:00" }, { spielortId: "spielort-b" }, { team1Id: "team-c" }, { team2Id: "team-c" }] as const) {
-      assert.ok(
-        sofort({ ansetzung: { ...gespeichert, ...anders }, storedAnsetzung: gespeichert }),
-        `raised nothing for ${Object.keys(anders)[0]}`,
-      );
+      assert.ok(sofort({ ansetzung: { ...saved, ...anders }, storedAnsetzung: saved }), `raised nothing for ${Object.keys(anders)[0]}`);
     }
   });
 
@@ -671,7 +668,7 @@ describe("buildSpielBanners", () => {
   });
 
   /* Each row of the table the pass shares, through the banner: raised where the pass asks inside the deadline's days. */
-  for (const { fall, anders, gefragt } of ANFRAGE_IS_DUE) {
+  for (const { fall, anders, asked } of ANFRAGE_IS_DUE) {
     it(`raises it for a re-dated fixture, ${fall}, exactly where the pass asks inside the deadline's days`, () => {
       const tage = anders.tage === undefined ? 3 : anders.tage;
 
@@ -684,7 +681,7 @@ describe("buildSpielBanners", () => {
           sonderereignis: anders.sonderereignis ?? null,
           austrittTage: anders.austritt_tage === undefined ? [] : [tagNach(anders.austritt_tage)],
         }),
-      ).toBe(gefragt && tage !== null && tage <= SPIEL_BESTAETIGUNG_FRIST_TAGE);
+      ).toBe(asked && tage !== null && tage <= SPIEL_BESTAETIGUNG_FRIST_TAGE);
     });
   }
 
@@ -698,7 +695,7 @@ describe("buildSpielBanners", () => {
 describe("wirdAngefragt", () => {
   /* The editor's warning speaks of a request the pass would send, so it reads the pass's own conditions
      (`fl_backend/app/api/spielbestaetigungen/services.py :: anfrage_is_due`). */
-  for (const { fall, anders, gefragt } of ANFRAGE_IS_DUE) {
+  for (const { fall, anders, asked } of ANFRAGE_IS_DUE) {
     it(`asks about a fixture exactly where the pass does: ${fall}`, () => {
       expect(
         wirdAngefragt(zeilenAnsetzung(anders), {
@@ -709,7 +706,7 @@ describe("wirdAngefragt", () => {
           austrittTage: anders.austritt_tage === undefined ? [] : [tagNach(anders.austritt_tage)],
           today: HEUTE,
         }),
-      ).toBe(gefragt);
+      ).toBe(asked);
     });
   }
 });

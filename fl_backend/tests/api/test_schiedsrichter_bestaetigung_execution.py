@@ -34,7 +34,7 @@ from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError, DocumentNotFoundError
 from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SCHIEDSRICHTER_ID
-from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS
+from app.shared.schemas.bounds import MEDIA_MIN_AGE_YEARS
 from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.tokens import hash_token
 from tests import documents
@@ -211,15 +211,15 @@ async def resend(
 
 async def ban(database: AsyncDatabase, client: AsyncMongoClient, *, email: str) -> Any:
     return await ban_through_the_route(
-        database, client, email=email, grund="Wiederholte Falschangaben", von="admin@frankfurtleague.de", today=TODAY
+        database, client, email=email, grund="Wiederholte Falschangaben", by="admin@frankfurtleague.de", today=TODAY
     )
 
 
-async def ansicht(database: AsyncDatabase, token: str | None, *, today: str = TODAY) -> Any:
+async def view(database: AsyncDatabase, token: str | None, *, today: str = TODAY) -> Any:
     assert token is not None, "the write owed no link to open"
 
     return await get_confirmation_view(
-        ansicht_data=FLTokenPayload(token=token),
+        view_data=FLTokenPayload(token=token),
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         sperrliste=ban_list(database),
         today=today,
@@ -231,7 +231,7 @@ async def confirm(database: AsyncDatabase, client: AsyncMongoClient, token: str 
         "token": token,
         "geburtsdatum": AN_ADULTS_BIRTHDATE,
         "umfang": "kader_oeffentlich",
-        "medien": True,
+        "media": True,
         "text_versions": dict(TEXT_VERSIONS),
         **overrides,
     }
@@ -281,7 +281,7 @@ class TestTheCreateIsTheInvitation:
             response = await create(database, client)
             assert response.answer.confirmation is not None
 
-            return await ansicht(database, response.token)
+            return await view(database, response.token)
 
         view = on_a_league(mongo_replica_set_url, body, referees=[])
 
@@ -351,7 +351,7 @@ class TestACorrectedAddressReMintsAndRetiresTheOldLink:
             await correct(database, client, email=CORRECTED_EMAIL)
 
             with pytest.raises(APIError) as refused:
-                await ansicht(database, first.token)
+                await view(database, first.token)
 
             return refused.value
 
@@ -378,7 +378,7 @@ class TestACorrectedAddressReMintsAndRetiresTheOldLink:
             saved = await correct(database, client, email=CORRECTED_EMAIL)
 
             with pytest.raises(APIError) as old_link:
-                await ansicht(database, first.token)
+                await view(database, first.token)
 
             return saved, await stored(database), old_link.value
 
@@ -454,7 +454,7 @@ class TestTheReSend:
             await resend(database, client)
 
             with pytest.raises(APIError) as refused:
-                await ansicht(database, first.token)
+                await view(database, first.token)
 
             return refused.value
 
@@ -693,13 +693,13 @@ class TestTheConfirmation:
             "umfang": "kader_oeffentlich",
             "datum": TODAY,
             "confirmed_at": TODAY,
-            "medien": True,
-            "nachweis": {
-                "umfang": {"am": "2026-04-01T10:30:00+00:00", "text_version": TEXT_VERSIONS["umfang"]},
-                "medien": {"am": "2026-04-01T10:30:00+00:00", "text_version": TEXT_VERSIONS["medien"]},
+            "media": True,
+            "evidence": {
+                "umfang": {"at": "2026-04-01T10:30:00+00:00", "text_version": TEXT_VERSIONS["umfang"]},
+                "media": {"at": "2026-04-01T10:30:00+00:00", "text_version": TEXT_VERSIONS["media"]},
             },
         }
-        assert (response.umfang, response.medien, response.confirmed_at) == ("kader_oeffentlich", True, TODAY)
+        assert (response.umfang, response.media, response.confirmed_at) == ("kader_oeffentlich", True, TODAY)
 
     def test_a_second_press_is_refused(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -781,7 +781,7 @@ class TestTheConfirmation:
             await erased(database, client, EMAIL, germany_now=NOW)
 
             with pytest.raises(APIError) as refused:
-                await ansicht(database, minted.token)
+                await view(database, minted.token)
 
             return refused.value, await database[Collection.SCHIEDSRICHTER].count_documents({"_id": SCHIEDSRICHTER_OID})
 
@@ -799,14 +799,14 @@ class TestAWithheldNameReachesOneCollection:
     def test_the_scope_is_written_on_the_referees_own_row(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             minted = await resend(database, client)
-            await confirm(database, client, minted.token, umfang="intern", medien=False)
+            await confirm(database, client, minted.token, umfang="intern", media=False)
 
             return await stored(database)
 
         row = on_a_league(mongo_replica_set_url, body)
 
         assert row[EINWILLIGUNG_FELD]["umfang"] == "intern"
-        assert row[EINWILLIGUNG_FELD]["medien"] is False
+        assert row[EINWILLIGUNG_FELD]["media"] is False
 
     def test_the_fixture_they_officiated_is_byte_identical_afterwards(self, mongo_replica_set_url: str):
         """Seeded BEFORE the confirmation, or the comparison would be over a fixture the case created after it."""
@@ -814,7 +814,7 @@ class TestAWithheldNameReachesOneCollection:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             before = await stored_fixture(database)
             minted = await resend(database, client)
-            await confirm(database, client, minted.token, umfang="intern", medien=False)
+            await confirm(database, client, minted.token, umfang="intern", media=False)
 
             return before, await stored_fixture(database)
 
@@ -830,28 +830,28 @@ A_DAY_SHORT_OF_THE_MEDIA_AGE = "2008-04-02"
 
 
 class TestTheMediaAge:
-    """`medien_age` at the endpoint: the refusal is wired in, and judged before the write."""
+    """`media_age` at the endpoint: the refusal is wired in, and judged before the write."""
 
     def test_the_view_serves_the_age_the_page_offers_the_switch_from(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             minted = await resend(database, client)
 
-            return await ansicht(database, minted.token)
+            return await view(database, minted.token)
 
-        assert on_a_league(mongo_replica_set_url, body).medien_minimum_age == MEDIEN_MIN_AGE_YEARS
+        assert on_a_league(mongo_replica_set_url, body).media_minimum_age == MEDIA_MIN_AGE_YEARS
 
     def test_a_yes_a_day_short_of_the_media_age_is_refused_before_anything_is_written(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             minted = await resend(database, client)
 
             with pytest.raises(APIError) as refused:
-                await confirm(database, client, minted.token, geburtsdatum=A_DAY_SHORT_OF_THE_MEDIA_AGE, medien=True)
+                await confirm(database, client, minted.token, geburtsdatum=A_DAY_SHORT_OF_THE_MEDIA_AGE, media=True)
 
             return refused.value, await stored(database)
 
         refused, row = on_a_league(mongo_replica_set_url, body)
 
-        assert refused.error_code == Code.MEDIEN_AGE
+        assert refused.error_code == Code.MEDIA_AGE
         assert row.get("geburtsdatum") is None
         assert row.get(EINWILLIGUNG_FELD) is None
 
@@ -860,20 +860,20 @@ class TestTheMediaAge:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             minted = await resend(database, client)
-            await confirm(database, client, minted.token, geburtsdatum=AT_THE_MEDIA_AGE, medien=True)
+            await confirm(database, client, minted.token, geburtsdatum=AT_THE_MEDIA_AGE, media=True)
 
             return await stored(database)
 
-        assert on_a_league(mongo_replica_set_url, body)[EINWILLIGUNG_FELD]["medien"] is True
+        assert on_a_league(mongo_replica_set_url, body)[EINWILLIGUNG_FELD]["media"] is True
 
     def test_a_no_a_day_short_of_the_media_age_is_stored(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             minted = await resend(database, client)
-            await confirm(database, client, minted.token, geburtsdatum=A_DAY_SHORT_OF_THE_MEDIA_AGE, medien=False)
+            await confirm(database, client, minted.token, geburtsdatum=A_DAY_SHORT_OF_THE_MEDIA_AGE, media=False)
 
             return await stored(database)
 
-        assert on_a_league(mongo_replica_set_url, body)[EINWILLIGUNG_FELD]["medien"] is False
+        assert on_a_league(mongo_replica_set_url, body)[EINWILLIGUNG_FELD]["media"] is False
 
 
 class TestALinkToABarredAddress:
@@ -915,7 +915,7 @@ class TestALinkToABarredAddress:
             await ban(database, client, email=EMAIL)
             with pytest.raises(APIError):
                 await confirm(database, client, minted.token)
-            await database[Collection.SPERRLISTE].delete_many({})
+            await database[Collection.BAN_LIST].delete_many({})
             await confirm(database, client, minted.token)
 
             return await stored(database)
@@ -930,7 +930,7 @@ class TestALinkToABarredAddress:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             minted = await resend(database, client)
-            await database[Collection.SPERRLISTE].insert_one(documents.ban_document(EMAIL, bis=LAPSED))
+            await database[Collection.BAN_LIST].insert_one(documents.ban_document(EMAIL, until=LAPSED))
             await confirm(database, client, minted.token)
 
             return await stored(database)
@@ -975,7 +975,7 @@ class TestTheViewOfALinkToABarredAddress:
             minted = await resend(database, client)
             await ban(database, client, email=EMAIL)
 
-            return (await ansicht(database, minted.token)).state
+            return (await view(database, minted.token)).state
 
         assert on_a_league(mongo_replica_set_url, body) == "barred"
 
@@ -986,7 +986,7 @@ class TestTheViewOfALinkToABarredAddress:
             minted = await resend(database, client)
             await ban(database, client, email=BANNED_EMAIL)
 
-            return (await ansicht(database, minted.token)).state
+            return (await view(database, minted.token)).state
 
         assert on_a_league(mongo_replica_set_url, body) == "valid"
 
@@ -994,10 +994,10 @@ class TestTheViewOfALinkToABarredAddress:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, str]:
             minted = await resend(database, client)
             await ban(database, client, email=EMAIL)
-            barred = (await ansicht(database, minted.token)).state
-            await database[Collection.SPERRLISTE].delete_many({})
+            barred = (await view(database, minted.token)).state
+            await database[Collection.BAN_LIST].delete_many({})
 
-            return barred, (await ansicht(database, minted.token)).state
+            return barred, (await view(database, minted.token)).state
 
         assert on_a_league(mongo_replica_set_url, body) == ("barred", "valid")
 
@@ -1006,9 +1006,9 @@ class TestTheViewOfALinkToABarredAddress:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
             minted = await resend(database, client)
-            await database[Collection.SPERRLISTE].insert_one(documents.ban_document(EMAIL, bis=LAPSED))
+            await database[Collection.BAN_LIST].insert_one(documents.ban_document(EMAIL, until=LAPSED))
 
-            return (await ansicht(database, minted.token)).state
+            return (await view(database, minted.token)).state
 
         assert on_a_league(mongo_replica_set_url, body) == "valid"
 
@@ -1020,6 +1020,6 @@ class TestTheViewOfALinkToABarredAddress:
             await confirm(database, client, minted.token)
             await ban(database, client, email=EMAIL)
 
-            return (await ansicht(database, minted.token)).state
+            return (await view(database, minted.token)).state
 
         assert on_a_league(mongo_replica_set_url, body) == "barred"

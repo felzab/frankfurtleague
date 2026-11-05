@@ -82,7 +82,7 @@ def judged_as_a_proposal(refusal: WriteRefusal | None) -> WriteRefusal | None:
     openapi_extra=SAFE,
 )
 async def get_spielbestaetigung_view(
-    ansicht_data: Annotated[FLTokenPayload, Body()],
+    view_data: Annotated[FLTokenPayload, Body()],
     spielbestaetigungen_collection: SpielbestaetigungenReadCollection,
     spiele_collection: SpieleReadCollection,
     saison_teams_collection: SaisonTeamsReadCollection,
@@ -104,7 +104,7 @@ async def get_spielbestaetigung_view(
     Ansetzung, whose date and hour alone are served.
     """
 
-    token_hash = hash_token(ansicht_data.token)
+    token_hash = hash_token(view_data.token)
 
     # `find_one` rather than `pull_one_from_db`: a miss is this endpoint's own refusal, and no state term, so a spent link
     # is found and shown in its state.
@@ -124,10 +124,10 @@ async def get_spielbestaetigung_view(
     refuse(find_unknown_link_refusal(seat=None if lage is None else seat))
     assert lage is not None
     adresse = seat_adresse(lage=lage, spielbestaetigung_raw=row, seat=seat)
-    gesperrt = bool(await adressen_gesperrt(sperrliste, [] if adresse is None else [adresse]))
+    barred = bool(await adressen_gesperrt(sperrliste, [] if adresse is None else [adresse]))
     vorschlag_offen = await pull_vorschlag_offen(spielbestaetigungen_collection=spielbestaetigungen_collection, spielbestaetigung_raw=row)
 
-    zustand = zustand_of(spielbestaetigung_raw=row, lage=lage, today=today, barred=gesperrt, vorschlag_offen=vorschlag_offen)
+    state = zustand_of(spielbestaetigung_raw=row, lage=lage, today=today, barred=barred, vorschlag_offen=vorschlag_offen)
     antwort = row.get("antwort")
 
     if stand_moved(spielbestaetigung_raw=row, lage=lage):
@@ -145,13 +145,13 @@ async def get_spielbestaetigung_view(
         ansetzung = ansicht_ansetzung_of(lage.spiel)
 
     return FLSpielbestaetigungViewResponse(
-        state=zustand,
+        state=state,
         seite=seite_of(row),
         ansetzung=ansetzung,
         frist=str(row["frist"]),
         # Never the row's own proposal on `declined`: the page shows an answered link its answering role alone.
-        vorschlag=vorschlag_offen if zustand == "vorschlag" else None,
-        answered_by=antwort["von"] if zustand in ("zugesagt", "declined") and antwort is not None else None,
+        vorschlag=vorschlag_offen if state == "vorschlag" else None,
+        answered_by=antwort["von"] if state in ("zugesagt", "declined") and antwort is not None else None,
     )
 
 
@@ -191,7 +191,7 @@ async def post_spielbestaetigung(
 
     token_hash = hash_token(antwort_data.token)
     # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_gesperrt`).
-    massgebliche_saison_id = await sperrliste_saison(sperrliste)
+    governing_saison_id = await sperrliste_saison(sperrliste)
     vorschlag = (
         None
         if antwort_data.vorschlag is None
@@ -217,12 +217,12 @@ async def post_spielbestaetigung(
         # One snapshot with the row, and the fixture is removed with its rows in one transaction.
         assert lage is not None
         adresse = seat_adresse(lage=lage, spielbestaetigung_raw=row, seat=seat)
-        gesperrt = await adressen_gesperrt(
-            sperrliste, [] if adresse is None else [adresse], massgebliche_saison_id=massgebliche_saison_id, session=session
+        barred = await adressen_gesperrt(
+            sperrliste, [] if adresse is None else [adresse], governing_saison_id=governing_saison_id, session=session
         )
         # The ban alone is not asked again below: one committing after this read bars the next press, and an answer
         # given before it stands.
-        refuse(find_gesperrt_link_refusal(barred=bool(gesperrt)))
+        refuse(find_gesperrt_link_refusal(barred=bool(barred)))
 
         async def judge(gegen: AnsetzungLage, reads: AsyncClientSession | None) -> None:
             """Every other refusal, over this Ansetzung and reads under `reads`: asked in the transaction, then again outside it."""
@@ -282,7 +282,7 @@ async def post_spielbestaetigung(
 
         # Nothing judged is written here, so a move, a club's exit, a renamed seat, a re-dated matchday or a rival booking
         # landing under this transaction raises no conflict: all judged again outside it before answering.
-        jetzt = await pull_ansetzung_lage(
+        current = await pull_ansetzung_lage(
             spiele_collection=spiele_collection,
             saison_teams_collection=saison_teams_collection,
             spielbestaetigung_raw=row,
@@ -291,8 +291,8 @@ async def post_spielbestaetigung(
             session=None,
         )
         # An undraw removing the fixture deletes this row in its transaction, a write conflict while this one holds it.
-        assert jetzt is not None
-        await judge(jetzt, None)
+        assert current is not None
+        await judge(current, None)
 
         return FLSpielbestaetigungAntwortResponse(
             state=antwort_data.antwort, answered_by=FLSpielbestaetigungVonKontakt(art="kontakt", rolle=seat), vorschlag=vorschlag

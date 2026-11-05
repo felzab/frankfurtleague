@@ -121,14 +121,14 @@ class TestASpentLinkMeetsTheCodeThatNamesWhy:
             pytest.param({}, {"spiel_overrides": {"ergebnis": "2:1"}}, TODAY, Code.ANSETZUNG_DECIDED, id="a-result"),
             pytest.param({}, {"spiel_overrides": {"sonderereignis": "ausgefallen"}}, TODAY, Code.ANSETZUNG_DECIDED, id="called-off"),
             pytest.param(
-                {"antwort": ANSWERED, "closed": {"am": TODAY, "grund": "ansetzung_changed"}},
+                {"antwort": ANSWERED, "closed": {"at": TODAY, "grund": "ansetzung_changed"}},
                 {"spiel_overrides": {"uhrzeit": "19:00:00"}},
                 "2027-05-08",
                 Code.ANSETZUNG_ANSWERED,
                 id="answered-ahead-of-closed-late-and-moved",
             ),
             pytest.param(
-                {"closed": {"am": TODAY, "grund": "ansetzung_changed"}},
+                {"closed": {"at": TODAY, "grund": "ansetzung_changed"}},
                 {"spiel_overrides": {"uhrzeit": "19:00:00"}},
                 "2027-05-08",
                 Code.ANSETZUNG_CLOSED,
@@ -160,7 +160,7 @@ class TestASpentLinkMeetsTheCodeThatNamesWhy:
             refusal = find_spent_link_refusal(spielbestaetigung_raw=zeile(**row), lage=lage(**situation), today=today)
             return None if refusal is None else refusal.error_code
 
-        assert code_of({"closed": {"am": TODAY, "grund": "discarded"}}, {}) == Code.ANSETZUNG_CLOSED
+        assert code_of({"closed": {"at": TODAY, "grund": "discarded"}}, {}) == Code.ANSETZUNG_CLOSED
         assert code_of({}, {}, today="2027-05-08") == Code.ANSETZUNG_FRIST_PAST
         assert code_of({}, {"austritt": DATUM}) == Code.ANSETZUNG_DECIDED
 
@@ -184,7 +184,7 @@ class TestWhatAReopenedLinkShows:
                 {"antwort": ANSWERED}, {"spiel_overrides": {"uhrzeit": "19:00:00"}}, TODAY, False, None, "invalid", id="answered-then-moved"
             ),
             pytest.param(
-                {"antwort": ANSWERED, "closed": {"am": TODAY, "grund": "ansetzung_changed"}},
+                {"antwort": ANSWERED, "closed": {"at": TODAY, "grund": "ansetzung_changed"}},
                 {"spiel_overrides": {"uhrzeit": "19:00:00"}},
                 TODAY,
                 False,
@@ -196,7 +196,7 @@ class TestWhatAReopenedLinkShows:
                 {"antwort": ANSWERED}, {"spiel_overrides": {"ergebnis": "2:1"}}, TODAY, False, None, "zugesagt", id="answered-then-decided"
             ),
             pytest.param(
-                {"antwort": ANSWERED, "closed": {"am": AFTER_THE_DAY, "grund": "spiel_past"}},
+                {"antwort": ANSWERED, "closed": {"at": AFTER_THE_DAY, "grund": "spiel_past"}},
                 {},
                 AFTER_THE_DAY,
                 False,
@@ -211,11 +211,11 @@ class TestWhatAReopenedLinkShows:
             ),
             pytest.param({}, {"austritt": DATUM}, TODAY, False, None, "expired", id="a-club-left-by-the-day"),
             pytest.param(
-                {"closed": {"am": TODAY, "grund": "schiedsrichter_switched"}}, {}, TODAY, False, None, "invalid", id="referee-changed"
+                {"closed": {"at": TODAY, "grund": "schiedsrichter_switched"}}, {}, TODAY, False, None, "invalid", id="referee-changed"
             ),
-            pytest.param({"closed": {"am": TODAY, "grund": "spiel_past"}}, {}, TODAY, False, None, "expired", id="closed-otherwise"),
+            pytest.param({"closed": {"at": TODAY, "grund": "spiel_past"}}, {}, TODAY, False, None, "expired", id="closed-otherwise"),
             pytest.param(
-                {"closed": {"am": AFTER_THE_DAY, "grund": "spiel_past"}},
+                {"closed": {"at": AFTER_THE_DAY, "grund": "spiel_past"}},
                 {},
                 AFTER_THE_DAY,
                 False,
@@ -363,7 +363,7 @@ class TestTheLinkAndTheCloseReadOneVerdict:
         situated = lage(**situation)
         austritte = {} if "austritt" not in situation else {TEAM1: situation["austritt"]}
         grund = grund_to_close(row=zeile(antwort=antwort), spiel=situated.spiel, austritte=austritte, today=today)
-        closed = zeile(antwort=antwort, closed=None if grund is None else {"am": today, "grund": grund})
+        closed = zeile(antwort=antwort, closed=None if grund is None else {"at": today, "grund": grund})
 
         before = zustand_of(spielbestaetigung_raw=zeile(antwort=antwort), lage=situated, today=today, barred=False, vorschlag_offen=None)
         after = zustand_of(spielbestaetigung_raw=closed, lage=situated, today=today, barred=False, vorschlag_offen=None)
@@ -379,9 +379,9 @@ class TestTheLinkAndTheCloseReadOneVerdict:
 
         situated = lage(**situation)
         austritte = {} if "austritt" not in situation else {TEAM1: situation["austritt"]}
-        discarded = zeile(antwort=DISCARDED_DECLINE, closed={"am": TODAY, "grund": "discarded"})
+        discarded = zeile(antwort=DISCARDED_DECLINE, closed={"at": TODAY, "grund": "discarded"})
         grund = grund_to_end(row=discarded, spiel=situated.spiel, austritte=austritte, today=today)
-        ended = {**discarded, "closed": discarded["closed"] if grund is None else {"am": today, "grund": grund}}
+        ended = {**discarded, "closed": discarded["closed"] if grund is None else {"at": today, "grund": grund}}
 
         before = zustand_of(spielbestaetigung_raw=discarded, lage=situated, today=today, barred=False, vorschlag_offen=None)
         after = zustand_of(spielbestaetigung_raw=ended, lage=situated, today=today, barred=False, vorschlag_offen=None)

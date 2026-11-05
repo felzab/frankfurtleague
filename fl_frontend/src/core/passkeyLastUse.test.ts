@@ -31,9 +31,9 @@ const { auth } = await import("./auth/library.ts");
 
 const handler = toNextJsHandler(auth);
 
-const USER_ID = "eine-person";
-const ASSERTED = Buffer.from("der-benutzte-schluessel").toString("base64url");
-const OTHER = Buffer.from("der-andere-schluessel").toString("base64url");
+const USER_ID = "a-person";
+const ASSERTED = Buffer.from("the-used-key").toString("base64url");
+const OTHER = Buffer.from("the-other-key").toString("base64url");
 
 async function overHttp(path: string, { cookie, body }: { cookie?: string; body?: unknown } = {}): Promise<Response> {
   const headers: Record<string, string> = { ...ORIGIN, origin: "http://localhost:3000" };

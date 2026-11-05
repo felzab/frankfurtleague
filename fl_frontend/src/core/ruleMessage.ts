@@ -41,7 +41,7 @@ const PATTERNED = {
   kontakt_telefon_twice: () => field.taken,
   // A no-show's report carries no play: the league composes its goals, and nobody scored them.
   nichtantreten_with_tore: () => field.without(COPY.shared.tore),
-  nichtantreten_with_torschuetzen: () => field.without(COPY.verwaltung.spiel.torschuetzen),
+  nichtantreten_with_torschuetzen: () => field.without(COPY.admin.spiel.torschuetzen),
 } satisfies Readonly<Record<string, (context: Context) => Copy | undefined>>;
 
 /** Every rule a refused payload can name that the catalogue words: by a pattern, or by `SERVER_COPY.ruleLine`'s sentence. */

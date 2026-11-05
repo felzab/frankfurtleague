@@ -42,7 +42,7 @@ export type SpieltagPhaseProgress = {
   /** Matchdays the season holds in this phase. */
   angelegt: number;
   /** How many the season's rules imply. Zero for a phase this season's bracket does not reach. */
-  erwartet: number;
+  expected: number;
 };
 
 /**
@@ -68,6 +68,6 @@ export function buildSpieltagPhaseProgress(
   return SAISON_PHASE_OPTIONS.map((phase) => ({
     phase,
     angelegt: heldByPhase.get(phase) ?? 0,
-    erwartet: expectedByPhase.get(phase) ?? 0,
+    expected: expectedByPhase.get(phase) ?? 0,
   }));
 }

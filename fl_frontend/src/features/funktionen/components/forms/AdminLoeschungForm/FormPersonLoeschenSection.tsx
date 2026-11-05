@@ -94,7 +94,7 @@ export function FormPersonLoeschenSection() {
   const adresse = gelesen?.adresse ?? "";
   // The API holds the erasure of an address holding a grant to the enrolment's window: the step-up's alone would
   // meet its refusal, and the next press would ask nothing again.
-  const haeltZugang = gelesen?.status === "read" && gelesen.ansicht.verwaltung !== null;
+  const haeltZugang = gelesen?.status === "read" && gelesen.ansicht.admin_tier !== null;
   const { confirm, field, reason } = useTypedAddressConfirm(adresse, { stepUp: haeltZugang ? "enrolment" : true });
   const { isConfirming, isPending } = confirm;
 

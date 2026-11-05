@@ -16,13 +16,13 @@ from pydantic import SecretStr
 from app.core.codes import Code
 from app.core.exceptions import WriteRefusal
 from app.shared.folding import ban_key, sign_in_identifier
-from app.shared.schemas.bounds import SAISON_ID_LENGTH, SPERRE_DURATION_SAISONS
+from app.shared.schemas.bounds import BAN_DURATION_SAISONS, SAISON_ID_LENGTH
 from app.shared.sub_keys import derive_sub_key
 
 # One label per purpose: the same master keys the action log's pseudonyms
 # (`app/core/security.py :: ACTOR_PSEUDONYM_VERSION`), and a mistake in one must not read the other.
 # Not a rotation scheme.
-SPERRLISTE_SCHLUESSEL_VERSION: Final = "sperrliste-v1"
+SPERRLISTE_SCHLUESSEL_VERSION: Final = "ban-list-v1"
 
 
 def adresse_hash(address: str, *, key: SecretStr) -> str:
@@ -46,8 +46,8 @@ def withheld_actor(actor: str | None, barred: Collection[str]) -> str | None:
     return actor
 
 
-def compose_gesperrt_bis_saison_id(*, massgebliche_saison_id: str) -> str:
-    """The last season a ban entered now still covers, `SPERRE_DURATION_SAISONS` past the reference season.
+def compose_gesperrt_bis_saison_id(*, governing_saison_id: str) -> str:
+    """The last season a ban entered now still covers, `BAN_DURATION_SAISONS` past the reference season.
 
     Raises rather than composing a bound nothing can compare: `address_is_gesperrt` orders two of
     these as STRINGS, which holds only at one width.
@@ -56,30 +56,30 @@ def compose_gesperrt_bis_saison_id(*, massgebliche_saison_id: str) -> str:
     # `isascii()` beside `isdigit()`, which alone is true of Arabic-Indic and fullwidth digits: `int`
     # reads those as a year and returns an ASCII bound that sorts nowhere near the id it came from
     # (`app/api/bewerbungen/services.py :: next_saison_id`).
-    if not (massgebliche_saison_id.isascii() and massgebliche_saison_id.isdigit() and len(massgebliche_saison_id) == SAISON_ID_LENGTH):
+    if not (governing_saison_id.isascii() and governing_saison_id.isdigit() and len(governing_saison_id) == SAISON_ID_LENGTH):
         raise ValueError(f"a ban is bounded against a season id of {SAISON_ID_LENGTH} ASCII digits, and this league's is not one")
 
-    bound = f"{int(massgebliche_saison_id) + SPERRE_DURATION_SAISONS:0{SAISON_ID_LENGTH}d}"
+    bound = f"{int(governing_saison_id) + BAN_DURATION_SAISONS:0{SAISON_ID_LENGTH}d}"
 
     # The ANSWER's width, where the clause above guards the input's: the format widens rather than
     # truncating, and a wider bound sorts nowhere near the ids it is compared with.
     if len(bound) != SAISON_ID_LENGTH:
-        raise ValueError(f"a bound {SPERRE_DURATION_SAISONS} seasons past {massgebliche_saison_id} needs over {SAISON_ID_LENGTH} digits")
+        raise ValueError(f"a bound {BAN_DURATION_SAISONS} seasons past {governing_saison_id} needs over {SAISON_ID_LENGTH} digits")
 
     return bound
 
 
-def find_keine_saison_refusal(*, massgebliche_saison_id: str | None) -> WriteRefusal | None:
-    """`sperrliste_no_saison`: while no season is running there is nothing to count five seasons from.
+def find_keine_saison_refusal(*, governing_saison_id: str | None) -> WriteRefusal | None:
+    """`ban_list_no_saison`: while no season is running there is nothing to count five seasons from.
 
     A ban written there would need an unbounded row, which is the shape the lapse exists to refuse.
     """
 
-    if massgebliche_saison_id is not None:
+    if governing_saison_id is not None:
         return None
 
     return WriteRefusal(
-        error_code=Code.SPERRLISTE_NO_SAISON,
+        error_code=Code.BAN_LIST_NO_SAISON,
         status=HTTPStatus.CONFLICT,
     )
 
@@ -102,21 +102,21 @@ def berechtigte_hashes(administrators: Iterable[str], *, key: SecretStr) -> set[
 
     hashes = (stored_adresse_hash(administrator, key=key) for administrator in administrators)
 
-    return {gehasht for gehasht in hashes if gehasht is not None}
+    return {hashed for hashed in hashes if hashed is not None}
 
 
-def find_verwaltung_refusal(*, gehasht: str, berechtigt: set[str]) -> WriteRefusal | None:
-    """`sperrliste_verwaltung`: the address holds a grant in `berechtigungen`, which is revoked first.
+def find_verwaltung_refusal(*, hashed: str, granted: set[str]) -> WriteRefusal | None:
+    """`ban_list_admin`: the address holds a grant in `berechtigungen`, which is revoked first.
 
     The target's state, so 409: the ban is refused for what the address is, and revoking the grant
     is what changes it.
     """
 
-    if gehasht not in berechtigt:
+    if hashed not in granted:
         return None
 
     return WriteRefusal(
-        error_code=Code.SPERRLISTE_VERWALTUNG,
+        error_code=Code.BAN_LIST_ADMIN,
         status=HTTPStatus.CONFLICT,
     )
 

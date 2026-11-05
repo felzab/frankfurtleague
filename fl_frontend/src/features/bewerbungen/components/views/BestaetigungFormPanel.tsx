@@ -44,13 +44,13 @@ import type { CalendarDate } from "@internationalized/date";
 
 /** What one press ends in, handed up to the page that swaps the form for the panel. */
 export type BestaetigungAbschluss =
-  | { zustand: "erfolg"; geburtsdatum: string | null; whatsapp: boolean; medien: boolean }
+  | { zustand: "erfolg"; geburtsdatum: string | null; whatsapp: boolean; media: boolean }
   | { zustand: "widersprochen-neu" }
   // `ansicht` is the read the route made after the refusal, where it found a closed season.
   | { zustand: LinkZustand | "saison_vorbei"; ansicht?: FLBewerbungEinwilligungViewResponse };
 
 type EinwilligungAntwort =
-  | { success: true; ergebnis: "bestaetigt" | "abgelehnt"; geburtsdatum: string | null; whatsapp: boolean; medien: boolean }
+  | { success: true; ergebnis: "bestaetigt" | "abgelehnt"; geburtsdatum: string | null; whatsapp: boolean; media: boolean }
   | (PublicEnvelope & { success: false; zustand?: LinkZustand | "saison_vorbei"; ansicht?: FLBewerbungEinwilligungViewResponse });
 
 /**
@@ -65,14 +65,14 @@ const geburtsdatumHinweis = (mindestalter: number): string =>
   `Für Deine Bestätigung musst Du mindestens ${String(mindestalter)} Jahre alt sein. Das Datum wird mit Deinem Eintrag gespeichert.`;
 
 /** The date mid-entry is a string, `""` being the empty picker; the judged shape is the payload's. */
-type Entwurf = { geburtsdatum: string; whatsapp: boolean; medien: boolean };
+type Entwurf = { geburtsdatum: string; whatsapp: boolean; media: boolean };
 
 const beurteilt = (entwurf: Entwurf, medienAngeboten: boolean) => ({
   geburtsdatum: entwurf.geburtsdatum,
   whatsapp: entwurf.whatsapp,
   // Never the draft's own `true` where no switch stands: one given before the date moved below the
   // media age would send a consent this page withheld.
-  medien: medienAngeboten && entwurf.medien,
+  media: medienAngeboten && entwurf.media,
 });
 
 /**
@@ -176,17 +176,17 @@ function BestaetigungAngaben({
             className="flex w-full flex-col gap-y-1"
             name="medien"
             isDisabled={isDisabled}
-            isSelected={entwurf.medien}
-            onChange={(medien) => onEntwurf({ ...entwurf, medien: medien })}>
+            isSelected={entwurf.media}
+            onChange={(media) => onEntwurf({ ...entwurf, media: media })}>
             <Switch.Content className={panel.switchContent()}>
-              {SEAT_WORDINGS.medien.label}
+              {SEAT_WORDINGS.media.label}
               <Switch.Control className={panel.switchControl()}>
                 <Switch.Thumb />
               </Switch.Control>
             </Switch.Content>
           </Switch>
         )}
-        {medienAngeboten && <EinwilligungZeile line={SEAT_WORDINGS.medien.line} />}
+        {medienAngeboten && <EinwilligungZeile line={SEAT_WORDINGS.media.line} />}
       </section>
     </>
   );
@@ -287,7 +287,7 @@ export function BestaetigungFormPanel({
   onAbschluss: (abschluss: BestaetigungAbschluss) => void;
 }) {
   const [isPending, startSending] = useTransition();
-  const [entwurf, setEntwurf] = useState<Entwurf>({ geburtsdatum: "", whatsapp: false, medien: false });
+  const [entwurf, setEntwurf] = useState<Entwurf>({ geburtsdatum: "", whatsapp: false, media: false });
   const widerspruch = useTwoPressConfirm();
   const { isConfirming, press } = widerspruch;
 
@@ -334,7 +334,7 @@ export function BestaetigungFormPanel({
     startTransition(() => {
       if (!antwort.success) {
         reportRefusedConfirmation(antwort, {
-          onZustand: (zustand) => onAbschluss({ zustand, ansicht: antwort.ansicht }),
+          onState: (zustand) => onAbschluss({ zustand, ansicht: antwort.ansicht }),
           // The hook owns the press's one toast: none where a field shows the refusal.
           onRefusal: () =>
             reportSubmitFailure(
@@ -354,7 +354,7 @@ export function BestaetigungFormPanel({
       setSubmitFieldErrors({}, {});
       onAbschluss(
         antwort.ergebnis === "bestaetigt"
-          ? { zustand: "erfolg", geburtsdatum: antwort.geburtsdatum, whatsapp: antwort.whatsapp, medien: antwort.medien }
+          ? { zustand: "erfolg", geburtsdatum: antwort.geburtsdatum, whatsapp: antwort.whatsapp, media: antwort.media }
           : { zustand: "widersprochen-neu" },
       );
     });

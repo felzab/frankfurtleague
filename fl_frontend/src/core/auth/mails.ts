@@ -4,8 +4,8 @@ import { symmetricEncrypt } from "better-auth/crypto";
 
 import { now } from "../clock";
 import { authSecret } from "../config";
+import { ERASURE_LINK_VALID_HOURS } from "../erasureEmail";
 import { outboxPostSignIn } from "../generated/client/sdk";
-import { ERASURE_LINK_VALID_HOURS } from "../loeschungEmail";
 import { logger } from "../logging";
 import { ROUTES } from "../routes";
 import { HOUR_MS } from "../timeUnits";
@@ -21,14 +21,14 @@ import type { FLOutboxSignInPayload, FLPasskeyDataArt } from "../generated/clien
  */
 export async function oweSignInMail(
   an: string,
-  daten: FLOutboxSignInPayload["data"],
-  geheim?: { readonly wert: string; readonly gueltigMs: number },
+  data: FLOutboxSignInPayload["data"],
+  secret?: { readonly value: string; readonly validMs: number },
 ): Promise<void> {
   await outboxPostSignIn({
     an: an,
-    data: daten,
-    secret: geheim === undefined ? null : await symmetricEncrypt({ key: authSecret(), data: geheim.wert }),
-    valid_until: geheim === undefined ? null : new Date(now().getTime() + geheim.gueltigMs).toISOString(),
+    data: data,
+    secret: secret === undefined ? null : await symmetricEncrypt({ key: authSecret(), data: secret.value }),
+    valid_until: secret === undefined ? null : new Date(now().getTime() + secret.validMs).toISOString(),
   });
 }
 
@@ -58,5 +58,5 @@ export async function notifyPasskeyRemoved(email: string): Promise<void> {
  * library swallows a throw from here, logging it.
  */
 export async function sendDeletionLink({ user, token }: { user: { email: string }; token: string }): Promise<void> {
-  await oweSignInMail(user.email, { art: "account_erasure" }, { wert: token, gueltigMs: ERASURE_LINK_VALID_HOURS * HOUR_MS });
+  await oweSignInMail(user.email, { art: "account_erasure" }, { value: token, validMs: ERASURE_LINK_VALID_HOURS * HOUR_MS });
 }

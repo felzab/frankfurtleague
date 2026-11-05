@@ -53,7 +53,7 @@ async function resolveBewerbungTeamName(bewerbung: FLBewerbung): Promise<string 
 async function kollisionsHerkunft(error: unknown, bewerbungId: string): Promise<BewerbungHerkunft | null> {
   if (!(error instanceof APIBadStatusError) || error.serverErrorCode !== "duplicate_key") return null;
 
-  const gelesen = await getBewerbungById(bewerbungId).catch((failed: unknown) => {
+  const read = await getBewerbungById(bewerbungId).catch((failed: unknown) => {
     // A redirect the read's admin guard threw is a navigation, never a failed read.
     unstable_rethrow(failed);
     // Logged and settled, a contract break included: only the refusal's wording rests on this read.
@@ -61,7 +61,7 @@ async function kollisionsHerkunft(error: unknown, bewerbungId: string): Promise<
     return null;
   });
 
-  return gelesen === null ? null : bewerbungHerkunft(gelesen.bewerbung);
+  return read === null ? null : bewerbungHerkunft(read.bewerbung);
 }
 
 /** What a decision tells the administrator about its mails, which the write owed every person of the application. */
@@ -165,11 +165,11 @@ export async function einwilligungErneutSendenAction(rawPayload: { id: string; r
     }
 
     // BEFORE the write: nothing has been written yet, so a press this application cannot answer costs no live link.
-    const gelesen = await getBewerbungById(validated.data.id);
+    const read = await getBewerbungById(validated.data.id);
 
-    if (gelesen === null) return { success: false, error: BEWERBUNG_WEG };
+    if (read === null) return { success: false, error: BEWERBUNG_WEG };
 
-    const { bewerbung } = gelesen;
+    const { bewerbung } = read;
     const person = bewerbung.kontakte[validated.data.rolle];
 
     if (person === null) return { success: false, error: SITZ_LEER };
@@ -205,11 +205,11 @@ export async function kontaktEmailKorrigierenAction(
     }
 
     // BEFORE the write, as the re-send reads.
-    const gelesen = await getBewerbungById(validated.data.id);
+    const read = await getBewerbungById(validated.data.id);
 
-    if (gelesen === null) return { success: false, error: BEWERBUNG_WEG };
-    if (gelesen.bewerbung.kontakte[validated.data.rolle] === null) return { success: false, error: SITZ_LEER };
-    if ((await resolveBewerbungTeamName(gelesen.bewerbung)) === null) return { success: false, error: KEIN_TEAM };
+    if (read === null) return { success: false, error: BEWERBUNG_WEG };
+    if (read.bewerbung.kontakte[validated.data.rolle] === null) return { success: false, error: SITZ_LEER };
+    if ((await resolveBewerbungTeamName(read.bewerbung)) === null) return { success: false, error: KEIN_TEAM };
 
     let korrekturOperation;
     try {
@@ -240,10 +240,10 @@ export async function besetzeKontaktSitzAction(
     }
 
     // BEFORE the write, as both repairs read: the school's name is what the link's mail names.
-    const gelesen = await getBewerbungById(validated.data.id);
+    const read = await getBewerbungById(validated.data.id);
 
-    if (gelesen === null) return { success: false, error: BEWERBUNG_WEG };
-    if ((await resolveBewerbungTeamName(gelesen.bewerbung)) === null) return { success: false, error: KEIN_TEAM };
+    if (read === null) return { success: false, error: BEWERBUNG_WEG };
+    if ((await resolveBewerbungTeamName(read.bewerbung)) === null) return { success: false, error: KEIN_TEAM };
 
     let sitzOperation;
     try {

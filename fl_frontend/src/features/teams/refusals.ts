@@ -132,7 +132,7 @@ export function mapReplacementRefusal(error: unknown): string | null {
     return "Diese Saison hat inzwischen begonnen. Trage für das ausscheidende Team stattdessen unten auf seiner eigenen Team-Seite einen Austritt ein.";
   }
   // Before the start, so a result entered early: the replacement moves no goals and would hand it to the incoming club.
-  if (error.serverErrorCode === "sides_taken_place") return SERVER_COPY.verwaltung.replacementSidesTakenPlace;
+  if (error.serverErrorCode === "sides_taken_place") return SERVER_COPY.admin.replacementSidesTakenPlace;
   if (error.serverErrorCode === "replace_incoming_already_entered") {
     // PLATZ and never „spielt“ — the condition is a `saison_teams` row of ANY kind, and a withdrawn
     // club still holds one.

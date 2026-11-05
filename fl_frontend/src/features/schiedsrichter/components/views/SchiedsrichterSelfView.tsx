@@ -32,9 +32,9 @@ export function SchiedsrichterSelfView({
       <div className="mx-auto flex w-full max-w-page flex-col gap-6">
         <SchiedsrichterEinsaetzeSection einsaetze={einsaetze} />
         <SchiedsrichterSpielberichteSection spiele={spielberichte} />
-        {schiedsrichter.map((eintrag) => (
+        {schiedsrichter.map((entry) => (
           <section
-            key={eintrag.schiedsrichter_id}
+            key={entry.schiedsrichter_id}
             className={panel.root()}>
             <div className={panel.header()}>
               <PanelHeading
@@ -43,7 +43,7 @@ export function SchiedsrichterSelfView({
               />
             </div>
             <div className={panel.body()}>
-              <SchiedsrichterAngaben eintrag={eintrag} />
+              <SchiedsrichterAngaben eintrag={entry} />
 
               <p className="fluid-sm font-medium text-foreground">
                 Was von Dir im Spielplan und auf der Website stehen darf, änderst Du unter{" "}

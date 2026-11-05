@@ -12,13 +12,13 @@ function el(tag: string, attributes: Record<string, string | number> = {}, ...ch
 }
 
 /** A control the press can rest on, named as a reader hears it. */
-const button = (name: string, slot = "loeschen"): HTMLElement => el("button", { ...focusSlot(slot), type: "button" }, name);
+const button = (name: string, slot = "erase"): HTMLElement => el("button", { ...focusSlot(slot), type: "button" }, name);
 
 /** A section holding a heading and one row per key, each row holding its delete control. */
 function list(keys: readonly string[]): HTMLElement {
   return el(
     "section",
-    focusSection("liste"),
+    focusSection("list"),
     el("h2", FOCUS_HEADING, "Passkeys"),
     el("ul", {}, ...keys.map((key) => el("li", focusRow(key), button(`${key} löschen`)))),
   );
@@ -131,7 +131,7 @@ describe("where a landed write's focus goes", () => {
     const landing = focusAfterWrite(pressed("a löschen"));
 
     landing.landed();
-    document.querySelector(`[data-focus-section="liste"]`)?.remove();
+    document.querySelector(`[data-focus-section="list"]`)?.remove();
     await settle();
 
     assert.ok(document.activeElement === document.querySelector("h2"), `the focus is on „${focused()}“ rather than the heading`);
@@ -160,7 +160,7 @@ describe("where a landed write's focus goes", () => {
       ?.replaceChildren(
         el(
           "div",
-          focusSlot("loeschen"),
+          focusSlot("erase"),
           el("div", { inert: "" }, el("button", { type: "button", disabled: "" }, "a löschen")),
           el("div", { tabIndex: 0 }, "Grund"),
         ),
@@ -178,7 +178,7 @@ describe("where a landed write's focus goes", () => {
     const overlay = el("div", { tabIndex: 0 }, "Grund");
     document
       .querySelector("li")
-      ?.replaceChildren(el("div", focusSlot("loeschen"), el("div", { inert: "" }, el("button", { type: "button" }, "a löschen")), overlay));
+      ?.replaceChildren(el("div", focusSlot("erase"), el("div", { inert: "" }, el("button", { type: "button" }, "a löschen")), overlay));
     await settle();
 
     assert.ok(document.activeElement === overlay, `the focus is on „${focused()}“ rather than the overlay`);
@@ -188,7 +188,7 @@ describe("where a landed write's focus goes", () => {
   it("looks for rows in the pressed control's own section, never in one nested inside it", async () => {
     document.body.append(list(["a", "b"]));
     document
-      .querySelector(`[data-focus-section="liste"]`)
+      .querySelector(`[data-focus-section="list"]`)
       ?.prepend(el("section", focusSection("innen"), el("div", focusRow("b"), button("innen b löschen"))));
     const landing = focusAfterWrite(pressed("a löschen"));
 

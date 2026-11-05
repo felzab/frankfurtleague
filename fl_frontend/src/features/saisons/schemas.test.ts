@@ -16,8 +16,8 @@ const create = (overrides: Partial<Record<keyof FLSaisonRules, unknown>> = {}) =
   end_date: "2026-06-30",
   // Present on every case: each key is required with no default, so leaving one out would refuse
   // each payload below on that window and tell nobody which rule was under test.
-  bewerbung: { offen: true, von: "2025-05-01", bis: "2025-06-30" },
-  registrierung: { offen: true, von: "2025-07-01", bis: "2025-08-15" },
+  bewerbung: { offen: true, start: "2025-05-01", end: "2025-06-30" },
+  registrierung: { offen: true, von: "2025-07-01", end: "2025-08-15" },
   rules: { ...rules, ...overrides },
 });
 
@@ -61,7 +61,7 @@ describe("FLPostSaisonPayloadSchema", () => {
       expect(pathsRefused(FLPostSaisonPayloadSchema, draft), `${String(number_of_gruppen)} x ${String(qualifiers_per_gruppe)}`).toStrictEqual([
         "rules",
       ]);
-      expect(messagesRefused(FLPostSaisonPayloadSchema, draft)).toStrictEqual([COPY.verwaltung.saison.bracketImpossible]);
+      expect(messagesRefused(FLPostSaisonPayloadSchema, draft)).toStrictEqual([COPY.admin.saison.bracketImpossible]);
     }
   });
 
@@ -123,31 +123,31 @@ describe("FLPatchSaisonPayloadSchema", () => {
   });
 
   it("refuses a window that ends before it opens, under the field the admin has to fix", () => {
-    const reversed = { ...create(), bewerbung: { offen: true, von: "2025-06-30", bis: "2025-05-01" } };
+    const reversed = { ...create(), bewerbung: { offen: true, start: "2025-06-30", end: "2025-05-01" } };
 
-    expect(pathsRefused(FLPatchSaisonPayloadSchema, reversed)).toStrictEqual(["bewerbung.bis"]);
+    expect(pathsRefused(FLPatchSaisonPayloadSchema, reversed)).toStrictEqual(["bewerbung.end"]);
   });
 
   it("judges the window apart from the season, so one may open long before the season starts", () => {
-    const early = { ...create(), bewerbung: { offen: false, von: "2024-01-01", bis: "2024-02-01" } };
+    const early = { ...create(), bewerbung: { offen: false, start: "2024-01-01", end: "2024-02-01" } };
 
     expect(pathsRefused(FLPatchSaisonPayloadSchema, early)).toStrictEqual([]);
   });
 
   it("names each empty date of a half-entered window, which is what the panel renders on the field", () => {
-    const halfEntered = { ...create(), bewerbung: { offen: false, von: "", bis: "" } };
+    const halfEntered = { ...create(), bewerbung: { offen: false, start: "", end: "" } };
 
-    expect(pathsRefused(FLPatchSaisonPayloadSchema, halfEntered)).toStrictEqual(["bewerbung.von", "bewerbung.bis"]);
+    expect(pathsRefused(FLPatchSaisonPayloadSchema, halfEntered)).toStrictEqual(["bewerbung.start", "bewerbung.end"]);
   });
 
   it("refuses a reversed registration window under its own field, so the two panels never share a message", () => {
-    const reversed = { ...create(), registrierung: { offen: true, von: "2025-08-15", bis: "2025-07-01" } };
+    const reversed = { ...create(), registrierung: { offen: true, von: "2025-08-15", end: "2025-07-01" } };
 
-    expect(pathsRefused(FLPatchSaisonPayloadSchema, reversed)).toStrictEqual(["registrierung.bis"]);
+    expect(pathsRefused(FLPatchSaisonPayloadSchema, reversed)).toStrictEqual(["registrierung.end"]);
   });
 
   it("words that refusal for the registration window rather than the application one", () => {
-    const reversed = { ...create(), registrierung: { offen: true, von: "2025-08-15", bis: "2025-07-01" } };
+    const reversed = { ...create(), registrierung: { offen: true, von: "2025-08-15", end: "2025-07-01" } };
 
     expect(messagesRefused(FLPatchSaisonPayloadSchema, reversed)).toStrictEqual([
       "Das Ende darf nicht vor dem Beginn der Registrierungsfrist liegen.",
@@ -155,13 +155,13 @@ describe("FLPatchSaisonPayloadSchema", () => {
   });
 
   it("names each empty date of a half-entered registration window, as the application window's case does", () => {
-    const halfEntered = { ...create(), registrierung: { offen: false, von: "", bis: "" } };
+    const halfEntered = { ...create(), registrierung: { offen: false, von: "", end: "" } };
 
-    expect(pathsRefused(FLPatchSaisonPayloadSchema, halfEntered)).toStrictEqual(["registrierung.von", "registrierung.bis"]);
+    expect(pathsRefused(FLPatchSaisonPayloadSchema, halfEntered)).toStrictEqual(["registrierung.von", "registrierung.end"]);
   });
 
   it("judges the two windows apart, so one may run long after the other has closed", () => {
-    const later = { ...create(), registrierung: { offen: true, von: "2026-01-01", bis: "2026-02-01" } };
+    const later = { ...create(), registrierung: { offen: true, von: "2026-01-01", end: "2026-02-01" } };
 
     expect(pathsRefused(FLPatchSaisonPayloadSchema, later)).toStrictEqual([]);
   });

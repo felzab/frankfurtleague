@@ -20,7 +20,7 @@ import type { SaisonFieldPath } from "@/features/saisons/saisonDraftStatus";
  * deadline nobody chose**, so two empty strings stand instead and the payload schema refuses each by
  * name until the admin picks it.
  */
-const NEW_WINDOW: FLSaisonBewerbung = { offen: false, von: "", bis: "" };
+const NEW_WINDOW: FLSaisonBewerbung = { offen: false, start: "", end: "" };
 
 /** Names the date pair for a screen reader: the label above it governs the pair, not either end. */
 const FRIST_LABEL_ID = "bewerbungsfrist";
@@ -50,8 +50,8 @@ export function FormBewerbungSection({
 
   // Each end bounds the other's calendar, so a reversed span cannot be PICKED. One typed in is
   // `windowEndsAfterItOpens`'s to refuse, and that refusal lands on `bis` whichever end moved.
-  const von = bewerbung === null ? null : asCalendarDate(bewerbung.von);
-  const bis = bewerbung === null ? null : asCalendarDate(bewerbung.bis);
+  const von = bewerbung === null ? null : asCalendarDate(bewerbung.start);
+  const bis = bewerbung === null ? null : asCalendarDate(bewerbung.end);
 
   return (
     <section className={panel.root()}>
@@ -102,21 +102,21 @@ export function FormBewerbungSection({
                 aria-labelledby={FRIST_LABEL_ID}
                 className={FIELD_PAIR_CLASSES}>
                 <AppDatePicker
-                  name="bewerbung.von"
+                  name="bewerbung.start"
                   calendarLabel="Beginn der Bewerbungsfrist auswählen"
                   label={<Label className={FIELD_LABEL_CLASSES}>Beginn</Label>}
                   value={von}
-                  onChange={(next) => onBewerbungChange({ ...bewerbung, von: next?.toString() ?? "" })}
-                  onBlur={() => onFieldLeft(["bewerbung.von"])}
+                  onChange={(next) => onBewerbungChange({ ...bewerbung, start: next?.toString() ?? "" })}
+                  onBlur={() => onFieldLeft(["bewerbung.start"])}
                   maxValue={bis ?? undefined}
                 />
                 <AppDatePicker
-                  name="bewerbung.bis"
+                  name="bewerbung.end"
                   calendarLabel="Ende der Bewerbungsfrist auswählen"
                   label={<Label className={FIELD_LABEL_CLASSES}>Ende</Label>}
                   value={bis}
-                  onChange={(next) => onBewerbungChange({ ...bewerbung, bis: next?.toString() ?? "" })}
-                  onBlur={() => onFieldLeft(["bewerbung.bis"])}
+                  onChange={(next) => onBewerbungChange({ ...bewerbung, end: next?.toString() ?? "" })}
+                  onBlur={() => onFieldLeft(["bewerbung.end"])}
                   minValue={von ?? undefined}
                 />
               </div>

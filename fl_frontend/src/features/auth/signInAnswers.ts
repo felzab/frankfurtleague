@@ -18,8 +18,8 @@ const BOT_CHECK_ANSWERS: readonly Copy[] = Object.values(COPY.shared.botCheck);
  * The catalogue's entry for a sentence the bot check answered, found by its words, so the page renders the catalogue's
  * own text; any other answer is the shared failure line.
  */
-export function signInAnswer(satz: string | undefined): Copy {
-  return BOT_CHECK_ANSWERS.find((antwort) => antwort === satz) ?? COPY.shared.failure.unexpected;
+export function signInAnswer(sentence: string | undefined): Copy {
+  return BOT_CHECK_ANSWERS.find((antwort) => antwort === sentence) ?? COPY.shared.failure.unexpected;
 }
 
 /**

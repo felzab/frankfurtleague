@@ -28,9 +28,9 @@ from app.api.einladungen.services import (
     find_saison_vorbei_refusal,
     plan_einladung_versand,
 )
-from app.api.identity.crud import faellige_anzahl, saison_statuses
+from app.api.identity.crud import due_count, saison_statuses
 from app.api.identity.schemas import FLErasurePreviewResponse
-from app.api.identity.services import geschlossen_durch, statuses_after_activating
+from app.api.identity.services import closed_by, statuses_after_activating
 from app.api.outbox.services import enqueue_mails
 from app.api.saisons.crud import saisons_with_a_fixture_taken_place
 from app.api.saisons.schemas import (
@@ -94,6 +94,7 @@ from app.core.crud import (
     refuse,
 )
 from app.core.dependencies import (
+    BanListCollection,
     DBClient,
     InvitationsCollection,
     OutboxCollection,
@@ -101,7 +102,6 @@ from app.core.dependencies import (
     SaisonsCollection,
     SaisonSpielerCollection,
     SaisonTeamsCollection,
-    SperrlisteCollection,
     SpielberichteCollection,
     SpielbestaetigungenCollection,
     SpieleCollection,
@@ -498,7 +498,7 @@ async def activate_saison(
     saisons_collection: SaisonsCollection,
     spiele_collection: SpieleCollection,
     spieltage_collection: SpieltageCollection,
-    sperrliste_collection: SperrlisteCollection,
+    ban_list_collection: BanListCollection,
     db: DBClient,
 ) -> FLActivateSaisonResponse:
     """
@@ -588,7 +588,7 @@ async def activate_saison(
         # `$lt` and not `$lte`: the season named on a row is the last one the ban covers, so the row
         # lapses on the activation of the season AFTER it.
         await erase_many_from_db(
-            collection=sperrliste_collection,
+            collection=ban_list_collection,
             db_filter={"barred_until_saison_id": {"$lt": saison_id}},
             session=session,
         )
@@ -1114,7 +1114,7 @@ async def _gesperrte_empfaenger(sperrliste: BanList, entered: Sequence[Mapping[s
 
 async def _mail_one_team(
     *,
-    einladungen_collection: AsyncCollection,
+    invitations_collection: AsyncCollection,
     outbox_collection: AsyncCollection,
     db: AsyncMongoClient,
     saison_id: str,
@@ -1150,7 +1150,7 @@ async def _mail_one_team(
         ersetzt_link, hatte_link = False, None
 
         live = await pull_many_from_db(
-            collection=einladungen_collection,
+            collection=invitations_collection,
             db_filter=build_live_team_filter(saison_id=saison_id, team_id=team["team_id"]),
             limit=1,
             projection=dict(WITHOUT_TOKEN_HASH),
@@ -1182,14 +1182,14 @@ async def _mail_one_team(
         # Only where the read above found one: a team holding no link is spared the command.
         if live:
             await patch_many_in_db(
-                collection=einladungen_collection,
+                collection=invitations_collection,
                 db_filter=build_live_team_filter(saison_id=saison_id, team_id=team["team_id"]),
                 update=compose_widerruf_update(today=today),
                 session=session,
             )
 
         post_operation = await post_one_to_db(
-            collection=einladungen_collection,
+            collection=invitations_collection,
             # No link of its own: each mail below mints one at its hand-out.
             document=compose_einladung(saison_id=saison_id, team_id=team["team_id"], token_hashes=[], created_by=created_by, today=today),
             session=session,
@@ -1224,11 +1224,11 @@ async def _mail_one_team(
     except PyMongoError as failure:
         # Per TEAM: every team already done is committed with its mails. A commit sent and never answered may have revoked
         # this team's link and owed its mails too, so its row says unknown rather than failed.
-        ungewiss = failure.has_error_label("UnknownTransactionCommitResult")
+        uncertain = failure.has_error_label("UnknownTransactionCommitResult")
         fl_logger.error(
             "saisons.invitation_unminted",
             extra={
-                "error_code": Code.UNKNOWN_OUTCOME if ungewiss else Code.DATABASE_FAILED,
+                "error_code": Code.UNKNOWN_OUTCOME if uncertain else Code.DATABASE_FAILED,
                 "team_id": str(team["team_id"]),
                 "saison_id": saison_id,
                 "exception": type(failure).__name__,
@@ -1239,10 +1239,10 @@ async def _mail_one_team(
             team_id=team["team_id"],
             team_name=team["name"],
             recipient=[],
-            skipped="mint_uncertain" if ungewiss else "mint_failed",
+            skipped="mint_uncertain" if uncertain else "mint_failed",
             # A failed commit replaced nothing; an unanswered one may have replaced the link the
             # plan found, and a team that held none must not read about one.
-            replaced_link=ungewiss and ersetzt_link,
+            replaced_link=uncertain and ersetzt_link,
             had_link=hatte_link,
         )
 
@@ -1255,7 +1255,7 @@ async def _mail_one_team(
 async def get_invitations_dispatch_preview(
     saison_id: str,
     saison_teams_collection: SaisonTeamsCollection,
-    einladungen_collection: InvitationsCollection,
+    invitations_collection: InvitationsCollection,
     saisons_collection: SaisonsCollection,
     outbox_collection: OutboxCollection,
     sperrliste: SperrlisteLookup,
@@ -1286,14 +1286,14 @@ async def get_invitations_dispatch_preview(
     # Keyed on the teams just read rather than on the season alone: `uniq_invitation_live` makes that
     # at most one row per team, so this read cannot truncate and report a mailed team as unmailed.
     live = await pull_many_from_db(
-        collection=einladungen_collection,
+        collection=invitations_collection,
         db_filter={"saison_id": saison_id, "team_id": {"$in": team_ids}, **LIVE_EINLADUNG},
         limit=len(team_ids) or 1,
         projection=dict(WITHOUT_TOKEN_HASH),
     )
     by_team = {row["team_id"]: row for row in live}
     versendet = await versendete_einladungen(outbox_collection=outbox_collection, einladung_ids=[row["_id"] for row in live])
-    gesperrt = await _gesperrte_empfaenger(sperrliste, entered)
+    barred = await _gesperrte_empfaenger(sperrliste, entered)
 
     zeilen: list[FLInvitationDispatchPreviewRow] = []
     for team in entered:
@@ -1304,7 +1304,7 @@ async def get_invitations_dispatch_preview(
             einladung_raw=einladung_raw,
             versendet=einladung_raw is not None and einladung_raw["_id"] in versendet,
             resend=resend,
-            barred=gesperrt,
+            barred=barred,
         )
         zeilen.append(
             FLInvitationDispatchPreviewRow(
@@ -1343,13 +1343,13 @@ async def get_erasure_preview(
     await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["_id"])
 
     statuses = await saison_statuses(saisons_collection=saisons_collection)
-    spieler = await faellige_anzahl(
+    spieler = await due_count(
         statuses_after_activating(statuses, saison_id),
         spieler_collection=spieler_collection,
         registrierungen_collection=registrierungen_collection,
     )
 
-    return FLErasurePreviewResponse(completed_saison_id=geschlossen_durch(statuses, saison_id), spieler=spieler)
+    return FLErasurePreviewResponse(completed_saison_id=closed_by(statuses, saison_id), spieler=spieler)
 
 
 @router.post(
@@ -1362,7 +1362,7 @@ async def post_invitations_dispatch(
     saison_id: str,
     versand_data: Annotated[FLInvitationDispatchPayload, Body()],
     saison_teams_collection: SaisonTeamsCollection,
-    einladungen_collection: InvitationsCollection,
+    invitations_collection: InvitationsCollection,
     saisons_collection: SaisonsCollection,
     outbox_collection: OutboxCollection,
     sperrliste: SperrlisteLookup,
@@ -1400,19 +1400,19 @@ async def post_invitations_dispatch(
 
     entered = await _entered_teams(saison_teams_collection=saison_teams_collection, saison_id=saison_id)
     # Read once ahead of the loop, as the withdrawal and the contacts are: a retry re-decides on them as they stood.
-    gesperrt = await _gesperrte_empfaenger(sperrliste, entered)
+    barred = await _gesperrte_empfaenger(sperrliste, entered)
 
     # Sequential rather than gathered: each team opens its own session, and sixteen at once would
     # hold sixteen against a pool sized for the whole application.
     zeilen = [
         await _mail_one_team(
-            einladungen_collection=einladungen_collection,
+            invitations_collection=invitations_collection,
             outbox_collection=outbox_collection,
             db=db,
             saison_id=saison_id,
             team=team,
             resend=versand_data.resend,
-            barred=gesperrt,
+            barred=barred,
             created_by=created_by,
             today=today,
             now=germany_now,

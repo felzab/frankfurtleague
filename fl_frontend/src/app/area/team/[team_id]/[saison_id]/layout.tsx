@@ -105,7 +105,7 @@ async function TeamContent({ params, children }: { params: TeamParams; children:
   const { funktionen } = here;
 
   // Here alone: each page under this checks the seat again and renders nothing, which would log it twice.
-  logPageVerweigert("/area/team/[team_id]/[saison_id]", "kein_sitz");
+  logPageVerweigert("/area/team/[team_id]/[saison_id]", "no_seat");
   // In the page's stead: Next runs the page whatever this renders, so the page checks the seat itself
   // (`fl_frontend/src/features/funktionen/resolvers.ts :: requireTeamSeats`).
   return <TeamForbiddenPanel funktionen={funktionen} />;

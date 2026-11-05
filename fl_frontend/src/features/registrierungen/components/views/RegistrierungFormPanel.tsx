@@ -62,7 +62,7 @@ const buildEmptyDraft = (): RegistrierungFormDraft => ({ vorname: "", nachname: 
  */
 export function RegistrierungFormPanel({
   token,
-  ansicht,
+  ansicht: view,
   siteKey,
   onLinkTot,
 }: {
@@ -103,28 +103,28 @@ export function RegistrierungFormPanel({
     const payload = registrierungPayload(draft, token);
 
     startSending(async () => {
-      const anfrage = await humanCheck.takeToken();
-      if ("satz" in anfrage) {
-        appToast.danger("Registrierung nicht abgeschickt", { description: anfrage.satz });
+      const request = await humanCheck.takeToken();
+      if ("sentence" in request) {
+        appToast.danger("Registrierung nicht abgeschickt", { description: request.sentence });
         return;
       }
 
-      const gesendet = await postPublicForm<RegistrierungAntwort>("/api/registrierung", payload, {
+      const sent = await postPublicForm<RegistrierungAntwort>("/api/registrierung", payload, {
         idempotencyKey: schluessel,
-        turnstileToken: anfrage.token,
+        turnstileToken: request.token,
       });
 
-      if (!gesendet.answered) {
+      if (!sent.answered) {
         // No one title is true across both, the edge refusing the REQUEST ruling the write out where
         // an unread answer does not (`fl_frontend/src/shared/utils/publicSubmit.ts :: PublicAnswer`).
-        appToast.danger(gesendet.wroteNothing ? "Registrierung nicht abgeschickt" : UNKLAR_TITEL, {
+        appToast.danger(sent.wroteNothing ? "Registrierung nicht abgeschickt" : UNKLAR_TITEL, {
           // Every arm that may have landed gives the one step the outcome-unknown answer gives.
-          description: gesendet.wroteNothing ? gesendet.error : REGISTRIERUNG_UNKLAR,
+          description: sent.wroteNothing ? sent.error : REGISTRIERUNG_UNKLAR,
         });
         return;
       }
 
-      const antwort = gesendet.body;
+      const antwort = sent.body;
 
       // Wrapped again: React leaves an update after an `await` outside the transition that awaited,
       // so bare it commits before the pending state lifts.
@@ -278,7 +278,7 @@ export function RegistrierungFormPanel({
                 name="stufe"
                 label="Stufe"
                 placeholder="Keine Angabe"
-                options={orderStufen(ansicht.allowed_stufen)}
+                options={orderStufen(view.allowed_stufen)}
                 value={draft.stufe}
                 onChange={(stufe) => setDraft({ ...draft, stufe: stufe })}
               />

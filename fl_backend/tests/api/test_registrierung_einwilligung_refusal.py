@@ -55,7 +55,7 @@ class TestWhichPageTheLinkOpens:
         "vorname": "Quillhilde",
         "nachname": "Brackenmoor",
         "geburtsdatum": "2009-05-09",
-        "einwilligung": einwilligung(umfang="intern", medien=True),
+        "einwilligung": einwilligung(umfang="intern", media=True),
     }
 
     @pytest.mark.parametrize(
@@ -144,14 +144,14 @@ class TestAPersonIsNeverWrittenNameless:
         with pytest.raises(ValueError, match="no forename"):
             compose_person(spieler_id="a-new-id", registrierung_raw=nameless, adresse="quillhilde@example.com")
         with pytest.raises(ValueError, match="no forename"):
-            compose_person_update(registrierung_raw=nameless, gespeichert=self.NEW["einwilligung"], adresse="quillhilde@example.com")
+            compose_person_update(registrierung_raw=nameless, saved=self.NEW["einwilligung"], adresse="quillhilde@example.com")
 
     @pytest.mark.parametrize("registrierung_raw", [NEW, RETURNING], ids=("new page", "returning page"))
     def test_a_matched_person_holding_no_record_is_admitted_into_by_neither_page(self, registrierung_raw: Mapping[str, Any]):
         """The returning page is the load-bearing case: renewing nothing, it would leave the person standing with no record."""
 
         with pytest.raises(ValueError, match="no consent record"):
-            compose_person_update(registrierung_raw=registrierung_raw, gespeichert=None, adresse="quillhilde@example.com")
+            compose_person_update(registrierung_raw=registrierung_raw, saved=None, adresse="quillhilde@example.com")
 
 
 def antwort(**overrides: Any) -> dict[str, Any]:
@@ -159,16 +159,16 @@ def antwort(**overrides: Any) -> dict[str, Any]:
         "token": RAW,
         "geburtsdatum": "2009-05-09",
         "umfang": "intern",
-        "medien": False,
+        "media": False,
         "text_versions": dict(SPIELER_TEXT_VERSIONS),
         **overrides,
     }
 
 
 class TestWhatTheAnswerPayloadRefuses:
-    @pytest.mark.parametrize("field", ["token", "geburtsdatum", "umfang", "medien", "text_versions"])
+    @pytest.mark.parametrize("field", ["token", "geburtsdatum", "umfang", "media", "text_versions"])
     def test_every_field_is_required(self, field: str, assert_rejects):
-        """`medien` above all: defaulted, an off switch would store this model's answer where the person's belongs."""
+        """`media` above all: defaulted, an off switch would store this model's answer where the person's belongs."""
 
         body = antwort()
         del body[field]

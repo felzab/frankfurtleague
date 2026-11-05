@@ -59,7 +59,7 @@ function asideOf(saison: LandingSaison | null, window: FLBewerbungWindow | null)
     ) : (
       <SaisonBlock
         title={COPY.shared.saisonName(window.saison_id)}
-        state={{ kind: "window", until: dayOf(window.bis), apply: ROUTES.bewerbung.path(window.saison_id) }}
+        state={{ kind: "window", until: dayOf(window.end), apply: ROUTES.bewerbung.path(window.saison_id) }}
       />
     );
   }
@@ -101,7 +101,7 @@ function sectionsOf(saison: LandingSaison | null, window: FLBewerbungWindow | nu
               ? { open: false, sentence: words.join.closed, act: ABOUT }
               : {
                   open: true,
-                  sentence: words.saison.windowUntil(dayOf(window.bis)),
+                  sentence: words.saison.windowUntil(dayOf(window.end)),
                   act: { label: words.toBewerbung, href: ROUTES.bewerbung.path(window.saison_id) },
                 }
           }

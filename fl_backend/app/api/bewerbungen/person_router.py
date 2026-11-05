@@ -5,14 +5,14 @@ from fastapi import APIRouter, Body, Depends, status
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.account.crud import press_widerruf
+from app.api.account.crud import press_withdrawal
 from app.api.account.services import (
-    compose_sitz_move,
-    find_eigener_eintrag_refusal,
-    geaenderte_sitz_wahlen,
-    widerruf_line,
+    changed_seat_choices,
+    compose_seat_move,
+    find_own_entry_refusal,
+    withdrawal_line,
 )
-from app.api.identity.services import eigene_sitze
+from app.api.identity.services import own_seats
 from app.api.sperrliste.guard import PERSON_ACTOR_BINDERS, KontaktIdentifier
 from app.core.collections import Collection
 from app.core.config import API_VERSION, BackendConfig, get_app_config
@@ -22,7 +22,7 @@ from app.core.journal import Journal
 from app.core.recording import log_stamp
 from app.core.security import erasure_journal_hash, verify_access_admin
 from app.core.transactions import transaction_session
-from app.shared.einwilligung_nachweis import FLEinwilligungChoice
+from app.shared.einwilligung_evidence import FLEinwilligungChoice
 from app.shared.schemas.custom import CustomRouteObjectId
 from app.shared.schemas.einwilligung import FLSeatEinwilligungPayload, by_choice
 from app.shared.schemas.literals import KONTAKT_ROLLEN
@@ -55,9 +55,9 @@ async def patch_einwilligung(
     `giving_not_allowed`.
     """
 
-    gedrueckt: dict[FLEinwilligungChoice, object] = {"umfang": einwilligung_data.umfang, "medien": einwilligung_data.medien}
+    pressed: dict[FLEinwilligungChoice, object] = {"umfang": einwilligung_data.umfang, "media": einwilligung_data.media}
     # For `app/api/spieler/person_router.py :: patch_einwilligung`'s reason: a replay stamps the moment the person pressed.
-    am = log_stamp(germany_now)
+    at = log_stamp(germany_now)
     journal = Journal()
 
     @journal.attempted
@@ -68,23 +68,23 @@ async def patch_einwilligung(
             {f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_ROLLEN for field in ("email", "einwilligung")},
             session=session,
         )
-        rollen = [] if bewerbung is None else eigene_sitze(bewerbung, identifier)
-        refuse(find_eigener_eintrag_refusal(gehalten=bool(rollen)))
+        rollen = [] if bewerbung is None else own_seats(bewerbung, identifier)
+        refuse(find_own_entry_refusal(held=bool(rollen)))
         assert bewerbung is not None
-        sitze = {slot: bewerbung["kontakte"][slot] for slot in rollen}
-        gewaehlt = geaenderte_sitz_wahlen(bloecke=[sitz["einwilligung"] for sitz in sitze.values()], gedrueckt=gedrueckt)
+        seats = {slot: bewerbung["kontakte"][slot] for slot in rollen}
+        chosen = changed_seat_choices(blocks=[seat["einwilligung"] for seat in seats.values()], pressed=pressed)
 
         # Withdraw-only: nothing on an application grants a panel to answer a grant against.
-        await press_widerruf(
-            bloecke=[sitz["einwilligung"] for sitz in sitze.values()],
-            gewaehlt=gewaehlt,
-            nachweis_stand=einwilligung_data.nachweis_stand.model_dump(),
+        await press_withdrawal(
+            blocks=[seat["einwilligung"] for seat in seats.values()],
+            chosen=chosen,
+            evidence_state=einwilligung_data.evidence_state.model_dump(),
         )
 
-        update = compose_sitz_move(
-            sitze={slot: sitz["einwilligung"] for slot, sitz in sitze.items()},
-            gewaehlt=gewaehlt,
-            am=am,
+        update = compose_seat_move(
+            seats={slot: seat["einwilligung"] for slot, seat in seats.items()},
+            chosen=chosen,
+            at=at,
             text_versions=by_choice(einwilligung_data.text_versions),
         )
         if update is not None:
@@ -95,13 +95,13 @@ async def patch_einwilligung(
                 session=session,
                 return_document=ReturnDocument.BEFORE,
             )
-        line = widerruf_line(
+        line = withdrawal_line(
             person_hash=erasure_journal_hash(identifier, key=config.sperrliste_key),
             collection=Collection.BEWERBUNGEN,
             record_id=bewerbung["_id"],
-            bloecke=[sitz["einwilligung"] for sitz in sitze.values()],
-            gewaehlt=gewaehlt,
-            am=am,
+            blocks=[seat["einwilligung"] for seat in seats.values()],
+            chosen=chosen,
+            at=at,
             text_versions=by_choice(einwilligung_data.text_versions),
         )
         if line is not None:

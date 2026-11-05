@@ -45,4 +45,4 @@ def get_record_collections(
     )
 
 
-SubjektLookup = Annotated[RecordCollections, Depends(get_record_collections)]
+SubjectLookup = Annotated[RecordCollections, Depends(get_record_collections)]

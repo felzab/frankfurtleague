@@ -32,7 +32,7 @@ PAGE: Final = 10
 # How long one claim holds its rows: past a page at its worst, so a drain still sending is never overtaken. The frontend's
 # drain runs under no deadline but each call's own bound, so the worst is the claim's answer, then each of `PAGE` sends
 # and its report, at `fl_frontend/src/core/api.ts :: FETCH_TIMEOUT_MS` a call and `fl_frontend/src/core/mail.ts ::
-# MAIL_TIMEOUT_MS` a send: (1 + 2 x 10) x 15 s, 315 s (`tests/api/test_postausgang_lease.py`). A drain a stopping
+# MAIL_TIMEOUT_MS` a send: (1 + 2 x 10) x 15 s, 315 s (`tests/api/test_outbox_lease.py`). A drain a stopping
 # container cuts leaves its rows to the next once this lapses.
 LEASE_DURATION: Final = timedelta(minutes=10)
 
@@ -48,10 +48,10 @@ DELIVERY_DEADLINE: Final = timedelta(days=2)
 RETENTION: Final = timedelta(days=30)
 
 # The sign-in library's kinds, each tried once: its own repair of a failed code is a fresh one.
-SIGN_IN_ARTEN: Final[frozenset[FLOutboxArt]] = frozenset({"sign_in_code", "passkey_hinzugefuegt", "passkey_erased", "account_erasure"})
+SIGN_IN_ARTEN: Final[frozenset[FLOutboxArt]] = frozenset({"sign_in_code", "passkey_added", "passkey_erased", "account_erasure"})
 
 # The one kind of mail a ban does not stop: the ban's own notice.
-UNBARRED: Final[frozenset[FLOutboxArt]] = frozenset({"sperre"})
+UNBARRED: Final[frozenset[FLOutboxArt]] = frozenset({"ban"})
 
 # The final state each reported outcome settles a row in; a send to be tried again ends there only where it may not be.
 FINAL_STATE: Final[Mapping[FLOutboxResultArt, FLOutboxRowState]] = {

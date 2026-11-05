@@ -19,7 +19,7 @@ from app.api.saisons.crud import pull_massgebliche_saison_id
 from app.api.sperrliste.crud import address_is_gesperrt, gesperrte_adressen, gesperrte_hashes
 from app.api.sperrliste.services import adresse_hash
 from app.core.config import BackendConfig, get_app_config
-from app.core.dependencies import SaisonsReadCollection, SperrlisteReadCollection
+from app.core.dependencies import BanListReadCollection, SaisonsReadCollection
 from app.core.readonly import ReadCollection
 
 
@@ -35,7 +35,7 @@ Saison = str | None | RunningSeason
 
 @dataclass(frozen=True)
 class BanList:
-    sperrliste_collection: ReadCollection
+    ban_list_collection: ReadCollection
     saisons_collection: ReadCollection
     key: SecretStr
 
@@ -60,32 +60,32 @@ async def adressen_gesperrt(
     adressen: Iterable[str],
     *,
     session: AsyncClientSession | None = None,
-    massgebliche_saison_id: Saison = RUNNING_SEASON,
+    governing_saison_id: Saison = RUNNING_SEASON,
 ) -> set[str]:
     """Which of these stored addresses a standing ban holds (`app/api/sperrliste/crud.py :: gesperrte_adressen`)."""
 
     return await gesperrte_adressen(
         adressen,
-        sperrliste_collection=sperrliste.sperrliste_collection,
+        ban_list_collection=sperrliste.ban_list_collection,
         key=sperrliste.key,
-        massgebliche_saison_id=await _saison(sperrliste, massgebliche_saison_id, session=session),
+        governing_saison_id=await _saison(sperrliste, governing_saison_id, session=session),
         session=session,
     )
 
 
 async def hash_gesperrt(
     sperrliste: BanList,
-    gehasht: str,
+    hashed: str,
     *,
     session: AsyncClientSession | None = None,
-    massgebliche_saison_id: Saison = RUNNING_SEASON,
+    governing_saison_id: Saison = RUNNING_SEASON,
 ) -> bool:
     """Whether a standing ban holds this hash (`app/api/sperrliste/crud.py :: address_is_gesperrt`)."""
 
     return await address_is_gesperrt(
-        sperrliste_collection=sperrliste.sperrliste_collection,
-        adresse_hash=gehasht,
-        massgebliche_saison_id=await _saison(sperrliste, massgebliche_saison_id, session=session),
+        ban_list_collection=sperrliste.ban_list_collection,
+        adresse_hash=hashed,
+        governing_saison_id=await _saison(sperrliste, governing_saison_id, session=session),
         session=session,
     )
 
@@ -95,26 +95,26 @@ async def hashes_gesperrt(
     hashes: Iterable[str],
     *,
     session: AsyncClientSession | None = None,
-    massgebliche_saison_id: Saison = RUNNING_SEASON,
+    governing_saison_id: Saison = RUNNING_SEASON,
 ) -> set[str]:
     """Which of these hashes a standing ban holds, in one read (`app/api/sperrliste/crud.py :: gesperrte_hashes`)."""
 
     return await gesperrte_hashes(
-        sperrliste_collection=sperrliste.sperrliste_collection,
+        ban_list_collection=sperrliste.ban_list_collection,
         adresse_hashes=hashes,
-        massgebliche_saison_id=await _saison(sperrliste, massgebliche_saison_id, session=session),
+        governing_saison_id=await _saison(sperrliste, governing_saison_id, session=session),
         session=session,
     )
 
 
 def get_ban_list(
-    sperrliste_collection: SperrlisteReadCollection,
+    ban_list_collection: BanListReadCollection,
     saisons_collection: SaisonsReadCollection,
     config: Annotated[BackendConfig, Depends(get_app_config)],
 ) -> BanList:
     """The request's ban list, keyed as every row of it is."""
 
-    return BanList(sperrliste_collection=sperrliste_collection, saisons_collection=saisons_collection, key=config.sperrliste_key)
+    return BanList(ban_list_collection=ban_list_collection, saisons_collection=saisons_collection, key=config.sperrliste_key)
 
 
 SperrlisteLookup = Annotated[BanList, Depends(get_ban_list)]

@@ -49,7 +49,7 @@ const SCHON_BESTAETIGT_GRUND = "Diese Person hat ihren Eintrag schon bestätigt.
 function LinkStand({
   confirmation: bestaetigung,
   offenUndAbgelaufen,
-  delivery: zustellung,
+  delivery: delivery,
 }: {
   confirmation: FLConfirmation;
   offenUndAbgelaufen: boolean;
@@ -61,7 +61,7 @@ function LinkStand({
         verschicktAm={bestaetigung.sent_at}
         frist={bestaetigung.frist}
         istAbgelaufen={offenUndAbgelaufen}
-        zustellung={zustellung}
+        zustellung={delivery}
         vorZustellung={
           // A state rather than a gap: nothing reminds a referee, so „Keine Erinnerung“ is the fact
           // rather than a day that went missing.
@@ -81,14 +81,14 @@ function EinwilligungStand({ einwilligung, geburtsdatum }: { einwilligung: FLEin
       <Angabe label="Veröffentlichung">
         {SCHIEDSRICHTER_UMFANG_LABELS[einwilligung.umfang]}
         <Beleg
-          nachweis={einwilligung.nachweis.umfang}
+          evidence={einwilligung.evidence.umfang}
           bestaetigung={bestaetigungOf(einwilligung)}
         />
       </Angabe>
       <Angabe label={EINWILLIGUNG_MEDIEN_FRAGE}>
-        {einwilligung.medien ? EINWILLIGUNG_MEDIEN_LABELS.erteilt : EINWILLIGUNG_MEDIEN_LABELS.nicht_erteilt}
+        {einwilligung.media ? EINWILLIGUNG_MEDIEN_LABELS.given : EINWILLIGUNG_MEDIEN_LABELS.nicht_erteilt}
         <Beleg
-          nachweis={einwilligung.nachweis.medien}
+          evidence={einwilligung.evidence.media}
           bestaetigung={bestaetigungOf(einwilligung)}
         />
       </Angabe>
@@ -113,7 +113,7 @@ export function FormBestaetigungSection({
   isRetired,
   confirmation: bestaetigung,
   istAbgelaufen,
-  delivery: zustellung,
+  delivery: delivery,
   einwilligung,
   geburtsdatum,
   isDirty,
@@ -204,7 +204,7 @@ export function FormBestaetigungSection({
             // A date an administrator reads as a deadline says nothing once it is past, and the
             // answer („einen neuen schicken“) is the control in this same panel; an answered link's says nothing at all.
             offenUndAbgelaufen={!istBestaetigt && istAbgelaufen}
-            delivery={zustellung}
+            delivery={delivery}
           />
         )}
 

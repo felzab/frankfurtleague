@@ -92,12 +92,12 @@ function draftOf(stored: FLSpielberichtBerichtPayload | null): SpielberichtDraft
     team2Tore: stored.ergebnis_vorschlag.team2_tore,
     elfmeterschiessen: stored.ergebnis_vorschlag.elfmeterschiessen,
     sonderereignis: stored.ergebnis_vorschlag.sonderereignis,
-    torschuetzen: stored.torschuetzen.map((eintrag, key) => ({
+    torschuetzen: stored.torschuetzen.map((entry, key) => ({
       key,
-      seite: eintrag.seite,
-      spieler: eintrag.spieler_id ?? UNBEKANNT,
-      minute: eintrag.minute,
-      eigentor: eintrag.eigentor,
+      seite: entry.seite,
+      spieler: entry.spieler_id ?? UNBEKANNT,
+      minute: entry.minute,
+      eigentor: entry.eigentor,
     })),
     karten: stored.karten.map((karte, key) => ({
       key,
@@ -114,7 +114,7 @@ function draftOf(stored: FLSpielberichtBerichtPayload | null): SpielberichtDraft
 
 /** What a form opens on: the stored block it compares against, the draft it edits, and the entries that draft emptied. */
 export type Eroeffnung = {
-  readonly gespeichert: SpielberichtDraft;
+  readonly saved: SpielberichtDraft;
   readonly entwurf: SpielberichtDraft;
   /** Per list, the keys of the entries whose person the draft took out, which the form marks until one is picked. */
   readonly geleert: { readonly torschuetzen: ReadonlySet<number>; readonly karten: ReadonlySet<number> };
@@ -127,25 +127,24 @@ export type Eroeffnung = {
  */
 export function eroeffnungOf(stored: FLSpielberichtBerichtPayload | null, kontext: SpielberichtKontext): Eroeffnung {
   const block = draftOf(stored);
-  if (kontext.seitenGeaendert.size === 0)
-    return { gespeichert: block, entwurf: block, geleert: { torschuetzen: new Set(), karten: new Set() } };
+  if (kontext.seitenGeaendert.size === 0) return { saved: block, entwurf: block, geleert: { torschuetzen: new Set(), karten: new Set() } };
 
-  const veraltet = (seite: FLSpielSeite | null, spieler: string): boolean =>
+  const stale = (seite: FLSpielSeite | null, spieler: string): boolean =>
     seite !== null &&
     kontext.seitenGeaendert.has(seite) &&
     spieler !== "" &&
     spieler !== UNBEKANNT &&
     !kontext.kader[seite].some((option) => option.id === spieler);
   const geleert = {
-    torschuetzen: new Set(block.torschuetzen.filter((eintrag) => veraltet(eintrag.seite, eintrag.spieler)).map((eintrag) => eintrag.key)),
-    karten: new Set(block.karten.filter((karte) => veraltet(karte.seite, karte.spieler)).map((karte) => karte.key)),
+    torschuetzen: new Set(block.torschuetzen.filter((entry) => stale(entry.seite, entry.spieler)).map((entry) => entry.key)),
+    karten: new Set(block.karten.filter((karte) => stale(karte.seite, karte.spieler)).map((karte) => karte.key)),
   };
 
   return {
-    gespeichert: { ...block, fuerTeams: "bericht" },
+    saved: { ...block, fuerTeams: "bericht" },
     entwurf: {
       ...block,
-      torschuetzen: block.torschuetzen.map((eintrag) => (geleert.torschuetzen.has(eintrag.key) ? { ...eintrag, spieler: "" } : eintrag)),
+      torschuetzen: block.torschuetzen.map((entry) => (geleert.torschuetzen.has(entry.key) ? { ...entry, spieler: "" } : entry)),
       karten: block.karten.map((karte) => (geleert.karten.has(karte.key) ? { ...karte, spieler: "" } : karte)),
     },
     geleert,
@@ -185,10 +184,10 @@ export function wirePayloadOf(draft: SpielberichtDraft, stand: number | null): F
       ...form.bericht,
       // Cast once here, the form schema having refused every null these narrow before a send reaches this.
       ergebnis_vorschlag: form.bericht.ergebnis_vorschlag as FLSpielberichtVorschlag,
-      torschuetzen: form.bericht.torschuetzen.map((eintrag) => ({
-        ...eintrag,
-        seite: eintrag.seite as FLSpielSeite,
-        spieler_id: eintrag.spieler_id === UNBEKANNT ? null : eintrag.spieler_id,
+      torschuetzen: form.bericht.torschuetzen.map((entry) => ({
+        ...entry,
+        seite: entry.seite as FLSpielSeite,
+        spieler_id: entry.spieler_id === UNBEKANNT ? null : entry.spieler_id,
       })),
       karten: form.bericht.karten.map((karte) => ({
         ...karte,
@@ -220,7 +219,7 @@ const OFFEN = "offen";
  * A whole list is one row: an entry has no path surviving the one before it being removed. Parted by a slash, never a
  * semicolon: an entry holds commas, and its pupil a middle dot.
  */
-const listText = (eintraege: readonly string[]): string | null => (eintraege.length === 0 ? null : eintraege.join(" / "));
+const listText = (entries: readonly string[]): string | null => (entries.length === 0 ? null : entries.join(" / "));
 
 const minuteText = (minute: string): string => (minute === "" ? OFFEN : `${minute}.`);
 
@@ -279,8 +278,8 @@ function descriptorsFor(
       read: ({ torschuetzen }) =>
         listText(
           torschuetzen.map(
-            (eintrag) =>
-              `${teamName(eintrag.seite)}: ${personName(eintrag.seite, eintrag.spieler)}, ${minuteText(eintrag.minute)}${eintrag.eigentor ? ", Eigentor" : ""}`,
+            (entry) =>
+              `${teamName(entry.seite)}: ${personName(entry.seite, entry.spieler)}, ${minuteText(entry.minute)}${entry.eigentor ? ", Eigentor" : ""}`,
           ),
         ),
     },

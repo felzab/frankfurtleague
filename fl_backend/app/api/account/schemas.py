@@ -1,6 +1,6 @@
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.api.adresswechsel.schemas import FLAddressChangeApprovalState
+from app.api.address_change.schemas import FLAddressChangeApprovalState
 from app.api.berechtigungen.schemas import FLUtcInstant
 from app.api.schiedsrichter.schemas import FLSchiedsrichterSelfPerson
 from app.api.spieler.schemas import FLSpielerSelfPerson
@@ -20,12 +20,12 @@ from app.shared.schemas.responses import BaseAPIResponse
 class FLAccountEinwilligung(BaseModel):
     """A person's own record's two choices as its box shows them.
 
-    The choices alone: the box names no day and no label, and `nachweis_stand` stands for each choice's evidence in the
+    The choices alone: the box names no day and no label, and `evidence_state` stands for each choice's evidence in the
     precondition a press echoes.
     """
 
     umfang: FLEinwilligungUmfang
-    medien: bool
+    media: bool
 
 
 class FLAccountSpielerEinwilligung(FLSpielerSelfPerson):
@@ -34,22 +34,22 @@ class FLAccountSpielerEinwilligung(FLSpielerSelfPerson):
     # Required: only a confirmed record is served, so the block is always there.
     einwilligung: FLAccountEinwilligung
     # What the consent PATCH echoes back, computed by the function its precondition compares with.
-    nachweis_stand: FLEinwilligungStand
+    evidence_state: FLEinwilligungStand
     # Served rather than derived on the page, which would judge a grant with a second copy of the rule.
     givable: bool
-    medien_offered: bool
+    media_offered: bool
     # The media floor, which the page names where the record is short of it.
-    medien_minimum_age: int = Field(gt=0)
+    media_minimum_age: int = Field(gt=0)
 
 
 class FLAccountSchiedsrichterEinwilligung(FLSchiedsrichterSelfPerson):
     """One referee record on the account page: the stored data its box shows and the consent the page moves."""
 
     einwilligung: FLAccountEinwilligung
-    nachweis_stand: FLEinwilligungStand
+    evidence_state: FLEinwilligungStand
     givable: bool
-    medien_offered: bool
-    medien_minimum_age: int = Field(gt=0)
+    media_offered: bool
+    media_minimum_age: int = Field(gt=0)
 
 
 class FLAccountSeatEinwilligung(BaseModel):
@@ -66,13 +66,13 @@ class FLAccountSeatEinwilligung(BaseModel):
     rollen: list[FLKontaktRolle] = Field(min_length=1)
     # Each on where any held slot's is, so a withdrawal stays offered.
     umfang: FLKontaktKenntnisnahmeUmfang
-    medien: bool
-    # Over every held slot, for `FLAccountSpielerEinwilligung.nachweis_stand`'s reason.
-    nachweis_stand: FLEinwilligungStand
-    medien_offered: bool
+    media: bool
+    # Over every held slot, for `FLAccountSpielerEinwilligung.evidence_state`'s reason.
+    evidence_state: FLEinwilligungStand
+    media_offered: bool
     givable: bool
     # One per entry: the control's own words name the media floor every held seat shares.
-    medien_minimum_age: int = Field(gt=0)
+    media_minimum_age: int = Field(gt=0)
 
 
 class FLAccountBewerbungSeatEinwilligung(BaseModel):
@@ -89,8 +89,8 @@ class FLAccountBewerbungSeatEinwilligung(BaseModel):
     rollen: list[FLKontaktRolle] = Field(min_length=1)
     # For `FLAccountSeatEinwilligung`'s reasons.
     umfang: FLKontaktKenntnisnahmeUmfang
-    medien: bool
-    nachweis_stand: FLEinwilligungStand
+    media: bool
+    evidence_state: FLEinwilligungStand
 
 
 class FLAccountRegistrierungEinwilligung(BaseModel):
@@ -103,8 +103,8 @@ class FLAccountRegistrierungEinwilligung(BaseModel):
     # Both null on a returning pupil's registration, which asked none: the page shows its stored data
     # and offers no consent control, the person's own record holding their choices.
     umfang: FLEinwilligungUmfang | None
-    medien: bool | None
-    nachweis_stand: FLEinwilligungStand
+    media: bool | None
+    evidence_state: FLEinwilligungStand
     # As the registration stores them: the facts the account page's box names its pupil by.
     vorname: str
     nachname: str
@@ -117,7 +117,7 @@ class FLAccountAddressChangeOpen(BaseModel):
     # What the approval names, so a tab drawn before a later start approves nothing it never showed.
     id: CustomObjectId
     # Whole where the person typed it on this page; masked where an administrator started the change, which may be a
-    # pretext whose target the holder of the address on file must not learn (`app/api/adresswechsel/services.py :: maskierte_adresse`).
+    # pretext whose target the holder of the address on file must not learn (`app/api/address_change/services.py :: masked_address`).
     email: str
     way: FLAddressChangeWay
     waits_on: FLAddressChangeWaitsOn

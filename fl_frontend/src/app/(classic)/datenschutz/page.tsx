@@ -1,7 +1,7 @@
 import { ClassicPage, ClassicTitle } from "@/kit/ClassicPage";
 import { Prose } from "@/kit/Prose";
 
-import { ADDRESS_CHANGE_VALID_HOURS, ADDRESS_CHANGE_WAIT_DAYS } from "@/core/adresswechsel";
+import { ADDRESS_CHANGE_VALID_HOURS, ADDRESS_CHANGE_WAIT_DAYS } from "@/core/addressChange";
 import { CODE_VALIDITY_MINUTES } from "@/core/authEmail";
 import { KONTAKT_EMAIL, KONTAKT_MAILTO } from "@/core/brand";
 import { COPY } from "@/core/copy";

@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation";
 import CircleCheck from "@gravity-ui/icons/CircleCheck";
 
 import { formatInstant } from "@/core/format";
-import { genehmigeAdresswechselAction } from "@/features/adresswechsel/actions";
-import { GENEHMIGUNG_VERWEHRT } from "@/features/adresswechsel/refusals";
+import { genehmigeAdresswechselAction } from "@/features/address-change/actions";
+import { GENEHMIGUNG_VERWEHRT } from "@/features/address-change/refusals";
 import { nachVonOderGesperrt, vonOderGesperrt } from "@/features/berechtigungen/constants";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
 import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
@@ -74,7 +74,7 @@ export function AdminBerechtigungGenehmigenPanel({ adresse, adresswechsel }: { a
     <div className="flex w-full flex-col gap-3">
       <p className="fluid-sm text-pretty text-foreground">
         Neue Adresse für diesen Zugang: {neueAdresse(adresswechsel)}.{" "}
-        {adresswechsel.confirmed ? "Sie ist bestätigt." : "Sie ist noch nicht bestätigt."} Genehmigen bis {formatInstant(adresswechsel.bis)}.
+        {adresswechsel.confirmed ? "Sie ist bestätigt." : "Sie ist noch nicht bestätigt."} Genehmigen bis {formatInstant(adresswechsel.until)}.
       </p>
       <p className="fluid-sm text-pretty text-foreground">{begonnen(adresswechsel)}</p>
 

@@ -110,7 +110,7 @@ export function spielplanBlockedReason(input: SpielplanControlInput): string | n
   // After the groups, as the endpoint asks it: `find_rules_refusal` runs after the whole spielplan
   // pass, and on its `stored=None` path `rules_bracket_impossible` reduces to a qualifier product reaching no
   // bracket, which is exactly an empty knockout list.
-  if (!hasKoRunden) return COPY.verwaltung.saison.bracketImpossible;
+  if (!hasKoRunden) return COPY.admin.saison.bracketImpossible;
 
   // Last, as `find_saison_span_refusal` runs after the rules: no bracket implies no matchday count
   // worth measuring.
@@ -141,7 +141,7 @@ export function spielplanShapeBlockedReason({
 
   if (refusal === "gruppenOffSize" || refusal === "groupsInUse") return GRUPPEN_OFF_RULES;
   // `rules_bracket_impossible` refuses a bracket too large and one with no shape alike, in one sentence.
-  if (refusal !== null) return COPY.verwaltung.saison.bracketImpossible;
+  if (refusal !== null) return COPY.admin.saison.bracketImpossible;
 
   if (offeredDays(startDate, endDate) < drawnSpieltage(shape))
     return `Der Zeitraum dieser Saison ist zu kurz für die Spieltage, die sich aus diesen Zahlen ergeben. ${SPAN_TOO_SHORT_REPAIR}`;

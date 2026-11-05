@@ -1,0 +1,424 @@
+import asyncio
+from collections.abc import Iterator
+from typing import Any, cast
+
+import pytest
+from bson import ObjectId
+from pymongo.asynchronous.client_session import AsyncClientSession
+from pymongo.asynchronous.database import AsyncDatabase
+
+from app.api.identity.crud import roles_of
+from app.api.identity.schemas import FLSubject
+from app.core.collections import Collection
+from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
+from app.shared.schemas.literals import KONTAKT_ROLLEN
+from tests.database import a_clean_database, on_the_seed_loop, shared_client
+from tests.documents import EINWILLIGUNG, kontaktperson_document, rules_document, saison_document, saison_team_document, spieler_document
+from tests.records import record_collections
+from tests.worker import worker_database
+
+from .conftest import AUSTRITT, unwritten
+
+DATABASE_NAME = worker_database("fl_roles_test")
+
+PAST_SAISON = "2425"
+ACTIVE_SAISON = "2526"
+FUTURE_SAISON = "2627"
+
+TEAM_A_OID = ObjectId("6890a1b2c3d4e5f607830001")
+TEAM_B_OID = ObjectId("6890a1b2c3d4e5f607830002")
+TEAM_C_OID = ObjectId("6890a1b2c3d4e5f607830003")
+TEAM_D_OID = ObjectId("6890a1b2c3d4e5f607830004")
+TEAM_E_OID = ObjectId("6890a1b2c3d4e5f607830005")
+ROW_ACTIVE_A_OID = ObjectId("6890a1b2c3d4e5f607830011")
+ROW_ACTIVE_B_OID = ObjectId("6890a1b2c3d4e5f607830012")
+ROW_PAST_A_OID = ObjectId("6890a1b2c3d4e5f607830013")
+ROW_FUTURE_A_OID = ObjectId("6890a1b2c3d4e5f607830014")
+ROW_ACTIVE_C_OID = ObjectId("6890a1b2c3d4e5f607830015")
+ROW_ACTIVE_D_OID = ObjectId("6890a1b2c3d4e5f607830016")
+ROW_ACTIVE_E_OID = ObjectId("6890a1b2c3d4e5f607830017")
+ROW_FUTURE_E_OID = ObjectId("6890a1b2c3d4e5f607830018")
+
+ROW_NAME_A = "Helmholtz"
+ROW_NAME_B = "Lessing"
+ROW_NAME_C = "Goethe"
+ROW_NAME_D = "Schiller"
+ROW_NAME_E = "Herder"
+
+STAMP = "2026-02-01"
+
+# One mailbox per case, each spelled so that a hit in the corpus cannot be a coincidence.
+ACTIVE = "aktiv.sitz@schule.de"
+
+TWO_TEAMS = "zwei.teams@schule.de"
+TIMES = "zeiten.sitz@schule.de"
+WITHOUT_STAMP = "ohne.stempel@schule.de"
+ALSO = "zugleich.sitz@schule.de"
+ONLY_OPEN = "nur.offen@schule.de"
+MIXED = "gemischt@schule.de"
+FORMER = "ehemalig@schule.de"
+RETIREMENT_WHISTLE = "ruhestand.pfeife@schule.de"
+RETIREMENT_OPEN = "ruhestand.offen@schule.de"
+WHISTLE_WITHOUT_RECORD = "pfeife.ohne@schule.de"
+WHISTLE_NULL_RECORD = "pfeife.null@schule.de"
+GHOST = "geist@schule.de"
+NOBODY = "niemand.hierverzeichnet@example.com"
+# A confirmed seat on a `past` season beside an unconfirmed one on the `active` season, and an
+# unconfirmed `past` seat alone: the flag is judged over what could grant a panel.
+PAST_AND_OPEN = "vergangen.und.offen@schule.de"
+ONLY_PAST_OPEN = "nur.vergangen.offen@schule.de"
+# Seated on a team that withdrew from the active season and is entered again for the future one.
+AUSGETRETEN = "ausgetreten.sitz@schule.de"
+AUSGETRETEN_OPEN = "ausgetreten.offen@schule.de"
+
+ANSPRECHPERSON = "post@strasse.de"
+
+# Retired, and brought back inside the transaction case.
+SPIELER_ONLY_OPEN_OID = ObjectId("6890a1b2c3d4e5f607830021")
+SPIELER_FORMER_OID = ObjectId("6890a1b2c3d4e5f607830023")
+SCHIEDSRICHTER_UNCONFIRMED_OID = ObjectId("6890a1b2c3d4e5f607830031")
+SCHIEDSRICHTER_MIXED_OID = ObjectId("6890a1b2c3d4e5f607830032")
+SCHIEDSRICHTER_RETIREMENT_OID = ObjectId("6890a1b2c3d4e5f607830033")
+SCHIEDSRICHTER_WITHOUT_RECORD_OID = ObjectId("6890a1b2c3d4e5f607830034")
+SCHIEDSRICHTER_NULL_RECORD_OID = ObjectId("6890a1b2c3d4e5f607830035")
+SCHIEDSRICHTER_RETIREMENT_OPEN_OID = ObjectId("6890a1b2c3d4e5f607830036")
+
+
+def _seat(email: str, *, confirmed_at: str | None = STAMP) -> dict[str, Any]:
+    return kontaktperson_document("Anna", confirmed_at=confirmed_at, nachname="Müller", email=email, telefon="+49 69 5550101")
+
+
+def _junction(
+    row_id: ObjectId,
+    saison_id: str,
+    team_id: ObjectId,
+    name: str,
+    *,
+    also: str | None = None,
+    austritt: dict[str, Any] | None = None,
+    **slots: dict[str, Any],
+) -> dict[str, Any]:
+    return saison_team_document(
+        saison_id,
+        team_id,
+        name,
+        name[:3].upper(),
+        _id=row_id,
+        austritt=austritt,
+        kontakte={**{slot: None for slot in KONTAKT_ROLLEN}, **slots, "trainer_is_also": also},
+    )
+
+
+def _saison(saison_id: str, status: str) -> dict[str, Any]:
+    return saison_document(
+        saison_id,
+        status,
+        start_date=f"20{saison_id[:2]}-08-01",
+        end_date=f"20{saison_id[2:]}-06-30",
+        rules=rules_document(allowed_stufen=["Q1", "Q2"]),
+    )
+
+
+def _spieler(spieler_id: ObjectId, email: str, *, inactive_since: str | None = None) -> dict[str, Any]:
+    return spieler_document(
+        spieler_id,
+        "Anna",
+        "Müller",
+        email=email,
+        # Born confirmed: a pupil's record is written once its consent is given.
+        einwilligung={**EINWILLIGUNG, "confirmed_at": STAMP},
+        inactive_since=inactive_since,
+    )
+
+
+def _schiedsrichter(schiedsrichter_id: ObjectId, email: str, name: str | None, **fields: Any) -> dict[str, Any]:
+    # A name per referee: `app/core/constraints.py :: uniq_schiedsrichter_name` indexes it.
+    return {
+        "_id": schiedsrichter_id,
+        "name": name,
+        "schule": None,
+        "default_payment": 20,
+        "kontakt": {"telefon": "+49 69 5550202", "email": email},
+        "inactive_since": None,
+        **fields,
+    }
+
+
+CONFIRMED: dict[str, Any] = {**EINWILLIGUNG, "confirmed_at": STAMP}
+
+
+async def _seed(database: AsyncDatabase) -> None:
+    await database[Collection.SAISONS].insert_many(
+        [_saison(PAST_SAISON, "past"), _saison(ACTIVE_SAISON, "active"), _saison(FUTURE_SAISON, "future")]
+    )
+    await database[Collection.SAISON_TEAMS].insert_many(
+        [
+            _junction(
+                ROW_ACTIVE_A_OID,
+                ACTIVE_SAISON,
+                TEAM_A_OID,
+                ROW_NAME_A,
+                trainer=_seat(ACTIVE),
+                ansprechperson=_seat(TWO_TEAMS),
+            ),
+            _junction(
+                ROW_ACTIVE_B_OID,
+                ACTIVE_SAISON,
+                TEAM_B_OID,
+                ROW_NAME_B,
+                trainer=_seat(TWO_TEAMS),
+                ansprechperson=_seat(WITHOUT_STAMP, confirmed_at=None),
+            ),
+            _junction(
+                ROW_PAST_A_OID,
+                PAST_SAISON,
+                TEAM_A_OID,
+                ROW_NAME_A,
+                trainer=_seat(TIMES),
+                ansprechperson=_seat(PAST_AND_OPEN),
+                stellvertretung=_seat(ONLY_PAST_OPEN, confirmed_at=None),
+            ),
+            _junction(ROW_FUTURE_A_OID, FUTURE_SAISON, TEAM_A_OID, ROW_NAME_A, trainer=_seat(TIMES), ansprechperson=_seat(ANSPRECHPERSON)),
+            # The Trainer also holds the Ansprechperson seat, confirmed in the first and entered by an
+            # administrator into the second: the stamp is the SLOT's, so the second grants nothing.
+            _junction(
+                ROW_ACTIVE_C_OID,
+                ACTIVE_SAISON,
+                TEAM_C_OID,
+                ROW_NAME_C,
+                also="ansprechperson",
+                trainer=_seat(ALSO),
+                ansprechperson=_seat(ALSO, confirmed_at=None),
+                stellvertretung=_seat(ONLY_OPEN, confirmed_at=None),
+            ),
+            _junction(
+                ROW_ACTIVE_D_OID,
+                ACTIVE_SAISON,
+                TEAM_D_OID,
+                ROW_NAME_D,
+                trainer=_seat(MIXED, confirmed_at=None),
+                ansprechperson=_seat(PAST_AND_OPEN, confirmed_at=None),
+            ),
+            _junction(
+                ROW_ACTIVE_E_OID,
+                ACTIVE_SAISON,
+                TEAM_E_OID,
+                ROW_NAME_E,
+                austritt=dict(AUSTRITT),
+                trainer=_seat(AUSGETRETEN),
+                ansprechperson=_seat(AUSGETRETEN_OPEN, confirmed_at=None),
+            ),
+            _junction(ROW_FUTURE_E_OID, FUTURE_SAISON, TEAM_E_OID, ROW_NAME_E, trainer=_seat(AUSGETRETEN)),
+        ]
+    )
+    await database[Collection.SPIELER].insert_many(
+        [
+            _spieler(SPIELER_ONLY_OPEN_OID, ONLY_OPEN, inactive_since="2026-03-01"),
+            _spieler(SPIELER_FORMER_OID, FORMER, inactive_since="2026-03-01"),
+        ]
+    )
+    await database[Collection.SCHIEDSRICHTER].insert_many(
+        [
+            _schiedsrichter(SCHIEDSRICHTER_UNCONFIRMED_OID, ONLY_OPEN, "A. Offen", einwilligung=None),
+            _schiedsrichter(SCHIEDSRICHTER_MIXED_OID, MIXED, "B. Gemischt", einwilligung=CONFIRMED),
+            _schiedsrichter(
+                SCHIEDSRICHTER_RETIREMENT_OID, RETIREMENT_WHISTLE, "C. Ruhestand", einwilligung=CONFIRMED, inactive_since="2026-03-01"
+            ),
+            _schiedsrichter(SCHIEDSRICHTER_WITHOUT_RECORD_OID, WHISTLE_WITHOUT_RECORD, "D. Ohne"),
+            _schiedsrichter(SCHIEDSRICHTER_NULL_RECORD_OID, WHISTLE_NULL_RECORD, "E. Null", einwilligung=None),
+            _schiedsrichter(
+                SCHIEDSRICHTER_RETIREMENT_OPEN_OID, RETIREMENT_OPEN, "F. Ruhestand-Offen", einwilligung=None, inactive_since="2026-03-01"
+            ),
+            # The ghost as no write leaves it -- an address, a stamp, not retired -- so that its id is
+            # the one thing left keeping it out of every answer.
+            _schiedsrichter(GHOST_SCHIEDSRICHTER_ID, GHOST, None, einwilligung=CONFIRMED),
+        ]
+    )
+
+
+# Module-scoped: every case below reads this corpus, and the one opening a transaction aborts it,
+# which `unwritten` keeps from being left as a claim.
+@pytest.fixture(scope="module")
+def seeded_league(mongo_replica_set_url: str) -> Iterator[str]:
+    async def _run() -> None:
+        async with a_clean_database(mongo_replica_set_url, DATABASE_NAME) as (_, database):
+            await _seed(database)
+
+    on_the_seed_loop(_run())
+
+    with unwritten(mongo_replica_set_url, DATABASE_NAME):
+        yield mongo_replica_set_url
+
+
+async def _ask(database: AsyncDatabase, email: str, session: AsyncClientSession) -> FLSubject:
+    return await roles_of(email, record_collections(database), session=session)
+
+
+def answered(url: str, email: str) -> FLSubject:
+    async def _run() -> FLSubject:
+        async with shared_client(url).start_session() as session:
+            return await _ask(shared_client(url)[DATABASE_NAME], email, session)
+
+    return on_the_seed_loop(_run())
+
+
+def seats(answer: FLSubject) -> list[tuple[str, ObjectId, str, str, str]]:
+    return [(seat.saison_id, seat.team_id, seat.rolle, seat.team_name, seat.saison_status) for seat in answer.seats]
+
+
+def is_empty(answer: FLSubject) -> bool:
+    return (answer.seats, answer.spieler, answer.schiedsrichter) == ([], [], [])
+
+
+@pytest.mark.db
+class TestTheSeasonNarrowing:
+    def test_a_past_seat_is_answered_nothing_while_the_future_one_is_answered(self, seeded_league: str):
+        """One mailbox holding both, so a narrowing dropped answers the past seat beside the future one rather than passing."""
+
+        assert seats(answered(seeded_league, TIMES)) == [(FUTURE_SAISON, TEAM_A_OID, "trainer", ROW_NAME_A, "future")]
+
+
+@pytest.mark.db
+class TestTheConfirmationNarrowing:
+    def test_a_seat_with_a_null_stamp_grants_nothing(self, seeded_league: str):
+        """The seat is the mailbox's only record, so the flag's seat arm is what raises it."""
+
+        answer = answered(seeded_league, WITHOUT_STAMP)
+
+        assert answer.seats == []
+        assert answer.unconfirmed is True
+
+    def test_a_confirmed_past_seat_beside_an_unconfirmed_active_one_is_flagged(self, seeded_league: str):
+        """Kills a flag judged before the season narrowing: the past seat's stamp would hold it down while nothing is granted."""
+
+        answer = answered(seeded_league, PAST_AND_OPEN)
+
+        assert answer.seats == []
+        assert answer.unconfirmed is True
+
+    def test_an_unconfirmed_past_seat_alone_is_not_flagged(self, seeded_league: str):
+        """Confirming a past seat opens nothing, so this mailbox meets the landing of one holding nothing."""
+
+        answer = answered(seeded_league, ONLY_PAST_OPEN)
+
+        assert is_empty(answer)
+        assert answer.unconfirmed is False
+
+    def test_one_address_in_two_slots_is_answered_only_the_slot_it_confirmed(self, seeded_league: str):
+        """Kills a confirmation judged per row: `trainer_is_also` seats this person twice, and only the Trainer seat is stamped."""
+
+        assert [seat.rolle for seat in answered(seeded_league, ALSO).seats] == ["trainer"]
+
+    @pytest.mark.parametrize("email", [WHISTLE_WITHOUT_RECORD, WHISTLE_NULL_RECORD], ids=["no record", "null record"])
+    def test_an_unconfirmed_referee_grants_nothing(self, seeded_league: str, email: str):
+        """The shapes a referee row holds before its person answers, each read as unconfirmed rather than raising."""
+
+        answer = answered(seeded_league, email)
+
+        assert (answer.schiedsrichter, answer.unconfirmed) == ([], True)
+
+    def test_a_mailbox_holding_only_unconfirmed_records_is_answered_nothing_and_flagged(self, seeded_league: str):
+        """A seat and a referee awaiting confirmation beside a retired pupil: an empty answer that is NOT the answer for holding nothing."""
+
+        answer = answered(seeded_league, ONLY_OPEN)
+
+        assert is_empty(answer)
+        assert answer.unconfirmed is True
+
+    def test_a_mailbox_holding_nothing_is_answered_nothing_unflagged(self, seeded_league: str):
+        answer = answered(seeded_league, NOBODY)
+
+        assert is_empty(answer)
+        assert answer.unconfirmed is False
+
+    def test_one_confirmed_record_beside_an_unconfirmed_one_leaves_the_flag_down(self, seeded_league: str):
+        """Kills a flag set by ANY unconfirmed record: a person holding a Funktion is not awaiting their own confirmation."""
+
+        answer = answered(seeded_league, MIXED)
+
+        assert ([row.schiedsrichter_id for row in answer.schiedsrichter], answer.spieler, answer.unconfirmed) == (
+            [SCHIEDSRICHTER_MIXED_OID],
+            [],
+            False,
+        )
+
+    def test_every_read_sees_what_the_caller_s_transaction_wrote(self, seeded_league: str):
+        """Kills any of the four reads made outside the caller's session: each has its own change to miss.
+
+        The seat and the referee are stamped, the pupil brought back and the past season made `future`, in a transaction aborted after.
+        """
+
+        async def _run() -> tuple[FLSubject, FLSubject, FLSubject, FLSubject]:
+            client = shared_client(seeded_league)
+            database = client[DATABASE_NAME]
+
+            async with client.start_session() as writer, client.start_session() as bystander:
+                await writer.start_transaction()
+                try:
+                    await database[Collection.SAISON_TEAMS].update_one(
+                        {"_id": ROW_ACTIVE_C_OID}, {"$set": {"kontakte.stellvertretung.einwilligung.confirmed_at": STAMP}}, session=writer
+                    )
+                    await database[Collection.SPIELER].update_one(
+                        {"_id": SPIELER_ONLY_OPEN_OID}, {"$set": {"inactive_since": None}}, session=writer
+                    )
+                    await database[Collection.SCHIEDSRICHTER].update_one(
+                        {"_id": SCHIEDSRICHTER_UNCONFIRMED_OID}, {"$set": {"einwilligung": CONFIRMED}}, session=writer
+                    )
+                    await database[Collection.SAISONS].update_one({"_id": PAST_SAISON}, {"$set": {"status": "future"}}, session=writer)
+
+                    return (
+                        await _ask(database, ONLY_OPEN, writer),
+                        await _ask(database, TIMES, writer),
+                        await _ask(database, ONLY_OPEN, bystander),
+                        await _ask(database, TIMES, bystander),
+                    )
+                finally:
+                    await writer.abort_transaction()
+
+        open_inside, times_inside, open_outside, times_outside = on_the_seed_loop(_run())
+
+        assert seats(open_inside) == [(ACTIVE_SAISON, TEAM_C_OID, "stellvertretung", ROW_NAME_C, "active")]
+        assert [row.spieler_id for row in open_inside.spieler] == [SPIELER_ONLY_OPEN_OID]
+        assert [row.schiedsrichter_id for row in open_inside.schiedsrichter] == [SCHIEDSRICHTER_UNCONFIRMED_OID]
+        assert [(seat.saison_id, seat.saison_status) for seat in times_inside.seats] == [(PAST_SAISON, "future"), (FUTURE_SAISON, "future")]
+        assert is_empty(open_outside)
+        assert [seat.saison_id for seat in times_outside.seats] == [FUTURE_SAISON]
+
+
+@pytest.mark.db
+class TestTheWithdrawalNarrowing:
+    def test_a_seat_on_the_season_its_team_withdrew_from_grants_nothing_while_the_next_season_s_does(self, seeded_league: str):
+        """Both seats confirmed, so the withdrawal alone parts them; the future row is the same team's, which a per-team test would drop too."""
+
+        assert seats(answered(seeded_league, AUSGETRETEN)) == [(FUTURE_SAISON, TEAM_E_OID, "trainer", ROW_NAME_E, "future")]
+
+
+@pytest.mark.db
+class TestTheRetirementNarrowing:
+    def test_a_retired_referee_grants_nothing(self, seeded_league: str):
+        """Confirmed, so only the retirement keeps it out."""
+
+        answer = answered(seeded_league, RETIREMENT_WHISTLE)
+
+        assert is_empty(answer)
+        assert answer.unconfirmed is False
+
+    def test_a_retired_pupil_grants_nothing(self, seeded_league: str):
+        """Confirmed, so only the retirement keeps it out."""
+
+        assert answered(seeded_league, FORMER).spieler == []
+
+    def test_the_ghost_grants_nothing_whatever_its_row_holds(self, seeded_league: str):
+        """Its null address and its retirement keep it out as written; the seed gives it neither, so its id is what this pins."""
+
+        assert answered(seeded_league, GHOST).schiedsrichter == []
+
+
+@pytest.mark.parametrize("identifier", ["", " \u3000\ufeff"], ids=["empty", "blank"])
+def test_an_identifier_folding_to_nothing_is_refused_before_any_read(identifier: str):
+    """A bare object stands in for every handle, so a lookup that went ahead would raise an attribute error rather than this."""
+
+    unreachable = cast(Any, object())
+
+    with pytest.raises(ValueError, match="empty identifier"):
+        asyncio.run(roles_of(identifier, unreachable, session=unreachable))

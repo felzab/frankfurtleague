@@ -204,10 +204,20 @@ export function ThemeChoice() {
  * The account menu, the same in every area: „Funktion wechseln“ in a group of its own for a person holding two or
  * more Funktionen, its submenu marking the one this area serves; Konto and Abmelden; Impressum and Datenschutz; and at
  * its foot the theme as one row, „Darstellung“ with the three glyphs. A person with a name sees it with their address
- * at the top; an address alone already stands in the row, so the menu does not repeat it. `konto` is the Konto page
+ * at the top; an address alone already stands in the row, so the menu does not repeat it. `accountPage` is the Konto page
  * the menu opens: the phone's list of its pages, or on desktop its first page, beside the rail listing the rest.
  */
-function AccountMenu({ account, konto, trigger, beside }: { account: Account; konto: Route; trigger: ReactElement; beside?: boolean }) {
+function AccountMenu({
+  account,
+  accountPage,
+  trigger,
+  beside,
+}: {
+  account: Account;
+  accountPage: Route;
+  trigger: ReactElement;
+  beside?: boolean;
+}) {
   const roles = account.roles ?? [];
   const switchRole: ReadonlyArray<ReadonlyArray<MenuEntry>> =
     roles.length < 2 ? [] : [[{ kind: "submenu", label: COPY.shared.switchRole, links: roles }]];
@@ -220,7 +230,7 @@ function AccountMenu({ account, konto, trigger, beside }: { account: Account; ko
       groups={[
         ...switchRole,
         [
-          { kind: "link", label: COPY.template.account, href: konto },
+          { kind: "link", label: COPY.template.account, href: accountPage },
           { kind: "action", label: COPY.shared.verb.signOut, onAction: () => void signOutAndLeave() },
         ],
         [
@@ -352,7 +362,7 @@ export function AccountRow({ account: read }: { account: AccountRead }) {
   return (
     <AccountMenu
       account={account}
-      konto={ROUTES.accountSignIn.path()}
+      accountPage={ROUTES.accountSignIn.path()}
       beside={collapsed}
       trigger={
         <AriaButton
@@ -512,7 +522,7 @@ function AccountPlace({ account: read }: { account: AccountRead }) {
   return (
     <AccountMenu
       account={account}
-      konto={ROUTES.account.path()}
+      accountPage={ROUTES.account.path()}
       trigger={
         <AriaButton
           data-kit-focus="inset"

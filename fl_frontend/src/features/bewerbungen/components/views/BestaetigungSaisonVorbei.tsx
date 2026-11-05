@@ -33,7 +33,7 @@ const NICHT_GESPEICHERT = `Dein Widerspruch wurde nicht gespeichert. ${VERSUCHE_
  * confirmation there (`kontakt_saison_past`) and still takes a Widerspruch, so the page offers that alone.
  */
 export function BestaetigungSaisonVorbei({
-  ansicht,
+  ansicht: view,
   token,
   onAbschluss,
 }: {
@@ -41,21 +41,21 @@ export function BestaetigungSaisonVorbei({
   token: string;
   onAbschluss: (abschluss: BestaetigungAbschluss) => void;
 }) {
-  const widerspruch = useTwoPressConfirm();
+  const objection = useTwoPressConfirm();
 
   const payload: FLBewerbungEinwilligungDeclined = { token: token, antwort: "declined" };
 
   const sende = async (): Promise<void> => {
-    const gesendet = await postPublicForm<WiderspruchAntwort>("/api/bestaetigung/kontakt", payload);
+    const sent = await postPublicForm<WiderspruchAntwort>("/api/bestaetigung/kontakt", payload);
 
-    if (!gesendet.answered) {
-      appToast.danger(gesendet.wroteNothing ? "Widerspruch nicht gespeichert" : UNKLAR_TITEL, {
-        description: gesendet.error,
+    if (!sent.answered) {
+      appToast.danger(sent.wroteNothing ? "Widerspruch nicht gespeichert" : UNKLAR_TITEL, {
+        description: sent.error,
       });
       return;
     }
 
-    const antwort = gesendet.body;
+    const antwort = sent.body;
 
     // Wrapped again: React leaves an update after an `await` outside the transition that awaited.
     startTransition(() => {
@@ -64,7 +64,7 @@ export function BestaetigungSaisonVorbei({
         return;
       }
       reportRefusedConfirmation(antwort, {
-        onZustand: (zustand) => onAbschluss({ zustand, ansicht: antwort.ansicht }),
+        onState: (zustand) => onAbschluss({ zustand, ansicht: antwort.ansicht }),
         onRefusal: () =>
           appToast.danger("Widerspruch nicht gespeichert", { description: antwort.error ?? antwort.unplacedError ?? NICHT_GESPEICHERT }),
       });
@@ -76,13 +76,13 @@ export function BestaetigungSaisonVorbei({
       {/* The one cause the view names, as the mail names it. Only a withdrawal reads apart: an ended
           season outranks it, so every other state this page opens on is an ended season. */}
       <p className={ABSATZ_CLASSES}>
-        {ansicht.row === "ausgetreten" ? (
+        {view.row === "ausgetreten" ? (
           <>
-            Das Team <Wert>{ansicht.schule}</Wert> spielt in der Saison <Wert>{ansicht.saison_id}</Wert> nicht mehr mit.
+            Das Team <Wert>{view.schule}</Wert> spielt in der Saison <Wert>{view.saison_id}</Wert> nicht mehr mit.
           </>
         ) : (
           <>
-            Die Saison <Wert>{ansicht.saison_id}</Wert> ist für das Team <Wert>{ansicht.schule}</Wert> vorbei.
+            Die Saison <Wert>{view.saison_id}</Wert> ist für das Team <Wert>{view.schule}</Wert> vorbei.
           </>
         )}{" "}
         Deinen Eintrag kannst Du deshalb nicht mehr bestätigen.
@@ -92,9 +92,9 @@ export function BestaetigungSaisonVorbei({
       </p>
 
       <div className="flex w-full flex-col gap-y-3">
-        <ConfirmActionRow confirm={widerspruch}>
+        <ConfirmActionRow confirm={objection}>
           <ConfirmPressButton
-            confirm={widerspruch}
+            confirm={objection}
             // Nothing closes this press: the backend takes a Widerspruch until the link's own deadline.
             reason={null}
             resting={ABLEHNEN_LABEL}
@@ -106,11 +106,11 @@ export function BestaetigungSaisonVorbei({
                 aria-hidden="true"
               />
             }
-            onPress={() => widerspruch.press(sende)}
+            onPress={() => objection.press(sende)}
           />
         </ConfirmActionRow>
 
-        {widerspruch.isConfirming && (
+        {objection.isConfirming && (
           <ConfirmReveal>
             <p className="fluid-xxs leading-normal font-medium text-foreground">Wir entfernen Deine Angaben sofort aus dem Eintrag.</p>
           </ConfirmReveal>

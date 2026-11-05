@@ -97,9 +97,9 @@ const FIELD_DESCRIPTORS = [
       const freigabe = fenster.offen ? "Freigeschaltet" : "Gesperrt";
       // Both fallbacks render a row rather than hiding one: an empty date is the mid-edit state the
       // schema refuses on save, and the change list is where the admin sees what is still missing.
-      return `${freigabe}: ${formatSpielDatum(fenster.von)} bis ${formatSpielDatum(fenster.bis)}`;
+      return `${freigabe}: ${formatSpielDatum(fenster.start)} bis ${formatSpielDatum(fenster.end)}`;
     },
-    errorPaths: ["bewerbung", "bewerbung.offen", "bewerbung.von", "bewerbung.bis"],
+    errorPaths: ["bewerbung", "bewerbung.offen", "bewerbung.start", "bewerbung.end"],
   },
   {
     path: "registrierung",
@@ -112,9 +112,9 @@ const FIELD_DESCRIPTORS = [
       if (fenster === null) return null;
 
       const freigabe = fenster.offen ? "Freigeschaltet" : "Gesperrt";
-      return `${freigabe}: ${formatSpielDatum(fenster.von)} bis ${formatSpielDatum(fenster.bis)}`;
+      return `${freigabe}: ${formatSpielDatum(fenster.von)} bis ${formatSpielDatum(fenster.end)}`;
     },
-    errorPaths: ["registrierung", "registrierung.offen", "registrierung.von", "registrierung.bis"],
+    errorPaths: ["registrierung", "registrierung.offen", "registrierung.von", "registrierung.end"],
   },
 ] as const satisfies readonly FLFieldDescriptor<SaisonDraftFields, FLSaisonFieldGroup>[];
 

@@ -151,9 +151,9 @@ class TestEveryNameListIsOrderedAsGermanReads:
         async def body(database: AsyncDatabase) -> Any:
             response = await get_team_saisons(
                 teams_collection=database[Collection.TEAMS],
-                adresswechsel_collection=database[Collection.ADDRESS_CHANGES],
-                berechtigungen_collection=database[Collection.GRANTS],
-                berechtigungen_angekuendigt_collection=database[Collection.GRANTS_ANNOUNCED],
+                address_changes_collection=database[Collection.ADDRESS_CHANGES],
+                grants_collection=database[Collection.GRANTS],
+                grants_announced_collection=database[Collection.GRANTS_ANNOUNCED],
                 outbox_collection=database[Collection.OUTBOX],
                 operator=ADMINISTRATORS[0],
                 auth_time=int(time.time()),
@@ -167,8 +167,8 @@ class TestEveryNameListIsOrderedAsGermanReads:
         async def body(database: AsyncDatabase) -> Any:
             response = await get_spieler_saisons(
                 spieler_collection=database[Collection.SPIELER],
-                berechtigungen_collection=database[Collection.GRANTS],
-                berechtigungen_angekuendigt_collection=database[Collection.GRANTS_ANNOUNCED],
+                grants_collection=database[Collection.GRANTS],
+                grants_announced_collection=database[Collection.GRANTS_ANNOUNCED],
                 operator=ADMINISTRATORS[0],
                 auth_time=int(time.time()),
             )

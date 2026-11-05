@@ -45,7 +45,7 @@ from app.shared.schemas.custom import (
     validate_external_url,
 )
 from app.shared.schemas.einwilligung import (
-    FLEinwilligungNachweise,
+    FLEinwilligungEvidenceSet,
     FLSeatTextVersions,
     cite_their_kind,
 )
@@ -144,14 +144,14 @@ class FLKontaktKenntnisnahme(_KontaktKenntnisnahmeWritable, BaseReadModel):
     confirmed_at: CustomOptionalDateString
     # The one consent on this record, to photographs, video and interviews, and on the READ model
     # alone for `umfang`'s reason.
-    medien: bool
+    media: bool
     # Written once, by the write that seats the person, and moved by nothing else: who seated them,
     # the applicant or the league.
     entered_by: FLKontaktEnteredBy
-    # Each choice's evidence, empty until the seat's person answers, for `FLEinwilligung.nachweis`'s reasons; a seat's
+    # Each choice's evidence, empty until the seat's person answers, for `FLEinwilligung.evidence`'s reasons; a seat's
     # wordings alone.
-    nachweis: Annotated[FLEinwilligungNachweise, AfterValidator(lambda nachweise: cite_their_kind(nachweise, FLSeatTextVersions))] = Field(
-        default_factory=FLEinwilligungNachweise
+    evidence: Annotated[FLEinwilligungEvidenceSet, AfterValidator(lambda evidence_set: cite_their_kind(evidence_set, FLSeatTextVersions))] = (
+        Field(default_factory=FLEinwilligungEvidenceSet)
     )
 
 
@@ -290,10 +290,10 @@ def _project_seat(value: Any) -> Any:
     projected: dict[str, Any] = {field: _projected_leaf(value, field) for field in FLKontaktperson.model_fields}
     einwilligung = projected.get("einwilligung")
     if isinstance(einwilligung, Mapping):
-        # Never `nachweis`: it moves only with a choice or a stamp the token already holds, and its
+        # Never `evidence`: it moves only with a choice or a stamp the token already holds, and its
         # nested defaults would part a stored block's token from its read's.
         projected["einwilligung"] = {
-            field: _projected_leaf(einwilligung, field) for field in FLKontaktKenntnisnahme.model_fields if field != "nachweis"
+            field: _projected_leaf(einwilligung, field) for field in FLKontaktKenntnisnahme.model_fields if field != "evidence"
         }
 
     return projected
@@ -547,7 +547,7 @@ class FLTeamMembership(BaseReadModel):
     # Each seat's link as the editor shows it, the referee editor's twin. Defaulted: `$project` omits a
     # key the stored row has not got, and a row holds none until a save mints its first link.
     confirmations: FLSaisonTeamConfirmationsView | None = None
-    # Composed after the read from the `adresswechsel` collection, never projected off the season row; required, so a
+    # Composed after the read from the `address_changes` collection, never projected off the season row; required, so a
     # read that forgot to compose it fails rather than answering every seat as holding no change.
     address_change: FLSaisonTeamAddressChange | None
     # The row's count of writes, which its two editors' saves send back.

@@ -23,7 +23,7 @@ import {
   saveSchiedsrichterConsent,
   saveSeatConsent,
   saveSpielerConsent,
-} from "@/features/konto/personActions";
+} from "@/features/account/personActions";
 
 import type { Copy, Words } from "@/core/copy";
 import type { FLEinwilligungStand, FLEinwilligungUmfang, FLKontaktKenntnisnahmeUmfang } from "@/core/generated/client/types";
@@ -49,8 +49,8 @@ export type Entry = {
   readonly save: Save;
   /** The scope the record holds: a name's for a person's own record, a contact's for a seat. */
   readonly umfang: FLEinwilligungUmfang | FLKontaktKenntnisnahmeUmfang;
-  readonly medien: boolean;
-  readonly nachweis: FLEinwilligungStand;
+  readonly media: boolean;
+  readonly evidence: FLEinwilligungStand;
   /** A grant may be given here; where not, the box takes withdrawals alone. */
   readonly givable: boolean;
   /** Why the media choice may not be given, its record short of the floor; `null` where it may. */
@@ -60,7 +60,7 @@ export type Entry = {
 /** The fields a box posts: the scope, a choice or a box ticked, the media box, and the holder its act carries. */
 const read = (formData: FormData) => ({
   umfang: formData.get("umfang"),
-  medien: formData.get("medien") === "on",
+  media: formData.get("media") === "on",
   holder: String(formData.get("holder")),
 });
 
@@ -78,33 +78,33 @@ const contactScope = (posted: FormDataEntryValue | null): FLKontaktKenntnisnahme
  */
 function saveOf(entry: Entry) {
   return (formData: FormData) => {
-    const { umfang, medien, holder } = read(formData);
-    const { save, nachweis } = entry;
+    const { umfang, media, holder } = read(formData);
+    const { save, evidence } = entry;
     switch (save.kind) {
       case "spieler":
         return saveSpielerConsent({
           umfang: nameScope(umfang, entry.umfang),
-          medien,
+          media,
           holder,
-          nachweis_stand: nachweis,
+          evidence_state: evidence,
           text_versions: SPIELER_TEXT_VERSIONS,
         });
       case "registrierung":
         return saveRegistrierungConsent({
           registrierung_id: save.registrierung_id,
           umfang: nameScope(umfang, entry.umfang),
-          medien,
+          media,
           holder,
-          nachweis_stand: nachweis,
+          evidence_state: evidence,
           text_versions: SPIELER_TEXT_VERSIONS,
         });
       case "schiedsrichter":
         return saveSchiedsrichterConsent({
           schiedsrichter_id: save.schiedsrichter_id,
           umfang: nameScope(umfang, entry.umfang),
-          medien,
+          media,
           holder,
-          nachweis_stand: nachweis,
+          evidence_state: evidence,
           text_versions: SCHIEDSRICHTER_TEXT_VERSIONS,
         });
       case "seat":
@@ -112,18 +112,18 @@ function saveOf(entry: Entry) {
           team_id: save.team_id,
           saison_id: save.saison_id,
           umfang: contactScope(umfang),
-          medien,
+          media,
           holder,
-          nachweis_stand: nachweis,
+          evidence_state: evidence,
           text_versions: SEAT_TEXT_VERSIONS,
         });
       case "bewerbung":
         return saveBewerbungConsent({
           bewerbung_id: save.bewerbung_id,
           umfang: contactScope(umfang),
-          medien,
+          media,
           holder,
-          nachweis_stand: nachweis,
+          evidence_state: evidence,
           text_versions: SEAT_TEXT_VERSIONS,
         });
     }
@@ -184,20 +184,20 @@ function ScopeChoice({ entry }: { entry: Entry }) {
 /** The media choice under its wording, described by the line under it. */
 function MediaChoice({ entry }: { entry: Entry }) {
   const lineId = useId();
-  const { medien } = wordingsOf(entry.save.kind);
+  const { media } = wordingsOf(entry.save.kind);
   return (
     <>
       <Checkbox
-        label={{ record: medien.label }}
+        label={{ record: media.label }}
         aria-describedby={lineId}
-        name="medien"
-        defaultSelected={entry.medien}
-        isDisabled={(!entry.givable || entry.mediaFrom !== null) && !entry.medien}
+        name="media"
+        defaultSelected={entry.media}
+        isDisabled={(!entry.givable || entry.mediaFrom !== null) && !entry.media}
         description={entry.mediaFrom ?? undefined}
       />
       <ConsentLine
         id={lineId}
-        line={medien.line}
+        line={media.line}
       />
     </>
   );

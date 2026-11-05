@@ -109,7 +109,7 @@ def the_corpus() -> list[dict[str, Any]]:
         registrierung(
             DECLINED_OID,
             status="declined",
-            decision={"made_at": "2026-02-15", "von": "admin", "grund": "kein Platz"},
+            decision={"made_at": "2026-02-15", "by": "admin", "grund": "kein Platz"},
         ),
         registrierung(OTHER_SEASON_OID, saison_id=OTHER_SAISON_ID, confirmation=bestaetigung(OTHER_SEASON_OID, frist=YESTERDAY)),
     ]
@@ -153,7 +153,7 @@ async def sweep(database: AsyncDatabase, client: AsyncMongoClient, saison_id: st
         registrierungen_collection=database[Collection.REGISTRIERUNGEN],
         saisons_collection=database[Collection.SAISONS],
         teams_collection=database[Collection.TEAMS],
-        aktionen_collection=database[Collection.ACTION_LOG],
+        action_log_collection=database[Collection.ACTION_LOG],
         outbox_collection=database[Collection.OUTBOX],
         db=client,
         today=today,
@@ -375,7 +375,7 @@ class TestOneRowHoldsBackNoOther:
     def test_a_refused_loeschung_by_the_decline_clock(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.REGISTRIERUNGEN].insert_one(
-                registrierung(SECOND_OID, status="declined", decision={"made_at": "2026-02-15", "von": "admin", "grund": None})
+                registrierung(SECOND_OID, status="declined", decision={"made_at": "2026-02-15", "by": "admin", "grund": None})
             )
             await refuse_the_redaction_of(database, DECLINED_OID)
             answer = await sweep(database, client)
@@ -495,7 +495,7 @@ class TestAPageAndOneMoreIsDrainedRatherThanRefused:
             pytest.param("season's end", {}, "past", "erased_without_decision", id="season's end"),
             pytest.param(
                 "one month",
-                {"status": "declined", "decision": {"made_at": "2026-02-15", "von": "admin", "grund": None}},
+                {"status": "declined", "decision": {"made_at": "2026-02-15", "by": "admin", "grund": None}},
                 "active",
                 "erased_declined",
                 id="one month",
@@ -510,9 +510,9 @@ class TestAPageAndOneMoreIsDrainedRatherThanRefused:
 
             return getattr(response, counted), await database[Collection.REGISTRIERUNGEN].count_documents({"saison_id": SAISON_ID})
 
-        geloescht, left = on_a_league(mongo_replica_set_url, body, status=status)
+        erased_count, left = on_a_league(mongo_replica_set_url, body, status=status)
 
-        assert (geloescht, left) == (OVERFLOW, 0), f"the {clock} clock left rows the next pass would read into the same full page"
+        assert (erased_count, left) == (OVERFLOW, 0), f"the {clock} clock left rows the next pass would read into the same full page"
 
 
 # Under the driver's first batch, so a page read is one command however many rows it holds.

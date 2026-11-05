@@ -51,7 +51,7 @@ const MESSAGES = [
     "the seat's decline notice",
     buildBewerbungWiderspruchEmail(
       {
-        art: "bewerbung_widerspruch",
+        art: "bewerbung_objection",
         saison_id: "2627",
         rollen: ["ansprechperson"],
         declined: { vorname: "Mira", rollen: ["stellvertretung"] },

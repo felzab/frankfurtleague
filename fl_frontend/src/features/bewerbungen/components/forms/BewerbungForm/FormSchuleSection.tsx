@@ -225,13 +225,13 @@ export function FormSchuleSection({
                         collection and the builder skips it for keyboard navigation and selection. */}
                     <Separator className="my-1" />
 
-                    {schulen.map((eintrag) => (
+                    {schulen.map((entry) => (
                       <ListBox.Item
-                        key={eintrag.id}
-                        id={eintrag.id}
-                        textValue={eintrag.name}
+                        key={entry.id}
+                        id={entry.id}
+                        textValue={entry.name}
                         className={SCHULE_ITEM_CLASSES}>
-                        {eintrag.name}
+                        {entry.name}
                         <ListBox.ItemIndicator />
                       </ListBox.Item>
                     ))}

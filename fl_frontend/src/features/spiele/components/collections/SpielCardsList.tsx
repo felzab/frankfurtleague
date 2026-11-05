@@ -36,7 +36,7 @@ export function SpielCardsList({
   today,
   isAdmin = false,
   notes,
-  bestaetigungen,
+  confirmations,
   berichtChipsBySpielId,
   isFinishedSaison,
 }: {
@@ -46,7 +46,7 @@ export function SpielCardsList({
   isAdmin?: boolean;
   notes?: SpielCardNotes;
   /** The season's confirmation rows, an administrator's read the card shows only beside its edit link. */
-  bestaetigungen?: SaisonBestaetigungen;
+  confirmations?: SaisonBestaetigungen;
   /** Keyed by `spiel_id`, for the notes' reason: a report's state arrives beside the matches, never inside them. */
   berichtChipsBySpielId?: ReadonlyMap<string, BerichtChip>;
 }) {
@@ -67,7 +67,7 @@ export function SpielCardsList({
             onOpenInfoModal={() => setSelectedSpiel(spielData)}
             adminEditHref={isAdmin ? adminSpielEditHref(spielData.id, saisonId) : undefined}
             asListitem={!hasNotes}
-            confirmations={bestaetigungen}
+            confirmations={confirmations}
             berichtChip={berichtChipsBySpielId?.get(spielData.id)}
           />
         );
