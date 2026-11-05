@@ -138,6 +138,9 @@ class Code(StrEnum):
     BOOKING_UNCONFIRMED_SCHIEDSRICHTER = auto()
 
     SPIEL_DOUBLE_BOOKED = auto()
+    # The adoption's twins, one per resource: it judges the fixture's STORED ground and referee, so no path names which.
+    SPIEL_DOUBLE_BOOKED_SPIELORT_AS_STORED = auto()
+    SPIEL_DOUBLE_BOOKED_SCHIEDSRICHTER_AS_STORED = auto()
     SPIEL_OUTSIDE_SPIELTAG = auto()
     SPIELTAG_OUTSIDE_SAISON = auto()
     # `spiel_outside_spieltag`'s mirror: shrinking the span is the other way to break the same containment.
@@ -168,6 +171,9 @@ class Code(StrEnum):
     MEDIA_AGE = auto()
     GIVING_NOT_ALLOWED = auto()
     ELIGIBILITY_DISQUALIFIED = auto()
+    # The adoption's twins, one per side: it judges the fixture's STORED sides, so no path names which.
+    ELIGIBILITY_DISQUALIFIED_TEAM1_AS_STORED = auto()
+    ELIGIBILITY_DISQUALIFIED_TEAM2_AS_STORED = auto()
     ELIGIBILITY_TEAM_NOT_IN_SAISON = auto()
     ENTRY_SAISON_NOT_FUTURE = auto()
     ENTRY_GRUPPE_NOT_OFFERED = auto()

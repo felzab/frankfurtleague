@@ -37,7 +37,7 @@ from app.api.spiele.schemas import (
 from app.api.teams.services import has_taken_place, seats_changing_holder
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import WriteRefusal
+from app.core.exceptions import Twins, WriteRefusal
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.shared.schemas.bounds import (
     SPIEL_CONFIRMATION_FRIST_DAYS,
@@ -380,8 +380,19 @@ def find_vorschlag_unchanged_refusal(*, vorschlag: FLSpielbestaetigungAppointmen
     )
 
 
-# What the adoption answers under a 409 twin: each judges the stored proposal, which a payload write judges as its body.
-ADOPTION_TWINS: Mapping[Code, Code] = {Code.ANSETZUNG_VORSCHLAG_PAST: Code.ANSETZUNG_VORSCHLAG_PAST_AS_STORED}
+# What the adoption answers under a 409 twin: each judges the stored proposal or the stored fixture, which a payload
+# write judges as its body. A code the catalogue words by its path gets a twin per path, the adoption naming none.
+ADOPTION_TWINS: Twins = {
+    Code.ANSETZUNG_VORSCHLAG_PAST: Code.ANSETZUNG_VORSCHLAG_PAST_AS_STORED,
+    Code.SPIEL_DOUBLE_BOOKED: {
+        "ort": Code.SPIEL_DOUBLE_BOOKED_SPIELORT_AS_STORED,
+        "schiedsrichter": Code.SPIEL_DOUBLE_BOOKED_SCHIEDSRICHTER_AS_STORED,
+    },
+    Code.ELIGIBILITY_DISQUALIFIED: {
+        "team1": Code.ELIGIBILITY_DISQUALIFIED_TEAM1_AS_STORED,
+        "team2": Code.ELIGIBILITY_DISQUALIFIED_TEAM2_AS_STORED,
+    },
+}
 
 
 def judged_as_a_proposal(refusal: WriteRefusal | None) -> WriteRefusal | None:

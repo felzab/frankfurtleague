@@ -3919,7 +3919,11 @@ export const getSpielbestaetigungenAdoptSpielbestaetigungUrl = (spielbestaetigun
  * stored proposal's 409). The fixture is saved as the administrator's save would carry it on the proposed day and
  * hour, everything else kept, so it meets every rule that save meets and is refused as that save is, by its code and
  * status alone, as the draw answers the season write's refusals: no refusal names a field, the request carrying no
- * body. The bracket is resolved as that save resolves it. The
+ * body. A code the save names a field by is answered under its twin for that field instead, a 409: the ground or the
+ * referee booked beside the proposed slot (`spiel_double_booked_spielort_as_stored`,
+ * `spiel_double_booked_schiedsrichter_as_stored`), a side out of the season by then
+ * (`eligibility_disqualified_team1_as_stored`, `eligibility_disqualified_team2_as_stored`). The bracket is resolved
+ * as that save resolves it. The
  * row is not closed here: the fixture has left the Ansetzung it answers, so its links read `invalid` at once and the
  * next confirmation pass closes every party's row `ansetzung_changed`, owing each party „Spiel verlegt“ and asking it
  * about the new slot. IRREVERSIBLE as a save is: moving the fixture back is another save.

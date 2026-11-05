@@ -10,7 +10,7 @@ from app.api.spiele.services import podium_of
 from app.api.teams.schemas import MAX_NUMBER_OF_GROUPS
 from app.api.teams.services import offered_gruppen
 from app.core.codes import Code
-from app.core.exceptions import WriteRefusal, as_judged_on_stored_state
+from app.core.exceptions import Twins, WriteRefusal, as_judged_on_stored_state
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.literals import FLGruppenNames, FLSaisonPhase, FLSaisonStatus
 
@@ -414,7 +414,7 @@ def find_saison_span_refusal(
 # award, once the shape's qualifiers give the season a bracket, and the span, once its matchdays
 # outgrow it. The draw answers each as a conflict with the season. Every other rule a draw asks
 # reads the shape alone, or a stored value only a hand-edited document breaks.
-DRAW_TWINS: Mapping[Code, Code] = {
+DRAW_TWINS: Twins = {
     Code.RULES_FORFEIT_UNENTSCHIEDEN_IN_A_KNOCKOUT: Code.RULES_FORFEIT_UNENTSCHIEDEN_IN_A_KNOCKOUT_AS_STORED,
     Code.SAISON_SPAN_BELOW_SPIELPLAN: Code.SAISON_SPAN_BELOW_SPIELPLAN_AS_STORED,
 }

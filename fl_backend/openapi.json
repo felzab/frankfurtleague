@@ -200,6 +200,8 @@
           "booking_unknown_resource",
           "booking_unconfirmed_schiedsrichter",
           "spiel_double_booked",
+          "spiel_double_booked_spielort_as_stored",
+          "spiel_double_booked_schiedsrichter_as_stored",
           "spiel_outside_spieltag",
           "spieltag_outside_saison",
           "spieltag_span_below_spiele",
@@ -215,6 +217,8 @@
           "media_age",
           "giving_not_allowed",
           "eligibility_disqualified",
+          "eligibility_disqualified_team1_as_stored",
+          "eligibility_disqualified_team2_as_stored",
           "eligibility_team_not_in_saison",
           "entry_saison_not_future",
           "entry_gruppe_not_offered",
@@ -27666,7 +27670,7 @@
     },
     "/api/v0/spielbestaetigungen/{spielbestaetigung_id}/adopt": {
       "post": {
-        "description": "Move a fixture to the date and hour a club's open decline proposes, through the fixture's own save.\n\nRefused as the discard refuses, for any row but an open club decline proposing a date about the fixture's current\nAnsetzung (`ansetzung_not_discardable`), and for a proposed day gone by (`ansetzung_vorschlag_past_as_stored`, the\nstored proposal's 409). The fixture is saved as the administrator's save would carry it on the proposed day and\nhour, everything else kept, so it meets every rule that save meets and is refused as that save is, by its code and\nstatus alone, as the draw answers the season write's refusals: no refusal names a field, the request carrying no\nbody. The bracket is resolved as that save resolves it. The\nrow is not closed here: the fixture has left the Ansetzung it answers, so its links read `invalid` at once and the\nnext confirmation pass closes every party's row `ansetzung_changed`, owing each party „Spiel verlegt“ and asking it\nabout the new slot. IRREVERSIBLE as a save is: moving the fixture back is another save.",
+        "description": "Move a fixture to the date and hour a club's open decline proposes, through the fixture's own save.\n\nRefused as the discard refuses, for any row but an open club decline proposing a date about the fixture's current\nAnsetzung (`ansetzung_not_discardable`), and for a proposed day gone by (`ansetzung_vorschlag_past_as_stored`, the\nstored proposal's 409). The fixture is saved as the administrator's save would carry it on the proposed day and\nhour, everything else kept, so it meets every rule that save meets and is refused as that save is, by its code and\nstatus alone, as the draw answers the season write's refusals: no refusal names a field, the request carrying no\nbody. A code the save names a field by is answered under its twin for that field instead, a 409: the ground or the\nreferee booked beside the proposed slot (`spiel_double_booked_spielort_as_stored`,\n`spiel_double_booked_schiedsrichter_as_stored`), a side out of the season by then\n(`eligibility_disqualified_team1_as_stored`, `eligibility_disqualified_team2_as_stored`). The bracket is resolved\nas that save resolves it. The\nrow is not closed here: the fixture has left the Ansetzung it answers, so its links read `invalid` at once and the\nnext confirmation pass closes every party's row `ansetzung_changed`, owing each party „Spiel verlegt“ and asking it\nabout the new slot. IRREVERSIBLE as a save is: moving the fixture back is another save.",
         "operationId": "spielbestaetigungen_adopt_spielbestaetigung",
         "parameters": [
           {

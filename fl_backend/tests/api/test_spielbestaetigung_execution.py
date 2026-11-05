@@ -745,6 +745,12 @@ async def book_the_referee_beside_it(database: AsyncDatabase) -> None:
     )
 
 
+async def book_the_ground_beside_it(database: AsyncDatabase) -> None:
+    await database[Collection.SPIELE].insert_one(
+        fixture(NEIGHBOUR, spiel_nr=2, datum=PROPOSAL[0], uhrzeit="19:00:00", schiedsrichter=None, team1=None, team2=None)
+    )
+
+
 async def let_a_club_leave_before_the_proposal(database: AsyncDatabase) -> None:
     exit_record = {"type": "rueckzug", "grund": "Schule zieht zurück", "datum": PROPOSAL[0]}
     await database[Collection.SAISON_TEAMS].update_one({"team_id": TEAM2}, {"$set": {"austritt": exit_record}})
@@ -1205,12 +1211,23 @@ class TestTheAdoption:
             pytest.param(None, "2027-05-16", Code.ANSETZUNG_VORSCHLAG_PAST_AS_STORED, id="the-proposed-day-gone-by"),
             # The save's own refusal of the proposed day, which names a box of a body this request has not got.
             pytest.param(narrow_the_matchday, TODAY, Code.SPIEL_OUTSIDE_SPIELTAG, id="the-save-refusing-the-day"),
+            # The save's refusals the catalogue words by their path, each under its twin for that path.
+            pytest.param(book_the_ground_beside_it, TODAY, Code.SPIEL_DOUBLE_BOOKED_SPIELORT_AS_STORED, id="the-ground-booked-beside-it"),
+            pytest.param(
+                book_the_referee_beside_it, TODAY, Code.SPIEL_DOUBLE_BOOKED_SCHIEDSRICHTER_AS_STORED, id="the-referee-booked-beside-it"
+            ),
+            pytest.param(
+                let_a_club_leave_before_the_proposal, TODAY, Code.ELIGIBILITY_DISQUALIFIED_TEAM2_AS_STORED, id="a-side-out-by-the-new-day"
+            ),
         ],
     )
     def test_a_refused_adoption_names_no_box_and_leaves_the_fixture_where_it_stands(
         self, mongo_replica_set_url: str, since: Callable[[AsyncDatabase], Awaitable[None]] | None, today: str, code: Code
     ):
-        """Moved anyway, the fixture lands on a day gone by or outside its matchday; refused naming a box, the press has none to mark."""
+        """Moved anyway, the fixture lands on a day gone by, outside its matchday, on a booked ground or referee, or fields a club gone.
+
+        Refused naming a box, the press has none to mark; refused under a code the catalogue words by its path, it words none.
+        """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await ablehnen(database, client, token(TEAM1, "trainer"), PROPOSAL, begruendung=REASON)
