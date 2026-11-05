@@ -201,7 +201,7 @@ async def get_team_saisons(
     """
     Every team, retired ones included, each with every season membership it holds. Sorted by name.
 
-    `GET /teams/list/verwaltung` cannot answer it: that read is season-scoped with a strict junction join. Each membership names the live
+    `GET /teams/list/admin` cannot answer it: that read is season-scoped with a strict junction join. Each membership names the live
     change of each seat's address, which the address tool shows, and per seat why the tool refuses that change this
     administrator. Each seat's link names what became of the last mail carrying it, `delivery` null where none was
     ever owed.
@@ -238,14 +238,14 @@ async def get_team_saisons(
     )
 
 
-# Two static segments, as `GET /saisons/list/verwaltung` has, so the admin tier lists every season-scoped
+# Two static segments, as `GET /saisons/list/admin` has, so the admin tier lists every season-scoped
 # resource under one shape. No id route at this prefix ends in `/admin`, so none can shadow this one.
 @router.get(
-    "/list/verwaltung",
+    "/list/admin",
     response_model=FLTeamsListResponse,
     summary="Teams for a Saison, for the admin surfaces",
 )
-async def get_teams_verwaltung(
+async def get_teams_admin(
     teams_collection: TeamsCollection,
     saisons_collection: SaisonsCollection,
     filters: FLTeamsFilterParams = Depends(),

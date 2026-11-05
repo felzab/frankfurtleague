@@ -183,8 +183,8 @@ async def _rewrite_gruppenphase_sides(
 
 # Two segments, because `GET /saisons/{saison_id}` is declared first and would answer a single static
 # one: a season id is a plain four-character string, so the `objectid` convertor cannot separate them.
-@router.get("/list/verwaltung", response_model=FLSaisonsAdminListResponse, summary="Every Saison for the admin surfaces")
-async def get_saisons_verwaltung(
+@router.get("/list/admin", response_model=FLSaisonsAdminListResponse, summary="Every Saison for the admin surfaces")
+async def get_saisons_admin(
     saisons_collection: SaisonsCollection,
     spiele_collection: SpieleCollection,
     filters: FLSaisonsFilterParams = Depends(),

@@ -6075,28 +6075,28 @@ export type RegistrierungenGetOpenRegistrierungenParams = {
   order?: FLSortOrder;
 };
 
-export type SaisonsGetSaisonsVerwaltungParams = {
+export type SaisonsGetSaisonsAdminParams = {
   status?: FLSaisonStatus | null;
   /**
    * @minimum 1
    * @maximum 1024
    */
   limit?: number;
-  sort_by?: SaisonsGetSaisonsVerwaltungSortBy;
-  order?: SaisonsGetSaisonsVerwaltungOrder;
+  sort_by?: SaisonsGetSaisonsAdminSortBy;
+  order?: SaisonsGetSaisonsAdminOrder;
 };
 
-export type SaisonsGetSaisonsVerwaltungSortBy = (typeof SaisonsGetSaisonsVerwaltungSortBy)[keyof typeof SaisonsGetSaisonsVerwaltungSortBy];
+export type SaisonsGetSaisonsAdminSortBy = (typeof SaisonsGetSaisonsAdminSortBy)[keyof typeof SaisonsGetSaisonsAdminSortBy];
 
-export const SaisonsGetSaisonsVerwaltungSortBy = {
+export const SaisonsGetSaisonsAdminSortBy = {
   _id: "_id",
   start_date: "start_date",
   end_date: "end_date",
 } as const;
 
-export type SaisonsGetSaisonsVerwaltungOrder = (typeof SaisonsGetSaisonsVerwaltungOrder)[keyof typeof SaisonsGetSaisonsVerwaltungOrder];
+export type SaisonsGetSaisonsAdminOrder = (typeof SaisonsGetSaisonsAdminOrder)[keyof typeof SaisonsGetSaisonsAdminOrder];
 
-export const SaisonsGetSaisonsVerwaltungOrder = {
+export const SaisonsGetSaisonsAdminOrder = {
   asc: "asc",
   desc: "desc",
 } as const;
@@ -6246,33 +6246,32 @@ export const SpieltageGetSpieltageVerwaltungOrder = {
   desc: "desc",
 } as const;
 
-export type TeamsGetTeamsVerwaltungParams = {
+export type TeamsGetTeamsAdminParams = {
   saison_id?: string | null;
   gruppe?: FLGruppenNames | null;
   has_austritt?: boolean | null;
   austritt_type?: FLAustrittType | null;
-  statistik_scope?: TeamsGetTeamsVerwaltungStatistikScope;
+  statistik_scope?: TeamsGetTeamsAdminStatistikScope;
   /**
    * @minimum 1
    * @maximum 1024
    */
   limit?: number;
   sort_by?: "name";
-  order?: TeamsGetTeamsVerwaltungOrder;
+  order?: TeamsGetTeamsAdminOrder;
   include_inactive?: boolean;
 };
 
-export type TeamsGetTeamsVerwaltungStatistikScope =
-  (typeof TeamsGetTeamsVerwaltungStatistikScope)[keyof typeof TeamsGetTeamsVerwaltungStatistikScope];
+export type TeamsGetTeamsAdminStatistikScope = (typeof TeamsGetTeamsAdminStatistikScope)[keyof typeof TeamsGetTeamsAdminStatistikScope];
 
-export const TeamsGetTeamsVerwaltungStatistikScope = {
+export const TeamsGetTeamsAdminStatistikScope = {
   gruppenphase: "gruppenphase",
   total: "total",
 } as const;
 
-export type TeamsGetTeamsVerwaltungOrder = (typeof TeamsGetTeamsVerwaltungOrder)[keyof typeof TeamsGetTeamsVerwaltungOrder];
+export type TeamsGetTeamsAdminOrder = (typeof TeamsGetTeamsAdminOrder)[keyof typeof TeamsGetTeamsAdminOrder];
 
-export const TeamsGetTeamsVerwaltungOrder = {
+export const TeamsGetTeamsAdminOrder = {
   asc: "asc",
   desc: "desc",
 } as const;

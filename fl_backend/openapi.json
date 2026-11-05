@@ -23209,10 +23209,10 @@
         ]
       }
     },
-    "/api/v0/saisons/list/verwaltung": {
+    "/api/v0/saisons/list/admin": {
       "get": {
         "description": "List every season, the `future` ones every base-tier read withholds included, each with whether it has started and has been played.\n\nThe admin surfaces read here because a season is created `future` and clubs are entered while it\nstill is, so an admin who cannot see one cannot run the league. `begun` is the start every\nstart lock refuses on, the swap's, the replacement's and the rules freeze's; `taken_place` is what\nfixes the start date (`saison_start_taken_place`).",
-        "operationId": "saisons_get_saisons_verwaltung",
+        "operationId": "saisons_get_saisons_admin",
         "parameters": [
           {
             "in": "query",
@@ -29433,10 +29433,10 @@
         ]
       }
     },
-    "/api/v0/teams/list/verwaltung": {
+    "/api/v0/teams/list/admin": {
       "get": {
         "description": "List a season's teams for the admin surfaces, a `future` season's included.\n\nNo base-tier season gate: a club is entered while its season is still planned, so an admin who\ncannot see one cannot enter it.",
-        "operationId": "teams_get_teams_verwaltung",
+        "operationId": "teams_get_teams_admin",
         "parameters": [
           {
             "in": "query",
@@ -29625,7 +29625,7 @@
     },
     "/api/v0/teams/saisons": {
       "get": {
-        "description": "Every team, retired ones included, each with every season membership it holds. Sorted by name.\n\n`GET /teams/list/verwaltung` cannot answer it: that read is season-scoped with a strict junction join. Each membership names the live\nchange of each seat's address, which the address tool shows, and per seat why the tool refuses that change this\nadministrator. Each seat's link names what became of the last mail carrying it, `delivery` null where none was\never owed.",
+        "description": "Every team, retired ones included, each with every season membership it holds. Sorted by name.\n\n`GET /teams/list/admin` cannot answer it: that read is season-scoped with a strict junction join. Each membership names the live\nchange of each seat's address, which the address tool shows, and per seat why the tool refuses that change this\nadministrator. Each seat's link names what became of the last mail carrying it, `delivery` null where none was\never owed.",
         "operationId": "teams_get_team_saisons",
         "responses": {
           "200": {

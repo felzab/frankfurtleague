@@ -29,7 +29,7 @@ const countOf = (endpoint: string): number => reads.filter((read) => read.endpoi
 /** The three counts together, so a per-endpoint delta needs no index into a parallel array. */
 const countsNow = (): Map<string, number> => new Map(ENDPOINTS.map((endpoint) => [endpoint, countOf(endpoint)]));
 
-const ENDPOINTS = ["/spiele/list/verwaltung", "/spieltage/list/verwaltung", "/teams/list/verwaltung"];
+const ENDPOINTS = ["/spiele/list/verwaltung", "/spieltage/list/verwaltung", "/teams/list/admin"];
 
 /** All three reads, each given a FRESHLY BUILT filter object -- what a page does on every call. */
 const readAllThree = async (): Promise<unknown[]> =>

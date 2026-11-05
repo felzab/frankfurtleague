@@ -208,7 +208,7 @@ import type {
   RegistrierungenGetOpenRegistrierungenParams,
   RegistrierungenGetRegistrierungenParams,
   SaisonsGetInvitationsDispatchPreviewParams,
-  SaisonsGetSaisonsVerwaltungParams,
+  SaisonsGetSaisonsAdminParams,
   SchiedsrichterGetSchiedsrichterParams,
   SpielberichteGetSpielberichteParams,
   SpielberichteGetSpielberichtVerwaltungParams,
@@ -219,7 +219,7 @@ import type {
   SpielorteGetSpielorteParams,
   SpieltageGetSpieltageVerwaltungParams,
   TeamsGetTeamParams,
-  TeamsGetTeamsVerwaltungParams,
+  TeamsGetTeamsAdminParams,
 } from "./types.ts";
 
 export const getAccountDeleteAddressChangeUrl = () => {
@@ -2517,10 +2517,10 @@ export const saisonsGetLanding = async (options?: Parameters<typeof baseKeyTrans
   });
 };
 
-export const getSaisonsGetSaisonsVerwaltungUrl = (params?: SaisonsGetSaisonsVerwaltungParams) => {
+export const getSaisonsGetSaisonsAdminUrl = (params?: SaisonsGetSaisonsAdminParams) => {
   const stringifiedParams = serializeQuery(params);
 
-  return stringifiedParams.length > 0 ? `/api/v0/saisons/list/verwaltung?${stringifiedParams}` : `/api/v0/saisons/list/verwaltung`;
+  return stringifiedParams.length > 0 ? `/api/v0/saisons/list/admin?${stringifiedParams}` : `/api/v0/saisons/list/admin`;
 };
 
 /**
@@ -2532,11 +2532,11 @@ export const getSaisonsGetSaisonsVerwaltungUrl = (params?: SaisonsGetSaisonsVerw
  * fixes the start date (`saison_start_taken_place`).
  * @summary Every Saison for the admin surfaces
  */
-export const saisonsGetSaisonsVerwaltung = async (
-  params?: SaisonsGetSaisonsVerwaltungParams,
+export const saisonsGetSaisonsAdmin = async (
+  params?: SaisonsGetSaisonsAdminParams,
   options?: Parameters<typeof adminKeyTransport>[1],
 ): Promise<FLSaisonsAdminListResponse> => {
-  return adminKeyTransport<FLSaisonsAdminListResponse>(getSaisonsGetSaisonsVerwaltungUrl(params), {
+  return adminKeyTransport<FLSaisonsAdminListResponse>(getSaisonsGetSaisonsAdminUrl(params), {
     ...options,
     method: "GET",
   });
@@ -4792,10 +4792,10 @@ export const teamsPostTeam = async (
   });
 };
 
-export const getTeamsGetTeamsVerwaltungUrl = (params?: TeamsGetTeamsVerwaltungParams) => {
+export const getTeamsGetTeamsAdminUrl = (params?: TeamsGetTeamsAdminParams) => {
   const stringifiedParams = serializeQuery(params);
 
-  return stringifiedParams.length > 0 ? `/api/v0/teams/list/verwaltung?${stringifiedParams}` : `/api/v0/teams/list/verwaltung`;
+  return stringifiedParams.length > 0 ? `/api/v0/teams/list/admin?${stringifiedParams}` : `/api/v0/teams/list/admin`;
 };
 
 /**
@@ -4805,11 +4805,11 @@ export const getTeamsGetTeamsVerwaltungUrl = (params?: TeamsGetTeamsVerwaltungPa
  * cannot see one cannot enter it.
  * @summary Teams for a Saison, for the admin surfaces
  */
-export const teamsGetTeamsVerwaltung = async (
-  params?: TeamsGetTeamsVerwaltungParams,
+export const teamsGetTeamsAdmin = async (
+  params?: TeamsGetTeamsAdminParams,
   options?: Parameters<typeof adminKeyTransport>[1],
 ): Promise<FLTeamsListResponse> => {
-  return adminKeyTransport<FLTeamsListResponse>(getTeamsGetTeamsVerwaltungUrl(params), {
+  return adminKeyTransport<FLTeamsListResponse>(getTeamsGetTeamsAdminUrl(params), {
     ...options,
     method: "GET",
   });
@@ -4822,7 +4822,7 @@ export const getTeamsGetTeamSaisonsUrl = () => {
 /**
  * Every team, retired ones included, each with every season membership it holds. Sorted by name.
  *
- * `GET /teams/list/verwaltung` cannot answer it: that read is season-scoped with a strict junction join. Each membership names the live
+ * `GET /teams/list/admin` cannot answer it: that read is season-scoped with a strict junction join. Each membership names the live
  * change of each seat's address, which the address tool shows, and per seat why the tool refuses that change this
  * administrator. Each seat's link names what became of the last mail carrying it, `delivery` null where none was
  * ever owed.

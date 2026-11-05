@@ -1678,17 +1678,17 @@ export const SaisonsPostSaisonBody = zod.object({
  * fixes the start date (`saison_start_taken_place`).
  * @summary Every Saison for the admin surfaces
  */
-export const saisonsGetSaisonsVerwaltungQueryLimitDefault = 1024;
-export const saisonsGetSaisonsVerwaltungQueryLimitMax = 1024;
+export const saisonsGetSaisonsAdminQueryLimitDefault = 1024;
+export const saisonsGetSaisonsAdminQueryLimitMax = 1024;
 
-export const saisonsGetSaisonsVerwaltungQuerySortByDefault = `_id`;
-export const saisonsGetSaisonsVerwaltungQueryOrderDefault = `asc`;
+export const saisonsGetSaisonsAdminQuerySortByDefault = `_id`;
+export const saisonsGetSaisonsAdminQueryOrderDefault = `asc`;
 
-export const SaisonsGetSaisonsVerwaltungQueryParams = zod.object({
+export const SaisonsGetSaisonsAdminQueryParams = zod.object({
   status: zod.union([zod.enum(["past", "active", "future"]), zod.null()]).optional(),
-  limit: zod.int().min(1).max(saisonsGetSaisonsVerwaltungQueryLimitMax).default(saisonsGetSaisonsVerwaltungQueryLimitDefault),
-  sort_by: zod.enum(["_id", "start_date", "end_date"]).default(saisonsGetSaisonsVerwaltungQuerySortByDefault),
-  order: zod.enum(["asc", "desc"]).default(saisonsGetSaisonsVerwaltungQueryOrderDefault),
+  limit: zod.int().min(1).max(saisonsGetSaisonsAdminQueryLimitMax).default(saisonsGetSaisonsAdminQueryLimitDefault),
+  sort_by: zod.enum(["_id", "start_date", "end_date"]).default(saisonsGetSaisonsAdminQuerySortByDefault),
+  order: zod.enum(["asc", "desc"]).default(saisonsGetSaisonsAdminQueryOrderDefault),
 });
 
 /**
@@ -3653,24 +3653,24 @@ export const TeamsPostTeamBody = zod.object({
  * cannot see one cannot enter it.
  * @summary Teams for a Saison, for the admin surfaces
  */
-export const teamsGetTeamsVerwaltungQueryStatistikScopeDefault = `gruppenphase`;
-export const teamsGetTeamsVerwaltungQueryLimitDefault = 1024;
-export const teamsGetTeamsVerwaltungQueryLimitMax = 1024;
+export const teamsGetTeamsAdminQueryStatistikScopeDefault = `gruppenphase`;
+export const teamsGetTeamsAdminQueryLimitDefault = 1024;
+export const teamsGetTeamsAdminQueryLimitMax = 1024;
 
-export const teamsGetTeamsVerwaltungQuerySortByDefault = `name`;
-export const teamsGetTeamsVerwaltungQueryOrderDefault = `asc`;
-export const teamsGetTeamsVerwaltungQueryIncludeInactiveDefault = false;
+export const teamsGetTeamsAdminQuerySortByDefault = `name`;
+export const teamsGetTeamsAdminQueryOrderDefault = `asc`;
+export const teamsGetTeamsAdminQueryIncludeInactiveDefault = false;
 
-export const TeamsGetTeamsVerwaltungQueryParams = zod.object({
+export const TeamsGetTeamsAdminQueryParams = zod.object({
   saison_id: zod.union([zod.string(), zod.null()]).optional(),
   gruppe: zod.union([zod.enum(["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P"]), zod.null()]).optional(),
   has_austritt: zod.union([zod.boolean(), zod.null()]).optional(),
   austritt_type: zod.union([zod.enum(["disqualifikation", "rueckzug"]), zod.null()]).optional(),
-  statistik_scope: zod.enum(["gruppenphase", "total"]).default(teamsGetTeamsVerwaltungQueryStatistikScopeDefault),
-  limit: zod.int().min(1).max(teamsGetTeamsVerwaltungQueryLimitMax).default(teamsGetTeamsVerwaltungQueryLimitDefault),
-  sort_by: zod.literal("name").default(teamsGetTeamsVerwaltungQuerySortByDefault).meta({ title: "Sort By" }),
-  order: zod.enum(["asc", "desc"]).default(teamsGetTeamsVerwaltungQueryOrderDefault),
-  include_inactive: zod.boolean().default(teamsGetTeamsVerwaltungQueryIncludeInactiveDefault),
+  statistik_scope: zod.enum(["gruppenphase", "total"]).default(teamsGetTeamsAdminQueryStatistikScopeDefault),
+  limit: zod.int().min(1).max(teamsGetTeamsAdminQueryLimitMax).default(teamsGetTeamsAdminQueryLimitDefault),
+  sort_by: zod.literal("name").default(teamsGetTeamsAdminQuerySortByDefault).meta({ title: "Sort By" }),
+  order: zod.enum(["asc", "desc"]).default(teamsGetTeamsAdminQueryOrderDefault),
+  include_inactive: zod.boolean().default(teamsGetTeamsAdminQueryIncludeInactiveDefault),
 });
 
 /**
