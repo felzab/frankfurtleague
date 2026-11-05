@@ -84,7 +84,7 @@ export type SaisonActs = {
 };
 
 /** A danger row's closing, where its read names a reason. */
-const blockedBy = (reason: Copy | undefined) => (reason === undefined ? {} : { blocked: reason });
+const blockedBy = (reason: Copy | undefined) => (reason === undefined ? {} : { locked: reason });
 
 /** A club as a picker lists it, „Lessing · Gruppe A“, closed with its reason where `closed` says so. */
 const optionOf = (club: SaisonClub, closed: boolean): Option =>
@@ -457,7 +457,7 @@ export function SaisonEditor({
             label={COPY.shared.withObject(SPIELPLAN, "create")}
             variant="primary"
             isDisabled={isClosed}
-            blocked={facts.blocked.create}
+            locked={facts.blocked.create}
             run={() => acts.draw({ saison_id: saison })}
           />
         ) : (

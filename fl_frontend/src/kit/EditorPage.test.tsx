@@ -144,6 +144,19 @@ function ActingEditor({ act }: { act: () => Promise<ActionAnswer> }) {
               onConfirm: act,
             },
           },
+          // A danger act behind the passkey touch draws its own button, which the lock closes too.
+          {
+            name: COPY.shared.withObject(COPY.page.spielplan, "discard"),
+            consequence: COPY.admin.spielort.retireConsequence,
+            touch: { holder: "admin@example.com" },
+            confirm: {
+              verb: "discard",
+              subject: COPY.page.spielplan,
+              consequence: COPY.admin.spielort.retireConsequence,
+              tone: "danger",
+              onConfirm: act,
+            },
+          },
         ],
       }}
     />
@@ -155,23 +168,29 @@ function ActingEditor({ act }: { act: () => Promise<ActionAnswer> }) {
 describe("an editor's own acts", () => {
   const sectionAct = () => screen.getByRole("button", { name: COPY.shared.withObject(COPY.page.spielplan, "create") });
   const dangerAct = () => screen.getByRole("button", { name: COPY.shared.verb.retire });
+  const touchedAct = () => screen.getByRole("button", { name: COPY.shared.verb.discard });
 
   it("stand open while the draft holds no change", () => {
     render(<ActingEditor act={vi.fn()} />);
 
     expect(sectionAct().hasAttribute("disabled")).toBe(false);
     expect(dangerAct().hasAttribute("disabled")).toBe(false);
+    expect(touchedAct().hasAttribute("disabled")).toBe(false);
     expect(screen.queryByText(COPY.template.draftUnsaved)).toBeNull();
   });
 
-  it("close while the draft holds a change, each saying why in its own line", async () => {
+  // A screen reader hears why an act closed from the line's live region; a reason set outside it is read by no one.
+  it("close while the draft holds a change, each saying why in its own line, announced", async () => {
     render(<ActingEditor act={vi.fn()} />);
 
     await userEvent.type(screen.getByRole("textbox"), " Nord");
 
     expect(sectionAct().hasAttribute("disabled")).toBe(true);
     expect(dangerAct().hasAttribute("disabled")).toBe(true);
-    expect(screen.getAllByText(COPY.template.draftUnsaved)).toHaveLength(2);
+    expect(touchedAct().hasAttribute("disabled")).toBe(true);
+    const lines = screen.getAllByText(COPY.template.draftUnsaved);
+    expect(lines).toHaveLength(3);
+    for (const line of lines) expect(line.closest('[role="status"]')).not.toBeNull();
   });
 });
 

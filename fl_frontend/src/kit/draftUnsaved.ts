@@ -5,12 +5,21 @@ import type { Copy } from "@/core/copy";
 /**
  * Why an editor's own acts cannot run now: its draft holds changes not yet saved. An act writes the record the draft
  * was made on, raising its version, so the draft's save would be turned away as stale, and it runs on the stored
- * values the boxes show changed. `EditorPage` provides it while the draft holds a change; its danger rows and every
- * `SectionAct` inside it read it, each closed with this reason in its own line.
+ * values the boxes show changed. `EditorPage` provides it while the draft holds a change; every act inside it reads
+ * it through `useLocked`.
  */
 export const DraftUnsaved = createContext<Copy | undefined>(undefined);
 
-/** The reason an editor's acts are closed while its draft is unsaved, `undefined` while it holds no change. */
-export function useDraftUnsaved(): Copy | undefined {
-  return useContext(DraftUnsaved);
+/**
+ * Why an act cannot run, every act alike: its `locked` reason, which the page read from the record as it stands, or,
+ * inside an editor whose draft is unsaved, the draft's. The record's reason comes first: the draft's save would not
+ * open the act. The act's button is then disabled and the reason stands in its line, in `statusLine`'s `locked` tone
+ * (`lockedLine`), announced as the line's every answer is; `undefined` while the act can run.
+ */
+export function useLocked(locked: Copy | undefined): Copy | undefined {
+  const unsaved = useContext(DraftUnsaved);
+  return locked ?? unsaved;
 }
+
+/** The line of an act `useLocked` closes: its reason, in the small muted tone. */
+export const lockedLine = (reason: Copy) => ({ tone: "locked", text: reason }) as const;

@@ -1,12 +1,10 @@
 "use client";
 
-import { startTransition, useLayoutEffect, useState } from "react";
-
-import { COPY } from "@/core/copy";
+import { useState } from "react";
 
 import { Button } from "./Button";
 import { ConfirmDialog } from "./ConfirmDialog";
-import { useDraftUnsaved } from "./draftUnsaved";
+import { lockedLine, useLocked } from "./draftUnsaved";
 import { StatusLine } from "./FieldParts";
 import { statusOf, useFormAction } from "./useFormAction";
 
@@ -36,9 +34,9 @@ const sameInputs = (now: ReadonlyArray<unknown>, then: ReadonlyArray<unknown>) =
  * act's own note where it has one. A done line speaks of the inputs it was pressed on: it goes once one of `inputs`
  * changes, as the editor's bar trades its „Gespeichert“ for the next edit, and once the page is left. `isDisabled`
  * closes the button while its inputs are incomplete, the section's fields showing what is missing, or while the press
- * would reach nobody. `blocked` closes it where its write would refuse the record as it stands, which the page read,
- * the reason in the act's line in place of its outcome, as a danger row's `blocked` stands in its row; inside an editor
- * whose draft holds unsaved changes the act is closed the same way (`useDraftUnsaved`).
+ * would reach nobody. `locked` closes it where its write would refuse the record as it stands, which the page read,
+ * the reason in the act's line in place of its outcome, as every act's `locked` reason stands (`useLocked`); inside an
+ * editor whose draft holds unsaved changes the act is closed the same way.
  */
 export function SectionAct({
   children,
@@ -48,7 +46,7 @@ export function SectionAct({
   run,
   inputs = NO_INPUTS,
   isDisabled = false,
-  blocked,
+  locked,
 }: {
   /** The act's inputs: the kit's fields, each holding its own value for `run` to read. */
   children?: ReactNode;
@@ -59,24 +57,18 @@ export function SectionAct({
   /** The values `run` reads; none for an act taking no input. */
   inputs?: ReadonlyArray<unknown>;
   isDisabled?: boolean;
-  blocked?: Copy;
+  locked?: Copy;
 }) {
-  const { answer, submit, isPending } = useFormAction(run, { resetOnLeave: true });
+  // One answer for either kind of act, cleared as Next hides the page: a plain act runs here; a question's act runs
+  // inside its question, which shows its refusal, and hands its done answer over to stand in the line.
+  const { answer, submit, isPending } = useFormAction((ran: ActionAnswer | undefined) => (ran === undefined ? run() : Promise.resolve(ran)), {
+    resetOnLeave: true,
+  });
   // The inputs of the last press, whose answer the line shows only while they still hold.
   const [pressedOn, setPressedOn] = useState(inputs);
-  // A question's act runs inside the question, which shows its refusal; the line here says only that it was done, in the
-  // act's own note where it moved more than its box shows, as every done answer is worded (`statusOf`).
-  const [done, setDone] = useState<Copy | null>(null);
-  // Cleared as Next hides the page, as `useFormAction` clears the answer the other branch shows.
-  useLayoutEffect(() => () => setDone(null), []);
-  const answered: FormStatus =
-    confirm === undefined ? statusOf(answer, false, isPending) : done === null ? null : { tone: "saved", text: done };
-  const outcome = sameInputs(inputs, pressedOn) ? answered : null;
-  const unsaved = useDraftUnsaved();
-  // What the record holds closes the act before an unsaved draft does: the draft's save would not open it.
-  const reason = blocked ?? unsaved;
-  // A standing reason, never an outcome, so it stands outside the line's live region, as the editor's count does.
-  const status: FormStatus = reason === undefined ? outcome : { tone: "changes", text: reason };
+  const outcome = sameInputs(inputs, pressedOn) ? statusOf(answer, false, isPending) : null;
+  const reason = useLocked(locked);
+  const status: FormStatus = reason === undefined ? outcome : lockedLine(reason);
   const isClosed = isDisabled || reason !== undefined;
 
   return (
@@ -97,11 +89,9 @@ export function SectionAct({
         <ConfirmDialog
           {...confirm}
           onConfirm={async () => {
-            setDone(null);
             setPressedOn(inputs);
             const answered = await run();
-            // An update after the `await` lands outside the press's transition unless it opens one of its own.
-            if (answered.ok) startTransition(() => setDone(answered.note ?? COPY.shared.saved));
+            if (answered.ok) submit(answered);
             return answered;
           }}
           trigger={

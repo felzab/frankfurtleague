@@ -8,7 +8,7 @@ import { COPY } from "@/core/copy";
 
 import { Button } from "./Button";
 import { ConfirmDialog } from "./ConfirmDialog";
-import { DraftUnsaved, useDraftUnsaved } from "./draftUnsaved";
+import { DraftUnsaved, useLocked } from "./draftUnsaved";
 import { EditorBar } from "./EditorBar";
 import { FormClosed } from "./formClosed";
 import { formColumn, RailPage } from "./RailFrame";
@@ -46,9 +46,9 @@ export type DangerAct = {
   touch?: { holder: string };
   /**
    * Why the act cannot run on the record as it stands, which the page read: the button disabled, and this reason in
-   * the row's second line in place of the consequence.
+   * the row's second line in place of the consequence, as every act's `locked` reason stands (`useLocked`).
    */
-  blocked?: Copy;
+  locked?: Copy;
 };
 
 /**
@@ -60,10 +60,8 @@ function DangerRow({ act }: { act: DangerAct }) {
   const [isAsking, setAsking] = useState(false);
   const { run, refusal, isTouching } = usePasskeyTouch(act.touch !== undefined, act.touch?.holder);
   const label = COPY.shared.verb[act.confirm.verb];
-  const unsaved = useDraftUnsaved();
-  // What the record holds closes an act before an unsaved draft does: the draft's save would not open it.
-  const blocked = act.blocked ?? unsaved;
-  const isBlocked = blocked !== undefined;
+  const locked = useLocked(act.locked);
+  const isLocked = locked !== undefined;
   return (
     <div className="flex min-h-14 items-center gap-3 rounded-lg border border-[color-mix(in_srgb,var(--danger)_45%,var(--border))] px-4 py-2 lg:min-h-13">
       <div className="grid min-w-0 flex-1 text-sm">
@@ -72,7 +70,7 @@ function DangerRow({ act }: { act: DangerAct }) {
         <span
           role="status"
           className={refusal === null ? "text-xs text-fg-muted" : "text-xs text-danger"}>
-          {refusal ?? blocked ?? act.consequence}
+          {refusal ?? locked ?? act.consequence}
         </span>
       </div>
       {act.touch === undefined ? (
@@ -82,7 +80,7 @@ function DangerRow({ act }: { act: DangerAct }) {
             <Button
               variant={act.confirm.tone}
               label={label}
-              isDisabled={isBlocked}
+              isDisabled={isLocked}
             />
           }
         />
@@ -92,7 +90,7 @@ function DangerRow({ act }: { act: DangerAct }) {
             variant={act.confirm.tone}
             label={label}
             isBusy={isTouching}
-            isDisabled={isBlocked}
+            isDisabled={isLocked}
             onPress={() => void run(() => setAsking(true))}
           />
           <ConfirmDialog
