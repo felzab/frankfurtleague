@@ -35,7 +35,7 @@ function row(id: string, actor: FLActionLogEntry["actor"]): FLActionLogEntry {
     db_filter: null,
     modified_count: null,
     redacted_at: null,
-    anlass: null,
+    erasure_reason: null,
     stand_secured: true,
   };
 }

@@ -61,7 +61,7 @@ vi.doMock("@/core/logging.ts", () => ({
   logger: { debug: record("DEBUG"), info: record("INFO"), warn: record("WARN"), error: record("ERROR") },
 }));
 
-const { runKontoSweep } = await import("./sweep.ts");
+const { runAccountSweep } = await import("./sweep.ts");
 const { REFERENZEN_ADRESSEN_MAX } = await import("./constants.ts");
 
 /** The addresses one call asked about. */
@@ -96,7 +96,7 @@ describe("which accounts a pass deletes", () => {
     accounts = ["erika@schule.de", "max@schule.de"];
     referenzen = unreferencedBut("max@schule.de");
 
-    await runKontoSweep();
+    await runAccountSweep();
 
     expect(deleteCalls).toStrictEqual(["erika@schule.de"]);
   });
@@ -107,7 +107,7 @@ describe("which accounts a pass deletes", () => {
     accounts = ["erika@schule.de", "neu@schule.de"];
     referenzen = (identifiers) => (identifiers.length > 1 ? identifiers : unreferencedBut("neu@schule.de")(identifiers));
 
-    await runKontoSweep();
+    await runAccountSweep();
 
     expect(deleteCalls).toStrictEqual(["erika@schule.de"]);
     expect(calls.slice(1).map(askedIn), "each unreferenced address is asked again, alone, before its delete").toStrictEqual([
@@ -123,7 +123,7 @@ describe("the batches a pass asks in", () => {
   it("asks one more account than the ceiling in two batches, none past it, each address once", async () => {
     accounts = adressen(REFERENZEN_ADRESSEN_MAX + 1);
 
-    await runKontoSweep();
+    await runAccountSweep();
 
     const asked = calls.map(askedIn);
     expect(asked.map((batch) => batch.length)).toStrictEqual([REFERENZEN_ADRESSEN_MAX, 1]);
@@ -132,7 +132,7 @@ describe("the batches a pass asks in", () => {
 
   // An empty batch is refused whole too.
   it("asks the backend nothing for an empty store", async () => {
-    await runKontoSweep();
+    await runAccountSweep();
 
     expect(calls).toStrictEqual([]);
   });
@@ -148,11 +148,11 @@ describe("a pass meeting a failure", () => {
     };
 
     // The batch it could not judge is what the pass left, which the heartbeat names.
-    expect((await runKontoSweep()).open).toBe(REFERENZEN_ADRESSEN_MAX);
+    expect((await runAccountSweep()).open).toBe(REFERENZEN_ADRESSEN_MAX);
 
     expect(deleteCalls).toStrictEqual(zweiter);
     expect(failures().map(({ event, fields }) => ({ event, fields }))).toStrictEqual([
-      { event: "account.references_failed", fields: { name: "TypeError", anzahl: REFERENZEN_ADRESSEN_MAX } },
+      { event: "account.references_failed", fields: { name: "TypeError", count: REFERENZEN_ADRESSEN_MAX } },
     ]);
   });
 
@@ -161,7 +161,7 @@ describe("a pass meeting a failure", () => {
     referenzen = (identifiers) => identifiers;
     deleteOutcomes.set("b@schule.de", "throws");
 
-    await runKontoSweep();
+    await runAccountSweep();
 
     expect(deleteCalls).toStrictEqual(accounts);
     expect(failures()).toStrictEqual([
@@ -169,7 +169,7 @@ describe("a pass meeting a failure", () => {
         level: "ERROR",
         event: "account.delete_failed",
         error: undefined,
-        fields: { name: "TypeError", anzahl: undefined },
+        fields: { name: "TypeError", count: undefined },
       },
     ]);
   });
@@ -181,11 +181,11 @@ describe("a pass meeting a failure", () => {
       return identifiers;
     };
 
-    await runKontoSweep();
+    await runAccountSweep();
 
     expect(deleteCalls).toStrictEqual(["a@schule.de", "c@schule.de"]);
     expect(failures().map(({ event, fields }) => ({ event, fields }))).toStrictEqual([
-      { event: "account.delete_failed", fields: { name: "TypeError", anzahl: undefined } },
+      { event: "account.delete_failed", fields: { name: "TypeError", count: undefined } },
     ]);
   });
 
@@ -194,7 +194,7 @@ describe("a pass meeting a failure", () => {
   it("rejects a pass whose store cannot be listed, asking the backend nothing and writing no line", async () => {
     listing = () => Promise.reject(new TypeError("no connection"));
 
-    await expect(runKontoSweep()).rejects.toThrow(TypeError);
+    await expect(runAccountSweep()).rejects.toThrow(TypeError);
 
     expect(calls).toStrictEqual([]);
     expect(lines).toStrictEqual([]);
@@ -217,7 +217,7 @@ describe("a pass meeting a failure", () => {
       });
     };
 
-    await runKontoSweep();
+    await runAccountSweep();
 
     expect(deleteCalls).toStrictEqual([]);
     expect(failures().map(({ event, fields }) => ({ event, fields }))).toStrictEqual([
@@ -228,7 +228,7 @@ describe("a pass meeting a failure", () => {
           status: 409,
           server_error_code: "no_owner",
           trace_id: TRACE_ID,
-          anzahl: 2,
+          count: 2,
         },
       },
     ]);
@@ -249,11 +249,11 @@ describe("a pass meeting a failure", () => {
       });
     };
 
-    await runKontoSweep();
+    await runAccountSweep();
 
     expect(deleteCalls).toStrictEqual([]);
     expect(failures().map(({ event, fields }) => ({ event, fields }))).toStrictEqual([
-      { event: "account.references_failed", fields: { name: "APINetworkError", trace_id: TRACE_ID, anzahl: 1 } },
+      { event: "account.references_failed", fields: { name: "APINetworkError", trace_id: TRACE_ID, count: 1 } },
     ]);
   });
 
@@ -267,7 +267,7 @@ describe("a pass meeting a failure", () => {
     };
     deleteOutcomes.set("fehler@schule.de", "throws");
 
-    await runKontoSweep();
+    await runAccountSweep();
 
     expect(lines.map(({ event }) => event)).toStrictEqual(["account.references_failed", "account.delete_failed"]);
     assert.ok(!JSON.stringify(lines).includes("@"), "a line carries an address");
@@ -290,8 +290,8 @@ describe("what a completed pass answers", () => {
     deleteOutcomes.set("fort@schule.de", "gone");
     deleteOutcomes.set("fehler@schule.de", "throws");
 
-    expect(await runKontoSweep()).toStrictEqual({
-      count: { unreferenziert: 4, geloescht: 1, bereits_geloescht: 1, fehlgeschlagen: 1 },
+    expect(await runAccountSweep()).toStrictEqual({
+      count: { unreferenced: 4, deleted: 1, already_deleted: 1, failed: 1 },
       open: 1,
     });
   });

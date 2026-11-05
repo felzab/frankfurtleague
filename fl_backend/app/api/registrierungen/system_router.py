@@ -66,7 +66,7 @@ async def sweep_registrierungen(
     registrierungen_collection: RegistrierungenCollection,
     saisons_collection: SaisonsCollection,
     teams_collection: TeamsCollection,
-    aktionen_collection: ActionLogCollection,
+    action_log_collection: ActionLogCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
     today: str = Depends(get_german_date_str),
@@ -130,7 +130,7 @@ async def sweep_registrierungen(
             collection=registrierungen_collection, db_filter={"saison_id": saison_id, "_id": {"$in": ids}}, session=session
         )
         redacted = await redact_log_rows_in_db(
-            action_log_collection=aktionen_collection, targets=[(Collection.REGISTRIERUNGEN, ids)], at=stamp, session=session
+            action_log_collection=action_log_collection, targets=[(Collection.REGISTRIERUNGEN, ids)], at=stamp, session=session
         )
 
         return len(rows), result.deleted_count, redacted
@@ -162,7 +162,7 @@ async def sweep_registrierungen(
             collection=registrierungen_collection, db_filter={"saison_id": saison_id, "_id": {"$in": ids}}, session=session
         )
         redacted = await redact_log_rows_in_db(
-            action_log_collection=aktionen_collection, targets=[(Collection.REGISTRIERUNGEN, ids)], at=stamp, session=session
+            action_log_collection=action_log_collection, targets=[(Collection.REGISTRIERUNGEN, ids)], at=stamp, session=session
         )
 
         return len(rows), result.deleted_count, redacted
@@ -194,6 +194,7 @@ async def sweep_registrierungen(
                 db_filter={"_id": row["_id"]},
                 update=compose_erinnerung_update(today=today),
                 session=session,
+                expected_version=None,
                 return_document=ReturnDocument.BEFORE,
             )
         # The stamps and the mails commit together; the ban is judged when each mail is handed out.
@@ -206,7 +207,7 @@ async def sweep_registrierungen(
                     key=f"{Collection.REGISTRIERUNGEN}/{row['_id']}/reminder/{today}",
                     an=str(row["email"]),
                     data=FLRegistrierungLinkData(
-                        art="registrierung_reminder",
+                        kind="registrierung_reminder",
                         # Empty where the team row is gone: a reminder naming no team beats a pass that stops.
                         team=team_names.get(row.get("team_id"), _TEAM_UNBEKANNT),
                         saison_id=saison_id,
@@ -244,7 +245,7 @@ async def sweep_registrierungen(
             collection=registrierungen_collection, db_filter={"saison_id": saison_id, "_id": {"$in": ids}}, session=session
         )
         redacted = await redact_log_rows_in_db(
-            action_log_collection=aktionen_collection, targets=[(Collection.REGISTRIERUNGEN, ids)], at=stamp, session=session
+            action_log_collection=action_log_collection, targets=[(Collection.REGISTRIERUNGEN, ids)], at=stamp, session=session
         )
 
         return len(rows), result.deleted_count, redacted
@@ -256,7 +257,7 @@ async def sweep_registrierungen(
         what="Registration",
         clock="decline",
     )
-    fehlgeschlagen = len(passed)
+    failed = len(passed)
 
     erinnert = 0
     ohne_entscheidung, redacted_undecided = 0, 0
@@ -271,7 +272,7 @@ async def sweep_registrierungen(
             what="Registration",
             clock="season's end",
         )
-        fehlgeschlagen += len(passed)
+        failed += len(passed)
     else:
         unbestaetigt, redacted_unconfirmed, passed = await drain(
             db=db,
@@ -280,7 +281,7 @@ async def sweep_registrierungen(
             what="Registration",
             clock="deadline",
         )
-        fehlgeschlagen += len(passed)
+        failed += len(passed)
 
         reminded, passed = await run_isolated(
             db=db,
@@ -291,7 +292,7 @@ async def sweep_registrierungen(
             what="Registration",
             clock="reminder",
         )
-        fehlgeschlagen += len(passed)
+        failed += len(passed)
         erinnert = sum(reminded)
 
     return FLRegistrierungSweepResponse(
@@ -301,5 +302,5 @@ async def sweep_registrierungen(
         erased_without_decision=ohne_entscheidung,
         erased_declined=abgelehnte,
         redacted_action_log=redacted_undecided + redacted_unconfirmed + redacted_declined,
-        failed=fehlgeschlagen,
+        failed=failed,
     )

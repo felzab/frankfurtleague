@@ -40,7 +40,7 @@ const ACCOUNT_ONLY = "bewerberin@example.org";
 type Backend = LookupFixture | "throws";
 
 const BACKENDS: Readonly<Record<string, Backend>> = {
-  [GRANTED]: { ...HOLDS_NOTHING, verwaltung: "administration", granted_since: "2026-01-01T00:00:00Z", account: false },
+  [GRANTED]: { ...HOLDS_NOTHING, admin_tier: "administration", granted_since: "2026-01-01T00:00:00Z", account: false },
   [BARRED]: { ...HOLDS_NOTHING, seats: [SEAT], barred: true, account: true },
   [ACCOUNT_ONLY]: { ...HOLDS_NOTHING, account: true },
   [UNREACHED]: "throws",

@@ -16,10 +16,10 @@ from pymongo.errors import ConfigurationError, InvalidURI, OperationFailure, Ser
 
 from app.core import db
 from app.core.config import (
+    BAN_LIST_KEY_MIN_LENGTH,
     INTERNAL_API_KEY_LENGTH,
     MONGODB_URI_FILE,
     SECRET_FILES,
-    SPERRLISTE_KEY_MIN_LENGTH,
     BackendConfig,
     EnvironmentValidationError,
     get_config,
@@ -42,7 +42,7 @@ def a_key_the_boot_accepts(prefix: str) -> str:
 
 # Its own padding rather than the helper above: the two floors are separate decisions, and one
 # helper would make a change to either silently move the other's fixtures.
-BAN_LIST_KEY = "ban-list".ljust(SPERRLISTE_KEY_MIN_LENGTH, "0")
+BAN_LIST_KEY = "ban-list".ljust(BAN_LIST_KEY_MIN_LENGTH, "0")
 
 # Spelled as the environment spells them, because the half under test is what reads the environment.
 REQUIRED = {
@@ -206,7 +206,7 @@ class TestTheInternalKeys:
 class TestTheBanListKey:
     def test_a_key_carrying_a_value_is_never_echoed_by_the_refusal_beside_it(self, monkeypatch, tmp_path):
         """A rejected key reaching the container log is the whole exposure, and the value here is the one this gate would leak."""
-        short = "x" * (SPERRLISTE_KEY_MIN_LENGTH - 1)
+        short = "x" * (BAN_LIST_KEY_MIN_LENGTH - 1)
 
         refused = refusal(monkeypatch, tmp_path, {"sperrliste_key": short.encode()})
 
@@ -216,17 +216,17 @@ class TestTheBanListKey:
     def test_a_key_under_the_floor_fails_the_boot(self):
         """The boot is the last cheap moment: the key can never be rotated, every stored hash having been taken under it."""
         with pytest.raises(ValidationError):
-            build(sperrliste_key=SecretStr("k" * (SPERRLISTE_KEY_MIN_LENGTH - 1)))
+            build(sperrliste_key=SecretStr("k" * (BAN_LIST_KEY_MIN_LENGTH - 1)))
 
     def test_a_key_at_the_floor_boots(self):
         """The boundary, or a floor written one past its intent refuses the value the runbook tells an operator to generate."""
-        at_the_floor = "k" * SPERRLISTE_KEY_MIN_LENGTH
+        at_the_floor = "k" * BAN_LIST_KEY_MIN_LENGTH
 
         assert build(sperrliste_key=SecretStr(at_the_floor)).sperrliste_key.get_secret_value() == at_the_floor
 
     def test_a_longer_key_boots(self):
         """No ceiling, deliberately: HMAC takes a key of any length, and one here would refuse a passphrase for nothing."""
-        longer = "k" * (SPERRLISTE_KEY_MIN_LENGTH * 2)
+        longer = "k" * (BAN_LIST_KEY_MIN_LENGTH * 2)
 
         assert build(sperrliste_key=SecretStr(longer)).sperrliste_key.get_secret_value() == longer
 

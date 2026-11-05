@@ -8,6 +8,7 @@ from app.api.saisons.services import (
     FROZEN_RULES_FIELDS,
     find_rules_freeze_refusal,
     find_rules_refusal,
+    find_saison_span_refusal,
     find_undraw_refusal,
 )
 from app.core.codes import Code
@@ -22,6 +23,7 @@ def rules_payload(
     qualifiers: int = 2,
     win: int = 3,
     draw: int = 1,
+    loss: int = 0,
     tiebreak: Literal["tordifferenz", "direkter_vergleich"] = "tordifferenz",
     kader: int = 18,
     forfeit: tuple[int, int] = (3, 0),
@@ -31,6 +33,7 @@ def rules_payload(
     return {
         "win_points": win,
         "draw_points": draw,
+        "loss_points": loss,
         "qualifiers_per_gruppe": qualifiers,
         "number_of_gruppen": groups,
         "teams_per_gruppe": per_group,
@@ -82,6 +85,7 @@ def judge(
 FROZEN_CASES: tuple[tuple[str, dict[str, Any]], ...] = (
     ("win_points", {"win": 2}),
     ("draw_points", {"draw": 0}),
+    ("loss_points", {"loss": 1}),
     ("qualifiers_per_gruppe", {"qualifiers": 1}),
     ("tiebreak_order", {"tiebreak": "direkter_vergleich"}),
 )
@@ -209,6 +213,20 @@ class TestADrawIsNeverWorthMoreThanAWin:
         assert refusal.error_code == Code.RULES_UNENTSCHIEDEN_OUTVALUES_WIN
 
 
+class TestALossIsNeverWorthMoreThanADraw:
+    def test_a_loss_worth_more_than_a_draw_is_refused_on_its_field_under_the_draws_points(self):
+        """A season rewarding a loss above a draw ranks a club that lost above one that drew, in every table the league serves."""
+
+        refusal = judge(proposed=rules(win=3, draw=1, loss=2))
+
+        assert refusal is not None
+        assert (refusal.error_code, refusal.fields, dict(refusal.bounds)) == (
+            Code.RULES_NIEDERLAGE_OUTVALUES_UNENTSCHIEDEN,
+            (("rules", "loss_points"),),
+            {"max": 1},
+        )
+
+
 class TestADrawnForfeitCannotDecideAKnockout:
     """A knockout round has to produce a winner, and a level award composes a draw the bracket cannot advance out of.
 
@@ -276,6 +294,87 @@ class TestADrawnForfeitCannotDecideAKnockout:
 
         assert refusal is not None
         assert refusal.error_code == Code.RULES_FORFEIT_UNENTSCHIEDEN_IN_A_KNOCKOUT
+
+
+class TestEachRefusalNamesItsBound:
+    """A bound computed wrong words the field's line with a figure the next save is refused for again, and nothing else checks it."""
+
+    @pytest.mark.parametrize(
+        ("judged", "code", "field", "bounds"),
+        [
+            pytest.param(
+                {"stored": rules(groups=4, qualifiers=2), "proposed": rules(groups=2, qualifiers=4), "occupancy": {"A": 1, "C": 1}},
+                Code.RULES_GRUPPEN_IN_USE,
+                ("rules", "number_of_gruppen"),
+                {"min": 3},
+                id="the groups in use run to the last occupied one",
+            ),
+            pytest.param(
+                {"stored": rules(per_group=6), "proposed": rules(per_group=4), "occupancy": {"A": 6, "B": 2}},
+                Code.RULES_CAPACITY_BELOW_USE,
+                ("rules", "teams_per_gruppe"),
+                {"min": 6},
+                id="the capacity holds the fullest group",
+            ),
+            pytest.param(
+                {"stored": rules(qualifiers=2), "proposed": rules(qualifiers=1), "platz": 2},
+                Code.RULES_QUALIFIERS_BELOW_WIRING,
+                ("rules", "qualifiers_per_gruppe"),
+                {"min": 2},
+                id="the qualifiers reach the highest wired place",
+            ),
+            pytest.param(
+                {"proposed": rules(qualifiers=5, per_group=4)},
+                Code.RULES_QUALIFIERS_ABOVE_GRUPPE,
+                ("rules", "qualifiers_per_gruppe"),
+                {"max": 4},
+                id="the qualifiers stay within a group",
+            ),
+            pytest.param(
+                {"proposed": rules(win=3, draw=4)},
+                Code.RULES_UNENTSCHIEDEN_OUTVALUES_WIN,
+                ("rules", "draw_points"),
+                {"max": 3},
+                id="a draw is worth at most a win",
+            ),
+            pytest.param(
+                {"stored": rules(kader=18), "proposed": rules(kader=10), "largest_squad": 12},
+                Code.RULES_KADER_BELOW_USE,
+                ("rules", "max_kadergroesse"),
+                {"min": 12},
+                id="the squad cap holds the largest squad",
+            ),
+            pytest.param(
+                {"proposed": rules(forfeit=(2, 2))},
+                Code.RULES_FORFEIT_UNENTSCHIEDEN_IN_A_KNOCKOUT,
+                ("rules", "forfeit_ergebnis", "sieger_tore"),
+                {"min": 3},
+                id="a forfeit's winner scores one more than its loser",
+            ),
+        ],
+    )
+    def test_the_rule_names_its_field_and_the_figure_it_holds_it_to(
+        self, judged: dict[str, Any], code: Code, field: tuple[str, ...], bounds: dict[str, int]
+    ):
+        refusal = judge(**judged)
+
+        assert refusal is not None
+        assert (refusal.error_code, refusal.fields, dict(refusal.bounds)) == (code, (field,), bounds)
+
+    def test_a_span_short_of_its_matchdays_names_each_side_it_falls_short_of_and_the_span_they_need(self):
+        refusal = find_saison_span_refusal(
+            start_date="2026-02-01",
+            end_date="2026-06-30",
+            rules=rules(),
+            spieltag_spans=[("2026-01-05", "2026-01-06"), ("2026-07-09", "2026-07-10")],
+        )
+
+        assert refusal is not None
+        assert (refusal.error_code, refusal.fields, dict(refusal.bounds)) == (
+            Code.SAISON_SPAN_BELOW_SPIELTAGE,
+            (("start_date",), ("end_date",)),
+            {"start": "2026-01-05", "end": "2026-07-10"},
+        )
 
 
 class TestNarrowingTheGroupCount:

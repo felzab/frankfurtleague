@@ -2,7 +2,7 @@ import { person, seat } from "@/test-support/subjectFixtures.ts";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
-import { action, PAGE_HOLDER } from "./action";
+import { action, numberBox, PAGE_HOLDER } from "./action";
 import { afterTheResponse } from "./afterResponse";
 import { dispatchRequest, sentRequestOf } from "./apiDispatch";
 import { COPY } from "./copy";
@@ -115,7 +115,7 @@ const sends = (method: string, readOnly?: boolean, thrown?: unknown) =>
 function create(thrown?: unknown) {
   return action({
     lane: "admin",
-    name: "anlegen",
+    name: "create",
     input: Venue,
     run: async (input) => {
       state.steps.push(`body ${JSON.stringify(input)}`);
@@ -142,8 +142,8 @@ describe("the admin lane", () => {
     ["signIn", COPY.shared.failure.signInExpired],
     ["noGrant", COPY.shared.failure.accessGone],
     ["grantGone", COPY.shared.failure.accessGone],
-    ["unread", COPY.shared.failure.accessUnchecked],
-  ])("turns a caller the guard refuses as %s away in the words of its repair, before anything else", async (refused, reason) => {
+    ["unread", COPY.shared.failure.unexpected],
+  ])("turns a caller the guard refuses as %s away in its shared line, before anything else", async (refused, reason) => {
     state.admin = { refused };
 
     expect(await create()({ name: "Nord", plz: "60438" })).toStrictEqual({ ok: false, reason });
@@ -154,7 +154,7 @@ describe("the admin lane", () => {
     const answer = await create(new Error("lena@example.com was refused"))({ name: "Nord", plz: "60438" });
 
     expect(answer).toStrictEqual({ ok: false, reason: COPY.shared.failure.unexpected });
-    expect(state.lines).toStrictEqual([{ level: "error", message: "action.failed", meta: { action: "anlegen", name: "Error" } }]);
+    expect(state.lines).toStrictEqual([{ level: "error", message: "action.failed", meta: { action: "create", name: "Error" } }]);
     expect(state.steps.at(-1)).toBe("updateTag site");
   });
 });
@@ -180,7 +180,7 @@ describe("the person lane", () => {
     // An input the schema refuses: read first, it would answer with the box's message.
     expect(await register({ team_id: "", saison_id: "2027" })).toStrictEqual({ ok: false, reason: COPY.shared.failure.signInExpired });
     expect(state.steps).toStrictEqual(["person guard"]);
-    expect(state.lines).toStrictEqual([{ level: "info", message: "roles.refused", meta: { operation: "melden", grund: "keine_sitzung" } }]);
+    expect(state.lines).toStrictEqual([{ level: "info", message: "roles.refused", meta: { operation: "melden", grund: "no_session" } }]);
   });
 
   it.each([
@@ -233,7 +233,7 @@ describe("the account's own acts", () => {
   const signOut = action({
     lane: "person",
     claim: "account",
-    name: "abmelden",
+    name: "sign_out",
     input: z.object(PAGE_HOLDER),
     run: async (_input, { served }) => {
       state.steps.push(`body ${JSON.stringify(served)}`);
@@ -268,7 +268,7 @@ describe("the public lane", () => {
   const send = action({
     lane: "public",
     botCheck: true,
-    name: "senden",
+    name: "send",
     input: z.object({ email: z.email() }),
     run: async ({ email }) => {
       state.steps.push("body");
@@ -277,12 +277,12 @@ describe("the public lane", () => {
   });
 
   it("answers the bot check's refusal before anything of the input is read", async () => {
-    state.botCheck = COPY.shared.botCheck.confirm;
+    state.botCheck = COPY.shared.botCheck;
     const posted = new FormData();
-    posted.set("email", "keine-adresse");
+    posted.set("email", "no-address");
     posted.set("cf-turnstile-response", "token");
 
-    expect(await send(posted)).toStrictEqual({ ok: false, reason: COPY.shared.botCheck.confirm });
+    expect(await send(posted)).toStrictEqual({ ok: false, reason: COPY.shared.botCheck });
     expect(state.steps).toStrictEqual(["bot check token"]);
   });
 });
@@ -363,5 +363,16 @@ describe("the site's cache", () => {
 
     expect(state.steps).toStrictEqual(["admin guard", "sent POST"]);
     expect(behind).toStrictEqual([{ actor: undefined, left: AFTER_RESPONSE_DEADLINE_MS }]);
+  });
+});
+
+// An empty box read as 0 would store a fee or a price nobody typed, which a page that only reads it back shows as a
+// plausible figure.
+describe("a box's reading", () => {
+  const FEE = z.int().min(0);
+
+  it("reads an empty digit box as no value, never as 0", () => {
+    expect(numberBox(z.union([FEE, z.null()])).safeParse("")).toStrictEqual({ success: true, data: null });
+    expect(numberBox(FEE).safeParse("").success).toBe(false);
   });
 });

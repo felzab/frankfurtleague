@@ -12,7 +12,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.bewerbungen.admin_router import resend_einwilligung
 from app.api.bewerbungen.public_router import get_einwilligung_view, post_einwilligung
 from app.api.bewerbungen.schemas import FLBewerbungEinwilligungAntwortPayload
-from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
+from app.api.sperrliste.services import compose_barred_until_saison_id
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError, DocumentNotFoundError
@@ -111,14 +111,14 @@ def on_a_league(url: str, body: Body, *, documents: list[dict[str, Any]] | None 
     return on_the_seed_loop(_run())
 
 
-async def ansicht(database: AsyncDatabase, token: str, *, bewerbungen: Any = None) -> Any:
+async def read_view(database: AsyncDatabase, token: str, *, bewerbungen: Any = None) -> Any:
     return await get_einwilligung_view(
-        ansicht_data=FLTokenPayload(token=token),
+        view_data=FLTokenPayload(token=token),
         bewerbungen_collection=database[Collection.BEWERBUNGEN] if bewerbungen is None else bewerbungen,
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
         teams_collection=database[Collection.TEAMS],
-        sperrliste=ban_list(database),
+        ban_list=ban_list(database),
         today=TODAY,
     )
 
@@ -129,24 +129,24 @@ async def answer(
     """One answer through the seat's link; a case reading the mail it owes passes `MAIL_NOW`, which the stamps then carry."""
 
     # A Widerspruch carries the token alone: every default below is the consent's.
-    erteilt = {
+    given = {
         "antwort": "given",
         "geburtsdatum": AN_ADULTS_BIRTHDATE,
         "whatsapp": True,
-        "medien": False,
+        "media": False,
         "text_versions": dict(documents.SEAT_TEXT_VERSIONS),
     }
-    body = {"token": token, **(overrides if overrides.get("antwort") == "declined" else {**erteilt, **overrides})}
+    body = {"token": token, **(overrides if overrides.get("antwort") == "declined" else {**given, **overrides})}
 
     return await post_einwilligung(
         antwort_data=TypeAdapter(FLBewerbungEinwilligungAntwortPayload).validate_python(body),
         bewerbungen_collection=database[Collection.BEWERBUNGEN] if bewerbungen is None else bewerbungen,
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
-        aktionen_collection=database[Collection.ACTION_LOG],
+        action_log_collection=database[Collection.ACTION_LOG],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
         outbox_collection=database[Collection.OUTBOX],
-        sperrliste=ban_list(database),
+        ban_list=ban_list(database),
         db=client,
         config=build_test_config(),
         today=TODAY,
@@ -161,7 +161,7 @@ async def resend(database: AsyncDatabase, seat: str, bewerbung_id: ObjectId = BE
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         teams_collection=database[Collection.TEAMS],
         outbox_collection=database[Collection.OUTBOX],
-        sperrliste=ban_list(database),
+        ban_list=ban_list(database),
         db=database.client,
         today=TODAY,
         germany_now=MAIL_NOW,
@@ -229,7 +229,7 @@ class TestWhatALinkOpens:
     def test_a_live_link_shows_the_seat_and_no_contact_record(self, mongo_replica_set_url: str):
         """`READ-BEWERBUNG-002`: a school, a season and a role, and no name, no stored record or anything a leaked link could act on."""
 
-        response = on_a_league(mongo_replica_set_url, lambda database, _: ansicht(database, RAW["ansprechperson"]))
+        response = on_a_league(mongo_replica_set_url, lambda database, _: read_view(database, RAW["ansprechperson"]))
 
         assert (response.state, response.saison_id, response.schule, response.rolle) == ("valid", SAISON_ID, SCHOOL_NAME, "ansprechperson")
         assert response.also_rolle is None
@@ -247,7 +247,7 @@ class TestWhatALinkOpens:
 
         paired = bewerbung_document(kontakte=kontakte(trainer_is_also="ansprechperson"))
 
-        response = on_a_league(mongo_replica_set_url, lambda database, _: ansicht(database, RAW[seat]), documents=[paired])
+        response = on_a_league(mongo_replica_set_url, lambda database, _: read_view(database, RAW[seat]), documents=[paired])
 
         assert (response.rolle, response.also_rolle) == (seat, also_rolle)
 
@@ -255,7 +255,7 @@ class TestWhatALinkOpens:
         paired = bewerbung_document(kontakte=kontakte(trainer_is_also="ansprechperson"))
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            view = await ansicht(database, RAW["trainer"])
+            view = await read_view(database, RAW["trainer"])
             await answer(database, client, RAW["trainer"])
 
             return view, await stored(database)
@@ -268,7 +268,7 @@ class TestWhatALinkOpens:
     def test_a_token_no_seat_holds_is_refused(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> str:
             with pytest.raises(APIError) as conflict:
-                await ansicht(database, "a-stranger's-guess")
+                await read_view(database, "a-stranger's-guess")
 
             return conflict.value.error_code
 
@@ -291,17 +291,17 @@ class TestWhatAConfirmationWrites:
         # No label on the block and the stored speaker gone: whether the person answered is the stamp's
         # to say, and which words each choice was given under its evidence's.
         assert trainer["einwilligung"] == {
-            "umfang": "kontaktdaten_whatsapp",
-            "datum": "2026-03-20",
+            "scope": "kontaktdaten_whatsapp",
+            "date": "2026-03-20",
             "confirmed_at": TODAY,
-            "medien": False,
+            "media": False,
             # The seating's, which the answer leaves standing.
             "entered_by": "bewerbung",
             # Each choice's evidence under its own wording: the WhatsApp grant, and the media answer
             # withholding.
-            "nachweis": {
-                "umfang": {"am": "2026-04-01T10:30:00+00:00", "text_version": documents.SEAT_TEXT_VERSIONS["umfang"]},
-                "medien": {"am": "2026-04-01T10:30:00+00:00", "text_version": documents.SEAT_TEXT_VERSIONS["medien"]},
+            "evidence": {
+                "scope": {"at": "2026-04-01T10:30:00+00:00", "text_version": documents.SEAT_TEXT_VERSIONS["scope"]},
+                "media": {"at": "2026-04-01T10:30:00+00:00", "text_version": documents.SEAT_TEXT_VERSIONS["media"]},
             },
         }
         # NOT nulled on use: single use is the stamp's doing, so the reopened link can show its state.
@@ -317,7 +317,7 @@ class TestWhatAConfirmationWrites:
 
             return await stored(database)
 
-        assert on_a_league(mongo_replica_set_url, body)["kontakte"]["trainer"]["einwilligung"]["umfang"] == "kontaktdaten"
+        assert on_a_league(mongo_replica_set_url, body)["kontakte"]["trainer"]["einwilligung"]["scope"] == "kontaktdaten"
 
     def test_the_other_seats_are_untouched(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -350,12 +350,12 @@ class TestWhatAConfirmationWrites:
 
 
 class TestTheMediaConsent:
-    """A seat's own media consent, asked on its confirmation page as on a pupil's and a referee's (`medien_age`)."""
+    """A seat's own media consent, asked on its confirmation page as on a pupil's and a referee's (`media_age`)."""
 
     def test_a_confirmation_giving_medien_from_a_person_of_age_stores_it_on_the_seat_with_its_evidence(self, mongo_replica_set_url: str):
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await answer(database, client, RAW["trainer"], medien=True)
+            response = await answer(database, client, RAW["trainer"], media=True)
 
             return response, await stored(database)
 
@@ -363,21 +363,21 @@ class TestTheMediaConsent:
         einwilligung = document["kontakte"]["trainer"]["einwilligung"]
 
         # The answer carries what it stored, as the referee's answer does.
-        assert response.medien is einwilligung["medien"] is True
-        assert einwilligung["nachweis"]["medien"] == {"am": "2026-04-01T10:30:00+00:00", "text_version": documents.SEAT_TEXT_VERSIONS["medien"]}
+        assert response.media is einwilligung["media"] is True
+        assert einwilligung["evidence"]["media"] == {"at": "2026-04-01T10:30:00+00:00", "text_version": documents.SEAT_TEXT_VERSIONS["media"]}
 
     def test_a_trainer_below_the_media_age_giving_medien_is_refused_and_spends_nothing(self, mongo_replica_set_url: str):
         """Seventeen clears the Trainer's own floor and not the media one, so the age refusal stays silent and this one speaks."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             with pytest.raises(APIError) as refused:
-                await answer(database, client, RAW["trainer"], geburtsdatum=A_SEVENTEEN_YEAR_OLDS_BIRTHDATE, medien=True)
+                await answer(database, client, RAW["trainer"], geburtsdatum=A_SEVENTEEN_YEAR_OLDS_BIRTHDATE, media=True)
 
             return refused.value, await stored(database), await log_rows(database)
 
         refusal, document, rows = on_a_league(mongo_replica_set_url, body)
 
-        assert (refusal.error_code, refusal.status_code) == (Code.MEDIEN_AGE, 422)
+        assert (refusal.error_code, refusal.status_code) == (Code.MEDIA_AGE, 422)
         assert document == bewerbung_document()
         assert rows == []
 
@@ -393,7 +393,7 @@ class TestTheLinkIsSpentByTheStamp:
             return (
                 conflict.value.error_code,
                 (await stored(database))["kontakte"]["trainer"]["geburtsdatum"],
-                await ansicht(database, RAW["trainer"]),
+                await read_view(database, RAW["trainer"]),
             )
 
         code, geburtsdatum, view = on_a_league(mongo_replica_set_url, body)
@@ -409,7 +409,7 @@ class TestTheLinkIsSpentByTheStamp:
             with pytest.raises(APIError) as conflict:
                 await answer(database, client, RAW["trainer"], geburtsdatum=A_CHILDS_BIRTHDATE)
 
-            return conflict.value.error_code, await ansicht(database, RAW["trainer"]), await stored(database), await log_rows(database)
+            return conflict.value.error_code, await read_view(database, RAW["trainer"]), await stored(database), await log_rows(database)
 
         code, view, document, rows = on_a_league(mongo_replica_set_url, body)
 
@@ -465,7 +465,7 @@ class TestADecline:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             response = await answer(database, client, RAW["stellvertretung"], antwort="declined")
 
-            return response, await stored(database), await ansicht(database, RAW["stellvertretung"])
+            return response, await stored(database), await read_view(database, RAW["stellvertretung"])
 
         response, document, view = on_a_league(mongo_replica_set_url, body)
 
@@ -473,7 +473,7 @@ class TestADecline:
         assert document["confirmations"]["stellvertretung"]["declined_at"] == TODAY
         # The Ansprechperson's objection notice names the deletion day, so no second notice follows it.
         assert document["erasure_announced_at"] == TODAY
-        assert (response.ergebnis, response.geburtsdatum, response.medien) == ("declined", None, False)
+        assert (response.ergebnis, response.geburtsdatum, response.media) == ("declined", None, False)
         assert view.state == "declined"
 
     def test_the_seat_leaves_every_log_image_and_an_earlier_answer_beside_it_stays(self, mongo_replica_set_url: str):
@@ -529,10 +529,10 @@ class TestWhatAWiderspruchOwesTheSubmitter:
 
         assert on_a_league(mongo_replica_set_url, body) == [
             {
-                "key": f"{Collection.BEWERBUNGEN}/{BEWERBUNG_OID}/widerspruch/stellvertretung",
+                "key": f"{Collection.BEWERBUNGEN}/{BEWERBUNG_OID}/objection/stellvertretung",
                 "an": "quillhilde@example.com",
                 "data": {
-                    "art": "bewerbung_widerspruch",
+                    "kind": "bewerbung_objection",
                     "saison_id": SAISON_ID,
                     "rollen": ["ansprechperson"],
                     # Off the read before the decline: nothing left in the record names whose entry was refused.
@@ -580,17 +580,17 @@ class TestAResend:
             [mail] = await drained(database, client)
 
             with pytest.raises(APIError) as conflict:
-                await ansicht(database, RAW["trainer"])
+                await read_view(database, RAW["trainer"])
 
             assert mail.token is not None
-            return response, mail, conflict.value.error_code, await ansicht(database, mail.token), await stored(database)
+            return response, mail, conflict.value.error_code, await read_view(database, mail.token), await stored(database)
 
         response, mail, old_code, view, document = on_a_league(mongo_replica_set_url, body)
 
         assert old_code == Code.LINK_INVALID
         assert (view.state, view.rolle) == ("valid", "trainer")
         assert (response.rolle, response.confirmation_deadline) == ("trainer", "2026-04-15")
-        assert (mail.an, mail.data.art) == ("wraxlington@example.com", "bewerbung_confirmation")
+        assert (mail.an, mail.data.kind) == ("wraxlington@example.com", "bewerbung_confirmation")
         assert document["confirmation_deadline"] == "2026-04-15"
         assert document["confirmations"]["trainer"] == {
             "token_hashes": [hash_token(mail.token or "")],
@@ -625,7 +625,7 @@ class TestAResend:
         assert on_a_league(mongo_replica_set_url, body) == Code.BEWERBUNG_SEAT_ALREADY_ANSWERED
 
     def test_a_decided_application_gets_no_new_link(self, mongo_replica_set_url: str):
-        decided = bewerbung_document(status="declined", decision={"made_at": YESTERDAY, "von": "admin", "grund": "kein Platz"})
+        decided = bewerbung_document(status="declined", decision={"made_at": YESTERDAY, "by": "admin", "grund": "kein Platz"})
 
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> str:
             with pytest.raises(APIError) as conflict:
@@ -646,7 +646,7 @@ class TestAResend:
 
 
 # Composed by the production helper rather than spelled, so a drifted bound cannot leave these cases passing over a lapsed row.
-STANDING = compose_gesperrt_bis_saison_id(massgebliche_saison_id=SAISON_ID)
+STANDING = compose_barred_until_saison_id(governing_saison_id=SAISON_ID)
 
 
 def address_of(seat: str, document: Mapping[str, Any] | None = None) -> str:
@@ -654,13 +654,13 @@ def address_of(seat: str, document: Mapping[str, Any] | None = None) -> str:
 
 
 async def ban(database: AsyncDatabase, address: str) -> None:
-    await database[Collection.SPERRLISTE].insert_one(ban_document(address, bis=STANDING))
+    await database[Collection.BAN_LIST].insert_one(ban_document(address, until=STANDING))
 
 
-async def ban_under_a_running_season(database: AsyncDatabase, address: str, *, bis: str) -> None:
+async def ban_under_a_running_season(database: AsyncDatabase, address: str, *, until: str) -> None:
     """A ban's bound is read against the running season only where one runs; with none, every row bars."""
     await database[Collection.SAISONS].insert_one(saison_document(SAISON_ID, "active"))
-    await database[Collection.SPERRLISTE].insert_one(ban_document(address, bis=bis))
+    await database[Collection.BAN_LIST].insert_one(ban_document(address, until=until))
 
 
 def decline(database: AsyncDatabase, client: AsyncMongoClient, seat: str) -> Any:
@@ -702,7 +702,7 @@ class TestALinkToABarredAddress:
         """A check asking nothing once a season runs would let every barred person confirm."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
-            await ban_under_a_running_season(database, address_of("stellvertretung"), bis=STANDING)
+            await ban_under_a_running_season(database, address_of("stellvertretung"), until=STANDING)
 
             with pytest.raises(APIError) as refused:
                 await answer(database, client, RAW["stellvertretung"])

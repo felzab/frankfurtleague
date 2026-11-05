@@ -29,7 +29,7 @@ beforeEach(() => {
     team_id: TEAM_ID,
     kontakte: null,
     kontakte_stand: "a1b2",
-    bestaetigungen: [],
+    confirmations: [],
   };
 });
 

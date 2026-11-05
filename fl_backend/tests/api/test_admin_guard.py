@@ -89,6 +89,7 @@ PUBLIC_WRITES = [
     # the token is the whole credential, so the guard here would have no session to check.
     ("/api/v0/schiedsrichter/confirmation/view", "post"),
     ("/api/v0/schiedsrichter/confirmation", "post"),
+    ("/api/v0/schiedsrichter/confirmation/decline", "post"),
     # The address change's links, the new mailbox's and the stop link, on a base-tier router of their own for the same reason.
     ("/api/v0/address_change/confirmation/view", "post"),
     ("/api/v0/address_change/confirmation", "post"),
@@ -121,10 +122,11 @@ SYSTEM_WRITES = [
     # The grants' comparison: the hourly pass holds no session, and a change made in the database directly has no
     # administrator to attribute it to.
     ("/api/v0/grants/reconciliation", "post"),
-    # The season-after rule and the lapsed address's clock, whichever caller runs them: a timer holds
-    # no session, and an activation's press deletes nobody in the administrator's name.
+    # The season-after rule, the lapsed address's clock and the unconfirmed referee's, whichever caller runs them: a
+    # timer holds no session, and an activation's press deletes nobody in the administrator's name.
     ("/api/v0/identity/erasure/sweep", "post"),
     ("/api/v0/address_change/sweep", "post"),
+    ("/api/v0/schiedsrichter/sweep", "post"),
     # The sign-in accounts the address changes still owe to carry, reported carried by the frontend, which holds the store.
     ("/api/v0/address_change/sweep/moves/done", "post"),
     # The Postausgang's drain, the sign-in library's mails and the provider's events: none holds a session.
@@ -133,7 +135,7 @@ SYSTEM_WRITES = [
     ("/api/v0/outbox/sign_in", "post"),
     ("/api/v0/outbox/event", "post"),
     # A POST storing nothing, exempt for the identity reads' reason: the frontend's server asks a live change's new address.
-    ("/api/v0/address_change/adresse", "post"),
+    ("/api/v0/address_change/address", "post"),
 ]
 
 MUTATIONS = [
@@ -168,7 +170,6 @@ ADMIN_READS = [
     ("/api/v0/sperrliste", "get"),
     # Which contact seats of which team a mailing would reach is `READ-CONTACT-001`'s subject exactly
     # as the two `bewerbungen` reads are.
-    ("/api/v0/saisons/{saison_id}/invitations/dispatch/preview", "get"),
     # How many pupils an activation deletes, which only the person able to press it may weigh.
     ("/api/v0/saisons/{saison_id}/erasure/preview", "get"),
     # The invitation's own read serves `created_by`, an administrator's address.
@@ -188,9 +189,8 @@ ADMIN_READS = [
     ("/api/v0/spieler/self", "get"),
     ("/api/v0/schiedsrichter/self", "get"),
     ("/api/v0/account/einwilligungen", "get"),
-    # A report's remarks and card reasons, which only the administrator and the booked referee read; the squads
-    # beside them carry every surname whole.
-    ("/api/v0/spielberichte/{spiel_id}/verwaltung", "get"),
+    # A report's remarks and card reasons, which only the booked referee reads; the squads beside them carry every
+    # surname whole.
     ("/api/v0/spielberichte/{spiel_id}/bericht", "get"),
     # Every report's proposed result, which the public result never serves.
     ("/api/v0/spielberichte", "get"),

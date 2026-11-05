@@ -5,7 +5,7 @@ from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstra
 from app.core.crud import Anchored
 from app.shared.schemas.addresses import FLAddress, FLAddressPayload
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SPIELORT_NAME_MAX_LENGTH
-from app.shared.schemas.custom import CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
+from app.shared.schemas.custom import CustomNonEmptyString, CustomObjectId, CustomOptionalDateString, CustomVersion
 from app.shared.schemas.literals import FLSortOrder
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
@@ -33,8 +33,8 @@ class _SpielortPayload(_SpielortWritable):
 
 
 class FLPatchSpielortPayload(_SpielortPayload):
-    # The `version` the editor was served; absent, the save is checked against nothing.
-    version: int | None = None
+    # The `version` the editor was served, required: a save checked against nothing overwrites a rival's unseen.
+    version: CustomVersion
 
 
 class FLPostSpielortPayload(_SpielortPayload):
@@ -71,8 +71,8 @@ class FLSpielorteListResponse(BaseAPIResponse):
 
 
 class FLPatchSpielortResponse(BaseAPIResponse):
-    # Reported rather than assumed: this fan-out is the half of the endpoint that fails silently.
-    fanned_out_to_spiele: int
+    # The venue's version after the save, which the editor's next save sends.
+    version: int
 
 
 class FLSpielorteSingleResponse(BaseAPIResponse):

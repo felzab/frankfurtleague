@@ -23,6 +23,7 @@ STUFEN: list[FLSpielerStufe] = ["E1", "Q1", "Q2", "Q3", "Q4"]
 STANDARD_RULES = FLSaisonRules(
     win_points=3,
     draw_points=1,
+    loss_points=0,
     qualifiers_per_gruppe=2,
     number_of_gruppen=4,
     teams_per_gruppe=4,
@@ -205,19 +206,12 @@ class TestTheAbsageLookup:
 
 
 def test_scores_with_the_seasons_own_points_rather_than_a_constant():
-    """A 2/0/0 season shares no number with the default scheme, so a hardcoded one cannot pass both."""
-    unusual = STANDARD_RULES.model_copy(update={"win_points": 2, "draw_points": 0})
+    """A 5/4/2 season shares no number with the default scheme, so a hardcoded one cannot pass both."""
+    unusual = STANDARD_RULES.model_copy(update={"win_points": 5, "draw_points": 4, "loss_points": 2})
 
     punkte = statistik_stage(build(rules=unusual))["pipeline"][-1]["$project"]["punkte"]
 
-    assert punkte == {"$add": [{"$multiply": ["$siege", 2]}, {"$multiply": ["$unentschieden", 0]}]}
-
-
-def test_a_defeat_scores_nothing_because_the_rules_carry_no_loss_points():
-    """`punkte` is built from wins and draws only — a third term could not be sourced from `FLSaisonRules`."""
-    punkte = statistik_stage(build())["pipeline"][-1]["$project"]["punkte"]
-
-    assert [term["$multiply"][0] for term in punkte["$add"]] == ["$siege", "$unentschieden"]
+    assert punkte == {"$add": [{"$multiply": ["$siege", 5]}, {"$multiply": ["$unentschieden", 4]}, {"$multiply": ["$niederlagen", 2]}]}
 
 
 def test_serves_a_zeroed_statistik_to_a_team_with_no_counting_match():

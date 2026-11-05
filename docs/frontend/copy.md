@@ -65,7 +65,9 @@ you write one; the strings themselves live in the catalogue, `fl_frontend/src/co
 
 **If the sentence were deleted, would the reader do something wrong?** If not, delete it. Copy says
 what is so or what to expect, never why it is so, how to repair it or how the system works. A shared
-string replaces a detailed one wherever it can.
+string replaces a detailed one wherever it can: a reason stands on its own only where the reader
+would not think of it and can act on it, in as few words as say it, and one sentence serves every
+place that means the same thing.
 
 ## The voice is plain and says du
 
@@ -100,13 +102,13 @@ there.
 | Tooltip                 | 5 words                                                  | names an icon-only control, nothing more                                                      |
 | Section info tip (ⓘ)    | 2 sentences, about 200 characters                        | only where a named question needs it                                                          |
 | Field error             | one phrase, one line, 80 characters                      | a fixed pattern                                                                               |
-| Form refusal            | 1 short sentence, the status line's two lines on a phone | a refusal about the whole form, or about a field no pattern words, naming that field          |
+| Form refusal            | 1 short sentence, the status line's two lines on a phone | a plain fact about the whole form, or about a field no pattern words, naming that field       |
 | Failure line            | 1 short sentence, the status line's two lines on a phone | what happened, never the repair; a failure no reason names, the one line `failure.unexpected` |
 | Empty state             | 1 sentence plus at most one button                       | which narrowing emptied it                                                                    |
 | Toast                   | a title of 1 to 3 words, no body                         | a past participle; a failure, the one line `failure.unexpected`                               |
 | Page or section intro   | none                                                     | a page's title is its explanation                                                             |
 | List-truncation banner  | none                                                     | the load-more control instead                                                                 |
-| Page title              | the page's catalogue title                               | followed by the one suffix „\| Frankfurt League“; a match is „{Team 1} gegen {Team 2}“        |
+| Page title              | the page's catalogue title                               | followed by the one suffix „\| Frankfurt League“; a match is „{Team 1} vs. {Team 2}“          |
 | Callout                 | a title plus at most 1 sentence                          | a state or a consequence                                                                      |
 | Team description        | three lines                                              | „Mehr“ inside the text at the third line's end, no „…“ before it, opening the rest            |
 | Mail subject            | 50 characters                                            | what it is about first, no league name                                                        |
@@ -124,22 +126,32 @@ Each pattern is an entry of `COPY.shared`; what the entry cannot say is when it 
   the whole form or about a field no pattern can word, takes the status line in one short sentence
   that fits its two lines on a phone and names its field itself where it has one; a field phrase
   never stands on the status line, since it has no subject there. Every other refusal takes a
-  `failure` line: `stale` for a stale page or a concurrent change, `signInExpired` for an ended
-  sign-in, `unexpected` for anything else.
+  `failure` line: `stale` for a stale page, a concurrent change or a choice the screen had closed
+  when it was read, `signInExpired` for an ended sign-in, `tooManyAttempts` for every limit on
+  tries whatever it counts, `unexpected` for an outage, a fault inside the system, a bot check that
+  did not run and anything else. A refusal the screen closes off before the press, a race between two
+  writes and a precondition only the system knows are never explained, since the reader cannot act
+  on the detail.
 - **A saved record** shows `saved` beside its save button, never as a toast.
 - **A toast** is one of `toast`'s five titles, and only for an action that leaves nothing on the page
   to change.
 - **A busy button** keeps its label and shows a spinner named `loading`; no „Speichert …“.
 - **An empty list** says `empty.search`, `empty.filter` or `empty.none` with its own plural;
   `empty.filter` only where the list keeps a filter.
-- **A confirmation** asks `question` with the verb, says one sentence of consequence, carries that verb
-  on its button and `back` as the way back; never „Ja“.
-- **A page a mail opens** ends in one of `end`'s states: done, already done saying what the person
-  did and when, or `linkInvalid`, one message for an expired, mistyped or tampered link alike.
-  Each ends in one button to the logical next step: `verb.signIn` after a confirmed seat or address
-  change, `end.toAccount` where Konto is the one place to change what was done and for an address
-  change's or a deletion's link that no longer holds, `end.toHome` after anything else.
-- **A Vorschau line** names the changed fields by their own labels; there are no change-list labels.
+- **A confirmation** asks `question` with the verb, says one short sentence of consequence, carries that
+  verb on its button and `back` as the way back; never „Ja“. What the sentence rests on stands under it
+  as facts rows, never inside it: a move's old and new slot, the season a switch leaves and takes, the
+  counts an act removes, and whom the act mails.
+- **A status card** is a mark, a title and its way on, with no sentence: a not-found, an error, a
+  state with nothing to show yet such as `end.noSaison`, and every end of a page a mail opens.
+- **A page a mail opens** ends in a status card: done, already done titled with what the person did
+  and the day (`end.doneOn`), or `template.linkInvalid`, one title for an expired, mistyped or
+  tampered link alike. Each ends in one button to the logical next step: `verb.signIn` after a
+  confirmed seat or address change, `end.toAccount` where Konto is the one place to change what was
+  done and for an address change's or a deletion's link that no longer holds, `end.toHome` after
+  anything else. The deletion's done page adds the privacy notice beneath it as a quieter link.
+- **A Vorschau line** says a fact about the record as it is stored, such as a match's pairing, its
+  day and its result or „Noch kein Ergebnis“; never the unsaved changes, which the save bar counts.
 
 ## Help text is one of four kinds
 

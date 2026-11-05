@@ -3,10 +3,11 @@ import { Suspense } from "react";
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 
-import { ClassicPage, ClassicTitle } from "./ClassicPage";
-import { Facts } from "./Facts";
+import { buttonPlaceholder } from "./buttonStyles";
+import { ClassicPage, ClassicTitle, classicTitle } from "./ClassicPage";
+import { Facts, FactsPlaceholder } from "./Facts";
 import { OneShotEnd, OneShotForm } from "./OneShot";
-import { Skeleton, SkeletonTitle } from "./Skeleton";
+import { PlaceholderLine, Waiting } from "./Skeleton";
 import { StatusPage } from "./StatusPage";
 
 import type { Copy } from "@/core/copy";
@@ -31,7 +32,7 @@ export type { EndState } from "./OneShot";
  * and as a press ends on it where the link stopped holding since the page opened.
  */
 export function linkInvalid(next: StatusCardProps["next"]): EndState {
-  return { tone: "warn", title: COPY.template.linkInvalid, sentence: COPY.shared.end.linkInvalid, next: next };
+  return { tone: "warn", title: COPY.template.linkInvalid, next: next };
 }
 
 /**
@@ -43,18 +44,18 @@ export const TO_ACCOUNT = { label: COPY.shared.end.toAccount, href: ROUTES.accou
 /**
  * What a mailed page shows once its link is read, in one of four states, or an end of its own:
  *
- * - `frage`: the question, opening on its act: a title, the facts the answer rests on, one sentence, the
+ * - `question`: the question, opening on its act: a title, the facts the answer rests on, one sentence, the
  *   fields where the answer needs any, and the acts, sent once with the token the page carries, the main one
  *   behind the passkey touch where the act takes it; the answer replaces the page by the status template (the
  *   done state, worded by the server);
- * - `schonErledigt`: the link opened again, saying what the person did and when, with the one place to
+ * - `alreadyDone`: the link opened again, its title saying what the person did and when, with the one place to
  *   change it where there is one, on the danger tint where what they did was to decline;
  * - `ungueltig`: an expired, mistyped or tampered link alike, with the one sensible way on and no resend;
  * - `ende`: an end the page names itself before any answer, as a deletion link opened signed out.
  */
 export type MailedState =
   | {
-      state: "frage";
+      state: "question";
       title: Copy;
       facts?: ReadonlyArray<Fact>;
       sentence: Copy;
@@ -67,7 +68,7 @@ export type MailedState =
       /** The answer's fields, the kit's, each with its `name`. */
       children?: ReactNode;
     }
-  | { state: "schonErledigt"; title: Copy; sentence: Copy; next: StatusCardProps["next"]; declined?: boolean }
+  | { state: "alreadyDone"; title: Copy; next: StatusCardProps["next"]; declined?: boolean }
   | { state: "ungueltig"; next: StatusCardProps["next"] }
   | ({ state: "ende" } & EndState)
   // Redesign: goes with the address change's old view, which the administrator's way keeps until session 7.
@@ -86,13 +87,12 @@ async function MailedBody({ page }: { page: Promise<MailedState> }) {
           {...linkInvalid(props.next)}
         />
       );
-    case "schonErledigt":
+    case "alreadyDone":
       return (
         <StatusPage
           frame="classic"
           tone={props.declined === true ? "danger" : "info"}
           title={props.title}
-          sentence={props.sentence}
           next={props.next}
         />
       );
@@ -102,11 +102,11 @@ async function MailedBody({ page }: { page: Promise<MailedState> }) {
           frame="classic"
           tone={props.tone}
           title={props.title}
-          sentence={props.sentence}
           next={props.next}
+          quiet={props.quiet}
         />
       );
-    case "frage":
+    case "question":
       return (
         <OneShotForm
           action={props.action}
@@ -129,7 +129,8 @@ async function MailedBody({ page }: { page: Promise<MailedState> }) {
 /**
  * The one shape of the seven pages a mail opens, in the classic frame's form column. Its state is a function of the
  * link's token and the session beside it, so the whole page waits for the read in the template's one boundary:
- * meanwhile the column holds a bar where the title will stand and the skeleton of the facts, as the sign-in waits.
+ * meanwhile the column holds the placeholders of the question, the state a link is opened on: its title, its facts,
+ * its sentence and its act.
  */
 export function MailedPage({ page }: { page: Promise<MailedState> }) {
   return (
@@ -138,8 +139,21 @@ export function MailedPage({ page }: { page: Promise<MailedState> }) {
       <Suspense
         fallback={
           <ClassicPage width="form">
-            <SkeletonTitle />
-            <Skeleton shape="facts" />
+            <Waiting layout="flex flex-col gap-6">
+              <PlaceholderLine
+                text={classicTitle()}
+                width="w-2/3"
+              />
+              <FactsPlaceholder pairs={4} />
+              <PlaceholderLine
+                text="text-base"
+                width="w-full"
+              />
+              <div className="grid gap-3 lg:justify-items-center">
+                <span className={buttonPlaceholder("w-full lg:w-40")} />
+                <span className="min-h-5" />
+              </div>
+            </Waiting>
           </ClassicPage>
         }>
         <MailedBody page={page} />

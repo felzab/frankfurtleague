@@ -38,7 +38,7 @@ ActionLogCollection = Annotated[AsyncCollection, Depends(collection_dependency(C
 
 BewerbungenCollection = Annotated[AsyncCollection, Depends(collection_dependency(Collection.BEWERBUNGEN))]
 
-SperrlisteCollection = Annotated[AsyncCollection, Depends(collection_dependency(Collection.SPERRLISTE))]
+BanListCollection = Annotated[AsyncCollection, Depends(collection_dependency(Collection.BAN_LIST))]
 
 InvitationsCollection = Annotated[AsyncCollection, Depends(collection_dependency(Collection.INVITATIONS))]
 
@@ -79,7 +79,7 @@ SaisonSpielerReadCollection = Annotated[ReadCollection, Depends(collection_depen
 
 BewerbungenReadCollection = Annotated[ReadCollection, Depends(collection_dependency(Collection.BEWERBUNGEN))]
 
-SperrlisteReadCollection = Annotated[ReadCollection, Depends(collection_dependency(Collection.SPERRLISTE))]
+BanListReadCollection = Annotated[ReadCollection, Depends(collection_dependency(Collection.BAN_LIST))]
 
 InvitationsReadCollection = Annotated[ReadCollection, Depends(collection_dependency(Collection.INVITATIONS))]
 

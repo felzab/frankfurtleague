@@ -1,5 +1,5 @@
 {
-  "anlass": [
+  "reason": [
     { "value": "E-Mail von ada@example.org vom 12.10.2026", "refused": true },
     { "value": "ADA@SCHULE.DE", "refused": true },
     { "value": "Antwort an käthe@schule.de", "refused": true },

@@ -1,6 +1,4 @@
 import {
-  spielbestaetigungenDiscardSpielbestaetigung,
-  spielbestaetigungenEnterSpielbestaetigung,
   spielbestaetigungenGetSpielbestaetigungView,
   spielbestaetigungenGetSweepSaisons,
   spielbestaetigungenPostSchiedsrichterAntwort,
@@ -18,7 +16,6 @@ import type {
   FLSweepSaisonsResponse,
   FLTokenPayload,
 } from "@/core/generated/client/types";
-import type { FLSpielbestaetigungEnterPayload, FLSpielbestaetigungVerwerfenPayload } from "./schemas";
 
 /**
  * A POST that reads. The token is the credential, and a GET would put it in a query string the
@@ -53,12 +50,4 @@ export async function getSpielbestaetigungSweepSaisons(): Promise<FLSweepSaisons
 /** One season's pass: rows closed, asked and reminded, each mail it owed left in the Postausgang for the drain. */
 export async function postSpielbestaetigungSweep(saisonId: string): Promise<FLSpielbestaetigungSweepResponse> {
   return spielbestaetigungenSweepSpielbestaetigungen(saisonId);
-}
-
-export async function eintragenSpielbestaetigung({ id, ...fields }: FLSpielbestaetigungEnterPayload): Promise<void> {
-  return spielbestaetigungenEnterSpielbestaetigung(id, fields);
-}
-
-export async function verwerfenSpielbestaetigung({ id }: FLSpielbestaetigungVerwerfenPayload): Promise<void> {
-  return spielbestaetigungenDiscardSpielbestaetigung(id);
 }

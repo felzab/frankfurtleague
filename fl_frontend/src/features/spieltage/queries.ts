@@ -1,39 +1,20 @@
-import { cache } from "react";
-
 import { isRecordMissing } from "@/core/errors";
-import { spieltageGetSpieltageVerwaltung, spieltageGetSpieltagVerwaltung } from "@/core/generated/client/sdk";
+import { spieltageGetSpieltagVerwaltung } from "@/core/generated/client/sdk";
 import { runAdminRead } from "@/shared/utils/adminRead";
 
-import type { FLSpieltageListResponse, FLSpieltageSingleResponse, SpieltageGetSpieltageVerwaltungParams } from "@/core/generated/client/types";
-
-/** One in-flight admin matchday read per filter set, held for the length of one render pass. */
-const adminSpieltageInFlight = cache((): Map<string, Promise<FLSpieltageListResponse>> => new Map());
+import type { FLSpieltagAdminResponse } from "@/core/generated/client/types";
 
 /**
- * A season's matchdays for the admin surfaces, a planned season's included, though the public reads refuse
- * that season: a matchday is dated before it. **Uncached**.
+ * One matchday by its id for its editor, a planned season's included, with the `version` its save sends back and its
+ * phase's count of matchdays its name is read with, beside its season's status, by which the editor opens a finished
+ * season's read-only, as the match editor's read does; `null` where no matchday holds the id, which the editor answers
+ * with its not-found page. **Uncached**, as every admin read.
  */
-export function getAdminSpieltage(filters: SpieltageGetSpieltageVerwaltungParams = {}): Promise<FLSpieltageListResponse> {
-  // Keyed on the filters SERIALIZED, for the reason `fl_frontend/src/features/spiele/queries.ts :: getAdminSpiele` gives.
-  const key = JSON.stringify(filters, Object.keys(filters).sort());
-  const held = adminSpieltageInFlight().get(key);
-  if (held !== undefined) return held;
-
-  const started = runAdminRead(() => spieltageGetSpieltageVerwaltung(filters));
-  adminSpieltageInFlight().set(key, started);
-
-  return started;
-}
-
-/**
- * The one matchday the editor loads, admin-tier for `getAdminSpieltage`'s reason. `null` on a 404,
- * which the editor turns into `notFound()`. **Uncached**.
- */
-export const getAdminSpieltagById = cache(async (spieltagId: string): Promise<FLSpieltageSingleResponse | null> =>
-  runAdminRead(() =>
+export async function getAdminSpieltag(spieltagId: string): Promise<FLSpieltagAdminResponse | null> {
+  return runAdminRead(() =>
     spieltageGetSpieltagVerwaltung(spieltagId).catch((error: unknown) => {
       if (isRecordMissing(error)) return null;
       throw error;
     }),
-  ),
-);
+  );
+}

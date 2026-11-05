@@ -4,37 +4,38 @@ from typing import Annotated
 from fastapi import APIRouter, Body, Depends
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.adresswechsel.crud import others_naming
-from app.api.berechtigungen.antraege import read_the_antraege_of
+from app.api.address_change.crud import others_naming
+from app.api.berechtigungen.antraege import read_the_approval_requests_of
 from app.api.berechtigungen.crud import read_berechtigungen, read_the_announced
 from app.api.berechtigungen.guard import verify_actor_is_admin
-from app.api.identity.crud import JEDE_PERSONENGRUPPE, LoeschungJournal, loeschen_everything, resolve_subject
+from app.api.identity.crud import EACH_PERSON_GROUP, ErasureJournal, erase_everything, resolve_subject
 from app.api.identity.schemas import (
-    FLErasureAdressePayload,
+    FLErasureAddressPayload,
     FLErasurePayload,
     FLErasureResponse,
     FLErasureViewResponse,
     FLSignOutResponse,
 )
 from app.api.identity.services import (
-    JEDE_VERWALTUNG,
-    NUR_INHABER,
-    adresswechsel_einsehbar_verwehrt,
-    build_loeschung_kader_pipeline,
+    EACH_ADMIN,
+    OWNER_ONLY,
+    address_change_viewable_denied,
+    build_erasure_kader_pipeline,
     build_season_team_pipeline,
     build_unplayed_saison_pipeline,
     compose_erasure_view,
-    find_eigene_adresse_refusal,
-    find_fremder_adresswechsel_refusal,
-    find_verwaltung_adresse_refusal,
+    find_admin_address_refusal,
+    find_foreign_address_change_refusal,
+    find_own_address_refusal,
 )
-from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt
+from app.api.sperrliste.lookup import BanListLookup, barred_addresses
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import aggregate_many_from_db, post_one_to_db, refuse
 from app.core.dependencies import (
     ActionLogCollection,
     AddressChangeCollection,
     AddressChangeReadCollection,
+    BanListCollection,
     BewerbungenCollection,
     BewerbungenReadCollection,
     DBClient,
@@ -55,7 +56,6 @@ from app.core.dependencies import (
     SchiedsrichterCollection,
     SchiedsrichterReadCollection,
     SnapshotSession,
-    SperrlisteCollection,
     SpielberichteCollection,
     SpielbestaetigungenCollection,
     SpieleCollection,
@@ -64,7 +64,7 @@ from app.core.dependencies import (
     SpielerReadCollection,
     get_germany_now,
 )
-from app.core.recording import act_row, anlass_var, log_stamp
+from app.core.recording import act_row, erasure_reason_var, log_stamp
 from app.core.routing import SAFE
 from app.core.security import (
     SessionActor,
@@ -93,7 +93,7 @@ router = APIRouter(
     openapi_extra=SAFE,
 )
 async def get_erasure_view(
-    ansicht_data: Annotated[FLErasureAdressePayload, Body()],
+    view_data: Annotated[FLErasureAddressPayload, Body()],
     saison_teams_collection: SaisonTeamsReadCollection,
     bewerbungen_collection: BewerbungenReadCollection,
     schiedsrichter_collection: SchiedsrichterReadCollection,
@@ -101,11 +101,11 @@ async def get_erasure_view(
     saison_spieler_collection: SaisonSpielerReadCollection,
     registrierungen_collection: RegistrierungenReadCollection,
     spiele_collection: SpieleReadCollection,
-    berechtigungen_collection: GrantsReadCollection,
-    berechtigungen_angekuendigt_collection: GrantsAnnouncedReadCollection,
-    berechtigungen_antraege_collection: GrantApprovalRequestsReadCollection,
-    adresswechsel_collection: AddressChangeReadCollection,
-    sperrliste: SperrlisteLookup,
+    grants_collection: GrantsReadCollection,
+    grants_announced_collection: GrantsAnnouncedReadCollection,
+    grant_approval_requests_collection: GrantApprovalRequestsReadCollection,
+    address_changes_collection: AddressChangeReadCollection,
+    ban_list: BanListLookup,
     session: SnapshotSession,
     config: Annotated[BackendConfig, Depends(get_app_config)],
     operator: str = Depends(get_actor_email),
@@ -121,8 +121,8 @@ async def get_erasure_view(
     records standing, beside why the address tool refuses that change this administrator, or null where it opens it; a change
     of an address holding a grant is left out for an administrator without an owner's power, as the administrators page
     withholds it, since naming it would answer whether a typed address is its new one. The address's own live change is
-    named by its id, ending with the records it would move. Every request for a grant about the address (`betroffen`) or
-    made by it (`gestellt`) is named by its id and the tier it asks; a lapsed one is gone to every reader already and is
+    named by its id, ending with the records it would move. Every request for a grant about the address (`target`) or
+    made by it (`requester`) is named by its id and the tier it asks; a lapsed one is gone to every reader already and is
     left out, though the erasure removes its row too. A squad
     row and a referee row each carry the day it was retired, null while live, and a referee row every season holding a
     fixture still to be played that it is booked on, as `schiedsrichter_still_assigned` judges one. Reached and not named: the fixtures
@@ -137,24 +137,24 @@ async def get_erasure_view(
     a dead spelling of its grant, which admits nobody, each grant's announced row, and an announced row holding the
     address under another grant's id; and the address in every notice still queued, withheld. Written besides: the
     notice that the address's grant ended, which every administrator is sent. No address and no birthdate is answered.
-    `verwaltung` is the tier of the live grant the address holds, or null. `barred` is whether a standing ban holds the
+    `admin_tier` is the tier of the live grant the address holds, or null. `barred` is whether a standing ban holds the
     address, judged as a stored address is; the erasure leaves a ban standing. Stores nothing.
 
-    Refused as the erasure is: the administrator's own address (`own_adresse`), an address holding a live grant unless
-    the administrator holds an owner's power (`verwaltung_adresse`).
+    Refused as the erasure is: the administrator's own address (`own_address`), an address holding a live grant unless
+    the administrator holds an owner's power (`admin_address`).
     """
 
-    identifier = sign_in_identifier(ansicht_data.email)
-    akteur = sign_in_identifier(operator)
-    refuse(find_eigene_adresse_refusal(identifier=identifier, akteur=akteur))
+    identifier = sign_in_identifier(view_data.email)
+    actor_identifier = sign_in_identifier(operator)
+    refuse(find_own_address_refusal(identifier=identifier, actor=actor_identifier))
 
     # Every read in the request's snapshot session, so the reveal names the records of one moment; never a transaction,
     # a read writing nothing having no conflict to retry for.
-    grants = await read_berechtigungen(berechtigungen_collection=berechtigungen_collection, session=session)
-    announced = await read_the_announced(berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection, session=session)
+    grants = await read_berechtigungen(grants_collection=grants_collection, session=session)
+    announced = await read_the_announced(grants_announced_collection=grants_announced_collection, session=session)
     refuse(
-        find_verwaltung_adresse_refusal(
-            identifier=identifier, akteur=akteur, auth_time=auth_time, grants=grants, announced=announced, geschuetzt=JEDE_VERWALTUNG
+        find_admin_address_refusal(
+            identifier=identifier, actor=actor_identifier, auth_time=auth_time, grants=grants, announced=announced, protected=EACH_ADMIN
         )
     )
 
@@ -165,14 +165,14 @@ async def get_erasure_view(
         schiedsrichter_collection=schiedsrichter_collection,
         spieler_collection=spieler_collection,
         registrierungen_collection=registrierungen_collection,
-        adresswechsel_collection=adresswechsel_collection,
+        address_changes_collection=address_changes_collection,
         key=config.sperrliste_key,
         session=session,
     )
     kader_rows = (
         await aggregate_many_from_db(
             collection=saison_spieler_collection,
-            pipeline=build_loeschung_kader_pipeline(row["_id"] for row in subject.spieler),
+            pipeline=build_erasure_kader_pipeline(row["_id"] for row in subject.spieler),
             session=session,
         )
         if subject.spieler
@@ -196,43 +196,43 @@ async def get_erasure_view(
     )
     # The stored-address judgement, as the Postausgang's hand-out judges a mail's address: an address no rule
     # keys a ban under answers false, where keying the payload's spelling would raise.
-    gesperrt = await adressen_gesperrt(sperrliste, [ansicht_data.email], session=session)
-    antrag_rows = await read_the_antraege_of(
-        berechtigungen_antraege_collection=berechtigungen_antraege_collection, identifier=identifier, now=germany_now, session=session
+    barred = await barred_addresses(ban_list, [view_data.email], session=session)
+    approval_request_rows = await read_the_approval_requests_of(
+        grant_approval_requests_collection=grant_approval_requests_collection, identifier=identifier, now=germany_now, session=session
     )
 
-    verwehrt: dict[str, FLAddressChangeViewableDenied] = {
-        str(row["adresse"]): grund
-        for row in others_naming(subject.adresswechsel, identifier)
+    denied: dict[str, FLAddressChangeViewableDenied] = {
+        str(row["address"]): grund
+        for row in others_naming(subject.address_change, identifier)
         if (
-            grund := adresswechsel_einsehbar_verwehrt(
-                str(row["adresse"]), akteur=akteur, auth_time=auth_time, grants=grants, announced=announced
+            grund := address_change_viewable_denied(
+                str(row["address"]), actor=actor_identifier, auth_time=auth_time, grants=grants, announced=announced
             )
         )
         is not None
     }
     # A grant holder's change is withheld from whoever the tool refuses it, as the administrators page withholds it: named
     # here, a typed address would answer whether it is that change's new one.
-    naming = [row for row in others_naming(subject.adresswechsel, identifier) if verwehrt.get(str(row["adresse"])) != "verwaltung"]
-    ansicht = compose_erasure_view(
+    naming = [row for row in others_naming(subject.address_change, identifier) if denied.get(str(row["address"])) != "admin_address"]
+    view = compose_erasure_view(
         identifier,
         saison_team_rows=subject.saison_teams,
         bewerbung_rows=subject.bewerbungen,
         referee_rows=subject.schiedsrichter,
         pupil_rows=subject.spieler,
         registrierung_rows=subject.registrierungen,
-        adresswechsel_rows=naming,
-        denied=verwehrt,
-        own_address_change=next((row for row in subject.adresswechsel if row.get("adresse") == identifier), None),
-        antrag_rows=antrag_rows,
+        address_change_rows=naming,
+        denied=denied,
+        own_address_change=next((row for row in subject.address_change if row.get("address") == identifier), None),
+        approval_request_rows=approval_request_rows,
         kader_rows=kader_rows,
         team_rows=team_rows,
         unplayed_rows=unplayed_rows,
     )
     # A live row is its own fold, so equality is the fold's judgement.
-    own = next((grant for grant in grants if grant["adresse"] == identifier), None)
+    own = next((grant for grant in grants if grant["address"] == identifier), None)
 
-    return FLErasureViewResponse(**ansicht.model_dump(), verwaltung=None if own is None else own["verwaltung"], barred=bool(gesperrt))
+    return FLErasureViewResponse(**view.model_dump(), admin_tier=None if own is None else own["admin_tier"], barred=bool(barred))
 
 
 @router.post(
@@ -242,7 +242,7 @@ async def get_erasure_view(
     dependencies=[Depends(verify_step_up)],
 )
 async def post_erasure(
-    loeschung_data: Annotated[FLErasurePayload, Body()],
+    erasure_data: Annotated[FLErasurePayload, Body()],
     spieler_collection: SpielerCollection,
     saison_spieler_collection: SaisonSpielerCollection,
     saison_teams_collection: SaisonTeamsCollection,
@@ -252,15 +252,15 @@ async def post_erasure(
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
     spielberichte_collection: SpielberichteCollection,
     registrierungen_collection: RegistrierungenCollection,
-    aktionen_collection: ActionLogCollection,
-    berechtigungen_collection: GrantsCollection,
-    berechtigungen_angekuendigt_collection: GrantsAnnouncedCollection,
+    action_log_collection: ActionLogCollection,
+    grants_collection: GrantsCollection,
+    grants_announced_collection: GrantsAnnouncedCollection,
     outbox_collection: OutboxCollection,
-    einladungen_collection: InvitationsCollection,
-    sperrliste_collection: SperrlisteCollection,
-    adresswechsel_collection: AddressChangeCollection,
-    berechtigungen_antraege_collection: GrantApprovalRequestsCollection,
-    sperrliste: SperrlisteLookup,
+    invitations_collection: InvitationsCollection,
+    ban_list_collection: BanListCollection,
+    address_changes_collection: AddressChangeCollection,
+    grant_approval_requests_collection: GrantApprovalRequestsCollection,
+    ban_list: BanListLookup,
     actor: Annotated[SessionActor, Depends(verify_admin_actor)],
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
@@ -273,38 +273,38 @@ async def post_erasure(
 
     ADMIN TIER, a step-up write. It runs the erasure `POST /identity/account/erasure` runs and refuses nothing about the
     person's own state: a pupil in a live squad and a referee booked on a fixture still to be played are erased on one pass.
-    Three refusals are about who asks. The administrator's own address is refused (`own_adresse`): their account page
+    Three refusals are about who asks. The administrator's own address is refused (`own_address`): their account page
     serves it, or an owner. An address holding a live grant is refused unless the administrator holds an owner's power,
-    signed in since becoming one (`verwaltung_adresse`), judged inside the write: erasing it removes the grant, whatever grants
+    signed in since becoming one (`admin_address`), judged inside the write: erasing it removes the grant, whatever grants
     remain, so it asks what a revoke asks, an owner's power and a sign-in `ENROLMENT_WINDOW_MINUTES` old at most. Every
     other address is erased from a sign-in inside the step-up window. Either window missed answers `confirmation_required`. An
     address another address's pending change would move to is refused, judged inside the write, where that address holds a
     live grant and the administrator no owner's power (`foreign_address_change`): the erasure ends the change, a discard only an
     owner makes of it. The refusal tells that administrator some change the preview withholds names the address.
 
-    `anlass` names the request the erasure answers, and every log row the erasure files carries it; no other row does.
+    `reason` names the request the erasure answers, and every log row the erasure files carries it; no other row does.
     No redaction reaches it, so it is refused 422 where it holds an address. The grant notice names this administrator
     as ending the person's grant. An address holding nothing is answered with every count zero. The 404 and the 409
     answer only a database changed by hand under the request. The sign-in account is not touched here: deleting it is
     the caller's, once this has answered.
     """
 
-    identifier = sign_in_identifier(loeschung_data.email)
-    akteur = sign_in_identifier(operator)
+    identifier = sign_in_identifier(erasure_data.email)
+    actor_identifier = sign_in_identifier(operator)
     # Before the transaction: who asks is known from the token alone.
-    refuse(find_eigene_adresse_refusal(identifier=identifier, akteur=akteur))
+    refuse(find_own_address_refusal(identifier=identifier, actor=actor_identifier))
 
-    async def loeschen_the_address(session: AsyncClientSession) -> FLErasureResponse:
-        grants = await read_berechtigungen(berechtigungen_collection=berechtigungen_collection, session=session)
-        announced = await read_the_announced(berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection, session=session)
+    async def erase_the_address(session: AsyncClientSession) -> FLErasureResponse:
+        grants = await read_berechtigungen(grants_collection=grants_collection, session=session)
+        announced = await read_the_announced(grants_announced_collection=grants_announced_collection, session=session)
         refuse(
-            find_verwaltung_adresse_refusal(
-                identifier=identifier, akteur=akteur, auth_time=auth_time, grants=grants, announced=announced, geschuetzt=JEDE_VERWALTUNG
+            find_admin_address_refusal(
+                identifier=identifier, actor=actor_identifier, auth_time=auth_time, grants=grants, announced=announced, protected=EACH_ADMIN
             )
         )
         # Ending a live grant asks what a revoke asks. A live row is its own fold,
         # so equality is the fold's judgement.
-        if any(grant["adresse"] == identifier for grant in grants):
+        if any(grant["address"] == identifier for grant in grants):
             verify_recent_confirmation(actor)
 
         # Ahead of the erasure's first write, and in its snapshot: a retry judges the changes afresh.
@@ -315,24 +315,24 @@ async def post_erasure(
             schiedsrichter_collection=schiedsrichter_collection,
             spieler_collection=spieler_collection,
             registrierungen_collection=registrierungen_collection,
-            adresswechsel_collection=adresswechsel_collection,
+            address_changes_collection=address_changes_collection,
             key=config.sperrliste_key,
             session=session,
         )
         # Ending a grant holder's change is a discard, which only an owner makes.
         refuse(
-            find_fremder_adresswechsel_refusal(
-                adressen=[str(row["adresse"]) for row in others_naming(subject.adresswechsel, identifier)],
-                akteur=akteur,
+            find_foreign_address_change_refusal(
+                addresses=[str(row["address"]) for row in others_naming(subject.address_change, identifier)],
+                actor=actor_identifier,
                 auth_time=auth_time,
                 grants=grants,
                 announced=announced,
             )
         )
 
-        geloescht = await loeschen_everything(
+        erased = await erase_everything(
             identifier,
-            scope=JEDE_PERSONENGRUPPE,
+            scope=EACH_PERSON_GROUP,
             spieler_collection=spieler_collection,
             saison_spieler_collection=saison_spieler_collection,
             saison_teams_collection=saison_teams_collection,
@@ -342,15 +342,15 @@ async def post_erasure(
             spielbestaetigungen_collection=spielbestaetigungen_collection,
             spielberichte_collection=spielberichte_collection,
             registrierungen_collection=registrierungen_collection,
-            aktionen_collection=aktionen_collection,
-            berechtigungen_collection=berechtigungen_collection,
-            berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
+            action_log_collection=action_log_collection,
+            grants_collection=grants_collection,
+            grants_announced_collection=grants_announced_collection,
             outbox_collection=outbox_collection,
-            einladungen_collection=einladungen_collection,
-            sperrliste_collection=sperrliste_collection,
-            adresswechsel_collection=adresswechsel_collection,
-            berechtigungen_antraege_collection=berechtigungen_antraege_collection,
-            sperrliste=sperrliste,
+            invitations_collection=invitations_collection,
+            ban_list_collection=ban_list_collection,
+            address_changes_collection=address_changes_collection,
+            grant_approval_requests_collection=grant_approval_requests_collection,
+            ban_list=ban_list,
             changed_by=operator,
             key=config.sperrliste_key,
             stamp=log_stamp(germany_now),
@@ -358,18 +358,18 @@ async def post_erasure(
             session=session,
         )
 
-        return FLErasureResponse(**geloescht.model_dump())
+        return FLErasureResponse(**erased.model_dump())
 
-    journal = LoeschungJournal[FLErasureResponse](identifier, key=config.sperrliste_key, berechtigungen_collection=berechtigungen_collection)
+    journal = ErasureJournal[FLErasureResponse](identifier, key=config.sperrliste_key, grants_collection=grants_collection)
     async with journal:
         # Around the whole transaction, every retry inside it, and reset in a `finally`: a value left
         # standing would land on whatever this context records next.
-        anlass = anlass_var.set(loeschung_data.anlass)
+        reason = erasure_reason_var.set(erasure_data.reason)
         try:
             async with transaction_session(db) as session:
-                answer = journal.took(await session.with_transaction(loeschen_the_address))
+                answer = journal.took(await session.with_transaction(erase_the_address))
         finally:
-            anlass_var.reset(anlass)
+            erasure_reason_var.reset(reason)
 
     return answer
 
@@ -383,10 +383,10 @@ async def post_erasure(
     dependencies=[Depends(verify_step_up)],
 )
 async def post_sign_out(
-    abmeldung_data: Annotated[FLErasureAdressePayload, Body()],
-    aktionen_collection: ActionLogCollection,
-    berechtigungen_collection: GrantsCollection,
-    berechtigungen_angekuendigt_collection: GrantsAnnouncedCollection,
+    sign_out_data: Annotated[FLErasureAddressPayload, Body()],
+    action_log_collection: ActionLogCollection,
+    grants_collection: GrantsCollection,
+    grants_announced_collection: GrantsAnnouncedCollection,
     db: DBClient,
     operator: str = Depends(get_actor_email),
     auth_time: int = Depends(get_actor_auth_time),
@@ -399,27 +399,27 @@ async def post_sign_out(
     and no address, filter, image or count. Nothing bars the address and nothing is mailed; a person signs in again as before.
 
     Refused so that a refused call ends no session: from a sign-in older than the step-up window (`confirmation_required`), the
-    administrator's own address (`own_adresse`), an address holding an `owner` grant unless the administrator holds an
-    owner's power (`verwaltung_adresse`). Unlike the erasure, it
+    administrator's own address (`own_address`), an address holding an `owner` grant unless the administrator holds an
+    owner's power (`admin_address`). Unlike the erasure, it
     ends another administrator's sessions for an administrator holding no owner's power: signing in again repairs it.
     """
 
-    identifier = sign_in_identifier(abmeldung_data.email)
-    akteur = sign_in_identifier(operator)
-    refuse(find_eigene_adresse_refusal(identifier=identifier, akteur=akteur))
+    identifier = sign_in_identifier(sign_out_data.email)
+    actor_identifier = sign_in_identifier(operator)
+    refuse(find_own_address_refusal(identifier=identifier, actor=actor_identifier))
 
     async def log_the_act(session: AsyncClientSession) -> None:
-        grants = await read_berechtigungen(berechtigungen_collection=berechtigungen_collection, session=session)
-        announced = await read_the_announced(berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection, session=session)
+        grants = await read_berechtigungen(grants_collection=grants_collection, session=session)
+        announced = await read_the_announced(grants_announced_collection=grants_announced_collection, session=session)
         refuse(
-            find_verwaltung_adresse_refusal(
-                identifier=identifier, akteur=akteur, auth_time=auth_time, grants=grants, announced=announced, geschuetzt=NUR_INHABER
+            find_admin_address_refusal(
+                identifier=identifier, actor=actor_identifier, auth_time=auth_time, grants=grants, announced=announced, protected=OWNER_ONLY
             )
         )
 
-        await post_one_to_db(collection=aktionen_collection, document=act_row("anmeldungen", operation="delete_many"), session=session)
+        await post_one_to_db(collection=action_log_collection, document=act_row("anmeldungen", operation="delete_many"), session=session)
 
-    # In a transaction for its judge: an administrator revoked meanwhile files nothing, and `verwaltung_adresse` holds at the write.
+    # In a transaction for its judge: an administrator revoked meanwhile files nothing, and `admin_address` holds at the write.
     async with transaction_session(db) as session:
         await session.with_transaction(log_the_act)
 

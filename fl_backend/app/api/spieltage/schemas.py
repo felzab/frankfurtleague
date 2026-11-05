@@ -1,11 +1,11 @@
-from typing import Literal, Self
+from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationInfo, field_validator
 
-from app.api.spiele.schemas import FLSpielJoined
+from app.api.spiele.schemas import FLSpielJoined, FLSpielJoinedAdmin
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SAISON_ID_LENGTH
-from app.shared.schemas.custom import CustomDateString, CustomObjectId, refuse_reversed_span
-from app.shared.schemas.literals import FLSaisonPhase, FLSortOrder
+from app.shared.schemas.custom import CustomDateString, CustomObjectId, CustomVersion, refuse_reversed_span
+from app.shared.schemas.literals import FLSaisonPhase, FLSaisonStatus, FLSortOrder
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
 
@@ -38,6 +38,14 @@ class FLSpieltag(FLSpieltagRecord, BaseReadModel):
 FLSpieltagListAdapter = TypeAdapter(list[FLSpieltag])
 
 
+class FLSpieltagAdmin(FLSpieltag):
+    """A matchday as its editor reads it, with how many matchdays its phase holds, by which a page names a round's legs."""
+
+    # DERIVED, on no document: the phase's matchdays as the season stores them, this one included. Named as the public
+    # schemas name the same count.
+    count_spieltage_in_phase: int = Field(ge=1)
+
+
 class FLSpieltageFilterParams(BaseModel):
     saison_id: str | None = None
     saison_phase: Literal["playoffs"] | FLSaisonPhase | None = None
@@ -59,16 +67,21 @@ class FLPatchSpieltagPayload(BaseModel):
     # would be a request to undate a matchday, which nothing asks for and nothing else expresses.
     beginn: CustomDateString
     ende: CustomDateString
-    # The `version` the editor was served; absent, as the old form sends it, the save is checked against nothing.
-    version: int | None = None
+    # The `version` the editor was served, required: a save checked against nothing overwrites a rival's unseen.
+    version: CustomVersion
 
-    @model_validator(mode="after")
-    def the_matchday_ends_after_it_begins(self) -> Self:
+    # A field validator at the end it judges, reading the start off `info.data`: a model validator's refusal sits at the
+    # model, a path no box answers. `beginn` is declared first, so it is validated first; where it failed it is absent from
+    # `info.data`, and its own refusal is the one answered.
+    @field_validator("ende")
+    @classmethod
+    def the_matchday_ends_after_it_begins(cls, ende: str, info: ValidationInfo) -> str:
         """A span running backwards is a typo in one of the two dates, and nothing downstream can tell which one."""
 
-        refuse_reversed_span(start=self.beginn, end=self.ende, kind="spieltag_ends_before_start")
+        if "beginn" in info.data:
+            refuse_reversed_span(start=info.data["beginn"], end=ende, kind="spieltag_ends_before_start")
 
-        return self
+        return ende
 
 
 class FLSpieltageListResponse(BaseAPIResponse):
@@ -84,6 +97,15 @@ class FLSpielplanSpieltag(FLSpieltag):
 FLSpielplanSpieltagListAdapter = TypeAdapter(list[FLSpielplanSpieltag])
 
 
+class FLSpielplanSpieltagAdmin(FLSpielplanSpieltag):
+    """One matchday as the administrator's Spiele list shows it, its matches in the admin shape."""
+
+    spiele: list[FLSpielJoinedAdmin]
+
+
+FLSpielplanSpieltagAdminListAdapter = TypeAdapter(list[FLSpielplanSpieltagAdmin])
+
+
 class FLSpielplanResponse(BaseAPIResponse):
     """A season's matchdays in the order they are played, and the one the Spielplan opens on.
 
@@ -92,6 +114,17 @@ class FLSpielplanResponse(BaseAPIResponse):
     """
 
     spieltage: list[FLSpielplanSpieltag]
+    current_spieltag_id: CustomObjectId | None
+
+
+class FLSpieleSpielplanAdminResponse(BaseAPIResponse):
+    """A season's matchdays and knockout rounds in playing order, matches in the admin shape, and the one to open on.
+
+    `current_spieltag_id` is the Spielplan's own: the first matchday holding a match still to be played, else the last;
+    in a finished season, the last. Null for a season with no matchday.
+    """
+
+    spieltage: list[FLSpielplanSpieltagAdmin]
     current_spieltag_id: CustomObjectId | None
 
 
@@ -108,5 +141,18 @@ class FLSpieltageSingleResponse(BaseAPIResponse):
     spieltag: FLSpieltag
 
 
+class FLSpieltagAdminResponse(BaseAPIResponse):
+    """One matchday for its editor, and its season's status, by which the editor opens a finished season's read-only.
+
+    On the response rather than on the matchday, as the match editor's read serves it: a matchday carries no
+    season-scoped state.
+    """
+
+    spieltag: FLSpieltagAdmin
+    saison_status: FLSaisonStatus
+
+
 class FLSpieltagWriteResponse(BaseAPIResponse):
     spieltag_id: CustomObjectId
+    # The matchday's version after the save, which the editor's next save sends.
+    version: int

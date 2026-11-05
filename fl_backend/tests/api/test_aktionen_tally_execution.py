@@ -74,7 +74,7 @@ def log_row(
         "before": {"name": "Lessing"},
         "modified_count": None,
         "redacted_at": None,
-        "anlass": None,
+        "erasure_reason": None,
     }
 
 
@@ -160,8 +160,8 @@ def answered(mongo_url: str, **filters: Any) -> FLActionLogListResponse:
             await database[Collection.ACTION_LOG].insert_many(seeded_log())
 
             return await get_action_log(
-                aktionen_collection=database[Collection.ACTION_LOG],
-                sperrliste=ban_list(database),
+                action_log_collection=database[Collection.ACTION_LOG],
+                ban_list=ban_list(database),
                 filters=FLAktionenFilterParams.model_validate(filters),
             )
 

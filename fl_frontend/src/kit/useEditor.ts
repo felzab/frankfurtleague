@@ -7,7 +7,7 @@ import { COPY } from "@/core/copy";
 import { useHoldLeave } from "./LeaveGuard";
 import { statusOf, useFormAction } from "./useFormAction";
 
-import type { ActionAnswer } from "@/core/action";
+import type { ActionAnswer, SaveQuestion } from "@/core/action";
 import type { Copy } from "@/core/copy";
 import type { FormStatus } from "./useFormAction";
 
@@ -26,12 +26,14 @@ export type EditorRecord<Values extends Record<string, EditorValue>> = {
 
 /**
  * What a save sends: the record, the version the draft was made on, and only the fields that differ from
- * it. The server refuses the save as stale once the stored record's version is another.
+ * it. The server refuses the save as stale once the stored record's version is another. A save the server held
+ * back for its question is sent again, once the person confirms, with the question's `confirm` token.
  */
 export type EditorSave<Values extends Record<string, EditorValue>> = {
   id: string;
   version: number;
   changes: Partial<Values>;
+  confirm?: string;
 };
 
 const CHANGES = "changes.";
@@ -103,6 +105,11 @@ function lessSent<Values extends Record<string, EditorValue>>(edits: Partial<Val
  * where nothing unsaved rests on the read before it; a draft made on a read someone else has since changed
  * keeps its version, so its save is refused as stale rather than overwriting.
  *
+ * A save the server holds back for a question (`ActionAnswer.ask`), such as the later results a new score deletes,
+ * stands as `question` over the draft it was asked for, and goes with the next edit: confirmed, the same changes go
+ * again carrying its token, which the server judges against what the save would now set off; declined, nothing is
+ * sent and the line shows the unsaved count again.
+ *
  * While changes are unsaved, the frame's way back asks before it drops them, and the browser asks before a
  * reload or a closed tab. A „Gespeichert“ shown is cleared once the page is left, the documented reset; an
  * unsaved draft stays with the page Next keeps.
@@ -163,6 +170,7 @@ export function useEditor<Values extends Record<string, EditorValue>>(
     return () => window.removeEventListener("beforeunload", ask);
   }, [count]);
 
+  const [declined, setDeclined] = useState<ActionAnswer | null>(null);
   const { answer } = form;
   const refused = answer !== null && !answer.ok && current.editCount === current.sentEditCount ? answer : null;
   // A refusal stands only over the draft it was sent with; the count of unsaved fields stands over a done save.
@@ -172,6 +180,13 @@ export function useEditor<Values extends Record<string, EditorValue>>(
   // One object while the refusal stands: React Aria shows a box's server message afresh whenever the object changes.
   const refusedFields = refused?.fieldErrors;
   const fieldErrors = useMemo(() => (refusedFields === undefined ? undefined : byBox(refusedFields)), [refusedFields]);
+  // A held-back save's question, until the person answers it or edits: an answer once declined is not asked again.
+  const question: SaveQuestion | null = refused !== null && refused !== declined ? (refused.ask ?? null) : null;
+
+  const send = (confirm?: string) => {
+    setHeld((state) => ({ ...state, sentEditCount: state.editCount }));
+    form.submit({ id: record.id, version: current.base, changes, ...(confirm === undefined ? {} : { confirm }) });
+  };
 
   return {
     /** The values the fields show. */
@@ -187,10 +202,15 @@ export function useEditor<Values extends Record<string, EditorValue>>(
     /** The server's message for each field it refused, by the field's `name`. */
     fieldErrors,
     /** Saves the whole record: its changed fields, on the version the draft was made on. */
-    submit: () => {
-      setHeld((state) => ({ ...state, sentEditCount: state.editCount }));
-      form.submit({ id: record.id, version: current.base, changes });
+    submit: () => send(),
+    /** The question the server held the last save back for, standing over the draft it was asked about; `null` else. */
+    question,
+    /** The person confirmed the question: the same save again, carrying its token. */
+    confirm: () => {
+      if (question !== null) send(question.confirm);
     },
+    /** The person declined the question: nothing is sent, and the question goes. */
+    decline: () => setDeclined(refused),
     /** The browser kept the save back for a field's own rule: the status line points at the fields. */
     block: () => setHeld((state) => ({ ...state, blockedEditCount: state.editCount })),
     isPending: form.isPending,

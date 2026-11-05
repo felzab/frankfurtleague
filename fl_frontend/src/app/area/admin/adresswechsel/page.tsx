@@ -1,5 +1,5 @@
-import { AdminAdresswechselView } from "@/features/adresswechsel/components/views/AdminAdresswechselView";
-import { getAdresswechselVerwaltungAnsicht } from "@/features/adresswechsel/queries";
+import { AdminAdresswechselView } from "@/features/address-change/components/views/AdminAdresswechselView";
+import { getAdresswechselVerwaltungAnsicht } from "@/features/address-change/queries";
 import { CustomObjectIdStringSchema } from "@/shared/schemas";
 import { requireAdminRequest } from "@/shared/utils/adminRead";
 

@@ -57,6 +57,7 @@ const LEAGUE_WORDS: Readonly<Record<string, string>> = {
   saisons: "Saison",
   spiel: "Spiel",
   spiele: "Spiel",
+  spieltage: "Spieltag",
   team: "Team",
   teams: "Team",
   spieler: "Spieler",
@@ -79,9 +80,9 @@ const LEAGUE_WORDS: Readonly<Record<string, string>> = {
  * Trees the rule does not hold yet, each by its address prefix, each gone with the pages it names.
  */
 const UNHELD = [
-  // Redesign: goes with the old admin pages, sessions 5 to 7.
+  // Redesign: goes with the old admin pages, sessions 6 and 7.
   "/area/admin",
-  // Redesign: goes with their last importers, sessions 5, 6 and 8.
+  // Redesign: goes with their last importers, sessions 6 and 8.
   "/api/bestaetigung",
 ];
 

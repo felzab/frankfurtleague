@@ -37,7 +37,7 @@ reads like a constant of this league is nearly always one some season chose for 
 - **Standing apart** — one school's application to play one season (`bewerbungen`), one pupil's registration
   to play it (`registrierungen`), one minted registration link (`einladungen`), one party's answer about one
   fixture's Ansetzung (`spielbestaetigungen`), one fixture's report by its referee or an administrator (`spielberichte`),
-  one change of the address a person signs in on (`adresswechsel`), one barred address
+  one change of the address a person signs in on (`address_changes`), one barred address
   (`sperrliste`), one address's access to the administration (`berechtigungen`), what the
   administrators have been told of it (`berechtigungen_angekuendigt`) and a grant waiting on a
   second administrator's approval (`berechtigungen_antraege`), one mail the league owes one
@@ -94,13 +94,14 @@ brought up to date.
 
 - **Created** — always `future`. Nothing an admin submits sets `status`, and the activation below is the only
   code path in the system that writes it.
-- **Applications** — a school applies while the season's own window is open and the season has not ended
-  (`bewerbung_window_closed`). Accepting
-  one creates the club where it is new and writes its junction row, held to the same entry rules a direct
-  entry meets.
-- **Registration** — the season records a second window of its own, `registrierung`, set on the season editor
-  and open exactly when its flag is on, the day falls inside its span and the season has not ended. It is judged apart from the
-  application window above and from the season's own dates, so the two may run in any order or not at all.
+- **Applications** — a school applies while the day falls between the two dates of the season's own window,
+  both included, and the season has not ended (`bewerbung_window_closed`); closing the window early is moving its
+  end to today. Accepting one creates the club where it is new and writes its junction row, held to the same entry
+  rules a direct entry meets.
+- **Registration** — the season records a second window of its own, `registrierung`, which holds an end alone: it
+  opens when the season is activated and runs to that end, which falls before the season's start
+  (`registrierung_window_reaches_saison_start`), and its `offen` flag pauses the link without moving either. It is
+  judged apart from the application window above, so the two may run in any order or not at all.
 - **Entry** — a club takes a place in a group only while the season is `future` (`entry_saison_not_future`), only in a
   group the season runs (`entry_gruppe_not_offered`), and only while that group has room (`entry_gruppe_full`).
 - **The draw** — `POST /saisons/{saison_id}/spielplan` composes every matchday and every fixture of the
@@ -178,9 +179,10 @@ start; after a match it would reopen what the start locks closed.
 
 ## The competition's own rules
 
-- **Nothing about scoring is a constant.** What a win and a draw are worth is the season's, there is no
-  points value for a loss at all, and the only bound on the pair is that a season may not make a draw the
-  better result (`rules_unentschieden_outvalues_win`).
+- **Nothing about scoring is a constant.** What a win, a draw and a loss are worth is the season's, and the
+  only bound on the three is their order: a season may make neither a draw the better result than a win
+  (`rules_unentschieden_outvalues_win`) nor a loss the better result than a draw
+  (`rules_niederlage_outvalues_unentschieden`).
 - **A season runs a prefix of a closed group set**, whose members are [`glossary.md`](glossary.md)'s `Gruppe`
   entry. The count and the size are the season's (`fl_backend/app/api/saisons/schemas.py :: NumberOfGroups`,
   `:: TeamsPerGroup`), and each is bounded as one field. What keeps a whole season inside one page of a
@@ -205,7 +207,9 @@ start; after a match it would reopen what the start locks closed.
   round may not configure that award level (`rules_forfeit_unentschieden_in_a_knockout`) — a drawn forfeit would leave the round with
   nobody to advance.
 - **A club leaves one season, never the league.** An `austritt` record says which of the two routes out it
-  took, and the club's own document is untouched by it.
+  took, and the club's own document is untouched by it. It takes effect on the season's start or later
+  (`austritt_before_saison_start`): before the start a club out of the season is replaced, so the group swap,
+  which the start locks, never fields a departed club.
 
 ---
 
@@ -218,18 +222,17 @@ after a correction.
 **A club's group and its `austritt` are joined from the junction rather than copied onto the club**, so
 recording either reaches every surface at once instead of needing a fan-out.
 
-**A match embeds a display copy of its team, its venue and its referee beside the id**, so a fixture card
-renders without a join. The copy is never accepted from a client: the patch composes it from the row each id
-names, so an editor left open across a rename cannot resubmit the old text and undo the fan-out. A rename
-then travels into what already holds it — but **a club's rename stops at a `past` season**, and that is the
-competition's rule rather than a caching one: a finished season is the record of the name it was played
-under, which is what makes the copy in its fixtures true rather than merely old. A venue's rename and a
-referee's carry no such boundary, neither being season-scoped.
+**A match stores the ids of its teams, its venue and its referee, and no name**: every read joins the names
+(`fl_backend/app/api/spiele/services.py :: build_spiele_pipeline`), so a rename reaches every fixture at once
+and nothing holds a copy to go stale. A side's name and shorthand are its club's row in the fixture's own
+season (`saison_teams`), so **a past season keeps the name a club played it under** — the competition's rule:
+a finished season is the record of the name it was played under. A venue's and a referee's are their rows'
+current names, neither being season-scoped; a venue that moves is a new venue record. A side whose club holds
+no row in the fixture's season is a state no write makes, and a read serving it fails.
 
-**Two figures deliberately stay on the match payload while the names beside them are composed** — what this
-fixture paid for its venue, and what it paid its referee. Each is what _this fixture_ agreed rather than a
-copy of a current default, so fanning one out would rewrite history and composing one would replace an agreed
-figure with a price nobody agreed to.
+**Two figures deliberately stay on the match beside the ids** — what this fixture paid for its venue, and
+what it paid its referee. Each is what _this fixture_ agreed rather than a copy of a current default, so
+joining one would replace an agreed figure with a price nobody agreed to.
 
 **A field the server composes is still stored; a derived one is on no document at all.** A match's result
 string is stored, composed from the two goal counts so the string cannot disagree with them; a matchday's
@@ -305,7 +308,7 @@ no later feature can come to depend on a flag.
 - **One venue or referee claimed by two fixtures under four hours apart.** `spiel_double_booked` refuses only a claim
   a save newly makes. A lifted no-show reclaiming its slot is reported, because which fixture moves is a
   competition call.
-- **A Spieltag on which a club already stands twice.** The swap, `spieltag_occupied` and `spieltag_occupied_by_the_resolution`
+- **A Spieltag on which a club already stands twice.** `spieltag_occupied` and `spieltag_occupied_by_the_resolution`
   refuse only a pair the write would create, since refusing over a standing fault would block its repair;
   each standing appearance is reported.
 - **A departed club holding drawn fixtures.** It keeps its row in its group and its opponents need a fixture to

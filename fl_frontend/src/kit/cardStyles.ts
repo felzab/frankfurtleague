@@ -8,11 +8,19 @@ import { tv } from "./tv";
 export const cardSurface = tv({ base: "rounded-lg border border-border bg-bg-card" });
 
 /**
- * The fill under the pointer of a row or a link covering a box of the card's surface: one step above the
- * card, so it shows on the raised card as on the page. A card's rows, a table's linked rows, `LinkRows` and
- * a card link (`Link`'s card placement, which `SpielRow`, `BracketCard` and the tiles place) read it.
+ * A row or a link covering a box of the card's surface under the pointer: the one hover layer (`bg-layer`) over the
+ * card, so a button standing in the row lays its own over it, a step of its own. A card's rows, a table's linked
+ * rows, `LinkRows` and a card link (`Link`'s card placement, which `SpielRow`, `BracketCard` and the tiles place)
+ * read it.
  */
-export const cardHover = tv({ base: "transition-colors duration-(--motion-state) hover:bg-bg-muted" });
+export const cardHover = tv({ base: "hover:bg-layer" });
+
+/**
+ * A card's head as a ground, the one band a card, Konto's box foot and the match head stand on: its fill, and the step
+ * a placeholder's bar takes on it. `tokens.css`'s `--bg-hover` sets that step one off the page, which the dark theme's
+ * head, filled with that very grey, would swallow, so the head redeclares it as its own.
+ */
+export const headGround = tv({ base: "bg-bg-card-head [--bg-hover:var(--bg-card-head-hover)]" });
 
 /**
  * The hairline parting parts stacked one under another inside one box, drawn above every part but the first: a
@@ -50,7 +58,7 @@ export const columnHead = tv({
 });
 
 /**
- * A card's look, shared by the server-rendered `Card`, `CardLink` and `CardRow` and the client `CardFold`, so a
+ * A card's look, shared by the server-rendered `Card` and `CardLink` and the client `CardFold`, so a
  * ruling on the card's surface, its head's fill or a row's hover changes one recipe. Kept apart from the
  * client module, whose every export a Server Component would receive as a reference it cannot call.
  *
@@ -62,11 +70,11 @@ export const card = tv({
     // `content-start` packs the rows at the top: a card stretched to a grid neighbour's height gives the spare
     // height to nothing, where auto rows would split it between the head and the body and grow the head.
     root: `grid content-start overflow-hidden ${cardSurface()} text-fg`,
-    head: "grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-3 gap-y-1 border-b border-border bg-bg-card-head px-4 py-3",
+    head: `grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-3 gap-y-1 border-b border-border ${headGround()} px-4 py-3`,
     title: "text-base font-semibold break-words",
     count: "col-start-2 row-start-1 font-numeric text-sm text-fg-muted",
-    // A title with its chip after it, the chip keeping its size while the title wraps.
-    named: "flex min-w-0 items-center gap-2",
+    // A chip at the head's end, in the count's place: the season card's state.
+    end: "col-start-2 row-start-1 flex self-center",
     line: "col-span-2 text-sm text-fg-muted",
     // A grid item is never narrower than its content by default, so a wide table would be cut at the card's
     // edge; the body shrinks to the card instead, where the table truncates its names or scrolls as its page
@@ -74,7 +82,6 @@ export const card = tv({
     body: "min-w-0",
     foot: "flex justify-end p-4",
     chevron: "",
-    row: `relative flex min-h-14 items-stretch gap-3 ${stacked()} px-4 py-2 text-sm lg:min-h-13 ${cardHover()}`,
   },
   variants: {
     body: {
@@ -83,12 +90,12 @@ export const card = tv({
     },
     // The head is the fold's button, the whole width, its title after the chevron. A folded card is its head
     // alone, so the line between head and body is the body's, and goes with it; the chevron turns to point
-    // down while the body shows. Under the pointer and pressed the head lifts a step, as every pressable row
-    // answers the pointer.
+    // down while the body shows. Under the pointer and pressed the head takes the one hover layer over its band, as
+    // every pressable row answers the pointer.
     fold: {
       true: {
         root: "group/fold",
-        head: "w-full cursor-default border-b-0 text-left transition-colors duration-(--motion-state) data-hovered:bg-bg-card-head-hover data-pressed:bg-bg-card-head-hover",
+        head: "w-full cursor-pointer border-b-0 text-left data-hovered:bg-layer data-pressed:bg-layer",
         title: "flex items-center gap-2",
         body: "border-t border-border",
         chevron: "flex shrink-0 text-fg-muted transition-transform duration-(--motion-state) group-data-expanded/fold:rotate-90",

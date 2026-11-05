@@ -17,16 +17,3 @@ export const FLEinladungKeyPayloadSchema = z.object({
 export const EinladungMailenEingabeSchema = FLEinladungKeyPayloadSchema.extend({
   einladung_id: CustomObjectIdStringSchema,
 });
-
-/**
- * **One payload for the preview AND the press**: a shape carrying the re-send choice to one of them
- * alone is how a page comes to list one set of teams and write to another.
- */
-export const FLEinladungVersandPayloadSchema = z.object({
-  // The season travels in the PATH on the wire; it is carried here because both calls have to name
-  // the season they were pressed on.
-  id: z.string().length(SAISON_ID_LENGTH, { error: "Bitte wähle eine Saison." }),
-  // Optional because the endpoint defaults it, which on a REQUEST is what optional means: a body
-  // without the key mails nobody twice, the failure a bulk control has and a per-team one does not.
-  erneut: z.boolean().optional(),
-});

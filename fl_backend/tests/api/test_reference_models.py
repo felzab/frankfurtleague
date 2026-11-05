@@ -6,7 +6,7 @@ import pytest
 from bson import ObjectId
 from pydantic import BaseModel, ValidationError
 
-from app.api.saisons.schemas import FIRST_SAISON_YEAR, FLPatchSaisonPayload, FLPostSaisonPayload, FLSaison
+from app.api.saisons.schemas import FLPatchSaisonPayload, FLSaison
 from app.api.schiedsrichter.schemas import FLPatchSchiedsrichterPayload, FLPostSchiedsrichterPayload, FLSchiedsrichter
 from app.api.spiele.schemas import MAX_QUALIFIERS, FLSpielBooking
 from app.api.spieler.schemas import (
@@ -31,7 +31,6 @@ from app.api.teams.schemas import (
     FLPostSaisonTeamPayload,
     FLPostTeamPayload,
 )
-from app.core import clock
 from app.shared.schemas.bounds import KONTAKT_NAME_MAX_LENGTH, SAISON_ID_LENGTH
 from app.shared.schemas.literals import FLGruppenNames
 from tests.database import a_clean_database, on_the_seed_loop
@@ -166,7 +165,12 @@ class TestSchiedsrichter:
 
     @pytest.mark.parametrize("model", [FLPostSchiedsrichterPayload, FLPatchSchiedsrichterPayload])
     def test_the_payload_holds_the_name_to_every_persons_ceiling(self, kontakt, assert_rejects, model):
-        body = {"kontakt": kontakt(), "schule": None, "default_payment": 20}
+        body = {
+            "kontakt": kontakt(),
+            "schule": None,
+            "default_payment": 20,
+            **({"version": 0} if model is FLPatchSchiedsrichterPayload else {}),
+        }
 
         assert_rejects(model, {**body, "name": "A" * (KONTAKT_NAME_MAX_LENGTH + 1)}, "name")
         assert len(model.model_validate({**body, "name": "A" * KONTAKT_NAME_MAX_LENGTH}).name) == KONTAKT_NAME_MAX_LENGTH
@@ -274,13 +278,13 @@ class TestEinwilligung:
     """The consent record: what may be published, and whether anyone confirmed it."""
 
     def test_accepts_a_collected_consent(self, spieler, einwilligung):
-        collected = einwilligung(umfang="kader_oeffentlich")
+        collected = einwilligung(scope="kader_oeffentlich")
 
         einwilligung = FLSpieler.model_validate(spieler(einwilligung=collected)).einwilligung
 
-        assert einwilligung is not None and einwilligung.umfang == "kader_oeffentlich"
+        assert einwilligung is not None and einwilligung.scope == "kader_oeffentlich"
 
-    @pytest.mark.parametrize("field", ["umfang", "datum", "confirmed_at", "medien", "nachweis"])
+    @pytest.mark.parametrize("field", ["scope", "date", "confirmed_at", "media", "evidence"])
     def test_requires_every_key(self, einwilligung, field, assert_rejects):
         """Each key a stored record carries, so a model accepting one fewer would let the read-back pass a row missing it."""
 
@@ -290,26 +294,26 @@ class TestEinwilligung:
         assert_rejects(FLEinwilligung, incomplete, field)
 
     def test_a_media_consent_is_read_beside_the_publication_scope_and_not_inside_it(self, einwilligung):
-        """Two independent answers: a reader asking `umfang` whether a photo may be published gets the wrong question's answer."""
+        """Two independent answers: a reader asking `scope` whether a photo may be published gets the wrong question's answer."""
 
-        parsed = FLEinwilligung.model_validate(einwilligung(umfang="kader_oeffentlich", medien=True))
+        parsed = FLEinwilligung.model_validate(einwilligung(scope="kader_oeffentlich", media=True))
 
-        assert parsed.medien is True
-        assert parsed.umfang == "kader_oeffentlich"
+        assert parsed.media is True
+        assert parsed.scope == "kader_oeffentlich"
 
     @pytest.mark.parametrize(
         ("field", "value"),
         [
             # A scope somebody invented where the two the league publishes under already exist.
-            ("umfang", "oeffentlich"),
-            ("umfang", "kader"),
+            ("scope", "oeffentlich"),
+            ("scope", "kader"),
         ],
     )
     def test_rejects_a_value_outside_its_closed_set(self, einwilligung, field, value, assert_rejects):
         assert_rejects(FLEinwilligung, einwilligung(**{field: value}), field)
 
     def test_rejects_a_date_that_is_not_a_calendar_day(self, einwilligung, assert_rejects):
-        assert_rejects(FLEinwilligung, einwilligung(datum="2026-02-31"), "datum")
+        assert_rejects(FLEinwilligung, einwilligung(date="2026-02-31"), "date")
 
     def test_the_patch_payload_carries_no_consent_field(self):
         """`patch_spieler` `$set`s this model's whole dump, so a field here would let a name correction rewrite what somebody agreed to."""
@@ -342,13 +346,13 @@ class TestTheConsentRecordStoredAndReadBack:
 
     def test_a_confirmed_record_is_stored_and_reads_back_carrying_both_answers(self, mongo_url: str, einwilligung):
 
-        stored = self._written(mongo_url, einwilligung(medien=True))
+        stored = self._written(mongo_url, einwilligung(media=True))
         parsed = FLSpielerWithMemberships.model_validate(
             {**stored, "address_change_id": None, "address_change_viewable_denied": None, "memberships": []}
         )
 
         assert parsed.einwilligung is not None
-        assert (parsed.einwilligung.umfang, parsed.einwilligung.medien) == ("kader_oeffentlich", True)
+        assert (parsed.einwilligung.scope, parsed.einwilligung.media) == ("kader_oeffentlich", True)
 
 
 class TestSaisonSpielerRow:
@@ -483,30 +487,35 @@ class TestTheMatchdaysSpan:
 
     def test_accepts_a_matchday_on_a_single_day(self):
         """The editor saves a day picked once as `ende` equal to `beginn`, so refusing an equal span refuses what the form offers."""
-        parsed = FLPatchSpieltagPayload.model_validate({"beginn": "2026-09-04", "ende": "2026-09-04"})
+        parsed = FLPatchSpieltagPayload.model_validate({"beginn": "2026-09-04", "ende": "2026-09-04", "version": 0})
 
         assert parsed.ende == parsed.beginn
 
     def test_refuses_a_matchday_ending_before_it_begins(self):
         with pytest.raises(ValidationError) as failure:
-            FLPatchSpieltagPayload.model_validate({"beginn": "2026-09-05", "ende": "2026-09-04"})
+            FLPatchSpieltagPayload.model_validate({"beginn": "2026-09-05", "ende": "2026-09-04", "version": 0})
 
-        assert [error["type"] for error in failure.value.errors()] == ["spieltag_ends_before_start"]
+        # At the end it judges, as the wire's path names it: a refusal at the model's own path reaches no box.
+        assert [(error["type"], error["loc"], error.get("ctx")) for error in failure.value.errors()] == [
+            ("spieltag_ends_before_start", ("ende",), {"start": "2026-09-05"})
+        ]
 
 
 class TestSaison:
     def test_accepts_a_valid_saison(self, saison):
         assert FLSaison.model_validate(saison()).rules.win_points == 3
 
-    def test_rejects_non_positive_win_points(self, saison):
+    def test_rejects_non_positive_win_points(self, saison, assert_rejects):
         """A win must be worth something, or the table cannot rank anyone."""
-        with pytest.raises(ValidationError):
-            FLSaison.model_validate(saison(rules={"win_points": 0, "draw_points": 1}))
+        assert_rejects(FLSaison, saison(rules={**saison()["rules"], "win_points": 0}), "win_points")
 
-    def test_rejects_negative_draw_points(self, saison):
+    def test_rejects_negative_draw_points(self, saison, assert_rejects):
         """A draw cannot cost points."""
-        with pytest.raises(ValidationError):
-            FLSaison.model_validate(saison(rules={"win_points": 3, "draw_points": -1}))
+        assert_rejects(FLSaison, saison(rules={**saison()["rules"], "draw_points": -1}), "draw_points")
+
+    def test_rejects_negative_loss_points(self, saison, assert_rejects):
+        """A loss cannot cost points either, so a club's total never falls below zero."""
+        assert_rejects(FLSaison, saison(rules={**saison()["rules"], "loss_points": -1}), "loss_points")
 
     def test_accepts_zero_draw_points(self, saison):
         """The asymmetry with wins: a draw worth nothing is a legal rule set."""
@@ -536,25 +545,23 @@ class TestSaison:
 
         assert_rejects(FLSaison, saison(rules=rules), "allowed_stufen")
 
-    def test_rejects_a_season_advancing_nobody(self, saison):
+    def test_rejects_a_season_advancing_nobody(self, saison, assert_rejects):
         """A group nobody comes out of is not a group phase, so the count is `gt=0`."""
-        with pytest.raises(ValidationError):
-            FLSaison.model_validate(saison(rules={"win_points": 3, "draw_points": 1, "qualifiers_per_gruppe": 0}))
+        assert_rejects(FLSaison, saison(rules={**saison()["rules"], "qualifiers_per_gruppe": 0}), "qualifiers_per_gruppe")
 
     # No Pydantic default: a season missing the key would read as though it had one, and the bracket's
     # size would be a constant in a model.
-    def test_rejects_rules_with_no_qualifier_count(self, saison):
-        with pytest.raises(ValidationError):
-            FLSaison.model_validate(saison(rules={"win_points": 3, "draw_points": 1}))
+    def test_rejects_rules_with_no_qualifier_count(self, saison, assert_rejects):
+        rules = {key: value for key, value in saison()["rules"].items() if key != "qualifiers_per_gruppe"}
+
+        assert_rejects(FLSaison, saison(rules=rules), "qualifiers_per_gruppe")
 
     # Required for the qualifier count's reason: an absent key must fail, not read as a bound nobody chose.
     @pytest.mark.parametrize("field", ["number_of_gruppen", "teams_per_gruppe"])
-    def test_rejects_rules_with_no_capacity(self, saison, field):
-        rules = {"win_points": 3, "draw_points": 1, "qualifiers_per_gruppe": 2, "number_of_gruppen": 4, "teams_per_gruppe": 4}
-        del rules[field]
+    def test_rejects_rules_with_no_capacity(self, saison, field, assert_rejects):
+        rules = {key: value for key, value in saison()["rules"].items() if key != field}
 
-        with pytest.raises(ValidationError):
-            FLSaison.model_validate(saison(rules=rules))
+        assert_rejects(FLSaison, saison(rules=rules), field)
 
     def test_the_group_cap_is_the_size_of_the_closed_set(self, saison):
         """`NumberOfGroups` reads the set's size, and this is what refuses a hand-written number back in its place.
@@ -575,22 +582,6 @@ class TestSaison:
         with pytest.raises(ValidationError):
             FLSaison.model_validate(saison(**{field: "2026-04-31"}))
 
-    @pytest.mark.parametrize("side", ["before the first season", "past next year"])
-    def test_a_year_outside_the_league_names_both_bounds(self, saison, side):
-        """The frontend words the line from `min` and `max`, so a key renamed or dropped here reads as the unexpected line there."""
-        newest = clock.now().year + 1
-        year = FIRST_SAISON_YEAR - 1 if side == "before the first season" else newest + 1
-        body = {"id": str(year), "rules": saison()["rules"], "start_date": "2026-01-01", "end_date": "2026-06-30"}
-        body["bewerbung"] = {"offen": True, "von": "2025-11-01", "bis": "2025-12-15"}
-        body["registrierung"] = {"offen": False, "von": "2026-01-05", "bis": "2026-02-05"}
-
-        with pytest.raises(ValidationError) as failure:
-            FLPostSaisonPayload.model_validate(body)
-
-        assert [(error["type"], error.get("ctx")) for error in failure.value.errors()] == [
-            ("saison_year_out_of_range", {"min": FIRST_SAISON_YEAR, "max": newest})
-        ]
-
 
 class TestTheSeasonsSpans:
     """`refuse_reversed_span` under every caller, each naming its span by a kind of its own."""
@@ -605,8 +596,9 @@ class TestTheSeasonsSpans:
             "start_date": stored["start_date"],
             "end_date": stored["end_date"],
             "rules": stored["rules"],
-            "bewerbung": {"offen": True, "von": "2025-09-01", "bis": "2025-10-31"},
-            "registrierung": {"offen": True, "von": "2025-11-01", "bis": "2025-12-15"},
+            "bewerbung": {"start": "2025-09-01", "end": "2025-10-31"},
+            "registrierung": {"offen": True, "end": "2025-12-15"},
+            "version": 0,
             **overrides,
         }
 
@@ -615,58 +607,49 @@ class TestTheSeasonsSpans:
         parsed = FLPatchSaisonPayload.model_validate(self.payload(saison))
 
         assert parsed.bewerbung is not None
-        assert parsed.bewerbung.offen is True
+        assert parsed.registrierung is not None
 
     def test_accepts_no_window_at_all(self, saison):
         """`None` is the season with nothing recorded, which the span rule has nothing to say about."""
-        assert FLPatchSaisonPayload.model_validate(self.payload(saison, bewerbung=None)).bewerbung is None
-
-    def test_refuses_a_window_ending_before_it_opens(self, saison):
-        reversed_window = {"offen": False, "von": "2025-10-31", "bis": "2025-09-01"}
-
-        with pytest.raises(ValidationError) as failure:
-            FLPatchSaisonPayload.model_validate(self.payload(saison, bewerbung=reversed_window))
-
-        assert [error["type"] for error in failure.value.errors()] == ["bewerbung_window_ends_before_start"]
+        assert FLPatchSaisonPayload.model_validate(self.payload(saison, bewerbung=None, registrierung=None)).bewerbung is None
 
     def test_judges_the_window_apart_from_the_season_it_belongs_to(self, saison):
         """A window may legitimately open and close before the season's first day."""
-        before_the_saison = {"offen": False, "von": "2025-01-01", "bis": "2025-02-01"}
+        before_the_saison = {"start": "2025-01-01", "end": "2025-02-01"}
 
         assert FLPatchSaisonPayload.model_validate(self.payload(saison, bewerbung=before_the_saison)).bewerbung is not None
 
-    def test_refuses_a_season_ending_before_it_starts_in_the_other_sides_words(self, saison):
-        """The same helper's other caller: one kind moved without the other is what this catches."""
+    @pytest.mark.parametrize(
+        ("overrides", "refused"),
+        [
+            pytest.param(
+                {"start_date": "2026-06-30", "end_date": "2026-01-01"},
+                ("saison_ends_before_start", ("end_date",), {"start": "2026-06-30"}),
+                id="the season's end",
+            ),
+            pytest.param(
+                {"bewerbung": {"start": "2025-10-31", "end": "2025-09-01"}},
+                ("bewerbung_window_ends_before_start", ("bewerbung", "end"), {"start": "2025-10-31"}),
+                id="the application window's end",
+            ),
+            pytest.param(
+                {"registrierung": {"offen": True, "end": "2026-01-01"}},
+                ("registrierung_window_reaches_saison_start", ("registrierung", "end"), {"latest": "2025-12-31"}),
+                id="the registration window's end",
+            ),
+        ],
+    )
+    def test_refuses_each_span_at_its_end_with_its_kind_and_bound(self, saison, overrides, refused):
+        """Each rule sits at the end it judges: one raised at the model's own path reaches the wire naming no box, and no form shows it.
+
+        The wire's `path` is this `loc`, `app/core/exception_handlers.py :: _refused_field` dropping only FastAPI's `body`.
+        """
+        assert saison()["start_date"] == "2026-01-01"
+
         with pytest.raises(ValidationError) as failure:
-            FLPatchSaisonPayload.model_validate(self.payload(saison, start_date="2026-06-30", end_date="2026-01-01"))
+            FLPatchSaisonPayload.model_validate(self.payload(saison, **overrides))
 
-        assert [error["type"] for error in failure.value.errors()] == ["saison_ends_before_start"]
-
-    def test_accepts_a_registration_window_that_runs_forwards(self, saison):
-        """The floor for the registration half: without it the refusal below could pass for a reason nobody is testing."""
-        parsed = FLPatchSaisonPayload.model_validate(self.payload(saison))
-
-        assert parsed.registrierung is not None
-        assert parsed.registrierung.offen is True
-
-    def test_accepts_no_registration_window_at_all(self, saison):
-        """`None` is the season taking no registrations, which the span rule has nothing to say about."""
-        assert FLPatchSaisonPayload.model_validate(self.payload(saison, registrierung=None)).registrierung is None
-
-    def test_refuses_a_registration_window_ending_before_it_opens(self, saison):
-        """The third caller's own kind: the two windows raise different kinds, and one moved alone is what this catches."""
-        reversed_window = {"offen": False, "von": "2025-12-15", "bis": "2025-11-01"}
-
-        with pytest.raises(ValidationError) as failure:
-            FLPatchSaisonPayload.model_validate(self.payload(saison, registrierung=reversed_window))
-
-        assert [error["type"] for error in failure.value.errors()] == ["registrierung_window_ends_before_start"]
-
-    def test_judges_the_registration_window_apart_from_the_application_window(self, saison):
-        """Two decisions rather than one span: registration may legitimately close before applications do."""
-        overlapping = {"offen": True, "von": "2025-08-01", "bis": "2025-09-15"}
-
-        assert FLPatchSaisonPayload.model_validate(self.payload(saison, registrierung=overlapping)).registrierung is not None
+        assert [(error["type"], error["loc"], error.get("ctx")) for error in failure.value.errors()] == [refused]
 
 
 class TestTheSeasonsWindowsAreRequiredWithNoDefault:
@@ -727,7 +710,6 @@ STRIPPED_WRITE_FIELDS = [
     "team.full_name",
     "team.name",
     "team.shorthand",
-    "saison.id",
     "saison_team.saison_id",
     "saison_spieler.saison_id",
     "kontaktperson.nachname",
@@ -738,7 +720,6 @@ STRIPPED_WRITE_FIELDS = [
 # The fixed-width ids, whose ceiling is counted on arrival, and every `CustomKontaktName`, whose pattern
 # is: a padded value is refused rather than stored stripped.
 PADDING_REFUSED_FIELDS = [
-    "saison.id",
     "saison_team.saison_id",
     "saison_spieler.saison_id",
     "kontaktperson.nachname",
@@ -797,7 +778,7 @@ class TestTheWritePathStripsBeforeItCountsCharacters:
             "nachname": "Koerner",
             "email": "a.koerner@example.de",
             "telefon": "+49 170 1234567",
-            "einwilligung": {"umfang": "kontaktdaten", "datum": "2026-01-15"},
+            "einwilligung": {"scope": "kontaktdaten", "date": "2026-01-15"},
         }
         saison_team = {
             "gruppe": "A",
@@ -805,9 +786,6 @@ class TestTheWritePathStripsBeforeItCountsCharacters:
             "trikot_farbe": None,
         }
         # The stored rows minus what only storage carries, which is what each create payload takes.
-        new_saison = {"id": saison()["_id"], "rules": saison()["rules"], "start_date": "2026-01-01", "end_date": "2026-06-30"}
-        new_saison["bewerbung"] = {"offen": True, "von": "2025-11-01", "bis": "2025-12-15"}
-        new_saison["registrierung"] = {"offen": False, "von": "2026-01-05", "bis": "2026-02-05"}
         new_saison_spieler = {key: value for key, value in saison_spieler().items() if key in FLPostSaisonSpielerPayload.model_fields}
         new_saison_team = {"saison_id": saison()["_id"], "gruppe": "A"}
 
@@ -822,9 +800,8 @@ class TestTheWritePathStripsBeforeItCountsCharacters:
             "team.name": (FLPostTeamPayload, team_payload, ("name",)),
             # The width is a floor as well as a ceiling, so a padded value has to reach it stripped.
             "team.shorthand": (FLPostTeamPayload, team_payload, ("shorthand",)),
-            # Three independent declarations of the season id, so a strip dropped from one is
-            # invisible to the other two's clauses.
-            "saison.id": (FLPostSaisonPayload, new_saison, ("id",)),
+            # Two independent declarations of the season id, so a strip dropped from one is
+            # invisible to the other's clauses.
             "saison_team.saison_id": (FLPostSaisonTeamPayload, new_saison_team, ("saison_id",)),
             "saison_spieler.saison_id": (FLPostSaisonSpielerPayload, new_saison_spieler, ("saison_id",)),
             "kontaktperson.nachname": (FLKontaktpersonPayload, kontaktperson, ("nachname",)),

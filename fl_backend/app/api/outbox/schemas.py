@@ -3,7 +3,7 @@ from typing import Annotated, Final, Literal, Self, get_args
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, StringConstraints, computed_field, model_validator
 
-from app.api.berechtigungen.schemas import FLBerechtigungMitteilungArt, FLBerechtigungUrheber, FLBerechtigungVorenthalten, FLGrantSnapshot
+from app.api.berechtigungen.schemas import FLBerechtigungUrheber, FLBerechtigungVorenthalten, FLGrantNoticeKind, FLGrantSnapshot
 from app.api.registrierungen.schemas import FLRegistrierungAblehnungsgrund
 from app.core.collections import Collection
 from app.shared.schemas.custom import SINGLE_LINE_PATTERN, CustomDateString, CustomObjectId, CustomStrippedNonEmptyString, CustomTimeString
@@ -20,29 +20,29 @@ from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
 
 class FLSignInCodeData(BaseModel):
-    art: Literal["sign_in_code"]
+    kind: Literal["sign_in_code"]
 
 
 class FLPasskeyData(BaseModel):
-    art: Literal["passkey_hinzugefuegt", "passkey_erased"]
+    kind: Literal["passkey_added", "passkey_erased"]
     instant: AwareDatetime
     # The reader's own account page, a path on the site's origin, which is where either event is acted on.
     account: Annotated[str, StringConstraints(pattern=r"^/[a-z0-9/_-]*$", max_length=256)]
 
 
 class FLAccountErasureData(BaseModel):
-    art: Literal["account_erasure"]
+    kind: Literal["account_erasure"]
 
 
-FLOutboxSignInData = Annotated[FLSignInCodeData | FLPasskeyData | FLAccountErasureData, Field(discriminator="art")]
+FLOutboxSignInData = Annotated[FLSignInCodeData | FLPasskeyData | FLAccountErasureData, Field(discriminator="kind")]
 
 # --- The league's mails.
 
 
-class FLSperreData(BaseModel):
+class FLBanData(BaseModel):
     """The ban's own notice, the one mail a ban does not stop (`app/api/outbox/services.py :: UNBARRED`)."""
 
-    art: Literal["sperre"]
+    kind: Literal["ban"]
     grund: str
     barred_until_saison_id: str
 
@@ -50,10 +50,10 @@ class FLSperreData(BaseModel):
 class FLGrantData(BaseModel):
     """A change to a grant, or a grant or promotion asked for, as the notice to each administrator states it."""
 
-    art: Literal["grant"]
-    change: FLBerechtigungMitteilungArt
+    kind: Literal["grant"]
+    change: FLGrantNoticeKind
     author: FLBerechtigungUrheber
-    now: FLGrantSnapshot | None
+    current: FLGrantSnapshot | None
     before: FLGrantSnapshot | None
     # The administrator whose write made it; null where it was found in the database, or where a ban withholds them,
     # `author` telling the two apart; `app/core/recording.py :: ERASED_ACTOR_MARKER` for one erased since.
@@ -67,7 +67,7 @@ class FLGrantData(BaseModel):
 class FLAddressChangeLinkData(BaseModel):
     """The new mailbox's link to confirm an address change, minted at the hand-out into the change's `token_hashes`."""
 
-    art: Literal["address_change_link"]
+    kind: Literal["address_change_link"]
     way: FLAddressChangeWay
     # When the link lapses, which the mail states.
     valid_until: AwareDatetime
@@ -80,7 +80,7 @@ class FLAddressChangeNoticeData(BaseModel):
     it confirmed, stops the change; on the lost-mailbox way it stops the change.
     """
 
-    art: Literal["address_change_notice"]
+    kind: Literal["address_change_notice"]
     way: FLAddressChangeWay
     # The deadline of what the address on file is asked, which the person's own change's mail states.
     valid_until: AwareDatetime
@@ -91,7 +91,7 @@ class FLAddressChangeNoticeData(BaseModel):
 class FLAddressChangeEffectiveData(BaseModel):
     """The replaced address's notice that the change took effect."""
 
-    art: Literal["address_change_effective"]
+    kind: Literal["address_change_effective"]
     # The effect's own instant.
     instant: AwareDatetime
     vorname: str | None
@@ -100,13 +100,13 @@ class FLAddressChangeEffectiveData(BaseModel):
 class FLAddressChangeDiscardedData(BaseModel):
     """The new mailbox's notice that a confirmed change did not take effect: never why, nor the address on file."""
 
-    art: Literal["address_change_discarded"]
+    kind: Literal["address_change_discarded"]
 
 
 class FLSchiedsrichterConfirmationData(BaseModel):
     """A referee's confirmation link, owed by their entry, a corrected address, a re-send or their return."""
 
-    art: Literal["schiedsrichter_confirmation"]
+    kind: Literal["schiedsrichter_confirmation"]
     # The link's last day, the one date the mail states.
     frist: CustomDateString
 
@@ -130,25 +130,49 @@ class FLSpielMailAnsetzung(FLSpielMailAppointment):
 class FLSpielRequestData(BaseModel):
     """A club's request to confirm a fixture, or the reminder of it, each carrying a link of its own."""
 
-    art: Literal["spiel_request", "spiel_reminder"]
+    kind: Literal["spiel_request", "spiel_reminder"]
     # The reader's own club, one of the two sides.
     team: str
     ansetzung: FLSpielMailAnsetzung
     # The row's stored deadline, which a reminder repeats.
     frist: CustomDateString
+    # The slot a move left, on the request asking about the slot it moved to, which is then the one mail telling the club
+    # of the move; null on every other request and on a reminder.
+    moved_from: FLSpielMailAppointment | None
 
 
 class FLSpielEinteilungData(BaseModel):
     """A referee's word that they are booked onto a fixture, which they answer on their own panel."""
 
-    art: Literal["spiel_einteilung"]
+    kind: Literal["spiel_einteilung"]
     ansetzung: FLSpielMailAnsetzung
+    # The slot a move left, on the Einteilung for the slot it moved to, which is then the one mail telling the referee of
+    # the move; null on every other Einteilung.
+    moved_from: FLSpielMailAppointment | None
+
+
+class FLSpielMovedData(BaseModel):
+    """A party's word that a fixture it was asked about left that slot, owed where no request about its new slot goes now.
+
+    The mail's own request carries the move where the new slot is asked at once (`FLSpielRequestData.moved_from`).
+    """
+
+    kind: Literal["spiel_new_scheduled"]
+    recipient: Literal["team", "schiedsrichter"]
+    # The slot the party was asked about, which no longer stands.
+    appointment: FLSpielMailAppointment
+    # The slot the fixture holds now, null where it holds no day, hour or second side yet, or the party is no longer one
+    # of its sides.
+    moved_to: FLSpielMailAppointment | None
+    # Whether the party is asked about the fixture again once its new slot can be asked, so the mail says a request
+    # follows; false for a party the move took off the fixture, and for one whose answer about the new slot stands.
+    asked_again: bool
 
 
 class FLSpielNoticeData(BaseModel):
-    """A party's word that a fixture it was asked about moved or was called off: the slot it was asked about."""
+    """A party's word that a fixture it was asked about was called off: the slot it was asked about."""
 
-    art: Literal["spiel_new_angesetzt", "spiel_abgesagt"]
+    kind: Literal["spiel_abgesagt"]
     # A club was asked by a link, a referee was booked; each is told what of theirs no longer stands.
     recipient: Literal["team", "schiedsrichter"]
     appointment: FLSpielMailAppointment
@@ -157,14 +181,14 @@ class FLSpielNoticeData(BaseModel):
 class FLSpielEinteilungLiftedData(BaseModel):
     """A referee's word that they were taken off a fixture after being told of it: the slot they were told of."""
 
-    art: Literal["spiel_einteilung_lifted"]
+    kind: Literal["spiel_einteilung_lifted"]
     appointment: FLSpielMailAppointment
 
 
 class FLSpielVorschlagDiscardedData(BaseModel):
     """A club's word that the league kept the date it declined and proposed another for: the slot that stands."""
 
-    art: Literal["spiel_vorschlag_discarded"]
+    kind: Literal["spiel_vorschlag_discarded"]
     appointment: FLSpielMailAppointment
 
 
@@ -174,7 +198,7 @@ class FLSpielVorschlagDiscardedData(BaseModel):
 class FLRegistrierungLinkData(BaseModel):
     """A pupil's confirmation link, first or as the one reminder, which joins the first link rather than replacing it."""
 
-    art: Literal["registrierung_confirmation", "registrierung_reminder"]
+    kind: Literal["registrierung_confirmation", "registrierung_reminder"]
     # The junction row's name, else the club's: what the pupil registered for.
     team: str
     saison_id: str
@@ -185,7 +209,7 @@ class FLRegistrierungLinkData(BaseModel):
 class FLRegistrierungAbsageData(BaseModel):
     """A team's decline, to a pupil whose address was confirmed."""
 
-    art: Literal["registrierung_absage"]
+    kind: Literal["registrierung_absage"]
     vorname: str
     team: str
     saison_id: str
@@ -195,7 +219,7 @@ class FLRegistrierungAbsageData(BaseModel):
 class FLInvitationData(BaseModel):
     """A team's registration link, to one confirmed contact seat, for the pupils to register through."""
 
-    art: Literal["invitation"]
+    kind: Literal["invitation"]
     # The junction row's name: a seat holding two teams tells them apart by it.
     team: str
     saison_id: str
@@ -207,7 +231,7 @@ class FLBewerbungLinkData(BaseModel):
     `rollen` are every seat the link answers, two where the Trainer holds a second; the reminder's link joins the first.
     """
 
-    art: Literal["bewerbung_confirmation", "bewerbung_reminder"]
+    kind: Literal["bewerbung_confirmation", "bewerbung_reminder"]
     saison_id: str
     # The school as submitted, or the picked club's name: a contact who never heard of the application places it by this.
     schule: str
@@ -226,7 +250,7 @@ class FLBewerbungPerson(BaseModel):
 class FLBewerbungReceivedData(BaseModel):
     """The submitter's receipt, which carries their own link: the Ansprechperson's seats and every other person still to answer."""
 
-    art: Literal["bewerbung_received"]
+    kind: Literal["bewerbung_received"]
     saison_id: str
     rollen: list[FLKontaktRolle] = Field(min_length=1)
     pending: list[FLBewerbungPerson]
@@ -236,7 +260,7 @@ class FLBewerbungReceivedData(BaseModel):
 class FLBewerbungZusageData(BaseModel):
     """An acceptance, to one person of the application, naming the seats they were entered for."""
 
-    art: Literal["bewerbung_zusage"]
+    kind: Literal["bewerbung_zusage"]
     team: str
     saison_id: str
     rollen: list[FLKontaktRolle] = Field(min_length=1)
@@ -250,7 +274,7 @@ class FLBewerbungZusageData(BaseModel):
 class FLBewerbungAbsageData(BaseModel):
     """A decline, to one person of the application, with the administrator's reason verbatim."""
 
-    art: Literal["bewerbung_absage"]
+    kind: Literal["bewerbung_absage"]
     team: str
     saison_id: str
     rollen: list[FLKontaktRolle] = Field(min_length=1)
@@ -260,16 +284,16 @@ class FLBewerbungAbsageData(BaseModel):
 class FLBewerbungErasureData(BaseModel):
     """The fourteen-day deletion notice, to the submitter, naming who never confirmed; owed in the erasure's own write."""
 
-    art: Literal["bewerbung_erasure"]
+    kind: Literal["bewerbung_erasure"]
     saison_id: str
     rollen: list[FLKontaktRolle] = Field(min_length=1)
     pending: list[FLBewerbungPerson]
 
 
-class FLBewerbungWiderspruchData(BaseModel):
+class FLBewerbungObjectionData(BaseModel):
     """A contact's Widerspruch, to the submitter, naming the person who refused: it stands as the deletion notice too."""
 
-    art: Literal["bewerbung_widerspruch"]
+    kind: Literal["bewerbung_objection"]
     saison_id: str
     rollen: list[FLKontaktRolle] = Field(min_length=1)
     declined: FLBewerbungPerson
@@ -279,7 +303,7 @@ class FLBewerbungWiderspruchData(BaseModel):
 class FLKontaktLinkData(BaseModel):
     """One person an administrator seated on a team's season row, asked to confirm: no name, the address being unconfirmed."""
 
-    art: Literal["kontakt_confirmation"]
+    kind: Literal["kontakt_confirmation"]
     saison_id: str
     # The team's name in that season, which is the school the reader is asked about.
     schule: str
@@ -293,7 +317,7 @@ FLOutboxData = Annotated[
     FLSignInCodeData
     | FLPasskeyData
     | FLAccountErasureData
-    | FLSperreData
+    | FLBanData
     | FLGrantData
     | FLAddressChangeLinkData
     | FLAddressChangeNoticeData
@@ -302,6 +326,7 @@ FLOutboxData = Annotated[
     | FLSchiedsrichterConfirmationData
     | FLSpielRequestData
     | FLSpielEinteilungData
+    | FLSpielMovedData
     | FLSpielNoticeData
     | FLSpielEinteilungLiftedData
     | FLSpielVorschlagDiscardedData
@@ -313,18 +338,18 @@ FLOutboxData = Annotated[
     | FLBewerbungZusageData
     | FLBewerbungAbsageData
     | FLBewerbungErasureData
-    | FLBewerbungWiderspruchData
+    | FLBewerbungObjectionData
     | FLKontaktLinkData,
-    Field(discriminator="art"),
+    Field(discriminator="kind"),
 ]
 
-# Every member's `art`, spelled again as one closed set for the row's own field, which outlives its data.
-FLOutboxArt = Literal[
+# Every member's `kind`, spelled again as one closed set for the row's own field, which outlives its data.
+FLOutboxKind = Literal[
     "sign_in_code",
-    "passkey_hinzugefuegt",
+    "passkey_added",
     "passkey_erased",
     "account_erasure",
-    "sperre",
+    "ban",
     "grant",
     "address_change_link",
     "address_change_notice",
@@ -334,7 +359,7 @@ FLOutboxArt = Literal[
     "spiel_request",
     "spiel_reminder",
     "spiel_einteilung",
-    "spiel_new_angesetzt",
+    "spiel_new_scheduled",
     "spiel_abgesagt",
     "spiel_einteilung_lifted",
     "spiel_vorschlag_discarded",
@@ -348,14 +373,14 @@ FLOutboxArt = Literal[
     "bewerbung_zusage",
     "bewerbung_absage",
     "bewerbung_erasure",
-    "bewerbung_widerspruch",
+    "bewerbung_objection",
     "kontakt_confirmation",
 ]
 
 
-_MEMBER_ARTEN = {art for member in get_args(get_args(FLOutboxData)[0]) for art in get_args(member.model_fields["art"].annotation)}
-if set(get_args(FLOutboxArt)) != _MEMBER_ARTEN:
-    raise RuntimeError("`FLOutboxArt` and the members of `FLOutboxData` name different kinds: add the kind to both.")
+_MEMBER_KINDS = {kind for member in get_args(get_args(FLOutboxData)[0]) for kind in get_args(member.model_fields["kind"].annotation)}
+if set(get_args(FLOutboxKind)) != _MEMBER_KINDS:
+    raise RuntimeError("`FLOutboxKind` and the members of `FLOutboxData` name different kinds: add the kind to both.")
 
 # `open` until a hand-out's report or the deadline settles it; each other state is final.
 FLOutboxRowState = Literal["open", "sent", "held", "barred", "dropped", "abandoned"]
@@ -393,7 +418,7 @@ class FLOutboxLink(BaseModel):
     # row's `an`: a seat emptied, handed on or re-addressed since the mail was owed mints nothing, and the mail is dropped.
     # Empty where the record holds no address to judge: a team's registration link, which is the team's and no person's
     # credential, its recipients standing on another record.
-    adressen: list[Annotated[str, StringConstraints(pattern=r"^[a-z_]+(\.[a-z_]+)*$")]]
+    addresses: list[Annotated[str, StringConstraints(pattern=r"^[a-z_]+(\.[a-z_]+)*$")]]
     # Set where the fresh link supersedes every link the arrays held; clear where the earlier ones stay valid beside it.
     replaced: bool
 
@@ -401,7 +426,7 @@ class FLOutboxLink(BaseModel):
 class FLOutboxDelivery(BaseModel):
     state: FLOutboxDeliveryState
     grund: str | None
-    am: datetime
+    at: datetime
 
 
 class FLOutboxStatus(BaseReadModel):
@@ -426,7 +451,7 @@ class FLOutboxRow(BaseModel):
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
     key: str
-    art: FLOutboxArt
+    kind: FLOutboxKind
     an: str
     # Both removed by the row's final state, after which only its delivery is read.
     data: FLOutboxData | None = Field(default=None)
@@ -461,7 +486,7 @@ class FLOutboxHandout(BaseModel):
     token: str | None
     secret: str | None
     # This hand-out's number, the row's `attempts` after the claim. The send's idempotency key is
-    # `postausgang/<id>/<versuch>`: one per hand-out, since each mints its own link and the provider refuses one key for
+    # `outbox/<id>/<attempt>`: one per hand-out, since each mints its own link and the provider refuses one key for
     # two bodies.
     attempt: int = Field(ge=1)
 
@@ -475,7 +500,7 @@ class FLOutboxHandoutResponse(BaseAPIResponse):
     abandoned: int = Field(ge=0)
 
 
-FLOutboxResultArt = Literal["sent", "retry", "abandon", "held"]
+FLOutboxResultKind = Literal["sent", "retry", "abandon", "held"]
 
 
 class FLOutboxResultPayload(BaseModel):
@@ -485,7 +510,7 @@ class FLOutboxResultPayload(BaseModel):
 
     lease: CustomStrippedNonEmptyString
     id: CustomObjectId
-    result: FLOutboxResultArt
+    result: FLOutboxResultKind
     # The provider's id for the accepted message: an operator's one way from the row to the message there, its dashboard's
     # page or `GET /emails/{id}` (https://resend.com/docs/api-reference/emails/retrieve-email), the provider offering no
     # search by tag. No event needs it, each finding its row by the row's own id.
@@ -545,7 +570,7 @@ class FLOutboxEventPayload(BaseModel):
     state: FLOutboxDeliveryState
     grund: CustomDeliveryGrund | None
     # The provider's stamp, stored with the state; the order of states decides, never the order of stamps.
-    am: AwareDatetime
+    at: AwareDatetime
 
 
 class FLOutboxEventResponse(BaseAPIResponse):

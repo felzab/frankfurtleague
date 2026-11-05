@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 
-import { ClubHead } from "@/kit/ClubHead";
-import { ReadFolds } from "@/kit/ReadFolds";
+import { ClubHead, ClubHeadPlaceholder } from "@/kit/ClubHead";
+import { ReadFolds, ReadFoldsPlaceholder } from "@/kit/ReadFolds";
 import { ReadPage } from "@/kit/ReadPage";
 import { SpielList } from "@/kit/SpielRow";
 
@@ -11,11 +11,12 @@ import { buildMapsSearchUrl } from "@/core/maps";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { getTeamPage } from "@/features/saisons/queries";
-import { resolvePublicSaisonParam } from "@/features/saisons/resolvers";
+import { publicSaisonOf } from "@/features/saisons/resolvers";
 import { matchdayOf, matchRowOf, outcomeFor } from "@/features/spiele/blocks";
 import { austrittChip, austrittZustand } from "@/features/teams/constants";
 import { pageMetadata } from "@/shared/utils/metadata";
-import { resolveObjectIdParam } from "@/shared/utils/routeParams";
+import { metadataFor } from "@/shared/utils/notFoundMetadata";
+import { objectIdParamOf } from "@/shared/utils/routeParams";
 
 import type { Words } from "@/core/copy";
 import type { FLSpielerPublic, FLTeamPageResponse } from "@/core/generated/client/types";
@@ -25,20 +26,27 @@ import type { Metadata, ResolvingMetadata } from "next";
 
 type Props = PageProps<"/saisons/[saison]/teams/[team]">;
 
+/** The club the address names, or `null` for a malformed id, a season the public may not read, or no such club in it. */
+async function findPage(params: Props["params"]): Promise<FLTeamPageResponse | null> {
+  const team = await objectIdParamOf(params, "team");
+  const saison = await publicSaisonOf(params);
+  return team === null || saison === null ? null : getTeamPage(saison, team);
+}
+
 async function readPage(params: Props["params"]): Promise<FLTeamPageResponse> {
-  const team = await resolveObjectIdParam(params, "team");
-  const page = await getTeamPage(await resolvePublicSaisonParam(params), team);
+  const page = await findPage(params);
   if (page === null) notFound();
   return page;
 }
 
 export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
   const { saison } = await params;
-  const { team } = await readPage(params);
-  return pageMetadata(parent, ROUTES.team, ROUTES.team.path(saison, team.id), {
-    title: { record: team.name },
-    description: SERVER_COPY.description.team(team.name, saison),
-  });
+  return metadataFor(findPage(params), ({ team }) =>
+    pageMetadata(parent, ROUTES.team, ROUTES.team.path(saison, team.id), {
+      title: { record: team.name },
+      description: SERVER_COPY.description.team(team.name, saison),
+    }),
+  );
 }
 
 /**
@@ -49,6 +57,14 @@ export default function TeamPage({ params }: Props) {
   return (
     <ReadPage
       scope="saison"
+      wait={{
+        club: <ClubHeadPlaceholder />,
+        groups: [
+          { kind: "tiles", layout: "four" },
+          { title: COPY.page.spiele, kind: "timeline", count: 3, matches: true },
+          { kind: "folds", folds: <ReadFoldsPlaceholder count={1} /> },
+        ],
+      }}
       record={readRecord(params)}
     />
   );
@@ -57,7 +73,7 @@ export default function TeamPage({ params }: Props) {
 /** A pupil of the squad as the public read names them: a name the consent publishes, else „anonym“. */
 const personOf = (spieler: FLSpielerPublic): Words =>
   spieler.vorname === null
-    ? SERVER_COPY.season.spiel.anonym
+    ? SERVER_COPY.season.spiel.anonymous
     : { record: [spieler.vorname, spieler.nachname].filter((name) => name !== null).join(" ") };
 
 /** A pupil's number and position, each left out while the record holds none. */
@@ -98,7 +114,7 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
   const page = await readPage(params);
   const { team, spiele, kader } = page;
   const { column } = SERVER_COPY.season;
-  const { spielort } = COPY.verwaltung;
+  const { spielort } = COPY.admin;
   const address = spielort.addressLine(
     spielort.strasseWithHausnummer(team.address.strasse, team.address.hausnummer),
     team.address.plz,
@@ -123,7 +139,7 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
         team.austritt === null
           ? null
           : {
-              title: COPY.shared.austrittSeit(austrittZustand(team.austritt.type), dayOf(team.austritt.datum)),
+              title: COPY.shared.austrittSince(austrittZustand(team.austritt.type), dayOf(team.austritt.datum)),
               text: { record: team.austritt.grund },
             },
     },
@@ -164,7 +180,7 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
                       name: personOf(spieler),
                       cells: cellsOf(spieler),
                     })),
-                    empty: { kind: "none", plural: COPY.page.teamKader },
+                    empty: { kind: "none", plural: COPY.page.teamKader, one: true },
                   },
                 ],
               },

@@ -10,13 +10,14 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.saisons.schemas import FLSaisonForfeitErgebnis, FLSaisonRules
-from app.api.spiele.crud import advance_bracket_winners, apply_release_to_spiel, preview_bracket_after_patch
+from app.api.spiele.crud import advance_bracket_winners, apply_release_to_spiel, preview_bracket_after_patch, report_release
 from app.api.spiele.schemas import (
     SONDEREREIGNIS_KEEPING_ITS_SLOT,
     SONDEREREIGNIS_RECORDING_AN_ABSENCE,
     SONDEREREIGNIS_WITHOUT_A_RESULT,
     FLPatchSpielDataPayload,
     FLSpiel,
+    FLSpielJoinedAdminListAdapter,
     FLSpielJoinedInternalListAdapter,
     FLSpielListAdapter,
     FLSpielTeamField,
@@ -49,10 +50,12 @@ from app.api.spiele.services import (
     find_slot_claims,
     find_state_refusal,
     judge_spieltag_occupancy,
+    voided_results_of,
 )
 from app.core.codes import Code
 from app.core.exceptions import APIError, WriteRefusal
 from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SCHIEDSRICHTER_ID
+from tests import documents
 from tests.payloads import spiel_patch_body
 
 MATCH_ID = "6890a1b2c3d4e5f60720{:04d}"
@@ -80,6 +83,7 @@ UNUSUAL_FORFEIT = FLSaisonForfeitErgebnis(sieger_tore=2, verlierer_tore=1)
 RULES = FLSaisonRules(
     win_points=3,
     draw_points=1,
+    loss_points=0,
     qualifiers_per_gruppe=2,
     number_of_gruppen=4,
     teams_per_gruppe=4,
@@ -93,19 +97,19 @@ PayloadFactory = Callable[..., dict[str, Any]]
 
 
 def team(team_id: str, name: str, tore: int | None = None) -> dict[str, Any]:
-    """A side as a DOCUMENT holds it. The payload model drops the two names, which is what makes it a stored shape."""
+    """A side, the name and shorthand a read joins beside it; the payload and the stored model keep the team and its goals."""
 
     return {"team_id": team_id, "name": name, "tore": tore, "shorthand": name[:3].upper()}
 
 
 def membership_of(team_id: str, departed_from: str | None = None) -> SaisonMembership:
-    """One junction row as `pull_saison_membership` answers it, under `team`'s shorthand rule."""
+    """One junction row as `pull_saison_membership` answers it."""
 
-    return SaisonMembership(name=TEAMS[team_id], shorthand=TEAMS[team_id][:3].upper(), departed_from=departed_from)
+    return SaisonMembership(name=TEAMS[team_id], departed_from=departed_from)
 
 
 def references(**overrides: Any) -> ResolvedReferences:
-    """Every row a save composes its names from: the whole season entered, and no booking moved."""
+    """Every row a save judges its references by: the whole season entered, and no booking moved."""
 
     return ResolvedReferences(teams={ObjectId(team_id): membership_of(team_id) for team_id in TEAMS}, **overrides)
 
@@ -204,6 +208,7 @@ def occupancy_for(saison_docs: list[dict[str, Any]], nr: int, **overrides: Any):
         ObjectId(stored["_id"]),
         payload_for(saison_docs, nr, **overrides),
         FLSpielListAdapter.validate_python(saison_docs),
+        references().teams,
     )
 
 
@@ -224,13 +229,12 @@ A_DIFFERENT_SCHIEDSRICHTER = {"schiedsrichter_id": ANOTHER_SCHIEDSRICHTER, "paym
 
 LIVE_SPIELORT = BookedVenue(name="Sportplatz Nord", maps_link="Sportplatz Nord, Frankfurt", inactive_since=None)
 RETIRED_SPIELORT = BookedVenue(name="Sportplatz Nord", maps_link="Sportplatz Nord, Frankfurt", inactive_since="2026-02-01")
-LIVE_SCHIEDSRICHTER = BookedReferee(name="B. Whistle", inactive_since=None, confirmed=True)
-RETIRED_SCHIEDSRICHTER = BookedReferee(name="B. Whistle", inactive_since="2026-02-01", confirmed=True)
+LIVE_SCHIEDSRICHTER = BookedReferee(inactive_since=None, confirmed=True)
+RETIRED_SCHIEDSRICHTER = BookedReferee(inactive_since="2026-02-01", confirmed=True)
 # A referee an administrator entered whose own confirmation has not come in.
-UNCONFIRMED_SCHIEDSRICHTER = BookedReferee(name="B. Whistle", inactive_since=None, confirmed=False)
-# The ghost, which is the one referee row carrying no name (`app/core/sentinels.py :: GHOST_SCHIEDSRICHTER_ID`), and
-# no confirmation either.
-GHOST_SCHIEDSRICHTER = BookedReferee(name=None, inactive_since="2000-01-01", confirmed=False)
+UNCONFIRMED_SCHIEDSRICHTER = BookedReferee(inactive_since=None, confirmed=False)
+# The ghost (`app/core/sentinels.py :: GHOST_SCHIEDSRICHTER_ID`), retired and never confirmed.
+GHOST_SCHIEDSRICHTER = BookedReferee(inactive_since="2000-01-01", confirmed=False)
 
 
 def patched_spiel(
@@ -238,14 +242,13 @@ def patched_spiel(
     nr: int,
     *,
     rules: FLSaisonRules = RULES,
-    resolved: ResolvedReferences | None = None,
     **overrides: Any,
 ) -> FLSpiel:
     """The fixture as this patch leaves it — the one function `patch_spiel` applies for the save and for the `dry_run` preview alike."""
 
     stored = FLSpiel.model_validate(stored_spiel(saison_docs, nr))
 
-    return apply_payload_to_spiel(stored, payload_for(saison_docs, nr, **overrides), rules, resolved or references())
+    return apply_payload_to_spiel(stored, payload_for(saison_docs, nr, **overrides), rules)
 
 
 class TestApplyingThePayload:
@@ -386,62 +389,24 @@ class TestComposingAForfeit:
         assert patched.sonderereignis == "nichtantreten_team2"
 
 
-class TestComposingTheDisplayCopies:
-    """Every name a saved fixture carries is the server's copy of a row rather than the client's, which could only be stale."""
+class TestComposingTheBookings:
+    """A saved booking is the payload's reference and its money: what THIS fixture pays rather than the row's current default."""
 
-    def test_a_sides_name_comes_from_the_junction(self, saison):
-        """The junction is the season's own record of what a club is called, and the payload carries no name to prefer."""
-
-        renamed = ResolvedReferences(teams={ObjectId(ADLER): SaisonMembership(name="Adler-Schule", shorthand="ASX", departed_from=None)})
-        patched = patched_spiel(saison, 1, resolved=renamed, team1=team(ADLER, "Typed By A Client"), team2=None)
-
-        assert patched.team1 is not None
-        assert (patched.team1.name, patched.team1.shorthand) == ("Adler-Schule", "ASX")
-
-    def test_a_side_the_season_holds_no_row_for_keeps_the_name_the_fixture_stores(self, saison):
-        """`eligibility_team_not_in_saison` refuses a NEWLY fielded club holding no row, so this is one already standing here."""
-
-        patched = patched_spiel(saison, 1, resolved=ResolvedReferences(teams={}))
-
-        assert patched.team1 is not None and patched.team1.name == "Adler"
-
-    def test_a_side_neither_the_season_nor_the_fixture_knows_is_refused_rather_than_guessed(self, saison):
-        with pytest.raises(ValueError, match=CRONBERG):
-            patched_spiel(saison, 1, resolved=ResolvedReferences(teams={}), team1=team(CRONBERG, "Cronberg"))
-
-    def test_a_venues_name_and_link_come_from_the_venue_while_the_rent_stays_the_payloads(self, saison):
-        """The asymmetry: `mietpreis` is what THIS fixture pays rather than a copy of the venue's current default."""
-
+    def test_a_moved_venue_stores_the_payloads_rent(self, saison):
         moved = {"spielort_id": ANOTHER_SPIELORT, "mietpreis": 95}
-        patched = patched_spiel(saison, 1, resolved=references(ort=LIVE_SPIELORT), ort=moved)
+        patched = patched_spiel(saison, 1, ort=moved)
 
         assert patched.ort is not None
-        assert (patched.ort.name, patched.ort.maps_link, patched.ort.mietpreis) == (LIVE_SPIELORT.name, LIVE_SPIELORT.maps_link, 95)
-
-    def test_an_unchanged_venue_keeps_what_the_fixture_recorded(self, saison):
-        """Nothing resolved for it, so the copy `PATCH /spielorte/{spielort_id}` maintains is what stands."""
-
-        booked = {"spielort_id": stored_spiel(saison, 1)["ort"]["spielort_id"], "mietpreis": 95}
-        patched = patched_spiel(saison, 1, ort=booked)
-
-        assert patched.ort is not None
-        assert (patched.ort.name, patched.ort.mietpreis) == ("Sportplatz Ost", 95)
-
-    def test_a_referees_name_comes_from_the_referee_while_the_payment_stays_the_payloads(self, saison):
-        moved = {"schiedsrichter_id": ANOTHER_SCHIEDSRICHTER, "payment": 35}
-        patched = patched_spiel(saison, 1, resolved=references(schiedsrichter=LIVE_SCHIEDSRICHTER), schiedsrichter=moved)
-
-        assert patched.schiedsrichter is not None
-        assert (patched.schiedsrichter.name, patched.schiedsrichter.payment) == (LIVE_SCHIEDSRICHTER.name, 35)
+        assert (str(patched.ort.spielort_id), patched.ort.mietpreis) == (ANOTHER_SPIELORT, 95)
 
     def test_an_unchanged_referee_keeps_the_fee_the_payload_states(self, saison):
-        """The venue case's twin, and it is money: without the carry-through an edited Honorar dies in a save reporting success."""
+        """Without the carry-through an edited Honorar dies in a save reporting success."""
 
         booked = {"schiedsrichter_id": stored_spiel(saison, 1)["schiedsrichter"]["schiedsrichter_id"], "payment": 45}
         patched = patched_spiel(saison, 1, schiedsrichter=booked)
 
         assert patched.schiedsrichter is not None
-        assert (patched.schiedsrichter.name, patched.schiedsrichter.payment) == ("A. Referee", 45)
+        assert patched.schiedsrichter.payment == 45
 
     def test_clearing_a_booking_stores_nothing(self, saison):
         patched = patched_spiel(saison, 1, ort=None, schiedsrichter=None)
@@ -603,7 +568,7 @@ class TestAnUnconfirmedRefereeIsNeverBooked:
     def test_a_retired_unconfirmed_referee_meets_the_retirement_first(self, saison):
         """The order the ghost relies on: its sentence is `booking_unknown_resource`'s, never a wait for a confirmation nobody can give."""
 
-        retired = BookedReferee(name="B. Whistle", inactive_since="2026-02-01", confirmed=False)
+        retired = BookedReferee(inactive_since="2026-02-01", confirmed=False)
 
         assert (
             booking_refusal_for(saison, 1, references(schiedsrichter=retired), schiedsrichter=A_DIFFERENT_SCHIEDSRICHTER)
@@ -639,7 +604,7 @@ class TestTheGhostIsToldFromAnyOtherNamelessRow:
         retired = booked_by(saison, 29, A_NAMELESS_RETIRED_SCHIEDSRICHTER)
 
         faults = find_retired_bookings(
-            FLSpielListAdapter.validate_python([ghosted, retired]),
+            FLSpielJoinedAdminListAdapter.validate_python([documents.joined_spiel_document(ghosted), documents.joined_spiel_document(retired)]),
             retired_venues={},
             retired_referees={GHOST_SCHIEDSRICHTER_ID: GHOST_INACTIVE_SINCE, A_NAMELESS_RETIRED_SCHIEDSRICHTER: SCHIEDSRICHTER_RETIRED_ON},
         )
@@ -658,12 +623,28 @@ class TestTheGhostIsToldFromAnyOtherNamelessRow:
         booked = {**stored_spiel(saison, 1), "ort": retired_ground}
 
         (fault,) = find_retired_bookings(
-            FLSpielListAdapter.validate_python([booked]),
+            FLSpielJoinedAdminListAdapter.validate_python([documents.joined_spiel_document(booked)]),
             retired_venues={ObjectId(ANOTHER_SPIELORT): SCHIEDSRICHTER_RETIRED_ON},
             retired_referees={},
         )
 
         assert (fault.booking, fault.booking_id) == ("ort", ObjectId(ANOTHER_SPIELORT))
+
+    def test_a_named_referee_fault_carries_its_name(self, saison):
+        """A retired referee who still has a name is served by it; served nameless, the queue reads as a row missing its name."""
+
+        named = {
+            **stored_spiel(saison, 29),
+            "schiedsrichter": {"schiedsrichter_id": ObjectId(ANOTHER_SCHIEDSRICHTER), "name": "B. Referee", "payment": 20},
+        }
+
+        (fault,) = find_retired_bookings(
+            FLSpielJoinedAdminListAdapter.validate_python([documents.joined_spiel_document(named)]),
+            retired_venues={},
+            retired_referees={ObjectId(ANOTHER_SCHIEDSRICHTER): SCHIEDSRICHTER_RETIRED_ON},
+        )
+
+        assert (fault.booking, fault.booking_id, fault.name) == ("schiedsrichter", ObjectId(ANOTHER_SCHIEDSRICHTER), "B. Referee")
 
     def test_the_ghost_claims_no_slot_where_a_nameless_referee_still_does(self, saison):
         """`spiel_double_booked` asks whether one person is in two places, and every erased referee's fixtures share the ghost's id.
@@ -1177,6 +1158,15 @@ class TestApplyingARelease:
         assert released.team1 is None and released.team2 is None
         assert released.ergebnis is None and released.elfmeterschiessen is None
 
+    def test_a_fixture_giving_up_both_its_sides_deletes_its_one_result_once(self, saison):
+        """Each release reports the one result, and the admin confirms the deleted results as listed: listed twice, one reads as two."""
+
+        releases, _ = doubly_released_fixture(saison)
+
+        voided = voided_results_of([report_release(release) for release in releases])
+
+        assert [(result.spiel_nr, result.voided_ergebnis) for result in voided] == [(2, "3:1")]
+
 
 def joined(
     *,
@@ -1355,7 +1345,7 @@ class TestTheDisqualifiedOccupantFault:
 
 
 def double_entries(*spiele: dict[str, Any]) -> list:
-    return find_double_entries(FLSpielListAdapter.validate_python(list(spiele)))
+    return find_double_entries(FLSpielJoinedInternalListAdapter.validate_python([documents.joined_spiel_document(spiel) for spiel in spiele]))
 
 
 class TestTheClubFieldedTwiceFault:
@@ -1557,6 +1547,15 @@ class TestTheResolutionNeverFieldsAClubTwice:
         assert refusal is not None
         assert refusal.error_code == Code.SPIELTAG_OCCUPIED_BY_THE_RESOLUTION
 
+    def test_a_resolution_seating_a_club_beside_itself_in_the_second_side_is_refused(self, unresolved_slot_beside_a_hand_set_one):
+        """The resolution fills either side, so a rule reading only `team1` would seat a club twice through `team2` unrefused."""
+
+        saison = unresolved_slot_beside_a_hand_set_one
+        refusal = advancement_refusal(saison, advancement(saison, 30, team2=team(ADLER, "Adler")))
+
+        assert refusal is not None
+        assert refusal.error_code == Code.SPIELTAG_OCCUPIED_BY_THE_RESOLUTION
+
     def test_a_resolution_that_creates_no_pair_is_permitted(self, unresolved_slot_beside_a_hand_set_one):
         """The same slot settling on anybody else, which is the ordinary case the refusal must not reach."""
 
@@ -1565,7 +1564,7 @@ class TestTheResolutionNeverFieldsAClubTwice:
         assert advancement_refusal(saison, advancement(saison, 30, team1=team(CRONBERG, "Cronberg"))) is None
 
     def test_a_pair_the_season_already_holds_is_left_to_be_repaired(self, spiel_at):
-        """`swap_spieltag_clash`'s line, at this write: refusing over a standing fault would block every edit that could clear it."""
+        """A pair the season already holds is no fault of this write: refusing over it would block every edit that could clear it."""
 
         stored = [
             spiel_at(29, "halbfinale", SPIELTAG_TWO, team1=team(ADLER, "Adler"), team2=None),

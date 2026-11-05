@@ -50,13 +50,13 @@ export const UNKNOWN_REFUSAL = `${LADE_NEU_UND_VERSUCHE_ES_ERNEUT}.`;
  * sentence it ends. „erneut“ is the one word for doing anything again, a link reopened included,
  * never „noch einmal“.
  */
-export const VERSUCHE_ES_ERNEUT = "Versuche es erneut";
+export const TRY_AGAIN = "Versuche es erneut";
 
 /**
  * The way out alone, under a title already saying which step did not happen, where the same press may
  * pass: every sign-in, passkey and account refusal with no sentence of its own says this.
  */
-export const VERSUCHE_ES_ERNEUT_SATZ = `${VERSUCHE_ES_ERNEUT}.`;
+export const VERSUCHE_ES_ERNEUT_SATZ = `${TRY_AGAIN}.`;
 
 // Every form meeting a refusal no input shows, with no sentence of its own, says this. Here rather than in
 // the client hook raising it: a route handler receives a client module's exports as references, not strings.
@@ -69,4 +69,4 @@ export const UNSHOWN_COST =
   "Nichts wurde gespeichert, aber Deine Eingaben stehen unverändert im Formular";
 
 // Never a reload: it would discard the entries the reason has just promised are intact.
-export const UNHANDLED_FIELD_REFUSAL = buildRefusal({ reason: UNSHOWN_COST, repair: VERSUCHE_ES_ERNEUT });
+export const UNHANDLED_FIELD_REFUSAL = buildRefusal({ reason: UNSHOWN_COST, repair: TRY_AGAIN });

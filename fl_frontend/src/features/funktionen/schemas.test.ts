@@ -6,10 +6,10 @@ import { z } from "zod";
 
 import { asSignInIdentifier } from "@/core/emailAddress.ts";
 
-import { LOESCHUNG_ANLASS_MAX_LENGTH } from "./constants.ts";
+import { ERASURE_REASON_MAX_LENGTH } from "./constants.ts";
 import { FLLoeschungAdressePayloadSchema, FLLoeschungPayloadSchema } from "./schemas.ts";
 
-const ANLASS = "E-Mail vom 12.10.2026, Betreff Löschung meiner Daten";
+const REASON = "E-Mail vom 12.10.2026, Betreff Löschung meiner Daten";
 
 const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..");
 
@@ -17,13 +17,13 @@ const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..");
 // comparison the predicate gets, since the API's sentence reaches its log line and never this box.
 const PROBE = z.array(z.object({ value: z.string(), refused: z.boolean() }));
 const REFUSALS = z
-  .object({ anlass: PROBE })
+  .object({ reason: PROBE })
   .parse(JSON.parse(readFileSync(path.resolve(REPO_ROOT, "fl_backend", "tests", "shared", "erasure_refusals.json"), "utf8")));
 
 /** The two payloads keyed on an address, each judged on the address alone. */
 const LOOKUPS = [
   ["the reveal and the sign-out", (email: unknown) => FLLoeschungAdressePayloadSchema.safeParse({ email: email }).success],
-  ["the erasure", (email: unknown) => FLLoeschungPayloadSchema.safeParse({ email: email, anlass: ANLASS }).success],
+  ["the erasure", (email: unknown) => FLLoeschungPayloadSchema.safeParse({ email: email, reason: REASON }).success],
 ] as const;
 
 describe("the address the erasure, its reveal and the sign-out look up", () => {
@@ -71,7 +71,7 @@ describe("the mailbox each lookup asks for", () => {
     );
     const parsed = [
       ["the reveal and the sign-out", (email: string) => FLLoeschungAdressePayloadSchema.parse({ email: email }).email],
-      ["the erasure", (email: string) => FLLoeschungPayloadSchema.parse({ email: email, anlass: ANLASS }).email],
+      ["the erasure", (email: string) => FLLoeschungPayloadSchema.parse({ email: email, reason: REASON }).email],
     ] as const;
     for (const [payload, asked] of parsed) {
       for (const row of ADDRESSES) {
@@ -82,19 +82,19 @@ describe("the mailbox each lookup asks for", () => {
 });
 
 describe("the request the erasure answers", () => {
-  const refused = (anlass: string): string | undefined =>
-    FLLoeschungPayloadSchema.safeParse({ email: "ada@example.org", anlass: anlass }).error?.issues[0]?.message;
+  const refused = (reason: string): string | undefined =>
+    FLLoeschungPayloadSchema.safeParse({ email: "ada@example.org", reason: reason }).error?.issues[0]?.message;
 
   it("takes a date and a subject", () => {
-    expect(refused(ANLASS)).toBe(undefined);
+    expect(refused(REASON)).toBe(undefined);
   });
 
   /* Each a refusal the API makes too (`fl_backend/app/api/sperrliste/schemas.py :: ADDRESS_IN_FREE_TEXT` for the
-     address): the log keeps the Anlass a year, past the redaction of anybody it names. */
+     address): the log keeps the reason a year, past the redaction of anybody it names. */
   it("refuses a blank one, an over-long one, one of two lines and one holding an address, each in German", () => {
     expect(refused("   ")).toBe("Bitte gib einen Anlass ein.");
-    expect(refused("a".repeat(LOESCHUNG_ANLASS_MAX_LENGTH + 1))).toBe(
-      `Der Anlass darf höchstens ${String(LOESCHUNG_ANLASS_MAX_LENGTH)} Zeichen lang sein.`,
+    expect(refused("a".repeat(ERASURE_REASON_MAX_LENGTH + 1))).toBe(
+      `Der Anlass darf höchstens ${String(ERASURE_REASON_MAX_LENGTH)} Zeichen lang sein.`,
     );
     expect(refused("E-Mail vom 12.10.2026\nBetreff Löschung")).toBe("Der Anlass darf keine Zeilenumbrüche oder Steuerzeichen enthalten.");
     expect(refused("E-Mail von ada@example.org vom 12.10.2026")).toBe("Der Anlass darf keine E-Mail-Adresse enthalten.");
@@ -102,12 +102,12 @@ describe("the request the erasure answers", () => {
 
   /* Measured as the API measures it, after the strip. */
   it("counts the bound on the trimmed request", () => {
-    expect(refused(` ${"a".repeat(LOESCHUNG_ANLASS_MAX_LENGTH)} `)).toBe(undefined);
+    expect(refused(` ${"a".repeat(ERASURE_REASON_MAX_LENGTH)} `)).toBe(undefined);
   });
 
-  /* A deliverable shape only: an at sign in prose, or a domain with no top level, stays an Anlass. */
+  /* A deliverable shape only: an at sign in prose, or a domain with no top level, stays a reason. */
   it("refuses an address where the API's table refuses one", () => {
-    for (const { value, refused: verweigert } of REFUSALS.anlass) {
+    for (const { value, refused: verweigert } of REFUSALS.reason) {
       expect(refused(value), `"${value}"`).toBe(verweigert ? "Der Anlass darf keine E-Mail-Adresse enthalten." : undefined);
     }
   });

@@ -5,6 +5,14 @@ import { tv } from "./tv";
  * frame, the message line, the drawn box of a checkbox, radio or switch, and the menu a select or a
  * combo box opens. Each is a `tv()` recipe, which the class lint reads. A border's colour is named
  * because HeroUI's base sheet colours every element's border.
+ *
+ * The touch rule: every pressable control's press target is at least the kit's control height on a touch screen,
+ * 40 px (32 with a mouse), as WCAG 2.5.8's target size asks with the kit's own figure; a link inside running text is
+ * the exception that criterion makes for inline targets. A control drawn at that height is its own target; one drawn
+ * smaller keeps its look and reaches the height through its row (`toggleRow`) or through a target laid over its
+ * frame's inset (`choiceButton`'s segment). A field's frame draws its 1-px edge as an inset ring, which takes no room,
+ * so a part filling the frame, a date's calendar button, a combo box's arrow or a search's text, is the frame's whole
+ * height.
  */
 
 /**
@@ -55,6 +63,8 @@ export const statusLine = tv({
     tone: {
       none: "",
       changes: "text-fg",
+      // An act's reason it cannot run, in the small muted tone a danger row's second line takes.
+      locked: "text-xs text-fg-muted",
       saved: "text-success",
       error: "text-danger",
     },
@@ -62,20 +72,30 @@ export const statusLine = tv({
 });
 
 /**
+ * How wide a form's long field grows from `lg`: about 30 characters (`--container-field`), so it reads as the length
+ * of a name or an address rather than as the column, as GOV.UK sizes a text input to its expected answer. Set in the
+ * field's own text, so `ch` measures its letters wherever the cap is read: on the frame, and on a pair's growing side,
+ * which stops where its field does. A phone's field keeps the full row.
+ */
+export const columnCap = tv({ base: "text-sm lg:max-w-field pointer-coarse:text-base" });
+
+/**
  * The edge a value is typed into: 32 px with a mouse, 40 px and 16-px text on a touch screen, transparent inside
  * its control edge, as every control is, so it takes the fill of the page or the card it stands on, as the
- * secondary button does. Inside a pair sharing its row on a phone
- * (`FieldPair`'s `data-pair`), it fills its side of the row: a percentage minimum adds nothing to the width
- * the side is laid out at, so the side starts from the field's width class and the frame then fills what
- * the side grew to.
+ * secondary button does. The edge is an inset ring, as the switch's track draws its own, so the frame's parts fill
+ * its whole height by the touch rule at this file's head, the edge lying inside the frame's inset. Inside a pair
+ * sharing its row on a phone (`FieldPair`'s `data-pair`), it fills its side of the row: a percentage minimum adds
+ * nothing to the width the side is laid out at, so the side starts from the field's width class and the frame then
+ * fills what the side grew to.
  */
 export const fieldFrame = tv({
-  base: "rounded-lg border border-border-control bg-transparent text-sm text-fg transition-colors duration-(--motion-state) group-data-invalid:border-danger data-disabled:opacity-50 data-invalid:border-danger max-lg:in-data-pair:min-w-full pointer-coarse:text-base",
+  base: "rounded-lg bg-transparent text-sm text-fg inset-ring inset-ring-border-control transition-[color,outline-color,box-shadow] duration-(--motion-state) group-data-invalid:inset-ring-danger data-disabled:opacity-50 data-invalid:inset-ring-danger max-lg:in-data-pair:min-w-full pointer-coarse:text-base",
   variants: {
     // A field is as wide as its value. The short widths are counted in characters, as the GOV.UK Design
     // System sizes its fixed-width inputs, so they grow with the reader's font size: each holds its count
-    // of characters and one more for the caret, inside the two 10-px insets and the two 1-px edges
-    // (1.375 rem together). Then the column, and the column at four lines for a paragraph.
+    // of characters and one more for the caret, inside the two 10-px insets, with 2 px to spare (1.375 rem
+    // together). Then a long field, the column up to `columnCap`; the column at four lines for a paragraph, free
+    // text taking the whole column; and a field filling the column it stands in, uncapped.
     width: {
       // A score.
       C2: "h-8 w-[calc(3ch+1.375rem)] pointer-coarse:h-10",
@@ -84,7 +104,13 @@ export const fieldFrame = tv({
       // A date: the width of a ten-character field and its calendar button beside it, 32 px with a mouse
       // and 40 on a touch screen as every field's button is.
       C10: "h-8 w-[calc(11ch+1.375rem+2rem)] pointer-coarse:h-10 pointer-coarse:w-[calc(11ch+1.375rem+2.5rem)]",
-      W3: "h-8 w-full pointer-coarse:h-10",
+      W3: `h-8 w-full ${columnCap()} pointer-coarse:h-10`,
+      // A long name, past the 30 characters a person's name or an address takes, such as a venue's: the column up to
+      // about 40 characters from `lg`, sized by the same measure.
+      W3L: "h-8 w-full text-sm lg:max-w-field-long pointer-coarse:h-10 pointer-coarse:text-base",
+      // A long field in a column narrower than the cap, which fills that column as a phone's field fills its row: the
+      // search over a list, at the reading width its toolbar gives it, and the sign-in's address in its column.
+      column: "h-8 w-full pointer-coarse:h-10",
       // A select of a few short choices: as wide as its longest choice, which `Select` lays in the frame unseen.
       fit: "h-8 w-fit max-w-full min-w-40 pointer-coarse:h-10",
       W4: "min-h-26 w-full resize-none py-2",
@@ -112,8 +138,8 @@ export const fieldFrame = tv({
   compoundVariants: [
     { width: ["C2", "C5", "C10"], inset: "full", class: "px-2.5" },
     { width: ["C2", "C5", "C10"], inset: "start", class: "ps-2.5" },
-    { width: ["W3", "W4", "fit"], inset: "full", class: "px-3" },
-    { width: ["W3", "W4", "fit"], inset: "start", class: "ps-3" },
+    { width: ["W3", "W3L", "column", "W4", "fit"], inset: "full", class: "px-3" },
+    { width: ["W3", "W3L", "column", "W4", "fit"], inset: "start", class: "ps-3" },
   ],
 });
 
@@ -174,9 +200,13 @@ export const dateSegment = tv({ base: "rounded-md caret-transparent data-placeho
 /** The weekdays over a date's calendar, in the caption grade. */
 export const calendarHead = tv({ base: "pb-1 text-xs font-medium text-fg-muted" });
 
-/** A day in a date's calendar, as large as a control; the chosen day inverts. */
+/**
+ * A day in a date's calendar, as large as a control; the chosen day inverts. React Aria's calendar moves its focus by
+ * the keys alone and marks the day under the pointer `data-hovered`, so the pointer lays the one hover layer on a day
+ * as the keys' focus does (`focus.css`), over the chosen day's inverted mark too.
+ */
 export const calendarCell = tv({
-  base: "flex size-8 cursor-default items-center justify-center rounded-md font-numeric text-sm data-disabled:opacity-50 data-outside-month:text-fg-muted data-selected:bg-fg data-selected:text-bg pointer-coarse:size-10",
+  base: "flex size-8 cursor-pointer items-center justify-center rounded-md font-numeric text-sm transition-colors duration-(--motion-state) data-disabled:cursor-default data-disabled:opacity-50 data-hovered:bg-layer data-outside-month:text-fg-muted data-pressed:bg-layer data-selected:bg-fg data-selected:text-bg pointer-coarse:size-10",
 });
 
 /**
@@ -186,10 +216,12 @@ export const calendarCell = tv({
 export const toggleField = tv({ base: "grid w-full grid-cols-[auto_minmax(0,1fr)] gap-x-2.5 gap-y-1" });
 
 /**
- * A checkbox, a radio or a switch: the drawn box, its label 10 px to the right.
+ * A checkbox, a radio or a switch: the drawn box, its label 10 px to the right. The row is the control's press
+ * target, its label included, and on a touch screen it is the kit's control height at least, 10 px over and under
+ * a line's 20 px, by the touch rule at this file's head.
  */
 export const toggleRow = tv({
-  base: "items-start text-sm text-fg data-disabled:opacity-50",
+  base: "group/toggle cursor-pointer items-start text-sm text-fg data-disabled:cursor-default data-disabled:opacity-50 pointer-coarse:py-2.5",
   variants: {
     // A radio's answer stands alone; a checkbox's or a switch's row takes its field's two columns.
     in: {
@@ -222,7 +254,7 @@ export const toggleBox = tv({
     },
   },
   compoundVariants: [
-    { selected: false, invalid: false, class: "border-border-control" },
+    { selected: false, invalid: false, class: "border-border-control group-data-hovered/toggle:border-fg-muted" },
     { selected: false, invalid: true, class: "border-danger" },
   ],
 });
@@ -252,7 +284,7 @@ export const radioList = tv({
  */
 export const choiceCard = tv({
   slots: {
-    card: "grid cursor-default grid-cols-[auto_minmax(0,1fr)] gap-x-2.5 rounded-lg border border-border-control bg-transparent p-4 text-sm text-fg transition-colors duration-(--motion-state) data-disabled:opacity-50 data-selected:border-brand data-selected:inset-ring-1 data-selected:inset-ring-brand",
+    card: "grid cursor-pointer grid-cols-[auto_minmax(0,1fr)] gap-x-2.5 rounded-lg border border-border-control bg-transparent p-4 text-sm text-fg transition-colors duration-(--motion-state) data-disabled:cursor-default data-disabled:opacity-50 data-hovered:not-data-selected:border-fg-muted data-selected:border-brand data-selected:inset-ring-1 data-selected:inset-ring-brand",
     words: "grid gap-1",
     title: "font-semibold",
     line: "text-xs text-fg-muted",
@@ -267,7 +299,6 @@ export const radioDot = tv({ base: "size-2.5 rounded-full bg-bg" });
 /**
  * A switch's track, its thumb resting two pixels inside it. On, it fills with the link green; off, it keeps
  * the muted fill inside a 1-px edge in the fields' edge colour, so it shows against the page in either theme.
- * @awaitsProduction session 5's `Switch`
  */
 export const switchTrack = tv({
   base: "mt-px flex h-5 w-9 shrink-0 items-center rounded-full px-0.5 transition-colors duration-(--motion-state)",
@@ -275,7 +306,7 @@ export const switchTrack = tv({
     selected: {
       true: "bg-brand",
       // Drawn inside the track, so the edge moves neither the track nor its thumb.
-      false: "bg-bg-muted inset-ring inset-ring-border-control",
+      false: "bg-bg-muted inset-ring inset-ring-border-control group-data-hovered/toggle:inset-ring-fg-muted",
     },
   },
 });
@@ -283,7 +314,6 @@ export const switchTrack = tv({
 /**
  * The switch's thumb: the control edge's grey on the off track, the page's ground on the brand fill once on,
  * sliding to the track's end when on.
- * @awaitsProduction session 5's `Switch`
  */
 export const switchThumb = tv({
   base: "size-4 rounded-full transition-[transform,background-color] duration-(--motion-state)",
@@ -313,21 +343,38 @@ export const menuPopover = tv({
   },
 });
 
+/**
+ * The pop-up a short text opens in, anchored to its control and dimming nothing: the help behind a section's ⓘ and
+ * a club behind its plaque, on one surface. Help is a few sentences, set at the help popover's 320 px so they wrap
+ * at one measure; a club's name and its link are a few words, so that pop-up is as wide as they are, never
+ * narrower than 192 px. Neither is wider than the screen.
+ */
+export const popoverSurface = tv({
+  base: "max-w-panel rounded-lg border border-border bg-bg-overlay p-3 text-sm text-fg shadow-menu transition-opacity duration-(--motion-in) data-entering:opacity-0 data-exiting:opacity-0 data-exiting:duration-(--motion-out)",
+  variants: {
+    width: {
+      help: "w-popover",
+      fit: "min-w-48",
+    },
+  },
+});
+
 /** One entry of that menu: a fill when the pointer or the arrow keys reach it. */
 export const menuItem = tv({
-  base: "flex min-h-8 cursor-default items-center justify-between gap-2 rounded-md px-3 text-sm text-fg data-disabled:opacity-50 pointer-coarse:min-h-10 pointer-coarse:text-base",
+  base: "flex min-h-8 cursor-pointer items-center justify-between gap-2 rounded-md px-3 text-sm text-fg data-disabled:cursor-default data-disabled:opacity-50 pointer-coarse:min-h-10 pointer-coarse:text-base",
 });
 
 /**
- * How a list marks its chosen entry, by what choosing it means, in every list that has one. A form's value,
- * in a select's, a combo box's or a menu's choice: the row tinted 12 % of the link green, its check at the
- * end. A navigating menu's current place: the rail's mark of the current page, the muted fill with the words
- * in the link green, and no check.
+ * How a chosen entry is marked. In every list, a select's, a combo box's and a menu's, a navigating menu's current
+ * place among them: its words in the link green and its check at the end, which the list draws, with no fill, so
+ * the entry under the pointer or the keys, chosen or not, takes the one hover layer alone (`focus.css`). The rail's
+ * current page is a place of the frame rather than a list's choice, and keeps its own mark: the muted fill with the
+ * words in the link green.
  */
 export const entryMark = tv({
   variants: {
     mark: {
-      value: "data-selected:bg-brand/12",
+      chosen: "data-selected:text-brand",
       place: "data-selected:bg-bg-muted data-selected:text-brand",
     },
   },
@@ -349,16 +396,22 @@ export const choiceGroup = tv({
 
 /**
  * One answer of that choice, semibold once chosen. The chosen segment is raised out of its frame, the
- * highlight fill inside a 1-px control edge, as GitHub Primer's segmented control draws it; a chosen box lifts
- * to the surface, its edge one grade stronger, so the edge tells it from its neighbours too.
+ * highlight fill inside a 1-px control edge, as GitHub Primer's segmented control draws it; a chosen box takes the
+ * link green's edge and its 12 % tint, as a chosen form value is tinted, so an accepted box stands apart from a
+ * declined one on a card as on the page. Under the pointer and pressed, chosen or not, each takes the one hover layer.
  */
 export const choiceButton = tv({
-  base: "inline-flex cursor-default items-center justify-center text-sm font-medium whitespace-nowrap text-fg transition-colors duration-(--motion-state) data-disabled:opacity-50 data-selected:font-semibold",
+  base: "inline-flex cursor-pointer items-center justify-center text-sm font-medium whitespace-nowrap text-fg transition-colors duration-(--motion-state) data-disabled:cursor-default data-disabled:opacity-50 data-selected:font-semibold",
   variants: {
     kind: {
-      segmented: "h-full rounded-md border border-transparent data-selected:border-border-control data-selected:bg-bg-muted",
+      // Drawn inside its frame's 2-px inset and 1-px edge, 26 px with a mouse and 34 on a touch screen; its press target
+      // reaches over both, the frame's whole 32 or 40 px, so the raised segment keeps its look and the frame its
+      // height beside the fields, by the touch rule at this file's head. The target is laid from the segment's own
+      // inner edge: its 1-px edge, then the frame's inset and edge, 4 px up and down, its own edge at the sides.
+      segmented:
+        "relative h-full rounded-md border border-transparent before:absolute before:-inset-x-px before:-inset-y-1 data-hovered:bg-layer data-pressed:bg-layer data-selected:border-border-control data-selected:bg-bg-muted",
       boxes:
-        "h-8 min-w-16 rounded-lg border border-border-control bg-transparent px-3 data-selected:border-fg-muted data-selected:bg-bg-surface pointer-coarse:h-10",
+        "h-8 min-w-16 rounded-lg border border-border-control bg-transparent px-3 data-hovered:bg-layer data-pressed:bg-layer data-selected:border-brand data-selected:bg-brand/12 pointer-coarse:h-10",
     },
     // A segment holds words at the boxes' width, or a glyph alone, as wide as a control is tall, muted until chosen.
     content: {
@@ -368,7 +421,7 @@ export const choiceButton = tv({
   },
   compoundVariants: [
     { kind: "segmented", content: "words", class: "min-w-16 px-3" },
-    { kind: "segmented", content: "glyph", class: "w-8 text-fg-muted data-selected:text-fg pointer-coarse:w-10" },
+    { kind: "segmented", content: "glyph", class: "w-8 text-fg-muted data-hovered:text-fg data-selected:text-fg pointer-coarse:w-10" },
   ],
   defaultVariants: { content: "words" },
 });

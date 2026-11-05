@@ -23,6 +23,7 @@ STUFEN: list[FLSpielerStufe] = ["E1", "Q1", "Q2", "Q3", "Q4"]
 STANDARD_RULES = FLSaisonRules(
     win_points=3,
     draw_points=1,
+    loss_points=0,
     qualifiers_per_gruppe=2,
     number_of_gruppen=4,
     teams_per_gruppe=4,
@@ -131,10 +132,10 @@ class TestACalledOffFixture:
 
     def test_an_annulled_fixture_is_an_absage_and_never_a_match_played(self, league: SeededLeague):
         """Spiel 13 did not take place, so it joins the absage Ohne's Spiel 10 earns while the played figure stays where it was."""
-        ohne = table(league)["Ohne"]
+        without = table(league)["Ohne"]
 
-        assert ohne["count_gespielte_spiele"] == 0
-        assert ohne["count_abgesagte_spiele"] == 2
+        assert without["count_gespielte_spiele"] == 0
+        assert without["count_abgesagte_spiele"] == 2
 
     def test_it_moves_none_of_the_figures_the_table_is_built_from(self, league: SeededLeague):
         """An accumulator admitting a cancellation lands it in `unentschieden`, since `$eq: [null, null]` is true."""
@@ -180,25 +181,22 @@ def test_points_come_from_the_seasons_own_rules(league: SeededLeague):
     assert table(league, rules=unusual)["Helmholtz"]["punkte"] == 2
 
 
-def test_a_defeat_is_worth_nothing(league: SeededLeague):
-    """Bock's win and loss together are worth exactly one win."""
-    assert table(league)["Bock"]["punkte"] == STANDARD_RULES.win_points
+def test_a_defeat_scores_the_seasons_loss_points(league: SeededLeague):
+    """A season scoring a defeat shows a table a point short for every loss where the sum drops the third term.
+
+    Bock's win and loss are worth one win and one loss.
+    """
+    scored = STANDARD_RULES.model_copy(update={"loss_points": 1})
+
+    assert table(league, rules=scored)["Bock"]["punkte"] == scored.win_points + scored.loss_points
 
 
 def test_a_team_with_no_counting_match_is_served_zeroes(league: SeededLeague):
     """`$group` emits nothing for an empty input, so this is the `$ifNull` fallback; one missing key fails response validation."""
-    ohne = table(league)["Ohne"]
+    without = table(league)["Ohne"]
 
-    assert set(ohne) == set(FLTeamStatistik.model_fields)
-    assert set(value for field, value in ohne.items() if field != "count_abgesagte_spiele") == {0}
-
-
-def test_a_team_with_no_junction_row_disappears(league: SeededLeague):
-    """Fremd exists in `teams` and plays a 2026 match, so only the missing junction row can drop it."""
-    unseasoned = "Fremd"
-
-    assert unseasoned in league.team_oids, "the club this case is about is no longer seeded"
-    assert unseasoned not in table(league)
+    assert set(without) == set(FLTeamStatistik.model_fields)
+    assert set(value for field, value in without.items() if field != "count_abgesagte_spiele") == {0}
 
 
 def test_the_junction_supplies_gruppe_and_disqualification(league: SeededLeague):
@@ -253,7 +251,7 @@ def test_the_result_validates_as_the_response_model(league: SeededLeague):
     """Validating through the adapter proves the projection carries every field `FLTeam` requires, Ohne's fallback included."""
     teams = FLTeamListAdapter.validate_python(rows(league))
 
-    assert {team.name for team in teams} == {"Helmholtz", "Bock", "Lessing", "Ohne", "Komplett"}
+    assert {team.name for team in teams} == {"Helmholtz", "Bock", "Lessing", "Ohne", "Komplett", "Fremd"}
     assert next(team for team in teams if team.name == "Ohne").statistik.punkte == 0
 
 
@@ -267,7 +265,7 @@ def test_a_single_team_query_returns_only_that_team(league: SeededLeague):
 
 def test_the_table_comes_back_sorted_by_name(league: SeededLeague):
     """The `$sort` is the last stage before `$limit`, so it orders the derived rows rather than the raw teams."""
-    assert [row["name"] for row in rows(league)] == ["Bock", "Helmholtz", "Komplett", "Lessing", "Ohne"]
+    assert [row["name"] for row in rows(league)] == ["Bock", "Fremd", "Helmholtz", "Komplett", "Lessing", "Ohne"]
 
 
 def test_the_id_is_the_teams_own_id_not_the_junctions(league: SeededLeague):

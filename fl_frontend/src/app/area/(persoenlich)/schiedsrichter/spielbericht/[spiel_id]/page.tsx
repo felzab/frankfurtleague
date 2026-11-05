@@ -22,8 +22,8 @@ export default async function SchiedsrichterSpielberichtPage({ params }: NextPag
   const subject = await requireSubjectSession();
 
   // To the landing rather than a 404, as the referee panel sends a person who holds no referee record.
-  if (!rolesOf(subject).roles.some((funktion) => funktion.art === "schiedsrichter")) {
-    logPageVerweigert("/area/schiedsrichter/spielbericht", "keine_funktion");
+  if (!rolesOf(subject).roles.some((funktion) => funktion.kind === "schiedsrichter")) {
+    logPageVerweigert("/area/schiedsrichter/spielbericht", "no_role");
     redirect("/area");
   }
 
@@ -70,12 +70,11 @@ export default async function SchiedsrichterSpielberichtPage({ params }: NextPag
     // Keyed by the stored report, so the refresh after a save draws the draft anew from what was saved.
     <SpielberichtForm
       key={String(read.bericht?.version ?? 0)}
-      leser="schiedsrichter"
       spielId={spiel.spiel_id}
       kontext={kontext}
       stored={read.bericht}
       header={{
-        title: `${kontext.team1Name} gegen ${kontext.team2Name}`,
+        title: `${kontext.team1Name} vs. ${kontext.team2Name}`,
         chip: <span className="muted-meta">{formatSpielDatum(spiel.datum)}</span>,
       }}
       zurueckHref={SCHIEDSRICHTER_HREF}

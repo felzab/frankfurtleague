@@ -56,7 +56,7 @@ registerAuthDoubles({
 
 const store = memoryStore(STORE);
 
-/** One record set the league holds, and the gate's `konto` for it, as the backend answers both reads. */
+/** One record set the league holds, and the gate's `account` for it, as the backend answers both reads. */
 type Subject = Required<LookupFixture>;
 
 const SPIELER = { spieler_id: "b".repeat(24) };
@@ -64,7 +64,7 @@ const SPIELER = { spieler_id: "b".repeat(24) };
 /* Keyed by the FOLDED identifier, as the endpoint's own join is: a guard sending the address as the
    session holds it then asks about a mailbox this holds nothing for. */
 const RECORDS = new Map<string, Subject>([
-  [ADMIN_EMAIL, { ...HOLDS_NOTHING, seats: [SEAT], verwaltung: "administration", granted_since: "2026-01-01T00:00:00Z", account: true }],
+  [ADMIN_EMAIL, { ...HOLDS_NOTHING, seats: [SEAT], admin_tier: "administration", granted_since: "2026-01-01T00:00:00Z", account: true }],
   [PERSON_EMAIL, { ...HOLDS_NOTHING, spieler: [SPIELER], account: true }],
   [FOLDED_EMAIL, { ...HOLDS_NOTHING, spieler: [SPIELER], account: true }],
 ]);
@@ -125,8 +125,8 @@ const { auth } = await import("./auth/library.ts");
 const { getAdminSession } = await import("./auth/guards.ts");
 const { getSignInLanding } = await import("./auth/landing.ts");
 const { getSubjectSession } = await import("./subject.ts");
-const { lookUpSubjekt } = await import("./signInGate.ts");
-const { verwaltungOf } = await import("./verwaltung.ts");
+const { lookUpSubject } = await import("./signInGate.ts");
+const { grantOf } = await import("./grant.ts");
 const { getRequestActor, runWithRequestScope } = await import("./requestScope.ts");
 const { APINetworkError } = await import("./errors.ts");
 const { readTraceparent, TRACEPARENT_HEADER } = await import("./trace.ts");
@@ -202,7 +202,7 @@ describe("who the seam answers for", () => {
     expect(sent.length, "a visitor with no session still cost a lookup of the league's records").toBe(before);
   });
 
-  /* `admin` is the administrator's whole verdict, so a page may gate an administrator-only control
+  /* `isAdmin` is the administrator's whole verdict, so a page may gate an administrator-only control
      on it: the grant alone answers `true` for sessions that lane refuses. */
   it("answers a session holding a grant its seat, and marks a code-borne one no administrator", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
@@ -211,9 +211,9 @@ describe("who the seam answers for", () => {
 
     const answer = await getSubjectSession();
 
-    expect(answer?.admin).toBe(false);
+    expect(answer?.isAdmin).toBe(false);
     expect(answer?.email).toBe(ADMIN_EMAIL);
-    expect(answer?.subject.seats).toStrictEqual([SEAT]);
+    expect(answer?.records.seats).toStrictEqual([SEAT]);
   });
 
   it("marks the same address an administrator once the passkey made the session", async () => {
@@ -221,7 +221,7 @@ describe("who the seam answers for", () => {
     madeByPasskey(store, row);
     arriveAs(cookie);
 
-    expect((await getSubjectSession())?.admin).toBe(true);
+    expect((await getSubjectSession())?.isAdmin).toBe(true);
   });
 
   /* A sign-in racing its passkey's removal leaves a session naming a credential no row holds:
@@ -245,7 +245,7 @@ describe("who the seam answers for", () => {
         void RECORDS.set(ADMIN_EMAIL, {
           ...HOLDS_NOTHING,
           seats: [SEAT],
-          verwaltung: "administration",
+          admin_tier: "administration",
           granted_since: "2026-01-01T00:00:00Z",
           account: true,
         }),
@@ -259,15 +259,15 @@ describe("who the seam answers for", () => {
       RECORDS.set(ADMIN_EMAIL, {
         ...HOLDS_NOTHING,
         seats: [SEAT],
-        verwaltung: "administration",
+        admin_tier: "administration",
         granted_since: new Date(row.createdAt.getTime() + grantedAfterMs).toISOString(),
         account: true,
       });
       beginRenderPass();
       const answer = await getSubjectSession();
       assert.ok(answer, "the person's lane refused the session its grant postdates");
-      expect(answer.subject.seats).toStrictEqual([SEAT]);
-      marks.push(answer.admin);
+      expect(answer.records.seats).toStrictEqual([SEAT]);
+      marks.push(answer.isAdmin);
     }
 
     expect(marks).toStrictEqual([false, true]);
@@ -282,7 +282,7 @@ describe("who the seam answers for", () => {
     const answer = await getSubjectSession();
 
     assert.ok(answer, "the person's window refused this session, so the mark below is compared to nothing");
-    expect(answer.admin).toBe(false);
+    expect(answer.isAdmin).toBe(false);
   });
 
   /* The lookup copies the records field by field: its read parses nothing, so a key the backend answers
@@ -292,7 +292,7 @@ describe("who the seam answers for", () => {
     arriveAs(cookie);
     const { account: _account, ...records } = RECORDS.get(ADMIN_EMAIL) ?? assert.fail("the administrator holds no records here");
     // A key no contract names, as a later backend could answer one beside the records.
-    nextAnswer = new Response(JSON.stringify({ ...records, beigefuegt: "kein Feld des Vertrags" }), {
+    nextAnswer = new Response(JSON.stringify({ ...records, attached: "kein Feld des Vertrags" }), {
       status: 200,
       headers: { "content-type": "application/json" },
     });
@@ -300,17 +300,17 @@ describe("who the seam answers for", () => {
     const answer = await getSubjectSession();
 
     assert.ok(answer);
-    expect(Object.keys(answer.subject).sort()).toStrictEqual([
+    expect(Object.keys(answer.records).sort()).toStrictEqual([
+      "admin_tier",
       "barred",
       "granted_since",
-      "inhaber_seit",
+      "owner_since",
       "schiedsrichter",
       "seats",
       "spieler",
       "unconfirmed",
-      "verwaltung",
     ]);
-    expect(answer.subject.verwaltung).toBe("administration");
+    expect(answer.records.admin_tier).toBe("administration");
   });
 
   /* Raised on a body carrying no record, which is the only shape the lookup sets it on: the landing
@@ -323,7 +323,7 @@ describe("who the seam answers for", () => {
       headers: { "content-type": "application/json" },
     });
 
-    expect((await getSubjectSession())?.subject.unconfirmed).toBe(true);
+    expect((await getSubjectSession())?.records.unconfirmed).toBe(true);
   });
 
   /* The person the flag tells apart: no record anywhere, whom the landing tells the league holds
@@ -336,7 +336,7 @@ describe("who the seam answers for", () => {
       headers: { "content-type": "application/json" },
     });
 
-    expect((await getSubjectSession())?.subject.unconfirmed).toBe(false);
+    expect((await getSubjectSession())?.records.unconfirmed).toBe(false);
   });
 
   /* A session the ban's own ending missed, or one minted racing it, is refused on the request itself;
@@ -366,9 +366,9 @@ describe("who the seam answers for", () => {
 
     const { answer, actor } = await guardInScope();
 
-    expect(answer?.admin).toBe(false);
+    expect(answer?.isAdmin).toBe(false);
     expect(answer?.email).toBe(PERSON_EMAIL);
-    expect(answer?.subject.spieler).toStrictEqual([SPIELER]);
+    expect(answer?.records.spieler).toStrictEqual([SPIELER]);
     expect(actor?.email, "the request scope holds a spelling the join and the log do not share").toBe(PERSON_EMAIL);
   });
 
@@ -389,7 +389,7 @@ describe("who the seam answers for", () => {
     expect(answer?.email).toBe(FOLDED_EMAIL);
     expect(actor?.email).toBe(FOLDED_EMAIL);
     expect((JSON.parse(lastSent().body) as { email: string }).email).toBe(FOLDED_EMAIL);
-    expect(answer?.subject.spieler, "the lookup was asked about a mailbox the league holds nothing for").toStrictEqual([SPIELER]);
+    expect(answer?.records.spieler, "the lookup was asked about a mailbox the league holds nothing for").toStrictEqual([SPIELER]);
   });
 });
 
@@ -715,7 +715,7 @@ describe("the guard across one render pass", () => {
     arriveAs(cookie);
     const sentBefore = sent.length;
 
-    const [served] = await Promise.all([getAdminSession(), lookUpSubjekt(ADMIN_EMAIL), verwaltungOf(ADMIN_EMAIL)]);
+    const [served] = await Promise.all([getAdminSession(), lookUpSubject(ADMIN_EMAIL), grantOf(ADMIN_EMAIL)]);
 
     expect(served?.user.email, "the guard refused, so the count below counts a refusal").toBe(ADMIN_EMAIL);
     expect(sent.length - sentBefore, "the reads of one admin render pass each asked the backend").toBe(1);

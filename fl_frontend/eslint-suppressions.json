@@ -14,11 +14,6 @@
       "count": 2
     }
   },
-  "src/app/(public)/confirm/schiedsrichter/page.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 2
-    }
-  },
   "src/app/(public)/confirm/spiel/page.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 2
@@ -40,11 +35,6 @@
     }
   },
   "src/app/api/bestaetigung/kontakt/route.ts": {
-    "fl/server-action": {
-      "count": 1
-    }
-  },
-  "src/app/api/bestaetigung/schiedsrichter/route.ts": {
     "fl/server-action": {
       "count": 1
     }
@@ -179,46 +169,6 @@
       "count": 4
     }
   },
-  "src/app/area/admin/saisons/[saison_id]/loading.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/app/area/admin/saisons/[saison_id]/page.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 2
-    }
-  },
-  "src/app/area/admin/saisons/loading.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/app/area/admin/saisons/page.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 4
-    }
-  },
-  "src/app/area/admin/schiedsrichter/[schiedsrichter_id]/loading.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/app/area/admin/schiedsrichter/[schiedsrichter_id]/page.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 2
-    }
-  },
-  "src/app/area/admin/schiedsrichter/loading.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/app/area/admin/schiedsrichter/page.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 4
-    }
-  },
   "src/app/area/admin/sperrliste/loading.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 1
@@ -226,19 +176,6 @@
   },
   "src/app/area/admin/sperrliste/page.tsx": {
     "@typescript-eslint/no-restricted-imports": {
-      "count": 4
-    }
-  },
-  "src/app/area/admin/spiele/[spiel_id]/page.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 2
-    }
-  },
-  "src/app/area/admin/spiele/[spiel_id]/spielbericht/page.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 2
-    },
-    "no-restricted-syntax": {
       "count": 4
     }
   },
@@ -258,46 +195,6 @@
     }
   },
   "src/app/area/admin/spieler/page.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 4
-    }
-  },
-  "src/app/area/admin/spielorte/[spielort_id]/loading.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/app/area/admin/spielorte/[spielort_id]/page.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 2
-    }
-  },
-  "src/app/area/admin/spielorte/loading.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/app/area/admin/spielorte/page.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 4
-    }
-  },
-  "src/app/area/admin/spieltage/[spieltag_id]/loading.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/app/area/admin/spieltage/[spieltag_id]/page.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 2
-    }
-  },
-  "src/app/area/admin/spieltage/loading.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/app/area/admin/spieltage/page.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 4
     }
@@ -337,7 +234,7 @@
       "count": 1
     }
   },
-  "src/core/adresswechselEmail.ts": {
+  "src/core/addressChangeEmail.ts": {
     "no-restricted-syntax": {
       "count": 1
     }
@@ -386,24 +283,111 @@
       "count": 3
     }
   },
-  "src/core/schiedsrichterEmail.ts": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
   "src/core/sessionLifetimes.ts": {
     "no-restricted-syntax": {
       "count": 1
     }
   },
-  "src/core/spielEmail.ts": {
-    "no-restricted-syntax": {
-      "count": 3
-    }
-  },
   "src/core/teamVocabulary.ts": {
     "no-restricted-syntax": {
       "count": 24
+    }
+  },
+  "src/features/address-change/actions.ts": {
+    "fl/server-action": {
+      "count": 5
+    }
+  },
+  "src/features/address-change/components/forms/AdminAdresswechselForm/FormAdresswechselSection.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 14
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 1
+    },
+    "check-file/folder-naming-convention": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 18
+    },
+    "react/forbid-component-props": {
+      "count": 9
+    },
+    "react/jsx-no-literals": {
+      "count": 3
+    }
+  },
+  "src/features/address-change/components/forms/AdresswechselBeantragen.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 16
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 8
+    },
+    "react/forbid-component-props": {
+      "count": 12
+    },
+    "react/jsx-no-literals": {
+      "count": 5
+    }
+  },
+  "src/features/address-change/components/forms/AdresswechselWartet.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 14
+    },
+    "no-restricted-syntax": {
+      "count": 9
+    },
+    "react/forbid-component-props": {
+      "count": 4
+    },
+    "react/jsx-no-literals": {
+      "count": 4
+    }
+  },
+  "src/features/address-change/components/ui/AdresswechselHinweis.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 2
+    },
+    "no-restricted-syntax": {
+      "count": 5
+    },
+    "react/forbid-component-props": {
+      "count": 2
+    },
+    "react/jsx-no-literals": {
+      "count": 6
+    }
+  },
+  "src/features/address-change/components/views/AdminAdresswechselView.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 2
+    },
+    "no-restricted-syntax": {
+      "count": 2
+    }
+  },
+  "src/features/address-change/components/views/AdresswechselLinkView.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 4
+    },
+    "no-restricted-syntax": {
+      "count": 27
+    },
+    "react/forbid-component-props": {
+      "count": 4
+    },
+    "react/jsx-no-literals": {
+      "count": 19
+    }
+  },
+  "src/features/address-change/refusals.ts": {
+    "no-restricted-syntax": {
+      "count": 7
     }
   },
   "src/features/admin/actions.ts": {
@@ -421,150 +405,12 @@
       "count": 1
     }
   },
-  "src/features/admin/components/views/AdminBracketWiringView.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 13
-    },
-    "no-restricted-syntax": {
-      "count": 18
-    },
-    "react/forbid-component-props": {
-      "count": 11
-    },
-    "react/jsx-no-literals": {
-      "count": 4
-    }
-  },
-  "src/features/admin/components/views/AdminSpielEditView.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 2
-    },
-    "no-restricted-syntax": {
-      "count": 2
-    }
-  },
-  "src/features/admin/components/views/AdminSpieleActionRequiredView.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 10
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 6
-    },
-    "no-restricted-syntax": {
-      "count": 16
-    },
-    "react/forbid-component-props": {
-      "count": 7
-    },
-    "react/jsx-no-literals": {
-      "count": 1
-    }
-  },
   "src/features/admin/constants.ts": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 17
     },
     "no-restricted-syntax": {
-      "count": 36
-    }
-  },
-  "src/features/admin/utils.ts": {
-    "no-restricted-syntax": {
-      "count": 13
-    }
-  },
-  "src/features/adresswechsel/actions.ts": {
-    "fl/server-action": {
-      "count": 5
-    }
-  },
-  "src/features/adresswechsel/components/forms/AdminAdresswechselForm/FormAdresswechselSection.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 14
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 18
-    },
-    "react/forbid-component-props": {
-      "count": 9
-    },
-    "react/jsx-no-literals": {
-      "count": 3
-    }
-  },
-  "src/features/adresswechsel/components/forms/AdresswechselBeantragen.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 16
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 8
-    },
-    "react/forbid-component-props": {
-      "count": 12
-    },
-    "react/jsx-no-literals": {
-      "count": 5
-    }
-  },
-  "src/features/adresswechsel/components/forms/AdresswechselWartet.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 14
-    },
-    "no-restricted-syntax": {
-      "count": 9
-    },
-    "react/forbid-component-props": {
-      "count": 4
-    },
-    "react/jsx-no-literals": {
-      "count": 4
-    }
-  },
-  "src/features/adresswechsel/components/ui/AdresswechselHinweis.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 2
-    },
-    "no-restricted-syntax": {
-      "count": 5
-    },
-    "react/forbid-component-props": {
-      "count": 2
-    },
-    "react/jsx-no-literals": {
-      "count": 6
-    }
-  },
-  "src/features/adresswechsel/components/views/AdminAdresswechselView.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 2
-    },
-    "no-restricted-syntax": {
-      "count": 2
-    }
-  },
-  "src/features/adresswechsel/components/views/AdresswechselLinkView.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 4
-    },
-    "no-restricted-syntax": {
-      "count": 27
-    },
-    "react/forbid-component-props": {
-      "count": 4
-    },
-    "react/jsx-no-literals": {
-      "count": 19
-    }
-  },
-  "src/features/adresswechsel/refusals.ts": {
-    "no-restricted-syntax": {
-      "count": 7
+      "count": 28
     }
   },
   "src/features/aktionen/components/collections/AdminAktionenTable.tsx": {
@@ -789,6 +635,9 @@
     "@typescript-eslint/no-restricted-imports": {
       "count": 4
     },
+    "check-file/folder-naming-convention": {
+      "count": 1
+    },
     "no-restricted-syntax": {
       "count": 7
     },
@@ -802,6 +651,9 @@
   "src/features/bewerbungen/components/forms/BewerbungForm/FormKontaktpersonenSection.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 9
+    },
+    "check-file/folder-naming-convention": {
+      "count": 1
     },
     "no-restricted-syntax": {
       "count": 12
@@ -820,6 +672,9 @@
     "better-tailwindcss/no-restricted-classes": {
       "count": 3
     },
+    "check-file/folder-naming-convention": {
+      "count": 1
+    },
     "no-restricted-syntax": {
       "count": 29
     },
@@ -834,6 +689,9 @@
     "@typescript-eslint/no-restricted-imports": {
       "count": 12
     },
+    "check-file/folder-naming-convention": {
+      "count": 1
+    },
     "no-restricted-syntax": {
       "count": 14
     },
@@ -842,6 +700,16 @@
     },
     "react/jsx-no-literals": {
       "count": 5
+    }
+  },
+  "src/features/bewerbungen/components/forms/BewerbungForm/kaderBounds.ts": {
+    "check-file/folder-naming-convention": {
+      "count": 1
+    }
+  },
+  "src/features/bewerbungen/components/forms/BewerbungForm/useBewerbungDraft.ts": {
+    "check-file/folder-naming-convention": {
+      "count": 1
     }
   },
   "src/features/bewerbungen/components/ui/BewerbungInstagramBand.tsx": {
@@ -1075,7 +943,7 @@
   },
   "src/features/einladungen/actions.ts": {
     "fl/server-action": {
-      "count": 5
+      "count": 3
     },
     "no-restricted-syntax": {
       "count": 3
@@ -1095,6 +963,9 @@
     "@typescript-eslint/no-restricted-imports": {
       "count": 11
     },
+    "check-file/folder-naming-convention": {
+      "count": 1
+    },
     "no-restricted-syntax": {
       "count": 5
     },
@@ -1112,6 +983,9 @@
     "better-tailwindcss/no-restricted-classes": {
       "count": 1
     },
+    "check-file/folder-naming-convention": {
+      "count": 1
+    },
     "no-restricted-syntax": {
       "count": 12
     },
@@ -1125,6 +999,9 @@
   "src/features/funktionen/components/forms/AdminLoeschungForm/FormPersonLoeschenSection.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 14
+    },
+    "check-file/folder-naming-convention": {
+      "count": 1
     },
     "no-restricted-syntax": {
       "count": 11
@@ -1233,6 +1110,9 @@
     "@typescript-eslint/no-restricted-imports": {
       "count": 9
     },
+    "check-file/folder-naming-convention": {
+      "count": 1
+    },
     "react/forbid-component-props": {
       "count": 1
     }
@@ -1240,6 +1120,9 @@
   "src/features/kontakte/components/forms/AdminKontakteEditForm/FormKontaktEinladen.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 5
+    },
+    "check-file/folder-naming-convention": {
+      "count": 1
     },
     "no-restricted-syntax": {
       "count": 3
@@ -1251,6 +1134,9 @@
   "src/features/kontakte/components/forms/AdminKontakteEditForm/FormKontakteLoeschenSection.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 10
+    },
+    "check-file/folder-naming-convention": {
+      "count": 1
     },
     "no-restricted-syntax": {
       "count": 13
@@ -1266,6 +1152,9 @@
     "@typescript-eslint/no-restricted-imports": {
       "count": 14
     },
+    "check-file/folder-naming-convention": {
+      "count": 1
+    },
     "no-restricted-syntax": {
       "count": 16
     },
@@ -1278,6 +1167,9 @@
   },
   "src/features/kontakte/components/forms/AdminKontakteEditForm/banners.ts": {
     "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "check-file/folder-naming-convention": {
       "count": 1
     },
     "no-restricted-syntax": {
@@ -1412,221 +1304,12 @@
   },
   "src/features/saisons/actions.ts": {
     "fl/server-action": {
-      "count": 6
-    }
-  },
-  "src/features/saisons/components/collections/AdminSaisonsTable.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 10
-    },
-    "better-tailwindcss/no-restricted-classes": {
       "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 12
-    },
-    "react/forbid-component-props": {
-      "count": 15
-    },
-    "react/jsx-no-literals": {
-      "count": 5
-    }
-  },
-  "src/features/saisons/components/forms/AdminCreateSaisonForm.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 8
-    },
-    "no-restricted-syntax": {
-      "count": 18
-    },
-    "react/forbid-component-props": {
-      "count": 14
-    },
-    "react/jsx-no-literals": {
-      "count": 19
-    }
-  },
-  "src/features/saisons/components/forms/AdminSaisonEditForm/AdminSaisonEditForm.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 9
-    },
-    "react/forbid-component-props": {
-      "count": 1
-    }
-  },
-  "src/features/saisons/components/forms/AdminSaisonEditForm/FormBewerbungSection.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 8
-    },
-    "no-restricted-syntax": {
-      "count": 8
-    },
-    "react/forbid-component-props": {
-      "count": 7
-    },
-    "react/jsx-no-literals": {
-      "count": 5
-    }
-  },
-  "src/features/saisons/components/forms/AdminSaisonEditForm/FormEinladungVersandSection.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 12
-    },
-    "no-restricted-syntax": {
-      "count": 31
-    },
-    "react/forbid-component-props": {
-      "count": 4
-    },
-    "react/jsx-no-literals": {
-      "count": 6
-    }
-  },
-  "src/features/saisons/components/forms/AdminSaisonEditForm/FormGruppenSwapSection.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 11
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 2
-    },
-    "no-restricted-syntax": {
-      "count": 17
-    },
-    "react/forbid-component-props": {
-      "count": 3
-    },
-    "react/jsx-no-literals": {
-      "count": 7
-    }
-  },
-  "src/features/saisons/components/forms/AdminSaisonEditForm/FormRegelnSection.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 8
-    },
-    "no-restricted-syntax": {
-      "count": 20
-    },
-    "react/forbid-component-props": {
-      "count": 6
-    },
-    "react/jsx-no-literals": {
-      "count": 16
-    }
-  },
-  "src/features/saisons/components/forms/AdminSaisonEditForm/FormRegistrierungSection.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 8
-    },
-    "no-restricted-syntax": {
-      "count": 8
-    },
-    "react/forbid-component-props": {
-      "count": 7
-    },
-    "react/jsx-no-literals": {
-      "count": 5
-    }
-  },
-  "src/features/saisons/components/forms/AdminSaisonEditForm/FormRolloverSection.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 12
-    },
-    "no-restricted-syntax": {
-      "count": 38
-    },
-    "react/forbid-component-props": {
-      "count": 3
-    },
-    "react/jsx-no-literals": {
-      "count": 20
-    }
-  },
-  "src/features/saisons/components/forms/AdminSaisonEditForm/FormSpielplanSection.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 18
-    },
-    "no-restricted-syntax": {
-      "count": 37
-    },
-    "react/forbid-component-props": {
-      "count": 8
-    },
-    "react/jsx-no-literals": {
-      "count": 18
-    }
-  },
-  "src/features/saisons/components/forms/AdminSaisonEditForm/FormTeamErsatzSection.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 14
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 2
-    },
-    "no-restricted-syntax": {
-      "count": 19
-    },
-    "react/forbid-component-props": {
-      "count": 3
-    },
-    "react/jsx-no-literals": {
-      "count": 14
-    }
-  },
-  "src/features/saisons/components/forms/AdminSaisonEditForm/FormZeitraumSection.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 7
-    },
-    "no-restricted-syntax": {
-      "count": 5
-    },
-    "react/forbid-component-props": {
-      "count": 1
-    },
-    "react/jsx-no-literals": {
-      "count": 2
-    }
-  },
-  "src/features/saisons/components/forms/AdminSaisonEditForm/banners.ts": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 7
-    }
-  },
-  "src/features/saisons/components/forms/AdminSaisonEditForm/spielplanShape.ts": {
-    "no-restricted-syntax": {
-      "count": 3
-    }
-  },
-  "src/features/saisons/components/forms/SaisonFormControls.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 9
-    },
-    "no-restricted-syntax": {
-      "count": 12
-    },
-    "react/forbid-component-props": {
-      "count": 15
     }
   },
   "src/features/saisons/components/forms/StufenPicker.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 7
-    },
     "better-tailwindcss/no-restricted-classes": {
       "count": 5
-    },
-    "no-restricted-syntax": {
-      "count": 1
-    },
-    "react/forbid-component-props": {
-      "count": 5
-    }
-  },
-  "src/features/saisons/components/modals/AdminCreateSaisonModal.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
     }
   },
   "src/features/saisons/components/ui/SaisonBadge.tsx": {
@@ -1670,201 +1353,12 @@
       "count": 2
     }
   },
-  "src/features/saisons/components/views/AdminSaisonEditView.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 2
-    },
-    "no-restricted-syntax": {
-      "count": 2
-    }
-  },
-  "src/features/saisons/components/views/AdminSaisonsView.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 2
-    },
-    "no-restricted-syntax": {
-      "count": 2
-    }
-  },
-  "src/features/saisons/constants.ts": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 6
-    }
-  },
-  "src/features/saisons/saisonDraftStatus.ts": {
-    "no-restricted-syntax": {
-      "count": 13
-    }
-  },
-  "src/features/saisons/schemas.ts": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
-  "src/features/saisons/shapeOffer.ts": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/features/schiedsrichter/actions.ts": {
-    "fl/server-action": {
-      "count": 5
-    },
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
-  "src/features/schiedsrichter/components/collections/AdminSchiedsrichterTable.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 11
-    },
-    "no-restricted-syntax": {
-      "count": 18
-    },
-    "react/forbid-component-props": {
-      "count": 12
-    },
-    "react/jsx-no-literals": {
-      "count": 3
-    }
-  },
-  "src/features/schiedsrichter/components/forms/AdminCreateSchiedsrichterForm.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/AdminSchiedsrichterEditForm.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 9
-    },
-    "react/forbid-component-props": {
-      "count": 1
-    }
-  },
-  "src/features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/FormBestaetigungSection.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 10
-    },
-    "no-restricted-syntax": {
-      "count": 12
-    },
-    "react/forbid-component-props": {
-      "count": 3
-    },
-    "react/jsx-no-literals": {
-      "count": 5
-    }
-  },
-  "src/features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/FormHonorarSection.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 7
-    },
-    "no-restricted-syntax": {
-      "count": 4
-    },
-    "react/forbid-component-props": {
-      "count": 5
-    },
-    "react/jsx-no-literals": {
-      "count": 1
-    }
-  },
-  "src/features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/FormKontaktSection.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 9
-    },
-    "no-restricted-syntax": {
-      "count": 11
-    },
-    "react/forbid-component-props": {
-      "count": 5
-    },
-    "react/jsx-no-literals": {
-      "count": 2
-    }
-  },
-  "src/features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/FormPersonSection.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 8
-    },
-    "no-restricted-syntax": {
-      "count": 7
-    },
-    "react/forbid-component-props": {
-      "count": 5
-    },
-    "react/jsx-no-literals": {
-      "count": 2
-    }
-  },
-  "src/features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/banners.ts": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 2
-    }
-  },
-  "src/features/schiedsrichter/components/forms/SchiedsrichterFormFields.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 6
-    },
-    "no-restricted-syntax": {
-      "count": 4
-    },
-    "react/forbid-component-props": {
-      "count": 16
-    },
-    "react/jsx-no-literals": {
-      "count": 5
-    }
-  },
-  "src/features/schiedsrichter/components/modals/AdminCreateSchiedsrichterModal.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/features/schiedsrichter/components/modals/AdminDeleteSchiedsrichterModal.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
   "src/features/schiedsrichter/components/ui/SchiedsrichterAngaben.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 2
     },
     "no-restricted-syntax": {
       "count": 1
-    }
-  },
-  "src/features/schiedsrichter/components/views/AdminSchiedsrichterEditView.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 4
-    },
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
-  "src/features/schiedsrichter/components/views/AdminSchiedsrichterView.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/features/schiedsrichter/components/views/SchiedsrichterBestaetigungView.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 18
-    },
-    "no-restricted-syntax": {
-      "count": 23
-    },
-    "react/forbid-component-props": {
-      "count": 13
-    },
-    "react/jsx-no-literals": {
-      "count": 16
     }
   },
   "src/features/schiedsrichter/components/views/SchiedsrichterSelfView.tsx": {
@@ -1879,21 +1373,6 @@
     },
     "react/jsx-no-literals": {
       "count": 3
-    }
-  },
-  "src/features/schiedsrichter/facets.ts": {
-    "no-restricted-syntax": {
-      "count": 7
-    }
-  },
-  "src/features/schiedsrichter/refusals.ts": {
-    "no-restricted-syntax": {
-      "count": 5
-    }
-  },
-  "src/features/schiedsrichter/schiedsrichterDraftStatus.ts": {
-    "no-restricted-syntax": {
-      "count": 5
     }
   },
   "src/features/sperrliste/actions.ts": {
@@ -1983,14 +1462,12 @@
       "count": 1
     }
   },
-  "src/features/spielberichte/actions.ts": {
-    "fl/server-action": {
-      "count": 1
-    }
-  },
   "src/features/spielberichte/components/forms/SpielberichtForm/AuswahlSelect.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 9
+    },
+    "check-file/folder-naming-convention": {
+      "count": 1
     },
     "no-restricted-syntax": {
       "count": 2
@@ -2002,6 +1479,9 @@
   "src/features/spielberichte/components/forms/SpielberichtForm/FormBemerkungenSection.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 9
+    },
+    "check-file/folder-naming-convention": {
+      "count": 1
     },
     "no-restricted-syntax": {
       "count": 5
@@ -2017,6 +1497,9 @@
     "@typescript-eslint/no-restricted-imports": {
       "count": 5
     },
+    "check-file/folder-naming-convention": {
+      "count": 1
+    },
     "no-restricted-syntax": {
       "count": 16
     },
@@ -2027,6 +1510,9 @@
   "src/features/spielberichte/components/forms/SpielberichtForm/FormTorschuetzenSection.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 7
+    },
+    "check-file/folder-naming-convention": {
+      "count": 1
     },
     "no-restricted-syntax": {
       "count": 18
@@ -2042,8 +1528,11 @@
     "@typescript-eslint/no-restricted-imports": {
       "count": 9
     },
+    "check-file/folder-naming-convention": {
+      "count": 1
+    },
     "no-restricted-syntax": {
-      "count": 14
+      "count": 12
     },
     "react/forbid-component-props": {
       "count": 9
@@ -2056,6 +1545,9 @@
     "@typescript-eslint/no-restricted-imports": {
       "count": 10
     },
+    "check-file/folder-naming-convention": {
+      "count": 1
+    },
     "no-restricted-syntax": {
       "count": 2
     },
@@ -2066,6 +1558,9 @@
   "src/features/spielberichte/components/forms/SpielberichtForm/eintragFelder.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 10
+    },
+    "check-file/folder-naming-convention": {
+      "count": 1
     },
     "no-restricted-syntax": {
       "count": 1
@@ -2078,6 +1573,9 @@
     }
   },
   "src/features/spielberichte/components/forms/SpielberichtForm/spielberichtDraft.ts": {
+    "check-file/folder-naming-convention": {
+      "count": 1
+    },
     "no-restricted-syntax": {
       "count": 8
     }
@@ -2088,20 +1586,6 @@
     },
     "react/jsx-no-literals": {
       "count": 1
-    }
-  },
-  "src/features/spielberichte/components/views/AdminSpielberichtPanel.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 8
-    },
-    "no-restricted-syntax": {
-      "count": 16
-    },
-    "react/forbid-component-props": {
-      "count": 5
-    },
-    "react/jsx-no-literals": {
-      "count": 9
     }
   },
   "src/features/spielberichte/components/views/BerichtEintraege.tsx": {
@@ -2151,41 +1635,14 @@
       "count": 3
     }
   },
-  "src/features/spielberichte/constants.ts": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
   "src/features/spielberichte/personActions.ts": {
     "fl/server-action": {
       "count": 1
     }
   },
   "src/features/spielberichte/utils.ts": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    },
     "no-restricted-syntax": {
-      "count": 15
-    }
-  },
-  "src/features/spielbestaetigungen/actions.ts": {
-    "fl/server-action": {
-      "count": 2
-    }
-  },
-  "src/features/spielbestaetigungen/components/forms/SpielbestaetigungPanel.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 20
-    },
-    "no-restricted-syntax": {
-      "count": 28
-    },
-    "react/forbid-component-props": {
-      "count": 8
-    },
-    "react/jsx-no-literals": {
-      "count": 23
+      "count": 9
     }
   },
   "src/features/spielbestaetigungen/components/views/SchiedsrichterEinsaetzeSection.tsx": {
@@ -2227,14 +1684,6 @@
       "count": 16
     }
   },
-  "src/features/spielbestaetigungen/constants.ts": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 5
-    }
-  },
   "src/features/spielbestaetigungen/personActions.ts": {
     "fl/server-action": {
       "count": 2
@@ -2242,386 +1691,12 @@
   },
   "src/features/spielbestaetigungen/utils.ts": {
     "no-restricted-syntax": {
-      "count": 3
-    }
-  },
-  "src/features/spiele/actions.ts": {
-    "fl/server-action": {
-      "count": 2
-    }
-  },
-  "src/features/spiele/components/collections/SpielCardsList.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
       "count": 1
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 11
-    }
-  },
-  "src/features/spiele/components/forms/AdminEditSpielDataForm/AdminEditSpielDataForm.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 9
-    },
-    "no-restricted-syntax": {
-      "count": 3
-    },
-    "react/forbid-component-props": {
-      "count": 1
-    }
-  },
-  "src/features/spiele/components/forms/AdminEditSpielDataForm/ExpectedMarker.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 3
-    },
-    "no-restricted-syntax": {
-      "count": 1
-    },
-    "react/forbid-component-props": {
-      "count": 1
-    }
-  },
-  "src/features/spiele/components/forms/AdminEditSpielDataForm/FormAnsetzungSection.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 5
-    },
-    "no-restricted-syntax": {
-      "count": 7
-    },
-    "react/forbid-component-props": {
-      "count": 3
-    },
-    "react/jsx-no-literals": {
-      "count": 1
-    }
-  },
-  "src/features/spiele/components/forms/AdminEditSpielDataForm/FormDateTimeSection.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 3
-    },
-    "no-restricted-syntax": {
-      "count": 1
-    },
-    "react/jsx-no-literals": {
-      "count": 2
-    }
-  },
-  "src/features/spiele/components/forms/AdminEditSpielDataForm/FormErgebnisSection.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 10
-    },
-    "no-restricted-syntax": {
-      "count": 16
-    },
-    "react/forbid-component-props": {
-      "count": 12
-    },
-    "react/jsx-no-literals": {
-      "count": 4
-    }
-  },
-  "src/features/spiele/components/forms/AdminEditSpielDataForm/FormMatchupSection.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 4
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 5
-    },
-    "react/forbid-component-props": {
-      "count": 2
-    }
-  },
-  "src/features/spiele/components/forms/AdminEditSpielDataForm/FormNotizSection.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 10
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 8
-    },
-    "react/forbid-component-props": {
-      "count": 4
-    },
-    "react/jsx-no-literals": {
-      "count": 2
-    }
-  },
-  "src/features/spiele/components/forms/AdminEditSpielDataForm/FormSchiedsrichterSection.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 4
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 2
-    },
-    "react/forbid-component-props": {
-      "count": 3
-    },
-    "react/jsx-no-literals": {
-      "count": 1
-    }
-  },
-  "src/features/spiele/components/forms/AdminEditSpielDataForm/FormSonderereignisSection.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 14
-    },
-    "no-restricted-syntax": {
-      "count": 10
-    },
-    "react/forbid-component-props": {
-      "count": 9
-    },
-    "react/jsx-no-literals": {
-      "count": 2
-    }
-  },
-  "src/features/spiele/components/forms/AdminEditSpielDataForm/FormSpielortSection.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 4
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 2
-    },
-    "react/forbid-component-props": {
-      "count": 3
-    },
-    "react/jsx-no-literals": {
-      "count": 1
-    }
-  },
-  "src/features/spiele/components/forms/AdminEditSpielDataForm/FormTeamPicker.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 15
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 3
-    },
-    "no-restricted-syntax": {
-      "count": 32
-    },
-    "react/forbid-component-props": {
-      "count": 42
-    },
-    "react/jsx-no-literals": {
-      "count": 7
-    }
-  },
-  "src/features/spiele/components/forms/AdminEditSpielDataForm/PickOrCreateAutocomplete.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 14
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 3
-    },
-    "no-restricted-syntax": {
-      "count": 11
-    },
-    "react/forbid-component-props": {
-      "count": 13
-    },
-    "react/jsx-no-literals": {
-      "count": 1
-    }
-  },
-  "src/features/spiele/components/forms/AdminEditSpielDataForm/SpielDraftPreview.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 18
-    },
-    "react/forbid-component-props": {
-      "count": 1
-    },
-    "react/jsx-no-literals": {
-      "count": 3
-    }
-  },
-  "src/features/spiele/components/forms/AdminEditSpielDataForm/SpielRail.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 6
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 13
-    },
-    "react/forbid-component-props": {
-      "count": 1
-    },
-    "react/jsx-no-literals": {
-      "count": 1
-    }
-  },
-  "src/features/spiele/components/forms/AdminEditSpielDataForm/StepFiveButton.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 2
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 1
-    },
-    "react/forbid-component-props": {
-      "count": 1
-    }
-  },
-  "src/features/spiele/components/forms/AdminEditSpielDataForm/banners.ts": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 16
-    }
-  },
-  "src/features/spiele/components/modals/SpielDetailsModal.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 6
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 9
-    },
-    "no-restricted-syntax": {
-      "count": 24
-    },
-    "react/forbid-component-props": {
-      "count": 10
-    },
-    "react/jsx-no-literals": {
-      "count": 7
     }
   },
   "src/features/spiele/components/ui/ImElfmeterschiessen.tsx": {
     "no-restricted-syntax": {
       "count": 2
-    }
-  },
-  "src/features/spiele/components/ui/SaisonPhaseChip.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 2
-    },
-    "no-restricted-syntax": {
-      "count": 38
-    },
-    "react/forbid-component-props": {
-      "count": 1
-    }
-  },
-  "src/features/spiele/components/ui/SpielCard.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 9
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 4
-    },
-    "no-restricted-syntax": {
-      "count": 16
-    },
-    "react/forbid-component-props": {
-      "count": 7
-    },
-    "react/jsx-no-literals": {
-      "count": 1
-    }
-  },
-  "src/features/spiele/components/ui/SpielCardGrid.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 2
-    },
-    "react/forbid-component-props": {
-      "count": 1
-    }
-  },
-  "src/features/spiele/components/ui/SpielScore.tsx": {
-    "no-restricted-syntax": {
-      "count": 2
-    }
-  },
-  "src/features/spiele/components/ui/SpielStatusChip.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 9
-    },
-    "no-restricted-syntax": {
-      "count": 1
-    },
-    "react/forbid-component-props": {
-      "count": 7
-    }
-  },
-  "src/features/spiele/components/ui/SpielTeamSlot.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 2
-    },
-    "no-restricted-syntax": {
-      "count": 4
-    }
-  },
-  "src/features/spiele/components/ui/teamName.ts": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 1
-    }
-  },
-  "src/features/spiele/components/views/SpielsucheView.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 5
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 9
-    },
-    "react/forbid-component-props": {
-      "count": 2
-    }
-  },
-  "src/features/spiele/draftStatus.ts": {
-    "no-restricted-syntax": {
-      "count": 17
-    }
-  },
-  "src/features/spiele/facets.ts": {
-    "no-restricted-syntax": {
-      "count": 16
-    }
-  },
-  "src/features/spiele/refusals.ts": {
-    "no-restricted-syntax": {
-      "count": 5
-    }
-  },
-  "src/features/spiele/utils.ts": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 1
     }
   },
   "src/features/spieler/actions.ts": {
@@ -2661,6 +1736,9 @@
     "@typescript-eslint/no-restricted-imports": {
       "count": 9
     },
+    "check-file/folder-naming-convention": {
+      "count": 1
+    },
     "react/forbid-component-props": {
       "count": 1
     }
@@ -2668,6 +1746,9 @@
   "src/features/spieler/components/forms/AdminSpielerEditForm/FormAdresseSection.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 4
+    },
+    "check-file/folder-naming-convention": {
+      "count": 1
     },
     "no-restricted-syntax": {
       "count": 5
@@ -2683,6 +1764,9 @@
     "better-tailwindcss/no-restricted-classes": {
       "count": 2
     },
+    "check-file/folder-naming-convention": {
+      "count": 1
+    },
     "no-restricted-syntax": {
       "count": 11
     },
@@ -2696,6 +1780,9 @@
   "src/features/spieler/components/forms/AdminSpielerEditForm/FormEinwilligungSection.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 5
+    },
+    "check-file/folder-naming-convention": {
+      "count": 1
     },
     "no-restricted-syntax": {
       "count": 7
@@ -2714,6 +1801,9 @@
     "better-tailwindcss/no-restricted-classes": {
       "count": 2
     },
+    "check-file/folder-naming-convention": {
+      "count": 1
+    },
     "no-restricted-syntax": {
       "count": 17
     },
@@ -2728,6 +1818,9 @@
     "@typescript-eslint/no-restricted-imports": {
       "count": 9
     },
+    "check-file/folder-naming-convention": {
+      "count": 1
+    },
     "no-restricted-syntax": {
       "count": 8
     },
@@ -2738,8 +1831,16 @@
       "count": 3
     }
   },
+  "src/features/spieler/components/forms/AdminSpielerEditForm/banners.test.ts": {
+    "check-file/folder-naming-convention": {
+      "count": 1
+    }
+  },
   "src/features/spieler/components/forms/AdminSpielerEditForm/banners.ts": {
     "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "check-file/folder-naming-convention": {
       "count": 1
     },
     "no-restricted-syntax": {
@@ -2767,6 +1868,9 @@
     "better-tailwindcss/no-restricted-classes": {
       "count": 2
     },
+    "check-file/folder-naming-convention": {
+      "count": 1
+    },
     "no-restricted-syntax": {
       "count": 8
     },
@@ -2779,6 +1883,9 @@
       "count": 10
     },
     "better-tailwindcss/no-restricted-classes": {
+      "count": 1
+    },
+    "check-file/folder-naming-convention": {
       "count": 1
     },
     "no-restricted-syntax": {
@@ -2798,6 +1905,9 @@
     "better-tailwindcss/no-restricted-classes": {
       "count": 1
     },
+    "check-file/folder-naming-convention": {
+      "count": 1
+    },
     "no-restricted-syntax": {
       "count": 11
     },
@@ -2812,6 +1922,9 @@
     "better-tailwindcss/no-restricted-classes": {
       "count": 1
     },
+    "check-file/folder-naming-convention": {
+      "count": 1
+    },
     "no-restricted-syntax": {
       "count": 3
     },
@@ -2820,6 +1933,9 @@
     }
   },
   "src/features/spieler/components/forms/KaderZeileEditForm/kaderZeileDraftStatus.ts": {
+    "check-file/folder-naming-convention": {
+      "count": 1
+    },
     "no-restricted-syntax": {
       "count": 4
     }
@@ -2941,217 +2057,6 @@
       "count": 8
     }
   },
-  "src/features/spielorte/actions.ts": {
-    "fl/server-action": {
-      "count": 4
-    }
-  },
-  "src/features/spielorte/components/collections/AdminSpielorteTable.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 11
-    },
-    "no-restricted-syntax": {
-      "count": 17
-    },
-    "react/forbid-component-props": {
-      "count": 13
-    },
-    "react/jsx-no-literals": {
-      "count": 3
-    }
-  },
-  "src/features/spielorte/components/forms/AdminCreateSpielortForm.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/features/spielorte/components/forms/AdminSpielortEditForm/AdminSpielortEditForm.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 9
-    },
-    "react/forbid-component-props": {
-      "count": 1
-    }
-  },
-  "src/features/spielorte/components/forms/AdminSpielortEditForm/FormAdresseSection.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 6
-    },
-    "no-restricted-syntax": {
-      "count": 5
-    },
-    "react/forbid-component-props": {
-      "count": 1
-    }
-  },
-  "src/features/spielorte/components/forms/AdminSpielortEditForm/FormMieteSection.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 7
-    },
-    "no-restricted-syntax": {
-      "count": 4
-    },
-    "react/forbid-component-props": {
-      "count": 5
-    },
-    "react/jsx-no-literals": {
-      "count": 1
-    }
-  },
-  "src/features/spielorte/components/forms/AdminSpielortEditForm/FormSpielortSection.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 8
-    },
-    "no-restricted-syntax": {
-      "count": 5
-    },
-    "react/forbid-component-props": {
-      "count": 3
-    },
-    "react/jsx-no-literals": {
-      "count": 1
-    }
-  },
-  "src/features/spielorte/components/forms/AdminSpielortEditForm/banners.ts": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 2
-    }
-  },
-  "src/features/spielorte/components/forms/SpielortFormFields.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 7
-    },
-    "no-restricted-syntax": {
-      "count": 1
-    },
-    "react/forbid-component-props": {
-      "count": 7
-    },
-    "react/jsx-no-literals": {
-      "count": 2
-    }
-  },
-  "src/features/spielorte/components/modals/AdminCreateSpielortModal.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/features/spielorte/components/modals/AdminDeleteSpielortModal.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/features/spielorte/components/views/AdminSpielortEditView.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 3
-    },
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
-  "src/features/spielorte/components/views/AdminSpielorteView.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/features/spielorte/facets.ts": {
-    "no-restricted-syntax": {
-      "count": 7
-    }
-  },
-  "src/features/spielorte/refusals.ts": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
-  "src/features/spielorte/spielortDraftStatus.ts": {
-    "no-restricted-syntax": {
-      "count": 7
-    }
-  },
-  "src/features/spieltage/actions.ts": {
-    "fl/server-action": {
-      "count": 1
-    }
-  },
-  "src/features/spieltage/components/collections/AdminSpieltageList.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 9
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 2
-    },
-    "no-restricted-syntax": {
-      "count": 19
-    },
-    "react/forbid-component-props": {
-      "count": 4
-    },
-    "react/jsx-no-literals": {
-      "count": 5
-    }
-  },
-  "src/features/spieltage/components/forms/AdminSpieltagEditForm/AdminSpieltagEditForm.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 9
-    },
-    "react/forbid-component-props": {
-      "count": 1
-    }
-  },
-  "src/features/spieltage/components/forms/AdminSpieltagEditForm/FormZeitraumSection.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 7
-    },
-    "no-restricted-syntax": {
-      "count": 6
-    },
-    "react/forbid-component-props": {
-      "count": 1
-    },
-    "react/jsx-no-literals": {
-      "count": 3
-    }
-  },
-  "src/features/spieltage/components/forms/AdminSpieltagEditForm/banners.ts": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 2
-    }
-  },
-  "src/features/spieltage/components/views/AdminSpieltagEditView.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 2
-    },
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
-  "src/features/spieltage/components/views/AdminSpieltageView.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/features/spieltage/facets.ts": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
-  "src/features/spieltage/refusals.ts": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
-  "src/features/spieltage/spieltagDraftStatus.ts": {
-    "no-restricted-syntax": {
-      "count": 3
-    }
-  },
   "src/features/system/components/ui/ServerIsLive.tsx": {
     "no-restricted-syntax": {
       "count": 1
@@ -3162,7 +2067,7 @@
   },
   "src/features/teams/actions.ts": {
     "fl/server-action": {
-      "count": 7
+      "count": 6
     }
   },
   "src/features/teams/components/collections/AdminKontakteList.tsx": {
@@ -3205,6 +2110,9 @@
     "@typescript-eslint/no-restricted-imports": {
       "count": 9
     },
+    "check-file/folder-naming-convention": {
+      "count": 1
+    },
     "react/forbid-component-props": {
       "count": 1
     }
@@ -3214,6 +2122,9 @@
       "count": 8
     },
     "better-tailwindcss/no-restricted-classes": {
+      "count": 1
+    },
+    "check-file/folder-naming-convention": {
       "count": 1
     },
     "no-restricted-syntax": {
@@ -3230,6 +2141,9 @@
     "better-tailwindcss/no-restricted-classes": {
       "count": 1
     },
+    "check-file/folder-naming-convention": {
+      "count": 1
+    },
     "no-restricted-syntax": {
       "count": 7
     },
@@ -3243,6 +2157,9 @@
   "src/features/teams/components/forms/AdminTeamEditForm/FormEinladungSection.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 21
+    },
+    "check-file/folder-naming-convention": {
+      "count": 1
     },
     "no-restricted-syntax": {
       "count": 28
@@ -3258,6 +2175,9 @@
     "@typescript-eslint/no-restricted-imports": {
       "count": 5
     },
+    "check-file/folder-naming-convention": {
+      "count": 1
+    },
     "no-restricted-syntax": {
       "count": 5
     },
@@ -3271,6 +2191,9 @@
     },
     "better-tailwindcss/no-restricted-classes": {
       "count": 2
+    },
+    "check-file/folder-naming-convention": {
+      "count": 1
     },
     "no-restricted-syntax": {
       "count": 29
@@ -3289,6 +2212,9 @@
     "better-tailwindcss/no-restricted-classes": {
       "count": 3
     },
+    "check-file/folder-naming-convention": {
+      "count": 1
+    },
     "no-restricted-syntax": {
       "count": 19
     },
@@ -3299,12 +2225,30 @@
       "count": 9
     }
   },
+  "src/features/teams/components/forms/AdminTeamEditForm/banners.test.ts": {
+    "check-file/folder-naming-convention": {
+      "count": 1
+    }
+  },
   "src/features/teams/components/forms/AdminTeamEditForm/banners.ts": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 1
     },
+    "check-file/folder-naming-convention": {
+      "count": 1
+    },
     "no-restricted-syntax": {
       "count": 8
+    }
+  },
+  "src/features/teams/components/forms/AdminTeamEditForm/fanOutNotes.test.ts": {
+    "check-file/folder-naming-convention": {
+      "count": 1
+    }
+  },
+  "src/features/teams/components/forms/AdminTeamEditForm/fanOutNotes.ts": {
+    "check-file/folder-naming-convention": {
+      "count": 1
     }
   },
   "src/features/teams/components/forms/GruppeSelect.tsx": {
@@ -3408,28 +2352,6 @@
     },
     "react/jsx-no-literals": {
       "count": 4
-    }
-  },
-  "src/features/teams/components/ui/AustrittKuerzel.tsx": {
-    "no-restricted-syntax": {
-      "count": 3
-    }
-  },
-  "src/features/teams/components/ui/TeamPopoverMenu.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 7
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 8
-    },
-    "no-restricted-syntax": {
-      "count": 5
-    },
-    "react/forbid-component-props": {
-      "count": 11
-    },
-    "react/jsx-no-literals": {
-      "count": 2
     }
   },
   "src/features/teams/components/views/AdminKontakteView.tsx": {
@@ -3802,11 +2724,6 @@
     },
     "react/forbid-component-props": {
       "count": 1
-    }
-  },
-  "src/shared/components/ui/CardGrid.tsx": {
-    "no-restricted-syntax": {
-      "count": 2
     }
   },
   "src/shared/components/ui/ComboBox.tsx": {
@@ -4276,11 +3193,6 @@
       "count": 4
     }
   },
-  "src/shared/components/ui/SeasonEmptyState.tsx": {
-    "no-restricted-syntax": {
-      "count": 4
-    }
-  },
   "src/shared/components/ui/Select.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 2
@@ -4350,7 +3262,7 @@
   },
   "src/shared/components/ui/brandTile.ts": {
     "better-tailwindcss/no-restricted-classes": {
-      "count": 4
+      "count": 1
     }
   },
   "src/shared/components/ui/card.ts": {
@@ -4365,7 +3277,7 @@
   },
   "src/shared/components/ui/formFieldStyles.ts": {
     "better-tailwindcss/no-restricted-classes": {
-      "count": 14
+      "count": 7
     }
   },
   "src/shared/components/ui/formPanel.ts": {
@@ -4415,7 +3327,7 @@
   },
   "src/shared/components/ui/textLink.ts": {
     "better-tailwindcss/no-restricted-classes": {
-      "count": 2
+      "count": 1
     }
   },
   "src/shared/hooks/useConfirmationWindows.ts": {
@@ -4450,11 +3362,8 @@
     }
   },
   "src/shared/hooks/useTurnstile.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    },
     "no-restricted-syntax": {
-      "count": 2
+      "count": 1
     }
   },
   "src/shared/hooks/useTwoPressConfirm.ts": {

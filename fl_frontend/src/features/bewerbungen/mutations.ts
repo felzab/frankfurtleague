@@ -94,7 +94,7 @@ export async function korrigierenKontaktEmail({
   id,
   rolle,
   email,
-  previous_email: previous_email,
+  previous_email,
 }: { id: string; rolle: FLKontaktRolle } & FLBewerbungKontaktEmailPayload): Promise<FLBewerbungKontaktEmailResponse> {
   return bewerbungenPostKontaktEmail(id, rolle, { email: email, previous_email: previous_email });
 }

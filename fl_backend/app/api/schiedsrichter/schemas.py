@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
@@ -13,11 +14,16 @@ from app.shared.schemas.custom import (
     CustomObjectId,
     CustomOptionalDateString,
     CustomOptionalString,
+    CustomVersion,
 )
 from app.shared.schemas.einwilligung import FLSchiedsrichterTextVersions, cite_their_kind, refuse_a_stale_grant
 from app.shared.schemas.kontakt import CustomKontaktName, FLKontakt, FLKontaktPayload
-from app.shared.schemas.literals import FLAddressChangeViewableDenied, FLConfirmationState, FLEinwilligungUmfang, FLSortOrder
+from app.shared.schemas.literals import FLAddressChangeViewableDenied, FLEinwilligungScope, FLSortOrder
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
+
+# What a referee's link shows reopened. `declined` beside the states every link page shares: the referee objects
+# through the same link, and the entry stays until its clock runs out.
+type FLSchiedsrichterConfirmationState = Literal["valid", "confirmed", "declined", "expired", "barred"]
 
 
 class _SchiedsrichterWritable(BaseModel):
@@ -49,8 +55,8 @@ class FLPostSchiedsrichterPayload(_SchiedsrichterPayload):
 
 
 class FLPatchSchiedsrichterPayload(_SchiedsrichterPayload):
-    # The `version` the editor was served; absent, the save is checked against nothing.
-    version: int | None = None
+    # The `version` the editor was served, required: a save checked against nothing overwrites a rival's unseen.
+    version: CustomVersion
 
 
 class FLSchiedsrichterMint(BaseModel):
@@ -60,6 +66,13 @@ class FLSchiedsrichterMint(BaseModel):
     # The address the mail is owed to, read in the write's own transaction, so the answer names the mailbox the link
     # goes to rather than one a rival save has replaced.
     email: CustomNonEmptyString
+
+
+class FLSchiedsrichterConfirmation(FLConfirmation):
+    """A referee's confirmation bookkeeping as an administrator reads it, the objection's day with it."""
+
+    # Null until the person objects through their link.
+    declined_at: CustomOptionalDateString = None
 
 
 class FLSchiedsrichter(_SchiedsrichterWritable, BaseReadModel):
@@ -76,14 +89,14 @@ class FLSchiedsrichter(_SchiedsrichterWritable, BaseReadModel):
     # Defaulted, on no payload: the ghost carries none, the create no record or birthdate before
     # confirmation, and an address correction on a retired, unconfirmed referee drops the link.
     # Refusing an absent key would 500 the list.
-    confirmation: FLConfirmation | None = None
+    confirmation: FLSchiedsrichterConfirmation | None = None
     einwilligung: FLEinwilligung | None = None
     geburtsdatum: CustomOptionalDateString = None
     # The writes counted so far, which the editor's save sends back.
     version: int = 0
 
 
-class FLSchiedsrichterBestaetigungRecord(FLConfirmation):
+class FLSchiedsrichterConfirmationRecord(FLSchiedsrichterConfirmation):
     """One referee's confirmation bookkeeping as `schiedsrichter` stores it, its links' hashes with it."""
 
     # Empty until the hand-out mints the link the write owed; each hand-out's link replaces the one before it.
@@ -93,12 +106,15 @@ class FLSchiedsrichterBestaetigungRecord(FLConfirmation):
 class FLSchiedsrichterRecord(FLSchiedsrichter, Anchored):
     """A referee as `schiedsrichter` stores them."""
 
-    confirmation: FLSchiedsrichterBestaetigungRecord | None = None
+    confirmation: FLSchiedsrichterConfirmationRecord | None = None
+    # Held while the entry is unanswered or declined, and absent once confirmed and on the ghost, neither of which the
+    # hourly pass erases (`app/api/schiedsrichter/services.py :: ERASE_AT_FIELD`).
+    erase_at: datetime | None = None
 
     @model_validator(mode="after")
     def _cites_a_referees_wordings(self) -> Self:
         if self.einwilligung is not None:
-            cite_their_kind(self.einwilligung.nachweis, FLSchiedsrichterTextVersions)
+            cite_their_kind(self.einwilligung.evidence, FLSchiedsrichterTextVersions)
         return self
 
 
@@ -126,8 +142,8 @@ class FLPostSchiedsrichterResponse(BaseAPIResponse):
 
 
 class FLPatchSchiedsrichterResponse(BaseAPIResponse):
-    # Reported rather than assumed: this fan-out is the half of the endpoint that fails silently.
-    fanned_out_to_spiele: int
+    # The referee's version after the save, which the editor's next save sends.
+    version: int
     # Null unless the save moved an UNCONFIRMED referee's address, which retires the link posted to
     # the mailbox nobody reads.
     confirmation: FLSchiedsrichterMint | None = None
@@ -138,6 +154,13 @@ class FLSchiedsrichterReactivateResponse(BaseAPIResponse):
 
     # Null unless the row came back unanswered and holding an address a link can go to.
     confirmation: FLSchiedsrichterMint | None = None
+
+
+class FLSchiedsrichterSweepResponse(BaseAPIResponse):
+    """One pass of the unconfirmed entries' clock: the entries it erased and the ones it passed over, which stay due."""
+
+    erased: int
+    failed: int
 
 
 class FLSchiedsrichterMintResponse(BaseAPIResponse):
@@ -152,12 +175,18 @@ class FLSchiedsrichterConfirmationViewResponse(BaseAPIResponse):
     Never a name, the school, the contact details, the fee, the birthdate or the id.
     """
 
-    state: FLConfirmationState
+    state: FLSchiedsrichterConfirmationState
     minimum_age: int
+    # Served for `minimum_age`'s reason: the page bounds the birthdate by the limits the write judges, never a copy.
+    maximum_age: int = Field(gt=0)
     # Served for `minimum_age`'s reason: the page offers the media switch only from this age, and a
     # copy of its own would offer it where the write refuses.
-    medien_minimum_age: int = Field(gt=0)
+    media_minimum_age: int = Field(gt=0)
     frist: CustomDateString
+    # The day of the person's own answer, so a reopened link says what they did and when; null on every state showing
+    # no answer, `barred` among them. A leaked token learns from it nothing past the state it already shows: the
+    # person's own day, never who they are.
+    answered_on: CustomOptionalDateString
 
 
 class FLSchiedsrichterConfirmationPayload(BaseModel):
@@ -165,16 +194,16 @@ class FLSchiedsrichterConfirmationPayload(BaseModel):
 
     token: CustomToken
     geburtsdatum: CustomDateString
-    umfang: FLEinwilligungUmfang
+    scope: FLEinwilligungScope
     # Required rather than defaulted: a page that omitted it would store the model's answer in place
     # of the person's, and an off switch is an answer.
-    medien: bool
+    media: bool
     # The wordings the page showed beside the two choices.
     text_versions: FLSchiedsrichterTextVersions
 
     @model_validator(mode="after")
     def _grants_name_the_current_wording(self) -> Self:
-        refuse_a_stale_grant(self.text_versions, {"umfang": self.umfang, "medien": self.medien})
+        refuse_a_stale_grant(self.text_versions, {"scope": self.scope, "media": self.media})
         return self
 
 
@@ -185,8 +214,8 @@ class FLSchiedsrichterConfirmationResponse(BaseAPIResponse):
     caller holding a leaked token learns nothing it did not already post.
     """
 
-    umfang: FLEinwilligungUmfang
-    medien: bool
+    scope: FLEinwilligungScope
+    media: bool
     confirmed_at: CustomDateString
 
 

@@ -43,7 +43,7 @@ class TestTheProductionLine:
         assert "Traceback" in document["error"]["stack"]
 
     def test_carries_no_address_in_its_message_its_fields_or_its_stack(self):
-        line = JSONFormatter().format(a_failure_record("refused for anna.beispiel@example.org", adresse="b.c+d@schule.example.de"))
+        line = JSONFormatter().format(a_failure_record("refused for anna.beispiel@example.org", address="b.c+d@schule.example.de"))
 
         assert "@" not in line, line
 

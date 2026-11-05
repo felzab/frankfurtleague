@@ -7,18 +7,6 @@ import type { NextConfig } from "next";
 const localeOptimization = optimizeLocales.turbopack({ locales: ["de-DE"] });
 
 const nextConfig: NextConfig = {
-  // These run *ahead of* src/proxy.ts -- observed, not assumed: GET /area/admin redirects without
-  // the proxy running. A redirect added here must land on a page guarding itself, as each under
-  // `/area` does.
-  async redirects() {
-    return [
-      {
-        source: "/area/admin",
-        destination: "/area/admin/action_required#top",
-        permanent: true, // HTTP 308 (permanent, method-preserving) -- not 301
-      },
-    ];
-  },
   async headers() {
     return [
       {

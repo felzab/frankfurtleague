@@ -1,7 +1,7 @@
 import re
 from dataclasses import dataclass
 from datetime import date
-from typing import Annotated, Any, LiteralString
+from typing import Annotated, Any
 from urllib.parse import urlsplit
 
 from bson import ObjectId
@@ -16,8 +16,10 @@ from pydantic import (
     StringConstraints,
 )
 from pydantic.json_schema import JsonSchemaValue, WithJsonSchema
-from pydantic_core import CoreSchema, PydanticCustomError, core_schema
+from pydantic_core import CoreSchema, core_schema
 
+from app.core.codes import Rule
+from app.core.exceptions import rule_refusal
 from app.shared.schemas.bounds import TEAM_SHORTHAND_LENGTH
 
 DATE_REGEX = r"^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
@@ -162,6 +164,11 @@ CustomShorthand = Annotated[
 # An alias rather than a repeated `Field`, so a field cannot be added with the bound left off.
 CustomNonEmptyString = Annotated[str, StringConstraints(min_length=1)]
 
+# The `version` an editor was served, which its save sends back: required, so a save checked against nothing overwrites
+# a rival's unseen, and never negative, as no stored count is, so a negative one is the payload's 422 rather than
+# `version_stale`. One alias for every editor's save, so the published `minimum` is one.
+CustomVersion = Annotated[int, Field(ge=0)]
+
 # The WRITE-side floor: `min_length` counts CHARACTERS, so the alias above takes spaces alone -- a
 # value stored and served as empty. NEVER on a read model, where the strip runs first and a stored
 # blank would refuse.
@@ -183,6 +190,10 @@ PERSON_NAME_PATTERN = r"^\p{L}[\p{L}\-' ]*$"
 # the frontend strips what `str.strip` strips, White_Space and U+001C to U+001F.
 SINGLE_LINE_PATTERN = r"^[^\x00\n\v\f\r\u0085\u2028\u2029]*$"
 
+# A paragraph a person writes, such as a Begr\u00fcndung: its line breaks kept, the line feed and the carriage return a
+# browser's text area sends before it, and the other characters `SINGLE_LINE_PATTERN` refuses still refused.
+PARAGRAPH_PATTERN = r"^[^\x00\v\f\u0085\u2028\u2029]*$"
+
 # Byte-for-byte the regex zod uses for `z.regexes.domain`, because `ExternalUrlSchema` tests the
 # parsed hostname against exactly this and both ends must accept or reject a value alike.
 DOMAIN_REGEX = re.compile(r"^(?=.{1,253}$)([a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,63}$")
@@ -199,7 +210,7 @@ def validate_calendar_date(value: str) -> str:
     try:
         date.fromisoformat(value)
     except ValueError as invalid_date_error:
-        raise PydanticCustomError("date_not_in_calendar", "the date names no day of the calendar") from invalid_date_error
+        raise rule_refusal("date_not_in_calendar", "the date names no day of the calendar") from invalid_date_error
     return value
 
 
@@ -207,14 +218,15 @@ CustomDateString = Annotated[str, StringConstraints(pattern=DATE_REGEX, strict=T
 CustomTimeString = Annotated[str, StringConstraints(pattern=TIME_REGEX, strict=True)]
 
 
-def refuse_reversed_span(*, start: str, end: str, kind: LiteralString) -> None:
-    """From a PAYLOAD's `model_validator` alone: refusing a stored reversal on read would hide it from the edit that repairs it.
+def refuse_reversed_span(*, start: str, end: str, kind: Rule) -> None:
+    """From a PAYLOAD's validator alone: refusing a stored reversal on read would hide it from the edit that repairs it.
 
-    `kind` names the span, since a model validator's refusal sits at the model and not at either date.
+    `kind` names the span, since one helper judges every span; a caller raising it from the end date's field validator
+    places it on that date, a model validator's refusal sitting at the model, where no box shows it.
     """
 
     if end < start:
-        raise PydanticCustomError(kind, "the span ends before it starts", {"start": start})
+        raise rule_refusal(kind, "the span ends before it starts", {"start": start})
 
 
 CustomOptionalDateString = Annotated[CustomDateString | None, BeforeValidator(parse_empty_string_to_none), BLANK_ADMITTED]
@@ -244,22 +256,22 @@ def validate_external_url(value: str) -> str:
         # access. Bound to a name because a bare attribute access reads as dead code (ruff B018).
         _port = parts.port
     except ValueError as invalid_url_error:
-        raise PydanticCustomError("url_not_accepted", "the URL could not be parsed") from invalid_url_error
+        raise rule_refusal("url_not_accepted", "the URL could not be parsed") from invalid_url_error
 
     # zod compares the scheme case-insensitively, because it reads it back off a parsed URL object.
     if parts.scheme.lower() not in EXTERNAL_URL_SCHEMES:
-        raise PydanticCustomError("url_not_accepted", "the URL must use http or https")
+        raise rule_refusal("url_not_accepted", "the URL must use http or https")
 
     # `https://frankfurtleague.de@evil.com` resolves to `evil.com`: everything before the `@` is
     # userinfo, which every host check below excludes and never sees. A surface that renders the
     # string and follows the host sends a trusting reader to the attacker.
     if parts.username or parts.password:
-        raise PydanticCustomError("url_not_accepted", "the URL must not carry credentials before the @")
+        raise rule_refusal("url_not_accepted", "the URL must not carry credentials before the @")
 
     # `hostname` is the bare host: port stripped, userinfo excluded, already lowercased.
     host = parts.hostname
     if not host:
-        raise PydanticCustomError("url_not_accepted", "the URL must point at a domain name")
+        raise rule_refusal("url_not_accepted", "the URL must point at a domain name")
 
     # `DOMAIN_REGEX` is ASCII-only and `new URL` punycodes on the way in, so zod sees "xn--".
     # urlsplit does not, so encode first -- otherwise an umlaut domain fails on the read path.
@@ -272,13 +284,13 @@ def validate_external_url(value: str) -> str:
         else:
             host = host.encode("idna").decode("ascii")
     except UnicodeError as invalid_host_error:
-        raise PydanticCustomError("url_not_accepted", "the URL's host is not a valid internationalised domain") from invalid_host_error
+        raise rule_refusal("url_not_accepted", "the URL's host is not a valid internationalised domain") from invalid_host_error
 
     # Python's `$` also matches before one final newline, and zod's does not. Harmless here:
     # `URL_STRIPPED_CHARACTERS`, the newline among them, is removed before parsing, and an encoded
     # `%0A` keeps its `%`, which no label admits.
     if not DOMAIN_REGEX.match(host):
-        raise PydanticCustomError("url_not_accepted", "the URL must point at a domain name")
+        raise rule_refusal("url_not_accepted", "the URL must point at a domain name")
 
     # What the checks ran on, and never `parts.geturl()`, which would also lowercase the scheme.
     return parsed

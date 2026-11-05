@@ -9,10 +9,10 @@ import { textLink } from "@/shared/components/ui/textLink";
 import { FOCUS_HEADING, focusSection } from "@/shared/utils/focusAfterWrite";
 
 import type { FLOpenRegistrierung } from "@/core/generated/client/types";
-import type { Leserichtung } from "@/shared/utils/leserichtung";
+import type { ReadingDirection } from "@/shared/utils/readingDirection";
 
 /** What a cut-short answer offers: which end of the queue is loaded, and the link to the other one. */
-export type RegistrierungenUnvollstaendig = { richtung: Leserichtung; umkehrHref: string };
+export type RegistrierungenUnvollstaendig = { richtung: ReadingDirection; umkehrHref: string };
 
 /**
  * A team's pending registrations on its seat holder's panel, every seat alike. The heading stays when

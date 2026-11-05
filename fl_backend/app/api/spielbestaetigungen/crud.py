@@ -15,7 +15,6 @@ from app.api.spielbestaetigungen.services import (
     build_referee_images_filter,
     build_referee_rows_filter,
     build_season_entries_filter,
-    build_season_halter_filter,
     build_season_images_filter,
     build_season_reasons_filter,
     build_seat_entry_images_filter,
@@ -24,6 +23,7 @@ from app.api.spielbestaetigungen.services import (
     seat_entry_image_edits,
 )
 from app.api.spiele.schemas import FLSpielOrtFieldPublic
+from app.api.spiele.services import build_named_spiele_pipeline
 from app.core.collections import Collection
 from app.core.crud import (
     aggregate_many_from_db,
@@ -39,14 +39,39 @@ from app.shared.schemas.literals import KONTAKT_ROLLEN
 
 # --- The LINK's view and answer.
 
-# What the VIEW reads off the fixture: the Ansetzung's inputs, what the page states of it, and what
-# `grund_to_close` decides on. Never the referee, the rent or the note.
+# What the VIEW reads off the fixture through the name join: the Ansetzung's inputs, what the page states of it, and
+# what `grund_to_close` decides on. Never the referee, the rent or the note.
 ANSICHT_SPIEL_FIELDS: Mapping[str, int] = {
     "_id": 0,
     **dict.fromkeys(ANSETZUNG_QUELLEN.values(), 1),
     **dict.fromkeys(("team1.name", "team2.name", "team1.tore", "team2.tore", "ort.name", "ort.maps_link"), 1),
     **dict.fromkeys(("ergebnis", "sonderereignis"), 1),
 }
+
+# What the pass and a referee's own rows read off a fixture: the view's fields, its id, and the booked referee, whom
+# `grund_to_close` compares a referee's row against. The referee's id alone, never the name the join puts beside it.
+JUDGED_SPIEL_FIELDS: Mapping[str, int] = {**ANSICHT_SPIEL_FIELDS, "_id": 1, "schiedsrichter.schiedsrichter_id": 1}
+
+
+async def pull_named_spiele(
+    *,
+    spiele_collection: ReadCollection,
+    db_filter: Mapping[str, Any],
+    projection: Mapping[str, Any],
+    sort_by: Sequence[tuple[str, int]] | None = None,
+    limit: int | None = None,
+    session: AsyncClientSession | None = None,
+) -> list[Mapping[str, Any]]:
+    """The fixtures `db_filter` selects through the name join, `projection` of each.
+
+    The stored fixture holds no name, so a reader naming a side or the ground reads it here and never by `find`.
+    """
+
+    return await aggregate_many_from_db(
+        collection=spiele_collection,
+        pipeline=build_named_spiele_pipeline(db_filter, projection=projection, sort_by=sort_by, limit=limit),
+        session=session,
+    )
 
 
 def verein_fields(*, team_id: Any, seat: str) -> dict[str, Any]:
@@ -67,14 +92,20 @@ async def pull_ansetzung_lage(
     spiele_collection: ReadCollection,
     saison_teams_collection: ReadCollection,
     spielbestaetigung_raw: Mapping[str, Any],
-    # `None` for the whole fixture, which a proposal is judged as.
+    # `None` for the stored fixture whole, which a judgement validates as `FLSpiel` and which names nothing; a
+    # projection reads it through the name join.
     spiel_projection: Mapping[str, Any] | None,
     verein_projection: Mapping[str, Any],
     session: AsyncClientSession | None = None,
 ) -> AnsetzungLage | None:
     """`None` where the fixture is gone: an undraw or a replace removes it with its rows, so a row read outside a transaction can outlive it."""
 
-    spiel = await spiele_collection.find_one({"_id": spielbestaetigung_raw["spiel_id"]}, spiel_projection, session=session)
+    by_id = {"_id": spielbestaetigung_raw["spiel_id"]}
+    if spiel_projection is None:
+        spiel = await spiele_collection.find_one(by_id, session=session)
+    else:
+        named = await pull_named_spiele(spiele_collection=spiele_collection, db_filter=by_id, projection=spiel_projection, session=session)
+        spiel = named[0] if named else None
     if spiel is None:
         return None
 
@@ -155,9 +186,6 @@ EIGENE_ZEILE_FIELDS: Mapping[str, int] = {
     "closed": 1,
 }
 
-# The view's fields and the booked referee, whom `grund_to_close` compares a referee's row against.
-EIGENE_SPIEL_FIELDS: Mapping[str, int] = {**ANSICHT_SPIEL_FIELDS, "_id": 1, "schiedsrichter.schiedsrichter_id": 1}
-
 EIGENE_VEREIN_FIELDS: Mapping[str, int] = {"_id": 0, "saison_id": 1, "team_id": 1, "name": 1, "austritt.datum": 1}
 
 
@@ -173,9 +201,12 @@ async def pull_eigene_lagen(
     if not spielbestaetigungen_raw:
         return {}
 
-    spiele = await spiele_collection.find(
-        {"_id": {"$in": list({row["spiel_id"] for row in spielbestaetigungen_raw})}}, EIGENE_SPIEL_FIELDS, session=session
-    ).to_list(length=None)
+    spiele = await pull_named_spiele(
+        spiele_collection=spiele_collection,
+        db_filter={"_id": {"$in": list({row["spiel_id"] for row in spielbestaetigungen_raw})}},
+        projection=JUDGED_SPIEL_FIELDS,
+        session=session,
+    )
     vereine = await saison_teams_collection.find(
         {
             "saison_id": {"$in": list({row["saison_id"] for row in spielbestaetigungen_raw})},
@@ -219,7 +250,7 @@ async def pull_spielorte_public(
 
 async def redact_seat_entries_in_images(
     *,
-    aktionen_collection: AsyncCollection,
+    action_log_collection: AsyncCollection,
     voids: Sequence[SeatVoid | None],
     stamp: str,
     # REQUIRED for `redact_images_in_session`'s reason.
@@ -235,7 +266,7 @@ async def redact_seat_entries_in_images(
         return 0
 
     return await redact_images_in_session(
-        aktionen_collection=aktionen_collection,
+        action_log_collection=action_log_collection,
         db_filter=build_seat_entry_images_filter(voided),
         judge=lambda image: seat_entry_image_edits(image, voided),
         stamp=stamp,
@@ -246,13 +277,13 @@ async def redact_seat_entries_in_images(
 async def strip_the_seasons_confirmations(
     *,
     spielbestaetigungen_collection: AsyncCollection,
-    aktionen_collection: AsyncCollection,
+    action_log_collection: AsyncCollection,
     saison_id: str,
     stamp: str,
     # REQUIRED: the season's end judged in the same snapshot, so an activation since the caller's read keeps the rows.
     session: AsyncClientSession,
 ) -> int:
-    """At the season's end, every link entry, reason and holder digest left on the season's rows and their images.
+    """At the season's end, every link entry and reason left on the season's rows and their images.
 
     A replaced club's rows, a referee's and an administrator's reason among them; each answer's way and role stay as the
     record.
@@ -271,15 +302,9 @@ async def strip_the_seasons_confirmations(
         update={"$set": {"antwort.begruendung": None}},
         session=session,
     )
-    await patch_many_in_db(
-        collection=spielbestaetigungen_collection,
-        db_filter=build_season_halter_filter(saison_id),
-        update={"$set": {"antwort.von.halter": None}},
-        session=session,
-    )
 
     return await redact_images_in_session(
-        aktionen_collection=aktionen_collection,
+        action_log_collection=action_log_collection,
         db_filter=build_season_images_filter(saison_id),
         judge=lambda image: season_end_image_edits(image, saison_id),
         stamp=stamp,
@@ -290,10 +315,10 @@ async def strip_the_seasons_confirmations(
 # --- The REFEREE'S ERASURE, the registry's member for their confirmation rows.
 
 
-async def loeschen_referee_confirmations_in_session(
+async def erase_referee_confirmations_in_session(
     *,
     spielbestaetigungen_collection: AsyncCollection,
-    aktionen_collection: AsyncCollection,
+    action_log_collection: AsyncCollection,
     schiedsrichter_ids: Sequence[CustomObjectId],
     # The caller's, so every redaction of one erasure carries one instant.
     stamp: str,
@@ -315,7 +340,7 @@ async def loeschen_referee_confirmations_in_session(
         session=session,
     )
 
-    geloescht = 0
+    erased_count = 0
     if rows:
         # Removed, never repointed as the fixtures are: the sweep mints the ghost no row.
         # Ids and their seasons alone, never the referee's id: the log keeps an erasure's filter as text.
@@ -324,10 +349,10 @@ async def loeschen_referee_confirmations_in_session(
             db_filter={"saison_id": {"$in": sorted({row["saison_id"] for row in rows})}, "_id": {"$in": [row["_id"] for row in rows]}},
             session=session,
         )
-        geloescht = removed.deleted_count
+        erased_count = removed.deleted_count
         # Whole, as every record an erasure removes: the row is theirs, so its earlier states are too.
         await redact_log_rows_in_db(
-            action_log_collection=aktionen_collection,
+            action_log_collection=action_log_collection,
             targets=[(Collection.SPIELBESTAETIGUNGEN, [row["_id"] for row in rows])],
             at=stamp,
             session=session,
@@ -336,14 +361,14 @@ async def loeschen_referee_confirmations_in_session(
     # Then every other image naming them, which only their part of leaves: an undraw's array holds rows long gone
     # beside other parties', the referee's id and reason among them.
     await redact_images_in_session(
-        aktionen_collection=aktionen_collection,
+        action_log_collection=action_log_collection,
         db_filter=build_referee_images_filter(schiedsrichter_ids),
         judge=lambda image: referee_image_edits(image, schiedsrichter_ids),
         stamp=stamp,
         session=session,
     )
 
-    return geloescht
+    return erased_count
 
 
 # --- The PASS's mint.

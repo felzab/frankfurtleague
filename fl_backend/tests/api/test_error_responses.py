@@ -26,7 +26,7 @@ from app.core.exception_handlers import (
     pydantic_validation_exception_handler,
     register_exception_handlers,
 )
-from app.core.exceptions import APIError
+from app.core.exceptions import APIError, WriteRefusal
 from app.core.logging import JSONFormatter, TraceContextFilter
 from app.core.middlewares import TracedApp
 from app.core.routing import SAFE, SAFE_WHEN
@@ -74,7 +74,7 @@ class NestedPayload(BaseModel):
     """The two shapes a form path takes past a top-level key: a sub-object and a list entry."""
 
     kontakt: NestedKontakt
-    namen: list[NamePayload]
+    names: list[NamePayload]
 
 
 # A second app: `APP`'s routes all 503 on the database dependency before parsing can fail, so a
@@ -132,6 +132,34 @@ async def refuse_at(status: int) -> None:
     """Refuses at the status its path names, naming the body path it judged."""
 
     raise APIError(HTTPStatus(status), PLANTED_REFUSAL, fields=(JUDGED_PATH,))
+
+
+# The fewest groups the planted rule allows, as a season's rule refusal names the groups in use.
+PLANTED_BOUND = 3
+
+
+@VALIDATION_APP.post("/bounded")
+async def refuse_with_a_bound() -> None:
+    """Refuses as an endpoint's check does, through its `WriteRefusal`, naming the bound its rule holds the field to."""
+
+    raise WriteRefusal(error_code=PLANTED_REFUSAL, status=HTTPStatus.CONFLICT, fields=(JUDGED_PATH,), bounds={"min": PLANTED_BOUND}).error()
+
+
+# The fixtures a planted retirement waits on, which the refusal names on the path's id as a list.
+PLANTED_FIXTURES = [4, 7, 9]
+
+
+@VALIDATION_APP.delete("/retired/{record_id}")
+async def refuse_a_retirement(record_id: str) -> None:
+    """Refuses as a retirement does: on the path's id, naming the fixtures that block it."""
+
+    raise WriteRefusal(
+        error_code=PLANTED_REFUSAL,
+        status=HTTPStatus.CONFLICT,
+        fields=(("record_id",),),
+        location="path",
+        bounds={"spiel_nrs": PLANTED_FIXTURES, "count": len(PLANTED_FIXTURES)},
+    ).error()
 
 
 @VALIDATION_APP.get("/starlette/{status}")
@@ -210,13 +238,13 @@ class TestTheRefusedFieldsReachTheCaller:
     """A 422 names where each refusal sits, so a form marks that field."""
 
     def test_each_field_is_named_by_its_path_inside_the_body(self):
-        body = refused({"kontakt": {"email": "far-too-long"}, "namen": [{"vorname": "Anna"}, {"vorname": REJECTED_NAME}]})
+        body = refused({"kontakt": {"email": "far-too-long"}, "names": [{"vorname": "Anna"}, {"vorname": REJECTED_NAME}]})
 
         # An integer rather than `"1"`: a caller joining the path gets the dotted name its input carries. Pydantic's
         # own kinds carry no context: a caller words each from its kind, so the pattern stays on the server.
         assert body["fields"] == [
             {"in": "body", "path": ["kontakt", "email"], "kind": "string_too_long", "ctx": {}},
-            {"in": "body", "path": ["namen", 1, "vorname"], "kind": "string_pattern_mismatch", "ctx": {}},
+            {"in": "body", "path": ["names", 1, "vorname"], "kind": "string_pattern_mismatch", "ctx": {}},
         ]
 
     def test_a_rule_s_bound_reaches_the_caller_as_its_context(self):
@@ -239,7 +267,7 @@ class TestTheRefusedFieldsReachTheCaller:
         )
 
     def test_the_value_and_pydantics_english_stay_off_the_wire(self):
-        body = refused({"kontakt": {"email": "a@b"}, "namen": [{"vorname": REJECTED_NAME}]})
+        body = refused({"kontakt": {"email": "a@b"}, "names": [{"vorname": REJECTED_NAME}]})
 
         # The exact key sets, so a value or a message under any name moves this.
         assert set(body) == {"error_code", "trace_id", "fields"}
@@ -267,6 +295,22 @@ class TestARefusalIsAnsweredAtTheStatusItsCheckChose:
 
         assert response.status_code == status
         assert response.json()["fields"] == [{"in": "body", "path": list(JUDGED_PATH), "kind": PLANTED_REFUSAL, "ctx": {}}]
+
+    def test_a_refusal_s_bound_reaches_the_caller_as_its_field_s_context(self):
+        """The caller words the field's line from the bound, so a bound the server moves and left off the wire is a stale line on the screen."""
+
+        response = TestClient(VALIDATION_APP, raise_server_exceptions=False).post("/bounded")
+
+        assert response.json()["fields"] == [{"in": "body", "path": list(JUDGED_PATH), "kind": PLANTED_REFUSAL, "ctx": {"min": PLANTED_BOUND}}]
+
+    def test_a_path_refusal_s_list_bound_reaches_the_caller_on_the_path_s_field(self):
+        """A retirement names the fixtures to move first: off the wire, the dialog names none and the administrator hunts for them."""
+
+        response = TestClient(VALIDATION_APP, raise_server_exceptions=False).delete("/retired/an-id")
+
+        assert response.json()["fields"] == [
+            {"in": "path", "path": ["record_id"], "kind": PLANTED_REFUSAL, "ctx": {"spiel_nrs": PLANTED_FIXTURES, "count": 3}}
+        ]
 
     @pytest.mark.parametrize("status", sorted(ROUTING_CODES))
     def test_each_status_the_routing_layer_raises_answers_its_own_code(self, status: int):
@@ -434,7 +478,7 @@ class TestAccessLine:
 
 
 async def crash() -> None:
-    raise KeyError("verwaltung")
+    raise KeyError("admin_tier")
 
 
 async def break_after_the_status() -> StreamingResponse:

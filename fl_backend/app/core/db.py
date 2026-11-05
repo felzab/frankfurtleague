@@ -75,13 +75,13 @@ async def warn_about_the_grants(grants_collection: AsyncCollection) -> None:
     Counts alone reach the line and never an address: the log outlives the grants it describes.
     """
 
-    grants = await grants_collection.find({}, projection={"verwaltung": 1}).to_list(length=None)
+    grants = await grants_collection.find({}, projection={"admin_tier": 1}).to_list(length=None)
 
     if not grants:
         fl_logger.warning(NO_GRANT)
         return
 
-    if all(grant.get("verwaltung") != "owner" for grant in grants):
+    if all(grant.get("admin_tier") != "owner" for grant in grants):
         fl_logger.warning(NO_OWNER)
 
 

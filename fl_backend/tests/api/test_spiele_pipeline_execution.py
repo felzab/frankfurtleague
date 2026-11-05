@@ -19,8 +19,10 @@ from app.core.collections import Collection
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import (
+    ADDRESS,
     SCHIEDSRICHTER_TEXT_VERSIONS,
     own_einwilligung_document,
+    saison_team_document,
     schiedsrichter_document,
     spiel_document,
     spielbestaetigung_document,
@@ -64,17 +66,15 @@ class TestTheJoinedDisqualification:
         assert match_3["team2"]["austritt"] == AUSTRITT
 
     def test_the_season_is_the_fixtures_own_and_not_a_resolved_one(self, league: SeededLeague) -> None:
-        """Every match read runs this pipeline, so keying on `team_id` alone badges a match played before the decision."""
+        """Every match read runs this pipeline, so keying on `team_id` alone badges a match played before the decision.
+
+        And names it as the club is called now, where a past season keeps the name it was played under.
+        """
 
         match_8 = spiel(league, 8, saison_id=PRIOR_SAISON)
 
-        assert match_8["team2"]["name"] == "Lessing"
+        assert match_8["team2"]["name"] == "Lessing 2025"
         assert match_8["team2"]["austritt"] is None
-
-    def test_a_side_whose_team_holds_no_row_for_the_season_carries_null(self, league: SeededLeague) -> None:
-        """No junction row is no disqualification: that is `eligibility_team_not_in_saison`'s fact, and this field answers another one."""
-
-        assert spiel(league, 8, saison_id=PRIOR_SAISON)["team1"]["austritt"] is None
 
 
 class TestWhatTheMergeMustNotBreak:
@@ -128,9 +128,10 @@ VERDICT_HOME = ObjectId("6890a1b2c3d4e5f607250011")
 VERDICT_AWAY = ObjectId("6890a1b2c3d4e5f607250012")
 VERDICT_SPIELORT_ID = ObjectId("6890a1b2c3d4e5f607250021")
 
-HOME_SIDE = {"team_id": VERDICT_HOME, "name": "Alpha", "shorthand": "ALX", "tore": None}
-AWAY_SIDE = {"team_id": VERDICT_AWAY, "name": "Beta", "shorthand": "BEX", "tore": None}
-GROUND = {"spielort_id": VERDICT_SPIELORT_ID, "name": "Sportplatz Ost", "maps_link": "Sportplatz Ost, Frankfurt", "mietpreis": 80}
+# As `spiele` stores them, no name among them: every read joins the names, which these cases leave unread.
+HOME_SIDE = {"team_id": VERDICT_HOME, "tore": None}
+AWAY_SIDE = {"team_id": VERDICT_AWAY, "tore": None}
+GROUND = {"spielort_id": VERDICT_SPIELORT_ID, "mietpreis": 80}
 OTHER_GROUND = {**GROUND, "spielort_id": ObjectId("6890a1b2c3d4e5f607250022")}
 
 # One per Ansetzung value, the sides moving together since a fixture never holds one club twice.
@@ -172,15 +173,32 @@ def discarded(fixture: Mapping[str, Any], team_id: ObjectId) -> dict[str, Any]:
 
     abgelehnt = {**zugesagt(), "art": "declined", "vorschlag": {"datum": "2026-05-03", "uhrzeit": "17:00:00"}, "begruendung": "Halle belegt"}
 
-    return a_row(fixture, team_id, antwort=abgelehnt, closed={"am": "2026-04-21", "grund": "discarded"})
+    return a_row(fixture, team_id, antwort=abgelehnt, closed={"at": "2026-04-21", "grund": "discarded"})
 
 
 Body = Callable[[AsyncDatabase], Awaitable[Any]]
 
 
+def venue_document(name: str = "Sportplatz Ost") -> dict[str, Any]:
+    return {
+        "_id": VERDICT_SPIELORT_ID,
+        "name": name,
+        "address": dict(ADDRESS),
+        "maps_link": f"{name}, Frankfurt",
+        "default_mietpreis": 80,
+        "inactive_since": None,
+    }
+
+
 def on_a_fixture(url: str, fixture: dict[str, Any], rows: list[dict[str, Any]], body: Body) -> Any:
+    """The fixture beside the rows every read joins its names from: its clubs' season rows and its ground."""
+
     async def _run() -> Any:
         async with a_clean_database(url, VERDICT_DATABASE, constraints=True) as (_, database):
+            await database[Collection.SAISON_TEAMS].insert_many(
+                [saison_team_document(SAISON, VERDICT_HOME, "Alpha", "ALX"), saison_team_document(SAISON, VERDICT_AWAY, "Beta", "BEX")]
+            )
+            await database[Collection.SPIELORTE].insert_one(venue_document())
             await database[Collection.SPIELE].insert_one(fixture)
             if rows:
                 await database[Collection.SPIELBESTAETIGUNGEN].insert_many(rows)
@@ -199,6 +217,23 @@ async def joined(database: AsyncDatabase) -> dict[str, Any]:
 
 async def verdict(database: AsyncDatabase) -> bool | None:
     return (await joined(database))[ANSETZUNG_CONFIRMED]
+
+
+class TestAFixtureNamesItsVenueAsItIsCalledNow:
+    def test_a_venue_renamed_after_a_past_fixture_shows_its_new_name_there(self, mongo_url: str):
+        """A copy stored on the fixture would go on naming the ground as it was called before the rename."""
+
+        fixture = {**a_fixture(), "datum": "2025-09-20", "ort": {"spielort_id": VERDICT_SPIELORT_ID, "mietpreis": 80}}
+
+        async def body(database: AsyncDatabase) -> Mapping[str, Any]:
+            await database[Collection.SPIELORTE].update_one(
+                {"_id": VERDICT_SPIELORT_ID}, {"$set": {"name": "Sporthalle Ost", "maps_link": "Sporthalle Ost, Frankfurt"}}
+            )
+            return (await joined(database))["ort"]
+
+        ort = on_a_fixture(mongo_url, fixture, [], body)
+
+        assert ort == {"spielort_id": VERDICT_SPIELORT_ID, "mietpreis": 80, "name": "Sporthalle Ost", "maps_link": "Sporthalle Ost, Frankfurt"}
 
 
 class TestTheVerdictReadsTheAnsetzungAsItStandsNow:
@@ -226,7 +261,7 @@ class TestTheVerdictReadsTheAnsetzungAsItStandsNow:
         fixture = a_fixture()
         rows = [
             a_row(fixture, VERDICT_HOME, antwort=zugesagt()),
-            a_row(fixture, VERDICT_AWAY, antwort=zugesagt(), closed={"am": "2026-04-21", "grund": "abgesagt"}),
+            a_row(fixture, VERDICT_AWAY, antwort=zugesagt(), closed={"at": "2026-04-21", "grund": "abgesagt"}),
         ]
 
         assert on_a_fixture(mongo_url, fixture, rows, verdict) is False
@@ -335,8 +370,8 @@ PUBLIC_REFEREE_NAME = "Ada K."
 EARLIER_ROW = ObjectId("6890a1b2c3d4e5f607250041")
 LATER_ROW = ObjectId("6890a1b2c3d4e5f607250042")
 DECLINED = {"art": "declined", "am": "2026-04-20", "von": {"art": "schiedsrichter"}, "vorschlag": None, "begruendung": "Verhindert"}
-CLOSED_BY_THE_DECLINE = {"am": "2026-04-20", "grund": "schiedsrichter_declined"}
-CLOSED_BY_A_MOVE = {"am": "2026-04-21", "grund": "ansetzung_changed"}
+CLOSED_BY_THE_DECLINE = {"at": "2026-04-20", "grund": "schiedsrichter_declined"}
+CLOSED_BY_A_MOVE = {"at": "2026-04-21", "grund": "ansetzung_changed"}
 
 
 def published() -> dict[str, Any]:
@@ -344,7 +379,8 @@ def published() -> dict[str, Any]:
 
 
 def a_refereed_fixture(schiedsrichter_id: ObjectId = REFEREE_ID) -> dict[str, Any]:
-    return {**a_fixture(), "schiedsrichter": {"schiedsrichter_id": schiedsrichter_id, "name": REFEREE_NAME, "payment": 20}}
+    # The booking as stored: the name served beside it is the referee row's, joined at read.
+    return {**a_fixture(), "schiedsrichter": {"schiedsrichter_id": schiedsrichter_id, "payment": 20}}
 
 
 def a_referee_row(fixture: Mapping[str, Any], party: Mapping[str, Any] = REFEREE, **fields: Any) -> dict[str, Any]:
@@ -415,13 +451,13 @@ class TestTheRefereeIsServedOnceAgreed:
         """The referee replaced before them holds the only row, closed for the change; the booked one holds none yet."""
 
         fixture = a_refereed_fixture()
-        rows = [a_referee_row(fixture, party=REPLACED_REFEREE, closed={"am": "2026-04-21", "grund": "schiedsrichter_switched"})]
+        rows = [a_referee_row(fixture, party=REPLACED_REFEREE, closed={"at": "2026-04-21", "grund": "schiedsrichter_switched"})]
 
         assert withheld(on_a_refereed_fixture(mongo_url, rows, joined, fixture=fixture))
 
     def test_a_request_closed_unanswered_withholds_them(self, mongo_url: str):
         fixture = a_refereed_fixture()
-        rows = [a_referee_row(fixture, closed={"am": "2026-05-03", "grund": "spiel_past"})]
+        rows = [a_referee_row(fixture, closed={"at": "2026-05-03", "grund": "spiel_past"})]
 
         assert withheld(on_a_refereed_fixture(mongo_url, rows, joined, fixture=fixture))
 
@@ -460,7 +496,7 @@ class TestTheRefereeIsServedOnceAgreed:
         """The join carries a club's discard for the clubs' verdict, and the gate's party term keeps it out of the referee's."""
 
         fixture = a_refereed_fixture()
-        rows = [a_row(fixture, VERDICT_HOME, antwort=zugesagt(), closed={"am": "2026-04-21", "grund": "discarded"})]
+        rows = [a_row(fixture, VERDICT_HOME, antwort=zugesagt(), closed={"at": "2026-04-21", "grund": "discarded"})]
 
         assert on_a_refereed_fixture(mongo_url, rows, einsatz, fixture=fixture) is False
 
@@ -513,7 +549,7 @@ class TestTheRefereesNameFollowsTheirConsent:
     def test_an_agreed_referee_publishing_internally_is_served_nameless_and_named_on_the_admin_tier(self, mongo_url: str):
         fixture = a_refereed_fixture()
         rows = [a_referee_row(fixture, antwort=zugesagt())]
-        intern = {**published(), "umfang": "intern"}
+        intern = {**published(), "scope": "intern"}
 
         document = on_a_refereed_fixture(mongo_url, rows, joined, einwilligung=intern, fixture=fixture)
 

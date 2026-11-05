@@ -1,7 +1,7 @@
 import { logger } from "./logging";
 
 /** Why a person was turned away: no session, no seat at the address, or not the Funktion a page speaks to. */
-export type Refusal = "keine_sitzung" | "kein_sitz" | "keine_funktion";
+export type Refusal = "no_session" | "no_seat" | "no_role";
 
 /**
  * A person's turn-away, by a page or a write, in one event and shape, so one query reads both lanes:

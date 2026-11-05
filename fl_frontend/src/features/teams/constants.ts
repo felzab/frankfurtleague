@@ -7,7 +7,7 @@ import type { Copy } from "@/core/copy";
 import type {
   FLAustrittType,
   FLKontaktEnteredBy,
-  FLKontaktKenntnisnahmeUmfang,
+  FLKontaktKenntnisnahmeScope,
   FLSchulform,
   FLTrainerAlso,
   FLTrikotFarbe,
@@ -58,7 +58,7 @@ type AustrittOption = {
   /** Names the RECORD, for the editor's picker and the change list. */
   readonly label: Copy;
   /** Names the CLUB's resulting state, for anything reading `… seit <Datum>`. */
-  readonly zustand: Copy;
+  readonly state: Copy;
   /** The two-letter badge a table cell and the team popover have room for. */
   readonly kuerzel: Copy;
 };
@@ -79,11 +79,11 @@ export const AUSTRITT_OPTIONS: readonly AustrittOption[] = [
 
 /** The state a club is in once the record exists — `Disqualifiziert seit …`, `Zurückgezogen seit …`. */
 export function austrittZustand(type: FLAustrittType): Copy {
-  return AUSTRITT_WORDS[type].zustand;
+  return AUSTRITT_WORDS[type].state;
 }
 
 /** The badge form, for a table cell, a popover or a chip, where only two letters have room. */
-export function austrittKuerzel(type: FLAustrittType): Copy {
+function austrittKuerzel(type: FLAustrittType): Copy {
   return AUSTRITT_WORDS[type].kuerzel;
 }
 
@@ -200,8 +200,8 @@ export const EINGETRAGEN_VON_OPTIONS: readonly EingetragenVonOption[] = [
 ];
 
 /** The Herkunft every surface renders for a contact seat: who seated the person. */
-export function eingetragenVonLabel(von: FLKontaktEnteredBy): string {
-  return EINGETRAGEN_VON_LABELS[von];
+export function eingetragenVonLabel(by: FLKontaktEnteredBy): string {
+  return EINGETRAGEN_VON_LABELS[by];
 }
 
 /**
@@ -213,7 +213,7 @@ export const WEBSITE_URL_SCHEME = "https://";
 
 /** What an administrator's readout labels a seat's contact scope with, and its two values keyed by the scope. */
 export const KONTAKT_WHATSAPP_FRAGE = "WhatsApp";
-export const KONTAKT_WHATSAPP_LABELS: Readonly<Record<FLKontaktKenntnisnahmeUmfang, string>> = {
+export const KONTAKT_WHATSAPP_LABELS: Readonly<Record<FLKontaktKenntnisnahmeScope, string>> = {
   kontaktdaten_whatsapp: "erlaubt",
   kontaktdaten: "nicht erlaubt",
 };

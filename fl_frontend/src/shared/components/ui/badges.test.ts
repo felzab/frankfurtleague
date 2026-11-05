@@ -1,6 +1,6 @@
 import { assert, describe, expect, it } from "vitest";
 
-import { countBadge, labelBadge, PILL_SOLID_CLASSES, PILL_TINT_CLASSES, trackCountBadge, trackLabelBadge } from "./badges.ts";
+import { countBadge, labelBadge, PILL_SOLID_CLASSES, PILL_TINT_CLASSES, trackCountBadge } from "./badges.ts";
 
 import type { FeedbackTone, PillTone } from "./badges.ts";
 
@@ -79,16 +79,6 @@ describe("the closed set every pill takes its colour from", () => {
       assert.ok(
         trackCountBadge(tone).endsWith(PILL_SOLID_CLASSES[tone]),
         `\`${tone}\` composes to ${trackCountBadge(tone)}, which drops its own fill`,
-      );
-    }
-  });
-
-  /* A word takes the same two shapes a count does, a ground the tint cannot survive carrying both. */
-  it("carries the solid ground's own pair into the word it composes", () => {
-    for (const tone of SOLID_TONES) {
-      assert.ok(
-        trackLabelBadge(tone).endsWith(PILL_SOLID_CLASSES[tone]),
-        `\`${tone}\` composes to ${trackLabelBadge(tone)}, which drops its own fill`,
       );
     }
   });

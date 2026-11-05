@@ -27,6 +27,15 @@ import type { Route } from "next";
  * landing's among them: its sides, its row, its head and its facts, from the public read's match.
  */
 
+/** A match's two sides, each a club or, while the draw has not settled it, where it comes from: the public read's and the admin read's alike. */
+type Sides = Pick<FLSpielJoined, "team1" | "team2" | "team1_quelle" | "team2_quelle">;
+
+/** What a match's result is read from: the public read's and the admin read's alike. */
+type Played = Pick<FLSpielJoined, "ergebnis" | "elfmeterschiessen" | "team1" | "team2">;
+
+/** What a match's row is built from: the public read's and the admin read's alike. */
+type Listed = Sides & Played & Pick<FLSpielJoined, "id" | "saison_id" | "for_third_place" | "datum" | "uhrzeit">;
+
 /** A match's matchday as the page reads serve it beside the match: its `position`, and its phase's count of matchdays. */
 type Matchday = Pick<FLSpielPageResponse, "spieltag_position" | "count_spieltage_in_phase">;
 
@@ -44,7 +53,7 @@ export function matchdayOf(spiel: Pick<FLSpielJoined, "saison_phase" | "for_thir
  * `ergebnis` from these and reads it only as the mark that the match was played. A hand edit holding
  * `ergebnis` without both sides' goals shows no result, as the bracket counts none.
  */
-function toreOf(spiel: FLSpielJoined): Pair | null {
+function toreOf(spiel: Played): Pair | null {
   const team1 = spiel.team1?.tore ?? null;
   const team2 = spiel.team2?.tore ?? null;
   return spiel.ergebnis === null || team1 === null || team2 === null ? null : { team1, team2 };
@@ -62,7 +71,8 @@ export function outcomeFor(spiel: FLSpielJoined, teamId: string): Outcome {
   return own > other ? "won" : own < other ? "lost" : "drawn";
 }
 
-function quelleWords(quelle: FLSpielQuelle | null): { short: Copy; long: Copy } | null {
+/** Where a side comes from while the draw has not settled it: short in its dashed plaque, in full as its name. */
+export function quelleWords(quelle: FLSpielQuelle | null): { short: Copy; long: Copy } | null {
   if (quelle === null) return null;
   const { quelle: words } = COPY.spielplan;
   if (quelle.type === "gruppe")
@@ -82,25 +92,37 @@ function sideOf(team: FLSpielTeamFieldJoined | null, quelle: FLSpielQuelle | nul
 }
 
 /** The match's two sides, the first-listed side first. */
-export function sidesOf(spiel: FLSpielJoined): { team1: SpielSide; team2: SpielSide } {
+export function sidesOf(spiel: Sides): { team1: SpielSide; team2: SpielSide } {
   return { team1: sideOf(spiel.team1, spiel.team1_quelle), team2: sideOf(spiel.team2, spiel.team2_quelle) };
 }
 
 /** The result as the kit's rows and heads take it, and nothing until one is entered. */
-function resultOf(spiel: FLSpielJoined): Pick<SpielRowProps, "result"> {
+function resultOf(spiel: Played): Pick<SpielRowProps, "result"> {
   const tore = toreOf(spiel);
   if (tore === null) return {};
   return { result: { tore, ...(spiel.elfmeterschiessen === null ? {} : { elfmeterschiessen: spiel.elfmeterschiessen }) } };
 }
 
 /** When a match is played, as its row and its bracket card show it. */
-export const whenOf = (spiel: FLSpielJoined): Copy => COPY.spielplan.when(dayOf(spiel.datum), timeOf(spiel.uhrzeit));
+export const whenOf = (spiel: Pick<FLSpielJoined, "datum" | "uhrzeit">): Copy => COPY.spielplan.when(dayOf(spiel.datum), timeOf(spiel.uhrzeit));
+
+/**
+ * The match editor's Vorschau: the match as it is stored, its pairing, when it is played and its result, else the
+ * event that leaves it none, else that none is stored yet. A fact about the record, never its unsaved changes.
+ */
+export function vorschauOf(spiel: Sides & Played & Pick<FLSpielJoined, "datum" | "uhrzeit" | "sonderereignis">): Copy {
+  const { team1, team2 } = sidesOf(spiel);
+  const tore = toreOf(spiel);
+  const result =
+    tore === null ? (ereignisOf(spiel)?.title ?? COPY.admin.spiel.noResult) : COPY.admin.spiel.score(tore, spiel.elfmeterschiessen);
+  return COPY.admin.spiel.vorschau(COPY.page.spiel(team1.name, team2.name), whenOf(spiel), result);
+}
 
 /**
  * A match as a row or a card of a match list, the whole of it a link to the match, which opens as the pop-up
  * over the page. The third-place match says so before its date, the one line every form of the row shows.
  */
-export function matchRowOf(spiel: FLSpielJoined): SpielRowProps & { id: string } {
+export function matchRowOf(spiel: Listed): SpielRowProps & { id: string } {
   const when = whenOf(spiel);
   return {
     id: spiel.id,
@@ -169,15 +191,15 @@ export function popupFactsOf(spiel: FLSpielJoined): Fact[] {
 }
 
 /** What befell a match in a visitor's words: a no-show names the side that did not turn up. */
-function sonderereignisOf(ereignis: FLSonderereignis, spiel: FLSpielJoined): Copy {
+function sonderereignisOf(sonderereignis: FLSonderereignis, spiel: Sides): Copy {
   const words = COPY.spielplan.sonderereignis;
-  switch (ereignis) {
+  switch (sonderereignis) {
     case "nichtantreten_team1":
       return words.nichtAngetreten(sidesOf(spiel).team1.name);
     case "nichtantreten_team2":
       return words.nichtAngetreten(sidesOf(spiel).team2.name);
     default:
-      return words[ereignis];
+      return words[sonderereignis];
   }
 }
 
@@ -185,19 +207,20 @@ function sonderereignisOf(ereignis: FLSonderereignis, spiel: FLSpielJoined): Cop
  * What befell the match, for the callout under its head: what happened, and under it what that means for the
  * result; `null` where the match is simply played. A no-show's consequence names the side that turned up.
  */
-export function ereignisOf(spiel: FLSpielJoined): { title: Copy; text: Copy } | null {
-  const ereignis = spiel.sonderereignis;
-  if (ereignis === null) return null;
-  const title = sonderereignisOf(ereignis, spiel);
+export function ereignisOf(spiel: Sides & Pick<FLSpielJoined, "sonderereignis" | "ergebnis">): { title: Copy; text: Copy } | null {
+  const sonderereignis = spiel.sonderereignis;
+  if (sonderereignis === null) return null;
+  const title = sonderereignisOf(sonderereignis, spiel);
   const { consequence } = COPY.spielplan.sonderereignis;
-  switch (ereignis) {
+  switch (sonderereignis) {
     case "nichtantreten_team1":
       return { title, text: consequence.nichtAngetreten(sidesOf(spiel).team2.name) };
     case "nichtantreten_team2":
       return { title, text: consequence.nichtAngetreten(sidesOf(spiel).team1.name) };
     case "abgebrochen":
       return { title, text: spiel.ergebnis === null ? consequence.abgebrochenOpen : consequence.abgebrochenScored };
-    default:
-      return { title, text: consequence[ereignis] };
+    case "ausgefallen":
+    case "annulliert":
+      return { title, text: consequence.notScored };
   }
 }

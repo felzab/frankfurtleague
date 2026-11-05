@@ -1,223 +1,117 @@
 import { COPY } from "@/core/copy";
 
-import { card, cardSurface, stacked } from "./cardStyles";
 import { tv } from "./tv";
 
-/**
- * The final boxes a template waits for: a table's rows, the match cards a Spielplan sets two a row, a read page's
- * facts, an editor's sections, the school tiles Teams sets four a row, Konto's list of its pages, and the one
- * row-high box of a Konto page holding a control that acts at once.
- */
-export type SkeletonShape = "table" | "cards" | "facts" | "sections" | "tiles" | "list" | "box";
-
-/** How many rows or boxes each shape draws. */
-const ROWS: Readonly<Record<SkeletonShape, number>> = { table: 8, cards: 6, facts: 4, sections: 2, tiles: 8, list: 4, box: 1 };
+import type { ReactNode } from "react";
 
 /**
- * The shapes whose rows are boxes of their own, laid out as their final boxes are: the sections one under another,
- * the match cards two a row from `lg`, the tiles four a row and two on a phone, the one box alone. Every other shape
- * is one box of rows.
+ * The parts every block's placeholder is drawn with. A block that waits for its content draws its own placeholder
+ * from its own recipe, its boxes, padding and gaps the block's, every text replaced by a `PlaceholderLine` at that
+ * text's line height and every glyph, plaque or control by a `placeholderBar` of its size, so the placeholder stands
+ * as tall and as wide as the block will and cannot drift from it. A template's wait is its blocks' placeholders,
+ * laid out as the blocks are, inside `Waiting`.
  */
-const GRID: Partial<Record<SkeletonShape, string>> = {
-  sections: "grid gap-6",
-  cards: "grid gap-3 lg:grid-cols-2",
-  tiles: "grid grid-cols-2 gap-2 lg:grid-cols-4",
-  box: "grid",
-};
-
-/**
- * Each shape's bars, by their widths, where the final row's columns will stand: a table's rank, its name and
- * three figures at the row's end; a match card's date line over its two sides; a fact's label over its value; a
- * section's title; a tile's plaque and its name; a list row's glyph and its name; the one box's title.
- */
-const BARS: Readonly<Record<SkeletonShape, readonly string[]>> = {
-  table: ["w-6", "w-1/3", "ms-auto w-6", "w-6", "w-6"],
-  cards: ["h-3 w-1/4", "w-1/2", "w-1/2"],
-  facts: ["h-3 w-1/4", "w-1/2"],
-  sections: ["w-1/2"],
-  tiles: ["h-6 w-10", "w-1/2"],
-  list: ["w-5", "w-1/3"],
-  box: ["w-1/3"],
-};
-
-const skeleton = tv({
+const placeholder = tv({
   slots: {
     // Drawn invisible and shown once the wait passes `--loading-delay`, Next's way of keeping a fast load from
     // flashing a placeholder. The longhands, never the `animation` shorthand: under reduced motion
     // `--motion-in` is unset, which would invalidate the whole shorthand and leave the box invisible, where it
-    // invalidates the duration alone, which falls back to 0s, so the box appears at once.
-    root: "opacity-0 [animation-delay:var(--loading-delay)] [animation-duration:var(--motion-in)] [animation-fill-mode:forwards] [animation-name:kit-appear]",
-    // A box of rows, as the list, the table or the facts that will stand in its place.
-    box: `overflow-hidden ${cardSurface()}`,
-    row: `flex items-center gap-3 ${stacked()} px-4`,
-    // The base fill, with a lighter band sweeping across it every two seconds, under reduced motion too: a
-    // loading indicator that stops reads as stuck.
-    bar: "relative h-4 overflow-hidden rounded-md bg-bg-muted after:absolute after:inset-0 after:animate-[kit-shimmer_2s_linear_infinite] after:bg-linear-to-r after:from-transparent after:via-[rgb(255_255_255/0.55)] after:to-transparent dark:after:via-[rgb(255_255_255/0.09)]",
+    // invalidates the duration alone, which falls back to 0s, so the box appears at once. Nothing in it can be pressed,
+    // so nothing in it answers the pointer: a placeholder drawn with a control's or a row's recipe borrows its box, never
+    // its hover or its hand, and `pointer-events` is inherited, so this holds for every part inside.
+    root: "pointer-events-none opacity-0 [animation-delay:var(--loading-delay)] [animation-duration:var(--motion-in)] [animation-fill-mode:forwards] [animation-name:kit-appear]",
+    // The base fill, one step off the ground the bar stands on (`--bg-hover`), so a bar shows on the page, a card and
+    // a card's head alike, the head redeclaring the step as its own (`cardStyles.ts :: headGround`); with a lighter
+    // band sweeping across it every two seconds, under reduced motion too: a loading indicator that stops reads as stuck.
+    bar: "relative block shrink-0 overflow-hidden rounded-md bg-bg-hover after:absolute after:inset-0 after:animate-[kit-shimmer_2s_linear_infinite] after:bg-linear-to-r after:from-transparent after:via-[rgb(255_255_255/0.55)] after:to-transparent dark:after:via-[rgb(255_255_255/0.09)]",
+    // One line of text: as tall as the line the text's own size sets (`1lh`), the bar inside it a little taller than
+    // the letters' height, so a line of placeholders stands where the line of words will.
+    line: "flex h-lh min-w-0 items-center",
+    words: "h-[0.75em]",
   },
   variants: {
-    // Each shape's rows at the final box's height: a table's row; a fact, its label over its value; an editor's
-    // section, its title over its fields.
-    shape: {
-      table: { row: "h-14 lg:h-13" },
-      cards: { row: `h-24 flex-col items-start justify-center gap-2 ${cardSurface()} first:border-t` },
-      // A fact's label stands over its value, the label's bar shorter and lower.
-      facts: { row: "h-14 flex-col items-start justify-center gap-2" },
-      sections: { row: `h-40 ${cardSurface()} first:border-t` },
-      // A school tile's height, 48 px on a phone and 44 from `lg`, its plaque before its name.
-      tiles: { row: `h-12 gap-2 px-2.5 lg:h-11 ${cardSurface()} first:border-t` },
-      // Konto's list row, 56 px at every width.
-      list: { row: "h-14" },
-      // The one box's row: its title and sentence beside its control, 72 px with the box's padding.
-      box: { row: `h-18 ${cardSurface()} first:border-t` },
+    // On the dark-green band, the band's white, faint, as the band's words are white.
+    ground: {
+      page: {},
+      band: { bar: "bg-on-brand/20" },
     },
   },
 });
 
-/**
- * A record's title while the record is read: one bar where the title will stand, appearing with the
- * content's skeleton. It belongs to that skeleton's wait, so it says nothing itself.
- */
-export function SkeletonTitle() {
-  const { root, bar } = skeleton();
-  return (
-    <span
-      aria-hidden
-      className={root({ class: "flex w-48 items-center" })}>
-      <span className={bar({ class: "w-full" })} />
-    </span>
-  );
-}
-
-/** Each part of the landing's first screen, apart, since the hero splits its words from the season's card. */
-type LandingPart = "words" | "card" | "sections";
-
-const landing = tv({
-  extend: skeleton,
-  slots: {
-    // The lead's three lines and the hero's two buttons.
-    lead: "grid gap-2",
-    acts: "flex flex-wrap gap-3",
-    button: "h-8 w-32 rounded-lg pointer-coarse:h-10",
-    // The season card, the kit's card: its name and its chip in the head's band, then its body.
-    cardBox: card().root(),
-    cardHead: card().head(),
-    cardNamed: card().named(),
-    cardBody: "grid gap-3 p-4",
-    // The first section: its eyebrow and title, then three cards side by side from `lg`.
-    sectionHead: "grid gap-2",
-    cards: "grid gap-4 lg:grid-cols-3",
-    card: `grid content-start gap-3 ${cardSurface()} p-6`,
-    mark: "size-10 rounded-lg",
-  },
-});
+/** Where a placeholder stands: on a ground that sets its own step, the page's, a card's or a card's head, or on the dark-green band. */
+export type Ground = "page" | "band";
 
 /**
- * The landing's first screen while its read is on its way, part by part where the hero places each: the lead and
- * the two buttons under the tagline, the season's card beside them, and the first section under both, which a
- * phone, where the hero alone fills the screen, leaves out. Each part's bars stand where its final block will,
- * so nothing moves when the read lands; one screen, never a page to scroll. The words' part carries the status.
+ * A season's name while the season is read, as words for a placeholder's width alone: every season is named by its
+ * four-figure year, so any such name is as wide as the one that lands.
  */
-export function LandingSkeleton({ part }: { part: LandingPart }) {
-  const slots = landing();
-  const status = part === "words" && (
-    <span
-      role="status"
-      className="sr-only">
-      {COPY.shared.loading}
-    </span>
-  );
-  const bars = {
-    words: (
-      <div className="grid gap-6">
-        <div className={slots.lead()}>
-          <span className={slots.bar({ class: "w-full" })} />
-          <span className={slots.bar({ class: "w-full" })} />
-          <span className={slots.bar({ class: "w-2/3" })} />
-        </div>
-        <div className={slots.acts()}>
-          <span className={slots.bar({ class: slots.button() })} />
-          <span className={slots.bar({ class: slots.button() })} />
-        </div>
-      </div>
-    ),
-    card: (
-      <div className={slots.cardBox()}>
-        <div className={slots.cardHead()}>
-          <span className={slots.cardNamed()}>
-            <span className={slots.bar({ class: "w-24" })} />
-            <span className={slots.bar({ class: "h-5 w-16" })} />
-          </span>
-        </div>
-        <div className={slots.cardBody()}>
-          <span className={slots.bar({ class: "h-20 w-full" })} />
-          <span className={slots.bar({ class: "w-2/3" })} />
-        </div>
-      </div>
-    ),
-    sections: (
-      <div className="grid gap-6 max-lg:hidden">
-        <div className={slots.sectionHead()}>
-          <span className={slots.bar({ class: "h-3 w-24" })} />
-          <span className={slots.bar({ class: "h-6 w-64" })} />
-        </div>
-        <div className={slots.cards()}>
-          {[0, 1, 2].map((index) => (
-            <div
-              key={index}
-              className={slots.card()}>
-              <span className={slots.bar({ class: slots.mark() })} />
-              <span className={slots.bar({ class: "w-1/2" })} />
-              <span className={slots.bar({ class: "w-full" })} />
-              <span className={slots.bar({ class: "w-3/4" })} />
-            </div>
-          ))}
-        </div>
-      </div>
-    ),
-  }[part];
-  return (
-    <div
-      aria-busy
-      className={slots.root()}>
-      {status}
-      <div aria-hidden>{bars}</div>
-    </div>
-  );
+export const SAISON_WORDS = COPY.shared.saisonName("2027");
+
+/** A shimmering box of its own size, for what is not a line of text: a plaque, a glyph, a control, an avatar. */
+export function placeholderBar(size: string, ground: Ground = "page") {
+  return placeholder({ ground }).bar({ class: size });
 }
 
 /**
- * Waiting for a template's content: the shape of the box that will stand in its place, its rows as
- * shimmering bars, shown only once the wait outlasts `--loading-delay` (`tokens.css`). Its status says
- * „Lädt“ in its subtree, which a live region announces where its name alone is not, and the box standing in
- * the content's place is busy. A template places it as its one boundary's fallback.
+ * One line of text while it is read: `text` is the size the words will be set at, whose line height the line takes,
+ * and `width` how much of the line the words will fill. Where the words are known before the read, such as a menu
+ * entry's name whose address waits for the season, `words` sizes the bar instead, set in it unseen, so the bar is
+ * exactly as wide as they will be.
  */
-export function Skeleton({ shape }: { shape: SkeletonShape }) {
-  const { root, box, row, bar } = skeleton({ shape });
-  const rows = Array.from({ length: ROWS[shape] }, (_, index) => (
-    <div
-      key={index}
-      className={row()}>
-      {BARS[shape].map((width, at) => (
-        <span
-          key={at}
-          className={bar({ class: width })}
-        />
-      ))}
-    </div>
-  ));
+export function PlaceholderLine({
+  text,
+  width = "",
+  words,
+  ground = "page",
+}: { text: string; ground?: Ground } & ({ width: string; words?: never } | { words: string; width?: never })) {
+  const slots = placeholder({ ground });
   return (
-    <div
-      aria-busy
-      className={root()}>
-      <span
-        role="status"
-        className="sr-only">
-        {COPY.shared.loading}
+    <span className={slots.line({ class: text })}>
+      <span className={slots.bar({ class: `${slots.words()} ${width} ${words === undefined ? "" : "whitespace-nowrap text-transparent"}` })}>
+        {words}
       </span>
+    </span>
+  );
+}
+
+/**
+ * A part of the frame while it waits, such as the rail's entries or the season button: its placeholder, hidden from
+ * assistive technology and shown only once the wait outlasts `--loading-delay`. It says nothing itself: the page's
+ * own wait carries the status. `layout` is the box the part stands in, as the part's own root lays out its children.
+ */
+export function Placeholder({ layout = "", children }: { layout?: string; children: ReactNode }) {
+  return (
+    <div
+      aria-hidden
+      className={placeholder().root({ class: layout })}>
+      {children}
+    </div>
+  );
+}
+
+/**
+ * Waiting for a template's content: its blocks' placeholders, shown only once the wait outlasts `--loading-delay`
+ * (`tokens.css`). Its status says „Lädt“ in its subtree, which a live region announces where its name alone is not,
+ * and the box standing in the content's place is busy. A template places it as its one boundary's fallback; `layout`
+ * is the box the content will stand in, such as a column's gaps, and `status` is left out by every part but one where
+ * a wait is drawn in several parts, so the wait is announced once.
+ */
+export function Waiting({ layout = "", status = true, children }: { layout?: string; status?: boolean; children: ReactNode }) {
+  return (
+    <div
+      aria-busy
+      className={placeholder().root()}>
+      {status && (
+        <span
+          role="status"
+          className="sr-only">
+          {COPY.shared.loading}
+        </span>
+      )}
       <div
         aria-hidden
-        className={GRID[shape] ?? box()}>
-        {rows}
+        className={layout}>
+        {children}
       </div>
     </div>
   );

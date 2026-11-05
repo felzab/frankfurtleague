@@ -4,13 +4,14 @@ import Image from "next/image";
 
 import { now } from "@/core/clock";
 import { COPY } from "@/core/copy";
-import { ROUTES } from "@/core/routes";
+import { ROUTES, SAISON_PAGES } from "@/core/routes";
 import { SITE_CACHE_TAG } from "@/core/siteCache";
 
 import { Brand } from "./Brand";
 import { smallCaps } from "./cardStyles";
 import { HeaderLinks } from "./HeaderLinks";
 import { Link } from "./Link";
+import { Placeholder, PlaceholderLine } from "./Skeleton";
 import { ToastRegion } from "./Toast";
 
 import type { Copy } from "@/core/copy";
@@ -46,6 +47,30 @@ function FooterGroup({ heading, links }: { heading: Copy; links: ReadonlyArray<H
   );
 }
 
+/**
+ * The „Saison“ group while the season is read: its heading and a season's pages as `FooterGroup` draws them, their
+ * words as bars as wide as they will stand, so the groups beside it keep their columns.
+ */
+function SeasonGroupPlaceholder() {
+  return (
+    <Placeholder layout="grid content-start gap-1">
+      <div className={smallCaps({ class: "mb-1" })}>
+        <PlaceholderLine
+          text="text-xs"
+          words={COPY.shared.saison}
+        />
+      </div>
+      {SAISON_PAGES.map((page) => (
+        <PlaceholderLine
+          key={page}
+          text="text-sm leading-6"
+          words={ROUTES[page].title}
+        />
+      ))}
+    </Placeholder>
+  );
+}
+
 /** The „Saison“ group once the season the site is on is read, and nothing where the league has none. */
 async function SeasonGroup({ pages }: { pages: Promise<ReadonlyArray<HeaderLink> | null> }) {
   const read = await pages;
@@ -60,7 +85,7 @@ async function SeasonGroup({ pages }: { pages: Promise<ReadonlyArray<HeaderLink>
 /**
  * The classic public frame, which a layout places around the landing, About, Kontakt, the sponsors page,
  * the legal pages, the application form, the pages a mail opens and the sign-in: the dark-green band with
- * the logo, its links and „Anmelden“ at the top, the footer at the foot. The footer holds the logo and the
+ * the logo, its links and „Konto“, the way to the sign-in, at the top, the footer at the foot. The footer holds the logo and the
  * league's line at the left with Instagram and Threads as glyph links under them, the question door's, and to
  * their right three link groups, „Saison“, „Liga“ closed by „Sponsoren“, and „Rechtliches“, two a row on a
  * phone; under them the sponsors' logos under „Mit Unterstützung von“ above the © line.
@@ -80,9 +105,9 @@ export function ClassicFrame({
 }: {
   /** The season the site is on, the header's first entry once its read lands; null where the league has none. */
   season?: Promise<HeaderLink | null>;
-  /** The header's links, between the logo and „Anmelden“. */
+  /** The header's links, between the logo and „Konto“, the way to the sign-in. */
   links: ReadonlyArray<HeaderLink>;
-  /** Where „Anmelden“ leads. */
+  /** Where „Konto“, the way to the sign-in, leads. */
   signIn: Route;
   /** The pages of the season the site is on, the footer's „Saison“ group once read; null where the league has none. */
   seasonPages: Promise<ReadonlyArray<HeaderLink> | null>;
@@ -100,7 +125,8 @@ export function ClassicFrame({
     // The header's height is `tokens.css`'s, read by the header, by a page filling the first screen under it
     // (`ClassicPage`) and by the toasts.
     <div className="flex min-h-dvh flex-col">
-      <header className="sticky top-0 z-20 shrink-0 bg-brand-solid px-4 text-on-brand [--focus-ring:var(--on-brand)] lg:px-8">
+      {/* A picture of its own in a page's cross-fade, so the page scrolled under it is not drawn over it (`tokens.css`). */}
+      <header className="sticky top-0 z-20 shrink-0 bg-brand-solid px-4 text-on-brand [--focus-ring:var(--on-brand)] [view-transition-name:band] lg:px-8">
         <div className="@container mx-auto flex h-(--classic-header) w-full max-w-classic items-center gap-2 lg:gap-8">
           <Brand ground="band" />
           <HeaderLinks
@@ -136,8 +162,8 @@ export function ClassicFrame({
               </div>
             </div>
             <div className="grid grid-cols-2 gap-6 lg:grid-cols-3">
-              {/* The season's pages wait for the read naming the season; the footer stands below the first screen. */}
-              <Suspense fallback={null}>
+              {/* The season's pages wait for the read naming the season, their group's place held meanwhile. */}
+              <Suspense fallback={<SeasonGroupPlaceholder />}>
                 <SeasonGroup pages={seasonPages} />
               </Suspense>
               <FooterGroup

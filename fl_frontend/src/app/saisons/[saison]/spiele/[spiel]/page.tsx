@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 
-import { ReadFolds } from "@/kit/ReadFolds";
+import { ReadFolds, ReadFoldsPlaceholder } from "@/kit/ReadFolds";
 import { ReadPage } from "@/kit/ReadPage";
 
 import { COPY } from "@/core/copy";
@@ -10,10 +10,11 @@ import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { PHASE_LABELS } from "@/features/saisons/constants";
 import { getSpielPage } from "@/features/saisons/queries";
-import { resolvePublicSaisonParam } from "@/features/saisons/resolvers";
+import { publicSaisonOf } from "@/features/saisons/resolvers";
 import { ereignisOf, headOf, matchdayOf, sidesOf } from "@/features/spiele/blocks";
 import { pageMetadata } from "@/shared/utils/metadata";
-import { resolveObjectIdParam } from "@/shared/utils/routeParams";
+import { metadataFor } from "@/shared/utils/notFoundMetadata";
+import { objectIdParamOf } from "@/shared/utils/routeParams";
 
 import type { Copy, Words } from "@/core/copy";
 import type {
@@ -34,19 +35,26 @@ import type { Metadata, ResolvingMetadata } from "next";
 
 type Props = PageProps<"/saisons/[saison]/spiele/[spiel]">;
 
+/** The match the address names, or `null` for a malformed id, a season the public may not read, or no such match. */
+async function findPage(params: Props["params"]): Promise<FLSpielPageResponse | null> {
+  const spiel = await objectIdParamOf(params, "spiel");
+  const saison = await publicSaisonOf(params);
+  return spiel === null || saison === null ? null : getSpielPage(saison, spiel);
+}
+
 async function readPage(params: Props["params"]): Promise<FLSpielPageResponse> {
-  const spiel = await resolveObjectIdParam(params, "spiel");
-  const page = await getSpielPage(await resolvePublicSaisonParam(params), spiel);
+  const page = await findPage(params);
   if (page === null) notFound();
   return page;
 }
 
 export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
-  const { spiel } = await readPage(params);
-  const { team1, team2 } = sidesOf(spiel);
-  return pageMetadata(parent, ROUTES.spiel, ROUTES.spiel.path(spiel.saison_id, spiel.id), {
-    title: ROUTES.spiel.title(team1.name, team2.name),
-    description: SERVER_COPY.description.spiel(team1.name, team2.name, spiel.saison_id),
+  return metadataFor(findPage(params), ({ spiel }) => {
+    const { team1, team2 } = sidesOf(spiel);
+    return pageMetadata(parent, ROUTES.spiel, ROUTES.spiel.path(spiel.saison_id, spiel.id), {
+      title: ROUTES.spiel.title(team1.name, team2.name),
+      description: SERVER_COPY.description.spiel(team1.name, team2.name, spiel.saison_id),
+    });
   });
 }
 
@@ -59,6 +67,14 @@ export default function SpielPage({ params }: Props) {
   return (
     <ReadPage
       scope="saison"
+      wait={{
+        spiel: true,
+        groups: [
+          { kind: "tiles", layout: "five" },
+          { title: SERVER_COPY.season.spiel.aufstellung, kind: "folds", folds: <ReadFoldsPlaceholder count={2} /> },
+          { title: SERVER_COPY.season.spiel.toreAndKarten, kind: "timeline", count: 3 },
+        ],
+      }}
       record={readRecord(params)}
     />
   );
@@ -90,11 +106,11 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
         ),
       },
       {
-        title: words.toreUndKarten,
+        title: words.toreAndKarten,
         kind: "timeline",
-        label: words.toreUndKarten,
+        label: words.toreAndKarten,
         items: official === null ? [] : eventsOf(spiel, official.tore, official.karten),
-        empty: { kind: "none", plural: official === null ? words.officialToreUndKarten : words.toreUndKarten },
+        empty: { kind: "none", plural: official === null ? words.officialToreAndKarten : words.toreAndKarten },
       },
     ],
   };
@@ -130,8 +146,8 @@ function tilesOf(spiel: FLSpielJoined, page: FLSpielPageResponse): readonly [Sta
 /** A pupil as the public read names them: a name the consent publishes, else „anonym“; a goal nobody was named for, „unbekannt“. */
 function personOf(spieler: Pick<FLSpielberichtSpielerPublic, "type" | "vorname" | "nachname">): Words {
   const words = SERVER_COPY.season.spiel;
-  if (spieler.type === "unknown") return words.unbekannt;
-  if (spieler.type === "anonymous" || spieler.vorname === null) return words.anonym;
+  if (spieler.type === "unknown") return words.unknown;
+  if (spieler.type === "anonymous" || spieler.vorname === null) return words.anonymous;
   return { record: spieler.nachname === null ? spieler.vorname : `${spieler.vorname} ${spieler.nachname}` };
 }
 

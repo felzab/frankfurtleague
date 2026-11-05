@@ -18,7 +18,7 @@ import type { FLSpielberichtSchiedsrichterResponse } from "@/core/generated/clie
 export function SpielberichtLesenView({ lesen }: { lesen: FLSpielberichtSchiedsrichterResponse }) {
   const panel = formPanel();
   const { spiel, bericht } = lesen;
-  const paarung = `${spiel.team1?.name ?? PLACEHOLDER.slot} gegen ${spiel.team2?.name ?? PLACEHOLDER.slot}`;
+  const paarung = `${spiel.team1?.name ?? PLACEHOLDER.slot} vs. ${spiel.team2?.name ?? PLACEHOLDER.slot}`;
 
   return (
     <div className="w-full p-6 sm:p-8">

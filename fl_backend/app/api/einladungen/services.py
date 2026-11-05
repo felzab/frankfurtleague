@@ -1,8 +1,8 @@
 """
 API · the invite's judgements, spelled apart from the request
 
-One planner decides who a season's press mails, and the preview answers the same call. Two readers
-of one rule is how a preview starts telling an administrator something the press then contradicts.
+One planner decides who a season's press mails, and the season editor's rows answer the same call. Two
+readers of one rule is how a page starts telling an administrator something the press then contradicts.
 """
 
 from collections.abc import Collection, Mapping
@@ -10,8 +10,7 @@ from http import HTTPStatus
 from typing import Any, NamedTuple
 
 from app.api.bewerbungen.services import seat_named
-from app.api.einladungen.schemas import FLInvitationDispatchGrund, FLInvitationRecipient
-from app.api.outbox.schemas import FLOutboxStatus
+from app.api.einladungen.schemas import FLInvitationRecipient, FLInvitationSkipReason
 from app.core.codes import Code
 from app.core.exceptions import WriteRefusal
 from app.shared.einwilligung import is_confirmed
@@ -72,24 +71,10 @@ def find_unknown_einladung_refusal(*, einladung_raw: Mapping[str, Any] | None) -
     )
 
 
-def registrierungsfenster_laeuft(*, registrierung: Any, today: str) -> bool:
-    """Whether this season's registration window runs on `today`: `offen`, AND the day inside the span.
-
-    The window is null or the whole object the season form writes, as `app/api/bewerbungen/services.py ::
-    window_is_running` reads its own. Both ends compared: span ordering is enforced on the season PAYLOAD
-    alone, so a stored reversal is reachable.
-    """
-
-    if registrierung is None:
-        return False
-
-    return bool(registrierung["offen"]) and str(registrierung["von"]) <= today <= str(registrierung["bis"])
-
-
 # The partial filter `uniq_invitation_live` is built on, spelled as it is: the equality with `None`
 # does not imply it, so a read spelled that way scans every invite. The record model requires the key
 # (`app/api/einladungen/schemas.py :: FLEinladungRecord`), so the two select the same rows.
-LIVE_EINLADUNG: Mapping[str, Any] = {"widerrufen_am": {"$type": "null"}}
+LIVE_EINLADUNG: Mapping[str, Any] = {"revoked_at": {"$type": "null"}}
 
 
 def build_live_team_filter(*, saison_id: str, team_id: Any) -> Mapping[str, Any]:
@@ -108,8 +93,13 @@ def find_live_einladung_filter(*, token_hash: str) -> Mapping[str, Any]:
     return {"token_hashes": token_hash, **LIVE_EINLADUNG}
 
 
-def compose_einladung(*, saison_id: str, team_id: Any, token_hashes: list[str], created_by: str, today: str) -> dict[str, Any]:
-    """One live row: the hash of the link a mint answers for copying, or none where the press's mails mint every link."""
+def compose_einladung(
+    *, saison_id: str, team_id: Any, token_hashes: list[str], created_by: str, today: str, sent_at: str | None
+) -> dict[str, Any]:
+    """One live row: the hash of the link a mint answers for copying, or none where the press's mails mint every link.
+
+    `sent_at` is today where the same write owes the link's mails, as the season's press does, and null on a mint for copying.
+    """
 
     return {
         "saison_id": saison_id,
@@ -117,25 +107,32 @@ def compose_einladung(*, saison_id: str, team_id: Any, token_hashes: list[str], 
         "token_hashes": token_hashes,
         "created_at": today,
         "created_by": created_by,
-        "widerrufen_am": None,
+        "revoked_at": None,
+        "sent_at": sent_at,
     }
 
 
-def compose_widerruf_update(*, today: str) -> Mapping[str, Any]:
+def compose_sent_update(*, today: str) -> Mapping[str, Any]:
+    """What owing a live link's mails to its seats writes on the row: the day, which the season editor shows as the day it was sent."""
+
+    return {"$set": {"sent_at": today}}
+
+
+def compose_revocation_update(*, today: str) -> Mapping[str, Any]:
     """What revoking writes. The row stays: a reissue's history is what says which link a bounce was about."""
 
-    return {"$set": {"widerrufen_am": today}}
+    return {"$set": {"revoked_at": today}}
 
 
-def einladung_ist_versendet(*, lage: FLOutboxStatus | None) -> bool:
-    """Whether the last mail owed about this invite is still owed or went out.
+def einladung_ist_versendet(einladung_raw: Mapping[str, Any] | None) -> bool:
+    """Whether this live link was mailed, by the day the season's press or the team's own stored on it.
 
-    The row's own state and never its delivery: a message that BOUNCED went out, and that team WAS
-    reached, so a press judging the delivery would re-mail it for ever. A mail given up, barred,
-    held back or dropped reached nobody, so the team is mailed again.
+    The stored day and never the Postausgang: its row is erased a retention after it settles, and a press judging it would
+    then mail the club again, replacing the link it holds. So a link is replaced only by a deliberate resend, whatever
+    became of its mail.
     """
 
-    return lage is not None and lage.state in ("open", "sent")
+    return einladung_raw is not None and einladung_raw.get("sent_at") is not None
 
 
 def _confirmed_seat(kontakte: Any, seat: str) -> Mapping[str, Any] | None:
@@ -174,41 +171,38 @@ class EinladungVersandPlan(NamedTuple):
     """What one team's row says, before anything is minted."""
 
     recipient: list[FLInvitationRecipient]
-    skipped: FLInvitationDispatchGrund | None
-    #: Whether minting for this team kills a link somebody may already hold. False on every skip,
-    #: which is what leaves a skipped team exactly as it was.
-    replaced_link: bool
+    skipped: FLInvitationSkipReason | None
 
 
 def plan_einladung_versand(
-    *, austritt: Any, kontakte: Any, einladung_raw: Mapping[str, Any] | None, versendet: bool, resend: bool, barred: Collection[str]
+    *, austritt: Any, kontakte: Any, einladung_raw: Mapping[str, Any] | None, resend: bool, barred: Collection[str]
 ) -> EinladungVersandPlan:
-    """Who this team's link goes to, or why it is skipped. The preview and the press both read it.
+    """Who this team's link goes to, or why it is skipped. The season editor's rows and the press both read it.
 
-    `versendet` is `einladung_ist_versendet` of the team's live invite. `barred` holds the stored addresses a standing ban
-    holds, as `app/api/sperrliste/lookup.py :: adressen_gesperrt` answers them.
+    `einladung_raw` is the team's live invite, `None` where it holds none. `barred` holds the stored addresses a standing
+    ban holds, as `app/api/sperrliste/lookup.py :: barred_addresses` answers them.
     """
 
     # The record's PRESENCE, never its `type` and never a flag beside it: a team is out of the
     # season by either route, and a skip naming the contact block would send somebody to repair it.
     if austritt is not None:
-        return EinladungVersandPlan([], "austritt_entered", False)
+        return EinladungVersandPlan([], "austritt_entered")
 
     if not isinstance(kontakte, Mapping):
-        return EinladungVersandPlan([], "no_kontaktblock", False)
+        return EinladungVersandPlan([], "no_kontaktblock")
 
     empfaenger = bestaetigte_empfaenger(kontakte=kontakte)
     if not empfaenger:
-        return EinladungVersandPlan([], "no_confirmed_kontaktperson", False)
+        return EinladungVersandPlan([], "no_confirmed_kontaktperson")
 
     # Ahead of the mail's state, which a barred address's mail settles `barred`: a team reached by
     # nobody else would lose its link to a fresh mint at every press while the ban stands.
     if all(person.email in barred for person in empfaenger):
-        return EinladungVersandPlan([], "kontakte_barred", False)
+        return EinladungVersandPlan([], "kontakte_barred")
 
-    # The mail and never the row: a team holding a live link nobody was sent is a team this press
-    # exists to reach, and skipping on the row would leave sixteen links unsent for ever.
-    if versendet and not resend:
-        return EinladungVersandPlan([], "already_sent", False)
+    # Its day and never the row's presence: a team holding a live link nobody was sent is a team this press exists to
+    # reach, and skipping on the row would leave sixteen links unsent for ever.
+    if einladung_ist_versendet(einladung_raw) and not resend:
+        return EinladungVersandPlan([], "already_sent")
 
-    return EinladungVersandPlan(empfaenger, None, einladung_raw is not None)
+    return EinladungVersandPlan(empfaenger, None)

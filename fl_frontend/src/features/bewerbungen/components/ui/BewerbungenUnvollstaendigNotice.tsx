@@ -3,13 +3,13 @@ import Link from "next/link";
 import { Callout } from "@/shared/components/ui/Callout";
 import { textLink } from "@/shared/components/ui/textLink";
 
-import type { Leserichtung } from "@/shared/utils/leserichtung";
+import type { ReadingDirection } from "@/shared/utils/readingDirection";
 
 /**
  * What a cut-short answer offers: which end of the queue is loaded, and the link to the other one.
  * Reversing is the only recovery, because a flood lands in the season and status the page opens on.
  */
-export type BewerbungenUnvollstaendig = { richtung: Leserichtung; umkehrHref: string };
+export type BewerbungenUnvollstaendig = { richtung: ReadingDirection; umkehrHref: string };
 
 /**
  * The standing notice a partial queue carries. Its own component so a test can render it without the

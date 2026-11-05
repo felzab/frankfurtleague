@@ -23,9 +23,9 @@ const invalid = (code, messageId, filename = ACTIONS) => ({ code, filename, opti
 
 tester.run("fl/server-action", serverAction, {
   valid: [
-    valid(inModule('export const anlegen = action({ lane: "admin", name: "anlegen", input, run });')),
+    valid(inModule('export const create = action({ lane: "admin", name: "create", input, run });')),
     valid(inModule('export const melden = action({ lane: "person", claim: "seat", name: "melden", input, run });')),
-    valid(inModule('export const senden = action({ lane: "public", botCheck: true, name: "senden", input, run });')),
+    valid(inModule('export const send = action({ lane: "public", botCheck: true, name: "send", input, run });')),
     valid(
       inModule(
         'export const lesen = action({ lane: "public", exempt: "It reads a published list and writes nothing.", name: "lesen", input, run });',
@@ -38,21 +38,21 @@ tester.run("fl/server-action", serverAction, {
   ],
   invalid: [
     // An export the builder never made, in every shape a module can export it.
-    invalid('"use server";\nexport async function anlegen() {}', "notBuilt"),
-    invalid('"use strict";\n"use server";\nexport async function anlegen() {}', "notBuilt"),
+    invalid('"use server";\nexport async function create() {}', "notBuilt"),
+    invalid('"use strict";\n"use server";\nexport async function create() {}', "notBuilt"),
     invalid(inModule('export default action({ lane: "admin", input, run });'), "notBuilt"),
     invalid(inModule('export * from "./more";'), "notBuilt"),
-    invalid(inModule('const anlegen = action({ lane: "admin", input, run });\nexport { anlegen };'), "notBuilt"),
-    invalid(inModule('export const anlegen = wrapped({ lane: "admin", input, run });'), "notBuilt"),
-    invalid(inModule('export let anlegen = action({ lane: "admin", input, run });'), "notBuilt"),
+    invalid(inModule('const create = action({ lane: "admin", input, run });\nexport { create };'), "notBuilt"),
+    invalid(inModule('export const create = wrapped({ lane: "admin", input, run });'), "notBuilt"),
+    invalid(inModule('export let create = action({ lane: "admin", input, run });'), "notBuilt"),
     // The builder imported from anywhere else is no builder.
-    invalid('"use server";\nimport { action } from "./action";\nexport const anlegen = action({ lane: "admin", input, run });', "notBuilt"),
-    invalid(inModule("export const anlegen = action(spec);"), "notBuilt"),
-    invalid(inModule("export const anlegen = action({ ...spec });"), "spread"),
+    invalid('"use server";\nimport { action } from "./action";\nexport const create = action({ lane: "admin", input, run });', "notBuilt"),
+    invalid(inModule("export const create = action(spec);"), "notBuilt"),
+    invalid(inModule("export const create = action({ ...spec });"), "spread"),
     // What the builder's type takes and the rule refuses: a reason it cannot read, a blank one, and both declarations.
-    invalid(inModule('export const senden = action({ lane: "public", exempt: reason, input, run });'), "exempt"),
-    invalid(inModule('export const senden = action({ lane: "public", exempt: " ", input, run });'), "exempt"),
-    invalid(inModule('export const senden = action({ lane: "public", botCheck: true, exempt: "both", input, run });'), "exempt"),
+    invalid(inModule('export const send = action({ lane: "public", exempt: reason, input, run });'), "exempt"),
+    invalid(inModule('export const send = action({ lane: "public", exempt: " ", input, run });'), "exempt"),
+    invalid(inModule('export const send = action({ lane: "public", botCheck: true, exempt: "both", input, run });'), "exempt"),
     invalid('export async function speichern() {\n  "use server";\n}', "inline", "src/app/page.tsx"),
     invalid('const speichern = async () => {\n  "use server";\n};', "inline", "src/app/page.tsx"),
     invalid("export async function POST() { return new Response(null); }", "route", "src/app/api/bewerbung/route.ts"),

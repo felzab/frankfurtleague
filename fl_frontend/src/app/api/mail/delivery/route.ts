@@ -82,7 +82,7 @@ function readOutboxEvent(raw: unknown): FLOutboxEventPayload | null {
   const state = outboxStateFrom(read.data);
   if (state === null) return null;
 
-  const event = { id: id, am: read.data.created_at, ...state };
+  const event = { id: id, at: read.data.created_at, ...state };
   // The provider's reason is its own token, kept only where the endpoint takes it: the state stands without one.
   const payload = OutboxPostEventBody.safeParse(event).data ?? OutboxPostEventBody.safeParse({ ...event, grund: null }).data;
   if (payload !== undefined) return payload;

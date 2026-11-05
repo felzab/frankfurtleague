@@ -169,14 +169,14 @@ def verify_person_actor(actor: Annotated[SessionActor, Depends(get_session_actor
     return actor
 
 
-def signed_in_since(auth_time: int, seit: datetime) -> bool:
-    """Whether a sign-in at `auth_time` is no older than `seit`, for a grant's date and an owner's alike.
+def signed_in_since(auth_time: int, since: datetime) -> bool:
+    """Whether a sign-in at `auth_time` is no older than `since`, for a grant's date and an owner's alike.
 
     Judged to the second `auth_time` is floored to, so nothing the frontend's guard admits is refused
     here.
     """
 
-    return auth_time >= int(seit.timestamp())
+    return auth_time >= int(since.timestamp())
 
 
 def get_actor_auth_time(actor: Annotated[SessionActor, Depends(verify_admin_actor)]) -> int:
@@ -287,12 +287,12 @@ bind_system_actor = actor_binder(_the_application)
 
 
 # The action log's label under the `sperrliste_key` secret file's key, beside the ban list's
-# (`app/api/sperrliste/services.py :: SPERRLISTE_SCHLUESSEL_VERSION`); one label per purpose.
-ACTOR_PSEUDONYM_VERSION: Final = "akteur-v1"
+# (`app/api/sperrliste/services.py :: BAN_LIST_KEY_VERSION`); one label per purpose.
+ACTOR_PSEUDONYM_VERSION: Final = "actor-v1"
 
 
 def _keyed_fold(address: str, *, key: SecretStr, label: str) -> str:
-    # Folded here rather than by each caller, as `app/api/sperrliste/services.py :: adresse_hash` folds its own: a
+    # Folded here rather than by each caller, as `app/api/sperrliste/services.py :: address_hash` folds its own: a
     # stored spelling handed in unfolded would hash to a value no other spelling of the mailbox matches.
     return hmac.new(derive_sub_key(key, label), sign_in_identifier(address).encode("utf-8"), hashlib.sha256).hexdigest()
 
@@ -300,7 +300,7 @@ def _keyed_fold(address: str, *, key: SecretStr, label: str) -> str:
 def actor_pseudonym(identifier: str, *, key: SecretStr) -> str:
     """What the log records for a signed-in person: a keyed hash of the identifier as `sign_in_identifier` folds it.
 
-    Never `adresse_hash`, whose label would make this EQUAL the person's ban-row digest and whose
+    Never `address_hash`, whose label would make this EQUAL the person's ban-row digest and whose
     address rule raises inside a binder.
     """
 
@@ -309,7 +309,7 @@ def actor_pseudonym(identifier: str, *, key: SecretStr) -> str:
 
 # The erasure journal's label, a third beside the ban list's and the log's: under theirs a line would name a ban
 # row's digest or, on a choice, its person's log pseudonym, which an erasure's line alone names.
-ERASURE_JOURNAL_VERSION: Final = "loeschung-v1"
+ERASURE_JOURNAL_VERSION: Final = "erasure-v1"
 
 
 def erasure_journal_hash(identifier: str, *, key: SecretStr) -> str:

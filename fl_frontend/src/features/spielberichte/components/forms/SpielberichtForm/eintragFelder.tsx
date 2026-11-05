@@ -30,13 +30,13 @@ export const seitenOptionen = (kontext: SpielberichtKontext): readonly Auswahl<F
  * The pupils one entry may name: that side's live squad, and the one it already names where the squad lacks them,
  * so a stored entry keeps its name rather than reading as unpicked.
  */
-export function personOptionen(kontext: SpielberichtKontext, seite: FLSpielSeite | null, gewaehlt: string): readonly KaderOption[] {
+export function personOptionen(kontext: SpielberichtKontext, seite: FLSpielSeite | null, chosen: string): readonly KaderOption[] {
   if (seite === null) return [];
 
   const kader = kontext.kader[seite];
-  if (gewaehlt === "" || kader.some((option) => option.id === gewaehlt)) return kader;
+  if (chosen === "" || kader.some((option) => option.id === chosen)) return kader;
 
-  const genannt = kontext.named.find((option) => option.id === gewaehlt);
+  const genannt = kontext.named.find((option) => option.id === chosen);
   return genannt === undefined ? kader : [genannt, ...kader];
 }
 
@@ -50,7 +50,7 @@ export const ohneKader = (kontext: SpielberichtKontext, seite: FLSpielSeite | nu
  */
 export function personHinweis({ geleert, ohneKaderSatz }: { geleert: boolean; ohneKaderSatz: string | null }): string {
   return [geleert ? "Die eingetragene Person spielt nicht für dieses Team. Wähle die Person neu." : null, ohneKaderSatz]
-    .filter((satz): satz is string => satz !== null)
+    .filter((sentence): sentence is string => sentence !== null)
     .join(" ");
 }
 
@@ -103,8 +103,8 @@ export function EntfernenButton({ wofuer, onPress }: { wofuer: string; onPress: 
 }
 
 /** Adds an entry until the list holds as many as the backend takes. */
-export function HinzufuegenButton({ label, anzahl, onPress }: { label: string; anzahl: number; onPress: () => void }) {
-  const voll = anzahl >= SPIELBERICHT_EINTRAEGE_MAX;
+export function HinzufuegenButton({ label, count, onPress }: { label: string; count: number; onPress: () => void }) {
+  const voll = count >= SPIELBERICHT_EINTRAEGE_MAX;
 
   return (
     <Hint

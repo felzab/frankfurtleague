@@ -154,7 +154,7 @@ async def stored_season(database: AsyncDatabase) -> Mapping[str, Any]:
 
 
 async def saved_rules(database: AsyncDatabase) -> Mapping[str, Any]:
-    """The rules the season holds after a save, which answers 204 and none."""
+    """The rules the season holds after a save, which answers its version alone."""
 
     stored = await database[Collection.SAISONS].find_one({"_id": SAISON_ID})
     assert stored is not None
@@ -175,6 +175,7 @@ async def patch_the_rules(database: AsyncDatabase, *, today: str = THE_DAY_BEFOR
             # window carries a default and this helper is about neither of them.
             bewerbung=None,
             registrierung=None,
+            version=(await database[Collection.SAISONS].find_one({"_id": SAISON_ID}, {"version": 1}) or {})["version"],
         ),
         saisons_collection=database[Collection.SAISONS],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
@@ -214,6 +215,21 @@ class TestTheSquadCapIsJudgedAgainstTheSeasonsOwnLiveRows:
         refusal = on_a_database(mongo_replica_set_url, body)
 
         assert refusal.error_code == Code.RULES_KADER_BELOW_USE
+
+
+class TestTheSaveAnswersTheVersionItStored:
+    def test_the_answered_version_is_the_one_the_next_save_must_send(self, mongo_replica_set_url: str):
+        """The editor takes its next base from this answer: the version read before the write would refuse every second save as stale."""
+
+        async def body(database: AsyncDatabase) -> tuple[int, Any, Mapping[str, Any]]:
+            opened = (await stored_season(database))["version"]
+            answered = await patch_the_rules(database, max_kadergroesse=PERMITTED_KADER)
+
+            return opened, answered, await stored_season(database)
+
+        opened, answered, stored = on_a_database(mongo_replica_set_url, body)
+
+        assert (answered.version, stored["version"]) == (opened + 1, opened + 1)
 
 
 class TestTheDrawItselfIsWhatFreezesTheShape:
@@ -293,6 +309,39 @@ class TestTheStartIsWhatFreezesTheScoring:
         stored = on_a_database(mongo_replica_set_url, body, spiele=drawn_spiele())
 
         assert (stored["start_date"], stored["rules"]["win_points"]) == (A_WEEK_LATER, 2)
+
+
+class TestTheStartMovesNoLaterPastAStoredExit:
+    def test_a_later_start_is_refused_and_an_earlier_one_saved(self, mongo_replica_set_url: str):
+        """An exit is recorded only from the start date, so a start moved past one reopens what the exit was kept from.
+
+        Moved later, the season reads as unstarted again, and the group swap it reopens fields a club that has left,
+        which no page shows. An earlier start reopens nothing, so it is saved.
+        """
+
+        exit_record = {"type": "rueckzug", "grund": "Zu wenige Spieler", "datum": SAISON_START}
+        an_earlier_start = "2026-03-08"
+
+        async def body(database: AsyncDatabase) -> tuple[APIError, str, str]:
+            await database[Collection.SAISON_TEAMS].insert_one(
+                documents.saison_team_document(SAISON_ID, TEAM_OID, "Adler", "ADX", austritt=exit_record)
+            )
+            with pytest.raises(APIError) as refusal:
+                await patch_the_rules(database, today=SAISON_START, start_date=A_WEEK_LATER)
+            refused_left = (await stored_season(database))["start_date"]
+            await patch_the_rules(database, today=SAISON_START, start_date=an_earlier_start)
+
+            return refusal.value, refused_left, (await stored_season(database))["start_date"]
+
+        refusal, refused_left, saved = on_a_database(mongo_replica_set_url, body)
+
+        assert (refusal.error_code, refusal.fields, refusal.bounds) == (
+            Code.SAISON_START_AUSTRITT_STORED,
+            (("start_date",),),
+            {"latest": SAISON_START},
+        )
+        assert refused_left == SAISON_START, "a refused save moved the start"
+        assert saved == an_earlier_start
 
 
 class TestTheStartIsFixedOnceAFixtureHasTakenPlace:

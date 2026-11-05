@@ -31,15 +31,16 @@ from app.core.collections import Collection as Sammlung
 from app.core.crud import build_sort
 from app.core.exceptions import WriteRefusal
 from app.shared.einwilligung import is_confirmed
-from app.shared.einwilligung_nachweis import TextVersions, compose_choices
+from app.shared.einwilligung_evidence import TextVersions, compose_choices
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.bounds import (
     BEWERBUNG_CONFIRMATION_DEADLINE_DAYS,
+    BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
     BEWERBUNG_KONTAKT_MIN_AGE_YEARS,
     BEWERBUNG_REMINDER_DAYS,
     LIST_LIMIT_MAX,
     SAISON_ID_LENGTH,
-    VERTRETUNG_MIN_AGE_YEARS,
+    SIGNATORY_MIN_AGE_YEARS,
 )
 from app.shared.schemas.custom import fold_shorthand
 from app.shared.schemas.literals import KONTAKT_ROLLEN, FLKontaktEnteredBy, FLKontaktRolle, FLTrikotFarbe
@@ -143,27 +144,20 @@ def find_new_club_refusal(*, club_document: Mapping[str, Any]) -> WriteRefusal |
 # router asks them in.
 
 
-def window_is_running(*, bewerbung: Any, today: str) -> bool:
-    """Whether this season's application window runs on `today`: `offen`, AND the day inside the span.
+def saison_nimmt_bewerbungen_an(*, saison_status: Any, bewerbung: Any, today: str) -> bool:
+    """Whether this season takes an application on `today`: a season not yet ended, `today` inside its window's span.
 
-    Both ends are compared rather than assuming `von <= bis`: span ordering is enforced on the
-    season PAYLOAD alone, so a stored reversal is reachable.
+    The window is null or the whole object the season form writes, both ends included, and closing it early is moving
+    its `end` to today. Both ends are compared rather than assuming `start <= end`: span ordering is enforced on the
+    season PAYLOAD alone, so a stored reversal is reachable. A finished season's window is over for good, whatever
+    dates it still stores: the payload names the season, and the dates alone would still admit an application into
+    one that has ended.
     """
 
-    if bewerbung is None:
+    if bewerbung is None or season_has_ended(saison_status=saison_status):
         return False
 
-    return bool(bewerbung["offen"]) and str(bewerbung["von"]) <= today <= str(bewerbung["bis"])
-
-
-def saison_nimmt_bewerbungen_an(*, saison_status: Any, bewerbung: Any, today: str) -> bool:
-    """Whether this season takes an application on `today`.
-
-    A finished season's window is over for good, whatever dates it still stores: the payload names
-    the season, and the dates alone would still admit an application into one that has ended.
-    """
-
-    return not season_has_ended(saison_status=saison_status) and window_is_running(bewerbung=bewerbung, today=today)
+    return str(bewerbung["start"]) <= today <= str(bewerbung["end"])
 
 
 # `season_has_ended`'s negation for a read that narrows in the query. Every write stores a season's status, which is why
@@ -276,14 +270,14 @@ def build_schluessel_filter(*, key: str) -> Mapping[str, Any]:
     return {"idempotency_key": {"$eq": key, "$type": "string"}}
 
 
-def find_abweichender_fingerabdruck_refusal(*, gespeichert: Any, fingerabdruck: str) -> WriteRefusal | None:
+def find_abweichender_fingerabdruck_refusal(*, saved: Any, fingerabdruck: str) -> WriteRefusal | None:
     """Why this key cannot be replayed, or `None`: it already carries an application sent with other details.
 
     Refused rather than answered as the stored one, which would tell the applicant a changed field
     had arrived.
     """
 
-    if gespeichert == fingerabdruck:
+    if saved == fingerabdruck:
         return None
 
     return WriteRefusal(
@@ -298,13 +292,13 @@ def compose_einwilligung(*, today: str, entered_by: FLKontaktEnteredBy) -> dict[
     Named by no client, who could otherwise dress a transcription as a signature.
     """
 
-    # `medien` written false rather than left off: nobody filling a seat for another person may give
+    # `media` written false rather than left off: nobody filling a seat for another person may give
     # that person's media consent.
     return {
-        "umfang": "kontaktdaten",
-        "datum": today,
+        "scope": "kontaktdaten",
+        "date": today,
         "confirmed_at": None,
-        "medien": False,
+        "media": False,
         "entered_by": entered_by,
     }
 
@@ -312,8 +306,8 @@ def compose_einwilligung(*, today: str, entered_by: FLKontaktEnteredBy) -> dict[
 # Every seat, so a fourth one is a `KeyError` at the confirmation rather than a silent sixteen.
 SEAT_MIN_AGE_YEARS: Mapping[str, int] = {
     "trainer": BEWERBUNG_KONTAKT_MIN_AGE_YEARS,
-    "ansprechperson": VERTRETUNG_MIN_AGE_YEARS,
-    "stellvertretung": VERTRETUNG_MIN_AGE_YEARS,
+    "ansprechperson": SIGNATORY_MIN_AGE_YEARS,
+    "stellvertretung": SIGNATORY_MIN_AGE_YEARS,
 }
 
 
@@ -350,8 +344,8 @@ def compose_kontakte(*, kontakte: Mapping[str, Any], today: str) -> dict[str, An
 
 # --- The CONFIRMATION.
 
-KONTAKT_UMFANG = "kontaktdaten"
-KONTAKT_UMFANG_WHATSAPP = "kontaktdaten_whatsapp"
+KONTAKT_SCOPE = "kontaktdaten"
+KONTAKT_SCOPE_WHATSAPP = "kontaktdaten_whatsapp"
 
 
 def days_after(*, day: str, days: int) -> str:
@@ -391,7 +385,7 @@ def _per_seat(block: str, *fields: str) -> dict[str, int]:
 
 
 # What an answer moves on each seat, read before it: a withdrawal keeps the grant it ended.
-KONTAKT_WAHL_FIELDS: Final = ("einwilligung.umfang", "einwilligung.medien", "einwilligung.nachweis")
+KONTAKT_WAHL_FIELDS: Final = ("einwilligung.scope", "einwilligung.media", "einwilligung.evidence")
 
 
 # An INCLUSION, and never the exclusion above inverted: these two answer a closed handful, so the
@@ -568,6 +562,7 @@ def find_alter_refusal(*, geburtsdatum: str, today: str, minimum_age: int) -> Wr
             error_code=Code.CONFIRMATION_AGE,
             status=HTTPStatus.UNPROCESSABLE_CONTENT,
             fields=(("geburtsdatum",),),
+            bounds={"min": minimum_age, "max": BEWERBUNG_KONTAKT_MAX_AGE_YEARS},
         )
 
     return None
@@ -660,16 +655,16 @@ def row_takes_confirmations(*, saison_status: Any, austritt: Any) -> bool:
 def saison_zustand_of(*, row: Mapping[str, Any], seat: str, today: str, barred: bool, saison_status: Any) -> FLBewerbungEinwilligungZustand:
     """What a reopened season-row link shows, its own deadline ending it, a closed row stopping its consent."""
 
-    bestaetigungen = row.get("confirmations")
-    over = saison_link_is_over(frist=saison_frist_of(confirmations=bestaetigungen, seat=seat), today=today)
-    zustand = _zustand(kontakte=row.get("kontakte"), confirmations=bestaetigungen, seat=seat, over=over, barred=barred)
+    confirmations = row.get("confirmations")
+    over = saison_link_is_over(frist=saison_frist_of(confirmations=confirmations, seat=seat), today=today)
+    state = _zustand(kontakte=row.get("kontakte"), confirmations=confirmations, seat=seat, over=over, barred=barred)
 
     # Below the deadline, as the press refuses: past it the link takes no Widerspruch either
     # (`link_expired`), while a closed row's link still takes one (`kontakt_saison_past`).
-    if zustand == "valid" and not row_takes_confirmations(saison_status=saison_status, austritt=row.get("austritt")):
+    if state == "valid" and not row_takes_confirmations(saison_status=saison_status, austritt=row.get("austritt")):
         return "saison_past"
 
-    return zustand
+    return state
 
 
 def find_saison_frist_refusal(*, frist: Any, today: str) -> WriteRefusal | None:
@@ -774,7 +769,7 @@ def paired_seat(*, kontakte: Any, confirmations: Any, seat: str) -> FLKontaktRol
     return other if other is not None and seat_stands(kontakte=kontakte, confirmations=confirmations, seat=other) else None
 
 
-def seat_adressen(*, kontakte: Any, seats: Iterable[str]) -> set[str]:
+def seat_addresses(*, kontakte: Any, seats: Iterable[str]) -> set[str]:
     """The stored address of each of these seats that still holds one.
 
     One helper for the consent and the view, so the page shows the ban for exactly the addresses a
@@ -828,8 +823,8 @@ def compose_confirmation_update(
     today: str,
     text_versions: TextVersions,
     whatsapp: bool,
-    medien: bool,
-    am: str,
+    media: bool,
+    at: str,
 ) -> Mapping[str, Any]:
     """The ONE update a confirmation is, on every seat the person holds.
 
@@ -841,15 +836,15 @@ def compose_confirmation_update(
     for seat in seats:
         pfad = f"kontakte.{seat}.einwilligung"
         written[f"kontakte.{seat}.geburtsdatum"] = geburtsdatum
-        # Field by field, never the block whole: `entered_by` and `datum` are the seating's, and
+        # Field by field, never the block whole: `entered_by` and `date` are the seating's, and
         # what it tells stands after the answer.
         written[f"{pfad}.confirmed_at"] = today
         written.update(
             compose_choices(
                 path=pfad,
                 saved=kontakte[seat]["einwilligung"],
-                gesetzt={"umfang": KONTAKT_UMFANG_WHATSAPP if whatsapp else KONTAKT_UMFANG, "medien": medien},
-                am=am,
+                set_fields={"scope": KONTAKT_SCOPE_WHATSAPP if whatsapp else KONTAKT_SCOPE, "media": media},
+                at=at,
                 text_versions=text_versions,
             )
         )
@@ -890,17 +885,17 @@ def objection_is_announced(*, kontakte: Any, seats: Sequence[str]) -> bool:
     return "ansprechperson" not in seats and ansprechperson_mailbox(kontakte=kontakte)[0] is not None
 
 
-def compose_decline_update(*, seats: Sequence[str], today: str, angekuendigt: bool) -> Mapping[str, Any]:
+def compose_decline_update(*, seats: Sequence[str], today: str, announced: bool) -> Mapping[str, Any]:
     """A decline empties the person's slot and records the day beside it, where the emptying cannot reach.
 
-    `angekuendigt` where the objection notice goes out: it names the deletion day, so it is the deletion notice too.
+    `announced` where the objection notice goes out: it names the deletion day, so it is the deletion notice too.
     """
 
     written: dict[str, Any] = {}
     for seat in seats:
         written[f"kontakte.{seat}"] = None
         written[f"confirmations.{seat}.declined_at"] = today
-    if angekuendigt:
+    if announced:
         written["erasure_announced_at"] = today
 
     # The submission's digest was taken over this person's details too, and a hash of personal data is
@@ -938,8 +933,8 @@ def build_erneut_filter(*, bewerbung_id: Any, seats: Sequence[str]) -> Mapping[s
     return {"_id": bewerbung_id, "status": "submitted", **unanswered}
 
 
-def find_gesperrt_refusal(*, barred: bool) -> WriteRefusal | None:
-    """`bewerbung_adresse_barred`: the ban list holds one of the addresses a submission names.
+def find_barred_refusal(*, barred: bool) -> WriteRefusal | None:
+    """`bewerbung_address_barred`: the ban list holds one of the addresses a submission names.
 
     Takes the answer rather than the lookup, so the caller's reads run in the caller's transaction.
     """
@@ -950,16 +945,16 @@ def find_gesperrt_refusal(*, barred: bool) -> WriteRefusal | None:
     # NEUTRAL and naming no seat, as the registration's refusal is: a stranger learns nothing about a
     # list, and 403 because what fails is who is applying rather than the season's state.
     return WriteRefusal(
-        error_code=Code.BEWERBUNG_ADRESSE_BARRED,
+        error_code=Code.BEWERBUNG_ADDRESS_BARRED,
         status=HTTPStatus.FORBIDDEN,
     )
 
 
-def find_kontakt_gesperrt_refusal(*, barred: bool) -> WriteRefusal | None:
+def find_kontakt_barred_refusal(*, barred: bool) -> WriteRefusal | None:
     """`bewerbung_kontakt_barred`: an administrator's correction or reseat names an address the ban list holds.
 
     409 where the public form's is 403: an administrator's write naming it is about the entry it writes,
-    as the referee editor's `schiedsrichter_adresse_barred` is.
+    as the referee editor's `schiedsrichter_address_barred` is.
     """
 
     if not barred:
@@ -971,7 +966,7 @@ def find_kontakt_gesperrt_refusal(*, barred: bool) -> WriteRefusal | None:
     )
 
 
-def find_einwilligung_gesperrt_refusal(*, barred: bool) -> WriteRefusal | None:
+def find_einwilligung_barred_refusal(*, barred: bool) -> WriteRefusal | None:
     """`link_barred`: the ban list holds the address a confirmation link was mailed to, however long ago it was minted.
 
     Asked of a consent alone: a Widerspruch empties the seat, which is what a barred person is owed.
@@ -1194,12 +1189,12 @@ def reminder_seats(*, bewerbung_raw: Mapping[str, Any], today: str, unerreichbar
     if link_is_over(confirmation_deadline=bewerbung_raw.get("confirmation_deadline"), status=bewerbung_raw.get("status"), today=today):
         return []
 
-    kontakte, bestaetigungen = bewerbung_raw.get("kontakte"), bewerbung_raw.get("confirmations")
+    kontakte, confirmations = bewerbung_raw.get("kontakte"), bewerbung_raw.get("confirmations")
 
     return [
         seat_named(seat) or cast(FLKontaktRolle, seat)
         for seat in KONTAKT_ROLLEN
-        if seat_reminder_is_due(kontakte=kontakte, confirmations=bestaetigungen, seat=seat, today=today, unerreichbar=seat in unerreichbar)
+        if seat_reminder_is_due(kontakte=kontakte, confirmations=confirmations, seat=seat, today=today, unerreichbar=seat in unerreichbar)
     ]
 
 
@@ -1376,7 +1371,7 @@ def bewerbung_link(seats: Sequence[str], *, replaced: bool) -> FLOutboxLink:
 
     return FLOutboxLink(
         paths=[f"confirmations.{seat}.token_hashes" for seat in seats],
-        adressen=[f"kontakte.{seat}.email" for seat in seats],
+        addresses=[f"kontakte.{seat}.email" for seat in seats],
         replaced=replaced,
     )
 
@@ -1411,7 +1406,7 @@ def ausstehende_personen(*, kontakte: Any, seats: Sequence[str]) -> list[FLBewer
     return personen
 
 
-def personen_mit_adresse(*, kontakte: Any, seats: Sequence[str] = KONTAKT_ROLLEN) -> list[tuple[str, list[FLKontaktRolle]]]:
+def people_with_address(*, kontakte: Any, seats: Sequence[str] = KONTAKT_ROLLEN) -> list[tuple[str, list[FLKontaktRolle]]]:
     """Each person these seats name who holds an address, with the seats they hold, the Trainer last.
 
     One address is one person (the submission refuses two people at one), so the seats sharing an address are the one
@@ -1433,16 +1428,16 @@ def owed_link(
     schule: str,
     frist: str,
     key: str,
-    art: Literal["bewerbung_confirmation", "bewerbung_reminder"] = "bewerbung_confirmation",
+    kind: Literal["bewerbung_confirmation", "bewerbung_reminder"] = "bewerbung_confirmation",
 ) -> OwedMail:
     """One person's confirmation link, or its one reminder, the address read off the seat the write left."""
 
     return OwedMail(
         key=key,
         an=str(kontakte[seats[0]]["email"]),
-        data=FLBewerbungLinkData(art=art, saison_id=saison_id, schule=schule, rollen=list(seats), frist=frist),
+        data=FLBewerbungLinkData(kind=kind, saison_id=saison_id, schule=schule, rollen=list(seats), frist=frist),
         reference=bewerbung_bezug(bewerbung_id, seats),
-        link=bewerbung_link(seats, replaced=art != "bewerbung_reminder"),
+        link=bewerbung_link(seats, replaced=kind != "bewerbung_reminder"),
     )
 
 
@@ -1453,7 +1448,7 @@ def owed_at_submission(*, bewerbung_id: Any, kontakte: Any, saison_id: str, schu
     """
 
     mails: list[OwedMail] = []
-    for email, seats in personen_mit_adresse(kontakte=kontakte):
+    for email, seats in people_with_address(kontakte=kontakte):
         stamm = f"{Sammlung.BEWERBUNGEN}/{bewerbung_id}"
         if "ansprechperson" not in seats:
             mails.append(
@@ -1474,7 +1469,7 @@ def owed_at_submission(*, bewerbung_id: Any, kontakte: Any, saison_id: str, schu
                 key=f"{stamm}/received",
                 an=email,
                 data=FLBewerbungReceivedData(
-                    art="bewerbung_received",
+                    kind="bewerbung_received",
                     saison_id=saison_id,
                     rollen=seats,
                     pending=ausstehende_personen(kontakte=kontakte, seats=andere),
@@ -1504,7 +1499,7 @@ def owed_loeschung(*, bewerbung_raw: Mapping[str, Any], saison_id: str) -> OwedM
         key=f"{Sammlung.BEWERBUNGEN}/{bewerbung_raw['_id']}/erasure",
         an=email,
         data=FLBewerbungErasureData(
-            art="bewerbung_erasure",
+            kind="bewerbung_erasure",
             saison_id=saison_id,
             rollen=rollen,
             pending=ausstehende_personen(kontakte=kontakte, seats=ausstehende_seats(kontakte=kontakte)),
@@ -1541,7 +1536,7 @@ def build_bewerbungen_saisonbezug_terms(*, saison_id: str | None) -> dict[FLBewe
     return {"diese_saison": {"saison_id": saison_id}, "other_saison": {"saison_id": {"$ne": saison_id}}}
 
 
-def build_bewerbungen_saison_term(*, saison_id: str | None, saisonbezug: Sequence[str] | None) -> dict[str, Any]:
+def build_bewerbungen_saison_term(*, saison_id: str | None, saison_reference: Sequence[str] | None) -> dict[str, Any]:
     """Which seasons the read covers, as the bar's relation to the season the caller named.
 
     A relation rather than the id alone, the bar offering a complement no `saison_id` can express.
@@ -1551,10 +1546,10 @@ def build_bewerbungen_saison_term(*, saison_id: str | None, saisonbezug: Sequenc
         return {}
 
     # The parameter's older meaning, kept: a caller naming no relation asked for that season's queue.
-    if saisonbezug is None:
+    if saison_reference is None:
         return {"saison_id": saison_id}
 
-    picked = [relation for relation in get_args(FLBewerbungSaisonReference.__value__) if relation in saisonbezug]
+    picked = [relation for relation in get_args(FLBewerbungSaisonReference.__value__) if relation in saison_reference]
 
     # Every relation picked is every season, and so the facet turned off.
     if len(picked) != 1:
@@ -1591,7 +1586,7 @@ DUBLETTEN_TALLY: Final[Sequence[Mapping[str, Any]]] = (
     {
         "$group": {
             "_id": {"saison_id": "$saison_id", "team_id": "$team_id", "shorthand": "$schule.shorthand"},
-            "anzahl": {"$sum": 1},
+            "count": {"$sum": 1},
         }
     },
 )
@@ -1608,7 +1603,7 @@ def build_dubletten_pipeline(beyond_status: Mapping[str, Any]) -> list[Mapping[s
 def _dublette_schluessel(gruppe: Mapping[str, Any]) -> str | None:
     """One application's collision key, `None` where it names neither a club nor a Kürzel.
 
-    Composed the way `fl_frontend/src/features/bewerbungen/duplicates.ts :: dublettenSchluessel`
+    Composed the way `fl_frontend/src/features/bewerbungen/duplicates.ts :: duplicatesKey`
     composes a served row's, which is the comparison that marks the row.
     """
 
@@ -1631,7 +1626,7 @@ def dubletten_schluessel_of(cells: Sequence[Mapping[str, Any]]) -> list[str]:
     parted only by a stored code's case or padding is one collision at both ends.
     """
 
-    gehalten: dict[str, int] = {}
+    held: dict[str, int] = {}
 
     for cell in cells:
         schluessel = _dublette_schluessel(cell["_id"])
@@ -1639,16 +1634,16 @@ def dubletten_schluessel_of(cells: Sequence[Mapping[str, Any]]) -> list[str]:
         if schluessel is None:
             continue
 
-        gehalten[schluessel] = gehalten.get(schluessel, 0) + cell["anzahl"]
+        held[schluessel] = held.get(schluessel, 0) + cell["count"]
 
     # Sorted, so an unchanged queue answers the same list twice.
-    return sorted(schluessel for schluessel, anzahl in gehalten.items() if anzahl > 1)
+    return sorted(schluessel for schluessel, count in held.items() if count > 1)
 
 
-def entscheider_adressen(rows: Iterable[Mapping[str, Any]]) -> list[str]:
+def decider_addresses(rows: Iterable[Mapping[str, Any]]) -> list[str]:
     """Every administrator these stored applications name as their decider, folded as the ban list is asked."""
 
-    return [sign_in_identifier(FLBewerbungEntscheidung.model_validate(row["decision"]).von) for row in rows if row.get("decision") is not None]
+    return [sign_in_identifier(FLBewerbungEntscheidung.model_validate(row["decision"]).by) for row in rows if row.get("decision") is not None]
 
 
 def mit_vorenthaltener_entscheidung(row: Mapping[str, Any], barred: Collection[str]) -> dict[str, Any]:
@@ -1659,9 +1654,9 @@ def mit_vorenthaltener_entscheidung(row: Mapping[str, Any], barred: Collection[s
 
     # As stored first, so a decision the stored shape refuses fails rather than being served withheld.
     entscheidung = FLBewerbungEntscheidung.model_validate(row["decision"])
-    von = withheld_actor(entscheidung.von, barred)
+    by = withheld_actor(entscheidung.by, barred)
 
-    return {**row, "decision": {**entscheidung.model_dump(), "von": von, "by_barred": von is None}}
+    return {**row, "decision": {**entscheidung.model_dump(), "by": by, "by_barred": by is None}}
 
 
 def seat_lage(*, row: Mapping[str, Any], lagen: Mapping[tuple[Any, str | None], FLOutboxStatus], seat: str) -> FLOutboxStatus | None:
@@ -1687,14 +1682,14 @@ def unerreichbare_seats(*, row: Mapping[str, Any], lagen: Mapping[tuple[Any, str
 def mit_zustellung(row: Mapping[str, Any], lagen: Mapping[tuple[Any, str | None], FLOutboxStatus]) -> dict[str, Any]:
     """A stored application with each seat's last mail beside its bookkeeping, as every read serves it."""
 
-    bestaetigungen = row.get("confirmations")
-    if not isinstance(bestaetigungen, Mapping):
+    confirmations = row.get("confirmations")
+    if not isinstance(confirmations, Mapping):
         return dict(row)
 
     return {
         **row,
         "confirmations": {
             seat: {**entry, "delivery": seat_lage(row=row, lagen=lagen, seat=seat)} if isinstance(entry, Mapping) else entry
-            for seat, entry in bestaetigungen.items()
+            for seat, entry in confirmations.items()
         },
     }

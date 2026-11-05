@@ -68,10 +68,10 @@ export const FLTrikotFarbeSchema = z.enum(FLTrikotFarbe, {
 export const FLKontaktKenntnisnahmePayloadSchema = z.object({
   // Written by the form from `EINWILLIGUNG_UMFANG` rather than picked: one scope exists, so a control
   // offering it would ask a question with one answer.
-  umfang: z.literal("kontaktdaten", { error: "Die Kenntnisnahme gilt ausschließlich für Kontaktdaten." }),
+  scope: z.literal("kontaktdaten", { error: "Die Kenntnisnahme gilt ausschließlich für Kontaktdaten." }),
   // No `eingetragen_von` and no `bestaetigt_am`: both are the server's to compose, and a payload that
   // could name the stamp would let an administrator file a transcription as the person's own answer.
-  datum: CustomDateStringSchema,
+  date: CustomDateStringSchema,
 });
 
 /** German throughout: the team editor binds it to its inputs. */
@@ -206,17 +206,4 @@ export const FLPatchSaisonTeamPayloadSchema = z.object({
   // omits it gets a 422, never a team quietly reinstated.
   austritt: FLAustrittPayloadSchema.nullable(),
   trikot_farbe: FLTrikotFarbeSchema.nullable(),
-});
-
-/**
- * Which club takes a season's row over. The path names the club going OUT, so this is the one
- * junction payload naming a club the path does not.
- */
-export const FLReplaceSaisonTeamPayloadSchema = z.object({
-  // Both ids are in the PATH on the wire — the row being handed over is addressed by its natural key.
-  team_id: CustomObjectIdStringSchema,
-  saison_id: z.string().length(SAISON_ID_LENGTH, { error: "Bitte wähle eine Saison." }),
-  // The only field on the wire: the row keeps its group, and its copy of the identity is reseeded
-  // from the incoming club, so a client-supplied name could only disagree with it.
-  incoming_team_id: CustomObjectIdStringSchema,
 });

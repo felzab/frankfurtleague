@@ -15,8 +15,11 @@ import type { CalendarDay } from "@/core/format";
 import type { ValidationResult } from "react-aria-components/FieldError";
 import type { FormStatus } from "./useFormAction";
 
-/** One answer of a fixed choice, a word or a phrase: a radio group's, a segmented control's or a toggle box's. */
-export type Choice = { id: string; label: Copy };
+/**
+ * One answer of a fixed choice, a radio group's, a segmented control's or a toggle box's: the catalogue's word or phrase,
+ * or a record's own, such as a club's name.
+ */
+export type Choice = { id: string; label: Words };
 
 /** What a field's message needs to name the rule its value broke. */
 export type Constraints = {
@@ -82,9 +85,10 @@ export function FieldLabel({ label, isRequired }: { label: Words; isRequired: bo
 }
 
 /**
- * A form's status line at its acts: a refusal, a done save, or the editor's count of unsaved fields. An outcome
- * is announced politely, from a live region standing from the first render, so it answers the press that sent
- * the form; the running count stays outside the region, since it would speak on every edit that changes it.
+ * A form's status line at its acts: a refusal, a done save, why its act cannot run, or the editor's count of unsaved
+ * fields. An outcome or a reason is announced politely, from a live region standing from the first render, so it
+ * answers the press that sent the form; the running count stays outside the region, since it would speak on every
+ * edit that changes it.
  */
 export function StatusLine({ status, placement }: { status: FormStatus; placement: "row" | "column" }) {
   const tone = status?.tone ?? "none";
@@ -98,7 +102,8 @@ export function StatusLine({ status, placement }: { status: FormStatus; placemen
 
 /**
  * The line under a field, always there: the error once the value is committed or the form submitted,
- * else a change's consequence, else the description, else empty.
+ * else a change's consequence, else the description, else empty. `data-kit-message` names it to a `FieldPair`,
+ * which lets a short field's line run on past the field into the room beside it.
  */
 export function MessageLine({
   description,
@@ -112,12 +117,19 @@ export function MessageLine({
   const validation = useContext(FieldErrorContext);
 
   if (validation?.isInvalid) {
-    return <FieldError className={messageLine({ tone: "error" })}>{(result) => fieldMessage(result, constraints)}</FieldError>;
+    return (
+      <FieldError
+        data-kit-message
+        className={messageLine({ tone: "error" })}>
+        {(result) => fieldMessage(result, constraints)}
+      </FieldError>
+    );
   }
   if (consequence !== undefined) {
     return (
       <Text
         slot="description"
+        data-kit-message
         className={messageLine({ tone: "consequence" })}>
         {consequence}
       </Text>
@@ -127,11 +139,17 @@ export function MessageLine({
     return (
       <Text
         slot="description"
+        data-kit-message
         className={messageLine({ tone: "description" })}>
         {description}
       </Text>
     );
   }
   // An empty line holds the place, describing nothing.
-  return <div className={messageLine({ tone: "description" })} />;
+  return (
+    <div
+      data-kit-message
+      className={messageLine({ tone: "description" })}
+    />
+  );
 }

@@ -12,7 +12,7 @@ from app.shared.schemas.custom import (
     CustomOptionalDateString,
 )
 from app.shared.schemas.einwilligung import (
-    FLEinwilligungNachweise,
+    FLEinwilligungEvidenceSet,
     FLSpielerTextVersions,
     cite_their_kind,
     refuse_a_stale_grant,
@@ -20,7 +20,7 @@ from app.shared.schemas.einwilligung import (
 from app.shared.schemas.kontakt import CustomEmail, CustomKontaktName
 from app.shared.schemas.literals import (
     FLConfirmationState,
-    FLEinwilligungUmfang,
+    FLEinwilligungScope,
     FLRegistrierungStatus,
     FLSaisonStatus,
     FLSortOrder,
@@ -42,7 +42,7 @@ class FLRegistrierungEntscheidung(BaseModel):
     """Who declined this registration, when, and why."""
 
     made_at: CustomDateString
-    von: CustomNonEmptyString
+    by: CustomNonEmptyString
     grund: str | None
 
 
@@ -50,25 +50,25 @@ class FLRegistrierungDecisionRow(FLRegistrierungEntscheidung):
     """A decision as the list serves it: the stored one, its decider withheld where the ban list holds that address."""
 
     # Null exactly where `by_barred` is set, as the grants list withholds its actors.
-    von: CustomNonEmptyString | None
+    by: CustomNonEmptyString | None
     by_barred: bool
 
 
 class FLRegistrierungEinwilligung(FLEinwilligung, BaseReadModel):
-    """A pending registration's consent record, each choice and `datum` optional here alone.
+    """A pending registration's consent record, each choice and `date` optional here alone.
 
     A returning pupil's page asks no choice.
     """
 
-    umfang: FLEinwilligungUmfang | None = None
-    datum: CustomOptionalDateString = None
+    scope: FLEinwilligungScope | None = None
+    date: CustomOptionalDateString = None
     # Null where nobody was asked, never `False`: a returning pupil's media answer stands on their own record.
-    medien: bool | None = None
+    media: bool | None = None
     # Empty on a returning pupil's record, which evidences no choice it never asked. A pupil's wordings alone: a
     # registration becomes the pupil's record.
-    nachweis: Annotated[FLEinwilligungNachweise, AfterValidator(lambda nachweise: cite_their_kind(nachweise, FLSpielerTextVersions))] = Field(
-        default_factory=FLEinwilligungNachweise
-    )
+    evidence: Annotated[
+        FLEinwilligungEvidenceSet, AfterValidator(lambda evidence_set: cite_their_kind(evidence_set, FLSpielerTextVersions))
+    ] = Field(default_factory=FLEinwilligungEvidenceSet)
 
 
 class _RegistrierungStored(BaseModel):
@@ -224,7 +224,7 @@ class FLRegistrierungConfirmationViewResponse(BaseAPIResponse):
     minimum_age: int
     # The age the media answer is judged by, served for `minimum_age`'s reason: the page offers the
     # switch only from it, and a copy of its own would offer it where the write refuses.
-    medien_minimum_age: int = Field(gt=0)
+    media_minimum_age: int = Field(gt=0)
 
 
 class FLRegistrierungConfirmationPayload(BaseModel):
@@ -234,20 +234,20 @@ class FLRegistrierungConfirmationPayload(BaseModel):
 
     token: CustomToken
     # Unbounded: the age is a 422 with its own code, never a `payload_refused`, so the page marks its one
-    # field and keeps the typed date. Null where a stored one is taken, and required for `umfang`'s reason.
+    # field and keeps the typed date. Null where a stored one is taken, and required for `scope`'s reason.
     geburtsdatum: CustomOptionalDateString
     # Both set on the new pupil's page and both null on the returning pupil's (`registrierung_choices_unsuitable`).
     # Required rather than defaulted: a page omitting one would store this model's answer in place of
     # the person's.
-    umfang: FLEinwilligungUmfang | None
-    medien: bool | None
-    # The wordings the page showed beside the two choices, null where it asked none, as `umfang` is.
+    scope: FLEinwilligungScope | None
+    media: bool | None
+    # The wordings the page showed beside the two choices, null where it asked none, as `scope` is.
     text_versions: FLSpielerTextVersions | None
 
     @model_validator(mode="after")
     def _grants_name_the_current_wording(self) -> Self:
         if self.text_versions is not None:
-            refuse_a_stale_grant(self.text_versions, {"umfang": self.umfang, "medien": self.medien})
+            refuse_a_stale_grant(self.text_versions, {"scope": self.scope, "media": self.media})
         return self
 
 
@@ -260,8 +260,8 @@ class FLRegistrierungConfirmationResponse(BaseAPIResponse):
     # Null where the press posted none, the stored date standing: an echo of it would serve it.
     geburtsdatum: CustomOptionalDateString
     # Null on a returning pupil's press, which posted none.
-    umfang: FLEinwilligungUmfang | None
-    medien: bool | None
+    scope: FLEinwilligungScope | None
+    media: bool | None
 
 
 # --- The retention SWEEP, system tier. The backend decides, erases and owes each reminder in the

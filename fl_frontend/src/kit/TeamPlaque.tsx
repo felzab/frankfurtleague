@@ -2,7 +2,8 @@ import { tv } from "./tv";
 
 import type { Copy, RecordText } from "@/core/copy";
 
-const plaque = tv({
+/** The plaque's look, which a plaque opening its club (`PlaquePopover`) wears as a button. */
+export const plaqueLook = tv({
   // `align-middle` centres it on the line where it stands in a line of text, as inside a table row's link;
   // a flex or grid parent, which centres it everywhere else, ignores it.
   base: "inline-flex h-6 w-10 shrink-0 items-center justify-center rounded-md align-middle font-numeric text-xs tracking-display uppercase",
@@ -26,8 +27,8 @@ export type Plaque = RecordText | { quelle: Copy | null };
 /** The 40 × 24-px plaque before a club's name, holding its three-letter Kürzel; one size for every place. */
 export function TeamPlaque({ plaque: held }: { plaque: Plaque }) {
   return "record" in held ? (
-    <span className={plaque({ known: true })}>{held.record}</span>
+    <span className={plaqueLook({ known: true })}>{held.record}</span>
   ) : (
-    <span className={plaque({ known: false })}>{held.quelle}</span>
+    <span className={plaqueLook({ known: false })}>{held.quelle}</span>
   );
 }

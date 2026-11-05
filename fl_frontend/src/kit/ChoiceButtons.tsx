@@ -6,8 +6,10 @@ import { TextContext } from "react-aria-components/Text";
 import { ToggleButton } from "react-aria-components/ToggleButton";
 import { ToggleButtonGroup } from "react-aria-components/ToggleButtonGroup";
 
-import { MessageLine } from "./FieldParts";
-import { choiceButton, choiceGroup, fieldLabel, fieldRoot } from "./fieldStyles";
+import { textOf } from "@/core/copy";
+
+import { MessageLine, RequiredMark } from "./FieldParts";
+import { choiceButton, choiceGroup, fieldLabel, fieldRoot, messageLine } from "./fieldStyles";
 import { useDisabled } from "./formClosed";
 import { Icon } from "./Icon";
 import { Tooltip } from "./Tooltip";
@@ -24,28 +26,42 @@ type Shared = {
   description?: Copy;
   choices: readonly Choice[];
   isDisabled?: boolean;
+  /** The write takes no record without an answer here: the asterisk after the label, as every required field shows. */
+  isRequired?: boolean;
 };
 
 /**
- * The label above the buttons. React Aria's button group takes no `Label`, so the group is named by this
- * line's id. It carries no asterisk: a segmented choice is never empty, and a group of boxes is not checked
- * for an answer.
+ * The label above the buttons, its asterisk after it where the write requires an answer, as a field's label carries
+ * it. React Aria's button group takes no `Label`, so the group is named by this line's id. The mark says the rule
+ * alone: a segmented choice is never empty, and a group of boxes left empty is answered by the write's refusal.
  */
-function Head({ id, label }: { id: string; label: Copy }) {
+function Head({ id, label, isRequired }: { id: string; label: Copy; isRequired: boolean }) {
   return (
     <span
       id={id}
       className={fieldLabel()}>
       {label}
+      <RequiredMark isRequired={isRequired} />
     </span>
   );
 }
 
 /**
- * The message line under the buttons. React Aria's button group provides no description slot, as a field does,
- * so this one provides it the id the group's `aria-describedby` names.
+ * The message line under the buttons. React Aria's button group provides no description slot and no validation, as a
+ * field does, so this one provides the id the group's `aria-describedby` names to the description and the error alike:
+ * the error the editor's served field errors name the group by, in a field's error line, else the description.
  */
-function GroupMessage({ id, description }: { id: string; description: Copy | undefined }) {
+function GroupMessage({ id, description, errorMessage }: { id: string; description: Copy | undefined; errorMessage?: Copy }) {
+  if (errorMessage !== undefined) {
+    return (
+      <span
+        id={id}
+        data-kit-message
+        className={messageLine({ tone: "error" })}>
+        {errorMessage}
+      </span>
+    );
+  }
   return (
     <TextContext.Provider value={{ slots: { description: { id } } }}>
       <MessageLine description={description} />
@@ -76,7 +92,7 @@ function Segment({ choice }: { choice: Choice | GlyphChoice }) {
       id={choice.id}
       data-kit-focus="ring"
       className={choiceButton({ kind: "segmented" })}>
-      {choice.label}
+      {textOf(choice.label)}
     </ToggleButton>
   );
 }
@@ -94,6 +110,7 @@ export function Segmented({
   description,
   choices,
   isDisabled = false,
+  isRequired = false,
   value,
   defaultValue,
   onChange,
@@ -134,6 +151,7 @@ export function Segmented({
       <Head
         id={labelId}
         label={label}
+        isRequired={isRequired}
       />
       {group}
       <GroupMessage
@@ -146,18 +164,29 @@ export function Segmented({
 
 /**
  * A small multi-select of short words, such as a season's allowed Stufen: the label above, one box per answer,
- * each chosen box lifted. React Aria's `ToggleButtonGroup` in multiple selection.
- * @awaitsProduction the season editor's Stufen
+ * each chosen box edged and tinted in the link green. React Aria's `ToggleButtonGroup` in multiple selection. It
+ * posts no form value, so its served refusal comes as `errorMessage`, which its line shows as a field's shows its own.
  */
 export function ToggleBoxes({
   label,
   description,
+  errorMessage,
   choices,
   isDisabled = false,
+  isRequired = false,
   value,
   defaultValue,
   onChange,
-}: Shared & { value?: readonly string[]; defaultValue?: readonly string[]; onChange?: (ids: string[]) => void }) {
+}: Shared & {
+  /**
+   * The served refusal of the group, which the editor's field errors name it by: the boxes post no form value, so the
+   * form's own `validationErrors` cannot reach them as they reach a field.
+   */
+  errorMessage?: Copy;
+  value?: readonly string[];
+  defaultValue?: readonly string[];
+  onChange?: (ids: string[]) => void;
+}) {
   const labelId = useId();
   const descriptionId = useId();
   return (
@@ -165,10 +194,11 @@ export function ToggleBoxes({
       <Head
         id={labelId}
         label={label}
+        isRequired={isRequired}
       />
       <ToggleButtonGroup
         aria-labelledby={labelId}
-        aria-describedby={description === undefined ? undefined : descriptionId}
+        aria-describedby={description === undefined && errorMessage === undefined ? undefined : descriptionId}
         selectionMode="multiple"
         isDisabled={useDisabled(isDisabled)}
         selectedKeys={value}
@@ -181,13 +211,14 @@ export function ToggleBoxes({
             id={choice.id}
             data-kit-focus="ring"
             className={choiceButton({ kind: "boxes" })}>
-            {choice.label}
+            {textOf(choice.label)}
           </ToggleButton>
         ))}
       </ToggleButtonGroup>
       <GroupMessage
         id={descriptionId}
         description={description}
+        errorMessage={errorMessage}
       />
     </div>
   );

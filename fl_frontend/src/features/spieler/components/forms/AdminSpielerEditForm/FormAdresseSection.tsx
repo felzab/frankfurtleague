@@ -1,6 +1,6 @@
 "use client";
 
-import { AdresswechselHinweis } from "@/features/adresswechsel/components/ui/AdresswechselHinweis";
+import { AdresswechselHinweis } from "@/features/address-change/components/ui/AdresswechselHinweis";
 import { Angabe } from "@/shared/components/ui/Angabe";
 import { FIELD_PAIR_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
@@ -40,7 +40,7 @@ export function FormAdresseSection({
 
         <AdresswechselHinweis
           adresswechselId={adresswechselId}
-          verwehrt={adresswechselVerwehrt}
+          denied={adresswechselVerwehrt}
         />
       </div>
     </section>

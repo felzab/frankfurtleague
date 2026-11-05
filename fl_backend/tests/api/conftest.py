@@ -28,15 +28,14 @@ TEAM_OIDS = {
     "Lessing": ObjectId("6890a1b2c3d4e5f607190003"),
     # The zeroed fallback: a junction row, no counting match, and an absage from a called-off fixture and an annulled one both.
     "Ohne": ObjectId("6890a1b2c3d4e5f607190004"),
-    # The strict join: no junction row, so it drops entirely though it plays a match.
+    # Komplett's and Ohne's opponent in group B, whose three fixtures carry the abandonment and the annulment.
     "Fremd": ObjectId("6890a1b2c3d4e5f607190005"),
     # The abandonment, which counts as played and never as an absage, so the two figures part company here.
     "Komplett": ObjectId("6890a1b2c3d4e5f607190006"),
 }
 
-# The spelling a season row and a fixture side both copy in at entry. Helmholtz's differs from its
-# club document's, which is what proves the copy; Fremd, holding no season row, is written to match
-# its club document instead.
+# The spelling a season row copies in at entry. Helmholtz's differs from its club document's, which is what proves
+# every read takes the row's.
 SAISON_SHORTHANDS = {
     "Helmholtz": "HEX",
     "Bock": "BOX",
@@ -116,19 +115,19 @@ def _team(key: str, shorthand: str, name: str | None = None) -> dict[str, Any]:
     return team_document(TEAM_OIDS[key], name, shorthand)
 
 
-def _junction(key: str, gruppe: str, **overrides: Any) -> dict[str, Any]:
-    """The row `post_saison_team` writes: the club's identity COPIED in at entry, never joined on read."""
+def _junction(key: str, gruppe: str, *, saison_id: str = SAISON, name: str | None = None, **overrides: Any) -> dict[str, Any]:
+    """The row `post_saison_team` writes: the club's identity COPIED in at entry, which every fixture read joins."""
 
-    return saison_team_document(SAISON, TEAM_OIDS[key], key, SAISON_SHORTHANDS[key], gruppe=gruppe, **overrides)
+    return saison_team_document(saison_id, TEAM_OIDS[key], name or key, SAISON_SHORTHANDS[key], gruppe=gruppe, **overrides)
 
 
 def _side(key: str | None, tore: int | None) -> dict[str, Any] | None:
-    """The name and shorthand a fixture side carries are COMPOSED from the season row and ride on no payload."""
+    """A fixture side as stored: the club and its goals, its name joined at read from the season's row."""
 
     if key is None:
         return None
 
-    return {"team_id": TEAM_OIDS[key], "name": key, "tore": tore, "shorthand": SAISON_SHORTHANDS[key]}
+    return {"team_id": TEAM_OIDS[key], "tore": tore}
 
 
 def _spieltag_oid(saison_id: str, nr: int) -> ObjectId:
@@ -204,7 +203,10 @@ SAISON_TEAMS = [
     _junction("Lessing", "A", austritt=dict(AUSTRITT)),
     _junction("Ohne", "B"),
     _junction("Komplett", "B"),
-    # No row for Fremd, and none for Helmholtz in 2025 — both are asserted on.
+    _junction("Fremd", "B"),
+    # Last season's rows, Lessing's under the name it played that season under, and without the 2026 withdrawal.
+    _junction("Helmholtz", "A", saison_id=PRIOR_SAISON),
+    _junction("Lessing", "A", saison_id=PRIOR_SAISON, name="Lessing 2025"),
 ]
 
 SPIELE = [
@@ -219,7 +221,7 @@ SPIELE = [
     _spiel(6, "viertelfinale", "Helmholtz", "Bock", 5, 0, ergebnis="5:0"),
     # An `ergebnis` with no goal counts behind it -- excluded, or it would group as a 0:0 draw.
     _spiel(7, "gruppenphase", "Lessing", "Ohne", None, None, ergebnis="3:0"),
-    # Last season: both sides hold 2026 junction rows a 2025 fixture must not pick up.
+    # Last season: both sides hold 2026 junction rows a 2025 fixture must not pick up, beside their 2025 ones.
     _spiel(8, "gruppenphase", "Helmholtz", "Lessing", 7, 0, ergebnis="7:0", saison_id=PRIOR_SAISON),
     # An unfilled bracket slot carrying no result, so the spiele join is proved against a null side.
     _spiel(9, "viertelfinale", None, "Bock", None, None, ergebnis=None),
@@ -227,7 +229,7 @@ SPIELE = [
     _spiel(10, "gruppenphase", "Helmholtz", "Ohne", None, None, ergebnis=None, sonderereignis="ausgefallen"),
     # The same, one phase later, so the absage count can be shown to obey the scope.
     _spiel(11, "halbfinale", "Helmholtz", "Bock", None, None, ergebnis=None, sonderereignis="ausgefallen"),
-    # Its opponent holds no junction row, so Komplett gains a counting match without moving anyone else.
+    # Komplett's counting match against the group's last club.
     _spiel(12, "gruppenphase", "Komplett", "Fremd", 2, 0, ergebnis="2:0"),
     # Struck from the record, so Ohne stays on zero played and takes a second absage beside its Spiel 10.
     _spiel(13, "gruppenphase", "Ohne", "Fremd", None, None, ergebnis=None, sonderereignis="annulliert"),

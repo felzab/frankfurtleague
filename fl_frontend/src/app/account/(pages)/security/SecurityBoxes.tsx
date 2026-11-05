@@ -8,8 +8,8 @@ import { TextField } from "@/kit/TextField";
 import { loadAuthClient } from "@/core/auth/browserClient";
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
+import { signOutOthers } from "@/features/account/personActions";
 import { describeSetUpRefusal } from "@/features/auth/passkeyAnswers";
-import { signOutOthers } from "@/features/konto/personActions";
 import { removePasskeyAction, renamePasskeyAction } from "@/features/passkeys/actions";
 import { leaveDocumentFor } from "@/shared/utils/documentNavigation";
 
@@ -88,7 +88,7 @@ export function SecurityBoxes({
       consequence: passkey.thisDevice ? COPY.account.passkeys.endsThisDevice : COPY.account.passkeys.endsDevices,
       touch: true,
       holder,
-      closed: lastKept,
+      locked: lastKept,
       run: async () => {
         const answer = await removePasskeyAction({ id: passkey.id, holder });
         // The removal ended the session this page runs in, so the page renders nothing again: it leaves as a new
@@ -110,7 +110,7 @@ export function SecurityBoxes({
           carry: { holder },
           button: { label: COPY.shared.withObject(PASSKEY, "setUp") },
           touch: held,
-          closed: setUpClosed,
+          locked: setUpClosed,
           line: lastKept,
         }}>
         {rows.length > 0 && <AccountRows rows={rows} />}

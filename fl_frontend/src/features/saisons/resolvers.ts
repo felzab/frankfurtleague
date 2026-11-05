@@ -63,11 +63,6 @@ export async function resolveAdminSaison(searchParamsPromise: NextPageProps["sea
   return selectSaison(saisons, requestedSaisonId);
 }
 
-/** For a page whose reads name a season: a league holding none is sent to the page that creates one. */
-export async function requireAdminSaison(searchParamsPromise: NextPageProps["searchParams"]): Promise<FLSaisonAdmin> {
-  return (await resolveAdminSaison(searchParamsPromise)) ?? redirect("/area/admin/saisons");
-}
-
 /**
  * A `[saison_id]` SEGMENT, or not-found. A segment names the page's subject, so unlike the search
  * parameter above there is no fallback: degrading would silently edit a season nobody asked for.
@@ -83,16 +78,23 @@ export async function resolveSaisonIdParam(paramsPromise: NextPageProps<{ saison
 }
 
 /**
- * A public season page's `[saison]` segment: a season the public may read, or not-found. Judged against the
- * frame's list, which filters on the same withheld status as every season read
- * (`fl_backend/app/api/saisons/visibility.py :: resolve_public_saison`), so a page's metadata carries the
- * not-found title for an unknown, malformed or withheld season, and no such segment reaches the backend or keys a
- * cache entry of its own: the frame is one read, which the season layout already makes.
+ * A public season page's `[saison]` segment: a season the public may read, or `null`. Judged against the frame's list,
+ * which filters on the same withheld status as every season read
+ * (`fl_backend/app/api/saisons/visibility.py :: resolve_public_saison`), so a page's metadata carries the not-found
+ * title for an unknown, malformed or withheld season (`fl_frontend/src/shared/utils/notFoundMetadata.ts ::
+ * metadataFor`), and no such segment reaches the backend or keys a cache entry of its own: the frame is one read,
+ * which the season layout already makes.
  */
-export async function resolvePublicSaisonParam(paramsPromise: Promise<{ saison: string }>): Promise<string> {
+export async function publicSaisonOf(paramsPromise: Promise<{ saison: string }>): Promise<string | null> {
   const { saison } = await paramsPromise;
   const { saisons } = await getSaisonFrame();
-  if (!saisons.some((entry) => entry.id === saison)) notFound();
+  return saisons.some((entry) => entry.id === saison) ? saison : null;
+}
+
+/** A public season page's `[saison]` segment, or not-found, for the page's body. */
+export async function resolvePublicSaisonParam(paramsPromise: Promise<{ saison: string }>): Promise<string> {
+  const saison = await publicSaisonOf(paramsPromise);
+  if (saison === null) notFound();
 
   return saison;
 }

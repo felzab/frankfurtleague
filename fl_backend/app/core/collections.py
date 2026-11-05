@@ -35,7 +35,7 @@ class Collection(StrEnum):
     ACTION_LOG = "aktionen"
     #: A row survives the erasure of the person it bars: keyed, it is
     #: neither their document to delete nor a shell of nulls. Its author's erasure leaves the marker.
-    SPERRLISTE = "sperrliste"
+    BAN_LIST = "sperrliste"
     #: One minted registration link per row. It names a team, a season and the administrator who
     #: minted it, whose erasure leaves the row standing with the marker in their place.
     INVITATIONS = "einladungen"
@@ -59,7 +59,7 @@ class Collection(StrEnum):
     #: One address's pending change of the address it signs in on, keyed by that address, one live change per address;
     #: ended, it keeps no address but a sign-in account's carry still owed, its links answering how it ended until its
     #: TTL index removes it.
-    ADDRESS_CHANGES = "adresswechsel"
+    ADDRESS_CHANGES = "address_changes"
     #: A grant or a promotion to owner waiting on a second administrator's approval, one per address; the approval
     #: writes the grant and removes it in one transaction, and its TTL index removes one nobody decided.
     GRANT_APPROVAL_REQUESTS = "berechtigungen_antraege"

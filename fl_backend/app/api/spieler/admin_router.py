@@ -5,7 +5,7 @@ from fastapi import APIRouter, Body, Depends
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.adresswechsel.crud import verwehrte_adressen
+from app.api.address_change.crud import denied_addresses
 from app.api.berechtigungen.guard import verify_actor_is_admin
 from app.api.saisons.crud import nachnominierung_laeuft_in
 from app.api.saisons.services import has_started
@@ -94,8 +94,8 @@ def _as_junction(document: Mapping[str, Any]) -> FLSaisonSpielerResponse:
 @router.get("/saisons", response_model=FLSpielerSaisonsResponse, summary="Every Spieler with their squad rows")
 async def get_spieler_saisons(
     spieler_collection: SpielerCollection,
-    berechtigungen_collection: GrantsCollection,
-    berechtigungen_angekuendigt_collection: GrantsAnnouncedCollection,
+    grants_collection: GrantsCollection,
+    grants_announced_collection: GrantsAnnouncedCollection,
     operator: str = Depends(get_actor_email),
     auth_time: int = Depends(get_actor_auth_time),
 ) -> FLSpielerSaisonsResponse:
@@ -112,18 +112,18 @@ async def get_spieler_saisons(
     spieler_raw = await aggregate_many_from_db(
         collection=spieler_collection, pipeline=build_spieler_saisons_pipeline(), collation=GERMAN_COLLATION
     )
-    verwehrt = await verwehrte_adressen(
+    denied = await denied_addresses(
         (str(spieler["email"]) for spieler in spieler_raw if spieler.get("address_change_id") is not None),
-        akteur=sign_in_identifier(operator),
+        actor=sign_in_identifier(operator),
         auth_time=auth_time,
-        berechtigungen_collection=berechtigungen_collection,
-        berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
+        grants_collection=grants_collection,
+        grants_announced_collection=grants_announced_collection,
         session=None,
     )
 
     return FLSpielerSaisonsResponse(
         spieler=[
-            FLSpielerWithMemberships.model_validate({**spieler, "address_change_viewable_denied": verwehrt.get(str(spieler.get("email")))})
+            FLSpielerWithMemberships.model_validate({**spieler, "address_change_viewable_denied": denied.get(str(spieler.get("email")))})
             for spieler in spieler_raw
         ]
     )

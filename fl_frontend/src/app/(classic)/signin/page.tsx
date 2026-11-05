@@ -20,7 +20,7 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
  * tie the static shell to one visitor. The session's read waits in the template's boundary, as every
  * template's read does.
  */
-export default function AnmeldenPage() {
+export default function SignInPage() {
   return (
     <SignInShell
       title={COPY.signIn.title}

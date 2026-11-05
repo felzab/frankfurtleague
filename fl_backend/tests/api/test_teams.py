@@ -39,6 +39,7 @@ STUFEN: list[FLSpielerStufe] = ["E1", "Q1", "Q2", "Q3", "Q4"]
 RULES = FLSaisonRules(
     win_points=3,
     draw_points=1,
+    loss_points=0,
     qualifiers_per_gruppe=2,
     number_of_gruppen=4,
     teams_per_gruppe=4,
@@ -321,7 +322,7 @@ class TestAContactRecordReadsBackHoweverItWasStored:
     # The consent's source and the birthdate are the server's and on no payload,
     # so a body carrying either would fail on that key
     # rather than on the one each case below is about.
-    SENT = {"vorname": "Anke", "einwilligung": {"umfang": "kontaktdaten", "datum": "2026-01-15"}, **REFUSED}
+    SENT = {"vorname": "Anke", "einwilligung": {"scope": "kontaktdaten", "date": "2026-01-15"}, **REFUSED}
 
     STORED = {
         **SENT,

@@ -126,8 +126,8 @@ export async function einladeKontaktAction(rawPayload: { team_id: string; saison
  */
 async function gespeicherteKontakte({ team_id, saison_id }: Pick<KontakteSpeichernEingabe, "team_id" | "saison_id">) {
   const { teams } = await getTeamSaisons();
-  const gespeichert: FLSaisonTeamKontakte | null =
+  const saved: FLSaisonTeamKontakte | null =
     teams.find(({ id }) => id === team_id)?.memberships.find((membership) => membership.saison_id === saison_id)?.kontakte ?? null;
 
-  return gespeichert;
+  return saved;
 }

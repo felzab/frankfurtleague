@@ -6,15 +6,27 @@ import { ROUTES } from "@/core/routes";
 
 import { Brand } from "./Brand";
 import { Chip } from "./Chip";
-import { AccountRow, BackControl, BarPlaces, EditorBack, MenuScope, RailEntries, SaisonScope } from "./FrameNav";
+import {
+  AccountRow,
+  AccountRowPlaceholder,
+  BackControl,
+  BarPlaces,
+  BarPlacesPlaceholder,
+  EditorBack,
+  EditorBackPlaceholder,
+  MenuScope,
+  RailEntries,
+  RailEntriesPlaceholder,
+  SaisonScope,
+} from "./FrameNav";
 import { Icon } from "./Icon";
 import { LeaveGuardProvider } from "./LeaveGuard";
 import { frameLink } from "./Link";
 import { PageFade } from "./PageFade";
 import { RailRoot, RailToggle, RailTooltip } from "./RailState";
 import { RAIL_ID, railFade, railGlyph } from "./railStyles";
-import { SaisonButton } from "./SaisonButton";
-import { SkeletonTitle } from "./Skeleton";
+import { SaisonButton, SaisonButtonPlaceholder } from "./SaisonButton";
+import { Placeholder, PlaceholderLine } from "./Skeleton";
 import { ToastRegion } from "./Toast";
 import { tv } from "./tv";
 
@@ -24,7 +36,7 @@ import type { ReactElement, ReactNode } from "react";
 import type { ChipProps } from "./Chip";
 import type { AccountRead, FrameSaisons, RailGroup } from "./FrameNav";
 
-/** The rail's foot: the account signed in, which streams in, or „Anmelden“ where nobody is. */
+/** The rail's foot: the account signed in, which streams in, or „Konto“ leading to the sign-in where nobody is. */
 type RailFoot = { kind: "account"; account: AccountRead } | { kind: "signIn"; href: Route };
 
 /** The phone bar's pages, by their entries' ids: up to four, „Mehr“ and the account taking the other places. */
@@ -68,11 +80,11 @@ export function RailFrame({
   children: ReactNode;
 }) {
   const account = foot.kind === "account" ? foot.account : undefined;
-  // Signed out, the phone reaches „Anmelden“ and the two legal pages through „Mehr“ (the strip carries them on desktop).
+  // Signed out, the phone reaches „Konto“, the way to the sign-in, and the two legal pages through „Mehr“ (the strip carries them on desktop).
   const extra =
     foot.kind === "signIn"
       ? [
-          { label: COPY.shared.verb.signIn, href: foot.href },
+          { label: COPY.template.account, href: foot.href },
           { label: COPY.page.legalNotice, href: ROUTES.legalNotice.path() },
           { label: COPY.page.privacyNotice, href: ROUTES.privacyNotice.path() },
         ]
@@ -94,23 +106,23 @@ export function RailFrame({
             <div className="flex h-(--rail-strip) shrink-0 items-center bg-brand-solid px-6 text-on-brand [--focus-ring:var(--on-brand)]">
               {back === undefined ? <Brand ground="band" /> : <BackControl href={back} />}
             </div>
-            <Suspense fallback={null}>
+            {/* Each part the menus' reads hold back stands meanwhile as its own placeholder, at its own size, so
+                nothing in the rail moves when it lands. */}
+            <Suspense fallback={<SaisonButtonPlaceholder placement="rail" />}>
               <SaisonButton placement="rail" />
             </Suspense>
-            {/* While the entries stream, the space they fill keeps the foot at the rail's end. */}
-            <Suspense fallback={<div className="min-h-0 flex-1" />}>
+            <Suspense fallback={<RailEntriesPlaceholder groups={groups} />}>
               <RailEntries groups={groups} />
             </Suspense>
             <div className={`grid shrink-0 gap-2 border-t border-border px-3 pt-2 pb-3 ${foot.kind === "account" ? "h-(--rail-foot)" : ""}`}>
               {foot.kind === "account" ? (
-                // The row's height held while the session is judged, so the entries above do not move.
-                <Suspense fallback={<div className="h-12" />}>
+                <Suspense fallback={<AccountRowPlaceholder />}>
                   <AccountRow account={foot.account} />
                 </Suspense>
               ) : (
                 // Drawn as an entry is, its glyph before its words: collapsed, the glyph alone stands centred
                 // and the tooltip names it.
-                <RailTooltip label={COPY.shared.verb.signIn}>
+                <RailTooltip label={COPY.template.account}>
                   <NextLink
                     href={foot.href}
                     data-kit-focus="ring"
@@ -121,7 +133,7 @@ export function RailFrame({
                         size={18}
                       />
                     </span>
-                    <span className={railFade()}>{COPY.shared.verb.signIn}</span>
+                    <span className={railFade()}>{COPY.template.account}</span>
                   </NextLink>
                 </RailTooltip>
               )}
@@ -146,10 +158,12 @@ export function RailFrame({
 export function RailColumn({ editor = false, back, children }: { editor?: boolean; back?: Route; children: ReactNode }) {
   return (
     <>
-      <header className="@container sticky top-0 z-20 flex h-(--rail-band) shrink-0 items-center gap-2 bg-brand-solid px-4 text-on-brand [--focus-ring:var(--on-brand)] lg:hidden">
+      {/* The band and the bar are pictures of their own in a page's cross-fade, so the page scrolled under them is
+          not drawn over them (`tokens.css`). */}
+      <header className="@container sticky top-0 z-20 flex h-(--rail-band) shrink-0 items-center gap-2 bg-brand-solid px-4 text-on-brand [--focus-ring:var(--on-brand)] [view-transition-name:band] lg:hidden">
         {editor ? (
           // The list's address needs the season the rail fills in, read while the band streams.
-          <Suspense fallback={null}>
+          <Suspense fallback={<EditorBackPlaceholder />}>
             <EditorBack />
           </Suspense>
         ) : back === undefined ? (
@@ -157,13 +171,13 @@ export function RailColumn({ editor = false, back, children }: { editor?: boolea
         ) : (
           <BackControl href={back} />
         )}
-        <Suspense fallback={null}>
+        <Suspense fallback={<SaisonButtonPlaceholder placement="band" />}>
           <SaisonButton placement="band" />
         </Suspense>
       </header>
       {children}
       {!editor && back === undefined && (
-        <Suspense fallback={null}>
+        <Suspense fallback={<BarPlacesPlaceholder />}>
           <BarPlaces />
         </Suspense>
       )}
@@ -241,7 +255,17 @@ export function RailPage({
     <PageFade>
       <header className={head()}>
         <RailToggle />
-        {title === null ? <SkeletonTitle /> : <h1 className={heading()}>{titleOf(title)}</h1>}
+        {title === null ? (
+          // The title's line at the title's own height, so the content under it on a phone stands where it will.
+          <Placeholder layout="min-w-0 flex-1">
+            <PlaceholderLine
+              text={heading()}
+              width="w-48 max-w-full"
+            />
+          </Placeholder>
+        ) : (
+          <h1 className={heading()}>{titleOf(title)}</h1>
+        )}
         {chip !== undefined && <Chip {...chip} />}
         {action !== undefined && <Suspense fallback={<span className="size-8 shrink-0 pointer-coarse:size-10" />}>{action}</Suspense>}
         {scope === "saison" && (

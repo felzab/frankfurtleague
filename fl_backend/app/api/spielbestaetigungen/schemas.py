@@ -1,15 +1,16 @@
-from typing import Annotated, Literal, Self
+from typing import Annotated, Literal
 
-from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints, model_validator
-from pydantic_core import PydanticCustomError
+from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints, ValidationInfo, field_validator
 
 from app.api.outbox.schemas import FLOutboxStatus
-from app.api.spiele.schemas import FLSpielOrtFieldPublic
-from app.shared.schemas.actor import FLVonAdmin
+from app.api.spiele.schemas import FLSpielbestaetigungPartei, FLSpielOrtFieldPublic
+from app.core.crud import Anchored
+from app.core.exceptions import rule_refusal
+from app.shared.schemas.actor import FLByAdmin
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SPIELBESTAETIGUNG_BEGRUENDUNG_MAX_LENGTH
 from app.shared.schemas.confirmation import CustomToken
 from app.shared.schemas.custom import (
-    SINGLE_LINE_PATTERN,
+    PARAGRAPH_PATTERN,
     CustomDateString,
     CustomNonEmptyString,
     CustomObjectId,
@@ -41,28 +42,15 @@ FLSpielbestaetigungGrund = Literal[
 # `discarded`: the league discarded this decline's proposal.
 FLSpielbestaetigungZustand = Literal["valid", "vorschlag", "zugesagt", "declined", "discarded", "expired", "invalid", "abgesagt", "barred"]
 
-# Single-line because the triage card renders it as one, and a stored break would forge a second line
-# beside it. The ceiling and the pattern judge what arrives and the floor what the strip leaves, so
-# spaces alone are no reason and the published `maxLength` is the one the write keeps.
+# A paragraph, its line breaks kept, since it is written in a text area and every place showing it keeps them. The
+# ceiling and the pattern judge what arrives and the floor what the strip leaves, so spaces alone are no reason and the
+# published `maxLength` is the one the write keeps.
 CustomSpielbestaetigungBegruendung = Annotated[
     str,
-    StringConstraints(max_length=SPIELBESTAETIGUNG_BEGRUENDUNG_MAX_LENGTH, pattern=SINGLE_LINE_PATTERN),
+    StringConstraints(max_length=SPIELBESTAETIGUNG_BEGRUENDUNG_MAX_LENGTH, pattern=PARAGRAPH_PATTERN),
     AfterValidator(str.strip),
     StringConstraints(min_length=1),
 ]
-
-
-class FLSpielbestaetigungPartyTeam(BaseModel):
-    art: Literal["team"]
-    team_id: CustomObjectId
-
-
-class FLSpielbestaetigungPartySchiedsrichter(BaseModel):
-    art: Literal["schiedsrichter"]
-    schiedsrichter_id: CustomObjectId
-
-
-FLSpielbestaetigungPartei = Annotated[FLSpielbestaetigungPartyTeam | FLSpielbestaetigungPartySchiedsrichter, Field(discriminator="art")]
 
 
 class FLSpielbestaetigungAnsetzung(BaseModel):
@@ -119,7 +107,7 @@ class FLSpielbestaetigungVonSchiedsrichter(BaseModel):
 
 # A `type` statement, so the document publishes who answered as one component the three answers reference.
 type FLSpielbestaetigungVon = Annotated[
-    FLSpielbestaetigungVonKontakt | FLVonAdmin | FLSpielbestaetigungVonSchiedsrichter,
+    FLSpielbestaetigungVonKontakt | FLByAdmin | FLSpielbestaetigungVonSchiedsrichter,
     Field(discriminator="art"),
 ]
 
@@ -137,7 +125,7 @@ class FLSpielbestaetigungAntwort(BaseModel):
 
 
 class FLSpielbestaetigungClosed(BaseModel):
-    am: CustomDateString
+    at: CustomDateString
     grund: FLSpielbestaetigungGrund
 
 
@@ -153,7 +141,8 @@ class _FLSpielbestaetigungFelder(BaseModel):
     frist: CustomDateString
     # Null from the mint until it owes the party a mail, so a row nobody could be asked on reads as never asked.
     asked_at: CustomOptionalDateString
-    reminded_at: list[CustomDateString]
+    # The day the one reminder went, null until it does.
+    reminded_at: CustomOptionalDateString
     antwort: FLSpielbestaetigungAntwort | None
     closed: FLSpielbestaetigungClosed | None
 
@@ -182,24 +171,10 @@ class FLSpielbestaetigungKontakteRecord(BaseModel):
     stellvertretung: FLSpielbestaetigungSitzRecord | None
 
 
-class FLSpielbestaetigungVonKontaktRecord(FLSpielbestaetigungVonKontakt):
-    """The pressed seat as stored: the digest of its holder's address, kept for that person's erasure."""
-
-    halter: str | None = None
-
-
-class FLSpielbestaetigungAntwortRecord(FLSpielbestaetigungAntwort):
-    von: Annotated[
-        FLSpielbestaetigungVonKontaktRecord | FLVonAdmin | FLSpielbestaetigungVonSchiedsrichter,
-        Field(discriminator="art"),
-    ]
-
-
-class FLSpielbestaetigungRecord(_FLSpielbestaetigungFelder):
+class FLSpielbestaetigungRecord(_FLSpielbestaetigungFelder, Anchored):
     """One confirmation as `spielbestaetigungen` stores it, with the keys no read serves."""
 
     kontakte: FLSpielbestaetigungKontakteRecord | None
-    antwort: FLSpielbestaetigungAntwortRecord | None
 
 
 # --- The ADMINISTRATOR: the season's rows read, a row settled on its party's behalf, a proposal discarded.
@@ -269,6 +244,15 @@ class FLSpielbestaetigungVorschlagPayload(FLSpielbestaetigungAppointment):
     model_config = ConfigDict(extra="forbid")
 
 
+def _an_acceptance_gives_no_reason(begruendung: str | None, info: ValidationInfo) -> str | None:
+    """`acceptance_with_reason` on the reason's box, which a club's and a referee's answer both carry."""
+
+    if info.data.get("antwort") == "zugesagt" and begruendung is not None:
+        raise rule_refusal("acceptance_with_reason", "an acceptance carries no reason")
+
+    return begruendung
+
+
 class FLSpielbestaetigungAntwortPayload(BaseModel):
     """One club's answer about one Ansetzung, from whichever of its seats pressed first."""
 
@@ -280,17 +264,27 @@ class FLSpielbestaetigungAntwortPayload(BaseModel):
     vorschlag: FLSpielbestaetigungVorschlagPayload | None
     begruendung: Annotated[CustomSpielbestaetigungBegruendung | None, BeforeValidator(parse_empty_string_to_none)]
 
-    @model_validator(mode="after")
-    def a_decline_proposes_and_an_acceptance_says_nothing_more(self) -> Self:
-        """A 422 like every shape rule about the body: the page offers no decline without a date, and no reason beside an acceptance."""
+    # Field validators, each on the box its rule names, reading `antwort` off `info.data`: a model validator's refusal
+    # sits at the body, a path no box answers. `antwort` is declared first, so it is validated first; where it failed
+    # it is absent, and its own refusal is the one answered. A 422 like every shape rule about the body: the page offers
+    # no decline without a date, and no proposal or reason beside an acceptance.
+    @field_validator("vorschlag")
+    @classmethod
+    def a_decline_proposes_and_an_acceptance_does_not(
+        cls, vorschlag: FLSpielbestaetigungVorschlagPayload | None, info: ValidationInfo
+    ) -> FLSpielbestaetigungVorschlagPayload | None:
+        antwort = info.data.get("antwort")
+        if antwort == "declined" and vorschlag is None:
+            raise rule_refusal("decline_without_proposal", "a decline proposes another date")
+        if antwort == "zugesagt" and vorschlag is not None:
+            raise rule_refusal("acceptance_with_proposal", "an acceptance carries no proposal")
 
-        if self.antwort == "declined" and self.vorschlag is None:
-            raise PydanticCustomError("decline_without_proposal", "a decline proposes another date")
+        return vorschlag
 
-        if self.antwort == "zugesagt" and (self.vorschlag is not None or self.begruendung is not None):
-            raise ValueError("an acceptance carries no proposal and no reason")
-
-        return self
+    @field_validator("begruendung")
+    @classmethod
+    def an_acceptance_gives_no_reason(cls, begruendung: str | None, info: ValidationInfo) -> str | None:
+        return _an_acceptance_gives_no_reason(begruendung, info)
 
 
 class FLSpielbestaetigungAntwortResponse(BaseAPIResponse):
@@ -342,17 +336,14 @@ class FLSpielbestaetigungSchiedsrichterAntwortPayload(BaseModel):
     # Required as a KEY and null where unused, as the club's answer spells it.
     begruendung: Annotated[CustomSpielbestaetigungBegruendung | None, BeforeValidator(parse_empty_string_to_none)]
 
-    @model_validator(mode="after")
-    def a_decline_gives_a_reason_and_an_acceptance_none(self) -> Self:
-        """A 422 like every shape rule about the body: the panel offers no decline without a reason."""
+    # On the reason's box, for the club's answer's reason: the panel offers no decline without a reason.
+    @field_validator("begruendung")
+    @classmethod
+    def a_decline_gives_a_reason_and_an_acceptance_none(cls, begruendung: str | None, info: ValidationInfo) -> str | None:
+        if info.data.get("antwort") == "declined" and begruendung is None:
+            raise rule_refusal("decline_without_reason", "a decline names its reason")
 
-        if self.antwort == "declined" and self.begruendung is None:
-            raise PydanticCustomError("decline_without_reason", "a decline names its reason")
-
-        if self.antwort == "zugesagt" and self.begruendung is not None:
-            raise ValueError("an acceptance carries no reason")
-
-        return self
+        return _an_acceptance_gives_no_reason(begruendung, info)
 
 
 class FLSpielbestaetigungSchiedsrichterAntwortResponse(BaseAPIResponse):

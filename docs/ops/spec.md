@@ -111,14 +111,14 @@ which lets every user bind below 1024 (read 2026-09-27, on engine 29.8.0). With 
 container, none can read the traffic crossing `frankfurtleague-app` (§4).
 
 **The frontend container is also what runs the background jobs, from one scheduler.**
-`fl_frontend/src/instrumentation-node.ts :: registerOnNode` arms `:: armScheduler` under a production
+`fl_frontend/src/instrumentationNode.ts :: registerOnNode` arms `:: armScheduler` under a production
 build, and it runs one pass a minute after start and then hourly, so every job runs in the process
 that serves the site and stops when it stops. A pass runs each job in turn: the retention sweep
 (`fl_frontend/src/features/bewerbungen/sweep.ts :: runBewerbungSweep`), the account sweep
-(`fl_frontend/src/features/funktionen/sweep.ts :: runKontoSweep`), the pupils' deletion
-(`fl_frontend/src/features/saisons/sweep.ts :: runLoeschungSweep`), the fixture confirmations
+(`fl_frontend/src/features/funktionen/sweep.ts :: runAccountSweep`), the pupils' deletion
+(`fl_frontend/src/features/saisons/sweep.ts :: runErasureSweep`), the fixture confirmations
 (`fl_frontend/src/features/spielbestaetigungen/sweep.ts :: runSpielSweep`) and the grants' notices
-(`fl_frontend/src/features/berechtigungen/abgleich.ts :: runBerechtigungenAbgleich`). Then the
+(`fl_frontend/src/features/berechtigungen/abgleich.ts :: runGrantsReconciliation`). Then the
 Postausgang's drain (`fl_frontend/src/core/mail.ts :: drainOutbox`) sends what they owed; a
 write that owes a mail drains at once besides. **No switch holds one job back**: every job runs
 wherever a production build runs, the local stack included (§1.5), and a `next dev` process arms
@@ -225,28 +225,26 @@ never publishes its port, which ends that scope refused.
 
 Longest-prefix match. Order in the file is irrelevant; specificity decides.
 
-| Location                             | Upstream        | Notes                                                                                                                                                                                                |
-| ------------------------------------ | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/api/auth`                          | `frontend:3000` | Every path the sign-in library mounts but the code check below, the passkey ceremony and the sign-out among them, metered on `authapi`/`authapi48` — a PREFIX, so no trailing-slash twin             |
-| `= /api/auth/sign-in/email-otp`      | `frontend:3000` | The sign-in library's own route, the typed sign-in code's check — paired `limit_req` `zone=confirmation burst=3` and `zone=confirmation48 burst=30`, and `client_max_body_size 8k`                   |
-| `= /api/client-error`                | `frontend:3000` | Next route handler, paired `limit_req` — `zone=clienterr burst=3` and `zone=clienterr48 burst=30` ([`docs/logging/overview.md`](../logging/overview.md))                                             |
-| `= /api/bewerbung`                   | `frontend:3000` | Next route handler, the public application form's submit — paired `limit_req` `zone=bewerbung burst=2` and `zone=bewerbung48 burst=20`, and `client_max_body_size 64k` overriding the server block's |
-| `= /api/bewerbung/kuerzel`           | `frontend:3000` | Next route handler, that form's Kürzel check — paired `limit_req` `zone=kuerzel burst=10` and `zone=kuerzel48 burst=100`                                                                             |
-| `= /api/bestaetigung/kontakt`        | `frontend:3000` | Next route handler, the contact person's confirmation — paired `limit_req` `zone=confirmation burst=3` and `zone=confirmation48 burst=30`, and `client_max_body_size 8k`                             |
-| `= /api/registrierung`               | `frontend:3000` | Next route handler, a pupil's registration through their team's invite — paired `limit_req` `zone=registrierung burst=40` and `zone=registrierung48 burst=400`, and `client_max_body_size 8k`        |
-| `= /api/bestaetigung/spieler`        | `frontend:3000` | Next route handler, the pupil's confirmation — paired `limit_req` `zone=spielerlink burst=40` and `zone=spielerlink48 burst=400`, and `client_max_body_size 8k`                                      |
-| `= /api/bestaetigung/schiedsrichter` | `frontend:3000` | Next route handler, the referee's confirmation link — paired `limit_req` `zone=confirmation burst=3` and `zone=confirmation48 burst=30`, and `client_max_body_size 8k`                               |
-| `= /api/bestaetigung/spiel`          | `frontend:3000` | Next route handler, a club's answer to a fixture confirmation link — paired `limit_req` `zone=spielbestaetigung burst=10` and `zone=spielbestaetigung48 burst=100`, and `client_max_body_size 8k`    |
-| `= /api/mail/delivery`               | `frontend:3000` | Next route handler, the mail provider's delivery webhook — paired `limit_req` `zone=delivery burst=300` and `zone=delivery48 burst=3000`, and `client_max_body_size 8k`                              |
-| the `/` twins                        | `frontend:3000` | Each metered exact-match path above has a trailing-slash twin carrying its canonical's zones, and its body cap where the canonical sets one                                                          |
-| `= /api/v0/system/is_live`           | `backend:8000`  | The liveness probe, and the only backend endpoint the edge exposes — `Cache-Control: no-store` (§3)                                                                                                  |
-| `= /signin`                          | `frontend:3000` | Paired `limit_req` — `zone=signin burst=3` and `zone=signin48 burst=30`                                                                                                                              |
-| `= /signin/continue`                 | `frontend:3000` | Next route handler, the sign-in's landing — `/api/auth`'s `authapi`/`authapi48` pair, every method metered                                                                                           |
-| `/_next/static/`                     | `frontend:3000` | `Cache-Control: public, max-age=31536000, immutable`, and the server-action pair, which meters no GET                                                                                                |
-| `/confirm/`                          | `frontend:3000` | Every link page under it, a PREFIX: paired `limit_req` `zone=linkpage burst=60` and `zone=linkpage48 burst=600` on every request, beside `/`'s ceiling and action pair                               |
-| `= /registrierung` and `= /erasure`  | `frontend:3000` | The two link pages outside that segment, a team's invite and the deletion link: `/confirm/`'s lines, each with its twin                                                                              |
-| `= /account` and `/account/`         | `frontend:3000` | Konto, its list with its twin and its four pages by a PREFIX: paired `limit_req` `zone=account burst=10` and `zone=account48 burst=100` on its POSTs, beside `/`'s ceiling and action pair           |
-| `/`                                  | `frontend:3000` | Catch-all — `limit_conn conn 50`, and the server-action pair, which meters nothing else                                                                                                              |
+| Location                            | Upstream        | Notes                                                                                                                                                                                                |
+| ----------------------------------- | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/api/auth`                         | `frontend:3000` | Every path the sign-in library mounts but the code check below, the passkey ceremony and the sign-out among them, metered on `authapi`/`authapi48` — a PREFIX, so no trailing-slash twin             |
+| `= /api/auth/sign-in/email-otp`     | `frontend:3000` | The sign-in library's own route, the typed sign-in code's check — paired `limit_req` `zone=confirmation burst=3` and `zone=confirmation48 burst=30`, and `client_max_body_size 8k`                   |
+| `= /api/client-error`               | `frontend:3000` | Next route handler, paired `limit_req` — `zone=clienterr burst=3` and `zone=clienterr48 burst=30`, and `client_max_body_size 32k` ([`docs/logging/overview.md`](../logging/overview.md))             |
+| `= /api/bewerbung`                  | `frontend:3000` | Next route handler, the public application form's submit — paired `limit_req` `zone=bewerbung burst=2` and `zone=bewerbung48 burst=20`, and `client_max_body_size 64k` overriding the server block's |
+| `= /api/bewerbung/kuerzel`          | `frontend:3000` | Next route handler, that form's Kürzel check — paired `limit_req` `zone=kuerzel burst=10` and `zone=kuerzel48 burst=100`                                                                             |
+| `= /api/bestaetigung/kontakt`       | `frontend:3000` | Next route handler, the contact person's confirmation — paired `limit_req` `zone=confirmation burst=3` and `zone=confirmation48 burst=30`, and `client_max_body_size 8k`                             |
+| `= /api/registrierung`              | `frontend:3000` | Next route handler, a pupil's registration through their team's invite — paired `limit_req` `zone=registrierung burst=40` and `zone=registrierung48 burst=400`, and `client_max_body_size 8k`        |
+| `= /api/bestaetigung/spieler`       | `frontend:3000` | Next route handler, the pupil's confirmation — paired `limit_req` `zone=spielerlink burst=40` and `zone=spielerlink48 burst=400`, and `client_max_body_size 8k`                                      |
+| `= /api/bestaetigung/spiel`         | `frontend:3000` | Next route handler, a club's answer to a fixture confirmation link — paired `limit_req` `zone=spielbestaetigung burst=10` and `zone=spielbestaetigung48 burst=100`, and `client_max_body_size 8k`    |
+| `= /api/mail/delivery`              | `frontend:3000` | Next route handler, the mail provider's delivery webhook — paired `limit_req` `zone=delivery burst=300` and `zone=delivery48 burst=3000`, and `client_max_body_size 8k`                              |
+| the `/` twins                       | `frontend:3000` | Each metered exact-match path above has a trailing-slash twin carrying its canonical's zones, and its body cap where the canonical sets one                                                          |
+| `= /api/v0/system/is_live`          | `backend:8000`  | The liveness probe, and the only backend endpoint the edge exposes — `Cache-Control: no-store` (§3)                                                                                                  |
+| `= /signin`                         | `frontend:3000` | Paired `limit_req` — `zone=signin burst=3` and `zone=signin48 burst=30`                                                                                                                              |
+| `= /signin/continue`                | `frontend:3000` | Next route handler, the sign-in's landing — `/api/auth`'s `authapi`/`authapi48` pair, every method metered                                                                                           |
+| `/_next/static/`                    | `frontend:3000` | `Cache-Control: public, max-age=31536000, immutable`, and the server-action pair, which meters no GET                                                                                                |
+| `/confirm/`                         | `frontend:3000` | Every link page under it, a PREFIX: paired `limit_req` `zone=linkpage burst=60` and `zone=linkpage48 burst=600` on every request, beside `/`'s ceiling and action pair                               |
+| `= /registrierung` and `= /erasure` | `frontend:3000` | The two link pages outside that segment, a team's invite and the deletion link: `/confirm/`'s lines, each with its twin                                                                              |
+| `/`                                 | `frontend:3000` | Catch-all — `limit_conn conn 50`, and the server-action pair, which meters nothing else                                                                                                              |
 
 **The edge reaches each upstream by its service name as it serves, never by an address read at
 load**. A container compose recreates or starts again comes back under its name at another
@@ -342,7 +340,15 @@ resolves each before matching, all three measured reaching their zone (measured 
 
 **Each pair is one narrow zone and one wide one, the wide at ten times the rate and the burst**, and
 the pairs are held apart per unit of WORK rather than pooled — two paths reaching the same work
-share one pair. `bewerbung48` is the one deliberate exception to the multiplier, and it is on the
+share one pair. **That holds for a route handler and never for a server action**, which Next 16.4.2
+runs at whatever page path it is posted to, handing it inside its own process to the page holding it
+(`next/dist/server/app-render/action-handler.js :: createForwardedActionResponse`), so nginx meters
+the one request on the path the client chose. The answers three link pages take through a server
+action — the referee's on `/confirm/schiedsrichter`, an address link's on `/confirm/address` and the
+deletion link's on `/erasure` — are bounded by the action pair, 30 at once and 60 a minute per
+network, wherever a script posts them, and by the link pages' pair besides only where the post lands
+on a link page. A pair for one action would key on its id, which Next recalculates between builds
+(`next/dist/docs/01-app/02-guides/data-security.md`). `bewerbung48` is the one deliberate exception to the multiplier, and it is on the
 RATE alone: three times rather than ten, on a count of applications per season rather than a ratio.
 What decides that number, and what it risks, is at the zone in `nginx/shared/http.conf`.
 
@@ -379,9 +385,16 @@ letter, `HEAD` or JSON post that is not refused with the edge's own `429`, any r
 link page not answered with the edge's page, and any link block whose action pair lets a server
 action past the action burst or answers it otherwise than with the sentence.
 
-**A body cap below the server block's `20M` is set at the location it bounds.** The application
-form's `64k` cap alone is measured, 2026-08-30: a 100,049-byte POST is refused `413` at the edge,
-while a 4,049-byte POST reaches the handler.
+**The server block's `client_max_body_size 1m` is Next's own bound on a server action's body**,
+`serverActions.bodySizeLimit` at its 1 MB default, which `fl_frontend/next.config.ts` leaves
+standing. A server action is posted at any page path, so the bound holds at every location, and
+nginx refuses at the edge a body the application would refuse rather than buffering it first; a cap
+at the page an action answers on bounds nothing a script cannot step around. **A route handler
+bounding its body tighter takes its own cap at its location**, its reason at the line: `8k` for the
+confirmation links, the code check, the registration and the delivery webhook, `32k` for the crash
+report and `64k` for the application form, while `/api/auth` keeps `1m`, the sign-in library
+bounding no ceremony's body. The application form's `64k` cap alone is measured, 2026-08-30: a
+100,049-byte POST is refused `413` at the edge, while a 4,049-byte POST reaches the handler.
 
 **A zone has been observed refusing, and what that establishes is the MECHANISM, not the numbers.**
 A burst at the Kürzel check was refused past the burst as `429` (not nginx's `503` default), the
@@ -714,7 +727,7 @@ container and exit 2 from the script, with nothing recreated; any other ending i
   instrumentation hook once as the server starts and before it serves; the hook runs every gate a
   serving boot runs — the schema over the variables and the secret files — and
   ends on 0, or on 3 at a refusal, its `CRITICAL` line naming the variable or the file and never a
-  value (`fl_frontend/src/instrumentation-node.ts :: registerOnNode`). A fault of
+  value (`fl_frontend/src/instrumentationNode.ts :: registerOnNode`). A fault of
   the build ends on 1, which is no verdict on the host. `run` publishes no port and no service
   alias, so nothing reaches the server it starts.
 - **The boot holds `APP_ENV` to the deployment the script names**, a mismatch refusing `APP_ENV`:

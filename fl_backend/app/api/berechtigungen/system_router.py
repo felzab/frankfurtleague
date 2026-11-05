@@ -5,8 +5,8 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.berechtigungen.crud import owe_in_session, pull_the_list_to_judge, read_berechtigungen, read_the_announced
 from app.api.berechtigungen.schemas import FLGrantReconciliationResponse
-from app.api.berechtigungen.services import compare, compose_announced, compose_mitteilung, ernannt, gefunden
-from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt
+from app.api.berechtigungen.services import appointed, compare, compose_announced, compose_notice, found_ids
+from app.api.sperrliste.lookup import BanListLookup, barred_addresses
 from app.core.config import API_VERSION
 from app.core.crud import erase_many_from_db, patch_many_in_db, post_many_to_db
 from app.core.dependencies import (
@@ -33,10 +33,10 @@ router = APIRouter(
     summary="Owe a notice of every change to the grants made in the database",
 )
 async def post_grants_reconciliation(
-    berechtigungen_collection: GrantsCollection,
-    berechtigungen_angekuendigt_collection: GrantsAnnouncedCollection,
+    grants_collection: GrantsCollection,
+    grants_announced_collection: GrantsAnnouncedCollection,
     outbox_collection: OutboxCollection,
-    sperrliste: SperrlisteLookup,
+    ban_list: BanListLookup,
     db: DBClient,
     now: datetime = Depends(get_germany_now),
 ) -> FLGrantReconciliationResponse:
@@ -51,52 +51,57 @@ async def post_grants_reconciliation(
     async def compare_and_owe(session: AsyncClientSession) -> int:
         """Read the grants, the record and the ban list, then owe and record what differs, each on this transaction's session."""
 
-        grants = await read_berechtigungen(berechtigungen_collection=berechtigungen_collection, session=session)
-        announced = await read_the_announced(berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection, session=session)
+        grants = await read_berechtigungen(grants_collection=grants_collection, session=session)
+        announced = await read_the_announced(grants_announced_collection=grants_announced_collection, session=session)
         changes = compare(grants=grants, announced=announced)
         if changes:
             # Anchored before the pass writes, so a revoke or a ban judging these rows conflicts with it.
             # The read repeats this snapshot's, and a pass owing nothing logs no anchor.
-            await pull_the_list_to_judge(berechtigungen_collection=berechtigungen_collection, session=session)
+            await pull_the_list_to_judge(grants_collection=grants_collection, session=session)
 
             named = {
-                stand.adresse for _, _, jetzt, vorher in changes for stand in (jetzt, vorher) if stand is not None and stand.adresse is not None
+                snapshot.address
+                for _, _, current, before in changes
+                for snapshot in (current, before)
+                if snapshot is not None and snapshot.address is not None
             }
-            barred = await adressen_gesperrt(sperrliste, {str(row["adresse"]) for row in grants} | named, session=session)
+            barred = await barred_addresses(ban_list, {str(row["address"]) for row in grants} | named, session=session)
             await owe_in_session(
                 [
-                    compose_mitteilung(grant_id=grant_id, art=art, jetzt=jetzt, before=vorher, changed_by=None, now=now, barred=barred)
-                    for grant_id, art, jetzt, vorher in changes
+                    compose_notice(grant_id=grant_id, kind=kind, current=current, before=before, changed_by=None, now=now, barred=barred)
+                    for grant_id, kind, current, before in changes
                 ],
                 outbox_collection=outbox_collection,
-                berechtigungen_collection=berechtigungen_collection,
+                grants_collection=grants_collection,
                 now=now,
                 session=session,
             )
             # The record now accounts for each change, its notice owed. Bookkeeping, so removed with no image: an image
             # carries the address into a log every administrator reads for twelve months.
             await erase_many_from_db(
-                collection=berechtigungen_angekuendigt_collection,
+                collection=grants_announced_collection,
                 db_filter={"_id": {"$in": [grant_id for grant_id, _, _, _ in changes]}},
                 session=session,
             )
-            current = [compose_announced(grant_id=grant_id, stand=jetzt, now=now) for grant_id, _, jetzt, _ in changes if jetzt is not None]
-            if current:
-                await post_many_to_db(collection=berechtigungen_angekuendigt_collection, documents=current, session=session)
+            announcements = [
+                compose_announced(grant_id=grant_id, snapshot=current, now=now) for grant_id, _, current, _ in changes if current is not None
+            ]
+            if announcements:
+                await post_many_to_db(collection=grants_announced_collection, documents=announcements, session=session)
             # This pass's clock and not the row's `granted_at`, which a paste typed and a repoint kept
             # from the address before.
-            if found := gefunden(changes):
+            if found := found_ids(changes):
                 await patch_many_in_db(
-                    collection=berechtigungen_collection,
+                    collection=grants_collection,
                     db_filter={"_id": {"$in": found}},
-                    update={"$set": {"gefunden_am": now}},
+                    update={"$set": {"found_at": now}},
                     session=session,
                 )
             # Nothing dates the promotion's edit, so its owner's power dates from this pass, as the tier
             # change dates one made there.
-            if raised := ernannt(changes):
+            if raised := appointed(changes):
                 await patch_many_in_db(
-                    collection=berechtigungen_collection,
+                    collection=grants_collection,
                     db_filter={"_id": {"$in": raised}},
                     update={"$set": {"appointed_at": now}},
                     session=session,
@@ -105,11 +110,11 @@ async def post_grants_reconciliation(
         # Every row no pass has read: once its record is gone, this mark tells an
         # edit made since from a paste nothing has seen. The unseen
         # alone, so a quiet pass writes nothing.
-        if unseen := [row["_id"] for row in grants if row.get("gesehen_am") is None]:
+        if unseen := [row["_id"] for row in grants if row.get("seen_at") is None]:
             await patch_many_in_db(
-                collection=berechtigungen_collection,
+                collection=grants_collection,
                 db_filter={"_id": {"$in": unseen}},
-                update={"$set": {"gesehen_am": now}},
+                update={"$set": {"seen_at": now}},
                 session=session,
             )
 

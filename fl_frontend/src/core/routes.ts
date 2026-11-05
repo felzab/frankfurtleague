@@ -12,15 +12,23 @@ type Crawl = "index" | "noindex" | "disallow";
 
 /**
  * One page: the address it answers at, built from its segments, the name its tab and its strip show,
- * and what a search engine may do with it. A link takes its address from here, so with typed routes
- * on, an address whose page does not exist fails where the link is written. A page named by its record, such
- * as a club's, holds `null`: the page hands its record's name as a title of its own (`{ record }`); so does an
- * address that renders nothing, a route handler sending the request on.
+ * and what a search engine may do with it. A link takes its address from here, so each address is spelled
+ * once. Next's typed routes are off (`typedRoutes` in `next.config.ts`), so the compiler does not hold a row to
+ * a page; `routes.test.ts` holds the rows a mail, a rail frame or a placed page names. A page named by its record,
+ * such as a club's, holds `null`: the page hands its record's name as a title of its own (`{ record }`); so does
+ * an address that renders nothing, a route handler sending the request on.
  */
 export type RouteEntry = {
   readonly path: (...segments: never) => `/${string}`;
   readonly title: Copy | ((...names: never) => Copy) | null;
   readonly crawl: Crawl;
+  /**
+   * The menu entry the page belongs to, where its address lies under another entry's: a frame marks that entry and
+   * leads back to it rather than to the entry the address lies under (`kit/navPlace.tsx :: placeOf`). `entry` is the
+   * entry's row; `pattern` is the address the page answers at as its route folder writes it, each dynamic segment
+   * `[name]`, which `routes.test.ts` holds to a page folder of the tree.
+   */
+  readonly place?: { readonly entry: string; readonly pattern: `/${string}` };
 };
 
 /**
@@ -55,6 +63,7 @@ export const ADDRESS_WORDS = [
   "passkey",
   "search",
   "security",
+  "settings",
   "signin",
   "sponsors",
   // The one exception, two German words naming no league thing: the Impressum is a duty under German law, and
@@ -200,92 +209,123 @@ export const ROUTES = {
     crawl: "disallow",
   },
 
-  // Session 5: its page is built.
-  verwaltungOverview: {
+  /**
+   * The administration's root, which a link uses where it cannot know the season: its page sends the reader on to the
+   * Übersicht of the season the site is on, as `/saisons` sends a visitor on to its Spielplan.
+   */
+  admin: { path: () => "/admin" as const, title: COPY.shared.overview, crawl: "disallow" },
+  adminOverview: {
     path: (saison: string) => `/admin/saisons/${saison}` as const,
     title: COPY.shared.overview,
     crawl: "disallow",
   },
-  // Session 5: its page is built.
-  verwaltungSaisons: { path: () => "/admin/saisons" as const, title: COPY.page.verwaltungSaisons, crawl: "disallow" },
-  // Session 5: its page is built.
-  verwaltungSpiele: {
+  adminSaisons: { path: () => "/admin/saisons" as const, title: COPY.page.adminSaisons, crawl: "disallow" },
+  /** A season's editor, named by the season. Its address lies under the season's Übersicht, and it belongs to the list. */
+  adminSaison: {
+    path: (saison: string) => `/admin/saisons/${saison}/settings` as const,
+    title: COPY.shared.saisonName,
+    crawl: "disallow",
+    place: { entry: "adminSaisons", pattern: "/admin/saisons/[saison]/settings" },
+  },
+  adminSpiele: {
     path: (saison: string) => `/admin/saisons/${saison}/spiele` as const,
     title: COPY.page.spiele,
     crawl: "disallow",
   },
+  /**
+   * A matchday's editor, named by the matchday as its tab is. Its address lies under the season's Übersicht, and it
+   * belongs to the Spiele list it is opened from.
+   */
+  adminSpieltag: {
+    path: (saison: string, spieltag: string) => `/admin/saisons/${saison}/spieltage/${spieltag}` as const,
+    title: null,
+    crawl: "disallow",
+    place: { entry: "adminSpiele", pattern: "/admin/saisons/[saison]/spieltage/[spieltag]" },
+  },
   /** The match editor, named by the match's two teams as the match's own page is. */
-  verwaltungSpiel: {
+  adminSpiel: {
     path: (saison: string, spiel: string) => `/admin/saisons/${saison}/spiele/${spiel}` as const,
     title: COPY.page.spiel,
     crawl: "disallow",
   },
-  verwaltungSpielorte: { path: () => "/admin/spielorte" as const, title: COPY.page.verwaltungSpielorte, crawl: "disallow" },
+  adminSpielorte: { path: () => "/admin/spielorte" as const, title: COPY.page.adminSpielorte, crawl: "disallow" },
   /** A venue's own page, named by the venue. */
-  // Session 5: its page is built.
-  verwaltungSpielort: {
+  adminSpielort: {
     path: (spielort: string) => `/admin/spielorte/${spielort}` as const,
     title: null,
     crawl: "disallow",
   },
-  // Session 5: its page is built.
-  verwaltungSchiedsrichter: {
+  adminSchiedsrichter: {
     path: () => "/admin/schiedsrichter" as const,
-    title: COPY.page.verwaltungSchiedsrichter,
+    title: COPY.page.adminSchiedsrichter,
+    crawl: "disallow",
+  },
+  /** A referee's own page, named by the referee: the list's word is the person's too, so the key names the record. */
+  adminSchiedsrichterRecord: {
+    path: (schiedsrichter: string) => `/admin/schiedsrichter/${schiedsrichter}` as const,
+    title: null,
     crawl: "disallow",
   },
   // Applications, teams, squads and registrations are a season's in the data, so their lists carry the season as
   // every season page does; venues and referees are the league's and keep addresses without one.
   // Session 6: its page is built.
-  verwaltungBewerbungen: {
+  adminBewerbungen: {
     path: (saison: string) => `/admin/saisons/${saison}/bewerbungen` as const,
-    title: COPY.page.verwaltungBewerbungen,
+    title: COPY.page.adminBewerbungen,
     crawl: "disallow",
   },
+  /** One application, named by its school; the Übersicht's applications card opens it. */
+  // Session 6: its page is built at /admin/saisons/<saison>/bewerbungen/<bewerbung>.
+  adminBewerbung: {
+    path: (bewerbung: string) => `/area/admin/bewerbungen/${bewerbung}` as const,
+    title: null,
+    crawl: "disallow",
+  },
+
   // Session 6: its page is built.
-  verwaltungTeams: {
+  adminTeams: {
     path: (saison: string) => `/admin/saisons/${saison}/teams` as const,
     title: COPY.page.teams,
     crawl: "disallow",
   },
   // Session 6: its page is built.
-  verwaltungSpieler: {
+  adminSpieler: {
     path: (saison: string) => `/admin/saisons/${saison}/spieler` as const,
-    title: COPY.page.verwaltungSpieler,
+    title: COPY.page.adminSpieler,
     crawl: "disallow",
   },
   // Session 6: its page is built.
-  verwaltungRegistrierungen: {
+  adminRegistrierungen: {
     path: (saison: string) => `/admin/saisons/${saison}/registrierungen` as const,
     title: COPY.page.registrierungen,
     crawl: "disallow",
   },
   // Session 7: its page is built.
-  verwaltungAdministrators: {
+  adminAdministrators: {
     path: () => "/admin/administrators" as const,
-    title: COPY.page.verwaltungAdministrators,
+    title: COPY.page.adminAdministrators,
     crawl: "disallow",
   },
   // Session 7: its page is built.
-  verwaltungSperrliste: {
+  adminBanList: {
     path: () => "/admin/sperrliste" as const,
-    title: COPY.page.verwaltungSperrliste,
+    title: COPY.page.adminBanList,
     crawl: "disallow",
   },
   // Session 7: its page is built.
-  verwaltungErasures: {
+  adminErasures: {
     path: () => "/admin/erasures" as const,
-    title: COPY.page.verwaltungErasures,
+    title: COPY.page.adminErasures,
     crawl: "disallow",
   },
   // Session 7: its page is built.
-  verwaltungAddressChanges: {
+  adminAddressChanges: {
     path: () => "/admin/address-changes" as const,
-    title: COPY.page.verwaltungAddressChanges,
+    title: COPY.page.adminAddressChanges,
     crawl: "disallow",
   },
   // Session 7: its page is built.
-  verwaltungActionLog: { path: () => "/admin/log" as const, title: COPY.page.verwaltungActionLog, crawl: "disallow" },
+  adminActionLog: { path: () => "/admin/log" as const, title: COPY.page.adminActionLog, crawl: "disallow" },
 } as const satisfies Record<string, RouteEntry>;
 
 /**

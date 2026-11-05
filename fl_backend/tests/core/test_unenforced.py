@@ -6,7 +6,6 @@ import pytest
 from bson import ObjectId
 
 from app.api.aktionen.schemas import FLActionLogEntry, FLActionLogEntryWithBefore
-from app.api.saisons.admin_router import _spieltag_clashes
 from app.api.saisons.schedule import schedule_for
 from app.api.saisons.schemas import FLSaison, FLSaisonRules
 from app.api.saisons.services import find_rules_refusal, find_spielplan_refusal, find_undraw_refusal
@@ -21,6 +20,8 @@ from app.api.spiele.schemas import (
     FLBracketFaultSpiel,
     FLPatchSpielDataPayload,
     FLSpiel,
+    FLSpielJoinedAdmin,
+    FLSpielJoinedAdminListAdapter,
     FLSpielJoinedInternal,
     FLSpielJoinedInternalListAdapter,
     FLSpielListAdapter,
@@ -37,7 +38,6 @@ from app.api.spiele.services import (
     find_double_bookings,
     find_eligibility_refusal,
     find_fixture_date_refusal,
-    find_referee_stand_refusal,
     find_result_removal_refusal,
     find_retired_bookings,
     find_slot_claims,
@@ -50,13 +50,12 @@ from app.api.spiele.services import (
 )
 from app.api.spieler.services import find_squad_refusal, mark_shared_nummern
 from app.api.spieltage.services import DatedNeighbour, find_spieltag_order_refusal
-from app.api.teams.services import find_gruppe_swap_refusal
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.constraints import UNIQUE_INDEXES
 from app.core.exceptions import WriteRefusal
 from app.readback import RECORD_MODELS
-from tests.documents import rules_document
+from tests.documents import joined_spiel_document, rules_document
 
 PayloadFactory = Callable[..., dict[str, Any]]
 
@@ -170,7 +169,7 @@ def _resubmit(saison_docs: list[dict[str, Any]], nr: int) -> FLPatchSpielDataPay
             "ort": _submitted(stored["ort"], keeping=("spielort_id", "mietpreis")),
             "schiedsrichter": _submitted(stored["schiedsrichter"], keeping=("schiedsrichter_id", "payment")),
             "notiz": stored.get("notiz"),
-            "schiedsrichter_stand": None if stored["schiedsrichter"] is None else stored["schiedsrichter"]["schiedsrichter_id"],
+            "version": stored.get("version", 0),
         }
     )
 
@@ -187,23 +186,6 @@ def _on_create(proposed: FLSaisonRules):
         proposed=proposed,
         occupancy_by_gruppe={},
         highest_wired_platz=0,
-    )
-
-
-def _swap(**overrides: Any):
-    """A swap with every gate already open, so a case names only the count it is about."""
-
-    return find_gruppe_swap_refusal(
-        **{
-            "team1_gruppe": "A",
-            "team2_gruppe": "B",
-            "saison_status": "active",
-            "started": False,
-            "taken_place": False,
-            "clashing_spieltage": 0,
-            "departed_fixtures": 0,
-            **overrides,
-        }
     )
 
 
@@ -301,7 +283,9 @@ class TestARetiredBookingOnAReopenedFixture:
     """That a rewrite voiding a played result keeps a retired booking and reports it, while a save newly booking the row stays refused."""
 
     def test_the_reopened_fixture_is_reported_and_the_played_one_is_not(self, a_semi_final_played_at_a_retired_ground):
-        (played,) = FLSpielListAdapter.validate_python(a_semi_final_played_at_a_retired_ground)
+        (played,) = FLSpielJoinedAdminListAdapter.validate_python(
+            [joined_spiel_document(spiel) for spiel in a_semi_final_played_at_a_retired_ground]
+        )
         # What `fl_backend/app/api/spiele/crud.py :: advance_bracket_winners` writes over a slot whose occupant changed.
         reopened = played.model_copy(update={"team1": played.team2, "team2": None, "ergebnis": None})
         retired = {ObjectId(RETIRED_GROUND): GROUND_RETIRED_ON}
@@ -312,6 +296,17 @@ class TestARetiredBookingOnAReopenedFixture:
             (fault.spiel_nr, fault.booking, fault.inactive_since)
             for fault in find_retired_bookings([reopened], retired_venues=retired, retired_referees={})
         ] == [(SLOT_NR, "ort", GROUND_RETIRED_ON)]
+
+    @pytest.mark.parametrize("sonderereignis", SONDEREREIGNIS_WITHOUT_A_RESULT)
+    def test_a_called_off_fixture_keeps_its_retired_booking_unreported(self, a_semi_final_played_at_a_retired_ground, sonderereignis):
+        """A fixture called off owes no result, so its retired row stands lawfully; reported, it is a fault nobody can repair."""
+
+        (played,) = FLSpielJoinedAdminListAdapter.validate_python(
+            [joined_spiel_document(spiel) for spiel in a_semi_final_played_at_a_retired_ground]
+        )
+        called_off = played.model_copy(update={"ergebnis": None, "sonderereignis": sonderereignis})
+
+        assert find_retired_bookings([called_off], retired_venues={ObjectId(RETIRED_GROUND): GROUND_RETIRED_ON}, retired_referees={}) == []
 
     def test_a_save_keeping_it_passes_and_a_save_newly_booking_it_is_refused(self, a_semi_final_played_at_a_retired_ground):
         """Both directions of `booking_unknown_resource`: the state stands because the reopened fixture's next save books nothing."""
@@ -349,34 +344,36 @@ LIFTED_NO_SHOW_NR, BOOKED_AN_HOUR_LATER_NR = 30, 31
 
 
 @pytest.fixture
-def a_lifted_no_show_beside_a_later_booking(spiel: PayloadFactory) -> list[FLSpiel]:
+def a_lifted_no_show_beside_a_later_booking(spiel: PayloadFactory) -> list[FLSpielJoinedAdmin]:
     """Two fixtures of one day at one ground, 18:00 and 19:00: the first's no-show has just been lifted by a rewrite."""
 
-    return FLSpielListAdapter.validate_python(
+    return FLSpielJoinedAdminListAdapter.validate_python(
         [
-            spiel(
-                _id=MATCH_ID.format(nr),
-                spiel_nr=nr,
-                spieltag_id=SPIELTAG_TWO,
-                saison_phase="halbfinale",
-                team1=None,
-                team2=None,
-                ergebnis=None,
-                uhrzeit=uhrzeit,
-                schiedsrichter=None,
+            joined_spiel_document(
+                spiel(
+                    _id=MATCH_ID.format(nr),
+                    spiel_nr=nr,
+                    spieltag_id=SPIELTAG_TWO,
+                    saison_phase="halbfinale",
+                    team1=None,
+                    team2=None,
+                    ergebnis=None,
+                    uhrzeit=uhrzeit,
+                    schiedsrichter=None,
+                )
             )
             for nr, uhrzeit in ((LIFTED_NO_SHOW_NR, "18:00:00"), (BOOKED_AN_HOUR_LATER_NR, "19:00:00"))
         ]
     )
 
 
-def _holders_of(spiele: list[FLSpiel]) -> list[FLSpielSlotHolder]:
+def _holders_of(spiele: list[FLSpielJoinedAdmin]) -> list[FLSpielSlotHolder]:
     """The fixtures as the report's read of every claim hands them back."""
 
     return [FLSpielSlotHolder.model_validate(spiel.model_dump(by_alias=False) | {"_id": spiel.id}) for spiel in spiele]
 
 
-def _clash_refusal_of(stored: FLSpiel, holders: list[FLSpielSlotHolder], **changes: Any) -> WriteRefusal | None:
+def _clash_refusal_of(stored: FLSpielJoinedAdmin, holders: list[FLSpielSlotHolder], **changes: Any) -> WriteRefusal | None:
     """`spiel_double_booked` on a save of `stored` changing `changes`, judged over the claims it makes as `judge` judges them."""
 
     payload = _resubmit([stored.model_dump()], stored.spiel_nr).model_copy(update=changes)
@@ -420,6 +417,32 @@ class TestADoubleBookingALiftedNoShowLeaves:
         assert _clash_refusal_of(lifted, holders, uhrzeit="13:00:00") is None
 
 
+A_SECOND_GROUND = {"spielort_id": "6890a1b2c3d4e5f607240002", "name": "Sportplatz Nord", "maps_link": "Sportplatz Nord", "mietpreis": 40}
+AT_THE_FIRST_GROUND_NR, AN_HOUR_LATER_AT_THE_SECOND_NR = 32, 33
+
+
+class TestARefereeDoubleBookedAtTwoGrounds:
+    def test_the_referee_clash_is_reported_beside_a_free_ground(self, spiel: PayloadFactory):
+        """A fixture's ground is judged before its referee, so a walk stopping at a free ground would never report the referee."""
+
+        spiele = FLSpielJoinedAdminListAdapter.validate_python(
+            [
+                joined_spiel_document(spiel(_id=MATCH_ID.format(nr), spiel_nr=nr, ergebnis=None, **booking))
+                for nr, booking in (
+                    (AT_THE_FIRST_GROUND_NR, {}),
+                    (AN_HOUR_LATER_AT_THE_SECOND_NR, {"uhrzeit": "19:00:00", "ort": A_SECOND_GROUND}),
+                )
+            ]
+        )
+
+        reported = find_double_bookings(spiele, _holders_of(spiele))
+
+        assert [(fault.spiel_nr, fault.booking, fault.other_spiel_nr) for fault in reported] == [
+            (AT_THE_FIRST_GROUND_NR, "schiedsrichter", AN_HOUR_LATER_AT_THE_SECOND_NR),
+            (AN_HOUR_LATER_AT_THE_SECOND_NR, "schiedsrichter", AT_THE_FIRST_GROUND_NR),
+        ]
+
+
 class TestNoBracketFaultIsStored:
     """That the discriminator every fault variant carries is on no collection, so no fault can have been written."""
 
@@ -455,65 +478,10 @@ class TestAGroupPhaseEveryClubLeaves:
         assert _on_create(too_many) is not None
 
 
-class TestASpieltagAlreadyHoldingAClubTwice:
-    """That the swap counts the Spieltage it would BREAK, and that a Spieltag already broken is not among them."""
-
-    def test_a_spieltag_already_doubling_a_club_is_not_counted(self):
-        """ADLER stands twice on that Spieltag before the exchange, and twice after it.
-
-        Neither introduced nor worsened, so refusing over it would block the repair.
-        """
-
-        assert (
-            _spieltag_clashes(
-                team_ids=[ADLER, BIEBER],
-                gruppenphase_spiele=[
-                    {"spieltag_id": SPIELTAG_ONE, "team1": {"team_id": ADLER}, "team2": None},
-                    {"spieltag_id": SPIELTAG_ONE, "team1": {"team_id": BIEBER}, "team2": None},
-                ],
-                knockout_spiele=[{"spieltag_id": SPIELTAG_ONE, "team1": {"team_id": ADLER}, "team2": None}],
-            )
-            == 0
-        )
-
-    def test_the_spieltag_the_exchange_breaks_is_what_counts(self):
-        """The same shape with ADLER's own group match elsewhere: it stood once, and BIEBER's arriving one doubles it."""
-
-        assert (
-            _spieltag_clashes(
-                team_ids=[ADLER, BIEBER],
-                gruppenphase_spiele=[
-                    {"spieltag_id": SPIELTAG_TWO, "team1": {"team_id": ADLER}, "team2": None},
-                    {"spieltag_id": SPIELTAG_ONE, "team1": {"team_id": BIEBER}, "team2": None},
-                ],
-                knockout_spiele=[{"spieltag_id": SPIELTAG_ONE, "team1": {"team_id": ADLER}, "team2": None}],
-            )
-            == 1
-        )
-
-    def test_a_fixture_naming_no_spieltag_is_left_out_of_the_count(self):
-        """Non-vacuous: counted, these two rows would share the null key and read as one Spieltag the exchange breaks."""
-
-        assert (
-            _spieltag_clashes(
-                team_ids=[ADLER, BIEBER],
-                gruppenphase_spiele=[{"spieltag_id": None, "team1": {"team_id": BIEBER}, "team2": None}],
-                knockout_spiele=[{"spieltag_id": None, "team1": {"team_id": ADLER}, "team2": None}],
-            )
-            == 0
-        )
-
-    def test_a_swap_breaking_nothing_new_is_permitted(self):
-        assert _swap(clashing_spieltage=0) is None
-
-    def test_the_broken_spieltag_is_what_refuses_the_swap(self):
-        assert _swap(clashing_spieltage=1) is not None
-
-
 # The junction as the refusal reads it: the season's own name for the club, and the day it left.
 MEMBERSHIP = {
-    ObjectId(ADLER): SaisonMembership(name="Adler", shorthand="ADX", departed_from=EXIT_BEFORE_THE_FIXTURE),
-    ObjectId(BIEBER): SaisonMembership(name="Bieber", shorthand="BIX", departed_from=None),
+    ObjectId(ADLER): SaisonMembership(name="Adler", departed_from=EXIT_BEFORE_THE_FIXTURE),
+    ObjectId(BIEBER): SaisonMembership(name="Bieber", departed_from=None),
 }
 
 
@@ -600,7 +568,6 @@ FIXTURE_PATCH_REFUSALS = (
     find_clash_refusal,
     find_eligibility_refusal,
     find_fixture_date_refusal,
-    find_referee_stand_refusal,
     find_result_removal_refusal,
     find_state_refusal,
     find_wiring_refusal,
@@ -646,7 +613,7 @@ def _abandoned(*, tore: tuple[int | None, int | None]) -> FLPatchSpielDataPayloa
             "ort": None,
             "schiedsrichter": None,
             "notiz": None,
-            "schiedsrichter_stand": None,
+            "version": 0,
         }
     )
 

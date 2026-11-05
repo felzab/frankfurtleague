@@ -12,8 +12,8 @@ export default async function PersoenlichSpielerPage() {
 
   // To the landing rather than a 404, for the reason
   // `fl_frontend/src/app/area/(persoenlich)/schiedsrichter/page.tsx` gives.
-  if (!rolesOf(subject).roles.some((funktion) => funktion.art === "spieler")) {
-    logPageVerweigert("/area/spieler", "keine_funktion");
+  if (!rolesOf(subject).roles.some((funktion) => funktion.kind === "spieler")) {
+    logPageVerweigert("/area/spieler", "no_role");
     redirect("/area");
   }
 

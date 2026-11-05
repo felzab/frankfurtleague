@@ -19,7 +19,7 @@ def is_confirmed(einwilligung: Any) -> bool:
 NAME_IS_PUBLIC: Final[Mapping[str, Any]] = {
     "$and": [
         {"$eq": [{"$type": "$einwilligung"}, "object"]},
-        {"$eq": ["$einwilligung.umfang", "kader_oeffentlich"]},
+        {"$eq": ["$einwilligung.scope", "kader_oeffentlich"]},
         {"$eq": [{"$type": "$einwilligung.confirmed_at"}, "string"]},
     ]
 }

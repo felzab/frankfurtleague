@@ -1,5 +1,3 @@
-import { KADER_ABSCHNITT } from "@/features/spieler/constants";
-
 import { EINWILLIGUNG_UMFANG, GRUPPEN_OPTIONS, KONTAKT_ROLLEN, TRIKOT_FARBE_OPTIONS, WEBSITE_URL_SCHEME } from "./constants";
 
 import type {
@@ -34,44 +32,6 @@ export const buildGruppeOffer = (saisonId: string, rules: FLSaisonRules, members
 };
 
 /**
- * `kader_team_not_in_saison` judges the row's `team_id` on the PATCH as well as on the reactivate, so a row
- * reassigned to a club this season holds comes back without its own club returning.
- */
-const SQUAD_REPAIR = `Um einen solchen Eintrag zu reaktivieren, bearbeite den Spieler und weise den Eintrag im Bereich „${KADER_ABSCHNITT}“ einem Team dieser Saison zu.`;
-
-/**
- * What one replacement moved, for the report that follows it. The squad half says AUSTRAGEN: this
- * write stamps `saison_spieler` rows, and STILLLEGEN is what happens to the person across the league.
- */
-export const describeReplacementUmfang = ({
-  fannedOutToSpiele,
-  ausgetrageneSquadRows,
-}: {
-  fannedOutToSpiele: number;
-  ausgetrageneSquadRows: number;
-}): string => {
-  const spiele =
-    fannedOutToSpiele === 0
-      ? "Für das ausscheidende Team war noch kein Spiel angesetzt."
-      : fannedOutToSpiele === 1
-        ? "Ein angesetztes Spiel wurde übernommen."
-        : `${String(fannedOutToSpiele)} angesetzte Spiele wurden übernommen.`;
-
-  // The count is of LIVE rows, so zero says the squad stood empty and never that the club had no
-  // players: one whose players were all ausgetragen first — the usual order — reports zero too.
-  if (ausgetrageneSquadRows === 0) return `${spiele} Im Kader des ausscheidenden Teams stand kein Spieler.`;
-
-  // Below the zero arm and never beside it: German counts nothing with a word, so „0 Kadereinträge“
-  // must not be composed at all, not even to be discarded.
-  const ausgetragen =
-    ausgetrageneSquadRows === 1
-      ? "Ein Kadereintrag des ausscheidenden Teams wurde ausgetragen."
-      : `${String(ausgetrageneSquadRows)} Kadereinträge des ausscheidenden Teams wurden ausgetragen.`;
-
-  return `${spiele} ${ausgetragen} ${SQUAD_REPAIR}`;
-};
-
-/**
  * A blank contact person, for the moment the editor's contact block is switched on. The stamp and the
  * date stay unanswered: whether the person answered, and when, is the one thing nobody may guess for the league.
  */
@@ -82,15 +42,15 @@ export const buildEmptyKontaktperson = (): KontaktpersonDraft => ({
   telefon: "",
   geburtsdatum: "",
   einwilligung: {
-    umfang: EINWILLIGUNG_UMFANG,
-    datum: "",
+    scope: EINWILLIGUNG_UMFANG,
+    date: "",
     // A confirmation link is the only writer of this stamp, so a seat an administrator opened here
     // has none and the blank is the truth rather than a value still to be filled in.
     confirmed_at: null,
-    medien: false,
+    media: false,
     // The save that seats the person stamps who seated them; no payload carries it, so the form never guesses.
     entered_by: null,
-    nachweis: { umfang: null, medien: null },
+    evidence: { scope: null, media: null },
   },
 });
 
@@ -217,7 +177,7 @@ export function toWebsiteUrl(typed: string): string | null {
  * because the empty offer is a boundary a test can exercise without rendering.
  */
 export function offeredTrikotFarben({
-  taken: vergeben,
+  taken,
   value,
 }: {
   taken: readonly FLTrikotFarbe[];
@@ -226,5 +186,5 @@ export function offeredTrikotFarben({
 }): readonly TrikotFarbeOption[] {
   // The exclusion and nothing else, so the picker never offers a colour the season has given away.
   // A season holding every colour therefore offers nothing, which the required wish has no answer for.
-  return TRIKOT_FARBE_OPTIONS.filter((option) => option.value === value || !vergeben.includes(option.value));
+  return TRIKOT_FARBE_OPTIONS.filter((option) => option.value === value || !taken.includes(option.value));
 }

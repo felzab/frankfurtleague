@@ -13,7 +13,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.routing import Match
 
 from app.core.codes import Code
-from app.core.exceptions import APIError
+from app.core.exceptions import APIError, is_bound
 from app.core.logging import fl_logger, trace_id_var
 from app.core.middlewares import record_error_code
 from app.core.routing import writes_nothing
@@ -52,8 +52,9 @@ def error_response(
 
 
 async def api_error_handler(request: Request, exc: APIError):
-    # The refusal's own code is each field's `kind`, where a `payload_refused` carries pydantic's error type.
-    fields = [{"in": "body", "path": list(path), "kind": exc.error_code, "ctx": {}} for path in exc.fields]
+    # The refusal's own code is each field's `kind`, where a `payload_refused` carries pydantic's error type, and its
+    # bounds each field's `ctx`, where a `payload_refused` carries a domain rule's context.
+    fields = [{"in": exc.location, "path": list(path), "kind": exc.error_code, "ctx": dict(exc.bounds)} for path in exc.fields]
 
     return error_response(exc.status_code, exc.error_code, headers=exc.headers, fields=fields)
 
@@ -121,9 +122,9 @@ def _refused_field(error: Any) -> dict[str, Any]:
 
     # A domain rule's bounds, which its caller words the field's line from: what the rule holds the
     # refused value to, which can be another field of the same payload, as a span's start is. A member
-    # that is no JSON scalar names nothing a caller could word.
-    scalars = {key: value for key, value in error.get("ctx", {}).items() if isinstance(value, str | int | float | bool)}
-    context = {} if error["type"] in PYDANTIC_KINDS else scalars
+    # that is no bound names nothing a caller could word.
+    bounds = {key: value for key, value in error.get("ctx", {}).items() if is_bound(value)}
+    context = {} if error["type"] in PYDANTIC_KINDS else bounds
 
     return {"in": str(location), "path": path, "kind": error["type"], "ctx": context}
 
@@ -153,6 +154,7 @@ FAILURE_STATUSES: Final = (
     HTTPStatus.CONFLICT,
     HTTPStatus.GONE,
     HTTPStatus.UNPROCESSABLE_CONTENT,
+    HTTPStatus.TOO_MANY_REQUESTS,
     HTTPStatus.INTERNAL_SERVER_ERROR,
     HTTPStatus.SERVICE_UNAVAILABLE,
 )

@@ -126,10 +126,10 @@ export const AdminBewerbungenList = memo(function AdminBewerbungenList({
     hatUnerreichbarenSitz(bewerbung) ? <span className={labelBadge(ZUSTELLUNG_QUEUE_TINT)}>{ZUSTELLUNG_QUEUE_LABEL}</span> : null;
 
   /** The eyebrow names the fact at the fact, so no heading over the list can disagree with the block under it. */
-  const renderFact = (label: string, wert: ReactNode) => (
+  const renderFact = (label: string, value: ReactNode) => (
     <div className="flex min-w-0 flex-col gap-1">
       <span className={FACT_LABEL_CLASSES}>{label}</span>
-      {wert}
+      {value}
     </div>
   );
 
@@ -152,11 +152,11 @@ export const AdminBewerbungenList = memo(function AdminBewerbungenList({
       return <span className={labelBadge("danger")}>{endgueltig}</span>;
     }
 
-    const bestaetigt = staende.filter((sitz) => !istOffen(sitz)).length;
+    const confirmed = staende.filter((seat) => !istOffen(seat)).length;
 
     return (
-      <span className={labelBadge(bestaetigt === staende.length ? "success" : "warning")}>
-        {String(bestaetigt)} von {String(staende.length)} bestätigt
+      <span className={labelBadge(confirmed === staende.length ? "success" : "warning")}>
+        {String(confirmed)} von {String(staende.length)} bestätigt
       </span>
     );
   };

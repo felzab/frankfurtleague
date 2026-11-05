@@ -12,12 +12,10 @@ import { SERVER_COPY } from "@/core/serverCopy";
   shell already writes the page's `main`.
 */
 export default function PublicNotFound() {
-  const words = SERVER_COPY.landing.notFound;
   return (
     <StatusCard
       tone="info"
-      title={words.title}
-      sentence={words.sentence}
+      title={SERVER_COPY.landing.notFound}
       next={{ label: COPY.shared.end.toHome, href: ROUTES.home.path() }}
     />
   );

@@ -1,7 +1,6 @@
 import { FLSpielberichtVorschlagSonderereignis } from "@/core/generated/client/types";
 
-import type { FLKartenFarbe, FLKartenGrund, FLSpielberichtState } from "@/core/generated/client/types";
-import type { PillTone } from "@/shared/components/ui/badges";
+import type { FLKartenFarbe, FLKartenGrund } from "@/core/generated/client/types";
 import type { FLSpielberichtSonderereignis } from "./schemas";
 
 /**
@@ -46,28 +45,3 @@ export const TORSCHUETZE_UNBEKANNT_LABEL = "unbekannt";
 export const SPIELBERICHT_SONDEREREIGNIS_OPTIONS: readonly FLSpielberichtSonderereignis[] = Object.values(
   FLSpielberichtVorschlagSonderereignis,
 );
-
-export const SPIELBERICHT_ZUSTAND_LABELS: Record<FLSpielberichtState, string> = {
-  vorgeschlagen: "Vorgeschlagen",
-  adopted: "Übernommen",
-  differing: "Nicht übernommen",
-  abgesagt: "Abgesagt",
-  teams_changed: "Teams geändert",
-};
-
-/** One tone per state on the panel and on a fixture card alike; `abgesagt` in the fixture status chip's own. */
-export const SPIELBERICHT_ZUSTAND_TONE: Record<FLSpielberichtState, PillTone> = {
-  vorgeschlagen: "info",
-  adopted: "success",
-  differing: "warning",
-  abgesagt: "danger",
-  teams_changed: "warning",
-};
-
-/**
- * The states awaiting the administrator, named rather than read off the others: a state added later awaits nobody
- * until it is named here. Mirrors `fl_backend/app/api/spielberichte/services.py :: BERICHT_ZUSTAENDE_OFFEN`, which
- * decides the fixtures the triage unions in.
- */
-const ZUSTAENDE_OFFEN = ["vorgeschlagen", "differing", "teams_changed"] as const satisfies readonly FLSpielberichtState[];
-export const SPIELBERICHT_ZUSTAENDE_OFFEN: ReadonlySet<FLSpielberichtState> = new Set(ZUSTAENDE_OFFEN);

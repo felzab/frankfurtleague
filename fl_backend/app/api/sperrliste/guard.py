@@ -11,7 +11,7 @@ from typing import Annotated, Final, get_args
 
 from fastapi import Depends
 
-from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt
+from app.api.sperrliste.lookup import BanListLookup, barred_addresses
 from app.core.codes import Code
 from app.core.config import BackendConfig, get_app_config
 from app.core.exceptions import APIError
@@ -23,18 +23,18 @@ from app.shared.folding import sign_in_identifier
 async def verify_person_is_unbarred(
     # First, so a request naming nobody is refused before the ban read opens the database.
     actor: Annotated[SessionActor, Depends(verify_person_actor)],
-    sperrliste: SperrlisteLookup,
+    ban_list: BanListLookup,
 ) -> SessionActor:
     """Refuse a person the ban list holds, read per request: the frontend's guard misses a ban entered since."""
 
     # Keyed as the grant check keys its own ban read.
-    if await adressen_gesperrt(sperrliste, [sign_in_identifier(actor.email)]):
+    if await barred_addresses(ban_list, [sign_in_identifier(actor.email)]):
         raise APIError(HTTPStatus.FORBIDDEN, Code.PERSON_BARRED)
 
     return actor
 
 
-def person_actor_binder(funktion: ActorRole) -> Callable[..., AsyncIterator[str]]:
+def person_actor_binder(role: ActorRole) -> Callable[..., AsyncIterator[str]]:
     """The binder a person's router declares, fixing the Funktion its writes are recorded under and yielding the folded identifier.
 
     The Funktion is never read off the request: the handler re-derives that the person holds it before
@@ -50,13 +50,13 @@ def person_actor_binder(funktion: ActorRole) -> Callable[..., AsyncIterator[str]
         identifier = sign_in_identifier(actor.email)
         pseudonym = actor_pseudonym(identifier, key=config.sperrliste_key)
 
-        return Attribution(PersonActor(pseudonym=pseudonym, role=funktion), identifier)
+        return Attribution(PersonActor(pseudonym=pseudonym, role=role), identifier)
 
     return actor_binder(the_person)
 
 
 PERSON_ACTOR_BINDERS: Final[Mapping[ActorRole, Callable[..., AsyncIterator[str]]]] = {
-    funktion: person_actor_binder(funktion) for funktion in get_args(ActorRole)
+    role: person_actor_binder(role) for role in get_args(ActorRole)
 }
 
 # A handler's folded address, from the binder its router declares, which FastAPI then runs once a

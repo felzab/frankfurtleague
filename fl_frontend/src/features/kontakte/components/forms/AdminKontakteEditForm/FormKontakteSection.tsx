@@ -8,7 +8,7 @@ import { parseDate } from "@internationalized/date";
 import { FieldError } from "@heroui/react/field-error";
 import { Input } from "@heroui/react/input";
 
-import { AdresswechselOffen } from "@/features/adresswechsel/components/ui/AdresswechselHinweis";
+import { AdresswechselOffen } from "@/features/address-change/components/ui/AdresswechselHinweis";
 import { LinkStandAngaben } from "@/features/bewerbungen/components/ui/LinkStandAngaben";
 import { ALL_SEAT_PATHS } from "@/features/kontakte/kontakteDraftStatus";
 import { applySeatPresence, applySharedSeat, mirroredJudgedPaths } from "@/features/kontakte/utils";
@@ -387,7 +387,7 @@ function KontaktpersonFields({
           <AdresswechselOffen
             adresswechselId={adresswechsel.id}
             adresse={adresswechsel.adresse}
-            verwehrt={adresswechsel.denied}
+            denied={adresswechsel.denied}
           />
         )}
 
@@ -515,15 +515,15 @@ function KontaktpersonInputs({
         <div className={FIELD_PAIR_CLASSES}>
           <AppDatePicker
             isReadOnly={isMirrored}
-            name={`kontakte.${rolle}.einwilligung.datum`}
+            name={`kontakte.${rolle}.einwilligung.date`}
             // The record's path rather than the field's: the changed marker belongs to the record's row.
             label={<FieldLabel<KontakteFieldPath> path={`kontakte.${rolle}.einwilligung`}>Erfasst am</FieldLabel>}
             calendarLabel={`${label}: Datum der Kenntnisnahme auswählen`}
-            value={toCalendarDate(person.einwilligung.datum)}
+            value={toCalendarDate(person.einwilligung.date)}
             // `""` for a cleared date is what the schema rejects with its own German message, so a
             // half-entered record is a field error rather than a silent skip.
-            onChange={(next) => setEinwilligung({ datum: next?.toString() ?? "" })}
-            onBlur={() => onFieldLeft([`kontakte.${rolle}.einwilligung.datum`])}
+            onChange={(next) => setEinwilligung({ date: next?.toString() ?? "" })}
+            onBlur={() => onFieldLeft([`kontakte.${rolle}.einwilligung.date`])}
           />
         </div>
 
@@ -534,13 +534,13 @@ function KontaktpersonInputs({
           <div className="flex flex-col gap-y-1">
             <TextField
               isReadOnly
-              value={KONTAKT_WHATSAPP_LABELS[person.einwilligung.umfang]}
+              value={KONTAKT_WHATSAPP_LABELS[person.einwilligung.scope]}
               onChange={() => undefined}>
               <FieldLabel<KontakteFieldPath> path={`kontakte.${rolle}.einwilligung`}>{KONTAKT_WHATSAPP_FRAGE}</FieldLabel>
               <Input className={FIELD_INPUT_CLASSES} />
             </TextField>
             <Beleg
-              nachweis={person.einwilligung.nachweis.umfang}
+              evidence={person.einwilligung.evidence.scope}
               bestaetigung={bestaetigungOf(person.einwilligung)}
             />
           </div>
@@ -548,13 +548,13 @@ function KontaktpersonInputs({
           <div className="flex flex-col gap-y-1">
             <TextField
               isReadOnly
-              value={person.einwilligung.medien ? EINWILLIGUNG_MEDIEN_LABELS.erteilt : EINWILLIGUNG_MEDIEN_LABELS.nicht_erteilt}
+              value={person.einwilligung.media ? EINWILLIGUNG_MEDIEN_LABELS.given : EINWILLIGUNG_MEDIEN_LABELS.nicht_erteilt}
               onChange={() => undefined}>
               <FieldLabel<KontakteFieldPath> path={`kontakte.${rolle}.einwilligung`}>{EINWILLIGUNG_MEDIEN_FRAGE}</FieldLabel>
               <Input className={FIELD_INPUT_CLASSES} />
             </TextField>
             <Beleg
-              nachweis={person.einwilligung.nachweis.medien}
+              evidence={person.einwilligung.evidence.media}
               bestaetigung={bestaetigungOf(person.einwilligung)}
             />
           </div>

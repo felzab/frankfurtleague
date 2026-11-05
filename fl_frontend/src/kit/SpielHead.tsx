@@ -3,9 +3,12 @@ import { Suspense } from "react";
 import { COPY, textOf } from "@/core/copy";
 
 import { Callout } from "./Callout";
+import { headGround } from "./cardStyles";
+import { CutText } from "./CutText";
 import { RouteDialog } from "./Dialog";
 import { Facts } from "./Facts";
 import { Link } from "./Link";
+import { placeholderBar, PlaceholderLine } from "./Skeleton";
 import { figures, GoalSeparator, goalsOf, look, sideMarks } from "./SpielRow";
 import { TeamPlaque } from "./TeamPlaque";
 import { tv } from "./tv";
@@ -43,12 +46,12 @@ export type SpielHeadProps = {
 const head = tv({
   extend: sideMarks,
   slots: {
-    root: "grid justify-items-center gap-4 bg-bg-card-head p-6",
+    root: `grid justify-items-center gap-4 ${headGround()} p-6`,
     eyebrow: "text-xs font-medium text-fg-muted",
     side: "grid min-w-0 justify-items-center gap-2 text-center",
     // Cut with „…“ where the side's third of the head is too narrow, as a phone's is for a long name.
     name: "max-w-full min-w-0 truncate text-sm",
-    standing: "min-w-0 text-xs [overflow-wrap:anywhere]",
+    standing: "min-w-0 text-xs wrap-anywhere",
   },
   variants: {
     placement: {
@@ -73,9 +76,9 @@ function Side({ side, score, part }: { side: SpielHeadSide; score: Figures; part
   return (
     <span className={style.side()}>
       <TeamPlaque plaque={side.plaque} />
-      <span
-        className={style.name()}
-        title={textOf(side.name)}>
+      <CutText
+        text={textOf(side.name)}
+        className={style.name()}>
         {side.href === undefined ? (
           textOf(side.name)
         ) : (
@@ -85,7 +88,7 @@ function Side({ side, score, part }: { side: SpielHeadSide; score: Figures; part
             label={side.name}
           />
         )}
-      </span>
+      </CutText>
       {side.standing !== undefined && (
         <span className={style.standing()}>
           <Link
@@ -144,6 +147,50 @@ export function SpielHead({ eyebrow, team1, team2, result, placement = "dialog" 
 }
 
 /** The match pop-up's body, once the match is read. */
+/** A side of the head while its match is read: the plaque, the name's line and the standing's line, centred. */
+function SidePlaceholder() {
+  const style = head();
+  return (
+    <span className={style.side()}>
+      <span className={placeholderBar("h-6 w-10")} />
+      <PlaceholderLine
+        text="text-sm"
+        width="w-24"
+      />
+      <PlaceholderLine
+        text={style.standing()}
+        width="w-20"
+      />
+    </span>
+  );
+}
+
+/**
+ * A match's head on its own page while the match is read: the head's own box, its eyebrow's line over the two sides
+ * about the score, each as bars at their sizes, the line under the score kept.
+ */
+export function SpielHeadPlaceholder() {
+  const style = head({ placement: "page" });
+  return (
+    <div className={style.root()}>
+      <PlaceholderLine
+        text={style.eyebrow()}
+        width="w-24"
+      />
+      <div className="grid w-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-start gap-3">
+        <SidePlaceholder />
+        <span className="grid justify-items-center pt-0.5">
+          <span className="flex h-[1em] items-center text-3xl leading-none">
+            <span className={placeholderBar("h-[0.75em] w-16")} />
+          </span>
+          <span className="h-4" />
+        </span>
+        <SidePlaceholder />
+      </div>
+    </div>
+  );
+}
+
 export type SpielPopupContent = {
   /** The dialog's name, read rather than drawn: the head names the match by its two sides. */
   title: Copy;

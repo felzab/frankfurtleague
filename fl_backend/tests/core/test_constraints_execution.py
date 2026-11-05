@@ -13,9 +13,9 @@ from pymongo.errors import OperationFailure
 
 from app.api.aktionen.admin_router import FACET_TALLY
 from app.api.aktionen.services import build_aktionen_sort
-from app.api.berechtigungen.antraege import compose_antrag
+from app.api.berechtigungen.antraege import compose_approval_request
 from app.api.bewerbungen.services import build_bewerbungen_sort, build_schluessel_filter
-from app.api.identity.crud import loeschen_pupil_actor_in_session, unattribute_in_session
+from app.api.identity.crud import erase_pupil_actor_in_session, unattribute_in_session
 from app.api.spielberichte.crud import pull_bericht_lage
 from app.api.spieler.person_router import _read_the_squad
 from app.core.collections import Collection
@@ -58,7 +58,7 @@ SCHIEDSRICHTER_OID = ObjectId("6890a1b2c3d4e5f607200005")
 ACTION_LOG_ENTRY_OID = ObjectId("6890a1b2c3d4e5f607200006")
 OTHER_TEAM_OID = ObjectId("6890a1b2c3d4e5f607200007")
 BEWERBUNG_OID = ObjectId("6890a1b2c3d4e5f607200009")
-SPERRLISTE_OID = ObjectId("6890a1b2c3d4e5f60720000a")
+BAN_LIST_OID = ObjectId("6890a1b2c3d4e5f60720000a")
 INVITATION_OID = ObjectId("6890a1b2c3d4e5f60720000b")
 REGISTRIERUNG_OID = ObjectId("6890a1b2c3d4e5f60720000c")
 GRANT_OID = ObjectId("6890a1b2c3d4e5f60720000d")
@@ -66,7 +66,7 @@ SPIELBESTAETIGUNG_OID = ObjectId("6890a1b2c3d4e5f60720000e")
 SPIEL_OID = ObjectId("6890a1b2c3d4e5f60720000f")
 ADDRESS_CHANGE_OID = ObjectId("6890a1b2c3d4e5f6072000a1")
 APPROVAL_REQUEST_OID = ObjectId("6890a1b2c3d4e5f6072000a2")
-# Far off, so the TTL index on `approval.bis` leaves a request standing through every case that inserts one.
+# Far off, so the TTL index on `approval.until` leaves a request standing through every case that inserts one.
 APPROVAL_REQUEST_FILED = datetime(2126, 1, 1, tzinfo=UTC)
 # A submission key as a public form mints it (`app/api/bewerbungen/public_router.py :: post_bewerbung`).
 IDEMPOTENCY_KEY = "1b4e28ba-2fa1-4d2b-883f-0016d3cca427"
@@ -85,7 +85,7 @@ ADDRESS = {"strasse": "Hanauer Landstraße", "hausnummer": "12a", "plz": "60314"
 
 
 # The seat as its applicant named the person, and as that person then confirmed it.
-SEATED: Final = {"datum": "2026-01-15"}
+SEATED: Final = {"date": "2026-01-15"}
 
 
 def kontaktperson(vorname: str) -> dict[str, Any]:
@@ -104,6 +104,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "rules": {
                 "win_points": 3,
                 "draw_points": 1,
+                "loss_points": 0,
                 "qualifiers_per_gruppe": 2,
                 "number_of_gruppen": 4,
                 "teams_per_gruppe": 4,
@@ -241,20 +242,20 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "before": {"name": "Lessing"},
             "modified_count": None,
             "redacted_at": None,
-            "anlass": None,
+            "erasure_reason": None,
         },
         # A hash rather than anything recognisable: the collection's whole point is that a row
         # carries no address, and a fixture holding one would be a corpus nobody could sweep for it.
         "sperrliste": {
-            "_id": SPERRLISTE_OID,
-            "adresse_hash": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
-            "key_version": "sperrliste-v1",
+            "_id": BAN_LIST_OID,
+            "address_hash": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+            "key_version": "ban-list-v1",
             "grund": "Falsches Geburtsdatum bei der Anmeldung",
             "created_by": "admin@example.invalid",
             "created_at": "2026-03-15",
             "barred_until_saison_id": "2031",
         },
-        # `widerrufen_am` is null rather than absent because `uniq_invitation_live` reaches the rows
+        # `revoked_at` is null rather than absent because `uniq_invitation_live` reaches the rows
         # holding null.
         "einladungen": {
             "_id": INVITATION_OID,
@@ -263,7 +264,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "token_hashes": ["b3c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f70819200"],
             "created_at": "2026-03-15",
             "created_by": "admin@example.invalid",
-            "widerrufen_am": None,
+            "revoked_at": None,
         },
         # Every key the submission writes, `geburtsdatum`, `einwilligung` and `decision`
         # included: each is a stored null rather than an absent key, which is what `required` means.
@@ -293,16 +294,16 @@ def valid_documents() -> dict[str, dict[str, Any]]:
         # As the Playground paste writes one: a BSON date, and the sentinel where no administrator granted it.
         "berechtigungen": {
             "_id": GRANT_OID,
-            "adresse": "inhaberin@example.invalid",
-            "verwaltung": "owner",
+            "address": "inhaberin@example.invalid",
+            "admin_tier": "owner",
             "granted_by": "PLAYGROUND",
             "granted_at": datetime(2026, 1, 1, tzinfo=UTC),
         },
         "berechtigungen_angekuendigt": {
             "_id": GRANT_OID,
-            "adresse": "inhaberin@example.invalid",
-            "verwaltung": "owner",
-            "angekuendigt_am": datetime(2026, 1, 1, 0, 5, tzinfo=UTC),
+            "address": "inhaberin@example.invalid",
+            "admin_tier": "owner",
+            "announced_at": datetime(2026, 1, 1, 0, 5, tzinfo=UTC),
         },
         # An open team row as the pass mints it: one seat holding the link the request went out with,
         # one sharing it as a mirrored pair does, one empty.
@@ -330,17 +331,17 @@ def valid_documents() -> dict[str, dict[str, Any]]:
         "spielberichte": spielbericht_document({"_id": SPIEL_OID, "saison_id": SAISON_ID}),
         # A live change as the start stores it, its instants dates, which every read takes; and the carry an earlier
         # effect of the address left owed on it, which the record keeps beside its live fields as the model reads them.
-        "adresswechsel": {
+        "address_changes": {
             "_id": ADDRESS_CHANGE_OID,
-            **address_change_document(adresse="alt@example.invalid", email="neu@example.invalid", token_hash="a" * 64, day="2026-03-16"),
-            "move": {"von": "vorher@example.invalid", "nach": "alt@example.invalid"},
+            **address_change_document(address="alt@example.invalid", email="neu@example.invalid", token_hash="a" * 64, day="2026-03-16"),
+            "move": {"old": "vorher@example.invalid", "new": "alt@example.invalid"},
         },
         # A promotion asked, so `grant_id` is an id rather than the null a grant's request holds.
         "berechtigungen_antraege": {
             "_id": APPROVAL_REQUEST_OID,
-            **compose_antrag(
-                adresse="vorstand@example.invalid",
-                verwaltung="owner",
+            **compose_approval_request(
+                address="vorstand@example.invalid",
+                admin_tier="owner",
                 grant_id=TEAM_OID,
                 started_by="inhaberin@example.invalid",
                 now=APPROVAL_REQUEST_FILED,
@@ -402,7 +403,7 @@ DUPLICATE_PAIRS: dict[str, tuple[dict[str, Any], dict[str, Any]]] = {
     ),
     # The second row differs in its reason and its author: the index refuses on the hash alone, and
     # a pair agreeing in everything would pass while keyed on anything at all.
-    "uniq_sperrliste_adresse_hash": (
+    "uniq_ban_list_address_hash": (
         valid_documents()["sperrliste"],
         valid_document("sperrliste", _id=TEAM_OID, grund="Zweiter Eintrag", created_by="zweite@example.invalid"),
     ),
@@ -435,9 +436,9 @@ DUPLICATE_PAIRS: dict[str, tuple[dict[str, Any], dict[str, Any]]] = {
     ),
     # The second row differs in its tier and its author: the index refuses on the address alone, which
     # is what refuses a paste granting an address a route already granted.
-    "uniq_grant_adresse": (
+    "uniq_grant_address": (
         valid_documents()["berechtigungen"],
-        valid_document("berechtigungen", _id=TEAM_OID, verwaltung="administration", granted_by="zweite@example.invalid"),
+        valid_document("berechtigungen", _id=TEAM_OID, admin_tier="administration", granted_by="zweite@example.invalid"),
     ),
     # Both rows open, one party, one stand, differing in their seats: the index refuses on its five keys
     # alone, and a pair the partial filter reached on neither side would pass.
@@ -451,26 +452,26 @@ DUPLICATE_PAIRS: dict[str, tuple[dict[str, Any], dict[str, Any]]] = {
         valid_document("spielberichte", _id=TEAM_OID, bericht=bericht_document(bemerkungen="Zweiter Bericht")),
     ),
     # Two live changes of one address, to two mailboxes: the index refuses on the address alone, both rows in its filter.
-    "uniq_address_change_adresse": (
-        valid_documents()["adresswechsel"],
-        valid_document("adresswechsel", _id=TEAM_OID, email="zweite@example.invalid", token_hash="b" * 64, stop_hash="c" * 64),
+    "uniq_address_change_address": (
+        valid_documents()["address_changes"],
+        valid_document("address_changes", _id=TEAM_OID, email="zweite@example.invalid", token_hash="b" * 64, stop_hash="c" * 64),
     ),
     # Two requests about one address from two requesters: the index refuses on the address alone.
-    "uniq_grant_approval_request_adresse": (
+    "uniq_grant_approval_request_address": (
         valid_documents()["berechtigungen_antraege"],
         valid_document(
             "berechtigungen_antraege",
             _id=TEAM_OID,
-            **compose_antrag(
-                adresse="vorstand@example.invalid",
-                verwaltung="owner",
+            **compose_approval_request(
+                address="vorstand@example.invalid",
+                admin_tier="owner",
                 grant_id=TEAM_OID,
                 started_by="zweite@example.invalid",
                 now=APPROVAL_REQUEST_FILED,
             ),
         ),
     ),
-    "uniq_outbox_key": ({"_id": ObjectId(), "key": "sperre/1"}, {"_id": ObjectId(), "key": "sperre/1"}),
+    "uniq_outbox_key": ({"_id": ObjectId(), "key": "ban/1"}, {"_id": ObjectId(), "key": "ban/1"}),
     # Two seasons, each `active`: a second row in any other status would pass while the filter matched nothing.
     "uniq_saison_active": (valid_documents()["saisons"], valid_document("saisons", _id="2027", start_date="2027-01-01", end_date="2027-06-30")),
 }
@@ -501,12 +502,12 @@ def test_each_unique_index_refuses_the_second_document(mongo_url: str, collectio
 def test_two_ended_changes_of_one_address_are_both_kept(mongo_url: str):
     """An ending nulls the address, so a filter on `ended` alone would hold every tombstone under one null key."""
 
-    ended = {"adresse": None, "email": None, "ended": {"art": "declined", "am": datetime(2026, 3, 17, tzinfo=UTC)}}
+    ended = {"address": None, "email": None, "ended": {"kind": "declined", "at": datetime(2026, 3, 17, tzinfo=UTC)}}
 
     async def body(database: AsyncDatabase) -> int:
-        await database.adresswechsel.insert_one(valid_document("adresswechsel", **ended))
-        await database.adresswechsel.insert_one(valid_document("adresswechsel", _id=TEAM_OID, stop_hash="c" * 64, **ended))
-        return await database.adresswechsel.count_documents({})
+        await database.address_changes.insert_one(valid_document("address_changes", **ended))
+        await database.address_changes.insert_one(valid_document("address_changes", _id=TEAM_OID, stop_hash="c" * 64, **ended))
+        return await database.address_changes.count_documents({})
 
     assert on_the_shipped_schema(mongo_url, body) == 2
 
@@ -576,7 +577,7 @@ def test_only_an_open_confirmation_meets_the_rule(mongo_url: str):
         await database.spielbestaetigungen.insert_one(valid_documents()["spielbestaetigungen"])
         await database.spielbestaetigungen.insert_one(valid_document("spielbestaetigungen", _id=TEAM_OID, antwort=antwort))
         await database.spielbestaetigungen.insert_one(
-            valid_document("spielbestaetigungen", _id=SPIELER_OID, closed={"am": "2026-03-02", "grund": "abgesagt"})
+            valid_document("spielbestaetigungen", _id=SPIELER_OID, closed={"at": "2026-03-02", "grund": "abgesagt"})
         )
         await database.spielbestaetigungen.insert_one(
             valid_document("spielbestaetigungen", _id=SPIELTAG_OID, party={"art": "team", "team_id": OTHER_TEAM_OID})
@@ -587,7 +588,7 @@ def test_only_an_open_confirmation_meets_the_rule(mongo_url: str):
 
 
 def _raised(failure: RuntimeError, named: str) -> str:
-    """The refusal names what it was building and carries the driver's, which `app/core/constraints.py :: _run` diagnoses."""
+    """The refusal names what it was building and carries the driver's, as `app/core/constraints.py :: _apply_unique_index` raises it."""
 
     if named not in str(failure):
         return f"raised the wrong thing: {failure}"
@@ -699,7 +700,7 @@ ACTION_LOG_QUEUE_FILTERS: list[dict[str, Any]] = [
 TALLY_TRACE_ID = "0123456789abcdef0123456789abcdef"
 
 # Every shape the tally's own `$match` can hold, the facet terms reaching the read alone
-# (`app/api/aktionen/admin_router.py :: get_aktionen`). All four, because the planner is asked afresh
+# (`app/api/aktionen/admin_router.py :: get_action_log`). All four, because the planner is asked afresh
 # for each.
 ACTION_LOG_TALLY_FILTERS: list[dict[str, Any]] = [
     {},
@@ -1108,9 +1109,9 @@ def test_the_erasure_marks_a_persons_log_rows_through_an_index(mongo_url: str):
             log = watched[database.name][Collection.ACTION_LOG]
             async with watched.start_session() as session:
                 await unattribute_in_session(
-                    aktionen_collection=log, identifier="ida@example.invalid", pseudonym=ERASED_PSEUDONYM, session=session
+                    action_log_collection=log, identifier="ida@example.invalid", pseudonym=ERASED_PSEUDONYM, session=session
                 )
-                await loeschen_pupil_actor_in_session(aktionen_collection=log, pseudonym=ERASED_PSEUDONYM, session=session)
+                await erase_pupil_actor_in_session(action_log_collection=log, pseudonym=ERASED_PSEUDONYM, session=session)
         finally:
             await watched.close()
 

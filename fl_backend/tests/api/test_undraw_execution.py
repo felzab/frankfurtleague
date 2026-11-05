@@ -14,6 +14,7 @@ from app.api.saisons.schemas import (
     FLGenerateSpielplanPayload,
     FLGenerateSpielplanResponse,
     FLPatchSaisonPayload,
+    FLPatchSaisonResponse,
     FLSaisonRules,
     FLUndrawSpielplanResponse,
 )
@@ -30,7 +31,6 @@ from app.shared.schemas.literals import FLGruppenNames
 from tests import documents
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.isolation import COMMITTED, InterleavedCollection, outcome_of
-from tests.session_headers import fresh_admin_actor
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -178,7 +178,6 @@ async def call_draw(database: AsyncDatabase, client: AsyncMongoClient, *, saison
         db=client,
         spielplan_data=FLGenerateSpielplanPayload(),
         today=TODAY,
-        actor=fresh_admin_actor(),
     )
 
 
@@ -196,7 +195,7 @@ async def call_undraw(
     )
 
 
-async def call_patch_rules(database: AsyncDatabase, **overrides: Any) -> None:
+async def call_patch_rules(database: AsyncDatabase, **overrides: Any) -> FLPatchSaisonResponse:
     """The whole rules object every time, `rules` being required on the patch, so a case names only the value it moves."""
 
     seeded = saison_document()
@@ -211,6 +210,7 @@ async def call_patch_rules(database: AsyncDatabase, **overrides: Any) -> None:
             # window carries a default and this helper is about neither of them.
             bewerbung=None,
             registrierung=None,
+            version=(await database[Collection.SAISONS].find_one({"_id": SAISON_ID}, {"version": 1}) or {})["version"],
         ),
         saisons_collection=database[Collection.SAISONS],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
@@ -367,11 +367,7 @@ class TestTheRemovalKeepsEveryImage:
         undrawn = an_undrawn_season(mongo_replica_set_url)
         patched = [row for row in undrawn.log if row["operation"] == "patch_one"][-1]
 
-        assert patched["before"]["spielplan"] == {
-            "generated_at": TODAY,
-            "spieltage": undrawn.drawn.spieltage,
-            "spiele": undrawn.drawn.spiele,
-        }
+        assert patched["before"]["spielplan"] == {"generated_at": TODAY}
 
 
 @dataclass(frozen=True)
@@ -418,7 +414,7 @@ class TestAnAbortedUndrawLeavesAllThreeStanding:
         # On the code, so this cannot pass because the undraw fell before it removed anything.
         assert aborted.write_error == DOCUMENT_VALIDATION_FAILED, f"expected the validator to refuse the write, got {aborted.write_error}"
         assert (aborted.spieltage, aborted.spiele) == (aborted.drawn.spieltage, aborted.drawn.spiele), "a rolled-back undraw removed rows"
-        assert aborted.watermark == {"generated_at": TODAY, "spieltage": aborted.drawn.spieltage, "spiele": aborted.drawn.spiele}
+        assert aborted.watermark == {"generated_at": TODAY}
         # The draw's three rows and nothing else: the removals record in-session, so the abort takes
         # their rows back too.
         assert aborted.log == 3
@@ -458,7 +454,7 @@ class TestAnAbortedUndrawLeavesAllThreeStanding:
 
         # The assertion that separates the two: everything else here holds with or without the
         # keyword, the two removals being bound to the transaction either way.
-        assert aborted.watermark == {"generated_at": TODAY, "spieltage": aborted.drawn.spieltage, "spiele": aborted.drawn.spiele}
+        assert aborted.watermark == {"generated_at": TODAY}
 
         assert (aborted.spieltage, aborted.spiele) == (aborted.drawn.spieltage, aborted.drawn.spiele)
         assert aborted.log == 3
@@ -756,6 +752,7 @@ async def call_patch_spiel(database: AsyncDatabase, client: AsyncMongoClient, *,
         spielorte_collection=database[Collection.SPIELORTE],
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         spielberichte_collection=database[Collection.SPIELBERICHTE],
+        spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
     )
 
 
@@ -779,7 +776,7 @@ def seeding_payload(stored: dict[str, Any], team_id: ObjectId) -> FLPatchSpielDa
             "ort": None,
             "schiedsrichter": None,
             "notiz": None,
-            "schiedsrichter_stand": None,
+            "version": stored["version"],
         }
     )
 
@@ -893,7 +890,7 @@ class TestAnUndrawOfASeasonHoldingNoSpielplan:
     def test_a_watermark_standing_with_no_fixtures_behind_it_is_cleared_and_reported(self, mongo_replica_set_url: str):
         """Report the clear off the counts and this fails: the claim is what is removed, and the rule says report it."""
 
-        seed = Seed(saison=saison_document(spielplan={"generated_at": TODAY, "spieltage": 8, "spiele": 67}))
+        seed = Seed(saison=saison_document(spielplan={"generated_at": TODAY}))
         undrawn = an_undraw_of(mongo_replica_set_url, seed=seed)
 
         assert (undrawn.response.spieltage, undrawn.response.spiele) == (0, 0)

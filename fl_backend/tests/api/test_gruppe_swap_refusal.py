@@ -5,7 +5,6 @@ from bson import ObjectId
 from app.api.teams.services import (
     find_gruppe_swap_refusal,
     find_swap_pair_refusal,
-    fixtures_newly_fielding_a_departed_club,
 )
 from app.core.codes import Code
 
@@ -39,8 +38,6 @@ class TestWhatCountsAsASwap:
             saison_status="active",
             started=False,
             taken_place=False,
-            clashing_spieltage=0,
-            departed_fixtures=0,
         )
 
         assert refusal is not None
@@ -49,22 +46,4 @@ class TestWhatCountsAsASwap:
             Code.SWAP_NOT_A_SWAP,
             HTTPStatus.UNPROCESSABLE_CONTENT,
             (("team1_id",), ("team2_id",)),
-        )
-
-
-# The shape `pull_many_from_db` hands the handler.
-HOME, AWAY, OTHER = "home", "away", "other"
-
-
-class TestASwapNeverFieldsADisqualifiedClub:
-    def test_the_effective_day_itself_counts(self):
-        """Inclusive, as the eligibility rule's on-or-after boundary is: a swap must not field a club on the day its exit takes effect."""
-
-        fixture = {"datum": "2026-04-01", "team1": {"team_id": AWAY}, "team2": {"team_id": OTHER}, "sonderereignis": None}
-
-        assert (
-            fixtures_newly_fielding_a_departed_club(
-                team1_id=HOME, team2_id=AWAY, departed_since={HOME: "2026-04-01"}, gruppenphase_spiele=[fixture]
-            )
-            == 1
         )

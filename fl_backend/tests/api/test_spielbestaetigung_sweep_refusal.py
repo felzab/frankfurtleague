@@ -97,12 +97,11 @@ class TestWhyARowCloses:
 
 
 def test_a_reminder_keeps_every_link_the_seat_was_mailed():
-    """Every link a seat was mailed answers until the deadline: a replacing link would kill the request's at the first reminder."""
+    """Every link a seat was mailed answers until the deadline: a replacing link would kill the request's at the reminder."""
 
     assert seats_link(["trainer"]).replaced is False
     assert compose_erinnerung_update(emails={"trainer": "t@example.com"}, today=TODAY, reminded=True) == {
-        "$set": {"kontakte.trainer.email": "t@example.com"},
-        "$push": {"reminded_at": TODAY},
+        "$set": {"kontakte.trainer.email": "t@example.com", "reminded_at": TODAY},
     }
 
 

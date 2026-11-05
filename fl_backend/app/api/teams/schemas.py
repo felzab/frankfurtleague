@@ -16,10 +16,10 @@ from pydantic import (
     computed_field,
     model_validator,
 )
-from pydantic_core import PydanticCustomError
 
 from app.api.outbox.schemas import FLOutboxStatus
 from app.core.crud import Anchored
+from app.core.exceptions import rule_refusal
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.addresses import FLAddress, FLAddressPayload
 from app.shared.schemas.bounds import (
@@ -45,7 +45,7 @@ from app.shared.schemas.custom import (
     validate_external_url,
 )
 from app.shared.schemas.einwilligung import (
-    FLEinwilligungNachweise,
+    FLEinwilligungEvidenceSet,
     FLSeatTextVersions,
     cite_their_kind,
 )
@@ -56,7 +56,7 @@ from app.shared.schemas.literals import (
     FLAustrittType,
     FLGruppenNames,
     FLKontaktEnteredBy,
-    FLKontaktKenntnisnahmeUmfang,
+    FLKontaktKenntnisnahmeScope,
     FLKontaktRolle,
     FLSchulform,
     FLSortOrder,
@@ -127,8 +127,8 @@ class FLAustrittPayload(FLAustritt):
 # Private for `_TeamWritable`'s reason. The two provenance fields are NOT here: the server composes
 # both on every write path, and a payload declaring either is a route to an answer nobody gave.
 class _KontaktKenntnisnahmeWritable(BaseModel):
-    umfang: Literal["kontaktdaten"]
-    datum: CustomDateString
+    scope: Literal["kontaktdaten"]
+    date: CustomDateString
 
 
 class FLKontaktKenntnisnahme(_KontaktKenntnisnahmeWritable, BaseReadModel):
@@ -139,19 +139,19 @@ class FLKontaktKenntnisnahme(_KontaktKenntnisnahmeWritable, BaseReadModel):
     (`docs/glossary.md :: Einwilligung`).
     """
 
-    umfang: FLKontaktKenntnisnahmeUmfang
+    scope: FLKontaktKenntnisnahmeScope
     # The day this person confirmed the seat themselves; null until they do.
     confirmed_at: CustomOptionalDateString
     # The one consent on this record, to photographs, video and interviews, and on the READ model
-    # alone for `umfang`'s reason.
-    medien: bool
+    # alone for `scope`'s reason.
+    media: bool
     # Written once, by the write that seats the person, and moved by nothing else: who seated them,
     # the applicant or the league.
     entered_by: FLKontaktEnteredBy
-    # Each choice's evidence, empty until the seat's person answers, for `FLEinwilligung.nachweis`'s reasons; a seat's
+    # Each choice's evidence, empty until the seat's person answers, for `FLEinwilligung.evidence`'s reasons; a seat's
     # wordings alone.
-    nachweis: Annotated[FLEinwilligungNachweise, AfterValidator(lambda nachweise: cite_their_kind(nachweise, FLSeatTextVersions))] = Field(
-        default_factory=FLEinwilligungNachweise
+    evidence: Annotated[FLEinwilligungEvidenceSet, AfterValidator(lambda evidence_set: cite_their_kind(evidence_set, FLSeatTextVersions))] = (
+        Field(default_factory=FLEinwilligungEvidenceSet)
     )
 
 
@@ -290,10 +290,10 @@ def _project_seat(value: Any) -> Any:
     projected: dict[str, Any] = {field: _projected_leaf(value, field) for field in FLKontaktperson.model_fields}
     einwilligung = projected.get("einwilligung")
     if isinstance(einwilligung, Mapping):
-        # Never `nachweis`: it moves only with a choice or a stamp the token already holds, and its
+        # Never `evidence`: it moves only with a choice or a stamp the token already holds, and its
         # nested defaults would part a stored block's token from its read's.
         projected["einwilligung"] = {
-            field: _projected_leaf(einwilligung, field) for field in FLKontaktKenntnisnahme.model_fields if field != "nachweis"
+            field: _projected_leaf(einwilligung, field) for field in FLKontaktKenntnisnahme.model_fields if field != "evidence"
         }
 
     return projected
@@ -396,11 +396,11 @@ class FLSaisonTeamKontaktePayload(FLSaisonTeamKontakte):
         # On the sign-in fold: two seats one sign-in reaches are one identity.
         emails = [sign_in_identifier(person.email) for person in people]
         if len(set(emails)) != len(emails):
-            raise PydanticCustomError("kontakt_email_twice", "two contact persons share one email address")
+            raise rule_refusal("kontakt_email_twice", "two contact persons share one email address")
 
         telefone = [normalise_telefon(person.telefon) for person in people]
         if len(set(telefone)) != len(telefone):
-            raise PydanticCustomError("kontakt_telefon_twice", "two contact persons share one telephone number")
+            raise rule_refusal("kontakt_telefon_twice", "two contact persons share one telephone number")
 
         return self
 
@@ -547,7 +547,7 @@ class FLTeamMembership(BaseReadModel):
     # Each seat's link as the editor shows it, the referee editor's twin. Defaulted: `$project` omits a
     # key the stored row has not got, and a row holds none until a save mints its first link.
     confirmations: FLSaisonTeamConfirmationsView | None = None
-    # Composed after the read from the `adresswechsel` collection, never projected off the season row; required, so a
+    # Composed after the read from the `address_changes` collection, never projected off the season row; required, so a
     # read that forgot to compose it fails rather than answering every seat as holding no change.
     address_change: FLSaisonTeamAddressChange | None
     # The row's count of writes, which its two editors' saves send back.
@@ -740,10 +740,9 @@ class FLTeamsSingleResponse(BaseAPIResponse):
 
 
 class FLPatchTeamResponse(BaseAPIResponse):
-    # Reported rather than assumed: this fan-out is the half of the endpoint that fails silently.
-    fanned_out_to_spiele: int
-    # Reported for the same reason, and separately: it is scoped to the seasons that are not `past`,
-    # so zero means the club holds no row in one of those -- every season closed, or none entered.
+    # Reported rather than assumed: this fan-out is the half of the endpoint that fails silently. It is scoped to the
+    # seasons that are not `past`, so zero means the club holds no row in one of those -- every season closed, or none
+    # entered.
     fanned_out_to_saison_teams: int
 
 
@@ -818,8 +817,8 @@ class FLReplaceSaisonTeamResponse(BaseAPIResponse):
     # Reseeded from the incoming club, exactly as entry seeds them.
     name: CustomNonEmptyString
     shorthand: CustomShorthand
-    # Reported rather than assumed, as `FLPatchTeamResponse` reports its own.
-    fanned_out_to_spiele: int
+    # The fixtures whose side moved to the incoming club, reported rather than assumed, as the group swap reports its own.
+    rewritten_spiele: int
     # Reported for the same reason, and separately: the outgoing club's squad leaves the season with
     # it, and zero is a real answer -- a club can hold a junction row and no squad at all.
     ausgetragene_kader_rows: int

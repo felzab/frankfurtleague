@@ -103,12 +103,16 @@ def the_referee_body(kontakt: dict[str, Any]) -> dict[str, Any]:
     return {"name": "Anna Pfeife", "schule": None, "default_payment": 20, "kontakt": kontakt}
 
 
+def the_referee_save_body(kontakt: dict[str, Any]) -> dict[str, Any]:
+    return {**the_referee_body(kontakt), "version": 0}
+
+
 # The contact block alone, and each referee payload whole: a payload redeclaring `kontakt` would
 # pass a case over the block's own type.
 BODIES = [
     pytest.param(FLKontaktPayload, lambda block: block, id="the contact block"),
     pytest.param(FLPostSchiedsrichterPayload, the_referee_body, id="the referee create"),
-    pytest.param(FLPatchSchiedsrichterPayload, the_referee_body, id="the referee save"),
+    pytest.param(FLPatchSchiedsrichterPayload, the_referee_save_body, id="the referee save"),
 ]
 
 

@@ -34,7 +34,7 @@ class TestASlotAndItsBookkeepingMoveTogether:
 
     @pytest.mark.parametrize("seats", [("trainer",), ("trainer", "ansprechperson"), KONTAKT_ROLLEN])
     def test_a_decline_stamps_the_entry_of_every_seat_it_empties(self, seats: tuple[str, ...]):
-        update = written(compose_decline_update(seats=seats, today=TODAY, angekuendigt=False))
+        update = written(compose_decline_update(seats=seats, today=TODAY, announced=False))
 
         for seat in seats:
             assert update[f"kontakte.{seat}"] is None
@@ -106,7 +106,7 @@ def antwort(**overrides: Any) -> dict[str, Any]:
         "antwort": "given",
         "geburtsdatum": "1984-05-09",
         "whatsapp": False,
-        "medien": False,
+        "media": False,
         "text_versions": dict(SEAT_TEXT_VERSIONS),
         **overrides,
     }
@@ -131,7 +131,7 @@ class TestWhatTheAnswerPayloadRefuses:
 
         assert refusals(body) == [(("given", "geburtsdatum"), "missing")]
 
-    @pytest.mark.parametrize("field", ["geburtsdatum", "whatsapp", "medien", "text_versions", "antwort"])
+    @pytest.mark.parametrize("field", ["geburtsdatum", "whatsapp", "media", "text_versions", "antwort"])
     def test_every_field_is_required(self, field: str, assert_rejects):
         body = antwort()
         del body[field]

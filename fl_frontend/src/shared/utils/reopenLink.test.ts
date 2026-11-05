@@ -6,8 +6,8 @@ import { ANTWORT_NEU_OEFFNEN, REGISTRIERUNG_NEU_OEFFNEN } from "./reopenLink.ts"
    one word for again, reads as an opening they have made and sends them nowhere. */
 describe("the sentences that send a visitor back to their link", () => {
   it("ask the link reopened „erneut“, each of them", () => {
-    for (const satz of [ANTWORT_NEU_OEFFNEN, REGISTRIERUNG_NEU_OEFFNEN]) {
-      expect(satz, satz).toMatch(/Öffne den Link [^.]*erneut/);
+    for (const sentence of [ANTWORT_NEU_OEFFNEN, REGISTRIERUNG_NEU_OEFFNEN]) {
+      expect(sentence, sentence).toMatch(/Öffne den Link [^.]*erneut/);
     }
   });
 });

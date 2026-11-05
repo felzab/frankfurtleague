@@ -1,5 +1,5 @@
 import type {
-  FLEinwilligungUmfang,
+  FLEinwilligungScope,
   FLInvitationViewResponse,
   FLRegistrierungConfirmationViewResponse,
   FLSpielerPosition,
@@ -71,8 +71,8 @@ export type SpielerBestaetigungStart =
  */
 export type SpielerBestaetigungGespeichert = {
   geburtsdatum: string | null;
-  umfang: FLEinwilligungUmfang | null;
-  medien: boolean | null;
+  umfang: FLEinwilligungScope | null;
+  media: boolean | null;
 };
 
 /**

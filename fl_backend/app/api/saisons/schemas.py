@@ -1,20 +1,32 @@
-from datetime import date, datetime, time
-from typing import Annotated, Final, Literal, Self
+from collections.abc import Mapping
+from datetime import date, datetime, time, timedelta
+from typing import Annotated, Final, Literal, LiteralString, get_args
 
-from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter, model_validator
-from pydantic_core import PydanticCustomError
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    TypeAdapter,
+    ValidationError,
+    ValidationInfo,
+    field_validator,
+)
+from pydantic_core import InitErrorDetails
 
+from app.api.einladungen.schemas import FLInvitationLinkRow
 from app.api.spielberichte.schemas import FLSpielberichtPublic
 from app.api.spiele.schemas import FLSpielJoined
 from app.api.spieler.schemas import FLSpielerPublic
-from app.api.teams.schemas import MAX_NUMBER_OF_GROUPS, FLSaisonTeamEntry, FLTabelleRow, FLTeamPageClub
+from app.api.teams.schemas import MAX_NUMBER_OF_GROUPS, FLAustritt, FLSaisonTeamEntry, FLTabelleRow, FLTeamPageClub
 from app.core import clock
+from app.core.codes import Code, Rule
 
 # Imported rather than restated. Acyclic: no model of `teams` imports this file --
 # `teams/services.py` does, and no model there.
 from app.core.crud import Anchored
+from app.core.exceptions import Bound, rule_refusal
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SAISON_ID_LENGTH
-from app.shared.schemas.custom import CustomDateString, CustomObjectId, CustomTimeString, refuse_reversed_span
+from app.shared.schemas.custom import CustomDateString, CustomObjectId, CustomTimeString, CustomVersion, refuse_reversed_span
 from app.shared.schemas.literals import FLGruppenNames, FLSaisonPhase, FLSaisonStatus, FLSortOrder, FLSpielerStufe
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
@@ -40,14 +52,17 @@ QualifiersPerGroup = Annotated[int, Field(gt=0)]
 NumberOfGroups = Annotated[int, Field(gt=0, le=MAX_NUMBER_OF_GROUPS)]
 # The floor stops a group phase generating no fixture at all; the ceiling bounds one GROUP, where
 # what a whole season may play is `rules_spiele_over_one_read`, weighing every group and the bracket at once.
-TeamsPerGroup = Annotated[int, Field(ge=2, le=16)]
+MIN_TEAMS_PER_GROUP: Final = 2
+MAX_TEAMS_PER_GROUP: Final = 16
+TeamsPerGroup = Annotated[int, Field(ge=MIN_TEAMS_PER_GROUP, le=MAX_TEAMS_PER_GROUP)]
 
 
 class FLSaisonRules(BaseModel):
+    # No default on any of the points or the qualifiers: one would make the number a constant chosen
+    # here, as a hardcoded 3/1/0 would.
     win_points: int = Field(gt=0)
     draw_points: int = Field(ge=0)
-    # No default on any of the three: one would make the number a constant chosen here, as a
-    # hardcoded 3/1/0 would.
+    loss_points: int = Field(ge=0)
     qualifiers_per_gruppe: QualifiersPerGroup
 
     number_of_gruppen: NumberOfGroups
@@ -67,38 +82,49 @@ class FLSaisonRules(BaseModel):
 
 
 class FLSaisonSpielplan(BaseModel):
-    """What the generator left behind on the season it wrote.
+    """The day the draw last wrote the season's Spielplan, the one fact of a draw no stored matchday or fixture gives.
 
-    Counts rather than a hash: these are the two numbers an admin can compare against the page in
-    front of them, and a hash answers no question anyone standing there is asking.
+    No counts: what a season holds is counted off its stored matchdays and fixtures, which every write judges, so a
+    stored copy could only drift from them (`FLSaisonDrawn`).
     """
 
     generated_at: CustomDateString
-    spieltage: int = Field(ge=0)
-    spiele: int = Field(ge=0)
 
 
 class FLSaisonBewerbung(BaseModel):
-    """When the league accepts applications for this season.
+    """When the league accepts applications for this season: while today lies between `start` and `end`, both included.
 
-    The two halves that record it: the span, and the `offen` flag an administrator sets beside it.
+    No flag beside the span: closing early is moving `end` to today (`app/api/bewerbungen/services.py ::
+    saison_nimmt_bewerbungen_an`).
     """
 
-    offen: bool
-    von: CustomDateString
-    bis: CustomDateString
+    start: CustomDateString
+    end: CustomDateString
+
+
+class FLSaisonBewerbungPayload(FLSaisonBewerbung):
+    """The application window as a season write sends it, judged apart from the season's own span: it may open before the season does."""
+
+    # At the window's `end`, which a field validator here places on that date, the box a reversed window is repaired on.
+    @field_validator("end")
+    @classmethod
+    def the_application_window_ends_after_it_opens(cls, end: str, info: ValidationInfo) -> str:
+        if "start" in info.data:
+            refuse_reversed_span(start=info.data["start"], end=end, kind="bewerbung_window_ends_before_start")
+
+        return end
 
 
 class FLSaisonRegistrierung(BaseModel):
-    """When a pupil may register for this season.
+    """When a pupil may register for this season: from its activation to `end`, which falls before the season's start.
 
-    Its own model rather than an alias of `FLSaisonBewerbung` above: the two windows are two
-    decisions an administrator takes apart, and one component name on both would publish them as one.
+    No start of its own, the activation being the opening (`app/api/registrierungen/services.py ::
+    saison_nimmt_registrierungen_an`); `offen` pauses the link alone. Its own model rather than an alias of
+    `FLSaisonBewerbung` above: the two windows are two decisions an administrator takes apart.
     """
 
     offen: bool
-    von: CustomDateString
-    bis: CustomDateString
+    end: CustomDateString
 
 
 class FLSaisonPhaseSchedule(BaseModel):
@@ -115,11 +141,14 @@ class FLSaisonPhaseSchedule(BaseModel):
 
 # Private, so the read model and both payloads state these fields once, and the base itself
 # publishes no OpenAPI component.
-class _SaisonWritable(BaseModel):
+class _SaisonSpan(BaseModel):
     # No span check at this level: `refuse_reversed_span` is payload-only, and a read refusing a
     # stored reversal would hide the row from the edit that repairs it.
     start_date: CustomDateString
     end_date: CustomDateString
+
+
+class _SaisonWritable(_SaisonSpan):
     rules: FLSaisonRules
     # NO default, so the payloads have none: `PATCH` replaces the season wholesale, and an omitted
     # key would close the application window as an edit nobody asked for.
@@ -128,48 +157,73 @@ class _SaisonWritable(BaseModel):
     registrierung: FLSaisonRegistrierung | None
 
 
-class _SaisonPayload(_SaisonWritable):
+def _refused_at_the_end(
+    window: FLSaisonBewerbung | FLSaisonRegistrierung, rule: Rule, message: LiteralString, bounds: Mapping[str, Bound]
+) -> ValidationError:
+    """`rule_refusal`'s refusal placed on a window's `end`, which the field validator naming the window prefixes with its own key.
+
+    A line error at `("end",)`, as `pydantic_core.InitErrorDetails` spells one: a field validator's own refusal sits at its
+    field, the window, which is no box a form can mark.
+    """
+
+    return ValidationError.from_exception_data(
+        type(window).__name__, [InitErrorDetails(type=rule_refusal(rule, message, bounds), loc=("end",), input=window.end)]
+    )
+
+
+class _SaisonSpanPayload(_SaisonSpan):
     model_config = ConfigDict(extra="forbid")
 
-    @model_validator(mode="after")
-    def the_season_ends_after_it_starts(self) -> Self:
+    # Field validators, each at the end its rule judges, reading the start off `info.data`: a model validator's refusal sits at
+    # the model, a path no box answers. `start_date` is declared first, so it is validated first; where it failed it is absent
+    # from `info.data`, and its own refusal is the one answered.
+    @field_validator("end_date")
+    @classmethod
+    def the_season_ends_after_it_starts(cls, end_date: str, info: ValidationInfo) -> str:
         """Judged on every edit, a `past` season's included: its end date stays editable so a mistyped one can be repaired.
 
         Its start date is fixed once a fixture has taken place, which `saison_start_taken_place` refuses on the stored season.
         """
 
-        refuse_reversed_span(start=self.start_date, end=self.end_date, kind="saison_ends_before_start")
+        if "start_date" in info.data:
+            refuse_reversed_span(start=info.data["start_date"], end=end_date, kind="saison_ends_before_start")
 
-        return self
+        return end_date
 
-    @model_validator(mode="after")
-    def the_application_window_ends_after_it_opens(self) -> Self:
-        """Judged apart from the season's own span: a window may legitimately open before the season does."""
 
-        if self.bewerbung is not None:
-            refuse_reversed_span(start=self.bewerbung.von, end=self.bewerbung.bis, kind="bewerbung_window_ends_before_start")
+class _SaisonPayload(_SaisonSpanPayload, _SaisonWritable):
+    # The window's own payload, which judges its span at its `end`.
+    bewerbung: FLSaisonBewerbungPayload | None
 
-        return self
+    @field_validator("registrierung")
+    @classmethod
+    def the_registration_window_ends_before_the_season_starts(
+        cls, registrierung: FLSaisonRegistrierung | None, info: ValidationInfo
+    ) -> FLSaisonRegistrierung | None:
+        """Registration closes before the season's first day: a pupil joining once play has begun is a Nachnominierung, not a registration.
 
-    @model_validator(mode="after")
-    def the_registration_window_ends_after_it_opens(self) -> Self:
-        """Its own validator rather than a branch inside the one above: two windows are two refusals, and a shared one names neither."""
+        `latest` is the last day the window may end on, the day before `start_date`.
+        """
 
-        if self.registrierung is not None:
-            refuse_reversed_span(start=self.registrierung.von, end=self.registrierung.bis, kind="registrierung_window_ends_before_start")
+        start_date = info.data.get("start_date")
+        if registrierung is not None and start_date is not None and registrierung.end >= start_date:
+            latest = (date.fromisoformat(start_date) - timedelta(days=1)).isoformat()
+            raise _refused_at_the_end(
+                registrierung,
+                "registrierung_window_reaches_saison_start",
+                "the registration window reaches the season's start",
+                {"latest": latest},
+            )
 
-        return self
+        return registrierung
 
 
 class _SaisonStored(_SaisonWritable):
-    # Exactly `SAISON_ID_LENGTH` characters, as every `saison_id` referencing this one demands:
-    # without it, an id like "2026/27" validates here and every document pointing at it fails on read.
-    id: str = Field(validation_alias="_id", serialization_alias="id", min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH)
+    # Echoed as stored, held to no length: one stored row of the wrong length would otherwise answer 500 for every list
+    # it appears in. The create mints the id, so no write takes one from a payload.
+    id: str = Field(validation_alias="_id", serialization_alias="id")
 
     status: FLSaisonStatus
-
-    # DEFAULTED: the season's creation writes no key, the generator being what writes it.
-    spielplan: FLSaisonSpielplan | None = None
 
     # 0 until a write raises it, as the create stamps it.
     version: int = 0
@@ -184,6 +238,14 @@ class FLSaison(_SaisonStored, BaseReadModel):
 class FLSaisonRecord(_SaisonStored, Anchored):
     """A season as `saisons` stores it: no derived schedule."""
 
+    # Exactly `SAISON_ID_LENGTH` characters, as every `saison_id` referencing this one demands, so the read-back names a
+    # stored id like "2026/27", whose every match and matchday fails to read.
+    id: str = Field(validation_alias="_id", serialization_alias="id", min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH)
+
+    # DEFAULTED: the season's creation writes no key, the draw being what writes it. Stored and never served: the
+    # editor serves its day inside `FLSaisonDrawn`, beside the counts of what the season holds.
+    spielplan: FLSaisonSpielplan | None = None
+
 
 class FLSaisonAdmin(FLSaison):
     """The same season for the admin surfaces, with whether it has started and whether a fixture of it has taken place."""
@@ -194,9 +256,22 @@ class FLSaisonAdmin(FLSaison):
     # DERIVED per read by `app/api/teams/services.py :: has_taken_place` over every fixture of the season: true,
     # the start date is fixed (`saison_start_taken_place`), so the field closes exactly where the edit refuses.
     taken_place: bool
+    # DERIVED per read by `app/api/saisons/services.py :: decided_podium` over the season's Finale, the rule the landing
+    # reads its `decided` state by, so the list, the editor and the landing say one word of one season.
+    decided: bool
 
 
-FLSaisonAdminListAdapter = TypeAdapter(list[FLSaisonAdmin])
+class FLSaisonAdminListed(FLSaisonAdmin):
+    """One season as the admin list shows it: the editor's season and how many clubs and matches it holds."""
+
+    # COUNTED per read off `saison_teams`, never stored: every row, a club that left included, since a team never leaves
+    # a season and the season's Teams page lists it with its Austritt.
+    count_teams: int = Field(ge=0)
+    # COUNTED per read off `spiele`, never stored, as the editor counts them (`FLSaisonDrawn`).
+    count_spiele: int = Field(ge=0)
+
+
+FLSaisonAdminListAdapter = TypeAdapter(list[FLSaisonAdminListed])
 
 
 class FLSaisonsFilterParams(BaseModel):
@@ -208,50 +283,46 @@ class FLSaisonsFilterParams(BaseModel):
     order: FLSortOrder = Field(default="asc")
 
 
-# The league's FIRST season, and the floor an id may not fall below. A LITERAL because it is a fact
-# about this league's own history; the ceiling below is a fact about the calendar and is computed.
+# The league's FIRST season, the id a create mints where no season is stored. A LITERAL because it is a fact about
+# this league's own history.
 FIRST_SAISON_YEAR: Final = 2026
 
 
-def refuse_a_saison_year_outside_the_league(value: str) -> str:
-    """The half a digits-only pattern cannot express: an alternation over the legal years would be a literal somebody maintains."""
+# The rules a league's first season starts from, where no season holds any to carry on. Only that very first season's
+# editable starting value, which its editor shows at once and keeps editable until its start, every later season copying
+# the newest one's: no hardcoded scoring in the sense of `docs/decisions.md`'s `table` line, since the table always
+# reads the season's stored rules, which its own rules box sets.
+FIRST_SAISON_RULES: Final = FLSaisonRules(
+    win_points=3,
+    draw_points=1,
+    loss_points=0,
+    qualifiers_per_gruppe=2,
+    number_of_gruppen=2,
+    teams_per_gruppe=5,
+    tiebreak_order="tordifferenz",
+    max_kadergroesse=50,
+    forfeit_ergebnis=FLSaisonForfeitErgebnis(sieger_tore=3, verlierer_tore=0),
+    allowed_stufen=list(get_args(FLSpielerStufe.__value__)),
+)
 
-    # Read PER VALIDATION: a ceiling computed at import pins the year the process started, so the
-    # first January after a long-running deploy would refuse next season's id.
-    newest = clock.now().year + 1
 
-    # `int` is total only because the pattern ran first: drop it and `int`'s own message carries the
-    # rejected value into the log.
-    if not FIRST_SAISON_YEAR <= int(value) <= newest:
-        raise PydanticCustomError(
-            "saison_year_out_of_range", "the season id names a year outside the league's", {"min": FIRST_SAISON_YEAR, "max": newest}
-        )
-
-    return value
-
-
-class FLPostSaisonPayload(_SaisonPayload):
-    # CHOSEN, not generated: `saisons._id` is the string every `saison_id` references, so this is
-    # the one create payload carrying an id. No strip: the digits refuse a padded id rather than repair
-    # it, and constraints set after a validator would leave the pattern out of the published schema.
-
-    # `[0-9]` and never `\d`, which pydantic's Rust engine reads as `\p{Nd}`: an Arabic-Indic or
-    # fullwidth year parses as a number, sorts nowhere near its neighbours and can never be retyped.
-
-    # The width is `SAISON_ID_LENGTH`'s alone: a pattern spelling it as well would refuse an id of the
-    # declared length the moment that constant moves, every mirror having followed it.
-    id: Annotated[
-        str,
-        StringConstraints(min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH, pattern=r"^[0-9]+$"),
-        AfterValidator(refuse_a_saison_year_outside_the_league),
-    ]
+# The season's two days alone: the create makes the next season, which the server names
+# (`app/api/saisons/services.py :: next_saison_id`) and gives the newest season's rules, so no typed year can name one
+# out of turn and no client restates the carry-over; its windows start closed, each set in the season's own editor.
+class FLPostSaisonPayload(_SaisonSpanPayload):
+    pass
 
 
 # The patch shape IS `_SaisonPayload`, and stays a name of its own: a private base publishes no
 # OpenAPI component, and the generated client names the patch's body by it.
 class FLPatchSaisonPayload(_SaisonPayload):
-    # The `version` the editor was served; absent, as the old form sends it, the save is checked against nothing.
-    version: int | None = None
+    # The `version` the editor was served, so a save over a season another write moved since is refused as stale.
+    version: CustomVersion
+
+
+class FLPatchSaisonResponse(BaseAPIResponse):
+    # The season's version after the save, which the editor's next save sends.
+    version: int
 
 
 class FLSwapGruppenPayload(BaseModel):
@@ -281,9 +352,45 @@ class FLSwapGruppenResponse(BaseAPIResponse):
     rewritten_spiele: int
 
 
+class FLSaisonAdminTeam(BaseReadModel):
+    """One club's row of the season as the editor's swap and replacement sections list it, graded as each write judges it.
+
+    Both flags are `app/api/teams/services.py :: has_taken_place` over the row's fixtures, the predicate each write's
+    refusal reads: over its group fixtures for the swap's `swap_sides_taken_place`, the swap rewriting those alone, so
+    a pair is closed where either club's is; over every fixture for the replacement's `replace_sides_taken_place`, the
+    replacement handing the whole schedule over.
+    """
+
+    team_id: CustomObjectId
+    name: str
+    shorthand: str
+    gruppe: FLGruppenNames
+    austritt: FLAustritt | None
+    group_fixture_taken_place: bool
+    fixture_taken_place: bool
+
+
+class FLSaisonAdminClub(BaseReadModel):
+    """A club a replacement may bring into the season: one still in the league that holds no row of it."""
+
+    id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
+    name: str
+    shorthand: str
+
+
+class FLSaisonsAdminRefusals(BaseReadModel):
+    """Why the list's act would be refused if pressed now, by its write's own judgement; null where it takes it."""
+
+    create: Code | None
+
+
 class FLSaisonsAdminListResponse(BaseAPIResponse):
+    """Every season, with the id the next create mints and why a create would be refused now."""
+
     format: Literal["list"] = "list"
-    saisons: list[FLSaisonAdmin]
+    saisons: list[FLSaisonAdminListed]
+    next_saison_id: str = Field(min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH)
+    refusals: FLSaisonsAdminRefusals
 
 
 class FLSaisonFrameEntry(BaseReadModel):
@@ -361,7 +468,7 @@ class FLGenerateSpielplanResponse(BaseAPIResponse):
     """What the draw wrote, and what a confirmed replace deleted first, flat rather than nested.
 
     An admin reads the written counts without a second request, and they are the same numbers the
-    season's own watermark keeps, so the two can be compared by eye.
+    season editor then counts off the stored matchdays and fixtures, so the two can be compared by eye.
     """
 
     # No `extra="forbid"` here: the rule reaches request bodies alone, and this
@@ -388,6 +495,49 @@ class FLUndrawSpielplanResponse(BaseAPIResponse):
     spieltage: int = Field(ge=0)
     spiele: int = Field(ge=0)
     watermark_cleared: bool
+
+
+class FLSaisonActRefusals(BaseReadModel):
+    """Why each of the editor's season acts would be refused if pressed now, judged by its write's own rules; null where it takes it.
+
+    `activate` and `undraw` are their writes' whole judgement. `create` and `recreate` are the draw's judgement of the
+    stored rules the editor's presses draw, over the clubs entered, `recreate` then the reports it would delete.
+    """
+
+    activate: Code | None
+    create: Code | None
+    recreate: Code | None
+    undraw: Code | None
+
+
+class FLSaisonDrawn(BaseReadModel):
+    """A season's Spielplan as every write judges it: the matchdays and fixtures it holds, and the day the draw wrote them.
+
+    Counted per read off the stored rows, the facts a first draw refuses on (`spielplan_already_drawn`,
+    `spielplan_spieltage_held`) and the undraw and the replace remove, so the editor shows the draw's acts exactly where
+    those writes take them. `generated_at` is the draw's own day, `null` on a season whose rows no draw dated.
+    """
+
+    spieltage: int = Field(ge=0)
+    spiele: int = Field(ge=0)
+    generated_at: CustomDateString | None
+
+
+class FLSaisonAdminResponse(BaseAPIResponse):
+    """What the season editor shows, in one read: its season, clubs, shapes and matchdays, its acts' states and its registration links.
+
+    `shapes` is every shape the season's other rules admit, judged as the draw judges a shape it is given;
+    `spielplan` is the Spielplan the season holds, `null` while it holds no matchday and no fixture; `invitations`
+    holds one row per club, in `teams`' order.
+    """
+
+    saison: FLSaisonAdmin
+    teams: list[FLSaisonAdminTeam]
+    incoming_clubs: list[FLSaisonAdminClub]
+    shapes: list[FLSpielplanShape]
+    spielplan: FLSaisonDrawn | None
+    refusals: FLSaisonActRefusals
+    invitations: list[FLInvitationLinkRow]
 
 
 class FLTeamPageSpiel(FLSpielJoined):
@@ -480,17 +630,17 @@ FLPodium = tuple[FLLandingSide | None, FLLandingSide | None, FLLandingSide | Non
 
 
 class FLLandingCounts(BaseReadModel):
-    """Three of the season's four figures, counted on every read: its goals, its matches and its matchdays.
+    """The league's four figures over every season the public reads, counted on every read and never stored.
 
-    The fourth, its clubs, is the length of the `teams` served beside them. `count_spiele` is every match of any phase the
-    Tabelle would count, one carrying an `ergebnis`, a forfeit among them, so a season before its first played match reads
-    0; `count_tore` is both sides' goals summed over the same matches: a forfeit's awarded goals among them, a shoot-out's
-    never.
+    `count_saisons` is those seasons; `count_schulen` the clubs that took part in any of them, each counted once;
+    `count_spiele` every match of any phase the Tabelle would count, one carrying an `ergebnis`, a forfeit among them;
+    `count_tore` both sides' goals summed over the same matches, a forfeit's awarded goals among them, a shoot-out's never.
     """
 
-    count_tore: int = Field(ge=0)
+    count_saisons: int = Field(ge=0)
+    count_schulen: int = Field(ge=0)
     count_spiele: int = Field(ge=0)
-    count_spieltage: int = Field(ge=0)
+    count_tore: int = Field(ge=0)
 
 
 class _FLLandingSaisonFacts(BaseReadModel):
@@ -498,7 +648,6 @@ class _FLLandingSaisonFacts(BaseReadModel):
 
     id: str
     start: datetime
-    counts: FLLandingCounts
     teams: list[FLSaisonTeamEntry]
 
 
@@ -533,11 +682,12 @@ class FLBewerbungWindow(BaseReadModel):
     """The application window open today, by the one rule the submission refuses on: the season it is for and its last day."""
 
     saison_id: str
-    bis: CustomDateString
+    end: CustomDateString
 
 
 class FLLandingResponse(BaseAPIResponse):
-    """The landing's facts: the season the site is on, null for a league that has none, and an open window."""
+    """The landing's facts: the season the site is on, null for a league that has none, an open window, and the league's figures."""
 
     saison: FLLandingSaison | None
     bewerbung_window: FLBewerbungWindow | None
+    counts: FLLandingCounts

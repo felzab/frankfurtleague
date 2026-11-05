@@ -28,7 +28,7 @@ serveServerReact();
 // Each case its own request, as each page load is: a memoised read would otherwise answer one case from the case before it.
 beforeEach(beginRenderPass);
 
-const { getBewerbungById, getBewerbungen, getBewerbungFenster, getBewerbungKuerzel, getBewerbungSchulen } = await import("./queries.ts");
+const { getBewerbungById, getBewerbungen, getBewerbungWindow, getBewerbungKuerzel, getBewerbungSchulen } = await import("./queries.ts");
 const { refused } = await import("@/test-support/refusals.ts");
 
 /**
@@ -64,7 +64,7 @@ describe("the three base-tier public reads", () => {
   /* First, for the reason the triage's own harness assertion gives: a double that never ran would
      leave `calls` empty and every assertion below would fail for the harness rather than the source. */
   it("reaches the backend through the doubled client at all", async () => {
-    await getBewerbungFenster("2627");
+    await getBewerbungWindow("2627");
     await getBewerbungSchulen();
     await getBewerbungKuerzel("GG");
 
@@ -79,7 +79,7 @@ describe("the three base-tier public reads", () => {
   /* Both path interpolations encode, for the reason the Kürzel's always has: a caller-supplied segment
      reaching a URL raw is one that can leave the path it was written into. */
   it("encodes every caller-supplied path segment", async () => {
-    await getBewerbungFenster("26/27");
+    await getBewerbungWindow("26/27");
     await getBewerbungKuerzel("G/G");
 
     for (const endpoint of ["/bewerbungen/window/26%2F27", "/bewerbungen/kuerzel/G%2FG"]) {
@@ -93,7 +93,7 @@ describe("the three base-tier public reads", () => {
   /* A season the visitor may not read is a state rather than a failure: the page renders „noch nicht
      offen“ or „abgelaufen“ off it, and a throw here would answer the error page instead. */
   it("reads a 404 on a season's window as no window rather than as a failure", async () => {
-    expect(await failing(refused("document_not_found"), () => getBewerbungFenster("2627"))).toBe(null);
+    expect(await failing(refused("document_not_found"), () => getBewerbungWindow("2627"))).toBe(null);
   });
 });
 
@@ -126,7 +126,7 @@ describe("the two memoised reads across a render pass", () => {
     const before = calls.length;
 
     await Promise.all([getBewerbungById(ONE_ID), getBewerbungById(ONE_ID), getBewerbungById(OTHER_ID)]);
-    await Promise.all([getBewerbungFenster("2627"), getBewerbungFenster("2627"), getBewerbungFenster("2728")]);
+    await Promise.all([getBewerbungWindow("2627"), getBewerbungWindow("2627"), getBewerbungWindow("2728")]);
 
     expect(endpointsSince(before).sort()).toStrictEqual([
       `/bewerbungen/${ONE_ID}`,
@@ -140,12 +140,12 @@ describe("the two memoised reads across a render pass", () => {
      window's `laeuft` judged against a day that has passed. */
   it("is fetched again in the next pass, so no request is served another's copy", async () => {
     await getBewerbungById(ONE_ID);
-    await getBewerbungFenster("2627");
+    await getBewerbungWindow("2627");
     const before = calls.length;
 
     beginRenderPass();
-    await Promise.all([getBewerbungById(ONE_ID), getBewerbungFenster("2627")]);
-    await Promise.all([getBewerbungById(ONE_ID), getBewerbungFenster("2627")]);
+    await Promise.all([getBewerbungById(ONE_ID), getBewerbungWindow("2627")]);
+    await Promise.all([getBewerbungById(ONE_ID), getBewerbungWindow("2627")]);
 
     expect(endpointsSince(before).sort()).toStrictEqual([`/bewerbungen/${ONE_ID}`, "/bewerbungen/window/2627"]);
   });

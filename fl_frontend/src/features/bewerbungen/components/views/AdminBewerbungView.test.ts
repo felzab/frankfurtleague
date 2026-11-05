@@ -33,7 +33,7 @@ const person = (vorname: string, bestaetigtAm: string | null): NonNullable<FLBew
   telefon: "069 1234567",
   geburtsdatum: bestaetigtAm === null ? null : "1988-04-02",
   einwilligung: kenntnisnahme({
-    datum: "2026-09-01",
+    date: "2026-09-01",
     confirmed_at: bestaetigtAm,
   }),
 });
@@ -106,7 +106,7 @@ describe("the Zusage where the write would be refused", () => {
     renderPage({
       ...OFFEN,
       status: "declined",
-      decision: { made_at: "2026-09-10", von: "Admin", by_barred: false, grund: "Kein Platz." },
+      decision: { made_at: "2026-09-10", by: "Admin", by_barred: false, grund: "Kein Platz." },
     });
 
     // First: a page that rendered nothing holds neither panel either.

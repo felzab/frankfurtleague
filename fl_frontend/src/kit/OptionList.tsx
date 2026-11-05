@@ -26,7 +26,7 @@ export type Option = { id: string; label: Words } & ({ isDisabled?: false; note?
 export type ActEntry = { label: Copy; typed: string; onAction: () => void };
 
 /**
- * The menu of choices under a select or a combo box, the chosen one marked as a form's value: as wide as its
+ * The menu of choices under a select or a combo box, the chosen one marked as every list marks it: as wide as its
  * field, or as its longest entry under a field sized to its choices. A combo box filters the options as it is
  * typed into; an act entry stands last, under the hairline a menu draws between its groups, which is not
  * drawn over the entry standing alone.
@@ -41,11 +41,11 @@ export function OptionList({ options, fit = "field", act }: { options: readonly 
         <Collection items={options}>
           {(option) => (
             <ListBoxItem
-              data-kit-focus="item"
+              data-kit-focus="option"
               id={option.id}
               textValue={textOf(option.label)}
               isDisabled={option.isDisabled}
-              className={`${menuItem()} ${entryMark({ mark: "value" })}`}>
+              className={`${menuItem()} ${entryMark({ mark: "chosen" })}`}>
               {({ isSelected }) => (
                 <>
                   <span className="flex min-w-0 flex-col">
@@ -67,7 +67,7 @@ export function OptionList({ options, fit = "field", act }: { options: readonly 
           <>
             <Separator className="my-1 border-t border-border first:hidden" />
             <ListBoxItem
-              data-kit-focus="item"
+              data-kit-focus="option"
               // React Aria's filter reads an entry's text alone; holding what is typed, as React Aria's own create
               // action names it, the entry matches every text while no option of the same name does.
               textValue={`${act.label} ${act.typed}`}

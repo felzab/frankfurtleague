@@ -91,12 +91,12 @@ export function buildRegistrierungErinnerungEmail(
  * The pupil's next step after a decline, by its reason: a team saying the address is somebody else's
  * refused the address rather than the pupil, so that note sends them back with one of their own.
  */
-const ABSAGE_WEITER: Readonly<Record<NonNullable<FLRegistrierungAbsageData["grund"]> | "keiner", readonly [string, ...string[]]>> = {
+const ABSAGE_WEITER: Readonly<Record<NonNullable<FLRegistrierungAbsageData["grund"]> | "none", readonly [string, ...string[]]>> = {
   other_person: [
     "Unter dieser E-Mail-Adresse ist schon eine andere Person eingetragen.",
     "Registriere Dich bitte erneut über den Link Deines Teams, mit Deiner eigenen E-Mail-Adresse.",
   ],
-  keiner: ["Hast Du Fragen zu dieser Entscheidung, sprich bitte mit Deinem Team."],
+  none: ["Hast Du Fragen zu dieser Entscheidung, sprich bitte mit Deinem Team."],
 };
 
 /**
@@ -119,7 +119,7 @@ export function buildRegistrierungAbsageEmail(
     vorname: vorname,
     paragraphs: [
       [[{ strong: teamName }, ` hat Deine Registrierung für die Saison ${saisonId} der ${BRAND_NAME} abgelehnt.`]],
-      ABSAGE_WEITER[grund ?? "keiner"],
+      ABSAGE_WEITER[grund ?? "none"],
       ["Deine Angaben aus der Registrierung löschen wir einen Monat nach dieser Entscheidung."],
     ],
     // The league's landing: no record is left to press on.

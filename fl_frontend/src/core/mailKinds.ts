@@ -5,7 +5,7 @@ import {
   buildAddressChangeEffectiveEmail,
   buildAddressChangeEmail,
   buildAddressChangeNoticeEmail,
-} from "./adresswechselEmail";
+} from "./addressChangeEmail";
 import { buildCodeEmail } from "./authEmail";
 import { buildBerechtigungEmail } from "./berechtigungEmail";
 import {
@@ -18,10 +18,10 @@ import {
   buildBewerbungZusageEmail,
 } from "./bewerbungEmail";
 import { buildEinladungEmail } from "./einladungEmail";
+import { buildErasureEmail } from "./erasureEmail";
 import { ContractBreakError } from "./errors";
 import { buildKontaktBestaetigungEmail } from "./kontaktEmail";
-import { buildLoeschungEmail } from "./loeschungEmail";
-import { buildPasskeyGeloeschtEmail, buildPasskeyHinzugefuegtEmail } from "./passkeyEmail";
+import { buildPasskeyAddedEmail, buildPasskeyErasedEmail } from "./passkeyEmail";
 import { buildRegistrierungAbsageEmail, buildRegistrierungBestaetigungEmail, buildRegistrierungErinnerungEmail } from "./registrierungEmail";
 import { buildSchiedsrichterBestaetigungEmail } from "./schiedsrichterEmail";
 import { buildSperreEmail } from "./sperrlisteEmail";
@@ -42,13 +42,13 @@ import type { FLOutboxHandout } from "./generated/client/types";
  */
 export const OUTBOX_TAG = "outbox_id";
 
-/** One owed mail's facts: a member of the backend's discriminated union, its `art` naming the kind. */
+/** One owed mail's facts: a member of the backend's discriminated union, its `kind` naming the kind. */
 type OutboxData = FLOutboxHandout["data"];
 
-type OutboxKind = OutboxData["art"];
+type OutboxKind = OutboxData["kind"];
 
-/** The member whose `art` admits `A`, read per member: one member may carry two kinds, as the passkey notices do. */
-type Member<D, A> = D extends { art: infer K } ? (A extends K ? D : never) : never;
+/** The member whose `kind` admits `A`, read per member: one member may carry two kinds, as the passkey notices do. */
+type Member<D, A> = D extends { kind: infer K } ? (A extends K ? D : never) : never;
 
 /** Each kind's own member, so a builder is handed its kind's typed facts and no other's. */
 type DataPerKind = { [A in OutboxKind]: Member<OutboxData, A> };
@@ -89,16 +89,15 @@ function minted({ token, origin }: Handout): MailLink {
  */
 const MAIL_KINDS: { [A in OutboxKind]: MailBuilder<A> } = {
   sign_in_code: (_data, { secret, origin }) => buildCodeEmail(secretOf(secret), origin),
-  passkey_hinzugefuegt: ({ instant, account }, { origin }) =>
-    buildPasskeyHinzugefuegtEmail({ zeitpunkt: new Date(instant), origin: origin, konto: account }),
+  passkey_added: ({ instant, account }, { origin }) => buildPasskeyAddedEmail({ instant: new Date(instant), origin: origin, account: account }),
   passkey_erased: ({ instant, account }, { origin }) =>
-    buildPasskeyGeloeschtEmail({ zeitpunkt: new Date(instant), origin: origin, konto: account }),
-  account_erasure: (_data, { secret, origin }) => buildLoeschungEmail({ origin: origin, token: secretOf(secret) }),
+    buildPasskeyErasedEmail({ instant: new Date(instant), origin: origin, account: account }),
+  account_erasure: (_data, { secret, origin }) => buildErasureEmail({ origin: origin, token: secretOf(secret) }),
   schiedsrichter_confirmation: (data, handout) => buildSchiedsrichterBestaetigungEmail(data, minted(handout)),
   spiel_request: (data, handout) => buildSpielAnfrageEmail(data, minted(handout)),
   spiel_reminder: (data, handout) => buildSpielAnfrageEmail(data, minted(handout)),
   spiel_einteilung: buildSpielEinteilungEmail,
-  spiel_new_angesetzt: buildSpielHinweisEmail,
+  spiel_new_scheduled: buildSpielHinweisEmail,
   spiel_abgesagt: buildSpielHinweisEmail,
   spiel_einteilung_lifted: buildSpielEinteilungAufgehobenEmail,
   spiel_vorschlag_discarded: buildSpielVorschlagVerworfenEmail,
@@ -107,7 +106,7 @@ const MAIL_KINDS: { [A in OutboxKind]: MailBuilder<A> } = {
   registrierung_absage: (data, handout) => buildRegistrierungAbsageEmail(data, handout),
   invitation: (data, handout) => buildEinladungEmail(data, minted(handout)),
   kontakt_confirmation: (data, handout) => buildKontaktBestaetigungEmail(data, minted(handout)),
-  sperre: buildSperreEmail,
+  ban: buildSperreEmail,
   grant: buildBerechtigungEmail,
   address_change_link: (data, handout) => buildAddressChangeEmail(data, minted(handout)),
   // The stop link, minted into the change's `stopp.token_hashes`.
@@ -120,7 +119,7 @@ const MAIL_KINDS: { [A in OutboxKind]: MailBuilder<A> } = {
   bewerbung_zusage: buildBewerbungZusageEmail,
   bewerbung_absage: buildBewerbungAbsageEmail,
   bewerbung_erasure: buildBewerbungGeloeschtEmail,
-  bewerbung_widerspruch: buildBewerbungWiderspruchEmail,
+  bewerbung_objection: buildBewerbungWiderspruchEmail,
 };
 
 /** A secret kind's secret, which its every row carries (`fl_frontend/src/core/auth/mails.ts :: oweSignInMail`). */

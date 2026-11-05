@@ -17,11 +17,11 @@ import type { Copy } from "@/core/copy";
  */
 export function SignedIn({ address }: { address: string }) {
   const [isPending, setIsPending] = useState(false);
-  const [fehler, setFehler] = useState<Copy | null>(null);
+  const [error, setError] = useState<Copy | null>(null);
 
-  const abmelden = async () => {
+  const onSignOut = async () => {
     setIsPending(true);
-    setFehler(null);
+    setError(null);
 
     const result = await signOut().catch(() => null);
     // A full document load, as Next's guide advises for a sign-out: a soft navigation keeps every hidden route
@@ -29,7 +29,7 @@ export function SignedIn({ address }: { address: string }) {
     if (result?.success === true) return leaveDocumentFor("/");
 
     setIsPending(false);
-    setFehler(COPY.shared.failure.unexpected);
+    setError(COPY.shared.failure.unexpected);
   };
 
   return (
@@ -41,8 +41,8 @@ export function SignedIn({ address }: { address: string }) {
       // A link and never a press: the landing decides where a signed-in visitor goes, as after every sign-in.
       continue={{ label: COPY.shared.overview, href: ROUTES.signInLanding.path() }}
       // One press, as every sign-out is.
-      signOut={{ label: COPY.shared.verb.signOut, isBusy: isPending, onPress: () => void abmelden() }}
-      row={fehler}
+      signOut={{ label: COPY.shared.verb.signOut, isBusy: isPending, onPress: () => void onSignOut() }}
+      row={error}
     />
   );
 }

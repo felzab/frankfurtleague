@@ -12,6 +12,7 @@ import { Icon } from "./Icon";
 import { frameLink, menuEntry } from "./Link";
 import { currentOf, FreshPerPage } from "./navPlace";
 import { Sheet } from "./Sheet";
+import { Placeholder, PlaceholderLine, SAISON_WORDS } from "./Skeleton";
 
 import type { Copy } from "@/core/copy";
 import type { Route } from "next";
@@ -34,9 +35,9 @@ function SeasonEntry({ read, look }: { read: Promise<HeaderLink | null>; look: "
 }
 
 /**
- * The classic header's links and „Anmelden“ on the band: in a row from 1024 px, and on a phone behind one
- * button opening them as a sheet. The season's entry leads them once its read lands; while it waits it holds no
- * width and the band its fixed height, so nothing beside it moves up or down.
+ * The classic header's links and „Konto“, the way to the sign-in, on the band: in a row from 1024 px, and on a phone behind
+ * one button opening them as a sheet. The season's entry leads them once its read lands; while it waits its placeholder
+ * holds its width and the band its fixed height, so nothing beside it moves.
  */
 export function HeaderLinks({
   season,
@@ -58,7 +59,17 @@ export function HeaderLinks({
         aria-label={COPY.template.navigation}
         className="hidden gap-2 lg:flex">
         {season !== undefined && (
-          <Suspense fallback={null}>
+          // The entry's place held meanwhile at its own width, so the links beside it never move when it lands.
+          <Suspense
+            fallback={
+              <Placeholder layout={frameLink({ tone: "bandMuted" })}>
+                <PlaceholderLine
+                  text="text-sm"
+                  words={SAISON_WORDS}
+                  ground="band"
+                />
+              </Placeholder>
+            }>
             <SeasonEntry
               read={season}
               look="band"
@@ -80,7 +91,7 @@ export function HeaderLinks({
         href={signIn}
         data-kit-focus="ring"
         className={frameLink({ tone: "band", class: "ms-auto hidden lg:flex" })}>
-        {COPY.shared.verb.signIn}
+        {COPY.template.account}
       </NextLink>
       <div className="ms-auto lg:hidden">
         <FreshPerPage>
@@ -90,7 +101,7 @@ export function HeaderLinks({
               <AriaButton
                 aria-label={COPY.template.menu}
                 data-kit-focus="ring"
-                className="flex size-10 items-center justify-center rounded-lg text-on-brand">
+                className="flex size-10 items-center justify-center rounded-lg text-on-brand data-hovered:bg-layer data-pressed:bg-layer">
                 <Icon
                   glyph="menu"
                   size={18}
@@ -106,7 +117,7 @@ export function HeaderLinks({
                   />
                 </Suspense>
               )}
-              {[...links, { label: COPY.shared.verb.signIn, href: signIn }].map((link) => (
+              {[...links, { label: COPY.template.account, href: signIn }].map((link) => (
                 <NextLink
                   key={link.href}
                   href={link.href}

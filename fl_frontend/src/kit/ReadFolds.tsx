@@ -1,8 +1,9 @@
 import { textOf } from "@/core/copy";
 
 import { CardFold } from "./CardFold";
-import { stacked } from "./cardStyles";
+import { card as cardLook, stacked } from "./cardStyles";
 import { GroupHead } from "./GroupHead";
+import { placeholderBar, PlaceholderLine } from "./Skeleton";
 import { Table } from "./Table";
 
 import type { Copy, Words } from "@/core/copy";
@@ -18,14 +19,47 @@ export type FoldedCard = {
   tables: readonly [TableProps] | ReadonlyArray<{ head: Copy; table: TableProps }>;
 };
 
+const folds = (count: number) => (count > 1 ? "grid content-start items-start gap-3 lg:grid-cols-2" : "grid");
+
+/**
+ * The folded cards while they are read: `count` of `CardFold`'s heads, as the page first shows them, folded, each its
+ * chevron, its title's line and its count as bars, set as `ReadFolds` sets them.
+ */
+export function ReadFoldsPlaceholder({ count }: { count: number }) {
+  const s = cardLook({ body: "rows", fold: true });
+  return (
+    <div className={folds(count)}>
+      {Array.from({ length: count }, (_, index) => (
+        <div
+          key={index}
+          className={s.root()}>
+          <span className={s.head()}>
+            <span className={s.title()}>
+              <span className={placeholderBar("size-4")} />
+              <PlaceholderLine
+                text="text-base"
+                width="w-32"
+              />
+            </span>
+            <span className={s.count()}>
+              <span className={placeholderBar("h-3 w-4")} />
+            </span>
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /**
  * A read page's tables, each folded behind its card's head, two side by side from `lg`, such as a match's
  * line-ups: the content of `ReadPage`'s `folds` group. It is a module of its own, which only the pages folding
- * a card import, so a read page folding nothing ships none of the fold's client code.
+ * a card import, so a read page folding nothing ships none of the fold's client code. Each card keeps its own
+ * height beside its neighbour, so one opening leaves the other folded to its head rather than stretched to the row.
  */
 export function ReadFolds({ cards }: { cards: ReadonlyArray<FoldedCard> }) {
   return (
-    <div className={cards.length > 1 ? "grid content-start gap-3 lg:grid-cols-2" : "grid"}>
+    <div className={folds(cards.length)}>
       {cards.map(({ tables, ...card }) => (
         <CardFold
           key={textOf(card.title)}

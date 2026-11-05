@@ -20,10 +20,12 @@ its invalidation live here rather than in the backend.
 | `src/test-support/`      | What the unit and database tests share and production never imports: doubles, fixtures, the test setup and the sweeps' tree walk                                                      |
 | `e2e/`                   | The Playwright journeys against the end-to-end stack, every project's at its top and one project's under `desktop/` or `phone/`, and `support/`, the fixtures and helpers they import |
 
-**Routes are thin**: a page fetches, then hands off to its slice. A slice holds only the modules it
-needs: `queries.ts` for reads, `mutations.ts` for the calls that write, `actions.ts` for the server
-actions a form calls, `personActions.ts` for those a signed-in person's own pages call, `schemas.ts`
-for its Zod schemas.
+**Routes are thin**: a page fetches, then hands off. A rebuilt administration page's own write sits
+beside its route, one module per act (`saveSpiel.ts` beside the match editor). A slice holds what
+several routes share, and only the modules it needs: `queries.ts` for reads, `mutations.ts` for the
+calls that write, `actions.ts` or an act's own module for the server actions more than one page calls
+(`features/saisons/createSaison.ts`), `personActions.ts` for those a signed-in person's own pages
+call, `schemas.ts` for its Zod schemas.
 
 **Imports run one way.** `src/core/` imports neither `src/shared/` nor `src/features/`, and
 `src/shared/` does not import `src/features/`; ESLint refuses both (`fl_frontend/eslint.config.mjs`).
@@ -124,7 +126,7 @@ and sits on every authorization check. Application data goes through FastAPI wit
 
 **Administration is a stored grant, read on every request.** A row of `berechtigungen`
 (`Berechtigung`) makes an address an administrator; the frontend reads it through
-`fl_frontend/src/core/verwaltung.ts :: verwaltungOf`, and the backend checks it again on every
+`fl_frontend/src/core/grant.ts :: grantOf`, and the backend checks it again on every
 administration request. A backend that cannot answer admits nobody, and a revoked grant admits
 nothing from the next request on. Every admin server action opens on
 `fl_frontend/src/core/auth/guards.ts :: judgeAdminRequest`, through the builder's admin lane or, for a form

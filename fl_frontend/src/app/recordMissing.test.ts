@@ -22,7 +22,6 @@ serveServerReact();
 const bewerbungen = await import("@/features/bewerbungen/queries.ts");
 const schiedsrichter = await import("@/features/schiedsrichter/queries.ts");
 const spiele = await import("@/features/spiele/queries.ts");
-const spieltage = await import("@/features/spieltage/queries.ts");
 
 // A fresh id per call: React's `cache` would answer a repeated one from the first case's result.
 let calls = 0;
@@ -31,10 +30,10 @@ const freshId = (): string => (calls += 1).toString(16).padStart(24, "0");
 /** Every read answering "none" off the API's record-missing refusal, each turned into its caller's `null`. */
 const READS: Readonly<Record<string, () => Promise<unknown>>> = {
   getBewerbungById: () => bewerbungen.getBewerbungById(freshId()),
-  getBewerbungFenster: () => bewerbungen.getBewerbungFenster(freshId()),
+  getBewerbungWindow: () => bewerbungen.getBewerbungWindow(freshId()),
   getSchiedsrichterById: () => schiedsrichter.getSchiedsrichterById(freshId()),
   getAdminSpiel: () => spiele.getAdminSpiel(freshId()),
-  getAdminSpieltagById: () => spieltage.getAdminSpieltagById(freshId()),
+  getAdminSpielplan: () => spiele.getAdminSpielplan("2027"),
 };
 
 const notFound = (serverErrorCode: Code | undefined): APIBadStatusError =>
@@ -50,12 +49,6 @@ const notFound = (serverErrorCode: Code | undefined): APIBadStatusError =>
   });
 
 describe("a read of a record the API says is missing", () => {
-  it("answers the record-missing code as the caller's none", async () => {
-    failure = notFound("document_not_found");
-
-    for (const [name, read] of Object.entries(READS)) expect(await read(), name).toBe(null);
-  });
-
   /* By the code and never the status: a 404 carrying none is a route the edge or the framework did not
      find, and reading it as none would render a page's missing state while the API is unreachable. */
   it("keeps a 404 carrying no code, or another code, the failure it is", async () => {

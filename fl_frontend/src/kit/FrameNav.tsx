@@ -19,11 +19,12 @@ import { Icon } from "./Icon";
 import { useLeaveGuard } from "./LeaveGuard";
 import { menuEntry } from "./Link";
 import { Menu } from "./Menu";
-import { currentOf, FreshPerPage } from "./navPlace";
+import { currentOf, FreshPerPage, placeOf } from "./navPlace";
 import { RailTooltip, useRailCollapsed } from "./RailState";
 import { railFade, railGlyph } from "./railStyles";
 import { groupHeading } from "./Section";
 import { Sheet } from "./Sheet";
+import { Placeholder, placeholderBar, PlaceholderLine } from "./Skeleton";
 import { appToast } from "./Toast";
 import { tv } from "./tv";
 
@@ -72,6 +73,11 @@ const SaisonContext = createContext<(FrameSaisons & { pages: readonly SaisonPage
 /** Hands the frame's seasons and its season pages to its menus, which a layout's server code cannot reach. */
 export function SaisonScope({ value, children }: { value: FrameSaisons & { pages: readonly SaisonPage[] }; children: ReactNode }) {
   return <SaisonContext value={value}>{children}</SaisonContext>;
+}
+
+/** Whether the frame holds seasons at all, which it knows before they are read: a frame with none draws no season button. */
+export function useHoldsSaison() {
+  return useContext(SaisonContext) !== null;
 }
 
 /** A route's dynamic segments as Next fills them in from the address. */
@@ -153,7 +159,7 @@ export type Account = {
   name?: RecordText;
   /** The role the area is for, the row's second line. */
   role: Copy;
-  /** The sign-in address: under the name at the top of the menu, or the row's own name where there is none. */
+  /** The sign-in address: whole at the top of the menu, under the name where there is one; the row's own name where not. */
   address: RecordText;
   /**
    * Every Funktion the person holds, by the page each opens on, the one this area serves marked current; two or more
@@ -203,11 +209,22 @@ export function ThemeChoice() {
 /**
  * The account menu, the same in every area: „Funktion wechseln“ in a group of its own for a person holding two or
  * more Funktionen, its submenu marking the one this area serves; Konto and Abmelden; Impressum and Datenschutz; and at
- * its foot the theme as one row, „Darstellung“ with the three glyphs. A person with a name sees it with their address
- * at the top; an address alone already stands in the row, so the menu does not repeat it. `konto` is the Konto page
- * the menu opens: the phone's list of its pages, or on desktop its first page, beside the rail listing the rest.
+ * its foot the theme as one row, „Darstellung“ with the three glyphs. It heads with the person's whole address, under
+ * their name where one is stored, for every role alike: the row is one line, which cuts a long address, so the menu is
+ * where it is read in full. `accountPage` is the Konto page the menu opens: the phone's list of its pages, or on desktop
+ * its first page, beside the rail listing the rest.
  */
-function AccountMenu({ account, konto, trigger, beside }: { account: Account; konto: Route; trigger: ReactElement; beside?: boolean }) {
+function AccountMenu({
+  account,
+  accountPage,
+  trigger,
+  beside,
+}: {
+  account: Account;
+  accountPage: Route;
+  trigger: ReactElement;
+  beside?: boolean;
+}) {
   const roles = account.roles ?? [];
   const switchRole: ReadonlyArray<ReadonlyArray<MenuEntry>> =
     roles.length < 2 ? [] : [[{ kind: "submenu", label: COPY.shared.switchRole, links: roles }]];
@@ -216,11 +233,11 @@ function AccountMenu({ account, konto, trigger, beside }: { account: Account; ko
       label={COPY.template.account}
       placement="above"
       beside={beside}
-      head={account.name === undefined ? undefined : { name: account.name, detail: account.address }}
+      head={{ name: account.name, detail: account.address }}
       groups={[
         ...switchRole,
         [
-          { kind: "link", label: COPY.template.account, href: konto },
+          { kind: "link", label: COPY.template.account, href: accountPage },
           { kind: "action", label: COPY.shared.verb.signOut, onAction: () => void signOutAndLeave() },
         ],
         [
@@ -235,20 +252,23 @@ function AccountMenu({ account, konto, trigger, beside }: { account: Account; ko
 }
 
 function useCurrent(entries: ReadonlyArray<{ href: Route }>) {
-  return currentOf(
+  const { saison } = useParams();
+  return placeOf(
     usePathname(),
+    typeof saison === "string" ? saison : undefined,
     entries.map((entry) => entry.href),
   );
 }
 
-// The current entry is marked as every navigating list marks its place, the link carrying `data-selected`.
+// The current entry carries the rail's own mark of the page it is on (`entryMark`'s `place`), the link carrying
+// `data-selected`; a menu's chosen entry is marked otherwise, by its check.
 // Collapsed, the entry clips its words past its glyph's box (`railGlyph`).
 const railEntry = tv({
-  base: "flex h-8 items-center gap-3 overflow-hidden rounded-lg px-3 text-sm font-medium whitespace-nowrap transition-colors duration-(--motion-state) pointer-coarse:h-10",
+  base: "flex h-8 items-center gap-3 overflow-hidden rounded-lg px-3 text-sm font-medium whitespace-nowrap transition-colors duration-(--motion-state) hover:bg-layer pointer-coarse:h-10",
   variants: {
     current: {
       true: entryMark({ mark: "place" }),
-      false: "text-fg-muted hover:bg-bg-muted hover:text-fg",
+      false: "text-fg-muted hover:text-fg",
     },
   },
 });
@@ -317,6 +337,49 @@ export function RailEntries({ groups: given }: { groups: ReadonlyArray<RailGroup
   );
 }
 
+/**
+ * The rail's entries while the season their addresses name is read: every group and entry as `RailEntries` draws it,
+ * each heading's and name's words a bar as wide as they will stand and each glyph a bar of its size, so the entries
+ * appear in their places. No entry is marked current, which the address decides once the read lands.
+ */
+export function RailEntriesPlaceholder({ groups }: { groups: ReadonlyArray<RailGroup> }) {
+  return (
+    <Placeholder layout="grid min-h-0 flex-1 grid-cols-1 content-start gap-4 overflow-hidden px-3 py-2">
+      {groups.map((group, index) => (
+        <div
+          key={group.heading ?? index}
+          className="relative">
+          {group.heading !== undefined && (
+            <div className={railHeading}>
+              <PlaceholderLine
+                text="text-xs"
+                words={group.heading}
+              />
+            </div>
+          )}
+          <div className="grid gap-1">
+            {group.entries.map((entry) => (
+              <span
+                key={entry.id}
+                className={railEntry({ current: false })}>
+                <span className={railGlyph()}>
+                  <span className={placeholderBar("size-4.5")} />
+                </span>
+                <span className={railFade()}>
+                  <PlaceholderLine
+                    text="text-sm"
+                    words={entry.label}
+                  />
+                </span>
+              </span>
+            ))}
+          </div>
+        </div>
+      ))}
+    </Placeholder>
+  );
+}
+
 /** A person's initials, for the round avatar standing in for them. */
 function initials(name: string) {
   const words = name.trim().split(/\s+/);
@@ -340,9 +403,11 @@ const avatar = tv({
 export type AccountRead = Promise<Account | null>;
 
 /**
- * The rail's foot when signed in: the name, the role under it, and „…“; the whole row opens the account menu.
- * Collapsed, the avatar alone stands centred, 8 px of the row's inset after the foot's 12, and the words
- * fade, clipped by the row; the menu then opens beside the row, at the rail's edge.
+ * The rail's foot when signed in: the avatar, the name and the role under it. The whole row is the one button opening
+ * the account menu, filled under the pointer as the season button over it is, so it carries no „…“ of its own, which
+ * would read as a second, smaller target, and the name keeps that room. Collapsed, the avatar alone stands centred, 8
+ * px of the row's inset after the foot's 12, and the words fade, clipped by the row; the menu then opens beside the
+ * row, at the rail's edge.
  */
 export function AccountRow({ account: read }: { account: AccountRead }) {
   const collapsed = useRailCollapsed();
@@ -352,12 +417,12 @@ export function AccountRow({ account: read }: { account: AccountRead }) {
   return (
     <AccountMenu
       account={account}
-      konto={ROUTES.accountSignIn.path()}
+      accountPage={ROUTES.accountSignIn.path()}
       beside={collapsed}
       trigger={
         <AriaButton
           data-kit-focus="ring"
-          className="flex h-12 w-full items-center gap-3 overflow-hidden rounded-lg px-2 text-start text-sm transition-colors duration-(--motion-state) data-hovered:bg-bg-muted">
+          className="flex h-12 w-full items-center gap-3 overflow-hidden rounded-lg px-2 text-start text-sm data-hovered:bg-layer data-pressed:bg-layer">
           <span
             aria-hidden
             className={avatar({ size: "rail" })}>
@@ -367,15 +432,31 @@ export function AccountRow({ account: read }: { account: AccountRead }) {
             <span className="truncate font-semibold text-fg">{name}</span>
             <span className="truncate text-xs text-fg-muted">{account.role}</span>
           </span>
-          <span className={railFade({ class: "text-fg-muted" })}>
-            <Icon
-              glyph="more"
-              size={16}
-            />
-          </span>
         </AriaButton>
       }
     />
+  );
+}
+
+/**
+ * The rail's foot while the session is judged: the row `AccountRow` draws, its avatar and its two lines as bars of
+ * their sizes, so the foot keeps its height and the entries above stay where they are.
+ */
+export function AccountRowPlaceholder() {
+  return (
+    <Placeholder layout="flex h-12 w-full items-center gap-3 overflow-hidden rounded-lg px-2">
+      <span className={placeholderBar(avatar({ size: "rail" }))} />
+      <span className={railFade({ class: "grid min-w-0 flex-1" })}>
+        <PlaceholderLine
+          text="text-sm"
+          width="w-3/4"
+        />
+        <PlaceholderLine
+          text="text-xs"
+          width="w-1/2"
+        />
+      </span>
+    </Placeholder>
   );
 }
 
@@ -426,7 +507,7 @@ function Places({ groups: given, bar, extra, account }: FrameMenu) {
   return (
     <nav
       aria-label={COPY.template.navigation}
-      className="sticky bottom-0 z-20 grid h-14 auto-cols-fr grid-flow-col border-t border-border bg-bg lg:hidden">
+      className="sticky bottom-0 z-20 grid h-14 auto-cols-fr grid-flow-col border-t border-border bg-bg [view-transition-name:bar] lg:hidden">
       {placed.map((entry) => (
         <NextLink
           key={entry.id}
@@ -496,12 +577,68 @@ function Places({ groups: given, bar, extra, account }: FrameMenu) {
         </FreshPerPage>
       )}
       {account !== undefined && (
-        // The bar's places stand drawn while the session is judged; the account's keeps its column.
-        <Suspense fallback={<span />}>
+        // The bar's places stand drawn while the session is judged; the account's keeps its column, drawn as it waits.
+        <Suspense
+          fallback={
+            <Placeholder layout="h-full">
+              <PlacePlaceholder
+                label={COPY.template.account}
+                glyph={avatar({ size: "bar" })}
+              />
+            </Placeholder>
+          }>
           <AccountPlace account={account} />
         </Suspense>
       )}
     </nav>
+  );
+}
+
+/** One of the phone bar's places while it waits: its glyph and its words as bars, over one another as the place sets them. */
+function PlacePlaceholder({ label, glyph }: { label: Copy; glyph: string }) {
+  return (
+    <span className={barPlace({ current: false })}>
+      <span className={placeholderBar(glyph)} />
+      <PlaceholderLine
+        text="text-xs"
+        words={label}
+      />
+    </span>
+  );
+}
+
+/**
+ * The phone's bottom bar while the season its addresses name is read: every place `BarPlaces` will draw, the pages,
+ * „Mehr“ and the account, each its glyph and its words as bars, so the bar stands at once at its height.
+ */
+export function BarPlacesPlaceholder() {
+  const menu = useContext(MenuContext);
+  if (menu === null) return null;
+  const entries = menu.groups.flatMap((group) => group.entries);
+  const placed = menu.bar.flatMap((id) => entries.filter((entry) => entry.id === id));
+  const more = entries.length > placed.length || menu.extra.length > 0;
+  return (
+    <Placeholder layout="sticky bottom-0 z-20 grid h-14 auto-cols-fr grid-flow-col border-t border-border bg-bg lg:hidden">
+      {placed.map((entry) => (
+        <PlacePlaceholder
+          key={entry.id}
+          label={entry.label}
+          glyph="size-4.5"
+        />
+      ))}
+      {more && (
+        <PlacePlaceholder
+          label={COPY.template.more}
+          glyph="size-4.5"
+        />
+      )}
+      {menu.account !== undefined && (
+        <PlacePlaceholder
+          label={COPY.template.account}
+          glyph={avatar({ size: "bar" })}
+        />
+      )}
+    </Placeholder>
   );
 }
 
@@ -512,7 +649,7 @@ function AccountPlace({ account: read }: { account: AccountRead }) {
   return (
     <AccountMenu
       account={account}
-      konto={ROUTES.account.path()}
+      accountPage={ROUTES.account.path()}
       trigger={
         <AriaButton
           data-kit-focus="inset"
@@ -530,7 +667,10 @@ function AccountPlace({ account: read }: { account: AccountRead }) {
 }
 
 // On the dark-green band, as tall as a touch target; the chevron stands where the logo's edge would.
-const back = tv({ base: "-ms-2 flex h-10 items-center gap-1 rounded-lg ps-1 pe-3 text-sm font-medium text-on-brand" });
+// The way back reads a step bolder than the band's links, being the band's one act there, and answers the pointer as they do.
+const back = tv({
+  base: "-ms-2 flex h-10 items-center gap-1 rounded-lg ps-1 pe-3 text-sm font-semibold text-on-brand hover:underline",
+});
 
 /**
  * „‹ Zurück“ in the band where the logo stands: in Konto, and on a phone in an editor. While an editor holds
@@ -581,8 +721,26 @@ export function BackControl({ href }: { href: Route }) {
 }
 
 /**
- * „‹ Zurück“ in an editor's band, to the list the rail marks for the editor's address: a record's page lies
- * under its list, so the way back is read from the address rather than declared by each editor.
+ * „‹ Zurück“ in an editor's band while the list it leads to is read: its glyph and its words as the band's bars, in
+ * the place and at the size the control takes.
+ */
+export function EditorBackPlaceholder() {
+  return (
+    <Placeholder layout={back({ class: "gap-1" })}>
+      <span className={placeholderBar("size-4.5", "band")} />
+      <PlaceholderLine
+        text="text-sm"
+        words={COPY.shared.back}
+        ground="band"
+      />
+    </Placeholder>
+  );
+}
+
+/**
+ * „‹ Zurück“ in an editor's band, to the list the rail marks for the editor: a record's page lies under its list,
+ * so the way back is read from the address rather than declared by each editor, but for an editor whose route
+ * declares the list it belongs to (`placeOf`).
  */
 export function EditorBack() {
   const groups = useEntries(useContext(MenuContext)?.groups ?? []);

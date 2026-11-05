@@ -25,13 +25,13 @@ class FLRefusedField(BaseModel):
     # The first member of every `loc` FastAPI reports: a set that moves with FastAPI, never with this file.
     in_: Literal["body", "query", "path", "header", "cookie"] = Field(alias="in")
     path: list[str | int]
-    # Pydantic's error `type`, never its English `msg`; on a domain rule's
-    # refusal, the rule's own code.
+    # Pydantic's error `type`, never its English `msg`: one of Pydantic's own, a domain rule's `Rule`, or on an
+    # endpoint's refusal its `Code`.
     kind: str
-    # A domain rule's `ctx`, its JSON scalars alone: the bounds the rule holds the refused value to,
-    # by the names the rule gives them, one of which can be another field of the same payload. Empty
-    # for Pydantic's own kinds and where the rule names none.
-    ctx: dict[str, str | int | float | bool]
+    # The bounds the rule holds the refused value to, JSON scalars or a list of whole numbers, by the names the rule
+    # gives them, one of which can be another field of the same payload: a domain rule's context, or an endpoint
+    # refusal's `app/core/exceptions.py :: APIError` bounds. Empty for Pydantic's own kinds and where the rule names none.
+    ctx: dict[str, str | int | float | bool | list[int]]
 
 
 # The failure body as published, never as built: `app/core/exception_handlers.py :: error_response`

@@ -9,7 +9,7 @@ from bson import ObjectId
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.saisons.services import find_rules_refusal
 from app.api.saisons.spielplan import EnteredTeam, Spielplan, draw_spielplan
-from app.api.spiele.schemas import FLPatchSpielDataPayload, FLSpiel, FLSpielListAdapter
+from app.api.spiele.schemas import SPIEL_PATCH_WRITTEN_FIELDS, FLPatchSpielDataPayload, FLSpiel, FLSpielListAdapter
 from app.api.spiele.services import find_wiring_refusal, judge_spieltag_occupancy, resolve_bracket
 from app.api.teams.services import DecidedStanding
 from app.shared.schemas.literals import FLGruppenNames
@@ -32,9 +32,9 @@ SHAPE_IDS = (
     "the largest season the rules bounds allow",
 )
 
-# Derived from the payload model rather than listed: a field added there arrives here as a resubmitted
+# Derived from the fields the save writes rather than listed: a field added there arrives here as a resubmitted
 # value instead of silently defaulting, which is what makes this a resubmission of the drawn fixture.
-PAYLOAD_FIELDS: tuple[str, ...] = tuple(FLPatchSpielDataPayload.model_fields)
+PAYLOAD_FIELDS: tuple[str, ...] = tuple(SPIEL_PATCH_WRITTEN_FIELDS)
 
 
 def rules(*, groups: int, teams: int, qualifiers: int) -> FLSaisonRules:
@@ -94,7 +94,8 @@ def with_the_slot_cleared(season: tuple[FLSpiel, ...], spiel_id: Any) -> tuple[F
 def payload_of(raw: Mapping[str, Any]) -> FLPatchSpielDataPayload:
     """The drawn fixture resubmitted unchanged -- the body `PATCH /spiele/{spiel_id}` carries when nothing was edited."""
 
-    return FLPatchSpielDataPayload.model_validate({field: raw.get(field) for field in PAYLOAD_FIELDS})
+    # A drawn fixture is composed before its insert stamps a version, so the editor reads it at 0.
+    return FLPatchSpielDataPayload.model_validate({field: raw.get(field) for field in PAYLOAD_FIELDS} | {"version": raw.get("version", 0)})
 
 
 class TestTheShapesAreSeasonsThatCanExist:
@@ -149,7 +150,8 @@ class TestTheDrawnSeasonFieldsNobodyTwiceOnAMatchday:
 
         season = season_of(shape)
 
-        verdicts = [(raw["spiel_nr"], judge_spieltag_occupancy(raw["_id"], payload_of(raw), season)) for raw in drawn(shape).spiele]
+        # No season rows: a release names its club off them, so one owed here raises rather than passing unseen.
+        verdicts = [(raw["spiel_nr"], judge_spieltag_occupancy(raw["_id"], payload_of(raw), season, {})) for raw in drawn(shape).spiele]
 
         assert [nr for nr, verdict in verdicts if verdict.refusal is not None] == []
         assert [nr for nr, verdict in verdicts if verdict.releases] == []

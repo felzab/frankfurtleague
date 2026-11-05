@@ -35,15 +35,13 @@ import type { SperreEntwurf } from "@/features/sperrliste/schemas";
 const EMPTY_DRAFT: SperreEntwurf = { email: "", grund: "" };
 
 /** What the arming read left the reveal holding, carried WITH the address it was read for, which is the one the ban sends. */
-type Gelesen = { adresse: string } & (
-  { status: "reading" } | { status: "read"; ansicht: SperreAnsicht } | { status: "refused"; reason: string }
-);
+type Gelesen = { adresse: string } & ({ status: "reading" } | { status: "read"; view: SperreAnsicht } | { status: "refused"; reason: string });
 
 /** The armed reveal's body, in the three states the read leaves it in. */
-function AnsichtBody({ gelesen }: { gelesen: Gelesen | null }) {
-  if (gelesen?.status === "read") return <AdminSperreAnsichtList ansicht={gelesen.ansicht} />;
-  if (gelesen?.status === "refused") {
-    return <p className="fluid-xxs leading-normal font-medium text-foreground">{gelesen.reason}</p>;
+function AnsichtBody({ read }: { read: Gelesen | null }) {
+  if (read?.status === "read") return <AdminSperreAnsichtList view={read.view} />;
+  if (read?.status === "refused") {
+    return <p className="fluid-xxs leading-normal font-medium text-foreground">{read.reason}</p>;
   }
 
   // The app's one „not yet here“ treatment: what arrives is a list, so what stands in for it is shaped like one.
@@ -65,7 +63,7 @@ function AnsichtBody({ gelesen }: { gelesen: Gelesen | null }) {
 export function AdminCreateSperreForm({ onClose }: { onClose: () => void }) {
   const router = useRouter();
   const [draft, setDraft] = useState<SperreEntwurf>(EMPTY_DRAFT);
-  const [gelesen, setGelesen] = useState<Gelesen | null>(null);
+  const [read, setGelesen] = useState<Gelesen | null>(null);
   // Only the latest arming's read answers, and only while the address box is unedited since: Next sends one client's
   // actions one at a time, so an earlier arming's answer lands while the latest waits.
   const letzteLesung = useRef(0);
@@ -73,12 +71,12 @@ export function AdminCreateSperreForm({ onClose }: { onClose: () => void }) {
   const confirm = useTwoPressConfirm({ stepUp: true });
   const { isConfirming, isPending } = confirm;
   const { setSubmitFieldErrors, reportSubmitFailure, guardSubmit, useForgiveFixed, formWiring } = useDraftFieldErrors({
-    schemas: { sperre: FLPostSperrlistePayloadSchema },
+    schemas: { ban: FLPostSperrlistePayloadSchema },
     failureTitle: SPERRE_PRESS.nichtGesperrt,
   });
 
   // Retracts a message the moment the value it judged becomes valid, as every create form does.
-  useForgiveFixed({ sperre: draft });
+  useForgiveFixed({ ban: draft });
 
   const lesen = async (gelesenFuer: SperreEntwurf) => {
     const lesung = ++letzteLesung.current;
@@ -90,7 +88,7 @@ export function AdminCreateSperreForm({ onClose }: { onClose: () => void }) {
     const res = settled.status === "rejected" ? unansweredRead() : settled.value;
 
     if (res.success) {
-      setGelesen({ adresse: gelesenFuer.email, status: "read", ansicht: res.ansicht });
+      setGelesen({ adresse: gelesenFuer.email, status: "read", view: res.view });
       return;
     }
 
@@ -99,7 +97,7 @@ export function AdminCreateSperreForm({ onClose }: { onClose: () => void }) {
     if (res.fieldErrors?.email !== undefined) {
       setGelesen(null);
       confirm.cancel();
-      reportSubmitFailure(res, { sperre: gelesenFuer });
+      reportSubmitFailure(res, { ban: gelesenFuer });
       return;
     }
 
@@ -108,19 +106,19 @@ export function AdminCreateSperreForm({ onClose }: { onClose: () => void }) {
 
   const handlePress = () => {
     // The armed press sends the address its list was read for, never the box; the reason stays editable, so it is judged again.
-    const gesendet = isConfirming && gelesen !== null ? { email: gelesen.adresse, grund: draft.grund } : draft;
+    const sent = isConfirming && read !== null ? { email: read.adresse, grund: draft.grund } : draft;
 
-    guardSubmit({ sperre: gesendet }, () => {
-      if (!isConfirming) void lesen(gesendet);
+    guardSubmit({ ban: sent }, () => {
+      if (!isConfirming) void lesen(sent);
 
       confirm.press(async () => {
         // A rejected action may still have saved, and uncaught here it takes the page down with it.
-        const res = await postSperreAction(gesendet).catch(rejectedWrite(router));
+        const res = await postSperreAction(sent).catch(rejectedWrite(router));
 
         // Wrapped again: the press runs this inside its transition, and React leaves an update after an `await` outside it.
         startTransition(() => {
           if (!res.success) {
-            reportSubmitFailure(res, { sperre: gesendet });
+            reportSubmitFailure(res, { ban: sent });
             return;
           }
 
@@ -135,12 +133,12 @@ export function AdminCreateSperreForm({ onClose }: { onClose: () => void }) {
     });
   };
 
-  const ansicht = isConfirming ? gelesen : null;
+  const view = isConfirming ? read : null;
   // The list IS what the press is confirmed over, so it is held over the placeholder and closed over a failed read: no
   // ban goes out over a list nobody saw.
-  const isReading = isConfirming && (ansicht === null || ansicht.status === "reading");
+  const isReading = isConfirming && (view === null || view.status === "reading");
   // A refused read alone names a reason of its own: one still running ends by itself, as the write does.
-  const ansichtReason = !isPending && ansicht?.status === "refused" ? ansicht.reason : null;
+  const ansichtReason = !isPending && view?.status === "refused" ? view.reason : null;
 
   return (
     <Form
@@ -203,7 +201,7 @@ export function AdminCreateSperreForm({ onClose }: { onClose: () => void }) {
 
         {isConfirming && (
           <ConfirmReveal>
-            <AnsichtBody gelesen={ansicht} />
+            <AnsichtBody read={view} />
           </ConfirmReveal>
         )}
       </div>

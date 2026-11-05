@@ -30,14 +30,14 @@ describe("which of a subject's seats grant a panel", () => {
       person({ seats: [seat({ saison_id: "2024/25", saison_status: "past" }), seat({ saison_id: "2025/26", saison_status: "active" })] }),
     );
 
-    expect(roles.map((role) => (role.art === "kontakt" ? role.saison_id : null))).toStrictEqual(["2025/26"]);
+    expect(roles.map((role) => (role.kind === "kontakt" ? role.saison_id : null))).toStrictEqual(["2025/26"]);
   });
 
   for (const status of ["active", "future"] as const) {
     it(`grants one Funktion for a seat whose season is ${status}, carrying its team's name and its season's status`, () => {
       expect(rolesOf(person({ seats: [seat({ saison_status: status })] })).roles).toStrictEqual([
         {
-          art: "kontakt",
+          kind: "kontakt",
           rolle: "ansprechperson",
           team_id: SEAT.team_id,
           saison_id: "2526",
@@ -54,14 +54,14 @@ describe("which of a subject's seats grant a panel", () => {
     const { roles } = rolesOf(person({ seats: [seat({ rolle: "trainer" }), seat({ rolle: "ansprechperson" })] }));
 
     expect(roles.length).toBe(2);
-    expect(new Set(roles.map((role) => (role.art === "kontakt" ? role.team_id : null)))).toStrictEqual(new Set([SEAT.team_id]));
-    expect(new Set(roles.map((role) => (role.art === "kontakt" ? role.rolle : null)))).toStrictEqual(new Set(["trainer", "ansprechperson"]));
+    expect(new Set(roles.map((role) => (role.kind === "kontakt" ? role.team_id : null)))).toStrictEqual(new Set([SEAT.team_id]));
+    expect(new Set(roles.map((role) => (role.kind === "kontakt" ? role.rolle : null)))).toStrictEqual(new Set(["trainer", "ansprechperson"]));
   });
 
   it("answers one team's seats in two granting seasons as two Funktionen", () => {
     const { roles } = rolesOf(person({ seats: [seat({ saison_id: "2025/26" }), seat({ saison_id: "2026/27", saison_status: "future" })] }));
 
-    expect(roles.map((role) => (role.art === "kontakt" ? role.saison_id : null))).toStrictEqual(["2025/26", "2026/27"]);
+    expect(roles.map((role) => (role.kind === "kontakt" ? role.saison_id : null))).toStrictEqual(["2025/26", "2026/27"]);
   });
 });
 
@@ -70,13 +70,13 @@ describe("the Funktionen no season narrows", () => {
     const { roles } = rolesOf(person({ spieler: [{ spieler_id: "b".repeat(24) }], schiedsrichter: [{ schiedsrichter_id: "c".repeat(24) }] }));
 
     expect(roles).toStrictEqual([
-      { art: "spieler", spieler_id: "b".repeat(24) },
-      { art: "schiedsrichter", schiedsrichter_id: "c".repeat(24) },
+      { kind: "spieler", spieler_id: "b".repeat(24) },
+      { kind: "schiedsrichter", schiedsrichter_id: "c".repeat(24) },
     ]);
   });
 
   it("answers the administrator's verdict as the administration Funktion, and nothing without it", () => {
-    expect(rolesOf(person({}, true)).roles).toStrictEqual([{ art: "administration" }]);
+    expect(rolesOf(person({}, true)).roles).toStrictEqual([{ kind: "administration" }]);
     expect(rolesOf(person()).roles).toStrictEqual([]);
   });
 });

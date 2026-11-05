@@ -7,11 +7,12 @@ the request wrote nothing, and the frontend clears the site's cache by that prom
 `unknown_outcome` with a 500, which promises nothing (`app/core/exception_handlers.py ::
 db_exception_handler`). Two answers break the promise, each a 409 after the commit that ended an
 address change, whose records no cached read serves:
-`app/api/adresswechsel/admin_router.py :: post_address_change_approval` (`address_change_nothing`)
-and `app/api/adresswechsel/public_router.py :: post_address_change_answer` (`address_change_ended`).
+`app/api/address_change/admin_router.py :: post_address_change_approval` (`address_change_nothing`)
+and `app/api/address_change/public_router.py :: post_address_change_answer` (`address_change_ended`).
 """
 
 from enum import StrEnum, auto
+from typing import Literal
 
 
 class Code(StrEnum):
@@ -27,12 +28,15 @@ class Code(StrEnum):
     UNKNOWN_OUTCOME = auto()
     # Activating demotes the incumbent to `past`, whose rules then stay frozen (`rules_saison_started`).
     ACTIVATE_SAISON_UNFINISHED = auto()
+    # A season created while a `future` one stands: the next season is the one a create makes, so a league holds at
+    # most one planned season, and the planned one is where its next season is set up.
+    CREATE_SAISON_FUTURE_STANDS = auto()
     # A write a `past` season refuses: its activation, the draw, the group swap, the replacement, a fixture's save, a
-    # club's season row, a link's mint and a referee's report. Not every write: a club's contacts, an invitation's
-    # revocation and the administrator's correction of a report stay open on purpose, and the season's own edit refuses
-    # by the rules' freeze and the fixed start. No escape, and no demotion endpoint beside it: both keep the state
-    # reachable, and activating is the one operation that can reopen a finished season's points, groups and table. A
-    # season closed by mistake is repaired at the database.
+    # matchday's re-dating, a club's season row, a link's mint and a referee's report. Not every write: a club's
+    # contacts, an invitation's revocation and the administrator's correction of a report stay open on purpose, and the
+    # season's own edit refuses by the rules' freeze and the fixed start. No escape, and no demotion endpoint beside it:
+    # both keep the state reachable, and activating is the one operation that can reopen a finished season's points,
+    # groups and table. A season closed by mistake is repaired at the database.
     SAISON_PAST = auto()
     # The pair to `saison_past` on the draw: that one lets a running season still be drawn, and this one
     # keeps a season from going live undrawn in the first place.
@@ -54,6 +58,9 @@ class Code(StrEnum):
     ADDRESS_CHANGE_REPLACED_BARRED = auto()
     ADDRESS_CHANGE_TAKEN = auto()
     ADDRESS_CHANGE_UNCHANGED = auto()
+    # A 429: a person's own start pressed again inside the interval its mail stands for, which the edge's pair cannot
+    # hold, a server action reaching the start from any page.
+    ADDRESS_CHANGE_STARTED_RECENTLY = auto()
     ADDRESS_CHANGE_BARRED = auto()
     ADDRESS_CHANGE_NOTHING = auto()
     ADDRESS_CHANGE_NO_APPROVER = auto()
@@ -72,9 +79,14 @@ class Code(StrEnum):
     ANSETZUNG_CHANGED = auto()
     ANSETZUNG_DECIDED = auto()
     ANSETZUNG_VORSCHLAG_PAST = auto()
+    # The adoption's twin: it judges the STORED proposal, the request carrying no body, so a day gone by is a 409.
+    ANSETZUNG_VORSCHLAG_PAST_AS_STORED = auto()
+    # A decline proposing the slot the fixture already holds: adopted, it would save nothing and leave the proposal open.
+    ANSETZUNG_VORSCHLAG_UNCHANGED = auto()
     ANSETZUNG_CLOSED = auto()
     ANSETZUNG_NOT_ENTERABLE = auto()
     ANSETZUNG_NOT_DISCARDABLE = auto()
+    ANSETZUNG_NOT_ADOPTABLE = auto()
     ANSETZUNG_FOREIGN_ROW = auto()
     # A tier's key missing or wrong, whichever tier: the path names the tier.
     ACCESS_KEY_REFUSED = auto()
@@ -122,7 +134,7 @@ class Code(StrEnum):
     BEWERBUNG_KONTAKT_EMAIL_TAKEN = auto()
     BEWERBUNG_KEY_DIFFERING = auto()
     BEWERBUNG_TOKEN_PAST_DEADLINE = auto()
-    BEWERBUNG_ADRESSE_BARRED = auto()
+    BEWERBUNG_ADDRESS_BARRED = auto()
     BEWERBUNG_KONTAKT_BARRED = auto()
     BEWERBUNG_SEAT_DIFFERENTLY_SEATED = auto()
     # Judged on a reference the save moves, or keeps on a fixture it reopens: `spielort_still_booked` lets a venue
@@ -131,10 +143,11 @@ class Code(StrEnum):
     # Judged on the same references: a referee booked before confirming would be mailed an Einteilung for a panel that
     # address cannot open. A code of its own, the way out being the person's confirmation rather than a reactivation.
     BOOKING_UNCONFIRMED_SCHIEDSRICHTER = auto()
-    # A referee's own decline empties the slot outside this route, under an editor still showing them: a wholesale save
-    # keeping them would book them again unasked, and the next pass mail them for the fixture they just declined.
-    BOOKING_SCHIEDSRICHTER_MOVED = auto()
+
     SPIEL_DOUBLE_BOOKED = auto()
+    # The adoption's twins, one per resource: it judges the fixture's STORED ground and referee, so no path names which.
+    SPIEL_DOUBLE_BOOKED_SPIELORT_AS_STORED = auto()
+    SPIEL_DOUBLE_BOOKED_SCHIEDSRICHTER_AS_STORED = auto()
     SPIEL_OUTSIDE_SPIELTAG = auto()
     SPIELTAG_OUTSIDE_SAISON = auto()
     # `spiel_outside_spieltag`'s mirror: shrinking the span is the other way to break the same containment.
@@ -150,6 +163,9 @@ class Code(StrEnum):
     # The start every start lock reads, fixed once a fixture of the season has taken place: moved after play, it would
     # reopen the rules, the swap and the replacement on a season somebody already played.
     SAISON_START_TAKEN_PLACE = auto()
+    # A start moved later while a club's exit is stored: the season would read as not started again, reopening the group
+    # swap, which would field a departed club, on a season whose exits are recorded only once it has started.
+    SAISON_START_AUSTRITT_STORED = auto()
     INVITATION_TEAM_NOT_ENTERED = auto()
     # A consent press whose page was served choices that have moved since, on any of the account page's records: one
     # code, so the page maps one refusal however many writes share it.
@@ -159,9 +175,12 @@ class Code(StrEnum):
     GRANT_WORDING_STALE = auto()
     # One code for every write taking a person's media consent, the account presses and the three
     # confirmations alike, so each page maps one refusal.
-    MEDIEN_AGE = auto()
+    MEDIA_AGE = auto()
     GIVING_NOT_ALLOWED = auto()
     ELIGIBILITY_DISQUALIFIED = auto()
+    # The adoption's twins, one per side: it judges the fixture's STORED sides, so no path names which.
+    ELIGIBILITY_DISQUALIFIED_TEAM1_AS_STORED = auto()
+    ELIGIBILITY_DISQUALIFIED_TEAM2_AS_STORED = auto()
     ELIGIBILITY_TEAM_NOT_IN_SAISON = auto()
     ENTRY_SAISON_NOT_FUTURE = auto()
     ENTRY_GRUPPE_NOT_OFFERED = auto()
@@ -177,15 +196,15 @@ class Code(StrEnum):
     KONTAKT_ROW_WITHOUT_SAISON = auto()
     KONTAKT_SAISON_PAST = auto()
     # 403 and not 409, `grant_only_owner`'s precedent: the refusal is about who asks. An administrator's
-    # own records go through their account page, or through an owner (`verwaltung_adresse`).
-    OWN_ADRESSE = auto()
+    # own records go through their account page, or through an owner (`admin_address`).
+    OWN_ADDRESS = auto()
     # Refused rather than warned of: with no owner left nobody may make one or change a tier again, and only
     # a database paste could hand the administration on.
     LAST_OWNER_ERASURE = auto()
-    # 403 for who asks, as `own_adresse`: without it an administrator ends another's grant, which a revoke
+    # 403 for who asks, as `own_address`: without it an administrator ends another's grant, which a revoke
     # reserves to an owner (`grant_only_owner`).
-    VERWALTUNG_ADRESSE = auto()
-    # 403 for who asks, as `verwaltung_adresse`: an erasure ends every change naming its address, and ending a grant
+    ADMIN_ADDRESS = auto()
+    # 403 for who asks, as `admin_address`: an erasure ends every change naming its address, and ending a grant
     # holder's change is a discard, which only an owner may make of it.
     FOREIGN_ADDRESS_CHANGE = auto()
     # Refused rather than answered: a league always holds a live `owner`,
@@ -199,7 +218,7 @@ class Code(StrEnum):
     # Its own code beside `duplicate_key`, which words an administrator's duplicate ban: the name says
     # the flow that refuses rather than the collection consulted, and one rule keeps one code and one
     # German sentence.
-    REGISTRIERUNG_ADRESSE_BARRED = auto()
+    REGISTRIERUNG_ADDRESS_BARRED = auto()
     REGISTRIERUNG_KEY_DIFFERING = auto()
     REGISTRIERUNG_UNCONFIRMED = auto()
     REGISTRIERUNG_PERSON_NOT_NAMED = auto()
@@ -214,16 +233,18 @@ class Code(StrEnum):
     # Apart from `replace_incoming_already_entered`, being the payload's own fault: no season makes a club its own
     # replacement.
     REPLACE_ONE_TEAM_ON_BOTH_ENDS = auto()
-    # One code for the swap and the replacement, as `booking_unknown_resource` covers two resources: one rule read
-    # against two writes. Neither moves `tore`, so a fixture that has taken place would hand its record to another club.
-    # Its own code beside the two `..._saison_started`: before the start this is a result entered early, which a
-    # cleared result repairs.
-    SIDES_TAKEN_PLACE = auto()
+    # The replacement moves no `tore`, so a fixture that has taken place would hand its record to the incoming club.
+    # Its own code beside `replace_saison_started`: before the start this is a result entered early, which a cleared
+    # result repairs. The swap's twin of the same rule is `swap_sides_taken_place`, a code per act, since the two refuse
+    # with no path a sentence could tell them apart by.
+    REPLACE_SIDES_TAKEN_PLACE = auto()
     ERGEBNIS_SIDE_EMPTIED = auto()
     RETIRE_BLOCKED = auto()
-    # A played fixture never blocks: its `ort` is an embedded record.
+    # A played fixture never blocks: its `ort` is an embedded record. Its bounds name the fixtures that do, `spiel_nrs`
+    # and `count`, on the path's `spielort_id`.
     SPIELORT_STILL_BOOKED = auto()
-    # A played fixture never blocks: its `schiedsrichter` is a record of who officiated.
+    # A played fixture never blocks: its `schiedsrichter` is a record of who officiated. Bounded as the venue's is, on
+    # the path's `schiedsrichter_id`.
     SCHIEDSRICHTER_STILL_ASSIGNED = auto()
     # The routing layer's own refusals, raised before any handler runs.
     NO_ROUTE = auto()
@@ -237,6 +258,7 @@ class Code(StrEnum):
     RULES_SPIELTAG_OVER_ITS_PHASE = auto()
     RULES_QUALIFIERS_ABOVE_GRUPPE = auto()
     RULES_UNENTSCHIEDEN_OUTVALUES_WIN = auto()
+    RULES_NIEDERLAGE_OUTVALUES_UNENTSCHIEDEN = auto()
     RULES_KADER_BELOW_USE = auto()
     RULES_FORFEIT_UNENTSCHIEDEN_IN_A_KNOCKOUT = auto()
     RULES_SHAPE_AFTER_SPIELPLAN = auto()
@@ -245,13 +267,13 @@ class Code(StrEnum):
     # its shape, so a refusal reading a stored value is a conflict with state, a 409.
     RULES_FORFEIT_UNENTSCHIEDEN_IN_A_KNOCKOUT_AS_STORED = auto()
     SCHIEDSRICHTER_RETIRED = auto()
-    SCHIEDSRICHTER_NO_ADRESSE = auto()
+    SCHIEDSRICHTER_NO_ADDRESS = auto()
     # Its own code and never `duplicate_key`, which the ban list's client words as a second ban of one
     # address: two conditions under one code are two a frontend cannot part.
-    SCHIEDSRICHTER_ADRESSE_BARRED = auto()
-    SCHIEDSRICHTER_ADRESSE_ONLY_PER_CHANGE = auto()
-    SPERRLISTE_NO_SAISON = auto()
-    SPERRLISTE_VERWALTUNG = auto()
+    SCHIEDSRICHTER_ADDRESS_BARRED = auto()
+    SCHIEDSRICHTER_ADDRESS_ONLY_PER_CHANGE = auto()
+    BAN_LIST_NO_SAISON = auto()
+    BAN_LIST_ADMIN = auto()
     SPIELPLAN_ALREADY_DRAWN = auto()
     SPIELPLAN_SPIELTAGE_HELD = auto()
     # One code, because one repair reaches all three: every offered group holding exactly
@@ -267,6 +289,9 @@ class Code(StrEnum):
     # the club: a resend answers the same, and the way out is the wiring the resolution followed or a
     # result that changes who advances.
     SPIELTAG_OCCUPIED_BY_THE_RESOLUTION = auto()
+    # A fixture's save deleting later results other than those its body confirms (`voided_results`), judged inside its
+    # transaction: the question its dry run asked is of a season that has moved since, so no result goes unasked.
+    VOIDED_RESULTS_STALE = auto()
     # The same dangling reference `eligibility_team_not_in_saison` refuses on the match side.
     KADER_TEAM_NOT_IN_SAISON = auto()
     KADER_FULL = auto()
@@ -283,9 +308,11 @@ class Code(StrEnum):
     # decides is none: the person's pick is what is refused, so a 422 naming both boxes.
     SWAP_NOT_A_SWAP = auto()
     SWAP_SAISON_STARTED = auto()
-    SWAP_SPIELTAG_CLASH = auto()
-    # FORWARDS ONLY, exactly as `eligibility_disqualified` is: the past is left alone.
-    SWAP_FIELDS_DISQUALIFIED = auto()
+    # `replace_sides_taken_place`'s rule read against the swap, which moves no `tore` either.
+    SWAP_SIDES_TAKEN_PLACE = auto()
+    # An exit recorded before the season's start date: before the start a club out of the season is replaced, so no
+    # fixture of an unstarted season, which the swap alone rewrites, fields a departed club.
+    AUSTRITT_BEFORE_SAISON_START = auto()
     PAYLOAD_REFUSED = auto()
     # A body no field could be read from: malformed syntax, RFC 9110's 400, never a refused payload's 422.
     BODY_UNREADABLE = auto()
@@ -298,3 +325,34 @@ class Code(StrEnum):
     WIRING_GRUPPE_NOT_RUN = auto()
     UNHANDLED_CRASH = auto()
     STORED_DATA_INVALID = auto()
+
+
+# Every domain rule's kind: a refused payload's field carries one where a `PydanticCustomError` broke it. Published as
+# the API's `Rule`, so the frontend's rule phrases are keyed by it as its code phrases are by `Code`. A `Literal`, not a
+# `StrEnum`: pydantic takes the error's kind as a `LiteralString`, which no enum member is. Raised through
+# `app/core/exceptions.py :: rule_refusal`, whose parameter takes nothing else.
+type Rule = Literal[
+    "acceptance_with_proposal",
+    "acceptance_with_reason",
+    "address_in_free_text",
+    "bewerbung_window_ends_before_start",
+    "date_not_in_calendar",
+    "decline_without_proposal",
+    "decline_without_reason",
+    "elfmeterschiessen_without_draw",
+    "elfmeterschiessen_without_winner",
+    "email_not_accepted",
+    "ergebnis_missing_tore",
+    "good_spieler_exceed_kader",
+    "grant_wording_stale",
+    "kontakt_email_twice",
+    "kontakt_telefon_twice",
+    "nichtantreten_with_tore",
+    "nichtantreten_with_torschuetzen",
+    "registrierung_window_reaches_saison_start",
+    "saison_ends_before_start",
+    "spieltag_ends_before_start",
+    "text_version_of_another_wording",
+    "torschuetzen_not_matching_tore",
+    "url_not_accepted",
+]

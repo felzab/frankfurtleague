@@ -11,7 +11,7 @@ type RefusedConfirmation<Z> = PublicEnvelope & { success: false; zustand?: Z };
 /** Every link confirmation's reading of a refused answer; `onRefusal` raises what is left, the form's own. */
 export function reportRefusedConfirmation<Z>(
   antwort: RefusedConfirmation<Z>,
-  { onZustand, onRefusal }: { onZustand: (zustand: Z) => void; onRefusal: () => void },
+  { onState, onRefusal }: { onState: (state: Z) => void; onRefusal: () => void },
 ): void {
   // Titled as an unread answer is, the answer having perhaps landed: the envelope's own sentence is
   // an administrator's repair, and a reload of the page has lost its token.
@@ -22,7 +22,7 @@ export function reportRefusedConfirmation<Z>(
 
   // The link died between the open and the press: the answer is the panel, never a toast.
   if (antwort.zustand !== undefined) {
-    onZustand(antwort.zustand);
+    onState(antwort.zustand);
     return;
   }
 

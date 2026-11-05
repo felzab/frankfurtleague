@@ -1,12 +1,14 @@
+import { AccountBoxPlaceholder } from "@/kit/AccountBox";
 import { AccountPage } from "@/kit/AccountPage";
 
+import { requires } from "@/core/action";
 import { passkeysOf } from "@/core/auth/passkeys";
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
+import { requireAccountSession } from "@/features/account/account";
+import { getAccountAddressChange, getErasureView } from "@/features/account/queries";
 import { SignInPayloadSchema } from "@/features/auth/schemas";
-import { requireAccountSession } from "@/features/konto/account";
-import { getAccountAddressChange, getErasureView } from "@/features/konto/queries";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import { SignInBoxes } from "./SignInBoxes";
@@ -40,7 +42,7 @@ async function SignInContent() {
     getAccountAddressChange(),
     passkeysOf(served.user.id).then((rows) => rows.length > 0),
     // Read for an owner alone, the one tier that can be the last; the deletion's own page refuses it again.
-    subject.subject.verwaltung === "owner" ? getErasureView().then((view) => view.last_owner) : false,
+    subject.records.admin_tier === "owner" ? getErasureView().then((view) => view.last_owner) : false,
   ]);
   return (
     <SignInBoxes
@@ -48,7 +50,7 @@ async function SignInContent() {
       pending={change.open === null ? null : pendingOf(change.open)}
       held={held}
       lastOwner={lastOwner ? SERVER_COPY.refusalLine.last_owner_erasure : undefined}
-      addressRequired={!SignInPayloadSchema.shape.email.safeParse("").success}
+      addressRequired={requires(SignInPayloadSchema.shape.email, "")}
     />
   );
 }
@@ -56,7 +58,17 @@ async function SignInContent() {
 /** Anmeldung: the address the person signs in with, and „Konto löschen“. */
 export default function AccountSignInPage() {
   return (
-    <AccountPage route="accountSignIn">
+    <AccountPage
+      route="accountSignIn"
+      wait={
+        <>
+          <AccountBoxPlaceholder
+            fields={1}
+            foot
+          />
+          <AccountBoxPlaceholder foot />
+        </>
+      }>
       <SignInContent />
     </AccountPage>
   );

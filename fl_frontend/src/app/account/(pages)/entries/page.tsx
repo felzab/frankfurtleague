@@ -1,10 +1,11 @@
+import { AccountBoxPlaceholder } from "@/kit/AccountBox";
 import { AccountEmpty, AccountPage } from "@/kit/AccountPage";
 
 import { COPY } from "@/core/copy";
 import { dayOf, formatDatum } from "@/core/format";
 import { ROUTES } from "@/core/routes";
-import { requireAccountSession } from "@/features/konto/account";
-import { getAccountEinwilligungen } from "@/features/konto/queries";
+import { requireAccountSession } from "@/features/account/account";
+import { getAccountEinwilligungen } from "@/features/account/queries";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import { EntriesBoxes } from "./EntriesBoxes";
@@ -42,11 +43,11 @@ function entriesOf({ spieler, schiedsrichter, registrierungen, seats, bewerbunge
             description: WORDS.description.spieler,
             facts: [...fact(COPY.shared.name, `${spieler.vorname} ${spieler.nachname ?? ""}`.trim()), ...birthday(spieler.geburtsdatum)],
             save: { kind: "spieler" },
-            umfang: spieler.einwilligung.umfang,
-            medien: spieler.einwilligung.medien,
-            nachweis: spieler.nachweis_stand,
+            scope: spieler.einwilligung.scope,
+            media: spieler.einwilligung.media,
+            evidence: spieler.evidence_state,
             givable: spieler.givable,
-            mediaFrom: mediaFrom(spieler.medien_offered, spieler.medien_minimum_age),
+            mediaFrom: mediaFrom(spieler.media_offered, spieler.media_minimum_age),
           },
         ];
   const referee = schiedsrichter.map((row): Entry => ({
@@ -61,15 +62,15 @@ function entriesOf({ spieler, schiedsrichter, registrierungen, seats, bewerbunge
       ...fact(WORDS.facts.phone, row.kontakt.telefon),
     ],
     save: { kind: "schiedsrichter", schiedsrichter_id: row.schiedsrichter_id },
-    umfang: row.einwilligung.umfang,
-    medien: row.einwilligung.medien,
-    nachweis: row.nachweis_stand,
+    scope: row.einwilligung.scope,
+    media: row.einwilligung.media,
+    evidence: row.evidence_state,
     givable: row.givable,
-    mediaFrom: mediaFrom(row.medien_offered, row.medien_minimum_age),
+    mediaFrom: mediaFrom(row.media_offered, row.media_minimum_age),
   }));
   // A returning pupil's registration asks no choice: their record holds the choices.
   const registered = registrierungen.flatMap((row): Entry[] =>
-    row.umfang === null || row.medien === null
+    row.scope === null || row.media === null
       ? []
       : [
           {
@@ -88,9 +89,9 @@ function entriesOf({ spieler, schiedsrichter, registrierungen, seats, bewerbunge
               ),
             ],
             save: { kind: "registrierung", registrierung_id: row.registrierung_id },
-            umfang: row.umfang,
-            medien: row.medien,
-            nachweis: row.nachweis_stand,
+            scope: row.scope,
+            media: row.media,
+            evidence: row.evidence_state,
             // Withdraw-only: a grant on a pending registration waits on its team's admission.
             givable: false,
             mediaFrom: null,
@@ -103,11 +104,11 @@ function entriesOf({ spieler, schiedsrichter, registrierungen, seats, bewerbunge
     description: WORDS.description.seat(seat.rollen),
     facts: fact(WORDS.facts.team, WORDS.teamSeason({ record: seat.team_name }, COPY.shared.saisonName(seat.saison_id))),
     save: { kind: "seat", team_id: seat.team_id, saison_id: seat.saison_id },
-    umfang: seat.umfang,
-    medien: seat.medien,
-    nachweis: seat.nachweis_stand,
+    scope: seat.scope,
+    media: seat.media,
+    evidence: seat.evidence_state,
     givable: seat.givable,
-    mediaFrom: mediaFrom(seat.medien_offered, seat.medien_minimum_age),
+    mediaFrom: mediaFrom(seat.media_offered, seat.media_minimum_age),
   }));
   const applied = bewerbungen.map((bewerbung): Entry => ({
     id: `bewerbung-${bewerbung.bewerbung_id}`,
@@ -116,9 +117,9 @@ function entriesOf({ spieler, schiedsrichter, registrierungen, seats, bewerbunge
     description: WORDS.description.seat(bewerbung.rollen),
     facts: fact(WORDS.facts.school, bewerbung.schule),
     save: { kind: "bewerbung", bewerbung_id: bewerbung.bewerbung_id },
-    umfang: bewerbung.umfang,
-    medien: bewerbung.medien,
-    nachweis: bewerbung.nachweis_stand,
+    scope: bewerbung.scope,
+    media: bewerbung.media,
+    evidence: bewerbung.evidence_state,
     // Withdraw-only: a grant on a pending application is its confirmation page's alone.
     givable: false,
     mediaFrom: null,
@@ -146,7 +147,14 @@ async function EntriesContent() {
 /** Deine Einträge: each record of the person's own, with its consents. */
 export default function AccountEntriesPage() {
   return (
-    <AccountPage route="accountEntries">
+    <AccountPage
+      route="accountEntries"
+      wait={
+        <AccountBoxPlaceholder
+          rows={2}
+          foot
+        />
+      }>
       <EntriesContent />
     </AccountPage>
   );

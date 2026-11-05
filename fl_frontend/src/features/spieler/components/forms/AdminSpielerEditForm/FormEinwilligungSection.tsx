@@ -45,22 +45,22 @@ export function FormEinwilligungSection({ einwilligung }: { einwilligung: FLEinw
 
         <dl className={FIELD_PAIR_CLASSES}>
           <Angabe label="Umfang">
-            {EINWILLIGUNG_UMFANG_LABELS[einwilligung.umfang]}
+            {EINWILLIGUNG_UMFANG_LABELS[einwilligung.scope]}
             <Beleg
-              nachweis={einwilligung.nachweis.umfang}
+              evidence={einwilligung.evidence.scope}
               bestaetigung={bestaetigungOf(einwilligung)}
             />
           </Angabe>
           {/* A word and never a switch: this panel reads a record back, and a control here would
                 offer an administrator the answer that is the person's alone. */}
           <Angabe label={EINWILLIGUNG_MEDIEN_FRAGE}>
-            {einwilligung.medien ? EINWILLIGUNG_MEDIEN_LABELS.erteilt : EINWILLIGUNG_MEDIEN_LABELS.nicht_erteilt}
+            {einwilligung.media ? EINWILLIGUNG_MEDIEN_LABELS.given : EINWILLIGUNG_MEDIEN_LABELS.nicht_erteilt}
             <Beleg
-              nachweis={einwilligung.nachweis.medien}
+              evidence={einwilligung.evidence.media}
               bestaetigung={bestaetigungOf(einwilligung)}
             />
           </Angabe>
-          <Angabe label="Erteilt am">{formatSpielDatum(einwilligung.datum)}</Angabe>
+          <Angabe label="Erteilt am">{formatSpielDatum(einwilligung.date)}</Angabe>
           <Angabe label="Bestätigt am">
             {einwilligung.confirmed_at === null ? <Leer>Nicht bestätigt</Leer> : formatSpielDatum(einwilligung.confirmed_at)}
           </Angabe>

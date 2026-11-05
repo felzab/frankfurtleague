@@ -17,8 +17,8 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.saisons.admin_router import activate_saison
 from app.api.saisons.crud import pull_massgebliche_saison_id
 from app.api.sperrliste.admin_router import get_sperrliste
-from app.api.sperrliste.crud import address_is_gesperrt
-from app.api.sperrliste.services import adresse_hash
+from app.api.sperrliste.crud import address_is_barred
+from app.api.sperrliste.services import address_hash
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
@@ -100,20 +100,20 @@ async def listed(database: AsyncDatabase) -> Any:
     """The list read with its two dependencies: the season the ban list compares against, and the key."""
 
     return await get_sperrliste(
-        sperrliste_collection=database[Collection.SPERRLISTE],
-        sperrliste=ban_list(database),
+        ban_list_collection=database[Collection.BAN_LIST],
+        ban_list=ban_list(database),
     )
 
 
 async def ban(database: AsyncDatabase, client: AsyncMongoClient, *, email: str = BANNED) -> Any:
-    return await ban_through_the_route(database, client, email=email, grund=GRUND, von=ADMIN, today=TODAY)
+    return await ban_through_the_route(database, client, email=email, grund=GRUND, by=ADMIN, today=TODAY)
 
 
-async def is_gesperrt(database: AsyncDatabase, *, against: str | None, email: str = BANNED) -> bool:
-    return await address_is_gesperrt(
-        sperrliste_collection=database[Collection.SPERRLISTE],
-        adresse_hash=adresse_hash(email, key=CONFIG.sperrliste_key),
-        massgebliche_saison_id=against,
+async def is_barred(database: AsyncDatabase, *, against: str | None, email: str = BANNED) -> bool:
+    return await address_is_barred(
+        ban_list_collection=database[Collection.BAN_LIST],
+        address_hash=address_hash(email, key=CONFIG.sperrliste_key),
+        governing_saison_id=against,
     )
 
 
@@ -123,7 +123,7 @@ async def activate(database: AsyncDatabase, client: AsyncMongoClient, saison_id:
         saisons_collection=database[Collection.SAISONS],
         spiele_collection=database[Collection.SPIELE],
         spieltage_collection=database[Collection.SPIELTAGE],
-        sperrliste_collection=database[Collection.SPERRLISTE],
+        ban_list_collection=database[Collection.BAN_LIST],
         db=client,
     )
 
@@ -134,7 +134,7 @@ class TestWhatTheWriteRecords:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, Any]:
             created = await ban(database, client)
-            stored = await database[Collection.SPERRLISTE].find_one({})
+            stored = await database[Collection.BAN_LIST].find_one({})
 
             assert stored is not None
             return str(stored["barred_until_saison_id"]), created.barred_until_saison_id
@@ -152,7 +152,7 @@ class TestWhatTheWriteRecords:
         served = on_a_league(mongo_replica_set_url, [saison_document(ENTERED_UNDER, "active")], body)
 
         assert served.sperrliste[0].barred_until_saison_id == LAST_COVERED
-        assert "adresse_hash" not in served.model_dump_json()
+        assert "address_hash" not in served.model_dump_json()
 
 
 class TestTheSeasonTheBanIsCountedFrom:
@@ -224,9 +224,9 @@ class TestALeagueWithNoSeasonRunning:
             with pytest.raises(APIError) as raised:
                 await ban(database, client)
 
-            assert raised.value.error_code == Code.SPERRLISTE_NO_SAISON
+            assert raised.value.error_code == Code.BAN_LIST_NO_SAISON
 
-            return await database[Collection.SPERRLISTE].count_documents({})
+            return await database[Collection.BAN_LIST].count_documents({})
 
         assert on_a_league(mongo_replica_set_url, seasons, body) == 0
 
@@ -234,7 +234,7 @@ class TestALeagueWithNoSeasonRunning:
         """A public submission must not be turned away for the league's own state, and the refusal above is what leaves the list empty."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> bool:
-            return await is_gesperrt(database, against=None)
+            return await is_barred(database, against=None)
 
         assert on_a_league(mongo_replica_set_url, [saison_document("2027", "future")], body) is False
 
@@ -246,7 +246,7 @@ class TestTheBoundaryTheCheckReads:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[bool, bool]:
             await ban(database, client)
 
-            return await is_gesperrt(database, against=LAST_COVERED), await is_gesperrt(database, against=FIRST_CLEAR)
+            return await is_barred(database, against=LAST_COVERED), await is_barred(database, against=FIRST_CLEAR)
 
         assert on_a_league(mongo_replica_set_url, [saison_document(ENTERED_UNDER, "active")], body) == (True, False)
 
@@ -256,7 +256,7 @@ class TestTheBoundaryTheCheckReads:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[bool, int]:
             await ban(database, client)
 
-            return await is_gesperrt(database, against=FIRST_CLEAR), await database[Collection.SPERRLISTE].count_documents({})
+            return await is_barred(database, against=FIRST_CLEAR), await database[Collection.BAN_LIST].count_documents({})
 
         assert on_a_league(mongo_replica_set_url, [saison_document(ENTERED_UNDER, "active")], body) == (False, 1)
 
@@ -271,14 +271,14 @@ class TestTheSweepAtAnActivation:
             # Counted from the running season like the row above, then moved to the season the
             # activation reaches, which covers it.
             await ban(database, client, email=OTHER)
-            await database[Collection.SPERRLISTE].update_one(
-                {"adresse_hash": adresse_hash(OTHER, key=CONFIG.sperrliste_key)},
+            await database[Collection.BAN_LIST].update_one(
+                {"address_hash": address_hash(OTHER, key=CONFIG.sperrliste_key)},
                 {"$set": {"barred_until_saison_id": FIRST_CLEAR}},
             )
 
             await activate(database, client, FIRST_CLEAR)
 
-            return [str(row["barred_until_saison_id"]) async for row in database[Collection.SPERRLISTE].find()]
+            return [str(row["barred_until_saison_id"]) async for row in database[Collection.BAN_LIST].find()]
 
         assert on_a_league(mongo_replica_set_url, [saison_document(ENTERED_UNDER, "active")], body) == [FIRST_CLEAR]
 
@@ -290,7 +290,7 @@ class TestTheSweepAtAnActivation:
             await a_drawn_target(database, LAST_COVERED)
             await activate(database, client, LAST_COVERED)
 
-            return await database[Collection.SPERRLISTE].count_documents({})
+            return await database[Collection.BAN_LIST].count_documents({})
 
         assert on_a_league(mongo_replica_set_url, [saison_document(ENTERED_UNDER, "active")], body) == 1
 
@@ -302,7 +302,7 @@ class TestTheSweepAtAnActivation:
             await a_drawn_target(database, "2040")
             await activate(database, client, "2040")
 
-            return await database[Collection.SPERRLISTE].count_documents({})
+            return await database[Collection.BAN_LIST].count_documents({})
 
         assert on_a_league(mongo_replica_set_url, [saison_document(ENTERED_UNDER, "active")], body) == 0
 

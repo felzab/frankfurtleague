@@ -6,11 +6,11 @@ import { dayOf } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { runWithIncomingTrace } from "@/core/traceScope";
-import { AdresswechselLinkView } from "@/features/adresswechsel/components/views/AdresswechselLinkView";
-import { accountAtNewAddress } from "@/features/adresswechsel/konto";
-import { startOf, viewOf } from "@/features/adresswechsel/link";
-import { postAddressChangeView } from "@/features/adresswechsel/mutations";
-import { mapAddressChangeViewRefusal } from "@/features/adresswechsel/refusals";
+import { accountAtNewAddress } from "@/features/address-change/account";
+import { AdresswechselLinkView } from "@/features/address-change/components/views/AdresswechselLinkView";
+import { startOf, viewOf } from "@/features/address-change/link";
+import { postAddressChangeView } from "@/features/address-change/mutations";
+import { mapAddressChangeViewRefusal } from "@/features/address-change/refusals";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import { answerAddressChange, verwaltungswegBeantworten } from "./answers";
@@ -19,7 +19,6 @@ import { doneOnEnd } from "./ends";
 import type { Copy } from "@/core/copy";
 import type { FLAddressChangeViewResponse } from "@/core/generated/client/types";
 import type { MailedState } from "@/kit/MailedPage";
-import type { NextPageProps } from "@/shared/types/types";
 import type { Metadata, ResolvingMetadata } from "next";
 import type { Side } from "./ends";
 
@@ -33,15 +32,17 @@ const WORDS = SERVER_COPY.addressChange;
 
 const INVALID: MailedState = { state: "ungueltig", next: TO_ACCOUNT };
 
+type Props = PageProps<"/confirm/address">;
+
 /**
  * `/confirm/address`, both links of an address change, the token saying which: the person's own change on the
  * mailed-page template, the address on file asked first, then the new mailbox, each confirming or declining.
  */
-export default function AddressChangeConfirmationPage({ searchParams }: NextPageProps) {
+export default function AddressChangeConfirmationPage({ searchParams }: Props) {
   return <MailedPage page={readState(searchParams)} />;
 }
 
-async function readState(searchParams: NextPageProps["searchParams"]): Promise<MailedState> {
+async function readState(searchParams: Props["searchParams"]): Promise<MailedState> {
   const { token } = await searchParams;
   // A missing or repeated parameter is no link at all.
   if (typeof token !== "string" || token === "") return INVALID;
@@ -66,11 +67,11 @@ async function ownWay(view: FLAddressChangeViewResponse["view"], token: string):
     // The new mailbox ends it by its own answer alone; the address on file by its decline, or by the change it
     // confirmed first, whichever way the new mailbox answered after.
     if (view.side === "new") {
-      if (view.art === "effective") return doneOnEnd("new", "confirmed", ended);
-      return view.art === "declined" ? doneOnEnd("new", "declined", ended) : INVALID;
+      if (view.kind === "effective") return doneOnEnd("new", "confirmed", ended);
+      return view.kind === "declined" ? doneOnEnd("new", "declined", ended) : INVALID;
     }
-    if (released !== null && (view.art === "effective" || view.art === "declined")) return doneOnEnd("previous", "confirmed", released);
-    return view.art === "declined" ? doneOnEnd("previous", "declined", ended) : INVALID;
+    if (released !== null && (view.kind === "effective" || view.kind === "declined")) return doneOnEnd("previous", "confirmed", released);
+    return view.kind === "declined" ? doneOnEnd("previous", "declined", ended) : INVALID;
   }
 
   if (view.side === "previous") {
@@ -100,7 +101,7 @@ async function ownWay(view: FLAddressChangeViewResponse["view"], token: string):
 /** A link's question: the change's new address as the one fact, confirmed by the main act and declined by the other. */
 function question(side: Side, token: string, title: Copy, label: Copy, email: string, sentence: Copy): MailedState {
   return {
-    state: "frage",
+    state: "question",
     title: title,
     facts: [{ label: label, value: { record: email } }],
     sentence: sentence,
@@ -112,21 +113,21 @@ function question(side: Side, token: string, title: Copy, label: Copy, email: st
 
 /** Session 7: the administrator's way, which keeps the old view. */
 async function administratorsWay(read: FLAddressChangeViewResponse, token: string): Promise<MailedState> {
-  const gelesen = viewOf(read);
+  const view = viewOf(read);
   // The backend cannot see the sign-in store, so its view offers the press an account at the new address closes.
-  if (gelesen.zustand === "valid" && (await accountAtNewAddress({ token: token }))) {
-    return oldView({ zustand: "not_confirmable", way: gelesen.way }, token);
+  if (view.state === "valid" && (await accountAtNewAddress({ token: token }))) {
+    return oldView({ state: "not_confirmable", way: view.way }, token);
   }
-  return oldView(gelesen, token);
+  return oldView(view, token);
 }
 
-function oldView(gelesen: ReturnType<typeof viewOf>, token: string): MailedState {
+function oldView(read: ReturnType<typeof viewOf>, token: string): MailedState {
   return {
     state: "alt",
     view: (
       <ClassicPage width="form">
         <AdresswechselLinkView
-          start={startOf(gelesen, token)}
+          start={startOf(read, token)}
           beantworten={verwaltungswegBeantworten}
         />
       </ClassicPage>

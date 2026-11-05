@@ -1,7 +1,7 @@
 import { getAdminSession } from "@/core/auth/guards";
 import { asSignInIdentifier } from "@/core/emailAddress";
 import { rolesOf } from "@/core/roles";
-import { lookUpSubjekt } from "@/core/signInGate";
+import { lookUpSubject } from "@/core/signInGate";
 import { ADMIN_SHELL_FALLBACK } from "@/features/admin/constants";
 import { FunktionSwitcher } from "@/shared/components/layout/sidemenu/FunktionSwitcher";
 
@@ -20,13 +20,13 @@ export async function AdminFunktionSwitcher() {
 
   // The lookup the session's verdict was read from, memoised per render: a lookup failing here failed
   // there first, and the verdict answered it with no session.
-  const subjekt = await lookUpSubjekt(email);
+  const records = await lookUpSubject(email);
 
-  const { roles: funktionen } = rolesOf({ email: email, admin: true, subject: subjekt });
+  const { roles } = rolesOf({ email: email, isAdmin: true, records });
 
   return (
     <FunktionSwitcher
-      orte={funktionOrteOf(funktionen)}
+      orte={funktionOrteOf(roles)}
       ohneOrt={ADMIN_SHELL_FALLBACK.label}
       mitBereich
     />

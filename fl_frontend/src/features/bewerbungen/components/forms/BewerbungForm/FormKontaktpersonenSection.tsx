@@ -210,10 +210,10 @@ export function FormKontaktpersonenSection({
  * comes through their own link.
  */
 export function FormEinwilligungSection({
-  erteilt,
+  given,
   onErteiltPicked,
 }: {
-  erteilt: boolean;
+  given: boolean;
   /** A press, so it is judged here rather than on a blur no switch produces. */
   onErteiltPicked: (erteilt: boolean) => void;
 }) {
@@ -238,7 +238,7 @@ export function FormEinwilligungSection({
           // The Ansprechperson's path stands for all three: one press writes every seat's `erteilt`,
           // so the schema can never refuse one of them alone.
           name="kontakte.ansprechperson.einwilligung.erteilt"
-          isSelected={erteilt}
+          isSelected={given}
           onChange={onErteiltPicked}>
           <Switch.Content className={panel.switchContent()}>
             {COPY.bewerbung.kenntnisnahme}

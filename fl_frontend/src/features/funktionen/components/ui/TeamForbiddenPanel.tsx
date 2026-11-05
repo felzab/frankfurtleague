@@ -17,12 +17,12 @@ const BEREICH = { href: "/area", label: DEIN_BEREICH_TITEL };
  */
 export function TeamForbiddenPanel({ funktionen }: { funktionen: readonly Role[] }) {
   // One way out per team and season, however many seats there lead to it.
-  const sitze = zieleOf(funktionen.filter((funktion) => funktion.art === "kontakt")).flatMap(({ href, funktionen: [erste] }) =>
-    erste.art === "kontakt" ? [{ href: href, label: `${erste.team_name}, Saison ${erste.saison_id}` }] : [],
+  const sitze = zieleOf(funktionen.filter((funktion) => funktion.kind === "kontakt")).flatMap(({ href, funktionen: [erste] }) =>
+    erste.kind === "kontakt" ? [{ href: href, label: `${erste.team_name}, Saison ${erste.saison_id}` }] : [],
   );
   // A player's, a referee's or the administration's page is reached through the person's own area, so
   // every Funktion the person holds stays one press away from the refusal.
-  const links = sitze.length === 0 || funktionen.some((funktion) => funktion.art !== "kontakt") ? [...sitze, BEREICH] : sitze;
+  const links = sitze.length === 0 || funktionen.some((funktion) => funktion.kind !== "kontakt") ? [...sitze, BEREICH] : sitze;
 
   // A sole way out at its own width and in the brand fill, as every other panel under a shell shows
   // one; several are peers, in a peer's outline grade and stacked at the panel's width.

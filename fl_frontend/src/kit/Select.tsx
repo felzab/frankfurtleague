@@ -52,7 +52,10 @@ export function Select({
       // Every option's id is a string, so the key handed back is one.
       onChange={onChange && ((key) => onChange(key === null ? null : String(key)))}
       isRequired={isRequired}
-      isDisabled={useDisabled(isDisabled)}>
+      isDisabled={useDisabled(isDisabled)}
+      // Nothing while none is chosen, as an empty text field shows nothing: no field has a placeholder
+      // (`docs/frontend/copy.md`), and React Aria's own, „Element wählen“, is words outside the catalogue.
+      placeholder="">
       <FieldLabel
         label={label}
         isRequired={isRequired}
@@ -66,7 +69,7 @@ export function Select({
           // narrow below that widest label, so in a column narrower than it the field stops at the column and the
           // chosen value is cut there, where an `auto` column would hold the widest label and overflow the frame.
           <span className="grid min-w-0 grid-cols-[minmax(0,1fr)]">
-            <SelectValue className="col-start-1 row-start-1 truncate data-placeholder:text-fg-muted" />
+            <SelectValue className="col-start-1 row-start-1 truncate" />
             {options.map((option) => (
               <span
                 key={option.id}
@@ -77,7 +80,7 @@ export function Select({
             ))}
           </span>
         ) : (
-          <SelectValue className="truncate data-placeholder:text-fg-muted" />
+          <SelectValue className="truncate" />
         )}
         <Icon
           glyph="expand"

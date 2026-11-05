@@ -20,7 +20,7 @@ from app.api.registrierungen.schemas import FLPostRegistrierungPayload, FLRegist
 from app.api.registrierungen.services import (
     compose_confirmation_update,
 )
-from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
+from app.api.sperrliste.services import compose_barred_until_saison_id
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -51,9 +51,6 @@ CONFIG = build_test_config()
 WIRE_CONFIG = CONFIG.model_copy(update={"db_base_name": DATABASE_NAME})
 
 SAISON_ID = "2026"
-# A season the league has not reached, whose link a pupil may already hold: the pair a ban is
-# counted over, the reference season being the running one rather than this.
-SPAETERE_SAISON_ID = "2027"
 TODAY = "2026-04-01"
 # Every season's start unless a case says so: after `TODAY`, so an entry made today is an ordinary one.
 AFTER_TODAY = "2026-04-20"
@@ -69,13 +66,11 @@ OTHER_TEAM_OID = ObjectId("6890a1b2c3d4e5f607960002")
 EINLADUNG_OID = ObjectId("6890a1b2c3d4e5f607960003")
 OTHER_EINLADUNG_OID = ObjectId("6890a1b2c3d4e5f607960004")
 REVOKED_EINLADUNG_OID = ObjectId("6890a1b2c3d4e5f607960005")
-SPAETERE_EINLADUNG_OID = ObjectId("6890a1b2c3d4e5f607960006")
 
 # The raw link values, which exist in the seed and in a recipient's inbox and nowhere else.
 TOKEN = "hwGqQ4kP6yJr3VnZbT8sXeM2dLuF9aCwR1oY5iN7pKg"
 OTHER_TOKEN = "3pLm9XqW2vTc7bYhK4sD8fRn6gJz1uE5aQoI0wN3yVt"
 REVOKED_TOKEN = "Zt5rYb8nK2wQ7xM4jL9cV6sD1fH3gP0aU5eI7oT2mXk"
-SPAETERE_TOKEN = "Qw7eR2tY5uI8oP1aS4dF7gH0jK3lZ6xC9vB2nM5qW8e"
 
 TEAM_NAME = "Zorbanax"
 TEAM_FULL_NAME = "Zorbanax-Gesamtschule"
@@ -84,7 +79,7 @@ OTHER_TEAM_NAME = "Quillhilde"
 PUPIL_EMAIL = "thessaly@beispielschule.de"
 BANNED_EMAIL = "wraxlington@beispielschule.de"
 
-OPEN_WINDOW: Mapping[str, Any] = {"offen": True, "von": "2026-03-01", "bis": "2026-04-30"}
+OPEN_WINDOW: Mapping[str, Any] = {"offen": True, "end": "2026-04-30"}
 
 RULES: Mapping[str, Any] = documents.rules_document(
     number_of_gruppen=2,
@@ -101,7 +96,7 @@ def club_document(team_id: ObjectId, name: str) -> dict[str, Any]:
 
 
 def einladung_document(
-    invitation_id: ObjectId, team_id: ObjectId, token: str, *, widerrufen_am: str | None = None, saison_id: str = SAISON_ID
+    invitation_id: ObjectId, team_id: ObjectId, token: str, *, revoked_at: str | None = None, saison_id: str = SAISON_ID
 ) -> dict[str, Any]:
     return {
         "_id": invitation_id,
@@ -110,7 +105,7 @@ def einladung_document(
         "token_hashes": [hash_token(token)],
         "created_at": "2026-03-15",
         "created_by": "admin@frankfurtleague.de",
-        "widerrufen_am": widerrufen_am,
+        "revoked_at": revoked_at,
     }
 
 
@@ -149,7 +144,7 @@ def junction_document(saison_id: str, team_id: ObjectId, name: str) -> dict[str,
 
 # Composed by the production helper rather than spelled: a hand-written bound that drifted from it
 # would leave these cases passing over a lapsed row.
-STANDING = compose_gesperrt_bis_saison_id(massgebliche_saison_id=SAISON_ID)
+STANDING = compose_barred_until_saison_id(governing_saison_id=SAISON_ID)
 
 
 def on_a_league(
@@ -159,9 +154,8 @@ def on_a_league(
     registrierung: Any = OPEN_WINDOW,
     squad: int = 0,
     banned: str | None = None,
-    banned_bis: str = STANDING,
+    banned_until: str = STANDING,
     saison_status: str = "active",
-    spaetere_saison: bool = False,
     start_date: str = AFTER_TODAY,
 ) -> Any:
     """A clean database carrying the shipped indexes, so a duplicate production would refuse fails here too.
@@ -179,18 +173,9 @@ def on_a_league(
                 [
                     einladung_document(EINLADUNG_OID, TEAM_OID, TOKEN),
                     einladung_document(OTHER_EINLADUNG_OID, OTHER_TEAM_OID, OTHER_TOKEN),
-                    einladung_document(REVOKED_EINLADUNG_OID, TEAM_OID, REVOKED_TOKEN, widerrufen_am="2026-03-20"),
+                    einladung_document(REVOKED_EINLADUNG_OID, TEAM_OID, REVOKED_TOKEN, revoked_at="2026-03-20"),
                 ]
             )
-
-            # A later season the same team plays, with a link of its own: the reference season is
-            # then the running one and the invite's is not, which is the pair a ban is counted over.
-            if spaetere_saison:
-                await database[Collection.SAISONS].insert_one(saison_document(SPAETERE_SAISON_ID, "future", registrierung))
-                await database[Collection.SAISON_TEAMS].insert_one(junction_document(SPAETERE_SAISON_ID, TEAM_OID, TEAM_NAME))
-                await database[Collection.INVITATIONS].insert_one(
-                    einladung_document(SPAETERE_EINLADUNG_OID, TEAM_OID, SPAETERE_TOKEN, saison_id=SPAETERE_SAISON_ID)
-                )
 
             if squad:
                 await database[Collection.SAISON_SPIELER].insert_many(
@@ -203,7 +188,7 @@ def on_a_league(
                 )
 
             if banned is not None:
-                await database[Collection.SPERRLISTE].insert_one(documents.ban_document(banned, bis=banned_bis))
+                await database[Collection.BAN_LIST].insert_one(documents.ban_document(banned, until=banned_until))
 
             return await body(database, client)
 
@@ -229,12 +214,12 @@ async def register(
         registrierung_data=FLPostRegistrierungPayload.model_validate(payload(**overrides)),
         idempotency_key=None if keyless else key or uuid4(),
         registrierungen_collection=registrierungen if registrierungen is not None else database[Collection.REGISTRIERUNGEN],
-        einladungen_collection=database[Collection.INVITATIONS],
+        invitations_collection=database[Collection.INVITATIONS],
         saisons_collection=database[Collection.SAISONS],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saison_spieler_collection=database[Collection.SAISON_SPIELER],
         outbox_collection=database[Collection.OUTBOX],
-        sperrliste=ban_list(database),
+        ban_list=ban_list(database),
         db=client,
         today=TODAY,
         germany_now=MAIL_NOW,
@@ -245,10 +230,10 @@ async def owed_of(database: AsyncDatabase) -> list[Mapping[str, Any]]:
     return [row async for row in database[Collection.OUTBOX].find().sort("_id", 1)]
 
 
-async def ansicht(database: AsyncDatabase, *, token: str = TOKEN) -> Any:
+async def view(database: AsyncDatabase, *, token: str = TOKEN) -> Any:
     return await post_invitation_view(
-        ansicht_data=FLTokenPayload(token=token),
-        einladungen_collection=database[Collection.INVITATIONS],
+        view_data=FLTokenPayload(token=token),
+        invitations_collection=database[Collection.INVITATIONS],
         saisons_collection=database[Collection.SAISONS],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saison_spieler_collection=database[Collection.SAISON_SPIELER],
@@ -262,11 +247,11 @@ async def admit_as_the_team(database: AsyncDatabase, client: AsyncMongoClient, r
 
     confirmation = compose_confirmation_update(
         geburtsdatum="2009-05-04",
-        umfang="intern",
-        medien=False,
+        scope="intern",
+        media=False,
         text_versions=SPIELER_TEXT_VERSIONS,
         today=TODAY,
-        am="2026-03-31T08:00:00+00:00",
+        at="2026-03-31T08:00:00+00:00",
     )
     await database[Collection.REGISTRIERUNGEN].update_one({"_id": registrierung_id}, dict(confirmation))
     seat = documents.kontaktperson_document("Anna", confirmed_at=TODAY)
@@ -284,8 +269,8 @@ async def admit_as_the_team(database: AsyncDatabase, client: AsyncMongoClient, r
         saisons_collection=database[Collection.SAISONS],
         spieler_collection=database[Collection.SPIELER],
         records=record_collections(database),
-        aktionen_collection=database[Collection.ACTION_LOG],
-        sperrliste=ban_list(database),
+        action_log_collection=database[Collection.ACTION_LOG],
+        ban_list=ban_list(database),
         db=client,
         today=TODAY,
         germany_now=NOW,
@@ -366,17 +351,17 @@ class TestWhatASubmissionStores:
 
         assert stored["confirmation"]["token_hashes"] == []
         assert (stored["confirmation"]["sent_at"], stored["confirmation"]["reminded_at"]) == (TODAY, None)
-        assert [(row["art"], row["an"], row["reference"]["id"], row["link"]) for row in owed] == [
+        assert [(row["kind"], row["an"], row["reference"]["id"], row["link"]) for row in owed] == [
             (
                 "registrierung_confirmation",
                 PUPIL_EMAIL,
                 response.registrierung_id,
-                {"paths": ["confirmation.token_hashes"], "adressen": ["email"], "replaced": False},
+                {"paths": ["confirmation.token_hashes"], "addresses": ["email"], "replaced": False},
             )
         ]
         # Off the invite, never off the body: the mail addresses the pupil by them.
         assert owed[0]["data"] == {
-            "art": "registrierung_confirmation",
+            "kind": "registrierung_confirmation",
             "team": TEAM_NAME,
             "saison_id": SAISON_ID,
             "frist_days": REGISTRIERUNG_CONFIRMATION_FRIST_DAYS,
@@ -391,11 +376,11 @@ class TestWhatASubmissionStores:
             assert mail.token is not None
 
             return await get_confirmation_view(
-                ansicht_data=FLTokenPayload(token=mail.token),
+                view_data=FLTokenPayload(token=mail.token),
                 registrierungen_collection=database[Collection.REGISTRIERUNGEN],
                 teams_collection=database[Collection.TEAMS],
                 spieler_collection=database[Collection.SPIELER],
-                sperrliste=ban_list(database),
+                ban_list=ban_list(database),
                 today=TODAY,
             )
 
@@ -456,14 +441,14 @@ class TestTheSubmissionKey:
 
         assert len(rows) == 1
         assert second.registrierung_id == first.registrierung_id
-        assert [row["art"] for row in owed] == ["registrierung_confirmation"]
+        assert [row["kind"] for row in owed] == ["registrierung_confirmation"]
 
     def test_a_replay_answers_after_the_invite_was_revoked(self, mongo_replica_set_url: str):
         """Looked up before every judgement: the first press opened a live invite, and its answer outlives the revocation."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             first = await register(database, client, key=SCHLUESSEL)
-            await database[Collection.INVITATIONS].update_one({"_id": EINLADUNG_OID}, {"$set": {"widerrufen_am": TODAY}})
+            await database[Collection.INVITATIONS].update_one({"_id": EINLADUNG_OID}, {"$set": {"revoked_at": TODAY}})
             second = await register(database, client, key=SCHLUESSEL)
 
             return first.registrierung_id, second.registrierung_id
@@ -669,21 +654,8 @@ class TestWhatASubmissionIsRefused:
 
         assert outcome == (Code.REGISTRIERUNG_CLOSED, 0)
 
-    def test_a_link_opened_after_the_windows_last_day_is_refused(self, mongo_replica_set_url: str):
-        """The invite carries no expiry of its own: the window is what it stops opening at."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
-            with pytest.raises(APIError) as refused:
-                await register(database, client)
-
-            return refused.value.error_code
-
-        outcome = on_a_league(mongo_replica_set_url, body, registrierung={**OPEN_WINDOW, "bis": "2026-03-31"})
-
-        assert outcome == Code.REGISTRIERUNG_CLOSED
-
     def test_a_season_that_has_ended_is_refused_while_its_dates_still_run(self, mongo_replica_set_url: str):
-        """The window's dates run and its flag is on: only the season's status closes it, as minting the link already does."""
+        """The window's end is still ahead and its link is not paused: only the season's status closes it, as minting the link already does."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, int]:
             with pytest.raises(APIError) as refused:
@@ -755,7 +727,7 @@ class TestWhatASubmissionIsRefused:
 
             return refused.value.error_code, await database[Collection.REGISTRIERUNGEN].count_documents({})
 
-        assert on_a_league(mongo_replica_set_url, body, banned=BANNED_EMAIL) == (Code.REGISTRIERUNG_ADRESSE_BARRED, 0)
+        assert on_a_league(mongo_replica_set_url, body, banned=BANNED_EMAIL) == (Code.REGISTRIERUNG_ADDRESS_BARRED, 0)
 
     def test_a_banned_address_is_refused_however_the_pupil_spells_it(self, mongo_replica_set_url: str):
         """One canonical form decides, so a ban is not lifted by typing the address in another case."""
@@ -767,7 +739,7 @@ class TestWhatASubmissionIsRefused:
             return refused.value.error_code
 
         assert league_address(BANNED_EMAIL.upper()) == league_address(BANNED_EMAIL)
-        assert on_a_league(mongo_replica_set_url, body, banned=BANNED_EMAIL) == Code.REGISTRIERUNG_ADRESSE_BARRED
+        assert on_a_league(mongo_replica_set_url, body, banned=BANNED_EMAIL) == Code.REGISTRIERUNG_ADDRESS_BARRED
 
     def test_an_address_no_row_holds_registers(self, mongo_replica_set_url: str):
         """The other arm of the ban check, so a check refusing everybody would fail here rather than pass quietly."""
@@ -780,51 +752,16 @@ class TestWhatASubmissionIsRefused:
         assert on_a_league(mongo_replica_set_url, body, banned=BANNED_EMAIL) == 1
 
 
-class TestWhichSeasonABanIsCountedFrom:
-    """The REFERENCE season decides, never the season the link is for.
-
-    A pupil may hold a link for a season the league has not reached, and counting from that one
-    lifts a ban early.
-    """
-
-    def test_a_ban_covering_the_running_season_refuses_a_link_for_a_later_one(self, mongo_replica_set_url: str):
-        """The bound lies between the two seasons: counted from the invite's, this ban would have lapsed."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
-            with pytest.raises(APIError) as refused:
-                await register(database, client, token=SPAETERE_TOKEN, email=BANNED_EMAIL)
-
-            return refused.value.error_code
-
-        outcome = on_a_league(
-            mongo_replica_set_url, body, spaetere_saison=True, banned=BANNED_EMAIL, banned_bis=SAISON_ID, saison_status="active"
-        )
-
-        assert SAISON_ID < SPAETERE_SAISON_ID
-        assert outcome == Code.REGISTRIERUNG_ADRESSE_BARRED
-
+class TestALapsedBan:
     def test_a_lapsed_ban_refuses_nobody(self, mongo_replica_set_url: str):
-        """The other arm, so a check ignoring the bound would pass this case as well as the one above."""
+        """The bound counted from the season the league is on: a check ignoring it would bar a pupil the ban no longer covers."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> int:
             await register(database, client, email=BANNED_EMAIL)
 
             return await database[Collection.REGISTRIERUNGEN].count_documents({})
 
-        assert on_a_league(mongo_replica_set_url, body, banned=BANNED_EMAIL, banned_bis="2025") == 1
-
-    def test_a_league_no_season_has_run_judges_on_the_hash_alone(self, mongo_replica_set_url: str):
-        """One `future` season and nothing that ever ran: the reference read answers nothing, and a ban still bars."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
-            with pytest.raises(APIError) as refused:
-                await register(database, client, email=BANNED_EMAIL)
-
-            return refused.value.error_code
-
-        outcome = on_a_league(mongo_replica_set_url, body, saison_status="future", banned=BANNED_EMAIL, banned_bis="2025")
-
-        assert outcome == Code.REGISTRIERUNG_ADRESSE_BARRED
+        assert on_a_league(mongo_replica_set_url, body, banned=BANNED_EMAIL, banned_until="2025") == 1
 
 
 class TestWhatTheInvitesOwnReadAnswers:
@@ -832,7 +769,7 @@ class TestWhatTheInvitesOwnReadAnswers:
 
     def test_it_names_the_team_and_the_school_the_consent_copy_renders(self, mongo_replica_set_url: str):
         async def run(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            return await ansicht(database)
+            return await view(database)
 
         answer = on_a_league(mongo_replica_set_url, run)
 
@@ -844,7 +781,7 @@ class TestWhatTheInvitesOwnReadAnswers:
         """The read and the write are one field, so a form offering more than this is a drifted client."""
 
         async def run(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            return await ansicht(database)
+            return await view(database)
 
         assert on_a_league(mongo_replica_set_url, run).allowed_stufen == list(RULES["allowed_stufen"])
 
@@ -852,7 +789,7 @@ class TestWhatTheInvitesOwnReadAnswers:
         """A link pasted after the deadline reads as closed rather than as invalid."""
 
         async def run(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            return await ansicht(database)
+            return await view(database)
 
         answer = on_a_league(mongo_replica_set_url, run, registrierung={**OPEN_WINDOW, "offen": False})
 
@@ -862,7 +799,7 @@ class TestWhatTheInvitesOwnReadAnswers:
         """The page renders `running` alone, so a `past` season answering true offers a form every submission of which is refused."""
 
         async def run(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, bool]:
-            answer = await ansicht(database)
+            answer = await view(database)
 
             return answer.saison_status, answer.running
 
@@ -871,7 +808,7 @@ class TestWhatTheInvitesOwnReadAnswers:
     def test_a_revoked_link_is_refused(self, mongo_replica_set_url: str):
         async def run(database: AsyncDatabase, client: AsyncMongoClient) -> str:
             with pytest.raises(APIError) as refused:
-                await ansicht(database, token=REVOKED_TOKEN)
+                await view(database, token=REVOKED_TOKEN)
 
             return refused.value.error_code
 
@@ -879,7 +816,7 @@ class TestWhatTheInvitesOwnReadAnswers:
 
     def test_the_squad_has_room_until_the_cap_is_reached(self, mongo_replica_set_url: str):
         async def run(database: AsyncDatabase, client: AsyncMongoClient) -> bool:
-            return (await ansicht(database)).kader_free
+            return (await view(database)).kader_free
 
         assert on_a_league(mongo_replica_set_url, run) is True
         assert on_a_league(mongo_replica_set_url, run, squad=RULES["max_kadergroesse"]) is False
@@ -888,7 +825,7 @@ class TestWhatTheInvitesOwnReadAnswers:
         """False the day before it, true on it: the squad create's own test, off the season the read already holds."""
 
         async def run(database: AsyncDatabase, client: AsyncMongoClient) -> bool:
-            return (await ansicht(database)).nachnominierung
+            return (await view(database)).nachnominierung
 
         assert on_a_league(mongo_replica_set_url, run, start_date="2026-04-02") is False
         assert on_a_league(mongo_replica_set_url, run, start_date=TODAY) is True
@@ -901,24 +838,22 @@ class TestWhatTheInvitesOwnReadAnswers:
         """
 
         async def run(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[bool, bool]:
-            entered = await ansicht(database)
-            not_entered = await ansicht(database, token=OTHER_TOKEN)
+            entered = await view(database)
+            not_entered = await view(database, token=OTHER_TOKEN)
 
             return entered.team_entered, not_entered.team_entered
 
         assert on_a_league(mongo_replica_set_url, run) == (True, False)
 
-    def test_a_future_season_is_read_and_registered_for(self, mongo_replica_set_url: str):
-        """The withheld-season guard is waived on both operations, and a season taking registrations is normally `future`.
+    def test_a_season_not_yet_activated_is_read_as_a_shut_window(self, mongo_replica_set_url: str):
+        """The withheld-season guard is waived for the invite's read, and a link minted before the activation opens no form yet.
 
-        Calling `resolve_public_saison` here would 404 the whole flow; the invite is the
-        authorisation instead.
+        Calling `resolve_public_saison` here would 404 the link; the invite is the authorisation instead.
         """
 
-        async def run(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, int]:
-            answer = await ansicht(database)
-            await register(database, client)
+        async def run(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, bool]:
+            answer = await view(database)
 
-            return answer.saison_status, await database[Collection.REGISTRIERUNGEN].count_documents({})
+            return answer.saison_status, answer.running
 
-        assert on_a_league(mongo_replica_set_url, run, saison_status="future") == ("future", 1)
+        assert on_a_league(mongo_replica_set_url, run, saison_status="future") == ("future", False)

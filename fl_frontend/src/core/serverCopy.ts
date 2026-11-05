@@ -1,18 +1,18 @@
 import "server-only";
 
-import { KONTAKT_EMAIL, VEREIN_ANSCHRIFT, VEREIN_NAME, VEREINSREGISTER, VORSTAND_GEMEINSAM } from "./brand";
+import { KONTAKT_EMAIL, VEREIN_ADDRESS, VEREIN_NAME, VEREINSREGISTER, VORSTAND_JOINTLY } from "./brand";
 import { catalogue, COPY, textOf } from "./copy";
-import { formatDatum, formatDatumLong, formatNumber, formatOrdinal, formatSigned } from "./format";
+import { formatDatum, formatDatumLong, formatList, formatNumber, formatOrdinal, formatSigned } from "./format";
 
 import type { Copy, Words } from "./copy";
 import type { CalendarDay } from "./format";
-import type { Code } from "./generated/client/types";
+import type { Code, FLBookingResource, FLOverviewCardName, FLRefusedField, Rule } from "./generated/client/types";
 import type { ROUTES } from "./routes";
 
 /** The route keys of the pages a search engine may list. */
 type ListedRoute = { [Key in keyof typeof ROUTES]: (typeof ROUTES)[Key]["crawl"] extends "index" ? Key : never }[keyof typeof ROUTES];
 
-const { team1, team2 } = COPY.verwaltung.spiel;
+const { team1, team2 } = COPY.admin.spiel;
 
 // Words two entries of this one object say alike, each written once: a club's place, a group, the goals' difference
 // and match operations, the season line's eyebrow and an organiser's role.
@@ -20,20 +20,40 @@ const PLATZ = "Platz";
 const TEAM = "Team";
 const DIFFERENZ = "Diff.";
 const SPIELBETRIEB = "Spielbetrieb";
-const gruppeName = (gruppe: string) => `Gruppe ${gruppe}`;
+const gruppeName = COPY.shared.season.gruppe;
 const placeName = (platz: number) => `${formatOrdinal(platz)} ${PLATZ}`;
+// Matches by their numbers, „Spiel 4, 7 und 9“, as the match editor's done line names the others it changed.
+const spieleNamed = (nrs: readonly number[]) => `Spiel ${formatList(nrs.map(formatNumber))}`;
+// A fixture's ground or referee booked at its time elsewhere, and a side out of the season: the save keys each by the
+// path it names, the adoption, which names none, by a code of its own per resource and side.
+const DOUBLE_BOOKED = {
+  ort: "Der Spielort ist zu dieser Zeit schon belegt.",
+  schiedsrichter: "Die eingeteilte Person pfeift zu dieser Zeit schon.",
+};
+const DISQUALIFIED = {
+  team1: `${team1} ist aus der Saison ausgeschieden.`,
+  team2: `${team2} ist aus der Saison ausgeschieden.`,
+};
 
 // The confirmation pages' shared sentences, each written once: what the typed birthdate is checked for, the deadline
 // of an entry that goes alone, the objection Art. 21 (4) asks to be named explicitly, in the two parts around the
 // league's address, and the privacy notice's link, around its title.
 const ageCheck = (minAge: number) => `Mit deinem Geburtsdatum prüfen wir, ob du mindestens ${formatNumber(minAge)} Jahre alt bist.`;
-const entryDeadline = (until: CalendarDay) => `Bestätigst du nicht bis zum ${formatDatumLong(until)}, löschen wir deinen Eintrag.`;
+// In the two parts around its day, which a mail sets semibold between them.
+const ENTRY_DEADLINE = { before: "Bestätigst du nicht bis zum", after: ", löschen wir deinen Eintrag." };
+const entryDeadline = (until: CalendarDay) => `${ENTRY_DEADLINE.before} ${formatDatumLong(until)}${ENTRY_DEADLINE.after}`;
 const OBJECTION_RIGHT = {
   before:
     "Du kannst der Verarbeitung deiner Angaben jederzeit widersprechen, aus Gründen, die sich aus deiner besonderen Situation ergeben (Art. 21 DSGVO). Eine formlose E-Mail an ",
   after: " genügt.",
 };
 const MORE = { before: "Mehr unter ", after: "." };
+// What an objection does to a contact's seat on a season row, an entry that stands alone.
+const OBJECTION_DELETES_ENTRY = "Widersprichst du, löschen wir deinen Eintrag.";
+// A referee's confirmation's opening, which its mail opens on too, and what the league stores of the entry.
+const REFEREE_OPENING = "Die Liga hat dich als Schiedsrichterin oder Schiedsrichter für ihre Spiele eingetragen.";
+const REFEREE_STORED =
+  "Wir speichern deinen Namen, deine Kontaktdaten, dein Honorar, dein Geburtsdatum und deine Schule, wenn sie angegeben ist, bis du oder die Liga den Eintrag beenden.";
 
 /**
  * The bounds the frontend's code holds that the privacy notice's retention table states, passed by its page. An hour
@@ -56,8 +76,10 @@ type RetentionBounds = {
 export const SERVER_COPY = catalogue({
   /**
    * A refusal's phrase under the field it is about, by the backend's code, for a code a person causes knowingly from
-   * a screen: one of `COPY.shared.field`'s patterns, and nothing else. A code no pattern words takes `refusalLine`'s
-   * sentence instead; every other code answers one of the shared failure lines `COPY.shared.failure` holds.
+   * a screen: one of `COPY.shared.field`'s patterns, and nothing else. A code whose phrase names a bound its refusal
+   * carries is worded from it by `fl_frontend/src/core/ruleMessage.ts :: ruleMessage` instead, and a code no pattern
+   * words takes `refusalLine`'s sentence; every other code answers one of the shared failure lines
+   * `COPY.shared.failure` holds.
    */
   refusal: {
     duplicate_key: COPY.shared.field.taken,
@@ -69,32 +91,75 @@ export const SERVER_COPY = catalogue({
    * A refusal's sentence on the status line, by the backend's code, for a code a person causes knowingly from a
    * screen that no field pattern words: the write as a whole, or a field the sentence names itself. Where one code
    * is about one of several fields, its sentence is keyed by the first name of the path the backend names, so it
-   * says which; a path it holds no sentence for is not this screen's to word.
+   * says which; a path it holds no sentence for is not this screen's to word. A sentence naming the bounds its
+   * refusal carries is a function of them, answering `undefined` where one it names is missing.
    */
   refusalLine: {
     saison_past: "Diese Saison ist abgeschlossen.",
     spiel_outside_spieltag: "Dieses Datum liegt außerhalb des Spieltags.",
     state_nichtantreten_without_two_sides: "Beide Teams stehen noch nicht fest.",
+    /**
+     * A retired venue or referee a fixture keeps where its save reopens it, which the editor shows marked: a deleted one
+     * is a page read before the deletion, which the same sentence sends to the same box.
+     */
     booking_unknown_resource: {
-      ort: "Der Spielort ist stillgelegt oder gelöscht.",
-      schiedsrichter: "Der Schiedsrichter ist stillgelegt oder gelöscht.",
+      ort: "Der Spielort ist stillgelegt.",
+      schiedsrichter: "Die eingeteilte Person ist stillgelegt.",
     },
-    booking_unconfirmed_schiedsrichter: "Der Schiedsrichter hat den eigenen Eintrag noch nicht bestätigt.",
-    spiel_double_booked: {
-      ort: "Der Spielort ist zu dieser Zeit schon belegt.",
-      schiedsrichter: "Der Schiedsrichter ist zu dieser Zeit schon eingeteilt.",
-    },
-    /** The league's last owner, whose erasure would leave the administration owned by nobody. */
-    last_owner_erasure: "Du bist die letzte Inhaberin oder der letzte Inhaber der Verwaltung.",
+    spiel_double_booked: DOUBLE_BOOKED,
+    spiel_double_booked_spielort_as_stored: DOUBLE_BOOKED.ort,
+    spiel_double_booked_schiedsrichter_as_stored: DOUBLE_BOOKED.schiedsrichter,
+    /** The league's last owner, whose erasure would leave the administration owned by nobody: the glossary's screen word. */
+    last_owner_erasure: "Du bist die letzte Inhaberin oder der letzte Inhaber.",
     /** A person's own address change to the address they already sign in with. */
     address_change_unchanged: COPY.account.address.unchanged,
     /** A grant's move nobody but the person could approve. */
     address_change_no_approver: COPY.account.address.noApprover,
-    eligibility_disqualified: {
-      team1: `${team1} ist aus der Saison ausgeschieden.`,
-      team2: `${team2} ist aus der Saison ausgeschieden.`,
-    },
-  } satisfies Partial<Record<Code, string | Readonly<Record<string, string>>>>,
+    /** A person's own start pressed again too soon after the last mail its change owed: the edge's own rate refusal. */
+    address_change_started_recently: COPY.shared.failure.tooManyAttempts,
+    /** A venue retired while matches still to come are booked there, named by their numbers so they can be moved first. */
+    spielort_still_booked: ({ spiel_nrs }: FLRefusedField["ctx"]) =>
+      Array.isArray(spiel_nrs) && spiel_nrs.length > 0 ? `Der Spielort ist noch für ${spieleNamed(spiel_nrs)} gebucht.` : undefined,
+    /** A referee retired while matches still to come name them, by the matches' numbers. */
+    schiedsrichter_still_assigned: ({ spiel_nrs }: FLRefusedField["ctx"]) =>
+      Array.isArray(spiel_nrs) && spiel_nrs.length > 0 ? `Die Person ist noch für ${spieleNamed(spiel_nrs)} eingeteilt.` : undefined,
+    /** A referee's address the ban list holds, where a create, a save or a return would mail it a link. */
+    schiedsrichter_address_barred: "Diese E-Mail-Adresse steht auf der Sperrliste.",
+    /** A club's stored proposed day that has gone by, which „Übernehmen“ would move the fixture into. */
+    ansetzung_vorschlag_past_as_stored: "Der vorgeschlagene Tag ist vorbei.",
+    // A season's rules and its activation, each a fact the person reads off the season editor itself.
+    rules_bracket_impossible: COPY.admin.saison.bracketImpossible,
+    rules_spiele_over_one_read: COPY.admin.saison.tooManySpiele,
+    spielplan_gruppen_off_rules: COPY.admin.saison.gruppenOffRules,
+    // Redesign: goes with the old team editor, its last reader; the season editor answers the code as a stale page.
+    /**
+     * A fixture of either club the group swap would trade has taken place, as
+     * `fl_backend/app/api/teams/services.py :: has_taken_place` judges it: a result, a recorded no-show or
+     * abandonment, or one side's goals.
+     */
+    swap_sides_taken_place: "Ein Spiel der beiden Teams hat schon stattgefunden.",
+    activate_target_undrawn: COPY.admin.saison.noDraw,
+    activate_saison_unfinished: COPY.admin.saison.unfinished,
+    activate_spieltage_undated: COPY.admin.saison.undated,
+    create_saison_future_stands: COPY.admin.saison.futureStands,
+    eligibility_disqualified: DISQUALIFIED,
+    eligibility_disqualified_team1_as_stored: DISQUALIFIED.team1,
+    eligibility_disqualified_team2_as_stored: DISQUALIFIED.team2,
+    /**
+     * A save after which the bracket would field one club in two matches of one matchday, a club picked by hand
+     * standing where the bracket's own wiring leads it too: the same save answers the same, the page being current.
+     */
+    spieltag_occupied_by_the_resolution: "Ein Team spielt dann zweimal an diesem Spieltag.",
+    /**
+     * A fixture's save, the match editor's or „Übernehmen“'s, that would delete a later result it was not confirmed
+     * to delete, one entered or changed since the question was asked among them: the match editor asks again.
+     */
+    voided_results_stale: COPY.admin.overview.voidsLater,
+    /** A matchday's dates: past its season's, short of one of its dated matches, or out of its phase's order of matchdays. */
+    spieltag_outside_saison: "Dieser Zeitraum liegt außerhalb der Saison.",
+    spieltag_span_below_spiele: "Ein Spiel liegt außerhalb dieses Zeitraums.",
+    spieltag_beginn_out_of_order: "Der Beginn passt nicht in die Reihenfolge der Spieltage.",
+  } satisfies Partial<Record<Code, string | Readonly<Record<string, string>> | ((context: FLRefusedField["ctx"]) => string | undefined)>>,
 
   /**
    * A rule's sentence on the status line, by the kind the backend refuses a payload with (`fields[].kind`), for a
@@ -105,28 +170,71 @@ export const SERVER_COPY = catalogue({
     elfmeterschiessen_without_winner: "Das Elfmeterschießen hat keinen Sieger.",
     elfmeterschiessen_without_draw: "Das Ergebnis ist kein Unentschieden.",
     torschuetzen_not_matching_tore: "Die Torschützen passen nicht zum Ergebnis.",
-  },
+  } satisfies Partial<Record<Rule, string>>,
 
   /** The image a shared link's preview shows, by its alt, which a screen reader reads in the preview's place. */
   shareImage: {
     alt: `${COPY.brand.name}, die Fußballliga der Frankfurter Oberstufen: der Pokal über dem Schriftzug`,
   },
 
-  /** The administration's lines its old pages answer through their server actions, until each page's rebuild. */
-  verwaltung: {
+  /**
+   * The administrator's Übersicht: its four cards by the names the read serves them under, and each row's one line
+   * saying what is open there, by the kind of open work.
+   */
+  overview: {
+    card: {
+      due: "Heute und überfällig",
+      ergebnisse: "Ergebnisse",
+      dates: "Termine",
+      bewerbungen: COPY.page.adminBewerbungen,
+    } satisfies Record<FLOverviewCardName, string>,
+    answerDue: "Antwort heute fällig",
+    /** By the deadline the clubs' answer was due on, the earliest where the row's clubs were given several. */
+    answerOverdue: (deadline: CalendarDay) => `Antwort seit ${formatDatum(deadline)} überfällig`,
+    /** What a fixture lacks, by its own word: „Termin“, or the label its box carries in the match editor. */
+    missing: (label: Copy) => `${label} fehlt`,
+    /** A report awaiting the administrator, by the state it reads in. */
+    report: {
+      vorgeschlagen: "Spielbericht nicht übernommen",
+      differing: "Spielbericht weicht vom Ergebnis ab",
+      teams_changed: "Spielbericht nennt andere Teams",
+    },
+    /** A club's proposed date and hour, as a match row writes them; a club the fixture no longer fields is not named. */
+    proposal: (when: Copy, team: Words | null) => (team === null ? `Schlägt ${when} vor` : `${textOf(team)} schlägt ${when} vor`),
+    /** An application, by how many of its contact seats have confirmed their entry. */
+    seatsConfirmed: (confirmed: number, seats: number) =>
+      confirmed === seats
+        ? "Alle Kontaktpersonen bestätigt"
+        : `${formatNumber(confirmed)} von ${formatNumber(seats)} Kontaktpersonen bestätigt`,
     /**
-     * A fixture of either club the group swap would trade has taken place, as
-     * `fl_backend/app/api/teams/services.py :: has_taken_place` judges it: a result, a recorded no-show or
-     * abandonment, or one side's goals.
+     * A fault of the bracket or of a fixture's bookings, by its reason, on the fixture it names: a group short of the
+     * place a side waits on, a tie no rule breaks, and a club or a booking the administrator can change each say
+     * which; every fault in the bracket's wiring, which nobody repairs from a screen, says only that the bracket is
+     * faulty.
      */
-    swapSidesTakenPlace: "Ein Spiel der beiden Teams hat schon stattgefunden.",
-    /** A fixture of the club a replacement takes out of the season has taken place, judged as the swap's. */
-    replacementSidesTakenPlace: "Ein Spiel des ausscheidenden Teams hat schon stattgefunden.",
+    fault: {
+      gruppe_too_small: (gruppe: string, platz: number) => `${gruppeName(gruppe)} hat keinen ${placeName(platz)}`,
+      tie_unresolved: (gruppe: string, platz: number) => `Gleichstand um den ${placeName(platz)} der ${gruppeName(gruppe)}`,
+      wiring: `${COPY.shared.kOBaum} fehlerhaft`,
+      /** The club, and its exit as the club's exit note heads it. */
+      departed_occupant: (team: Words, austritt: Copy) => `${textOf(team)} · ${austritt}`,
+      fielded_twice: (team: Words) => `${textOf(team)} zweimal an diesem Spieltag`,
+      /** By the booking's object, „Spielort“ or „Schiedsrichter“. */
+      retired_booking: (booking: Copy) => `${booking} stillgelegt`,
+      double_booked: { ort: "Spielort doppelt belegt", schiedsrichter: "Schiedsrichter doppelt eingeteilt" } satisfies Record<
+        FLBookingResource,
+        string
+      >,
+    },
+    /** „Übernehmen“'s sentence, over the two slots and whom „Spiel verlegt“ goes to. */
+    adoptConsequence: "Das Spiel wird verlegt.",
+    /** „Verwerfen“'s, over the slot the fixture keeps, the one proposed and the club „Termin bleibt“ goes to. */
+    discardConsequence: "Der Termin bleibt.",
   },
 
   /**
-   * The mail shell's own lines, and the words of the account's mails; every other mail's sentences are its template's
-   * until its area's session rewrites them.
+   * The mail shell's own lines, and the words of the account's, the fixtures' and the referee's mails; every other
+   * mail's sentences are its template's until its area's session rewrites them.
    */
   mail: {
     /** The one greeting: the first name where it is known. */
@@ -148,6 +256,65 @@ export const SERVER_COPY = catalogue({
 
     /** A mailed link's deadline, by the hours its lifetime counts. */
     linkValidFor: (hours: number) => `Der Link gilt ${formatNumber(hours)} Stunden.`,
+
+    /**
+     * The fixture mails: a club asked to confirm a fixture's slot, a referee booked onto it, and the word of what became
+     * of either. Each subject names the day; a sentence's moment is set semibold between its two parts, whose spaces
+     * they hold.
+     */
+    spiel: {
+      requestSubject: (day: CalendarDay) => `Spieltermin am ${formatDatumLong(day)} bestätigen`,
+      reminderSubject: (day: CalendarDay) => `Erinnerung: Spieltermin am ${formatDatumLong(day)}`,
+      /** Both answers named before the press, as the page offers both. */
+      confirmAsk: (team: Words) => `Bestätige den Termin für ${textOf(team)} oder schlag einen anderen vor.`,
+      answerMissing: (team: Words) => `Die Antwort von ${textOf(team)} fehlt noch.`,
+      /** Around the deadline. */
+      answerUntil: { before: "Antworte bis zum ", after: "." },
+      /** Any seat of the club answers and the first press binds, so a later reader meets a link already spent. */
+      firstAnswerCounts: "Es gilt die erste Antwort aus deinem Team.",
+
+      /** A move, by the day the fixture moved to, or by the day it left where it holds no new one yet. */
+      movedSubject: (day: CalendarDay) => `Spiel verlegt auf den ${formatDatumLong(day)}`,
+      movedFromSubject: (day: CalendarDay) => `Spiel am ${formatDatumLong(day)} verlegt`,
+      moved: (spiel: Words) => `${textOf(spiel)} ist verlegt.`,
+      /**
+       * The block's rows of a move, beside the slot's own: the moment it left and the one it moved to, in the words
+       * „Übernehmen“'s question names them by.
+       */
+      previous: COPY.admin.facts.before,
+      next: COPY.admin.facts.after,
+      /** The moment a move left, where the move also changed the sides: the pairing that slot held, then the moment. */
+      previousPairing: (spiel: Words, moment: string) => `${textOf(spiel)}, ${moment}`,
+      /** A move whose new slot is asked later, by the reader: a club is asked, a referee booked. */
+      askedLater: {
+        team: "Zum neuen Termin bekommst du eine neue Anfrage.",
+        schiedsrichter: "Zum neuen Termin bekommst du eine neue Einteilung.",
+      },
+      /** A club taken off a fixture it was asked about, around the moment it was asked about. */
+      voidSubject: (day: CalendarDay) => `Nicht mehr angefragt: Spiel am ${formatDatumLong(day)}`,
+      void: { before: (spiel: Words) => `Die Anfrage zu ${textOf(spiel)} am `, after: " gilt nicht mehr." },
+
+      /** A call-off, around its moment, and what a reinstated fixture brings each reader. */
+      cancelledSubject: (day: CalendarDay) => `Spiel am ${formatDatumLong(day)} fällt aus`,
+      cancelled: { before: (spiel: Words) => `${textOf(spiel)} am `, after: " fällt aus." },
+      reinstated: {
+        team: "Wird das Spiel neu angesetzt, bekommst du eine neue Anfrage.",
+        schiedsrichter: "Wird das Spiel neu angesetzt, bekommst du eine neue Einteilung.",
+      },
+
+      /** The referee's Einteilung, which they answer on their own Übersicht, signed in. */
+      bookedSubject: (day: CalendarDay) => `Einteilung: Spiel am ${formatDatumLong(day)}`,
+      booked: (spiel: Words) => `Du pfeifst ${textOf(spiel)}.`,
+      sayYesOrNo: "Sag zu oder ab.",
+      /** A referee taken off a fixture, around the moment they were booked for. */
+      unbookedSubject: (day: CalendarDay) => `Nicht mehr eingeteilt: Spiel am ${formatDatumLong(day)}`,
+      unbooked: { before: (spiel: Words) => `Du pfeifst ${textOf(spiel)} am `, after: " nicht mehr." },
+
+      /** A club's proposal the league discarded, around the moment that stands. */
+      keptSubject: (day: CalendarDay) => `Termin bleibt: Spiel am ${formatDatumLong(day)}`,
+      kept: { before: (spiel: Words) => `${textOf(spiel)} bleibt am `, after: "." },
+      keptDiscarded: "Den Vorschlag deines Teams hat die Liga verworfen.",
+    },
 
     /** The sign-in code: no button, since a link carrying the code would sign in whoever opened a forwarded mail. */
     signInCode: {
@@ -176,10 +343,30 @@ export const SERVER_COPY = catalogue({
       consequence: COPY.account.erasure.description,
     },
 
-    /** The person's own address change: the address on file's request, then the new address's. */
+    /**
+     * An address change: the address on file's request, then the new address's, and the two notices of its end, sent on
+     * every way a change takes.
+     */
     addressChange: {
       /** The address on file's request opens on the page's question; the subject is the page's title. */
       previousEffect: "Sie gilt, sobald beide Adressen sie bestätigt haben.",
+      /** To the replaced address, in the two parts around the moment, which the shell sets semibold between them. */
+      effective: { subject: "E-Mail-Adresse geändert", lead: { before: "Seit", after: "gilt für dein Konto eine neue E-Mail-Adresse." } },
+      /** To the new address, whose confirmed change did not take effect: never why, since its holder may be a stranger. */
+      discarded: { subject: "E-Mail-Adresse nicht geändert", lead: "Für dein Konto gilt weiter die bisherige Adresse." },
+    },
+
+    /**
+     * A team's registration link, to a confirmed contact seat: the link stands alone in the box, to be passed on
+     * rather than pressed. It names no end date, since a window moved later moves every link with it.
+     */
+    einladung: {
+      subject: (team: string) => `Registrierungslink für ${team}`,
+      passOn: (saison: string, team: string) =>
+        `Gib diesen Link an alle weiter, die in der ${COPY.shared.saisonName(saison)} für ${team} spielen.`,
+      key: "Wer den Link hat, kann sich für dein Team registrieren.",
+      admission: "In den Kader kommt nur, wen dein Team aufnimmt.",
+      valid: "Der Link gilt bis zum Ende der Registrierung.",
     },
   },
 
@@ -195,17 +382,14 @@ export const SERVER_COPY = catalogue({
     previous: {
       question: "Für dein Konto soll eine neue E-Mail-Adresse gelten.",
       confirmed: "Änderung bestätigt",
-      confirmedSentence: "Die neue Adresse bekommt jetzt ihren Link.",
     },
     new: {
       question: `Diese Adresse soll künftig für ein Konto bei der ${COPY.brand.name} gelten.`,
       confirmed: "Adresse bestätigt",
-      confirmedSentence: "Mit dieser Adresse meldest du dich ab jetzt an.",
       /** A grant holder's confirmed change, which waits on another administrator's approval of the grant's move. */
-      awaitsApproval: "Die Änderung gilt, sobald die Verwaltung sie genehmigt hat.",
+      awaitsApproval: "Genehmigung ausstehend",
     },
     declined: "Änderung abgelehnt",
-    declinedSentence: "Diese Adresse wird nicht übernommen.",
   },
   accountErasure: {
     /** Under the list of what goes, each row a record the read found. */
@@ -215,19 +399,23 @@ export const SERVER_COPY = catalogue({
     addressChanges: "Laufende Adressänderungen",
     grant: "Zugang",
     done: "Konto gelöscht",
-    doneSentence: `Dein Konto und deine Angaben sind gelöscht, bis auf das, was unter „${COPY.page.privacyNotice}“ steht.`,
-    signedOut: "Du bist nicht angemeldet.",
   },
 
   /**
-   * The landing's sections, the blocks About, Kontakt and the sponsors page share with it, and the classic frame's
-   * not-found page, each read by a Server Component.
+   * The landing's sections, the blocks About, Kontakt and the sponsors page share with it, and the not-found page's
+   * title, each read by a Server Component.
    */
   landing: {
     /** The hero's one heading. */
     tagline: "Frankfurts Abi-Jahrgänge spielen um den Titel",
-    /** The one paragraph the league describes itself with, under the tagline and at the head of About. */
-    paragraph: `${COPY.brand.description} Ehrenamtliche aus den Jahrgängen organisieren die Liga.`,
+    /**
+     * The two paragraphs the league describes itself with, under the tagline and at the head of About: what the league
+     * is, then who stands behind a team and who runs it.
+     */
+    paragraphs: [
+      COPY.brand.description,
+      "Hinter jedem Team steht eine ganze Schule, die zu den Spielen kommt und mitfiebert. Ehrenamtliche aus den Jahrgängen organisieren die Liga, von der Bewerbung bis zum Finale.",
+    ],
     /** The way to apply while a window is open: the hero's second act, the steps' band and the school's door. */
     toBewerbung: "Zur Bewerbung",
 
@@ -242,7 +430,7 @@ export const SERVER_COPY = catalogue({
         text: "11 gegen 11 über 90 Minuten, bei jedem Wetter. Die Schiedsrichter kommen, soweit möglich, von außerhalb.",
       },
       purpose: { title: "Wofür", text: "Beide Teams verdienen an Tickets und am Verkauf vor Ort und teilen den Erlös." },
-      spielorte: { title: COPY.page.verwaltungSpielorte, text: "Kein zentraler Platz. Wo und wann ein Spiel stattfindet, steht im Spielplan." },
+      spielorte: { title: COPY.page.adminSpielorte, text: "Kein zentraler Platz. Wo und wann ein Spiel stattfindet, steht im Spielplan." },
       admission: { title: "Eintritt", text: "2 bis 5 €, je nach Spiel. Im Vorverkauf meist günstiger." },
       safety: { title: "Sicherheit", text: "Bei den meisten Spielen sind Sanitäter vor Ort." },
     },
@@ -270,7 +458,7 @@ export const SERVER_COPY = catalogue({
         text: "Dein Team bekommt einen Link, über den sich dein Jahrgang registriert. Die Kontaktpersonen nehmen die Spieler in den Kader auf.",
       },
       /** The band while no window is open; an open window's deadline is the season card's `windowUntil`. */
-      closed: "Das Bewerbungsfenster ist geschlossen.",
+      closed: "Das Bewerbungsfenster ist gerade geschlossen. Versuche es nächste Saison.",
       /** The school's door while a window is open, where the band and the season card carry its date. */
       opened: "Das Bewerbungsfenster ist offen.",
     },
@@ -288,13 +476,14 @@ export const SERVER_COPY = catalogue({
       finale: "Das Spiel um den Titel.",
     },
 
-    /** The season in four counts. */
+    /** The league in four counts, over every season the public reads. */
     figures: {
-      title: (saison: string) => `${COPY.shared.saisonName(saison)} in Zahlen`,
+      eyebrow: "Statistiken",
+      title: "Die Liga in Zahlen",
+      saisons: "Saisons",
       schulen: "Schulen",
-      tore: COPY.shared.tore,
       spiele: COPY.page.spiele,
-      spieltage: COPY.spielplan.spieltage,
+      tore: COPY.shared.tore,
     },
 
     organisers: {
@@ -304,9 +493,12 @@ export const SERVER_COPY = catalogue({
       role: { vorstand: "Vorstand", spielbetrieb: SPIELBETRIEB, website: "Website", kommunikation: "Kommunikation" },
     },
 
+    /** The eyebrow over the sponsors' section, whose title is the sponsors page's own. */
+    sponsors: { eyebrow: "Unterstützung" },
+
     /** The ways in: the school's while a window is open, and the question's; the heading counts them. */
     doors: {
-      eyebrow: "Mitmachen",
+      eyebrow: "Bei Anliegen",
       title: (withSchool: boolean) => (withSchool ? "Zwei Wege zu uns" : "Wege zu uns"),
       school: { title: "Deine Schule will antreten" },
       question: {
@@ -341,8 +533,8 @@ export const SERVER_COPY = catalogue({
       email: "E-Mail",
     },
 
-    /** The classic frame's not-found page. */
-    notFound: { title: "Seite nicht gefunden", sentence: "Die Adresse stimmt nicht, oder die Seite gibt es nicht mehr." },
+    /** The not-found page's title, in every frame. */
+    notFound: "Seite nicht gefunden",
   },
 
   /**
@@ -396,17 +588,17 @@ export const SERVER_COPY = catalogue({
     /** A match's page: its line-ups, and its goals and cards by minute. */
     spiel: {
       aufstellung: "Aufstellung",
-      toreUndKarten: "Tore und Karten",
+      toreAndKarten: "Tore und Karten",
       /**
        * The plural the match's empty timeline names until its report is adopted, whose goals and cards are not
        * official before: „Noch keine offiziellen Tore und Karten.“, where an adopted report naming none reads
        * „Noch keine Tore und Karten.“
        */
-      officialToreUndKarten: "offiziellen Tore und Karten",
+      officialToreAndKarten: "offiziellen Tore und Karten",
       /** A pupil whose consent publishes no name, or one erased since. */
-      anonym: "anonym",
+      anonymous: "anonym",
       /** A goal nobody was named for. */
-      unbekannt: "unbekannt",
+      unknown: "unbekannt",
       tor: "Tor",
       eigentor: "Eigentor",
       karte: { gelb: "Gelbe Karte", gelb_rot: "Gelb-Rote Karte", rot: "Rote Karte" },
@@ -426,7 +618,7 @@ export const SERVER_COPY = catalogue({
       firstLayer: {
         heading: "Das Wichtigste",
         items: [
-          `Verantwortlich ist der ${VEREIN_NAME}, ${VEREIN_ANSCHRIFT}.`,
+          `Verantwortlich ist der ${VEREIN_NAME}, ${VEREIN_ADDRESS}.`,
           "Wir verarbeiten, was du uns für eine Bewerbung, einen Kader, ein Spiel oder deine Anmeldung angibst, und die technischen Daten jedes Aufrufs.",
           "Wir brauchen diese Daten, um den Spielbetrieb der Liga durchzuführen, dich zu erreichen und die Website sicher zu betreiben.",
           "Öffentlich sind Teams, Spielpläne, Ergebnisse und Aufstellungen; deinen Namen zeigen wir dort nur mit deiner Einwilligung.",
@@ -595,6 +787,7 @@ export const SERVER_COPY = catalogue({
           { name: "Unsere E-Mails", content: "Inhalt, Adresse, Zustellstand", period: "Inhalt bis zum Versand, der Rest 30 Tage danach" },
           { name: "E-Mails bei Resend", content: "Adresse, Betreff, Inhalt", period: "30 Tage, in Sicherungen bis 7 Tage länger" },
           { name: "E-Mails bei Cloudflare", content: "Absender, Empfänger, Betreff", period: "31 Tage" },
+          { name: "Turnstile bei Cloudflare", content: "Signale deines Browsers beim Absenden eines Formulars", period: "7 Tage" },
         ],
       },
       erasure: {
@@ -623,10 +816,10 @@ export const SERVER_COPY = catalogue({
     },
 
     legalNotice: {
-      provider: { heading: "Anbieter", name: VEREIN_NAME, address: VEREIN_ANSCHRIFT },
+      provider: { heading: "Anbieter", name: VEREIN_NAME, address: VEREIN_ADDRESS },
       representation: {
         heading: "Vertretung",
-        rule: `Je ${formatNumber(VORSTAND_GEMEINSAM)} Mitglieder des Vorstands vertreten den Verein gemeinsam:`,
+        rule: `Je ${formatNumber(VORSTAND_JOINTLY)} Mitglieder des Vorstands vertreten den Verein gemeinsam:`,
         member: (name: string, amt: string) => `${name}, ${amt}`,
       },
       /** Before the league's address, which the page sets as a link after it. */
@@ -676,7 +869,7 @@ export const SERVER_COPY = catalogue({
     objectionEffect: {
       application: "Widersprichst du, entfernen wir deine Angaben aus der Bewerbung und schreiben das der Person, die sie eingereicht hat.",
       self: "Widersprichst du, entfernen wir deine Angaben aus der Bewerbung.",
-      seasonRow: "Widersprichst du, löschen wir deinen Eintrag.",
+      seasonRow: OBJECTION_DELETES_ENTRY,
     },
     /** The Art. 21 (4) sentence, its own paragraph, around the league's address, which the page sets as a link. */
     objectionRight: OBJECTION_RIGHT,
@@ -684,21 +877,23 @@ export const SERVER_COPY = catalogue({
     more: MORE,
   },
 
-  // Session 5: its page reads these.
   /**
-   * The fixed text of a referee's confirmation page, `ROUTES.schiedsrichterConfirmation`, built as
-   * `kontaktConfirmation` is: who entered the person and for what, what is stored and until when, the deadline, what
-   * the birthdate is checked for, the objection and the privacy notice's link. The referee's floor is the backend's
-   * alone, so the page passes the one its read serves.
+   * The fixed text of a referee's confirmation page, `ROUTES.schiedsrichterConfirmation`: who named the person and for
+   * what, what is stored and until when, the deadline, and what an objection does, the page's one sentence before its
+   * two acts. The age floor is the birthdate field's bound, read off the link's view; the Art. 21 objection with the
+   * league's address stands in the first-contact mail, and each consent's line names the privacy notice.
    */
   schiedsrichterConfirmation: {
-    opening: "Die Liga hat dich als Schiedsrichterin oder Schiedsrichter für ihre Spiele eingetragen.",
-    stored:
-      "Wir speichern deinen Namen, deine Kontaktdaten, dein Honorar, dein Geburtsdatum und deine Schule, wenn sie angegeben ist, bis du oder die Liga den Eintrag beenden.",
-    ageCheck,
-    deadline: entryDeadline,
-    objectionRight: OBJECTION_RIGHT,
-    more: MORE,
+    /** The page's and the mail's first sentence. */
+    opening: REFEREE_OPENING,
+    /** The deadline in the two parts around its day: the mail sets the day semibold, the page writes it plain. */
+    deadline: ENTRY_DEADLINE,
+    /** Both answers that end the entry, an unanswered deadline and an objection, in one clause: either deletes it alike. */
+    question: (until: CalendarDay) =>
+      `${REFEREE_OPENING} ${REFEREE_STORED} ${ENTRY_DEADLINE.before} ${formatDatumLong(until)} oder widersprichst du${ENTRY_DEADLINE.after}`,
+    /** The two ends of an answer, each a title; a link opened again after it titles it with the day (`COPY.shared.end.doneOn`). */
+    confirmed: "Eintrag bestätigt",
+    objected: "Widersprochen",
   },
 
   // Session 8: its page reads these.
@@ -734,7 +929,7 @@ export const SERVER_COPY = catalogue({
     team: (team: string, saison: string) => `${team} in der ${COPY.shared.saisonName(saison)} der ${COPY.brand.name}: Stand, Spiele und Kader.`,
     kORunde: (saison: string) => `Die K.-o.-Runde der ${COPY.shared.saisonName(saison)} der ${COPY.brand.name}: der K.-o.-Baum bis zum Finale.`,
     spiel: (team1: Words, team2: Words, saison: string) =>
-      `${textOf(team1)} gegen ${textOf(team2)} in der ${COPY.shared.saisonName(saison)} der ${COPY.brand.name}: Termin, Ort, Ergebnis und Aufstellungen.`,
+      `${COPY.page.spiel(team1, team2)} in der ${COPY.shared.saisonName(saison)} der ${COPY.brand.name}: Termin, Ort, Ergebnis und Aufstellungen.`,
     contact: `Die ${COPY.brand.name} erreichst du per E-Mail, auf Instagram und auf Threads.`,
     sponsors: `Die Sponsoren der ${COPY.brand.name}, und wie du die Liga unterstützen kannst.`,
     legalNotice: `Anbieterkennzeichnung der ${COPY.brand.name} nach § 5 DDG.`,

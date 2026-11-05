@@ -1,3 +1,4 @@
+import { placeholderBar } from "./Skeleton";
 import { tv } from "./tv";
 
 /**
@@ -7,7 +8,7 @@ import { tv } from "./tv";
  */
 export const buttonLook = tv({
   // The border colour is named on every variant: HeroUI's base sheet colours every element's border.
-  base: "inline-flex h-8 shrink-0 items-center justify-center gap-2 rounded-lg border text-sm font-medium whitespace-nowrap transition-colors duration-(--motion-state) data-disabled:opacity-50 pointer-coarse:h-10",
+  base: "inline-flex h-8 shrink-0 cursor-pointer items-center justify-center gap-2 rounded-lg border text-sm font-medium whitespace-nowrap transition-colors duration-(--motion-state) data-disabled:cursor-default data-disabled:opacity-50 pointer-coarse:h-10",
   variants: {
     look: {
       primary: "border-transparent bg-brand-solid px-3.5 text-on-brand",
@@ -25,18 +26,24 @@ export const buttonLook = tv({
       link: "",
     },
   },
-  // A press takes the hover's colour, so under a mouse the two are one state and a touch, which never
-  // hovers, still answers the press: React Aria's `data-pressed` on its button, `:active` on an anchor.
+  // Under the pointer every look but the quiet one lays the one hover layer over its fill (`bg-layer`, 12 % of its own
+  // words' colour), so the step shows on the page, a card, a card's head and an overlay alike, and over a row's own
+  // layer. A press takes the hover's look, so under a mouse the two are one state and a touch, which never hovers,
+  // still answers the press: React Aria's `data-pressed` on its button, `:active` on an anchor.
   compoundVariants: [
-    { look: "primary", host: "aria", class: "data-hovered:bg-brand-solid-hover data-pressed:bg-brand-solid-hover" },
-    { look: "primary", host: "link", class: "hover:bg-brand-solid-hover active:bg-brand-solid-hover" },
-    // One step above the card, so the hover shows on a raised card as on the page and in an overlay; the edge
-    // keeps its 3:1 against the ground around it.
-    { look: "secondary", host: "aria", class: "data-hovered:bg-bg-muted data-pressed:bg-bg-muted" },
-    { look: "secondary", host: "link", class: "hover:bg-bg-muted active:bg-bg-muted" },
-    { look: "icon", host: "aria", class: "data-hovered:bg-bg-muted data-pressed:bg-bg-muted" },
-    { look: "icon", host: "link", class: "hover:bg-bg-muted active:bg-bg-muted" },
-    { look: "quiet", host: "aria", class: "data-hovered:bg-bg-muted data-hovered:text-fg data-pressed:bg-bg-muted data-pressed:text-fg" },
-    { look: "danger", host: "aria", class: "data-hovered:bg-danger-solid-hover data-pressed:bg-danger-solid-hover" },
+    { look: ["primary", "secondary", "danger", "icon"], host: "aria", class: "data-hovered:bg-layer data-pressed:bg-layer" },
+    { look: ["primary", "secondary", "icon"], host: "link", class: "hover:bg-layer active:bg-layer" },
+    // A quiet act is a button, so it takes no underline, which marks a link alone, and its words alone answer: they
+    // take their full colour, as a plain button and a text button do (Apple's HIG, Material).
+    { look: "quiet", host: "aria", class: "data-hovered:text-fg data-pressed:text-fg" },
+    { look: "quiet", host: "link", class: "hover:text-fg active:text-fg" },
   ],
 });
+
+/**
+ * A button while what it acts on is read: a bar of the button's height and corners, `width` wide, such as a label's
+ * width or the full width of a column whose buttons fill it.
+ */
+export function buttonPlaceholder(width: string) {
+  return placeholderBar(`h-8 rounded-lg pointer-coarse:h-10 ${width}`);
+}

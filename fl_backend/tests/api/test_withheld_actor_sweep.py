@@ -22,9 +22,9 @@ from fastapi import FastAPI
 from fastapi.routing import APIRoute
 from pymongo import MongoClient
 
-from app.api.berechtigungen.antraege import compose_antrag
+from app.api.berechtigungen.antraege import compose_approval_request
 from app.api.einladungen.services import compose_einladung
-from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
+from app.api.sperrliste.services import compose_barred_until_saison_id
 from app.core.collections import Collection
 from app.core.recording import log_stamp
 from app.core.routing import SAFE_WHEN
@@ -51,7 +51,7 @@ CONFIG = config_for(DATABASE_NAME)
 BARRED = "zorbanax.verwalter@beispielschule.de"
 # The address the barred administrator banned while they held a grant.
 OTHER = "quillhilde@beispielschule.de"
-OWNER = grants_for_the_suite()[0]["adresse"]
+OWNER = grants_for_the_suite()[0]["address"]
 
 SAISON_ID = "2026"
 TEAM_OID = ObjectId("6890a1b2c3d4e5f607510001")
@@ -109,16 +109,17 @@ NAMES_NO_ADMINISTRATOR: dict[str, str] = {
     "/api/v0/address_change/view": "what an address holds by kind and its live change, which names neither its starter nor its approver",
     "/api/v0/identity/erasure/view": "every record an erasure would reach, by name and id and with no address",
     "/api/v0/registrierungen/kader/{team_id:objectid}/{saison_id}": "a team's pending registrations, no decision among them",
-    "/api/v0/saisons/list/verwaltung": "seasons and their rules",
-    "/api/v0/saisons/{saison_id}/invitations/dispatch/preview": f"the teams a mailing would reach, their seats being {_PERSON_RECORDS}",
+    "/api/v0/saisons/list/admin": "seasons and their rules",
+    "/api/v0/saisons/{saison_id}/admin": "one season, its clubs by name and the clubs a replacement may bring in",
     "/api/v0/saisons/{saison_id}/erasure/preview": "how many pupils an activation deletes, counted and never named",
+    "/api/v0/saisons/{saison_id}/overview": "fixtures, their open confirmation rows, report states and applications by school",
     "/api/v0/schiedsrichter": f"referees, {_PERSON_RECORDS}",
     "/api/v0/schiedsrichter/{schiedsrichter_id:objectid}": f"one referee, {_PERSON_RECORDS}",
     "/api/v0/spielbestaetigungen": 'fixture confirmations, an administrator\'s answer recorded as `{art: "admin"}` with no address',
-    "/api/v0/spiele/action_required": "fixtures",
     "/api/v0/spiele/list/verwaltung": "fixtures",
     "/api/v0/spiele/{spiel_id:objectid}": "a save's dry run, which reports the fixtures it would move",
-    "/api/v0/spiele/{spiel_id:objectid}/verwaltung": "one fixture",
+    "/api/v0/spiele/spielplan": "a season's fixtures by matchday",
+    "/api/v0/spiele/{spiel_id:objectid}/verwaltung": "one fixture, what its editor offers, and its report and rows naming an admin by kind",
     "/api/v0/spieler/kader/{team_id:objectid}/{saison_id}": "one team's squad as its seat holders read it, which carries nobody's address",
     "/api/v0/spieler/saisons": f"players and their squad rows, {_PERSON_RECORDS}",
     "/api/v0/spieler/self": "the signed-in pupil's own record, which carries no address",
@@ -132,18 +133,17 @@ NAMES_NO_ADMINISTRATOR: dict[str, str] = {
     "/api/v0/spieltage/{spieltag_id:objectid}/verwaltung": "one matchday",
     "/api/v0/spielorte": "venues",
     "/api/v0/spielorte/{spielort_id:objectid}": "one venue",
-    "/api/v0/teams/list/verwaltung": f"clubs and their contact seats, {_PERSON_RECORDS}",
+    "/api/v0/teams/list/admin": f"clubs and their contact seats, {_PERSON_RECORDS}",
     "/api/v0/teams/saisons": "clubs and their seasons",
     "/api/v0/teams/{team_id:objectid}/saisons/{saison_id}/self/seats": "one team's seat holders by name, as the seat holders read them",
     "/api/v0/spielberichte": "a season's reports by state, naming nobody",
-    "/api/v0/spielberichte/{spiel_id:objectid}/verwaltung": "one fixture's report, its administrator named by kind alone",
     "/api/v0/spielberichte/{spiel_id:objectid}/bericht": "one fixture's report as its referee reads it, its administrator named by kind",
     "/api/v0/spielberichte/self": "the signed-in referee's played fixtures, naming nobody",
 }
 
 
 # Composed by the production helper rather than spelled, so a drifted bound cannot leave these cases passing over a lapsed row.
-STANDING = compose_gesperrt_bis_saison_id(massgebliche_saison_id=SAISON_ID)
+STANDING = compose_barred_until_saison_id(governing_saison_id=SAISON_ID)
 # The season before the running one, so a ban naming it as its last has lapsed.
 LAPSED = f"{int(SAISON_ID) - 1}"
 
@@ -162,40 +162,42 @@ def _seed(url: str, *, ban_until: str | None) -> None:
             [
                 *grants_for_the_suite(),
                 {
-                    "adresse": "neu.verwalterin@beispielschule.de",
-                    "verwaltung": "administration",
+                    "address": "neu.verwalterin@beispielschule.de",
+                    "admin_tier": "administration",
                     "granted_by": BARRED,
                     "granted_at": datetime(2026, 4, 1, tzinfo=UTC),
                 },
             ]
         )
-        # Asked on the real clock: the list serves a request only until its `bis`, and the TTL index removes it then.
+        # Asked on the real clock: the list serves a request only until its `until`, and the TTL index removes it then.
         database[Collection.GRANT_APPROVAL_REQUESTS].insert_one(
-            compose_antrag(
-                adresse="antrag.verwalterin@beispielschule.de",
-                verwaltung="administration",
+            compose_approval_request(
+                address="antrag.verwalterin@beispielschule.de",
+                admin_tier="administration",
                 grant_id=None,
                 started_by=BARRED,
                 now=datetime.now(UTC),
             )
         )
-        database[Collection.SPERRLISTE].insert_many(
+        database[Collection.BAN_LIST].insert_many(
             [
-                ban_document(OTHER, bis=STANDING, created_by=BARRED),
-                *([] if ban_until is None else [ban_document(BARRED, bis=ban_until, created_by=OWNER)]),
+                ban_document(OTHER, until=STANDING, created_by=BARRED),
+                *([] if ban_until is None else [ban_document(BARRED, until=ban_until, created_by=OWNER)]),
             ]
         )
         database[Collection.INVITATIONS].insert_one(
-            compose_einladung(saison_id=SAISON_ID, team_id=TEAM_OID, token_hashes=["a" * 64], created_by=BARRED, today="2026-04-01")
+            compose_einladung(
+                saison_id=SAISON_ID, team_id=TEAM_OID, token_hashes=["a" * 64], created_by=BARRED, today="2026-04-01", sent_at=None
+            )
         )
         database[Collection.BEWERBUNGEN].insert_one(
-            {**bewerbung_document(1, status="declined"), "decision": {"made_at": "2026-04-02", "von": BARRED, "grund": "Kein Platz"}}
+            {**bewerbung_document(1, status="declined"), "decision": {"made_at": "2026-04-02", "by": BARRED, "grund": "Kein Platz"}}
         )
         database[Collection.REGISTRIERUNGEN].insert_one(
             {
                 **registrierung_document(REGISTRIERUNG_OID, vorname="Thessaly"),
                 "status": "declined",
-                "decision": {"made_at": "2026-04-03", "von": BARRED, "grund": None},
+                "decision": {"made_at": "2026-04-03", "by": BARRED, "grund": None},
             }
         )
         # The real clock, never a date: the retention index removes a row a year past `at_date`, so a
@@ -216,7 +218,7 @@ def _seed(url: str, *, ban_until: str | None) -> None:
                 "before": None,
                 "modified_count": None,
                 "redacted_at": None,
-                "anlass": None,
+                "erasure_reason": None,
             }
         )
     finally:
@@ -224,7 +226,7 @@ def _seed(url: str, *, ban_until: str | None) -> None:
 
 
 def _flags_set(value: Any) -> list[str]:
-    """Every `…gesperrt` key holding `true`, at any depth: a withheld address is flagged rather than dropped."""
+    """Every `…barred` key holding `true`, at any depth: a withheld address is flagged rather than dropped."""
 
     if isinstance(value, list):
         return [key for item in value for key in _flags_set(item)]

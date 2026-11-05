@@ -156,7 +156,7 @@ class TestTheSeatRead:
         status, served = sitze_read(mongo_replica_set_url, identifier=STELLA, saison_id=NEXT_SAISON_ID)
 
         assert status == 200
-        assert [(sitz["rolle"], sitz["name"]) for sitz in served["seats"]] == [
+        assert [(seat["rolle"], seat["name"]) for seat in served["seats"]] == [
             ("trainer", None),
             ("ansprechperson", "Nora Nora-Mustermann"),
             ("stellvertretung", "Stella Stella-Mustermann"),

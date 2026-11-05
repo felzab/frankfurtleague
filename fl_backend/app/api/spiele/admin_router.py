@@ -1,87 +1,61 @@
+import asyncio
 from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends, Query
-from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.berechtigungen.guard import verify_actor_is_admin
 from app.api.saisons.crud import pull_active_saison_id
 from app.api.saisons.schemas import FLSaisonRules
-from app.api.saisons.services import find_saison_past_refusal
-from app.api.spielberichte.crud import pull_zustaende, stamp_the_adoption
-from app.api.spielberichte.schemas import FLSpieleActionRequiredResponse
-from app.api.spielberichte.services import BERICHT_ZUSTAENDE_OFFEN, seiten_of
-from app.api.spielbestaetigungen.services import ansetzung_stand_of, build_triage_rows_filter
 from app.api.spiele.crud import (
-    advance_bracket_winners,
-    anchor_a_booked_referee,
-    anchor_a_booked_venue,
-    find_bracket_faults,
-    preview_bracket_after_patch,
-    pull_booked_referee,
-    pull_booked_slots,
-    pull_booked_venue,
-    pull_saison_membership,
-    pull_spieltag_span,
-    release_spieltag_sides,
+    SpielSaveCollections,
+    preview_spiel_save,
+    save_spiel_in_session,
 )
+from app.api.spiele.editor import FLSpieleAdminSingleResponse, read_spiel_editor
 from app.api.spiele.schemas import (
-    SONDEREREIGNIS_RECORDING_AN_ABSENCE,
-    SPIEL_PATCH_WRITTEN_FIELDS,
     FLPatchSpielDataPayload,
     FLPatchSpielDataResponse,
-    FLSpiel,
     FLSpieleAdminListResponse,
-    FLSpieleAdminSingleResponse,
     FLSpieleFilterParams,
-    FLSpielJoinedAdmin,
     FLSpielJoinedAdminListAdapter,
-    FLSpielListAdapter,
 )
 from app.api.spiele.services import (
-    BookedReferences,
-    ResolvedReferences,
-    SpieltagRelease,
-    apply_payload_to_spiel,
     build_spiele_filter,
     build_spiele_pipeline,
     build_spiele_sort,
-    find_booking_refusal,
-    find_claims_made,
-    find_clash_refusal,
-    find_eligibility_refusal,
-    find_fixture_date_refusal,
-    find_referee_stand_refusal,
-    find_references_to_anchor,
-    find_result_removal_refusal,
-    find_state_refusal,
-    find_wiring_refusal,
-    judge_spieltag_occupancy,
-    stored_in_slice,
 )
+from app.api.spieltage.schemas import FLSpieleSpielplanAdminResponse
+from app.api.spieltage.services import build_admin_spielplan, current_spieltag_id
 from app.core.config import API_VERSION
-from app.core.crud import VERSION_FIELD, aggregate_many_from_db, patch_one_in_db, pull_many_from_db, pull_one_from_db, refuse
+from app.core.crud import aggregate_many_from_db, pull_many_from_db, pull_one_from_db
 from app.core.dependencies import (
     DBClient,
+    OutboxCollection,
     SaisonsCollection,
+    SaisonSpielerCollection,
+    SaisonsReadCollection,
     SaisonTeamsCollection,
+    SaisonTeamsReadCollection,
     SchiedsrichterCollection,
     SpielberichteCollection,
     SpielbestaetigungenCollection,
+    SpielbestaetigungenReadCollection,
     SpieleCollection,
+    SpielerCollection,
+    SpieleReadCollection,
     SpielorteCollection,
     SpieltageCollection,
     TeamsCollection,
     get_german_date_str,
     get_germany_now,
 )
-from app.core.exceptions import DocumentNotFoundError
 from app.core.routing import SAFE_WHEN, by_id
 from app.core.security import bind_actor, verify_access_admin
 from app.core.transactions import transaction_session
-from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
-from app.shared.schemas.custom import CustomObjectId, CustomRouteObjectId
+from app.shared.schemas.bounds import LIST_LIMIT_MAX
+from app.shared.schemas.custom import CustomRouteObjectId
 
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/spiele",
@@ -112,7 +86,7 @@ async def get_spiele_verwaltung(
     if filters.saison_id is None:
         filters.saison_id = await pull_active_saison_id(saisons_collection=saisons_collection)
 
-    # The joined pipeline, for `get_spiele_action_required`'s reason: a plain `find` drops `austritt`.
+    # The joined pipeline, as the public reads use: a plain `find` drops `austritt`.
     spiele_raw = await aggregate_many_from_db(
         collection=spiele_collection,
         pipeline=build_spiele_pipeline(
@@ -126,109 +100,37 @@ async def get_spiele_verwaltung(
     return FLSpieleAdminListResponse(spiele=FLSpielJoinedAdminListAdapter.validate_python(spiele_raw))
 
 
+# A static path, which the `objectid` convertor keeps out of `{spiel_id}`'s reach whichever router loads first.
 @router.get(
-    "/action_required",
-    response_model=FLSpieleActionRequiredResponse,
-    summary="Spiele needing attention",
+    "/spielplan",
+    response_model=FLSpieleSpielplanAdminResponse,
+    summary="One Saison's Spiele by matchday, for the admin Spiele list",
 )
-async def get_spiele_action_required(
-    spiele_collection: SpieleCollection,
-    teams_collection: TeamsCollection,
-    saisons_collection: SaisonsCollection,
-    spielorte_collection: SpielorteCollection,
-    schiedsrichter_collection: SchiedsrichterCollection,
-    spielbestaetigungen_collection: SpielbestaetigungenCollection,
-    spielberichte_collection: SpielberichteCollection,
-    saison_id: str | None = None,
-    today: str = Depends(get_german_date_str),
-) -> FLSpieleActionRequiredResponse:
-    """List one season's Spiele needing the administrator, with the bracket's faults and every report's state.
+async def get_spiele_spielplan(
+    saison_id: Annotated[str, Query(description="The season whose matchdays and knockout rounds the list shows")],
+    saisons_collection: SaisonsReadCollection,
+    spieltage_collection: SpieltageCollection,
+    spiele_collection: SpieleReadCollection,
+) -> FLSpieleSpielplanAdminResponse:
+    """
+    Every matchday and knockout round of one season, a planned one included, its matches in the admin shape, in order.
 
-    The season is `saison_id`'s, else the active one, answering 404 while none is. A fixture qualifies when it is
-    called off; lacks a date, time, venue or referee; is past without a result; has a knockout side with neither
-    team nor source; holds a report not adopted as it stands; is put before the administrator by a club's
-    unclosed confirmation; or carries a bracket fault, a booking onto a retired venue or referee and a claim within
-    four hours of another fixture's among them.
+    Each round holds its matches by number, and the rounds come in the order they are played. The matchday to open on
+    is the Spielplan's own: the first holding a match still to be played, else the last; a finished season opens on its
+    last. `document_not_found` for a season id naming no season. Writes nothing.
     """
 
-    # Resolved as every other admin read resolves an omitted season: the selector sends none for the
-    # running one, so spanning the archive here would bury its queue under every other season's.
-    if saison_id is None:
-        saison_id = await pull_active_saison_id(saisons_collection=saisons_collection)
-
-    # The joined pipeline, as the public reads use: the raw shape carries no `austritt`, so
-    # this list would silently omit a badge the grids show.
-    spiele_raw = await aggregate_many_from_db(
-        collection=spiele_collection,
-        pipeline=build_spiele_pipeline(
-            db_filter={
-                "saison_id": saison_id,
-                "$or": [
-                    {"sonderereignis": {"$in": list(SONDEREREIGNIS_RECORDING_AN_ABSENCE)}},
-                    {"datum": None},
-                    {"uhrzeit": None},
-                    {"ort": None},
-                    {"schiedsrichter": None},
-                    {"datum": {"$lt": today}, "ergebnis": None},
-                    {
-                        "saison_phase": {"$ne": "gruppenphase"},
-                        "$or": [
-                            {"team1": None, "team1_quelle": None},
-                            {"team2": None, "team2_quelle": None},
-                        ],
-                    },
-                ],
-            }
-        ),
-    )
-    spiele = FLSpielJoinedAdminListAdapter.validate_python(spiele_raw)
-
-    # The SAME scope as the read above: a fault is unioned into that list, so a fault swept from a
-    # season the list does not cover would surface a fixture the admin did not ask about.
-    bracket_faults, faulted_spiele = await find_bracket_faults(
-        spiele_collection=spiele_collection,
-        teams_collection=teams_collection,
-        saisons_collection=saisons_collection,
-        spielorte_collection=spielorte_collection,
-        schiedsrichter_collection=schiedsrichter_collection,
-        saison_id=saison_id,
+    saison_raw, spieltage_raw, spiele_raw = await asyncio.gather(
+        pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["rules", "status"]),
+        pull_many_from_db(collection=spieltage_collection, db_filter={"saison_id": saison_id}, limit=LIST_LIMIT_MAX),
+        aggregate_many_from_db(collection=spiele_collection, pipeline=build_spiele_pipeline(db_filter={"saison_id": saison_id})),
     )
 
-    by_id: dict[CustomObjectId, FLSpielJoinedAdmin] = {spiel.id: spiel for spiel in spiele}
-    for spiel in faulted_spiele:
-        by_id.setdefault(spiel.id, spiel)
+    spieltage = build_admin_spielplan(spieltage_raw, spiele_raw, FLSaisonRules.model_validate(saison_raw["rules"]))
 
-    # A fixture a confirmation names may lack nothing above: rows are minted only for one with its day, time,
-    # ground and both sides. Grouped per fixture, so the read is bounded by the season's fixtures, never its rows.
-    angefragt = await aggregate_many_from_db(
-        collection=spielbestaetigungen_collection,
-        pipeline=[
-            {"$match": build_triage_rows_filter(saison_id=saison_id, today=today)},
-            {"$group": {"_id": "$spiel_id", "staende": {"$addToSet": "$ansetzung.stand"}}},
-        ],
+    return FLSpieleSpielplanAdminResponse(
+        spieltage=spieltage, current_spieltag_id=current_spieltag_id(spieltage, saison_status=saison_raw["status"])
     )
-    staende = {row["_id"]: set(row["staende"]) for row in angefragt if row["_id"] not in by_id}
-    if staende:
-        for spiel_raw in await aggregate_many_from_db(
-            collection=spiele_collection, pipeline=build_spiele_pipeline(db_filter={"saison_id": saison_id, "_id": {"$in": list(staende)}})
-        ):
-            # A row about an Ansetzung the fixture has left asks the administrator nothing: the next pass closes it.
-            if ansetzung_stand_of(spiel_raw) in staende[spiel_raw["_id"]]:
-                spiel = FLSpielJoinedAdmin.model_validate(spiel_raw)
-                by_id.setdefault(spiel.id, spiel)
-
-    # A report awaiting the administrator sits on a fixture the read above passes over -- one played today, or one whose
-    # result stands -- so it is unioned in as a fault's is; the reports' own read serves the states.
-    berichte = await pull_zustaende(spielberichte_collection=spielberichte_collection, saison_id=saison_id)
-    offen = [eintrag.spiel_id for eintrag in berichte if eintrag.state in BERICHT_ZUSTAENDE_OFFEN and eintrag.spiel_id not in by_id]
-    if offen:
-        berichtet_raw = await aggregate_many_from_db(
-            collection=spiele_collection, pipeline=build_spiele_pipeline(db_filter={"saison_id": saison_id, "_id": {"$in": offen}})
-        )
-        for spiel in FLSpielJoinedAdminListAdapter.validate_python(berichtet_raw):
-            by_id.setdefault(spiel.id, spiel)
-
-    return FLSpieleActionRequiredResponse(spiele=list(by_id.values()), bracket_faults=bracket_faults, spielberichte=berichte)
 
 
 # A static suffix rather than a second `GET /{spiel_id}`: the public router owns that path at this
@@ -236,25 +138,45 @@ async def get_spiele_action_required(
 @router.get(
     f"{by_id('spiel_id')}/verwaltung",
     response_model=FLSpieleAdminSingleResponse,
-    summary="One Spiel for the admin editor",
+    summary="One Spiel and all the match editor offers and shows beside it",
 )
 async def get_spiel_verwaltung(
-    spiel_id: CustomRouteObjectId, spiele_collection: SpieleCollection, saisons_collection: SaisonsCollection
+    spiel_id: CustomRouteObjectId,
+    spiele_collection: SpieleCollection,
+    saisons_collection: SaisonsCollection,
+    spielorte_collection: SpielorteCollection,
+    schiedsrichter_collection: SchiedsrichterCollection,
+    saison_spieler_collection: SaisonSpielerCollection,
+    spieler_collection: SpielerCollection,
+    spielberichte_collection: SpielberichteCollection,
+    spielbestaetigungen_collection: SpielbestaetigungenCollection,
+    outbox_collection: OutboxCollection,
+    saison_teams_collection: SaisonTeamsReadCollection,
 ) -> FLSpieleAdminSingleResponse:
-    """Return one match in the admin shape, money included, for the editor, with its season's status."""
+    """
+    The match editor's one read: the fixture in the admin shape, money and `version` included, and its season's status.
 
-    spiele_raw = await aggregate_many_from_db(
-        collection=spiele_collection,
-        pipeline=build_spiele_pipeline(db_filter={"_id": spiel_id}),
-        limit=1,
+    Beside it every live venue and referee to book, the fixture's own where it has retired, each referee saying whether
+    they confirmed their entry; on a knockout fixture every club of its season, each saying whether it stands on
+    another fixture of the matchday and whether a save fielding it here by hand would pass the write's rules, null on a
+    group fixture; the fixture's report as its Spielbericht section shows it, its goals, its proposal and the state it
+    reads in, null where none stands; and the fixture's confirmation rows as the confirmations' read serves them.
+    `document_not_found` for an id no fixture holds.
+    """
+
+    return await read_spiel_editor(
+        spiel_id=spiel_id,
+        spiele_collection=spiele_collection,
+        saisons_collection=saisons_collection,
+        spielorte_collection=spielorte_collection,
+        schiedsrichter_collection=schiedsrichter_collection,
+        saison_spieler_collection=saison_spieler_collection,
+        spieler_collection=spieler_collection,
+        spielberichte_collection=spielberichte_collection,
+        spielbestaetigungen_collection=spielbestaetigungen_collection,
+        outbox_collection=outbox_collection,
+        saison_teams_collection=saison_teams_collection,
     )
-    if not spiele_raw:
-        raise DocumentNotFoundError()
-
-    spiel = FLSpielJoinedAdmin.model_validate(spiele_raw[0])
-    # Read as the save's judgement reads it, so the editor opens read-only on exactly the season the write refuses.
-    saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": spiel.saison_id}, projection=["status"])
-    return FLSpieleAdminSingleResponse(spiel=spiel, saison_status=saison_raw["status"])
 
 
 async def previewing(
@@ -281,232 +203,52 @@ async def patch_spiel(
     spielorte_collection: SpielorteCollection,
     schiedsrichter_collection: SchiedsrichterCollection,
     spielberichte_collection: SpielberichteCollection,
+    # Read on a `dry_run` alone, for whom the confirmation pass would mail of the save.
+    spielbestaetigungen_collection: SpielbestaetigungenReadCollection,
     adopts_bericht: Annotated[
         int | None,
         Query(ge=1, description="The `version` of the fixture's Spielbericht the editor was seeded from, to stamp it adopted"),
     ] = None,
     now: datetime = Depends(get_germany_now),
+    today: str = Depends(get_german_date_str),
     dry_run: Annotated[bool, Depends(previewing)] = False,
 ) -> FLPatchSpielDataResponse:
     """
     Save one Spiel wholesale and resolve the season's bracket, answering every fixture the save moved beyond it.
 
-    Every name is composed by the server. With `adopts_bericht` the save also stamps the fixture's Spielbericht
+    The fixture stores no name: every read joins it. With `adopts_bericht` the save also stamps the fixture's Spielbericht
     adopted, where it still stands at that version about the clubs the save leaves; a miss refuses nothing. A
-    `dry_run` answers the same report and writes nothing. A `past` season's fixture is refused (`saison_past`), the
-    `dry_run` included.
+    `dry_run` answers the same report and writes nothing, and names in `recipients` every party the confirmation pass
+    would mail about the fixture once it is saved so: told of its move, of the referee taken off it, or of its call-off,
+    by the pass's own rules. A `past` season's fixture is refused (`saison_past`), the `dry_run` included. The save
+    deletes only the later results its body's `voided_results` names, each by its value as its `dry_run` answered it,
+    and is refused whole where it would delete any other set (`voided_results_stale`), judged in its own transaction:
+    a result entered or changed after the question was asked is never deleted unasked.
     """
 
-    async def season_of(session: AsyncClientSession | None) -> tuple[str, FLSaisonRules, str]:
-        """Which season the fixture is played in, under which rules, and its `status`.
-
-        The `saison_id` read is what answers 404 for an id no fixture holds.
-        """
-
-        # `saison_id` alone: everything the judgement and the normalisation read comes from the
-        # season slice `judge` takes.
-        stored_raw = await pull_one_from_db(
-            collection=spiele_collection, db_filter={"_id": spiel_id}, projection={"saison_id": 1}, session=session
-        )
-        saison_id = str(stored_raw["saison_id"])
-
-        # Through the session, though the read alone guards nothing: `activate_saison` anchors the
-        # fixtures of every season it closes, so a rollover landing under this save conflicts with its write
-        # and the retry reads `past`. Ahead of the normalisation because a forfeit is awarded from the rules
-        # rather than typed.
-        saison_raw = await pull_one_from_db(
-            collection=saisons_collection, db_filter={"_id": saison_id}, projection=["rules", "status"], session=session
-        )
-
-        return saison_id, FLSaisonRules.model_validate(saison_raw["rules"]), str(saison_raw["status"])
-
-    async def judge(
-        session: AsyncClientSession | None, saison_id: str, saison_rules: FLSaisonRules, saison_status: str
-    ) -> tuple[list[FLSpiel], list[SpieltagRelease], FLSpiel, BookedReferences]:
-        """Judge this payload against the season, and compose the fixture it saves to.
-
-        Every refusal is raised here, so the `dry_run` preview cannot succeed where the save is
-        refused, and the normalisation after them composes from rows already judged.
-        """
-
-        # One over the cap, so a truncated season is DETECTED rather than judged: a dropped fixture
-        # leaves `find_wiring_refusal` reporting a live `spiel_nr` as no such match, and
-        # `judge_spieltag_occupancy` blind to a release it owes.
-        season_raw = await pull_many_from_db(
-            collection=spiele_collection,
-            db_filter={"saison_id": saison_id},
-            limit=LIST_LIMIT_DEFAULT + 1,
-            session=session,
-        )
-        if len(season_raw) > LIST_LIMIT_DEFAULT:
-            raise ValueError(f"season {saison_id} holds more than {LIST_LIMIT_DEFAULT} fixtures, which is more than one read can judge")
-
-        season = FLSpielListAdapter.validate_python(season_raw)
-        stored = stored_in_slice(spiel_id, season)
-
-        # First, and on the payload alone: the event the admin just chose is what the rest of this
-        # judgement is about, so a contradiction inside it should not be reported as a bracket fault.
-        refuse(find_state_refusal(spiel_data))
-
-        # Before the season's own rules: a finished season's record is closed, its bracket and its table
-        # included, so nothing about this payload is worth judging further.
-        refuse(find_saison_past_refusal(saison_status=saison_status))
-
-        refuse(find_wiring_refusal(spiel_id, spiel_data, season, number_of_gruppen=saison_rules.number_of_gruppen))
-
-        # Read through the session, so an austritt committed by this transaction is visible.
-        membership = await pull_saison_membership(saison_teams_collection=saison_teams_collection, saison_id=saison_id, session=session)
-        refuse(find_eligibility_refusal(spiel_id, spiel_data, season, membership))
-
-        # Before the occupancy judgement: a side that cannot be emptied is a fact about this
-        # fixture, where a clash is a fact about its neighbours.
-        refuse(find_result_removal_refusal(spiel_id, spiel_data, season))
-
-        verdict = judge_spieltag_occupancy(spiel_id, spiel_data, season)
-        refuse(verdict.refusal)
-
-        # The session is what makes a matchday widened by a concurrent write visible.
-        span = await pull_spieltag_span(spieltage_collection=spieltage_collection, spieltag_id=stored.spieltag_id, session=session)
-        if span is not None:
-            refuse(find_fixture_date_refusal(datum=spiel_data.datum, spieltag_beginn=span.beginn, spieltag_ende=span.ende))
-
-        # Read whatever the payload names, unchanged reference included: these rows are where the
-        # saved names come FROM, so a copy that went stale is repaired by the next save either way.
-        resolved = ResolvedReferences(
-            teams=membership,
-            ort=await pull_booked_venue(
-                spielorte_collection=spielorte_collection,
-                spielort_id=spiel_data.ort.spielort_id if spiel_data.ort is not None else None,
-                session=session,
-            ),
-            schiedsrichter=await pull_booked_referee(
-                schiedsrichter_collection=schiedsrichter_collection,
-                schiedsrichter_id=spiel_data.schiedsrichter.schiedsrichter_id if spiel_data.schiedsrichter is not None else None,
-                session=session,
-            ),
-        )
-        # Before the clash: whether a ground exists at all is more basic than who else is on it.
-        refuse(find_booking_refusal(spiel_id, spiel_data, season, resolved, saison_rules))
-
-        # Off the slice this transaction judges, so a save retried after a referee's decline conflicted with it meets the
-        # slot the decline left; after the booking refusal, which names an erased referee as its own case.
-        refuse(find_referee_stand_refusal(stored, spiel_data))
-
-        # Read last, before the one rule it feeds: it spans every season's fixtures.
-        booked = await pull_booked_slots(
-            spiele_collection=spiele_collection, spiel_id=spiel_id, claims=find_claims_made(stored, spiel_data), session=session
-        )
-        refuse(find_clash_refusal(datum=spiel_data.datum, uhrzeit=spiel_data.uhrzeit, booked=booked))
-
-        return (
-            season,
-            verdict.releases,
-            apply_payload_to_spiel(stored, spiel_data, saison_rules, resolved),
-            # Returned rather than left to the caller to derive, so every transaction judging here
-            # anchors what the two rules above judged.
-            find_references_to_anchor(stored, spiel_data, saison_rules),
-        )
-
-    async def preview() -> FLPatchSpielDataResponse:
-        """What this payload would move and destroy, judged against the season as it stands and written nowhere."""
-
-        saison_id, saison_rules, saison_status = await season_of(None)
-        season, releases, patched, _ = await judge(None, saison_id, saison_rules, saison_status)
-        advanced_to, released_sides, bracket_faults = await preview_bracket_after_patch(
-            teams_collection=teams_collection,
-            saison_id=saison_id,
-            rules=saison_rules,
-            season=season,
-            patched=patched,
-            releases=releases,
-        )
-
-        return FLPatchSpielDataResponse(
-            advanced_to=advanced_to,
-            released_sides=released_sides,
-            bracket_faults=bracket_faults,
-            version=patched.version,
-            bericht_adopted=None,
-        )
+    collections = SpielSaveCollections(
+        spiele=spiele_collection,
+        teams=teams_collection,
+        saisons=saisons_collection,
+        saison_teams=saison_teams_collection,
+        spieltage=spieltage_collection,
+        spielorte=spielorte_collection,
+        schiedsrichter=schiedsrichter_collection,
+        spielberichte=spielberichte_collection,
+    )
 
     if dry_run:
-        # No transaction: a preview that took a write lock would be paying for a question.
-        return await preview()
+        return await preview_spiel_save(
+            spiel_id=spiel_id,
+            payload=spiel_data,
+            collections=collections,
+            spielbestaetigungen_collection=spielbestaetigungen_collection,
+            today=today,
+        )
 
     async def write_and_resolve_the_bracket(session: AsyncClientSession) -> FLPatchSpielDataResponse:
-        # Inside the transaction, so a retry after a write conflict revalidates against fresh reads.
-        saison_id, saison_rules, saison_status = await season_of(session)
-        season, releases, patched, anchored = await judge(session, saison_id, saison_rules, saison_status)
-
-        # From the NORMALISED fixture, with keys off the PAYLOAD's field set: keys off the fixture
-        # would put `saison_id`, `saison_phase`, `spiel_nr` and `spieltag_id` in the `$set`.
-        document = patched.model_dump(context={"keep_oid": True}, include={*SPIEL_PATCH_WRITTEN_FIELDS, "ergebnis"})
-
-        await patch_one_in_db(
-            collection=spiele_collection,
-            db_filter={"_id": spiel_id},
-            update={"$set": document},
-            expected_version=spiel_data.version,
-            session=session,
-            return_document=ReturnDocument.BEFORE,
-        )
-
-        # Before the resolution: a slot this release opens can be refilled by that same resolution,
-        # and the reverse order would leave the season one pass behind.
-        released_sides, booked_again_by_the_release = await release_spieltag_sides(
-            spiele_collection=spiele_collection,
-            season=season,
-            releases=releases,
-            session=session,
-        )
-
-        advanced_to, bracket_faults, booked_again_by_the_resolution = await advance_bracket_winners(
-            spiele_collection=spiele_collection,
-            teams_collection=teams_collection,
-            saison_id=saison_id,
-            rules=saison_rules,
-            session=session,
-        )
-
-        # A retirement, the erasure and a rival save at the same hour each judge fixtures and write
-        # none of this pass's, so only a write to a row puts what this pass judged in their write
-        # sets.
-        for booked in (anchored, *booked_again_by_the_release, *booked_again_by_the_resolution):
-            if booked.spielort_id is not None:
-                await anchor_a_booked_venue(spielorte_collection=spielorte_collection, spielort_id=booked.spielort_id, session=session)
-            if booked.schiedsrichter_id is not None:
-                await anchor_a_booked_referee(
-                    schiedsrichter_collection=schiedsrichter_collection, schiedsrichter_id=booked.schiedsrichter_id, session=session
-                )
-
-        # After the resolution, which can re-field this fixture's sides and raise its version again.
-        gespeichert = await pull_one_from_db(
-            collection=spiele_collection,
-            db_filter={"_id": spiel_id},
-            projection={"team1.team_id": 1, "team2.team_id": 1, VERSION_FIELD: 1},
-            session=session,
-        )
-
-        # Here and with the session, never after the commit or off it: a save refused or rolled back stamps nothing.
-        uebernommen = (
-            None
-            if adopts_bericht is None
-            else await stamp_the_adoption(
-                spielberichte_collection=spielberichte_collection,
-                spiel_id=spiel_id,
-                version=adopts_bericht,
-                seiten=seiten_of(gespeichert),
-                now=now,
-                session=session,
-            )
-        )
-
-        return FLPatchSpielDataResponse(
-            advanced_to=advanced_to,
-            released_sides=released_sides,
-            bracket_faults=bracket_faults,
-            version=gespeichert[VERSION_FIELD],
-            bericht_adopted=uebernommen,
+        return await save_spiel_in_session(
+            spiel_id=spiel_id, payload=spiel_data, collections=collections, adopts_bericht=adopts_bericht, now=now, session=session
         )
 
     # `with_transaction` rather than a bare `start_transaction`: two saves in one season can

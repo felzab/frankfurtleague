@@ -27,7 +27,7 @@ export const ANTWORT_NICHT_GESPEICHERT = "Antwort nicht gespeichert";
 export const ANTWORT_NICHT_GESPEICHERT_SATZ = `Deine Antwort wurde nicht gespeichert. ${VERSUCHE_ES_ERNEUT_SATZ}`;
 
 /** Shared by every page a token link opens, so none of them alone keeps its token in the address or drops the answer's focus. */
-export function useLinkSeite(zustand: string): { ergebnisRef: RefObject<HTMLElement | null>; beantwortet: () => void } {
+export function useLinkSeite(state: string): { ergebnisRef: RefObject<HTMLElement | null>; beantwortet: () => void } {
   // A count, never a flag: a page still offering a press once answered (the address link's decline after a lapsed
   // confirmation) unmounts that press too, and a flag already set would leave its focus on `<body>`.
   const [antworten, setAntworten] = useState(0);
@@ -36,9 +36,9 @@ export function useLinkSeite(zustand: string): { ergebnisRef: RefObject<HTMLElem
   useEffect(() => {
     // The bare path after hydration, so the address bar, a screenshot and a bookmark carry no token.
     // Not while the read failed: a reload is the way back, and it needs the token in the URL.
-    if (zustand === "unlesbar" || window.location.search === "") return;
+    if (state === "unlesbar" || window.location.search === "") return;
     window.history.replaceState(null, "", window.location.pathname);
-  }, [zustand]);
+  }, [state]);
 
   // The form unmounts from under the pressed button, so focus would fall to `<body>` with nothing
   // announced; the panel takes it, and `role="status"` reads it out.
@@ -80,7 +80,7 @@ const ANGABE_WERT_CLASSES = "fluid-sm";
 
 type Fakt = {
   label: string;
-  wert: string;
+  value: string;
   /** The one value nothing bounds — a school's name — which takes the width the others leave. */
   unbegrenzt?: boolean;
 };
@@ -89,12 +89,12 @@ const fakt = tv({
   slots: {
     // `min-w-0` on every cell, or one long word would push the row past the panel's edge.
     zelle: "flex min-w-0 flex-col gap-y-0.5",
-    wert: ANGABE_WERT_CLASSES,
+    value: ANGABE_WERT_CLASSES,
   },
   variants: {
     unbegrenzt: {
       // A line of its own on a phone; from `sm` it grows into the width the other facts leave.
-      true: { zelle: "basis-full sm:flex-1", wert: NAME_WRAP_CLASSES },
+      true: { zelle: "basis-full sm:flex-1", value: NAME_WRAP_CLASSES },
       false: { zelle: "flex-initial" },
     },
   },
@@ -111,8 +111,8 @@ export function FaktenBanner({ zeilen }: { zeilen: readonly Fakt[] }) {
   // screen on them.
   return (
     <dl className="flex w-full flex-row flex-wrap items-start gap-x-4 gap-y-2 rounded-lg border border-border bg-surface px-4 py-3 text-left sm:flex-nowrap sm:gap-x-6">
-      {zeilen.map(({ label, wert, unbegrenzt = false }) => {
-        const { zelle, wert: wertKlasse } = fakt({ unbegrenzt: unbegrenzt });
+      {zeilen.map(({ label, value, unbegrenzt = false }) => {
+        const { zelle, value: wertKlasse } = fakt({ unbegrenzt: unbegrenzt });
 
         return (
           <div
@@ -120,7 +120,7 @@ export function FaktenBanner({ zeilen }: { zeilen: readonly Fakt[] }) {
             className={zelle()}>
             <dt className={ANGABE_LABEL_CLASSES}>{label}</dt>
             <dd className={wertKlasse()}>
-              <Wert>{wert}</Wert>
+              <Wert>{value}</Wert>
             </dd>
           </div>
         );
@@ -133,25 +133,25 @@ export function FaktenBanner({ zeilen }: { zeilen: readonly Fakt[] }) {
  * The media consent's row on every confirmation page's receipt, in the words each page asks it in, so the
  * three pages cannot read the one consent three ways.
  */
-export const medienZeile = (medien: boolean): { label: string; wert: string } => ({
+export const medienZeile = (media: boolean): { label: string; value: string } => ({
   label: "Fotos, Videos und Interviews",
-  wert: medien ? "erlaubt" : "nicht erlaubt",
+  value: media ? "erlaubt" : "nicht erlaubt",
 });
 
 /**
  * **Sized to its content and never to the width**: two cells spread across a panel put the second
  * alone at the far edge, which reads as a column that lost its table rather than as a pair.
  */
-export function GespeicherteAngaben({ zeilen }: { zeilen: readonly { label: string; wert: string }[] }) {
+export function GespeicherteAngaben({ zeilen }: { zeilen: readonly { label: string; value: string }[] }) {
   return (
     <dl className="flex flex-wrap gap-x-8 gap-y-3 text-left">
-      {zeilen.map(({ label, wert }) => (
+      {zeilen.map(({ label, value }) => (
         <div
           key={label}
           className="flex flex-col gap-y-0.5">
           <dt className={ANGABE_LABEL_CLASSES}>{label}</dt>
           <dd className={ANGABE_WERT_CLASSES}>
-            <Wert>{wert}</Wert>
+            <Wert>{value}</Wert>
           </dd>
         </div>
       ))}

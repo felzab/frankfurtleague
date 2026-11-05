@@ -97,7 +97,7 @@ request_var: ContextVar[tuple[str, str] | None] = ContextVar("request", default=
 
 # The request an administrator's erasure answers, set around that erasure's whole transaction alone and
 # reset after it: a value left standing lands on the next request's rows.
-anlass_var: ContextVar[str | None] = ContextVar("anlass", default=None)
+erasure_reason_var: ContextVar[str | None] = ContextVar("erasure_reason", default=None)
 
 
 def log_stamp(moment: datetime) -> str:
@@ -199,7 +199,7 @@ def _row(
         # Set when a write destroying a person's values overwrites theirs here. Null means the image
         # still holds what it recorded.
         "redacted_at": None,
-        "anlass": anlass_var.get(),
+        "erasure_reason": erasure_reason_var.get(),
     }
 
 

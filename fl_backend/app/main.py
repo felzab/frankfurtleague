@@ -9,9 +9,9 @@ from pydantic import TypeAdapter
 from pydantic.json_schema import JsonSchemaMode, models_json_schema
 
 from app.api.account.person_router import router as account_person_router
-from app.api.adresswechsel.admin_router import router as address_change_admin_router
-from app.api.adresswechsel.public_router import router as address_change_public_router
-from app.api.adresswechsel.system_router import router as address_change_system_router
+from app.api.address_change.admin_router import router as address_change_admin_router
+from app.api.address_change.public_router import router as address_change_public_router
+from app.api.address_change.system_router import router as address_change_system_router
 from app.api.aktionen.admin_router import router as action_log_admin_router
 from app.api.berechtigungen.admin_router import router as grants_admin_router
 from app.api.berechtigungen.system_router import router as grants_system_router
@@ -29,11 +29,13 @@ from app.api.registrierungen.person_router import spieler_router as registrierun
 from app.api.registrierungen.public_router import router as registrierungen_public_router
 from app.api.registrierungen.system_router import router as registrierungen_system_router
 from app.api.saisons.admin_router import router as saisons_admin_router
+from app.api.saisons.overview_router import router as saisons_overview_router
 from app.api.saisons.public_router import router as saisons_public_router
 from app.api.schiedsrichter.admin_router import router as schiedsrichter_admin_router
 from app.api.schiedsrichter.person_router import router as schiedsrichter_person_router
 from app.api.schiedsrichter.public_router import router as schiedsrichter_public_router
-from app.api.sperrliste.admin_router import router as sperrliste_admin_router
+from app.api.schiedsrichter.system_router import router as schiedsrichter_system_router
+from app.api.sperrliste.admin_router import router as ban_list_admin_router
 from app.api.spielberichte.admin_router import router as spielberichte_admin_router
 from app.api.spielberichte.person_router import router as spielberichte_person_router
 from app.api.spielbestaetigungen.admin_router import router as spielbestaetigungen_admin_router
@@ -53,6 +55,7 @@ from app.api.system.router import router as system_router
 from app.api.teams.admin_router import router as teams_admin_router
 from app.api.teams.person_router import router as teams_person_router
 from app.api.teams.public_router import router as teams_public_router
+from app.core.codes import Rule
 from app.core.config import BackendConfig
 from app.core.db import lifespan
 from app.core.exception_handlers import FAILURE_RESPONSES, FAILURE_STATUSES, register_exception_handlers
@@ -80,9 +83,9 @@ ROUTERS: Mapping[str, tuple[APIRouter, ...]] = {
         registrierungen_person_spieler_router,
         registrierungen_system_router,
     ),
-    "saisons": (saisons_public_router, saisons_admin_router),
-    "schiedsrichter": (schiedsrichter_admin_router, schiedsrichter_public_router, schiedsrichter_person_router),
-    "sperrliste": (sperrliste_admin_router,),
+    "saisons": (saisons_public_router, saisons_admin_router, saisons_overview_router),
+    "schiedsrichter": (schiedsrichter_admin_router, schiedsrichter_public_router, schiedsrichter_person_router, schiedsrichter_system_router),
+    "sperrliste": (ban_list_admin_router,),
     "spielberichte": (spielberichte_admin_router, spielberichte_person_router),
     "spielbestaetigungen": (
         spielbestaetigungen_public_router,
@@ -105,7 +108,7 @@ def operation_id(route: APIRoute) -> str:
     return f"{route.tags[0]}_{route.name}"
 
 
-# The unavailable database's 503 is the one failure naming when to come back.
+# The two failures naming when to come back: the unavailable database's 503 and a rate refusal's 429.
 RETRY_AFTER_HEADER = {"Retry-After": {"description": "Seconds to wait before asking again", "schema": {"type": "integer"}}}
 SCHEMA_REF = "#/components/schemas/{model}"
 
@@ -115,7 +118,7 @@ def failure_response(status: HTTPStatus) -> dict[str, Any]:
         "description": status.phrase,
         "content": {"application/json": {"schema": {"$ref": SCHEMA_REF.format(model=FLFailureBody.__name__)}}},
     }
-    if status is HTTPStatus.SERVICE_UNAVAILABLE:
+    if status in (HTTPStatus.SERVICE_UNAVAILABLE, HTTPStatus.TOO_MANY_REQUESTS):
         response["headers"] = RETRY_AFTER_HEADER
 
     return response
@@ -136,9 +139,11 @@ def with_failure_responses(document: Mapping[str, Any]) -> dict[str, Any]:
     return {**document, "components": {**components, "schemas": schemas, "responses": responses}}
 
 
-# Every alias a frontend constant is checked against: each consent's current label, which a grant sends, and the
-# address change's and the consents' bounds, which the pages state.
-MIRRORED_CONSTANTS: Final = (*CURRENT_TEXT_VERSIONS, *ADDRESS_CHANGE_BOUNDS, *CONSENT_BOUNDS)
+# Every alias a frontend constant is checked against: each consent's current label, which a grant sends, the
+# address change's and the consents' bounds, which the pages state, and the domain rules' kinds, which the
+# catalogue's rule phrases are keyed by. No model names `Rule`: a refused field's `kind` is one of Pydantic's own
+# error types as often.
+MIRRORED_CONSTANTS: Final = (*CURRENT_TEXT_VERSIONS, *ADDRESS_CHANGE_BOUNDS, *CONSENT_BOUNDS, Rule)
 
 
 def with_mirrored_constants(document: Mapping[str, Any]) -> dict[str, Any]:

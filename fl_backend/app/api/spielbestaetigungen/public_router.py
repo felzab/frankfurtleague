@@ -1,11 +1,10 @@
-from dataclasses import replace
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
+from app.api.sperrliste.lookup import BanListLookup, ban_list_saison, barred_addresses
 from app.api.spielbestaetigungen.crud import ANSICHT_SPIEL_FIELDS, pull_ansetzung_lage, pull_vorschlag_offen, verein_fields
 from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigungAntwortPayload,
@@ -23,13 +22,15 @@ from app.api.spielbestaetigungen.services import (
     build_token_filter,
     clubs_without_a_season_row,
     compose_antwort_update,
-    find_gesperrt_link_refusal,
+    find_barred_link_refusal,
     find_spent_link_refusal,
     find_unknown_link_refusal,
+    find_vorschlag_unchanged_refusal,
     find_vorschlag_vergangen_refusal,
     first_press_refusal,
+    judged_as_a_proposal,
     proposal_payload,
-    seat_adresse,
+    seat_address,
     seat_holding,
     seite_of,
     stand_moved,
@@ -54,7 +55,7 @@ from app.core.dependencies import (
     TeamsReadCollection,
     get_german_date_str,
 )
-from app.core.exceptions import DocumentNotFoundError, WriteRefusal
+from app.core.exceptions import DocumentNotFoundError
 from app.core.routing import SAFE
 from app.core.security import bind_public_actor, verify_access_base
 from app.core.transactions import transaction_session
@@ -69,12 +70,6 @@ router = APIRouter(
 )
 
 
-def judged_as_a_proposal(refusal: WriteRefusal | None) -> WriteRefusal | None:
-    """The fixture save's refusal, naming no field: the paths it names are the save's, which this body does not carry."""
-
-    return None if refusal is None else replace(refusal, fields=())
-
-
 @router.post(
     "/view",
     response_model=FLSpielbestaetigungViewResponse,
@@ -82,13 +77,13 @@ def judged_as_a_proposal(refusal: WriteRefusal | None) -> WriteRefusal | None:
     openapi_extra=SAFE,
 )
 async def get_spielbestaetigung_view(
-    ansicht_data: Annotated[FLTokenPayload, Body()],
+    view_data: Annotated[FLTokenPayload, Body()],
     spielbestaetigungen_collection: SpielbestaetigungenReadCollection,
     spiele_collection: SpieleReadCollection,
     saison_teams_collection: SaisonTeamsReadCollection,
     spielorte_collection: SpielorteReadCollection,
     teams_collection: TeamsReadCollection,
-    sperrliste: SperrlisteLookup,
+    ban_list: BanListLookup,
     today: str = Depends(get_german_date_str),
 ) -> FLSpielbestaetigungViewResponse:
     """
@@ -104,7 +99,7 @@ async def get_spielbestaetigung_view(
     Ansetzung, whose date and hour alone are served.
     """
 
-    token_hash = hash_token(ansicht_data.token)
+    token_hash = hash_token(view_data.token)
 
     # `find_one` rather than `pull_one_from_db`: a miss is this endpoint's own refusal, and no state term, so a spent link
     # is found and shown in its state.
@@ -123,11 +118,11 @@ async def get_spielbestaetigung_view(
     # The row read outside any transaction: an undraw or a replace committing since took the fixture and the row together.
     refuse(find_unknown_link_refusal(seat=None if lage is None else seat))
     assert lage is not None
-    adresse = seat_adresse(lage=lage, spielbestaetigung_raw=row, seat=seat)
-    gesperrt = bool(await adressen_gesperrt(sperrliste, [] if adresse is None else [adresse]))
+    address = seat_address(lage=lage, spielbestaetigung_raw=row, seat=seat)
+    barred = bool(await barred_addresses(ban_list, [] if address is None else [address]))
     vorschlag_offen = await pull_vorschlag_offen(spielbestaetigungen_collection=spielbestaetigungen_collection, spielbestaetigung_raw=row)
 
-    zustand = zustand_of(spielbestaetigung_raw=row, lage=lage, today=today, barred=gesperrt, vorschlag_offen=vorschlag_offen)
+    state = zustand_of(spielbestaetigung_raw=row, lage=lage, today=today, barred=barred, vorschlag_offen=vorschlag_offen)
     antwort = row.get("antwort")
 
     if stand_moved(spielbestaetigung_raw=row, lage=lage):
@@ -145,13 +140,13 @@ async def get_spielbestaetigung_view(
         ansetzung = ansicht_ansetzung_of(lage.spiel)
 
     return FLSpielbestaetigungViewResponse(
-        state=zustand,
+        state=state,
         seite=seite_of(row),
         ansetzung=ansetzung,
         frist=str(row["frist"]),
         # Never the row's own proposal on `declined`: the page shows an answered link its answering role alone.
-        vorschlag=vorschlag_offen if zustand == "vorschlag" else None,
-        answered_by=antwort["von"] if zustand in ("zugesagt", "declined") and antwort is not None else None,
+        vorschlag=vorschlag_offen if state == "vorschlag" else None,
+        answered_by=antwort["von"] if state in ("zugesagt", "declined") and antwort is not None else None,
     )
 
 
@@ -166,7 +161,7 @@ async def post_spielbestaetigung(
     spiele_collection: SpieleCollection,
     saison_teams_collection: SaisonTeamsCollection,
     spieltage_collection: SpieltageCollection,
-    sperrliste: SperrlisteLookup,
+    ban_list: BanListLookup,
     db: DBClient,
     today: str = Depends(get_german_date_str),
 ) -> FLSpielbestaetigungAntwortResponse:
@@ -181,7 +176,8 @@ async def post_spielbestaetigung(
     (`ansetzung_answered`); one closed unanswered (`ansetzung_closed`); a fixture decided, called off or left by a club
     (`ansetzung_decided`), then one whose date, time, ground or sides moved since the link (`ansetzung_changed`), each
     as the confirmation pass's close judges the row; an answer after the deadline's day (`ansetzung_frist_past`); a
-    proposal dated before today (`ansetzung_vorschlag_past`); and a proposal the administrator's own save of that date would be
+    proposal dated before today (`ansetzung_vorschlag_past`); one naming the day and hour the fixture already holds
+    (`ansetzung_vorschlag_unchanged`, on both boxes); and a proposal the administrator's own save of that date would be
     refused, judged on what it newly claims and in that save's order: on or after a club's exit
     (`eligibility_disqualified`), outside the matchday (`spiel_outside_spieltag`), or within four hours of the ground's or the referee's
     other fixture (`spiel_double_booked`). The reason is stored as typed. Every refusal after the ban's is asked again outside
@@ -190,8 +186,8 @@ async def post_spielbestaetigung(
     """
 
     token_hash = hash_token(antwort_data.token)
-    # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_gesperrt`).
-    massgebliche_saison_id = await sperrliste_saison(sperrliste)
+    # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_barred`).
+    governing_saison_id = await ban_list_saison(ban_list)
     vorschlag = (
         None
         if antwort_data.vorschlag is None
@@ -216,13 +212,13 @@ async def post_spielbestaetigung(
         )
         # One snapshot with the row, and the fixture is removed with its rows in one transaction.
         assert lage is not None
-        adresse = seat_adresse(lage=lage, spielbestaetigung_raw=row, seat=seat)
-        gesperrt = await adressen_gesperrt(
-            sperrliste, [] if adresse is None else [adresse], massgebliche_saison_id=massgebliche_saison_id, session=session
+        address = seat_address(lage=lage, spielbestaetigung_raw=row, seat=seat)
+        barred = await barred_addresses(
+            ban_list, [] if address is None else [address], governing_saison_id=governing_saison_id, session=session
         )
         # The ban alone is not asked again below: one committing after this read bars the next press, and an answer
         # given before it stands.
-        refuse(find_gesperrt_link_refusal(barred=bool(gesperrt)))
+        refuse(find_barred_link_refusal(barred=bool(barred)))
 
         async def judge(gegen: AnsetzungLage, reads: AsyncClientSession | None) -> None:
             """Every other refusal, over this Ansetzung and reads under `reads`: asked in the transaction, then again outside it."""
@@ -233,6 +229,7 @@ async def post_spielbestaetigung(
                 refuse(find_vorschlag_vergangen_refusal(vorschlag=vorschlag, today=today))
 
                 stored = FLSpiel.model_validate(gegen.spiel)
+                refuse(find_vorschlag_unchanged_refusal(vorschlag=vorschlag, spiel=stored))
                 proposed = proposal_payload(stored, vorschlag)
 
                 # The administrator's save's judges in its order, each read just ahead of the one refusal that consumes it.
@@ -266,13 +263,12 @@ async def post_spielbestaetigung(
                 update=compose_antwort_update(
                     antwort=antwort_data.antwort,
                     seat=seat,
-                    adresse=adresse,
-                    key=sperrliste.key,
                     vorschlag=vorschlag,
                     begruendung=antwort_data.begruendung,
                     today=today,
                 ),
                 session=session,
+                expected_version=None,
                 return_document=ReturnDocument.BEFORE,
             )
         except DocumentNotFoundError:
@@ -282,7 +278,7 @@ async def post_spielbestaetigung(
 
         # Nothing judged is written here, so a move, a club's exit, a renamed seat, a re-dated matchday or a rival booking
         # landing under this transaction raises no conflict: all judged again outside it before answering.
-        jetzt = await pull_ansetzung_lage(
+        current = await pull_ansetzung_lage(
             spiele_collection=spiele_collection,
             saison_teams_collection=saison_teams_collection,
             spielbestaetigung_raw=row,
@@ -291,8 +287,8 @@ async def post_spielbestaetigung(
             session=None,
         )
         # An undraw removing the fixture deletes this row in its transaction, a write conflict while this one holds it.
-        assert jetzt is not None
-        await judge(jetzt, None)
+        assert current is not None
+        await judge(current, None)
 
         return FLSpielbestaetigungAntwortResponse(
             state=antwort_data.antwort, answered_by=FLSpielbestaetigungVonKontakt(art="kontakt", rolle=seat), vorschlag=vorschlag

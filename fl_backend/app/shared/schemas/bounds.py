@@ -42,8 +42,8 @@ BEWERBUNG_KONTAKT_MAX_AGE_YEARS: Final = 120
 
 # The Ansprechperson's floor and the Stellvertretung's: those two sign what binds the school, which
 # asks contractual capacity rather than the age a person consents for themselves at.
-type FLVertretungMinAgeYears = Literal[18]
-VERTRETUNG_MIN_AGE_YEARS: Final[FLVertretungMinAgeYears] = 18
+type FLSignatoryMinAgeYears = Literal[18]
+SIGNATORY_MIN_AGE_YEARS: Final[FLSignatoryMinAgeYears] = 18
 
 # How long an application's three people have to confirm their own seats before it is deleted; a
 # re-send restarts the clock. Days rather than a date, so the deadline is derived from the mint and
@@ -111,7 +111,7 @@ LIST_LIMIT_MAX: Final = 1024
 # The most addresses one references call judges, about a millisecond each: 250 took a median of 0.24 s
 # over 400 season rows and 2,000 pupils (a local server, 2026-10-15), far inside
 # `app/core/middlewares.py :: REQUEST_DEADLINE_S` on a slower one.
-REFERENCES_ADRESSEN_MAX: Final = 250
+REFERENCES_ADDRESSES_MAX: Final = 250
 
 # How long the action log keeps a row, counted from the write it recorded. Seconds because that is
 # the unit `create_index(expireAfterSeconds=)` takes, and a plain year because the database counts
@@ -120,19 +120,19 @@ ACTION_LOG_ENTRY_RETENTION_SECONDS: Final = 365 * 24 * 60 * 60
 
 # Why an address was barred, in an administrator's own words. A reason is a sentence rather than a
 # page, and the row is read on a card. Named so the frontend mirror refuses at the same length.
-SPERRLISTE_GRUND_MAX_LENGTH: Final = 500
+BAN_LIST_REASON_MAX_LENGTH: Final = 500
 
 # Why a team is out of a season, in an administrator's words on the team's public page: a sentence,
-# `SPERRLISTE_GRUND_MAX_LENGTH`'s figure for its reason.
+# `BAN_LIST_REASON_MAX_LENGTH`'s figure for its reason.
 AUSTRITT_GRUND_MAX_LENGTH: Final = 500
 
 # The request an administrator's erasure answers, written onto every log row it files: a mail's date
 # and subject fit, and the log keeps it twelve months beyond every redaction, so a letter does not.
-ERASURE_ANLASS_MAX_LENGTH: Final = 200
+ERASURE_REASON_MAX_LENGTH: Final = 200
 
 # How many FULL seasons a ban outlives the one it was entered under. The season it is entered in
 # does not count, so the fifth one after it is the last the ban covers.
-SPERRE_DURATION_SAISONS: Final = 5
+BAN_DURATION_SAISONS: Final = 5
 
 # What the log read serves of a person's pseudonym, and what its page shows: enough to tell two people
 # apart by eye. The whole value would hand every administrator's browser a stable key to one person,
@@ -157,7 +157,7 @@ type FLAddressChangeWaitingPeriodDays = Literal[7]
 ADDRESS_CHANGE_WAITING_PERIOD_DAYS: Final[FLAddressChangeWaitingPeriodDays] = 7
 
 # Published as schemas of their own (`app/main.py :: with_mirrored_constants`), though no operation names one: the
-# privacy notice, the mails and the link page state both figures, and `fl_frontend/src/core/adresswechsel.ts` checks
+# privacy notice, the mails and the link page state both figures, and `fl_frontend/src/core/addressChange.ts` checks
 # its constants against them, so a bound moved here alone fails the frontend's type check rather than the notice
 # stating a figure the backend no longer keeps. Each value is typed by its alias, so neither moves without the other.
 ADDRESS_CHANGE_BOUNDS: Final = (FLAddressChangeValidHours, FLAddressChangeWaitingPeriodDays)
@@ -176,10 +176,10 @@ SPIEL_CONFIRMATION_FRIST_DAYS: Final = 7
 # `SCHIEDSRICHTER_CONFIRMATION_FRIST_DAYS` let the other adult links: the edge's error log accepts a
 # link's token because it answers nothing past such a deadline.
 SPIEL_REQUEST_LEAD_TIME_DAYS: Final = 14
-SPIEL_REMINDER_DAYS_FIRST: Final = 3
-SPIEL_REMINDER_DAYS_SECOND: Final = 1
+# The one reminder falls this many days before a team row's deadline.
+SPIEL_REMINDER_DAYS: Final = 3
 
-# `SPERRLISTE_GRUND_MAX_LENGTH`'s figure for its reason: a sentence read on a card, neither mailed as a
+# `BAN_LIST_REASON_MAX_LENGTH`'s figure for its reason: a sentence read on a card, neither mailed as a
 # decline's reason is nor copied onto a year of log rows as an erasure's occasion is.
 SPIELBESTAETIGUNG_BEGRUENDUNG_MAX_LENGTH: Final = 500
 
@@ -210,10 +210,10 @@ type FLRegistrierungMinAgeYears = Literal[16]
 REGISTRIERUNG_MIN_AGE_YEARS: Final[FLRegistrierungMinAgeYears] = 16
 
 # ONE constant for the pupil and the referee, unlike the floors above: the media consent is one
-# judgement over every record carrying `medien`, and nobody below it is recognisable in a published
+# judgement over every record carrying `media`, and nobody below it is recognisable in a published
 # photograph or video, or interviewed.
 type FLMedienMinAgeYears = Literal[18]
-MEDIEN_MIN_AGE_YEARS: Final[FLMedienMinAgeYears] = 18
+MEDIA_MIN_AGE_YEARS: Final[FLMedienMinAgeYears] = 18
 
 # Published as `ADDRESS_CHANGE_BOUNDS` are, for the same reason: the privacy notice and the consent pages state each
 # figure, and `fl_frontend/src/features/bewerbungen/constants.ts`, `registrierungen/constants.ts` and
@@ -221,7 +221,7 @@ MEDIEN_MIN_AGE_YEARS: Final[FLMedienMinAgeYears] = 18
 CONSENT_BOUNDS: Final = (
     FLBewerbungConfirmationDeadlineDays,
     FLBewerbungKontaktMinAgeYears,
-    FLVertretungMinAgeYears,
+    FLSignatoryMinAgeYears,
     FLSchiedsrichterConfirmationFristDays,
     FLRegistrierungMinAgeYears,
     FLMedienMinAgeYears,

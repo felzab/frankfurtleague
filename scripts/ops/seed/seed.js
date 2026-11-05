@@ -11,7 +11,9 @@
 //   open and a cancelled fixture, next week's matchday holding an undated fixture, and a knockout
 //   round drawn but not yet decided;
 // - venues with and without rent, one retired and one with a name long enough to test a row's width;
-//   referees, every one with the address both referee payloads require, one retired;
+//   referees, every one with the address both referee payloads require, one retired and one unanswered;
+// - one club's confirmed Trainer, whose decline proposes another day for next week's fixture, standing on the
+//   Übersicht for „Übernehmen“ and „Verwerfen“;
 // - an owner and four administrators.
 //
 // Every journey that writes signs in as a person no other journey signs in as, since one journey's
@@ -37,7 +39,7 @@
 // - It empties every collection of the application database first and never touches `auth`, the
 //   sign-in store the frontend keeps beside it.
 
-/* global db, ObjectId, print */
+/* global db, ObjectId, print, require */
 
 const GERMANY = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Berlin", year: "numeric", month: "2-digit", day: "2-digit" });
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -82,18 +84,18 @@ function joinPresent(parts, separator) {
  * The search string the public match facts hand to a map search, never a URL, as
  * `fl_backend/app/api/spielorte/admin_router.py :: _maps_link` writes it.
  */
-function mapsLink(name, adresse) {
-  const strasse = joinPresent([adresse.strasse, adresse.hausnummer], " ");
-  const ort = joinPresent([adresse.plz, adresse.stadtteil, adresse.stadt], " ");
+function mapsLink(name, address) {
+  const strasse = joinPresent([address.strasse, address.hausnummer], " ");
+  const ort = joinPresent([address.plz, address.stadtteil, address.stadt], " ");
   return `${name}, ${joinPresent([strasse, ort], ", ")}, Deutschland`;
 }
 
-function venue(name, rent, adresse, inactiveSince) {
+function venue(name, rent, address, inactiveSince) {
   return {
     _id: ObjectId(),
     name,
-    address: adresse,
-    maps_link: mapsLink(name, adresse),
+    address,
+    maps_link: mapsLink(name, address),
     default_mietpreis: rent,
     inactive_since: inactiveSince,
   };
@@ -112,48 +114,90 @@ function referee(name, schule, payment, email, inactiveSince) {
   return { _id: ObjectId(), name, schule, default_payment: payment, kontakt: { telefon: null, email }, inactive_since: inactiveSince };
 }
 
+/**
+ * The instant opening `isoDay` in Germany, as `fl_backend/app/api/schiedsrichter/services.py :: erase_at_from` stores
+ * it. The offset read at that day's UTC midnight is the one in force at its German midnight: Germany changes its
+ * clocks at 01:00 UTC, after both.
+ */
+function germanMidnight(isoDay) {
+  const zone = new Intl.DateTimeFormat("en-US", { timeZone: "Europe/Berlin", timeZoneName: "longOffset" })
+    .formatToParts(new Date(`${isoDay}T00:00:00Z`))
+    .find((part) => part.type === "timeZoneName").value;
+  return new Date(`${isoDay}T00:00:00${zone.slice("GMT".length)}`);
+}
+
+// The link's deadline, fourteen days after the mail that owed it
+// (`fl_backend/app/shared/schemas/bounds.py :: SCHIEDSRICHTER_CONFIRMATION_FRIST_DAYS`).
+const LINK_DAYS = 14;
+
+/**
+ * The block every owed link writes (`fl_backend/app/api/schiedsrichter/services.py :: compose_mint_update`), owed on
+ * the day `sentOn` days from today. No hash: the seed owes no mail, and the hand-out writes one only as it mints a link.
+ */
+function confirmationBlock(sentOn) {
+  return { token_hashes: [], sent_at: day(sentOn), reminded_at: null, frist: day(sentOn + LINK_DAYS) };
+}
+
 // Every person's consent as their own confirmation wrote it, on one day, each choice evidenced under its wording's
 // label (`fl_frontend/src/core/consentWordings.ts`): a pupil's (`SPIELER_TEXT_VERSIONS`), whose media wording every
 // kind shares.
 const CONSENTED = day(-60);
-const LABELS = { umfang: "2026-11-name-kader-1", medien: "2026-11-medien-1" };
+const LABELS = { scope: "2026-11-name-kader-1", media: "2026-11-medien-1" };
 
-// A journey's person: a referee no fixture books, as their own confirmation leaves the row
-// (`fl_backend/app/api/schiedsrichter/services.py :: compose_confirmation_update`), in its one write: the birthdate and
-// the consent, the name kept off the public pages and no media, its name's choice under the referees' own wording
-// (`SCHIEDSRICHTER_TEXT_VERSIONS`). A referee row is its person's own only once confirmed
-// (`fl_backend/app/api/identity/services.py :: ist_eigener_schiedsrichter`), so an address change or an erasure moves
-// nothing of a row without one.
-function journeyPerson(name, email) {
-  const evidence = (textVersion) => ({ am: `${CONSENTED}T10:00:00+00:00`, text_version: textVersion });
+/**
+ * A referee as their own confirmation leaves the row
+ * (`fl_backend/app/api/schiedsrichter/services.py :: compose_confirmation_update`), in its one write: the birthdate and
+ * the consent, the name kept off the public pages and no media, its name's choice under the referees' own wording
+ * (`SCHIEDSRICHTER_TEXT_VERSIONS`), and no deletion date. Every referee a fixture books is one, as the booking refuses
+ * any other (`booking_unconfirmed_schiedsrichter`).
+ */
+function confirmed(row) {
+  const evidence = (textVersion) => ({ at: `${CONSENTED}T10:00:00+00:00`, text_version: textVersion });
   return {
-    ...referee(name, null, 20, email, null),
+    ...row,
+    confirmation: confirmationBlock(-62),
     geburtsdatum: day(-20 * 365),
     einwilligung: {
-      umfang: "intern",
-      datum: CONSENTED,
+      scope: "intern",
+      date: CONSENTED,
       confirmed_at: CONSENTED,
-      medien: false,
-      nachweis: { umfang: evidence("2026-11-name-spielplan-1"), medien: evidence(LABELS.medien) },
+      media: false,
+      evidence: { scope: evidence("2026-11-name-spielplan-1"), media: evidence(LABELS.media) },
     },
   };
 }
 
+/**
+ * A referee entered three days ago who has not answered: the create's block, and the deletion date its link sets
+ * (`fl_backend/app/core/constraints.py :: TTL_INDEXES`), the midnight after the deadline.
+ */
+function unanswered(row) {
+  return { ...row, confirmation: confirmationBlock(-3), erase_at: germanMidnight(day(-3 + LINK_DAYS + 1)) };
+}
+
+// A journey's person: a confirmed referee no fixture books. A referee row is its person's own only once confirmed
+// (`fl_backend/app/api/identity/services.py :: is_own_schiedsrichter`), so an address change or an erasure moves
+// nothing of a row without one.
+function journeyPerson(name, email) {
+  return confirmed(referee(name, null, 20, email, null));
+}
+
 const REFEREES = [
-  referee("Anna Ahrens", "Ahorn-Gymnasium", 20, "anna.ahrens@example.com", null),
-  referee("Ben Brandt", null, 25, "ben.brandt@example.com", null),
-  referee("Carla Conrad", "Ulme-Gymnasium", 20, "carla.conrad@example.com", null),
-  referee("Dieter Dorn", null, 15, "dieter.dorn@example.com", day(-90)),
-  // The journeys' own, after every referee a fixture books, so no fixture's booking (`booked`, by index) changes. Each
-  // project's account acts (`fl_frontend/e2e/accountActs.spec.ts`), in its order: the person signed in on a second
-  // device, the one whose address changes, and the one who deletes the account.
+  confirmed(referee("Anna Ahrens", "Ahorn-Gymnasium", 20, "anna.ahrens@example.com", null)),
+  confirmed(referee("Ben Brandt", null, 25, "ben.brandt@example.com", null)),
+  confirmed(referee("Carla Conrad", "Ulme-Gymnasium", 20, "carla.conrad@example.com", null)),
+  confirmed(referee("Dieter Dorn", null, 15, "dieter.dorn@example.com", day(-90))),
+  // After every referee a fixture books, so no fixture's booking (`booked`, by index) changes.
+  unanswered(referee("Elif Engin", "Weide-Gymnasium", 20, "elif.engin@example.com", null)),
+  // The journeys' own. Each project's account acts (`fl_frontend/e2e/accountActs.spec.ts`), in its order: the person
+  // signed in on a second device, the one whose address changes, and the one who deletes the account.
   journeyPerson("Frieda Falk", "frieda.falk@example.com"),
   journeyPerson("Clara Kranz", "clara.kranz@example.com"),
   journeyPerson("Hanna Hahn", "hanna.hahn@example.com"),
   journeyPerson("Gustav Gerber", "gustav.gerber@example.com"),
   journeyPerson("Dora Dahl", "dora.dahl@example.com"),
   journeyPerson("Ingo Imhof", "ingo.imhof@example.com"),
-  // The desktop passkey journeys' (`fl_frontend/e2e/desktop/kontoPasskeys.spec.ts`), one each.
+  // The desktop passkey journeys' (`fl_frontend/e2e/desktop/accountPasskeys.spec.ts`), one each.
   journeyPerson("Emil Ernst", "emil.ernst@example.com"),
   journeyPerson("Jana Jansen", "jana.jansen@example.com"),
 ];
@@ -173,17 +217,17 @@ const GRANTS = [
   ["admin.telefon@example.com", "administration"],
   ["admin.editor@example.com", "administration"],
   ["admin.verwaltung@example.com", "administration"],
-].map(([adresse, verwaltung]) => ({
+].map(([address, admin_tier]) => ({
   _id: ObjectId(),
-  adresse,
-  verwaltung,
+  address,
+  admin_tier,
   granted_by: "MADE-UP-SEED",
   granted_at: GRANTED_AT,
-  gesehen_am: GRANTED_AT,
+  seen_at: GRANTED_AT,
 }));
 
 // The announced record of each, keyed by its grant's id: `fl_backend/app/api/berechtigungen/services.py :: compose_announced`.
-const ANNOUNCED = GRANTS.map(({ _id, adresse, verwaltung }) => ({ _id, adresse, verwaltung, angekuendigt_am: GRANTED_AT }));
+const ANNOUNCED = GRANTS.map(({ _id, address, admin_tier }) => ({ _id, address, admin_tier, announced_at: GRANTED_AT }));
 
 // --- Seasons -------------------------------------------------------------------------------------
 
@@ -191,6 +235,7 @@ const ANNOUNCED = GRANTS.map(({ _id, adresse, verwaltung }) => ({ _id, adresse, 
 const RULES = {
   win_points: 3,
   draw_points: 1,
+  loss_points: 0,
   qualifiers_per_gruppe: 2,
   number_of_gruppen: 2,
   teams_per_gruppe: 4,
@@ -217,16 +262,17 @@ const ROUNDS = [
   ],
 ];
 
+// A fixture stores who plays and the goals alone: every read joins the names.
 function side(name, tore) {
-  return { team_id: club[name]._id, name, shorthand: club[name].shorthand, tore };
+  return { team_id: club[name]._id, tore };
 }
 
 function booked(venueIndex, refereeIndex) {
   const ort = VENUES[venueIndex];
   const schiedsrichter = REFEREES[refereeIndex];
   return {
-    ort: { spielort_id: ort._id, name: ort.name, maps_link: ort.maps_link, mietpreis: ort.default_mietpreis },
-    schiedsrichter: { schiedsrichter_id: schiedsrichter._id, name: schiedsrichter.name, payment: schiedsrichter.default_payment },
+    ort: { spielort_id: ort._id, mietpreis: ort.default_mietpreis },
+    schiedsrichter: { schiedsrichter_id: schiedsrichter._id, payment: schiedsrichter.default_payment },
   };
 }
 
@@ -303,7 +349,7 @@ function season({ id, status, start, end, drawn, groups, dates, play, knockout =
     end_date: end,
     status,
     rules: RULES,
-    spielplan: { generated_at: drawn, spieltage: spieltage.length, spiele: spiele.length },
+    spielplan: { generated_at: drawn },
     bewerbung: null,
     registrierung: null,
   };
@@ -434,6 +480,80 @@ running.saisonTeams.find((row) => row.name === "Weide").austritt = {
   datum: day(-12),
 };
 
+// --- A club's Kontakt, and the date it proposes ---------------------------------------------------
+
+// Birke's Trainer, seated by the league (`fl_backend/app/api/bewerbungen/services.py :: compose_einwilligung`) and
+// confirmed through her own link (`:: compose_confirmation_update`): no WhatsApp and no media, each choice evidenced
+// under a seat's wordings (`fl_backend/app/shared/schemas/einwilligung.py :: FLSeatTextVersions`).
+const TRAINERIN = {
+  vorname: "Berta",
+  nachname: "Birkner",
+  email: "berta.birkner@example.com",
+  telefon: "+49 170 1234567",
+  geburtsdatum: day(-40 * 365),
+  einwilligung: {
+    scope: "kontaktdaten",
+    date: day(-62),
+    confirmed_at: CONSENTED,
+    media: false,
+    entered_by: "liga",
+    evidence: {
+      scope: { at: `${CONSENTED}T10:00:00+00:00`, text_version: "2026-11-whatsapp-1" },
+      media: { at: `${CONSENTED}T10:00:00+00:00`, text_version: LABELS.media },
+    },
+  },
+};
+running.saisonTeams.find((row) => row.name === "Birke").kontakte = {
+  trainer: TRAINERIN,
+  ansprechperson: null,
+  stellvertretung: null,
+  trainer_is_also: null,
+};
+
+// The digest of a fixture's Ansetzung, as `fl_backend/app/api/spielbestaetigungen/services.py :: _digest` writes it: a
+// row whose `stand` is not its fixture's is about a slot the fixture left, which neither act takes.
+const { createHash } = require("crypto");
+function ansetzungOf(spiel) {
+  const values = {
+    datum: spiel.datum,
+    uhrzeit: spiel.uhrzeit,
+    spielort_id: spiel.ort.spielort_id,
+    team1_id: spiel.team1.team_id,
+    team2_id: spiel.team2.team_id,
+  };
+  const canonical = Object.values(values)
+    .map((value) => (typeof value === "string" ? value : value.toHexString()))
+    .join("|");
+  return { ...values, stand: createHash("sha256").update(canonical, "utf8").digest("hex") };
+}
+
+// Match 11, Birke against Linde next week, asked about two weeks ago, as the pass asks a fixture three weeks out
+// (`:: letzter_anfrage_tag`) and dates its deadline a week ahead of it (`:: frist_of`), and declined by Birke's
+// Trainer three days ago for the next day at the same hour, which clashes with no other fixture's ground or referee.
+// The link she pressed is the seed's fiction, so her seat holds no hash: the seed owes no mail.
+const PROPOSED = running.spiele.find((row) => row.spiel_nr === 11);
+const PROPOSALS = [
+  {
+    _id: ObjectId(),
+    saison_id: "2027",
+    spiel_id: PROPOSED._id,
+    party: { art: "team", team_id: club.Birke._id },
+    ansetzung: ansetzungOf(PROPOSED),
+    frist: day(0),
+    asked_at: day(-14),
+    reminded_at: null,
+    kontakte: { trainer: { token_hashes: [], email: TRAINERIN.email }, ansprechperson: null, stellvertretung: null },
+    antwort: {
+      art: "declined",
+      am: day(-3),
+      von: { art: "kontakt", rolle: "trainer" },
+      vorschlag: { datum: day(8), uhrzeit: PROPOSED.uhrzeit },
+      begruendung: "Am Spieltag ist unsere Halle belegt.",
+    },
+    closed: null,
+  },
+];
+
 // The erased pupils' sentinel, as `fl_backend/app/api/spieler/services.py :: build_ghost_spieler` writes it.
 const GHOST_SPIELER = {
   _id: ObjectId("000000000000000000000001"),
@@ -446,7 +566,7 @@ const GHOST_SPIELER = {
 
 // Each pupil's consent, publishing the name and no media, on the day and under the labels above `REFEREES`.
 function pupil(vorname, nachname) {
-  const evidence = (choice) => ({ am: `${CONSENTED}T10:00:00+00:00`, text_version: LABELS[choice] });
+  const evidence = (choice) => ({ at: `${CONSENTED}T10:00:00+00:00`, text_version: LABELS[choice] });
   return {
     _id: ObjectId(),
     vorname,
@@ -454,11 +574,11 @@ function pupil(vorname, nachname) {
     email: `${vorname}.${nachname}@schule.example`.toLowerCase(),
     geburtsdatum: day(-16 * 365),
     einwilligung: {
-      umfang: "kader_oeffentlich",
-      datum: CONSENTED,
+      scope: "kader_oeffentlich",
+      date: CONSENTED,
       confirmed_at: CONSENTED,
-      medien: false,
-      nachweis: { umfang: evidence("umfang"), medien: evidence("medien") },
+      media: false,
+      evidence: { scope: evidence("scope"), media: evidence("media") },
     },
     inactive_since: null,
   };
@@ -562,5 +682,12 @@ for (const [name, documents] of Object.entries(DOCUMENTS)) {
 // `version`, and its record model refuses one.
 const announced = db.getCollection("berechtigungen_angekuendigt").insertMany(ANNOUNCED, { ordered: true }).insertedIds;
 print(`seeded berechtigungen_angekuendigt: ${Object.keys(announced).length} document(s)`);
+
+// The confirmations are no form's edit either, and their first carries the count the adoption's anchor advances.
+const proposals = db.getCollection("spielbestaetigungen").insertMany(
+  PROPOSALS.map((document, index) => (index === 0 ? { ...document, bounded_writes: 1 } : document)),
+  { ordered: true },
+).insertedIds;
+print(`seeded spielbestaetigungen: ${Object.keys(proposals).length} document(s)`);
 
 print(`made-up seed written to '${db.getName()}', today being ${TODAY}`);

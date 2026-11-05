@@ -33,15 +33,18 @@ export function answering<Payload, Value>(
   };
 }
 
-/** A form's status line: its words and its tone, or nothing. `changes` is the editor's count of unsaved fields. */
-export type FormStatus = { tone: "changes" | "saved" | "error"; text: Copy } | null;
+/**
+ * A form's status line: its words and its tone, or nothing. `changes` is the editor's count of unsaved fields, `locked` the
+ * reason an act cannot run (`lockedLine`).
+ */
+export type FormStatus = { tone: "changes" | "saved" | "error" | "locked"; text: Copy } | null;
 
 /**
  * The status line of a send. One the browser kept back for a field's own rule points at the fields, as does
  * a server refusal its fields carry, since the fields say what; a refusal with a reason no box says says that
  * reason, the boxes saying theirs beside it, and any other the shared failure line; a done one says what else
  * the write moved, or „Gespeichert“.
- * Nothing for no answer, nor while a send is on its way: the last answer is none to the press still running,
+ * Nothing for no answer, for a save held back for the question its answer asks, nor while a send is on its way: the last answer is none to the press still running,
  * and the line, a polite live region, is announced only where its words change, so the same refusal twice
  * goes in afresh after the empty line or a screen reader stays silent on the second.
  */
@@ -49,6 +52,8 @@ export function statusOf(answer: ActionAnswer<unknown> | null, isBlocked: boolea
   if (isBlocked) return { tone: "error", text: COPY.template.checkFields };
   if (answer === null || isPending) return null;
   if (answer.ok) return { tone: "saved", text: answer.note ?? COPY.shared.saved };
+  // A save held back for its question: the question says what, and nothing failed.
+  if (answer.ask !== undefined) return null;
   if (answer.fieldErrors === undefined) return { tone: "error", text: answer.reason ?? COPY.shared.failure.unexpected };
   // A reason beside the fields stands before their pointer, being said nowhere else, unless a box already says it.
   const { reason } = answer;

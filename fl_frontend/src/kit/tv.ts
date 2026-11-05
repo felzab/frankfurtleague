@@ -19,6 +19,8 @@ export const tv = createTV({
           "bracket-phone",
           "bracket",
           "dialog",
+          "field",
+          "field-long",
           "form",
           "classic",
           "content",
@@ -28,6 +30,11 @@ export const tv = createTV({
         shadow: ["menu", "dialog"],
         tracking: ["display", "caps"],
         blur: ["scrim"],
+      },
+      // The theme's hover layer is a background image: read as a fill colour, as the merger reads any unknown
+      // `bg-*`, it would drop a fill beside it, and the layer is laid over a fill.
+      classGroups: {
+        "bg-image": [{ bg: ["layer"] }],
       },
     },
   },

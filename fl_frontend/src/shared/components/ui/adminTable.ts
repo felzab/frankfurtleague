@@ -52,6 +52,3 @@ export function identityName(isRetired: boolean): string {
 }
 
 export const IDENTITY_LINE_CLASSES = "max-w-full min-w-0 truncate fluid-xs text-foreground-muted";
-
-/** Two facts on one secondary line, with no separator glyph to strand alone at the wrap. */
-export const IDENTITY_PAIR_CLASSES = "flex min-w-0 flex-wrap gap-x-3";

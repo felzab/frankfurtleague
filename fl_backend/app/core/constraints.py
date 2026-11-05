@@ -49,8 +49,8 @@ UNIQUE_INDEXES: Sequence[UniqueIndex] = (
     ),
     # It is also the READ path: the sign-up check is one indexed equality against this key, so
     # dropping the index costs a collection scan per submission as well as the rule.
-    UniqueIndex(Collection.SPERRLISTE, "uniq_sperrliste_adresse_hash", ("adresse_hash",), "one entry per banned address"),
-    # `$type` rather than the equality `{"widerrufen_am": None}`, which also matches a row missing
+    UniqueIndex(Collection.BAN_LIST, "uniq_ban_list_address_hash", ("address_hash",), "one entry per banned address"),
+    # `$type` rather than the equality `{"revoked_at": None}`, which also matches a row missing
     # the key: MongoDB's manual names `$type` among the operators a `partialFilterExpression`
     # supports and names no null form at all
     # (https://www.mongodb.com/docs/manual/core/index-partial/, which moves without us; read
@@ -60,7 +60,7 @@ UNIQUE_INDEXES: Sequence[UniqueIndex] = (
         "uniq_invitation_live",
         ("saison_id", "team_id"),
         "one live invite per team per season",
-        partial_filter={"widerrufen_am": {"$type": "null"}},
+        partial_filter={"revoked_at": {"$type": "null"}},
     ),
     # `$type` for the reason above: a missing key indexes as null, so without the filter the second
     # keyless submission would collide with the first.
@@ -103,7 +103,7 @@ UNIQUE_INDEXES: Sequence[UniqueIndex] = (
     UniqueIndex(Collection.SAISONS, "uniq_saison_active", ("status",), "at most one season is active", partial_filter={"status": "active"}),
     # Also the READ path of every admin-tier request (`app/api/berechtigungen/guard.py :: verify_actor_is_admin`),
     # and what refuses a second grant a Playground paste adds for an address already holding one.
-    UniqueIndex(Collection.GRANTS, "uniq_grant_adresse", ("adresse",), "one grant per address"),
+    UniqueIndex(Collection.GRANTS, "uniq_grant_address", ("address",), "one grant per address"),
     # What makes a pass run twice mint once, and a second decline need a new stand rather than a
     # refusal. Both party ids are keys, the one a row lacks indexing as null. `$type` for
     # `uniq_invitation_live`'s reason.
@@ -117,18 +117,18 @@ UNIQUE_INDEXES: Sequence[UniqueIndex] = (
     # What makes two first writes of one fixture's report one document: the second insert meets this.
     UniqueIndex(Collection.SPIELBERICHTE, "uniq_spielbericht_spiel_id", ("spiel_id",), "one report per fixture"),
     # Two starts on one address meet here as a write conflict their transactions retry. The key's `$type` term keeps an
-    # ending's null address out; a keyed read carries it too (`app/api/adresswechsel/services.py :: build_address_filter`),
+    # ending's null address out; a keyed read carries it too (`app/api/address_change/services.py :: build_address_filter`),
     # or the planner scans.
     UniqueIndex(
         Collection.ADDRESS_CHANGES,
-        "uniq_address_change_adresse",
-        ("adresse",),
+        "uniq_address_change_address",
+        ("address",),
         "one live change per address",
-        partial_filter={"ended": {"$type": "null"}, "adresse": {"$type": "string"}},
+        partial_filter={"ended": {"$type": "null"}, "address": {"$type": "string"}},
     ),
     # Two requests about one address meet here. Unfiltered, a lapsed row too: the write asking anew removes that one first
     # (`app/api/berechtigungen/antraege.py :: clear_the_address_in_session`), the TTL monitor passing up to a minute late.
-    UniqueIndex(Collection.GRANT_APPROVAL_REQUESTS, "uniq_grant_approval_request_adresse", ("adresse",), "one request per address"),
+    UniqueIndex(Collection.GRANT_APPROVAL_REQUESTS, "uniq_grant_approval_request_address", ("address",), "one request per address"),
     # Also the READ path of every enqueue, which finds a replay's row by it (`app/api/outbox/services.py :: enqueue_mails`).
     UniqueIndex(Collection.OUTBOX, "uniq_outbox_key", ("key",), "one row per owed mail"),
 )
@@ -153,7 +153,7 @@ class SupportIndex:
 SUPPORT_INDEXES: Sequence[SupportIndex] = (
     # `_id` is in the key because the read SORTS by it: with `at` alone MongoDB cannot walk this
     # index and scans the whole log instead -- measured, and the log holds twelve months of writes
-    # (`app/api/aktionen/admin_router.py :: get_aktionen`).
+    # (`app/api/aktionen/admin_router.py :: get_action_log`).
     SupportIndex(
         Collection.ACTION_LOG,
         "action_log_queue",
@@ -183,7 +183,7 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
     ),
     # `actor.pseudonym` leads: an erasure for a person's request matches on it alone, and the pupils' pass,
     # running for a whole season at once, on both (`app/api/identity/crud.py :: unattribute_in_session`,
-    # `:: loeschen_pupil_actor_in_session`).
+    # `:: erase_pupil_actor_in_session`).
     SupportIndex(
         Collection.ACTION_LOG,
         "action_log_actor_pseudonym",
@@ -277,13 +277,6 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         )
         for seat in KONTAKT_ROLLEN
     ),
-    # A collection with no retention bound, read inside every contact erasure's and Widerspruch's transaction.
-    SupportIndex(
-        Collection.SPIELBESTAETIGUNGEN,
-        "spielbestaetigungen_antwort_von_halter",
-        (("antwort.von.halter", ASCENDING),),
-        "the reasons a leaving contact typed, from whichever seat",
-    ),
     # Read on every load of a referee's own panel, and inside every referee erasure's transaction, neither stating a
     # fixture the season-leading index could narrow by.
     SupportIndex(
@@ -298,7 +291,7 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         (("saison_id", ASCENDING),),
         "a season's reports, which the triage's read and a replace's or an undraw's removal filter on",
     ),
-    # For `spielbestaetigungen_antwort_von_halter`'s reason: the reports are kept with no retention bound.
+    # The reports are kept with no retention bound, and this read names no season the season-leading index could narrow by.
     SupportIndex(
         Collection.SPIELBERICHTE,
         "spielberichte_submitted_by_schiedsrichter_id",
@@ -407,12 +400,12 @@ TTL_INDEXES: Sequence[TTLIndex] = (
         ACTION_LOG_ENTRY_RETENTION_SECONDS,
         "a log row is kept for twelve months after the write it recorded",
     ),
-    # A live change never expires, holding no date at `ended.am`: the hourly pass ends it, taking its address out of the
+    # A live change never expires, holding no date at `ended.at`: the hourly pass ends it, taking its address out of the
     # log images, which a TTL deletion never would.
     TTLIndex(
         Collection.ADDRESS_CHANGES,
         "address_change_ended_at",
-        "ended.am",
+        "ended.at",
         ADDRESS_CHANGE_RETENTION_DAYS * 86400,
         "an ended address change is removed once its tombstone's retention has passed",
     ),
@@ -420,7 +413,7 @@ TTL_INDEXES: Sequence[TTLIndex] = (
     TTLIndex(
         Collection.GRANT_APPROVAL_REQUESTS,
         "grant_approval_requests_until",
-        "approval.bis",
+        "approval.until",
         0,
         "a request nobody decided is removed once the TTL monitor next passes after it lapsed",
     ),

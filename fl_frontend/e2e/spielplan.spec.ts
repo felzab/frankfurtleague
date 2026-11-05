@@ -27,7 +27,7 @@ test("a visitor opens a match from the Spielplan, and Back returns to the matchd
   // A match row is a link to the match's page, which opens over the Spielplan. Only the chosen matchday's
   // matches are on the page, so the row's name finds it.
   await page.getByRole("link", { name: /Ahorn.*Kastanie/ }).click();
-  const popup = page.getByRole("dialog", { name: "Ahorn gegen Kastanie" });
+  const popup = page.getByRole("dialog", { name: "Ahorn vs. Kastanie" });
   await expect(popup).toBeVisible();
   await expect(popup.getByText("2:1")).toBeVisible();
   await expect(page).toHaveURL((url) => /^\/saisons\/2027\/spiele\/[0-9a-f]{24}$/.test(url.pathname));
@@ -44,25 +44,18 @@ test("a visitor opens a match from the Spielplan, and Back returns to the matchd
   await expect(page).toHaveURL((url) => url.pathname === "/saisons/2027" && url.searchParams.get("tab") === "gruppenphase-1");
   await expect(first).toHaveAttribute("aria-current", "page");
 
-  // Loaded directly, the same address is the match's own page, with no pop-up.
-  await page.goto(matchPage);
-  await expect(page.getByRole("banner").getByRole("heading", { level: 1, name: "Ahorn gegen Kastanie" })).toBeVisible();
-  await expect(page.getByRole("dialog")).toHaveCount(0);
-});
-
-test("a club's name in the pop-up opens the club's page and closes the pop-up", async ({ page }) => {
-  const prefetched = hydrated(page);
-  await page.goto("/saisons/2027?tab=gruppenphase-1");
-  await prefetched;
-
+  // Opened again, the pop-up's club name leads to the club's page. A client navigation leaves a parallel slot
+  // showing its last page unless the new address matches one of its routes; the slot's catch-all matches the
+  // club's page and draws no pop-up.
   await page.getByRole("link", { name: /Ahorn.*Kastanie/ }).click();
-  const popup = page.getByRole("dialog", { name: "Ahorn gegen Kastanie" });
   await expect(popup).toBeVisible();
-
-  // A client navigation leaves a parallel slot showing its last page unless the new address matches one of
-  // its routes; the slot's catch-all matches the club's page and draws no pop-up.
   await popup.getByRole("link", { name: "Ahorn", exact: true }).click();
   await expect(page).toHaveURL((url) => /^\/saisons\/2027\/teams\/[0-9a-f]{24}$/.test(url.pathname));
   await expect(page.getByRole("banner").getByRole("heading", { level: 1, name: "Ahorn" })).toBeVisible();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+
+  // Loaded directly, the match's address is the match's own page, with no pop-up.
+  await page.goto(matchPage);
+  await expect(page.getByRole("banner").getByRole("heading", { level: 1, name: "Ahorn vs. Kastanie" })).toBeVisible();
   await expect(page.getByRole("dialog")).toHaveCount(0);
 });

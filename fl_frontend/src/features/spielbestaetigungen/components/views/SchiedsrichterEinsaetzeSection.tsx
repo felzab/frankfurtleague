@@ -147,7 +147,7 @@ export function SchiedsrichterEinsaetzeSection({ einsaetze }: { einsaetze: reado
 /** One row's card. Its own component so each card holds its own reason draft and pending press. */
 function EinsatzKarte({ einsatz }: { einsatz: FLSpielbestaetigungSelf }) {
   const { ansetzung } = einsatz;
-  const paarung = `${ansetzung.team1_name} gegen ${ansetzung.team2_name}`;
+  const paarung = `${ansetzung.team1_name} vs. ${ansetzung.team2_name}`;
   const datum = formatSpielDatum(ansetzung.datum);
 
   return (

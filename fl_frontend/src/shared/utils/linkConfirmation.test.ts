@@ -17,7 +17,7 @@ afterEach(() => {
 function drive(antwort: Parameters<typeof reportRefusedConfirmation<string>>[0]): string[] {
   const seen: string[] = [];
   reportRefusedConfirmation(antwort, {
-    onZustand: (state) => seen.push(`zustand:${state}`),
+    onState: (state) => seen.push(`zustand:${state}`),
     onRefusal: () => seen.push("refusal"),
   });
 

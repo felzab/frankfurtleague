@@ -6,8 +6,7 @@ import Script from "next/script";
 import { useTheme } from "next-themes";
 
 import { COPY } from "@/core/copy";
-import { MENSCH_BESTAETIGEN } from "@/core/turnstileToken";
-import { FIELD_ERROR_CLASSES } from "@/shared/components/ui/formFieldStyles";
+import { CONFIRM_HUMAN } from "@/core/turnstileToken";
 import { postClientError } from "@/shared/utils/clientError";
 
 import type { Copy } from "@/core/copy";
@@ -21,11 +20,11 @@ const TURNSTILE_API = "https://challenges.cloudflare.com/turnstile/v0/api.js?ren
 // server would wait for its verdict, and is then answered rather than posting a token the server refuses.
 const TOKEN_WAIT_MS = 10_000;
 
-/** A press past `TOKEN_WAIT_MS` with no token minted. */
-const NOCH_NICHT_FERTIG = COPY.shared.botCheck.notReady;
-
-/** Every form's sentence for a check that did not load. */
-const NICHT_GELADEN = COPY.shared.botCheck.notLoaded;
+/**
+ * A press past `TOKEN_WAIT_MS` with no token minted, or on a check that did not load: nothing the visitor does repairs
+ * either, so neither says a reason, and the widget's failure is reported once.
+ */
+const UNCHECKED = COPY.shared.failure.unexpected;
 
 /** The calls of Cloudflare's script this hook makes, as its client-side rendering page documents them. */
 type TurnstileApi = {
@@ -37,19 +36,19 @@ type TurnstileApi = {
 const turnstileApi = (): TurnstileApi | undefined => (window as Window & { turnstile?: TurnstileApi }).turnstile;
 
 /** Minting, holding a token, showing Cloudflare's click, or failed until Cloudflare's own retry mints one. */
-type Stand = "laedt" | "bereit" | "interaktiv" | "failed";
+type Stand = "loading" | "ready" | "interactive" | "failed";
 
 /** A press's token, or the sentence it is answered with instead: a press never posts an empty token. */
-type Anfrage = { readonly token: string } | { readonly satz: Copy };
+type TokenRequest = { readonly token: string } | { readonly sentence: Copy };
 
 /**
  * One form's bot check: `widget` stands before the submit, where Cloudflare's example places it, and each
  * press awaits `takeToken`.
  */
-export function useTurnstile(siteKey: string): { widget: ReactNode; takeToken: () => Promise<Anfrage> } {
-  const [stand, setStandState] = useState<Stand>("laedt");
+export function useTurnstile(siteKey: string): { widget: ReactNode; takeToken: () => Promise<TokenRequest> } {
+  const [stand, setStandState] = useState<Stand>("loading");
   // Read by a press, which can run between a callback and the render it causes.
-  const standNow = useRef<Stand>("laedt");
+  const standNow = useRef<Stand>("loading");
   const setStand = (next: Stand): void => {
     standNow.current = next;
     setStandState(next);
@@ -84,20 +83,20 @@ export function useTurnstile(siteKey: string): { widget: ReactNode; takeToken: (
 
   const onToken = useEffectEvent((minted: string) => {
     token.current = minted;
-    setStand("bereit");
+    setStand("ready");
     settle(minted);
   });
   const onExpired = useEffectEvent(() => {
     token.current = null;
-    setStand("laedt");
+    setStand("loading");
   });
   const onError = useEffectEvent((code: string) => fail(code));
   const onInteractive = useEffectEvent(() => {
-    setStand("interaktiv");
+    setStand("interactive");
     settle(null);
   });
   const onInteractiveDone = useEffectEvent(() => {
-    if (standNow.current === "interaktiv") setStand(token.current === null ? "laedt" : "bereit");
+    if (standNow.current === "interactive") setStand(token.current === null ? "loading" : "ready");
   });
 
   // One widget per container and theme, removed with them: a second render into a container is a second
@@ -136,26 +135,25 @@ export function useTurnstile(siteKey: string): { widget: ReactNode; takeToken: (
       widgetId.current = null;
       // Minting again with the token: a press before the new widget mints waits for it, never answers at once.
       token.current = null;
-      setStand("laedt");
+      setStand("loading");
       api.remove(id);
     };
   }, [container, isScriptReady, siteKey, theme]);
 
-  const takeToken = (): Promise<Anfrage> => {
-    const handOver = (minted: string): Anfrage => {
+  const takeToken = (): Promise<TokenRequest> => {
+    const handOver = (minted: string): TokenRequest => {
       // A token is spent by the check it reaches, so the next press's starts being minted now.
       token.current = null;
-      setStand("laedt");
+      setStand("loading");
       if (widgetId.current !== null) turnstileApi()?.reset(widgetId.current);
       return { token: minted };
     };
-    const withoutToken = (): Anfrage => {
-      if (standNow.current === "failed") return { satz: NICHT_GELADEN };
-      return { satz: standNow.current === "interaktiv" ? MENSCH_BESTAETIGEN : NOCH_NICHT_FERTIG };
+    const withoutToken = (): TokenRequest => {
+      return { sentence: standNow.current === "interactive" ? CONFIRM_HUMAN : UNCHECKED };
     };
 
     if (token.current !== null) return Promise.resolve(handOver(token.current));
-    if (standNow.current !== "laedt") return Promise.resolve(withoutToken());
+    if (standNow.current !== "loading") return Promise.resolve(withoutToken());
 
     return new Promise((resolve) => {
       const waiter = (minted: string | null): void => {
@@ -175,9 +173,8 @@ export function useTurnstile(siteKey: string): { widget: ReactNode; takeToken: (
           ref={setContainer}
           // Spacing alone follows the callbacks: Cloudflare shows and hides the widget itself, so a missed
           // callback costs a margin and never the challenge.
-          className={stand === "interaktiv" ? "pb-4" : undefined}
+          className={stand === "interactive" ? "pb-4" : undefined}
         />
-        {stand === "failed" && <p className={`${FIELD_ERROR_CLASSES} pb-4`}>{NICHT_GELADEN}</p>}
         {/* `onReady` rather than `onLoad`: it runs again on every mount, a client navigation back included. */}
         <Script
           src={TURNSTILE_API}

@@ -1,6 +1,7 @@
 /**
  * E2E · the administration's spike pages: an administrator creates a venue in the dialog over the
- * Spielorte list and finds it there, then moves a match's kick-off in the match editor and saves it.
+ * Spielorte list and finds it there, moves a match's kick-off in the match editor and saves it, then
+ * opens the match's matchday in its editor.
  * One journey, one sign-in: an administrator's second sign-in would ask for the passkey the first set
  * up, which a new browser context does not hold. Desktop alone: the administration is desktop-first,
  * and the passkey it requires is desktop's (`fl_frontend/playwright.config.ts`).
@@ -23,10 +24,14 @@ const NEW_VENUE = "Sportplatz Ulmenring";
 
 /**
  * The running season's match 6, today at 16:00 between Kastanie and Eiche, the only match today at its
- * venue and with its referee, so a later kick-off meets no clash (`scripts/ops/seed/seed.js`).
+ * venue and with its referee, so a later kick-off meets no clash (`scripts/ops/seed/seed.js`). It stands on
+ * the group stage's second matchday, which the Spiele list is opened on by its address, so the journey edits
+ * that match whatever matchday the list would open on by itself.
  */
 const SAISON = "2027";
-const SPIEL_NR = 6;
+const MATCHDAY = "gruppenphase-2";
+// The match card's link is named by all its words, the date and the plaques among them, as the Spielplan's is.
+const PAIRING = /Kastanie.*Eiche/;
 
 /**
  * Whether the document, or the box any table scrolls in, scrolls sideways, which no page may. The kit's
@@ -40,21 +45,19 @@ const scrollsSideways = (page: Page) =>
     ),
   );
 
-// Session 5: reads the id off the new match list once it stands, and the old search goes from this journey.
-/**
- * The match's id, read off today's admin match search: no new page lists a season's matches yet, so the
- * old search's editor link names it.
- */
+/** The match's id, read off its card on its matchday's tab of the season's Spiele list, whose link opens its editor. */
 async function spielId(page: Page): Promise<string> {
-  await page.goto(`/area/admin/spielsuche?saison_id=${SAISON}&status=heute`);
-  const link = page.getByRole("link", { name: `Spiel bearbeiten: Spiel Nr. ${String(SPIEL_NR)}` });
-  const href = await link.getAttribute("href");
-  const id = /\/area\/admin\/spiele\/([0-9a-f]{24})/.exec(href ?? "")?.[1];
-  if (id === undefined) throw new Error(`no editor link for match ${String(SPIEL_NR)} on today's search`);
+  await page.goto(`/admin/saisons/${SAISON}/spiele?tab=${MATCHDAY}`);
+  const href = await page.getByRole("main").getByRole("link", { name: PAIRING }).getAttribute("href");
+  const id = new RegExp(`^/admin/saisons/${SAISON}/spiele/([0-9a-f]{24})$`).exec(href ?? "")?.[1];
+  if (id === undefined) throw new Error(`no editor link for ${PAIRING} on the Spiele list's ${MATCHDAY} tab`);
   return id;
 }
 
-test("an administrator creates a venue over the Spielorte list, then moves a match's kick-off in its editor", async ({ page, context }) => {
+test("an administrator creates a venue over the Spielorte list, moves a match's kick-off in its editor and opens its matchday's", async ({
+  page,
+  context,
+}) => {
   await signInWithCode(page, ADMINISTRATOR);
   await enrolPasskey(page, context);
 
@@ -91,20 +94,29 @@ test("an administrator creates a venue over the Spielorte list, then moves a mat
 
   const editor = `/admin/saisons/${SAISON}/spiele/${await spielId(page)}`;
   await page.goto(editor);
-  await expect(page.getByRole("banner").getByRole("heading", { level: 1, name: "Kastanie gegen Eiche" })).toBeVisible();
+  await expect(page.getByRole("banner").getByRole("heading", { level: 1, name: "Kastanie vs. Eiche" })).toBeVisible();
 
   // The kick-off's hour, then its minutes: the segmented field moves on by itself after two digits.
   const uhrzeit = page.getByRole("group", { name: /^Uhrzeit/ });
   await uhrzeit.getByRole("spinbutton").first().click();
   await page.keyboard.type("1830");
-  // The editor's save bar stands below `main` in no landmark of its own, so its line is read over the page.
-  await expect(page.getByText("1 Änderung", { exact: true })).toBeVisible();
+  // The editor's save bar is a landmark of its own, named by its act, so its line is read inside it.
+  const bar = page.getByRole("region", { name: "Speichern" });
+  await expect(bar.getByText("1 Änderung", { exact: true })).toBeVisible();
 
-  await page.getByRole("button", { name: "Speichern" }).click();
-  await expect(page.getByText("Gespeichert", { exact: true })).toBeVisible();
+  await bar.getByRole("button", { name: "Speichern" }).click();
+  await expect(bar.getByText("Gespeichert", { exact: true })).toBeVisible();
 
   // Read back from the server: the match now kicks off at 18:30.
   await page.reload();
   await expect(uhrzeit.getByRole("spinbutton").first()).toHaveText("18");
   await expect(uhrzeit.getByRole("spinbutton").nth(1)).toHaveText("30");
+
+  // --- The matchday editor -----------------------------------------------------------------------
+
+  // The matchday's „Bearbeiten“ leads to an editor page of its own, named as its tab is, on its one read.
+  await page.goto(`/admin/saisons/${SAISON}/spiele?tab=${MATCHDAY}`);
+  await page.getByRole("main").getByRole("link", { name: "Bearbeiten", exact: true }).click();
+  await expect(page.getByRole("banner").getByRole("heading", { level: 1, name: "2. Spieltag" })).toBeVisible();
+  await expect(page.getByRole("group", { name: /^Beginn/ })).toBeVisible();
 });

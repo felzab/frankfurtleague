@@ -1,6 +1,7 @@
 import { textOf } from "@/core/copy";
 
 import { cardHover, cardSurface, stacked } from "./cardStyles";
+import { CutText } from "./CutText";
 import { Icon } from "./Icon";
 import { Link } from "./Link";
 import { RowEnd } from "./RowEnd";
@@ -32,7 +33,7 @@ export function LinkRows({ rows }: { rows: readonly LinkRow[] }) {
             />
           )}
           {/* The way's own short name keeps its line and its width; the address beside it takes the rest of
-              the row and is cut with „…“ where it is longer, whole in its `title`. */}
+              the row and is cut with „…“ where it is longer, whole in its `title` while it is cut. */}
           <span className="shrink-0 font-medium whitespace-nowrap">
             <Link
               href={row.href}
@@ -40,11 +41,10 @@ export function LinkRows({ rows }: { rows: readonly LinkRow[] }) {
               label={row.label}
             />
           </span>
-          <span
+          <CutText
+            text={textOf(row.value)}
             className="min-w-0 flex-1 truncate text-end text-fg-muted"
-            title={textOf(row.value)}>
-            {textOf(row.value)}
-          </span>
+          />
           <RowEnd />
         </div>
       ))}

@@ -19,7 +19,7 @@ import type { SchiedsrichterAbsage } from "./schemas";
  */
 async function antworten<Z extends "zugesagt" | "abgelehnt">(
   sende: () => Promise<unknown>,
-  zustand: Z,
+  state: Z,
   message: string,
 ): Promise<ActionResult<{ zustand: Z }>> {
   try {
@@ -30,7 +30,7 @@ async function antworten<Z extends "zugesagt" | "abgelehnt">(
     throw error;
   }
 
-  return { success: true, message: message, zustand: zustand };
+  return { success: true, message: message, zustand: state };
 }
 
 /** The referee agrees to officiate the fixture their row asks about. */

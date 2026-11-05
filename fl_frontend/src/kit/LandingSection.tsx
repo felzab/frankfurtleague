@@ -2,6 +2,7 @@ import { useId } from "react";
 
 import { smallCaps } from "./cardStyles";
 import { Link } from "./Link";
+import { PlaceholderLine } from "./Skeleton";
 import { tv } from "./tv";
 
 import type { Copy } from "@/core/copy";
@@ -17,6 +18,26 @@ const section = tv({
     title: "font-heading text-2xl tracking-display uppercase",
   },
 });
+
+/** A section while the landing is read: its eyebrow's and its title's lines over its block's placeholder. */
+export function LandingSectionPlaceholder({ children }: { children: ReactNode }) {
+  const slots = section();
+  return (
+    <div className={slots.root()}>
+      <div className={slots.head({ class: "w-full" })}>
+        <PlaceholderLine
+          text={slots.eyebrow()}
+          width="w-24"
+        />
+        <PlaceholderLine
+          text={slots.title()}
+          width="w-64 max-w-full"
+        />
+      </div>
+      {children}
+    </div>
+  );
+}
 
 /**
  * One of the landing's sections, the page's second heading step: its eyebrow, its title in Anton at 24 px, a

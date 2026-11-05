@@ -3,9 +3,14 @@ from typing import Any
 
 import pytest
 from bson import ObjectId
+from pydantic import BaseModel, ValidationError
 
 from app.api.spielbestaetigungen.crud import ANSICHT_SPIEL_FIELDS, verein_fields
-from app.api.spielbestaetigungen.schemas import FLSpielbestaetigungAppointment
+from app.api.spielbestaetigungen.schemas import (
+    FLSpielbestaetigungAntwortPayload,
+    FLSpielbestaetigungAppointment,
+    FLSpielbestaetigungSchiedsrichterAntwortPayload,
+)
 from app.api.spielbestaetigungen.services import (
     AnsetzungLage,
     ansetzung_stand_of,
@@ -18,10 +23,10 @@ from app.api.spielbestaetigungen.services import (
     grund_to_close,
     grund_to_end,
     proposal_payload,
-    seat_adresse,
+    seat_address,
     zustand_of,
 )
-from app.api.spiele.schemas import FLSpiel
+from app.api.spiele.schemas import SPIEL_PATCH_WRITTEN_FIELDS, FLSpiel
 from app.core.codes import Code
 
 TEAM1 = ObjectId("650000000000000000000101")
@@ -43,7 +48,7 @@ REFEREE = "Otto Gruber"
 
 
 def spiel(**overrides: Any) -> dict[str, Any]:
-    """A raw fixture as the collection stores it: dated, both sides, a ground and a referee."""
+    """A fixture as the name join serves it: dated, both sides, a ground and a referee; `FLSpiel` reads it as stored."""
 
     return {
         "_id": ObjectId("650000000000000000000109"),
@@ -121,14 +126,14 @@ class TestASpentLinkMeetsTheCodeThatNamesWhy:
             pytest.param({}, {"spiel_overrides": {"ergebnis": "2:1"}}, TODAY, Code.ANSETZUNG_DECIDED, id="a-result"),
             pytest.param({}, {"spiel_overrides": {"sonderereignis": "ausgefallen"}}, TODAY, Code.ANSETZUNG_DECIDED, id="called-off"),
             pytest.param(
-                {"antwort": ANSWERED, "closed": {"am": TODAY, "grund": "ansetzung_changed"}},
+                {"antwort": ANSWERED, "closed": {"at": TODAY, "grund": "ansetzung_changed"}},
                 {"spiel_overrides": {"uhrzeit": "19:00:00"}},
                 "2027-05-08",
                 Code.ANSETZUNG_ANSWERED,
                 id="answered-ahead-of-closed-late-and-moved",
             ),
             pytest.param(
-                {"closed": {"am": TODAY, "grund": "ansetzung_changed"}},
+                {"closed": {"at": TODAY, "grund": "ansetzung_changed"}},
                 {"spiel_overrides": {"uhrzeit": "19:00:00"}},
                 "2027-05-08",
                 Code.ANSETZUNG_CLOSED,
@@ -160,7 +165,7 @@ class TestASpentLinkMeetsTheCodeThatNamesWhy:
             refusal = find_spent_link_refusal(spielbestaetigung_raw=zeile(**row), lage=lage(**situation), today=today)
             return None if refusal is None else refusal.error_code
 
-        assert code_of({"closed": {"am": TODAY, "grund": "discarded"}}, {}) == Code.ANSETZUNG_CLOSED
+        assert code_of({"closed": {"at": TODAY, "grund": "discarded"}}, {}) == Code.ANSETZUNG_CLOSED
         assert code_of({}, {}, today="2027-05-08") == Code.ANSETZUNG_FRIST_PAST
         assert code_of({}, {"austritt": DATUM}) == Code.ANSETZUNG_DECIDED
 
@@ -184,7 +189,7 @@ class TestWhatAReopenedLinkShows:
                 {"antwort": ANSWERED}, {"spiel_overrides": {"uhrzeit": "19:00:00"}}, TODAY, False, None, "invalid", id="answered-then-moved"
             ),
             pytest.param(
-                {"antwort": ANSWERED, "closed": {"am": TODAY, "grund": "ansetzung_changed"}},
+                {"antwort": ANSWERED, "closed": {"at": TODAY, "grund": "ansetzung_changed"}},
                 {"spiel_overrides": {"uhrzeit": "19:00:00"}},
                 TODAY,
                 False,
@@ -196,7 +201,7 @@ class TestWhatAReopenedLinkShows:
                 {"antwort": ANSWERED}, {"spiel_overrides": {"ergebnis": "2:1"}}, TODAY, False, None, "zugesagt", id="answered-then-decided"
             ),
             pytest.param(
-                {"antwort": ANSWERED, "closed": {"am": AFTER_THE_DAY, "grund": "spiel_past"}},
+                {"antwort": ANSWERED, "closed": {"at": AFTER_THE_DAY, "grund": "spiel_past"}},
                 {},
                 AFTER_THE_DAY,
                 False,
@@ -211,11 +216,11 @@ class TestWhatAReopenedLinkShows:
             ),
             pytest.param({}, {"austritt": DATUM}, TODAY, False, None, "expired", id="a-club-left-by-the-day"),
             pytest.param(
-                {"closed": {"am": TODAY, "grund": "schiedsrichter_switched"}}, {}, TODAY, False, None, "invalid", id="referee-changed"
+                {"closed": {"at": TODAY, "grund": "schiedsrichter_switched"}}, {}, TODAY, False, None, "invalid", id="referee-changed"
             ),
-            pytest.param({"closed": {"am": TODAY, "grund": "spiel_past"}}, {}, TODAY, False, None, "expired", id="closed-otherwise"),
+            pytest.param({"closed": {"at": TODAY, "grund": "spiel_past"}}, {}, TODAY, False, None, "expired", id="closed-otherwise"),
             pytest.param(
-                {"closed": {"am": AFTER_THE_DAY, "grund": "spiel_past"}},
+                {"closed": {"at": AFTER_THE_DAY, "grund": "spiel_past"}},
                 {},
                 AFTER_THE_DAY,
                 False,
@@ -286,7 +291,7 @@ class TestTheProjectionsHoldEverythingTheJudgesRead:
 
         assert zustand_of(spielbestaetigung_raw=zeile(), lage=situation, today=TODAY, barred=False, vorschlag_offen=None) == "valid"
         ansicht_ansetzung_of(situation.spiel)
-        seat_adresse(lage=situation, spielbestaetigung_raw=zeile(), seat="trainer")
+        seat_address(lage=situation, spielbestaetigung_raw=zeile(), seat="trainer")
 
         # The premise: `entscheidung_of` read the fixture to its last test.
         assert {"ergebnis", "sonderereignis", "team2.tore", "austritt.datum"} <= spiel_seen | vereine_seen
@@ -303,7 +308,7 @@ class TestTheProjectionsHoldEverythingTheJudgesRead:
         )
 
         assert find_spent_link_refusal(spielbestaetigung_raw=zeile(), lage=situation, today=TODAY) is None
-        seat_adresse(lage=situation, spielbestaetigung_raw=zeile(), seat="trainer")
+        seat_address(lage=situation, spielbestaetigung_raw=zeile(), seat="trainer")
 
         assert {"austritt.datum", "kontakte.trainer.email"} <= vereine_seen
         projection = verein_fields(team_id=TEAM1, seat="trainer")
@@ -363,7 +368,7 @@ class TestTheLinkAndTheCloseReadOneVerdict:
         situated = lage(**situation)
         austritte = {} if "austritt" not in situation else {TEAM1: situation["austritt"]}
         grund = grund_to_close(row=zeile(antwort=antwort), spiel=situated.spiel, austritte=austritte, today=today)
-        closed = zeile(antwort=antwort, closed=None if grund is None else {"am": today, "grund": grund})
+        closed = zeile(antwort=antwort, closed=None if grund is None else {"at": today, "grund": grund})
 
         before = zustand_of(spielbestaetigung_raw=zeile(antwort=antwort), lage=situated, today=today, barred=False, vorschlag_offen=None)
         after = zustand_of(spielbestaetigung_raw=closed, lage=situated, today=today, barred=False, vorschlag_offen=None)
@@ -379,9 +384,9 @@ class TestTheLinkAndTheCloseReadOneVerdict:
 
         situated = lage(**situation)
         austritte = {} if "austritt" not in situation else {TEAM1: situation["austritt"]}
-        discarded = zeile(antwort=DISCARDED_DECLINE, closed={"am": TODAY, "grund": "discarded"})
+        discarded = zeile(antwort=DISCARDED_DECLINE, closed={"at": TODAY, "grund": "discarded"})
         grund = grund_to_end(row=discarded, spiel=situated.spiel, austritte=austritte, today=today)
-        ended = {**discarded, "closed": discarded["closed"] if grund is None else {"am": today, "grund": grund}}
+        ended = {**discarded, "closed": discarded["closed"] if grund is None else {"at": today, "grund": grund}}
 
         before = zustand_of(spielbestaetigung_raw=discarded, lage=situated, today=today, barred=False, vorschlag_offen=None)
         after = zustand_of(spielbestaetigung_raw=ended, lage=situated, today=today, barred=False, vorschlag_offen=None)
@@ -417,17 +422,19 @@ class TestWhatTheViewStatesOfTheFixture:
 
 class TestTheProposalIsTheFixtureOnItsNewDate:
     def test_only_the_day_and_the_hour_move(self):
-        """Every reference and the event kept, so the judges weigh the claims a moved date makes and nothing else."""
+        """Every field the save writes is kept but the slot.
+
+        A field dropped is a claim the judges weigh that the move does not make, and the adoption, saving this payload,
+        would erase it, the note among them.
+        """
 
         stored = FLSpiel.model_validate(spiel())
         proposed = proposal_payload(stored, FLSpielbestaetigungAppointment(datum="2027-05-15", uhrzeit="17:00:00"))
+        kept = set(SPIEL_PATCH_WRITTEN_FIELDS - {"datum", "uhrzeit"})
 
         assert (proposed.datum, proposed.uhrzeit) == ("2027-05-15", "17:00:00")
-        assert proposed.ort is not None and stored.ort is not None and proposed.ort.spielort_id == stored.ort.spielort_id
-        assert proposed.schiedsrichter is not None and proposed.schiedsrichter.schiedsrichter_id == SCHIEDSRICHTER
-        # Against the stored sides, spelled out: the exit judge weighs exactly the clubs the fixture already fields.
-        sides = [None if side is None else (side.team_id, side.tore) for side in (proposed.team1, proposed.team2)]
-        assert (sides, proposed.sonderereignis) == ([(TEAM1, None), (TEAM2, None)], None)
+        assert proposed.model_dump(include=kept) == stored.model_dump(include=kept)
+        assert proposed.version == stored.version
 
 
 class TestAProposalBeforeToday:
@@ -435,3 +442,53 @@ class TestAProposalBeforeToday:
         """A club proposing today is refused with a sentence saying its date has passed, which it has not."""
 
         assert find_vorschlag_vergangen_refusal(vorschlag=FLSpielbestaetigungAppointment(datum=TODAY, uhrzeit="18:00:00"), today=TODAY) is None
+
+
+PROPOSED = {"datum": DATUM, "uhrzeit": "18:00:00"}
+
+
+@pytest.mark.parametrize(
+    ("model", "body", "refused"),
+    [
+        (
+            FLSpielbestaetigungAntwortPayload,
+            {"antwort": "declined", "vorschlag": None, "begruendung": None},
+            ("vorschlag", "decline_without_proposal"),
+        ),
+        (
+            FLSpielbestaetigungAntwortPayload,
+            {"antwort": "zugesagt", "vorschlag": PROPOSED, "begruendung": None},
+            ("vorschlag", "acceptance_with_proposal"),
+        ),
+        (
+            FLSpielbestaetigungAntwortPayload,
+            {"antwort": "zugesagt", "vorschlag": None, "begruendung": "Halle"},
+            ("begruendung", "acceptance_with_reason"),
+        ),
+        (
+            FLSpielbestaetigungSchiedsrichterAntwortPayload,
+            {"antwort": "declined", "begruendung": None},
+            ("begruendung", "decline_without_reason"),
+        ),
+        (
+            FLSpielbestaetigungSchiedsrichterAntwortPayload,
+            {"antwort": "zugesagt", "begruendung": "Krank"},
+            ("begruendung", "acceptance_with_reason"),
+        ),
+    ],
+    ids=[
+        "club-decline-without-date",
+        "club-acceptance-with-date",
+        "club-acceptance-with-reason",
+        "referee-decline-without-reason",
+        "referee-acceptance-with-reason",
+    ],
+)
+def test_an_answers_shape_rule_is_refused_on_the_box_it_names(model: type[BaseModel], body: Mapping[str, Any], refused: tuple[str, str]):
+    """At the body root, or as a bare `ValueError`, the page can place the refusal on no box and words no reason."""
+
+    token = {"token": "a-link"} if model is FLSpielbestaetigungAntwortPayload else {}
+    with pytest.raises(ValidationError) as failure:
+        model.model_validate({**token, **body})
+
+    assert [(error["loc"], error["type"]) for error in failure.value.errors()] == [((refused[0],), refused[1])]

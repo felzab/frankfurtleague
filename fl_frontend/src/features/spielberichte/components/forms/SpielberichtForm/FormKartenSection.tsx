@@ -165,7 +165,7 @@ export function FormKartenSection({
 
         <HinzufuegenButton
           label="Karte hinzufügen"
-          anzahl={eintraege.length}
+          count={eintraege.length}
           onPress={onAdd}
         />
       </div>

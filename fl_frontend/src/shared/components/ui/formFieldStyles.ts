@@ -58,24 +58,6 @@ export const FIELD_TRIGGER_CLASSES = `${FIELD_INPUT_CLASSES} ${INDICATOR_CLEARAN
  */
 export const TOGGLE_GROUP_ALIGN_CLASSES = "justify-center sm:justify-start";
 
-/**
- * The one tab appearance. `data-hovered:` rather than `hover:`: react-aria's `useHover` ignores the emulated mouse
- * events a touch device fires, where `:hover` sticks until the next tap.
- */
-export const TAB_ITEM_CLASSES =
-  "rounded-lg fluid-sm font-bold tracking-wide text-foreground-muted transition-colors data-hovered:bg-surface data-hovered:text-foreground data-[selected=true]:text-brand-solid-foreground data-[selected=true]:data-hovered:bg-transparent data-[selected=true]:data-hovered:text-brand-solid-foreground";
-
-/** The recessed track every tab strip sits in. Paired with the hover `TAB_ITEM_CLASSES` moves off it. */
-export const TAB_TRACK_CLASSES = "rounded-xl border border-border bg-muted";
-
-/**
- * `rounded-lg` matches `TAB_ITEM_CLASSES`: HeroUI's `.tabs__indicator` defaults to `calc(var(--radius) * 3)`.
- *
- * **The ring says which tab is selected**: the fill does not flip and its track does, measuring
- * 1.24:1 in the dark theme.
- */
-export const TAB_INDICATOR_CLASSES = "rounded-lg bg-brand-solid shadow-sm ring-1 ring-brand";
-
 /** The one field-error appearance, so every form reports at the field rather than only through a toast. */
 export const FIELD_ERROR_CLASSES = "fluid-xxs font-bold text-danger-strong";
 
@@ -97,9 +79,6 @@ export const FORM_SECTION_HEADING_CLASSES = "fluid-xxs font-bold tracking-widest
  * and a pair a step wider than its neighbour shows only with both panels on screen.
  */
 export const FIELD_PAIR_CLASSES = "grid w-full grid-cols-1 gap-4 sm:grid-cols-2";
-
-/** `FIELD_PAIR_CLASSES`'s three-up sibling, and spelled beside it for the same reason: more than one panel renders this grid. */
-export const FIELD_TRIO_CLASSES = "grid w-full grid-cols-1 gap-4 sm:grid-cols-3";
 
 /**
  * The one marker disc. Two can share a label row — the match editor's Fehlt/Offen beside Geändert — and a

@@ -35,7 +35,7 @@ export const AKTION_COLLECTION_LABELS: Record<string, string> = {
   registrierungen: "Registrierungen",
   spielbestaetigungen: "Spielbestätigungen",
   spielberichte: "Spielberichte",
-  adresswechsel: "Adressänderungen",
+  address_changes: "Adressänderungen",
   adresswechsel_postausgang: "Ausstehende Meldungen zu Adressänderungen",
   // No league collection: an administrator ending every session of one address, which the sign-in store holds.
   anmeldungen: "Anmeldungen",

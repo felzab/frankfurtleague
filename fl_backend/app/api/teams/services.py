@@ -13,7 +13,6 @@ from app.api.spiele.schemas import (
     SONDEREREIGNIS_PRODUCING_A_RECORD,
     SONDEREREIGNIS_WITHOUT_A_RESULT,
     FLSpielCommon,
-    records_an_absence,
 )
 from app.api.teams.schemas import (
     FLAustritt,
@@ -40,7 +39,7 @@ AS_NAME = "saison_data"
 SAISON_PAST_AS_NAME = "saison_past_data"
 STATISTIK_AS_NAME = "statistik_data"
 ABSAGE_AS_NAME = "absage_data"
-ABSAGE_COUNT_NAME = "anzahl"
+ABSAGE_COUNT_NAME = "count"
 
 # Derived from the model, so a field added to `FLTeamStatistik` cannot be forgotten here.
 ZERO_STATISTIK: Mapping[str, int] = {field_name: 0 for field_name in FLTeamStatistik.model_fields}
@@ -106,7 +105,6 @@ def build_statistik_lookup_stage(saison_id: str, rules: FLSaisonRules, scope: FL
                     }
                 },
                 {
-                    # A defeat adds nothing: `FLSaisonRules` carries no `loss_points`.
                     "$project": {
                         "_id": 0,
                         "count_gespielte_spiele": 1,
@@ -119,6 +117,7 @@ def build_statistik_lookup_stage(saison_id: str, rules: FLSaisonRules, scope: FL
                             "$add": [
                                 {"$multiply": ["$siege", rules.win_points]},
                                 {"$multiply": ["$unentschieden", rules.draw_points]},
+                                {"$multiply": ["$niederlagen", rules.loss_points]},
                             ]
                         },
                     }
@@ -345,8 +344,8 @@ def build_statistik_by_team(spiele: Iterable[FLSpielCommon], rules: FLSaisonRule
                 row["unentschieden"] += 1
                 row["punkte"] += rules.draw_points
             else:
-                # No `punkte` arm: `FLSaisonRules` carries no `loss_points`.
                 row["niederlagen"] += 1
+                row["punkte"] += rules.loss_points
 
     return {team_id: FLTeamStatistik.model_validate(row) for team_id, row in figures.items()}
 
@@ -407,7 +406,9 @@ def _head_to_head_table(
             punkte[team1_id] += rules.draw_points
             punkte[team2_id] += rules.draw_points
         else:
-            punkte[team1_id if tore1 > tore2 else team2_id] += rules.win_points
+            winner, loser = (team1_id, team2_id) if tore1 > tore2 else (team2_id, team1_id)
+            punkte[winner] += rules.win_points
+            punkte[loser] += rules.loss_points
 
     return _MiniTable(
         keys={team_id: (punkte[team_id], geschossen[team_id] - kassiert[team_id], geschossen[team_id]) for team_id in ids},
@@ -647,11 +648,10 @@ def _endings(rules: FLSaisonRules) -> tuple[tuple[int, int, bool], ...]:
     records for it.
     """
 
-    # No losing side is added to: `FLSaisonRules` carries no `loss_points`.
     return (
-        (rules.win_points, 0, True),
+        (rules.win_points, rules.loss_points, True),
         (rules.draw_points, rules.draw_points, True),
-        (0, rules.win_points, True),
+        (rules.loss_points, rules.win_points, True),
         (0, 0, False),
     )
 
@@ -761,9 +761,9 @@ def _separated_placings(
     reports as not yet decided.
     """
 
-    # The larger of the two, never `win_points`: `fl_backend/app/api/saisons/services.py` refuses a
-    # draw worth more than a win only where the excess grows, so a season already holding one arrives.
-    ceiling = max(rules.win_points, rules.draw_points)
+    # The largest of the three, never `win_points`: `fl_backend/app/api/saisons/services.py` refuses a draw worth more
+    # than a win only where the excess grows, so a season already holding one arrives, and nothing orders a loss below either.
+    ceiling = max(rules.win_points, rules.draw_points, rules.loss_points)
     lo = {team.id: team.statistik.punkte for team in teams}
     hi = {team.id: lo[team.id] + ceiling * still_to_play.get(team.id, 0) for team in teams}
 
@@ -935,7 +935,7 @@ def build_team_saisons_pipeline() -> list[Mapping[str, Any]]:
 
 
 def membership_row_ids(teams_raw: Sequence[Mapping[str, Any]]) -> list[Any]:
-    """Every season row the memberships read holds a link on, whose mails `postausgang/crud.py :: lagen_of` reads."""
+    """Every season row the memberships read holds a link on, whose mails `app/api/outbox/crud.py :: states_of` reads."""
 
     return [row["_id"] for team in teams_raw for row in team.get("memberships", []) if isinstance(row.get("confirmations"), Mapping)]
 
@@ -965,19 +965,19 @@ def mit_linkstand(
     """
 
     def judged(row: Mapping[str, Any]) -> Any:
-        bestaetigungen = row.get("confirmations")
-        if not isinstance(bestaetigungen, Mapping):
-            return bestaetigungen
+        confirmations = row.get("confirmations")
+        if not isinstance(confirmations, Mapping):
+            return confirmations
 
-        def abgelaufen(seat: str, link: Mapping[str, Any]) -> bool:
-            offen = not seat_is_answered(kontakte=row.get("kontakte"), confirmations=bestaetigungen, seat=seat)
-            return offen and saison_link_is_over(frist=link.get("frist"), today=today)
+        def expired(seat: str, link: Mapping[str, Any]) -> bool:
+            open = not seat_is_answered(kontakte=row.get("kontakte"), confirmations=confirmations, seat=seat)
+            return open and saison_link_is_over(frist=link.get("frist"), today=today)
 
         return {
-            seat: {**link, "expired": abgelaufen(seat, link), "delivery": lagen.get((row["_id"], _lage_sitz(row, seat)))}
+            seat: {**link, "expired": expired(seat, link), "delivery": lagen.get((row["_id"], _lage_sitz(row, seat)))}
             if isinstance(link, Mapping)
             else link
-            for seat, link in bestaetigungen.items()
+            for seat, link in confirmations.items()
         }
 
     def served(row: Mapping[str, Any]) -> dict[str, Any]:
@@ -1012,7 +1012,7 @@ def mit_adresswechseln(teams: Sequence[Mapping[str, Any]], *, live: Mapping[str,
     """The memberships read with each confirmed seat's live address change by id, `live` keyed by the folded address.
 
     An unconfirmed seat names none: the change moves only confirmed seats (`app/api/identity/services.py ::
-    eigene_sitze`).
+    own_seats`).
     """
 
     def gesehen(row: Mapping[str, Any], seat: str) -> Any:
@@ -1136,14 +1136,14 @@ def compose_kontakte_herkunft(*, kontakte: Mapping[str, Any] | None, stored: Any
         if einwilligung is None:
             # Born afresh: nothing of a person who left travels to the
             # one seated, and nobody filling a seat for another person may give their media consent.
-            einwilligung = {**als_unbestaetigt(seat["einwilligung"]), "medien": False, "entered_by": "liga"}
+            einwilligung = {**als_unbestaetigt(seat["einwilligung"]), "media": False, "entered_by": "liga"}
         composed[slot] = {**seat, "geburtsdatum": _geburtsdatum_held_by(stored_slot, seat=seat), "einwilligung": einwilligung}
 
     return composed
 
 
 # --- The CONFIRMATION LINK a seat an administrator typed in is mailed, stored beside the slot at
-# `bestaetigungen.<slot>` as an application keeps its own.
+# `confirmations.<slot>` as an application keeps its own.
 
 
 def compose_kontakt_bestaetigung(*, today: str) -> dict[str, Any]:
@@ -1322,7 +1322,7 @@ def owed_kontakt_link(
             key=key,
             an=email,
             data=FLKontaktLinkData(
-                art="kontakt_confirmation",
+                kind="kontakt_confirmation",
                 saison_id=saison_id,
                 schule=str(row.get("name") or ""),
                 rollen=list(seats),
@@ -1332,7 +1332,7 @@ def owed_kontakt_link(
             reference=kontakt_bezug(row["_id"], seats),
             link=FLOutboxLink(
                 paths=[f"confirmations.{seat}.token_hashes" for seat in seats],
-                adressen=[f"kontakte.{seat}.email" for seat in seats],
+                addresses=[f"kontakte.{seat}.email" for seat in seats],
                 replaced=True,
             ),
         ),
@@ -1394,7 +1394,7 @@ def find_kontakt_sitz_refusal(*, kontakte: Any, seat: str) -> WriteRefusal | Non
     return None
 
 
-def find_kontakt_sitz_gesperrt_refusal(*, barred: bool) -> WriteRefusal | None:
+def find_kontakt_seat_barred_refusal(*, barred: bool) -> WriteRefusal | None:
     """`kontakt_seat_barred`: a seat's newly seated or re-sent address is on the ban list, so no link may be minted for it.
 
     409, as every administrator's write naming a barred address is.
@@ -1409,20 +1409,33 @@ def find_kontakt_sitz_gesperrt_refusal(*, barred: bool) -> WriteRefusal | None:
     )
 
 
-def find_kontakte_precondition_refusal(*, erwartet: str, stored: Any) -> WriteRefusal | None:
+def find_kontakte_precondition_refusal(*, expected: str, stored: Any) -> WriteRefusal | None:
     """Why this save may not land on the block the row now holds, or `None`.
 
     Refused whole rather than merged into the changed paths: an erasure clearing one seat leaves the
     whole open editor stale.
     """
 
-    if kontakte_stand_of(stored) == erwartet:
+    if kontakte_stand_of(stored) == expected:
         return None
 
     return WriteRefusal(
         error_code=Code.KONTAKTE_MOVED_UNDER_THE_SAVE,
         status=HTTPStatus.CONFLICT,
     )
+
+
+def find_shorthand_refusal(*, taken: bool) -> WriteRefusal | None:
+    """`duplicate_key` on the shorthand: another club, a retired one included, holds it.
+
+    Takes the answer rather than the lookup, so the caller's read runs in the caller's transaction. The unique index still
+    answers a race between two writes, as `duplicate_key` with no field.
+    """
+
+    if not taken:
+        return None
+
+    return WriteRefusal(error_code=Code.DUPLICATE_KEY, status=HTTPStatus.CONFLICT, fields=(("shorthand",),))
 
 
 def find_club_entry_refusal(*, inactive_since: str | None) -> WriteRefusal | None:
@@ -1461,6 +1474,30 @@ def find_gruppe_move_refusal(*, fixtures_drawn: int) -> WriteRefusal | None:
     )
 
 
+def find_austritt_refusal(
+    *, proposed: Mapping[str, Any] | None, stored: Mapping[str, Any] | None, start_date: str, started: bool
+) -> WriteRefusal | None:
+    """Why recording this exit must be refused, or `None`: the season has not started, and the replacement swaps its club out instead.
+
+    Judged on the act, whatever day the exit is dated: while the season has not started the group swap stays open, and an
+    exit standing then would leave the swap fielding a departed club. The season save refuses moving the start past a
+    stored exit (`saison_start_austritt_stored`), so an exit never stands on a season that reads as unstarted again.
+    `started` is `app/api/saisons/services.py :: has_started`. The record as the payload dumps it beside the stored one,
+    so a save resubmitting a stored exit passes and only a new or changed one is judged. `earliest` is the first day an
+    exit may be recorded, on the exit record as a whole rather than its date: no date the exit could carry passes sooner.
+    """
+
+    if proposed is None or started or proposed == stored:
+        return None
+
+    return WriteRefusal(
+        error_code=Code.AUSTRITT_BEFORE_SAISON_START,
+        status=HTTPStatus.CONFLICT,
+        fields=(("austritt",),),
+        bounds={"earliest": start_date},
+    )
+
+
 def find_entry_refusal(saison_status: str, gruppe: FLGruppenNames, rules: FLSaisonRules, occupied: int) -> WriteRefusal | None:
     """Why entering this team into the season must be refused, or `None`.
 
@@ -1489,46 +1526,6 @@ def find_entry_refusal(saison_status: str, gruppe: FLGruppenNames, rules: FLSais
     return None
 
 
-def fixtures_newly_fielding_a_departed_club(
-    *,
-    team1_id: Any,
-    team2_id: Any,
-    departed_since: Mapping[Any, str | None],
-    gruppenphase_spiele: Sequence[Mapping[str, Any]],
-) -> int:
-    """How many group fixtures the exchange would newly field a departed club on.
-
-    The date and the carve-outs are `find_eligibility_refusal`'s, read through the predicate it
-    reads; an UNDATED one counts, since it can still be dated after the exit.
-    """
-
-    arriving = {team1_id: team2_id, team2_id: team1_id}
-
-    offending = 0
-    for spiel in gruppenphase_spiele:
-        for slot in ("team1", "team2"):
-            standing = (spiel.get(slot) or {}).get("team_id")
-            # A side holding neither club does not move, so it can field nobody new.
-            incoming = arriving.get(standing)
-            if incoming is None:
-                continue
-
-            effective_from = departed_since.get(incoming)
-            if effective_from is None:
-                continue
-
-            # A fixture recording this side's absence fields nobody on it, the eligibility rule's own
-            # carve-out.
-            if records_an_absence(side=slot, sonderereignis=spiel.get("sonderereignis"), saison_phase="gruppenphase"):
-                continue
-
-            datum = spiel.get("datum")
-            if datum is None or str(datum) >= effective_from:
-                offending += 1
-
-    return offending
-
-
 def find_swap_pair_refusal(*, team1_id: Any, team2_id: Any) -> WriteRefusal | None:
     """Why this pair names no swap whatever the season holds, or `None`. Judged before any read."""
 
@@ -1553,13 +1550,13 @@ def find_gruppe_swap_refusal(
     # Whether a fixture the swap rewrites `has_taken_place`: a result entered before the start is a record
     # too, and the rewrite would hand it to the other club, `tore` staying where they are.
     taken_place: bool,
-    clashing_spieltage: int,
-    departed_fixtures: int,
 ) -> WriteRefusal | None:
     """Why exchanging these two clubs' groups must be refused, or `None`.
 
-    **The order is the argument**: it narrows from "not a swap" through the season to the two clubs,
-    and the REPAIRABLE refusals come last, so nobody does work a terminal refusal wastes.
+    **The order is the argument**: it narrows from "not a swap" through the season to the two clubs, and the one
+    repairable refusal comes last, so nobody does work a terminal refusal wastes. The season's start is the one lock,
+    an exit is recorded only from it (`austritt_before_saison_start`) and the start never moves later past a stored one
+    (`saison_start_austritt_stored`), so the fixtures an exchange rewrites never field a club that has left.
     """
 
     missing = [label for label, gruppe in (("team1", team1_gruppe), ("team2", team2_gruppe)) if gruppe is None]
@@ -1591,19 +1588,7 @@ def find_gruppe_swap_refusal(
 
     if taken_place:
         return WriteRefusal(
-            error_code=Code.SIDES_TAKEN_PLACE,
-            status=HTTPStatus.CONFLICT,
-        )
-
-    if clashing_spieltage > 0:
-        return WriteRefusal(
-            error_code=Code.SWAP_SPIELTAG_CLASH,
-            status=HTTPStatus.CONFLICT,
-        )
-
-    if departed_fixtures > 0:
-        return WriteRefusal(
-            error_code=Code.SWAP_FIELDS_DISQUALIFIED,
+            error_code=Code.SWAP_SIDES_TAKEN_PLACE,
             status=HTTPStatus.CONFLICT,
         )
 
@@ -1672,7 +1657,7 @@ def find_replacement_refusal(
 
     if taken_place:
         return WriteRefusal(
-            error_code=Code.SIDES_TAKEN_PLACE,
+            error_code=Code.REPLACE_SIDES_TAKEN_PLACE,
             status=HTTPStatus.CONFLICT,
         )
 

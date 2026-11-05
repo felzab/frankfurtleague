@@ -80,6 +80,38 @@ async def pull_many_from_db(
     return await cursor.limit(limit).to_list(length=limit)
 
 
+async def pull_whole_from_db(
+    *,
+    collection: ReadCollection,
+    db_filter: Mapping[str, Any],
+    # What the read is, for the error alone: "season 2025's fixtures".
+    what: str,
+    sort_by: Sequence[tuple[str, int]] | None = None,
+    projection: Mapping[str, Any] | list[str] | None = None,
+    collation: Mapping[str, Any] | None = None,
+    session: AsyncClientSession | None = None,
+) -> list[Mapping[str, Any]]:
+    """Every document `db_filter` matches, for a judgement that must see them all, or a `ValueError`.
+
+    Read one over the cap, so a set past it is DETECTED rather than judged on the page that fits: a dropped fixture or
+    row would read as one that is not there, and a rule judged without it answers wrongly in silence.
+    """
+
+    documents = await pull_many_from_db(
+        collection=collection,
+        db_filter=db_filter,
+        limit=LIST_LIMIT_DEFAULT + 1,
+        sort_by=sort_by,
+        projection=projection,
+        collation=collation,
+        session=session,
+    )
+    if len(documents) > LIST_LIMIT_DEFAULT:
+        raise ValueError(f"{what} number more than {LIST_LIMIT_DEFAULT}, which is more than one read can judge whole")
+
+    return documents
+
+
 # Every document of an `EDITED_COLLECTIONS` member carries this count of its writes: 0 when created, raised by every
 # update through the two patch helpers below, and never by an anchor, which changes nothing a reader sees. A save
 # passes the count its form was read at as `expected_version`, and matches only while the count stands there:
@@ -102,11 +134,11 @@ async def patch_one_in_db(
     collection: AsyncCollection,
     db_filter: Mapping[str, Any],
     update: Mapping[str, Any],
-    expected_version: int | None = None,
+    expected_version: int | None,
     session: AsyncClientSession | None = None,
     return_document: bool,
 ) -> Mapping[str, Any]:
-    """`return_document` has no default, so every caller weighs the two images.
+    """`expected_version` and `return_document` have no default, so every caller weighs whether its write checks a version, and the two images.
 
     `BEFORE` answers the state the write just replaced. `AFTER` re-reads the document, which a patch
     inside a transaction reads anyway and one outside it pays a round trip for. An `expected_version`
@@ -229,6 +261,27 @@ class Anchored(BaseModel):
     """
 
     anchors: int = Field(default=0, validation_alias=ANCHOR_FIELD, exclude=True)
+
+
+async def is_held_elsewhere(
+    *,
+    collection: AsyncCollection,
+    key: str,
+    value: Any,
+    # The document the write saves, whose own value is no other's; `None` for a create.
+    own_id: Any,
+    # REQUIRED: asked in the write's transaction, so a retry asks it again.
+    session: AsyncClientSession,
+) -> bool:
+    """Whether another document holds `value` at `key`, a retired one included, as a unique index on it compares.
+
+    So a create or a save is refused on the field a person typed before its write meets the index, which answers only
+    a race between two writes, as `duplicate_key` with no field.
+    """
+
+    db_filter: dict[str, Any] = {key: value} if own_id is None else {key: value, "_id": {"$ne": own_id}}
+
+    return await collection.find_one(db_filter, projection={"_id": 1}, session=session) is not None
 
 
 async def anchor_in_db(
@@ -575,6 +628,7 @@ async def set_inactive_since(
             db_filter=db_filter,
             update={"$set": {"inactive_since": None}},
             session=session,
+            expected_version=None,
             return_document=ReturnDocument.AFTER,
         )
 
@@ -586,6 +640,7 @@ async def set_inactive_since(
             db_filter={**db_filter, "inactive_since": None},
             update={"$set": {"inactive_since": when}},
             session=session,
+            expected_version=None,
             return_document=ReturnDocument.AFTER,
         )
     except DocumentNotFoundError:

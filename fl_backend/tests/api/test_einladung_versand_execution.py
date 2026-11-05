@@ -44,7 +44,7 @@ SEEDED_LINK: Mapping[str, Any] = {
     "token_hashes": [hash_token("seeded")],
     "created_at": "2026-03-15",
     "created_by": "admin@frankfurtleague.de",
-    "widerrufen_am": None,
+    "revoked_at": None,
 }
 
 # What a rival's press costs the first attempt: `with_transaction` runs the callback again.
@@ -89,7 +89,7 @@ class TestARetriedMint:
                 await database[Collection.INVITATIONS].insert_one(dict(SEEDED_LINK))
 
                 zeile = await _mail_one_team(
-                    einladungen_collection=cast(AsyncCollection, _RetryFailsBeforeItsRead(database[Collection.INVITATIONS])),
+                    invitations_collection=cast(AsyncCollection, _RetryFailsBeforeItsRead(database[Collection.INVITATIONS])),
                     outbox_collection=database[Collection.OUTBOX],
                     db=cast(AsyncMongoClient, client),
                     saison_id=SAISON_ID,
@@ -101,12 +101,12 @@ class TestARetriedMint:
                     now=MAIL_NOW,
                 )
 
-                live = await database[Collection.INVITATIONS].find({"widerrufen_am": None}).to_list(length=None)
+                live = await database[Collection.INVITATIONS].find({"revoked_at": None}).to_list(length=None)
 
                 return zeile, [row["_id"] for row in live]
 
         zeile, live = on_the_seed_loop(body())
 
-        assert (zeile.skipped, zeile.had_link, zeile.replaced_link) == ("mint_failed", None, False)
+        assert (zeile.skipped, zeile.had_link) == ("mint_failed", None)
         # The control: nothing committed, so the seeded link the first attempt read still opens.
         assert live == [SEEDED_EINLADUNG]

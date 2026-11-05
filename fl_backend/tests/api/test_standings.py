@@ -30,6 +30,7 @@ STUFEN: list[FLSpielerStufe] = ["E1", "Q1", "Q2", "Q3", "Q4"]
 RULES = FLSaisonRules(
     win_points=3,
     draw_points=1,
+    loss_points=0,
     qualifiers_per_gruppe=2,
     number_of_gruppen=4,
     teams_per_gruppe=4,
@@ -834,10 +835,10 @@ class TestAGroupPastTheFixtureLimit:
 
 
 # Every points scheme the family below is swept under: the ordinary competition, one where two draws
-# total exactly one win, and one scoring a draw above a win.
+# total exactly one win and a loss scores, and one scoring a draw above a win.
 POINTS_SCHEMES: tuple[FLSaisonRules, ...] = (
     RULES,
-    RULES.model_copy(update={"win_points": 4, "draw_points": 2}),
+    RULES.model_copy(update={"win_points": 4, "draw_points": 2, "loss_points": 1}),
     RULES.model_copy(update={"win_points": 1, "draw_points": 3}),
 )
 
@@ -867,7 +868,7 @@ def every_three_club_group(a_team: TeamFactory, played: MatchFactory) -> Iterato
                 teams = [a_team(seed, **as_stated(figures.get(TEAM_ID.format(seed))), austritt=mark) for seed, mark in marked]
                 left = [seed for seed, mark in marked if mark is not None]
 
-                yield f"{rules.win_points}/{rules.draw_points}, fixtures {states}, departed {left}", rules, teams, spiele
+                yield f"{rules.win_points}/{rules.draw_points}/{rules.loss_points}, fixtures {states}, departed {left}", rules, teams, spiele
 
 
 class TestEveryWayThreeClubsCanStand:
@@ -931,7 +932,7 @@ class TestSeedingTheSlot:
         resolution = self.seeded(decided, {"type": "gruppe", "gruppe": "A", "platz": 1}, spiel)
 
         assert resolution.advancements[0].team1 is not None
-        assert resolution.advancements[0].team1.name == "Team 1"
+        assert resolution.advancements[0].team1.team_id == a_team(1).id
         # Arriving in a fixture it has not played, exactly as a match-fed winner does.
         assert resolution.advancements[0].team1.tore is None
         assert resolution.bracket_faults == []

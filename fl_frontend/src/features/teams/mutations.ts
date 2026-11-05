@@ -5,7 +5,6 @@ import {
   teamsPostSaisonTeam,
   teamsPostTeam,
   teamsReactivateTeam,
-  teamsReplaceSaisonTeam,
 } from "@/core/generated/client/sdk";
 
 import type {
@@ -15,8 +14,6 @@ import type {
   FLPatchTeamResponse,
   FLPostSaisonTeamPayload,
   FLPostTeamPayload,
-  FLReplaceSaisonTeamPayload,
-  FLReplaceSaisonTeamResponse,
   FLSaisonTeamResponse,
 } from "@/core/generated/client/types";
 
@@ -76,14 +73,4 @@ export async function patchSaisonTeam({
   trikot_farbe,
 }: FLPatchSaisonTeamPayload & { team_id: string; saison_id: string }): Promise<FLSaisonTeamResponse> {
   return teamsPatchSaisonTeam(team_id, saison_id, { gruppe, austritt, trikot_farbe });
-}
-
-// The row is addressed by its natural key and the club taking it over rides in the body: the path
-// names the club going OUT, which is why a phantom row naming no club is repairable through here.
-export async function replaceSaisonTeam({
-  team_id,
-  saison_id,
-  incoming_team_id,
-}: FLReplaceSaisonTeamPayload & { team_id: string; saison_id: string }): Promise<FLReplaceSaisonTeamResponse> {
-  return teamsReplaceSaisonTeam(team_id, saison_id, { incoming_team_id });
 }

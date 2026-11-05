@@ -163,9 +163,8 @@ describe("which season a row belongs to", () => {
 describe("which state the window puts the page in", () => {
   const fenster = (overrides: Partial<FLBewerbungWindowResponse> = {}): FLBewerbungWindowResponse => ({
     saison_id: "2627",
-    offen: true,
-    von: "2026-05-01",
-    bis: "2026-07-31",
+    start: "2026-05-01",
+    end: "2026-07-31",
     running: false,
     saison_ended: false,
     ...overrides,
@@ -175,7 +174,7 @@ describe("which state the window puts the page in", () => {
      here, the page would offer the form for as long as the two clocks disagree. */
   it("takes the running answer from the server and never re-derives it", () => {
     expect(fensterZustand(fenster({ running: true }), "2020-01-01")).toBe("running");
-    expect(fensterZustand(fenster({ running: true, offen: false }), "2099-01-01")).toBe("running");
+    expect(fensterZustand(fenster({ running: true }), "2099-01-01")).toBe("running");
   });
 
   /* Each closed answer is a different sentence: one says when to come back, one that the season is
@@ -183,14 +182,6 @@ describe("which state the window puts the page in", () => {
   it("separates a window that has not opened from one that is over", () => {
     expect(fensterZustand(fenster(), "2026-04-30")).toBe("noch-nicht");
     expect(fensterZustand(fenster(), "2026-08-01")).toBe("vorbei");
-  });
-
-  /* Shut by the league rather than by a date, so neither date answer is true of it: nothing has run
-     out, and nothing opens on a day this window names. */
-  it("reads a window the league closed as closed, whatever the dates say", () => {
-    expect(fensterZustand(fenster({ offen: false }), "2026-04-30")).toBe("closed");
-    expect(fensterZustand(fenster({ offen: false }), "2026-06-01")).toBe("closed");
-    expect(fensterZustand(fenster({ offen: false }), "2026-08-01")).toBe("closed");
   });
 
   /* `laeuft` false inside an open span is this clock disagreeing with the server's. Answered
@@ -206,11 +197,10 @@ describe("which state the window puts the page in", () => {
   });
 
   /* An ended season takes no application again, so every date answer would send a school to wait
-     for a window that never reopens: the span still running, the league's switch off, a span not
+     for a window that never reopens: the span still running or a span not
      yet begun. */
-  it("reads every window of a season that has ended as over, whatever its dates and its switch say", () => {
+  it("reads every window of a season that has ended as over, whatever its dates say", () => {
     expect(fensterZustand(fenster({ saison_ended: true }), "2026-06-01")).toBe("vorbei");
-    expect(fensterZustand(fenster({ saison_ended: true, offen: false }), "2026-06-01")).toBe("vorbei");
     expect(fensterZustand(fenster({ saison_ended: true }), "2026-04-30")).toBe("vorbei");
   });
 });
@@ -235,7 +225,7 @@ describe("the Abi-Jahrgang a season fields", () => {
 describe("the birthdate window a contact person's date has to fall in", () => {
   /* The endpoint's own rule restated rather than its result quoted, so both bounds are judged
      against what it accepts: whole years, a birthday not yet reached this year not having happened
-     (`fl_backend/app/shared/alter.py :: whole_years_between`). */
+     (`fl_backend/app/shared/age.py :: whole_years_between`). */
   function wholeYears(geboren: string, today2: string): number {
     const [gJahr = 0, gMonat = 0, gTag = 0] = geboren.split("-").map(Number);
     const [hJahr = 0, hMonat = 0, hTag = 0] = today2.split("-").map(Number);
@@ -287,7 +277,7 @@ describe("the birthdate window a contact person's date has to fall in", () => {
     for (const mindestalter of [BEWERBUNG_MIN_ALTER, VERTRETUNG_MIN_ALTER]) {
       const { spaeteste } = geburtsdatumSpanne(getGermanTodayStr(), mindestalter);
       const schema = buildEinwilligungAntwortPayloadSchema(mindestalter);
-      const antwort = { token: "kein-echtes-token", antwort: "given", whatsapp: false, medien: false, text_versions: SEAT_TEXT_VERSIONS };
+      const antwort = { token: "kein-echtes-token", antwort: "given", whatsapp: false, media: false, text_versions: SEAT_TEXT_VERSIONS };
 
       expect(schema.safeParse({ ...antwort, geburtsdatum: spaeteste }).success, `${String(mindestalter)}: the offer is refused`).toBe(true);
       expect(
@@ -442,7 +432,7 @@ describe("the submission's refusals against the codes its endpoint publishes", (
       "bewerbung_picked_team_already_entered",
       "bewerbung_shorthand_taken",
       "bewerbung_key_differing",
-      "bewerbung_adresse_barred",
+      "bewerbung_address_barred",
     )) {
       expect(answerShown(code, mapBewerbungSubmitRefusal), `${code} reaches the applicant unmapped`).not.toBe(null);
     }
@@ -459,7 +449,7 @@ describe("the submission's refusals against the codes its endpoint publishes", (
       "bewerbung_picked_team_already_entered",
       "bewerbung_shorthand_taken",
       "bewerbung_key_differing",
-      "bewerbung_adresse_barred",
+      "bewerbung_address_barred",
     ).map((code) => JSON.stringify(mapBewerbungSubmitRefusal(refused(code))));
 
     expect(new Set(answers).size, "two codes are answered with the same sentence").toBe(answers.length);
@@ -599,7 +589,7 @@ const offenBei = (mindestalter: number) => async (): Promise<EinwilligungAnsicht
     rolle: "ansprechperson",
     also_rolle: null,
     minimum_age: mindestalter,
-    medien_minimum_age: 18,
+    media_minimum_age: 18,
   },
 });
 
@@ -614,7 +604,7 @@ describe("the confirmation's refusals against the codes its endpoint publishes",
       "confirmation_age",
       "bewerbung_token_past_deadline",
       "link_barred",
-      "medien_age",
+      "media_age",
       "link_expired",
       "kontakt_saison_past",
     )) {
@@ -643,7 +633,7 @@ describe("the confirmation's refusals against the codes its endpoint publishes",
       "confirmation_age",
       "bewerbung_token_past_deadline",
       "link_barred",
-      "medien_age",
+      "media_age",
       "link_expired",
       "kontakt_saison_past",
     )) {

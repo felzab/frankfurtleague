@@ -14,7 +14,7 @@ import type { SearchKey } from "@/shared/hooks/useFuzzySearch";
 /* Module scope: a fresh array here would defeat useFuzzySearch's memo on every render. Each reads what
    the card prints through the card's own function. */
 const SEARCH_KEYS: readonly SearchKey<FLGrantRow>[] = [
-  { name: "adresse", getFn: (zeile) => vonOderGesperrt(zeile.adresse, zeile.barred) },
+  { name: "adresse", getFn: (zeile) => vonOderGesperrt(zeile.address, zeile.barred) },
   { name: "erteilt_von", getFn: (zeile) => erteiltVonAnzeige(zeile.granted_by, zeile.granted_by_barred) },
 ];
 

@@ -21,7 +21,7 @@ export function SearchField({ label, value, onChange }: { label: Copy; value?: s
       className="group">
       <div
         data-kit-focus="field"
-        className={fieldFrame({ width: "W3", inset: "none", layout: "group" })}>
+        className={fieldFrame({ width: "column", inset: "none", layout: "group" })}>
         <span className={searchGlyph()}>
           <Icon
             glyph="search"

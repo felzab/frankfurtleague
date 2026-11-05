@@ -1,5 +1,7 @@
 import { textOf } from "@/core/copy";
 
+import { placeholderBar, PlaceholderLine } from "./Skeleton";
+import { SpielListPlaceholder } from "./SpielRow";
 import { tv } from "./tv";
 
 import type { Copy, Words } from "@/core/copy";
@@ -59,11 +61,42 @@ const timeline = tv({
     // Down from under the point, through the gap, to the next point; the last checkpoint draws none.
     line: "relative flex items-start justify-center before:top-6 before:-bottom-6 before:left-[calc(50%-1px)] group-last/checkpoint:before:hidden",
     body: "grid min-w-0 gap-2",
-    head: "flex min-h-6 flex-wrap items-baseline gap-x-2",
+    // As tall as the point, its line centred on the point's middle, the title's and the detail's words on one baseline.
+    head: "flex min-h-6 flex-wrap content-center items-baseline gap-x-2",
     title: "text-sm font-semibold",
     detail: "font-numeric text-xs text-fg-muted",
   },
 });
+
+/**
+ * The line while its checkpoints are read: `count` checkpoints on the line's own grid, each its point, its title's
+ * line and, where each holds a match as a club's line does, that match's row placeholder under it.
+ */
+export function TimelinePlaceholder({ count, matches = false }: { count: number; matches?: boolean }) {
+  const slots = timeline();
+  return (
+    <div className={slots.list()}>
+      {Array.from({ length: count }, (_, index) => (
+        <div
+          key={index}
+          className={slots.step()}>
+          <div className={slots.line()}>
+            <span className={placeholderBar("size-6 rounded-full")} />
+          </div>
+          <div className={slots.body()}>
+            <div className={slots.head()}>
+              <PlaceholderLine
+                text={slots.title()}
+                width="w-28"
+              />
+            </div>
+            {matches && <SpielListPlaceholder count={1} />}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 /**
  * Things in their order along one dotted line, a checkpoint for each: a club's matches by matchday, a match's

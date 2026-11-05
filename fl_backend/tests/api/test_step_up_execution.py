@@ -18,7 +18,6 @@ from fastapi import FastAPI
 from httpx2 import AsyncClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.schiedsrichter.services import compose_bestaetigung
 from app.api.teams.schemas import kontakte_stand_of
 from app.core.codes import Code
 from app.core.collections import Collection
@@ -30,9 +29,7 @@ from tests.app_client import app_client
 from tests.config import ADMIN_KEY, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import (
-    SCHIEDSRICHTER_TEXT_VERSIONS,
     kontaktperson_document,
-    own_einwilligung_document,
     rules_document,
     saison_document,
     saison_team_document,
@@ -55,11 +52,8 @@ FRESH = StampedHeaders(ADMIN, ADMIN_KEY)
 SAISON_ID = "2026"
 TODAY = "2026-04-01"
 TEAM_ID = ObjectId("6890a1b2c3d4e5f607950001")
-SCHIEDSRICHTER_ID = ObjectId("6890a1b2c3d4e5f607950011")
-REFEREE_EMAIL = "collina@example.com"
-MOVED_EMAIL = "collina.pierluigi@example.com"
 
-REGISTRIERUNG: dict[str, Any] = {"offen": True, "von": "2026-03-01", "bis": "2026-04-30"}
+REGISTRIERUNG: dict[str, Any] = {"offen": True, "end": "2026-04-30"}
 
 Body = Callable[[AsyncDatabase, AsyncClient], Awaitable[Any]]
 
@@ -104,7 +98,7 @@ async def a_live_link(database: AsyncDatabase) -> None:
             "token_hashes": [hash_token("seeded")],
             "created_at": "2026-03-15",
             "created_by": ADMIN,
-            "widerrufen_am": None,
+            "revoked_at": None,
         }
     )
 
@@ -115,7 +109,7 @@ class TestTheClubsLink:
     def test_a_mint_voiding_a_live_link_from_an_older_sign_in_is_refused_and_voids_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, http: AsyncClient) -> tuple[bool, list[Any]]:
             response = await http.post(self.URL, headers=OLDER)
-            live = await database[Collection.INVITATIONS].find({"widerrufen_am": None}, {"token_hashes": 1, "_id": 0}).to_list()
+            live = await database[Collection.INVITATIONS].find({"revoked_at": None}, {"token_hashes": 1, "_id": 0}).to_list()
             return refused(response), live
 
         assert on_a_season(mongo_replica_set_url, body, seed=a_live_link) == (True, [{"token_hashes": [hash_token("seeded")]}])
@@ -165,7 +159,7 @@ class TestTheClubsContacts:
             "email": "ida@example.com",
             "telefon": "+4917010000001",
             # A seat the applicant's form would store, so the step-up alone refuses.
-            "einwilligung": {"umfang": "kontaktdaten", "datum": "2026-03-01"},
+            "einwilligung": {"scope": "kontaktdaten", "date": "2026-03-01"},
         }
 
         async def body(database: AsyncDatabase, http: AsyncClient) -> tuple[bool, Any]:
@@ -182,7 +176,7 @@ class TestTheClubsContacts:
         confirmed = kontaktperson_document(
             "Ida",
             confirmed_at="2026-03-02",
-            einwilligung={"datum": "2026-03-01"},
+            einwilligung={"date": "2026-03-01"},
             nachname="Musterfrau",
             email="ida@example.com",
             telefon="+4917010000001",
@@ -201,171 +195,47 @@ class TestTheClubsContacts:
         assert on_a_season(mongo_replica_set_url, body, seed=seed) == (True, seated)
 
 
-class TestTheDraw:
-    URL = f"/api/v{API_VERSION}/saisons/{SAISON_ID}/spielplan"
-
-    def test_a_replacing_draw_from_an_older_sign_in_is_refused(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, http: AsyncClient) -> bool:
-            return refused(await http.post(self.URL, headers=OLDER, json={"replace": True}))
-
-        assert on_a_season(mongo_replica_set_url, body) is True
-
-    def test_a_first_draw_takes_the_older_sign_in_to_the_draw_s_own_judgement(self, mongo_replica_set_url: str):
-        """One club cannot fill two groups, so the draw's own rule answers, which only a request past the window reaches."""
-
-        async def body(database: AsyncDatabase, http: AsyncClient) -> tuple[int, str]:
-            response = await http.post(self.URL, headers=OLDER, json={})
-            return response.status_code, str(response.json().get("error_code"))
-
-        status, code = on_a_season(mongo_replica_set_url, body)
-
-        assert (status, code.startswith("spielplan_")) == (409, True)
-
-
-def a_referee(*, confirmed: bool = False, retired: bool = False) -> dict[str, Any]:
-    return {
-        "_id": SCHIEDSRICHTER_ID,
-        "name": "Pierluigi Collina",
-        "schule": "Carl-Schurz-Schule",
-        "default_payment": 20,
-        "kontakt": {"telefon": "+49 69 1234567", "email": REFEREE_EMAIL},
-        "inactive_since": "2026-01-01" if retired else None,
-        "confirmation": {**compose_bestaetigung(today="2026-03-20"), "token_hashes": [hash_token("seeded-referee")]},
-        **(
-            {
-                "einwilligung": own_einwilligung_document(
-                    text_versions=SCHIEDSRICHTER_TEXT_VERSIONS, confirmed_at="2026-03-21", umfang="intern"
-                ),
-                "geburtsdatum": "1984-05-09",
-            }
-            if confirmed
-            else {}
-        ),
-    }
-
-
-def seeding(referee: dict[str, Any]) -> Callable[[AsyncDatabase], Awaitable[None]]:
-    async def seed(database: AsyncDatabase) -> None:
-        await database[Collection.SCHIEDSRICHTER].insert_one(referee)
-
-    return seed
-
-
-def a_save(email: str) -> dict[str, Any]:
-    return {
-        "name": "Pierluigi Collina",
-        "schule": "Carl-Schurz-Schule",
-        "default_payment": 20,
-        "kontakt": {"telefon": "+49 69 1234567", "email": email},
-    }
-
-
-class TestTheRefereesSave:
-    URL = f"/api/v{API_VERSION}/schiedsrichter/{SCHIEDSRICHTER_ID}"
-
-    @pytest.mark.parametrize("retired", [False, True], ids=("serving, minting a fresh link", "retired, voiding the link"))
-    def test_an_unanswered_referee_s_moved_address_from_an_older_sign_in_is_refused_and_stored_nowhere(
-        self, mongo_replica_set_url: str, retired: bool
-    ):
-        async def body(database: AsyncDatabase, http: AsyncClient) -> tuple[bool, Any]:
-            response = await http.patch(self.URL, headers=OLDER, json=a_save(MOVED_EMAIL))
-            stored = await database[Collection.SCHIEDSRICHTER].find_one({"_id": SCHIEDSRICHTER_ID})
-            return refused(response), stored and (stored["kontakt"]["email"], stored["confirmation"]["token_hashes"])
-
-        seed = seeding(a_referee(retired=retired))
-
-        assert on_a_season(mongo_replica_set_url, body, seed=seed) == (True, (REFEREE_EMAIL, [hash_token("seeded-referee")]))
-
-    @pytest.mark.parametrize("retired", [False, True], ids=("serving", "retired"))
-    def test_a_confirmed_referee_s_address_change_from_an_older_sign_in_is_refused_and_asks_nobody(
-        self, mongo_replica_set_url: str, retired: bool
-    ):
-        """The address link hands the referee's record to whoever holds the new mailbox, as a consent link hands the answer."""
-
-        async def body(database: AsyncDatabase, http: AsyncClient) -> tuple[bool, Any]:
-            response = await http.post(
-                f"/api/v{API_VERSION}/address_change", headers=OLDER, json={"adresse": REFEREE_EMAIL, "email": MOVED_EMAIL, "grund": None}
-            )
-            stored = await database[Collection.SCHIEDSRICHTER].find_one({"_id": SCHIEDSRICHTER_ID})
-            return refused(response), stored and (stored["kontakt"]["email"], await database[Collection.ADDRESS_CHANGES].count_documents({}))
-
-        seed = seeding(a_referee(confirmed=True, retired=retired))
-
-        assert on_a_season(mongo_replica_set_url, body, seed=seed) == (True, (REFEREE_EMAIL, 0))
-
-    @pytest.mark.parametrize(
-        ("referee", "email"),
-        [
-            pytest.param(a_referee(), "collina@EXAMPLE.com", id="the same mailbox, its domain spelled otherwise"),
-            pytest.param(a_referee(confirmed=True), "collina@EXAMPLE.com", id="a confirmed referee's same mailbox"),
-        ],
-    )
-    def test_a_save_touching_no_link_takes_the_older_sign_in(self, mongo_replica_set_url: str, referee: dict[str, Any], email: str):
-        async def body(database: AsyncDatabase, http: AsyncClient) -> int:
-            return (await http.patch(self.URL, headers=OLDER, json=a_save(email))).status_code
-
-        assert on_a_season(mongo_replica_set_url, body, seed=seeding(referee)) == 200
-
-
-class TestTheRefereesReturn:
-    URL = f"/api/v{API_VERSION}/schiedsrichter/{SCHIEDSRICHTER_ID}/reactivate"
-
-    def test_a_return_minting_a_link_from_an_older_sign_in_is_refused_and_leaves_the_referee_retired(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, http: AsyncClient) -> tuple[bool, Any]:
-            response = await http.post(self.URL, headers=OLDER)
-            stored = await database[Collection.SCHIEDSRICHTER].find_one({"_id": SCHIEDSRICHTER_ID})
-            return refused(response), stored and stored["inactive_since"]
-
-        assert on_a_season(mongo_replica_set_url, body, seed=seeding(a_referee(retired=True))) == (True, "2026-01-01")
-
-    def test_a_confirmed_referee_s_return_takes_the_older_sign_in(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, http: AsyncClient) -> int:
-            return (await http.post(self.URL, headers=OLDER)).status_code
-
-        assert on_a_season(mongo_replica_set_url, body, seed=seeding(a_referee(confirmed=True, retired=True))) == 200
-
-
 # An administrator's address beside the suite's, whose erasure on request takes that grant with the rest.
-GELOESCHT_ADMINISTRATOR = "zugang.anfrage@example.com"
+ERASED_ADMINISTRATOR = "zugang.anfrage@example.com"
 
 
 async def an_administrators_grant(database: AsyncDatabase) -> None:
     await database[Collection.GRANTS].insert_one(
         {
-            "adresse": GELOESCHT_ADMINISTRATOR,
-            "verwaltung": "administration",
+            "address": ERASED_ADMINISTRATOR,
+            "admin_tier": "administration",
             "granted_by": "PLAYGROUND",
             "granted_at": datetime(2026, 1, 1, tzinfo=UTC),
         }
     )
 
 
-def an_loeschung_of(email: str) -> dict[str, str]:
-    return {"email": email, "anlass": "Mail vom 30.03.2026"}
+def an_erasure_of(email: str) -> dict[str, str]:
+    return {"email": email, "reason": "Mail vom 30.03.2026"}
 
 
-class TestAnLoeschungOnRequestEndingAGrant:
+class TestAnErasureOnRequestEndingAGrant:
     """An administrator's erasure asks the revoke's window on the calls taking a live grant."""
 
     URL = f"/api/v{API_VERSION}/identity/erasure"
 
-    def test_an_loeschung_ending_a_grant_from_a_sign_in_past_that_window_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
+    def test_an_erasure_ending_a_grant_from_a_sign_in_past_that_window_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, http: AsyncClient) -> tuple[bool, int, int]:
             # Inside the step-up window, past the revoke's by a minute: this suite's `OLDER` is past both.
             OLDER = StampedHeaders(ADMIN, ADMIN_KEY, signed_in_before_s=ENROLMENT_WINDOW_S + 60)
             logged = await database[Collection.ACTION_LOG].count_documents({})
-            response = await http.post(self.URL, headers=OLDER, json=an_loeschung_of(GELOESCHT_ADMINISTRATOR))
+            response = await http.post(self.URL, headers=OLDER, json=an_erasure_of(ERASED_ADMINISTRATOR))
             return (
                 refused(response),
-                await database[Collection.GRANTS].count_documents({"adresse": GELOESCHT_ADMINISTRATOR}),
+                await database[Collection.GRANTS].count_documents({"address": ERASED_ADMINISTRATOR}),
                 await database[Collection.ACTION_LOG].count_documents({}) - logged,
             )
 
         assert on_a_season(mongo_replica_set_url, body, seed=an_administrators_grant) == (True, 1, 0)
 
-    def test_an_loeschung_ending_a_grant_from_a_fresh_sign_in_takes_it(self, mongo_replica_set_url: str):
+    def test_an_erasure_ending_a_grant_from_a_fresh_sign_in_takes_it(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, http: AsyncClient) -> tuple[int, int]:
-            response = await http.post(self.URL, headers=FRESH, json=an_loeschung_of(GELOESCHT_ADMINISTRATOR))
+            response = await http.post(self.URL, headers=FRESH, json=an_erasure_of(ERASED_ADMINISTRATOR))
             return response.status_code, response.json()["grants"]
 
         assert on_a_season(mongo_replica_set_url, body, seed=an_administrators_grant) == (200, 1)
@@ -373,6 +243,6 @@ class TestAnLoeschungOnRequestEndingAGrant:
     def test_an_address_holding_no_grant_asks_the_step_up_window_alone(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, http: AsyncClient) -> int:
             past_the_revokes = StampedHeaders(ADMIN, ADMIN_KEY, signed_in_before_s=ENROLMENT_WINDOW_S + 60)
-            return (await http.post(self.URL, headers=past_the_revokes, json=an_loeschung_of("niemand@example.com"))).status_code
+            return (await http.post(self.URL, headers=past_the_revokes, json=an_erasure_of("niemand@example.com"))).status_code
 
         assert on_a_season(mongo_replica_set_url, body) == 200

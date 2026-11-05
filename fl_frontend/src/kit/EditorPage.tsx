@@ -1,61 +1,154 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
 
 import { Form } from "react-aria-components/Form";
 
 import { COPY } from "@/core/copy";
 
+import { Button } from "./Button";
+import { stacked } from "./cardStyles";
+import { ConfirmDialog } from "./ConfirmDialog";
+import { DraftUnsaved, useLocked } from "./draftUnsaved";
 import { EditorBar } from "./EditorBar";
+import { StatusLine } from "./FieldParts";
 import { FormClosed } from "./formClosed";
+import { lockedLine } from "./lockedLine";
 import { formColumn, RailPage } from "./RailFrame";
 import { Section } from "./Section";
+import { usePasskeyTouch } from "./usePasskeyTouch";
 
 import type { Copy } from "@/core/copy";
 import type { ReactElement } from "react";
 import type { ChipProps } from "./Chip";
-import type { SaveWarning } from "./EditorBar";
+import type { ConfirmDialogProps } from "./ConfirmDialog";
 import type { PageTitle } from "./RailFrame";
-import type { DangerAct } from "./Section";
 import type { Editor, EditorValue } from "./useEditor";
+import type { FormStatus } from "./useFormAction";
 
-/** One of an editor's sections, in the order the person's task takes them: its title, its ⓘ, its fields. */
-export type EditorSection = { id: string; title: Copy; help?: Copy; fields: ReactElement };
+/**
+ * One of an editor's sections, in the order the person's task takes them: its title, its ⓘ, its fields, and `note`,
+ * the sentence under the title saying why some of its fields cannot change, such as a season's start fixed once a
+ * match has taken place. A sentence under a field is cut at the field's width, and a short field is narrower than one.
+ */
+export type EditorSection = { id: string; title: Copy; help?: readonly [Copy, ...Copy[]]; note?: Copy; fields: ReactElement };
+
+/**
+ * An irreversible or retiring act, which stands as one row in an editor's danger box: its name and its
+ * consequence at the left, its button at the right, which asks before it acts.
+ */
+export type DangerAct = {
+  name: Copy;
+  consequence: Copy;
+  /** The question its button opens; the button carries the question's verb and tone. */
+  confirm: Omit<ConfirmDialogProps, "trigger" | "open">;
+  /**
+   * The passkey touch before the question, for an act on its fixed list: the address the page was drawn for
+   * (`usePasskeyTouch`). An editor is an administrator's page, and an administrator signs in by passkey alone, so the
+   * person always holds one.
+   */
+  touch?: { holder: string };
+  /**
+   * Why the act cannot run on the record as it stands, which the page read: the button disabled, and this reason in
+   * the row's second line in place of the consequence, as every act's `locked` reason stands (`useLocked`).
+   */
+  locked?: Copy;
+};
+
+/**
+ * One danger row. An act behind the passkey touch asks the touch on its press, its button busy until the
+ * browser's prompt answers, and only then its question; a touch the passkey did not answer opens nothing, and
+ * the row's second line says so in place of the consequence, as a Konto box's line says why its act did not run.
+ */
+function DangerRow({ act }: { act: DangerAct }) {
+  const [isAsking, setAsking] = useState(false);
+  const { run, refusal, isTouching } = usePasskeyTouch(act.touch !== undefined, act.touch?.holder);
+  const label = COPY.shared.verb[act.confirm.verb];
+  const locked = useLocked(act.locked);
+  const isLocked = locked !== undefined;
+  // The row's one line, a live region from the first render, so the touch's refusal and a reason are announced as each
+  // replaces the consequence, which rests in the small muted face of the reason taking its place.
+  const line: FormStatus = refusal === null ? lockedLine(locked ?? act.consequence) : { tone: "error", text: refusal };
+  return (
+    // A flat row across the danger box, parted from the one above by the hairline every stacked part takes.
+    <div className={`flex min-h-14 items-center gap-3 px-4 py-2 lg:min-h-13 ${stacked()}`}>
+      <div className="grid min-w-0 flex-1 text-sm">
+        <span className="font-semibold">{act.name}</span>
+        <StatusLine
+          status={line}
+          placement="column"
+        />
+      </div>
+      {act.touch === undefined ? (
+        <ConfirmDialog
+          {...act.confirm}
+          trigger={
+            <Button
+              variant={act.confirm.tone}
+              label={label}
+              isDisabled={isLocked}
+            />
+          }
+        />
+      ) : (
+        <>
+          <Button
+            variant={act.confirm.tone}
+            label={label}
+            isBusy={isTouching}
+            isDisabled={isLocked}
+            onPress={() => void run(() => setAsking(true))}
+          />
+          <ConfirmDialog
+            {...act.confirm}
+            open={{ isOpen: isAsking, onOpenChange: setAsking }}
+          />
+        </>
+      )}
+    </div>
+  );
+}
 
 /**
  * The editor template: its sections one under another in the column of at most 760 px centred in the
  * content (`formColumn`, as the read page's), each a box exactly as tall as its content under its 16-px
  * title, and the record's one save in `EditorBar` at the foot of the viewport. There is no „Abbrechen“: the
  * way out is the frame's „‹ Zurück“ to the record's list, which an editor's route group places
- * (`RailColumn`) and which asks before it drops unsaved changes. The last box ends in the danger rows, the
- * one place an editor's irreversible and retiring acts stand. The fields are the kit's, bound to `editor`'s
- * draft by the page's own client code, which the template's server half, `EditorShell`, waits for.
+ * (`RailColumn`) and which asks before it drops unsaved changes. The danger box comes last, a box of its own
+ * under its own title holding the danger rows, the one place an editor's irreversible and retiring acts stand,
+ * apart from the fields the bar saves as GitHub's danger zone stands apart from a repository's settings; an
+ * editor with none of its acts open draws no such box. The fields are the kit's, bound to `editor`'s draft by
+ * the page's own client code, which the template's server half, `EditorShell`, waits for.
  *
  * A record its season no longer lets change opens `closed`, read-only rather than open to a save the write
  * refuses: every field disabled, the reason under the first box's title, the chip „Abgeschlossen“ after the
- * title, and neither the danger rows nor the bar, since there is nothing to save.
+ * title, and neither the danger box nor the bar, since there is nothing to save.
  */
 export function EditorPage<Values extends Record<string, EditorValue>>({
   title,
   chip,
+  lead,
   editor,
   sections,
   danger,
-  warning,
   closed,
 }: {
   title: PageTitle;
   chip?: ChipProps;
+  /**
+   * The Vorschau: one line under the title saying a fact about the record as it is stored, such as a match's pairing,
+   * its day and its result or that none is stored yet, or that the website shows a season. Never the unsaved
+   * changes, which the bar's status line counts.
+   */
+  lead?: Copy;
   /** The reason the record is closed read-only, such as its season having finished; absent while it is open. */
   closed?: Copy;
   editor: Editor<Values>;
   sections: readonly [EditorSection, ...EditorSection[]];
-  danger?: ReadonlyArray<DangerAct>;
-  /** The question a save of these changes asks first, only for a consequence beyond the record. */
-  warning?: (changes: Partial<Values>) => SaveWarning | null;
+  /** The danger box: its title, naming what its acts are about, and its rows. */
+  danger?: { title: Copy; acts: ReadonlyArray<DangerAct> };
 }) {
   const form = useRef<HTMLFormElement>(null);
-  const last = sections.length - 1;
 
   return (
     <RailPage
@@ -67,7 +160,8 @@ export function EditorPage<Values extends Record<string, EditorValue>>({
           <EditorBar
             status={editor.status}
             isPending={editor.isPending}
-            warning={warning?.(editor.changes) ?? null}
+            // A save the server held back asks its question from the bar, before it goes again.
+            question={{ asked: editor.question, confirm: editor.confirm, decline: editor.decline }}
             onSave={() => form.current?.requestSubmit()}
           />
         ) : undefined
@@ -82,17 +176,31 @@ export function EditorPage<Values extends Record<string, EditorValue>>({
           editor.submit();
         }}
         className={formColumn()}>
+        {lead !== undefined && <p className="text-sm text-fg-muted">{lead}</p>}
         <FormClosed value={closed !== undefined}>
-          {sections.map((section, index) => (
-            <Section
-              key={section.id}
-              title={section.title}
-              help={section.help}
-              note={index === 0 ? closed : undefined}
-              danger={index === last && closed === undefined ? danger : undefined}>
-              {section.fields}
-            </Section>
-          ))}
+          <DraftUnsaved value={editor.count > 0 ? COPY.template.draftUnsaved : undefined}>
+            {sections.map((section, index) => (
+              <Section
+                key={section.id}
+                title={section.title}
+                help={section.help}
+                // A closed record's one reason covers every field, so it stands alone, under the first box's title.
+                note={closed === undefined ? section.note : index === 0 ? closed : undefined}>
+                {section.fields}
+              </Section>
+            ))}
+            {closed === undefined && danger !== undefined && danger.acts.length > 0 && (
+              <Section
+                title={danger.title}
+                danger={danger.acts.map((act) => (
+                  <DangerRow
+                    key={act.name}
+                    act={act}
+                  />
+                ))}
+              />
+            )}
+          </DraftUnsaved>
         </FormClosed>
       </Form>
     </RailPage>

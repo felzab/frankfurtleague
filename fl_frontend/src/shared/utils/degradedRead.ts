@@ -44,17 +44,3 @@ export function nullUnlessContractBreak(error: unknown): null {
 
   return null;
 }
-
-// Attached inside `runWithIncomingTrace`'s scope at its call site: outside it, an untyped failure's line names no request.
-/**
- * An admin editor's label readout's rejection handler, logging every failure that does not explain itself. The editor is
- * the operator's tool for repairing the record, so it stands where a person-facing page would not render.
- */
-export function nullAfterLoggingUnexplained(error: unknown): null {
-  // A `redirect()` or `notFound()` the read threw is a navigation, never a failed read.
-  unstable_rethrow(error);
-  if (error instanceof ContractBreakError) logger.error("read.contract_break_absorbed", error);
-  else if (!explainsItself(error)) logReadFailure("read.readout_failed", error);
-
-  return null;
-}

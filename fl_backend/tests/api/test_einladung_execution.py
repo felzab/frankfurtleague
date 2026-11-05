@@ -16,8 +16,8 @@ from app.api.einladungen.services import (
     find_unknown_einladung_refusal,
 )
 from app.api.outbox.services import enqueue_mails, final_update
-from app.api.saisons.admin_router import get_invitations_dispatch_preview, post_invitations_dispatch
-from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
+from app.api.saisons.admin_router import get_saison_admin, post_invitations_dispatch
+from app.api.sperrliste.services import compose_barred_until_saison_id
 from app.api.teams.admin_router import delete_invitation, get_invitation, post_invitation, post_invitation_dispatch
 from app.core.codes import Code
 from app.core.collections import Collection
@@ -55,7 +55,7 @@ NOT_ENTERED = ObjectId("6890a1b2c3d4e5f607260005")
 
 SEEDED_EINLADUNG = ObjectId("6890a1b2c3d4e5f607260011")
 
-REGISTRIERUNG: Mapping[str, Any] = {"offen": True, "von": "2026-03-01", "bis": "2026-04-30"}
+REGISTRIERUNG: Mapping[str, Any] = {"offen": True, "end": "2026-04-30"}
 
 TEAM_NAMES = {TWO_SEATS: "Adler", UNCONFIRMED: "Bieber", NO_BLOCK: "Cronberg", ALREADY_MAILED: "Dornbusch", WITHDRAWN: "Eschborn"}
 
@@ -98,15 +98,18 @@ def junction_row(team_id: ObjectId, *, saison_id: str = SAISON_ID) -> dict[str, 
     )
 
 
-def einladung_row(team_id: ObjectId, *, widerrufen_am: str | None = None, _id: ObjectId | None = None) -> dict[str, Any]:
+def einladung_row(
+    team_id: ObjectId, *, revoked_at: str | None = None, _id: ObjectId | None = None, sent_at: str | None = None
+) -> dict[str, Any]:
     return {
         "_id": _id or ObjectId(),
         "saison_id": SAISON_ID,
         "team_id": team_id,
-        "token_hashes": [hash_token(f"seeded-{team_id}-{widerrufen_am}")],
+        "token_hashes": [hash_token(f"seeded-{team_id}-{revoked_at}")],
         "created_at": "2026-03-15",
         "created_by": ADMIN,
-        "widerrufen_am": widerrufen_am,
+        "revoked_at": revoked_at,
+        "sent_at": sent_at,
     }
 
 
@@ -132,7 +135,7 @@ def on_a_league(url: str, body: Body, *, saison_status: str = "active", teams: t
             if teams:
                 await database[Collection.SAISON_TEAMS].insert_many([junction_row(team_id) for team_id in teams])
             if ALREADY_MAILED in teams:
-                await database[Collection.INVITATIONS].insert_one(einladung_row(ALREADY_MAILED, _id=SEEDED_EINLADUNG))
+                await database[Collection.INVITATIONS].insert_one(einladung_row(ALREADY_MAILED, _id=SEEDED_EINLADUNG, sent_at="2026-03-15"))
                 await a_sent_mail(database, SEEDED_EINLADUNG, "fendrick@example.com")
 
             return await body(database)
@@ -152,7 +155,7 @@ async def a_sent_mail(database: AsyncDatabase, invitation_id: ObjectId, an: str)
                 team_name="Seeded",
                 saison_id=SAISON_ID,
                 recipient=[FLInvitationRecipient(rolle="trainer", vorname="Fendrick", email=an)],
-                anlass="versand",
+                occasion="versand",
             ),
             now=MAIL_NOW,
         )
@@ -163,7 +166,7 @@ async def mint(database: AsyncDatabase, team_id: ObjectId, *, saison_id: str = S
     return await post_invitation(
         team_id=team_id,
         saison_id=saison_id,
-        einladungen_collection=einladungen if einladungen is not None else database[Collection.INVITATIONS],
+        invitations_collection=einladungen if einladungen is not None else database[Collection.INVITATIONS],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
         db=database.client,
@@ -175,7 +178,7 @@ async def mint(database: AsyncDatabase, team_id: ObjectId, *, saison_id: str = S
 
 async def revoke(database: AsyncDatabase, team_id: ObjectId) -> Any:
     return await delete_invitation(
-        team_id=team_id, saison_id=SAISON_ID, einladungen_collection=database[Collection.INVITATIONS], today=TODAY, db=database.client
+        team_id=team_id, saison_id=SAISON_ID, invitations_collection=database[Collection.INVITATIONS], today=TODAY, db=database.client
     )
 
 
@@ -183,23 +186,28 @@ async def read_state(database: AsyncDatabase, team_id: ObjectId, *, today: str =
     return await get_invitation(
         team_id=team_id,
         saison_id=SAISON_ID,
-        einladungen_collection=database[Collection.INVITATIONS],
+        invitations_collection=database[Collection.INVITATIONS],
         saisons_collection=database[Collection.SAISONS],
         outbox_collection=database[Collection.OUTBOX],
-        sperrliste=ban_list(database),
+        ban_list=ban_list(database),
         today=today,
     )
 
 
-async def preview(database: AsyncDatabase, *, resend: bool = False) -> Any:
-    return await get_invitations_dispatch_preview(
+async def editor(database: AsyncDatabase) -> Any:
+    """The season editor's read, whose registration links' rows are the press's own plan with `resend` left false."""
+
+    return await get_saison_admin(
         saison_id=SAISON_ID,
-        saison_teams_collection=database[Collection.SAISON_TEAMS],
-        einladungen_collection=database[Collection.INVITATIONS],
         saisons_collection=database[Collection.SAISONS],
-        outbox_collection=database[Collection.OUTBOX],
-        sperrliste=ban_list(database),
-        resend=resend,
+        saison_teams_collection=database[Collection.SAISON_TEAMS],
+        spiele_collection=database[Collection.SPIELE],
+        spieltage_collection=database[Collection.SPIELTAGE],
+        teams_collection=database[Collection.TEAMS],
+        spielberichte_collection=database[Collection.SPIELBERICHTE],
+        invitations_collection=database[Collection.INVITATIONS],
+        ban_list=ban_list(database),
+        today=TODAY,
     )
 
 
@@ -208,10 +216,10 @@ async def press(database: AsyncDatabase, *, resend: bool = False) -> Any:
         saison_id=SAISON_ID,
         versand_data=FLInvitationDispatchPayload(resend=resend),
         saison_teams_collection=database[Collection.SAISON_TEAMS],
-        einladungen_collection=database[Collection.INVITATIONS],
+        invitations_collection=database[Collection.INVITATIONS],
         saisons_collection=database[Collection.SAISONS],
         outbox_collection=database[Collection.OUTBOX],
-        sperrliste=ban_list(database),
+        ban_list=ban_list(database),
         db=database.client,
         created_by=ADMIN,
         today=TODAY,
@@ -229,7 +237,7 @@ async def owed_for(database: AsyncDatabase, team_id: ObjectId) -> list[str]:
 
 
 async def live_count(database: AsyncDatabase, team_id: ObjectId) -> int:
-    return await database[Collection.INVITATIONS].count_documents({"saison_id": SAISON_ID, "team_id": team_id, "widerrufen_am": None})
+    return await database[Collection.INVITATIONS].count_documents({"saison_id": SAISON_ID, "team_id": team_id, "revoked_at": None})
 
 
 class _InsertFailsForOneTeam:
@@ -258,10 +266,10 @@ def as_collection(stub: _InsertFailsForOneTeam) -> AsyncCollection:
     return cast(AsyncCollection, stub)
 
 
-def decided(rows: Any) -> list[tuple[str, tuple[str, ...], Any, bool]]:
-    """One row per team as both readers describe it: the team, the mailboxes, the skip, and the link it kills."""
+def decided(rows: Any) -> list[tuple[str, tuple[str, ...], Any]]:
+    """One row per team as both readers describe it: the team, the mailboxes and the skip."""
 
-    return [(str(zeile.team_id), tuple(entry.email for entry in zeile.recipient), zeile.skipped, zeile.replaced_link) for zeile in rows]
+    return [(str(zeile.team_id), tuple(entry.email for entry in zeile.recipient), zeile.skipped) for zeile in rows]
 
 
 class TestWhatAMintStores:
@@ -277,11 +285,13 @@ class TestWhatAMintStores:
 
         response, stored = on_a_league(mongo_replica_set_url, body)
 
-        assert set(stored) == {"_id", "saison_id", "team_id", "token_hashes", "created_at", "created_by", "widerrufen_am"}
+        assert set(stored) == {"_id", "saison_id", "team_id", "token_hashes", "created_at", "created_by", "revoked_at", "sent_at"}
         assert stored["token_hashes"] == [hash_token(response.token)]
         assert stored["created_by"] == ADMIN
         assert stored["created_at"] == TODAY
-        assert stored["widerrufen_am"] is None
+        assert stored["revoked_at"] is None
+        # Minted for copying, so nothing has been sent.
+        assert stored["sent_at"] is None
 
     def test_the_raw_link_reaches_the_answer_and_no_stored_field(self, mongo_replica_set_url: str):
         """A link recoverable from the row would make the admin read the place every live credential leaks from."""
@@ -327,8 +337,8 @@ class TestReissuingALink:
         assert first.invitation_id != second.invitation_id
         # The replaced row STAYS: a delivery event about the message carrying it still has to land.
         assert len(rows) == 2
-        assert [row["widerrufen_am"] for row in rows if row["_id"] == ObjectId(first.invitation_id)] == [TODAY]
-        assert [row["widerrufen_am"] for row in rows if row["_id"] == ObjectId(second.invitation_id)] == [None]
+        assert [row["revoked_at"] for row in rows if row["_id"] == ObjectId(first.invitation_id)] == [TODAY]
+        assert [row["revoked_at"] for row in rows if row["_id"] == ObjectId(second.invitation_id)] == [None]
 
     def test_the_replaced_links_hash_then_opens_nothing(self, mongo_replica_set_url: str):
         """`document_not_found` over the filter S9 reads: the revocation term is half of it, and a hash alone finds the spent row."""
@@ -410,7 +420,7 @@ class TestTwoMintsAtOnce:
             committed.set()
             answered = await second
 
-            live = await database[Collection.INVITATIONS].find({"team_id": TWO_SEATS, "widerrufen_am": None}).to_list(length=None)
+            live = await database[Collection.INVITATIONS].find({"team_id": TWO_SEATS, "revoked_at": None}).to_list(length=None)
 
             return first.invitation_id, answered.invitation_id, held.revokes, held.insert_failures, [row["_id"] for row in live]
 
@@ -442,7 +452,7 @@ class _HoldsAfterItsRevoke(HeldCollection):
 
 
 class TestTheRuleOfOneLiveInvitation:
-    """`uniq_invitation_live`, this tree's first partial index: the rule reaches the rows holding a null `widerrufen_am`.
+    """`uniq_invitation_live`, this tree's first partial index: the rule reaches the rows holding a null `revoked_at`.
 
     Written straight to the collection, which is what a second transaction committing between a
     read and a write amounts to.
@@ -465,8 +475,8 @@ class TestTheRuleOfOneLiveInvitation:
         async def body(database: AsyncDatabase) -> Any:
             await database[Collection.INVITATIONS].insert_many(
                 [
-                    einladung_row(TWO_SEATS, widerrufen_am="2026-03-20"),
-                    einladung_row(TWO_SEATS, widerrufen_am="2026-03-21"),
+                    einladung_row(TWO_SEATS, revoked_at="2026-03-20"),
+                    einladung_row(TWO_SEATS, revoked_at="2026-03-21"),
                 ]
             )
 
@@ -476,7 +486,7 @@ class TestTheRuleOfOneLiveInvitation:
 
     def test_a_live_row_stands_beside_a_revoked_one(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:
-            await database[Collection.INVITATIONS].insert_one(einladung_row(TWO_SEATS, widerrufen_am="2026-03-20"))
+            await database[Collection.INVITATIONS].insert_one(einladung_row(TWO_SEATS, revoked_at="2026-03-20"))
             await database[Collection.INVITATIONS].insert_one(einladung_row(TWO_SEATS))
 
             return await live_count(database, TWO_SEATS), await database[Collection.INVITATIONS].count_documents({"team_id": TWO_SEATS})
@@ -562,12 +572,12 @@ class TestRevokingALink:
             stored = await database[Collection.INVITATIONS].find_one({"_id": ObjectId(minted.invitation_id)})
 
             assert stored is not None
-            return minted.invitation_id, revoked.invitation_id, stored["widerrufen_am"]
+            return minted.invitation_id, revoked.invitation_id, stored["revoked_at"]
 
-        minted_id, revoked_id, widerrufen_am = on_a_league(mongo_replica_set_url, body)
+        minted_id, revoked_id, revoked_at = on_a_league(mongo_replica_set_url, body)
 
         assert revoked_id == minted_id
-        assert widerrufen_am == TODAY
+        assert revoked_at == TODAY
 
     def test_a_team_holding_no_live_link_is_a_404(self, mongo_replica_set_url: str):
         """A revoke answering 200 over nothing tells an administrator a link is dead that still opens."""
@@ -663,7 +673,7 @@ class TestTheStateRead:
 
         assert state.invitation is not None
         assert str(state.invitation.id) == str(einladung_id)
-        assert state.invitation.widerrufen_am is None
+        assert state.invitation.revoked_at is None
         # Null rather than a state: nobody was owed it, which is not a delivery failure.
         assert state.invitation.delivery is None
 
@@ -695,8 +705,8 @@ class TestTheStateRead:
         async def body(database: AsyncDatabase) -> Any:
             await mint(database, TWO_SEATS)
             if barred:
-                await database[Collection.SPERRLISTE].insert_one(
-                    ban_document(ADMIN, bis=compose_gesperrt_bis_saison_id(massgebliche_saison_id=SAISON_ID))
+                await database[Collection.BAN_LIST].insert_one(
+                    ban_document(ADMIN, until=compose_barred_until_saison_id(governing_saison_id=SAISON_ID))
                 )
             state = await read_state(database, TWO_SEATS)
 
@@ -725,7 +735,7 @@ async def mail(database: AsyncDatabase, team_id: ObjectId, invitation_id: Any) -
         team_id=team_id,
         saison_id=SAISON_ID,
         mail_data=FLInvitationMailPayload(invitation_id=invitation_id),
-        einladungen_collection=database[Collection.INVITATIONS],
+        invitations_collection=database[Collection.INVITATIONS],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         outbox_collection=database[Collection.OUTBOX],
         db=database.client,
@@ -763,22 +773,58 @@ class TestTheTeamsMailPress:
         assert on_a_league(mongo_replica_set_url, body) == []
 
 
+class TestTheDayALinkWasSent:
+    """The season editor shows each team's link as sent on its stored day, which only the two presses owing its mails stamp."""
+
+    def test_the_season_press_stamps_the_day_the_editor_shows(self, mongo_replica_set_url: str):
+        """A mailed link served as never sent sends the administrator to send it again, and the press then kills the link the team holds."""
+
+        async def body(database: AsyncDatabase) -> Any:
+            await press(database)
+            view = await editor(database)
+
+            return {str(row.team_id): (row.has_link, row.sent_at) for row in view.invitations}
+
+        assert on_a_league(mongo_replica_set_url, body) == {
+            str(TWO_SEATS): (True, TODAY),
+            str(UNCONFIRMED): (False, None),
+            str(NO_BLOCK): (False, None),
+            # Skipped as already sent, so it keeps the link and the day its own mail was owed on.
+            str(ALREADY_MAILED): (True, "2026-03-15"),
+            str(WITHDRAWN): (False, None),
+        }
+
+    def test_the_team_press_stamps_the_link_it_owes(self, mongo_replica_set_url: str):
+        """The team's own press sends the same live link without minting, so a day the season press alone stamped would miss it."""
+
+        async def body(database: AsyncDatabase) -> Any:
+            minted = await mint(database, TWO_SEATS)
+            await mail(database, TWO_SEATS, minted.invitation_id)
+            stored = await database[Collection.INVITATIONS].find_one({"_id": ObjectId(minted.invitation_id)})
+
+            assert stored is not None
+            return stored["sent_at"]
+
+        assert on_a_league(mongo_replica_set_url, body) == TODAY
+
+
 class TestTheSeasonWidePress:
     """One press over a season whose four teams sit in the four states it can meet."""
 
-    def test_the_preview_and_the_press_decide_the_same_rows(self, mongo_replica_set_url: str):
-        """Two readers of one rule is how a preview starts telling an administrator something the press then contradicts."""
+    def test_the_editor_and_the_press_decide_the_same_rows(self, mongo_replica_set_url: str):
+        """Two readers of one rule is how the editor starts telling an administrator something the press then contradicts."""
 
         async def body(database: AsyncDatabase) -> Any:
-            shown = await preview(database)
+            await database[Collection.INVITATIONS].insert_one(einladung_row(TWO_SEATS))
+            shown = await editor(database)
             done = await press(database)
 
-            return decided(shown.rows), decided(done.rows)
+            return decided(shown.invitations), decided(done.rows)
 
         shown, done = on_a_league(mongo_replica_set_url, body)
 
         # The whole list rather than a subset: two readers agreeing on the teams they both mention
-        # is what a preview missing a team passes.
+        # is what an editor missing a team passes.
         assert shown == done
         assert len(shown) == len(TEAM_NAMES)
 
@@ -797,6 +843,21 @@ class TestTheSeasonWidePress:
             str(ALREADY_MAILED): "already_sent",
             str(WITHDRAWN): "austritt_entered",
         }
+
+    def test_a_mailed_link_whose_postausgang_row_is_gone_is_not_mailed_again(self, mongo_replica_set_url: str):
+        """The row is erased a retention after it settles: judged by it, the press would mail the club again and kill the link it holds."""
+
+        async def body(database: AsyncDatabase) -> Any:
+            await database[Collection.OUTBOX].delete_many({})
+            done = await press(database)
+            live = await database[Collection.INVITATIONS].find_one({"team_id": ALREADY_MAILED, "revoked_at": None}, {"_id": 1})
+
+            return {str(zeile.team_id): zeile.skipped for zeile in done.rows}[str(ALREADY_MAILED)], live
+
+        skipped, live = on_a_league(mongo_replica_set_url, body)
+
+        assert skipped == "already_sent"
+        assert live is not None and live["_id"] == SEEDED_EINLADUNG
 
     def test_it_mails_the_confirmed_seats_of_the_team_it_reaches(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:
@@ -820,22 +881,22 @@ class TestTheSeasonWidePress:
         One seat is banned in another spelling than the row stores, as the ban list is read off stored addresses.
         """
 
-        bound = compose_gesperrt_bis_saison_id(massgebliche_saison_id=SAISON_ID)
+        bound = compose_barred_until_saison_id(governing_saison_id=SAISON_ID)
 
         async def body(database: AsyncDatabase) -> Any:
-            await database[Collection.SPERRLISTE].insert_many(
-                [ban_document("Bramblewick@Example.com", bis=bound), ban_document("quillhilde@example.com", bis=bound)]
+            await database[Collection.BAN_LIST].insert_many(
+                [ban_document("Bramblewick@Example.com", until=bound), ban_document("quillhilde@example.com", until=bound)]
             )
             await database[Collection.INVITATIONS].insert_one(einladung_row(TWO_SEATS))
-            shown = await preview(database)
+            shown = await editor(database)
             first = await press(database)
             second = await press(database)
 
-            return decided(shown.rows), [decided(done.rows) for done in (first, second)], await live_count(database, TWO_SEATS)
+            return decided(shown.invitations), [decided(done.rows) for done in (first, second)], await live_count(database, TWO_SEATS)
 
         shown, presses, live = on_a_league(mongo_replica_set_url, body)
 
-        row = (str(TWO_SEATS), (), "kontakte_barred", False)
+        row = (str(TWO_SEATS), (), "kontakte_barred")
         assert row in shown
         assert all(row in done for done in presses)
         assert live == 1
@@ -844,8 +905,8 @@ class TestTheSeasonWidePress:
         """The control: one reachable person is a team the press exists to reach; the mailer keeps the barred seat out."""
 
         async def body(database: AsyncDatabase) -> Any:
-            await database[Collection.SPERRLISTE].insert_one(
-                ban_document("bramblewick@example.com", bis=compose_gesperrt_bis_saison_id(massgebliche_saison_id=SAISON_ID))
+            await database[Collection.BAN_LIST].insert_one(
+                ban_document("bramblewick@example.com", until=compose_barred_until_saison_id(governing_saison_id=SAISON_ID))
             )
             done = await press(database)
 
@@ -862,7 +923,7 @@ class TestTheSeasonWidePress:
         async def body(database: AsyncDatabase) -> Any:
             await press(database)
             counts = {str(team_id): await live_count(database, team_id) for team_id in TEAM_NAMES}
-            fresh = await database[Collection.INVITATIONS].find_one({"team_id": TWO_SEATS, "widerrufen_am": None})
+            fresh = await database[Collection.INVITATIONS].find_one({"team_id": TWO_SEATS, "revoked_at": None})
 
             assert fresh is not None
             return counts, fresh["token_hashes"], await owed_for(database, TWO_SEATS)
@@ -882,31 +943,6 @@ class TestTheSeasonWidePress:
             return await database[Collection.INVITATIONS].count_documents({"team_id": WITHDRAWN})
 
         assert on_a_league(mongo_replica_set_url, body) == 0
-
-    def test_the_answer_names_every_team_whose_link_this_press_kills(self, mongo_replica_set_url: str):
-        """What a page warns about before the press: the message already in somebody's inbox stops opening anything."""
-
-        async def body(database: AsyncDatabase) -> Any:
-            shown = await preview(database, resend=True)
-            done = await press(database, resend=True)
-
-            return (
-                {str(zeile.team_id): zeile.replaced_link for zeile in shown.rows},
-                {str(zeile.team_id): zeile.replaced_link for zeile in done.rows},
-            )
-
-        warned, performed = on_a_league(mongo_replica_set_url, body)
-
-        assert warned == performed
-        # The team holding a mailed link loses it; the one holding none loses nothing, and neither
-        # does a team the press skips.
-        assert warned == {
-            str(TWO_SEATS): False,
-            str(UNCONFIRMED): False,
-            str(NO_BLOCK): False,
-            str(ALREADY_MAILED): True,
-            str(WITHDRAWN): False,
-        }
 
     def test_a_team_already_mailed_keeps_the_link_its_message_carried(self, mongo_replica_set_url: str):
         """A skip leaves the team exactly as it was, or the link in somebody's inbox stops opening anything."""
@@ -931,12 +967,12 @@ class TestTheSeasonWidePress:
             replaced = await database[Collection.INVITATIONS].find_one({"_id": SEEDED_EINLADUNG})
 
             assert replaced is not None
-            return zeile, replaced["widerrufen_am"], await live_count(database, ALREADY_MAILED)
+            return zeile, replaced["revoked_at"], await live_count(database, ALREADY_MAILED)
 
-        zeile, widerrufen_am, live = on_a_league(mongo_replica_set_url, body)
+        zeile, revoked_at, live = on_a_league(mongo_replica_set_url, body)
 
         assert zeile.skipped is None
-        assert widerrufen_am == TODAY
+        assert revoked_at == TODAY
         assert live == 1
 
     def test_a_re_send_still_reaches_no_team_with_nobody_to_mail(self, mongo_replica_set_url: str):
@@ -951,19 +987,6 @@ class TestTheSeasonWidePress:
 
         assert skips[str(UNCONFIRMED)] == "no_confirmed_kontaktperson"
         assert skips[str(NO_BLOCK)] == "no_kontaktblock"
-
-    def test_the_preview_shows_the_re_send_it_is_asked_about(self, mongo_replica_set_url: str):
-        """Asked with the switch the press will carry, or the list an administrator reads is not the list they then perform."""
-
-        async def body(database: AsyncDatabase) -> Any:
-            shown = await preview(database, resend=True)
-            done = await press(database, resend=True)
-
-            return decided(shown.rows), decided(done.rows)
-
-        shown, done = on_a_league(mongo_replica_set_url, body)
-
-        assert shown == done
 
     def test_a_second_press_skips_the_team_whose_mails_are_owed(self, mongo_replica_set_url: str):
         """The whole of the idempotence: a mail still waiting in the outbox counts as sent, so a second press owes nothing twice."""
@@ -984,27 +1007,12 @@ class TestTheSeasonWidePress:
         assert live == 1
         assert len(owed) == 2
 
-    def test_a_press_over_a_link_whose_mails_reached_nobody_mints_again(self, mongo_replica_set_url: str):
-        """Given up, barred, held back or dropped: no message left, so the next press reaches the team again."""
-
-        async def body(database: AsyncDatabase) -> Any:
-            await press(database)
-            await database[Collection.OUTBOX].update_many({}, dict(final_update("abandoned", now=MAIL_NOW)))
-            second = await press(database)
-
-            return {str(zeile.team_id): zeile.skipped for zeile in second.rows}, await live_count(database, TWO_SEATS)
-
-        skips, live = on_a_league(mongo_replica_set_url, body)
-
-        assert skips[str(TWO_SEATS)] is None
-        assert live == 1
-
     def test_a_season_that_has_ended_refuses_the_press(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:
             with pytest.raises(APIError) as conflict:
                 await press(database)
 
-            return conflict.value.error_code, await database[Collection.INVITATIONS].count_documents({"widerrufen_am": None})
+            return conflict.value.error_code, await database[Collection.INVITATIONS].count_documents({"revoked_at": None})
 
         code, live = on_a_league(mongo_replica_set_url, body, saison_status="past")
 
@@ -1016,7 +1024,7 @@ class TestTheSeasonWidePress:
         """An empty state the page renders, rather than an error an administrator has to interpret."""
 
         async def body(database: AsyncDatabase) -> Any:
-            return (await preview(database)).rows, (await press(database)).rows
+            return (await editor(database)).invitations, (await press(database)).rows
 
         shown, done = on_a_league(mongo_replica_set_url, body, teams=())
 
@@ -1032,10 +1040,10 @@ class TestTheSeasonWidePress:
                 saison_id=SAISON_ID,
                 versand_data=FLInvitationDispatchPayload(resend=True),
                 saison_teams_collection=database[Collection.SAISON_TEAMS],
-                einladungen_collection=collection,
+                invitations_collection=collection,
                 saisons_collection=database[Collection.SAISONS],
                 outbox_collection=database[Collection.OUTBOX],
-                sperrliste=ban_list(database),
+                ban_list=ban_list(database),
                 db=database.client,
                 created_by=ADMIN,
                 today=TODAY,
@@ -1045,20 +1053,20 @@ class TestTheSeasonWidePress:
 
             assert seeded is not None
             return (
-                {str(zeile.team_id): (zeile.skipped, bool(zeile.recipient), zeile.replaced_link) for zeile in done.rows},
-                seeded["widerrufen_am"],
+                {str(zeile.team_id): (zeile.skipped, bool(zeile.recipient)) for zeile in done.rows},
+                seeded["revoked_at"],
                 await live_count(database, TWO_SEATS),
             )
 
-        rows, widerrufen_am, live = on_a_league(mongo_replica_set_url, body)
+        rows, revoked_at, live = on_a_league(mongo_replica_set_url, body)
 
-        # The failed team: a row of its own, nobody owed, and no claim that a link of its died.
-        assert rows[str(ALREADY_MAILED)] == ("mint_failed", False, False)
+        # The failed team: a row of its own, and nobody owed.
+        assert rows[str(ALREADY_MAILED)] == ("mint_failed", False)
         # Its transaction aborted, so the link somebody already holds is untouched and still opens.
-        assert widerrufen_am is None
+        assert revoked_at is None
         # Every other team is answered as though nothing had gone wrong, its seats owed.
-        assert rows[str(TWO_SEATS)] == (None, True, False)
-        assert rows[str(WITHDRAWN)] == ("austritt_entered", False, False)
+        assert rows[str(TWO_SEATS)] == (None, True)
+        assert rows[str(WITHDRAWN)] == ("austritt_entered", False)
         assert live == 1
 
     def test_it_files_a_revocation_only_for_a_team_that_holds_a_link(self, mongo_replica_set_url: str):

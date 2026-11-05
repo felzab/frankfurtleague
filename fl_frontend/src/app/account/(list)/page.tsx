@@ -1,7 +1,7 @@
-import { AccountList, AccountPage } from "@/kit/AccountPage";
+import { AccountList, AccountListPlaceholder, AccountPage } from "@/kit/AccountPage";
 
 import { ROUTES } from "@/core/routes";
-import { requireAccountSession } from "@/features/konto/account";
+import { requireAccountSession } from "@/features/account/account";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import { ACCOUNT_ENTRIES } from "../entries";
@@ -21,7 +21,9 @@ async function AccountListContent() {
 /** Konto's list of its four pages, which a phone opens on. */
 export default function AccountListPage() {
   return (
-    <AccountPage route="account">
+    <AccountPage
+      route="account"
+      wait={<AccountListPlaceholder />}>
       <AccountListContent />
     </AccountPage>
   );

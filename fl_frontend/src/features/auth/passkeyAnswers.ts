@@ -7,10 +7,10 @@ import type { Copy } from "@/core/copy";
  * The one refusal a reader can act on: the assertion ASKS for verification rather than demanding
  * it, so a passkey with no PIN and no biometric is offered by the browser and refused here.
  */
-const OHNE_BESTAETIGUNG = COPY.signIn.refusal.unverified;
+const WITHOUT_CONFIRMATION = COPY.signIn.refusal.unverified;
 
 /** An address holding no record of its own in the league, or a barred one, which a retry would not change. */
-const OHNE_EINTRAG = COPY.signIn.refusal.noRecord;
+const WITHOUT_ENTRY = COPY.signIn.refusal.noRecord;
 
 /** Read off the answer rather than off its type: the client declares no `code`, and the body has one. */
 export const refusalCode = (error: unknown): string | undefined =>
@@ -22,8 +22,8 @@ export const refusalStatus = (error: unknown): number | undefined =>
 
 /** Every refusal a retry of the same press would meet again, by its code. */
 const WORDED: ReadonlyMap<string, Copy> = new Map([
-  [USER_VERIFICATION_REFUSED, OHNE_BESTAETIGUNG],
-  [SIGN_IN_REFUSED, OHNE_EINTRAG],
+  [USER_VERIFICATION_REFUSED, WITHOUT_CONFIRMATION],
+  [SIGN_IN_REFUSED, WITHOUT_ENTRY],
 ]);
 
 /**

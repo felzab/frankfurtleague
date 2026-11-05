@@ -30,7 +30,7 @@ import type { ComponentProps, ReactElement, ReactNode } from "react";
 import type { IconName } from "./Icon";
 
 /**
- * A link in a menu; `isCurrent` marks the one in force as the rail marks the current page, in a list that has
+ * A link in a menu; `isCurrent` marks the one in force as every list marks its chosen entry, in a list that has
  * one. Its words are catalogue text, or a record's own name such as a season's, with a second line under them
  * where one name alone does not say which, as a team's season and seats under its name.
  */
@@ -51,8 +51,11 @@ export type MenuProps = {
   label: Copy;
   /** The kit control that opens it. */
   trigger: ReactElement;
-  /** Plain text above the entries, such as a person's name and address: data, not catalogue text. */
-  head?: { name: RecordText; detail: RecordText };
+  /**
+   * Plain text above the entries, such as a person's name over their address, or the address alone where no name is
+   * stored: data, not catalogue text. The detail is shown whole, wrapping where the menu is narrower than it.
+   */
+  head?: { name?: RecordText; detail: RecordText };
   /** The entries, a separator between two groups. */
   groups: ReadonlyArray<ReadonlyArray<MenuEntry>>;
   /** Where the menu opens on desktop: under its trigger, or above it for a trigger at the rail's foot. */
@@ -70,9 +73,9 @@ export type MenuProps = {
 
 type Size = "desktop" | "phone";
 
-// An entry that acts keeps the arrow; an entry with an address renders an `a`, which shows the pointing hand
-// as every link does, so it takes `menuEntry` alone.
-const item = tv({ extend: menuEntry, base: "cursor-default" });
+// An entry that acts shows the pointing hand, as every control does; an entry with an address renders an `a`, which
+// shows it as every link does, so it takes `menuEntry` alone.
+const item = tv({ extend: menuEntry, base: "cursor-pointer" });
 
 // The foot's row under its separator, at the entries' inset and grade.
 const foot = tv({
@@ -88,7 +91,19 @@ const foot = tv({
 // A menu dims nothing and blurs nothing: it stands on the page in the select's menu look.
 const surface = (width: "content" | "trigger" = "content") => menuPopover({ fit: width === "trigger" ? "trigger" : "menu" });
 
-function Entry({ label, detail, icon, hasMore }: { label: string; detail?: string; icon?: IconName; hasMore?: boolean }) {
+function Entry({
+  label,
+  detail,
+  icon,
+  hasMore,
+  isChosen = false,
+}: {
+  label: string;
+  detail?: string;
+  icon?: IconName;
+  hasMore?: boolean;
+  isChosen?: boolean;
+}) {
   return (
     <>
       {icon !== undefined && (
@@ -116,6 +131,15 @@ function Entry({ label, detail, icon, hasMore }: { label: string; detail?: strin
           </Text>
         </span>
       )}
+      {/* The chosen entry's check, in its words' link green, as every list marks its chosen entry. */}
+      {isChosen && (
+        <span className="ms-auto flex shrink-0">
+          <Icon
+            glyph="check"
+            size={16}
+          />
+        </span>
+      )}
       {hasMore === true && (
         <span className="ml-auto text-fg-muted">
           <Icon
@@ -134,8 +158,8 @@ function current(links: ReadonlyArray<MenuLink>) {
 }
 
 /**
- * A link, marked as the rail marks the current page where its section selects it. Its text value, which typeahead
- * matches, carries the detail too: two entries can share a label, a team's name in two seasons.
+ * A link, marked as chosen where its section selects it: its words in the link green, its check at the end. Its text
+ * value, which typeahead matches, carries the detail too: two entries can share a label, a team's name in two seasons.
  */
 function LinkItem({ link, size }: { link: MenuLink; size: Size }) {
   const detail = link.detail === undefined ? undefined : textOf(link.detail);
@@ -145,14 +169,17 @@ function LinkItem({ link, size }: { link: MenuLink; size: Size }) {
       href={link.href}
       routerOptions={link.routerOptions}
       textValue={detail === undefined ? textOf(link.label) : `${textOf(link.label)} ${detail}`}
-      data-kit-focus="item"
+      data-kit-focus="option"
       // A two-line entry grows past the one line's height.
-      className={`${menuEntry({ size, class: link.detail === undefined ? "" : "h-auto" })} ${entryMark({ mark: "place" })}`}>
-      <Entry
-        label={textOf(link.label)}
-        detail={detail}
-        icon={link.icon}
-      />
+      className={`${menuEntry({ size, class: link.detail === undefined ? "" : "h-auto" })} ${entryMark({ mark: "chosen" })}`}>
+      {({ isSelected }) => (
+        <Entry
+          label={textOf(link.label)}
+          detail={detail}
+          icon={link.icon}
+          isChosen={isSelected}
+        />
+      )}
     </MenuItem>
   );
 }
@@ -171,7 +198,7 @@ function LinkList({ label, links, size, onBack }: { label: Copy; links: Readonly
           textValue={COPY.shared.back}
           shouldCloseOnSelect={false}
           onAction={onBack}
-          data-kit-focus="item"
+          data-kit-focus="option"
           className={item({ size })}>
           <Entry
             label={COPY.shared.back}
@@ -220,7 +247,7 @@ function Group({ entries, size, onOpenSubmenu }: { entries: ReadonlyArray<MenuEn
               key={entry.label}
               textValue={entry.label}
               onAction={entry.onAction}
-              data-kit-focus="item"
+              data-kit-focus="option"
               className={item({ size })}>
               <Entry
                 label={entry.label}
@@ -236,7 +263,7 @@ function Group({ entries, size, onOpenSubmenu }: { entries: ReadonlyArray<MenuEn
             // On a phone the entry opens a second sheet over the first, so the menu stays open.
             shouldCloseOnSelect={size === "desktop"}
             onAction={size === "phone" ? () => onOpenSubmenu(index) : undefined}
-            data-kit-focus="item"
+            data-kit-focus="option"
             className={item({ size })}>
             <Entry
               label={entry.label}
@@ -270,8 +297,8 @@ function Group({ entries, size, onOpenSubmenu }: { entries: ReadonlyArray<MenuEn
 function Head({ head, size }: { head: NonNullable<MenuProps["head"]>; size: Size }) {
   return (
     <div className={size === "desktop" ? "grid px-3 py-2 text-sm" : "grid px-3 pt-3 pb-2 text-base"}>
-      <span className="truncate font-semibold">{head.name.record}</span>
-      <span className="truncate font-numeric text-xs text-fg-muted">{head.detail.record}</span>
+      {head.name !== undefined && <span className="truncate font-semibold">{head.name.record}</span>}
+      <span className="font-numeric text-xs wrap-anywhere text-fg-muted">{head.detail.record}</span>
     </div>
   );
 }

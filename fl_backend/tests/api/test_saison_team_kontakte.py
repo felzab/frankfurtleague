@@ -90,7 +90,7 @@ def person(vorname: str, *, email: str | None = None) -> dict[str, Any]:
         "nachname": "Musterfrau",
         "email": email or f"{vorname.lower()}@example.com",
         "telefon": TELEFON[vorname],
-        "einwilligung": {"umfang": "kontaktdaten", "datum": "2026-03-01"},
+        "einwilligung": {"scope": "kontaktdaten", "date": "2026-03-01"},
     }
 
 
@@ -102,7 +102,7 @@ def stored_person(vorname: str, *, email: str | None = None, confirmed_at: str |
     return kontaktperson_document(
         vorname,
         confirmed_at=confirmed_at,
-        einwilligung={"datum": sent["einwilligung"]["datum"]},
+        einwilligung={"date": sent["einwilligung"]["date"]},
         entered_by="liga",
         nachname=sent["nachname"],
         email=sent["email"],
@@ -117,7 +117,7 @@ def born(sent: dict[str, Any]) -> dict[str, Any]:
     Spelled out here rather than composed by the helper, so a composer drifting from it fails.
     """
 
-    return {**sent["einwilligung"], "confirmed_at": None, "medien": False, "entered_by": "liga"}
+    return {**sent["einwilligung"], "confirmed_at": None, "media": False, "entered_by": "liga"}
 
 
 def as_stored(kontakte: dict[str, Any]) -> dict[str, Any]:
@@ -189,8 +189,8 @@ UNDATED_SEEDED: dict[str, Any] = {
     **{slot: {**SEEDED_KONTAKTE[slot], "geburtsdatum": None} for slot in ("trainer", "ansprechperson", "stellvertretung")},
 }
 
-GELOESCHT_SEAT = "ansprechperson"
-GELOESCHT_EMAIL = str(RESAVED_AS_RENDERED[GELOESCHT_SEAT]["email"])
+ERASED_SEAT = "ansprechperson"
+ERASED_EMAIL = str(RESAVED_AS_RENDERED[ERASED_SEAT]["email"])
 
 
 def junction_document(saison_id: str, kontakte: dict[str, Any] | None) -> dict[str, Any]:
@@ -240,7 +240,7 @@ async def write_kontakte(
         saisons_collection=database[Collection.SAISONS],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
         outbox_collection=database[Collection.OUTBOX],
-        sperrliste=ban_list(database),
+        ban_list=ban_list(database),
         db=database.client,
         actor=fresh_admin_actor(),
         today=TODAY,
@@ -249,9 +249,9 @@ async def write_kontakte(
 
 
 async def loeschen_the_seats_person(database: AsyncDatabase) -> FLErasureResponse:
-    """The erasure of the person holding `GELOESCHT_SEAT`, in a transaction of its own."""
+    """The erasure of the person holding `ERASED_SEAT`, in a transaction of its own."""
 
-    return await erased(database, database.client, GELOESCHT_EMAIL, germany_now=NOW)
+    return await erased(database, database.client, ERASED_EMAIL, germany_now=NOW)
 
 
 class JunctionRunningAHookBeforeTheWrite(InterleavedCollection):
@@ -286,11 +286,11 @@ class TestTheBlockIsWritten:
 
         assert stored["kontakte"] == as_stored(NEW_KONTAKTE)
         assert response.kontakte is not None
-        # The record each seat was born with, `medien` included: the echo is the row, its absent
+        # The record each seat was born with, `media` included: the echo is the row, its absent
         # evidence read as none set.
         assert response.kontakte.model_dump(mode="json") == {
             seat: (
-                {**value, "einwilligung": {**value["einwilligung"], "nachweis": {"umfang": None, "medien": None}}}
+                {**value, "einwilligung": {**value["einwilligung"], "evidence": {"scope": None, "media": None}}}
                 if isinstance(value, dict)
                 else value
             )
@@ -366,7 +366,7 @@ class TestTheProvenanceIsTheServers:
             **PARTLY_CONFIRMED,
             "trainer": {
                 **PARTLY_CONFIRMED["trainer"],
-                "einwilligung": {**PARTLY_CONFIRMED["trainer"]["einwilligung"], "umfang": "kontaktdaten_whatsapp"},
+                "einwilligung": {**PARTLY_CONFIRMED["trainer"]["einwilligung"], "scope": "kontaktdaten_whatsapp"},
             },
         }
         successor = {**person("Bert", email=str(PARTLY_CONFIRMED["trainer"]["email"])), "nachname": "Neu"}
@@ -491,10 +491,10 @@ class TestAnLoeschungLandingMidSaveIsNotUndone:
 
     def test_a_seat_geloescht_under_the_save_is_refused_rather_than_put_back(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:
-            loeschungen: list[Any] = []
+            erasures: list[Any] = []
 
             async def loeschen_between() -> None:
-                loeschungen.append(await loeschen_the_seats_person(database))
+                erasures.append(await loeschen_the_seats_person(database))
 
             junction = JunctionRunningAHookBeforeTheWrite(database[Collection.SAISON_TEAMS], loeschen_between)
             with pytest.raises(APIError) as refused:
@@ -502,13 +502,13 @@ class TestAnLoeschungLandingMidSaveIsNotUndone:
             # An erasure committing first refuses the save at its read, before it reaches the write.
             junction.assert_landed_inside(serially=0)
 
-            return loeschungen[0], refused.value, await row_now(database)
+            return erasures[0], refused.value, await row_now(database)
 
-        loeschung, refusal, stored = on_a_league(mongo_replica_set_url, body)
+        erasure, refusal, stored = on_a_league(mongo_replica_set_url, body)
 
-        assert loeschung.kontakt_seats == 1, "the interference emptied no seat, so the save had nothing to undo"
+        assert erasure.kontakt_seats == 1, "the interference emptied no seat, so the save had nothing to undo"
         assert refusal.error_code == Code.KONTAKTE_MOVED_UNDER_THE_SAVE
-        assert stored["kontakte"][GELOESCHT_SEAT] is None, "the save put the person who asked to be forgotten back on the row"
+        assert stored["kontakte"][ERASED_SEAT] is None, "the save put the person who asked to be forgotten back on the row"
 
     def test_the_same_save_lands_the_seat_where_no_loeschung_interferes(self, mongo_replica_set_url: str):
         """The control: without it the case above would pass on an endpoint that stored this seat for nobody."""
@@ -522,7 +522,7 @@ class TestAnLoeschungLandingMidSaveIsNotUndone:
 
         # The seeded row's own date rides along: the address is the same person's, and the payload
         # names none for the composition to prefer.
-        assert stored["kontakte"][GELOESCHT_SEAT] == as_kept(SEEDED_KONTAKTE[GELOESCHT_SEAT])
+        assert stored["kontakte"][ERASED_SEAT] == as_kept(SEEDED_KONTAKTE[ERASED_SEAT])
 
 
 @pytest.mark.db
@@ -798,7 +798,7 @@ class TestTheTokenNamesWhatTheEditorWasServed:
         write judging it would stop agreeing after a restart.
         """
 
-        assert kontakte_stand_of(SEEDED_KONTAKTE) == "df70bb5ec52a1b1d1537c31181d6ef63c686d45e52304839c5fa082d425721cc"
+        assert kontakte_stand_of(SEEDED_KONTAKTE) == "a9823270099cc1e87bc2b015109cc4f1f639ac13d26c7cf67253cd128e28138e"
 
     def test_a_stored_blank_answers_the_token_of_the_null_the_read_model_makes_of_it(self):
         """`CustomOptionalDateString` nulls a blank on the way in, and the write judges the raw document.
@@ -824,7 +824,7 @@ class TestTheTokenNamesWhatTheEditorWasServed:
         ("moved", "id_of"),
         [
             pytest.param(PARTLY_CONFIRMED, "a seat confirmed since", id="a stamp arriving"),
-            pytest.param({**SEEDED_KONTAKTE, GELOESCHT_SEAT: None}, "a seat emptied since", id="an erasure"),
+            pytest.param({**SEEDED_KONTAKTE, ERASED_SEAT: None}, "a seat emptied since", id="an erasure"),
             pytest.param({**SEEDED_KONTAKTE, "trainer_is_also": "stellvertretung"}, "a claim made since", id="the shared seat"),
             pytest.param(None, "a block cleared since", id="a cleared block"),
         ],
@@ -843,14 +843,14 @@ class TestAKeptRecordKeepsItsEvidence:
         """The data-loss path the record exists against: a block recomposed from the payload erases its evidence."""
 
         confirmed = {
-            "umfang": "kontaktdaten_whatsapp",
-            "datum": "2026-03-01",
+            "scope": "kontaktdaten_whatsapp",
+            "date": "2026-03-01",
             "confirmed_at": CONFIRMED_ON,
-            "medien": True,
+            "media": True,
             "entered_by": "bewerbung",
-            "nachweis": {
-                "umfang": {"am": "2026-03-15T09:00:00+00:00", "text_version": SEAT_TEXT_VERSIONS["umfang"]},
-                "medien": {"am": "2026-03-20T09:00:00+00:00", "text_version": SEAT_TEXT_VERSIONS["medien"]},
+            "evidence": {
+                "scope": {"at": "2026-03-15T09:00:00+00:00", "text_version": SEAT_TEXT_VERSIONS["scope"]},
+                "media": {"at": "2026-03-20T09:00:00+00:00", "text_version": SEAT_TEXT_VERSIONS["media"]},
             },
         }
         seeded = {**PARTLY_CONFIRMED, "trainer": {**PARTLY_CONFIRMED["trainer"], "einwilligung": confirmed}}

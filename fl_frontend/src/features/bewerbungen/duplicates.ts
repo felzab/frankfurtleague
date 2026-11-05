@@ -30,7 +30,7 @@ type Kandidat = Pick<FLBewerbung, "id" | "saison_id" | "status" | "team_id" | "s
  * The season is part of the key: one club applying in two seasons is two applications, not a
  * duplicate a triage has to decide between.
  */
-function dublettenSchluessel(bewerbung: Kandidat): { art: BewerbungDublette; key: string } | null {
+function duplicatesKey(bewerbung: Kandidat): { art: BewerbungDublette; key: string } | null {
   if (bewerbung.team_id !== null) return { art: "team", key: `${bewerbung.saison_id} team ${bewerbung.team_id}` };
 
   // As served: the backend folds a code on arrival and again as it serves one, so two spellings of one code are one value.
@@ -60,7 +60,7 @@ export function markBewerbungDubletten(
     // declined one also carries, and marking that one asks for a decision already taken.
     if (bewerbung.status !== "submitted") continue;
 
-    const schluessel = dublettenSchluessel(bewerbung);
+    const schluessel = duplicatesKey(bewerbung);
 
     if (schluessel === null || !kollidiert.has(schluessel.key)) continue;
 

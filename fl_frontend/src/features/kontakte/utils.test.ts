@@ -22,7 +22,7 @@ const person = (overrides: Partial<KontaktpersonDraft> = {}): KontaktpersonDraft
   email: "erika@beispiel.de",
   telefon: "069 1234567",
   geburtsdatum: "1990-01-01",
-  einwilligung: kenntnisnahme({ datum: "2025-09-01", confirmed_at: "2025-09-02" }),
+  einwilligung: kenntnisnahme({ date: "2025-09-01", confirmed_at: "2025-09-02" }),
   ...overrides,
 });
 
@@ -174,9 +174,9 @@ describe("mirroredJudgedPaths", () => {
       "kontakte.ansprechperson.email",
       "kontakte.trainer.email",
     ]);
-    expect(mirroredJudgedPaths(["kontakte.ansprechperson.einwilligung.datum"], "ansprechperson")).toStrictEqual([
-      "kontakte.ansprechperson.einwilligung.datum",
-      "kontakte.trainer.einwilligung.datum",
+    expect(mirroredJudgedPaths(["kontakte.ansprechperson.einwilligung.date"], "ansprechperson")).toStrictEqual([
+      "kontakte.ansprechperson.einwilligung.date",
+      "kontakte.trainer.einwilligung.date",
     ]);
   });
 
@@ -236,8 +236,8 @@ describe("addressOnlyConfirmedSeatLabels", () => {
     expect(addressOnlyConfirmedSeatLabels(block(), block({ trainer: person({ nachname: "Lovelace" }) }))).toStrictEqual([]);
     expect(addressOnlyConfirmedSeatLabels(block(), block())).toStrictEqual([]);
 
-    const offen = person({ einwilligung: { ...person().einwilligung, confirmed_at: null } });
-    expect(addressOnlyConfirmedSeatLabels(block({ trainer: offen }), block({ trainer: person({ email: "erika@anders.de" }) }))).toStrictEqual(
+    const open = person({ einwilligung: { ...person().einwilligung, confirmed_at: null } });
+    expect(addressOnlyConfirmedSeatLabels(block({ trainer: open }), block({ trainer: person({ email: "erika@anders.de" }) }))).toStrictEqual(
       [],
     );
   });
@@ -259,9 +259,9 @@ describe("renamedConfirmedSeatLabels", () => {
   /* A seat nobody confirmed has no stamp for the save to take, so a warning over one would name a seat
      the save leaves exactly as it found it. */
   it("stays silent where the stored seat carries no confirmation", () => {
-    const offen = person({ einwilligung: { ...person().einwilligung, confirmed_at: null } });
+    const open = person({ einwilligung: { ...person().einwilligung, confirmed_at: null } });
 
-    expect(renamedConfirmedSeatLabels(block({ trainer: offen }), block({ trainer: person({ nachname: "Lovelace" }) }))).toStrictEqual([]);
+    expect(renamedConfirmedSeatLabels(block({ trainer: open }), block({ trainer: person({ nachname: "Lovelace" }) }))).toStrictEqual([]);
   });
 
   /* The server reads these as one person and keeps the stamp, so each is a save the banner must let

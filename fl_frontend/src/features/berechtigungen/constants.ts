@@ -2,7 +2,7 @@ import { ERASED_ACTOR_MARKER } from "@/core/erasedActor";
 import { OFFENE_ANTRAEGE } from "@/core/seitenNamen";
 import { benannt } from "@/shared/utils/benannt";
 
-import type { FLApprovalDenied, FLVerwaltung } from "@/core/generated/client/types";
+import type { FLAdminTier, FLApprovalDenied } from "@/core/generated/client/types";
 
 // Its own module: every export of a `"use client"` view becomes a client reference.
 export const BERECHTIGUNGEN_CRUD_COPY = {
@@ -129,7 +129,7 @@ export function stufeWorte({
 }: {
   adresse: string | null;
   erteiltAm: string;
-  ziel: FLVerwaltung;
+  ziel: FLAdminTier;
   own: boolean;
 }): StufeWorte {
   const mail = "Alle mit Zugang erhalten eine E-Mail.";
@@ -163,13 +163,13 @@ export function stufeWorte({
 }
 
 /** What a tier change answers, done or already so, the notice's sentence for the tier with the address left out. */
-export const STUFE_GEAENDERT_MESSAGE: Readonly<Record<FLVerwaltung, string>> = {
+export const STUFE_GEAENDERT_MESSAGE: Readonly<Record<FLAdminTier, string>> = {
   owner: "Diese Adresse ist jetzt Inhaberin oder Inhaber der Verwaltung.",
   administration: "Diese Adresse ist nicht mehr Inhaberin oder Inhaber der Verwaltung und behält den Zugang.",
 };
 
 /** What a request asks for, by the tier it names: `owner` is a promotion of a grant that stands. */
-export const ANTRAG_WAS: Readonly<Record<FLVerwaltung, string>> = {
+export const ANTRAG_WAS: Readonly<Record<FLAdminTier, string>> = {
   administration: "Zugang zur Verwaltung",
   owner: "Ernennung zur Inhaberin oder zum Inhaber",
 };

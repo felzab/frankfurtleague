@@ -61,7 +61,7 @@ function standVon(start: RegistrierungStart, istTot: boolean): Geoeffnet {
  */
 export function RegistrierungView({ start, siteKey }: { start: RegistrierungStart; siteKey: string }) {
   const [istTot, setIstTot] = useState(false);
-  const { stand, ansicht } = standVon(start, istTot);
+  const { stand, ansicht: view } = standVon(start, istTot);
 
   const { ergebnisRef, beantwortet } = useLinkSeite(stand);
 
@@ -70,22 +70,22 @@ export function RegistrierungView({ start, siteKey }: { start: RegistrierungStar
       <header className="flex w-full flex-col gap-3">
         {/* No dot: the invite's read carries the season's id and its status, and „läuft“ on the chip
             is a claim about the season rather than about the registration window. */}
-        {ansicht !== null && <SaisonChip isLaufend={false}>Saison {ansicht.saison_id}</SaisonChip>}
+        {view !== null && <SaisonChip isLaufend={false}>Saison {view.saison_id}</SaisonChip>}
         <h1 className={`${DISPLAY_HEADING_CLASSES} fluid-3xl`}>{TITEL[stand]}</h1>
 
-        {ansicht !== null && (
+        {view !== null && (
           <FaktenBanner
             zeilen={[
-              { label: "Team", wert: ansicht.team },
-              { label: "Schule", wert: ansicht.schule, unbegrenzt: true },
-              { label: "Saison", wert: ansicht.saison_id },
+              { label: "Team", value: view.team },
+              { label: "Schule", value: view.schule, unbegrenzt: true },
+              { label: "Saison", value: view.saison_id },
             ]}
           />
         )}
 
         {/* Said before anything is typed, because it changes what the registration means rather than
             whether it is accepted: the squad's own entries closed when the season began, on its start date. */}
-        {stand === "valid" && ansicht !== null && ansicht.nachnominierung && (
+        {stand === "valid" && view !== null && view.nachnominierung && (
           <p className={ABSATZ_CLASSES}>
             Die Saison hat schon begonnen. Du wirst deshalb <Wert>nachnominiert</Wert>. Am Mitspielen ändert das nichts.
           </p>

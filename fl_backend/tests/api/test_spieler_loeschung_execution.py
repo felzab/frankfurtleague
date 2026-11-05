@@ -39,7 +39,7 @@ FORMER_SAISON_ID = "2025"
 
 # Distinctive rather than "Mustermann": sweeping a whole database for a name is evidence of absence
 # only where a hit could not be coincidence, and the seed data is full of German words and dates.
-GELOESCHT_VORNAME = "Zorbanax"
+ERASED_VORNAME = "Zorbanax"
 OTHER_VORNAME = "Quillhilde"
 LONE_VORNAME = "Wraxlington"
 
@@ -169,7 +169,7 @@ async def a_pupil_who_never_joined_a_squad(database: AsyncDatabase) -> ObjectId:
     return spieler_id
 
 
-async def loeschen_the_pupil(database: AsyncDatabase, client: AsyncMongoClient, spieler_id: ObjectId) -> FLErasureResponse:
+async def erase_the_pupil(database: AsyncDatabase, client: AsyncMongoClient, spieler_id: ObjectId) -> FLErasureResponse:
     """The registry's erasure of the address this pupil's row holds: the erasure is keyed on a mailbox, never on an id."""
 
     person = await database[Collection.SPIELER].find_one({"_id": spieler_id}, {"email": 1})
@@ -228,7 +228,7 @@ class TestARetiredPupilIsGeloeschtWhole:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             spieler_id = await a_pupil_with_a_history(database, vorname="Max", team_id=HOME_TEAM_OID, retired=True)
-            response = await loeschen_the_pupil(database, client, spieler_id)
+            response = await erase_the_pupil(database, client, spieler_id)
 
             return response.saison_spieler, await database[Collection.SAISON_SPIELER].count_documents({"spieler_id": spieler_id})
 
@@ -242,7 +242,7 @@ class TestARetiredPupilIsGeloeschtWhole:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             spieler_id = await a_pupil_with_a_history(database, vorname="Max", team_id=HOME_TEAM_OID, retired=True)
             other_id = await a_pupil_with_a_history(database, vorname="Erika", team_id=AWAY_TEAM_OID, retired=False)
-            await loeschen_the_pupil(database, client, spieler_id)
+            await erase_the_pupil(database, client, spieler_id)
 
             return (
                 await database[Collection.SPIELER].count_documents({"_id": other_id}),
@@ -257,7 +257,7 @@ class TestARetiredPupilIsGeloeschtWhole:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             spieler_id = await a_pupil_with_a_history(database, vorname="Max", team_id=HOME_TEAM_OID, retired=True)
             other_id = await a_pupil_with_a_history(database, vorname="Erika", team_id=AWAY_TEAM_OID, retired=False)
-            await loeschen_the_pupil(database, client, spieler_id)
+            await erase_the_pupil(database, client, spieler_id)
 
             return await log_rows_naming(database, other_id)
 
@@ -278,10 +278,10 @@ class TestNothingOfTheirsIsLeftAnywhere:
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            spieler_id = await a_pupil_with_a_history(database, vorname=GELOESCHT_VORNAME, team_id=HOME_TEAM_OID, retired=True)
+            spieler_id = await a_pupil_with_a_history(database, vorname=ERASED_VORNAME, team_id=HOME_TEAM_OID, retired=True)
             left_behind = await database[Collection.SAISON_SPIELER].count_documents({"spieler_id": spieler_id, "inactive_since": {"$ne": None}})
             seeded = images_naming(await images_in_the_whole_log(database), spieler_id)
-            await loeschen_the_pupil(database, client, spieler_id)
+            await erase_the_pupil(database, client, spieler_id)
 
             return left_behind, seeded, images_naming(await images_in_the_whole_log(database), spieler_id)
 
@@ -299,16 +299,16 @@ class TestNothingOfTheirsIsLeftAnywhere:
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            spieler_id = await a_pupil_with_a_history(database, vorname=GELOESCHT_VORNAME, team_id=HOME_TEAM_OID, retired=True)
+            spieler_id = await a_pupil_with_a_history(database, vorname=ERASED_VORNAME, team_id=HOME_TEAM_OID, retired=True)
             await a_pupil_with_a_history(database, vorname=OTHER_VORNAME, team_id=AWAY_TEAM_OID, retired=False)
-            await loeschen_the_pupil(database, client, spieler_id)
+            await erase_the_pupil(database, client, spieler_id)
 
-            return await where_held(database, GELOESCHT_VORNAME, f"{OTHER_VORNAME}-Mustermann")
+            return await where_held(database, ERASED_VORNAME, f"{OTHER_VORNAME}-Mustermann")
 
         held = on_a_league(mongo_replica_set_url, body)
 
         # Both surnames carry the given name, so one substring answers for all three of their values.
-        assert held[GELOESCHT_VORNAME] == []
+        assert held[ERASED_VORNAME] == []
         # Their REPLACED surname, not their live one: only what an edit replaced is ever in the log.
         assert held[f"{OTHER_VORNAME}-Mustermann"]
 
@@ -321,7 +321,7 @@ class TestAPupilWhoNeverJoinedASquad:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             other_id = await a_pupil_with_a_history(database, vorname=OTHER_VORNAME, team_id=AWAY_TEAM_OID, retired=False)
-            response = await loeschen_the_pupil(database, client, await a_pupil_who_never_joined_a_squad(database))
+            response = await erase_the_pupil(database, client, await a_pupil_who_never_joined_a_squad(database))
 
             return response.saison_spieler, images_naming(await images_in_the_whole_log(database), other_id)
 
@@ -335,7 +335,7 @@ class TestAPupilWhoNeverJoinedASquad:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             spieler_id = await a_pupil_who_never_joined_a_squad(database)
-            await loeschen_the_pupil(database, client, spieler_id)
+            await erase_the_pupil(database, client, spieler_id)
 
             return await database[Collection.SPIELER].count_documents({"_id": spieler_id}), await where_held(database, LONE_VORNAME)
 
@@ -370,7 +370,7 @@ class TestTheirReportEntriesNameTheSentinel:
         """Catches a repoint reaching one array alone, every element of one, or a report naming somebody else."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            document = person_row(GELOESCHT_VORNAME)
+            document = person_row(ERASED_VORNAME)
             other = person_row(OTHER_VORNAME)
             await database[Collection.SPIELER].insert_many([document, other])
             spieler_id, other_id = document["_id"], other["_id"]
@@ -385,7 +385,7 @@ class TestTheirReportEntriesNameTheSentinel:
 
             # Read back rather than taken from the seed, which the driver stores and answers in its own datetime form.
             seeded = await reports()
-            await loeschen_the_pupil(database, client, spieler_id)
+            await erase_the_pupil(database, client, spieler_id)
 
             return spieler_id, other_id, [theirs["_id"], elsewhere["_id"], nobody["_id"]], seeded, await reports()
 
@@ -408,13 +408,13 @@ class TestTheirReportEntriesNameTheSentinel:
         """The reports are kept with no retention bound, and every pupil's erasure reads them inside its transaction."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            document = person_row(GELOESCHT_VORNAME)
+            document = person_row(ERASED_VORNAME)
             await database[Collection.SPIELER].insert_one(document)
             await database[Collection.SPIELBERICHTE].insert_one(a_report_naming(scorers=[document["_id"]], carded=[]))
             _, sent = await plans_of_sent_reads(
                 mongo_replica_set_url,
                 database,
-                lambda watched, watching: loeschen_the_pupil(watched, watching, document["_id"]),
+                lambda watched, watching: erase_the_pupil(watched, watching, document["_id"]),
                 lambda collection, _: collection == Collection.SPIELBERICHTE,
                 commands=("update",),
             )
@@ -450,7 +450,7 @@ class TestAHalfDoneLoeschungCommitsNothing:
             )
 
             with pytest.raises(OperationFailure) as failure:
-                await loeschen_the_pupil(database, client, spieler_id)
+                await erase_the_pupil(database, client, spieler_id)
 
             return (
                 failure.value.code,

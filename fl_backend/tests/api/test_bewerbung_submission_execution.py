@@ -18,7 +18,7 @@ from app.api.bewerbungen.public_router import get_einwilligung_view, post_bewerb
 from app.api.bewerbungen.schemas import FLPostBewerbungPayload
 from app.api.bewerbungen.services import bestaetigungsfrist_from, build_schluessel_filter, compose_decline_update, compose_kontakte
 from app.api.kontakte.services import build_clearing_update
-from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
+from app.api.sperrliste.services import compose_barred_until_saison_id
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -63,7 +63,7 @@ ENTERED_NAME, ENTERED_SHORTHAND = "Cassiopeia", "CAX"
 # Free, unlike `EXISTING_SHORTHAND`, which `uniq_shorthand` already holds.
 NEW_SCHOOL_SHORTHAND = "ZXX"
 
-OPEN_WINDOW: Mapping[str, Any] = {"offen": True, "von": "2026-03-01", "bis": "2026-04-30"}
+OPEN_WINDOW: Mapping[str, Any] = {"start": "2026-03-01", "end": "2026-04-30"}
 
 
 def person(vorname: str, *, telefon: str, email: str | None = None) -> dict[str, Any]:
@@ -152,7 +152,7 @@ SCHLUESSEL = UUID("1b4e28ba-2fa1-4d2b-883f-0016d3cca427")
 
 
 # Composed by the production helper rather than spelled, so a drifted bound cannot leave these cases passing over a lapsed row.
-STANDING = compose_gesperrt_bis_saison_id(massgebliche_saison_id=SAISON_ID)
+STANDING = compose_barred_until_saison_id(governing_saison_id=SAISON_ID)
 
 
 async def submit(database: AsyncDatabase, *, key: UUID | None = None, bewerbungen: Any = None, **overrides: Any) -> Any:
@@ -166,23 +166,23 @@ async def submit(database: AsyncDatabase, *, key: UUID | None = None, bewerbunge
         teams_collection=database[Collection.TEAMS],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         outbox_collection=database[Collection.OUTBOX],
-        sperrliste=ban_list(database),
+        ban_list=ban_list(database),
         db=database.client,
         today=TODAY,
         germany_now=MAIL_NOW,
     )
 
 
-async def ansicht(database: AsyncDatabase, token: str) -> Any:
+async def view(database: AsyncDatabase, token: str) -> Any:
     """What the confirmation page shows for this link."""
 
     return await get_einwilligung_view(
-        ansicht_data=FLTokenPayload(token=token),
+        view_data=FLTokenPayload(token=token),
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
         teams_collection=database[Collection.TEAMS],
-        sperrliste=ban_list(database),
+        ban_list=ban_list(database),
         today=TODAY,
     )
 
@@ -242,10 +242,10 @@ class TestWhatASubmissionStores:
             # Born with the applicant's acknowledgement, naming the application as who seated the
             # person, and no evidence: no person has set a choice yet.
             assert stored["kontakte"][seat]["einwilligung"] == {
-                "umfang": "kontaktdaten",
-                "datum": TODAY,
+                "scope": "kontaktdaten",
+                "date": TODAY,
                 "confirmed_at": None,
-                "medien": False,
+                "media": False,
                 "entered_by": "bewerbung",
             }
             # The key is present and null, as `wunschgegner`'s is: the confirmation fills it.
@@ -329,7 +329,7 @@ class TestWhatTheCreateOwes:
                 "key": f"{stamm}/confirmation/stellvertretung",
                 "an": KONTAKTE["stellvertretung"]["email"],
                 "data": {
-                    "art": "bewerbung_confirmation",
+                    "kind": "bewerbung_confirmation",
                     "saison_id": SAISON_ID,
                     "schule": EXISTING_NAME,
                     "rollen": ["stellvertretung"],
@@ -340,7 +340,7 @@ class TestWhatTheCreateOwes:
                 "key": f"{stamm}/confirmation/trainer",
                 "an": KONTAKTE["trainer"]["email"],
                 "data": {
-                    "art": "bewerbung_confirmation",
+                    "kind": "bewerbung_confirmation",
                     "saison_id": SAISON_ID,
                     "schule": EXISTING_NAME,
                     "rollen": ["trainer"],
@@ -351,7 +351,7 @@ class TestWhatTheCreateOwes:
                 "key": f"{stamm}/received",
                 "an": KONTAKTE["ansprechperson"]["email"],
                 "data": {
-                    "art": "bewerbung_received",
+                    "kind": "bewerbung_received",
                     "saison_id": SAISON_ID,
                     "rollen": ["ansprechperson"],
                     "pending": [
@@ -371,7 +371,7 @@ class TestWhatTheCreateOwes:
         async def body(database: AsyncDatabase) -> Any:
             response = await submit(database)
             mails = await drained(database, database.client)
-            views = {mail.an: await ansicht(database, mail.token or "") for mail in mails}
+            views = {mail.an: await view(database, mail.token or "") for mail in mails}
             document = await database[Collection.BEWERBUNGEN].find_one({"_id": response.created_id})
 
             assert document is not None
@@ -501,7 +501,7 @@ class TestTheSubmissionKey:
     @pytest.mark.parametrize(
         "emptying",
         [
-            pytest.param(compose_decline_update(seats=("stellvertretung",), today=TODAY, angekuendigt=False), id="a Widerspruch"),
+            pytest.param(compose_decline_update(seats=("stellvertretung",), today=TODAY, announced=False), id="a Widerspruch"),
             pytest.param(build_clearing_update(("stellvertretung",), confirmations=True), id="a contact erasure"),
         ],
     )
@@ -616,8 +616,7 @@ class TestTheRefusalsTheWritePathAnswers:
         "bewerbung",
         [
             pytest.param(None, id="no window recorded"),
-            pytest.param({**OPEN_WINDOW, "offen": False}, id="the flag turned off"),
-            pytest.param({"offen": True, "von": "2026-05-01", "bis": "2026-05-31"}, id="a span this day is outside"),
+            pytest.param({"start": "2026-05-01", "end": "2026-05-31"}, id="a span this day is outside"),
         ],
     )
     def test_a_season_taking_no_applications_refuses(self, mongo_replica_set_url: str, bewerbung: Any):
@@ -910,25 +909,25 @@ class TestAKuerzelARetiredClubStillHolds:
 
 
 class TestABannedContactAddress:
-    """`bewerbung_adresse_barred`: an address the ban list holds applies for nobody, on whichever seat it stands."""
+    """`bewerbung_address_barred`: an address the ban list holds applies for nobody, on whichever seat it stands."""
 
     @pytest.mark.parametrize("seat", ["trainer", "ansprechperson", "stellvertretung"])
     def test_a_banned_address_on_any_seat_is_refused_and_stores_nothing(self, mongo_replica_set_url: str, seat: str):
         async def body(database: AsyncDatabase) -> tuple[str, int]:
-            await database[Collection.SPERRLISTE].insert_one(ban_document(KONTAKTE[seat]["email"], bis=STANDING))
+            await database[Collection.BAN_LIST].insert_one(ban_document(KONTAKTE[seat]["email"], until=STANDING))
             with pytest.raises(APIError) as failure:
                 await submit(database)
 
             return failure.value.error_code, await database[Collection.BEWERBUNGEN].count_documents({})
 
-        assert on_a_league(mongo_replica_set_url, body) == (Code.BEWERBUNG_ADRESSE_BARRED, 0)
+        assert on_a_league(mongo_replica_set_url, body) == (Code.BEWERBUNG_ADDRESS_BARRED, 0)
 
     def test_a_replay_after_an_address_was_banned_owes_nothing_and_the_banned_mail_is_held(self, mongo_replica_set_url: str):
         """The replay answers the stored application; the ban is the drain's to apply, to the mail the first press owed."""
 
         async def body(database: AsyncDatabase) -> Any:
             first = await submit(database, key=SCHLUESSEL)
-            await database[Collection.SPERRLISTE].insert_one(ban_document(KONTAKTE["stellvertretung"]["email"], bis=STANDING))
+            await database[Collection.BAN_LIST].insert_one(ban_document(KONTAKTE["stellvertretung"]["email"], until=STANDING))
             before = await database[Collection.BEWERBUNGEN].find_one({})
             second = await submit(database, key=SCHLUESSEL)
             after = await database[Collection.BEWERBUNGEN].find({}).to_list()

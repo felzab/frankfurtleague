@@ -19,7 +19,11 @@ class FLEinladung(BaseReadModel):
     created_by: CustomNonEmptyString
     # Required as a KEY and null while the invite stands: `uniq_invitation_live` reaches the rows
     # holding null, so a row that could omit it would fall outside the one-live-invite rule.
-    widerrufen_am: CustomOptionalDateString
+    revoked_at: CustomOptionalDateString
+    # The German day the link's mails were last owed to the team's confirmed seats, by the season's press or the team's own;
+    # null where none ever was, a link minted for copying. Stored rather than read off `outbox`, whose rows are erased a
+    # retention after their final state (`app/api/outbox/services.py :: RETENTION`).
+    sent_at: CustomOptionalDateString
 
 
 class FLEinladungRecord(FLEinladung):
@@ -86,7 +90,7 @@ class FLInvitationRecipient(BaseModel):
 # Five ordinary states, a failure and an unknown: `mint_failed` says the league failed
 # that team and `mint_uncertain` that it cannot tell, and a surface words both apart from the
 # rest.
-type FLInvitationDispatchGrund = Literal[
+type FLInvitationSkipReason = Literal[
     "austritt_entered",
     "mint_failed",
     "mint_uncertain",
@@ -98,21 +102,26 @@ type FLInvitationDispatchGrund = Literal[
 
 
 class _EinladungVersandZeile(BaseModel):
-    """What the preview and the press both say about one team."""
+    """What the season editor's rows and the press both say about one team."""
 
     team_id: CustomObjectId
     # The junction row's own copy of the club's name, so the list reads as the season's teams do
     # rather than needing a second read of `teams`.
     team_name: CustomNonEmptyString
     recipient: list[FLInvitationRecipient]
-    skipped: FLInvitationDispatchGrund | None
-    # Served rather than derived: a row carries no trace of the invitation the team holds, so a
-    # caller cannot tell a team whose link this press kills from one that never had a link.
-    replaced_link: bool
+    skipped: FLInvitationSkipReason | None
 
 
-class FLInvitationDispatchPreviewRow(_EinladungVersandZeile):
-    """One team as the preview reports it. It mints nothing, so it answers no link."""
+class FLInvitationLinkRow(_EinladungVersandZeile):
+    """One team as the season editor's registration links list it: today's preview of the press, and the link the team holds.
+
+    The preview is the press's own plan with `resend` left false, as the editor's press sends it.
+    """
+
+    # Whether the team holds a live link: the plan the row shares with the press carries no trace of the invitation itself.
+    has_link: bool
+    # The live link's `sent_at`: the day its mails were last owed, null where it never was mailed or the team holds none.
+    sent_at: CustomOptionalDateString
 
 
 class FLInvitationDispatchRow(_EinladungVersandZeile):
@@ -146,13 +155,6 @@ class FLInvitationMailResponse(BaseAPIResponse):
 
     invitation_id: CustomObjectId
     recipient: list[FLInvitationRecipient]
-
-
-class FLInvitationDispatchPreviewResponse(BaseAPIResponse):
-    """Who the press would mail, over the same rule the press then performs."""
-
-    saison_id: CustomNonEmptyString
-    rows: list[FLInvitationDispatchPreviewRow]
 
 
 class FLInvitationDispatchResponse(BaseAPIResponse):

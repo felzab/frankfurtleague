@@ -8,7 +8,7 @@ import type { FLSpielbestaetigungSweepResponse } from "@/core/generated/client/t
 type Zaehler = Omit<FLSpielbestaetigungSweepResponse, "saison_id">;
 
 /**
- * One pass over every season the listing answers, for the scheduler (`fl_frontend/src/instrumentation-node.ts ::
+ * One pass over every season the listing answers, for the scheduler (`fl_frontend/src/instrumentationNode.ts ::
  * armScheduler`), whose drain after its jobs sends every mail the pass owed. Rejects where the listing or a season's
  * pass fails, the seasons after it left to the next pass; each season's pass is idempotent. The fixture pages show what
  * it closed within the `minutes` lifetime their cached read keeps. Answers what it did, the rows it passed over owing

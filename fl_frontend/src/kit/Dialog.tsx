@@ -84,7 +84,7 @@ export function DialogOverlay({
   width,
   children,
   ...overlay
-}: Pick<ModalOverlayProps, "isOpen" | "isDismissable" | "onOpenChange"> & {
+}: Pick<ModalOverlayProps, "isOpen" | "isDismissable" | "isKeyboardDismissDisabled" | "onOpenChange"> & {
   width: "question" | "form";
   /** The React Aria `Dialog` the box holds. */
   children: ReactNode;
@@ -152,7 +152,8 @@ export function RouteDialog({
           {title}
         </Heading>
         {/* In the box's corner, 12 px from its edges, over whatever the first block draws there: Primer's dialog
-            requires the close button and forbids hiding it. */}
+            requires the close button and forbids hiding it. Its hover is the one layer, laid over the match head's
+            band as over any ground. */}
         <div className="absolute -end-3 -top-3 z-10">
           <Button
             icon="close"
@@ -169,8 +170,10 @@ export function RouteDialog({
 
 /**
  * The dialog's form, mounted only while the dialog is open, so a refusal it showed goes with the dialog and
- * never greets the next opening. A done act closes the dialog; a refused one stays with its input kept, each
- * field's message under its field and the reason in the status line beside the acts, as a Konto box shows it.
+ * never greets the next opening. A done act closes the dialog, but one whose answer notes what else the write moved,
+ * which stays open with that note in its status line, its act closed, so the person reads it before leaving by
+ * „Zurück“; a refused one stays with its input kept, each field's message under its field and the reason in the status
+ * line beside the acts, as a Konto box shows it.
  */
 function ActForm({
   title,
@@ -189,14 +192,16 @@ function ActForm({
     async (formData: FormData) => {
       const answered = await action(formData);
       // A form's action runs in a transition, and an update after its `await` commits outside it.
-      if (answered.ok) startTransition(close);
+      if (answered.ok && answered.note === undefined) startTransition(close);
       return answered;
     },
     // The form unmounts as the dialog closes, which clears its answer.
     { resetOnLeave: false },
   );
   const refused = answer !== null && !answer.ok ? answer : null;
-  const status = statusOf(refused, isBlocked, isPending);
+  // A done act standing open says its note alone; pressed again, it would send the same act on a record it changed.
+  const noted = answer !== null && answer.ok && answer.note !== undefined ? answer : null;
+  const status = statusOf(refused ?? noted, isBlocked, isPending);
 
   return (
     // A dialog opened from inside another form, such as an editor's section, is a form of its own: React
@@ -235,6 +240,7 @@ function ActForm({
             type="submit"
             label={label}
             isBusy={isPending}
+            isDisabled={noted !== null}
           />
         </ActRow>
       </Form>
@@ -258,8 +264,9 @@ type Opening =
 /**
  * One act done where its record shows, in a centred dialog: its title, its few inputs, „Zurück“ and its
  * verb. A record's creation opens it over its list, or from the create entry of a field choosing among its
- * records. The verb sends the inputs to `action` through the one form wrapper: a done act closes the dialog,
- * a refused one leaves it open with the input kept and the refusal shown.
+ * records. The verb sends the inputs to `action` through the one form wrapper: a done act closes the dialog, one
+ * noting more than it was asked leaves it open on its note, and a refused one leaves it open with the input kept and
+ * the refusal shown.
  */
 export function Dialog({ title, act, trigger, open, action, children }: DialogAct & Opening) {
   const [isOpen, setOpen] = useOpenUntilHidden(open);

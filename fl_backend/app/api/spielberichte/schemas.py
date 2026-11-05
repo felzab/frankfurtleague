@@ -1,11 +1,11 @@
 from typing import Annotated, Literal, Self
 
 from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints, model_validator
-from pydantic_core import PydanticCustomError
 
 from app.api.berechtigungen.schemas import FLUtcInstant
-from app.api.spiele.schemas import SONDEREREIGNIS_NO_SHOW, FLBracketFault, FLSpielElfmeterschiessen, FLSpielJoinedAdmin
-from app.shared.schemas.actor import FLVonAdmin
+from app.api.spiele.schemas import SONDEREREIGNIS_NO_SHOW, FLSpielElfmeterschiessen
+from app.core.exceptions import rule_refusal
+from app.shared.schemas.actor import FLByAdmin
 from app.shared.schemas.bounds import SPIELBERICHT_BEMERKUNGEN_MAX_LENGTH, SPIELBERICHT_ENTRIES_MAX
 from app.shared.schemas.custom import (
     CustomDateString,
@@ -89,10 +89,7 @@ class FLSpielberichtKarte(BaseModel):
 
 
 class FLSpielberichtKartePayload(FLSpielberichtKarte):
-    """One card as a write sends it: a caution names its reason unless the stored card's reason was stripped."""
-
-    # Judged against the stored block, never here: a correction after the strip resends the cautions whose
-    # reasons it stripped (`find_grund_fehlt_refusal`).
+    """One card as a write sends it: a caution names its reason (`find_card_reason_missing_refusal`)."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -102,7 +99,7 @@ class FLSpielberichtVonSchiedsrichter(BaseModel):
     schiedsrichter_id: CustomObjectId
 
 
-FLSpielberichtVon = Annotated[FLSpielberichtVonSchiedsrichter | FLVonAdmin, Field(discriminator="art")]
+FLSpielberichtVon = Annotated[FLSpielberichtVonSchiedsrichter | FLByAdmin, Field(discriminator="art")]
 
 
 class FLSpielberichtSeiten(BaseModel):
@@ -133,7 +130,7 @@ class FLSpielberichtBericht(BaseModel):
     changed_at: FLUtcInstant
     version: int
     adopted_at: FLUtcInstant | None
-    adopted_by: FLVonAdmin | None
+    adopted_by: FLByAdmin | None
     adopted_version: int | None
 
 
@@ -148,8 +145,7 @@ class FLSpielbericht(BaseModel):
     version: int = 0
 
 
-# --- The WRITES: the referee's PUT and the administrator's PATCH take one body, so a refusal naming
-# `bericht.bemerkungen` names a field of both.
+# --- The WRITE: the referee's PUT.
 
 
 class FLSpielberichtBerichtPayload(BaseModel):
@@ -172,16 +168,16 @@ class FLSpielberichtBerichtPayload(BaseModel):
 
         if vorschlag.sonderereignis in SONDEREREIGNIS_NO_SHOW:
             if vorschlag.team1_tore is not None or vorschlag.team2_tore is not None or vorschlag.elfmeterschiessen is not None:
-                raise PydanticCustomError("nichtantreten_with_tore", "a no-show proposes no goals: the league composes them")
+                raise rule_refusal("nichtantreten_with_tore", "a no-show proposes no goals: the league composes them")
             if self.torschuetzen:
-                raise PydanticCustomError("nichtantreten_with_torschuetzen", "a no-show credits no scorer")
+                raise rule_refusal("nichtantreten_with_torschuetzen", "a no-show credits no scorer")
             return self
 
         if vorschlag.team1_tore is None or vorschlag.team2_tore is None:
-            raise PydanticCustomError("ergebnis_missing_tore", "a result names both sides' goals")
+            raise rule_refusal("ergebnis_missing_tore", "a result names both sides' goals")
 
         if vorschlag.elfmeterschiessen is not None and vorschlag.team1_tore != vorschlag.team2_tore:
-            raise PydanticCustomError("elfmeterschiessen_without_draw", "a shoot-out follows a draw alone")
+            raise rule_refusal("elfmeterschiessen_without_draw", "a shoot-out follows a draw alone")
 
         gutgeschrieben = {"team1": 0, "team2": 0}
         for tor in self.torschuetzen:
@@ -190,13 +186,13 @@ class FLSpielberichtBerichtPayload(BaseModel):
             gutgeschrieben[seite] += 1
 
         if (gutgeschrieben["team1"], gutgeschrieben["team2"]) != (vorschlag.team1_tore, vorschlag.team2_tore):
-            raise PydanticCustomError("torschuetzen_not_matching_tore", "the scorers credit other goals than the result reads")
+            raise rule_refusal("torschuetzen_not_matching_tore", "the scorers credit other goals than the result reads")
 
         return self
 
 
 class FLSpielberichtPayload(BaseModel):
-    """The whole `bericht` block, written wholesale by the referee's PUT and the administrator's PATCH alike."""
+    """The whole `bericht` block, written wholesale by the referee's PUT."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -267,15 +263,6 @@ class FLSpielberichtSchiedsrichterResponse(_SpielberichtAnsicht):
 
     # The fixture's season has ended: the page shows the report and offers no write (`saison_past`).
     completed: bool
-
-
-class FLSpielberichtAdminResponse(_SpielberichtAnsicht):
-    """The administrator's panel, with the state the report reads in, null exactly where no block stands.
-
-    Both squads empty unless the read asks `kader`, the correction's form; a write answers them always.
-    """
-
-    state: FLSpielberichtState | None
 
 
 class FLSpielberichtPersonEntry(BaseModel):
@@ -383,19 +370,3 @@ class FLSpielberichtPublic(BaseReadModel):
     aufstellungen: FLAufstellungenPublic
     torschuetzen: list[FLSpielberichtTorPublic] | None
     karten: list[FLSpielberichtKartePublic] | None
-
-
-# Here rather than beside the fixtures' models: it composes the fixtures' read and the reports', and this module imports those.
-class FLSpieleActionRequiredResponse(BaseAPIResponse):
-    """The matches needing attention, why the bracket ones do, and every report's state.
-
-    A fault joins its match by `spiel_id`, never `spiel_nr`, unique within one season only; `spiele` carries every
-    match a fault or an open report names.
-    """
-
-    # The ADMIN shape, not the base tier's: a card on this page opens the modal that prints the
-    # referee's name, which the base tier serves reduced (`READ-REFEREE-001`).
-    spiele: list[FLSpielJoinedAdmin]
-    bracket_faults: list[FLBracketFault] = Field(default_factory=list)
-    # The states the union above was judged on, served rather than read again beside it: one snapshot for both.
-    spielberichte: list[FLSpielberichtStateEntry]

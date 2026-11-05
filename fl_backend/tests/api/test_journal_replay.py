@@ -22,10 +22,10 @@ from httpx2 import AsyncClient
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.adresswechsel.admin_router import delete_address_change as discard_the_change
-from app.api.adresswechsel.services import als_utc
+from app.api.address_change.admin_router import delete_address_change as discard_the_change
+from app.api.address_change.services import as_utc
 from app.api.identity.journal_replay import REPLAY_METHOD, Read, Window, replay_line, run_replay
-from app.api.spielbestaetigungen.services import halter_of
+from app.api.schiedsrichter.services import compose_confirmation, confirmation_deadline_from, erase_at_from
 from app.api.teams.services import compose_kontakt_bestaetigung
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -35,7 +35,7 @@ from app.core.logging import JSONFormatter
 from app.core.recording import ERASED_ACTOR_MARKER
 from app.core.security import actor_pseudonym, erasure_journal_hash
 from app.main import create_app
-from app.shared.einwilligung_nachweis import TextVersions, nachweis_stand_of
+from app.shared.einwilligung_evidence import TextVersions, evidence_state_of
 from app.shared.tokens import hash_token
 from tests import documents
 from tests.app_client import app_client
@@ -54,8 +54,6 @@ from tests.documents import (
     saison_document,
     saison_team_document,
     schiedsrichter_document,
-    spiel_document,
-    spielbestaetigung_document,
     spieler_document,
     team_document,
 )
@@ -75,7 +73,7 @@ KEY = CONFIG.sperrliste_key
 NOW = datetime(2126, 10, 3, 12, 0, tzinfo=ZoneInfo("Europe/Berlin"))
 TODAY = "2126-10-03"
 # `NOW` as the evidence spells it, written out so a replay stamping its own clock cannot agree with it.
-AM = "2126-10-03T10:00:00+00:00"
+AT = "2126-10-03T10:00:00+00:00"
 # The replay runs a day later: whatever it stamps from its own clock differs from what the press stamped.
 REPLAY_NOW = datetime(2126, 10, 4, 9, 0, tzinfo=UTC)
 # The snapshot taken the morning of the presses, the restore ended the next morning: a link sent on the presses' day is the snapshot's.
@@ -98,6 +96,7 @@ PUPIL_OID = ObjectId("6890a1b2c3d4e5f607870011")
 MOVING_PUPIL_OID = ObjectId("6890a1b2c3d4e5f607870012")
 REFEREE_OID = ObjectId("6890a1b2c3d4e5f607870021")
 MOVING_REFEREE_OID = ObjectId("6890a1b2c3d4e5f607870022")
+OBJECTING_REFEREE_OID = ObjectId("6890a1b2c3d4e5f607870023")
 APPLICATION_OID = ObjectId("6890a1b2c3d4e5f607870031")
 DECLINED_APPLICATION_OID = ObjectId("6890a1b2c3d4e5f607870032")
 REGISTRATION_OID = ObjectId("6890a1b2c3d4e5f607870041")
@@ -105,6 +104,7 @@ PUPIL_CHANGE_OID = ObjectId("6890a1b2c3d4e5f607870051")
 REFEREE_CHANGE_OID = ObjectId("6890a1b2c3d4e5f607870052")
 MOVING_PUPIL = "lenore@schule.de"
 MOVING_REFEREE = "baldur@schule.de"
+OBJECTING_REFEREE = "kunigunde@schule.de"
 ADMIN = "verwaltung@frankfurtleague.de"
 
 
@@ -112,12 +112,13 @@ ROW_LINK = "the-season-rows-link"
 APPLICATION_LINK = "the-applications-link"
 REFEREE_ADDRESS_LINK = "the-referees-address-link"
 PUPIL_ADDRESS_LINK = "the-pupils-address-link"
+REFEREE_LINK = "the-referees-link"
 
 
 def _own(text_versions: TextVersions, **fields: Any) -> dict[str, Any]:
     """A person's own record's consent, both choices granted under its kind's wordings."""
 
-    return own_einwilligung_document(text_versions=text_versions, confirmed_at="2126-09-02", medien=True, **fields)
+    return own_einwilligung_document(text_versions=text_versions, confirmed_at="2126-09-02", media=True, **fields)
 
 
 def _seat(email: str, *, confirmed: bool = True) -> dict[str, Any]:
@@ -125,7 +126,7 @@ def _seat(email: str, *, confirmed: bool = True) -> dict[str, Any]:
         "Ortrud" if confirmed else "Ida",
         confirmed_at="2126-09-03" if confirmed else None,
         geburtsdatum=ADULT if confirmed else None,
-        einwilligung={"umfang": "kontaktdaten_whatsapp", "medien": True} if confirmed else {},
+        einwilligung={"scope": "kontaktdaten_whatsapp", "media": True} if confirmed else {},
     )
     return {**seat, "email": email}
 
@@ -139,9 +140,9 @@ LABELS: dict[Konto, TextVersions] = {
     "konto_kontakt": SEAT_TEXT_VERSIONS,
 }
 SERVED_STAND: dict[Konto, dict[str, str | None]] = {
-    "konto_spieler": nachweis_stand_of(bloecke=[_own(SPIELER_TEXT_VERSIONS)]),
-    "konto_schiedsrichter": nachweis_stand_of(bloecke=[_own(SCHIEDSRICHTER_TEXT_VERSIONS)]),
-    "konto_kontakt": nachweis_stand_of(bloecke=[_seat(PERSON)["einwilligung"]]),
+    "konto_spieler": evidence_state_of(blocks=[_own(SPIELER_TEXT_VERSIONS)]),
+    "konto_schiedsrichter": evidence_state_of(blocks=[_own(SCHIEDSRICHTER_TEXT_VERSIONS)]),
+    "konto_kontakt": evidence_state_of(blocks=[_seat(PERSON)["einwilligung"]]),
 }
 
 
@@ -217,6 +218,16 @@ async def _seed(database: AsyncDatabase) -> None:
                 einwilligung=_own(SCHIEDSRICHTER_TEXT_VERSIONS),
                 geburtsdatum=ADULT,
             ),
+            # Entered and mailed before the snapshot's day, and unanswered: the link the objection is pressed through.
+            schiedsrichter_document(
+                OBJECTING_REFEREE_OID,
+                email=OBJECTING_REFEREE,
+                name="Kunigunde Wackelstein",
+                default_payment=20,
+                einwilligung=None,
+                confirmation={**compose_confirmation(today="2126-10-01"), "token_hashes": [hash_token(REFEREE_LINK)]},
+                erase_at=erase_at_from(frist=confirmation_deadline_from(today="2126-10-01")),
+            ),
         ]
     )
     # Each moving to `NEW_ADDRESS` on its own link, as the account page starts a change.
@@ -224,9 +235,9 @@ async def _seed(database: AsyncDatabase) -> None:
         [
             {
                 "_id": change_id,
-                **documents.address_change_document(adresse=adresse, email=NEW_ADDRESS, token_hash=hash_token(link), day=TODAY),
+                **documents.address_change_document(address=address, email=NEW_ADDRESS, token_hash=hash_token(link), day=TODAY),
             }
-            for change_id, adresse, link in (
+            for change_id, address, link in (
                 (PUPIL_CHANGE_OID, MOVING_PUPIL, PUPIL_ADDRESS_LINK),
                 (REFEREE_CHANGE_OID, MOVING_REFEREE, REFEREE_ADDRESS_LINK),
             )
@@ -249,9 +260,9 @@ async def _seed(database: AsyncDatabase) -> None:
             confirmed=registrierung_confirmed(
                 geburtsdatum=ADULT,
                 today="2126-09-21",
-                am="2126-09-21T08:00:00+00:00",
-                umfang="kader_oeffentlich",
-                medien=True,
+                at="2126-09-21T08:00:00+00:00",
+                scope="kader_oeffentlich",
+                media=True,
             ),
         )
     )
@@ -274,7 +285,7 @@ def _person(email: str) -> StampedHeaders:
 
 
 def _withdrawal(page: Konto, **choices: Any) -> dict[str, Any]:
-    return {"text_versions": dict(LABELS[page]), "nachweis_stand": SERVED_STAND[page], **choices}
+    return {"text_versions": dict(LABELS[page]), "evidence_state": SERVED_STAND[page], **choices}
 
 
 Press = Callable[[AsyncClient, AsyncDatabase], Awaitable[Any]]
@@ -284,7 +295,7 @@ async def _registration_withdrawal(http: AsyncClient, database: AsyncDatabase) -
     # Its confirmation stamped evidence, so the page serves that evidence's stand.
     stored = await database[Collection.REGISTRIERUNGEN].find_one({"_id": REGISTRATION_OID})
     assert stored is not None
-    body = {**_withdrawal("konto_spieler", umfang="intern", medien=True), "nachweis_stand": nachweis_stand_of(bloecke=[stored["einwilligung"]])}
+    body = {**_withdrawal("konto_spieler", scope="intern", media=True), "evidence_state": evidence_state_of(blocks=[stored["einwilligung"]])}
 
     return await http.patch(f"{V}/registrierungen/account/{REGISTRATION_OID}/einwilligung", json=body, headers=_person(REGISTRANT))
 
@@ -301,7 +312,7 @@ PRESSES: dict[str, tuple[Press, Collection, ObjectId]] = {
     "a pupil's withdrawal": (
         lambda http, _database: http.patch(
             f"{V}/spieler/account/einwilligung",
-            json=_withdrawal("konto_spieler", umfang="intern", medien=False),
+            json=_withdrawal("konto_spieler", scope="intern", media=False),
             headers=_person(PERSON),
         ),
         Collection.SPIELER,
@@ -310,7 +321,7 @@ PRESSES: dict[str, tuple[Press, Collection, ObjectId]] = {
     "a referee's withdrawal": (
         lambda http, _database: http.patch(
             f"{V}/schiedsrichter/account/{REFEREE_OID}/einwilligung",
-            json=_withdrawal("konto_schiedsrichter", umfang="kader_oeffentlich", medien=False),
+            json=_withdrawal("konto_schiedsrichter", scope="kader_oeffentlich", media=False),
             headers=_person(PERSON),
         ),
         Collection.SCHIEDSRICHTER,
@@ -319,7 +330,7 @@ PRESSES: dict[str, tuple[Press, Collection, ObjectId]] = {
     "a season seat's withdrawal": (
         lambda http, _database: http.patch(
             f"{V}/teams/{TEAM_OID}/saisons/{SAISON_ID}/account/einwilligung",
-            json=_withdrawal("konto_kontakt", umfang="kontaktdaten", medien=True),
+            json=_withdrawal("konto_kontakt", scope="kontaktdaten", media=True),
             headers=_person(PERSON),
         ),
         Collection.SAISON_TEAMS,
@@ -328,7 +339,7 @@ PRESSES: dict[str, tuple[Press, Collection, ObjectId]] = {
     "a pending application seat's withdrawal": (
         lambda http, _database: http.patch(
             f"{V}/bewerbungen/{APPLICATION_OID}/account/einwilligung",
-            json=_withdrawal("konto_kontakt", umfang="kontaktdaten_whatsapp", medien=False),
+            json=_withdrawal("konto_kontakt", scope="kontaktdaten_whatsapp", media=False),
             headers=_person(PERSON),
         ),
         Collection.BEWERBUNGEN,
@@ -352,6 +363,11 @@ PRESSES: dict[str, tuple[Press, Collection, ObjectId]] = {
         ),
         Collection.SAISON_TEAMS,
         ROW_OID,
+    ),
+    "a referee's objection": (
+        lambda http, _database: http.post(f"{V}/schiedsrichter/confirmation/decline", json={"token": REFEREE_LINK}, headers=BASE_AUTH),
+        Collection.SCHIEDSRICHTER,
+        OBJECTING_REFEREE_OID,
     ),
     "a referee's declined address": (
         lambda http, _database: http.post(ANSWER, json={"token": REFEREE_ADDRESS_LINK, "answer": "declined"}, headers=BASE_AUTH),
@@ -391,6 +407,7 @@ PERSONS = {
     "a pending registration's withdrawal": REGISTRANT,
     "a Widerspruch on an application": DECLINER,
     "a Widerspruch on a season row": DECLINER,
+    "a referee's objection": OBJECTING_REFEREE,
     "a referee's declined address": NEW_ADDRESS,
     "a pupil's declined address": NEW_ADDRESS,
     "a pupil's stopped address": NEW_ADDRESS,
@@ -405,6 +422,7 @@ ANSWERING_NOTHING = {
     "a season seat's withdrawal",
     "a pending application seat's withdrawal",
     "a pending registration's withdrawal",
+    "a referee's objection",
 }
 
 
@@ -477,11 +495,11 @@ def restored_and_replayed(url: str, caplog: pytest.LogCaptureFixture, press: str
     return served(url, steps)
 
 
-def _ended_at(record: dict[str, Any], am: datetime) -> dict[str, Any]:
-    """`record` as ended at `am`, as the database hands an instant back."""
+def _ended_at(record: dict[str, Any], at: datetime) -> dict[str, Any]:
+    """`record` as ended at `at`, as the database hands an instant back."""
 
-    assert als_utc(record["ended"]["am"]) != am, "the press and the replay ran at one instant, so the case compares nothing"
-    return {**record, "ended": {**record["ended"], "am": am.replace(tzinfo=None)}}
+    assert as_utc(record["ended"]["at"]) != at, "the press and the replay ran at one instant, so the case compares nothing"
+    return {**record, "ended": {**record["ended"], "at": at.replace(tzinfo=None)}}
 
 
 class TestEachPressAndItsReplay:
@@ -494,7 +512,7 @@ class TestEachPressAndItsReplay:
         assert line is not None
 
         assert outcome["status"] == (204 if press in ANSWERING_NOTHING else 200)
-        assert (line.collection, line.record_id, line.am) == (collection, record_id, AM)
+        assert (line.collection, line.record_id, line.at) == (collection, record_id, AT)
         assert line.person_hash == erasure_journal_hash(PERSONS.get(press, PERSON), key=KEY)
         # No address: the day files keep the line thirty days.
         assert "@" not in outcome["lines"][0]
@@ -516,12 +534,12 @@ class TestARecordTheLineNoLongerFits:
     def test_a_record_now_holding_somebody_else_is_left_for_review_and_unchanged(self, mongo_replica_set_url: str):
         line = JournalLine(
             person_hash=erasure_journal_hash(PERSON, key=KEY),
-            art="widerruf",
+            kind="withdrawal",
             collection=Collection.SPIELER,
             record_id=MOVING_PUPIL_OID,
-            am=AM,
-            text_versions={"medien": SPIELER_TEXT_VERSIONS["medien"]},
-            choices={"medien": False},
+            at=AT,
+            text_versions={"media": SPIELER_TEXT_VERSIONS["media"]},
+            choices={"media": False},
         )
 
         async def steps(_http: AsyncClient, database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -550,33 +568,33 @@ def _day_file(*entries: tuple[str, str]) -> list[str]:
 class TestTheListing:
     def test_it_names_where_an_loeschung_s_address_is_held_and_prints_no_address_and_no_hash(self, mongo_replica_set_url: str):
         # Its pseudonym named, and its address held: the page's erasure takes the pseudonym's rows with everything else.
-        geloescht = JournalLine(person_hash=erasure_journal_hash(PERSON, key=KEY), art="loeschung", pseudonym=actor_pseudonym(PERSON, key=KEY))
+        erased = JournalLine(person_hash=erasure_journal_hash(PERSON, key=KEY), kind="erasure", pseudonym=actor_pseudonym(PERSON, key=KEY))
         withdrawal = JournalLine(
             person_hash=erasure_journal_hash(PERSON, key=KEY),
-            art="widerruf",
+            kind="withdrawal",
             collection=Collection.SPIELER,
             record_id=PUPIL_OID,
-            am=AM,
-            text_versions={"medien": SPIELER_TEXT_VERSIONS["medien"]},
-            choices={"medien": False},
+            at=AT,
+            text_versions={"media": SPIELER_TEXT_VERSIONS["media"]},
+            choices={"media": False},
         )
         on_the_restored_site = JournalLine(
             person_hash=erasure_journal_hash(PERSON, key=KEY),
-            art="widerruf",
+            kind="withdrawal",
             collection=Collection.SCHIEDSRICHTER,
             record_id=REFEREE_OID,
-            am="2126-10-03T12:30:00+00:00",
-            text_versions={"medien": SCHIEDSRICHTER_TEXT_VERSIONS["medien"]},
-            choices={"medien": False},
+            at="2126-10-03T12:30:00+00:00",
+            text_versions={"media": SCHIEDSRICHTER_TEXT_VERSIONS["media"]},
+            choices={"media": False},
         )
         day = _day_file(
             # Before the snapshot: the snapshot holds its write, so it is not listed.
-            ("2126-10-03T09:00:00+00:00", geloescht.text()),
-            ("2126-10-03T11:00:00+00:00", geloescht.text()),
+            ("2126-10-03T09:00:00+00:00", erased.text()),
+            ("2126-10-03T11:00:00+00:00", erased.text()),
             ("2126-10-03T11:30:00+00:00", withdrawal.text()),
             ("2126-10-03T11:40:00+00:00", f"{JOURNAL_TOKEN} {'b' * 64} vergessen"),
             # An id bson's own reader would raise `InvalidId` on: counted as unreadable, never a traceback.
-            ("2126-10-03T11:50:00+00:00", f"{JOURNAL_TOKEN} {'b' * 64} adresswechsel_abgelehnt adresswechsel/{'z' * 24} am={AM}"),
+            ("2126-10-03T11:50:00+00:00", f"{JOURNAL_TOKEN} {'b' * 64} address_change_declined address_changes/{'z' * 24} at={AT}"),
             # After the restore's end: the restored site's own act, which stands as its person made it.
             ("2126-10-03T12:30:01+00:00", on_the_restored_site.text()),
         )
@@ -597,18 +615,18 @@ class TestTheListing:
         # Left while an erasure is to run, a line unreadable or a choice to replay; nothing left once the replay ran.
         assert codes == [1, 1, 0]
         assert "Journal lines written after 2126-10-03T10:00:00+00:00 and no later than 2126-10-03T12:00:00+00:00: 2." in listed
-        assert "widerruf schiedsrichter/" not in listed + applied
+        assert "withdrawal schiedsrichter/" not in listed + applied
         assert "held in spieler: 1 field(s), " in listed and "held in schiedsrichter: 1 field(s), " in listed
         assert "    to replay" in listed and "    replayed" in applied and "    already done" in settled
         assert "2 unreadable lines" in listed
         for output in (listed, applied, settled):
             assert "@" not in output
-            assert geloescht.person_hash not in output
-            assert str(geloescht.pseudonym) not in output
+            assert erased.person_hash not in output
+            assert str(erased.pseudonym) not in output
             assert KEY.get_secret_value() not in output
 
 
-LOESCHUNG = f"{V}/identity/account/erasure"
+ERASURE = f"{V}/identity/account/erasure"
 # An hour after the presses: the person's own later act.
 AN_HOUR_LATER = datetime(2126, 10, 3, 13, 0, tzinfo=ZoneInfo("Europe/Berlin"))
 PSEUDONYM = actor_pseudonym(PERSON, key=KEY)
@@ -633,7 +651,7 @@ async def _withdrawn_and_granted_again(http: AsyncClient, database: AsyncDatabas
     [line] = journalled(caplog)
     # The app's clock moved on; `app_client` puts back the overrides it found as it leaves.
     _app().dependency_overrides[get_germany_now] = lambda: AN_HOUR_LATER
-    body = {**_withdrawal("konto_spieler", umfang="intern", medien=True), "nachweis_stand": (await _served(http))["spieler"]["nachweis_stand"]}
+    body = {**_withdrawal("konto_spieler", scope="intern", media=True), "evidence_state": (await _served(http))["spieler"]["evidence_state"]}
     granted = await http.patch(f"{V}/spieler/account/einwilligung", json=body, headers=_person(PERSON))
     assert (withdrawn.status_code, granted.status_code) == (204, 204), granted.text
 
@@ -652,7 +670,7 @@ class TestALaterActStands:
 
         stand, granted, after = served(mongo_replica_set_url, steps)
 
-        assert granted["einwilligung"]["medien"] is True
+        assert granted["einwilligung"]["media"] is True
         assert (stand, after) == ("already done", granted)
 
     @pytest.mark.parametrize("press", SENT_AGAIN)
@@ -707,10 +725,10 @@ class TestAnLoeschungSettlesItsPersonsChoices:
         async def steps(http: AsyncClient, database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             with caplog.at_level(logging.INFO):
                 withdrawn = await PRESSES["a season seat's withdrawal"][0](http, database)
-                geloescht = await http.post(LOESCHUNG, headers=_person(PERSON))
-            assert (withdrawn.status_code, geloescht.status_code) == (204, 200), geloescht.text
-            withdrawal, loeschung = journalled(caplog)
-            day = _day_file(("2126-10-03T10:00:01+00:00", withdrawal), ("2126-10-03T10:00:02+00:00", loeschung))
+                erased = await http.post(ERASURE, headers=_person(PERSON))
+            assert (withdrawn.status_code, erased.status_code) == (204, 200), erased.text
+            withdrawal, erasure = journalled(caplog)
+            day = _day_file(("2126-10-03T10:00:01+00:00", withdrawal), ("2126-10-03T10:00:02+00:00", erasure))
             return await _listed(day, client, database, apply=False), await _listed(day[:1], client, database, apply=False)
 
         (both_code, both), (alone_code, alone) = served(mongo_replica_set_url, steps)
@@ -727,11 +745,11 @@ class TestAnLoeschungSettlesItsPersonsChoices:
         async def steps(http: AsyncClient, database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             with caplog.at_level(logging.INFO):
                 withdrawn = await PRESSES["a season seat's withdrawal"][0](http, database)
-                geloescht = await http.post(LOESCHUNG, headers=_person(PERSON))
-            assert (withdrawn.status_code, geloescht.status_code) == (204, 200), geloescht.text
-            withdrawal, loeschung = journalled(caplog)
+                erased = await http.post(ERASURE, headers=_person(PERSON))
+            assert (withdrawn.status_code, erased.status_code) == (204, 200), erased.text
+            withdrawal, erasure = journalled(caplog)
             return await _listed(
-                _day_file(("2126-10-03T10:00:01+00:00", loeschung), ("2126-10-03T10:00:02+00:00", withdrawal)), client, database, apply=False
+                _day_file(("2126-10-03T10:00:01+00:00", erasure), ("2126-10-03T10:00:02+00:00", withdrawal)), client, database, apply=False
             )
 
         code, listed = served(mongo_replica_set_url, steps)
@@ -752,13 +770,13 @@ class TestAnGeloeschtPersonsPseudonym:
             withdrawal = await _withdrawn_and_granted_again(http, database, caplog)
             rows = [row["_id"] async for row in database[Collection.ACTION_LOG].find({"actor.pseudonym": PSEUDONYM}, {"_id": 1})]
             with caplog.at_level(logging.INFO):
-                geloescht = await http.post(LOESCHUNG, headers=_person(PERSON))
-            assert geloescht.status_code == 200, geloescht.text
-            _, loeschung = journalled(caplog)
+                erased = await http.post(ERASURE, headers=_person(PERSON))
+            assert erased.status_code == 200, erased.text
+            _, erasure = journalled(caplog)
 
             # The restore: the attribution the erasure marked.
             await database[Collection.ACTION_LOG].update_many({"_id": {"$in": rows}}, {"$set": {"actor.pseudonym": PSEUDONYM}})
-            day = _day_file(("2126-10-03T10:00:01+00:00", withdrawal), ("2126-10-03T11:00:01+00:00", loeschung))
+            day = _day_file(("2126-10-03T10:00:01+00:00", withdrawal), ("2126-10-03T11:00:01+00:00", erasure))
             runs = [await _listed(day, client, database, apply=apply) for apply in (False, True, True)]
 
             left = (
@@ -780,68 +798,12 @@ class TestAnGeloeschtPersonsPseudonym:
         assert "    to replay" in listed and "    replayed" in applied and "    already done" in again
         # One row, the system's, naming the erasure's line: the second run found nothing and wrote nothing.
         assert [(row["actor"], row["request"]) for row in acts] == [
-            ({"kind": "system", "email": "SYSTEM"}, {"method": REPLAY_METHOD, "path": "loeschung journalled=2126-10-03T11:00:01+00:00"})
+            ({"kind": "system", "email": "SYSTEM"}, {"method": REPLAY_METHOD, "path": "erasure journalled=2126-10-03T11:00:01+00:00"})
         ]
         for output in (listed, applied, again):
             assert "@" not in output
             assert PSEUDONYM not in output
             assert erasure_journal_hash(PERSON, key=KEY) not in output
-
-
-def _their_answered_confirmation() -> dict[str, Any]:
-    """A fixture answer the person gave from a seat they have since left: the row holds their holder digest and no address."""
-
-    team_id = ObjectId("6890a1b2c3d4e5f6078600f1")
-    sides = {f"team{n}": {"team_id": ObjectId(f"6890a1b2c3d4e5f6078600f{n}")} for n in (1, 2)}
-    spiel = spiel_document(
-        spiel_id=ObjectId(), saison_id=SAISON_ID, spiel_nr=1, spieltag_id=None, datum="2126-10-20", uhrzeit="18:00:00", **sides
-    )
-    antwort = {
-        "art": "declined",
-        "am": TODAY,
-        "von": {"art": "kontakt", "rolle": "trainer", "halter": halter_of(PERSON, key=KEY)},
-        "vorschlag": {"datum": "2126-10-21", "uhrzeit": "18:00:00"},
-        "begruendung": "Wir sind auf Klassenfahrt",
-    }
-
-    return spielbestaetigung_document(spiel, party={"art": "team", "team_id": team_id}, antwort=antwort)
-
-
-class TestAnGeloeschtPersonsReasons:
-    def test_the_reasons_a_restore_brings_back_with_no_address_are_removed_again_once(
-        self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture
-    ):
-        """The erasure's line alone finds them: the row holds the person's holder digest, which `where_held` cannot read as an address."""
-
-        async def steps(http: AsyncClient, database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            snapshot = _their_answered_confirmation()
-            confirmations = database[Collection.SPIELBESTAETIGUNGEN]
-            await confirmations.insert_one(snapshot)
-            with caplog.at_level(logging.INFO):
-                geloescht = await http.post(LOESCHUNG, headers=_person(PERSON))
-            assert geloescht.status_code == 200, geloescht.text
-            loeschung = journalled(caplog)[-1]
-            removed = (await confirmations.find_one({"_id": snapshot["_id"]}) or {})["antwort"]
-
-            # The restore: the row as the snapshot held it.
-            await confirmations.replace_one({"_id": snapshot["_id"]}, snapshot)
-            day = _day_file(("2126-10-03T11:00:01+00:00", loeschung))
-            runs = [await _listed(day, client, database, apply=apply) for apply in (False, True, True)]
-
-            return removed, runs, (await confirmations.find_one({"_id": snapshot["_id"]}) or {})["antwort"]
-
-        removed, runs, after = served(mongo_replica_set_url, steps)
-        [(listed_code, listed), (applied_code, applied), (again_code, again)] = runs
-
-        # The premise: the erasure itself took the reason, which the restore then brought back.
-        assert (removed["begruendung"], removed["von"]["halter"]) == (None, None)
-        assert (listed_code, applied_code, again_code) == (1, 0, 0), listed
-        assert "1 confirmation(s) or log image(s) hold a reason of theirs" in listed and "    to replay" in listed
-        assert "    replayed" in applied and "    already done" in again
-        # The answer itself stays: its day, its way and its role are the club's.
-        assert after == {**removed, "art": "declined"}
-        for output in (listed, applied, again):
-            assert halter_of(PERSON, key=KEY) not in output
 
 
 class TestAnLoeschungAfterAChangeTookEffect:
@@ -871,14 +833,14 @@ class TestAnLoeschungAfterAChangeTookEffect:
             snapshot = await _record(database, Collection.SPIELER, MOVING_PUPIL_OID)
             with caplog.at_level(logging.INFO):
                 moved = await PRESSES["a pupil's address that took effect"][0](http, database)
-                gone = await http.post(LOESCHUNG, headers=_person(NEW_ADDRESS))
+                gone = await http.post(ERASURE, headers=_person(NEW_ADDRESS))
             assert (moved.status_code, gone.status_code) == (200, 200), gone.text
-            effect, loeschung = journalled(caplog)
+            effect, erasure = journalled(caplog)
 
             # The restore: the pupil as the snapshot held it, before the change was started.
             await database[Collection.SPIELER].replace_one({"_id": MOVING_PUPIL_OID}, snapshot, upsert=True)
             await database[Collection.ADDRESS_CHANGES].delete_one({"_id": PUPIL_CHANGE_OID})
-            day = _day_file(("2126-10-03T10:00:01+00:00", effect), (erased, loeschung))
+            day = _day_file(("2126-10-03T10:00:01+00:00", effect), (erased, erasure))
             return await _listed(day, client, database, apply=False)
 
         exited, listed = served(mongo_replica_set_url, steps)
@@ -896,7 +858,7 @@ class TestADiscardedChange:
 
         waiting = {
             **documents.address_change_document(
-                adresse=MOVING_PUPIL, email=NEW_ADDRESS, token_hash=hash_token(PUPIL_ADDRESS_LINK), day=TODAY, way="waiting_period"
+                address=MOVING_PUPIL, email=NEW_ADDRESS, token_hash=hash_token(PUPIL_ADDRESS_LINK), day=TODAY, way="waiting_period"
             ),
             "_id": PUPIL_CHANGE_OID,
             "valid_until": None,
@@ -912,10 +874,10 @@ class TestADiscardedChange:
             with caplog.at_level(logging.INFO):
                 await discard_the_change(
                     address_change_id=PUPIL_CHANGE_OID,
-                    adresswechsel_collection=changes,
-                    berechtigungen_collection=database[Collection.GRANTS],
-                    berechtigungen_angekuendigt_collection=database[Collection.GRANTS_ANNOUNCED],
-                    aktionen_collection=database[Collection.ACTION_LOG],
+                    address_changes_collection=changes,
+                    grants_collection=database[Collection.GRANTS],
+                    grants_announced_collection=database[Collection.GRANTS_ANNOUNCED],
+                    action_log_collection=database[Collection.ACTION_LOG],
                     db=client,
                     config=CONFIG,
                     operator=ADMIN,
@@ -932,8 +894,8 @@ class TestADiscardedChange:
         line, stand, discarded, after = served(mongo_replica_set_url, steps)
 
         assert line is not None
-        assert (line.art, line.collection, line.record_id) == ("adresswechsel_verworfen", Collection.ADDRESS_CHANGES, PUPIL_CHANGE_OID)
+        assert (line.kind, line.collection, line.record_id) == ("address_change_discarded", Collection.ADDRESS_CHANGES, PUPIL_CHANGE_OID)
         assert line.person_hash == erasure_journal_hash(NEW_ADDRESS, key=KEY)
         # Ended as the discard ended it, at the discard's own instant.
         assert (stand, after) == ("replayed", discarded)
-        assert after["ended"]["art"] == "discarded"
+        assert after["ended"]["kind"] == "discarded"

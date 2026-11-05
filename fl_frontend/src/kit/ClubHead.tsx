@@ -1,9 +1,50 @@
 import { cardSurface } from "./cardStyles";
+import { CutText } from "./CutText";
 import { ExpandableText } from "./ExpandableText";
 import { Link } from "./Link";
+import { placeholderBar, PlaceholderLine } from "./Skeleton";
 import { TeamPlaque } from "./TeamPlaque";
 
 import type { Copy, RecordText } from "@/core/copy";
+
+const box = cardSurface({ class: "grid gap-3 p-4" });
+
+/**
+ * A club's head while the club is read: its own box, the plaque and the name's line, the school's and the address's
+ * lines, and the description's three lines it shows until opened, as bars.
+ */
+export function ClubHeadPlaceholder() {
+  return (
+    <div className={box}>
+      <div className="flex min-w-0 items-center gap-3">
+        <span className={placeholderBar("h-6 w-10")} />
+        <PlaceholderLine
+          text="flex-1 text-base font-semibold"
+          width="w-48 max-w-full"
+        />
+      </div>
+      <div className="grid gap-0.5 text-sm">
+        <PlaceholderLine
+          text="text-sm"
+          width="w-2/3"
+        />
+        <PlaceholderLine
+          text="text-sm"
+          width="w-1/2"
+        />
+      </div>
+      <div className="grid text-sm">
+        {["w-full", "w-full", "w-2/3"].map((width, index) => (
+          <PlaceholderLine
+            key={index}
+            text="text-sm"
+            width={width}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
 
 /**
  * A club's head over its read page: its plaque and its name, a link to its own website where it has one; the
@@ -29,12 +70,12 @@ export function ClubHead({
   description: RecordText;
 }) {
   return (
-    <div className={cardSurface({ class: "grid gap-3 p-4" })}>
+    <div className={box}>
       <div className="flex min-w-0 items-center gap-3">
         <TeamPlaque plaque={plaque} />
-        <span
-          className="min-w-0 truncate text-base font-semibold"
-          title={name.record}>
+        <CutText
+          text={name.record}
+          className="min-w-0 truncate text-base font-semibold">
           {website === null ? (
             name.record
           ) : (
@@ -44,7 +85,7 @@ export function ClubHead({
               label={name}
             />
           )}
-        </span>
+        </CutText>
       </div>
       <div className="grid gap-0.5 text-sm">
         <span>{school.record}</span>

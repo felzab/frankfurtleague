@@ -79,6 +79,10 @@ exclude-newer = "1 day"
 
 [tool.ruff]
 line-length = 144
+# The packages below `app`, the test tree and the gate's three script folders carry no `__init__.py`
+# (pytest's importlib mode needs none), and ruff judges a module's name (N999) only inside a package it
+# can see. Paths resolve from this file, which `scripts/ruff.toml` extends.
+namespace-packages = ["app", "tests", "../scripts/checks", "../scripts/lib", "../scripts/tests"]
 
 [tool.ruff.lint]
 select = [
@@ -118,6 +122,8 @@ select = [
     "PLE2513",  # invalid-character-esc
     "PLE2514",  # invalid-character-nul
     "PLE2515",  # invalid-character-zero-width-space
+    # A module or package name is snake_case (PEP 8), the one case `docs/writing.md` gives Python files.
+    "N999",  # invalid-module-name
 ]
 ignore = ["B008"]
 # The `G` rules read only a call on a receiver they know to be a logger, and `fl_logger.info(f"…")`
@@ -136,6 +142,9 @@ logger-objects = ["app.core.logging.fl_logger", "app.core.logging.journal_logger
 # The ban reaches every spelling of a read, an import, an attribute through `app.core.config` and a
 # dependency alike, which makes it the one guard against a route reading them.
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
+# A rule's kind is one of `app/core/codes.py :: Rule`, which the contract publishes, so a raise names it
+# through `app/core/exceptions.py :: rule_refusal`; a direct one would word a kind the frontend cannot key.
+"pydantic_core.PydanticCustomError".msg = "Raise a domain rule through `app.core.exceptions.rule_refusal`, whose `Rule` the contract publishes."
 # Each permitted import carries its own `noqa`, which RUF100 reports once nothing there needs it;
 # the preflight in `scripts/ops/deploy.sh` is a shell string ruff never reads.
 "app.core.config.get_config".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, `app/readback.py`, the journal replay and the deploy preflight."

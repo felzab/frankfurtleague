@@ -74,10 +74,10 @@ STORED_SURNAMES = ("Müller", "Adler", "Öztürk", "Weber")
 Body = Callable[[AsyncDatabase], Awaitable[Any]]
 
 
-def _consent(umfang: str, **fields: Any) -> dict[str, Any]:
-    """A record its person confirmed under `umfang`, `fields` laid over it."""
+def _consent(scope: str, **fields: Any) -> dict[str, Any]:
+    """A record its person confirmed under `scope`, `fields` laid over it."""
 
-    return {**own_einwilligung_document(text_versions=SPIELER_TEXT_VERSIONS, confirmed_at="2026-01-20", umfang=umfang), **fields}
+    return {**own_einwilligung_document(text_versions=SPIELER_TEXT_VERSIONS, confirmed_at="2026-01-20", scope=scope), **fields}
 
 
 def _spieler(key: str, vorname: str, nachname: str | None, *, inactive_since: str | None = None) -> dict[str, Any]:
@@ -265,7 +265,7 @@ class TestTheProjection:
     def test_the_consent_record_is_read_and_projected_nowhere(self):
         """`READ-PUPIL-003` reads it inside the `$cond`, so the projection carrying no key of that name is the whole of the withholding."""
         assert "einwilligung" not in _project()
-        assert "$einwilligung.umfang" in json.dumps(_lookup_pipeline())
+        assert "$einwilligung.scope" in json.dumps(_lookup_pipeline())
 
     def test_the_level_is_gone_from_the_shape(self):
         """`READ-PUPIL-002`: the level stays stored and admin-visible, and this tier never projects it."""
@@ -340,7 +340,7 @@ class TestTheBaseTierReadExecuted:
         person, row = on_a_database(seeded_url, body)
 
         assert person["nachname"] == "Müller"
-        assert person["einwilligung"]["umfang"] == "kader_oeffentlich"
+        assert person["einwilligung"]["scope"] == "kader_oeffentlich"
         assert (row["stufe"], row["rolle"]) == ("Q3", "kapitaen")
 
     def test_the_corpus_really_holds_a_retired_person_beside_a_retired_row(self, seeded_url: str):
@@ -644,7 +644,7 @@ class TestThePublicationGate:
         """`READ-PUPIL-005`, against the SERIALISED body: an id outlives every season and team, so it would tie a withheld row to its others."""
         assert str(MASKED_SQUAD[case].oid) not in json.dumps(self._read(masked_url))
 
-    @pytest.mark.parametrize("key", ["einwilligung", "umfang"])
+    @pytest.mark.parametrize("key", ["einwilligung", "scope"])
     def test_no_row_carries_the_record_the_gate_read(self, masked_url: str, key: str):
         """The `$cond` reads it; a key of either name on the wire would put the consent decision itself on the page."""
         assert all(key not in served for served in self._by_nummer(masked_url).values())

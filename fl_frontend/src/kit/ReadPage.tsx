@@ -3,15 +3,15 @@ import { Suspense } from "react";
 import { Callout } from "./Callout";
 import { cardSurface } from "./cardStyles";
 import { EmptyState } from "./EmptyState";
-import { Facts } from "./Facts";
+import { Facts, FactsPlaceholder } from "./Facts";
 import { formColumn, RailPage } from "./RailFrame";
 import { SectionTitle } from "./Section";
-import { Skeleton } from "./Skeleton";
-import { SpielHead } from "./SpielHead";
+import { Waiting } from "./Skeleton";
+import { SpielHead, SpielHeadPlaceholder } from "./SpielHead";
 import { SpielList } from "./SpielRow";
-import { StatTiles } from "./StatTiles";
+import { StatTiles, StatTilesPlaceholder } from "./StatTiles";
 import { Table } from "./Table";
-import { Timeline } from "./Timeline";
+import { Timeline, TimelinePlaceholder } from "./Timeline";
 
 import type { Copy, RecordText } from "@/core/copy";
 import type { ComponentProps, ReactElement } from "react";
@@ -162,19 +162,29 @@ async function ReadBody({ scope, record }: { scope: "saison" | "area"; record: P
  * is; the next groups follow the reader's next question. The two parts holding client code, the folded cards
  * and the club's head, are modules of their own the page places, so the template imports neither.
  *
- * The record names the page, so the whole page waits for it in the template's one boundary: meanwhile the
- * strip holds a bar where the title will stand and the column the skeleton of the facts.
+ * The record names the page, so the whole page waits for it in the template's one boundary: meanwhile the strip
+ * holds a bar where the title will stand, and the column the placeholders of the page's own blocks, its head and its
+ * groups in their order, as `wait` states them.
  */
-export function ReadPage({ scope, record }: { scope: "saison" | "area"; record: Promise<ReadRecord> }) {
+export function ReadPage({ scope, wait, record }: { scope: "saison" | "area"; wait: ReadWait; record: Promise<ReadRecord> }) {
   return (
     <Suspense
       fallback={
         <RailPage
           scope={scope}
           title={null}>
-          <div className={formColumn()}>
-            <Skeleton shape="facts" />
-          </div>
+          <Waiting layout={formColumn()}>
+            {wait.spiel === true && <SpielHeadPlaceholder />}
+            {wait.club}
+            {wait.groups.map((group, index) => (
+              <section
+                key={index}
+                className="grid gap-3">
+                {group.title !== undefined && <SectionTitle text={group.title} />}
+                <GroupPlaceholder group={group} />
+              </section>
+            ))}
+          </Waiting>
         </RailPage>
       }>
       <ReadBody
@@ -183,4 +193,46 @@ export function ReadPage({ scope, record }: { scope: "saison" | "area"; record: 
       />
     </Suspense>
   );
+}
+
+/**
+ * What a read page is before its record is read: the head it opens with, a match's or a club's, and its groups in
+ * their order, each its kind, its title where it carries one, and how many of its parts its placeholder draws. The
+ * page states it beside the record it reads, which holds the same groups in the same order. The two parts holding
+ * client code, the club's head and the folded cards, the page places as it places them in the record: their
+ * placeholders, `ClubHeadPlaceholder` and `ReadFoldsPlaceholder`, from their own modules.
+ */
+export type ReadWait = {
+  /** The match's head, as `ReadRecord`'s `spiel` opens the page. */
+  spiel?: true;
+  /** The club head's placeholder, as `ReadRecord`'s `club` opens the page with the head. */
+  club?: ReactElement;
+  groups: ReadonlyArray<
+    { title?: Copy } & (
+      | { kind: "facts"; pairs: number }
+      | { kind: "tiles"; layout: "four" | "five" }
+      /** `matches` where each checkpoint holds a match's row, as a club's line does. */
+      | { kind: "timeline"; count: number; matches?: boolean }
+      | { kind: "folds"; folds: ReactElement }
+    )
+  >;
+};
+
+/** One group's placeholder: the placeholder its block draws. */
+function GroupPlaceholder({ group }: { group: ReadWait["groups"][number] }) {
+  switch (group.kind) {
+    case "facts":
+      return <FactsPlaceholder pairs={group.pairs} />;
+    case "tiles":
+      return <StatTilesPlaceholder layout={group.layout} />;
+    case "timeline":
+      return (
+        <TimelinePlaceholder
+          count={group.count}
+          matches={group.matches}
+        />
+      );
+    case "folds":
+      return group.folds;
+  }
 }

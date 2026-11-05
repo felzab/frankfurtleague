@@ -2,8 +2,10 @@ import { textOf } from "@/core/copy";
 
 import { cardSurface, stacked } from "./cardStyles";
 import { Chip } from "./Chip";
+import { CutText } from "./CutText";
 import { Icon } from "./Icon";
 import { Link } from "./Link";
+import { PlaceholderLine } from "./Skeleton";
 import { tv } from "./tv";
 
 import type { Copy, Words } from "@/core/copy";
@@ -20,7 +22,12 @@ export type Fact = {
   /** A small muted glyph before the label, as the match pop-up leads each of its facts (Notion's property pattern). */
   glyph?: IconName;
 } & (
-  | { value: Words; /** Figures, set in Inter with columns that line up. */ figures?: boolean; link?: never; elsewhere?: never }
+  | {
+      value: Words;
+      /** Figures, set in Inter with columns that line up. */ figures?: boolean;
+      link?: never;
+      elsewhere?: never;
+    }
   | { link: { href: Route; label: Words }; value?: never; figures?: never; elsewhere?: never }
   /** Another site's address, which `Link` opens in a new tab, leaving the site's page in place. */
   | { elsewhere: { href: `https://${string}`; label: Words }; value?: never; figures?: never; link?: never }
@@ -32,7 +39,7 @@ const facts = tv({
     row: "grid gap-0.5",
     // The glyph, 16 px, on the label's own 16-px line, 6 px before it.
     term: "flex items-center gap-1.5 text-xs text-fg-muted",
-    detail: "font-medium [overflow-wrap:anywhere]",
+    detail: "font-medium wrap-anywhere",
   },
   variants: {
     look: {
@@ -58,6 +65,34 @@ const facts = tv({
 });
 
 /**
+ * The facts while the record is read: the boxed block's own box with `pairs` of its pairs, each a label's line over
+ * a value's, two a row where the box is wide, as `Facts` sets them.
+ */
+export function FactsPlaceholder({ pairs }: { pairs: number }) {
+  const { list, row, term, detail } = facts({ look: "boxed" });
+  return (
+    <div className="@container grid w-full gap-2 text-sm">
+      <div className={list()}>
+        {Array.from({ length: pairs }, (_, index) => (
+          <div
+            key={index}
+            className={row()}>
+            <PlaceholderLine
+              text={term()}
+              width="w-1/4"
+            />
+            <PlaceholderLine
+              text={detail()}
+              width="w-1/2"
+            />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/**
  * A record's data, read rather than edited: stacked pairs, each a 12-px muted label over its value, in a
  * hairline box with hairlines between the rows and two pairs a row where the box is wide, or free of the
  * box as the match pop-up sets them under the pairing. The one block that pairs a label with a value. A subject line
@@ -77,14 +112,14 @@ export function Facts({
   // may list two records under one label, so the label alone would collide.
   const above = new Map<Copy, number>();
   return (
-    <div className="@container grid gap-2 text-sm">
+    // `w-full`: a Section's or an AccountBox's grid starts its children, which would shrink the block to its content.
+    <div className="@container grid w-full gap-2 text-sm">
       {subject !== undefined && (
         <p className="flex min-w-0 items-center gap-2 text-base font-semibold">
-          <span
+          <CutText
+            text={textOf(subject.name)}
             className="min-w-0 truncate"
-            title={textOf(subject.name)}>
-            {textOf(subject.name)}
-          </span>
+          />
           {subject.chip !== undefined && <Chip {...subject.chip} />}
         </p>
       )}

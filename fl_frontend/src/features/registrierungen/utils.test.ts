@@ -120,7 +120,7 @@ describe("what one refused submission shows", () => {
   });
 
   it("tells a banned address nothing about a list", () => {
-    const answered = mapRegistrierungSubmitRefusal(refused("registrierung_adresse_barred"));
+    const answered = mapRegistrierungSubmitRefusal(refused("registrierung_address_barred"));
     const sentence = answered?.fieldErrors?.email ?? "";
 
     expect(sentence, "the ban refusal reaches no control").not.toBe("");
@@ -153,7 +153,7 @@ describe("what one refused submission shows", () => {
   it("marks the repeated press's refusals as arrived, and no other refusal", () => {
     expect(mapRegistrierungSubmitRefusal(refused("registrierung_key_differing"))?.schonAngekommen).toBe(true);
     expect(mapRegistrierungSubmitRefusal(refused("registrierung_already_admitted"))?.schonAngekommen).toBe(true);
-    for (const code of ["document_not_found", "registrierung_closed", "registrierung_kader_full", "registrierung_adresse_barred"] as const) {
+    for (const code of ["document_not_found", "registrierung_closed", "registrierung_kader_full", "registrierung_address_barred"] as const) {
       expect(mapRegistrierungSubmitRefusal(refused(code))?.schonAngekommen, code).toBe(undefined);
     }
   });
@@ -167,7 +167,7 @@ describe("what one refused submission shows", () => {
       "registrierung_closed",
       "registrierung_stufe_not_allowed",
       "registrierung_kader_full",
-      "registrierung_adresse_barred",
+      "registrierung_address_barred",
       "registrierung_key_differing",
       "registrierung_already_admitted",
     );
@@ -178,7 +178,7 @@ describe("what one refused submission shows", () => {
       "registrierung_closed",
       "registrierung_stufe_not_allowed",
       "registrierung_kader_full",
-      "registrierung_adresse_barred",
+      "registrierung_address_barred",
     ];
 
     for (const code of new Set([...published, ...mapped])) {
@@ -192,8 +192,8 @@ describe("what one refused submission shows", () => {
  * A link's own read as the handler hands it: an open link at these floors, or `null` where the read failed. The
  * media floor is one no link is served today.
  */
-const floorOf = (jahre: number | null, medienJahre = 21) =>
-  readOf(jahre === null ? null : { zustand: "valid", ansicht: { minimum_age: jahre, medien_minimum_age: medienJahre } });
+const floorOf = (minimumAge: number | null, mediaMinimumAge = 21) =>
+  readOf(minimumAge === null ? null : { zustand: "valid", ansicht: { minimum_age: minimumAge, media_minimum_age: mediaMinimumAge } });
 
 /** A link's own read answering `link`, counting how often it was asked. */
 const readOf = (link: GelesenerLink | null) => {
@@ -276,10 +276,10 @@ describe("what one refused confirmation shows", () => {
   /* The page offers the media switch from the served age on the browser's German day, so a clock
      disagreeing with the backend's sends a yes below it, which a reopened link would offer again. */
   it("answers a media yes below the media age at the floor the link answered, switching it off, and naming none unread", async () => {
-    expect(await mapBestaetigungRefusal(refused("medien_age"), GETIPPT, floorOf(16).lesen)).toStrictEqual({
+    expect(await mapBestaetigungRefusal(refused("media_age"), GETIPPT, floorOf(16).lesen)).toStrictEqual({
       error: "Fotos, Videos und Interviews kannst Du erst ab 21 Jahren erlauben. Schalte die Erlaubnis aus und bestätige erneut.",
     });
-    expect(await mapBestaetigungRefusal(refused("medien_age"), GETIPPT, floorOf(null).lesen)).toStrictEqual({
+    expect(await mapBestaetigungRefusal(refused("media_age"), GETIPPT, floorOf(null).lesen)).toStrictEqual({
       error: MEDIEN_NOCH_NICHT,
     });
   });
@@ -330,7 +330,7 @@ describe("what one refused confirmation shows", () => {
       "link_expired",
       "confirmation_exists",
       "confirmation_age",
-      "medien_age",
+      "media_age",
       "link_barred",
       "registrierung_choices_unsuitable",
     );
@@ -339,7 +339,7 @@ describe("what one refused confirmation shows", () => {
       "link_expired",
       "confirmation_exists",
       "confirmation_age",
-      "medien_age",
+      "media_age",
       "link_barred",
       "registrierung_choices_unsuitable",
     ];
@@ -407,7 +407,7 @@ describe("what a refused decision on a registration shows a seat holder", () => 
     const own = [
       "document_not_found",
       "registrierung_stufe_not_allowed",
-      "registrierung_adresse_barred",
+      "registrierung_address_barred",
       "registrierung_unconfirmed",
       "registrierung_person_not_named",
       "registrierung_already_in_kader",
@@ -419,7 +419,7 @@ describe("what a refused decision on a registration shows a seat holder", () => 
       "duplicate_key",
       "role_not_held",
       "registrierung_stufe_not_allowed",
-      "registrierung_adresse_barred",
+      "registrierung_address_barred",
       "registrierung_unconfirmed",
       "registrierung_person_not_named",
       "registrierung_already_in_kader",
@@ -434,7 +434,7 @@ describe("what a refused decision on a registration shows a seat holder", () => 
   /* A team is never told that a pupil's address is barred: the admission's ban refusal says no more
      than that the league has to look at it. */
   it("tells a seat holder nothing about a ban", () => {
-    const sentence = mapAufnahmeRefusal(refused("registrierung_adresse_barred")) ?? "";
+    const sentence = mapAufnahmeRefusal(refused("registrierung_address_barred")) ?? "";
 
     expect(sentence).not.toBe("");
     for (const verboten of [/sperr/i, /liste/i, /blockiert/i, /E-Mail/i]) expect(sentence, sentence).not.toMatch(verboten);

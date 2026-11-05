@@ -1,7 +1,9 @@
 import { textOf } from "@/core/copy";
 
 import { cardSurface } from "./cardStyles";
+import { CutText } from "./CutText";
 import { Link } from "./Link";
+import { placeholderBar, PlaceholderLine } from "./Skeleton";
 import { figures, goalsOf, look, sideMarks } from "./SpielRow";
 import { TeamPlaque } from "./TeamPlaque";
 import { tv } from "./tv";
@@ -17,6 +19,8 @@ const card = tv({
     line: "flex min-h-6 min-w-0 items-center justify-between gap-1.5 lg:gap-2",
     name: "flex min-w-0 items-center gap-2",
     goals: "whitespace-nowrap",
+    body: "grid gap-1 p-2 lg:px-3 lg:py-3",
+    when: "mt-1 border-t border-border pt-2 font-numeric text-xs text-fg-muted max-lg:hidden",
   },
 });
 
@@ -31,12 +35,11 @@ function Line({ side, score, part }: { side: SpielSide; score: Figures; part: "t
       <span className={style.name()}>
         <TeamPlaque plaque={side.plaque} />
         {/* A phone's card draws the plaque alone, the name still the link's words for a screen reader; desktop
-            sets the name, or a side's source, beside it, cut with „…“ and whole in its title. */}
-        <span
-          title={name}
-          className="min-w-0 truncate max-lg:sr-only">
-          {name}
-        </span>
+            sets the name, or a side's source, beside it, cut with „…“ and whole in its title while it is cut. */}
+        <CutText
+          text={name}
+          className="min-w-0 truncate max-lg:sr-only"
+        />
       </span>
       <span className={style.goals()}>{goalsOf(score, part)}</span>
     </span>
@@ -72,7 +75,7 @@ export function BracketCard({
       <Link
         href={href}
         placement="card">
-        <span className="grid gap-1 p-2 lg:px-3 lg:py-3">
+        <span className={card().body()}>
           <Line
             side={team1}
             score={score}
@@ -83,9 +86,45 @@ export function BracketCard({
             score={score}
             part="team2"
           />
-          <span className="mt-1 border-t border-border pt-2 font-numeric text-xs text-fg-muted max-lg:hidden">{when}</span>
+          <span className={card().when()}>{when}</span>
         </span>
       </Link>
+    </div>
+  );
+}
+
+/** One side's line while its match is read: the plaque, on desktop the name's line, and the figure, as bars. */
+function LinePlaceholder() {
+  const style = card();
+  return (
+    <span className={style.line()}>
+      <span className={style.name({ class: "flex-1" })}>
+        <span className={placeholderBar("h-6 w-10")} />
+        <PlaceholderLine
+          text="flex-1 text-sm max-lg:hidden"
+          width="w-3/4"
+        />
+      </span>
+      <span className={placeholderBar("h-3 w-3")} />
+    </span>
+  );
+}
+
+/** A knockout match's card while it is read: the card's own box and lines, the date's line under its hairline on desktop. */
+export function BracketCardPlaceholder() {
+  const style = card();
+  return (
+    <div className={cardSurface({ class: "overflow-hidden text-sm" })}>
+      <span className={style.body()}>
+        <LinePlaceholder />
+        <LinePlaceholder />
+        <span className={style.when()}>
+          <PlaceholderLine
+            text="text-xs"
+            width="w-1/2"
+          />
+        </span>
+      </span>
     </div>
   );
 }

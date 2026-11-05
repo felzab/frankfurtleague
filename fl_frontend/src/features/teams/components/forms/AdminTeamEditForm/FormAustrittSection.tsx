@@ -166,7 +166,7 @@ export function FormAustrittSection({
             nobody should discover after the fact. */}
         <InlineBanners
           banners={banners}
-          spot="austritt-eintrag"
+          spot="austritt-entry"
           isAnnounced
         />
 

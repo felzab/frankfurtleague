@@ -3,9 +3,12 @@ import { formatNumber } from "@/core/format";
 
 import { cardHover, cardSurface, columnHead, stacked } from "./cardStyles";
 import { Chip } from "./Chip";
+import { CutText } from "./CutText";
 import { EmptyState } from "./EmptyState";
 import { Link } from "./Link";
+import { PlaquePopover } from "./PlaquePopover";
 import { RowEnd } from "./RowEnd";
+import { placeholderBar, PlaceholderLine } from "./Skeleton";
 import { TargetMark } from "./TargetMark";
 import { TeamPlaque } from "./TeamPlaque";
 import { tv } from "./tv";
@@ -24,6 +27,8 @@ type TableColumn = {
   figures?: boolean;
   /** The column that decides, such as points: its figures in the strong weight. */
   strong?: boolean;
+  /** Text a person wrote, such as a Begründung, which keeps the line breaks it was written with. */
+  written?: boolean;
 } & (
   | { /** Left out on a phone, where the row keeps its name and two facts. */ hideOnPhone?: boolean; phoneOnly?: never }
   /** Drawn on a phone alone, such as one column standing for several the phone leaves out. */
@@ -47,6 +52,12 @@ export type TableRow = {
   href?: Route;
   /** A club's plaque before its name. */
   plaque?: Plaque;
+  /**
+   * The club's own page: its plaque then opens the club's full name over `plaqueLine`, such as its group, and the
+   * ways to its page and its squad (`PlaquePopover`).
+   */
+  plaqueHref?: Route;
+  plaqueLine?: Copy;
   chip?: ChipProps;
   /** The row's values, by column key; a missing value leaves its cell empty. */
   cells: Readonly<Record<string, TableCell>>;
@@ -91,7 +102,34 @@ export type TableProps = {
    * every cell after its column's label.
    */
   prose?: boolean;
+  /**
+   * A table whose cells hold more than a phone's row shares with its name, such as the match editor's report and its
+   * answers: on a phone each row stacks, its name line over its cells and every cell after its column's label, the
+   * cells wrapping under it.
+   */
+  stack?: boolean;
+  /**
+   * Whether a linked row's chevron stands on a phone too, as on every list opening a record. The Tabelle alone
+   * leaves it out there, the whole row still the link: the owner's ruling for that table, not a matter of room,
+   * since its cells hold the chevron, so `compact` does not decide it.
+   */
+  chevronOnPhone?: boolean;
 };
+
+/**
+ * What a table is before its rows are read: its heads, its columns and how its cells set. A page states it once,
+ * beside the rows it reads, so the table and its placeholder are drawn from the one declaration.
+ */
+export type TableHead = Pick<TableProps, "nameLabel" | "rankLabel" | "columns" | "compact" | "chevronOnPhone">;
+
+/** A table's rows once read: everything but its head. */
+export type TableBody = Omit<TableProps, keyof TableHead>;
+
+/** A stacked phone row's two columns: its cells, then its chevron, the kit's 12-px gap between them. */
+const PHONE_END_ROW = "max-lg:grid-cols-[minmax(0,1fr)_auto] max-lg:gap-x-3";
+
+/** That chevron's column, the row's second, centring the chevron on the lines it spans. */
+const PHONE_END = "max-lg:col-start-2 max-lg:flex max-lg:w-auto max-lg:items-center max-lg:pe-0";
 
 const table = tv({
   slots: {
@@ -105,11 +143,10 @@ const table = tv({
     // of an automatic table layout shrink below its content, so the cut can happen at all).
     name: "w-full max-w-0 px-3 py-2",
     // A club's name beside its plaque, read but not drawn on a phone, where the plaque stands for it alone.
-    clubName: "ms-2 max-lg:sr-only",
-    // A linked row's last cell, as narrow as the chevron that says the row leads on; a phone, short of room,
-    // leaves the chevron out, the whole row still the link.
-    end: "w-0 pe-3 max-lg:hidden",
-    // A prose cell's column label on a phone, drawn for the eye alone: the read head names the column.
+    clubName: "max-lg:sr-only",
+    // A linked row's last cell, as narrow as the chevron that says the row leads on.
+    end: "w-0 pe-3",
+    // A prose or a stacked cell's column label on a phone, drawn for the eye alone: the read head names the column.
     label: "",
   },
   variants: {
@@ -145,13 +182,34 @@ const table = tv({
       true: {
         head: "max-lg:sr-only",
         row: "max-lg:grid max-lg:h-auto max-lg:gap-1 max-lg:px-3 max-lg:py-3",
-        name: "w-auto max-w-none py-3 align-top max-lg:px-0 max-lg:py-0 max-lg:font-semibold",
-        cell: "py-3 align-top whitespace-normal max-lg:grid max-lg:grid-cols-[4rem_minmax(0,1fr)] max-lg:gap-x-3 max-lg:px-0",
+        name: "w-auto max-w-none py-3 align-top max-lg:col-start-1 max-lg:px-0 max-lg:py-0 max-lg:font-semibold",
+        cell: "py-3 align-top whitespace-normal max-lg:col-start-1 max-lg:grid max-lg:grid-cols-[4rem_minmax(0,1fr)] max-lg:gap-x-3 max-lg:px-0",
         label: "text-xs text-fg-muted lg:hidden",
       },
     },
+    // On a phone the column heads are read but not drawn, and each row is one column of its name line and its cells,
+    // each cell drawing its column's label before its words, which wrap there under their own label. The one column
+    // is `minmax(0, 1fr)`, so the name line is cut at the phone's width rather than widening the row.
+    stack: {
+      true: {
+        head: "max-lg:sr-only",
+        row: "max-lg:grid max-lg:h-auto max-lg:grid-cols-1 max-lg:gap-1 max-lg:px-3 max-lg:py-3",
+        name: "max-lg:col-start-1 max-lg:w-auto max-lg:max-w-none max-lg:px-0 max-lg:py-0",
+        cell: "max-lg:col-start-1 max-lg:grid max-lg:grid-cols-[4rem_minmax(0,1fr)] max-lg:gap-x-3 max-lg:px-0 max-lg:text-start max-lg:whitespace-normal",
+        label: "text-xs text-fg-muted lg:hidden",
+      },
+    },
+    // Text a person wrote keeps its breaks: one line per written line, as every cell keeps its line, and wrapping
+    // inside its lines where a prose table or a stacked phone row wraps its cells (the compound rules below).
+    written: {
+      true: { cell: "whitespace-pre" },
+    },
     linked: {
       true: { row: cardHover() },
+    },
+    chevronOnPhone: {
+      true: {},
+      false: { end: "max-lg:hidden" },
     },
     muted: {
       true: { row: "text-fg-muted" },
@@ -162,7 +220,17 @@ const table = tv({
       level: { cell: "shadow-[inset_2px_0_0_var(--border-control)]", name: "shadow-[inset_2px_0_0_var(--border-control)]" },
     },
   },
-  compoundVariants: [{ align: "centre", compact: true, class: { head: "max-lg:w-7", cell: "max-lg:w-7" } }],
+  compoundVariants: [
+    { align: "centre", compact: true, class: { head: "max-lg:w-7", cell: "max-lg:w-7" } },
+    // Restated after the variants, so a stacked row's grid cell never draws a column the phone leaves out.
+    { phone: "hidden", class: { head: "max-lg:hidden", cell: "max-lg:hidden" } },
+    // A prose or a stacked row on a phone stands its cells in one column and its chevron in a column of its own at its
+    // end, spanning every cell's line so it is centred on the row's height (`Table`'s `phoneCells`).
+    { prose: true, chevronOnPhone: true, class: { row: PHONE_END_ROW, end: PHONE_END } },
+    { stack: true, chevronOnPhone: true, class: { row: PHONE_END_ROW, end: PHONE_END } },
+    { written: true, prose: true, class: { cell: "whitespace-pre-line" } },
+    { written: true, stack: true, class: { cell: "max-lg:whitespace-pre-line" } },
+  ],
 });
 
 /** The hyphen between a record's counts, „3-1-0“, as its head „S-U-N“ joins their letters. */
@@ -218,32 +286,72 @@ function Cell({ cell, slot }: { cell: TableCell | undefined; slot: boolean }) {
   );
 }
 
+/** The span holding a row's names and its link. */
+const nameWords = tv({
+  base: "min-w-0",
+  variants: {
+    // A prose table's name wraps; every other is cut with „…“.
+    cut: { true: "truncate" },
+    // A lone plaque's name draws nothing on a phone, so the span takes back the gap before it, and the chip stands
+    // as far from the plaque as from a name.
+    lonePlaque: { true: "max-lg:-ms-2" },
+  },
+});
+
+/** A side's plaque: a button opening the club where the side names its page, else the plaque drawn. */
+function PlaqueOf({ plaque, href, name, line }: { plaque: Plaque; href: Route | undefined; name: Words; line: Copy | undefined }) {
+  return "record" in plaque && href !== undefined ? (
+    <PlaquePopover
+      plaque={plaque}
+      name={name}
+      href={href}
+      {...(line === undefined ? {} : { line })}
+    />
+  ) : (
+    <TeamPlaque plaque={plaque} />
+  );
+}
+
 /**
- * The name, cut with „…“ where its column is too narrow and whole in its `title`, then the chip, which keeps
- * its size and its line; a prose table's name wraps instead. A club's plaque stands before its name inside the
- * row's link, so on a phone, where the plaque alone is drawn, the link still opens the club and is named by the
- * club's full name.
+ * The name, cut with „…“ where its column is too narrow and whole in its `title` while it is cut, then the chip, which keeps
+ * its size and its line; a prose table's name wraps instead. A club's plaque stands outside the span cutting the names, so the cut never takes it, and outside
+ * the row's link, which may hold no button; the link's stretched box still covers a drawn plaque, so on a phone,
+ * where the plaque alone is drawn, a press on it opens the row's record, which the link names by the club's full
+ * name, and a plaque opening its club stands above that box.
  */
-function NameCell({ row, barred, compact, prose }: { row: TableRow; barred: TableRow["qualifies"]; compact: boolean; prose: boolean }) {
-  const s = table({ qualifies: barred, compact, prose });
+function NameCell({
+  row,
+  barred,
+  compact,
+  prose,
+  stack,
+}: {
+  row: TableRow;
+  barred: TableRow["qualifies"];
+  compact: boolean;
+  prose: boolean;
+  stack: boolean;
+}) {
+  const s = table({ qualifies: barred, compact, prose, stack });
+  const { plaque } = row;
   const name = textOf(row.name);
-  const words =
-    row.plaque === undefined ? (
-      name
-    ) : (
-      <>
-        <TeamPlaque plaque={row.plaque} />
-        <span className={s.clubName()}>{name}</span>
-      </>
-    );
+  const words = plaque === undefined ? name : <span className={s.clubName()}>{name}</span>;
   return (
     <td
       role="cell"
       className={s.name()}>
       <span className="flex min-w-0 items-center gap-2">
-        <span
-          className={prose ? "min-w-0" : "min-w-0 truncate"}
-          title={name}>
+        {plaque !== undefined && (
+          <PlaqueOf
+            plaque={plaque}
+            href={row.plaqueHref}
+            name={row.name}
+            line={row.plaqueLine}
+          />
+        )}
+        <CutText
+          text={name}
+          className={nameWords({ cut: !prose, lonePlaque: plaque !== undefined })}>
           {row.href === undefined ? (
             words
           ) : (
@@ -253,7 +361,7 @@ function NameCell({ row, barred, compact, prose }: { row: TableRow; barred: Tabl
               {words}
             </Link>
           )}
-        </span>
+        </CutText>
         {row.chip !== undefined && <Chip {...row.chip} />}
       </span>
     </td>
@@ -266,9 +374,26 @@ function NameCell({ row, barred, compact, prose }: { row: TableRow; barred: Tabl
  * and chip, then a few facts. The table, its rows, its heads and its cells carry their table roles in writing, since a
  * prose row's `display: grid` on a phone drops the semantics an engine infers from the elements alone.
  */
-export function Table({ label, nameLabel, rankLabel, columns, rows, empty, bare = false, compact = false, prose = false }: TableProps) {
-  const nameHead = table({ align: "start", compact, prose }).head();
+export function Table({
+  label,
+  nameLabel,
+  rankLabel,
+  columns,
+  rows,
+  empty,
+  bare = false,
+  compact = false,
+  prose = false,
+  stack = false,
+  chevronOnPhone = true,
+}: TableProps) {
+  const nameHead = table({ align: "start", compact, prose, stack }).head();
   const isLinked = rows.some((row) => row.href !== undefined);
+  // Every row keeps the chevron's room on a phone where some row draws one there.
+  const phoneEnd = { prose, stack, chevronOnPhone: isLinked && chevronOnPhone };
+  // A stacked phone row's chevron spans the lines of every cell the phone draws, the rank, the name and each column it
+  // keeps: a count no grid rule can name, since a span to the last line reaches no line the cells add themselves.
+  const phoneCells = (rankLabel === undefined ? 0 : 1) + 1 + columns.filter((column) => column.hideOnPhone !== true).length;
   // The columns where some row carries the mark of fixtures called off, whose every row keeps its slot.
   const marked = new Set(
     columns
@@ -281,7 +406,8 @@ export function Table({ label, nameLabel, rankLabel, columns, rows, empty, bare 
       .map((column) => column.key),
   );
   return (
-    <div className={bare ? "overflow-x-auto" : cardSurface({ class: "overflow-x-auto" })}>
+    // `w-full`: a Section's grid starts its children, which would shrink the table and cut its cells.
+    <div className={bare ? "w-full overflow-x-auto" : cardSurface({ class: "w-full overflow-x-auto" })}>
       {rows.some((row) => row.anchor !== undefined) && <TargetMark />}
       {rows.length === 0 ? (
         <EmptyState {...empty} />
@@ -318,6 +444,7 @@ export function Table({ label, nameLabel, rankLabel, columns, rows, empty, bare 
                     phone: phoneOf(column),
                     compact,
                     prose,
+                    stack,
                   }).head()}>
                   {column.label}
                 </th>
@@ -326,7 +453,7 @@ export function Table({ label, nameLabel, rankLabel, columns, rows, empty, bare 
               {isLinked && (
                 <td
                   role="cell"
-                  className={table({ phone: "hidden" }).head()}
+                  className={table({ phone: chevronOnPhone ? "shown" : "hidden", prose, stack }).head()}
                 />
               )}
             </tr>
@@ -339,7 +466,7 @@ export function Table({ label, nameLabel, rankLabel, columns, rows, empty, bare 
                   key={row.id}
                   id={row.anchor}
                   role="row"
-                  className={table({ ...marks, prose }).row()}>
+                  className={table({ ...marks, ...phoneEnd }).row()}>
                   {rankLabel !== undefined && (
                     <td
                       role="cell"
@@ -352,22 +479,25 @@ export function Table({ label, nameLabel, rankLabel, columns, rows, empty, bare 
                     barred={rankLabel === undefined ? row.qualifies : undefined}
                     compact={compact}
                     prose={prose}
+                    stack={stack}
                   />
                   {columns.map((column) => {
                     const s = table({
                       align: column.figures === true ? "figure" : "start",
                       figures: column.figures === true,
                       strong: column.strong === true,
+                      written: column.written === true,
                       phone: phoneOf(column),
                       compact,
                       prose,
+                      stack,
                     });
                     return (
                       <td
                         key={column.key}
                         role="cell"
                         className={s.cell()}>
-                        {prose && (
+                        {(prose || stack) && (
                           <span
                             aria-hidden
                             className={s.label()}>
@@ -384,7 +514,9 @@ export function Table({ label, nameLabel, rankLabel, columns, rows, empty, bare 
                   {isLinked && (
                     <td
                       role="cell"
-                      className={table().end()}>
+                      className={table(phoneEnd).end()}
+                      // A grid placement, which a stacked phone row alone reads: a table cell ignores it.
+                      style={prose || stack ? { gridRow: `1 / span ${String(phoneCells)}` } : undefined}>
                       {row.href !== undefined && <RowEnd />}
                     </td>
                   )}
@@ -394,6 +526,80 @@ export function Table({ label, nameLabel, rankLabel, columns, rows, empty, bare 
           </tbody>
         </table>
       )}
+    </div>
+  );
+}
+
+/**
+ * A table while its rows are read: its own head, the columns' labels as the page states them, over `rows` rows at the
+ * rows' height, each cell a bar where its value will stand, set as the column sets its values: a rank and figures
+ * centred, a name from the start after a club's plaque where the rows hold clubs, the chevron where rows lead on.
+ * Drawn with the table's own recipe, so it stands as the table will at every width, a phone's left-out columns
+ * left out.
+ */
+export function TablePlaceholder({
+  head,
+  rows,
+  plaques = false,
+  bare = false,
+}: {
+  head: TableHead;
+  rows: number;
+  /** Whether each row names a club, its plaque before its name, which alone stands for the club on a phone. */
+  plaques?: boolean;
+  bare?: boolean;
+}) {
+  const { nameLabel, rankLabel, columns, compact = false, chevronOnPhone = true } = head;
+  return (
+    <div className={bare ? "w-full overflow-hidden" : cardSurface({ class: "w-full overflow-hidden" })}>
+      <table className="w-full border-collapse text-sm">
+        <thead>
+          <tr className={columnHead().rule()}>
+            {rankLabel !== undefined && <th className={table({ align: "centre", compact }).head()}>{rankLabel}</th>}
+            <th className={table({ align: "start", compact }).head()}>{nameLabel}</th>
+            {columns.map((column) => (
+              <th
+                key={column.key}
+                className={table({ align: column.figures === true ? "figure" : "start", phone: phoneOf(column), compact }).head()}>
+                {column.label}
+              </th>
+            ))}
+            <td className={table({ phone: chevronOnPhone ? "shown" : "hidden" }).head()} />
+          </tr>
+        </thead>
+        <tbody>
+          {Array.from({ length: rows }, (_, index) => (
+            <tr
+              key={index}
+              className={table({ chevronOnPhone }).row()}>
+              {rankLabel !== undefined && (
+                <td className={table({ align: "centre", compact }).cell()}>
+                  <span className={placeholderBar("mx-auto h-3 w-3")} />
+                </td>
+              )}
+              <td className={table({ compact }).name()}>
+                <span className="flex min-w-0 items-center gap-2">
+                  {plaques && <span className={placeholderBar("h-6 w-10")} />}
+                  <PlaceholderLine
+                    text={plaques ? "flex-1 text-sm max-lg:hidden" : "flex-1 text-sm"}
+                    width="w-1/2"
+                  />
+                </span>
+              </td>
+              {columns.map((column) => (
+                <td
+                  key={column.key}
+                  className={table({ align: column.figures === true ? "figure" : "start", phone: phoneOf(column), compact }).cell()}>
+                  <span className={placeholderBar(column.figures === true ? "mx-auto h-3 w-4" : "h-3 w-20")} />
+                </td>
+              ))}
+              <td className={table({ chevronOnPhone }).end()}>
+                <RowEnd />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

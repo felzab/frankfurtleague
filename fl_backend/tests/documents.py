@@ -19,14 +19,14 @@ from zoneinfo import ZoneInfo
 
 from bson import ObjectId
 
-from app.api.adresswechsel.services import compose_record
+from app.api.address_change.services import compose_record
 from app.api.bewerbungen.services import bestaetigungsfrist_from, compose_bestaetigungen, compose_einwilligung
 from app.api.registrierungen.services import compose_bestaetigung, compose_confirmation_update, compose_registrierung
-from app.api.sperrliste.services import SPERRLISTE_SCHLUESSEL_VERSION, adresse_hash
-from app.api.spielbestaetigungen.services import compose_ansetzung, halter_of
+from app.api.sperrliste.services import BAN_LIST_KEY_VERSION, address_hash
+from app.api.spielbestaetigungen.services import compose_ansetzung
 from app.core.recording import log_stamp
-from app.shared.einwilligung_nachweis import CHOICES, NACHWEIS, TextVersions, compose_beleg, compose_geboren
-from app.shared.schemas.einwilligung import FLMedienTextVersion, FLNameKaderTextVersion, FLNameSpielplanTextVersion, FLWhatsappTextVersion
+from app.shared.einwilligung_evidence import CHOICES, EVIDENCE, TextVersions, compose_initial, compose_receipt
+from app.shared.schemas.einwilligung import FLMediaTextVersion, FLNameKaderTextVersion, FLNameSpielplanTextVersion, FLWhatsappTextVersion
 from app.shared.schemas.literals import KONTAKT_ROLLEN, FLAddressChangeWay, FLKontaktEnteredBy
 from app.shared.tokens import hash_token
 from tests.config import build_test_config
@@ -49,11 +49,11 @@ def label_of(alias: TypeAliasType) -> str:
 
 
 # The labels each kind of record's press names, keyed by the choice each evidences.
-SEAT_TEXT_VERSIONS: Final[TextVersions] = {"umfang": label_of(FLWhatsappTextVersion), "medien": label_of(FLMedienTextVersion)}
-SPIELER_TEXT_VERSIONS: Final[TextVersions] = {"umfang": label_of(FLNameKaderTextVersion), "medien": label_of(FLMedienTextVersion)}
+SEAT_TEXT_VERSIONS: Final[TextVersions] = {"scope": label_of(FLWhatsappTextVersion), "media": label_of(FLMediaTextVersion)}
+SPIELER_TEXT_VERSIONS: Final[TextVersions] = {"scope": label_of(FLNameKaderTextVersion), "media": label_of(FLMediaTextVersion)}
 SCHIEDSRICHTER_TEXT_VERSIONS: Final[TextVersions] = {
-    "umfang": label_of(FLNameSpielplanTextVersion),
-    "medien": label_of(FLMedienTextVersion),
+    "scope": label_of(FLNameSpielplanTextVersion),
+    "media": label_of(FLMediaTextVersion),
 }
 
 
@@ -65,14 +65,14 @@ def confirmed_instant(tag: str) -> str:
 
 # A pupil's record as their own confirmation wrote it and their admission carried it onto the person,
 # publishing the name and no media.
-EINWILLIGUNG: Final[Mapping[str, Any]] = compose_geboren(
+EINWILLIGUNG: Final[Mapping[str, Any]] = compose_initial(
     block={
-        "umfang": "kader_oeffentlich",
-        "datum": "2026-01-20",
+        "scope": "kader_oeffentlich",
+        "date": "2026-01-20",
         "confirmed_at": "2026-01-20",
-        "medien": False,
+        "media": False,
     },
-    am=confirmed_instant("2026-01-20"),
+    at=confirmed_instant("2026-01-20"),
     text_versions=SPIELER_TEXT_VERSIONS,
 )
 
@@ -81,6 +81,7 @@ EINWILLIGUNG: Final[Mapping[str, Any]] = compose_geboren(
 _RULES: Final[Mapping[str, Any]] = {
     "win_points": 3,
     "draw_points": 1,
+    "loss_points": 0,
     "qualifiers_per_gruppe": 2,
     "number_of_gruppen": 4,
     "teams_per_gruppe": 4,
@@ -108,6 +109,7 @@ def saison_document(saison_id: str, status: str, **fields: Any) -> dict[str, Any
         "rules": rules_document(),
         "bewerbung": None,
         "registrierung": None,
+        "version": 0,
         **fields,
     }
 
@@ -174,6 +176,25 @@ def spiel_document(*, spiel_id: Any, saison_id: str, spiel_nr: int, spieltag_id:
     }
 
 
+def joined_spiel_document(spiel: Mapping[str, Any]) -> dict[str, Any]:
+    """`spiel` as `build_spiele_pipeline` serves it, for a report judging joined fixtures without the database.
+
+    Each side's club still in its season, nobody asked to confirm, no match for third place. The names are whatever
+    `spiel` carries where a read would join them.
+    """
+
+    def side(stored: Mapping[str, Any] | None) -> dict[str, Any] | None:
+        return None if stored is None else {"austritt": None, "austritt_type": None, **stored}
+
+    return {
+        **spiel,
+        "team1": side(spiel.get("team1")),
+        "team2": side(spiel.get("team2")),
+        "ansetzung_confirmed": None,
+        "for_third_place": False,
+    }
+
+
 def spielbestaetigung_document(spiel: Mapping[str, Any], *, party: Mapping[str, Any], **fields: Any) -> dict[str, Any]:
     """An open, unanswered row as the pass mints it, its snapshot composed from `spiel` by the composer the mint calls.
 
@@ -188,7 +209,7 @@ def spielbestaetigung_document(spiel: Mapping[str, Any], *, party: Mapping[str, 
         "ansetzung": compose_ansetzung(spiel),
         "frist": "2026-04-25",
         "asked_at": None,
-        "reminded_at": [],
+        "reminded_at": None,
         "kontakte": dict.fromkeys(KONTAKT_ROLLEN),
         "antwort": None,
         "closed": None,
@@ -199,7 +220,7 @@ def spielbestaetigung_document(spiel: Mapping[str, Any], *, party: Mapping[str, 
 def bericht_document(**fields: Any) -> dict[str, Any]:
     """A referee's first, unadopted report of a 1:0 won by `team1`: one named scorer, one caution with its reason."""
 
-    am = datetime(2026, 3, 15, 20, tzinfo=UTC)
+    at = datetime(2026, 3, 15, 20, tzinfo=UTC)
 
     return {
         "ergebnis_vorschlag": {"team1_tore": 1, "team2_tore": 0, "elfmeterschiessen": None, "sonderereignis": None},
@@ -207,9 +228,9 @@ def bericht_document(**fields: Any) -> dict[str, Any]:
         "karten": [{"seite": "team2", "spieler_id": ObjectId(), "minute": "45+2", "farbe": "gelb", "grund": "foulspiel"}],
         "bemerkungen": None,
         "seiten": {"team1": None, "team2": None},
-        "submitted_at": am,
+        "submitted_at": at,
         "submitted_by": {"art": "schiedsrichter", "schiedsrichter_id": ObjectId()},
-        "changed_at": am,
+        "changed_at": at,
         "version": 1,
         "adopted_at": None,
         "adopted_by": None,
@@ -235,13 +256,13 @@ def spielbericht_document(spiel: Mapping[str, Any], **fields: Any) -> dict[str, 
     }
 
 
-def kontakt_antwort_document(rolle: str, adresse: str, *, begruendung: str | None, am: str = "2026-04-01", **fields: Any) -> dict[str, Any]:
-    """A seat's decline as its link stores it, proposing another date; its holder the digest of `adresse`, the answer's own fold."""
+def kontakt_antwort_document(rolle: str, *, begruendung: str | None, am: str = "2026-04-01", **fields: Any) -> dict[str, Any]:
+    """A seat's decline as its link stores it, proposing another date."""
 
     return {
         "art": "declined",
         "am": am,
-        "von": {"art": "kontakt", "rolle": rolle, "halter": halter_of(adresse, key=build_test_config().sperrliste_key)},
+        "von": {"art": "kontakt", "rolle": rolle},
         "vorschlag": {"datum": "2026-04-25", "uhrzeit": "14:00:00"},
         "begruendung": begruendung,
         **fields,
@@ -377,7 +398,7 @@ def kontaktperson_document(
     *,
     confirmed_at: str | None = None,
     einwilligung: Mapping[str, Any] | None = None,
-    am: str | None = None,
+    at: str | None = None,
     entered_by: FLKontaktEnteredBy = "bewerbung",
     **fields: Any,
 ) -> dict[str, Any]:
@@ -396,10 +417,12 @@ def kontaktperson_document(
         # As `app/api/bewerbungen/services.py :: compose_confirmation_update` answers the seat: both
         # choices with their evidence, judged against the seat as seated.
         block = {**seated, "confirmed_at": confirmed_at, **(einwilligung or {})}
-        if NACHWEIS not in block:
-            beleg_am = am if am is not None else confirmed_instant(confirmed_at)
-            block[NACHWEIS] = {
-                choice: compose_beleg(saved=seated, choice=choice, value=block[choice], am=beleg_am, text_version=SEAT_TEXT_VERSIONS[choice])
+        if EVIDENCE not in block:
+            receipt_at = at if at is not None else confirmed_instant(confirmed_at)
+            block[EVIDENCE] = {
+                choice: compose_receipt(
+                    saved=seated, choice=choice, value=block[choice], at=receipt_at, text_version=SEAT_TEXT_VERSIONS[choice]
+                )
                 for choice in CHOICES
             }
 
@@ -414,27 +437,27 @@ def kontaktperson_document(
     }
 
 
-def confirmed_kenntnisnahme(*, datum: str = "2026-01-15", confirmed_at: str = "2026-01-16") -> dict[str, Any]:
+def confirmed_kenntnisnahme(*, date: str = "2026-01-15", confirmed_at: str = "2026-01-16") -> dict[str, Any]:
     """A seat's record as its applicant's seating and then its own person's confirmation left it, for a seat a case spells itself."""
 
-    return dict(kontaktperson_document("Kenntnis", confirmed_at=confirmed_at, einwilligung={"datum": datum})["einwilligung"])
+    return dict(kontaktperson_document("Kenntnis", confirmed_at=confirmed_at, einwilligung={"date": date})["einwilligung"])
 
 
-def ban_document(address: str, *, bis: str, **fields: Any) -> dict[str, Any]:
+def ban_document(address: str, *, until: str, **fields: Any) -> dict[str, Any]:
     """One ban as the shipped write stores it, keyed under the suite's own settings.
 
-    `bis` has no default: read against the running season, it decides whether the ban stands, so each
+    `until` has no default: read against the running season, it decides whether the ban stands, so each
     case names the bound it seeds.
     """
 
     return {
         "_id": ObjectId(),
-        "adresse_hash": adresse_hash(address, key=build_test_config().sperrliste_key),
-        "key_version": SPERRLISTE_SCHLUESSEL_VERSION,
+        "address_hash": address_hash(address, key=build_test_config().sperrliste_key),
+        "key_version": BAN_LIST_KEY_VERSION,
         "grund": "Falsches Geburtsdatum bei der Anmeldung",
         "created_by": "admin@frankfurtleague.de",
         "created_at": "2026-03-15",
-        "barred_until_saison_id": bis,
+        "barred_until_saison_id": until,
         **fields,
     }
 
@@ -460,25 +483,25 @@ def saison_spieler_document(spieler_id: Any, saison_id: str, team_id: Any, **fie
 # and every label a case asserts are passed at the call.
 
 
-def own_einwilligung_document(*, text_versions: TextVersions, confirmed_at: str, am: str | None = None, **fields: Any) -> dict[str, Any]:
+def own_einwilligung_document(*, text_versions: TextVersions, confirmed_at: str, at: str | None = None, **fields: Any) -> dict[str, Any]:
     """A pupil's or a referee's consent as their own confirmation left it, publishing the name and no media.
 
-    Each choice evidenced at `am`, noon of `confirmed_at` unless a case names it, under its kind's `text_versions`;
+    Each choice evidenced at `at`, noon of `confirmed_at` unless a case names it, under its kind's `text_versions`;
     `fields` laid over the block.
     """
 
-    geboren = compose_geboren(
+    born = compose_initial(
         block={
-            "umfang": "kader_oeffentlich",
-            "datum": confirmed_at,
+            "scope": "kader_oeffentlich",
+            "date": confirmed_at,
             "confirmed_at": confirmed_at,
-            "medien": False,
+            "media": False,
         },
-        am=am if am is not None else confirmed_instant(confirmed_at),
+        at=at if at is not None else confirmed_instant(confirmed_at),
         text_versions=text_versions,
     )
 
-    return {**geboren, **fields}
+    return {**born, **fields}
 
 
 def schiedsrichter_document(
@@ -505,22 +528,22 @@ def kontakte_document(**seats: Any) -> dict[str, Any]:
     return {**dict.fromkeys(KONTAKT_ROLLEN), "trainer_is_also": None, **seats}
 
 
-def registrierung_confirmed(*, geburtsdatum: str, today: str, am: str, umfang: str | None = None, medien: bool | None = None) -> dict[str, Any]:
+def registrierung_confirmed(*, geburtsdatum: str, today: str, at: str, scope: str | None = None, media: bool | None = None) -> dict[str, Any]:
     """`registrierung_document`'s `confirmed` for a pupil's confirmation, the returning pupil's where it asks no choice."""
 
     return {
         "geburtsdatum": geburtsdatum,
-        "umfang": umfang,
-        "medien": medien,
-        "text_versions": None if umfang is None and medien is None else SPIELER_TEXT_VERSIONS,
+        "scope": scope,
+        "media": media,
+        "text_versions": None if scope is None and media is None else SPIELER_TEXT_VERSIONS,
         "today": today,
-        "am": am,
+        "at": at,
     }
 
 
 def address_change_document(
     *,
-    adresse: str,
+    address: str,
     email: str,
     token_hash: str | None,
     day: str,
@@ -538,7 +561,7 @@ def address_change_document(
     asked_first = way == "account"
 
     return {
-        **compose_record(adresse=adresse, email=email, way=way, grund=None, approval=approval, now=started),
+        **compose_record(address=address, email=email, way=way, grund=None, approval=approval, now=started),
         "token_hashes": [] if token_hash is None else [token_hash],
         "stop": {"token_hashes": [hash_token(f"stop-{token_hash}")]},
         "released_at": started.astimezone(UTC) if asked_first and token_hash is not None else None,

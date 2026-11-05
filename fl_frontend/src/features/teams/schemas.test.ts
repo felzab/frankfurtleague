@@ -28,7 +28,7 @@ const kontaktpersonPayload = (overrides: Record<string, unknown> = {}) => ({
   nachname: "Mustermann",
   email: "erika@beispiel.de",
   telefon: "069 1234567",
-  einwilligung: { umfang: "kontaktdaten", datum: "2025-09-01" },
+  einwilligung: { scope: "kontaktdaten", date: "2025-09-01" },
   ...overrides,
 });
 
@@ -151,9 +151,9 @@ describe("a club's website", () => {
 
   /* The key is required whatever its value: an omitted one is a payload the API cannot read. */
   it("still refuses the field being left out altogether", () => {
-    const { website_url: _absent, ...ohne } = payload(null);
+    const { website_url: _absent, ...without } = payload(null);
 
-    expect(pathsRefused(FLCreateTeamFormPayloadSchema, ohne)).toStrictEqual(["website_url"]);
+    expect(pathsRefused(FLCreateTeamFormPayloadSchema, without)).toStrictEqual(["website_url"]);
   });
 });
 

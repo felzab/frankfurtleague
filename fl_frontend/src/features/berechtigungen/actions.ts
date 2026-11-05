@@ -103,7 +103,7 @@ export async function patchBerechtigungAction(rawPayload: FLPatchGrantPayload): 
     if (patchOperation.requested) return { success: true, beantragt: true, message: ERNENNUNG_BEANTRAGT_MESSAGE };
 
     // Done whether it moved the tier or found it there: a repeated press names the tier the grant holds.
-    return { success: true, beantragt: false, message: STUFE_GEAENDERT_MESSAGE[validated.data.verwaltung] };
+    return { success: true, beantragt: false, message: STUFE_GEAENDERT_MESSAGE[validated.data.admin_tier] };
   });
 }
 

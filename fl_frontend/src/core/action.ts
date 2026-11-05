@@ -13,7 +13,7 @@ import { logger } from "./logging";
 import { logRefused } from "./refused";
 import { getRequestActor, requestWriteMayStand } from "./requestScope";
 import { isSeatAt, rolesOf } from "./roles";
-import { isWordedRule, ruleMessage } from "./ruleMessage";
+import { isBoundedCode, isWordedRule, ruleMessage } from "./ruleMessage";
 import { SERVER_COPY } from "./serverCopy";
 import { SITE_CACHE_TAG } from "./siteCache";
 import { getSubjectSession } from "./subject";
@@ -23,7 +23,7 @@ import { TURNSTILE_FIELD } from "./turnstileToken";
 import { fieldMessage } from "./zodGerman";
 
 import type { AdminRefusal, JudgedSession } from "./auth/guards";
-import type { Copy } from "./copy";
+import type { Words as CatalogueWords, Copy } from "./copy";
 import type { Code, FLRefusedField } from "./generated/client/types";
 import type { Role } from "./roles";
 import type { WordedRule } from "./ruleMessage";
@@ -38,7 +38,21 @@ import type { SubjectSession } from "./subject";
  * its fields alone may leave the line to the form.
  */
 export type ActionAnswer<Value = undefined> =
-  { ok: true; value: Value; note?: Copy } | { ok: false; fieldErrors?: Readonly<Record<string, Copy>>; reason?: Copy; errorCode?: Code };
+  | { ok: true; value: Value; note?: Copy }
+  | { ok: false; fieldErrors?: Readonly<Record<string, Copy>>; reason?: Copy; errorCode?: Code; ask?: SaveQuestion };
+
+/**
+ * A save the server holds back until the person confirms what it would set off beyond the record, such as the later
+ * results a match's new score deletes: the question its editor asks, the facts it rests on, and `confirm`, the token a
+ * confirmed send carries back. The token names what was confirmed, so a save that would now set off something else
+ * is asked about again rather than let through.
+ */
+export type SaveQuestion = {
+  subject: Copy;
+  consequence: Copy;
+  facts?: ReadonlyArray<{ readonly label: Copy; readonly value: CatalogueWords }>;
+  confirm: string;
+};
 
 /** A code the catalogue words in a person's own terms: `SERVER_COPY.refusal`'s keys, and `SERVER_COPY.refusalLine`'s. */
 type WordedCode = keyof typeof SERVER_COPY.refusal | keyof typeof SERVER_COPY.refusalLine;
@@ -59,7 +73,7 @@ type Field<T, Above extends string = ""> = T extends readonly unknown[]
 /** A seat a person's write claims: the team and the season it names, read off the input. */
 type SeatClaim = { readonly team_id: string; readonly saison_id: string };
 
-type Seat = Extract<Role, { art: "kontakt" }>;
+type Seat = Extract<Role, { kind: "kontakt" }>;
 
 /** What every lane declares: its name for the failure line, its input's schema, and how its refusals are placed. */
 type Declared<Schema extends z.ZodType> = {
@@ -92,6 +106,27 @@ type Run<Schema extends z.ZodType, Context, Value> = (input: z.output<Schema>, c
  * nobody, which any account's passkey answers, signing that account in.
  */
 export const PAGE_HOLDER = { holder: z.string().min(1).max(KONTAKT_EMAIL_MAX_LENGTH) };
+
+/** A published rule a field's value is held to, or an action's own reading of a box over it. */
+type Rule = { readonly safeParse: (value: unknown) => { readonly success: boolean } };
+
+/**
+ * Whether a write requires a field, which its box's asterisk says: whether its rule refuses what the box sends while
+ * empty, `""` for a text box passed on as typed, `null` for a figure, a day or a box read as no value
+ * (`numberBox`, `blankIsNull`), `[]` for a choice of several with none picked. Read on the server, so the schema
+ * never reaches the browser.
+ */
+export const requires = (rule: Rule, empty: "" | null | readonly []): boolean => !rule.safeParse(empty).success;
+
+/**
+ * A digit box's text held to its rule as a number: an empty box no value, digits alone their figure, anything else the
+ * text as typed, which the rule refuses in its own words.
+ */
+export const numberBox = <Figure extends z.ZodType>(rule: Figure) =>
+  z.preprocess((value) => (value === "" ? null : typeof value === "string" && /^\d+$/.test(value) ? Number(value) : value), rule);
+
+/** A text box whose emptiness is no value, held to its rule: an empty box `null`, anything else as typed. */
+export const blankIsNull = <Text extends z.ZodType>(rule: Text) => z.preprocess((value) => (value === "" ? null : value), rule);
 
 /** Declarable only over an input carrying `PAGE_HOLDER`, so no such act is posted without it. */
 type Held<Schema extends z.ZodType> = z.output<Schema> extends { readonly holder: string } ? unknown : never;
@@ -142,7 +177,6 @@ type Lane<Schema extends z.ZodType, Value> = AdminLane<Schema, Value> | PersonLa
 const STALE: ReadonlySet<Code> = new Set<Code>([
   "document_not_found",
   "version_stale",
-  "booking_schiedsrichter_moved",
   "wiring_unsupported",
   "wiring_seed_past_the_opening_round",
   "wiring_gruppe_not_run",
@@ -159,19 +193,55 @@ const STALE: ReadonlySet<Code> = new Set<Code>([
   // setting one words them as its own.
   "ergebnis_side_emptied",
   "spieltag_occupied",
-  "spieltag_occupied_by_the_resolution",
   "eligibility_team_not_in_saison",
+  // A fixture's confirmation answered, closed or left by its fixture since the page offering an act on it was read.
+  "ansetzung_not_enterable",
+  "ansetzung_not_discardable",
+  "ansetzung_not_adoptable",
+  "ansetzung_foreign_row",
   // A rule the screen does not word, its input holding every rule the API publishes: the page is older than the API.
   "payload_refused",
   "body_unreadable",
+  // A season's dates, rules, draw, swap, replacement and links, each of which the season editor closes off its own read
+  // before it is pressed: the season moved since the page was served.
+  "saison_start_taken_place",
+  "rules_saison_started",
+  "rules_shape_after_spielplan",
+  "spielplan_already_drawn",
+  "spielplan_spieltage_held",
+  "spielplan_replace_outside_its_window",
+  "spielplan_undraw_outside_its_window",
+  "spielplan_berichte_submitted",
+  "swap_not_a_swap",
+  "swap_saison_started",
+  "swap_sides_taken_place",
+  "replace_sides_taken_place",
+  "replace_saison_started",
+  "replace_incoming_already_entered",
+  "replace_one_team_on_both_ends",
+  // The replacement's incoming club retired since the page listed it, which lists none retired.
+  "team_retired",
+  "invitation_team_not_entered",
+  // A referee's fresh link, which the editor offers only to a live entry with an address and no answer yet: the
+  // referee moved since the page was served.
+  "schiedsrichter_retired",
+  "confirmation_exists",
+  "schiedsrichter_no_address",
+  // A confirmed referee's address, which the editor shows read-only: only a page read before the confirmation sends it.
+  "schiedsrichter_address_only_per_change",
+  // A referee who has not confirmed, whom the match editor offers only as a closed choice.
+  "booking_unconfirmed_schiedsrichter",
 ]);
 
-/** The admin guard's refusals, each in the words of what repairs it. */
+/**
+ * The admin guard's refusals: an ended sign-in and a gone grant each in the words of what holds, and a grant the backend
+ * left unread, an outage nothing the person does repairs, as every other failure.
+ */
 const TURNED_AWAY: Readonly<Record<AdminRefusal, Copy>> = {
   signIn: COPY.shared.failure.signInExpired,
   noGrant: COPY.shared.failure.accessGone,
   grantGone: COPY.shared.failure.accessGone,
-  unread: COPY.shared.failure.accessUnchecked,
+  unread: COPY.shared.failure.unexpected,
 };
 
 const UNEXPECTED = { ok: false, reason: COPY.shared.failure.unexpected } as const;
@@ -195,7 +265,7 @@ function stripped(value: unknown): unknown {
   return value;
 }
 
-/** A posted form as an object, each box under its name; a box posted twice keeps its last value. */
+/** A posted form as an object, each box under its name, a name posted twice keeping its last value. */
 const posted = (raw: unknown): unknown => (raw instanceof FormData ? Object.fromEntries(raw) : raw);
 
 /**
@@ -275,21 +345,32 @@ function placed<Schema extends z.ZodType>(declared: Declared<Schema>, code: Code
   };
 }
 
+/** A sentence filled from the bounds its refusal carries, as `ruleMessage` fills a phrase: `undefined` where one is missing. */
+type BoundedSentence = (context: FLRefusedField["ctx"]) => Copy | undefined;
+
+/** One `SERVER_COPY.refusalLine` entry, of any of the three shapes its docstring names. */
+type LineEntry = Copy | Readonly<Record<string, Copy>> | BoundedSentence;
+
 /**
- * A code's sentence for the path it names: the code's one sentence, or, where its entry is keyed by the field, the
- * one for the path's first name. `undefined` where the entry holds none for it.
+ * A code's sentence for the field it names: the code's one sentence, the sentence its bounds fill, or, where its entry
+ * is keyed by the field, the one for the path's first name. `undefined` where the entry holds none for it.
  */
-function sentenceOf(code: Code & keyof typeof SERVER_COPY.refusalLine, path: FLRefusedField["path"] | undefined): Copy | undefined {
-  const entry: Copy | Readonly<Record<string, Copy>> = SERVER_COPY.refusalLine[code];
+function sentenceOf(code: Code & keyof typeof SERVER_COPY.refusalLine, refused: FLRefusedField | undefined): Copy | undefined {
+  return sentenceIn(SERVER_COPY.refusalLine[code], refused);
+}
+
+/** Apart from `sentenceOf`, whose read of the catalogue would narrow the entry to the shapes it holds today. */
+function sentenceIn(entry: LineEntry, refused: FLRefusedField | undefined): Copy | undefined {
   if (typeof entry === "string") return entry;
-  const [head] = path ?? [];
+  if (typeof entry === "function") return entry(refused?.ctx ?? {});
+  const [head] = refused?.path ?? [];
   return typeof head === "string" && Object.hasOwn(entry, head) ? entry[head] : undefined;
 }
 
 /**
  * A refusal this screen words: a refused payload's broken rules where the screen words every one, a code's phrase on
- * the box of each field it names, or a code's sentence on the status line. `undefined` where the screen does not word
- * it or cannot place it.
+ * the box of each field it names, filled from the bounds the refusal carries where its pattern names them, or a code's
+ * sentence on the status line. `undefined` where the screen does not word it or cannot place it.
  */
 function worded<Schema extends z.ZodType>(
   declared: Declared<Schema>,
@@ -306,8 +387,16 @@ function worded<Schema extends z.ZodType>(
   }
   if (!wordsOwn(declared, code)) return undefined;
   if (isLined(code)) {
-    const reason = sentenceOf(code, fields[0]?.path);
+    const reason = sentenceOf(code, fields[0]);
     return reason === undefined ? undefined : { ok: false, errorCode: code, reason };
+  }
+  // A phrase naming the bounds the refusal carries on each field it names, worded as a rule's phrase is.
+  if (isBoundedCode(code)) {
+    return placed(
+      declared,
+      code,
+      fields.map(({ path, ctx }) => ({ path, ...ruleMessage({ kind: code, ctx, path }) })),
+    );
   }
   // A phrase names no field of its own, so a code naming none has nothing to place it on.
   if (!isWorded(code)) return undefined;
@@ -339,9 +428,9 @@ function logFailure(name: string, error: unknown): void {
 }
 
 /** A person turned away, logged as a page's turn-away is. */
-function turnedAwayPerson(operation: string, refusal: "keine_sitzung" | "kein_sitz"): ActionAnswer<never> {
+function turnedAwayPerson(operation: string, refusal: "no_session" | "no_seat"): ActionAnswer<never> {
   logRefused(operation, refusal);
-  return { ok: false, reason: refusal === "keine_sitzung" ? COPY.shared.failure.signInExpired : COPY.shared.failure.stale };
+  return { ok: false, reason: refusal === "no_session" ? COPY.shared.failure.signInExpired : COPY.shared.failure.stale };
 }
 
 /**
@@ -385,13 +474,13 @@ async function guarded<Schema extends z.ZodType, Value>(lane: Lane<Schema, Value
     }
     case "person": {
       const subject = await getSubjectSession();
-      if (subject === null) return turnedAwayPerson(lane.name, "keine_sitzung");
+      if (subject === null) return turnedAwayPerson(lane.name, "no_session");
       switch (lane.claim) {
         case "record":
           return admitted(lane, raw, (input) => body(lane, () => lane.run(input, { subject })));
         case "account": {
           const served = await getAccountSession();
-          if (served === null) return turnedAwayPerson(lane.name, "keine_sitzung");
+          if (served === null) return turnedAwayPerson(lane.name, "no_session");
           return admitted(lane, raw, (input) => body(lane, () => lane.run(input, { subject, served })));
         }
         case "seat":
@@ -402,7 +491,7 @@ async function guarded<Schema extends z.ZodType, Value>(lane: Lane<Schema, Value
               typeof team === "string" && typeof saison === "string"
                 ? rolesOf(subject).roles.filter((role) => isSeatAt(role, team, saison))
                 : [];
-            if (seats.length === 0) return Promise.resolve(turnedAwayPerson(lane.name, "kein_sitz"));
+            if (seats.length === 0) return Promise.resolve(turnedAwayPerson(lane.name, "no_seat"));
             return body(lane, () => lane.run(input, { subject, seats }));
           });
       }

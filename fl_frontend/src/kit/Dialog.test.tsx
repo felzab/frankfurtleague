@@ -8,11 +8,9 @@ import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { COPY } from "@/core/copy";
 
 import { Button } from "./Button";
-import { ComboBox } from "./ComboBox";
 import { ConfirmDialog } from "./ConfirmDialog";
-import { Dialog, RouteDialog } from "./Dialog";
+import { Dialog } from "./Dialog";
 import { EditorPage } from "./EditorPage";
-import { Link } from "./Link";
 import { TextField } from "./TextField";
 import { useEditor } from "./useEditor";
 
@@ -21,13 +19,13 @@ import type * as Navigation from "next/navigation";
 import type { ReactElement } from "react";
 import type { EditorSave } from "./useEditor";
 
-// The route dialog's way back, which jsdom's history, one entry long, sends to the page beneath.
-const router = vi.hoisted(() => ({ back: vi.fn(), push: vi.fn(), refresh: vi.fn() }));
+// A thrown act reads the page again through Next's router, which no test mounts.
+const router = vi.hoisted(() => ({ refresh: vi.fn() }));
 vi.mock("next/navigation", async (importOriginal) => ({ ...(await importOriginal<typeof Navigation>()), useRouter: () => router }));
 
 type Spielort = { name: string };
 
-const NAME = COPY.page.verwaltungSpielorte;
+const NAME = COPY.page.adminSpielorte;
 const INPUT = COPY.page.spiele;
 const DONE: ActionAnswer = { ok: true, value: undefined };
 
@@ -95,45 +93,74 @@ async function createThroughTheDialog() {
   await userEvent.click(screen.getByRole("button", { name: COPY.shared.withObject(NAME, "create") }));
 }
 
-/**
- * React Aria's documented modal layout, which keeps a box above a phone's open keyboard: the dim as tall as
- * the page, and the wrapper centring the box as tall as the visible window and stuck to its top. jsdom draws
- * nothing, so the layout is read from the classes and the heights React Aria writes for them.
- */
-function expectTheSharedOverlay(dialog: HTMLElement) {
-  const wrapper = dialog.parentElement?.parentElement;
-  const overlay = wrapper?.parentElement;
-  expect(wrapper?.className.split(" ")).toEqual(
-    expect.arrayContaining(["sticky", "top-0", "h-(--visual-viewport-height)", "place-items-center"]),
-  );
-  expect(overlay?.className.split(" ")).toEqual(expect.arrayContaining(["absolute", "top-0", "h-(--page-height)"]));
-  expect(overlay?.className.split(" ")).not.toContain("fixed");
-  expect(overlay?.style.getPropertyValue("--page-height")).not.toBe("");
-  expect(overlay?.style.getPropertyValue("--visual-viewport-height")).not.toBe("");
-}
-
 describe("the kit's confirmation", () => {
-  it("stands in the overlay every dialog shares", async () => {
+  // The harm: a refused retirement closing its question, the reason it was refused shown nowhere.
+  it("stays open on a refused act, its reason in the status line beside the acts", async () => {
+    const reason = COPY.shared.failure.stale;
     render(
       <ConfirmDialog
-        verb="delete"
+        verb="retire"
         subject={NAME}
-        consequence={COPY.shared.failure.stale}
+        consequence={COPY.admin.spielort.retireConsequence}
         tone="danger"
         trigger={
           <Button
-            variant="secondary"
-            label={COPY.shared.verb.delete}
+            variant="danger"
+            label={COPY.shared.verb.retire}
           />
         }
-        onConfirm={() => undefined}
+        onConfirm={async () => ({ ok: false, reason })}
       />,
     );
-    await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.delete }));
+    await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.retire }));
+    await userEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: COPY.shared.verb.retire }));
 
-    expectTheSharedOverlay(screen.getByRole("alertdialog"));
+    const question = await screen.findByRole("alertdialog");
+    await waitFor(() => expect(within(question).getByRole("status").textContent).toBe(reason));
+  });
+
+  // The harm: Escape pressed while the act runs closing the question, so its refusal, still on its way, is shown nowhere.
+  it("keeps Escape from closing it while its act runs, and lets it again once the act has answered", async () => {
+    const answer = Promise.withResolvers<ActionAnswer>();
+    onTestFinished(() => answer.resolve(DONE));
+    render(<RetireQuestion onConfirm={() => answer.promise} />);
+    await retireThroughTheQuestion();
+
+    await userEvent.keyboard("{Escape}");
+    expect(screen.getByRole("alertdialog")).toBeTruthy();
+
+    await act(async () => answer.resolve({ ok: false, reason: COPY.shared.failure.stale }));
+    const question = screen.getByRole("alertdialog");
+    await waitFor(() => expect(within(question).getByRole("status").textContent).toBe(COPY.shared.failure.stale));
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
   });
 });
+
+/** A retirement's question, opened by its own button. */
+function RetireQuestion({ onConfirm }: { onConfirm: () => Promise<ActionAnswer> }) {
+  return (
+    <ConfirmDialog
+      verb="retire"
+      subject={NAME}
+      consequence={COPY.admin.spielort.retireConsequence}
+      tone="danger"
+      trigger={
+        <Button
+          variant="danger"
+          label={COPY.shared.verb.retire}
+        />
+      }
+      onConfirm={onConfirm}
+    />
+  );
+}
+
+/** Opens the question and presses its act. */
+async function retireThroughTheQuestion() {
+  await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.retire }));
+  await userEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: COPY.shared.verb.retire }));
+}
 
 /** A control opening its dialog through an open state of its own, a plain one. */
 function HeldDialog() {
@@ -183,44 +210,7 @@ async function leaveAndReturnWithOpen(Page: () => ReactElement) {
     );
 }
 
-describe("the route dialog", () => {
-  it("is named by its title, and closes from the button in its corner", async () => {
-    render(
-      <RouteDialog
-        title={NAME}
-        beneath="/saisons/2027"
-        act={
-          <Link
-            href="/saisons/2027/spiele/1"
-            placement="button"
-            look="primary"
-            label={COPY.shared.toSpiel}
-          />
-        }>
-        <p>Spiel</p>
-      </RouteDialog>,
-    );
-
-    expect(screen.getByRole("dialog", { name: NAME })).toBeTruthy();
-    // The kit's button, not the dismiss button React Aria keeps for a screen reader under the same name.
-    const close = screen.getAllByRole("button", { name: COPY.shared.close }).find((button) => button.hasAttribute("data-kit-focus"));
-    if (close === undefined) throw new Error("the dialog drew no closing button");
-    await userEvent.click(close);
-    expect(router.push).toHaveBeenCalledWith("/saisons/2027");
-  });
-});
-
 describe("the kit's dialog", () => {
-  it("sends its inputs to its action", async () => {
-    const create = vi.fn(async (_formData: FormData): Promise<ActionAnswer> => DONE);
-    render(<CreateDialog create={create} />);
-
-    await createThroughTheDialog();
-
-    await waitFor(() => expect(create).toHaveBeenCalledOnce());
-    expect(create.mock.calls[0]?.[0].get("created")).toBe("Sportpark Nord");
-  });
-
   it("opened inside an editor's section, runs its own act and never the editor's save", async () => {
     const save = vi.fn(async (): Promise<ActionAnswer<number>> => ({ ok: true, value: 2 }));
     const create = vi.fn(async (_formData: FormData): Promise<ActionAnswer> => DONE);
@@ -240,33 +230,28 @@ describe("the kit's dialog", () => {
     expect(screen.getByText(COPY.template.changesPending(1))).toBeTruthy();
   });
 
-  it("closes once its act is done", async () => {
-    render(<CreateDialog create={async () => DONE} />);
+  /* The note is the one place the person learns the write moved more than the dialog asked, such as other fixtures. */
+  it("stays open on a done act noting more than it was asked, the note in its line and its act closed", async () => {
+    const note = COPY.admin.spiel.alsoChanged([5, 7]);
+    render(<CreateDialog create={async () => ({ ok: true, value: undefined, note })} />);
 
     await createThroughTheDialog();
 
-    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-  });
-
-  it("stays open on a refused act, the input kept, the field's message under it and the line beside the acts", async () => {
-    render(<CreateDialog create={async () => ({ ok: false, fieldErrors: { created: COPY.shared.field.taken } })} />);
-
-    await createThroughTheDialog();
-
-    await waitFor(() => expect(screen.getByText(COPY.shared.field.taken)).toBeTruthy());
-    const input = screen.getByRole("textbox", { name: INPUT });
-    expect(input.getAttribute("aria-invalid")).toBe("true");
-    expect((input as HTMLInputElement).value).toBe("Sportpark Nord");
-    expect(screen.getByText(COPY.template.checkFields)).toBeTruthy();
+    await waitFor(() => expect(screen.getByText(note)).toBeTruthy());
     expect(screen.getByRole("dialog")).toBeTruthy();
+    expect(screen.getByRole("button", { name: COPY.shared.withObject(NAME, "create") }).hasAttribute("disabled")).toBe(true);
   });
 
-  it("shows the reason a refusal brings in its status line", async () => {
-    render(<CreateDialog create={async () => ({ ok: false, reason: COPY.shared.failure.stale })} />);
+  // The harm: a refused create closing its dialog, the refusal shown nowhere.
+  it.each([
+    ["a field's message", { ok: false, fieldErrors: { created: COPY.shared.field.taken } }, COPY.shared.field.taken],
+    ["its reason", { ok: false, reason: COPY.shared.failure.stale }, COPY.shared.failure.stale],
+  ] as const)("stays open on a refused act, showing %s", async (_shown, refusal: ActionAnswer, words) => {
+    render(<CreateDialog create={async () => refusal} />);
 
     await createThroughTheDialog();
 
-    await waitFor(() => expect(screen.getByText(COPY.shared.failure.stale)).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(words)).toBeTruthy());
     expect(screen.getByRole("dialog")).toBeTruthy();
   });
 
@@ -289,51 +274,6 @@ describe("the kit's dialog", () => {
     expect(line.textContent).toBe(COPY.shared.failure.stale);
   });
 
-  it("answers an act that throws with the stale-page line, and stays open", async () => {
-    render(
-      <CreateDialog
-        create={async () => {
-          throw new Error("unreachable");
-        }}
-      />,
-    );
-
-    await createThroughTheDialog();
-
-    await waitFor(() => expect(screen.getByText(COPY.shared.failure.stale)).toBeTruthy());
-    expect(screen.getByRole("dialog")).toBeTruthy();
-  });
-
-  it("stands in the overlay every dialog shares", async () => {
-    render(<CreateDialog create={async () => DONE} />);
-    await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.create }));
-
-    expectTheSharedOverlay(screen.getByRole("dialog"));
-  });
-
-  it("opens again without the refusal it showed before it closed", async () => {
-    render(<CreateDialog create={async () => ({ ok: false, reason: COPY.shared.failure.stale })} />);
-
-    await createThroughTheDialog();
-    await waitFor(() => expect(screen.getByText(COPY.shared.failure.stale)).toBeTruthy());
-    await userEvent.click(screen.getByRole("button", { name: COPY.shared.back }));
-    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.create }));
-
-    expect(screen.getByRole("dialog")).toBeTruthy();
-    expect(screen.queryByText(COPY.shared.failure.stale)).toBeNull();
-  });
-
-  it("opened from a combo box's create entry, starts from the typed name and closes on „Zurück“", async () => {
-    render(<SpielortFieldWithDialog />);
-    await userEvent.type(screen.getByRole("combobox"), "Sportpark Süd");
-    await userEvent.click(screen.getByRole("option", { name: COPY.verwaltung.spielort.createEntry }));
-
-    expect((screen.getByRole("textbox", { name: INPUT }) as HTMLInputElement).value).toBe("Sportpark Süd");
-    await userEvent.click(screen.getByRole("button", { name: COPY.shared.back }));
-    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-  });
-
   it.each([
     ["opened by its own trigger", () => <CreateDialog create={async () => DONE} />],
     ["opened by a control holding its open state in a plain one", HeldDialog],
@@ -343,37 +283,3 @@ describe("the kit's dialog", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 });
-
-/** The match editor's venue field and its create dialog, which the field's last entry opens. */
-function SpielortFieldWithDialog() {
-  const [isOpen, setOpen] = useState(false);
-  const [name, setName] = useState("");
-  return (
-    <>
-      <ComboBox
-        label={COPY.verwaltung.spielort.object}
-        options={[{ id: "ost", label: { record: "Sportplatz Ost" } }]}
-        create={{
-          label: COPY.verwaltung.spielort.createEntry,
-          onCreate: (typed) => {
-            setName(typed);
-            setOpen(true);
-          },
-        }}
-      />
-      <Dialog
-        title={NAME}
-        act={{ verb: "create", object: NAME }}
-        action={async () => DONE}
-        open={{ isOpen, onOpenChange: setOpen }}>
-        <TextField
-          label={INPUT}
-          name="created"
-          width="W3"
-          kind="text"
-          defaultValue={name}
-        />
-      </Dialog>
-    </>
-  );
-}

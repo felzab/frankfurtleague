@@ -36,8 +36,8 @@ export default function PasskeyPage({ searchParams }: NextPageProps) {
 async function readView(searchParams: NextPageProps["searchParams"]) {
   // Which control stands here is the guard's answer and never this page's: the requirement it
   // enforces is judged per request, beside the session lifetimes.
-  const schritt = await getPasskeyStep();
-  if (schritt === null) {
+  const step = await getPasskeyStep();
+  if (step === null) {
     // A session the step does not hold goes on to the landing with the address a mailed link asked for, which the
     // landing honours where the allowlist holds it.
     const asked = (await searchParams)[RETURN_PARAMETER];
@@ -45,17 +45,17 @@ async function readView(searchParams: NextPageProps["searchParams"]) {
   }
 
   // „Später“ goes past the landing rather than to it, which would offer the passkey again.
-  return schritt.step === "offer" ? (
+  return step.step === "offer" ? (
     <PasskeyStep
       step="offer"
-      address={schritt.email}
+      address={step.email}
       next={ROUTES.signInLanding.path()}
       later={ROUTES.area.path()}
     />
   ) : (
     <PasskeyStep
-      step={schritt.step}
-      address={schritt.email}
+      step={step.step}
+      address={step.email}
       next={ROUTES.signInLanding.path()}
     />
   );

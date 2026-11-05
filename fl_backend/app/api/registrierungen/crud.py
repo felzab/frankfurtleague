@@ -14,7 +14,7 @@ from app.api.registrierungen.services import (
     PERSON_IDENTITY_FIELDS,
     SUBMITTED,
     WITHOUT_TOKEN_HASHES,
-    build_adressen_filter,
+    build_addresses_filter,
     build_offene_filter,
     build_registrierungen_sort,
 )
@@ -41,7 +41,7 @@ async def person_at_the_address(
     """The one person `uniq_spieler_email` holds to this registration's address, matched on the folded form `spieler.email` stores."""
 
     return await spieler_collection.find_one(
-        build_adressen_filter([sign_in_identifier(str(registrierung_raw.get("email") or ""))]),
+        build_addresses_filter([sign_in_identifier(str(registrierung_raw.get("email") or ""))]),
         projection=list(PERSON_ANSICHT_FIELDS),
         session=session,
     )
@@ -85,16 +85,16 @@ async def pull_offene_registrierungen(
 
 
 async def persons_at(
-    *, spieler_collection: AsyncCollection, adressen: Sequence[str], session: AsyncClientSession | None
+    *, spieler_collection: AsyncCollection, addresses: Sequence[str], session: AsyncClientSession | None
 ) -> list[Mapping[str, Any]]:
     """The stored persons these folded addresses resolve to, one per address under `uniq_spieler_email`."""
 
-    if not adressen:
+    if not addresses:
         return []
 
     return await aggregate_many_from_db(
         collection=spieler_collection,
-        pipeline=[{"$match": build_adressen_filter(adressen)}, {"$project": {field: 1 for field in PERSON_FIELDS}}],
+        pipeline=[{"$match": build_addresses_filter(addresses)}, {"$project": {field: 1 for field in PERSON_FIELDS}}],
         session=session,
     )
 
@@ -111,10 +111,10 @@ async def nummern_rows(
     )
 
 
-async def loeschen_registrierungen_in_session(
+async def erase_registrierungen_in_session(
     *,
     registrierungen_collection: AsyncCollection,
-    aktionen_collection: AsyncCollection,
+    action_log_collection: AsyncCollection,
     # Each carrying its `_id` and `saison_id`, as the erasure's subject read them.
     registrierungen: Sequence[Mapping[str, Any]],
     stamp: str,
@@ -130,14 +130,14 @@ async def loeschen_registrierungen_in_session(
     ids = [row["_id"] for row in registrierungen]
     # Ids and their seasons alone: the log keeps a filter as text, so a key naming the person would
     # keep what this removal destroys.
-    geloescht = await erase_many_from_db(
+    erased = await erase_many_from_db(
         collection=registrierungen_collection,
         db_filter={"saison_id": {"$in": sorted({row["saison_id"] for row in registrierungen})}, "_id": {"$in": ids}},
         session=session,
     )
     # A delivery record and every pre-image a confirmation or a decline filed go with the document.
     await redact_log_rows_in_db(
-        action_log_collection=aktionen_collection, targets=[(Collection.REGISTRIERUNGEN, ids)], at=stamp, session=session
+        action_log_collection=action_log_collection, targets=[(Collection.REGISTRIERUNGEN, ids)], at=stamp, session=session
     )
 
-    return geloescht.deleted_count
+    return erased.deleted_count

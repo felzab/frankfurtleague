@@ -11,8 +11,8 @@ from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import DuplicateKeyError
 
 from app.api.sperrliste.admin_router import delete_sperrliste_entry, get_sperrliste
-from app.api.sperrliste.crud import address_is_gesperrt, read_sperrliste_page
-from app.api.sperrliste.services import SPERRLISTE_SCHLUESSEL_VERSION, adresse_hash
+from app.api.sperrliste.crud import address_is_barred, read_sperrliste_page
+from app.api.sperrliste.services import BAN_LIST_KEY_VERSION, address_hash
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError, DocumentNotFoundError
@@ -91,17 +91,17 @@ async def listed(database: AsyncDatabase) -> Any:
     """The list read with its two dependencies: the season the ban list compares against, and the key."""
 
     return await get_sperrliste(
-        sperrliste_collection=database[Collection.SPERRLISTE],
-        sperrliste=ban_list(database),
+        ban_list_collection=database[Collection.BAN_LIST],
+        ban_list=ban_list(database),
     )
 
 
-async def ban(database: AsyncDatabase, client: AsyncMongoClient, *, email: str = BANNED, grund: str = GRUND, von: str = ADMIN) -> Any:
-    return await ban_through_the_route(database, client, email=email, grund=grund, von=von, today=TODAY)
+async def ban(database: AsyncDatabase, client: AsyncMongoClient, *, email: str = BANNED, grund: str = GRUND, by: str = ADMIN) -> Any:
+    return await ban_through_the_route(database, client, email=email, grund=grund, by=by, today=TODAY)
 
 
 async def rows_of(database: AsyncDatabase) -> list[Mapping[str, Any]]:
-    return [row async for row in database[Collection.SPERRLISTE].find().sort("_id", 1)]
+    return [row async for row in database[Collection.BAN_LIST].find().sort("_id", 1)]
 
 
 class TestWhatABanStores:
@@ -110,15 +110,15 @@ class TestWhatABanStores:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Mapping[str, Any]:
             await ban(database, client)
-            stored = await database[Collection.SPERRLISTE].find_one({})
+            stored = await database[Collection.BAN_LIST].find_one({})
 
             assert stored is not None
             return stored
 
         stored = on_a_clean_list(mongo_replica_set_url, body)
 
-        assert set(stored) == {"_id", "adresse_hash", "key_version", "grund", "created_by", "created_at", "barred_until_saison_id"}
-        assert stored["adresse_hash"] == adresse_hash(BANNED, key=CONFIG.sperrliste_key)
+        assert set(stored) == {"_id", "address_hash", "key_version", "grund", "created_by", "created_at", "barred_until_saison_id"}
+        assert stored["address_hash"] == address_hash(BANNED, key=CONFIG.sperrliste_key)
         assert stored["grund"] == GRUND
         assert stored["created_by"] == ADMIN
         assert stored["created_at"] == TODAY
@@ -128,19 +128,19 @@ class TestWhatABanStores:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await ban(database, client)
-            stored = await database[Collection.SPERRLISTE].find_one({})
+            stored = await database[Collection.BAN_LIST].find_one({})
 
             assert stored is not None
             return stored["key_version"]
 
-        assert on_a_clean_list(mongo_replica_set_url, body) == SPERRLISTE_SCHLUESSEL_VERSION
+        assert on_a_clean_list(mongo_replica_set_url, body) == BAN_LIST_KEY_VERSION
 
     def test_no_part_of_the_banned_address_reaches_the_row(self, mongo_replica_set_url: str):
         """The whole point of the collection, and the half nothing else in the suite would notice going wrong."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Mapping[str, Any]:
             await ban(database, client)
-            stored = await database[Collection.SPERRLISTE].find_one({})
+            stored = await database[Collection.BAN_LIST].find_one({})
 
             assert stored is not None
             return stored
@@ -196,7 +196,7 @@ class TestASecondBanOfOneAddress:
 
             assert raised.value.error_code == Code.DUPLICATE_KEY
 
-            return await database[Collection.SPERRLISTE].count_documents({})
+            return await database[Collection.BAN_LIST].count_documents({})
 
         assert on_a_clean_list(mongo_replica_set_url, body) == 1
 
@@ -209,10 +209,10 @@ class TestASecondBanOfOneAddress:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> None:
             await ban(database, client)
-            duplicate = ban_document(BANNED_RETYPED, bis=LAST_COVERED)
+            duplicate = ban_document(BANNED_RETYPED, until=LAST_COVERED)
 
             with pytest.raises(DuplicateKeyError):
-                await database[Collection.SPERRLISTE].insert_one(duplicate)
+                await database[Collection.BAN_LIST].insert_one(duplicate)
 
         on_a_clean_list(mongo_replica_set_url, body)
 
@@ -223,26 +223,26 @@ class TestASecondBanOfOneAddress:
             await ban(database, client)
             await ban(database, client, email=OTHER)
 
-            return await database[Collection.SPERRLISTE].count_documents({})
+            return await database[Collection.BAN_LIST].count_documents({})
 
         assert on_a_clean_list(mongo_replica_set_url, body) == 2
 
 
 class TestABanOfAnAdministratorsAddress:
-    """`sperrliste_verwaltung`: an address holding a grant takes no ban, whatever its spelling and whichever tier it holds."""
+    """`ban_list_admin`: an address holding a grant takes no ban, whatever its spelling and whichever tier it holds."""
 
     def test_it_is_refused_and_nothing_is_stored_while_another_address_is_banned(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, int]:
             # `ADMIN` holds `administration` rather than `owner`, so the refusal reads every grant.
             with pytest.raises(APIError) as raised:
                 await ban(database, client, email=ADMIN.upper())
-            refused = await database[Collection.SPERRLISTE].count_documents({})
+            refused = await database[Collection.BAN_LIST].count_documents({})
             # The control: a check refusing every address would pass the refusal above.
             await ban(database, client)
 
             return raised.value.error_code, refused
 
-        assert on_a_clean_list(mongo_replica_set_url, body) == (Code.SPERRLISTE_VERWALTUNG, 0)
+        assert on_a_clean_list(mongo_replica_set_url, body) == (Code.BAN_LIST_ADMIN, 0)
 
 
 class TestTheCheckASignUpWillAsk:
@@ -253,10 +253,10 @@ class TestTheCheckASignUpWillAsk:
             await ban(database, client)
 
             return [
-                await address_is_gesperrt(
-                    sperrliste_collection=database[Collection.SPERRLISTE],
-                    adresse_hash=adresse_hash(typed, key=CONFIG.sperrliste_key),
-                    massgebliche_saison_id=ACTIVE_SAISON_ID,
+                await address_is_barred(
+                    ban_list_collection=database[Collection.BAN_LIST],
+                    address_hash=address_hash(typed, key=CONFIG.sperrliste_key),
+                    governing_saison_id=ACTIVE_SAISON_ID,
                 )
                 for typed in (BANNED, BANNED_RETYPED, "Zorbanax@BEISPIELSCHULE.DE  ")
             ]
@@ -269,10 +269,10 @@ class TestTheCheckASignUpWillAsk:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> bool:
             await ban(database, client)
 
-            return await address_is_gesperrt(
-                sperrliste_collection=database[Collection.SPERRLISTE],
-                adresse_hash=adresse_hash(OTHER, key=CONFIG.sperrliste_key),
-                massgebliche_saison_id=ACTIVE_SAISON_ID,
+            return await address_is_barred(
+                ban_list_collection=database[Collection.BAN_LIST],
+                address_hash=address_hash(OTHER, key=CONFIG.sperrliste_key),
+                governing_saison_id=ACTIVE_SAISON_ID,
             )
 
         assert on_a_clean_list(mongo_replica_set_url, body) is False
@@ -284,14 +284,14 @@ class TestTheCheckASignUpWillAsk:
             created = await ban(database, client)
             await delete_sperrliste_entry(
                 sperrliste_id=ObjectId(created.created_id),
-                sperrliste_collection=database[Collection.SPERRLISTE],
+                ban_list_collection=database[Collection.BAN_LIST],
                 db=client,
             )
 
-            return await address_is_gesperrt(
-                sperrliste_collection=database[Collection.SPERRLISTE],
-                adresse_hash=adresse_hash(BANNED, key=CONFIG.sperrliste_key),
-                massgebliche_saison_id=ACTIVE_SAISON_ID,
+            return await address_is_barred(
+                ban_list_collection=database[Collection.BAN_LIST],
+                address_hash=address_hash(BANNED, key=CONFIG.sperrliste_key),
+                governing_saison_id=ACTIVE_SAISON_ID,
             )
 
         assert on_a_clean_list(mongo_replica_set_url, body) is False
@@ -313,7 +313,7 @@ class TestWhatTheListServes:
         # `created_by` carries the administrator's own address, so the banned one is named
         # directly rather than sought by its `@`.
         assert BANNED_LOCAL_PART not in rendered.lower()
-        assert "adresse_hash" not in rendered
+        assert "address_hash" not in rendered
         assert served.sperrliste[0].grund == GRUND
         assert served.sperrliste[0].created_by == ADMIN
         assert served.sperrliste[0].created_at == TODAY
@@ -324,8 +324,8 @@ class TestWhatTheListServes:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await ban(database, client, email=OTHER)
             # Revoked as a paste revokes, then barred through the route by another administrator.
-            await database[Collection.GRANTS].delete_one({"adresse": ADMIN})
-            await ban(database, client, email=ADMIN, von=grants_for_the_suite()[0]["adresse"])
+            await database[Collection.GRANTS].delete_one({"address": ADMIN})
+            await ban(database, client, email=ADMIN, by=grants_for_the_suite()[0]["address"])
 
             served = await listed(database)
 
@@ -334,7 +334,7 @@ class TestWhatTheListServes:
         rows, rendered = on_a_clean_list(mongo_replica_set_url, body)
 
         # Newest first: the ban on the author, entered by an owner the list does not hold, then the author's own.
-        assert rows == [(grants_for_the_suite()[0]["adresse"], False), (None, True)]
+        assert rows == [(grants_for_the_suite()[0]["address"], False), (None, True)]
         assert ADMIN not in rendered
 
     def test_the_total_counts_the_collection_and_not_the_rows_served(self, mongo_replica_set_url: str):
@@ -348,7 +348,7 @@ class TestWhatTheListServes:
             await ban(database, client, email=OTHER)
 
             served = await listed(database)
-            capped = await read_sperrliste_page(sperrliste_collection=database[Collection.SPERRLISTE], limit=1)
+            capped = await read_sperrliste_page(ban_list_collection=database[Collection.BAN_LIST], limit=1)
 
             return served.count_total, capped[1]
 
@@ -362,7 +362,7 @@ class TestWhatTheListServes:
             await ban(database, client)
             await ban(database, client, email=OTHER)
 
-            rows, anzahl_gesamt = await read_sperrliste_page(sperrliste_collection=database[Collection.SPERRLISTE], limit=1)
+            rows, anzahl_gesamt = await read_sperrliste_page(ban_list_collection=database[Collection.BAN_LIST], limit=1)
 
             return len(rows), anzahl_gesamt
 
@@ -372,7 +372,7 @@ class TestWhatTheListServes:
         """`$count` emits NO document over an empty collection, so the reader has to answer zero for itself."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[int, int]:
-            rows, anzahl_gesamt = await read_sperrliste_page(sperrliste_collection=database[Collection.SPERRLISTE], limit=10)
+            rows, anzahl_gesamt = await read_sperrliste_page(ban_list_collection=database[Collection.BAN_LIST], limit=10)
 
             return len(rows), anzahl_gesamt
 
@@ -383,7 +383,7 @@ class TestWhatTheListServes:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[str]:
             await ban(database, client)
-            rows, _ = await read_sperrliste_page(sperrliste_collection=database[Collection.SPERRLISTE], limit=10)
+            rows, _ = await read_sperrliste_page(ban_list_collection=database[Collection.BAN_LIST], limit=10)
 
             return sorted(rows[0])
 
@@ -415,7 +415,7 @@ class TestLiftingABan:
 
             await delete_sperrliste_entry(
                 sperrliste_id=ObjectId(created.created_id),
-                sperrliste_collection=database[Collection.SPERRLISTE],
+                ban_list_collection=database[Collection.BAN_LIST],
                 db=client,
             )
 
@@ -433,7 +433,7 @@ class TestLiftingABan:
             created = await ban(database, client)
             await delete_sperrliste_entry(
                 sperrliste_id=ObjectId(created.created_id),
-                sperrliste_collection=database[Collection.SPERRLISTE],
+                ban_list_collection=database[Collection.BAN_LIST],
                 db=client,
             )
             recorded = await database[Collection.ACTION_LOG].find_one({"operation": "delete_many", "collection": "sperrliste"})
@@ -445,7 +445,7 @@ class TestLiftingABan:
         images = recorded["before"]
 
         assert len(images) == 1
-        assert set(images[0]) == {"_id", "adresse_hash", "key_version", "grund", "created_by", "created_at", "barred_until_saison_id"}
+        assert set(images[0]) == {"_id", "address_hash", "key_version", "grund", "created_by", "created_at", "barred_until_saison_id"}
         assert images[0]["grund"] == GRUND
         # The reason the image is safe to keep: it holds the hash and the administrator, never the
         # address the ban was taken from.
@@ -460,11 +460,11 @@ class TestLiftingABan:
             with pytest.raises(DocumentNotFoundError):
                 await delete_sperrliste_entry(
                     sperrliste_id=ObjectId("6890a1b2c3d4e5f60794ffff"),
-                    sperrliste_collection=database[Collection.SPERRLISTE],
+                    ban_list_collection=database[Collection.BAN_LIST],
                     db=client,
                 )
 
-            return await database[Collection.SPERRLISTE].count_documents({})
+            return await database[Collection.BAN_LIST].count_documents({})
 
         assert on_a_clean_list(mongo_replica_set_url, body) == 1
 
@@ -508,21 +508,21 @@ class TestTheKeyTheRowsWereTakenUnder:
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> bool:
-            await database[Collection.SPERRLISTE].insert_one(
+            await database[Collection.BAN_LIST].insert_one(
                 ban_document(
                     BANNED,
-                    bis=LAST_COVERED,
+                    until=LAST_COVERED,
                     # Keyed under the previous master and labelled as the builder labels every row,
                     # which a row written before a rotation would carry: nothing closes the set of labels,
                     # so the old population stays readable.
-                    adresse_hash=adresse_hash(BANNED, key=SecretStr("the-previous-key".ljust(64, "0"))),
+                    address_hash=address_hash(BANNED, key=SecretStr("the-previous-key".ljust(64, "0"))),
                 )
             )
 
-            return await address_is_gesperrt(
-                sperrliste_collection=database[Collection.SPERRLISTE],
-                adresse_hash=adresse_hash(BANNED, key=CONFIG.sperrliste_key),
-                massgebliche_saison_id=ACTIVE_SAISON_ID,
+            return await address_is_barred(
+                ban_list_collection=database[Collection.BAN_LIST],
+                address_hash=address_hash(BANNED, key=CONFIG.sperrliste_key),
+                governing_saison_id=ACTIVE_SAISON_ID,
             )
 
         assert on_a_clean_list(mongo_replica_set_url, body) is False

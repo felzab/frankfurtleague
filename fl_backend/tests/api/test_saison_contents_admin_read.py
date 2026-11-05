@@ -10,7 +10,7 @@ from app.api.spiele.admin_router import get_spiel_verwaltung, get_spiele_verwalt
 from app.api.spiele.schemas import FLSpieleFilterParams
 from app.api.spieltage.admin_router import get_spieltag_verwaltung, get_spieltage_verwaltung
 from app.api.spieltage.schemas import FLSpieltageFilterParams
-from app.api.teams.admin_router import get_teams_verwaltung
+from app.api.teams.admin_router import get_teams_admin
 from app.api.teams.schemas import FLTeamsFilterParams
 from app.core.collections import Collection
 from app.core.security import verify_access_admin, verify_access_base, verify_access_system
@@ -116,7 +116,7 @@ def on_a_league(url: str, body: Body) -> Any:
 
 
 async def admin_teams(database: AsyncDatabase, saison_id: str) -> Any:
-    return await get_teams_verwaltung(
+    return await get_teams_admin(
         teams_collection=database[Collection.TEAMS],
         saisons_collection=database[Collection.SAISONS],
         filters=FLTeamsFilterParams(saison_id=saison_id),
@@ -196,7 +196,7 @@ ROUTES = list(api_routes(application()))
 # Concrete ids, never `{spieltag_id}`: what is asked here is which route a REQUEST lands on, and a
 # literal segment reaching an id route is the failure these paths are shaped to rule out.
 ADMIN_TIER_ROUTES: list[tuple[str, Callable[..., Any]]] = [
-    ("/api/v0/teams/list/verwaltung", get_teams_verwaltung),
+    ("/api/v0/teams/list/admin", get_teams_admin),
     ("/api/v0/spiele/list/verwaltung", get_spiele_verwaltung),
     ("/api/v0/spieltage/list/verwaltung", get_spieltage_verwaltung),
     (f"/api/v0/spieltage/{an_id('3', PLANNED)}/verwaltung", get_spieltag_verwaltung),
@@ -248,7 +248,7 @@ def test_the_inventory_names_every_admin_tier_read_of_a_seasons_contents():
     mounted = {
         route.path
         for route in ROUTES
-        if "GET" in (route.methods or set()) and route.path.endswith("/verwaltung") and route.path.startswith(GATED_PREFIXES)
+        if "GET" in (route.methods or set()) and route.path.endswith(("/verwaltung", "/admin")) and route.path.startswith(GATED_PREFIXES)
     }
     covered = {route.path for route in (answering(path) for path, _ in ADMIN_TIER_ROUTES) if route is not None}
 

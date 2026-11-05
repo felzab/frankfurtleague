@@ -12,6 +12,7 @@ from app.api.saisons.schemas import (
     FLActivateSaisonResponse,
     FLGenerateSpielplanPayload,
     FLPatchSaisonPayload,
+    FLPatchSaisonResponse,
     FLSaisonRules,
 )
 from app.api.spiele.admin_router import patch_spiel
@@ -26,7 +27,6 @@ from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import ADDRESS, rules_document, saison_document, saison_team_document, team_document
 from tests.isolation import MISCOUNTED_JUDGEMENTS, InterleavedCollection, Rival, outcome_of
 from tests.payloads import spiel_patch_body
-from tests.session_headers import fresh_admin_actor
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -188,7 +188,6 @@ async def call_draw(database: AsyncDatabase, client: AsyncMongoClient, saison_id
         db=client,
         spielplan_data=FLGenerateSpielplanPayload(),
         today=TODAY,
-        actor=fresh_admin_actor(),
     )
 
 
@@ -218,7 +217,7 @@ async def call_activate(
         saisons_collection=saisons_collection if saisons_collection is not None else database[Collection.SAISONS],
         spiele_collection=database[Collection.SPIELE],
         spieltage_collection=database[Collection.SPIELTAGE],
-        sperrliste_collection=database[Collection.SPERRLISTE],
+        ban_list_collection=database[Collection.BAN_LIST],
         db=client,
     )
 
@@ -263,7 +262,7 @@ async def fixtures_now(database: AsyncDatabase, saison_id: str) -> int:
 
 async def call_patch_rules(
     database: AsyncDatabase, client: AsyncMongoClient, *, saisons_collection: Any, start_date: str | None = None, **overrides: Any
-) -> None:
+) -> FLPatchSaisonResponse:
     """The target's seeded dates and whole rules every time, `rules` being required on the patch, so a case names only the value it moves."""
 
     seeded = seeded_saison(TARGET, "future")
@@ -278,6 +277,7 @@ async def call_patch_rules(
             # window carries a default and this helper is about neither of them.
             bewerbung=None,
             registrierung=None,
+            version=(await database[Collection.SAISONS].find_one({"_id": TARGET}, {"version": 1}) or {})["version"],
         ),
         saisons_collection=saisons_collection,
         saison_teams_collection=database[Collection.SAISON_TEAMS],
@@ -623,6 +623,7 @@ class TestARolloverLandingMidSaveIsJudgedAgain:
                     spielorte_collection=database[Collection.SPIELORTE],
                     schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
                     spielberichte_collection=database[Collection.SPIELBERICHTE],
+                    spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
                 )
             )
 
@@ -664,6 +665,7 @@ class TestARolloverLandingMidSaveIsJudgedAgain:
                     saisons_collection=cast(Any, seasons),
                     spiele_collection=database[Collection.SPIELE],
                     db=client,
+                    today=TODAY,
                 )
             )
 
@@ -729,7 +731,6 @@ class TestARolloverLandingMidRenameIsJudgedAgain:
                 ),
                 # The stand-in delegates every call, which the endpoint's collection type cannot say.
                 teams_collection=cast(Any, teams),
-                spiele_collection=database[Collection.SPIELE],
                 saison_teams_collection=database[Collection.SAISON_TEAMS],
                 saisons_collection=database[Collection.SAISONS],
                 db=client,

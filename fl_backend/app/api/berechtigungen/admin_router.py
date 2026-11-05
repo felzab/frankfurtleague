@@ -8,17 +8,17 @@ from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.adresswechsel.services import build_awaiting_genehmigung_filter
+from app.api.address_change.services import build_awaiting_approval_filter
 from app.api.berechtigungen.antraege import (
-    antrag_line,
-    antrag_steht,
+    approval_request_line,
+    approval_request_stands,
     clear_the_address_in_session,
-    compose_antrag,
-    find_antrag_verfallen_refusal,
-    find_genehmigung_verwehrt_refusal,
-    pull_the_antrag,
-    read_the_antraege,
-    remove_the_antrag_in_session,
+    compose_approval_request,
+    find_approval_denied_refusal,
+    find_approval_request_lapsed_refusal,
+    pull_the_approval_request,
+    read_the_approval_requests,
+    remove_the_approval_request_in_session,
     settle_the_requesters_notices_in_session,
 )
 from app.api.berechtigungen.crud import (
@@ -46,24 +46,24 @@ from app.api.berechtigungen.schemas import (
 )
 from app.api.berechtigungen.services import (
     OWNER,
+    approval_denied,
+    approver_of,
     compare,
     compose_announced,
-    compose_mitteilung,
-    find_gesperrt_refusal,
+    compose_notice,
+    find_barred_refusal,
     find_inhaber_refusal,
     find_letzter_inhaber_refusal,
     find_mindestzahl_refusal,
     find_nur_inhaber_refusal,
     find_vorhanden_refusal,
-    gefunden,
-    genehmiger_of,
-    genehmigung_verwehrt,
+    found_ids,
     holds_an_owners_power,
-    stand_of,
+    snapshot_of,
 )
-from app.api.identity.services import adresswechsel_einsehbar_verwehrt
+from app.api.identity.services import address_change_viewable_denied
 from app.api.outbox.schemas import FLOutboxReference
-from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, hash_gesperrt
+from app.api.sperrliste.lookup import BanListLookup, barred_addresses, hash_barred
 from app.api.sperrliste.services import withheld_actor
 from app.core.collections import Collection
 from app.core.config import API_VERSION, BackendConfig, get_app_config
@@ -97,11 +97,11 @@ ADMINISTRATION = "administration"
 
 @router.get("", response_model=FLGrantsListResponse, summary="List who may enter the administration")
 async def get_grants(
-    berechtigungen_collection: GrantsCollection,
-    berechtigungen_angekuendigt_collection: GrantsAnnouncedCollection,
-    adresswechsel_collection: AddressChangeCollection,
-    berechtigungen_antraege_collection: GrantApprovalRequestsCollection,
-    sperrliste: SperrlisteLookup,
+    grants_collection: GrantsCollection,
+    grants_announced_collection: GrantsAnnouncedCollection,
+    address_changes_collection: AddressChangeCollection,
+    grant_approval_requests_collection: GrantApprovalRequestsCollection,
+    ban_list: BanListLookup,
     db: DBClient,
     operator: str = Depends(get_actor_email),
     auth_time: int = Depends(get_actor_auth_time),
@@ -128,57 +128,59 @@ async def get_grants(
     grant's row.
     """
 
-    akteur = sign_in_identifier(operator)
+    actor = sign_in_identifier(operator)
     # A snapshot, so the grants, their records and the changes waiting on an approval are read as of one moment.
     async with db.start_session(snapshot=True) as session:
-        rows = await read_berechtigungen(berechtigungen_collection=berechtigungen_collection, session=session)
-        announced = await read_the_announced(berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection, session=session)
-        antraege = await read_the_antraege(berechtigungen_antraege_collection=berechtigungen_antraege_collection, now=now, session=session)
+        rows = await read_berechtigungen(grants_collection=grants_collection, session=session)
+        announced = await read_the_announced(grants_announced_collection=grants_announced_collection, session=session)
+        approval_requests = await read_the_approval_requests(
+            grant_approval_requests_collection=grant_approval_requests_collection, now=now, session=session
+        )
         grants = [FLBerechtigung.model_validate(row) for row in rows]
-        barred = await adressen_gesperrt(
-            sperrliste,
-            [grant.adresse for grant in grants]
+        barred = await barred_addresses(
+            ban_list,
+            [grant.address for grant in grants]
             + [sign_in_identifier(grant.granted_by) for grant in grants]
-            + [str(antrag["adresse"]) for antrag in antraege]
-            + [str(antrag["approval"]["started_by"]) for antrag in antraege],
+            + [str(approval_request["address"]) for approval_request in approval_requests]
+            + [str(approval_request["approval"]["started_by"]) for approval_request in approval_requests],
             session=session,
         )
         wartend = {
-            record["adresse"]: record
+            record["address"]: record
             for record in await aggregate_many_from_db(
-                collection=adresswechsel_collection,
+                collection=address_changes_collection,
                 pipeline=[
-                    {"$match": build_awaiting_genehmigung_filter([grant.adresse for grant in grants if grant.adresse not in barred], now=now)}
+                    {"$match": build_awaiting_approval_filter([grant.address for grant in grants if grant.address not in barred], now=now)}
                 ],
                 session=session,
             )
         }
         # A pending new address and an administrator's start are judged as every address the page serves is.
-        barred_im_wechsel = await adressen_gesperrt(
-            sperrliste,
+        barred_in_change = await barred_addresses(
+            ban_list,
             [str(record["email"]) for record in wartend.values()] + [str(record["approval"]["started_by"]) for record in wartend.values()],
             session=session,
         )
-    inhaber = holds_an_owners_power(akteur=akteur, auth_time=auth_time, grants=rows, announced=announced)
+    owner = holds_an_owners_power(actor=actor, auth_time=auth_time, grants=rows, announced=announced)
 
     served = []
     for grant in grants:
-        gesperrt = grant.adresse in barred
+        is_barred = grant.address in barred
         erteilt_von = withheld_actor(grant.granted_by, barred)
-        record = None if gesperrt else wartend.get(grant.adresse)
+        record = None if is_barred else wartend.get(grant.address)
         served.append(
             FLGrantRow(
                 id=grant.id,
-                adresse=None if gesperrt else grant.adresse,
-                barred=gesperrt,
-                verwaltung=grant.verwaltung,
+                address=None if is_barred else grant.address,
+                barred=is_barred,
+                admin_tier=grant.admin_tier,
                 granted_by=erteilt_von,
                 granted_by_barred=erteilt_von is None,
                 granted_at=grant.granted_at,
                 address_change=None
                 if record is None
                 else _adresswechsel_zeile(
-                    record, akteur=akteur, auth_time=auth_time, inhaber=inhaber, grants=rows, announced=announced, barred=barred_im_wechsel
+                    record, actor=actor, auth_time=auth_time, owner=owner, grants=rows, announced=announced, barred=barred_in_change
                 ),
                 version=grant.version,
             )
@@ -187,7 +189,8 @@ async def get_grants(
     return FLGrantsListResponse(
         grants=served,
         approval_requests=[
-            _antrag_zeile(antrag, akteur=akteur, inhaber=inhaber, grants=rows, announced=announced, barred=barred) for antrag in antraege
+            _approval_request_row(approval_request, actor=actor, owner=owner, grants=rows, announced=announced, barred=barred)
+            for approval_request in approval_requests
         ],
     )
 
@@ -195,66 +198,60 @@ async def get_grants(
 def _adresswechsel_zeile(
     record: Mapping[str, Any],
     *,
-    akteur: str,
+    actor: str,
     auth_time: int,
-    inhaber: bool,
+    owner: bool,
     grants: Sequence[Mapping[str, Any]],
     announced: Sequence[Mapping[str, Any]],
     barred: Set[str],
 ) -> FLGrantAddressChange:
-    genehmigung, weg = record["approval"], record["way"]
-    verwehrt = genehmigung_verwehrt(
-        betroffen=record["adresse"], approval=genehmigung, akteur=akteur, inhaber=inhaber, grants=grants, announced=announced
-    )
-    # `verwaltung_adresse`'s reach: the tool refuses a non-owner an owner's address, so this row tells them no more of it.
-    withheld = verwehrt == "owner"
+    approval, way = record["approval"], record["way"]
+    denied = approval_denied(target=record["address"], approval=approval, actor=actor, owner=owner, grants=grants, announced=announced)
+    # `admin_address`'s reach: the tool refuses a non-owner an owner's address, so this row tells them no more of it.
+    withheld = denied == "owner"
     email = str(record["email"])
     # On the person's own start the starter is the address on file, the row's own.
-    von = None if weg == "account" else str(genehmigung["started_by"])
+    by = None if way == "account" else str(approval["started_by"])
 
     return FLGrantAddressChange(
         id=record["_id"],
         email=None if withheld or email in barred else email,
         email_barred=email in barred,
-        way=weg,
-        started_by=None if withheld else withheld_actor(von, barred),
-        started_by_barred=von is not None and withheld_actor(von, barred) is None,
+        way=way,
+        started_by=None if withheld else withheld_actor(by, barred),
+        started_by_barred=by is not None and withheld_actor(by, barred) is None,
         grund=None if withheld else record.get("grund"),
         confirmed=record.get("confirmed_at") is not None,
-        bis=genehmigung["bis"],
-        denied=verwehrt,
-        viewable_denied=adresswechsel_einsehbar_verwehrt(
-            record["adresse"], akteur=akteur, auth_time=auth_time, grants=grants, announced=announced
-        ),
+        until=approval["until"],
+        denied=denied,
+        viewable_denied=address_change_viewable_denied(record["address"], actor=actor, auth_time=auth_time, grants=grants, announced=announced),
     )
 
 
-def _antrag_zeile(
-    antrag: Mapping[str, Any],
+def _approval_request_row(
+    approval_request: Mapping[str, Any],
     *,
-    akteur: str,
-    inhaber: bool,
+    actor: str,
+    owner: bool,
     grants: Sequence[Mapping[str, Any]],
     announced: Sequence[Mapping[str, Any]],
     barred: Set[str],
 ) -> FLGrantApprovalRequestRow:
-    adresse, genehmigung = str(antrag["adresse"]), antrag["approval"]
-    von = withheld_actor(str(genehmigung["started_by"]), barred)
+    address, approval = str(approval_request["address"]), approval_request["approval"]
+    by = withheld_actor(str(approval["started_by"]), barred)
 
     return FLGrantApprovalRequestRow(
-        id=antrag["_id"],
-        adresse=None if adresse in barred else adresse,
-        barred=adresse in barred,
-        grant_id=antrag["grant_id"],
-        verwaltung=genehmigung["verwaltung"],
-        started_by=von,
-        started_by_barred=von is None,
-        asked_at=genehmigung["asked_at"],
-        bis=genehmigung["bis"],
-        stands=antrag_steht(antrag, grants=grants, announced=announced, barred=barred),
-        denied=genehmigung_verwehrt(
-            betroffen=adresse, approval=genehmigung, akteur=akteur, inhaber=inhaber, grants=grants, announced=announced
-        ),
+        id=approval_request["_id"],
+        address=None if address in barred else address,
+        barred=address in barred,
+        grant_id=approval_request["grant_id"],
+        admin_tier=approval["admin_tier"],
+        started_by=by,
+        started_by_barred=by is None,
+        asked_at=approval["asked_at"],
+        until=approval["until"],
+        stands=approval_request_stands(approval_request, grants=grants, announced=announced, barred=barred),
+        denied=approval_denied(target=address, approval=approval, actor=actor, owner=owner, grants=grants, announced=announced),
     )
 
 
@@ -267,11 +264,11 @@ def _antrag_zeile(
 )
 async def post_grant(
     berechtigung_data: Annotated[FLPostGrantPayload, Body()],
-    berechtigungen_collection: GrantsCollection,
-    berechtigungen_angekuendigt_collection: GrantsAnnouncedCollection,
+    grants_collection: GrantsCollection,
+    grants_announced_collection: GrantsAnnouncedCollection,
     outbox_collection: OutboxCollection,
-    berechtigungen_antraege_collection: GrantApprovalRequestsCollection,
-    sperrliste: SperrlisteLookup,
+    grant_approval_requests_collection: GrantApprovalRequestsCollection,
+    ban_list: BanListLookup,
     db: DBClient,
     granted_by: str = Depends(get_actor_email),
     now: datetime = Depends(get_germany_now),
@@ -291,44 +288,44 @@ async def post_grant(
     change, it takes a passkey sign-in or confirmation no older than `ENROLMENT_WINDOW_MINUTES`, refused `confirmation_required` otherwise.
     """
 
-    adresse = sign_in_identifier(str(berechtigung_data.email))
-    akteur = sign_in_identifier(granted_by)
-    # Keyed from the payload's own value, as the ban write keys it (`app/api/identity/system_router.py :: get_subjekt`).
-    gehasht = sperrliste.hash_of(str(berechtigung_data.email))
+    address = sign_in_identifier(str(berechtigung_data.email))
+    actor = sign_in_identifier(granted_by)
+    # Keyed from the payload's own value, as the ban write keys it (`app/api/identity/system_router.py :: get_subject`).
+    hashed = ban_list.hash_of(str(berechtigung_data.email))
 
     async def judge_and_grant(session: AsyncClientSession) -> tuple[ObjectId, bool]:
         """Anchor and read the list, ask the ban list, then write the request, or the grant and its announced row, owing its notice."""
 
-        grants = await pull_the_list_to_judge(berechtigungen_collection=berechtigungen_collection, session=session)
-        refuse(find_vorhanden_refusal(adresse=adresse, grants=grants))
+        grants = await pull_the_list_to_judge(grants_collection=grants_collection, session=session)
+        refuse(find_vorhanden_refusal(address=address, grants=grants))
 
-        gesperrt = await hash_gesperrt(sperrliste, gehasht, session=session)
-        refuse(find_gesperrt_refusal(barred=gesperrt))
+        barred = await hash_barred(ban_list, hashed, session=session)
+        refuse(find_barred_refusal(barred=barred))
 
         await clear_the_address_in_session(
-            berechtigungen_antraege_collection=berechtigungen_antraege_collection, adresse=adresse, now=now, session=session
+            grant_approval_requests_collection=grant_approval_requests_collection, address=address, now=now, session=session
         )
-        if genehmiger := await _genehmiger(
+        if approver := await _approver(
             ADMINISTRATION,
-            ausgenommen={adresse, akteur},
+            excepted={address, actor},
             grants=grants,
-            berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
-            sperrliste=sperrliste,
+            grants_announced_collection=grants_announced_collection,
+            ban_list=ban_list,
             now=now,
             session=session,
         ):
             created = await post_one_to_db(
-                collection=berechtigungen_antraege_collection,
-                document=compose_antrag(adresse=adresse, verwaltung=ADMINISTRATION, grant_id=None, started_by=akteur, now=now),
+                collection=grant_approval_requests_collection,
+                document=compose_approval_request(address=address, admin_tier=ADMINISTRATION, grant_id=None, started_by=actor, now=now),
                 session=session,
             )
             await _queue_the_request(
                 created.inserted_id,
-                adresse=adresse,
-                verwaltung=ADMINISTRATION,
+                address=address,
+                admin_tier=ADMINISTRATION,
                 started_by=granted_by,
-                genehmiger=genehmiger,
-                berechtigungen_collection=berechtigungen_collection,
+                approver=approver,
+                grants_collection=grants_collection,
                 outbox_collection=outbox_collection,
                 now=now,
                 session=session,
@@ -337,12 +334,12 @@ async def post_grant(
             return created.inserted_id, True
 
         created_id = await grant_in_session(
-            adresse=adresse,
-            verwaltung=ADMINISTRATION,
+            address=address,
+            admin_tier=ADMINISTRATION,
             granted_by=granted_by,
             barred=frozenset(),
-            berechtigungen_collection=berechtigungen_collection,
-            berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
+            grants_collection=grants_collection,
+            grants_announced_collection=grants_announced_collection,
             outbox_collection=outbox_collection,
             now=now,
             session=session,
@@ -351,19 +348,19 @@ async def post_grant(
         return created_id, False
 
     async with transaction_session(db) as session:
-        created_id, beantragt = await session.with_transaction(judge_and_grant)
+        created_id, requested = await session.with_transaction(judge_and_grant)
 
-    return FLPostGrantResponse(created_id=created_id, requested=beantragt)
+    return FLPostGrantResponse(created_id=created_id, requested=requested)
 
 
 async def _queue_the_request(
     approval_request_id: ObjectId,
     *,
-    adresse: str,
-    verwaltung: str,
+    address: str,
+    admin_tier: str,
     started_by: str,
-    genehmiger: Sequence[str],
-    berechtigungen_collection: AsyncCollection,
+    approver: Sequence[str],
+    grants_collection: AsyncCollection,
     outbox_collection: AsyncCollection,
     now: datetime,
     session: AsyncClientSession,
@@ -372,10 +369,10 @@ async def _queue_the_request(
 
     await owe_in_session(
         [
-            compose_mitteilung(
+            compose_notice(
                 grant_id=approval_request_id,
-                art="requested",
-                jetzt=FLGrantSnapshot.model_validate({"adresse": adresse, "verwaltung": verwaltung}),
+                kind="requested",
+                current=FLGrantSnapshot.model_validate({"address": address, "admin_tier": admin_tier}),
                 before=None,
                 changed_by=started_by,
                 now=now,
@@ -384,33 +381,33 @@ async def _queue_the_request(
             )
         ],
         outbox_collection=outbox_collection,
-        berechtigungen_collection=berechtigungen_collection,
+        grants_collection=grants_collection,
         now=now,
         session=session,
-        an=genehmiger,
+        an=approver,
         reference=FLOutboxReference(collection=Collection.GRANT_APPROVAL_REQUESTS, id=approval_request_id, seat=None),
     )
 
 
-async def _genehmiger(
-    verwaltung: str,
+async def _approver(
+    admin_tier: str,
     *,
-    ausgenommen: Set[str],
+    excepted: Set[str],
     grants: Sequence[Mapping[str, Any]],
-    berechtigungen_angekuendigt_collection: AsyncCollection,
-    sperrliste: SperrlisteLookup,
+    grants_announced_collection: AsyncCollection,
+    ban_list: BanListLookup,
     now: datetime,
     session: AsyncClientSession,
 ) -> list[str]:
-    """Everybody but `ausgenommen` who could approve an act on a grant of `verwaltung` asked now.
+    """Everybody but `excepted` who could approve an act on a grant of `admin_tier` asked now.
 
     Judged on the grants the caller anchored, so a grant or a revoke beside it conflicts.
     """
 
-    announced = await read_the_announced(berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection, session=session)
-    barred = await adressen_gesperrt(sperrliste, [str(row["adresse"]) for row in grants], session=session)
+    announced = await read_the_announced(grants_announced_collection=grants_announced_collection, session=session)
+    barred = await barred_addresses(ban_list, [str(row["address"]) for row in grants], session=session)
 
-    return genehmiger_of(verwaltung=verwaltung, ausgenommen=ausgenommen, grants=grants, announced=announced, barred=barred, vor=now)
+    return approver_of(admin_tier=admin_tier, excepted=excepted, grants=grants, announced=announced, barred=barred, before=now)
 
 
 @router.delete(
@@ -421,13 +418,13 @@ async def _genehmiger(
 )
 async def delete_grant(
     grant_id: CustomRouteObjectId,
-    berechtigungen_collection: GrantsCollection,
-    berechtigungen_angekuendigt_collection: GrantsAnnouncedCollection,
+    grants_collection: GrantsCollection,
+    grants_announced_collection: GrantsAnnouncedCollection,
     outbox_collection: OutboxCollection,
-    berechtigungen_antraege_collection: GrantApprovalRequestsCollection,
-    sperrliste: SperrlisteLookup,
+    grant_approval_requests_collection: GrantApprovalRequestsCollection,
+    ban_list: BanListLookup,
     db: DBClient,
-    entzogen_von: str = Depends(get_actor_email),
+    revoked_by: str = Depends(get_actor_email),
     auth_time: int = Depends(get_actor_auth_time),
     now: datetime = Depends(get_germany_now),
 ) -> FLGrantWriteResponse:
@@ -442,14 +439,14 @@ async def delete_grant(
     or confirmation older than `ENROLMENT_WINDOW_MINUTES` is refused `confirmation_required`, as the grant's is.
     """
 
-    akteur = sign_in_identifier(entzogen_von)
+    actor = sign_in_identifier(revoked_by)
 
     async def judge_and_revoke(session: AsyncClientSession) -> None:
         """Anchor and read the list, judge the actor and the row against it, then remove the row, its announced row, and queue both notices."""
 
-        grants = await pull_the_list_to_judge(berechtigungen_collection=berechtigungen_collection, session=session)
-        records = await read_the_announced(berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection, session=session)
-        refuse(find_nur_inhaber_refusal(akteur=akteur, auth_time=auth_time, grants=grants, announced=records))
+        grants = await pull_the_list_to_judge(grants_collection=grants_collection, session=session)
+        records = await read_the_announced(grants_announced_collection=grants_announced_collection, session=session)
+        refuse(find_nur_inhaber_refusal(actor=actor, auth_time=auth_time, grants=grants, announced=records))
 
         grant = next((row for row in grants if row["_id"] == grant_id), None)
         if grant is None:
@@ -460,26 +457,26 @@ async def delete_grant(
         refuse(find_inhaber_refusal(grant=grant))
 
         live = grants
-        barred = await adressen_gesperrt(sperrliste, [str(row["adresse"]) for row in live], session=session)
-        remaining = [row for row in live if row["_id"] != grant_id and row["adresse"] not in barred]
+        barred = await barred_addresses(ban_list, [str(row["address"]) for row in live], session=session)
+        remaining = [row for row in live if row["_id"] != grant_id and row["address"] not in barred]
         refuse(find_mindestzahl_refusal(remaining=len(remaining)))
 
         await revoke_in_session(
             grant=grant,
             announced=[record for record in records if record["_id"] == grant_id],
-            entzogen_von=entzogen_von,
+            revoked_by=revoked_by,
             barred=barred,
-            berechtigungen_collection=berechtigungen_collection,
-            berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
+            grants_collection=grants_collection,
+            grants_announced_collection=grants_announced_collection,
             outbox_collection=outbox_collection,
             now=now,
             session=session,
         )
         await settle_the_requesters_notices_in_session(
-            berechtigungen_antraege_collection=berechtigungen_antraege_collection,
+            grant_approval_requests_collection=grant_approval_requests_collection,
             outbox_collection=outbox_collection,
-            started_by=str(grant["adresse"]),
-            verwaltung=None,
+            started_by=str(grant["address"]),
+            admin_tier=None,
             now=now,
             session=session,
         )
@@ -499,11 +496,11 @@ async def delete_grant(
 async def patch_grant(
     grant_id: CustomRouteObjectId,
     berechtigung_data: Annotated[FLPatchGrantPayload, Body()],
-    berechtigungen_collection: GrantsCollection,
-    berechtigungen_angekuendigt_collection: GrantsAnnouncedCollection,
+    grants_collection: GrantsCollection,
+    grants_announced_collection: GrantsAnnouncedCollection,
     outbox_collection: OutboxCollection,
-    berechtigungen_antraege_collection: GrantApprovalRequestsCollection,
-    sperrliste: SperrlisteLookup,
+    grant_approval_requests_collection: GrantApprovalRequestsCollection,
+    ban_list: BanListLookup,
     db: DBClient,
     changed_by: str = Depends(get_actor_email),
     auth_time: int = Depends(get_actor_auth_time),
@@ -525,20 +522,20 @@ async def patch_grant(
     promotion of an address on the ban list is refused (`grant_barred`), one whose request waits already
     (`grant_approval_request_open`), and a demotion leaving no live, unbarred owner (`grant_last_owner`). Naming the tier the grant
     holds changes nothing and answers 200. The change reaches the next request; its announcement is queued in the same transaction, after
-    any change to the row made in the database and not yet announced, and a grant found that way is stamped `gefunden_am` as
+    any change to the row made in the database and not yet announced, and a grant found that way is stamped `found_at` as
     `POST /grants/reconciliation` stamps one. A sign-in or confirmation older than `ENROLMENT_WINDOW_MINUTES` is refused
     `confirmation_required`, as the grant's is.
     """
 
-    akteur = sign_in_identifier(changed_by)
-    verwaltung = berechtigung_data.verwaltung
+    actor = sign_in_identifier(changed_by)
+    admin_tier = berechtigung_data.admin_tier
 
     async def judge_and_change(session: AsyncClientSession) -> bool:
         """Read the list, judge the actor and the row against it, then anchor and ask for the promotion, or move the tier."""
 
-        grants = await read_berechtigungen(berechtigungen_collection=berechtigungen_collection, session=session)
-        records = await read_the_announced(berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection, session=session)
-        refuse(find_nur_inhaber_refusal(akteur=akteur, auth_time=auth_time, grants=grants, announced=records))
+        grants = await read_berechtigungen(grants_collection=grants_collection, session=session)
+        records = await read_the_announced(grants_announced_collection=grants_announced_collection, session=session)
+        refuse(find_nur_inhaber_refusal(actor=actor, auth_time=auth_time, grants=grants, announced=records))
 
         live = grants
         # A live row alone: the list serves no other, and an owner nobody can sign in as could demote nobody back.
@@ -548,67 +545,69 @@ async def patch_grant(
 
         # Ahead of the anchor, so the tier already held writes nothing, not even an `aktionen` row: an
         # answer that writes nothing is a snapshot no rival can make wrong.
-        if grant["verwaltung"] == verwaltung:
+        if grant["admin_tier"] == admin_tier:
             return False
 
         # Rereads this snapshot's rows and writes each, so a rival judging the list conflicts.
-        await pull_the_list_to_judge(berechtigungen_collection=berechtigungen_collection, session=session)
+        await pull_the_list_to_judge(grants_collection=grants_collection, session=session)
 
-        barred = await adressen_gesperrt(sperrliste, [str(row["adresse"]) for row in live], session=session)
-        if verwaltung == OWNER:
-            refuse(find_gesperrt_refusal(barred=grant["adresse"] in barred))
+        barred = await barred_addresses(ban_list, [str(row["address"]) for row in live], session=session)
+        if admin_tier == OWNER:
+            refuse(find_barred_refusal(barred=grant["address"] in barred))
             await clear_the_address_in_session(
-                berechtigungen_antraege_collection=berechtigungen_antraege_collection, adresse=str(grant["adresse"]), now=now, session=session
+                grant_approval_requests_collection=grant_approval_requests_collection, address=str(grant["address"]), now=now, session=session
             )
-            if genehmiger := await _genehmiger(
+            if approver := await _approver(
                 OWNER,
-                ausgenommen={str(grant["adresse"]), akteur},
+                excepted={str(grant["address"]), actor},
                 grants=grants,
-                berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
-                sperrliste=sperrliste,
+                grants_announced_collection=grants_announced_collection,
+                ban_list=ban_list,
                 now=now,
                 session=session,
             ):
                 created = await post_one_to_db(
-                    collection=berechtigungen_antraege_collection,
-                    document=compose_antrag(adresse=str(grant["adresse"]), verwaltung=OWNER, grant_id=grant_id, started_by=akteur, now=now),
+                    collection=grant_approval_requests_collection,
+                    document=compose_approval_request(
+                        address=str(grant["address"]), admin_tier=OWNER, grant_id=grant_id, started_by=actor, now=now
+                    ),
                     session=session,
                 )
                 await _queue_the_request(
                     created.inserted_id,
-                    adresse=str(grant["adresse"]),
-                    verwaltung=OWNER,
+                    address=str(grant["address"]),
+                    admin_tier=OWNER,
                     started_by=changed_by,
-                    genehmiger=genehmiger,
-                    berechtigungen_collection=berechtigungen_collection,
+                    approver=approver,
+                    grants_collection=grants_collection,
                     outbox_collection=outbox_collection,
                     now=now,
                     session=session,
                 )
                 return True
         else:
-            owners = [row for row in live if row["verwaltung"] == OWNER and row["_id"] != grant_id and row["adresse"] not in barred]
+            owners = [row for row in live if row["admin_tier"] == OWNER and row["_id"] != grant_id and row["address"] not in barred]
             refuse(find_letzter_inhaber_refusal(remaining_owners=len(owners)))
 
         await _move_the_tier_in_session(
             grant,
-            verwaltung=verwaltung,
+            admin_tier=admin_tier,
             version=berechtigung_data.version,
             records=records,
             barred=barred,
             changed_by=changed_by,
-            berechtigungen_collection=berechtigungen_collection,
-            berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
+            grants_collection=grants_collection,
+            grants_announced_collection=grants_announced_collection,
             outbox_collection=outbox_collection,
             now=now,
             session=session,
         )
-        if verwaltung != OWNER:
+        if admin_tier != OWNER:
             await settle_the_requesters_notices_in_session(
-                berechtigungen_antraege_collection=berechtigungen_antraege_collection,
+                grant_approval_requests_collection=grant_approval_requests_collection,
                 outbox_collection=outbox_collection,
-                started_by=str(grant["adresse"]),
-                verwaltung=OWNER,
+                started_by=str(grant["address"]),
+                admin_tier=OWNER,
                 now=now,
                 session=session,
             )
@@ -616,22 +615,22 @@ async def patch_grant(
         return False
 
     async with transaction_session(db) as session:
-        beantragt = await session.with_transaction(judge_and_change)
+        requested = await session.with_transaction(judge_and_change)
 
-    return FLGrantStufeResponse(grant_id=grant_id, requested=beantragt)
+    return FLGrantStufeResponse(grant_id=grant_id, requested=requested)
 
 
 async def _move_the_tier_in_session(
     grant: Mapping[str, Any],
     *,
-    verwaltung: str,
+    admin_tier: str,
     # Required, so no caller forgets the form's version: the payload's, or `None` where no form was read.
     version: int | None,
     records: Sequence[Mapping[str, Any]],
     barred: Set[str],
     changed_by: str,
-    berechtigungen_collection: AsyncCollection,
-    berechtigungen_angekuendigt_collection: AsyncCollection,
+    grants_collection: AsyncCollection,
+    grants_announced_collection: AsyncCollection,
     outbox_collection: AsyncCollection,
     now: datetime,
     session: AsyncClientSession,
@@ -644,18 +643,18 @@ async def _move_the_tier_in_session(
     pending = compare(grants=[grant], announced=announced)
 
     await patch_one_in_db(
-        collection=berechtigungen_collection,
+        collection=grants_collection,
         db_filter={"_id": grant_id},
         # Stamped and seen as the pass stamps and sees a grant it finds, since the announced row moved
         # below leaves the pass nothing of this grant to find.
         update={
             "$set": {
-                "verwaltung": verwaltung,
-                **({"gefunden_am": now} if gefunden(pending) else {}),
-                **({"gesehen_am": now} if grant.get("gesehen_am") is None else {}),
+                "admin_tier": admin_tier,
+                **({"found_at": now} if found_ids(pending) else {}),
+                **({"seen_at": now} if grant.get("seen_at") is None else {}),
                 # Its owner's power dates from now, so the promoted holder's older sessions keep
                 # administering and hold none of it.
-                **({"appointed_at": now} if verwaltung == OWNER else {}),
+                **({"appointed_at": now} if admin_tier == OWNER else {}),
             }
         },
         # A tier change opened before another write is refused.
@@ -664,34 +663,34 @@ async def _move_the_tier_in_session(
         return_document=ReturnDocument.BEFORE,
     )
 
-    vorher = stand_of(grant)
-    jetzt = vorher.model_copy(update={"verwaltung": verwaltung})
+    before = snapshot_of(grant)
+    current = before.model_copy(update={"admin_tier": admin_tier})
     await owe_in_session(
         [
             *(
-                compose_mitteilung(grant_id=changed_id, art=art, jetzt=was, before=before, changed_by=None, now=now, barred=barred)
-                for changed_id, art, was, before in pending
+                compose_notice(grant_id=changed_id, kind=kind, current=was, before=before, changed_by=None, now=now, barred=barred)
+                for changed_id, kind, was, before in pending
             ),
-            compose_mitteilung(
+            compose_notice(
                 grant_id=grant_id,
-                art="changed",
-                jetzt=jetzt,
-                before=vorher,
+                kind="changed",
+                current=current,
+                before=before,
                 changed_by=changed_by,
                 now=now,
                 barred=barred,
             ),
         ],
         outbox_collection=outbox_collection,
-        berechtigungen_collection=berechtigungen_collection,
+        grants_collection=grants_collection,
         now=now,
         session=session,
     )
     # The announced row is bookkeeping, so replaced with no image.
-    await erase_many_from_db(collection=berechtigungen_angekuendigt_collection, db_filter={"_id": grant_id}, session=session)
+    await erase_many_from_db(collection=grants_announced_collection, db_filter={"_id": grant_id}, session=session)
     await post_one_to_db(
-        collection=berechtigungen_angekuendigt_collection,
-        document=compose_announced(grant_id=grant_id, stand=jetzt, now=now),
+        collection=grants_announced_collection,
+        document=compose_announced(grant_id=grant_id, snapshot=current, now=now),
         session=session,
     )
 
@@ -705,11 +704,11 @@ async def _move_the_tier_in_session(
 )
 async def post_approval_request_approval(
     approval_request_id: CustomRouteObjectId,
-    berechtigungen_collection: GrantsCollection,
-    berechtigungen_angekuendigt_collection: GrantsAnnouncedCollection,
+    grants_collection: GrantsCollection,
+    grants_announced_collection: GrantsAnnouncedCollection,
     outbox_collection: OutboxCollection,
-    berechtigungen_antraege_collection: GrantApprovalRequestsCollection,
-    sperrliste: SperrlisteLookup,
+    grant_approval_requests_collection: GrantApprovalRequestsCollection,
+    ban_list: BanListLookup,
     db: DBClient,
     operator: str = Depends(get_actor_email),
     auth_time: int = Depends(get_actor_auth_time),
@@ -730,52 +729,56 @@ async def post_approval_request_approval(
     nothing. A sign-in or confirmation older than `ENROLMENT_WINDOW_MINUTES` is refused `confirmation_required`, as a grant's is.
     """
 
-    akteur = sign_in_identifier(operator)
+    actor = sign_in_identifier(operator)
 
-    async def approve_the_antrag(session: AsyncClientSession) -> ObjectId:
+    async def approve_the_approval_request(session: AsyncClientSession) -> ObjectId:
         """Read the request and anchor the list, judge the approver and the requester, then remove the request and make the act."""
 
-        antrag = await pull_the_antrag(
-            berechtigungen_antraege_collection=berechtigungen_antraege_collection,
+        approval_request = await pull_the_approval_request(
+            grant_approval_requests_collection=grant_approval_requests_collection,
             approval_request_id=approval_request_id,
             now=now,
             session=session,
         )
-        adresse = str(antrag["adresse"])
+        address = str(approval_request["address"])
         # Written, so a revoke or a demotion of the approver or the requester committing beside it conflicts.
-        grants = await pull_the_list_to_judge(berechtigungen_collection=berechtigungen_collection, session=session)
-        records = await read_the_announced(berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection, session=session)
-        barred = await adressen_gesperrt(sperrliste, [str(row["adresse"]) for row in grants] + [adresse], session=session)
+        grants = await pull_the_list_to_judge(grants_collection=grants_collection, session=session)
+        records = await read_the_announced(grants_announced_collection=grants_announced_collection, session=session)
+        barred = await barred_addresses(ban_list, [str(row["address"]) for row in grants] + [address], session=session)
 
-        inhaber = holds_an_owners_power(akteur=akteur, auth_time=auth_time, grants=grants, announced=records)
+        owner = holds_an_owners_power(actor=actor, auth_time=auth_time, grants=grants, announced=records)
         refuse(
-            find_genehmigung_verwehrt_refusal(
-                denied=genehmigung_verwehrt(
-                    betroffen=adresse, approval=antrag["approval"], akteur=akteur, inhaber=inhaber, grants=grants, announced=records
+            find_approval_denied_refusal(
+                denied=approval_denied(
+                    target=address, approval=approval_request["approval"], actor=actor, owner=owner, grants=grants, announced=records
                 )
             )
         )
-        refuse(find_antrag_verfallen_refusal(stands=antrag_steht(antrag, grants=grants, announced=records, barred=barred)))
+        refuse(
+            find_approval_request_lapsed_refusal(
+                stands=approval_request_stands(approval_request, grants=grants, announced=records, barred=barred)
+            )
+        )
 
         # Removed by the write that reads it, so a second approval, a refusal or an erasure beside this one conflicts and finds none.
-        await remove_the_antrag_in_session(
-            berechtigungen_antraege_collection=berechtigungen_antraege_collection,
+        await remove_the_approval_request_in_session(
+            grant_approval_requests_collection=grant_approval_requests_collection,
             outbox_collection=outbox_collection,
             approval_request_id=approval_request_id,
             now=now,
             session=session,
         )
 
-        if antrag["grant_id"] is None:
-            refuse(find_vorhanden_refusal(adresse=adresse, grants=grants))
-            refuse(find_gesperrt_refusal(barred=adresse in barred))
+        if approval_request["grant_id"] is None:
+            refuse(find_vorhanden_refusal(address=address, grants=grants))
+            refuse(find_barred_refusal(barred=address in barred))
             created_id = await grant_in_session(
-                adresse=adresse,
-                verwaltung=ADMINISTRATION,
+                address=address,
+                admin_tier=ADMINISTRATION,
                 granted_by=operator,
                 barred=frozenset(),
-                berechtigungen_collection=berechtigungen_collection,
-                berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
+                grants_collection=grants_collection,
+                grants_announced_collection=grants_announced_collection,
                 outbox_collection=outbox_collection,
                 now=now,
                 session=session,
@@ -783,21 +786,21 @@ async def post_approval_request_approval(
             return created_id
 
         # The grant the request named, at the address it named: one repointed in the database since is somebody else's.
-        grant = next((row for row in grants if row["_id"] == antrag["grant_id"] and row["adresse"] == adresse), None)
+        grant = next((row for row in grants if row["_id"] == approval_request["grant_id"] and row["address"] == address), None)
         if grant is None:
             raise DocumentNotFoundError()
-        if grant["verwaltung"] != OWNER:
-            refuse(find_gesperrt_refusal(barred=adresse in barred))
+        if grant["admin_tier"] != OWNER:
+            refuse(find_barred_refusal(barred=address in barred))
             await _move_the_tier_in_session(
                 grant,
-                verwaltung=OWNER,
+                admin_tier=OWNER,
                 # An approval saves no form, so it is checked against no version.
                 version=None,
                 records=records,
                 barred=barred,
                 changed_by=operator,
-                berechtigungen_collection=berechtigungen_collection,
-                berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
+                grants_collection=grants_collection,
+                grants_announced_collection=grants_announced_collection,
                 outbox_collection=outbox_collection,
                 now=now,
                 session=session,
@@ -806,7 +809,7 @@ async def post_approval_request_approval(
         return grant["_id"]
 
     async with transaction_session(db) as session:
-        grant_id = await session.with_transaction(approve_the_antrag)
+        grant_id = await session.with_transaction(approve_the_approval_request)
 
     return FLGrantWriteResponse(grant_id=grant_id)
 
@@ -819,11 +822,11 @@ async def post_approval_request_approval(
 )
 async def delete_approval_request(
     approval_request_id: CustomRouteObjectId,
-    berechtigungen_collection: GrantsCollection,
-    berechtigungen_angekuendigt_collection: GrantsAnnouncedCollection,
-    berechtigungen_antraege_collection: GrantApprovalRequestsCollection,
+    grants_collection: GrantsCollection,
+    grants_announced_collection: GrantsAnnouncedCollection,
+    grant_approval_requests_collection: GrantApprovalRequestsCollection,
     outbox_collection: OutboxCollection,
-    sperrliste: SperrlisteLookup,
+    ban_list: BanListLookup,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
     operator: str = Depends(get_actor_email),
@@ -842,49 +845,49 @@ async def delete_approval_request(
     nobody who refused it, for `POST /grants/reconciliation` to hand out; a withdrawal tells nobody.
     """
 
-    akteur = sign_in_identifier(operator)
+    actor = sign_in_identifier(operator)
     journal = Journal()
 
     @journal.attempted
-    async def refuse_the_antrag(session: AsyncClientSession) -> None:
-        antrag = await pull_the_antrag(
-            berechtigungen_antraege_collection=berechtigungen_antraege_collection,
+    async def refuse_the_approval_request(session: AsyncClientSession) -> None:
+        approval_request = await pull_the_approval_request(
+            grant_approval_requests_collection=grant_approval_requests_collection,
             approval_request_id=approval_request_id,
             now=now,
             session=session,
         )
-        grants = await read_berechtigungen(berechtigungen_collection=berechtigungen_collection, session=session)
-        records = await read_the_announced(berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection, session=session)
-        verwehrt = genehmigung_verwehrt(
-            betroffen=antrag["adresse"],
-            approval=antrag["approval"],
-            akteur=akteur,
-            inhaber=holds_an_owners_power(akteur=akteur, auth_time=auth_time, grants=grants, announced=records),
+        grants = await read_berechtigungen(grants_collection=grants_collection, session=session)
+        records = await read_the_announced(grants_announced_collection=grants_announced_collection, session=session)
+        denied = approval_denied(
+            target=approval_request["address"],
+            approval=approval_request["approval"],
+            actor=actor,
+            owner=holds_an_owners_power(actor=actor, auth_time=auth_time, grants=grants, announced=records),
             grants=grants,
             announced=records,
         )
         # Its requester withdraws it: who made a request may always take it back.
-        zurueckgezogen = verwehrt == "started"
-        refuse(find_genehmigung_verwehrt_refusal(denied=None if zurueckgezogen else verwehrt))
+        withdrawn = denied == "started"
+        refuse(find_approval_denied_refusal(denied=None if withdrawn else denied))
 
-        await remove_the_antrag_in_session(
-            berechtigungen_antraege_collection=berechtigungen_antraege_collection,
+        await remove_the_approval_request_in_session(
+            grant_approval_requests_collection=grant_approval_requests_collection,
             outbox_collection=outbox_collection,
             approval_request_id=approval_request_id,
             now=now,
             session=session,
         )
         journal.note(
-            antrag_line(
-                antrag=antrag,
-                art="antrag_zurueckgezogen" if zurueckgezogen else "antrag_abgelehnt",
-                am=log_stamp(now),
+            approval_request_line(
+                approval_request=approval_request,
+                kind="approval_request_withdrawn" if withdrawn else "approval_request_declined",
+                at=log_stamp(now),
                 key=config.sperrliste_key,
             )
         )
 
     async with journal:
         async with transaction_session(db) as session:
-            await session.with_transaction(refuse_the_antrag)
+            await session.with_transaction(refuse_the_approval_request)
 
     return FLGrantApprovalRequestDeclinedResponse(approval_request_id=approval_request_id)
