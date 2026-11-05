@@ -38,6 +38,7 @@ export type EditorSection = { id: string; title: Copy; help?: Copy; fields: Reac
 export function EditorPage<Values extends Record<string, EditorValue>>({
   title,
   chip,
+  lead,
   editor,
   sections,
   danger,
@@ -46,6 +47,11 @@ export function EditorPage<Values extends Record<string, EditorValue>>({
 }: {
   title: PageTitle;
   chip?: ChipProps;
+  /**
+   * The Vorschau: one line under the title saying how the record reads, such as a match's pairing, its score and
+   * its outcome, or that no result is stored yet.
+   */
+  lead?: Copy;
   /** The reason the record is closed read-only, such as its season having finished; absent while it is open. */
   closed?: Copy;
   editor: Editor<Values>;
@@ -82,6 +88,7 @@ export function EditorPage<Values extends Record<string, EditorValue>>({
           editor.submit();
         }}
         className={formColumn()}>
+        {lead !== undefined && <p className="text-sm text-fg-muted">{lead}</p>}
         <FormClosed value={closed !== undefined}>
           {sections.map((section, index) => (
             <Section
