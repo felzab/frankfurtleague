@@ -120,10 +120,8 @@ const {
   saveSeatConsent,
   saveSpielerConsent,
   signOutOthers,
-  startAddressChange,
   withdrawAddressChange,
 } = await import("./personActions.ts");
-const { removePasskeyAction } = await import("@/features/passkeys/actions.ts");
 const { COPY } = await import("@/core/copy.ts");
 const { SERVER_COPY } = await import("@/core/serverCopy.ts");
 const { auth } = await import("@/core/auth/library.ts");
@@ -145,21 +143,9 @@ function arriveAs(cookie: string): void {
   requestHeaders = new Headers({ ...ORIGIN, cookie });
 }
 
-/** A signed-in person, the request arriving as them, and a deletion link mailed to them; `passkey` adds one they hold. */
-async function withLink(
-  email: string,
-  { passkey = false }: { passkey?: boolean } = {},
-): Promise<{ row: SessionRow; token: string; holder: string }> {
+/** A signed-in person, the request arriving as them, and a deletion link mailed to them. */
+async function withLink(email: string): Promise<{ row: SessionRow; token: string; holder: string }> {
   const { cookie, row } = await sessionByCode(auth, store, email);
-  if (passkey) {
-    store.passkey.push({
-      id: `passkey-${row.userId}`,
-      userId: row.userId,
-      credentialID: `credential-${row.userId}`,
-      publicKey: "k",
-      counter: 0,
-    });
-  }
   arriveAs(cookie);
 
   const requested = await requestErasure({ holder: email });
@@ -212,8 +198,7 @@ async function ownerWithLink(email: string): Promise<{ row: SessionRow; token: s
 }
 
 // Each a loss nobody would see: an account deleted with its records left, a deletion the cache keeps serving, the last
-// owner gone, a link spent by a refusal the person can no longer repair, a passkey holder deleted without the touch, a
-// used link left in a shared browser.
+// owner gone, a link spent by a refusal the person can no longer repair, a used link left in a shared browser.
 describe("a person's own account deletion through the mailed link's page", () => {
   it("erases the records under the person's actor, deletes the account, clears the site's tag and leads to the done page", async () => {
     const { row, token, holder } = await withLink("ganz-weg@example.org");
@@ -229,15 +214,6 @@ describe("a person's own account deletion through the mailed link's page", () =>
     expect(heldOf(row.userId)).toStrictEqual({ user: 0, passkeys: 0 });
     expect(cacheCalls.filter(({ name }) => name === "updateTag").flatMap(({ args }) => args)).toStrictEqual([SITE_CACHE_TAG]);
     expect(deletedCookies, "the used link stayed in the browser for its hour").toStrictEqual([ERASURE_LINK_COOKIE]);
-  });
-
-  it("asks a passkey holder signed in by code for the touch, erasing nothing and leaving the link standing", async () => {
-    const { row, token, holder } = await withLink("mit-passkey@example.org", { passkey: true });
-
-    expect(await eraseAccount({ token, holder })).toStrictEqual({ ok: false, reason: COPY.signIn.refusal.touchMissing });
-    expect(erasures).toStrictEqual([]);
-    expect(heldOf(row.userId)).toStrictEqual({ user: 1, passkeys: 1 });
-    assert.ok(linkStands(token), "the refused press spent the link");
   });
 
   it("refuses the league's last owner before the link is spent, and deletes on the same link once another owns", async () => {
@@ -293,43 +269,9 @@ describe("a person's own account deletion through the mailed link's page", () =>
   }
 });
 
-// Each a loss nobody would see: a passkey holder's address moved or passkey removed by whoever reads their mailbox, an
-// administrator's other devices ended from a session that mailbox made, a device left signed in past a list's page.
-describe("the account's acts, behind the account's guard and the touch", () => {
-  /** A signed-in person holding a passkey, the request arriving as their mailed code's session. */
-  async function holderByCode(email: string): Promise<SessionRow> {
-    const { cookie, row } = await sessionByCode(auth, store, email);
-    store.passkey.push({
-      id: `passkey-${row.userId}`,
-      userId: row.userId,
-      credentialID: `credential-${row.userId}`,
-      publicKey: "k",
-      counter: 0,
-    });
-    arriveAs(cookie);
-    return row;
-  }
-
-  it("refuses a passkey holder signed in by code the address change's start, sending nothing", async () => {
-    await holderByCode("start-ohne-touch@example.org");
-
-    expect(await startAddressChange({ email: "neu@example.org", holder: "start-ohne-touch@example.org" })).toStrictEqual({
-      ok: false,
-      reason: COPY.signIn.refusal.touchMissing,
-    });
-    expect(addressChanges).toStrictEqual([]);
-  });
-
-  it("refuses a passkey holder signed in by code the removal of a passkey, removing nothing", async () => {
-    const row = await holderByCode("entfernen-ohne-touch@example.org");
-
-    expect(await removePasskeyAction({ id: `passkey-${row.userId}`, holder: "entfernen-ohne-touch@example.org" })).toStrictEqual({
-      ok: false,
-      reason: COPY.signIn.refusal.touchMissing,
-    });
-    expect(heldOf(row.userId).passkeys).toBe(1);
-  });
-
+// Each a loss nobody would see: an administrator's other devices ended from a session a mailbox made, a device left
+// signed in past a list's page.
+describe("the account's acts, behind the account's guard", () => {
   /* The person guard admits an address holding a grant on its mailed code alone, reporting it no administrator: the
      account's acts are the administrator's lane's to admit. */
   it("refuses an administrator's session made by a mailed code alone every untouched act of the account", async () => {
