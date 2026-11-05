@@ -24,6 +24,7 @@ from app.core.crud import (
     build_query,
     build_sort,
     insert_live,
+    is_held_elsewhere,
     patch_one_in_db,
     pull_many_from_db,
     pull_one_from_db,
@@ -104,8 +105,8 @@ async def post_spielort(
     """
 
     async def enter_the_venue(session: AsyncClientSession) -> InsertOneResult:
-        holder = await spielorte_collection.find_one({"name": spielort_data.name}, projection={"_id": 1}, session=session)
-        refuse(find_venue_name_refusal(taken=holder is not None))
+        taken = await is_held_elsewhere(collection=spielorte_collection, key="name", value=spielort_data.name, own_id=None, session=session)
+        refuse(find_venue_name_refusal(taken=taken))
         return await insert_live(
             collection=spielorte_collection,
             document={
@@ -138,13 +139,17 @@ async def patch_spielort(
     Update a venue on the `version` the editor was served, answering the version stored, which its next save sends.
 
     A fixture names the venue by id and reads its name and `maps_link` at its own read, so nothing else is written; each
-    fixture keeps the `mietpreis` agreed for it. Refused where another venue holds the name (`duplicate_key`), by the
-    unique index.
+    fixture keeps the `mietpreis` agreed for it. Refused where another venue holds the name (`duplicate_key`, naming
+    `name`).
     """
 
     maps_link = _maps_link(spielort_data.name, spielort_data.address)
 
     async def save_the_venue(session: AsyncClientSession) -> FLPatchSpielortResponse:
+        taken = await is_held_elsewhere(
+            collection=spielorte_collection, key="name", value=spielort_data.name, own_id=spielort_id, session=session
+        )
+        refuse(find_venue_name_refusal(taken=taken))
         updated_document_raw = await patch_one_in_db(
             collection=spielorte_collection,
             db_filter={"_id": spielort_id},

@@ -740,10 +740,9 @@ class FLTeamsSingleResponse(BaseAPIResponse):
 
 
 class FLPatchTeamResponse(BaseAPIResponse):
-    # Reported rather than assumed: this fan-out is the half of the endpoint that fails silently.
-    fanned_out_to_spiele: int
-    # Reported for the same reason, and separately: it is scoped to the seasons that are not `past`,
-    # so zero means the club holds no row in one of those -- every season closed, or none entered.
+    # Reported rather than assumed: this fan-out is the half of the endpoint that fails silently. It is scoped to the
+    # seasons that are not `past`, so zero means the club holds no row in one of those -- every season closed, or none
+    # entered.
     fanned_out_to_saison_teams: int
 
 
@@ -818,8 +817,8 @@ class FLReplaceSaisonTeamResponse(BaseAPIResponse):
     # Reseeded from the incoming club, exactly as entry seeds them.
     name: CustomNonEmptyString
     shorthand: CustomShorthand
-    # Reported rather than assumed, as `FLPatchTeamResponse` reports its own.
-    fanned_out_to_spiele: int
+    # The fixtures whose side moved to the incoming club, reported rather than assumed, as the group swap reports its own.
+    rewritten_spiele: int
     # Reported for the same reason, and separately: the outgoing club's squad leaves the season with
     # it, and zero is a real answer -- a club can hold a junction row and no squad at all.
     ausgetragene_kader_rows: int

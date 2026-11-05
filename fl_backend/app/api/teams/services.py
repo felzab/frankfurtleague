@@ -1424,6 +1424,19 @@ def find_kontakte_precondition_refusal(*, expected: str, stored: Any) -> WriteRe
     )
 
 
+def find_shorthand_refusal(*, taken: bool) -> WriteRefusal | None:
+    """`duplicate_key` on the shorthand: another club, a retired one included, holds it.
+
+    Takes the answer rather than the lookup, so the caller's read runs in the caller's transaction. The unique index still
+    answers a race between two writes, as `duplicate_key` with no field.
+    """
+
+    if not taken:
+        return None
+
+    return WriteRefusal(error_code=Code.DUPLICATE_KEY, status=HTTPStatus.CONFLICT, fields=(("shorthand",),))
+
+
 def find_club_entry_refusal(*, inactive_since: str | None) -> WriteRefusal | None:
     """Why this CLUB may not be entered into any season, or `None`.
 
@@ -1460,20 +1473,26 @@ def find_gruppe_move_refusal(*, fixtures_drawn: int) -> WriteRefusal | None:
     )
 
 
-def find_austritt_refusal(*, proposed: Mapping[str, Any] | None, stored: Mapping[str, Any] | None, start_date: str) -> WriteRefusal | None:
-    """Why this exit must be refused, or `None`: one dated before the season's start, whose club the replacement swaps out instead.
+def find_austritt_refusal(
+    *, proposed: Mapping[str, Any] | None, stored: Mapping[str, Any] | None, start_date: str, started: bool
+) -> WriteRefusal | None:
+    """Why recording this exit must be refused, or `None`: the season has not started, and the replacement swaps its club out instead.
 
-    The record as the payload dumps it beside the stored one, so a save resubmitting an exit stored before this rule
-    passes and only a new or changed one is judged. `earliest` is the first day an exit may take effect.
+    Judged on the act, whatever day the exit is dated: while the season has not started the group swap stays open, and an
+    exit standing then would leave the swap fielding a departed club. The season save refuses moving the start past a
+    stored exit (`saison_start_austritt_stored`), so an exit never stands on a season that reads as unstarted again.
+    `started` is `app/api/saisons/services.py :: has_started`. The record as the payload dumps it beside the stored one,
+    so a save resubmitting a stored exit passes and only a new or changed one is judged. `earliest` is the first day an
+    exit may be recorded, on the exit record as a whole rather than its date: no date the exit could carry passes sooner.
     """
 
-    if proposed is None or str(proposed["datum"]) >= start_date or proposed == stored:
+    if proposed is None or started or proposed == stored:
         return None
 
     return WriteRefusal(
         error_code=Code.AUSTRITT_BEFORE_SAISON_START,
         status=HTTPStatus.CONFLICT,
-        fields=(("austritt", "datum"),),
+        fields=(("austritt",),),
         bounds={"earliest": start_date},
     )
 
@@ -1535,8 +1554,8 @@ def find_gruppe_swap_refusal(
 
     **The order is the argument**: it narrows from "not a swap" through the season to the two clubs, and the one
     repairable refusal comes last, so nobody does work a terminal refusal wastes. The season's start is the one lock,
-    and an exit is refused a date before it (`austritt_before_saison_start`), so the fixtures an exchange rewrites
-    never field a club that has left.
+    an exit is recorded only from it (`austritt_before_saison_start`) and the start never moves later past a stored one
+    (`saison_start_austritt_stored`), so the fixtures an exchange rewrites never field a club that has left.
     """
 
     missing = [label for label, gruppe in (("team1", team1_gruppe), ("team2", team2_gruppe)) if gruppe is None]

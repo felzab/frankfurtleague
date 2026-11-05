@@ -55,7 +55,7 @@ RECORDS: Final[Mapping[JournalKind, frozenset[Collection]]] = {
     "withdrawal": frozenset(
         {Collection.SPIELER, Collection.SCHIEDSRICHTER, Collection.REGISTRIERUNGEN, Collection.SAISON_TEAMS, Collection.BEWERBUNGEN}
     ),
-    "objection": frozenset({Collection.SAISON_TEAMS, Collection.BEWERBUNGEN}),
+    "objection": frozenset({Collection.SAISON_TEAMS, Collection.BEWERBUNGEN, Collection.SCHIEDSRICHTER}),
     # Each on the change's own record, whose id names one change: a start never reuses one.
     "address_change_declined": frozenset({Collection.ADDRESS_CHANGES}),
     "address_change_stopped": frozenset({Collection.ADDRESS_CHANGES}),
@@ -71,6 +71,9 @@ RECORDS: Final[Mapping[JournalKind, frozenset[Collection]]] = {
     "approval_request_withdrawn": frozenset({Collection.GRANT_APPROVAL_REQUESTS}),
     "approval_request_ended": frozenset({Collection.GRANT_APPROVAL_REQUESTS}),
 }
+
+# The homes whose rows hold several people's seats, which an objection empties by name.
+SEATED_OBJECTION_HOMES: Final = frozenset({Collection.SAISON_TEAMS, Collection.BEWERBUNGEN})
 
 _HASH: Final = re.compile(r"[0-9a-f]{64}")
 # A label, a seat or a choice's value: one word, so no value can carry a second token or an address.
@@ -143,8 +146,10 @@ class JournalLine:
         )
         if (self.kind == "withdrawal") != withdrawn:
             raise ValueError("a withdrawal's line, and only one, carries the withholding values it set and each one's label")
-        if (self.kind == "objection") != (bool(self.seats) and all(_WORD.fullmatch(seat) for seat in self.seats)):
-            raise ValueError("a Widerspruch's line, and only one, names the slots it emptied")
+        # A referee's entry holds one person and no slot, so its objection empties none.
+        seated = self.kind == "objection" and self.collection in SEATED_OBJECTION_HOMES
+        if seated != (bool(self.seats) and all(_WORD.fullmatch(seat) for seat in self.seats)):
+            raise ValueError("a Widerspruch on a row of seats, and only one, names the slots it emptied")
 
     def text(self) -> str:
         """The line as the stream carries it."""

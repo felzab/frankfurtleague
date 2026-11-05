@@ -4,6 +4,7 @@ import { requestOf } from "@/core/errors";
 import { logger } from "@/core/logging";
 import { sweepAdresswechsel } from "@/features/address-change/sweep";
 import { postRegistrierungSweep } from "@/features/registrierungen/mutations";
+import { postSchiedsrichterSweep } from "@/features/schiedsrichter/mutations";
 
 import { getBewerbungSweepSaisons, postBewerbungSweep } from "./mutations";
 
@@ -14,19 +15,22 @@ type SweepFailure = "bewerbung.sweep_failed" | "registrierung.sweep_failed";
 type Uebergangen = { bewerbung: number; registrierung: number };
 
 /**
- * One pass over every season, then the clock no season holds (`docs/datenschutz.md :: 6`), for the scheduler
- * (`fl_frontend/src/instrumentationNode.ts :: armScheduler`), which runs one pass at a time.
+ * One pass over every season, then the two clocks no season holds (`docs/datenschutz.md :: 6`), the address changes'
+ * and the unconfirmed referee entries', for the scheduler (`fl_frontend/src/instrumentationNode.ts :: armScheduler`),
+ * which runs one pass at a time.
  *
  * Every reminder and notice the backend owed is the Postausgang's drain to send. Answers the rows each half passed over
- * and what the address changes did, `open` the erasures passed over and the lapsed changes left, and the seasons'
- * failure, once both halves have run, as `error`; a lapsed address the half could not end rejects, for the heartbeat
- * to name.
+ * and what the address changes and the referee clock did, `open` the erasures passed over and the lapsed changes left,
+ * and the seasons' failure, once both halves have run, as `error`; a lapsed address the half could not end, or a
+ * referee clock that failed, rejects, for the heartbeat to name.
  */
 export async function runBewerbungSweep() {
   // A listing that failed is the seasons' failure too, and the address changes still run.
   const saisons = await sweepAlleSaisons().catch((error: unknown) => ({ uebergangen: { bewerbung: 0, registrierung: 0 }, error: error }));
   // After the seasons and whatever they met, so a lapsed address is ended every hour.
   const adressen = await sweepAdresswechsel();
+  // The other clock no season holds: an entry whose link lapsed unanswered or declined, erased with its log images.
+  const schiedsrichter = await postSchiedsrichterSweep();
 
   return {
     count: {
@@ -36,8 +40,10 @@ export async function runBewerbungSweep() {
       address_change_effective: adressen.effective,
       address_change_discarded: adressen.discarded,
       address_change_remaining: adressen.remaining,
+      schiedsrichter_erased: schiedsrichter.erased,
+      schiedsrichter_failed: schiedsrichter.failed,
     },
-    open: saisons.uebergangen.bewerbung + saisons.uebergangen.registrierung + adressen.remaining,
+    open: saisons.uebergangen.bewerbung + saisons.uebergangen.registrierung + adressen.remaining + schiedsrichter.failed,
     error: saisons.error,
   };
 }

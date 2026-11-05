@@ -191,10 +191,17 @@ ADDRESS_PATH: Final = "kontakt.email"
 
 EINWILLIGUNG_FELD: Final = "einwilligung"
 
-# The instant the database removes an unanswered or declined entry (`app/core/constraints.py :: TTL_INDEXES`). On the
-# record rather than inside the block: a retired referee's corrected address drops the block, and the entry its
-# person never confirmed still goes on the clock its last link started.
+# The instant the hourly pass erases an unanswered or declined entry (`app/api/schiedsrichter/system_router.py ::
+# sweep_schiedsrichter`), its log images with it, which a TTL index deleting the row would leave for the log's twelve
+# months. On the record rather than inside the block: a retired referee's corrected address drops the block, and the
+# entry its person never confirmed still goes on the clock its last link started.
 ERASE_AT_FIELD: Final = "erase_at"
+
+
+def build_erasure_due_filter(*, now: datetime) -> Mapping[str, Any]:
+    """Every entry whose deletion date has passed: a confirmed entry and the ghost hold none, so neither is ever due."""
+
+    return {ERASE_AT_FIELD: {"$lte": now}}
 
 
 def confirmation_deadline_from(*, today: str) -> str:

@@ -1,6 +1,6 @@
-import { schiedsrichterPatchEinwilligung } from "@/core/generated/client/sdk";
+import { schiedsrichterPatchEinwilligung, schiedsrichterSweepSchiedsrichter } from "@/core/generated/client/sdk";
 
-import type { FLSchiedsrichterAccountEinwilligungPayload } from "@/core/generated/client/types";
+import type { FLSchiedsrichterAccountEinwilligungPayload, FLSchiedsrichterSweepResponse } from "@/core/generated/client/types";
 
 // The referee's own press on the account page, under the person lane's actor; the record is named in
 // the path because one address may hold several referee rows.
@@ -9,4 +9,9 @@ export async function patchSchiedsrichterKontoEinwilligung(
   payload: FLSchiedsrichterAccountEinwilligungPayload,
 ): Promise<void> {
   return schiedsrichterPatchEinwilligung(schiedsrichterId, payload);
+}
+
+/** The hourly pass's: a timer holds no session, and an entry whose link lapsed unanswered or declined is the clock's. */
+export async function postSchiedsrichterSweep(): Promise<FLSchiedsrichterSweepResponse> {
+  return schiedsrichterSweepSchiedsrichter();
 }

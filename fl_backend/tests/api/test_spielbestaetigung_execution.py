@@ -48,6 +48,7 @@ from app.api.teams.admin_router import replace_saison_team
 from app.api.teams.schemas import FLReplaceSaisonTeamPayload
 from app.core.codes import Code
 from app.core.collections import Collection
+from app.core.exceptions import APIError
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX
 from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.schemas.literals import KONTAKT_ROLLEN
@@ -330,7 +331,7 @@ class TestWhatALinkOpens:
                     "inactive_since": None,
                 }
             )
-            ort = {"spielort_id": elsewhere, "name": "Halle West", "maps_link": "Halle West, Frankfurt", "mietpreis": 30}
+            ort = {"spielort_id": elsewhere, "mietpreis": 30}
             await database[Collection.SPIELE].update_one({"_id": SPIEL}, {"$set": {"ort": ort, "datum": None}})
 
             return await read_view(database, token(TEAM1, "trainer"))
@@ -600,22 +601,6 @@ class TestAProposalIsJudgedWhereTheAdminIsJudged:
         assert outcome == code
         assert row["antwort"] is None
         assert (spieltag["beginn"], spieltag["ende"]) == SPAN
-
-    def test_a_clash_the_fixture_already_stands_in_is_no_reason_to_refuse_the_same_slot(self, mongo_replica_set_url: str):
-        """`find_claims_made`'s set: a proposal of the slot the fixture holds makes no claim, as the administrator's save of it makes none."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SPIELE].insert_one(
-                fixture(NEIGHBOUR, spiel_nr=2, datum=DATUM, uhrzeit="20:00:00", ort=None, team1=None, team2=None)
-            )
-            outcome = await outcome_of(ablehnen(database, client, token(TEAM1, "trainer"), (DATUM, UHRZEIT)))
-
-            return outcome, await row_now(database, ROW1)
-
-        outcome, row = on_a_fixture(mongo_replica_set_url, body)
-
-        assert outcome == COMMITTED
-        assert row["antwort"]["vorschlag"] == {"datum": DATUM, "uhrzeit": UHRZEIT}
 
 
 class TestAHandEditedFixtureOfAnotherSeasonAnswersTheRefusal:
@@ -932,6 +917,22 @@ class TestAProposalOfAPastDayIsRefusedThroughTheRoute:
         assert row["antwort"] is None
 
 
+class TestAProposalOfTheSlotTheFixtureHolds:
+    def test_it_is_refused_on_both_boxes_and_writes_nothing(self, mongo_replica_set_url: str):
+        """Adopted, it saves the slot unchanged, so the row stays open and its proposal stays on the Übersicht for ever."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            with pytest.raises(APIError) as refused:
+                await ablehnen(database, client, token(TEAM1, "trainer"), (DATUM, UHRZEIT), begruendung=REASON)
+
+            return refused.value, await row_now(database, ROW1)
+
+        refusal, row = on_a_fixture(mongo_replica_set_url, body)
+
+        assert (refusal.error_code, refusal.fields) == (Code.ANSETZUNG_VORSCHLAG_UNCHANGED, (("vorschlag", "datum"), ("vorschlag", "uhrzeit")))
+        assert row["antwort"] is None
+
+
 class TestADiscardedDeclineIsNoProposalInFrontOfTheOtherClub:
     def test_the_other_link_opens_as_asked_once_the_decline_is_closed(self, mongo_replica_set_url: str):
         """Closed `discarded`, which keeps the decline's proposal stored: a read blind to the close serves a discarded date."""
@@ -1128,7 +1129,9 @@ class TestTheDiscard:
         assert on_a_fixture(mongo_replica_set_url, body) == (Code.ANSETZUNG_NOT_DISCARDABLE, None, 1)
 
 
-async def uebernehmen(database: AsyncDatabase, client: AsyncMongoClient, row_id: ObjectId, *, spielbestaetigungen: Any = None) -> None:
+async def uebernehmen(
+    database: AsyncDatabase, client: AsyncMongoClient, row_id: ObjectId, *, spielbestaetigungen: Any = None, today: str = TODAY
+) -> None:
     return await adopt_spielbestaetigung(
         spielbestaetigung_id=row_id,
         spielbestaetigungen_collection=either(database, Collection.SPIELBESTAETIGUNGEN, spielbestaetigungen),
@@ -1141,7 +1144,7 @@ async def uebernehmen(database: AsyncDatabase, client: AsyncMongoClient, row_id:
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         spielberichte_collection=database[Collection.SPIELBERICHTE],
         db=client,
-        today=TODAY,
+        today=today,
         now=MAIL_NOW,
     )
 
@@ -1194,6 +1197,36 @@ class TestTheAdoption:
 
         assert (outcome, grund) == (Code.ANSETZUNG_NOT_DISCARDABLE, "discarded")
         assert slot != PROPOSAL
+
+    @pytest.mark.parametrize(
+        ("since", "today", "code"),
+        [
+            # The proposed day passing between the club's press and the administrator's.
+            pytest.param(None, "2027-05-16", Code.ANSETZUNG_VORSCHLAG_PAST_AS_STORED, id="the-proposed-day-gone-by"),
+            # The save's own refusal of the proposed day, which names a box of a body this request has not got.
+            pytest.param(narrow_the_matchday, TODAY, Code.SPIEL_OUTSIDE_SPIELTAG, id="the-save-refusing-the-day"),
+        ],
+    )
+    def test_a_refused_adoption_names_no_box_and_leaves_the_fixture_where_it_stands(
+        self, mongo_replica_set_url: str, since: Callable[[AsyncDatabase], Awaitable[None]] | None, today: str, code: Code
+    ):
+        """Moved anyway, the fixture lands on a day gone by or outside its matchday; refused naming a box, the press has none to mark."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await ablehnen(database, client, token(TEAM1, "trainer"), PROPOSAL, begruendung=REASON)
+            if since is not None:
+                await since(database)
+            with pytest.raises(APIError) as refused:
+                await uebernehmen(database, client, ROW1, today=today)
+            spiel = await database[Collection.SPIELE].find_one({"_id": SPIEL})
+
+            assert spiel is not None
+            return refused.value, (spiel["datum"], spiel["uhrzeit"])
+
+        refusal, slot = on_a_fixture(mongo_replica_set_url, body)
+
+        assert (refusal.error_code, refusal.fields, refusal.bounds) == (code, (), {})
+        assert slot == (DATUM, UHRZEIT)
 
 
 # What the administrator's read resolves of a row: every stored path but a seat's hashes and address.
@@ -1598,7 +1631,7 @@ class TestARefereesDeclineReturnsTheFixture:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await absagen(database, client)
             await database[Collection.SPIELE].update_one(
-                {"_id": SPIEL}, {"$set": {"schiedsrichter": {"schiedsrichter_id": SCHIEDSRICHTER, "name": REFEREE, "payment": 20}}}
+                {"_id": SPIEL}, {"$set": {"schiedsrichter": {"schiedsrichter_id": SCHIEDSRICHTER, "payment": 20}}}
             )
 
             return await database[Collection.SPIELBESTAETIGUNGEN].count_documents(
@@ -1658,9 +1691,7 @@ class TestARefereesOwnRowsAreReadThroughTheirIndex:
 
 
 async def book_ute(database: AsyncDatabase) -> None:
-    await database[Collection.SPIELE].update_one(
-        {"_id": SPIEL}, {"$set": {"schiedsrichter": {"schiedsrichter_id": UTE, "name": "Ute Lang", "payment": 20}}}
-    )
+    await database[Collection.SPIELE].update_one({"_id": SPIEL}, {"$set": {"schiedsrichter": {"schiedsrichter_id": UTE, "payment": 20}}})
 
 
 class TestAReassignmentLandingMidAnswer:
@@ -1893,7 +1924,7 @@ class TestTheRefereesOwnRows:
                     "$set": {
                         "datum": "2027-07-01",
                         "uhrzeit": "19:30:00",
-                        "ort": {"spielort_id": other_ground, "name": "Halle West", "maps_link": "Halle West, Frankfurt", "mietpreis": 40},
+                        "ort": {"spielort_id": other_ground, "mietpreis": 40},
                     }
                 },
             )

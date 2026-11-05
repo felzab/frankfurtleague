@@ -83,6 +83,7 @@ from app.api.teams.services import (
     find_replacement_pair_refusal,
     find_replacement_refusal,
     find_retire_refusal,
+    find_shorthand_refusal,
     has_taken_place,
     kontakt_zeile_of,
     links_owed,
@@ -101,6 +102,7 @@ from app.core.crud import (
     aggregate_many_from_db,
     anchor_in_db,
     insert_live,
+    is_held_elsewhere,
     patch_many_in_db,
     patch_one_in_db,
     post_one_to_db,
@@ -156,13 +158,13 @@ async def _rewrite_the_outgoing_clubs_sides(
     *,
     spiele: Sequence[Mapping[str, Any]],
     outgoing_team_id: Any,
-    incoming_side: Mapping[str, Any],
+    incoming_team_id: Any,
     spiele_collection: AsyncCollection,
     session: AsyncClientSession,
 ) -> int:
-    """Hand this club's sides to the incoming one; returns how many FIXTURES moved.
+    """Hand this club's sides to the incoming one by its `team_id` alone; returns how many FIXTURES moved.
 
-    `incoming_side`'s keys ARE the paths written under each slot. Named by `_id` off a snapshot
+    Every read joins a side's name from its season row, so no name is written here. Named by `_id` off a snapshot
     taken BEFORE any write, as `_rewrite_gruppenphase_sides` is.
     """
 
@@ -177,7 +179,7 @@ async def _rewrite_the_outgoing_clubs_sides(
         await patch_many_in_db(
             collection=spiele_collection,
             db_filter={"_id": {"$in": spiel_ids}},
-            update={"$set": {f"{slot}.{key}": value for key, value in incoming_side.items()}},
+            update={"$set": {f"{slot}.team_id": incoming_team_id}},
             session=session,
         )
 
@@ -277,9 +279,14 @@ async def post_team(
     teams_collection: TeamsCollection,
     db: DBClient,
 ) -> FLCreatedResponse:
-    """Create a club. `shorthand` is unique across every club, retired ones included, so a duplicate is a 409."""
+    """Create a club. `shorthand` is unique across every club, retired ones included: a taken one is refused `duplicate_key`.
+
+    The refusal names `shorthand`.
+    """
 
     async def found_the_club(session: AsyncClientSession) -> InsertOneResult:
+        taken = await is_held_elsewhere(collection=teams_collection, key="shorthand", value=team_data.shorthand, own_id=None, session=session)
+        refuse(find_shorthand_refusal(taken=taken))
         return await insert_live(collection=teams_collection, document=team_data.model_dump(mode="json"), session=session)
 
     async with transaction_session(db) as session:
@@ -299,19 +306,23 @@ async def patch_team(
     team_id: CustomRouteObjectId,
     team_data: Annotated[FLPatchTeamPayload, Body()],
     teams_collection: TeamsCollection,
-    spiele_collection: SpieleCollection,
     saison_teams_collection: SaisonTeamsCollection,
     saisons_collection: SaisonsCollection,
     db: DBClient,
 ) -> FLPatchTeamResponse:
     """
-    Update a club, then rewrite the name and shorthand its unfinished seasons carry.
+    Update a club, then rewrite the name and shorthand its unfinished seasons' rows carry.
 
-    The junction and every match hold a copy of both; a `past`
-    season keeps the name it was played under.
+    Every fixture reads its sides' names from their season rows, so a rename reaches the fixtures of each season it
+    rewrites; a `past` season keeps the name it was played under. A shorthand another club holds, a retired one included,
+    is refused `duplicate_key`, naming `shorthand`.
     """
 
     async def rename_and_fan_out(session: AsyncClientSession) -> FLPatchTeamResponse:
+        taken = await is_held_elsewhere(
+            collection=teams_collection, key="shorthand", value=team_data.shorthand, own_id=team_id, session=session
+        )
+        refuse(find_shorthand_refusal(taken=taken))
         await patch_one_in_db(
             collection=teams_collection,
             db_filter={"_id": team_id},
@@ -343,21 +354,7 @@ async def patch_team(
             session=session,
         )
 
-        # Two passes: one `update_many` cannot write a different path per document.
-        fanned_out = 0
-        for slot in ("team1", "team2"):
-            result = await patch_many_in_db(
-                collection=spiele_collection,
-                db_filter={f"{slot}.team_id": team_id, "saison_id": {"$in": open_saison_ids}},
-                update={"$set": {f"{slot}.name": team_data.name, f"{slot}.shorthand": team_data.shorthand}},
-                session=session,
-            )
-            fanned_out += result.modified_count
-
-        return FLPatchTeamResponse(
-            fanned_out_to_spiele=fanned_out,
-            fanned_out_to_saison_teams=junction.modified_count,
-        )
+        return FLPatchTeamResponse(fanned_out_to_saison_teams=junction.modified_count)
 
     # One transaction over every write here: a rename reaching some and not the rest leaves a season
     # disagreeing with itself. `with_transaction` is safe to retry, every write deriving from the payload.
@@ -528,13 +525,15 @@ async def patch_saison_team(
     saisons_collection: SaisonsCollection,
     spiele_collection: SpieleCollection,
     db: DBClient,
+    today: str = Depends(get_german_date_str),
 ) -> FLSaisonTeamResponse:
     """
     Rewrite a team's row for one season: group, exit record and kit colour.
 
     All three are required and replaced WHOLESALE: an omitted key is a 422, never a team reinstated.
     The contact block is `PATCH .../kontakte`'s, and stays correctable there on a `past` season, which
-    refuses this write (`saison_past`).
+    refuses this write (`saison_past`). A new or changed exit is refused until the season's start date
+    (`austritt_before_saison_start`, its `earliest` the start): before it, the replacement takes a club out.
     """
 
     async def move_the_club(session: AsyncClientSession) -> tuple[Mapping[str, Any], Mapping[str, Any]]:
@@ -561,11 +560,13 @@ async def patch_saison_team(
         # On the anchored season's stored start, so a start moved under this write conflicts and the retry judges the
         # exit against the date it left.
         austritt = saison_team_data.austritt
+        start_date = str(saison_raw["start_date"])
         refuse(
             find_austritt_refusal(
                 proposed=None if austritt is None else austritt.model_dump(mode="json"),
                 stored=existing_raw.get("austritt"),
-                start_date=str(saison_raw["start_date"]),
+                start_date=start_date,
+                started=has_started(start_date=start_date, today=today),
             )
         )
 
@@ -880,18 +881,18 @@ async def replace_saison_team(
             )
         )
 
-        # One dict for both layers, so the season's row and its fixtures cannot come to disagree
-        # about what this club is called. No `tore`: a replacement runs only on fixtures none of which has taken place.
+        # The row's identity, reseeded as `post_saison_team` seeds one at entry: every fixture of the season reads its
+        # side's name from here. No `tore`: a replacement runs only on fixtures none of which has taken place.
         incoming_side = {
             "team_id": replacement_data.incoming_team_id,
             "name": incoming_raw["name"],
             "shorthand": incoming_raw["shorthand"],
         }
 
-        fanned_out = await _rewrite_the_outgoing_clubs_sides(
+        rewritten = await _rewrite_the_outgoing_clubs_sides(
             spiele=spiele,
             outgoing_team_id=team_id,
-            incoming_side=incoming_side,
+            incoming_team_id=replacement_data.incoming_team_id,
             spiele_collection=spiele_collection,
             session=session,
         )
@@ -959,7 +960,7 @@ async def replace_saison_team(
             kontakte=updated_raw["kontakte"],
             name=updated_raw["name"],
             shorthand=updated_raw["shorthand"],
-            fanned_out_to_spiele=fanned_out,
+            rewritten_spiele=rewritten,
             ausgetragene_kader_rows=ausgetragene_squad.modified_count,
         )
 

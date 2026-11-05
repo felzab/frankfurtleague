@@ -743,6 +743,32 @@ class TestADiscardedDeclineIsNotAskedAgain:
         assert (discarded.anfragen, discarded.einteilungen) == ([], [])
         assert sorted(request.seite for request in moved.anfragen) == ["team1", "team2"]
 
+    def test_moved_away_and_back_it_is_told_of_the_move_and_that_no_request_follows(self, mongo_replica_set_url: str):
+        """Back on the slot its discarded decline answers, the club holds no seat a link can go to, so the move is told on its own.
+
+        Told nothing, it turns up at the slot it was last asked about; told a request follows, it waits for one that never
+        comes. Neither shows on any page.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await sweep(database, client)
+            await discard(database, BETA)
+            await move(database, client, SPIEL, uhrzeit="19:00:00")
+            await sweep(database, client)
+            await move(database, client, SPIEL, uhrzeit="18:00:00")
+
+            return await sweep(database, client)
+
+        back = on_a_league(mongo_replica_set_url, body, spiele=[fixture(SPIEL, 1, NEXT_WEEK)])
+
+        slot = {"team1": "Alpha", "team2": "Beta", "datum": NEXT_WEEK, "uhrzeit": "18:00:00"}
+        assert [
+            (sorted(recipient.address for recipient in notice.recipient), notice.old.uhrzeit, notice.moved_to, notice.asked_again)
+            for notice in back.neue_ansetzungen
+        ] == [(sorted(address(BETA, seat) for seat in KONTAKT_ROLLEN), "19:00:00", slot, False)]
+        # The club whose answer the move ended is asked again, the move named in its request.
+        assert [(request.seite, request.moved_from is not None) for request in back.anfragen] == [("team1", True)]
+
 
 AUSTRITT_ON_THE_DAY = {"austritt": {"type": "rueckzug", "grund": "Schulwechsel", "datum": NEXT_WEEK}}
 

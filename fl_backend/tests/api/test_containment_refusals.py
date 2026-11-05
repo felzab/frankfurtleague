@@ -168,13 +168,20 @@ class TestASeasonIsLongEnoughForItsSchedule:
 
         assert find_saison_span_refusal(start_date="2026-03-01", end_date="2026-03-06", rules=SAISON_RULES, spieltag_spans=[]) is None
 
-    def test_one_day_short_is_refused(self):
-        """The other side of the boundary, which an off-by-one would miss."""
+    def test_one_day_short_is_refused_on_the_end_naming_the_earliest_that_fits(self):
+        """The other side of the boundary, which an off-by-one would miss.
+
+        Without its field and bound the editor's end box cannot say how long the season must run.
+        """
 
         refusal = find_saison_span_refusal(start_date="2026-03-01", end_date="2026-03-05", rules=SAISON_RULES, spieltag_spans=[])
 
         assert refusal is not None
-        assert refusal.error_code == Code.SAISON_SPAN_BELOW_SPIELPLAN
+        assert (refusal.error_code, refusal.fields, refusal.bounds) == (
+            Code.SAISON_SPAN_BELOW_SPIELPLAN,
+            (("end_date",),),
+            {"earliest": "2026-03-06"},
+        )
 
     def test_a_one_day_season_is_refused(self):
         refusal = find_saison_span_refusal(start_date="2026-03-01", end_date="2026-03-01", rules=SAISON_RULES, spieltag_spans=[])

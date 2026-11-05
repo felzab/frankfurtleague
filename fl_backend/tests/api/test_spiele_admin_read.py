@@ -45,6 +45,7 @@ SCHIEDSRICHTER_ID = ObjectId("6890a1b2c3d4e5f607230022")
 LIVE_SPIELORT_ID = ObjectId("6890a1b2c3d4e5f607230023")
 RETIRED_SPIELORT_ID = ObjectId("6890a1b2c3d4e5f607230024")
 UNCONFIRMED_SCHIEDSRICHTER_ID = ObjectId("6890a1b2c3d4e5f607230025")
+DECLINED_SCHIEDSRICHTER_ID = ObjectId("6890a1b2c3d4e5f607230026")
 
 MIETPREIS = 80
 PAYMENT = 30
@@ -94,7 +95,7 @@ def spielort_row(spielort_id: ObjectId, name: str, *, inactive_since: str | None
 
 
 def schiedsrichter_rows() -> list[dict[str, Any]]:
-    """The booked referee, retired since and confirmed; a live one who never confirmed; and the ghost, offered never."""
+    """The booked referee, retired since and confirmed; a live one who never answered; one who objected; and the ghost, offered never."""
 
     confirmed = documents.own_einwilligung_document(text_versions=documents.SCHIEDSRICHTER_TEXT_VERSIONS, confirmed_at="2026-01-10")
     return [
@@ -108,6 +109,14 @@ def schiedsrichter_rows() -> list[dict[str, Any]]:
         ),
         documents.schiedsrichter_document(
             UNCONFIRMED_SCHIEDSRICHTER_ID, email="bo@example.com", name="Bo Lenz", default_payment=25, einwilligung=None
+        ),
+        documents.schiedsrichter_document(
+            DECLINED_SCHIEDSRICHTER_ID,
+            email="cleo@example.com",
+            name="Cleo Rau",
+            default_payment=25,
+            einwilligung=None,
+            confirmation={"token_hashes": [], "sent_at": "2026-03-01", "reminded_at": None, "frist": "2026-03-15", "declined_at": "2026-03-02"},
         ),
         {
             **documents.schiedsrichter_document(
@@ -237,15 +246,17 @@ def test_the_editor_offers_the_live_rows_and_the_ones_the_fixture_books(seeded_u
     """Offering a retired row the fixture does not book, or the ghost, puts a booking on the editor the save then refuses.
 
     The fixture's own retired venue and referee stay offered, so the booking keeps its name; the unconfirmed referee is
-    offered marked, the save refusing them.
+    offered marked, the save refusing them, and an objection told from no answer yet: nobody asks a person who objected
+    again, so the administrator waiting on their answer waits for good.
     """
 
     answer = answered(seeded_url, ADMIN_PATH, ADMIN_AUTH).json()
 
     assert [(row["name"], row["inactive_since"]) for row in answer["spielorte"]] == [("Halle Nord", None), ("Sportplatz Ost", "2026-04-01")]
-    assert [(row["name"], row["confirmed"], row["inactive_since"]) for row in answer["schiedsrichter"]] == [
-        ("Ada Kern", True, "2026-04-01"),
-        ("Bo Lenz", False, None),
+    assert [(row["name"], row["confirmed"], row["declined"], row["inactive_since"]) for row in answer["schiedsrichter"]] == [
+        ("Ada Kern", True, False, "2026-04-01"),
+        ("Bo Lenz", False, False, None),
+        ("Cleo Rau", False, True, None),
     ]
     assert (answer["spielbericht"], answer["spielbestaetigungen"]) == (None, [])
 

@@ -1,6 +1,5 @@
 from collections.abc import Iterable, Mapping, Sequence
-from dataclasses import replace
-from datetime import date
+from datetime import date, timedelta
 from http import HTTPStatus
 from typing import Any
 
@@ -11,7 +10,7 @@ from app.api.spiele.services import podium_of
 from app.api.teams.schemas import MAX_NUMBER_OF_GROUPS
 from app.api.teams.services import offered_gruppen
 from app.core.codes import Code
-from app.core.exceptions import WriteRefusal
+from app.core.exceptions import WriteRefusal, as_judged_on_stored_state
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.literals import FLGruppenNames, FLSaisonPhase, FLSaisonStatus
 
@@ -106,6 +105,25 @@ def find_saison_start_refusal(*, stored_start_date: str, proposed_start_date: st
     return WriteRefusal(
         error_code=Code.SAISON_START_TAKEN_PLACE,
         status=HTTPStatus.CONFLICT,
+    )
+
+
+def find_saison_start_austritt_refusal(*, stored_start_date: str, proposed_start_date: str, austritt_stored: bool) -> WriteRefusal | None:
+    """Why moving this season's start later must be refused, or `None`: a club's exit is stored.
+
+    An exit is recorded only from the start date (`austritt_before_saison_start`); a start moved later would make the
+    season read as unstarted again and reopen the group swap, which would then field a club that has left. An earlier
+    start, or the stored one resubmitted, passes. `latest` is the latest start the save may set: the stored one.
+    """
+
+    if not austritt_stored or proposed_start_date <= stored_start_date:
+        return None
+
+    return WriteRefusal(
+        error_code=Code.SAISON_START_AUSTRITT_STORED,
+        status=HTTPStatus.CONFLICT,
+        fields=(("start_date",),),
+        bounds={"latest": stored_start_date},
     )
 
 
@@ -369,9 +387,13 @@ def find_saison_span_refusal(
     offered_days = (date.fromisoformat(end_date) - date.fromisoformat(start_date)).days + 1
     required_days = sum(entry.spieltage for entry in schedule_for(rules))
     if offered_days < required_days:
+        # On the end, as the span's own rule sits there, its bound the earliest end the schedule fits: the start is the
+        # day the locks read, the box a season's length is repaired on is its end.
         return WriteRefusal(
             error_code=Code.SAISON_SPAN_BELOW_SPIELPLAN,
             status=HTTPStatus.UNPROCESSABLE_CONTENT,
+            fields=(("end_date",),),
+            bounds={"earliest": (date.fromisoformat(start_date) + timedelta(days=required_days - 1)).isoformat()},
         )
 
     # `start` and `end` are the span the dated matchdays need, named on each side the season falls short of.
@@ -405,13 +427,7 @@ def as_the_draw_answers(refusal: WriteRefusal | None) -> WriteRefusal | None:
     a box the draw has not got.
     """
 
-    if refusal is None:
-        return None
-
-    if refusal.error_code in DRAW_TWINS:
-        return WriteRefusal(error_code=DRAW_TWINS[refusal.error_code], status=HTTPStatus.CONFLICT)
-
-    return replace(refusal, fields=(), bounds={})
+    return as_judged_on_stored_state(refusal, twins=DRAW_TWINS)
 
 
 # The projection `holds_a_recorded_fact` reads, beside the predicate itself: a field in one and not

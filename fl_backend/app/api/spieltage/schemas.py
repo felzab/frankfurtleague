@@ -4,7 +4,7 @@ from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationInfo, 
 
 from app.api.spiele.schemas import FLSpielJoined, FLSpielJoinedAdmin
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SAISON_ID_LENGTH
-from app.shared.schemas.custom import CustomDateString, CustomObjectId, refuse_reversed_span
+from app.shared.schemas.custom import CustomDateString, CustomObjectId, CustomVersion, refuse_reversed_span
 from app.shared.schemas.literals import FLSaisonPhase, FLSortOrder
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
@@ -59,8 +59,8 @@ class FLPatchSpieltagPayload(BaseModel):
     # would be a request to undate a matchday, which nothing asks for and nothing else expresses.
     beginn: CustomDateString
     ende: CustomDateString
-    # The `version` the editor was served; absent, as the old form sends it, the save is checked against nothing.
-    version: int | None = None
+    # The `version` the editor was served, required: a save checked against nothing overwrites a rival's unseen.
+    version: CustomVersion
 
     # A field validator at the end it judges, reading the start off `info.data`: a model validator's refusal sits at the
     # model, a path no box answers. `beginn` is declared first, so it is validated first; where it failed it is absent from

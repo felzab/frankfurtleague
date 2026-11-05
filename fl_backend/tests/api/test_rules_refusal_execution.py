@@ -311,6 +311,39 @@ class TestTheStartIsWhatFreezesTheScoring:
         assert (stored["start_date"], stored["rules"]["win_points"]) == (A_WEEK_LATER, 2)
 
 
+class TestTheStartMovesNoLaterPastAStoredExit:
+    def test_a_later_start_is_refused_and_an_earlier_one_saved(self, mongo_replica_set_url: str):
+        """An exit is recorded only from the start date, so a start moved past one reopens what the exit was kept from.
+
+        Moved later, the season reads as unstarted again, and the group swap it reopens fields a club that has left,
+        which no page shows. An earlier start reopens nothing, so it is saved.
+        """
+
+        exit_record = {"type": "rueckzug", "grund": "Zu wenige Spieler", "datum": SAISON_START}
+        an_earlier_start = "2026-03-08"
+
+        async def body(database: AsyncDatabase) -> tuple[APIError, str, str]:
+            await database[Collection.SAISON_TEAMS].insert_one(
+                documents.saison_team_document(SAISON_ID, TEAM_OID, "Adler", "ADX", austritt=exit_record)
+            )
+            with pytest.raises(APIError) as refusal:
+                await patch_the_rules(database, today=SAISON_START, start_date=A_WEEK_LATER)
+            refused_left = (await stored_season(database))["start_date"]
+            await patch_the_rules(database, today=SAISON_START, start_date=an_earlier_start)
+
+            return refusal.value, refused_left, (await stored_season(database))["start_date"]
+
+        refusal, refused_left, saved = on_a_database(mongo_replica_set_url, body)
+
+        assert (refusal.error_code, refusal.fields, refusal.bounds) == (
+            Code.SAISON_START_AUSTRITT_STORED,
+            (("start_date",),),
+            {"latest": SAISON_START},
+        )
+        assert refused_left == SAISON_START, "a refused save moved the start"
+        assert saved == an_earlier_start
+
+
 class TestTheStartIsFixedOnceAFixtureHasTakenPlace:
     """`saison_start_taken_place` through the endpoint, over the in-session read of every fixture of the season."""
 

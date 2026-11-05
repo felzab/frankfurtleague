@@ -14,6 +14,7 @@ from app.shared.schemas.custom import (
     CustomObjectId,
     CustomOptionalDateString,
     CustomOptionalString,
+    CustomVersion,
 )
 from app.shared.schemas.einwilligung import FLSchiedsrichterTextVersions, cite_their_kind, refuse_a_stale_grant
 from app.shared.schemas.kontakt import CustomKontaktName, FLKontakt, FLKontaktPayload
@@ -55,7 +56,7 @@ class FLPostSchiedsrichterPayload(_SchiedsrichterPayload):
 
 class FLPatchSchiedsrichterPayload(_SchiedsrichterPayload):
     # The `version` the editor was served, required: a save checked against nothing overwrites a rival's unseen.
-    version: int = Field(ge=0)
+    version: CustomVersion
 
 
 class FLSchiedsrichterMint(BaseModel):
@@ -106,8 +107,8 @@ class FLSchiedsrichterRecord(FLSchiedsrichter, Anchored):
     """A referee as `schiedsrichter` stores them."""
 
     confirmation: FLSchiedsrichterConfirmationRecord | None = None
-    # Held while the entry is unanswered or declined, and absent once confirmed and on the ghost, neither of which
-    # expires (`app/api/schiedsrichter/services.py :: ERASE_AT_FIELD`).
+    # Held while the entry is unanswered or declined, and absent once confirmed and on the ghost, neither of which the
+    # hourly pass erases (`app/api/schiedsrichter/services.py :: ERASE_AT_FIELD`).
     erase_at: datetime | None = None
 
     @model_validator(mode="after")
@@ -153,6 +154,13 @@ class FLSchiedsrichterReactivateResponse(BaseAPIResponse):
 
     # Null unless the row came back unanswered and holding an address a link can go to.
     confirmation: FLSchiedsrichterMint | None = None
+
+
+class FLSchiedsrichterSweepResponse(BaseAPIResponse):
+    """One pass of the unconfirmed entries' clock: the entries it erased and the ones it passed over, which stay due."""
+
+    erased: int
+    failed: int
 
 
 class FLSchiedsrichterMintResponse(BaseAPIResponse):
