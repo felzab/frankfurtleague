@@ -6,7 +6,7 @@ import type { FLErasureSweepResponse } from "@/core/generated/client/types";
  * Every call of one pass summed, the last answered call's season and remainder beside the sums. A pass reaches each
  * person once, so the sums count persons; one who failed stays due for the next pass.
  */
-type LoeschungSumme = Omit<FLErasureSweepResponse, "nach">;
+type LoeschungSumme = Omit<FLErasureSweepResponse, "after">;
 
 /** A pass that ended on a call's answer, or on a call that threw: what remains is then unknown. */
 export type LoeschungSweep =
@@ -14,10 +14,10 @@ export type LoeschungSweep =
 
 // A loop and no request, so outside `mutations.ts`, whose every export the step-up reader takes for one.
 /**
- * One pass, each call handed the `nach` the call before it answered. Settles rather than throws, so a caller words
+ * One pass, each call handed the `after` the call before it answered. Settles rather than throws, so a caller words
  * what the calls before a failure erased.
  */
-export async function sweepLoeschung(lauf: (nach: string | null) => Promise<FLErasureSweepResponse>): Promise<LoeschungSweep> {
+export async function sweepLoeschung(lauf: (after: string | null) => Promise<FLErasureSweepResponse>): Promise<LoeschungSweep> {
   let summe: LoeschungSumme = {
     completed_saison_id: null,
     spieler: 0,
@@ -29,9 +29,9 @@ export async function sweepLoeschung(lauf: (nach: string | null) => Promise<FLEr
   };
 
   try {
-    let nach: string | null = null;
+    let after: string | null = null;
     do {
-      const antwort = await lauf(nach);
+      const antwort = await lauf(after);
       summe = {
         completed_saison_id: antwort.completed_saison_id,
         spieler: summe.spieler + antwort.spieler,
@@ -44,14 +44,14 @@ export async function sweepLoeschung(lauf: (nach: string | null) => Promise<FLEr
 
       // A place not past the one sent would loop for ever, the hourly pass skipping every tick behind it; fixed-length
       // hex compares in id order.
-      if (nach !== null && antwort.nach !== null && antwort.nach <= nach) {
+      if (after !== null && antwort.after !== null && antwort.after <= after) {
         throw new ContractBreakError("The deletion answered a place not past the one it was sent.");
       }
 
       // The pass's one end: `verbleibend` counts a failing person, who stays due, and a call erasing nobody may stand
       // in front of a due person the next call reaches.
-      nach = antwort.nach;
-    } while (nach !== null);
+      after = antwort.after;
+    } while (after !== null);
   } catch (error) {
     const { remaining: _unbekannt, ...bisher } = summe;
     return { ...bisher, abgebrochen: true, error: error };

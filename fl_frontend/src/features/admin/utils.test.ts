@@ -256,7 +256,7 @@ describe("categorizeActionRequired over the fixture confirmations", () => {
 
   // The next hourly pass closes these, so until then they speak for nothing the fixture holds.
   it("counts no closed row and no row about an Ansetzung the fixture has left", () => {
-    const geschlossen = zeile({ antwort: VORSCHLAG, closed: { am: "2026-07-29", grund: "discarded" } });
+    const geschlossen = zeile({ antwort: VORSCHLAG, closed: { at: "2026-07-29", grund: "discarded" } });
     const moved = zeile({ antwort: VORSCHLAG, ansetzung: { ...ANSETZUNG, uhrzeit: "19:00:00" } });
 
     expect(kategorien([geschlossen, moved, zeile({ ansetzung: { ...ANSETZUNG, datum: "2026-08-04" } })])).toStrictEqual([]);
@@ -309,7 +309,7 @@ describe("categorizeActionRequired over the fixture confirmations", () => {
       party: partei,
       kontakte: null,
       antwort: ABGELEHNT,
-      closed: { am: "2026-07-28", grund: "schiedsrichter_declined" },
+      closed: { at: "2026-07-28", grund: "schiedsrichter_declined" },
     });
     const OHNE = { ...ANGESETZT, schiedsrichter: null };
 

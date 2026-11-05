@@ -209,7 +209,7 @@ function BestaetigungZeile({
         )}
         {geschlossen !== null && (
           <Angabe label="Geschlossen">
-            {SCHLIESSGRUND_LABELS[geschlossen.grund]}, {formatSpielDatum(geschlossen.am)}
+            {SCHLIESSGRUND_LABELS[geschlossen.grund]}, {formatSpielDatum(geschlossen.at)}
           </Angabe>
         )}
         {/* Each seat holding a link, in `LinkStandAngaben`'s words: a delivered message, or one under way, is nothing

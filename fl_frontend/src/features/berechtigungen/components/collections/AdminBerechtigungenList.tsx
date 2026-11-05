@@ -109,7 +109,7 @@ export const AdminBerechtigungenList = memo(function AdminBerechtigungenList({
                     gesperrt={berechtigung.barred}
                   />
                 </span>
-                {berechtigung.verwaltung === "owner" && <span className={labelBadge("info")}>{INHABER_LABEL}</span>}
+                {berechtigung.admin_tier === "owner" && <span className={labelBadge("info")}>{INHABER_LABEL}</span>}
               </div>
             </div>
           </div>
@@ -139,18 +139,18 @@ export const AdminBerechtigungenList = memo(function AdminBerechtigungenList({
 
           {/* The tier change an owner's alone and shown to nobody else; the revoke on every grant but an `owner`
               one, which is demoted first, closed with its reason for a non-owner. */}
-          {(inhaberAdresse !== null || berechtigung.verwaltung !== "owner") && (
+          {(inhaberAdresse !== null || berechtigung.admin_tier !== "owner") && (
             <div className="-mx-1 flex flex-col gap-3 border-t border-border/50 pt-2">
               {inhaberAdresse !== null && (
                 <AdminBerechtigungStufePanel
                   berechtigungId={berechtigung.id}
                   adresse={berechtigung.adresse}
                   erteiltAm={erteiltTag(berechtigung.granted_at)}
-                  verwaltung={berechtigung.verwaltung}
+                  verwaltung={berechtigung.admin_tier}
                   eigene={berechtigung.adresse === inhaberAdresse}
                 />
               )}
-              {berechtigung.verwaltung !== "owner" && (
+              {berechtigung.admin_tier !== "owner" && (
                 <AdminBerechtigungEntziehenPanel
                   berechtigungId={berechtigung.id}
                   adresse={berechtigung.adresse}

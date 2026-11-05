@@ -114,15 +114,15 @@ function toCalendarDate(stored: string): CalendarDate | null {
 }
 
 /** The two choices the new pupil's page took, in the words of the wording it showed: its answer panel's readout. */
-function wahlZeilen(umfang: FLEinwilligungUmfang | null, medien: boolean | null) {
+function wahlZeilen(umfang: FLEinwilligungUmfang | null, media: boolean | null) {
   return [
     ...(umfang === null ? [] : [{ label: "Auf der Website", value: SPIELER_WORDINGS.umfang.options[umfang] }]),
-    ...(medien === null ? [] : [medienZeile(medien)]),
+    ...(media === null ? [] : [medienZeile(media)]),
   ];
 }
 
 type Antwort =
-  | { success: true; ergebnis: "confirmed"; geburtsdatum: string | null; umfang: FLEinwilligungUmfang | null; medien: boolean | null }
+  | { success: true; ergebnis: "confirmed"; geburtsdatum: string | null; umfang: FLEinwilligungUmfang | null; media: boolean | null }
   | (PublicEnvelope & { success: false; zustand?: SpielerLinkZustand });
 
 /**
@@ -193,7 +193,7 @@ export function SpielerBestaetigungView({
                 ...(stand.gespeichert.geburtsdatum === null
                   ? []
                   : [{ label: "Geburtsdatum", value: formatSpielDatum(stand.gespeichert.geburtsdatum) }]),
-                ...wahlZeilen(stand.gespeichert.umfang, stand.gespeichert.medien),
+                ...wahlZeilen(stand.gespeichert.umfang, stand.gespeichert.media),
               ]}
             />
           ) : (
@@ -258,10 +258,10 @@ function SpielerBestaetigungForm({
   const [isPending, startSending] = useTransition();
   // Nothing preselected: a media switch that opened on and a scope already picked are consents nobody
   // gave on this page.
-  const [entwurf, setEntwurf] = useState<{ geburtsdatum: string; umfang: FLEinwilligungUmfang | null; medien: boolean }>({
+  const [entwurf, setEntwurf] = useState<{ geburtsdatum: string; umfang: FLEinwilligungUmfang | null; media: boolean }>({
     geburtsdatum: "",
     umfang: null,
-    medien: false,
+    media: false,
   });
 
   const panel = formPanel();
@@ -285,7 +285,7 @@ function SpielerBestaetigungForm({
   const medienAngeboten =
     fragtWahlen &&
     entwurf.geburtsdatum !== "" &&
-    entwurf.geburtsdatum <= geburtsdatumSpanne(getGermanTodayStr(), ansicht.medien_minimum_age).spaeteste;
+    entwurf.geburtsdatum <= geburtsdatumSpanne(getGermanTodayStr(), ansicht.media_minimum_age).spaeteste;
 
   // The DRAFT's shape rather than the payload's: `umfang` stands unanswered until it is picked, and
   // the schema is what turns that into a field error rather than this builder into a cast.
@@ -297,7 +297,7 @@ function SpielerBestaetigungForm({
     umfang: fragtWahlen ? entwurf.umfang : null,
     // Never the draft's own `true` where no switch stands: one given before the date moved below the
     // media age would send a consent this page withheld.
-    medien: fragtWahlen ? medienAngeboten && entwurf.medien : null,
+    media: fragtWahlen ? medienAngeboten && entwurf.media : null,
     text_versions: fragtWahlen ? SPIELER_TEXT_VERSIONS : null,
   });
 
@@ -347,7 +347,7 @@ function SpielerBestaetigungForm({
         setSubmitFieldErrors({}, {});
         onAbschluss({
           zustand: "erfolg",
-          gespeichert: { geburtsdatum: antwort.geburtsdatum, umfang: antwort.umfang, medien: antwort.medien },
+          gespeichert: { geburtsdatum: antwort.geburtsdatum, umfang: antwort.umfang, media: antwort.media },
         });
       });
     });
@@ -389,10 +389,10 @@ function SpielerBestaetigungForm({
         {fassung.seite === "bestaetigung_spieler" ? (
           <WahlenAbschnitte
             umfang={entwurf.umfang}
-            medien={entwurf.medien}
+            media={entwurf.media}
             medienAngeboten={medienAngeboten}
             onUmfang={(umfang) => setEntwurf({ ...entwurf, umfang: umfang })}
-            onMedien={(medien) => setEntwurf({ ...entwurf, medien: medien })}
+            onMedien={(media) => setEntwurf({ ...entwurf, media: media })}
             switchContentClassName={panel.switchContent()}
             switchControlClassName={panel.switchControl()}
           />
@@ -440,7 +440,7 @@ function SpielerBestaetigungForm({
 /** The new pupil's two choices, each below the paragraph it answers. */
 function WahlenAbschnitte({
   umfang,
-  medien,
+  media,
   medienAngeboten,
   onUmfang,
   onMedien,
@@ -448,7 +448,7 @@ function WahlenAbschnitte({
   switchControlClassName,
 }: {
   umfang: FLEinwilligungUmfang | null;
-  medien: boolean;
+  media: boolean;
   medienAngeboten: boolean;
   onUmfang: (umfang: FLEinwilligungUmfang) => void;
   onMedien: (medien: boolean) => void;
@@ -506,17 +506,17 @@ function WahlenAbschnitte({
           <Switch
             className="flex w-full flex-col gap-y-1"
             name="medien"
-            isSelected={medien}
+            isSelected={media}
             onChange={onMedien}>
             <Switch.Content className={switchContentClassName}>
-              {SPIELER_WORDINGS.medien.label}
+              {SPIELER_WORDINGS.media.label}
               <Switch.Control className={switchControlClassName}>
                 <Switch.Thumb />
               </Switch.Control>
             </Switch.Content>
           </Switch>
         )}
-        {medienAngeboten && <EinwilligungZeile line={SPIELER_WORDINGS.medien.line} />}
+        {medienAngeboten && <EinwilligungZeile line={SPIELER_WORDINGS.media.line} />}
       </section>
     </>
   );

@@ -62,7 +62,7 @@ export const eraseAccount = action({
   run: async ({ token }, { subject }): Promise<ActionAnswer<EndState>> => {
     // Refused before the library spends the link, so the same link completes once another owner is made; the
     // backend refuses two owners at once. Read for an owner alone, the one tier that can be the last.
-    if (subject.subject.verwaltung === "owner" && (await getErasureView()).last_owner) {
+    if (subject.subject.admin_tier === "owner" && (await getErasureView()).last_owner) {
       return { ok: false, reason: SERVER_COPY.refusalLine.last_owner_erasure };
     }
 
@@ -162,8 +162,8 @@ async function savedUnlessAgedOut(save: () => Promise<unknown>): Promise<ActionA
   try {
     await save();
   } catch (failed) {
-    if (!(failed instanceof APIBadStatusError) || failed.serverErrorCode !== "medien_age") throw failed;
-    return { ok: false, errorCode: "medien_age", reason: COPY.shared.failure.stale };
+    if (!(failed instanceof APIBadStatusError) || failed.serverErrorCode !== "media_age") throw failed;
+    return { ok: false, errorCode: "media_age", reason: COPY.shared.failure.stale };
   }
   return { ok: true, value: undefined };
 }

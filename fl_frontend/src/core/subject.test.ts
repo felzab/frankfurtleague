@@ -64,7 +64,7 @@ const SPIELER = { spieler_id: "b".repeat(24) };
 /* Keyed by the FOLDED identifier, as the endpoint's own join is: a guard sending the address as the
    session holds it then asks about a mailbox this holds nothing for. */
 const RECORDS = new Map<string, Subject>([
-  [ADMIN_EMAIL, { ...HOLDS_NOTHING, seats: [SEAT], verwaltung: "administration", granted_since: "2026-01-01T00:00:00Z", account: true }],
+  [ADMIN_EMAIL, { ...HOLDS_NOTHING, seats: [SEAT], admin_tier: "administration", granted_since: "2026-01-01T00:00:00Z", account: true }],
   [PERSON_EMAIL, { ...HOLDS_NOTHING, spieler: [SPIELER], account: true }],
   [FOLDED_EMAIL, { ...HOLDS_NOTHING, spieler: [SPIELER], account: true }],
 ]);
@@ -245,7 +245,7 @@ describe("who the seam answers for", () => {
         void RECORDS.set(ADMIN_EMAIL, {
           ...HOLDS_NOTHING,
           seats: [SEAT],
-          verwaltung: "administration",
+          admin_tier: "administration",
           granted_since: "2026-01-01T00:00:00Z",
           account: true,
         }),
@@ -259,7 +259,7 @@ describe("who the seam answers for", () => {
       RECORDS.set(ADMIN_EMAIL, {
         ...HOLDS_NOTHING,
         seats: [SEAT],
-        verwaltung: "administration",
+        admin_tier: "administration",
         granted_since: new Date(row.createdAt.getTime() + grantedAfterMs).toISOString(),
         account: true,
       });
@@ -301,16 +301,16 @@ describe("who the seam answers for", () => {
 
     assert.ok(answer);
     expect(Object.keys(answer.subject).sort()).toStrictEqual([
+      "admin_tier",
       "barred",
       "granted_since",
-      "inhaber_seit",
+      "owner_since",
       "schiedsrichter",
       "seats",
       "spieler",
       "unconfirmed",
-      "verwaltung",
     ]);
-    expect(answer.subject.verwaltung).toBe("administration");
+    expect(answer.subject.admin_tier).toBe("administration");
   });
 
   /* Raised on a body carrying no record, which is the only shape the lookup sets it on: the landing

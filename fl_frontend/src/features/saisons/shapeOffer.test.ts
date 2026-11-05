@@ -37,8 +37,8 @@ const saves = (shape: FLSpielplanShape): boolean =>
     id: "2026",
     start_date: "2025-09-01",
     end_date: "2026-06-30",
-    bewerbung: { offen: true, von: "2025-05-01", bis: "2025-06-30" },
-    registrierung: { offen: true, von: "2025-07-01", bis: "2025-08-15" },
+    bewerbung: { offen: true, start: "2025-05-01", end: "2025-06-30" },
+    registrierung: { offen: true, von: "2025-07-01", end: "2025-08-15" },
     rules: { ...RULES, ...shape },
   }).success;
 

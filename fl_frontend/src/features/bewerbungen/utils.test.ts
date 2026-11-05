@@ -164,8 +164,8 @@ describe("which state the window puts the page in", () => {
   const fenster = (overrides: Partial<FLBewerbungWindowResponse> = {}): FLBewerbungWindowResponse => ({
     saison_id: "2627",
     offen: true,
-    von: "2026-05-01",
-    bis: "2026-07-31",
+    start: "2026-05-01",
+    end: "2026-07-31",
     running: false,
     saison_ended: false,
     ...overrides,
@@ -287,7 +287,7 @@ describe("the birthdate window a contact person's date has to fall in", () => {
     for (const mindestalter of [BEWERBUNG_MIN_ALTER, VERTRETUNG_MIN_ALTER]) {
       const { spaeteste } = geburtsdatumSpanne(getGermanTodayStr(), mindestalter);
       const schema = buildEinwilligungAntwortPayloadSchema(mindestalter);
-      const antwort = { token: "kein-echtes-token", antwort: "given", whatsapp: false, medien: false, text_versions: SEAT_TEXT_VERSIONS };
+      const antwort = { token: "kein-echtes-token", antwort: "given", whatsapp: false, media: false, text_versions: SEAT_TEXT_VERSIONS };
 
       expect(schema.safeParse({ ...antwort, geburtsdatum: spaeteste }).success, `${String(mindestalter)}: the offer is refused`).toBe(true);
       expect(
@@ -599,7 +599,7 @@ const offenBei = (mindestalter: number) => async (): Promise<EinwilligungAnsicht
     rolle: "ansprechperson",
     also_rolle: null,
     minimum_age: mindestalter,
-    medien_minimum_age: 18,
+    media_minimum_age: 18,
   },
 });
 
@@ -614,7 +614,7 @@ describe("the confirmation's refusals against the codes its endpoint publishes",
       "confirmation_age",
       "bewerbung_token_past_deadline",
       "link_barred",
-      "medien_age",
+      "media_age",
       "link_expired",
       "kontakt_saison_past",
     )) {
@@ -643,7 +643,7 @@ describe("the confirmation's refusals against the codes its endpoint publishes",
       "confirmation_age",
       "bewerbung_token_past_deadline",
       "link_barred",
-      "medien_age",
+      "media_age",
       "link_expired",
       "kontakt_saison_past",
     )) {

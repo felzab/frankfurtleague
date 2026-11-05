@@ -74,7 +74,7 @@ export function AdminBerechtigungGenehmigenPanel({ adresse, adresswechsel }: { a
     <div className="flex w-full flex-col gap-3">
       <p className="fluid-sm text-pretty text-foreground">
         Neue Adresse für diesen Zugang: {neueAdresse(adresswechsel)}.{" "}
-        {adresswechsel.confirmed ? "Sie ist bestätigt." : "Sie ist noch nicht bestätigt."} Genehmigen bis {formatInstant(adresswechsel.bis)}.
+        {adresswechsel.confirmed ? "Sie ist bestätigt." : "Sie ist noch nicht bestätigt."} Genehmigen bis {formatInstant(adresswechsel.until)}.
       </p>
       <p className="fluid-sm text-pretty text-foreground">{begonnen(adresswechsel)}</p>
 

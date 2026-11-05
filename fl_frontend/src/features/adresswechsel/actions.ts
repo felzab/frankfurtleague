@@ -34,9 +34,9 @@ import {
 import { runAddressChangeMoves } from "./umzug";
 
 import type {
-  FLAddressChangeVerwaltungPayload,
-  FLAddressChangeVerwaltungViewPayload,
-  FLAddressChangeVerwaltungViewResponse,
+  FLAddressChangeAdminPayload,
+  FLAddressChangeAdminViewPayload,
+  FLAddressChangeAdminViewResponse,
   FLAddressChangeViewableDenied,
 } from "@/core/generated/client/types";
 import type { ActionResult, QueryResult } from "@/shared/types/types";
@@ -47,8 +47,8 @@ export type AdresswechselGesendet = ActionResult<{ link: boolean }>;
 
 /** What the address holds and the change pending at it, read when the administrator asks: a person's records are never browsed. */
 export async function readAdresswechselAnsichtAction(
-  rawPayload: FLAddressChangeVerwaltungViewPayload,
-): Promise<QueryResult<{ view: FLAddressChangeVerwaltungViewResponse }>> {
+  rawPayload: FLAddressChangeAdminViewPayload,
+): Promise<QueryResult<{ view: FLAddressChangeAdminViewResponse }>> {
   return runAdminMutation("readAdresswechselAnsichtAction", async () => {
     const validated = FLAdresswechselVerwaltungAnsichtPayloadSchema.safeParse(rawPayload);
 
@@ -68,7 +68,7 @@ export async function readAdresswechselAnsichtAction(
  * An administrator's start of a change for a person who says they cannot sign in: a recorded reason, and a waiting
  * time after the confirmation. It gets a stop link.
  */
-export async function beantrageAdresswechselAction(rawPayload: FLAddressChangeVerwaltungPayload): Promise<AdresswechselGesendet> {
+export async function beantrageAdresswechselAction(rawPayload: FLAddressChangeAdminPayload): Promise<AdresswechselGesendet> {
   return runAdminMutation("beantrageAdresswechselAction", { stepUp: true }, async () => {
     const validated = FLAdresswechselVerwaltungPayloadSchema.safeParse(rawPayload);
 

@@ -19,15 +19,15 @@ doubleApiClient((call) => {
 });
 
 vi.doMock("@/core/auth/accounts.ts", () => ({
-  carryAccount: (von: string, nach: string) => {
-    carried.push([von, nach]);
+  carryAccount: (oldAddress: string, newAddress: string) => {
+    carried.push([oldAddress, newAddress]);
     return Promise.resolve("moved");
   },
 }));
 
 const { runAddressChangeMoves } = await import("./umzug.ts");
 
-const umzug = (n: number) => ({ id: n.toString(16).padStart(24, "0"), von: `alt${String(n)}@schule.de`, nach: `neu${String(n)}@schule.de` });
+const umzug = (n: number) => ({ id: n.toString(16).padStart(24, "0"), old: `alt${String(n)}@schule.de`, new: `neu${String(n)}@schule.de` });
 
 beforeEach(() => {
   carried.length = 0;

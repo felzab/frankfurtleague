@@ -31,7 +31,7 @@ import { formatSpielDatum } from "@/shared/utils/format";
 import { reportAddressChangeDispatch } from "@/shared/utils/linkDispatchToast";
 import { pressLinkWrite } from "@/shared/utils/linkWrite";
 
-import type { FLAddressChangeVerwaltungOpen, FLAddressChangeWaitsOn, FLAddressChangeWay } from "@/core/generated/client/types";
+import type { FLAddressChangeAdminOpen, FLAddressChangeWaitsOn, FLAddressChangeWay } from "@/core/generated/client/types";
 
 const ADRESSWECHSEL_ERNEUT = "Link erneut senden";
 const ADRESSWECHSEL_VERWERFEN = "Änderung verwerfen";
@@ -70,7 +70,7 @@ const VERWERFEN_OHNE_ANTWORT =
  * The change at the address, **the address on file still in force**. Both writes name it by id: an older page meets
  * its end, never its successor. The re-send stands only while the new mailbox is asked.
  */
-export function AdresswechselWartet({ offen, onGeschrieben }: { offen: FLAddressChangeVerwaltungOpen; onGeschrieben: () => void }) {
+export function AdresswechselWartet({ offen, onGeschrieben }: { offen: FLAddressChangeAdminOpen; onGeschrieben: () => void }) {
   const router = useRouter();
   const saisonHref = useSaisonHref();
   const [sendet, setSendet] = useState(false);
@@ -181,7 +181,7 @@ export function AdresswechselWartet({ offen, onGeschrieben }: { offen: FLAddress
           <Angabe label="Genehmigung">
             {genehmigung.approved_at === null ? (
               <>
-                Offen bis {zeitpunktText(genehmigung.bis)}.{" "}
+                Offen bis {zeitpunktText(genehmigung.until)}.{" "}
                 {/* Pressed on the grant's own row, where granting and revoking already are: one place for the approval. */}
                 <Link
                   href={saisonHref("/area/admin/administratoren")}

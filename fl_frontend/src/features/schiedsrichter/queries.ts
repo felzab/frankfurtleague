@@ -77,7 +77,7 @@ const ALTER_AUSSERHALB_UNGELESEN = "Mit diesem Geburtsdatum bist Du zu jung oder
 
 /** The link's own view, read again after a refused press: its floors where it is open, its state where not. */
 export type GelesenerSchiedsrichterLink =
-  | { readonly zustand: "valid"; readonly ansicht: { readonly minimum_age: number; readonly medien_minimum_age: number } }
+  | { readonly zustand: "valid"; readonly ansicht: { readonly minimum_age: number; readonly media_minimum_age: number } }
   | { readonly zustand: SchiedsrichterLinkZustand };
 
 // A thunk, never a resolved read: the codes naming one state alone answer without it, and a caller resolving it
@@ -111,8 +111,8 @@ export async function mapSchiedsrichterBestaetigungRefusal(
       return refusedPayloadAnswer(error, ANTWORT_NEU_OEFFNEN);
     // The switch is offered from the served age on the browser's day, so a clock disagreeing with the
     // backend's sends this, which a reopened link would offer again: switching it off is the repair.
-    case "medien_age":
-      return { error: medienNochNicht((await view())?.medien_minimum_age ?? null) };
+    case "media_age":
+      return { error: medienNochNicht((await view())?.media_minimum_age ?? null) };
     case "link_invalid":
       return { zustand: "invalid" };
     // Judged ahead of the ban, which the view ranks first: an address barred since reads as a reload shows it.

@@ -40,7 +40,7 @@ export type BestaetigungStart =
 
 type Stand =
   | BestaetigungStart
-  | { zustand: "erfolg"; ansicht: FLBewerbungEinwilligungViewResponse; geburtsdatum: string | null; whatsapp: boolean; medien: boolean }
+  | { zustand: "erfolg"; ansicht: FLBewerbungEinwilligungViewResponse; geburtsdatum: string | null; whatsapp: boolean; media: boolean }
   | { zustand: "widersprochen-neu"; ansicht: FLBewerbungEinwilligungViewResponse };
 
 /** One heading per state, uppercased by the page rather than typed so, as the application page does it. A barred link's page has none. */
@@ -129,7 +129,7 @@ export function BestaetigungView({ start }: { start: BestaetigungStart }) {
           token={stand.token}
           istSaison={saisonRow}
           mindestalter={stand.ansicht.minimum_age}
-          medienMindestalter={stand.ansicht.medien_minimum_age}
+          medienMindestalter={stand.ansicht.media_minimum_age}
           onAbschluss={(abschluss) => {
             beantwortet();
             setStand(nachAntwort(abschluss, stand.ansicht, stand.token));
@@ -170,7 +170,7 @@ export function BestaetigungView({ start }: { start: BestaetigungStart }) {
             zeilen={[
               { label: "Geburtsdatum", value: formatSpielDatum(stand.geburtsdatum) },
               { label: "WhatsApp", value: stand.whatsapp ? "erlaubt" : "nicht erlaubt" },
-              medienZeile(stand.medien),
+              medienZeile(stand.media),
             ]}
           />
           <p className={ABSATZ_CLASSES}>

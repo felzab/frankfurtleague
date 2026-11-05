@@ -125,7 +125,7 @@ const A_SEAT = SEAT;
 const GRANTED_BEFORE_ANY_SESSION = "2026-01-01T00:00:00Z";
 
 /** What the store answers the administrator of every case below: a grant and no league record. */
-const A_GRANT = { ...NOTHING_HELD, verwaltung: "administration" as const, granted_since: GRANTED_BEFORE_ANY_SESSION };
+const A_GRANT = { ...NOTHING_HELD, admin_tier: "administration" as const, granted_since: GRANTED_BEFORE_ANY_SESSION };
 
 /**
  * Keyed by the folded address the gate posts; every address named nowhere is unbarred and holds
@@ -863,7 +863,7 @@ describe("the administrator's passkey sign-in, judged at the same guard", () => 
     const seen = await served(cookie);
     assert.ok(seen);
     const made = new Date(seen.session.createdAt).getTime();
-    const promotedAt = (instant: number) => ({ ...A_GRANT, verwaltung: "owner" as const, inhaber_seit: new Date(instant).toISOString() });
+    const promotedAt = (instant: number) => ({ ...A_GRANT, admin_tier: "owner" as const, owner_since: new Date(instant).toISOString() });
 
     expect([
       holdsOwnersTier(seen.session.createdAt, promotedAt(made)),
@@ -2199,7 +2199,7 @@ describe("which addresses the send gate mails", () => {
     [
       "an address holding an `owner` grant",
       ADMIN_EMAIL,
-      { ...NOTHING_HELD, verwaltung: "owner", granted_since: GRANTED_BEFORE_ANY_SESSION },
+      { ...NOTHING_HELD, admin_tier: "owner", granted_since: GRANTED_BEFORE_ANY_SESSION },
       "admitted",
     ],
     // The ban ahead of the grant: the order a gate judging the grant first would answer otherwise.

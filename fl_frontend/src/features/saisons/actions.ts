@@ -132,7 +132,7 @@ export async function activateSaisonAction(rawPayload: { id: string }): Promise<
 
     // Called here rather than handed on bare: the step-up reader attributes a request only where an action's own body
     // calls it.
-    const erased_count = await loeschenNachUmstellung((nach) => postLoeschungSweep(nach));
+    const erased_count = await loeschenNachUmstellung((after) => postLoeschungSweep(after));
 
     return { success: true, saison: activateOperation, message: [message, ...erased_count].join(" ") };
   });
@@ -142,14 +142,14 @@ export async function activateSaisonAction(rawPayload: { id: string }): Promise<
  * AWAITED inside the action's body, so the spine clears the site's cache tag after the last deletion: a run behind the
  * answer lands after that clear, and a squad page names deleted pupils until the `minutes` lifetime has passed.
  */
-async function loeschenNachUmstellung(send: (nach: string | null) => Promise<FLErasureSweepResponse>): Promise<string[]> {
+async function loeschenNachUmstellung(send: (after: string | null) => Promise<FLErasureSweepResponse>): Promise<string[]> {
   let vonDerFristBeendet = false;
   // Each call answering its own cut: one the deadline ends would otherwise answer the whole press as of unknown
   // outcome, sending the administrator to check an activation that stands.
-  const lauf = await sweepLoeschung((nach) =>
+  const lauf = await sweepLoeschung((after) =>
     runAnsweringOwnCut(async () => {
       try {
-        return await send(nach);
+        return await send(after);
       } finally {
         // Read inside the call's own scope, which the request's deadline alone marks: the call's own bound does not.
         vonDerFristBeendet = requestOutcomeUnknown();

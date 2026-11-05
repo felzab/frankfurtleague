@@ -47,7 +47,7 @@ const ERSTER_LAUF = {
   skipped: 0,
   failed: 0,
   remaining: 5,
-  nach: `${"d".repeat(23)}4`,
+  after: `${"d".repeat(23)}4`,
 };
 
 /** What the press answers wherever the deadline ends its deletion after the first call. */
@@ -126,7 +126,7 @@ describe("an activation whose deletion call the request's deadline cuts", () => 
     advance(CALL_MS);
 
     const cut = await untilCall(3);
-    assert.ok(cut.url.endsWith(`/identity/erasure/sweep?nach=${ERSTER_LAUF.nach}`));
+    assert.ok(cut.url.endsWith(`/identity/erasure/sweep?after=${ERSTER_LAUF.after}`));
     advance(LEFT_FOR_THE_CUT_MS - 1);
     expect(cut.signal.aborted, "the deletion call was aborted before the deadline").toBe(false);
     advance(1);

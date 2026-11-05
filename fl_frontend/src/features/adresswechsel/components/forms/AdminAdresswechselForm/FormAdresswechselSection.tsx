@@ -31,7 +31,7 @@ import { KontaktEmailSchema } from "@/shared/schemas";
 import { unansweredRead } from "@/shared/utils/actionError";
 import { focusSection } from "@/shared/utils/focusAfterWrite";
 
-import type { FLAddressChangeVerwaltungHoldings, FLAddressChangeVerwaltungViewPayload } from "@/core/generated/client/types";
+import type { FLAddressChangeAdminHoldings, FLAddressChangeAdminViewPayload } from "@/core/generated/client/types";
 import type { AdresswechselEntwurf } from "@/features/adresswechsel/components/forms/AdresswechselBeantragen";
 import type { VerwaltungAnsichtGelesen } from "@/features/adresswechsel/queries";
 
@@ -44,7 +44,7 @@ type Gelesen = VerwaltungAnsichtGelesen | { status: "reading" };
 const ZEILE_CLASSES = "fluid-xxs leading-normal font-medium text-foreground";
 
 /** Each count as a line, the singular and the plural spelled whole: a reader checks the person by these alone. */
-const ZAEHLER: readonly (readonly [keyof Omit<FLAddressChangeVerwaltungHoldings, "grant">, string, string])[] = [
+const ZAEHLER: readonly (readonly [keyof Omit<FLAddressChangeAdminHoldings, "grant">, string, string])[] = [
   ["spieler", "Ein Eintrag als Spielerin oder Spieler", "Einträge als Spielerin oder Spieler"],
   [
     "schiedsrichter",
@@ -56,7 +56,7 @@ const ZAEHLER: readonly (readonly [keyof Omit<FLAddressChangeVerwaltungHoldings,
   ["registrierungen", "Eine Registrierung", "Registrierungen"],
 ];
 
-function bestandZeilen({ grant: berechtigung, ...count }: FLAddressChangeVerwaltungHoldings): string[] {
+function bestandZeilen({ grant: berechtigung, ...count }: FLAddressChangeAdminHoldings): string[] {
   const zeilen = ZAEHLER.filter(([feld]) => count[feld] > 0).map(([feld, eins, viele]) =>
     count[feld] === 1 ? eins : `${String(count[feld])} ${viele}`,
   );
@@ -82,7 +82,7 @@ export function FormAdresswechselSection({ anfang }: { anfang: VerwaltungAnsicht
   const letzteLesung = useRef(0);
   const panel = formPanel();
 
-  const lies = async (schluessel: FLAddressChangeVerwaltungViewPayload) => {
+  const lies = async (schluessel: FLAddressChangeAdminViewPayload) => {
     const lesung = ++letzteLesung.current;
     setGelesen({ status: "reading" });
 

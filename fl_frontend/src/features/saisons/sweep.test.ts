@@ -7,10 +7,10 @@ const lines: { level: "info" | "warn" | "error"; event: string; fields: unknown 
 const LAUF = "/identity/erasure/sweep";
 
 /** Each deletion call's answer, handed the place the call carried, null on a pass's first. */
-let laufAnswer: (nach: string | null) => unknown = () => gelaufen(0, 0);
+let laufAnswer: (after: string | null) => unknown = () => gelaufen(0, 0);
 
 /** One call of the pupils' deletion: whom it erased, who is still due after it, and where the pass goes on. */
-const gelaufen = (spieler: number, verbleibend: number, nach: string | null = null) => ({
+const gelaufen = (spieler: number, verbleibend: number, after: string | null = null) => ({
   completed_saison_id: "2526",
   spieler: spieler,
   saison_spieler: spieler,
@@ -18,7 +18,7 @@ const gelaufen = (spieler: number, verbleibend: number, nach: string | null = nu
   skipped: 0,
   failed: 0,
   remaining: verbleibend,
-  nach: nach,
+  after: after,
 });
 
 /** The grants' claim with nothing to announce. */
@@ -37,7 +37,7 @@ doubleApiClient(async ({ endpoint }) => {
   expect(sent.pathname, `the pass reached a route nothing here answers: ${endpoint}`).toBe(LAUF);
   const carried = Object.fromEntries(sent.searchParams);
   laufCalls.push({ params: carried });
-  return laufAnswer(carried.nach ?? null);
+  return laufAnswer(carried.after ?? null);
 });
 
 const LOGGING_DOUBLE = {
@@ -80,15 +80,15 @@ describe("one pass of the pupils' deletion", () => {
 
     await runErasureSweep();
 
-    // A first call carrying no `nach` at all, never a null one: present, the server reads it as an id.
-    expect(laufCalls.map(({ params }) => params)).toStrictEqual([{}, { nach: ORT }]);
+    // A first call carrying no `after` at all, never a null one: present, the server reads it as an id.
+    expect(laufCalls.map(({ params }) => params)).toStrictEqual([{}, { after: ORT }]);
   });
 
   /** Answers a call carrying no place with the failing front, and the call carrying `ORT` with the due pupil behind it. */
   const vorneDann = <T>(vorne: T, dahinter: T, ende: T) => {
     let ohneOrt = 0;
     // Bounded: a loop dropping the place ends on its fourth call rather than hanging.
-    return (nach: string | null): T => (nach === ORT ? dahinter : ++ohneOrt <= 3 ? vorne : ende);
+    return (after: string | null): T => (after === ORT ? dahinter : ++ohneOrt <= 3 ? vorne : ende);
   };
 
   /* A share's worth of failing pupils fills the front, so the call reaching them deletes nobody while a due pupil stands
@@ -113,8 +113,8 @@ describe("one pass of the pupils' deletion", () => {
   /* A pass cut short knows no remainder, so its failures alone are what it left, and the call's failure goes with the
      counts of what the calls before it erased. */
   it("answers a pass cut short with what it erased, the pupils it failed and the call's failure", async () => {
-    laufAnswer = (nach) => {
-      if (nach === null) return { ...gelaufen(3, 5, ORT), failed: 2 };
+    laufAnswer = (after) => {
+      if (after === null) return { ...gelaufen(3, 5, ORT), failed: 2 };
       throw new Error("the deletion was refused");
     };
 
@@ -136,7 +136,7 @@ describe("one pass of the pupils' deletion", () => {
 
       const lauf = await runErasureSweep();
 
-      expect(laufCalls.map(({ params }) => params)).toStrictEqual([{}, { nach: ORT }]);
+      expect(laufCalls.map(({ params }) => params)).toStrictEqual([{}, { after: ORT }]);
       expect(lauf.count).toStrictEqual({
         completed_saison_id: "2526",
         spieler: 4,

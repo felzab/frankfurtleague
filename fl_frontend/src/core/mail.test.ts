@@ -70,7 +70,7 @@ const { drainOutbox, takeDrainCounts } = await import("./mail.ts");
 const handed = (n: number, attempt = 1): FLOutboxHandout => ({
   id: String(n).padStart(24, "a"),
   an: `person${String(n)}@example.org`,
-  data: { art: "sperre", grund: "Grund", barred_until_saison_id: "2627" },
+  data: { art: "ban", grund: "Grund", barred_until_saison_id: "2627" },
   token: null,
   secret: null,
   attempt: attempt,

@@ -133,9 +133,9 @@ export function FaktenBanner({ zeilen }: { zeilen: readonly Fakt[] }) {
  * The media consent's row on every confirmation page's receipt, in the words each page asks it in, so the
  * three pages cannot read the one consent three ways.
  */
-export const medienZeile = (medien: boolean): { label: string; value: string } => ({
+export const medienZeile = (media: boolean): { label: string; value: string } => ({
   label: "Fotos, Videos und Interviews",
-  value: medien ? "erlaubt" : "nicht erlaubt",
+  value: media ? "erlaubt" : "nicht erlaubt",
 });
 
 /**

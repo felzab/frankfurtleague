@@ -446,7 +446,7 @@ describe("grundZumEnde", () => {
         party:
           zeile.partei === undefined ? { art: "team", team_id: SEITEN[0] } : { art: "schiedsrichter", schiedsrichter_id: SCHIEDSRICHTER[0] },
         ansetzung: { datum, uhrzeit: "18:00:00", spielort_id: SPIELORT, team1_id: SEITEN[0], team2_id: SEITEN[1], stand: "0".repeat(64) },
-        closed: zeile.discarded === undefined ? null : { am: HEUTE, grund: "discarded" },
+        closed: zeile.discarded === undefined ? null : { at: HEUTE, grund: "discarded" },
       });
       const austritte = new Map(anders.austritt_tage === undefined ? [] : [[SEITEN[1], tagNach(anders.austritt_tage)]]);
 

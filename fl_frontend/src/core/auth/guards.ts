@@ -52,7 +52,7 @@ export const getAccountSession = cache(async (): Promise<JudgedSession | null> =
   // On every request, as the person guard's: a session its ban's ending missed is no session here.
   if (subject.barred) return null;
 
-  const judged = { ...served, admin: subject.verwaltung !== null };
+  const judged = { ...served, admin: subject.admin_tier !== null };
   if (judged.admin) return isAdminSession(served, subject) ? judged : null;
 
   return isWithinPersonLifetime(served.session) ? judged : null;
@@ -78,10 +78,10 @@ function passesButForItsGrant(served: ServedSession): boolean {
  * Whether this served session may act as an administrator — its address holding a grant it was made
  * since, inside both of the administrator's figures, and made by the passkey rather than by a mailed code alone.
  */
-export function isAdminSession(served: ServedSession, { verwaltung, granted_since: granted_since }: Grant): boolean {
+export function isAdminSession(served: ServedSession, { admin_tier, granted_since: granted_since }: Grant): boolean {
   // A passkey enrolled before the grant still admits, on a sign-in after it: the grant is the privilege,
   // and a passkey the factor it asks, enrolled on the mailbox's own authority (`docs/ops/runbooks.md` §3).
-  return verwaltung !== null && madeSince(served.session.createdAt, granted_since) && passesButForItsGrant(served);
+  return admin_tier !== null && madeSince(served.session.createdAt, granted_since) && passesButForItsGrant(served);
 }
 
 /**
@@ -119,7 +119,7 @@ const readAdminRequest = cache(
     // An unread grant admits nobody, so the administration is shut while the backend is.
     const grant = await grantOrNull(served.user.email);
     if (grant === null) return { refused: "unread" };
-    if (grant.verwaltung === null) return { refused: passesButForItsGrant(served) ? "grantGone" : "noGrant" };
+    if (grant.admin_tier === null) return { refused: passesButForItsGrant(served) ? "grantGone" : "noGrant" };
     // A session made before its grant among them, which a sign-in after the grant repairs.
     if (!isAdminSession(served, grant)) return { refused: "signIn" };
 

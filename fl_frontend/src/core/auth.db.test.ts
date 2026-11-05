@@ -157,7 +157,7 @@ globalThis.fetch = ((input: string | URL | Request, init?: RequestInit) => {
   const granted = email === ADMIN_EMAIL;
   const body = answerAt(new URL(url).pathname, {
     ...HOLDS_NOTHING,
-    verwaltung: granted ? "administration" : null,
+    admin_tier: granted ? "administration" : null,
     // Before every session a case makes.
     granted_since: granted ? "2026-01-01T00:00:00Z" : null,
     ...gateAnswer,

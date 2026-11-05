@@ -6,9 +6,9 @@ import { lookUpSubject } from "./signInGate";
 import type { FLSubjectResponse } from "./generated/client/types";
 
 /** The grant an address holds, its tier and when the grant and its `owner` tier took effect, as the subject lookup serves them: null together for none. */
-export type Grant = Pick<FLSubjectResponse, "verwaltung" | "granted_since" | "inhaber_seit">;
+export type Grant = Pick<FLSubjectResponse, "admin_tier" | "granted_since" | "owner_since">;
 
-const NO: Grant = { verwaltung: null, granted_since: null, inhaber_seit: null };
+const NO: Grant = { admin_tier: null, granted_since: null, owner_since: null };
 
 /**
  * The grant an address holds, read per request and never stamped on a session, which a revoke made
@@ -22,7 +22,7 @@ export async function grantOf(email: string): Promise<Grant> {
 
   // A barred holder is no administrator, as the backend's actor check refuses them: a grant written in
   // the database directly is the one way onto a barred address, and it admits nothing.
-  return subject.barred ? NO : { verwaltung: subject.verwaltung, granted_since: subject.granted_since, inhaber_seit: subject.inhaber_seit };
+  return subject.barred ? NO : { admin_tier: subject.admin_tier, granted_since: subject.granted_since, owner_since: subject.owner_since };
 }
 
 /**
@@ -42,6 +42,6 @@ export function madeSince(made: Date | string, since: string | null): boolean {
  * Whether a session the administrator's guard admitted holds an owner's power: the grant `owner`, and
  * the session made since that tier took effect, where the backend judges an owner's write.
  */
-export function holdsOwnersTier(made: Date | string, { verwaltung, inhaber_seit }: Grant): boolean {
-  return verwaltung === "owner" && madeSince(made, inhaber_seit);
+export function holdsOwnersTier(made: Date | string, { admin_tier, owner_since }: Grant): boolean {
+  return admin_tier === "owner" && madeSince(made, owner_since);
 }

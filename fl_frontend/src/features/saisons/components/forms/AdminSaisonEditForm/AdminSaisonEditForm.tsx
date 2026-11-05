@@ -204,7 +204,7 @@ export function AdminSaisonEditForm({
   const changeBewerbung = (next: FLSaisonBewerbung | null) => {
     setBewerbung(next);
     if (next === null) {
-      validatePaths("saison", { ...buildPayload(), bewerbung: next }, ["bewerbung", "bewerbung.offen", "bewerbung.von", "bewerbung.bis"]);
+      validatePaths("saison", { ...buildPayload(), bewerbung: next }, ["bewerbung", "bewerbung.offen", "bewerbung.start", "bewerbung.end"]);
     }
   };
 
@@ -216,7 +216,7 @@ export function AdminSaisonEditForm({
         "registrierung",
         "registrierung.offen",
         "registrierung.von",
-        "registrierung.bis",
+        "registrierung.end",
       ]);
     }
   };

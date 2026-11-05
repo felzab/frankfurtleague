@@ -212,14 +212,14 @@ export function BewerbungAngabenPanel({
                         <Angabe label={KONTAKT_WHATSAPP_FRAGE}>
                           {KONTAKT_WHATSAPP_LABELS[person.einwilligung.umfang]}
                           <Beleg
-                            nachweis={person.einwilligung.nachweis.umfang}
+                            evidence={person.einwilligung.evidence.umfang}
                             bestaetigung={bestaetigungOf(person.einwilligung)}
                           />
                         </Angabe>
                         <Angabe label={EINWILLIGUNG_MEDIEN_FRAGE}>
-                          {person.einwilligung.medien ? EINWILLIGUNG_MEDIEN_LABELS.given : EINWILLIGUNG_MEDIEN_LABELS.nicht_erteilt}
+                          {person.einwilligung.media ? EINWILLIGUNG_MEDIEN_LABELS.given : EINWILLIGUNG_MEDIEN_LABELS.nicht_erteilt}
                           <Beleg
-                            nachweis={person.einwilligung.nachweis.medien}
+                            evidence={person.einwilligung.evidence.media}
                             bestaetigung={bestaetigungOf(person.einwilligung)}
                           />
                         </Angabe>
@@ -278,11 +278,11 @@ export function BewerbungAngabenPanel({
           <dl className={ANGABEN_GRID_CLASSES}>
             <Angabe label="Getroffen am">{formatSpielDatum(entscheidung.made_at)}</Angabe>
             <Angabe label="Von">
-              {entscheidung.von === "" ? (
+              {entscheidung.by === "" ? (
                 "System"
               ) : (
                 <VonOderGesperrt
-                  von={entscheidung.von}
+                  von={entscheidung.by}
                   gesperrt={entscheidung.by_barred}
                 />
               )}

@@ -3,10 +3,10 @@ import { runAdminRead } from "@/shared/utils/adminRead";
 import { postAdresswechselVerwaltungAnsicht } from "./mutations";
 import { mapVerwaltungAnsichtRefusal } from "./refusals";
 
-import type { FLAddressChangeVerwaltungViewResponse } from "@/core/generated/client/types";
+import type { FLAddressChangeAdminViewResponse } from "@/core/generated/client/types";
 
 /** What the address tool shows of one change or address: the read's answer, or the sentence of its own refusal. */
-export type VerwaltungAnsichtGelesen = { status: "read"; view: FLAddressChangeVerwaltungViewResponse } | { status: "refused"; reason: string };
+export type VerwaltungAnsichtGelesen = { status: "read"; view: FLAddressChangeAdminViewResponse } | { status: "refused"; reason: string };
 
 /** The change a link from an editor, a reveal or the account page names, read as the tool opens on it. */
 export async function getAdresswechselVerwaltungAnsicht(adresswechselId: string): Promise<VerwaltungAnsichtGelesen> {

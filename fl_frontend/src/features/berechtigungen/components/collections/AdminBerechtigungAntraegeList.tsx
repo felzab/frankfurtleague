@@ -78,11 +78,11 @@ export const AdminBerechtigungAntraegeList = memo(function AdminBerechtigungAntr
               </div>
 
               <div className="grid w-full grid-cols-1 gap-3 border-t border-border/50 pt-3 sm:grid-cols-2">
-                <Fakt label={BEANTRAGT_LABEL}>{ANTRAG_WAS[antrag.verwaltung]}</Fakt>
+                <Fakt label={BEANTRAGT_LABEL}>{ANTRAG_WAS[antrag.admin_tier]}</Fakt>
                 <Fakt
                   label={OFFEN_BIS_LABEL}
                   numeric>
-                  {formatInstant(antrag.bis)}
+                  {formatInstant(antrag.until)}
                 </Fakt>
                 <Fakt label={GESTELLT_VON_LABEL}>
                   <VonOderGesperrt

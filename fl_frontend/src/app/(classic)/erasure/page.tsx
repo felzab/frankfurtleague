@@ -85,7 +85,7 @@ async function readState(): Promise<MailedState> {
 
 /** What goes, one row per label, the records the erasure view reads under it: the list a deletion erases. */
 function factsOf(email: string, passkeys: number, view: FLAccountErasureViewResponse): Fact[] {
-  const { spieler, schiedsrichter, seats, bewerbungen, registrierungen, address_change, verwaltung } = view;
+  const { spieler, schiedsrichter, seats, bewerbungen, registrierungen, address_change, admin_tier: admin_tier } = view;
   // One row per label, so the list reads each kind of record once: two seats held as one role name both under it.
   const records = new Map<Copy, Words[]>();
   const add = (label: Copy, record: Words) => records.set(label, [...(records.get(label) ?? []), record]);
@@ -111,6 +111,6 @@ function factsOf(email: string, passkeys: number, view: FLAccountErasureViewResp
       value: held.length === 1 && held[0] !== undefined ? held[0] : ENTRIES.several(held),
     })),
     ...count(WORDS.addressChanges, address_change),
-    ...(verwaltung === null ? [] : [{ label: WORDS.grant, value: COPY.admin.role }]),
+    ...(admin_tier === null ? [] : [{ label: WORDS.grant, value: COPY.admin.role }]),
   ];
 }

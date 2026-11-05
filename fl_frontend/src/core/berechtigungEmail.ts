@@ -128,7 +128,7 @@ function adresseOf(data: FLGrantData, stand: FLGrantSnapshot | null): string | V
 function zugangsaenderungOf(data: FLGrantData): Zugangsaenderung {
   const stand = data.change === "revoked" ? data.before : data.now;
 
-  return { art: data.change, adresse: adresseOf(data, stand), owner: stand?.verwaltung === "owner" };
+  return { art: data.change, adresse: adresseOf(data, stand), owner: stand?.admin_tier === "owner" };
 }
 
 /** Read off `urheber`, never off a null actor: an application's change whose actor is withheld is a barred one's. */

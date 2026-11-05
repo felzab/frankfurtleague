@@ -3,13 +3,13 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import type { FLAddressChangeSweepResponse } from "@/core/generated/client/types.ts";
 
-/** One call's answer, `nach` the place the next call starts after. */
-const antwort = (removed: number, verbleibend: number, nach: string | null = null): FLAddressChangeSweepResponse => ({
+/** One call's answer, `after` the place the next call starts after. */
+const antwort = (removed: number, verbleibend: number, after: string | null = null): FLAddressChangeSweepResponse => ({
   removed: removed,
   discarded: 0,
   effective: 0,
   remaining: verbleibend,
-  nach: nach,
+  after: after,
 });
 
 /** The pass's answers in turn; past the last, a place-free answer ends any loop rather than hanging it. */
@@ -26,7 +26,7 @@ doubleApiClient((call) => {
     return { moves: [] };
   }
   // A generated call carries its query in its endpoint.
-  calls.push(new URL(call.endpoint, "http://backend").searchParams.get("nach") ?? "-");
+  calls.push(new URL(call.endpoint, "http://backend").searchParams.get("after") ?? "-");
   const next = antworten.shift() ?? antwort(0, 0);
   if (next instanceof Error) throw next;
   return next;

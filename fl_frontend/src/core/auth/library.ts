@@ -646,7 +646,7 @@ const authOptions = (origin: URL, client: MongoClient) =>
         // would name an enrolment a later refusal never made.
         if (ctx.path === PASSKEY_REGISTRATION_PATH) {
           const enrolled = await getSessionFromCtx(ctx);
-          if (enrolled !== null) await notifyPasskey("passkey_hinzugefuegt", enrolled.user.email);
+          if (enrolled !== null) await notifyPasskey("passkey_added", enrolled.user.email);
         }
 
         // The touch reads whom the assertion signed in, to refuse another account's passkey before the act it guards; the

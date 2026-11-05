@@ -250,7 +250,7 @@ export const GATE_BACKEND_CONFIG = {
 export const HOLDS_NOTHING = NO_RECORDS;
 
 /** `ADMIN_EMAIL`'s answer: a grant and no league record, which is what makes it an administrator, dated before any session a case makes. */
-const GRANTED = deepFrozen({ ...HOLDS_NOTHING, verwaltung: "administration" as const, granted_since: "2026-01-01T00:00:00Z", account: false });
+const GRANTED = deepFrozen({ ...HOLDS_NOTHING, admin_tier: "administration" as const, granted_since: "2026-01-01T00:00:00Z", account: false });
 
 /** Whether a suite's lookup answer is installed, which `registerAuthDoubles`' default must not replace. */
 let lookupAnswered = false;

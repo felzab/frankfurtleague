@@ -20,7 +20,7 @@ import type { FLSperrlisteKeyPayload, SperreEntwurf } from "./schemas";
  * Every record the address holds, as the erasure's reveal names them. No grant and no ban among them: the read answers an
  * address holding either with the ban's own refusal (`sperrliste_verwaltung`, `duplicate_key`).
  */
-export type SperreAnsicht = Omit<FLErasureViewResponse, "verwaltung" | "barred">;
+export type SperreAnsicht = Omit<FLErasureViewResponse, "admin_tier" | "barred">;
 
 /** The ban's own address rule, never the erasure's looser lookup: no list is read for an address the ban would refuse. */
 const AnsichtPayloadSchema = FLPostSperrlistePayloadSchema.pick({ email: true });
@@ -89,8 +89,8 @@ export async function readSperreAnsichtAction(rawPayload: Pick<SperreEntwurf, "e
 
     // Refused rather than listed, in the ban's own order: the ban refuses an address holding a grant or barred already,
     // so its list would be work for nothing.
-    const { verwaltung, barred: barred, ...view } = read;
-    if (verwaltung !== null) return refusalResult(verwaltungAmFeld());
+    const { admin_tier: admin_tier, barred: barred, ...view } = read;
+    if (admin_tier !== null) return refusalResult(verwaltungAmFeld());
     if (barred) return refusalResult(schonGesperrtAmFeld());
 
     return { success: true, view: view };

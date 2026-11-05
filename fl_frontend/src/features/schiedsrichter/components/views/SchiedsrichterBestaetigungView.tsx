@@ -75,7 +75,7 @@ import type { CalendarDate } from "@internationalized/date";
 export type SchiedsrichterBestaetigungStart =
   { zustand: "valid"; ansicht: FLSchiedsrichterConfirmationViewResponse; token: string } | { zustand: SchiedsrichterLinkZustand | "unlesbar" };
 
-type Gespeichert = { geburtsdatum: string; umfang: FLEinwilligungUmfang; medien: boolean };
+type Gespeichert = { geburtsdatum: string; umfang: FLEinwilligungUmfang; media: boolean };
 
 type Stand = SchiedsrichterBestaetigungStart | ({ zustand: "erfolg" } & Gespeichert);
 
@@ -92,9 +92,9 @@ const TITEL: Record<Exclude<Stand["zustand"], "barred">, string> = {
 // The DRAFT's shape rather than the payload's: `umfang` stands unanswered until it is picked, and
 // a draft that could not hold "unanswered" would send a choice nobody made.
 /** The date mid-entry is a string, `""` being the empty picker; the judged shape is the payload's. */
-type Entwurf = { geburtsdatum: string; umfang: FLEinwilligungUmfang | null; medien: boolean };
+type Entwurf = { geburtsdatum: string; umfang: FLEinwilligungUmfang | null; media: boolean };
 
-const LEERER_ENTWURF: Entwurf = { geburtsdatum: "", umfang: null, medien: false };
+const LEERER_ENTWURF: Entwurf = { geburtsdatum: "", umfang: null, media: false };
 
 /** The empty string is a date nobody has entered yet, which the picker shows as empty rather than refuses. */
 function toCalendarDate(stored: string): CalendarDate | null {
@@ -111,7 +111,7 @@ function antwortPayload(token: string, entwurf: Entwurf, medienAngeboten: boolea
     umfang: entwurf.umfang as FLEinwilligungUmfang,
     // Never the draft's own `true` where no switch stands: one given before the date moved below the
     // media age would send a consent this page withheld.
-    medien: medienAngeboten && entwurf.medien,
+    media: medienAngeboten && entwurf.media,
     text_versions: SCHIEDSRICHTER_TEXT_VERSIONS,
   };
 }
@@ -200,7 +200,7 @@ function SchiedsrichterFormPanel({
       }
 
       setSubmitFieldErrors({}, {});
-      onAbschluss({ zustand: "erfolg", geburtsdatum: payload.geburtsdatum, umfang: antwort.umfang, medien: antwort.medien });
+      onAbschluss({ zustand: "erfolg", geburtsdatum: payload.geburtsdatum, umfang: antwort.umfang, media: antwort.media });
     });
   };
 
@@ -290,17 +290,17 @@ function SchiedsrichterFormPanel({
             <Switch
               className="flex w-full flex-col gap-y-1"
               name="medien"
-              isSelected={entwurf.medien}
-              onChange={(medien) => setEntwurf({ ...entwurf, medien: medien })}>
+              isSelected={entwurf.media}
+              onChange={(media) => setEntwurf({ ...entwurf, media: media })}>
               <Switch.Content className={panel.switchContent()}>
-                {SCHIEDSRICHTER_WORDINGS.medien.label}
+                {SCHIEDSRICHTER_WORDINGS.media.label}
                 <Switch.Control className={panel.switchControl()}>
                   <Switch.Thumb />
                 </Switch.Control>
               </Switch.Content>
             </Switch>
           )}
-          {medienAngeboten && <EinwilligungZeile line={SCHIEDSRICHTER_WORDINGS.medien.line} />}
+          {medienAngeboten && <EinwilligungZeile line={SCHIEDSRICHTER_WORDINGS.media.line} />}
         </section>
 
         {istZuJung && (
@@ -350,7 +350,7 @@ export function SchiedsrichterBestaetigungView({ start }: { start: Schiedsrichte
         <SchiedsrichterFormPanel
           token={stand.token}
           minimum_age={stand.ansicht.minimum_age}
-          medienMindestalter={stand.ansicht.medien_minimum_age}
+          medienMindestalter={stand.ansicht.media_minimum_age}
           onAbschluss={(naechster) => {
             beantwortet();
             setStand(naechster);
@@ -377,7 +377,7 @@ export function SchiedsrichterBestaetigungView({ start }: { start: Schiedsrichte
                     ? "Dein erster Namensteil und der Anfangsbuchstabe des nächsten"
                     : SCHIEDSRICHTER_ANONYM_LABEL,
               },
-              medienZeile(stand.medien),
+              medienZeile(stand.media),
             ]}
           />
           <p className={ABSATZ_CLASSES}>

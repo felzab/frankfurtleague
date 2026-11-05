@@ -7,7 +7,7 @@ describe("the act a consent choice is read back with", () => {
      administrator must read beside it. */
   it("names the choice's own act, in Berlin time, over the confirmation's", () => {
     const sentence = beschreibeNachweis(
-      { am: "2026-10-03T22:30:00Z", text_version: "2026-11-name-kader-1", given_before: null },
+      { at: "2026-10-03T22:30:00Z", text_version: "2026-11-name-kader-1", given_before: null },
       { am: "2026-03-14" },
     );
 
@@ -17,9 +17,9 @@ describe("the act a consent choice is read back with", () => {
   it("names the grant a withdrawal ended beside the withdrawal", () => {
     const sentence = beschreibeNachweis(
       {
-        am: "2026-10-04T08:00:00Z",
+        at: "2026-10-04T08:00:00Z",
         text_version: "2026-11-medien-1",
-        given_before: { am: "2026-09-01T10:00:00Z", text_version: "2026-11-medien-1" },
+        given_before: { at: "2026-09-01T10:00:00Z", text_version: "2026-11-medien-1" },
       },
       { am: "2026-03-14" },
     );
@@ -41,7 +41,7 @@ describe("the act a consent choice is read back with", () => {
 
   /* The read model refuses no stored instant, so one it cannot read arrives here rather than failing. */
   it("keeps an unreadable instant as stored rather than failing the panel", () => {
-    expect(beschreibeNachweis({ am: "kaputt", text_version: "2026-11-medien-1", given_before: null }, { am: "2026-03-14" })).toBe(
+    expect(beschreibeNachweis({ at: "kaputt", text_version: "2026-11-medien-1", given_before: null }, { am: "2026-03-14" })).toBe(
       "seit kaputt, Fassung 2026-11-medien-1",
     );
   });

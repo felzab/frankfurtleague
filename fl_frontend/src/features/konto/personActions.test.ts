@@ -66,7 +66,7 @@ const ERASED = {
   registrierungen: 0,
   address_change: 0,
   grants: 0,
-  grants_approval_requests: 0,
+  grant_approval_requests: 0,
 };
 
 /** Every erasure the backend was asked for, with the actor header each carried. */
@@ -94,7 +94,7 @@ globalThis.fetch = ((input: string | URL | Request, init?: RequestInit) => {
   }
   if (path === VIEW_PATH) {
     const empty = { spieler: [], schiedsrichter: [], seats: [], bewerbungen: [], registrierungen: [], address_change: 0 };
-    return Promise.resolve(Response.json({ ...empty, verwaltung: "owner", last_owner: lastOwner }));
+    return Promise.resolve(Response.json({ ...empty, admin_tier: "owner", last_owner: lastOwner }));
   }
   if (path === ERASURE_PATH) {
     erasures.push({ method: init?.method ?? "GET", actor: new Headers(init?.headers).get("x-fl-actor") });
@@ -196,9 +196,9 @@ async function ledToTheDonePage(pressed: Promise<unknown>): Promise<void> {
 async function ownerWithLink(email: string): Promise<{ row: SessionRow; token: string; holder: string }> {
   HELD.set(email, {
     ...NO_RECORDS,
-    verwaltung: "owner",
+    admin_tier: "owner",
     granted_since: "2026-01-01T00:00:00Z",
-    inhaber_seit: "2026-01-01T00:00:00Z",
+    owner_since: "2026-01-01T00:00:00Z",
     account: false,
   });
   const byPasskey = await sessionByCode(auth, store, email);
@@ -334,7 +334,7 @@ describe("the account's acts, behind the account's guard and the touch", () => {
      account's acts are the administrator's lane's to admit. */
   it("refuses an administrator's session made by a mailed code alone every untouched act of the account", async () => {
     const email = "verwalterin-per-code@example.org";
-    HELD.set(email, { ...NO_RECORDS, verwaltung: "administration", granted_since: "2026-01-01T00:00:00Z", inhaber_seit: null, account: false });
+    HELD.set(email, { ...NO_RECORDS, admin_tier: "administration", granted_since: "2026-01-01T00:00:00Z", owner_since: null, account: false });
     const { cookie, row } = await sessionByCode(auth, store, email);
     const other = { ...row, id: `other-${row.id}`, token: `other-${row.token}` };
     store.session.push(other);
@@ -351,7 +351,7 @@ describe("the account's acts, behind the account's guard and the touch", () => {
      administrator's consents, the page alone refusing it. */
   it("refuses an administrator's session made by a mailed code alone every consent save, sending none", async () => {
     const email = "verwalterin-einwilligung@example.org";
-    HELD.set(email, { ...NO_RECORDS, verwaltung: "administration", granted_since: "2026-01-01T00:00:00Z", inhaber_seit: null, account: false });
+    HELD.set(email, { ...NO_RECORDS, admin_tier: "administration", granted_since: "2026-01-01T00:00:00Z", owner_since: null, account: false });
     const { cookie } = await sessionByCode(auth, store, email);
     arriveAs(cookie);
 

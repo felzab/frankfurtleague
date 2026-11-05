@@ -9,8 +9,8 @@ const stored: SaisonDraftFields = {
   start_date: "2025-09-01",
   end_date: "2026-06-30",
   rules: saisonRules({ teams_per_gruppe: 5, max_kadergroesse: 50, allowed_stufen: ["E1", "E2", "Q1", "Q2"] }),
-  bewerbung: { offen: true, von: "2025-05-01", bis: "2025-06-30" },
-  registrierung: { offen: true, von: "2025-07-01", bis: "2025-08-15" },
+  bewerbung: { offen: true, start: "2025-05-01", end: "2025-06-30" },
+  registrierung: { offen: true, von: "2025-07-01", end: "2025-08-15" },
 };
 
 const draftFrom = (overrides: Partial<SaisonDraftFields>): SaisonDraftFields => ({ ...stored, ...overrides });
@@ -139,7 +139,7 @@ describe("deriveSaisonDraftStatus", () => {
   it("reports the whole application window as one row, freischaltung included", () => {
     const status = deriveSaisonDraftStatus({
       stored,
-      draft: draftFrom({ bewerbung: { offen: false, von: "2025-05-01", bis: "2025-06-30" } }),
+      draft: draftFrom({ bewerbung: { offen: false, start: "2025-05-01", end: "2025-06-30" } }),
       fieldErrors: {},
     });
 
@@ -161,8 +161,8 @@ describe("deriveSaisonDraftStatus", () => {
   it("lands one date's own error on the window's single row, which is the only row rendering it", () => {
     const status = deriveSaisonDraftStatus({
       stored,
-      draft: draftFrom({ bewerbung: { offen: true, von: "2025-05-01", bis: "" } }),
-      fieldErrors: { "bewerbung.bis": "Bitte gib ein gültiges Datum ein." },
+      draft: draftFrom({ bewerbung: { offen: true, start: "2025-05-01", end: "" } }),
+      fieldErrors: { "bewerbung.end": "Bitte gib ein gültiges Datum ein." },
     });
 
     expect(status.byPath.get("bewerbung")?.error).toBe("Bitte gib ein gültiges Datum ein.");
@@ -186,8 +186,8 @@ describe("deriveSaisonDraftStatus", () => {
   it("lands one registration date's own error on that window's single row", () => {
     const status = deriveSaisonDraftStatus({
       stored,
-      draft: draftFrom({ registrierung: { offen: true, von: "2025-07-01", bis: "" } }),
-      fieldErrors: { "registrierung.bis": "Bitte gib ein gültiges Datum ein." },
+      draft: draftFrom({ registrierung: { offen: true, von: "2025-07-01", end: "" } }),
+      fieldErrors: { "registrierung.end": "Bitte gib ein gültiges Datum ein." },
     });
 
     expect(status.byPath.get("registrierung")?.error).toBe("Bitte gib ein gültiges Datum ein.");

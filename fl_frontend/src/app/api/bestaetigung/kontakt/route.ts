@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
         ergebnis: antwort.ergebnis,
         geburtsdatum: antwort.geburtsdatum,
         whatsapp: antwort.whatsapp,
-        medien: antwort.medien,
+        media: antwort.media,
       };
     },
   });

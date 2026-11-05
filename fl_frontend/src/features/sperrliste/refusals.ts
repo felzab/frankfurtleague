@@ -34,11 +34,11 @@ export function mapSperreRefusal(error: unknown): { error?: string; fieldErrors?
   // administrators press together: one code for both.
   if (error.serverErrorCode === "duplicate_key") return schonGesperrtAmFeld();
 
-  if (error.serverErrorCode === "sperrliste_no_saison") {
+  if (error.serverErrorCode === "ban_list_no_saison") {
     return { error: KEINE_SAISON };
   }
 
-  if (error.serverErrorCode === "sperrliste_verwaltung") return verwaltungAmFeld();
+  if (error.serverErrorCode === "ban_list_admin") return verwaltungAmFeld();
 
   return null;
 }
@@ -51,5 +51,5 @@ export function mapSperreRefusal(error: unknown): { error?: string; fieldErrors?
 export function mapAnsichtRefusal(error: unknown): { fieldErrors: FieldErrors } | null {
   if (!isRefusal(error)) return null;
 
-  return error.serverErrorCode === "own_adresse" || error.serverErrorCode === "verwaltung_adresse" ? verwaltungAmFeld() : null;
+  return error.serverErrorCode === "own_adresse" || error.serverErrorCode === "admin_address" ? verwaltungAmFeld() : null;
 }

@@ -1,19 +1,23 @@
 import {
   addressChangeDeleteAddressChange,
+  addressChangeGetAddressChangeAdminView,
   addressChangeGetAddressChangeAdresse,
   addressChangeGetAddressChangeMoves,
-  addressChangeGetAddressChangeVerwaltungView,
   addressChangeGetAddressChangeView,
   addressChangeInviteAddressChange,
+  addressChangePostAddressChangeAdmin,
   addressChangePostAddressChangeAnswer,
   addressChangePostAddressChangeApproval,
   addressChangePostAddressChangeMovesDone,
   addressChangePostAddressChangeStop,
-  addressChangePostAddressChangeVerwaltung,
   addressChangeSweepAddressChange,
 } from "@/core/generated/client/sdk";
 
 import type {
+  FLAddressChangeAdminMintResponse,
+  FLAddressChangeAdminPayload,
+  FLAddressChangeAdminViewPayload,
+  FLAddressChangeAdminViewResponse,
   FLAddressChangeAdressePayload,
   FLAddressChangeAdresseResponse,
   FLAddressChangeAnswerPayload,
@@ -25,10 +29,6 @@ import type {
   FLAddressChangeMovesResponse,
   FLAddressChangeStopResponse,
   FLAddressChangeSweepResponse,
-  FLAddressChangeVerwaltungMintResponse,
-  FLAddressChangeVerwaltungPayload,
-  FLAddressChangeVerwaltungViewPayload,
-  FLAddressChangeVerwaltungViewResponse,
   FLAddressChangeViewResponse,
   FLTokenPayload,
 } from "@/core/generated/client/types";
@@ -52,10 +52,10 @@ export async function postAddressChangeStop(payload: FLTokenPayload): Promise<FL
   return addressChangePostAddressChangeStop(payload);
 }
 
-/** The hourly pass's: a timer holds no session, and a lapsed change or a due one is the clock's. `nach` is the previous call's answer. */
-export async function postAdresswechselSweep(nach: string | null): Promise<FLAddressChangeSweepResponse> {
-  // Left out on a pass's first call: the server takes `nach` as an id wherever it is present.
-  return addressChangeSweepAddressChange(nach === null ? {} : { nach: nach });
+/** The hourly pass's: a timer holds no session, and a lapsed change or a due one is the clock's. `after` is the previous call's answer. */
+export async function postAdresswechselSweep(after: string | null): Promise<FLAddressChangeSweepResponse> {
+  // Left out on a pass's first call: the server takes `after` as an id wherever it is present.
+  return addressChangeSweepAddressChange(after === null ? {} : { after: after });
 }
 
 /** The sign-in accounts the effects still owe to carry, for this server alone: the answer names addresses. */
@@ -77,19 +77,17 @@ export async function postAdresswechselAdresse(payload: FLAddressChangeAdressePa
 }
 
 /** A POST that reads, for the address it is handed: a GET would put a person's address in the URL every log line keeps. */
-export async function postAdresswechselVerwaltungAnsicht(
-  payload: FLAddressChangeVerwaltungViewPayload,
-): Promise<FLAddressChangeVerwaltungViewResponse> {
-  return addressChangeGetAddressChangeVerwaltungView(payload);
+export async function postAdresswechselVerwaltungAnsicht(payload: FLAddressChangeAdminViewPayload): Promise<FLAddressChangeAdminViewResponse> {
+  return addressChangeGetAddressChangeAdminView(payload);
 }
 
 /** Ends the change standing at the address, so a link minted before stops working at once; the address on file stays in force. */
-export async function beantrageAdresswechsel(payload: FLAddressChangeVerwaltungPayload): Promise<FLAddressChangeVerwaltungMintResponse> {
-  return addressChangePostAddressChangeVerwaltung(payload);
+export async function beantrageAdresswechsel(payload: FLAddressChangeAdminPayload): Promise<FLAddressChangeAdminMintResponse> {
+  return addressChangePostAddressChangeAdmin(payload);
 }
 
 /** A fresh link to the new mailbox of the change the id names and no other, so the previous link stops working; the stop link stays. */
-export async function einladeAdresswechsel({ id }: FLAdresswechselEinladenPayload): Promise<FLAddressChangeVerwaltungMintResponse> {
+export async function einladeAdresswechsel({ id }: FLAdresswechselEinladenPayload): Promise<FLAddressChangeAdminMintResponse> {
   return addressChangeInviteAddressChange(id);
 }
 

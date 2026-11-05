@@ -25,11 +25,11 @@ type SubjectRecords = {
   readonly barred: boolean;
   // The grant the address holds, stored and never derived: whether it may act as an administrator is
   // `SubjectSession["admin"]`, which the session's factor and window narrow further.
-  readonly verwaltung: FLSubjectResponse["verwaltung"];
+  readonly admin_tier: FLSubjectResponse["admin_tier"];
   // When that grant took effect, which the same verdict holds the session's own making against.
   readonly granted_since: FLSubjectResponse["granted_since"];
   // When its `owner` tier took effect, which no panel reads: an owner's controls ask it of the session.
-  readonly inhaber_seit: FLSubjectResponse["inhaber_seit"];
+  readonly owner_since: FLSubjectResponse["owner_since"];
 };
 
 /**

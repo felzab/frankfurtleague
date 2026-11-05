@@ -13,5 +13,5 @@ export const EinsehbarVerwehrtSchema = z.enum(FLAddressChangeViewableDenied);
 export const EINSEHBAR_VERWEHRT: Readonly<Record<FLAddressChangeViewableDenied, string>> = {
   own: "Es ist die Änderung Deiner eigenen Adresse. Du findest sie auf Deiner Kontoseite.",
   // An owner signed in before their promotion holds no owner's power yet, and would read the bare rule as false.
-  verwaltung: `Öffnen kann sie nur eine Inhaberin oder ein Inhaber der Verwaltung. ${NACH_ERNENNUNG_NEU_ANMELDEN}`,
+  admin_tier: `Öffnen kann sie nur eine Inhaberin oder ein Inhaber der Verwaltung. ${NACH_ERNENNUNG_NEU_ANMELDEN}`,
 };

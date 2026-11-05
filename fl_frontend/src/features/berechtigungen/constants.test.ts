@@ -105,13 +105,13 @@ describe("a refusal of an owner's power", () => {
    * promotion among them, with the code its service raises for it.
    */
   const WORDED_BY = [
-    [mapLoeschungAufAnfrageRefusal, "verwaltung_adresse"],
-    [mapAbmeldungRefusal, "verwaltung_adresse"],
+    [mapLoeschungAufAnfrageRefusal, "admin_address"],
+    [mapAbmeldungRefusal, "admin_address"],
     [mapEntziehenRefusal, "grant_only_owner"],
     [mapStufeRefusal, "grant_only_owner"],
-    [alsFehler(mapVerwaltungAnsichtRefusal), "verwaltung_adresse"],
-    [mapVerwaltungStartRefusal, "verwaltung_adresse"],
-    [alsFehler(mapVerwaltungLinkRefusal), "verwaltung_adresse"],
+    [alsFehler(mapVerwaltungAnsichtRefusal), "admin_address"],
+    [mapVerwaltungStartRefusal, "admin_address"],
+    [alsFehler(mapVerwaltungLinkRefusal), "admin_address"],
   ] as const satisfies readonly (readonly [(error: unknown) => { error?: string } | null, Code])[];
 
   /* An owner whose session predates the promotion is refused in the code an administrator is, and reads the sentence

@@ -11,9 +11,9 @@ import type {
   FLBewerbungAbsageData,
   FLBewerbungErasureData,
   FLBewerbungLinkData,
+  FLBewerbungObjectionData,
   FLBewerbungPerson,
   FLBewerbungReceivedData,
-  FLBewerbungWiderspruchData,
   FLBewerbungZusageData,
 } from "./generated/client/types";
 import type { MailLink, MailOrigin } from "./mailKinds";
@@ -330,7 +330,7 @@ export function buildBewerbungGeloeschtEmail({ saison_id, rollen, pending: ausst
 
 /** What the submitter is told when a person refuses their entry; `abgelehnt` was read before the decline emptied it. */
 export function buildBewerbungWiderspruchEmail(
-  { saison_id, rollen, declined: abgelehnt, frist }: FLBewerbungWiderspruchData,
+  { saison_id, rollen, declined: abgelehnt, frist }: FLBewerbungObjectionData,
   { origin }: MailOrigin,
 ): Mail {
   const site = mailOrigin(origin);

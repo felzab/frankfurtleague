@@ -79,7 +79,7 @@ async function ended(read: ServedSession): Promise<Landing> {
 }
 
 async function destinationOf(served: ServedSession, grant: Grant): Promise<SignInDestination> {
-  if (grant.verwaltung !== null) {
+  if (grant.admin_tier !== null) {
     // The guard's own verdict rather than a second spelling of it: `/area` sends a granted session
     // the guard refuses on to `/area/admin`, whose guards send it back here.
     if (isAdminSession(served, grant)) return "/area";
@@ -131,7 +131,7 @@ export async function getPasskeyStep(): Promise<PasskeyStep | null> {
   const subject = await subjectOrNull(served.user.email);
   if (subject === null || subject.barred) return null;
 
-  const step = await passkeyStepOf(served, subject.verwaltung !== null);
+  const step = await passkeyStepOf(served, subject.admin_tier !== null);
   if (step === null) return null;
 
   // Folded as `getAdminSession` folds the actor it records: the stored row is the library's own

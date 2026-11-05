@@ -40,9 +40,9 @@ export const lookUpSubject = cache((email: string): Promise<SubjectSession["subj
       schiedsrichter: answer.schiedsrichter,
       unconfirmed: answer.unconfirmed,
       barred: answer.barred,
-      verwaltung: answer.verwaltung,
+      admin_tier: answer.admin_tier,
       granted_since: answer.granted_since,
-      inhaber_seit: answer.inhaber_seit,
+      owner_since: answer.owner_since,
     };
   }),
 );
@@ -58,7 +58,7 @@ export const lookUpSignIn = cache(async (email: string): Promise<SignInRecords> 
   const answer = await identityGetSignIn({ email: email });
 
   // Field by field, for `lookUpSubject`'s reason.
-  return { unconfirmed: answer.unconfirmed, account: answer.account, barred: answer.barred, verwaltung: answer.verwaltung };
+  return { unconfirmed: answer.unconfirmed, account: answer.account, barred: answer.barred, admin_tier: answer.admin_tier };
 });
 
 /**
@@ -101,7 +101,7 @@ export function signInVerdictOf(signIn: SignInRecords): Exclude<SignInVerdict, "
   // confirmation or holding a grant written in the database directly is offered nothing.
   if (signIn.barred) return "barred";
 
-  if (signIn.verwaltung !== null) return "admitted";
+  if (signIn.admin_tier !== null) return "admitted";
 
   // `account` and never a Funktion: a person whose only record grants no panel still has a consent to
   // take back on the account page. A pending mailbox signs in too, to be told its confirmation is

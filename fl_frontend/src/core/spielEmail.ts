@@ -180,7 +180,7 @@ const ABGESAGT_SAETZE: Record<FLSpielNoticeDataRecipient, readonly [string, stri
 export function buildSpielHinweisEmail({ art, recipient: empfaenger, appointment: alt }: FLSpielNoticeData, { origin }: MailOrigin): Mail {
   const { team1, team2 } = alt;
 
-  if (art === "spiel_new_angesetzt") {
+  if (art === "spiel_new_scheduled") {
     return {
       kind: "notice",
       subjectLine: `Neu angesetzt: ${team1} gegen ${team2}`,

@@ -87,10 +87,10 @@ export const buildEmptyKontaktperson = (): KontaktpersonDraft => ({
     // A confirmation link is the only writer of this stamp, so a seat an administrator opened here
     // has none and the blank is the truth rather than a value still to be filled in.
     confirmed_at: null,
-    medien: false,
+    media: false,
     // The save that seats the person stamps who seated them; no payload carries it, so the form never guesses.
     entered_by: null,
-    nachweis: { umfang: null, medien: null },
+    evidence: { umfang: null, media: null },
   },
 });
 

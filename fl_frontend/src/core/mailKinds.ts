@@ -89,8 +89,7 @@ function minted({ token, origin }: Handout): MailLink {
  */
 const MAIL_KINDS: { [A in OutboxKind]: MailBuilder<A> } = {
   sign_in_code: (_data, { secret, origin }) => buildCodeEmail(secretOf(secret), origin),
-  passkey_hinzugefuegt: ({ instant, account }, { origin }) =>
-    buildPasskeyAddedEmail({ instant: new Date(instant), origin: origin, account: account }),
+  passkey_added: ({ instant, account }, { origin }) => buildPasskeyAddedEmail({ instant: new Date(instant), origin: origin, account: account }),
   passkey_erased: ({ instant, account }, { origin }) =>
     buildPasskeyErasedEmail({ instant: new Date(instant), origin: origin, account: account }),
   account_erasure: (_data, { secret, origin }) => buildErasureEmail({ origin: origin, token: secretOf(secret) }),
@@ -98,7 +97,7 @@ const MAIL_KINDS: { [A in OutboxKind]: MailBuilder<A> } = {
   spiel_request: (data, handout) => buildSpielAnfrageEmail(data, minted(handout)),
   spiel_reminder: (data, handout) => buildSpielAnfrageEmail(data, minted(handout)),
   spiel_einteilung: buildSpielEinteilungEmail,
-  spiel_new_angesetzt: buildSpielHinweisEmail,
+  spiel_new_scheduled: buildSpielHinweisEmail,
   spiel_abgesagt: buildSpielHinweisEmail,
   spiel_einteilung_lifted: buildSpielEinteilungAufgehobenEmail,
   spiel_vorschlag_discarded: buildSpielVorschlagVerworfenEmail,
@@ -107,7 +106,7 @@ const MAIL_KINDS: { [A in OutboxKind]: MailBuilder<A> } = {
   registrierung_absage: (data, handout) => buildRegistrierungAbsageEmail(data, handout),
   invitation: (data, handout) => buildEinladungEmail(data, minted(handout)),
   kontakt_confirmation: (data, handout) => buildKontaktBestaetigungEmail(data, minted(handout)),
-  sperre: buildSperreEmail,
+  ban: buildSperreEmail,
   grant: buildBerechtigungEmail,
   address_change_link: (data, handout) => buildAddressChangeEmail(data, minted(handout)),
   // The stop link, minted into the change's `stopp.token_hashes`.
@@ -120,7 +119,7 @@ const MAIL_KINDS: { [A in OutboxKind]: MailBuilder<A> } = {
   bewerbung_zusage: buildBewerbungZusageEmail,
   bewerbung_absage: buildBewerbungAbsageEmail,
   bewerbung_erasure: buildBewerbungGeloeschtEmail,
-  bewerbung_widerspruch: buildBewerbungWiderspruchEmail,
+  bewerbung_objection: buildBewerbungWiderspruchEmail,
 };
 
 /** A secret kind's secret, which its every row carries (`fl_frontend/src/core/auth/mails.ts :: oweSignInMail`). */

@@ -34,10 +34,10 @@ const SPIELER: FLSpielerWithMemberships = {
     umfang: "kader_oeffentlich",
     datum: "2026-09-01",
     confirmed_at: "2026-09-01",
-    medien: false,
-    nachweis: {
-      umfang: { am: "2026-09-01T10:00:00Z", text_version: SPIELER_TEXT_VERSIONS.umfang, given_before: null },
-      medien: { am: "2026-09-01T10:00:00Z", text_version: SPIELER_TEXT_VERSIONS.medien, given_before: null },
+    media: false,
+    evidence: {
+      umfang: { at: "2026-09-01T10:00:00Z", text_version: SPIELER_TEXT_VERSIONS.umfang, given_before: null },
+      media: { at: "2026-09-01T10:00:00Z", text_version: SPIELER_TEXT_VERSIONS.media, given_before: null },
     },
   },
   email: "x@example.com",

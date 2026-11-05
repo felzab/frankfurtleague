@@ -486,7 +486,7 @@ describe("the German each widened refusal renders", () => {
 
 const LAUF = "/identity/erasure/sweep";
 
-/** A deletion call: the generated call carries its `nach` in the endpoint's query. */
+/** A deletion call: the generated call carries its `after` in the endpoint's query. */
 const isLauf = ({ endpoint }: ApiCall): boolean => endpoint.split("?")[0] === LAUF;
 
 /** The query one call carried, as the backend reads it. */
@@ -500,7 +500,7 @@ const ORT = `${"d".repeat(23)}4`;
 const VORNE = `${"e".repeat(23)}5`;
 
 /** One call of the deletion: whom it erased, who is still due after it, and where the pass goes on. */
-const gelaufen = (spieler: number, verbleibend: number, nach: string | null = null, since: string | null = "2025") => ({
+const gelaufen = (spieler: number, verbleibend: number, after: string | null = null, since: string | null = "2025") => ({
   completed_saison_id: since,
   spieler: spieler,
   saison_spieler: spieler * 2,
@@ -508,7 +508,7 @@ const gelaufen = (spieler: number, verbleibend: number, nach: string | null = nu
   skipped: 0,
   failed: 0,
   remaining: verbleibend,
-  nach: nach,
+  after: after,
 });
 
 /**
@@ -650,15 +650,15 @@ describe("the deletion the activation runs", () => {
     let vorne = 0;
     answerWith((call) => {
       if (!isLauf(call)) return Promise.resolve(landed(call));
-      const { nach } = queryOf(call);
-      if (nach === VORNE) return Promise.resolve(gelaufen(1, 10));
+      const { after } = queryOf(call);
+      if (after === VORNE) return Promise.resolve(gelaufen(1, 10));
       return Promise.resolve(++vorne <= 3 ? { ...gelaufen(0, 11, VORNE), failed: 10 } : gelaufen(0, 11));
     });
 
     const message = await umgestellt();
 
-    // A first call carrying no `nach` at all, never a null one: present, the server reads it as an id.
-    expect(calls.filter(isLauf).map(queryOf)).toStrictEqual([{}, { nach: VORNE }]);
+    // A first call carrying no `after` at all, never a null one: present, the server reads it as an id.
+    expect(calls.filter(isLauf).map(queryOf)).toStrictEqual([{}, { after: VORNE }]);
     expect(message).toBe(
       `${AKTIVIERT} Eine Spielerin oder ein Spieler ohne Kadereintrag seit Saison 2025 wurde gelöscht. 10 weitere Löschungen stehen noch aus.`,
     );

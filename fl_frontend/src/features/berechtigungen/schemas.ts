@@ -2,12 +2,12 @@
 import z from "zod";
 
 import { asSignInIdentifier } from "@/core/emailAddress";
-import { FLVerwaltung } from "@/core/generated/client/types";
+import { FLAdminTier } from "@/core/generated/client/types";
 import { isSignInLibraryAddress } from "@/core/signInLibraryAddress";
 import { CustomObjectIdStringSchema, KontaktEmailSchema } from "@/shared/schemas";
 
 /** The two tiers a grant holds, refused in German: the tier change's input names one. */
-const FLVerwaltungSchema = z.enum(FLVerwaltung, { error: "Diese Stufe gibt es nicht." });
+const FLVerwaltungSchema = z.enum(FLAdminTier, { error: "Diese Stufe gibt es nicht." });
 
 /**
  * The grant's draft, the address alone: no tier travels, the application granting `administration` only. Held
