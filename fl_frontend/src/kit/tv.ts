@@ -31,6 +31,11 @@ export const tv = createTV({
         tracking: ["display", "caps"],
         blur: ["scrim"],
       },
+      // The theme's hover layer is a background image: read as a fill colour, as the merger reads any unknown
+      // `bg-*`, it would drop a fill beside it, and the layer is laid over a fill.
+      classGroups: {
+        "bg-image": [{ bg: ["layer"] }],
+      },
     },
   },
 });

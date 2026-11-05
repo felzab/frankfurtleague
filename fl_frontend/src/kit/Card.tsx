@@ -128,7 +128,9 @@ export function CardRowsPlaceholder({ rows }: { rows: number }) {
           width="w-1/3"
         />
       </span>
-      <RowEnd />
+      <span className={s.end()}>
+        <RowEnd />
+      </span>
     </div>
   ));
 }
@@ -155,21 +157,24 @@ export function CardLink({ href, title, line }: { href: Route; title: Copy; line
   );
 }
 
+// The chevron is the row's own end column at every width, right and centred on the row's height, 12 px after what
+// stands before it: the words, or the acts.
 const actRow = tv({
   slots: {
-    root: `relative grid min-h-14 gap-x-3 gap-y-2 ${stacked()} px-4 py-3 text-sm lg:min-h-13 ${cardHover()}`,
+    root: `relative grid min-h-14 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 ${stacked()} px-4 py-3 text-sm lg:min-h-13 ${cardHover()}`,
     words: "grid min-w-0 gap-0.5",
     name: "flex min-w-0 items-center gap-2",
     line: "text-xs text-fg-muted",
     // Positioned above the row's stretched link, so a press on an act does the act rather than open the record.
-    acts: "relative z-10 flex items-center gap-2 lg:justify-self-end",
+    acts: "relative z-10 col-start-1 row-start-2 flex items-center gap-2 lg:col-start-2 lg:row-start-1 lg:justify-self-end",
+    end: "flex self-stretch",
   },
   variants: {
-    // With acts, one column on a phone, the acts under the words, and from `lg` the acts at the row's end; with
-    // none, the chevron at the row's end at every width.
+    // With acts, the acts under the words on a phone, the chevron beside both, and from `lg` the acts between the
+    // words and the chevron, all on one line.
     acts: {
-      true: { root: "lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center" },
-      false: { root: "grid-cols-[minmax(0,1fr)_auto] items-center" },
+      true: { root: "lg:grid-cols-[minmax(0,1fr)_auto_auto]", end: "row-span-2 lg:row-span-1" },
+      false: {},
     },
   },
 });
@@ -186,9 +191,10 @@ export type CardActRowProps = {
 
 /**
  * One record in a card's rows whose open work is done where it shows: its name with its chip, one line saying
- * what is open, and its acts, one or two kit buttons, under the words on a phone and at the row's end from
+ * what is open, and its acts, one or two kit buttons, under the words on a phone and before the chevron from
  * `lg`, so the name keeps the phone's whole width. The whole row opens the record through its name, as every
- * card row does; a row with no act ends in the chevron instead. A name too long for its line is cut with „…“, so
+ * card row does, and ends in the chevron, with acts or none; under the pointer the row takes the one hover layer
+ * and an act's own stacks on it. A name too long for its line is cut with „…“, so
  * the chip keeps its place beside it; the full name stays the link's accessible name and shows as its title while it is cut.
  */
 export function CardActRow({ href, name, chip, line, acts }: CardActRowProps) {
@@ -210,7 +216,10 @@ export function CardActRow({ href, name, chip, line, acts }: CardActRowProps) {
         </span>
         <span className={s.line()}>{textOf(line)}</span>
       </span>
-      {acts === undefined ? <RowEnd /> : <span className={s.acts()}>{acts}</span>}
+      {acts !== undefined && <span className={s.acts()}>{acts}</span>}
+      <span className={s.end()}>
+        <RowEnd />
+      </span>
     </div>
   );
 }

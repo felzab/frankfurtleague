@@ -125,8 +125,11 @@ export type TableHead = Pick<TableProps, "nameLabel" | "rankLabel" | "columns" |
 /** A table's rows once read: everything but its head. */
 export type TableBody = Omit<TableProps, keyof TableHead>;
 
-/** A grid row's chevron on a phone: out of the row's one column, at its end. */
-const PHONE_END = "max-lg:absolute max-lg:end-3 max-lg:top-1/2 max-lg:w-auto max-lg:-translate-y-1/2 max-lg:p-0";
+/** A stacked phone row's two columns: its cells, then its chevron, the kit's 12-px gap between them. */
+const PHONE_END_ROW = "max-lg:grid-cols-[minmax(0,1fr)_auto] max-lg:gap-x-3";
+
+/** That chevron's column, the row's second, centring the chevron on the lines it spans. */
+const PHONE_END = "max-lg:col-start-2 max-lg:flex max-lg:w-auto max-lg:items-center max-lg:pe-0";
 
 const table = tv({
   slots: {
@@ -179,8 +182,8 @@ const table = tv({
       true: {
         head: "max-lg:sr-only",
         row: "max-lg:grid max-lg:h-auto max-lg:gap-1 max-lg:px-3 max-lg:py-3",
-        name: "w-auto max-w-none py-3 align-top max-lg:px-0 max-lg:py-0 max-lg:font-semibold",
-        cell: "py-3 align-top whitespace-normal max-lg:grid max-lg:grid-cols-[4rem_minmax(0,1fr)] max-lg:gap-x-3 max-lg:px-0",
+        name: "w-auto max-w-none py-3 align-top max-lg:col-start-1 max-lg:px-0 max-lg:py-0 max-lg:font-semibold",
+        cell: "py-3 align-top whitespace-normal max-lg:col-start-1 max-lg:grid max-lg:grid-cols-[4rem_minmax(0,1fr)] max-lg:gap-x-3 max-lg:px-0",
         label: "text-xs text-fg-muted lg:hidden",
       },
     },
@@ -191,8 +194,8 @@ const table = tv({
       true: {
         head: "max-lg:sr-only",
         row: "max-lg:grid max-lg:h-auto max-lg:grid-cols-1 max-lg:gap-1 max-lg:px-3 max-lg:py-3",
-        name: "max-lg:w-auto max-lg:max-w-none max-lg:px-0 max-lg:py-0",
-        cell: "max-lg:grid max-lg:grid-cols-[4rem_minmax(0,1fr)] max-lg:gap-x-3 max-lg:px-0 max-lg:text-start max-lg:whitespace-normal",
+        name: "max-lg:col-start-1 max-lg:w-auto max-lg:max-w-none max-lg:px-0 max-lg:py-0",
+        cell: "max-lg:col-start-1 max-lg:grid max-lg:grid-cols-[4rem_minmax(0,1fr)] max-lg:gap-x-3 max-lg:px-0 max-lg:text-start max-lg:whitespace-normal",
         label: "text-xs text-fg-muted lg:hidden",
       },
     },
@@ -221,10 +224,10 @@ const table = tv({
     { align: "centre", compact: true, class: { head: "max-lg:w-7", cell: "max-lg:w-7" } },
     // Restated after the variants, so a stacked row's grid cell never draws a column the phone leaves out.
     { phone: "hidden", class: { head: "max-lg:hidden", cell: "max-lg:hidden" } },
-    // A prose or a stacked row is one grid column on a phone, so its chevron stands over the row's end, centred on its
-    // height, the row keeping the room for it.
-    { prose: true, chevronOnPhone: true, class: { row: "max-lg:pe-12", end: PHONE_END } },
-    { stack: true, chevronOnPhone: true, class: { row: "max-lg:pe-12", end: PHONE_END } },
+    // A prose or a stacked row on a phone stands its cells in one column and its chevron in a column of its own at its
+    // end, spanning every cell's line so it is centred on the row's height (`Table`'s `phoneCells`).
+    { prose: true, chevronOnPhone: true, class: { row: PHONE_END_ROW, end: PHONE_END } },
+    { stack: true, chevronOnPhone: true, class: { row: PHONE_END_ROW, end: PHONE_END } },
     { written: true, prose: true, class: { cell: "whitespace-pre-line" } },
     { written: true, stack: true, class: { cell: "max-lg:whitespace-pre-line" } },
   ],
@@ -388,6 +391,9 @@ export function Table({
   const isLinked = rows.some((row) => row.href !== undefined);
   // Every row keeps the chevron's room on a phone where some row draws one there.
   const phoneEnd = { prose, stack, chevronOnPhone: isLinked && chevronOnPhone };
+  // A stacked phone row's chevron spans the lines of every cell the phone draws, the rank, the name and each column it
+  // keeps: a count no grid rule can name, since a span to the last line reaches no line the cells add themselves.
+  const phoneCells = (rankLabel === undefined ? 0 : 1) + 1 + columns.filter((column) => column.hideOnPhone !== true).length;
   // The columns where some row carries the mark of fixtures called off, whose every row keeps its slot.
   const marked = new Set(
     columns
@@ -508,7 +514,9 @@ export function Table({
                   {isLinked && (
                     <td
                       role="cell"
-                      className={table(phoneEnd).end()}>
+                      className={table(phoneEnd).end()}
+                      // A grid placement, which a stacked phone row alone reads: a table cell ignores it.
+                      style={prose || stack ? { gridRow: `1 / span ${String(phoneCells)}` } : undefined}>
                       {row.href !== undefined && <RowEnd />}
                     </td>
                   )}

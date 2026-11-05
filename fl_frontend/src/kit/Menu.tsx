@@ -30,7 +30,7 @@ import type { ComponentProps, ReactElement, ReactNode } from "react";
 import type { IconName } from "./Icon";
 
 /**
- * A link in a menu; `isCurrent` marks the one in force as the rail marks the current page, in a list that has
+ * A link in a menu; `isCurrent` marks the one in force as every list marks its chosen entry, in a list that has
  * one. Its words are catalogue text, or a record's own name such as a season's, with a second line under them
  * where one name alone does not say which, as a team's season and seats under its name.
  */
@@ -91,7 +91,19 @@ const foot = tv({
 // A menu dims nothing and blurs nothing: it stands on the page in the select's menu look.
 const surface = (width: "content" | "trigger" = "content") => menuPopover({ fit: width === "trigger" ? "trigger" : "menu" });
 
-function Entry({ label, detail, icon, hasMore }: { label: string; detail?: string; icon?: IconName; hasMore?: boolean }) {
+function Entry({
+  label,
+  detail,
+  icon,
+  hasMore,
+  isChosen = false,
+}: {
+  label: string;
+  detail?: string;
+  icon?: IconName;
+  hasMore?: boolean;
+  isChosen?: boolean;
+}) {
   return (
     <>
       {icon !== undefined && (
@@ -119,6 +131,15 @@ function Entry({ label, detail, icon, hasMore }: { label: string; detail?: strin
           </Text>
         </span>
       )}
+      {/* The chosen entry's check, in its words' link green, as every list marks its chosen entry. */}
+      {isChosen && (
+        <span className="ms-auto flex shrink-0">
+          <Icon
+            glyph="check"
+            size={16}
+          />
+        </span>
+      )}
       {hasMore === true && (
         <span className="ml-auto text-fg-muted">
           <Icon
@@ -137,8 +158,8 @@ function current(links: ReadonlyArray<MenuLink>) {
 }
 
 /**
- * A link, marked as the rail marks the current page where its section selects it. Its text value, which typeahead
- * matches, carries the detail too: two entries can share a label, a team's name in two seasons.
+ * A link, marked as chosen where its section selects it: its words in the link green, its check at the end. Its text
+ * value, which typeahead matches, carries the detail too: two entries can share a label, a team's name in two seasons.
  */
 function LinkItem({ link, size }: { link: MenuLink; size: Size }) {
   const detail = link.detail === undefined ? undefined : textOf(link.detail);
@@ -150,12 +171,15 @@ function LinkItem({ link, size }: { link: MenuLink; size: Size }) {
       textValue={detail === undefined ? textOf(link.label) : `${textOf(link.label)} ${detail}`}
       data-kit-focus="option"
       // A two-line entry grows past the one line's height.
-      className={`${menuEntry({ size, class: link.detail === undefined ? "" : "h-auto" })} ${entryMark({ mark: "place" })}`}>
-      <Entry
-        label={textOf(link.label)}
-        detail={detail}
-        icon={link.icon}
-      />
+      className={`${menuEntry({ size, class: link.detail === undefined ? "" : "h-auto" })} ${entryMark({ mark: "chosen" })}`}>
+      {({ isSelected }) => (
+        <Entry
+          label={textOf(link.label)}
+          detail={detail}
+          icon={link.icon}
+          isChosen={isSelected}
+        />
+      )}
     </MenuItem>
   );
 }
