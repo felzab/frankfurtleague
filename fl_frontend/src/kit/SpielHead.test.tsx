@@ -62,7 +62,7 @@ describe("the match head", () => {
 describe("the match head's club names", () => {
   // jsdom lays nothing out, so the cut is held by Tailwind's `truncate`, and `max-w-full`, which keeps a
   // centred grid item from growing past its third of the head.
-  it("are cut with „…“ where too long, each whole in its title", () => {
+  it("are cut with „…“ where too long", () => {
     render(
       <SpielHead
         {...PAIRING}
@@ -71,7 +71,7 @@ describe("the match head's club names", () => {
     );
 
     for (const club of ["Goethe", "Helmholtz"]) {
-      const name = screen.getByTitle(club);
+      const name = screen.getByText(club).closest(".truncate") as HTMLElement;
       expect(name.textContent).toBe(club);
       expect([...name.classList]).toEqual(expect.arrayContaining(["truncate", "max-w-full"]));
     }

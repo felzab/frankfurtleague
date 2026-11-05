@@ -105,6 +105,9 @@ export const fieldFrame = tv({
       // and 40 on a touch screen as every field's button is.
       C10: "h-8 w-[calc(11ch+1.375rem+2rem)] pointer-coarse:h-10 pointer-coarse:w-[calc(11ch+1.375rem+2.5rem)]",
       W3: `h-8 w-full ${columnCap()} pointer-coarse:h-10`,
+      // A long name, past the 30 characters a person's name or an address takes, such as a venue's: the column up to
+      // about 40 characters from `lg`, sized by the same measure.
+      W3L: "h-8 w-full text-sm lg:max-w-field-long pointer-coarse:h-10 pointer-coarse:text-base",
       // A long field in a column narrower than the cap, which fills that column as a phone's field fills its row: the
       // search over a list, at the reading width its toolbar gives it, and the sign-in's address in its column.
       column: "h-8 w-full pointer-coarse:h-10",
@@ -135,8 +138,8 @@ export const fieldFrame = tv({
   compoundVariants: [
     { width: ["C2", "C5", "C10"], inset: "full", class: "px-2.5" },
     { width: ["C2", "C5", "C10"], inset: "start", class: "ps-2.5" },
-    { width: ["W3", "column", "W4", "fit"], inset: "full", class: "px-3" },
-    { width: ["W3", "column", "W4", "fit"], inset: "start", class: "ps-3" },
+    { width: ["W3", "W3L", "column", "W4", "fit"], inset: "full", class: "px-3" },
+    { width: ["W3", "W3L", "column", "W4", "fit"], inset: "start", class: "ps-3" },
   ],
 });
 
@@ -197,9 +200,13 @@ export const dateSegment = tv({ base: "rounded-md caret-transparent data-placeho
 /** The weekdays over a date's calendar, in the caption grade. */
 export const calendarHead = tv({ base: "pb-1 text-xs font-medium text-fg-muted" });
 
-/** A day in a date's calendar, as large as a control; the chosen day inverts. */
+/**
+ * A day in a date's calendar, as large as a control; the chosen day inverts. React Aria's calendar moves its focus by
+ * the keys alone and marks the day under the pointer `data-hovered`, so the pointer fills a day as the keys' focus
+ * does (`focus.css`), the chosen day keeping its inverted mark.
+ */
 export const calendarCell = tv({
-  base: "flex size-8 cursor-default items-center justify-center rounded-md font-numeric text-sm data-disabled:opacity-50 data-outside-month:text-fg-muted data-selected:bg-fg data-selected:text-bg pointer-coarse:size-10",
+  base: "flex size-8 cursor-pointer items-center justify-center rounded-md font-numeric text-sm transition-colors duration-(--motion-state) data-disabled:cursor-default data-disabled:opacity-50 data-hovered:not-data-selected:bg-bg-muted data-outside-month:text-fg-muted data-selected:bg-fg data-selected:text-bg pointer-coarse:size-10",
 });
 
 /**
@@ -214,7 +221,7 @@ export const toggleField = tv({ base: "grid w-full grid-cols-[auto_minmax(0,1fr)
  * a line's 20 px, by the touch rule at this file's head.
  */
 export const toggleRow = tv({
-  base: "items-start text-sm text-fg data-disabled:opacity-50 pointer-coarse:py-2.5",
+  base: "group/toggle cursor-pointer items-start text-sm text-fg data-disabled:cursor-default data-disabled:opacity-50 pointer-coarse:py-2.5",
   variants: {
     // A radio's answer stands alone; a checkbox's or a switch's row takes its field's two columns.
     in: {
@@ -247,7 +254,7 @@ export const toggleBox = tv({
     },
   },
   compoundVariants: [
-    { selected: false, invalid: false, class: "border-border-control" },
+    { selected: false, invalid: false, class: "border-border-control group-data-hovered/toggle:border-fg-muted" },
     { selected: false, invalid: true, class: "border-danger" },
   ],
 });
@@ -277,7 +284,7 @@ export const radioList = tv({
  */
 export const choiceCard = tv({
   slots: {
-    card: "grid cursor-default grid-cols-[auto_minmax(0,1fr)] gap-x-2.5 rounded-lg border border-border-control bg-transparent p-4 text-sm text-fg transition-colors duration-(--motion-state) data-disabled:opacity-50 data-selected:border-brand data-selected:inset-ring-1 data-selected:inset-ring-brand",
+    card: "grid cursor-pointer grid-cols-[auto_minmax(0,1fr)] gap-x-2.5 rounded-lg border border-border-control bg-transparent p-4 text-sm text-fg transition-colors duration-(--motion-state) data-disabled:cursor-default data-disabled:opacity-50 data-hovered:not-data-selected:border-fg-muted data-selected:border-brand data-selected:inset-ring-1 data-selected:inset-ring-brand",
     words: "grid gap-1",
     title: "font-semibold",
     line: "text-xs text-fg-muted",
@@ -299,7 +306,7 @@ export const switchTrack = tv({
     selected: {
       true: "bg-brand",
       // Drawn inside the track, so the edge moves neither the track nor its thumb.
-      false: "bg-bg-muted inset-ring inset-ring-border-control",
+      false: "bg-bg-muted inset-ring inset-ring-border-control group-data-hovered/toggle:inset-ring-fg-muted",
     },
   },
 });
@@ -354,7 +361,7 @@ export const popoverSurface = tv({
 
 /** One entry of that menu: a fill when the pointer or the arrow keys reach it. */
 export const menuItem = tv({
-  base: "flex min-h-8 cursor-default items-center justify-between gap-2 rounded-md px-3 text-sm text-fg data-disabled:opacity-50 pointer-coarse:min-h-10 pointer-coarse:text-base",
+  base: "flex min-h-8 cursor-pointer items-center justify-between gap-2 rounded-md px-3 text-sm text-fg data-disabled:cursor-default data-disabled:opacity-50 pointer-coarse:min-h-10 pointer-coarse:text-base",
 });
 
 /**
@@ -392,7 +399,7 @@ export const choiceGroup = tv({
  * to the surface, its edge one grade stronger, so the edge tells it from its neighbours too.
  */
 export const choiceButton = tv({
-  base: "inline-flex cursor-default items-center justify-center text-sm font-medium whitespace-nowrap text-fg transition-colors duration-(--motion-state) data-disabled:opacity-50 data-selected:font-semibold",
+  base: "inline-flex cursor-pointer items-center justify-center text-sm font-medium whitespace-nowrap text-fg transition-colors duration-(--motion-state) data-disabled:cursor-default data-disabled:opacity-50 data-selected:font-semibold",
   variants: {
     kind: {
       // Drawn inside its frame's 2-px inset and 1-px edge, 26 px with a mouse and 34 on a touch screen; its press target
@@ -400,9 +407,9 @@ export const choiceButton = tv({
       // height beside the fields, by the touch rule at this file's head. The target is laid from the segment's own
       // inner edge: its 1-px edge, then the frame's inset and edge, 4 px up and down, its own edge at the sides.
       segmented:
-        "relative h-full rounded-md border border-transparent before:absolute before:-inset-x-px before:-inset-y-1 data-selected:border-border-control data-selected:bg-bg-muted",
+        "relative h-full rounded-md border border-transparent before:absolute before:-inset-x-px before:-inset-y-1 data-hovered:not-data-selected:bg-bg-hover data-selected:border-border-control data-selected:bg-bg-muted",
       boxes:
-        "h-8 min-w-16 rounded-lg border border-border-control bg-transparent px-3 data-selected:border-fg-muted data-selected:bg-bg-surface pointer-coarse:h-10",
+        "h-8 min-w-16 rounded-lg border border-border-control bg-transparent px-3 data-hovered:not-data-selected:bg-bg-hover data-selected:border-fg-muted data-selected:bg-bg-surface pointer-coarse:h-10",
     },
     // A segment holds words at the boxes' width, or a glyph alone, as wide as a control is tall, muted until chosen.
     content: {
@@ -412,7 +419,7 @@ export const choiceButton = tv({
   },
   compoundVariants: [
     { kind: "segmented", content: "words", class: "min-w-16 px-3" },
-    { kind: "segmented", content: "glyph", class: "w-8 text-fg-muted data-selected:text-fg pointer-coarse:w-10" },
+    { kind: "segmented", content: "glyph", class: "w-8 text-fg-muted data-hovered:text-fg data-selected:text-fg pointer-coarse:w-10" },
   ],
   defaultVariants: { content: "words" },
 });

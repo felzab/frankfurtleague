@@ -21,8 +21,9 @@ export type ScoreOutcome = { text: Copy; tone: "win" | "draw" };
 
 const scorePair = tv({
   slots: {
-    // A box of its own inside the section's, so the score reads as the one value it is, apart from the switch above.
-    panel: cardSurface({ class: "grid w-full gap-2 p-4" }),
+    // A box of its own inside the section's, so the score reads as the one value it is, apart from the switch above:
+    // 16 px under the control before it, twice the 8 px the section's fields stand apart, as a box sets itself off.
+    panel: cardSurface({ class: "mt-2 grid w-full gap-2 p-4" }),
     // The kit's label rung, centred over the clubs as the row under it is.
     caption: smallCaps({ class: "text-center" }),
     // Each side takes half the row the colon leaves, so a club's name over its field has room to stand.

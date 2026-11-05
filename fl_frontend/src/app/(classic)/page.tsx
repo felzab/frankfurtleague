@@ -25,7 +25,7 @@ import { pageMetadata } from "@/shared/utils/metadata";
 
 import { readLanding, stateOf } from "./landing";
 
-import type { FLBewerbungWindow } from "@/core/generated/client/types";
+import type { FLBewerbungWindow, FLLandingCounts } from "@/core/generated/client/types";
 import type { LandingContent } from "@/kit/LandingPage";
 import type { Metadata, ResolvingMetadata } from "next";
 import type { ComponentProps, ReactElement, ReactNode } from "react";
@@ -71,8 +71,8 @@ function asideOf(saison: LandingSaison | null, window: FLBewerbungWindow | null)
   );
 }
 
-/** The sections under the hero; the season's figures and schools only while the league has a season. */
-function sectionsOf(saison: LandingSaison | null, window: FLBewerbungWindow | null): ReactNode {
+/** The sections under the hero; the league's figures once a season is read by the public, its schools while it has a season on. */
+function sectionsOf(saison: LandingSaison | null, window: FLBewerbungWindow | null, counts: FLLandingCounts): ReactNode {
   return (
     <>
       <LandingSection
@@ -120,15 +120,17 @@ function sectionsOf(saison: LandingSaison | null, window: FLBewerbungWindow | nu
         />
         <InfoCards items={[words.about.spielorte, words.about.admission, words.about.safety]} />
       </LandingSection>
-      {saison !== null && (
-        <LandingSection title={words.figures.title(saison.id)}>
+      {counts.count_saisons > 0 && (
+        <LandingSection
+          eyebrow={words.figures.eyebrow}
+          title={words.figures.title}>
           <StatTiles
             layout="four"
             items={[
-              { label: words.figures.schulen, value: { record: formatNumber(saison.teams.length) } },
-              { label: words.figures.tore, value: { record: formatNumber(saison.counts.count_tore) } },
-              { label: words.figures.spiele, value: { record: formatNumber(saison.counts.count_spiele) } },
-              { label: words.figures.spieltage, value: { record: formatNumber(saison.counts.count_spieltage) } },
+              { label: words.figures.saisons, value: { record: formatNumber(counts.count_saisons) } },
+              { label: words.figures.schulen, value: { record: formatNumber(counts.count_schulen) } },
+              { label: words.figures.spiele, value: { record: formatNumber(counts.count_spiele) } },
+              { label: words.figures.tore, value: { record: formatNumber(counts.count_tore) } },
             ]}
           />
         </LandingSection>
@@ -140,12 +142,14 @@ function sectionsOf(saison: LandingSaison | null, window: FLBewerbungWindow | nu
         <Organisers people={ORGANISERS.map((person) => ({ name: { record: person.name }, role: words.organisers.role[person.role] }))} />
       </LandingSection>
       <LandingSection
+        eyebrow={words.sponsors.eyebrow}
         title={COPY.page.sponsors}
         more={{ label: COPY.page.sponsors, href: ROUTES.sponsors.path() }}>
         <SponsorTiles sponsors={SPONSORS} />
       </LandingSection>
       <Doors
         eyebrow={words.doors.eyebrow}
+        more={{ label: COPY.page.contact, href: ROUTES.contact.path() }}
         school={
           window === null
             ? undefined
@@ -179,14 +183,14 @@ function sectionsOf(saison: LandingSaison | null, window: FLBewerbungWindow | nu
 /** What the landing reads, on a request: the countdown seeds from the server's clock, and the build reaches no backend. */
 async function contentOf(): Promise<LandingContent> {
   await connection();
-  const { saison, bewerbung_window: window } = await readLanding();
+  const { saison, bewerbung_window: window, counts } = await readLanding();
   return {
     // The season's own Spielplan, the address the header's season entry takes, so the press lands in one hop;
     // `/saisons` only while the league has no season, where it shows the card saying so rather than redirecting.
     primary: { label: COPY.page.spielplan, href: saison === null ? ROUTES.saisons.path() : ROUTES.spielplan.path(saison.id) },
     secondary: window === null ? ABOUT : { label: words.toBewerbung, href: ROUTES.bewerbung.path(window.saison_id) },
     aside: asideOf(saison, window),
-    sections: sectionsOf(saison, window),
+    sections: sectionsOf(saison, window, counts),
   };
 }
 
@@ -197,7 +201,7 @@ export default function HomePage() {
       <OrganizationJsonLd />
       <LandingPage
         title={words.tagline}
-        lead={words.paragraph}
+        lead={words.paragraphs}
         content={contentOf()}
       />
     </>

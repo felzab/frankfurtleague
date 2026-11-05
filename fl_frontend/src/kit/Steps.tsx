@@ -18,13 +18,16 @@ type StepsBand = { open: boolean; sentence: Copy; act: { label: Copy; href: Rout
 
 const steps = tv({
   slots: {
-    // Four columns from `lg`, parted by hairlines; one under another below it, the number beside each.
-    list: "grid lg:grid-cols-4 lg:gap-4",
-    step: `grid grid-cols-[2.5rem_minmax(0,1fr)] content-start gap-x-4 gap-y-2 ${stacked()} py-4 lg:grid-cols-1 lg:border-t-0 lg:border-l lg:px-6 lg:py-0 lg:first:border-l-0 lg:first:pl-0`,
+    // Four columns from `lg`, parted by hairlines; one under another below it, the number beside each. From `lg` the
+    // steps share three rows, the numbers', the titles' and the texts', each step a subgrid of them, as the stat
+    // tiles share theirs, so a title running to two lines moves every step's text down alike.
+    list: "grid lg:grid-cols-4 lg:grid-rows-[auto_auto_1fr] lg:gap-4",
+    step: `grid grid-cols-[2.5rem_minmax(0,1fr)] content-start gap-x-4 gap-y-2 ${stacked()} py-4 lg:row-span-3 lg:grid-cols-1 lg:grid-rows-subgrid lg:border-t-0 lg:border-l lg:px-6 lg:py-0 lg:first:border-l-0 lg:first:pl-0`,
     // Board: the number's box, 40 px in the band's green.
     number:
       "row-span-2 flex size-10 items-center justify-center rounded-lg bg-brand-solid font-numeric text-base font-semibold text-on-brand lg:row-span-1",
-    title: "self-center text-base font-semibold",
+    // Beside the number on a phone, centred on it; from `lg` at the top of the titles' row, under the number.
+    title: "self-center text-base font-semibold lg:self-start",
     text: "col-start-2 text-sm text-fg-muted lg:col-start-1",
     band: `flex flex-wrap items-center justify-between gap-4 ${cardSurface()} px-6 py-4`,
     sentence: "text-base",

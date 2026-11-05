@@ -11,6 +11,7 @@ import { COPY } from "@/core/copy";
 import { goBackOrPush } from "@/core/goBackOrPush";
 
 import { Button } from "./Button";
+import { overHead } from "./cardStyles";
 import { actLabel } from "./dialogAct";
 import { StatusLine } from "./FieldParts";
 import { tv } from "./tv";
@@ -152,8 +153,9 @@ export function RouteDialog({
           {title}
         </Heading>
         {/* In the box's corner, 12 px from its edges, over whatever the first block draws there: Primer's dialog
-            requires the close button and forbids hiding it. */}
-        <div className="absolute -end-3 -top-3 z-10">
+            requires the close button and forbids hiding it. The first block is the match head's band, so the
+            button's hover takes the head's step. */}
+        <div className={overHead({ class: "absolute -end-3 -top-3 z-10" })}>
           <Button
             icon="close"
             label={COPY.shared.close}

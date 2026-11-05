@@ -2,6 +2,7 @@ import { textOf } from "@/core/copy";
 
 import { card, cardHover, stacked } from "./cardStyles";
 import { Chip } from "./Chip";
+import { CutText } from "./CutText";
 import { Link } from "./Link";
 import { RowEnd } from "./RowEnd";
 import { placeholderBar, PlaceholderLine } from "./Skeleton";
@@ -28,7 +29,7 @@ export type CardProps = {
       chip?: never;
     }
   | {
-      /** Where what the card stands for is, such as a season's state, right after its title. */
+      /** Where what the card stands for is, such as a season's state, at the head's end. */
       chip: ChipProps;
       count?: never;
     }
@@ -44,12 +45,11 @@ export function Card({ title, count, chip, action, body = "rows", children, line
   return (
     <section className={s.root()}>
       <div className={s.head()}>
-        {chip === undefined ? (
-          <h2 className={s.title()}>{textOf(title)}</h2>
-        ) : (
-          // The chip right after the name it belongs to, as on every row and title carrying one.
-          <span className={s.named()}>
-            <h2 className={s.title()}>{textOf(title)}</h2>
+        <h2 className={s.title()}>{textOf(title)}</h2>
+        {/* At the head's end, where a count stands, in the card's every state: the one exception to a chip standing
+            right after its name, ruled for the landing's season card, whose state is the card's, not its title's. */}
+        {chip !== undefined && (
+          <span className={s.end()}>
             <Chip {...chip} />
           </span>
         )}
@@ -192,7 +192,7 @@ export type CardActRowProps = {
  * what is open, and its acts, one or two kit buttons, under the words on a phone and at the row's end from
  * `lg`, so the name keeps the phone's whole width. The whole row opens the record through its name, as every
  * card row does; a row with no act ends in the chevron instead. A name too long for its line is cut with „…“, so
- * the chip keeps its place beside it; the full name stays the link's accessible name and shows as its title.
+ * the chip keeps its place beside it; the full name stays the link's accessible name and shows as its title while it is cut.
  */
 export function CardActRow({ href, name, chip, line, acts }: CardActRowProps) {
   const s = actRow({ acts: acts !== undefined });
@@ -200,15 +200,15 @@ export function CardActRow({ href, name, chip, line, acts }: CardActRowProps) {
     <div className={s.root()}>
       <span className={s.words()}>
         <span className={s.name()}>
-          <span
-            title={textOf(name)}
+          <CutText
+            text={textOf(name)}
             className="min-w-0 truncate font-medium">
             <Link
               href={href}
               placement="row"
               label={name}
             />
-          </span>
+          </CutText>
           {chip !== undefined && <Chip {...chip} />}
         </span>
         <span className={s.line()}>{textOf(line)}</span>

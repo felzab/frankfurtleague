@@ -3,6 +3,7 @@ import { formatNumber } from "@/core/format";
 
 import { cardHover, cardSurface, columnHead, stacked } from "./cardStyles";
 import { Chip } from "./Chip";
+import { CutText } from "./CutText";
 import { EmptyState } from "./EmptyState";
 import { Link } from "./Link";
 import { PlaquePopover } from "./PlaquePopover";
@@ -26,6 +27,8 @@ type TableColumn = {
   figures?: boolean;
   /** The column that decides, such as points: its figures in the strong weight. */
   strong?: boolean;
+  /** Text a person wrote, such as a Begründung, which keeps the line breaks it was written with. */
+  written?: boolean;
 } & (
   | { /** Left out on a phone, where the row keeps its name and two facts. */ hideOnPhone?: boolean; phoneOnly?: never }
   /** Drawn on a phone alone, such as one column standing for several the phone leaves out. */
@@ -193,6 +196,11 @@ const table = tv({
         label: "text-xs text-fg-muted lg:hidden",
       },
     },
+    // Text a person wrote keeps its breaks: one line per written line, as every cell keeps its line, and wrapping
+    // inside its lines where a prose table or a stacked phone row wraps its cells (the compound rules below).
+    written: {
+      true: { cell: "whitespace-pre" },
+    },
     linked: {
       true: { row: cardHover() },
     },
@@ -217,6 +225,8 @@ const table = tv({
     // height, the row keeping the room for it.
     { prose: true, chevronOnPhone: true, class: { row: "max-lg:pe-12", end: PHONE_END } },
     { stack: true, chevronOnPhone: true, class: { row: "max-lg:pe-12", end: PHONE_END } },
+    { written: true, prose: true, class: { cell: "whitespace-pre-line" } },
+    { written: true, stack: true, class: { cell: "max-lg:whitespace-pre-line" } },
   ],
 });
 
@@ -300,7 +310,7 @@ function PlaqueOf({ plaque, href, name, line }: { plaque: Plaque; href: Route | 
 }
 
 /**
- * The name, cut with „…“ where its column is too narrow and whole in its `title`, then the chip, which keeps
+ * The name, cut with „…“ where its column is too narrow and whole in its `title` while it is cut, then the chip, which keeps
  * its size and its line; a prose table's name wraps instead. A club's plaque stands outside the span cutting the names, so the cut never takes it, and outside
  * the row's link, which may hold no button; the link's stretched box still covers a drawn plaque, so on a phone,
  * where the plaque alone is drawn, a press on it opens the row's record, which the link names by the club's full
@@ -336,9 +346,9 @@ function NameCell({
             line={row.plaqueLine}
           />
         )}
-        <span
-          className={nameWords({ cut: !prose, lonePlaque: plaque !== undefined })}
-          title={name}>
+        <CutText
+          text={name}
+          className={nameWords({ cut: !prose, lonePlaque: plaque !== undefined })}>
           {row.href === undefined ? (
             words
           ) : (
@@ -348,7 +358,7 @@ function NameCell({
               {words}
             </Link>
           )}
-        </span>
+        </CutText>
         {row.chip !== undefined && <Chip {...row.chip} />}
       </span>
     </td>
@@ -470,6 +480,7 @@ export function Table({
                       align: column.figures === true ? "figure" : "start",
                       figures: column.figures === true,
                       strong: column.strong === true,
+                      written: column.written === true,
                       phone: phoneOf(column),
                       compact,
                       prose,

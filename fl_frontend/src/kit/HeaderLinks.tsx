@@ -35,8 +35,8 @@ function SeasonEntry({ read, look }: { read: Promise<HeaderLink | null>; look: "
 }
 
 /**
- * The classic header's links and „Anmelden“ on the band: in a row from 1024 px, and on a phone behind one
- * button opening them as a sheet. The season's entry leads them once its read lands; while it waits its placeholder
+ * The classic header's links and „Konto“, the way to the sign-in, on the band: in a row from 1024 px, and on a phone behind
+ * one button opening them as a sheet. The season's entry leads them once its read lands; while it waits its placeholder
  * holds its width and the band its fixed height, so nothing beside it moves.
  */
 export function HeaderLinks({
@@ -91,7 +91,7 @@ export function HeaderLinks({
         href={signIn}
         data-kit-focus="ring"
         className={frameLink({ tone: "band", class: "ms-auto hidden lg:flex" })}>
-        {COPY.shared.verb.signIn}
+        {COPY.template.account}
       </NextLink>
       <div className="ms-auto lg:hidden">
         <FreshPerPage>
@@ -101,7 +101,7 @@ export function HeaderLinks({
               <AriaButton
                 aria-label={COPY.template.menu}
                 data-kit-focus="ring"
-                className="flex size-10 items-center justify-center rounded-lg text-on-brand">
+                className="flex size-10 items-center justify-center rounded-lg text-on-brand transition-colors duration-(--motion-state) hover:bg-brand-solid-hover">
                 <Icon
                   glyph="menu"
                   size={18}
@@ -117,7 +117,7 @@ export function HeaderLinks({
                   />
                 </Suspense>
               )}
-              {[...links, { label: COPY.shared.verb.signIn, href: signIn }].map((link) => (
+              {[...links, { label: COPY.template.account, href: signIn }].map((link) => (
                 <NextLink
                   key={link.href}
                   href={link.href}

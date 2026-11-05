@@ -15,6 +15,11 @@ export type EmptyStateProps = {
   kind: "search" | "filter" | "none";
   /** The list's own plural, „Spielorte“, from its title's key. */
   plural: Copy;
+  /**
+   * The list is one record named by a masculine or neuter noun rather than a plural, as a team's „Kader“, so
+   * nothing there yet reads „Noch kein Kader.“; a feminine one, „Tabelle“, reads as a plural does.
+   */
+  one?: true;
   /** The one act that fills the list, a kit `Button`. */
   action?: ReactElement;
   /** The mark over a list with nothing in it yet: the list's own rail mark, ⓘ where it names none. */
@@ -43,7 +48,9 @@ export function EmptyState(props: EmptyStateProps | Clear) {
             size={18}
           />
         </span>
-        <p className="text-base text-fg-muted">{COPY.shared.empty.none(props.plural)}</p>
+        <p className="text-base text-fg-muted">
+          {props.one === true ? COPY.shared.empty.noneOne(props.plural) : COPY.shared.empty.none(props.plural)}
+        </p>
         {props.action !== undefined && <div>{props.action}</div>}
       </div>
     );

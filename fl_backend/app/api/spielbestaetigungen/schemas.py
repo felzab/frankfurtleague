@@ -10,7 +10,7 @@ from app.shared.schemas.actor import FLByAdmin
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SPIELBESTAETIGUNG_BEGRUENDUNG_MAX_LENGTH
 from app.shared.schemas.confirmation import CustomToken
 from app.shared.schemas.custom import (
-    SINGLE_LINE_PATTERN,
+    PARAGRAPH_PATTERN,
     CustomDateString,
     CustomNonEmptyString,
     CustomObjectId,
@@ -42,12 +42,12 @@ FLSpielbestaetigungGrund = Literal[
 # `discarded`: the league discarded this decline's proposal.
 FLSpielbestaetigungZustand = Literal["valid", "vorschlag", "zugesagt", "declined", "discarded", "expired", "invalid", "abgesagt", "barred"]
 
-# Single-line because the triage card renders it as one, and a stored break would forge a second line
-# beside it. The ceiling and the pattern judge what arrives and the floor what the strip leaves, so
-# spaces alone are no reason and the published `maxLength` is the one the write keeps.
+# A paragraph, its line breaks kept, since it is written in a text area and every place showing it keeps them. The
+# ceiling and the pattern judge what arrives and the floor what the strip leaves, so spaces alone are no reason and the
+# published `maxLength` is the one the write keeps.
 CustomSpielbestaetigungBegruendung = Annotated[
     str,
-    StringConstraints(max_length=SPIELBESTAETIGUNG_BEGRUENDUNG_MAX_LENGTH, pattern=SINGLE_LINE_PATTERN),
+    StringConstraints(max_length=SPIELBESTAETIGUNG_BEGRUENDUNG_MAX_LENGTH, pattern=PARAGRAPH_PATTERN),
     AfterValidator(str.strip),
     StringConstraints(min_length=1),
 ]

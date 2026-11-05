@@ -104,6 +104,15 @@
     --target-highlight: 2s;
   }
 
+  /* The fill a control without one of its own, a secondary, quiet or icon button, takes under the pointer: a step
+     off the ground it stands on. The muted fill is that step on the page, a card and an overlay; on a card's head,
+     which the dark theme fills with the muted grey itself, the hover would vanish, so a head redeclares it as its
+     own hover's step (`cardStyles.ts :: headGround`), as the band redeclares `--focus-ring`. Resolved on the
+     root, which carries `data-theme`, so it follows the theme. */
+  :root {
+    --bg-hover: var(--bg-muted);
+  }
+
   /* Defined only where motion is welcome: under `reduce` each name is unset, so a duration reading it
      is invalid at computed-value time and falls back to its initial `0s`. No easing is set; CSS's
      default `ease` applies. */
@@ -124,6 +133,13 @@
     animation-name: none;
     animation-duration: var(--motion-out);
   }
+
+  /* The pictures stand in an overlay over the whole page, each part's in its own group, the rest of the page in
+     the root's beneath them all. A frame's band and its phone bar, which the page scrolls under, would sit in the
+     root's picture, and a fading part would show what scrolled under them over them: each carries a
+     `view-transition-name` of its own, `band` or `bar`, so it is pictured apart, and painted after the page it
+     sticks over, it stays on top. The classic band and the rail's phone band share `band`, never standing on one
+     page together. */
 
   /* The overlay a transition draws over the page would otherwise take the clicks meant for the page. */
   ::view-transition {
@@ -232,6 +248,7 @@
   --color-bg-card: var(--bg-card);
   --color-bg-card-head: var(--bg-card-head);
   --color-bg-card-head-hover: var(--bg-card-head-hover);
+  --color-bg-hover: var(--bg-hover);
   --color-bg-overlay: var(--bg-overlay);
   --color-fg: var(--fg);
   --color-fg-muted: var(--fg-muted);
@@ -310,6 +327,9 @@
   --container-field: calc(
     31ch + 1.625rem
   ); /* a form's long field from lg: about 30 characters of its own text and its caret, inside its 12-px insets and 1-px edges */
+  --container-field-long: calc(
+    41ch + 1.625rem
+  ); /* a long name's field from lg, a venue's: about 40 characters, measured as the long field is */
   --container-form: 47.5rem; /* the form column: a classic form page's, an editor's and a read page's */
   --container-classic: 61rem; /* the classic frame's header and footer */
   --container-content: 80rem; /* a rail page's content */

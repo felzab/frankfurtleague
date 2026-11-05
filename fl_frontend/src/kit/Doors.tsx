@@ -47,14 +47,17 @@ export function Door({ title, text, level = 3, act }: { title: Copy; text?: Copy
 /**
  * The ways in, as their own section: the school's door while an application window is open, with the way to
  * apply, and the question's door, with the league's address and its two networks. The heading counts the
- * doors, so it loses the count when the school's door goes.
+ * doors, so it loses the count when the school's door goes. Its link on leads to the page that tells more, Kontakt,
+ * as every landing section's does.
  */
 export function Doors({
   eyebrow,
+  more,
   school,
   question,
 }: {
   eyebrow?: Copy;
+  more?: ComponentProps<typeof LandingSection>["more"];
   /** Only while a window is open. */
   school?: DoorWords & { act: { label: Copy; href: Route } };
   question: DoorWords & ComponentProps<typeof SocialButtons>;
@@ -63,7 +66,8 @@ export function Doors({
   return (
     <LandingSection
       eyebrow={eyebrow}
-      title={SERVER_COPY.landing.doors.title(school !== undefined)}>
+      title={SERVER_COPY.landing.doors.title(school !== undefined)}
+      more={more}>
       <div className={doors({ pair: school !== undefined }).root()}>
         {school !== undefined && (
           <Door

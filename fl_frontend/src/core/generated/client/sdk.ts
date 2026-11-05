@@ -2511,9 +2511,11 @@ export const getSaisonsGetLandingUrl = () => {
 };
 
 /**
- * The season the site is on, `before_start`, `running` or `decided`, null for a league that has none; its figures counted on every read.
+ * The season the site is on, `before_start`, `running` or `decided`, null for a league that has none.
  *
- * Beside it, the application window open today by the rule the submission refuses on.
+ * Beside it, the application window open today by the rule the submission refuses on, and the league's figures over
+ * every season the public reads, counted on every read. The figures are read beside the season's two steps rather
+ * than after them, so they add no step to the read.
  * @summary The landing
  */
 export const saisonsGetLanding = async (options?: Parameters<typeof baseKeyTransport>[1]): Promise<FLLandingResponse> => {

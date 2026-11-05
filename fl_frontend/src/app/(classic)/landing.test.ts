@@ -10,7 +10,7 @@ import type { FLLandingDecided, FLLandingOpeningSpiel, FLLandingSide, FLSpielJoi
 const START = "2027-02-28T23:00:00Z";
 
 /** What the read serves of a season in every state, with nothing counted and no school entered. */
-const FACTS = { id: "2027", start: START, counts: { count_tore: 0, count_spiele: 0, count_spieltage: 0 }, teams: [] };
+const FACTS = { id: "2027", start: START, teams: [] };
 
 const OPENING_SPIEL: FLLandingOpeningSpiel = {
   datum: "2027-03-06",

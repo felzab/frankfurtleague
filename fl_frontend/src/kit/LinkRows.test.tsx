@@ -39,11 +39,11 @@ describe("the ways to reach the league", () => {
 describe("an address too long for its row", () => {
   // jsdom lays nothing out, so the cut is held by its classes: the way's name never shrinks or breaks, and the
   // address takes the rest of the row with Tailwind's `truncate`.
-  it("is cut with „…“ and whole in its title, the way's name keeping its line", () => {
+  it("is cut with „…“, the way's name keeping its line", () => {
     const address = "ansprechpartner.schulsport@frankfurt-league.example.org";
     render(<LinkRows rows={[{ label: SERVER_COPY.landing.contact.email, value: { record: address }, href: `mailto:${address}` }]} />);
 
-    const value = screen.getByTitle(address);
+    const value = screen.getByText(address);
     expect(value.textContent).toBe(address);
     expect([...value.classList]).toEqual(expect.arrayContaining(["truncate", "min-w-0", "flex-1"]));
     const name = screen.getByRole("link", { name: SERVER_COPY.landing.contact.email }).parentElement;

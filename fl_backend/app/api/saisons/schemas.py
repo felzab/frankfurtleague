@@ -628,17 +628,17 @@ FLPodium = tuple[FLLandingSide | None, FLLandingSide | None, FLLandingSide | Non
 
 
 class FLLandingCounts(BaseReadModel):
-    """Three of the season's four figures, counted on every read: its goals, its matches and its matchdays.
+    """The league's four figures over every season the public reads, counted on every read and never stored.
 
-    The fourth, its clubs, is the length of the `teams` served beside them. `count_spiele` is every match of any phase the
-    Tabelle would count, one carrying an `ergebnis`, a forfeit among them, so a season before its first played match reads
-    0; `count_tore` is both sides' goals summed over the same matches: a forfeit's awarded goals among them, a shoot-out's
-    never.
+    `count_saisons` is those seasons; `count_schulen` the clubs that took part in any of them, each counted once;
+    `count_spiele` every match of any phase the Tabelle would count, one carrying an `ergebnis`, a forfeit among them;
+    `count_tore` both sides' goals summed over the same matches, a forfeit's awarded goals among them, a shoot-out's never.
     """
 
-    count_tore: int = Field(ge=0)
+    count_saisons: int = Field(ge=0)
+    count_schulen: int = Field(ge=0)
     count_spiele: int = Field(ge=0)
-    count_spieltage: int = Field(ge=0)
+    count_tore: int = Field(ge=0)
 
 
 class _FLLandingSaisonFacts(BaseReadModel):
@@ -646,7 +646,6 @@ class _FLLandingSaisonFacts(BaseReadModel):
 
     id: str
     start: datetime
-    counts: FLLandingCounts
     teams: list[FLSaisonTeamEntry]
 
 
@@ -685,7 +684,8 @@ class FLBewerbungWindow(BaseReadModel):
 
 
 class FLLandingResponse(BaseAPIResponse):
-    """The landing's facts: the season the site is on, null for a league that has none, and an open window."""
+    """The landing's facts: the season the site is on, null for a league that has none, an open window, and the league's figures."""
 
     saison: FLLandingSaison | None
     bewerbung_window: FLBewerbungWindow | None
+    counts: FLLandingCounts

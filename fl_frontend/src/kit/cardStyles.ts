@@ -15,6 +15,16 @@ export const cardSurface = tv({ base: "rounded-lg border border-border bg-bg-car
 export const cardHover = tv({ base: "transition-colors duration-(--motion-state) hover:bg-bg-muted" });
 
 /**
+ * The step a control's hover takes over a card's head, which `tokens.css`'s `--bg-hover` otherwise sets one step off
+ * the page, and which the dark theme's head, filled with that very grey, would swallow: on the head itself, and on a
+ * control standing over a head it is no child of, as the match pop-up's closing button over its band.
+ */
+export const overHead = tv({ base: "[--bg-hover:var(--bg-card-head-hover)]" });
+
+/** A card's head as a ground, the one band a card, Konto's box foot and the match head stand on: its fill and its hover step. */
+export const headGround = tv({ base: `bg-bg-card-head ${overHead()}` });
+
+/**
  * The hairline parting parts stacked one under another inside one box, drawn above every part but the first: a
  * card's rows, a table's, a match list's, the facts' pairs, the steps and the folded line-up's groups.
  */
@@ -62,11 +72,13 @@ export const card = tv({
     // `content-start` packs the rows at the top: a card stretched to a grid neighbour's height gives the spare
     // height to nothing, where auto rows would split it between the head and the body and grow the head.
     root: `grid content-start overflow-hidden ${cardSurface()} text-fg`,
-    head: "grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-3 gap-y-1 border-b border-border bg-bg-card-head px-4 py-3",
+    head: `grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-3 gap-y-1 border-b border-border ${headGround()} px-4 py-3`,
     title: "text-base font-semibold break-words",
     count: "col-start-2 row-start-1 font-numeric text-sm text-fg-muted",
     // A title with its chip after it, the chip keeping its size while the title wraps.
     named: "flex min-w-0 items-center gap-2",
+    // A chip at the head's end, in the count's place: the season card's state.
+    end: "col-start-2 row-start-1 flex self-center",
     line: "col-span-2 text-sm text-fg-muted",
     // A grid item is never narrower than its content by default, so a wide table would be cut at the card's
     // edge; the body shrinks to the card instead, where the table truncates its names or scrolls as its page
@@ -87,7 +99,7 @@ export const card = tv({
     fold: {
       true: {
         root: "group/fold",
-        head: "w-full cursor-default border-b-0 text-left transition-colors duration-(--motion-state) data-hovered:bg-bg-card-head-hover data-pressed:bg-bg-card-head-hover",
+        head: "w-full cursor-pointer border-b-0 text-left transition-colors duration-(--motion-state) data-hovered:bg-bg-card-head-hover data-pressed:bg-bg-card-head-hover",
         title: "flex items-center gap-2",
         body: "border-t border-border",
         chevron: "flex shrink-0 text-fg-muted transition-transform duration-(--motion-state) group-data-expanded/fold:rotate-90",
