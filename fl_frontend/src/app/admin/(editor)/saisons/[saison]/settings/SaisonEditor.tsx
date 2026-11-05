@@ -395,6 +395,7 @@ export function SaisonEditor({
           />
           <ToggleBoxes
             label={WORDS.stufen}
+            name="stufen"
             choices={STUFEN}
             isRequired={required.stufen}
             value={draft.stufen}
