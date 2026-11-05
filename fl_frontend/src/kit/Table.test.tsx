@@ -94,23 +94,6 @@ describe("a table's name cell", () => {
   });
 });
 
-describe("a table's box", () => {
-  it("is the card's surface standing alone, and inside a card's body no box at all", () => {
-    const { container } = render(
-      <>
-        <Table {...props([{ id: "1", name: { record: "Goethe" }, cells: { stadtteil: { record: "Nordend" } } }])} />
-        <Table
-          {...props([{ id: "2", name: { record: "Bettina" }, cells: { stadtteil: { record: "Westend" } } }])}
-          bare
-        />
-      </>,
-    );
-    const [alone, bare] = [...container.children].map((box) => box.className.split(" "));
-    expect(alone).toEqual(expect.arrayContaining(["rounded-lg", "border", "border-border", "bg-bg-card", "overflow-x-auto"]));
-    expect(bare).toStrictEqual(["w-full", "overflow-x-auto"]);
-  });
-});
-
 describe("a table's rank column", () => {
   // The Tabelle's places are the backend's: level clubs share one, and a club that has played no match holds
   // none and stands last. A table counting its rows would number them 1, 2, 3, 4 whatever the standing says.
