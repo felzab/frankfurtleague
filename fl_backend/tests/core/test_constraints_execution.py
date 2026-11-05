@@ -85,7 +85,7 @@ ADDRESS = {"strasse": "Hanauer Landstraße", "hausnummer": "12a", "plz": "60314"
 
 
 # The seat as its applicant named the person, and as that person then confirmed it.
-SEATED: Final = {"datum": "2026-01-15"}
+SEATED: Final = {"date": "2026-01-15"}
 
 
 def kontaktperson(vorname: str) -> dict[str, Any]:
@@ -247,7 +247,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
         # carries no address, and a fixture holding one would be a corpus nobody could sweep for it.
         "sperrliste": {
             "_id": BAN_LIST_OID,
-            "adresse_hash": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+            "address_hash": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
             "key_version": "ban-list-v1",
             "grund": "Falsches Geburtsdatum bei der Anmeldung",
             "created_by": "admin@example.invalid",
@@ -293,14 +293,14 @@ def valid_documents() -> dict[str, dict[str, Any]]:
         # As the Playground paste writes one: a BSON date, and the sentinel where no administrator granted it.
         "berechtigungen": {
             "_id": GRANT_OID,
-            "adresse": "inhaberin@example.invalid",
+            "address": "inhaberin@example.invalid",
             "admin_tier": "owner",
             "granted_by": "PLAYGROUND",
             "granted_at": datetime(2026, 1, 1, tzinfo=UTC),
         },
         "berechtigungen_angekuendigt": {
             "_id": GRANT_OID,
-            "adresse": "inhaberin@example.invalid",
+            "address": "inhaberin@example.invalid",
             "admin_tier": "owner",
             "angekuendigt_am": datetime(2026, 1, 1, 0, 5, tzinfo=UTC),
         },
@@ -332,14 +332,14 @@ def valid_documents() -> dict[str, dict[str, Any]]:
         # effect of the address left owed on it, which the record keeps beside its live fields as the model reads them.
         "address_changes": {
             "_id": ADDRESS_CHANGE_OID,
-            **address_change_document(adresse="alt@example.invalid", email="neu@example.invalid", token_hash="a" * 64, day="2026-03-16"),
+            **address_change_document(address="alt@example.invalid", email="neu@example.invalid", token_hash="a" * 64, day="2026-03-16"),
             "move": {"old": "vorher@example.invalid", "new": "alt@example.invalid"},
         },
         # A promotion asked, so `grant_id` is an id rather than the null a grant's request holds.
         "berechtigungen_antraege": {
             "_id": APPROVAL_REQUEST_OID,
             **compose_antrag(
-                adresse="vorstand@example.invalid",
+                address="vorstand@example.invalid",
                 admin_tier="owner",
                 grant_id=TEAM_OID,
                 started_by="inhaberin@example.invalid",
@@ -402,7 +402,7 @@ DUPLICATE_PAIRS: dict[str, tuple[dict[str, Any], dict[str, Any]]] = {
     ),
     # The second row differs in its reason and its author: the index refuses on the hash alone, and
     # a pair agreeing in everything would pass while keyed on anything at all.
-    "uniq_sperrliste_adresse_hash": (
+    "uniq_ban_list_address_hash": (
         valid_documents()["sperrliste"],
         valid_document("sperrliste", _id=TEAM_OID, grund="Zweiter Eintrag", created_by="zweite@example.invalid"),
     ),
@@ -435,7 +435,7 @@ DUPLICATE_PAIRS: dict[str, tuple[dict[str, Any], dict[str, Any]]] = {
     ),
     # The second row differs in its tier and its author: the index refuses on the address alone, which
     # is what refuses a paste granting an address a route already granted.
-    "uniq_grant_adresse": (
+    "uniq_grant_address": (
         valid_documents()["berechtigungen"],
         valid_document("berechtigungen", _id=TEAM_OID, admin_tier="administration", granted_by="zweite@example.invalid"),
     ),
@@ -451,18 +451,18 @@ DUPLICATE_PAIRS: dict[str, tuple[dict[str, Any], dict[str, Any]]] = {
         valid_document("spielberichte", _id=TEAM_OID, bericht=bericht_document(bemerkungen="Zweiter Bericht")),
     ),
     # Two live changes of one address, to two mailboxes: the index refuses on the address alone, both rows in its filter.
-    "uniq_address_change_adresse": (
+    "uniq_address_change_address": (
         valid_documents()["address_changes"],
         valid_document("address_changes", _id=TEAM_OID, email="zweite@example.invalid", token_hash="b" * 64, stop_hash="c" * 64),
     ),
     # Two requests about one address from two requesters: the index refuses on the address alone.
-    "uniq_grant_approval_request_adresse": (
+    "uniq_grant_approval_request_address": (
         valid_documents()["berechtigungen_antraege"],
         valid_document(
             "berechtigungen_antraege",
             _id=TEAM_OID,
             **compose_antrag(
-                adresse="vorstand@example.invalid",
+                address="vorstand@example.invalid",
                 admin_tier="owner",
                 grant_id=TEAM_OID,
                 started_by="zweite@example.invalid",
@@ -501,7 +501,7 @@ def test_each_unique_index_refuses_the_second_document(mongo_url: str, collectio
 def test_two_ended_changes_of_one_address_are_both_kept(mongo_url: str):
     """An ending nulls the address, so a filter on `ended` alone would hold every tombstone under one null key."""
 
-    ended = {"adresse": None, "email": None, "ended": {"art": "declined", "at": datetime(2026, 3, 17, tzinfo=UTC)}}
+    ended = {"address": None, "email": None, "ended": {"kind": "declined", "at": datetime(2026, 3, 17, tzinfo=UTC)}}
 
     async def body(database: AsyncDatabase) -> int:
         await database.address_changes.insert_one(valid_document("address_changes", **ended))

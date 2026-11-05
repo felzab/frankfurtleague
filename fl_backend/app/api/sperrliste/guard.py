@@ -11,7 +11,7 @@ from typing import Annotated, Final, get_args
 
 from fastapi import Depends
 
-from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt
+from app.api.sperrliste.lookup import SperrlisteLookup, barred_addresses
 from app.core.codes import Code
 from app.core.config import BackendConfig, get_app_config
 from app.core.exceptions import APIError
@@ -28,7 +28,7 @@ async def verify_person_is_unbarred(
     """Refuse a person the ban list holds, read per request: the frontend's guard misses a ban entered since."""
 
     # Keyed as the grant check keys its own ban read.
-    if await adressen_gesperrt(sperrliste, [sign_in_identifier(actor.email)]):
+    if await barred_addresses(sperrliste, [sign_in_identifier(actor.email)]):
         raise APIError(HTTPStatus.FORBIDDEN, Code.PERSON_BARRED)
 
     return actor

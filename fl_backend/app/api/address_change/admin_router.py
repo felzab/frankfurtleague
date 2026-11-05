@@ -61,7 +61,7 @@ from app.api.berechtigungen.services import genehmiger_of, genehmigung_verwehrt,
 from app.api.identity.lookup import SubjectLookup
 from app.api.identity.services import EACH_ADMIN, find_admin_address_refusal, find_own_address_refusal
 from app.api.outbox.schemas import FLOutboxStatus
-from app.api.sperrliste.lookup import BanList, SperrlisteLookup, adressen_gesperrt, hash_gesperrt, sperrliste_saison
+from app.api.sperrliste.lookup import BanList, SperrlisteLookup, barred_addresses, hash_gesperrt, sperrliste_saison
 from app.api.spieler.crud import another_pupil_holds
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import patch_one_in_db, refuse
@@ -116,7 +116,7 @@ async def _refuse_the_address(
 ) -> tuple[list[Mapping[str, Any]], list[Mapping[str, Any]]]:
     """The erasure tool's two refusals about who asks, judged on the grants read here, which the caller reuses.
 
-    The administrator's own address (`own_adresse`), and a grant holder's unless they hold an owner's power (`admin_address`).
+    The administrator's own address (`own_address`), and a grant holder's unless they hold an owner's power (`admin_address`).
     """
 
     refuse(find_own_address_refusal(identifier=identifier, actor=actor))
@@ -199,7 +199,7 @@ async def get_address_change_admin_view(
     ADMIN TIER, the address tool's read, keyed by the address the administrator types or by a change a page links to;
     never a hash. `possible` where the address holds anything a change moves, a grant included. Stores nothing.
 
-    Refused as the erasure's reveal is: the administrator's own address (`own_adresse`), and an address holding a live
+    Refused as the erasure's reveal is: the administrator's own address (`own_address`), and an address holding a live
     grant unless the administrator holds an owner's power (`admin_address`). A change id answers 404 where no change is
     kept, and `address_change_ended` where it ended.
     """
@@ -209,9 +209,9 @@ async def get_address_change_admin_view(
     # Every read in the request's snapshot session, so the tool names the records of one moment; never a transaction, a
     # read writing nothing having no conflict to retry for.
     if view_data.address_change_id is not None:
-        identifier = str((await _pull_the_change(address_changes_collection, view_data.address_change_id, session=session))["adresse"])
+        identifier = str((await _pull_the_change(address_changes_collection, view_data.address_change_id, session=session))["address"])
     else:
-        identifier = sign_in_identifier(str(view_data.adresse))
+        identifier = sign_in_identifier(str(view_data.address))
     await _refuse_the_address(
         identifier,
         actor=actor,
@@ -227,7 +227,7 @@ async def get_address_change_admin_view(
     )
 
     return FLAddressChangeAdminViewResponse(
-        adresse=identifier,
+        address=identifier,
         holdings=_holdings(holdings),
         possible=not holdings.empty,
         open=None if open is None else _open(open, delivery=delivery, now=germany_now),
@@ -247,7 +247,7 @@ async def _refuse_without_approver(
     """Refused `address_change_no_approver` where nobody but the start's actor could approve a change of this address's grant."""
 
     assert holdings.grant is not None
-    barred = await adressen_gesperrt(sperrliste, [str(row["adresse"]) for row in grants], session=session)
+    barred = await barred_addresses(sperrliste, [str(row["address"]) for row in grants], session=session)
     approver = genehmiger_of(
         admin_tier=str(holdings.grant["admin_tier"]),
         excepted={holdings.identifier, actor},
@@ -291,14 +291,14 @@ async def post_address_change_admin(
     waits on another administrator's approval, never this one's. No link is answered. The address's live change ends
     replaced.
 
-    Refused the administrator's own address (`own_adresse`), a grant holder's without an owner's power
+    Refused the administrator's own address (`own_address`), a grant holder's without an owner's power
     (`admin_address`), the address on file typed again (`address_change_unchanged`), a new address the ban list holds
     (`address_change_barred`), an address holding nothing a change moves (`address_change_nothing`), a new address another pupil signs in on
     where the change moves a pupil (`address_change_taken`), a new address any entry names, confirmed or not (`address_change_occupied`), and a
     grant nobody could approve (`address_change_no_approver`).
     """
 
-    identifier, email, grund = sign_in_identifier(str(address_change_data.adresse)), str(address_change_data.email), address_change_data.grund
+    identifier, email, grund = sign_in_identifier(str(address_change_data.address)), str(address_change_data.email), address_change_data.grund
     actor = sign_in_identifier(operator)
     way: FLAddressChangeWay = "waiting_period"
     hashed = sperrliste.hash_of(email)
@@ -316,7 +316,7 @@ async def post_address_change_admin(
             grants_announced_collection=grants_announced_collection,
             session=session,
         )
-        refuse(find_unchanged_refusal(adresse=identifier, folded=sign_in_identifier(email)))
+        refuse(find_unchanged_refusal(address=identifier, folded=sign_in_identifier(email)))
         refuse(find_barred_refusal(barred=await hash_gesperrt(sperrliste, hashed, governing_saison_id=governing_saison_id, session=session)))
 
         holdings = await read_the_holdings(identifier, records=records, grants_collection=grants_collection, session=session)
@@ -347,7 +347,7 @@ async def post_address_change_admin(
             )
 
         record = compose_record(
-            adresse=identifier,
+            address=identifier,
             email=email,
             way=way,
             grund=grund,
@@ -368,7 +368,7 @@ async def post_address_change_admin(
         # The notice first and the link after, as the address on file is told before the new mailbox can answer.
         await owe_the_notice_in_session(
             address_change_id=address_change_id,
-            adresse=identifier,
+            address=identifier,
             way=way,
             valid_until=record["valid_until"],
             # Greeting nobody: the lost address on file may have passed to a stranger.
@@ -425,7 +425,7 @@ async def invite_address_change(
     next hourly pass ends it. Acts on the change the id names alone, so a page showing a change since replaced re-sends
     nothing.
 
-    Refused as the start is about who asks (`own_adresse`, `admin_address`), where the ban list holds the pending address
+    Refused as the start is about who asks (`own_address`, `admin_address`), where the ban list holds the pending address
     (`address_change_barred`), where another pupil has come to sign in on it (`address_change_taken`), where an entry has come to name it,
     confirmed or not (`address_change_occupied`), where a grant's approval week has passed (`link_expired`), and where the change ended
     (`address_change_ended`). 404 for an id naming no change, and unless the change waits on the new mailbox: one awaiting the address on
@@ -438,7 +438,7 @@ async def invite_address_change(
 
     async def judge_and_remint_the_change(session: AsyncClientSession) -> FLAddressChangeAdminMintResponse:
         record = await _pull_the_change(address_changes_collection, address_change_id, session=session)
-        identifier = str(record["adresse"])
+        identifier = str(record["address"])
         await _refuse_the_address(
             identifier,
             actor=actor,
@@ -531,7 +531,7 @@ async def delete_address_change(
     bring back a change confirmed in its waiting time to take effect. Nothing is mailed. Acts on the change the id names
     alone, so a page showing a change since replaced discards nothing.
 
-    Refused as the start is about who asks (`own_adresse`, `admin_address`), and where the change ended
+    Refused as the start is about who asks (`own_address`, `admin_address`), and where the change ended
     (`address_change_ended`); 404 for an id naming no change.
     """
 
@@ -543,7 +543,7 @@ async def delete_address_change(
     async def discard_the_change(session: AsyncClientSession) -> FLAddressChangeIdResponse:
         record = await _pull_the_change(address_changes_collection, address_change_id, session=session)
         await _refuse_the_address(
-            str(record["adresse"]),
+            str(record["address"]),
             actor=actor,
             auth_time=auth_time,
             grants_collection=grants_collection,
@@ -554,14 +554,14 @@ async def delete_address_change(
             address_changes_collection=address_changes_collection,
             action_log_collection=action_log_collection,
             db_filter={"_id": address_change_id},
-            art="discarded",
+            kind="discarded",
             now=germany_now,
             stamp=stamp,
             session=session,
         )
         journal.note(
             ending_line(
-                art="address_change_discarded",
+                kind="address_change_discarded",
                 new_address=str(record["email"]),
                 record_id=address_change_id,
                 at=stamp,
@@ -640,7 +640,7 @@ async def post_address_change_approval(
         announced = await read_the_announced(grants_announced_collection=grants_announced_collection, session=session)
         owner = holds_an_owners_power(actor=actor, auth_time=auth_time, grants=grants, announced=announced)
         denied = genehmigung_verwehrt(
-            betroffen=record["adresse"], approval=record["approval"], actor=actor, owner=owner, grants=grants, announced=announced
+            target=record["address"], approval=record["approval"], actor=actor, owner=owner, grants=grants, announced=announced
         )
         refuse(find_approval_denied_refusal(denied=denied))
 

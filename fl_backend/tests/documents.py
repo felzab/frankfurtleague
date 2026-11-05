@@ -22,7 +22,7 @@ from bson import ObjectId
 from app.api.address_change.services import compose_record
 from app.api.bewerbungen.services import bestaetigungsfrist_from, compose_bestaetigungen, compose_einwilligung
 from app.api.registrierungen.services import compose_bestaetigung, compose_confirmation_update, compose_registrierung
-from app.api.sperrliste.services import SPERRLISTE_SCHLUESSEL_VERSION, adresse_hash
+from app.api.sperrliste.services import SPERRLISTE_SCHLUESSEL_VERSION, address_hash
 from app.api.spielbestaetigungen.services import compose_ansetzung, halter_of
 from app.core.recording import log_stamp
 from app.shared.einwilligung_evidence import CHOICES, EVIDENCE, TextVersions, compose_born, compose_receipt
@@ -49,10 +49,10 @@ def label_of(alias: TypeAliasType) -> str:
 
 
 # The labels each kind of record's press names, keyed by the choice each evidences.
-SEAT_TEXT_VERSIONS: Final[TextVersions] = {"umfang": label_of(FLWhatsappTextVersion), "media": label_of(FLMediaTextVersion)}
-SPIELER_TEXT_VERSIONS: Final[TextVersions] = {"umfang": label_of(FLNameKaderTextVersion), "media": label_of(FLMediaTextVersion)}
+SEAT_TEXT_VERSIONS: Final[TextVersions] = {"scope": label_of(FLWhatsappTextVersion), "media": label_of(FLMediaTextVersion)}
+SPIELER_TEXT_VERSIONS: Final[TextVersions] = {"scope": label_of(FLNameKaderTextVersion), "media": label_of(FLMediaTextVersion)}
 SCHIEDSRICHTER_TEXT_VERSIONS: Final[TextVersions] = {
-    "umfang": label_of(FLNameSpielplanTextVersion),
+    "scope": label_of(FLNameSpielplanTextVersion),
     "media": label_of(FLMediaTextVersion),
 }
 
@@ -67,8 +67,8 @@ def confirmed_instant(tag: str) -> str:
 # publishing the name and no media.
 EINWILLIGUNG: Final[Mapping[str, Any]] = compose_born(
     block={
-        "umfang": "kader_oeffentlich",
-        "datum": "2026-01-20",
+        "scope": "kader_oeffentlich",
+        "date": "2026-01-20",
         "confirmed_at": "2026-01-20",
         "media": False,
     },
@@ -235,13 +235,13 @@ def spielbericht_document(spiel: Mapping[str, Any], **fields: Any) -> dict[str, 
     }
 
 
-def kontakt_antwort_document(rolle: str, adresse: str, *, begruendung: str | None, am: str = "2026-04-01", **fields: Any) -> dict[str, Any]:
-    """A seat's decline as its link stores it, proposing another date; its holder the digest of `adresse`, the answer's own fold."""
+def kontakt_antwort_document(rolle: str, address: str, *, begruendung: str | None, am: str = "2026-04-01", **fields: Any) -> dict[str, Any]:
+    """A seat's decline as its link stores it, proposing another date; its holder the digest of `address`, the answer's own fold."""
 
     return {
         "art": "declined",
         "am": am,
-        "von": {"art": "kontakt", "rolle": rolle, "halter": halter_of(adresse, key=build_test_config().sperrliste_key)},
+        "von": {"art": "kontakt", "rolle": rolle, "halter": halter_of(address, key=build_test_config().sperrliste_key)},
         "vorschlag": {"datum": "2026-04-25", "uhrzeit": "14:00:00"},
         "begruendung": begruendung,
         **fields,
@@ -416,10 +416,10 @@ def kontaktperson_document(
     }
 
 
-def confirmed_kenntnisnahme(*, datum: str = "2026-01-15", confirmed_at: str = "2026-01-16") -> dict[str, Any]:
+def confirmed_kenntnisnahme(*, date: str = "2026-01-15", confirmed_at: str = "2026-01-16") -> dict[str, Any]:
     """A seat's record as its applicant's seating and then its own person's confirmation left it, for a seat a case spells itself."""
 
-    return dict(kontaktperson_document("Kenntnis", confirmed_at=confirmed_at, einwilligung={"datum": datum})["einwilligung"])
+    return dict(kontaktperson_document("Kenntnis", confirmed_at=confirmed_at, einwilligung={"date": date})["einwilligung"])
 
 
 def ban_document(address: str, *, until: str, **fields: Any) -> dict[str, Any]:
@@ -431,7 +431,7 @@ def ban_document(address: str, *, until: str, **fields: Any) -> dict[str, Any]:
 
     return {
         "_id": ObjectId(),
-        "adresse_hash": adresse_hash(address, key=build_test_config().sperrliste_key),
+        "address_hash": address_hash(address, key=build_test_config().sperrliste_key),
         "key_version": SPERRLISTE_SCHLUESSEL_VERSION,
         "grund": "Falsches Geburtsdatum bei der Anmeldung",
         "created_by": "admin@frankfurtleague.de",
@@ -471,8 +471,8 @@ def own_einwilligung_document(*, text_versions: TextVersions, confirmed_at: str,
 
     born = compose_born(
         block={
-            "umfang": "kader_oeffentlich",
-            "datum": confirmed_at,
+            "scope": "kader_oeffentlich",
+            "date": confirmed_at,
             "confirmed_at": confirmed_at,
             "media": False,
         },
@@ -507,14 +507,14 @@ def kontakte_document(**seats: Any) -> dict[str, Any]:
     return {**dict.fromkeys(KONTAKT_ROLLEN), "trainer_is_also": None, **seats}
 
 
-def registrierung_confirmed(*, geburtsdatum: str, today: str, at: str, umfang: str | None = None, media: bool | None = None) -> dict[str, Any]:
+def registrierung_confirmed(*, geburtsdatum: str, today: str, at: str, scope: str | None = None, media: bool | None = None) -> dict[str, Any]:
     """`registrierung_document`'s `confirmed` for a pupil's confirmation, the returning pupil's where it asks no choice."""
 
     return {
         "geburtsdatum": geburtsdatum,
-        "umfang": umfang,
+        "scope": scope,
         "media": media,
-        "text_versions": None if umfang is None and media is None else SPIELER_TEXT_VERSIONS,
+        "text_versions": None if scope is None and media is None else SPIELER_TEXT_VERSIONS,
         "today": today,
         "at": at,
     }
@@ -522,7 +522,7 @@ def registrierung_confirmed(*, geburtsdatum: str, today: str, at: str, umfang: s
 
 def address_change_document(
     *,
-    adresse: str,
+    address: str,
     email: str,
     token_hash: str | None,
     day: str,
@@ -540,7 +540,7 @@ def address_change_document(
     asked_first = way == "account"
 
     return {
-        **compose_record(adresse=adresse, email=email, way=way, grund=None, approval=approval, now=started),
+        **compose_record(address=address, email=email, way=way, grund=None, approval=approval, now=started),
         "token_hashes": [] if token_hash is None else [token_hash],
         "stop": {"token_hashes": [hash_token(f"stop-{token_hash}")]},
         "released_at": started.astimezone(UTC) if asked_first and token_hash is not None else None,

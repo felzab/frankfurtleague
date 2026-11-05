@@ -18,7 +18,7 @@ from app.api.saisons.admin_router import activate_saison
 from app.api.saisons.crud import pull_massgebliche_saison_id
 from app.api.sperrliste.admin_router import get_sperrliste
 from app.api.sperrliste.crud import address_is_gesperrt
-from app.api.sperrliste.services import adresse_hash
+from app.api.sperrliste.services import address_hash
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
@@ -112,7 +112,7 @@ async def ban(database: AsyncDatabase, client: AsyncMongoClient, *, email: str =
 async def is_gesperrt(database: AsyncDatabase, *, against: str | None, email: str = BANNED) -> bool:
     return await address_is_gesperrt(
         ban_list_collection=database[Collection.BAN_LIST],
-        adresse_hash=adresse_hash(email, key=CONFIG.sperrliste_key),
+        address_hash=address_hash(email, key=CONFIG.sperrliste_key),
         governing_saison_id=against,
     )
 
@@ -152,7 +152,7 @@ class TestWhatTheWriteRecords:
         served = on_a_league(mongo_replica_set_url, [saison_document(ENTERED_UNDER, "active")], body)
 
         assert served.sperrliste[0].barred_until_saison_id == LAST_COVERED
-        assert "adresse_hash" not in served.model_dump_json()
+        assert "address_hash" not in served.model_dump_json()
 
 
 class TestTheSeasonTheBanIsCountedFrom:
@@ -272,7 +272,7 @@ class TestTheSweepAtAnActivation:
             # activation reaches, which covers it.
             await ban(database, client, email=OTHER)
             await database[Collection.BAN_LIST].update_one(
-                {"adresse_hash": adresse_hash(OTHER, key=CONFIG.sperrliste_key)},
+                {"address_hash": address_hash(OTHER, key=CONFIG.sperrliste_key)},
                 {"$set": {"barred_until_saison_id": FIRST_CLEAR}},
             )
 

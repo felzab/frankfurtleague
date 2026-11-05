@@ -26,7 +26,7 @@ from app.api.berechtigungen.antraege import compose_antrag
 from app.api.identity.admin_router import get_erasure_view, post_erasure
 from app.api.identity.schemas import (
     FLErasure,
-    FLErasureAdressePayload,
+    FLErasureAddressPayload,
     FLErasurePayload,
     FLErasureResponse,
     FLErasureViewResponse,
@@ -96,7 +96,7 @@ ABMELDUNG_PATH = f"/api/v{API_VERSION}/identity/sign_out"
 # The suite's owner, and an administrator holding no owner's power, who presses unless a case says otherwise.
 OWNER, OPERATOR = ADMINISTRATORS[0], ADMINISTRATORS[1]
 ANOTHER_ADMINISTRATOR = ADMINISTRATORS[3]
-GRANT_ID_OF = {row["adresse"]: row["_id"] for row in grants_for_the_suite()}
+GRANT_ID_OF = {row["address"]: row["_id"] for row in grants_for_the_suite()}
 
 ANLASS = "Mail vom 30.03.2026, Betreff: Bitte löscht alle meine Daten"
 
@@ -187,7 +187,7 @@ async def revealed(database: AsyncDatabase, client: AsyncMongoClient, email: str
 
     async with client.start_session(snapshot=True) as session:
         return await get_erasure_view(
-            view_data=FLErasureAdressePayload(email=email),
+            view_data=FLErasureAddressPayload(email=email),
             saison_teams_collection=database[Collection.SAISON_TEAMS],
             bewerbungen_collection=database[Collection.BEWERBUNGEN],
             schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
@@ -320,8 +320,8 @@ EXPECTED_ANSICHT = {
     "own_address_change": None,
     # A grant asked for their address and one they asked for another's.
     "approval_requests": [
-        {"approval_request_id": str(ANTRAG_FOR_THEM_OID), "admin_tier": "administration", "rolle": "betroffen"},
-        {"approval_request_id": str(ANTRAG_BY_THEM_OID), "admin_tier": "administration", "rolle": "gestellt"},
+        {"approval_request_id": str(ANTRAG_FOR_THEM_OID), "admin_tier": "administration", "party": "target"},
+        {"approval_request_id": str(ANTRAG_BY_THEM_OID), "admin_tier": "administration", "party": "requester"},
     ],
     "admin_tier": "administration",
     "barred": False,
@@ -384,7 +384,7 @@ class TestTheRegistryRunsWhole:
 
 @pytest.mark.db
 class TestTheirOwnAddress:
-    """`own_adresse`: an administrator's own address goes through their account page, or through another administrator."""
+    """`own_address`: an administrator's own address goes through their account page, or through another administrator."""
 
     @pytest.mark.parametrize(
         ("path", "body"),
@@ -402,7 +402,7 @@ class TestTheirOwnAddress:
 
         response, untouched = on_a_league(mongo_replica_set_url, run)
 
-        assert (response.status_code, response.json()["error_code"], untouched) == (403, Code.OWN_ADRESSE, True)
+        assert (response.status_code, response.json()["error_code"], untouched) == (403, Code.OWN_ADDRESS, True)
 
 
 @pytest.mark.db
@@ -452,9 +452,9 @@ class TestAGrantHoldersAddress:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             # Asked at the suite's clock, a century ahead of the real one, so no TTL pass removes it: the rival approves it.
-            await database[Collection.GRANT_APPROVAL_REQUESTS].delete_many({"adresse": IDENTIFIER})
+            await database[Collection.GRANT_APPROVAL_REQUESTS].delete_many({"address": IDENTIFIER})
             approval_request = await database[Collection.GRANT_APPROVAL_REQUESTS].insert_one(
-                compose_antrag(adresse=IDENTIFIER, admin_tier="administration", grant_id=None, started_by=OWNER, now=NOW)
+                compose_antrag(address=IDENTIFIER, admin_tier="administration", grant_id=None, started_by=OWNER, now=NOW)
             )
             held = await where_held(database, *THEIR_VALUES)
             served = _app()
@@ -479,7 +479,7 @@ class TestAGrantHoldersAddress:
                 response,
                 held,
                 await where_held(database, *THEIR_VALUES),
-                await database[Collection.GRANTS].find_one({"adresse": IDENTIFIER}),
+                await database[Collection.GRANTS].find_one({"address": IDENTIFIER}),
             )
 
         response, held, left, row = on_a_league(mongo_replica_set_url, body)
@@ -522,7 +522,7 @@ class TestTheReveal:
             await their_requests_open(database)
             # A change still asking its address on file, which the person's own answer leaves uncounted and this one counts.
             await database[Collection.ADDRESS_CHANGES].insert_one(
-                address_change_document(adresse="noch.gefragt@example.com", email=IDENTIFIER, token_hash=None, day="2126-03-30", way="account")
+                address_change_document(address="noch.gefragt@example.com", email=IDENTIFIER, token_hash=None, day="2126-03-30", way="account")
             )
             view = (await posted(mongo_replica_set_url, ANSICHT_PATH, ansicht_of(), by=OWNER)).json()
 
@@ -592,7 +592,7 @@ class TestAGrantHoldersPendingChange:
 
         assert (by_operator.status_code, by_operator.json()["error_code"], untouched) == (403, Code.FOREIGN_ADDRESS_CHANGE, True)
         assert owners_status == 200
-        assert ended is not None and ended["ended"]["art"] == "discarded"
+        assert ended is not None and ended["ended"]["kind"] == "discarded"
 
 
 @pytest.mark.db
@@ -665,7 +665,7 @@ class TestAnotherAdministratorsAddress:
                 )
             ]
 
-            return response, await database[Collection.GRANTS].count_documents({"adresse": ANOTHER_ADMINISTRATOR}), notices
+            return response, await database[Collection.GRANTS].count_documents({"address": ANOTHER_ADMINISTRATOR}), notices
 
         response, left, notices = on_a_league(mongo_replica_set_url, body)
 
@@ -773,11 +773,11 @@ class TestADomainIsRefusedBeyondAscii:
     @pytest.mark.parametrize(
         ("payload", "body"),
         [
-            pytest.param(FLErasureAdressePayload, ansicht_of("anna@müller.de"), id="the lookup"),
+            pytest.param(FLErasureAddressPayload, ansicht_of("anna@müller.de"), id="the lookup"),
             pytest.param(FLErasurePayload, loeschung_of("anna@müller.de"), id="the erasure"),
         ],
     )
-    def test_the_address_rule_s_own_refusal_names_the_box(self, payload: type[FLErasureAdressePayload], body: dict[str, str]):
+    def test_the_address_rule_s_own_refusal_names_the_box(self, payload: type[FLErasureAddressPayload], body: dict[str, str]):
         with pytest.raises(ValidationError) as raised:
             payload.model_validate(body)
 

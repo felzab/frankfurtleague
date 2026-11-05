@@ -20,7 +20,7 @@ from app.shared.schemas.einwilligung import (
 from app.shared.schemas.kontakt import CustomEmail, CustomKontaktName
 from app.shared.schemas.literals import (
     FLConfirmationState,
-    FLEinwilligungUmfang,
+    FLEinwilligungScope,
     FLRegistrierungStatus,
     FLSaisonStatus,
     FLSortOrder,
@@ -55,13 +55,13 @@ class FLRegistrierungDecisionRow(FLRegistrierungEntscheidung):
 
 
 class FLRegistrierungEinwilligung(FLEinwilligung, BaseReadModel):
-    """A pending registration's consent record, each choice and `datum` optional here alone.
+    """A pending registration's consent record, each choice and `date` optional here alone.
 
     A returning pupil's page asks no choice.
     """
 
-    umfang: FLEinwilligungUmfang | None = None
-    datum: CustomOptionalDateString = None
+    scope: FLEinwilligungScope | None = None
+    date: CustomOptionalDateString = None
     # Null where nobody was asked, never `False`: a returning pupil's media answer stands on their own record.
     media: bool | None = None
     # Empty on a returning pupil's record, which evidences no choice it never asked. A pupil's wordings alone: a
@@ -234,20 +234,20 @@ class FLRegistrierungConfirmationPayload(BaseModel):
 
     token: CustomToken
     # Unbounded: the age is a 422 with its own code, never a `payload_refused`, so the page marks its one
-    # field and keeps the typed date. Null where a stored one is taken, and required for `umfang`'s reason.
+    # field and keeps the typed date. Null where a stored one is taken, and required for `scope`'s reason.
     geburtsdatum: CustomOptionalDateString
     # Both set on the new pupil's page and both null on the returning pupil's (`registrierung_choices_unsuitable`).
     # Required rather than defaulted: a page omitting one would store this model's answer in place of
     # the person's.
-    umfang: FLEinwilligungUmfang | None
+    scope: FLEinwilligungScope | None
     media: bool | None
-    # The wordings the page showed beside the two choices, null where it asked none, as `umfang` is.
+    # The wordings the page showed beside the two choices, null where it asked none, as `scope` is.
     text_versions: FLSpielerTextVersions | None
 
     @model_validator(mode="after")
     def _grants_name_the_current_wording(self) -> Self:
         if self.text_versions is not None:
-            refuse_a_stale_grant(self.text_versions, {"umfang": self.umfang, "media": self.media})
+            refuse_a_stale_grant(self.text_versions, {"scope": self.scope, "media": self.media})
         return self
 
 
@@ -260,7 +260,7 @@ class FLRegistrierungConfirmationResponse(BaseAPIResponse):
     # Null where the press posted none, the stored date standing: an echo of it would serve it.
     geburtsdatum: CustomOptionalDateString
     # Null on a returning pupil's press, which posted none.
-    umfang: FLEinwilligungUmfang | None
+    scope: FLEinwilligungScope | None
     media: bool | None
 
 

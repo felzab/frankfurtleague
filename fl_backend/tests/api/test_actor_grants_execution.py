@@ -46,7 +46,7 @@ def seeded_url(mongo_replica_set_url: str) -> Iterator[str]:
         now = datetime.now(UTC)
         granted = {
             "_id": ObjectId(),
-            "adresse": GRANTED_AT_THE_SEED,
+            "address": GRANTED_AT_THE_SEED,
             "admin_tier": "administration",
             "granted_by": "PLAYGROUND",
             "granted_at": now,
@@ -86,4 +86,4 @@ def test_a_session_signed_in_before_its_grant_is_refused(seeded_url: str):
 def test_an_actor_holding_a_grant_passes_the_real_read(seeded_url: str):
     """The control: a read refusing everybody passes the cases above. Spelled in capitals, as the stored grant is folded."""
 
-    assert answered(seeded_url, StampedHeaders(grants_for_the_suite()[1]["adresse"].upper(), ADMIN_KEY)).status_code == 200
+    assert answered(seeded_url, StampedHeaders(grants_for_the_suite()[1]["address"].upper(), ADMIN_KEY)).status_code == 200

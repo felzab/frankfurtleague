@@ -579,7 +579,7 @@ class FLBewerbungEinwilligungGiven(BaseModel):
 
     @model_validator(mode="after")
     def _grants_name_the_current_wording(self) -> Self:
-        refuse_a_stale_grant(self.text_versions, {"umfang": "kontaktdaten_whatsapp" if self.whatsapp else "kontaktdaten", "media": self.media})
+        refuse_a_stale_grant(self.text_versions, {"scope": "kontaktdaten_whatsapp" if self.whatsapp else "kontaktdaten", "media": self.media})
         return self
 
 

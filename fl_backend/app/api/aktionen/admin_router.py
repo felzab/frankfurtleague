@@ -13,9 +13,9 @@ from app.api.aktionen.schemas import (
     FLAktionenFilterParams,
     FLAktionenListAdapter,
 )
-from app.api.aktionen.services import akteur_adressen, build_aktionen_sort, document_id_term, mit_vorenthaltenem_akteur
+from app.api.aktionen.services import actor_addresses, build_aktionen_sort, document_id_term, mit_vorenthaltenem_akteur
 from app.api.berechtigungen.guard import verify_actor_is_admin
-from app.api.sperrliste.lookup import BanList, SperrlisteLookup, adressen_gesperrt
+from app.api.sperrliste.lookup import BanList, SperrlisteLookup, barred_addresses
 from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db, build_query, pull_many_from_db, pull_one_from_db
 from app.core.dependencies import ActionLogCollection
@@ -114,7 +114,7 @@ def _tally(cells: Sequence[Mapping[str, Any]], *, counted: str, held: Mapping[st
 
 
 async def _as_served(rows: Sequence[Mapping[str, Any]], *, sperrliste: BanList) -> list[dict[str, Any]]:
-    barred = await adressen_gesperrt(sperrliste, akteur_adressen(rows))
+    barred = await barred_addresses(sperrliste, actor_addresses(rows))
 
     return [mit_vorenthaltenem_akteur(row, barred) for row in rows]
 

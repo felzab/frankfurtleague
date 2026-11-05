@@ -86,7 +86,7 @@ async def patch_einwilligung(
     Writes those two on this one referee row, each moved choice with its evidence (`evidence.<choice>`), and nothing
     else: the confirmation day, the day given and the wording they confirmed stand, and no fixture is written. The
     public fixture list reads the scope off this row, so a withdrawal takes the name off every fixture page at that
-    list's next read. A PATCH moving neither choice writes nothing. A GRANT (`umfang` to
+    list's next read. A PATCH moving neither choice writes nothing. A GRANT (`scope` to
     `kader_oeffentlich` or `media` to `true`) is taken on a live record alone; a withdrawal on a retired one too.
 
     Refuses, in this order: an id that is no confirmed referee record of this address (`role_not_held`); a
@@ -100,7 +100,7 @@ async def patch_einwilligung(
     """
 
     eigener_eintrag = build_self_referee_filter(identifier, schiedsrichter_id=schiedsrichter_id)
-    chosen: dict[FLEinwilligungChoice, object] = {"umfang": einwilligung_data.umfang, "media": einwilligung_data.media}
+    chosen: dict[FLEinwilligungChoice, object] = {"scope": einwilligung_data.scope, "media": einwilligung_data.media}
     # For `app/api/spieler/person_router.py :: patch_einwilligung`'s reason: a replay stamps the moment the person pressed.
     at = log_stamp(germany_now)
     journal = Journal()

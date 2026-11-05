@@ -13,7 +13,7 @@ from typing import Any, Final
 
 from bson import ObjectId
 
-from app.api.berechtigungen.schemas import FLBerechtigungAenderungArt, FLBerechtigungMitteilungArt, FLGrantSnapshot, as_utc
+from app.api.berechtigungen.schemas import FLGrantChangeKind, FLGrantNoticeKind, FLGrantSnapshot, as_utc
 from app.api.sperrliste.services import withheld_actor
 from app.core.codes import Code
 from app.core.exceptions import WriteRefusal
@@ -48,7 +48,7 @@ def granted_since(row: Mapping[str, Any], angekuendigt: Mapping[str, Any] | None
 
     # An address changed in place before the comparison found it: nothing dates the change, and the
     # dates the row carries are the address before's.
-    return since if angekuendigt.get("adresse") == row.get("adresse") else None
+    return since if angekuendigt.get("address") == row.get("address") else None
 
 
 def owner_since(row: Mapping[str, Any], angekuendigt: Mapping[str, Any] | None) -> datetime | None:
@@ -72,35 +72,35 @@ def owner_since(row: Mapping[str, Any], angekuendigt: Mapping[str, Any] | None) 
 
 
 def found_ids(
-    changes: Sequence[tuple[Any, FLBerechtigungAenderungArt, FLGrantSnapshot | None, FLGrantSnapshot | None]],
+    changes: Sequence[tuple[Any, FLGrantChangeKind, FLGrantSnapshot | None, FLGrantSnapshot | None]],
 ) -> list[Any]:
     """The grant ids a comparison found granted anew, an address changed in place among them, each of which is stamped `gefunden_am`."""
 
-    return [berechtigung_id for berechtigung_id, art, _, _ in changes if art == "granted"]
+    return [berechtigung_id for berechtigung_id, kind, _, _ in changes if kind == "granted"]
 
 
 def ernannt(
-    changes: Sequence[tuple[Any, FLBerechtigungAenderungArt, FLGrantSnapshot | None, FLGrantSnapshot | None]],
+    changes: Sequence[tuple[Any, FLGrantChangeKind, FLGrantSnapshot | None, FLGrantSnapshot | None]],
 ) -> list[Any]:
     """The grant ids a comparison found promoted to `owner` in place, each of which is stamped `appointed_at`."""
 
     return [
         berechtigung_id
-        for berechtigung_id, art, current, _ in changes
-        if art == "changed" and current is not None and current.admin_tier == OWNER
+        for berechtigung_id, kind, current, _ in changes
+        if kind == "changed" and current is not None and current.admin_tier == OWNER
     ]
 
 
-def verwaltung_des(adresse: str, grants: Sequence[Mapping[str, Any]]) -> str | None:
+def verwaltung_des(address: str, grants: Sequence[Mapping[str, Any]]) -> str | None:
     """The tier this folded address holds among the live grants, or `None`."""
 
-    return next((str(grant["admin_tier"]) for grant in grants if grant["adresse"] == adresse), None)
+    return next((str(grant["admin_tier"]) for grant in grants if grant["address"] == address), None)
 
 
-def find_vorhanden_refusal(*, adresse: str, grants: Sequence[Mapping[str, Any]]) -> WriteRefusal | None:
+def find_vorhanden_refusal(*, address: str, grants: Sequence[Mapping[str, Any]]) -> WriteRefusal | None:
     """`grant_exists`: a grant already holds the address, of either tier."""
 
-    if verwaltung_des(adresse, grants) is None:
+    if verwaltung_des(address, grants) is None:
         return None
 
     return WriteRefusal(
@@ -115,7 +115,7 @@ def holds_an_owners_power(*, actor: str, auth_time: int, grants: Sequence[Mappin
     One judgement for every refusal keyed on an owner's power, so no two of them can part on who holds it.
     """
 
-    row = next((grant for grant in grants if grant["adresse"] == actor), None)
+    row = next((grant for grant in grants if grant["address"] == actor), None)
     record = None if row is None else next((entry for entry in announced if entry["_id"] == row["_id"]), None)
     since = None if row is None else owner_since(row, record)
 
@@ -200,12 +200,12 @@ def find_letzter_inhaber_refusal(*, remaining_owners: int) -> WriteRefusal | Non
 
 
 def stand_of(row: Mapping[str, Any]) -> FLGrantSnapshot:
-    return FLGrantSnapshot(adresse=str(row["adresse"]), admin_tier=row["admin_tier"])
+    return FLGrantSnapshot(address=str(row["address"]), admin_tier=row["admin_tier"])
 
 
 def compare(
     *, grants: Sequence[Mapping[str, Any]], announced: Sequence[Mapping[str, Any]]
-) -> list[tuple[Any, FLBerechtigungAenderungArt, FLGrantSnapshot | None, FLGrantSnapshot | None]]:
+) -> list[tuple[Any, FLGrantChangeKind, FLGrantSnapshot | None, FLGrantSnapshot | None]]:
     """Every grant whose state differs from the announced record, in id order.
 
     Keyed on the grant's id, never its address, or a revoke and a re-grant cancel out unannounced.
@@ -214,7 +214,7 @@ def compare(
     current = {row["_id"]: stand_of(row) for row in grants}
     previous = {row["_id"]: stand_of(row) for row in announced}
 
-    changes: list[tuple[Any, FLBerechtigungAenderungArt, FLGrantSnapshot | None, FLGrantSnapshot | None]] = []
+    changes: list[tuple[Any, FLGrantChangeKind, FLGrantSnapshot | None, FLGrantSnapshot | None]] = []
     for berechtigung_id in sorted(current.keys() | previous.keys()):
         now, before = current.get(berechtigung_id), previous.get(berechtigung_id)
         if before is None:
@@ -223,7 +223,7 @@ def compare(
             changes.append((berechtigung_id, "revoked", None, before))
         # Read as one tier change, a repointed address would name its new holder alone and hide whose
         # access ended.
-        elif now.adresse != before.adresse:
+        elif now.address != before.address:
             changes.append((berechtigung_id, "revoked", None, before))
             changes.append((berechtigung_id, "granted", now, None))
         elif now != before:
@@ -235,10 +235,10 @@ def compare(
 def withheld(stand: FLGrantSnapshot | None, barred: Collection[str]) -> FLGrantSnapshot | None:
     """`stand` with its address removed where that address is barred."""
 
-    if stand is None or stand.adresse is None or stand.adresse not in barred:
+    if stand is None or stand.address is None or stand.address not in barred:
         return stand
 
-    return stand.model_copy(update={"adresse": None})
+    return stand.model_copy(update={"address": None})
 
 
 @dataclass(frozen=True)
@@ -252,7 +252,7 @@ class Mitteilung:
 def compose_mitteilung(
     *,
     grant_id: ObjectId,
-    art: FLBerechtigungMitteilungArt,
+    kind: FLGrantNoticeKind,
     current: FLGrantSnapshot | None,
     before: FLGrantSnapshot | None,
     changed_by: str | None,
@@ -270,21 +270,21 @@ def compose_mitteilung(
     return Mitteilung(
         grant_id=grant_id,
         data={
-            "art": "grant",
-            "change": art,
+            "kind": "grant",
+            "change": kind,
             "author": "datenbank" if changed_by is None else "anwendung",
             "now": None if stands[0] is None else stands[0].model_dump(),
             "before": None if stands[1] is None else stands[1].model_dump(),
             "changed_by": withheld_actor(actor, barred),
             "changed_at": None if changed_by is None else now,
             # The grant's address alone: a null actor on an application's change already says it is barred.
-            "withheld": "barred" if any(stand is not None and stand.adresse is None for stand in stands) else None,
+            "withheld": "barred" if any(stand is not None and stand.address is None for stand in stands) else None,
         },
     )
 
 
 def compose_announced(*, grant_id: ObjectId, stand: FLGrantSnapshot, now: datetime) -> dict[str, Any]:
-    return {"_id": grant_id, "adresse": stand.adresse, "admin_tier": stand.admin_tier, "angekuendigt_am": now}
+    return {"_id": grant_id, "address": stand.address, "admin_tier": stand.admin_tier, "angekuendigt_am": now}
 
 
 def vier_augen_seit(row: Mapping[str, Any], angekuendigt: Mapping[str, Any] | None, *, admin_tier: str) -> datetime | None:
@@ -313,14 +313,14 @@ def compose_fortgefuehrt(row: Mapping[str, Any], angekuendigt: Mapping[str, Any]
 
 
 def haelt_seit(
-    adresse: str, *, admin_tier: str, before: datetime, grants: Sequence[Mapping[str, Any]], announced: Sequence[Mapping[str, Any]]
+    address: str, *, admin_tier: str, before: datetime, grants: Sequence[Mapping[str, Any]], announced: Sequence[Mapping[str, Any]]
 ) -> bool:
     """Whether this folded address's live grant, an owner's for an `owner` act, took effect at or before `before`.
 
     A grant made after a request approves nothing of it, or one person could grant a second mailbox and approve with it.
     """
 
-    row = next((grant for grant in grants if grant["adresse"] == adresse), None)
+    row = next((grant for grant in grants if grant["address"] == address), None)
     if row is None:
         return False
     record = next((entry for entry in announced if entry["_id"] == row["_id"]), None)
@@ -345,17 +345,17 @@ def genehmiger_of(
     """
 
     return [
-        str(row["adresse"])
+        str(row["address"])
         for row in grants
-        if row["adresse"] not in excepted
-        and row["adresse"] not in barred
-        and haelt_seit(str(row["adresse"]), admin_tier=admin_tier, before=before, grants=grants, announced=announced)
+        if row["address"] not in excepted
+        and row["address"] not in barred
+        and haelt_seit(str(row["address"]), admin_tier=admin_tier, before=before, grants=grants, announced=announced)
     ]
 
 
 def genehmigung_verwehrt(
     *,
-    betroffen: Any,
+    target: Any,
     approval: Mapping[str, Any],
     actor: str,
     owner: bool,
@@ -367,7 +367,7 @@ def genehmigung_verwehrt(
     `owner` is whether their session holds an owner's power now.
     """
 
-    if betroffen == actor:
+    if target == actor:
         return "own"
     if approval.get("started_by") == actor:
         return "started"
@@ -382,7 +382,7 @@ def genehmigung_verwehrt(
 
 def genehmigung_steht(
     *,
-    betroffen: Any,
+    target: Any,
     approval: Mapping[str, Any],
     grants: Sequence[Mapping[str, Any]],
     announced: Sequence[Mapping[str, Any]],
@@ -394,7 +394,7 @@ def genehmigung_steht(
     """
 
     by = approval.get("approved_by")
-    if not isinstance(by, str) or by in barred or by in {betroffen, approval.get("started_by")}:
+    if not isinstance(by, str) or by in barred or by in {target, approval.get("started_by")}:
         return False
 
     return haelt_seit(by, admin_tier=str(approval.get("admin_tier")), before=approval["asked_at"], grants=grants, announced=announced)

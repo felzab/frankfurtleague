@@ -22,14 +22,14 @@ from app.api.outbox.services import (
     FOLLOWS,
     LEASE_DURATION,
     PAGE,
-    SIGN_IN_ARTEN,
+    SIGN_IN_KINDS,
     UNBARRED,
     OwedMail,
     final_update,
     retry_update,
     row_of,
 )
-from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt
+from app.api.sperrliste.lookup import SperrlisteLookup, barred_addresses
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import patch_many_in_db, post_one_to_db, pull_many_from_db, stamp_in_db
@@ -63,7 +63,7 @@ def _link_record_filter(row: Mapping[str, Any]) -> dict[str, Any]:
 
     return {
         "_id": row["reference"]["id"],
-        **{address_path: row["an"] for address_path in link["adressen"]},
+        **{address_path: row["an"] for address_path in link["addresses"]},
         **{parent: {"$type": "object"} for parent in sorted(parents)},
     }
 
@@ -107,14 +107,14 @@ async def post_handout(
         )
         # The sign-in library's mails first, then the rest, each oldest first: a sign-in mail has one attempt, and a queue
         # of league mail ahead of it would spend the drain's deadline before its claim.
-        sign_in_arten = list(SIGN_IN_ARTEN)
+        sign_in_kinds = list(SIGN_IN_KINDS)
         due: list[Mapping[str, Any]] = []
-        for art_filter in ({"$in": sign_in_arten}, {"$nin": sign_in_arten}):
+        for kind_filter in ({"$in": sign_in_kinds}, {"$nin": sign_in_kinds}):
             if len(due) == PAGE:
                 break
             due += await pull_many_from_db(
                 collection=outbox_collection,
-                db_filter={**_free(now), "frist": {"$gt": now}, "art": art_filter},
+                db_filter={**_free(now), "frist": {"$gt": now}, "kind": kind_filter},
                 sort_by=[("recorded_at", ASCENDING), ("_id", ASCENDING)],
                 limit=PAGE - len(due),
                 session=session,
@@ -123,9 +123,9 @@ async def post_handout(
             return [], None, overdue.modified_count
 
         # The ban is judged here, at the last moment before the send, rather than when the mail was owed.
-        judged = {str(row["an"]) for row in due if row["art"] not in UNBARRED}
-        barred = await adressen_gesperrt(sperrliste, judged, session=session) if judged else set()
-        barred_ids = [row["_id"] for row in due if row["art"] not in UNBARRED and row["an"] in barred]
+        judged = {str(row["an"]) for row in due if row["kind"] not in UNBARRED}
+        barred = await barred_addresses(sperrliste, judged, session=session) if judged else set()
+        barred_ids = [row["_id"] for row in due if row["kind"] not in UNBARRED and row["an"] in barred]
         dropped_ids: list[Any] = []
 
         tokens: dict[Any, str] = {}
@@ -229,7 +229,7 @@ async def post_result(
     result = result_data.result
     state = FINAL_STATE[result]
     # A send to be tried again ends here only where it may not be: a sign-in mail, or one past its deadline.
-    ends = {"$or": [{"art": {"$in": list(SIGN_IN_ARTEN)}}, {"frist": {"$lte": now}}]} if result == "retry" else {}
+    ends = {"$or": [{"kind": {"$in": list(SIGN_IN_KINDS)}}, {"frist": {"$lte": now}}]} if result == "retry" else {}
     counted: str
     if await settled(final_update(state, now=now, message_id=result_data.message_id), ends):
         counted = state
@@ -256,7 +256,7 @@ async def post_sign_in(
     or not.
     """
 
-    mail = OwedMail(key=f"{sign_in_data.data.art}/{ObjectId()}", an=sign_in_data.an, data=sign_in_data.data)
+    mail = OwedMail(key=f"{sign_in_data.data.kind}/{ObjectId()}", an=sign_in_data.an, data=sign_in_data.data)
     await post_one_to_db(
         collection=outbox_collection,
         document=row_of(mail, now=now, secret=sign_in_data.secret, valid_until=sign_in_data.valid_until),

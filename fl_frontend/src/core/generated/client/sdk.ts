@@ -26,12 +26,12 @@ import type {
   FLActionLogEntrySingleResponse,
   FLActionLogListResponse,
   FLActivateSaisonResponse,
+  FLAddressChangeAddressPayload,
+  FLAddressChangeAddressResponse,
   FLAddressChangeAdminMintResponse,
   FLAddressChangeAdminPayload,
   FLAddressChangeAdminViewPayload,
   FLAddressChangeAdminViewResponse,
-  FLAddressChangeAdressePayload,
-  FLAddressChangeAdresseResponse,
   FLAddressChangeAnswerPayload,
   FLAddressChangeAnswerResponse,
   FLAddressChangeApprovalResponse,
@@ -61,7 +61,7 @@ import type {
   FLCreatedResponse,
   FLDeclineBewerbungPayload,
   FLDeclineBewerbungResponse,
-  FLErasureAdressePayload,
+  FLErasureAddressPayload,
   FLErasurePayload,
   FLErasurePreviewResponse,
   FLErasureResponse,
@@ -390,7 +390,7 @@ export const getAddressChangePostAddressChangeAdminUrl = () => {
  * waits on another administrator's approval, never this one's. No link is answered. The address's live change ends
  * replaced.
  *
- * Refused the administrator's own address (`own_adresse`), a grant holder's without an owner's power
+ * Refused the administrator's own address (`own_address`), a grant holder's without an owner's power
  * (`admin_address`), the address on file typed again (`address_change_unchanged`), a new address the ban list holds
  * (`address_change_barred`), an address holding nothing a change moves (`address_change_nothing`), a new address another pupil signs in on
  * where the change moves a pupil (`address_change_taken`), a new address any entry names, confirmed or not (`address_change_occupied`), and a
@@ -421,8 +421,8 @@ export const addressChangePostAddressChangeAdmin = async (
   });
 };
 
-export const getAddressChangeGetAddressChangeAdresseUrl = () => {
-  return `/api/v0/address_change/adresse`;
+export const getAddressChangeGetAddressChangeAddressUrl = () => {
+  return `/api/v0/address_change/address`;
 };
 
 /**
@@ -435,10 +435,10 @@ export const getAddressChangeGetAddressChangeAdresseUrl = () => {
  * address only in the answer.
  * @summary Say which address a live change would move to
  */
-export const addressChangeGetAddressChangeAdresse = async (
-  fLAddressChangeAdressePayload: FLAddressChangeAdressePayload,
+export const addressChangeGetAddressChangeAddress = async (
+  fLAddressChangeAddressPayload: FLAddressChangeAddressPayload,
   options?: Parameters<typeof systemKeyReadTransport>[1],
-): Promise<FLAddressChangeAdresseResponse> => {
+): Promise<FLAddressChangeAddressResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
@@ -451,11 +451,11 @@ export const addressChangeGetAddressChangeAdresse = async (
     }
     return headers;
   };
-  return systemKeyReadTransport<FLAddressChangeAdresseResponse>(getAddressChangeGetAddressChangeAdresseUrl(), {
+  return systemKeyReadTransport<FLAddressChangeAddressResponse>(getAddressChangeGetAddressChangeAddressUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLAddressChangeAdressePayload),
+    body: JSON.stringify(fLAddressChangeAddressPayload),
   });
 };
 
@@ -706,7 +706,7 @@ export const getAddressChangeGetAddressChangeAdminViewUrl = () => {
  * ADMIN TIER, the address tool's read, keyed by the address the administrator types or by a change a page links to;
  * never a hash. `possible` where the address holds anything a change moves, a grant included. Stores nothing.
  *
- * Refused as the erasure's reveal is: the administrator's own address (`own_adresse`), and an address holding a live
+ * Refused as the erasure's reveal is: the administrator's own address (`own_address`), and an address holding a live
  * grant unless the administrator holds an owner's power (`admin_address`). A change id answers 404 where no change is
  * kept, and `address_change_ended` where it ended.
  * @summary Show what an address holds that a change moves, and its live change
@@ -747,7 +747,7 @@ export const getAddressChangeDeleteAddressChangeUrl = (addressChangeId: string) 
  * bring back a change confirmed in its waiting time to take effect. Nothing is mailed. Acts on the change the id names
  * alone, so a page showing a change since replaced discards nothing.
  *
- * Refused as the start is about who asks (`own_adresse`, `admin_address`), and where the change ended
+ * Refused as the start is about who asks (`own_address`, `admin_address`), and where the change ended
  * (`address_change_ended`); 404 for an id naming no change.
  * @summary Discard a pending address change
  */
@@ -805,7 +805,7 @@ export const getAddressChangeInviteAddressChangeUrl = (addressChangeId: string) 
  * next hourly pass ends it. Acts on the change the id names alone, so a page showing a change since replaced re-sends
  * nothing.
  *
- * Refused as the start is about who asks (`own_adresse`, `admin_address`), where the ban list holds the pending address
+ * Refused as the start is about who asks (`own_address`, `admin_address`), where the ban list holds the pending address
  * (`address_change_barred`), where another pupil has come to sign in on it (`address_change_taken`), where an entry has come to name it,
  * confirmed or not (`address_change_occupied`), where a grant's approval week has passed (`link_expired`), and where the change ended
  * (`address_change_ended`). 404 for an id naming no change, and unless the change waits on the new mailbox: one awaiting the address on
@@ -863,7 +863,7 @@ export const getBewerbungenPostBewerbungUrl = () => {
  * application it holds, stores none and owes nothing again. The same key over other details is refused
  * (`bewerbung_key_differing`).
  *
- * An address the ban list holds, on any seat, is refused (`bewerbung_adresse_barred`) on a first press.
+ * An address the ban list holds, on any seat, is refused (`bewerbung_address_barred`) on a first press.
  * @summary Submit a Bewerbung
  */
 export const bewerbungenPostBewerbung = async (
@@ -1647,7 +1647,7 @@ export const getIdentityPostErasureUrl = () => {
  *
  * ADMIN TIER, a step-up write. It runs the erasure `POST /identity/account/erasure` runs and refuses nothing about the
  * person's own state: a pupil in a live squad and a referee booked on a fixture still to be played are erased on one pass.
- * Three refusals are about who asks. The administrator's own address is refused (`own_adresse`): their account page
+ * Three refusals are about who asks. The administrator's own address is refused (`own_address`): their account page
  * serves it, or an owner. An address holding a live grant is refused unless the administrator holds an owner's power,
  * signed in since becoming one (`admin_address`), judged inside the write: erasing it removes the grant, whatever grants
  * remain, so it asks what a revoke asks, an owner's power and a sign-in `ENROLMENT_WINDOW_MINUTES` old at most. Every
@@ -1747,8 +1747,8 @@ export const getIdentityGetErasureViewUrl = () => {
  * records standing, beside why the address tool refuses that change this administrator, or null where it opens it; a change
  * of an address holding a grant is left out for an administrator without an owner's power, as the administrators page
  * withholds it, since naming it would answer whether a typed address is its new one. The address's own live change is
- * named by its id, ending with the records it would move. Every request for a grant about the address (`betroffen`) or
- * made by it (`gestellt`) is named by its id and the tier it asks; a lapsed one is gone to every reader already and is
+ * named by its id, ending with the records it would move. Every request for a grant about the address (`target`) or
+ * made by it (`requester`) is named by its id and the tier it asks; a lapsed one is gone to every reader already and is
  * left out, though the erasure removes its row too. A squad
  * row and a referee row each carry the day it was retired, null while live, and a referee row every season holding a
  * fixture still to be played that it is booked on, as `schiedsrichter_still_assigned` judges one. Reached and not named: the fixtures
@@ -1766,12 +1766,12 @@ export const getIdentityGetErasureViewUrl = () => {
  * `admin_tier` is the tier of the live grant the address holds, or null. `barred` is whether a standing ban holds the
  * address, judged as a stored address is; the erasure leaves a ban standing. Stores nothing.
  *
- * Refused as the erasure is: the administrator's own address (`own_adresse`), an address holding a live grant unless
+ * Refused as the erasure is: the administrator's own address (`own_address`), an address holding a live grant unless
  * the administrator holds an owner's power (`admin_address`).
  * @summary Show what an erasure of an address would remove
  */
 export const identityGetErasureView = async (
-  fLErasureAdressePayload: FLErasureAdressePayload,
+  fLErasureAddressPayload: FLErasureAddressPayload,
   options?: Parameters<typeof adminKeyReadTransport>[1],
 ): Promise<FLErasureViewResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
@@ -1790,7 +1790,7 @@ export const identityGetErasureView = async (
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLErasureAdressePayload),
+    body: JSON.stringify(fLErasureAddressPayload),
   });
 };
 
@@ -1874,13 +1874,13 @@ export const getIdentityPostSignOutUrl = () => {
  * and no address, filter, image or count. Nothing bars the address and nothing is mailed; a person signs in again as before.
  *
  * Refused so that a refused call ends no session: from a sign-in older than the step-up window (`confirmation_required`), the
- * administrator's own address (`own_adresse`), an address holding an `owner` grant unless the administrator holds an
+ * administrator's own address (`own_address`), an address holding an `owner` grant unless the administrator holds an
  * owner's power (`admin_address`). Unlike the erasure, it
  * ends another administrator's sessions for an administrator holding no owner's power: signing in again repairs it.
  * @summary Log the ending of every session an address holds
  */
 export const identityPostSignOut = async (
-  fLErasureAdressePayload: FLErasureAdressePayload,
+  fLErasureAddressPayload: FLErasureAddressPayload,
   options?: Parameters<typeof adminKeyTransport>[1],
 ): Promise<FLSignOutResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
@@ -1899,7 +1899,7 @@ export const identityPostSignOut = async (
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLErasureAdressePayload),
+    body: JSON.stringify(fLErasureAddressPayload),
   });
 };
 
@@ -2376,7 +2376,7 @@ export const getRegistrierungenAdmitUrl = (registrierungId: string) => {
  *
  * Refuses, in this order: no pending registration with this id (404), no seat on its team's season
  * (`role_not_held`), a registration the pupil has not confirmed (`registrierung_unconfirmed`), an address the ban list
- * holds (`registrierung_adresse_barred`, worded to the team as neutrally as to the pupil), a Stufe the season does not offer
+ * holds (`registrierung_address_barred`, worded to the team as neutrally as to the pupil), a Stufe the season does not offer
  * (`registrierung_stufe_not_allowed`), a registration confirmed on the returning pupil's page whose address holds no stored
  * person (`registrierung_person_missing`: it carries no choice, so it admits nobody, and the pupil registers again), a
  * `spieler_id` that is not the person this registration may be admitted into (`registrierung_person_not_named`), a person
@@ -2986,7 +2986,7 @@ export const getSchiedsrichterPostSchiedsrichterUrl = () => {
  * whether this person is asked, because a referee nobody asked is a name nobody consented to
  * publish. The link goes out through the Postausgang, which mints it; the answer names the address and the deadline.
  *
- * Refused `schiedsrichter_adresse_barred` where the address given is on the ban list.
+ * Refused `schiedsrichter_address_barred` where the address given is on the ban list.
  * @summary Create a Schiedsrichter
  */
 export const schiedsrichterPostSchiedsrichter = async (
@@ -3023,7 +3023,7 @@ export const getSchiedsrichterPatchEinwilligungUrl = (schiedsrichterId: string) 
  * Writes those two on this one referee row, each moved choice with its evidence (`evidence.<choice>`), and nothing
  * else: the confirmation day, the day given and the wording they confirmed stand, and no fixture is written. The
  * public fixture list reads the scope off this row, so a withdrawal takes the name off every fixture page at that
- * list's next read. A PATCH moving neither choice writes nothing. A GRANT (`umfang` to
+ * list's next read. A PATCH moving neither choice writes nothing. A GRANT (`scope` to
  * `kader_oeffentlich` or `media` to `true`) is taken on a live record alone; a withdrawal on a retired one too.
  *
  * Refuses, in this order: an id that is no confirmed referee record of this address (`role_not_held`); a
@@ -3227,14 +3227,14 @@ export const getSchiedsrichterPatchSchiedsrichterUrl = (schiedsrichterId: string
  * new address, named in `confirmation`: the old link was posted to a mailbox nobody reads, and
  * leaving it live is a credential in the wrong inbox.
  *
- * **A CONFIRMED referee's address is refused here** (`schiedsrichter_adresse_only_per_change`), retired or not: it is who signs in as the
+ * **A CONFIRMED referee's address is refused here** (`schiedsrichter_address_only_per_change`), retired or not: it is who signs in as the
  * person, and moves only through an address change: the address tool, `POST /address_change`, or the person's own account page.
  * A save keeping it lands, a pending change standing.
  *
  * **A RETIRED unconfirmed referee's corrected address is stored and mails nothing**: no consent is
  * collected for a role nobody gives them. Their old link is retired all the same, and the
  * reactivation mints the fresh one. Where a link is minted, a banned new address is refused
- * `schiedsrichter_adresse_barred`. A save retiring or minting a link is refused `confirmation_required` from a
+ * `schiedsrichter_address_barred`. A save retiring or minting a link is refused `confirmation_required` from a
  * sign-in or confirmation older than `STEP_UP_WINDOW_HOURS`.
  *
  * The ghost answers 404 here as it does to every read: a name written onto it would appear on the
@@ -3277,8 +3277,8 @@ export const getSchiedsrichterInviteSchiedsrichterUrl = (schiedsrichterId: strin
  *
  * Refused where the referee is retired (`schiedsrichter_retired`), where they have already
  * answered (`confirmation_exists`), where they carry no email address
- * (`schiedsrichter_no_adresse`), and where that address is on the ban list
- * (`schiedsrichter_adresse_barred`). 404 for an id no referee holds, an erased referee's among them, and
+ * (`schiedsrichter_no_address`), and where that address is on the ban list
+ * (`schiedsrichter_address_barred`). 404 for an id no referee holds, an erased referee's among them, and
  * for the ghost, which every by-id route filters out.
  *
  * **A referee who has already answered is refused rather than sent a second link**: the
@@ -3307,7 +3307,7 @@ export const getSchiedsrichterReactivateSchiedsrichterUrl = (schiedsrichterId: s
  * retired referee's save stores a new address and mails nothing, so coming back is what
  * asks them. A row holding no address a link can go to comes back unasked, and so does one whose
  * person has answered. Where a link is minted, an address on the ban list is refused
- * `schiedsrichter_adresse_barred` and the row stays retired, and one from a sign-in or confirmation older than
+ * `schiedsrichter_address_barred` and the row stays retired, and one from a sign-in or confirmation older than
  * `STEP_UP_WINDOW_HOURS` is refused `confirmation_required`.
  *
  * The ghost answers 404 here too: cleared on it, the picker would offer a bookable row with no
@@ -4100,7 +4100,7 @@ export const getSpielerPatchEinwilligungUrl = () => {
  *
  * Writes those two on this one record, each moved choice with its evidence (`evidence.<choice>`), and nothing else:
  * the confirmation day, the day given and the wording they confirmed stand, and no other document is written. A
- * PATCH moving neither choice writes nothing. A GRANT (`umfang` to `kader_oeffentlich` or `media` to `true`) is
+ * PATCH moving neither choice writes nothing. A GRANT (`scope` to `kader_oeffentlich` or `media` to `true`) is
  * taken on a live record alone; a withdrawal on a retired one too.
  *
  * Refuses, in this order: an address holding no confirmed pupil record (`role_not_held`); a `evidence_state`
@@ -5013,7 +5013,7 @@ export const getTeamsPatchEinwilligungUrl = (teamId: string, saisonId: string) =
  * One answer for all of them: a person holding two of the row's slots answers once, each choice moving only where it
  * differs from the row as the page served it, so seats answered apart keep their answers to a choice not changed. No
  * other slot of the row and no other row is written, each choice moving with its own evidence and leaving the
- * other standing; a press moving no seat writes nothing. A GRANT (`umfang` to `kontaktdaten_whatsapp` or `media`
+ * other standing; a press moving no seat writes nothing. A GRANT (`scope` to `kontaktdaten_whatsapp` or `media`
  * to `true`) is taken on a row of an `active` or `future` season its team has not left; a withdrawal on any row the
  * person confirmed a seat on, a past season's included.
  *

@@ -6,7 +6,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from app.api.berechtigungen.crud import owe_in_session, pull_the_list_to_judge, read_berechtigungen, read_the_announced
 from app.api.berechtigungen.schemas import FLGrantReconciliationResponse
 from app.api.berechtigungen.services import compare, compose_announced, compose_mitteilung, ernannt, found_ids
-from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt
+from app.api.sperrliste.lookup import SperrlisteLookup, barred_addresses
 from app.core.config import API_VERSION
 from app.core.crud import erase_many_from_db, patch_many_in_db, post_many_to_db
 from app.core.dependencies import (
@@ -60,13 +60,13 @@ async def post_grants_reconciliation(
             await pull_the_list_to_judge(grants_collection=grants_collection, session=session)
 
             named = {
-                stand.adresse for _, _, after, before in changes for stand in (after, before) if stand is not None and stand.adresse is not None
+                stand.address for _, _, after, before in changes for stand in (after, before) if stand is not None and stand.address is not None
             }
-            barred = await adressen_gesperrt(sperrliste, {str(row["adresse"]) for row in grants} | named, session=session)
+            barred = await barred_addresses(sperrliste, {str(row["address"]) for row in grants} | named, session=session)
             await owe_in_session(
                 [
-                    compose_mitteilung(grant_id=grant_id, art=art, current=after, before=before, changed_by=None, now=now, barred=barred)
-                    for grant_id, art, after, before in changes
+                    compose_mitteilung(grant_id=grant_id, kind=kind, current=after, before=before, changed_by=None, now=now, barred=barred)
+                    for grant_id, kind, after, before in changes
                 ],
                 outbox_collection=outbox_collection,
                 grants_collection=grants_collection,

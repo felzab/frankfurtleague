@@ -9,7 +9,7 @@ from app.api.berechtigungen.schemas import FLUtcInstant
 # would name a seat no other endpoint publishes.
 from app.api.sperrliste.schemas import ADDRESS_IN_FREE_TEXT
 from app.shared.folding import refuse_a_domain_beyond_ascii, trimmed
-from app.shared.schemas.bounds import ERASURE_ANLASS_MAX_LENGTH, KONTAKT_EMAIL_MAX_LENGTH, REFERENCES_ADRESSEN_MAX
+from app.shared.schemas.bounds import ERASURE_ANLASS_MAX_LENGTH, KONTAKT_EMAIL_MAX_LENGTH, REFERENCES_ADDRESSES_MAX
 from app.shared.schemas.custom import SINGLE_LINE_PATTERN, CustomObjectId, CustomOptionalDateString
 from app.shared.schemas.kontakt import CustomEmail
 from app.shared.schemas.literals import FLAddressChangeViewableDenied, FLAdminTier, FLKontaktRolle, FLRegistrierungStatus, FLSaisonStatus
@@ -208,7 +208,7 @@ class FLReferencesPayload(BaseModel):
 
     # Each held to no address rule, nor to a length: one address refused refuses the whole batch, and every
     # pass asks again, so the sweep would delete nothing ever after.
-    identifiers: list[str] = Field(min_length=1, max_length=REFERENCES_ADRESSEN_MAX)
+    identifiers: list[str] = Field(min_length=1, max_length=REFERENCES_ADDRESSES_MAX)
 
 
 class FLReferencesResponse(BaseAPIResponse):
@@ -249,7 +249,7 @@ def refuse_an_address_in_the_anlass(value: str) -> str:
     return value
 
 
-class FLErasureAdressePayload(BaseModel):
+class FLErasureAddressPayload(BaseModel):
     """The mailbox an erasure, its preview or a sign-out of every session is looked up by."""
 
     model_config = ConfigDict(extra="forbid")
@@ -258,7 +258,7 @@ class FLErasureAdressePayload(BaseModel):
     email: ErasureAddress
 
 
-class FLErasurePayload(FLErasureAdressePayload):
+class FLErasurePayload(FLErasureAddressPayload):
     """The mailbox, and the request the erasure answers, which every log row the erasure files keeps."""
 
     # The ceiling counts what arrives and the strip runs after it, so the published `maxLength` is the one the write keeps.
@@ -326,15 +326,15 @@ class FLErasureViewOwnAddressChange(BaseModel):
     address_change_id: CustomObjectId
 
 
-FLErasureRequestParty = Literal["betroffen", "gestellt"]
+FLErasureRequestParty = Literal["target", "requester"]
 
 
 class FLErasureViewApprovalRequest(BaseModel):
-    """An open request for a grant, about the address (`betroffen`) or made by it (`gestellt`), which the erasure removes."""
+    """An open request for a grant, about the address (`target`) or made by it (`requester`), which the erasure removes."""
 
     approval_request_id: CustomObjectId
     admin_tier: FLAdminTier
-    rolle: FLErasureRequestParty
+    party: FLErasureRequestParty
 
 
 class FLErasureView(BaseModel):

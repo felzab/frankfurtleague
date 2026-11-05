@@ -89,10 +89,10 @@ NOT_FOUND = "404"
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
-def grant_document(grant_id: ObjectId, adresse: str, admin_tier: str, *, granted_at: datetime = PASTED) -> dict[str, Any]:
+def grant_document(grant_id: ObjectId, address: str, admin_tier: str, *, granted_at: datetime = PASTED) -> dict[str, Any]:
     """As the Playground paste writes one."""
 
-    return {"_id": grant_id, "adresse": adresse, "admin_tier": admin_tier, "granted_by": "PLAYGROUND", "granted_at": granted_at}
+    return {"_id": grant_id, "address": address, "admin_tier": admin_tier, "granted_by": "PLAYGROUND", "granted_at": granted_at}
 
 
 def since(seconds_ago: int) -> datetime:
@@ -208,20 +208,20 @@ async def antraege(database: AsyncDatabase) -> list[Mapping[str, Any]]:
 
 
 async def tiers(database: AsyncDatabase) -> dict[str, str]:
-    return {str(row["adresse"]): str(row["admin_tier"]) async for row in database[Collection.GRANTS].find()}
+    return {str(row["address"]): str(row["admin_tier"]) async for row in database[Collection.GRANTS].find()}
 
 
 async def announced(database: AsyncDatabase) -> list[tuple[str, str | None, str | None]]:
     """Each grant notice still owed, once whoever it is owed to: its kind, the address it is about and who made it."""
 
-    return [(data["change"], (data["now"] or data["before"])["adresse"], data["changed_by"]) for data, _ in await owed(database)]
+    return [(data["change"], (data["now"] or data["before"])["address"], data["changed_by"]) for data, _ in await owed(database)]
 
 
 async def owed(database: AsyncDatabase) -> list[tuple[Mapping[str, Any], list[str]]]:
     """Each grant notice still owed, in the order owed: its facts and every address it is owed to."""
 
     notices: dict[str, tuple[Mapping[str, Any], list[str]]] = {}
-    async for row in database[Collection.OUTBOX].find({"state": "open", "art": "grant"}, sort=[("recorded_at", 1), ("_id", 1)]):
+    async for row in database[Collection.OUTBOX].find({"state": "open", "kind": "grant"}, sort=[("recorded_at", 1), ("_id", 1)]):
         notices.setdefault(row["key"].rpartition("/")[0], (row["data"], []))[1].append(str(row["an"]))
 
     return [(data, sorted(an)) for data, an in notices.values()]
@@ -277,7 +277,7 @@ class TestFourEyesOnAGrant:
         assert (beantragt, NEU in granted_tiers, queued) == (True, False, [("requested", NEU, ANNA)])
         assert [{key: value for key, value in row.items() if key != "_id"} for row in rows] == [
             {
-                "adresse": NEU,
+                "address": NEU,
                 "grant_id": None,
                 "approval": {
                     "admin_tier": "administration",
@@ -294,7 +294,7 @@ class TestFourEyesOnAGrant:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             antrag_id = await asked_for(database, client)
             answer = await approve(database, client, antrag_id, als=BERND)
-            grant = await database[Collection.GRANTS].find_one({"adresse": NEU})
+            grant = await database[Collection.GRANTS].find_one({"address": NEU})
             removal = await database[Collection.ACTION_LOG].find_one(
                 {"collection": str(Collection.GRANT_APPROVAL_REQUESTS), "operation": "delete_many"}
             )
@@ -341,7 +341,7 @@ class TestFourEyesOnAPromotion:
     def test_a_promotion_another_owner_could_approve_waits_as_a_request(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             answer = await tier(database, client, BERND_ID)
-            rows = [(row["adresse"], row["grant_id"], row["approval"]["admin_tier"]) for row in await antraege(database)]
+            rows = [(row["address"], row["grant_id"], row["approval"]["admin_tier"]) for row in await antraege(database)]
             return answer.requested, (await tiers(database))[BERND], rows
 
         assert on_a_league(mongo_replica_set_url, body, grants=TWO_OWNERS) == (True, "administration", [(BERND, BERND_ID, "owner")])
@@ -366,7 +366,7 @@ class TestFourEyesOnAPromotion:
     def test_a_lone_owner_promotes_alone_though_administrators_could_approve(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             answer = await tier(database, client, ANNA_ID)
-            kinds = {art for art, _, _ in await announced(database)}
+            kinds = {kind for kind, _, _ in await announced(database)}
             return answer.requested, (await tiers(database))[ANNA], await antraege(database), "requested" in kinds
 
         assert on_a_league(mongo_replica_set_url, body) == (False, "owner", [], False)
@@ -400,7 +400,7 @@ async def asked(database: AsyncDatabase) -> list[tuple[str | None, str | None, l
     """Each request still owed: its subject, its requester and the approvers it is owed to."""
 
     return [
-        (None if data["now"] is None else data["now"]["adresse"], data["changed_by"], an)
+        (None if data["now"] is None else data["now"]["address"], data["changed_by"], an)
         for data, an in await owed(database)
         if data["change"] == "requested"
     ]
@@ -449,7 +449,7 @@ class TestTheRequestAsksItsApprovers:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             antrag_id = await asked_for(database, client)
             await decided(database, client, antrag_id)
-            return [art for art, _, _ in await announced(database) if art == "requested"], await asked(database)
+            return [kind for kind, _, _ in await announced(database) if kind == "requested"], await asked(database)
 
         assert on_a_league(mongo_replica_set_url, body) == ([], [])
 
@@ -490,7 +490,7 @@ class TestOneRequestPerAddress:
 
     def test_the_index_holds_one_row_per_address_beneath_the_route(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> None:
-            row = compose_antrag(adresse=NEU, admin_tier="administration", grant_id=None, started_by=ANNA, now=NOW)
+            row = compose_antrag(address=NEU, admin_tier="administration", grant_id=None, started_by=ANNA, now=NOW)
             await database[Collection.GRANT_APPROVAL_REQUESTS].insert_one(dict(row))
             with pytest.raises(DuplicateKeyError):
                 await database[Collection.GRANT_APPROVAL_REQUESTS].insert_one(dict(row))
@@ -504,7 +504,7 @@ class TestOneRequestPerAddress:
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            lapsed = compose_antrag(adresse=NEU, admin_tier="administration", grant_id=None, started_by=ANNA, now=NOW - timedelta(days=8))
+            lapsed = compose_antrag(address=NEU, admin_tier="administration", grant_id=None, started_by=ANNA, now=NOW - timedelta(days=8))
             restored = (await database[Collection.GRANT_APPROVAL_REQUESTS].insert_one(lapsed)).inserted_id
             served = (await listed(database, client)).approval_requests
             decided = [
@@ -569,7 +569,7 @@ class TestWhoMayDecide:
         antrag_id, readers = on_a_league(mongo_replica_set_url, body)
 
         (by_anna,), (by_bernd,) = readers[ANNA], readers[BERND]
-        assert (by_anna.id, by_anna.adresse, by_anna.started_by, by_anna.admin_tier, by_anna.stands) == (
+        assert (by_anna.id, by_anna.address, by_anna.started_by, by_anna.admin_tier, by_anna.stands) == (
             antrag_id,
             NEU,
             ANNA,
@@ -668,7 +668,7 @@ class TestTheApprovalJudgesTheAddressAgain:
             await database[Collection.BAN_LIST].insert_one(ban_document(NEU, until=STANDING))
             (served,) = (await listed(database, client)).approval_requests
             approved = await outcome(approve(database, client, antrag_id, als=BERND))
-            return (served.adresse, served.barred), approved, NEU in await tiers(database), len(await antraege(database))
+            return (served.address, served.barred), approved, NEU in await tiers(database), len(await antraege(database))
 
         assert on_a_league(mongo_replica_set_url, body) == ((None, True), Code.GRANT_BARRED, False, 1)
 
@@ -686,7 +686,7 @@ class TestTheApprovalJudgesTheAddressAgain:
             antrag_id = await asked_for(database, client)
             await database[Collection.GRANTS].insert_one(grant_document(CARLA_ID, NEU, "administration"))
             approved = await outcome(approve(database, client, antrag_id, als=BERND))
-            return approved, await database[Collection.GRANTS].count_documents({"adresse": NEU})
+            return approved, await database[Collection.GRANTS].count_documents({"address": NEU})
 
         assert on_a_league(mongo_replica_set_url, body) == (Code.GRANT_EXISTS, 1)
 
@@ -706,7 +706,7 @@ def raced(url: str, rival: Racer) -> Any:
         racing = RunningARivalAfterTheFirstRead(database[Collection.GRANT_APPROVAL_REQUESTS], running)
         approved = await outcome(approve(database, client, antrag_id, als=OWNER, grant_approval_requests_collection=racing))
         racing.assert_landed_inside(serially=1)
-        grants = await database[Collection.GRANTS].find({"adresse": NEU}).to_list()
+        grants = await database[Collection.GRANTS].find({"address": NEU}).to_list()
         return racing.rival_outcome, approved, [grant["granted_by"] for grant in grants], len(await antraege(database))
 
     return on_a_league(url, body)
@@ -762,23 +762,23 @@ class TestTheRefusalIsJournalled:
     """A restore from before a refusal or a withdrawal brings the request back only until its replay."""
 
     @pytest.mark.parametrize(
-        ("als", "art"),
+        ("als", "kind"),
         [pytest.param(BERND, "approval_request_declined", id="refused"), pytest.param(ANNA, "approval_request_withdrawn", id="withdrawn")],
     )
     def test_the_decision_writes_one_line_naming_the_request(
-        self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture, als: str, art: str
+        self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture, als: str, kind: str
     ):
-        """Its own art each: the replay tells the requester again of a refusal, and of a withdrawal nobody."""
+        """Its own kind each: the replay tells the requester again of a refusal, and of a withdrawal nobody."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             antrag_id = await asked_for(database, client)
             with journal_of(caplog) as lines:
                 await refuse(database, client, antrag_id, als=als)
-            return antrag_id, [(line.art, line.collection, line.record_id) for line in lines]
+            return antrag_id, [(line.kind, line.collection, line.record_id) for line in lines]
 
         antrag_id, lines = on_a_league(mongo_replica_set_url, body)
 
-        assert lines == [(art, Collection.GRANT_APPROVAL_REQUESTS, antrag_id)]
+        assert lines == [(kind, Collection.GRANT_APPROVAL_REQUESTS, antrag_id)]
 
     def test_a_refusal_refused_and_an_approval_write_none(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         """A refused press rolled back, and an approval leaves its grant, which a restore takes back with the request."""
@@ -847,7 +847,7 @@ class TestTheReplayEndsTheRestoredRequest:
                     (approval_request,) = await ended(database, client, NEU)
                     lines.append(
                         antrag_line(
-                            approval_request=approval_request, art="approval_request_ended", at=log_stamp(NOW), key=CONFIG.sperrliste_key
+                            approval_request=approval_request, kind="approval_request_ended", at=log_stamp(NOW), key=CONFIG.sperrliste_key
                         )
                     )
                 else:
@@ -875,7 +875,7 @@ class TestTheLoeschungTakesEveryRequestOfTheAddress:
             await asked_for(database, client, email="zweite@beispielschule.de", als=BERND)
             await database[Collection.GRANT_APPROVAL_REQUESTS].insert_one(
                 compose_antrag(
-                    adresse="dritte@beispielschule.de",
+                    address="dritte@beispielschule.de",
                     admin_tier="administration",
                     grant_id=None,
                     started_by=ANNA,
@@ -965,14 +965,14 @@ class TestAMovedAdministratorKeepsTheirStanding:
         assert on_a_person(mongo_replica_set_url, DATABASE_NAME, body) == (COMMITTED, True)
 
 
-async def ended(database: AsyncDatabase, client: AsyncMongoClient, adresse: str) -> list[Mapping[str, Any]]:
-    """The address change's step ending every request about `adresse`, on its own transaction as the effect runs it."""
+async def ended(database: AsyncDatabase, client: AsyncMongoClient, address: str) -> list[Mapping[str, Any]]:
+    """The address change's step ending every request about `address`, on its own transaction as the effect runs it."""
 
     async def step(session: AsyncClientSession) -> list[Mapping[str, Any]]:
         return await end_the_antraege_about_in_session(
             grant_approval_requests_collection=database[Collection.GRANT_APPROVAL_REQUESTS],
             outbox_collection=database[Collection.OUTBOX],
-            adresse=adresse,
+            address=address,
             now=NOW,
             session=session,
         )

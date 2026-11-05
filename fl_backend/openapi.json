@@ -192,7 +192,7 @@
           "bewerbung_kontakt_email_taken",
           "bewerbung_key_differing",
           "bewerbung_token_past_deadline",
-          "bewerbung_adresse_barred",
+          "bewerbung_address_barred",
           "bewerbung_kontakt_barred",
           "bewerbung_seat_differently_seated",
           "booking_unknown_resource",
@@ -225,7 +225,7 @@
           "kontakt_seat_barred",
           "kontakt_row_without_saison",
           "kontakt_saison_past",
-          "own_adresse",
+          "own_address",
           "last_owner_erasure",
           "admin_address",
           "foreign_address_change",
@@ -234,7 +234,7 @@
           "registrierung_stufe_not_allowed",
           "confirmation_exists",
           "registrierung_kader_full",
-          "registrierung_adresse_barred",
+          "registrierung_address_barred",
           "registrierung_key_differing",
           "registrierung_unconfirmed",
           "registrierung_person_not_named",
@@ -266,9 +266,9 @@
           "rules_spiele_over_one_read",
           "rules_forfeit_unentschieden_in_a_knockout_as_stored",
           "schiedsrichter_retired",
-          "schiedsrichter_no_adresse",
-          "schiedsrichter_adresse_barred",
-          "schiedsrichter_adresse_only_per_change",
+          "schiedsrichter_no_address",
+          "schiedsrichter_address_barred",
+          "schiedsrichter_address_only_per_change",
           "ban_list_no_saison",
           "ban_list_admin",
           "spielplan_already_drawn",
@@ -505,7 +505,7 @@
             "type": "string"
           },
           "evidence_state": {
-            "$ref": "#/components/schemas/FLEinwilligungStand"
+            "$ref": "#/components/schemas/FLEinwilligungState"
           },
           "media": {
             "title": "Media",
@@ -527,8 +527,8 @@
             "title": "Schule",
             "type": "string"
           },
-          "umfang": {
-            "$ref": "#/components/schemas/FLKontaktKenntnisnahmeUmfang"
+          "scope": {
+            "$ref": "#/components/schemas/FLKontaktKenntnisnahmeScope"
           }
         },
         "required": [
@@ -536,7 +536,7 @@
           "schule",
           "saison_id",
           "rollen",
-          "umfang",
+          "scope",
           "media",
           "evidence_state"
         ],
@@ -550,12 +550,12 @@
             "title": "Media",
             "type": "boolean"
           },
-          "umfang": {
-            "$ref": "#/components/schemas/FLEinwilligungUmfang"
+          "scope": {
+            "$ref": "#/components/schemas/FLEinwilligungScope"
           }
         },
         "required": [
-          "umfang",
+          "scope",
           "media"
         ],
         "title": "FLAccountEinwilligung",
@@ -566,21 +566,21 @@
         "description": "A pupil's or a registration's own two choices on their record.",
         "properties": {
           "evidence_state": {
-            "$ref": "#/components/schemas/FLEinwilligungStandPayload"
+            "$ref": "#/components/schemas/FLEinwilligungStatePayload"
           },
           "media": {
             "title": "Media",
             "type": "boolean"
           },
+          "scope": {
+            "$ref": "#/components/schemas/FLEinwilligungScope"
+          },
           "text_versions": {
             "$ref": "#/components/schemas/FLSpielerTextVersions"
-          },
-          "umfang": {
-            "$ref": "#/components/schemas/FLEinwilligungUmfang"
           }
         },
         "required": [
-          "umfang",
+          "scope",
           "media",
           "evidence_state",
           "text_versions"
@@ -670,14 +670,14 @@
       },
       "FLAccountErasureData": {
         "properties": {
-          "art": {
+          "kind": {
             "const": "account_erasure",
-            "title": "Art",
+            "title": "Kind",
             "type": "string"
           }
         },
         "required": [
-          "art"
+          "kind"
         ],
         "title": "FLAccountErasureData",
         "type": "object"
@@ -870,7 +870,7 @@
         "description": "One pending registration its pupil confirmed: its choices to withdraw, and what it stores.",
         "properties": {
           "evidence_state": {
-            "$ref": "#/components/schemas/FLEinwilligungStand"
+            "$ref": "#/components/schemas/FLEinwilligungState"
           },
           "geburtsdatum": {
             "anyOf": [
@@ -908,6 +908,16 @@
             "title": "Saison Id",
             "type": "string"
           },
+          "scope": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLEinwilligungScope"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "team_name": {
             "anyOf": [
               {
@@ -919,16 +929,6 @@
             ],
             "title": "Team Name"
           },
-          "umfang": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLEinwilligungUmfang"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
           "vorname": {
             "title": "Vorname",
             "type": "string"
@@ -938,7 +938,7 @@
           "registrierung_id",
           "team_name",
           "saison_id",
-          "umfang",
+          "scope",
           "media",
           "evidence_state",
           "vorname",
@@ -955,7 +955,7 @@
             "$ref": "#/components/schemas/FLAccountEinwilligung"
           },
           "evidence_state": {
-            "$ref": "#/components/schemas/FLEinwilligungStand"
+            "$ref": "#/components/schemas/FLEinwilligungState"
           },
           "geburtsdatum": {
             "anyOf": [
@@ -1026,7 +1026,7 @@
         "description": "One team season on which the address holds a confirmed contact seat, with its WhatsApp and media choices.\n\nPer season row and not per slot: one person holding two of a row's slots answers one choice for both.",
         "properties": {
           "evidence_state": {
-            "$ref": "#/components/schemas/FLEinwilligungStand"
+            "$ref": "#/components/schemas/FLEinwilligungState"
           },
           "givable": {
             "title": "Givable",
@@ -1057,6 +1057,9 @@
             "title": "Saison Id",
             "type": "string"
           },
+          "scope": {
+            "$ref": "#/components/schemas/FLKontaktKenntnisnahmeScope"
+          },
           "team_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Team Id",
@@ -1065,9 +1068,6 @@
           "team_name": {
             "title": "Team Name",
             "type": "string"
-          },
-          "umfang": {
-            "$ref": "#/components/schemas/FLKontaktKenntnisnahmeUmfang"
           }
         },
         "required": [
@@ -1075,7 +1075,7 @@
           "team_name",
           "saison_id",
           "rollen",
-          "umfang",
+          "scope",
           "media",
           "evidence_state",
           "media_offered",
@@ -1092,7 +1092,7 @@
             "$ref": "#/components/schemas/FLAccountEinwilligung"
           },
           "evidence_state": {
-            "$ref": "#/components/schemas/FLEinwilligungStand"
+            "$ref": "#/components/schemas/FLEinwilligungState"
           },
           "geburtsdatum": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -1154,16 +1154,16 @@
           "actor": {
             "discriminator": {
               "mapping": {
-                "admin_session": "#/components/schemas/FLActorWithAdresseRow",
+                "admin_session": "#/components/schemas/FLActorWithAddressRow",
                 "person_session": "#/components/schemas/FLActorPerson",
-                "public": "#/components/schemas/FLActorWithAdresseRow",
-                "system": "#/components/schemas/FLActorWithAdresseRow"
+                "public": "#/components/schemas/FLActorWithAddressRow",
+                "system": "#/components/schemas/FLActorWithAddressRow"
               },
               "propertyName": "kind"
             },
             "oneOf": [
               {
-                "$ref": "#/components/schemas/FLActorWithAdresseRow"
+                "$ref": "#/components/schemas/FLActorWithAddressRow"
               },
               {
                 "$ref": "#/components/schemas/FLActorPerson"
@@ -1337,16 +1337,16 @@
           "actor": {
             "discriminator": {
               "mapping": {
-                "admin_session": "#/components/schemas/FLActorWithAdresseRow",
+                "admin_session": "#/components/schemas/FLActorWithAddressRow",
                 "person_session": "#/components/schemas/FLActorPerson",
-                "public": "#/components/schemas/FLActorWithAdresseRow",
-                "system": "#/components/schemas/FLActorWithAdresseRow"
+                "public": "#/components/schemas/FLActorWithAddressRow",
+                "system": "#/components/schemas/FLActorWithAddressRow"
               },
               "propertyName": "kind"
             },
             "oneOf": [
               {
-                "$ref": "#/components/schemas/FLActorWithAdresseRow"
+                "$ref": "#/components/schemas/FLActorWithAddressRow"
               },
               {
                 "$ref": "#/components/schemas/FLActorPerson"
@@ -1574,7 +1574,7 @@
         "title": "FLActorPerson",
         "type": "object"
       },
-      "FLActorWithAdresseRow": {
+      "FLActorWithAddressRow": {
         "description": "An actor named by `email` as both reads serve one: the stored actor, its address withheld where the ban list holds it.",
         "properties": {
           "email": {
@@ -1607,7 +1607,7 @@
           "email",
           "email_barred"
         ],
-        "title": "FLActorWithAdresseRow",
+        "title": "FLActorWithAddressRow",
         "type": "object"
       },
       "FLAddress": {
@@ -1645,6 +1645,61 @@
           "stadt"
         ],
         "title": "FLAddress",
+        "type": "object"
+      },
+      "FLAddressChangeAddressPayload": {
+        "additionalProperties": false,
+        "description": "Exactly one key: the new mailbox's link token, or the change an approval names.",
+        "properties": {
+          "address_change_id": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-fA-F]{24}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address Change Id"
+          },
+          "token": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Token"
+          }
+        },
+        "title": "FLAddressChangeAddressPayload",
+        "type": "object"
+      },
+      "FLAddressChangeAddressResponse": {
+        "description": "A live change's new address and nothing else, server to server alone.",
+        "properties": {
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          }
+        },
+        "required": [
+          "email"
+        ],
+        "title": "FLAddressChangeAddressResponse",
         "type": "object"
       },
       "FLAddressChangeAdminApproval": {
@@ -1889,9 +1944,9 @@
         "additionalProperties": false,
         "description": "The address a change starts on, the address it goes to, and how the administrator established who asks for it.",
         "properties": {
-          "adresse": {
+          "address": {
             "maxLength": 254,
-            "title": "Adresse",
+            "title": "Address",
             "type": "string"
           },
           "email": {
@@ -1908,7 +1963,7 @@
           }
         },
         "required": [
-          "adresse",
+          "address",
           "email",
           "grund"
         ],
@@ -1919,6 +1974,18 @@
         "additionalProperties": false,
         "description": "Exactly one key: the address typed, or the change a page links to.",
         "properties": {
+          "address": {
+            "anyOf": [
+              {
+                "maxLength": 254,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
           "address_change_id": {
             "anyOf": [
               {
@@ -1930,18 +1997,6 @@
               }
             ],
             "title": "Address Change Id"
-          },
-          "adresse": {
-            "anyOf": [
-              {
-                "maxLength": 254,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Adresse"
           }
         },
         "title": "FLAddressChangeAdminViewPayload",
@@ -1949,8 +2004,8 @@
       },
       "FLAddressChangeAdminViewResponse": {
         "properties": {
-          "adresse": {
-            "title": "Adresse",
+          "address": {
+            "title": "Address",
             "type": "string"
           },
           "holdings": {
@@ -1972,67 +2027,12 @@
           }
         },
         "required": [
-          "adresse",
+          "address",
           "holdings",
           "possible",
           "open"
         ],
         "title": "FLAddressChangeAdminViewResponse",
-        "type": "object"
-      },
-      "FLAddressChangeAdressePayload": {
-        "additionalProperties": false,
-        "description": "Exactly one key: the new mailbox's link token, or the change an approval names.",
-        "properties": {
-          "address_change_id": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9a-fA-F]{24}$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Address Change Id"
-          },
-          "token": {
-            "anyOf": [
-              {
-                "maxLength": 128,
-                "minLength": 1,
-                "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Token"
-          }
-        },
-        "title": "FLAddressChangeAdressePayload",
-        "type": "object"
-      },
-      "FLAddressChangeAdresseResponse": {
-        "description": "A live change's new address and nothing else, server to server alone.",
-        "properties": {
-          "email": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Email"
-          }
-        },
-        "required": [
-          "email"
-        ],
-        "title": "FLAddressChangeAdresseResponse",
         "type": "object"
       },
       "FLAddressChangeAnswer": {
@@ -2145,14 +2145,14 @@
       "FLAddressChangeDiscardedData": {
         "description": "The new mailbox's notice that a confirmed change did not take effect: never why, nor the address on file.",
         "properties": {
-          "art": {
+          "kind": {
             "const": "address_change_discarded",
-            "title": "Art",
+            "title": "Kind",
             "type": "string"
           }
         },
         "required": [
-          "art"
+          "kind"
         ],
         "title": "FLAddressChangeDiscardedData",
         "type": "object"
@@ -2160,14 +2160,14 @@
       "FLAddressChangeEffectiveData": {
         "description": "The replaced address's notice that the change took effect.",
         "properties": {
-          "art": {
-            "const": "address_change_effective",
-            "title": "Art",
-            "type": "string"
-          },
           "instant": {
             "format": "date-time",
             "title": "Instant",
+            "type": "string"
+          },
+          "kind": {
+            "const": "address_change_effective",
+            "title": "Kind",
             "type": "string"
           },
           "vorname": {
@@ -2183,14 +2183,14 @@
           }
         },
         "required": [
-          "art",
+          "kind",
           "instant",
           "vorname"
         ],
         "title": "FLAddressChangeEffectiveData",
         "type": "object"
       },
-      "FLAddressChangeEndArt": {
+      "FLAddressChangeEndKind": {
         "enum": [
           "effective",
           "declined",
@@ -2218,9 +2218,9 @@
       "FLAddressChangeLinkData": {
         "description": "The new mailbox's link to confirm an address change, minted at the hand-out into the change's `token_hashes`.",
         "properties": {
-          "art": {
+          "kind": {
             "const": "address_change_link",
-            "title": "Art",
+            "title": "Kind",
             "type": "string"
           },
           "valid_until": {
@@ -2233,7 +2233,7 @@
           }
         },
         "required": [
-          "art",
+          "kind",
           "way",
           "valid_until"
         ],
@@ -2294,9 +2294,9 @@
       "FLAddressChangeNoticeData": {
         "description": "The address on file's mail about an address change, its link minted at the hand-out into `stop.token_hashes`.\n\nOn the person's own `account` way the link confirms or declines the change before the new mailbox is asked, and once\nit confirmed, stops the change; on the lost-mailbox way it stops the change.",
         "properties": {
-          "art": {
+          "kind": {
             "const": "address_change_notice",
-            "title": "Art",
+            "title": "Kind",
             "type": "string"
           },
           "valid_until": {
@@ -2320,7 +2320,7 @@
           }
         },
         "required": [
-          "art",
+          "kind",
           "way",
           "valid_until",
           "vorname"
@@ -2417,13 +2417,13 @@
       "FLAddressChangeViewEnded": {
         "description": "What either link opens once its change ended, for as long as its record is kept.",
         "properties": {
-          "art": {
-            "$ref": "#/components/schemas/FLAddressChangeEndArt"
-          },
           "ended_on": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Ended On",
             "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/FLAddressChangeEndKind"
           },
           "released_on": {
             "anyOf": [
@@ -2457,7 +2457,7 @@
         "required": [
           "side",
           "state",
-          "art",
+          "kind",
           "ended_on",
           "way",
           "released_on"
@@ -2672,8 +2672,8 @@
       },
       "FLAddressChangeViewableDenied": {
         "enum": [
-          "own",
-          "admin_tier"
+          "own_address",
+          "admin_address"
         ],
         "type": "string"
       },
@@ -2933,11 +2933,6 @@
       "FLBanData": {
         "description": "The ban's own notice, the one mail a ban does not stop (`app/api/outbox/services.py :: UNBARRED`).",
         "properties": {
-          "art": {
-            "const": "ban",
-            "title": "Art",
-            "type": "string"
-          },
           "barred_until_saison_id": {
             "title": "Barred Until Saison Id",
             "type": "string"
@@ -2945,10 +2940,15 @@
           "grund": {
             "title": "Grund",
             "type": "string"
+          },
+          "kind": {
+            "const": "ban",
+            "title": "Kind",
+            "type": "string"
           }
         },
         "required": [
-          "art",
+          "kind",
           "grund",
           "barred_until_saison_id"
         ],
@@ -3062,13 +3062,13 @@
       "FLBewerbungAbsageData": {
         "description": "A decline, to one person of the application, with the administrator's reason verbatim.",
         "properties": {
-          "art": {
-            "const": "bewerbung_absage",
-            "title": "Art",
-            "type": "string"
-          },
           "grund": {
             "title": "Grund",
+            "type": "string"
+          },
+          "kind": {
+            "const": "bewerbung_absage",
+            "title": "Kind",
             "type": "string"
           },
           "rollen": {
@@ -3089,7 +3089,7 @@
           }
         },
         "required": [
-          "art",
+          "kind",
           "team",
           "saison_id",
           "rollen",
@@ -3524,9 +3524,9 @@
       "FLBewerbungErasureData": {
         "description": "The fourteen-day deletion notice, to the submitter, naming who never confirmed; owed in the erasure's own write.",
         "properties": {
-          "art": {
+          "kind": {
             "const": "bewerbung_erasure",
-            "title": "Art",
+            "title": "Kind",
             "type": "string"
           },
           "pending": {
@@ -3550,7 +3550,7 @@
           }
         },
         "required": [
-          "art",
+          "kind",
           "saison_id",
           "rollen",
           "pending"
@@ -3789,17 +3789,17 @@
       "FLBewerbungLinkData": {
         "description": "One person's confirmation link on an application: at its submission, a re-send, a correction or a reseat, or the one reminder.\n\n`rollen` are every seat the link answers, two where the Trainer holds a second; the reminder's link joins the first.",
         "properties": {
-          "art": {
+          "frist": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Frist",
+            "type": "string"
+          },
+          "kind": {
             "enum": [
               "bewerbung_confirmation",
               "bewerbung_reminder"
             ],
-            "title": "Art",
-            "type": "string"
-          },
-          "frist": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Frist",
+            "title": "Kind",
             "type": "string"
           },
           "rollen": {
@@ -3820,7 +3820,7 @@
           }
         },
         "required": [
-          "art",
+          "kind",
           "saison_id",
           "schule",
           "rollen",
@@ -3851,17 +3851,17 @@
       "FLBewerbungObjectionData": {
         "description": "A contact's Widerspruch, to the submitter, naming the person who refused: it stands as the deletion notice too.",
         "properties": {
-          "art": {
-            "const": "bewerbung_objection",
-            "title": "Art",
-            "type": "string"
-          },
           "declined": {
             "$ref": "#/components/schemas/FLBewerbungPerson"
           },
           "frist": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Frist",
+            "type": "string"
+          },
+          "kind": {
+            "const": "bewerbung_objection",
+            "title": "Kind",
             "type": "string"
           },
           "rollen": {
@@ -3878,7 +3878,7 @@
           }
         },
         "required": [
-          "art",
+          "kind",
           "saison_id",
           "rollen",
           "declined",
@@ -3920,14 +3920,14 @@
       "FLBewerbungReceivedData": {
         "description": "The submitter's receipt, which carries their own link: the Ansprechperson's seats and every other person still to answer.",
         "properties": {
-          "art": {
-            "const": "bewerbung_received",
-            "title": "Art",
-            "type": "string"
-          },
           "frist": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Frist",
+            "type": "string"
+          },
+          "kind": {
+            "const": "bewerbung_received",
+            "title": "Kind",
             "type": "string"
           },
           "pending": {
@@ -3951,7 +3951,7 @@
           }
         },
         "required": [
-          "art",
+          "kind",
           "saison_id",
           "rollen",
           "pending",
@@ -4313,13 +4313,13 @@
       "FLBewerbungZusageData": {
         "description": "An acceptance, to one person of the application, naming the seats they were entered for.",
         "properties": {
-          "art": {
-            "const": "bewerbung_zusage",
-            "title": "Art",
-            "type": "string"
-          },
           "gruppe": {
             "$ref": "#/components/schemas/FLGruppenNames"
+          },
+          "kind": {
+            "const": "bewerbung_zusage",
+            "title": "Kind",
+            "type": "string"
           },
           "rollen": {
             "items": {
@@ -4360,7 +4360,7 @@
           }
         },
         "required": [
-          "art",
+          "kind",
           "team",
           "saison_id",
           "rollen",
@@ -4987,9 +4987,9 @@
             "title": "Confirmed At",
             "type": "string"
           },
-          "datum": {
+          "date": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Datum",
+            "title": "Date",
             "type": "string"
           },
           "evidence": {
@@ -4999,13 +4999,13 @@
             "title": "Media",
             "type": "boolean"
           },
-          "umfang": {
-            "$ref": "#/components/schemas/FLEinwilligungUmfang"
+          "scope": {
+            "$ref": "#/components/schemas/FLEinwilligungScope"
           }
         },
         "required": [
-          "umfang",
-          "datum",
+          "scope",
+          "date",
           "confirmed_at",
           "media",
           "evidence"
@@ -5062,7 +5062,7 @@
               }
             ]
           },
-          "umfang": {
+          "scope": {
             "anyOf": [
               {
                 "$ref": "#/components/schemas/FLEinwilligungEvidence"
@@ -5074,7 +5074,7 @@
           }
         },
         "required": [
-          "umfang",
+          "scope",
           "media"
         ],
         "title": "FLEinwilligungEvidenceSet",
@@ -5098,8 +5098,15 @@
         "title": "FLEinwilligungReceipt",
         "type": "object"
       },
-      "FLEinwilligungStand": {
-        "description": "Each choice's stand where the account page was served, null where the record carried no evidence for it.\n\nA consent PATCH's precondition, echoed back as served, never a secret.",
+      "FLEinwilligungScope": {
+        "enum": [
+          "kader_oeffentlich",
+          "intern"
+        ],
+        "type": "string"
+      },
+      "FLEinwilligungState": {
+        "description": "Each choice's state where the account page was served, null where the record carried no evidence for it.\n\nA consent PATCH's precondition, echoed back as served, never a secret.",
         "properties": {
           "media": {
             "anyOf": [
@@ -5112,7 +5119,7 @@
             ],
             "title": "Media"
           },
-          "umfang": {
+          "scope": {
             "anyOf": [
               {
                 "type": "string"
@@ -5121,17 +5128,17 @@
                 "type": "null"
               }
             ],
-            "title": "Umfang"
+            "title": "Scope"
           }
         },
         "required": [
-          "umfang",
+          "scope",
           "media"
         ],
-        "title": "FLEinwilligungStand",
+        "title": "FLEinwilligungState",
         "type": "object"
       },
-      "FLEinwilligungStandPayload": {
+      "FLEinwilligungStatePayload": {
         "additionalProperties": false,
         "properties": {
           "media": {
@@ -5145,7 +5152,7 @@
             ],
             "title": "Media"
           },
-          "umfang": {
+          "scope": {
             "anyOf": [
               {
                 "type": "string"
@@ -5154,40 +5161,33 @@
                 "type": "null"
               }
             ],
-            "title": "Umfang"
+            "title": "Scope"
           }
         },
         "required": [
-          "umfang",
+          "scope",
           "media"
         ],
-        "title": "FLEinwilligungStandPayload",
+        "title": "FLEinwilligungStatePayload",
         "type": "object"
       },
       "FLEinwilligungTextVersion": {
         "anyOf": [
           {
-            "$ref": "#/components/schemas/FLSeatUmfangTextVersion"
+            "$ref": "#/components/schemas/FLSeatScopeTextVersion"
           },
           {
-            "$ref": "#/components/schemas/FLSpielerUmfangTextVersion"
+            "$ref": "#/components/schemas/FLSpielerScopeTextVersion"
           },
           {
-            "$ref": "#/components/schemas/FLSchiedsrichterUmfangTextVersion"
+            "$ref": "#/components/schemas/FLSchiedsrichterScopeTextVersion"
           },
           {
             "$ref": "#/components/schemas/FLCitedMediaTextVersion"
           }
         ]
       },
-      "FLEinwilligungUmfang": {
-        "enum": [
-          "kader_oeffentlich",
-          "intern"
-        ],
-        "type": "string"
-      },
-      "FLErasureAdressePayload": {
+      "FLErasureAddressPayload": {
         "additionalProperties": false,
         "description": "The mailbox an erasure, its preview or a sign-out of every session is looked up by.",
         "properties": {
@@ -5202,7 +5202,7 @@
         "required": [
           "email"
         ],
-        "title": "FLErasureAdressePayload",
+        "title": "FLErasureAddressPayload",
         "type": "object"
       },
       "FLErasurePayload": {
@@ -5410,7 +5410,7 @@
         "type": "object"
       },
       "FLErasureViewApprovalRequest": {
-        "description": "An open request for a grant, about the address (`betroffen`) or made by it (`gestellt`), which the erasure removes.",
+        "description": "An open request for a grant, about the address (`target`) or made by it (`requester`), which the erasure removes.",
         "properties": {
           "admin_tier": {
             "$ref": "#/components/schemas/FLAdminTier"
@@ -5420,19 +5420,19 @@
             "title": "Approval Request Id",
             "type": "string"
           },
-          "rolle": {
+          "party": {
             "enum": [
-              "betroffen",
-              "gestellt"
+              "target",
+              "requester"
             ],
-            "title": "Rolle",
+            "title": "Party",
             "type": "string"
           }
         },
         "required": [
           "approval_request_id",
           "admin_tier",
-          "rolle"
+          "party"
         ],
         "title": "FLErasureViewApprovalRequest",
         "type": "object"
@@ -6009,10 +6009,7 @@
       "FLGrantApprovalRequestRow": {
         "description": "One request as the list serves it, while it may still be decided.",
         "properties": {
-          "admin_tier": {
-            "$ref": "#/components/schemas/FLAdminTier"
-          },
-          "adresse": {
+          "address": {
             "anyOf": [
               {
                 "type": "string"
@@ -6021,7 +6018,10 @@
                 "type": "null"
               }
             ],
-            "title": "Adresse"
+            "title": "Address"
+          },
+          "admin_tier": {
+            "$ref": "#/components/schemas/FLAdminTier"
           },
           "asked_at": {
             "format": "date-time",
@@ -6086,7 +6086,7 @@
         },
         "required": [
           "id",
-          "adresse",
+          "address",
           "barred",
           "grant_id",
           "admin_tier",
@@ -6103,11 +6103,6 @@
       "FLGrantData": {
         "description": "A change to a grant, or a grant or promotion asked for, as the notice to each administrator states it.",
         "properties": {
-          "art": {
-            "const": "grant",
-            "title": "Art",
-            "type": "string"
-          },
           "author": {
             "enum": [
               "anwendung",
@@ -6159,6 +6154,11 @@
             ],
             "title": "Changed By"
           },
+          "kind": {
+            "const": "grant",
+            "title": "Kind",
+            "type": "string"
+          },
           "now": {
             "anyOf": [
               {
@@ -6186,7 +6186,7 @@
           }
         },
         "required": [
-          "art",
+          "kind",
           "change",
           "author",
           "now",
@@ -6215,6 +6215,17 @@
       "FLGrantRow": {
         "description": "One grant as the list serves it.",
         "properties": {
+          "address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
           "address_change": {
             "anyOf": [
               {
@@ -6227,17 +6238,6 @@
           },
           "admin_tier": {
             "$ref": "#/components/schemas/FLAdminTier"
-          },
-          "adresse": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Adresse"
           },
           "barred": {
             "title": "Barred",
@@ -6275,7 +6275,7 @@
         },
         "required": [
           "id",
-          "adresse",
+          "address",
           "barred",
           "admin_tier",
           "granted_by",
@@ -6290,10 +6290,7 @@
       "FLGrantSnapshot": {
         "description": "One grant's address and tier at one moment.",
         "properties": {
-          "admin_tier": {
-            "$ref": "#/components/schemas/FLAdminTier"
-          },
-          "adresse": {
+          "address": {
             "anyOf": [
               {
                 "type": "string"
@@ -6302,11 +6299,14 @@
                 "type": "null"
               }
             ],
-            "title": "Adresse"
+            "title": "Address"
+          },
+          "admin_tier": {
+            "$ref": "#/components/schemas/FLAdminTier"
           }
         },
         "required": [
-          "adresse",
+          "address",
           "admin_tier"
         ],
         "title": "FLGrantSnapshot",
@@ -6396,9 +6396,9 @@
       "FLInvitationData": {
         "description": "A team's registration link, to one confirmed contact seat, for the pupils to register through.",
         "properties": {
-          "art": {
+          "kind": {
             "const": "invitation",
-            "title": "Art",
+            "title": "Kind",
             "type": "string"
           },
           "saison_id": {
@@ -6411,7 +6411,7 @@
           }
         },
         "required": [
-          "art",
+          "kind",
           "team",
           "saison_id"
         ],
@@ -7158,9 +7158,9 @@
             ],
             "title": "Confirmed At"
           },
-          "datum": {
+          "date": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Datum",
+            "title": "Date",
             "type": "string"
           },
           "entered_by": {
@@ -7173,13 +7173,13 @@
             "title": "Media",
             "type": "boolean"
           },
-          "umfang": {
-            "$ref": "#/components/schemas/FLKontaktKenntnisnahmeUmfang"
+          "scope": {
+            "$ref": "#/components/schemas/FLKontaktKenntnisnahmeScope"
           }
         },
         "required": [
-          "umfang",
-          "datum",
+          "scope",
+          "date",
           "confirmed_at",
           "media",
           "entered_by",
@@ -7191,25 +7191,25 @@
       "FLKontaktKenntnisnahmePayload": {
         "additionalProperties": false,
         "properties": {
-          "datum": {
+          "date": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Datum",
+            "title": "Date",
             "type": "string"
           },
-          "umfang": {
+          "scope": {
             "const": "kontaktdaten",
-            "title": "Umfang",
+            "title": "Scope",
             "type": "string"
           }
         },
         "required": [
-          "umfang",
-          "datum"
+          "scope",
+          "date"
         ],
         "title": "FLKontaktKenntnisnahmePayload",
         "type": "object"
       },
-      "FLKontaktKenntnisnahmeUmfang": {
+      "FLKontaktKenntnisnahmeScope": {
         "enum": [
           "kontaktdaten",
           "kontaktdaten_whatsapp"
@@ -7219,14 +7219,14 @@
       "FLKontaktLinkData": {
         "description": "One person an administrator seated on a team's season row, asked to confirm: no name, the address being unconfirmed.",
         "properties": {
-          "art": {
-            "const": "kontakt_confirmation",
-            "title": "Art",
-            "type": "string"
-          },
           "frist": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Frist",
+            "type": "string"
+          },
+          "kind": {
+            "const": "kontakt_confirmation",
+            "title": "Kind",
             "type": "string"
           },
           "rollen": {
@@ -7250,7 +7250,7 @@
           }
         },
         "required": [
-          "art",
+          "kind",
           "saison_id",
           "schule",
           "rollen",
@@ -8038,7 +8038,7 @@
                 "spiel_request": "#/components/schemas/FLSpielRequestData",
                 "spiel_vorschlag_discarded": "#/components/schemas/FLSpielVorschlagDiscardedData"
               },
-              "propertyName": "art"
+              "propertyName": "kind"
             },
             "oneOf": [
               {
@@ -8309,7 +8309,7 @@
                 "passkey_erased": "#/components/schemas/FLPasskeyData",
                 "sign_in_code": "#/components/schemas/FLSignInCodeData"
               },
-              "propertyName": "art"
+              "propertyName": "kind"
             },
             "oneOf": [
               {
@@ -8407,22 +8407,22 @@
             "title": "Account",
             "type": "string"
           },
-          "art": {
-            "enum": [
-              "passkey_added",
-              "passkey_erased"
-            ],
-            "title": "Art",
-            "type": "string"
-          },
           "instant": {
             "format": "date-time",
             "title": "Instant",
             "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "passkey_added",
+              "passkey_erased"
+            ],
+            "title": "Kind",
+            "type": "string"
           }
         },
         "required": [
-          "art",
+          "kind",
           "instant",
           "account"
         ],
@@ -10094,11 +10094,6 @@
       "FLRegistrierungAbsageData": {
         "description": "A team's decline, to a pupil whose address was confirmed.",
         "properties": {
-          "art": {
-            "const": "registrierung_absage",
-            "title": "Art",
-            "type": "string"
-          },
           "grund": {
             "anyOf": [
               {
@@ -10110,6 +10105,11 @@
               }
             ],
             "title": "Grund"
+          },
+          "kind": {
+            "const": "registrierung_absage",
+            "title": "Kind",
+            "type": "string"
           },
           "saison_id": {
             "title": "Saison Id",
@@ -10125,7 +10125,7 @@
           }
         },
         "required": [
-          "art",
+          "kind",
           "vorname",
           "team",
           "saison_id",
@@ -10271,6 +10271,16 @@
             ],
             "title": "Media"
           },
+          "scope": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLEinwilligungScope"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "text_versions": {
             "anyOf": [
               {
@@ -10287,22 +10297,12 @@
             "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
             "title": "Token",
             "type": "string"
-          },
-          "umfang": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLEinwilligungUmfang"
-              },
-              {
-                "type": "null"
-              }
-            ]
           }
         },
         "required": [
           "token",
           "geburtsdatum",
-          "umfang",
+          "scope",
           "media",
           "text_versions"
         ],
@@ -10340,10 +10340,10 @@
             ],
             "title": "Media"
           },
-          "umfang": {
+          "scope": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/FLEinwilligungUmfang"
+                "$ref": "#/components/schemas/FLEinwilligungScope"
               },
               {
                 "type": "null"
@@ -10354,7 +10354,7 @@
         "required": [
           "ergebnis",
           "geburtsdatum",
-          "umfang",
+          "scope",
           "media"
         ],
         "title": "FLRegistrierungConfirmationResponse",
@@ -10500,14 +10500,14 @@
         "type": "object"
       },
       "FLRegistrierungEinwilligung": {
-        "description": "A pending registration's consent record, each choice and `datum` optional here alone.\n\nA returning pupil's page asks no choice.",
+        "description": "A pending registration's consent record, each choice and `date` optional here alone.\n\nA returning pupil's page asks no choice.",
         "properties": {
           "confirmed_at": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Confirmed At",
             "type": "string"
           },
-          "datum": {
+          "date": {
             "anyOf": [
               {
                 "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -10517,7 +10517,7 @@
                 "type": "null"
               }
             ],
-            "title": "Datum"
+            "title": "Date"
           },
           "evidence": {
             "$ref": "#/components/schemas/FLEinwilligungEvidenceSet"
@@ -10533,10 +10533,10 @@
             ],
             "title": "Media"
           },
-          "umfang": {
+          "scope": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/FLEinwilligungUmfang"
+                "$ref": "#/components/schemas/FLEinwilligungScope"
               },
               {
                 "type": "null"
@@ -10545,8 +10545,8 @@
           }
         },
         "required": [
-          "umfang",
-          "datum",
+          "scope",
+          "date",
           "confirmed_at",
           "media",
           "evidence"
@@ -10557,18 +10557,18 @@
       "FLRegistrierungLinkData": {
         "description": "A pupil's confirmation link, first or as the one reminder, which joins the first link rather than replacing it.",
         "properties": {
-          "art": {
-            "enum": [
-              "registrierung_confirmation",
-              "registrierung_reminder"
-            ],
-            "title": "Art",
-            "type": "string"
-          },
           "frist_days": {
             "minimum": 1.0,
             "title": "Frist Days",
             "type": "integer"
+          },
+          "kind": {
+            "enum": [
+              "registrierung_confirmation",
+              "registrierung_reminder"
+            ],
+            "title": "Kind",
+            "type": "string"
           },
           "saison_id": {
             "title": "Saison Id",
@@ -10580,7 +10580,7 @@
           }
         },
         "required": [
-          "art",
+          "kind",
           "team",
           "saison_id",
           "frist_days"
@@ -11941,21 +11941,21 @@
         "description": "A referee's own two choices on their record.",
         "properties": {
           "evidence_state": {
-            "$ref": "#/components/schemas/FLEinwilligungStandPayload"
+            "$ref": "#/components/schemas/FLEinwilligungStatePayload"
           },
           "media": {
             "title": "Media",
             "type": "boolean"
           },
+          "scope": {
+            "$ref": "#/components/schemas/FLEinwilligungScope"
+          },
           "text_versions": {
             "$ref": "#/components/schemas/FLSchiedsrichterTextVersions"
-          },
-          "umfang": {
-            "$ref": "#/components/schemas/FLEinwilligungUmfang"
           }
         },
         "required": [
-          "umfang",
+          "scope",
           "media",
           "evidence_state",
           "text_versions"
@@ -11966,19 +11966,19 @@
       "FLSchiedsrichterConfirmationData": {
         "description": "A referee's confirmation link, owed by their entry, a corrected address, a re-send or their return.",
         "properties": {
-          "art": {
-            "const": "schiedsrichter_confirmation",
-            "title": "Art",
-            "type": "string"
-          },
           "frist": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Frist",
             "type": "string"
+          },
+          "kind": {
+            "const": "schiedsrichter_confirmation",
+            "title": "Kind",
+            "type": "string"
           }
         },
         "required": [
-          "art",
+          "kind",
           "frist"
         ],
         "title": "FLSchiedsrichterConfirmationData",
@@ -12000,6 +12000,9 @@
             "title": "Media",
             "type": "boolean"
           },
+          "scope": {
+            "$ref": "#/components/schemas/FLEinwilligungScope"
+          },
           "text_versions": {
             "$ref": "#/components/schemas/FLSchiedsrichterTextVersions"
           },
@@ -12009,15 +12012,12 @@
             "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
             "title": "Token",
             "type": "string"
-          },
-          "umfang": {
-            "$ref": "#/components/schemas/FLEinwilligungUmfang"
           }
         },
         "required": [
           "token",
           "geburtsdatum",
-          "umfang",
+          "scope",
           "media",
           "text_versions"
         ],
@@ -12036,12 +12036,12 @@
             "title": "Media",
             "type": "boolean"
           },
-          "umfang": {
-            "$ref": "#/components/schemas/FLEinwilligungUmfang"
+          "scope": {
+            "$ref": "#/components/schemas/FLEinwilligungScope"
           }
         },
         "required": [
-          "umfang",
+          "scope",
           "media",
           "confirmed_at"
         ],
@@ -12147,6 +12147,10 @@
         ],
         "title": "FLSchiedsrichterReactivateResponse",
         "type": "object"
+      },
+      "FLSchiedsrichterScopeTextVersion": {
+        "const": "2026-11-name-spielplan-1",
+        "type": "string"
       },
       "FLSchiedsrichterSelf": {
         "description": "The referee's own page's read: the record and its fee.\n\nThe fee is this read's alone: the account page shows it nowhere, so its entry extends the record without it.",
@@ -12279,20 +12283,16 @@
           "media": {
             "$ref": "#/components/schemas/FLCitedMediaTextVersion"
           },
-          "umfang": {
-            "$ref": "#/components/schemas/FLSchiedsrichterUmfangTextVersion"
+          "scope": {
+            "$ref": "#/components/schemas/FLSchiedsrichterScopeTextVersion"
           }
         },
         "required": [
-          "umfang",
+          "scope",
           "media"
         ],
         "title": "FLSchiedsrichterTextVersions",
         "type": "object"
-      },
-      "FLSchiedsrichterUmfangTextVersion": {
-        "const": "2026-11-name-spielplan-1",
-        "type": "string"
       },
       "FLSchulform": {
         "enum": [
@@ -12310,27 +12310,31 @@
         "description": "A seat holder's own two choices for every seat they hold on one row, under any label their kind cites.\n\nBoth choices on every press: a page that sent one alone would leave the other judged by nothing.",
         "properties": {
           "evidence_state": {
-            "$ref": "#/components/schemas/FLEinwilligungStandPayload"
+            "$ref": "#/components/schemas/FLEinwilligungStatePayload"
           },
           "media": {
             "title": "Media",
             "type": "boolean"
           },
+          "scope": {
+            "$ref": "#/components/schemas/FLKontaktKenntnisnahmeScope"
+          },
           "text_versions": {
             "$ref": "#/components/schemas/FLSeatTextVersions"
-          },
-          "umfang": {
-            "$ref": "#/components/schemas/FLKontaktKenntnisnahmeUmfang"
           }
         },
         "required": [
-          "umfang",
+          "scope",
           "media",
           "text_versions",
           "evidence_state"
         ],
         "title": "FLSeatEinwilligungPayload",
         "type": "object"
+      },
+      "FLSeatScopeTextVersion": {
+        "const": "2026-11-whatsapp-1",
+        "type": "string"
       },
       "FLSeatTextVersions": {
         "additionalProperties": false,
@@ -12339,31 +12343,27 @@
           "media": {
             "$ref": "#/components/schemas/FLCitedMediaTextVersion"
           },
-          "umfang": {
-            "$ref": "#/components/schemas/FLSeatUmfangTextVersion"
+          "scope": {
+            "$ref": "#/components/schemas/FLSeatScopeTextVersion"
           }
         },
         "required": [
-          "umfang",
+          "scope",
           "media"
         ],
         "title": "FLSeatTextVersions",
         "type": "object"
       },
-      "FLSeatUmfangTextVersion": {
-        "const": "2026-11-whatsapp-1",
-        "type": "string"
-      },
       "FLSignInCodeData": {
         "properties": {
-          "art": {
+          "kind": {
             "const": "sign_in_code",
-            "title": "Art",
+            "title": "Kind",
             "type": "string"
           }
         },
         "required": [
-          "art"
+          "kind"
         ],
         "title": "FLSignInCodeData",
         "type": "object"
@@ -12408,6 +12408,10 @@
         "properties": {},
         "title": "FLSignOutResponse",
         "type": "object"
+      },
+      "FLSignatoryMinAgeYears": {
+        "const": 18,
+        "type": "integer"
       },
       "FLSonderereignis": {
         "enum": [
@@ -12578,14 +12582,14 @@
           "ansetzung": {
             "$ref": "#/components/schemas/FLSpielMailAnsetzung"
           },
-          "art": {
+          "kind": {
             "const": "spiel_einteilung",
-            "title": "Art",
+            "title": "Kind",
             "type": "string"
           }
         },
         "required": [
-          "art",
+          "kind",
           "ansetzung"
         ],
         "title": "FLSpielEinteilungData",
@@ -12597,14 +12601,14 @@
           "appointment": {
             "$ref": "#/components/schemas/FLSpielMailAppointment"
           },
-          "art": {
+          "kind": {
             "const": "spiel_einteilung_lifted",
-            "title": "Art",
+            "title": "Kind",
             "type": "string"
           }
         },
         "required": [
-          "art",
+          "kind",
           "appointment"
         ],
         "title": "FLSpielEinteilungLiftedData",
@@ -13105,12 +13109,12 @@
           "appointment": {
             "$ref": "#/components/schemas/FLSpielMailAppointment"
           },
-          "art": {
+          "kind": {
             "enum": [
               "spiel_new_scheduled",
               "spiel_abgesagt"
             ],
-            "title": "Art",
+            "title": "Kind",
             "type": "string"
           },
           "recipient": {
@@ -13123,7 +13127,7 @@
           }
         },
         "required": [
-          "art",
+          "kind",
           "recipient",
           "appointment"
         ],
@@ -13396,17 +13400,17 @@
           "ansetzung": {
             "$ref": "#/components/schemas/FLSpielMailAnsetzung"
           },
-          "art": {
+          "frist": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Frist",
+            "type": "string"
+          },
+          "kind": {
             "enum": [
               "spiel_request",
               "spiel_reminder"
             ],
-            "title": "Art",
-            "type": "string"
-          },
-          "frist": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Frist",
+            "title": "Kind",
             "type": "string"
           },
           "team": {
@@ -13415,7 +13419,7 @@
           }
         },
         "required": [
-          "art",
+          "kind",
           "team",
           "ansetzung",
           "frist"
@@ -13666,14 +13670,14 @@
           "appointment": {
             "$ref": "#/components/schemas/FLSpielMailAppointment"
           },
-          "art": {
+          "kind": {
             "const": "spiel_vorschlag_discarded",
-            "title": "Art",
+            "title": "Kind",
             "type": "string"
           }
         },
         "required": [
-          "art",
+          "kind",
           "appointment"
         ],
         "title": "FLSpielVorschlagDiscardedData",
@@ -15969,6 +15973,10 @@
         "title": "FLSpielerSaisonsResponse",
         "type": "object"
       },
+      "FLSpielerScopeTextVersion": {
+        "const": "2026-11-name-kader-1",
+        "type": "string"
+      },
       "FLSpielerSelf": {
         "description": "The pupil's own page's read: the record and every squad row it holds.\n\nThe squad rows are this read's alone: the account page lists none, so its entry extends the record without them.",
         "properties": {
@@ -16174,20 +16182,16 @@
           "media": {
             "$ref": "#/components/schemas/FLCitedMediaTextVersion"
           },
-          "umfang": {
-            "$ref": "#/components/schemas/FLSpielerUmfangTextVersion"
+          "scope": {
+            "$ref": "#/components/schemas/FLSpielerScopeTextVersion"
           }
         },
         "required": [
-          "umfang",
+          "scope",
           "media"
         ],
         "title": "FLSpielerTextVersions",
         "type": "object"
-      },
-      "FLSpielerUmfangTextVersion": {
-        "const": "2026-11-name-kader-1",
-        "type": "string"
       },
       "FLSpielerWithMemberships": {
         "description": "The person as stored, plus every squad row they hold.\n\nA DIFFERENT question from `FLSpieler`, not a projection: that one is FLATTENED against one\nseason, so a player in two comes back as two indistinguishable rows.",
@@ -17819,10 +17823,6 @@
         "title": "FLUndrawSpielplanResponse",
         "type": "object"
       },
-      "FLVertretungMinAgeYears": {
-        "const": 18,
-        "type": "integer"
-      },
       "FLWhatsappTextVersion": {
         "const": "2026-11-whatsapp-1",
         "type": "string"
@@ -18359,7 +18359,7 @@
     },
     "/api/v0/address_change": {
       "post": {
-        "description": "Start a change of the typed address for a person who says they cannot sign in, its mails owed in the same transaction.\n\n**Nothing moves here.** The `grund` records how the administrator established who asks, the address on file being\nlost: a person who can still sign in there changes it on their own account page. The new mailbox is owed its link\nand the address on file a notice with its stop link; the change then takes effect\n`ADDRESS_CHANGE_WAITING_PERIOD_DAYS` after the new mailbox confirms. Where the address holds a grant, the change also\nwaits on another administrator's approval, never this one's. No link is answered. The address's live change ends\nreplaced.\n\nRefused the administrator's own address (`own_adresse`), a grant holder's without an owner's power\n(`admin_address`), the address on file typed again (`address_change_unchanged`), a new address the ban list holds\n(`address_change_barred`), an address holding nothing a change moves (`address_change_nothing`), a new address another pupil signs in on\nwhere the change moves a pupil (`address_change_taken`), a new address any entry names, confirmed or not (`address_change_occupied`), and a\ngrant nobody could approve (`address_change_no_approver`).",
+        "description": "Start a change of the typed address for a person who says they cannot sign in, its mails owed in the same transaction.\n\n**Nothing moves here.** The `grund` records how the administrator established who asks, the address on file being\nlost: a person who can still sign in there changes it on their own account page. The new mailbox is owed its link\nand the address on file a notice with its stop link; the change then takes effect\n`ADDRESS_CHANGE_WAITING_PERIOD_DAYS` after the new mailbox confirms. Where the address holds a grant, the change also\nwaits on another administrator's approval, never this one's. No link is answered. The address's live change ends\nreplaced.\n\nRefused the administrator's own address (`own_address`), a grant holder's without an owner's power\n(`admin_address`), the address on file typed again (`address_change_unchanged`), a new address the ban list holds\n(`address_change_barred`), an address holding nothing a change moves (`address_change_nothing`), a new address another pupil signs in on\nwhere the change moves a pupil (`address_change_taken`), a new address any entry names, confirmed or not (`address_change_occupied`), and a\ngrant nobody could approve (`address_change_no_approver`).",
         "operationId": "address_change_post_address_change_admin",
         "requestBody": {
           "content": {
@@ -18430,15 +18430,15 @@
         ]
       }
     },
-    "/api/v0/address_change/adresse": {
+    "/api/v0/address_change/address": {
       "post": {
         "description": "Answer the new address of the live change the new mailbox's link token or the change's id names, folded to the sign-in identifier.\n\nFor the frontend's server alone, which asks its sign-in store whether an account stands there before a press, a link's\nview or an approval; the link's own view never serves the address. A token or id naming no live change -- unknown,\nended, or the stop link's token -- is answered null rather than refused, so a lapsed or answered link costs no\nerror. Stores nothing, and a POST for `POST /identity/subject`'s reason: the token travels in the body, and the\naddress only in the answer.",
-        "operationId": "address_change_get_address_change_adresse",
+        "operationId": "address_change_get_address_change_address",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/FLAddressChangeAdressePayload"
+                "$ref": "#/components/schemas/FLAddressChangeAddressPayload"
               }
             }
           },
@@ -18449,7 +18449,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLAddressChangeAdresseResponse"
+                  "$ref": "#/components/schemas/FLAddressChangeAddressResponse"
                 }
               }
             },
@@ -18944,7 +18944,7 @@
     },
     "/api/v0/address_change/view": {
       "post": {
-        "description": "Answer what the typed address holds that a change moves, by kind, and its live change whole, the new address and reason included.\n\nADMIN TIER, the address tool's read, keyed by the address the administrator types or by a change a page links to;\nnever a hash. `possible` where the address holds anything a change moves, a grant included. Stores nothing.\n\nRefused as the erasure's reveal is: the administrator's own address (`own_adresse`), and an address holding a live\ngrant unless the administrator holds an owner's power (`admin_address`). A change id answers 404 where no change is\nkept, and `address_change_ended` where it ended.",
+        "description": "Answer what the typed address holds that a change moves, by kind, and its live change whole, the new address and reason included.\n\nADMIN TIER, the address tool's read, keyed by the address the administrator types or by a change a page links to;\nnever a hash. `possible` where the address holds anything a change moves, a grant included. Stores nothing.\n\nRefused as the erasure's reveal is: the administrator's own address (`own_address`), and an address holding a live\ngrant unless the administrator holds an owner's power (`admin_address`). A change id answers 404 where no change is\nkept, and `address_change_ended` where it ended.",
         "operationId": "address_change_get_address_change_admin_view",
         "requestBody": {
           "content": {
@@ -19018,7 +19018,7 @@
     },
     "/api/v0/address_change/{address_change_id}": {
       "delete": {
-        "description": "Discard the change this id names: its links open nothing to press, and the address on file stays.\n\n**Its address goes from the action log too**: every image the log holds of the change\nloses its new address and reason, the rest of each image standing. Journalled as the stop is, so a restore does not\nbring back a change confirmed in its waiting time to take effect. Nothing is mailed. Acts on the change the id names\nalone, so a page showing a change since replaced discards nothing.\n\nRefused as the start is about who asks (`own_adresse`, `admin_address`), and where the change ended\n(`address_change_ended`); 404 for an id naming no change.",
+        "description": "Discard the change this id names: its links open nothing to press, and the address on file stays.\n\n**Its address goes from the action log too**: every image the log holds of the change\nloses its new address and reason, the rest of each image standing. Journalled as the stop is, so a restore does not\nbring back a change confirmed in its waiting time to take effect. Nothing is mailed. Acts on the change the id names\nalone, so a page showing a change since replaced discards nothing.\n\nRefused as the start is about who asks (`own_address`, `admin_address`), and where the change ended\n(`address_change_ended`); 404 for an id naming no change.",
         "operationId": "address_change_delete_address_change",
         "parameters": [
           {
@@ -19168,7 +19168,7 @@
     },
     "/api/v0/address_change/{address_change_id}/invite": {
       "post": {
-        "description": "Owe the new mailbox a fresh link for the change this id names, in the same transaction.\n\nThe previous link stops working once the fresh one is handed out; the deadline restarts now. The stop link stays, so\nthe address on file is mailed nothing again. A lapsed link is no refusal while the change stands, which is until the\nnext hourly pass ends it. Acts on the change the id names alone, so a page showing a change since replaced re-sends\nnothing.\n\nRefused as the start is about who asks (`own_adresse`, `admin_address`), where the ban list holds the pending address\n(`address_change_barred`), where another pupil has come to sign in on it (`address_change_taken`), where an entry has come to name it,\nconfirmed or not (`address_change_occupied`), where a grant's approval week has passed (`link_expired`), and where the change ended\n(`address_change_ended`). 404 for an id naming no change, and unless the change waits on the new mailbox: one awaiting the address on\nfile's confirmation, or confirmed, has no link to re-send.",
+        "description": "Owe the new mailbox a fresh link for the change this id names, in the same transaction.\n\nThe previous link stops working once the fresh one is handed out; the deadline restarts now. The stop link stays, so\nthe address on file is mailed nothing again. A lapsed link is no refusal while the change stands, which is until the\nnext hourly pass ends it. Acts on the change the id names alone, so a page showing a change since replaced re-sends\nnothing.\n\nRefused as the start is about who asks (`own_address`, `admin_address`), where the ban list holds the pending address\n(`address_change_barred`), where another pupil has come to sign in on it (`address_change_taken`), where an entry has come to name it,\nconfirmed or not (`address_change_occupied`), where a grant's approval week has passed (`link_expired`), and where the change ended\n(`address_change_ended`). 404 for an id naming no change, and unless the change waits on the new mailbox: one awaiting the address on\nfile's confirmation, or confirmed, has no link to re-send.",
         "operationId": "address_change_invite_address_change",
         "parameters": [
           {
@@ -19392,7 +19392,7 @@
         ]
       },
       "post": {
-        "description": "Store one school's application to play one season as submitted, and owe each contact person their confirmation mail.\n\nEverything the league decides -- `status`, `submitted_at`, `decision` and each consent's\nscope, source and date -- is written here and never taken off the payload. One mail per person is owed in the\nsame transaction, a person holding two seats being sent one link for both: the Ansprechperson the receipt naming\nwho is still to answer, every other person their link. Each link is minted when its mail is handed out; no token\nis answered.\n\nAn `Idempotency-Key` header makes a second press safe. A key already stored answers with the\napplication it holds, stores none and owes nothing again. The same key over other details is refused\n(`bewerbung_key_differing`).\n\nAn address the ban list holds, on any seat, is refused (`bewerbung_adresse_barred`) on a first press.",
+        "description": "Store one school's application to play one season as submitted, and owe each contact person their confirmation mail.\n\nEverything the league decides -- `status`, `submitted_at`, `decision` and each consent's\nscope, source and date -- is written here and never taken off the payload. One mail per person is owed in the\nsame transaction, a person holding two seats being sent one link for both: the Ansprechperson the receipt naming\nwho is still to answer, every other person their link. Each link is minted when its mail is handed out; no token\nis answered.\n\nAn `Idempotency-Key` header makes a second press safe. A key already stored answers with the\napplication it holds, stores none and owes nothing again. The same key over other details is refused\n(`bewerbung_key_differing`).\n\nAn address the ban list holds, on any seat, is refused (`bewerbung_address_barred`) on a first press.",
         "operationId": "bewerbungen_post_bewerbung",
         "parameters": [
           {
@@ -21317,7 +21317,7 @@
     },
     "/api/v0/identity/erasure": {
       "post": {
-        "description": "Erase every record an address holds, on a request that person made by mail, at once and as one write, and answer how many of each kind went.\n\nADMIN TIER, a step-up write. It runs the erasure `POST /identity/account/erasure` runs and refuses nothing about the\nperson's own state: a pupil in a live squad and a referee booked on a fixture still to be played are erased on one pass.\nThree refusals are about who asks. The administrator's own address is refused (`own_adresse`): their account page\nserves it, or an owner. An address holding a live grant is refused unless the administrator holds an owner's power,\nsigned in since becoming one (`admin_address`), judged inside the write: erasing it removes the grant, whatever grants\nremain, so it asks what a revoke asks, an owner's power and a sign-in `ENROLMENT_WINDOW_MINUTES` old at most. Every\nother address is erased from a sign-in inside the step-up window. Either window missed answers `confirmation_required`. An\naddress another address's pending change would move to is refused, judged inside the write, where that address holds a\nlive grant and the administrator no owner's power (`foreign_address_change`): the erasure ends the change, a discard only an\nowner makes of it. The refusal tells that administrator some change the preview withholds names the address.\n\n`anlass` names the request the erasure answers, and every log row the erasure files carries it; no other row does.\nNo redaction reaches it, so it is refused 422 where it holds an address. The grant notice names this administrator\nas ending the person's grant. An address holding nothing is answered with every count zero. The 404 and the 409\nanswer only a database changed by hand under the request. The sign-in account is not touched here: deleting it is\nthe caller's, once this has answered.",
+        "description": "Erase every record an address holds, on a request that person made by mail, at once and as one write, and answer how many of each kind went.\n\nADMIN TIER, a step-up write. It runs the erasure `POST /identity/account/erasure` runs and refuses nothing about the\nperson's own state: a pupil in a live squad and a referee booked on a fixture still to be played are erased on one pass.\nThree refusals are about who asks. The administrator's own address is refused (`own_address`): their account page\nserves it, or an owner. An address holding a live grant is refused unless the administrator holds an owner's power,\nsigned in since becoming one (`admin_address`), judged inside the write: erasing it removes the grant, whatever grants\nremain, so it asks what a revoke asks, an owner's power and a sign-in `ENROLMENT_WINDOW_MINUTES` old at most. Every\nother address is erased from a sign-in inside the step-up window. Either window missed answers `confirmation_required`. An\naddress another address's pending change would move to is refused, judged inside the write, where that address holds a\nlive grant and the administrator no owner's power (`foreign_address_change`): the erasure ends the change, a discard only an\nowner makes of it. The refusal tells that administrator some change the preview withholds names the address.\n\n`anlass` names the request the erasure answers, and every log row the erasure files carries it; no other row does.\nNo redaction reaches it, so it is refused 422 where it holds an address. The grant notice names this administrator\nas ending the person's grant. An address holding nothing is answered with every count zero. The 404 and the 409\nanswer only a database changed by hand under the request. The sign-in account is not touched here: deleting it is\nthe caller's, once this has answered.",
         "operationId": "identity_post_erasure",
         "requestBody": {
           "content": {
@@ -21472,13 +21472,13 @@
     },
     "/api/v0/identity/erasure/view": {
       "post": {
-        "description": "Answer which of this address's records `POST /identity/erasure` would remove or empty, by kind, name and the ids a page links each by.\n\nADMIN TIER. Takes that erasure's own payload address and reads through its own selections in one snapshot, so it names\nevery one of them, an unconfirmed seat, a retired row, a pupil's every squad row and a declined registration among them,\nand no other. Another address's pending change to this address is named by its id, the change going and that address's\nrecords standing, beside why the address tool refuses that change this administrator, or null where it opens it; a change\nof an address holding a grant is left out for an administrator without an owner's power, as the administrators page\nwithholds it, since naming it would answer whether a typed address is its new one. The address's own live change is\nnamed by its id, ending with the records it would move. Every request for a grant about the address (`betroffen`) or\nmade by it (`gestellt`) is named by its id and the tier it asks; a lapsed one is gone to every reader already and is\nleft out, though the erasure removes its row too. A squad\nrow and a referee row each carry the day it was retired, null while live, and a referee row every season holding a\nfixture still to be played that it is booked on, as `schiedsrichter_still_assigned` judges one. Reached and not named: the fixtures\nbooking a referee row, which move onto the ghost, and the referee's name in each of those fixtures' log images, which\ngoes; the match reports a referee row sent, which stand naming the ghost, in\ntheir log images too; the confirmations a referee row was asked for, which go, and its id\nand reason in a removed season's log images; the links its contact seats were mailed on their teams' open match\nconfirmations, which stop answering; every reason typed from the address answering a match confirmation, from any seat,\nwhich goes from its row and its log images, the answer standing; the grants, bans, invitations and decisions the address made for\nothers, which name a marker in its place; its rows in the log; every log image of a record the\nerasure removes, emptied whole whether or not it holds the address, and every other log image holding the address;\na dead spelling of its grant, which admits nobody, each grant's announced row, and an announced row holding the\naddress under another grant's id; and the address in every notice still queued, withheld. Written besides: the\nnotice that the address's grant ended, which every administrator is sent. No address and no birthdate is answered.\n`admin_tier` is the tier of the live grant the address holds, or null. `barred` is whether a standing ban holds the\naddress, judged as a stored address is; the erasure leaves a ban standing. Stores nothing.\n\nRefused as the erasure is: the administrator's own address (`own_adresse`), an address holding a live grant unless\nthe administrator holds an owner's power (`admin_address`).",
+        "description": "Answer which of this address's records `POST /identity/erasure` would remove or empty, by kind, name and the ids a page links each by.\n\nADMIN TIER. Takes that erasure's own payload address and reads through its own selections in one snapshot, so it names\nevery one of them, an unconfirmed seat, a retired row, a pupil's every squad row and a declined registration among them,\nand no other. Another address's pending change to this address is named by its id, the change going and that address's\nrecords standing, beside why the address tool refuses that change this administrator, or null where it opens it; a change\nof an address holding a grant is left out for an administrator without an owner's power, as the administrators page\nwithholds it, since naming it would answer whether a typed address is its new one. The address's own live change is\nnamed by its id, ending with the records it would move. Every request for a grant about the address (`target`) or\nmade by it (`requester`) is named by its id and the tier it asks; a lapsed one is gone to every reader already and is\nleft out, though the erasure removes its row too. A squad\nrow and a referee row each carry the day it was retired, null while live, and a referee row every season holding a\nfixture still to be played that it is booked on, as `schiedsrichter_still_assigned` judges one. Reached and not named: the fixtures\nbooking a referee row, which move onto the ghost, and the referee's name in each of those fixtures' log images, which\ngoes; the match reports a referee row sent, which stand naming the ghost, in\ntheir log images too; the confirmations a referee row was asked for, which go, and its id\nand reason in a removed season's log images; the links its contact seats were mailed on their teams' open match\nconfirmations, which stop answering; every reason typed from the address answering a match confirmation, from any seat,\nwhich goes from its row and its log images, the answer standing; the grants, bans, invitations and decisions the address made for\nothers, which name a marker in its place; its rows in the log; every log image of a record the\nerasure removes, emptied whole whether or not it holds the address, and every other log image holding the address;\na dead spelling of its grant, which admits nobody, each grant's announced row, and an announced row holding the\naddress under another grant's id; and the address in every notice still queued, withheld. Written besides: the\nnotice that the address's grant ended, which every administrator is sent. No address and no birthdate is answered.\n`admin_tier` is the tier of the live grant the address holds, or null. `barred` is whether a standing ban holds the\naddress, judged as a stored address is; the erasure leaves a ban standing. Stores nothing.\n\nRefused as the erasure is: the administrator's own address (`own_address`), an address holding a live grant unless\nthe administrator holds an owner's power (`admin_address`).",
         "operationId": "identity_get_erasure_view",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/FLErasureAdressePayload"
+                "$ref": "#/components/schemas/FLErasureAddressPayload"
               }
             }
           },
@@ -21694,13 +21694,13 @@
     },
     "/api/v0/identity/sign_out": {
       "post": {
-        "description": "File one log row saying that this administrator ended every session of an address, and when, before the caller ends them.\n\nADMIN TIER, a step-up write. The sessions live in the sign-in store, which the caller holds and this backend does not, so\nthe row is the whole of what this writes: collection `anmeldungen`, operation `delete_many`, the administrator as actor,\nand no address, filter, image or count. Nothing bars the address and nothing is mailed; a person signs in again as before.\n\nRefused so that a refused call ends no session: from a sign-in older than the step-up window (`confirmation_required`), the\nadministrator's own address (`own_adresse`), an address holding an `owner` grant unless the administrator holds an\nowner's power (`admin_address`). Unlike the erasure, it\nends another administrator's sessions for an administrator holding no owner's power: signing in again repairs it.",
+        "description": "File one log row saying that this administrator ended every session of an address, and when, before the caller ends them.\n\nADMIN TIER, a step-up write. The sessions live in the sign-in store, which the caller holds and this backend does not, so\nthe row is the whole of what this writes: collection `anmeldungen`, operation `delete_many`, the administrator as actor,\nand no address, filter, image or count. Nothing bars the address and nothing is mailed; a person signs in again as before.\n\nRefused so that a refused call ends no session: from a sign-in older than the step-up window (`confirmation_required`), the\nadministrator's own address (`own_address`), an address holding an `owner` grant unless the administrator holds an\nowner's power (`admin_address`). Unlike the erasure, it\nends another administrator's sessions for an administrator holding no owner's power: signing in again repairs it.",
         "operationId": "identity_post_sign_out",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/FLErasureAdressePayload"
+                "$ref": "#/components/schemas/FLErasureAddressPayload"
               }
             }
           },
@@ -22832,7 +22832,7 @@
     },
     "/api/v0/registrierungen/{registrierung_id}/admit": {
       "post": {
-        "description": "Admit one confirmed registration: the person it resolves to, or a new one, joins the team's squad, and the registration is erased.\n\nThe person survives the season, so the admission first looks for them: the stored person holding the\nregistration's address IS that person, and is updated with the registration's name and, where the new pupil's page\nasked them, its birthdate and its freshly confirmed consent record: one confirmed on the returning pupil's page\nleaves the person's own birthdate standing, as an administrator may have corrected it since. Where that person's\nname or birthdate differs, `spieler_id` must name them (the team said it is the same person). With no such\nperson, `spieler_id` is null for a new one. A retired person comes back. A pending address change of theirs\nstands, asked over the address this admission proves again.\n\nThe squad row takes the registration's number, position and Stufe, no role, and a Nachnominierung marker derived\ntoday; this person's retired row of this season is rewritten rather than a second one written, whichever team\nit was on. The registration is deleted and its values redacted from the log in the same transaction, so a second\npress meets no row. Its submission key moves onto the squad row, so the submission replayed later stores nothing.\n\nRefuses, in this order: no pending registration with this id (404), no seat on its team's season\n(`role_not_held`), a registration the pupil has not confirmed (`registrierung_unconfirmed`), an address the ban list\nholds (`registrierung_adresse_barred`, worded to the team as neutrally as to the pupil), a Stufe the season does not offer\n(`registrierung_stufe_not_allowed`), a registration confirmed on the returning pupil's page whose address holds no stored\nperson (`registrierung_person_missing`: it carries no choice, so it admits nobody, and the pupil registers again), a\n`spieler_id` that is not the person this registration may be admitted into (`registrierung_person_not_named`), a person\nalready playing in a squad this season (`registrierung_already_in_kader`) and a full squad (`kader_full`). Nothing is\nwritten on any of them.",
+        "description": "Admit one confirmed registration: the person it resolves to, or a new one, joins the team's squad, and the registration is erased.\n\nThe person survives the season, so the admission first looks for them: the stored person holding the\nregistration's address IS that person, and is updated with the registration's name and, where the new pupil's page\nasked them, its birthdate and its freshly confirmed consent record: one confirmed on the returning pupil's page\nleaves the person's own birthdate standing, as an administrator may have corrected it since. Where that person's\nname or birthdate differs, `spieler_id` must name them (the team said it is the same person). With no such\nperson, `spieler_id` is null for a new one. A retired person comes back. A pending address change of theirs\nstands, asked over the address this admission proves again.\n\nThe squad row takes the registration's number, position and Stufe, no role, and a Nachnominierung marker derived\ntoday; this person's retired row of this season is rewritten rather than a second one written, whichever team\nit was on. The registration is deleted and its values redacted from the log in the same transaction, so a second\npress meets no row. Its submission key moves onto the squad row, so the submission replayed later stores nothing.\n\nRefuses, in this order: no pending registration with this id (404), no seat on its team's season\n(`role_not_held`), a registration the pupil has not confirmed (`registrierung_unconfirmed`), an address the ban list\nholds (`registrierung_address_barred`, worded to the team as neutrally as to the pupil), a Stufe the season does not offer\n(`registrierung_stufe_not_allowed`), a registration confirmed on the returning pupil's page whose address holds no stored\nperson (`registrierung_person_missing`: it carries no choice, so it admits nobody, and the pupil registers again), a\n`spieler_id` that is not the person this registration may be admitted into (`registrierung_person_not_named`), a person\nalready playing in a squad this season (`registrierung_already_in_kader`) and a full squad (`kader_full`). Nothing is\nwritten on any of them.",
         "operationId": "registrierungen_admit",
         "parameters": [
           {
@@ -24618,7 +24618,7 @@
         ]
       },
       "post": {
-        "description": "Create a referee and owe them their confirmation link.\n\n`inactive_since` is set to null here and is on no payload. **Entering a referee IS the\ninvitation**: the payload requires an email address, and there is no second press deciding\nwhether this person is asked, because a referee nobody asked is a name nobody consented to\npublish. The link goes out through the Postausgang, which mints it; the answer names the address and the deadline.\n\nRefused `schiedsrichter_adresse_barred` where the address given is on the ban list.",
+        "description": "Create a referee and owe them their confirmation link.\n\n`inactive_since` is set to null here and is on no payload. **Entering a referee IS the\ninvitation**: the payload requires an email address, and there is no second press deciding\nwhether this person is asked, because a referee nobody asked is a name nobody consented to\npublish. The link goes out through the Postausgang, which mints it; the answer names the address and the deadline.\n\nRefused `schiedsrichter_address_barred` where the address given is on the ban list.",
         "operationId": "schiedsrichter_post_schiedsrichter",
         "requestBody": {
           "content": {
@@ -24691,7 +24691,7 @@
     },
     "/api/v0/schiedsrichter/account/{schiedsrichter_id}/einwilligung": {
       "patch": {
-        "description": "Set the two choices of one of the signed-in referee's own consent records: the publication scope and the media consent.\n\nWrites those two on this one referee row, each moved choice with its evidence (`evidence.<choice>`), and nothing\nelse: the confirmation day, the day given and the wording they confirmed stand, and no fixture is written. The\npublic fixture list reads the scope off this row, so a withdrawal takes the name off every fixture page at that\nlist's next read. A PATCH moving neither choice writes nothing. A GRANT (`umfang` to\n`kader_oeffentlich` or `media` to `true`) is taken on a live record alone; a withdrawal on a retired one too.\n\nRefuses, in this order: an id that is no confirmed referee record of this address (`role_not_held`); a\n`evidence_state` other than the record's own, either choice having moved since the page was served\n(`choices_stale`); a grant on a retired record (`giving_not_allowed`); a choice moving onto a grant under a label\nother than its current wording's, the page loaded before a rewording (`grant_wording_stale`); `media` moving to\n`true` where the stored birthdate does not reach `MEDIA_MIN_AGE_YEARS` today or is missing (`media_age`). Each\nrefusal writes nothing.\n\n**The caller drops the cached fixture list after a successful answer**, which reads this row; nothing here can.",
+        "description": "Set the two choices of one of the signed-in referee's own consent records: the publication scope and the media consent.\n\nWrites those two on this one referee row, each moved choice with its evidence (`evidence.<choice>`), and nothing\nelse: the confirmation day, the day given and the wording they confirmed stand, and no fixture is written. The\npublic fixture list reads the scope off this row, so a withdrawal takes the name off every fixture page at that\nlist's next read. A PATCH moving neither choice writes nothing. A GRANT (`scope` to\n`kader_oeffentlich` or `media` to `true`) is taken on a live record alone; a withdrawal on a retired one too.\n\nRefuses, in this order: an id that is no confirmed referee record of this address (`role_not_held`); a\n`evidence_state` other than the record's own, either choice having moved since the page was served\n(`choices_stale`); a grant on a retired record (`giving_not_allowed`); a choice moving onto a grant under a label\nother than its current wording's, the page loaded before a rewording (`grant_wording_stale`); `media` moving to\n`true` where the stored birthdate does not reach `MEDIA_MIN_AGE_YEARS` today or is missing (`media_age`). Each\nrefusal writes nothing.\n\n**The caller drops the cached fixture list after a successful answer**, which reads this row; nothing here can.",
         "operationId": "schiedsrichter_patch_einwilligung",
         "parameters": [
           {
@@ -25118,7 +25118,7 @@
         ]
       },
       "patch": {
-        "description": "Update a referee, then update the embedded name on every Spiel that uses them.\n\nOnly the name. `payment` is NOT propagated: the fee on a match is what was agreed for it.\n\n**A corrected address on an UNCONFIRMED referee retires their link and owes a fresh one** to the\nnew address, named in `confirmation`: the old link was posted to a mailbox nobody reads, and\nleaving it live is a credential in the wrong inbox.\n\n**A CONFIRMED referee's address is refused here** (`schiedsrichter_adresse_only_per_change`), retired or not: it is who signs in as the\nperson, and moves only through an address change: the address tool, `POST /address_change`, or the person's own account page.\nA save keeping it lands, a pending change standing.\n\n**A RETIRED unconfirmed referee's corrected address is stored and mails nothing**: no consent is\ncollected for a role nobody gives them. Their old link is retired all the same, and the\nreactivation mints the fresh one. Where a link is minted, a banned new address is refused\n`schiedsrichter_adresse_barred`. A save retiring or minting a link is refused `confirmation_required` from a\nsign-in or confirmation older than `STEP_UP_WINDOW_HOURS`.\n\nThe ghost answers 404 here as it does to every read: a name written onto it would appear on the\nfixtures of every referee already erased.",
+        "description": "Update a referee, then update the embedded name on every Spiel that uses them.\n\nOnly the name. `payment` is NOT propagated: the fee on a match is what was agreed for it.\n\n**A corrected address on an UNCONFIRMED referee retires their link and owes a fresh one** to the\nnew address, named in `confirmation`: the old link was posted to a mailbox nobody reads, and\nleaving it live is a credential in the wrong inbox.\n\n**A CONFIRMED referee's address is refused here** (`schiedsrichter_address_only_per_change`), retired or not: it is who signs in as the\nperson, and moves only through an address change: the address tool, `POST /address_change`, or the person's own account page.\nA save keeping it lands, a pending change standing.\n\n**A RETIRED unconfirmed referee's corrected address is stored and mails nothing**: no consent is\ncollected for a role nobody gives them. Their old link is retired all the same, and the\nreactivation mints the fresh one. Where a link is minted, a banned new address is refused\n`schiedsrichter_address_barred`. A save retiring or minting a link is refused `confirmation_required` from a\nsign-in or confirmation older than `STEP_UP_WINDOW_HOURS`.\n\nThe ghost answers 404 here as it does to every read: a name written onto it would appear on the\nfixtures of every referee already erased.",
         "operationId": "schiedsrichter_patch_schiedsrichter",
         "parameters": [
           {
@@ -25203,7 +25203,7 @@
     },
     "/api/v0/schiedsrichter/{schiedsrichter_id}/confirmation/invite": {
       "post": {
-        "description": "Owe this referee a fresh confirmation link, which the Postausgang mints and mails, and answer where it goes.\n\nIt replaces the whole block, so the previous link stops working at once. The deadline restarts from today.\n\nRefused where the referee is retired (`schiedsrichter_retired`), where they have already\nanswered (`confirmation_exists`), where they carry no email address\n(`schiedsrichter_no_adresse`), and where that address is on the ban list\n(`schiedsrichter_adresse_barred`). 404 for an id no referee holds, an erased referee's among them, and\nfor the ghost, which every by-id route filters out.\n\n**A referee who has already answered is refused rather than sent a second link**: the\nconfirmation refuses every such press, so minting one would replace a live block with a\ncredential that can never be spent.",
+        "description": "Owe this referee a fresh confirmation link, which the Postausgang mints and mails, and answer where it goes.\n\nIt replaces the whole block, so the previous link stops working at once. The deadline restarts from today.\n\nRefused where the referee is retired (`schiedsrichter_retired`), where they have already\nanswered (`confirmation_exists`), where they carry no email address\n(`schiedsrichter_no_address`), and where that address is on the ban list\n(`schiedsrichter_address_barred`). 404 for an id no referee holds, an erased referee's among them, and\nfor the ghost, which every by-id route filters out.\n\n**A referee who has already answered is refused rather than sent a second link**: the\nconfirmation refuses every such press, so minting one would replace a live block with a\ncredential that can never be spent.",
         "operationId": "schiedsrichter_invite_schiedsrichter",
         "parameters": [
           {
@@ -25278,7 +25278,7 @@
     },
     "/api/v0/schiedsrichter/{schiedsrichter_id}/reactivate": {
       "post": {
-        "description": "Clear `inactive_since`, putting the referee back into the picker and every default read.\n\n**A retired referee who has not answered is owed a fresh link**, named in `confirmation`: a\nretired referee's save stores a new address and mails nothing, so coming back is what\nasks them. A row holding no address a link can go to comes back unasked, and so does one whose\nperson has answered. Where a link is minted, an address on the ban list is refused\n`schiedsrichter_adresse_barred` and the row stays retired, and one from a sign-in or confirmation older than\n`STEP_UP_WINDOW_HOURS` is refused `confirmation_required`.\n\nThe ghost answers 404 here too: cleared on it, the picker would offer a bookable row with no\nperson behind it.",
+        "description": "Clear `inactive_since`, putting the referee back into the picker and every default read.\n\n**A retired referee who has not answered is owed a fresh link**, named in `confirmation`: a\nretired referee's save stores a new address and mails nothing, so coming back is what\nasks them. A row holding no address a link can go to comes back unasked, and so does one whose\nperson has answered. Where a link is minted, an address on the ban list is refused\n`schiedsrichter_address_barred` and the row stays retired, and one from a sign-in or confirmation older than\n`STEP_UP_WINDOW_HOURS` is refused `confirmation_required`.\n\nThe ghost answers 404 here too: cleared on it, the picker would offer a bookable row with no\nperson behind it.",
         "operationId": "schiedsrichter_reactivate_schiedsrichter",
         "parameters": [
           {
@@ -27247,7 +27247,7 @@
     },
     "/api/v0/spieler/account/einwilligung": {
       "patch": {
-        "description": "Set the two choices of the signed-in address's own pupil consent record: the publication scope and the media consent.\n\nWrites those two on this one record, each moved choice with its evidence (`evidence.<choice>`), and nothing else:\nthe confirmation day, the day given and the wording they confirmed stand, and no other document is written. A\nPATCH moving neither choice writes nothing. A GRANT (`umfang` to `kader_oeffentlich` or `media` to `true`) is\ntaken on a live record alone; a withdrawal on a retired one too.\n\nRefuses, in this order: an address holding no confirmed pupil record (`role_not_held`); a `evidence_state`\nother than the record's own, either choice having moved since the page was served (`choices_stale`); a\ngrant on a retired record (`giving_not_allowed`); a choice moving onto a grant under a label other than its\ncurrent wording's, the page loaded before a rewording (`grant_wording_stale`); `media` moving to `true` where\nthe stored birthdate does not reach `MEDIA_MIN_AGE_YEARS` today or is missing (`media_age`). Each\nrefusal writes nothing.\n\n**The caller drops the cached squad lists after a successful answer**: the publication scope decides whether a\nname is served, and nothing here can.",
+        "description": "Set the two choices of the signed-in address's own pupil consent record: the publication scope and the media consent.\n\nWrites those two on this one record, each moved choice with its evidence (`evidence.<choice>`), and nothing else:\nthe confirmation day, the day given and the wording they confirmed stand, and no other document is written. A\nPATCH moving neither choice writes nothing. A GRANT (`scope` to `kader_oeffentlich` or `media` to `true`) is\ntaken on a live record alone; a withdrawal on a retired one too.\n\nRefuses, in this order: an address holding no confirmed pupil record (`role_not_held`); a `evidence_state`\nother than the record's own, either choice having moved since the page was served (`choices_stale`); a\ngrant on a retired record (`giving_not_allowed`); a choice moving onto a grant under a label other than its\ncurrent wording's, the page loaded before a rewording (`grant_wording_stale`); `media` moving to `true` where\nthe stored birthdate does not reach `MEDIA_MIN_AGE_YEARS` today or is missing (`media_age`). Each\nrefusal writes nothing.\n\n**The caller drops the cached squad lists after a successful answer**: the publication scope decides whether a\nname is served, and nothing here can.",
         "operationId": "spieler_patch_einwilligung",
         "requestBody": {
           "content": {
@@ -30179,7 +30179,7 @@
     },
     "/api/v0/teams/{team_id}/saisons/{saison_id}/account/einwilligung": {
       "patch": {
-        "description": "Set the signed-in person's two consents on every seat they hold on this team's season row: WhatsApp and media.\n\nOne answer for all of them: a person holding two of the row's slots answers once, each choice moving only where it\ndiffers from the row as the page served it, so seats answered apart keep their answers to a choice not changed. No\nother slot of the row and no other row is written, each choice moving with its own evidence and leaving the\nother standing; a press moving no seat writes nothing. A GRANT (`umfang` to `kontaktdaten_whatsapp` or `media`\nto `true`) is taken on a row of an `active` or `future` season its team has not left; a withdrawal on any row the\nperson confirmed a seat on, a past season's included.\n\nRefuses, in this order: a row on which the address holds no confirmed seat (`role_not_held`); a\n`evidence_state` other than the held seats' own, either choice having moved since the page was served\n(`choices_stale`); a grant where the row grants no panel (`giving_not_allowed`); a choice moving onto a grant\nunder a label other than its current wording's, the page loaded before a rewording (`grant_wording_stale`);\n`media` moving to `true` where a held seat's stored birthdate does not reach `MEDIA_MIN_AGE_YEARS` today or is\nmissing (`media_age`). Each refusal writes nothing.",
+        "description": "Set the signed-in person's two consents on every seat they hold on this team's season row: WhatsApp and media.\n\nOne answer for all of them: a person holding two of the row's slots answers once, each choice moving only where it\ndiffers from the row as the page served it, so seats answered apart keep their answers to a choice not changed. No\nother slot of the row and no other row is written, each choice moving with its own evidence and leaving the\nother standing; a press moving no seat writes nothing. A GRANT (`scope` to `kontaktdaten_whatsapp` or `media`\nto `true`) is taken on a row of an `active` or `future` season its team has not left; a withdrawal on any row the\nperson confirmed a seat on, a past season's included.\n\nRefuses, in this order: a row on which the address holds no confirmed seat (`role_not_held`); a\n`evidence_state` other than the held seats' own, either choice having moved since the page was served\n(`choices_stale`); a grant where the row grants no panel (`giving_not_allowed`); a choice moving onto a grant\nunder a label other than its current wording's, the page loaded before a rewording (`grant_wording_stale`);\n`media` moving to `true` where a held seat's stored birthdate does not reach `MEDIA_MIN_AGE_YEARS` today or is\nmissing (`media_age`). Each refusal writes nothing.",
         "operationId": "teams_patch_einwilligung",
         "parameters": [
           {

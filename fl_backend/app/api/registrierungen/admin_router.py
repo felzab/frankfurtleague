@@ -7,11 +7,11 @@ from app.api.registrierungen.schemas import FLRegistrierungenFilterParams, FLReg
 from app.api.registrierungen.services import (
     WITHOUT_TOKEN_HASHES,
     build_registrierungen_sort,
-    entscheider_adressen,
+    decider_addresses,
     mit_vorenthaltener_entscheidung,
     registrierung_ist_bestaetigt,
 )
-from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt
+from app.api.sperrliste.lookup import SperrlisteLookup, barred_addresses
 from app.core.config import API_VERSION
 from app.core.crud import pull_many_from_db
 from app.core.dependencies import RegistrierungenCollection
@@ -65,7 +65,7 @@ async def get_registrierungen(
 
     # Sliced before validation, so the probe row is never parsed and never reaches the wire.
     served = read[: filters.limit]
-    barred = await adressen_gesperrt(sperrliste, entscheider_adressen(served))
+    barred = await barred_addresses(sperrliste, decider_addresses(served))
 
     return FLRegistrierungenListResponse(
         registrierungen=FLRegistrierungListAdapter.validate_python(

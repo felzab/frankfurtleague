@@ -262,7 +262,7 @@ async def admit_as_the_team(database: AsyncDatabase, client: AsyncMongoClient, r
 
     confirmation = compose_confirmation_update(
         geburtsdatum="2009-05-04",
-        umfang="intern",
+        scope="intern",
         media=False,
         text_versions=SPIELER_TEXT_VERSIONS,
         today=TODAY,
@@ -366,17 +366,17 @@ class TestWhatASubmissionStores:
 
         assert stored["confirmation"]["token_hashes"] == []
         assert (stored["confirmation"]["sent_at"], stored["confirmation"]["reminded_at"]) == (TODAY, None)
-        assert [(row["art"], row["an"], row["reference"]["id"], row["link"]) for row in owed] == [
+        assert [(row["kind"], row["an"], row["reference"]["id"], row["link"]) for row in owed] == [
             (
                 "registrierung_confirmation",
                 PUPIL_EMAIL,
                 response.registrierung_id,
-                {"paths": ["confirmation.token_hashes"], "adressen": ["email"], "replaced": False},
+                {"paths": ["confirmation.token_hashes"], "addresses": ["email"], "replaced": False},
             )
         ]
         # Off the invite, never off the body: the mail addresses the pupil by them.
         assert owed[0]["data"] == {
-            "art": "registrierung_confirmation",
+            "kind": "registrierung_confirmation",
             "team": TEAM_NAME,
             "saison_id": SAISON_ID,
             "frist_days": REGISTRIERUNG_CONFIRMATION_FRIST_DAYS,
@@ -456,7 +456,7 @@ class TestTheSubmissionKey:
 
         assert len(rows) == 1
         assert second.registrierung_id == first.registrierung_id
-        assert [row["art"] for row in owed] == ["registrierung_confirmation"]
+        assert [row["kind"] for row in owed] == ["registrierung_confirmation"]
 
     def test_a_replay_answers_after_the_invite_was_revoked(self, mongo_replica_set_url: str):
         """Looked up before every judgement: the first press opened a live invite, and its answer outlives the revocation."""
@@ -755,7 +755,7 @@ class TestWhatASubmissionIsRefused:
 
             return refused.value.error_code, await database[Collection.REGISTRIERUNGEN].count_documents({})
 
-        assert on_a_league(mongo_replica_set_url, body, banned=BANNED_EMAIL) == (Code.REGISTRIERUNG_ADRESSE_BARRED, 0)
+        assert on_a_league(mongo_replica_set_url, body, banned=BANNED_EMAIL) == (Code.REGISTRIERUNG_ADDRESS_BARRED, 0)
 
     def test_a_banned_address_is_refused_however_the_pupil_spells_it(self, mongo_replica_set_url: str):
         """One canonical form decides, so a ban is not lifted by typing the address in another case."""
@@ -767,7 +767,7 @@ class TestWhatASubmissionIsRefused:
             return refused.value.error_code
 
         assert league_address(BANNED_EMAIL.upper()) == league_address(BANNED_EMAIL)
-        assert on_a_league(mongo_replica_set_url, body, banned=BANNED_EMAIL) == Code.REGISTRIERUNG_ADRESSE_BARRED
+        assert on_a_league(mongo_replica_set_url, body, banned=BANNED_EMAIL) == Code.REGISTRIERUNG_ADDRESS_BARRED
 
     def test_an_address_no_row_holds_registers(self, mongo_replica_set_url: str):
         """The other arm of the ban check, so a check refusing everybody would fail here rather than pass quietly."""
@@ -801,7 +801,7 @@ class TestWhichSeasonABanIsCountedFrom:
         )
 
         assert SAISON_ID < SPAETERE_SAISON_ID
-        assert outcome == Code.REGISTRIERUNG_ADRESSE_BARRED
+        assert outcome == Code.REGISTRIERUNG_ADDRESS_BARRED
 
     def test_a_lapsed_ban_refuses_nobody(self, mongo_replica_set_url: str):
         """The other arm, so a check ignoring the bound would pass this case as well as the one above."""
@@ -824,7 +824,7 @@ class TestWhichSeasonABanIsCountedFrom:
 
         outcome = on_a_league(mongo_replica_set_url, body, saison_status="future", banned=BANNED_EMAIL, banned_bis="2025")
 
-        assert outcome == Code.REGISTRIERUNG_ADRESSE_BARRED
+        assert outcome == Code.REGISTRIERUNG_ADDRESS_BARRED
 
 
 class TestWhatTheInvitesOwnReadAnswers:

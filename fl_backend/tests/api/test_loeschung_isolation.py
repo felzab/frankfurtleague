@@ -159,7 +159,7 @@ SEATED = {
     "nachname": "Quillfeather",
     "email": TYPED,
     "telefon": TELEFON,
-    "einwilligung": {"umfang": "kontaktdaten", "datum": "2026-03-01"},
+    "einwilligung": {"scope": "kontaktdaten", "date": "2026-03-01"},
 }
 BESIDE = {**SEATED, "vorname": "Ottilie", "nachname": "Andere", "email": "ottilie.andere@example.com", "telefon": "+49 69 5550404"}
 

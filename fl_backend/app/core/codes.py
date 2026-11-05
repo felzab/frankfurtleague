@@ -122,7 +122,7 @@ class Code(StrEnum):
     BEWERBUNG_KONTAKT_EMAIL_TAKEN = auto()
     BEWERBUNG_KEY_DIFFERING = auto()
     BEWERBUNG_TOKEN_PAST_DEADLINE = auto()
-    BEWERBUNG_ADRESSE_BARRED = auto()
+    BEWERBUNG_ADDRESS_BARRED = auto()
     BEWERBUNG_KONTAKT_BARRED = auto()
     BEWERBUNG_SEAT_DIFFERENTLY_SEATED = auto()
     # Judged on a reference the save moves, or keeps on a fixture it reopens: `spielort_still_booked` lets a venue
@@ -178,11 +178,11 @@ class Code(StrEnum):
     KONTAKT_SAISON_PAST = auto()
     # 403 and not 409, `grant_only_owner`'s precedent: the refusal is about who asks. An administrator's
     # own records go through their account page, or through an owner (`admin_address`).
-    OWN_ADRESSE = auto()
+    OWN_ADDRESS = auto()
     # Refused rather than warned of: with no owner left nobody may make one or change a tier again, and only
     # a database paste could hand the administration on.
     LAST_OWNER_ERASURE = auto()
-    # 403 for who asks, as `own_adresse`: without it an administrator ends another's grant, which a revoke
+    # 403 for who asks, as `own_address`: without it an administrator ends another's grant, which a revoke
     # reserves to an owner (`grant_only_owner`).
     ADMIN_ADDRESS = auto()
     # 403 for who asks, as `admin_address`: an erasure ends every change naming its address, and ending a grant
@@ -199,7 +199,7 @@ class Code(StrEnum):
     # Its own code beside `duplicate_key`, which words an administrator's duplicate ban: the name says
     # the flow that refuses rather than the collection consulted, and one rule keeps one code and one
     # German sentence.
-    REGISTRIERUNG_ADRESSE_BARRED = auto()
+    REGISTRIERUNG_ADDRESS_BARRED = auto()
     REGISTRIERUNG_KEY_DIFFERING = auto()
     REGISTRIERUNG_UNCONFIRMED = auto()
     REGISTRIERUNG_PERSON_NOT_NAMED = auto()
@@ -245,11 +245,11 @@ class Code(StrEnum):
     # its shape, so a refusal reading a stored value is a conflict with state, a 409.
     RULES_FORFEIT_UNENTSCHIEDEN_IN_A_KNOCKOUT_AS_STORED = auto()
     SCHIEDSRICHTER_RETIRED = auto()
-    SCHIEDSRICHTER_NO_ADRESSE = auto()
+    SCHIEDSRICHTER_NO_ADDRESS = auto()
     # Its own code and never `duplicate_key`, which the ban list's client words as a second ban of one
     # address: two conditions under one code are two a frontend cannot part.
-    SCHIEDSRICHTER_ADRESSE_BARRED = auto()
-    SCHIEDSRICHTER_ADRESSE_ONLY_PER_CHANGE = auto()
+    SCHIEDSRICHTER_ADDRESS_BARRED = auto()
+    SCHIEDSRICHTER_ADDRESS_ONLY_PER_CHANGE = auto()
     BAN_LIST_NO_SAISON = auto()
     BAN_LIST_ADMIN = auto()
     SPIELPLAN_ALREADY_DRAWN = auto()

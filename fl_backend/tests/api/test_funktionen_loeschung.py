@@ -475,13 +475,13 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
             {
                 "_id": ANTRAG_FOR_THEM_OID,
                 **compose_antrag(
-                    adresse=IDENTIFIER, admin_tier="administration", grant_id=None, started_by="quillhilde@example.com", now=FAR_OFF
+                    address=IDENTIFIER, admin_tier="administration", grant_id=None, started_by="quillhilde@example.com", now=FAR_OFF
                 ),
             },
             {
                 "_id": ANTRAG_BY_THEM_OID,
                 **compose_antrag(
-                    adresse="neu.kollegin@example.com", admin_tier="administration", grant_id=None, started_by=IDENTIFIER, now=FAR_OFF
+                    address="neu.kollegin@example.com", admin_tier="administration", grant_id=None, started_by=IDENTIFIER, now=FAR_OFF
                 ),
             },
         ]
@@ -499,10 +499,10 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
     await database[Collection.ADDRESS_CHANGES].insert_one(
         {
             "_id": OWED_CARRY_OID,
-            **documents.address_change_document(adresse="vorher.zorbanax@example.org", email=IDENTIFIER, token_hash=None, day="2126-03-01"),
-            "adresse": None,
+            **documents.address_change_document(address="vorher.zorbanax@example.org", email=IDENTIFIER, token_hash=None, day="2126-03-01"),
+            "address": None,
             "email": None,
-            "ended": {"art": "effective", "at": NOW},
+            "ended": {"kind": "effective", "at": NOW},
             "move": {"old": "vorher.zorbanax@example.org", "new": IDENTIFIER},
             "moved": {
                 "person_hash": erasure_journal_hash(IDENTIFIER, key=CONFIG.sperrliste_key),
@@ -515,7 +515,7 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
         {
             "_id": SENT_NOTICE_OID,
             "key": f"address_changes/{OWED_CARRY_OID}/effective",
-            "art": "address_change_effective",
+            "kind": "address_change_effective",
             "an": "vorher.zorbanax@example.org",
             "secret": None,
             "reference": None,
@@ -575,8 +575,8 @@ async def pending_changes(database: AsyncDatabase, *changes: tuple[ObjectId, str
 
     await database[Collection.ADDRESS_CHANGES].insert_many(
         [
-            {"_id": change_id, **documents.address_change_document(adresse=adresse, email=email, token_hash=hash_token(link), day=day)}
-            for change_id, adresse, email, link, day in changes
+            {"_id": change_id, **documents.address_change_document(address=address, email=email, token_hash=hash_token(link), day=day)}
+            for change_id, address, email, link, day in changes
         ]
     )
 
@@ -650,8 +650,8 @@ async def what_elsewhere_holds(database: AsyncDatabase) -> dict[str, int]:
                 "kontakte.ansprechperson.einwilligung.confirmed_at": {"$ne": None},
             }
         ),
-        "grant": await database[Collection.GRANTS].count_documents({"_id": ELSEWHERE_GRANT_OID, "adresse": ELSEWHERE}),
-        "announced": await database[Collection.GRANTS_ANNOUNCED].count_documents({"_id": ELSEWHERE_GRANT_OID, "adresse": ELSEWHERE}),
+        "grant": await database[Collection.GRANTS].count_documents({"_id": ELSEWHERE_GRANT_OID, "address": ELSEWHERE}),
+        "announced": await database[Collection.GRANTS_ANNOUNCED].count_documents({"_id": ELSEWHERE_GRANT_OID, "address": ELSEWHERE}),
         "notices": await database[Collection.OUTBOX].count_documents({"key": {"$regex": f"^grant/{ELSEWHERE_GRANT_OID}/"}}),
         "referee_change": await changes.count_documents({"_id": REFEREE_MOVING_ELSEWHERE_CHANGE_OID, "email": ELSEWHERE}),
         "pupil_change": await changes.count_documents({"_id": PUPIL_MOVING_ELSEWHERE_CHANGE_OID, "email": ELSEWHERE}),
@@ -684,14 +684,14 @@ async def records_they_made_holding_no_grant(database: AsyncDatabase) -> None:
     await database[Collection.GRANTS].insert_one(
         {
             "_id": GRANTED_BY_THEM_OID,
-            "adresse": "bramblewick.admin@example.com",
+            "address": "bramblewick.admin@example.com",
             "admin_tier": "administration",
             "granted_by": IDENTIFIER,
             "granted_at": GRANTED,
         }
     )
     await database[Collection.GRANTS_ANNOUNCED].insert_one(
-        {"_id": GRANTED_BY_THEM_OID, "adresse": "bramblewick.admin@example.com", "admin_tier": "administration", "angekuendigt_am": GRANTED}
+        {"_id": GRANTED_BY_THEM_OID, "address": "bramblewick.admin@example.com", "admin_tier": "administration", "angekuendigt_am": GRANTED}
     )
     await database[Collection.BAN_LIST].insert_many(
         [
@@ -737,14 +737,14 @@ async def records_they_made_holding_no_grant(database: AsyncDatabase) -> None:
     )
 
 
-async def a_grant(database: AsyncDatabase, grant_id: ObjectId, adresse: str, admin_tier: str) -> None:
+async def a_grant(database: AsyncDatabase, grant_id: ObjectId, address: str, admin_tier: str) -> None:
     """A grant and its announced row, granted by a paste, for the cases about a grant the address holds."""
 
     await database[Collection.GRANTS].insert_one(
-        {"_id": grant_id, "adresse": adresse, "admin_tier": admin_tier, "granted_by": "PLAYGROUND", "granted_at": GRANTED}
+        {"_id": grant_id, "address": address, "admin_tier": admin_tier, "granted_by": "PLAYGROUND", "granted_at": GRANTED}
     )
     await database[Collection.GRANTS_ANNOUNCED].insert_one(
-        {"_id": grant_id, "adresse": adresse, "admin_tier": admin_tier, "angekuendigt_am": GRANTED}
+        {"_id": grant_id, "address": address, "admin_tier": admin_tier, "angekuendigt_am": GRANTED}
     )
 
 
@@ -901,7 +901,7 @@ class TestWhatStandsBesideThem:
 
         change, row = on_a_league(mongo_replica_set_url, body)
 
-        assert (change["ended"]["art"], change["email"]) == ("discarded", None)
+        assert (change["ended"]["kind"], change["email"]) == ("discarded", None)
         held: Any = row
         for key in path.split("."):
             held = held[key]
@@ -1226,7 +1226,7 @@ class TestTheScope:
                 await database[Collection.SCHIEDSRICHTER].count_documents({"_id": REFEREE_OID}),
                 (await the_one(database, Collection.ADDRESS_CHANGES, {"_id": OTHER_REFEREE_CHANGE_OID}))["ended"] is None,
                 await database[Collection.ACTION_LOG].count_documents({"actor.email": IDENTIFIER}),
-                await database[Collection.GRANTS].count_documents({"adresse": IDENTIFIER}),
+                await database[Collection.GRANTS].count_documents({"address": IDENTIFIER}),
                 (await the_one(database, Collection.ADDRESS_CHANGES, {"_id": MOVING_PUPIL_CHANGE_OID}))["ended"] is None,
                 sorted(
                     [
@@ -1330,7 +1330,7 @@ class TestEachStepWritesWhatItDeclares:
 
         assert writes[EMPTIED.run.__name__] == {str(collection) for collection in EMPTIED.reaches}
         # Its address on file goes too: no erasure of the address follows a pupil's to take it.
-        assert (change["ended"]["art"], change["adresse"], change["email"]) == ("discarded", None, None)
+        assert (change["ended"]["kind"], change["address"], change["email"]) == ("discarded", None, None)
 
     def test_a_pupils_loeschung_leaves_the_change_of_an_address_still_holding_records(self, mongo_replica_set_url: str):
         """The person is a referee and a seat holder beside the pupil, so their change still has those to move."""
@@ -1343,7 +1343,7 @@ class TestEachStepWritesWhatItDeclares:
 
         change = on_a_league(mongo_replica_set_url, body)
 
-        assert (change["ended"], change["adresse"]) == (None, IDENTIFIER)
+        assert (change["ended"], change["address"]) == (None, IDENTIFIER)
 
 
 class RegistrationsAdmittedInside(InterleavedCollection):
@@ -1377,7 +1377,7 @@ async def an_admittable_registration(database: AsyncDatabase) -> None:
             IDENTIFIER,
             confirmed={
                 "geburtsdatum": GEBURTSDATUM,
-                "umfang": "intern",
+                "scope": "intern",
                 "media": False,
                 "text_versions": SPIELER_TEXT_VERSIONS,
                 "today": YESTERDAY,
@@ -1483,14 +1483,14 @@ class TestThePreview:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             asked_first = documents.address_change_document(
-                adresse="noch.gefragt@example.com", email=IDENTIFIER, token_hash=None, day="2126-03-30", way="account"
+                address="noch.gefragt@example.com", email=IDENTIFIER, token_hash=None, day="2126-03-30", way="account"
             )
             await database[Collection.ADDRESS_CHANGES].insert_one(asked_first)
             async with app_client(mongo_replica_set_url, app=_app(), now=NOW) as http:
                 preview = (await http.get(f"{PATH}/view", headers=as_person(TYPED))).json()["address_change"]
 
             answered = (await geloescht_by_the_handler(database, client)).address_change
-            return preview, answered, (await the_one(database, Collection.ADDRESS_CHANGES, {"_id": asked_first["_id"]}))["ended"]["art"]
+            return preview, answered, (await the_one(database, Collection.ADDRESS_CHANGES, {"_id": asked_first["_id"]}))["ended"]["kind"]
 
         # The seed's two changes alone; the press still ends all three, nothing of the asked one being this address's.
         assert on_a_league(mongo_replica_set_url, body) == (2, 2, "discarded")

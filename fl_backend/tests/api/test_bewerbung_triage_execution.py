@@ -110,7 +110,7 @@ RULES: Mapping[str, Any] = rules_document(number_of_gruppen=2, teams_per_gruppe=
 
 
 # The seat as its applicant named the person, and as that person then confirmed it.
-SEATED: Final = {"datum": "2026-01-15"}
+SEATED: Final = {"date": "2026-01-15"}
 
 
 def kontaktperson(vorname: str) -> dict[str, Any]:
@@ -1861,8 +1861,8 @@ class TestSeatingAnotherPersonInAnEmptiedSeat:
             # Born afresh, the league named as who seated them: nothing of the person who stepped out
             # of the seat travels to the one seated, their evidence included.
             "einwilligung": {
-                "umfang": "kontaktdaten",
-                "datum": TODAY,
+                "scope": "kontaktdaten",
+                "date": TODAY,
                 "confirmed_at": None,
                 "media": False,
                 "entered_by": "liga",

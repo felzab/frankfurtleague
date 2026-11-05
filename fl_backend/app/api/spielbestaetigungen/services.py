@@ -190,7 +190,7 @@ class AnsetzungLage:
     vereine: Sequence[Mapping[str, Any]]
 
 
-def seat_adresse(*, lage: AnsetzungLage, spielbestaetigung_raw: Mapping[str, Any], seat: str) -> str | None:
+def seat_address(*, lage: AnsetzungLage, spielbestaetigung_raw: Mapping[str, Any], seat: str) -> str | None:
     """The address the seat holds now on its club's season row.
 
     A seat a write emptied or handed over had its links voided in that write, so a link resolving here is its holder's.
@@ -199,7 +199,7 @@ def seat_adresse(*, lage: AnsetzungLage, spielbestaetigung_raw: Mapping[str, Any
     team_id = (spielbestaetigung_raw.get("party") or {}).get("team_id")
     verein = next((row for row in lage.vereine if row.get("team_id") == team_id), None)
 
-    return kontakt_adresse(kontakte=(verein or {}).get("kontakte"), seat=seat)
+    return kontakt_address(kontakte=(verein or {}).get("kontakte"), seat=seat)
 
 
 def _grund_now(*, spielbestaetigung_raw: Mapping[str, Any], lage: AnsetzungLage, today: str) -> FLSpielbestaetigungGrund | None:
@@ -490,7 +490,7 @@ def compose_antwort_update(
     *,
     antwort: FLSpielbestaetigungAntwortArt,
     seat: FLKontaktRolle,
-    adresse: str | None,
+    address: str | None,
     key: SecretStr,
     vorschlag: FLSpielbestaetigungAppointment | None,
     begruendung: str | None,
@@ -502,7 +502,7 @@ def compose_antwort_update(
                 "art": antwort,
                 "am": today,
                 # Never served: the holder's digest is kept for that person's erasure alone.
-                "von": {"art": "kontakt", "rolle": seat, "halter": None if adresse is None else halter_of(adresse, key=key)},
+                "von": {"art": "kontakt", "rolle": seat, "halter": None if address is None else halter_of(address, key=key)},
                 "vorschlag": None if vorschlag is None else {"datum": vorschlag.datum, "uhrzeit": vorschlag.uhrzeit},
                 "begruendung": begruendung,
             }
@@ -897,7 +897,7 @@ def compose_spielbestaetigung(
     }
 
 
-def kontakt_adresse(*, kontakte: Any, seat: str) -> str | None:
+def kontakt_address(*, kontakte: Any, seat: str) -> str | None:
     """The address a seat's holder is mailed at, banned on and recorded under, or `None` where the seat is empty.
 
     Unstripped: every seat payload stores `league_address`'s trimmed form, so a reader trimming would change nothing a write leaves.
@@ -913,7 +913,7 @@ def link_groups(*, kontakte: Any, seats: Sequence[str]) -> list[list[FLKontaktRo
     """The seats as links: one per seat, a mirrored Trainer sharing the link of the seat it holds too where both are among `seats`.
 
     Two seats one press answers are one thing to do, as one address is one mail
-    (`app/api/bewerbungen/services.py :: personen_mit_adresse`).
+    (`app/api/bewerbungen/services.py :: people_with_address`).
     """
 
     zugleich = kontakte.get("trainer_is_also") if isinstance(kontakte, Mapping) else None
@@ -1044,13 +1044,13 @@ def notice_daten_of(*, grund: FLSpielbestaetigungGrund, partei_art: str, appoint
 
     empfaenger = "schiedsrichter" if partei_art == "schiedsrichter" else "team"
     if grund == "ansetzung_changed":
-        return FLSpielNoticeData(art="spiel_new_scheduled", recipient=empfaenger, appointment=appointment)
+        return FLSpielNoticeData(kind="spiel_new_scheduled", recipient=empfaenger, appointment=appointment)
     if grund == "abgesagt":
-        return FLSpielNoticeData(art="spiel_abgesagt", recipient=empfaenger, appointment=appointment)
+        return FLSpielNoticeData(kind="spiel_abgesagt", recipient=empfaenger, appointment=appointment)
     if grund == "schiedsrichter_switched":
-        return FLSpielEinteilungLiftedData(art="spiel_einteilung_lifted", appointment=appointment)
+        return FLSpielEinteilungLiftedData(kind="spiel_einteilung_lifted", appointment=appointment)
     if grund == "discarded":
-        return FLSpielVorschlagDiscardedData(art="spiel_vorschlag_discarded", appointment=appointment)
+        return FLSpielVorschlagDiscardedData(kind="spiel_vorschlag_discarded", appointment=appointment)
 
     raise ValueError(f"a closing for {grund} owes no notice")
 
@@ -1066,7 +1066,7 @@ def seats_link(seats: Sequence[FLKontaktRolle]) -> FLOutboxLink:
 
     return FLOutboxLink(
         paths=[f"kontakte.{seat}.token_hashes" for seat in seats],
-        adressen=[f"kontakte.{seat}.email" for seat in seats],
+        addresses=[f"kontakte.{seat}.email" for seat in seats],
         replaced=False,
     )
 

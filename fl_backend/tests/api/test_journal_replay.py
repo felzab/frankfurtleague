@@ -125,7 +125,7 @@ def _seat(email: str, *, confirmed: bool = True) -> dict[str, Any]:
         "Ortrud" if confirmed else "Ida",
         confirmed_at="2126-09-03" if confirmed else None,
         geburtsdatum=ADULT if confirmed else None,
-        einwilligung={"umfang": "kontaktdaten_whatsapp", "media": True} if confirmed else {},
+        einwilligung={"scope": "kontaktdaten_whatsapp", "media": True} if confirmed else {},
     )
     return {**seat, "email": email}
 
@@ -224,9 +224,9 @@ async def _seed(database: AsyncDatabase) -> None:
         [
             {
                 "_id": change_id,
-                **documents.address_change_document(adresse=adresse, email=NEW_ADDRESS, token_hash=hash_token(link), day=TODAY),
+                **documents.address_change_document(address=address, email=NEW_ADDRESS, token_hash=hash_token(link), day=TODAY),
             }
-            for change_id, adresse, link in (
+            for change_id, address, link in (
                 (PUPIL_CHANGE_OID, MOVING_PUPIL, PUPIL_ADDRESS_LINK),
                 (REFEREE_CHANGE_OID, MOVING_REFEREE, REFEREE_ADDRESS_LINK),
             )
@@ -250,7 +250,7 @@ async def _seed(database: AsyncDatabase) -> None:
                 geburtsdatum=ADULT,
                 today="2126-09-21",
                 at="2126-09-21T08:00:00+00:00",
-                umfang="kader_oeffentlich",
+                scope="kader_oeffentlich",
                 media=True,
             ),
         )
@@ -284,7 +284,7 @@ async def _registration_withdrawal(http: AsyncClient, database: AsyncDatabase) -
     # Its confirmation stamped evidence, so the page serves that evidence's stand.
     stored = await database[Collection.REGISTRIERUNGEN].find_one({"_id": REGISTRATION_OID})
     assert stored is not None
-    body = {**_withdrawal("konto_spieler", umfang="intern", media=True), "evidence_state": evidence_state_of(blocks=[stored["einwilligung"]])}
+    body = {**_withdrawal("konto_spieler", scope="intern", media=True), "evidence_state": evidence_state_of(blocks=[stored["einwilligung"]])}
 
     return await http.patch(f"{V}/registrierungen/account/{REGISTRATION_OID}/einwilligung", json=body, headers=_person(REGISTRANT))
 
@@ -301,7 +301,7 @@ PRESSES: dict[str, tuple[Press, Collection, ObjectId]] = {
     "a pupil's withdrawal": (
         lambda http, _database: http.patch(
             f"{V}/spieler/account/einwilligung",
-            json=_withdrawal("konto_spieler", umfang="intern", media=False),
+            json=_withdrawal("konto_spieler", scope="intern", media=False),
             headers=_person(PERSON),
         ),
         Collection.SPIELER,
@@ -310,7 +310,7 @@ PRESSES: dict[str, tuple[Press, Collection, ObjectId]] = {
     "a referee's withdrawal": (
         lambda http, _database: http.patch(
             f"{V}/schiedsrichter/account/{REFEREE_OID}/einwilligung",
-            json=_withdrawal("konto_schiedsrichter", umfang="kader_oeffentlich", media=False),
+            json=_withdrawal("konto_schiedsrichter", scope="kader_oeffentlich", media=False),
             headers=_person(PERSON),
         ),
         Collection.SCHIEDSRICHTER,
@@ -319,7 +319,7 @@ PRESSES: dict[str, tuple[Press, Collection, ObjectId]] = {
     "a season seat's withdrawal": (
         lambda http, _database: http.patch(
             f"{V}/teams/{TEAM_OID}/saisons/{SAISON_ID}/account/einwilligung",
-            json=_withdrawal("konto_kontakt", umfang="kontaktdaten", media=True),
+            json=_withdrawal("konto_kontakt", scope="kontaktdaten", media=True),
             headers=_person(PERSON),
         ),
         Collection.SAISON_TEAMS,
@@ -328,7 +328,7 @@ PRESSES: dict[str, tuple[Press, Collection, ObjectId]] = {
     "a pending application seat's withdrawal": (
         lambda http, _database: http.patch(
             f"{V}/bewerbungen/{APPLICATION_OID}/account/einwilligung",
-            json=_withdrawal("konto_kontakt", umfang="kontaktdaten_whatsapp", media=False),
+            json=_withdrawal("konto_kontakt", scope="kontaktdaten_whatsapp", media=False),
             headers=_person(PERSON),
         ),
         Collection.BEWERBUNGEN,
@@ -516,7 +516,7 @@ class TestARecordTheLineNoLongerFits:
     def test_a_record_now_holding_somebody_else_is_left_for_review_and_unchanged(self, mongo_replica_set_url: str):
         line = JournalLine(
             person_hash=erasure_journal_hash(PERSON, key=KEY),
-            art="withdrawal",
+            kind="withdrawal",
             collection=Collection.SPIELER,
             record_id=MOVING_PUPIL_OID,
             at=AT,
@@ -550,10 +550,10 @@ def _day_file(*entries: tuple[str, str]) -> list[str]:
 class TestTheListing:
     def test_it_names_where_an_loeschung_s_address_is_held_and_prints_no_address_and_no_hash(self, mongo_replica_set_url: str):
         # Its pseudonym named, and its address held: the page's erasure takes the pseudonym's rows with everything else.
-        erased = JournalLine(person_hash=erasure_journal_hash(PERSON, key=KEY), art="erasure", pseudonym=actor_pseudonym(PERSON, key=KEY))
+        erased = JournalLine(person_hash=erasure_journal_hash(PERSON, key=KEY), kind="erasure", pseudonym=actor_pseudonym(PERSON, key=KEY))
         withdrawal = JournalLine(
             person_hash=erasure_journal_hash(PERSON, key=KEY),
-            art="withdrawal",
+            kind="withdrawal",
             collection=Collection.SPIELER,
             record_id=PUPIL_OID,
             at=AT,
@@ -562,7 +562,7 @@ class TestTheListing:
         )
         on_the_restored_site = JournalLine(
             person_hash=erasure_journal_hash(PERSON, key=KEY),
-            art="withdrawal",
+            kind="withdrawal",
             collection=Collection.SCHIEDSRICHTER,
             record_id=REFEREE_OID,
             at="2126-10-03T12:30:00+00:00",
@@ -633,7 +633,7 @@ async def _withdrawn_and_granted_again(http: AsyncClient, database: AsyncDatabas
     [line] = journalled(caplog)
     # The app's clock moved on; `app_client` puts back the overrides it found as it leaves.
     _app().dependency_overrides[get_germany_now] = lambda: AN_HOUR_LATER
-    body = {**_withdrawal("konto_spieler", umfang="intern", media=True), "evidence_state": (await _served(http))["spieler"]["evidence_state"]}
+    body = {**_withdrawal("konto_spieler", scope="intern", media=True), "evidence_state": (await _served(http))["spieler"]["evidence_state"]}
     granted = await http.patch(f"{V}/spieler/account/einwilligung", json=body, headers=_person(PERSON))
     assert (withdrawn.status_code, granted.status_code) == (204, 204), granted.text
 
@@ -896,7 +896,7 @@ class TestADiscardedChange:
 
         waiting = {
             **documents.address_change_document(
-                adresse=MOVING_PUPIL, email=NEW_ADDRESS, token_hash=hash_token(PUPIL_ADDRESS_LINK), day=TODAY, way="waiting_period"
+                address=MOVING_PUPIL, email=NEW_ADDRESS, token_hash=hash_token(PUPIL_ADDRESS_LINK), day=TODAY, way="waiting_period"
             ),
             "_id": PUPIL_CHANGE_OID,
             "valid_until": None,
@@ -932,8 +932,8 @@ class TestADiscardedChange:
         line, stand, discarded, after = served(mongo_replica_set_url, steps)
 
         assert line is not None
-        assert (line.art, line.collection, line.record_id) == ("address_change_discarded", Collection.ADDRESS_CHANGES, PUPIL_CHANGE_OID)
+        assert (line.kind, line.collection, line.record_id) == ("address_change_discarded", Collection.ADDRESS_CHANGES, PUPIL_CHANGE_OID)
         assert line.person_hash == erasure_journal_hash(NEW_ADDRESS, key=KEY)
         # Ended as the discard ended it, at the discard's own instant.
         assert (stand, after) == ("replayed", discarded)
-        assert after["ended"]["art"] == "discarded"
+        assert after["ended"]["kind"] == "discarded"

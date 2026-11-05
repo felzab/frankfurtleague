@@ -186,7 +186,7 @@ def plan_einladung_versand(
     """Who this team's link goes to, or why it is skipped. The preview and the press both read it.
 
     `versendet` is `einladung_ist_versendet` of the team's live invite. `barred` holds the stored addresses a standing ban
-    holds, as `app/api/sperrliste/lookup.py :: adressen_gesperrt` answers them.
+    holds, as `app/api/sperrliste/lookup.py :: barred_addresses` answers them.
     """
 
     # The record's PRESENCE, never its `type` and never a flag beside it: a team is out of the

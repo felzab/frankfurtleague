@@ -12,7 +12,7 @@ from app.api.outbox.schemas import FLBanData
 from app.api.outbox.services import OwedMail, enqueue_mails
 from app.api.saisons.crud import pull_massgebliche_saison_id
 from app.api.sperrliste.crud import read_sperrliste_page
-from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, hash_gesperrt
+from app.api.sperrliste.lookup import SperrlisteLookup, barred_addresses, hash_gesperrt
 from app.api.sperrliste.schemas import (
     FLPostSperrlistePayload,
     FLPostSperrlisteResponse,
@@ -98,7 +98,7 @@ async def get_sperrliste(ban_list_collection: BanListCollection, sperrliste: Spe
     rows, anzahl_gesamt = await read_sperrliste_page(ban_list_collection=ban_list_collection, limit=LIST_LIMIT_DEFAULT)
     # Each row as stored first, so a row the stored shape refuses fails here rather than being served withheld.
     bans = [(row, FLSperrlisteEintrag.model_validate(row)) for row in rows]
-    barred = await adressen_gesperrt(sperrliste, [sign_in_identifier(ban.created_by) for _, ban in bans])
+    barred = await barred_addresses(sperrliste, [sign_in_identifier(ban.created_by) for _, ban in bans])
 
     served = []
     for row, ban in bans:
@@ -155,7 +155,7 @@ async def post_sperrliste_entry(
         refuse(
             find_verwaltung_refusal(
                 hashed=hashed,
-                granted=berechtigte_hashes([str(grant["adresse"]) for grant in grants], key=config.sperrliste_key),
+                granted=berechtigte_hashes([str(grant["address"]) for grant in grants], key=config.sperrliste_key),
             )
         )
 
@@ -166,7 +166,7 @@ async def post_sperrliste_entry(
         refuse(find_sperrliste_refusal(barred=barred))
 
         document: dict[str, Any] = {
-            "adresse_hash": hashed,
+            "address_hash": hashed,
             # Stored beside the hash rather than derived from it: which label a row was keyed under is
             # the one thing that would ever let an operator tell the rows a key cannot match.
             "key_version": SPERRLISTE_SCHLUESSEL_VERSION,
@@ -180,7 +180,7 @@ async def post_sperrliste_entry(
         }
 
         # Every grant notice still owed loses the address in this transaction, so no other administrator is mailed it.
-        await withhold_in_the_postausgang(outbox_collection=outbox_collection, adresse=identifier, session=session)
+        await withhold_in_the_postausgang(outbox_collection=outbox_collection, address=identifier, session=session)
 
         # A LAPSED row for this hash passes the check above and is refused HERE on the index, which
         # reads no bound. No route leaves one: the activation that lapses a ban removes it.
@@ -193,7 +193,7 @@ async def post_sperrliste_entry(
                     OwedMail(
                         key=f"ban/{created.inserted_id}",
                         an=str(ban_list_data.email),
-                        data=FLBanData(art="ban", grund=ban_list_data.grund, barred_until_saison_id=gesperrt_bis_saison_id),
+                        data=FLBanData(kind="ban", grund=ban_list_data.grund, barred_until_saison_id=gesperrt_bis_saison_id),
                     )
                 ],
                 now=now,

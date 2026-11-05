@@ -66,14 +66,14 @@ export const ActionLogGetActionLogEntryParams = zod.object({
  * waits on another administrator's approval, never this one's. No link is answered. The address's live change ends
  * replaced.
  *
- * Refused the administrator's own address (`own_adresse`), a grant holder's without an owner's power
+ * Refused the administrator's own address (`own_address`), a grant holder's without an owner's power
  * (`admin_address`), the address on file typed again (`address_change_unchanged`), a new address the ban list holds
  * (`address_change_barred`), an address holding nothing a change moves (`address_change_nothing`), a new address another pupil signs in on
  * where the change moves a pupil (`address_change_taken`), a new address any entry names, confirmed or not (`address_change_occupied`), and a
  * grant nobody could approve (`address_change_no_approver`).
  * @summary Start an address change for a person who says they cannot sign in
  */
-export const addressChangePostAddressChangeAdminBodyAdresseMax = 254;
+export const addressChangePostAddressChangeAdminBodyAddressMax = 254;
 
 export const addressChangePostAddressChangeAdminBodyEmailMax = 254;
 
@@ -83,7 +83,7 @@ export const addressChangePostAddressChangeAdminBodyGrundRegExp = new RegExp("^[
 
 export const AddressChangePostAddressChangeAdminBody = zod
   .object({
-    adresse: zod.string().max(addressChangePostAddressChangeAdminBodyAdresseMax),
+    address: zod.string().max(addressChangePostAddressChangeAdminBodyAddressMax),
     email: zod.string().max(addressChangePostAddressChangeAdminBodyEmailMax),
     grund: zod.string().min(1).max(addressChangePostAddressChangeAdminBodyGrundMax).regex(addressChangePostAddressChangeAdminBodyGrundRegExp),
   })
@@ -99,21 +99,21 @@ export const AddressChangePostAddressChangeAdminBody = zod
  * address only in the answer.
  * @summary Say which address a live change would move to
  */
-export const addressChangeGetAddressChangeAdresseBodyAddressChangeIdOneRegExp = new RegExp("^[0-9a-fA-F]{24}$");
-export const addressChangeGetAddressChangeAdresseBodyTokenOneMax = 128;
+export const addressChangeGetAddressChangeAddressBodyAddressChangeIdOneRegExp = new RegExp("^[0-9a-fA-F]{24}$");
+export const addressChangeGetAddressChangeAddressBodyTokenOneMax = 128;
 
-export const addressChangeGetAddressChangeAdresseBodyTokenOneRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
+export const addressChangeGetAddressChangeAddressBodyTokenOneRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
 
-export const AddressChangeGetAddressChangeAdresseBody = zod
+export const AddressChangeGetAddressChangeAddressBody = zod
   .object({
-    address_change_id: zod.union([zod.string().regex(addressChangeGetAddressChangeAdresseBodyAddressChangeIdOneRegExp), zod.null()]).optional(),
+    address_change_id: zod.union([zod.string().regex(addressChangeGetAddressChangeAddressBodyAddressChangeIdOneRegExp), zod.null()]).optional(),
     token: zod
       .union([
         zod
           .string()
           .min(1)
-          .max(addressChangeGetAddressChangeAdresseBodyTokenOneMax)
-          .regex(addressChangeGetAddressChangeAdresseBodyTokenOneRegExp),
+          .max(addressChangeGetAddressChangeAddressBodyTokenOneMax)
+          .regex(addressChangeGetAddressChangeAddressBodyTokenOneRegExp),
         zod.null(),
       ])
       .optional(),
@@ -258,20 +258,21 @@ export const AddressChangePostAddressChangeMovesDoneBody = zod.object({
  * ADMIN TIER, the address tool's read, keyed by the address the administrator types or by a change a page links to;
  * never a hash. `possible` where the address holds anything a change moves, a grant included. Stores nothing.
  *
- * Refused as the erasure's reveal is: the administrator's own address (`own_adresse`), and an address holding a live
+ * Refused as the erasure's reveal is: the administrator's own address (`own_address`), and an address holding a live
  * grant unless the administrator holds an owner's power (`admin_address`). A change id answers 404 where no change is
  * kept, and `address_change_ended` where it ended.
  * @summary Show what an address holds that a change moves, and its live change
  */
+export const addressChangeGetAddressChangeAdminViewBodyAddressOneMax = 254;
+
 export const addressChangeGetAddressChangeAdminViewBodyAddressChangeIdOneRegExp = new RegExp("^[0-9a-fA-F]{24}$");
-export const addressChangeGetAddressChangeAdminViewBodyAdresseOneMax = 254;
 
 export const AddressChangeGetAddressChangeAdminViewBody = zod
   .object({
+    address: zod.union([zod.string().max(addressChangeGetAddressChangeAdminViewBodyAddressOneMax), zod.null()]).optional(),
     address_change_id: zod
       .union([zod.string().regex(addressChangeGetAddressChangeAdminViewBodyAddressChangeIdOneRegExp), zod.null()])
       .optional(),
-    adresse: zod.union([zod.string().max(addressChangeGetAddressChangeAdminViewBodyAdresseOneMax), zod.null()]).optional(),
   })
   .describe("Exactly one key: the address typed, or the change a page links to.");
 
@@ -283,7 +284,7 @@ export const AddressChangeGetAddressChangeAdminViewBody = zod
  * bring back a change confirmed in its waiting time to take effect. Nothing is mailed. Acts on the change the id names
  * alone, so a page showing a change since replaced discards nothing.
  *
- * Refused as the start is about who asks (`own_adresse`, `admin_address`), and where the change ended
+ * Refused as the start is about who asks (`own_address`, `admin_address`), and where the change ended
  * (`address_change_ended`); 404 for an id naming no change.
  * @summary Discard a pending address change
  */
@@ -325,7 +326,7 @@ export const AddressChangePostAddressChangeApprovalParams = zod.object({
  * next hourly pass ends it. Acts on the change the id names alone, so a page showing a change since replaced re-sends
  * nothing.
  *
- * Refused as the start is about who asks (`own_adresse`, `admin_address`), where the ban list holds the pending address
+ * Refused as the start is about who asks (`own_address`, `admin_address`), where the ban list holds the pending address
  * (`address_change_barred`), where another pupil has come to sign in on it (`address_change_taken`), where an entry has come to name it,
  * confirmed or not (`address_change_occupied`), where a grant's approval week has passed (`link_expired`), and where the change ended
  * (`address_change_ended`). 404 for an id naming no change, and unless the change waits on the new mailbox: one awaiting the address on
@@ -373,7 +374,7 @@ export const BewerbungenGetBewerbungenQueryParams = zod.object({
  * application it holds, stores none and owes nothing again. The same key over other details is refused
  * (`bewerbung_key_differing`).
  *
- * An address the ban list holds, on any seat, is refused (`bewerbung_adresse_barred`) on a first press.
+ * An address the ban list holds, on any seat, is refused (`bewerbung_address_barred`) on a first press.
  * @summary Submit a Bewerbung
  */
 export const bewerbungenPostBewerbungBodyKaderExpectedSizeMax = 200;
@@ -612,7 +613,7 @@ export const BewerbungenPostEinwilligungBody = zod.union([
       text_versions: zod
         .object({
           media: zod.literal("2026-11-medien-1"),
-          umfang: zod.literal("2026-11-whatsapp-1"),
+          scope: zod.literal("2026-11-whatsapp-1"),
         })
         .describe("A contact seat's two wordings: the WhatsApp switch and the media switch."),
       token: zod.string().min(1).max(bewerbungenPostEinwilligungBodyOneTokenMax).regex(bewerbungenPostEinwilligungBodyOneTokenRegExp),
@@ -768,16 +769,16 @@ export const BewerbungenPatchEinwilligungBody = zod
   .object({
     evidence_state: zod.object({
       media: zod.union([zod.string(), zod.null()]),
-      umfang: zod.union([zod.string(), zod.null()]),
+      scope: zod.union([zod.string(), zod.null()]),
     }),
     media: zod.boolean(),
+    scope: zod.enum(["kontaktdaten", "kontaktdaten_whatsapp"]),
     text_versions: zod
       .object({
         media: zod.literal("2026-11-medien-1"),
-        umfang: zod.literal("2026-11-whatsapp-1"),
+        scope: zod.literal("2026-11-whatsapp-1"),
       })
       .describe("A contact seat's two wordings: the WhatsApp switch and the media switch."),
-    umfang: zod.enum(["kontaktdaten", "kontaktdaten_whatsapp"]),
   })
   .describe(
     "A seat holder's own two choices for every seat they hold on one row, under any label their kind cites.\n\nBoth choices on every press: a page that sent one alone would leave the other judged by nothing.",
@@ -1017,7 +1018,7 @@ export const GrantsPatchGrantBody = zod.object({
  *
  * ADMIN TIER, a step-up write. It runs the erasure `POST /identity/account/erasure` runs and refuses nothing about the
  * person's own state: a pupil in a live squad and a referee booked on a fixture still to be played are erased on one pass.
- * Three refusals are about who asks. The administrator's own address is refused (`own_adresse`): their account page
+ * Three refusals are about who asks. The administrator's own address is refused (`own_address`): their account page
  * serves it, or an owner. An address holding a live grant is refused unless the administrator holds an owner's power,
  * signed in since becoming one (`admin_address`), judged inside the write: erasing it removes the grant, whatever grants
  * remain, so it asks what a revoke asks, an owner's power and a sign-in `ENROLMENT_WINDOW_MINUTES` old at most. Every
@@ -1097,8 +1098,8 @@ export const IdentitySweepErasureQueryParams = zod.object({
  * records standing, beside why the address tool refuses that change this administrator, or null where it opens it; a change
  * of an address holding a grant is left out for an administrator without an owner's power, as the administrators page
  * withholds it, since naming it would answer whether a typed address is its new one. The address's own live change is
- * named by its id, ending with the records it would move. Every request for a grant about the address (`betroffen`) or
- * made by it (`gestellt`) is named by its id and the tier it asks; a lapsed one is gone to every reader already and is
+ * named by its id, ending with the records it would move. Every request for a grant about the address (`target`) or
+ * made by it (`requester`) is named by its id and the tier it asks; a lapsed one is gone to every reader already and is
  * left out, though the erasure removes its row too. A squad
  * row and a referee row each carry the day it was retired, null while live, and a referee row every season holding a
  * fixture still to be played that it is booked on, as `schiedsrichter_still_assigned` judges one. Reached and not named: the fixtures
@@ -1116,7 +1117,7 @@ export const IdentitySweepErasureQueryParams = zod.object({
  * `admin_tier` is the tier of the live grant the address holds, or null. `barred` is whether a standing ban holds the
  * address, judged as a stored address is; the erasure leaves a ban standing. Stores nothing.
  *
- * Refused as the erasure is: the administrator's own address (`own_adresse`), an address holding a live grant unless
+ * Refused as the erasure is: the administrator's own address (`own_address`), an address holding a live grant unless
  * the administrator holds an owner's power (`admin_address`).
  * @summary Show what an erasure of an address would remove
  */
@@ -1170,7 +1171,7 @@ export const IdentityGetSignInBody = zod
  * and no address, filter, image or count. Nothing bars the address and nothing is mailed; a person signs in again as before.
  *
  * Refused so that a refused call ends no session: from a sign-in older than the step-up window (`confirmation_required`), the
- * administrator's own address (`own_adresse`), an address holding an `owner` grant unless the administrator holds an
+ * administrator's own address (`own_address`), an address holding an `owner` grant unless the administrator holds an
  * owner's power (`admin_address`). Unlike the erasure, it
  * ends another administrator's sessions for an administrator holding no owner's power: signing in again repairs it.
  * @summary Log the ending of every session an address holds
@@ -1279,15 +1280,15 @@ export const OutboxPostSignInBody = zod
     an: zod.string().max(outboxPostSignInBodyAnMax),
     data: zod.union([
       zod.object({
-        art: zod.literal("sign_in_code").meta({ title: "Art" }),
+        kind: zod.literal("sign_in_code").meta({ title: "Kind" }),
       }),
       zod.object({
         account: zod.string().max(outboxPostSignInBodyDataTwoAccountMax).regex(outboxPostSignInBodyDataTwoAccountRegExp),
-        art: zod.enum(["passkey_added", "passkey_erased"]),
         instant: zod.iso.datetime({ offset: true }),
+        kind: zod.enum(["passkey_added", "passkey_erased"]),
       }),
       zod.object({
-        art: zod.literal("account_erasure").meta({ title: "Art" }),
+        kind: zod.literal("account_erasure").meta({ title: "Kind" }),
       }),
     ]),
     secret: zod.union([zod.string().min(1).max(outboxPostSignInBodySecretOneMax), zod.null()]),
@@ -1386,16 +1387,16 @@ export const RegistrierungenPatchEinwilligungBody = zod
   .object({
     evidence_state: zod.object({
       media: zod.union([zod.string(), zod.null()]),
-      umfang: zod.union([zod.string(), zod.null()]),
+      scope: zod.union([zod.string(), zod.null()]),
     }),
     media: zod.boolean(),
+    scope: zod.enum(["kader_oeffentlich", "intern"]),
     text_versions: zod
       .object({
         media: zod.literal("2026-11-medien-1"),
-        umfang: zod.literal("2026-11-name-kader-1"),
+        scope: zod.literal("2026-11-name-kader-1"),
       })
       .describe("A pupil's two wordings: the name on the squad and the media switch."),
-    umfang: zod.enum(["kader_oeffentlich", "intern"]),
   })
   .describe("A pupil's or a registration's own two choices on their record.");
 
@@ -1420,17 +1421,17 @@ export const RegistrierungenPostConfirmationBody = zod
       zod.string().regex(registrierungenPostConfirmationBodyGeburtsdatumThreeRegExp),
     ]),
     media: zod.union([zod.boolean(), zod.null()]),
+    scope: zod.union([zod.enum(["kader_oeffentlich", "intern"]), zod.null()]),
     text_versions: zod.union([
       zod
         .object({
           media: zod.literal("2026-11-medien-1"),
-          umfang: zod.literal("2026-11-name-kader-1"),
+          scope: zod.literal("2026-11-name-kader-1"),
         })
         .describe("A pupil's two wordings: the name on the squad and the media switch."),
       zod.null(),
     ]),
     token: zod.string().min(1).max(registrierungenPostConfirmationBodyTokenMax).regex(registrierungenPostConfirmationBodyTokenRegExp),
-    umfang: zod.union([zod.enum(["kader_oeffentlich", "intern"]), zod.null()]),
   })
   .describe("One pupil's own answer: their date of birth where the page asks it, and on the new pupil's page the two consents.");
 
@@ -1540,7 +1541,7 @@ export const RegistrierungenSweepRegistrierungenParams = zod.object({
  *
  * Refuses, in this order: no pending registration with this id (404), no seat on its team's season
  * (`role_not_held`), a registration the pupil has not confirmed (`registrierung_unconfirmed`), an address the ban list
- * holds (`registrierung_adresse_barred`, worded to the team as neutrally as to the pupil), a Stufe the season does not offer
+ * holds (`registrierung_address_barred`, worded to the team as neutrally as to the pupil), a Stufe the season does not offer
  * (`registrierung_stufe_not_allowed`), a registration confirmed on the returning pupil's page whose address holds no stored
  * person (`registrierung_person_missing`: it carries no choice, so it admits nobody, and the pupil registers again), a
  * `spieler_id` that is not the person this registration may be admitted into (`registrierung_person_not_named`), a person
@@ -2068,7 +2069,7 @@ export const SchiedsrichterGetSchiedsrichterQueryParams = zod.object({
  * whether this person is asked, because a referee nobody asked is a name nobody consented to
  * publish. The link goes out through the Postausgang, which mints it; the answer names the address and the deadline.
  *
- * Refused `schiedsrichter_adresse_barred` where the address given is on the ban list.
+ * Refused `schiedsrichter_address_barred` where the address given is on the ban list.
  * @summary Create a Schiedsrichter
  */
 export const schiedsrichterPostSchiedsrichterBodyDefaultPaymentMin = 0;
@@ -2102,7 +2103,7 @@ export const SchiedsrichterPostSchiedsrichterBody = zod.object({
  * Writes those two on this one referee row, each moved choice with its evidence (`evidence.<choice>`), and nothing
  * else: the confirmation day, the day given and the wording they confirmed stand, and no fixture is written. The
  * public fixture list reads the scope off this row, so a withdrawal takes the name off every fixture page at that
- * list's next read. A PATCH moving neither choice writes nothing. A GRANT (`umfang` to
+ * list's next read. A PATCH moving neither choice writes nothing. A GRANT (`scope` to
  * `kader_oeffentlich` or `media` to `true`) is taken on a live record alone; a withdrawal on a retired one too.
  *
  * Refuses, in this order: an id that is no confirmed referee record of this address (`role_not_held`); a
@@ -2125,16 +2126,16 @@ export const SchiedsrichterPatchEinwilligungBody = zod
   .object({
     evidence_state: zod.object({
       media: zod.union([zod.string(), zod.null()]),
-      umfang: zod.union([zod.string(), zod.null()]),
+      scope: zod.union([zod.string(), zod.null()]),
     }),
     media: zod.boolean(),
+    scope: zod.enum(["kader_oeffentlich", "intern"]),
     text_versions: zod
       .object({
         media: zod.literal("2026-11-medien-1"),
-        umfang: zod.literal("2026-11-name-spielplan-1"),
+        scope: zod.literal("2026-11-name-spielplan-1"),
       })
       .describe("A referee's two wordings: the name on the fixtures and the media switch."),
-    umfang: zod.enum(["kader_oeffentlich", "intern"]),
   })
   .describe("A referee's own two choices on their record.");
 
@@ -2164,14 +2165,14 @@ export const schiedsrichterPostConfirmationBodyTokenRegExp = new RegExp("^[^\\x0
 export const SchiedsrichterPostConfirmationBody = zod.object({
   geburtsdatum: zod.string().regex(schiedsrichterPostConfirmationBodyGeburtsdatumRegExp),
   media: zod.boolean(),
+  scope: zod.enum(["kader_oeffentlich", "intern"]),
   text_versions: zod
     .object({
       media: zod.literal("2026-11-medien-1"),
-      umfang: zod.literal("2026-11-name-spielplan-1"),
+      scope: zod.literal("2026-11-name-spielplan-1"),
     })
     .describe("A referee's two wordings: the name on the fixtures and the media switch."),
   token: zod.string().min(1).max(schiedsrichterPostConfirmationBodyTokenMax).regex(schiedsrichterPostConfirmationBodyTokenRegExp),
-  umfang: zod.enum(["kader_oeffentlich", "intern"]),
 });
 
 /**
@@ -2236,14 +2237,14 @@ export const SchiedsrichterGetSchiedsrichterByIdParams = zod.object({
  * new address, named in `confirmation`: the old link was posted to a mailbox nobody reads, and
  * leaving it live is a credential in the wrong inbox.
  *
- * **A CONFIRMED referee's address is refused here** (`schiedsrichter_adresse_only_per_change`), retired or not: it is who signs in as the
+ * **A CONFIRMED referee's address is refused here** (`schiedsrichter_address_only_per_change`), retired or not: it is who signs in as the
  * person, and moves only through an address change: the address tool, `POST /address_change`, or the person's own account page.
  * A save keeping it lands, a pending change standing.
  *
  * **A RETIRED unconfirmed referee's corrected address is stored and mails nothing**: no consent is
  * collected for a role nobody gives them. Their old link is retired all the same, and the
  * reactivation mints the fresh one. Where a link is minted, a banned new address is refused
- * `schiedsrichter_adresse_barred`. A save retiring or minting a link is refused `confirmation_required` from a
+ * `schiedsrichter_address_barred`. A save retiring or minting a link is refused `confirmation_required` from a
  * sign-in or confirmation older than `STEP_UP_WINDOW_HOURS`.
  *
  * The ghost answers 404 here as it does to every read: a name written onto it would appear on the
@@ -2289,8 +2290,8 @@ export const SchiedsrichterPatchSchiedsrichterBody = zod.object({
  *
  * Refused where the referee is retired (`schiedsrichter_retired`), where they have already
  * answered (`confirmation_exists`), where they carry no email address
- * (`schiedsrichter_no_adresse`), and where that address is on the ban list
- * (`schiedsrichter_adresse_barred`). 404 for an id no referee holds, an erased referee's among them, and
+ * (`schiedsrichter_no_address`), and where that address is on the ban list
+ * (`schiedsrichter_address_barred`). 404 for an id no referee holds, an erased referee's among them, and
  * for the ghost, which every by-id route filters out.
  *
  * **A referee who has already answered is refused rather than sent a second link**: the
@@ -2311,7 +2312,7 @@ export const SchiedsrichterInviteSchiedsrichterParams = zod.object({
  * retired referee's save stores a new address and mails nothing, so coming back is what
  * asks them. A row holding no address a link can go to comes back unasked, and so does one whose
  * person has answered. Where a link is minted, an address on the ban list is refused
- * `schiedsrichter_adresse_barred` and the row stays retired, and one from a sign-in or confirmation older than
+ * `schiedsrichter_address_barred` and the row stays retired, and one from a sign-in or confirmation older than
  * `STEP_UP_WINDOW_HOURS` is refused `confirmation_required`.
  *
  * The ghost answers 404 here too: cleared on it, the picker would offer a bookable row with no
@@ -3146,7 +3147,7 @@ export const SpieleGetSpielVerwaltungParams = zod.object({
  *
  * Writes those two on this one record, each moved choice with its evidence (`evidence.<choice>`), and nothing else:
  * the confirmation day, the day given and the wording they confirmed stand, and no other document is written. A
- * PATCH moving neither choice writes nothing. A GRANT (`umfang` to `kader_oeffentlich` or `media` to `true`) is
+ * PATCH moving neither choice writes nothing. A GRANT (`scope` to `kader_oeffentlich` or `media` to `true`) is
  * taken on a live record alone; a withdrawal on a retired one too.
  *
  * Refuses, in this order: an address holding no confirmed pupil record (`role_not_held`); a `evidence_state`
@@ -3164,16 +3165,16 @@ export const SpielerPatchEinwilligungBody = zod
   .object({
     evidence_state: zod.object({
       media: zod.union([zod.string(), zod.null()]),
-      umfang: zod.union([zod.string(), zod.null()]),
+      scope: zod.union([zod.string(), zod.null()]),
     }),
     media: zod.boolean(),
+    scope: zod.enum(["kader_oeffentlich", "intern"]),
     text_versions: zod
       .object({
         media: zod.literal("2026-11-medien-1"),
-        umfang: zod.literal("2026-11-name-kader-1"),
+        scope: zod.literal("2026-11-name-kader-1"),
       })
       .describe("A pupil's two wordings: the name on the squad and the media switch."),
-    umfang: zod.enum(["kader_oeffentlich", "intern"]),
   })
   .describe("A pupil's or a registration's own two choices on their record.");
 
@@ -3877,7 +3878,7 @@ export const TeamsPatchSaisonTeamBody = zod
  * One answer for all of them: a person holding two of the row's slots answers once, each choice moving only where it
  * differs from the row as the page served it, so seats answered apart keep their answers to a choice not changed. No
  * other slot of the row and no other row is written, each choice moving with its own evidence and leaving the
- * other standing; a press moving no seat writes nothing. A GRANT (`umfang` to `kontaktdaten_whatsapp` or `media`
+ * other standing; a press moving no seat writes nothing. A GRANT (`scope` to `kontaktdaten_whatsapp` or `media`
  * to `true`) is taken on a row of an `active` or `future` season its team has not left; a withdrawal on any row the
  * person confirmed a seat on, a past season's included.
  *
@@ -3900,16 +3901,16 @@ export const TeamsPatchEinwilligungBody = zod
   .object({
     evidence_state: zod.object({
       media: zod.union([zod.string(), zod.null()]),
-      umfang: zod.union([zod.string(), zod.null()]),
+      scope: zod.union([zod.string(), zod.null()]),
     }),
     media: zod.boolean(),
+    scope: zod.enum(["kontaktdaten", "kontaktdaten_whatsapp"]),
     text_versions: zod
       .object({
         media: zod.literal("2026-11-medien-1"),
-        umfang: zod.literal("2026-11-whatsapp-1"),
+        scope: zod.literal("2026-11-whatsapp-1"),
       })
       .describe("A contact seat's two wordings: the WhatsApp switch and the media switch."),
-    umfang: zod.enum(["kontaktdaten", "kontaktdaten_whatsapp"]),
   })
   .describe(
     "A seat holder's own two choices for every seat they hold on one row, under any label their kind cites.\n\nBoth choices on every press: a page that sent one alone would leave the other judged by nothing.",
@@ -4036,7 +4037,7 @@ export const TeamsPatchSaisonTeamKontakteParams = zod.object({
   saison_id: zod.string(),
 });
 
-export const teamsPatchSaisonTeamKontakteBodyKontakteOneAnsprechpersonOneEinwilligungDatumRegExp = new RegExp(
+export const teamsPatchSaisonTeamKontakteBodyKontakteOneAnsprechpersonOneEinwilligungDateRegExp = new RegExp(
   "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
 );
 export const teamsPatchSaisonTeamKontakteBodyKontakteOneAnsprechpersonOneEmailMax = 254;
@@ -4048,7 +4049,7 @@ export const teamsPatchSaisonTeamKontakteBodyKontakteOneAnsprechpersonOneTelefon
 export const teamsPatchSaisonTeamKontakteBodyKontakteOneAnsprechpersonOneVornameMax = 80;
 
 export const teamsPatchSaisonTeamKontakteBodyKontakteOneAnsprechpersonOneVornameRegExp = new RegExp("^\\p{L}[\\p{L}\\-' ]*$", "u");
-export const teamsPatchSaisonTeamKontakteBodyKontakteOneStellvertretungOneEinwilligungDatumRegExp = new RegExp(
+export const teamsPatchSaisonTeamKontakteBodyKontakteOneStellvertretungOneEinwilligungDateRegExp = new RegExp(
   "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
 );
 export const teamsPatchSaisonTeamKontakteBodyKontakteOneStellvertretungOneEmailMax = 254;
@@ -4060,7 +4061,7 @@ export const teamsPatchSaisonTeamKontakteBodyKontakteOneStellvertretungOneTelefo
 export const teamsPatchSaisonTeamKontakteBodyKontakteOneStellvertretungOneVornameMax = 80;
 
 export const teamsPatchSaisonTeamKontakteBodyKontakteOneStellvertretungOneVornameRegExp = new RegExp("^\\p{L}[\\p{L}\\-' ]*$", "u");
-export const teamsPatchSaisonTeamKontakteBodyKontakteOneTrainerOneEinwilligungDatumRegExp = new RegExp(
+export const teamsPatchSaisonTeamKontakteBodyKontakteOneTrainerOneEinwilligungDateRegExp = new RegExp(
   "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
 );
 export const teamsPatchSaisonTeamKontakteBodyKontakteOneTrainerOneEmailMax = 254;
@@ -4081,8 +4082,8 @@ export const TeamsPatchSaisonTeamKontakteBody = zod
           ansprechperson: zod.union([
             zod.object({
               einwilligung: zod.object({
-                datum: zod.string().regex(teamsPatchSaisonTeamKontakteBodyKontakteOneAnsprechpersonOneEinwilligungDatumRegExp),
-                umfang: zod.literal("kontaktdaten").meta({ title: "Umfang" }),
+                date: zod.string().regex(teamsPatchSaisonTeamKontakteBodyKontakteOneAnsprechpersonOneEinwilligungDateRegExp),
+                scope: zod.literal("kontaktdaten").meta({ title: "Scope" }),
               }),
               email: zod.string().max(teamsPatchSaisonTeamKontakteBodyKontakteOneAnsprechpersonOneEmailMax),
               nachname: zod
@@ -4102,8 +4103,8 @@ export const TeamsPatchSaisonTeamKontakteBody = zod
           stellvertretung: zod.union([
             zod.object({
               einwilligung: zod.object({
-                datum: zod.string().regex(teamsPatchSaisonTeamKontakteBodyKontakteOneStellvertretungOneEinwilligungDatumRegExp),
-                umfang: zod.literal("kontaktdaten").meta({ title: "Umfang" }),
+                date: zod.string().regex(teamsPatchSaisonTeamKontakteBodyKontakteOneStellvertretungOneEinwilligungDateRegExp),
+                scope: zod.literal("kontaktdaten").meta({ title: "Scope" }),
               }),
               email: zod.string().max(teamsPatchSaisonTeamKontakteBodyKontakteOneStellvertretungOneEmailMax),
               nachname: zod
@@ -4123,8 +4124,8 @@ export const TeamsPatchSaisonTeamKontakteBody = zod
           trainer: zod.union([
             zod.object({
               einwilligung: zod.object({
-                datum: zod.string().regex(teamsPatchSaisonTeamKontakteBodyKontakteOneTrainerOneEinwilligungDatumRegExp),
-                umfang: zod.literal("kontaktdaten").meta({ title: "Umfang" }),
+                date: zod.string().regex(teamsPatchSaisonTeamKontakteBodyKontakteOneTrainerOneEinwilligungDateRegExp),
+                scope: zod.literal("kontaktdaten").meta({ title: "Scope" }),
               }),
               email: zod.string().max(teamsPatchSaisonTeamKontakteBodyKontakteOneTrainerOneEmailMax),
               nachname: zod

@@ -12,7 +12,7 @@ from pymongo.errors import DuplicateKeyError
 
 from app.api.sperrliste.admin_router import delete_sperrliste_entry, get_sperrliste
 from app.api.sperrliste.crud import address_is_gesperrt, read_sperrliste_page
-from app.api.sperrliste.services import SPERRLISTE_SCHLUESSEL_VERSION, adresse_hash
+from app.api.sperrliste.services import SPERRLISTE_SCHLUESSEL_VERSION, address_hash
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError, DocumentNotFoundError
@@ -117,8 +117,8 @@ class TestWhatABanStores:
 
         stored = on_a_clean_list(mongo_replica_set_url, body)
 
-        assert set(stored) == {"_id", "adresse_hash", "key_version", "grund", "created_by", "created_at", "barred_until_saison_id"}
-        assert stored["adresse_hash"] == adresse_hash(BANNED, key=CONFIG.sperrliste_key)
+        assert set(stored) == {"_id", "address_hash", "key_version", "grund", "created_by", "created_at", "barred_until_saison_id"}
+        assert stored["address_hash"] == address_hash(BANNED, key=CONFIG.sperrliste_key)
         assert stored["grund"] == GRUND
         assert stored["created_by"] == ADMIN
         assert stored["created_at"] == TODAY
@@ -255,7 +255,7 @@ class TestTheCheckASignUpWillAsk:
             return [
                 await address_is_gesperrt(
                     ban_list_collection=database[Collection.BAN_LIST],
-                    adresse_hash=adresse_hash(typed, key=CONFIG.sperrliste_key),
+                    address_hash=address_hash(typed, key=CONFIG.sperrliste_key),
                     governing_saison_id=ACTIVE_SAISON_ID,
                 )
                 for typed in (BANNED, BANNED_RETYPED, "Zorbanax@BEISPIELSCHULE.DE  ")
@@ -271,7 +271,7 @@ class TestTheCheckASignUpWillAsk:
 
             return await address_is_gesperrt(
                 ban_list_collection=database[Collection.BAN_LIST],
-                adresse_hash=adresse_hash(OTHER, key=CONFIG.sperrliste_key),
+                address_hash=address_hash(OTHER, key=CONFIG.sperrliste_key),
                 governing_saison_id=ACTIVE_SAISON_ID,
             )
 
@@ -290,7 +290,7 @@ class TestTheCheckASignUpWillAsk:
 
             return await address_is_gesperrt(
                 ban_list_collection=database[Collection.BAN_LIST],
-                adresse_hash=adresse_hash(BANNED, key=CONFIG.sperrliste_key),
+                address_hash=address_hash(BANNED, key=CONFIG.sperrliste_key),
                 governing_saison_id=ACTIVE_SAISON_ID,
             )
 
@@ -313,7 +313,7 @@ class TestWhatTheListServes:
         # `created_by` carries the administrator's own address, so the banned one is named
         # directly rather than sought by its `@`.
         assert BANNED_LOCAL_PART not in rendered.lower()
-        assert "adresse_hash" not in rendered
+        assert "address_hash" not in rendered
         assert served.sperrliste[0].grund == GRUND
         assert served.sperrliste[0].created_by == ADMIN
         assert served.sperrliste[0].created_at == TODAY
@@ -324,8 +324,8 @@ class TestWhatTheListServes:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await ban(database, client, email=OTHER)
             # Revoked as a paste revokes, then barred through the route by another administrator.
-            await database[Collection.GRANTS].delete_one({"adresse": ADMIN})
-            await ban(database, client, email=ADMIN, by=grants_for_the_suite()[0]["adresse"])
+            await database[Collection.GRANTS].delete_one({"address": ADMIN})
+            await ban(database, client, email=ADMIN, by=grants_for_the_suite()[0]["address"])
 
             served = await listed(database)
 
@@ -334,7 +334,7 @@ class TestWhatTheListServes:
         rows, rendered = on_a_clean_list(mongo_replica_set_url, body)
 
         # Newest first: the ban on the author, entered by an owner the list does not hold, then the author's own.
-        assert rows == [(grants_for_the_suite()[0]["adresse"], False), (None, True)]
+        assert rows == [(grants_for_the_suite()[0]["address"], False), (None, True)]
         assert ADMIN not in rendered
 
     def test_the_total_counts_the_collection_and_not_the_rows_served(self, mongo_replica_set_url: str):
@@ -445,7 +445,7 @@ class TestLiftingABan:
         images = recorded["before"]
 
         assert len(images) == 1
-        assert set(images[0]) == {"_id", "adresse_hash", "key_version", "grund", "created_by", "created_at", "barred_until_saison_id"}
+        assert set(images[0]) == {"_id", "address_hash", "key_version", "grund", "created_by", "created_at", "barred_until_saison_id"}
         assert images[0]["grund"] == GRUND
         # The reason the image is safe to keep: it holds the hash and the administrator, never the
         # address the ban was taken from.
@@ -515,13 +515,13 @@ class TestTheKeyTheRowsWereTakenUnder:
                     # Keyed under the previous master and labelled as the builder labels every row,
                     # which a row written before a rotation would carry: nothing closes the set of labels,
                     # so the old population stays readable.
-                    adresse_hash=adresse_hash(BANNED, key=SecretStr("the-previous-key".ljust(64, "0"))),
+                    address_hash=address_hash(BANNED, key=SecretStr("the-previous-key".ljust(64, "0"))),
                 )
             )
 
             return await address_is_gesperrt(
                 ban_list_collection=database[Collection.BAN_LIST],
-                adresse_hash=adresse_hash(BANNED, key=CONFIG.sperrliste_key),
+                address_hash=address_hash(BANNED, key=CONFIG.sperrliste_key),
                 governing_saison_id=ACTIVE_SAISON_ID,
             )
 

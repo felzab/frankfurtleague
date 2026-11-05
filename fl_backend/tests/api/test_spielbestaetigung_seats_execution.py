@@ -76,7 +76,7 @@ def person(vorname: str, *, email: str | None = None) -> dict[str, Any]:
         "nachname": "Musterfrau",
         "email": email or f"{vorname.lower()}@example.com",
         "telefon": TELEFON[vorname],
-        "einwilligung": {"umfang": "kontaktdaten", "datum": "2026-03-01"},
+        "einwilligung": {"scope": "kontaktdaten", "date": "2026-03-01"},
     }
 
 
@@ -87,7 +87,7 @@ def stored(vorname: str) -> dict[str, Any]:
 
     return documents.kontaktperson_document(
         vorname,
-        einwilligung={"datum": sent["einwilligung"]["datum"]},
+        einwilligung={"date": sent["einwilligung"]["date"]},
         entered_by="liga",
         nachname=sent["nachname"],
         email=sent["email"],
@@ -352,7 +352,7 @@ async def replay_the_widerspruch(database: AsyncDatabase, client: AsyncMongoClie
 
     line = JournalLine(
         person_hash=erasure_journal_hash("ida@example.com", key=CONFIG.sperrliste_key),
-        art="objection",
+        kind="objection",
         collection=Collection.SAISON_TEAMS,
         record_id=ROW_OID,
         at=AT,
@@ -438,14 +438,14 @@ IDA = "ida@example.com"
 UNDRAWN_SPIEL_OIDS = [ObjectId(f"6890a1b2c3d4e5f607b6005{position}") for position in range(2)]
 
 
-def declined(row: str, team_id: ObjectId, spiel: Mapping[str, Any], rolle: str, adresse: str, begruendung: str) -> dict[str, Any]:
-    """A row the team declined from `rolle`'s link, pressed by `adresse`, giving a reason; closed since, as a move closes an answered row."""
+def declined(row: str, team_id: ObjectId, spiel: Mapping[str, Any], rolle: str, address: str, begruendung: str) -> dict[str, Any]:
+    """A row the team declined from `rolle`'s link, pressed by `address`, giving a reason; closed since, as a move closes an answered row."""
 
     return confirmation_row(
         row,
         team_id,
         spiel,
-        antwort=documents.kontakt_antwort_document(rolle, adresse, begruendung=begruendung),
+        antwort=documents.kontakt_antwort_document(rolle, address, begruendung=begruendung),
         closed={"at": TODAY, "grund": "ansetzung_changed"},
     )
 

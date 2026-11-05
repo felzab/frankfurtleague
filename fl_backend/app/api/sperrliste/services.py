@@ -25,7 +25,7 @@ from app.shared.sub_keys import derive_sub_key
 SPERRLISTE_SCHLUESSEL_VERSION: Final = "ban-list-v1"
 
 
-def adresse_hash(address: str, *, key: SecretStr) -> str:
+def address_hash(address: str, *, key: SecretStr) -> str:
     """The form a ban is stored in.
 
     KEYED, where `app/shared/tokens.py :: hash_token` is not: an address is a dictionary
@@ -84,7 +84,7 @@ def find_keine_saison_refusal(*, governing_saison_id: str | None) -> WriteRefusa
     )
 
 
-def stored_adresse_hash(address: str, *, key: SecretStr) -> str | None:
+def stored_address_hash(address: str, *, key: SecretStr) -> str | None:
     """The ban key of a stored address, or `None` where today's rule refuses it, as no ban can key one.
 
     Never raising: the actor fields it is asked of hold markers as well as addresses, and a stored address an older
@@ -92,7 +92,7 @@ def stored_adresse_hash(address: str, *, key: SecretStr) -> str | None:
     """
 
     try:
-        return adresse_hash(address, key=key)
+        return address_hash(address, key=key)
     except ValueError:
         return None
 
@@ -100,7 +100,7 @@ def stored_adresse_hash(address: str, *, key: SecretStr) -> str | None:
 def berechtigte_hashes(administrators: Iterable[str], *, key: SecretStr) -> set[str]:
     """Each administrator's address as a ban is keyed, so a ban is compared in the form it bars by."""
 
-    hashes = (stored_adresse_hash(administrator, key=key) for administrator in administrators)
+    hashes = (stored_address_hash(administrator, key=key) for administrator in administrators)
 
     return {hashed for hashed in hashes if hashed is not None}
 

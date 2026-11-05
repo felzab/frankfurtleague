@@ -11,8 +11,8 @@ from pymongo.errors import PyMongoError
 
 from app.api.address_change.crud import end_the_change_in_session, ending_line, owe_the_refusal_notice_in_session, take_effect_in_session
 from app.api.address_change.schemas import (
-    FLAddressChangeAdressePayload,
-    FLAddressChangeAdresseResponse,
+    FLAddressChangeAddressPayload,
+    FLAddressChangeAddressResponse,
     FLAddressChangeMovesDonePayload,
     FLAddressChangeMovesDoneResponse,
     FLAddressChangeMovesResponse,
@@ -90,8 +90,8 @@ def _pipeline(*, now: datetime, after: Any, size: int) -> list[dict[str, Any]]:
         {
             "$lookup": {
                 "from": Collection.GRANTS,
-                "localField": "adresse",
-                "foreignField": "adresse",
+                "localField": "address",
+                "foreignField": "address",
                 "pipeline": [{"$project": {"_id": 1}}],
                 "as": HELD,
             }
@@ -124,7 +124,7 @@ async def _end_the_lapsed_change(
             address_changes_collection=address_changes_collection,
             action_log_collection=action_log_collection,
             db_filter={"_id": row["_id"], **build_lapsed_terms(now)},
-            art="expired",
+            kind="expired",
             now=now,
             stamp=stamp,
             session=session,
@@ -215,7 +215,7 @@ async def _make_the_due_change_take_effect(
                 address_changes_collection=address_changes_collection,
                 action_log_collection=action_log_collection,
                 db_filter={"_id": record["_id"]},
-                art="discarded",
+                kind="discarded",
                 now=now,
                 stamp=stamp,
                 session=session,
@@ -224,7 +224,7 @@ async def _make_the_due_change_take_effect(
             # the change back from, due.
             journal.note(
                 ending_line(
-                    art="address_change_discarded_notified",
+                    kind="address_change_discarded_notified",
                     new_address=str(record["email"]),
                     record_id=record["_id"],
                     at=stamp,
@@ -361,7 +361,7 @@ async def sweep_address_change(
                     "address_change.sweep_cut",
                     extra={
                         "error_code": Code.UNKNOWN_OUTCOME if uncertain else Code.DATABASE_FAILED,
-                        "art": which,
+                        "kind": which,
                         "address_change_id": str(row["_id"]),
                         # The step whose commit went out unanswered, null where none did.
                         "unanswered": was if uncertain else None,
@@ -374,7 +374,7 @@ async def sweep_address_change(
             code, diagnosis = diagnosis_of(failure)
             fl_logger.error(
                 "address_change.sweep_row_failed",
-                extra={"error_code": code, "art": which, "step": was, "address_change_id": str(row["_id"]), "diagnosis": diagnosis},
+                extra={"error_code": code, "kind": which, "step": was, "address_change_id": str(row["_id"]), "diagnosis": diagnosis},
             )
             continue
 
@@ -443,15 +443,15 @@ async def post_address_change_moves_done(
 
 
 @router.post(
-    "/adresse",
-    response_model=FLAddressChangeAdresseResponse,
+    "/address",
+    response_model=FLAddressChangeAddressResponse,
     summary="Say which address a live change would move to",
     openapi_extra=SAFE,
 )
-async def get_address_change_adresse(
-    adresse_data: Annotated[FLAddressChangeAdressePayload, Body()],
+async def get_address_change_address(
+    address_data: Annotated[FLAddressChangeAddressPayload, Body()],
     address_changes_collection: AddressChangeReadCollection,
-) -> FLAddressChangeAdresseResponse:
+) -> FLAddressChangeAddressResponse:
     """
     Answer the new address of the live change the new mailbox's link token or the change's id names, folded to the sign-in identifier.
 
@@ -463,10 +463,10 @@ async def get_address_change_adresse(
     """
 
     db_filter = (
-        {"_id": adresse_data.address_change_id, **LIVE_TERMS}
-        if adresse_data.token is None
-        else {"token_hashes": hash_token(adresse_data.token), **LIVE_TERMS}
+        {"_id": address_data.address_change_id, **LIVE_TERMS}
+        if address_data.token is None
+        else {"token_hashes": hash_token(address_data.token), **LIVE_TERMS}
     )
     record = await address_changes_collection.find_one(db_filter, projection={"email": 1})
 
-    return FLAddressChangeAdresseResponse(email=None if record is None else sign_in_identifier(str(record["email"])))
+    return FLAddressChangeAddressResponse(email=None if record is None else sign_in_identifier(str(record["email"])))

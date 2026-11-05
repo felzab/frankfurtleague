@@ -41,8 +41,8 @@ from app.api.bewerbungen.services import (
     compose_kontakt_email_update,
     compose_kontakt_seat_update,
     compose_new_club,
+    decider_addresses,
     dubletten_schluessel_of,
-    entscheider_adressen,
     find_acceptance_subject_refusal,
     find_already_answered_refusal,
     find_kontakt_email_refusal,
@@ -57,14 +57,14 @@ from app.api.bewerbungen.services import (
     owed_link,
     paired_seat,
     parse_new_club,
-    personen_mit_adresse,
+    people_with_address,
     seat_named,
 )
 from app.api.outbox.crud import states_of
 from app.api.outbox.schemas import FLBewerbungAbsageData, FLBewerbungZusageData
 from app.api.outbox.services import OwedMail, enqueue_mails
 from app.api.saisons.schemas import FLSaisonRules
-from app.api.sperrliste.lookup import BanList, SperrlisteLookup, adressen_gesperrt, hash_gesperrt, sperrliste_saison
+from app.api.sperrliste.lookup import BanList, SperrlisteLookup, barred_addresses, hash_gesperrt, sperrliste_saison
 from app.api.teams.crud import pull_a_club_to_enter, refuse_a_full_gruppe
 from app.api.teams.services import find_club_entry_refusal
 from app.core.collections import Collection
@@ -109,7 +109,7 @@ async def _as_served(
 ) -> list[dict[str, Any]]:
     # Concurrently: the ban list and the Postausgang are two collections, and neither read waits on the other.
     barred, lagen = await asyncio.gather(
-        adressen_gesperrt(sperrliste, entscheider_adressen(rows)),
+        barred_addresses(sperrliste, decider_addresses(rows)),
         states_of(outbox_collection=outbox_collection, collection=Collection.BEWERBUNGEN, ids=[row["_id"] for row in rows]),
     )
 
@@ -368,7 +368,7 @@ async def accept_bewerbung(
                     key=_key(bewerbung_id, "zusage", seats[0]),
                     an=email,
                     data=FLBewerbungZusageData(
-                        art="bewerbung_zusage",
+                        kind="bewerbung_zusage",
                         team=name,
                         saison_id=saison_id,
                         rollen=seats,
@@ -378,7 +378,7 @@ async def accept_bewerbung(
                         wunschgegner=bewerbung_raw.get("wunschgegner"),
                     ),
                 )
-                for email, seats in personen_mit_adresse(kontakte=bewerbung_raw.get("kontakte"))
+                for email, seats in people_with_address(kontakte=bewerbung_raw.get("kontakte"))
             ],
             now=germany_now,
         )
@@ -450,10 +450,10 @@ async def decline_bewerbung(
                     key=_key(bewerbung_id, "absage", seats[0]),
                     an=email,
                     data=FLBewerbungAbsageData(
-                        art="bewerbung_absage", team=team, saison_id=str(stored_raw["saison_id"]), rollen=seats, grund=ablehnung_data.grund
+                        kind="bewerbung_absage", team=team, saison_id=str(stored_raw["saison_id"]), rollen=seats, grund=ablehnung_data.grund
                     ),
                 )
-                for email, seats in personen_mit_adresse(kontakte=stored_raw.get("kontakte"))
+                for email, seats in people_with_address(kontakte=stored_raw.get("kontakte"))
             ],
             now=germany_now,
         )
@@ -505,8 +505,8 @@ async def resend_einwilligung(
         # Both seats of a pair, which no write path lets hold two addresses: the submission requires the
         # pair's details equal and the correction moves both. Only a hand edit could part them.
         slots = [kontakte.get(held) for held in seats] if isinstance(kontakte, Mapping) else []
-        adressen = {str(slot["email"]) for slot in slots if isinstance(slot, Mapping) and slot.get("email")}
-        barred = await adressen_gesperrt(sperrliste, adressen, governing_saison_id=governing_saison_id, session=session)
+        addresses = {str(slot["email"]) for slot in slots if isinstance(slot, Mapping) and slot.get("email")}
+        barred = await barred_addresses(sperrliste, addresses, governing_saison_id=governing_saison_id, session=session)
         refuse(find_kontakt_gesperrt_refusal(barred=bool(barred)))
 
     # A 404 rather than a 422, as a malformed path id answers: the segment names no seat any

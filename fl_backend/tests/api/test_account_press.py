@@ -30,7 +30,7 @@ async def _may_grant() -> bool:
 
 def _replaced(kind: type[FLSpielerTextVersions], *choices: FLEinwilligungChoice) -> PressTextVersions:
     labels = {**kind.current, **dict.fromkeys(choices, STALE)}
-    return kind.model_construct(umfang=labels["umfang"], media=labels["media"])
+    return kind.model_construct(scope=labels["scope"], media=labels["media"])
 
 
 def _press(blocks: list[Mapping[str, Any]], chosen: Mapping[FLEinwilligungChoice, Any], text_versions: PressTextVersions) -> None:
@@ -48,16 +48,16 @@ def _press(blocks: list[Mapping[str, Any]], chosen: Mapping[FLEinwilligungChoice
 
 
 # A stored block, and the press sending each choice back as stored.
-PUPIL_WITHHELD: Final[Mapping[str, Any]] = {"umfang": "intern", "media": False}
-PUPIL_GRANTED: Final[Mapping[str, Any]] = {"umfang": "kader_oeffentlich", "media": True}
+PUPIL_WITHHELD: Final[Mapping[str, Any]] = {"scope": "intern", "media": False}
+PUPIL_GRANTED: Final[Mapping[str, Any]] = {"scope": "kader_oeffentlich", "media": True}
 
 
 def _as_stored(block: Mapping[str, Any], **moved: Any) -> dict[FLEinwilligungChoice, Any]:
-    return {"umfang": moved.get("umfang", block["umfang"]), "media": moved.get("media", block["media"])}
+    return {"scope": moved.get("scope", block["scope"]), "media": moved.get("media", block["media"])}
 
 
 class TestAGrantThePressMovesNamesItsCurrentWording:
-    @pytest.mark.parametrize(("choice", "giving"), [("umfang", "kader_oeffentlich"), ("media", True)])
+    @pytest.mark.parametrize(("choice", "giving"), [("scope", "kader_oeffentlich"), ("media", True)])
     def test_a_choice_moved_onto_a_grant_under_a_replaced_label_is_refused(self, choice: FLEinwilligungChoice, giving: Any):
         with pytest.raises(APIError) as refused:
             _press([PUPIL_WITHHELD], _as_stored(PUPIL_WITHHELD, **{choice: giving}), _replaced(FLSpielerTextVersions, choice))

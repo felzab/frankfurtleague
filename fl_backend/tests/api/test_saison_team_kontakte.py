@@ -90,7 +90,7 @@ def person(vorname: str, *, email: str | None = None) -> dict[str, Any]:
         "nachname": "Musterfrau",
         "email": email or f"{vorname.lower()}@example.com",
         "telefon": TELEFON[vorname],
-        "einwilligung": {"umfang": "kontaktdaten", "datum": "2026-03-01"},
+        "einwilligung": {"scope": "kontaktdaten", "date": "2026-03-01"},
     }
 
 
@@ -102,7 +102,7 @@ def stored_person(vorname: str, *, email: str | None = None, confirmed_at: str |
     return kontaktperson_document(
         vorname,
         confirmed_at=confirmed_at,
-        einwilligung={"datum": sent["einwilligung"]["datum"]},
+        einwilligung={"date": sent["einwilligung"]["date"]},
         entered_by="liga",
         nachname=sent["nachname"],
         email=sent["email"],
@@ -290,7 +290,7 @@ class TestTheBlockIsWritten:
         # evidence read as none set.
         assert response.kontakte.model_dump(mode="json") == {
             seat: (
-                {**value, "einwilligung": {**value["einwilligung"], "evidence": {"umfang": None, "media": None}}}
+                {**value, "einwilligung": {**value["einwilligung"], "evidence": {"scope": None, "media": None}}}
                 if isinstance(value, dict)
                 else value
             )
@@ -366,7 +366,7 @@ class TestTheProvenanceIsTheServers:
             **PARTLY_CONFIRMED,
             "trainer": {
                 **PARTLY_CONFIRMED["trainer"],
-                "einwilligung": {**PARTLY_CONFIRMED["trainer"]["einwilligung"], "umfang": "kontaktdaten_whatsapp"},
+                "einwilligung": {**PARTLY_CONFIRMED["trainer"]["einwilligung"], "scope": "kontaktdaten_whatsapp"},
             },
         }
         successor = {**person("Bert", email=str(PARTLY_CONFIRMED["trainer"]["email"])), "nachname": "Neu"}
@@ -798,7 +798,7 @@ class TestTheTokenNamesWhatTheEditorWasServed:
         write judging it would stop agreeing after a restart.
         """
 
-        assert kontakte_stand_of(SEEDED_KONTAKTE) == "20e135e467a3016a8a1d266f8408cc1f7c7f3bcf5604cb2ba2c9c30a10f612d3"
+        assert kontakte_stand_of(SEEDED_KONTAKTE) == "a9823270099cc1e87bc2b015109cc4f1f639ac13d26c7cf67253cd128e28138e"
 
     def test_a_stored_blank_answers_the_token_of_the_null_the_read_model_makes_of_it(self):
         """`CustomOptionalDateString` nulls a blank on the way in, and the write judges the raw document.
@@ -843,13 +843,13 @@ class TestAKeptRecordKeepsItsEvidence:
         """The data-loss path the record exists against: a block recomposed from the payload erases its evidence."""
 
         confirmed = {
-            "umfang": "kontaktdaten_whatsapp",
-            "datum": "2026-03-01",
+            "scope": "kontaktdaten_whatsapp",
+            "date": "2026-03-01",
             "confirmed_at": CONFIRMED_ON,
             "media": True,
             "entered_by": "bewerbung",
             "evidence": {
-                "umfang": {"at": "2026-03-15T09:00:00+00:00", "text_version": SEAT_TEXT_VERSIONS["umfang"]},
+                "scope": {"at": "2026-03-15T09:00:00+00:00", "text_version": SEAT_TEXT_VERSIONS["scope"]},
                 "media": {"at": "2026-03-20T09:00:00+00:00", "text_version": SEAT_TEXT_VERSIONS["media"]},
             },
         }

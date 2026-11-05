@@ -10,7 +10,7 @@ from app.api.berechtigungen.crud import read_berechtigungen, read_the_announced
 from app.api.berechtigungen.guard import verify_actor_is_admin
 from app.api.identity.crud import EACH_PERSON_GROUP, ErasureJournal, erase_everything, resolve_subject
 from app.api.identity.schemas import (
-    FLErasureAdressePayload,
+    FLErasureAddressPayload,
     FLErasurePayload,
     FLErasureResponse,
     FLErasureViewResponse,
@@ -28,7 +28,7 @@ from app.api.identity.services import (
     find_foreign_address_change_refusal,
     find_own_address_refusal,
 )
-from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt
+from app.api.sperrliste.lookup import SperrlisteLookup, barred_addresses
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import aggregate_many_from_db, post_one_to_db, refuse
 from app.core.dependencies import (
@@ -93,7 +93,7 @@ router = APIRouter(
     openapi_extra=SAFE,
 )
 async def get_erasure_view(
-    view_data: Annotated[FLErasureAdressePayload, Body()],
+    view_data: Annotated[FLErasureAddressPayload, Body()],
     saison_teams_collection: SaisonTeamsReadCollection,
     bewerbungen_collection: BewerbungenReadCollection,
     schiedsrichter_collection: SchiedsrichterReadCollection,
@@ -121,8 +121,8 @@ async def get_erasure_view(
     records standing, beside why the address tool refuses that change this administrator, or null where it opens it; a change
     of an address holding a grant is left out for an administrator without an owner's power, as the administrators page
     withholds it, since naming it would answer whether a typed address is its new one. The address's own live change is
-    named by its id, ending with the records it would move. Every request for a grant about the address (`betroffen`) or
-    made by it (`gestellt`) is named by its id and the tier it asks; a lapsed one is gone to every reader already and is
+    named by its id, ending with the records it would move. Every request for a grant about the address (`target`) or
+    made by it (`requester`) is named by its id and the tier it asks; a lapsed one is gone to every reader already and is
     left out, though the erasure removes its row too. A squad
     row and a referee row each carry the day it was retired, null while live, and a referee row every season holding a
     fixture still to be played that it is booked on, as `schiedsrichter_still_assigned` judges one. Reached and not named: the fixtures
@@ -140,7 +140,7 @@ async def get_erasure_view(
     `admin_tier` is the tier of the live grant the address holds, or null. `barred` is whether a standing ban holds the
     address, judged as a stored address is; the erasure leaves a ban standing. Stores nothing.
 
-    Refused as the erasure is: the administrator's own address (`own_adresse`), an address holding a live grant unless
+    Refused as the erasure is: the administrator's own address (`own_address`), an address holding a live grant unless
     the administrator holds an owner's power (`admin_address`).
     """
 
@@ -196,24 +196,24 @@ async def get_erasure_view(
     )
     # The stored-address judgement, as the Postausgang's hand-out judges a mail's address: an address no rule
     # keys a ban under answers false, where keying the payload's spelling would raise.
-    barred = await adressen_gesperrt(sperrliste, [view_data.email], session=session)
+    barred = await barred_addresses(sperrliste, [view_data.email], session=session)
     approval_request_rows = await read_the_antraege_of(
         grant_approval_requests_collection=grant_approval_requests_collection, identifier=identifier, now=germany_now, session=session
     )
 
     denied: dict[str, FLAddressChangeViewableDenied] = {
-        str(row["adresse"]): grund
+        str(row["address"]): grund
         for row in others_naming(subject.address_change, identifier)
         if (
             grund := address_change_viewable_denied(
-                str(row["adresse"]), actor=actor_identifier, auth_time=auth_time, grants=grants, announced=announced
+                str(row["address"]), actor=actor_identifier, auth_time=auth_time, grants=grants, announced=announced
             )
         )
         is not None
     }
     # A grant holder's change is withheld from whoever the tool refuses it, as the administrators page withholds it: named
     # here, a typed address would answer whether it is that change's new one.
-    naming = [row for row in others_naming(subject.address_change, identifier) if denied.get(str(row["adresse"])) != "admin_tier"]
+    naming = [row for row in others_naming(subject.address_change, identifier) if denied.get(str(row["address"])) != "admin_address"]
     view = compose_erasure_view(
         identifier,
         saison_team_rows=subject.saison_teams,
@@ -223,14 +223,14 @@ async def get_erasure_view(
         registrierung_rows=subject.registrierungen,
         address_change_rows=naming,
         denied=denied,
-        own_address_change=next((row for row in subject.address_change if row.get("adresse") == identifier), None),
+        own_address_change=next((row for row in subject.address_change if row.get("address") == identifier), None),
         approval_request_rows=approval_request_rows,
         kader_rows=kader_rows,
         team_rows=team_rows,
         unplayed_rows=unplayed_rows,
     )
     # A live row is its own fold, so equality is the fold's judgement.
-    own = next((grant for grant in grants if grant["adresse"] == identifier), None)
+    own = next((grant for grant in grants if grant["address"] == identifier), None)
 
     return FLErasureViewResponse(**view.model_dump(), admin_tier=None if own is None else own["admin_tier"], barred=bool(barred))
 
@@ -273,7 +273,7 @@ async def post_erasure(
 
     ADMIN TIER, a step-up write. It runs the erasure `POST /identity/account/erasure` runs and refuses nothing about the
     person's own state: a pupil in a live squad and a referee booked on a fixture still to be played are erased on one pass.
-    Three refusals are about who asks. The administrator's own address is refused (`own_adresse`): their account page
+    Three refusals are about who asks. The administrator's own address is refused (`own_address`): their account page
     serves it, or an owner. An address holding a live grant is refused unless the administrator holds an owner's power,
     signed in since becoming one (`admin_address`), judged inside the write: erasing it removes the grant, whatever grants
     remain, so it asks what a revoke asks, an owner's power and a sign-in `ENROLMENT_WINDOW_MINUTES` old at most. Every
@@ -304,7 +304,7 @@ async def post_erasure(
         )
         # Ending a live grant asks what a revoke asks. A live row is its own fold,
         # so equality is the fold's judgement.
-        if any(grant["adresse"] == identifier for grant in grants):
+        if any(grant["address"] == identifier for grant in grants):
             verify_recent_confirmation(actor)
 
         # Ahead of the erasure's first write, and in its snapshot: a retry judges the changes afresh.
@@ -322,7 +322,7 @@ async def post_erasure(
         # Ending a grant holder's change is a discard, which only an owner makes.
         refuse(
             find_foreign_address_change_refusal(
-                adressen=[str(row["adresse"]) for row in others_naming(subject.address_change, identifier)],
+                addresses=[str(row["address"]) for row in others_naming(subject.address_change, identifier)],
                 actor=actor_identifier,
                 auth_time=auth_time,
                 grants=grants,
@@ -383,7 +383,7 @@ async def post_erasure(
     dependencies=[Depends(verify_step_up)],
 )
 async def post_sign_out(
-    sign_out_data: Annotated[FLErasureAdressePayload, Body()],
+    sign_out_data: Annotated[FLErasureAddressPayload, Body()],
     action_log_collection: ActionLogCollection,
     grants_collection: GrantsCollection,
     grants_announced_collection: GrantsAnnouncedCollection,
@@ -399,7 +399,7 @@ async def post_sign_out(
     and no address, filter, image or count. Nothing bars the address and nothing is mailed; a person signs in again as before.
 
     Refused so that a refused call ends no session: from a sign-in older than the step-up window (`confirmation_required`), the
-    administrator's own address (`own_adresse`), an address holding an `owner` grant unless the administrator holds an
+    administrator's own address (`own_address`), an address holding an `owner` grant unless the administrator holds an
     owner's power (`admin_address`). Unlike the erasure, it
     ends another administrator's sessions for an administrator holding no owner's power: signing in again repairs it.
     """

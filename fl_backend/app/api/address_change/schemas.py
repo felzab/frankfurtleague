@@ -16,7 +16,7 @@ from app.shared.schemas.custom import (
     CustomObjectId,
 )
 from app.shared.schemas.kontakt import CustomEmail
-from app.shared.schemas.literals import FLAddressChangeEndArt, FLAddressChangeWaitsOn, FLAddressChangeWay, FLAdminTier
+from app.shared.schemas.literals import FLAddressChangeEndKind, FLAddressChangeWaitsOn, FLAddressChangeWay, FLAdminTier
 from app.shared.schemas.responses import BaseAPIResponse
 
 type FLAddressChangeAnswer = Literal["confirmed", "declined"]
@@ -48,7 +48,7 @@ class FLAddressChangeApproval(BaseModel):
 
 
 class FLAddressChangeEnded(BaseModel):
-    art: FLAddressChangeEndArt
+    kind: FLAddressChangeEndKind
     at: datetime
 
 
@@ -71,7 +71,7 @@ class FLAddressChange(BaseModel):
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
     # Null once ended, as `email` and `grund` are: a tombstone holds no address.
-    adresse: str | None
+    address: str | None
     email: str | None
     way: FLAddressChangeWay
     sent_at: CustomDateString
@@ -130,7 +130,7 @@ class FLAddressChangeMovesDoneResponse(BaseAPIResponse):
     done: int = Field(ge=0)
 
 
-class FLAddressChangeAdressePayload(BaseModel):
+class FLAddressChangeAddressPayload(BaseModel):
     """Exactly one key: the new mailbox's link token, or the change an approval names."""
 
     model_config = ConfigDict(extra="forbid")
@@ -146,7 +146,7 @@ class FLAddressChangeAdressePayload(BaseModel):
         return self
 
 
-class FLAddressChangeAdresseResponse(BaseAPIResponse):
+class FLAddressChangeAddressResponse(BaseAPIResponse):
     """A live change's new address and nothing else, server to server alone."""
 
     # Folded as the sign-in store keys an account; null where the key names no live change.
@@ -201,7 +201,7 @@ class FLAddressChangeViewEnded(BaseModel):
 
     side: Literal["new", "previous"]
     state: Literal["ended"]
-    art: FLAddressChangeEndArt
+    kind: FLAddressChangeEndKind
     # The German day it ended on, which the page names beside what became of it.
     ended_on: CustomDateString
     # The way it began, which tells the person's own change apart on either side, as the live views do.
@@ -249,12 +249,12 @@ class FLAddressChangeAdminViewPayload(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    adresse: CustomEmail | None = None
+    address: CustomEmail | None = None
     address_change_id: CustomObjectId | None = None
 
     @model_validator(mode="after")
     def exactly_one_key(self) -> Self:
-        if (self.adresse is None) == (self.address_change_id is None):
+        if (self.address is None) == (self.address_change_id is None):
             raise ValueError("name either the address or the change, and not both")
 
         return self
@@ -303,7 +303,7 @@ class FLAddressChangeAdminOpen(BaseModel):
 
 
 class FLAddressChangeAdminViewResponse(BaseAPIResponse):
-    adresse: str
+    address: str
     holdings: FLAddressChangeAdminHoldings
     possible: bool
     open: FLAddressChangeAdminOpen | None
@@ -314,7 +314,7 @@ class FLAddressChangeAdminPayload(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    adresse: CustomEmail
+    address: CustomEmail
     email: CustomEmail
     # Never null: the change hands the records over without the address on file, so it stands on a recorded reason.
     grund: CustomAddressChangeReason

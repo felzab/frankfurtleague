@@ -51,7 +51,7 @@ CONFIG = config_for(DATABASE_NAME)
 BARRED = "zorbanax.verwalter@beispielschule.de"
 # The address the barred administrator banned while they held a grant.
 OTHER = "quillhilde@beispielschule.de"
-OWNER = grants_for_the_suite()[0]["adresse"]
+OWNER = grants_for_the_suite()[0]["address"]
 
 SAISON_ID = "2026"
 TEAM_OID = ObjectId("6890a1b2c3d4e5f607510001")
@@ -162,7 +162,7 @@ def _seed(url: str, *, ban_until: str | None) -> None:
             [
                 *grants_for_the_suite(),
                 {
-                    "adresse": "neu.verwalterin@beispielschule.de",
+                    "address": "neu.verwalterin@beispielschule.de",
                     "admin_tier": "administration",
                     "granted_by": BARRED,
                     "granted_at": datetime(2026, 4, 1, tzinfo=UTC),
@@ -172,7 +172,7 @@ def _seed(url: str, *, ban_until: str | None) -> None:
         # Asked on the real clock: the list serves a request only until its `until`, and the TTL index removes it then.
         database[Collection.GRANT_APPROVAL_REQUESTS].insert_one(
             compose_antrag(
-                adresse="antrag.verwalterin@beispielschule.de",
+                address="antrag.verwalterin@beispielschule.de",
                 admin_tier="administration",
                 grant_id=None,
                 started_by=BARRED,

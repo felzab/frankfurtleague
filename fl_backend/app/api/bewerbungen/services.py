@@ -37,9 +37,9 @@ from app.shared.schemas.bounds import (
     BEWERBUNG_CONFIRMATION_DEADLINE_DAYS,
     BEWERBUNG_KONTAKT_MIN_AGE_YEARS,
     BEWERBUNG_REMINDER_DAYS,
-    CONTACT_MIN_AGE_YEARS,
     LIST_LIMIT_MAX,
     SAISON_ID_LENGTH,
+    SIGNATORY_MIN_AGE_YEARS,
 )
 from app.shared.schemas.custom import fold_shorthand
 from app.shared.schemas.literals import KONTAKT_ROLLEN, FLKontaktEnteredBy, FLKontaktRolle, FLTrikotFarbe
@@ -301,8 +301,8 @@ def compose_einwilligung(*, today: str, entered_by: FLKontaktEnteredBy) -> dict[
     # `media` written false rather than left off: nobody filling a seat for another person may give
     # that person's media consent.
     return {
-        "umfang": "kontaktdaten",
-        "datum": today,
+        "scope": "kontaktdaten",
+        "date": today,
         "confirmed_at": None,
         "media": False,
         "entered_by": entered_by,
@@ -312,8 +312,8 @@ def compose_einwilligung(*, today: str, entered_by: FLKontaktEnteredBy) -> dict[
 # Every seat, so a fourth one is a `KeyError` at the confirmation rather than a silent sixteen.
 SEAT_MIN_AGE_YEARS: Mapping[str, int] = {
     "trainer": BEWERBUNG_KONTAKT_MIN_AGE_YEARS,
-    "ansprechperson": CONTACT_MIN_AGE_YEARS,
-    "stellvertretung": CONTACT_MIN_AGE_YEARS,
+    "ansprechperson": SIGNATORY_MIN_AGE_YEARS,
+    "stellvertretung": SIGNATORY_MIN_AGE_YEARS,
 }
 
 
@@ -350,8 +350,8 @@ def compose_kontakte(*, kontakte: Mapping[str, Any], today: str) -> dict[str, An
 
 # --- The CONFIRMATION.
 
-KONTAKT_UMFANG = "kontaktdaten"
-KONTAKT_UMFANG_WHATSAPP = "kontaktdaten_whatsapp"
+KONTAKT_SCOPE = "kontaktdaten"
+KONTAKT_SCOPE_WHATSAPP = "kontaktdaten_whatsapp"
 
 
 def days_after(*, day: str, days: int) -> str:
@@ -391,7 +391,7 @@ def _per_seat(block: str, *fields: str) -> dict[str, int]:
 
 
 # What an answer moves on each seat, read before it: a withdrawal keeps the grant it ended.
-KONTAKT_WAHL_FIELDS: Final = ("einwilligung.umfang", "einwilligung.media", "einwilligung.evidence")
+KONTAKT_WAHL_FIELDS: Final = ("einwilligung.scope", "einwilligung.media", "einwilligung.evidence")
 
 
 # An INCLUSION, and never the exclusion above inverted: these two answer a closed handful, so the
@@ -774,7 +774,7 @@ def paired_seat(*, kontakte: Any, confirmations: Any, seat: str) -> FLKontaktRol
     return other if other is not None and seat_stands(kontakte=kontakte, confirmations=confirmations, seat=other) else None
 
 
-def seat_adressen(*, kontakte: Any, seats: Iterable[str]) -> set[str]:
+def seat_addresses(*, kontakte: Any, seats: Iterable[str]) -> set[str]:
     """The stored address of each of these seats that still holds one.
 
     One helper for the consent and the view, so the page shows the ban for exactly the addresses a
@@ -841,14 +841,14 @@ def compose_confirmation_update(
     for seat in seats:
         pfad = f"kontakte.{seat}.einwilligung"
         written[f"kontakte.{seat}.geburtsdatum"] = geburtsdatum
-        # Field by field, never the block whole: `entered_by` and `datum` are the seating's, and
+        # Field by field, never the block whole: `entered_by` and `date` are the seating's, and
         # what it tells stands after the answer.
         written[f"{pfad}.confirmed_at"] = today
         written.update(
             compose_choices(
                 path=pfad,
                 saved=kontakte[seat]["einwilligung"],
-                set_fields={"umfang": KONTAKT_UMFANG_WHATSAPP if whatsapp else KONTAKT_UMFANG, "media": media},
+                set_fields={"scope": KONTAKT_SCOPE_WHATSAPP if whatsapp else KONTAKT_SCOPE, "media": media},
                 at=at,
                 text_versions=text_versions,
             )
@@ -939,7 +939,7 @@ def build_erneut_filter(*, bewerbung_id: Any, seats: Sequence[str]) -> Mapping[s
 
 
 def find_barred_refusal(*, barred: bool) -> WriteRefusal | None:
-    """`bewerbung_adresse_barred`: the ban list holds one of the addresses a submission names.
+    """`bewerbung_address_barred`: the ban list holds one of the addresses a submission names.
 
     Takes the answer rather than the lookup, so the caller's reads run in the caller's transaction.
     """
@@ -950,7 +950,7 @@ def find_barred_refusal(*, barred: bool) -> WriteRefusal | None:
     # NEUTRAL and naming no seat, as the registration's refusal is: a stranger learns nothing about a
     # list, and 403 because what fails is who is applying rather than the season's state.
     return WriteRefusal(
-        error_code=Code.BEWERBUNG_ADRESSE_BARRED,
+        error_code=Code.BEWERBUNG_ADDRESS_BARRED,
         status=HTTPStatus.FORBIDDEN,
     )
 
@@ -959,7 +959,7 @@ def find_kontakt_gesperrt_refusal(*, barred: bool) -> WriteRefusal | None:
     """`bewerbung_kontakt_barred`: an administrator's correction or reseat names an address the ban list holds.
 
     409 where the public form's is 403: an administrator's write naming it is about the entry it writes,
-    as the referee editor's `schiedsrichter_adresse_barred` is.
+    as the referee editor's `schiedsrichter_address_barred` is.
     """
 
     if not barred:
@@ -1376,7 +1376,7 @@ def bewerbung_link(seats: Sequence[str], *, replaced: bool) -> FLOutboxLink:
 
     return FLOutboxLink(
         paths=[f"confirmations.{seat}.token_hashes" for seat in seats],
-        adressen=[f"kontakte.{seat}.email" for seat in seats],
+        addresses=[f"kontakte.{seat}.email" for seat in seats],
         replaced=replaced,
     )
 
@@ -1411,7 +1411,7 @@ def ausstehende_personen(*, kontakte: Any, seats: Sequence[str]) -> list[FLBewer
     return personen
 
 
-def personen_mit_adresse(*, kontakte: Any, seats: Sequence[str] = KONTAKT_ROLLEN) -> list[tuple[str, list[FLKontaktRolle]]]:
+def people_with_address(*, kontakte: Any, seats: Sequence[str] = KONTAKT_ROLLEN) -> list[tuple[str, list[FLKontaktRolle]]]:
     """Each person these seats name who holds an address, with the seats they hold, the Trainer last.
 
     One address is one person (the submission refuses two people at one), so the seats sharing an address are the one
@@ -1433,16 +1433,16 @@ def owed_link(
     schule: str,
     frist: str,
     key: str,
-    art: Literal["bewerbung_confirmation", "bewerbung_reminder"] = "bewerbung_confirmation",
+    kind: Literal["bewerbung_confirmation", "bewerbung_reminder"] = "bewerbung_confirmation",
 ) -> OwedMail:
     """One person's confirmation link, or its one reminder, the address read off the seat the write left."""
 
     return OwedMail(
         key=key,
         an=str(kontakte[seats[0]]["email"]),
-        data=FLBewerbungLinkData(art=art, saison_id=saison_id, schule=schule, rollen=list(seats), frist=frist),
+        data=FLBewerbungLinkData(kind=kind, saison_id=saison_id, schule=schule, rollen=list(seats), frist=frist),
         reference=bewerbung_bezug(bewerbung_id, seats),
-        link=bewerbung_link(seats, replaced=art != "bewerbung_reminder"),
+        link=bewerbung_link(seats, replaced=kind != "bewerbung_reminder"),
     )
 
 
@@ -1453,7 +1453,7 @@ def owed_at_submission(*, bewerbung_id: Any, kontakte: Any, saison_id: str, schu
     """
 
     mails: list[OwedMail] = []
-    for email, seats in personen_mit_adresse(kontakte=kontakte):
+    for email, seats in people_with_address(kontakte=kontakte):
         stamm = f"{Sammlung.BEWERBUNGEN}/{bewerbung_id}"
         if "ansprechperson" not in seats:
             mails.append(
@@ -1474,7 +1474,7 @@ def owed_at_submission(*, bewerbung_id: Any, kontakte: Any, saison_id: str, schu
                 key=f"{stamm}/received",
                 an=email,
                 data=FLBewerbungReceivedData(
-                    art="bewerbung_received",
+                    kind="bewerbung_received",
                     saison_id=saison_id,
                     rollen=seats,
                     pending=ausstehende_personen(kontakte=kontakte, seats=andere),
@@ -1504,7 +1504,7 @@ def owed_loeschung(*, bewerbung_raw: Mapping[str, Any], saison_id: str) -> OwedM
         key=f"{Sammlung.BEWERBUNGEN}/{bewerbung_raw['_id']}/erasure",
         an=email,
         data=FLBewerbungErasureData(
-            art="bewerbung_erasure",
+            kind="bewerbung_erasure",
             saison_id=saison_id,
             rollen=rollen,
             pending=ausstehende_personen(kontakte=kontakte, seats=ausstehende_seats(kontakte=kontakte)),
@@ -1645,7 +1645,7 @@ def dubletten_schluessel_of(cells: Sequence[Mapping[str, Any]]) -> list[str]:
     return sorted(schluessel for schluessel, count in held.items() if count > 1)
 
 
-def entscheider_adressen(rows: Iterable[Mapping[str, Any]]) -> list[str]:
+def decider_addresses(rows: Iterable[Mapping[str, Any]]) -> list[str]:
     """Every administrator these stored applications name as their decider, folded as the ban list is asked."""
 
     return [sign_in_identifier(FLBewerbungEntscheidung.model_validate(row["decision"]).by) for row in rows if row.get("decision") is not None]

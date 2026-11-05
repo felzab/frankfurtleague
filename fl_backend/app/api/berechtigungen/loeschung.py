@@ -16,17 +16,17 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.berechtigungen.crud import OFFENE_MITTEILUNG, owe_in_session
-from app.api.berechtigungen.schemas import FLBerechtigungAenderungArt, FLGrantSnapshot
+from app.api.berechtigungen.schemas import FLGrantChangeKind, FLGrantSnapshot
 from app.api.berechtigungen.services import Mitteilung, compare, compose_mitteilung, stand_of
 from app.api.kontakte.services import same_address
-from app.api.sperrliste.lookup import BanList, adressen_gesperrt
+from app.api.sperrliste.lookup import BanList, barred_addresses
 from app.core.crud import aggregate_many_from_db, erase_many_from_db, patch_many_in_db
 from app.core.recording import ERASED_ACTOR_MARKER
 from app.shared.folding import sign_in_identifier
 
 # The sites of a grant notice naming an address: the grant's own, before and after, and its actor's.
 _GRANT_SITES = ("now", "before")
-_QUEUED_SITES = (*(f"data.{site}.adresse" for site in _GRANT_SITES), "data.changed_by")
+_QUEUED_SITES = (*(f"data.{site}.address" for site in _GRANT_SITES), "data.changed_by")
 
 
 @dataclass(frozen=True)
@@ -83,8 +83,8 @@ def _withholding(data: Mapping[str, Any], identifier: str) -> dict[str, Any]:
 
     update: dict[str, Any] = {}
     for site in _GRANT_SITES:
-        if _names(_held_at(data, f"{site}.adresse"), identifier):
-            update[f"{site}.adresse"] = None
+        if _names(_held_at(data, f"{site}.address"), identifier):
+            update[f"{site}.address"] = None
             update["withheld"] = "erased"
     if _names(data.get("changed_by"), identifier):
         update["changed_by"] = ERASED_ACTOR_MARKER
@@ -189,7 +189,7 @@ async def loeschen_grants_and_authorship_in_session(
     """
 
     # Both read before the removals below, after which neither a grant nor its record matches.
-    grants = await _rows_naming(grants_collection, ("adresse",), identifier, session, whole=True)
+    grants = await _rows_naming(grants_collection, ("address",), identifier, session, whole=True)
     grant_ids = [grant["_id"] for grant in grants]
     # Keyed on one of those grants whatever address it holds, or holding this address under another
     # grant's id: either is what the administrators were told of this person's access.
@@ -197,14 +197,14 @@ async def loeschen_grants_and_authorship_in_session(
         record
         for record in await aggregate_many_from_db(
             collection=grants_announced_collection,
-            pipeline=[{"$match": {"$or": [{"_id": {"$in": grant_ids}}, {"adresse": same_address(identifier)}]}}],
+            pipeline=[{"$match": {"$or": [{"_id": {"$in": grant_ids}}, {"address": same_address(identifier)}]}}],
             session=session,
         )
-        if record["_id"] in grant_ids or _names(record.get("adresse"), identifier)
+        if record["_id"] in grant_ids or _names(record.get("address"), identifier)
     ]
     records_by_id = {record["_id"]: record for record in records}
 
-    changes: list[tuple[ObjectId, FLBerechtigungAenderungArt, FLGrantSnapshot | None, FLGrantSnapshot | None, str | None]] = []
+    changes: list[tuple[ObjectId, FLGrantChangeKind, FLGrantSnapshot | None, FLGrantSnapshot | None, str | None]] = []
     for grant in grants:
         record = records_by_id.get(grant["_id"])
         # A database edit to the row nobody was told of goes out first, as a revoke's does;
@@ -217,19 +217,19 @@ async def loeschen_grants_and_authorship_in_session(
             changes += [(*change, None) for change in compare(grants=[], announced=[record])]
 
     others = {
-        stand.adresse
+        stand.address
         for _, _, current, before, _ in changes
         for stand in (current, before)
-        if stand is not None and stand.adresse is not None and not _names(stand.adresse, identifier)
+        if stand is not None and stand.address is not None and not _names(stand.address, identifier)
     } | ({sign_in_identifier(changed_by)} - {identifier})
-    barred = await adressen_gesperrt(sperrliste, others, session=session) if others else set()
+    barred = await barred_addresses(sperrliste, others, session=session) if others else set()
 
     mitteilungen = [
         _withheld(
-            compose_mitteilung(grant_id=grant_id, art=art, current=current, before=before, changed_by=by, now=now, barred=barred),
+            compose_mitteilung(grant_id=grant_id, kind=kind, current=current, before=before, changed_by=by, now=now, barred=barred),
             identifier,
         )
-        for grant_id, art, current, before, by in changes
+        for grant_id, kind, current, before, by in changes
     ]
 
     # Owed before this erasure's own: they are not yet withheld, and this erasure's carry no address of the person.

@@ -237,10 +237,10 @@ async def loeschung_rows(database: AsyncDatabase) -> list[Mapping[str, Any]]:
     return await database[Collection.ACTION_LOG].find({"operation": "erase_many"}).sort("_id", 1).to_list(length=None)
 
 
-async def owed(database: AsyncDatabase, art: str) -> list[Mapping[str, Any]]:
+async def owed(database: AsyncDatabase, kind: str) -> list[Mapping[str, Any]]:
     """Every mail of one kind the Postausgang holds, by key: its key, its recipient and its facts."""
 
-    rows = await database[Collection.OUTBOX].find({"art": art}, {"_id": 0, "key": 1, "an": 1, "data": 1}).to_list(length=None)
+    rows = await database[Collection.OUTBOX].find({"kind": kind}, {"_id": 0, "key": 1, "an": 1, "data": 1}).to_list(length=None)
 
     return sorted(rows, key=lambda row: str(row["key"]))
 
@@ -248,7 +248,7 @@ async def owed(database: AsyncDatabase, art: str) -> list[Mapping[str, Any]]:
 async def reminded(database: AsyncDatabase) -> set[Any]:
     """The applications the reminder clock has owed a mail about."""
 
-    rows = await database[Collection.OUTBOX].find({"art": "bewerbung_reminder"}, {"reference.id": 1}).to_list(length=None)
+    rows = await database[Collection.OUTBOX].find({"kind": "bewerbung_reminder"}, {"reference.id": 1}).to_list(length=None)
 
     return {row["reference"]["id"] for row in rows}
 
@@ -305,7 +305,7 @@ def reminder_mail(an: str, rollen: list[str]) -> dict[str, Any]:
     return {
         "key": f"{Collection.BEWERBUNGEN}/{REMIND_OID}/reminder/{rollen[0]}/{TODAY}",
         "an": an,
-        "data": {"art": "bewerbung_reminder", "saison_id": SAISON_ID, "schule": SCHOOL_NAME, "rollen": rollen, "frist": "2026-04-12"},
+        "data": {"kind": "bewerbung_reminder", "saison_id": SAISON_ID, "schule": SCHOOL_NAME, "rollen": rollen, "frist": "2026-04-12"},
     }
 
 
@@ -340,7 +340,7 @@ class TestTheReminderClock:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await sweep(database, client, now=MAIL_NOW)
             mails = await drained(database, client)
-            [paired] = [mail for mail in mails if mail.data.art == "bewerbung_reminder" and mail.an == "wraxlington@example.com"]
+            [paired] = [mail for mail in mails if mail.data.kind == "bewerbung_reminder" and mail.an == "wraxlington@example.com"]
             assert paired.token is not None
 
             return (
@@ -422,7 +422,7 @@ class TestTheReminderClock:
             await sweep(database, client, now=MAIL_NOW)
             stamped = await log_rows_naming(database, Collection.BEWERBUNGEN, REMIND_OID)
             # The reminders' links: the fourteen-day notice beside them carries none.
-            tokens = [mail.token for mail in await drained(database, client) if mail.data.art == "bewerbung_reminder"]
+            tokens = [mail.token for mail in await drained(database, client) if mail.data.kind == "bewerbung_reminder"]
 
             return tokens, stamped, await database[Collection.ACTION_LOG].find({}).to_list(length=None)
 
@@ -452,7 +452,7 @@ class TestTheFourteenDayClock:
                 "key": f"{Collection.BEWERBUNGEN}/{DELETE_OID}/erasure",
                 "an": "wraxlington@example.com",
                 "data": {
-                    "art": "bewerbung_erasure",
+                    "kind": "bewerbung_erasure",
                     "saison_id": SAISON_ID,
                     # Both seats this one person holds, so the notice names its reader by both.
                     "rollen": ["trainer", "ansprechperson"],
@@ -574,7 +574,7 @@ class TestABarredMailbox:
             await database[Collection.BAN_LIST].insert_one(ban_document("bramblewick@example.com", until=STANDING))
             await sweep(database, client, now=MAIL_NOW)
 
-            reminders = [mail.an for mail in await drained(database, client) if mail.data.art == "bewerbung_reminder"]
+            reminders = [mail.an for mail in await drained(database, client) if mail.data.kind == "bewerbung_reminder"]
 
             return reminders, await stored(database, REMIND_OID)
 
@@ -1402,7 +1402,7 @@ class TestEachCappedClockMakesProgressAcrossPasses:
             return (
                 response.erased,
                 await database[Collection.BEWERBUNGEN].count_documents({"saison_id": SAISON_ID}),
-                await database[Collection.OUTBOX].count_documents({"art": "bewerbung_erasure"}),
+                await database[Collection.OUTBOX].count_documents({"kind": "bewerbung_erasure"}),
             )
 
         assert on_a_league(mongo_replica_set_url, body) == (overflow, 0, overflow)

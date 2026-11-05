@@ -48,7 +48,7 @@ from app.api.identity.crud import roles_from
 from app.api.identity.lookup import SubjectLookup
 from app.api.identity.services import is_own_schiedsrichter, is_own_spieler, may_grant_on_schiedsrichter, may_grant_on_spieler
 from app.api.sperrliste.guard import PERSON_ACTOR_BINDERS, KontaktIdentifier
-from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt
+from app.api.sperrliste.lookup import SperrlisteLookup, barred_addresses
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import aggregate_many_from_db, refuse
 from app.core.dependencies import (
@@ -233,13 +233,13 @@ async def post_address_change(
     async def start_the_change(session: AsyncClientSession) -> FLAccountAddressChangeMintResponse:
         holdings = await read_the_holdings(identifier, records=records, grants_collection=grants_collection, session=session)
         refuse(find_nothing_refusal(empty=holdings.empty))
-        refuse(find_unchanged_refusal(adresse=identifier, folded=sign_in_identifier(email)))
+        refuse(find_unchanged_refusal(address=identifier, folded=sign_in_identifier(email)))
 
         approval = None
         if holdings.grant is not None:
             grants = await read_berechtigungen(grants_collection=grants_collection, session=session)
             announced = await read_the_announced(grants_announced_collection=grants_announced_collection, session=session)
-            barred = await adressen_gesperrt(sperrliste, [str(row["adresse"]) for row in grants], session=session)
+            barred = await barred_addresses(sperrliste, [str(row["address"]) for row in grants], session=session)
             admin_tier = str(holdings.grant["admin_tier"])
             approver = genehmiger_of(
                 admin_tier=admin_tier, excepted={identifier}, grants=grants, announced=announced, barred=barred, before=germany_now
@@ -248,7 +248,7 @@ async def post_address_change(
             approval = compose_approval(admin_tier=admin_tier, started_by=identifier, now=germany_now)
 
         record = compose_record(
-            adresse=identifier,
+            address=identifier,
             email=email,
             way="account",
             grund=None,
@@ -267,7 +267,7 @@ async def post_address_change(
         # The address on file's link alone: the new mailbox is asked once the address on file confirmed.
         await owe_the_notice_in_session(
             address_change_id=address_change_id,
-            adresse=identifier,
+            address=identifier,
             way="account",
             valid_until=record["valid_until"],
             vorname=holdings.vorname,
@@ -316,14 +316,14 @@ async def delete_address_change(
             address_changes_collection=address_changes_collection,
             action_log_collection=action_log_collection,
             db_filter={"_id": live["_id"]},
-            art="stopped",
+            kind="stopped",
             now=germany_now,
             stamp=stamp,
             session=session,
         )
         journal.note(
             ending_line(
-                art="address_change_stopped",
+                kind="address_change_stopped",
                 new_address=str(stored["email"]),
                 record_id=stored["_id"],
                 at=stamp,

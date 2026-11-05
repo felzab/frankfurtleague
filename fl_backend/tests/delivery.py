@@ -26,7 +26,7 @@ async def a_mail_that_bounced(
                     key=key,
                     an=an,
                     data=FLBewerbungReceivedData(
-                        art="bewerbung_received", saison_id="2026", rollen=["ansprechperson"], pending=[], frist="2026-04-15"
+                        kind="bewerbung_received", saison_id="2026", rollen=["ansprechperson"], pending=[], frist="2026-04-15"
                     ),
                     reference=FLOutboxReference(collection=Collection.BEWERBUNGEN, id=bewerbung_id, seat=seat),
                 )

@@ -496,8 +496,8 @@ async def erase_the_mails_in_session(
     rows = await aggregate_many_from_db(
         collection=outbox_collection,
         pipeline=[
-            {"$match": {"art": {"$ne": "account_erasure"}}},
-            {"$project": {"an": 1, "art": 1, "state": 1, "data.now": 1, "data.before": 1, "data.changed_by": 1}},
+            {"$match": {"kind": {"$ne": "account_erasure"}}},
+            {"$project": {"an": 1, "kind": 1, "state": 1, "data.now": 1, "data.before": 1, "data.changed_by": 1}},
         ],
         session=session,
     )
@@ -507,13 +507,13 @@ async def erase_the_mails_in_session(
 
     # The person's own address the grants' step withholds; a replaced one only this chain finds.
     for row in rows:
-        if row["_id"] in ids or row["art"] != "grant" or row["state"] != "open" or not replaced:
+        if row["_id"] in ids or row["kind"] != "grant" or row["state"] != "open" or not replaced:
             continue
         data = row.get("data") or {}
         withheld: dict[str, Any] = {}
         for site in ("now", "before"):
-            if theirs((data.get(site) or {}).get("adresse")):
-                withheld |= {f"data.{site}.adresse": None, "data.withheld": "erased"}
+            if theirs((data.get(site) or {}).get("address")):
+                withheld |= {f"data.{site}.address": None, "data.withheld": "erased"}
         if theirs(data.get("changed_by")):
             withheld["data.changed_by"] = ERASED_ACTOR_MARKER
         if withheld:
@@ -899,7 +899,7 @@ class ErasureJournal[Geloescht: FLErasure]:
     def _journal(self) -> None:
         line = JournalLine(
             person_hash=erasure_journal_hash(self._identifier, key=self._key),
-            art="erasure",
+            kind="erasure",
             pseudonym=actor_pseudonym(self._identifier, key=self._key),
             halter=halter_of(self._identifier, key=self._key),
         )
@@ -924,7 +924,7 @@ async def unreferenced_of(
     """Which of these addresses no record references.
 
     Each collection is read once for the whole batch rather than once per address, which is what
-    `app/shared/schemas/bounds.py :: REFERENCES_ADRESSEN_MAX` is measured against.
+    `app/shared/schemas/bounds.py :: REFERENCES_ADDRESSES_MAX` is measured against.
     """
 
     folded = sorted({sign_in_identifier(identifier) for identifier in identifiers})

@@ -21,7 +21,7 @@ from pymongo.asynchronous.collection import AsyncCollection
 from starlette.requests import Request
 
 from app.api.sperrliste.guard import PERSON_ACTOR_BINDERS
-from app.api.sperrliste.services import adresse_hash
+from app.api.sperrliste.services import address_hash
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import ACTOR_CHALLENGE, APIError
@@ -425,7 +425,7 @@ class TestThePseudonym:
 
     def test_it_is_never_the_ban_rows_digest_of_the_same_address(self):
         """One label per purpose under one master: a shared one would let the log say who the ban list holds."""
-        assert actor_pseudonym(KNOWN_IDENTIFIER, key=KNOWN_MASTER) != adresse_hash(KNOWN_IDENTIFIER, key=KNOWN_MASTER)
+        assert actor_pseudonym(KNOWN_IDENTIFIER, key=KNOWN_MASTER) != address_hash(KNOWN_IDENTIFIER, key=KNOWN_MASTER)
 
 
 # The journal's answer for `KNOWN_IDENTIFIER` under `KNOWN_MASTER`, computed as `KNOWN_PSEUDONYM` was, under "erasure-v1".
@@ -440,7 +440,7 @@ class TestTheJournalHash:
         """A shared label would let a journal line name the pseudonym an erasure removed, or the ban a person holds."""
         journal = erasure_journal_hash(KNOWN_IDENTIFIER, key=KNOWN_MASTER)
 
-        assert journal not in {KNOWN_PSEUDONYM, adresse_hash(KNOWN_IDENTIFIER, key=KNOWN_MASTER)}
+        assert journal not in {KNOWN_PSEUDONYM, address_hash(KNOWN_IDENTIFIER, key=KNOWN_MASTER)}
 
 
 # A stored spelling as a registration or a contact seat keeps one: case, and the spaces a form trims.
