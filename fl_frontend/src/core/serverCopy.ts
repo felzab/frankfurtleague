@@ -209,20 +209,16 @@ export const SERVER_COPY = catalogue({
       confirmed === seats
         ? "Alle Kontaktpersonen bestätigt"
         : `${formatNumber(confirmed)} von ${formatNumber(seats)} Kontaktpersonen bestätigt`,
-    /** A fault of the bracket or of a fixture's bookings, by its reason, on the fixture it names. */
+    /**
+     * A fault of the bracket or of a fixture's bookings, by its reason, on the fixture it names: a group short of the
+     * place a side waits on, a tie no rule breaks, and a club or a booking the administrator can change each say
+     * which; every fault in the bracket's wiring, which nobody repairs from a screen, says only that the bracket is
+     * faulty.
+     */
     fault: {
       gruppe_too_small: (gruppe: string, platz: number) => `${gruppeName(gruppe)} hat keinen ${placeName(platz)}`,
-      gruppe_not_run: (gruppe: string) => `${gruppeName(gruppe)} gibt es nicht`,
-      seed_past_the_opening_round: `Gruppenplatz nach der ersten ${COPY.shared.kORunde}`,
       tie_unresolved: (gruppe: string, platz: number) => `Gleichstand um den ${placeName(platz)} der ${gruppeName(gruppe)}`,
-      spiel_missing: (spiel: number) => `${spieleNamed([spiel])} gibt es nicht`,
-      reference_cycle: (spiel: number) => `Verweis im Kreis über ${spieleNamed([spiel])}`,
-      gruppenphase_feeder: (spiel: number) => `${spieleNamed([spiel])} ist ein Gruppenspiel`,
-      feeder_not_played_first: (spiel: number) => `${spieleNamed([spiel])} liegt nicht in einer früheren Runde`,
-      same_team: "Beide Seiten führen zum selben Team",
-      gruppenphase_fixture_wired: "Gruppenspiel mit Verweis",
-      /** The source by its full name, „2. der Gruppe A“. */
-      source_feeds_another_fixture: (quelle: Copy) => `${quelle} füllt zwei Seiten`,
+      wiring: `${COPY.shared.kOBaum} fehlerhaft`,
       /** The club, and its exit as the club's exit note heads it. */
       departed_occupant: (team: Words, austritt: Copy) => `${textOf(team)} · ${austritt}`,
       fielded_twice: (team: Words) => `${textOf(team)} zweimal an diesem Spieltag`,
