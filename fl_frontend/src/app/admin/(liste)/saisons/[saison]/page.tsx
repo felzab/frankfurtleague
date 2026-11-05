@@ -4,7 +4,7 @@ import { ListPage } from "@/kit/ListPage";
 import { TextField } from "@/kit/TextField";
 
 import { requires } from "@/core/action";
-import { COPY, textOf } from "@/core/copy";
+import { COPY } from "@/core/copy";
 import { isRecordMissing } from "@/core/errors";
 import { dayOf, formatList, timeOf } from "@/core/format";
 import { saisonsGetSaisonOverview } from "@/core/generated/client/sdk";
@@ -30,6 +30,8 @@ import type {
   FLSpielbestaetigungPartyTeam,
   FLSpielJoinedAdmin,
   FLSpielQuelle,
+  FLSpielRecipientSchiedsrichter,
+  FLSpielRecipientTeam,
 } from "@/core/generated/client/types";
 import type { CardActRowProps } from "@/kit/Card";
 import type { Metadata, ResolvingMetadata } from "next";
@@ -70,12 +72,13 @@ function partyName(spiel: FLSpielJoinedAdmin, party: Party): Words | null {
 }
 
 /**
- * The question's „Mail an“ fact: the parties the backend mails of the act, which it serves beside the row, none where
- * the act mails nobody, so the question names no mail that is never sent.
+ * The question's „Mail an“ fact: the parties the backend mails of the act, which it serves beside the row each by the
+ * name its own record holds, in their names' order as the match editor's question lists them, none where the act mails
+ * nobody, so the question names no mail that is never sent.
  */
-function mailTo(spiel: FLSpielJoinedAdmin, recipients: readonly Party[]) {
-  const names = recipients.map((party) => partyName(spiel, party)).filter((name): name is Words => name !== null);
-  return names.length === 0 ? [] : [{ label: FACTS.mailTo, value: { record: formatList(names.map(textOf)) } }];
+function mailTo(recipients: readonly (FLSpielRecipientTeam | FLSpielRecipientSchiedsrichter)[]) {
+  const names = recipients.map(({ name }) => name).toSorted((one, other) => one.localeCompare(other, "de"));
+  return names.length === 0 ? [] : [{ label: FACTS.mailTo, value: { record: formatList(names) } }];
 }
 
 /** A stored day and hour as the catalogue's sentences take a slot. */
@@ -182,14 +185,14 @@ function openOf(row: Exclude<FLOverviewRow, { kind: "bewerbung" }>): { line: Cop
             id={row.spielbestaetigung_id}
             adopt={{
               consequence: WORDS.adoptConsequence,
-              facts: [{ label: FACTS.before, value: from }, { label: FACTS.after, value: to }, ...mailTo(spiel, row.adoption_recipients)],
+              facts: [{ label: FACTS.before, value: from }, { label: FACTS.after, value: to }, ...mailTo(row.adoption_recipients)],
             }}
             discard={{
               consequence: WORDS.discardConsequence,
               facts: [
                 { label: COPY.admin.overview.termin, value: from },
                 { label: SPIEL.proposal, value: to },
-                ...mailTo(spiel, row.discard_recipients),
+                ...mailTo(row.discard_recipients),
               ],
             }}
           />
