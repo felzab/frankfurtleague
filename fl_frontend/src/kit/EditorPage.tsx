@@ -30,7 +30,7 @@ import type { FormStatus } from "./useFormAction";
  * the sentence under the title saying why some of its fields cannot change, such as a season's start fixed once a
  * match has taken place. A sentence under a field is cut at the field's width, and a short field is narrower than one.
  */
-export type EditorSection = { id: string; title: Copy; help?: Copy; note?: Copy; fields: ReactElement };
+export type EditorSection = { id: string; title: Copy; help?: readonly [Copy, ...Copy[]]; note?: Copy; fields: ReactElement };
 
 /**
  * An irreversible or retiring act, which stands as one row in an editor's danger box: its name and its

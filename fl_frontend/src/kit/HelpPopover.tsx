@@ -13,9 +13,17 @@ import type { Copy } from "@/core/copy";
 
 /**
  * The one ⓘ after a section's title, opening a 320-px pop-up with a short help text on the page, which
- * it neither dims nor blurs. `Section` places it from its `help` prop, so a section has one at most.
+ * it neither dims nor blurs: a few declarative lines, each statement a line of its own. `Section` places it from its
+ * `help` prop, so a section has one at most.
  */
-export function HelpPopover({ subject, text }: { /** The section's title, which names the pop-up. */ subject: Copy; text: Copy }) {
+export function HelpPopover({
+  subject,
+  lines,
+}: {
+  /** The section's title, which names the pop-up. */
+  subject: Copy;
+  lines: readonly [Copy, ...Copy[]];
+}) {
   const [isOpen, setOpen] = useOpenUntilHidden();
   return (
     <DialogTrigger
@@ -33,8 +41,11 @@ export function HelpPopover({ subject, text }: { /** The section's title, which 
         className={popoverSurface({ width: "help" })}>
         <AriaDialog
           aria-label={subject}
-          data-kit-focus>
-          {text}
+          data-kit-focus
+          className="grid gap-1">
+          {lines.map((line) => (
+            <p key={line}>{line}</p>
+          ))}
         </AriaDialog>
       </Popover>
     </DialogTrigger>

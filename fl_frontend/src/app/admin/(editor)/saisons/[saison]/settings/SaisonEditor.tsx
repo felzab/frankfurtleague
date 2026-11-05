@@ -8,7 +8,7 @@ import { ComboBox } from "@/kit/ComboBox";
 import { DateField } from "@/kit/DateField";
 import { EditorPage } from "@/kit/EditorPage";
 import { Facts } from "@/kit/Facts";
-import { FieldPair } from "@/kit/FieldPair";
+import { FieldColumns } from "@/kit/FieldPair";
 import { SectionAct } from "@/kit/SectionAct";
 import { Select } from "@/kit/Select";
 import { Table } from "@/kit/Table";
@@ -247,10 +247,8 @@ export function SaisonEditor({
       title: WORDS.zeitraum,
       ...(facts.takenPlace ? { note: WORDS.startFixed } : {}),
       fields: (
-        // A season's two days are one value, sharing their row at every width.
-        <FieldPair
-          short="both"
-          phone="pair">
+        // A season's two days, sharing their row at every width.
+        <FieldColumns>
           <DateField
             label={WORDS.beginn}
             name="start"
@@ -266,19 +264,18 @@ export function SaisonEditor({
             value={draft.end}
             onChange={(day) => set("end", day)}
           />
-        </FieldPair>
+        </FieldColumns>
       ),
     },
     {
       id: "wertung",
       title: WORDS.wertung,
+      help: WORDS.wertungHelp,
       // The start fixes the points and the tiebreak; a no-show's goals stay open all season.
       ...(facts.begun ? { note: WORDS.lockedSinceStart } : {}),
       fields: (
         <>
-          <FieldPair
-            short="both"
-            phone="pair">
+          <FieldColumns label={WORDS.punkte}>
             <TextField
               label={WORDS.winPoints}
               name="winPoints"
@@ -299,7 +296,17 @@ export function SaisonEditor({
               value={draft.drawPoints}
               onChange={(value) => set("drawPoints", value)}
             />
-          </FieldPair>
+            <TextField
+              label={WORDS.lossPoints}
+              name="lossPoints"
+              width="C2"
+              kind="digits"
+              isRequired={required.lossPoints}
+              isDisabled={facts.begun}
+              value={draft.lossPoints}
+              onChange={(value) => set("lossPoints", value)}
+            />
+          </FieldColumns>
           <Select
             label={WORDS.tiebreak}
             name="tiebreak"
@@ -313,10 +320,7 @@ export function SaisonEditor({
             }}
           />
           {/* The goals a no-show is scored with, named as one value: their own labels say no more than a score's. */}
-          <FieldPair
-            label={WORDS.forfeit}
-            short="both"
-            phone="pair">
+          <FieldColumns label={WORDS.forfeit}>
             <TextField
               label={WORDS.forfeitWinner}
               name="forfeitWinner"
@@ -335,7 +339,7 @@ export function SaisonEditor({
               value={draft.forfeitLoser}
               onChange={(value) => set("forfeitLoser", value)}
             />
-          </FieldPair>
+          </FieldColumns>
         </>
       ),
     },
@@ -346,9 +350,7 @@ export function SaisonEditor({
       ...(drawn ? { note: WORDS.lockedByDraw } : facts.begun ? { note: WORDS.lockedSinceStart } : {}),
       fields: (
         <>
-          <FieldPair
-            short="both"
-            phone="pair">
+          <FieldColumns>
             <TextField
               label={WORDS.gruppen}
               name="gruppen"
@@ -369,7 +371,7 @@ export function SaisonEditor({
               value={draft.teamsPerGruppe}
               onChange={(value) => set("teamsPerGruppe", value)}
             />
-          </FieldPair>
+          </FieldColumns>
           <Select
             label={WORDS.qualifiers}
             name="qualifiers"
@@ -414,9 +416,7 @@ export function SaisonEditor({
       id: "bewerbungsfenster",
       title: WORDS.bewerbungsfenster,
       fields: (
-        <FieldPair
-          short="both"
-          phone="pair">
+        <FieldColumns>
           <DateField
             label={WORDS.beginn}
             name="bewerbungStart"
@@ -431,7 +431,7 @@ export function SaisonEditor({
             value={draft.bewerbungEnd}
             onChange={(day) => set("bewerbungEnd", day)}
           />
-        </FieldPair>
+        </FieldColumns>
       ),
     },
     {

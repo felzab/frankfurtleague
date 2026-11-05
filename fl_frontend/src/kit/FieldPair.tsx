@@ -1,3 +1,4 @@
+import { smallCaps } from "./cardStyles";
 import { columnCap, fieldFrame, fieldLabel, fieldRoot, messageLine } from "./fieldStyles";
 import { placeholderBar, PlaceholderLine } from "./Skeleton";
 import { tv } from "./tv";
@@ -29,7 +30,7 @@ const reach = tv({
  * message line under it, in the field's own column, so a box of placeholders stands as tall as its fields will. A
  * field whose line appears with its error alone, the sign-in's address, takes `line={false}`.
  */
-export function FieldPlaceholder({ width, line = true }: { width: "W3" | "C10" | "C5" | "column"; line?: boolean }) {
+export function FieldPlaceholder({ width, line = true }: { width: "W3" | "C10" | "C5" | "C2" | "column"; line?: boolean }) {
   return (
     <div className={fieldRoot()}>
       <PlaceholderLine
@@ -63,17 +64,14 @@ export function FieldPairPlaceholder() {
  * a long field's cap, or both where each keeps its own. A pair forming one value shares its row on a phone too, and
  * fills it there: the long side takes the room the short one leaves, and two short sides share it, each growing from
  * its own width. Any other pair stands one field per row on a phone, as every field does. The address writes the
- * number after its street but the postcode before its town, which is why `short` names a side. A pair whose own
- * labels do not say what the value is, such as the two goals a no-show is scored with, takes `label`, naming the
- * value over both fields at a label's grade, as a group a screen reader names with each field.
+ * number after its street but the postcode before its town, which is why `short` names a side. Two fields holding
+ * values of one kind stand as `FieldColumns` instead.
  */
 export function FieldPair({
-  label,
   short,
   phone,
   children,
 }: {
-  label?: Copy;
   short: "first" | "second" | "both";
   /** On a phone: side by side, as a pair forming one value stays, or each field in its own row. */
   phone: "pair" | "stack";
@@ -89,7 +87,7 @@ export function FieldPair({
   // The long side grows as far as its field does, the form's cap from `lg`, so its short partner stands beside it
   // rather than at the row's far end.
   const grows = columnCap({ class: paired ? "min-w-0 flex-1 empty:hidden" : "min-w-0 empty:hidden lg:flex-1" });
-  const row = (
+  return (
     // 8 px between the rows where the two stand one under the other, as the fields of an editor's box are.
     <div
       data-pair={paired || undefined}
@@ -102,11 +100,51 @@ export function FieldPair({
       </div>
     </div>
   );
+}
+
+/**
+ * A group of a box's fields under its name, set as the kit's subhead in small capitals, such as a season's points over
+ * the win, the draw and the loss: 8 px more above it than between two fields, unless it opens the box, and 8 px under
+ * its name. A fieldset and its legend, the platform's own group with a name, which a screen reader says before each
+ * field's label.
+ */
+export const subgroup = tv({
+  slots: {
+    root: "grid w-full min-w-0 not-first:mt-2",
+    name: smallCaps({ class: "mb-2" }),
+  },
+});
+
+/**
+ * Short fields holding values of one kind on one row, such as a win's, a draw's and a loss's points, a no-show's two
+ * goals or a season's two counts: each takes the same room whatever its label, so the fields stand at one step and a
+ * longer label never pushes its neighbour along. From `lg` an equal-column grid as wide as its widest column needs,
+ * the grid's own way of sizing `1fr` columns to their content; on a phone the row's own wrap, each column growing from
+ * nothing to an equal share of the row and never narrower than its label and its field, so a row too narrow for them
+ * all drops a column under the others rather than squeezing it, and each field fills its column as a pair's do. A
+ * column's message line runs on under its neighbour on desktop while the neighbour's own line stands empty, as a short
+ * pair's does. `label` names the group over its fields as a subgroup (`subgroup`).
+ */
+export function FieldColumns({ label, children }: { label?: Copy; children: readonly [ReactNode, ReactNode, ...ReactNode[]] }) {
+  const row = (
+    <div
+      data-pair
+      className="flex w-full flex-wrap items-start gap-x-3 gap-y-2 lg:grid lg:w-fit lg:auto-cols-fr lg:grid-flow-col">
+      {children.map((child, index) => (
+        <div
+          // The fields are fixed in number and order, so their place is their identity.
+          key={index}
+          className="min-w-max flex-1 empty:hidden lg:[&_[data-kit-message]]:overflow-visible lg:[&:has(+*_[data-kit-message]:not(:empty))_[data-kit-message]]:overflow-hidden">
+          {child}
+        </div>
+      ))}
+    </div>
+  );
   if (label === undefined) return row;
-  // A fieldset and its legend: the platform's own group with a name, read before each field's label.
+  const slots = subgroup();
   return (
-    <fieldset className="grid w-full min-w-0">
-      <legend className={fieldLabel({ class: "mb-1" })}>{label}</legend>
+    <fieldset className={slots.root()}>
+      <legend className={slots.name()}>{label}</legend>
       {row}
     </fieldset>
   );
