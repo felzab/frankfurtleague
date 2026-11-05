@@ -58,10 +58,11 @@ TeamsPerGroup = Annotated[int, Field(ge=MIN_TEAMS_PER_GROUP, le=MAX_TEAMS_PER_GR
 
 
 class FLSaisonRules(BaseModel):
+    # No default on any of the points or the qualifiers: one would make the number a constant chosen
+    # here, as a hardcoded 3/1/0 would.
     win_points: int = Field(gt=0)
     draw_points: int = Field(ge=0)
-    # No default on any of the three: one would make the number a constant chosen here, as a
-    # hardcoded 3/1/0 would.
+    loss_points: int = Field(ge=0)
     qualifiers_per_gruppe: QualifiersPerGroup
 
     number_of_gruppen: NumberOfGroups
@@ -294,6 +295,7 @@ FIRST_SAISON_YEAR: Final = 2026
 FIRST_SAISON_RULES: Final = FLSaisonRules(
     win_points=3,
     draw_points=1,
+    loss_points=0,
     qualifiers_per_gruppe=2,
     number_of_gruppen=2,
     teams_per_gruppe=5,

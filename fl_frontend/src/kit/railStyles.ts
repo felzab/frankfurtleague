@@ -20,8 +20,13 @@ export const railGlyph = tv({ base: "flex shrink-0 justify-center group-data-col
 
 /**
  * The editor's bar at the foot of the viewport, which `EditorBar` draws and the editor's placeholder holds: on desktop as
- * tall as the rail's foot beside it (`--rail-foot`, from `tokens.css`), so the two top hairlines are one line.
+ * tall as the rail's foot beside it (`--rail-foot`, from `tokens.css`), so the two top hairlines are one line. Its
+ * hairline runs the content's whole width, and its contents stand in a row over the editor's own column, the status at
+ * the column's left edge and the save at its right, the content's and the bar's paddings alike centring the column.
  */
 export const editorBarLook = tv({
-  base: "sticky bottom-0 z-10 flex h-14 items-center gap-4 border-t border-border bg-bg px-4 lg:h-(--rail-foot) lg:px-8",
+  slots: {
+    bar: "sticky bottom-0 z-10 flex h-14 items-center border-t border-border bg-bg px-4 lg:h-(--rail-foot) lg:px-8",
+    row: "mx-auto flex w-full max-w-form items-center gap-4",
+  },
 });

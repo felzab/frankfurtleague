@@ -105,7 +105,6 @@ def build_statistik_lookup_stage(saison_id: str, rules: FLSaisonRules, scope: FL
                     }
                 },
                 {
-                    # A defeat adds nothing: `FLSaisonRules` carries no `loss_points`.
                     "$project": {
                         "_id": 0,
                         "count_gespielte_spiele": 1,
@@ -118,6 +117,7 @@ def build_statistik_lookup_stage(saison_id: str, rules: FLSaisonRules, scope: FL
                             "$add": [
                                 {"$multiply": ["$siege", rules.win_points]},
                                 {"$multiply": ["$unentschieden", rules.draw_points]},
+                                {"$multiply": ["$niederlagen", rules.loss_points]},
                             ]
                         },
                     }
@@ -344,8 +344,8 @@ def build_statistik_by_team(spiele: Iterable[FLSpielCommon], rules: FLSaisonRule
                 row["unentschieden"] += 1
                 row["punkte"] += rules.draw_points
             else:
-                # No `punkte` arm: `FLSaisonRules` carries no `loss_points`.
                 row["niederlagen"] += 1
+                row["punkte"] += rules.loss_points
 
     return {team_id: FLTeamStatistik.model_validate(row) for team_id, row in figures.items()}
 
@@ -406,7 +406,9 @@ def _head_to_head_table(
             punkte[team1_id] += rules.draw_points
             punkte[team2_id] += rules.draw_points
         else:
-            punkte[team1_id if tore1 > tore2 else team2_id] += rules.win_points
+            winner, loser = (team1_id, team2_id) if tore1 > tore2 else (team2_id, team1_id)
+            punkte[winner] += rules.win_points
+            punkte[loser] += rules.loss_points
 
     return _MiniTable(
         keys={team_id: (punkte[team_id], geschossen[team_id] - kassiert[team_id], geschossen[team_id]) for team_id in ids},
@@ -646,11 +648,10 @@ def _endings(rules: FLSaisonRules) -> tuple[tuple[int, int, bool], ...]:
     records for it.
     """
 
-    # No losing side is added to: `FLSaisonRules` carries no `loss_points`.
     return (
-        (rules.win_points, 0, True),
+        (rules.win_points, rules.loss_points, True),
         (rules.draw_points, rules.draw_points, True),
-        (0, rules.win_points, True),
+        (rules.loss_points, rules.win_points, True),
         (0, 0, False),
     )
 
@@ -760,9 +761,9 @@ def _separated_placings(
     reports as not yet decided.
     """
 
-    # The larger of the two, never `win_points`: `fl_backend/app/api/saisons/services.py` refuses a
-    # draw worth more than a win only where the excess grows, so a season already holding one arrives.
-    ceiling = max(rules.win_points, rules.draw_points)
+    # The largest of the three, never `win_points`: `fl_backend/app/api/saisons/services.py` refuses a draw worth more
+    # than a win only where the excess grows, so a season already holding one arrives, and nothing orders a loss below either.
+    ceiling = max(rules.win_points, rules.draw_points, rules.loss_points)
     lo = {team.id: team.statistik.punkte for team in teams}
     hi = {team.id: lo[team.id] + ceiling * still_to_play.get(team.id, 0) for team in teams}
 

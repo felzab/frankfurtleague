@@ -15,6 +15,7 @@ const STORED: FLSaisonAdmin = {
   rules: {
     win_points: 3,
     draw_points: 1,
+    loss_points: 0,
     tiebreak_order: "tordifferenz",
     number_of_gruppen: 4,
     teams_per_gruppe: 4,

@@ -17,7 +17,7 @@ import { useLocked } from "./draftUnsaved";
 import { FieldPlaceholder } from "./FieldPair";
 import { StatusLine } from "./FieldParts";
 import { lockedLine } from "./lockedLine";
-import { SectionTitle } from "./Section";
+import { boxHead, dangerEdge, SectionTitle } from "./Section";
 import { PlaceholderLine } from "./Skeleton";
 import { appToast } from "./Toast";
 import { tv } from "./tv";
@@ -106,10 +106,9 @@ function useAct({ run, touch = false, done, saves, carry }: Pick<AccountAct, "ru
 const box = tv({
   slots: {
     root: cardSurface({ class: "overflow-hidden" }),
-    body: "grid gap-4 p-4",
-    head: "grid gap-1",
+    // The title and the sentence under it, in an inline box's row or a stacked box's head (`boxHead`).
+    words: "grid gap-1",
     description: "text-sm text-fg-muted",
-    content: "grid justify-items-start gap-4",
     foot: `flex items-center gap-3 border-t border-border ${headGround()} px-4 py-3`,
     // The one box without a footer: its words at the start and its control at the end, in one row that wraps on a
     // phone too narrow for both.
@@ -134,8 +133,8 @@ export function AccountBoxPlaceholder({
   inline?: boolean;
 }) {
   const slots = box();
-  const head = (
-    <div className={slots.head({ class: "min-w-0 flex-1" })}>
+  const words = (
+    <>
       <PlaceholderLine
         text="text-base font-semibold"
         width="w-1/3"
@@ -144,53 +143,52 @@ export function AccountBoxPlaceholder({
         text={slots.description()}
         width="w-2/3"
       />
-    </div>
+    </>
   );
   if (inline)
     return (
       <div className={slots.root()}>
         <div className={slots.inline()}>
-          {head}
+          <div className={slots.words({ class: "min-w-0 flex-1" })}>{words}</div>
           <span className={buttonPlaceholder("w-28")} />
         </div>
       </div>
     );
   const row = rowLook();
+  const held = boxHead({ ruled: fields > 0 || rows > 0 });
   return (
     <div className={slots.root()}>
-      <div className={slots.body()}>
-        {head}
-        {(fields > 0 || rows > 0) && (
-          <div className={slots.content()}>
-            {Array.from({ length: fields }, (_, index) => (
-              <FieldPlaceholder
-                key={index}
-                width="W3"
-              />
-            ))}
-            {rows > 0 && (
-              <div className={row.list()}>
-                {Array.from({ length: rows }, (_, index) => (
-                  <div
-                    key={index}
-                    className={row.row()}>
-                    <span className={row.words()}>
-                      <PlaceholderLine
-                        text="text-sm"
-                        width="w-1/2"
-                      />
-                      <PlaceholderLine
-                        text="text-xs"
-                        width="w-1/3"
-                      />
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+      <div className={held.head()}>{words}</div>
+      {(fields > 0 || rows > 0) && (
+        <div className={held.content({ class: "gap-4" })}>
+          {Array.from({ length: fields }, (_, index) => (
+            <FieldPlaceholder
+              key={index}
+              width="W3"
+            />
+          ))}
+          {rows > 0 && (
+            <div className={row.list()}>
+              {Array.from({ length: rows }, (_, index) => (
+                <div
+                  key={index}
+                  className={row.row()}>
+                  <span className={row.words()}>
+                    <PlaceholderLine
+                      text="text-sm"
+                      width="w-1/2"
+                    />
+                    <PlaceholderLine
+                      text="text-xs"
+                      width="w-1/3"
+                    />
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
       {foot && (
         <div className={slots.foot()}>
           <span className="min-h-5 min-w-0 flex-1" />
@@ -202,9 +200,11 @@ export function AccountBoxPlaceholder({
 }
 
 /**
- * One box of a Konto page, every box the same shape: its 16-px title, one sentence under it saying what the box
- * holds, its content, and a footer band holding the status line and its one act: the primary button for a save,
- * the danger button for an act whose question is a danger's, the secondary button for every other. A box holding
+ * One box of a Konto page, every box the same shape: its 16-px title and one sentence under it saying what the box
+ * holds, over a hairline across the box where content follows, as an editor's section heads its fields (`boxHead`),
+ * its content, and a footer band holding the status line and its one act: the primary button for a save,
+ * the danger button for an act whose question is a danger's, its box then taking the danger edge and title an editor's
+ * danger box takes, the secondary button for every other. A box holding
  * one control that acts at once, Darstellung's, is the one exception: its title and sentence at the start and its
  * control at the end of one row, no footer; and a box holding nothing this page acts on, an address change an
  * administrator started, which the old address's stop link ends, shows its content and no footer. A row of the
@@ -219,44 +219,51 @@ export function AccountBox(
   ),
 ) {
   const slots = box();
-  const head = (
-    <div className={slots.head()}>
-      <SectionTitle text={props.title} />
+  // A box whose one act asks a danger's question, Anmeldung's deletion, is a danger box, as an editor's is.
+  const danger = props.act !== undefined && "confirm" in props.act.button && props.act.button.confirm.tone === "danger";
+  const words = (
+    <>
+      <SectionTitle
+        text={props.title}
+        {...(danger ? { tone: "danger" } : {})}
+      />
       <p className={slots.description()}>{props.description}</p>
-    </div>
+    </>
   );
 
   if (props.control !== undefined) {
     return (
       <section className={slots.root()}>
         <div className={slots.inline()}>
-          {head}
+          <div className={slots.words()}>{words}</div>
           {props.control}
         </div>
       </section>
     );
   }
   if (props.act === undefined) {
+    const held = boxHead({ ruled: props.children !== undefined });
     return (
       <section className={slots.root()}>
-        <div className={slots.body()}>
-          {head}
-          {props.children !== undefined && <div className={slots.content()}>{props.children}</div>}
-        </div>
+        <div className={held.head()}>{words}</div>
+        {props.children !== undefined && <div className={held.content({ class: "gap-4" })}>{props.children}</div>}
       </section>
     );
   }
   return (
     <ActBox
       act={props.act}
-      head={head}>
+      words={words}
+      danger={danger}>
       {props.children}
     </ActBox>
   );
 }
 
-function ActBox({ act, head, children }: { act: AccountAct; head: ReactElement; children?: ReactNode }) {
+function ActBox({ act, words, danger, children }: { act: AccountAct; words: ReactElement; danger: boolean; children?: ReactNode }) {
   const slots = box();
+  // The footer's own hairline parts a box with nothing under its head from the footer.
+  const held = boxHead({ ruled: children !== undefined });
   const { send, block, status, answer, isBusy } = useAct(act);
   // A row's outcome, until the footer's act answers or another row does.
   const [rowStatus, setRowStatus] = useState<FormStatus>(null);
@@ -289,7 +296,7 @@ function ActBox({ act, head, children }: { act: AccountAct; head: ReactElement; 
   };
 
   return (
-    <section className={slots.root()}>
+    <section className={slots.root(danger ? { class: dangerEdge() } : {})}>
       <Form
         ref={form}
         validationErrors={answer !== null && !answer.ok ? answer.fieldErrors : undefined}
@@ -298,14 +305,12 @@ function ActBox({ act, head, children }: { act: AccountAct; head: ReactElement; 
           event.preventDefault();
           if (!isBusy) press();
         }}>
-        <div className={slots.body()}>
-          {head}
-          {children !== undefined && (
-            <BoxLine value={setRowStatus}>
-              <div className={slots.content()}>{children}</div>
-            </BoxLine>
-          )}
-        </div>
+        <div className={held.head()}>{words}</div>
+        {children !== undefined && (
+          <BoxLine value={setRowStatus}>
+            <div className={held.content({ class: "gap-4" })}>{children}</div>
+          </BoxLine>
+        )}
         <div className={slots.foot()}>
           <StatusLine
             status={shown}

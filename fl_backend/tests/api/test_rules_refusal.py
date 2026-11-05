@@ -23,6 +23,7 @@ def rules_payload(
     qualifiers: int = 2,
     win: int = 3,
     draw: int = 1,
+    loss: int = 0,
     tiebreak: Literal["tordifferenz", "direkter_vergleich"] = "tordifferenz",
     kader: int = 18,
     forfeit: tuple[int, int] = (3, 0),
@@ -32,6 +33,7 @@ def rules_payload(
     return {
         "win_points": win,
         "draw_points": draw,
+        "loss_points": loss,
         "qualifiers_per_gruppe": qualifiers,
         "number_of_gruppen": groups,
         "teams_per_gruppe": per_group,
@@ -83,6 +85,7 @@ def judge(
 FROZEN_CASES: tuple[tuple[str, dict[str, Any]], ...] = (
     ("win_points", {"win": 2}),
     ("draw_points", {"draw": 0}),
+    ("loss_points", {"loss": 1}),
     ("qualifiers_per_gruppe", {"qualifiers": 1}),
     ("tiebreak_order", {"tiebreak": "direkter_vergleich"}),
 )

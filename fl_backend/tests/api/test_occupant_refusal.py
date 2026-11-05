@@ -82,6 +82,7 @@ UNUSUAL_FORFEIT = FLSaisonForfeitErgebnis(sieger_tore=2, verlierer_tore=1)
 RULES = FLSaisonRules(
     win_points=3,
     draw_points=1,
+    loss_points=0,
     qualifiers_per_gruppe=2,
     number_of_gruppen=4,
     teams_per_gruppe=4,

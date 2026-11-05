@@ -36,6 +36,7 @@ const SaveSaison = z.object({
       end: fromBox<string | null, typeof shape.end_date>(shape.end_date),
       winPoints: numberBox(rules.win_points),
       drawPoints: numberBox(rules.draw_points),
+      lossPoints: numberBox(rules.loss_points),
       tiebreak: fromBox<string, typeof rules.tiebreak_order>(rules.tiebreak_order),
       gruppen: numberBox(rules.number_of_gruppen),
       teamsPerGruppe: numberBox(rules.teams_per_gruppe),
@@ -80,6 +81,7 @@ function payloadOf(saison: FLSaisonAdmin, changes: Changes): Omit<FLPatchSaisonP
     rules: {
       win_points: either(changes.winPoints, stored.win_points),
       draw_points: either(changes.drawPoints, stored.draw_points),
+      loss_points: either(changes.lossPoints, stored.loss_points),
       tiebreak_order: either(changes.tiebreak, stored.tiebreak_order),
       number_of_gruppen: either(changes.gruppen, stored.number_of_gruppen),
       teams_per_gruppe: either(changes.teamsPerGruppe, stored.teams_per_gruppe),
@@ -128,6 +130,7 @@ export const saveSaison = action({
     end_date: "changes.end",
     "rules.win_points": "changes.winPoints",
     "rules.draw_points": "changes.drawPoints",
+    "rules.loss_points": "changes.lossPoints",
     "rules.number_of_gruppen": "changes.gruppen",
     "rules.teams_per_gruppe": "changes.teamsPerGruppe",
     "rules.qualifiers_per_gruppe": "changes.qualifiers",
@@ -141,6 +144,7 @@ export const saveSaison = action({
   examples: {
     "changes.winPoints": COPY.shared.field.exampleDigits,
     "changes.drawPoints": COPY.shared.field.exampleDigits,
+    "changes.lossPoints": COPY.shared.field.exampleDigits,
     "changes.gruppen": COPY.shared.field.exampleDigits,
     "changes.teamsPerGruppe": COPY.shared.field.exampleDigits,
     "changes.qualifiers": COPY.shared.field.exampleDigits,

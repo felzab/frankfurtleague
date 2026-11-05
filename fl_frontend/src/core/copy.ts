@@ -728,12 +728,19 @@ export const COPY = catalogue({
       gruppentausch: "Gruppentausch",
       ersatz: "Ersatz",
       registrierungslinks: "Registrierungslinks",
-      umstellung: "Umstellung",
       /** The danger box's title, by what its rows are about: the draw's regeneration and removal, the switch, or both. */
       dangerBox: (draw: boolean, activation: boolean) => (draw && activation ? "Spielplan und Umstellung" : draw ? "Spielplan" : "Umstellung"),
 
-      winPoints: "Punkte pro Sieg",
-      drawPoints: "Punkte pro Unentschieden",
+      /** The Wertung box's help behind its ⓘ: what its rules do, one statement a line. */
+      wertungHelp: [
+        "Punkte und Reihenfolge ordnen die Tabelle und sind ab Saisonbeginn gesperrt.",
+        "Ein Nichtantreten zählt als Spiel mit den eingetragenen Toren.",
+      ],
+      /** The points a match gives by its result, named once over its three boxes in the Wertung box. */
+      punkte: "Punkte",
+      winPoints: "Sieg",
+      drawPoints: "Unentschieden",
+      lossPoints: "Niederlage",
       tiebreak: "Bei Punktgleichheit",
       tordifferenz: "Tordifferenz",
       direkterVergleich: "Direkter Vergleich",

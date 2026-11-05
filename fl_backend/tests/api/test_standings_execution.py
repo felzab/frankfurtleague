@@ -27,6 +27,8 @@ STUFEN: list[FLSpielerStufe] = ["E1", "Q1", "Q2", "Q3", "Q4"]
 RULES = FLSaisonRules(
     win_points=3,
     draw_points=1,
+    # Worth a point, so the two derivations are held to agree on every term of the sum, a dropped one included.
+    loss_points=1,
     qualifiers_per_gruppe=2,
     number_of_gruppen=4,
     teams_per_gruppe=4,
