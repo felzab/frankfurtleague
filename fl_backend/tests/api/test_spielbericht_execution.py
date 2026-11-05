@@ -619,10 +619,11 @@ class TestTheReads:
     def test_the_referee_s_list_holds_their_played_fixtures_and_whether_a_report_stands(self, mongo_replica_set_url: str):
         """Each clause of the filter has a fixture failing it alone, and no running season lists none.
 
-        The earlier played fixture holds the order.
+        The order is held by a fixture played later the same day and stored last, so only the read's sort puts it first:
+        unsorted, the list comes in the order the fixtures were stored, and the page's newest-first order goes in silence.
         """
 
-        frueher, anderer, morgen, abgesagt, vorjahr = (ObjectId() for _ in range(5))
+        frueher, anderer, morgen, abgesagt, vorjahr, abends = (ObjectId() for _ in range(6))
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.SPIELE].insert_many(
@@ -632,6 +633,7 @@ class TestTheReads:
                     fixture(spiel_id=morgen, spiel_nr=13, datum="2027-05-15"),
                     fixture(spiel_id=abgesagt, spiel_nr=14, sonderereignis="ausgefallen"),
                     fixture(spiel_id=vorjahr, spiel_nr=15, saison_id=VORSAISON_ID, datum="2026-05-07"),
+                    fixture(spiel_id=abends, spiel_nr=16, uhrzeit="20:00:00"),
                 ]
             )
 
@@ -655,8 +657,8 @@ class TestTheReads:
 
         before, after, ohne_saison = on_the_league(mongo_replica_set_url, body)
 
-        assert [(spiel.spiel_id, spiel.submitted_at) for spiel in before.spiele] == [(SPIEL, None), (frueher, None)]
-        assert after.spiele[0].submitted_at is not None
+        assert [(spiel.spiel_id, spiel.submitted_at) for spiel in before.spiele] == [(abends, None), (SPIEL, None), (frueher, None)]
+        assert [spiel.spiel_id for spiel in after.spiele if spiel.submitted_at is not None] == [SPIEL]
         assert ohne_saison.spiele == []
 
     def test_the_referee_s_list_holds_the_reports_of_ended_seasons_apart(self, mongo_replica_set_url: str):

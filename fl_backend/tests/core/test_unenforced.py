@@ -297,6 +297,17 @@ class TestARetiredBookingOnAReopenedFixture:
             for fault in find_retired_bookings([reopened], retired_venues=retired, retired_referees={})
         ] == [(SLOT_NR, "ort", GROUND_RETIRED_ON)]
 
+    @pytest.mark.parametrize("sonderereignis", SONDEREREIGNIS_WITHOUT_A_RESULT)
+    def test_a_called_off_fixture_keeps_its_retired_booking_unreported(self, a_semi_final_played_at_a_retired_ground, sonderereignis):
+        """A fixture called off owes no result, so its retired row stands lawfully; reported, it is a fault nobody can repair."""
+
+        (played,) = FLSpielJoinedAdminListAdapter.validate_python(
+            [joined_spiel_document(spiel) for spiel in a_semi_final_played_at_a_retired_ground]
+        )
+        called_off = played.model_copy(update={"ergebnis": None, "sonderereignis": sonderereignis})
+
+        assert find_retired_bookings([called_off], retired_venues={ObjectId(RETIRED_GROUND): GROUND_RETIRED_ON}, retired_referees={}) == []
+
     def test_a_save_keeping_it_passes_and_a_save_newly_booking_it_is_refused(self, a_semi_final_played_at_a_retired_ground):
         """Both directions of `booking_unknown_resource`: the state stands because the reopened fixture's next save books nothing."""
 
@@ -404,6 +415,32 @@ class TestADoubleBookingALiftedNoShowLeaves:
         moved_inside = _clash_refusal_of(lifted, holders, uhrzeit="17:30:00")
         assert moved_inside is not None and moved_inside.error_code == Code.SPIEL_DOUBLE_BOOKED
         assert _clash_refusal_of(lifted, holders, uhrzeit="13:00:00") is None
+
+
+A_SECOND_GROUND = {"spielort_id": "6890a1b2c3d4e5f607240002", "name": "Sportplatz Nord", "maps_link": "Sportplatz Nord", "mietpreis": 40}
+AT_THE_FIRST_GROUND_NR, AN_HOUR_LATER_AT_THE_SECOND_NR = 32, 33
+
+
+class TestARefereeDoubleBookedAtTwoGrounds:
+    def test_the_referee_clash_is_reported_beside_a_free_ground(self, spiel: PayloadFactory):
+        """A fixture's ground is judged before its referee, so a walk stopping at a free ground would never report the referee."""
+
+        spiele = FLSpielJoinedAdminListAdapter.validate_python(
+            [
+                joined_spiel_document(spiel(_id=MATCH_ID.format(nr), spiel_nr=nr, ergebnis=None, **booking))
+                for nr, booking in (
+                    (AT_THE_FIRST_GROUND_NR, {}),
+                    (AN_HOUR_LATER_AT_THE_SECOND_NR, {"uhrzeit": "19:00:00", "ort": A_SECOND_GROUND}),
+                )
+            ]
+        )
+
+        reported = find_double_bookings(spiele, _holders_of(spiele))
+
+        assert [(fault.spiel_nr, fault.booking, fault.other_spiel_nr) for fault in reported] == [
+            (AT_THE_FIRST_GROUND_NR, "schiedsrichter", AN_HOUR_LATER_AT_THE_SECOND_NR),
+            (AN_HOUR_LATER_AT_THE_SECOND_NR, "schiedsrichter", AT_THE_FIRST_GROUND_NR),
+        ]
 
 
 class TestNoBracketFaultIsStored:

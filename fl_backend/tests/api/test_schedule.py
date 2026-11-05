@@ -12,7 +12,7 @@ from app.api.saisons.schedule import (
     total_group_matches,
 )
 from app.api.saisons.schemas import FLSaison, FLSaisonRules
-from app.api.saisons.services import find_rules_refusal, total_season_fixtures, with_schedule
+from app.api.saisons.services import find_rules_refusal, total_season_fixtures, with_schedule, workable_shapes
 from app.api.spiele.schemas import KNOCKOUT_PHASES, MAX_QUALIFIERS, PHASE_ORDER, PHASE_RANK
 from app.core.codes import Code
 from app.core.exceptions import WriteRefusal
@@ -268,6 +268,14 @@ class TestTheLargestLegalSeasonFitsInOneRead:
         # A sweep refusing everything would satisfy the assertion above without proving anything.
         assert accepted > 0
 
+    def test_a_stored_season_past_the_cap_resubmitted_unchanged_passes(self):
+        """`rules` is required on the patch, so a refused resubmission would leave a season stored past the cap uneditable, dates included."""
+
+        assert (
+            find_rules_refusal(stored=widest_legal_rules(), proposed=widest_legal_rules(), occupancy_by_gruppe={}, highest_wired_platz=0)
+            is None
+        )
+
 
 class TestTheSeasonCarriesItsSchedule:
     """A matchday's `count_spiele` is read off the season it holds, so a path skipping the injection answers 500."""
@@ -299,3 +307,17 @@ class TestTheSeasonCarriesItsSchedule:
         no_bracket = saison(rules={**saison()["rules"], "qualifiers_per_gruppe": 3})
 
         assert [entry["phase"] for entry in with_schedule(no_bracket)["schedule"]] == ["gruppenphase"]
+
+
+class TestTheEditorOffersTheShapesTheDrawAdmits:
+    def test_the_offer_reaches_every_bound_and_stops_at_the_cap(self):
+        """The season editor offers only these shapes, so one missing hides a legal season and one too many offers a draw the save refuses.
+
+        Each offered shape sits at a bound: one group, sixteen groups, sixteen teams, one qualifier and all of a group
+        qualifying. The refused one is the widest the field bounds admit, past `rules_spiele_over_one_read`.
+        """
+
+        offered = {(shape.number_of_gruppen, shape.teams_per_gruppe, shape.qualifiers_per_gruppe) for shape in workable_shapes(rules())}
+
+        assert {(1, 4, 4), (16, 2, 1), (1, 16, 16)} <= offered
+        assert (16, 16, 1) not in offered

@@ -10,7 +10,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.saisons.schemas import FLSaisonForfeitErgebnis, FLSaisonRules
-from app.api.spiele.crud import advance_bracket_winners, apply_release_to_spiel, preview_bracket_after_patch
+from app.api.spiele.crud import advance_bracket_winners, apply_release_to_spiel, preview_bracket_after_patch, report_release
 from app.api.spiele.schemas import (
     SONDEREREIGNIS_KEEPING_ITS_SLOT,
     SONDEREREIGNIS_RECORDING_AN_ABSENCE,
@@ -50,6 +50,7 @@ from app.api.spiele.services import (
     find_slot_claims,
     find_state_refusal,
     judge_spieltag_occupancy,
+    voided_results_of,
 )
 from app.core.codes import Code
 from app.core.exceptions import APIError, WriteRefusal
@@ -629,6 +630,22 @@ class TestTheGhostIsToldFromAnyOtherNamelessRow:
 
         assert (fault.booking, fault.booking_id) == ("ort", ObjectId(ANOTHER_SPIELORT))
 
+    def test_a_named_referee_fault_carries_its_name(self, saison):
+        """A retired referee who still has a name is served by it; served nameless, the queue reads as a row missing its name."""
+
+        named = {
+            **stored_spiel(saison, 29),
+            "schiedsrichter": {"schiedsrichter_id": ObjectId(ANOTHER_SCHIEDSRICHTER), "name": "B. Referee", "payment": 20},
+        }
+
+        (fault,) = find_retired_bookings(
+            FLSpielJoinedAdminListAdapter.validate_python([documents.joined_spiel_document(named)]),
+            retired_venues={},
+            retired_referees={ObjectId(ANOTHER_SCHIEDSRICHTER): SCHIEDSRICHTER_RETIRED_ON},
+        )
+
+        assert (fault.booking, fault.booking_id, fault.name) == ("schiedsrichter", ObjectId(ANOTHER_SCHIEDSRICHTER), "B. Referee")
+
     def test_the_ghost_claims_no_slot_where_a_nameless_referee_still_does(self, saison):
         """`spiel_double_booked` asks whether one person is in two places, and every erased referee's fixtures share the ghost's id.
 
@@ -1141,6 +1158,15 @@ class TestApplyingARelease:
         assert released.team1 is None and released.team2 is None
         assert released.ergebnis is None and released.elfmeterschiessen is None
 
+    def test_a_fixture_giving_up_both_its_sides_deletes_its_one_result_once(self, saison):
+        """Each release reports the one result, and the admin confirms the deleted results as listed: listed twice, one reads as two."""
+
+        releases, _ = doubly_released_fixture(saison)
+
+        voided = voided_results_of([report_release(release) for release in releases])
+
+        assert [(result.spiel_nr, result.voided_ergebnis) for result in voided] == [(2, "3:1")]
+
 
 def joined(
     *,
@@ -1517,6 +1543,15 @@ class TestTheResolutionNeverFieldsAClubTwice:
 
         saison = unresolved_slot_beside_a_hand_set_one
         refusal = advancement_refusal(saison, advancement(saison, 30, team1=team(ADLER, "Adler")))
+
+        assert refusal is not None
+        assert refusal.error_code == Code.SPIELTAG_OCCUPIED_BY_THE_RESOLUTION
+
+    def test_a_resolution_seating_a_club_beside_itself_in_the_second_side_is_refused(self, unresolved_slot_beside_a_hand_set_one):
+        """The resolution fills either side, so a rule reading only `team1` would seat a club twice through `team2` unrefused."""
+
+        saison = unresolved_slot_beside_a_hand_set_one
+        refusal = advancement_refusal(saison, advancement(saison, 30, team2=team(ADLER, "Adler")))
 
         assert refusal is not None
         assert refusal.error_code == Code.SPIELTAG_OCCUPIED_BY_THE_RESOLUTION

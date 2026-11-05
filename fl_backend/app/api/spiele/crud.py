@@ -701,7 +701,8 @@ async def _judge_spiel_save(
 
     refuse(find_wiring_refusal(spiel_id, payload, season, number_of_gruppen=rules.number_of_gruppen))
 
-    # Read through the session, so an austritt committed by this transaction is visible.
+    # Through the session, as every read here is: a fixture's save and a proposal's adoption judge inside their own
+    # transaction, and neither writes a club's season row before this read; the dry run reads outside one.
     membership = await pull_saison_membership(saison_teams_collection=collections.saison_teams, saison_id=saison_id, session=session)
     refuse(find_eligibility_refusal(spiel_id, payload, season, membership))
 
