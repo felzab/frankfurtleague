@@ -51,6 +51,7 @@ from app.core.crud import GERMAN_COLLATION, aggregate_many_from_db, pull_many_fr
 from app.core.dependencies import (
     SaisonsCollection,
     SaisonSpielerCollection,
+    SaisonTeamsCollection,
     SpielberichteCollection,
     SpieleCollection,
     SpieltageCollection,
@@ -170,18 +171,78 @@ async def _active_or_none(saisons_collection: AsyncCollection) -> Mapping[str, A
         return None
 
 
-@router.get("/landing", response_model=FLLandingResponse, summary="The landing")
-async def get_landing(
-    saisons_collection: SaisonsCollection,
-    spiele_collection: SpieleCollection,
-    spieltage_collection: SpieltageCollection,
-    teams_collection: TeamsCollection,
-    today: str = Depends(get_german_date_str),
-) -> FLLandingResponse:
-    """The season the site is on, `before_start`, `running` or `decided`, null for a league that has none; its figures counted on every read.
+# Keeps a season's row in a count only where the public reads its season, joined on the row's `saison_id`: a planned
+# season's clubs and fixtures count once it starts being read, by the rule every base-tier season read narrows on.
+_IN_A_PUBLIC_SAISON: tuple[Mapping[str, Any], ...] = (
+    {
+        "$lookup": {
+            "from": Collection.SAISONS,
+            "localField": "saison_id",
+            "foreignField": "_id",
+            "pipeline": [{"$match": base_tier_status_term()}, {"$project": {"_id": 0, "status": 1}}],
+            "as": "public_saison",
+        }
+    },
+    {"$match": {"public_saison": {"$ne": []}}},
+)
 
-    Beside it, the application window open today by the rule the submission refuses on.
-    """
+# A club a season's Teams page lists, as `app/api/teams/services.py :: build_retirement_stages` keeps it: one that has
+# not left the league, or one that left it after a season now `past`, which keeps its place there.
+_LISTED_CLUB: tuple[Mapping[str, Any], ...] = (
+    {
+        "$lookup": {
+            "from": Collection.TEAMS,
+            "localField": "team_id",
+            "foreignField": "_id",
+            "pipeline": [{"$project": {"_id": 0, "inactive_since": 1}}],
+            "as": "club",
+        }
+    },
+    # `$elemMatch` rather than a `club.0.inactive_since` path, which a missing field "0" in the joined element matches as null.
+    {"$match": {"$or": [{"club": {"$elemMatch": {"inactive_since": None}}}, {"public_saison": {"$elemMatch": {"status": "past"}}}]}},
+)
+
+
+async def _league_counts(
+    *, saisons_collection: AsyncCollection, spiele_collection: AsyncCollection, saison_teams_collection: AsyncCollection
+) -> FLLandingCounts:
+    """The league's figures over every season the public reads, three reads sent at once."""
+
+    count_saisons, counted_raw, schulen_raw = await asyncio.gather(
+        saisons_collection.count_documents(base_tier_status_term()),
+        # The matches the Tabelle counts, every phase's: one group, so the goals and the matches stand on one basis.
+        aggregate_many_from_db(
+            collection=spiele_collection,
+            pipeline=[
+                {"$match": counting_fixtures_match()},
+                *_IN_A_PUBLIC_SAISON,
+                {"$group": {"_id": None, "tore": {"$sum": {"$add": ["$team1.tore", "$team2.tore"]}}, "spiele": {"$sum": 1}}},
+            ],
+        ),
+        # The clubs the seasons' Teams pages list, a club playing several seasons one school.
+        aggregate_many_from_db(
+            collection=saison_teams_collection,
+            pipeline=[*_IN_A_PUBLIC_SAISON, *_LISTED_CLUB, {"$group": {"_id": "$team_id"}}, {"$count": "schulen"}],
+        ),
+    )
+
+    return FLLandingCounts(
+        count_saisons=count_saisons,
+        count_schulen=schulen_raw[0]["schulen"] if schulen_raw else 0,
+        # No group row where no match counts yet.
+        count_spiele=counted_raw[0]["spiele"] if counted_raw else 0,
+        count_tore=counted_raw[0]["tore"] if counted_raw else 0,
+    )
+
+
+async def _landing_saison(
+    *,
+    saisons_collection: AsyncCollection,
+    spiele_collection: AsyncCollection,
+    teams_collection: AsyncCollection,
+    today: str,
+) -> tuple[FLLandingBeforeStart | FLLandingRunning | FLLandingDecided | None, FLBewerbungWindow | None]:
+    """The season the site is on in its state, null for a league that has none, and the window open today."""
 
     saison_raw, open_window = await asyncio.gather(
         _active_or_none(saisons_collection),
@@ -191,7 +252,7 @@ async def get_landing(
     window = None if open_window is None else FLBewerbungWindow(saison_id=str(open_window["_id"]), end=open_window["bewerbung"]["end"])
 
     if saison_raw is None:
-        return FLLandingResponse(saison=None, bewerbung_window=window)
+        return None, window
 
     saison_id = str(saison_raw["_id"])
     in_saison = {"saison_id": saison_id}
@@ -199,56 +260,33 @@ async def get_landing(
     # Known before any match is read, so only the reads its state can serve are sent: the opening match before it, the
     # two lists after. The Finale is read either way, a played one deciding the season over both.
     started = has_started(start_date=saison_raw["start_date"], today=today)
-    # Two groups of reads sent at once, because `asyncio.gather`'s typing stops at six: one gather of seven types none
-    # of its results.
-    (first_raw, recent_raw, upcoming_raw, finale_by_saison), (teams, counted_raw, count_spieltage) = await asyncio.gather(
-        asyncio.gather(
-            _no_rows()
-            if started
-            else aggregate_many_from_db(collection=spiele_collection, pipeline=_opening_spiel_pipeline(saison_id), limit=1),
-            aggregate_many_from_db(
-                collection=spiele_collection,
-                pipeline=build_spiele_pipeline(
-                    db_filter={**in_saison, "ergebnis": {"$ne": None}},
-                    sort_by=[("datum", -1), ("uhrzeit", -1), ("spiel_nr", -1)],
-                    limit=LANDING_SPIELE,
-                ),
-            )
-            if started
-            else _no_rows(),
-            aggregate_many_from_db(
-                collection=spiele_collection,
-                pipeline=build_spiele_pipeline(
-                    db_filter={**in_saison, "datum": {"$gte": today}, **unplayed_filter()},
-                    sort_by=[("datum", 1), ("uhrzeit", 1), ("spiel_nr", 1)],
-                    limit=LANDING_SPIELE,
-                ),
-            )
-            if started
-            else _no_rows(),
-            pull_finale_by_saison(spiele_collection=spiele_collection, saison_ids=[saison_id]),
-        ),
-        asyncio.gather(
-            _clubs_of(teams_collection=teams_collection, saison_id=saison_id),
-            # The matches the Tabelle counts, every phase's: one group, so the goals and the matches stand on one basis.
-            aggregate_many_from_db(
-                collection=spiele_collection,
-                pipeline=[
-                    {"$match": {**in_saison, **counting_fixtures_match()}},
-                    {"$group": {"_id": None, "tore": {"$sum": {"$add": ["$team1.tore", "$team2.tore"]}}, "spiele": {"$sum": 1}}},
-                ],
+    first_raw, recent_raw, upcoming_raw, finale_by_saison, teams = await asyncio.gather(
+        _no_rows() if started else aggregate_many_from_db(collection=spiele_collection, pipeline=_opening_spiel_pipeline(saison_id), limit=1),
+        aggregate_many_from_db(
+            collection=spiele_collection,
+            pipeline=build_spiele_pipeline(
+                db_filter={**in_saison, "ergebnis": {"$ne": None}},
+                sort_by=[("datum", -1), ("uhrzeit", -1), ("spiel_nr", -1)],
+                limit=LANDING_SPIELE,
             ),
-            spieltage_collection.count_documents(in_saison),
-        ),
+        )
+        if started
+        else _no_rows(),
+        aggregate_many_from_db(
+            collection=spiele_collection,
+            pipeline=build_spiele_pipeline(
+                db_filter={**in_saison, "datum": {"$gte": today}, **unplayed_filter()},
+                sort_by=[("datum", 1), ("uhrzeit", 1), ("spiel_nr", 1)],
+                limit=LANDING_SPIELE,
+            ),
+        )
+        if started
+        else _no_rows(),
+        pull_finale_by_saison(spiele_collection=spiele_collection, saison_ids=[saison_id]),
+        _clubs_of(teams_collection=teams_collection, saison_id=saison_id),
     )
 
     start = saison_start(saison_raw["start_date"])
-    counts = FLLandingCounts(
-        # No group row where no match counts yet.
-        count_tore=counted_raw[0]["tore"] if counted_raw else 0,
-        count_spiele=counted_raw[0]["spiele"] if counted_raw else 0,
-        count_spieltage=count_spieltage,
-    )
 
     # Decided by the rule the admin list and the editor read too, so the three say the same word of one season.
     podium = decided_podium(finale_by_saison.get(saison_id, []))
@@ -256,38 +294,68 @@ async def get_landing(
     def landing_side(side: FLSpielTeamFieldJoinedInternal | None) -> FLLandingSide | None:
         return None if side is None else FLLandingSide(name=side.name, shorthand=side.shorthand)
 
-    saison: FLLandingBeforeStart | FLLandingRunning | FLLandingDecided
     match podium:
         case (first_place, second_place, third_place, fourth_place):
-            saison = FLLandingDecided(
-                id=saison_id,
-                state="decided",
-                start=start,
-                podium=(landing_side(first_place), landing_side(second_place), landing_side(third_place), landing_side(fourth_place)),
-                counts=counts,
-                teams=teams,
+            return (
+                FLLandingDecided(
+                    id=saison_id,
+                    state="decided",
+                    start=start,
+                    podium=(landing_side(first_place), landing_side(second_place), landing_side(third_place), landing_side(fourth_place)),
+                    teams=teams,
+                ),
+                window,
             )
         case _ if started:
-            saison = FLLandingRunning(
-                id=saison_id,
-                state="running",
-                start=start,
-                recent=FLSpielJoinedListAdapter.validate_python(recent_raw),
-                upcoming=FLSpielJoinedListAdapter.validate_python(upcoming_raw),
-                counts=counts,
-                teams=teams,
+            return (
+                FLLandingRunning(
+                    id=saison_id,
+                    state="running",
+                    start=start,
+                    recent=FLSpielJoinedListAdapter.validate_python(recent_raw),
+                    upcoming=FLSpielJoinedListAdapter.validate_python(upcoming_raw),
+                    teams=teams,
+                ),
+                window,
             )
         case _:
-            saison = FLLandingBeforeStart(
-                id=saison_id,
-                state="before_start",
-                start=start,
-                opening_spiel=FLLandingOpeningSpiel.model_validate(first_raw[0]) if first_raw else None,
-                counts=counts,
-                teams=teams,
+            return (
+                FLLandingBeforeStart(
+                    id=saison_id,
+                    state="before_start",
+                    start=start,
+                    opening_spiel=FLLandingOpeningSpiel.model_validate(first_raw[0]) if first_raw else None,
+                    teams=teams,
+                ),
+                window,
             )
 
-    return FLLandingResponse(saison=saison, bewerbung_window=window)
+
+@router.get("/landing", response_model=FLLandingResponse, summary="The landing")
+async def get_landing(
+    saisons_collection: SaisonsCollection,
+    spiele_collection: SpieleCollection,
+    saison_teams_collection: SaisonTeamsCollection,
+    teams_collection: TeamsCollection,
+    today: str = Depends(get_german_date_str),
+) -> FLLandingResponse:
+    """The season the site is on, `before_start`, `running` or `decided`, null for a league that has none.
+
+    Beside it, the application window open today by the rule the submission refuses on, and the league's figures over
+    every season the public reads, counted on every read. The figures are read beside the season's two steps rather
+    than after them, so they add no step to the read.
+    """
+
+    (saison, window), counts = await asyncio.gather(
+        _landing_saison(
+            saisons_collection=saisons_collection, spiele_collection=spiele_collection, teams_collection=teams_collection, today=today
+        ),
+        _league_counts(
+            saisons_collection=saisons_collection, spiele_collection=spiele_collection, saison_teams_collection=saison_teams_collection
+        ),
+    )
+
+    return FLLandingResponse(saison=saison, bewerbung_window=window, counts=counts)
 
 
 # Declared after `/frame` and `/landing`, which it would otherwise answer as season ids: routes match in

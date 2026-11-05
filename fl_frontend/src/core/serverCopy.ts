@@ -470,13 +470,14 @@ export const SERVER_COPY = catalogue({
       finale: "Das Spiel um den Titel.",
     },
 
-    /** The season in four counts. */
+    /** The league in four counts, over every season the public reads. */
     figures: {
-      title: (saison: string) => `${COPY.shared.saisonName(saison)} in Zahlen`,
+      eyebrow: "Statistiken",
+      title: "Die Liga in Zahlen",
+      saisons: "Saisons",
       schulen: "Schulen",
-      tore: COPY.shared.tore,
       spiele: COPY.page.spiele,
-      spieltage: COPY.spielplan.spieltage,
+      tore: COPY.shared.tore,
     },
 
     organisers: {

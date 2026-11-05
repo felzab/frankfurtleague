@@ -7443,9 +7443,6 @@
       "FLLandingBeforeStart": {
         "description": "Before its start date: its opening match, the earliest dated group match, null while none is.",
         "properties": {
-          "counts": {
-            "$ref": "#/components/schemas/FLLandingCounts"
-          },
           "id": {
             "title": "Id",
             "type": "string"
@@ -7481,7 +7478,6 @@
         "required": [
           "id",
           "start",
-          "counts",
           "teams",
           "state",
           "opening_spiel"
@@ -7490,16 +7486,21 @@
         "type": "object"
       },
       "FLLandingCounts": {
-        "description": "Three of the season's four figures, counted on every read: its goals, its matches and its matchdays.\n\nThe fourth, its clubs, is the length of the `teams` served beside them. `count_spiele` is every match of any phase the\nTabelle would count, one carrying an `ergebnis`, a forfeit among them, so a season before its first played match reads\n0; `count_tore` is both sides' goals summed over the same matches: a forfeit's awarded goals among them, a shoot-out's\nnever.",
+        "description": "The league's four figures over every season the public reads, counted on every read and never stored.\n\n`count_saisons` is those seasons; `count_schulen` the clubs that took part in any of them, each counted once;\n`count_spiele` every match of any phase the Tabelle would count, one carrying an `ergebnis`, a forfeit among them;\n`count_tore` both sides' goals summed over the same matches, a forfeit's awarded goals among them, a shoot-out's never.",
         "properties": {
+          "count_saisons": {
+            "minimum": 0.0,
+            "title": "Count Saisons",
+            "type": "integer"
+          },
+          "count_schulen": {
+            "minimum": 0.0,
+            "title": "Count Schulen",
+            "type": "integer"
+          },
           "count_spiele": {
             "minimum": 0.0,
             "title": "Count Spiele",
-            "type": "integer"
-          },
-          "count_spieltage": {
-            "minimum": 0.0,
-            "title": "Count Spieltage",
             "type": "integer"
           },
           "count_tore": {
@@ -7509,9 +7510,10 @@
           }
         },
         "required": [
-          "count_tore",
+          "count_saisons",
+          "count_schulen",
           "count_spiele",
-          "count_spieltage"
+          "count_tore"
         ],
         "title": "FLLandingCounts",
         "type": "object"
@@ -7519,9 +7521,6 @@
       "FLLandingDecided": {
         "description": "Once all four places are in: places one to four in their order.",
         "properties": {
-          "counts": {
-            "$ref": "#/components/schemas/FLLandingCounts"
-          },
           "id": {
             "title": "Id",
             "type": "string"
@@ -7595,7 +7594,6 @@
         "required": [
           "id",
           "start",
-          "counts",
           "teams",
           "state",
           "podium"
@@ -7660,7 +7658,7 @@
         "type": "object"
       },
       "FLLandingResponse": {
-        "description": "The landing's facts: the season the site is on, null for a league that has none, and an open window.",
+        "description": "The landing's facts: the season the site is on, null for a league that has none, an open window, and the league's figures.",
         "properties": {
           "bewerbung_window": {
             "anyOf": [
@@ -7671,6 +7669,9 @@
                 "type": "null"
               }
             ]
+          },
+          "counts": {
+            "$ref": "#/components/schemas/FLLandingCounts"
           },
           "saison": {
             "anyOf": [
@@ -7704,7 +7705,8 @@
         },
         "required": [
           "saison",
-          "bewerbung_window"
+          "bewerbung_window",
+          "counts"
         ],
         "title": "FLLandingResponse",
         "type": "object"
@@ -7712,9 +7714,6 @@
       "FLLandingRunning": {
         "description": "From its start date: the latest result and the next match, at most one of each, empty where there is none.",
         "properties": {
-          "counts": {
-            "$ref": "#/components/schemas/FLLandingCounts"
-          },
           "id": {
             "title": "Id",
             "type": "string"
@@ -7754,7 +7753,6 @@
         "required": [
           "id",
           "start",
-          "counts",
           "teams",
           "state",
           "recent",
@@ -24713,7 +24711,7 @@
     },
     "/api/v0/saisons/landing": {
       "get": {
-        "description": "The season the site is on, `before_start`, `running` or `decided`, null for a league that has none; its figures counted on every read.\n\nBeside it, the application window open today by the rule the submission refuses on.",
+        "description": "The season the site is on, `before_start`, `running` or `decided`, null for a league that has none.\n\nBeside it, the application window open today by the rule the submission refuses on, and the league's figures over\nevery season the public reads, counted on every read. The figures are read beside the season's two steps rather\nthan after them, so they add no step to the read.",
         "operationId": "saisons_get_landing",
         "responses": {
           "200": {
