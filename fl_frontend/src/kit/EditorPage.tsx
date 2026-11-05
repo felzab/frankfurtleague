@@ -127,8 +127,9 @@ export function EditorPage<Values extends Record<string, EditorValue>>({
   title: PageTitle;
   chip?: ChipProps;
   /**
-   * The Vorschau: one line under the title saying how the record reads, such as a match's pairing, its score and
-   * its outcome, or that no result is stored yet.
+   * The Vorschau: one line under the title saying a fact about the record as it is stored, such as a match's pairing,
+   * its day and its result or that none is stored yet, or that the website shows a season. Never the unsaved
+   * changes, which the bar's status line counts.
    */
   lead?: Copy;
   /** The reason the record is closed read-only, such as its season having finished; absent while it is open. */

@@ -9,7 +9,7 @@ import { FLSonderereignis } from "@/core/generated/client/types";
 import { SpielePatchSpielBody, spielePatchSpielBodyNotizOneMax } from "@/core/generated/zod/inputs";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
-import { ereignisOf, quelleWords } from "@/features/spiele/blocks";
+import { ereignisOf, quelleWords, vorschauOf } from "@/features/spiele/blocks";
 import { getAdminSpiel } from "@/features/spiele/queries";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { resolveObjectIdParam } from "@/shared/utils/routeParams";
@@ -245,6 +245,7 @@ async function readEditor(params: Props["params"]) {
   return (
     <SpielEditor
       title={nameOf(saved)}
+      vorschau={vorschauOf(saved)}
       record={{ id: saved.id, version: saved.version, values: valuesOf(saved) }}
       save={saveSpiel}
       phase={saved.saison_phase}

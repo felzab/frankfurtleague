@@ -50,25 +50,6 @@ type Booking = { option: Option; price: number };
 /** What a save sends: the changes, and the report's version where the result was carried over from it. */
 type Sent = EditorSave<SpielValues> & { adoptsBericht: number | null };
 
-/** Each field by its own label, as the Vorschau names the changes. */
-const LABELS: Readonly<Record<keyof SpielValues, Copy>> = {
-  team1: WORDS.team1,
-  team2: WORDS.team2,
-  datum: WORDS.datum,
-  uhrzeit: WORDS.uhrzeit,
-  spielort: ORT.object,
-  mietpreis: ORT.mietpreis,
-  schiedsrichter: COPY.shared.schiedsrichter,
-  honorar: WORDS.honorar,
-  hasResult: WORDS.ergebnis,
-  tore1: COPY.shared.tore,
-  tore2: COPY.shared.tore,
-  shootOut1: WORDS.elfmeterschiessen,
-  shootOut2: WORDS.elfmeterschiessen,
-  sonderereignis: WORDS.sonderereignis,
-  notiz: WORDS.notiz,
-};
-
 const goals = (text: string) => (text === "" ? null : Number(text));
 
 /**
@@ -80,6 +61,7 @@ const goals = (text: string) => (text === "" ? null : Number(text));
  */
 export function SpielEditor({
   title,
+  vorschau,
   record,
   save,
   phase,
@@ -99,6 +81,8 @@ export function SpielEditor({
   closed,
 }: {
   title: PageTitle;
+  /** The line under the title: the match as it is stored, read on the server. */
+  vorschau: Copy;
   record: EditorRecord<SpielValues>;
   save: (sent: Sent) => Promise<ActionAnswer<number>>;
   phase: FLSaisonPhase;
@@ -135,7 +119,7 @@ export function SpielEditor({
       adoptsBericht: adopted && adoption !== null && holdsProposal({ ...record.values, ...change.changes }) ? adoption.version : null,
     }),
   );
-  const { draft, set, changes } = editor;
+  const { draft, set } = editor;
   // The create dialog, opened from the venue list's last entry with the name typed into the field; the dialog closes
   // this state itself when Next hides the page.
   const [creating, setCreating] = useState(false);
@@ -222,7 +206,7 @@ export function SpielEditor({
   return (
     <EditorPage
       title={title}
-      lead={editor.count === 0 ? undefined : WORDS.changed([...new Set(Object.keys(changes).map((key) => LABELS[key as keyof SpielValues]))])}
+      lead={vorschau}
       editor={editor}
       closed={closed}
       sections={withBegegnung([

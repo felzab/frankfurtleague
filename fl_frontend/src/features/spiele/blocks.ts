@@ -107,6 +107,18 @@ function resultOf(spiel: Played): Pick<SpielRowProps, "result"> {
 export const whenOf = (spiel: Pick<FLSpielJoined, "datum" | "uhrzeit">): Copy => COPY.spielplan.when(dayOf(spiel.datum), timeOf(spiel.uhrzeit));
 
 /**
+ * The match editor's Vorschau: the match as it is stored, its pairing, when it is played and its result, else the
+ * event that leaves it none, else that none is stored yet. A fact about the record, never its unsaved changes.
+ */
+export function vorschauOf(spiel: Sides & Played & Pick<FLSpielJoined, "datum" | "uhrzeit" | "sonderereignis">): Copy {
+  const { team1, team2 } = sidesOf(spiel);
+  const tore = toreOf(spiel);
+  const result =
+    tore === null ? (ereignisOf(spiel)?.title ?? COPY.admin.spiel.noResult) : COPY.admin.spiel.score(tore, spiel.elfmeterschiessen);
+  return COPY.admin.spiel.vorschau(COPY.page.spiel(team1.name, team2.name), whenOf(spiel), result);
+}
+
+/**
  * A match as a row or a card of a match list, the whole of it a link to the match, which opens as the pop-up
  * over the page. The third-place match says so before its date, the one line every form of the row shows.
  */
