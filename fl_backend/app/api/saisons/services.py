@@ -1,5 +1,5 @@
 from collections.abc import Iterable, Mapping, Sequence
-from datetime import date
+from datetime import date, timedelta
 from http import HTTPStatus
 from typing import Any
 
@@ -387,9 +387,13 @@ def find_saison_span_refusal(
     offered_days = (date.fromisoformat(end_date) - date.fromisoformat(start_date)).days + 1
     required_days = sum(entry.spieltage for entry in schedule_for(rules))
     if offered_days < required_days:
+        # On the end, as the span's own rule sits there, its bound the earliest end the schedule fits: the start is the
+        # day the locks read, the box a season's length is repaired on is its end.
         return WriteRefusal(
             error_code=Code.SAISON_SPAN_BELOW_SPIELPLAN,
             status=HTTPStatus.UNPROCESSABLE_CONTENT,
+            fields=(("end_date",),),
+            bounds={"earliest": (date.fromisoformat(start_date) + timedelta(days=required_days - 1)).isoformat()},
         )
 
     # `start` and `end` are the span the dated matchdays need, named on each side the season falls short of.
