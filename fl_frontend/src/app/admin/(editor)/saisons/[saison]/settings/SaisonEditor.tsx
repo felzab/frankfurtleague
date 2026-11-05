@@ -232,7 +232,7 @@ export function SaisonEditor({
   // The application window is none or both of its days, so each is asked for once either holds one.
   const bewerbungSet = draft.bewerbungStart !== null || draft.bewerbungEnd !== null;
 
-  const touch = { held: true, holder };
+  const touch = { holder };
   const of = { saison_id: saison, holder };
 
   const sections: [EditorSection, ...EditorSection[]] = [

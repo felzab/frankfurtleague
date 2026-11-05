@@ -40,10 +40,11 @@ export type DangerAct = {
   /** The question its button opens; the button carries the question's verb and tone. */
   confirm: Omit<ConfirmDialogProps, "trigger" | "open">;
   /**
-   * The passkey touch before the question, for an act on its fixed list: whether the person holds a passkey,
-   * which the page read, and the address the page was drawn for (`usePasskeyTouch`).
+   * The passkey touch before the question, for an act on its fixed list: the address the page was drawn for
+   * (`usePasskeyTouch`). An editor is an administrator's page, and an administrator signs in by passkey alone, so the
+   * person always holds one.
    */
-  touch?: { held: boolean; holder: string };
+  touch?: { holder: string };
   /**
    * Why the act cannot run on the record as it stands, which the page read: the button disabled, and this reason in
    * the row's second line in place of the consequence.
@@ -58,7 +59,7 @@ export type DangerAct = {
  */
 function DangerRow({ act }: { act: DangerAct }) {
   const [isAsking, setAsking] = useState(false);
-  const { run, refusal, isTouching } = usePasskeyTouch(act.touch?.held ?? false, act.touch?.holder);
+  const { run, refusal, isTouching } = usePasskeyTouch(act.touch !== undefined, act.touch?.holder);
   const label = COPY.shared.verb[act.confirm.verb];
   const unsaved = useDraftUnsaved();
   // What the record holds closes an act before an unsaved draft does: the draft's save would not open it.
