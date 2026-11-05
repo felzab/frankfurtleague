@@ -628,6 +628,22 @@ class TestTheGhostIsToldFromAnyOtherNamelessRow:
 
         assert (fault.booking, fault.booking_id) == ("ort", ObjectId(ANOTHER_SPIELORT))
 
+    def test_a_named_referee_fault_carries_its_name(self, saison):
+        """A retired referee who still has a name is served by it; served nameless, the queue reads as a row missing its name."""
+
+        named = {
+            **stored_spiel(saison, 29),
+            "schiedsrichter": {"schiedsrichter_id": ObjectId(ANOTHER_SCHIEDSRICHTER), "name": "B. Referee", "payment": 20},
+        }
+
+        (fault,) = find_retired_bookings(
+            FLSpielJoinedAdminListAdapter.validate_python([documents.joined_spiel_document(named)]),
+            retired_venues={},
+            retired_referees={ObjectId(ANOTHER_SCHIEDSRICHTER): SCHIEDSRICHTER_RETIRED_ON},
+        )
+
+        assert (fault.booking, fault.booking_id, fault.name) == ("schiedsrichter", ObjectId(ANOTHER_SCHIEDSRICHTER), "B. Referee")
+
     def test_the_ghost_claims_no_slot_where_a_nameless_referee_still_does(self, saison):
         """`spiel_double_booked` asks whether one person is in two places, and every erased referee's fixtures share the ghost's id.
 
