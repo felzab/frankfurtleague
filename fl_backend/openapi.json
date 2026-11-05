@@ -25797,7 +25797,7 @@
         ]
       },
       "post": {
-        "description": "Create a referee and owe them their confirmation link.\n\n`inactive_since` is set to null here and is on no payload. **Entering a referee IS the\ninvitation**: the payload requires an email address, and there is no second press deciding\nwhether this person is asked, because a referee nobody asked is a name nobody consented to\npublish. The link goes out through the Postausgang, which mints it; the answer names the address and the deadline.\n\nRefused `schiedsrichter_address_barred` where the address given is on the ban list.",
+        "description": "Create a referee and owe them their confirmation link.\n\n`inactive_since` is set to null here and is on no payload. **Entering a referee IS the\ninvitation**: the payload requires an email address, and there is no second press deciding\nwhether this person is asked, because a referee nobody asked is a name nobody consented to\npublish. The link goes out through the Postausgang, which mints it; the answer names the address and the deadline.\n\nRefused where another referee holds the name (`duplicate_key`, naming `name`), then\n`schiedsrichter_address_barred` where the address given is on the ban list.",
         "operationId": "schiedsrichter_post_schiedsrichter",
         "requestBody": {
           "content": {
@@ -26363,7 +26363,7 @@
         ]
       },
       "patch": {
-        "description": "Update a referee on the `version` the editor was served, answering the version stored.\n\nThe editor's next save sends that version. A fixture names the referee by id and reads the name at its own read, so\nnothing else is written; each fixture keeps the `payment` agreed for it.\n\n**A corrected address on an UNCONFIRMED referee retires their link and owes a fresh one** to the\nnew address, named in `confirmation`: the old link was posted to a mailbox nobody reads, and\nleaving it live is a credential in the wrong inbox.\n\n**A CONFIRMED referee's address is refused here** (`schiedsrichter_address_only_per_change`), retired or not: it is who signs in as the\nperson, and moves only through an address change: the address tool, `POST /address_change`, or the person's own account page.\nA save keeping it lands, a pending change standing.\n\n**A RETIRED unconfirmed referee's corrected address is stored and mails nothing**: no consent is\ncollected for a role nobody gives them. Their old link is retired all the same, and the\nreactivation mints the fresh one. Where a link is minted, a banned new address is refused\n`schiedsrichter_address_barred`.\n\nThe ghost answers 404 here as it does to every read: a name written onto it would appear on the\nfixtures of every referee already erased.",
+        "description": "Update a referee on the `version` the editor was served, answering the version stored.\n\nThe editor's next save sends that version. A fixture names the referee by id and reads the name at its own read, so\nnothing else is written; each fixture keeps the `payment` agreed for it.\n\n**A corrected address on an UNCONFIRMED referee retires their link and owes a fresh one** to the\nnew address, named in `confirmation`: the old link was posted to a mailbox nobody reads, and\nleaving it live is a credential in the wrong inbox.\n\n**A CONFIRMED referee's address is refused here** (`schiedsrichter_address_only_per_change`), retired or not: it is who signs in as the\nperson, and moves only through an address change: the address tool, `POST /address_change`, or the person's own account page.\nA save keeping it lands, a pending change standing.\n\n**A RETIRED unconfirmed referee's corrected address is stored and mails nothing**: no consent is\ncollected for a role nobody gives them. Their old link is retired all the same, and the\nreactivation mints the fresh one. Where a link is minted, a banned new address is refused\n`schiedsrichter_address_barred`.\n\nRefused where another referee holds the name (`duplicate_key`, naming `name`), ahead of the address's refusals.\n\nThe ghost answers 404 here as it does to every read: a name written onto it would appear on the\nfixtures of every referee already erased.",
         "operationId": "schiedsrichter_patch_schiedsrichter",
         "parameters": [
           {
@@ -27638,6 +27638,74 @@
           "spielbestaetigungen"
         ],
         "x-safe": true
+      }
+    },
+    "/api/v0/spielbestaetigungen/{spielbestaetigung_id}/adopt": {
+      "post": {
+        "description": "Move a fixture to the date and hour a club's open decline proposes, through the fixture's own save.\n\nRefused as the discard refuses, for any row but an open club decline proposing a date about the fixture's current\nAnsetzung (`ansetzung_not_discardable`), and for a proposed day gone by (`ansetzung_vorschlag_past`). The fixture is\nsaved as the administrator's save would carry it on the proposed day and hour, everything else kept, so it meets\nevery rule that save meets and is refused as that save is, by its code alone: no refusal names a field, the request\ncarrying no body. The bracket is resolved as that save resolves it. The\nrow is not closed here: the fixture has left the Ansetzung it answers, so its links read `invalid` at once and the\nnext confirmation pass closes every party's row `ansetzung_changed`, owing each party „Spiel verlegt“ and asking it\nabout the new slot. IRREVERSIBLE as a save is: moving the fixture back is another save.",
+        "operationId": "spielbestaetigungen_adopt_spielbestaetigung",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "spielbestaetigung_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Spielbestaetigung Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "400": {
+            "$ref": "#/components/responses/400",
+            "description": "Bad Request"
+          },
+          "401": {
+            "$ref": "#/components/responses/401",
+            "description": "Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/403",
+            "description": "Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/404",
+            "description": "Not Found"
+          },
+          "409": {
+            "$ref": "#/components/responses/409",
+            "description": "Conflict"
+          },
+          "410": {
+            "$ref": "#/components/responses/410",
+            "description": "Gone"
+          },
+          "422": {
+            "$ref": "#/components/responses/422",
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "$ref": "#/components/responses/500",
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/503",
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "AdminKey": []
+          }
+        ],
+        "summary": "Adopt a club's proposed date",
+        "tags": [
+          "spielbestaetigungen"
+        ]
       }
     },
     "/api/v0/spielbestaetigungen/{spielbestaetigung_id}/antwort": {

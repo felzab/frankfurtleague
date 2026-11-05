@@ -20,7 +20,12 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.saisons.overview import FLOverviewSpielbestaetigungRow, FLOverviewVorschlagRow
 from app.api.saisons.overview_router import get_saison_overview
 from app.api.saisons.schemas import FLSaisonRules
-from app.api.spielbestaetigungen.admin_router import discard_spielbestaetigung, enter_spielbestaetigung, get_spielbestaetigungen
+from app.api.spielbestaetigungen.admin_router import (
+    adopt_spielbestaetigung,
+    discard_spielbestaetigung,
+    enter_spielbestaetigung,
+    get_spielbestaetigungen,
+)
 from app.api.spielbestaetigungen.person_router import get_self, post_schiedsrichter_antwort
 from app.api.spielbestaetigungen.public_router import get_spielbestaetigung_view, post_spielbestaetigung
 from app.api.spielbestaetigungen.schemas import (
@@ -100,10 +105,9 @@ def token(team_id: ObjectId, seat: str, nth: int = 0) -> str:
     return f"{NAMES[team_id][0].lower()}-{seat}-{nth}"
 
 
+# As the fixture stores it, naming nothing: a club's name is joined from its season row.
 def side(team_id: ObjectId) -> dict[str, Any]:
-    name, shorthand = NAMES[team_id]
-
-    return {"team_id": team_id, "name": name, "shorthand": shorthand, "tore": None}
+    return {"team_id": team_id, "tore": None}
 
 
 def fixture(spiel_id: ObjectId = SPIEL, *, spiel_nr: int = 1, saison_id: str = SAISON_ID, **fields: Any) -> dict[str, Any]:
@@ -114,8 +118,8 @@ def fixture(spiel_id: ObjectId = SPIEL, *, spiel_nr: int = 1, saison_id: str = S
         "team2": side(TEAM2),
         "datum": DATUM,
         "uhrzeit": UHRZEIT,
-        "ort": {"spielort_id": SPIELORT, "name": "Halle Ost", "maps_link": "Halle Ost, Frankfurt", "mietpreis": 40},
-        "schiedsrichter": {"schiedsrichter_id": SCHIEDSRICHTER, "name": REFEREE, "payment": 20},
+        "ort": {"spielort_id": SPIELORT, "mietpreis": 40},
+        "schiedsrichter": {"schiedsrichter_id": SCHIEDSRICHTER, "payment": 20},
         "notiz": "Flutlicht",
     }
 
@@ -387,7 +391,7 @@ class TestAFixtureRemovedBetweenTheViewsTwoReads:
 
 
 class ReadsRecorded:
-    """A collection keeping every document its `find_one` and its `find` answered.
+    """A collection keeping every document its `find_one`, its `find` and its `aggregate` answered.
 
     Delegating rather than a stub: mongod applies the projection, and a stub would hand back whatever the handler asked for.
     """
@@ -406,6 +410,9 @@ class ReadsRecorded:
 
     def find(self, *args: Any, **kwargs: Any) -> Any:
         return _ListedInto(self._collection.find(*args, **kwargs), self.loaded)
+
+    async def aggregate(self, *args: Any, **kwargs: Any) -> Any:
+        return _ListedInto(await self._collection.aggregate(*args, **kwargs), self.loaded)
 
 
 class _ListedInto:
@@ -1119,6 +1126,74 @@ class TestTheDiscard:
             return outcome, (await row_now(database, ROW1))["closed"], confirmations.passes
 
         assert on_a_fixture(mongo_replica_set_url, body) == (Code.ANSETZUNG_NOT_DISCARDABLE, None, 1)
+
+
+async def uebernehmen(database: AsyncDatabase, client: AsyncMongoClient, row_id: ObjectId, *, spielbestaetigungen: Any = None) -> None:
+    return await adopt_spielbestaetigung(
+        spielbestaetigung_id=row_id,
+        spielbestaetigungen_collection=either(database, Collection.SPIELBESTAETIGUNGEN, spielbestaetigungen),
+        spiele_collection=database[Collection.SPIELE],
+        teams_collection=database[Collection.TEAMS],
+        saisons_collection=database[Collection.SAISONS],
+        saison_teams_collection=database[Collection.SAISON_TEAMS],
+        spieltage_collection=database[Collection.SPIELTAGE],
+        spielorte_collection=database[Collection.SPIELORTE],
+        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+        spielberichte_collection=database[Collection.SPIELBERICHTE],
+        db=client,
+        today=TODAY,
+        now=MAIL_NOW,
+    )
+
+
+class ConfirmationsRunningARivalBeforeTheAnchor(InterleavedCollection):
+    """The confirmations the adoption reads its row from, a rival run once after that read and before the row's anchor."""
+
+    async def update_many(self, *args: Any, **kwargs: Any) -> Any:
+        await self.run_the_rival()
+        return await self._collection.update_many(*args, **kwargs)
+
+
+class TestTheAdoption:
+    def test_the_fixture_moves_to_the_proposal_and_the_row_reads_the_ansetzung_left(self, mongo_replica_set_url: str):
+        """Adopted, a fixture left at the slot its club declined would ask every party about a date the league gave up."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await ablehnen(database, client, token(TEAM1, "trainer"), PROPOSAL, begruendung=REASON)
+            await uebernehmen(database, client, ROW1)
+            spiel = await database[Collection.SPIELE].find_one({"_id": SPIEL})
+            again = await outcome_of(uebernehmen(database, client, ROW1))
+
+            assert spiel is not None
+            return (spiel["datum"], spiel["uhrzeit"]), (await row_now(database, ROW1))["closed"], again
+
+        moved_to, closed, again = on_a_fixture(mongo_replica_set_url, body)
+
+        assert moved_to == PROPOSAL
+        # Left for the pass to close, which tells every party of the move alike; a second adoption finds the proposal spent.
+        assert (closed, again) == (None, Code.ANSETZUNG_NOT_DISCARDABLE)
+
+    def test_a_discard_landing_inside_the_adoption_leaves_the_fixture_where_it_stands(self, mongo_replica_set_url: str):
+        """Both committing, the club would be told the date stands and every party asked about the date its proposal named."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await ablehnen(database, client, token(TEAM1, "trainer"), PROPOSAL, begruendung=REASON)
+
+            async def discard() -> None:
+                await verwerfen(database, client, ROW1)
+
+            confirmations = ConfirmationsRunningARivalBeforeTheAnchor(database[Collection.SPIELBESTAETIGUNGEN], discard)
+            outcome = await outcome_of(uebernehmen(database, client, ROW1, spielbestaetigungen=confirmations))
+            confirmations.assert_landed_inside(serially=0)
+            spiel = await database[Collection.SPIELE].find_one({"_id": SPIEL})
+
+            assert spiel is not None
+            return outcome, (spiel["datum"], spiel["uhrzeit"]), (await row_now(database, ROW1))["closed"]["grund"]
+
+        outcome, slot, grund = on_a_fixture(mongo_replica_set_url, body)
+
+        assert (outcome, grund) == (Code.ANSETZUNG_NOT_DISCARDABLE, "discarded")
+        assert slot != PROPOSAL
 
 
 # What the administrator's read resolves of a row: every stored path but a seat's hashes and address.
