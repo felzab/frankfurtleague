@@ -12,7 +12,7 @@ import {
 } from "@/core/generated/zod/inputs";
 
 /** A referee's fields, by the names the create dialog and the editor post. */
-export type SchiedsrichterField = "name" | "email" | "telefon" | "schule" | "honorar";
+type SchiedsrichterField = "name" | "email" | "telefon" | "schule" | "honorar";
 
 /** What a referee write asks of each field, read on the server so its schema never reaches the browser. */
 export type SchiedsrichterRules = {

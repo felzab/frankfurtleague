@@ -199,26 +199,6 @@
       "count": 4
     }
   },
-  "src/app/area/admin/schiedsrichter/[schiedsrichter_id]/loading.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/app/area/admin/schiedsrichter/[schiedsrichter_id]/page.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 2
-    }
-  },
-  "src/app/area/admin/schiedsrichter/loading.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/app/area/admin/schiedsrichter/page.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 4
-    }
-  },
   "src/app/area/admin/sperrliste/loading.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 1
@@ -258,26 +238,6 @@
     }
   },
   "src/app/area/admin/spieler/page.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 4
-    }
-  },
-  "src/app/area/admin/spielorte/[spielort_id]/loading.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/app/area/admin/spielorte/[spielort_id]/page.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 2
-    }
-  },
-  "src/app/area/admin/spielorte/loading.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/app/area/admin/spielorte/page.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 4
     }
@@ -1809,124 +1769,12 @@
   },
   "src/features/schiedsrichter/actions.ts": {
     "fl/server-action": {
-      "count": 5
-    },
-    "no-restricted-syntax": {
       "count": 1
-    }
-  },
-  "src/features/schiedsrichter/components/collections/AdminSchiedsrichterTable.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 11
-    },
-    "no-restricted-syntax": {
-      "count": 18
-    },
-    "react/forbid-component-props": {
-      "count": 12
-    },
-    "react/jsx-no-literals": {
-      "count": 3
     }
   },
   "src/features/schiedsrichter/components/forms/AdminCreateSchiedsrichterForm.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 1
-    }
-  },
-  "src/features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/AdminSchiedsrichterEditForm.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 9
-    },
-    "check-file/folder-naming-convention": {
-      "count": 1
-    },
-    "react/forbid-component-props": {
-      "count": 1
-    }
-  },
-  "src/features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/FormBestaetigungSection.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 10
-    },
-    "check-file/folder-naming-convention": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 12
-    },
-    "react/forbid-component-props": {
-      "count": 3
-    },
-    "react/jsx-no-literals": {
-      "count": 5
-    }
-  },
-  "src/features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/FormHonorarSection.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 7
-    },
-    "check-file/folder-naming-convention": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 4
-    },
-    "react/forbid-component-props": {
-      "count": 5
-    },
-    "react/jsx-no-literals": {
-      "count": 1
-    }
-  },
-  "src/features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/FormKontaktSection.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 9
-    },
-    "check-file/folder-naming-convention": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 11
-    },
-    "react/forbid-component-props": {
-      "count": 5
-    },
-    "react/jsx-no-literals": {
-      "count": 2
-    }
-  },
-  "src/features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/FormPersonSection.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 8
-    },
-    "check-file/folder-naming-convention": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 7
-    },
-    "react/forbid-component-props": {
-      "count": 5
-    },
-    "react/jsx-no-literals": {
-      "count": 2
-    }
-  },
-  "src/features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/banners.test.ts": {
-    "check-file/folder-naming-convention": {
-      "count": 1
-    }
-  },
-  "src/features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/banners.ts": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    },
-    "check-file/folder-naming-convention": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 2
     }
   },
   "src/features/schiedsrichter/components/forms/SchiedsrichterFormFields.tsx": {
@@ -1943,34 +1791,11 @@
       "count": 5
     }
   },
-  "src/features/schiedsrichter/components/modals/AdminCreateSchiedsrichterModal.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/features/schiedsrichter/components/modals/AdminDeleteSchiedsrichterModal.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
   "src/features/schiedsrichter/components/ui/SchiedsrichterAngaben.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 2
     },
     "no-restricted-syntax": {
-      "count": 1
-    }
-  },
-  "src/features/schiedsrichter/components/views/AdminSchiedsrichterEditView.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 4
-    },
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
-  "src/features/schiedsrichter/components/views/AdminSchiedsrichterView.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
       "count": 1
     }
   },
@@ -2000,21 +1825,6 @@
     },
     "react/jsx-no-literals": {
       "count": 3
-    }
-  },
-  "src/features/schiedsrichter/facets.ts": {
-    "no-restricted-syntax": {
-      "count": 7
-    }
-  },
-  "src/features/schiedsrichter/refusals.ts": {
-    "no-restricted-syntax": {
-      "count": 5
-    }
-  },
-  "src/features/schiedsrichter/schiedsrichterDraftStatus.ts": {
-    "no-restricted-syntax": {
-      "count": 5
     }
   },
   "src/features/sperrliste/actions.ts": {
@@ -3197,101 +3007,12 @@
   },
   "src/features/spielorte/actions.ts": {
     "fl/server-action": {
-      "count": 4
-    }
-  },
-  "src/features/spielorte/components/collections/AdminSpielorteTable.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 11
-    },
-    "no-restricted-syntax": {
-      "count": 17
-    },
-    "react/forbid-component-props": {
-      "count": 13
-    },
-    "react/jsx-no-literals": {
-      "count": 3
+      "count": 1
     }
   },
   "src/features/spielorte/components/forms/AdminCreateSpielortForm.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 1
-    }
-  },
-  "src/features/spielorte/components/forms/AdminSpielortEditForm/AdminSpielortEditForm.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 9
-    },
-    "check-file/folder-naming-convention": {
-      "count": 1
-    },
-    "react/forbid-component-props": {
-      "count": 1
-    }
-  },
-  "src/features/spielorte/components/forms/AdminSpielortEditForm/FormAdresseSection.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 6
-    },
-    "check-file/folder-naming-convention": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 5
-    },
-    "react/forbid-component-props": {
-      "count": 1
-    }
-  },
-  "src/features/spielorte/components/forms/AdminSpielortEditForm/FormMieteSection.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 7
-    },
-    "check-file/folder-naming-convention": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 4
-    },
-    "react/forbid-component-props": {
-      "count": 5
-    },
-    "react/jsx-no-literals": {
-      "count": 1
-    }
-  },
-  "src/features/spielorte/components/forms/AdminSpielortEditForm/FormSpielortSection.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 8
-    },
-    "check-file/folder-naming-convention": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 5
-    },
-    "react/forbid-component-props": {
-      "count": 3
-    },
-    "react/jsx-no-literals": {
-      "count": 1
-    }
-  },
-  "src/features/spielorte/components/forms/AdminSpielortEditForm/banners.test.ts": {
-    "check-file/folder-naming-convention": {
-      "count": 1
-    }
-  },
-  "src/features/spielorte/components/forms/AdminSpielortEditForm/banners.ts": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    },
-    "check-file/folder-naming-convention": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 2
     }
   },
   "src/features/spielorte/components/forms/SpielortFormFields.tsx": {
@@ -3306,44 +3027,6 @@
     },
     "react/jsx-no-literals": {
       "count": 2
-    }
-  },
-  "src/features/spielorte/components/modals/AdminCreateSpielortModal.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/features/spielorte/components/modals/AdminDeleteSpielortModal.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/features/spielorte/components/views/AdminSpielortEditView.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 3
-    },
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
-  "src/features/spielorte/components/views/AdminSpielorteView.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/features/spielorte/facets.ts": {
-    "no-restricted-syntax": {
-      "count": 7
-    }
-  },
-  "src/features/spielorte/refusals.ts": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
-  "src/features/spielorte/spielortDraftStatus.ts": {
-    "no-restricted-syntax": {
-      "count": 7
     }
   },
   "src/features/spieltage/actions.ts": {

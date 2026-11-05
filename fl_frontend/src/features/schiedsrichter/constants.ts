@@ -4,18 +4,6 @@ import { PLACEHOLDER } from "@/shared/utils/format";
 
 import type { FLSchiedsrichterConfirmationFristDays } from "@/core/generated/client/types";
 
-// Its own module: every export of a `"use client"` view becomes a client reference.
-export const SCHIEDSRICHTER_CRUD_COPY = {
-  searchLabel: "Schiedsrichter suchen",
-  searchPlaceholder: "z.B. Pierluigi Collina oder Goethe-Gymnasium",
-  /** The create trigger's words, which the route's loading placeholder also lays out, so its box is the trigger's own. */
-  createLabel: "Neuen Schiedsrichter anlegen",
-  /** One per `fl_frontend/src/shared/components/ui/AdminCrudView.tsx :: CrudEmptiness` value: each narrowing stage asks something different of the reader. */
-  emptyForQuery: "Keine Schiedsrichter für diese Suche.",
-  emptyForFilters: "Keine Schiedsrichter für diese Filter.",
-  emptyOverall: "Es wurden noch keine Schiedsrichter angelegt.",
-} as const;
-
 // Not a first name, which beside a date and a club still identifies one person in a league this
 // size, and not „Schiedsrichter“, which reads oddly in a column already headed with it.
 /**
@@ -38,13 +26,6 @@ export const GHOST_SCHIEDSRICHTER_ID = "000000000000000000000000";
 export const SCHIEDSRICHTER_OHNE_NAMEN_LABEL = "Eintrag ohne Namen";
 
 /**
- * Neutral throughout: the published notice writes „Schiedsrichterinnen und Schiedsrichter“, so a
- * masculine pronoun here names the wrong person for half the people the league books.
- */
-export const SCHIEDSRICHTER_RETIREMENT_CONSEQUENCE =
-  "Schon eingetragene Spiele behalten diese Person. Für neue Spiele steht sie nicht mehr zur Auswahl.";
-
-/**
  * The days a referee's link answers, so the dead-link panel and the privacy notice state the day the endpoint refuses
  * on; checked against
  * `fl_backend/app/shared/schemas/bounds.py :: SCHIEDSRICHTER_CONFIRMATION_FRIST_DAYS`, so the backend moving it fails
@@ -63,30 +44,6 @@ export const alterAusserhalb = (mindestalter: number): string =>
 
 /** The publication question's answers in the order the chips stand; their words are the stamped label's. */
 export const SCHIEDSRICHTER_UMFANG_WERTE: readonly FLEinwilligungScope[] = Object.values(FLEinwilligungScope);
-
-/**
- * What a referee agreed may be PUBLISHED. Not `@/features/spieler/constants :: EINWILLIGUNG_UMFANG_LABELS`,
- * whose „Kader“ names a squad a referee is in no row of: one stored slug, two surfaces a reader sees.
- */
-export const SCHIEDSRICHTER_UMFANG_LABELS: Record<FLEinwilligungScope, string> = {
-  kader_oeffentlich: "Name im Spielplan",
-  intern: "Nur innerhalb der Liga",
-};
-
-/**
- * Stated in the editor because no control shows it: an administrator correcting an outstanding
- * referee's address sends a link from the save bar, and would otherwise look for a press that mails it.
- */
-export const SCHIEDSRICHTER_KORREKTUR_HINWEIS =
-  "Solange diese Person nicht bestätigt hat, geht beim Speichern einer geänderten E-Mail-Adresse " +
-  "automatisch ein neuer Link an die neue Adresse, und der bisherige gilt nicht mehr.";
-
-/**
- * The two states that close the send, worded for the administrator at the control rather than left
- * to the round trip that `schiedsrichter_retired` and `schiedsrichter_no_address` answer with.
- */
-export const SCHIEDSRICHTER_EINLADEN_OHNE_ADRESSE = "Trage zuerst eine E-Mail-Adresse ein und speichere.";
-export const SCHIEDSRICHTER_EINLADEN_STILLGELEGT = "Reaktiviere den Eintrag, bevor Du einen Link sendest.";
 
 /** A booked referee as a fixture serves one: the public tier serves whether the name may stand, the admin tier the id. */
 type GebuchterSchiedsrichter = { schiedsrichter_id?: string; name: string | null; name_is_public?: boolean };

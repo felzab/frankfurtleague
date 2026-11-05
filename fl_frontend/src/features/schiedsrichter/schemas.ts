@@ -6,7 +6,7 @@ import { BEWERBUNG_TOKEN_MAX_LENGTH } from "@/features/bewerbungen/constants";
 import { geburtsdatumSpanne } from "@/features/bewerbungen/utils";
 import { LINK_FASSUNG_FEHLT, textVersionsSchema } from "@/features/spieler/schemas";
 import { KONTAKT_NAME_MAX_LENGTH, KONTAKT_NAME_ZU_LANG } from "@/features/teams/constants";
-import { CustomDateStringSchema, CustomObjectIdStringSchema, FLKontaktPayloadSchema, PersonNameSchema } from "@/shared/schemas";
+import { CustomDateStringSchema, FLKontaktPayloadSchema, PersonNameSchema } from "@/shared/schemas";
 import { getGermanTodayStr } from "@/shared/utils/date";
 
 import { alterAusserhalb } from "./constants";
@@ -27,24 +27,6 @@ export const FLPostSchiedsrichterPayloadSchema = z.object({
 export type FLPostSchiedsrichterPayload = z.infer<typeof FLPostSchiedsrichterPayloadSchema>;
 
 // Redesign: goes with its last importer.
-export const FLPatchSchiedsrichterPayloadSchema = z.object({
-  id: CustomObjectIdStringSchema,
-  name: schiedsrichterName,
-  default_payment: z.int({ error: "Bitte gib ein Standard-Honorar ein." }).nonnegative({ error: "Das Honorar darf nicht negativ sein." }),
-  kontakt: FLKontaktPayloadSchema,
-  schule: z.string().nullable(),
-  // The record's version the form was opened at, which the backend's save requires.
-  version: z.int().nonnegative(),
-});
-export type FLPatchSchiedsrichterPayload = z.infer<typeof FLPatchSchiedsrichterPayloadSchema>;
-
-/**
- * Whether a row holds an address rather than none: a surface reading the bare value files an emptied
- * one as reached.
- */
-export const hatAdresse = (email: string | null): email is string => email !== null && email.trim() !== "";
-
-// Redesign: goes with its last importer.
 /**
  * Widened at each field whose emptied box holds `null`, which the schema above refuses at the submit. `Omit`, not an intersection: `T & { default_payment: number | null }` stays
  * assignable to `T`, hiding the `null` from every caller.
@@ -56,20 +38,6 @@ export type FLSchiedsrichterPayloadDraft<T extends { default_payment: number; ko
   default_payment: number | null;
   kontakt: FLKontakt;
 };
-
-// Redesign: goes with its last importer.
-/** The retire and its reactivate: an id in the path, no request body. */
-export const FLSchiedsrichterKeyPayloadSchema = z.object({
-  id: CustomObjectIdStringSchema,
-});
-export type FLSchiedsrichterKeyPayload = z.infer<typeof FLSchiedsrichterKeyPayloadSchema>;
-
-// Redesign: goes with its last importer.
-/** The re-send's whole argument: the id in the path, no request body. Its own schema: a shared payload lets a caller reach the mint while reading as another write. */
-export const FLSchiedsrichterEinladenPayloadSchema = z.object({
-  id: CustomObjectIdStringSchema,
-});
-export type FLSchiedsrichterEinladenPayload = z.infer<typeof FLSchiedsrichterEinladenPayloadSchema>;
 
 /** The one thing a visitor's body can be wrong about that no input renders: the token their link carried. */
 const LINK_UNVOLLSTAENDIG = "Bitte öffne den Link aus Deiner E-Mail erneut.";

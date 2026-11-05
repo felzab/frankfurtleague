@@ -1,52 +1,22 @@
 import {
-  schiedsrichterDeleteSchiedsrichter,
   schiedsrichterGetConfirmationView,
-  schiedsrichterInviteSchiedsrichter,
   schiedsrichterPatchEinwilligung,
-  schiedsrichterPatchSchiedsrichter,
   schiedsrichterPostConfirmation,
   schiedsrichterPostSchiedsrichter,
-  schiedsrichterReactivateSchiedsrichter,
 } from "@/core/generated/client/sdk";
 
 import type {
-  FLPatchSchiedsrichterResponse,
   FLPostSchiedsrichterPayload,
   FLPostSchiedsrichterResponse,
   FLSchiedsrichterAccountEinwilligungPayload,
   FLSchiedsrichterConfirmationPayload,
   FLSchiedsrichterConfirmationResponse,
   FLSchiedsrichterConfirmationViewResponse,
-  FLSchiedsrichterMintResponse,
-  FLSchiedsrichterReactivateResponse,
   FLTokenPayload,
 } from "@/core/generated/client/types";
-import type { FLPatchSchiedsrichterPayload, FLSchiedsrichterEinladenPayload, FLSchiedsrichterKeyPayload } from "./schemas";
 
 export async function postSchiedsrichter(postSchiedsrichterPayload: FLPostSchiedsrichterPayload): Promise<FLPostSchiedsrichterResponse> {
   return schiedsrichterPostSchiedsrichter(postSchiedsrichterPayload);
-}
-
-/** The id goes in the path, never the body: the backend model refuses a body that names one. */
-export async function patchSchiedsrichter({ id, ...fields }: FLPatchSchiedsrichterPayload): Promise<FLPatchSchiedsrichterResponse> {
-  return schiedsrichterPatchSchiedsrichter(id, fields);
-}
-
-// Soft: the backend stamps `inactive_since` and removes nothing.
-export async function deleteSchiedsrichter({ id }: FLSchiedsrichterKeyPayload): Promise<void> {
-  return schiedsrichterDeleteSchiedsrichter(id);
-}
-
-// Clearing `inactive_since` returns the referee to the picker and to every default read, which makes
-// retirement a state rather than a disappearance.
-export async function reactivateSchiedsrichter({ id }: FLSchiedsrichterKeyPayload): Promise<FLSchiedsrichterReactivateResponse> {
-  return schiedsrichterReactivateSchiedsrichter(id);
-}
-
-// Replaces the whole bookkeeping block, so the previous token stops working at once and the
-// delivery state of the message it went out in goes with it.
-export async function einladeSchiedsrichter({ id }: FLSchiedsrichterEinladenPayload): Promise<FLSchiedsrichterMintResponse> {
-  return schiedsrichterInviteSchiedsrichter(id);
 }
 
 /**

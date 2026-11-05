@@ -1,6 +1,6 @@
 import z from "zod";
 
-import { CustomObjectIdStringSchema, FLAddressPayloadSchema } from "@/shared/schemas";
+import { FLAddressPayloadSchema } from "@/shared/schemas";
 
 // Redesign: goes with its last importer.
 /** Shared by create and patch, which mirror one backend class: the patch replaces the venue wholesale. */
@@ -20,23 +20,7 @@ export const FLPostSpielortPayloadSchema = z.object(spielortPayloadFields);
 export type FLPostSpielortPayload = z.infer<typeof FLPostSpielortPayloadSchema>;
 
 // Redesign: goes with its last importer.
-export const FLPatchSpielortPayloadSchema = z.object({
-  id: CustomObjectIdStringSchema,
-  ...spielortPayloadFields,
-  // The record's version the form was opened at, which the backend's save requires.
-  version: z.int().nonnegative(),
-});
-export type FLPatchSpielortPayload = z.infer<typeof FLPatchSpielortPayloadSchema>;
-
-// Redesign: goes with its last importer.
 /** Widened at the money field: an emptied box holds `null`, which the schema above refuses at the submit. */
 export type FLSpielortPayloadDraft<T extends { default_mietpreis: number }> = Omit<T, "default_mietpreis"> & {
   default_mietpreis: number | null;
 };
-
-// Redesign: goes with its last importer.
-/** The retire and reactivate calls: an id in the path, no request body. */
-export const FLSpielortKeyPayloadSchema = z.object({
-  id: CustomObjectIdStringSchema,
-});
-export type FLSpielortKeyPayload = z.infer<typeof FLSpielortKeyPayloadSchema>;
