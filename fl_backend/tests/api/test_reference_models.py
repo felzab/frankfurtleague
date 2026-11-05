@@ -505,15 +505,13 @@ class TestSaison:
     def test_accepts_a_valid_saison(self, saison):
         assert FLSaison.model_validate(saison()).rules.win_points == 3
 
-    def test_rejects_non_positive_win_points(self, saison):
+    def test_rejects_non_positive_win_points(self, saison, assert_rejects):
         """A win must be worth something, or the table cannot rank anyone."""
-        with pytest.raises(ValidationError):
-            FLSaison.model_validate(saison(rules={"win_points": 0, "draw_points": 1}))
+        assert_rejects(FLSaison, saison(rules={**saison()["rules"], "win_points": 0}), "win_points")
 
-    def test_rejects_negative_draw_points(self, saison):
+    def test_rejects_negative_draw_points(self, saison, assert_rejects):
         """A draw cannot cost points."""
-        with pytest.raises(ValidationError):
-            FLSaison.model_validate(saison(rules={"win_points": 3, "draw_points": -1}))
+        assert_rejects(FLSaison, saison(rules={**saison()["rules"], "draw_points": -1}), "draw_points")
 
     def test_accepts_zero_draw_points(self, saison):
         """The asymmetry with wins: a draw worth nothing is a legal rule set."""
@@ -543,25 +541,23 @@ class TestSaison:
 
         assert_rejects(FLSaison, saison(rules=rules), "allowed_stufen")
 
-    def test_rejects_a_season_advancing_nobody(self, saison):
+    def test_rejects_a_season_advancing_nobody(self, saison, assert_rejects):
         """A group nobody comes out of is not a group phase, so the count is `gt=0`."""
-        with pytest.raises(ValidationError):
-            FLSaison.model_validate(saison(rules={"win_points": 3, "draw_points": 1, "qualifiers_per_gruppe": 0}))
+        assert_rejects(FLSaison, saison(rules={**saison()["rules"], "qualifiers_per_gruppe": 0}), "qualifiers_per_gruppe")
 
     # No Pydantic default: a season missing the key would read as though it had one, and the bracket's
     # size would be a constant in a model.
-    def test_rejects_rules_with_no_qualifier_count(self, saison):
-        with pytest.raises(ValidationError):
-            FLSaison.model_validate(saison(rules={"win_points": 3, "draw_points": 1}))
+    def test_rejects_rules_with_no_qualifier_count(self, saison, assert_rejects):
+        rules = {key: value for key, value in saison()["rules"].items() if key != "qualifiers_per_gruppe"}
+
+        assert_rejects(FLSaison, saison(rules=rules), "qualifiers_per_gruppe")
 
     # Required for the qualifier count's reason: an absent key must fail, not read as a bound nobody chose.
     @pytest.mark.parametrize("field", ["number_of_gruppen", "teams_per_gruppe"])
-    def test_rejects_rules_with_no_capacity(self, saison, field):
-        rules = {"win_points": 3, "draw_points": 1, "qualifiers_per_gruppe": 2, "number_of_gruppen": 4, "teams_per_gruppe": 4}
-        del rules[field]
+    def test_rejects_rules_with_no_capacity(self, saison, field, assert_rejects):
+        rules = {key: value for key, value in saison()["rules"].items() if key != field}
 
-        with pytest.raises(ValidationError):
-            FLSaison.model_validate(saison(rules=rules))
+        assert_rejects(FLSaison, saison(rules=rules), field)
 
     def test_the_group_cap_is_the_size_of_the_closed_set(self, saison):
         """`NumberOfGroups` reads the set's size, and this is what refuses a hand-written number back in its place.
