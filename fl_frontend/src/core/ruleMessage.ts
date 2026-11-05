@@ -2,12 +2,11 @@
 // own catalogue, which neither instrumentation bundle is to carry.
 import { now } from "./clock";
 import { COPY } from "./copy";
-import { dayIn, dayOf } from "./format";
+import { bornBy, dayIn, dayOf } from "./format";
 import { saisonsPatchSaisonBodyRulesDrawPointsMin } from "./generated/zod/inputs";
 import { SERVER_COPY } from "./serverCopy";
 
 import type { Copy } from "./copy";
-import type { CalendarDay } from "./format";
 import type { Code, FLRefusedField, Rule } from "./generated/client/types";
 
 const { field, failure } = COPY.shared;
@@ -16,29 +15,12 @@ type Context = FLRefusedField["ctx"];
 type Path = FLRefusedField["path"];
 
 /**
- * The latest birthdate that is `years` old today in Berlin: the same day that many years back, or the month's last day
- * where that year holds no such day, as a person born on 29 February turns a year older on 28 February.
+ * An age the write refused, by its range in whole years: the latest birthdate the floor admits on Berlin's day, the
+ * box's own latest day, which the field's own check names first. A date past the ceiling the box's earliest day catches
+ * before the send.
  */
-export function bornBy(years: number): CalendarDay {
-  const [year, month, day] = dayIn(now()).split("-").map(Number) as [number, number, number];
-  const lastOfMonth = new Date(Date.UTC(year - years, month, 0)).getUTCDate();
-  // Midday UTC, the same calendar day in Berlin all year.
-  return dayIn(new Date(Date.UTC(year - years, month - 1, Math.min(day, lastOfMonth), 12)));
-}
-
-/** The earliest birthdate at most `years` old today: the day after the latest that is a year older. */
-export function bornAfter(years: number): CalendarDay {
-  const [year, month, day] = bornBy(years + 1)
-    .split("-")
-    .map(Number) as [number, number, number];
-  return dayIn(new Date(Date.UTC(year, month - 1, day + 1, 12)));
-}
-
-/**
- * An age the write refused, by its range in whole years: the latest birthdate the floor admits, the box's own latest
- * day, which the field's own check names first. A date past the ceiling the box's earliest day catches before the send.
- */
-const ageRange = ({ min, max }: Context) => (typeof min === "number" && typeof max === "number" ? field.latest(bornBy(min)) : undefined);
+const ageRange = ({ min, max }: Context) =>
+  typeof min === "number" && typeof max === "number" ? field.latest(bornBy(dayIn(now()), min)) : undefined;
 
 /** A span's end: earliest its start, which the backend's rule names, as the end box's own earliest day reads. */
 const notBeforeStart = ({ start }: Context) => (typeof start === "string" ? field.earliest(dayOf(start)) : undefined);

@@ -1,13 +1,13 @@
 import { MAILED_PAGE_METADATA, MailedPage, TO_ACCOUNT } from "@/kit/MailedPage";
 
 import { requires } from "@/core/action";
+import { now } from "@/core/clock";
 import { COPY } from "@/core/copy";
 import { APIBadStatusError } from "@/core/errors";
-import { dayOf } from "@/core/format";
+import { bornAfter, bornBy, dayIn, dayOf } from "@/core/format";
 import { schiedsrichterGetConfirmationView } from "@/core/generated/client/sdk";
 import { SchiedsrichterPostConfirmationBody } from "@/core/generated/zod/inputs";
 import { ROUTES } from "@/core/routes";
-import { bornAfter, bornBy } from "@/core/ruleMessage";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { runWithIncomingTrace } from "@/core/traceScope";
 import { pageMetadata } from "@/shared/utils/metadata";
@@ -87,7 +87,9 @@ async function readState(searchParams: NextPageProps["searchParams"]): Promise<M
       return alreadyDone(view, "confirmed");
     case "declined":
       return alreadyDone(view, "objected");
-    case "valid":
+    case "valid": {
+      // Berlin's day, which the backend judges the age on.
+      const today = dayIn(now());
       return {
         state: "question",
         title: COPY.page.entryConfirmation,
@@ -98,12 +100,13 @@ async function readState(searchParams: NextPageProps["searchParams"]): Promise<M
         children: (
           <ConfirmationFields
             // The range the write judges, as the link's view serves it.
-            earliestBirth={bornAfter(view.maximum_age)}
-            latestBirth={bornBy(view.minimum_age)}
-            mediaLatestBirth={bornBy(view.media_minimum_age)}
+            earliestBirth={bornAfter(today, view.maximum_age)}
+            latestBirth={bornBy(today, view.minimum_age)}
+            mediaLatestBirth={bornBy(today, view.media_minimum_age)}
             required={REQUIRED}
           />
         ),
       };
+    }
   }
 }
