@@ -11,7 +11,7 @@
 //   open and a cancelled fixture, next week's matchday holding an undated fixture, and a knockout
 //   round drawn but not yet decided;
 // - venues with and without rent, one retired and one with a name long enough to test a row's width;
-//   referees, every one with the address both referee payloads require, one retired;
+//   referees, every one with the address both referee payloads require, one retired and one unanswered;
 // - an owner and four administrators.
 //
 // Every journey that writes signs in as a person no other journey signs in as, since one journey's
@@ -112,22 +112,48 @@ function referee(name, schule, payment, email, inactiveSince) {
   return { _id: ObjectId(), name, schule, default_payment: payment, kontakt: { telefon: null, email }, inactive_since: inactiveSince };
 }
 
+/**
+ * The instant opening `isoDay` in Germany, as `fl_backend/app/api/schiedsrichter/services.py :: erase_at_from` stores
+ * it. The offset read at that day's UTC midnight is the one in force at its German midnight: Germany changes its
+ * clocks at 01:00 UTC, after both.
+ */
+function germanMidnight(isoDay) {
+  const zone = new Intl.DateTimeFormat("en-US", { timeZone: "Europe/Berlin", timeZoneName: "longOffset" })
+    .formatToParts(new Date(`${isoDay}T00:00:00Z`))
+    .find((part) => part.type === "timeZoneName").value;
+  return new Date(`${isoDay}T00:00:00${zone.slice("GMT".length)}`);
+}
+
+// The link's deadline, fourteen days after the mail that owed it
+// (`fl_backend/app/shared/schemas/bounds.py :: SCHIEDSRICHTER_CONFIRMATION_FRIST_DAYS`).
+const LINK_DAYS = 14;
+
+/**
+ * The block every owed link writes (`fl_backend/app/api/schiedsrichter/services.py :: compose_mint_update`), owed on
+ * the day `sentOn` days from today. No hash: the seed owes no mail, and the hand-out writes one only as it mints a link.
+ */
+function confirmationBlock(sentOn) {
+  return { token_hashes: [], sent_at: day(sentOn), reminded_at: null, frist: day(sentOn + LINK_DAYS) };
+}
+
 // Every person's consent as their own confirmation wrote it, on one day, each choice evidenced under its wording's
 // label (`fl_frontend/src/core/consentWordings.ts`): a pupil's (`SPIELER_TEXT_VERSIONS`), whose media wording every
 // kind shares.
 const CONSENTED = day(-60);
 const LABELS = { scope: "2026-11-name-kader-1", media: "2026-11-medien-1" };
 
-// A journey's person: a referee no fixture books, as their own confirmation leaves the row
-// (`fl_backend/app/api/schiedsrichter/services.py :: compose_confirmation_update`), in its one write: the birthdate and
-// the consent, the name kept off the public pages and no media, its name's choice under the referees' own wording
-// (`SCHIEDSRICHTER_TEXT_VERSIONS`). A referee row is its person's own only once confirmed
-// (`fl_backend/app/api/identity/services.py :: is_own_schiedsrichter`), so an address change or an erasure moves
-// nothing of a row without one.
-function journeyPerson(name, email) {
+/**
+ * A referee as their own confirmation leaves the row
+ * (`fl_backend/app/api/schiedsrichter/services.py :: compose_confirmation_update`), in its one write: the birthdate and
+ * the consent, the name kept off the public pages and no media, its name's choice under the referees' own wording
+ * (`SCHIEDSRICHTER_TEXT_VERSIONS`), and no deletion date. Every referee a fixture books is one, as the booking refuses
+ * any other (`booking_unconfirmed_schiedsrichter`).
+ */
+function confirmed(row) {
   const evidence = (textVersion) => ({ at: `${CONSENTED}T10:00:00+00:00`, text_version: textVersion });
   return {
-    ...referee(name, null, 20, email, null),
+    ...row,
+    confirmation: confirmationBlock(-62),
     geburtsdatum: day(-20 * 365),
     einwilligung: {
       scope: "intern",
@@ -139,14 +165,30 @@ function journeyPerson(name, email) {
   };
 }
 
+/**
+ * A referee entered three days ago who has not answered: the create's block, and the deletion date its link sets
+ * (`fl_backend/app/core/constraints.py :: TTL_INDEXES`), the midnight after the deadline.
+ */
+function unanswered(row) {
+  return { ...row, confirmation: confirmationBlock(-3), erase_at: germanMidnight(day(-3 + LINK_DAYS + 1)) };
+}
+
+// A journey's person: a confirmed referee no fixture books. A referee row is its person's own only once confirmed
+// (`fl_backend/app/api/identity/services.py :: is_own_schiedsrichter`), so an address change or an erasure moves
+// nothing of a row without one.
+function journeyPerson(name, email) {
+  return confirmed(referee(name, null, 20, email, null));
+}
+
 const REFEREES = [
-  referee("Anna Ahrens", "Ahorn-Gymnasium", 20, "anna.ahrens@example.com", null),
-  referee("Ben Brandt", null, 25, "ben.brandt@example.com", null),
-  referee("Carla Conrad", "Ulme-Gymnasium", 20, "carla.conrad@example.com", null),
-  referee("Dieter Dorn", null, 15, "dieter.dorn@example.com", day(-90)),
-  // The journeys' own, after every referee a fixture books, so no fixture's booking (`booked`, by index) changes. Each
-  // project's account acts (`fl_frontend/e2e/accountActs.spec.ts`), in its order: the person signed in on a second
-  // device, the one whose address changes, and the one who deletes the account.
+  confirmed(referee("Anna Ahrens", "Ahorn-Gymnasium", 20, "anna.ahrens@example.com", null)),
+  confirmed(referee("Ben Brandt", null, 25, "ben.brandt@example.com", null)),
+  confirmed(referee("Carla Conrad", "Ulme-Gymnasium", 20, "carla.conrad@example.com", null)),
+  confirmed(referee("Dieter Dorn", null, 15, "dieter.dorn@example.com", day(-90))),
+  // After every referee a fixture books, so no fixture's booking (`booked`, by index) changes.
+  unanswered(referee("Elif Engin", "Weide-Gymnasium", 20, "elif.engin@example.com", null)),
+  // The journeys' own. Each project's account acts (`fl_frontend/e2e/accountActs.spec.ts`), in its order: the person
+  // signed in on a second device, the one whose address changes, and the one who deletes the account.
   journeyPerson("Frieda Falk", "frieda.falk@example.com"),
   journeyPerson("Clara Kranz", "clara.kranz@example.com"),
   journeyPerson("Hanna Hahn", "hanna.hahn@example.com"),

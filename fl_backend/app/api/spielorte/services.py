@@ -21,7 +21,8 @@ def find_venue_retire_refusal(*, upcoming_spiel_nrs: Sequence[int]) -> WriteRefu
     """Why retiring this venue must be refused, or `None`.
 
     `upcoming_spiel_nrs` is `unplayed_spiel_nrs`'s definition, so the two rules cannot disagree
-    about what is still to come.
+    about what is still to come. The refusal names them and their count on the path's id, so the
+    administrator is told which fixtures to move first.
     """
 
     if not upcoming_spiel_nrs:
@@ -30,6 +31,9 @@ def find_venue_retire_refusal(*, upcoming_spiel_nrs: Sequence[int]) -> WriteRefu
     return WriteRefusal(
         error_code=Code.SPIELORT_STILL_BOOKED,
         status=HTTPStatus.CONFLICT,
+        fields=(("spielort_id",),),
+        location="path",
+        bounds={"spiel_nrs": list(upcoming_spiel_nrs), "count": len(upcoming_spiel_nrs)},
     )
 
 

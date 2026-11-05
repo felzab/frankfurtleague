@@ -295,24 +295,25 @@ class TestRetiringAVenueOrAReferee:
         assert find_venue_retire_refusal(upcoming_spiel_nrs=[]) is None
         assert find_referee_retire_refusal(upcoming_spiel_nrs=[]) is None
 
-    def test_an_upcoming_fixture_refuses_it(self):
-        """`retire_blocked`'s reasoning: retiring removes it from every picker while matches are scheduled against it."""
+    def test_an_upcoming_fixture_refuses_it_naming_the_fixtures(self):
+        """`retire_blocked`'s reasoning: retiring removes it from every picker while matches are scheduled against it.
 
-        spielort = find_venue_retire_refusal(upcoming_spiel_nrs=[3])
-        schiedsrichter = find_referee_retire_refusal(upcoming_spiel_nrs=[3])
+        The refusal names the fixtures on the path's id, so the dialog says which to move: without them it names none, and
+        nothing tells the administrator a number is missing.
+        """
+
+        spielort = find_venue_retire_refusal(upcoming_spiel_nrs=[3, 8])
+        schiedsrichter = find_referee_retire_refusal(upcoming_spiel_nrs=[3, 8])
 
         assert spielort is not None and spielort.error_code == Code.SPIELORT_STILL_BOOKED
         assert schiedsrichter is not None and schiedsrichter.error_code == Code.SCHIEDSRICHTER_STILL_ASSIGNED
+        for refusal, field in ((spielort, "spielort_id"), (schiedsrichter, "schiedsrichter_id")):
+            assert (refusal.location, refusal.fields, refusal.bounds) == ("path", ((field,),), {"spiel_nrs": [3, 8], "count": 2})
 
     def test_the_two_codes_are_distinct(self):
         """Different advice — move the fixture, against reassign it — so different codes."""
 
         assert Code.SPIELORT_STILL_BOOKED != Code.SCHIEDSRICHTER_STILL_ASSIGNED
-
-    def test_a_long_list_is_summarised(self):
-        refusal = find_venue_retire_refusal(upcoming_spiel_nrs=list(range(1, 12)))
-
-        assert refusal is not None
 
     def test_the_unplayed_booking_filter_spells_the_definition_once(self):
         """The venue twin of `app/api/schiedsrichter/services.py :: build_unplayed_assignment_filter`, so neither seam narrows alone."""

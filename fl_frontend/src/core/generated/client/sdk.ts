@@ -142,6 +142,7 @@ import type {
   FLReplaceSaisonTeamResponse,
   FLSaisonAdminResponse,
   FLSaisonFrameResponse,
+  FLSaisonOverviewResponse,
   FLSaisonsAdminListResponse,
   FLSaisonSpielerResponse,
   FLSaisonsSingleResponse,
@@ -176,7 +177,6 @@ import type {
   FLSpielbestaetigungSchiedsrichterAntwortResponse,
   FLSpielbestaetigungSweepResponse,
   FLSpielbestaetigungViewResponse,
-  FLSpieleActionRequiredResponse,
   FLSpieleAdminListResponse,
   FLSpieleAdminSingleResponse,
   FLSpielerAdminSingleResponse,
@@ -214,7 +214,6 @@ import type {
   SpielberichteGetSpielberichteParams,
   SpielberichteGetSpielberichtVerwaltungParams,
   SpielbestaetigungenGetSpielbestaetigungenParams,
-  SpieleGetSpieleActionRequiredParams,
   SpieleGetSpieleVerwaltungParams,
   SpielePatchSpielParams,
   SpielorteGetSpielorteParams,
@@ -2815,6 +2814,32 @@ export const saisonsGetKoRunde = async (saisonId: string, options?: Parameters<t
   });
 };
 
+export const getSaisonsGetSaisonOverviewUrl = (saisonId: string) => {
+  return `/api/v0/saisons/${encodeURIComponent(String(saisonId))}/overview`;
+};
+
+/**
+ * The administrator's Übersicht for one season: its open work on four cards, every card served, an empty one included.
+ *
+ * In order: `due`, each fixture whose clubs owe their answer past its deadline or by today; `ergebnisse`, each fixture
+ * played without a result, and each report not adopted as it stands; `dates`, each club's open date proposal, each
+ * fixture lacking its date, time, venue, referee or, in the knockout stage, a side's club and source, each referee's own
+ * decline while the slot stays empty, and each fault of the bracket or its bookings; `bewerbungen`, each undecided
+ * application to play the season. A fixture called off or struck out lacks nothing. Each row carries what its act
+ * needs: the fixture with its `version`, each open party's confirmation row, a proposal's row and its date and hour.
+ * Answers 404 for a season that does not exist. Writes nothing.
+ * @summary One Saison's open work, card by card
+ */
+export const saisonsGetSaisonOverview = async (
+  saisonId: string,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLSaisonOverviewResponse> => {
+  return adminKeyTransport<FLSaisonOverviewResponse>(getSaisonsGetSaisonOverviewUrl(saisonId), {
+    ...options,
+    method: "GET",
+  });
+};
+
 export const getSaisonsGetSpielUrl = (saisonId: string, spielId: string) => {
   return `/api/v0/saisons/${encodeURIComponent(String(saisonId))}/spiele/${encodeURIComponent(String(spielId))}`;
 };
@@ -3099,8 +3124,8 @@ export const getSchiedsrichterPostConfirmationUrl = () => {
  * publication scope has one home, which the fixture list joins at read time to decide whether to publish the name each
  * fixture stores.
  *
- * Refuses, in this order: a token no referee holds (`link_invalid`), an entry already confirmed
- * (`confirmation_exists`), a link whose deadline has passed (`link_expired`), a link mailed to an address the ban
+ * Refuses, in this order: a token no referee holds (`link_invalid`), an entry already answered, confirmed or
+ * declined (`confirmation_exists`), a link whose deadline has passed (`link_expired`), a link mailed to an address the ban
  * list holds now, whenever the link was minted (`link_barred`), an age outside what this consent asks
  * (`confirmation_age`), and a media consent from a referee below `media_minimum_age` (`media_age`) -- the last two
  * judged before anything is written, so a mistyped year spends nothing.
@@ -3130,6 +3155,46 @@ export const schiedsrichterPostConfirmation = async (
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
     body: JSON.stringify(fLSchiedsrichterConfirmationPayload),
+  });
+};
+
+export const getSchiedsrichterPostDeclineUrl = () => {
+  return `/api/v0/schiedsrichter/confirmation/decline`;
+};
+
+/**
+ * Record the referee's objection to the entry their link opens: its day, and nothing else of the person.
+ *
+ * The entry then goes on the clock its link started, the midnight after the deadline, as the privacy notice says of an
+ * unconfirmed or declined one (`app/core/constraints.py :: TTL_INDEXES`). Until then no booking takes it and no
+ * re-send or reactivation asks the person again.
+ *
+ * Refuses, in the confirmation's order: a token no referee holds (`link_invalid`), an entry already answered,
+ * confirmed or declined (`confirmation_exists`), and a link whose deadline has passed (`link_expired`). The ban list
+ * is not asked: an objection gives the league nothing a ban withholds.
+ * @summary Decline one Schiedsrichter's entry
+ */
+export const schiedsrichterPostDecline = async (
+  fLTokenPayload: FLTokenPayload,
+  options?: Parameters<typeof baseKeyTransport>[1],
+): Promise<void> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return baseKeyTransport<void>(getSchiedsrichterPostDeclineUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLTokenPayload),
   });
 };
 
@@ -3200,7 +3265,7 @@ export const getSchiedsrichterDeleteSchiedsrichterUrl = (schiedsrichterId: strin
 };
 
 /**
- * Deactivate a referee. SOFT, for the same reason as venues: matches embed a copy.
+ * Deactivate a referee. SOFT, for the same reason as venues: a played match names them by id.
  * @summary Deactivate a Schiedsrichter (soft delete)
  */
 export const schiedsrichterDeleteSchiedsrichter = async (
@@ -3245,9 +3310,10 @@ export const getSchiedsrichterPatchSchiedsrichterUrl = (schiedsrichterId: string
 };
 
 /**
- * Update a referee, then update the embedded name on every Spiel that uses them.
+ * Update a referee on the `version` the editor was served, answering the version stored.
  *
- * Only the name. `payment` is NOT propagated: the fee on a match is what was agreed for it.
+ * The editor's next save sends that version. A fixture names the referee by id and reads the name at its own read, so
+ * nothing else is written; each fixture keeps the `payment` agreed for it.
  *
  * **A corrected address on an UNCONFIRMED referee retires their link and owes a fresh one** to the
  * new address, named in `confirmation`: the old link was posted to a mailbox nobody reads, and
@@ -3260,12 +3326,11 @@ export const getSchiedsrichterPatchSchiedsrichterUrl = (schiedsrichterId: string
  * **A RETIRED unconfirmed referee's corrected address is stored and mails nothing**: no consent is
  * collected for a role nobody gives them. Their old link is retired all the same, and the
  * reactivation mints the fresh one. Where a link is minted, a banned new address is refused
- * `schiedsrichter_address_barred`. A save retiring or minting a link is refused `confirmation_required` from a
- * sign-in or confirmation older than `STEP_UP_WINDOW_HOURS`.
+ * `schiedsrichter_address_barred`.
  *
  * The ghost answers 404 here as it does to every read: a name written onto it would appear on the
  * fixtures of every referee already erased.
- * @summary Update a Schiedsrichter and fan the change out
+ * @summary Update a Schiedsrichter
  */
 export const schiedsrichterPatchSchiedsrichter = async (
   schiedsrichterId: string,
@@ -3302,7 +3367,7 @@ export const getSchiedsrichterInviteSchiedsrichterUrl = (schiedsrichterId: strin
  * It replaces the whole block, so the previous link stops working at once. The deadline restarts from today.
  *
  * Refused where the referee is retired (`schiedsrichter_retired`), where they have already
- * answered (`confirmation_exists`), where they carry no email address
+ * answered, consenting or objecting (`confirmation_exists`), where they carry no email address
  * (`schiedsrichter_no_address`), and where that address is on the ban list
  * (`schiedsrichter_address_barred`). 404 for an id no referee holds, an erased referee's among them, and
  * for the ghost, which every by-id route filters out.
@@ -3333,8 +3398,7 @@ export const getSchiedsrichterReactivateSchiedsrichterUrl = (schiedsrichterId: s
  * retired referee's save stores a new address and mails nothing, so coming back is what
  * asks them. A row holding no address a link can go to comes back unasked, and so does one whose
  * person has answered. Where a link is minted, an address on the ban list is refused
- * `schiedsrichter_address_barred` and the row stays retired, and one from a sign-in or confirmation older than
- * `STEP_UP_WINDOW_HOURS` is refused `confirmation_required`.
+ * `schiedsrichter_address_barred` and the row stays retired.
  *
  * The ghost answers 404 here too: cleared on it, the picker would offer a bookable row with no
  * person behind it.
@@ -3993,32 +4057,6 @@ export const spielbestaetigungenEnterSpielbestaetigung = async (
   });
 };
 
-export const getSpieleGetSpieleActionRequiredUrl = (params?: SpieleGetSpieleActionRequiredParams) => {
-  const stringifiedParams = serializeQuery(params);
-
-  return stringifiedParams.length > 0 ? `/api/v0/spiele/action_required?${stringifiedParams}` : `/api/v0/spiele/action_required`;
-};
-
-/**
- * List one season's Spiele needing the administrator, with the bracket's faults and every report's state.
- *
- * The season is `saison_id`'s, else the active one, answering 404 while none is. A fixture qualifies when it is
- * called off; lacks a date, time, venue or referee; is past without a result; has a knockout side with neither
- * team nor source; holds a report not adopted as it stands; is put before the administrator by a club's
- * unclosed confirmation; or carries a bracket fault, a booking onto a retired venue or referee and a claim within
- * four hours of another fixture's among them.
- * @summary Spiele needing attention
- */
-export const spieleGetSpieleActionRequired = async (
-  params?: SpieleGetSpieleActionRequiredParams,
-  options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLSpieleActionRequiredResponse> => {
-  return adminKeyTransport<FLSpieleActionRequiredResponse>(getSpieleGetSpieleActionRequiredUrl(params), {
-    ...options,
-    method: "GET",
-  });
-};
-
 export const getSpieleGetSpieleVerwaltungUrl = (params?: SpieleGetSpieleVerwaltungParams) => {
   const stringifiedParams = serializeQuery(params);
 
@@ -4587,7 +4625,7 @@ export const getSpielorteDeleteSpielortUrl = (spielortId: string) => {
 /**
  * Deactivate a venue. SOFT: it stamps `inactive_since`, and the document stays.
  *
- * Matches embed a copy, so a hard delete would orphan every historical match that used it. Refused
+ * A played match names the venue by id, so a hard delete would orphan every historical match that used it. Refused
  * while an unplayed fixture is still booked here (`spielort_still_booked`).
  * @summary Deactivate a Spielort (soft delete)
  */
@@ -4603,9 +4641,10 @@ export const getSpielorteGetSpielortUrl = (spielortId: string) => {
 };
 
 /**
- * Admin-tier as the list is, and for the same two rules (`READ-MONEY-001`, `READ-ADDRESS-001`).
+ * The venue editor's one read: the record, its `version` with it, which the editor's save sends back.
  *
- * Deactivated ones included -- a historical match's venue is the case worth answering.
+ * Admin-tier as the list is, and for the same two rules (`READ-MONEY-001`, `READ-ADDRESS-001`). Retired venues included:
+ * the editor reactivates one, and a historical match's venue is the case worth answering.
  * @summary One Spielort
  */
 export const spielorteGetSpielort = async (
@@ -4623,11 +4662,12 @@ export const getSpielortePatchSpielortUrl = (spielortId: string) => {
 };
 
 /**
- * Update a venue, then update every Spiel that embeds it.
+ * Update a venue on the `version` the editor was served, answering the version stored, which its next save sends.
  *
- * The fan-out is not optional: without it, match cards keep showing the old name. `mietpreis` is
- * NOT fanned out -- the rent on a match is what was agreed for that match.
- * @summary Update a Spielort and fan the change out
+ * A fixture names the venue by id and reads its name and `maps_link` at its own read, so nothing else is written; each
+ * fixture keeps the `mietpreis` agreed for it. Refused where another venue holds the name (`duplicate_key`), by the
+ * unique index.
+ * @summary Update a Spielort
  */
 export const spielortePatchSpielort = async (
   spielortId: string,

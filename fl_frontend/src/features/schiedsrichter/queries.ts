@@ -143,7 +143,11 @@ export async function mapSchiedsrichterBestaetigungRefusal(
 export async function getSchiedsrichterBestaetigungAnsicht(token: string): Promise<SchiedsrichterAnsicht> {
   return runWithIncomingTrace(() =>
     postSchiedsrichterBestaetigungAnsicht({ token: token }).then(
-      (ansicht): SchiedsrichterAnsicht => (ansicht.state === "valid" ? { zustand: "valid", ansicht: ansicht } : { zustand: ansicht.state }),
+      (ansicht): SchiedsrichterAnsicht =>
+        ansicht.state === "valid"
+          ? { zustand: "valid", ansicht: ansicht }
+          : // Session 5: the rebuilt page draws an objection's own state. This page offers none, so none reaches it.
+            { zustand: ansicht.state === "declined" ? "invalid" : ansicht.state },
       (error: unknown) => {
         // Anything but a refusal is a failed read, which is the page's own state rather than a panel
         // calling a live link void.

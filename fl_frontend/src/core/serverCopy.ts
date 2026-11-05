@@ -6,7 +6,7 @@ import { formatDatum, formatDatumLong, formatNumber, formatOrdinal, formatSigned
 
 import type { Copy, Words } from "./copy";
 import type { CalendarDay } from "./format";
-import type { Code, Rule } from "./generated/client/types";
+import type { Code, FLRefusedField, Rule } from "./generated/client/types";
 import type { ROUTES } from "./routes";
 
 /** The route keys of the pages a search engine may list. */
@@ -71,7 +71,8 @@ export const SERVER_COPY = catalogue({
    * A refusal's sentence on the status line, by the backend's code, for a code a person causes knowingly from a
    * screen that no field pattern words: the write as a whole, or a field the sentence names itself. Where one code
    * is about one of several fields, its sentence is keyed by the first name of the path the backend names, so it
-   * says which; a path it holds no sentence for is not this screen's to word.
+   * says which; a path it holds no sentence for is not this screen's to word. A sentence naming the bounds its
+   * refusal carries is a function of them, answering `undefined` where one it names is missing.
    */
   refusalLine: {
     saison_past: "Diese Saison ist abgeschlossen.",
@@ -96,7 +97,7 @@ export const SERVER_COPY = catalogue({
       team1: `${team1} ist aus der Saison ausgeschieden.`,
       team2: `${team2} ist aus der Saison ausgeschieden.`,
     },
-  } satisfies Partial<Record<Code, string | Readonly<Record<string, string>>>>,
+  } satisfies Partial<Record<Code, string | Readonly<Record<string, string>> | ((context: FLRefusedField["ctx"]) => string | undefined)>>,
 
   /**
    * A rule's sentence on the status line, by the kind the backend refuses a payload with (`fields[].kind`), for a

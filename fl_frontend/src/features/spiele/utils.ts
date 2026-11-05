@@ -432,8 +432,7 @@ const herkunftLabel = (quelle: FLSpielQuelle): string => {
 
 /**
  * For the save's toast, which arrives with no fixture in sight — so every sentence names its match
- * number. Only states no further result can fix reach here. Beside a card, use
- * `describeBracketFaultOnCard`.
+ * number. Only states no further result can fix reach here.
  */
 const formatBracketFault = (fault: FLBracketFault): string => {
   switch (fault.reason) {
@@ -510,70 +509,4 @@ const bookedRow = (fault: FLBracketFaultBooking | FLBracketFaultClash): string =
   const fieldLabel = fault.booking === "ort" ? "Spielort" : "Schiedsrichter";
 
   return fault.name === null ? `derselbe ${fieldLabel}` : `der ${fieldLabel} ${fault.name}`;
-};
-
-const bookedRowAtStart = (fault: FLBracketFaultBooking | FLBracketFaultClash): string => {
-  const row = bookedRow(fault);
-
-  return `${row.charAt(0).toLocaleUpperCase("de-DE")}${row.slice(1)}`;
-};
-
-/**
- * The same faults for a note beside the fixture: plainer German, naming only what the card does not
- * already show, since it leads with the match number `formatBracketFault` has to spell out.
- */
-const describeBracketFaultOnCard = (fault: FLBracketFault): string => {
-  switch (fault.reason) {
-    case "gruppe_too_small":
-      return `Verweist auf Platz ${fault.platz} der Gruppe ${fault.gruppe}. So viele Plätze hat diese Gruppe nicht.`;
-    case "gruppe_not_run":
-      return `Verweist auf Platz ${fault.platz} der Gruppe ${fault.gruppe}, die es in dieser Saison nicht gibt.`;
-    case "seed_past_the_opening_round":
-      return `Verweist auf Platz ${fault.platz} der Gruppe ${fault.gruppe}. Nur die erste KO-Runde der Saison bekommt ihre Teams aus der Gruppentabelle.`;
-    case "tie_unresolved":
-      return `Platz ${fault.platz} der Gruppe ${fault.gruppe} ist auch nach der Gruppenphase nicht entschieden. Dieses Spiel bleibt deshalb offen.`;
-    case "spiel_missing":
-      return `Verweist auf Spiel ${fault.quelle_spiel_nr}, das es in dieser Saison nicht gibt.`;
-    case "reference_cycle":
-      return `Der Verweis über Spiel ${fault.quelle_spiel_nr} führt im Kreis und kann nie ein Ergebnis liefern.`;
-    // One sentence, the restriction inside the relative clause: split off, „In den KO-Baum führt nur
-    // die Gruppentabelle“ denies the match reference that feeds every later round.
-    case "gruppenphase_feeder":
-      return `Verweist auf Spiel ${fault.quelle_spiel_nr} aus der Gruppenphase, aus der nur die Gruppentabelle in den KO-Baum führt.`;
-    case "feeder_not_played_first":
-      return `Verweist auf Spiel ${fault.quelle_spiel_nr}, das nicht aus einer früheren Runde stammt.`;
-    case "same_team":
-      return "Beide Seiten führen zum selben Team.";
-    case "gruppenphase_fixture_wired":
-      return `${sideLabel(fault.side)} verweist auf ${herkunftLabel(fault.quelle)}, obwohl der Spielplan die Seiten dieses Gruppenspiels setzt.`;
-    case "source_feeds_another_fixture":
-      return `${sideLabel(fault.side)} verweist auf ${herkunftLabel(fault.quelle)}, und dieselbe Herkunft füllt eine Seite in einem anderen Spiel.`;
-    case "departed_occupant":
-      return fault.spiel_datum === null
-        ? `${fault.team_name} ist seit dem ${formatSpielDatum(fault.ausgeschieden_seit)} ${zustandMidSentence(fault.austritt_type)}. Ohne Spieldatum ist nicht belegt, dass vorher gespielt wurde.`
-        : `${fault.team_name} ist seit dem ${formatSpielDatum(fault.ausgeschieden_seit)} ${zustandMidSentence(fault.austritt_type)}, steht aber noch in diesem Spiel.`;
-    case "fielded_twice":
-      return `${fault.team_name} ist an diesem Spieltag mehrfach aufgestellt, hier als ${sideLabel(fault.side)}.`;
-    case "retired_booking":
-      return isGhostBooking(fault)
-        ? "Noch zu spielen, doch die Daten des zugeteilten Schiedsrichters wurden gelöscht."
-        : `Noch zu spielen, doch ${bookedRow(fault)} ist seit dem ${formatSpielDatum(fault.inactive_since)} stillgelegt.`;
-    case "double_booked":
-      return `${bookedRowAtStart(fault)} ist auch für ${otherSpiel(fault)} am ${formatSpielDatum(fault.other_datum)} um ${formatUhrzeit(fault.other_uhrzeit)} eingeteilt, weniger als ${CLASH_BUFFER_TEXT} entfernt.`;
-  }
-};
-
-/** A list rather than a sentence, since one fixture can carry several faults that are corrected separately. */
-export const groupBracketFaultsBySpielId = (faults: readonly FLBracketFault[]): ReadonlyMap<string, readonly string[]> => {
-  const bySpielId = new Map<string, string[]>();
-
-  for (const fault of faults) {
-    // `spiel_id`, never `spiel_nr`: a `spiel_nr` is unique within its season alone, and nothing in a
-    // fault list says it holds one season.
-    const sentences = bySpielId.get(fault.spiel_id);
-    if (sentences === undefined) bySpielId.set(fault.spiel_id, [describeBracketFaultOnCard(fault)]);
-    else sentences.push(describeBracketFaultOnCard(fault));
-  }
-
-  return bySpielId;
 };

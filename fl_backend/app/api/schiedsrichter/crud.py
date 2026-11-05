@@ -22,7 +22,7 @@ from app.core.crud import ensure_one_in_db, erase_many_from_db, patch_many_in_db
 from app.shared.schemas.custom import CustomObjectId
 
 
-async def owe_the_bestaetigung(
+async def owe_the_confirmation(
     *,
     outbox_collection: AsyncCollection,
     schiedsrichter_id: Any,
@@ -71,7 +71,7 @@ async def ensure_ghost_schiedsrichter(
 
     # Written here rather than at a deploy step, so an erasure can never repoint a fixture at a
     # row nothing holds -- which `booking_unknown_resource` would then read as an unknown referee and
-    # `GET /spiele/action_required` would report as nothing at all.
+    # the Übersicht would report as nothing at all.
     await ensure_one_in_db(collection=schiedsrichter_collection, document=build_ghost_schiedsrichter(), session=session)
 
 
