@@ -710,6 +710,56 @@ class TestTheStateRefusalIsReachedThroughTheRoute:
         assert spiele[VIERTELFINALE_NR]["sonderereignis"] is None
 
 
+class TestTheFixtureRulesAreReachedThroughTheRoute:
+    """That the wiring, the result-removal and the occupancy rules are WIRED: each is otherwise tested as a pure function alone."""
+
+    @pytest.mark.parametrize(
+        ("spiele", "spiel_id", "overrides", "error_code"),
+        [
+            pytest.param(
+                an_unbooked_spieltag(),
+                GRUPPE_FILLING,
+                {"team1": None, "team1_quelle": {"type": "spiel", "spiel_nr": GRUPPE_HELD_NR, "ausgang": "sieger"}},
+                Code.WIRING_UNSUPPORTED,
+                id="a group fixture wired to a feeder",
+            ),
+            pytest.param(
+                one_spieltag(opponent=BETA, ergebnis="2:1", tore=(2, 1)),
+                GRUPPE_HELD,
+                {"team2": None},
+                Code.ERGEBNIS_SIDE_EMPTIED,
+                id="a side holding goals emptied",
+            ),
+            pytest.param(
+                an_unbooked_spieltag(),
+                GRUPPE_FILLING,
+                {"team1": side(GAMMA), "team2": side(GAMMA)},
+                Code.SPIELTAG_OCCUPIED,
+                id="one club fielded twice on the Spieltag",
+            ),
+        ],
+    )
+    def test_the_save_is_refused_and_writes_nothing(
+        self, mongo_replica_set_url: str, spiele: list[dict[str, Any]], spiel_id: ObjectId, overrides: dict[str, Any], error_code: Code
+    ):
+        """A rule computed and discarded at the call site reads green beside its pure tests, and the save stores what it forbids."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            before = await spiele_now(database)
+            spiel_data = await payload_for(database, spiel_id, **overrides)
+
+            # Confirming nothing, so the save's own judgement answers rather than the dry run `call_patch` asks first.
+            with pytest.raises(APIError) as refused:
+                await call_patch(database, client, spiel_id, spiel_data, confirming=[])
+
+            return refused.value, before, await spiele_now(database)
+
+        refused, before, after = on_a_seeded_season(mongo_replica_set_url, body, spiele=spiele)
+
+        assert refused.error_code == error_code
+        assert after == before, "a refused save wrote something"
+
+
 class TestAFinishedSeasonsFixtureIsRefused:
     """`saison_past` through the route: a finished season's record, its bracket included, is closed to the save."""
 
