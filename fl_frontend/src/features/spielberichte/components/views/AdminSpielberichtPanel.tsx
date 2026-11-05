@@ -1,7 +1,5 @@
 "use client";
 
-import Link from "next/link";
-
 import ArrowDownToLine from "@gravity-ui/icons/ArrowDownToLine";
 
 import { Button } from "@heroui/react/button";
@@ -11,30 +9,25 @@ import { formButton } from "@/shared/components/ui/formButtons";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
-import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { benannt } from "@/shared/utils/benannt";
 
 import { SPIELBERICHT_ZUSTAND_LABELS, SPIELBERICHT_ZUSTAND_TONE } from "../../constants";
-import { berichtSperre, berlinZeitpunkt } from "../../utils";
+import { berlinZeitpunkt } from "../../utils";
 import { VorschlagText } from "../ui/VorschlagText";
 import { BerichtEintraege } from "./BerichtEintraege";
 
 import type { FLSpielberichtBericht } from "@/core/generated/client/types";
 import type { Eingesetzt, SpielberichtStand } from "../../types";
 
-const KORREKTUR = "Spielbericht bearbeiten";
-
 /**
  * The fixture's report on its editor, read-only: the proposal the administrator may carry into the result, and the
- * account behind it. A correction is its own page, never an edit inside this form, whose submit is the fixture's save.
+ * account behind it, which only its referee writes.
  */
 export function AdminSpielberichtPanel({
   stand,
   onUebernehmen,
   uebernahmeGesperrt,
   eingesetzt,
-  hatEntwurf,
-  today,
 }: {
   /** `null` where the read failed, which the panel says rather than reading as a fixture with no report. */
   stand: SpielberichtStand | null;
@@ -44,10 +37,6 @@ export function AdminSpielberichtPanel({
   uebernahmeGesperrt: string | null;
   /** The draft holds the proposal the press seeded: from the report's version standing now, or from an older one. */
   eingesetzt: Eingesetzt;
-  /** The editor holds unsaved changes, which the correction page's client-side navigation would drop unasked. */
-  hatEntwurf: boolean;
-  /** The German day the editor was served on, which decides whether the stored fixture takes a report. */
-  today: string;
 }) {
   const panel = formPanel();
   const state = stand?.lesen.state ?? null;
@@ -71,8 +60,6 @@ export function AdminSpielberichtPanel({
             onUebernehmen={onUebernehmen}
             uebernahmeGesperrt={uebernahmeGesperrt}
             eingesetzt={eingesetzt}
-            hatEntwurf={hatEntwurf}
-            today={today}
           />
         )}
       </div>
@@ -85,19 +72,14 @@ function BerichtInhalt({
   onUebernehmen,
   uebernahmeGesperrt,
   eingesetzt,
-  hatEntwurf,
-  today,
 }: {
   stand: SpielberichtStand;
   onUebernehmen: (bericht: FLSpielberichtBericht) => void;
   uebernahmeGesperrt: string | null;
   eingesetzt: Eingesetzt;
-  hatEntwurf: boolean;
-  today: string;
 }) {
-  const saisonHref = useSaisonHref();
   const { lesen } = stand;
-  const { bericht, state, spiel } = lesen;
+  const { bericht, state } = lesen;
   // Both writes refuse a called-off fixture (`bericht_abgesagt`), and its result is no proposal's to set.
   const istAbgesagt = state === "abgesagt";
   // A proposal by side about clubs that left: its score beside this fixture's clubs would read as theirs, as the card's
@@ -188,31 +170,6 @@ function BerichtInhalt({
           />
         </>
       )}
-
-      {/* The correction page writes only where the stored fixture takes a report; a client-side navigation passes the
-          editor's unsaved-changes guard, so a seeded draft would go unasked. */}
-      {berichtSperre(spiel, today) === null &&
-        (hatEntwurf ? (
-          <Hint
-            mode="refusal"
-            reason="Speichere oder verwirf zuerst Deine Änderungen am Spiel."
-            label={KORREKTUR}>
-            <Button
-              type="button"
-              variant="secondary"
-              isDisabled
-              className={`${formButton({ intent: "nav", size: "xs" })} self-start`}>
-              {KORREKTUR}
-            </Button>
-          </Hint>
-        ) : (
-          <Link
-            href={saisonHref(`/area/admin/spiele/${spiel.spiel_id}/spielbericht`)}
-            prefetch={false}
-            className={`${formButton({ intent: "nav", size: "xs" })} self-start`}>
-            {KORREKTUR}
-          </Link>
-        ))}
     </>
   );
 }

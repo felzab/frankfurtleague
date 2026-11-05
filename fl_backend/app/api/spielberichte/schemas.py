@@ -89,10 +89,7 @@ class FLSpielberichtKarte(BaseModel):
 
 
 class FLSpielberichtKartePayload(FLSpielberichtKarte):
-    """One card as a write sends it: a caution names its reason unless the stored card's reason was stripped."""
-
-    # Judged against the stored block, never here: a correction after the strip resends the cautions whose
-    # reasons it stripped (`find_grund_fehlt_refusal`).
+    """One card as a write sends it: a caution names its reason (`find_card_reason_missing_refusal`)."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -148,8 +145,7 @@ class FLSpielbericht(BaseModel):
     version: int = 0
 
 
-# --- The WRITES: the referee's PUT and the administrator's PATCH take one body, so a refusal naming
-# `bericht.bemerkungen` names a field of both.
+# --- The WRITE: the referee's PUT.
 
 
 class FLSpielberichtBerichtPayload(BaseModel):
@@ -196,7 +192,7 @@ class FLSpielberichtBerichtPayload(BaseModel):
 
 
 class FLSpielberichtPayload(BaseModel):
-    """The whole `bericht` block, written wholesale by the referee's PUT and the administrator's PATCH alike."""
+    """The whole `bericht` block, written wholesale by the referee's PUT."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -270,10 +266,7 @@ class FLSpielberichtSchiedsrichterResponse(_SpielberichtAnsicht):
 
 
 class FLSpielberichtAdminResponse(_SpielberichtAnsicht):
-    """The administrator's panel, with the state the report reads in, null exactly where no block stands.
-
-    Both squads empty unless the read asks `kader`, the correction's form; a write answers them always.
-    """
+    """The administrator's panel, with the state the report reads in, null exactly where no block stands, and both squads empty."""
 
     state: FLSpielberichtState | None
 

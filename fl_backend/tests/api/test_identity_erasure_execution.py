@@ -920,7 +920,7 @@ class TestWhatStandsBesideThem:
 
         bookings = on_a_league(mongo_replica_set_url, body)
 
-        assert bookings[THEIR_SPIEL_OID] == {"schiedsrichter_id": GHOST_SCHIEDSRICHTER_ID, "name": None, "payment": PAYMENT}
+        assert bookings[THEIR_SPIEL_OID] == {"schiedsrichter_id": GHOST_SCHIEDSRICHTER_ID, "payment": PAYMENT}
         assert bookings[OTHER_SPIEL_OID]["schiedsrichter_id"] == OTHER_REFEREE_OID
 
     def test_their_confirmations_go_and_an_undraws_image_of_theirs_names_the_ghost(self, mongo_replica_set_url: str):

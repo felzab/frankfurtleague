@@ -18,7 +18,7 @@ from app.api.spielberichte.services import (
     compose_bericht_update,
     compose_neuer_bericht,
     find_abgesagt_refusal,
-    find_grund_fehlt_refusal,
+    find_card_reason_missing_refusal,
     find_nicht_geleitet_refusal,
     find_nicht_gespielt_refusal,
     find_nicht_im_kader_refusal,
@@ -97,51 +97,24 @@ def refused_with(code: str, refusal: Any) -> bool:
     return refusal is not None and refusal.error_code == code
 
 
-def karte(farbe: str, grund: str | None, *, minute: str = "12", spieler_id: ObjectId = LIVE1) -> dict[str, Any]:
-    return {"seite": "team1", "spieler_id": spieler_id, "minute": minute, "farbe": farbe, "grund": grund}
+def karte(farbe: str, reason: str | None) -> dict[str, Any]:
+    return {"seite": "team1", "spieler_id": LIVE1, "minute": "12", "farbe": farbe, "grund": reason}
 
 
 def mit_karten(*karten: dict[str, Any]) -> FLSpielberichtBerichtPayload:
     return FLSpielberichtBerichtPayload.model_validate(payload(0, 0, [], karten=list(karten)))
 
 
-class TestOnlyANewCautionOwesItsReason:
-    """A season's end strips every card's reason, and a correction after it resends the cautions it stripped."""
-
+class TestACautionOwesItsReason:
     @pytest.mark.parametrize("farbe", ["gelb", "gelb_rot"])
     def test_a_caution_without_a_reason_is_refused_at_its_box(self, farbe: str):
-        refusal = find_grund_fehlt_refusal(payload=mit_karten(karte("rot", None), karte(farbe, None)), saved=None)
+        refusal = find_card_reason_missing_refusal(payload=mit_karten(karte("rot", None), karte(farbe, None)))
 
         assert refused_with(Code.BERICHT_GRUND_MISSING, refusal)
         assert refusal is not None and refusal.fields == (("bericht", "karten"),)
 
     def test_a_red_card_may_stand_without_one(self):
-        assert find_grund_fehlt_refusal(payload=mit_karten(karte("rot", None)), saved=None) is None
-
-    @pytest.mark.parametrize("minute", ["12", "14"], ids=["resent-as-stored", "its-minute-corrected"])
-    def test_a_caution_stored_stripped_is_resent_without_one(self, minute: str):
-        stripped = {"karten": [karte("gelb", None)]}
-
-        assert find_grund_fehlt_refusal(payload=mit_karten(karte("gelb", None, minute=minute)), saved=stripped) is None
-
-    @pytest.mark.parametrize(
-        "new",
-        [
-            pytest.param(karte("gelb_rot", None), id="another-colour"),
-            pytest.param(karte("gelb", None, spieler_id=AUSGETRAGEN1), id="another-pupil"),
-        ],
-    )
-    def test_any_other_caution_is_refused(self, new: dict[str, Any]):
-        stripped = {"karten": [karte("gelb", None)]}
-
-        assert refused_with(Code.BERICHT_GRUND_MISSING, find_grund_fehlt_refusal(payload=mit_karten(new), saved=stripped))
-
-    def test_each_stripped_card_excuses_one_caution(self):
-        stripped = {"karten": [karte("gelb", None)]}
-
-        refusal = find_grund_fehlt_refusal(payload=mit_karten(karte("gelb", None), karte("gelb", None, minute="80")), saved=stripped)
-
-        assert refused_with(Code.BERICHT_GRUND_MISSING, refusal)
+        assert find_card_reason_missing_refusal(payload=mit_karten(karte("rot", None))) is None
 
     def test_a_stored_caution_reads_without_one(self):
         """A season's end strips every card's reason, and the reads serve the report after it."""
@@ -374,10 +347,10 @@ class TestAGroupFixtureTakesNoShootOut:
 
         keine: dict[FLSpielSeite, set[ObjectId]] = {"team1": set(), "team2": set()}
 
-        # Through the judgement both writes ask, so the rule is held where it is called as well as where it is written.
+        # Through the judgement the write asks twice, so the rule is held where it is called as well as where it is written.
         with pytest.raises(APIError) as refused:
-            judge_bericht(lage=lage(), payload=vorschlag, saved=None, new=keine, today=TODAY)
-        judge_bericht(lage=lage(saison_phase="achtelfinale"), payload=vorschlag, saved=None, new=keine, today=TODAY)
+            judge_bericht(lage=lage(), payload=vorschlag, new=keine, today=TODAY)
+        judge_bericht(lage=lage(saison_phase="achtelfinale"), payload=vorschlag, new=keine, today=TODAY)
 
         assert refused.value.error_code == Code.BERICHT_ELFMETER_IN_THE_GRUPPE
 

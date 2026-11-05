@@ -30,14 +30,26 @@ Standings = Mapping[FLGruppenNames, DecidedStanding]
 
 
 def resolved(documents: list[dict[str, Any]], standings: Standings | None = None) -> dict[int, tuple[str | None, str | None]]:
-    """Match-fed unless a case hands in a standing; which team a placing resolves to is `test_standings.py`'s."""
+    """Match-fed unless a case hands in a standing; which team a placing resolves to is `test_standings.py`'s.
+
+    Each advanced side by the name its club is known under here: a resolution moves a team id, whose name a read joins.
+    """
 
     resolution = resolve_bracket(FLSpielListAdapter.validate_python(documents), standings or {})
+    names = {
+        **{
+            str(side["team_id"]): side["name"]
+            for document in documents
+            for side in (document["team1"], document["team2"])
+            if side and "name" in side
+        },
+        **{str(team.id): team.name for standing in (standings or {}).values() for team in standing.by_platz.values()},
+    }
 
     return {
         advancement.spiel_nr: (
-            advancement.team1.name if advancement.team1 is not None else None,
-            advancement.team2.name if advancement.team2 is not None else None,
+            names[str(advancement.team1.team_id)] if advancement.team1 is not None else None,
+            names[str(advancement.team2.team_id)] if advancement.team2 is not None else None,
         )
         for advancement in resolution.advancements
     }

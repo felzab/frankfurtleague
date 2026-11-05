@@ -81,7 +81,7 @@ class TestARefusalNeverPermitsWhatItCannotSee:
         """An empty verdict here would plan no release and permit the save, which is the same fail-open in a different shape."""
 
         with pytest.raises(ValueError, match=str(UNREAD_SPIEL_ID)):
-            judge_spieltag_occupancy(UNREAD_SPIEL_ID, payload, saison)
+            judge_spieltag_occupancy(UNREAD_SPIEL_ID, payload, saison, {})
 
     def test_the_wiring_refusal_refuses_to_judge(self, saison, payload):
         with pytest.raises(ValueError, match=str(UNREAD_SPIEL_ID)):

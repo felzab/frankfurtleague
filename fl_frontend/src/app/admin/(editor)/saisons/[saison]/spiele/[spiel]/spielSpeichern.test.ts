@@ -118,7 +118,7 @@ describe("the match editor's save", () => {
         elfmeterschiessen: { team1: 4, team2: 3 },
         sonderereignis: null,
         notiz: "Flutlicht",
-        schiedsrichter_stand: "64b000000000000000000006",
+
         version: 3,
       } satisfies FLPatchSpielDataPayload,
     ]);
@@ -265,7 +265,6 @@ describe("the match editor's save", () => {
 
     // The editor sets no team, so a team's refusal means the fixture changed under it.
     for (const code of [
-      "booking_schiedsrichter_moved",
       "ergebnis_side_emptied",
       "spieltag_occupied",
       "spieltag_occupied_by_the_resolution",

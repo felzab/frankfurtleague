@@ -159,7 +159,6 @@ STEP_UP_WRITES = [
     pytest.param("post", "/api/v0/identity/sign_out", id="an address's sign-out of every session"),
     pytest.param("post", "/api/v0/sperrliste", id="a ban"),
     pytest.param("delete", "/api/v0/sperrliste/{sperrliste_id}", id="a ban's lift"),
-    pytest.param("patch", "/api/v0/spielberichte/{spiel_id}", id="an administrator's write of a report"),
     pytest.param("post", "/api/v0/address_change", id="an address change asked"),
     pytest.param("post", "/api/v0/address_change/{address_change_id}/invite", id="an address change's fresh link"),
     pytest.param("delete", "/api/v0/address_change/{address_change_id}", id="an address change discarded"),
