@@ -1,17 +1,16 @@
 from typing import Annotated, Any, Literal
 
 from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints
-from pydantic_core import PydanticCustomError
 
 from app.api.berechtigungen.schemas import FLUtcInstant
+from app.api.sperrliste.schemas import refuse_an_address_in_the_reason
+from app.shared.folding import refuse_a_domain_beyond_ascii, trimmed
+from app.shared.schemas.bounds import ERASURE_REASON_MAX_LENGTH, KONTAKT_EMAIL_MAX_LENGTH, REFERENCES_ADDRESSES_MAX
+from app.shared.schemas.custom import SINGLE_LINE_PATTERN, CustomObjectId, CustomOptionalDateString
+from app.shared.schemas.kontakt import CustomEmail
 
 # The wire's spelling of the three seats, imported rather than restated: a second closed set here
 # would name a seat no other endpoint publishes.
-from app.api.sperrliste.schemas import ADDRESS_IN_FREE_TEXT
-from app.shared.folding import refuse_a_domain_beyond_ascii, trimmed
-from app.shared.schemas.bounds import ERASURE_ANLASS_MAX_LENGTH, KONTAKT_EMAIL_MAX_LENGTH, REFERENCES_ADDRESSES_MAX
-from app.shared.schemas.custom import SINGLE_LINE_PATTERN, CustomObjectId, CustomOptionalDateString
-from app.shared.schemas.kontakt import CustomEmail
 from app.shared.schemas.literals import FLAddressChangeViewableDenied, FLAdminTier, FLKontaktRolle, FLRegistrierungStatus, FLSaisonStatus
 from app.shared.schemas.responses import BaseAPIResponse
 
@@ -240,15 +239,6 @@ ErasureAddress = Annotated[
 ]
 
 
-def refuse_an_address_in_the_anlass(value: str) -> str:
-    """The log keeps `anlass` twelve months and no erasure's redaction reaches it, so an address typed here outlives the erasure it answers."""
-
-    if ADDRESS_IN_FREE_TEXT.search(value) is not None:
-        raise PydanticCustomError("address_in_free_text", "the text holds an email address")
-
-    return value
-
-
 class FLErasureAddressPayload(BaseModel):
     """The mailbox an erasure, its preview or a sign-out of every session is looked up by."""
 
@@ -262,12 +252,14 @@ class FLErasurePayload(FLErasureAddressPayload):
     """The mailbox, and the request the erasure answers, which every log row the erasure files keeps."""
 
     # The ceiling counts what arrives and the strip runs after it, so the published `maxLength` is the one the write keeps.
-    anlass: Annotated[
+    # The log keeps the reason twelve months and no erasure's redaction reaches it, so an address typed here would
+    # outlive the erasure it answers.
+    reason: Annotated[
         str,
-        StringConstraints(max_length=ERASURE_ANLASS_MAX_LENGTH, pattern=SINGLE_LINE_PATTERN),
+        StringConstraints(max_length=ERASURE_REASON_MAX_LENGTH, pattern=SINGLE_LINE_PATTERN),
         AfterValidator(str.strip),
         StringConstraints(min_length=1),
-        AfterValidator(refuse_an_address_in_the_anlass),
+        AfterValidator(refuse_an_address_in_the_reason),
     ]
 
 

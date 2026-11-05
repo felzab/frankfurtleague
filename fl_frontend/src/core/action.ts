@@ -13,7 +13,7 @@ import { logger } from "./logging";
 import { logRefused } from "./refused";
 import { getRequestActor, requestWriteMayStand } from "./requestScope";
 import { isSeatAt, rolesOf } from "./roles";
-import { isWordedRule, ruleMessage } from "./ruleMessage";
+import { isBoundedCode, isWordedRule, ruleMessage } from "./ruleMessage";
 import { SERVER_COPY } from "./serverCopy";
 import { SITE_CACHE_TAG } from "./siteCache";
 import { getSubjectSession } from "./subject";
@@ -195,8 +195,28 @@ function stripped(value: unknown): unknown {
   return value;
 }
 
-/** A posted form as an object, each box under its name; a box posted twice keeps its last value. */
-const posted = (raw: unknown): unknown => (raw instanceof FormData ? Object.fromEntries(raw) : raw);
+/** One property of an input's JSON Schema, as far as its list-ness shows. */
+type Property = { readonly type?: unknown; readonly anyOf?: readonly Property[] };
+
+const takesList = ({ type, anyOf }: Property): boolean => type === "array" || (anyOf?.some(takesList) ?? false);
+
+/**
+ * A posted form as an object, each box under its name, and a name the input takes as a list read with `getAll`: a
+ * group of boxes posts one entry per ticked box, so one ticked box is a list of one, which only the schema can tell
+ * from a single value. Read off the input's JSON Schema, the one public reading of a schema's shape, as Conform's and
+ * zod-form-data's coercions read it; a name posted nowhere stays absent, as a box group with none ticked posts nothing.
+ */
+function posted(raw: unknown, input: z.ZodType): unknown {
+  if (!(raw instanceof FormData)) return raw;
+  const form: Record<string, unknown> = Object.fromEntries(raw);
+  const { properties = {} } = z.toJSONSchema(input, { io: "input", unrepresentable: "any" }) as {
+    properties?: Readonly<Record<string, Property>>;
+  };
+  for (const [name, property] of Object.entries(properties)) {
+    if (takesList(property) && raw.has(name)) form[name] = raw.getAll(name);
+  }
+  return form;
+}
 
 /**
  * The box an issue belongs to: its path's names joined by dots, up to the first index, where a list's box holds every
@@ -222,7 +242,7 @@ function parsed<Schema extends z.ZodType>(
 ): { input: z.output<Schema> } | { answer: ActionAnswer<never> } {
   const examples: Readonly<Record<string, Copy | undefined>> = declared.examples ?? {};
   const fieldErrors: Record<string, Copy> = {};
-  const result = declared.input.safeParse(stripped(posted(raw)), {
+  const result = declared.input.safeParse(stripped(posted(raw, declared.input)), {
     error: (issue) => {
       const path = issue.path ?? [];
       const field = fieldOf(path);
@@ -288,8 +308,8 @@ function sentenceOf(code: Code & keyof typeof SERVER_COPY.refusalLine, path: FLR
 
 /**
  * A refusal this screen words: a refused payload's broken rules where the screen words every one, a code's phrase on
- * the box of each field it names, or a code's sentence on the status line. `undefined` where the screen does not word
- * it or cannot place it.
+ * the box of each field it names, filled from the bounds the refusal carries where its pattern names them, or a code's
+ * sentence on the status line. `undefined` where the screen does not word it or cannot place it.
  */
 function worded<Schema extends z.ZodType>(
   declared: Declared<Schema>,
@@ -308,6 +328,14 @@ function worded<Schema extends z.ZodType>(
   if (isLined(code)) {
     const reason = sentenceOf(code, fields[0]?.path);
     return reason === undefined ? undefined : { ok: false, errorCode: code, reason };
+  }
+  // A phrase naming the bounds the refusal carries on each field it names, worded as a rule's phrase is.
+  if (isBoundedCode(code)) {
+    return placed(
+      declared,
+      code,
+      fields.map(({ path, ctx }) => ({ path, ...ruleMessage({ kind: code, ctx }) })),
+    );
   }
   // A phrase names no field of its own, so a code naming none has nothing to place it on.
   if (!isWorded(code)) return undefined;

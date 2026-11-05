@@ -1171,17 +1171,6 @@
             ],
             "title": "Actor"
           },
-          "anlass": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Anlass"
-          },
           "at": {
             "title": "At",
             "type": "string"
@@ -1214,6 +1203,17 @@
               }
             ],
             "title": "Document Id"
+          },
+          "erasure_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Erasure Reason"
           },
           "id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -1277,7 +1277,7 @@
           "stand_secured",
           "modified_count",
           "redacted_at",
-          "anlass"
+          "erasure_reason"
         ],
         "title": "FLActionLogEntry",
         "type": "object"
@@ -1354,17 +1354,6 @@
             ],
             "title": "Actor"
           },
-          "anlass": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Anlass"
-          },
           "at": {
             "title": "At",
             "type": "string"
@@ -1416,6 +1405,17 @@
               }
             ],
             "title": "Document Id"
+          },
+          "erasure_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Erasure Reason"
           },
           "id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -1479,7 +1479,7 @@
           "stand_secured",
           "modified_count",
           "redacted_at",
-          "anlass",
+          "erasure_reason",
           "before"
         ],
         "title": "FLActionLogEntryWithBefore",
@@ -5209,24 +5209,24 @@
         "additionalProperties": false,
         "description": "The mailbox, and the request the erasure answers, which every log row the erasure files keeps.",
         "properties": {
-          "anlass": {
-            "maxLength": 200,
-            "minLength": 1,
-            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
-            "title": "Anlass",
-            "type": "string"
-          },
           "email": {
             "description": "Its domain, after the last `@`, in ASCII alone, an international one in punycode; else `email_not_accepted`.",
             "maxLength": 254,
             "pattern": "@",
             "title": "Email",
             "type": "string"
+          },
+          "reason": {
+            "maxLength": 200,
+            "minLength": 1,
+            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
+            "title": "Reason",
+            "type": "string"
           }
         },
         "required": [
           "email",
-          "anlass"
+          "reason"
         ],
         "title": "FLErasurePayload",
         "type": "object"
@@ -17826,6 +17826,33 @@
       "FLWhatsappTextVersion": {
         "const": "2026-11-whatsapp-1",
         "type": "string"
+      },
+      "Rule": {
+        "enum": [
+          "address_in_free_text",
+          "bewerbung_window_ends_before_start",
+          "date_not_in_calendar",
+          "decline_without_proposal",
+          "decline_without_reason",
+          "elfmeterschiessen_without_draw",
+          "elfmeterschiessen_without_winner",
+          "email_not_accepted",
+          "ergebnis_missing_tore",
+          "good_spieler_exceed_kader",
+          "grant_wording_stale",
+          "kontakt_email_twice",
+          "kontakt_telefon_twice",
+          "nichtantreten_with_tore",
+          "nichtantreten_with_torschuetzen",
+          "registrierung_window_ends_before_start",
+          "saison_ends_before_start",
+          "saison_year_out_of_range",
+          "spieltag_ends_before_start",
+          "text_version_of_another_wording",
+          "torschuetzen_not_matching_tore",
+          "url_not_accepted"
+        ],
+        "type": "string"
       }
     },
     "securitySchemes": {
@@ -21317,7 +21344,7 @@
     },
     "/api/v0/identity/erasure": {
       "post": {
-        "description": "Erase every record an address holds, on a request that person made by mail, at once and as one write, and answer how many of each kind went.\n\nADMIN TIER, a step-up write. It runs the erasure `POST /identity/account/erasure` runs and refuses nothing about the\nperson's own state: a pupil in a live squad and a referee booked on a fixture still to be played are erased on one pass.\nThree refusals are about who asks. The administrator's own address is refused (`own_address`): their account page\nserves it, or an owner. An address holding a live grant is refused unless the administrator holds an owner's power,\nsigned in since becoming one (`admin_address`), judged inside the write: erasing it removes the grant, whatever grants\nremain, so it asks what a revoke asks, an owner's power and a sign-in `ENROLMENT_WINDOW_MINUTES` old at most. Every\nother address is erased from a sign-in inside the step-up window. Either window missed answers `confirmation_required`. An\naddress another address's pending change would move to is refused, judged inside the write, where that address holds a\nlive grant and the administrator no owner's power (`foreign_address_change`): the erasure ends the change, a discard only an\nowner makes of it. The refusal tells that administrator some change the preview withholds names the address.\n\n`anlass` names the request the erasure answers, and every log row the erasure files carries it; no other row does.\nNo redaction reaches it, so it is refused 422 where it holds an address. The grant notice names this administrator\nas ending the person's grant. An address holding nothing is answered with every count zero. The 404 and the 409\nanswer only a database changed by hand under the request. The sign-in account is not touched here: deleting it is\nthe caller's, once this has answered.",
+        "description": "Erase every record an address holds, on a request that person made by mail, at once and as one write, and answer how many of each kind went.\n\nADMIN TIER, a step-up write. It runs the erasure `POST /identity/account/erasure` runs and refuses nothing about the\nperson's own state: a pupil in a live squad and a referee booked on a fixture still to be played are erased on one pass.\nThree refusals are about who asks. The administrator's own address is refused (`own_address`): their account page\nserves it, or an owner. An address holding a live grant is refused unless the administrator holds an owner's power,\nsigned in since becoming one (`admin_address`), judged inside the write: erasing it removes the grant, whatever grants\nremain, so it asks what a revoke asks, an owner's power and a sign-in `ENROLMENT_WINDOW_MINUTES` old at most. Every\nother address is erased from a sign-in inside the step-up window. Either window missed answers `confirmation_required`. An\naddress another address's pending change would move to is refused, judged inside the write, where that address holds a\nlive grant and the administrator no owner's power (`foreign_address_change`): the erasure ends the change, a discard only an\nowner makes of it. The refusal tells that administrator some change the preview withholds names the address.\n\n`reason` names the request the erasure answers, and every log row the erasure files carries it; no other row does.\nNo redaction reaches it, so it is refused 422 where it holds an address. The grant notice names this administrator\nas ending the person's grant. An address holding nothing is answered with every count zero. The 404 and the 409\nanswer only a database changed by hand under the request. The sign-in account is not touched here: deleting it is\nthe caller's, once this has answered.",
         "operationId": "identity_post_erasure",
         "requestBody": {
           "content": {

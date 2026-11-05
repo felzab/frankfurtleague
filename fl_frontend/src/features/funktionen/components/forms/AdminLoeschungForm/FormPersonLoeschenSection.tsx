@@ -37,21 +37,21 @@ type Gelesen = { adresse: string } & (
   { status: "reading" } | { status: "read"; ansicht: FLErasureViewResponse } | { status: "refused"; reason: string }
 );
 
-type Fehler = { email?: string; anlass?: string };
+type Fehler = { email?: string; reason?: string };
 
 /** A read that failed rather than one the erasure's own rule refused. */
 const ohneUebersicht = (reason: string): string =>
   `Die Übersicht, was gelöscht wird, konnte nicht geladen werden, und ohne sie wird nichts gelöscht. ${reason}`;
 
 /** Each box's verdict in the write's own words, judged at the press and never between keystrokes. */
-function fehlerIn(email: string, anlass: string): Fehler {
-  const geprueft = FLLoeschungPayloadSchema.safeParse({ email: email, anlass: anlass });
+function fehlerIn(email: string, erasureReason: string): Fehler {
+  const geprueft = FLLoeschungPayloadSchema.safeParse({ email: email, reason: erasureReason });
   if (geprueft.success) return {};
 
   const fehler: Fehler = {};
   for (const { path, message } of geprueft.error.issues) {
     const feld = path[0];
-    if ((feld === "email" || feld === "anlass") && fehler[feld] === undefined) fehler[feld] = message;
+    if ((feld === "email" || feld === "reason") && fehler[feld] === undefined) fehler[feld] = message;
   }
   return fehler;
 }
@@ -82,7 +82,7 @@ function AnsichtBody({ gelesen }: { gelesen: Gelesen | null }) {
 export function FormPersonLoeschenSection() {
   const router = useRouter();
   const [email, setEmail] = useState("");
-  const [anlass, setAnlass] = useState("");
+  const [erasureReason, setErasureReason] = useState("");
   const [fehler, setFehler] = useState<Fehler>({});
   const [gelesen, setGelesen] = useState<Gelesen | null>(null);
   // Only the latest arming's read answers, and only while the box is unedited since: Next sends one client's actions
@@ -132,16 +132,16 @@ export function FormPersonLoeschenSection() {
 
   const handlePress = () => {
     if (!isConfirming) {
-      const gefunden = fehlerIn(email, anlass);
+      const gefunden = fehlerIn(email, erasureReason);
       setFehler(gefunden);
-      if (gefunden.email !== undefined || gefunden.anlass !== undefined) return;
+      if (gefunden.email !== undefined || gefunden.reason !== undefined) return;
 
       // On the arming press and on no other: the read serves a person's records, so it is made when somebody asks
       // whom the address holds rather than as it is typed.
       void readAnsicht(email.trim());
     }
 
-    const gesendet = { email: adresse, anlass: anlass };
+    const gesendet = { email: adresse, reason: erasureReason };
     confirm.press(async () => {
       // A rejected action may still have erased, and uncaught here it takes the page down with it.
       const res = await loeschenAufAnfrageAction(gesendet).catch(rejectedWrite(router));
@@ -149,14 +149,14 @@ export function FormPersonLoeschenSection() {
       // Wrapped again: the press runs this inside its transition, and React leaves an update after an `await` outside it.
       startTransition(() => {
         if (!res.success) {
-          setFehler({ email: res.fieldErrors?.email, anlass: res.fieldErrors?.anlass });
+          setFehler({ email: res.fieldErrors?.email, reason: res.fieldErrors?.reason });
           appToast.failure("Person nicht gelöscht", res);
           return;
         }
 
         // Emptied, so the press stands closed over them and its overlay keeps the focus the press had.
         setEmail("");
-        setAnlass("");
+        setErasureReason("");
         setGelesen(null);
         if (res.konto === "nichtGeloescht") appToast.warning("Konto nicht gelöscht", { description: res.message });
         else if (res.konto === "unklar") appToast.warning("Unklar, ob das Konto gelöscht wurde", { description: res.message });
@@ -172,7 +172,8 @@ export function FormPersonLoeschenSection() {
   const isReading = isConfirming && (ansicht === null || ansicht.status === "reading");
   // A refused read alone names a reason of its own: one still running ends by itself, as the write does.
   const ansichtReason = !isPending && ansicht?.status === "refused" ? ansicht.reason : null;
-  const panelReason = email.trim() === "" ? "Gib zuerst die E-Mail-Adresse ein." : anlass.trim() === "" ? "Gib zuerst den Anlass ein." : null;
+  const panelReason =
+    email.trim() === "" ? "Gib zuerst die E-Mail-Adresse ein." : erasureReason.trim() === "" ? "Gib zuerst den Anlass ein." : null;
 
   return (
     <section className={panel.root()}>
@@ -213,21 +214,21 @@ export function FormPersonLoeschenSection() {
         </TextField>
 
         <TextField
-          name="anlass"
-          value={anlass}
+          name="reason"
+          value={erasureReason}
           isDisabled={isPending}
           onChange={(next) => {
-            setAnlass(next);
-            setFehler({ ...fehler, anlass: undefined });
+            setErasureReason(next);
+            setFehler({ ...fehler, reason: undefined });
           }}
-          isInvalid={fehler.anlass !== undefined ? true : undefined}>
+          isInvalid={fehler.reason !== undefined ? true : undefined}>
           <Label className={FIELD_LABEL_CLASSES}>Anlass</Label>
           <Input
             autoComplete="off"
             placeholder="z.B. E-Mail vom 12.10.2026, Bitte um Löschung"
             className={FIELD_INPUT_CLASSES}
           />
-          <FieldError className={FIELD_ERROR_CLASSES}>{fehler.anlass}</FieldError>
+          <FieldError className={FIELD_ERROR_CLASSES}>{fehler.reason}</FieldError>
           {/* Kept a year in the log, past any redaction, and of a person's details only an address is refused in it: the
               hint asks for the request's kind. */}
           <Hint

@@ -139,6 +139,7 @@ def on_a_league(url: str, body: Body, *, status: str = "active", mutates_schema:
                     collection=database[Collection.REGISTRIERUNGEN],
                     db_filter={"_id": document["_id"]},
                     update={"$set": {"nummer": "7"}},
+                    expected_version=None,
                     return_document=ReturnDocument.BEFORE,
                 )
 
@@ -339,7 +340,7 @@ def refusing_its_redaction(row: Mapping[str, Any]) -> dict[str, Any]:
         "before": dict(row),
         "modified_count": None,
         "redacted_at": None,
-        "anlass": None,
+        "erasure_reason": None,
     }
 
 

@@ -290,6 +290,7 @@ async def admit(
                 db_filter={"_id": spieler_id},
                 update=compose_person_update(registrierung_raw=registrierung_raw, saved=(saved or {}).get("einwilligung"), address=address),
                 session=session,
+                expected_version=None,
                 return_document=ReturnDocument.BEFORE,
             )
 
@@ -312,6 +313,7 @@ async def admit(
                 db_filter={"_id": kader_raw["_id"]},
                 update={"$set": kader_fields},
                 session=session,
+                expected_version=None,
                 return_document=ReturnDocument.BEFORE,
             )
 
@@ -390,6 +392,7 @@ async def decline(
             db_filter={"_id": registrierung_id},
             update=compose_ablehnung_update(by=identifier, grund=ablehnung_data.grund, today=today),
             session=session,
+            expected_version=None,
             return_document=ReturnDocument.BEFORE,
         )
 
@@ -485,6 +488,7 @@ async def patch_einwilligung(
                 db_filter={"_id": row["_id"]},
                 update=update,
                 session=session,
+                expected_version=None,
                 return_document=ReturnDocument.BEFORE,
             )
         line = withdrawal_line(

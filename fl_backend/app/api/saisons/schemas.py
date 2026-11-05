@@ -2,7 +2,6 @@ from datetime import date, datetime, time
 from typing import Annotated, Final, Literal, Self
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter, model_validator
-from pydantic_core import PydanticCustomError
 
 from app.api.spielberichte.schemas import FLSpielberichtPublic
 from app.api.spiele.schemas import FLSpielJoined
@@ -13,6 +12,7 @@ from app.core import clock
 # Imported rather than restated. Acyclic: no model of `teams` imports this file --
 # `teams/services.py` does, and no model there.
 from app.core.crud import Anchored
+from app.core.exceptions import rule_refusal
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SAISON_ID_LENGTH
 from app.shared.schemas.custom import CustomDateString, CustomObjectId, CustomTimeString, refuse_reversed_span
 from app.shared.schemas.literals import FLGruppenNames, FLSaisonPhase, FLSaisonStatus, FLSortOrder, FLSpielerStufe
@@ -223,7 +223,7 @@ def refuse_a_saison_year_outside_the_league(value: str) -> str:
     # `int` is total only because the pattern ran first: drop it and `int`'s own message carries the
     # rejected value into the log.
     if not FIRST_SAISON_YEAR <= int(value) <= newest:
-        raise PydanticCustomError(
+        raise rule_refusal(
             "saison_year_out_of_range", "the season id names a year outside the league's", {"min": FIRST_SAISON_YEAR, "max": newest}
         )
 

@@ -813,7 +813,7 @@ class TestTheLinkConfirms:
             "before": {"_id": ROW_OID, "kontakte": {"trainer": "Ida Musterfrau", "ansprechperson": None, "stellvertretung": None}},
             "modified_count": None,
             "redacted_at": None,
-            "anlass": None,
+            "erasure_reason": None,
         }
 
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:

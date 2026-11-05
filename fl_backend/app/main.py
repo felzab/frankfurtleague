@@ -53,6 +53,7 @@ from app.api.system.router import router as system_router
 from app.api.teams.admin_router import router as teams_admin_router
 from app.api.teams.person_router import router as teams_person_router
 from app.api.teams.public_router import router as teams_public_router
+from app.core.codes import Rule
 from app.core.config import BackendConfig
 from app.core.db import lifespan
 from app.core.exception_handlers import FAILURE_RESPONSES, FAILURE_STATUSES, register_exception_handlers
@@ -136,9 +137,11 @@ def with_failure_responses(document: Mapping[str, Any]) -> dict[str, Any]:
     return {**document, "components": {**components, "schemas": schemas, "responses": responses}}
 
 
-# Every alias a frontend constant is checked against: each consent's current label, which a grant sends, and the
-# address change's and the consents' bounds, which the pages state.
-MIRRORED_CONSTANTS: Final = (*CURRENT_TEXT_VERSIONS, *ADDRESS_CHANGE_BOUNDS, *CONSENT_BOUNDS)
+# Every alias a frontend constant is checked against: each consent's current label, which a grant sends, the
+# address change's and the consents' bounds, which the pages state, and the domain rules' kinds, which the
+# catalogue's rule phrases are keyed by. No model names `Rule`: a refused field's `kind` is one of Pydantic's own
+# error types as often.
+MIRRORED_CONSTANTS: Final = (*CURRENT_TEXT_VERSIONS, *ADDRESS_CHANGE_BOUNDS, *CONSENT_BOUNDS, Rule)
 
 
 def with_mirrored_constants(document: Mapping[str, Any]) -> dict[str, Any]:

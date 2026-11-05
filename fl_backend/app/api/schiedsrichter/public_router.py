@@ -175,6 +175,7 @@ async def post_confirmation(
                 at=log_stamp(germany_now),
             ),
             session=session,
+            expected_version=None,
             return_document=ReturnDocument.BEFORE,
         )
 

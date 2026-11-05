@@ -7,7 +7,7 @@ from app.api.address_change.services import FLAddressChangeNewState, FLAddressCh
 from app.api.berechtigungen.schemas import FLUtcInstant
 from app.api.outbox.schemas import FLOutboxStatus
 from app.api.sperrliste.schemas import refuse_an_address_in_the_reason
-from app.shared.schemas.bounds import ERASURE_ANLASS_MAX_LENGTH, LIST_LIMIT_DEFAULT
+from app.shared.schemas.bounds import ERASURE_REASON_MAX_LENGTH, LIST_LIMIT_DEFAULT
 from app.shared.schemas.confirmation import CustomToken
 from app.shared.schemas.custom import (
     SINGLE_LINE_PATTERN,
@@ -26,7 +26,7 @@ type FLAddressChangeAnswer = Literal["confirmed", "declined"]
 # The ceiling counts what arrives and the strip runs after it, so the published `maxLength` is the one the write keeps.
 CustomAddressChangeReason = Annotated[
     str,
-    StringConstraints(max_length=ERASURE_ANLASS_MAX_LENGTH, pattern=SINGLE_LINE_PATTERN),
+    StringConstraints(max_length=ERASURE_REASON_MAX_LENGTH, pattern=SINGLE_LINE_PATTERN),
     AfterValidator(str.strip),
     StringConstraints(min_length=1),
     AfterValidator(refuse_an_address_in_the_reason),

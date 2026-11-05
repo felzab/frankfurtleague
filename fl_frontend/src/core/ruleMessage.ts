@@ -5,7 +5,7 @@ import { dayOf } from "./format";
 import { SERVER_COPY } from "./serverCopy";
 
 import type { Copy } from "./copy";
-import type { FLRefusedField } from "./generated/client/types";
+import type { Code, FLRefusedField, Rule } from "./generated/client/types";
 
 const { field, failure } = COPY.shared;
 
@@ -17,7 +17,9 @@ const notBeforeStart = ({ start }: Context) => (typeof start === "string" ? fiel
 /**
  * Each rule the backend refuses a payload with that a field pattern words, by its kind, from the bounds the rule's
  * context carries: the same line the box shows where the form's own check catches the value
- * (`fl_frontend/src/core/zodGerman.ts :: fieldMessage`).
+ * (`fl_frontend/src/core/zodGerman.ts :: fieldMessage`). Beside them, each code whose phrase names a bound its refusal
+ * carries, by the code, which every field the refusal names carries as its kind with the bounds as its context
+ * (`fl_backend/app/core/exceptions.py :: APIError`); a code whose phrase names none stays `SERVER_COPY.refusal`'s.
  */
 const PATTERNED = {
   // A season's id is its year, which takes no thousands separator.
@@ -42,9 +44,12 @@ const PATTERNED = {
   // A no-show's report carries no play: the league composes its goals, and nobody scored them.
   nichtantreten_with_tore: () => field.without(COPY.shared.tore),
   nichtantreten_with_torschuetzen: () => field.without(COPY.admin.spiel.torschuetzen),
-} satisfies Readonly<Record<string, (context: Context) => Copy | undefined>>;
+} satisfies Partial<Record<Rule | Code, (context: Context) => Copy | undefined>>;
 
-/** Every rule a refused payload can name that the catalogue words: by a pattern, or by `SERVER_COPY.ruleLine`'s sentence. */
+/**
+ * Every rule a refused payload can name that the catalogue words, by a pattern or by `SERVER_COPY.ruleLine`'s sentence,
+ * and every code a pattern words from its bounds.
+ */
 export type WordedRule = keyof typeof PATTERNED | keyof typeof SERVER_COPY.ruleLine;
 
 const isPatterned = (kind: string): kind is keyof typeof PATTERNED => Object.hasOwn(PATTERNED, kind);
@@ -53,11 +58,14 @@ const isLined = (kind: string): kind is keyof typeof SERVER_COPY.ruleLine => Obj
 /** Whether the catalogue words this rule, so a screen may place it. */
 export const isWordedRule = (kind: string): kind is WordedRule => isPatterned(kind) || isLined(kind);
 
+/** Whether a pattern words this code from the bounds its refusal carries, so `ruleMessage` words its fields. */
+export const isBoundedCode = (code: Code): boolean => isPatterned(code);
+
 /**
- * A rule the backend refused a payload with: under its field, in the same fixed patterns a Zod issue's line takes, or,
- * where no pattern words it, as the rule's sentence on the status line. A context missing the bound its rule names
- * means a page older than the API, so it answers the unexpected line on the status line, as any rule the catalogue
- * does not word does.
+ * A rule the backend refused a payload with, or a code whose phrase names its bounds: under its field, in the same
+ * fixed patterns a Zod issue's line takes, or, where no pattern words a rule, as its sentence on the status line. A
+ * context missing the bound its pattern names means a page older than the API, so it answers the unexpected line on
+ * the status line, as any rule the catalogue does not word does.
  */
 export function ruleMessage({ kind, ctx }: Pick<FLRefusedField, "kind" | "ctx">): { field: Copy } | { line: Copy } {
   if (isPatterned(kind)) {

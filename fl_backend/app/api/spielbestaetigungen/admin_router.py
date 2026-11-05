@@ -153,6 +153,7 @@ async def enter_spielbestaetigung(
                 db_filter={"_id": spielbestaetigung_id, **build_answerable_filter()},
                 update=compose_eintragen_update(begruendung=eintragen_data.begruendung, today=today),
                 session=session,
+                expected_version=None,
                 return_document=ReturnDocument.AFTER,
             )
         except DocumentNotFoundError as miss:
@@ -217,6 +218,7 @@ async def discard_spielbestaetigung(
                 db_filter={"_id": spielbestaetigung_id, **build_verwerfbar_filter()},
                 update=compose_closing_update(grund="discarded", today=today),
                 session=session,
+                expected_version=None,
                 return_document=ReturnDocument.AFTER,
             )
         except DocumentNotFoundError as miss:

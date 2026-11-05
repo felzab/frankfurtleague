@@ -287,6 +287,36 @@ describe("the public lane", () => {
   });
 });
 
+describe("a posted form", () => {
+  const save = action({
+    lane: "admin",
+    name: "stufenSetzen",
+    input: z.object({ name: z.string().min(1), stufen: z.array(z.enum(["E1", "E2", "Q1"])).min(1) }),
+    run: async (input) => {
+      state.steps.push(`body ${JSON.stringify(input)}`);
+      return { ok: true, value: undefined };
+    },
+  });
+
+  /* A group of boxes posts its name once per ticked box: read as one value, every box but the last is lost, and a
+     single ticked box is a value the list refuses. */
+  it("reads a name its input takes as a list as every value posted under it, one ticked box among them", async () => {
+    const ticked = (...stufen: string[]) => {
+      const form = new FormData();
+      form.set("name", "Nord");
+      for (const stufe of stufen) form.append("stufen", stufe);
+      return form;
+    };
+
+    expect(await save(ticked("E1", "Q1"))).toStrictEqual({ ok: true, value: undefined });
+    expect(await save(ticked("E2"))).toStrictEqual({ ok: true, value: undefined });
+    expect(state.steps.filter((step) => step.startsWith("body"))).toStrictEqual([
+      'body {"name":"Nord","stufen":["E1","Q1"]}',
+      'body {"name":"Nord","stufen":["E2"]}',
+    ]);
+  });
+});
+
 /** An action on `lane` taking a name, its body running `work`: the person's on a record of its own, the public one exempt. */
 function onLane(lane: "admin" | "person" | "public", work: () => Promise<unknown>) {
   const declared = { name: lane, input: z.object({ name: z.string().min(1) }) };

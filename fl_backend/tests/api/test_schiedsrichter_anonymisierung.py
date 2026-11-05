@@ -365,6 +365,7 @@ async def a_fixture_with_a_history(database: AsyncDatabase, spiel_id: ObjectId) 
         collection=database[Collection.SPIELE],
         db_filter={"_id": spiel_id},
         update={"$set": {"uhrzeit": A_RESCHEDULED_TIME}},
+        expected_version=None,
         return_document=ReturnDocument.BEFORE,
     )
 
@@ -947,6 +948,7 @@ def test_an_image_of_a_fixture_since_reassigned_is_repointed_too(mongo_replica_s
                     }
                 }
             },
+            expected_version=None,
             return_document=ReturnDocument.BEFORE,
         )
         await erase_the_referee(database, client)

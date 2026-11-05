@@ -498,6 +498,7 @@ class TestTheOutgoingPeopleLeaveTheLog:
                 collection=database[Collection.SAISON_TEAMS],
                 db_filter={"_id": seeded["_id"]},
                 update={"$set": {"kontakte": {**OUTGOING_KONTAKTE, **dict.fromkeys(KONTAKT_ROLLEN, EARLIER_KONTAKTPERSON)}}},
+                expected_version=None,
                 return_document=ReturnDocument.BEFORE,
             )
             await call_replace(database, client)

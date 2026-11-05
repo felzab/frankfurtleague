@@ -26,7 +26,7 @@ from app.core.exception_handlers import (
     pydantic_validation_exception_handler,
     register_exception_handlers,
 )
-from app.core.exceptions import APIError
+from app.core.exceptions import APIError, WriteRefusal
 from app.core.logging import JSONFormatter, TraceContextFilter
 from app.core.middlewares import TracedApp
 from app.core.routing import SAFE, SAFE_WHEN
@@ -132,6 +132,17 @@ async def refuse_at(status: int) -> None:
     """Refuses at the status its path names, naming the body path it judged."""
 
     raise APIError(HTTPStatus(status), PLANTED_REFUSAL, fields=(JUDGED_PATH,))
+
+
+# The fewest groups the planted rule allows, as a season's rule refusal names the groups in use.
+PLANTED_BOUND = 3
+
+
+@VALIDATION_APP.post("/bounded")
+async def refuse_with_a_bound() -> None:
+    """Refuses as an endpoint's check does, through its `WriteRefusal`, naming the bound its rule holds the field to."""
+
+    raise WriteRefusal(error_code=PLANTED_REFUSAL, status=HTTPStatus.CONFLICT, fields=(JUDGED_PATH,), bounds={"min": PLANTED_BOUND}).error()
 
 
 @VALIDATION_APP.get("/starlette/{status}")
@@ -267,6 +278,13 @@ class TestARefusalIsAnsweredAtTheStatusItsCheckChose:
 
         assert response.status_code == status
         assert response.json()["fields"] == [{"in": "body", "path": list(JUDGED_PATH), "kind": PLANTED_REFUSAL, "ctx": {}}]
+
+    def test_a_refusal_s_bound_reaches_the_caller_as_its_field_s_context(self):
+        """The caller words the field's line from the bound, so a bound the server moves and left off the wire is a stale line on the screen."""
+
+        response = TestClient(VALIDATION_APP, raise_server_exceptions=False).post("/bounded")
+
+        assert response.json()["fields"] == [{"in": "body", "path": list(JUDGED_PATH), "kind": PLANTED_REFUSAL, "ctx": {"min": PLANTED_BOUND}}]
 
     @pytest.mark.parametrize("status", sorted(ROUTING_CODES))
     def test_each_status_the_routing_layer_raises_answers_its_own_code(self, status: int):

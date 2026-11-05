@@ -172,7 +172,7 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
   - Purpose and basis: who did what, and replaying what a restore would undo; Art. 6(1)(f).
   - Data: each write's actor, an administrator by address and a person by pseudonym
     (`fl_backend/app/core/recording.py :: PersonActor`), the full prior document of the record it
-    changed, and an erasure's request (`anlass`); each journal line's keyed hashes of an address
+    changed, and an erasure's request (`erasure_reason`); each journal line's keyed hashes of an address
     (`fl_backend/app/core/journal.py :: RECORDS`).
   - Recipients: administrators.
 - **Mail** (`outbox`; mail to the league; WhatsApp).
@@ -282,7 +282,7 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
     name search would take a namesake's text with it: a fixture's note, an application's wished
     opponent and decision reason, a team's leaving reason, a registration's decision reason, a club's
     description, a reason another seat's holder or an administrator typed in a fixture answer, a
-    report's remarks naming a pupil by name or by shirt number, and an erasure's `anlass`;
+    report's remarks naming a pupil by name or by shirt number, and an erasure's request (`erasure_reason`);
   - the deletion link's Postausgang row, until its secret lapses with the link, 24 hours after it was
     minted (`fl_backend/app/api/outbox/services.py :: row_of`,
     `fl_frontend/src/core/erasureEmail.ts :: ERASURE_LINK_VALID_HOURS`);

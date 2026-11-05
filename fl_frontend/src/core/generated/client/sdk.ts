@@ -1656,7 +1656,7 @@ export const getIdentityPostErasureUrl = () => {
  * live grant and the administrator no owner's power (`foreign_address_change`): the erasure ends the change, a discard only an
  * owner makes of it. The refusal tells that administrator some change the preview withholds names the address.
  *
- * `anlass` names the request the erasure answers, and every log row the erasure files carries it; no other row does.
+ * `reason` names the request the erasure answers, and every log row the erasure files carries it; no other row does.
  * No redaction reaches it, so it is refused 422 where it holds an address. The grant notice names this administrator
  * as ending the person's grant. An address holding nothing is answered with every count zero. The 404 and the 409
  * answer only a database changed by hand under the request. The sign-in account is not touched here: deleting it is

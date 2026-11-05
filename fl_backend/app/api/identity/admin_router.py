@@ -64,7 +64,7 @@ from app.core.dependencies import (
     SpielerReadCollection,
     get_germany_now,
 )
-from app.core.recording import act_row, anlass_var, log_stamp
+from app.core.recording import act_row, erasure_reason_var, log_stamp
 from app.core.routing import SAFE
 from app.core.security import (
     SessionActor,
@@ -282,7 +282,7 @@ async def post_erasure(
     live grant and the administrator no owner's power (`foreign_address_change`): the erasure ends the change, a discard only an
     owner makes of it. The refusal tells that administrator some change the preview withholds names the address.
 
-    `anlass` names the request the erasure answers, and every log row the erasure files carries it; no other row does.
+    `reason` names the request the erasure answers, and every log row the erasure files carries it; no other row does.
     No redaction reaches it, so it is refused 422 where it holds an address. The grant notice names this administrator
     as ending the person's grant. An address holding nothing is answered with every count zero. The 404 and the 409
     answer only a database changed by hand under the request. The sign-in account is not touched here: deleting it is
@@ -364,12 +364,12 @@ async def post_erasure(
     async with journal:
         # Around the whole transaction, every retry inside it, and reset in a `finally`: a value left
         # standing would land on whatever this context records next.
-        anlass = anlass_var.set(erasure_data.anlass)
+        reason = erasure_reason_var.set(erasure_data.reason)
         try:
             async with transaction_session(db) as session:
                 answer = journal.took(await session.with_transaction(erase_the_address))
         finally:
-            anlass_var.reset(anlass)
+            erasure_reason_var.reset(reason)
 
     return answer
 

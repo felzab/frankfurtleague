@@ -2,7 +2,7 @@
 API · the season-after rule decided from the statuses and rows handed in, and the share one call takes
 
 Each case judges arguments alone, so the default tier holds it; the run against a real mongod is
-`tests/api/test_loeschung_sweep.py`'s.
+`tests/api/test_identity_erasure_sweep.py`'s.
 """
 
 from typing import Any
@@ -110,11 +110,11 @@ class TestTheStatusesAnActivationLeaves:
 
 
 # One pupil's commands on the wire at their costliest, a report naming them, whose repoint writes a log row; pinned by
-# `fl_backend/tests/api/test_loeschung_sweep.py :: TestOnePupilCostsTheCommandsItsShareIsSizedAt`.
+# `fl_backend/tests/api/test_identity_erasure_sweep.py :: TestOnePupilCostsTheCommandsItsShareIsSizedAt`.
 COMMANDS_A_PERSON = 22
 
 # The call's other commands, pinned on the wire by
-# `fl_backend/tests/api/test_loeschung_sweep.py :: TestTheWorstCallSendsTheCommandsItsBudgetCounts`: three aggregates,
+# `fl_backend/tests/api/test_identity_erasure_sweep.py :: TestTheWorstCallSendsTheCommandsItsBudgetCounts`: three aggregates,
 # and a `getMore` once the pending registrations outrun the driver's first batch, the page being one document.
 OTHER_COMMANDS = 3 + 1
 

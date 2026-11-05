@@ -36,9 +36,17 @@ from tests.whole_database import where_held
 
 from . import test_spielbestaetigung_sweep_execution as confirmations
 from . import test_spiele_write_execution as fixture_saves
-from .test_funktionen_loeschung import IDENTIFIER, THEIR_GRANT_OID, a_grant
-from .test_funktionen_loeschung import erased_by_the_handler as geloescht_by_the_person
-from .test_funktionen_loeschung import on_a_league as on_their_league
+from .test_identity_erasure_execution import IDENTIFIER, THEIR_GRANT_OID, a_grant
+from .test_identity_erasure_execution import erased_by_the_handler as geloescht_by_the_person
+from .test_identity_erasure_execution import on_a_league as on_their_league
+from .test_identity_erasure_on_request import CONFIG as REQUEST_CONFIG
+from .test_identity_erasure_on_request import erased_by_the_handler as geloescht_on_request
+from .test_identity_erasure_on_request import journal_lines
+from .test_identity_erasure_on_request import on_a_league as on_the_administrators_league
+from .test_identity_erasure_sweep import a_due_pupil, a_report_naming, seeded
+from .test_identity_erasure_sweep import numbered as pupil_numbered
+from .test_identity_erasure_sweep import on_a_league as on_the_pupils_league
+from .test_identity_erasure_sweep import run as a_deletion_call
 from .test_identity_sign_in_execution import BARRED as SIGN_IN_GESPERRT
 from .test_identity_sign_in_execution import call_sign_in
 from .test_identity_sign_in_execution import on_a_league as on_the_sign_ins_league
@@ -46,14 +54,6 @@ from .test_identity_subject_execution import ADMIN_STORED, FUTURE_SAISON, call_s
 from .test_identity_subject_execution import IDENTIFIER as SUBJECTS_SEAT_HOLDER
 from .test_identity_subject_execution import on_a_league as on_the_subjects_league
 from .test_journal_replay import PERSON, PUPIL_OID, V, _app, _person, _withdrawal, journalled, served
-from .test_loeschung_auf_anfrage import CONFIG as REQUEST_CONFIG
-from .test_loeschung_auf_anfrage import erased_by_the_handler as geloescht_on_request
-from .test_loeschung_auf_anfrage import journal_lines
-from .test_loeschung_auf_anfrage import on_a_league as on_the_administrators_league
-from .test_loeschung_sweep import a_due_pupil, a_report_naming, seeded
-from .test_loeschung_sweep import numbered as pupil_numbered
-from .test_loeschung_sweep import on_a_league as on_the_pupils_league
-from .test_loeschung_sweep import run as a_deletion_call
 
 # The client a configuration hits, chosen by its name: the commits of every other client, each seed's own among them,
 # run as they would.

@@ -6,7 +6,7 @@ import { formatDatum, formatDatumLong, formatNumber, formatOrdinal, formatSigned
 
 import type { Copy, Words } from "./copy";
 import type { CalendarDay } from "./format";
-import type { Code } from "./generated/client/types";
+import type { Code, Rule } from "./generated/client/types";
 import type { ROUTES } from "./routes";
 
 /** The route keys of the pages a search engine may list. */
@@ -56,8 +56,10 @@ type RetentionBounds = {
 export const SERVER_COPY = catalogue({
   /**
    * A refusal's phrase under the field it is about, by the backend's code, for a code a person causes knowingly from
-   * a screen: one of `COPY.shared.field`'s patterns, and nothing else. A code no pattern words takes `refusalLine`'s
-   * sentence instead; every other code answers one of the shared failure lines `COPY.shared.failure` holds.
+   * a screen: one of `COPY.shared.field`'s patterns, and nothing else. A code whose phrase names a bound its refusal
+   * carries is worded from it by `fl_frontend/src/core/ruleMessage.ts :: ruleMessage` instead, and a code no pattern
+   * words takes `refusalLine`'s sentence; every other code answers one of the shared failure lines
+   * `COPY.shared.failure` holds.
    */
   refusal: {
     duplicate_key: COPY.shared.field.taken,
@@ -105,7 +107,7 @@ export const SERVER_COPY = catalogue({
     elfmeterschiessen_without_winner: "Das Elfmeterschießen hat keinen Sieger.",
     elfmeterschiessen_without_draw: "Das Ergebnis ist kein Unentschieden.",
     torschuetzen_not_matching_tore: "Die Torschützen passen nicht zum Ergebnis.",
-  },
+  } satisfies Partial<Record<Rule, string>>,
 
   /** The image a shared link's preview shows, by its alt, which a screen reader reads in the preview's place. */
   shareImage: {

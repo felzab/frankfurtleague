@@ -341,7 +341,7 @@ async def an_administrators_grant(database: AsyncDatabase) -> None:
 
 
 def an_erasure_of(email: str) -> dict[str, str]:
-    return {"email": email, "anlass": "Mail vom 30.03.2026"}
+    return {"email": email, "reason": "Mail vom 30.03.2026"}
 
 
 class TestAnErasureOnRequestEndingAGrant:

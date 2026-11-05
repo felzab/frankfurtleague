@@ -154,7 +154,7 @@ class TestEveryAddressPayloadHoldsTheSameRule:
 # The lookup the reveal and the sign-out take, and the erasure's, which takes it beside the request it answers.
 ERASURE_PAYLOADS: Mapping[str, Callable[[str], Any]] = {
     "the lookup": lambda email: FLErasureAddressPayload(email=email),
-    "the erasure": lambda email: FLErasurePayload(email=email, anlass="Mail vom 30.03.2026"),
+    "the erasure": lambda email: FLErasurePayload(email=email, reason="Mail vom 30.03.2026"),
 }
 
 

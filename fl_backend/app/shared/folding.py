@@ -1,9 +1,11 @@
 import re
 import unicodedata
-from typing import Any, Final
+from typing import Any, Final, LiteralString
 
 from email_validator import EmailNotValidError, ValidatedEmail, validate_email
-from pydantic_core import PydanticCustomError
+
+from app.core.codes import Rule
+from app.core.exceptions import rule_refusal
 
 # ECMAScript's `WhiteSpace` and `LineTerminator`, never `str.strip()`'s set, which takes U+0085 and
 # leaves U+FEFF: the two ends would part on a character nobody can see. Code points rather than an
@@ -17,7 +19,7 @@ _TRIMMED: Final = "".join(
 # the frontend lowers the same 26, so this step cannot part the two folds.
 _ASCII_LOWER: Final = str.maketrans("ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz")
 
-_REFUSAL: Final = ("email_not_accepted", "this is no email address the league accepts")
+_REFUSAL: Final[tuple[Rule, LiteralString]] = ("email_not_accepted", "this is no email address the league accepts")
 
 
 def trimmed(address: str) -> str:
@@ -33,7 +35,7 @@ def refuse_a_domain_beyond_ascii(address: str) -> str:
     """
 
     if not address.rpartition("@")[2].isascii():
-        raise PydanticCustomError(*_REFUSAL)
+        raise rule_refusal(*_REFUSAL)
 
     return address
 
@@ -43,7 +45,7 @@ def _validated(address: str) -> ValidatedEmail:
     # Before the library, which would take a Unicode domain and answer it in punycode: a second spelling of one
     # mailbox, which no fold of the typed address meets.
     if not bare.isascii():
-        raise PydanticCustomError(*_REFUSAL)
+        raise rule_refusal(*_REFUSAL)
 
     try:
         return validate_email(bare, allow_smtputf8=False, check_deliverability=False)
@@ -51,7 +53,7 @@ def _validated(address: str) -> ValidatedEmail:
         # `from None`, for the reason `app/core/config.py :: get_config` suppresses its own cause:
         # the library's message quotes the value it rejected, and no address reaches a traceback or
         # a log line.
-        raise PydanticCustomError(*_REFUSAL) from None
+        raise rule_refusal(*_REFUSAL) from None
 
 
 def league_address(address: str) -> str:

@@ -474,6 +474,7 @@ async def reactivate_schiedsrichter(
             db_filter=build_referee_filter(schiedsrichter_id),
             update={"$set": {"inactive_since": None, **minted}},
             session=session,
+            expected_version=None,
             return_document=ReturnDocument.AFTER,
         )
         if email is not None:
@@ -563,6 +564,7 @@ async def invite_schiedsrichter(
             db_filter=build_referee_filter(schiedsrichter_id),
             update={"$set": compose_mint_update(today=today)},
             session=session,
+            expected_version=None,
             return_document=ReturnDocument.AFTER,
         )
         await owe_the_bestaetigung(

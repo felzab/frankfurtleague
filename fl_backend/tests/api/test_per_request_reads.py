@@ -2,7 +2,7 @@
 API · which reads a per-request lookup sends, and in which session, counted off a client of the case's own
 
 Every signed-in render and every person endpoint pays these reads. The reads a lookup gathers are seen in flight together
-in `tests/api/test_loeschung_commit_fail_points.py`, the one module that holds the server's answers.
+in `tests/api/test_commit_fail_points.py`, the one module that holds the server's answers.
 """
 
 from collections import Counter

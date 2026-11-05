@@ -126,6 +126,7 @@ async def with_history(database: AsyncDatabase, *changes: dict[str, Any]) -> Non
             collection=database[Collection.ADDRESS_CHANGES],
             db_filter={"_id": change["_id"]},
             update={"$set": {"sent_at": change["sent_at"]}},
+            expected_version=None,
             return_document=ReturnDocument.BEFORE,
         )
 
@@ -219,7 +220,7 @@ def refusing_its_redaction(collection: Collection, row: Mapping[str, Any]) -> di
         "before": dict(row),
         "modified_count": None,
         "redacted_at": None,
-        "anlass": None,
+        "erasure_reason": None,
     }
 
 

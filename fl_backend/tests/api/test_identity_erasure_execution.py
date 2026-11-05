@@ -258,7 +258,13 @@ async def acting(actor: Any, call: Callable[[], Awaitable[Any]]) -> Any:
 async def edited(database: AsyncDatabase, collection: Collection, document_id: Any, update: Mapping[str, Any]) -> None:
     """One recorded edit, so the log holds the document's image as it stood: a seed alone writes no log row."""
 
-    await patch_one_in_db(collection=database[collection], db_filter={"_id": document_id}, update=update, return_document=ReturnDocument.BEFORE)
+    await patch_one_in_db(
+        collection=database[collection],
+        db_filter={"_id": document_id},
+        update=update,
+        expected_version=None,
+        return_document=ReturnDocument.BEFORE,
+    )
 
 
 # The reports a referee sent, one of theirs an undraw of an earlier season took, and another referee's.

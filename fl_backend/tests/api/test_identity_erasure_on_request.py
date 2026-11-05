@@ -1,7 +1,7 @@
 """
 API · an administrator's erasure on a mailed request, held against the person's own erasure's whole-database seed
 
-The seed is `tests/api/test_funktionen_loeschung.py`'s, one address holding every kind of record, beside
+The seed is `tests/api/test_identity_erasure_execution.py`'s, one address holding every kind of record, beside
 the suite's grants an administrator signs in through. Every case asks what the database holds after
 the request, so a step, a refusal or a reset missing from the route fails here.
 """
@@ -41,7 +41,7 @@ from app.core.journal import JOURNAL_TOKEN
 from app.core.recording import Actor
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.main import create_app
-from app.shared.schemas.bounds import ERASURE_ANLASS_MAX_LENGTH
+from app.shared.schemas.bounds import ERASURE_REASON_MAX_LENGTH
 from tests.app_client import app_client
 from tests.bans import ban_list
 from tests.config import ADMIN_KEY, ADMINISTRATORS, grants_for_the_suite
@@ -54,7 +54,7 @@ from tests.whole_database import where_held
 from tests.worker import worker_database
 
 from .conftest import config_for
-from .test_funktionen_loeschung import (
+from .test_identity_erasure_execution import (
     APPROVAL_REQUEST_BY_THEM_OID,
     APPROVAL_REQUEST_FOR_THEM_OID,
     BEWERBUNG_OID,
@@ -83,7 +83,7 @@ from .test_funktionen_loeschung import (
     as_person,
     everything_in,
 )
-from .test_funktionen_loeschung import PATH as OWN_ERASURE_PATH
+from .test_identity_erasure_execution import PATH as OWN_ERASURE_PATH
 
 DATABASE_NAME = worker_database("fl_loeschung_auf_anfrage_test")
 
@@ -98,7 +98,7 @@ OWNER, OPERATOR = ADMINISTRATORS[0], ADMINISTRATORS[1]
 ANOTHER_ADMINISTRATOR = ADMINISTRATORS[3]
 GRANT_ID_OF = {row["address"]: row["_id"] for row in grants_for_the_suite()}
 
-ANLASS = "Mail vom 30.03.2026, Betreff: Bitte löscht alle meine Daten"
+REASON = "Mail vom 30.03.2026, Betreff: Bitte löscht alle meine Daten"
 
 # An address a hand edit gave the referees' sentinel, which no erasure may reach through it.
 SENTINEL_ADDRESS = "von.hand@example.com"
@@ -155,8 +155,8 @@ async def posted(url: str, path: str, body: Mapping[str, Any], *, by: str = OPER
         return await http.post(path, json=dict(body), headers=StampedHeaders(by, ADMIN_KEY))
 
 
-def erasure_of(email: str = TYPED, anlass: str = ANLASS) -> dict[str, str]:
-    return {"email": email, "anlass": anlass}
+def erasure_of(email: str = TYPED, reason: str = REASON) -> dict[str, str]:
+    return {"email": email, "reason": reason}
 
 
 def view_of(email: str = TYPED) -> dict[str, str]:
@@ -164,12 +164,12 @@ def view_of(email: str = TYPED) -> dict[str, str]:
 
 
 async def erased_by_the_handler(
-    database: AsyncDatabase, client: AsyncMongoClient, *, email: str = TYPED, anlass: str = ANLASS, **replaced: Any
+    database: AsyncDatabase, client: AsyncMongoClient, *, email: str = TYPED, reason: str = REASON, **replaced: Any
 ) -> FLErasureResponse:
     """The route's own function outside a request, as `OPERATOR` signed in a minute ago, for a case driving the driver itself."""
 
     return await post_erasure(
-        erasure_data=FLErasurePayload(email=email, anlass=anlass),
+        erasure_data=FLErasurePayload(email=email, reason=reason),
         **erasure_collections(database, **replaced),
         ban_list=ban_list(database),
         # Refusing none: the window is held over HTTP, in `tests/api/test_step_up_execution.py`.
@@ -236,12 +236,12 @@ def _ranked(value: Any, rank: Mapping[ObjectId, int]) -> Any:
 def what_is_left(collections: Mapping[str, list[Any]]) -> Any:
     """The database by rank: two seeds mint ids in one order, so ranks compare where ids cannot.
 
-    Log rows drop their clock, the request's own their filer and `anlass`; each grant drops its anchor's count.
+    Log rows drop their clock, the request's own their filer and `erasure_reason`; each grant drops its anchor's count.
     """
 
     left = {name: [dict(document) for document in documents] for name, documents in collections.items()}
     for row in left.get(Collection.ACTION_LOG, []):
-        filed = ("actor", "anlass", "request", "trace_id") if row.get("request") is not None else ()
+        filed = ("actor", "erasure_reason", "request", "trace_id") if row.get("request") is not None else ()
         for key in ("at", "at_date", *filed):
             row.pop(key, None)
     for row in left.get(Collection.GRANTS, []):
@@ -594,12 +594,12 @@ class TestAGrantHoldersPendingChange:
 
 
 @pytest.mark.db
-class TestTheAnlass:
+class TestTheReason:
     """On every log row the administrator's erasure files, and on no other."""
 
     def test_every_row_the_loeschung_files_carries_it_stripped_and_no_other_row_does(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await posted(mongo_replica_set_url, PATH, erasure_of(anlass=f"  {ANLASS}  "))
+            response = await posted(mongo_replica_set_url, PATH, erasure_of(reason=f"  {REASON}  "))
 
             return response.status_code, await database[Collection.ACTION_LOG].find().to_list(length=None)
 
@@ -608,8 +608,8 @@ class TestTheAnlass:
 
         assert status == 200
         assert filed, "the erasure filed no row, so the assertion below holds of nothing"
-        assert {row["anlass"] for row in filed} == {ANLASS}
-        assert {row.get("anlass") for row in rows if row not in filed} == {None}
+        assert {row["erasure_reason"] for row in filed} == {REASON}
+        assert {row.get("erasure_reason") for row in rows if row not in filed} == {None}
 
     def test_a_write_its_context_records_afterwards_carries_none(self, mongo_replica_set_url: str):
         """Over HTTP each request runs in a context of its own, so a value left standing shows only in one context reused."""
@@ -622,18 +622,23 @@ class TestTheAnlass:
                     collection=database[Collection.TEAMS],
                     db_filter={"_id": OTHER_TEAM_OID},
                     update={"$set": {"name": "Gast-Schule am Main"}},
+                    expected_version=None,
                     return_document=ReturnDocument.BEFORE,
                 ),
             )
             rows = await database[Collection.ACTION_LOG].find().sort("_id", -1).to_list(length=None)
 
-            return rows[0], [row for row in rows if row.get("anlass") is not None]
+            return rows[0], [row for row in rows if row.get("erasure_reason") is not None]
 
         afterwards, carrying = on_a_league(mongo_replica_set_url, body)
 
-        assert (afterwards["collection"], afterwards["document_id"], afterwards["anlass"]) == (str(Collection.TEAMS), OTHER_TEAM_OID, None)
+        assert (afterwards["collection"], afterwards["document_id"], afterwards["erasure_reason"]) == (
+            str(Collection.TEAMS),
+            OTHER_TEAM_OID,
+            None,
+        )
         # The premise: the erasure in that context did set it.
-        assert carrying, "no row carries the anlass, so its reset was never needed"
+        assert carrying, "no row carries the reason, so its reset was never needed"
 
 
 class PupilsReadMeetingARival(InterleavedCollection):
@@ -730,7 +735,7 @@ class TestTheSignOut:
                 "before": None,
                 "modified_count": None,
                 "redacted_at": None,
-                "anlass": None,
+                "erasure_reason": None,
             }
         ]
         assert IDENTIFIER not in str(filed).lower()
@@ -739,30 +744,41 @@ class TestTheSignOut:
 
 
 # What a sign-out's row holds besides its clock and trace.
-ROW_KEYS = ("actor", "request", "collection", "operation", "document_id", "db_filter", "before", "modified_count", "redacted_at", "anlass")
+ROW_KEYS = (
+    "actor",
+    "request",
+    "collection",
+    "operation",
+    "document_id",
+    "db_filter",
+    "before",
+    "modified_count",
+    "redacted_at",
+    "erasure_reason",
+)
 
 
 # --- Refused by the payload, which the route validates before any read.
 
 
-class TestTheAnlassIsRefusedAtTheBox:
+class TestTheReasonIsRefusedAtTheBox:
     """A refusal alone tells nothing: one refused for another field is refused too, so the location is asserted."""
 
     @pytest.mark.parametrize(
         "body",
         [
             pytest.param({"email": TYPED}, id="none sent"),
-            pytest.param(erasure_of(anlass="   "), id="spaces alone"),
-            pytest.param(erasure_of(anlass="x" * (ERASURE_ANLASS_MAX_LENGTH + 1)), id="one past the bound"),
-            pytest.param(erasure_of(anlass="Mail vom 30.03.\nBetreff: Löschung"), id="two lines"),
-            pytest.param(erasure_of(anlass="Mail von anna.mueller@schule.de"), id="holding an address"),
+            pytest.param(erasure_of(reason="   "), id="spaces alone"),
+            pytest.param(erasure_of(reason="x" * (ERASURE_REASON_MAX_LENGTH + 1)), id="one past the bound"),
+            pytest.param(erasure_of(reason="Mail vom 30.03.\nBetreff: Löschung"), id="two lines"),
+            pytest.param(erasure_of(reason="Mail von anna.mueller@schule.de"), id="holding an address"),
         ],
     )
     def test_the_loeschung_is_refused_naming_it(self, body: dict[str, str]):
         with pytest.raises(ValidationError) as raised:
             FLErasurePayload.model_validate(body)
 
-        assert [error["loc"] for error in raised.value.errors()] == [("anlass",)]
+        assert [error["loc"] for error in raised.value.errors()] == [("reason",)]
 
 
 class TestADomainIsRefusedBeyondAscii:

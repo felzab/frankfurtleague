@@ -1,7 +1,7 @@
 // Redesign: goes with its last importer.
 import z from "zod";
 
-import { LOESCHUNG_ANLASS_MAX_LENGTH } from "@/features/funktionen/constants";
+import { ERASURE_REASON_MAX_LENGTH } from "@/features/funktionen/constants";
 import { ADRESSE_IM_GRUND_REGEX } from "@/features/sperrliste/schemas";
 import { CustomObjectIdStringSchema, KontaktEmailSchema, singleLineName } from "@/shared/schemas";
 
@@ -11,7 +11,7 @@ const AdresswechselGrundSchema = singleLineName(
     .string({ error: "Bitte gib einen Grund ein." })
     .trim()
     .nonempty({ error: "Bitte gib einen Grund ein." })
-    .max(LOESCHUNG_ANLASS_MAX_LENGTH, { error: `Der Grund darf höchstens ${String(LOESCHUNG_ANLASS_MAX_LENGTH)} Zeichen lang sein.` }),
+    .max(ERASURE_REASON_MAX_LENGTH, { error: `Der Grund darf höchstens ${String(ERASURE_REASON_MAX_LENGTH)} Zeichen lang sein.` }),
   "Der Grund",
 )
   // The log row outlives the change by a year, and no redaction reaches its reason.
