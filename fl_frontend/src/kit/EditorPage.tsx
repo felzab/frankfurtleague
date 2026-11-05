@@ -1,22 +1,25 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
 
 import { Form } from "react-aria-components/Form";
 
 import { COPY } from "@/core/copy";
 
+import { Button } from "./Button";
+import { ConfirmDialog } from "./ConfirmDialog";
 import { EditorBar } from "./EditorBar";
 import { FormClosed } from "./formClosed";
 import { formColumn, RailPage } from "./RailFrame";
 import { Section } from "./Section";
+import { usePasskeyTouch } from "./usePasskeyTouch";
 
 import type { Copy } from "@/core/copy";
 import type { ReactElement } from "react";
 import type { ChipProps } from "./Chip";
+import type { ConfirmDialogProps } from "./ConfirmDialog";
 import type { SaveWarning } from "./EditorBar";
 import type { PageTitle } from "./RailFrame";
-import type { DangerAct } from "./Section";
 import type { Editor, EditorValue } from "./useEditor";
 
 /**
@@ -25,6 +28,70 @@ import type { Editor, EditorValue } from "./useEditor";
  * match has taken place. A sentence under a field is cut at the field's width, and a short field is narrower than one.
  */
 export type EditorSection = { id: string; title: Copy; help?: Copy; note?: Copy; fields: ReactElement };
+
+/**
+ * An irreversible or retiring act, which stands as one row in an editor's last box: its name and its
+ * consequence at the left, its button at the right, which asks before it acts.
+ */
+export type DangerAct = {
+  name: Copy;
+  consequence: Copy;
+  /** The question its button opens; the button carries the question's verb and tone. */
+  confirm: Omit<ConfirmDialogProps, "trigger" | "open">;
+  /**
+   * The passkey touch before the question, for an act on its fixed list: whether the person holds a passkey,
+   * which the page read, and the address the page was drawn for (`usePasskeyTouch`).
+   */
+  touch?: { held: boolean; holder: string };
+};
+
+/**
+ * One danger row. An act behind the passkey touch asks the touch on its press, its button busy until the
+ * browser's prompt answers, and only then its question; a touch the passkey did not answer opens nothing, and
+ * the row's second line says so in place of the consequence, as a Konto box's line says why its act did not run.
+ */
+function DangerRow({ act }: { act: DangerAct }) {
+  const [isAsking, setAsking] = useState(false);
+  const { run, refusal, isTouching } = usePasskeyTouch(act.touch?.held ?? false, act.touch?.holder);
+  const label = COPY.shared.verb[act.confirm.verb];
+  return (
+    <div className="flex min-h-14 items-center gap-3 rounded-lg border border-[color-mix(in_srgb,var(--danger)_45%,var(--border))] px-4 py-2 lg:min-h-13">
+      <div className="grid min-w-0 flex-1 text-sm">
+        <span className="font-semibold">{act.name}</span>
+        {/* A polite status from the first render, so the touch's refusal is announced as it replaces the consequence. */}
+        <span
+          role="status"
+          className={refusal === null ? "text-xs text-fg-muted" : "text-xs text-danger"}>
+          {refusal ?? act.consequence}
+        </span>
+      </div>
+      {act.touch === undefined ? (
+        <ConfirmDialog
+          {...act.confirm}
+          trigger={
+            <Button
+              variant={act.confirm.tone}
+              label={label}
+            />
+          }
+        />
+      ) : (
+        <>
+          <Button
+            variant={act.confirm.tone}
+            label={label}
+            isBusy={isTouching}
+            onPress={() => void run(() => setAsking(true))}
+          />
+          <ConfirmDialog
+            {...act.confirm}
+            open={{ isOpen: isAsking, onOpenChange: setAsking }}
+          />
+        </>
+      )}
+    </div>
+  );
+}
 
 /**
  * The editor template: its sections one under another in the column of at most 760 px centred in the
@@ -101,7 +168,16 @@ export function EditorPage<Values extends Record<string, EditorValue>>({
               help={section.help}
               // A closed record's one reason covers every field, so it stands alone, under the first box's title.
               note={closed === undefined ? section.note : index === 0 ? closed : undefined}
-              danger={index === last && closed === undefined ? danger : undefined}>
+              danger={
+                index === last &&
+                closed === undefined &&
+                danger?.map((act) => (
+                  <DangerRow
+                    key={act.name}
+                    act={act}
+                  />
+                ))
+              }>
               {section.fields}
             </Section>
           ))}
