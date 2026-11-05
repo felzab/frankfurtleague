@@ -50,6 +50,23 @@ def has_started(*, start_date: str, today: str) -> bool:
     return start_date <= today
 
 
+def find_saison_id_refusal(*, taken: bool) -> WriteRefusal | None:
+    """`duplicate_key` on the id: a season already holds it, so the create dialog's year field can say so.
+
+    Takes the answer rather than the lookup, so the caller's read runs in the caller's transaction. The `_id` index still
+    answers a race between two creates, as `duplicate_key` with no field.
+    """
+
+    if not taken:
+        return None
+
+    return WriteRefusal(
+        error_code=Code.DUPLICATE_KEY,
+        status=HTTPStatus.CONFLICT,
+        fields=(("id",),),
+    )
+
+
 def find_saison_start_refusal(*, stored_start_date: str, proposed_start_date: str, taken_place: bool) -> WriteRefusal | None:
     """Why moving this season's start must be refused, or `None`: once a fixture of it has taken place, the start is fixed.
 

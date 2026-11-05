@@ -62,6 +62,7 @@ from app.api.saisons.services import (
     find_berichte_refusal,
     find_rules_freeze_refusal,
     find_rules_refusal,
+    find_saison_id_refusal,
     find_saison_span_refusal,
     find_saison_start_refusal,
     find_spielplan_refusal,
@@ -332,7 +333,7 @@ async def post_saison(
     Create a season, always `future`.
 
     The id is supplied rather than generated -- it is the string every `saison_id` elsewhere
-    references, so reusing one comes back 409. Making the season live is a separate step.
+    references, so reusing one is refused `duplicate_key`, naming `id`. Making the season live is a separate step.
     """
 
     refuse(
@@ -355,6 +356,8 @@ async def post_saison(
     )
 
     async def enter_the_season(session: AsyncClientSession) -> InsertOneResult:
+        holder = await saisons_collection.find_one({"_id": saison_data.id}, projection={"_id": 1}, session=session)
+        refuse(find_saison_id_refusal(taken=holder is not None))
         return await post_one_to_db(
             collection=saisons_collection,
             # `_id` rather than `id`: this payload's `id` IS the document key.
