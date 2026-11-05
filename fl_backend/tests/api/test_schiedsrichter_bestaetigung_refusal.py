@@ -77,7 +77,7 @@ class TestTheRecordTheConfirmationWrites:
             at=CONFIRMED_AT,
         )
 
-        assert set(update) == {"$set"}
+        assert set(update) == {"$set", "$unset"}
         assert set(update["$set"]) == {"geburtsdatum", EINWILLIGUNG_FELD}
 
     def test_the_record_is_born_with_each_choice_evidenced_by_the_confirmation(self):

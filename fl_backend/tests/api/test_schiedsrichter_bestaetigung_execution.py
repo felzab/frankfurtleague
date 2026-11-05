@@ -1,6 +1,6 @@
 import dataclasses
 from collections.abc import Awaitable, Callable, Mapping
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -27,8 +27,10 @@ from app.api.schiedsrichter.schemas import (
 from app.api.schiedsrichter.services import (
     BESTAETIGUNG_FELD,
     EINWILLIGUNG_FELD,
+    ERASE_AT_FIELD,
     bestaetigung_frist_from,
     compose_bestaetigung,
+    erase_at_from,
 )
 from app.core.codes import Code
 from app.core.collections import Collection
@@ -275,6 +277,8 @@ class TestTheCreateIsTheInvitation:
         assert response.answer.confirmation is not None
         assert row[BESTAETIGUNG_FELD]["token_hashes"] == [hash_token(str(response.token))]
         assert row[BESTAETIGUNG_FELD]["frist"] == response.answer.confirmation.frist == bestaetigung_frist_from(today=TODAY)
+        # The clock the TTL index reads: absent, the unanswered entry outlives the fourteen days the notice promises.
+        assert row[ERASE_AT_FIELD].replace(tzinfo=UTC) == erase_at_from(frist=bestaetigung_frist_from(today=TODAY))
 
     def test_the_link_the_create_answered_opens_that_referees_entry(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:

@@ -1,9 +1,11 @@
 from collections.abc import Mapping, Sequence
+from datetime import date, datetime, time, timedelta
 from http import HTTPStatus
 from typing import Any, Final
 
 from app.api.bewerbungen.services import days_after
 from app.api.spiele.schemas import unplayed_filter
+from app.core import clock
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import WriteRefusal
@@ -164,11 +166,22 @@ ADDRESS_PATH: Final = "kontakt.email"
 
 EINWILLIGUNG_FELD: Final = "einwilligung"
 
+# The instant the database removes an unanswered or declined entry (`app/core/constraints.py :: TTL_INDEXES`). On the
+# record rather than inside the block: a retired referee's corrected address drops the block, and the entry its
+# person never confirmed still goes on the clock its last link started.
+ERASE_AT_FIELD: Final = "erase_at"
+
 
 def bestaetigung_frist_from(*, today: str) -> str:
     """The day the link stops working, counted from the mint -- a re-send restarts it."""
 
     return days_after(day=today, days=SCHIEDSRICHTER_CONFIRMATION_FRIST_DAYS)
+
+
+def erase_at_from(*, frist: str) -> datetime:
+    """The German midnight closing the deadline's day: the link still answers on that day, so the entry outlives it."""
+
+    return datetime.combine(date.fromisoformat(frist) + timedelta(days=1), time(), tzinfo=clock.GERMANY)
 
 
 def compose_bestaetigung(*, today: str) -> dict[str, Any]:
@@ -178,9 +191,9 @@ def compose_bestaetigung(*, today: str) -> dict[str, Any]:
 
 
 def compose_mint_update(*, today: str) -> dict[str, Any]:
-    """The WHOLE block, so every link the referee was sent before stops working at this write."""
+    """The WHOLE block, so every link the referee was sent before stops working at this write, and the clock it restarts."""
 
-    return {BESTAETIGUNG_FELD: compose_bestaetigung(today=today)}
+    return {BESTAETIGUNG_FELD: compose_bestaetigung(today=today), ERASE_AT_FIELD: erase_at_from(frist=bestaetigung_frist_from(today=today))}
 
 
 def compose_einwilligung(*, scope: str, media: bool, today: str) -> dict[str, Any]:
@@ -211,7 +224,8 @@ def compose_confirmation_update(
     # of this referee's stands on, and a dotted `$set` under a null block aborts the transaction.
     record = compose_initial(block=compose_einwilligung(scope=scope, media=media, today=today), at=at, text_versions=text_versions)
 
-    return {"$set": {"geburtsdatum": geburtsdatum, EINWILLIGUNG_FELD: record}}
+    # The clock goes with the answer: a confirmed entry stays until its person or the league ends it.
+    return {"$set": {"geburtsdatum": geburtsdatum, EINWILLIGUNG_FELD: record}, "$unset": {ERASE_AT_FIELD: ""}}
 
 
 def build_token_filter(*, token_hash: str) -> Mapping[str, Any]:

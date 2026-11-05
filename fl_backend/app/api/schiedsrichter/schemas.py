@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
@@ -94,6 +95,9 @@ class FLSchiedsrichterRecord(FLSchiedsrichter, Anchored):
     """A referee as `schiedsrichter` stores them."""
 
     confirmation: FLSchiedsrichterBestaetigungRecord | None = None
+    # Held while the entry is unanswered or declined, and absent once confirmed and on the ghost, neither of which
+    # expires (`app/api/schiedsrichter/services.py :: ERASE_AT_FIELD`).
+    erase_at: datetime | None = None
 
     @model_validator(mode="after")
     def _cites_a_referees_wordings(self) -> Self:

@@ -35,7 +35,6 @@ from app.api.schiedsrichter.services import (
     build_real_referees_filter,
     build_referee_filter,
     build_unplayed_assignment_filter,
-    compose_bestaetigung,
     compose_korrektur_update,
     compose_mint_update,
     find_already_confirmed_refusal,
@@ -228,7 +227,7 @@ async def post_schiedsrichter(
             collection=schiedsrichter_collection,
             document={
                 **schiedsrichter_data.model_dump(mode="json"),
-                BESTAETIGUNG_FELD: compose_bestaetigung(today=today),
+                **compose_mint_update(today=today),
             },
             session=session,
         )
