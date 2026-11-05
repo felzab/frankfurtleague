@@ -29,7 +29,9 @@ const spieleNamed = (nrs: readonly number[]) => `Spiel ${formatList(nrs.map(form
 // of an entry that goes alone, the objection Art. 21 (4) asks to be named explicitly, in the two parts around the
 // league's address, and the privacy notice's link, around its title.
 const ageCheck = (minAge: number) => `Mit deinem Geburtsdatum prüfen wir, ob du mindestens ${formatNumber(minAge)} Jahre alt bist.`;
-const entryDeadline = (until: CalendarDay) => `Bestätigst du nicht bis zum ${formatDatumLong(until)}, löschen wir deinen Eintrag.`;
+// In the two parts around its day, which a mail sets semibold between them.
+const ENTRY_DEADLINE = { before: "Bestätigst du nicht bis zum", after: ", löschen wir deinen Eintrag." };
+const entryDeadline = (until: CalendarDay) => `${ENTRY_DEADLINE.before} ${formatDatumLong(until)}${ENTRY_DEADLINE.after}`;
 const OBJECTION_RIGHT = {
   before:
     "Du kannst der Verarbeitung deiner Angaben jederzeit widersprechen, aus Gründen, die sich aus deiner besonderen Situation ergeben (Art. 21 DSGVO). Eine formlose E-Mail an ",
@@ -38,6 +40,10 @@ const OBJECTION_RIGHT = {
 const MORE = { before: "Mehr unter ", after: "." };
 // What an objection does to an entry that stands alone, a contact's season row's and a referee's alike.
 const OBJECTION_DELETES_ENTRY = "Widersprichst du, löschen wir deinen Eintrag.";
+// A referee's confirmation's opening, which its mail opens on too, and what the league stores of the entry.
+const REFEREE_OPENING = "Die Liga hat dich als Schiedsrichterin oder Schiedsrichter für ihre Spiele eingetragen.";
+const REFEREE_STORED =
+  "Wir speichern deinen Namen, deine Kontaktdaten, dein Honorar, dein Geburtsdatum und deine Schule, wenn sie angegeben ist, bis du oder die Liga den Eintrag beenden.";
 
 /**
  * The bounds the frontend's code holds that the privacy notice's retention table states, passed by its page. An hour
@@ -766,13 +772,11 @@ export const SERVER_COPY = catalogue({
    * league's address stands in the first-contact mail, and each consent's line names the privacy notice.
    */
   schiedsrichterConfirmation: {
-    question: (until: CalendarDay) =>
-      [
-        "Die Liga hat dich als Schiedsrichterin oder Schiedsrichter für ihre Spiele eingetragen.",
-        "Wir speichern deinen Namen, deine Kontaktdaten, dein Honorar, dein Geburtsdatum und deine Schule, wenn sie angegeben ist, bis du oder die Liga den Eintrag beenden.",
-        entryDeadline(until),
-        OBJECTION_DELETES_ENTRY,
-      ].join(" "),
+    /** The page's and the mail's first sentence. */
+    opening: REFEREE_OPENING,
+    /** The deadline in the two parts around its day: the mail sets the day semibold, the page writes it plain. */
+    deadline: ENTRY_DEADLINE,
+    question: (until: CalendarDay) => [REFEREE_OPENING, REFEREE_STORED, entryDeadline(until), OBJECTION_DELETES_ENTRY].join(" "),
     /** The two ends of an answer, and of a link opened again after it. */
     confirmed: "Eintrag bestätigt",
     objected: "Widersprochen",
