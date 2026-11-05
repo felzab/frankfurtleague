@@ -11,7 +11,7 @@ from app.api.address_change.services import build_address_filter
 from app.api.berechtigungen.guard import verify_actor_is_admin
 from app.api.outbox.crud import state_of
 from app.api.outbox.schemas import FLOutboxReference
-from app.api.schiedsrichter.crud import owe_the_confirmation
+from app.api.schiedsrichter.crud import name_is_taken, owe_the_confirmation
 from app.api.schiedsrichter.schemas import (
     FLPatchSchiedsrichterPayload,
     FLPatchSchiedsrichterResponse,
@@ -41,6 +41,7 @@ from app.api.schiedsrichter.services import (
     find_barred_refusal,
     find_confirmed_address_refusal,
     find_missing_address_refusal,
+    find_referee_name_refusal,
     find_referee_retire_refusal,
     find_retired_refusal,
     first_stamped,
@@ -199,7 +200,8 @@ async def post_schiedsrichter(
     whether this person is asked, because a referee nobody asked is a name nobody consented to
     publish. The link goes out through the Postausgang, which mints it; the answer names the address and the deadline.
 
-    Refused `schiedsrichter_address_barred` where the address given is on the ban list.
+    Refused where another referee holds the name (`duplicate_key`, naming `name`), then
+    `schiedsrichter_address_barred` where the address given is on the ban list.
     """
 
     email = schiedsrichter_data.kontakt.email
@@ -209,7 +211,12 @@ async def post_schiedsrichter(
     governing_saison_id = await ban_list_saison(ban_list)
 
     async def judge_and_create(session: AsyncClientSession) -> Any:
-        """Ask the ban list, then write. The check is handed the transaction's session, so a retry re-asks it."""
+        """Ask after the name and the ban list, then write. Each check is handed the transaction's session, so a retry re-asks it."""
+
+        taken = await name_is_taken(
+            schiedsrichter_collection=schiedsrichter_collection, name=schiedsrichter_data.name, schiedsrichter_id=None, session=session
+        )
+        refuse(find_referee_name_refusal(taken=taken))
 
         # The season stays `None` while no season is running, and the ban list is asked on the
         # hash alone, as the correction and the re-send ask it (`schiedsrichter_address_barred`).
@@ -283,6 +290,8 @@ async def patch_schiedsrichter(
     reactivation mints the fresh one. Where a link is minted, a banned new address is refused
     `schiedsrichter_address_barred`.
 
+    Refused where another referee holds the name (`duplicate_key`, naming `name`), ahead of the address's refusals.
+
     The ghost answers 404 here as it does to every read: a name written onto it would appear on the
     fixtures of every referee already erased.
     """
@@ -303,6 +312,13 @@ async def patch_schiedsrichter(
             projection={"kontakt.email": 1, EINWILLIGUNG_FELD: 1, "inactive_since": 1},
             session=session,
         )
+        taken = await name_is_taken(
+            schiedsrichter_collection=schiedsrichter_collection,
+            name=schiedsrichter_data.name,
+            schiedsrichter_id=schiedsrichter_id,
+            session=session,
+        )
+        refuse(find_referee_name_refusal(taken=taken))
         refuse(find_confirmed_address_refusal(stored=stored, payload_email=email))
         update, minted = compose_correction_update(stored=stored, payload=payload, payload_email=email, today=today)
 

@@ -109,18 +109,17 @@ def address(team_id: ObjectId, seat: str) -> str:
     return f"{SEATS[team_id][seat].lower()}@example.com"
 
 
+# As the fixture stores them, naming nothing: every name the pass mails is joined from its own row.
 def side(team_id: ObjectId, tore: int | None = None) -> dict[str, Any]:
-    name, shorthand = NAMES[team_id]
-
-    return {"team_id": team_id, "name": name, "shorthand": shorthand, "tore": tore}
+    return {"team_id": team_id, "tore": tore}
 
 
 def ort() -> dict[str, Any]:
-    return {"spielort_id": SPIELORT, "name": "Sportpark", "maps_link": "Sportpark, Frankfurt", "mietpreis": 80}
+    return {"spielort_id": SPIELORT, "mietpreis": 80}
 
 
 def booked(schiedsrichter_id: ObjectId = SCHIEDSRICHTER) -> dict[str, Any]:
-    return {"schiedsrichter_id": schiedsrichter_id, "name": None if schiedsrichter_id == GHOST_SCHIEDSRICHTER_ID else "Pfiff", "payment": 20}
+    return {"schiedsrichter_id": schiedsrichter_id, "payment": 20}
 
 
 def fixture(spiel_id: ObjectId, spiel_nr: int, datum: str | None, *, saison_id: str = SAISON_ID, **fields: Any) -> dict[str, Any]:
@@ -355,8 +354,11 @@ async def handed_out(
         if kind in ("spiel_request", "spiel_reminder"):
             key = (kind, row_id)
             seite = seite_of(row)
-            # The club the request names is the one on the side its seats answer for, as the fixture spells it.
-            assert data["team"] == fixtures[row["spiel_id"]][seite]["name"], (data["team"], seite)
+            # The club the request names is the one on the side its seats answer for, by its season row's name.
+            fielded = await database[Collection.SAISON_TEAMS].find_one(
+                {"saison_id": row["saison_id"], "team_id": fixtures[row["spiel_id"]][seite]["team_id"]}
+            )
+            assert fielded is not None and data["team"] == fielded["name"], (data["team"], seite)
             if key not in grouped:
                 grouped[key] = Anfrage(
                     spielbestaetigung_id=row_id,

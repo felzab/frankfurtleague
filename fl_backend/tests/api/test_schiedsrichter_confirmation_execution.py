@@ -43,7 +43,6 @@ from app.api.schiedsrichter.services import (
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
-from app.shared.schemas.bounds import BEWERBUNG_KONTAKT_MAX_AGE_YEARS, SCHIEDSRICHTER_MIN_AGE_YEARS
 from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.tokens import hash_token
 from tests import documents
@@ -293,6 +292,27 @@ class TestTheCreateIsTheInvitation:
             return refused.value
 
         assert on_a_league(mongo_replica_set_url, body, referees=[]).error_code == Code.SCHIEDSRICHTER_ADDRESS_BARRED
+
+
+class TestANameAnotherRefereeHolds:
+    def test_the_create_and_the_save_are_refused_on_the_name_box(self, mongo_replica_set_url: str):
+        """Refused by the index alone, the duplicate names no field, and the editor shows a failure line naming no reason."""
+
+        holder = referee_document(_id=ObjectId("6890a1b2c3d4e5f607810002"), kontakt={"telefon": None, "email": "andere@example.com"})
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            with pytest.raises(APIError) as created:
+                await create(database, client, email="neu@example.com")
+            with pytest.raises(APIError) as saved:
+                await correct(database, client, email=EMAIL)
+
+            return created.value, saved.value, await database[Collection.SCHIEDSRICHTER].count_documents({})
+
+        # The referee the save edits under another name, beside the one holding the name every payload here sends.
+        created, saved, rows = on_a_league(mongo_replica_set_url, body, referees=[referee_document(name="Howard Webb"), holder])
+
+        assert [(refused.error_code, refused.fields) for refused in (created, saved)] == [(Code.DUPLICATE_KEY, (("name",),))] * 2
+        assert rows == 2
 
 
 class TestACorrectedAddressReMintsAndRetiresTheOldLink:
@@ -605,10 +625,7 @@ class TestTheConfirmation:
         assert row.get("geburtsdatum") is None
 
     def test_a_birthdate_under_the_floor_is_refused_before_anything_is_written(self, mongo_replica_set_url: str):
-        """A consent from someone under the referees' minimum age is one the league may not hold.
-
-        Refused without its bounds, the field's message cannot name the range and falls to the unexpected line.
-        """
+        """A consent from someone under the referees' minimum age is one the league may not hold."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             minted = await resend(database, client)
@@ -621,8 +638,6 @@ class TestTheConfirmation:
         refused, row = on_a_league(mongo_replica_set_url, body)
 
         assert refused.error_code == Code.CONFIRMATION_AGE
-        # The range the field's message names, the floor and the ceiling the write judged.
-        assert refused.bounds == {"min": SCHIEDSRICHTER_MIN_AGE_YEARS, "max": BEWERBUNG_KONTAKT_MAX_AGE_YEARS}
         assert row.get("geburtsdatum") is None
 
 

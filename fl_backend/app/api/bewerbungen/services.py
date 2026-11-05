@@ -35,6 +35,7 @@ from app.shared.einwilligung_evidence import TextVersions, compose_choices
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.bounds import (
     BEWERBUNG_CONFIRMATION_DEADLINE_DAYS,
+    BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
     BEWERBUNG_KONTAKT_MIN_AGE_YEARS,
     BEWERBUNG_REMINDER_DAYS,
     LIST_LIMIT_MAX,
@@ -561,6 +562,7 @@ def find_alter_refusal(*, geburtsdatum: str, today: str, minimum_age: int) -> Wr
             error_code=Code.CONFIRMATION_AGE,
             status=HTTPStatus.UNPROCESSABLE_CONTENT,
             fields=(("geburtsdatum",),),
+            bounds={"min": minimum_age, "max": BEWERBUNG_KONTAKT_MAX_AGE_YEARS},
         )
 
     return None

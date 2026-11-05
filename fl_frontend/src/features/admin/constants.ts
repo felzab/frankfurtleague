@@ -84,7 +84,7 @@ export const HANDLUNGSBEDARF_EINTRAG = {
 } as const satisfies SidemenuStructureSubOption<AdminIconName>;
 
 /** The season list's entry, named where a taken season id sends a reader to the existing season, so a rename reaches both. */
-export const SAISONS_EINTRAG = {
+const SAISONS_EINTRAG = {
   id: "saisons",
   label: "Saisons",
   iconName: "Sliders",
@@ -92,44 +92,6 @@ export const SAISONS_EINTRAG = {
     lead: "Alle Saisons, mit Zeitraum und Regeln.",
     // What an admin comes here to do and cannot: no row carries a delete control, and none ever will.
     note: "Eine Saison wird nie gelöscht.",
-  },
-} as const satisfies SidemenuStructureSubOption<AdminIconName>;
-
-/** The season's matchdays, named where the season editor sends a reader to date them, so a rename reaches both. */
-export const SPIELTAGE_EINTRAG = {
-  id: "spieltage",
-  label: "Spieltage",
-  iconName: "Calendar",
-  hint: {
-    lead: "Die Spieltage der Saison.",
-    // What an admin comes here to do and cannot: this list has no create control, and the
-    // draw that makes a Spieltag is on the season page.
-    note: "Spieltage entstehen zusammen mit dem Spielplan.",
-  },
-} as const satisfies SidemenuStructureSubOption<AdminIconName>;
-
-/** The knockout rounds' entry, named where the season list says what an empty league leaves blank, so a rename reaches both. */
-export const FINALRUNDEN_EINTRAG = {
-  id: "finalrunden",
-  label: "Finalrunden",
-  iconName: "Medal",
-  hint: {
-    lead: "Die Finalrunden der Saison.",
-  },
-} as const satisfies SidemenuStructureSubOption<AdminIconName>;
-
-/** The fixture search's entry, named where the season list says what an empty league leaves blank, so a rename reaches both. */
-export const SPIELSUCHE_EINTRAG = {
-  id: "spielsuche",
-  label: "Spielsuche",
-  iconName: "Magnifier",
-  hint: {
-    lead: "Alle Spiele der Saison.",
-    points: [
-      // Herkunft is searched as the label a reader sees — „Sieger von Spiel 25“ finds the
-      // fixture fed by match 25, which no other term here would.
-      { term: "Gesucht werden kann nach", detail: "Team, Herkunft, Ort, Datum, Spielnummer und Schiedsrichter." },
-    ],
   },
 } as const satisfies SidemenuStructureSubOption<AdminIconName>;
 

@@ -14,7 +14,13 @@ from app.api.outbox.crud import states_of
 from app.api.outbox.schemas import FLOutboxData, FLOutboxStatus, FLSpielEinteilungData, FLSpielMailAppointment, FLSpielRequestData
 from app.api.outbox.services import OwedMail, enqueue_mails
 from app.api.sperrliste.lookup import BanListLookup, ban_list_saison, barred_addresses
-from app.api.spielbestaetigungen.crud import anchor_the_mailboxes_told, anchor_the_referees_told, anchor_the_seats_minted
+from app.api.spielbestaetigungen.crud import (
+    JUDGED_SPIEL_FIELDS,
+    anchor_the_mailboxes_told,
+    anchor_the_referees_told,
+    anchor_the_seats_minted,
+    pull_named_spiele,
+)
 from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigungGrund,
     FLSpielbestaetigungSweepResponse,
@@ -108,8 +114,12 @@ async def _spiele(
         return {}
 
     return _by(
-        await pull_many_from_db(
-            collection=spiele_collection, db_filter={"saison_id": saison_id, "_id": {"$in": wanted}}, limit=LIST_LIMIT_MAX, session=session
+        await pull_named_spiele(
+            spiele_collection=spiele_collection,
+            db_filter={"saison_id": saison_id, "_id": {"$in": wanted}},
+            projection=JUDGED_SPIEL_FIELDS,
+            limit=LIST_LIMIT_MAX,
+            session=session,
         ),
         "_id",
     )
@@ -511,9 +521,10 @@ async def sweep_spielbestaetigungen(
         """
 
         spiele = await batch.saw(
-            pull_many_from_db(
-                collection=spiele_collection,
+            pull_named_spiele(
+                spiele_collection=spiele_collection,
                 db_filter=batch.within(build_anfrage_filter(saison_id=saison_id, today=today)),
+                projection=JUDGED_SPIEL_FIELDS,
                 # Soonest first, so the fixture whose deadline comes first is asked first.
                 sort_by=[("datum", ASCENDING), ("uhrzeit", ASCENDING), ("_id", ASCENDING)],
                 limit=SWEEP_PAGE + 1,

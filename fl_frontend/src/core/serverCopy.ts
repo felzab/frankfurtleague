@@ -20,7 +20,7 @@ const PLATZ = "Platz";
 const TEAM = "Team";
 const DIFFERENZ = "Diff.";
 const SPIELBETRIEB = "Spielbetrieb";
-const gruppeName = (gruppe: string) => `Gruppe ${gruppe}`;
+const gruppeName = COPY.shared.season.gruppe;
 const placeName = (platz: number) => `${formatOrdinal(platz)} ${PLATZ}`;
 // Matches by their numbers, „Spiel 4, 7 und 9“, as the match editor's done line names the others it changed.
 const spieleNamed = (nrs: readonly number[]) => `Spiel ${formatList(nrs.map(formatNumber))}`;
@@ -116,6 +116,12 @@ export const SERVER_COPY = catalogue({
      * it, so it reads as the stale page it is.
      */
     schiedsrichter_address_only_per_change: COPY.shared.failure.stale,
+    // A season's rules and its activation, each a fact the person reads off the season editor itself.
+    rules_bracket_impossible: COPY.admin.saison.bracketImpossible,
+    rules_spiele_over_one_read: COPY.admin.saison.tooManySpiele,
+    activate_target_undrawn: COPY.admin.saison.noDraw,
+    activate_saison_unfinished: COPY.admin.saison.unfinished,
+    activate_spieltage_undated: COPY.admin.saison.undated,
     eligibility_disqualified: {
       team1: `${team1} ist aus der Saison ausgeschieden.`,
       team2: `${team2} ist aus der Saison ausgeschieden.`,
@@ -264,6 +270,19 @@ export const SERVER_COPY = catalogue({
     addressChange: {
       /** The address on file's request opens on the page's question; the subject is the page's title. */
       previousEffect: "Sie gilt, sobald beide Adressen sie bestätigt haben.",
+    },
+
+    /**
+     * A team's registration link, to a confirmed contact seat: the link stands alone in the box, to be passed on
+     * rather than pressed. It names no end date, since a window moved later moves every link with it.
+     */
+    einladung: {
+      subject: (team: string) => `Registrierungslink für ${team}`,
+      passOn: (saison: string, team: string) =>
+        `Gib diesen Link an alle weiter, die in der ${COPY.shared.saisonName(saison)} für ${team} spielen.`,
+      key: "Wer den Link hat, kann sich für dein Team registrieren.",
+      admission: "In den Kader kommt nur, wen dein Team aufnimmt.",
+      valid: "Der Link gilt bis zum Ende der Registrierung.",
     },
   },
 

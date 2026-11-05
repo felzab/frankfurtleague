@@ -4,12 +4,11 @@ import { toActionErrorResult } from "@/shared/utils/actionError";
 import { runAdminMutation } from "@/shared/utils/adminMutation";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
-import { deleteTeam, patchSaisonTeam, patchTeam, postSaisonTeam, postTeam, reactivateTeam, replaceSaisonTeam } from "./mutations";
+import { deleteTeam, patchSaisonTeam, patchTeam, postSaisonTeam, postTeam, reactivateTeam } from "./mutations";
 import {
   mapAlreadyEnteredRefusal,
   mapCreatedClubEntryRefusal,
   mapEntryRefusal,
-  mapReplacementRefusal,
   mapRetireRefusal,
   mapShorthandRefusal,
   SHORTHAND_TAKEN_ON_CREATE,
@@ -22,16 +21,9 @@ import {
   FLPatchTeamPayloadSchema,
   FLPostSaisonTeamPayloadSchema,
   FLReactivateTeamPayloadSchema,
-  FLReplaceSaisonTeamPayloadSchema,
 } from "./schemas";
-import { describeReplacementUmfang } from "./utils";
 
-import type {
-  FLPatchTeamPayload,
-  FLReplaceSaisonTeamPayload,
-  FLReplaceSaisonTeamResponse,
-  FLSaisonTeamResponse,
-} from "@/core/generated/client/types";
+import type { FLPatchTeamPayload, FLSaisonTeamResponse } from "@/core/generated/client/types";
 import type { ActionFailure, ActionResult } from "@/shared/types/types";
 import type { SaisonTeamEnterDraft, SaisonTeamMembershipDraft, TeamCreateDraft } from "./types";
 
@@ -220,52 +212,6 @@ export async function patchSaisonTeamAction(
       success: true,
       saison_team: saisonTeam,
       message: "Saison-Zugehörigkeit gespeichert",
-    };
-  });
-}
-
-/**
- * One season's junction row, and every fixture standing on it, change hands. The schedule survives;
- * the outgoing club's `austritt` does not, because the row keeps only one, and its live squad rows
- * for the season are retired.
- */
-export async function replaceSaisonTeamAction(
-  rawPayload: FLReplaceSaisonTeamPayload & { team_id: string; saison_id: string },
-): Promise<ActionResult<{ replacement?: FLReplaceSaisonTeamResponse }>> {
-  return runAdminMutation("replaceSaisonTeamAction", { stepUp: true }, async () => {
-    const validated = FLReplaceSaisonTeamPayloadSchema.safeParse(rawPayload);
-
-    if (!validated.success) {
-      return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
-    }
-
-    // A 409 the mapper does not claim is the unique index on the junction's natural key, which the
-    // generic conflict message already describes correctly.
-    let replacement;
-    try {
-      replacement = await replaceSaisonTeam(validated.data);
-    } catch (error) {
-      const refusal = mapReplacementRefusal(error);
-      if (refusal !== null) {
-        return { success: false, error: refusal };
-      }
-      throw error;
-    }
-
-    // Both halves said at zero too: the squad is the half of this write that reaches no page the
-    // admin is looking at, so "none were" is as much the answer as a number is.
-    const umfang = describeReplacementUmfang({
-      fannedOutToSpiele: replacement.fanned_out_to_spiele,
-      ausgetrageneSquadRows: replacement.ausgetragene_kader_rows,
-    });
-
-    return {
-      success: true,
-      replacement,
-      // The cleared austritt as STATE rather than an event: the response carries no austritt, so
-      // whether one stood here is a fact this action lacks. Named, not „dieses Team“ — the sentences
-      // between point at the outgoing club.
-      message: `${replacement.name} spielt jetzt in Gruppe ${replacement.gruppe}. ${umfang} Für ${replacement.name} ist in dieser Saison kein Austritt eingetragen.`,
     };
   });
 }

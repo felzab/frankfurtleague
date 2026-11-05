@@ -1,6 +1,6 @@
 import hashlib
 from collections.abc import Iterable, Mapping, Sequence, Set
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from http import HTTPStatus
 from typing import Any, Final, NamedTuple, cast
 
@@ -364,10 +364,17 @@ def find_vorschlag_vergangen_refusal(*, vorschlag: FLSpielbestaetigungAppointmen
     )
 
 
+def judged_as_a_proposal(refusal: WriteRefusal | None) -> WriteRefusal | None:
+    """A refusal of the proposal, naming no field: the paths it names are a body this request does not carry."""
+
+    return None if refusal is None else replace(refusal, fields=())
+
+
 def proposal_payload(stored: FLSpiel, vorschlag: FLSpielbestaetigungAppointment) -> FLPatchSpielDataPayload:
     """The stored fixture as the administrator's wholesale save would carry it on the proposed date and hour, everything else kept.
 
-    So a proposal meets the very judges that save meets, references and event as they stand.
+    So a proposal meets the very judges that save meets, references and event as they stand, and its adoption saves the
+    fixture with nothing but the slot moved: the save writes every field of it, the note included.
     """
 
     return FLPatchSpielDataPayload(
@@ -387,8 +394,7 @@ def proposal_payload(stored: FLSpiel, vorschlag: FLSpielbestaetigungAppointment)
                 schiedsrichter_id=stored.schiedsrichter.schiedsrichter_id, payment=stored.schiedsrichter.payment
             )
         ),
-        # No judge reads the note.
-        notiz=None,
+        notiz=stored.notiz,
         version=stored.version,
     )
 
@@ -406,7 +412,10 @@ def stand_moved(*, spielbestaetigung_raw: Mapping[str, Any], lage: AnsetzungLage
 
 
 def ansicht_ansetzung_of(spiel: Mapping[str, Any]) -> FLSpielbestaetigungViewAnsetzung:
-    """The fixture as it stands, for a row about that very Ansetzung: every value is the fixture's, none filled in from a row."""
+    """The fixture as it stands, for a row about that very Ansetzung: every value is the fixture's, none filled in from a row.
+
+    Its names are the join's (`app/api/spielbestaetigungen/crud.py :: pull_named_spiele`): the stored fixture holds none.
+    """
 
     # Absent rather than null where a projection met a fixture without a ground.
     ort = spiel.get("ort")

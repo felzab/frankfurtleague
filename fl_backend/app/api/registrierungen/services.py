@@ -395,6 +395,7 @@ def find_alter_refusal(*, geburtsdatum: str, today: str) -> WriteRefusal | None:
             error_code=Code.CONFIRMATION_AGE,
             status=HTTPStatus.UNPROCESSABLE_CONTENT,
             fields=(("geburtsdatum",),),
+            bounds={"min": REGISTRIERUNG_MIN_AGE_YEARS, "max": BEWERBUNG_KONTAKT_MAX_AGE_YEARS},
         )
 
     # One ceiling over every consent flow, refusing a mistyped century rather than a real age.
@@ -403,6 +404,7 @@ def find_alter_refusal(*, geburtsdatum: str, today: str) -> WriteRefusal | None:
             error_code=Code.CONFIRMATION_AGE,
             status=HTTPStatus.UNPROCESSABLE_CONTENT,
             fields=(("geburtsdatum",),),
+            bounds={"min": REGISTRIERUNG_MIN_AGE_YEARS, "max": BEWERBUNG_KONTAKT_MAX_AGE_YEARS},
         )
 
     return None

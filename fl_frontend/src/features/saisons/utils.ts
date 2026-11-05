@@ -1,9 +1,6 @@
-import { SPIELPLAN_ZURUECKNEHMEN } from "./constants";
-
-import type { FLGruppenNames, FLSaisonPhase, FLSaisonPhaseSchedule, FLSaisonStatus } from "@/core/generated/client/types";
 import type { NextPageProps } from "@/shared/types/types";
 import type { FLSpiel } from "../spiele/types";
-import type { SaisonGruppenOccupancy, SaisonGruppenSwapContext, SaisonSpieltagBound, SaisonSwapTeam, SpielplanBestand } from "./types";
+import type { SaisonGruppenSwapContext, SaisonSwapTeam } from "./types";
 
 /**
  * The query string minus `saison_id`, relative on purpose: a Server Component cannot read its own
@@ -24,58 +21,8 @@ export function searchWithoutSaisonId(searchParams: Awaited<NextPageProps["searc
   return query === "" ? "?" : `?${query}`;
 }
 
-/**
- * The one phase `fl_backend/app/api/saisons/spielplan.py :: draw_spielplan` fills the sides of.
- * Every other it wires and leaves empty, and that difference is the whole of what
- * `aSideIsOffTheDraw` reads.
- */
-const DRAWN_HOLDING_ITS_SIDES: FLSaisonPhase = "gruppenphase";
-
-/**
- * **Mirrors `fl_backend/app/api/saisons/services.py :: _a_side_is_off_the_draw`.** A group fixture
- * is drawn OCCUPIED and unwired and a bracket fixture WIRED and empty, so every other pairing is an
- * edit somebody made.
- */
-function aSideIsOffTheDraw(spiel: FLSpiel): boolean {
-  // Both facts read against the PHASE and never alone: "holds a side" is true of every group fixture
-  // the draw wrote, and would shut the window on every drawn season.
-  const drawn = spiel.saison_phase === DRAWN_HOLDING_ITS_SIDES ? { occupied: true, wired: false } : { occupied: false, wired: true };
-
-  const sides = [
-    [spiel.team1, spiel.team1_quelle],
-    [spiel.team2, spiel.team2_quelle],
-  ] as const;
-
-  return sides.some(([seite, quelle]) => (seite !== null) !== drawn.occupied || (quelle !== null) !== drawn.wired);
-}
-
-/**
- * **Mirrors `fl_backend/app/api/saisons/services.py :: holds_a_recorded_fact`**,
- * `spielplan_replace_outside_its_window`'s own count. Wider than `hasTakenPlace`: every `sonderereignis` closes the
- * replace, and so does anything the draw did not write. A date does not.
- */
-function holdsARecordedFact(spiel: FLSpiel): boolean {
-  // EVERY `sonderereignis`, the two cancellations included. This asks what has been ENTERED against
-  // the fixture rather than what it awards, which is why `hasTakenPlace`'s narrower set is wrong here.
-  if (spiel.ergebnis !== null || spiel.sonderereignis !== null) return true;
-
-  // Beside `ergebnis` rather than behind it: a save stores a shoot-out only where it stores a result
-  // too, so one standing alone reached the document by the hand edit route the goals below cover.
-  if (spiel.elfmeterschiessen !== null) return true;
-
-  if ((spiel.team1?.tore ?? null) !== null || (spiel.team2?.tore ?? null) !== null) return true;
-
-  if (aSideIsOffTheDraw(spiel)) return true;
-
-  // TRIMMED, never compared to null: the draw writes no note, and a hand edit at the database can
-  // leave `""` behind, which is not a record anybody entered.
-  if (spiel.notiz !== null && spiel.notiz.trim() !== "") return true;
-
-  // The joined read carries each booking whole or `null`, which is the same fact the endpoint
-  // projects as `ort.spielort_id` and `schiedsrichter.schiedsrichter_id`.
-  return spiel.ort !== null || spiel.schiedsrichter !== null;
-}
-
+// Session 6: the swap's client grading below goes with the old team editor, the season editor's pickers reading the
+// grading its admin read serves.
 /**
  * Club id → Spieltag id → fixtures. Counted rather than collected into a set: two fixtures of one club
  * on one Spieltag is exactly the state `swap_spieltag_clash` is about, and a set would erase it.
@@ -128,20 +75,6 @@ export function buildGruppenSwapContext({
 }
 
 /**
- * **A row whose `gruppe` is `null` reaches no group**: no read carries one for a junction row whose
- * club is gone, so the endpoint stays the authority on a season holding such a row.
- */
-export function buildGruppenOccupancy(rows: readonly { gruppe: FLGruppenNames | null }[]): SaisonGruppenOccupancy {
-  const held: Partial<Record<FLGruppenNames, number>> = {};
-
-  for (const row of rows) {
-    if (row.gruppe !== null) held[row.gruppe] = (held[row.gruppe] ?? 0) + 1;
-  }
-
-  return held;
-}
-
-/**
  * **`swap_spieltag_clash` in the form, mirroring `_spieltag_clashes`.** Only a Spieltag the exchange BREAKS
  * counts, never one already broken — hence the `vorher <= 1`; a stricter client would hide a swap the
  * endpoint accepts.
@@ -174,154 +107,4 @@ export function findSwapPartnerRefusal(fixed: SaisonSwapTeam, candidate: SaisonS
   if (wouldFieldAClubTwice(fixed, candidate)) return "spieltagClash";
 
   return null;
-}
-
-/**
- * Whether the season holds fixtures at all. `playoffs` is every phase but `gruppenphase`, so these
- * two reads partition the season exactly. A boolean and not their sum, which a list limit could
- * truncate.
- */
-export function holdsDrawnSpiele({
-  gruppenSpiele,
-  playoffSpiele,
-}: {
-  gruppenSpiele: readonly unknown[];
-  playoffSpiele: readonly unknown[];
-}): boolean {
-  return gruppenSpiele.length > 0 || playoffSpiele.length > 0;
-}
-
-/**
- * Whether any matchday carries no `beginn`: `activate_spieltage_undated`'s condition. A boolean for
- * `holdsDrawnSpiele`'s reason, and a list cut at the backend's limit can read false where a matchday
- * past the cut is undated, which the endpoint refuses itself.
- */
-export function holdsUndatierteSpieltage(spieltage: readonly { beginn: string | null; ende: string | null }[]): boolean {
-  // `beginn` alone though both ends are on offer, as `find_activation_refusal`'s own count reads it:
-  // no write in the tree dates one end of a matchday without the other.
-  return spieltage.some((spieltag) => spieltag.beginn === null);
-}
-
-/**
- * What a confirmed replace of this season's draw destroys, plus the figure `spielplan_replace_outside_its_window`
- * weighs against it. Counted off the two fixture reads the season editor already makes,
- * `gruppenphase` and `playoffs` being that season's exact partition.
- */
-export function buildSpielplanBestand({
-  gruppenSpiele,
-  playoffSpiele,
-}: {
-  gruppenSpiele: readonly FLSpiel[];
-  playoffSpiele: readonly FLSpiel[];
-}): SpielplanBestand {
-  const alle = [...gruppenSpiele, ...playoffSpiele];
-
-  return {
-    spiele: alle.length,
-    erfasst: alle.filter(holdsARecordedFact).length,
-    // Dates and kickoff times ALONE. A venue or a referee counts as `erfasst` above and closes the
-    // control, so anything reaching this figure carries only scheduling the replace throws away.
-    angesetzt: alle.filter((spiel) => spiel.datum !== null || spiel.uhrzeit !== null).length,
-  };
-}
-
-/** What one press of the generator would write, and the knockout rounds it would write them for. */
-export type SpielplanVorschau = {
-  spieltage: number;
-  spiele: number;
-  /** In playing order, empty for a rules combination whose qualifier count reaches no bracket. */
-  koRunden: FLSaisonPhase[];
-};
-
-/**
- * **Summed off the SERVED schedule, never recomputed**: an odd group takes an extra matchday for the
- * bye it leaves, and a copy undercounting that would promise a season the draw does not write.
- */
-export function buildSpielplanVorschau(schedule: readonly FLSaisonPhaseSchedule[]): SpielplanVorschau {
-  const vorschau: SpielplanVorschau = { spieltage: 0, spiele: 0, koRunden: [] };
-
-  for (const entry of schedule) {
-    vorschau.spieltage += entry.spieltage;
-    // The product IS the phase's whole fixture count: the byes an odd group's extra matchday carries
-    // are exactly what cancels it back to one fixture per pair.
-    vorschau.spiele += entry.spieltage * entry.matches_per_spieltag;
-    if (entry.phase !== "gruppenphase") vorschau.koRunden.push(entry.phase);
-  }
-
-  return vorschau;
-}
-
-/**
- * The generator's two counts as one phrase, in the NOMINATIVE so every call site can seat it
- * unchanged. The singular is a defence: the smallest season `rules_bracket_impossible` allows draws three
- * matchdays and six matches, and these counts arrive from the server.
- */
-export function describeSpielplanUmfang(spieltage: number, spiele: number): string {
-  const spielePhrase = spiele === 1 ? "ein Spiel" : `${String(spiele)} Spiele`;
-
-  return `${describeSpieltageCount(spieltage)} und ${spielePhrase}`;
-}
-
-/** The matchday half of that phrase, for the redraw readout, whose fixture count no mirror knows. */
-export function describeSpieltageCount(spieltage: number): string {
-  return spieltage === 1 ? "ein Spieltag" : `${String(spieltage)} Spieltage`;
-}
-
-/**
- * **One phrase for every armed confirmation's fixture count**: the replace, the undraw and the club
- * replacement each state one, and two copies of it could grade the same figure differently. The
- * label above the row carries whose fixtures they are.
- */
-export function describeAngesetzteSpiele(angesetzt: number): string {
-  return angesetzt === 0 ? "Keine" : angesetzt === 1 ? "ein Spiel" : `${String(angesetzt)} Spiele`;
-}
-
-/**
- * What the replacement does to the outgoing club's squad rows, in the tense of the press about to
- * happen. AUSTRAGEN and never STILLLEGEN: the write stamps `saison_spieler` rows in this season
- * alone (`docs/glossary.md`).
- */
-export function describeKaderAustragung(teamName: string): string {
-  return `Die Kadereinträge von ${teamName} werden ausgetragen.`;
-}
-
-/**
- * The same rows once the press has run, which is a second fact and not a second tense: a further
- * wechsel between the two clubs does not carry them back. AUSTRAGEN for the reason above
- * (`docs/glossary.md`).
- */
-export function describeKaderAustragungDanach(teamName: string): string {
-  return `Die Kadereinträge von ${teamName} bleiben ausgetragen, auch wenn Du die beiden Teams anschließend erneut wechselst.`;
-}
-
-/**
- * Whether the Spielplan press about to happen can be taken back. A FIRST draw on a planned season
- * is the one that can: the undraw beside it removes exactly what it writes (`spielplan_undraw_outside_its_window`),
- * and nothing replays a removal.
- */
-export function describeSpielplanPermanenz({ holdsADraw, saisonStatus }: { holdsADraw: boolean; saisonStatus: FLSaisonStatus }): string {
-  if (holdsADraw) return "Die Spieltage und Spiele oben werden dabei gelöscht. Es gibt in der Verwaltung keinen Weg zurück.";
-
-  // The window as well as the status, because the undraw this promises is refused inside a season
-  // that holds an entry — the Spielplan panel's own list, which this sentence points at rather than
-  // spelling a second time.
-  if (saisonStatus === "future") {
-    return `${SPIELPLAN_ZURUECKNEHMEN} lässt sich der Spielplan danach wieder hier, solange die Saison geplant ist und zu keinem ihrer Spiele etwas eingetragen wurde.`;
-  }
-
-  return `${SPIELPLAN_ZURUECKNEHMEN} lässt sich ein Spielplan nur in einer geplanten Saison, und diese läuft schon. Es gibt in der Verwaltung keinen Weg zurück.`;
-}
-
-/**
- * **The nulls come out before the sort.** `Array.prototype.sort` with no comparator orders by the
- * STRINGIFIED value, where `null` becomes `"null"` and sorts after every ISO date, so one undated
- * matchday would take the last position and drop `endMin`.
- */
-export function buildSpieltagBound(spieltage: readonly { beginn: string | null; ende: string | null }[]): SaisonSpieltagBound {
-  // Sorted in place: `filter` has already produced arrays nothing else holds.
-  const beginne = spieltage.map((spieltag) => spieltag.beginn).filter((datum) => datum !== null);
-  const enden = spieltage.map((spieltag) => spieltag.ende).filter((datum) => datum !== null);
-
-  // Lexicographic order IS date order on YYYY-MM-DD, so no comparator is needed once the nulls are gone.
-  return { startMax: beginne.sort()[0] ?? null, endMin: enden.sort().at(-1) ?? null };
 }

@@ -5,65 +5,11 @@ import { EINGETRAGEN_VON_OPTIONS, GRUPPEN_OPTIONS, KONTAKT_ROLLEN, TRIKOT_FARBE_
 import { buildKontakteFacets, buildTeamFacets, KONTAKTE_BESETZUNG_OPTIONS, kontakteBesetzung, TEAM_FACETS } from "./facets.ts";
 import { FLTrikotFarbeSchema } from "./schemas.ts";
 // Relative import, not the "@/" alias: Node's resolver does not read tsconfig paths.
-import { buildKontaktRows, describeReplacementUmfang, holdsNobody, isRetireable, offeredTrikotFarben, toWebsiteUrl } from "./utils.ts";
+import { buildKontaktRows, holdsNobody, isRetireable, offeredTrikotFarben, toWebsiteUrl } from "./utils.ts";
 
 import type { FLKontaktperson, FLSaisonTeamKontakte, FLTeamWithMemberships } from "@/core/generated/client/types.ts";
 
 const TEAM_ID = (seed: number) => `6890a1b2c3d4e5f6071900${String(seed).padStart(2, "0")}`;
-
-const umfang = (fannedOutToSpiele: number, ausgetrageneSquadRows: number) =>
-  describeReplacementUmfang({ fannedOutToSpiele, ausgetrageneSquadRows });
-
-describe("describeReplacementUmfang", () => {
-  it("reports the fixtures with their own zero and their own singular", () => {
-    expect(umfang(0, 0)).toMatch(/^Für das ausscheidende Team war noch kein Spiel angesetzt\./);
-    expect(umfang(1, 0)).toMatch(/^Ein angesetztes Spiel wurde übernommen\./);
-    expect(umfang(7, 0)).toMatch(/^7 angesetzte Spiele wurden übernommen\./);
-  });
-
-  it("reports the squad rows with their own singular", () => {
-    expect(umfang(0, 1)).toMatch(/Ein Kadereintrag des ausscheidenden Teams wurde ausgetragen\./);
-    expect(umfang(0, 4)).toMatch(/4 Kadereinträge des ausscheidenden Teams wurden ausgetragen\./);
-  });
-
-  /* `ausgetragene_squad_rows` counts the LIVE rows this write stamped, so zero is a fact about the squad
-     at that moment and never about the club's history: one whose players were all ausgetragen first
-     reports zero too. */
-  it("says the squad stood empty at zero, never that the club had no players", () => {
-    expect(umfang(0, 0)).toMatch(/Im Kader des ausscheidenden Teams stand kein Spieler\./);
-    expect(umfang(0, 0)).not.toMatch(/hatte das ausscheidende Team keine/);
-  });
-
-  /* `stillgelegt` would report these pupils out of every pick list there is, the endpoint stamping
-     `saison_spieler` and touching no `spieler` document. */
-  it("never calls a squad row's retirement a Stilllegung", () => {
-    for (const report of [umfang(0, 0), umfang(2, 1), umfang(2, 9)]) {
-      expect(report, "the report retires the people rather than their squad entries").not.toMatch(/stillgelegt|Stilllegen/);
-      expect(report, "the report writes about people where the write moved entries").not.toMatch(/Spieler wurde/);
-    }
-  });
-
-  /* The repair is a reassignment, never the outgoing club's return: `kader_team_not_in_saison` judges the row's
-     `team_id` on the PATCH as well, so no season status stands between the row and its squad. */
-  it("names the reassignment as the repair, and names it only where it retired a row", () => {
-    for (const report of [umfang(0, 1), umfang(3, 9)]) {
-      expect(report).toMatch(/Um einen solchen Eintrag zu reaktivieren/);
-      expect(report).toMatch(/Bereich „Kader“ einem Team dieser Saison zu/);
-      expect(report, "the report names a repair the rule does not ask for").not.toMatch(/geplante Saison|wieder in dieser Saison steht/);
-    }
-
-    expect(umfang(3, 0), "nothing was retired and the report warns about it anyway").not.toMatch(/[Rr]eaktivieren/);
-  });
-
-  /* It lands in a toast with no figures beside it, so each half has to stand as a sentence. */
-  it("writes whole sentences, with nothing left dangling", () => {
-    for (const report of [umfang(0, 0), umfang(1, 1), umfang(12, 3)]) {
-      expect(report, "the report opens lower-case").toMatch(/^[A-ZÄÖÜ0-9]/);
-      expect(report, "the report does not end in a full stop").toMatch(/\.$/);
-      expect(report, "the report leans on a word with no antecedent").not.toMatch(/dafür|diesen Platz/);
-    }
-  });
-});
 
 const SAISON = "2025-2026";
 
