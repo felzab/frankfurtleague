@@ -100,6 +100,8 @@ const DATE_OPEN = "Termin offen";
 // The mark beside a score a shoot-out decided.
 const AFTER_ELFMETERSCHIESSEN = "n. E.";
 const SONDEREREIGNIS = { ausgefallen: "Ausgefallen", abgebrochen: "Abgebrochen", annulliert: "Annulliert" } as const;
+// Two clubs named by their place in a pair: a fixture's two sides, and the group swap's two clubs.
+const TEAM_PAIR = { team1: "Team 1", team2: "Team 2" } as const;
 const SIGN_IN = "Anmeldung";
 const SIGN_IN_WITH_PASSKEY = "Mit Passkey anmelden";
 const SET_UP_PASSKEY = { title: "Passkey einrichten", button: "Jetzt einrichten" } as const;
@@ -762,8 +764,8 @@ export const COPY = catalogue({
       deleteConsequence: "Alle Spieltage und Spiele werden gelöscht.",
 
       /** The group swap's two clubs; the swap exchanges their groups. */
-      swapFirst: "Erstes Team",
-      swapSecond: "Zweites Team",
+      swapFirst: TEAM_PAIR.team1,
+      swapSecond: TEAM_PAIR.team2,
       /** A club or a pair a swap or a replacement can no longer move: one of its matches has taken place. */
       tookPlace: "Ein Spiel hat stattgefunden",
       /** The replacement's two clubs: the one leaving the season, and the one taking over its row. */
@@ -823,8 +825,8 @@ export const COPY = catalogue({
       nichtantretenTeam1: "Nichtantreten Team 1",
       nichtantretenTeam2: "Nichtantreten Team 2",
       /** The fixture's two sides, by the names the Sonderereignis' entries give them. */
-      team1: "Team 1",
-      team2: "Team 2",
+      team1: TEAM_PAIR.team1,
+      team2: TEAM_PAIR.team2,
       abgebrochen: SONDEREREIGNIS.abgebrochen,
       annulliert: SONDEREREIGNIS.annulliert,
       /** Why a no-show cannot be picked while a side is open. */
