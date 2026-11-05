@@ -219,7 +219,8 @@ export function ereignisOf(spiel: Sides & Pick<FLSpielJoined, "sonderereignis" |
       return { title, text: consequence.nichtAngetreten(sidesOf(spiel).team1.name) };
     case "abgebrochen":
       return { title, text: spiel.ergebnis === null ? consequence.abgebrochenOpen : consequence.abgebrochenScored };
-    default:
-      return { title, text: consequence[sonderereignis] };
+    case "ausgefallen":
+    case "annulliert":
+      return { title, text: consequence.notScored };
   }
 }

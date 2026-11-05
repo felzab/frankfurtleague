@@ -374,16 +374,16 @@ export const COPY = catalogue({
       abgebrochen: SONDEREREIGNIS.abgebrochen,
       annulliert: SONDEREREIGNIS.annulliert,
       /**
-       * What the event means for the result, under its name in the pop-up's callout: a match called off or
-       * struck out awards nothing, a no-show awards the side that turned up the forfeit the season's rules
-       * set, which the score shows, and an abandoned match owes a result until one is entered.
+       * What the event means for the result, under its name in the pop-up's callout, which the name does not
+       * repeat: a match called off or struck out awards nothing, a no-show awards the side that turned up the
+       * forfeit the season's rules set, which the score shows, and an abandoned match owes a result until one is
+       * entered.
        */
       consequence: {
-        ausgefallen: "Das Spiel hat nicht stattgefunden und wird nicht gewertet.",
+        notScored: "Das Spiel wird nicht gewertet.",
         nichtAngetreten: (opponent: Words) => `Das Spiel wird für ${textOf(opponent)} gewertet.`,
         abgebrochenScored: "Das eingetragene Ergebnis wird gewertet.",
         abgebrochenOpen: "Die Wertung steht noch nicht fest.",
-        annulliert: "Das Spiel wurde annulliert und wird nicht gewertet.",
       },
     },
 
