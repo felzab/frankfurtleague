@@ -213,8 +213,8 @@ export function mapActivateRefusal(error: unknown): string | null {
 
 /**
  * The group swap's refusals, or `null`. The first four mean the picture moved under a stale page, so
- * each says to reload; `sides_taken_place` and `swap_fields_disqualified` have no client counterpart and arrive on a
- * current page, so each names a repair.
+ * each says to reload; `sides_taken_place` has no client counterpart and arrives on a current page, so it names a
+ * repair.
  */
 export function mapSwapRefusal(error: unknown): string | null {
   if (!isRefusal(error)) return null;
@@ -231,11 +231,6 @@ export function mapSwapRefusal(error: unknown): string | null {
     // Before the start, so a result entered early: the swap moves no goals and would hand it to the other club.
     case "sides_taken_place":
       return SERVER_COPY.admin.swapSidesTakenPlace;
-    case "swap_spieltag_clash":
-      return "Durch den Tausch stünde ein Team zweimal an einem Spieltag. Verschiebe eines der beiden Spiele und lade die Seite neu.";
-    // Lifting the record is an open path, so the sentence names all three steps.
-    case "swap_fields_disqualified":
-      return "Durch den Tausch käme ein ausgeschiedenes Team auf Spiele, die nach seinem Austritt stattfinden können. Hebe den Austritt auf, tausche die Gruppen und trage ihn danach erneut ein.";
     default:
       return null;
   }

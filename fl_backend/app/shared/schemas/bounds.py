@@ -176,8 +176,8 @@ SPIEL_CONFIRMATION_FRIST_DAYS: Final = 7
 # `SCHIEDSRICHTER_CONFIRMATION_FRIST_DAYS` let the other adult links: the edge's error log accepts a
 # link's token because it answers nothing past such a deadline.
 SPIEL_REQUEST_LEAD_TIME_DAYS: Final = 14
-SPIEL_REMINDER_DAYS_FIRST: Final = 3
-SPIEL_REMINDER_DAYS_SECOND: Final = 1
+# The one reminder falls this many days before a team row's deadline.
+SPIEL_REMINDER_DAYS: Final = 3
 
 # `BAN_LIST_REASON_MAX_LENGTH`'s figure for its reason: a sentence read on a card, neither mailed as a
 # decline's reason is nor copied onto a year of log rows as an erasure's occasion is.

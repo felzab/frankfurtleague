@@ -220,9 +220,11 @@ class Code(StrEnum):
     SIDES_TAKEN_PLACE = auto()
     ERGEBNIS_SIDE_EMPTIED = auto()
     RETIRE_BLOCKED = auto()
-    # A played fixture never blocks: its `ort` is an embedded record.
+    # A played fixture never blocks: its `ort` is an embedded record. Its bounds name the fixtures that do, `spiel_nrs`
+    # and `count`, on the path's `spielort_id`.
     SPIELORT_STILL_BOOKED = auto()
-    # A played fixture never blocks: its `schiedsrichter` is a record of who officiated.
+    # A played fixture never blocks: its `schiedsrichter` is a record of who officiated. Bounded as the venue's is, on
+    # the path's `schiedsrichter_id`.
     SCHIEDSRICHTER_STILL_ASSIGNED = auto()
     # The routing layer's own refusals, raised before any handler runs.
     NO_ROUTE = auto()
@@ -282,9 +284,9 @@ class Code(StrEnum):
     # decides is none: the person's pick is what is refused, so a 422 naming both boxes.
     SWAP_NOT_A_SWAP = auto()
     SWAP_SAISON_STARTED = auto()
-    SWAP_SPIELTAG_CLASH = auto()
-    # FORWARDS ONLY, exactly as `eligibility_disqualified` is: the past is left alone.
-    SWAP_FIELDS_DISQUALIFIED = auto()
+    # An exit dated before the season starts: before the start a club out of the season is replaced, so no fixture
+    # of an unstarted season, which the swap alone rewrites, fields a departed club.
+    AUSTRITT_BEFORE_SAISON_START = auto()
     PAYLOAD_REFUSED = auto()
     # A body no field could be read from: malformed syntax, RFC 9110's 400, never a refused payload's 422.
     BODY_UNREADABLE = auto()
@@ -319,7 +321,7 @@ type Rule = Literal[
     "kontakt_telefon_twice",
     "nichtantreten_with_tore",
     "nichtantreten_with_torschuetzen",
-    "registrierung_window_ends_before_start",
+    "registrierung_window_reaches_saison_start",
     "saison_ends_before_start",
     "saison_year_out_of_range",
     "spieltag_ends_before_start",

@@ -86,7 +86,7 @@ class FLInvitationRecipient(BaseModel):
 # Five ordinary states, a failure and an unknown: `mint_failed` says the league failed
 # that team and `mint_uncertain` that it cannot tell, and a surface words both apart from the
 # rest.
-type FLInvitationDispatchGrund = Literal[
+type FLInvitationSkipReason = Literal[
     "austritt_entered",
     "mint_failed",
     "mint_uncertain",
@@ -105,7 +105,7 @@ class _EinladungVersandZeile(BaseModel):
     # rather than needing a second read of `teams`.
     team_name: CustomNonEmptyString
     recipient: list[FLInvitationRecipient]
-    skipped: FLInvitationDispatchGrund | None
+    skipped: FLInvitationSkipReason | None
     # Served rather than derived: a row carries no trace of the invitation the team holds, so a
     # caller cannot tell a team whose link this press kills from one that never had a link.
     replaced_link: bool

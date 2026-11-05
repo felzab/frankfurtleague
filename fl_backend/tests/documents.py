@@ -23,7 +23,7 @@ from app.api.address_change.services import compose_record
 from app.api.bewerbungen.services import bestaetigungsfrist_from, compose_bestaetigungen, compose_einwilligung
 from app.api.registrierungen.services import compose_bestaetigung, compose_confirmation_update, compose_registrierung
 from app.api.sperrliste.services import BAN_LIST_KEY_VERSION, address_hash
-from app.api.spielbestaetigungen.services import compose_ansetzung, halter_of
+from app.api.spielbestaetigungen.services import compose_ansetzung
 from app.core.recording import log_stamp
 from app.shared.einwilligung_evidence import CHOICES, EVIDENCE, TextVersions, compose_initial, compose_receipt
 from app.shared.schemas.einwilligung import FLMediaTextVersion, FLNameKaderTextVersion, FLNameSpielplanTextVersion, FLWhatsappTextVersion
@@ -108,6 +108,7 @@ def saison_document(saison_id: str, status: str, **fields: Any) -> dict[str, Any
         "rules": rules_document(),
         "bewerbung": None,
         "registrierung": None,
+        "version": 0,
         **fields,
     }
 
@@ -207,7 +208,7 @@ def spielbestaetigung_document(spiel: Mapping[str, Any], *, party: Mapping[str, 
         "ansetzung": compose_ansetzung(spiel),
         "frist": "2026-04-25",
         "asked_at": None,
-        "reminded_at": [],
+        "reminded_at": None,
         "kontakte": dict.fromkeys(KONTAKT_ROLLEN),
         "antwort": None,
         "closed": None,
@@ -254,13 +255,13 @@ def spielbericht_document(spiel: Mapping[str, Any], **fields: Any) -> dict[str, 
     }
 
 
-def kontakt_antwort_document(rolle: str, address: str, *, begruendung: str | None, am: str = "2026-04-01", **fields: Any) -> dict[str, Any]:
-    """A seat's decline as its link stores it, proposing another date; its holder the digest of `address`, the answer's own fold."""
+def kontakt_antwort_document(rolle: str, *, begruendung: str | None, am: str = "2026-04-01", **fields: Any) -> dict[str, Any]:
+    """A seat's decline as its link stores it, proposing another date."""
 
     return {
         "art": "declined",
         "am": am,
-        "von": {"art": "kontakt", "rolle": rolle, "halter": halter_of(address, key=build_test_config().sperrliste_key)},
+        "von": {"art": "kontakt", "rolle": rolle},
         "vorschlag": {"datum": "2026-04-25", "uhrzeit": "14:00:00"},
         "begruendung": begruendung,
         **fields,

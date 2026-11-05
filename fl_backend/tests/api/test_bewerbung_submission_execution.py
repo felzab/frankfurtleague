@@ -63,7 +63,7 @@ ENTERED_NAME, ENTERED_SHORTHAND = "Cassiopeia", "CAX"
 # Free, unlike `EXISTING_SHORTHAND`, which `uniq_shorthand` already holds.
 NEW_SCHOOL_SHORTHAND = "ZXX"
 
-OPEN_WINDOW: Mapping[str, Any] = {"offen": True, "start": "2026-03-01", "end": "2026-04-30"}
+OPEN_WINDOW: Mapping[str, Any] = {"start": "2026-03-01", "end": "2026-04-30"}
 
 
 def person(vorname: str, *, telefon: str, email: str | None = None) -> dict[str, Any]:
@@ -616,8 +616,7 @@ class TestTheRefusalsTheWritePathAnswers:
         "bewerbung",
         [
             pytest.param(None, id="no window recorded"),
-            pytest.param({**OPEN_WINDOW, "offen": False}, id="the flag turned off"),
-            pytest.param({"offen": True, "start": "2026-05-01", "end": "2026-05-31"}, id="a span this day is outside"),
+            pytest.param({"start": "2026-05-01", "end": "2026-05-31"}, id="a span this day is outside"),
         ],
     )
     def test_a_season_taking_no_applications_refuses(self, mongo_replica_set_url: str, bewerbung: Any):

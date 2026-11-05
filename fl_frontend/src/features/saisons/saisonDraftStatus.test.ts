@@ -9,8 +9,8 @@ const stored: SaisonDraftFields = {
   start_date: "2025-09-01",
   end_date: "2026-06-30",
   rules: saisonRules({ teams_per_gruppe: 5, max_kadergroesse: 50, allowed_stufen: ["E1", "E2", "Q1", "Q2"] }),
-  bewerbung: { offen: true, start: "2025-05-01", end: "2025-06-30" },
-  registrierung: { offen: true, von: "2025-07-01", end: "2025-08-15" },
+  bewerbung: { start: "2025-05-01", end: "2025-06-30" },
+  registrierung: { offen: true, end: "2025-08-15" },
 };
 
 const draftFrom = (overrides: Partial<SaisonDraftFields>): SaisonDraftFields => ({ ...stored, ...overrides });
@@ -136,18 +136,18 @@ describe("deriveSaisonDraftStatus", () => {
     expect(status.byPath.get("rules.number_of_gruppen")?.error).toBe(groupHoldsTeams);
   });
 
-  it("reports the whole application window as one row, freischaltung included", () => {
+  it("reports the whole application window as one row", () => {
     const status = deriveSaisonDraftStatus({
       stored,
-      draft: draftFrom({ bewerbung: { offen: false, start: "2025-05-01", end: "2025-06-30" } }),
+      draft: draftFrom({ bewerbung: { start: "2025-05-01", end: "2025-06-15" } }),
       fieldErrors: {},
     });
 
     expect(status.changed.length).toBe(1);
     const row = status.byPath.get("bewerbung");
     expect(row?.group).toBe("Bewerbung");
-    expect(row?.storedText).toBe("Freigeschaltet: 01.05.2025 bis 30.06.2025");
-    expect(row?.draftText).toBe("Gesperrt: 01.05.2025 bis 30.06.2025");
+    expect(row?.storedText).toBe("01.05.2025 bis 30.06.2025");
+    expect(row?.draftText).toBe("01.05.2025 bis 15.06.2025");
   });
 
   it("treats a closed window as a removal, which is what the change list should show", () => {
@@ -161,7 +161,7 @@ describe("deriveSaisonDraftStatus", () => {
   it("lands one date's own error on the window's single row, which is the only row rendering it", () => {
     const status = deriveSaisonDraftStatus({
       stored,
-      draft: draftFrom({ bewerbung: { offen: true, start: "2025-05-01", end: "" } }),
+      draft: draftFrom({ bewerbung: { start: "2025-05-01", end: "" } }),
       fieldErrors: { "bewerbung.end": "Bitte gib ein gültiges Datum ein." },
     });
 
@@ -178,7 +178,7 @@ describe("deriveSaisonDraftStatus", () => {
     expect(status.changed.length).toBe(1);
     const row = status.byPath.get("registrierung");
     expect(row?.group).toBe("Registrierung");
-    expect(row?.storedText).toBe("Freigeschaltet: 01.07.2025 bis 15.08.2025");
+    expect(row?.storedText).toBe("Freigeschaltet: bis 15.08.2025");
     expect(row?.draftText).toBe(null);
     expect(status.byPath.get("bewerbung")?.isChanged).toBe(false);
   });
@@ -186,7 +186,7 @@ describe("deriveSaisonDraftStatus", () => {
   it("lands one registration date's own error on that window's single row", () => {
     const status = deriveSaisonDraftStatus({
       stored,
-      draft: draftFrom({ registrierung: { offen: true, von: "2025-07-01", end: "" } }),
+      draft: draftFrom({ registrierung: { offen: true, end: "" } }),
       fieldErrors: { "registrierung.end": "Bitte gib ein gültiges Datum ein." },
     });
 

@@ -89,6 +89,7 @@ PUBLIC_WRITES = [
     # the token is the whole credential, so the guard here would have no session to check.
     ("/api/v0/schiedsrichter/confirmation/view", "post"),
     ("/api/v0/schiedsrichter/confirmation", "post"),
+    ("/api/v0/schiedsrichter/confirmation/decline", "post"),
     # The address change's links, the new mailbox's and the stop link, on a base-tier router of their own for the same reason.
     ("/api/v0/address_change/confirmation/view", "post"),
     ("/api/v0/address_change/confirmation", "post"),

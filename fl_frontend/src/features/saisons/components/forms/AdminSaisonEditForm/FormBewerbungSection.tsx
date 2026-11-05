@@ -20,7 +20,7 @@ import type { SaisonFieldPath } from "@/features/saisons/saisonDraftStatus";
  * deadline nobody chose**, so two empty strings stand instead and the payload schema refuses each by
  * name until the admin picks it.
  */
-const NEW_WINDOW: FLSaisonBewerbung = { offen: false, start: "", end: "" };
+const NEW_WINDOW: FLSaisonBewerbung = { start: "", end: "" };
 
 /** Names the date pair for a screen reader: the label above it governs the pair, not either end. */
 const FRIST_LABEL_ID = "bewerbungsfrist";
@@ -33,7 +33,7 @@ const asCalendarDate = (value: string) => (value === "" ? null : parseDate(value
 
 /**
  * **The block is nullable, and the outer switch is what says so**: a season either records an
- * application window or records none. The inner switch is the `offen` flag beside the span.
+ * application window or records none.
  */
 export function FormBewerbungSection({
   bewerbung,
@@ -83,59 +83,43 @@ export function FormBewerbungSection({
         </Switch>
 
         {bewerbung !== null && (
-          <>
-            <div className="flex w-full flex-col gap-y-3">
-              {/* One label over the pair, mirroring its one row in the change list: a window is one
+          <div className="flex w-full flex-col gap-y-3">
+            {/* One label over the pair, mirroring its one row in the change list: a window is one
                   decision about when, so neither end is a decision on its own. `FieldLabel` renders
                   the row's anchor id, so exactly one of the two ends may carry it. */}
-              <FieldLabel<SaisonFieldPath> path="bewerbung">
-                {/* The heading recipe on the text rather than on the `Label`, as the forfeit pair
+            <FieldLabel<SaisonFieldPath> path="bewerbung">
+              {/* The heading recipe on the text rather than on the `Label`, as the forfeit pair
                     does it: it governs the pair below rather than either field beside it. */}
-                <span
-                  id={FRIST_LABEL_ID}
-                  className={FORM_SECTION_HEADING_CLASSES}>
-                  Bewerbungsfrist
-                </span>
-              </FieldLabel>
-              <div
-                role="group"
-                aria-labelledby={FRIST_LABEL_ID}
-                className={FIELD_PAIR_CLASSES}>
-                <AppDatePicker
-                  name="bewerbung.start"
-                  calendarLabel="Beginn der Bewerbungsfrist auswählen"
-                  label={<Label className={FIELD_LABEL_CLASSES}>Beginn</Label>}
-                  value={von}
-                  onChange={(next) => onBewerbungChange({ ...bewerbung, start: next?.toString() ?? "" })}
-                  onBlur={() => onFieldLeft(["bewerbung.start"])}
-                  maxValue={bis ?? undefined}
-                />
-                <AppDatePicker
-                  name="bewerbung.end"
-                  calendarLabel="Ende der Bewerbungsfrist auswählen"
-                  label={<Label className={FIELD_LABEL_CLASSES}>Ende</Label>}
-                  value={bis}
-                  onChange={(next) => onBewerbungChange({ ...bewerbung, end: next?.toString() ?? "" })}
-                  onBlur={() => onFieldLeft(["bewerbung.end"])}
-                  minValue={von ?? undefined}
-                />
-              </div>
+              <span
+                id={FRIST_LABEL_ID}
+                className={FORM_SECTION_HEADING_CLASSES}>
+                Bewerbungsfrist
+              </span>
+            </FieldLabel>
+            <div
+              role="group"
+              aria-labelledby={FRIST_LABEL_ID}
+              className={FIELD_PAIR_CLASSES}>
+              <AppDatePicker
+                name="bewerbung.start"
+                calendarLabel="Beginn der Bewerbungsfrist auswählen"
+                label={<Label className={FIELD_LABEL_CLASSES}>Beginn</Label>}
+                value={von}
+                onChange={(next) => onBewerbungChange({ ...bewerbung, start: next?.toString() ?? "" })}
+                onBlur={() => onFieldLeft(["bewerbung.start"])}
+                maxValue={bis ?? undefined}
+              />
+              <AppDatePicker
+                name="bewerbung.end"
+                calendarLabel="Ende der Bewerbungsfrist auswählen"
+                label={<Label className={FIELD_LABEL_CLASSES}>Ende</Label>}
+                value={bis}
+                onChange={(next) => onBewerbungChange({ ...bewerbung, end: next?.toString() ?? "" })}
+                onBlur={() => onFieldLeft(["bewerbung.end"])}
+                minValue={von ?? undefined}
+              />
             </div>
-
-            {/* Under the span rather than beside the switch above: it is the last thing decided
-                about a window that already has its dates. */}
-            <Switch
-              name="bewerbung.offen"
-              isSelected={bewerbung.offen}
-              onChange={(offen) => onBewerbungChange({ ...bewerbung, offen })}>
-              <Switch.Content className={panel.switchContent()}>
-                Bewerbungen sind freigeschaltet
-                <Switch.Control className={panel.switchControl()}>
-                  <Switch.Thumb />
-                </Switch.Control>
-              </Switch.Content>
-            </Switch>
-          </>
+          </div>
         )}
       </div>
     </section>

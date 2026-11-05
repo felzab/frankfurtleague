@@ -72,12 +72,12 @@ from app.api.bewerbungen.services import (
     zustand_of,
 )
 from app.api.einwilligung.services import find_self_media_refusal
-from app.api.kontakte.crud import redact_the_decliner, remove_their_reasons
+from app.api.kontakte.crud import redact_the_decliner, remove_the_seats_reasons
 from app.api.outbox.schemas import FLBewerbungObjectionData, FLBewerbungPerson
 from app.api.outbox.services import OwedMail, enqueue_mails
 from app.api.sperrliste.lookup import BanList, BanListLookup, ban_list_saison, barred_addresses, barred_hashes
 from app.api.spielbestaetigungen.crud import redact_seat_entries_in_images
-from app.api.spielbestaetigungen.services import kontakte_ohne, seat_void_of
+from app.api.spielbestaetigungen.services import HeldSeats, kontakte_ohne, seat_void_of
 from app.api.teams.crud import void_moved_seats
 from app.api.teams.services import kontakt_zeile_of
 from app.core.collections import Collection
@@ -171,7 +171,6 @@ async def get_window(
 
     return FLBewerbungWindowResponse(
         saison_id=saison_id,
-        offen=bool(bewerbung["offen"]),
         start=str(bewerbung["start"]),
         end=str(bewerbung["end"]),
         running=saison_nimmt_bewerbungen_an(saison_status=saison_status, bewerbung=bewerbung, today=today),
@@ -662,12 +661,11 @@ async def post_einwilligung(
         ]
         await void_moved_seats(spielbestaetigungen_collection=spielbestaetigungen_collection, voids=voids, session=session)
         await redact_seat_entries_in_images(action_log_collection=action_log_collection, voids=voids, stamp=at, session=session)
-        # As an erasure takes them: the person's reasons on every confirmation, from whichever seat they typed them.
-        await remove_their_reasons(
+        # As an erasure takes them: every reason typed from the emptied seats on the team's confirmations.
+        await remove_the_seats_reasons(
             spielbestaetigungen_collection=spielbestaetigungen_collection,
             action_log_collection=action_log_collection,
-            addresses=seat_addresses(kontakte=kontakte, seats=seats),
-            key=config.sperrliste_key,
+            held=[HeldSeats(saison_id=before["saison_id"], team_id=before["team_id"], seats=seats)],
             stamp=at,
             session=session,
         )

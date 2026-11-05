@@ -24,7 +24,6 @@ from app.core.crud import (
     build_query,
     build_sort,
     insert_live,
-    patch_many_in_db,
     patch_one_in_db,
     pull_many_from_db,
     pull_one_from_db,
@@ -77,9 +76,10 @@ async def get_spielorte(
 
 @router.get(by_id("spielort_id"), response_model=FLSpielorteSingleResponse, summary="One Spielort")
 async def get_spielort(spielort_id: CustomRouteObjectId, spielorte_collection: SpielorteCollection) -> FLSpielorteSingleResponse:
-    """Admin-tier as the list is, and for the same two rules (`READ-MONEY-001`, `READ-ADDRESS-001`).
+    """The venue editor's one read: the record, its `version` with it, which the editor's save sends back.
 
-    Deactivated ones included -- a historical match's venue is the case worth answering.
+    Admin-tier as the list is, and for the same two rules (`READ-MONEY-001`, `READ-ADDRESS-001`). Retired venues included:
+    the editor reactivates one, and a historical match's venue is the case worth answering.
     """
 
     spielort_raw = await pull_one_from_db(collection=spielorte_collection, db_filter={"_id": spielort_id})
@@ -126,25 +126,25 @@ async def post_spielort(
 @router.patch(
     by_id("spielort_id"),
     response_model=FLPatchSpielortResponse,
-    summary="Update a Spielort and fan the change out",
+    summary="Update a Spielort",
 )
 async def patch_spielort(
     spielort_id: CustomRouteObjectId,
     spielort_data: Annotated[FLPatchSpielortPayload, Body()],
     spielorte_collection: SpielorteCollection,
-    spiele_collection: SpieleCollection,
     db: DBClient,
 ) -> FLPatchSpielortResponse:
     """
-    Update a venue, then update every Spiel that embeds it.
+    Update a venue on the `version` the editor was served, answering the version stored, which its next save sends.
 
-    The fan-out is not optional: without it, match cards keep showing the old name. `mietpreis` is
-    NOT fanned out -- the rent on a match is what was agreed for that match.
+    A fixture names the venue by id and reads its name and `maps_link` at its own read, so nothing else is written; each
+    fixture keeps the `mietpreis` agreed for it. Refused where another venue holds the name (`duplicate_key`), by the
+    unique index.
     """
 
     maps_link = _maps_link(spielort_data.name, spielort_data.address)
 
-    async def rename_and_fan_out(session: AsyncClientSession) -> FLPatchSpielortResponse:
+    async def save_the_venue(session: AsyncClientSession) -> FLPatchSpielortResponse:
         updated_document_raw = await patch_one_in_db(
             collection=spielorte_collection,
             db_filter={"_id": spielort_id},
@@ -153,22 +153,13 @@ async def patch_spielort(
             session=session,
             return_document=ReturnDocument.AFTER,
         )
-        updated_document = FLSpielort(**updated_document_raw)
 
-        fan_out = await patch_many_in_db(
-            collection=spiele_collection,
-            db_filter={"ort.spielort_id": updated_document.id},
-            update={"$set": {"ort.maps_link": updated_document.maps_link, "ort.name": updated_document.name}},
-            session=session,
-        )
+        return FLPatchSpielortResponse(version=FLSpielort(**updated_document_raw).version)
 
-        return FLPatchSpielortResponse(fanned_out_to_spiele=fan_out.modified_count)
-
-    # One transaction: a rename landing on the venue and not on its fixtures is the stale copy the
-    # fan-out exists to prevent. `with_transaction` over a bare `start_transaction` -- the callback
-    # derives both writes from the payload, so a retry is safe.
+    # In a transaction for the read-back alone: `patch_one_in_db` compares the two images there, so a save changing
+    # nothing files no log row.
     async with transaction_session(db) as session:
-        return await session.with_transaction(rename_and_fan_out)
+        return await session.with_transaction(save_the_venue)
 
 
 @router.delete(
@@ -186,7 +177,7 @@ async def delete_spielort(
     """
     Deactivate a venue. SOFT: it stamps `inactive_since`, and the document stays.
 
-    Matches embed a copy, so a hard delete would orphan every historical match that used it. Refused
+    A played match names the venue by id, so a hard delete would orphan every historical match that used it. Refused
     while an unplayed fixture is still booked here (`spielort_still_booked`).
     """
 

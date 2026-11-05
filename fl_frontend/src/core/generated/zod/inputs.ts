@@ -1602,7 +1602,6 @@ export const saisonsPostSaisonBodyIdMax = 4;
 
 export const saisonsPostSaisonBodyIdRegExp = new RegExp("^[0-9]+$");
 export const saisonsPostSaisonBodyRegistrierungOneEndRegExp = new RegExp("^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$");
-export const saisonsPostSaisonBodyRegistrierungOneVonRegExp = new RegExp("^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$");
 
 export const saisonsPostSaisonBodyRulesDrawPointsMin = 0;
 
@@ -1629,11 +1628,10 @@ export const SaisonsPostSaisonBody = zod.object({
     zod
       .object({
         end: zod.string().regex(saisonsPostSaisonBodyBewerbungOneEndRegExp),
-        offen: zod.boolean(),
         start: zod.string().regex(saisonsPostSaisonBodyBewerbungOneStartRegExp),
       })
       .describe(
-        "When the league accepts applications for this season.\n\nThe two halves that record it: the span, and the `offen` flag an administrator sets beside it.",
+        "When the league accepts applications for this season: while today lies between `start` and `end`, both included.\n\nNo flag beside the span: closing early is moving `end` to today (`app/api/bewerbungen/services.py ::\nsaison_nimmt_bewerbungen_an`).",
       ),
     zod.null(),
   ]),
@@ -1644,10 +1642,9 @@ export const SaisonsPostSaisonBody = zod.object({
       .object({
         end: zod.string().regex(saisonsPostSaisonBodyRegistrierungOneEndRegExp),
         offen: zod.boolean(),
-        von: zod.string().regex(saisonsPostSaisonBodyRegistrierungOneVonRegExp),
       })
       .describe(
-        "When a pupil may register for this season.\n\nIts own model rather than an alias of `FLSaisonBewerbung` above: the two windows are two\ndecisions an administrator takes apart, and one component name on both would publish them as one.",
+        "When a pupil may register for this season: from its activation to `end`, which falls before the season's start.\n\nNo start of its own, the activation being the opening (`app/api/registrierungen/services.py ::\nsaison_nimmt_registrierungen_an`); `offen` pauses the link alone. Its own model rather than an alias of\n`FLSaisonBewerbung` above: the two windows are two decisions an administrator takes apart.",
       ),
     zod.null(),
   ]),
@@ -1681,17 +1678,17 @@ export const SaisonsPostSaisonBody = zod.object({
  * fixes the start date (`saison_start_taken_place`).
  * @summary Every Saison for the admin surfaces
  */
-export const saisonsGetSaisonsVerwaltungQueryLimitDefault = 1024;
-export const saisonsGetSaisonsVerwaltungQueryLimitMax = 1024;
+export const saisonsGetSaisonsAdminQueryLimitDefault = 1024;
+export const saisonsGetSaisonsAdminQueryLimitMax = 1024;
 
-export const saisonsGetSaisonsVerwaltungQuerySortByDefault = `_id`;
-export const saisonsGetSaisonsVerwaltungQueryOrderDefault = `asc`;
+export const saisonsGetSaisonsAdminQuerySortByDefault = `_id`;
+export const saisonsGetSaisonsAdminQueryOrderDefault = `asc`;
 
-export const SaisonsGetSaisonsVerwaltungQueryParams = zod.object({
+export const SaisonsGetSaisonsAdminQueryParams = zod.object({
   status: zod.union([zod.enum(["past", "active", "future"]), zod.null()]).optional(),
-  limit: zod.int().min(1).max(saisonsGetSaisonsVerwaltungQueryLimitMax).default(saisonsGetSaisonsVerwaltungQueryLimitDefault),
-  sort_by: zod.enum(["_id", "start_date", "end_date"]).default(saisonsGetSaisonsVerwaltungQuerySortByDefault),
-  order: zod.enum(["asc", "desc"]).default(saisonsGetSaisonsVerwaltungQueryOrderDefault),
+  limit: zod.int().min(1).max(saisonsGetSaisonsAdminQueryLimitMax).default(saisonsGetSaisonsAdminQueryLimitDefault),
+  sort_by: zod.enum(["_id", "start_date", "end_date"]).default(saisonsGetSaisonsAdminQuerySortByDefault),
+  order: zod.enum(["asc", "desc"]).default(saisonsGetSaisonsAdminQueryOrderDefault),
 });
 
 /**
@@ -1722,7 +1719,6 @@ export const saisonsPatchSaisonBodyBewerbungOneEndRegExp = new RegExp("^[0-9]{4}
 export const saisonsPatchSaisonBodyBewerbungOneStartRegExp = new RegExp("^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$");
 export const saisonsPatchSaisonBodyEndDateRegExp = new RegExp("^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$");
 export const saisonsPatchSaisonBodyRegistrierungOneEndRegExp = new RegExp("^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$");
-export const saisonsPatchSaisonBodyRegistrierungOneVonRegExp = new RegExp("^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$");
 
 export const saisonsPatchSaisonBodyRulesDrawPointsMin = 0;
 
@@ -1749,11 +1745,10 @@ export const SaisonsPatchSaisonBody = zod.object({
     zod
       .object({
         end: zod.string().regex(saisonsPatchSaisonBodyBewerbungOneEndRegExp),
-        offen: zod.boolean(),
         start: zod.string().regex(saisonsPatchSaisonBodyBewerbungOneStartRegExp),
       })
       .describe(
-        "When the league accepts applications for this season.\n\nThe two halves that record it: the span, and the `offen` flag an administrator sets beside it.",
+        "When the league accepts applications for this season: while today lies between `start` and `end`, both included.\n\nNo flag beside the span: closing early is moving `end` to today (`app/api/bewerbungen/services.py ::\nsaison_nimmt_bewerbungen_an`).",
       ),
     zod.null(),
   ]),
@@ -1763,10 +1758,9 @@ export const SaisonsPatchSaisonBody = zod.object({
       .object({
         end: zod.string().regex(saisonsPatchSaisonBodyRegistrierungOneEndRegExp),
         offen: zod.boolean(),
-        von: zod.string().regex(saisonsPatchSaisonBodyRegistrierungOneVonRegExp),
       })
       .describe(
-        "When a pupil may register for this season.\n\nIts own model rather than an alias of `FLSaisonBewerbung` above: the two windows are two\ndecisions an administrator takes apart, and one component name on both would publish them as one.",
+        "When a pupil may register for this season: from its activation to `end`, which falls before the season's start.\n\nNo start of its own, the activation being the opening (`app/api/registrierungen/services.py ::\nsaison_nimmt_registrierungen_an`); `offen` pauses the link alone. Its own model rather than an alias of\n`FLSaisonBewerbung` above: the two windows are two decisions an administrator takes apart.",
       ),
     zod.null(),
   ]),
@@ -1789,7 +1783,7 @@ export const SaisonsPatchSaisonBody = zod.object({
     win_points: zod.int().gt(saisonsPatchSaisonBodyRulesWinPointsExclusiveMin),
   }),
   start_date: zod.string().regex(saisonsPatchSaisonBodyStartDateRegExp),
-  version: zod.union([zod.int(), zod.null()]).optional(),
+  version: zod.int(),
 });
 
 /**
@@ -1800,6 +1794,22 @@ export const SaisonsPatchSaisonBody = zod.object({
  * @summary Make this the active Saison
  */
 export const SaisonsActivateSaisonParams = zod.object({
+  saison_id: zod.string(),
+});
+
+/**
+ * Return what the season editor shows in one read: the season and its clubs, the clubs a replacement may bring in, its shapes and matchdays.
+ *
+ * The season is served a `future` one included, with its `version`, whether it has started (`begun`) and whether a
+ * fixture of it has taken place (`taken_place`).
+ *
+ * Each club's two flags are what the group swap's and the replacement's `sides_taken_place` read, so a picker closes
+ * exactly the pairs and rows those writes refuse; `begun` closes both before either is pressed. `incoming_clubs` is
+ * every club still in the league holding no row of the season, which is what the replacement admits. 404 where no
+ * season holds that id.
+ * @summary One Saison for the admin editor
+ */
+export const SaisonsGetSaisonAdminParams = zod.object({
   saison_id: zod.string(),
 });
 
@@ -1970,9 +1980,8 @@ export const SaisonsGetSpielplanParams = zod.object({
  *
  * `shape` states the three rules the fixtures come out of, and is stored with them. `replace`
  * deletes both lists first, every fixture's confirmations with them, inside `spielplan_replace_outside_its_window`'s
- * window and on a season holding no submitted match report (`spielplan_berichte_submitted`), and is refused
- * `confirmation_required` from a sign-in or confirmation older than `STEP_UP_WINDOW_HOURS`: nothing writes
- * the removed rows back.
+ * window and on a season holding no submitted match report (`spielplan_berichte_submitted`): nothing writes the
+ * removed rows back.
  * @summary Draw this Saison's Spielplan
  */
 export const SaisonsPostSpielplanParams = zod.object({
@@ -2163,8 +2172,8 @@ export const SchiedsrichterPatchEinwilligungBody = zod
  * publication scope has one home, which the fixture list joins at read time to decide whether to publish the name each
  * fixture stores.
  *
- * Refuses, in this order: a token no referee holds (`link_invalid`), an entry already confirmed
- * (`confirmation_exists`), a link whose deadline has passed (`link_expired`), a link mailed to an address the ban
+ * Refuses, in this order: a token no referee holds (`link_invalid`), an entry already answered, confirmed or
+ * declined (`confirmation_exists`), a link whose deadline has passed (`link_expired`), a link mailed to an address the ban
  * list holds now, whenever the link was minted (`link_barred`), an age outside what this consent asks
  * (`confirmation_age`), and a media consent from a referee below `media_minimum_age` (`media_age`) -- the last two
  * judged before anything is written, so a mistyped year spends nothing.
@@ -2192,6 +2201,28 @@ export const SchiedsrichterPostConfirmationBody = zod.object({
 });
 
 /**
+ * Record the referee's objection to the entry their link opens: its day, and nothing else of the person.
+ *
+ * The entry then goes on the clock its link started, the midnight after the deadline, as the privacy notice says of an
+ * unconfirmed or declined one (`app/core/constraints.py :: TTL_INDEXES`). Until then no booking takes it and no
+ * re-send or reactivation asks the person again.
+ *
+ * Refuses, in the confirmation's order: a token no referee holds (`link_invalid`), an entry already answered,
+ * confirmed or declined (`confirmation_exists`), and a link whose deadline has passed (`link_expired`). The ban list
+ * is not asked: an objection gives the league nothing a ban withholds.
+ * @summary Decline one Schiedsrichter's entry
+ */
+export const schiedsrichterPostDeclineBodyTokenMax = 128;
+
+export const schiedsrichterPostDeclineBodyTokenRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
+
+export const SchiedsrichterPostDeclineBody = zod
+  .object({
+    token: zod.string().min(1).max(schiedsrichterPostDeclineBodyTokenMax).regex(schiedsrichterPostDeclineBodyTokenRegExp),
+  })
+  .describe("The token of the link a person opened, in the body: a token in a URL reaches the edge's access line.");
+
+/**
  * Answer what this token opens: the link's state and deadline, and both age floors.
  *
  * **Nothing else** (`READ-REFEREE-002`): never a name, the school, the contact details, the fee, the birthdate or the
@@ -2216,7 +2247,7 @@ export const SchiedsrichterGetConfirmationViewBody = zod
   .describe("The token of the link a person opened, in the body: a token in a URL reaches the edge's access line.");
 
 /**
- * Deactivate a referee. SOFT, for the same reason as venues: matches embed a copy.
+ * Deactivate a referee. SOFT, for the same reason as venues: a played match names them by id.
  * @summary Deactivate a Schiedsrichter (soft delete)
  */
 export const schiedsrichterDeleteSchiedsrichterPathSchiedsrichterIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -2245,9 +2276,10 @@ export const SchiedsrichterGetSchiedsrichterByIdParams = zod.object({
 });
 
 /**
- * Update a referee, then update the embedded name on every Spiel that uses them.
+ * Update a referee on the `version` the editor was served, answering the version stored.
  *
- * Only the name. `payment` is NOT propagated: the fee on a match is what was agreed for it.
+ * The editor's next save sends that version. A fixture names the referee by id and reads the name at its own read, so
+ * nothing else is written; each fixture keeps the `payment` agreed for it.
  *
  * **A corrected address on an UNCONFIRMED referee retires their link and owes a fresh one** to the
  * new address, named in `confirmation`: the old link was posted to a mailbox nobody reads, and
@@ -2260,12 +2292,11 @@ export const SchiedsrichterGetSchiedsrichterByIdParams = zod.object({
  * **A RETIRED unconfirmed referee's corrected address is stored and mails nothing**: no consent is
  * collected for a role nobody gives them. Their old link is retired all the same, and the
  * reactivation mints the fresh one. Where a link is minted, a banned new address is refused
- * `schiedsrichter_address_barred`. A save retiring or minting a link is refused `confirmation_required` from a
- * sign-in or confirmation older than `STEP_UP_WINDOW_HOURS`.
+ * `schiedsrichter_address_barred`.
  *
  * The ghost answers 404 here as it does to every read: a name written onto it would appear on the
  * fixtures of every referee already erased.
- * @summary Update a Schiedsrichter and fan the change out
+ * @summary Update a Schiedsrichter
  */
 export const schiedsrichterPatchSchiedsrichterPathSchiedsrichterIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
 
@@ -2284,6 +2315,8 @@ export const schiedsrichterPatchSchiedsrichterBodyNameMax = 80;
 export const schiedsrichterPatchSchiedsrichterBodyNameRegExp = new RegExp("^\\p{L}[\\p{L}\\-' ]*$", "u");
 export const schiedsrichterPatchSchiedsrichterBodySchuleOneMax = 120;
 
+export const schiedsrichterPatchSchiedsrichterBodyVersionMin = 0;
+
 export const SchiedsrichterPatchSchiedsrichterBody = zod.object({
   default_payment: zod.int().min(schiedsrichterPatchSchiedsrichterBodyDefaultPaymentMin),
   kontakt: zod.object({
@@ -2296,7 +2329,7 @@ export const SchiedsrichterPatchSchiedsrichterBody = zod.object({
   }),
   name: zod.string().min(1).max(schiedsrichterPatchSchiedsrichterBodyNameMax).regex(schiedsrichterPatchSchiedsrichterBodyNameRegExp),
   schule: zod.union([zod.string().max(schiedsrichterPatchSchiedsrichterBodySchuleOneMax), zod.null()]),
-  version: zod.union([zod.int(), zod.null()]).optional(),
+  version: zod.int().min(schiedsrichterPatchSchiedsrichterBodyVersionMin),
 });
 
 /**
@@ -2305,7 +2338,7 @@ export const SchiedsrichterPatchSchiedsrichterBody = zod.object({
  * It replaces the whole block, so the previous link stops working at once. The deadline restarts from today.
  *
  * Refused where the referee is retired (`schiedsrichter_retired`), where they have already
- * answered (`confirmation_exists`), where they carry no email address
+ * answered, consenting or objecting (`confirmation_exists`), where they carry no email address
  * (`schiedsrichter_no_address`), and where that address is on the ban list
  * (`schiedsrichter_address_barred`). 404 for an id no referee holds, an erased referee's among them, and
  * for the ghost, which every by-id route filters out.
@@ -2328,8 +2361,7 @@ export const SchiedsrichterInviteSchiedsrichterParams = zod.object({
  * retired referee's save stores a new address and mails nothing, so coming back is what
  * asks them. A row holding no address a link can go to comes back unasked, and so does one whose
  * person has answered. Where a link is minted, an address on the ban list is refused
- * `schiedsrichter_address_barred` and the row stays retired, and one from a sign-in or confirmation older than
- * `STEP_UP_WINDOW_HOURS` is refused `confirmation_required`.
+ * `schiedsrichter_address_barred` and the row stays retired.
  *
  * The ghost answers 404 here too: cleared on it, the picker would offer a bookable row with no
  * person behind it.
@@ -2557,7 +2589,7 @@ export const SpielberichteGetSpielberichtVerwaltungParams = zod.object({
 /**
  * Every confirmation row of the season, or of its one fixture.
  *
- * Newest first, closed rows included. No seat's link hashes and no answer's holder digest are served. Every row still
+ * Newest first, closed rows included. No seat's link hashes and no seat's address are served. Every row still
  * holding its party's question is served; `limit` cuts the others, and `complete` is false where it left the
  * oldest of them out. Each seat holding a link names what became of the last mail owed to it. A season no document
  * has answers no rows rather than 404.
@@ -2646,8 +2678,9 @@ export const SpielbestaetigungenPostSpielbestaetigungBody = zod
  * counting it as that club's agreement.
  *
  * A closing owes its party a notice in its own transaction where the party's first request or Einteilung was owed,
- * about a day today or later: for a move, the slot it left or the one the fixture holds now; for a referee taken off
- * the fixture -- ahead of a move it shares a close with, and never for the referee's own decline, which closed its row
+ * about a day today or later: for a move, „Spiel verlegt“, naming the slot it left and the one the fixture holds now
+ * where the party is still one of its sides or its referee and that slot has a day, an hour and both sides; for a
+ * referee taken off the fixture -- ahead of a move it shares a close with, and never for the referee's own decline, which closed its row
  * as it was given -- and for a call-off, the slot the row was about. A club is told at every address its season row's
  * seats hold now, a referee at the address their record holds; a party nobody is left to tell is told nothing.
  *
@@ -2660,12 +2693,16 @@ export const SpielbestaetigungenPostSpielbestaetigungBody = zod
  * Each seat holding an address is owed one link, a person holding two seats one link naming both, each minted when the
  * mail is handed out, and the row is stamped as asked; a referee row is owed its Einteilung, with no link. An open row's
  * occupied seat holding no link -- its holder replaced, newly seated, or a ban since lifted -- is owed one too. A
- * fixture holding an unclosed row about an Ansetzung it has left is asked once the close has shut it, the close owing
+ * party still asked by a fixture that moved to a slot the mint asks today is the mint's, never the close's: in the
+ * transaction asking about the new slot, the mint closes the party's row about the slot left `ansetzung_changed`, and
+ * the request or Einteilung it owes names the slot left, the one mail telling of the move; a party it owes no request,
+ * its answer about the new slot standing or no seat of its reachable, is owed the move's notice instead. A fixture
+ * holding any other unclosed row about an Ansetzung it has left is asked once the close has shut it, the close owing
  * its notice first.
  *
- * The reminder owes a fresh link per person on each team row whose deadline lies a reminder's count of days away
- * (`app/shared/schemas/bounds.py :: SPIEL_REMINDER_DAYS_FIRST`, `:: SPIEL_ERINNERUNG_TAGE_ZWEITE`), minted beside the
- * links already mailed so every one of them answers until the deadline, and stamps the day. It passes over each seat
+ * The one reminder owes a fresh link per person on each team row never reminded whose deadline lies the reminder's
+ * days away (`app/shared/schemas/bounds.py :: SPIEL_REMINDER_DAYS`), minted beside the links already mailed so every
+ * one of them answers until the deadline, and stamps the day. It passes over each seat
  * whose last mail did not arrive, and reminds no row this pass inserted nor one whose request was owed today; where
  * this pass's mint owed one of a row's seats a fresh link, that request is the seat's message of the day and the row's
  * other seats are reminded beside it.
@@ -3357,7 +3394,7 @@ export const SpielortePostSpielortBody = zod.object({
 /**
  * Deactivate a venue. SOFT: it stamps `inactive_since`, and the document stays.
  *
- * Matches embed a copy, so a hard delete would orphan every historical match that used it. Refused
+ * A played match names the venue by id, so a hard delete would orphan every historical match that used it. Refused
  * while an unplayed fixture is still booked here (`spielort_still_booked`).
  * @summary Deactivate a Spielort (soft delete)
  */
@@ -3368,9 +3405,10 @@ export const SpielorteDeleteSpielortParams = zod.object({
 });
 
 /**
- * Admin-tier as the list is, and for the same two rules (`READ-MONEY-001`, `READ-ADDRESS-001`).
+ * The venue editor's one read: the record, its `version` with it, which the editor's save sends back.
  *
- * Deactivated ones included -- a historical match's venue is the case worth answering.
+ * Admin-tier as the list is, and for the same two rules (`READ-MONEY-001`, `READ-ADDRESS-001`). Retired venues included:
+ * the editor reactivates one, and a historical match's venue is the case worth answering.
  * @summary One Spielort
  */
 export const spielorteGetSpielortPathSpielortIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -3380,11 +3418,12 @@ export const SpielorteGetSpielortParams = zod.object({
 });
 
 /**
- * Update a venue, then update every Spiel that embeds it.
+ * Update a venue on the `version` the editor was served, answering the version stored, which its next save sends.
  *
- * The fan-out is not optional: without it, match cards keep showing the old name. `mietpreis` is
- * NOT fanned out -- the rent on a match is what was agreed for that match.
- * @summary Update a Spielort and fan the change out
+ * A fixture names the venue by id and reads its name and `maps_link` at its own read, so nothing else is written; each
+ * fixture keeps the `mietpreis` agreed for it. Refused where another venue holds the name (`duplicate_key`), by the
+ * unique index.
+ * @summary Update a Spielort
  */
 export const spielortePatchSpielortPathSpielortIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
 
@@ -3406,6 +3445,8 @@ export const spielortePatchSpielortBodyDefaultMietpreisMin = 0;
 
 export const spielortePatchSpielortBodyNameMax = 120;
 
+export const spielortePatchSpielortBodyVersionMin = 0;
+
 export const SpielortePatchSpielortBody = zod.object({
   address: zod.object({
     hausnummer: zod.string().max(spielortePatchSpielortBodyAddressHausnummerMax).regex(spielortePatchSpielortBodyAddressHausnummerRegExp),
@@ -3416,7 +3457,7 @@ export const SpielortePatchSpielortBody = zod.object({
   }),
   default_mietpreis: zod.int().min(spielortePatchSpielortBodyDefaultMietpreisMin),
   name: zod.string().min(1).max(spielortePatchSpielortBodyNameMax),
-  version: zod.union([zod.int(), zod.null()]).optional(),
+  version: zod.int().min(spielortePatchSpielortBodyVersionMin),
 });
 
 /**
@@ -3550,24 +3591,24 @@ export const TeamsPostTeamBody = zod.object({
  * cannot see one cannot enter it.
  * @summary Teams for a Saison, for the admin surfaces
  */
-export const teamsGetTeamsVerwaltungQueryStatistikScopeDefault = `gruppenphase`;
-export const teamsGetTeamsVerwaltungQueryLimitDefault = 1024;
-export const teamsGetTeamsVerwaltungQueryLimitMax = 1024;
+export const teamsGetTeamsAdminQueryStatistikScopeDefault = `gruppenphase`;
+export const teamsGetTeamsAdminQueryLimitDefault = 1024;
+export const teamsGetTeamsAdminQueryLimitMax = 1024;
 
-export const teamsGetTeamsVerwaltungQuerySortByDefault = `name`;
-export const teamsGetTeamsVerwaltungQueryOrderDefault = `asc`;
-export const teamsGetTeamsVerwaltungQueryIncludeInactiveDefault = false;
+export const teamsGetTeamsAdminQuerySortByDefault = `name`;
+export const teamsGetTeamsAdminQueryOrderDefault = `asc`;
+export const teamsGetTeamsAdminQueryIncludeInactiveDefault = false;
 
-export const TeamsGetTeamsVerwaltungQueryParams = zod.object({
+export const TeamsGetTeamsAdminQueryParams = zod.object({
   saison_id: zod.union([zod.string(), zod.null()]).optional(),
   gruppe: zod.union([zod.enum(["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P"]), zod.null()]).optional(),
   has_austritt: zod.union([zod.boolean(), zod.null()]).optional(),
   austritt_type: zod.union([zod.enum(["disqualifikation", "rueckzug"]), zod.null()]).optional(),
-  statistik_scope: zod.enum(["gruppenphase", "total"]).default(teamsGetTeamsVerwaltungQueryStatistikScopeDefault),
-  limit: zod.int().min(1).max(teamsGetTeamsVerwaltungQueryLimitMax).default(teamsGetTeamsVerwaltungQueryLimitDefault),
-  sort_by: zod.literal("name").default(teamsGetTeamsVerwaltungQuerySortByDefault).meta({ title: "Sort By" }),
-  order: zod.enum(["asc", "desc"]).default(teamsGetTeamsVerwaltungQueryOrderDefault),
-  include_inactive: zod.boolean().default(teamsGetTeamsVerwaltungQueryIncludeInactiveDefault),
+  statistik_scope: zod.enum(["gruppenphase", "total"]).default(teamsGetTeamsAdminQueryStatistikScopeDefault),
+  limit: zod.int().min(1).max(teamsGetTeamsAdminQueryLimitMax).default(teamsGetTeamsAdminQueryLimitDefault),
+  sort_by: zod.literal("name").default(teamsGetTeamsAdminQuerySortByDefault).meta({ title: "Sort By" }),
+  order: zod.enum(["asc", "desc"]).default(teamsGetTeamsAdminQueryOrderDefault),
+  include_inactive: zod.boolean().default(teamsGetTeamsAdminQueryIncludeInactiveDefault),
 });
 
 /**

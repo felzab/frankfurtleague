@@ -42,8 +42,9 @@ export async function patchSaison({
   rules,
   bewerbung,
   registrierung,
+  version,
 }: FLPatchSaisonPayload & { id: string }): Promise<void> {
-  return saisonsPatchSaison(id, { start_date, end_date, rules, bewerbung, registrierung });
+  return saisonsPatchSaison(id, { start_date, end_date, rules, bewerbung, registrierung, version });
 }
 
 /** Promotes this season and demotes the incumbent in one transaction. No body: the id is the whole argument. */

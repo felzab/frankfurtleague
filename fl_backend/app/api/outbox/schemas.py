@@ -136,6 +136,9 @@ class FLSpielRequestData(BaseModel):
     ansetzung: FLSpielMailAnsetzung
     # The row's stored deadline, which a reminder repeats.
     frist: CustomDateString
+    # The slot a move left, on the request asking about the slot it moved to, which is then the one mail telling the club
+    # of the move; null on every other request and on a reminder.
+    moved_from: FLSpielMailAppointment | None
 
 
 class FLSpielEinteilungData(BaseModel):
@@ -143,12 +146,33 @@ class FLSpielEinteilungData(BaseModel):
 
     kind: Literal["spiel_einteilung"]
     ansetzung: FLSpielMailAnsetzung
+    # The slot a move left, on the Einteilung for the slot it moved to, which is then the one mail telling the referee of
+    # the move; null on every other Einteilung.
+    moved_from: FLSpielMailAppointment | None
+
+
+class FLSpielMovedData(BaseModel):
+    """A party's word that a fixture it was asked about left that slot, owed where no request about its new slot goes now.
+
+    The mail's own request carries the move where the new slot is asked at once (`FLSpielRequestData.moved_from`).
+    """
+
+    kind: Literal["spiel_new_scheduled"]
+    recipient: Literal["team", "schiedsrichter"]
+    # The slot the party was asked about, which no longer stands.
+    appointment: FLSpielMailAppointment
+    # The slot the fixture holds now, null where it holds no day, hour or second side yet, or the party is no longer one
+    # of its sides.
+    moved_to: FLSpielMailAppointment | None
+    # Whether the party is asked about the fixture again once its new slot can be asked, so the mail says a request
+    # follows; false for a party the move took off the fixture, and for one whose answer about the new slot stands.
+    asked_again: bool
 
 
 class FLSpielNoticeData(BaseModel):
-    """A party's word that a fixture it was asked about moved or was called off: the slot it was asked about."""
+    """A party's word that a fixture it was asked about was called off: the slot it was asked about."""
 
-    kind: Literal["spiel_new_scheduled", "spiel_abgesagt"]
+    kind: Literal["spiel_abgesagt"]
     # A club was asked by a link, a referee was booked; each is told what of theirs no longer stands.
     recipient: Literal["team", "schiedsrichter"]
     appointment: FLSpielMailAppointment
@@ -302,6 +326,7 @@ FLOutboxData = Annotated[
     | FLSchiedsrichterConfirmationData
     | FLSpielRequestData
     | FLSpielEinteilungData
+    | FLSpielMovedData
     | FLSpielNoticeData
     | FLSpielEinteilungLiftedData
     | FLSpielVorschlagDiscardedData

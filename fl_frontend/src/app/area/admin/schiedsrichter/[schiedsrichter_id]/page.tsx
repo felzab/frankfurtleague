@@ -45,6 +45,7 @@ async function AdminSchiedsrichterEditContent({ params }: { params: NextPageProp
         schule: schiedsrichter.schule,
         kontakt: schiedsrichter.kontakt,
         default_payment: schiedsrichter.default_payment,
+        version: schiedsrichter.version,
         geburtsdatum: schiedsrichter.geburtsdatum,
         einwilligung: schiedsrichter.einwilligung,
         bestaetigung: schiedsrichter.confirmation,

@@ -204,9 +204,7 @@ function BestaetigungZeile({
             (`fl_backend/app/api/spielbestaetigungen/services.py :: _past_frist`). */}
         {zeile.party.art === "team" && <Angabe label="Frist">{formatSpielDatum(zeile.frist)}</Angabe>}
         <Angabe label="Angefragt">{zeile.asked_at === null ? <Leer>Nicht verschickt</Leer> : formatSpielDatum(zeile.asked_at)}</Angabe>
-        {zeile.reminded_at.length > 0 && (
-          <Angabe label="Erinnert am">{zeile.reminded_at.map((tag) => formatSpielDatum(tag)).join(", ")}</Angabe>
-        )}
+        {zeile.reminded_at !== null && <Angabe label="Erinnert am">{formatSpielDatum(zeile.reminded_at)}</Angabe>}
         {geschlossen !== null && (
           <Angabe label="Geschlossen">
             {SCHLIESSGRUND_LABELS[geschlossen.grund]}, {formatSpielDatum(geschlossen.at)}

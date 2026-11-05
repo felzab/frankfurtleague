@@ -64,6 +64,8 @@ def venue_document(spielort_id: ObjectId, name: str, *, inactive_since: str | No
         "maps_link": f"{name}, Hanauer Landstraße 12a, 60314 Ostend Frankfurt am Main, Deutschland",
         "default_mietpreis": MIETPREIS,
         "inactive_since": inactive_since,
+        # As the create stamps it, so an edit sending the version it was served matches.
+        "version": 0,
     }
 
 
@@ -71,6 +73,12 @@ def payload(name: str) -> dict[str, Any]:
     """What both write payloads take: the create's and the edit's field sets are one shape."""
 
     return {"name": name, "address": dict(ADDRESS), "default_mietpreis": MIETPREIS}
+
+
+def edit(name: str) -> dict[str, Any]:
+    """The edit's payload, on the version the seeded venue was served at."""
+
+    return {**payload(name), "version": 0}
 
 
 @functools.cache
@@ -111,7 +119,7 @@ def stored_names(url: str) -> list[str]:
 def seeded_url(mongo_replica_set_url: str) -> str:
     """One standing venue and one retired one, on the shipped indexes.
 
-    The transactional server, because the edit below fans its rename out inside a transaction.
+    The transactional server, because the edit below saves inside a transaction.
     """
 
     client = MongoClient(mongo_replica_set_url)
@@ -166,22 +174,22 @@ class TestACreateUnderATakenVenueNameIsRefused:
 class TestAnEditOntoATakenVenueNameIsRefused:
     """The other write that sends a name, and the mapper answers both.
 
-    Its `$set` runs inside the fan-out's transaction, so the refusal has to survive
-    `with_transaction` to reach the same 409 the create is answered with.
+    Its `$set` runs inside a transaction, so the refusal has to survive `with_transaction` to reach the same 409 the
+    create is answered with.
     """
 
     def test_the_edit_is_answered_409(self, seeded_url: str):
-        response = served(seeded_url, f"{SPIELORTE}/{RETIRED_OID}", payload(STANDING_NAME), method="PATCH")
+        response = served(seeded_url, f"{SPIELORTE}/{RETIRED_OID}", edit(STANDING_NAME), method="PATCH")
 
         assert (response.status_code, response.json()["error_code"]) == (409, Code.DUPLICATE_KEY)
 
     def test_the_refused_edit_leaves_both_venues_named_as_they_were(self, seeded_url: str):
-        served(seeded_url, f"{SPIELORTE}/{RETIRED_OID}", payload(STANDING_NAME), method="PATCH")
+        served(seeded_url, f"{SPIELORTE}/{RETIRED_OID}", edit(STANDING_NAME), method="PATCH")
 
         assert stored_names(seeded_url) == sorted([STANDING_NAME, RETIRED_NAME])
 
     def test_a_free_name_is_accepted(self, seeded_url: str):
-        response = served(seeded_url, f"{SPIELORTE}/{RETIRED_OID}", payload(FREE_NAME), method="PATCH")
+        response = served(seeded_url, f"{SPIELORTE}/{RETIRED_OID}", edit(FREE_NAME), method="PATCH")
 
         assert response.status_code == 200, response.json()
         assert stored_names(seeded_url) == sorted([STANDING_NAME, FREE_NAME])

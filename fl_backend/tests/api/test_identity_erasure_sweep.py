@@ -545,9 +545,7 @@ async def a_squad_row_entered(database: AsyncDatabase, client: AsyncMongoClient,
 async def a_running_season_open_to_its_team(database: AsyncDatabase) -> None:
     """The team entered in 2026, its registration window open today and its link live, so nothing but the race decides."""
 
-    await database[Collection.SAISONS].update_one(
-        {"_id": "2026"}, {"$set": {"registrierung": {"offen": True, "von": "2026-03-01", "end": "2026-04-30"}}}
-    )
+    await database[Collection.SAISONS].update_one({"_id": "2026"}, {"$set": {"registrierung": {"offen": True, "end": "2026-04-30"}}})
     await database[Collection.SAISON_TEAMS].insert_one(saison_team_document("2026", TEAM_OID, "Lindenschule", "LSX"))
     await database[Collection.INVITATIONS].insert_one(
         {

@@ -20,7 +20,7 @@ from app.api.address_change.schemas import FLAddressChangeAdminPayload
 from app.api.schiedsrichter.admin_router import invite_schiedsrichter, patch_schiedsrichter
 from app.api.schiedsrichter.public_router import post_confirmation
 from app.api.schiedsrichter.schemas import FLPatchSchiedsrichterPayload, FLSchiedsrichterConfirmationPayload
-from app.api.schiedsrichter.services import BESTAETIGUNG_FELD
+from app.api.schiedsrichter.services import CONFIRMATION_FIELD
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
@@ -31,7 +31,6 @@ from tests.config import grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.outbox import MAIL_NOW, drained
 from tests.records import record_collections
-from tests.session_headers import fresh_admin_actor
 from tests.worker import worker_database
 
 # Module level: every case below reaches a real mongod, each write being one transaction.
@@ -62,6 +61,7 @@ def referee_document(**overrides: Any) -> dict[str, Any]:
         "default_payment": 20,
         "kontakt": {"telefon": TELEFON, "email": EMAIL},
         "inactive_since": None,
+        "version": 0,
         **overrides,
     }
 
@@ -111,19 +111,25 @@ def on_a_league(url: str, body: Body, *, confirmed: bool = True) -> Any:
 
 
 async def save(database: AsyncDatabase, client: AsyncMongoClient, *, email: str) -> Any:
+    served = await database[Collection.SCHIEDSRICHTER].find_one({"_id": SCHIEDSRICHTER_OID}, {"version": 1})
+    assert served is not None
     return await patch_schiedsrichter(
         schiedsrichter_id=SCHIEDSRICHTER_OID,
         schiedsrichter_data=FLPatchSchiedsrichterPayload.model_validate(
-            {"name": NAME, "schule": "Bettina-Schule", "default_payment": 25, "kontakt": {"telefon": TELEFON, "email": email}}
+            {
+                "name": NAME,
+                "schule": "Bettina-Schule",
+                "default_payment": 25,
+                "kontakt": {"telefon": TELEFON, "email": email},
+                "version": served["version"],
+            }
         ),
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-        spiele_collection=database[Collection.SPIELE],
         outbox_collection=database[Collection.OUTBOX],
         ban_list=ban_list(database),
         db=client,
         today=TODAY,
         now=MAIL_NOW,
-        actor=fresh_admin_actor(),
     )
 
 
@@ -207,4 +213,4 @@ class TestAnUnconfirmedReferee:
 
         assert saved.confirmation is not None
         assert (mail.an, row["kontakt"]["email"]) == (NEW_EMAIL, NEW_EMAIL)
-        assert row[BESTAETIGUNG_FELD]["token_hashes"] == [hash_token(str(mail.token))]
+        assert row[CONFIRMATION_FIELD]["token_hashes"] == [hash_token(str(mail.token))]

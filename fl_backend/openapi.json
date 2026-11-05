@@ -286,8 +286,7 @@
           "state_nichtantreten_without_two_sides",
           "swap_not_a_swap",
           "swap_saison_started",
-          "swap_spieltag_clash",
-          "swap_fields_disqualified",
+          "austritt_before_saison_start",
           "payload_refused",
           "body_unreadable",
           "wiring_unsupported",
@@ -4276,10 +4275,6 @@
             "title": "End",
             "type": "string"
           },
-          "offen": {
-            "title": "Offen",
-            "type": "boolean"
-          },
           "running": {
             "title": "Running",
             "type": "boolean"
@@ -4300,7 +4295,6 @@
         },
         "required": [
           "saison_id",
-          "offen",
           "start",
           "end",
           "running",
@@ -6417,18 +6411,6 @@
         "title": "FLInvitationData",
         "type": "object"
       },
-      "FLInvitationDispatchGrund": {
-        "enum": [
-          "austritt_entered",
-          "mint_failed",
-          "mint_uncertain",
-          "no_kontaktblock",
-          "no_confirmed_kontaktperson",
-          "kontakte_barred",
-          "already_sent"
-        ],
-        "type": "string"
-      },
       "FLInvitationDispatchPayload": {
         "additionalProperties": false,
         "properties": {
@@ -6481,7 +6463,7 @@
           "skipped": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/FLInvitationDispatchGrund"
+                "$ref": "#/components/schemas/FLInvitationSkipReason"
               },
               {
                 "type": "null"
@@ -6560,7 +6542,7 @@
           "skipped": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/FLInvitationDispatchGrund"
+                "$ref": "#/components/schemas/FLInvitationSkipReason"
               },
               {
                 "type": "null"
@@ -6809,6 +6791,18 @@
         ],
         "title": "FLInvitationRow",
         "type": "object"
+      },
+      "FLInvitationSkipReason": {
+        "enum": [
+          "austritt_entered",
+          "mint_failed",
+          "mint_uncertain",
+          "no_kontaktblock",
+          "no_confirmed_kontaktperson",
+          "kontakte_barred",
+          "already_sent"
+        ],
+        "type": "string"
       },
       "FLInvitationViewResponse": {
         "description": "What an invite's holder is told before they type anything, and the bounds the form is held to.",
@@ -8032,7 +8026,7 @@
                 "spiel_abgesagt": "#/components/schemas/FLSpielNoticeData",
                 "spiel_einteilung": "#/components/schemas/FLSpielEinteilungData",
                 "spiel_einteilung_lifted": "#/components/schemas/FLSpielEinteilungLiftedData",
-                "spiel_new_scheduled": "#/components/schemas/FLSpielNoticeData",
+                "spiel_new_scheduled": "#/components/schemas/FLSpielMovedData",
                 "spiel_reminder": "#/components/schemas/FLSpielRequestData",
                 "spiel_request": "#/components/schemas/FLSpielRequestData",
                 "spiel_vorschlag_discarded": "#/components/schemas/FLSpielVorschlagDiscardedData"
@@ -8075,6 +8069,9 @@
               },
               {
                 "$ref": "#/components/schemas/FLSpielEinteilungData"
+              },
+              {
+                "$ref": "#/components/schemas/FLSpielMovedData"
               },
               {
                 "$ref": "#/components/schemas/FLSpielNoticeData"
@@ -8831,15 +8828,8 @@
             "type": "string"
           },
           "version": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Version"
+            "title": "Version",
+            "type": "integer"
           }
         },
         "required": [
@@ -8847,7 +8837,8 @@
           "end_date",
           "rules",
           "bewerbung",
-          "registrierung"
+          "registrierung",
+          "version"
         ],
         "title": "FLPatchSaisonPayload",
         "type": "object"
@@ -9079,22 +9070,17 @@
             "title": "Schule"
           },
           "version": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Version"
+            "minimum": 0.0,
+            "title": "Version",
+            "type": "integer"
           }
         },
         "required": [
           "kontakt",
           "name",
           "schule",
-          "default_payment"
+          "default_payment",
+          "version"
         ],
         "title": "FLPatchSchiedsrichterPayload",
         "type": "object"
@@ -9111,13 +9097,13 @@
               }
             ]
           },
-          "fanned_out_to_spiele": {
-            "title": "Fanned Out To Spiele",
+          "version": {
+            "title": "Version",
             "type": "integer"
           }
         },
         "required": [
-          "fanned_out_to_spiele",
+          "version",
           "confirmation"
         ],
         "title": "FLPatchSchiedsrichterResponse",
@@ -9390,34 +9376,29 @@
             "type": "string"
           },
           "version": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Version"
+            "minimum": 0.0,
+            "title": "Version",
+            "type": "integer"
           }
         },
         "required": [
           "address",
           "name",
-          "default_mietpreis"
+          "default_mietpreis",
+          "version"
         ],
         "title": "FLPatchSpielortPayload",
         "type": "object"
       },
       "FLPatchSpielortResponse": {
         "properties": {
-          "fanned_out_to_spiele": {
-            "title": "Fanned Out To Spiele",
+          "version": {
+            "title": "Version",
             "type": "integer"
           }
         },
         "required": [
-          "fanned_out_to_spiele"
+          "version"
         ],
         "title": "FLPatchSpielortResponse",
         "type": "object"
@@ -10156,6 +10137,12 @@
                 },
                 {
                   "type": "boolean"
+                },
+                {
+                  "items": {
+                    "type": "integer"
+                  },
+                  "type": "array"
                 }
               ]
             },
@@ -11223,17 +11210,131 @@
         "title": "FLSaisonAdmin",
         "type": "object"
       },
+      "FLSaisonAdminClub": {
+        "description": "A club a replacement may bring into the season: one still in the league that holds no row of it.",
+        "properties": {
+          "id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "shorthand": {
+            "title": "Shorthand",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "shorthand"
+        ],
+        "title": "FLSaisonAdminClub",
+        "type": "object"
+      },
+      "FLSaisonAdminResponse": {
+        "description": "What the season editor shows, in one read: the season, its clubs, the clubs a replacement may bring in, its shapes and its matchdays.\n\n`shapes` is every shape the season's other rules admit, judged as the draw judges a shape it is given;\n`count_spieltage` is the matchdays the season holds.",
+        "properties": {
+          "count_spieltage": {
+            "minimum": 0.0,
+            "title": "Count Spieltage",
+            "type": "integer"
+          },
+          "incoming_clubs": {
+            "items": {
+              "$ref": "#/components/schemas/FLSaisonAdminClub"
+            },
+            "title": "Incoming Clubs",
+            "type": "array"
+          },
+          "saison": {
+            "$ref": "#/components/schemas/FLSaisonAdmin"
+          },
+          "shapes": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielplanShape"
+            },
+            "title": "Shapes",
+            "type": "array"
+          },
+          "teams": {
+            "items": {
+              "$ref": "#/components/schemas/FLSaisonAdminTeam"
+            },
+            "title": "Teams",
+            "type": "array"
+          }
+        },
+        "required": [
+          "saison",
+          "teams",
+          "incoming_clubs",
+          "shapes",
+          "count_spieltage"
+        ],
+        "title": "FLSaisonAdminResponse",
+        "type": "object"
+      },
+      "FLSaisonAdminTeam": {
+        "description": "One club's row of the season as the editor's swap and replacement sections list it, graded as each write judges it.\n\nBoth flags are `app/api/teams/services.py :: has_taken_place` over the row's fixtures, the predicate each write's\n`sides_taken_place` reads: over its group fixtures for the swap, which rewrites those alone, so a pair is closed\nwhere either club's is; over every fixture for the replacement, which hands the whole schedule over.",
+        "properties": {
+          "austritt": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLAustritt"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "fixture_taken_place": {
+            "title": "Fixture Taken Place",
+            "type": "boolean"
+          },
+          "group_fixture_taken_place": {
+            "title": "Group Fixture Taken Place",
+            "type": "boolean"
+          },
+          "gruppe": {
+            "$ref": "#/components/schemas/FLGruppenNames"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "shorthand": {
+            "title": "Shorthand",
+            "type": "string"
+          },
+          "team_id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Team Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "team_id",
+          "name",
+          "shorthand",
+          "gruppe",
+          "austritt",
+          "group_fixture_taken_place",
+          "fixture_taken_place"
+        ],
+        "title": "FLSaisonAdminTeam",
+        "type": "object"
+      },
       "FLSaisonBewerbung": {
-        "description": "When the league accepts applications for this season.\n\nThe two halves that record it: the span, and the `offen` flag an administrator sets beside it.",
+        "description": "When the league accepts applications for this season: while today lies between `start` and `end`, both included.\n\nNo flag beside the span: closing early is moving `end` to today (`app/api/bewerbungen/services.py ::\nsaison_nimmt_bewerbungen_an`).",
         "properties": {
           "end": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "End",
             "type": "string"
-          },
-          "offen": {
-            "title": "Offen",
-            "type": "boolean"
           },
           "start": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -11242,7 +11343,6 @@
           }
         },
         "required": [
-          "offen",
           "start",
           "end"
         ],
@@ -11377,7 +11477,7 @@
         "type": "object"
       },
       "FLSaisonRegistrierung": {
-        "description": "When a pupil may register for this season.\n\nIts own model rather than an alias of `FLSaisonBewerbung` above: the two windows are two\ndecisions an administrator takes apart, and one component name on both would publish them as one.",
+        "description": "When a pupil may register for this season: from its activation to `end`, which falls before the season's start.\n\nNo start of its own, the activation being the opening (`app/api/registrierungen/services.py ::\nsaison_nimmt_registrierungen_an`); `offen` pauses the link alone. Its own model rather than an alias of\n`FLSaisonBewerbung` above: the two windows are two decisions an administrator takes apart.",
         "properties": {
           "end": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -11387,16 +11487,10 @@
           "offen": {
             "title": "Offen",
             "type": "boolean"
-          },
-          "von": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Von",
-            "type": "string"
           }
         },
         "required": [
           "offen",
-          "von",
           "end"
         ],
         "title": "FLSaisonRegistrierung",
@@ -12109,7 +12203,7 @@
           "confirmation": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/FLConfirmation"
+                "$ref": "#/components/schemas/FLSchiedsrichterConfirmation"
               },
               {
                 "type": "null"
@@ -12234,6 +12328,53 @@
         "title": "FLSchiedsrichterAccountEinwilligungPayload",
         "type": "object"
       },
+      "FLSchiedsrichterConfirmation": {
+        "description": "A referee's confirmation bookkeeping as an administrator reads it, the objection's day with it.",
+        "properties": {
+          "declined_at": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Declined At"
+          },
+          "frist": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Frist",
+            "type": "string"
+          },
+          "reminded_at": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reminded At"
+          },
+          "sent_at": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Sent At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sent_at",
+          "reminded_at",
+          "frist",
+          "declined_at"
+        ],
+        "title": "FLSchiedsrichterConfirmation",
+        "type": "object"
+      },
       "FLSchiedsrichterConfirmationData": {
         "description": "A referee's confirmation link, owed by their entry, a corrected address, a re-send or their return.",
         "properties": {
@@ -12319,6 +12460,16 @@
         "title": "FLSchiedsrichterConfirmationResponse",
         "type": "object"
       },
+      "FLSchiedsrichterConfirmationState": {
+        "enum": [
+          "valid",
+          "confirmed",
+          "declined",
+          "expired",
+          "barred"
+        ],
+        "type": "string"
+      },
       "FLSchiedsrichterConfirmationViewResponse": {
         "description": "What one confirmation link opens, and nothing a leaked one should not learn (`READ-REFEREE-002`).\n\nNever a name, the school, the contact details, the fee, the birthdate or the id.",
         "properties": {
@@ -12337,7 +12488,7 @@
             "type": "integer"
           },
           "state": {
-            "$ref": "#/components/schemas/FLConfirmationState"
+            "$ref": "#/components/schemas/FLSchiedsrichterConfirmationState"
           }
         },
         "required": [
@@ -12984,11 +13135,22 @@
             "const": "spiel_einteilung",
             "title": "Kind",
             "type": "string"
+          },
+          "moved_from": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielMailAppointment"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
           "kind",
-          "ansetzung"
+          "ansetzung",
+          "moved_from"
         ],
         "title": "FLSpielEinteilungData",
         "type": "object"
@@ -13501,17 +13663,58 @@
         "title": "FLSpielMailAppointment",
         "type": "object"
       },
+      "FLSpielMovedData": {
+        "description": "A party's word that a fixture it was asked about left that slot, owed where no request about its new slot goes now.\n\nThe mail's own request carries the move where the new slot is asked at once (`FLSpielRequestData.moved_from`).",
+        "properties": {
+          "appointment": {
+            "$ref": "#/components/schemas/FLSpielMailAppointment"
+          },
+          "asked_again": {
+            "title": "Asked Again",
+            "type": "boolean"
+          },
+          "kind": {
+            "const": "spiel_new_scheduled",
+            "title": "Kind",
+            "type": "string"
+          },
+          "moved_to": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielMailAppointment"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "recipient": {
+            "enum": [
+              "team",
+              "schiedsrichter"
+            ],
+            "title": "Recipient",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "recipient",
+          "appointment",
+          "moved_to",
+          "asked_again"
+        ],
+        "title": "FLSpielMovedData",
+        "type": "object"
+      },
       "FLSpielNoticeData": {
-        "description": "A party's word that a fixture it was asked about moved or was called off: the slot it was asked about.",
+        "description": "A party's word that a fixture it was asked about was called off: the slot it was asked about.",
         "properties": {
           "appointment": {
             "$ref": "#/components/schemas/FLSpielMailAppointment"
           },
           "kind": {
-            "enum": [
-              "spiel_new_scheduled",
-              "spiel_abgesagt"
-            ],
+            "const": "spiel_abgesagt",
             "title": "Kind",
             "type": "string"
           },
@@ -13811,6 +14014,16 @@
             "title": "Kind",
             "type": "string"
           },
+          "moved_from": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielMailAppointment"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "team": {
             "title": "Team",
             "type": "string"
@@ -13820,7 +14033,8 @@
           "kind",
           "team",
           "ansetzung",
-          "frist"
+          "frist",
+          "moved_from"
         ],
         "title": "FLSpielRequestData",
         "type": "object"
@@ -15290,12 +15504,16 @@
             "title": "Party"
           },
           "reminded_at": {
-            "items": {
-              "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-              "type": "string"
-            },
-            "title": "Reminded At",
-            "type": "array"
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reminded At"
           },
           "saison_id": {
             "title": "Saison Id",
@@ -18352,7 +18570,7 @@
           "kontakt_telefon_twice",
           "nichtantreten_with_tore",
           "nichtantreten_with_torschuetzen",
-          "registrierung_window_ends_before_start",
+          "registrierung_window_reaches_saison_start",
           "saison_ends_before_start",
           "saison_year_out_of_range",
           "spieltag_ends_before_start",
@@ -23734,10 +23952,10 @@
         ]
       }
     },
-    "/api/v0/saisons/list/verwaltung": {
+    "/api/v0/saisons/list/admin": {
       "get": {
         "description": "List every season, the `future` ones every base-tier read withholds included, each with whether it has started and has been played.\n\nThe admin surfaces read here because a season is created `future` and clubs are entered while it\nstill is, so an admin who cannot see one cannot run the league. `begun` is the start every\nstart lock refuses on, the swap's, the replacement's and the rules freeze's; `taken_place` is what\nfixes the start date (`saison_start_taken_place`).",
-        "operationId": "saisons_get_saisons_verwaltung",
+        "operationId": "saisons_get_saisons_admin",
         "parameters": [
           {
             "in": "query",
@@ -24074,6 +24292,80 @@
           }
         ],
         "summary": "Make this the active Saison",
+        "tags": [
+          "saisons"
+        ]
+      }
+    },
+    "/api/v0/saisons/{saison_id}/admin": {
+      "get": {
+        "description": "Return what the season editor shows in one read: the season and its clubs, the clubs a replacement may bring in, its shapes and matchdays.\n\nThe season is served a `future` one included, with its `version`, whether it has started (`begun`) and whether a\nfixture of it has taken place (`taken_place`).\n\nEach club's two flags are what the group swap's and the replacement's `sides_taken_place` read, so a picker closes\nexactly the pairs and rows those writes refuse; `begun` closes both before either is pressed. `incoming_clubs` is\nevery club still in the league holding no row of the season, which is what the replacement admits. 404 where no\nseason holds that id.",
+        "operationId": "saisons_get_saison_admin",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "saison_id",
+            "required": true,
+            "schema": {
+              "title": "Saison Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSaisonAdminResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "$ref": "#/components/responses/400",
+            "description": "Bad Request"
+          },
+          "401": {
+            "$ref": "#/components/responses/401",
+            "description": "Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/403",
+            "description": "Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/404",
+            "description": "Not Found"
+          },
+          "409": {
+            "$ref": "#/components/responses/409",
+            "description": "Conflict"
+          },
+          "410": {
+            "$ref": "#/components/responses/410",
+            "description": "Gone"
+          },
+          "422": {
+            "$ref": "#/components/responses/422",
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "$ref": "#/components/responses/500",
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/503",
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "AdminKey": []
+          }
+        ],
+        "summary": "One Saison for the admin editor",
         "tags": [
           "saisons"
         ]
@@ -24783,7 +25075,7 @@
         ]
       },
       "post": {
-        "description": "Draw the whole season at once: every matchday and every fixture, undated, in one transaction.\n\n`shape` states the three rules the fixtures come out of, and is stored with them. `replace`\ndeletes both lists first, every fixture's confirmations with them, inside `spielplan_replace_outside_its_window`'s\nwindow and on a season holding no submitted match report (`spielplan_berichte_submitted`), and is refused\n`confirmation_required` from a sign-in or confirmation older than `STEP_UP_WINDOW_HOURS`: nothing writes\nthe removed rows back.",
+        "description": "Draw the whole season at once: every matchday and every fixture, undated, in one transaction.\n\n`shape` states the three rules the fixtures come out of, and is stored with them. `replace`\ndeletes both lists first, every fixture's confirmations with them, inside `spielplan_replace_outside_its_window`'s\nwindow and on a season holding no submitted match report (`spielplan_berichte_submitted`): nothing writes the\nremoved rows back.",
         "operationId": "saisons_post_spielplan",
         "parameters": [
           {
@@ -25378,7 +25670,7 @@
     },
     "/api/v0/schiedsrichter/confirmation": {
       "post": {
-        "description": "Record a referee's own answer for the entry their link opens: their date of birth and the consent, in one update.\n\nThe consent carries the publication scope they chose, the media answer beside it, the stamp and, on each choice's\nevidence, the wording they were shown. It reaches this one collection and writes nothing on any fixture: a referee's\npublication scope has one home, which the fixture list joins at read time to decide whether to publish the name each\nfixture stores.\n\nRefuses, in this order: a token no referee holds (`link_invalid`), an entry already confirmed\n(`confirmation_exists`), a link whose deadline has passed (`link_expired`), a link mailed to an address the ban\nlist holds now, whenever the link was minted (`link_barred`), an age outside what this consent asks\n(`confirmation_age`), and a media consent from a referee below `media_minimum_age` (`media_age`) -- the last two\njudged before anything is written, so a mistyped year spends nothing.\n\n**The caller drops the cached fixture list after a successful answer**, which reads this record. Nothing here can:\na withheld name would go on being served for as long as that entry lives.",
+        "description": "Record a referee's own answer for the entry their link opens: their date of birth and the consent, in one update.\n\nThe consent carries the publication scope they chose, the media answer beside it, the stamp and, on each choice's\nevidence, the wording they were shown. It reaches this one collection and writes nothing on any fixture: a referee's\npublication scope has one home, which the fixture list joins at read time to decide whether to publish the name each\nfixture stores.\n\nRefuses, in this order: a token no referee holds (`link_invalid`), an entry already answered, confirmed or\ndeclined (`confirmation_exists`), a link whose deadline has passed (`link_expired`), a link mailed to an address the ban\nlist holds now, whenever the link was minted (`link_barred`), an age outside what this consent asks\n(`confirmation_age`), and a media consent from a referee below `media_minimum_age` (`media_age`) -- the last two\njudged before anything is written, so a mistyped year spends nothing.\n\n**The caller drops the cached fixture list after a successful answer**, which reads this record. Nothing here can:\na withheld name would go on being served for as long as that entry lives.",
         "operationId": "schiedsrichter_post_confirmation",
         "requestBody": {
           "content": {
@@ -25444,6 +25736,72 @@
           }
         ],
         "summary": "Confirm one Schiedsrichter's entry and consent",
+        "tags": [
+          "schiedsrichter"
+        ]
+      }
+    },
+    "/api/v0/schiedsrichter/confirmation/decline": {
+      "post": {
+        "description": "Record the referee's objection to the entry their link opens: its day, and nothing else of the person.\n\nThe entry then goes on the clock its link started, the midnight after the deadline, as the privacy notice says of an\nunconfirmed or declined one (`app/core/constraints.py :: TTL_INDEXES`). Until then no booking takes it and no\nre-send or reactivation asks the person again.\n\nRefuses, in the confirmation's order: a token no referee holds (`link_invalid`), an entry already answered,\nconfirmed or declined (`confirmation_exists`), and a link whose deadline has passed (`link_expired`). The ban list\nis not asked: an objection gives the league nothing a ban withholds.",
+        "operationId": "schiedsrichter_post_decline",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLTokenPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "400": {
+            "$ref": "#/components/responses/400",
+            "description": "Bad Request"
+          },
+          "401": {
+            "$ref": "#/components/responses/401",
+            "description": "Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/403",
+            "description": "Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/404",
+            "description": "Not Found"
+          },
+          "409": {
+            "$ref": "#/components/responses/409",
+            "description": "Conflict"
+          },
+          "410": {
+            "$ref": "#/components/responses/410",
+            "description": "Gone"
+          },
+          "422": {
+            "$ref": "#/components/responses/422",
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "$ref": "#/components/responses/500",
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/503",
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "BaseKey": []
+          }
+        ],
+        "summary": "Decline one Schiedsrichter's entry",
         "tags": [
           "schiedsrichter"
         ]
@@ -25588,7 +25946,7 @@
     },
     "/api/v0/schiedsrichter/{schiedsrichter_id}": {
       "delete": {
-        "description": "Deactivate a referee. SOFT, for the same reason as venues: matches embed a copy.",
+        "description": "Deactivate a referee. SOFT, for the same reason as venues: a played match names them by id.",
         "operationId": "schiedsrichter_delete_schiedsrichter",
         "parameters": [
           {
@@ -25727,7 +26085,7 @@
         ]
       },
       "patch": {
-        "description": "Update a referee, then update the embedded name on every Spiel that uses them.\n\nOnly the name. `payment` is NOT propagated: the fee on a match is what was agreed for it.\n\n**A corrected address on an UNCONFIRMED referee retires their link and owes a fresh one** to the\nnew address, named in `confirmation`: the old link was posted to a mailbox nobody reads, and\nleaving it live is a credential in the wrong inbox.\n\n**A CONFIRMED referee's address is refused here** (`schiedsrichter_address_only_per_change`), retired or not: it is who signs in as the\nperson, and moves only through an address change: the address tool, `POST /address_change`, or the person's own account page.\nA save keeping it lands, a pending change standing.\n\n**A RETIRED unconfirmed referee's corrected address is stored and mails nothing**: no consent is\ncollected for a role nobody gives them. Their old link is retired all the same, and the\nreactivation mints the fresh one. Where a link is minted, a banned new address is refused\n`schiedsrichter_address_barred`. A save retiring or minting a link is refused `confirmation_required` from a\nsign-in or confirmation older than `STEP_UP_WINDOW_HOURS`.\n\nThe ghost answers 404 here as it does to every read: a name written onto it would appear on the\nfixtures of every referee already erased.",
+        "description": "Update a referee on the `version` the editor was served, answering the version stored.\n\nThe editor's next save sends that version. A fixture names the referee by id and reads the name at its own read, so\nnothing else is written; each fixture keeps the `payment` agreed for it.\n\n**A corrected address on an UNCONFIRMED referee retires their link and owes a fresh one** to the\nnew address, named in `confirmation`: the old link was posted to a mailbox nobody reads, and\nleaving it live is a credential in the wrong inbox.\n\n**A CONFIRMED referee's address is refused here** (`schiedsrichter_address_only_per_change`), retired or not: it is who signs in as the\nperson, and moves only through an address change: the address tool, `POST /address_change`, or the person's own account page.\nA save keeping it lands, a pending change standing.\n\n**A RETIRED unconfirmed referee's corrected address is stored and mails nothing**: no consent is\ncollected for a role nobody gives them. Their old link is retired all the same, and the\nreactivation mints the fresh one. Where a link is minted, a banned new address is refused\n`schiedsrichter_address_barred`.\n\nThe ghost answers 404 here as it does to every read: a name written onto it would appear on the\nfixtures of every referee already erased.",
         "operationId": "schiedsrichter_patch_schiedsrichter",
         "parameters": [
           {
@@ -25804,7 +26162,7 @@
             "AdminKey": []
           }
         ],
-        "summary": "Update a Schiedsrichter and fan the change out",
+        "summary": "Update a Schiedsrichter",
         "tags": [
           "schiedsrichter"
         ]
@@ -25812,7 +26170,7 @@
     },
     "/api/v0/schiedsrichter/{schiedsrichter_id}/confirmation/invite": {
       "post": {
-        "description": "Owe this referee a fresh confirmation link, which the Postausgang mints and mails, and answer where it goes.\n\nIt replaces the whole block, so the previous link stops working at once. The deadline restarts from today.\n\nRefused where the referee is retired (`schiedsrichter_retired`), where they have already\nanswered (`confirmation_exists`), where they carry no email address\n(`schiedsrichter_no_address`), and where that address is on the ban list\n(`schiedsrichter_address_barred`). 404 for an id no referee holds, an erased referee's among them, and\nfor the ghost, which every by-id route filters out.\n\n**A referee who has already answered is refused rather than sent a second link**: the\nconfirmation refuses every such press, so minting one would replace a live block with a\ncredential that can never be spent.",
+        "description": "Owe this referee a fresh confirmation link, which the Postausgang mints and mails, and answer where it goes.\n\nIt replaces the whole block, so the previous link stops working at once. The deadline restarts from today.\n\nRefused where the referee is retired (`schiedsrichter_retired`), where they have already\nanswered, consenting or objecting (`confirmation_exists`), where they carry no email address\n(`schiedsrichter_no_address`), and where that address is on the ban list\n(`schiedsrichter_address_barred`). 404 for an id no referee holds, an erased referee's among them, and\nfor the ghost, which every by-id route filters out.\n\n**A referee who has already answered is refused rather than sent a second link**: the\nconfirmation refuses every such press, so minting one would replace a live block with a\ncredential that can never be spent.",
         "operationId": "schiedsrichter_invite_schiedsrichter",
         "parameters": [
           {
@@ -25887,7 +26245,7 @@
     },
     "/api/v0/schiedsrichter/{schiedsrichter_id}/reactivate": {
       "post": {
-        "description": "Clear `inactive_since`, putting the referee back into the picker and every default read.\n\n**A retired referee who has not answered is owed a fresh link**, named in `confirmation`: a\nretired referee's save stores a new address and mails nothing, so coming back is what\nasks them. A row holding no address a link can go to comes back unasked, and so does one whose\nperson has answered. Where a link is minted, an address on the ban list is refused\n`schiedsrichter_address_barred` and the row stays retired, and one from a sign-in or confirmation older than\n`STEP_UP_WINDOW_HOURS` is refused `confirmation_required`.\n\nThe ghost answers 404 here too: cleared on it, the picker would offer a bookable row with no\nperson behind it.",
+        "description": "Clear `inactive_since`, putting the referee back into the picker and every default read.\n\n**A retired referee who has not answered is owed a fresh link**, named in `confirmation`: a\nretired referee's save stores a new address and mails nothing, so coming back is what\nasks them. A row holding no address a link can go to comes back unasked, and so does one whose\nperson has answered. Where a link is minted, an address on the ban list is refused\n`schiedsrichter_address_barred` and the row stays retired.\n\nThe ghost answers 404 here too: cleared on it, the picker would offer a bookable row with no\nperson behind it.",
         "operationId": "schiedsrichter_reactivate_schiedsrichter",
         "parameters": [
           {
@@ -26558,7 +26916,7 @@
     },
     "/api/v0/spielbestaetigungen": {
       "get": {
-        "description": "Every confirmation row of the season, or of its one fixture.\n\nNewest first, closed rows included. No seat's link hashes and no answer's holder digest are served. Every row still\nholding its party's question is served; `limit` cuts the others, and `complete` is false where it left the\noldest of them out. Each seat holding a link names what became of the last mail owed to it. A season no document\nhas answers no rows rather than 404.",
+        "description": "Every confirmation row of the season, or of its one fixture.\n\nNewest first, closed rows included. No seat's link hashes and no seat's address are served. Every row still\nholding its party's question is served; `limit` cuts the others, and `complete` is false where it left the\noldest of them out. Each seat holding a link names what became of the last mail owed to it. A season no document\nhas answers no rows rather than 404.",
         "operationId": "spielbestaetigungen_get_spielbestaetigungen",
         "parameters": [
           {
@@ -26858,7 +27216,7 @@
     },
     "/api/v0/spielbestaetigungen/sweep/{saison_id}": {
       "post": {
-        "description": "Close, mint and remind one season's fixture confirmations, as of today in Europe/Berlin, and answer what it did, counted.\n\nEach mail is owed through the Postausgang in the transaction that writes its row.\n\nThe close shuts every row not yet closed, answered or not, whose fixture moved, was decided, was called off, lost a club\nto an `austritt` dated on or before its day, or -- a referee's row -- names another referee or none; failing all of\nthose, a row whose fixture's day is before today closes `spiel_past`, so nobody is asked about a past date. A\nclub's decline closed `discarded` is closed again for each of those but a move and a referee change, in the pass\nthat closes an agreement beside it, and once the day it was about has passed: the public fixture then stops\ncounting it as that club's agreement.\n\nA closing owes its party a notice in its own transaction where the party's first request or Einteilung was owed,\nabout a day today or later: for a move, the slot it left or the one the fixture holds now; for a referee taken off\nthe fixture -- ahead of a move it shares a close with, and never for the referee's own decline, which closed its row\nas it was given -- and for a call-off, the slot the row was about. A club is told at every address its season row's\nseats hold now, a referee at the address their record holds; a party nobody is left to tell is told nothing.\n\nThe mint asks about every fixture dated strictly after today and at most the answer window ahead that has its time and\nground, both sides, no result and no `sonderereignis`, and that the close would not shut: one row per side and one for\nits booked referee, unless a row about that party and that Ansetzung is still unclosed, or was closed `discarded`: a\ndecline the administrator discarded is the party's one answer to that Ansetzung. A fixture booked onto the erased\nreferee's ghost gets no referee row, the ghost holding no address. The deadline falls the notice period\n(`app/shared/schemas/bounds.py :: SPIEL_CONFIRMATION_FRIST_DAYS`) before the fixture, or today where that has passed.\nEach seat holding an address is owed one link, a person holding two seats one link naming both, each minted when the\nmail is handed out, and the row is stamped as asked; a referee row is owed its Einteilung, with no link. An open row's\noccupied seat holding no link -- its holder replaced, newly seated, or a ban since lifted -- is owed one too. A\nfixture holding an unclosed row about an Ansetzung it has left is asked once the close has shut it, the close owing\nits notice first.\n\nThe reminder owes a fresh link per person on each team row whose deadline lies a reminder's count of days away\n(`app/shared/schemas/bounds.py :: SPIEL_REMINDER_DAYS_FIRST`, `:: SPIEL_ERINNERUNG_TAGE_ZWEITE`), minted beside the\nlinks already mailed so every one of them answers until the deadline, and stamps the day. It passes over each seat\nwhose last mail did not arrive, and reminds no row this pass inserted nor one whose request was owed today; where\nthis pass's mint owed one of a row's seats a fresh link, that request is the seat's message of the day and the row's\nother seats are reminded beside it.\n\nA seat whose address the ban list holds is owed nothing and has nothing written, so it stays due and a later pass asks\nit once the ban is lifted.\n\nEach step takes a bounded share and leaves the rest due. A row whose write fails is passed over alone, logged by id\nand counted in `failed`; any other failure is raised, every step committed before it standing with its mails.\n\nA season that is not `active` is passed by whole -- nothing closed, minted or reminded -- so a mistyped call, or one for\na season ended since the listing, mails nobody. 404 where no season has the id.",
+        "description": "Close, mint and remind one season's fixture confirmations, as of today in Europe/Berlin, and answer what it did, counted.\n\nEach mail is owed through the Postausgang in the transaction that writes its row.\n\nThe close shuts every row not yet closed, answered or not, whose fixture moved, was decided, was called off, lost a club\nto an `austritt` dated on or before its day, or -- a referee's row -- names another referee or none; failing all of\nthose, a row whose fixture's day is before today closes `spiel_past`, so nobody is asked about a past date. A\nclub's decline closed `discarded` is closed again for each of those but a move and a referee change, in the pass\nthat closes an agreement beside it, and once the day it was about has passed: the public fixture then stops\ncounting it as that club's agreement.\n\nA closing owes its party a notice in its own transaction where the party's first request or Einteilung was owed,\nabout a day today or later: for a move, „Spiel verlegt“, naming the slot it left and the one the fixture holds now\nwhere the party is still one of its sides or its referee and that slot has a day, an hour and both sides; for a\nreferee taken off the fixture -- ahead of a move it shares a close with, and never for the referee's own decline, which closed its row\nas it was given -- and for a call-off, the slot the row was about. A club is told at every address its season row's\nseats hold now, a referee at the address their record holds; a party nobody is left to tell is told nothing.\n\nThe mint asks about every fixture dated strictly after today and at most the answer window ahead that has its time and\nground, both sides, no result and no `sonderereignis`, and that the close would not shut: one row per side and one for\nits booked referee, unless a row about that party and that Ansetzung is still unclosed, or was closed `discarded`: a\ndecline the administrator discarded is the party's one answer to that Ansetzung. A fixture booked onto the erased\nreferee's ghost gets no referee row, the ghost holding no address. The deadline falls the notice period\n(`app/shared/schemas/bounds.py :: SPIEL_CONFIRMATION_FRIST_DAYS`) before the fixture, or today where that has passed.\nEach seat holding an address is owed one link, a person holding two seats one link naming both, each minted when the\nmail is handed out, and the row is stamped as asked; a referee row is owed its Einteilung, with no link. An open row's\noccupied seat holding no link -- its holder replaced, newly seated, or a ban since lifted -- is owed one too. A\nparty still asked by a fixture that moved to a slot the mint asks today is the mint's, never the close's: in the\ntransaction asking about the new slot, the mint closes the party's row about the slot left `ansetzung_changed`, and\nthe request or Einteilung it owes names the slot left, the one mail telling of the move; a party it owes no request,\nits answer about the new slot standing or no seat of its reachable, is owed the move's notice instead. A fixture\nholding any other unclosed row about an Ansetzung it has left is asked once the close has shut it, the close owing\nits notice first.\n\nThe one reminder owes a fresh link per person on each team row never reminded whose deadline lies the reminder's\ndays away (`app/shared/schemas/bounds.py :: SPIEL_REMINDER_DAYS`), minted beside the links already mailed so every\none of them answers until the deadline, and stamps the day. It passes over each seat\nwhose last mail did not arrive, and reminds no row this pass inserted nor one whose request was owed today; where\nthis pass's mint owed one of a row's seats a fresh link, that request is the seat's message of the day and the row's\nother seats are reminded beside it.\n\nA seat whose address the ban list holds is owed nothing and has nothing written, so it stays due and a later pass asks\nit once the ban is lifted.\n\nEach step takes a bounded share and leaves the rest due. A row whose write fails is passed over alone, logged by id\nand counted in `failed`; any other failure is raised, every step committed before it standing with its mails.\n\nA season that is not `active` is passed by whole -- nothing closed, minted or reminded -- so a mistyped call, or one for\na season ended since the listing, mails nobody. 404 where no season has the id.",
         "operationId": "spielbestaetigungen_sweep_spielbestaetigungen",
         "parameters": [
           {
@@ -29134,7 +29492,7 @@
     },
     "/api/v0/spielorte/{spielort_id}": {
       "delete": {
-        "description": "Deactivate a venue. SOFT: it stamps `inactive_since`, and the document stays.\n\nMatches embed a copy, so a hard delete would orphan every historical match that used it. Refused\nwhile an unplayed fixture is still booked here (`spielort_still_booked`).",
+        "description": "Deactivate a venue. SOFT: it stamps `inactive_since`, and the document stays.\n\nA played match names the venue by id, so a hard delete would orphan every historical match that used it. Refused\nwhile an unplayed fixture is still booked here (`spielort_still_booked`).",
         "operationId": "spielorte_delete_spielort",
         "parameters": [
           {
@@ -29200,7 +29558,7 @@
         ]
       },
       "get": {
-        "description": "Admin-tier as the list is, and for the same two rules (`READ-MONEY-001`, `READ-ADDRESS-001`).\n\nDeactivated ones included -- a historical match's venue is the case worth answering.",
+        "description": "The venue editor's one read: the record, its `version` with it, which the editor's save sends back.\n\nAdmin-tier as the list is, and for the same two rules (`READ-MONEY-001`, `READ-ADDRESS-001`). Retired venues included:\nthe editor reactivates one, and a historical match's venue is the case worth answering.",
         "operationId": "spielorte_get_spielort",
         "parameters": [
           {
@@ -29273,7 +29631,7 @@
         ]
       },
       "patch": {
-        "description": "Update a venue, then update every Spiel that embeds it.\n\nThe fan-out is not optional: without it, match cards keep showing the old name. `mietpreis` is\nNOT fanned out -- the rent on a match is what was agreed for that match.",
+        "description": "Update a venue on the `version` the editor was served, answering the version stored, which its next save sends.\n\nA fixture names the venue by id and reads its name and `maps_link` at its own read, so nothing else is written; each\nfixture keeps the `mietpreis` agreed for it. Refused where another venue holds the name (`duplicate_key`), by the\nunique index.",
         "operationId": "spielorte_patch_spielort",
         "parameters": [
           {
@@ -29350,7 +29708,7 @@
             "AdminKey": []
           }
         ],
-        "summary": "Update a Spielort and fan the change out",
+        "summary": "Update a Spielort",
         "tags": [
           "spielorte"
         ]
@@ -29930,10 +30288,10 @@
         ]
       }
     },
-    "/api/v0/teams/list/verwaltung": {
+    "/api/v0/teams/list/admin": {
       "get": {
         "description": "List a season's teams for the admin surfaces, a `future` season's included.\n\nNo base-tier season gate: a club is entered while its season is still planned, so an admin who\ncannot see one cannot enter it.",
-        "operationId": "teams_get_teams_verwaltung",
+        "operationId": "teams_get_teams_admin",
         "parameters": [
           {
             "in": "query",
@@ -30122,7 +30480,7 @@
     },
     "/api/v0/teams/saisons": {
       "get": {
-        "description": "Every team, retired ones included, each with every season membership it holds. Sorted by name.\n\n`GET /teams/list/verwaltung` cannot answer it: that read is season-scoped with a strict junction join. Each membership names the live\nchange of each seat's address, which the address tool shows, and per seat why the tool refuses that change this\nadministrator. Each seat's link names what became of the last mail carrying it, `delivery` null where none was\never owed.",
+        "description": "Every team, retired ones included, each with every season membership it holds. Sorted by name.\n\n`GET /teams/list/admin` cannot answer it: that read is season-scoped with a strict junction join. Each membership names the live\nchange of each seat's address, which the address tool shows, and per seat why the tool refuses that change this\nadministrator. Each seat's link names what became of the last mail carrying it, `delivery` null where none was\never owed.",
         "operationId": "teams_get_team_saisons",
         "responses": {
           "200": {

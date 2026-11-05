@@ -313,8 +313,6 @@ export function fensterZustand(fenster: FLBewerbungWindowResponse | null, today:
   // Ahead of every date answer: an ended season takes no application again, so „gerade geschlossen“
   // or „noch nicht offen“ would send a school to wait for a window that never reopens.
   if (fenster.saison_ended) return "vorbei";
-  // Before either date: the league closed it, which is not the same as a deadline passing.
-  if (!fenster.offen) return "closed";
   if (today < fenster.start) return "noch-nicht";
 
   // Never `vorbei` by default: `laeuft` is false with the span still open where this clock and the

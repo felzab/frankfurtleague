@@ -24,7 +24,7 @@ import { appToast } from "@/shared/utils/appToast";
 import { nichtHinterlegt } from "@/shared/utils/format";
 import { REGISTRIERUNGSLINK_TITLE, reportLinkDispatch } from "@/shared/utils/linkDispatchToast";
 
-import type { FLInvitationDispatchGrund, FLInvitationDispatchPreviewRow, FLInvitationDispatchRow } from "@/core/generated/client/types";
+import type { FLInvitationDispatchPreviewRow, FLInvitationDispatchRow, FLInvitationSkipReason } from "@/core/generated/client/types";
 import type { DispatchTitle } from "@/shared/utils/linkDispatchToast";
 
 /** The ruling's own words, copied rather than reworded: a label a visitor navigates by is nobody's here to choose. */
@@ -37,7 +37,7 @@ const SENDEN_ARMED = `Ja, ${SENDEN_LABEL}`;
  * **These are ordinary states** of a season being set up, and wording one as a failure would send
  * somebody hunting for a fault nobody has.
  */
-const UEBERSPRUNGEN_SATZ: Record<FLInvitationDispatchGrund, string> = {
+const UEBERSPRUNGEN_SATZ: Record<FLInvitationSkipReason, string> = {
   // The RECORD rather than the route it was entered under: no rule keyed on a club having left
   // reads that route (`fl_frontend/src/features/teams/constants.ts :: AUSTRITT_OPTIONS` holds its
   // German), so naming one here would report a fact nothing judges.

@@ -55,7 +55,7 @@ NOT_ENTERED = ObjectId("6890a1b2c3d4e5f607260005")
 
 SEEDED_EINLADUNG = ObjectId("6890a1b2c3d4e5f607260011")
 
-REGISTRIERUNG: Mapping[str, Any] = {"offen": True, "von": "2026-03-01", "end": "2026-04-30"}
+REGISTRIERUNG: Mapping[str, Any] = {"offen": True, "end": "2026-04-30"}
 
 TEAM_NAMES = {TWO_SEATS: "Adler", UNCONFIRMED: "Bieber", NO_BLOCK: "Cronberg", ALREADY_MAILED: "Dornbusch", WITHDRAWN: "Eschborn"}
 
@@ -152,7 +152,7 @@ async def a_sent_mail(database: AsyncDatabase, invitation_id: ObjectId, an: str)
                 team_name="Seeded",
                 saison_id=SAISON_ID,
                 recipient=[FLInvitationRecipient(rolle="trainer", vorname="Fendrick", email=an)],
-                anlass="versand",
+                occasion="versand",
             ),
             now=MAIL_NOW,
         )

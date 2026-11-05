@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from http import HTTPStatus
-from typing import LiteralString
+from typing import Any, Literal, LiteralString
 
 from pydantic_core import PydanticCustomError  # noqa: TID251 -- the one place a rule is raised
 
@@ -12,9 +12,22 @@ from app.core.codes import Code, Rule
 # The path inside the body a refusal judged, as a `payload_refused` names its own, so a form can mark the field.
 FieldPath = tuple[str | int, ...]
 
-# One bound a rule holds a refused value to, by the name the rule gives it: a JSON scalar, which is all a failure
-# body's `ctx` carries (`app/shared/schemas/responses.py :: FLRefusedField`).
-type Bound = str | int | float | bool
+# One bound a rule holds a refused value to, by the name the rule gives it: a JSON scalar, or a list of whole numbers
+# such as the fixtures a retirement waits on, which is all a failure body's `ctx` carries
+# (`app/shared/schemas/responses.py :: FLRefusedField`).
+type Bound = str | int | float | bool | list[int]
+
+# Where the field a refusal names arrived: the body, or the path a by-id write names its record in.
+type FieldLocation = Literal["body", "path"]
+
+
+def is_bound(value: Any) -> bool:
+    """Whether a context member is a `Bound` a failure body can carry: anything else names nothing a caller could word."""
+
+    if isinstance(value, list):
+        return all(isinstance(member, int) and not isinstance(member, bool) for member in value)
+
+    return isinstance(value, str | int | float | bool)
 
 
 def rule_refusal(rule: Rule, message: LiteralString, bounds: Mapping[str, Bound] | None = None) -> PydanticCustomError:
@@ -32,7 +45,8 @@ class APIError(Exception):
     `headers` carry what the status asks for beside the body, a 401's challenge or a `Retry-After`. `bounds` are what the
     refused value is held to, by the names the rule gives them, written as each judged field's `ctx` as a
     `PydanticCustomError`'s context is: the caller words the field's line from them, so a bound the server moves moves
-    the line with it. A refusal naming no field carries none.
+    the line with it. A refusal naming no field carries none. `location` says where its fields arrived, the body unless
+    a by-id write's refusal names the path's id.
     """
 
     def __init__(
@@ -43,6 +57,7 @@ class APIError(Exception):
         headers: Mapping[str, str] | None = None,
         fields: tuple[FieldPath, ...] = (),
         bounds: Mapping[str, Bound] | None = None,
+        location: FieldLocation = "body",
     ):
         super().__init__(code)
         self.status_code = int(status)
@@ -50,6 +65,7 @@ class APIError(Exception):
         self.headers = headers
         self.fields = fields
         self.bounds: Mapping[str, Bound] = dict(bounds or {})
+        self.location: FieldLocation = location
 
 
 class DocumentNotFoundError(APIError):
@@ -75,9 +91,10 @@ class WriteRefusal:
     status: HTTPStatus
     fields: tuple[FieldPath, ...] = ()
     bounds: Mapping[str, Bound] = field(default_factory=dict)
+    location: FieldLocation = "body"
 
     def error(self) -> APIError:
-        return APIError(self.status, self.error_code, fields=self.fields, bounds=self.bounds)
+        return APIError(self.status, self.error_code, fields=self.fields, bounds=self.bounds, location=self.location)
 
 
 # RFC 9110's 401 must carry a challenge, and `Bearer` would name the tier key, which passed: the

@@ -3,8 +3,8 @@ API · every write moving a season seat's holder voids that seat's links on its 
 
 Each writer of an existing season row's seats is driven against the shipped indexes, and straight after it commits,
 with no sweep run, each link is opened through the link's own view (`app/api/spielbestaetigungen/public_router.py ::
-get_spielbestaetigung_view`): a link it refuses with `link_ungueltig` is voided. A contact's erasure and their
-Widerspruch also take every reason they typed, matched on the holder each answer stored.
+get_spielbestaetigung_view`): a link it refuses with `link_invalid` is voided. A contact's erasure and their
+Widerspruch also take every reason typed from the seats they leave, matched by team, season and role.
 """
 
 from collections.abc import Awaitable, Callable, Mapping
@@ -298,7 +298,6 @@ async def erase_the_trainer(database: AsyncDatabase, client: AsyncMongoClient) -
             action_log_collection=database[Collection.ACTION_LOG],
             spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
             identifier=identifier,
-            key=CONFIG.sperrliste_key,
             saison_team_rows=rows,
             bewerbung_rows=[],
             stamp=AT,
@@ -434,57 +433,56 @@ class TestEverySeatWriteVoidsItsLinks:
         assert (logged, logged_with_an_entry) == (0, 1)
 
 
-IDA = "ida@example.com"
 UNDRAWN_SPIEL_OIDS = [ObjectId(f"6890a1b2c3d4e5f607b6005{position}") for position in range(2)]
+LATER_SPIEL_OID = ObjectId("6890a1b2c3d4e5f607b60061")
 
 
-def declined(row: str, team_id: ObjectId, spiel: Mapping[str, Any], rolle: str, address: str, begruendung: str) -> dict[str, Any]:
-    """A row the team declined from `rolle`'s link, pressed by `address`, giving a reason; closed since, as a move closes an answered row."""
+def declined(row: str, team_id: ObjectId, spiel: Mapping[str, Any], rolle: str, begruendung: str) -> dict[str, Any]:
+    """A row the team declined from `rolle`'s link, giving a reason; closed since, as a move closes an answered row."""
 
     return confirmation_row(
         row,
         team_id,
         spiel,
-        antwort=documents.kontakt_antwort_document(rolle, address, begruendung=begruendung),
+        antwort=documents.kontakt_antwort_document(rolle, begruendung=begruendung),
         closed={"at": TODAY, "grund": "ansetzung_changed"},
     )
 
 
-# Ida holds this team's Trainer seat now. Hers go with her whichever seat and team she typed them from, an
-# address she typed in another case among them; her predecessor's, from the seat she holds now, stays.
+# Ida holds this team's Trainer seat in this season. Every reason typed from that seat goes, her predecessor's
+# among them, the answer recording the seat alone; one from another seat, team or season stays to the season's end.
 REASONS = {
-    "hers, from her seat": declined("hers", TEAM_OID, FIXTURES[2], "trainer", IDA, "Ida ist an dem Tag verreist"),
-    "hers, from a seat she left": declined("left", OTHER_TEAM_OID, FIXTURES[3], "ansprechperson", "IDA@Example.com", "Die Fahrt ist zu weit"),
-    "her predecessor's, from her seat": declined("before", TEAM_OID, FIXTURES[4], "trainer", "lea@example.com", "Lea hat Spätdienst"),
-    "another seat's": declined("seat", TEAM_OID, FIXTURES[5], "ansprechperson", "jonas@example.com", "Die Halle ist belegt"),
-    "another team's": declined("team", OTHER_TEAM_OID, FIXTURES[6], "trainer", "klara@example.com", "Unser Trainer ist krank"),
+    "from her seat": declined("hers", TEAM_OID, FIXTURES[2], "trainer", "Ida ist an dem Tag verreist"),
+    "from a seat of another team": declined("left", OTHER_TEAM_OID, FIXTURES[3], "ansprechperson", "Die Fahrt ist zu weit"),
+    "her predecessor's, from her seat": declined("before", TEAM_OID, FIXTURES[4], "trainer", "Lea hat Spätdienst"),
+    "another seat's": declined("seat", TEAM_OID, FIXTURES[5], "ansprechperson", "Die Halle ist belegt"),
+    "another team's, from the same role": declined("team", OTHER_TEAM_OID, FIXTURES[6], "trainer", "Unser Trainer ist krank"),
+    "from the same seat in another season": declined(
+        "season", TEAM_OID, fixture(LATER_SPIEL_OID, saison_id=LATER_SAISON_ID), "trainer", "Wir fahren ins Landheim"
+    ),
 }
 # Removed by an undraw, so one array image holds both, hers second: a judge taking every element, or the first, fails.
 UNDRAWN = {
-    "another seat's, undrawn": declined(
-        "undrawn-seat", TEAM_OID, fixture(UNDRAWN_SPIEL_OIDS[0], saison_id=LATER_SAISON_ID), "ansprechperson", "jonas@example.com", "Halle zu"
-    ),
-    "hers, undrawn": declined(
-        "undrawn-hers", TEAM_OID, fixture(UNDRAWN_SPIEL_OIDS[1], saison_id=LATER_SAISON_ID), "trainer", IDA, "Ida ist krank"
-    ),
+    "another seat's, undrawn": declined("undrawn-seat", TEAM_OID, fixture(UNDRAWN_SPIEL_OIDS[0]), "ansprechperson", "Halle zu"),
+    "from her seat, undrawn": declined("undrawn-hers", TEAM_OID, fixture(UNDRAWN_SPIEL_OIDS[1]), "trainer", "Ida ist krank"),
 }
-HERS = {"hers, from her seat", "hers, from a seat she left", "hers, undrawn"}
+CLEARED = {"from her seat", "her predecessor's, from her seat", "from her seat, undrawn"}
 NAMED = {row["spiel_id"]: name for name, row in {**REASONS, **UNDRAWN}.items()}
 
 
-def left_behind(name: str, antwort: Mapping[str, Any]) -> tuple[str, Any, Any]:
-    return name, antwort["begruendung"], antwort["von"].get("halter")
+def left_behind(name: str, antwort: Mapping[str, Any]) -> tuple[str, Any]:
+    return name, antwort["begruendung"]
 
 
-def expected(name: str) -> tuple[str, Any, Any]:
-    if name in HERS:
-        return name, None, None
+def expected(name: str) -> tuple[str, Any]:
+    if name in CLEARED:
+        return name, None
 
     return left_behind(name, {**REASONS, **UNDRAWN}[name]["antwort"])
 
 
 class TestALeavingContactsReasonsGo:
-    """Every reason the person typed goes from its row and every log image, with the holder it was matched on; the answer stays."""
+    """Every reason typed from the seat the person leaves goes from its row and every log image; the answer stays."""
 
     @pytest.mark.parametrize(
         "write",
@@ -495,24 +493,24 @@ class TestALeavingContactsReasonsGo:
         ],
     )
     def test_theirs_go_from_the_rows_and_the_images_and_nobody_elses_do(self, mongo_replica_set_url: str, write: Write):
-        """The predecessor's reason from the same seat is what a judge keyed on the seat rather than the holder takes."""
+        """A reason typed from the seat an erased person held would survive them: an answer records the seat and never its holder."""
 
         found: dict[str, Any] = {}
 
         async def after_the_answers(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             collection = database[Collection.SPIELBESTAETIGUNGEN]
             await collection.insert_many([dict(row) for row in (*REASONS.values(), *UNDRAWN.values())])
-            # A write after each answer files the answered row's image, reason, holder and all.
+            # A write after each answer files the answered row's image, reason and all.
             for row in REASONS.values():
                 await patch_one_in_db(
                     collection=collection,
                     db_filter={"_id": row["_id"]},
-                    update={"$set": {"reminded_at": [TODAY]}},
+                    update={"$set": {"reminded_at": TODAY}},
                     expected_version=None,
                     return_document=ReturnDocument.BEFORE,
                 )
             async with client.start_session() as session:
-                await delete_many_from_db(collection=collection, db_filter={"saison_id": LATER_SAISON_ID}, session=session)
+                await delete_many_from_db(collection=collection, db_filter={"spiel_id": {"$in": UNDRAWN_SPIEL_OIDS}}, session=session)
 
             await write(database, client)
 
@@ -574,7 +572,7 @@ class TestALeavingPersonsLinksLeaveTheLog:
             await patch_one_in_db(
                 collection=database[Collection.SPIELBESTAETIGUNGEN],
                 db_filter={"_id": ROWS["answered"]["_id"]},
-                update={"$set": {"reminded_at": [TODAY]}},
+                update={"$set": {"reminded_at": TODAY}},
                 expected_version=None,
                 return_document=ReturnDocument.BEFORE,
             )

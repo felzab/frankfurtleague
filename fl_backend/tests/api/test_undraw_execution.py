@@ -30,7 +30,6 @@ from app.shared.schemas.literals import FLGruppenNames
 from tests import documents
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.isolation import COMMITTED, InterleavedCollection, outcome_of
-from tests.session_headers import fresh_admin_actor
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -178,7 +177,6 @@ async def call_draw(database: AsyncDatabase, client: AsyncMongoClient, *, saison
         db=client,
         spielplan_data=FLGenerateSpielplanPayload(),
         today=TODAY,
-        actor=fresh_admin_actor(),
     )
 
 
@@ -211,6 +209,7 @@ async def call_patch_rules(database: AsyncDatabase, **overrides: Any) -> None:
             # window carries a default and this helper is about neither of them.
             bewerbung=None,
             registrierung=None,
+            version=(await database[Collection.SAISONS].find_one({"_id": SAISON_ID}, {"version": 1}) or {})["version"],
         ),
         saisons_collection=database[Collection.SAISONS],
         saison_teams_collection=database[Collection.SAISON_TEAMS],

@@ -20,7 +20,7 @@ import type { SaisonFieldPath } from "@/features/saisons/saisonDraftStatus";
  * deadline nobody chose**, so two empty strings stand instead and the payload schema refuses each by
  * name until the admin picks it.
  */
-const NEW_WINDOW: FLSaisonRegistrierung = { offen: false, von: "", end: "" };
+const NEW_WINDOW: FLSaisonRegistrierung = { offen: false, end: "" };
 
 /** Names the date pair for a screen reader: the label above it governs the pair, not either end. */
 const FRIST_LABEL_ID = "registrierungsfrist";
@@ -48,9 +48,6 @@ export function FormRegistrierungSection({
 }) {
   const panel = formPanel();
 
-  // Each end bounds the other's calendar, so a reversed span cannot be PICKED. One typed in is
-  // `registrationWindowEndsAfterItOpens`'s to refuse, and that refusal lands on `bis` whichever end moved.
-  const von = registrierung === null ? null : asCalendarDate(registrierung.von);
   const bis = registrierung === null ? null : asCalendarDate(registrierung.end);
 
   return (
@@ -102,22 +99,12 @@ export function FormRegistrierungSection({
                 aria-labelledby={FRIST_LABEL_ID}
                 className={FIELD_PAIR_CLASSES}>
                 <AppDatePicker
-                  name="registrierung.von"
-                  calendarLabel="Beginn der Registrierungsfrist auswählen"
-                  label={<Label className={FIELD_LABEL_CLASSES}>Beginn</Label>}
-                  value={von}
-                  onChange={(next) => onRegistrierungChange({ ...registrierung, von: next?.toString() ?? "" })}
-                  onBlur={() => onFieldLeft(["registrierung.von"])}
-                  maxValue={bis ?? undefined}
-                />
-                <AppDatePicker
                   name="registrierung.end"
                   calendarLabel="Ende der Registrierungsfrist auswählen"
                   label={<Label className={FIELD_LABEL_CLASSES}>Ende</Label>}
                   value={bis}
                   onChange={(next) => onRegistrierungChange({ ...registrierung, end: next?.toString() ?? "" })}
                   onBlur={() => onFieldLeft(["registrierung.end"])}
-                  minValue={von ?? undefined}
                 />
               </div>
             </div>

@@ -140,6 +140,7 @@ import type {
   FLRegistrierungSweepResponse,
   FLReplaceSaisonTeamPayload,
   FLReplaceSaisonTeamResponse,
+  FLSaisonAdminResponse,
   FLSaisonFrameResponse,
   FLSaisonOverviewResponse,
   FLSaisonsAdminListResponse,
@@ -209,7 +210,7 @@ import type {
   RegistrierungenGetOpenRegistrierungenParams,
   RegistrierungenGetRegistrierungenParams,
   SaisonsGetInvitationsDispatchPreviewParams,
-  SaisonsGetSaisonsVerwaltungParams,
+  SaisonsGetSaisonsAdminParams,
   SchiedsrichterGetSchiedsrichterParams,
   SpielberichteGetSpielberichteParams,
   SpielbestaetigungenGetSpielbestaetigungenParams,
@@ -219,7 +220,7 @@ import type {
   SpielorteGetSpielorteParams,
   SpieltageGetSpieltageVerwaltungParams,
   TeamsGetTeamParams,
-  TeamsGetTeamsVerwaltungParams,
+  TeamsGetTeamsAdminParams,
 } from "./types.ts";
 
 export const getAccountDeleteAddressChangeUrl = () => {
@@ -2517,10 +2518,10 @@ export const saisonsGetLanding = async (options?: Parameters<typeof baseKeyTrans
   });
 };
 
-export const getSaisonsGetSaisonsVerwaltungUrl = (params?: SaisonsGetSaisonsVerwaltungParams) => {
+export const getSaisonsGetSaisonsAdminUrl = (params?: SaisonsGetSaisonsAdminParams) => {
   const stringifiedParams = serializeQuery(params);
 
-  return stringifiedParams.length > 0 ? `/api/v0/saisons/list/verwaltung?${stringifiedParams}` : `/api/v0/saisons/list/verwaltung`;
+  return stringifiedParams.length > 0 ? `/api/v0/saisons/list/admin?${stringifiedParams}` : `/api/v0/saisons/list/admin`;
 };
 
 /**
@@ -2532,11 +2533,11 @@ export const getSaisonsGetSaisonsVerwaltungUrl = (params?: SaisonsGetSaisonsVerw
  * fixes the start date (`saison_start_taken_place`).
  * @summary Every Saison for the admin surfaces
  */
-export const saisonsGetSaisonsVerwaltung = async (
-  params?: SaisonsGetSaisonsVerwaltungParams,
+export const saisonsGetSaisonsAdmin = async (
+  params?: SaisonsGetSaisonsAdminParams,
   options?: Parameters<typeof adminKeyTransport>[1],
 ): Promise<FLSaisonsAdminListResponse> => {
-  return adminKeyTransport<FLSaisonsAdminListResponse>(getSaisonsGetSaisonsVerwaltungUrl(params), {
+  return adminKeyTransport<FLSaisonsAdminListResponse>(getSaisonsGetSaisonsAdminUrl(params), {
     ...options,
     method: "GET",
   });
@@ -2619,6 +2620,32 @@ export const saisonsActivateSaison = async (
   return adminKeyTransport<FLActivateSaisonResponse>(getSaisonsActivateSaisonUrl(saisonId), {
     ...options,
     method: "POST",
+  });
+};
+
+export const getSaisonsGetSaisonAdminUrl = (saisonId: string) => {
+  return `/api/v0/saisons/${encodeURIComponent(String(saisonId))}/admin`;
+};
+
+/**
+ * Return what the season editor shows in one read: the season and its clubs, the clubs a replacement may bring in, its shapes and matchdays.
+ *
+ * The season is served a `future` one included, with its `version`, whether it has started (`begun`) and whether a
+ * fixture of it has taken place (`taken_place`).
+ *
+ * Each club's two flags are what the group swap's and the replacement's `sides_taken_place` read, so a picker closes
+ * exactly the pairs and rows those writes refuse; `begun` closes both before either is pressed. `incoming_clubs` is
+ * every club still in the league holding no row of the season, which is what the replacement admits. 404 where no
+ * season holds that id.
+ * @summary One Saison for the admin editor
+ */
+export const saisonsGetSaisonAdmin = async (
+  saisonId: string,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLSaisonAdminResponse> => {
+  return adminKeyTransport<FLSaisonAdminResponse>(getSaisonsGetSaisonAdminUrl(saisonId), {
+    ...options,
+    method: "GET",
   });
 };
 
@@ -2886,9 +2913,8 @@ export const getSaisonsPostSpielplanUrl = (saisonId: string) => {
  *
  * `shape` states the three rules the fixtures come out of, and is stored with them. `replace`
  * deletes both lists first, every fixture's confirmations with them, inside `spielplan_replace_outside_its_window`'s
- * window and on a season holding no submitted match report (`spielplan_berichte_submitted`), and is refused
- * `confirmation_required` from a sign-in or confirmation older than `STEP_UP_WINDOW_HOURS`: nothing writes
- * the removed rows back.
+ * window and on a season holding no submitted match report (`spielplan_berichte_submitted`): nothing writes the
+ * removed rows back.
  * @summary Draw this Saison's Spielplan
  */
 export const saisonsPostSpielplan = async (
@@ -3099,8 +3125,8 @@ export const getSchiedsrichterPostConfirmationUrl = () => {
  * publication scope has one home, which the fixture list joins at read time to decide whether to publish the name each
  * fixture stores.
  *
- * Refuses, in this order: a token no referee holds (`link_invalid`), an entry already confirmed
- * (`confirmation_exists`), a link whose deadline has passed (`link_expired`), a link mailed to an address the ban
+ * Refuses, in this order: a token no referee holds (`link_invalid`), an entry already answered, confirmed or
+ * declined (`confirmation_exists`), a link whose deadline has passed (`link_expired`), a link mailed to an address the ban
  * list holds now, whenever the link was minted (`link_barred`), an age outside what this consent asks
  * (`confirmation_age`), and a media consent from a referee below `media_minimum_age` (`media_age`) -- the last two
  * judged before anything is written, so a mistyped year spends nothing.
@@ -3130,6 +3156,46 @@ export const schiedsrichterPostConfirmation = async (
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
     body: JSON.stringify(fLSchiedsrichterConfirmationPayload),
+  });
+};
+
+export const getSchiedsrichterPostDeclineUrl = () => {
+  return `/api/v0/schiedsrichter/confirmation/decline`;
+};
+
+/**
+ * Record the referee's objection to the entry their link opens: its day, and nothing else of the person.
+ *
+ * The entry then goes on the clock its link started, the midnight after the deadline, as the privacy notice says of an
+ * unconfirmed or declined one (`app/core/constraints.py :: TTL_INDEXES`). Until then no booking takes it and no
+ * re-send or reactivation asks the person again.
+ *
+ * Refuses, in the confirmation's order: a token no referee holds (`link_invalid`), an entry already answered,
+ * confirmed or declined (`confirmation_exists`), and a link whose deadline has passed (`link_expired`). The ban list
+ * is not asked: an objection gives the league nothing a ban withholds.
+ * @summary Decline one Schiedsrichter's entry
+ */
+export const schiedsrichterPostDecline = async (
+  fLTokenPayload: FLTokenPayload,
+  options?: Parameters<typeof baseKeyTransport>[1],
+): Promise<void> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return baseKeyTransport<void>(getSchiedsrichterPostDeclineUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLTokenPayload),
   });
 };
 
@@ -3200,7 +3266,7 @@ export const getSchiedsrichterDeleteSchiedsrichterUrl = (schiedsrichterId: strin
 };
 
 /**
- * Deactivate a referee. SOFT, for the same reason as venues: matches embed a copy.
+ * Deactivate a referee. SOFT, for the same reason as venues: a played match names them by id.
  * @summary Deactivate a Schiedsrichter (soft delete)
  */
 export const schiedsrichterDeleteSchiedsrichter = async (
@@ -3245,9 +3311,10 @@ export const getSchiedsrichterPatchSchiedsrichterUrl = (schiedsrichterId: string
 };
 
 /**
- * Update a referee, then update the embedded name on every Spiel that uses them.
+ * Update a referee on the `version` the editor was served, answering the version stored.
  *
- * Only the name. `payment` is NOT propagated: the fee on a match is what was agreed for it.
+ * The editor's next save sends that version. A fixture names the referee by id and reads the name at its own read, so
+ * nothing else is written; each fixture keeps the `payment` agreed for it.
  *
  * **A corrected address on an UNCONFIRMED referee retires their link and owes a fresh one** to the
  * new address, named in `confirmation`: the old link was posted to a mailbox nobody reads, and
@@ -3260,12 +3327,11 @@ export const getSchiedsrichterPatchSchiedsrichterUrl = (schiedsrichterId: string
  * **A RETIRED unconfirmed referee's corrected address is stored and mails nothing**: no consent is
  * collected for a role nobody gives them. Their old link is retired all the same, and the
  * reactivation mints the fresh one. Where a link is minted, a banned new address is refused
- * `schiedsrichter_address_barred`. A save retiring or minting a link is refused `confirmation_required` from a
- * sign-in or confirmation older than `STEP_UP_WINDOW_HOURS`.
+ * `schiedsrichter_address_barred`.
  *
  * The ghost answers 404 here as it does to every read: a name written onto it would appear on the
  * fixtures of every referee already erased.
- * @summary Update a Schiedsrichter and fan the change out
+ * @summary Update a Schiedsrichter
  */
 export const schiedsrichterPatchSchiedsrichter = async (
   schiedsrichterId: string,
@@ -3302,7 +3368,7 @@ export const getSchiedsrichterInviteSchiedsrichterUrl = (schiedsrichterId: strin
  * It replaces the whole block, so the previous link stops working at once. The deadline restarts from today.
  *
  * Refused where the referee is retired (`schiedsrichter_retired`), where they have already
- * answered (`confirmation_exists`), where they carry no email address
+ * answered, consenting or objecting (`confirmation_exists`), where they carry no email address
  * (`schiedsrichter_no_address`), and where that address is on the ban list
  * (`schiedsrichter_address_barred`). 404 for an id no referee holds, an erased referee's among them, and
  * for the ghost, which every by-id route filters out.
@@ -3333,8 +3399,7 @@ export const getSchiedsrichterReactivateSchiedsrichterUrl = (schiedsrichterId: s
  * retired referee's save stores a new address and mails nothing, so coming back is what
  * asks them. A row holding no address a link can go to comes back unasked, and so does one whose
  * person has answered. Where a link is minted, an address on the ban list is refused
- * `schiedsrichter_address_barred` and the row stays retired, and one from a sign-in or confirmation older than
- * `STEP_UP_WINDOW_HOURS` is refused `confirmation_required`.
+ * `schiedsrichter_address_barred` and the row stays retired.
  *
  * The ghost answers 404 here too: cleared on it, the picker would offer a bookable row with no
  * person behind it.
@@ -3602,7 +3667,7 @@ export const getSpielbestaetigungenGetSpielbestaetigungenUrl = (params: Spielbes
 /**
  * Every confirmation row of the season, or of its one fixture.
  *
- * Newest first, closed rows included. No seat's link hashes and no answer's holder digest are served. Every row still
+ * Newest first, closed rows included. No seat's link hashes and no seat's address are served. Every row still
  * holding its party's question is served; `limit` cuts the others, and `complete` is false where it left the
  * oldest of them out. Each seat holding a link names what became of the last mail owed to it. A season no document
  * has answers no rows rather than 404.
@@ -3732,8 +3797,9 @@ export const getSpielbestaetigungenSweepSpielbestaetigungenUrl = (saisonId: stri
  * counting it as that club's agreement.
  *
  * A closing owes its party a notice in its own transaction where the party's first request or Einteilung was owed,
- * about a day today or later: for a move, the slot it left or the one the fixture holds now; for a referee taken off
- * the fixture -- ahead of a move it shares a close with, and never for the referee's own decline, which closed its row
+ * about a day today or later: for a move, „Spiel verlegt“, naming the slot it left and the one the fixture holds now
+ * where the party is still one of its sides or its referee and that slot has a day, an hour and both sides; for a
+ * referee taken off the fixture -- ahead of a move it shares a close with, and never for the referee's own decline, which closed its row
  * as it was given -- and for a call-off, the slot the row was about. A club is told at every address its season row's
  * seats hold now, a referee at the address their record holds; a party nobody is left to tell is told nothing.
  *
@@ -3746,12 +3812,16 @@ export const getSpielbestaetigungenSweepSpielbestaetigungenUrl = (saisonId: stri
  * Each seat holding an address is owed one link, a person holding two seats one link naming both, each minted when the
  * mail is handed out, and the row is stamped as asked; a referee row is owed its Einteilung, with no link. An open row's
  * occupied seat holding no link -- its holder replaced, newly seated, or a ban since lifted -- is owed one too. A
- * fixture holding an unclosed row about an Ansetzung it has left is asked once the close has shut it, the close owing
+ * party still asked by a fixture that moved to a slot the mint asks today is the mint's, never the close's: in the
+ * transaction asking about the new slot, the mint closes the party's row about the slot left `ansetzung_changed`, and
+ * the request or Einteilung it owes names the slot left, the one mail telling of the move; a party it owes no request,
+ * its answer about the new slot standing or no seat of its reachable, is owed the move's notice instead. A fixture
+ * holding any other unclosed row about an Ansetzung it has left is asked once the close has shut it, the close owing
  * its notice first.
  *
- * The reminder owes a fresh link per person on each team row whose deadline lies a reminder's count of days away
- * (`app/shared/schemas/bounds.py :: SPIEL_REMINDER_DAYS_FIRST`, `:: SPIEL_ERINNERUNG_TAGE_ZWEITE`), minted beside the
- * links already mailed so every one of them answers until the deadline, and stamps the day. It passes over each seat
+ * The one reminder owes a fresh link per person on each team row never reminded whose deadline lies the reminder's
+ * days away (`app/shared/schemas/bounds.py :: SPIEL_REMINDER_DAYS`), minted beside the links already mailed so every
+ * one of them answers until the deadline, and stamps the day. It passes over each seat
  * whose last mail did not arrive, and reminds no row this pass inserted nor one whose request was owed today; where
  * this pass's mint owed one of a row's seats a fresh link, that request is the seat's message of the day and the row's
  * other seats are reminded beside it.
@@ -4534,7 +4604,7 @@ export const getSpielorteDeleteSpielortUrl = (spielortId: string) => {
 /**
  * Deactivate a venue. SOFT: it stamps `inactive_since`, and the document stays.
  *
- * Matches embed a copy, so a hard delete would orphan every historical match that used it. Refused
+ * A played match names the venue by id, so a hard delete would orphan every historical match that used it. Refused
  * while an unplayed fixture is still booked here (`spielort_still_booked`).
  * @summary Deactivate a Spielort (soft delete)
  */
@@ -4550,9 +4620,10 @@ export const getSpielorteGetSpielortUrl = (spielortId: string) => {
 };
 
 /**
- * Admin-tier as the list is, and for the same two rules (`READ-MONEY-001`, `READ-ADDRESS-001`).
+ * The venue editor's one read: the record, its `version` with it, which the editor's save sends back.
  *
- * Deactivated ones included -- a historical match's venue is the case worth answering.
+ * Admin-tier as the list is, and for the same two rules (`READ-MONEY-001`, `READ-ADDRESS-001`). Retired venues included:
+ * the editor reactivates one, and a historical match's venue is the case worth answering.
  * @summary One Spielort
  */
 export const spielorteGetSpielort = async (
@@ -4570,11 +4641,12 @@ export const getSpielortePatchSpielortUrl = (spielortId: string) => {
 };
 
 /**
- * Update a venue, then update every Spiel that embeds it.
+ * Update a venue on the `version` the editor was served, answering the version stored, which its next save sends.
  *
- * The fan-out is not optional: without it, match cards keep showing the old name. `mietpreis` is
- * NOT fanned out -- the rent on a match is what was agreed for that match.
- * @summary Update a Spielort and fan the change out
+ * A fixture names the venue by id and reads its name and `maps_link` at its own read, so nothing else is written; each
+ * fixture keeps the `mietpreis` agreed for it. Refused where another venue holds the name (`duplicate_key`), by the
+ * unique index.
+ * @summary Update a Spielort
  */
 export const spielortePatchSpielort = async (
   spielortId: string,
@@ -4766,10 +4838,10 @@ export const teamsPostTeam = async (
   });
 };
 
-export const getTeamsGetTeamsVerwaltungUrl = (params?: TeamsGetTeamsVerwaltungParams) => {
+export const getTeamsGetTeamsAdminUrl = (params?: TeamsGetTeamsAdminParams) => {
   const stringifiedParams = serializeQuery(params);
 
-  return stringifiedParams.length > 0 ? `/api/v0/teams/list/verwaltung?${stringifiedParams}` : `/api/v0/teams/list/verwaltung`;
+  return stringifiedParams.length > 0 ? `/api/v0/teams/list/admin?${stringifiedParams}` : `/api/v0/teams/list/admin`;
 };
 
 /**
@@ -4779,11 +4851,11 @@ export const getTeamsGetTeamsVerwaltungUrl = (params?: TeamsGetTeamsVerwaltungPa
  * cannot see one cannot enter it.
  * @summary Teams for a Saison, for the admin surfaces
  */
-export const teamsGetTeamsVerwaltung = async (
-  params?: TeamsGetTeamsVerwaltungParams,
+export const teamsGetTeamsAdmin = async (
+  params?: TeamsGetTeamsAdminParams,
   options?: Parameters<typeof adminKeyTransport>[1],
 ): Promise<FLTeamsListResponse> => {
-  return adminKeyTransport<FLTeamsListResponse>(getTeamsGetTeamsVerwaltungUrl(params), {
+  return adminKeyTransport<FLTeamsListResponse>(getTeamsGetTeamsAdminUrl(params), {
     ...options,
     method: "GET",
   });
@@ -4796,7 +4868,7 @@ export const getTeamsGetTeamSaisonsUrl = () => {
 /**
  * Every team, retired ones included, each with every season membership it holds. Sorted by name.
  *
- * `GET /teams/list/verwaltung` cannot answer it: that read is season-scoped with a strict junction join. Each membership names the live
+ * `GET /teams/list/admin` cannot answer it: that read is season-scoped with a strict junction join. Each membership names the live
  * change of each seat's address, which the address tool shows, and per seat why the tool refuses that change this
  * administrator. Each seat's link names what became of the last mail carrying it, `delivery` null where none was
  * ever owed.

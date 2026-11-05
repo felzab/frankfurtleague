@@ -481,10 +481,9 @@ class FLBewerbungWindowResponse(BaseAPIResponse):
     """One season's application window and whether that season has ended, and nothing else about it."""
 
     saison_id: str
-    offen: bool
     start: CustomDateString
     end: CustomDateString
-    # The whole judgement, computed server-side: `offen` AND today inside the span. Served rather
+    # The whole judgement, computed server-side: a season not yet ended, today inside the span. Served rather
     # than left to the client, which would re-derive it against a clock this server does not share.
     running: bool
     # A boolean rather than the status: `future` and `active` answer alike, so this serves nothing

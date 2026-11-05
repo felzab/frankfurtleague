@@ -174,8 +174,7 @@ export const Code = {
   state_nichtantreten_without_two_sides: "state_nichtantreten_without_two_sides",
   swap_not_a_swap: "swap_not_a_swap",
   swap_saison_started: "swap_saison_started",
-  swap_spieltag_clash: "swap_spieltag_clash",
-  swap_fields_disqualified: "swap_fields_disqualified",
+  austritt_before_saison_start: "austritt_before_saison_start",
   payload_refused: "payload_refused",
   body_unreadable: "body_unreadable",
   wiring_unsupported: "wiring_unsupported",
@@ -1815,7 +1814,6 @@ export interface FLBewerbungWindow {
 export interface FLBewerbungWindowResponse {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   end: string;
-  offen: boolean;
   running: boolean;
   saison_ended: boolean;
   saison_id: string;
@@ -2383,7 +2381,7 @@ export const FLRefusedFieldIn = {
   cookie: "cookie",
 } as const;
 
-export type FLRefusedFieldCtx = { [key: string]: string | number | boolean };
+export type FLRefusedFieldCtx = { [key: string]: string | number | boolean | number[] };
 
 export interface FLRefusedField {
   ctx: FLRefusedFieldCtx;
@@ -2604,18 +2602,6 @@ export interface FLInvitationData {
   team: string;
 }
 
-export type FLInvitationDispatchGrund = (typeof FLInvitationDispatchGrund)[keyof typeof FLInvitationDispatchGrund];
-
-export const FLInvitationDispatchGrund = {
-  austritt_entered: "austritt_entered",
-  mint_failed: "mint_failed",
-  mint_uncertain: "mint_uncertain",
-  no_kontaktblock: "no_kontaktblock",
-  no_confirmed_kontaktperson: "no_confirmed_kontaktperson",
-  kontakte_barred: "kontakte_barred",
-  already_sent: "already_sent",
-} as const;
-
 export interface FLInvitationDispatchPayload {
   resend?: boolean;
 }
@@ -2631,13 +2617,25 @@ export interface FLInvitationRecipient {
   vorname: string;
 }
 
+export type FLInvitationSkipReason = (typeof FLInvitationSkipReason)[keyof typeof FLInvitationSkipReason];
+
+export const FLInvitationSkipReason = {
+  austritt_entered: "austritt_entered",
+  mint_failed: "mint_failed",
+  mint_uncertain: "mint_uncertain",
+  no_kontaktblock: "no_kontaktblock",
+  no_confirmed_kontaktperson: "no_confirmed_kontaktperson",
+  kontakte_barred: "kontakte_barred",
+  already_sent: "already_sent",
+} as const;
+
 /**
  * One team as the preview reports it. It mints nothing, so it answers no link.
  */
 export interface FLInvitationDispatchPreviewRow {
   recipient: FLInvitationRecipient[];
   replaced_link: boolean;
-  skipped: FLInvitationDispatchGrund | null;
+  skipped: FLInvitationSkipReason | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   team_id: string;
   /** @minLength 1 */
@@ -2660,7 +2658,7 @@ export interface FLInvitationDispatchRow {
   had_link: boolean | null;
   recipient: FLInvitationRecipient[];
   replaced_link: boolean;
-  skipped: FLInvitationDispatchGrund | null;
+  skipped: FLInvitationSkipReason | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   team_id: string;
   /** @minLength 1 */
@@ -3276,25 +3274,6 @@ export const FLSpielRequestDataKind = {
 } as const;
 
 /**
- * A club's request to confirm a fixture, or the reminder of it, each carrying a link of its own.
- */
-export interface FLSpielRequestData {
-  ansetzung: FLSpielMailAnsetzung;
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  frist: string;
-  kind: FLSpielRequestDataKind;
-  team: string;
-}
-
-/**
- * A referee's word that they are booked onto a fixture, which they answer on their own panel.
- */
-export interface FLSpielEinteilungData {
-  ansetzung: FLSpielMailAnsetzung;
-  kind: "spiel_einteilung";
-}
-
-/**
  * A fixture's slot as a mail names it: its two sides in the fixture's order, its day and its hour.
  */
 export interface FLSpielMailAppointment {
@@ -3306,12 +3285,46 @@ export interface FLSpielMailAppointment {
   uhrzeit: string;
 }
 
-export type FLSpielNoticeDataKind = (typeof FLSpielNoticeDataKind)[keyof typeof FLSpielNoticeDataKind];
+/**
+ * A club's request to confirm a fixture, or the reminder of it, each carrying a link of its own.
+ */
+export interface FLSpielRequestData {
+  ansetzung: FLSpielMailAnsetzung;
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  frist: string;
+  kind: FLSpielRequestDataKind;
+  moved_from: FLSpielMailAppointment | null;
+  team: string;
+}
 
-export const FLSpielNoticeDataKind = {
-  spiel_new_scheduled: "spiel_new_scheduled",
-  spiel_abgesagt: "spiel_abgesagt",
+/**
+ * A referee's word that they are booked onto a fixture, which they answer on their own panel.
+ */
+export interface FLSpielEinteilungData {
+  ansetzung: FLSpielMailAnsetzung;
+  kind: "spiel_einteilung";
+  moved_from: FLSpielMailAppointment | null;
+}
+
+export type FLSpielMovedDataRecipient = (typeof FLSpielMovedDataRecipient)[keyof typeof FLSpielMovedDataRecipient];
+
+export const FLSpielMovedDataRecipient = {
+  team: "team",
+  schiedsrichter: "schiedsrichter",
 } as const;
+
+/**
+ * A party's word that a fixture it was asked about left that slot, owed where no request about its new slot goes now.
+ *
+ * The mail's own request carries the move where the new slot is asked at once (`FLSpielRequestData.moved_from`).
+ */
+export interface FLSpielMovedData {
+  appointment: FLSpielMailAppointment;
+  asked_again: boolean;
+  kind: "spiel_new_scheduled";
+  moved_to: FLSpielMailAppointment | null;
+  recipient: FLSpielMovedDataRecipient;
+}
 
 export type FLSpielNoticeDataRecipient = (typeof FLSpielNoticeDataRecipient)[keyof typeof FLSpielNoticeDataRecipient];
 
@@ -3321,11 +3334,11 @@ export const FLSpielNoticeDataRecipient = {
 } as const;
 
 /**
- * A party's word that a fixture it was asked about moved or was called off: the slot it was asked about.
+ * A party's word that a fixture it was asked about was called off: the slot it was asked about.
  */
 export interface FLSpielNoticeData {
   appointment: FLSpielMailAppointment;
-  kind: FLSpielNoticeDataKind;
+  kind: "spiel_abgesagt";
   recipient: FLSpielNoticeDataRecipient;
 }
 
@@ -3394,6 +3407,7 @@ export interface FLOutboxHandout {
     | FLSchiedsrichterConfirmationData
     | FLSpielRequestData
     | FLSpielEinteilungData
+    | FLSpielMovedData
     | FLSpielNoticeData
     | FLSpielEinteilungLiftedData
     | FLSpielVorschlagDiscardedData
@@ -3728,30 +3742,29 @@ export interface FLPatchKaderRowPayload {
 }
 
 /**
- * When the league accepts applications for this season.
+ * When the league accepts applications for this season: while today lies between `start` and `end`, both included.
  *
- * The two halves that record it: the span, and the `offen` flag an administrator sets beside it.
+ * No flag beside the span: closing early is moving `end` to today (`app/api/bewerbungen/services.py ::
+ * saison_nimmt_bewerbungen_an`).
  */
 export interface FLSaisonBewerbung {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   end: string;
-  offen: boolean;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   start: string;
 }
 
 /**
- * When a pupil may register for this season.
+ * When a pupil may register for this season: from its activation to `end`, which falls before the season's start.
  *
- * Its own model rather than an alias of `FLSaisonBewerbung` above: the two windows are two
- * decisions an administrator takes apart, and one component name on both would publish them as one.
+ * No start of its own, the activation being the opening (`app/api/registrierungen/services.py ::
+ * saison_nimmt_registrierungen_an`); `offen` pauses the link alone. Its own model rather than an alias of
+ * `FLSaisonBewerbung` above: the two windows are two decisions an administrator takes apart.
  */
 export interface FLSaisonRegistrierung {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   end: string;
   offen: boolean;
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  von: string;
 }
 
 /**
@@ -3807,7 +3820,7 @@ export interface FLPatchSaisonPayload {
   rules: FLSaisonRules;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   start_date: string;
-  version?: number | null;
+  version: number;
 }
 
 /**
@@ -3888,7 +3901,8 @@ export interface FLPatchSchiedsrichterPayload {
    */
   name: string;
   schule: string | null;
-  version?: number | null;
+  /** @minimum 0 */
+  version: number;
 }
 
 /**
@@ -3903,7 +3917,7 @@ export interface FLSchiedsrichterMint {
 
 export interface FLPatchSchiedsrichterResponse {
   confirmation: FLSchiedsrichterMint | null;
-  fanned_out_to_spiele: number;
+  version: number;
 }
 
 /**
@@ -4025,11 +4039,12 @@ export interface FLPatchSpielortPayload {
    * @maxLength 120
    */
   name: string;
-  version?: number | null;
+  /** @minimum 0 */
+  version: number;
 }
 
 export interface FLPatchSpielortResponse {
-  fanned_out_to_spiele: number;
+  version: number;
 }
 
 export interface FLPatchSpieltagPayload {
@@ -4568,6 +4583,49 @@ export interface FLSaisonAdmin {
 }
 
 /**
+ * A club a replacement may bring into the season: one still in the league that holds no row of it.
+ */
+export interface FLSaisonAdminClub {
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  id: string;
+  name: string;
+  shorthand: string;
+}
+
+/**
+ * One club's row of the season as the editor's swap and replacement sections list it, graded as each write judges it.
+ *
+ * Both flags are `app/api/teams/services.py :: has_taken_place` over the row's fixtures, the predicate each write's
+ * `sides_taken_place` reads: over its group fixtures for the swap, which rewrites those alone, so a pair is closed
+ * where either club's is; over every fixture for the replacement, which hands the whole schedule over.
+ */
+export interface FLSaisonAdminTeam {
+  austritt: FLAustritt | null;
+  fixture_taken_place: boolean;
+  group_fixture_taken_place: boolean;
+  gruppe: FLGruppenNames;
+  name: string;
+  shorthand: string;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  team_id: string;
+}
+
+/**
+ * What the season editor shows, in one read: the season, its clubs, the clubs a replacement may bring in, its shapes and its matchdays.
+ *
+ * `shapes` is every shape the season's other rules admit, judged as the draw judges a shape it is given;
+ * `count_spieltage` is the matchdays the season holds.
+ */
+export interface FLSaisonAdminResponse {
+  /** @minimum 0 */
+  count_spieltage: number;
+  incoming_clubs: FLSaisonAdminClub[];
+  saison: FLSaisonAdmin;
+  shapes: FLSpielplanShape[];
+  teams: FLSaisonAdminTeam[];
+}
+
+/**
  * One season as the season pages' frame lists it: its id and its span; which one the site is on is the response's.
  */
 export interface FLSaisonFrameEntry {
@@ -4693,8 +4751,20 @@ export interface FLSaisonsSingleResponse {
   saison: FLSaison;
 }
 
+/**
+ * A referee's confirmation bookkeeping as an administrator reads it, the objection's day with it.
+ */
+export interface FLSchiedsrichterConfirmation {
+  declined_at: string | null;
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  frist: string;
+  reminded_at: string | null;
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  sent_at: string;
+}
+
 export interface FLSchiedsrichter {
-  confirmation: FLConfirmation | null;
+  confirmation: FLSchiedsrichterConfirmation | null;
   /** @minimum 0 */
   default_payment: number;
   einwilligung: FLEinwilligung | null;
@@ -4755,6 +4825,16 @@ export interface FLSchiedsrichterConfirmationResponse {
   scope: FLEinwilligungScope;
 }
 
+export type FLSchiedsrichterConfirmationState = (typeof FLSchiedsrichterConfirmationState)[keyof typeof FLSchiedsrichterConfirmationState];
+
+export const FLSchiedsrichterConfirmationState = {
+  valid: "valid",
+  confirmed: "confirmed",
+  declined: "declined",
+  expired: "expired",
+  barred: "barred",
+} as const;
+
 /**
  * What one confirmation link opens, and nothing a leaked one should not learn (`READ-REFEREE-002`).
  *
@@ -4766,7 +4846,7 @@ export interface FLSchiedsrichterConfirmationViewResponse {
   /** @exclusiveMinimum 0 */
   media_minimum_age: number;
   minimum_age: number;
-  state: FLConfirmationState;
+  state: FLSchiedsrichterConfirmationState;
 }
 
 export interface FLSchiedsrichterListResponse {
@@ -5396,8 +5476,7 @@ export interface FLSpielbestaetigung {
   id: string;
   kontakte: FLSpielbestaetigungKontakte | null;
   party: FLSpielbestaetigungPartyTeam | FLSpielbestaetigungPartySchiedsrichter;
-  /** @items.pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  reminded_at: string[];
+  reminded_at: string | null;
   saison_id: string;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   spiel_id: string;
@@ -6193,7 +6272,7 @@ export const Rule = {
   kontakt_telefon_twice: "kontakt_telefon_twice",
   nichtantreten_with_tore: "nichtantreten_with_tore",
   nichtantreten_with_torschuetzen: "nichtantreten_with_torschuetzen",
-  registrierung_window_ends_before_start: "registrierung_window_ends_before_start",
+  registrierung_window_reaches_saison_start: "registrierung_window_reaches_saison_start",
   saison_ends_before_start: "saison_ends_before_start",
   saison_year_out_of_range: "saison_year_out_of_range",
   spieltag_ends_before_start: "spieltag_ends_before_start",
@@ -6304,28 +6383,28 @@ export type RegistrierungenGetOpenRegistrierungenParams = {
   order?: FLSortOrder;
 };
 
-export type SaisonsGetSaisonsVerwaltungParams = {
+export type SaisonsGetSaisonsAdminParams = {
   status?: FLSaisonStatus | null;
   /**
    * @minimum 1
    * @maximum 1024
    */
   limit?: number;
-  sort_by?: SaisonsGetSaisonsVerwaltungSortBy;
-  order?: SaisonsGetSaisonsVerwaltungOrder;
+  sort_by?: SaisonsGetSaisonsAdminSortBy;
+  order?: SaisonsGetSaisonsAdminOrder;
 };
 
-export type SaisonsGetSaisonsVerwaltungSortBy = (typeof SaisonsGetSaisonsVerwaltungSortBy)[keyof typeof SaisonsGetSaisonsVerwaltungSortBy];
+export type SaisonsGetSaisonsAdminSortBy = (typeof SaisonsGetSaisonsAdminSortBy)[keyof typeof SaisonsGetSaisonsAdminSortBy];
 
-export const SaisonsGetSaisonsVerwaltungSortBy = {
+export const SaisonsGetSaisonsAdminSortBy = {
   _id: "_id",
   start_date: "start_date",
   end_date: "end_date",
 } as const;
 
-export type SaisonsGetSaisonsVerwaltungOrder = (typeof SaisonsGetSaisonsVerwaltungOrder)[keyof typeof SaisonsGetSaisonsVerwaltungOrder];
+export type SaisonsGetSaisonsAdminOrder = (typeof SaisonsGetSaisonsAdminOrder)[keyof typeof SaisonsGetSaisonsAdminOrder];
 
-export const SaisonsGetSaisonsVerwaltungOrder = {
+export const SaisonsGetSaisonsAdminOrder = {
   asc: "asc",
   desc: "desc",
 } as const;
@@ -6471,33 +6550,32 @@ export const SpieltageGetSpieltageVerwaltungOrder = {
   desc: "desc",
 } as const;
 
-export type TeamsGetTeamsVerwaltungParams = {
+export type TeamsGetTeamsAdminParams = {
   saison_id?: string | null;
   gruppe?: FLGruppenNames | null;
   has_austritt?: boolean | null;
   austritt_type?: FLAustrittType | null;
-  statistik_scope?: TeamsGetTeamsVerwaltungStatistikScope;
+  statistik_scope?: TeamsGetTeamsAdminStatistikScope;
   /**
    * @minimum 1
    * @maximum 1024
    */
   limit?: number;
   sort_by?: "name";
-  order?: TeamsGetTeamsVerwaltungOrder;
+  order?: TeamsGetTeamsAdminOrder;
   include_inactive?: boolean;
 };
 
-export type TeamsGetTeamsVerwaltungStatistikScope =
-  (typeof TeamsGetTeamsVerwaltungStatistikScope)[keyof typeof TeamsGetTeamsVerwaltungStatistikScope];
+export type TeamsGetTeamsAdminStatistikScope = (typeof TeamsGetTeamsAdminStatistikScope)[keyof typeof TeamsGetTeamsAdminStatistikScope];
 
-export const TeamsGetTeamsVerwaltungStatistikScope = {
+export const TeamsGetTeamsAdminStatistikScope = {
   gruppenphase: "gruppenphase",
   total: "total",
 } as const;
 
-export type TeamsGetTeamsVerwaltungOrder = (typeof TeamsGetTeamsVerwaltungOrder)[keyof typeof TeamsGetTeamsVerwaltungOrder];
+export type TeamsGetTeamsAdminOrder = (typeof TeamsGetTeamsAdminOrder)[keyof typeof TeamsGetTeamsAdminOrder];
 
-export const TeamsGetTeamsVerwaltungOrder = {
+export const TeamsGetTeamsAdminOrder = {
   asc: "asc",
   desc: "desc",
 } as const;

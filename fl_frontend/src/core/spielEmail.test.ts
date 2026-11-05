@@ -31,6 +31,7 @@ describe("the fixture confirmation's link", () => {
       team: "Goethe-Gymnasium",
       ansetzung: { team1: "Ernst-Reuter-Schule", team2: "Goethe-Gymnasium", datum: "2026-11-20", uhrzeit: "14:30:00", ort: null },
       frist: "2026-11-10",
+      moved_from: null,
     } as const;
 
     const mail = mailFor("spiel_request", data, { token: "beispiel-eins", secret: null, origin: ORIGIN });

@@ -6,7 +6,6 @@ import pytest
 from bson import ObjectId
 
 from app.api.aktionen.schemas import FLActionLogEntry, FLActionLogEntryWithBefore
-from app.api.saisons.admin_router import _spieltag_clashes
 from app.api.saisons.schedule import schedule_for
 from app.api.saisons.schemas import FLSaison, FLSaisonRules
 from app.api.saisons.services import find_rules_refusal, find_spielplan_refusal, find_undraw_refusal
@@ -51,7 +50,6 @@ from app.api.spiele.services import (
 )
 from app.api.spieler.services import find_squad_refusal, mark_shared_nummern
 from app.api.spieltage.services import DatedNeighbour, find_spieltag_order_refusal
-from app.api.teams.services import find_gruppe_swap_refusal
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.constraints import UNIQUE_INDEXES
@@ -188,23 +186,6 @@ def _on_create(proposed: FLSaisonRules):
         proposed=proposed,
         occupancy_by_gruppe={},
         highest_wired_platz=0,
-    )
-
-
-def _swap(**overrides: Any):
-    """A swap with every gate already open, so a case names only the count it is about."""
-
-    return find_gruppe_swap_refusal(
-        **{
-            "team1_gruppe": "A",
-            "team2_gruppe": "B",
-            "saison_status": "active",
-            "started": False,
-            "taken_place": False,
-            "clashing_spieltage": 0,
-            "departed_fixtures": 0,
-            **overrides,
-        }
     )
 
 
@@ -458,61 +439,6 @@ class TestAGroupPhaseEveryClubLeaves:
         too_many = _rules(number_of_gruppen=4, teams_per_gruppe=2, qualifiers_per_gruppe=4)
 
         assert _on_create(too_many) is not None
-
-
-class TestASpieltagAlreadyHoldingAClubTwice:
-    """That the swap counts the Spieltage it would BREAK, and that a Spieltag already broken is not among them."""
-
-    def test_a_spieltag_already_doubling_a_club_is_not_counted(self):
-        """ADLER stands twice on that Spieltag before the exchange, and twice after it.
-
-        Neither introduced nor worsened, so refusing over it would block the repair.
-        """
-
-        assert (
-            _spieltag_clashes(
-                team_ids=[ADLER, BIEBER],
-                gruppenphase_spiele=[
-                    {"spieltag_id": SPIELTAG_ONE, "team1": {"team_id": ADLER}, "team2": None},
-                    {"spieltag_id": SPIELTAG_ONE, "team1": {"team_id": BIEBER}, "team2": None},
-                ],
-                knockout_spiele=[{"spieltag_id": SPIELTAG_ONE, "team1": {"team_id": ADLER}, "team2": None}],
-            )
-            == 0
-        )
-
-    def test_the_spieltag_the_exchange_breaks_is_what_counts(self):
-        """The same shape with ADLER's own group match elsewhere: it stood once, and BIEBER's arriving one doubles it."""
-
-        assert (
-            _spieltag_clashes(
-                team_ids=[ADLER, BIEBER],
-                gruppenphase_spiele=[
-                    {"spieltag_id": SPIELTAG_TWO, "team1": {"team_id": ADLER}, "team2": None},
-                    {"spieltag_id": SPIELTAG_ONE, "team1": {"team_id": BIEBER}, "team2": None},
-                ],
-                knockout_spiele=[{"spieltag_id": SPIELTAG_ONE, "team1": {"team_id": ADLER}, "team2": None}],
-            )
-            == 1
-        )
-
-    def test_a_fixture_naming_no_spieltag_is_left_out_of_the_count(self):
-        """Non-vacuous: counted, these two rows would share the null key and read as one Spieltag the exchange breaks."""
-
-        assert (
-            _spieltag_clashes(
-                team_ids=[ADLER, BIEBER],
-                gruppenphase_spiele=[{"spieltag_id": None, "team1": {"team_id": BIEBER}, "team2": None}],
-                knockout_spiele=[{"spieltag_id": None, "team1": {"team_id": ADLER}, "team2": None}],
-            )
-            == 0
-        )
-
-    def test_a_swap_breaking_nothing_new_is_permitted(self):
-        assert _swap(clashing_spieltage=0) is None
-
-    def test_the_broken_spieltag_is_what_refuses_the_swap(self):
-        assert _swap(clashing_spieltage=1) is not None
 
 
 # The junction as the refusal reads it: the season's own name for the club, and the day it left.

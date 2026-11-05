@@ -266,8 +266,6 @@ async def post_spielbestaetigung(
                 update=compose_antwort_update(
                     antwort=antwort_data.antwort,
                     seat=seat,
-                    address=address,
-                    key=ban_list.key,
                     vorschlag=vorschlag,
                     begruendung=antwort_data.begruendung,
                     today=today,

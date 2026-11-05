@@ -277,13 +277,6 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         )
         for seat in KONTAKT_ROLLEN
     ),
-    # A collection with no retention bound, read inside every contact erasure's and Widerspruch's transaction.
-    SupportIndex(
-        Collection.SPIELBESTAETIGUNGEN,
-        "spielbestaetigungen_antwort_von_halter",
-        (("antwort.von.halter", ASCENDING),),
-        "the reasons a leaving contact typed, from whichever seat",
-    ),
     # Read on every load of a referee's own panel, and inside every referee erasure's transaction, neither stating a
     # fixture the season-leading index could narrow by.
     SupportIndex(
@@ -298,7 +291,7 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         (("saison_id", ASCENDING),),
         "a season's reports, which the triage's read and a replace's or an undraw's removal filter on",
     ),
-    # For `spielbestaetigungen_antwort_von_halter`'s reason: the reports are kept with no retention bound.
+    # The reports are kept with no retention bound, and this read names no season the season-leading index could narrow by.
     SupportIndex(
         Collection.SPIELBERICHTE,
         "spielberichte_submitted_by_schiedsrichter_id",
@@ -426,6 +419,15 @@ TTL_INDEXES: Sequence[TTLIndex] = (
     ),
     # Zero: `erase_at` is the date itself, a retention after the row's final state or a secret's own lapse.
     TTLIndex(Collection.OUTBOX, "outbox_erase_at", "erase_at", 0, "a mail's row is removed on its delete date"),
+    # Zero, for the outbox's reason: `erase_at` is the midnight closing the link's last day. A confirmed entry holds no
+    # date there, so it never expires.
+    TTLIndex(
+        Collection.SCHIEDSRICHTER,
+        "schiedsrichter_erase_at",
+        "erase_at",
+        0,
+        "an unconfirmed or declined referee entry is removed once its link has lapsed",
+    ),
 )
 
 

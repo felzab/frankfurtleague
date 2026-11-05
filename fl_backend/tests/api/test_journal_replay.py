@@ -25,7 +25,6 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.address_change.admin_router import delete_address_change as discard_the_change
 from app.api.address_change.services import as_utc
 from app.api.identity.journal_replay import REPLAY_METHOD, Read, Window, replay_line, run_replay
-from app.api.spielbestaetigungen.services import halter_of
 from app.api.teams.services import compose_kontakt_bestaetigung
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -54,8 +53,6 @@ from tests.documents import (
     saison_document,
     saison_team_document,
     schiedsrichter_document,
-    spiel_document,
-    spielbestaetigung_document,
     spieler_document,
     team_document,
 )
@@ -786,62 +783,6 @@ class TestAnGeloeschtPersonsPseudonym:
             assert "@" not in output
             assert PSEUDONYM not in output
             assert erasure_journal_hash(PERSON, key=KEY) not in output
-
-
-def _their_answered_confirmation() -> dict[str, Any]:
-    """A fixture answer the person gave from a seat they have since left: the row holds their holder digest and no address."""
-
-    team_id = ObjectId("6890a1b2c3d4e5f6078600f1")
-    sides = {f"team{n}": {"team_id": ObjectId(f"6890a1b2c3d4e5f6078600f{n}")} for n in (1, 2)}
-    spiel = spiel_document(
-        spiel_id=ObjectId(), saison_id=SAISON_ID, spiel_nr=1, spieltag_id=None, datum="2126-10-20", uhrzeit="18:00:00", **sides
-    )
-    antwort = {
-        "art": "declined",
-        "am": TODAY,
-        "von": {"art": "kontakt", "rolle": "trainer", "halter": halter_of(PERSON, key=KEY)},
-        "vorschlag": {"datum": "2126-10-21", "uhrzeit": "18:00:00"},
-        "begruendung": "Wir sind auf Klassenfahrt",
-    }
-
-    return spielbestaetigung_document(spiel, party={"art": "team", "team_id": team_id}, antwort=antwort)
-
-
-class TestAnGeloeschtPersonsReasons:
-    def test_the_reasons_a_restore_brings_back_with_no_address_are_removed_again_once(
-        self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture
-    ):
-        """The erasure's line alone finds them: the row holds the person's holder digest, which `where_held` cannot read as an address."""
-
-        async def steps(http: AsyncClient, database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            snapshot = _their_answered_confirmation()
-            confirmations = database[Collection.SPIELBESTAETIGUNGEN]
-            await confirmations.insert_one(snapshot)
-            with caplog.at_level(logging.INFO):
-                erased = await http.post(ERASURE, headers=_person(PERSON))
-            assert erased.status_code == 200, erased.text
-            erasure = journalled(caplog)[-1]
-            removed = (await confirmations.find_one({"_id": snapshot["_id"]}) or {})["antwort"]
-
-            # The restore: the row as the snapshot held it.
-            await confirmations.replace_one({"_id": snapshot["_id"]}, snapshot)
-            day = _day_file(("2126-10-03T11:00:01+00:00", erasure))
-            runs = [await _listed(day, client, database, apply=apply) for apply in (False, True, True)]
-
-            return removed, runs, (await confirmations.find_one({"_id": snapshot["_id"]}) or {})["antwort"]
-
-        removed, runs, after = served(mongo_replica_set_url, steps)
-        [(listed_code, listed), (applied_code, applied), (again_code, again)] = runs
-
-        # The premise: the erasure itself took the reason, which the restore then brought back.
-        assert (removed["begruendung"], removed["von"]["halter"]) == (None, None)
-        assert (listed_code, applied_code, again_code) == (1, 0, 0), listed
-        assert "1 confirmation(s) or log image(s) hold a reason of theirs" in listed and "    to replay" in listed
-        assert "    replayed" in applied and "    already done" in again
-        # The answer itself stays: its day, its way and its role are the club's.
-        assert after == {**removed, "art": "declined"}
-        for output in (listed, applied, again):
-            assert halter_of(PERSON, key=KEY) not in output
 
 
 class TestAnLoeschungAfterAChangeTookEffect:

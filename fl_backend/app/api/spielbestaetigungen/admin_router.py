@@ -48,7 +48,7 @@ from app.core.dependencies import (
 from app.core.exceptions import DocumentNotFoundError
 from app.core.readonly import ReadCollection
 from app.core.routing import by_id
-from app.core.security import bind_actor, verify_access_admin, verify_step_up
+from app.core.security import bind_actor, verify_access_admin
 from app.core.transactions import transaction_session
 from app.shared.schemas.custom import CustomRouteObjectId
 
@@ -92,7 +92,7 @@ async def get_spielbestaetigungen(
     """
     Every confirmation row of the season, or of its one fixture.
 
-    Newest first, closed rows included. No seat's link hashes and no answer's holder digest are served. Every row still
+    Newest first, closed rows included. No seat's link hashes and no seat's address are served. Every row still
     holding its party's question is served; `limit` cuts the others, and `complete` is false where it left the
     oldest of them out. Each seat holding a link names what became of the last mail owed to it. A season no document
     has answers no rows rather than 404.
@@ -116,7 +116,6 @@ async def get_spielbestaetigungen(
     f"{by_id('spielbestaetigung_id')}/enter",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Record a party's Zusage on its behalf",
-    dependencies=[Depends(verify_step_up)],
 )
 async def enter_spielbestaetigung(
     spielbestaetigung_id: CustomRouteObjectId,
@@ -167,7 +166,6 @@ async def enter_spielbestaetigung(
     f"{by_id('spielbestaetigung_id')}/discard",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Discard a club's proposed date",
-    dependencies=[Depends(verify_step_up)],
 )
 async def discard_spielbestaetigung(
     spielbestaetigung_id: CustomRouteObjectId,
@@ -240,7 +238,7 @@ async def discard_spielbestaetigung(
             mails = (
                 []
                 if verein is None
-                else team_notices(spielbestaetigung_raw=row, kontakte=verein.get("kontakte"), data=data, anlass="discarded")
+                else team_notices(spielbestaetigung_raw=row, kontakte=verein.get("kontakte"), data=data, occasion="discarded")
             )
             if verein is not None and mails:
                 # A seat emptied or an address moved beside this write conflicts with it rather than leaving the old mailbox told.

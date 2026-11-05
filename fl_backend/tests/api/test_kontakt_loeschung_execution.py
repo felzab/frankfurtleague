@@ -19,7 +19,6 @@ from app.api.kontakte.services import (
     same_address,
     seat_image_edits,
 )
-from app.api.spielbestaetigungen.services import halter_of
 from app.api.teams.schemas import FLSaisonTeamKontakte
 from app.core.collections import Collection
 from app.core.crud import aggregate_many_from_db, patch_one_in_db
@@ -28,7 +27,6 @@ from app.shared.folding import sign_in_identifier
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 from app.shared.tokens import hash_token
 from tests import documents
-from tests.config import build_test_config
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.documents import confirmed_kenntnisnahme, minted_confirmations
 from tests.erasure import erased
@@ -608,7 +606,6 @@ def test_a_spelling_handed_in_unfolded_still_clears_and_redacts(mongo_replica_se
                 action_log_collection=database[Collection.ACTION_LOG],
                 spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
                 identifier=VARIANT_REQUEST_EMAIL,
-                key=build_test_config().sperrliste_key,
                 saison_team_rows=reached[Collection.SAISON_TEAMS],
                 bewerbung_rows=reached[Collection.BEWERBUNGEN],
                 stamp=REDACTED_AT,
@@ -1015,55 +1012,3 @@ def test_the_reveal_lists_exactly_the_seats_the_loeschung_then_clears(mongo_repl
     # Against the table above as well as the count: two figures agreeing on zero agree on nothing.
     assert named == sum(EXPECTED_SLOTS.values())
     assert named == response.kontakt_seats
-
-
-def a_fixture_of(team_id: ObjectId, *, saison_id: str = LATER_SAISON, spiel_nr: int = 1) -> dict[str, Any]:
-    """A fixture of this team's, never stored: a confirmation row is composed from it as the mint composes one."""
-
-    side = {"team_id": team_id, "name": "Adler", "shorthand": "ADX", "tore": None}
-
-    return documents.spiel_document(
-        spiel_id=ObjectId(),
-        saison_id=saison_id,
-        spiel_nr=spiel_nr,
-        spieltag_id=None,
-        datum="2026-04-18",
-        uhrzeit="14:00:00",
-        team1=side,
-        team2=side,
-    )
-
-
-def a_reason_of_theirs(saison_id: str = LATER_SAISON) -> dict[str, Any]:
-    """A row the erased person declined with a reason, closed since; no seat they hold now need be the one it was typed from."""
-
-    return documents.spielbestaetigung_document(
-        a_fixture_of(TEAM_A_OID, saison_id=saison_id),
-        party={"art": "team", "team_id": TEAM_A_OID},
-        antwort=documents.kontakt_antwort_document("trainer", ERASED_EMAIL, begruendung="Wir sind auf Klassenfahrt"),
-        closed={"at": "2026-04-02", "grund": "ansetzung_changed"},
-    )
-
-
-THEIR_HALTER = halter_of(ERASED_EMAIL, key=build_test_config().sperrliste_key)
-
-
-@pytest.mark.db
-def test_the_reason_steps_log_row_names_no_digest_of_theirs(mongo_replica_set_url: str):
-    """The log keeps a fan-out's filter as text for twelve months, so the step's write names their rows by id alone."""
-
-    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-        await database[Collection.SPIELBESTAETIGUNGEN].insert_many([a_reason_of_theirs(), a_reason_of_theirs()])
-        await call_erasure(database, client)
-
-        return (
-            await database[Collection.SPIELBESTAETIGUNGEN].find({}, {"antwort": 1}).to_list(length=None),
-            await database[Collection.ACTION_LOG].find({}).to_list(length=None),
-        )
-
-    stored, log = on_a_league(mongo_replica_set_url, body)
-
-    # The premise: the step wrote both rows, and logged doing so.
-    assert [row["antwort"]["begruendung"] for row in stored] == [None, None]
-    assert [row["modified_count"] for row in log if row["collection"] == Collection.SPIELBESTAETIGUNGEN] == [2]
-    assert THEIR_HALTER not in str(log)

@@ -203,7 +203,7 @@ describe("a save carrying no address", () => {
       throw new Error("the save reached the endpoint");
     };
 
-    const res = await patchSchiedsrichterAction({ ...ENTWURF, id: SCHIEDSRICHTER_ID, kontakt: { email: null, telefon: null } });
+    const res = await patchSchiedsrichterAction({ ...ENTWURF, id: SCHIEDSRICHTER_ID, version: 0, kontakt: { email: null, telefon: null } });
 
     expect(res.success).toBe(false);
     expect(res.success ? undefined : res.fieldErrors?.["kontakt.email"]).toBe("Bitte gib eine E-Mail-Adresse ein.");
@@ -215,7 +215,7 @@ describe("a save carrying no address", () => {
    goes to a corrected address. */
 describe("what the save hands the editor about the link it owed", () => {
   it("names the corrected address beside the standard sentence", async () => {
-    const res = await patchSchiedsrichterAction({ ...ENTWURF, id: SCHIEDSRICHTER_ID });
+    const res = await patchSchiedsrichterAction({ ...ENTWURF, id: SCHIEDSRICHTER_ID, version: 0 });
 
     expect(res.success && res.message).toBe("Schiedsrichter bearbeitet");
     expect(res.success ? res.versandSatz : "").toMatch(/korrigiert@example\.de/);
@@ -227,7 +227,7 @@ describe("what the save hands the editor about the link it owed", () => {
       confirmation: null,
     });
 
-    const res = await patchSchiedsrichterAction({ ...ENTWURF, id: SCHIEDSRICHTER_ID });
+    const res = await patchSchiedsrichterAction({ ...ENTWURF, id: SCHIEDSRICHTER_ID, version: 0 });
 
     expect(res.success && res.versandSatz).toBe(undefined);
   });

@@ -72,6 +72,7 @@ from app.api.teams.services import (
     compose_bestaetigungen_nach,
     compose_kontakt_bestaetigung,
     compose_kontakte_herkunft,
+    find_austritt_refusal,
     find_club_entry_refusal,
     find_gruppe_move_refusal,
     find_kontakt_seat_barred_refusal,
@@ -200,7 +201,7 @@ async def get_team_saisons(
     """
     Every team, retired ones included, each with every season membership it holds. Sorted by name.
 
-    `GET /teams/list/verwaltung` cannot answer it: that read is season-scoped with a strict junction join. Each membership names the live
+    `GET /teams/list/admin` cannot answer it: that read is season-scoped with a strict junction join. Each membership names the live
     change of each seat's address, which the address tool shows, and per seat why the tool refuses that change this
     administrator. Each seat's link names what became of the last mail carrying it, `delivery` null where none was
     ever owed.
@@ -237,14 +238,14 @@ async def get_team_saisons(
     )
 
 
-# Two static segments, as `GET /saisons/list/verwaltung` has, so the admin tier lists every season-scoped
+# Two static segments, as `GET /saisons/list/admin` has, so the admin tier lists every season-scoped
 # resource under one shape. No id route at this prefix ends in `/admin`, so none can shadow this one.
 @router.get(
-    "/list/verwaltung",
+    "/list/admin",
     response_model=FLTeamsListResponse,
     summary="Teams for a Saison, for the admin surfaces",
 )
-async def get_teams_verwaltung(
+async def get_teams_admin(
     teams_collection: TeamsCollection,
     saisons_collection: SaisonsCollection,
     filters: FLTeamsFilterParams = Depends(),
@@ -543,7 +544,7 @@ async def patch_saison_team(
         existing_raw = await pull_one_from_db(
             collection=saison_teams_collection,
             db_filter={"team_id": team_id, "saison_id": saison_id},
-            projection=["gruppe", "name", "shorthand"],
+            projection=["gruppe", "name", "shorthand", "austritt"],
             session=session,
         )
 
@@ -555,6 +556,17 @@ async def patch_saison_team(
         # Every write, an exit record included: a finished season's table and podium are read off these rows,
         # and an exit recorded now would move places its fixtures can no longer be saved to answer.
         refuse(find_saison_past_refusal(saison_status=str(saison_raw["status"])))
+
+        # On the anchored season's stored start, so a start moved under this write conflicts and the retry judges the
+        # exit against the date it left.
+        austritt = saison_team_data.austritt
+        refuse(
+            find_austritt_refusal(
+                proposed=None if austritt is None else austritt.model_dump(mode="json"),
+                stored=existing_raw.get("austritt"),
+                start_date=str(saison_raw["start_date"]),
+            )
+        )
 
         # Only a CHANGE is judged: recording an austritt writes the same row without moving anyone, so two
         # austritte contend only on the season's anchor above, which costs one retry.
@@ -776,7 +788,6 @@ async def patch_saison_team_kontakte(
     f"{by_id('team_id')}/saisons/{{saison_id}}/replace",
     response_model=FLReplaceSaisonTeamResponse,
     summary="Replace a club in a season, keeping its schedule",
-    dependencies=[Depends(verify_step_up)],
 )
 async def replace_saison_team(
     team_id: CustomRouteObjectId,
@@ -888,7 +899,7 @@ async def replace_saison_team(
             collection=saison_teams_collection,
             db_filter={"saison_id": saison_id, "team_id": team_id},
             # `austritt` cleared: left standing it marks the INCOMING club withdrawn to
-            # `swap_fields_disqualified` and `_may_hold_a_platz`; the exit survives in the logged pre-image. The
+            # `find_eligibility_refusal` and `_may_hold_a_platz`; the exit survives in the logged pre-image. The
             # colour, the contacts and their links leave with the OUTGOING school.
             update={"$set": {**incoming_side, "austritt": None, "trikot_farbe": None, "kontakte": None, "confirmations": None}},
             session=session,
@@ -1154,7 +1165,6 @@ async def post_invitation(
     f"{by_id('team_id')}/saisons/{{saison_id}}/invitation",
     response_model=FLInvitationWriteResponse,
     summary="Revoke this team's live registration link for a season",
-    dependencies=[Depends(verify_step_up)],
 )
 async def delete_invitation(
     team_id: CustomRouteObjectId,
@@ -1192,7 +1202,6 @@ async def delete_invitation(
     f"{by_id('team_id')}/saisons/{{saison_id}}/invitation/dispatch",
     response_model=FLInvitationMailResponse,
     summary="Mail this team's live registration link to its confirmed contact seats",
-    dependencies=[Depends(verify_step_up)],
 )
 async def post_invitation_dispatch(
     team_id: CustomRouteObjectId,
@@ -1240,7 +1249,7 @@ async def post_invitation_dispatch(
                 team_name=str(row["name"]),
                 saison_id=saison_id,
                 recipient=empfaenger,
-                anlass=f"mail/{today}",
+                occasion=f"mail/{today}",
             ),
             now=germany_now,
         )

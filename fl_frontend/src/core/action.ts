@@ -294,14 +294,25 @@ function placed<Schema extends z.ZodType>(declared: Declared<Schema>, code: Code
   };
 }
 
+/** A sentence filled from the bounds its refusal carries, as `ruleMessage` fills a phrase: `undefined` where one is missing. */
+type BoundedSentence = (context: FLRefusedField["ctx"]) => Copy | undefined;
+
+/** One `SERVER_COPY.refusalLine` entry, of any of the three shapes its docstring names. */
+type LineEntry = Copy | Readonly<Record<string, Copy>> | BoundedSentence;
+
 /**
- * A code's sentence for the path it names: the code's one sentence, or, where its entry is keyed by the field, the
- * one for the path's first name. `undefined` where the entry holds none for it.
+ * A code's sentence for the field it names: the code's one sentence, the sentence its bounds fill, or, where its entry
+ * is keyed by the field, the one for the path's first name. `undefined` where the entry holds none for it.
  */
-function sentenceOf(code: Code & keyof typeof SERVER_COPY.refusalLine, path: FLRefusedField["path"] | undefined): Copy | undefined {
-  const entry: Copy | Readonly<Record<string, Copy>> = SERVER_COPY.refusalLine[code];
+function sentenceOf(code: Code & keyof typeof SERVER_COPY.refusalLine, refused: FLRefusedField | undefined): Copy | undefined {
+  return sentenceIn(SERVER_COPY.refusalLine[code], refused);
+}
+
+/** Apart from `sentenceOf`, whose read of the catalogue would narrow the entry to the shapes it holds today. */
+function sentenceIn(entry: LineEntry, refused: FLRefusedField | undefined): Copy | undefined {
   if (typeof entry === "string") return entry;
-  const [head] = path ?? [];
+  if (typeof entry === "function") return entry(refused?.ctx ?? {});
+  const [head] = refused?.path ?? [];
   return typeof head === "string" && Object.hasOwn(entry, head) ? entry[head] : undefined;
 }
 
@@ -325,7 +336,7 @@ function worded<Schema extends z.ZodType>(
   }
   if (!wordsOwn(declared, code)) return undefined;
   if (isLined(code)) {
-    const reason = sentenceOf(code, fields[0]?.path);
+    const reason = sentenceOf(code, fields[0]);
     return reason === undefined ? undefined : { ok: false, errorCode: code, reason };
   }
   // A phrase naming the bounds the refusal carries on each field it names, worded as a rule's phrase is.
