@@ -25,20 +25,23 @@ const scorePair = tv({
     panel: cardSurface({ class: "grid w-full gap-2 p-4" }),
     // Each side takes half the row the colon leaves, so a club's name over its field has room to stand.
     row: "grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-end gap-3",
-    // The plaque over the field, which stands centred under it: its label cut where the name outruns the half.
-    side: "grid justify-items-center gap-2 [&>div]:items-center [&>div]:text-center [&>div>label]:max-w-full [&>div>label]:truncate",
+    // The plaque over the field, which stands centred under it.
+    side: "grid justify-items-center gap-2",
     line: "text-center text-sm font-medium",
   },
   variants: {
-    // The tones the Timeline marks a result in: a decided match `success`, a draw `warn`.
+    // The hues the Timeline marks a result in, a decided match `success` and a draw `warn`; a consequence takes a
+    // field's consequence hue, which is `warn` too.
     tone: {
-      win: { line: "text-success" },
-      draw: { line: "text-warn" },
-      consequence: { line: "text-warn" },
+      success: { line: "text-success" },
+      warn: { line: "text-warn" },
       none: {},
     },
   },
 });
+
+/** Each outcome's hue. */
+const HUE = { win: "success", draw: "warn" } as const;
 
 /**
  * A score as one value in one row at every width (D279, D342), drawn as the match head draws a match (D358 kopf B):
@@ -59,7 +62,6 @@ export function ScorePair({
   consequence,
   outcome,
   isRequired = false,
-  isDisabled = false,
 }: {
   label: Copy;
   /** The two clubs, home first. */
@@ -73,11 +75,11 @@ export function ScorePair({
   /** What the figures decide, once both are typed. */
   outcome?: ScoreOutcome | null;
   isRequired?: boolean;
-  isDisabled?: boolean;
 }) {
   const lineId = useId();
   const said = consequence ?? outcome?.text;
-  const slots = scorePair({ tone: consequence !== undefined ? "consequence" : (outcome?.tone ?? "none") });
+  const tone = outcome === undefined || outcome === null ? "none" : HUE[outcome.tone];
+  const slots = scorePair({ tone: consequence === undefined ? tone : "warn" });
   // A plaque on both sides or on neither, so the two fields stay on one line.
   const plaques = sides[0].plaque !== null && sides[1].plaque !== null;
   const field = (side: 0 | 1) => (
@@ -88,8 +90,8 @@ export function ScorePair({
         name={names[side]}
         width="C2"
         kind="digits"
+        align="center"
         isRequired={isRequired}
-        isDisabled={isDisabled}
         value={values[side]}
         onChange={(value) => onChange(side, value)}
       />
