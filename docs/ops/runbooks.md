@@ -349,7 +349,7 @@ sign_in_identifier`) — trimmed and lower-case, ASCII throughout —
   address only where its mailbox is trusted as an administrator's.
 - **A Playground grant is dated twice, so whoever it admits signs in once more.** Until the
   reconciliation's next pass finds the row, hourly and first a minute after the frontend starts
-  (`fl_frontend/src/instrumentation-node.ts`'s `PASS_INTERVAL_MS` and `FIRST_PASS_DELAY_MS`), it is
+  (`fl_frontend/src/instrumentationNode.ts`'s `PASS_INTERVAL_MS` and `FIRST_PASS_DELAY_MS`), it is
   dated by its own `granted_at`, or by the moment its `_id` was generated where that is later — so leave `_id` to the Playground, write `new Date()` for
   `granted_at`, and any sign-in after the paste admits. Once found, it is dated by that moment instead: a session signed in between the paste and the find is sent back to
   the sign-in, and the next passkey sign-in admits.
@@ -483,8 +483,8 @@ One person can hold several — a referee is a pupil, and a contact person can b
 the address on file into the address tool, `/area/admin/adresswechsel`
 (`POST /address_change/view`), the one read serving a live change's new address and reason; the
 editors show only that a change waits. A notice an ended change still owes either address sits in `outbox` (`an`, and on some rows
-`data.vorname`), and an effect's owed account carry on the change itself (`address_changes.move.von`,
-`address_changes.move.nach`); no page renders either, and a read-only Playground query on those fields
+`data.vorname`), and an effect's owed account carry on the change itself (`address_changes.move.old`,
+`address_changes.move.new`); no page renders either, and a read-only Playground query on those fields
 finds them.
 
 **Anybody who has signed in is in the sign-in store too, and no erasure leaves their account
@@ -1127,7 +1127,7 @@ whatever closed the host's inbound 80 and 443 is opened.
 ## 9. Checking that the hourly passes have run
 
 **The heartbeat answers it.** After every hourly pass the scheduler
-(`fl_frontend/src/instrumentation-node.ts :: armScheduler`) pings Better Stack's heartbeat monitor,
+(`fl_frontend/src/instrumentationNode.ts :: armScheduler`) pings Better Stack's heartbeat monitor,
 and pings it with `/fail` where a job threw, left owed deletions or erasures, or the drain gave a
 mail up, its output naming each: `account failed`, `erasure left 3`, `outbox gave up 2`. The
 monitor alerts on a failing ping and on a missing one, so an alert names the job whose lines to read
@@ -1295,7 +1295,7 @@ its own, and the next pass asks again.
 
 **An `account.references_failed` line carrying `no_owner` means the backend reads no live
 `owner` grant**, so it refuses every batch and the sweep deletes nothing, every pass alike. Such a pass still counts, its
-`failed` every account the store listed, so a pass's line alone does not say the sweep works. Either the backend reads another database than the league's,
+`fehlgeschlagen` every account the store listed, so a pass's line alone does not say the sweep works. Either the backend reads another database than the league's,
 which `DB_BASE_NAME` in `fl_backend/.env` names, or the `owner` grant is gone; the backend's boot warns
 `grants.no_grant` or `grants.no_owner` in both cases. Repair the setting, or write the `owner` grant as
 [section 3](#3-granting-or-revoking-admin-access) says.

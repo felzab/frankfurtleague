@@ -111,14 +111,14 @@ which lets every user bind below 1024 (read 2026-09-27, on engine 29.8.0). With 
 container, none can read the traffic crossing `frankfurtleague-app` (§4).
 
 **The frontend container is also what runs the background jobs, from one scheduler.**
-`fl_frontend/src/instrumentation-node.ts :: registerOnNode` arms `:: armScheduler` under a production
+`fl_frontend/src/instrumentationNode.ts :: registerOnNode` arms `:: armScheduler` under a production
 build, and it runs one pass a minute after start and then hourly, so every job runs in the process
 that serves the site and stops when it stops. A pass runs each job in turn: the retention sweep
 (`fl_frontend/src/features/bewerbungen/sweep.ts :: runBewerbungSweep`), the account sweep
-(`fl_frontend/src/features/funktionen/sweep.ts :: runAccountSweep`), the pupils' deletion
+(`fl_frontend/src/features/funktionen/sweep.ts :: runKontoSweep`), the pupils' deletion
 (`fl_frontend/src/features/saisons/sweep.ts :: runErasureSweep`), the fixture confirmations
 (`fl_frontend/src/features/spielbestaetigungen/sweep.ts :: runSpielSweep`) and the grants' notices
-(`fl_frontend/src/features/berechtigungen/abgleich.ts :: runGrantsReconciliation`). Then the
+(`fl_frontend/src/features/berechtigungen/abgleich.ts :: runBerechtigungenAbgleich`). Then the
 Postausgang's drain (`fl_frontend/src/core/mail.ts :: drainOutbox`) sends what they owed; a
 write that owes a mail drains at once besides. **No switch holds one job back**: every job runs
 wherever a production build runs, the local stack included (§1.5), and a `next dev` process arms
@@ -714,7 +714,7 @@ container and exit 2 from the script, with nothing recreated; any other ending i
   instrumentation hook once as the server starts and before it serves; the hook runs every gate a
   serving boot runs — the schema over the variables and the secret files — and
   ends on 0, or on 3 at a refusal, its `CRITICAL` line naming the variable or the file and never a
-  value (`fl_frontend/src/instrumentation-node.ts :: registerOnNode`). A fault of
+  value (`fl_frontend/src/instrumentationNode.ts :: registerOnNode`). A fault of
   the build ends on 1, which is no verdict on the host. `run` publishes no port and no service
   alias, so nothing reaches the server it starts.
 - **The boot holds `APP_ENV` to the deployment the script names**, a mismatch refusing `APP_ENV`:
