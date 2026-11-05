@@ -103,6 +103,10 @@ const SONDEREREIGNIS = { ausgefallen: "Ausgefallen", abgebrochen: "Abgebrochen",
 const SIGN_IN = "Anmeldung";
 const SIGN_IN_WITH_PASSKEY = "Mit Passkey anmelden";
 const SET_UP_PASSKEY = { title: "Passkey einrichten", button: "Jetzt einrichten" } as const;
+// What a passkey does for a person, the sign-in's offer and Sicherheit's box alike.
+const PASSKEY_WITHOUT_CODE = "Mit einem Passkey meldest du dich ohne Code an.";
+// An administrator's card, whether it sets the passkey up or signs in with one held.
+const PASSKEY_REQUIRED = "Die Verwaltung ist erst mit einem Passkey erreichbar.";
 // The glossary's nouns, each one entry of `shared` and read under the page keys and the match facts naming them.
 const SPIELER = "Spieler";
 const SCHIEDSRICHTER = "Schiedsrichter";
@@ -156,8 +160,8 @@ export const COPY = catalogue({
       unexpected: UNEXPECTED,
       stale: "Die Seite ist nicht mehr aktuell.",
       signInExpired: "Deine Anmeldung ist abgelaufen.",
-      /** The edge refused the press for its rate before anything behind it ran; the meter refills within the minute. */
-      tooManyAttempts: "Zu viele Versuche in kurzer Zeit.",
+      /** A press past any limit on tries, whatever was counted: the edge's rate, a code's wrong tries, an address's codes. */
+      tooManyAttempts: "Zu viele Versuche.",
       /** An administrator's grant is gone or was never held: no sign-in and no retry repairs it. */
       accessGone: "Dein Zugang zur Verwaltung besteht nicht mehr.",
     },
@@ -286,13 +290,11 @@ export const COPY = catalogue({
     /** A season by its id, which is its year and so takes no thousands separator: „Saison 2027“. */
     saisonName,
 
-    /** The bot check before a public send: refused, disturbed, not yet done, or not loaded at all. */
-    botCheck: {
-      confirm: "Die Bestätigung, dass du ein Mensch bist, fehlt.",
-      disrupted: "Die Prüfung, ob du ein Mensch bist, ist gerade gestört.",
-      notReady: "Die Prüfung, ob du ein Mensch bist, ist noch nicht fertig.",
-      notLoaded: "Die Prüfung, ob du ein Mensch bist, ließ sich nicht laden.",
-    },
+    /**
+     * The bot check's one answer a person can act on, its click shown or its judgement against the token; a check that
+     * did not load, mint or reach Cloudflare is the unexpected failure.
+     */
+    botCheck: "Die Bestätigung, dass du ein Mensch bist, fehlt.",
   },
 
   /**
@@ -372,16 +374,16 @@ export const COPY = catalogue({
       abgebrochen: SONDEREREIGNIS.abgebrochen,
       annulliert: SONDEREREIGNIS.annulliert,
       /**
-       * What the event means for the result, under its name in the pop-up's callout: a match called off or
-       * struck out awards nothing, a no-show awards the side that turned up the forfeit the season's rules
-       * set, which the score shows, and an abandoned match owes a result until one is entered.
+       * What the event means for the result, under its name in the pop-up's callout, which the name does not
+       * repeat: a match called off or struck out awards nothing, a no-show awards the side that turned up the
+       * forfeit the season's rules set, which the score shows, and an abandoned match owes a result until one is
+       * entered.
        */
       consequence: {
-        ausgefallen: "Das Spiel hat nicht stattgefunden und wird nicht gewertet.",
+        notScored: "Das Spiel wird nicht gewertet.",
         nichtAngetreten: (opponent: Words) => `Das Spiel wird für ${textOf(opponent)} gewertet.`,
         abgebrochenScored: "Das eingetragene Ergebnis wird gewertet.",
         abgebrochenOpen: "Die Wertung steht noch nicht fest.",
-        annulliert: "Das Spiel wurde annulliert und wird nicht gewertet.",
       },
     },
 
@@ -462,10 +464,11 @@ export const COPY = catalogue({
     /** `/signin` for somebody already signed in, in the two parts around the address, as the code view's sentence. */
     signedInAs: { before: "Du bist als", after: "angemeldet." },
 
+    /** The passkey card: an administrator's two, setting one up or signing in with one held, and anyone else's offer. */
     passkey: {
-      setUp: { ...SET_UP_PASSKEY, sentence: "Die Verwaltung ist erst mit einem Passkey erreichbar." },
-      signIn: { title: SIGN_IN_WITH_PASSKEY, sentence: "Melde dich mit dem Passkey an, den du eingerichtet hast.", button: "Jetzt anmelden" },
-      offer: { ...SET_UP_PASSKEY, sentence: "Mit einem Passkey meldest du dich künftig sicher ohne Code an." },
+      setUp: { ...SET_UP_PASSKEY, sentence: PASSKEY_REQUIRED },
+      signIn: { title: SIGN_IN_WITH_PASSKEY, sentence: PASSKEY_REQUIRED, button: "Jetzt anmelden" },
+      offer: { ...SET_UP_PASSKEY, sentence: PASSKEY_WITHOUT_CODE },
       later: "Später",
     },
 
@@ -473,15 +476,12 @@ export const COPY = catalogue({
      * The code's and the passkey's refusals, which the page words off the library's own codes
      * (`fl_frontend/src/features/auth/signInAnswers.ts`, `passkeyAnswers.ts`). A barred address and one holding
      * no record meet one sentence, so nobody can probe the ban list.
-     * The typed code's own refusal is a phrase under its boxes; every other is a sentence on the status line.
+     * The typed code's own refusal is a phrase under its boxes, a wrong code and one no longer valid alike; every other
+     * is a sentence on the status line.
      */
     refusal: {
       codeWrong: "Falsch oder nicht mehr gültig",
-      codeExpired: "Der Code ist abgelaufen.",
-      codeTooOften: "Zu viele Versuche mit diesem Code.",
-      addressTooOften: "Zu viele Versuche mit dieser Adresse.",
-      codeUsedUp: "Die Anmeldung hat nicht geklappt, und dein Code ist verbraucht.",
-      noRecord: "Mit dieser Adresse ist derzeit keine Anmeldung möglich.",
+      noRecord: "Mit dieser Adresse ist keine Anmeldung möglich.",
       unverified: "Dieser Passkey hat nicht bestätigt, dass du es bist.",
       /** An act the passkey touch guards, sent without a passkey sign-in of the last minute by a person holding one. */
       touchMissing: "Die Bestätigung mit deinem Passkey fehlt.",
@@ -517,7 +517,8 @@ export const COPY = catalogue({
       /** A grant's move waits on another administrator, who approves it apart from both links. */
       grantNote: "Eine andere Person aus der Verwaltung muss die Änderung genehmigen.",
       unchanged: "Das ist schon deine E-Mail-Adresse.",
-      noApprover: "Gerade kann niemand aus der Verwaltung die Änderung genehmigen.",
+      /** A grant's move nobody but its holder could approve: the last owner's, or the one grant standing. */
+      noApprover: "Niemand kann die Änderung genehmigen.",
     },
     erasure: {
       // What outlives an erasure is the privacy notice's to list. Konto's deletion box and the deletion mail read this
@@ -527,7 +528,7 @@ export const COPY = catalogue({
     },
     passkeys: {
       title: "Passkeys",
-      description: "Mit einem Passkey meldest du dich ohne Code an.",
+      description: PASSKEY_WITHOUT_CODE,
       /** A row's line under its name, in a list's date form: when it was set up, and when it last signed in where it has. */
       dates: (created: Date, lastUsed: Date | null) =>
         lastUsed === null

@@ -33,8 +33,8 @@ const THEIRS = "internal-error";
 /** Every field but these two is ignored: the widget sets no action, and a site key's hostnames are the dashboard's. */
 const SiteverifyAnswerSchema = z.object({ success: z.boolean(), "error-codes": z.array(z.string()).default([]) });
 
-/** The refusal a check of ours Cloudflare would not take answers: nothing the visitor does repairs it. */
-export const CHECK_DISRUPTED = COPY.shared.botCheck.disrupted;
+/** The refusal a check of ours Cloudflare would not take answers: nothing the visitor does repairs it, so it says no reason. */
+export const CHECK_DISRUPTED = COPY.shared.failure.unexpected;
 
 /**
  * One answer of Cloudflare's: its status and error codes, an empty list where it passed the token; the status

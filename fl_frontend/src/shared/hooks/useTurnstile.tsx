@@ -7,7 +7,6 @@ import { useTheme } from "next-themes";
 
 import { COPY } from "@/core/copy";
 import { CONFIRM_HUMAN } from "@/core/turnstileToken";
-import { FIELD_ERROR_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { postClientError } from "@/shared/utils/clientError";
 
 import type { Copy } from "@/core/copy";
@@ -21,11 +20,11 @@ const TURNSTILE_API = "https://challenges.cloudflare.com/turnstile/v0/api.js?ren
 // server would wait for its verdict, and is then answered rather than posting a token the server refuses.
 const TOKEN_WAIT_MS = 10_000;
 
-/** A press past `TOKEN_WAIT_MS` with no token minted. */
-const NOT_READY_YET = COPY.shared.botCheck.notReady;
-
-/** Every form's sentence for a check that did not load. */
-const NOT_LOADED = COPY.shared.botCheck.notLoaded;
+/**
+ * A press past `TOKEN_WAIT_MS` with no token minted, or on a check that did not load: nothing the visitor does repairs
+ * either, so neither says a reason, and the widget's failure is reported once.
+ */
+const UNCHECKED = COPY.shared.failure.unexpected;
 
 /** The calls of Cloudflare's script this hook makes, as its client-side rendering page documents them. */
 type TurnstileApi = {
@@ -150,8 +149,7 @@ export function useTurnstile(siteKey: string): { widget: ReactNode; takeToken: (
       return { token: minted };
     };
     const withoutToken = (): TokenRequest => {
-      if (standNow.current === "failed") return { sentence: NOT_LOADED };
-      return { sentence: standNow.current === "interactive" ? CONFIRM_HUMAN : NOT_READY_YET };
+      return { sentence: standNow.current === "interactive" ? CONFIRM_HUMAN : UNCHECKED };
     };
 
     if (token.current !== null) return Promise.resolve(handOver(token.current));
@@ -177,7 +175,6 @@ export function useTurnstile(siteKey: string): { widget: ReactNode; takeToken: (
           // callback costs a margin and never the challenge.
           className={stand === "interactive" ? "pb-4" : undefined}
         />
-        {stand === "failed" && <p className={`${FIELD_ERROR_CLASSES} pb-4`}>{NOT_LOADED}</p>}
         {/* `onReady` rather than `onLoad`: it runs again on every mount, a client navigation back included. */}
         <Script
           src={TURNSTILE_API}

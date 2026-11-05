@@ -43,14 +43,14 @@ describe("a match's own page", () => {
               team1: { name: { record: "Goethe" }, plaque: { record: "GOE" } },
               team2: { name: { record: "Helmholtz" }, plaque: { record: "HEL" } },
             },
-            sonderereignis: { title: COPY.spielplan.sonderereignis.ausgefallen, text: COPY.spielplan.sonderereignis.consequence.ausgefallen },
+            sonderereignis: { title: COPY.spielplan.sonderereignis.ausgefallen, text: COPY.spielplan.sonderereignis.consequence.notScored },
           },
         })}
       />,
     );
 
     const head = within(page).getByText("Goethe");
-    const callout = within(page).getByText(COPY.spielplan.sonderereignis.consequence.ausgefallen);
+    const callout = within(page).getByText(COPY.spielplan.sonderereignis.consequence.notScored);
     const facts = within(page).getByText(fact.spieltag);
     expect(head.compareDocumentPosition(callout) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(callout.compareDocumentPosition(facts) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();

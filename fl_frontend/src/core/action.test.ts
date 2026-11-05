@@ -283,12 +283,12 @@ describe("the public lane", () => {
   });
 
   it("answers the bot check's refusal before anything of the input is read", async () => {
-    state.botCheck = COPY.shared.botCheck.confirm;
+    state.botCheck = COPY.shared.botCheck;
     const posted = new FormData();
     posted.set("email", "no-address");
     posted.set("cf-turnstile-response", "token");
 
-    expect(await send(posted)).toStrictEqual({ ok: false, reason: COPY.shared.botCheck.confirm });
+    expect(await send(posted)).toStrictEqual({ ok: false, reason: COPY.shared.botCheck });
     expect(state.steps).toStrictEqual(["bot check token"]);
   });
 });

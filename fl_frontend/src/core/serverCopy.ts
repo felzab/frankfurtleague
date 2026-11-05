@@ -109,8 +109,8 @@ export const SERVER_COPY = catalogue({
     spiel_double_booked: DOUBLE_BOOKED,
     spiel_double_booked_spielort_as_stored: DOUBLE_BOOKED.ort,
     spiel_double_booked_schiedsrichter_as_stored: DOUBLE_BOOKED.schiedsrichter,
-    /** The league's last owner, whose erasure would leave the administration owned by nobody. */
-    last_owner_erasure: "Du bist die letzte Inhaberin oder der letzte Inhaber der Verwaltung.",
+    /** The league's last owner, whose erasure would leave the administration owned by nobody: the glossary's screen word. */
+    last_owner_erasure: "Du bist die letzte Inhaberin oder der letzte Inhaber.",
     /** A person's own address change to the address they already sign in with. */
     address_change_unchanged: COPY.account.address.unchanged,
     /** A grant's move nobody but the person could approve. */
@@ -343,10 +343,17 @@ export const SERVER_COPY = catalogue({
       consequence: COPY.account.erasure.description,
     },
 
-    /** The person's own address change: the address on file's request, then the new address's. */
+    /**
+     * An address change: the address on file's request, then the new address's, and the two notices of its end, sent on
+     * every way a change takes.
+     */
     addressChange: {
       /** The address on file's request opens on the page's question; the subject is the page's title. */
       previousEffect: "Sie gilt, sobald beide Adressen sie bestätigt haben.",
+      /** To the replaced address, in the two parts around the moment, which the shell sets semibold between them. */
+      effective: { subject: "E-Mail-Adresse geändert", lead: { before: "Seit", after: "gilt für dein Konto eine neue E-Mail-Adresse." } },
+      /** To the new address, whose confirmed change did not take effect: never why, since its holder may be a stranger. */
+      discarded: { subject: "E-Mail-Adresse nicht geändert", lead: "Für dein Konto gilt weiter die bisherige Adresse." },
     },
 
     /**

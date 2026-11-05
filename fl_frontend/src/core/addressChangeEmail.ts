@@ -115,18 +115,14 @@ export function buildAddressChangeNoticeEmail({ way, vorname }: FLAddressChangeN
  * read 2026-10-20: "clear instructions, including contact information") is the security kind's own last line.
  */
 export function buildAddressChangeEffectiveEmail({ vorname, instant }: FLAddressChangeEffectiveData, { origin }: MailOrigin): Mail {
+  const { subject, lead } = SERVER_COPY.mail.addressChange.effective;
   return {
     kind: "security",
-    subjectLine: "Deine E-Mail-Adresse wurde geändert",
+    subjectLine: subject,
     origin: mailOrigin(origin),
     vorname: vorname ?? "",
-    paragraphs: [
-      [
-        ["Für Dein Konto bei der ", BRAND_NAME, " gilt seit ", { strong: formatInstant(instant) }, " eine neue E-Mail-Adresse."],
-        // Never says the old address stops signing in: a seat not yet confirmed stays behind and still signs in there.
-        "Deine Einträge stehen jetzt unter ihr, und mit ihr meldest Du Dich an.",
-      ],
-    ],
+    // Never says the old address stops signing in: a seat not yet confirmed stays behind and still signs in there.
+    paragraphs: [[[`${lead.before} `, { strong: formatInstant(instant) }, ` ${lead.after}`]]],
   };
 }
 
@@ -135,13 +131,12 @@ export function buildAddressChangeEffectiveEmail({ vorname, instant }: FLAddress
  * a ban on this very address is among the reasons, and the holder of the address may be a stranger.
  */
 export function buildAddressChangeDiscardedEmail(_data: FLAddressChangeDiscardedData, { origin }: MailOrigin): Mail {
+  const { subject, lead } = SERVER_COPY.mail.addressChange.discarded;
   return {
     kind: "security",
-    subjectLine: "Deine E-Mail-Adresse wurde nicht geändert",
+    subjectLine: subject,
     origin: mailOrigin(origin),
     vorname: "",
-    paragraphs: [
-      ["Die Änderung Deiner E-Mail-Adresse ist nicht wirksam geworden.", ["Wir helfen Dir gern weiter: ", { address: KONTAKT_EMAIL }]],
-    ],
+    paragraphs: [[lead]],
   };
 }

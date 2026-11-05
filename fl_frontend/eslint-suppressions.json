@@ -3362,11 +3362,8 @@
     }
   },
   "src/shared/hooks/useTurnstile.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    },
     "no-restricted-syntax": {
-      "count": 2
+      "count": 1
     }
   },
   "src/shared/hooks/useTwoPressConfirm.ts": {

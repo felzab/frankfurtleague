@@ -15,7 +15,7 @@ import { leaveDocumentFor } from "@/shared/utils/documentNavigation";
 
 import { handleSignIn } from "../../actions";
 import { CEREMONY_ABORTED, describeCeremonyRefusal, refusalCode } from "../../passkeyAnswers";
-import { codeRefusal, signInAnswer } from "../../signInAnswers";
+import { codeRefusal } from "../../signInAnswers";
 
 import type { ActionAnswer } from "@/core/action";
 import type { Copy } from "@/core/copy";
@@ -38,7 +38,7 @@ export function SignInFlow({ next, siteKey }: { next: string; siteKey: string })
   const send = useFormAction(
     async (address: string): Promise<ActionAnswer<string>> => {
       const request = await humanCheck.takeToken();
-      if ("sentence" in request) return { ok: false, reason: signInAnswer(request.sentence) };
+      if ("sentence" in request) return { ok: false, reason: request.sentence };
 
       const submitted = new FormData();
       submitted.set("email", address);

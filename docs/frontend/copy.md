@@ -127,8 +127,9 @@ Each pattern is an entry of `COPY.shared`; what the entry cannot say is when it 
   that fits its two lines on a phone and names its field itself where it has one; a field phrase
   never stands on the status line, since it has no subject there. Every other refusal takes a
   `failure` line: `stale` for a stale page, a concurrent change or a choice the screen had closed
-  when it was read, `signInExpired` for an ended sign-in, `unexpected` for an outage, a fault inside
-  the system and anything else. A refusal the screen closes off before the press, a race between two
+  when it was read, `signInExpired` for an ended sign-in, `tooManyAttempts` for every limit on
+  tries whatever it counts, `unexpected` for an outage, a fault inside the system, a bot check that
+  did not run and anything else. A refusal the screen closes off before the press, a race between two
   writes and a precondition only the system knows are never explained, since the reader cannot act
   on the detail.
 - **A saved record** shows `saved` beside its save button, never as a toast.
