@@ -341,7 +341,15 @@ resolves each before matching, all three measured reaching their zone (measured 
 
 **Each pair is one narrow zone and one wide one, the wide at ten times the rate and the burst**, and
 the pairs are held apart per unit of WORK rather than pooled — two paths reaching the same work
-share one pair. `bewerbung48` is the one deliberate exception to the multiplier, and it is on the
+share one pair. **That holds for a route handler and never for a server action**, which Next 16.4.2
+runs at whatever page path it is posted to, handing it inside its own process to the page holding it
+(`next/dist/server/app-render/action-handler.js :: createForwardedActionResponse`), so nginx meters
+the one request on the path the client chose. The answers three link pages take through a server
+action — the referee's on `/confirm/schiedsrichter`, an address link's on `/confirm/address` and the
+deletion link's on `/erasure` — are bounded by the action pair, 30 at once and 60 a minute per
+network, wherever a script posts them, and by the link pages' pair besides only where the post lands
+on a link page. A pair for one action would key on its id, which Next recalculates between builds
+(`next/dist/docs/01-app/02-guides/data-security.md`). `bewerbung48` is the one deliberate exception to the multiplier, and it is on the
 RATE alone: three times rather than ten, on a count of applications per season rather than a ratio.
 What decides that number, and what it risks, is at the zone in `nginx/shared/http.conf`.
 
