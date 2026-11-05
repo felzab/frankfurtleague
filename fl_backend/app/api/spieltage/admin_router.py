@@ -15,6 +15,7 @@ from app.api.spieltage.schemas import (
     FLSpieltageFilterParams,
     FLSpieltageListResponse,
     FLSpieltagListAdapter,
+    FLSpieltagRecord,
     FLSpieltagWriteResponse,
 )
 from app.api.spieltage.services import (
@@ -175,13 +176,13 @@ async def patch_spieltag(
     db: DBClient,
 ) -> FLSpieltagWriteResponse:
     """
-    Move a matchday's span.
+    Move a matchday's span, answering the matchday's `version` after the save.
 
     No fan-out: matches embed no copy, so a re-dated matchday is picked up on the next read. The span is held
     to its season's, to the days its own fixtures stand on, and its `beginn` to the order its phase is dated in.
     """
 
-    async def redate_the_matchday(session: AsyncClientSession) -> None:
+    async def redate_the_matchday(session: AsyncClientSession) -> FLSpieltagWriteResponse:
         """Judge, then move the span. Everything judged is read in-session, the phase's neighbours inside `_refuse_an_out_of_order_beginn`."""
 
         stored_raw = await pull_one_from_db(collection=spieltage_collection, db_filter={"_id": spieltag_id}, session=session)
@@ -214,19 +215,19 @@ async def patch_spieltag(
             session=session,
         )
 
-        await patch_one_in_db(
+        updated_raw = await patch_one_in_db(
             collection=spieltage_collection,
             db_filter={"_id": spieltag_id},
             update={"$set": spieltag_data.model_dump(mode="json", exclude={"version"})},
             expected_version=spieltag_data.version,
             session=session,
-            return_document=ReturnDocument.BEFORE,
+            return_document=ReturnDocument.AFTER,
         )
+
+        return FLSpieltagWriteResponse(spieltag_id=spieltag_id, version=FLSpieltagRecord.model_validate(updated_raw).version)
 
     # One transaction over the span and the season write inside `_refuse_an_out_of_order_beginn`,
     # which is what makes two matchdays of one phase contend. `with_transaction` is safe to retry,
     # the callback re-reading its neighbours.
     async with transaction_session(db) as session:
-        await session.with_transaction(redate_the_matchday)
-
-    return FLSpieltagWriteResponse(spieltag_id=spieltag_id)
+        return await session.with_transaction(redate_the_matchday)

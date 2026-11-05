@@ -4793,7 +4793,7 @@ export const getSpieltagePatchSpieltagUrl = (spieltagId: string) => {
 };
 
 /**
- * Move a matchday's span.
+ * Move a matchday's span, answering the matchday's `version` after the save.
  *
  * No fan-out: matches embed no copy, so a re-dated matchday is picked up on the next read. The span is held
  * to its season's, to the days its own fixtures stand on, and its `beginn` to the order its phase is dated in.

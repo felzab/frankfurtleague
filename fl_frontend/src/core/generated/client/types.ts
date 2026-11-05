@@ -6028,6 +6028,7 @@ export interface FLSpieltagAdminResponse {
 export interface FLSpieltagWriteResponse {
   /** @pattern ^[0-9a-fA-F]{24}$ */
   spieltag_id: string;
+  version: number;
 }
 
 export interface FLSpieltageListResponse {

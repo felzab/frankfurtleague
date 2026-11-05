@@ -17748,10 +17748,15 @@
             "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Spieltag Id",
             "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
           }
         },
         "required": [
-          "spieltag_id"
+          "spieltag_id",
+          "version"
         ],
         "title": "FLSpieltagWriteResponse",
         "type": "object"
@@ -30498,7 +30503,7 @@
         ]
       },
       "patch": {
-        "description": "Move a matchday's span.\n\nNo fan-out: matches embed no copy, so a re-dated matchday is picked up on the next read. The span is held\nto its season's, to the days its own fixtures stand on, and its `beginn` to the order its phase is dated in.",
+        "description": "Move a matchday's span, answering the matchday's `version` after the save.\n\nNo fan-out: matches embed no copy, so a re-dated matchday is picked up on the next read. The span is held\nto its season's, to the days its own fixtures stand on, and its `beginn` to the order its phase is dated in.",
         "operationId": "spieltage_patch_spieltag",
         "parameters": [
           {

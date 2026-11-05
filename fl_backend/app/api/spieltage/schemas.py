@@ -146,3 +146,5 @@ class FLSpieltagAdminResponse(BaseAPIResponse):
 
 class FLSpieltagWriteResponse(BaseAPIResponse):
     spieltag_id: CustomObjectId
+    # The matchday's version after the save, which the editor's next save sends.
+    version: int
