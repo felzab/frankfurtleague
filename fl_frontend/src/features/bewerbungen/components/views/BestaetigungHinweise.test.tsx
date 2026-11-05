@@ -29,7 +29,14 @@ describe("the consent each page shows", () => {
   });
 
   it("is the referee's name wording on the referee page", () => {
-    const ansicht = { state: "valid" as const, frist: "2026-12-01", minimum_age: 16, media_minimum_age: 18 };
+    const ansicht = {
+      state: "valid" as const,
+      frist: "2026-12-01",
+      minimum_age: 16,
+      maximum_age: 120,
+      media_minimum_age: 18,
+      answered_on: null,
+    };
     render(underNext(h(SchiedsrichterBestaetigungView, { start: { zustand: "valid", ansicht: ansicht, token: "kein-echtes-token" } })));
 
     expect(screen.getByText(SCHIEDSRICHTER_WORDINGS.scope.question)).toBeTruthy();

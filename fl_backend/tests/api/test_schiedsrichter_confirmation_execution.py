@@ -43,6 +43,7 @@ from app.api.schiedsrichter.services import (
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
+from app.shared.schemas.bounds import BEWERBUNG_KONTAKT_MAX_AGE_YEARS, SCHIEDSRICHTER_MIN_AGE_YEARS
 from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.tokens import hash_token
 from tests import documents
@@ -604,7 +605,10 @@ class TestTheConfirmation:
         assert row.get("geburtsdatum") is None
 
     def test_a_birthdate_under_the_floor_is_refused_before_anything_is_written(self, mongo_replica_set_url: str):
-        """A consent from someone under the referees' minimum age is one the league may not hold."""
+        """A consent from someone under the referees' minimum age is one the league may not hold.
+
+        Refused without its bounds, the field's message cannot name the range and falls to the unexpected line.
+        """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             minted = await resend(database, client)
@@ -617,6 +621,8 @@ class TestTheConfirmation:
         refused, row = on_a_league(mongo_replica_set_url, body)
 
         assert refused.error_code == Code.CONFIRMATION_AGE
+        # The range the field's message names, the floor and the ceiling the write judged.
+        assert refused.bounds == {"min": SCHIEDSRICHTER_MIN_AGE_YEARS, "max": BEWERBUNG_KONTAKT_MAX_AGE_YEARS}
         assert row.get("geburtsdatum") is None
 
 
@@ -625,7 +631,7 @@ class TestTheDecline:
         """The privacy notice says a declined entry goes on the unconfirmed one's clock, and nobody mails a person who objected.
 
         Dropped from the clock, the entry outlives what the notice promises; asked again, the person is mailed against their
-        objection. Neither shows on any page.
+        objection. Neither shows on any page. Reopened, the link names the day of the objection, which nothing else does.
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -636,7 +642,8 @@ class TestTheDecline:
             with pytest.raises(APIError) as asked_again:
                 await resend(database, client)
 
-            return clock, await stored(database), asked_again.value, (await read_view(database, minted.token)).state
+            view = await read_view(database, minted.token)
+            return clock, await stored(database), asked_again.value, (view.state, view.answered_on)
 
         clock, row, asked_again, state = on_a_league(mongo_replica_set_url, body)
 
@@ -644,7 +651,7 @@ class TestTheDecline:
         assert row[ERASE_AT_FIELD] == clock
         assert row.get(EINWILLIGUNG_FELD) is None
         assert asked_again.error_code == Code.CONFIRMATION_EXISTS
-        assert state == "declined"
+        assert state == ("declined", TODAY)
 
     def test_a_declined_link_is_spent_and_takes_no_consent(self, mongo_replica_set_url: str):
         """A consent through a link its person objected through would store a birthdate and a publication scope against that objection."""
