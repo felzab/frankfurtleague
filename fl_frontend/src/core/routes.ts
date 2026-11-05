@@ -12,10 +12,11 @@ type Crawl = "index" | "noindex" | "disallow";
 
 /**
  * One page: the address it answers at, built from its segments, the name its tab and its strip show,
- * and what a search engine may do with it. A link takes its address from here, so with typed routes
- * on, an address whose page does not exist fails where the link is written. A page named by its record, such
- * as a club's, holds `null`: the page hands its record's name as a title of its own (`{ record }`); so does an
- * address that renders nothing, a route handler sending the request on.
+ * and what a search engine may do with it. A link takes its address from here, so each address is spelled
+ * once. Next's typed routes are off (`typedRoutes` in `next.config.ts`), so the compiler does not hold a row to
+ * a page; `routes.test.ts` holds the rows a mail, a rail frame or a placed page names. A page named by its record,
+ * such as a club's, holds `null`: the page hands its record's name as a title of its own (`{ record }`); so does
+ * an address that renders nothing, a route handler sending the request on.
  */
 export type RouteEntry = {
   readonly path: (...segments: never) => `/${string}`;
