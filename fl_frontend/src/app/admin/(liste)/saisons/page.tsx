@@ -4,7 +4,7 @@ import { ListPage } from "@/kit/ListPage";
 import { TextField } from "@/kit/TextField";
 
 import { COPY } from "@/core/copy";
-import { dayOf, formatPeriod } from "@/core/format";
+import { dayOf, formatNumber, formatPeriod } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { createSaison } from "@/features/saisons/createSaison";
 import { nextSaisonOf } from "@/features/saisons/nextSaison";
@@ -13,7 +13,7 @@ import { CREATE_REQUIRED } from "@/features/saisons/required";
 import { saisonChipOf } from "@/features/saisons/saisonState";
 import { pageMetadata } from "@/shared/utils/metadata";
 
-import type { FLSaisonAdmin } from "@/core/generated/client/types";
+import type { FLSaisonAdminListed } from "@/core/generated/client/types";
 import type { TableRow } from "@/kit/Table";
 import type { Metadata, ResolvingMetadata } from "next";
 
@@ -23,14 +23,16 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
   return pageMetadata(parent, ROUTES.adminSaisons, ROUTES.adminSaisons.path());
 }
 
-/** One season's row: its name with where it stands, its span, opening its editor. */
-const rowOf = (saison: FLSaisonAdmin): TableRow => ({
+/** One season's row: its name with where it stands, its span and its clubs, opening its editor. */
+const rowOf = (saison: FLSaisonAdminListed): TableRow => ({
   id: saison.id,
   name: COPY.shared.saisonName(saison.id),
   href: ROUTES.adminSaison.path(saison.id),
   chip: saisonChipOf(saison),
   cells: {
     zeitraum: { record: formatPeriod(dayOf(saison.start_date), dayOf(saison.end_date)) },
+    // A season holding no club yet shows the glyph for no value, as an undrawn count does.
+    teams: saison.count_teams === 0 ? COPY.shared.noValue : { record: formatNumber(saison.count_teams) },
   },
 });
 
@@ -92,7 +94,10 @@ async function readSaisons(read: ReturnType<typeof getAdminSaisons>) {
     table: {
       label: ROUTES.adminSaisons.title,
       nameLabel: COPY.shared.saison,
-      columns: [{ key: "zeitraum", label: WORDS.zeitraum }],
+      columns: [
+        { key: "zeitraum", label: WORDS.zeitraum },
+        { key: "teams", label: COPY.page.teams, figures: true },
+      ],
       rows: saisons.toReversed().map(rowOf),
       empty: { kind: "none", plural: ROUTES.adminSaisons.title, glyph: "saisons" } as const,
     },

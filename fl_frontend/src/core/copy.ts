@@ -708,6 +708,19 @@ export const COPY = catalogue({
       replaceConsequence: (incoming: Words, outgoing: Words, gruppe: string) =>
         `${textOf(incoming)} übernimmt Gruppe ${gruppe} und alle Spiele von ${textOf(outgoing)}.`,
 
+      /** Why the draw cannot be redrawn or removed now: reports stand, the season went live, or a match holds an entry. */
+      reportsHold: "Spielberichte liegen vor",
+      lockedSinceActivation: "Seit der Umstellung gesperrt",
+      entriesHold: "Spiele haben schon Einträge",
+
+      /** Each team's registration link as its row states it, by what the press would do with it. */
+      linkSentOn: (day: CalendarDay) => `Gesendet am ${formatDatum(day)}`,
+      linkNotSent: "Nicht gesendet",
+      noLinkYet: "Noch kein Link",
+      noConfirmedAddress: "Keine bestätigte Adresse",
+      addressBarred: "Adresse auf der Sperrliste",
+      /** The registration links' done line, the rows saying the rest. */
+      sentTo: (count: number) => (count === 1 ? "An 1 Team gesendet" : `An ${formatNumber(count)} Teams gesendet`),
       /** The registration links' send: how many teams it mails, and whether a link one of them holds stops opening. */
       dispatchConsequence: (count: number, replacing: boolean) => {
         if (!replacing)

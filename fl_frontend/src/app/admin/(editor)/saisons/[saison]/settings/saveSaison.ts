@@ -158,7 +158,7 @@ export const saveSaison = action({
     const payload = payloadOf(read.saison, changes);
     if ("ok" in payload) return payload;
 
-    const saved = await saisonsPatchSaison(id, { ...payload, version });
-    return { ok: true, value: saved.version };
+    const { version: stored } = await saisonsPatchSaison(id, { ...payload, version });
+    return { ok: true, value: stored };
   },
 });

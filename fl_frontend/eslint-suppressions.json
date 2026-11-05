@@ -3098,7 +3098,7 @@
   },
   "src/features/teams/actions.ts": {
     "fl/server-action": {
-      "count": 7
+      "count": 6
     }
   },
   "src/features/teams/components/collections/AdminKontakteList.tsx": {
@@ -4390,7 +4390,7 @@
   },
   "src/shared/components/ui/textLink.ts": {
     "better-tailwindcss/no-restricted-classes": {
-      "count": 2
+      "count": 1
     }
   },
   "src/shared/hooks/useConfirmationWindows.ts": {

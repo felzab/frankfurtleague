@@ -11,6 +11,7 @@ import { Facts } from "@/kit/Facts";
 import { FieldPair } from "@/kit/FieldPair";
 import { SectionAct } from "@/kit/SectionAct";
 import { Select } from "@/kit/Select";
+import { Table } from "@/kit/Table";
 import { TextField } from "@/kit/TextField";
 import { useEditor } from "@/kit/useEditor";
 
@@ -27,6 +28,7 @@ import type { ChipProps } from "@/kit/Chip";
 import type { DangerAct, EditorSection } from "@/kit/EditorPage";
 import type { Option } from "@/kit/OptionList";
 import type { PageTitle } from "@/kit/RailFrame";
+import type { TableRow } from "@/kit/Table";
 import type { EditorRecord, EditorSave } from "@/kit/useEditor";
 import type { SaisonValues } from "./saisonValues";
 
@@ -61,7 +63,12 @@ export type SaisonFacts = {
   /** The site shows this season. */
   isCurrent: boolean;
   spielplan: { spieltage: number; spiele: number; drawnOn: CalendarDay } | null;
+  /** Why each danger act cannot run now, by the refusal its write would answer, which the read serves. */
+  blocked: { activate?: Copy; recreate?: Copy; undraw?: Copy };
 };
+
+/** The registration links: each team's row, and how many teams the press would mail, a held link replaced or not. */
+export type SaisonLinks = { rows: readonly TableRow[]; mailed: number; replacing: boolean };
 
 /** The acts the editor's sections and its danger rows press, each a server action naming its season. */
 export type SaisonActs = {
@@ -71,7 +78,11 @@ export type SaisonActs = {
   activate: (input: { saison_id: string; holder: string }) => Promise<ActionAnswer>;
   swap: (input: { saison_id: string; team1_id: string; team2_id: string }) => Promise<ActionAnswer>;
   replace: (input: { saison_id: string; team_id: string; incoming_team_id: string }) => Promise<ActionAnswer>;
+  sendLinks: (input: { saison_id: string }) => Promise<ActionAnswer>;
 };
+
+/** A danger row's closing, where its read names a reason. */
+const blockedBy = (reason: Copy | undefined) => (reason === undefined ? {} : { blocked: reason });
 
 /** A club as a picker lists it, „Lessing · Gruppe A“, closed with its reason where `closed` says so. */
 const optionOf = (club: SaisonClub, closed: boolean): Option =>
@@ -162,8 +173,9 @@ function Replacement({
 
 /**
  * The season editor: its dates, its rules and its two windows, saved together from the editor's bar; then its draw,
- * its group swap and its replacement, each an act of its own box; its irreversible acts, the draw's regeneration and
- * removal and the switch of the site onto it, in the danger rows behind the passkey touch.
+ * its group swap, its replacement and its registration links, each an act of its own box; its irreversible acts, the
+ * draw's regeneration and removal and the switch of the site onto it, in the danger rows behind the passkey touch, each
+ * closed with its reason where its write would refuse it now.
  */
 export function SaisonEditor({
   saison,
@@ -176,6 +188,7 @@ export function SaisonEditor({
   shapes,
   clubs,
   incoming,
+  links,
   holder,
   acts,
   closed,
@@ -192,6 +205,7 @@ export function SaisonEditor({
   shapes: readonly FLSpielplanShape[];
   clubs: readonly SaisonClub[];
   incoming: readonly { id: string; name: string }[];
+  links: SaisonLinks;
   /** The address the page was drawn for, which an act behind the passkey touch posts. */
   holder: string;
   acts: SaisonActs;
@@ -459,6 +473,33 @@ export function SaisonEditor({
         />
       ),
     },
+    {
+      id: "registrierungslinks",
+      title: WORDS.registrierungslinks,
+      fields: (
+        <SectionAct
+          label={COPY.shared.withObject(WORDS.registrierungslinks, "send")}
+          variant="primary"
+          // The press's own plan reaches nobody: every team is passed over or already mailed.
+          isDisabled={isClosed || links.mailed === 0}
+          confirm={{
+            verb: "send",
+            subject: WORDS.registrierungslinks,
+            consequence: WORDS.dispatchConsequence(links.mailed, links.replacing),
+            tone: "primary",
+          }}
+          run={() => acts.sendLinks({ saison_id: saison })}>
+          <Table
+            label={WORDS.registrierungslinks}
+            nameLabel={TEAM}
+            columns={[{ key: "link", label: COPY.account.address.link }]}
+            rows={links.rows}
+            empty={{ kind: "none", plural: COPY.page.teams, glyph: "teams" }}
+            bare
+          />
+        </SectionAct>
+      ),
+    },
   ];
 
   const danger: DangerAct[] = [
@@ -468,6 +509,7 @@ export function SaisonEditor({
             name: COPY.shared.withObject(SPIELPLAN, "recreate"),
             consequence: WORDS.recreateConsequence,
             touch,
+            ...blockedBy(facts.blocked.recreate),
             confirm: {
               verb: "recreate",
               subject: SPIELPLAN,
@@ -480,6 +522,7 @@ export function SaisonEditor({
             name: COPY.shared.withObject(SPIELPLAN, "delete"),
             consequence: WORDS.deleteConsequence,
             touch,
+            ...blockedBy(facts.blocked.undraw),
             confirm: {
               verb: "delete",
               subject: SPIELPLAN,
@@ -498,7 +541,7 @@ export function SaisonEditor({
             name: WORDS.umstellung,
             consequence: WORDS.activateConsequence(saison),
             touch,
-            ...(drawn ? {} : { blocked: WORDS.noDraw }),
+            ...blockedBy(facts.blocked.activate),
             confirm: {
               verb: "activate",
               subject: WORDS.onto(saison),

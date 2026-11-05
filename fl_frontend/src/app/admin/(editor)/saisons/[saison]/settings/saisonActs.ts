@@ -3,6 +3,7 @@
 import { z } from "zod";
 
 import { action, PAGE_HOLDER } from "@/core/action";
+import { COPY } from "@/core/copy";
 import { APIBadStatusError } from "@/core/errors";
 import {
   saisonsActivateSaison,
@@ -125,7 +126,8 @@ export const sendRegistrierungslinks = action({
   input: OfSaison,
   ownWords: ["saison_past"],
   run: async ({ saison_id }) => {
-    await saisonsPostInvitationsDispatch(saison_id, { resend: false });
-    return { ok: true, value: undefined };
+    const { rows } = await saisonsPostInvitationsDispatch(saison_id, { resend: false });
+    // The teams the press owed a mail to, which the rows then show as sent.
+    return { ok: true, value: undefined, note: COPY.admin.saison.sentTo(rows.filter((row) => row.recipient.length > 0).length) };
   },
 });

@@ -23,8 +23,9 @@ type Question = Omit<ConfirmDialogProps, "trigger" | "open" | "onConfirm">;
  * `AccountAct`): its inputs, its button, and under the button the status line its outcome stands in, „Gespeichert“ or
  * its refusal. It stands inside an editor's own form, whose fields and save are another record's, so it sends what
  * its inputs hold as one typed object through `run`, never as a form; an act asking a question first answers a
- * refusal in the question's own line, and its done act here. `isDisabled` closes the button while its inputs are
- * incomplete, the section's fields showing what is missing.
+ * refusal in the question's own line, and its done act here, in the act's own note where it has one. `isDisabled`
+ * closes the button while its inputs are incomplete, the section's fields showing what is missing, or while the press
+ * would reach nobody.
  */
 export function SectionAct({
   children,
@@ -43,10 +44,10 @@ export function SectionAct({
   isDisabled?: boolean;
 }) {
   const { answer, submit, isPending } = useFormAction(run, { resetOnLeave: true });
-  // A question's act runs inside the question, which shows its refusal; the line here says only that it was done.
-  const [confirmed, setConfirmed] = useState(false);
-  const status: FormStatus =
-    confirm === undefined ? statusOf(answer, false, isPending) : confirmed ? { tone: "saved", text: COPY.shared.saved } : null;
+  // A question's act runs inside the question, which shows its refusal; the line here says only that it was done, in the
+  // act's own note where it moved more than its box shows, as every done answer is worded (`statusOf`).
+  const [done, setDone] = useState<Copy | null>(null);
+  const status: FormStatus = confirm === undefined ? statusOf(answer, false, isPending) : done === null ? null : { tone: "saved", text: done };
 
   return (
     <>
@@ -63,10 +64,10 @@ export function SectionAct({
         <ConfirmDialog
           {...confirm}
           onConfirm={async () => {
-            setConfirmed(false);
+            setDone(null);
             const answered = await run();
             // An update after the `await` commits outside the press's transition unless it opens one of its own.
-            if (answered.ok) startTransition(() => setConfirmed(true));
+            if (answered.ok) startTransition(() => setDone(answered.note ?? COPY.shared.saved));
             return answered;
           }}
           trigger={
