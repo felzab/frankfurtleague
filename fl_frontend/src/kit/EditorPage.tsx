@@ -19,8 +19,12 @@ import type { PageTitle } from "./RailFrame";
 import type { DangerAct } from "./Section";
 import type { Editor, EditorValue } from "./useEditor";
 
-/** One of an editor's sections, in the order the person's task takes them: its title, its ⓘ, its fields. */
-export type EditorSection = { id: string; title: Copy; help?: Copy; fields: ReactElement };
+/**
+ * One of an editor's sections, in the order the person's task takes them: its title, its ⓘ, its fields, and `note`,
+ * the sentence under the title saying why some of its fields cannot change, such as a season's start fixed once a
+ * match has taken place. A sentence under a field is cut at the field's width, and a short field is narrower than one.
+ */
+export type EditorSection = { id: string; title: Copy; help?: Copy; note?: Copy; fields: ReactElement };
 
 /**
  * The editor template: its sections one under another in the column of at most 760 px centred in the
@@ -95,7 +99,8 @@ export function EditorPage<Values extends Record<string, EditorValue>>({
               key={section.id}
               title={section.title}
               help={section.help}
-              note={index === 0 ? closed : undefined}
+              // A closed record's one reason covers every field, so it stands alone, under the first box's title.
+              note={closed === undefined ? section.note : index === 0 ? closed : undefined}
               danger={index === last && closed === undefined ? danger : undefined}>
               {section.fields}
             </Section>
