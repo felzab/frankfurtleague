@@ -486,6 +486,9 @@ export const SERVER_COPY = catalogue({
       role: { vorstand: "Vorstand", spielbetrieb: SPIELBETRIEB, website: "Website", kommunikation: "Kommunikation" },
     },
 
+    /** The eyebrow over the sponsors' section, whose title is the sponsors page's own. */
+    sponsors: { eyebrow: "Unterstützung" },
+
     /** The ways in: the school's while a window is open, and the question's; the heading counts them. */
     doors: {
       eyebrow: "Mitmachen",

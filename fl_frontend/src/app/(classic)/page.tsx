@@ -140,6 +140,7 @@ function sectionsOf(saison: LandingSaison | null, window: FLBewerbungWindow | nu
         <Organisers people={ORGANISERS.map((person) => ({ name: { record: person.name }, role: words.organisers.role[person.role] }))} />
       </LandingSection>
       <LandingSection
+        eyebrow={words.sponsors.eyebrow}
         title={COPY.page.sponsors}
         more={{ label: COPY.page.sponsors, href: ROUTES.sponsors.path() }}>
         <SponsorTiles sponsors={SPONSORS} />
