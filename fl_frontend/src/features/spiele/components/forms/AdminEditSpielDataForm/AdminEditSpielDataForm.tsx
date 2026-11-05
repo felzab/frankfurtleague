@@ -426,12 +426,12 @@ export function AdminEditSpielDataForm({
    * the save is still the administrator's, through the same gate and dialog as a typed result.
    */
   const uebernehmeVorschlag = (bericht: FLSpielberichtBericht) => {
-    const { team1_tore, team2_tore, elfmeterschiessen: elfmeter, sonderereignis: event } = bericht.ergebnis_vorschlag;
+    const { team1_tore, team2_tore, elfmeterschiessen: elfmeter, sonderereignis: proposedSonderereignis } = bericht.ergebnis_vorschlag;
     if (team1Payload) setTeam1Payload({ ...team1Payload, tore: team1_tore });
     if (team2Payload) setTeam2Payload({ ...team2Payload, tore: team2_tore });
     setElfmeterschiessen(elfmeter);
-    setSonderereignis(event);
-    setHasSonderereignis(event !== null);
+    setSonderereignis(proposedSonderereignis);
+    setHasSonderereignis(proposedSonderereignis !== null);
     setErgebnisCanBeEdited(true);
     setEingesetzt({ version: bericht.version, vorschlag: bericht.ergebnis_vorschlag });
   };

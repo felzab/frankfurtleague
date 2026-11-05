@@ -107,7 +107,10 @@ export function FormVorschlagSection({
           value={draft.sonderereignis ?? KEINES}
           options={[
             { id: KEINES, label: "Keines" },
-            ...SPIELBERICHT_SONDEREREIGNIS_OPTIONS.map((event) => ({ id: event, label: SONDEREREIGNIS_LABELS[event] })),
+            ...SPIELBERICHT_SONDEREREIGNIS_OPTIONS.map((sonderereignis) => ({
+              id: sonderereignis,
+              label: SONDEREREIGNIS_LABELS[sonderereignis],
+            })),
           ]}
           onChange={setEreignis}
           error={ereignisStatus?.error ?? undefined}
