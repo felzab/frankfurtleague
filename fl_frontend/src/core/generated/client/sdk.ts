@@ -3176,7 +3176,8 @@ export const getSchiedsrichterPostDeclineUrl = () => {
  *
  * The entry then goes on the clock its link started, the midnight after the deadline, as the privacy notice says of an
  * unconfirmed or declined one (`POST /schiedsrichter/sweep`). Until then no booking takes it and no
- * re-send or reactivation asks the person again.
+ * re-send or reactivation asks the person again. Every log image of the entry is redacted at the press, as a contact's
+ * objection redacts theirs, and the objection is journalled, so a restore from a snapshot taken before it replays it.
  *
  * Refuses, in the confirmation's order: a token no referee holds (`link_invalid`), an entry already answered,
  * confirmed or declined (`confirmation_exists`), and a link whose deadline has passed (`link_expired`). The ban list

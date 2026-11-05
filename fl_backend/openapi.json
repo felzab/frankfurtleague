@@ -26040,7 +26040,7 @@
     },
     "/api/v0/schiedsrichter/confirmation/decline": {
       "post": {
-        "description": "Record the referee's objection to the entry their link opens: its day, and nothing else of the person.\n\nThe entry then goes on the clock its link started, the midnight after the deadline, as the privacy notice says of an\nunconfirmed or declined one (`POST /schiedsrichter/sweep`). Until then no booking takes it and no\nre-send or reactivation asks the person again.\n\nRefuses, in the confirmation's order: a token no referee holds (`link_invalid`), an entry already answered,\nconfirmed or declined (`confirmation_exists`), and a link whose deadline has passed (`link_expired`). The ban list\nis not asked: an objection gives the league nothing a ban withholds.",
+        "description": "Record the referee's objection to the entry their link opens: its day, and nothing else of the person.\n\nThe entry then goes on the clock its link started, the midnight after the deadline, as the privacy notice says of an\nunconfirmed or declined one (`POST /schiedsrichter/sweep`). Until then no booking takes it and no\nre-send or reactivation asks the person again. Every log image of the entry is redacted at the press, as a contact's\nobjection redacts theirs, and the objection is journalled, so a restore from a snapshot taken before it replays it.\n\nRefuses, in the confirmation's order: a token no referee holds (`link_invalid`), an entry already answered,\nconfirmed or declined (`confirmation_exists`), and a link whose deadline has passed (`link_expired`). The ban list\nis not asked: an objection gives the league nothing a ban withholds.",
         "operationId": "schiedsrichter_post_decline",
         "requestBody": {
           "content": {

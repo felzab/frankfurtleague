@@ -28,18 +28,21 @@ from app.api.schiedsrichter.services import (
     state_of,
 )
 from app.api.sperrliste.lookup import BanListLookup, ban_list_saison, barred_addresses
-from app.core.config import API_VERSION
-from app.core.crud import patch_one_in_db, refuse
+from app.core.collections import Collection
+from app.core.config import API_VERSION, BackendConfig, get_app_config
+from app.core.crud import patch_one_in_db, redact_log_rows_in_db, refuse
 from app.core.dependencies import (
+    ActionLogCollection,
     DBClient,
     SchiedsrichterCollection,
     SchiedsrichterReadCollection,
     get_german_date_str,
     get_germany_now,
 )
+from app.core.journal import Journal, JournalLine
 from app.core.recording import log_stamp
 from app.core.routing import SAFE
-from app.core.security import bind_public_actor, verify_access_base
+from app.core.security import bind_public_actor, erasure_journal_hash, verify_access_base
 from app.core.transactions import transaction_session
 from app.shared.schemas.bounds import BEWERBUNG_KONTAKT_MAX_AGE_YEARS, MEDIA_MIN_AGE_YEARS, SCHIEDSRICHTER_MIN_AGE_YEARS
 from app.shared.schemas.confirmation import FLTokenPayload
@@ -206,15 +209,19 @@ async def post_confirmation(
 async def post_decline(
     decline_data: Annotated[FLTokenPayload, Body()],
     schiedsrichter_collection: SchiedsrichterCollection,
+    action_log_collection: ActionLogCollection,
     db: DBClient,
+    config: Annotated[BackendConfig, Depends(get_app_config)],
     today: str = Depends(get_german_date_str),
+    germany_now: datetime = Depends(get_germany_now),
 ) -> None:
     """
     Record the referee's objection to the entry their link opens: its day, and nothing else of the person.
 
     The entry then goes on the clock its link started, the midnight after the deadline, as the privacy notice says of an
     unconfirmed or declined one (`POST /schiedsrichter/sweep`). Until then no booking takes it and no
-    re-send or reactivation asks the person again.
+    re-send or reactivation asks the person again. Every log image of the entry is redacted at the press, as a contact's
+    objection redacts theirs, and the objection is journalled, so a restore from a snapshot taken before it replays it.
 
     Refuses, in the confirmation's order: a token no referee holds (`link_invalid`), an entry already answered,
     confirmed or declined (`confirmation_exists`), and a link whose deadline has passed (`link_expired`). The ban list
@@ -222,7 +229,11 @@ async def post_decline(
     """
 
     token_hash = hash_token(decline_data.token)
+    # One instant for the redaction and the journal line, so a replay records the day the person objected on.
+    at = log_stamp(germany_now)
+    journal = Journal()
 
+    @journal.attempted
     async def object_for_the_person(session: AsyncClientSession) -> None:
         """Judge, then write, everything judged read in-session, so a second press is refused by the first answer."""
 
@@ -243,6 +254,14 @@ async def post_decline(
             expected_version=None,
             return_document=ReturnDocument.BEFORE,
         )
+        # LAST, so it reaches the pre-image the objection's own patch just filed, which holds the person who objected.
+        await redact_log_rows_in_db(
+            action_log_collection=action_log_collection, targets=[(Collection.SCHIEDSRICHTER, [raw["_id"]])], at=at, session=session
+        )
+        # Keyed on the address the link was mailed to, whose person pressed: a replay finds the entry by it.
+        hashed = erasure_journal_hash(str(raw["kontakt"]["email"]), key=config.sperrliste_key)
+        journal.note(JournalLine(person_hash=hashed, kind="objection", collection=Collection.SCHIEDSRICHTER, record_id=raw["_id"], at=at))
 
-    async with transaction_session(db) as session:
-        await session.with_transaction(object_for_the_person)
+    async with journal:
+        async with transaction_session(db) as session:
+            await session.with_transaction(object_for_the_person)

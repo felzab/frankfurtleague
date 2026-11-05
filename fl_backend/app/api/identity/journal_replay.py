@@ -25,6 +25,7 @@ from typing import Any, Final, Literal, TextIO
 from pydantic import SecretStr
 from pymongo import AsyncMongoClient, ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
+from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import PyMongoError
 
@@ -51,6 +52,7 @@ from app.api.bewerbungen.services import (
 from app.api.identity.crud import unattribute_pseudonym_in_session
 from app.api.identity.lookup import RecordCollections
 from app.api.kontakte.crud import redact_the_decliner, remove_the_seats_reasons
+from app.api.schiedsrichter.services import compose_decline_update as compose_referee_decline_update
 from app.api.sperrliste.lookup import BanList
 from app.api.spielbestaetigungen.crud import redact_seat_entries_in_images
 from app.api.spielbestaetigungen.services import HeldSeats, kontakte_ohne, seat_void_of
@@ -61,7 +63,7 @@ from app.core.collections import Collection
 
 # Outside any request, so the environment's settings rather than an application's.
 from app.core.config import EnvironmentValidationError, get_config  # noqa: TID251
-from app.core.crud import patch_one_in_db, post_one_to_db
+from app.core.crud import patch_one_in_db, post_one_to_db, redact_log_rows_in_db
 from app.core.db import SERVER_SELECTION_TIMEOUT_MS
 from app.core.exceptions import APIError
 from app.core.journal import JournalLine, parse_line
@@ -291,8 +293,11 @@ async def _plan_objection(
     if row is None:
         return Plan("no such record")
 
-    kontakte, confirmations = row.get("kontakte") or {}, row.get("confirmations")
     declined_on = german_day(datetime.fromisoformat(line.at))
+    if home == Collection.SCHIEDSRICHTER:
+        return _plan_referee_objection(line, row, collection, database, key=key, now=now, window=window, declined_on=declined_on)
+
+    kontakte, confirmations = row.get("kontakte") or {}, row.get("confirmations")
 
     def linked_since(slot: str) -> bool | None:
         # A link the restored site sent is a seating since, which the decline must not empty.
@@ -360,6 +365,55 @@ async def _plan_objection(
         )
 
     return Plan("to replay", rewrite_objection)
+
+
+def _plan_referee_objection(
+    line: JournalLine,
+    row: Mapping[str, Any],
+    collection: AsyncCollection,
+    database: AsyncDatabase,
+    *,
+    key: SecretStr,
+    now: datetime,
+    window: Window,
+    declined_on: str,
+) -> Plan:
+    """A referee's objection, judged as a seat's is: the entry its link opened, still unanswered at the address that pressed."""
+
+    block = row.get("confirmation")
+    if isinstance(block, Mapping) and block.get("declined_at") is not None:
+        return Plan("already done")
+    # Confirmed, or holding another mailbox: somebody answered or was named since, which the objection must not undo.
+    if row.get("einwilligung") is not None or not _holds(_PERSON_ADDRESS[Collection.SCHIEDSRICHTER](row), line, key):
+        return Plan("left for review")
+    if not isinstance(block, Mapping):
+        return Plan("left for review", detail="the entry holds no link the objection could have answered")
+    # A link the restored site sent asks the person afresh, which the objection must not answer for them.
+    sent = block.get("sent_at")
+    linked = window.sent_after_restore(sent) if isinstance(sent, str) else False
+    if linked is None:
+        return Plan("left for review", detail="the entry's link went out on the day of both the snapshot and the restore")
+    if linked:
+        return Plan("already done")
+
+    async def rewrite_referee_objection(session: AsyncClientSession) -> Any:
+        await patch_one_in_db(
+            collection=collection,
+            db_filter={"_id": row["_id"]},
+            update=compose_referee_decline_update(today=declined_on),
+            session=session,
+            expected_version=None,
+            return_document=ReturnDocument.BEFORE,
+        )
+        # After the patch, as the link's answer redacts, so it reaches the pre-image the patch filed.
+        await redact_log_rows_in_db(
+            action_log_collection=database[Collection.ACTION_LOG],
+            targets=[(Collection.SCHIEDSRICHTER, [row["_id"]])],
+            at=log_stamp(now),
+            session=session,
+        )
+
+    return Plan("to replay", rewrite_referee_objection)
 
 
 async def _plan_address_change(

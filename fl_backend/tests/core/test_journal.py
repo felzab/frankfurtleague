@@ -45,6 +45,8 @@ LINES = {
     "a Widerspruch": JournalLine(
         person_hash=PERSON, kind="objection", collection=Collection.BEWERBUNGEN, record_id=RECORD, at=AT, seats=("trainer", "ansprechperson")
     ),
+    # One person's entry, so no slot to name.
+    "a referee's Widerspruch": JournalLine(person_hash=PERSON, kind="objection", collection=Collection.SCHIEDSRICHTER, record_id=RECORD, at=AT),
     "a declined address change": JournalLine(
         person_hash=PERSON, kind="address_change_declined", collection=Collection.ADDRESS_CHANGES, record_id=RECORD, at=AT
     ),
@@ -115,6 +117,9 @@ def test_the_replay_names_a_line_by_its_act_alone(line: JournalLine):
         ),
         pytest.param(f"{JOURNAL_TOKEN} {PERSON} objection spieler/{RECORD} at={AT} seats=trainer", id="a Widerspruch on a pupil"),
         pytest.param(f"{JOURNAL_TOKEN} {PERSON} objection bewerbungen/{RECORD} at={AT}", id="a Widerspruch naming no seat"),
+        pytest.param(
+            f"{JOURNAL_TOKEN} {PERSON} objection schiedsrichter/{RECORD} at={AT} seats=trainer", id="a referee's Widerspruch naming a seat"
+        ),
         pytest.param(f"{JOURNAL_TOKEN} {PERSON} address_change_declined address_changes/{RECORD} at={AT} at={AT}", id="a value twice"),
         pytest.param(f"{JOURNAL_TOKEN} {PERSON} address_change_declined nirgends/{RECORD} at={AT}", id="no collection the database holds"),
         pytest.param(f"{JOURNAL_TOKEN} {PERSON} address_change_declined spieler/{RECORD} at={AT}", id="an address change on a pupil row"),

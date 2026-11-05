@@ -53,10 +53,13 @@ from tests.database import a_clean_database, on_the_seed_loop
 from tests.outbox import MAIL_NOW, drained
 from tests.worker import worker_database
 
+from .conftest import config_for
+
 # Module level: every case below reaches a real mongod, the whole slice being one transaction each.
 pytestmark = pytest.mark.db
 
 DATABASE_NAME = worker_database("fl_schiedsrichter_confirmation_test")
+CONFIG = config_for(DATABASE_NAME)
 
 SAISON_ID = "2026"
 TODAY = "2026-04-01"
@@ -233,8 +236,11 @@ async def decline(database: AsyncDatabase, client: AsyncMongoClient, token: str 
     await post_decline(
         decline_data=FLTokenPayload(token=token),
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+        action_log_collection=database[Collection.ACTION_LOG],
         db=client,
+        config=CONFIG,
         today=today,
+        germany_now=NOW,
     )
 
 
@@ -679,6 +685,24 @@ class TestTheDecline:
         assert asked_again.error_code == Code.CONFIRMATION_EXISTS
         assert state == ("declined", TODAY)
 
+    def test_the_objection_takes_the_person_out_of_every_log_image_of_the_entry(self, mongo_replica_set_url: str):
+        """As a contact's objection does, at the press.
+
+        Kept, an image of a person who objected outlives the entry wherever a corrected address re-mints it and its new
+        person confirms, for the log's twelve months, which no page shows.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            minted = await resend(database, client)
+            imaged = await images_holding(database, EMAIL)
+            await decline(database, client, minted.token)
+            return imaged, await images_holding(database, EMAIL)
+
+        imaged, left = on_a_league(mongo_replica_set_url, body)
+
+        # The premise: the re-send filed an image holding the address, the objection's own patch a second.
+        assert (imaged, left) == (1, 0)
+
     def test_a_declined_link_is_spent_and_takes_no_consent(self, mongo_replica_set_url: str):
         """A consent through a link its person objected through would store a birthdate and a publication scope against that objection."""
 
@@ -720,9 +744,8 @@ class TestTheClock:
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            # Both writes file an image of the whole entry, its address in it.
-            minted = await resend(database, client)
-            await decline(database, client, minted.token)
+            # Left unanswered, its re-send's image holding the address; a declined entry's images go at the press.
+            await resend(database, client)
             kept = await resend(database, client, schiedsrichter_id=CONFIRMED_OID)
             await confirm(database, client, kept.token)
             clock = (await stored(database))[ERASE_AT_FIELD].replace(tzinfo=UTC)
