@@ -131,6 +131,14 @@ export const SERVER_COPY = catalogue({
     rules_bracket_impossible: COPY.admin.saison.bracketImpossible,
     rules_spiele_over_one_read: COPY.admin.saison.tooManySpiele,
     spielplan_gruppen_off_rules: COPY.admin.saison.gruppenOffRules,
+    /**
+     * A fixture of either club the group swap would trade has taken place, as
+     * `fl_backend/app/api/teams/services.py :: has_taken_place` judges it: a result, a recorded no-show or
+     * abandonment, or one side's goals.
+     */
+    swap_sides_taken_place: "Ein Spiel der beiden Teams hat schon stattgefunden.",
+    /** A fixture of the club a replacement takes out of the season has taken place, judged as the swap's. */
+    replace_sides_taken_place: "Ein Spiel des ausscheidenden Teams hat schon stattgefunden.",
     activate_target_undrawn: COPY.admin.saison.noDraw,
     activate_saison_unfinished: COPY.admin.saison.unfinished,
     activate_spieltage_undated: COPY.admin.saison.undated,
@@ -157,18 +165,6 @@ export const SERVER_COPY = catalogue({
   /** The image a shared link's preview shows, by its alt, which a screen reader reads in the preview's place. */
   shareImage: {
     alt: `${COPY.brand.name}, die Fußballliga der Frankfurter Oberstufen: der Pokal über dem Schriftzug`,
-  },
-
-  /** The administration's lines its old pages answer through their server actions, until each page's rebuild. */
-  admin: {
-    /**
-     * A fixture of either club the group swap would trade has taken place, as
-     * `fl_backend/app/api/teams/services.py :: has_taken_place` judges it: a result, a recorded no-show or
-     * abandonment, or one side's goals.
-     */
-    swapSidesTakenPlace: "Ein Spiel der beiden Teams hat schon stattgefunden.",
-    /** A fixture of the club a replacement takes out of the season has taken place, judged as the swap's. */
-    replacementSidesTakenPlace: "Ein Spiel des ausscheidenden Teams hat schon stattgefunden.",
   },
 
   /**
