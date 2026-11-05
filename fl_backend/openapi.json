@@ -12473,10 +12473,27 @@
       "FLSchiedsrichterConfirmationViewResponse": {
         "description": "What one confirmation link opens, and nothing a leaked one should not learn (`READ-REFEREE-002`).\n\nNever a name, the school, the contact details, the fee, the birthdate or the id.",
         "properties": {
+          "answered_on": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Answered On"
+          },
           "frist": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Frist",
             "type": "string"
+          },
+          "maximum_age": {
+            "exclusiveMinimum": 0.0,
+            "title": "Maximum Age",
+            "type": "integer"
           },
           "media_minimum_age": {
             "exclusiveMinimum": 0.0,
@@ -12494,8 +12511,10 @@
         "required": [
           "state",
           "minimum_age",
+          "maximum_age",
           "media_minimum_age",
-          "frist"
+          "frist",
+          "answered_on"
         ],
         "title": "FLSchiedsrichterConfirmationViewResponse",
         "type": "object"
@@ -25670,7 +25689,7 @@
     },
     "/api/v0/schiedsrichter/confirmation": {
       "post": {
-        "description": "Record a referee's own answer for the entry their link opens: their date of birth and the consent, in one update.\n\nThe consent carries the publication scope they chose, the media answer beside it, the stamp and, on each choice's\nevidence, the wording they were shown. It reaches this one collection and writes nothing on any fixture: a referee's\npublication scope has one home, which the fixture list joins at read time to decide whether to publish the name each\nfixture stores.\n\nRefuses, in this order: a token no referee holds (`link_invalid`), an entry already answered, confirmed or\ndeclined (`confirmation_exists`), a link whose deadline has passed (`link_expired`), a link mailed to an address the ban\nlist holds now, whenever the link was minted (`link_barred`), an age outside what this consent asks\n(`confirmation_age`), and a media consent from a referee below `media_minimum_age` (`media_age`) -- the last two\njudged before anything is written, so a mistyped year spends nothing.\n\n**The caller drops the cached fixture list after a successful answer**, which reads this record. Nothing here can:\na withheld name would go on being served for as long as that entry lives.",
+        "description": "Record a referee's own answer for the entry their link opens: their date of birth and the consent, in one update.\n\nThe consent carries the publication scope they chose, the media answer beside it, the stamp and, on each choice's\nevidence, the wording they were shown. It reaches this one collection and writes nothing on any fixture: a referee's\npublication scope has one home, which the fixture list joins at read time to decide whether to publish the name each\nfixture stores.\n\nRefuses, in this order: a token no referee holds (`link_invalid`), an entry already answered, confirmed or\ndeclined (`confirmation_exists`), a link whose deadline has passed (`link_expired`), a link mailed to an address the ban\nlist holds now, whenever the link was minted (`link_barred`), an age outside `minimum_age` to `maximum_age`\n(`confirmation_age`, carrying the two as its bounds `min` and `max`), and a media consent from a referee below\n`media_minimum_age` (`media_age`) -- the last two judged before anything is written, so a mistyped year spends nothing.\n\n**The caller drops the cached fixture list after a successful answer**, which reads this record. Nothing here can:\na withheld name would go on being served for as long as that entry lives.",
         "operationId": "schiedsrichter_post_confirmation",
         "requestBody": {
           "content": {
@@ -25809,7 +25828,7 @@
     },
     "/api/v0/schiedsrichter/confirmation/view": {
       "post": {
-        "description": "Answer what this token opens: the link's state and deadline, and both age floors.\n\n**Nothing else** (`READ-REFEREE-002`): never a name, the school, the contact details, the fee, the birthdate or the\nentry's id, all of which are behind `READ-CONTACT-001`. The link went to an address an administrator typed and nobody has\nconfirmed, which behind a typo is a stranger's. A POST that reads, so the token travels in a body and never in a second\nURL.\n\nRefuses only a token no referee holds (`link_invalid`): a confirmed or an expired link\nis SERVED in that state rather than refused, so a reopened link shows what became of it. The state is `barred`,\nahead of every other, wherever the ban list holds the address the link was mailed to (`link_barred`),\nso the page offers a barred referee nothing to press.",
+        "description": "Answer what this token opens: the link's state and deadline, the age bounds, and the day of the person's own answer.\n\n**Nothing else** (`READ-REFEREE-002`): never a name, the school, the contact details, the fee, the birthdate or the\nentry's id, all of which are behind `READ-CONTACT-001`. The link went to an address an administrator typed and nobody has\nconfirmed, which behind a typo is a stranger's. A POST that reads, so the token travels in a body and never in a second\nURL.\n\nRefuses only a token no referee holds (`link_invalid`): a confirmed or an expired link\nis SERVED in that state rather than refused, so a reopened link shows what became of it. The state is `barred`,\nahead of every other, wherever the ban list holds the address the link was mailed to (`link_barred`),\nso the page offers a barred referee nothing to press. `answered_on` is the day the state's answer was given, the\nconsent's or the objection's, and null on every state showing none.",
         "operationId": "schiedsrichter_get_confirmation_view",
         "requestBody": {
           "content": {
