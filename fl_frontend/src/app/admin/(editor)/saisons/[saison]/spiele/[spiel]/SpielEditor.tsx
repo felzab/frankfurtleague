@@ -279,7 +279,7 @@ export function SpielEditor({
                 />
                 {draft.schiedsrichter !== null && (
                   <TextField
-                    label={WORDS.honorar}
+                    label={COPY.admin.honorar}
                     name="honorar"
                     width="C5"
                     kind="digits"
@@ -417,7 +417,7 @@ export function SpielEditor({
                 nameLabel={WORDS.party}
                 columns={[
                   { key: "answer", label: WORDS.answer },
-                  { key: "proposal", label: WORDS.proposal },
+                  { key: "proposal", label: COPY.admin.overview.vorschlag },
                   { key: "reason", label: WORDS.reason },
                 ]}
                 rows={answers}

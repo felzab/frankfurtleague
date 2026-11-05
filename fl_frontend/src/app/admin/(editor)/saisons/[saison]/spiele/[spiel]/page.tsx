@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { EditorShell } from "@/kit/EditorShell";
 
+import { requires } from "@/core/action";
 import { COPY } from "@/core/copy";
 import { dayOf, formatDatum, timeOf } from "@/core/format";
 import { FLSonderereignis } from "@/core/generated/client/types";
@@ -50,8 +51,8 @@ const { ort, schiedsrichter } = SpielePatchSpielBody.shape;
 
 /** Whether a booking's money is required beside it, read off the write's schema. */
 const REQUIRED = {
-  mietpreis: !ort.options[0].shape.mietpreis.safeParse(null).success,
-  honorar: !schiedsrichter.options[0].shape.payment.safeParse(null).success,
+  mietpreis: requires(ort.options[0].shape.mietpreis, null),
+  honorar: requires(schiedsrichter.options[0].shape.payment, null),
 };
 
 /** One read of the editor's whole view, for the tab's title and the page alike. */

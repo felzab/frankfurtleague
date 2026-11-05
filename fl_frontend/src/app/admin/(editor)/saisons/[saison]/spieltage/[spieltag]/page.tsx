@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { EditorShell } from "@/kit/EditorShell";
 
+import { requires } from "@/core/action";
 import { SpieltagePatchSpieltagBody } from "@/core/generated/zod/inputs";
 import { ROUTES } from "@/core/routes";
 import { getAdminSpieltag } from "@/features/spieltage/queries";
@@ -21,8 +22,8 @@ type Props = PageProps<"/admin/saisons/[saison]/spieltage/[spieltag]">;
 
 /** The matchday write's two dates, each required where its schema takes no empty one. */
 const REQUIRED = {
-  beginn: !SpieltagePatchSpieltagBody.shape.beginn.safeParse(null).success,
-  ende: !SpieltagePatchSpieltagBody.shape.ende.safeParse(null).success,
+  beginn: requires(SpieltagePatchSpieltagBody.shape.beginn, null),
+  ende: requires(SpieltagePatchSpieltagBody.shape.ende, null),
 };
 
 /** One read of the matchday by its id, its editor's one view read, for the tab's title and the page alike. */
