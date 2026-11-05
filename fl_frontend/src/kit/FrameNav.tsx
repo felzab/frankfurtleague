@@ -439,7 +439,7 @@ function Places({ groups: given, bar, extra, account }: FrameMenu) {
   return (
     <nav
       aria-label={COPY.template.navigation}
-      className="sticky bottom-0 z-20 grid h-14 auto-cols-fr grid-flow-col border-t border-border bg-bg lg:hidden">
+      className="sticky bottom-0 z-20 grid h-14 auto-cols-fr grid-flow-col border-t border-border bg-bg [view-transition-name:bar] lg:hidden">
       {placed.map((entry) => (
         <NextLink
           key={entry.id}

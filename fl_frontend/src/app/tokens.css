@@ -125,6 +125,13 @@
     animation-duration: var(--motion-out);
   }
 
+  /* The pictures stand in an overlay over the whole page, each part's in its own group, the rest of the page in
+     the root's beneath them all. A frame's band and its phone bar, which the page scrolls under, would sit in the
+     root's picture, and a fading part would show what scrolled under them over them: each carries a
+     `view-transition-name` of its own, `band` or `bar`, so it is pictured apart, and painted after the page it
+     sticks over, it stays on top. The classic band and the rail's phone band share `band`, never standing on one
+     page together. */
+
   /* The overlay a transition draws over the page would otherwise take the clicks meant for the page. */
   ::view-transition {
     pointer-events: none;
