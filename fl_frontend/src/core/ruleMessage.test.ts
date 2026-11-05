@@ -67,6 +67,7 @@ describe("the field patterns over the backend's rules", () => {
       expect(rule(kind, { min: 5 }), kind).toStrictEqual({ field: field.min(5) });
     }
     expect(rule("austritt_before_saison_start", { earliest: "2027-03-01" })).toStrictEqual({ field: field.earliest("2027-03-01") });
+    expect(rule("saison_span_below_spielplan", { earliest: "2027-06-12" })).toStrictEqual({ field: field.earliest("2027-06-12") });
   });
 
   it("words the span the matchdays need on each side by the side the refusal names", () => {

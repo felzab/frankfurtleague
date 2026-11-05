@@ -49,7 +49,13 @@ export const createSaison = action({
   lane: "admin",
   name: "createSaison",
   input: CreateSaisonForm,
-  ownWords: ["duplicate_key", "saison_year_out_of_range", "saison_ends_before_start", "rules_bracket_impossible"],
+  ownWords: [
+    "duplicate_key",
+    "saison_year_out_of_range",
+    "saison_ends_before_start",
+    "saison_span_below_spielplan",
+    "rules_bracket_impossible",
+  ],
   paths: { id: "id", start_date: "start_date", end_date: "end_date" },
   run: async (form) => {
     const newest = await getNewestAdminSaison();
