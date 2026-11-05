@@ -543,7 +543,10 @@ function AccountPlace({ account: read }: { account: AccountRead }) {
 }
 
 // On the dark-green band, as tall as a touch target; the chevron stands where the logo's edge would.
-const back = tv({ base: "-ms-2 flex h-10 items-center gap-1 rounded-lg ps-1 pe-3 text-sm font-medium text-on-brand" });
+// The way back reads a step bolder than the band's links, being the band's one act there, and answers the pointer as they do.
+const back = tv({
+  base: "-ms-2 flex h-10 items-center gap-1 rounded-lg ps-1 pe-3 text-sm font-semibold text-on-brand transition-colors duration-(--motion-state) hover:bg-brand-solid-hover",
+});
 
 /**
  * „‹ Zurück“ in the band where the logo stands: in Konto, and on a phone in an editor. While an editor holds
