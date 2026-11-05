@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
 import { austrittZustand } from "@/features/teams/constants";
+import { NOT_FOUND_METADATA } from "@/shared/utils/notFoundMetadata";
 
 import TeamPage, { generateMetadata } from "./page";
 
@@ -83,7 +84,8 @@ describe("the club page's server render", () => {
       Promise.resolve({}) as unknown as ResolvingMetadata,
     );
 
-    await expect(metadata).rejects.toMatchObject({ digest: "NEXT_HTTP_ERROR_FALLBACK;404" });
+    // Titled as not found rather than thrown: a throw from the metadata leaves the tab the layout's title.
+    await expect(metadata).resolves.toBe(NOT_FOUND_METADATA);
     expect(read.teams).toStrictEqual([]);
   });
 });

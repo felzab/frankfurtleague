@@ -42,7 +42,7 @@ from app.api.spiele.schemas import (
 )
 from app.api.spiele.services import PARTY_NAME_FIELD, build_party_name_stages, build_spiele_pipeline, recipients_named
 from app.core.collections import Collection
-from app.shared.schemas.custom import CustomDateString, CustomObjectId
+from app.shared.schemas.custom import CustomDateString, CustomNonEmptyString, CustomObjectId
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 from app.shared.schemas.responses import BaseAPIResponse
 
@@ -104,10 +104,14 @@ class FLOverviewSpielRow(BaseModel):
 
 
 class FLOverviewParty(BaseModel):
-    """One party's open confirmation row, a club's or the booked referee's: the row „Zusage eintragen“ records its agreement on."""
+    """One party's open confirmation row, a club's or the booked referee's: the row „Zusage eintragen“ records its agreement on.
+
+    `name` is the one its own record holds, as each act's recipients are named, so the page names every party one way.
+    """
 
     spielbestaetigung_id: CustomObjectId
     party: FLSpielbestaetigungPartei
+    name: CustomNonEmptyString
     deadline: CustomDateString
 
 
@@ -204,7 +208,12 @@ def build_overview_pipeline(*, saison_id: str, today: str) -> list[Mapping[str, 
         {
             "$lookup": {
                 "from": Collection.SPIELBESTAETIGUNGEN,
-                "pipeline": [{"$match": build_triage_rows_filter(saison_id=saison_id, today=today)}, {"$project": {"kontakte": 0}}],
+                "pipeline": [
+                    {"$match": build_triage_rows_filter(saison_id=saison_id, today=today)},
+                    {"$project": {"kontakte": 0}},
+                    # Each party by its own record's name, as the acts' recipients below are named.
+                    *build_party_name_stages(saison_id=saison_id),
+                ],
                 "as": QUEUE_ROWS_AS,
             }
         },
@@ -346,7 +355,7 @@ def overview_of(
             )
             continue
         parties.setdefault(spiel.id, []).append(
-            FLOverviewParty(spielbestaetigung_id=row["_id"], party=row[ROW_PARTY], deadline=row[ROW_DEADLINE])
+            FLOverviewParty(spielbestaetigung_id=row["_id"], party=row[ROW_PARTY], name=row.get(PARTY_NAME_FIELD), deadline=row[ROW_DEADLINE])
         )
     rows.extend(
         FLOverviewSpielbestaetigungRow(

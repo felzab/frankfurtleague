@@ -11,11 +11,12 @@ import { buildMapsSearchUrl } from "@/core/maps";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { getTeamPage } from "@/features/saisons/queries";
-import { resolvePublicSaisonParam } from "@/features/saisons/resolvers";
+import { publicSaisonOf } from "@/features/saisons/resolvers";
 import { matchdayOf, matchRowOf, outcomeFor } from "@/features/spiele/blocks";
 import { austrittChip, austrittZustand } from "@/features/teams/constants";
 import { pageMetadata } from "@/shared/utils/metadata";
-import { resolveObjectIdParam } from "@/shared/utils/routeParams";
+import { metadataFor } from "@/shared/utils/notFoundMetadata";
+import { objectIdParamOf } from "@/shared/utils/routeParams";
 
 import type { Words } from "@/core/copy";
 import type { FLSpielerPublic, FLTeamPageResponse } from "@/core/generated/client/types";
@@ -25,20 +26,27 @@ import type { Metadata, ResolvingMetadata } from "next";
 
 type Props = PageProps<"/saisons/[saison]/teams/[team]">;
 
+/** The club the address names, or `null` for a malformed id, a season the public may not read, or no such club in it. */
+async function findPage(params: Props["params"]): Promise<FLTeamPageResponse | null> {
+  const team = await objectIdParamOf(params, "team");
+  const saison = await publicSaisonOf(params);
+  return team === null || saison === null ? null : getTeamPage(saison, team);
+}
+
 async function readPage(params: Props["params"]): Promise<FLTeamPageResponse> {
-  const team = await resolveObjectIdParam(params, "team");
-  const page = await getTeamPage(await resolvePublicSaisonParam(params), team);
+  const page = await findPage(params);
   if (page === null) notFound();
   return page;
 }
 
 export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
   const { saison } = await params;
-  const { team } = await readPage(params);
-  return pageMetadata(parent, ROUTES.team, ROUTES.team.path(saison, team.id), {
-    title: { record: team.name },
-    description: SERVER_COPY.description.team(team.name, saison),
-  });
+  return metadataFor(findPage(params), ({ team }) =>
+    pageMetadata(parent, ROUTES.team, ROUTES.team.path(saison, team.id), {
+      title: { record: team.name },
+      description: SERVER_COPY.description.team(team.name, saison),
+    }),
+  );
 }
 
 /**

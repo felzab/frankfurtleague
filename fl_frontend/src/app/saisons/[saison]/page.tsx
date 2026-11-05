@@ -9,10 +9,11 @@ import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { getSpielplan } from "@/features/saisons/queries";
-import { resolvePublicSaisonParam } from "@/features/saisons/resolvers";
+import { publicSaisonOf, resolvePublicSaisonParam } from "@/features/saisons/resolvers";
 import { matchRowOf } from "@/features/spiele/blocks";
 import { spieltagNamer } from "@/features/spieltage/utils";
 import { pageMetadata } from "@/shared/utils/metadata";
+import { metadataFor } from "@/shared/utils/notFoundMetadata";
 
 import type { SpieltageContent } from "@/kit/ListPage";
 import type { Metadata, ResolvingMetadata } from "next";
@@ -20,8 +21,9 @@ import type { Metadata, ResolvingMetadata } from "next";
 type Props = PageProps<"/saisons/[saison]">;
 
 export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
-  const saison = await resolvePublicSaisonParam(params);
-  return pageMetadata(parent, ROUTES.spielplan, ROUTES.spielplan.path(saison), { description: SERVER_COPY.description.spielplan(saison) });
+  return metadataFor(publicSaisonOf(params), (saison) =>
+    pageMetadata(parent, ROUTES.spielplan, ROUTES.spielplan.path(saison), { description: SERVER_COPY.description.spielplan(saison) }),
+  );
 }
 
 /** The way to the Spielsuche beside the Spielplan's title: the magnifier, which its tooltip names. */

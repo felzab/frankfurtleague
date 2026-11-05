@@ -10,6 +10,7 @@ import { COPY } from "@/core/copy";
 
 import { EditorPage } from "./EditorPage";
 import { EditorShell } from "./EditorShell";
+import { statusLine } from "./fieldStyles";
 import { RailColumn, RailFrame } from "./RailFrame";
 import { SectionAct } from "./SectionAct";
 import { TextField } from "./TextField";
@@ -241,6 +242,8 @@ describe("an editor's own acts", () => {
     const lines = screen.getAllByText(COPY.template.draftUnsaved);
     expect(lines).toHaveLength(3);
     for (const line of lines) expect(line.closest('[role="status"]')).not.toBeNull();
+    // Each in the one status line's locked face, so a change to that tone reaches a danger row as it does a section act.
+    for (const line of lines) expect(line.parentElement?.className).toBe(statusLine({ placement: "column", tone: "locked" }));
   });
 });
 

@@ -7,9 +7,10 @@ import { formatErgebnis, formatNumber, formatSigned } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { getTabelle } from "@/features/saisons/queries";
-import { resolvePublicSaisonParam } from "@/features/saisons/resolvers";
+import { publicSaisonOf, resolvePublicSaisonParam } from "@/features/saisons/resolvers";
 import { austrittChip } from "@/features/teams/constants";
 import { pageMetadata } from "@/shared/utils/metadata";
+import { metadataFor } from "@/shared/utils/notFoundMetadata";
 
 import type { FLTabelleRow } from "@/core/generated/client/types";
 import type { TableProps, TableRow } from "@/kit/Table";
@@ -18,8 +19,9 @@ import type { Metadata, ResolvingMetadata } from "next";
 type Props = PageProps<"/saisons/[saison]/tabelle">;
 
 export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
-  const saison = await resolvePublicSaisonParam(params);
-  return pageMetadata(parent, ROUTES.tabelle, ROUTES.tabelle.path(saison), { description: SERVER_COPY.description.tabelle(saison) });
+  return metadataFor(publicSaisonOf(params), (saison) =>
+    pageMetadata(parent, ROUTES.tabelle, ROUTES.tabelle.path(saison), { description: SERVER_COPY.description.tabelle(saison) }),
+  );
 }
 
 /**

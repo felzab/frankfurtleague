@@ -218,9 +218,9 @@ class _SaisonPayload(_SaisonSpanPayload, _SaisonWritable):
 
 
 class _SaisonStored(_SaisonWritable):
-    # Exactly `SAISON_ID_LENGTH` characters, as every `saison_id` referencing this one demands:
-    # without it, an id like "2026/27" validates here and every document pointing at it fails on read.
-    id: str = Field(validation_alias="_id", serialization_alias="id", min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH)
+    # Echoed as stored, held to no length: one stored row of the wrong length would otherwise answer 500 for every list
+    # it appears in. The create mints the id, so no write takes one from a payload.
+    id: str = Field(validation_alias="_id", serialization_alias="id")
 
     status: FLSaisonStatus
 
@@ -236,6 +236,10 @@ class FLSaison(_SaisonStored, BaseReadModel):
 
 class FLSaisonRecord(_SaisonStored, Anchored):
     """A season as `saisons` stores it: no derived schedule."""
+
+    # Exactly `SAISON_ID_LENGTH` characters, as every `saison_id` referencing this one demands, so the read-back names a
+    # stored id like "2026/27", whose every match and matchday fails to read.
+    id: str = Field(validation_alias="_id", serialization_alias="id", min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH)
 
     # DEFAULTED: the season's creation writes no key, the draw being what writes it. Stored and never served: the
     # editor serves its day inside `FLSaisonDrawn`, beside the counts of what the season holds.

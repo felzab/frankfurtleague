@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { notFound } from "next/navigation";
 
 import { ListPage } from "@/kit/ListPage";
@@ -17,6 +18,7 @@ import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { runAdminRead } from "@/shared/utils/adminRead";
 import { pageMetadata } from "@/shared/utils/metadata";
+import { metadataFor } from "@/shared/utils/notFoundMetadata";
 
 import { TerminDialog } from "./TerminDialog";
 import { VorschlagActs } from "./VorschlagActs";
@@ -26,8 +28,6 @@ import type { Copy, Words } from "@/core/copy";
 import type {
   FLBracketFault,
   FLOverviewRow,
-  FLSpielbestaetigungPartySchiedsrichter,
-  FLSpielbestaetigungPartyTeam,
   FLSpielJoinedAdmin,
   FLSpielRecipientSchiedsrichter,
   FLSpielRecipientTeam,
@@ -43,12 +43,19 @@ const WORDS = SERVER_COPY.overview;
 const SPIEL = COPY.admin.spiel;
 const FACTS = COPY.admin.facts;
 
-/** A party of a fixture's confirmation, a club or the booked referee. */
-type Party = FLSpielbestaetigungPartyTeam | FLSpielbestaetigungPartySchiedsrichter;
+/** The season's open work, `null` for a season the league does not hold: one read for the tab's title and the page alike. */
+const overviewOf = cache((saison: string) =>
+  runAdminRead(() =>
+    saisonsGetSaisonOverview(saison).catch((error: unknown) => {
+      if (isRecordMissing(error)) return null;
+      throw error;
+    }),
+  ),
+);
 
 export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
   const { saison } = await params;
-  return pageMetadata(parent, ROUTES.adminOverview, ROUTES.adminOverview.path(saison));
+  return metadataFor(overviewOf(saison), () => pageMetadata(parent, ROUTES.adminOverview, ROUTES.adminOverview.path(saison)));
 }
 
 /** A fixture by its two clubs, as the match editor names it, and by its number while a side is still open. */
@@ -61,13 +68,6 @@ const nameOf = (spiel: FLSpielJoinedAdmin): Copy =>
 function clubOf(spiel: FLSpielJoinedAdmin, teamId: string): Words | null {
   const side = [spiel.team1, spiel.team2].find((team) => team?.team_id === teamId);
   return side === undefined || side === null ? null : { record: side.name };
-}
-
-/** A party of the fixture by the name the fixture holds for it, `null` where the fixture no longer names it. */
-function partyName(spiel: FLSpielJoinedAdmin, party: Party): Words | null {
-  if (party.art === "team") return clubOf(spiel, party.team_id);
-  const booked = spiel.schiedsrichter;
-  return booked?.schiedsrichter_id === party.schiedsrichter_id && booked.name !== null ? { record: booked.name } : null;
 }
 
 /**
@@ -140,10 +140,7 @@ function openOf(row: Exclude<FLOverviewRow, { kind: "bewerbung" }>): { line: Cop
   switch (row.kind) {
     case "spielbestaetigung_due":
     case "spielbestaetigung_overdue": {
-      const parties = row.parties.map((party): OpenParty => ({
-        id: party.spielbestaetigung_id,
-        name: partyName(spiel, party.party) ?? nameOf(spiel),
-      }));
+      const parties = row.parties.map((party): OpenParty => ({ id: party.spielbestaetigung_id, name: { record: party.name } }));
       // The earliest deadline a club of the row was given, which its answer is overdue since.
       const deadline = row.parties.map((party) => party.deadline).toSorted()[0];
       const line = row.kind === "spielbestaetigung_due" || deadline === undefined ? WORDS.answerDue : WORDS.answerOverdue(dayOf(deadline));
@@ -238,12 +235,7 @@ function rowOf(row: FLOverviewRow, saison: string): CardActRowProps & { id: stri
 /** The season's open work, read once: not-found for a season the league does not hold. */
 async function readOverview(params: Props["params"]) {
   const { saison } = await params;
-  const read = await runAdminRead(() =>
-    saisonsGetSaisonOverview(saison).catch((error: unknown) => {
-      if (isRecordMissing(error)) return null;
-      throw error;
-    }),
-  );
+  const read = await overviewOf(saison);
   if (read === null) notFound();
   return {
     cards: read.cards.map(({ card, rows }) => ({

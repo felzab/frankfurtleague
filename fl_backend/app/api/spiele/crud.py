@@ -86,9 +86,7 @@ from app.core.crud import (
     refuse,
 )
 from app.core.readonly import ReadCollection
-from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.shared.einwilligung import is_confirmed
-from app.shared.schemas.bounds import LIST_LIMIT_MAX
 from app.shared.schemas.custom import CustomObjectId
 from app.shared.schemas.literals import FLGruppenNames, FLSpielSeite
 
@@ -764,7 +762,7 @@ async def pull_party_names(
 ) -> dict[tuple[str, Any], str]:
     """The name each of `parties` holds on its own record: a club its season row's, already read as `membership`, a referee their own."""
 
-    referee_ids = {party["schiedsrichter_id"] for party in parties if party["art"] == "schiedsrichter"} - {GHOST_SCHIEDSRICHTER_ID}
+    referee_ids = {party["schiedsrichter_id"] for party in parties if party["art"] == "schiedsrichter"}
     referees = await pull_many_from_db(
         collection=schiedsrichter_collection,
         db_filter={"_id": {"$in": list(referee_ids)}},
@@ -799,7 +797,6 @@ async def preview_spiel_save(
         collection=spielbestaetigungen_collection,
         db_filter={"spiel_id": spiel_id, **build_holding_filter()},
         what=f"fixture {spiel_id}'s held confirmations",
-        limit=LIST_LIMIT_MAX,
         projection=CLOSE_FIELDS,
     )
     told = parties_told_of_the_change(

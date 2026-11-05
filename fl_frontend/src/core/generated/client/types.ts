@@ -2647,7 +2647,6 @@ export const FLInvitationSkipReason = {
 export interface FLInvitationDispatchRow {
   had_link: boolean | null;
   recipient: FLInvitationRecipient[];
-  replaced_link: boolean;
   skipped: FLInvitationSkipReason | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   team_id: string;
@@ -2672,7 +2671,6 @@ export interface FLInvitationDispatchResponse {
 export interface FLInvitationLinkRow {
   has_link: boolean;
   recipient: FLInvitationRecipient[];
-  replaced_link: boolean;
   sent_at: string | null;
   skipped: FLInvitationSkipReason | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
@@ -3639,10 +3637,14 @@ export interface FLSpielbestaetigungPartySchiedsrichter {
 
 /**
  * One party's open confirmation row, a club's or the booked referee's: the row „Zusage eintragen“ records its agreement on.
+ *
+ * `name` is the one its own record holds, as each act's recipients are named, so the page names every party one way.
  */
 export interface FLOverviewParty {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   deadline: string;
+  /** @minLength 1 */
+  name: string;
   party: FLSpielbestaetigungPartyTeam | FLSpielbestaetigungPartySchiedsrichter;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   spielbestaetigung_id: string;
@@ -4590,10 +4592,6 @@ export interface FLSaison {
   bewerbung: FLSaisonBewerbung | null;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   end_date: string;
-  /**
-   * @minLength 4
-   * @maxLength 4
-   */
   id: string;
   registrierung: FLSaisonRegistrierung | null;
   rules: FLSaisonRules;
@@ -4626,10 +4624,6 @@ export interface FLSaisonAdmin {
   decided: boolean;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   end_date: string;
-  /**
-   * @minLength 4
-   * @maxLength 4
-   */
   id: string;
   registrierung: FLSaisonRegistrierung | null;
   rules: FLSaisonRules;
@@ -4664,10 +4658,6 @@ export interface FLSaisonAdminListed {
   decided: boolean;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   end_date: string;
-  /**
-   * @minLength 4
-   * @maxLength 4
-   */
   id: string;
   registrierung: FLSaisonRegistrierung | null;
   rules: FLSaisonRules;

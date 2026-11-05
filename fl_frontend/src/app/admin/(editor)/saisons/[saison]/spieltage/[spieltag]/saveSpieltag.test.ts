@@ -2,6 +2,8 @@ import { doubleApiClient } from "@/test-support/apiClientDouble";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
+import { APIBadStatusError } from "@/core/errors";
+import { SERVER_COPY } from "@/core/serverCopy";
 
 import type { FLSpieltagAdmin, FLSpieltagWriteResponse } from "@/core/generated/client/types";
 
@@ -25,8 +27,8 @@ const EDITOR_VERSION = 3;
 
 const WRITTEN: FLSpieltagWriteResponse = { spieltag_id: SPIELTAG_ID, version: 5 };
 
-/** The matchday the save reads before its write, and every payload it writes. */
-const state = vi.hoisted(() => ({ read: null as unknown, sent: [] as unknown[] }));
+/** The matchday the save reads before its write, every payload it writes, and the write's refusal where it refuses. */
+const state = vi.hoisted(() => ({ read: null as unknown, sent: [] as unknown[], refusal: null as unknown }));
 
 vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
 // Next's `updateTag` throws outside a Server Action; whether a write clears the site's cache is `core/action.test.ts`'s.
@@ -35,6 +37,7 @@ vi.mock("@/core/auth/guards", () => ({ judgeAdminRequest: async () => ({ session
 vi.mock("@/features/spieltage/queries", () => ({ getAdminSpieltag: async () => ({ saison_status: "active", spieltag: state.read }) }));
 
 doubleApiClient((call) => {
+  if (state.refusal !== null) throw state.refusal;
   state.sent.push(JSON.parse(call.body ?? "null"));
   return WRITTEN;
 });
@@ -44,6 +47,7 @@ const { saveSpieltag } = await import("./saveSpieltag");
 beforeEach(() => {
   state.read = STORED;
   state.sent = [];
+  state.refusal = null;
 });
 
 describe("a matchday's save", () => {
@@ -61,5 +65,25 @@ describe("a matchday's save", () => {
 
     expect(answer).toStrictEqual({ ok: false, fieldErrors: { "changes.beginn": COPY.shared.field.required } });
     expect(state.sent).toStrictEqual([]);
+  });
+
+  // An editor opened before its season finished meets the write's refusal of the whole matchday; unworded, the press
+  // would answer the shared failure line and send the administrator to a retry the same rule refuses again.
+  it("says a finished season's matchday is closed", async () => {
+    state.refusal = new APIBadStatusError({
+      message: "refused",
+      url: `http://backend/api/v0/spieltage/${SPIELTAG_ID}`,
+      statusCode: 409,
+      serverErrorCode: "saison_past",
+      refusedFields: [],
+      endpoint: `/spieltage/${SPIELTAG_ID}`,
+      method: "PATCH",
+      readOnly: false,
+      traceId: "0",
+    });
+
+    const answer = await saveSpieltag({ id: SPIELTAG_ID, version: EDITOR_VERSION, changes: { ende: "2027-03-16" } });
+
+    expect(answer).toEqual({ ok: false, errorCode: "saison_past", reason: SERVER_COPY.refusalLine.saison_past });
   });
 });

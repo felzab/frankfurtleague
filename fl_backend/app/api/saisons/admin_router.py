@@ -409,7 +409,6 @@ async def get_saison_admin(
                 team_name=team.team["name"],
                 recipient=team.plan.recipient,
                 skipped=team.plan.skipped,
-                replaced_link=team.plan.replaced_link,
                 has_link=team.live is not None,
                 sent_at=None if team.live is None else FLEinladung.model_validate(team.live).sent_at,
             )
@@ -1328,9 +1327,8 @@ async def _mail_one_team(
     owed about it together, so no team is left holding a link nobody is owed.
     """
 
-    # What the callback's last run read and planned, kept for a transaction that raises: whether the
-    # team held a link, and whether that commit may have revoked it, is what its row then tells the admin.
-    ersetzt_link = False
+    # What the callback's last run read, kept for a transaction that raises: whether the team held a
+    # link is what its row then tells the admin.
     hatte_link: bool | None = None
 
     async def mint_where_the_team_qualifies(session: AsyncClientSession) -> FLInvitationDispatchRow:
@@ -1340,10 +1338,10 @@ async def _mail_one_team(
         the read before the loop, so a retry re-decides on those as they stood then.
         """
 
-        nonlocal ersetzt_link, hatte_link
+        nonlocal hatte_link
         # Reset before the read: a retry raising ahead of it would otherwise report the previous
         # attempt's link, which a rival's press may have revoked since.
-        ersetzt_link, hatte_link = False, None
+        hatte_link = None
 
         live = await pull_many_from_db(
             collection=invitations_collection,
@@ -1359,7 +1357,7 @@ async def _mail_one_team(
             resend=resend,
             barred=barred,
         )
-        ersetzt_link, hatte_link = plan.replaced_link, bool(live)
+        hatte_link = bool(live)
 
         if plan.skipped is not None:
             return FLInvitationDispatchRow(
@@ -1367,7 +1365,6 @@ async def _mail_one_team(
                 team_name=team["name"],
                 recipient=[],
                 skipped=plan.skipped,
-                replaced_link=plan.replaced_link,
                 had_link=bool(live),
             )
 
@@ -1406,7 +1403,6 @@ async def _mail_one_team(
             team_name=team["name"],
             recipient=plan.recipient,
             skipped=None,
-            replaced_link=plan.replaced_link,
             had_link=bool(live),
         )
 
@@ -1434,9 +1430,6 @@ async def _mail_one_team(
             team_name=team["name"],
             recipient=[],
             skipped="mint_uncertain" if uncertain else "mint_failed",
-            # A failed commit replaced nothing; an unanswered one may have replaced the link the
-            # plan found, and a team that held none must not read about one.
-            replaced_link=uncertain and ersetzt_link,
             had_link=hatte_link,
         )
 
@@ -1497,8 +1490,7 @@ async def post_invitations_dispatch(
 
     **Every team mailed gets a fresh invite, and any link that team already held is REVOKED in the same per-team transaction** — the
     copy in somebody's inbox opens nothing from that moment. The mails are owed in that transaction too, each minting its link when it is
-    handed out; no link is answered. `replaced_link` says of each row whether a link died for it, and the season editor's rows answer it
-    before the press. A team this skips is left exactly as it was.
+    handed out; no link is answered. A team this skips is left exactly as it was.
 
     Five skips, each an ordinary state rather than a refusal: the team has left this season, it holds no contact block, no seat of that block
     has been confirmed by its own person, every confirmed seat's address is on the ban list, or its live link was already sent and

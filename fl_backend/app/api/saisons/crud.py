@@ -33,7 +33,8 @@ async def pull_create_state(*, saisons_collection: ReadCollection, session: Asyn
     """
 
     # Among the ids that are a year alone, the greatest by string order being the newest: one stored row of another
-    # shape, written by hand, would otherwise answer 500 for the list it appears in and for every create.
+    # shape, written by hand, sorting after every year, would otherwise be read as the newest, whose id names no year to
+    # mint the next from, answering 500 for the list serving that id and for every create.
     newest = await saisons_collection.find_one(
         {"_id": {"$regex": f"^[0-9]{{{SAISON_ID_LENGTH}}}$"}}, projection={"_id": 1, "rules": 1}, sort=[("_id", -1)], session=session
     )

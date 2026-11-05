@@ -172,9 +172,6 @@ class EinladungVersandPlan(NamedTuple):
 
     recipient: list[FLInvitationRecipient]
     skipped: FLInvitationSkipReason | None
-    #: Whether minting for this team kills a link somebody may already hold. False on every skip,
-    #: which is what leaves a skipped team exactly as it was.
-    replaced_link: bool
 
 
 def plan_einladung_versand(
@@ -189,23 +186,23 @@ def plan_einladung_versand(
     # The record's PRESENCE, never its `type` and never a flag beside it: a team is out of the
     # season by either route, and a skip naming the contact block would send somebody to repair it.
     if austritt is not None:
-        return EinladungVersandPlan([], "austritt_entered", False)
+        return EinladungVersandPlan([], "austritt_entered")
 
     if not isinstance(kontakte, Mapping):
-        return EinladungVersandPlan([], "no_kontaktblock", False)
+        return EinladungVersandPlan([], "no_kontaktblock")
 
     empfaenger = bestaetigte_empfaenger(kontakte=kontakte)
     if not empfaenger:
-        return EinladungVersandPlan([], "no_confirmed_kontaktperson", False)
+        return EinladungVersandPlan([], "no_confirmed_kontaktperson")
 
     # Ahead of the mail's state, which a barred address's mail settles `barred`: a team reached by
     # nobody else would lose its link to a fresh mint at every press while the ban stands.
     if all(person.email in barred for person in empfaenger):
-        return EinladungVersandPlan([], "kontakte_barred", False)
+        return EinladungVersandPlan([], "kontakte_barred")
 
     # Its day and never the row's presence: a team holding a live link nobody was sent is a team this press exists to
     # reach, and skipping on the row would leave sixteen links unsent for ever.
     if einladung_ist_versendet(einladung_raw) and not resend:
-        return EinladungVersandPlan([], "already_sent", False)
+        return EinladungVersandPlan([], "already_sent")
 
-    return EinladungVersandPlan(empfaenger, None, einladung_raw is not None)
+    return EinladungVersandPlan(empfaenger, None)

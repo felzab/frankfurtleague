@@ -1927,7 +1927,8 @@ PARTY_NAME_FIELD: Final = "party_name"
 def build_party_name_stages(*, saison_id: str) -> list[Mapping[str, Any]]:
     """Stages setting on each confirmation row the name its party's own record holds: a club's season row, a referee's.
 
-    For a read that names the parties an act mails from the rows it reads, as `recipients_named` takes them.
+    For a read that names the parties of the rows it reads: whom an act mails, as `recipients_named` takes them, and
+    whose agreement the Übersicht enters (`app/api/saisons/overview.py :: FLOverviewParty`).
     """
 
     return [
@@ -1954,17 +1955,19 @@ def build_party_name_stages(*, saison_id: str) -> list[Mapping[str, Any]]:
     ]
 
 
-def recipients_named(parties: Iterable[Mapping[str, Any]], *, names: Mapping[tuple[str, Any], str | None]) -> list[FLSpielRecipient]:
+def recipients_named(parties: Sequence[Mapping[str, Any]], *, names: Mapping[tuple[str, Any], str | None]) -> list[FLSpielRecipient]:
     """Each party an act mails by the name its own record holds, the one shape every page naming whom an act mails reads.
 
-    Never the ghost, at whom an erasure repoints a referee's rows: it holds no address, so no mail reaches it, and no
-    name. Every other party holds a record, which nothing deletes, so a party `names` lacks is refused rather than
-    dropped from the question in silence.
+    Every row's party holds a record: a club its season row, which nothing deletes, and a referee their own, which an
+    erasure deletes in the transaction removing every row naming them
+    (`app/api/spielbestaetigungen/crud.py :: erase_referee_confirmations_in_session`). No row names the ghost, since the
+    pass mints it none (`app/api/spielbestaetigungen/services.py :: parteien_of`) and the erasure removes a referee's
+    rows rather than repointing them. So a party `names` lacks is a broken reference, refused rather than dropped from
+    the question in silence.
     """
 
-    told = [party for party in parties if party.get("schiedsrichter_id") != GHOST_SCHIEDSRICHTER_ID]
-    unnamed = [party for party in told if names.get(partei_key(party)) is None]
+    unnamed = [party for party in parties if names.get(partei_key(party)) is None]
     if unnamed:
         raise ValueError(f"no record names the parties {unnamed}")
 
-    return FLSpielRecipientListAdapter.validate_python([{**party, "name": names[partei_key(party)]} for party in told])
+    return FLSpielRecipientListAdapter.validate_python([{**party, "name": names[partei_key(party)]} for party in parties])

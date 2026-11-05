@@ -1,6 +1,8 @@
 import { renderToReadableStream } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
+import { NOT_FOUND_METADATA } from "@/shared/utils/notFoundMetadata";
+
 import SpielplanPage, { generateMetadata } from "./page";
 
 import type { FLSpielplanResponse } from "@/core/generated/client/types";
@@ -115,11 +117,10 @@ describe("a season the public cannot read", () => {
     reads.length = 0;
     const params = Promise.resolve({ saison });
 
+    // Titled as not found rather than thrown: a throw from the metadata leaves the tab the layout's title.
     await expect(
       generateMetadata({ params, searchParams: Promise.resolve({}) }, Promise.resolve({}) as unknown as ResolvingMetadata),
-    ).rejects.toMatchObject({
-      digest: "NEXT_HTTP_ERROR_FALLBACK;404",
-    });
+    ).resolves.toBe(NOT_FOUND_METADATA);
     const stream = await renderToReadableStream(
       <SpielplanPage
         params={params}

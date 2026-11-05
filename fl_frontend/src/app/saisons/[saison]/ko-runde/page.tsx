@@ -6,8 +6,9 @@ import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { getKoRunde } from "@/features/saisons/queries";
-import { resolvePublicSaisonParam } from "@/features/saisons/resolvers";
+import { publicSaisonOf, resolvePublicSaisonParam } from "@/features/saisons/resolvers";
 import { pageMetadata } from "@/shared/utils/metadata";
+import { metadataFor } from "@/shared/utils/notFoundMetadata";
 
 import { treeOf } from "./tree";
 
@@ -16,8 +17,9 @@ import type { Metadata, ResolvingMetadata } from "next";
 type Props = PageProps<"/saisons/[saison]/ko-runde">;
 
 export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
-  const saison = await resolvePublicSaisonParam(params);
-  return pageMetadata(parent, ROUTES.kORunde, ROUTES.kORunde.path(saison), { description: SERVER_COPY.description.kORunde(saison) });
+  return metadataFor(publicSaisonOf(params), (saison) =>
+    pageMetadata(parent, ROUTES.kORunde, ROUTES.kORunde.path(saison), { description: SERVER_COPY.description.kORunde(saison) }),
+  );
 }
 
 /** The K.-o.-Runde: the K.-o.-Baum on the page, the match for third place on its row above the Finale. */
