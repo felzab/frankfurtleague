@@ -209,7 +209,9 @@ class TestPatchOneInDb:
         stub = _OneDocumentCollection(STORED, pre=REPLACED)
 
         returned = asyncio.run(
-            patch_one_in_db(collection=as_collection(stub), db_filter=FILTER, update=UPDATE, return_document=ReturnDocument.AFTER)
+            patch_one_in_db(
+                collection=as_collection(stub), db_filter=FILTER, update=UPDATE, expected_version=None, return_document=ReturnDocument.AFTER
+            )
         )
 
         assert returned == STORED
@@ -218,7 +220,11 @@ class TestPatchOneInDb:
         """Asked for `AFTER`, so the log's pre-image is shown to come from the update whatever the caller wanted."""
         stub = _OneDocumentCollection(STORED, pre=REPLACED)
 
-        asyncio.run(patch_one_in_db(collection=as_collection(stub), db_filter=FILTER, update=UPDATE, return_document=ReturnDocument.AFTER))
+        asyncio.run(
+            patch_one_in_db(
+                collection=as_collection(stub), db_filter=FILTER, update=UPDATE, expected_version=None, return_document=ReturnDocument.AFTER
+            )
+        )
 
         assert stub.calls[0]["return_document"] is ReturnDocument.BEFORE
         assert stub.recorded[0]["before"] == REPLACED
@@ -231,7 +237,12 @@ class TestPatchOneInDb:
 
         returned = asyncio.run(
             patch_one_in_db(
-                collection=as_collection(stub), db_filter=FILTER, update=UPDATE, session=session, return_document=ReturnDocument.BEFORE
+                collection=as_collection(stub),
+                db_filter=FILTER,
+                update=UPDATE,
+                session=session,
+                expected_version=None,
+                return_document=ReturnDocument.BEFORE,
             )
         )
 
@@ -248,7 +259,12 @@ class TestPatchOneInDb:
 
         returned = asyncio.run(
             patch_one_in_db(
-                collection=as_collection(stub), db_filter=FILTER, update=UPDATE, session=TRANSACTION, return_document=return_document
+                collection=as_collection(stub),
+                db_filter=FILTER,
+                update=UPDATE,
+                session=TRANSACTION,
+                expected_version=None,
+                return_document=return_document,
             )
         )
 
@@ -279,7 +295,12 @@ class TestPatchOneInDb:
 
         asyncio.run(
             patch_one_in_db(
-                collection=as_collection(stub), db_filter=FILTER, update=UPDATE, session=TRANSACTION, return_document=ReturnDocument.BEFORE
+                collection=as_collection(stub),
+                db_filter=FILTER,
+                update=UPDATE,
+                session=TRANSACTION,
+                expected_version=None,
+                return_document=ReturnDocument.BEFORE,
             )
         )
 
@@ -291,7 +312,15 @@ class TestPatchOneInDb:
         stub = _OneDocumentCollection(None)
 
         with pytest.raises(DocumentNotFoundError) as excinfo:
-            asyncio.run(patch_one_in_db(collection=as_collection(stub), db_filter=FILTER, update=UPDATE, return_document=ReturnDocument.BEFORE))
+            asyncio.run(
+                patch_one_in_db(
+                    collection=as_collection(stub),
+                    db_filter=FILTER,
+                    update=UPDATE,
+                    expected_version=None,
+                    return_document=ReturnDocument.BEFORE,
+                )
+            )
 
         assert excinfo.value.status_code == 404
         assert excinfo.value.error_code == Code.DOCUMENT_NOT_FOUND

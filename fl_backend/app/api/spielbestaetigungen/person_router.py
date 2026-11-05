@@ -243,6 +243,7 @@ async def post_schiedsrichter_antwort(
                 db_filter={"_id": spielbestaetigung_id, **build_answerable_filter()},
                 update=compose_schiedsrichter_antwort_update(antwort=antwort_data.antwort, begruendung=antwort_data.begruendung, today=today),
                 session=session,
+                expected_version=None,
                 return_document=ReturnDocument.BEFORE,
             )
         except DocumentNotFoundError:
@@ -257,6 +258,7 @@ async def post_schiedsrichter_antwort(
                     db_filter={"_id": row["spiel_id"], "schiedsrichter.schiedsrichter_id": row["party"]["schiedsrichter_id"]},
                     update={"$set": {"schiedsrichter": None}},
                     session=session,
+                    expected_version=None,
                     return_document=ReturnDocument.BEFORE,
                 )
             except DocumentNotFoundError:

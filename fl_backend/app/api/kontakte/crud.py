@@ -55,7 +55,12 @@ async def clear_seats(
 
         update = build_clearing_update(slots, confirmations=isinstance(row.get("confirmations"), Mapping))
         await patch_one_in_db(
-            collection=collection, db_filter={"_id": row["_id"]}, update=update, session=session, return_document=ReturnDocument.BEFORE
+            collection=collection,
+            db_filter={"_id": row["_id"]},
+            update=update,
+            session=session,
+            expected_version=None,
+            return_document=ReturnDocument.BEFORE,
         )
         cleared += len(slots)
 

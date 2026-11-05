@@ -374,6 +374,7 @@ async def post_address_change_answer(
             db_filter=db_filter,
             update=compose_confirmation_update(record=record, now=germany_now),
             session=session,
+            expected_version=None,
             return_document=ReturnDocument.AFTER,
         )
         return FLAddressChangeAnswerResponse(
@@ -438,6 +439,7 @@ async def _answer_for_the_address_on_file(
         db_filter=db_filter,
         update=compose_link_update(now=germany_now, released=True),
         session=session,
+        expected_version=None,
         return_document=ReturnDocument.AFTER,
     )
     valid_until = as_utc(released["valid_until"])

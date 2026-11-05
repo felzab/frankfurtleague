@@ -508,6 +508,7 @@ class TestALeavingContactsReasonsGo:
                     collection=collection,
                     db_filter={"_id": row["_id"]},
                     update={"$set": {"reminded_at": [TODAY]}},
+                    expected_version=None,
                     return_document=ReturnDocument.BEFORE,
                 )
             async with client.start_session() as session:
@@ -574,6 +575,7 @@ class TestALeavingPersonsLinksLeaveTheLog:
                 collection=database[Collection.SPIELBESTAETIGUNGEN],
                 db_filter={"_id": ROWS["answered"]["_id"]},
                 update={"$set": {"reminded_at": [TODAY]}},
+                expected_version=None,
                 return_document=ReturnDocument.BEFORE,
             )
             await write(database, client)

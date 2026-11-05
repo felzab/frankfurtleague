@@ -892,6 +892,7 @@ async def replace_saison_team(
             # colour, the contacts and their links leave with the OUTGOING school.
             update={"$set": {**incoming_side, "austritt": None, "trikot_farbe": None, "kontakte": None, "confirmations": None}},
             session=session,
+            expected_version=None,
             return_document=ReturnDocument.AFTER,
         )
         # The outgoing club's people, read in this transaction, leave their match links behind.
@@ -1034,6 +1035,7 @@ async def invite_kontakt(
                 }
             },
             session=session,
+            expected_version=None,
             return_document=ReturnDocument.BEFORE,
         )
         # The address read in-session, never one the caller read before this request: a save moving
@@ -1176,6 +1178,7 @@ async def delete_invitation(
             db_filter=build_live_team_filter(saison_id=saison_id, team_id=team_id),
             update=compose_revocation_update(today=today),
             session=session,
+            expected_version=None,
             return_document=ReturnDocument.BEFORE,
         )
 

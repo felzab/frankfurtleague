@@ -570,6 +570,7 @@ async def activate_saison(
             db_filter={"_id": saison_id},
             update={"$set": {"status": "active"}},
             session=session,
+            expected_version=None,
             return_document=ReturnDocument.BEFORE,
         )
 
@@ -726,6 +727,7 @@ async def swap_gruppen(
                 db_filter={"saison_id": saison_id, "team_id": team_id},
                 update={"$set": {"gruppe": target_gruppe}},
                 session=session,
+                expected_version=None,
                 return_document=ReturnDocument.BEFORE,
             )
 
@@ -951,6 +953,7 @@ async def post_spielplan(
             # Nothing here reads the result, and `AFTER` would re-read the whole season inside the
             # transaction to build one. The log takes its pre-image from the update itself either
             # way.
+            expected_version=None,
             return_document=ReturnDocument.BEFORE,
         )
 
@@ -1055,6 +1058,7 @@ async def delete_spielplan(
             db_filter={"_id": saison_id},
             update={"$unset": {"spielplan": ""}},
             session=session,
+            expected_version=None,
             return_document=ReturnDocument.BEFORE,
         )
 

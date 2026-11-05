@@ -251,6 +251,7 @@ async def end_the_change_in_session(
         db_filter={**db_filter, **LIVE_TERMS},
         update=compose_end_update(kind=kind, now=now),
         session=session,
+        expected_version=None,
         return_document=ReturnDocument.BEFORE,
     )
 
@@ -620,6 +621,7 @@ async def take_effect_in_session(
             db_filter={"_id": record["_id"], **LIVE_TERMS},
             update=compose_approval_withdrawn_update(),
             session=session,
+            expected_version=None,
             return_document=ReturnDocument.BEFORE,
         )
     if verdict.cause is not None or verdict.waits:
@@ -719,6 +721,7 @@ async def move_the_address_in_session(
             db_filter={"_id": holdings.spieler["_id"]},
             update={"$set": {"email": sign_in_identifier(new_address)}},
             session=session,
+            expected_version=None,
             return_document=ReturnDocument.BEFORE,
         )
 
@@ -728,6 +731,7 @@ async def move_the_address_in_session(
             db_filter={"_id": row["_id"]},
             update={"$set": {"kontakt.email": new_address}},
             session=session,
+            expected_version=None,
             return_document=ReturnDocument.BEFORE,
         )
 
@@ -738,6 +742,7 @@ async def move_the_address_in_session(
             db_filter={"_id": row["_id"]},
             update=_seat_move(row, slots, new_address),
             session=session,
+            expected_version=None,
             return_document=ReturnDocument.BEFORE,
         )
         kontakte = row.get("kontakte") or {}
@@ -753,6 +758,7 @@ async def move_the_address_in_session(
             db_filter={"_id": row["_id"]},
             update=_seat_move(row, slots, new_address),
             session=session,
+            expected_version=None,
             return_document=ReturnDocument.BEFORE,
         )
 
@@ -762,6 +768,7 @@ async def move_the_address_in_session(
             db_filter={"_id": row["_id"]},
             update=_registrierung_move(row, new_address),
             session=session,
+            expected_version=None,
             return_document=ReturnDocument.BEFORE,
         )
 

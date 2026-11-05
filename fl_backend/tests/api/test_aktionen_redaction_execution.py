@@ -70,7 +70,13 @@ def grant(grant_id: ObjectId, address: str, granted_by: str) -> dict[str, Any]:
 async def patched(database: AsyncDatabase, collection: Collection, document_id: Any, update: Mapping[str, Any]) -> None:
     """Through the recording helper, so the image this files is the one a real write leaves."""
 
-    await patch_one_in_db(collection=database[collection], db_filter={"_id": document_id}, update=update, return_document=ReturnDocument.BEFORE)
+    await patch_one_in_db(
+        collection=database[collection],
+        db_filter={"_id": document_id},
+        update=update,
+        expected_version=None,
+        return_document=ReturnDocument.BEFORE,
+    )
 
 
 async def a_league_holding_their_images(database: AsyncDatabase, client: AsyncMongoClient) -> None:

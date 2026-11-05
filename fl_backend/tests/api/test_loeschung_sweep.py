@@ -149,7 +149,13 @@ async def seeded(database: AsyncDatabase, *shapes: Mapping[Collection, list[dict
 async def edited(database: AsyncDatabase, collection: Collection, document_id: Any, update: Mapping[str, Any]) -> None:
     """One recorded edit, so the log holds an image of the document as it stood."""
 
-    await patch_one_in_db(collection=database[collection], db_filter={"_id": document_id}, update=update, return_document=ReturnDocument.BEFORE)
+    await patch_one_in_db(
+        collection=database[collection],
+        db_filter={"_id": document_id},
+        update=update,
+        expected_version=None,
+        return_document=ReturnDocument.BEFORE,
+    )
 
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]

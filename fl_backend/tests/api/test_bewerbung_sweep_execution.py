@@ -180,12 +180,14 @@ def on_a_league(url: str, body: Body, *, next_status: str | None = "future", sta
                     collection=database[Collection.BEWERBUNGEN],
                     db_filter={"_id": document["_id"]},
                     update={"$set": {"kader.good_spieler": 4}},
+                    expected_version=None,
                     return_document=ReturnDocument.BEFORE,
                 )
             await patch_one_in_db(
                 collection=database[Collection.SAISON_TEAMS],
                 db_filter={"_id": JUNCTION_OID},
                 update={"$set": {"gruppe": "B"}},
+                expected_version=None,
                 return_document=ReturnDocument.BEFORE,
             )
 
@@ -281,6 +283,7 @@ async def confirm_every_seat(database: AsyncDatabase, bewerbung_id: ObjectId) ->
             media=False,
             at=f"{MAILED_ON_THE_MARK}T08:00:00+00:00",
         ),
+        expected_version=None,
         return_document=ReturnDocument.BEFORE,
     )
 
@@ -1697,7 +1700,11 @@ async def images_of_every_strip_edit_set(database: AsyncDatabase, client: AsyncM
         row = a_strip_edit_set(*edit_sets[position % len(edit_sets)])
         await confirmations.insert_one(row)
         await patch_one_in_db(
-            collection=confirmations, db_filter={"_id": row["_id"]}, update={"$set": {"reminded_at": []}}, return_document=ReturnDocument.BEFORE
+            collection=confirmations,
+            db_filter={"_id": row["_id"]},
+            update={"$set": {"reminded_at": []}},
+            expected_version=None,
+            return_document=ReturnDocument.BEFORE,
         )
 
     # An undraw's removal, whose one log row holds every removed row's image in a list.
@@ -1726,6 +1733,7 @@ async def report_images_of_every_shape(database: AsyncDatabase, client: AsyncMon
             collection=berichte,
             db_filter={"_id": report["_id"]},
             update={"$inc": {"bericht.version": 1}},
+            expected_version=None,
             return_document=ReturnDocument.BEFORE,
         )
 
@@ -1792,6 +1800,7 @@ class TestTheSeasonsEndStripsItsConfirmations:
                     collection=confirmations,
                     db_filter={"_id": row["_id"]},
                     update={"$set": {"reminded_at": []}},
+                    expected_version=None,
                     return_document=ReturnDocument.BEFORE,
                 )
             response = await sweep(database, client)
@@ -1898,6 +1907,7 @@ class TestTheSeasonsEndStripsItsConfirmations:
                     collection=confirmations,
                     db_filter={"_id": row["_id"]},
                     update={"$set": {"reminded_at": []}},
+                    expected_version=None,
                     return_document=ReturnDocument.BEFORE,
                 )
             await sweep(database, client)
@@ -1962,6 +1972,7 @@ class TestTheSeasonsEndStripsItsReports:
                     collection=berichte,
                     db_filter={"_id": report["_id"]},
                     update={"$inc": {"bericht.version": 1}},
+                    expected_version=None,
                     return_document=ReturnDocument.BEFORE,
                 )
             response = await sweep(database, client)

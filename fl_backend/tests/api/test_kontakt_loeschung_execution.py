@@ -224,10 +224,15 @@ async def a_row_with_a_history(database: AsyncDatabase, collection: str, row_id:
         collection=database[collection],
         db_filter={"_id": row_id},
         update={"$set": {"kontakte": LIVE_BLOCKS[row_id]}},
+        expected_version=None,
         return_document=ReturnDocument.BEFORE,
     )
     await patch_one_in_db(
-        collection=database[collection], db_filter={"_id": row_id}, update={"$set": {"gruppe": "B"}}, return_document=ReturnDocument.BEFORE
+        collection=database[collection],
+        db_filter={"_id": row_id},
+        update={"$set": {"gruppe": "B"}},
+        expected_version=None,
+        return_document=ReturnDocument.BEFORE,
     )
 
 
@@ -240,10 +245,15 @@ async def a_bewerbung_with_a_history(database: AsyncDatabase, row_id: ObjectId) 
         collection=collection,
         db_filter={"_id": row_id},
         update={"$set": {"kontakte": LIVE_BLOCKS[row_id]}},
+        expected_version=None,
         return_document=ReturnDocument.BEFORE,
     )
     await patch_one_in_db(
-        collection=collection, db_filter={"_id": row_id}, update={"$set": {"kader.good_spieler": 4}}, return_document=ReturnDocument.BEFORE
+        collection=collection,
+        db_filter={"_id": row_id},
+        update={"$set": {"kader.good_spieler": 4}},
+        expected_version=None,
+        return_document=ReturnDocument.BEFORE,
     )
 
 
@@ -357,12 +367,14 @@ async def a_swap_moves_them_out(database: AsyncDatabase) -> None:
         collection=collection,
         db_filter={"_id": SWAPPED_ROW_OID},
         update={"$set": {"kontakte.trainer": person(UNREACHED_NACHNAME, UNREACHED_TELEFON)}},
+        expected_version=None,
         return_document=ReturnDocument.BEFORE,
     )
     await patch_one_in_db(
         collection=collection,
         db_filter={"_id": UNTOUCHED_ROW_OID},
         update={"$set": {"kontakte.trainer.telefon": BYSTANDER_TELEFON}},
+        expected_version=None,
         return_document=ReturnDocument.BEFORE,
     )
 
@@ -498,6 +510,7 @@ def test_a_seat_held_under_an_address_since_corrected_leaves_the_rows_images(mon
             collection=database[Collection.SAISON_TEAMS],
             db_filter={"_id": CORRECTED_ROW_OID},
             update={"$set": {"kontakte.trainer.email": ERASED_EMAIL}},
+            expected_version=None,
             return_document=ReturnDocument.BEFORE,
         )
         await call_erasure(database, client)
@@ -924,6 +937,7 @@ def test_an_image_of_their_application_naming_only_other_people_stays_as_recorde
             collection=application,
             db_filter={"_id": LATECOMER_BEWERBUNG_OID},
             update={"$set": {"kontakte": LIVE_BLOCKS[BEWERBUNG_OID]}},
+            expected_version=None,
             return_document=ReturnDocument.BEFORE,
         )
 

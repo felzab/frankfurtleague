@@ -102,11 +102,11 @@ async def patch_one_in_db(
     collection: AsyncCollection,
     db_filter: Mapping[str, Any],
     update: Mapping[str, Any],
-    expected_version: int | None = None,
+    expected_version: int | None,
     session: AsyncClientSession | None = None,
     return_document: bool,
 ) -> Mapping[str, Any]:
-    """`return_document` has no default, so every caller weighs the two images.
+    """`expected_version` and `return_document` have no default, so every caller weighs whether its write checks a version, and the two images.
 
     `BEFORE` answers the state the write just replaced. `AFTER` re-reads the document, which a patch
     inside a transaction reads anyway and one outside it pays a round trip for. An `expected_version`
@@ -575,6 +575,7 @@ async def set_inactive_since(
             db_filter=db_filter,
             update={"$set": {"inactive_since": None}},
             session=session,
+            expected_version=None,
             return_document=ReturnDocument.AFTER,
         )
 
@@ -586,6 +587,7 @@ async def set_inactive_since(
             db_filter={**db_filter, "inactive_since": None},
             update={"$set": {"inactive_since": when}},
             session=session,
+            expected_version=None,
             return_document=ReturnDocument.AFTER,
         )
     except DocumentNotFoundError:

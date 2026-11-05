@@ -510,6 +510,7 @@ async def advance_bracket_winners(
                 }
             },
             session=session,
+            expected_version=None,
             return_document=ReturnDocument.BEFORE,
         )
 
@@ -615,6 +616,7 @@ async def release_spieltag_sides(
             db_filter={"_id": spiel_id},
             update={"$set": changes},
             session=session,
+            expected_version=None,
             return_document=ReturnDocument.BEFORE,
         )
 

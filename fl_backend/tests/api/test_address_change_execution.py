@@ -1670,6 +1670,7 @@ class TestTheAdministratorFollowsTheirMove:
                     collection=database[Collection.GRANTS],
                     db_filter={"address": FOREIGN_EMAIL},
                     update={"$set": {"seen_at": NOW}},
+                    expected_version=None,
                     return_document=ReturnDocument.BEFORE,
                 ),
             )
@@ -1727,6 +1728,7 @@ class TestTheAdministratorFollowsTheirMove:
                         collection=database[Collection.GRANTS],
                         db_filter=grant,
                         update={"$set": {"seen_at": NOW}},
+                        expected_version=None,
                         return_document=ReturnDocument.BEFORE,
                     ),
                 )
@@ -2198,6 +2200,7 @@ class TestWhatTheEffectLeavesTheLoeschung:
                     collection=database[Collection.SPIELBESTAETIGUNGEN],
                     db_filter={"_id": ANSWERED_OID},
                     update={"$set": {"asked_at": "2126-03-31"}},
+                    expected_version=None,
                     return_document=ReturnDocument.BEFORE,
                 )
             finally:
@@ -2244,12 +2247,14 @@ class TestWhatTheEffectLeavesTheLoeschung:
                 collection=database[Collection.REGISTRIERUNGEN],
                 db_filter={"_id": DECLINED_REG_OID},
                 update=compose_ablehnung_update(by=EMAIL, grund=None, today=TODAY),
+                expected_version=None,
                 return_document=ReturnDocument.BEFORE,
             )
             await patch_one_in_db(
                 collection=database[Collection.REGISTRIERUNGEN],
                 db_filter={"_id": DECLINED_REG_OID},
                 update={"$set": {"frist": "2126-04-07"}},
+                expected_version=None,
                 return_document=ReturnDocument.BEFORE,
             )
             await confirmed_and_moved(database, client)
@@ -2299,6 +2304,7 @@ class TestTheLoeschung:
                     collection=database[Collection.SAISON_TEAMS],
                     db_filter={"_id": ROW_OID},
                     update={"$set": {"kontakte.ansprechperson": {**replacement, "email": FOREIGN_EMAIL}}},
+                    expected_version=None,
                     return_document=ReturnDocument.BEFORE,
                 ),
             )
@@ -2330,6 +2336,7 @@ class TestTheLoeschung:
                     collection=database[Collection.SCHIEDSRICHTER],
                     db_filter={"_id": UNCONFIRMED_REFEREE_OID},
                     update={"$set": edit},
+                    expected_version=None,
                     return_document=ReturnDocument.BEFORE,
                 ),
             )

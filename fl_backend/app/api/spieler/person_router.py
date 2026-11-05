@@ -363,6 +363,7 @@ async def patch_einwilligung(
                 db_filter={"_id": row["_id"]},
                 update=update,
                 session=session,
+                expected_version=None,
                 return_document=ReturnDocument.BEFORE,
             )
         line = withdrawal_line(

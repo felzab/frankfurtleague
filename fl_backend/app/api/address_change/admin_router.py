@@ -484,6 +484,7 @@ async def invite_address_change(
             db_filter=build_live_filter(address_change_id, build_resendable_terms()),
             update=compose_link_update(now=germany_now, released=False),
             session=session,
+            expected_version=None,
             return_document=ReturnDocument.AFTER,
         )
         valid_until = as_utc(updated["valid_until"])
@@ -650,6 +651,7 @@ async def post_address_change_approval(
             db_filter=build_live_filter(address_change_id, {"approval.approved_at": None}),
             update=compose_approved_update(actor=actor_identifier, now=germany_now),
             session=session,
+            expected_version=None,
             return_document=ReturnDocument.AFTER,
         )
         if not is_due(approved, now=germany_now):

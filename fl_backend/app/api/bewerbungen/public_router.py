@@ -634,6 +634,7 @@ async def post_einwilligung(
                     at=log_stamp(germany_now),
                 ),
                 session=session,
+                expected_version=None,
                 return_document=ReturnDocument.BEFORE,
             )
 
@@ -646,6 +647,7 @@ async def post_einwilligung(
             db_filter={"_id": row["_id"]},
             update=compose_saison_decline_update(seats=seats, today=today),
             session=session,
+            expected_version=None,
             return_document=ReturnDocument.BEFORE,
         )
         # The emptied seats' links on the team's confirmations, answered and closed ones too, go with them.
@@ -753,6 +755,7 @@ async def post_einwilligung(
                     at=log_stamp(germany_now),
                 ),
                 session=session,
+                expected_version=None,
                 return_document=ReturnDocument.AFTER,
             )
 
@@ -769,6 +772,7 @@ async def post_einwilligung(
             db_filter={"_id": bewerbung_raw["_id"]},
             update=compose_decline_update(seats=seats, today=today, announced=objection_is_announced(kontakte=kontakte, seats=seats)),
             session=session,
+            expected_version=None,
             return_document=ReturnDocument.AFTER,
         )
 

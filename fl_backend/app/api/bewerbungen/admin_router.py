@@ -356,6 +356,7 @@ async def accept_bewerbung(
             # only the season row's copy moves after.
             update={"$set": {"status": "accepted", "team_id": team_id, "decision": _entscheidung(today=today, by=by, grund=None)}},
             session=session,
+            expected_version=None,
             return_document=ReturnDocument.BEFORE,
         )
         await enqueue_mails(
@@ -437,6 +438,7 @@ async def decline_bewerbung(
             db_filter={"_id": bewerbung_id},
             update={"$set": {"status": "declined", "decision": _entscheidung(today=today, by=by, grund=ablehnung_data.grund)}},
             session=session,
+            expected_version=None,
             return_document=ReturnDocument.BEFORE,
         )
         team = await _schule_text(bewerbung_raw=stored_raw, teams_collection=teams_collection, session=session)
@@ -547,6 +549,7 @@ async def resend_einwilligung(
                 db_filter=build_erneut_filter(bewerbung_id=bewerbung_id, seats=seats),
                 update=compose_erneut_update(seats=seats, today=today, confirmation_deadline=bestaetigungsfrist),
                 session=session,
+                expected_version=None,
                 return_document=ReturnDocument.BEFORE,
             )
             # Asked of what the write found, so a correction landing after the first read is judged at the
@@ -677,6 +680,7 @@ async def post_kontakt_email(
             db_filter=db_filter,
             update=compose_kontakt_email_update(seats=seats, email=email_data.email, today=today, confirmation_deadline=bestaetigungsfrist),
             session=session,
+            expected_version=None,
             return_document=ReturnDocument.AFTER,
         )
         await enqueue_mails(
@@ -792,6 +796,7 @@ async def post_kontakt_seat(
                 confirmation_deadline=bestaetigungsfrist,
             ),
             session=session,
+            expected_version=None,
             return_document=ReturnDocument.AFTER,
         )
         await enqueue_mails(

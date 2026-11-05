@@ -194,6 +194,7 @@ async def sweep_registrierungen(
                 db_filter={"_id": row["_id"]},
                 update=compose_erinnerung_update(today=today),
                 session=session,
+                expected_version=None,
                 return_document=ReturnDocument.BEFORE,
             )
         # The stamps and the mails commit together; the ban is judged when each mail is handed out.

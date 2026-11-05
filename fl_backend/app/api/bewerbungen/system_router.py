@@ -259,6 +259,7 @@ async def sweep_saison(
                 db_filter={"_id": row["_id"]},
                 update=compose_erinnerung_update(seats=[seat for _, seats in personen_of[row["_id"]] for seat in seats], today=today),
                 session=session,
+                expected_version=None,
                 return_document=ReturnDocument.BEFORE,
             )
         # In the stamps' own transaction: a stamp never stands without its mail, nor a mail without its stamp.
@@ -423,6 +424,7 @@ async def sweep_saison(
                 # message it went out in (`docs/datenschutz.md :: "No delivery state has a clock of its own"`).
                 update={"$set": {"kontakte": None, "confirmations": None}},
                 session=session,
+                expected_version=None,
                 return_document=ReturnDocument.BEFORE,
             )
             voids.append(seat_void_of(saison_id=saison_id, team_id=before["team_id"], stored_kontakte=before.get("kontakte"), kontakte=None))

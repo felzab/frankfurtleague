@@ -270,7 +270,12 @@ async def _plan_withdrawal(line: JournalLine, database: AsyncDatabase, *, key: S
 
     async def rewrite_withdrawal(session: AsyncClientSession) -> Any:
         return await patch_one_in_db(
-            collection=collection, db_filter={"_id": row["_id"]}, update=update, session=session, return_document=ReturnDocument.BEFORE
+            collection=collection,
+            db_filter={"_id": row["_id"]},
+            update=update,
+            session=session,
+            expected_version=None,
+            return_document=ReturnDocument.BEFORE,
         )
 
     return Plan("to replay", rewrite_withdrawal)
@@ -317,6 +322,7 @@ async def _plan_objection(
             db_filter={"_id": row["_id"]},
             update=_objection_update(home, kontakte=kontakte, seats=open, today=declined_on),
             session=session,
+            expected_version=None,
             return_document=ReturnDocument.BEFORE,
         )
         if home == Collection.SAISON_TEAMS:

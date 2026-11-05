@@ -273,6 +273,7 @@ async def post_spielbestaetigung(
                     today=today,
                 ),
                 session=session,
+                expected_version=None,
                 return_document=ReturnDocument.BEFORE,
             )
         except DocumentNotFoundError:

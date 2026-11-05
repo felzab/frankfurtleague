@@ -622,6 +622,7 @@ class TestTheAnlass:
                     collection=database[Collection.TEAMS],
                     db_filter={"_id": OTHER_TEAM_OID},
                     update={"$set": {"name": "Gast-Schule am Main"}},
+                    expected_version=None,
                     return_document=ReturnDocument.BEFORE,
                 ),
             )

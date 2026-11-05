@@ -463,6 +463,7 @@ async def sweep_spielbestaetigungen(
                 db_filter={"_id": row["_id"], **build_holding_filter()},
                 update=compose_closing_update(grund=gruende[row["_id"]], today=today),
                 session=session,
+                expected_version=None,
                 return_document=ReturnDocument.BEFORE,
             )
         await enqueue_mails(outbox_collection=outbox_collection, session=session, mails=mails, now=now)
@@ -627,6 +628,7 @@ async def sweep_spielbestaetigungen(
                     db_filter={"_id": row_id, **build_answerable_filter()},
                     update=update,
                     session=session,
+                    expected_version=None,
                     return_document=ReturnDocument.BEFORE,
                 )
         mails = [mail for _, plan in taken for mail in plan.mails]
@@ -720,6 +722,7 @@ async def sweep_spielbestaetigungen(
                 db_filter={"_id": row["_id"], **build_answerable_filter()},
                 update=compose_erinnerung_update(emails=owed.emails, today=today, reminded=owed.marked),
                 session=session,
+                expected_version=None,
                 return_document=ReturnDocument.BEFORE,
             )
         await enqueue_mails(

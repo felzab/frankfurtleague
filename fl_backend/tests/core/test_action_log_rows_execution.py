@@ -66,6 +66,7 @@ def test_the_rows_every_real_write_builds_are_the_stored_shape(mongo_replica_set
                 db_filter={"_id": TEAM_OID},
                 update={"$set": {"name": RENAMED}},
                 session=session,
+                expected_version=None,
                 return_document=ReturnDocument.BEFORE,
             )
             # A dotted key, which is what every reference fan-out matches on and what the row then stores.
