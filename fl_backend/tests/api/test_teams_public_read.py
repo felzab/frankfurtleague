@@ -262,7 +262,9 @@ SHORTHANDS = {"Helmholtz": "HGX", "Lessing": "LEX", "Goethe": "GOX"}
 
 
 def side(key: str, tore: int) -> dict[str, Any]:
-    return {"team_id": TEAM_OIDS[key], "name": key, "shorthand": SHORTHANDS[key], "tore": tore}
+    """A side as a fixture stores it: the club and its goals, its name joined at read."""
+
+    return {"team_id": TEAM_OIDS[key], "tore": tore}
 
 
 def fixture(spiel_id: ObjectId, nr: int, saison_id: str, **overrides: Any) -> dict[str, Any]:
@@ -346,7 +348,9 @@ class TestTheBracketPlacesTheClubsTheTableRanks:
 
                 finale = await database[Collection.SPIELE].find_one({"_id": FINALE}) or {}
 
-                return (finale.get("team1") or {}).get("name"), (finale.get("team2") or {}).get("name")
+                # The stored side names its club by id alone.
+                keys: dict[Any, str] = {team_id: key for key, team_id in TEAM_OIDS.items()}
+                return keys.get((finale.get("team1") or {}).get("team_id")), keys.get((finale.get("team2") or {}).get("team_id"))
 
         assert on_the_seed_loop(body()) == seeded
 

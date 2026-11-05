@@ -20,6 +20,8 @@ from app.api.spiele.schemas import (
     FLBracketFaultSpiel,
     FLPatchSpielDataPayload,
     FLSpiel,
+    FLSpielJoinedAdmin,
+    FLSpielJoinedAdminListAdapter,
     FLSpielJoinedInternal,
     FLSpielJoinedInternalListAdapter,
     FLSpielListAdapter,
@@ -36,7 +38,6 @@ from app.api.spiele.services import (
     find_double_bookings,
     find_eligibility_refusal,
     find_fixture_date_refusal,
-    find_referee_stand_refusal,
     find_result_removal_refusal,
     find_retired_bookings,
     find_slot_claims,
@@ -54,7 +55,7 @@ from app.core.collections import Collection
 from app.core.constraints import UNIQUE_INDEXES
 from app.core.exceptions import WriteRefusal
 from app.readback import RECORD_MODELS
-from tests.documents import rules_document
+from tests.documents import joined_spiel_document, rules_document
 
 PayloadFactory = Callable[..., dict[str, Any]]
 
@@ -168,7 +169,7 @@ def _resubmit(saison_docs: list[dict[str, Any]], nr: int) -> FLPatchSpielDataPay
             "ort": _submitted(stored["ort"], keeping=("spielort_id", "mietpreis")),
             "schiedsrichter": _submitted(stored["schiedsrichter"], keeping=("schiedsrichter_id", "payment")),
             "notiz": stored.get("notiz"),
-            "schiedsrichter_stand": None if stored["schiedsrichter"] is None else stored["schiedsrichter"]["schiedsrichter_id"],
+            "version": stored.get("version", 0),
         }
     )
 
@@ -282,7 +283,9 @@ class TestARetiredBookingOnAReopenedFixture:
     """That a rewrite voiding a played result keeps a retired booking and reports it, while a save newly booking the row stays refused."""
 
     def test_the_reopened_fixture_is_reported_and_the_played_one_is_not(self, a_semi_final_played_at_a_retired_ground):
-        (played,) = FLSpielListAdapter.validate_python(a_semi_final_played_at_a_retired_ground)
+        (played,) = FLSpielJoinedAdminListAdapter.validate_python(
+            [joined_spiel_document(spiel) for spiel in a_semi_final_played_at_a_retired_ground]
+        )
         # What `fl_backend/app/api/spiele/crud.py :: advance_bracket_winners` writes over a slot whose occupant changed.
         reopened = played.model_copy(update={"team1": played.team2, "team2": None, "ergebnis": None})
         retired = {ObjectId(RETIRED_GROUND): GROUND_RETIRED_ON}
@@ -330,34 +333,36 @@ LIFTED_NO_SHOW_NR, BOOKED_AN_HOUR_LATER_NR = 30, 31
 
 
 @pytest.fixture
-def a_lifted_no_show_beside_a_later_booking(spiel: PayloadFactory) -> list[FLSpiel]:
+def a_lifted_no_show_beside_a_later_booking(spiel: PayloadFactory) -> list[FLSpielJoinedAdmin]:
     """Two fixtures of one day at one ground, 18:00 and 19:00: the first's no-show has just been lifted by a rewrite."""
 
-    return FLSpielListAdapter.validate_python(
+    return FLSpielJoinedAdminListAdapter.validate_python(
         [
-            spiel(
-                _id=MATCH_ID.format(nr),
-                spiel_nr=nr,
-                spieltag_id=SPIELTAG_TWO,
-                saison_phase="halbfinale",
-                team1=None,
-                team2=None,
-                ergebnis=None,
-                uhrzeit=uhrzeit,
-                schiedsrichter=None,
+            joined_spiel_document(
+                spiel(
+                    _id=MATCH_ID.format(nr),
+                    spiel_nr=nr,
+                    spieltag_id=SPIELTAG_TWO,
+                    saison_phase="halbfinale",
+                    team1=None,
+                    team2=None,
+                    ergebnis=None,
+                    uhrzeit=uhrzeit,
+                    schiedsrichter=None,
+                )
             )
             for nr, uhrzeit in ((LIFTED_NO_SHOW_NR, "18:00:00"), (BOOKED_AN_HOUR_LATER_NR, "19:00:00"))
         ]
     )
 
 
-def _holders_of(spiele: list[FLSpiel]) -> list[FLSpielSlotHolder]:
+def _holders_of(spiele: list[FLSpielJoinedAdmin]) -> list[FLSpielSlotHolder]:
     """The fixtures as the report's read of every claim hands them back."""
 
     return [FLSpielSlotHolder.model_validate(spiel.model_dump(by_alias=False) | {"_id": spiel.id}) for spiel in spiele]
 
 
-def _clash_refusal_of(stored: FLSpiel, holders: list[FLSpielSlotHolder], **changes: Any) -> WriteRefusal | None:
+def _clash_refusal_of(stored: FLSpielJoinedAdmin, holders: list[FLSpielSlotHolder], **changes: Any) -> WriteRefusal | None:
     """`spiel_double_booked` on a save of `stored` changing `changes`, judged over the claims it makes as `judge` judges them."""
 
     payload = _resubmit([stored.model_dump()], stored.spiel_nr).model_copy(update=changes)
@@ -438,8 +443,8 @@ class TestAGroupPhaseEveryClubLeaves:
 
 # The junction as the refusal reads it: the season's own name for the club, and the day it left.
 MEMBERSHIP = {
-    ObjectId(ADLER): SaisonMembership(name="Adler", shorthand="ADX", departed_from=EXIT_BEFORE_THE_FIXTURE),
-    ObjectId(BIEBER): SaisonMembership(name="Bieber", shorthand="BIX", departed_from=None),
+    ObjectId(ADLER): SaisonMembership(name="Adler", departed_from=EXIT_BEFORE_THE_FIXTURE),
+    ObjectId(BIEBER): SaisonMembership(name="Bieber", departed_from=None),
 }
 
 
@@ -526,7 +531,6 @@ FIXTURE_PATCH_REFUSALS = (
     find_clash_refusal,
     find_eligibility_refusal,
     find_fixture_date_refusal,
-    find_referee_stand_refusal,
     find_result_removal_refusal,
     find_state_refusal,
     find_wiring_refusal,
@@ -572,7 +576,7 @@ def _abandoned(*, tore: tuple[int | None, int | None]) -> FLPatchSpielDataPayloa
             "ort": None,
             "schiedsrichter": None,
             "notiz": None,
-            "schiedsrichter_stand": None,
+            "version": 0,
         }
     )
 

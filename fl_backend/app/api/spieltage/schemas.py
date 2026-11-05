@@ -2,7 +2,7 @@ from typing import Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
 
-from app.api.spiele.schemas import FLSpielJoined
+from app.api.spiele.schemas import FLSpielJoined, FLSpielJoinedAdmin
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SAISON_ID_LENGTH
 from app.shared.schemas.custom import CustomDateString, CustomObjectId, refuse_reversed_span
 from app.shared.schemas.literals import FLSaisonPhase, FLSortOrder
@@ -84,6 +84,15 @@ class FLSpielplanSpieltag(FLSpieltag):
 FLSpielplanSpieltagListAdapter = TypeAdapter(list[FLSpielplanSpieltag])
 
 
+class FLSpielplanSpieltagAdmin(FLSpielplanSpieltag):
+    """One matchday as the administrator's Spiele list shows it, its matches in the admin shape."""
+
+    spiele: list[FLSpielJoinedAdmin]
+
+
+FLSpielplanSpieltagAdminListAdapter = TypeAdapter(list[FLSpielplanSpieltagAdmin])
+
+
 class FLSpielplanResponse(BaseAPIResponse):
     """A season's matchdays in the order they are played, and the one the Spielplan opens on.
 
@@ -92,6 +101,17 @@ class FLSpielplanResponse(BaseAPIResponse):
     """
 
     spieltage: list[FLSpielplanSpieltag]
+    current_spieltag_id: CustomObjectId | None
+
+
+class FLSpieleSpielplanAdminResponse(BaseAPIResponse):
+    """A season's matchdays and knockout rounds in playing order, matches in the admin shape, and the one to open on.
+
+    `current_spieltag_id` is the Spielplan's own: the first matchday holding a match still to be played, else the last;
+    in a finished season, the last. Null for a season with no matchday.
+    """
+
+    spieltage: list[FLSpielplanSpieltagAdmin]
     current_spieltag_id: CustomObjectId | None
 
 

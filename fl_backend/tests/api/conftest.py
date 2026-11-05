@@ -116,19 +116,19 @@ def _team(key: str, shorthand: str, name: str | None = None) -> dict[str, Any]:
     return team_document(TEAM_OIDS[key], name, shorthand)
 
 
-def _junction(key: str, gruppe: str, **overrides: Any) -> dict[str, Any]:
-    """The row `post_saison_team` writes: the club's identity COPIED in at entry, never joined on read."""
+def _junction(key: str, gruppe: str, *, saison_id: str = SAISON, name: str | None = None, **overrides: Any) -> dict[str, Any]:
+    """The row `post_saison_team` writes: the club's identity COPIED in at entry, which every fixture read joins."""
 
-    return saison_team_document(SAISON, TEAM_OIDS[key], key, SAISON_SHORTHANDS[key], gruppe=gruppe, **overrides)
+    return saison_team_document(saison_id, TEAM_OIDS[key], name or key, SAISON_SHORTHANDS[key], gruppe=gruppe, **overrides)
 
 
 def _side(key: str | None, tore: int | None) -> dict[str, Any] | None:
-    """The name and shorthand a fixture side carries are COMPOSED from the season row and ride on no payload."""
+    """A fixture side as stored: the club and its goals, its name joined at read from the season's row."""
 
     if key is None:
         return None
 
-    return {"team_id": TEAM_OIDS[key], "name": key, "tore": tore, "shorthand": SAISON_SHORTHANDS[key]}
+    return {"team_id": TEAM_OIDS[key], "tore": tore}
 
 
 def _spieltag_oid(saison_id: str, nr: int) -> ObjectId:
@@ -204,7 +204,10 @@ SAISON_TEAMS = [
     _junction("Lessing", "A", austritt=dict(AUSTRITT)),
     _junction("Ohne", "B"),
     _junction("Komplett", "B"),
-    # No row for Fremd, and none for Helmholtz in 2025 — both are asserted on.
+    # Last season's rows, Lessing's under the name it played that season under, and without the 2026 withdrawal.
+    _junction("Helmholtz", "A", saison_id=PRIOR_SAISON),
+    _junction("Lessing", "A", saison_id=PRIOR_SAISON, name="Lessing 2025"),
+    # No row for Fremd, which the table drops: asserted on, and served on no fixture read.
 ]
 
 SPIELE = [
@@ -219,7 +222,7 @@ SPIELE = [
     _spiel(6, "viertelfinale", "Helmholtz", "Bock", 5, 0, ergebnis="5:0"),
     # An `ergebnis` with no goal counts behind it -- excluded, or it would group as a 0:0 draw.
     _spiel(7, "gruppenphase", "Lessing", "Ohne", None, None, ergebnis="3:0"),
-    # Last season: both sides hold 2026 junction rows a 2025 fixture must not pick up.
+    # Last season: both sides hold 2026 junction rows a 2025 fixture must not pick up, beside their 2025 ones.
     _spiel(8, "gruppenphase", "Helmholtz", "Lessing", 7, 0, ergebnis="7:0", saison_id=PRIOR_SAISON),
     # An unfilled bracket slot carrying no result, so the spiele join is proved against a null side.
     _spiel(9, "viertelfinale", None, "Bock", None, None, ergebnis=None),

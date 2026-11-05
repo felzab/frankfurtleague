@@ -271,7 +271,7 @@ const toPatchPayload = (spiel: FLSpielJoinedAdmin): FLPatchSpielDataPayloadWithI
   schiedsrichter:
     spiel.schiedsrichter === null ? null : { schiedsrichter_id: spiel.schiedsrichter.schiedsrichter_id, payment: spiel.schiedsrichter.payment },
   notiz: spiel.notiz,
-  schiedsrichter_stand: spiel.schiedsrichter?.schiedsrichter_id ?? null,
+  version: spiel.version,
 });
 
 /**

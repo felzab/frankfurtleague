@@ -259,16 +259,17 @@ const ROUNDS = [
   ],
 ];
 
+// A fixture stores who plays and the goals alone: every read joins the names.
 function side(name, tore) {
-  return { team_id: club[name]._id, name, shorthand: club[name].shorthand, tore };
+  return { team_id: club[name]._id, tore };
 }
 
 function booked(venueIndex, refereeIndex) {
   const ort = VENUES[venueIndex];
   const schiedsrichter = REFEREES[refereeIndex];
   return {
-    ort: { spielort_id: ort._id, name: ort.name, maps_link: ort.maps_link, mietpreis: ort.default_mietpreis },
-    schiedsrichter: { schiedsrichter_id: schiedsrichter._id, name: schiedsrichter.name, payment: schiedsrichter.default_payment },
+    ort: { spielort_id: ort._id, mietpreis: ort.default_mietpreis },
+    schiedsrichter: { schiedsrichter_id: schiedsrichter._id, payment: schiedsrichter.default_payment },
   };
 }
 
