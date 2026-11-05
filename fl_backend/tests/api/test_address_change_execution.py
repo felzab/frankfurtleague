@@ -1688,7 +1688,7 @@ class TestTheAdministratorFollowsTheirMove:
             await granted(database)
             await database[Collection.BAN_LIST].insert_one(documents.ban_document(FOREIGN_EMAIL, until="2030", created_by=EMAIL))
             await database[Collection.INVITATIONS].insert_one(
-                compose_einladung(saison_id=SAISON_ID, team_id=TEAM_OID, token_hashes=["h" * 64], created_by=EMAIL, today=TODAY)
+                compose_einladung(saison_id=SAISON_ID, team_id=TEAM_OID, token_hashes=["h" * 64], created_by=EMAIL, today=TODAY, sent_at=None)
             )
             await database[Collection.BEWERBUNGEN].insert_one(
                 documents.bewerbung_document(
