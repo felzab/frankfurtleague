@@ -157,7 +157,7 @@ type FLAddressChangeWaitingPeriodDays = Literal[7]
 ADDRESS_CHANGE_WAITING_PERIOD_DAYS: Final[FLAddressChangeWaitingPeriodDays] = 7
 
 # Published as schemas of their own (`app/main.py :: with_mirrored_constants`), though no operation names one: the
-# privacy notice, the mails and the link page state both figures, and `fl_frontend/src/core/adresswechsel.ts` checks
+# privacy notice, the mails and the link page state both figures, and `fl_frontend/src/core/addressChange.ts` checks
 # its constants against them, so a bound moved here alone fails the frontend's type check rather than the notice
 # stating a figure the backend no longer keeps. Each value is typed by its alias, so neither moves without the other.
 ADDRESS_CHANGE_BOUNDS: Final = (FLAddressChangeValidHours, FLAddressChangeWaitingPeriodDays)
