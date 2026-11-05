@@ -9,7 +9,7 @@ import { postBestaetigungAnsicht, postEinladungAnsicht } from "./mutations";
 import { einladungZustand, mapRegistrierungAnsichtRefusal } from "./utils";
 
 import type { FLOpenRegistrierungenResponse, FLRegistrierungenListResponse } from "@/core/generated/client/types";
-import type { Leserichtung } from "@/shared/utils/leserichtung";
+import type { ReadingDirection } from "@/shared/utils/readingDirection";
 import type { RegistrierungStart, SpielerBestaetigungAnsicht } from "./types";
 
 /**
@@ -18,7 +18,7 @@ import type { RegistrierungStart, SpielerBestaetigungAnsicht } from "./types";
  * arguments alone, `cache` comparing them by identity.
  */
 export const getOffeneRegistrierungen = cache(
-  async (teamId: string, saisonId: string, order: Leserichtung): Promise<FLOpenRegistrierungenResponse> =>
+  async (teamId: string, saisonId: string, order: ReadingDirection): Promise<FLOpenRegistrierungenResponse> =>
     runPersonRead(() => registrierungenGetOpenRegistrierungen(teamId, saisonId, { order: order })),
 );
 
@@ -26,7 +26,7 @@ export const getOffeneRegistrierungen = cache(
  * Every season's pending registrations and never the header's season alone: a planned season's
  * stranded registrations would sit behind the selector, where nobody looks for them.
  */
-export async function getAdminRegistrierungen(order: Leserichtung): Promise<FLRegistrierungenListResponse> {
+export async function getAdminRegistrierungen(order: ReadingDirection): Promise<FLRegistrierungenListResponse> {
   // `eingereicht` alone: a declined row waits out its month and asks nothing of an administrator.
   return runAdminRead(() => registrierungenGetRegistrierungen({ status: "submitted", order: order }));
 }

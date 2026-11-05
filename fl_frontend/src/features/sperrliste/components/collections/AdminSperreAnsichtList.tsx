@@ -1,6 +1,6 @@
 "use client";
 
-import { EINSEHBAR_VERWEHRT } from "@/features/adresswechsel/einsehbar";
+import { EINSEHBAR_VERWEHRT } from "@/features/address-change/einsehbar";
 import { ANTRAG_WAS } from "@/features/berechtigungen/constants";
 import { rollenLangform } from "@/features/bewerbungen/constants";
 import { SPERRE_ANSICHT_COPY, SPERRE_ANSICHT_VERWEISE, spieleNeuBesetzen } from "@/features/sperrliste/constants";

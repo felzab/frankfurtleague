@@ -189,7 +189,7 @@ const SECRET_READERS = Object.fromEntries(
     // The system's key calls the backend as the system, past every guard on an admin's session.
     [["src/core/api.ts"], ["internalApiKeyBase", "internalApiKeySystem", "internalApiKeyAdmin"], "the backend's keys"],
     [["src/core/turnstile.ts"], ["turnstileSecretKey"], "the key the bot check's tokens are verified with"],
-    [["src/instrumentation-node.ts"], ["heartbeatUrl"], "the monitor's address, whose token reports the passes"],
+    [["src/instrumentationNode.ts"], ["heartbeatUrl"], "the monitor's address, whose token reports the passes"],
   ].map(([owners, importNames, secret]) => [
     secret,
     {
@@ -226,7 +226,7 @@ const OWN_ACCOUNT_DELETION = {
   regex: moduleNamed(String.raw`auth\x2Faccounts`),
   importNames: ["deleteOwnAccount"],
   message:
-    "deleteOwnAccount deletes the account around whatever eraser it is handed: fl_frontend/src/features/konto/personActions.ts imports it, handing it the backend's own erasure, and a *.test.ts(x) file may; nothing else may.",
+    "deleteOwnAccount deletes the account around whatever eraser it is handed: fl_frontend/src/features/account/personActions.ts imports it, handing it the backend's own erasure, and a *.test.ts(x) file may; nothing else may.",
 };
 
 /**
@@ -295,7 +295,7 @@ const BACKGROUND_PASSES = [
   {
     operations: ["outbox_post_handout", "outbox_post_result"],
     wrapper: { file: "src/core/mail.ts", names: ["drainOutbox"] },
-    runners: ["src/instrumentation-node.ts", "src/core/afterResponse.ts"],
+    runners: ["src/instrumentationNode.ts", "src/core/afterResponse.ts"],
   },
   {
     operations: ["bewerbungen_get_sweep_saisons", "bewerbungen_sweep_saison"],
@@ -309,13 +309,13 @@ const BACKGROUND_PASSES = [
   },
   {
     operations: ["address_change_sweep_address_change"],
-    wrapper: { file: "src/features/adresswechsel/mutations.ts", names: ["postAdresswechselSweep"] },
-    runners: ["src/features/adresswechsel/sweep.ts"],
+    wrapper: { file: "src/features/address-change/mutations.ts", names: ["postAdresswechselSweep"] },
+    runners: ["src/features/address-change/sweep.ts"],
   },
   {
     operations: ["address_change_get_address_change_moves", "address_change_post_address_change_moves_done"],
-    wrapper: { file: "src/features/adresswechsel/mutations.ts", names: ["getAdresswechselUmzuege", "postAdresswechselUmzuegeErledigt"] },
-    runners: ["src/features/adresswechsel/umzug.ts"],
+    wrapper: { file: "src/features/address-change/mutations.ts", names: ["getAdresswechselUmzuege", "postAdresswechselUmzuegeErledigt"] },
+    runners: ["src/features/address-change/umzug.ts"],
   },
   {
     operations: ["identity_get_references"],
@@ -390,7 +390,7 @@ const IMPORT_BANS = [
   ...Object.values(SECRET_READERS).map(({ owners, ...entry }) => importBan(entry, PRODUCTION, { allow: owners })),
   importBan(AUTH_INSTANCE, PRODUCTION, { allow: ["src/app/api/auth/[...all]/route.ts", "src/core/auth/**"] }),
   importBan(SIGN_IN_STORE, PRODUCTION, { allow: ["src/core/auth/library.ts", "src/core/authIndexes.ts"] }),
-  importBan(OWN_ACCOUNT_DELETION, PRODUCTION, { allow: ["src/features/konto/personActions.ts"] }),
+  importBan(OWN_ACCOUNT_DELETION, PRODUCTION, { allow: ["src/features/account/personActions.ts"] }),
   importBan(CATALOGUE_BRAND, EVERY, { allow: ["src/core/serverCopy.ts"] }),
   ...BACKGROUND_PASS_BANS,
   // `no-restricted-imports` reads import and export declarations alone, so an `import()` would pass every ban above.
@@ -404,7 +404,7 @@ const IMPORT_BANS = [
       "Import a module statically: the import bans read import and export declarations alone, so an `import()` passes every one of them.",
     ),
     PRODUCTION,
-    { allow: ["src/instrumentation.ts", "src/instrumentation-node.ts", "src/core/auth/browserClient.ts"] },
+    { allow: ["src/instrumentation.ts", "src/instrumentationNode.ts", "src/core/auth/browserClient.ts"] },
   ),
 ];
 
@@ -711,12 +711,12 @@ const SOURCE_BANS = [
     SOURCE,
     {
       only: [
+        "account",
         "admin",
         "aktionen",
         "bewerbungen",
         "einladungen",
         "funktionen",
-        "konto",
         "registrierungen",
         "schiedsrichter",
         "sperrliste",
@@ -1318,6 +1318,7 @@ const BAN_BLOCKS = [
 ];
 
 const JS_FILES = ["**/*.{js,mjs,cjs,jsx,ts,mts,cts,tsx}"];
+
 
 const eslintConfig = defineConfig([
   ...nextVitals,

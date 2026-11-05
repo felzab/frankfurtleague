@@ -4,12 +4,12 @@ import { withoutSearchQuery } from "./searchQuery";
  * Which end of a capped read a list keeps. The default keeps the NEWEST, so a flood buries the older
  * genuine rows; reversing is the one thing that puts them back in the window.
  */
-export type Leserichtung = "asc" | "desc";
+export type ReadingDirection = "asc" | "desc";
 
 const ORDER_PARAM = "order";
 
 /** Anything else reads as the default, so a hand-edited URL falls back rather than 404s. */
-export function parseReadingDirection(params: Readonly<Record<string, string | string[] | undefined>>): Leserichtung {
+export function parseReadingDirection(params: Readonly<Record<string, string | string[] | undefined>>): ReadingDirection {
   return params[ORDER_PARAM] === "asc" ? "asc" : "desc";
 }
 
@@ -17,7 +17,7 @@ export function parseReadingDirection(params: Readonly<Record<string, string | s
  * The other end. Named rather than spelled at each call site, where a ternary can return the
  * direction it was handed and no type refuses it.
  */
-export function opposite(direction: Leserichtung): Leserichtung {
+export function opposite(direction: ReadingDirection): ReadingDirection {
   return direction === "asc" ? "desc" : "asc";
 }
 
@@ -25,7 +25,7 @@ export function opposite(direction: Leserichtung): Leserichtung {
  * The search string that reads from `target` — the TARGET end, never the current one, so a control offering
  * both ends and a link offering the other share one builder.
  */
-export function readingDirectionHref(search: URLSearchParams, target: Leserichtung): string {
+export function readingDirectionHref(search: URLSearchParams, target: ReadingDirection): string {
   // Copied rather than rebuilt, so reversing never silently drops a facet or the season.
   const next = withoutSearchQuery(search);
   next.delete(ORDER_PARAM);
@@ -39,7 +39,10 @@ export function readingDirectionHref(search: URLSearchParams, target: Leserichtu
 }
 
 /** The same off a Server Component's `searchParams`, the shape `readFacetSelectionFromRoute` takes. */
-export function readingDirectionHrefFromRoute(params: Readonly<Record<string, string | string[] | undefined>>, target: Leserichtung): string {
+export function readingDirectionHrefFromRoute(
+  params: Readonly<Record<string, string | string[] | undefined>>,
+  target: ReadingDirection,
+): string {
   const search = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
     if (value === undefined) continue;

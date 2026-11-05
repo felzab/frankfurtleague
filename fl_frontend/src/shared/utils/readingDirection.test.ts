@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { opposite, parseReadingDirection, readingDirectionHref, readingDirectionHrefFromRoute } from "./leserichtung.ts";
+import { opposite, parseReadingDirection, readingDirectionHref, readingDirectionHrefFromRoute } from "./readingDirection.ts";
 
 /** The URL shapes the two capped lists write, each carrying something a reversal must not drop. */
 const LIST_URLS: Record<string, string | string[]>[] = [
@@ -25,7 +25,7 @@ function asRoute(href: string): Record<string, string> {
   return Object.fromEntries(new URLSearchParams(href.slice(1)));
 }
 
-describe("parseLeserichtung", () => {
+describe("parseReadingDirection", () => {
   it("keeps the newest end unless the URL asks for the other one", () => {
     for (const params of [{}, { order: "" }, { order: "ASC" }, { order: ["asc"] }, { order: "unsinn" }]) {
       expect(parseReadingDirection(params)).toBe("desc");
@@ -34,14 +34,14 @@ describe("parseLeserichtung", () => {
   });
 });
 
-describe("umgekehrt", () => {
+describe("opposite", () => {
   it("answers the other end from either one", () => {
     expect(opposite("desc")).toBe("asc");
     expect(opposite("asc")).toBe("desc");
   });
 });
 
-describe("leserichtungHref", () => {
+describe("readingDirectionHref", () => {
   it("writes the oldest end as a parameter of its own", () => {
     expect(readingDirectionHref(new URLSearchParams(), "asc")).toBe("?order=asc");
   });
@@ -97,7 +97,7 @@ describe("leserichtungHref", () => {
   });
 });
 
-describe("leserichtungHrefFromRoute", () => {
+describe("readingDirectionHrefFromRoute", () => {
   /** One route's parameters as a Server Component receives them: a string, a repeated key and an absent one. */
   const ROUTE = { saisonbezug: "andere_saison", status: ["eingereicht", "abgelehnt"], order: "asc", trace_id: undefined };
 

@@ -87,7 +87,7 @@ const { getAccountSession } = await import("./auth/guards.ts");
 const { readServedSession } = await import("./auth/session.ts");
 const { removePasskey } = await import("./auth/passkeys.ts");
 const { buildAuthIndexes } = await import("./authIndexes.ts");
-const { devicesOf } = await import("@/features/konto/security");
+const { devicesOf } = await import("@/features/account/security.ts");
 
 const store = () => (storeClient as MongoClient).db("auth");
 const COLLECTIONS = ["session", "passkey", "user", "verification"] as const;

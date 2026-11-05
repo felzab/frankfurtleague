@@ -11,8 +11,8 @@ import { passkeysOf } from "./passkeys";
 import { readLibrarySession, readRequestSession, servedSessionOf } from "./session";
 import { isFreshForEnrolment, isWithinPersonLifetime, PASSKEY_FACTOR } from "./sessionStamps";
 
+import type { Grant } from "../grant";
 import type { SubjectSession } from "../subject";
-import type { Grant } from "../verwaltung";
 import type { ServedSession } from "./session";
 
 /** Where `/signin/continue` sends the session it was handed, before `/area` is resolved to the page it leads to. */

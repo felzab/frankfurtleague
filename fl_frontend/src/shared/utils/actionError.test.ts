@@ -381,9 +381,9 @@ describe("a payload the API refused", () => {
   });
 
   it("names a list entry by its index, as the entry's input is named", () => {
-    const result = refused([bodyField(["namen", 1, "vorname"], "string_pattern_mismatch")]);
+    const result = refused([bodyField(["names", 1, "vorname"], "string_pattern_mismatch")]);
 
-    expect(result.fieldErrors).toStrictEqual({ "namen.1.vorname": FELD_ABGELEHNT });
+    expect(result.fieldErrors).toStrictEqual({ "names.1.vorname": FELD_ABGELEHNT });
   });
 
   it("keeps the failure naming no field where nothing it names is inside the body, and answers the reload", () => {

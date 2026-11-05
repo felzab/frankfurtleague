@@ -71,7 +71,7 @@ export const eraseAccount = action({
       outcome = await deleteOwnAccount(token, await headers(), () => eraseOwnRecords());
     } catch (failed) {
       if (!(failed instanceof DeletionOutcomeUnknown)) throw failed;
-      logger.error("konto.deletion_outcome_unknown", undefined, { name: failed.cause instanceof Error ? failed.cause.name : "unknown" });
+      logger.error("account.deletion_outcome_unknown", undefined, { name: failed.cause instanceof Error ? failed.cause.name : "unknown" });
       return { ok: false, reason: COPY.shared.failure.stale };
     }
     if (outcome !== "deleted") {

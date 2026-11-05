@@ -11,8 +11,8 @@ import { ToggleButton } from "@heroui/react/toggle-button";
 import { ToggleButtonGroup } from "@heroui/react/toggle-button-group";
 
 import { asSignInIdentifier } from "@/core/emailAddress";
-import { beantrageAdresswechselAction } from "@/features/adresswechsel/actions";
-import { FLAdresswechselVerwaltungPayloadSchema } from "@/features/adresswechsel/schemas";
+import { beantrageAdresswechselAction } from "@/features/address-change/actions";
+import { FLAdresswechselVerwaltungPayloadSchema } from "@/features/address-change/schemas";
 import { formButton } from "@/shared/components/ui/formButtons";
 import {
   FIELD_ERROR_CLASSES,

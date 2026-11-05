@@ -64,7 +64,7 @@ describe("UNKNOWN_REFUSAL", () => {
 
 /* The approved words, spelled out. A repair takes `TRY_AGAIN` and a closing retry sentence
    appends `VERSUCHE_ES_ERNEUT_SATZ`; only a retry inside a longer sentence is written out at its site. */
-describe("VERSUCHE_ES_ERNEUT", () => {
+describe("TRY_AGAIN", () => {
   it("is the approved retry, as a repair and as a sentence", () => {
     expect(TRY_AGAIN).toBe("Versuche es erneut");
     expect(VERSUCHE_ES_ERNEUT_SATZ).toBe("Versuche es erneut.");

@@ -5,8 +5,8 @@ import { accountStandsAt } from "@/core/auth/accounts";
 import { refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
+import { accountAtNewAddress } from "./account";
 import { EinsehbarVerwehrtSchema } from "./einsehbar";
-import { accountAtNewAddress } from "./konto";
 import {
   beantrageAdresswechsel,
   einladeAdresswechsel,

@@ -3,7 +3,7 @@
  * on file asked first, then the new mailbox; then the deletion through its mailed link, opened signed out and carried
  * through the sign-in, its action leading to the page that needs no session. Before them „Alle anderen abmelden“ with a
  * second device, whose cookie no person would see still admitted. Konto's steps are named by the board's words, which
- * Konto's pages are built to. The passkeys are `desktop/kontoPasskeys.spec.ts`'s.
+ * Konto's pages are built to. The passkeys are `desktop/accountPasskeys.spec.ts`'s.
  *
  * Each journey signs in as a person of its own, the project's `twoDevices`, `mover` and `leaver`, whom no other journey
  * signs in as: each writes what another would read, the sessions it ends, the records it moves, the account it erases.

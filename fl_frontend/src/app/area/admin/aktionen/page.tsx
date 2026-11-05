@@ -6,7 +6,7 @@ import { getAktionenLog, readAktionenLogSubjekt } from "@/features/aktionen/quer
 import { AdminCrudFallback } from "@/shared/components/ui/AdminCrudFallback";
 import { AdminCrudSearch } from "@/shared/components/ui/AdminCrudSearch";
 import { AdminCrudShell } from "@/shared/components/ui/AdminCrudShell";
-import { parseReadingDirection } from "@/shared/utils/leserichtung";
+import { parseReadingDirection } from "@/shared/utils/readingDirection";
 
 import type { NextPageProps } from "@/shared/types/types";
 

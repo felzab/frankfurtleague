@@ -144,17 +144,17 @@ export function buildBerechtigungEmail(data: FLGrantData, { origin: rawOrigin }:
   const urheber = urheberOf(data);
   const origin = mailOrigin(rawOrigin);
   // A request is asked of its reader rather than told to them, so it is headed, signed and closed as one.
-  const approval_request = aenderung.art === "requested" ? ANTRAG[aenderung.owner ? "ernennung" : "zugang"] : null;
+  const approvalRequest = aenderung.art === "requested" ? ANTRAG[aenderung.owner ? "ernennung" : "zugang"] : null;
 
   return {
     kind: "notice",
-    subjectLine: approval_request?.betreff ?? BETREFF,
+    subjectLine: approvalRequest?.betreff ?? BETREFF,
     origin: origin,
     vorname: "",
     paragraphs: [
       [aenderungsSatz(aenderung)],
-      [urheberSatz(urheber, approval_request === null ? "Geändert" : "Beantragt")],
-      approval_request?.aufgabe ?? [WARNSATZ],
+      [urheberSatz(urheber, approvalRequest === null ? "Geändert" : "Beantragt")],
+      approvalRequest?.aufgabe ?? [WARNSATZ],
     ],
     button: { label: ZIEL_LABEL, href: `${origin}${ZIEL_PFAD}` },
   };

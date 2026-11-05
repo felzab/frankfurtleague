@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 
+import { EINSEHBAR_VERWEHRT } from "@/features/address-change/einsehbar";
 import { ADRESSWECHSEL_EINTRAG } from "@/features/admin/constants";
-import { EINSEHBAR_VERWEHRT } from "@/features/adresswechsel/einsehbar";
 import { textLink } from "@/shared/components/ui/textLink";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 

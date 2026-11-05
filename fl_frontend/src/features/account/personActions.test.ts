@@ -257,7 +257,7 @@ describe("a person's own account deletion through the mailed link's page", () =>
   it("ends a link the library refuses as the link no longer valid, erasing nothing", async () => {
     const { row, holder } = await withLink("falscher-link@example.org");
 
-    const answer = await eraseAccount({ token: "kein-gemailter-link", holder });
+    const answer = await eraseAccount({ token: "no-mailed-link", holder });
 
     expect(answer).toMatchObject({ ok: true, value: { title: COPY.template.linkInvalid, sentence: COPY.shared.end.linkInvalid } });
     expect(erasures).toStrictEqual([]);

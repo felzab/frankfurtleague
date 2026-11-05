@@ -1,6 +1,6 @@
 import "server-only";
 
-import { ADDRESS_CHANGE_WAIT_SPAN } from "@/core/adresswechsel";
+import { ADDRESS_CHANGE_WAIT_SPAN } from "@/core/addressChange";
 
 import type { FLAddressChangeAdminMintResponse } from "@/core/generated/client/types";
 

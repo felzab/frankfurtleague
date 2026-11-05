@@ -685,7 +685,7 @@ describe("an account deleted, against a real database", () => {
     const { runWithRequestScope } = await import("./requestScope.ts");
     const bystander = await seedAccount("unbeteiligt-db@example.org");
     const person = await seedAccount("loeschende-db@example.org");
-    let erased_count = 0;
+    let erasedCount = 0;
 
     const answer = await runWithRequestScope(
       {
@@ -694,12 +694,12 @@ describe("an account deleted, against a real database", () => {
       },
       () =>
         deleteOwnAccount(person.token, new Headers({ ...ORIGIN, cookie: person.cookie }), () => {
-          erased_count += 1;
+          erasedCount += 1;
           return Promise.resolve({});
         }),
     );
 
-    expect([answer, erased_count]).toStrictEqual(["deleted", 1]);
+    expect([answer, erasedCount]).toStrictEqual(["deleted", 1]);
     expect(await heldOf(person)).toStrictEqual({ user: 0, sessions: 0, passkeys: 0, pending: 0 });
     expect(await heldOf(bystander)).toStrictEqual({ user: 1, sessions: 1, passkeys: 1, pending: 7 });
   });

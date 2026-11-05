@@ -19,7 +19,7 @@ import type {
   FLActionLogListResponseCountPerOperation,
 } from "@/core/generated/client/types";
 import type { SearchKey } from "@/shared/hooks/useFuzzySearch";
-import type { Leserichtung } from "@/shared/utils/leserichtung";
+import type { ReadingDirection } from "@/shared/utils/readingDirection";
 
 // Module scope: a fresh array here would defeat useFuzzySearch's memo on every render. The collection
 // is not among them because it is a facet: searching would match the stored name and not the label.
@@ -56,7 +56,7 @@ export function AdminAktionenView({
   /** The one Vorgang the list is narrowed to, or null — set by a row's copy action, and served under the same cap. */
   vorgangId: string | null;
   /** The end the rows below were served from, so the notice and the bar's control cannot name different ones. */
-  richtung: Leserichtung;
+  richtung: ReadingDirection;
 }) {
   // The way out of the narrowing keeps the shell on the selector's season (`withSaisonId`).
   const searchParams = useSearchParams();

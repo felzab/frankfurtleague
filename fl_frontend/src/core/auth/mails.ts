@@ -4,8 +4,8 @@ import { symmetricEncrypt } from "better-auth/crypto";
 
 import { now } from "../clock";
 import { authSecret } from "../config";
+import { ERASURE_LINK_VALID_HOURS } from "../erasureEmail";
 import { outboxPostSignIn } from "../generated/client/sdk";
-import { ERASURE_LINK_VALID_HOURS } from "../loeschungEmail";
 import { logger } from "../logging";
 import { ROUTES } from "../routes";
 import { HOUR_MS } from "../timeUnits";

@@ -1,7 +1,7 @@
 import { parseDate } from "@internationalized/date";
 
 import { KONTAKT_EMAIL } from "@/core/brand";
-import { medienZuJung } from "@/features/konto/einwilligung";
+import { medienZuJung } from "@/features/account/einwilligung";
 import { isRefusal, isRuleRefusal, refusedPayloadAnswer } from "@/shared/utils/actionError";
 import { buildRefusal, LADE_DIE_SEITE_NEU, LADE_NEU_UND_VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";

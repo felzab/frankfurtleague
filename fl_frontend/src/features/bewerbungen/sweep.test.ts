@@ -16,7 +16,7 @@ let apiAnswer: (call: { endpoint: string; method: string }) => unknown = () => (
 /** What the address changes' half did, its remainder `verbleibend`. */
 const adressen = (verbleibend = 0) => ({ removed: 0, effective: 0, discarded: 0, remaining: verbleibend });
 
-/** The address changes' half, answered here and held in `fl_frontend/src/features/adresswechsel/sweep.test.ts`. */
+/** The address changes' half, answered here and held in `fl_frontend/src/features/address-change/sweep.test.ts`. */
 let adresswechselAnswer: () => Promise<ReturnType<typeof adressen>> = () => Promise.resolve(adressen());
 
 // Replaced at the module boundary rather than the sweep being reshaped to admit a seam: the real
@@ -28,7 +28,7 @@ doubleApiClient(({ endpoint: requested, method }) => {
   return apiAnswer(call);
 });
 
-vi.doMock("@/features/adresswechsel/sweep.ts", () => ({
+vi.doMock("@/features/address-change/sweep.ts", () => ({
   sweepAdresswechsel: () => {
     events.push({ kind: "address_change" });
     return adresswechselAnswer();

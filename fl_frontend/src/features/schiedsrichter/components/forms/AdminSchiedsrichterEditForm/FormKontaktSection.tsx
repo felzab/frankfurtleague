@@ -3,7 +3,7 @@
 import { FieldError } from "@heroui/react/field-error";
 import { Input } from "@heroui/react/input";
 
-import { AdresswechselHinweis } from "@/features/adresswechsel/components/ui/AdresswechselHinweis";
+import { AdresswechselHinweis } from "@/features/address-change/components/ui/AdresswechselHinweis";
 import { Angabe } from "@/shared/components/ui/Angabe";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { FIELD_ERROR_CLASSES, FIELD_INPUT_CLASSES, FIELD_PAIR_CLASSES } from "@/shared/components/ui/formFieldStyles";

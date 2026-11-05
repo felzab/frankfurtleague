@@ -5,7 +5,7 @@ import {
   buildAddressChangeEffectiveEmail,
   buildAddressChangeEmail,
   buildAddressChangeNoticeEmail,
-} from "./adresswechselEmail";
+} from "./addressChangeEmail";
 import { buildCodeEmail } from "./authEmail";
 import { buildBerechtigungEmail } from "./berechtigungEmail";
 import {
@@ -18,9 +18,9 @@ import {
   buildBewerbungZusageEmail,
 } from "./bewerbungEmail";
 import { buildEinladungEmail } from "./einladungEmail";
+import { buildErasureEmail } from "./erasureEmail";
 import { ContractBreakError } from "./errors";
 import { buildKontaktBestaetigungEmail } from "./kontaktEmail";
-import { buildErasureEmail } from "./loeschungEmail";
 import { buildPasskeyAddedEmail, buildPasskeyErasedEmail } from "./passkeyEmail";
 import { buildRegistrierungAbsageEmail, buildRegistrierungBestaetigungEmail, buildRegistrierungErinnerungEmail } from "./registrierungEmail";
 import { buildSchiedsrichterBestaetigungEmail } from "./schiedsrichterEmail";

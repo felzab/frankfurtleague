@@ -337,7 +337,7 @@
       "count": 1
     }
   },
-  "src/core/adresswechselEmail.ts": {
+  "src/core/addressChangeEmail.ts": {
     "no-restricted-syntax": {
       "count": 1
     }
@@ -473,12 +473,12 @@
       "count": 13
     }
   },
-  "src/features/adresswechsel/actions.ts": {
+  "src/features/address-change/actions.ts": {
     "fl/server-action": {
       "count": 5
     }
   },
-  "src/features/adresswechsel/components/forms/AdminAdresswechselForm/FormAdresswechselSection.tsx": {
+  "src/features/address-change/components/forms/AdminAdresswechselForm/FormAdresswechselSection.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 14
     },
@@ -495,7 +495,7 @@
       "count": 3
     }
   },
-  "src/features/adresswechsel/components/forms/AdresswechselBeantragen.tsx": {
+  "src/features/address-change/components/forms/AdresswechselBeantragen.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 16
     },
@@ -512,7 +512,7 @@
       "count": 5
     }
   },
-  "src/features/adresswechsel/components/forms/AdresswechselWartet.tsx": {
+  "src/features/address-change/components/forms/AdresswechselWartet.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 14
     },
@@ -526,7 +526,7 @@
       "count": 4
     }
   },
-  "src/features/adresswechsel/components/ui/AdresswechselHinweis.tsx": {
+  "src/features/address-change/components/ui/AdresswechselHinweis.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 2
     },
@@ -540,7 +540,7 @@
       "count": 6
     }
   },
-  "src/features/adresswechsel/components/views/AdminAdresswechselView.tsx": {
+  "src/features/address-change/components/views/AdminAdresswechselView.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 2
     },
@@ -548,7 +548,7 @@
       "count": 2
     }
   },
-  "src/features/adresswechsel/components/views/AdresswechselLinkView.tsx": {
+  "src/features/address-change/components/views/AdresswechselLinkView.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 4
     },
@@ -562,7 +562,7 @@
       "count": 19
     }
   },
-  "src/features/adresswechsel/refusals.ts": {
+  "src/features/address-change/refusals.ts": {
     "no-restricted-syntax": {
       "count": 7
     }

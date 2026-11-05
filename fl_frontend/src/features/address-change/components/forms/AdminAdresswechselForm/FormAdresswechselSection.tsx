@@ -10,10 +10,10 @@ import { FieldError } from "@heroui/react/field-error";
 import { Input } from "@heroui/react/input";
 import { Label } from "@heroui/react/label";
 
-import { readAdresswechselAnsichtAction } from "@/features/adresswechsel/actions";
-import { AdresswechselBeantragen, LEERER_ENTWURF } from "@/features/adresswechsel/components/forms/AdresswechselBeantragen";
-import { AdresswechselWartet } from "@/features/adresswechsel/components/forms/AdresswechselWartet";
-import { isVerwaltungAnsichtRefusal } from "@/features/adresswechsel/refusals";
+import { readAdresswechselAnsichtAction } from "@/features/address-change/actions";
+import { AdresswechselBeantragen, LEERER_ENTWURF } from "@/features/address-change/components/forms/AdresswechselBeantragen";
+import { AdresswechselWartet } from "@/features/address-change/components/forms/AdresswechselWartet";
+import { isVerwaltungAnsichtRefusal } from "@/features/address-change/refusals";
 import { FocusSlot } from "@/shared/components/ui/FocusSlot";
 import { formButton } from "@/shared/components/ui/formButtons";
 import {
@@ -32,8 +32,8 @@ import { unansweredRead } from "@/shared/utils/actionError";
 import { focusSection } from "@/shared/utils/focusAfterWrite";
 
 import type { FLAddressChangeAdminHoldings, FLAddressChangeAdminViewPayload } from "@/core/generated/client/types";
-import type { AdresswechselEntwurf } from "@/features/adresswechsel/components/forms/AdresswechselBeantragen";
-import type { VerwaltungAnsichtGelesen } from "@/features/adresswechsel/queries";
+import type { AdresswechselEntwurf } from "@/features/address-change/components/forms/AdresswechselBeantragen";
+import type { VerwaltungAnsichtGelesen } from "@/features/address-change/queries";
 
 const ANZEIGEN = "Anzeigen";
 const NEUE_ADRESSE_EINTRAGEN = "Neue Adresse eintragen";

@@ -12,11 +12,11 @@ import type { ReactElement } from "react";
 const read = vi.hoisted(() => ({ view: null as FLAddressChangeViewResponse["view"] | null }));
 
 vi.mock("@/core/traceScope", () => ({ runWithIncomingTrace: <T,>(fn: () => Promise<T>) => fn() }));
-vi.mock("@/features/adresswechsel/mutations", async (original) => ({
+vi.mock("@/features/address-change/mutations", async (original) => ({
   ...(await original<object>()),
   postAddressChangeView: async () => ({ view: read.view }),
 }));
-vi.mock("@/features/adresswechsel/konto", () => ({ accountAtNewAddress: async () => false }));
+vi.mock("@/features/address-change/account", () => ({ accountAtNewAddress: async () => false }));
 
 const WORDS = SERVER_COPY.addressChange;
 const DAY = "2026-11-04";

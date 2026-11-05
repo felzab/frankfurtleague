@@ -15,7 +15,7 @@ import { CONTENT_LAYER_CLASSES, COVER_LAYER_CLASSES, PLACEHOLDER_BOX_CLASSES } f
 import type { ReactNode } from "react";
 import type { SearchKey } from "../../hooks/useFuzzySearch";
 import type { Facet, FacetCounts } from "../../utils/facets";
-import type { Leserichtung } from "../../utils/leserichtung";
+import type { ReadingDirection } from "../../utils/readingDirection";
 import type { AdminCrudShape } from "./AdminCrudFallback";
 
 /** A stable stand-in for a resource with no facets: a fresh `[]` default would miss every memo below. */
@@ -65,7 +65,7 @@ export function AdminCrudView<TItem extends { id: string }>({
    * The direction the page fetched under, for a list served from one end of a capped read. Undefined on every other
    * surface, which then draws no read-order control; a surface passing one needs facets, the control riding in the bar.
    */
-  leserichtung?: Leserichtung;
+  leserichtung?: ReadingDirection;
   /**
    * Whether the page narrowed the read on a term no facet draws, the change log's one record or one Vorgang. A facet's
    * own narrowing is read off the selection, so a surface passes this for nothing the bar already shows.

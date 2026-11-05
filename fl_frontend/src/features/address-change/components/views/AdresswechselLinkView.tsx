@@ -6,11 +6,11 @@ import CircleCheck from "@gravity-ui/icons/CircleCheck";
 
 import { Button } from "@heroui/react/button";
 
-import { ADDRESS_CHANGE_VALID_HOURS, ADDRESS_CHANGE_WAIT_SPAN } from "@/core/adresswechsel";
-import { ADDRESS_CHANGE_STOP } from "@/core/adresswechselAntworten";
+import { ADDRESS_CHANGE_VALID_HOURS, ADDRESS_CHANGE_WAIT_SPAN } from "@/core/addressChange";
+import { ADDRESS_CHANGE_STOP } from "@/core/addressChangeAnswers";
 import { KONTAKT_EMAIL } from "@/core/brand";
 import { formatInstant } from "@/core/format";
-import { startOf } from "@/features/adresswechsel/link";
+import { startOf } from "@/features/address-change/link";
 import { ABSATZ_CLASSES, Wert } from "@/features/bewerbungen/components/ui/Gefuellt";
 import { SEITE_CLASSES } from "@/features/bewerbungen/components/ui/seite";
 import {
@@ -38,7 +38,7 @@ import type {
   AddressChangeStart,
   AddressChangeView,
   OldViewPreviousState,
-} from "@/features/adresswechsel/link";
+} from "@/features/address-change/link";
 
 type Antwort = AddressChangePressed["answer"];
 

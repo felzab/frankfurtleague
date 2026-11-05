@@ -6,11 +6,11 @@ import { dayOf } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { runWithIncomingTrace } from "@/core/traceScope";
-import { AdresswechselLinkView } from "@/features/adresswechsel/components/views/AdresswechselLinkView";
-import { accountAtNewAddress } from "@/features/adresswechsel/konto";
-import { startOf, viewOf } from "@/features/adresswechsel/link";
-import { postAddressChangeView } from "@/features/adresswechsel/mutations";
-import { mapAddressChangeViewRefusal } from "@/features/adresswechsel/refusals";
+import { accountAtNewAddress } from "@/features/address-change/account";
+import { AdresswechselLinkView } from "@/features/address-change/components/views/AdresswechselLinkView";
+import { startOf, viewOf } from "@/features/address-change/link";
+import { postAddressChangeView } from "@/features/address-change/mutations";
+import { mapAddressChangeViewRefusal } from "@/features/address-change/refusals";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import { answerAddressChange, verwaltungswegBeantworten } from "./answers";

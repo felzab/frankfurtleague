@@ -3,8 +3,8 @@ import { AccountEmpty, AccountPage } from "@/kit/AccountPage";
 import { COPY } from "@/core/copy";
 import { dayOf, formatDatum } from "@/core/format";
 import { ROUTES } from "@/core/routes";
-import { requireAccountSession } from "@/features/konto/account";
-import { getAccountEinwilligungen } from "@/features/konto/queries";
+import { requireAccountSession } from "@/features/account/account";
+import { getAccountEinwilligungen } from "@/features/account/queries";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import { EntriesBoxes } from "./EntriesBoxes";

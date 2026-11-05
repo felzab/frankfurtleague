@@ -2,7 +2,7 @@ import "server-only";
 
 import { requestOf } from "@/core/errors";
 import { logger } from "@/core/logging";
-import { sweepAdresswechsel } from "@/features/adresswechsel/sweep";
+import { sweepAdresswechsel } from "@/features/address-change/sweep";
 import { postRegistrierungSweep } from "@/features/registrierungen/mutations";
 
 import { getBewerbungSweepSaisons, postBewerbungSweep } from "./mutations";
@@ -15,7 +15,7 @@ type Uebergangen = { bewerbung: number; registrierung: number };
 
 /**
  * One pass over every season, then the clock no season holds (`docs/datenschutz.md :: 6`), for the scheduler
- * (`fl_frontend/src/instrumentation-node.ts :: armScheduler`), which runs one pass at a time.
+ * (`fl_frontend/src/instrumentationNode.ts :: armScheduler`), which runs one pass at a time.
  *
  * Every reminder and notice the backend owed is the Postausgang's drain to send. Answers the rows each half passed over
  * and what the address changes did, `open` the erasures passed over and the lapsed changes left, and the seasons'

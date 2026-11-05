@@ -13,8 +13,8 @@ import { mailedLinkToken } from "@/core/mailedLink";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { getSubjectSession } from "@/core/subject";
-import { eraseAccount } from "@/features/konto/personActions";
-import { getErasureView } from "@/features/konto/queries";
+import { eraseAccount } from "@/features/account/personActions";
+import { getErasureView } from "@/features/account/queries";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import type { Copy, Words } from "@/core/copy";

@@ -2,7 +2,7 @@ import { refusalCodes, refused } from "@/test-support/refusals.ts";
 import { assert, describe, expect, it } from "vitest";
 
 import { ERASED_ACTOR_MARKER } from "@/core/erasedActor.ts";
-import { mapVerwaltungAnsichtRefusal, mapVerwaltungLinkRefusal, mapVerwaltungStartRefusal } from "@/features/adresswechsel/refusals.ts";
+import { mapVerwaltungAnsichtRefusal, mapVerwaltungLinkRefusal, mapVerwaltungStartRefusal } from "@/features/address-change/refusals";
 import {
   GELOESCHTE_PERSON,
   GESPERRTE_ADRESSE,

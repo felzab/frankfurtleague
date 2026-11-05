@@ -132,9 +132,9 @@ export async function activateSaisonAction(rawPayload: { id: string }): Promise<
 
     // Called here rather than handed on bare: the step-up reader attributes a request only where an action's own body
     // calls it.
-    const erased_count = await loeschenNachUmstellung((after) => postLoeschungSweep(after));
+    const erasureSentences = await loeschenNachUmstellung((after) => postLoeschungSweep(after));
 
-    return { success: true, saison: activateOperation, message: [message, ...erased_count].join(" ") };
+    return { success: true, saison: activateOperation, message: [message, ...erasureSentences].join(" ") };
   });
 }
 
@@ -265,7 +265,7 @@ export async function generateSpielplanAction(
 
     // Said first where a replace removed rows, and off the response's counts rather than the
     // request's flag: the flag restates what was asked for, the counts say what is actually gone.
-    const erased_count =
+    const removedSentence =
       generateOperation.removed_spieltage > 0 || generateOperation.removed_spiele > 0
         ? `Gelöscht wurden zuerst ${describeSpielplanUmfang(generateOperation.removed_spieltage, generateOperation.removed_spiele)} des bisherigen Spielplans. `
         : "";
@@ -273,7 +273,7 @@ export async function generateSpielplanAction(
     return {
       success: true,
       spielplan: generateOperation,
-      message: `${erased_count}In Saison ${validated.data.id} stehen jetzt ${umfang}, noch ohne Zeitraum und ohne Termin. Seinen Zeitraum bekommt jeder Spieltag auf seiner eigenen Seite, die Termine der Spiele danach.`,
+      message: `${removedSentence}In Saison ${validated.data.id} stehen jetzt ${umfang}, noch ohne Zeitraum und ohne Termin. Seinen Zeitraum bekommt jeder Spieltag auf seiner eigenen Seite, die Termine der Spiele danach.`,
     };
   });
 }

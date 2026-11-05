@@ -1,7 +1,7 @@
 import "server-only";
 
-import { ADDRESS_CHANGE_VALID_HOURS, ADDRESS_CHANGE_WAIT_SPAN } from "./adresswechsel";
-import { ADDRESS_CHANGE_STOP } from "./adresswechselAntworten";
+import { ADDRESS_CHANGE_VALID_HOURS, ADDRESS_CHANGE_WAIT_SPAN } from "./addressChange";
+import { ADDRESS_CHANGE_STOP } from "./addressChangeAnswers";
 import { KONTAKT_EMAIL } from "./brand";
 import { COPY } from "./copy";
 import { BRAND_NAME, mailOrigin } from "./emailShell";

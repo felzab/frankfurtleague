@@ -9,7 +9,7 @@ import TrashBin from "@gravity-ui/icons/TrashBin";
 
 import { Button } from "@heroui/react/button";
 
-import { einladeAdresswechselAction, verwirfAdresswechselAction } from "@/features/adresswechsel/actions";
+import { einladeAdresswechselAction, verwirfAdresswechselAction } from "@/features/address-change/actions";
 import { LinkStandAngaben, zeitpunktText } from "@/features/bewerbungen/components/ui/LinkStandAngaben";
 import { Angabe } from "@/shared/components/ui/Angabe";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";

@@ -23,7 +23,7 @@ import {
   saveSchiedsrichterConsent,
   saveSeatConsent,
   saveSpielerConsent,
-} from "@/features/konto/personActions";
+} from "@/features/account/personActions";
 
 import type { Copy, Words } from "@/core/copy";
 import type { FLEinwilligungStand, FLEinwilligungUmfang, FLKontaktKenntnisnahmeUmfang } from "@/core/generated/client/types";

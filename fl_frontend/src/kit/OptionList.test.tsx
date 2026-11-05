@@ -56,7 +56,7 @@ describe("a combo box's create entry", () => {
     render(
       <ComboBox
         label={SPIELORT.object}
-        options={[{ id: "gleich", label: SPIELORT.createEntry }]}
+        options={[{ id: "same", label: SPIELORT.createEntry }]}
         create={{ label: SPIELORT.createEntry, onCreate: () => undefined }}
       />,
     );

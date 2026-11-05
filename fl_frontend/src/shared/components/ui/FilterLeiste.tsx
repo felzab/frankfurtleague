@@ -18,7 +18,7 @@ import { useUrlFilters } from "@/shared/hooks/useUrlFilters";
 import { benannt } from "@/shared/utils/benannt";
 import { offeredOptions } from "@/shared/utils/facets";
 import { focusAfterWrite, focusSection } from "@/shared/utils/focusAfterWrite";
-import { readingDirectionHref } from "@/shared/utils/leserichtung";
+import { readingDirectionHref } from "@/shared/utils/readingDirection";
 
 import { countBadge } from "./badges";
 import { FilterPanel, useFilterPanelWidth } from "./FilterPanel";
@@ -28,7 +28,7 @@ import { overlayPanel } from "./overlayPanel";
 import { PICKED_OPTION_CLASSES } from "./pickedOption";
 
 import type { Facet, FacetCounts, FacetOption, FacetSelection } from "@/shared/utils/facets";
-import type { Leserichtung } from "@/shared/utils/leserichtung";
+import type { ReadingDirection } from "@/shared/utils/readingDirection";
 import type { Key } from "@heroui/react/rac";
 
 /** The add control and a pill share this box because they are peers in one row, not a control and state drawn beside it. */
@@ -75,7 +75,7 @@ const ORDER_LABEL = "Ladereihenfolge";
 const ORDER_HINT = "Ladereihenfolge ändern";
 
 /** `desc` first: it is the default, and the end a capped list opens on. */
-const ORDER_OPTIONS: readonly { value: Leserichtung; label: string }[] = [
+const ORDER_OPTIONS: readonly { value: ReadingDirection; label: string }[] = [
   { value: "desc", label: "Neueste zuerst" },
   { value: "asc", label: "Älteste zuerst" },
 ];
@@ -177,7 +177,7 @@ function FilterPill<TItem>({
  * Which end of a capped read the list is served from. A peer of the add control rather than a pill: it narrows
  * nothing, so a pill's count and clear control would each lie about it.
  */
-function LeserichtungSelect({ richtung }: { richtung: Leserichtung }) {
+function LeserichtungSelect({ richtung }: { richtung: ReadingDirection }) {
   const router = useRouter();
   const pathname = usePathname();
   // In a transition for `useUrlFilters`'s reason: the rows stay on screen while the reversed read lands.
@@ -263,7 +263,7 @@ export function FilterLeiste<TItem>({
    * The direction the page fetched under, for a list served from one end of a capped read; undefined on every
    * other surface, which then draws no control at all.
    */
-  leserichtung?: Leserichtung;
+  leserichtung?: ReadingDirection;
 }) {
   if (facets.length === 0) return null;
 
@@ -290,7 +290,7 @@ function FilterRow<TItem>({
   facets: readonly Facet<TItem>[];
   items: TItem[];
   facetCounts: FacetCounts | undefined;
-  leserichtung: Leserichtung | undefined;
+  leserichtung: ReadingDirection | undefined;
 }) {
   const { selection, paramOrder, activeCount, setFacet, clearFacet, clearAll } = useUrlFilters(facets);
 

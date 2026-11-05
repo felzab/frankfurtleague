@@ -1,8 +1,8 @@
 import Link from "next/link";
 
 import { formatList } from "@/core/format";
+import { EINSEHBAR_VERWEHRT } from "@/features/address-change/einsehbar";
 import { HANDLUNGSBEDARF_EINTRAG } from "@/features/admin/constants";
-import { EINSEHBAR_VERWEHRT } from "@/features/adresswechsel/einsehbar";
 import { ANTRAG_WAS } from "@/features/berechtigungen/constants";
 import { rollenLangform } from "@/features/bewerbungen/constants";
 import { FORM_SECTION_HEADING_CLASSES } from "@/shared/components/ui/formFieldStyles";

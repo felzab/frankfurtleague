@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation";
 import CircleCheck from "@gravity-ui/icons/CircleCheck";
 
 import { formatInstant } from "@/core/format";
-import { genehmigeAdresswechselAction } from "@/features/adresswechsel/actions";
-import { GENEHMIGUNG_VERWEHRT } from "@/features/adresswechsel/refusals";
+import { genehmigeAdresswechselAction } from "@/features/address-change/actions";
+import { GENEHMIGUNG_VERWEHRT } from "@/features/address-change/refusals";
 import { nachVonOderGesperrt, vonOderGesperrt } from "@/features/berechtigungen/constants";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
 import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";

@@ -8,7 +8,7 @@ import { parseDate } from "@internationalized/date";
 import { FieldError } from "@heroui/react/field-error";
 import { Input } from "@heroui/react/input";
 
-import { AdresswechselOffen } from "@/features/adresswechsel/components/ui/AdresswechselHinweis";
+import { AdresswechselOffen } from "@/features/address-change/components/ui/AdresswechselHinweis";
 import { LinkStandAngaben } from "@/features/bewerbungen/components/ui/LinkStandAngaben";
 import { ALL_SEAT_PATHS } from "@/features/kontakte/kontakteDraftStatus";
 import { applySeatPresence, applySharedSeat, mirroredJudgedPaths } from "@/features/kontakte/utils";

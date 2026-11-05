@@ -6,9 +6,9 @@ import { judgeAdminRequest } from "@/core/auth/guards";
 import { COPY } from "@/core/copy";
 import { dayOf, formatPeriod } from "@/core/format";
 import { ROUTES } from "@/core/routes";
+import { readAccount } from "@/features/account/account";
 // Session 5: the old admin layout's guard, which moves with that layout.
 import { AdminSessionHold } from "@/features/admin/components/providers/AdminSessionHold";
-import { readAccount } from "@/features/konto/account";
 import { getAdminSaisons } from "@/features/saisons/queries";
 import { selectSaison } from "@/features/saisons/resolvers";
 

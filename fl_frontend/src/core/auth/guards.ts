@@ -3,17 +3,17 @@ import "server-only";
 import { cache } from "react";
 
 import { asSignInIdentifier } from "../emailAddress";
+import { madeSince } from "../grant";
 import { oncePerRequest, setRequestActor } from "../requestScope";
 import { ADMIN_LIFETIME } from "../sessionLifetimes";
 import { lookUpSubject } from "../signInGate";
-import { madeSince } from "../verwaltung";
 import { grantOrNull } from "./gateReads";
 import { auth } from "./library";
 import { readRequestSession } from "./session";
 import { CODE_FACTOR, isPasskeyTouch, isWithinPersonLifetime, PASSKEY_FACTOR, withinLifetime } from "./sessionStamps";
 
+import type { Grant } from "../grant";
 import type { ActorLane, RequestActor } from "../requestScope";
-import type { Grant } from "../verwaltung";
 import type { ServedSession } from "./session";
 
 /**

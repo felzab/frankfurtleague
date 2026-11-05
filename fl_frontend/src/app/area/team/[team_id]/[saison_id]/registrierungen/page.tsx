@@ -1,7 +1,7 @@
 import { readAsSeatHolder, requireTeamSeats } from "@/features/funktionen/resolvers";
 import { RegistrierungenView } from "@/features/registrierungen/components/views/RegistrierungenView";
 import { getOffeneRegistrierungen } from "@/features/registrierungen/queries";
-import { opposite, parseReadingDirection, readingDirectionHrefFromRoute } from "@/shared/utils/leserichtung";
+import { opposite, parseReadingDirection, readingDirectionHrefFromRoute } from "@/shared/utils/readingDirection";
 
 import type { NextPageProps } from "@/shared/types/types";
 

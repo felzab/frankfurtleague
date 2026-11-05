@@ -2,7 +2,7 @@ import { Suspense } from "react";
 
 import { getAdminSession } from "@/core/auth/guards";
 import { asSignInIdentifier } from "@/core/emailAddress";
-import { grantOf, holdsOwnersTier } from "@/core/verwaltung";
+import { grantOf, holdsOwnersTier } from "@/core/grant";
 import { AdminCreateBerechtigungModal } from "@/features/berechtigungen/components/modals/AdminCreateBerechtigungModal";
 import { AdminBerechtigungenView } from "@/features/berechtigungen/components/views/AdminBerechtigungenView";
 import { BERECHTIGUNGEN_CRUD_COPY } from "@/features/berechtigungen/constants";

@@ -3,17 +3,17 @@ import "server-only";
 import { APIError } from "better-auth/api";
 
 import { asSignInIdentifier } from "../emailAddress";
+import { grantOf } from "../grant";
 import { logger } from "../logging";
 import { lookUpSignIn, lookUpSubject } from "../signInGate";
-import { grantOf } from "../verwaltung";
 
+import type { Grant } from "../grant";
 import type { SignInRecords } from "../signInGate";
 import type { SubjectSession } from "../subject";
-import type { Grant } from "../verwaltung";
 
 /** Logged where the grant was asked for, as the send gate's own failure is: the error's name alone. */
 function logUnreadGrant(failed: unknown): void {
-  logger.error("auth.verwaltung_unread", undefined, {
+  logger.error("auth.grant_unread", undefined, {
     name: failed instanceof Error ? failed.name : "unknown",
   });
 }

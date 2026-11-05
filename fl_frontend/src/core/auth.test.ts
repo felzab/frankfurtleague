@@ -181,7 +181,7 @@ afterAll(() => {
 
 /** A stored passkey as the plugin's own routes read one, so an admitted route would really act. */
 const aPasskeyFor = (userId: string) => ({
-  id: "ein-passkey",
+  id: "a-passkey",
   userId: userId,
   credentialID: "fabricated-credential",
   publicKey: "fabricated-public-key",
@@ -230,7 +230,7 @@ const { isFreshlySignedIn } = await import("./auth/sessionStamps.ts");
 const { PASSKEY_LIMIT } = await import("./auth/enrolment.ts");
 const { readServedSession } = await import("./auth/session.ts");
 const { CODE_VALIDITY_MINUTES } = await import("./authEmail.ts");
-const { holdsOwnersTier } = await import("./verwaltung.ts");
+const { holdsOwnersTier } = await import("./grant.ts");
 const { proxy } = await import("../proxy.ts");
 const { NextRequest } = await import("next/server");
 
@@ -538,7 +538,7 @@ describe("what the mounted HTTP surface answers", () => {
     for (const path of [...IN_PROCESS_ONLY, ...REFUSED]) {
       const method = mountedMethods.get(path) === "POST" ? "POST" : "GET";
       // A pattern segment is never what a request carries, so a concrete one stands in for it.
-      const asked = path.replace(/:\w+/, "irgendein-wert");
+      const asked = path.replace(/:\w+/, "any-value");
       const answer = await overHttp(asked, { method, cookie, body: method === "POST" ? {} : undefined });
 
       expect(answer.status, `${method} ${asked} answered ${String(answer.status)}`).toBe(404);
@@ -696,7 +696,7 @@ describe("a grant the backend cannot answer for", () => {
     expect((await getSignInLanding()).destination).toBe("/area");
     expect(await getPasskeyStep()).toBe(null);
     expect(logged.slice(loggedBefore).map((line) => [line.message, line.meta])).toStrictEqual(
-      Array.from({ length: 3 }, () => ["auth.verwaltung_unread", { name: "APINetworkError" }]),
+      Array.from({ length: 3 }, () => ["auth.grant_unread", { name: "APINetworkError" }]),
     );
   });
 
@@ -912,7 +912,7 @@ describe("a passkey session whose passkey is gone", () => {
   it("reads the row by the session's own account", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     madeByPasskey(store, row);
-    for (const held of store.passkey) Reflect.set(held, "userId", "ein-anderes-konto");
+    for (const held of store.passkey) Reflect.set(held, "userId", "another-account");
     arriveAs(cookie);
 
     expect(await getAdminSession()).toBe(null);
@@ -973,7 +973,7 @@ describe("the passkey touch an act declares", () => {
 
 /* A second authenticator, for the cases where one account enrols twice: the plugin only checks the
    credential id it is handed, so a second registration needs no key of its own to be verified. */
-const SECOND_RAW_ID = Buffer.from("fabricated-credential-id-zwei");
+const SECOND_RAW_ID = Buffer.from("fabricated-credential-id-two");
 
 /** The whole ceremony a browser runs, from the options call to the assertion the plugin verifies. */
 async function assertPasskey(cookie: string, userVerified: boolean): Promise<Response> {
@@ -1060,8 +1060,8 @@ describe("what the passkey ceremony has to prove before it mints anything", () =
 });
 
 /** A host this stack does not serve, spelled the three ways a caller can name itself. */
-const FOREIGN_ORIGIN = "https://fremde-seite.example";
-const FOREIGN = { host: "fremde-seite.example", "x-forwarded-host": "fremde-seite.example", origin: FOREIGN_ORIGIN };
+const FOREIGN_ORIGIN = "https://foreign-site.example";
+const FOREIGN = { host: "foreign-site.example", "x-forwarded-host": "foreign-site.example", origin: FOREIGN_ORIGIN };
 
 describe("which relying party and which origin a ceremony is judged against", () => {
   /* A passkey is bound to the relying party its enrolment named, and every one of these headers is
@@ -1757,7 +1757,7 @@ describe("what the library's own log stream reaches this application as", () => 
     const answer = await handler.POST(
       new Request("http://localhost:3000/api/auth/passkey/verify-authentication", {
         method: "POST",
-        headers: { ...ORIGIN, cookie, origin: "https://fremde-seite.example", "content-type": "application/json" },
+        headers: { ...ORIGIN, cookie, origin: "https://foreign-site.example", "content-type": "application/json" },
         body: JSON.stringify({ response: {} }),
       }),
     );
@@ -1771,7 +1771,7 @@ describe("what the library's own log stream reaches this application as", () => 
       // Exactly these: the library hands its logger the rejected value among the arguments, and a
       // key added beside them is how one reaches the stream under a name nobody reads for it.
       expect(Object.keys(line.meta).sort()).toStrictEqual(["name"]);
-      assert.ok(!JSON.stringify(line).includes("fremde-seite"), "the submitted origin reached the stream");
+      assert.ok(!JSON.stringify(line).includes("foreign-site"), "the submitted origin reached the stream");
     }
   });
 
@@ -1781,7 +1781,7 @@ describe("what the library's own log stream reaches this application as", () => 
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     // A stored passkey whose key the verifier cannot read, which is an internal failure rather than
     // a refusal: the library hands its logger the error object itself.
-    store.passkey.push({ ...aPasskeyFor(row.userId), credentialID: CREDENTIAL_ID, publicKey: "kein-schluessel" });
+    store.passkey.push({ ...aPasskeyFor(row.userId), credentialID: CREDENTIAL_ID, publicKey: "no-key" });
     logged.length = 0;
 
     expect((await assertPasskey(cookie, true)).status).toBe(400);

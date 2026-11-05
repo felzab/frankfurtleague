@@ -8,16 +8,16 @@ import { COPY } from "@/core/copy";
 import { requestOf } from "@/core/errors";
 import { AddressChangePostAddressChangeAnswerBody } from "@/core/generated/zod/inputs";
 import { logger } from "@/core/logging";
-import { accountAtNewAddress } from "@/features/adresswechsel/konto";
-import { viewOf } from "@/features/adresswechsel/link";
-import { postAddressChangeAnswer, postAddressChangeStop, postAddressChangeView } from "@/features/adresswechsel/mutations";
-import { mapAddressChangePressRefusal } from "@/features/adresswechsel/refusals";
-import { runAddressChangeMoves } from "@/features/adresswechsel/umzug";
+import { accountAtNewAddress } from "@/features/address-change/account";
+import { viewOf } from "@/features/address-change/link";
+import { postAddressChangeAnswer, postAddressChangeStop, postAddressChangeView } from "@/features/address-change/mutations";
+import { mapAddressChangePressRefusal } from "@/features/address-change/refusals";
+import { runAddressChangeMoves } from "@/features/address-change/umzug";
 
 import { endOf, LINK_INVALID } from "./ends";
 
 import type { ActionAnswer } from "@/core/action";
-import type { AdresswechselPresse } from "@/features/adresswechsel/components/views/AdresswechselLinkView";
+import type { AdresswechselPresse } from "@/features/address-change/components/views/AdresswechselLinkView";
 import type { EndState } from "@/kit/MailedPage";
 
 const { token } = AddressChangePostAddressChangeAnswerBody.shape;

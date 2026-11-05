@@ -17,7 +17,7 @@ import { authSecret, frontend_config } from "../config";
 import { signInStore } from "../db";
 import { asSignInIdentifier } from "../emailAddress";
 import { BRAND_NAME } from "../emailShell";
-import { ERASURE_LINK_VALID_HOURS } from "../loeschungEmail";
+import { ERASURE_LINK_VALID_HOURS } from "../erasureEmail";
 import { logger } from "../logging";
 import { declaredCredentialId, PASSKEY_ASSERTION_PATH } from "../passkeyCeremony";
 import { passkeyLastUse } from "../passkeyLastUse";

@@ -212,7 +212,7 @@ beforeEach(async () => {
 });
 
 /** The passkey the acting device signed in with, which `seedPasskeys` writes last unless a case names it. */
-const OWN_CREDENTIAL = "fl-passkey-db-eigener";
+const OWN_CREDENTIAL = "fl-passkey-db-own";
 
 /**
  * The administrator the account page acts as, signed in just now by the passkey `credentialID` names:
@@ -331,10 +331,10 @@ describe("two removals by one administrator at once, against a real database", (
 });
 
 /** The passkey a removal below takes away, and the device it signed in; the acting device signed in with another. */
-const REMOVED = "fl-passkey-db-entfernt";
+const REMOVED = "fl-passkey-db-removed";
 
 /** A third passkey, which signed in a device of its own and stays. */
-const KEPT = "fl-passkey-db-behalten";
+const KEPT = "fl-passkey-db-kept";
 
 describe("the sessions a removal ends, against a real database", () => {
   const opens = async (cookie: string) => (await auth.api.getSession({ headers: new Headers({ ...ORIGIN, cookie }) })) !== null;

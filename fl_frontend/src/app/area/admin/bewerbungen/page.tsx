@@ -9,7 +9,7 @@ import { getTeamSaisons } from "@/features/teams/queries";
 import { AdminCrudFallback } from "@/shared/components/ui/AdminCrudFallback";
 import { AdminCrudSearch } from "@/shared/components/ui/AdminCrudSearch";
 import { AdminCrudShell } from "@/shared/components/ui/AdminCrudShell";
-import { opposite, parseReadingDirection, readingDirectionHrefFromRoute } from "@/shared/utils/leserichtung";
+import { opposite, parseReadingDirection, readingDirectionHrefFromRoute } from "@/shared/utils/readingDirection";
 
 import type { NextPageProps } from "@/shared/types/types";
 

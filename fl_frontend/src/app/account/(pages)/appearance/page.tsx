@@ -4,7 +4,7 @@ import { ThemeChoice } from "@/kit/FrameNav";
 
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
-import { requireAccountSession } from "@/features/konto/account";
+import { requireAccountSession } from "@/features/account/account";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import type { Metadata, ResolvingMetadata } from "next";

@@ -258,6 +258,6 @@ export function loeschungsSatz({
 
   return held
     ? `Die Frist für die Bestätigungen ist am ${tag} abgelaufen. Gelöscht wird die Bewerbung nicht, solange die Ansprechperson per E-Mail nicht erreichbar ist.`
-    : // The scheduler's own cadence (`fl_frontend/src/instrumentation-node.ts :: armScheduler`).
+    : // The scheduler's own cadence (`fl_frontend/src/instrumentationNode.ts :: armScheduler`).
       `Die Frist für die Bestätigungen ist am ${tag} abgelaufen. Die Bewerbung wird bei der nächsten stündlichen Prüfung gelöscht.`;
 }
