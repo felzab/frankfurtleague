@@ -625,8 +625,8 @@ export const COPY = catalogue({
       /** How the party's agreement reached the league, which the confirmation stores. */
       reason: "Begründung",
       /**
-       * Why a row's act did not run: the save would delete a later match's result, a question only the match editor
-       * asks before it does.
+       * Why a fixture's save did not run, on the match editor, an Übersicht row's act or the Termin dialog alike: it
+       * would delete a later match's result it was not asked about, a question only the match editor asks.
        */
       voidsLater: "Das löscht ein späteres Ergebnis.",
     },
