@@ -15,19 +15,19 @@ const BELEG_ZEITPUNKT = new Intl.DateTimeFormat("de-DE", {
 });
 
 /** One act's instant and label, the stored value kept where the instant cannot be read rather than failing the panel. */
-function beleg({ at: am, text_version }: FLEinwilligungReceipt): string {
-  const instant = new Date(am);
-  const wann = Number.isNaN(instant.getTime()) ? am : `${BELEG_ZEITPUNKT.format(instant)} Uhr`;
+function beleg({ at, text_version }: FLEinwilligungReceipt): string {
+  const instant = new Date(at);
+  const wann = Number.isNaN(instant.getTime()) ? at : `${BELEG_ZEITPUNKT.format(instant)} Uhr`;
 
   return `${wann}, Fassung ${text_version}`;
 }
 
 /** A record's confirmation day, or `null` where its person has not confirmed it. */
-export type Bestaetigung = { am: string } | null;
+export type Bestaetigung = { at: string } | null;
 
 /** The confirmation a consent record holds: every confirmation asks both choices under their one wording each. */
-export function bestaetigungOf({ confirmed_at: bestaetigt_am }: { confirmed_at: string | null }): Bestaetigung {
-  return bestaetigt_am === null ? null : { am: bestaetigt_am };
+export function bestaetigungOf({ confirmed_at }: { confirmed_at: string | null }): Bestaetigung {
+  return confirmed_at === null ? null : { at: confirmed_at };
 }
 
 /**
@@ -42,5 +42,5 @@ export function beschreibeNachweis(evidence: FLEinwilligungEvidence | null, best
 
   if (bestaetigung === null) return "Nicht bestätigt";
 
-  return `seit der Bestätigung am ${formatSpielDatum(bestaetigung.am)}`;
+  return `seit der Bestätigung am ${formatSpielDatum(bestaetigung.at)}`;
 }
