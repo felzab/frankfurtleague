@@ -107,7 +107,7 @@ describe("a table's box", () => {
     );
     const [alone, bare] = [...container.children].map((box) => box.className.split(" "));
     expect(alone).toEqual(expect.arrayContaining(["rounded-lg", "border", "border-border", "bg-bg-card", "overflow-x-auto"]));
-    expect(bare).toStrictEqual(["overflow-x-auto"]);
+    expect(bare).toStrictEqual(["w-full", "overflow-x-auto"]);
   });
 });
 

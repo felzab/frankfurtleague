@@ -37,6 +37,7 @@ export const buttonLook = tv({
     { look: "icon", host: "aria", class: "data-hovered:bg-bg-muted data-pressed:bg-bg-muted" },
     { look: "icon", host: "link", class: "hover:bg-bg-muted active:bg-bg-muted" },
     { look: "quiet", host: "aria", class: "data-hovered:bg-bg-muted data-hovered:text-fg data-pressed:bg-bg-muted data-pressed:text-fg" },
+    { look: "quiet", host: "link", class: "hover:bg-bg-muted hover:text-fg active:bg-bg-muted active:text-fg" },
     { look: "danger", host: "aria", class: "data-hovered:bg-danger-solid-hover data-pressed:bg-danger-solid-hover" },
   ],
 });

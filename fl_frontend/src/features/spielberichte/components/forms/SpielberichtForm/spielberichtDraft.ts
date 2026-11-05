@@ -301,7 +301,7 @@ function descriptorsFor(
       path: "bericht.seiten",
       label: "Teams",
       group: "Spielbericht",
-      read: ({ fuerTeams }) => (fuerTeams === "bericht" ? "andere Teams" : `${kontext.team1Name} gegen ${kontext.team2Name}`),
+      read: ({ fuerTeams }) => (fuerTeams === "bericht" ? "andere Teams" : `${kontext.team1Name} vs. ${kontext.team2Name}`),
     },
   ];
 }

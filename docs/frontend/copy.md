@@ -106,7 +106,7 @@ there.
 | Toast                   | a title of 1 to 3 words, no body                         | a past participle; a failure, the one line `failure.unexpected`                               |
 | Page or section intro   | none                                                     | a page's title is its explanation                                                             |
 | List-truncation banner  | none                                                     | the load-more control instead                                                                 |
-| Page title              | the page's catalogue title                               | followed by the one suffix „\| Frankfurt League“; a match is „{Team 1} gegen {Team 2}“        |
+| Page title              | the page's catalogue title                               | followed by the one suffix „\| Frankfurt League“; a match is „{Team 1} vs. {Team 2}“          |
 | Callout                 | a title plus at most 1 sentence                          | a state or a consequence                                                                      |
 | Team description        | three lines                                              | „Mehr“ inside the text at the third line's end, no „…“ before it, opening the rest            |
 | Mail subject            | 50 characters                                            | what it is about first, no league name                                                        |
@@ -134,11 +134,14 @@ Each pattern is an entry of `COPY.shared`; what the entry cannot say is when it 
   `empty.filter` only where the list keeps a filter.
 - **A confirmation** asks `question` with the verb, says one sentence of consequence, carries that verb
   on its button and `back` as the way back; never „Ja“.
-- **A page a mail opens** ends in one of `end`'s states: done, already done saying what the person
-  did and when, or `linkInvalid`, one message for an expired, mistyped or tampered link alike.
-  Each ends in one button to the logical next step: `verb.signIn` after a confirmed seat or address
-  change, `end.toAccount` where Konto is the one place to change what was done and for an address
-  change's or a deletion's link that no longer holds, `end.toHome` after anything else.
+- **A status card** is a mark, a title and its way on, with no sentence: a not-found, an error, a
+  state with nothing to show yet such as `end.noSaison`, and every end of a page a mail opens.
+- **A page a mail opens** ends in a status card: done, already done titled with what the person did
+  and the day (`end.doneOn`), or `template.linkInvalid`, one title for an expired, mistyped or
+  tampered link alike. Each ends in one button to the logical next step: `verb.signIn` after a
+  confirmed seat or address change, `end.toAccount` where Konto is the one place to change what was
+  done and for an address change's or a deletion's link that no longer holds, `end.toHome` after
+  anything else. The deletion's done page adds the privacy notice beneath it as a quieter link.
 - **A Vorschau line** names the changed fields by their own labels; there are no change-list labels.
 
 ## Help text is one of four kinds

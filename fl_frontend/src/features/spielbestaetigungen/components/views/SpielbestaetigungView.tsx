@@ -70,7 +70,7 @@ function Ansetzung({ ansicht }: { ansicht: FLSpielbestaetigungViewResponse }) {
   return (
     <FaktenBanner
       zeilen={[
-        { label: "Spiel", value: `${ansetzung.team1_name} gegen ${ansetzung.team2_name}`, unbegrenzt: true },
+        { label: "Spiel", value: `${ansetzung.team1_name} vs. ${ansetzung.team2_name}`, unbegrenzt: true },
         { label: "Datum", value: formatSpielDatum(ansetzung.datum) },
         { label: "Anpfiff", value: formatUhrzeit(ansetzung.uhrzeit) },
         { label: "Spielort", value: ansetzung.spielort?.name ?? NICHT_HINTERLEGT },

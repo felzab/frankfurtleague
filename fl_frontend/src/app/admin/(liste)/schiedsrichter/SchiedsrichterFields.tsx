@@ -29,8 +29,6 @@ export function SchiedsrichterFields() {
         kind="email"
         isRequired={required.email}
         maxLength={max.email}
-        // Entering a referee is asking them: the create mails the link, beyond the record.
-        consequence={COPY.admin.schiedsrichter.linkGoes}
       />
       <TextField
         label={FACTS.phone}

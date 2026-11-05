@@ -87,10 +87,9 @@ test("a person changes their address: the address on file confirms first, then t
   await expect(page.getByRole("main").getByText(newAddress, { exact: true })).toBeVisible();
   const afterTheFirst = await filedMessages();
   await page.getByRole("button", { name: "Bestätigen" }).click();
-  // The press's own end, by its sentence: the answer also renders the page again, and the link read again is in the
-  // opened-again state, whose title and way on are the same.
-  await expect(page.getByRole("main").getByRole("heading", { name: "Änderung bestätigt" })).toBeVisible();
-  await expect(page.getByRole("main").getByText("Die neue Adresse bekommt jetzt ihren Link.")).toBeVisible();
+  // The press's own end, by its exact title: the answer also renders the page again, and the link read again is in the
+  // opened-again state, titled with the day („Änderung bestätigt am …“) over the same way on.
+  await expect(page.getByRole("main").getByRole("heading", { name: "Änderung bestätigt", exact: true })).toBeVisible();
   await expect(page.getByRole("main").getByRole("link", { name: "Zum Konto" })).toBeVisible();
 
   // Only now the new mailbox is asked; its confirmation makes the change take effect.
@@ -99,13 +98,12 @@ test("a person changes their address: the address on file confirms first, then t
   await page.goto(newLink);
   await expect(page.getByRole("main").getByRole("heading", { name: "E-Mail-Adresse bestätigen" })).toBeVisible();
   await page.getByRole("button", { name: "Bestätigen" }).click();
-  await expect(page.getByRole("main").getByRole("heading", { name: "Adresse bestätigt" })).toBeVisible();
-  await expect(page.getByRole("main").getByText("Mit dieser Adresse meldest du dich ab jetzt an.")).toBeVisible();
+  await expect(page.getByRole("main").getByRole("heading", { name: "Adresse bestätigt", exact: true })).toBeVisible();
   // In the page's own end: the classic header holds an „Anmelden“ of its own on a desktop.
   const signInHere = page.getByRole("main").getByRole("link", { name: "Anmelden" });
   await expect(signInHere).toBeVisible();
 
-  // The change took effect, which the done page's sentence states whatever the backend answered: the new address signs
+  // The change took effect, which the done page's title states whatever the backend answered: the new address signs
   // in, and its account page names it.
   await signInHere.click();
   await expect(page).toHaveURL((url) => url.pathname === "/signin");
@@ -129,7 +127,6 @@ test("the person deletes their account from the mailed link, signed out when it 
   // Opened signed out, the link leads through the sign-in and back to itself.
   await context.clearCookies();
   await page.goto(link);
-  await expect(page.getByRole("main").getByText("Du bist nicht angemeldet.")).toBeVisible();
   await page.getByRole("main").getByRole("link", { name: "Anmelden" }).click();
   await expect(page).toHaveURL((url) => url.pathname === "/signin" && url.searchParams.has("return"));
   await signInWithCodeHere(page, leaver);

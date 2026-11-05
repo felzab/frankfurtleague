@@ -160,8 +160,6 @@ export function SchiedsrichterEditor({
                   kind="email"
                   isRequired={required.email}
                   maxLength={max.email}
-                  // A corrected address of a person who has not answered is asked anew, beyond the record.
-                  consequence={draft.email === record.values.email ? undefined : WORDS.linkGoes}
                   value={draft.email}
                   onChange={(email) => set("email", email)}
                 />

@@ -8,7 +8,7 @@ import type { Metadata } from "next";
  * not-found card shows.
  */
 export const NOT_FOUND_METADATA: Metadata = {
-  title: SERVER_COPY.landing.notFound.title,
+  title: SERVER_COPY.landing.notFound,
   description: null,
   alternates: null,
   openGraph: null,

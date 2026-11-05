@@ -27,7 +27,7 @@ test("a visitor opens a match from the Spielplan, and Back returns to the matchd
   // A match row is a link to the match's page, which opens over the Spielplan. Only the chosen matchday's
   // matches are on the page, so the row's name finds it.
   await page.getByRole("link", { name: /Ahorn.*Kastanie/ }).click();
-  const popup = page.getByRole("dialog", { name: "Ahorn gegen Kastanie" });
+  const popup = page.getByRole("dialog", { name: "Ahorn vs. Kastanie" });
   await expect(popup).toBeVisible();
   await expect(popup.getByText("2:1")).toBeVisible();
   await expect(page).toHaveURL((url) => /^\/saisons\/2027\/spiele\/[0-9a-f]{24}$/.test(url.pathname));
@@ -46,7 +46,7 @@ test("a visitor opens a match from the Spielplan, and Back returns to the matchd
 
   // Loaded directly, the same address is the match's own page, with no pop-up.
   await page.goto(matchPage);
-  await expect(page.getByRole("banner").getByRole("heading", { level: 1, name: "Ahorn gegen Kastanie" })).toBeVisible();
+  await expect(page.getByRole("banner").getByRole("heading", { level: 1, name: "Ahorn vs. Kastanie" })).toBeVisible();
   await expect(page.getByRole("dialog")).toHaveCount(0);
 });
 
@@ -56,7 +56,7 @@ test("a club's name in the pop-up opens the club's page and closes the pop-up", 
   await prefetched;
 
   await page.getByRole("link", { name: /Ahorn.*Kastanie/ }).click();
-  const popup = page.getByRole("dialog", { name: "Ahorn gegen Kastanie" });
+  const popup = page.getByRole("dialog", { name: "Ahorn vs. Kastanie" });
   await expect(popup).toBeVisible();
 
   // A client navigation leaves a parallel slot showing its last page unless the new address matches one of

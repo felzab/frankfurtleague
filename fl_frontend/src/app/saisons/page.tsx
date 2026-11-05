@@ -24,10 +24,9 @@ async function readSaison(): Promise<StatusCardProps> {
   await connection();
   const { active_saison_id: active } = await getSaisonFrame();
   if (active !== null) redirect(ROUTES.spielplan.path(active));
-  // The landing's words for the same fact, the empty pattern under the season's noun.
   return {
     tone: "info",
-    sentence: COPY.shared.empty.none(COPY.shared.saison),
+    title: COPY.shared.end.noSaison,
     next: { label: COPY.shared.end.toHome, href: ROUTES.home.path() },
   };
 }

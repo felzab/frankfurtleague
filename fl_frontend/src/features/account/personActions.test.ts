@@ -259,7 +259,7 @@ describe("a person's own account deletion through the mailed link's page", () =>
 
     const answer = await eraseAccount({ token: "no-mailed-link", holder });
 
-    expect(answer).toMatchObject({ ok: true, value: { title: COPY.template.linkInvalid, sentence: COPY.shared.end.linkInvalid } });
+    expect(answer).toMatchObject({ ok: true, value: { title: COPY.template.linkInvalid } });
     expect(erasures).toStrictEqual([]);
     expect(heldOf(row.userId)).toStrictEqual({ user: 1, passkeys: 0 });
   });

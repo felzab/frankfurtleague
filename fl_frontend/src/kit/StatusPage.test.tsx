@@ -7,16 +7,13 @@ import { SERVER_COPY } from "@/core/serverCopy";
 
 import { StatusCard, StatusPage } from "./StatusPage";
 
-const { notFound } = SERVER_COPY.landing;
-
 describe("a status card", () => {
   it("writes no landmark of its own, so a page inside an old shell's main places it without a second one", () => {
     render(
       <main>
         <StatusCard
           tone="info"
-          title={notFound.title}
-          sentence={notFound.sentence}
+          title={SERVER_COPY.landing.notFound}
           next={{ label: COPY.shared.end.toHome, href: "/" }}
         />
       </main>,

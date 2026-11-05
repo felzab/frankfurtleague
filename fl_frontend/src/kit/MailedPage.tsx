@@ -31,7 +31,7 @@ export type { EndState } from "./OneShot";
  * and as a press ends on it where the link stopped holding since the page opened.
  */
 export function linkInvalid(next: StatusCardProps["next"]): EndState {
-  return { tone: "warn", title: COPY.template.linkInvalid, sentence: COPY.shared.end.linkInvalid, next: next };
+  return { tone: "warn", title: COPY.template.linkInvalid, next: next };
 }
 
 /**
@@ -47,7 +47,7 @@ export const TO_ACCOUNT = { label: COPY.shared.end.toAccount, href: ROUTES.accou
  *   fields where the answer needs any, and the acts, sent once with the token the page carries, the main one
  *   behind the passkey touch where the act takes it; the answer replaces the page by the status template (the
  *   done state, worded by the server);
- * - `alreadyDone`: the link opened again, saying what the person did and when, with the one place to
+ * - `alreadyDone`: the link opened again, its title saying what the person did and when, with the one place to
  *   change it where there is one, on the danger tint where what they did was to decline;
  * - `ungueltig`: an expired, mistyped or tampered link alike, with the one sensible way on and no resend;
  * - `ende`: an end the page names itself before any answer, as a deletion link opened signed out.
@@ -67,7 +67,7 @@ export type MailedState =
       /** The answer's fields, the kit's, each with its `name`. */
       children?: ReactNode;
     }
-  | { state: "alreadyDone"; title: Copy; sentence: Copy; next: StatusCardProps["next"]; declined?: boolean }
+  | { state: "alreadyDone"; title: Copy; next: StatusCardProps["next"]; declined?: boolean }
   | { state: "ungueltig"; next: StatusCardProps["next"] }
   | ({ state: "ende" } & EndState)
   // Redesign: goes with the address change's old view, which the administrator's way keeps until session 7.
@@ -92,7 +92,6 @@ async function MailedBody({ page }: { page: Promise<MailedState> }) {
           frame="classic"
           tone={props.declined === true ? "danger" : "info"}
           title={props.title}
-          sentence={props.sentence}
           next={props.next}
         />
       );
@@ -102,8 +101,8 @@ async function MailedBody({ page }: { page: Promise<MailedState> }) {
           frame="classic"
           tone={props.tone}
           title={props.title}
-          sentence={props.sentence}
           next={props.next}
+          quiet={props.quiet}
         />
       );
     case "question":

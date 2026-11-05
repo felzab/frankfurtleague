@@ -88,7 +88,8 @@ export function Facts({
   // may list two records under one label, so the label alone would collide.
   const above = new Map<Copy, number>();
   return (
-    <div className="@container grid gap-2 text-sm">
+    // `w-full`: a Section's or an AccountBox's grid starts its children, which would shrink the block to its content.
+    <div className="@container grid w-full gap-2 text-sm">
       {subject !== undefined && (
         <p className="flex min-w-0 items-center gap-2 text-base font-semibold">
           <span

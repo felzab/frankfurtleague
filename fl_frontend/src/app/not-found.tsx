@@ -17,14 +17,12 @@ export const metadata: Metadata = NOT_FOUND_METADATA;
 // `notFound()` meets `fl_frontend/src/app/(public)/not-found.tsx` instead, inside the layout that already
 // draws its shell.
 export default function NotfoundPage() {
-  const words = SERVER_COPY.landing.notFound;
   return (
     <Classic>
       <StatusPage
         frame="classic"
         tone="info"
-        title={words.title}
-        sentence={words.sentence}
+        title={SERVER_COPY.landing.notFound}
         next={{ label: COPY.shared.end.toHome, href: ROUTES.home.path() }}
       />
     </Classic>

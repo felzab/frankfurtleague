@@ -79,10 +79,10 @@ type Worded = { label: Words; children?: never };
 
 /**
  * A link drawn as a button: `primary` for a page's one next step, such as a status card's way on;
- * `secondary` for a way on beside it, or one standing where the page has no single next step. Its words may
- * lead with a glyph.
+ * `secondary` for a way on beside it, or one standing where the page has no single next step; `quiet` for the
+ * lesser way on beneath a primary one, as the button's quiet act is. Its words may lead with a glyph.
  */
-type Button = { placement: "button"; look: "primary" | "secondary"; leadingIcon?: IconName } & Worded;
+type Button = { placement: "button"; look: "primary" | "secondary" | "quiet"; leadingIcon?: IconName } & Worded;
 
 /**
  * A glyph alone, in the icon-only button's look: `label`, at most five words, is its name, which the kit's

@@ -18,7 +18,7 @@ import type { StatusCardProps } from "./StatusPage";
 import type { FormStatus } from "./useFormAction";
 
 /** The end a one-shot form reaches: the status page that replaces it, as the server words it. */
-export type EndState = StatusCardProps & { title: Copy };
+export type EndState = StatusCardProps;
 
 /** Which of the form's acts was pressed: the main one, or the quieter one beneath it. */
 export type Act = "primary" | "secondary";
