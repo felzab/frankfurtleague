@@ -160,8 +160,6 @@ export const COPY = catalogue({
       tooManyAttempts: "Zu viele Versuche in kurzer Zeit.",
       /** An administrator's grant is gone or was never held: no sign-in and no retry repairs it. */
       accessGone: "Dein Zugang zur Verwaltung besteht nicht mehr.",
-      /** The backend left the grant unread: nothing ran, and a sign-in would meet the same outage. */
-      accessUnchecked: "Dein Zugang zur Verwaltung ließ sich gerade nicht prüfen.",
     },
 
     /** Beside the save button once the record is stored. */

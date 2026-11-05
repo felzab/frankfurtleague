@@ -233,12 +233,15 @@ const STALE: ReadonlySet<Code> = new Set<Code>([
   "booking_unconfirmed_schiedsrichter",
 ]);
 
-/** The admin guard's refusals, each in the words of what repairs it. */
+/**
+ * The admin guard's refusals: an ended sign-in and a gone grant each in the words of what holds, and a grant the backend
+ * left unread, an outage nothing the person does repairs, as every other failure.
+ */
 const TURNED_AWAY: Readonly<Record<AdminRefusal, Copy>> = {
   signIn: COPY.shared.failure.signInExpired,
   noGrant: COPY.shared.failure.accessGone,
   grantGone: COPY.shared.failure.accessGone,
-  unread: COPY.shared.failure.accessUnchecked,
+  unread: COPY.shared.failure.unexpected,
 };
 
 const UNEXPECTED = { ok: false, reason: COPY.shared.failure.unexpected } as const;
