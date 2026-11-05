@@ -7,7 +7,7 @@ import { isSignInLibraryAddress } from "@/core/signInLibraryAddress";
 import { CustomObjectIdStringSchema, KontaktEmailSchema } from "@/shared/schemas";
 
 /** The two tiers a grant holds, refused in German: the tier change's input names one. */
-const FLVerwaltungSchema = z.enum(FLAdminTier, { error: "Diese Stufe gibt es nicht." });
+const FLAdminTierSchema = z.enum(FLAdminTier, { error: "Diese Stufe gibt es nicht." });
 
 /**
  * The grant's draft, the address alone: no tier travels, the application granting `administration` only. Held
@@ -31,7 +31,7 @@ export type FLBerechtigungKeyPayload = z.infer<typeof FLBerechtigungKeyPayloadSc
  */
 export const FLPatchBerechtigungPayloadSchema = z.object({
   id: CustomObjectIdStringSchema,
-  verwaltung: FLVerwaltungSchema,
+  admin_tier: FLAdminTierSchema,
 });
 export type FLPatchGrantPayload = z.infer<typeof FLPatchBerechtigungPayloadSchema>;
 

@@ -41,7 +41,7 @@ function zeilenOf(
     registrierungen,
     own_address_change: eigener_adresswechsel,
     address_change: adresswechsel,
-    admin_tier: verwaltung,
+    admin_tier,
     approval_requests: antraege,
   }: FLErasureViewResponse,
   saisonHref: (path: string) => string,
@@ -86,9 +86,9 @@ function zeilenOf(
         ? { text: ADRESSWECHSEL_ZEILE, href: saisonHref(`/area/admin/adresswechsel?adresswechsel=${adresswechsel_id}`) }
         : { text: `${ADRESSWECHSEL_ZEILE}. ${EINSEHBAR_VERWEHRT[einsehbar_verwehrt]}` },
     ),
-    ...(verwaltung === null
+    ...(admin_tier === null
       ? []
-      : [{ text: verwaltung === "owner" ? "Zugang zur Verwaltung als Inhaberin oder Inhaber" : "Zugang zur Verwaltung" }]),
+      : [{ text: admin_tier === "owner" ? "Zugang zur Verwaltung als Inhaberin oder Inhaber" : "Zugang zur Verwaltung" }]),
     ...antraege.map(({ rolle, admin_tier: beantragt }) => ({ text: `${ANTRAG_ZEILE[rolle]}: ${ANTRAG_WAS[beantragt]}` })),
   ];
 }

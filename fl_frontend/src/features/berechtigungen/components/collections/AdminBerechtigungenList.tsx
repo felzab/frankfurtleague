@@ -146,7 +146,7 @@ export const AdminBerechtigungenList = memo(function AdminBerechtigungenList({
                   berechtigungId={berechtigung.id}
                   adresse={berechtigung.adresse}
                   erteiltAm={erteiltTag(berechtigung.granted_at)}
-                  verwaltung={berechtigung.admin_tier}
+                  adminTier={berechtigung.admin_tier}
                   eigene={berechtigung.adresse === inhaberAdresse}
                 />
               )}
