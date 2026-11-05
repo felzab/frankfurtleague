@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { notFound } from "next/navigation";
 
 import { ListPage } from "@/kit/ListPage";
@@ -17,6 +18,7 @@ import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { runAdminRead } from "@/shared/utils/adminRead";
 import { pageMetadata } from "@/shared/utils/metadata";
+import { metadataFor } from "@/shared/utils/notFoundMetadata";
 
 import { TerminDialog } from "./TerminDialog";
 import { VorschlagActs } from "./VorschlagActs";
@@ -42,9 +44,19 @@ const WORDS = SERVER_COPY.overview;
 const SPIEL = COPY.admin.spiel;
 const FACTS = COPY.admin.facts;
 
+/** The season's open work, `null` for a season the league does not hold: one read for the tab's title and the page alike. */
+const overviewOf = cache((saison: string) =>
+  runAdminRead(() =>
+    saisonsGetSaisonOverview(saison).catch((error: unknown) => {
+      if (isRecordMissing(error)) return null;
+      throw error;
+    }),
+  ),
+);
+
 export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
   const { saison } = await params;
-  return pageMetadata(parent, ROUTES.adminOverview, ROUTES.adminOverview.path(saison));
+  return metadataFor(overviewOf(saison), () => pageMetadata(parent, ROUTES.adminOverview, ROUTES.adminOverview.path(saison)));
 }
 
 /** A fixture by its two clubs, as the match editor names it, and by its number while a side is still open. */
@@ -235,12 +247,7 @@ function rowOf(row: FLOverviewRow, saison: string): CardActRowProps & { id: stri
 /** The season's open work, read once: not-found for a season the league does not hold. */
 async function readOverview(params: Props["params"]) {
   const { saison } = await params;
-  const read = await runAdminRead(() =>
-    saisonsGetSaisonOverview(saison).catch((error: unknown) => {
-      if (isRecordMissing(error)) return null;
-      throw error;
-    }),
-  );
+  const read = await overviewOf(saison);
   if (read === null) notFound();
   return {
     cards: read.cards.map(({ card, rows }) => ({

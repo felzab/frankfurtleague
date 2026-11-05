@@ -10,7 +10,8 @@ import { SERVER_COPY } from "@/core/serverCopy";
 import { getAdminSpieltag } from "@/features/spieltage/queries";
 import { spieltagLabel } from "@/features/spieltage/utils";
 import { pageMetadata } from "@/shared/utils/metadata";
-import { resolveObjectIdParam } from "@/shared/utils/routeParams";
+import { metadataFor } from "@/shared/utils/notFoundMetadata";
+import { objectIdParamOf } from "@/shared/utils/routeParams";
 
 import { saveSpieltag } from "./saveSpieltag";
 import { SpieltagEditor } from "./SpieltagEditor";
@@ -31,13 +32,19 @@ const REQUIRED = {
 const read = cache(getAdminSpieltag);
 
 /**
- * The matchday the address names, as every season page reads its record: not-found for a malformed id, for none by
- * it, and for one of another season, the tab's title included.
+ * The matchday the address names, as every season page reads its record: `null` for a malformed id, for none by it,
+ * and for one of another season.
  */
-async function readSpieltag(params: Props["params"]): Promise<FLSpieltagAdminResponse> {
-  const view = await read(await resolveObjectIdParam(params, "spieltag"));
+async function findSpieltag(params: Props["params"]): Promise<FLSpieltagAdminResponse | null> {
+  const spieltag = await objectIdParamOf(params, "spieltag");
   const { saison } = await params;
-  if (view === null || view.spieltag.saison_id !== saison) notFound();
+  const view = spieltag === null ? null : await read(spieltag);
+  return view === null || view.spieltag.saison_id !== saison ? null : view;
+}
+
+async function readSpieltag(params: Props["params"]): Promise<FLSpieltagAdminResponse> {
+  const view = await findSpieltag(params);
+  if (view === null) notFound();
   return view;
 }
 
@@ -46,10 +53,9 @@ const nameOf = (spieltag: FLSpieltagAdmin) =>
   spieltagLabel({ phase: spieltag.saison_phase, ordinal: spieltag.position, countInPhase: spieltag.count_spieltage_in_phase });
 
 export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
-  const { spieltag } = await readSpieltag(params);
-  return pageMetadata(parent, ROUTES.adminSpieltag, ROUTES.adminSpieltag.path(spieltag.saison_id, spieltag.id), {
-    title: nameOf(spieltag),
-  });
+  return metadataFor(findSpieltag(params), ({ spieltag }) =>
+    pageMetadata(parent, ROUTES.adminSpieltag, ROUTES.adminSpieltag.path(spieltag.saison_id, spieltag.id), { title: nameOf(spieltag) }),
+  );
 }
 
 /** A matchday's editor, on its one read by id and its write on the version it was read at. */

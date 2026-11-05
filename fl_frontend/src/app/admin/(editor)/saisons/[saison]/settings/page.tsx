@@ -11,6 +11,7 @@ import { getAdminSaison, getAdminSaisons } from "@/features/saisons/queries";
 import { SAISON_REQUIRED } from "@/features/saisons/required";
 import { saisonChipOf } from "@/features/saisons/saisonState";
 import { pageMetadata } from "@/shared/utils/metadata";
+import { metadataFor } from "@/shared/utils/notFoundMetadata";
 
 import {
   activateSaison,
@@ -33,7 +34,7 @@ type Props = PageProps<"/admin/saisons/[saison]/settings">;
 
 const WORDS = COPY.admin.saison;
 
-/** The season the address names, or the not-found page, the tab's title included. */
+/** The season the address names, or the not-found page. */
 async function readSaison(params: Props["params"]) {
   const { saison } = await params;
   const read = await getAdminSaison(saison);
@@ -42,8 +43,10 @@ async function readSaison(params: Props["params"]) {
 }
 
 export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
-  const { saison } = await readSaison(params);
-  return pageMetadata(parent, ROUTES.adminSaison, ROUTES.adminSaison.path(saison.id), { title: COPY.shared.saisonName(saison.id) });
+  const { saison } = await params;
+  return metadataFor(getAdminSaison(saison), (read) =>
+    pageMetadata(parent, ROUTES.adminSaison, ROUTES.adminSaison.path(read.saison.id), { title: COPY.shared.saisonName(read.saison.id) }),
+  );
 }
 
 /**

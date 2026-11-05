@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { COPY } from "@/core/copy";
 import { buildMapsSearchUrl } from "@/core/maps";
 import { SERVER_COPY } from "@/core/serverCopy";
+import { NOT_FOUND_METADATA } from "@/shared/utils/notFoundMetadata";
 
 import SpielPage, { generateMetadata } from "./page";
 
@@ -108,7 +109,8 @@ describe("the match page's server render", () => {
       Promise.resolve({}) as unknown as ResolvingMetadata,
     );
 
-    await expect(metadata).rejects.toMatchObject({ digest: "NEXT_HTTP_ERROR_FALLBACK;404" });
+    // Titled as not found rather than thrown: a throw from the metadata leaves the tab the layout's title.
+    await expect(metadata).resolves.toBe(NOT_FOUND_METADATA);
     expect(read.spiele).toStrictEqual([]);
   });
 });

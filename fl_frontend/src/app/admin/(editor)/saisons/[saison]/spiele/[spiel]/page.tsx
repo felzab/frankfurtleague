@@ -13,7 +13,8 @@ import { SERVER_COPY } from "@/core/serverCopy";
 import { ereignisOf, quelleWords, vorschauOf } from "@/features/spiele/blocks";
 import { getAdminSpiel } from "@/features/spiele/queries";
 import { pageMetadata } from "@/shared/utils/metadata";
-import { resolveObjectIdParam } from "@/shared/utils/routeParams";
+import { metadataFor } from "@/shared/utils/notFoundMetadata";
+import { objectIdParamOf } from "@/shared/utils/routeParams";
 
 import { createSpielort } from "../../../../../createSpielort";
 import { SPIELORT_RULES } from "../../../../../spielortRules";
@@ -59,14 +60,19 @@ const REQUIRED = {
 const read = cache(getAdminSpiel);
 
 /**
- * The fixture the address names, as every season page reads its record: not-found for a malformed id, for none
- * by it, and for one of another season, the tab's title included.
+ * The fixture the address names, as every season page reads its record: `null` for a malformed id, for none by it,
+ * and for one of another season.
  */
-async function readSpiel(params: Props["params"]): Promise<FLSpieleAdminSingleResponse> {
-  const spiel = await resolveObjectIdParam(params, "spiel");
+async function findSpiel(params: Props["params"]): Promise<FLSpieleAdminSingleResponse | null> {
+  const spiel = await objectIdParamOf(params, "spiel");
   const { saison } = await params;
-  const view = await read(spiel);
-  if (view === null || view.spiel.saison_id !== saison) notFound();
+  const view = spiel === null ? null : await read(spiel);
+  return view === null || view.spiel.saison_id !== saison ? null : view;
+}
+
+async function readSpiel(params: Props["params"]): Promise<FLSpieleAdminSingleResponse> {
+  const view = await findSpiel(params);
+  if (view === null) notFound();
   return view;
 }
 
@@ -77,8 +83,9 @@ const nameOf = (spiel: FLSpielJoinedAdmin) =>
     : ROUTES.adminSpiel.title({ record: spiel.team1.name }, { record: spiel.team2.name });
 
 export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
-  const { spiel } = await readSpiel(params);
-  return pageMetadata(parent, ROUTES.adminSpiel, ROUTES.adminSpiel.path(spiel.saison_id, spiel.id), { title: nameOf(spiel) });
+  return metadataFor(findSpiel(params), ({ spiel }) =>
+    pageMetadata(parent, ROUTES.adminSpiel, ROUTES.adminSpiel.path(spiel.saison_id, spiel.id), { title: nameOf(spiel) }),
+  );
 }
 
 /** The match editor, on its one view read. */

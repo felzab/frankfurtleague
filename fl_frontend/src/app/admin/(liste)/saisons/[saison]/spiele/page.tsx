@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { notFound } from "next/navigation";
 
 import { Link } from "@/kit/Link";
@@ -13,6 +14,7 @@ import { ereignisOf, matchRowOf } from "@/features/spiele/blocks";
 import { getAdminSpielplan } from "@/features/spiele/queries";
 import { spieltagNamer } from "@/features/spieltage/utils";
 import { pageMetadata } from "@/shared/utils/metadata";
+import { metadataFor } from "@/shared/utils/notFoundMetadata";
 
 import type { FLSpielJoinedAdmin } from "@/core/generated/client/types";
 import type { ChipProps } from "@/kit/Chip";
@@ -24,9 +26,12 @@ type Props = PageProps<"/admin/saisons/[saison]/spiele">;
 
 const WORDS = COPY.admin.spiel;
 
+/** The season's fixtures by matchday, `null` for a season the league does not hold: one read for the tab's title and the page alike. */
+const read = cache(getAdminSpielplan);
+
 export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
   const { saison } = await params;
-  return pageMetadata(parent, ROUTES.adminSpiele, ROUTES.adminSpiele.path(saison));
+  return metadataFor(read(saison), () => pageMetadata(parent, ROUTES.adminSpiele, ROUTES.adminSpiele.path(saison)));
 }
 
 /** What befell the match, else, while the match is to be played, that its date is not yet confirmed. */
@@ -65,7 +70,7 @@ export default function SpielePage({ params, searchParams }: Props) {
 
 async function readSpieltage(params: Props["params"], searchParams: Props["searchParams"]): Promise<SpieltageContent> {
   const { saison } = await params;
-  const spielplan = await getAdminSpielplan(saison);
+  const spielplan = await read(saison);
   if (spielplan === null) notFound();
   const { spieltage, current_spieltag_id: current } = spielplan;
   const nameOf = spieltagNamer(spieltage);
