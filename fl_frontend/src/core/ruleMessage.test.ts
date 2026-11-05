@@ -9,7 +9,7 @@ import type { FLRefusedField } from "./generated/client/types.ts";
 const { field, failure } = COPY.shared;
 
 describe("the field patterns over the backend's rules", () => {
-  const rule = (kind: string, ctx: FLRefusedField["ctx"] = {}) => ruleMessage({ kind, ctx });
+  const rule = (kind: string, ctx: FLRefusedField["ctx"] = {}, path: FLRefusedField["path"] = []) => ruleMessage({ kind, ctx, path });
 
   it("words each rule a pattern holds from the bound its context names, as the box's own check would", () => {
     const start = "2026-09-01";
@@ -29,6 +29,30 @@ describe("the field patterns over the backend's rules", () => {
     expect(rule("kontakt_telefon_twice")).toStrictEqual({ field: field.taken });
     expect(rule("nichtantreten_with_tore")).toStrictEqual({ field: field.without(COPY.shared.tore) });
     expect(rule("nichtantreten_with_torschuetzen")).toStrictEqual({ field: field.without(COPY.admin.spiel.torschuetzen) });
+  });
+
+  // A bound the server moves reaches the box with it: a phrase written from a figure of the page's own goes stale in silence.
+  it("words each season refusal from the bound the server sends with it", () => {
+    expect(rule("registrierung_window_reaches_saison_start", { latest: "2027-02-28" })).toStrictEqual({ field: field.latest("2027-02-28") });
+    expect(rule("rules_qualifiers_above_gruppe", { max: 4 })).toStrictEqual({ field: field.max(4) });
+    expect(rule("rules_unentschieden_outvalues_win", { max: 3 })).toStrictEqual({ field: field.between(0, 3) });
+    for (const kind of [
+      "rules_forfeit_unentschieden_in_a_knockout",
+      "rules_gruppen_in_use",
+      "rules_capacity_below_use",
+      "rules_kader_below_use",
+      "rules_qualifiers_below_wiring",
+    ]) {
+      expect(rule(kind, { min: 5 }), kind).toStrictEqual({ field: field.min(5) });
+    }
+    expect(rule("austritt_before_saison_start", { earliest: "2027-03-01" })).toStrictEqual({ field: field.earliest("2027-03-01") });
+  });
+
+  it("words the span the matchdays need on each side by the side the refusal names", () => {
+    const span = { start: "2027-03-06", end: "2027-06-26" };
+    expect(rule("saison_span_below_spieltage", span, ["start_date"])).toStrictEqual({ field: field.latest("2027-03-06") });
+    expect(rule("saison_span_below_spieltage", span, ["end_date"])).toStrictEqual({ field: field.earliest("2027-06-26") });
+    expect(rule("saison_span_below_spieltage", span, [])).toStrictEqual({ line: failure.unexpected });
   });
 
   it("prints a season's year bounds with no thousands separator", () => {
