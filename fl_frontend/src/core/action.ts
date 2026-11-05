@@ -13,7 +13,7 @@ import { logger } from "./logging";
 import { logRefused } from "./refused";
 import { getRequestActor, requestWriteMayStand } from "./requestScope";
 import { isSeatAt, rolesOf } from "./roles";
-import { isWordedRule, ruleMessage } from "./ruleMessage";
+import { isBoundedCode, isWordedRule, ruleMessage } from "./ruleMessage";
 import { SERVER_COPY } from "./serverCopy";
 import { SITE_CACHE_TAG } from "./siteCache";
 import { getSubjectSession } from "./subject";
@@ -308,8 +308,8 @@ function sentenceOf(code: Code & keyof typeof SERVER_COPY.refusalLine, path: FLR
 
 /**
  * A refusal this screen words: a refused payload's broken rules where the screen words every one, a code's phrase on
- * the box of each field it names, or a code's sentence on the status line. `undefined` where the screen does not word
- * it or cannot place it.
+ * the box of each field it names, filled from the bounds the refusal carries where its pattern names them, or a code's
+ * sentence on the status line. `undefined` where the screen does not word it or cannot place it.
  */
 function worded<Schema extends z.ZodType>(
   declared: Declared<Schema>,
@@ -328,6 +328,14 @@ function worded<Schema extends z.ZodType>(
   if (isLined(code)) {
     const reason = sentenceOf(code, fields[0]?.path);
     return reason === undefined ? undefined : { ok: false, errorCode: code, reason };
+  }
+  // A phrase naming the bounds the refusal carries on each field it names, worded as a rule's phrase is.
+  if (isBoundedCode(code)) {
+    return placed(
+      declared,
+      code,
+      fields.map(({ path, ctx }) => ({ path, ...ruleMessage({ kind: code, ctx }) })),
+    );
   }
   // A phrase names no field of its own, so a code naming none has nothing to place it on.
   if (!isWorded(code)) return undefined;

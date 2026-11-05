@@ -52,8 +52,9 @@ def error_response(
 
 
 async def api_error_handler(request: Request, exc: APIError):
-    # The refusal's own code is each field's `kind`, where a `payload_refused` carries pydantic's error type.
-    fields = [{"in": "body", "path": list(path), "kind": exc.error_code, "ctx": {}} for path in exc.fields]
+    # The refusal's own code is each field's `kind`, where a `payload_refused` carries pydantic's error type, and its
+    # bounds each field's `ctx`, where a `payload_refused` carries a domain rule's context.
+    fields = [{"in": "body", "path": list(path), "kind": exc.error_code, "ctx": dict(exc.bounds)} for path in exc.fields]
 
     return error_response(exc.status_code, exc.error_code, headers=exc.headers, fields=fields)
 
