@@ -48,10 +48,14 @@ export type TableRow = {
   href?: Route;
   /** A club's plaque before its name. */
   plaque?: Plaque;
-  /** The club's own page: its plaque then opens the club's full name and „Zum Team“ (`PlaquePopover`). */
+  /**
+   * The club's own page: its plaque then opens the club's full name over `plaqueLine`, such as its group, and the
+   * ways to its page and its squad (`PlaquePopover`).
+   */
   plaqueHref?: Route;
+  plaqueLine?: Copy;
   /** A pairing's second side, as a list of matches names a match: its name after the first's, its plaque after both. */
-  versus?: { plaque: Plaque; name: Words; plaqueHref?: Route };
+  versus?: { plaque: Plaque; name: Words; plaqueHref?: Route; plaqueLine?: Copy };
   chip?: ChipProps;
   /** The row's values, by column key; a missing value leaves its cell empty. */
   cells: Readonly<Record<string, TableCell>>;
@@ -274,12 +278,13 @@ const nameWords = tv({
 });
 
 /** A side's plaque: a button opening the club where the side names its page, else the plaque drawn. */
-function PlaqueOf({ plaque, href, name }: { plaque: Plaque; href: Route | undefined; name: Words }) {
+function PlaqueOf({ plaque, href, name, line }: { plaque: Plaque; href: Route | undefined; name: Words; line: Copy | undefined }) {
   return "record" in plaque && href !== undefined ? (
     <PlaquePopover
       plaque={plaque}
       name={name}
       href={href}
+      {...(line === undefined ? {} : { line })}
     />
   ) : (
     <TeamPlaque plaque={plaque} />
@@ -334,6 +339,7 @@ function NameCell({
             plaque={plaque}
             href={row.plaqueHref}
             name={row.name}
+            line={row.plaqueLine}
           />
         )}
         <span
@@ -354,6 +360,7 @@ function NameCell({
             plaque={versus.plaque}
             href={versus.plaqueHref}
             name={versus.name}
+            line={versus.plaqueLine}
           />
         )}
         {row.chip !== undefined && <Chip {...row.chip} />}
