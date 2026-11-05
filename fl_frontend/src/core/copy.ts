@@ -628,7 +628,7 @@ export const COPY = catalogue({
        * Why a row's act did not run: the save would delete a later match's result, a question only the match editor
        * asks before it does.
        */
-      voidsLater: "Das löscht ein späteres Ergebnis und geht nur im Spiel selbst.",
+      voidsLater: "Das löscht ein späteres Ergebnis.",
     },
 
     spielort: {
