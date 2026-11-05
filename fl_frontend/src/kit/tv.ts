@@ -19,6 +19,7 @@ export const tv = createTV({
           "bracket-phone",
           "bracket",
           "dialog",
+          "field",
           "form",
           "classic",
           "content",

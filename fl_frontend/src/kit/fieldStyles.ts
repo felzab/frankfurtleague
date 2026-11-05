@@ -62,6 +62,14 @@ export const statusLine = tv({
 });
 
 /**
+ * How wide a form's long field grows from `lg`: about 30 characters (`--container-field`), so it reads as the length
+ * of a name or an address rather than as the column, as GOV.UK sizes a text input to its expected answer. Set in the
+ * field's own text, so `ch` measures its letters wherever the cap is read: on the frame, and on a pair's growing side,
+ * which stops where its field does. A phone's field keeps the full row.
+ */
+export const columnCap = tv({ base: "text-sm lg:max-w-field pointer-coarse:text-base" });
+
+/**
  * The edge a value is typed into: 32 px with a mouse, 40 px and 16-px text on a touch screen, transparent inside
  * its control edge, as every control is, so it takes the fill of the page or the card it stands on, as the
  * secondary button does. Inside a pair sharing its row on a phone
@@ -75,7 +83,8 @@ export const fieldFrame = tv({
     // A field is as wide as its value. The short widths are counted in characters, as the GOV.UK Design
     // System sizes its fixed-width inputs, so they grow with the reader's font size: each holds its count
     // of characters and one more for the caret, inside the two 10-px insets and the two 1-px edges
-    // (1.375 rem together). Then the column, and the column at four lines for a paragraph.
+    // (1.375 rem together). Then a long field, the column up to `columnCap`; the column at four lines for a
+    // paragraph, free text taking the whole column; and a field filling the column it stands in, uncapped.
     width: {
       // A score.
       C2: "h-8 w-[calc(3ch+1.375rem)] pointer-coarse:h-10",
@@ -84,7 +93,10 @@ export const fieldFrame = tv({
       // A date: the width of a ten-character field and its calendar button beside it, 32 px with a mouse
       // and 40 on a touch screen as every field's button is.
       C10: "h-8 w-[calc(11ch+1.375rem+2rem)] pointer-coarse:h-10 pointer-coarse:w-[calc(11ch+1.375rem+2.5rem)]",
-      W3: "h-8 w-full pointer-coarse:h-10",
+      W3: `h-8 w-full ${columnCap()} pointer-coarse:h-10`,
+      // A long field in a column narrower than the cap, which fills that column as a phone's field fills its row: the
+      // search over a list, at the reading width its toolbar gives it, and the sign-in's address in its column.
+      column: "h-8 w-full pointer-coarse:h-10",
       // A select of a few short choices: as wide as its longest choice, which `Select` lays in the frame unseen.
       fit: "h-8 w-fit max-w-full min-w-40 pointer-coarse:h-10",
       W4: "min-h-26 w-full resize-none py-2",
@@ -112,8 +124,8 @@ export const fieldFrame = tv({
   compoundVariants: [
     { width: ["C2", "C5", "C10"], inset: "full", class: "px-2.5" },
     { width: ["C2", "C5", "C10"], inset: "start", class: "ps-2.5" },
-    { width: ["W3", "W4", "fit"], inset: "full", class: "px-3" },
-    { width: ["W3", "W4", "fit"], inset: "start", class: "ps-3" },
+    { width: ["W3", "column", "W4", "fit"], inset: "full", class: "px-3" },
+    { width: ["W3", "column", "W4", "fit"], inset: "start", class: "ps-3" },
   ],
 });
 
