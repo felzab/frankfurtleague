@@ -41,7 +41,7 @@ export function OptionList({ options, fit = "field", act }: { options: readonly 
         <Collection items={options}>
           {(option) => (
             <ListBoxItem
-              data-kit-focus="item"
+              data-kit-focus="option"
               id={option.id}
               textValue={textOf(option.label)}
               isDisabled={option.isDisabled}
@@ -67,7 +67,7 @@ export function OptionList({ options, fit = "field", act }: { options: readonly 
           <>
             <Separator className="my-1 border-t border-border first:hidden" />
             <ListBoxItem
-              data-kit-focus="item"
+              data-kit-focus="option"
               // React Aria's filter reads an entry's text alone; holding what is typed, as React Aria's own create
               // action names it, the entry matches every text while no option of the same name does.
               textValue={`${act.label} ${act.typed}`}

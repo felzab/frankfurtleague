@@ -64,7 +64,7 @@ function MonthCalendar() {
         <CalendarGridBody>
           {(date) => (
             <CalendarCell
-              data-kit-focus="item"
+              data-kit-focus="option"
               date={date}
               className={calendarCell()}
             />
