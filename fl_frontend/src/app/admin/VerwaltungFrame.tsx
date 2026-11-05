@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 
 import { RailColumn, RailFrame } from "@/kit/RailFrame";
+import { RailFrameBoundary } from "@/kit/RailFrameBoundary";
 
 import { judgeAdminRequest } from "@/core/auth/guards";
 import { COPY } from "@/core/copy";
@@ -67,6 +68,9 @@ export const RAIL_GROUPS: RailGroup[] = [
   },
 ];
 
+/** The phone bar's pages, before „Mehr“. */
+const BAR = ["uebersicht", "spiele", "teams"] as const;
+
 /**
  * The administration's frame and its guard. The frame is drawn without waiting for the session: the account
  * and the seasons it shows are handed down as reads still running, each streaming into its own place. The
@@ -81,18 +85,24 @@ export function VerwaltungFrame({ children }: { children: ReactNode }) {
   const session = judgeAdminRequest().then((judged) => ("session" in judged ? judged.session : null));
 
   return (
-    <RailFrame
+    // A failed read of the frame's own is answered in the rail frame: the area's `error.tsx` stands inside this layout.
+    <RailFrameBoundary
       groups={RAIL_GROUPS}
-      bar={["uebersicht", "spiele", "teams"]}
-      // A league-wide page has no counterpart in another season, so a switch there lands on the season's Übersicht.
-      saison={{ saisons: readSeasons(session), home: "adminOverview", withoutSaison: ROUTES.adminSaisons.path() }}
-      foot={{
-        kind: "account",
-        account: session.then((served) => (served === null ? null : readAccount(COPY.admin.role, "administration"))),
-      }}
-      columnInLayouts>
-      {children}
-    </RailFrame>
+      bar={BAR}
+      home={ROUTES.admin.path()}>
+      <RailFrame
+        groups={RAIL_GROUPS}
+        bar={BAR}
+        // A league-wide page has no counterpart in another season, so a switch there lands on the season's Übersicht.
+        saison={{ saisons: readSeasons(session), home: "adminOverview", withoutSaison: ROUTES.adminSaisons.path() }}
+        foot={{
+          kind: "account",
+          account: session.then((served) => (served === null ? null : readAccount(COPY.admin.role, "administration"))),
+        }}
+        columnInLayouts>
+        {children}
+      </RailFrame>
+    </RailFrameBoundary>
   );
 }
 
