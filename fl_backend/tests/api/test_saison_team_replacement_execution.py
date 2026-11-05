@@ -68,7 +68,7 @@ EXIT = {"type": "rueckzug", "grund": "Zu wenige Spieler", "datum": "2026-04-01"}
 
 SPIELTAG_OID = ObjectId("6890a1b2c3d4e5f6072600f1")
 
-INCOMING_SIDE = {"team_id": INCOMING, "name": "Incoming", "shorthand": "INX", "tore": None}
+INCOMING_SIDE = {"team_id": INCOMING, "tore": None}
 
 # The day the replacement runs, and a departure from the same squad that predates it.
 REPLACED_ON = "2026-04-15"
@@ -176,11 +176,9 @@ def club(team_id: ObjectId, inactive_since: str | None = None) -> dict[str, Any]
 
 
 def side(team_id: ObjectId, tore: int | None = None) -> dict[str, Any]:
-    """Composed as production composes one: the SEASON's copy of the identity, off the junction row."""
+    """A side as `spiele` stores it: the club and its goals, the name joined at read off the season's row."""
 
-    name, shorthand = PLAYED_AS[team_id]
-
-    return {"team_id": team_id, "name": name, "shorthand": shorthand, "tore": tore}
+    return {"team_id": team_id, "tore": tore}
 
 
 def gruppen_fixture(
@@ -377,33 +375,14 @@ class TestAllFourLayersMoveTogether:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             response = await call_replace(database, client)
-            return response.fanned_out_to_spiele, await spiele_now(database)
+            return response.rewritten_spiele, await spiele_now(database)
 
-        fanned_out, spiele = on_a_seeded_season(mongo_replica_set_url, body)
+        rewritten, spiele = on_a_seeded_season(mongo_replica_set_url, body)
 
-        assert fanned_out == 3, "the fixtures the club held, counted once each"
+        assert rewritten == 3, "the fixtures the club held, counted once each"
         assert spiele[1]["team1"] == INCOMING_SIDE
         assert spiele[2]["team2"] == INCOMING_SIDE
         assert spiele[4]["team1"] == INCOMING_SIDE, "a bracket slot is part of the schedule the incoming club inherits"
-
-    def test_the_fixture_copies_are_reseeded_too(self, mongo_replica_set_url: str):
-        """Kills rewriting `team_id` and leaving the display copy: every card would show the outgoing club over the incoming club's fixture."""
-
-        spiele = on_a_seeded_season(mongo_replica_set_url, _spiele_after)
-
-        assert (spiele[1]["team1"]["name"], spiele[1]["team1"]["shorthand"]) == ("Incoming", "INX")
-
-    def test_the_row_and_the_fixtures_spell_the_club_the_same_way(self, mongo_replica_set_url: str):
-        """One read feeds both layers, so the two cannot part company."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await call_replace(database, client)
-            return await row_of(database, INCOMING), await spiele_now(database)
-
-        row, spiele = on_a_seeded_season(mongo_replica_set_url, body)
-
-        assert row is not None
-        assert (row["name"], row["shorthand"]) == (spiele[1]["team1"]["name"], spiele[1]["team1"]["shorthand"])
 
     def test_the_austritt_is_cleared(self, mongo_replica_set_url: str):
         """Layer four. Kills leaving it standing, which would mark the INCOMING club withdrawn and drop it from the table."""
@@ -595,7 +574,7 @@ class TestTheReplacementReachesNothingElse:
 
         spiele = on_a_seeded_season(mongo_replica_set_url, _spiele_after)
 
-        assert spiele[5]["team1"] == side(WITHDRAWN, 3), "a past season keeps the name it was played under"
+        assert spiele[5]["team1"] == side(WITHDRAWN, 3), "a past season keeps the club it was played by"
 
     def test_the_other_junction_rows_are_untouched(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -627,11 +606,11 @@ class TestAPhantomRowIsRepaired:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             response = await call_replace(database, client, team_id=PHANTOM)
-            return response.fanned_out_to_spiele, await spiele_now(database)
+            return response.rewritten_spiele, await spiele_now(database)
 
-        fanned_out, spiele = on_a_seeded_season(mongo_replica_set_url, body)
+        rewritten, spiele = on_a_seeded_season(mongo_replica_set_url, body)
 
-        assert fanned_out == 1
+        assert rewritten == 1
         assert spiele[6]["team1"] == INCOMING_SIDE
 
     def test_a_row_with_no_austritt_is_replaceable(self, mongo_replica_set_url: str):

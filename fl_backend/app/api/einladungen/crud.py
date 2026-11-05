@@ -1,12 +1,7 @@
 from collections.abc import Sequence
 from typing import Any, Final
 
-from pymongo.asynchronous.client_session import AsyncClientSession
-from pymongo.asynchronous.collection import AsyncCollection
-
 from app.api.einladungen.schemas import FLInvitationRecipient
-from app.api.einladungen.services import einladung_ist_versendet
-from app.api.outbox.crud import states_of
 from app.api.outbox.schemas import FLInvitationData, FLOutboxLink, FLOutboxReference
 from app.api.outbox.services import OwedMail
 from app.core.collections import Collection
@@ -37,14 +32,3 @@ def owed_einladung_mails(
         )
         for person in recipient
     ]
-
-
-async def versendete_einladungen(
-    *, outbox_collection: AsyncCollection, einladung_ids: Sequence[Any], session: AsyncClientSession | None = None
-) -> set[Any]:
-    """The invites whose last mail is still owed or went out, `einladung_ist_versendet` of each, in one read."""
-
-    lagen = await states_of(outbox_collection=outbox_collection, collection=Collection.INVITATIONS, ids=einladung_ids, session=session)
-
-    # Keyed by the invite and its seat, which an invite's mails leave empty.
-    return {einladung_id for (einladung_id, _), lage in lagen.items() if einladung_ist_versendet(lage=lage)}

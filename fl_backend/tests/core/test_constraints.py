@@ -15,10 +15,6 @@ from app.readback import RECORD_MODELS
 # read 2026-10-20).
 ENDED_ROW_TTL_INDEXES = frozenset({"address_change_ended_at"})
 
-# The TTL index keyed on a date only a row it is to expire holds, the key itself optional: an answered referee entry
-# loses it, and the block it would sit in is dropped on a path that keeps the clock running.
-UNANSWERED_ROW_TTL_INDEXES = frozenset({"schiedsrichter_erase_at"})
-
 
 def _model_in(annotation: Any) -> type[BaseModel]:
     """The one model an optional or plain field holds."""
@@ -43,8 +39,7 @@ def test_every_ttl_index_expires_on_a_required_date(ttl: TTLIndex):
         model = _model_in(holder.annotation)
 
     field = model.model_fields[key]
-    expected = (datetime | None, False) if ttl.name in UNANSWERED_ROW_TTL_INDEXES else (datetime, True)
-    assert (field.annotation, field.is_required()) == expected, f"{ttl.name} expires on {ttl.key!r}, typed {field.annotation}"
+    assert (field.annotation, field.is_required()) == (datetime, True), f"{ttl.name} expires on {ttl.key!r}, typed {field.annotation}"
 
 
 def test_the_failure_raised_is_the_one_declared_first_not_the_one_that_arrives_first():

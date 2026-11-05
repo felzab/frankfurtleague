@@ -1,6 +1,5 @@
 from collections.abc import Mapping, Sequence
 from datetime import datetime
-from http import HTTPStatus
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Depends, Query, status
@@ -19,6 +18,7 @@ from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigungEnterPayload,
 )
 from app.api.spielbestaetigungen.services import (
+    ADOPTION_TWINS,
     ANSETZUNG_QUELLEN,
     AnsetzungLage,
     build_answerable_filter,
@@ -29,7 +29,6 @@ from app.api.spielbestaetigungen.services import (
     find_eintragen_refusal,
     find_verwerfen_refusal,
     find_vorschlag_vergangen_refusal,
-    judged_as_a_proposal,
     notice_daten_of,
     proposal_payload,
     spiel_mail_termin_of,
@@ -58,7 +57,7 @@ from app.core.dependencies import (
     get_german_date_str,
     get_germany_now,
 )
-from app.core.exceptions import APIError, DocumentNotFoundError
+from app.core.exceptions import APIError, DocumentNotFoundError, WriteRefusal, as_judged_on_stored_state
 from app.core.readonly import ReadCollection
 from app.core.routing import by_id
 from app.core.security import bind_actor, verify_access_admin
@@ -298,10 +297,11 @@ async def adopt_spielbestaetigung(
     Move a fixture to the date and hour a club's open decline proposes, through the fixture's own save.
 
     Refused as the discard refuses, for any row but an open club decline proposing a date about the fixture's current
-    Ansetzung (`ansetzung_not_discardable`), and for a proposed day gone by (`ansetzung_vorschlag_past`). The fixture is
-    saved as the administrator's save would carry it on the proposed day and hour, everything else kept, so it meets
-    every rule that save meets and is refused as that save is, by its code alone: no refusal names a field, the request
-    carrying no body. The bracket is resolved as that save resolves it. The
+    Ansetzung (`ansetzung_not_discardable`), and for a proposed day gone by (`ansetzung_vorschlag_past_as_stored`, the
+    stored proposal's 409). The fixture is saved as the administrator's save would carry it on the proposed day and
+    hour, everything else kept, so it meets every rule that save meets and is refused as that save is, by its code and
+    status alone, as the draw answers the season write's refusals: no refusal names a field, the request carrying no
+    body. The bracket is resolved as that save resolves it. The
     row is not closed here: the fixture has left the Ansetzung it answers, so its links read `invalid` at once and the
     next confirmation pass closes every party's row `ansetzung_changed`, owing each party „Spiel verlegt“ and asking it
     about the new slot. IRREVERSIBLE as a save is: moving the fixture back is another save.
@@ -329,7 +329,7 @@ async def adopt_spielbestaetigung(
         spiel = await pull_one_from_db(collection=spiele_collection, db_filter={"_id": row["spiel_id"]}, session=session)
         refuse(find_verwerfen_refusal(spielbestaetigung_raw=row, spiel=spiel))
         vorschlag = FLSpielbestaetigungAppointment.model_validate(row["antwort"]["vorschlag"])
-        refuse(judged_as_a_proposal(find_vorschlag_vergangen_refusal(vorschlag=vorschlag, today=today)))
+        refuse(as_judged_on_stored_state(find_vorschlag_vergangen_refusal(vorschlag=vorschlag, today=today), twins=ADOPTION_TWINS))
 
         # A discard of the same proposal writes this row, so the two conflict and the retry refuses the later one: a club
         # is never told both that its date was taken and that the date stands.
@@ -344,9 +344,9 @@ async def adopt_spielbestaetigung(
                 session=session,
             )
         except APIError as refused:
-            # Its code alone, as `judged_as_a_proposal` answers: the paths the save names are its body's, and this
-            # request carries none.
-            raise APIError(HTTPStatus(refused.status_code), refused.error_code) from refused
+            # As the draw answers the season write's refusals it shares: the paths the save names are its body's, and
+            # this request carries none.
+            refuse(as_judged_on_stored_state(WriteRefusal.of(refused), twins=ADOPTION_TWINS))
 
     async with transaction_session(db) as session:
         await session.with_transaction(adopt_the_proposal)

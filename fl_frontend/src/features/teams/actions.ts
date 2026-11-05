@@ -77,9 +77,7 @@ export async function postTeamAction(
 
 export async function patchTeamAction(rawPayload: FLPatchTeamPayload & { id: string }): Promise<
   ActionResult<{
-    // Both counts, because both halves of the fan-out fail silently and each answers a different
-    // question — one about the seasons a club is entered in, the other about the matches it stands on.
-    fanned_out_to_spiele?: number;
+    // The fan-out fails silently, so its count is reported: the seasons a club is entered in.
     fanned_out_to_saison_teams?: number;
   }>
 > {
@@ -102,7 +100,6 @@ export async function patchTeamAction(rawPayload: FLPatchTeamPayload & { id: str
     }
     return {
       success: true,
-      fanned_out_to_spiele: patchOperation.fanned_out_to_spiele,
       fanned_out_to_saison_teams: patchOperation.fanned_out_to_saison_teams,
       message: "Team bearbeitet",
     };

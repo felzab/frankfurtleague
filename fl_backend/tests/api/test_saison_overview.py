@@ -19,6 +19,8 @@ from fastapi import FastAPI
 from httpx2 import Response
 from pymongo import MongoClient
 
+from app.api.saisons.overview import _gaps
+from app.api.spiele.schemas import FLSpielJoinedInternal
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.main import create_app
@@ -47,12 +49,13 @@ CLASH_SPIELTAG = ObjectId(OID.format(0x400))
 OVERDUE, DUE_TODAY, MOVED, UNPLAYED, REPORTED, PROPOSED, UNDATED, DECLINED, OPEN_SIDE = range(1, 10)
 CLASH_FIRST, CLASH_SECOND, CALLED_OFF, OTHER_SEASONS = 10, 11, 12, 13
 
-ORT = {"spielort_id": SPIELORT, "name": "Halle Ost", "maps_link": "Halle Ost, Frankfurt", "mietpreis": 40}
-REFEREE = {"schiedsrichter_id": SCHIEDSRICHTER, "name": "Anna Körner", "payment": 20}
+# As `spiele` stores them: every name the Übersicht serves is joined from the rows seeded beside them.
+ORT = {"spielort_id": SPIELORT, "mietpreis": 40}
+REFEREE = {"schiedsrichter_id": SCHIEDSRICHTER, "payment": 20}
 
 
-def _side(team_id: ObjectId, name: str, tore: int | None = None) -> dict[str, Any]:
-    return {"team_id": team_id, "name": name, "shorthand": name[:3].upper(), "tore": tore}
+def _side(team_id: ObjectId, tore: int | None = None) -> dict[str, Any]:
+    return {"team_id": team_id, "tore": tore}
 
 
 def fixture(nr: int, datum: str | None, *, saison_id: str = SAISON, **fields: Any) -> dict[str, Any]:
@@ -60,8 +63,8 @@ def fixture(nr: int, datum: str | None, *, saison_id: str = SAISON, **fields: An
 
     set_for = {
         "spieltag_id": ObjectId(OID.format(0x500 + nr)),
-        "team1": _side(HOME, "Lessing"),
-        "team2": _side(AWAY, "Goethe"),
+        "team1": _side(HOME),
+        "team2": _side(AWAY),
         "datum": datum,
         "uhrzeit": None if datum is None else "15:00:00",
         "ort": None if datum is None else ORT,
@@ -80,14 +83,14 @@ SPIELE = {
     DUE_TODAY: fixture(DUE_TODAY, "2026-03-17"),
     MOVED: fixture(MOVED, "2026-03-21"),
     UNPLAYED: fixture(UNPLAYED, "2026-03-10"),
-    REPORTED: fixture(REPORTED, "2026-03-08", ergebnis="2:1", team1=_side(HOME, "Lessing", 2), team2=_side(AWAY, "Goethe", 1)),
+    REPORTED: fixture(REPORTED, "2026-03-08", ergebnis="2:1", team1=_side(HOME, 2), team2=_side(AWAY, 1)),
     PROPOSED: fixture(PROPOSED, "2026-03-25"),
     UNDATED: fixture(UNDATED, None),
     DECLINED: fixture(DECLINED, "2026-03-28", schiedsrichter=None),
     OPEN_SIDE: fixture(OPEN_SIDE, "2026-03-29", saison_phase="halbfinale", team1=None),
     # One club fielded twice on one matchday: the smallest stored fault, reported on both fixtures.
     CLASH_FIRST: fixture(CLASH_FIRST, "2026-04-01", spieltag_id=CLASH_SPIELTAG, uhrzeit="10:00:00"),
-    CLASH_SECOND: fixture(CLASH_SECOND, "2026-04-01", spieltag_id=CLASH_SPIELTAG, uhrzeit="18:00:00", team2=_side(PICKED, "Schiller")),
+    CLASH_SECOND: fixture(CLASH_SECOND, "2026-04-01", spieltag_id=CLASH_SPIELTAG, uhrzeit="18:00:00", team2=_side(PICKED)),
     CALLED_OFF: fixture(CALLED_OFF, None, sonderereignis="ausgefallen"),
     OTHER_SEASONS: fixture(OTHER_SEASONS, None, saison_id=OTHER_SAISON),
 }
@@ -246,3 +249,34 @@ class TestEachKindLandsOnItsCard:
 
     def test_a_season_that_does_not_exist_is_not_found(self, seeded_url: str):
         assert answered(seeded_url, f"/api/v{API_VERSION}/saisons/1999/overview").status_code == 404
+
+
+def joined(**fields: Any) -> FLSpielJoinedInternal:
+    """One fixture of the season as the read joins it, its two clubs named, every gap but those `fields` open closed."""
+
+    closed = {
+        "datum": "2026-04-01",
+        "uhrzeit": "18:00:00",
+        "ort": {"spielort_id": SPIELORT, "name": "Halle Ost", "maps_link": "Halle Ost, Frankfurt", "mietpreis": 40},
+        "schiedsrichter": {"schiedsrichter_id": SCHIEDSRICHTER, "name": "Anna Körner", "payment": 20, "name_is_public": True},
+        "team1": {"team_id": HOME, "name": "Lessing", "shorthand": "LES", "tore": None},
+        "team2": {"team_id": AWAY, "name": "Goethe", "shorthand": "GOE", "tore": None},
+    }
+    stored = documents.spiel_document(spiel_id=ObjectId(), saison_id=SAISON, spiel_nr=1, spieltag_id=ObjectId(), **{**closed, **fields})
+
+    return FLSpielJoinedInternal.model_validate(documents.joined_spiel_document(stored))
+
+
+class TestWhatAFixtureStillLacks:
+    """The gaps the Übersicht's dates card lists, judged without the database: a gap missed leaves a fixture unprepared unseen."""
+
+    def test_a_dated_fixture_with_no_time_still_lacks_its_date(self):
+        assert _gaps(joined(uhrzeit=None), today=TODAY) == ["termin_missing"]
+
+    def test_a_knockout_side_awaiting_its_source_is_no_missing_club(self):
+        """Its club arrives with the bracket's resolution: listed, it asks the administrator to pick a club the draw will place."""
+
+        sourced = joined(saison_phase="halbfinale", team2=None, team2_quelle={"type": "gruppe", "gruppe": "A", "platz": 1})
+        open_side = joined(saison_phase="halbfinale", team2=None)
+
+        assert (_gaps(sourced, today=TODAY), _gaps(open_side, today=TODAY)) == ([], ["team_missing"])

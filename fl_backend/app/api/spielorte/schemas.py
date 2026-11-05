@@ -5,7 +5,7 @@ from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstra
 from app.core.crud import Anchored
 from app.shared.schemas.addresses import FLAddress, FLAddressPayload
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SPIELORT_NAME_MAX_LENGTH
-from app.shared.schemas.custom import CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
+from app.shared.schemas.custom import CustomNonEmptyString, CustomObjectId, CustomOptionalDateString, CustomVersion
 from app.shared.schemas.literals import FLSortOrder
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
@@ -34,7 +34,7 @@ class _SpielortPayload(_SpielortWritable):
 
 class FLPatchSpielortPayload(_SpielortPayload):
     # The `version` the editor was served, required: a save checked against nothing overwrites a rival's unseen.
-    version: int = Field(ge=0)
+    version: CustomVersion
 
 
 class FLPostSpielortPayload(_SpielortPayload):

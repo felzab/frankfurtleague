@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from http import HTTPStatus
 from typing import Any, Literal, LiteralString
 
@@ -95,6 +95,34 @@ class WriteRefusal:
 
     def error(self) -> APIError:
         return APIError(self.status, self.error_code, fields=self.fields, bounds=self.bounds, location=self.location)
+
+    @classmethod
+    def of(cls, error: APIError) -> WriteRefusal:
+        """The refusal `error` raised, for a write answering a step it runs as its own: a refusal carries no headers."""
+
+        return cls(
+            error_code=error.error_code,
+            status=HTTPStatus(error.status_code),
+            fields=error.fields,
+            bounds=error.bounds,
+            location=error.location,
+        )
+
+
+def as_judged_on_stored_state(refusal: WriteRefusal | None, *, twins: Mapping[Code, Code]) -> WriteRefusal | None:
+    """`refusal` as a write judging stored values it carries no body for answers it.
+
+    Under its twin, a 409, where `twins` names one for a code a payload write shares, else its code and status alone:
+    never on a field, whose path would name a box of a body the request has not got.
+    """
+
+    if refusal is None:
+        return None
+
+    if refusal.error_code in twins:
+        return WriteRefusal(error_code=twins[refusal.error_code], status=HTTPStatus.CONFLICT)
+
+    return replace(refusal, fields=(), bounds={})
 
 
 # RFC 9110's 401 must carry a challenge, and `Bearer` would name the tier key, which passed: the

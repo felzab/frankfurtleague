@@ -231,6 +231,27 @@ class Anchored(BaseModel):
     anchors: int = Field(default=0, validation_alias=ANCHOR_FIELD, exclude=True)
 
 
+async def is_held_elsewhere(
+    *,
+    collection: AsyncCollection,
+    key: str,
+    value: Any,
+    # The document the write saves, whose own value is no other's; `None` for a create.
+    own_id: Any,
+    # REQUIRED: asked in the write's transaction, so a retry asks it again.
+    session: AsyncClientSession,
+) -> bool:
+    """Whether another document holds `value` at `key`, a retired one included, as a unique index on it compares.
+
+    So a create or a save is refused on the field a person typed before its write meets the index, which answers only
+    a race between two writes, as `duplicate_key` with no field.
+    """
+
+    db_filter: dict[str, Any] = {key: value} if own_id is None else {key: value, "_id": {"$ne": own_id}}
+
+    return await collection.find_one(db_filter, projection={"_id": 1}, session=session) is not None
+
+
 async def anchor_in_db(
     *,
     collection: AsyncCollection,

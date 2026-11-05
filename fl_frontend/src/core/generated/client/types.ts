@@ -38,6 +38,8 @@ export const Code = {
   ansetzung_changed: "ansetzung_changed",
   ansetzung_decided: "ansetzung_decided",
   ansetzung_vorschlag_past: "ansetzung_vorschlag_past",
+  ansetzung_vorschlag_past_as_stored: "ansetzung_vorschlag_past_as_stored",
+  ansetzung_vorschlag_unchanged: "ansetzung_vorschlag_unchanged",
   ansetzung_closed: "ansetzung_closed",
   ansetzung_not_enterable: "ansetzung_not_enterable",
   ansetzung_not_discardable: "ansetzung_not_discardable",
@@ -94,6 +96,7 @@ export const Code = {
   spieltag_beginn_out_of_order: "spieltag_beginn_out_of_order",
   saison_span_below_spielplan_as_stored: "saison_span_below_spielplan_as_stored",
   saison_start_taken_place: "saison_start_taken_place",
+  saison_start_austritt_stored: "saison_start_austritt_stored",
   invitation_team_not_entered: "invitation_team_not_entered",
   choices_stale: "choices_stale",
   grant_wording_stale: "grant_wording_stale",
@@ -3754,12 +3757,9 @@ export interface FLPatchKaderRowPayload {
 }
 
 /**
- * When the league accepts applications for this season: while today lies between `start` and `end`, both included.
- *
- * No flag beside the span: closing early is moving `end` to today (`app/api/bewerbungen/services.py ::
- * saison_nimmt_bewerbungen_an`).
+ * The application window as a season write sends it, judged apart from the season's own span: it may open before the season does.
  */
-export interface FLSaisonBewerbung {
+export interface FLSaisonBewerbungPayload {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   end: string;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
@@ -3825,13 +3825,14 @@ export interface FLSaisonRules {
 }
 
 export interface FLPatchSaisonPayload {
-  bewerbung: FLSaisonBewerbung | null;
+  bewerbung: FLSaisonBewerbungPayload | null;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   end_date: string;
   registrierung: FLSaisonRegistrierung | null;
   rules: FLSaisonRules;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   start_date: string;
+  /** @minimum 0 */
   version: number;
 }
 
@@ -3979,6 +3980,7 @@ export interface FLPatchSpielDataPayload {
   team2: FLSpielTeamFieldPayload | null;
   team2_quelle: FLSpielQuelle | null;
   uhrzeit: string | null;
+  /** @minimum 0 */
   version: number;
 }
 
@@ -4068,7 +4070,8 @@ export interface FLPatchSpieltagPayload {
   beginn: string;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   ende: string;
-  version?: number | null;
+  /** @minimum 0 */
+  version: number;
 }
 
 export interface FLPatchTeamPayload {
@@ -4096,7 +4099,6 @@ export interface FLPatchTeamPayload {
 
 export interface FLPatchTeamResponse {
   fanned_out_to_saison_teams: number;
-  fanned_out_to_spiele: number;
 }
 
 /**
@@ -4174,7 +4176,7 @@ export interface FLPostRegistrierungResponse {
 }
 
 export interface FLPostSaisonPayload {
-  bewerbung: FLSaisonBewerbung | null;
+  bewerbung: FLSaisonBewerbungPayload | null;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   end_date: string;
   /**
@@ -4511,7 +4513,6 @@ export interface FLReplaceSaisonTeamPayload {
  */
 export interface FLReplaceSaisonTeamResponse {
   ausgetragene_kader_rows: number;
-  fanned_out_to_spiele: number;
   gruppe: FLGruppenNames;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   incoming_team_id: string;
@@ -4520,10 +4521,24 @@ export interface FLReplaceSaisonTeamResponse {
   name: string;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   outgoing_team_id: string;
+  rewritten_spiele: number;
   saison_id: string;
   /** @pattern ^[A-Z]{3}$ */
   shorthand: string;
   trikot_farbe: FLTrikotFarbe | null;
+}
+
+/**
+ * When the league accepts applications for this season: while today lies between `start` and `end`, both included.
+ *
+ * No flag beside the span: closing early is moving `end` to today (`app/api/bewerbungen/services.py ::
+ * saison_nimmt_bewerbungen_an`).
+ */
+export interface FLSaisonBewerbung {
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  end: string;
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  start: string;
 }
 
 /**
@@ -4575,14 +4590,14 @@ export interface FLSaison {
 }
 
 /**
- * Why each of the editor's three danger acts would be refused if pressed now, judged by its write's own rules; null where it takes it.
+ * Why each of the editor's season acts would be refused if pressed now, judged by its write's own rules; null where it takes it.
  *
- * `activate` and `undraw` are their writes' whole judgement. `recreate` is the part of a confirmed redraw no shape
- * changes, its planning window and then the reports it would delete: the shape's own refusals come with the press, the
- * shapes offered being those the draw admits.
+ * `activate` and `undraw` are their writes' whole judgement. `create` and `recreate` are the draw's judgement of the
+ * stored rules the editor's presses draw, over the clubs entered, `recreate` then the reports it would delete.
  */
 export interface FLSaisonActRefusals {
   activate: Code | null;
+  create: Code | null;
   recreate: Code | null;
   undraw: Code | null;
 }
@@ -4961,6 +4976,14 @@ export interface FLSchiedsrichterSingleResponse {
 }
 
 /**
+ * One pass of the unconfirmed entries' clock: the entries it erased and the ones it passed over, which stay due.
+ */
+export interface FLSchiedsrichterSweepResponse {
+  erased: number;
+  failed: number;
+}
+
+/**
  * A seat holder's own two choices for every seat they hold on one row, under any label their kind cites.
  *
  * Both choices on every press: a page that sent one alone would leave the other judged by nothing.
@@ -5119,10 +5142,11 @@ export interface FLSpielEditorBericht {
 }
 
 /**
- * A referee the editor offers: their whole name, the fee they default to, whether they confirmed their entry, and the day they retired.
+ * A referee the editor offers: their whole name, the fee they default to, how they answered their entry, and the day they retired.
  */
 export interface FLSpielEditorSchiedsrichter {
   confirmed: boolean;
+  declined: boolean;
   /** @minimum 0 */
   default_payment: number;
   /** @pattern ^[0-9a-fA-F]{24}$ */
@@ -5295,48 +5319,6 @@ export interface FLSpielberichtBericht {
 }
 
 /**
- * Each side's live squad of the season, the pupils a new entry may name.
- */
-export interface FLSpielberichtKader {
-  team1: FLSpielberichtSpieler[];
-  team2: FLSpielberichtSpieler[];
-}
-
-export interface FLSpielberichtTeam {
-  name: string;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  team_id: string;
-}
-
-/**
- * The fixture a report is about, as its form states it: no money, no booking, no result.
- */
-export interface FLSpielberichtSpiel {
-  datum: string | null;
-  saison_id: string;
-  saison_phase: FLSaisonPhase;
-  sonderereignis: FLSonderereignis | null;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  spiel_id: string;
-  team1: FLSpielberichtTeam | null;
-  team2: FLSpielberichtTeam | null;
-  uhrzeit: string | null;
-}
-
-/**
- * The administrator's panel, with the state the report reads in, null exactly where no block stands, and both squads empty.
- */
-export interface FLSpielberichtAdminResponse {
-  bericht: FLSpielberichtBericht | null;
-  kader: FLSpielberichtKader;
-  named: FLSpielberichtSpieler[];
-  seiten_changed: FLSpielSeite[];
-  spiel: FLSpielberichtSpiel;
-  state: FLSpielberichtState | null;
-  version: number | null;
-}
-
-/**
  * One card as a write sends it: a caution names its reason (`find_card_reason_missing_refusal`).
  */
 export interface FLSpielberichtKartePayload {
@@ -5356,6 +5338,14 @@ export interface FLSpielberichtBerichtPayload {
   karten: FLSpielberichtKartePayload[];
   /** @maxItems 60 */
   torschuetzen: FLSpielberichtTorschuetze[];
+}
+
+/**
+ * Each side's live squad of the season, the pupils a new entry may name.
+ */
+export interface FLSpielberichtKader {
+  team1: FLSpielberichtSpieler[];
+  team2: FLSpielberichtSpieler[];
 }
 
 /**
@@ -5391,6 +5381,27 @@ export interface FLSpielberichtPersonEntry {
   submitted_at: string | null;
   team1_name: string | null;
   team2_name: string | null;
+  uhrzeit: string | null;
+}
+
+export interface FLSpielberichtTeam {
+  name: string;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  team_id: string;
+}
+
+/**
+ * The fixture a report is about, as its form states it: no money, no booking, no result.
+ */
+export interface FLSpielberichtSpiel {
+  datum: string | null;
+  saison_id: string;
+  saison_phase: FLSaisonPhase;
+  sonderereignis: FLSonderereignis | null;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  spiel_id: string;
+  team1: FLSpielberichtTeam | null;
+  team2: FLSpielberichtTeam | null;
   uhrzeit: string | null;
 }
 
@@ -6346,6 +6357,8 @@ export type FLWhatsappTextVersion = "2026-11-whatsapp-1";
 export type Rule = (typeof Rule)[keyof typeof Rule];
 
 export const Rule = {
+  acceptance_with_proposal: "acceptance_with_proposal",
+  acceptance_with_reason: "acceptance_with_reason",
   address_in_free_text: "address_in_free_text",
   bewerbung_window_ends_before_start: "bewerbung_window_ends_before_start",
   date_not_in_calendar: "date_not_in_calendar",

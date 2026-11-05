@@ -28,7 +28,7 @@ from app.core.codes import Code, Rule
 from app.core.crud import Anchored
 from app.core.exceptions import Bound, rule_refusal
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SAISON_ID_LENGTH
-from app.shared.schemas.custom import CustomDateString, CustomObjectId, CustomTimeString, refuse_reversed_span
+from app.shared.schemas.custom import CustomDateString, CustomObjectId, CustomTimeString, CustomVersion, refuse_reversed_span
 from app.shared.schemas.literals import FLGruppenNames, FLSaisonPhase, FLSaisonStatus, FLSortOrder, FLSpielerStufe
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
@@ -105,6 +105,19 @@ class FLSaisonBewerbung(BaseModel):
     end: CustomDateString
 
 
+class FLSaisonBewerbungPayload(FLSaisonBewerbung):
+    """The application window as a season write sends it, judged apart from the season's own span: it may open before the season does."""
+
+    # At the window's `end`, which a field validator here places on that date, the box a reversed window is repaired on.
+    @field_validator("end")
+    @classmethod
+    def the_application_window_ends_after_it_opens(cls, end: str, info: ValidationInfo) -> str:
+        if "start" in info.data:
+            refuse_reversed_span(start=info.data["start"], end=end, kind="bewerbung_window_ends_before_start")
+
+        return end
+
+
 class FLSaisonRegistrierung(BaseModel):
     """When a pupil may register for this season: from its activation to `end`, which falls before the season's start.
 
@@ -177,18 +190,8 @@ class _SaisonPayload(_SaisonWritable):
 
         return end_date
 
-    @field_validator("bewerbung")
-    @classmethod
-    def the_application_window_ends_after_it_opens(cls, bewerbung: FLSaisonBewerbung | None) -> FLSaisonBewerbung | None:
-        """Judged apart from the season's own span: a window may legitimately open before the season does."""
-
-        # `refuse_reversed_span`'s rule, spelled here because that helper raises at the validator's own field, the window.
-        if bewerbung is not None and bewerbung.end < bewerbung.start:
-            raise _refused_at_the_end(
-                bewerbung, "bewerbung_window_ends_before_start", "the span ends before it starts", {"start": bewerbung.start}
-            )
-
-        return bewerbung
+    # The window's own payload, which judges its span at its `end`.
+    bewerbung: FLSaisonBewerbungPayload | None
 
     @field_validator("registrierung")
     @classmethod
@@ -314,7 +317,7 @@ class FLPostSaisonPayload(_SaisonPayload):
 # OpenAPI component, and the generated client names the patch's body by it.
 class FLPatchSaisonPayload(_SaisonPayload):
     # The `version` the editor was served, so a save over a season another write moved since is refused as stale.
-    version: int
+    version: CustomVersion
 
 
 class FLPatchSaisonResponse(BaseAPIResponse):
@@ -484,14 +487,14 @@ class FLUndrawSpielplanResponse(BaseAPIResponse):
 
 
 class FLSaisonActRefusals(BaseReadModel):
-    """Why each of the editor's three danger acts would be refused if pressed now, judged by its write's own rules; null where it takes it.
+    """Why each of the editor's season acts would be refused if pressed now, judged by its write's own rules; null where it takes it.
 
-    `activate` and `undraw` are their writes' whole judgement. `recreate` is the part of a confirmed redraw no shape
-    changes, its planning window and then the reports it would delete: the shape's own refusals come with the press, the
-    shapes offered being those the draw admits.
+    `activate` and `undraw` are their writes' whole judgement. `create` and `recreate` are the draw's judgement of the
+    stored rules the editor's presses draw, over the clubs entered, `recreate` then the reports it would delete.
     """
 
     activate: Code | None
+    create: Code | None
     recreate: Code | None
     undraw: Code | None
 

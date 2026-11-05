@@ -1,11 +1,14 @@
 """
-API · what a referee's link serves a caller holding nothing but the token
+API · what a referee's link serves a caller holding nothing but the token, and the boundaries its answer is judged on
 
 The token is the whole credential, and a leaked one reaches whoever holds it, so the two base-tier answers and the
-reads behind them carry nothing of the entry: a field added to either reaches a stranger with nothing failing.
+reads behind them carry nothing of the entry: a field added to either reaches a stranger with nothing failing. Each
+boundary below is a day or a state the page and the press must agree on, which an off-by-one moves with no page
+showing it.
 """
 
 from collections.abc import Mapping
+from typing import Any
 
 import pytest
 from pydantic import BaseModel
@@ -20,8 +23,62 @@ from app.api.schiedsrichter.services import (
     CONFIRMATION_FIELD,
     CONFIRMATION_VIEW_FIELDS,
     answered_on_of,
+    find_alter_refusal,
+    find_expired_token_refusal,
+    find_media_refusal,
     state_of,
 )
+
+TODAY = "2026-04-01"
+YESTERDAY = "2026-03-31"
+LIVE_BLOCK: Mapping[str, Any] = {"frist": "2026-04-15", "declined_at": None}
+CONFIRMED = {"confirmed_at": "2026-03-20"}
+
+
+class TestWhatAReopenedLinkShows:
+    @pytest.mark.parametrize(
+        ("einwilligung", "confirmation", "state"),
+        [
+            (None, LIVE_BLOCK, "valid"),
+            (None, {**LIVE_BLOCK, "frist": YESTERDAY}, "expired"),
+            # The deadline's own day still answers: the mail names that day.
+            (None, {**LIVE_BLOCK, "frist": TODAY}, "valid"),
+            (CONFIRMED, LIVE_BLOCK, "confirmed"),
+            # An answer outranks the deadline: a person who answered on the last valid day is shown that they did.
+            (CONFIRMED, {**LIVE_BLOCK, "frist": YESTERDAY}, "confirmed"),
+            (None, {**LIVE_BLOCK, "declined_at": YESTERDAY}, "declined"),
+            (None, {"frist": YESTERDAY, "declined_at": YESTERDAY}, "declined"),
+        ],
+        ids=["live", "over", "on-the-deadlines-day", "confirmed", "confirmed-then-over", "declined", "declined-then-over"],
+    )
+    def test_each_state_reads_as_the_page_expects_and_the_ban_outranks_every_one(self, einwilligung: Any, confirmation: Any, state: str):
+        """Read wrong, a page offers the form on a spent link or tells a person who answered to ask for another link.
+
+        The ban outranks each: a barred referee's page shows the ban and nothing else.
+        """
+
+        assert state_of(einwilligung=einwilligung, confirmation=confirmation, today=TODAY, barred=False) == state
+        assert state_of(einwilligung=einwilligung, confirmation=confirmation, today=TODAY, barred=True) == "barred"
+
+
+class TestTheDaysThePressJudges:
+    def test_the_deadlines_own_day_still_takes_the_answer(self):
+        """As the view reads it: a page offering the answer on that day and a press refusing it would lie."""
+
+        assert find_expired_token_refusal(frist=TODAY, today=TODAY) is None
+        assert find_expired_token_refusal(frist=YESTERDAY, today=TODAY) is not None
+
+    def test_a_referee_reaching_the_age_floor_today_may_confirm(self):
+        """Sixteen today is old enough: refusing it tells the referee their date was wrong."""
+
+        assert find_alter_refusal(geburtsdatum="2010-04-01", today=TODAY) is None
+        assert find_alter_refusal(geburtsdatum="2010-04-02", today=TODAY) is not None
+
+    def test_a_media_yes_at_the_media_age_to_the_day_is_taken(self):
+        """Eighteen today may say yes; refusing it withholds a consent the league takes from them."""
+
+        assert find_media_refusal(geburtsdatum="2008-04-01", media=True, today=TODAY) is None
+        assert find_media_refusal(geburtsdatum="2008-04-02", media=True, today=TODAY) is not None
 
 
 class TestWhatALeakedLinkLearns:

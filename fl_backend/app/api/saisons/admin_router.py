@@ -11,7 +11,7 @@ from pymongo.errors import PyMongoError
 from pymongo.results import InsertOneResult
 
 from app.api.berechtigungen.guard import verify_actor_is_admin
-from app.api.einladungen.crud import owed_einladung_mails, versendete_einladungen
+from app.api.einladungen.crud import owed_einladung_mails
 from app.api.einladungen.schemas import (
     FLEinladung,
     FLInvitationDispatchPayload,
@@ -65,11 +65,11 @@ from app.api.saisons.services import (
     decided_podium,
     find_activation_refusal,
     find_berichte_refusal,
-    find_replace_window_refusal,
     find_rules_freeze_refusal,
     find_rules_refusal,
     find_saison_id_refusal,
     find_saison_span_refusal,
+    find_saison_start_austritt_refusal,
     find_saison_start_refusal,
     find_spielplan_refusal,
     find_undraw_refusal,
@@ -125,7 +125,7 @@ from app.core.dependencies import (
     get_german_date_str,
     get_germany_now,
 )
-from app.core.exceptions import DocumentNotFoundError, WriteRefusal
+from app.core.exceptions import WriteRefusal
 from app.core.logging import fl_logger
 from app.core.security import bind_actor, get_actor_email, verify_access_admin
 from app.core.transactions import transaction_session
@@ -137,39 +137,21 @@ router = APIRouter(
     dependencies=[Depends(verify_access_admin), Depends(verify_actor_is_admin), Depends(bind_actor)],
 )
 
-# No `tore`: goals belong to whoever scored them, and a swap runs only on fixtures none of which has taken place.
-SWAPPED_SIDE_KEYS: tuple[str, ...] = ("team_id", "name", "shorthand")
-
 
 async def _rewrite_gruppenphase_sides(
     *,
     spiele: Sequence[Mapping[str, Any]],
     team_ids: Sequence[Any],
     spiele_collection: AsyncCollection,
-    teams_collection: AsyncCollection,
     session: AsyncClientSession,
 ) -> int:
-    """Rewrite each club's side of these fixtures to the other.
+    """Rewrite each club's side of these fixtures to the other, by its `team_id` alone.
 
-    Named by `_id` from a snapshot read BEFORE any write: filtering on the club would let the second
-    pass match what the first just wrote and swap it back.
+    Neither the club's name nor `tore` moves: every read joins a side's name from its season row, and goals belong to
+    whoever scored them, a swap running only on fixtures none of which has taken place. Named by `_id` from a snapshot
+    read BEFORE any write: filtering on the club would let the second pass match what the first just wrote and swap it
+    back.
     """
-
-    identities = await pull_many_from_db(
-        collection=teams_collection,
-        db_filter={"_id": {"$in": list(team_ids)}},
-        # `teams`, while `app/api/spiele/services.py :: _composed_side` reads the season's
-        # `saison_teams` row: they differ only in a `past` season, which `saison_past` refuses.
-        # Spelled out, not sliced off `SWAPPED_SIDE_KEYS`, whose order would then matter.
-        projection=["name", "shorthand"],
-        session=session,
-    )
-    identity_of = {row["_id"]: row for row in identities}
-
-    # Raising here aborts the transaction rather than writing half an exchange.
-    for team_id in team_ids:
-        if team_id not in identity_of:
-            raise DocumentNotFoundError()
 
     other_of = {team_ids[0]: team_ids[1], team_ids[1]: team_ids[0]}
 
@@ -182,12 +164,10 @@ async def _rewrite_gruppenphase_sides(
                 by_pass.setdefault((slot, occupant), []).append(spiel["_id"])
 
     for (slot, occupant), spiel_ids in by_pass.items():
-        target = other_of[occupant]
-        identity = identity_of[target]
         await patch_many_in_db(
             collection=spiele_collection,
             db_filter={"_id": {"$in": spiel_ids}},
-            update={"$set": {f"{slot}.{key}": (target if key == "team_id" else identity[key]) for key in SWAPPED_SIDE_KEYS}},
+            update={"$set": {f"{slot}.team_id": other_of[occupant]}},
             session=session,
         )
 
@@ -258,7 +238,6 @@ async def get_saison_admin(
     teams_collection: TeamsCollection,
     spielberichte_collection: SpielberichteCollection,
     invitations_collection: InvitationsCollection,
-    outbox_collection: OutboxCollection,
     ban_list: BanListLookup,
     today: str = Depends(get_german_date_str),
 ) -> FLSaisonAdminResponse:
@@ -272,7 +251,7 @@ async def get_saison_admin(
     exactly the pairs and rows those writes refuse; `begun` closes both before either is pressed. `incoming_clubs` is
     every club still in the league holding no row of the season, which is what the replacement admits.
 
-    `refusals` names, per danger act, the refusal its write would answer now, by that write's own judgement, so the editor
+    `refusals` names, per act, the refusal its write would answer now, by that write's own judgement, so the editor
     offers an act exactly where the write takes it. `invitations` is the registration links' press planned by the function
     the press decides each team by, `resend` left false, beside each team's live link and the day it was last sent.
     Read outside a transaction: a write landing between this read and a press is judged by the press. 404 where no
@@ -326,7 +305,6 @@ async def get_saison_admin(
                 saison_id=saison_id,
                 saison_teams_collection=saison_teams_collection,
                 invitations_collection=invitations_collection,
-                outbox_collection=outbox_collection,
                 ban_list=ban_list,
                 resend=False,
             ),
@@ -362,6 +340,22 @@ async def get_saison_admin(
         }
     )
 
+    # Withdrawn rows included, as the draw counts them: a club that left keeps its place.
+    occupancy: dict[FLGruppenNames, int] = {}
+    for row in rows:
+        occupancy[row["gruppe"]] = occupancy.get(row["gruppe"], 0) + 1
+
+    def draw_refusal(*, replace: bool) -> WriteRefusal | None:
+        return find_spielplan_refusal(
+            saison_status=saison_status,
+            fixtures_drawn=len(recorded_rows),
+            spieltage_held=count_spieltage,
+            rules=saison.rules,
+            occupancy_by_gruppe=occupancy,
+            replace=replace,
+            recorded_fixtures=recorded_fixtures,
+        )
+
     return FLSaisonAdminResponse(
         saison=saison,
         teams=[
@@ -379,12 +373,9 @@ async def get_saison_admin(
         count_spieltage=count_spieltage,
         refusals=FLSaisonActRefusals(
             activate=code_of(activation[1]),
-            # `find_spielplan_refusal` asks the window of every replace first; its `saison_past` is unreachable once the
-            # window is open, the window opening on `future` alone, and its group sizes are the picked shape's.
-            recreate=code_of(
-                find_replace_window_refusal(saison_status=saison_status, recorded_fixtures=recorded_fixtures)
-                or find_berichte_refusal(berichte=berichte)
-            ),
+            # The draw's own judgement of the stored rules, the ones both presses draw, over the clubs entered.
+            create=code_of(draw_refusal(replace=False)),
+            recreate=code_of(draw_refusal(replace=True) or find_berichte_refusal(berichte=berichte)),
             undraw=code_of(_find_undraw_refusal_of(saison_status=saison_status, recorded_fixtures=recorded_fixtures, berichte=berichte)),
         ),
         invitations=[
@@ -478,7 +469,8 @@ async def patch_saison(
 
     `status` is on no payload. Editing the points moves every league table on the NEXT READ, standings being derived. What a
     started or drawn season has fixed is refused, as is a rule narrowed below what it holds. The start date moves until a
-    fixture of the season has taken place (`saison_start_taken_place`); the rules freeze reads the STORED start, so a season
+    fixture of the season has taken place (`saison_start_taken_place`), and later only while no club's exit is stored
+    (`saison_start_austritt_stored`, its `latest` the stored start); the rules freeze reads the STORED start, so a season
     started too early is unlocked by one save moving its start and a second changing its rules.
     """
 
@@ -490,12 +482,15 @@ async def patch_saison(
         # overwritten. A season id naming nothing raises the 404 here.
         stored_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, session=session)
 
-        # Disqualified rows included: a team never leaves a season.
+        # Disqualified rows included: a team never leaves a season. The same read says whether any club's exit is
+        # stored, which a start moved later must not leave on a season reading as unstarted.
         occupancy: dict[Any, int] = {}
-        async for row in saison_teams_collection.find({"saison_id": saison_id}, {"gruppe": 1}, session=session):
+        austritt_stored = False
+        async for row in saison_teams_collection.find({"saison_id": saison_id}, {"gruppe": 1, "austritt": 1}, session=session):
             gruppe = row.get("gruppe")
             if gruppe is not None:
                 occupancy[gruppe] = occupancy.get(gruppe, 0) + 1
+            austritt_stored = austritt_stored or row.get("austritt") is not None
 
         # Both sides, because a `quelle` sits on either; 0 where no slot is group-seeded. Judged on
         # the snapshot and never re-read below: `rules_qualifiers_below_wiring`, the only refusal that reads it,
@@ -570,6 +565,13 @@ async def patch_saison(
                 stored_start_date=str(stored_raw["start_date"]),
                 proposed_start_date=saison_data.start_date,
                 taken_place=taken_place,
+            )
+        )
+        refuse(
+            find_saison_start_austritt_refusal(
+                stored_start_date=str(stored_raw["start_date"]),
+                proposed_start_date=saison_data.start_date,
+                austritt_stored=austritt_stored,
             )
         )
         # The STORED start, in this transaction's snapshot: the date on the payload is what the edit
@@ -812,7 +814,6 @@ async def swap_gruppen(
     saisons_collection: SaisonsCollection,
     saison_teams_collection: SaisonTeamsCollection,
     spiele_collection: SpieleCollection,
-    teams_collection: TeamsCollection,
     db: DBClient,
     today: str = Depends(get_german_date_str),
 ) -> FLSwapGruppenResponse:
@@ -878,7 +879,6 @@ async def swap_gruppen(
             spiele=gruppenphase_spiele,
             team_ids=both_ids,
             spiele_collection=spiele_collection,
-            teams_collection=teams_collection,
             session=session,
         )
 
@@ -1262,7 +1262,6 @@ async def _plan_the_dispatch(
     saison_id: str,
     saison_teams_collection: AsyncCollection,
     invitations_collection: AsyncCollection,
-    outbox_collection: AsyncCollection,
     ban_list: BanList,
     resend: bool,
 ) -> list[_PlannedTeam]:
@@ -1283,7 +1282,6 @@ async def _plan_the_dispatch(
         projection=dict(WITHOUT_TOKEN_HASH),
     )
     by_team = {row["team_id"]: row for row in live}
-    versendet = await versendete_einladungen(outbox_collection=outbox_collection, einladung_ids=[row["_id"] for row in live])
     barred = await _barred_recipients(ban_list, entered)
 
     planned: list[_PlannedTeam] = []
@@ -1293,7 +1291,6 @@ async def _plan_the_dispatch(
             austritt=team.get("austritt"),
             kontakte=team.get("kontakte"),
             einladung_raw=einladung_raw,
-            versendet=einladung_raw is not None and einladung_raw["_id"] in versendet,
             resend=resend,
             barred=barred,
         )
@@ -1346,14 +1343,10 @@ async def _mail_one_team(
             projection=dict(WITHOUT_TOKEN_HASH),
             session=session,
         )
-        versendet = bool(live) and bool(
-            await versendete_einladungen(outbox_collection=outbox_collection, einladung_ids=[live[0]["_id"]], session=session)
-        )
         plan = plan_einladung_versand(
             austritt=team.get("austritt"),
             kontakte=team.get("kontakte"),
             einladung_raw=live[0] if live else None,
-            versendet=versendet,
             resend=resend,
             barred=barred,
         )
@@ -1449,7 +1442,6 @@ async def get_invitations_dispatch_preview(
     saison_teams_collection: SaisonTeamsCollection,
     invitations_collection: InvitationsCollection,
     saisons_collection: SaisonsCollection,
-    outbox_collection: OutboxCollection,
     ban_list: BanListLookup,
     resend: bool = False,
 ) -> FLInvitationDispatchPreviewResponse:
@@ -1457,7 +1449,7 @@ async def get_invitations_dispatch_preview(
     Per team of this season, the mailboxes the send would write to and the reason it would skip a team — and it writes nothing itself.
 
     Decided by the function the send itself decides by, so the list read here is the list performed. `resend` mirrors the send's own
-    switch: left false, a team whose live link already has a mail owed or sent reads as `already_sent`, and pressing the send with
+    switch: left false, a team whose live link was already sent, by the day stored on it, reads as `already_sent`, and pressing the send with
     `resend` true instead makes this preview's own answer wrong unless the same value is asked for here.
 
     **`replaced_link` is the warning this list carries**: the send mints for every team it answers, so a team already holding a link has that
@@ -1465,8 +1457,8 @@ async def get_invitations_dispatch_preview(
     so a page offering the press reads that fact here or nowhere.
 
     Five skips, each an ordinary state rather than a refusal: the team has left this season, it holds no contact block, no seat of that
-    block has been confirmed by its own person, every confirmed seat's address is on the ban list, or its live link already has a mail
-    owed or sent and `resend` is false. A season holding
+    block has been confirmed by its own person, every confirmed seat's address is on the ban list, or its live link was already
+    sent and `resend` is false. A season holding
     no team answers an empty list. One row per MAILBOX, so a person sitting in two seats is named once. 404 where no season holds that id.
     """
 
@@ -1476,7 +1468,6 @@ async def get_invitations_dispatch_preview(
         saison_id=saison_id,
         saison_teams_collection=saison_teams_collection,
         invitations_collection=invitations_collection,
-        outbox_collection=outbox_collection,
         ban_list=ban_list,
         resend=resend,
     )
@@ -1556,10 +1547,11 @@ async def post_invitations_dispatch(
     press. A team this skips is left exactly as it was.
 
     Five skips, each an ordinary state rather than a refusal: the team has left this season, it holds no contact block, no seat of that block
-    has been confirmed by its own person, every confirmed seat's address is on the ban list, or its live link already has a mail owed or
-    sent and `resend` is false. **The ban is read once ahead of every team**, so a team the mailer could reach nobody of keeps the link it
-    holds rather than losing it to a press that mails nobody. **The fifth is read off the last mail owed about the live link**, so pressing
-    twice mails nobody twice, while a link whose mail was given up or barred is sent again. **The first is read off the junction row's
+    has been confirmed by its own person, every confirmed seat's address is on the ban list, or its live link was already sent and
+    `resend` is false. **The ban is read once ahead of every team**, so a team the mailer could reach nobody of keeps the link it
+    holds rather than losing it to a press that mails nobody. **The fifth is read off the day the live link was sent, stored on it**,
+    never off the Postausgang, whose row is erased a retention after it settles: pressing twice mails nobody twice, and a link a club
+    holds is replaced only by a deliberate resend. **The first is read off the junction row's
     `austritt` record**, so a team out of the season by either route is passed over; minting for one team by hand is not refused, that
     being a deliberate act rather than a bulk one.
 

@@ -81,6 +81,7 @@ function seasons(
   apiAnswer = ({ endpoint, method }) => {
     if (method === "GET") return { saison_ids: saisonIds };
     if (scheitert.includes(endpoint)) throw new Error(`the backend refused ${endpoint}`);
+    if (endpoint === "/schiedsrichter/sweep") return { erased: 0, failed: uebergangen[endpoint] ?? 0 };
     const saisonId = saisonOf(endpoint);
     return endpoint.startsWith("/registrierungen/")
       ? registrierungPass(saisonId, uebergangen[endpoint] ?? 0)
@@ -100,7 +101,7 @@ beforeEach(() => {
 });
 
 describe("one pass of the applications' job", () => {
-  it("runs each season's two halves in turn, then the address changes' half", async () => {
+  it("runs each season's two halves in turn, then the address changes' half and the referee clock", async () => {
     seasons(["2526", "2627"]);
 
     await runBewerbungSweep();
@@ -112,6 +113,7 @@ describe("one pass of the applications' job", () => {
       "/bewerbungen/sweep/2627",
       "/registrierungen/sweep/2627",
       "address_change",
+      "/schiedsrichter/sweep",
     ]);
   });
 
@@ -119,7 +121,12 @@ describe("one pass of the applications' job", () => {
      apart from a healthy pass. */
   it("leaves every row the halves passed over and every lapsed change the address half left, each half counted", async () => {
     seasons(["2526", "2627"], {
-      uebergangen: { "/bewerbungen/sweep/2526": 1, "/bewerbungen/sweep/2627": 6, "/registrierungen/sweep/2627": 8 },
+      uebergangen: {
+        "/bewerbungen/sweep/2526": 1,
+        "/bewerbungen/sweep/2627": 6,
+        "/registrierungen/sweep/2627": 8,
+        "/schiedsrichter/sweep": 1,
+      },
     });
     adresswechselAnswer = () => Promise.resolve({ ...adressen(2), removed: 5 });
 
@@ -131,8 +138,10 @@ describe("one pass of the applications' job", () => {
         address_change_effective: 0,
         address_change_discarded: 0,
         address_change_remaining: 2,
+        schiedsrichter_erased: 0,
+        schiedsrichter_failed: 1,
       },
-      open: 17,
+      open: 18,
       error: undefined,
     });
   });
@@ -159,6 +168,7 @@ describe("a half that fails", () => {
       "/bewerbungen/sweep/2627",
       "/registrierungen/sweep/2627",
       "address_change",
+      "/schiedsrichter/sweep",
     ]);
     expect(failures()).toStrictEqual([
       { event: "bewerbung.sweep_failed", fields: { name: "Error", saison_id: "2526" } },
@@ -167,15 +177,17 @@ describe("a half that fails", () => {
   });
 
   /* The pass's one end where nothing can be swept: the scheduler files it under the job's name, and the address
-     changes are ended all the same. */
-  it("fails where the season list cannot be read, the address half still running", async () => {
-    apiAnswer = () => {
+     changes and the referee entries are ended all the same. */
+  it("fails where the season list cannot be read, the address half and the referee clock still running", async () => {
+    const answered = apiAnswer;
+    apiAnswer = (call) => {
+      if (call.method !== "GET") return answered(call);
       throw new Error("the backend refused the season list");
     };
 
     expect((await runBewerbungSweep()).error).toStrictEqual(new Error("the backend refused the season list"));
 
-    expect(order()).toStrictEqual(["/bewerbungen/sweep", "address_change"]);
+    expect(order()).toStrictEqual(["/bewerbungen/sweep", "address_change", "/schiedsrichter/sweep"]);
   });
 
   it("rejects where the address half rejects, after every season was swept", async () => {

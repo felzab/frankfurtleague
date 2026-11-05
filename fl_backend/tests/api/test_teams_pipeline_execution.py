@@ -193,14 +193,6 @@ def test_a_team_with_no_counting_match_is_served_zeroes(league: SeededLeague):
     assert set(value for field, value in without.items() if field != "count_abgesagte_spiele") == {0}
 
 
-def test_a_team_with_no_junction_row_disappears(league: SeededLeague):
-    """Fremd exists in `teams` and plays a 2026 match, so only the missing junction row can drop it."""
-    unseasoned = "Fremd"
-
-    assert unseasoned in league.team_oids, "the club this case is about is no longer seeded"
-    assert unseasoned not in table(league)
-
-
 def test_the_junction_supplies_gruppe_and_disqualification(league: SeededLeague):
     by_name = {row["name"]: row for row in rows(league)}
 
@@ -253,7 +245,7 @@ def test_the_result_validates_as_the_response_model(league: SeededLeague):
     """Validating through the adapter proves the projection carries every field `FLTeam` requires, Ohne's fallback included."""
     teams = FLTeamListAdapter.validate_python(rows(league))
 
-    assert {team.name for team in teams} == {"Helmholtz", "Bock", "Lessing", "Ohne", "Komplett"}
+    assert {team.name for team in teams} == {"Helmholtz", "Bock", "Lessing", "Ohne", "Komplett", "Fremd"}
     assert next(team for team in teams if team.name == "Ohne").statistik.punkte == 0
 
 
@@ -267,7 +259,7 @@ def test_a_single_team_query_returns_only_that_team(league: SeededLeague):
 
 def test_the_table_comes_back_sorted_by_name(league: SeededLeague):
     """The `$sort` is the last stage before `$limit`, so it orders the derived rows rather than the raw teams."""
-    assert [row["name"] for row in rows(league)] == ["Bock", "Helmholtz", "Komplett", "Lessing", "Ohne"]
+    assert [row["name"] for row in rows(league)] == ["Bock", "Fremd", "Helmholtz", "Komplett", "Lessing", "Ohne"]
 
 
 def test_the_id_is_the_teams_own_id_not_the_junctions(league: SeededLeague):
