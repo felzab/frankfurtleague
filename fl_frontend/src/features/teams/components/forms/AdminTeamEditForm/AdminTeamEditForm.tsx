@@ -26,7 +26,7 @@ import { appToast } from "@/shared/utils/appToast";
 import { fieldStatus } from "@/shared/utils/draftStatus";
 
 import { buildTeamBanners } from "./banners";
-import { describeSaisonTeamsFanOut, describeSpieleFanOut } from "./fanOutNotes";
+import { describeSaisonTeamsFanOut } from "./fanOutNotes";
 import { FormAdresseSection } from "./FormAdresseSection";
 import { FormAustrittSection } from "./FormAustrittSection";
 import { FormEinladungSection } from "./FormEinladungSection";
@@ -243,14 +243,8 @@ export function AdminTeamEditForm({
         const res = await patchTeamAction(clubPayload).catch(unansweredAction);
         if (res.success) {
           savedParts.push("Stammdaten gespeichert.");
-          // Seasons before fixtures: the junction is what the next season copies from, so it is the
-          // broader statement, and each count is its own sentence because their zeros differ.
-          if (renameTouched) {
-            consequenceNotes.push(
-              describeSaisonTeamsFanOut(res.fanned_out_to_saison_teams ?? 0),
-              describeSpieleFanOut(res.fanned_out_to_spiele ?? 0),
-            );
-          }
+          // The season rows are what every fixture of those seasons reads its sides' names from.
+          if (renameTouched) consequenceNotes.push(describeSaisonTeamsFanOut(res.fanned_out_to_saison_teams ?? 0));
         } else {
           Object.assign(collectedErrors, res.fieldErrors ?? {});
           failures.push({ ...res, error: res.fieldErrors?.shorthand ?? res.error });

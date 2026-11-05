@@ -137,7 +137,6 @@ class TestTheEditorGradesAsTheWritesRefuse:
                     saisons_collection=database[Collection.SAISONS],
                     saison_teams_collection=database[Collection.SAISON_TEAMS],
                     spiele_collection=database[Collection.SPIELE],
-                    teams_collection=database[Collection.TEAMS],
                     db=client,
                     today=TODAY,
                 )

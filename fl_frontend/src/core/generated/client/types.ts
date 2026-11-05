@@ -4102,7 +4102,6 @@ export interface FLPatchTeamPayload {
 
 export interface FLPatchTeamResponse {
   fanned_out_to_saison_teams: number;
-  fanned_out_to_spiele: number;
 }
 
 /**
@@ -4517,7 +4516,6 @@ export interface FLReplaceSaisonTeamPayload {
  */
 export interface FLReplaceSaisonTeamResponse {
   ausgetragene_kader_rows: number;
-  fanned_out_to_spiele: number;
   gruppe: FLGruppenNames;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   incoming_team_id: string;
@@ -4526,6 +4524,7 @@ export interface FLReplaceSaisonTeamResponse {
   name: string;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   outgoing_team_id: string;
+  rewritten_spiele: number;
   saison_id: string;
   /** @pattern ^[A-Z]{3}$ */
   shorthand: string;

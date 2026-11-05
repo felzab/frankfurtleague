@@ -9605,14 +9605,9 @@
           "fanned_out_to_saison_teams": {
             "title": "Fanned Out To Saison Teams",
             "type": "integer"
-          },
-          "fanned_out_to_spiele": {
-            "title": "Fanned Out To Spiele",
-            "type": "integer"
           }
         },
         "required": [
-          "fanned_out_to_spiele",
           "fanned_out_to_saison_teams"
         ],
         "title": "FLPatchTeamResponse",
@@ -11057,10 +11052,6 @@
             "title": "Ausgetragene Kader Rows",
             "type": "integer"
           },
-          "fanned_out_to_spiele": {
-            "title": "Fanned Out To Spiele",
-            "type": "integer"
-          },
           "gruppe": {
             "$ref": "#/components/schemas/FLGruppenNames"
           },
@@ -11088,6 +11079,10 @@
             "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Outgoing Team Id",
             "type": "string"
+          },
+          "rewritten_spiele": {
+            "title": "Rewritten Spiele",
+            "type": "integer"
           },
           "saison_id": {
             "title": "Saison Id",
@@ -11118,7 +11113,7 @@
           "kontakte",
           "name",
           "shorthand",
-          "fanned_out_to_spiele",
+          "rewritten_spiele",
           "ausgetragene_kader_rows"
         ],
         "title": "FLReplaceSaisonTeamResponse",
@@ -31186,7 +31181,7 @@
         ]
       },
       "patch": {
-        "description": "Update a club, then rewrite the name and shorthand its unfinished seasons carry.\n\nThe junction and every match hold a copy of both; a `past`\nseason keeps the name it was played under.",
+        "description": "Update a club, then rewrite the name and shorthand its unfinished seasons' rows carry.\n\nEvery fixture reads its sides' names from their season rows, so a rename reaches the fixtures of each season it\nrewrites; a `past` season keeps the name it was played under.",
         "operationId": "teams_patch_team",
         "parameters": [
           {

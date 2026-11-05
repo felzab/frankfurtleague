@@ -3675,10 +3675,10 @@ export const TeamsGetTeamQueryParams = zod.object({
 });
 
 /**
- * Update a club, then rewrite the name and shorthand its unfinished seasons carry.
+ * Update a club, then rewrite the name and shorthand its unfinished seasons' rows carry.
  *
- * The junction and every match hold a copy of both; a `past`
- * season keeps the name it was played under.
+ * Every fixture reads its sides' names from their season rows, so a rename reaches the fixtures of each season it
+ * rewrites; a `past` season keeps the name it was played under.
  * @summary Update a team and fan the rename out
  */
 export const teamsPatchTeamPathTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");

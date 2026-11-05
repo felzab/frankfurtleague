@@ -729,7 +729,6 @@ class TestARolloverLandingMidRenameIsJudgedAgain:
                 ),
                 # The stand-in delegates every call, which the endpoint's collection type cannot say.
                 teams_collection=cast(Any, teams),
-                spiele_collection=database[Collection.SPIELE],
                 saison_teams_collection=database[Collection.SAISON_TEAMS],
                 saisons_collection=database[Collection.SAISONS],
                 db=client,

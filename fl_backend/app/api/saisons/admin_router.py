@@ -125,7 +125,7 @@ from app.core.dependencies import (
     get_german_date_str,
     get_germany_now,
 )
-from app.core.exceptions import DocumentNotFoundError, WriteRefusal
+from app.core.exceptions import WriteRefusal
 from app.core.logging import fl_logger
 from app.core.security import bind_actor, get_actor_email, verify_access_admin
 from app.core.transactions import transaction_session
@@ -137,39 +137,21 @@ router = APIRouter(
     dependencies=[Depends(verify_access_admin), Depends(verify_actor_is_admin), Depends(bind_actor)],
 )
 
-# No `tore`: goals belong to whoever scored them, and a swap runs only on fixtures none of which has taken place.
-SWAPPED_SIDE_KEYS: tuple[str, ...] = ("team_id", "name", "shorthand")
-
 
 async def _rewrite_gruppenphase_sides(
     *,
     spiele: Sequence[Mapping[str, Any]],
     team_ids: Sequence[Any],
     spiele_collection: AsyncCollection,
-    teams_collection: AsyncCollection,
     session: AsyncClientSession,
 ) -> int:
-    """Rewrite each club's side of these fixtures to the other.
+    """Rewrite each club's side of these fixtures to the other, by its `team_id` alone.
 
-    Named by `_id` from a snapshot read BEFORE any write: filtering on the club would let the second
-    pass match what the first just wrote and swap it back.
+    Neither the club's name nor `tore` moves: every read joins a side's name from its season row, and goals belong to
+    whoever scored them, a swap running only on fixtures none of which has taken place. Named by `_id` from a snapshot
+    read BEFORE any write: filtering on the club would let the second pass match what the first just wrote and swap it
+    back.
     """
-
-    identities = await pull_many_from_db(
-        collection=teams_collection,
-        db_filter={"_id": {"$in": list(team_ids)}},
-        # `teams`, while `app/api/spiele/services.py :: _composed_side` reads the season's
-        # `saison_teams` row: they differ only in a `past` season, which `saison_past` refuses.
-        # Spelled out, not sliced off `SWAPPED_SIDE_KEYS`, whose order would then matter.
-        projection=["name", "shorthand"],
-        session=session,
-    )
-    identity_of = {row["_id"]: row for row in identities}
-
-    # Raising here aborts the transaction rather than writing half an exchange.
-    for team_id in team_ids:
-        if team_id not in identity_of:
-            raise DocumentNotFoundError()
 
     other_of = {team_ids[0]: team_ids[1], team_ids[1]: team_ids[0]}
 
@@ -182,12 +164,10 @@ async def _rewrite_gruppenphase_sides(
                 by_pass.setdefault((slot, occupant), []).append(spiel["_id"])
 
     for (slot, occupant), spiel_ids in by_pass.items():
-        target = other_of[occupant]
-        identity = identity_of[target]
         await patch_many_in_db(
             collection=spiele_collection,
             db_filter={"_id": {"$in": spiel_ids}},
-            update={"$set": {f"{slot}.{key}": (target if key == "team_id" else identity[key]) for key in SWAPPED_SIDE_KEYS}},
+            update={"$set": {f"{slot}.team_id": other_of[occupant]}},
             session=session,
         )
 
@@ -812,7 +792,6 @@ async def swap_gruppen(
     saisons_collection: SaisonsCollection,
     saison_teams_collection: SaisonTeamsCollection,
     spiele_collection: SpieleCollection,
-    teams_collection: TeamsCollection,
     db: DBClient,
     today: str = Depends(get_german_date_str),
 ) -> FLSwapGruppenResponse:
@@ -878,7 +857,6 @@ async def swap_gruppen(
             spiele=gruppenphase_spiele,
             team_ids=both_ids,
             spiele_collection=spiele_collection,
-            teams_collection=teams_collection,
             session=session,
         )
 
