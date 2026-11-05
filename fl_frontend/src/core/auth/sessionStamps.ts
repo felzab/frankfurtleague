@@ -30,7 +30,7 @@ export type SessionStamps = { readonly createdAt: Date | string; readonly authFa
 type StepUpCaller = {
   readonly user: { readonly email: string };
   readonly session: SessionStamps;
-  readonly admin: boolean;
+  readonly isAdmin: boolean;
 };
 
 // Redesign: goes with its last importer.
@@ -41,7 +41,7 @@ type StepUpCaller = {
 export function isFreshlySignedIn(served: StepUpCaller): boolean {
   if (!isWithinStepUpWindow(served.session.createdAt)) return false;
 
-  return !served.admin || served.session.authFactor === PASSKEY_FACTOR;
+  return !served.isAdmin || served.session.authFactor === PASSKEY_FACTOR;
 }
 
 /**

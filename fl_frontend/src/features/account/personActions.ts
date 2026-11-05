@@ -62,7 +62,7 @@ export const eraseAccount = action({
   run: async ({ token }, { subject }): Promise<ActionAnswer<EndState>> => {
     // Refused before the library spends the link, so the same link completes once another owner is made; the
     // backend refuses two owners at once. Read for an owner alone, the one tier that can be the last.
-    if (subject.subject.admin_tier === "owner" && (await getErasureView()).last_owner) {
+    if (subject.records.admin_tier === "owner" && (await getErasureView()).last_owner) {
       return { ok: false, reason: SERVER_COPY.refusalLine.last_owner_erasure };
     }
 

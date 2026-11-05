@@ -22,7 +22,7 @@ export async function AdminFunktionSwitcher() {
   // there first, and the verdict answered it with no session.
   const subjekt = await lookUpSubject(email);
 
-  const { roles: funktionen } = rolesOf({ email: email, admin: true, subject: subjekt });
+  const { roles: funktionen } = rolesOf({ email: email, isAdmin: true, records: subjekt });
 
   return (
     <FunktionSwitcher

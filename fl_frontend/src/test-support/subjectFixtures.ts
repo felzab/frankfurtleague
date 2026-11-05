@@ -18,7 +18,7 @@ export function deepFrozen<T>(value: T): T {
  * The records a mailbox holding nothing answers. Spread under every subject a suite builds, so a field
  * the lookup gains reaches each of them here rather than by hand at every literal.
  */
-export const NO_RECORDS: SubjectSession["subject"] = deepFrozen({
+export const NO_RECORDS: SubjectSession["records"] = deepFrozen({
   seats: [],
   spieler: [],
   schiedsrichter: [],
@@ -33,7 +33,7 @@ export const NO_RECORDS: SubjectSession["subject"] = deepFrozen({
  * What a suite's backend holds for one address. `account` is stated, never worked out from the lists:
  * which records count is the backend's rule, and a double deriving it hands each case its own copy's answer.
  */
-export type LookupFixture = Partial<SubjectSession["subject"]> & { readonly account: boolean };
+export type LookupFixture = Partial<SubjectSession["records"]> & { readonly account: boolean };
 
 /**
  * The path the sign-in gate reads, its own beside the subject read every guard takes. Spelled rather than built by
@@ -67,9 +67,9 @@ export const SEAT: FLSubjectSeat = deepFrozen({
 
 export const seat = (fields: Partial<FLSubjectSeat> = {}): FLSubjectSeat => ({ ...SEAT, ...fields });
 
-/** A person holding what `records` names and nothing else, and the administrator's verdict where `admin` is set. */
-export const person = (records: Partial<SubjectSession["subject"]> = {}, admin = false): SubjectSession => ({
+/** A person holding what `records` names and nothing else, and the administrator's verdict where `isAdmin` is set. */
+export const person = (records: Partial<SubjectSession["records"]> = {}, isAdmin = false): SubjectSession => ({
   email: "pia@example.org",
-  admin: admin,
-  subject: { ...NO_RECORDS, ...records },
+  isAdmin,
+  records: { ...NO_RECORDS, ...records },
 });

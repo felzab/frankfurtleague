@@ -21,7 +21,7 @@ const PAYLOAD_REFUSED = "payload_refused";
  * one call: the gate, a passkey enrolment's included, reads `lookUpSignIn`. Throws on every backend
  * failure; `fl_frontend/src/core/subject.ts :: getSubjectSession` lets it.
  */
-export const lookUpSubject = cache((email: string): Promise<SubjectSession["subject"]> =>
+export const lookUpSubject = cache((email: string): Promise<SubjectSession["records"]> =>
   // Under the edge's trace: a render's first guard and the sign-in landing's handler reach here before anything
   // has opened the request's scope, and a call outside one is filed under a trace no edge line carries. Inside a
   // scope already open, an action's or the render's, the read joins it rather than opening another; but the wrapper

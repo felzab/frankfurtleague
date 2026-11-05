@@ -1604,7 +1604,7 @@ describe("which session a new sign-in replaces", () => {
 
 describe("the step-up every change to passkeys and sign-ins asks for", () => {
   const judged = (email: string, authFactor: string, age: number) =>
-    isFreshlySignedIn({ user: { email }, session: { createdAt: new Date(Date.now() - age), authFactor }, admin: email === ADMIN_EMAIL });
+    isFreshlySignedIn({ user: { email }, session: { createdAt: new Date(Date.now() - age), authFactor }, isAdmin: email === ADMIN_EMAIL });
 
   it("admits a person signed in by either factor inside the window, and neither past it", () => {
     for (const factor of ["code", "passkey"]) {
@@ -1623,7 +1623,7 @@ describe("the step-up every change to passkeys and sign-ins asks for", () => {
 
   it("takes a stamp it cannot read for no step-up at all", () => {
     expect(
-      isFreshlySignedIn({ user: { email: PERSON_EMAIL }, session: { createdAt: "kein Datum", authFactor: "passkey" }, admin: false }),
+      isFreshlySignedIn({ user: { email: PERSON_EMAIL }, session: { createdAt: "kein Datum", authFactor: "passkey" }, isAdmin: false }),
     ).toBe(false);
   });
 });

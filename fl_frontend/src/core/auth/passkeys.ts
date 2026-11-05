@@ -49,7 +49,7 @@ type PasskeyRemoval = "removed" | "last" | "absent";
  * from two rows would otherwise each see a second row and leave none.
  * Exported for `fl_frontend/src/features/passkeys/actions.ts`, the one place a removal happens.
  */
-export async function removePasskey(holder: { readonly id: string; readonly admin: boolean }, id: string): Promise<PasskeyRemoval> {
+export async function removePasskey(holder: { readonly id: string; readonly isAdmin: boolean }, id: string): Promise<PasskeyRemoval> {
   // Set once the callback has returned. A throw before that aborted a transaction that never
   // committed, so nothing was written; one after it came from the commit, whose outcome may be unknown.
   let committing = false;
@@ -94,7 +94,7 @@ export async function removePasskey(holder: { readonly id: string; readonly admi
     // By the grant the account page's guard read, which throws on an unread one before any removal:
     // an administrator's last passkey is their only way into the administration, while a person
     // holding none signs in by code again.
-    if (holder.admin && (await held.count({ model: "passkey", where: [{ field: "userId", value: holder.id }] })) <= 1) return "last";
+    if (holder.isAdmin && (await held.count({ model: "passkey", where: [{ field: "userId", value: holder.id }] })) <= 1) return "last";
 
     await claimAccount(held, holder.id);
     await held.delete({ model: "passkey", where: [{ field: "id", value: id }] });

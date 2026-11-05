@@ -40,7 +40,7 @@ async function SignInContent() {
     getAccountAddressChange(),
     passkeysOf(served.user.id).then((rows) => rows.length > 0),
     // Read for an owner alone, the one tier that can be the last; the deletion's own page refuses it again.
-    subject.subject.admin_tier === "owner" ? getErasureView().then((view) => view.last_owner) : false,
+    subject.records.admin_tier === "owner" ? getErasureView().then((view) => view.last_owner) : false,
   ]);
   return (
     <SignInBoxes
