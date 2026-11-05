@@ -108,7 +108,7 @@ export function describeAufnahme({ createdTeam, gruppe, saisonId }: { createdTea
 export function geburtsdatumSpanne(today: string, mindestalter: number): { frueheste: string; spaeteste: string } {
   const heute = parseDate(today);
 
-  // The day AFTER one year past the ceiling: `fl_backend/app/shared/alter.py :: whole_years_between`
+  // The day AFTER one year past the ceiling: `fl_backend/app/shared/age.py :: whole_years_between`
   // accepts a birthday not yet reached this year, and a calendar subtraction clamps 29 February onto
   // the day before 1 March where that year has none.
   return {

@@ -57,7 +57,7 @@ export const SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE = 14 satisfies FLSchiedsrich
 // 190-year-old date with „mindestens 16“, which is a different fault.
 
 // The pupil's sentence word for word, and NOT the contact seat's: the two public consent pages ask
-// one person one question, and `fl_backend/app/shared/alter.py` judges both by the same span.
+// one person one question, and `fl_backend/app/shared/age.py` judges both by the same span.
 export const alterAusserhalb = (mindestalter: number): string =>
   `Du musst mindestens ${String(mindestalter)} und höchstens ${String(BEWERBUNG_MAX_ALTER)} Jahre alt sein.`;
 

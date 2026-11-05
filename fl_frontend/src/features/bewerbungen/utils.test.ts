@@ -235,7 +235,7 @@ describe("the Abi-Jahrgang a season fields", () => {
 describe("the birthdate window a contact person's date has to fall in", () => {
   /* The endpoint's own rule restated rather than its result quoted, so both bounds are judged
      against what it accepts: whole years, a birthday not yet reached this year not having happened
-     (`fl_backend/app/shared/alter.py :: whole_years_between`). */
+     (`fl_backend/app/shared/age.py :: whole_years_between`). */
   function wholeYears(geboren: string, today2: string): number {
     const [gJahr = 0, gMonat = 0, gTag = 0] = geboren.split("-").map(Number);
     const [hJahr = 0, hMonat = 0, hTag = 0] = today2.split("-").map(Number);

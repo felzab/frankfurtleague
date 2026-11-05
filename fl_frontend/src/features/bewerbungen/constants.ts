@@ -115,7 +115,7 @@ export const rollenLangform = (rollen: readonly (KontaktRolle | null)[]): string
 
 /**
  * The floor the Ansprechperson and the Stellvertretung clear, checked against
- * `fl_backend/app/shared/schemas/bounds.py :: VERTRETUNG_MIN_AGE_YEARS` as the contact's floor is. Those two sign what
+ * `fl_backend/app/shared/schemas/bounds.py :: SIGNATORY_MIN_AGE_YEARS` as the contact's floor is. Those two sign what
  * binds the school, which asks contractual capacity rather than the age a person consents for themselves at.
  */
 export const VERTRETUNG_MIN_ALTER = 18 satisfies FLSignatoryMinAgeYears;

@@ -34,7 +34,7 @@ export const REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE = 7;
 export const REGISTRIERUNG_MIN_ALTER = 16 satisfies FLRegistrierungMinAgeYears;
 
 // For the published notice as well, which states the media floor for pupils and referees alike;
-// checked against `fl_backend/app/shared/schemas/bounds.py :: MEDIEN_MIN_AGE_YEARS` as the floor above
+// checked against `fl_backend/app/shared/schemas/bounds.py :: MEDIA_MIN_AGE_YEARS` as the floor above
 // is, and the pages take the served `medien_mindestalter` for the reason given above.
 export const MEDIEN_MIN_ALTER = 18 satisfies FLMedienMinAgeYears;
 
