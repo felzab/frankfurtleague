@@ -2,19 +2,11 @@ import { createElement } from "react";
 
 import { renderToStaticMarkup } from "react-dom/server";
 
-import type { ComponentType, ReactNode } from "react";
+import type { ComponentType } from "react";
 
 /** A component's markup as the server sends it, for a case reading what a page carries rather than how it reacts. */
 export function renderMarkup<P extends object>(Component: ComponentType<P>, props: P): string {
   return renderToStaticMarkup(createElement(Component, props));
-}
-
-/**
- * For what props cannot express — a component under the provider it reads, or one asserted beside a
- * sibling whose ordering is the claim.
- */
-export function renderTree(tree: ReactNode): string {
-  return renderToStaticMarkup(tree);
 }
 
 /**

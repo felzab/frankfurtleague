@@ -137,6 +137,7 @@ export function CardRowsPlaceholder({ rows }: { rows: number }) {
 
 /**
  * One choice of the chooser: the whole card one link, its title and its line, the chevron at its right.
+ * @awaitsPage the role chooser's page
  * @awaitsProduction the role chooser's page
  */
 export function CardLink({ href, title, line }: { href: Route; title: Copy; line: Words }) {
