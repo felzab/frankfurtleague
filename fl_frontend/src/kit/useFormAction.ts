@@ -35,7 +35,7 @@ export function answering<Payload, Value>(
 
 /**
  * A form's status line: its words and its tone, or nothing. `changes` is the editor's count of unsaved fields, `locked` the
- * reason an act cannot run (`useLocked`).
+ * reason an act cannot run (`lockedLine`).
  */
 export type FormStatus = { tone: "changes" | "saved" | "error" | "locked"; text: Copy } | null;
 

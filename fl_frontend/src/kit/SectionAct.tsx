@@ -4,8 +4,9 @@ import { useState } from "react";
 
 import { Button } from "./Button";
 import { ConfirmDialog } from "./ConfirmDialog";
-import { lockedLine, useLocked } from "./draftUnsaved";
+import { useLocked } from "./draftUnsaved";
 import { StatusLine } from "./FieldParts";
+import { lockedLine } from "./lockedLine";
 import { statusOf, useFormAction } from "./useFormAction";
 
 import type { ActionAnswer } from "@/core/action";
