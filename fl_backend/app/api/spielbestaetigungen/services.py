@@ -581,13 +581,13 @@ def verwerfen_refusal() -> WriteRefusal:
 
 
 def build_triage_rows_filter(*, saison_id: str, today: str) -> dict[str, Any]:
-    """This season's team rows putting their fixture in the administrator's queue.
+    """This season's rows putting their fixture in the administrator's queue, a club's or its referee's.
 
-    A standing proposal, a deadline passed unanswered, or due today and asked today or never: `asked_at` stands in
-    for the mint day no row stores.
+    A club's standing proposal, or any party's deadline passed unanswered, or due today and asked today or never:
+    `asked_at` stands in for the mint day no row stores.
     """
 
-    open = {"party.art": "team", **build_answerable_filter()}
+    open = build_answerable_filter()
 
     return {
         "saison_id": saison_id,

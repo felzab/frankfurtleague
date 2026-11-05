@@ -3645,20 +3645,31 @@ export const FLOverviewSpielbestaetigungRowKind = {
   spielbestaetigung_overdue: "spielbestaetigung_overdue",
 } as const;
 
-/**
- * One club's open confirmation row: the row „Zusage eintragen“ records the club's agreement on.
- */
-export interface FLOverviewParty {
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  deadline: string;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  spielbestaetigung_id: string;
+export interface FLSpielbestaetigungPartyTeam {
+  art: "team";
   /** @pattern ^[0-9a-fA-F]{24}$ */
   team_id: string;
 }
 
+export interface FLSpielbestaetigungPartySchiedsrichter {
+  art: "schiedsrichter";
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  schiedsrichter_id: string;
+}
+
 /**
- * A fixture whose clubs owe their answer: overdue where one club's deadline has passed, else due today.
+ * One party's open confirmation row, a club's or the booked referee's: the row „Zusage eintragen“ records its agreement on.
+ */
+export interface FLOverviewParty {
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  deadline: string;
+  party: FLSpielbestaetigungPartyTeam | FLSpielbestaetigungPartySchiedsrichter;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  spielbestaetigung_id: string;
+}
+
+/**
+ * A fixture whose parties owe their answer: overdue where one party's deadline has passed, else due today.
  */
 export interface FLOverviewSpielbestaetigungRow {
   kind: FLOverviewSpielbestaetigungRowKind;
@@ -3684,8 +3695,14 @@ export interface FLSpielbestaetigungAppointment {
 
 /**
  * A club's decline proposing another date and hour, neither adopted nor discarded; its row is the one both acts write.
+ *
+ * Each act's recipients are the parties the backend mails of it, so its question names them: `adoption_recipients`
+ * those the confirmation pass tells of the move, `discard_recipients` the club the discard tells the date stands,
+ * none once its day has gone by.
  */
 export interface FLOverviewVorschlagRow {
+  adoption_recipients: (FLSpielbestaetigungPartyTeam | FLSpielbestaetigungPartySchiedsrichter)[];
+  discard_recipients: (FLSpielbestaetigungPartyTeam | FLSpielbestaetigungPartySchiedsrichter)[];
   kind: FLOverviewVorschlagRowKind;
   spiel: FLSpielJoinedAdmin;
   /** @pattern ^[0-9a-fA-F]{24}$ */
@@ -4004,18 +4021,6 @@ export interface FLSpielAdvancement {
   voided_elfmeterschiessen: FLSpielElfmeterschiessen | null;
   voided_ergebnis: string | null;
   voided_sonderereignis: FLSonderereignis | null;
-}
-
-export interface FLSpielbestaetigungPartyTeam {
-  art: "team";
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  team_id: string;
-}
-
-export interface FLSpielbestaetigungPartySchiedsrichter {
-  art: "schiedsrichter";
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  schiedsrichter_id: string;
 }
 
 /**

@@ -78,6 +78,9 @@ def club_row(spiel: dict[str, Any], team_id: ObjectId, **fields: Any) -> dict[st
     return documents.spielbestaetigung_document(spiel, party={"art": "team", "team_id": team_id}, **fields)
 
 
+REFEREE_PARTY = {"art": "schiedsrichter", "schiedsrichter_id": SCHIEDSRICHTER}
+
+
 SPIELE = {
     OVERDUE: fixture(OVERDUE, "2026-03-20"),
     DUE_TODAY: fixture(DUE_TODAY, "2026-03-17"),
@@ -115,10 +118,22 @@ ROWS = [
     ),
     documents.spielbestaetigung_document(
         SPIELE[DECLINED],
-        party={"art": "schiedsrichter", "schiedsrichter_id": SCHIEDSRICHTER},
+        party=REFEREE_PARTY,
         asked_at="2026-03-10",
         closed={"at": "2026-03-12", "grund": "schiedsrichter_declined"},
     ),
+    # The booked referee owing an answer past the deadline too: the fixture's one row names both parties.
+    documents.spielbestaetigung_document(SPIELE[OVERDUE], party=REFEREE_PARTY, frist="2026-03-14", asked_at="2026-03-10"),
+    # The proposal's other club, asked and agreed, and its referee, never asked: an adoption has the pass tell the
+    # first of the move and not the second.
+    club_row(
+        SPIELE[PROPOSED],
+        HOME,
+        frist="2026-03-20",
+        asked_at="2026-03-12",
+        antwort={"art": "zugesagt", "am": "2026-03-13", "von": {"art": "kontakt", "rolle": "trainer"}, "vorschlag": None, "begruendung": None},
+    ),
+    documents.spielbestaetigung_document(SPIELE[PROPOSED], party=REFEREE_PARTY, frist="2026-03-20", asked_at=None),
 ]
 
 
@@ -228,7 +243,11 @@ class TestEachKindLandsOnItsCard:
         }
 
     def test_each_row_carries_what_its_act_writes(self, seeded_url: str):
-        """The acts' inputs: a proposal's row and its slot, each owed party's row, an application's confirmed seats."""
+        """The acts' inputs: a proposal's row and its slot and whom each act mails, each owed party's row, an application's seats.
+
+        A referee left off the owed parties cannot be entered from the page; a recipient the page guesses names a mail the
+        backend never sends, or misses one it does.
+        """
 
         rows = {
             (row["kind"], row["spiel"]["spiel_nr"] if "spiel" in row else row["name"]): row
@@ -244,7 +263,20 @@ class TestEachKindLandsOnItsCard:
             str(AWAY),
             {"datum": "2026-03-27", "uhrzeit": "16:00:00"},
         )
-        assert overdue["parties"] == [{"spielbestaetigung_id": str(ROWS[0]["_id"]), "team_id": str(HOME), "deadline": "2026-03-14"}]
+        away, home, referee = (
+            {"art": "team", "team_id": str(AWAY)},
+            {"art": "team", "team_id": str(HOME)},
+            {"art": "schiedsrichter", "schiedsrichter_id": str(SCHIEDSRICHTER)},
+        )
+        assert sorted(proposed["adoption_recipients"], key=str) == sorted([away, home], key=str)
+        assert proposed["discard_recipients"] == [away]
+        assert sorted(overdue["parties"], key=str) == sorted(
+            [
+                {"spielbestaetigung_id": str(ROWS[0]["_id"]), "party": home, "deadline": "2026-03-14"},
+                {"spielbestaetigung_id": str(ROWS[5]["_id"]), "party": referee, "deadline": "2026-03-14"},
+            ],
+            key=str,
+        )
         assert (riedberg["bewerbung_id"], riedberg["seats_confirmed"], riedberg["seats"]) == (str(NEW_SCHOOL), 2, 3)
 
     def test_a_season_that_does_not_exist_is_not_found(self, seeded_url: str):

@@ -1,12 +1,12 @@
 """SAISONS · the Übersicht: one season's open work, each kind on its card, read in one aggregation.
 
 The read is anchored on the season's own document, and every collection a card draws on is joined to it by an
-uncorrelated `$lookup`: the fixtures through `build_spiele_pipeline`, the clubs' open confirmation rows, the reports
-and the undecided applications. That makes one round trip and one document. Each kind is
-judged here in Python, by the predicates the confirmations, the reports and the applications already hold, so no rule
-is spelled a second time in a query. The bracket faults are the exception: they need the standings walk, so they are
-judged over the same fixtures by `app/api/spiele/crud.py :: bracket_faults_of`, whose own reads are the ones no
-aggregation can fold in.
+uncorrelated `$lookup`: the fixtures through `build_spiele_pipeline`, the confirmation rows in the administrator's
+queue and every row holding its party's question, the reports and the undecided applications. That makes one round
+trip and one document. Each kind is judged here in Python, by the predicates the confirmations, the reports and the
+applications already hold, so no rule is spelled a second time in a query. The bracket faults are the exception: they
+need the standings walk, so they are judged over the same fixtures by `app/api/spiele/crud.py :: bracket_faults_of`,
+whose own reads are the ones no aggregation can fold in.
 """
 
 from collections.abc import Iterable, Mapping, Sequence
@@ -23,8 +23,22 @@ from app.api.bewerbungen.services import (
 from app.api.spielberichte.schemas import FLSpielberichtBericht
 from app.api.spielberichte.services import FLSpielberichtOpenState, bericht_zustand_of, build_zustand_pipeline, is_offen
 from app.api.spielbestaetigungen.schemas import FLSpielbestaetigungAppointment
-from app.api.spielbestaetigungen.services import build_triage_rows_filter, grund_to_end
-from app.api.spiele.schemas import SONDEREREIGNIS_COUNTED_AS_ABSAGE, FLBracketFault, FLSpielJoinedAdmin, FLSpielJoinedInternal
+from app.api.spielbestaetigungen.services import (
+    CLOSE_FIELDS,
+    build_holding_filter,
+    build_triage_rows_filter,
+    grund_to_end,
+    parties_told_of_the_change,
+    verwerfen_owes_a_notice,
+)
+from app.api.spiele.schemas import (
+    SONDEREREIGNIS_COUNTED_AS_ABSAGE,
+    FLBracketFault,
+    FLSpielbestaetigungPartei,
+    FLSpielbestaetigungParteiListAdapter,
+    FLSpielJoinedAdmin,
+    FLSpielJoinedInternal,
+)
 from app.api.spiele.services import build_spiele_pipeline
 from app.core.collections import Collection
 from app.shared.schemas.custom import CustomDateString, CustomObjectId
@@ -39,7 +53,7 @@ type FLOverviewCardName = Literal["due", "ergebnisse", "dates", "bewerbungen"]
 # missing is one kind whether nobody was booked or the booked one declined, since either asks the same act.
 type FLOverviewGapKind = Literal["ergebnis_missing", "termin_missing", "spielort_missing", "schiedsrichter_missing", "team_missing"]
 
-# A club's answer still owed: past its deadline, or due today.
+# A party's answer still owed, a club's or the booked referee's: past its deadline, or due today.
 type FLOverviewAnswerKind = Literal["spielbestaetigung_overdue", "spielbestaetigung_due"]
 
 type FLOverviewKind = FLOverviewGapKind | FLOverviewAnswerKind | Literal["spielbericht_open", "vorschlag_open", "bracket_fault", "bewerbung"]
@@ -68,7 +82,8 @@ CARDS: Final[tuple[FLOverviewCardName, ...]] = get_args(FLOverviewCardName.__val
 
 # What the season's one document carries beside its own `rules`, each the `as` of one `$lookup`.
 SPIELE_AS: Final = "spiele"
-CLUB_ROWS_AS: Final = "club_rows"
+QUEUE_ROWS_AS: Final = "queue_rows"
+HELD_ROWS_AS: Final = "held_rows"
 SPIELBERICHTE_AS: Final = "spielberichte"
 BEWERBUNGEN_AS: Final = "bewerbungen"
 PICKED_CLUB_AS: Final = "picked_club"
@@ -88,30 +103,37 @@ class FLOverviewSpielRow(BaseModel):
 
 
 class FLOverviewParty(BaseModel):
-    """One club's open confirmation row: the row „Zusage eintragen“ records the club's agreement on."""
+    """One party's open confirmation row, a club's or the booked referee's: the row „Zusage eintragen“ records its agreement on."""
 
     spielbestaetigung_id: CustomObjectId
-    team_id: CustomObjectId
+    party: FLSpielbestaetigungPartei
     deadline: CustomDateString
 
 
 class FLOverviewSpielbestaetigungRow(BaseModel):
-    """A fixture whose clubs owe their answer: overdue where one club's deadline has passed, else due today."""
+    """A fixture whose parties owe their answer: overdue where one party's deadline has passed, else due today."""
 
     kind: FLOverviewAnswerKind
     spiel: FLSpielJoinedAdmin
-    # Every club of the fixture still owing its answer, so the act offers each party still open.
+    # Every party of the fixture still owing its answer, so the act offers each one still open.
     parties: list[FLOverviewParty]
 
 
 class FLOverviewVorschlagRow(BaseModel):
-    """A club's decline proposing another date and hour, neither adopted nor discarded; its row is the one both acts write."""
+    """A club's decline proposing another date and hour, neither adopted nor discarded; its row is the one both acts write.
+
+    Each act's recipients are the parties the backend mails of it, so its question names them: `adoption_recipients`
+    those the confirmation pass tells of the move, `discard_recipients` the club the discard tells the date stands,
+    none once its day has gone by.
+    """
 
     kind: Literal["vorschlag_open"]
     spiel: FLSpielJoinedAdmin
     spielbestaetigung_id: CustomObjectId
     team_id: CustomObjectId
     vorschlag: FLSpielbestaetigungAppointment
+    adoption_recipients: list[FLSpielbestaetigungPartei]
+    discard_recipients: list[FLSpielbestaetigungPartei]
 
 
 class FLOverviewSpielberichtRow(BaseModel):
@@ -176,13 +198,24 @@ def build_overview_pipeline(*, saison_id: str, today: str) -> list[Mapping[str, 
         {"$match": {"_id": saison_id}},
         {"$project": {"rules": 1}},
         {"$lookup": {"from": Collection.SPIELE, "pipeline": build_spiele_pipeline(db_filter={"saison_id": saison_id}), "as": SPIELE_AS}},
-        # The clubs' rows in the administrator's queue: a standing proposal, a deadline passed, or due today. Each one
-        # still has to speak for its fixture as it stands, which `grund_to_end` judges below.
+        # The rows in the administrator's queue: a standing proposal, a deadline passed, or due today. Each one still has
+        # to speak for its fixture as it stands, which `grund_to_end` judges below.
         {
             "$lookup": {
                 "from": Collection.SPIELBESTAETIGUNGEN,
                 "pipeline": [{"$match": build_triage_rows_filter(saison_id=saison_id, today=today)}, {"$project": {"kontakte": 0}}],
-                "as": CLUB_ROWS_AS,
+                "as": QUEUE_ROWS_AS,
+            }
+        },
+        # Every row holding its party's question, as the pass's close reads it: whom an adoption has the pass tell.
+        {
+            "$lookup": {
+                "from": Collection.SPIELBESTAETIGUNGEN,
+                "pipeline": [
+                    {"$match": {"saison_id": saison_id, **build_holding_filter()}},
+                    {"$project": dict.fromkeys(CLOSE_FIELDS, 1)},
+                ],
+                "as": HELD_ROWS_AS,
             }
         },
         {"$lookup": {"from": Collection.SPIELBERICHTE, "pipeline": build_zustand_pipeline(saison_id=saison_id), "as": SPIELBERICHTE_AS}},
@@ -274,28 +307,43 @@ def overview_of(
     for spiel in spiele:
         rows.extend(FLOverviewSpielRow(kind=kind, spiel=spiel) for kind in _gaps(spiel, today=today))
 
+    held: dict[Any, list[Mapping[str, Any]]] = {}
+    for row in read[HELD_ROWS_AS]:
+        held.setdefault(row["spiel_id"], []).append(row)
+
     parties: dict[Any, list[FLOverviewParty]] = {}
-    for row in read[CLUB_ROWS_AS]:
+    for row in read[QUEUE_ROWS_AS]:
         spiel_raw = spiele_raw.get(row["spiel_id"])
         # A row about an Ansetzung its fixture has left, or one the next pass ends, asks the administrator nothing.
         if spiel_raw is None or grund_to_end(row=row, spiel=spiel_raw, austritte=austritte, today=today) is not None:
             continue
         spiel = by_id[row["spiel_id"]]
-        team_id = row[ROW_PARTY]["team_id"]
         answer = row[ROW_ANSWER]
         # The queue's filter takes an answered row only for its standing proposal; an unanswered one is overdue or due today.
         if answer is not None:
+            vorschlag = FLSpielbestaetigungAppointment.model_validate(answer["vorschlag"])
+            adopted = {**spiel_raw, "datum": vorschlag.datum, "uhrzeit": vorschlag.uhrzeit}
             rows.append(
                 FLOverviewVorschlagRow(
                     kind="vorschlag_open",
                     spiel=spiel,
                     spielbestaetigung_id=row["_id"],
-                    team_id=team_id,
-                    vorschlag=FLSpielbestaetigungAppointment.model_validate(answer["vorschlag"]),
+                    team_id=row[ROW_PARTY]["team_id"],
+                    vorschlag=vorschlag,
+                    adoption_recipients=FLSpielbestaetigungParteiListAdapter.validate_python(
+                        parties_told_of_the_change(
+                            rows=held.get(spiel.id, []), stored=spiel_raw, changed=adopted, austritte=austritte, today=today
+                        )
+                    ),
+                    discard_recipients=FLSpielbestaetigungParteiListAdapter.validate_python(
+                        [row[ROW_PARTY]] if verwerfen_owes_a_notice(row=row, today=today) else []
+                    ),
                 )
             )
             continue
-        parties.setdefault(spiel.id, []).append(FLOverviewParty(spielbestaetigung_id=row["_id"], team_id=team_id, deadline=row[ROW_DEADLINE]))
+        parties.setdefault(spiel.id, []).append(
+            FLOverviewParty(spielbestaetigung_id=row["_id"], party=row[ROW_PARTY], deadline=row[ROW_DEADLINE])
+        )
     rows.extend(
         FLOverviewSpielbestaetigungRow(
             kind="spielbestaetigung_overdue" if any(party.deadline < today for party in owed) else "spielbestaetigung_due",

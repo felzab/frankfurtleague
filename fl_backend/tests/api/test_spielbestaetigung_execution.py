@@ -1376,7 +1376,8 @@ class TestTheQueueListsAFixtureItsConfirmationsPutThere:
     def test_the_fixture_is_listed_where_a_clubs_row_asks_for_the_administrator(
         self, mongo_replica_set_url: str, row1: dict[str, Any], today: str, moved: bool, listed: bool
     ):
-        # The other club agreed, so ROW1 alone decides; the referee's row is overdue whatever the case, and lists nothing.
+        # The other club and the referee agreed, so ROW1 alone decides; a referee's row owing its answer lists the fixture
+        # as a club's does (`test_saison_overview.py :: TestEachKindLandsOnItsCard`).
         agreed = {"antwort": {**DECLINE, "art": "zugesagt", "vorschlag": None}}
         referee = documents.spielbestaetigung_document(
             fixture(),
@@ -1384,6 +1385,7 @@ class TestTheQueueListsAFixtureItsConfirmationsPutThere:
             frist="2027-04-30",
             asked_at=TODAY,
             kontakte=None,
+            antwort={"art": "zugesagt", "am": TODAY, "von": {"art": "schiedsrichter"}, "vorschlag": None, "begruendung": None},
         )
         rows = [{**confirmation(ROW1, TEAM1), **row1}, confirmation(ROW2, TEAM2, **agreed), referee]
 

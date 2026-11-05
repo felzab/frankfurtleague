@@ -128,7 +128,12 @@ function openOf(row: Exclude<FLOverviewRow, { kind: "bewerbung" }>): { line: Cop
     case "spielbestaetigung_overdue": {
       const parties = row.parties.map((party): OpenParty => ({
         id: party.spielbestaetigung_id,
-        name: clubOf(spiel, party.team_id) ?? nameOf(spiel),
+        name:
+          (party.party.art === "team"
+            ? clubOf(spiel, party.party.team_id)
+            : typeof spiel.schiedsrichter?.name === "string"
+              ? { record: spiel.schiedsrichter.name }
+              : null) ?? nameOf(spiel),
       }));
       // The earliest deadline a club of the row was given, which its answer is overdue since.
       const deadline = row.parties.map((party) => party.deadline).toSorted()[0];
