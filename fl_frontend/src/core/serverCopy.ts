@@ -363,17 +363,14 @@ export const SERVER_COPY = catalogue({
     previous: {
       question: "Für dein Konto soll eine neue E-Mail-Adresse gelten.",
       confirmed: "Änderung bestätigt",
-      confirmedSentence: "Die neue Adresse bekommt jetzt ihren Link.",
     },
     new: {
       question: `Diese Adresse soll künftig für ein Konto bei der ${COPY.brand.name} gelten.`,
       confirmed: "Adresse bestätigt",
-      confirmedSentence: "Mit dieser Adresse meldest du dich ab jetzt an.",
       /** A grant holder's confirmed change, which waits on another administrator's approval of the grant's move. */
-      awaitsApproval: "Die Änderung gilt, sobald die Verwaltung sie genehmigt hat.",
+      awaitsApproval: "Genehmigung ausstehend",
     },
     declined: "Änderung abgelehnt",
-    declinedSentence: "Diese Adresse wird nicht übernommen.",
   },
   accountErasure: {
     /** Under the list of what goes, each row a record the read found. */
@@ -383,13 +380,11 @@ export const SERVER_COPY = catalogue({
     addressChanges: "Laufende Adressänderungen",
     grant: "Zugang",
     done: "Konto gelöscht",
-    doneSentence: `Dein Konto und deine Angaben sind gelöscht, bis auf das, was unter „${COPY.page.privacyNotice}“ steht.`,
-    signedOut: "Du bist nicht angemeldet.",
   },
 
   /**
-   * The landing's sections, the blocks About, Kontakt and the sponsors page share with it, and the classic frame's
-   * not-found page, each read by a Server Component.
+   * The landing's sections, the blocks About, Kontakt and the sponsors page share with it, and the not-found page's
+   * title, each read by a Server Component.
    */
   landing: {
     /** The hero's one heading. */
@@ -509,8 +504,8 @@ export const SERVER_COPY = catalogue({
       email: "E-Mail",
     },
 
-    /** The classic frame's not-found page. */
-    notFound: { title: "Seite nicht gefunden", sentence: "Die Adresse stimmt nicht, oder die Seite gibt es nicht mehr." },
+    /** The not-found page's title, in every frame. */
+    notFound: "Seite nicht gefunden",
   },
 
   /**
@@ -865,14 +860,9 @@ export const SERVER_COPY = catalogue({
     /** The deadline in the two parts around its day: the mail sets the day semibold, the page writes it plain. */
     deadline: ENTRY_DEADLINE,
     question: (until: CalendarDay) => [REFEREE_OPENING, REFEREE_STORED, entryDeadline(until), OBJECTION_DELETES_ENTRY].join(" "),
-    /**
-     * The two ends of an answer, each its title and its one sentence; a link opened again after it says the title with
-     * the day (`COPY.shared.end.doneOn`).
-     */
+    /** The two ends of an answer, each a title; a link opened again after it titles it with the day (`COPY.shared.end.doneOn`). */
     confirmed: "Eintrag bestätigt",
-    confirmedSentence: "Mit der Adresse, an die dieser Link ging, meldest du dich an.",
     objected: "Widersprochen",
-    objectedSentence: "Wir löschen deinen Eintrag.",
   },
 
   // Session 8: its page reads these.

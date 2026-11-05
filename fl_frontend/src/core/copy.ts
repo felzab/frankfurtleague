@@ -202,10 +202,12 @@ export const COPY = catalogue({
     /** The name of the icon button closing a pop-up that asks nothing, such as the match pop-up. */
     close: "Schließen",
 
-    /** The end states of a page a mail opens; each page names its own sentence for the done state. */
+    /** The status cards' titles and ways on: a mailed page's ends, and the frames' own. */
     end: {
-      doneOn: (done: Copy, day: CalendarDay) => `${done} am ${formatDatumLong(day)}.`,
-      linkInvalid: "Dieser Link gilt nicht mehr.",
+      /** A mailed page's link opened again, titled with what the person did and the day: „Eintrag bestätigt am 12. November 2026“. */
+      doneOn: (done: Copy, day: CalendarDay) => `${done} am ${formatDatumLong(day)}`,
+      /** An area with no season yet, where a page shows a season's work. */
+      noSaison: "Noch keine Saison",
       toHome: "Zur Startseite",
       toAccount: "Zum Konto",
       /** A signed-in frame's way home, its role's Übersicht. */
@@ -433,7 +435,7 @@ export const COPY = catalogue({
     /** The mark beside an editor's part still waiting on a value or an answer. */
     open: "Offen",
 
-    /** A page a mail opened whose link no longer holds, above the catalogue's sentence for it. */
+    /** A page a mail opened whose link no longer holds: one title for an expired, mistyped or tampered link alike. */
     linkInvalid: "Link nicht mehr gültig",
   },
 
@@ -520,7 +522,7 @@ export const COPY = catalogue({
     },
     erasure: {
       // What outlives an erasure is the privacy notice's to list. Konto's deletion box and the deletion mail read this
-      // sentence; the done page states it as done, `SERVER_COPY.accountErasure.doneSentence`.
+      // sentence; the done page leads to the notice.
       description: `Dein Konto und deine Angaben werden gelöscht, bis auf das, was unter „${PRIVACY_NOTICE}“ steht.`,
       consequence: "Den Link zum Löschen bekommst du per E-Mail.",
     },
