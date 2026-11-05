@@ -756,9 +756,9 @@ export const COPY = catalogue({
        * Why the draw cannot run: a group holds more or fewer teams than the rules give each, or a club stands in a
        * group the rules do not run. One repair reaches all three, entering the clubs as the rules say.
        */
-      gruppenOffRules: "Die Gruppen sind nicht so besetzt, wie die Regeln es vorsehen.",
-      recreateConsequence: "Alle Spieltage und Spiele dieser Saison werden gelöscht und neu angelegt.",
-      deleteConsequence: "Alle Spieltage und Spiele dieser Saison werden gelöscht.",
+      gruppenOffRules: "Die Gruppen passen nicht zu den Regeln.",
+      recreateConsequence: "Alle Spieltage und Spiele werden gelöscht und neu angelegt.",
+      deleteConsequence: "Alle Spieltage und Spiele werden gelöscht.",
 
       /** The group swap's two clubs; the swap exchanges their groups. */
       swapFirst: "Erstes Team",
@@ -772,10 +772,13 @@ export const COPY = catalogue({
       replaceConsequence: (incoming: Words, outgoing: Words, gruppe: string) =>
         `${textOf(incoming)} übernimmt ${GRUPPE(gruppe)} und alle Spiele von ${textOf(outgoing)}.`,
 
-      /** Why the draw cannot be redrawn or removed now: reports stand, the season went live, or a match holds an entry. */
+      /**
+       * Why the draw cannot be redrawn or removed now: reports stand, the season went live, or a match holds something
+       * entered since the draw beyond its date.
+       */
       reportsHold: "Spielberichte liegen vor",
       lockedSinceActivation: "Seit der Umstellung gesperrt",
-      entriesHold: "Spiele haben schon Einträge",
+      entriesHold: "Spiele sind schon bearbeitet",
 
       /** Each team's registration link as its row states it, by what the press would do with it. */
       linkSentOn: (day: CalendarDay) => `Gesendet am ${formatDatum(day)}`,
@@ -785,19 +788,9 @@ export const COPY = catalogue({
       addressBarred: "Adresse auf der Sperrliste",
       /** The registration links' done line, the rows saying the rest. */
       sentTo: (count: number) => (count === 1 ? "An 1 Team gesendet" : `An ${formatNumber(count)} Teams gesendet`),
-      /**
-       * The registration links' send: how many teams it mails, and how many of them hold a link that stops opening,
-       * none, all or some.
-       */
-      dispatchConsequence: (count: number, replacing: number) => {
-        if (replacing === 0)
-          return count === 1 ? "1 Team bekommt seinen Link per E-Mail." : `${formatNumber(count)} Teams bekommen ihren Link per E-Mail.`;
-        if (replacing === count)
-          return count === 1
-            ? "1 Team bekommt einen neuen Link, und sein bisheriger gilt nicht mehr."
-            : `${formatNumber(count)} Teams bekommen einen neuen Link, und ihr bisheriger gilt nicht mehr.`;
-        return `${formatNumber(count)} Teams bekommen ihren Link per E-Mail, und bei ${formatNumber(replacing)} davon gilt der bisherige nicht mehr.`;
-      },
+      /** The registration links' send: how many teams it mails. */
+      dispatchConsequence: (count: number) =>
+        count === 1 ? "1 Team bekommt seinen Link per E-Mail." : `${formatNumber(count)} Teams bekommen ihren Link per E-Mail.`,
 
       /** The activation: the season the site shows, and its subject, „Auf Saison 2027 umstellen?“. */
       isCurrent: "Die Website zeigt diese Saison.",

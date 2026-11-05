@@ -87,13 +87,14 @@ export const activateSaison = action({
 
 /**
  * Exchanges two clubs' groups, every group match of either rewritten in the same write. The editor's pickers close
- * every pair a match of which has taken place, so `swap_sides_taken_place` meets only a match played after the read.
+ * every pair a match of which has taken place, so `swap_sides_taken_place` meets only a match played after the read,
+ * which the stale-page line answers.
  */
 export const swapGruppen = action({
   lane: "admin",
   name: "swapGruppen",
   input: SaisonsSwapGruppenBody.extend(SAISON),
-  ownWords: ["swap_sides_taken_place", "saison_past"],
+  ownWords: ["saison_past"],
   run: async ({ saison_id, ...pair }) => {
     await saisonsSwapGruppen(saison_id, pair);
     return { ok: true, value: undefined };
@@ -103,13 +104,13 @@ export const swapGruppen = action({
 /**
  * Hands a club's row of the season, and its whole schedule, to a club the season does not hold. The editor's picker
  * closes every club a match of which has taken place, so `replace_sides_taken_place` meets only one played after the
- * read.
+ * read, which the stale-page line answers.
  */
 export const replaceTeam = action({
   lane: "admin",
   name: "replaceTeam",
   input: TeamsReplaceSaisonTeamBody.extend({ ...SAISON, team_id: TeamsReplaceSaisonTeamParams.shape.team_id }),
-  ownWords: ["replace_sides_taken_place", "saison_past"],
+  ownWords: ["saison_past"],
   run: async ({ saison_id, team_id, incoming_team_id }) => {
     await teamsReplaceSaisonTeam(team_id, saison_id, { incoming_team_id });
     return { ok: true, value: undefined };
