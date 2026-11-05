@@ -207,7 +207,6 @@ describe("a table on a phone", () => {
             id: "1",
             name: { record: "Kastanie" },
             plaque: { record: "KAS" },
-            versus: { plaque: { record: "EIC" }, name: { record: "Eiche" } },
             href: "/saisons/2027",
             cells: { stadtteil: { record: "3:1" } },
           },

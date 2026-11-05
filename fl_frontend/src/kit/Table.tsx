@@ -54,8 +54,6 @@ export type TableRow = {
    */
   plaqueHref?: Route;
   plaqueLine?: Copy;
-  /** A pairing's second side, as a list of matches names a match: its name after the first's, its plaque after both. */
-  versus?: { plaque: Plaque; name: Words; plaqueHref?: Route; plaqueLine?: Copy };
   chip?: ChipProps;
   /** The row's values, by column key; a missing value leaves its cell empty. */
   cells: Readonly<Record<string, TableCell>>;
@@ -101,9 +99,9 @@ export type TableProps = {
    */
   prose?: boolean;
   /**
-   * A table whose name line holds more than a phone's row shares with two facts, such as a pairing's two plaques and
-   * its chip: on a phone each row stacks, its name line over its cells and every cell after its column's label, the
-   * cells still cut rather than wrapped.
+   * A table whose cells hold more than a phone's row shares with its name, such as the match editor's report and its
+   * answers: on a phone each row stacks, its name line over its cells and every cell after its column's label, the
+   * cells wrapping under it.
    */
   stack?: boolean;
   /**
@@ -293,8 +291,7 @@ function PlaqueOf({ plaque, href, name, line }: { plaque: Plaque; href: Route | 
 
 /**
  * The name, cut with „…“ where its column is too narrow and whole in its `title`, then the chip, which keeps
- * its size and its line; a prose table's name wraps instead. A pairing's names stand together, its second plaque
- * after them. A club's plaque stands outside the span cutting the names, so the cut never takes it, and outside
+ * its size and its line; a prose table's name wraps instead. A club's plaque stands outside the span cutting the names, so the cut never takes it, and outside
  * the row's link, which may hold no button; the link's stretched box still covers a drawn plaque, so on a phone,
  * where the plaque alone is drawn, a press on it opens the row's record, which the link names by the club's full
  * name, and a plaque opening its club stands above that box.
@@ -313,22 +310,9 @@ function NameCell({
   stack: boolean;
 }) {
   const s = table({ qualifies: barred, compact, prose, stack });
-  const { plaque, versus } = row;
+  const { plaque } = row;
   const name = textOf(row.name);
-  const words =
-    versus === undefined ? (
-      plaque === undefined ? (
-        name
-      ) : (
-        <span className={s.clubName()}>{name}</span>
-      )
-    ) : (
-      // The spaces around the dash fall away on a phone, where the dash alone stands between the two plaques.
-      <>
-        <span className={plaque === undefined ? undefined : s.clubName()}>{name}</span> <span>{COPY.shared.versus}</span>{" "}
-        <span className={s.clubName()}>{textOf(versus.name)}</span>
-      </>
-    );
+  const words = plaque === undefined ? name : <span className={s.clubName()}>{name}</span>;
   return (
     <td
       role="cell"
@@ -343,8 +327,8 @@ function NameCell({
           />
         )}
         <span
-          className={nameWords({ cut: !prose, lonePlaque: plaque !== undefined && versus === undefined })}
-          title={versus === undefined ? name : `${name} ${COPY.shared.versus} ${textOf(versus.name)}`}>
+          className={nameWords({ cut: !prose, lonePlaque: plaque !== undefined })}
+          title={name}>
           {row.href === undefined ? (
             words
           ) : (
@@ -355,14 +339,6 @@ function NameCell({
             </Link>
           )}
         </span>
-        {versus !== undefined && (
-          <PlaqueOf
-            plaque={versus.plaque}
-            href={versus.plaqueHref}
-            name={versus.name}
-            line={versus.plaqueLine}
-          />
-        )}
         {row.chip !== undefined && <Chip {...row.chip} />}
       </span>
     </td>
