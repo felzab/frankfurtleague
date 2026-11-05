@@ -1,4 +1,5 @@
 import { cardSurface } from "./cardStyles";
+import { CutText } from "./CutText";
 import { ExpandableText } from "./ExpandableText";
 import { Link } from "./Link";
 import { TeamPlaque } from "./TeamPlaque";
@@ -32,9 +33,9 @@ export function ClubHead({
     <div className={cardSurface({ class: "grid gap-3 p-4" })}>
       <div className="flex min-w-0 items-center gap-3">
         <TeamPlaque plaque={plaque} />
-        <span
-          className="min-w-0 truncate text-base font-semibold"
-          title={name.record}>
+        <CutText
+          text={name.record}
+          className="min-w-0 truncate text-base font-semibold">
           {website === null ? (
             name.record
           ) : (
@@ -44,7 +45,7 @@ export function ClubHead({
               label={name}
             />
           )}
-        </span>
+        </CutText>
       </div>
       <div className="grid gap-0.5 text-sm">
         <span>{school.record}</span>

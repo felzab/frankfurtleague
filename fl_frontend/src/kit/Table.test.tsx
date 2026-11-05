@@ -29,7 +29,7 @@ const POSITIONS = /(^|\s|:)(sr-only|relative|absolute|fixed|sticky)(\s|$)/;
 describe("a table's name cell", () => {
   // jsdom lays nothing out, so the cut is held by its classes: Tailwind's `truncate` on the name, `min-w-0` on
   // its flex row, and the chip a sibling of the name, `shrink-0`, so the name gives way and the chip never does.
-  it("cuts a long name with „…“, whole in its title, and keeps the chip on the name's line", () => {
+  it("cuts a long name with „…“ and keeps the chip on the name's line", () => {
     render(
       <Table
         {...props([
@@ -42,7 +42,7 @@ describe("a table's name cell", () => {
         ])}
       />,
     );
-    const name = screen.getByTitle(LONG);
+    const name = screen.getByText(LONG).closest(".truncate") as HTMLElement;
     expect(name.textContent).toBe(LONG);
     expect(name.classList).toContain("truncate");
     expect(name.parentElement?.classList).toContain("min-w-0");
@@ -73,7 +73,7 @@ describe("a table's name cell", () => {
     // stretched box, drawn over the whole row, still opens the club from it.
     const plaque = screen.getByText("GOE");
     expect(plaque.closest("a")).toBe(null);
-    expect(plaque.parentElement).toBe(screen.getByTitle(LONG).parentElement);
+    expect(plaque.parentElement).toBe(screen.getByText(LONG).closest(".truncate")?.parentElement);
 
     // Nothing between the link and its row is positioned or clipped, so the stretched link covers the row.
     const row = link.closest("tr");

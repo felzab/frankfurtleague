@@ -3,6 +3,7 @@ import { formatNumber } from "@/core/format";
 
 import { cardHover, cardSurface, columnHead, stacked } from "./cardStyles";
 import { Chip } from "./Chip";
+import { CutText } from "./CutText";
 import { EmptyState } from "./EmptyState";
 import { Link } from "./Link";
 import { PlaquePopover } from "./PlaquePopover";
@@ -290,7 +291,7 @@ function PlaqueOf({ plaque, href, name, line }: { plaque: Plaque; href: Route | 
 }
 
 /**
- * The name, cut with „…“ where its column is too narrow and whole in its `title`, then the chip, which keeps
+ * The name, cut with „…“ where its column is too narrow and whole in its `title` while it is cut, then the chip, which keeps
  * its size and its line; a prose table's name wraps instead. A club's plaque stands outside the span cutting the names, so the cut never takes it, and outside
  * the row's link, which may hold no button; the link's stretched box still covers a drawn plaque, so on a phone,
  * where the plaque alone is drawn, a press on it opens the row's record, which the link names by the club's full
@@ -326,9 +327,9 @@ function NameCell({
             line={row.plaqueLine}
           />
         )}
-        <span
-          className={nameWords({ cut: !prose, lonePlaque: plaque !== undefined })}
-          title={name}>
+        <CutText
+          text={name}
+          className={nameWords({ cut: !prose, lonePlaque: plaque !== undefined })}>
           {row.href === undefined ? (
             words
           ) : (
@@ -338,7 +339,7 @@ function NameCell({
               {words}
             </Link>
           )}
-        </span>
+        </CutText>
         {row.chip !== undefined && <Chip {...row.chip} />}
       </span>
     </td>

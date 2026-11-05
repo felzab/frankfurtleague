@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { COPY, textOf } from "@/core/copy";
 
 import { Callout } from "./Callout";
+import { CutText } from "./CutText";
 import { RouteDialog } from "./Dialog";
 import { Facts } from "./Facts";
 import { Link } from "./Link";
@@ -73,9 +74,9 @@ function Side({ side, score, part }: { side: SpielHeadSide; score: Figures; part
   return (
     <span className={style.side()}>
       <TeamPlaque plaque={side.plaque} />
-      <span
-        className={style.name()}
-        title={textOf(side.name)}>
+      <CutText
+        text={textOf(side.name)}
+        className={style.name()}>
         {side.href === undefined ? (
           textOf(side.name)
         ) : (
@@ -85,7 +86,7 @@ function Side({ side, score, part }: { side: SpielHeadSide; score: Figures; part
             label={side.name}
           />
         )}
-      </span>
+      </CutText>
       {side.standing !== undefined && (
         <span className={style.standing()}>
           <Link

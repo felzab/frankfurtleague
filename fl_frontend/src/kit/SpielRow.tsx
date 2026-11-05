@@ -3,6 +3,7 @@ import { ERGEBNIS_SEPARATOR } from "@/core/format";
 
 import { cardSurface, stacked } from "./cardStyles";
 import { Chip } from "./Chip";
+import { CutText } from "./CutText";
 import { Link } from "./Link";
 import { RowEnd } from "./RowEnd";
 import { TeamPlaque } from "./TeamPlaque";
@@ -121,12 +122,11 @@ function Side({ side, score, part, mirrored }: { side: SpielSide; score: Figures
   return (
     <span className={style.side()}>
       {mirrored !== true && <TeamPlaque plaque={side.plaque} />}
-      {/* Cut with „…“ where the side's column is too narrow, the whole name in its `title`. */}
-      <span
+      {/* Cut with „…“ where the side's column is too narrow, the whole name in its `title` while it is cut. */}
+      <CutText
+        text={name}
         className={style.name()}
-        title={name}>
-        {name}
-      </span>
+      />
       {mirrored === true && <TeamPlaque plaque={side.plaque} />}
     </span>
   );

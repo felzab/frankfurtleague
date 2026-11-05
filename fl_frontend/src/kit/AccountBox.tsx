@@ -10,6 +10,7 @@ import { COPY } from "@/core/copy";
 import { Button } from "./Button";
 import { cardSurface, stacked } from "./cardStyles";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { CutText } from "./CutText";
 import { Dialog } from "./Dialog";
 import { useLocked } from "./draftUnsaved";
 import { StatusLine } from "./FieldParts";
@@ -317,12 +318,11 @@ function Row({ record }: { record: AccountRow }) {
   return (
     <div className={slots.row()}>
       <div className={slots.words()}>
-        <span
+        <CutText
           id={nameId}
+          text={record.name.record}
           className={slots.name()}
-          title={record.name.record}>
-          {record.name.record}
-        </span>
+        />
         <span className={slots.detail()}>{record.detail}</span>
       </div>
       {record.rename !== undefined && (

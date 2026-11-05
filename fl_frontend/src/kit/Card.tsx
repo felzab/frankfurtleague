@@ -2,6 +2,7 @@ import { textOf } from "@/core/copy";
 
 import { card, cardHover, stacked } from "./cardStyles";
 import { Chip } from "./Chip";
+import { CutText } from "./CutText";
 import { Link } from "./Link";
 import { RowEnd } from "./RowEnd";
 import { tv } from "./tv";
@@ -117,7 +118,7 @@ export type CardActRowProps = {
  * what is open, and its acts, one or two kit buttons, under the words on a phone and at the row's end from
  * `lg`, so the name keeps the phone's whole width. The whole row opens the record through its name, as every
  * card row does; a row with no act ends in the chevron instead. A name too long for its line is cut with „…“, so
- * the chip keeps its place beside it; the full name stays the link's accessible name and shows as its title.
+ * the chip keeps its place beside it; the full name stays the link's accessible name and shows as its title while it is cut.
  */
 export function CardActRow({ href, name, chip, line, acts }: CardActRowProps) {
   const s = actRow({ acts: acts !== undefined });
@@ -125,15 +126,15 @@ export function CardActRow({ href, name, chip, line, acts }: CardActRowProps) {
     <div className={s.root()}>
       <span className={s.words()}>
         <span className={s.name()}>
-          <span
-            title={textOf(name)}
+          <CutText
+            text={textOf(name)}
             className="min-w-0 truncate font-medium">
             <Link
               href={href}
               placement="row"
               label={name}
             />
-          </span>
+          </CutText>
           {chip !== undefined && <Chip {...chip} />}
         </span>
         <span className={s.line()}>{textOf(line)}</span>
