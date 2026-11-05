@@ -227,6 +227,8 @@ const STALE: ReadonlySet<Code> = new Set<Code>([
   "schiedsrichter_retired",
   "confirmation_exists",
   "schiedsrichter_no_address",
+  // A confirmed referee's address, which the editor shows read-only: only a page read before the confirmation sends it.
+  "schiedsrichter_address_only_per_change",
   // A referee who has not confirmed, whom the match editor offers only as a closed choice.
   "booking_unconfirmed_schiedsrichter",
 ]);

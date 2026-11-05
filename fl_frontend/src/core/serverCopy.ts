@@ -125,11 +125,6 @@ export const SERVER_COPY = catalogue({
       Array.isArray(spiel_nrs) && spiel_nrs.length > 0 ? `Die Person ist noch für ${spieleNamed(spiel_nrs)} eingeteilt.` : undefined,
     /** A referee's address the ban list holds, where a create, a save or a return would mail it a link. */
     schiedsrichter_address_barred: "Diese E-Mail-Adresse steht auf der Sperrliste.",
-    /**
-     * A confirmed referee's address, which the editor shows read-only: only a page read before the confirmation sends
-     * it, so it reads as the stale page it is.
-     */
-    schiedsrichter_address_only_per_change: COPY.shared.failure.stale,
     /** A club's stored proposed day that has gone by, which „Übernehmen“ would move the fixture into. */
     ansetzung_vorschlag_past_as_stored: "Der vorgeschlagene Tag ist vorbei.",
     // A season's rules and its activation, each a fact the person reads off the season editor itself.
