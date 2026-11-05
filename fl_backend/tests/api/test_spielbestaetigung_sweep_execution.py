@@ -21,6 +21,8 @@ from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigungSweepResponse,
 )
 from app.api.spielbestaetigungen.services import (
+    ansetzung_stand_of,
+    build_holding_filter,
     build_token_filter,
     compose_antwort_update,
     compose_closing_update,
@@ -772,6 +774,40 @@ class TestADiscardedDeclineIsNotAskedAgain:
 
 
 AUSTRITT_ON_THE_DAY = {"austritt": {"type": "rueckzug", "grund": "Schulwechsel", "datum": NEXT_WEEK}}
+
+
+class TestARefereeHoldsOneQuestionAcrossAMoveAndBack:
+    def test_each_pass_leaves_the_referee_one_row_about_the_slot_held_and_tells_each_move(self, mongo_replica_set_url: str):
+        """The mint tells a referee of a move only in the Einteilung asking the new slot, which rests on this.
+
+        A row of theirs about the slot held, standing beside an open one about a slot left, would be a move the mint
+        tells nobody of: it has no arm for a referee whose row about the slot already stands.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            seen: list[tuple[list[str], str, list[bool]]] = []
+            for uhrzeit in (None, "19:00:00", "18:00:00"):
+                if uhrzeit is not None:
+                    await move(database, client, SPIEL, uhrzeit=uhrzeit)
+                passed = await sweep(database, client)
+                spiel = await database[Collection.SPIELE].find_one({"_id": SPIEL})
+                assert spiel is not None
+                held = await rows(database, spiel_id=SPIEL, **{"party.art": "schiedsrichter"}, **build_holding_filter())
+                seen.append(
+                    (
+                        [row["ansetzung"]["stand"] for row in held],
+                        ansetzung_stand_of(spiel),
+                        [einteilung.moved_from is not None for einteilung in passed.einteilungen],
+                    )
+                )
+
+            return seen
+
+        seen = on_a_league(mongo_replica_set_url, body, spiele=[fixture(SPIEL, 1, NEXT_WEEK)])
+
+        assert [held for held, _, _ in seen] == [[stand] for _, stand, _ in seen]
+        # Asked first, then told of each move in the Einteilung asking the slot it moved to.
+        assert [told for _, _, told in seen] == [[False], [True], [True]]
 
 
 class TestADiscardEndsWhereAnAgreementBesideItEnds:
