@@ -80,12 +80,12 @@ export const SERVER_COPY = catalogue({
     state_nichtantreten_without_two_sides: "Beide Teams stehen noch nicht fest.",
     booking_unknown_resource: {
       ort: "Der Spielort ist stillgelegt oder gelöscht.",
-      schiedsrichter: "Der Schiedsrichter ist stillgelegt oder gelöscht.",
+      schiedsrichter: "Die eingeteilte Person ist stillgelegt oder gelöscht.",
     },
-    booking_unconfirmed_schiedsrichter: "Der Schiedsrichter hat den eigenen Eintrag noch nicht bestätigt.",
+    booking_unconfirmed_schiedsrichter: "Die eingeteilte Person hat ihren Eintrag noch nicht bestätigt.",
     spiel_double_booked: {
       ort: "Der Spielort ist zu dieser Zeit schon belegt.",
-      schiedsrichter: "Der Schiedsrichter ist zu dieser Zeit schon eingeteilt.",
+      schiedsrichter: "Die eingeteilte Person pfeift zu dieser Zeit schon ein anderes Spiel.",
     },
     /** The league's last owner, whose erasure would leave the administration owned by nobody. */
     last_owner_erasure: "Du bist die letzte Inhaberin oder der letzte Inhaber der Verwaltung.",

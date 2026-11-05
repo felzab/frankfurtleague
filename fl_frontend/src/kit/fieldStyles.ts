@@ -267,7 +267,6 @@ export const radioDot = tv({ base: "size-2.5 rounded-full bg-bg" });
 /**
  * A switch's track, its thumb resting two pixels inside it. On, it fills with the link green; off, it keeps
  * the muted fill inside a 1-px edge in the fields' edge colour, so it shows against the page in either theme.
- * @awaitsProduction session 5's `Switch`
  */
 export const switchTrack = tv({
   base: "mt-px flex h-5 w-9 shrink-0 items-center rounded-full px-0.5 transition-colors duration-(--motion-state)",
@@ -283,7 +282,6 @@ export const switchTrack = tv({
 /**
  * The switch's thumb: the control edge's grey on the off track, the page's ground on the brand fill once on,
  * sliding to the track's end when on.
- * @awaitsProduction session 5's `Switch`
  */
 export const switchThumb = tv({
   base: "size-4 rounded-full transition-[transform,background-color] duration-(--motion-state)",

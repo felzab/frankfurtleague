@@ -693,6 +693,49 @@ export const COPY = catalogue({
       /** The matchday dialog's two dates. */
       beginn: "Beginn",
       ende: "Ende",
+
+      /** The match editor's sections beyond the three it shares with the old pages: a knockout match's clubs, the report and the answers. */
+      spielberichtUndBestaetigungen: "Spielbericht und Bestätigungen",
+      spielbericht: "Spielbericht",
+      bestaetigungen: "Bestätigungen",
+      /** The Vorschau under the editor's title: the fields changed and not yet saved, each by its own label. */
+      changed: (labels: readonly Copy[]) => formatList(labels),
+      /** A club picked by hand over the side's source, which the side no longer follows once saved. */
+      replacesQuelle: (quelle: Copy) => `Ersetzt ${quelle}`,
+      /** Why a club cannot take a side: it stands on another match of the matchday, or has left the season. */
+      onSpieltag: "Spielt schon an diesem Spieltag",
+      departed: "Aus der Saison ausgeschieden",
+      /** The referee's fee for the match, which the glossary's `payment` names on screen. */
+      honorar: "Honorar",
+      /** A referee who has not confirmed their entry, whom no match can be booked onto yet. */
+      unconfirmed: "Noch nicht bestätigt",
+      elfmeterschiessen: "Elfmeterschießen",
+      /** Level knockout goals saved without a shoot-out leave the match undecided, and the bracket after it. */
+      shootOutMissing: "Ohne Elfmeterschießen wartet der K.-o.-Baum.",
+      /** An event after which the match carries no result, chosen over a stored one. */
+      resultDropped: (score: Copy) => `Ergebnis ${score} wird verworfen`,
+      /** The referee's proposal, which „Übernehmen“ carries into the fields: „Laut Spielbericht 3:1“. */
+      fromReport: (result: Words) => `Laut Spielbericht ${textOf(result)}`,
+      /** The report's goals as rows: what happened, the minute, and the score it made. */
+      event: "Ereignis",
+      minute: "Minute",
+      /** The answers as rows: whose, their answer and what a declining club proposed. */
+      party: "Partei",
+      answer: "Antwort",
+      proposal: "Vorschlag",
+      reason: "Grund",
+      zugesagt: "Zugesagt",
+      /** A club's decline, and a referee's, as the glossary's `Absage` names the second. */
+      abgelehnt: "Abgelehnt",
+      abgesagt: "Abgesagt",
+      answerBy: (day: CalendarDay) => `Antwort bis ${formatDatum(day)}`,
+      enteredByLeague: "Von der Verwaltung eingetragen",
+      notAsked: "Noch nicht angefragt",
+      /** A save voiding later matches' results, which it asks before. */
+      voids: (spiele: readonly number[]) =>
+        spiele.length === 1
+          ? `Das Ergebnis von Spiel ${formatNumber(spiele[0] ?? 0)} wird gelöscht.`
+          : `Die Ergebnisse von Spiel ${formatList(spiele.map(formatNumber))} werden gelöscht.`,
     },
   },
 

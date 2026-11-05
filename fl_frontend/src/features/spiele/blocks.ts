@@ -65,7 +65,8 @@ export function outcomeFor(spiel: FLSpielJoined, teamId: string): Outcome {
   return own > other ? "won" : own < other ? "lost" : "drawn";
 }
 
-function quelleWords(quelle: FLSpielQuelle | null): { short: Copy; long: Copy } | null {
+/** Where a side comes from while the draw has not settled it: short in its dashed plaque, in full as its name. */
+export function quelleWords(quelle: FLSpielQuelle | null): { short: Copy; long: Copy } | null {
   if (quelle === null) return null;
   const { quelle: words } = COPY.spielplan;
   if (quelle.type === "gruppe")
