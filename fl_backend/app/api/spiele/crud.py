@@ -87,7 +87,6 @@ from app.core.crud import (
 )
 from app.core.readonly import ReadCollection
 from app.shared.einwilligung import is_confirmed
-from app.shared.schemas.bounds import LIST_LIMIT_MAX
 from app.shared.schemas.custom import CustomObjectId
 from app.shared.schemas.literals import FLGruppenNames, FLSpielSeite
 
@@ -798,7 +797,6 @@ async def preview_spiel_save(
         collection=spielbestaetigungen_collection,
         db_filter={"spiel_id": spiel_id, **build_holding_filter()},
         what=f"fixture {spiel_id}'s held confirmations",
-        limit=LIST_LIMIT_MAX,
         projection=CLOSE_FIELDS,
     )
     told = parties_told_of_the_change(

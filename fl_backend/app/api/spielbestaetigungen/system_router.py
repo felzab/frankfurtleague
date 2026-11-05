@@ -539,7 +539,6 @@ async def sweep_spielbestaetigungen(
             collection=spielbestaetigungen_collection,
             db_filter=build_held_filter(saison_id=saison_id, spiel_ids=[spiel["_id"] for spiel in spiele]),
             what=f"season {saison_id}'s window's held confirmations",
-            limit=LIST_LIMIT_MAX,
             session=session,
         )
         held = {(row["spiel_id"], partei_key(row["party"]), row["ansetzung"]["stand"]): row for row in read}
