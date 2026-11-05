@@ -7,8 +7,8 @@ const SITZE = KONTAKT_ROLLEN.map(({ value }) => value);
 
 /**
  * Whether a contacts save may mint or void a seat's link, a step-up write either way:
- * a SUPERSET of the backend's test, for
- * `fl_frontend/src/features/schiedsrichter/linkMint.ts`'s reason. Raw strings where the backend folds them.
+ * a SUPERSET of the backend's test,
+ * so the page never under-asks for a step-up the backend requires. Raw strings where the backend folds them.
  */
 export function kontakteMayMoveLinks(stored: FLSaisonTeamKontakte | null, sent: FLSaisonTeamKontaktePayload | null): boolean {
   // Clearing the block is a step-up write of its own, judged where it is sent.

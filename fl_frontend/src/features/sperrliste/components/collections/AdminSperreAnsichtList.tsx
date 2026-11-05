@@ -1,5 +1,6 @@
 "use client";
 
+import { ROUTES } from "@/core/routes";
 import { EINSEHBAR_VERWEHRT } from "@/features/address-change/einsehbar";
 import { ANTRAG_WAS } from "@/features/berechtigungen/constants";
 import { rollenLangform } from "@/features/bewerbungen/constants";
@@ -57,10 +58,11 @@ const EINTRAEGE: Eintraege = {
             };
       });
     }),
-  schiedsrichter: (schiedsrichter, saisonHref) =>
+  schiedsrichter: (schiedsrichter) =>
     schiedsrichter.map(({ schiedsrichter_id, name, inactive_since, spiele_without_ergebnis_saison_ids: spiele_ohne_ergebnis_saison_ids }) => {
       const person = name === null ? "Schiedsrichterin oder Schiedsrichter ohne Namen" : `Schiedsrichterin oder Schiedsrichter: ${name}`;
-      const href = saisonHref(`/area/admin/schiedsrichter/${schiedsrichter_id}`);
+      // The referee's record is the league's, so its page carries no season.
+      const href = ROUTES.adminSchiedsrichterRecord.path(schiedsrichter_id);
 
       return {
         text: inactive_since === null ? person : `${person}, stillgelegt seit ${formatSpielDatum(inactive_since)}`,

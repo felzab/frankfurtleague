@@ -116,7 +116,7 @@ export const ADDRESS_HAUSNUMMER_MAX_LENGTH = 16;
 
 /**
  * `FLAddressPayload`, what every write payload embeds, judged in the browser: the venue, club and application forms
- * (`AdminSpielortEditForm.tsx`, `AdminTeamEditForm.tsx`, `BewerbungForm.tsx`) parse their slice's payload, which embeds
+ * (`AdminCreateSpielortForm.tsx`, `AdminTeamEditForm.tsx`, `BewerbungForm.tsx`) parse their slice's payload, which embeds
  * this, and the generated Zod is `server-only`.
  */
 export const FLAddressPayloadSchema = z.object({
@@ -200,7 +200,7 @@ export const KontaktEmailSchema = addressSchema(
 
 /**
  * What the two referee payloads embed: the write is where the address rule applies and a refusal reaches a box. Judged
- * in the browser by the referee forms (`AdminCreateSchiedsrichterForm.tsx`, `AdminSchiedsrichterEditForm.tsx`), which
+ * in the browser by the referee's create form (`AdminCreateSchiedsrichterForm.tsx`), which
  * the `server-only` generated Zod cannot serve.
  */
 export const FLKontaktPayloadSchema = z.object({
