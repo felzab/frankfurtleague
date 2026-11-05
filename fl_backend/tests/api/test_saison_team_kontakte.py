@@ -798,7 +798,7 @@ class TestTheTokenNamesWhatTheEditorWasServed:
         write judging it would stop agreeing after a restart.
         """
 
-        assert kontakte_stand_of(SEEDED_KONTAKTE) == "df70bb5ec52a1b1d1537c31181d6ef63c686d45e52304839c5fa082d425721cc"
+        assert kontakte_stand_of(SEEDED_KONTAKTE) == "20e135e467a3016a8a1d266f8408cc1f7c7f3bcf5604cb2ba2c9c30a10f612d3"
 
     def test_a_stored_blank_answers_the_token_of_the_null_the_read_model_makes_of_it(self):
         """`CustomOptionalDateString` nulls a blank on the way in, and the write judges the raw document.

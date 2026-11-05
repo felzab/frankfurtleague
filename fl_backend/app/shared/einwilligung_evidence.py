@@ -105,12 +105,12 @@ def evidence_state_of(*, blocks: Sequence[Any]) -> dict[str, str | None]:
     stand: dict[str, str | None] = {}
     # Every choice, never a subset: a press moves both, so a stand over one would let the other move unseen.
     for choice in CHOICES:
-        set_fields = [[block.get(choice), _evidence_of(block, choice)] for block in blocks if isinstance(block, Mapping)]
-        if all(receipt is None for _, receipt in set_fields):
+        values_and_evidence = [[block.get(choice), _evidence_of(block, choice)] for block in blocks if isinstance(block, Mapping)]
+        if all(receipt is None for _, receipt in values_and_evidence):
             stand[choice] = None
             continue
         # Sorted keys and `sha256`, as `app/api/teams/schemas.py :: kontakte_stand_of` digests a block.
-        canonical = json.dumps(set_fields, sort_keys=True, separators=(",", ":"), ensure_ascii=False, default=str)
+        canonical = json.dumps(values_and_evidence, sort_keys=True, separators=(",", ":"), ensure_ascii=False, default=str)
         stand[choice] = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
     return stand

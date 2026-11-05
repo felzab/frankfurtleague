@@ -17,6 +17,12 @@ def window(**overrides: Any) -> dict[str, Any]:
     return {**OPEN_WINDOW, **overrides}
 
 
+def as_bewerbung(block: dict[str, Any] | None) -> dict[str, Any] | None:
+    """The same window in the application window's shape, which stores its start as `start` where this one says `von`."""
+
+    return None if block is None else {("start" if key == "von" else key): value for key, value in block.items()}
+
+
 class TestTheRegistrationWindowsTwoClosedShapes:
     def test_a_season_recording_no_window_is_not_running(self):
         assert registrierungsfenster_laeuft(registrierung=None, today=INSIDE) is False
@@ -71,4 +77,4 @@ class TestTheTwoWindowPredicatesMeanOneThing:
         ],
     )
     def test_both_predicates_answer_alike(self, block: Any, today: str):
-        assert registrierungsfenster_laeuft(registrierung=block, today=today) == window_is_running(bewerbung=block, today=today)
+        assert registrierungsfenster_laeuft(registrierung=block, today=today) == window_is_running(bewerbung=as_bewerbung(block), today=today)

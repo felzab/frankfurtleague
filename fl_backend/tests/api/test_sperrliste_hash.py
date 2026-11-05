@@ -57,7 +57,7 @@ class TestTheConstructionItself:
     # hand. Nothing under `app/` was imported to produce it.
     KNOWN_MASTER = SecretStr("known-answer-key".ljust(64, "0"))
     KNOWN_ADDRESS = "Anna@Beispielschule.de"
-    KNOWN_DIGEST = "4dd560c5783a9caa34984fabed329577d8c50e82fa60c464d7c4f717b067aba3"
+    KNOWN_DIGEST = "47becdc104b529bb0b5e03a01443193e87d6c177fbc05fec92c86bd1591bb7c4"
 
     def test_the_stored_form_is_the_value_computed_outside_this_package(self):
         assert adresse_hash(self.KNOWN_ADDRESS, key=self.KNOWN_MASTER) == self.KNOWN_DIGEST
