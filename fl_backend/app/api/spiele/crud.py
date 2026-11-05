@@ -11,6 +11,7 @@ from app.api.saisons.schemas import FLSaisonRules
 from app.api.saisons.services import find_saison_past_refusal
 from app.api.spielberichte.crud import stamp_the_adoption
 from app.api.spielberichte.services import seiten_of
+from app.api.spielbestaetigungen.services import CLOSE_FIELDS, build_holding_filter, parties_told_of_the_change
 from app.api.spiele.schemas import (
     SPIEL_PATCH_WRITTEN_FIELDS,
     FLBracketFault,
@@ -18,6 +19,7 @@ from app.api.spiele.schemas import (
     FLPatchSpielDataResponse,
     FLSpiel,
     FLSpielAdvancement,
+    FLSpielbestaetigungParteiListAdapter,
     FLSpielCommon,
     FLSpielJoinedInternal,
     FLSpielListAdapter,
@@ -83,6 +85,7 @@ from app.core.crud import (
 )
 from app.core.readonly import ReadCollection
 from app.shared.einwilligung import is_confirmed
+from app.shared.schemas.bounds import LIST_LIMIT_MAX
 from app.shared.schemas.custom import CustomObjectId
 from app.shared.schemas.literals import FLGruppenNames, FLSpielSeite
 
@@ -651,6 +654,7 @@ class _JudgedSave:
     releases: list[SpieltagRelease]
     patched: FLSpiel
     anchored: BookedReferences
+    membership: dict[CustomObjectId, SaisonMembership]
 
 
 async def _judge_spiel_save(
@@ -745,18 +749,38 @@ async def _judge_spiel_save(
         # Returned rather than left to the caller to derive, so every transaction judging here anchors what the two
         # rules above judged.
         anchored=find_references_to_anchor(stored, payload, rules),
+        membership=membership,
     )
 
 
 async def preview_spiel_save(
-    *, spiel_id: CustomObjectId, payload: FLPatchSpielDataPayload, collections: SpielSaveCollections
+    *,
+    spiel_id: CustomObjectId,
+    payload: FLPatchSpielDataPayload,
+    collections: SpielSaveCollections,
+    spielbestaetigungen_collection: ReadCollection,
+    today: str,
 ) -> FLPatchSpielDataResponse:
-    """What this payload would move and destroy, judged against the season as it stands and written nowhere.
+    """What this payload would move, destroy and have the confirmation pass mail, judged against the season as it stands, written nowhere.
 
     No transaction: a preview that took a write lock would be paying for a question.
     """
 
     judged = await _judge_spiel_save(spiel_id=spiel_id, payload=payload, collections=collections, session=None)
+    # The fixture's rows holding their party's question, as the pass's close reads them.
+    rows = await pull_many_from_db(
+        collection=spielbestaetigungen_collection,
+        db_filter={"spiel_id": spiel_id, **build_holding_filter()},
+        projection=CLOSE_FIELDS,
+        limit=LIST_LIMIT_MAX,
+    )
+    recipients = parties_told_of_the_change(
+        rows=rows,
+        stored=stored_in_slice(spiel_id, judged.season).model_dump(context={"keep_oid": True}),
+        changed=judged.patched.model_dump(context={"keep_oid": True}),
+        austritte={team_id: member.departed_from for team_id, member in judged.membership.items() if member.departed_from is not None},
+        today=today,
+    )
     advanced_to, released_sides, bracket_faults = await preview_bracket_after_patch(
         teams_collection=collections.teams,
         saison_id=judged.saison_id,
@@ -772,6 +796,7 @@ async def preview_spiel_save(
         bracket_faults=bracket_faults,
         version=judged.patched.version,
         bericht_adopted=None,
+        recipients=FLSpielbestaetigungParteiListAdapter.validate_python(recipients),
     )
 
 
@@ -858,4 +883,5 @@ async def save_spiel_in_session(
         bracket_faults=bracket_faults,
         version=saved[VERSION_FIELD],
         bericht_adopted=uebernommen,
+        recipients=None,
     )

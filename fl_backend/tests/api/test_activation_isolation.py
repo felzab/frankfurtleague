@@ -623,6 +623,7 @@ class TestARolloverLandingMidSaveIsJudgedAgain:
                     spielorte_collection=database[Collection.SPIELORTE],
                     schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
                     spielberichte_collection=database[Collection.SPIELBERICHTE],
+                    spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
                 )
             )
 

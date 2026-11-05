@@ -1741,9 +1741,15 @@ class TestAReassignmentLandingMidAnswer:
 
 
 async def speichern(
-    database: AsyncDatabase, client: AsyncMongoClient, geladen: Mapping[str, Any], *, spiele: Any = None, **overrides: Any
+    database: AsyncDatabase,
+    client: AsyncMongoClient,
+    geladen: Mapping[str, Any],
+    *,
+    spiele: Any = None,
+    dry_run: bool = False,
+    **overrides: Any,
 ) -> Any:
-    """The administrator's save from an editor that loaded `geladen`, changing what `overrides` names."""
+    """The administrator's save from an editor that loaded `geladen`, changing what `overrides` names, or its dry run."""
 
     return await patch_spiel(
         spiel_id=SPIEL,
@@ -1757,7 +1763,9 @@ async def speichern(
         spielorte_collection=database[Collection.SPIELORTE],
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         spielberichte_collection=database[Collection.SPIELBERICHTE],
-        dry_run=False,
+        spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+        today=TODAY,
+        dry_run=dry_run,
     )
 
 
@@ -1795,6 +1803,53 @@ class TestASaveFromAnEditorOpenedBeforeTheDecline:
             return (await spiel_now(database))["schiedsrichter"]["schiedsrichter_id"]
 
         assert on_a_refereed_fixture(mongo_replica_set_url, body) == SCHIEDSRICHTER
+
+
+# As the dry run serves each party.
+CLUB1, CLUB2, OTTOS = (
+    {"art": "team", "team_id": str(TEAM1)},
+    {"art": "team", "team_id": str(TEAM2)},
+    {"art": "schiedsrichter", "schiedsrichter_id": str(SCHIEDSRICHTER)},
+)
+
+
+class TestTheDryRunNamesWhomTheSaveHasThePassMail:
+    """The match editor's warning reads the dry run's `recipients`: a copy of the pass's rules on the page would drift from them."""
+
+    @pytest.mark.parametrize(
+        ("overrides", "told"),
+        [
+            pytest.param({"uhrzeit": "19:30:00"}, [CLUB1, CLUB2, OTTOS], id="a-move-tells-every-party-asked"),
+            pytest.param({"schiedsrichter": None}, [OTTOS], id="the-referee-taken-off-is-told-alone"),
+            pytest.param({"notiz": "Halle umgebucht"}, [], id="a-note-tells-nobody"),
+        ],
+    )
+    def test_the_dry_run_names_the_parties_the_pass_tells(
+        self, mongo_replica_set_url: str, overrides: dict[str, Any], told: list[dict[str, Any]]
+    ):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            preview = await speichern(database, client, await spiel_now(database), dry_run=True, **overrides)
+
+            return preview.recipients, (await spiel_now(database))["uhrzeit"]
+
+        recipients, uhrzeit = on_a_refereed_fixture(mongo_replica_set_url, body)
+
+        assert sorted((party.model_dump() for party in recipients), key=str) == sorted(told, key=str)
+        assert uhrzeit == UHRZEIT, "the dry run wrote the fixture"
+
+    def test_a_party_never_asked_is_told_nothing(self, mongo_replica_set_url: str):
+        """The pass owes a notice only once its request was owed, so a club never asked hears of a move by its request."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            preview = await speichern(database, client, await spiel_now(database), dry_run=True, uhrzeit="19:30:00")
+
+            return preview.recipients
+
+        rows = [confirmation(ROW1, TEAM1), {**confirmation(ROW2, TEAM2), "asked_at": None}, referee_row()]
+
+        assert sorted((party.model_dump() for party in on_a_refereed_fixture(mongo_replica_set_url, body, rows=rows)), key=str) == sorted(
+            [CLUB1, OTTOS], key=str
+        )
 
 
 class TestARowAnswersOnlyToItsOwnReferee:

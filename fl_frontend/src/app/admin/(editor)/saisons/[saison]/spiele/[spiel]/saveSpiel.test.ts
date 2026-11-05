@@ -60,6 +60,7 @@ const NOTHING_MOVED: FLPatchSpielDataResponse = {
   bracket_faults: [],
   version: 4,
   bericht_adopted: null,
+  recipients: null,
 };
 
 const VOIDED_NONE = { voided_ergebnis: null, voided_elfmeterschiessen: null, voided_sonderereignis: null };

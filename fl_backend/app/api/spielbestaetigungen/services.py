@@ -831,6 +831,10 @@ def _day_passed(*, ansetzung: Mapping[str, Any], today: str) -> bool:
     return bool(ansetzung["datum"] < today)
 
 
+# What `grund_to_end` and `notice_owed` read of a row: the projection every reader of the close's judgement takes.
+CLOSE_FIELDS: Final = ["spiel_id", "party", "ansetzung", "asked_at", "closed"]
+
+
 def grund_to_end(
     *, row: Mapping[str, Any], spiel: Mapping[str, Any], austritte: Mapping[Any, str], today: str
 ) -> FLSpielbestaetigungGrund | None:
@@ -1031,6 +1035,32 @@ def notice_owed(*, row: Mapping[str, Any], grund: FLSpielbestaetigungGrund, spie
     return (
         row.get("asked_at") is not None and grund in GRUENDE_OWING_A_NOTICE and _notice_to_come(row=row, grund=grund, spiel=spiel, today=today)
     )
+
+
+def parties_told_of_the_change(
+    *,
+    rows: Iterable[Mapping[str, Any]],
+    stored: Mapping[str, Any],
+    changed: Mapping[str, Any],
+    austritte: Mapping[Any, str],
+    today: str,
+) -> list[Mapping[str, Any]]:
+    """The party of each of a fixture's `rows` holding its question that the pass closes owing a notice once `stored` is `changed`.
+
+    Judged by the close's own rules (`grund_to_end`, `notice_owed`), so the page naming whom an act mails and the pass
+    mailing them cannot disagree; a row the close ends as the fixture stands is no mail of the change. Whether a party
+    is reached is the pass's: a club with no seat holding an address, or a referee with none, is told nothing.
+    """
+
+    told: list[Mapping[str, Any]] = []
+    for row in rows:
+        grund = grund_to_end(row=row, spiel=changed, austritte=austritte, today=today)
+        if grund is None or grund == grund_to_end(row=row, spiel=stored, austritte=austritte, today=today):
+            continue
+        if notice_owed(row=row, grund=grund, spiel=changed, today=today):
+            told.append(row["party"])
+
+    return told
 
 
 def verwerfen_owes_a_notice(*, row: Mapping[str, Any], today: str) -> bool:

@@ -26,6 +26,7 @@ from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigungSweepResponse,
 )
 from app.api.spielbestaetigungen.services import (
+    CLOSE_FIELDS,
     AnsetzungLage,
     anfrage_is_due,
     ansetzung_stand_of,
@@ -98,8 +99,6 @@ MINTS_PER_PASS: Final = 26
 REMINDERS_PER_PASS: Final = 24
 
 WHAT: Final = "Confirmation"
-
-CLOSE_FIELDS: Final = ["spiel_id", "party", "ansetzung", "asked_at", "closed"]
 
 
 def _by(rows: Iterable[Mapping[str, Any]], key: str) -> dict[Any, Mapping[str, Any]]:

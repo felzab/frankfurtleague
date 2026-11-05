@@ -2925,8 +2925,9 @@ export const SpieleGetSpielParams = zod.object({
  *
  * The fixture stores no name: every read joins it. With `adopts_bericht` the save also stamps the fixture's Spielbericht
  * adopted, where it still stands at that version about the clubs the save leaves; a miss refuses nothing. A
- * `dry_run` answers the same report and writes nothing. A `past` season's fixture is refused (`saison_past`), the
- * `dry_run` included.
+ * `dry_run` answers the same report and writes nothing, and names in `recipients` every party the confirmation pass
+ * would mail about the fixture once it is saved so: told of its move, of the referee taken off it, or of its call-off,
+ * by the pass's own rules. A `past` season's fixture is refused (`saison_past`), the `dry_run` included.
  * @summary Update a Spiel
  */
 export const spielePatchSpielPathSpielIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");

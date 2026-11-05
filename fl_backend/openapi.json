@@ -9355,7 +9355,7 @@
         "type": "object"
       },
       "FLPatchSpielDataResponse": {
-        "description": "Every fixture the save moved beyond its own edit, each with the result it destroyed, and the bracket's faults after it.\n\n`version` is the fixture's own after the save, the one its next save sends; `bericht_adopted` says whether the\nadoption `adopts_bericht` asked for was stamped, null where none was asked or on a `dry_run`.",
+        "description": "Every fixture the save moved beyond its own edit, each with the result it destroyed, and the bracket's faults after it.\n\n`version` is the fixture's own after the save, the one its next save sends; `bericht_adopted` says whether the\nadoption `adopts_bericht` asked for was stamped, null where none was asked or on a `dry_run`. `recipients`, on a\n`dry_run` alone and null on a save, is every party the confirmation pass mails about this fixture once it is saved\nso, and would not as it stands: told of the move, of the referee taken off it, or of its call-off.",
         "properties": {
           "advanced_to": {
             "items": {
@@ -9382,6 +9382,34 @@
             "title": "Bracket Faults",
             "type": "array"
           },
+          "recipients": {
+            "anyOf": [
+              {
+                "items": {
+                  "discriminator": {
+                    "mapping": {
+                      "schiedsrichter": "#/components/schemas/FLSpielbestaetigungPartySchiedsrichter",
+                      "team": "#/components/schemas/FLSpielbestaetigungPartyTeam"
+                    },
+                    "propertyName": "art"
+                  },
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/FLSpielbestaetigungPartyTeam"
+                    },
+                    {
+                      "$ref": "#/components/schemas/FLSpielbestaetigungPartySchiedsrichter"
+                    }
+                  ]
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recipients"
+          },
           "released_sides": {
             "items": {
               "$ref": "#/components/schemas/FLSpielReleasedSide"
@@ -9399,7 +9427,8 @@
           "released_sides",
           "bracket_faults",
           "version",
-          "bericht_adopted"
+          "bericht_adopted",
+          "recipients"
         ],
         "title": "FLPatchSpielDataResponse",
         "type": "object"
@@ -28390,7 +28419,7 @@
         ]
       },
       "patch": {
-        "description": "Save one Spiel wholesale and resolve the season's bracket, answering every fixture the save moved beyond it.\n\nThe fixture stores no name: every read joins it. With `adopts_bericht` the save also stamps the fixture's Spielbericht\nadopted, where it still stands at that version about the clubs the save leaves; a miss refuses nothing. A\n`dry_run` answers the same report and writes nothing. A `past` season's fixture is refused (`saison_past`), the\n`dry_run` included.",
+        "description": "Save one Spiel wholesale and resolve the season's bracket, answering every fixture the save moved beyond it.\n\nThe fixture stores no name: every read joins it. With `adopts_bericht` the save also stamps the fixture's Spielbericht\nadopted, where it still stands at that version about the clubs the save leaves; a miss refuses nothing. A\n`dry_run` answers the same report and writes nothing, and names in `recipients` every party the confirmation pass\nwould mail about the fixture once it is saved so: told of its move, of the referee taken off it, or of its call-off,\nby the pass's own rules. A `past` season's fixture is refused (`saison_past`), the `dry_run` included.",
         "operationId": "spiele_patch_spiel",
         "parameters": [
           {

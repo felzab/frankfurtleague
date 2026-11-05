@@ -41,6 +41,7 @@ from app.core.dependencies import (
     SchiedsrichterCollection,
     SpielberichteCollection,
     SpielbestaetigungenCollection,
+    SpielbestaetigungenReadCollection,
     SpieleCollection,
     SpielerCollection,
     SpieleReadCollection,
@@ -202,11 +203,14 @@ async def patch_spiel(
     spielorte_collection: SpielorteCollection,
     schiedsrichter_collection: SchiedsrichterCollection,
     spielberichte_collection: SpielberichteCollection,
+    # Read on a `dry_run` alone, for whom the confirmation pass would mail of the save.
+    spielbestaetigungen_collection: SpielbestaetigungenReadCollection,
     adopts_bericht: Annotated[
         int | None,
         Query(ge=1, description="The `version` of the fixture's Spielbericht the editor was seeded from, to stamp it adopted"),
     ] = None,
     now: datetime = Depends(get_germany_now),
+    today: str = Depends(get_german_date_str),
     dry_run: Annotated[bool, Depends(previewing)] = False,
 ) -> FLPatchSpielDataResponse:
     """
@@ -214,8 +218,9 @@ async def patch_spiel(
 
     The fixture stores no name: every read joins it. With `adopts_bericht` the save also stamps the fixture's Spielbericht
     adopted, where it still stands at that version about the clubs the save leaves; a miss refuses nothing. A
-    `dry_run` answers the same report and writes nothing. A `past` season's fixture is refused (`saison_past`), the
-    `dry_run` included.
+    `dry_run` answers the same report and writes nothing, and names in `recipients` every party the confirmation pass
+    would mail about the fixture once it is saved so: told of its move, of the referee taken off it, or of its call-off,
+    by the pass's own rules. A `past` season's fixture is refused (`saison_past`), the `dry_run` included.
     """
 
     collections = SpielSaveCollections(
@@ -230,7 +235,13 @@ async def patch_spiel(
     )
 
     if dry_run:
-        return await preview_spiel_save(spiel_id=spiel_id, payload=spiel_data, collections=collections)
+        return await preview_spiel_save(
+            spiel_id=spiel_id,
+            payload=spiel_data,
+            collections=collections,
+            spielbestaetigungen_collection=spielbestaetigungen_collection,
+            today=today,
+        )
 
     async def write_and_resolve_the_bracket(session: AsyncClientSession) -> FLPatchSpielDataResponse:
         return await save_spiel_in_session(

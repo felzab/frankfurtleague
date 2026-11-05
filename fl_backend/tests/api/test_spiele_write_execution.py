@@ -400,9 +400,9 @@ def one_venue_twice(*, sonderereignis: str | None) -> list[dict[str, Any]]:
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
-# The save's own bookkeeping, which neither a pure model nor a preview carries: the count of writes it raises, and
-# whether it stamped an adoption.
-SAVE_ONLY = frozenset({"version", "bericht_adopted"})
+# What only one of the two answers carries: the save's count of writes and whether it stamped an adoption, and the
+# preview's parties the confirmation pass would mail.
+SAVE_ONLY = frozenset({"version", "bericht_adopted", "recipients"})
 
 
 def but_its_bookkeeping(stored: Any) -> Any:
@@ -454,8 +454,10 @@ async def call_patch(
         spielorte_collection=database[Collection.SPIELORTE],
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         spielberichte_collection=database[Collection.SPIELBERICHTE],
+        spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
         adopts_bericht=uebernimmt_bericht,
         now=ADOPTED_AT,
+        today=ADOPTED_AT.date().isoformat(),
         dry_run=dry_run,
     )
 

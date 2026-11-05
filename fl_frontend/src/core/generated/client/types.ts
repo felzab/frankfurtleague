@@ -4005,6 +4005,18 @@ export interface FLSpielAdvancement {
   voided_sonderereignis: FLSonderereignis | null;
 }
 
+export interface FLSpielbestaetigungPartyTeam {
+  art: "team";
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  team_id: string;
+}
+
+export interface FLSpielbestaetigungPartySchiedsrichter {
+  art: "schiedsrichter";
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  schiedsrichter_id: string;
+}
+
 /**
  * One side another fixture gave up so a team can play this Spieltag, and the result that destroyed.
  */
@@ -4025,12 +4037,15 @@ export interface FLSpielReleasedSide {
  * Every fixture the save moved beyond its own edit, each with the result it destroyed, and the bracket's faults after it.
  *
  * `version` is the fixture's own after the save, the one its next save sends; `bericht_adopted` says whether the
- * adoption `adopts_bericht` asked for was stamped, null where none was asked or on a `dry_run`.
+ * adoption `adopts_bericht` asked for was stamped, null where none was asked or on a `dry_run`. `recipients`, on a
+ * `dry_run` alone and null on a save, is every party the confirmation pass mails about this fixture once it is saved
+ * so, and would not as it stands: told of the move, of the referee taken off it, or of its call-off.
  */
 export interface FLPatchSpielDataResponse {
   advanced_to: FLSpielAdvancement[];
   bericht_adopted: boolean | null;
   bracket_faults: FLBracketFault[];
+  recipients: (FLSpielbestaetigungPartyTeam | FLSpielbestaetigungPartySchiedsrichter)[] | null;
   released_sides: FLSpielReleasedSide[];
   version: number;
 }
@@ -5553,18 +5568,6 @@ export interface FLSpielbestaetigungKontakte {
   ansprechperson: FLSpielbestaetigungSeat | null;
   stellvertretung: FLSpielbestaetigungSeat | null;
   trainer: FLSpielbestaetigungSeat | null;
-}
-
-export interface FLSpielbestaetigungPartyTeam {
-  art: "team";
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  team_id: string;
-}
-
-export interface FLSpielbestaetigungPartySchiedsrichter {
-  art: "schiedsrichter";
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  schiedsrichter_id: string;
 }
 
 /**
