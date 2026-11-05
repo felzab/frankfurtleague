@@ -163,6 +163,7 @@ const STALE: ReadonlySet<Code> = new Set<Code>([
   // A fixture's confirmation answered, closed or left by its fixture since the page offering an act on it was read.
   "ansetzung_not_enterable",
   "ansetzung_not_discardable",
+  "ansetzung_not_adoptable",
   "ansetzung_foreign_row",
   // A rule the screen does not word, its input holding every rule the API publishes: the page is older than the API.
   "payload_refused",
@@ -182,6 +183,8 @@ const STALE: ReadonlySet<Code> = new Set<Code>([
   "replace_saison_started",
   "replace_incoming_already_entered",
   "replace_one_team_on_both_ends",
+  // The replacement's incoming club retired since the page listed it, which lists none retired.
+  "team_retired",
   "invitation_team_not_entered",
 ]);
 

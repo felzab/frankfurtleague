@@ -7,7 +7,7 @@ import { saisonsPostSaison } from "@/core/generated/client/sdk";
 import { FLSpielerStufe } from "@/core/generated/client/types";
 import { SaisonsPostSaisonBody } from "@/core/generated/zod/inputs";
 
-import { getAdminSaisons } from "./queries";
+import { getNewestAdminSaison } from "./queries";
 
 import type { FLSaisonRules } from "@/core/generated/client/types";
 
@@ -23,6 +23,10 @@ const CreateSaisonForm = z.object({
 /**
  * The rules a league's first season starts from, where no season holds any to carry on. They are the old create
  * form's starting values, which the new season's editor shows at once and keeps editable until its start.
+ *
+ * Only that very first season's editable starting value, every later season copying the newest one's: no hardcoded
+ * scoring in the sense of `docs/decisions.md`'s `table` line, since the table always reads the season's stored rules,
+ * which its own rules box sets.
  */
 const FIRST_SAISON_RULES: FLSaisonRules = {
   win_points: 3,
@@ -45,12 +49,16 @@ export const createSaison = action({
   lane: "admin",
   name: "createSaison",
   input: CreateSaisonForm,
-  ownWords: ["duplicate_key", "saison_year_out_of_range", "saison_ends_before_start", "rules_bracket_impossible"],
+  ownWords: [
+    "duplicate_key",
+    "saison_year_out_of_range",
+    "saison_ends_before_start",
+    "saison_span_below_spielplan",
+    "rules_bracket_impossible",
+  ],
   paths: { id: "id", start_date: "start_date", end_date: "end_date" },
   run: async (form) => {
-    const { saisons } = await getAdminSaisons();
-    // Served oldest first, by id.
-    const newest = saisons.at(-1);
+    const newest = await getNewestAdminSaison();
     await saisonsPostSaison({ ...form, rules: newest?.rules ?? FIRST_SAISON_RULES, bewerbung: null, registrierung: null });
     return { ok: true, value: undefined };
   },

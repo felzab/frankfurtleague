@@ -48,7 +48,8 @@ export function TerminDialog({
       adoptsBericht: null,
       changes: { datum: posted(form, DATUM), uhrzeit: posted(form, UHRZEIT) },
     });
-    return answer.ok ? { ok: true, value: undefined } : answer;
+    // The note names the other fixtures the save moved, which the dialog stays open to say.
+    return answer.ok ? { ok: true, value: undefined, ...(answer.note === undefined ? {} : { note: answer.note }) } : answer;
   };
 
   return (

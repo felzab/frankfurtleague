@@ -21,7 +21,7 @@ export function mapSwapRefusal(error: unknown): string | null {
       return "Diese Saison hat inzwischen begonnen. Lade die Seite neu.";
     // Before the start, so a result entered early: the swap moves no goals and would hand it to the other club.
     case "swap_sides_taken_place":
-      return SERVER_COPY.admin.swapSidesTakenPlace;
+      return SERVER_COPY.refusalLine.swap_sides_taken_place;
     default:
       return null;
   }

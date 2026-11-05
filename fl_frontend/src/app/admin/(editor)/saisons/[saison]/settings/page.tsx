@@ -62,6 +62,13 @@ function blockedOf(code: Code | null, status: FLSaisonStatus): Copy | undefined 
       return WORDS.unfinished;
     case "spielplan_berichte_submitted":
       return WORDS.reportsHold;
+    case "spielplan_gruppen_off_rules":
+      return WORDS.gruppenOffRules;
+    // Met by the first draw alone, and only on a season whose matchdays stand without the Spielplan the read records,
+    // so the editor offers that draw: no reload clears it.
+    case "spielplan_already_drawn":
+    case "spielplan_spieltage_held":
+      return WORDS.spieltageHeld;
     // One code for both ways the planning window closes: the season went live, or a match of it holds an entry.
     case "spielplan_replace_outside_its_window":
     case "spielplan_undraw_outside_its_window":
@@ -117,6 +124,7 @@ async function readEditor(params: Props["params"]) {
             : { spieltage: saison.spielplan.spieltage, spiele: saison.spielplan.spiele, drawnOn: dayOf(saison.spielplan.generated_at) },
         blocked: {
           activate: blockedOf(refusals.activate, saison.status),
+          create: blockedOf(refusals.create, saison.status),
           recreate: blockedOf(refusals.recreate, saison.status),
           undraw: blockedOf(refusals.undraw, saison.status),
         },
@@ -142,7 +150,7 @@ async function readEditor(params: Props["params"]) {
           },
         })),
         mailed: mailed.length,
-        replacing: mailed.some((row) => row.replaced_link),
+        replacing: mailed.filter((row) => row.replaced_link).length,
       }}
       holder={holder}
       acts={{

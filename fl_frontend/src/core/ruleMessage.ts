@@ -100,6 +100,8 @@ const PATTERNED = {
       : side === "end_date" && typeof end === "string"
         ? field.earliest(dayOf(end))
         : undefined,
+  // A season too short for the matchdays its rules draw, on its end: `earliest` is the first end that holds them all.
+  saison_span_below_spielplan: ({ earliest }: Context) => (typeof earliest === "string" ? field.earliest(dayOf(earliest)) : undefined),
   // A start moved later than a stored exit allows, an exit recorded since the start the season had: `latest` is that start.
   saison_start_austritt_stored: ({ latest }: Context) => (typeof latest === "string" ? field.latest(dayOf(latest)) : undefined),
   // An exit dated before the season's start, when the replacement is the route: the season's start is the earliest day.

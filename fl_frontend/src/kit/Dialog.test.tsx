@@ -273,6 +273,18 @@ describe("the kit's dialog", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 
+  /* The note is the one place the person learns the write moved more than the dialog asked, such as other fixtures. */
+  it("stays open on a done act noting more than it was asked, the note in its line and its act closed", async () => {
+    const note = COPY.admin.spiel.alsoChanged([5, 7]);
+    render(<CreateDialog create={async () => ({ ok: true, value: undefined, note })} />);
+
+    await createThroughTheDialog();
+
+    await waitFor(() => expect(screen.getByText(note)).toBeTruthy());
+    expect(screen.getByRole("dialog")).toBeTruthy();
+    expect(screen.getByRole("button", { name: COPY.shared.withObject(NAME, "create") }).hasAttribute("disabled")).toBe(true);
+  });
+
   it("stays open on a refused act, the input kept, the field's message under it and the line beside the acts", async () => {
     render(<CreateDialog create={async () => ({ ok: false, fieldErrors: { created: COPY.shared.field.taken } })} />);
 
