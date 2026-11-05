@@ -9901,6 +9901,12 @@
                 },
                 {
                   "type": "boolean"
+                },
+                {
+                  "items": {
+                    "type": "integer"
+                  },
+                  "type": "array"
                 }
               ]
             },

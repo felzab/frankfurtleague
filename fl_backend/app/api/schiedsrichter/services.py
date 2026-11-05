@@ -141,7 +141,8 @@ def first_stamped(*, stored: Mapping[str, Any], field: str, today: str) -> str:
 def find_referee_retire_refusal(*, upcoming_spiel_nrs: Sequence[int]) -> WriteRefusal | None:
     """Why retiring this referee must be refused, or `None`.
 
-    `upcoming_spiel_nrs` is `unplayed_spiel_nrs`'s definition of "still to come".
+    `upcoming_spiel_nrs` is `unplayed_spiel_nrs`'s definition of "still to come", named with its count on the path's
+    id as the venue's refusal names it.
     """
 
     if not upcoming_spiel_nrs:
@@ -150,6 +151,9 @@ def find_referee_retire_refusal(*, upcoming_spiel_nrs: Sequence[int]) -> WriteRe
     return WriteRefusal(
         error_code=Code.SCHIEDSRICHTER_STILL_ASSIGNED,
         status=HTTPStatus.CONFLICT,
+        fields=(("schiedsrichter_id",),),
+        location="path",
+        bounds={"spiel_nrs": list(upcoming_spiel_nrs), "count": len(upcoming_spiel_nrs)},
     )
 
 

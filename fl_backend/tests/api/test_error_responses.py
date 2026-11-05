@@ -145,6 +145,23 @@ async def refuse_with_a_bound() -> None:
     raise WriteRefusal(error_code=PLANTED_REFUSAL, status=HTTPStatus.CONFLICT, fields=(JUDGED_PATH,), bounds={"min": PLANTED_BOUND}).error()
 
 
+# The fixtures a planted retirement waits on, which the refusal names on the path's id as a list.
+PLANTED_FIXTURES = [4, 7, 9]
+
+
+@VALIDATION_APP.delete("/retired/{record_id}")
+async def refuse_a_retirement(record_id: str) -> None:
+    """Refuses as a retirement does: on the path's id, naming the fixtures that block it."""
+
+    raise WriteRefusal(
+        error_code=PLANTED_REFUSAL,
+        status=HTTPStatus.CONFLICT,
+        fields=(("record_id",),),
+        location="path",
+        bounds={"spiel_nrs": PLANTED_FIXTURES, "count": len(PLANTED_FIXTURES)},
+    ).error()
+
+
 @VALIDATION_APP.get("/starlette/{status}")
 async def raise_starlettes_own(status: int) -> None:
     """Raises the base class the router raises, at the status its path names."""
@@ -285,6 +302,15 @@ class TestARefusalIsAnsweredAtTheStatusItsCheckChose:
         response = TestClient(VALIDATION_APP, raise_server_exceptions=False).post("/bounded")
 
         assert response.json()["fields"] == [{"in": "body", "path": list(JUDGED_PATH), "kind": PLANTED_REFUSAL, "ctx": {"min": PLANTED_BOUND}}]
+
+    def test_a_path_refusal_s_list_bound_reaches_the_caller_on_the_path_s_field(self):
+        """A retirement names the fixtures to move first: off the wire, the dialog names none and the administrator hunts for them."""
+
+        response = TestClient(VALIDATION_APP, raise_server_exceptions=False).delete("/retired/an-id")
+
+        assert response.json()["fields"] == [
+            {"in": "path", "path": ["record_id"], "kind": PLANTED_REFUSAL, "ctx": {"spiel_nrs": PLANTED_FIXTURES, "count": 3}}
+        ]
 
     @pytest.mark.parametrize("status", sorted(ROUTING_CODES))
     def test_each_status_the_routing_layer_raises_answers_its_own_code(self, status: int):

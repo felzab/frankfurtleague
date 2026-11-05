@@ -2384,7 +2384,7 @@ export const FLRefusedFieldIn = {
   cookie: "cookie",
 } as const;
 
-export type FLRefusedFieldCtx = { [key: string]: string | number | boolean };
+export type FLRefusedFieldCtx = { [key: string]: string | number | boolean | number[] };
 
 export interface FLRefusedField {
   ctx: FLRefusedFieldCtx;
