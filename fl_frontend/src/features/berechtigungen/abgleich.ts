@@ -8,6 +8,6 @@ import { postBerechtigungenAbgleich } from "./mutations";
  * sends. A change made through the application owes its own notice in its own write. A failure rejects, for the
  * heartbeat to name.
  */
-export async function runBerechtigungenAbgleich(): Promise<void> {
+export async function runGrantsReconciliation(): Promise<void> {
   await postBerechtigungenAbgleich();
 }
