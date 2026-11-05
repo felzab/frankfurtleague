@@ -1,8 +1,8 @@
 """SAISONS · the Übersicht: one season's open work, each kind on its card, read in one aggregation.
 
 The read is anchored on the season's own document, and every collection a card draws on is joined to it by an
-uncorrelated `$lookup`: the fixtures through `build_spiele_pipeline`, the clubs' open confirmation rows, the referees'
-newest rows, the reports and the undecided applications. That makes one round trip and one document. Each kind is
+uncorrelated `$lookup`: the fixtures through `build_spiele_pipeline`, the clubs' open confirmation rows, the reports
+and the undecided applications. That makes one round trip and one document. Each kind is
 judged here in Python, by the predicates the confirmations, the reports and the applications already hold, so no rule
 is spelled a second time in a query. The bracket faults are the exception: they need the standings walk, so they are
 judged over the same fixtures by `app/api/spiele/crud.py :: bracket_faults_of`, whose own reads are the ones no
@@ -20,10 +20,10 @@ from app.api.bewerbungen.services import (
     build_bewerbungen_sort,
     build_bewerbungen_status_term,
 )
-from app.api.spielberichte.schemas import FLSpielberichtBericht, FLSpielberichtState
-from app.api.spielberichte.services import BERICHT_ZUSTAENDE_OFFEN, bericht_zustand_of, build_zustand_pipeline
+from app.api.spielberichte.schemas import FLSpielberichtBericht
+from app.api.spielberichte.services import FLSpielberichtOpenState, bericht_zustand_of, build_zustand_pipeline, is_offen
 from app.api.spielbestaetigungen.schemas import FLSpielbestaetigungAppointment
-from app.api.spielbestaetigungen.services import GRUND_EIGENE_ABSAGE, build_triage_rows_filter, grund_to_end
+from app.api.spielbestaetigungen.services import build_triage_rows_filter, grund_to_end
 from app.api.spiele.schemas import SONDEREREIGNIS_COUNTED_AS_ABSAGE, FLBracketFault, FLSpielJoinedAdmin, FLSpielJoinedInternal
 from app.api.spiele.services import build_spiele_pipeline
 from app.core.collections import Collection
@@ -35,10 +35,9 @@ from app.shared.schemas.responses import BaseAPIResponse
 # slots and casts, then the applications.
 type FLOverviewCardName = Literal["due", "ergebnisse", "dates", "bewerbungen"]
 
-# What a fixture lacks, read off the fixture alone and acted on in the match editor.
-type FLOverviewGapKind = Literal[
-    "ergebnis_missing", "date_missing", "time_missing", "spielort_missing", "schiedsrichter_missing", "schiedsrichter_declined", "team_missing"
-]
+# What a fixture lacks, read off the fixture alone: its slot, set from the row, or what the match editor sets. A referee
+# missing is one kind whether nobody was booked or the booked one declined, since either asks the same act.
+type FLOverviewGapKind = Literal["ergebnis_missing", "termin_missing", "spielort_missing", "schiedsrichter_missing", "team_missing"]
 
 # A club's answer still owed: past its deadline, or due today.
 type FLOverviewAnswerKind = Literal["spielbestaetigung_overdue", "spielbestaetigung_due"]
@@ -46,18 +45,18 @@ type FLOverviewAnswerKind = Literal["spielbestaetigung_overdue", "spielbestaetig
 type FLOverviewKind = FLOverviewGapKind | FLOverviewAnswerKind | Literal["spielbericht_open", "vorschlag_open", "bracket_fault", "bewerbung"]
 
 # Which card each kind of open work stands on: the one table a placement moves in, so moving a kind is one line here
-# and nothing on the wire changes shape. Its order is the order of the rows within a card.
+# and nothing on the wire changes shape. Its order is the order of the rows within a card, and a fixture standing for
+# several kinds on one card stands once, for the first of them.
 CARD_OF: Final[Mapping[FLOverviewKind, FLOverviewCardName]] = {
     "spielbestaetigung_overdue": "due",
     "spielbestaetigung_due": "due",
-    "ergebnis_missing": "ergebnisse",
+    # A report to adopt before a result missing: on a fixture played without one, the report is how the result comes.
     "spielbericht_open": "ergebnisse",
+    "ergebnis_missing": "ergebnisse",
     "vorschlag_open": "dates",
-    "date_missing": "dates",
-    "time_missing": "dates",
+    "termin_missing": "dates",
     "spielort_missing": "dates",
     "schiedsrichter_missing": "dates",
-    "schiedsrichter_declined": "dates",
     "team_missing": "dates",
     "bracket_fault": "dates",
     "bewerbung": "bewerbungen",
@@ -70,7 +69,6 @@ CARDS: Final[tuple[FLOverviewCardName, ...]] = get_args(FLOverviewCardName.__val
 # What the season's one document carries beside its own `rules`, each the `as` of one `$lookup`.
 SPIELE_AS: Final = "spiele"
 CLUB_ROWS_AS: Final = "club_rows"
-REFEREE_ROWS_AS: Final = "referee_rows"
 SPIELBERICHTE_AS: Final = "spielberichte"
 BEWERBUNGEN_AS: Final = "bewerbungen"
 PICKED_CLUB_AS: Final = "picked_club"
@@ -80,7 +78,6 @@ PICKED_CLUB_AS: Final = "picked_club"
 ROW_PARTY: Final = "party"
 ROW_ANSWER: Final = "antwort"
 ROW_DEADLINE: Final = "frist"
-ROW_CLOSED: Final = "closed"
 
 
 class FLOverviewSpielRow(BaseModel):
@@ -99,11 +96,11 @@ class FLOverviewParty(BaseModel):
 
 
 class FLOverviewSpielbestaetigungRow(BaseModel):
-    """A fixture whose clubs owe their answer: overdue past its deadline, or due today and asked today or not yet."""
+    """A fixture whose clubs owe their answer: overdue where one club's deadline has passed, else due today."""
 
     kind: FLOverviewAnswerKind
     spiel: FLSpielJoinedAdmin
-    # Every club of the fixture in this kind, so the act offers each party still open.
+    # Every club of the fixture still owing its answer, so the act offers each party still open.
     parties: list[FLOverviewParty]
 
 
@@ -122,7 +119,7 @@ class FLOverviewSpielberichtRow(BaseModel):
 
     kind: Literal["spielbericht_open"]
     spiel: FLSpielJoinedAdmin
-    state: FLSpielberichtState
+    state: FLSpielberichtOpenState
 
 
 class FLOverviewBracketFaultRow(BaseModel):
@@ -156,7 +153,7 @@ type FLOverviewRow = Annotated[
 
 
 class FLOverviewCard(BaseModel):
-    """One card and its rows, ordered by `CARD_OF`'s kinds, then each fixture's day, undated last, then its number."""
+    """One card and its rows, a fixture once, ordered by `CARD_OF`'s kinds, then each fixture's day, undated last, then its number."""
 
     card: FLOverviewCardName
     rows: list[FLOverviewRow]
@@ -186,18 +183,6 @@ def build_overview_pipeline(*, saison_id: str, today: str) -> list[Mapping[str, 
                 "from": Collection.SPIELBESTAETIGUNGEN,
                 "pipeline": [{"$match": build_triage_rows_filter(saison_id=saison_id, today=today)}, {"$project": {"kontakte": 0}}],
                 "as": CLUB_ROWS_AS,
-            }
-        },
-        # Each fixture's newest referee row and how it closed: a referee's own decline stands until a later booking.
-        {
-            "$lookup": {
-                "from": Collection.SPIELBESTAETIGUNGEN,
-                "pipeline": [
-                    {"$match": {"saison_id": saison_id, f"{ROW_PARTY}.art": "schiedsrichter"}},
-                    {"$sort": {"_id": -1}},
-                    {"$group": {"_id": "$spiel_id", ROW_CLOSED: {"$first": f"${ROW_CLOSED}"}}},
-                ],
-                "as": REFEREE_ROWS_AS,
             }
         },
         {"$lookup": {"from": Collection.SPIELBERICHTE, "pipeline": build_zustand_pipeline(saison_id=saison_id), "as": SPIELBERICHTE_AS}},
@@ -230,7 +215,7 @@ def build_overview_pipeline(*, saison_id: str, today: str) -> list[Mapping[str, 
     ]
 
 
-def _gaps(spiel: FLSpielJoinedInternal, *, today: str, declined: bool) -> list[FLOverviewGapKind]:
+def _gaps(spiel: FLSpielJoinedInternal, *, today: str) -> list[FLOverviewGapKind]:
     """What a fixture still lacks, each kind once; a fixture called off or struck out owes nothing."""
 
     if spiel.sonderereignis in SONDEREREIGNIS_COUNTED_AS_ABSAGE:
@@ -241,11 +226,9 @@ def _gaps(spiel: FLSpielJoinedInternal, *, today: str, declined: bool) -> list[F
     )
     checks: tuple[tuple[FLOverviewGapKind, bool], ...] = (
         ("ergebnis_missing", spiel.datum is not None and spiel.datum < today and spiel.ergebnis is None),
-        ("date_missing", spiel.datum is None),
-        ("time_missing", spiel.uhrzeit is None),
+        ("termin_missing", spiel.datum is None or spiel.uhrzeit is None),
         ("spielort_missing", spiel.ort is None),
         ("schiedsrichter_missing", spiel.schiedsrichter is None),
-        ("schiedsrichter_declined", declined),
         # A knockout side with neither a club nor a source; the group phase carries no source.
         ("team_missing", open_side),
     )
@@ -285,17 +268,13 @@ def overview_of(
     spiele_raw: dict[Any, Mapping[str, Any]] = {raw["_id"]: raw for raw in read[SPIELE_AS]}
     by_id: dict[Any, FLSpielJoinedInternal] = {spiel.id: spiel for spiel in spiele}
     austritte = _austritte(spiele)
-    declined = {row["_id"] for row in read[REFEREE_ROWS_AS] if (row.get(ROW_CLOSED) or {}).get("grund") == GRUND_EIGENE_ABSAGE}
 
     rows: list[FLOverviewRow] = []
 
     for spiel in spiele:
-        rows.extend(
-            FLOverviewSpielRow(kind=kind, spiel=spiel)
-            for kind in _gaps(spiel, today=today, declined=spiel.schiedsrichter is None and spiel.id in declined)
-        )
+        rows.extend(FLOverviewSpielRow(kind=kind, spiel=spiel) for kind in _gaps(spiel, today=today))
 
-    parties: dict[tuple[FLOverviewAnswerKind, Any], list[FLOverviewParty]] = {}
+    parties: dict[Any, list[FLOverviewParty]] = {}
     for row in read[CLUB_ROWS_AS]:
         spiel_raw = spiele_raw.get(row["spiel_id"])
         # A row about an Ansetzung its fixture has left, or one the next pass ends, asks the administrator nothing.
@@ -316,15 +295,19 @@ def overview_of(
                 )
             )
             continue
-        kind: FLOverviewAnswerKind = "spielbestaetigung_overdue" if row[ROW_DEADLINE] < today else "spielbestaetigung_due"
-        parties.setdefault((kind, spiel.id), []).append(
-            FLOverviewParty(spielbestaetigung_id=row["_id"], team_id=team_id, deadline=row[ROW_DEADLINE])
+        parties.setdefault(spiel.id, []).append(FLOverviewParty(spielbestaetigung_id=row["_id"], team_id=team_id, deadline=row[ROW_DEADLINE]))
+    rows.extend(
+        FLOverviewSpielbestaetigungRow(
+            kind="spielbestaetigung_overdue" if any(party.deadline < today for party in owed) else "spielbestaetigung_due",
+            spiel=by_id[spiel_id],
+            parties=owed,
         )
-    rows.extend(FLOverviewSpielbestaetigungRow(kind=kind, spiel=by_id[spiel_id], parties=owed) for (kind, spiel_id), owed in parties.items())
+        for spiel_id, owed in parties.items()
+    )
 
     for row in read[SPIELBERICHTE_AS]:
         state = bericht_zustand_of(FLSpielberichtBericht.model_validate(row["bericht"]), row["spiel"])
-        if state in BERICHT_ZUSTAENDE_OFFEN:
+        if is_offen(state):
             rows.append(FLOverviewSpielberichtRow(kind="spielbericht_open", spiel=by_id[row["spiel_id"]], state=state))
 
     rows.extend(FLOverviewBracketFaultRow(kind="bracket_fault", spiel=by_id[fault.spiel_id], fault=fault) for fault in faults)
@@ -342,5 +325,19 @@ def overview_of(
         )
 
     return FLSaisonOverviewResponse(
-        cards=[FLOverviewCard(card=card, rows=sorted((row for row in rows if CARD_OF[row.kind] == card), key=_order)) for card in CARDS]
+        cards=[FLOverviewCard(card=card, rows=_once(row for row in rows if CARD_OF[row.kind] == card)) for card in CARDS]
     )
+
+
+def _once(rows: Iterable[FLOverviewRow]) -> list[FLOverviewRow]:
+    """One card's rows in `_order`, each fixture once, for its first kind, so its row names one reason."""
+
+    seen: set[Any] = set()
+    kept: list[FLOverviewRow] = []
+    for row in sorted(rows, key=_order):
+        if not isinstance(row, FLOverviewBewerbungRow):
+            if row.spiel.id in seen:
+                continue
+            seen.add(row.spiel.id)
+        kept.append(row)
+    return kept

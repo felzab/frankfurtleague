@@ -3613,13 +3613,11 @@ export const FLOverviewCardName = {
 export type FLOverviewSpielRowKind = (typeof FLOverviewSpielRowKind)[keyof typeof FLOverviewSpielRowKind];
 
 export const FLOverviewSpielRowKind = {
-  date_missing: "date_missing",
   ergebnis_missing: "ergebnis_missing",
-  schiedsrichter_declined: "schiedsrichter_declined",
   schiedsrichter_missing: "schiedsrichter_missing",
   spielort_missing: "spielort_missing",
   team_missing: "team_missing",
-  time_missing: "time_missing",
+  termin_missing: "termin_missing",
 } as const;
 
 /**
@@ -3650,7 +3648,7 @@ export interface FLOverviewParty {
 }
 
 /**
- * A fixture whose clubs owe their answer: overdue past its deadline, or due today and asked today or not yet.
+ * A fixture whose clubs owe their answer: overdue where one club's deadline has passed, else due today.
  */
 export interface FLOverviewSpielbestaetigungRow {
   kind: FLOverviewSpielbestaetigungRowKind;
@@ -3693,13 +3691,11 @@ export const FLOverviewSpielberichtRowKind = {
   spielbericht_open: "spielbericht_open",
 } as const;
 
-export type FLSpielberichtState = (typeof FLSpielberichtState)[keyof typeof FLSpielberichtState];
+export type FLSpielberichtOpenState = (typeof FLSpielberichtOpenState)[keyof typeof FLSpielberichtOpenState];
 
-export const FLSpielberichtState = {
+export const FLSpielberichtOpenState = {
   vorgeschlagen: "vorgeschlagen",
-  adopted: "adopted",
   differing: "differing",
-  abgesagt: "abgesagt",
   teams_changed: "teams_changed",
 } as const;
 
@@ -3709,7 +3705,7 @@ export const FLSpielberichtState = {
 export interface FLOverviewSpielberichtRow {
   kind: FLOverviewSpielberichtRowKind;
   spiel: FLSpielJoinedAdmin;
-  state: FLSpielberichtState;
+  state: FLSpielberichtOpenState;
 }
 
 export type FLOverviewRow =
@@ -3721,7 +3717,7 @@ export type FLOverviewRow =
   | FLOverviewBewerbungRow;
 
 /**
- * One card and its rows, ordered by `CARD_OF`'s kinds, then each fixture's day, undated last, then its number.
+ * One card and its rows, a fixture once, ordered by `CARD_OF`'s kinds, then each fixture's day, undated last, then its number.
  */
 export interface FLOverviewCard {
   card: FLOverviewCardName;
@@ -3732,11 +3728,9 @@ export type FLOverviewGapKind = (typeof FLOverviewGapKind)[keyof typeof FLOvervi
 
 export const FLOverviewGapKind = {
   ergebnis_missing: "ergebnis_missing",
-  date_missing: "date_missing",
-  time_missing: "time_missing",
+  termin_missing: "termin_missing",
   spielort_missing: "spielort_missing",
   schiedsrichter_missing: "schiedsrichter_missing",
-  schiedsrichter_declined: "schiedsrichter_declined",
   team_missing: "team_missing",
 } as const;
 
@@ -5087,6 +5081,16 @@ export interface FLSpielberichtSeiten {
   team1: string | null;
   team2: string | null;
 }
+
+export type FLSpielberichtState = (typeof FLSpielberichtState)[keyof typeof FLSpielberichtState];
+
+export const FLSpielberichtState = {
+  vorgeschlagen: "vorgeschlagen",
+  adopted: "adopted",
+  differing: "differing",
+  abgesagt: "abgesagt",
+  teams_changed: "teams_changed",
+} as const;
 
 /**
  * One goal. A null `spieler_id` is a scorer nobody named and nothing else: an erasure never nulls an entry, which would read as one.

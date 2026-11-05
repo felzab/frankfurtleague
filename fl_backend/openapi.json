@@ -8538,7 +8538,7 @@
         "type": "object"
       },
       "FLOverviewCard": {
-        "description": "One card and its rows, ordered by `CARD_OF`'s kinds, then each fixture's day, undated last, then its number.",
+        "description": "One card and its rows, a fixture once, ordered by `CARD_OF`'s kinds, then each fixture's day, undated last, then its number.",
         "properties": {
           "card": {
             "$ref": "#/components/schemas/FLOverviewCardName"
@@ -8570,11 +8570,9 @@
       "FLOverviewGapKind": {
         "enum": [
           "ergebnis_missing",
-          "date_missing",
-          "time_missing",
+          "termin_missing",
           "spielort_missing",
           "schiedsrichter_missing",
-          "schiedsrichter_declined",
           "team_missing"
         ],
         "type": "string"
@@ -8611,16 +8609,14 @@
           "mapping": {
             "bewerbung": "#/components/schemas/FLOverviewBewerbungRow",
             "bracket_fault": "#/components/schemas/FLOverviewBracketFaultRow",
-            "date_missing": "#/components/schemas/FLOverviewSpielRow",
             "ergebnis_missing": "#/components/schemas/FLOverviewSpielRow",
-            "schiedsrichter_declined": "#/components/schemas/FLOverviewSpielRow",
             "schiedsrichter_missing": "#/components/schemas/FLOverviewSpielRow",
             "spielbericht_open": "#/components/schemas/FLOverviewSpielberichtRow",
             "spielbestaetigung_due": "#/components/schemas/FLOverviewSpielbestaetigungRow",
             "spielbestaetigung_overdue": "#/components/schemas/FLOverviewSpielbestaetigungRow",
             "spielort_missing": "#/components/schemas/FLOverviewSpielRow",
             "team_missing": "#/components/schemas/FLOverviewSpielRow",
-            "time_missing": "#/components/schemas/FLOverviewSpielRow",
+            "termin_missing": "#/components/schemas/FLOverviewSpielRow",
             "vorschlag_open": "#/components/schemas/FLOverviewVorschlagRow"
           },
           "propertyName": "kind"
@@ -8675,7 +8671,7 @@
             "$ref": "#/components/schemas/FLSpielJoinedAdmin"
           },
           "state": {
-            "$ref": "#/components/schemas/FLSpielberichtState"
+            "$ref": "#/components/schemas/FLSpielberichtOpenState"
           }
         },
         "required": [
@@ -8687,7 +8683,7 @@
         "type": "object"
       },
       "FLOverviewSpielbestaetigungRow": {
-        "description": "A fixture whose clubs owe their answer: overdue past its deadline, or due today and asked today or not yet.",
+        "description": "A fixture whose clubs owe their answer: overdue where one club's deadline has passed, else due today.",
         "properties": {
           "kind": {
             "$ref": "#/components/schemas/FLOverviewAnswerKind"
@@ -14928,6 +14924,14 @@
         ],
         "title": "FLSpielberichtKartePublic",
         "type": "object"
+      },
+      "FLSpielberichtOpenState": {
+        "enum": [
+          "vorgeschlagen",
+          "differing",
+          "teams_changed"
+        ],
+        "type": "string"
       },
       "FLSpielberichtPayload": {
         "additionalProperties": false,
