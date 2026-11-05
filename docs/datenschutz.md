@@ -165,7 +165,7 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
     Art. 6(1)(f).
   - People and data: a grant's address, tier and granter (`granted_by`), in plain; a pending
     request's address and its requester's; a ban's keyed hash of the barred address
-    (`fl_backend/app/api/sperrliste/services.py :: adresse_hash`), its free-text reason, the
+    (`fl_backend/app/api/sperrliste/services.py :: address_hash`), its free-text reason, the
     entering administrator's address (`created_by`) and the last season it covers.
   - Recipients: administrators.
 - **The action log and the erasure journal** (`aktionen`; the journal lines).
@@ -209,7 +209,7 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
 - **A pupil's name is published only on their own consent, given alone from 16.** Every public read
   of a pupil decides by `fl_backend/app/api/spieler/services.py :: name_is_public`, or its expression
   at a join, `fl_backend/app/shared/einwilligung.py :: NAME_IS_PUBLIC`: the record present, its
-  `umfang` `kader_oeffentlich` and its `confirmed_at` stamped. Every other row is a nameless slot
+  `scope` `kader_oeffentlich` and its `confirmed_at` stamped. Every other row is a nameless slot
   keeping its number and position, and carries no record id that would link its seasons. The gate
   fails closed. The player editor shows the stored consent read-only and gates nothing
   (`fl_frontend/src/features/spieler/components/forms/AdminSpielerEditForm/FormEinwilligungSection.tsx`).
@@ -315,7 +315,7 @@ Each bound is read from the symbol beside it; nothing compares this table with t
 | A grant                                      | Until revoked or erased                                                                                                                     | `fl_backend/app/api/berechtigungen/admin_router.py :: delete_grant`                                                                                                   |
 | A pending grant request                      | A week after it was asked, unless decided, withdrawn or ended sooner                                                                        | `fl_backend/app/shared/schemas/bounds.py :: APPROVAL_DAYS`, `fl_backend/app/core/constraints.py :: TTL_INDEXES`                                                       |
 | An address change                            | Each link 24 hours, a lapsed change ended within the hour; an ended change keeps no address and no reason and goes 30 days after its end    | `fl_backend/app/shared/schemas/bounds.py :: ADDRESS_CHANGE_VALID_HOURS`, `:: ADDRESS_CHANGE_RETENTION_DAYS`                                                           |
-| A sign-in account and its passkeys           | Within the hour of no league record or grant holding its address, a ban holding none, with no message                                       | `fl_frontend/src/features/funktionen/sweep.ts :: runKontoSweep`                                                                                                       |
+| A sign-in account and its passkeys           | Within the hour of no league record or grant holding its address, a ban holding none, with no message                                       | `fl_frontend/src/features/funktionen/sweep.ts :: runAccountSweep`                                                                                                     |
 | A session                                    | A person's 14 days unused, 30 at most; an administrator's 1 hour unused, 24 at most                                                         | `fl_frontend/src/core/sessionLifetimes.ts :: PERSON_LIFETIME`, `:: ADMIN_LIFETIME`                                                                                    |
 | A sign-in code; the code counts              | 10 minutes; failed codes a day and requested codes an hour, under a keyed hash                                                              | `fl_frontend/src/core/authEmail.ts :: CODE_VALIDITY_MINUTES`, [`ops/runbooks.md`](ops/runbooks.md#14-the-auth-databases-indexes)                                      |
 | A Postausgang row                            | No facts once sent or given up; deleted 30 days after that, a row carrying a secret when it lapses                                          | `fl_backend/app/api/outbox/services.py :: RETENTION`, `:: row_of`                                                                                                     |
@@ -380,7 +380,7 @@ the host's, which rests on its signed agreement.
   passes Cloudflare first ([`ops/spec.md`](ops/spec.md#18-the-edges-declared-state)).
 - **Pseudonymisation.** A ban, a person's action-log actor, a fixture answer's holder and each
   journal line hold a keyed hash of an address rather than the address, each under a key derived from
-  one master secret by its own label (`fl_backend/app/api/sperrliste/services.py :: adresse_hash`;
+  one master secret by its own label (`fl_backend/app/api/sperrliste/services.py :: address_hash`;
   [`ops/runbooks.md`](ops/runbooks.md#16-the-secret-files)).
 - **Minimisation.** No birthdate reaches a public read; a public row names no record id that links a
   withheld person's seasons; an access line holds no credential and no search query.
