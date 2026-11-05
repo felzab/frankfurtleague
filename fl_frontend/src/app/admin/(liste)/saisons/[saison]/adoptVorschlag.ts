@@ -27,6 +27,8 @@ export const adoptVorschlag = action({
     "eligibility_disqualified_team1_as_stored",
     "eligibility_disqualified_team2_as_stored",
     "saison_past",
+    // The season's bracket stale, its resolution would delete a later result, which the match editor asks about first.
+    "voided_results_stale",
   ],
   run: async ({ id }) => {
     await spielbestaetigungenAdoptSpielbestaetigung(id);

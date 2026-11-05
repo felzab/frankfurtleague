@@ -406,12 +406,12 @@ describe("the match editor's question before it deletes a later result", () => {
     expect(state.sent).toEqual([]);
   });
 
-  it("answers the write's refusal after a passing dry run, a result entered between the two, as the stale question it is", async () => {
+  it("answers the write's refusal after a passing dry run, a result entered between the two, by what the write would delete", async () => {
     const { confirm } = await asked({ tore1: "3", tore2: "1" });
     state.writeRefusal = refusal("voided_results_stale");
 
     const answer = await saveSpiel({ ...saving({ tore1: "3", tore2: "1" }), confirm });
 
-    expect(answer).toEqual({ ok: false, errorCode: "voided_results_stale", reason: COPY.shared.failure.stale });
+    expect(answer).toEqual({ ok: false, errorCode: "voided_results_stale", reason: SERVER_COPY.refusalLine.voided_results_stale });
   });
 });
