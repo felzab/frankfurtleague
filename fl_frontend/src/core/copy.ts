@@ -675,6 +675,8 @@ export const COPY = catalogue({
       state: "Stand",
       /** The fact beside it: the day the last link went to the person. */
       linkSent: "Link gesendet",
+      /** Beside the act that mailed a fresh link, and the save whose corrected address did: the address it went to. */
+      sentTo: (address: string) => `An ${address} gesendet`,
       confirmedOn: (day: CalendarDay) => `Bestätigt am ${formatDatum(day)}`,
       openUntil: (day: CalendarDay) => `Offen bis ${formatDatum(day)}`,
       expiredOn: (day: CalendarDay) => `Abgelaufen am ${formatDatum(day)}`,

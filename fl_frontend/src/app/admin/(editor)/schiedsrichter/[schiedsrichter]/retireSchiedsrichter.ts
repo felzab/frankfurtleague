@@ -3,6 +3,7 @@
 import { z } from "zod";
 
 import { action } from "@/core/action";
+import { COPY } from "@/core/copy";
 import {
   schiedsrichterDeleteSchiedsrichter,
   schiedsrichterInviteSchiedsrichter,
@@ -46,16 +47,18 @@ export const reactivateSchiedsrichter = action({
 });
 
 /**
- * Mails a referee who has not answered a fresh link, the deadline starting again and the old link void. The editor
- * offers it only while their entry waits on an answer; anything the backend refuses since reads as the toast's one
- * failure, the page drawn again.
+ * Mails a referee who has not answered a fresh link, the deadline starting again and the old link void, its line
+ * naming the address the backend read it to. The editor offers it only while their entry waits on an answer, so a
+ * retirement, an answer or an address gone since is a stale page; an address on the ban list, which the page cannot
+ * know, is refused in the list's own sentence.
  */
 export const sendSchiedsrichterLink = action({
   lane: "admin",
   name: "sendSchiedsrichterLink",
   input: z.object({ id: SchiedsrichterInviteSchiedsrichterParams.shape.schiedsrichter_id }),
+  ownWords: ["schiedsrichter_address_barred"],
   run: async ({ id }) => {
-    await schiedsrichterInviteSchiedsrichter(id);
-    return { ok: true, value: undefined };
+    const { confirmation } = await schiedsrichterInviteSchiedsrichter(id);
+    return { ok: true, value: undefined, note: COPY.admin.schiedsrichter.sentTo(confirmation.email) };
   },
 });

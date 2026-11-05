@@ -1,12 +1,9 @@
 "use client";
 
-import { useTransition } from "react";
-
-import { Button } from "@/kit/Button";
 import { EditorPage } from "@/kit/EditorPage";
 import { Facts } from "@/kit/Facts";
+import { SectionAct } from "@/kit/SectionAct";
 import { TextField } from "@/kit/TextField";
-import { appToast } from "@/kit/Toast";
 import { useEditor } from "@/kit/useEditor";
 
 import { COPY } from "@/core/copy";
@@ -66,7 +63,6 @@ export function SchiedsrichterEditor({
 }) {
   const editor = useEditor(record, save);
   const { draft, set } = editor;
-  const [isSending, startSending] = useTransition();
   const { required, max } = rules;
 
   const dangerAct: DangerAct =
@@ -93,13 +89,6 @@ export function SchiedsrichterEditor({
             onConfirm: () => danger.act({ id: record.id }),
           },
         };
-
-  // The link's mail leaves nothing on the page to change but the facts the page draws again: a toast says it went.
-  const send = (act: Act) =>
-    startSending(async () => {
-      const answer = await act({ id: record.id });
-      appToast(answer.ok ? "success" : "danger", answer.ok ? COPY.shared.toast.linkSent : COPY.shared.toast.failure);
-    });
 
   return (
     <EditorPage
@@ -197,12 +186,11 @@ export function SchiedsrichterEditor({
                 fields: (
                   <>
                     {confirmation.length > 0 && <Facts facts={confirmation} />}
+                    {/* An act of its box, as the season editor's are: the line under it says where the link went, or why not. */}
                     {sendLink !== undefined && (
-                      <Button
-                        variant="secondary"
+                      <SectionAct
                         label={COPY.shared.withObject(COPY.account.address.link, "send")}
-                        isBusy={isSending}
-                        onPress={() => send(sendLink)}
+                        run={() => sendLink({ id: record.id })}
                       />
                     )}
                   </>

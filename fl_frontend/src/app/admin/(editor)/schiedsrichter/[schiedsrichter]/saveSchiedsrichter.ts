@@ -38,15 +38,16 @@ const SaveSchiedsrichter = z.object({
 /**
  * Saves the referee editor's changes on the version the editor was read at, answering the version stored. The write
  * replaces the whole record, so every field left alone is sent as stored, read again here. A corrected address of a
- * person who has not confirmed retires their link and mails a fresh one, which the status line says beside the save;
+ * person who has not confirmed retires their link and mails a fresh one, which the status line says beside the save,
+ * naming the address it went to. A name another referee holds, a retired one's included, is refused on the name's box;
  * a confirmed person's address is the editor's to show, never to change, as only an address change moves it.
  */
 export const saveSchiedsrichter = action({
   lane: "admin",
   name: "saveSchiedsrichter",
   input: SaveSchiedsrichter,
-  ownWords: ["email_not_accepted", "schiedsrichter_address_barred", "schiedsrichter_address_only_per_change"],
-  paths: { "kontakt.email": "changes.email" },
+  ownWords: ["duplicate_key", "email_not_accepted", "schiedsrichter_address_barred", "schiedsrichter_address_only_per_change"],
+  paths: { name: "changes.name", "kontakt.email": "changes.email" },
   examples: { "changes.telefon": COPY.admin.schiedsrichter.telefonExample },
   run: async ({ id, version, changes }): Promise<ActionAnswer<number>> => {
     const read = await getSchiedsrichterById(id);
@@ -64,6 +65,8 @@ export const saveSchiedsrichter = action({
       version,
     });
     const value = written.version;
-    return written.confirmation === null ? { ok: true, value } : { ok: true, value, note: COPY.shared.toast.linkSent };
+    return written.confirmation === null
+      ? { ok: true, value }
+      : { ok: true, value, note: COPY.admin.schiedsrichter.sentTo(written.confirmation.email) };
   },
 });

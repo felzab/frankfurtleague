@@ -105,8 +105,8 @@ async function readEditor(params: Props["params"]) {
   const referee = found.schiedsrichter;
   const state = confirmationStateOf(referee);
   const retired = referee.inactive_since !== null;
-  // A link goes only to an entry waiting on its answer: once it lapses the entry goes, and a new one is entered instead.
-  const asking = state === "unanswered" && !found.confirmation_expired && !retired && referee.kontakt.email !== null;
+  // A link goes only to an entry waiting on its answer, as the invite's own refusals say: a live one with an address.
+  const asking = state === "unanswered" && !retired && referee.kontakt.email !== null;
 
   return (
     <SchiedsrichterEditor

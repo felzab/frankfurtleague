@@ -183,6 +183,11 @@ const STALE: ReadonlySet<Code> = new Set<Code>([
   "replace_incoming_already_entered",
   "replace_one_team_on_both_ends",
   "invitation_team_not_entered",
+  // A referee's fresh link, which the editor offers only to a live entry with an address and no answer yet: the
+  // referee moved since the page was served.
+  "schiedsrichter_retired",
+  "confirmation_exists",
+  "schiedsrichter_no_address",
 ]);
 
 /** The admin guard's refusals, each in the words of what repairs it. */
