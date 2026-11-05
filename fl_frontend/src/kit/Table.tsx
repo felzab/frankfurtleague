@@ -378,7 +378,8 @@ export function Table({
       .map((column) => column.key),
   );
   return (
-    <div className={bare ? "overflow-x-auto" : cardSurface({ class: "overflow-x-auto" })}>
+    // `w-full`: a Section's grid starts its children, which would shrink the table and cut its cells.
+    <div className={bare ? "w-full overflow-x-auto" : cardSurface({ class: "w-full overflow-x-auto" })}>
       {rows.some((row) => row.anchor !== undefined) && <TargetMark />}
       {rows.length === 0 ? (
         <EmptyState {...empty} />
