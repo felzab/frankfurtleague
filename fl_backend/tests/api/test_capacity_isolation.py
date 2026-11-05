@@ -100,6 +100,8 @@ def spieltag_document(position: int, beginn: str) -> dict[str, Any]:
         "saison_phase": "gruppenphase",
         "saison_id": SAISON,
         "position": position,
+        # As the draw's insert writes it: the save is checked against it.
+        "version": 0,
     }
 
 
@@ -187,9 +189,11 @@ async def enter_the_group(database: AsyncDatabase, client: AsyncMongoClient, tea
 
 
 async def redate(database: AsyncDatabase, client: AsyncMongoClient, position: int, beginn: str, saisons: Any) -> Any:
+    stored = await database[Collection.SPIELTAGE].find_one({"_id": oid(4000 + position)}, {"version": 1})
+    assert stored is not None
     return await patch_spieltag(
         spieltag_id=oid(4000 + position),
-        spieltag_data=FLPatchSpieltagPayload(beginn=beginn, ende=beginn),
+        spieltag_data=FLPatchSpieltagPayload(beginn=beginn, ende=beginn, version=stored["version"]),
         spieltage_collection=database[Collection.SPIELTAGE],
         saisons_collection=saisons,
         spiele_collection=database[Collection.SPIELE],

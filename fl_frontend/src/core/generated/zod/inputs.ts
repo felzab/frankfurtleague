@@ -1740,6 +1740,7 @@ export const saisonsPatchSaisonBodyRulesTeamsPerGruppeMax = 16;
 export const saisonsPatchSaisonBodyRulesWinPointsExclusiveMin = 0;
 
 export const saisonsPatchSaisonBodyStartDateRegExp = new RegExp("^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$");
+export const saisonsPatchSaisonBodyVersionMin = 0;
 
 export const SaisonsPatchSaisonBody = zod.object({
   bewerbung: zod.union([
@@ -1784,7 +1785,7 @@ export const SaisonsPatchSaisonBody = zod.object({
     win_points: zod.int().gt(saisonsPatchSaisonBodyRulesWinPointsExclusiveMin),
   }),
   start_date: zod.string().regex(saisonsPatchSaisonBodyStartDateRegExp),
-  version: zod.int(),
+  version: zod.int().min(saisonsPatchSaisonBodyVersionMin),
 });
 
 /**
@@ -2985,6 +2986,7 @@ export const spielePatchSpielBodyTeam2QuelleOneTwoSpielNrExclusiveMin = 0;
 
 export const spielePatchSpielBodyUhrzeitOneRegExp = new RegExp("^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$");
 export const spielePatchSpielBodyUhrzeitThreeRegExp = new RegExp("^\\s*$");
+export const spielePatchSpielBodyVersionMin = 0;
 
 export const SpielePatchSpielBody = zod.object({
   datum: zod.union([
@@ -3086,7 +3088,7 @@ export const SpielePatchSpielBody = zod.object({
     zod.null(),
     zod.string().regex(spielePatchSpielBodyUhrzeitThreeRegExp),
   ]),
-  version: zod.int(),
+  version: zod.int().min(spielePatchSpielBodyVersionMin),
 });
 
 /**
@@ -3557,11 +3559,12 @@ export const SpieltagePatchSpieltagParams = zod.object({
 
 export const spieltagePatchSpieltagBodyBeginnRegExp = new RegExp("^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$");
 export const spieltagePatchSpieltagBodyEndeRegExp = new RegExp("^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$");
+export const spieltagePatchSpieltagBodyVersionMin = 0;
 
 export const SpieltagePatchSpieltagBody = zod.object({
   beginn: zod.string().regex(spieltagePatchSpieltagBodyBeginnRegExp),
   ende: zod.string().regex(spieltagePatchSpieltagBodyEndeRegExp),
-  version: zod.union([zod.int(), zod.null()]).optional(),
+  version: zod.int().min(spieltagePatchSpieltagBodyVersionMin),
 });
 
 /**

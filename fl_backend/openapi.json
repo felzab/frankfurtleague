@@ -8903,6 +8903,7 @@
             "type": "string"
           },
           "version": {
+            "minimum": 0.0,
             "title": "Version",
             "type": "integer"
           }
@@ -9325,6 +9326,7 @@
             "title": "Uhrzeit"
           },
           "version": {
+            "minimum": 0.0,
             "title": "Version",
             "type": "integer"
           }
@@ -9505,20 +9507,15 @@
             "type": "string"
           },
           "version": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Version"
+            "minimum": 0.0,
+            "title": "Version",
+            "type": "integer"
           }
         },
         "required": [
           "beginn",
-          "ende"
+          "ende",
+          "version"
         ],
         "title": "FLPatchSpieltagPayload",
         "type": "object"

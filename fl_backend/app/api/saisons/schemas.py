@@ -28,7 +28,7 @@ from app.core.codes import Code, Rule
 from app.core.crud import Anchored
 from app.core.exceptions import Bound, rule_refusal
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SAISON_ID_LENGTH
-from app.shared.schemas.custom import CustomDateString, CustomObjectId, CustomTimeString, refuse_reversed_span
+from app.shared.schemas.custom import CustomDateString, CustomObjectId, CustomTimeString, CustomVersion, refuse_reversed_span
 from app.shared.schemas.literals import FLGruppenNames, FLSaisonPhase, FLSaisonStatus, FLSortOrder, FLSpielerStufe
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
@@ -317,7 +317,7 @@ class FLPostSaisonPayload(_SaisonPayload):
 # OpenAPI component, and the generated client names the patch's body by it.
 class FLPatchSaisonPayload(_SaisonPayload):
     # The `version` the editor was served, so a save over a season another write moved since is refused as stale.
-    version: int
+    version: CustomVersion
 
 
 class FLPatchSaisonResponse(BaseAPIResponse):

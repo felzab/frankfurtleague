@@ -24,6 +24,7 @@ from app.shared.schemas.custom import (
     CustomShorthand,
     CustomSpielNr,
     CustomTimeString,
+    CustomVersion,
 )
 from app.shared.schemas.literals import (
     FLAustrittType,
@@ -532,7 +533,7 @@ class FLPatchSpielDataPayload(BaseModel):
 
     # The `version` the editor was served, with no default: the save is refused once another write has raised it
     # (`version_stale`), a referee's decline emptying the slot among them.
-    version: int
+    version: CustomVersion
 
     @model_validator(mode="before")
     @classmethod

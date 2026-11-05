@@ -164,6 +164,11 @@ CustomShorthand = Annotated[
 # An alias rather than a repeated `Field`, so a field cannot be added with the bound left off.
 CustomNonEmptyString = Annotated[str, StringConstraints(min_length=1)]
 
+# The `version` an editor was served, which its save sends back: required, so a save checked against nothing overwrites
+# a rival's unseen, and never negative, as no stored count is, so a negative one is the payload's 422 rather than
+# `version_stale`. One alias for every editor's save, so the published `minimum` is one.
+CustomVersion = Annotated[int, Field(ge=0)]
+
 # The WRITE-side floor: `min_length` counts CHARACTERS, so the alias above takes spaces alone -- a
 # value stored and served as empty. NEVER on a read model, where the strip runs first and a stored
 # blank would refuse.

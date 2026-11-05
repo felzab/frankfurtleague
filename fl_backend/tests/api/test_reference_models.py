@@ -488,13 +488,13 @@ class TestTheMatchdaysSpan:
 
     def test_accepts_a_matchday_on_a_single_day(self):
         """The editor saves a day picked once as `ende` equal to `beginn`, so refusing an equal span refuses what the form offers."""
-        parsed = FLPatchSpieltagPayload.model_validate({"beginn": "2026-09-04", "ende": "2026-09-04"})
+        parsed = FLPatchSpieltagPayload.model_validate({"beginn": "2026-09-04", "ende": "2026-09-04", "version": 0})
 
         assert parsed.ende == parsed.beginn
 
     def test_refuses_a_matchday_ending_before_it_begins(self):
         with pytest.raises(ValidationError) as failure:
-            FLPatchSpieltagPayload.model_validate({"beginn": "2026-09-05", "ende": "2026-09-04"})
+            FLPatchSpieltagPayload.model_validate({"beginn": "2026-09-05", "ende": "2026-09-04", "version": 0})
 
         # At the end it judges, as the wire's path names it: a refusal at the model's own path reaches no box.
         assert [(error["type"], error["loc"], error.get("ctx")) for error in failure.value.errors()] == [

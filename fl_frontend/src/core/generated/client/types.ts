@@ -3832,6 +3832,7 @@ export interface FLPatchSaisonPayload {
   rules: FLSaisonRules;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   start_date: string;
+  /** @minimum 0 */
   version: number;
 }
 
@@ -3979,6 +3980,7 @@ export interface FLPatchSpielDataPayload {
   team2: FLSpielTeamFieldPayload | null;
   team2_quelle: FLSpielQuelle | null;
   uhrzeit: string | null;
+  /** @minimum 0 */
   version: number;
 }
 
@@ -4068,7 +4070,8 @@ export interface FLPatchSpieltagPayload {
   beginn: string;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   ende: string;
-  version?: number | null;
+  /** @minimum 0 */
+  version: number;
 }
 
 export interface FLPatchTeamPayload {

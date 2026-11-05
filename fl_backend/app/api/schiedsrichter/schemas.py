@@ -14,6 +14,7 @@ from app.shared.schemas.custom import (
     CustomObjectId,
     CustomOptionalDateString,
     CustomOptionalString,
+    CustomVersion,
 )
 from app.shared.schemas.einwilligung import FLSchiedsrichterTextVersions, cite_their_kind, refuse_a_stale_grant
 from app.shared.schemas.kontakt import CustomKontaktName, FLKontakt, FLKontaktPayload
@@ -55,7 +56,7 @@ class FLPostSchiedsrichterPayload(_SchiedsrichterPayload):
 
 class FLPatchSchiedsrichterPayload(_SchiedsrichterPayload):
     # The `version` the editor was served, required: a save checked against nothing overwrites a rival's unseen.
-    version: int = Field(ge=0)
+    version: CustomVersion
 
 
 class FLSchiedsrichterMint(BaseModel):
