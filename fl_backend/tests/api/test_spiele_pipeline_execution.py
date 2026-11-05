@@ -22,6 +22,7 @@ from tests.documents import (
     ADDRESS,
     SCHIEDSRICHTER_TEXT_VERSIONS,
     own_einwilligung_document,
+    saison_team_document,
     schiedsrichter_document,
     spiel_document,
     spielbestaetigung_document,
@@ -127,9 +128,10 @@ VERDICT_HOME = ObjectId("6890a1b2c3d4e5f607250011")
 VERDICT_AWAY = ObjectId("6890a1b2c3d4e5f607250012")
 VERDICT_SPIELORT_ID = ObjectId("6890a1b2c3d4e5f607250021")
 
-HOME_SIDE = {"team_id": VERDICT_HOME, "name": "Alpha", "shorthand": "ALX", "tore": None}
-AWAY_SIDE = {"team_id": VERDICT_AWAY, "name": "Beta", "shorthand": "BEX", "tore": None}
-GROUND = {"spielort_id": VERDICT_SPIELORT_ID, "name": "Sportplatz Ost", "maps_link": "Sportplatz Ost, Frankfurt", "mietpreis": 80}
+# As `spiele` stores them, no name among them: every read joins the names, which these cases leave unread.
+HOME_SIDE = {"team_id": VERDICT_HOME, "tore": None}
+AWAY_SIDE = {"team_id": VERDICT_AWAY, "tore": None}
+GROUND = {"spielort_id": VERDICT_SPIELORT_ID, "mietpreis": 80}
 OTHER_GROUND = {**GROUND, "spielort_id": ObjectId("6890a1b2c3d4e5f607250022")}
 
 # One per Ansetzung value, the sides moving together since a fixture never holds one club twice.
@@ -177,9 +179,26 @@ def discarded(fixture: Mapping[str, Any], team_id: ObjectId) -> dict[str, Any]:
 Body = Callable[[AsyncDatabase], Awaitable[Any]]
 
 
+def venue_document(name: str = "Sportplatz Ost") -> dict[str, Any]:
+    return {
+        "_id": VERDICT_SPIELORT_ID,
+        "name": name,
+        "address": dict(ADDRESS),
+        "maps_link": f"{name}, Frankfurt",
+        "default_mietpreis": 80,
+        "inactive_since": None,
+    }
+
+
 def on_a_fixture(url: str, fixture: dict[str, Any], rows: list[dict[str, Any]], body: Body) -> Any:
+    """The fixture beside the rows every read joins its names from: its clubs' season rows and its ground."""
+
     async def _run() -> Any:
         async with a_clean_database(url, VERDICT_DATABASE, constraints=True) as (_, database):
+            await database[Collection.SAISON_TEAMS].insert_many(
+                [saison_team_document(SAISON, VERDICT_HOME, "Alpha", "ALX"), saison_team_document(SAISON, VERDICT_AWAY, "Beta", "BEX")]
+            )
+            await database[Collection.SPIELORTE].insert_one(venue_document())
             await database[Collection.SPIELE].insert_one(fixture)
             if rows:
                 await database[Collection.SPIELBESTAETIGUNGEN].insert_many(rows)
@@ -207,16 +226,6 @@ class TestAFixtureNamesItsVenueAsItIsCalledNow:
         fixture = {**a_fixture(), "datum": "2025-09-20", "ort": {"spielort_id": VERDICT_SPIELORT_ID, "mietpreis": 80}}
 
         async def body(database: AsyncDatabase) -> Mapping[str, Any]:
-            await database[Collection.SPIELORTE].insert_one(
-                {
-                    "_id": VERDICT_SPIELORT_ID,
-                    "name": "Sportplatz Ost",
-                    "address": dict(ADDRESS),
-                    "maps_link": "Sportplatz Ost, Frankfurt",
-                    "default_mietpreis": 80,
-                    "inactive_since": None,
-                }
-            )
             await database[Collection.SPIELORTE].update_one(
                 {"_id": VERDICT_SPIELORT_ID}, {"$set": {"name": "Sporthalle Ost", "maps_link": "Sporthalle Ost, Frankfurt"}}
             )
@@ -370,7 +379,8 @@ def published() -> dict[str, Any]:
 
 
 def a_refereed_fixture(schiedsrichter_id: ObjectId = REFEREE_ID) -> dict[str, Any]:
-    return {**a_fixture(), "schiedsrichter": {"schiedsrichter_id": schiedsrichter_id, "name": REFEREE_NAME, "payment": 20}}
+    # The booking as stored: the name served beside it is the referee row's, joined at read.
+    return {**a_fixture(), "schiedsrichter": {"schiedsrichter_id": schiedsrichter_id, "payment": 20}}
 
 
 def a_referee_row(fixture: Mapping[str, Any], party: Mapping[str, Any] = REFEREE, **fields: Any) -> dict[str, Any]:
