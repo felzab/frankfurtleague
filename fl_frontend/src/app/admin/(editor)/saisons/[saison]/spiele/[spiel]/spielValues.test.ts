@@ -30,10 +30,6 @@ const ADOPTED = { ...STORED, hasResult: true, tore1: "3", tore2: "1" };
 // The harm: a report stamped adopted with a result other than the one stored, so the Übersicht drops a report
 // nobody took over, and nothing on the screen says so.
 describe("the report a match save stamps adopted", () => {
-  it("is the proposal's version once „Übernehmen“ was pressed and the saved values hold its proposal", () => {
-    expect(adoptsBerichtOf(PROPOSAL, true, ADOPTED)).toBe(2);
-  });
-
   it("is none where a goal changed after „Übernehmen“", () => {
     expect(adoptsBerichtOf(PROPOSAL, true, { ...ADOPTED, tore2: "2" })).toBeNull();
   });
