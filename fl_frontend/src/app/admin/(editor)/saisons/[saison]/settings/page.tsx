@@ -64,11 +64,6 @@ function blockedOf(code: Code | null, status: FLSaisonStatus): Copy | undefined 
       return WORDS.reportsHold;
     case "spielplan_gruppen_off_rules":
       return WORDS.gruppenOffRules;
-    // Met by the first draw alone, and only on a season whose matchdays stand without the Spielplan the read records,
-    // so the editor offers that draw: no reload clears it.
-    case "spielplan_already_drawn":
-    case "spielplan_spieltage_held":
-      return WORDS.spieltageHeld;
     // One code for both ways the planning window closes: the season went live, or a match of it holds an entry.
     case "spielplan_replace_outside_its_window":
     case "spielplan_undraw_outside_its_window":
@@ -94,7 +89,7 @@ export default function SaisonSettingsPage({ params }: Props) {
 
 async function readEditor(params: Props["params"]) {
   // The frame's own season list, which the switch's question names the season the site leaves from, beside the view read.
-  const [{ saison, teams, incoming_clubs, shapes, refusals, invitations }, { saisons }, judged] = await Promise.all([
+  const [{ saison, teams, incoming_clubs, shapes, spielplan, refusals, invitations }, { saisons }, judged] = await Promise.all([
     readSaison(params),
     getAdminSaisons(),
     judgeAdminRequest(),
@@ -119,9 +114,7 @@ async function readEditor(params: Props["params"]) {
         isCurrent: saison.status === "active",
         siteShows: saisons.find((listed) => listed.status === "active")?.id ?? null,
         spielplan:
-          saison.spielplan === null
-            ? null
-            : { spieltage: saison.spielplan.spieltage, spiele: saison.spielplan.spiele, drawnOn: dayOf(saison.spielplan.generated_at) },
+          spielplan === null ? null : { spieltage: spielplan.spieltage, spiele: spielplan.spiele, drawnOn: dayOf(spielplan.generated_at) },
         blocked: {
           activate: blockedOf(refusals.activate, saison.status),
           create: blockedOf(refusals.create, saison.status),

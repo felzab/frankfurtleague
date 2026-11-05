@@ -87,7 +87,8 @@ def find_saison_create_refusal(*, future_stands: bool) -> WriteRefusal | None:
     """`create_saison_future_stands`, with no path: a planned season stands, so the next one is already made.
 
     Takes the answer rather than the lookup, so the caller's read runs in the caller's transaction. Two creates racing
-    each other mint one id, and its `_id` index refuses the second as `duplicate_key`.
+    each other read the same snapshot and mint one id; the second's insert meets the first's as a write conflict, which
+    `with_transaction` retries, and the retry reads the planned season and is refused here.
     """
 
     if not future_stands:

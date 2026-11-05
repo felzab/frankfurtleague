@@ -116,7 +116,10 @@ export const replaceTeam = action({
   },
 });
 
-/** Mails every admitted team of the season a fresh registration link, passing over those the preview passes over. */
+/**
+ * Mails every admitted team of the season a fresh registration link, passing over each team the editor's link rows
+ * mark as skipped: one gone, one no confirmed address reaches, and one whose live link was already sent.
+ */
 export const sendRegistrierungslinks = action({
   lane: "admin",
   name: "sendRegistrierungslinks",

@@ -204,8 +204,8 @@ function matched(url: string, headers: Record<string, string>): boolean {
 }
 
 /**
- * What Next's router sends on a prefetch, a partial one's `2` and `3` among them, and what a browser's own sends,
- * none carrying a page a person asked for (`next/dist/client/components/segment-cache/cache.js`).
+ * What Next's router sends on a prefetch, a partial one's `1` and a runtime one's `2` and `3`, and what a browser's own
+ * sends, none carrying a page a person asked for (`next/dist/client/components/segment-cache/cache.js`).
  */
 const PREFETCHES: Record<string, string>[] = [
   { "next-router-prefetch": "1" },
