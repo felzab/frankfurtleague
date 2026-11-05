@@ -28,6 +28,7 @@ from app.core.crud import (
     patch_one_in_db,
     post_many_to_db,
     pull_one_from_db,
+    pull_whole_from_db,
 )
 from app.core.exceptions import DocumentNotFoundError
 from app.shared.schemas.custom import CustomObjectId
@@ -412,6 +413,42 @@ class TestPullOneFromDb:
 
         assert excinfo.value.status_code == 404
         assert excinfo.value.error_code == Code.DOCUMENT_NOT_FOUND
+
+
+class _CappedCollection:
+    """Answers a read as the driver does under `cursor.limit()`: the first `count` documents and no more."""
+
+    def __init__(self, documents: list[Mapping[str, Any]]) -> None:
+        self.documents = documents
+
+    def find(self, *, filter: Any, projection: Any, collation: Any, session: Any) -> _CappedCollection:
+        return self
+
+    def limit(self, count: int) -> _CappedCollection:
+        self.documents = self.documents[:count]
+        return self
+
+    async def to_list(self, length: int | None = None) -> list[Mapping[str, Any]]:
+        return self.documents
+
+
+def pulled_whole(rows: list[Mapping[str, Any]], *, limit: int) -> list[Mapping[str, Any]]:
+    return asyncio.run(pull_whole_from_db(collection=cast(AsyncCollection, _CappedCollection(rows)), db_filter={}, what="rows", limit=limit))
+
+
+class TestPullWholeFromDb:
+    def test_a_set_past_the_callers_cap_is_refused_rather_than_judged_cut(self):
+        """A judgement past its own cap would judge the rows that fit and answer wrongly in silence.
+
+        The pass's held confirmations and the dry run's recipients each take a cap of their own.
+        """
+
+        rows: list[Mapping[str, Any]] = [{"_id": index} for index in range(3)]
+
+        with pytest.raises(ValueError, match="number more than 2"):
+            pulled_whole(rows, limit=2)
+
+        assert pulled_whole(rows, limit=3) == rows
 
 
 def refused_batch(error: Mapping[str, Any], *, landed: int = 0, write_concern: Sequence[Mapping[str, Any]] = ()) -> BulkWriteError:

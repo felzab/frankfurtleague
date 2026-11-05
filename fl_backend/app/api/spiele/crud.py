@@ -767,12 +767,14 @@ async def preview_spiel_save(
     """
 
     judged = await _judge_spiel_save(spiel_id=spiel_id, payload=payload, collections=collections, session=None)
-    # The fixture's rows holding their party's question, as the pass's close reads them.
-    rows = await pull_many_from_db(
+    # The fixture's rows holding their party's question, as the pass's close reads them. Whole, as the pass judges
+    # them: a row cut from the read is a mail the question would not name.
+    rows = await pull_whole_from_db(
         collection=spielbestaetigungen_collection,
         db_filter={"spiel_id": spiel_id, **build_holding_filter()},
-        projection=CLOSE_FIELDS,
+        what=f"fixture {spiel_id}'s held confirmations",
         limit=LIST_LIMIT_MAX,
+        projection=CLOSE_FIELDS,
     )
     recipients = parties_told_of_the_change(
         rows=rows,
