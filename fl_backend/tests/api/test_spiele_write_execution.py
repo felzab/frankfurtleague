@@ -81,6 +81,7 @@ GRUPPE_DECIDER = ObjectId("6890a1b2c3d4e5f607220015")
 GRUPPE_BESIDE = ObjectId("6890a1b2c3d4e5f607220016")
 HALBFINALE_FROM_GRUPPE = ObjectId("6890a1b2c3d4e5f607220017")
 GRUPPE_HELD_OTHER = ObjectId("6890a1b2c3d4e5f607220018")
+HALBFINALE_OPEN = ObjectId("6890a1b2c3d4e5f607220019")
 
 # Read back off the stored documents, which key by `spiel_nr` rather than by id.
 VIERTELFINALE_NR = 1
@@ -91,6 +92,7 @@ GRUPPE_DECIDER_NR = 21
 GRUPPE_BESIDE_NR = 22
 HALBFINALE_FROM_GRUPPE_NR = 25
 GRUPPE_HELD_OTHER_NR = 13
+HALBFINALE_OPEN_NR = 6
 
 
 def side(team_id: ObjectId, tore: int | None = None) -> dict[str, Any]:
@@ -272,6 +274,18 @@ def one_spieltag(
             team1=side(GAMMA),
             team2=side(DELTA),
         ),
+    ]
+
+
+def a_shoot_out_beside_an_open_semi_final() -> list[dict[str, Any]]:
+    """`bracket_season`, its semi-final settled on penalties, beside a second semi-final whose two slots are open.
+
+    Gamma stands on the settled semi's unwired side, so fielding it on the open one releases that side.
+    """
+
+    return [
+        *bracket_season(),
+        spiel_document(spiel_id=HALBFINALE_OPEN, spiel_nr=HALBFINALE_OPEN_NR, spieltag_id=SPIELTAG_HALBFINALE, team1=None, team2=None),
     ]
 
 
@@ -1172,6 +1186,30 @@ class TestAReleaseWritesWhatThePureModelPredicts:
             (GRUPPE_HELD_NR, "Alpha", "2:1"),
             (GRUPPE_HELD_OTHER_NR, "Beta", "4:0"),
         ]
+
+    def test_a_released_knockout_fixture_loses_its_shoot_out(self, mongo_replica_set_url: str):
+        """The shoot-out settled the goals the release deletes; one the write leaves stands beside a null result for the table to misread."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            rows = await database[Collection.SPIELE].find({"saison_id": SAISON_ID}).to_list(length=None)
+            season = FLSpielListAdapter.validate_python(rows)
+            before = next(spiel for spiel in season if spiel.id == HALBFINALE)
+
+            spiel_data = await payload_for(database, HALBFINALE_OPEN, team1=side(GAMMA))
+            (release,) = judge_spieltag_occupancy(
+                HALBFINALE_OPEN, spiel_data, season, await pull_saison_membership(database[Collection.SAISON_TEAMS], SAISON_ID)
+            ).releases
+
+            await call_patch(database, client, HALBFINALE_OPEN, spiel_data)
+
+            return before, apply_release_to_spiel(before, release), await read_spiel(database, HALBFINALE)
+
+        before, predicted, after_save = on_a_seeded_season(mongo_replica_set_url, body, spiele=a_shoot_out_beside_an_open_semi_final())
+
+        # On the seed too, so a shoot-out that never landed cannot pass as one the release cleared.
+        assert before.elfmeterschiessen is not None
+        assert but_its_bookkeeping(after_save) == but_its_bookkeeping(predicted)
+        assert (after_save.team2, after_save.ergebnis, after_save.elfmeterschiessen) == (None, None, None)
 
 
 @dataclass(frozen=True)
