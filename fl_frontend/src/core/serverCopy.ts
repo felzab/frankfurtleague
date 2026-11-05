@@ -119,8 +119,8 @@ export const SERVER_COPY = catalogue({
      * it, so it reads as the stale page it is.
      */
     schiedsrichter_address_only_per_change: COPY.shared.failure.stale,
-    /** A club's proposed day that has gone by, which „Übernehmen“ would move the fixture into. */
-    ansetzung_vorschlag_past: "Der vorgeschlagene Tag ist vorbei.",
+    /** A club's stored proposed day that has gone by, which „Übernehmen“ would move the fixture into. */
+    ansetzung_vorschlag_past_as_stored: "Der vorgeschlagene Tag ist vorbei.",
     // A season's rules and its activation, each a fact the person reads off the season editor itself.
     rules_bracket_impossible: COPY.admin.saison.bracketImpossible,
     rules_spiele_over_one_read: COPY.admin.saison.tooManySpiele,

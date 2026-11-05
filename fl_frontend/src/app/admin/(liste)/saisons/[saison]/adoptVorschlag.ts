@@ -18,7 +18,7 @@ export const adoptVorschlag = action({
   lane: "admin",
   name: "adoptVorschlag",
   input: z.object({ id: SpielbestaetigungenAdoptSpielbestaetigungParams.shape.spielbestaetigung_id }),
-  ownWords: ["ansetzung_vorschlag_past", "spiel_outside_spieltag", "booking_unconfirmed_schiedsrichter", "saison_past"],
+  ownWords: ["ansetzung_vorschlag_past_as_stored", "spiel_outside_spieltag", "booking_unconfirmed_schiedsrichter", "saison_past"],
   run: async ({ id }) => {
     await spielbestaetigungenAdoptSpielbestaetigung(id);
     return { ok: true, value: undefined };

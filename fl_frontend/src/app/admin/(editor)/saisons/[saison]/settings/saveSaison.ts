@@ -114,6 +114,7 @@ export const saveSaison = action({
     "bewerbung_window_ends_before_start",
     "registrierung_window_reaches_saison_start",
     "saison_span_below_spieltage",
+    "saison_start_austritt_stored",
     "rules_qualifiers_above_gruppe",
     "rules_unentschieden_outvalues_win",
     "rules_forfeit_unentschieden_in_a_knockout",
