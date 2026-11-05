@@ -259,7 +259,7 @@ def call(handler: Callable[..., Awaitable[Any]], database: AsyncDatabase, client
         if name in given:
             supplied[name] = given[name]
         elif name.endswith("_collection"):
-            supplied[name] = database[Collection(name.removesuffix("_collection"))]
+            supplied[name] = database[Collection[name.removesuffix("_collection").upper()]]
         elif name == "records":
             supplied[name] = record_collections(database)
         elif name == "sperrliste":

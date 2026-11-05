@@ -347,7 +347,7 @@ async def resolve_subject(
     schiedsrichter_collection: ReadCollection,
     spieler_collection: ReadCollection,
     registrierungen_collection: ReadCollection,
-    address_change_collection: ReadCollection,
+    address_changes_collection: ReadCollection,
     key: SecretStr,
     # REQUIRED: the erasure reads it inside its transaction, so a retry re-reads it, and the preview in
     # a snapshot, so it names the records of one moment.
@@ -376,7 +376,7 @@ async def resolve_subject(
         else None
     )
     address_change = (
-        await read(address_change_collection, build_erasure_address_change_pipeline(identifier))
+        await read(address_changes_collection, build_erasure_address_change_pipeline(identifier))
         if _runs(end_the_address_changes_in_session, scope)
         else None
     )
@@ -446,7 +446,7 @@ async def erase_pupil_actor_in_session(
 
 
 async def _replaced_addresses(
-    identifier: str, *, address_change_collection: AsyncCollection, key: SecretStr, session: AsyncClientSession
+    identifier: str, *, address_changes_collection: AsyncCollection, key: SecretStr, session: AsyncClientSession
 ) -> tuple[set[str], list[Any]]:
     """The hashes of every address this one replaced, through the chain of effects that moved the person here, and those effects.
 
@@ -458,7 +458,7 @@ async def _replaced_addresses(
     sought = {erasure_journal_hash(identifier, key=key)}
     while sought:
         found = await aggregate_many_from_db(
-            collection=address_change_collection,
+            collection=address_changes_collection,
             pipeline=[{"$match": {"moved.person_hash": {"$in": sorted(sought)}}}, {"$project": {"moved": 1}}],
             session=session,
         )
@@ -472,7 +472,7 @@ async def _replaced_addresses(
 async def erase_the_mails_in_session(
     *,
     outbox_collection: AsyncCollection,
-    address_change_collection: AsyncCollection,
+    address_changes_collection: AsyncCollection,
     identifier: str,
     key: SecretStr,
     session: AsyncClientSession,
@@ -485,7 +485,7 @@ async def erase_the_mails_in_session(
     owed.
     """
 
-    replaced, effects = await _replaced_addresses(identifier, address_change_collection=address_change_collection, key=key, session=session)
+    replaced, effects = await _replaced_addresses(identifier, address_changes_collection=address_changes_collection, key=key, session=session)
 
     def theirs(value: Any) -> bool:
         if not isinstance(value, str):
@@ -522,7 +522,7 @@ async def erase_the_mails_in_session(
     # The chain served its one reader: nothing links the erased person's addresses past this erasure.
     if effects:
         await patch_many_in_db(
-            collection=address_change_collection, db_filter={"_id": {"$in": effects}}, update={"$unset": {"moved": ""}}, session=session
+            collection=address_changes_collection, db_filter={"_id": {"$in": effects}}, update={"$unset": {"moved": ""}}, session=session
         )
 
     return len(ids)
@@ -646,8 +646,8 @@ async def erase_everything(
     outbox_collection: AsyncCollection,
     invitations_collection: AsyncCollection,
     ban_list_collection: AsyncCollection,
-    address_change_collection: AsyncCollection,
-    grants_approval_requests_collection: AsyncCollection,
+    address_changes_collection: AsyncCollection,
+    grant_approval_requests_collection: AsyncCollection,
     sperrliste: BanList,
     # Whom the grant notice names as ending the person's grant: the person on their own request, the
     # administrator on theirs.
@@ -676,7 +676,7 @@ async def erase_everything(
         schiedsrichter_collection=schiedsrichter_collection,
         spieler_collection=spieler_collection,
         registrierungen_collection=registrierungen_collection,
-        address_change_collection=address_change_collection,
+        address_changes_collection=address_changes_collection,
         key=key,
         session=session,
         scope=scope,
@@ -709,7 +709,7 @@ async def erase_everything(
     address_change = 0
     if _runs(end_the_address_changes_in_session, scope):
         address_change = await end_the_address_changes_in_session(
-            address_change_collection=address_change_collection,
+            address_changes_collection=address_changes_collection,
             outbox_collection=outbox_collection,
             action_log_collection=action_log_collection,
             identifier=identifier,
@@ -780,7 +780,7 @@ async def erase_everything(
 
     if _runs(end_an_emptied_change_in_session, scope):
         address_change += await end_an_emptied_change_in_session(
-            address_change_collection=address_change_collection,
+            address_changes_collection=address_changes_collection,
             action_log_collection=action_log_collection,
             grants_collection=grants_collection,
             records=RecordCollections(
@@ -796,10 +796,10 @@ async def erase_everything(
             session=session,
         )
 
-    grants_approval_requests = 0
+    grant_approval_requests = 0
     if _runs(loeschen_antraege_in_session, scope):
-        grants_approval_requests = await loeschen_antraege_in_session(
-            grants_approval_requests_collection=grants_approval_requests_collection,
+        grant_approval_requests = await loeschen_antraege_in_session(
+            grant_approval_requests_collection=grant_approval_requests_collection,
             outbox_collection=outbox_collection,
             identifier=identifier,
             now=now,
@@ -828,7 +828,7 @@ async def erase_everything(
     if _runs(erase_the_mails_in_session, scope):
         await erase_the_mails_in_session(
             outbox_collection=outbox_collection,
-            address_change_collection=address_change_collection,
+            address_changes_collection=address_changes_collection,
             identifier=identifier,
             key=key,
             session=session,
@@ -854,7 +854,7 @@ async def erase_everything(
         registrierungen=registrierungen,
         address_change=address_change,
         grants=grants,
-        grants_approval_requests=grants_approval_requests,
+        grant_approval_requests=grant_approval_requests,
     )
 
 
@@ -919,7 +919,7 @@ async def unreferenced_of(
     records: RecordCollections,
     *,
     grants_collection: ReadCollection,
-    address_change_collection: ReadCollection,
+    address_changes_collection: ReadCollection,
 ) -> list[str]:
     """Which of these addresses no record references.
 
@@ -945,7 +945,7 @@ async def unreferenced_of(
         # the database is in effect for nobody until the comparison sees it, and its account outlasts that.
         read_berechtigungen(grants_collection=grants_collection),
         aggregate_many_from_db(
-            collection=address_change_collection,
+            collection=address_changes_collection,
             pipeline=[{"$match": build_owed_carry_filter(folded)}, {"$project": {"move.old": 1}}],
         ),
     )
@@ -1039,8 +1039,8 @@ async def erase_if_still_due(
     outbox_collection: AsyncCollection,
     invitations_collection: AsyncCollection,
     ban_list_collection: AsyncCollection,
-    address_change_collection: AsyncCollection,
-    grants_approval_requests_collection: AsyncCollection,
+    address_changes_collection: AsyncCollection,
+    grant_approval_requests_collection: AsyncCollection,
     sperrliste: BanList,
     key: SecretStr,
     stamp: str,
@@ -1105,8 +1105,8 @@ async def erase_if_still_due(
         outbox_collection=outbox_collection,
         invitations_collection=invitations_collection,
         ban_list_collection=ban_list_collection,
-        address_change_collection=address_change_collection,
-        grants_approval_requests_collection=grants_approval_requests_collection,
+        address_changes_collection=address_changes_collection,
+        grant_approval_requests_collection=grant_approval_requests_collection,
         sperrliste=sperrliste,
         # Read by the grants step alone, which this scope never runs.
         changed_by=SYSTEM_ACTOR_EMAIL,

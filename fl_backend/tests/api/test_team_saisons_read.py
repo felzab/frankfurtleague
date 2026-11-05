@@ -118,7 +118,7 @@ def read_the_links(
             roh = await aggregate_many_from_db(collection=database[Collection.TEAMS], pipeline=build_team_saisons_pipeline())
             return roh, await get_team_saisons(
                 teams_collection=database[Collection.TEAMS],
-                address_change_collection=database[Collection.ADDRESS_CHANGES],
+                address_changes_collection=database[Collection.ADDRESS_CHANGES],
                 today=TODAY,
                 grants_collection=database[Collection.GRANTS],
                 grants_announced_collection=database[Collection.GRANTS_ANNOUNCED],

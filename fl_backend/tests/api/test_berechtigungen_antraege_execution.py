@@ -142,7 +142,7 @@ async def call(handler: Callable[..., Awaitable[Any]], database: AsyncDatabase, 
         if name in given:
             supplied[name] = given[name]
         elif name.endswith("_collection"):
-            supplied[name] = database[Collection(name.removesuffix("_collection"))]
+            supplied[name] = database[Collection[name.removesuffix("_collection").upper()]]
         elif name == "sperrliste":
             supplied[name] = ban_list(database)
         elif name == "db":
@@ -704,7 +704,7 @@ def raced(url: str, rival: Racer) -> Any:
             return await rival(database, client, antrag_id)
 
         racing = RunningARivalAfterTheFirstRead(database[Collection.GRANT_APPROVAL_REQUESTS], running)
-        approved = await outcome(approve(database, client, antrag_id, als=OWNER, grants_approval_requests_collection=racing))
+        approved = await outcome(approve(database, client, antrag_id, als=OWNER, grant_approval_requests_collection=racing))
         racing.assert_landed_inside(serially=1)
         grants = await database[Collection.GRANTS].find({"adresse": NEU}).to_list()
         return racing.rival_outcome, approved, [grant["granted_by"] for grant in grants], len(await antraege(database))
@@ -729,7 +729,7 @@ async def anna_geloescht(database: AsyncDatabase, client: AsyncMongoClient, _: O
 
     async def step(session: AsyncClientSession) -> int:
         return await loeschen_antraege_in_session(
-            grants_approval_requests_collection=database[Collection.GRANT_APPROVAL_REQUESTS],
+            grant_approval_requests_collection=database[Collection.GRANT_APPROVAL_REQUESTS],
             outbox_collection=database[Collection.OUTBOX],
             identifier=ANNA,
             now=NOW,
@@ -888,7 +888,7 @@ class TestTheLoeschungTakesEveryRequestOfTheAddress:
                 collection = database[Collection.GRANT_APPROVAL_REQUESTS]
                 return [
                     await loeschen_antraege_in_session(
-                        grants_approval_requests_collection=collection,
+                        grant_approval_requests_collection=collection,
                         outbox_collection=database[Collection.OUTBOX],
                         identifier=identifier,
                         now=NOW,
@@ -970,7 +970,7 @@ async def ended(database: AsyncDatabase, client: AsyncMongoClient, adresse: str)
 
     async def step(session: AsyncClientSession) -> list[Mapping[str, Any]]:
         return await end_the_antraege_about_in_session(
-            grants_approval_requests_collection=database[Collection.GRANT_APPROVAL_REQUESTS],
+            grant_approval_requests_collection=database[Collection.GRANT_APPROVAL_REQUESTS],
             outbox_collection=database[Collection.OUTBOX],
             adresse=adresse,
             now=NOW,

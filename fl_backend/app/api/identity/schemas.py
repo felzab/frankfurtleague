@@ -136,7 +136,7 @@ class FLErasure(BaseModel):
     # The person's own grants, a dead spelling of their address among them.
     grants: int = Field(ge=0)
     # Every request about the address or made by it, a lapsed one among them.
-    grants_approval_requests: int = Field(ge=0)
+    grant_approval_requests: int = Field(ge=0)
 
 
 class FLErasureResponse(FLErasure, BaseAPIResponse):

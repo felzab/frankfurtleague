@@ -113,12 +113,12 @@ _NOT_CONFIRMABLE = frozenset({"replaced_barred", "taken", "not_covered", "new_gr
 )
 async def get_address_change_view(
     view_data: Annotated[FLTokenPayload, Body()],
-    address_change_collection: AddressChangeReadCollection,
+    address_changes_collection: AddressChangeReadCollection,
     records: SubjectLookup,
     spieler_collection: SpielerReadCollection,
     grants_collection: GrantsReadCollection,
     grants_announced_collection: GrantsAnnouncedReadCollection,
-    grants_approval_requests_collection: GrantApprovalRequestsReadCollection,
+    grant_approval_requests_collection: GrantApprovalRequestsReadCollection,
     sperrliste: SperrlisteLookup,
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLAddressChangeViewResponse:
@@ -142,7 +142,7 @@ async def get_address_change_view(
 
     token_hash = hash_token(view_data.token)
     # `find_one` rather than `pull_one_from_db`: a miss is this endpoint's own refusal, never a 404.
-    record = await address_change_collection.find_one(build_either_link_filter(token_hash), projection=dict(_FIELDS))
+    record = await address_changes_collection.find_one(build_either_link_filter(token_hash), projection=dict(_FIELDS))
     refuse(find_unknown_refusal(found=record is not None))
     assert record is not None
     side = side_of(record, token_hash)
@@ -196,8 +196,8 @@ async def get_address_change_view(
             governing_saison_id=await sperrliste_saison(sperrliste),
             occupancy=Occupancy(
                 grants_collection=grants_collection,
-                grants_approval_requests_collection=grants_approval_requests_collection,
-                address_change_collection=address_change_collection,
+                grant_approval_requests_collection=grant_approval_requests_collection,
+                address_changes_collection=address_changes_collection,
                 now=germany_now,
             ),
             expired=False,
@@ -233,7 +233,7 @@ async def get_address_change_view(
 )
 async def post_address_change_answer(
     answer_data: Annotated[FLAddressChangeAnswerPayload, Body()],
-    address_change_collection: AddressChangeCollection,
+    address_changes_collection: AddressChangeCollection,
     records: SubjectLookup,
     spieler_collection: SpielerCollection,
     schiedsrichter_collection: SchiedsrichterCollection,
@@ -244,7 +244,7 @@ async def post_address_change_answer(
     grants_collection: GrantsCollection,
     grants_announced_collection: GrantsAnnouncedCollection,
     outbox_collection: OutboxCollection,
-    grants_approval_requests_collection: GrantApprovalRequestsCollection,
+    grant_approval_requests_collection: GrantApprovalRequestsCollection,
     invitations_collection: InvitationsCollection,
     ban_list_collection: BanListCollection,
     sperrliste: SperrlisteLookup,
@@ -293,7 +293,7 @@ async def post_address_change_answer(
     async def answer_the_link(session: AsyncClientSession) -> FLAddressChangeAnswerResponse | None:
         """Judge, then write, everything judged read in-session, so a second press is refused by the spent link rather than writing twice."""
 
-        record = await address_change_collection.find_one(build_either_link_filter(token_hash), session=session)
+        record = await address_changes_collection.find_one(build_either_link_filter(token_hash), session=session)
         refuse(find_unknown_refusal(found=record is not None))
         assert record is not None
         if side_of(record, token_hash) == "previous":
@@ -301,7 +301,7 @@ async def post_address_change_answer(
                 record,
                 answer=answer_data.answer,
                 stop_hash=token_hash,
-                address_change_collection=address_change_collection,
+                address_changes_collection=address_changes_collection,
                 outbox_collection=outbox_collection,
                 action_log_collection=action_log_collection,
                 config=config,
@@ -316,7 +316,7 @@ async def post_address_change_answer(
 
         if answer_data.answer == "declined":
             await end_the_change_in_session(
-                address_change_collection=address_change_collection,
+                address_changes_collection=address_changes_collection,
                 action_log_collection=action_log_collection,
                 db_filter=db_filter,
                 art="declined",
@@ -341,7 +341,7 @@ async def post_address_change_answer(
             sperrliste=sperrliste,
             # In the session, read by the confirmation alone: the address on file's answer and a decline judge no ban.
             governing_saison_id=await sperrliste_saison(sperrliste, session=session),
-            address_change_collection=address_change_collection,
+            address_changes_collection=address_changes_collection,
             spieler_collection=spieler_collection,
             schiedsrichter_collection=schiedsrichter_collection,
             saison_teams_collection=saison_teams_collection,
@@ -351,7 +351,7 @@ async def post_address_change_answer(
             grants_collection=grants_collection,
             grants_announced_collection=grants_announced_collection,
             outbox_collection=outbox_collection,
-            grants_approval_requests_collection=grants_approval_requests_collection,
+            grant_approval_requests_collection=grant_approval_requests_collection,
             invitations_collection=invitations_collection,
             ban_list_collection=ban_list_collection,
             action_log_collection=action_log_collection,
@@ -370,7 +370,7 @@ async def post_address_change_answer(
             return FLAddressChangeAnswerResponse(answer="confirmed", effective_from=None, approval_open=False, effective=True)
 
         confirmed: Mapping[str, Any] = await patch_one_in_db(
-            collection=address_change_collection,
+            collection=address_changes_collection,
             db_filter=db_filter,
             update=compose_confirmation_update(record=record, now=germany_now),
             session=session,
@@ -399,7 +399,7 @@ async def _answer_for_the_address_on_file(
     *,
     answer: FLAddressChangeAnswer,
     stop_hash: str,
-    address_change_collection: AsyncCollection,
+    address_changes_collection: AsyncCollection,
     outbox_collection: AsyncCollection,
     action_log_collection: AsyncCollection,
     config: BackendConfig,
@@ -417,7 +417,7 @@ async def _answer_for_the_address_on_file(
 
     if answer == "declined":
         await end_the_change_in_session(
-            address_change_collection=address_change_collection,
+            address_changes_collection=address_changes_collection,
             action_log_collection=action_log_collection,
             db_filter=db_filter,
             art="declined",
@@ -434,7 +434,7 @@ async def _answer_for_the_address_on_file(
 
     refuse(find_expired_refusal(expired=is_expired(record, now=germany_now)))
     released: Mapping[str, Any] = await patch_one_in_db(
-        collection=address_change_collection,
+        collection=address_changes_collection,
         db_filter=db_filter,
         update=compose_link_update(now=germany_now, released=True),
         session=session,
@@ -463,7 +463,7 @@ async def _answer_for_the_address_on_file(
 )
 async def post_address_change_stop(
     stop_data: Annotated[FLTokenPayload, Body()],
-    address_change_collection: AddressChangeCollection,
+    address_changes_collection: AddressChangeCollection,
     action_log_collection: ActionLogCollection,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
@@ -487,7 +487,7 @@ async def post_address_change_stop(
     @journal.attempted
     async def stop_the_change(session: AsyncClientSession) -> FLAddressChangeStopResponse:
         # `way` and `released_at` are what `asks_the_address_on_file` reads.
-        record = await address_change_collection.find_one(
+        record = await address_changes_collection.find_one(
             {"stop.token_hashes": stop_hash}, {"email": 1, "ended": 1, "way": 1, "released_at": 1}, session=session
         )
         refuse(find_unknown_refusal(found=record is not None))
@@ -496,7 +496,7 @@ async def post_address_change_stop(
         refuse(find_unknown_refusal(found=not asks_the_address_on_file(record)))
 
         await end_the_change_in_session(
-            address_change_collection=address_change_collection,
+            address_changes_collection=address_changes_collection,
             action_log_collection=action_log_collection,
             db_filter={"_id": record["_id"]},
             art="stopped",

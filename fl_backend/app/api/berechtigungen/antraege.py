@@ -74,24 +74,24 @@ def antrag_steht(
 
 
 async def read_the_antraege(
-    *, grants_approval_requests_collection: AsyncCollection, now: datetime, session: AsyncClientSession | None = None
+    *, grant_approval_requests_collection: AsyncCollection, now: datetime, session: AsyncClientSession | None = None
 ) -> list[Mapping[str, Any]]:
     """Every request not yet lapsed, oldest first, unbounded: one per address, as few as the grants that make them."""
 
     return await aggregate_many_from_db(
-        collection=grants_approval_requests_collection,
+        collection=grant_approval_requests_collection,
         pipeline=[{"$match": build_offen_filter(now)}, {"$sort": {"approval.asked_at": ASCENDING, "_id": ASCENDING}}],
         session=session,
     )
 
 
 async def read_the_antraege_of(
-    *, grants_approval_requests_collection: ReadCollection, identifier: str, now: datetime, session: AsyncClientSession | None
+    *, grant_approval_requests_collection: ReadCollection, identifier: str, now: datetime, session: AsyncClientSession | None
 ) -> list[Mapping[str, Any]]:
     """Every request not yet lapsed about this folded address or made by it, oldest first: what an erasure of it removes."""
 
     return await aggregate_many_from_db(
-        collection=grants_approval_requests_collection,
+        collection=grant_approval_requests_collection,
         pipeline=[
             {"$match": {"$or": [{"adresse": identifier}, {"approval.started_by": identifier}], **build_offen_filter(now)}},
             {"$project": {"adresse": 1, "approval.admin_tier": 1, "approval.asked_at": 1}},
@@ -102,12 +102,12 @@ async def read_the_antraege_of(
 
 
 async def pull_the_antrag(
-    *, grants_approval_requests_collection: AsyncCollection, approval_request_id: ObjectId, now: datetime, session: AsyncClientSession
+    *, grant_approval_requests_collection: AsyncCollection, approval_request_id: ObjectId, now: datetime, session: AsyncClientSession
 ) -> Mapping[str, Any]:
     """The request this id names, or 404 where none stands: decided, withdrawn, erased or lapsed alike."""
 
     found = await aggregate_many_from_db(
-        collection=grants_approval_requests_collection,
+        collection=grant_approval_requests_collection,
         pipeline=[{"$match": {"_id": approval_request_id, **build_offen_filter(now)}}],
         session=session,
     )
@@ -118,7 +118,7 @@ async def pull_the_antrag(
 
 
 async def clear_the_address_in_session(
-    *, grants_approval_requests_collection: AsyncCollection, adresse: str, now: datetime, session: AsyncClientSession
+    *, grant_approval_requests_collection: AsyncCollection, adresse: str, now: datetime, session: AsyncClientSession
 ) -> None:
     """Refuse a second request for this folded address, and remove a lapsed one the unique index would hold against it.
 
@@ -126,14 +126,14 @@ async def clear_the_address_in_session(
     """
 
     rows = await aggregate_many_from_db(
-        collection=grants_approval_requests_collection,
+        collection=grant_approval_requests_collection,
         pipeline=[{"$match": {"adresse": adresse}}, {"$project": {"approval.until": 1}}],
         session=session,
     )
     refuse(find_antrag_offen_refusal(open=any(ist_offen(row, now=now) for row in rows)))
     if rows:
         await delete_many_from_db(
-            collection=grants_approval_requests_collection, db_filter={"_id": {"$in": [row["_id"] for row in rows]}}, session=session
+            collection=grant_approval_requests_collection, db_filter={"_id": {"$in": [row["_id"] for row in rows]}}, session=session
         )
 
 
@@ -161,7 +161,7 @@ async def settle_the_notices_in_session(
 
 async def settle_the_requesters_notices_in_session(
     *,
-    grants_approval_requests_collection: AsyncCollection,
+    grant_approval_requests_collection: AsyncCollection,
     outbox_collection: AsyncCollection,
     started_by: str,
     admin_tier: FLAdminTier | None,
@@ -175,7 +175,7 @@ async def settle_the_requesters_notices_in_session(
     """
 
     rows = await aggregate_many_from_db(
-        collection=grants_approval_requests_collection,
+        collection=grant_approval_requests_collection,
         pipeline=[
             {
                 "$match": {
@@ -193,7 +193,7 @@ async def settle_the_requesters_notices_in_session(
 
 async def remove_the_antrag_in_session(
     *,
-    grants_approval_requests_collection: AsyncCollection,
+    grant_approval_requests_collection: AsyncCollection,
     outbox_collection: AsyncCollection,
     approval_request_id: ObjectId,
     now: datetime,
@@ -201,13 +201,13 @@ async def remove_the_antrag_in_session(
 ) -> None:
     """Remove a decided request, its image kept: who asked, for what and when stays on the log beside the grant it made."""
 
-    await delete_many_from_db(collection=grants_approval_requests_collection, db_filter={"_id": approval_request_id}, session=session)
+    await delete_many_from_db(collection=grant_approval_requests_collection, db_filter={"_id": approval_request_id}, session=session)
     await settle_the_notices_in_session(outbox_collection=outbox_collection, antrag_ids=[approval_request_id], now=now, session=session)
 
 
 async def end_the_antraege_about_in_session(
     *,
-    grants_approval_requests_collection: AsyncCollection,
+    grant_approval_requests_collection: AsyncCollection,
     outbox_collection: AsyncCollection,
     adresse: str,
     now: datetime,
@@ -219,13 +219,13 @@ async def end_the_antraege_about_in_session(
     """
 
     rows = await aggregate_many_from_db(
-        collection=grants_approval_requests_collection,
+        collection=grant_approval_requests_collection,
         pipeline=[{"$match": {"adresse": adresse}}, {"$project": {"adresse": 1, "approval": 1}}],
         session=session,
     )
     for row in rows:
         await remove_the_antrag_in_session(
-            grants_approval_requests_collection=grants_approval_requests_collection,
+            grant_approval_requests_collection=grant_approval_requests_collection,
             outbox_collection=outbox_collection,
             approval_request_id=row["_id"],
             now=now,
@@ -237,7 +237,7 @@ async def end_the_antraege_about_in_session(
 
 async def loeschen_antraege_in_session(
     *,
-    grants_approval_requests_collection: AsyncCollection,
+    grant_approval_requests_collection: AsyncCollection,
     outbox_collection: AsyncCollection,
     identifier: str,
     now: datetime,
@@ -249,13 +249,13 @@ async def loeschen_antraege_in_session(
     """
 
     rows = await aggregate_many_from_db(
-        collection=grants_approval_requests_collection,
+        collection=grant_approval_requests_collection,
         pipeline=[{"$match": {"$or": [{"adresse": identifier}, {"approval.started_by": identifier}]}}, {"$project": {"_id": 1}}],
         session=session,
     )
     if rows:
         await erase_many_from_db(
-            collection=grants_approval_requests_collection, db_filter={"_id": {"$in": [row["_id"] for row in rows]}}, session=session
+            collection=grant_approval_requests_collection, db_filter={"_id": {"$in": [row["_id"] for row in rows]}}, session=session
         )
         await settle_the_notices_in_session(
             outbox_collection=outbox_collection, antrag_ids=[row["_id"] for row in rows], now=now, session=session

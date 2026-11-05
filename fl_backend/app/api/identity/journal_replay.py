@@ -387,7 +387,7 @@ async def _plan_address_change(
     # the press's instant, which its record's expiry counts from; the redaction happens now, so its stamp is the replay's.
     async def rewrite_the_ending(session: AsyncClientSession) -> Any:
         stored = await end_the_change_in_session(
-            address_change_collection=database[Collection.ADDRESS_CHANGES],
+            address_changes_collection=database[Collection.ADDRESS_CHANGES],
             action_log_collection=database[Collection.ACTION_LOG],
             db_filter=db_filter,
             art=_ENDE_ART[line.art],
@@ -421,7 +421,7 @@ async def _plan_request_end(
     async def rewrite_the_end(session: AsyncClientSession) -> Any:
         # The request's notice the restore brought back is settled with it, as the end settled it.
         await remove_the_antrag_in_session(
-            grants_approval_requests_collection=database[Collection.GRANT_APPROVAL_REQUESTS],
+            grant_approval_requests_collection=database[Collection.GRANT_APPROVAL_REQUESTS],
             outbox_collection=database[Collection.OUTBOX],
             approval_request_id=approval_request["_id"],
             now=now,
@@ -488,8 +488,8 @@ async def _plan_address_change_effective(
     # As the effect refuses it: replayed onto an address an entry names, it would join two people's records.
     occupancy = Occupancy(
         grants_collection=database[Collection.GRANTS],
-        grants_approval_requests_collection=database[Collection.GRANT_APPROVAL_REQUESTS],
-        address_change_collection=database[Collection.ADDRESS_CHANGES],
+        grant_approval_requests_collection=database[Collection.GRANT_APPROVAL_REQUESTS],
+        address_changes_collection=database[Collection.ADDRESS_CHANGES],
         now=now,
     )
     if await address_taken(str(record["email"]), records=records, occupancy=occupancy, session=session):
@@ -500,7 +500,7 @@ async def _plan_address_change_effective(
             record=record,
             holdings=holdings,
             sperrliste=sperrliste,
-            address_change_collection=database[Collection.ADDRESS_CHANGES],
+            address_changes_collection=database[Collection.ADDRESS_CHANGES],
             spieler_collection=database[Collection.SPIELER],
             schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
             saison_teams_collection=database[Collection.SAISON_TEAMS],
@@ -510,7 +510,7 @@ async def _plan_address_change_effective(
             grants_collection=database[Collection.GRANTS],
             grants_announced_collection=database[Collection.GRANTS_ANNOUNCED],
             outbox_collection=database[Collection.OUTBOX],
-            grants_approval_requests_collection=database[Collection.GRANT_APPROVAL_REQUESTS],
+            grant_approval_requests_collection=database[Collection.GRANT_APPROVAL_REQUESTS],
             invitations_collection=database[Collection.INVITATIONS],
             ban_list_collection=database[Collection.BAN_LIST],
             action_log_collection=database[Collection.ACTION_LOG],

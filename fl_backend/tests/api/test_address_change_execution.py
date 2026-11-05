@@ -947,7 +947,7 @@ async def unreferenced(database: AsyncDatabase, *addresses: str) -> list[str]:
         list(addresses),
         record_collections(database),
         grants_collection=database[Collection.GRANTS],
-        address_change_collection=database[Collection.ADDRESS_CHANGES],
+        address_changes_collection=database[Collection.ADDRESS_CHANGES],
     )
 
 
@@ -2402,7 +2402,7 @@ class TestTwoStartsAtOnce:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             committed = asyncio.Event()
             held = _HeldAfterItsRead(database[Collection.ADDRESS_CHANGES], committed)
-            task = asyncio.ensure_future(start(database, client, address_change_collection=cast(Any, held)))
+            task = asyncio.ensure_future(start(database, client, address_changes_collection=cast(Any, held)))
             await held.until_held(task)
             try:
                 rival = await administrator_starts(database, client, grund=GRUND, email=FOREIGN_EMAIL)

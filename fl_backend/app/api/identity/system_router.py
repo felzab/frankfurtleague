@@ -145,7 +145,7 @@ async def get_references(
     references_data: Annotated[FLReferencesPayload, Body()],
     records: SubjectLookup,
     grants_collection: GrantsReadCollection,
-    address_change_collection: AddressChangeReadCollection,
+    address_changes_collection: AddressChangeReadCollection,
 ) -> FLReferencesResponse:
     """Answer which of these sign-in addresses no league record references, each once and in the spelling it was asked in.
 
@@ -157,7 +157,7 @@ async def get_references(
             references_data.identifiers,
             records,
             grants_collection=grants_collection,
-            address_change_collection=address_change_collection,
+            address_changes_collection=address_changes_collection,
         )
     )
 
@@ -189,8 +189,8 @@ async def _erase_one(
     outbox_collection: AsyncCollection,
     invitations_collection: AsyncCollection,
     ban_list_collection: AsyncCollection,
-    address_change_collection: AsyncCollection,
-    grants_approval_requests_collection: AsyncCollection,
+    address_changes_collection: AsyncCollection,
+    grant_approval_requests_collection: AsyncCollection,
     sperrliste: BanList,
     db: AsyncMongoClient,
     key: SecretStr,
@@ -218,8 +218,8 @@ async def _erase_one(
             outbox_collection=outbox_collection,
             invitations_collection=invitations_collection,
             ban_list_collection=ban_list_collection,
-            address_change_collection=address_change_collection,
-            grants_approval_requests_collection=grants_approval_requests_collection,
+            address_changes_collection=address_changes_collection,
+            grant_approval_requests_collection=grant_approval_requests_collection,
             sperrliste=sperrliste,
             key=key,
             stamp=stamp,
@@ -254,8 +254,8 @@ async def sweep_erasure(
     outbox_collection: OutboxCollection,
     invitations_collection: InvitationsCollection,
     ban_list_collection: BanListCollection,
-    address_change_collection: AddressChangeCollection,
-    grants_approval_requests_collection: GrantApprovalRequestsCollection,
+    address_changes_collection: AddressChangeCollection,
+    grant_approval_requests_collection: GrantApprovalRequestsCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
@@ -333,8 +333,8 @@ async def sweep_erasure(
                 outbox_collection=outbox_collection,
                 invitations_collection=invitations_collection,
                 ban_list_collection=ban_list_collection,
-                address_change_collection=address_change_collection,
-                grants_approval_requests_collection=grants_approval_requests_collection,
+                address_changes_collection=address_changes_collection,
+                grant_approval_requests_collection=grant_approval_requests_collection,
                 sperrliste=sperrliste,
                 db=db,
                 key=config.sperrliste_key,

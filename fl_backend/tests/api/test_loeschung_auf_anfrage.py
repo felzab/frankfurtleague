@@ -197,8 +197,8 @@ async def revealed(database: AsyncDatabase, client: AsyncMongoClient, email: str
             spiele_collection=database[Collection.SPIELE],
             grants_collection=database[Collection.GRANTS],
             grants_announced_collection=database[Collection.GRANTS_ANNOUNCED],
-            grants_approval_requests_collection=database[Collection.GRANT_APPROVAL_REQUESTS],
-            address_change_collection=database[Collection.ADDRESS_CHANGES],
+            grant_approval_requests_collection=database[Collection.GRANT_APPROVAL_REQUESTS],
+            address_changes_collection=database[Collection.ADDRESS_CHANGES],
             sperrliste=ban_list(database),
             session=session,
             config=CONFIG,
@@ -358,7 +358,7 @@ class TestTheRegistryRunsWhole:
             "address_change": 2,
             "grants": 0,
             # The request about their address and the one they asked.
-            "grants_approval_requests": 2,
+            "grant_approval_requests": 2,
         }
         assert left == dict.fromkeys(THEIR_VALUES, [])
         assert (squad, squad_left) == (2, 1)
@@ -536,7 +536,7 @@ class TestTheReveal:
             "kontakt_seats": len(view["seats"]) + len(view["bewerbungen"]),
             "registrierungen": len(view["registrierungen"]),
             "address_change": len(view["address_change"]) + (view["own_address_change"] is not None),
-            "grants_approval_requests": len(view["approval_requests"]),
+            "grant_approval_requests": len(view["approval_requests"]),
         }
 
         assert named == {key: erased[key] for key in named}

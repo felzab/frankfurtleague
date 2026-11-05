@@ -132,13 +132,13 @@ async def request(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
 
     return await post_address_change_admin(
         address_change_data=FLAddressChangeAdminPayload.model_validate({"adresse": EMAIL, "email": NEW_EMAIL, "grund": GRUND}),
-        address_change_collection=database[Collection.ADDRESS_CHANGES],
+        address_changes_collection=database[Collection.ADDRESS_CHANGES],
         records=record_collections(database),
         spieler_collection=database[Collection.SPIELER],
         grants_collection=database[Collection.GRANTS],
         grants_announced_collection=database[Collection.GRANTS_ANNOUNCED],
         outbox_collection=database[Collection.OUTBOX],
-        grants_approval_requests_collection=database[Collection.GRANT_APPROVAL_REQUESTS],
+        grant_approval_requests_collection=database[Collection.GRANT_APPROVAL_REQUESTS],
         sperrliste=ban_list(database),
         action_log_collection=database[Collection.ACTION_LOG],
         db=client,

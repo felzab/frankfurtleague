@@ -33,7 +33,7 @@ A_GRANT_TAKEN = FLErasure(
     registrierungen=0,
     address_change=0,
     grants=1,
-    grants_approval_requests=0,
+    grant_approval_requests=0,
 )
 
 
@@ -99,7 +99,7 @@ def test_the_pupil_scope_reads_no_other_kind_and_a_step_reading_one_raises(kind:
     """Catches a kind read for no step, and a kind left unread answered as an empty list, on which a step erases nothing."""
 
     collections = {
-        name: _Counted() for name in ("saison_teams", "bewerbungen", "schiedsrichter", "spieler", "registrierungen", "address_change")
+        name: _Counted() for name in ("saison_teams", "bewerbungen", "schiedsrichter", "spieler", "registrierungen", "address_changes")
     }
 
     subject = asyncio.run(
@@ -118,7 +118,7 @@ def test_the_pupil_scope_reads_no_other_kind_and_a_step_reading_one_raises(kind:
         "schiedsrichter": 0,
         "spieler": 1,
         "registrierungen": 1,
-        "address_change": 0,
+        "address_changes": 0,
     }
     assert (subject.spieler, subject.registrierungen) == ([], [])
     with pytest.raises(RuntimeError):

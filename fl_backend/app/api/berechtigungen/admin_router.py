@@ -99,8 +99,8 @@ ADMINISTRATION = "administration"
 async def get_grants(
     grants_collection: GrantsCollection,
     grants_announced_collection: GrantsAnnouncedCollection,
-    address_change_collection: AddressChangeCollection,
-    grants_approval_requests_collection: GrantApprovalRequestsCollection,
+    address_changes_collection: AddressChangeCollection,
+    grant_approval_requests_collection: GrantApprovalRequestsCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
     operator: str = Depends(get_actor_email),
@@ -133,7 +133,7 @@ async def get_grants(
     async with db.start_session(snapshot=True) as session:
         rows = await read_berechtigungen(grants_collection=grants_collection, session=session)
         announced = await read_the_announced(grants_announced_collection=grants_announced_collection, session=session)
-        antraege = await read_the_antraege(grants_approval_requests_collection=grants_approval_requests_collection, now=now, session=session)
+        antraege = await read_the_antraege(grant_approval_requests_collection=grant_approval_requests_collection, now=now, session=session)
         grants = [FLBerechtigung.model_validate(row) for row in rows]
         barred = await adressen_gesperrt(
             sperrliste,
@@ -146,7 +146,7 @@ async def get_grants(
         wartend = {
             record["adresse"]: record
             for record in await aggregate_many_from_db(
-                collection=address_change_collection,
+                collection=address_changes_collection,
                 pipeline=[
                     {"$match": build_awaiting_approval_filter([grant.adresse for grant in grants if grant.adresse not in barred], now=now)}
                 ],
@@ -265,7 +265,7 @@ async def post_grant(
     grants_collection: GrantsCollection,
     grants_announced_collection: GrantsAnnouncedCollection,
     outbox_collection: OutboxCollection,
-    grants_approval_requests_collection: GrantApprovalRequestsCollection,
+    grant_approval_requests_collection: GrantApprovalRequestsCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
     granted_by: str = Depends(get_actor_email),
@@ -301,7 +301,7 @@ async def post_grant(
         refuse(find_barred_refusal(barred=barred))
 
         await clear_the_address_in_session(
-            grants_approval_requests_collection=grants_approval_requests_collection, adresse=adresse, now=now, session=session
+            grant_approval_requests_collection=grant_approval_requests_collection, adresse=adresse, now=now, session=session
         )
         if approver := await _genehmiger(
             ADMINISTRATION,
@@ -313,7 +313,7 @@ async def post_grant(
             session=session,
         ):
             created = await post_one_to_db(
-                collection=grants_approval_requests_collection,
+                collection=grant_approval_requests_collection,
                 document=compose_antrag(adresse=adresse, admin_tier=ADMINISTRATION, grant_id=None, started_by=actor, now=now),
                 session=session,
             )
@@ -419,7 +419,7 @@ async def delete_grant(
     grants_collection: GrantsCollection,
     grants_announced_collection: GrantsAnnouncedCollection,
     outbox_collection: OutboxCollection,
-    grants_approval_requests_collection: GrantApprovalRequestsCollection,
+    grant_approval_requests_collection: GrantApprovalRequestsCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
     revoked_by: str = Depends(get_actor_email),
@@ -471,7 +471,7 @@ async def delete_grant(
             session=session,
         )
         await settle_the_requesters_notices_in_session(
-            grants_approval_requests_collection=grants_approval_requests_collection,
+            grant_approval_requests_collection=grant_approval_requests_collection,
             outbox_collection=outbox_collection,
             started_by=str(grant["adresse"]),
             admin_tier=None,
@@ -497,7 +497,7 @@ async def patch_grant(
     grants_collection: GrantsCollection,
     grants_announced_collection: GrantsAnnouncedCollection,
     outbox_collection: OutboxCollection,
-    grants_approval_requests_collection: GrantApprovalRequestsCollection,
+    grant_approval_requests_collection: GrantApprovalRequestsCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
     changed_by: str = Depends(get_actor_email),
@@ -553,7 +553,7 @@ async def patch_grant(
         if admin_tier == OWNER:
             refuse(find_barred_refusal(barred=grant["adresse"] in barred))
             await clear_the_address_in_session(
-                grants_approval_requests_collection=grants_approval_requests_collection, adresse=str(grant["adresse"]), now=now, session=session
+                grant_approval_requests_collection=grant_approval_requests_collection, adresse=str(grant["adresse"]), now=now, session=session
             )
             if approver := await _genehmiger(
                 OWNER,
@@ -565,7 +565,7 @@ async def patch_grant(
                 session=session,
             ):
                 created = await post_one_to_db(
-                    collection=grants_approval_requests_collection,
+                    collection=grant_approval_requests_collection,
                     document=compose_antrag(adresse=str(grant["adresse"]), admin_tier=OWNER, grant_id=grant_id, started_by=actor, now=now),
                     session=session,
                 )
@@ -600,7 +600,7 @@ async def patch_grant(
         )
         if admin_tier != OWNER:
             await settle_the_requesters_notices_in_session(
-                grants_approval_requests_collection=grants_approval_requests_collection,
+                grant_approval_requests_collection=grant_approval_requests_collection,
                 outbox_collection=outbox_collection,
                 started_by=str(grant["adresse"]),
                 admin_tier=OWNER,
@@ -703,7 +703,7 @@ async def post_approval_request_approval(
     grants_collection: GrantsCollection,
     grants_announced_collection: GrantsAnnouncedCollection,
     outbox_collection: OutboxCollection,
-    grants_approval_requests_collection: GrantApprovalRequestsCollection,
+    grant_approval_requests_collection: GrantApprovalRequestsCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
     operator: str = Depends(get_actor_email),
@@ -731,7 +731,7 @@ async def post_approval_request_approval(
         """Read the request and anchor the list, judge the approver and the requester, then remove the request and make the act."""
 
         approval_request = await pull_the_antrag(
-            grants_approval_requests_collection=grants_approval_requests_collection,
+            grant_approval_requests_collection=grant_approval_requests_collection,
             approval_request_id=approval_request_id,
             now=now,
             session=session,
@@ -754,7 +754,7 @@ async def post_approval_request_approval(
 
         # Removed by the write that reads it, so a second approval, a refusal or an erasure beside this one conflicts and finds none.
         await remove_the_antrag_in_session(
-            grants_approval_requests_collection=grants_approval_requests_collection,
+            grant_approval_requests_collection=grant_approval_requests_collection,
             outbox_collection=outbox_collection,
             approval_request_id=approval_request_id,
             now=now,
@@ -816,7 +816,7 @@ async def delete_approval_request(
     approval_request_id: CustomRouteObjectId,
     grants_collection: GrantsCollection,
     grants_announced_collection: GrantsAnnouncedCollection,
-    grants_approval_requests_collection: GrantApprovalRequestsCollection,
+    grant_approval_requests_collection: GrantApprovalRequestsCollection,
     outbox_collection: OutboxCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
@@ -843,7 +843,7 @@ async def delete_approval_request(
     @journal.attempted
     async def refuse_the_antrag(session: AsyncClientSession) -> None:
         approval_request = await pull_the_antrag(
-            grants_approval_requests_collection=grants_approval_requests_collection,
+            grant_approval_requests_collection=grant_approval_requests_collection,
             approval_request_id=approval_request_id,
             now=now,
             session=session,
@@ -863,7 +863,7 @@ async def delete_approval_request(
         refuse(find_approval_denied_refusal(denied=None if zurueckgezogen else denied))
 
         await remove_the_antrag_in_session(
-            grants_approval_requests_collection=grants_approval_requests_collection,
+            grant_approval_requests_collection=grant_approval_requests_collection,
             outbox_collection=outbox_collection,
             approval_request_id=approval_request_id,
             now=now,

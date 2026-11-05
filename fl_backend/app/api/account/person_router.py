@@ -161,11 +161,11 @@ def _open(record: Mapping[str, Any], *, now: datetime) -> FLAccountAddressChange
 async def _address_change_answer(
     identifier: str,
     *,
-    address_change_collection: AsyncCollection,
+    address_changes_collection: AsyncCollection,
     now: datetime,
     session: AsyncClientSession | None,
 ) -> FLAccountAddressChangeResponse:
-    record = await address_change_collection.find_one(build_address_filter(identifier), session=session)
+    record = await address_changes_collection.find_one(build_address_filter(identifier), session=session)
 
     return FLAccountAddressChangeResponse(open=None if record is None else _open(record, now=now))
 
@@ -173,7 +173,7 @@ async def _address_change_answer(
 @router.get("/address_change", response_model=FLAccountAddressChangeResponse, summary="The address change pending on a signed-in person")
 async def get_address_change(
     identifier: KontaktIdentifier,
-    address_change_collection: AddressChangeCollection,
+    address_changes_collection: AddressChangeCollection,
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLAccountAddressChangeResponse:
     """
@@ -188,7 +188,7 @@ async def get_address_change(
     `expired` says the step the change waits on lapsed, whose press is refused until the hourly pass ends the change.
     """
 
-    return await _address_change_answer(identifier, address_change_collection=address_change_collection, now=germany_now, session=None)
+    return await _address_change_answer(identifier, address_changes_collection=address_changes_collection, now=germany_now, session=None)
 
 
 @router.post(
@@ -200,7 +200,7 @@ async def post_address_change(
     identifier: KontaktIdentifier,
     address_change_data: Annotated[FLAccountAddressChangePayload, Body()],
     records: SubjectLookup,
-    address_change_collection: AddressChangeCollection,
+    address_changes_collection: AddressChangeCollection,
     grants_collection: GrantsCollection,
     grants_announced_collection: GrantsAnnouncedCollection,
     outbox_collection: OutboxCollection,
@@ -257,7 +257,7 @@ async def post_address_change(
         )
         address_change_id = await start_the_change_in_session(
             record=record,
-            address_change_collection=address_change_collection,
+            address_changes_collection=address_changes_collection,
             action_log_collection=action_log_collection,
             key=config.sperrliste_key,
             now=germany_now,
@@ -290,7 +290,7 @@ async def post_address_change(
 )
 async def delete_address_change(
     identifier: KontaktIdentifier,
-    address_change_collection: AddressChangeCollection,
+    address_changes_collection: AddressChangeCollection,
     action_log_collection: ActionLogCollection,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
@@ -308,12 +308,12 @@ async def delete_address_change(
 
     @journal.attempted
     async def stop_the_change(session: AsyncClientSession) -> FLAccountAddressChangeResponse:
-        live = await address_change_collection.find_one(build_address_filter(identifier), {"_id": 1}, session=session)
+        live = await address_changes_collection.find_one(build_address_filter(identifier), {"_id": 1}, session=session)
         if live is None:
             raise DocumentNotFoundError()
 
         stored = await end_the_change_in_session(
-            address_change_collection=address_change_collection,
+            address_changes_collection=address_changes_collection,
             action_log_collection=action_log_collection,
             db_filter={"_id": live["_id"]},
             art="stopped",
@@ -331,7 +331,7 @@ async def delete_address_change(
             )
         )
 
-        return await _address_change_answer(identifier, address_change_collection=address_change_collection, now=germany_now, session=session)
+        return await _address_change_answer(identifier, address_changes_collection=address_changes_collection, now=germany_now, session=session)
 
     async with journal:
         async with transaction_session(db) as session:

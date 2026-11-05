@@ -582,7 +582,7 @@ def test_the_single_read_answers_for_neither_the_geloescht_referee_nor_the_ghost
                 await get_schiedsrichter_by_id(
                     schiedsrichter_id=schiedsrichter_id,
                     schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-                    address_change_collection=database[Collection.ADDRESS_CHANGES],
+                    address_changes_collection=database[Collection.ADDRESS_CHANGES],
                     today=TODAY,
                     grants_collection=database[Collection.GRANTS],
                     grants_announced_collection=database[Collection.GRANTS_ANNOUNCED],

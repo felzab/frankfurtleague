@@ -2231,9 +2231,9 @@ export interface FLErasureResponse {
   /** @minimum 0 */
   address_change: number;
   /** @minimum 0 */
-  grants: number;
+  grant_approval_requests: number;
   /** @minimum 0 */
-  grants_approval_requests: number;
+  grants: number;
   /** @minimum 0 */
   kontakt_seats: number;
   /** @minimum 0 */
