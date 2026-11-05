@@ -1,26 +1,4 @@
-import { FLSonderereignis } from "@/core/generated/client/types";
-
-import type { SpielStatus } from "./types";
-
-/**
- * The note's bound, mirroring the backend's `SPIEL_NOTIZ_MAX_LENGTH`
- * (`fl_backend/app/shared/schemas/bounds.py`). Every frontend enforcement point reads it from
- * here, so no two can disagree about the cap.
- */
-export const NOTIZ_MAX_LENGTH = 4096;
-
-/**
- * The days before its fixture a team's answer is due, mirroring the backend's
- * `SPIEL_BESTAETIGUNG_FRIST_TAGE` (`fl_backend/app/shared/schemas/bounds.py`). A row's own deadline
- * is the one it stores; this number only says whether a date is inside the notice period.
- */
-export const SPIEL_BESTAETIGUNG_FRIST_TAGE = 7;
-
-/**
- * The days before a deadline the confirmations' pass asks, mirroring the backend's `SPIEL_ANFRAGE_VORLAUF_TAGE`
- * (`fl_backend/app/shared/schemas/bounds.py`): with the deadline's days, how far ahead a fixture is asked about.
- */
-export const SPIEL_ANFRAGE_VORLAUF_TAGE = 14;
+import type { FLSonderereignis } from "@/core/generated/client/types";
 
 /**
  * `fl_backend/app/api/spiele/services.py :: CLASH_BUFFER_MINUTES` in the words every clash sentence says it in.
@@ -44,28 +22,3 @@ export const SONDEREREIGNIS_LABELS: Record<FLSonderereignis, string> = {
   abgebrochen: "Abgebrochen",
   annulliert: "Annulliert",
 };
-
-/**
- * The one German spelling of each derived status, read by the status chip and the status filter alike:
- * two spellings of one state read as two. Not the schema value, which would couple the visible German
- * to the API contract.
- */
-export const SPIEL_STATUS_LABELS: Record<SpielStatus, string> = {
-  ausstehend: "Ausstehend",
-  heute: "Heute",
-  vergangen: "Vergangen",
-  abgesagt: "Abgesagt",
-  unbekannt: "Ohne Datum",
-};
-
-/**
- * The word for a fixture carrying no event. Its own constant rather than a `null` key above: `null`
- * is the absence of an event, not a sixth one that a consumer could iterate.
- */
-export const SONDEREREIGNIS_NONE_LABEL = "Regulär";
-
-/**
- * In the order the backend declares `FLSonderereignis`, which the editor's control and the filter offer: how often
- * an admin reaches for one, ending with the member that strikes a fixture from the record altogether.
- */
-export const SONDEREREIGNIS_OPTIONS: readonly FLSonderereignis[] = Object.values(FLSonderereignis);

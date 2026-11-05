@@ -22,7 +22,6 @@ serveServerReact();
 const bewerbungen = await import("@/features/bewerbungen/queries.ts");
 const schiedsrichter = await import("@/features/schiedsrichter/queries.ts");
 const spiele = await import("@/features/spiele/queries.ts");
-const spieltage = await import("@/features/spieltage/queries.ts");
 
 // A fresh id per call: React's `cache` would answer a repeated one from the first case's result.
 let calls = 0;
@@ -34,7 +33,7 @@ const READS: Readonly<Record<string, () => Promise<unknown>>> = {
   getBewerbungWindow: () => bewerbungen.getBewerbungWindow(freshId()),
   getSchiedsrichterById: () => schiedsrichter.getSchiedsrichterById(freshId()),
   getAdminSpiel: () => spiele.getAdminSpiel(freshId()),
-  getAdminSpieltagById: () => spieltage.getAdminSpieltagById(freshId()),
+  getAdminSpielplan: () => spiele.getAdminSpielplan("2027"),
 };
 
 const notFound = (serverErrorCode: Code | undefined): APIBadStatusError =>

@@ -1,5 +1,5 @@
 import type { NextPageProps } from "@/shared/types/types";
-import type { FLSpiel, FLSpielTeamField } from "../spiele/types";
+import type { FLSpiel } from "../spiele/types";
 import type { SaisonGruppenSwapContext, SaisonSwapTeam } from "./types";
 
 /**
@@ -19,31 +19,6 @@ export function searchWithoutSaisonId(searchParams: Awaited<NextPageProps["searc
   const query = remaining.toString();
 
   return query === "" ? "?" : `?${query}`;
-}
-
-/**
- * **Mirrors `fl_backend/app/api/teams/services.py :: has_taken_place`**, which closes a fixture's
- * Spielbestätigung. Wider closes a control the endpoint accepts, narrower offers one it refuses.
- */
-export function hasTakenPlace(
-  spiel: Pick<FLSpiel, "ergebnis" | "sonderereignis" | "elfmeterschiessen"> & {
-    team1: Pick<FLSpielTeamField, "tore"> | null;
-    team2: Pick<FLSpielTeamField, "tore"> | null;
-  },
-): boolean {
-  // **The set is this question's alone, never `SONDEREREIGNIS_RECORDING_AN_ABSENCE`.** An
-  // abandonment and a no-show each left a record; `ausgefallen` and `annulliert` leave none, so
-  // neither belongs here however much they read like the others.
-  const leftARecord =
-    spiel.sonderereignis === "abgebrochen" || spiel.sonderereignis === "nichtantreten_team1" || spiel.sonderereignis === "nichtantreten_team2";
-
-  // A save keeps a shoot-out only beside a result, so one standing alone is the same hand-written
-  // record of a decided tie as the lone goal count below, and a rewrite would destroy it.
-  if (spiel.elfmeterschiessen !== null) return true;
-
-  // The goal counts are the clause a reader would not predict: a fixture with two clubs and one count
-  // entered is stored holding goals and no `ergebnis`. `?? null` keeps an absent side out of that.
-  return spiel.ergebnis !== null || leftARecord || (spiel.team1?.tore ?? null) !== null || (spiel.team2?.tore ?? null) !== null;
 }
 
 // Session 6: the swap's client grading below goes with the old team editor, the season editor's pickers reading the
@@ -132,9 +107,4 @@ export function findSwapPartnerRefusal(fixed: SaisonSwapTeam, candidate: SaisonS
   if (wouldFieldAClubTwice(fixed, candidate)) return "spieltagClash";
 
   return null;
-}
-
-/** A matchday count as a phrase, for the old matchday list's readout. */
-export function describeSpieltageCount(spieltage: number): string {
-  return spieltage === 1 ? "ein Spieltag" : `${String(spieltage)} Spieltage`;
 }

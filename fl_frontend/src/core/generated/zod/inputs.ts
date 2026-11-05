@@ -3087,9 +3087,11 @@ export const SpielePatchSpielBody = zod.object({
  * The match editor's one read: the fixture in the admin shape, money and `version` included, and its season's status.
  *
  * Beside it every live venue and referee to book, the fixture's own where it has retired, each referee saying whether
- * they confirmed their entry; the fixture's report as its Spielbericht section shows it, its goals, its proposal and
- * the state it reads in, null where none stands; and the fixture's confirmation rows as the confirmations' read serves
- * them. `document_not_found` for an id no fixture holds.
+ * they confirmed their entry; on a knockout fixture every club of its season, each saying whether it stands on
+ * another fixture of the matchday and whether a save fielding it here by hand would pass the write's rules, null on a
+ * group fixture; the fixture's report as its Spielbericht section shows it, its goals, its proposal and the state it
+ * reads in, null where none stands; and the fixture's confirmation rows as the confirmations' read serves them.
+ * `document_not_found` for an id no fixture holds.
  * @summary One Spiel and all the match editor offers and shows beside it
  */
 export const spieleGetSpielVerwaltungPathSpielIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");

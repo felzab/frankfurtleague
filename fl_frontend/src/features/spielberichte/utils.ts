@@ -1,97 +1,15 @@
-import { TIME_ZONE } from "@/core/format";
 import { kaderName, NUMMER_NICHT_HINTERLEGT, SPIELER_ANONYM_LABEL } from "@/features/spieler/constants";
 import { isRefusal } from "@/shared/utils/actionError";
 import { buildRefusal, LADE_DIE_SEITE_NEU } from "@/shared/utils/refusal";
 
-import type {
-  Code,
-  FLSpielberichtSeiten,
-  FLSpielberichtSpiel,
-  FLSpielberichtSpieler,
-  FLSpielberichtVorschlag,
-} from "@/core/generated/client/types";
-import type { PillTone } from "@/shared/components/ui/badges";
+import type { Code, FLSpielberichtSpiel, FLSpielberichtSpieler } from "@/core/generated/client/types";
 import type { FieldErrors } from "@/shared/utils/validation";
-import type { Eingesetzt } from "./types";
-
-/**
- * A fixture card's word on its report, worn in its state's tone, and the proposal the card renders after it through
- * `fl_frontend/src/features/spielberichte/components/ui/VorschlagText.tsx`; `null` where the card names no score.
- */
-export type BerichtChip = { readonly worte: string; readonly vorschlag: FLSpielberichtVorschlag | null; readonly tone: PillTone };
-
-/** A side as the match editor's draft holds it: the club, its goals, and nothing where the slot is open. */
-type EntwurfSeite = { readonly team_id: string; readonly tore: number | null } | null;
-
-/**
- * Why „Vorschlag übernehmen“ cannot seed the draft, `null` where it can. Against the report's `seiten`, never the
- * fixture's: the goals go by side, and a correction upstream re-fields the fixture and the draft seeded from it alike.
- */
-export function uebernahmeGesperrt(seiten: FLSpielberichtSeiten, entwurf: { team1: EntwurfSeite; team2: EntwurfSeite }): string | null {
-  if (entwurf.team1 === null || entwurf.team2 === null) return "Im Formular stehen noch nicht beide Teams.";
-  if (entwurf.team1.team_id !== seiten.team1 || entwurf.team2.team_id !== seiten.team2) {
-    return "Die Teams im Formular sind nicht die des Spielberichts.";
-  }
-
-  return null;
-}
-
-/** Whether the editor's result atoms still hold the proposal „Vorschlag übernehmen“ seeded them with. */
-export function haeltVorschlag(
-  vorschlag: FLSpielberichtVorschlag,
-  entwurf: {
-    team1: EntwurfSeite;
-    team2: EntwurfSeite;
-    elfmeterschiessen: { readonly team1: number | null; readonly team2: number | null } | null;
-    sonderereignis: string | null;
-  },
-): boolean {
-  const { elfmeterschiessen: entwurfElfmeter } = entwurf;
-  const elfmeter = vorschlag.elfmeterschiessen;
-  const gleicherElfmeter =
-    entwurfElfmeter === null || elfmeter === null
-      ? entwurfElfmeter === elfmeter
-      : entwurfElfmeter.team1 === elfmeter.team1 && entwurfElfmeter.team2 === elfmeter.team2;
-
-  return (
-    entwurf.team1?.tore === vorschlag.team1_tore &&
-    entwurf.team2?.tore === vorschlag.team2_tore &&
-    entwurf.sonderereignis === vorschlag.sonderereignis &&
-    gleicherElfmeter
-  );
-}
-
-/**
- * The seed's standing against the report read now: a refresh after any write on the page can bring a newer report
- * under the mounted editor, whose draft still holds the older proposal and whose save names the older version.
- */
-export function eingesetztStand(seedVersion: number | null, berichtVersion: number | null): Eingesetzt {
-  if (seedVersion === null) return null;
-  return seedVersion === berichtVersion ? "aktuell" : "veraltet";
-}
 
 /** A pupil as a report's reader sees them: shirt number and name, and a pupil an erasure took as „anonym“. */
 export function spielerLabel(spieler: FLSpielberichtSpieler): string {
   if (spieler.vorname === null) return SPIELER_ANONYM_LABEL;
 
   return `${spieler.nummer ?? NUMMER_NICHT_HINTERLEGT} · ${kaderName({ vorname: spieler.vorname, nachname: spieler.nachname })}`;
-}
-
-// Europe/Berlin, as every other date in this app is rendered, and to the minute: a correction made the same day as
-// the adoption is exactly what the administrator needs to tell apart.
-const BERLIN_ZEITPUNKT = new Intl.DateTimeFormat("de-DE", {
-  timeZone: TIME_ZONE,
-  day: "2-digit",
-  month: "2-digit",
-  year: "numeric",
-  hour: "2-digit",
-  minute: "2-digit",
-});
-
-/** A stored instant as the administrator reads it; one no date can parse is shown as stored rather than thrown on. */
-export function berlinZeitpunkt(stamp: string): string {
-  const instant = new Date(stamp);
-  return Number.isNaN(instant.getTime()) ? stamp : `${BERLIN_ZEITPUNKT.format(instant)} Uhr`;
 }
 
 /** Why a fixture takes no report today, `null` where it takes one, as `bericht_not_played` and `bericht_abgesagt` judge a write. */

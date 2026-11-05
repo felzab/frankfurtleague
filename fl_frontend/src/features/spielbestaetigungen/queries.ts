@@ -1,28 +1,16 @@
 import { cache } from "react";
 
 import { ContractBreakError } from "@/core/errors";
-import { spielbestaetigungenGetSelf, spielbestaetigungenGetSpielbestaetigungen } from "@/core/generated/client/sdk";
+import { spielbestaetigungenGetSelf } from "@/core/generated/client/sdk";
 import { runWithIncomingTrace } from "@/core/traceScope";
-import { runAdminRead } from "@/shared/utils/adminRead";
 import { getGermanTodayStr } from "@/shared/utils/date";
 import { runPersonRead } from "@/shared/utils/personRead";
 
 import { postSpielbestaetigungAnsicht } from "./mutations";
 import { mapAnsetzungAnsichtRefusal } from "./utils";
 
-import type {
-  FLSpielbestaetigungenListResponse,
-  FLSpielbestaetigungenSelfResponse,
-  SpielbestaetigungenGetSpielbestaetigungenParams,
-} from "@/core/generated/client/types";
+import type { FLSpielbestaetigungenSelfResponse } from "@/core/generated/client/types";
 import type { SpielbestaetigungAnsicht } from "./utils";
-
-/** Uncached, as every admin-tier read is: `"use cache"` keys on the arguments, never on the administrator asking. */
-export async function getSpielbestaetigungen(
-  filters: SpielbestaetigungenGetSpielbestaetigungenParams,
-): Promise<FLSpielbestaetigungenListResponse> {
-  return runAdminRead(() => spielbestaetigungenGetSpielbestaetigungen(filters));
-}
 
 /**
  * The signed-in referee's own rows, refused `role_not_held` where the backend holds no confirmed referee record

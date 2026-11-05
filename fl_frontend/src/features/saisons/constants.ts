@@ -2,7 +2,6 @@ import { COPY } from "@/core/copy";
 import { FLSaisonPhase } from "@/core/generated/client/types";
 
 import type { Copy } from "@/core/copy";
-import type { PillTone } from "@/shared/components/ui/badges";
 
 /**
  * The phases in the competition's own playing order, which `PHASE_RANK` in
@@ -16,19 +15,6 @@ export const SAISON_PHASE_OPTIONS: readonly FLSaisonPhase[] = Object.values(FLSa
  * Spieltag's composed name need the label and render nothing.
  */
 export const PHASE_LABELS: Readonly<Record<FLSaisonPhase, Copy>> = COPY.shared.phase;
-
-/**
- * A phase added to `FLSaisonPhase` with no member in
- * `fl_frontend/src/shared/components/ui/badges.ts :: PillTone` fails this annotation, which is what
- * pins the two sets together without `badges.ts` importing a feature.
- */
-export const PHASE_TINTS: Record<FLSaisonPhase, PillTone> = {
-  gruppenphase: "gruppenphase",
-  achtelfinale: "achtelfinale",
-  viertelfinale: "viertelfinale",
-  halbfinale: "halbfinale",
-  finale: "finale",
-};
 
 /**
  * Mirroring the backend's `SAISON_ID_LENGTH` (`fl_backend/app/shared/schemas/bounds.py`). `saisons._id` is the string
