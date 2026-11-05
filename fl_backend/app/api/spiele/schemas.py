@@ -502,6 +502,23 @@ class FLSpielSlotHolder(FLSpielBooking):
 FLSpielSlotHolderListAdapter = TypeAdapter(list[FLSpielSlotHolder])
 
 
+# The reports' base, stating the destroyed result once, and the precondition a save names the results it deletes by.
+class FLSpielVoidedResult(BaseModel):
+    """A later fixture's stored result that a save deletes: its ground score, its shoot-out and a no-show, each null where it held none."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    # Beside the number, as a bracket fault carries it: a message names a fixture by `spiel_nr`, and
+    # a caller matching that number against a list it read BEFORE the save can match the wrong one.
+    spiel_id: CustomObjectId
+    spiel_nr: CustomSpielNr
+    voided_ergebnis: CustomErgebnisString | None
+    voided_elfmeterschiessen: FLSpielElfmeterschiessen | None
+    # Only ever a no-show: `ausgefallen`, `annulliert` and `abgebrochen` name no side, so a replaced
+    # occupant leaves each of them true and none of them is cleared.
+    voided_sonderereignis: FLSonderereignis | None
+
+
 class FLPatchSpielDataPayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -535,6 +552,11 @@ class FLPatchSpielDataPayload(BaseModel):
     # (`version_stale`), a referee's decline emptying the slot among them.
     version: CustomVersion
 
+    # A precondition like `version`: every later result the save deletes, by its value, as the dry run answered it and
+    # the person confirmed. The write refuses where it would delete any other set (`voided_results_stale`), so the empty
+    # default deletes nothing unasked.
+    voided_results: list[FLSpielVoidedResult] = Field(default_factory=list)
+
     @model_validator(mode="before")
     @classmethod
     def empty_strings_to_none(cls, data: Any) -> Any:
@@ -543,9 +565,9 @@ class FLPatchSpielDataPayload(BaseModel):
         return data
 
 
-# What the wholesale save writes: the payload's fields, its precondition apart. `version` reaches the write from the
+# What the wholesale save writes: the payload's fields, its two preconditions apart. `version` reaches the write from the
 # payload alone: the composed fixture carries the stored one, against which every save would pass.
-SPIEL_PATCH_WRITTEN_FIELDS: Final = frozenset(FLPatchSpielDataPayload.model_fields) - {"version"}
+SPIEL_PATCH_WRITTEN_FIELDS: Final = frozenset(FLPatchSpielDataPayload.model_fields) - {"version", "voided_results"}
 
 
 # The stored and the served shapes both extend THIS rather than one extending the other: they differ
@@ -694,20 +716,7 @@ class FLSpieleSingleResponse(BaseAPIResponse):
     spiel: FLSpielJoined
 
 
-# Private for `_BracketFault`'s reason: the reports state the destroyed result once.
-class _VoidedResult(BaseModel):
-    # Beside the number, as a bracket fault carries it: a message names a fixture by `spiel_nr`, and
-    # a caller matching that number against a list it read BEFORE the save can match the wrong one.
-    spiel_id: CustomObjectId
-    spiel_nr: CustomSpielNr
-    voided_ergebnis: CustomErgebnisString | None
-    voided_elfmeterschiessen: FLSpielElfmeterschiessen | None
-    # Only ever a no-show: `ausgefallen`, `annulliert` and `abgebrochen` name no side, so a replaced
-    # occupant leaves each of them true and none of them is cleared.
-    voided_sonderereignis: FLSonderereignis | None
-
-
-class FLSpielAdvancement(_VoidedResult):
+class FLSpielAdvancement(FLSpielVoidedResult):
     """One fixture the bracket resolution rewrote, and the result that rewrite destroyed.
 
     Every voided field is null where a slot merely filled from empty.
@@ -716,7 +725,7 @@ class FLSpielAdvancement(_VoidedResult):
 
 # `team_name` rather than an id: the message quoting this has no `spiele` list to join against. The
 # name is the season row's, as every read joins it.
-class FLSpielReleasedSide(_VoidedResult):
+class FLSpielReleasedSide(FLSpielVoidedResult):
     """One side another fixture gave up so a team can play this Spieltag, and the result that destroyed."""
 
     # English, like `type` on a quelle: it names a document field.
@@ -741,18 +750,37 @@ FLSpielbestaetigungPartei = Annotated[FLSpielbestaetigungPartyTeam | FLSpielbest
 FLSpielbestaetigungParteiListAdapter: TypeAdapter[list[FLSpielbestaetigungPartei]] = TypeAdapter(list[FLSpielbestaetigungPartei])
 
 
+# A party an act mails, by the name the record holding it gives: a club's season row, a referee's own. Named where it is
+# read, so a page naming whom an act mails names a party no read of its own holds, a club swapped off the fixture or a
+# retired referee taken off it among them, and drops none.
+class FLSpielRecipientTeam(FLSpielbestaetigungPartyTeam):
+    name: CustomNonEmptyString
+
+
+class FLSpielRecipientSchiedsrichter(FLSpielbestaetigungPartySchiedsrichter):
+    name: CustomNonEmptyString
+
+
+FLSpielRecipient = Annotated[FLSpielRecipientTeam | FLSpielRecipientSchiedsrichter, Field(discriminator="art")]
+
+FLSpielRecipientListAdapter: TypeAdapter[list[FLSpielRecipient]] = TypeAdapter(list[FLSpielRecipient])
+
+
 class FLPatchSpielDataResponse(BaseAPIResponse):
     """Every fixture the save moved beyond its own edit, each with the result it destroyed, and the bracket's faults after it.
 
     `version` is the fixture's own after the save, the one its next save sends; `bericht_adopted` says whether the
     adoption `adopts_bericht` asked for was stamped, null where none was asked or on a `dry_run`. `recipients`, on a
     `dry_run` alone and null on a save, is every party the confirmation pass mails about this fixture once it is saved
-    so, and would not as it stands: told of the move, of the referee taken off it, or of its call-off.
+    so, and would not as it stands: told of the move, of the referee taken off it, or of its call-off, each by its name.
+    `voided_results` is every later result among those fixtures the save deletes, each once, in their numbers' order:
+    the set a save names in its body to delete them.
     """
 
     advanced_to: list[FLSpielAdvancement] = Field(default_factory=list)
     released_sides: list[FLSpielReleasedSide] = Field(default_factory=list)
+    voided_results: list[FLSpielVoidedResult]
     bracket_faults: list[FLBracketFault] = Field(default_factory=list)
     version: int
     bericht_adopted: bool | None
-    recipients: list[FLSpielbestaetigungPartei] | None
+    recipients: list[FLSpielRecipient] | None

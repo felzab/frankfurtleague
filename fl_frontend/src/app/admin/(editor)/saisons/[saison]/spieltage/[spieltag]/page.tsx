@@ -5,6 +5,7 @@ import { EditorShell } from "@/kit/EditorShell";
 
 import { SpieltagePatchSpieltagBody } from "@/core/generated/zod/inputs";
 import { ROUTES } from "@/core/routes";
+import { SERVER_COPY } from "@/core/serverCopy";
 import { getAdminSpieltag } from "@/features/spieltage/queries";
 import { spieltagLabel } from "@/features/spieltage/utils";
 import { pageMetadata } from "@/shared/utils/metadata";
@@ -14,7 +15,7 @@ import { saveSpieltag } from "./saveSpieltag";
 import { SpieltagEditor } from "./SpieltagEditor";
 import { valuesOf } from "./spieltagValues";
 
-import type { FLSpieltagAdmin } from "@/core/generated/client/types";
+import type { FLSpieltagAdmin, FLSpieltagAdminResponse } from "@/core/generated/client/types";
 import type { Metadata, ResolvingMetadata } from "next";
 
 type Props = PageProps<"/admin/saisons/[saison]/spieltage/[spieltag]">;
@@ -32,19 +33,19 @@ const read = cache(getAdminSpieltag);
  * The matchday the address names, as every season page reads its record: not-found for a malformed id, for none by
  * it, and for one of another season, the tab's title included.
  */
-async function readSpieltag(params: Props["params"]): Promise<FLSpieltagAdmin> {
-  const spieltag = await read(await resolveObjectIdParam(params, "spieltag"));
+async function readSpieltag(params: Props["params"]): Promise<FLSpieltagAdminResponse> {
+  const view = await read(await resolveObjectIdParam(params, "spieltag"));
   const { saison } = await params;
-  if (spieltag === null || spieltag.saison_id !== saison) notFound();
-  return spieltag;
+  if (view === null || view.spieltag.saison_id !== saison) notFound();
+  return view;
 }
 
 /** A matchday is named as its tab in the Spiele list names it. */
 const nameOf = (spieltag: FLSpieltagAdmin) =>
-  spieltagLabel({ phase: spieltag.saison_phase, ordinal: spieltag.position, countInPhase: spieltag.count_in_phase });
+  spieltagLabel({ phase: spieltag.saison_phase, ordinal: spieltag.position, countInPhase: spieltag.count_spieltage_in_phase });
 
 export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
-  const spieltag = await readSpieltag(params);
+  const { spieltag } = await readSpieltag(params);
   return pageMetadata(parent, ROUTES.adminSpieltag, ROUTES.adminSpieltag.path(spieltag.saison_id, spieltag.id), {
     title: nameOf(spieltag),
   });
@@ -56,13 +57,15 @@ export default function SpieltagEditorPage({ params }: Props) {
 }
 
 async function readEditor(params: Props["params"]) {
-  const spieltag = await readSpieltag(params);
+  const { spieltag, saison_status } = await readSpieltag(params);
   return (
     <SpieltagEditor
       title={nameOf(spieltag)}
       record={{ id: spieltag.id, version: spieltag.version, values: valuesOf(spieltag) }}
       save={saveSpieltag}
       required={REQUIRED}
+      // A finished season's matchdays take no write (`saison_past`), so the editor opens on one read-only.
+      {...(saison_status === "past" ? { closed: SERVER_COPY.refusalLine.saison_past } : {})}
     />
   );
 }

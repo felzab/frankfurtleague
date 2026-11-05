@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 
-import { action } from "@/core/action";
+import { action, numberBox } from "@/core/action";
 import { COPY } from "@/core/copy";
 import { formatList } from "@/core/format";
 import { spielePatchSpiel } from "@/core/generated/client/sdk";
@@ -14,12 +14,7 @@ import { isNoShow, NO_SONDEREREIGNIS, takesNoResult, valuesOf } from "./spielVal
 
 import type { ActionAnswer, SaveQuestion } from "@/core/action";
 import type { Copy } from "@/core/copy";
-import type {
-  FLPatchSpielDataPayload,
-  FLPatchSpielDataResponse,
-  FLSpieleAdminSingleResponse,
-  FLSpielJoinedAdmin,
-} from "@/core/generated/client/types";
+import type { FLPatchSpielDataPayload, FLPatchSpielDataResponse, FLSpielJoinedAdmin } from "@/core/generated/client/types";
 
 const { shape } = SpielePatchSpielBody;
 const [ortShape] = shape.ort.options;
@@ -27,12 +22,8 @@ const [schiedsrichterShape] = shape.schiedsrichter.options;
 const [teamShape] = shape.team1.options;
 const [shootOutShape] = shape.elfmeterschiessen.options;
 
-/** A figure's box: empty is no figure, digits alone a figure, anything else stays text the rule refuses. */
-const figure = (rule: z.ZodType<number>) =>
-  z.preprocess(
-    (value) => (value === "" ? null : typeof value === "string" && /^\d+$/.test(value) ? Number(value) : value),
-    z.union([rule, z.null()]),
-  );
+/** A figure's box, which the editor may leave empty: no figure where the stored fixture holds none. */
+const figure = (rule: z.ZodType<number>) => numberBox(z.union([rule, z.null()]));
 
 /** What the editor's boxes send, each held to the match write's own published rule for it. */
 const SaveSpiel = z.object({
@@ -147,67 +138,36 @@ const OWN_WORDS = [
   "elfmeterschiessen_without_winner",
   // The editor stays open on a finished season, whose fixtures the write refuses whole.
   "saison_past",
+  // A later result entered or changed between the question and the confirmed write, which refuses to delete it unasked.
+  "voided_results_stale",
 ] as const;
 
 /** The other fixtures a write moved or would move, each once, in their numbers' order. */
 const numbersOf = (entries: readonly { spiel_nr: number }[]) =>
   [...new Set(entries.map(({ spiel_nr }) => spiel_nr))].toSorted((first, second) => first - second);
 
-/**
- * The fixture as stored, read for the fields the editor does not show, which the wholesale write sends as stored,
- * beside the editor's view the read serves, which names the parties a save would mail.
- */
-async function sending(
-  id: string,
-  changes: Changes,
-): Promise<ActionAnswer<never> | { payload: Omit<FLPatchSpielDataPayload, "version">; view: FLSpieleAdminSingleResponse }> {
+/** The fixture as stored, read for the fields the editor does not show, which the wholesale write sends as stored. */
+async function sending(id: string, changes: Changes): Promise<ActionAnswer<never> | Omit<FLPatchSpielDataPayload, "version">> {
   const read = await getAdminSpiel(id);
-  if (read === null) return { ok: false, reason: COPY.shared.failure.stale };
-  const payload = payloadOf(read.spiel, changes);
-  return "ok" in payload ? payload : { payload, view: read };
+  return read === null ? { ok: false, reason: COPY.shared.failure.stale } : payloadOf(read.spiel, changes);
 }
-
-/** One party a save would mail about the fixture, as the dry run reports it. */
-type Recipient = NonNullable<FLPatchSpielDataResponse["recipients"]>[number];
-
-/**
- * The parties the save would mail, each by the name the editor's own read gives it: a club by its id among the
- * fixture's sides and the clubs a knockout side may take, a referee by theirs among the referees offered.
- */
-function namesOf(recipients: readonly Recipient[], view: FLSpieleAdminSingleResponse): string[] {
-  const clubs = new Map([
-    ...[view.spiel.team1, view.spiel.team2].flatMap((team) => (team === null ? [] : [[team.team_id, team.name] as const])),
-  ]);
-  for (const team of view.teams ?? []) clubs.set(team.id, team.name);
-  const referees = new Map(view.schiedsrichter.map((person) => [person.id, person.name] as const));
-  return recipients.flatMap((party) => {
-    const name = party.art === "team" ? clubs.get(party.team_id) : referees.get(party.schiedsrichter_id);
-    return name === undefined ? [] : [name];
-  });
-}
-
-/** The later matches whose stored result a write would delete: a dry run's report, never a guess. */
-const voidedBy = (report: FLPatchSpielDataResponse) =>
-  numbersOf(
-    [...report.advanced_to, ...report.released_sides].filter(
-      (moved) => moved.voided_ergebnis !== null || moved.voided_elfmeterschiessen !== null || moved.voided_sonderereignis !== null,
-    ),
-  );
 
 /**
  * The question a save asks before it deletes a later match's result, `null` for a save deleting none, naming under its
- * sentence whom the save mails, as every question naming its act's mails does. Its token names the matches and the
- * parties, so a confirmation covers exactly what it was shown. A save that only mails asks nothing.
+ * sentence whom the save mails, each by the name the dry run reads off its own record, as every question naming its
+ * act's mails does. Its token names each deleted result by
+ * its value as well as its match, and the parties in their names' order, so a confirmation covers exactly what it was
+ * shown and an unchanged save is never asked twice. A save that only mails asks nothing.
  */
-function questionOf(report: FLPatchSpielDataResponse, view: FLSpieleAdminSingleResponse): SaveQuestion | null {
-  const voided = voidedBy(report);
+function questionOf(report: FLPatchSpielDataResponse): SaveQuestion | null {
+  const voided = report.voided_results;
   if (voided.length === 0) return null;
-  const mailed = namesOf(report.recipients ?? [], view);
+  const mailed = (report.recipients ?? []).map(({ name }) => name).toSorted((one, other) => one.localeCompare(other, "de"));
   return {
     subject: COPY.admin.spiel.ergebnis,
-    consequence: COPY.admin.spiel.voids(voided),
+    consequence: COPY.admin.spiel.voids(numbersOf(voided)),
     ...(mailed.length === 0 ? {} : { facts: [{ label: COPY.admin.facts.mailTo, value: { record: formatList(mailed) } }] }),
-    confirm: [voided.join(","), ...mailed].join(";"),
+    confirm: JSON.stringify({ voided, mailed }),
   };
 }
 
@@ -218,8 +178,10 @@ function questionOf(report: FLPatchSpielDataResponse, view: FLSpieleAdminSingleR
  *
  * Every save first asks the write's own dry run what it would delete, on the server, so no ordering of presses and no
  * failed or unfinished check on the page lets a deletion through unasked: a save deleting a later match's result is
- * held back with its question unless it carries the token of a question naming exactly those matches. A dry run the
- * write refuses is that refusal, answered as the write's would be.
+ * held back with its question unless it carries the token of a question naming exactly those results. The write then
+ * names them, and refuses in its own transaction where it would delete others, a result entered after the dry run
+ * among them, so the write is the gate and the dry run only words its question. A dry run the write refuses is that
+ * refusal, answered as the write's would be.
  */
 export const saveSpiel = action({
   lane: "admin",
@@ -230,14 +192,17 @@ export const saveSpiel = action({
   paths: { sonderereignis: "changes.sonderereignis" },
   examples: { "changes.mietpreis": COPY.admin.spielort.mietpreisExample },
   run: async ({ id, version, adoptsBericht, changes, confirm }): Promise<ActionAnswer<number>> => {
-    const read = await sending(id, changes);
-    if ("ok" in read) return read;
-    const sent = { ...read.payload, version };
+    const payload = await sending(id, changes);
+    if ("ok" in payload) return payload;
+    const sent = { ...payload, version };
 
-    const question = questionOf(await spielePatchSpiel(id, sent, { dry_run: true }), read.view);
+    const report = await spielePatchSpiel(id, sent, { dry_run: true });
+    const question = questionOf(report);
     if (question !== null && question.confirm !== confirm) return { ok: false, ask: question };
 
-    const written = await spielePatchSpiel(id, sent, adoptsBericht === null ? undefined : { adopts_bericht: adoptsBericht });
+    // The write deletes only the results confirmed, refusing where its own transaction finds others to delete.
+    const confirmed = { ...sent, voided_results: report.voided_results };
+    const written = await spielePatchSpiel(id, confirmed, adoptsBericht === null ? undefined : { adopts_bericht: adoptsBericht });
 
     // The other fixtures the write changed: a later round's occupant or result, or a side it released on the same
     // Spieltag. The match's own page says what changed there.

@@ -63,7 +63,7 @@ from app.api.spielbestaetigungen.services import (
 )
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.crud import patch_one_in_db, post_many_to_db, pull_many_from_db, pull_one_from_db
+from app.core.crud import patch_one_in_db, post_many_to_db, pull_many_from_db, pull_one_from_db, pull_whole_from_db
 from app.core.dependencies import (
     DBClient,
     OutboxCollection,
@@ -533,16 +533,15 @@ async def sweep_spielbestaetigungen(
         if not spiele:
             return _Minted(written=0, asked=0, closed=0, mails=0, inserted=[], fresh={})
 
-        read = await pull_many_from_db(
+        # Whole: a cut read would mint a second row for a party that already answered. Its refusal halves the page
+        # (`app/core/transactions.py :: isolate`) until each half's rows fit one read.
+        read = await pull_whole_from_db(
             collection=spielbestaetigungen_collection,
             db_filter=build_held_filter(saison_id=saison_id, spiel_ids=[spiel["_id"] for spiel in spiele]),
-            limit=LIST_LIMIT_MAX + 1,
+            what=f"season {saison_id}'s window's held confirmations",
+            limit=LIST_LIMIT_MAX,
             session=session,
         )
-        # A cut read would mint a second row for a party that already answered: raised, so the failure
-        # halves the page (`app/core/transactions.py :: isolate`) until each half's rows fit one read.
-        if len(read) > LIST_LIMIT_MAX:
-            raise ValueError(f"season {saison_id}'s window holds more held confirmations than one read answers")
         held = {(row["spiel_id"], partei_key(row["party"]), row["ansetzung"]["stand"]): row for row in read}
         stande = {spiel["_id"]: ansetzung_stand_of(spiel) for spiel in spiele}
         by_id = {spiel["_id"]: spiel for spiel in spiele}

@@ -38,7 +38,7 @@ from app.api.spielbestaetigungen.system_router import (
     sweep_spielbestaetigungen,
 )
 from app.api.spiele.admin_router import patch_spiel
-from app.api.spiele.schemas import FLPatchSpielDataPayload
+from app.api.spiele.schemas import FLPatchSpielDataPayload, FLPatchSpielDataResponse
 from app.api.spiele.services import ANSETZUNG_CONFIRMED, build_spiele_pipeline
 from app.api.teams.admin_router import patch_saison_team_kontakte, replace_saison_team
 from app.api.teams.schemas import FLPatchSaisonTeamKontaktePayload, FLReplaceSaisonTeamPayload, kontakte_stand_of
@@ -460,24 +460,36 @@ async def unstamp(database: AsyncDatabase) -> None:
 
 
 async def move(database: AsyncDatabase, client: AsyncMongoClient, spiel_id: ObjectId, **overrides: Any) -> None:
-    """Through the administrator's own save, so the stand the pass compares is the one a real edit leaves."""
+    """Through the administrator's own save, so the stand the pass compares is the one a real edit leaves.
+
+    Confirming the later results its dry run says it deletes, as the editor's question does.
+    """
 
     stored = await database[Collection.SPIELE].find_one({"_id": spiel_id})
     assert stored is not None
-    await patch_spiel(
-        spiel_id=spiel_id,
-        spiel_data=FLPatchSpielDataPayload.model_validate(spiel_patch_body(stored, **overrides)),
-        db=client,
-        spiele_collection=database[Collection.SPIELE],
-        teams_collection=database[Collection.TEAMS],
-        saisons_collection=database[Collection.SAISONS],
-        saison_teams_collection=database[Collection.SAISON_TEAMS],
-        spieltage_collection=database[Collection.SPIELTAGE],
-        spielorte_collection=database[Collection.SPIELORTE],
-        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-        spielberichte_collection=database[Collection.SPIELBERICHTE],
-        spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
-    )
+    payload = FLPatchSpielDataPayload.model_validate(spiel_patch_body(stored, **overrides))
+
+    # Named one by one rather than spread from a dictionary, which no type check reads through.
+    async def saved(spiel_data: FLPatchSpielDataPayload, *, dry_run: bool) -> FLPatchSpielDataResponse:
+        return await patch_spiel(
+            spiel_id=spiel_id,
+            spiel_data=spiel_data,
+            db=client,
+            spiele_collection=database[Collection.SPIELE],
+            teams_collection=database[Collection.TEAMS],
+            saisons_collection=database[Collection.SAISONS],
+            saison_teams_collection=database[Collection.SAISON_TEAMS],
+            spieltage_collection=database[Collection.SPIELTAGE],
+            spielorte_collection=database[Collection.SPIELORTE],
+            schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+            spielberichte_collection=database[Collection.SPIELBERICHTE],
+            spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+            today=TODAY,
+            dry_run=dry_run,
+        )
+
+    asked = await saved(payload, dry_run=True)
+    await saved(payload.model_copy(update={"voided_results": asked.voided_results}), dry_run=False)
 
 
 async def antworten(database: AsyncDatabase, client: AsyncMongoClient, token: str) -> Any:

@@ -32,14 +32,21 @@ export const saveSpieltag = action({
   lane: "admin",
   name: "saveSpieltag",
   input: SaveSpieltag,
-  ownWords: ["spieltag_ends_before_start", "spieltag_outside_saison", "spieltag_span_below_spiele", "spieltag_beginn_out_of_order"],
+  ownWords: [
+    "spieltag_ends_before_start",
+    "spieltag_outside_saison",
+    "spieltag_span_below_spiele",
+    "spieltag_beginn_out_of_order",
+    // The editor opened before its season finished: the write refuses a finished season's matchday whole.
+    "saison_past",
+  ],
   // The span's own rule names the end it refuses, as the box's own check does before the send.
   paths: { ende: "changes.ende" },
   run: async ({ id, version, changes }): Promise<ActionAnswer<number>> => {
     const stored = await getAdminSpieltag(id);
     if (stored === null) return { ok: false, reason: COPY.shared.failure.stale };
 
-    const { beginn, ende } = { ...valuesOf(stored), ...changes };
+    const { beginn, ende } = { ...valuesOf(stored.spieltag), ...changes };
     // A day emptied, or one the matchday never held and the editor left empty, which the write cannot take.
     const required = COPY.shared.field.required;
     if (beginn === null || ende === null) {

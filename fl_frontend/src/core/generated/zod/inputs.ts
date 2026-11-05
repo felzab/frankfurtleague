@@ -2840,7 +2840,10 @@ export const SpieleGetSpielParams = zod.object({
  * adopted, where it still stands at that version about the clubs the save leaves; a miss refuses nothing. A
  * `dry_run` answers the same report and writes nothing, and names in `recipients` every party the confirmation pass
  * would mail about the fixture once it is saved so: told of its move, of the referee taken off it, or of its call-off,
- * by the pass's own rules. A `past` season's fixture is refused (`saison_past`), the `dry_run` included.
+ * by the pass's own rules. A `past` season's fixture is refused (`saison_past`), the `dry_run` included. The save
+ * deletes only the later results its body's `voided_results` names, each by its value as its `dry_run` answered it,
+ * and is refused whole where it would delete any other set (`voided_results_stale`), judged in its own transaction:
+ * a result entered or changed after the question was asked is never deleted unasked.
  * @summary Update a Spiel
  */
 export const spielePatchSpielPathSpielIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -2893,6 +2896,15 @@ export const spielePatchSpielBodyTeam2QuelleOneTwoSpielNrExclusiveMin = 0;
 export const spielePatchSpielBodyUhrzeitOneRegExp = new RegExp("^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$");
 export const spielePatchSpielBodyUhrzeitThreeRegExp = new RegExp("^\\s*$");
 export const spielePatchSpielBodyVersionMin = 0;
+
+export const spielePatchSpielBodyVoidedResultsItemSpielIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
+export const spielePatchSpielBodyVoidedResultsItemSpielNrExclusiveMin = 0;
+
+export const spielePatchSpielBodyVoidedResultsItemVoidedElfmeterschiessenOneTeam1Min = 0;
+
+export const spielePatchSpielBodyVoidedResultsItemVoidedElfmeterschiessenOneTeam2Min = 0;
+
+export const spielePatchSpielBodyVoidedResultsItemVoidedErgebnisOneRegExp = new RegExp("^[0-9]+:[0-9]+$");
 
 export const SpielePatchSpielBody = zod.object({
   datum: zod.union([
@@ -2995,6 +3007,32 @@ export const SpielePatchSpielBody = zod.object({
     zod.string().regex(spielePatchSpielBodyUhrzeitThreeRegExp),
   ]),
   version: zod.int().min(spielePatchSpielBodyVersionMin),
+  voided_results: zod
+    .array(
+      zod
+        .object({
+          spiel_id: zod.string().regex(spielePatchSpielBodyVoidedResultsItemSpielIdRegExp),
+          spiel_nr: zod.int().gt(spielePatchSpielBodyVoidedResultsItemSpielNrExclusiveMin),
+          voided_elfmeterschiessen: zod.union([
+            zod
+              .object({
+                team1: zod.int().min(spielePatchSpielBodyVoidedResultsItemVoidedElfmeterschiessenOneTeam1Min),
+                team2: zod.int().min(spielePatchSpielBodyVoidedResultsItemVoidedElfmeterschiessenOneTeam2Min),
+              })
+              .describe("The penalty shoot-out that settled a level knockout fixture: the side with more goals in it won."),
+            zod.null(),
+          ]),
+          voided_ergebnis: zod.union([zod.string().regex(spielePatchSpielBodyVoidedResultsItemVoidedErgebnisOneRegExp), zod.null()]),
+          voided_sonderereignis: zod.union([
+            zod.enum(["ausgefallen", "nichtantreten_team1", "nichtantreten_team2", "abgebrochen", "annulliert"]),
+            zod.null(),
+          ]),
+        })
+        .describe(
+          "A later fixture's stored result that a save deletes: its ground score, its shoot-out and a no-show, each null where it held none.",
+        ),
+    )
+    .optional(),
 });
 
 /**
@@ -3454,7 +3492,9 @@ export const SpieltageGetSpieltagParams = zod.object({
  * Move a matchday's span, answering the matchday's `version` after the save.
  *
  * No fan-out: matches embed no copy, so a re-dated matchday is picked up on the next read. The span is held
- * to its season's, to the days its own fixtures stand on, and its `beginn` to the order its phase is dated in.
+ * to its season's, to the days its own fixtures stand on, and its `beginn` to the order its phase is dated in. A
+ * `past` season's matchday is refused (`saison_past`), as its fixtures' saves are: a finished season's record is
+ * closed.
  * @summary Re-date a Spieltag
  */
 export const spieltagePatchSpieltagPathSpieltagIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -3476,8 +3516,10 @@ export const SpieltagePatchSpieltagBody = zod.object({
 /**
  * Return one matchday by its id for the admin editor, a `future` season's included.
  *
- * The shape of `GET /spieltage/{spieltag_id}`, without its season gate, plus `count_in_phase`, how many matchdays
- * its phase holds: the editor opens a matchday to date it, and that happens before its season is ever activated.
+ * The shape of `GET /spieltage/{spieltag_id}`, without its season gate, plus `count_spieltage_in_phase`, how many
+ * matchdays its phase holds: the editor opens a matchday to date it, and that happens before its season is ever
+ * activated. Beside it its season's `status`, read as the re-dating judges it, so the editor opens read-only on
+ * exactly the season the write refuses (`saison_past`).
  * @summary One Spieltag for the admin editor
  */
 export const spieltageGetSpieltagVerwaltungPathSpieltagIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");

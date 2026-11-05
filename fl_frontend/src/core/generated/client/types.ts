@@ -176,6 +176,7 @@ export const Code = {
   spielplan_berichte_submitted: "spielplan_berichte_submitted",
   spieltag_occupied: "spieltag_occupied",
   spieltag_occupied_by_the_resolution: "spieltag_occupied_by_the_resolution",
+  voided_results_stale: "voided_results_stale",
   kader_team_not_in_saison: "kader_team_not_in_saison",
   kader_full: "kader_full",
   kader_rolle_taken: "kader_rolle_taken",
@@ -3656,6 +3657,22 @@ export interface FLOverviewSpielbestaetigungRow {
   spiel: FLSpielJoinedAdmin;
 }
 
+export interface FLSpielRecipientTeam {
+  art: "team";
+  /** @minLength 1 */
+  name: string;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  team_id: string;
+}
+
+export interface FLSpielRecipientSchiedsrichter {
+  art: "schiedsrichter";
+  /** @minLength 1 */
+  name: string;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  schiedsrichter_id: string;
+}
+
 export type FLOverviewVorschlagRowKind = (typeof FLOverviewVorschlagRowKind)[keyof typeof FLOverviewVorschlagRowKind];
 
 export const FLOverviewVorschlagRowKind = {
@@ -3675,13 +3692,13 @@ export interface FLSpielbestaetigungAppointment {
 /**
  * A club's decline proposing another date and hour, neither adopted nor discarded; its row is the one both acts write.
  *
- * Each act's recipients are the parties the backend mails of it, so its question names them: `adoption_recipients`
- * those the confirmation pass tells of the move, `discard_recipients` the club the discard tells the date stands,
- * none once its day has gone by.
+ * Each act's recipients are the parties the backend mails of it, each by the name its own record holds, so its question
+ * names them: `adoption_recipients` those the confirmation pass tells of the move, `discard_recipients` the club the
+ * discard tells the date stands, none once its day has gone by.
  */
 export interface FLOverviewVorschlagRow {
-  adoption_recipients: (FLSpielbestaetigungPartyTeam | FLSpielbestaetigungPartySchiedsrichter)[];
-  discard_recipients: (FLSpielbestaetigungPartyTeam | FLSpielbestaetigungPartySchiedsrichter)[];
+  adoption_recipients: (FLSpielRecipientTeam | FLSpielRecipientSchiedsrichter)[];
+  discard_recipients: (FLSpielRecipientTeam | FLSpielRecipientSchiedsrichter)[];
   kind: FLOverviewVorschlagRowKind;
   spiel: FLSpielJoinedAdmin;
   /** @pattern ^[0-9a-fA-F]{24}$ */
@@ -3971,6 +3988,19 @@ export interface FLSpielTeamFieldPayload {
   tore: number | null;
 }
 
+/**
+ * A later fixture's stored result that a save deletes: its ground score, its shoot-out and a no-show, each null where it held none.
+ */
+export interface FLSpielVoidedResult {
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  spiel_id: string;
+  /** @exclusiveMinimum 0 */
+  spiel_nr: number;
+  voided_elfmeterschiessen: FLSpielElfmeterschiessen | null;
+  voided_ergebnis: string | null;
+  voided_sonderereignis: FLSonderereignis | null;
+}
+
 export interface FLPatchSpielDataPayload {
   datum: string | null;
   elfmeterschiessen: FLSpielElfmeterschiessen | null;
@@ -3985,6 +4015,7 @@ export interface FLPatchSpielDataPayload {
   uhrzeit: string | null;
   /** @minimum 0 */
   version: number;
+  voided_results?: FLSpielVoidedResult[];
 }
 
 /**
@@ -4024,15 +4055,18 @@ export interface FLSpielReleasedSide {
  * `version` is the fixture's own after the save, the one its next save sends; `bericht_adopted` says whether the
  * adoption `adopts_bericht` asked for was stamped, null where none was asked or on a `dry_run`. `recipients`, on a
  * `dry_run` alone and null on a save, is every party the confirmation pass mails about this fixture once it is saved
- * so, and would not as it stands: told of the move, of the referee taken off it, or of its call-off.
+ * so, and would not as it stands: told of the move, of the referee taken off it, or of its call-off, each by its name.
+ * `voided_results` is every later result among those fixtures the save deletes, each once, in their numbers' order:
+ * the set a save names in its body to delete them.
  */
 export interface FLPatchSpielDataResponse {
   advanced_to: FLSpielAdvancement[];
   bericht_adopted: boolean | null;
   bracket_faults: FLBracketFault[];
-  recipients: (FLSpielbestaetigungPartyTeam | FLSpielbestaetigungPartySchiedsrichter)[] | null;
+  recipients: (FLSpielRecipientTeam | FLSpielRecipientSchiedsrichter)[] | null;
   released_sides: FLSpielReleasedSide[];
   version: number;
+  voided_results: FLSpielVoidedResult[];
 }
 
 /**
@@ -5994,10 +6028,10 @@ export interface FLSpieltag {
  */
 export interface FLSpieltagAdmin {
   beginn: string | null;
-  /** @minimum 1 */
-  count_in_phase: number;
   /** @minimum 0 */
   count_spiele: number;
+  /** @minimum 1 */
+  count_spieltage_in_phase: number;
   ende: string | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
@@ -6012,7 +6046,14 @@ export interface FLSpieltagAdmin {
   version: number;
 }
 
+/**
+ * One matchday for its editor, and its season's status, by which the editor opens a finished season's read-only.
+ *
+ * On the response rather than on the matchday, as the match editor's read serves it: a matchday carries no
+ * season-scoped state.
+ */
 export interface FLSpieltagAdminResponse {
+  saison_status: FLSaisonStatus;
   spieltag: FLSpieltagAdmin;
 }
 

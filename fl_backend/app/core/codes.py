@@ -32,11 +32,11 @@ class Code(StrEnum):
     # most one planned season, and the planned one is where its next season is set up.
     CREATE_SAISON_FUTURE_STANDS = auto()
     # A write a `past` season refuses: its activation, the draw, the group swap, the replacement, a fixture's save, a
-    # club's season row, a link's mint and a referee's report. Not every write: a club's contacts, an invitation's
-    # revocation and the administrator's correction of a report stay open on purpose, and the season's own edit refuses
-    # by the rules' freeze and the fixed start. No escape, and no demotion endpoint beside it: both keep the state
-    # reachable, and activating is the one operation that can reopen a finished season's points, groups and table. A
-    # season closed by mistake is repaired at the database.
+    # matchday's re-dating, a club's season row, a link's mint and a referee's report. Not every write: a club's
+    # contacts, an invitation's revocation and the administrator's correction of a report stay open on purpose, and the
+    # season's own edit refuses by the rules' freeze and the fixed start. No escape, and no demotion endpoint beside it:
+    # both keep the state reachable, and activating is the one operation that can reopen a finished season's points,
+    # groups and table. A season closed by mistake is repaired at the database.
     SAISON_PAST = auto()
     # The pair to `saison_past` on the draw: that one lets a running season still be drawn, and this one
     # keeps a season from going live undrawn in the first place.
@@ -288,6 +288,9 @@ class Code(StrEnum):
     # the club: a resend answers the same, and the way out is the wiring the resolution followed or a
     # result that changes who advances.
     SPIELTAG_OCCUPIED_BY_THE_RESOLUTION = auto()
+    # A fixture's save deleting later results other than those its body confirms (`voided_results`), judged inside its
+    # transaction: the question its dry run asked is of a season that has moved since, so no result goes unasked.
+    VOIDED_RESULTS_STALE = auto()
     # The same dangling reference `eligibility_team_not_in_saison` refuses on the match side.
     KADER_TEAM_NOT_IN_SAISON = auto()
     KADER_FULL = auto()

@@ -4106,7 +4106,10 @@ export const getSpielePatchSpielUrl = (spielId: string, params?: SpielePatchSpie
  * adopted, where it still stands at that version about the clubs the save leaves; a miss refuses nothing. A
  * `dry_run` answers the same report and writes nothing, and names in `recipients` every party the confirmation pass
  * would mail about the fixture once it is saved so: told of its move, of the referee taken off it, or of its call-off,
- * by the pass's own rules. A `past` season's fixture is refused (`saison_past`), the `dry_run` included.
+ * by the pass's own rules. A `past` season's fixture is refused (`saison_past`), the `dry_run` included. The save
+ * deletes only the later results its body's `voided_results` names, each by its value as its `dry_run` answered it,
+ * and is refused whole where it would delete any other set (`voided_results_stale`), judged in its own transaction:
+ * a result entered or changed after the question was asked is never deleted unasked.
  * @summary Update a Spiel
  */
 export const spielePatchSpiel = async (
@@ -4765,7 +4768,9 @@ export const getSpieltagePatchSpieltagUrl = (spieltagId: string) => {
  * Move a matchday's span, answering the matchday's `version` after the save.
  *
  * No fan-out: matches embed no copy, so a re-dated matchday is picked up on the next read. The span is held
- * to its season's, to the days its own fixtures stand on, and its `beginn` to the order its phase is dated in.
+ * to its season's, to the days its own fixtures stand on, and its `beginn` to the order its phase is dated in. A
+ * `past` season's matchday is refused (`saison_past`), as its fixtures' saves are: a finished season's record is
+ * closed.
  * @summary Re-date a Spieltag
  */
 export const spieltagePatchSpieltag = async (
@@ -4800,8 +4805,10 @@ export const getSpieltageGetSpieltagVerwaltungUrl = (spieltagId: string) => {
 /**
  * Return one matchday by its id for the admin editor, a `future` season's included.
  *
- * The shape of `GET /spieltage/{spieltag_id}`, without its season gate, plus `count_in_phase`, how many matchdays
- * its phase holds: the editor opens a matchday to date it, and that happens before its season is ever activated.
+ * The shape of `GET /spieltage/{spieltag_id}`, without its season gate, plus `count_spieltage_in_phase`, how many
+ * matchdays its phase holds: the editor opens a matchday to date it, and that happens before its season is ever
+ * activated. Beside it its season's `status`, read as the re-dating judges it, so the editor opens read-only on
+ * exactly the season the write refuses (`saison_past`).
  * @summary One Spieltag for the admin editor
  */
 export const spieltageGetSpieltagVerwaltung = async (

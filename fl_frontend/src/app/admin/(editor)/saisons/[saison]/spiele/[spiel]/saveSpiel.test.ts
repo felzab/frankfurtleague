@@ -51,6 +51,8 @@ const SENT_AS_STORED = {
   sonderereignis: null,
   notiz: "Flutlicht",
   version: 3,
+  // The later results the save deletes, as its dry run answered: none here.
+  voided_results: [],
 } satisfies FLPatchSpielDataPayload;
 
 /** The write's answer where it moved no other fixture: the fixture's version after the save. */
@@ -61,6 +63,7 @@ const NOTHING_MOVED: FLPatchSpielDataResponse = {
   version: 4,
   bericht_adopted: null,
   recipients: null,
+  voided_results: [],
 };
 
 const VOIDED_NONE = { voided_ergebnis: null, voided_elfmeterschiessen: null, voided_sonderereignis: null };
@@ -73,6 +76,8 @@ const state = vi.hoisted(() => ({
   read: null as unknown,
   sent: [] as unknown[],
   refusal: null as unknown,
+  // A refusal of the write alone, its dry run passing.
+  writeRefusal: null as unknown,
   answer: null as unknown,
   dryRun: null as unknown,
 }));
@@ -83,16 +88,9 @@ vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
 vi.mock("next/cache", () => ({ updateTag: () => undefined }));
 vi.mock("@/core/auth/guards", () => ({ judgeAdminRequest: async () => ({ session: {} }) }));
 
-// The editor's view as far as the save reads it: the fixture, and the referees and clubs it names parties by.
+// The editor's view as far as the save reads it: the fixture.
 vi.mock("@/features/spiele/queries", () => ({
-  getAdminSpiel: async () =>
-    state.read === null
-      ? null
-      : {
-          spiel: state.read,
-          schiedsrichter: [{ id: "64b000000000000000000006", name: "Lena Brandt" }],
-          teams: [{ id: "64b00000000000000000000a", name: "Lessing-Gymnasium" }],
-        },
+  getAdminSpiel: async () => (state.read === null ? null : { spiel: state.read }),
 }));
 
 // The backend client itself is replaced, so the write runs through the real generated call and the real dispatch,
@@ -100,6 +98,7 @@ vi.mock("@/features/spiele/queries", () => ({
 const calls = doubleApiClient((call) => {
   if (state.refusal !== null) throw state.refusal;
   if (call.endpoint.includes("dry_run=true")) return state.dryRun;
+  if (state.writeRefusal !== null) throw state.writeRefusal;
   state.sent.push(JSON.parse(call.body ?? "null"));
   return state.answer;
 });
@@ -127,6 +126,7 @@ beforeEach(() => {
   state.read = STORED;
   state.sent = [];
   state.refusal = null;
+  state.writeRefusal = null;
   state.answer = NOTHING_MOVED;
   state.dryRun = NOTHING_MOVED;
 });
@@ -313,67 +313,105 @@ describe("the match editor's save", () => {
 
 // The harm: a save deleting later matches' stored results unasked, which only its done line names afterwards.
 describe("the match editor's question before it deletes a later result", () => {
+  const VOIDED_33 = { spiel_id: "64b000000000000000000007", spiel_nr: 33, ...VOIDED_NONE, voided_ergebnis: "1:0" };
+  const VOIDED_31 = { spiel_id: "64b000000000000000000009", spiel_nr: 31, ...VOIDED_NONE, voided_ergebnis: "2:0" };
+
   beforeEach(() => {
     state.dryRun = {
       ...NOTHING_MOVED,
       advanced_to: [
-        { spiel_id: "64b000000000000000000007", spiel_nr: 33, ...VOIDED_NONE, voided_ergebnis: "1:0" },
+        VOIDED_33,
         // An occupant moved into a match not yet played deletes nothing there.
         { spiel_id: "64b000000000000000000008", spiel_nr: 32, ...VOIDED_NONE },
       ],
-      released_sides: [
-        { spiel_id: "64b000000000000000000009", spiel_nr: 31, side: "team1", team_name: "Linde", ...VOIDED_NONE, voided_ergebnis: "2:0" },
-      ],
+      released_sides: [{ ...VOIDED_31, side: "team1", team_name: "Linde" }],
+      voided_results: [VOIDED_31, VOIDED_33],
     } satisfies FLPatchSpielDataResponse;
   });
 
-  const QUESTION = { subject: COPY.admin.spiel.ergebnis, consequence: COPY.admin.spiel.voids([31, 33]), confirm: "31,33" };
+  /** The question a save of these changes answers with first, whose token a confirmation of it sends back. */
+  const asked = async (changes: Parameters<typeof saving>[0]) => {
+    const answer = await saveSpiel(saving(changes));
+    if (answer.ok || answer.ask === undefined) throw new Error("the save asked nothing");
+    return answer.ask;
+  };
 
   it("holds the save back with its question, naming the matches the write's own dry run would delete, and writes nothing", async () => {
-    const answer = await saveSpiel(saving({ tore1: "3", tore2: "1" }));
+    const question = await asked({ tore1: "3", tore2: "1" });
 
-    expect(answer).toEqual({ ok: false, ask: QUESTION });
+    expect(question).toMatchObject({ subject: COPY.admin.spiel.ergebnis, consequence: COPY.admin.spiel.voids([31, 33]) });
+    expect(question).not.toHaveProperty("facts");
     expect(calls.map(({ endpoint }) => endpoint)).toStrictEqual([DRY_RUN]);
     expect(state.sent).toEqual([]);
   });
 
-  it("writes once the person confirmed exactly the matches it deletes", async () => {
-    const answer = await saveSpiel({ ...saving({ tore1: "3", tore2: "1" }), confirm: QUESTION.confirm });
+  it("writes once the person confirmed it, naming to the write exactly the results it was asked about", async () => {
+    const { confirm } = await asked({ tore1: "3", tore2: "1" });
+
+    const answer = await saveSpiel({ ...saving({ tore1: "3", tore2: "1" }), confirm });
 
     expect(answer).toMatchObject({ ok: true, value: 4 });
-    expect(calls.map(({ endpoint }) => endpoint)).toStrictEqual([DRY_RUN, `/spiele/${SPIEL_ID}`]);
+    expect(calls.map(({ endpoint }) => endpoint)).toStrictEqual([DRY_RUN, DRY_RUN, `/spiele/${SPIEL_ID}`]);
+    // The write is the gate: it deletes these and refuses where its own transaction would delete others.
+    expect(state.sent).toMatchObject([{ voided_results: [VOIDED_31, VOIDED_33] }]);
   });
 
-  it("names under its question whom the save mails, by the editor's own names, and asks again where they change", async () => {
+  it("names to the write that it deletes nothing where it asked nothing", async () => {
+    state.dryRun = NOTHING_MOVED;
+
+    await saveSpiel(saving({ tore1: "3", tore2: "1" }));
+
+    expect(state.sent).toMatchObject([{ voided_results: [] }]);
+  });
+
+  it("names under its question whom the save mails, by the dry run's names in their order, and asks again where they change", async () => {
     state.dryRun = {
       ...(state.dryRun as FLPatchSpielDataResponse),
       recipients: [
-        { art: "team", team_id: "64b000000000000000000004" },
-        { art: "team", team_id: PICKED },
-        { art: "schiedsrichter", schiedsrichter_id: "64b000000000000000000006" },
+        { art: "schiedsrichter", schiedsrichter_id: "64b000000000000000000006", name: "Lena Brandt" },
+        { art: "team", team_id: PICKED, name: "Lessing-Gymnasium" },
+        { art: "team", team_id: "64b000000000000000000004", name: "Ernst-Reuter-Schule" },
       ],
     };
-    const mailed = "Ernst-Reuter-Schule, Lessing-Gymnasium und Lena Brandt";
+    const question = await asked({ team1: PICKED });
 
-    const answer = await saveSpiel(saving({ team1: PICKED }));
+    expect(question.facts).toEqual([
+      { label: COPY.admin.facts.mailTo, value: { record: "Ernst-Reuter-Schule, Lena Brandt und Lessing-Gymnasium" } },
+    ]);
 
-    expect(answer).toEqual({
-      ok: false,
-      ask: {
-        ...QUESTION,
-        facts: [{ label: COPY.admin.facts.mailTo, value: { record: mailed } }],
-        confirm: "31,33;Ernst-Reuter-Schule;Lessing-Gymnasium;Lena Brandt",
-      },
-    });
-    // A confirmation of the deletions alone covers no mail it was not shown.
-    expect(await saveSpiel({ ...saving({ team1: PICKED }), confirm: QUESTION.confirm })).toMatchObject({ ok: false });
+    // The same parties served in another order are the same question.
+    const served = state.dryRun as FLPatchSpielDataResponse;
+    state.dryRun = { ...served, recipients: (served.recipients ?? []).toReversed() };
+    expect(await saveSpiel({ ...saving({ team1: PICKED }), confirm: question.confirm })).toMatchObject({ ok: true });
+
+    // A confirmation covers no mail it was not shown.
+    state.sent = [];
+    state.dryRun = { ...served, recipients: [{ art: "team", team_id: PICKED, name: "Lessing-Gymnasium" }] };
+    expect(await saveSpiel({ ...saving({ team1: PICKED }), confirm: question.confirm })).toMatchObject({ ok: false, ask: {} });
     expect(state.sent).toEqual([]);
   });
 
-  it("asks again where the save would now delete other results than those confirmed", async () => {
-    const answer = await saveSpiel({ ...saving({ tore1: "3", tore2: "1" }), confirm: "33" });
+  it("asks again where the save would now delete other results than those confirmed, or another value of one", async () => {
+    const { confirm } = await asked({ tore1: "3", tore2: "1" });
+    const since = [
+      [VOIDED_33],
+      // Match 31's 2:0 corrected to 3:0 since the question: a confirmation given while 2:0 stood covers no other.
+      [{ ...VOIDED_31, voided_ergebnis: "3:0" }, VOIDED_33],
+    ];
 
-    expect(answer).toEqual({ ok: false, ask: QUESTION });
+    for (const voided_results of since) {
+      state.dryRun = { ...(state.dryRun as FLPatchSpielDataResponse), voided_results };
+      expect(await saveSpiel({ ...saving({ tore1: "3", tore2: "1" }), confirm })).toMatchObject({ ok: false, ask: {} });
+    }
     expect(state.sent).toEqual([]);
+  });
+
+  it("answers the write's refusal after a passing dry run, a result entered between the two, by what the write would delete", async () => {
+    const { confirm } = await asked({ tore1: "3", tore2: "1" });
+    state.writeRefusal = refusal("voided_results_stale");
+
+    const answer = await saveSpiel({ ...saving({ tore1: "3", tore2: "1" }), confirm });
+
+    expect(answer).toEqual({ ok: false, errorCode: "voided_results_stale", reason: SERVER_COPY.refusalLine.voided_results_stale });
   });
 });
