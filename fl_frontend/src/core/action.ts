@@ -59,7 +59,7 @@ type Field<T, Above extends string = ""> = T extends readonly unknown[]
 /** A seat a person's write claims: the team and the season it names, read off the input. */
 type SeatClaim = { readonly team_id: string; readonly saison_id: string };
 
-type Seat = Extract<Role, { art: "kontakt" }>;
+type Seat = Extract<Role, { kind: "kontakt" }>;
 
 /** What every lane declares: its name for the failure line, its input's schema, and how its refusals are placed. */
 type Declared<Schema extends z.ZodType> = {

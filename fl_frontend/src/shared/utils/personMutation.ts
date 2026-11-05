@@ -21,7 +21,7 @@ export type SeatClaim = { readonly team_id: string; readonly saison_id: string }
 /** What a guarded body runs for: the person the spine resolved, and every seat they hold at the claimed address. */
 export type PersonHeld = {
   readonly subject: SubjectSession;
-  readonly seats: readonly [Extract<Role, { art: "kontakt" }>, ...Extract<Role, { art: "kontakt" }>[]];
+  readonly seats: readonly [Extract<Role, { kind: "kontakt" }>, ...Extract<Role, { kind: "kontakt" }>[]];
 };
 
 /**

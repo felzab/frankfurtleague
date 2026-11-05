@@ -65,6 +65,16 @@ const VERB = {
   signOut: "Abmelden",
   setUp: "Einrichten",
   rename: "Umbenennen",
+  set: "Setzen",
+  enter: "Eintragen",
+  edit: "Bearbeiten",
+  swap: "Tauschen",
+  replace: "Ersetzen",
+  recreate: "Neu anlegen",
+  activate: "Umstellen",
+  /** A venue's and a referee's retiring, and its undoing, each the danger box's act. */
+  retire: "Stilllegen",
+  reactivate: "Reaktivieren",
 } as const;
 
 /** The closed set of button verbs: a button names its act with one of these. */
@@ -176,6 +186,8 @@ export const COPY = catalogue({
       search: (plural: Copy) => `Keine ${plural} für diese Suche.`,
       filter: (plural: Copy) => `Keine ${plural} für diese Filter.`,
       none: (plural: Copy) => `Noch keine ${plural}.`,
+      /** An Übersicht card holding no open work: nothing is waiting, where `none` would say something is still to come. */
+      nothingOpen: "Nichts offen.",
     },
 
     /** „Passkey löschen?“: a confirmation asks with the verb its button carries. */
@@ -190,6 +202,9 @@ export const COPY = catalogue({
       linkInvalid: "Dieser Link gilt nicht mehr.",
       toHome: "Zur Startseite",
       toAccount: "Zum Konto",
+      /** A signed-in frame's way home, its role's Übersicht. */
+      toOverview: "Zur Übersicht",
+      toSaisons: "Zu den Saisons",
     },
 
     /** The match pop-up's way to the match's own page. */
@@ -407,6 +422,8 @@ export const COPY = catalogue({
     closed: "Abgeschlossen",
     /** A save refused for its fields: the fields say what, the status line that some are off. */
     checkFields: "Einige Felder sind nicht richtig ausgefüllt.",
+    /** The mark beside an editor's part still waiting on a value or an answer. */
+    open: "Offen",
 
     /** A page a mail opened whose link no longer holds, above the catalogue's sentence for it. */
     linkInvalid: "Link nicht mehr gültig",

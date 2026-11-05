@@ -43,10 +43,13 @@ const card = tv({
 });
 
 /**
- * The card's words: a title where the frame carries none, and one sentence, which a titled card may leave out where
- * its title says all there is, as an error's does.
+ * The card's words: a title where the frame carries none, and one sentence, which a card may leave out where its
+ * title says all there is, as an error's does, in the card or in a rail frame's strip.
  */
-type CardWords = { title?: Copy; sentence: Copy } | { title: Copy; sentence?: undefined };
+type CardWords = { title?: Copy; sentence?: Copy };
+
+/** A rail frame's card, whose title the strip carries, so an error's holds no words but its way on. */
+type RailCard = Omit<StatusCardProps, "sentence"> & { sentence?: Copy };
 
 /**
  * The hairline card every end state shares: its mark, the title where the frame carries none, one sentence, one
@@ -76,7 +79,7 @@ export function StatusCard({ tone, sentence, next, title }: Omit<StatusCardProps
 }
 
 /** The card once the page's read has said which end it is, in the rail form's boundary. */
-async function CardOnceRead({ card }: { card: Promise<StatusCardProps> }) {
+async function CardOnceRead({ card }: { card: Promise<RailCard> }) {
   const { tone, sentence, next } = await card;
   return (
     <StatusCard
@@ -92,12 +95,13 @@ async function CardOnceRead({ card }: { card: Promise<StatusCardProps> }) {
  * finishes, plainly said, in the frame the address belongs to. In the classic frame the card carries the
  * page's title; in the rail frames the strip does, and the card none. The rail form's card is read with the
  * page, as `/saisons` learns that the league has no season yet where it does not send the reader on, so it
- * waits in a boundary of its own under the strip, drawn meanwhile as nothing.
+ * waits in a boundary of its own under the strip, drawn meanwhile as nothing; a card known before any read, as
+ * an error boundary's, which is a Client Component and awaits nothing, is drawn at once.
  */
 export function StatusPage(
   props:
     | (Omit<StatusCardProps, "sentence"> & { frame: "classic"; title: Copy; sentence?: Copy })
-    | ({ frame: "rail"; card: Promise<StatusCardProps> } & RailPageHead),
+    | ({ frame: "rail"; card: Promise<RailCard> | RailCard } & RailPageHead),
 ) {
   if (props.frame === "classic") {
     return (
@@ -116,9 +120,13 @@ export function StatusPage(
       scope={props.scope}
       title={props.title}
       chip={props.chip}>
-      <PageWait fallback={null}>
-        <CardOnceRead card={props.card} />
-      </PageWait>
+      {props.card instanceof Promise ? (
+        <PageWait fallback={null}>
+          <CardOnceRead card={props.card} />
+        </PageWait>
+      ) : (
+        <StatusCard {...props.card} />
+      )}
     </RailPage>
   );
 }

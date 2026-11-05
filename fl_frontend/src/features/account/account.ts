@@ -20,15 +20,15 @@ import type { MenuLink } from "@/kit/Menu";
 import type { Route } from "next";
 
 /** One place a person's Funktionen open on, as „Funktion wechseln“ lists it: a team by its name, the rest by their area. */
-function entryOf(target: FunktionZiel, current: Role["art"] | undefined): MenuLink {
+function entryOf(target: FunktionZiel, current: Role["kind"] | undefined): MenuLink {
   const [first] = target.funktionen;
   // An address built from the person's own records, which no literal can spell.
   const href = target.href as Route;
-  const isCurrent = first.art === current;
-  switch (first.art) {
+  const isCurrent = first.kind === current;
+  switch (first.kind) {
     case "kontakt": {
       // Every seat at one address shares its team and season, so the first names both.
-      const rollen = target.funktionen.flatMap((role) => (role.art === "kontakt" ? [role.rolle] : []));
+      const rollen = target.funktionen.flatMap((role) => (role.kind === "kontakt" ? [role.rolle] : []));
       return {
         href,
         isCurrent,
@@ -50,7 +50,7 @@ function entryOf(target: FunktionZiel, current: Role["art"] | undefined): MenuLi
  * place their Funktionen open on, the kind `current` names marked as this area's; `null` for no session, whose page
  * sends it on. Konto, no Funktion's, marks none.
  */
-export async function readAccount(role: Copy, current?: Role["art"]): Promise<Account | null> {
+export async function readAccount(role: Copy, current?: Role["kind"]): Promise<Account | null> {
   const subject = await getSubjectSession();
   if (subject === null) return null;
   return {
