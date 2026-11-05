@@ -195,8 +195,28 @@ function stripped(value: unknown): unknown {
   return value;
 }
 
-/** A posted form as an object, each box under its name; a box posted twice keeps its last value. */
-const posted = (raw: unknown): unknown => (raw instanceof FormData ? Object.fromEntries(raw) : raw);
+/** One property of an input's JSON Schema, as far as its list-ness shows. */
+type Property = { readonly type?: unknown; readonly anyOf?: readonly Property[] };
+
+const takesList = ({ type, anyOf }: Property): boolean => type === "array" || (anyOf?.some(takesList) ?? false);
+
+/**
+ * A posted form as an object, each box under its name, and a name the input takes as a list read with `getAll`: a
+ * group of boxes posts one entry per ticked box, so one ticked box is a list of one, which only the schema can tell
+ * from a single value. Read off the input's JSON Schema, the one public reading of a schema's shape, as Conform's and
+ * zod-form-data's coercions read it; a name posted nowhere stays absent, as a box group with none ticked posts nothing.
+ */
+function posted(raw: unknown, input: z.ZodType): unknown {
+  if (!(raw instanceof FormData)) return raw;
+  const form: Record<string, unknown> = Object.fromEntries(raw);
+  const { properties = {} } = z.toJSONSchema(input, { io: "input", unrepresentable: "any" }) as {
+    properties?: Readonly<Record<string, Property>>;
+  };
+  for (const [name, property] of Object.entries(properties)) {
+    if (takesList(property) && raw.has(name)) form[name] = raw.getAll(name);
+  }
+  return form;
+}
 
 /**
  * The box an issue belongs to: its path's names joined by dots, up to the first index, where a list's box holds every
@@ -222,7 +242,7 @@ function parsed<Schema extends z.ZodType>(
 ): { input: z.output<Schema> } | { answer: ActionAnswer<never> } {
   const examples: Readonly<Record<string, Copy | undefined>> = declared.examples ?? {};
   const fieldErrors: Record<string, Copy> = {};
-  const result = declared.input.safeParse(stripped(posted(raw)), {
+  const result = declared.input.safeParse(stripped(posted(raw, declared.input)), {
     error: (issue) => {
       const path = issue.path ?? [];
       const field = fieldOf(path);
