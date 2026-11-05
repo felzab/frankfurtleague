@@ -94,11 +94,6 @@
       "count": 4
     }
   },
-  "src/app/area/admin/action_required/page.tsx": {
-    "check-file/folder-naming-convention": {
-      "count": 1
-    }
-  },
   "src/app/area/admin/administratoren/loading.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 1
@@ -545,34 +540,12 @@
       "count": 2
     }
   },
-  "src/features/admin/components/views/AdminSpieleActionRequiredView.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 10
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 6
-    },
-    "no-restricted-syntax": {
-      "count": 16
-    },
-    "react/forbid-component-props": {
-      "count": 7
-    },
-    "react/jsx-no-literals": {
-      "count": 1
-    }
-  },
   "src/features/admin/constants.ts": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 17
     },
     "no-restricted-syntax": {
       "count": 36
-    }
-  },
-  "src/features/admin/utils.ts": {
-    "no-restricted-syntax": {
-      "count": 13
     }
   },
   "src/features/aktionen/components/collections/AdminAktionenTable.tsx": {
@@ -4724,7 +4697,7 @@
   },
   "src/shared/components/ui/formFieldStyles.ts": {
     "better-tailwindcss/no-restricted-classes": {
-      "count": 14
+      "count": 7
     }
   },
   "src/shared/components/ui/formPanel.ts": {
