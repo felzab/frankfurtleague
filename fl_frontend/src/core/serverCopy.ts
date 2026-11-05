@@ -184,6 +184,19 @@ export const SERVER_COPY = catalogue({
       /** The address on file's request opens on the page's question; the subject is the page's title. */
       previousEffect: "Sie gilt, sobald beide Adressen sie bestätigt haben.",
     },
+
+    /**
+     * A team's registration link, to a confirmed contact seat: the link stands alone in the box, to be passed on
+     * rather than pressed. It names no end date, since a window moved later moves every link with it.
+     */
+    einladung: {
+      subject: (team: string) => `Registrierungslink für ${team}`,
+      passOn: (saison: string, team: string) =>
+        `Gib diesen Link an alle weiter, die in der ${COPY.shared.saisonName(saison)} für ${team} spielen.`,
+      key: "Wer den Link hat, kann sich für dein Team registrieren.",
+      admission: "In den Kader kommt nur, wen dein Team aufnimmt.",
+      valid: "Der Link gilt bis zum Ende der Registrierung.",
+    },
   },
 
   /**
