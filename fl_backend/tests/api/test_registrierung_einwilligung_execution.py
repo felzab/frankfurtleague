@@ -150,7 +150,7 @@ def on_a_league(
     return on_the_seed_loop(_run())
 
 
-async def view(database: AsyncDatabase, token: str, *, spieler_collection: Any = None, registrierungen_collection: Any = None) -> Any:
+async def read_view(database: AsyncDatabase, token: str, *, spieler_collection: Any = None, registrierungen_collection: Any = None) -> Any:
     return await get_confirmation_view(
         view_data=FLTokenPayload(token=token),
         registrierungen_collection=database[Collection.REGISTRIERUNGEN] if registrierungen_collection is None else registrierungen_collection,
@@ -198,7 +198,7 @@ class TestWhatALinkOpens:
     def test_the_link_carries_no_other_teams_name_and_nothing_else_of_the_registration(self, mongo_replica_set_url: str):
         """A leaked link learns what the mail it arrived in already said, and never a name, the address, the number or the Stufe."""
 
-        rendered = on_a_league(mongo_replica_set_url, lambda database, _: view(database, RAW)).model_dump_json()
+        rendered = on_a_league(mongo_replica_set_url, lambda database, _: read_view(database, RAW)).model_dump_json()
 
         registration = registrierung_document()
         assert OTHER_TEAM_NAME not in rendered and OTHER_SCHOOL not in rendered
@@ -207,7 +207,7 @@ class TestWhatALinkOpens:
         assert registration["position"] not in rendered and registration["stufe"] not in rendered
 
     def test_a_first_timer_is_asked_for_a_date(self, mongo_replica_set_url: str):
-        response = on_a_league(mongo_replica_set_url, lambda database, _: view(database, RAW))
+        response = on_a_league(mongo_replica_set_url, lambda database, _: read_view(database, RAW))
 
         assert response.seite == SEITE_NEU
 
@@ -219,7 +219,7 @@ class TestWhatALinkOpens:
     def test_a_returning_pupil_is_told_a_date_is_stored_and_shown_none_of_it(self, mongo_replica_set_url: str, person: dict[str, Any]):
         """A returning pupil's page asks neither a choice nor the stored birthdate, and the link serves none of the three."""
 
-        response = on_a_league(mongo_replica_set_url, lambda database, _: view(database, RAW), spieler=[person])
+        response = on_a_league(mongo_replica_set_url, lambda database, _: read_view(database, RAW), spieler=[person])
 
         assert response.seite == SEITE_WIEDERKEHREND
         assert A_RETURNING_PUPILS_BIRTHDATE not in response.model_dump_json()
@@ -229,7 +229,7 @@ class TestWhatALinkOpens:
 
         unconfirmed = spieler_document(SPIELER_OID, einwilligung=None)
 
-        response = on_a_league(mongo_replica_set_url, lambda database, _: view(database, RAW), spieler=[unconfirmed])
+        response = on_a_league(mongo_replica_set_url, lambda database, _: read_view(database, RAW), spieler=[unconfirmed])
 
         assert response.seite == SEITE_NEU
 
@@ -243,14 +243,14 @@ class TestWhatALinkOpens:
         sibling = registrierung_document(vorname="Bramblewick")
         held = [spieler_document(SPIELER_OID)]
 
-        response = on_a_league(mongo_replica_set_url, lambda database, _: view(database, RAW), registrierungen=[sibling], spieler=held)
+        response = on_a_league(mongo_replica_set_url, lambda database, _: read_view(database, RAW), registrierungen=[sibling], spieler=held)
 
         assert response.seite == SEITE_NEU
 
     def test_a_token_no_registration_holds_is_refused(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> str:
             with pytest.raises(APIError) as conflict:
-                await view(database, "a-stranger's-guess")
+                await read_view(database, "a-stranger's-guess")
 
             return conflict.value.error_code
 
@@ -412,7 +412,7 @@ class TestTheLinkIsSpentByTheStamp:
             with pytest.raises(APIError) as conflict:
                 await answer(database, client, RAW, umfang="intern", media=False)
 
-            return conflict.value.error_code, await stored(database), await view(database, RAW)
+            return conflict.value.error_code, await stored(database), await read_view(database, RAW)
 
         code, document, view = on_a_league(mongo_replica_set_url, body)
 
@@ -427,7 +427,7 @@ class TestTheLinkIsSpentByTheStamp:
             with pytest.raises(APIError) as conflict:
                 await answer(database, client, RAW, geburtsdatum=A_DAY_SHORT)
 
-            return conflict.value.error_code, await view(database, RAW), await stored(database), await log_rows(database)
+            return conflict.value.error_code, await read_view(database, RAW), await stored(database), await log_rows(database)
 
         code, view, document, rows = on_a_league(mongo_replica_set_url, body)
 

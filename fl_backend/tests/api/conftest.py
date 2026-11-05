@@ -27,23 +27,23 @@ TEAM_OIDS = {
     # The hand-edited shape — `ergebnis` set while `tore` is null — and the only team out of the season.
     "Lessing": ObjectId("6890a1b2c3d4e5f607190003"),
     # The zeroed fallback: a junction row, no counting match, and an absage from a called-off fixture and an annulled one both.
-    "Without": ObjectId("6890a1b2c3d4e5f607190004"),
+    "Ohne": ObjectId("6890a1b2c3d4e5f607190004"),
     # The strict join: no junction row, so it drops entirely though it plays a match.
-    "Foreign": ObjectId("6890a1b2c3d4e5f607190005"),
+    "Fremd": ObjectId("6890a1b2c3d4e5f607190005"),
     # The abandonment, which counts as played and never as an absage, so the two figures part company here.
-    "Complete": ObjectId("6890a1b2c3d4e5f607190006"),
+    "Komplett": ObjectId("6890a1b2c3d4e5f607190006"),
 }
 
 # The spelling a season row and a fixture side both copy in at entry. Helmholtz's differs from its
-# club document's, which is what proves the copy; Foreign, holding no season row, is written to match
+# club document's, which is what proves the copy; Fremd, holding no season row, is written to match
 # its club document instead.
 SAISON_SHORTHANDS = {
     "Helmholtz": "HEX",
     "Bock": "BOX",
     "Lessing": "LEX",
-    "Without": "OHX",
-    "Foreign": "FRX",
-    "Complete": "KOX",
+    "Ohne": "OHX",
+    "Fremd": "FRX",
+    "Komplett": "KOX",
 }
 
 # A dict rather than a model: Pydantic could not express a row its record model rejects.
@@ -180,9 +180,9 @@ TEAMS = [
     _team("Helmholtz", "HGX", name="Helmholtz-Gymnasium"),
     _team("Bock", "BOX"),
     _team("Lessing", "LEX"),
-    _team("Without", "OHX"),
-    _team("Foreign", "FRX"),
-    _team("Complete", "KOX"),
+    _team("Ohne", "OHX"),
+    _team("Fremd", "FRX"),
+    _team("Komplett", "KOX"),
 ]
 
 SAISON_TEAMS = [
@@ -202,9 +202,9 @@ SAISON_TEAMS = [
     ),
     _junction("Bock", "A"),
     _junction("Lessing", "A", austritt=dict(AUSTRITT)),
-    _junction("Without", "B"),
-    _junction("Complete", "B"),
-    # No row for Foreign, and none for Helmholtz in 2025 — both are asserted on.
+    _junction("Ohne", "B"),
+    _junction("Komplett", "B"),
+    # No row for Fremd, and none for Helmholtz in 2025 — both are asserted on.
 ]
 
 SPIELE = [
@@ -218,21 +218,21 @@ SPIELE = [
     # The playoff match, and the whole difference between the two scopes.
     _spiel(6, "viertelfinale", "Helmholtz", "Bock", 5, 0, ergebnis="5:0"),
     # An `ergebnis` with no goal counts behind it -- excluded, or it would group as a 0:0 draw.
-    _spiel(7, "gruppenphase", "Lessing", "Without", None, None, ergebnis="3:0"),
+    _spiel(7, "gruppenphase", "Lessing", "Ohne", None, None, ergebnis="3:0"),
     # Last season: both sides hold 2026 junction rows a 2025 fixture must not pick up.
     _spiel(8, "gruppenphase", "Helmholtz", "Lessing", 7, 0, ergebnis="7:0", saison_id=PRIOR_SAISON),
     # An unfilled bracket slot carrying no result, so the spiele join is proved against a null side.
     _spiel(9, "viertelfinale", None, "Bock", None, None, ergebnis=None),
     # Called off and never played: one row proves the count on both sides of the `$group`/fallback split.
-    _spiel(10, "gruppenphase", "Helmholtz", "Without", None, None, ergebnis=None, sonderereignis="ausgefallen"),
+    _spiel(10, "gruppenphase", "Helmholtz", "Ohne", None, None, ergebnis=None, sonderereignis="ausgefallen"),
     # The same, one phase later, so the absage count can be shown to obey the scope.
     _spiel(11, "halbfinale", "Helmholtz", "Bock", None, None, ergebnis=None, sonderereignis="ausgefallen"),
-    # Its opponent holds no junction row, so Complete gains a counting match without moving anyone else.
-    _spiel(12, "gruppenphase", "Complete", "Foreign", 2, 0, ergebnis="2:0"),
-    # Struck from the record, so Without stays on zero played and takes a second absage beside its Spiel 10.
-    _spiel(13, "gruppenphase", "Without", "Foreign", None, None, ergebnis=None, sonderereignis="annulliert"),
-    # Abandoned with the score that stood: Complete's second counting match, and still no absage.
-    _spiel(14, "gruppenphase", "Complete", "Foreign", 4, 1, ergebnis="4:1", sonderereignis="abgebrochen"),
+    # Its opponent holds no junction row, so Komplett gains a counting match without moving anyone else.
+    _spiel(12, "gruppenphase", "Komplett", "Fremd", 2, 0, ergebnis="2:0"),
+    # Struck from the record, so Ohne stays on zero played and takes a second absage beside its Spiel 10.
+    _spiel(13, "gruppenphase", "Ohne", "Fremd", None, None, ergebnis=None, sonderereignis="annulliert"),
+    # Abandoned with the score that stood: Komplett's second counting match, and still no absage.
+    _spiel(14, "gruppenphase", "Komplett", "Fremd", 4, 1, ergebnis="4:1", sonderereignis="abgebrochen"),
 ]
 
 
