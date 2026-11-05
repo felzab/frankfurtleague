@@ -83,33 +83,6 @@ export function CardLink({ href, title, line }: { href: Route; title: Copy; line
   );
 }
 
-/**
- * One record in a card's rows: its name with its chip on one line, a fact at the right, the whole row a link
- * through its name, the chevron at its end saying so. A name too long for the line is cut with „…“ so the
- * chip keeps its place beside it; the full name stays the link's accessible name and shows as its title.
- * @awaitsProduction the Übersicht's cards
- */
-export function CardRow({ href, name, chip, detail }: { href: Route; name: Words; chip?: ChipProps; detail?: Words }) {
-  return (
-    <div className={card().row()}>
-      <span className="flex min-w-0 flex-1 items-center gap-2">
-        <span
-          title={textOf(name)}
-          className="min-w-0 truncate">
-          <Link
-            href={href}
-            placement="row"
-            label={name}
-          />
-        </span>
-        {chip !== undefined && <Chip {...chip} />}
-      </span>
-      {detail !== undefined && <span className="flex shrink-0 items-center font-numeric text-fg-muted">{textOf(detail)}</span>}
-      <RowEnd />
-    </div>
-  );
-}
-
 const actRow = tv({
   slots: {
     root: `relative grid min-h-14 gap-x-3 gap-y-2 ${stacked()} px-4 py-3 text-sm lg:min-h-13 ${cardHover()}`,
@@ -129,28 +102,24 @@ const actRow = tv({
   },
 });
 
-/**
- * One record in a card's rows whose open work is done where it shows: its name with its chip, one line saying
- * what is open, and its acts, one or two kit buttons, under the words on a phone and at the row's end from
- * `lg`, so the name keeps the phone's whole width. The whole row opens the record through its name, as every
- * card row does; a row with no act ends in the chevron instead.
- * @awaitsPage the Übersicht's cards
- * @awaitsProduction the Übersicht's cards
- */
-export function CardActRow({
-  href,
-  name,
-  chip,
-  line,
-  acts,
-}: {
+/** One record in a card's rows: where it opens, its name with its chip, its one line, and its acts. */
+export type CardActRowProps = {
   href: Route;
   name: Words;
   chip?: ChipProps;
   line: Words;
   /** The row's acts, such as „Übernehmen“ and „Verwerfen“; none where the open work is done in the record. */
   acts?: ReactElement;
-}) {
+};
+
+/**
+ * One record in a card's rows whose open work is done where it shows: its name with its chip, one line saying
+ * what is open, and its acts, one or two kit buttons, under the words on a phone and at the row's end from
+ * `lg`, so the name keeps the phone's whole width. The whole row opens the record through its name, as every
+ * card row does; a row with no act ends in the chevron instead. A name too long for its line is cut with „…“, so
+ * the chip keeps its place beside it; the full name stays the link's accessible name and shows as its title.
+ */
+export function CardActRow({ href, name, chip, line, acts }: CardActRowProps) {
   const s = actRow({ acts: acts !== undefined });
   return (
     <div className={s.root()}>

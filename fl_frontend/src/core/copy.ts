@@ -614,6 +614,17 @@ export const COPY = catalogue({
       accessAndPrivacy: "Zugang und Datenschutz",
     },
 
+    /** The Übersicht's acts done in a dialog from a card's row: the objects they name, and the Zusage's inputs. */
+    overview: {
+      termin: "Termin",
+      zusage: "Zusage",
+      vorschlag: "Vorschlag",
+      /** Which of the row's open parties agreed: one segment each. */
+      zusageFrom: "Zusage von",
+      /** How the party's agreement reached the league, which the confirmation stores. */
+      reason: "Begründung",
+    },
+
     spielort: {
       /** The object of „Spielort anlegen“. */
       object: "Spielort",

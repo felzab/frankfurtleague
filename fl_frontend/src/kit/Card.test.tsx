@@ -11,7 +11,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { COPY } from "@/core/copy";
 
 import { buttonLook } from "./buttonStyles";
-import { Card, CardLink, CardRow } from "./Card";
+import { Card, CardActRow, CardLink } from "./Card";
 import { CardFold } from "./CardFold";
 import { LinkRows } from "./LinkRows";
 import { Table } from "./Table";
@@ -76,43 +76,6 @@ describe("a card", () => {
     );
     expect(screen.getByRole("heading", { name: COPY.shared.saison })).toBeTruthy();
     expect(screen.getByText("3")).toBeTruthy();
-  });
-
-  it("holds its records as rows, each one link through its name with its chip after the name", () => {
-    render(
-      <Card title={COPY.shared.saison}>
-        <CardRow
-          href="/saisons/2027"
-          name={{ record: "Helmholtzschule" }}
-          chip={{ tone: "warn", label: COPY.shared.startelf }}
-        />
-      </Card>,
-    );
-    const link = screen.getByRole("link", { name: "Helmholtzschule" });
-    expect(link.getAttribute("href")).toBe("/saisons/2027");
-    // The name and its chip share one line, the chip after the name.
-    const line = link.parentElement?.parentElement;
-    expect(line?.lastElementChild?.textContent).toBe(COPY.shared.startelf);
-    // The row ends in the chevron that says it leads on.
-    expect(line?.parentElement?.lastElementChild?.querySelector("svg")).not.toBe(null);
-  });
-
-  it("keeps a long name on the chip's line, cut with its full text as its title", () => {
-    const name = "Carlo-Mierendorff-Schule Frankfurt-Preungesheim";
-    render(
-      <Card title={COPY.shared.saison}>
-        <CardRow
-          href="/saisons/2027"
-          name={{ record: name }}
-          chip={{ tone: "warn", label: COPY.shared.startelf }}
-        />
-      </Card>,
-    );
-    // jsdom draws no layout, so the cut is read from its classes: the name truncates, its line never wraps.
-    const cut = screen.getByRole("link", { name }).parentElement;
-    expect(cut?.classList.contains("truncate")).toBe(true);
-    expect(cut?.getAttribute("title")).toBe(name);
-    expect(cut?.parentElement?.classList.contains("flex-wrap")).toBe(false);
   });
 
   it("lets a table in its body shrink to the card, folded or not, rather than be cut at its edge", () => {
@@ -189,9 +152,10 @@ describe("a fill under the pointer on a card", () => {
     render(
       <>
         <Card title={COPY.shared.saison}>
-          <CardRow
+          <CardActRow
             href="/saisons/2027"
             name={{ record: "Helmholtzschule" }}
+            line={{ record: "Ergebnis fehlt" }}
           />
         </Card>
         <CardLink

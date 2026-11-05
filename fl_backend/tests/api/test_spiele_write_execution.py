@@ -11,10 +11,9 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
-from app.api.saisons.overview import FLOverviewBracketFaultRow
-from app.api.saisons.overview_router import get_saison_overview
+from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.admin_router import patch_spiel
-from app.api.spiele.crud import apply_release_to_spiel, pull_saison_membership
+from app.api.spiele.crud import apply_release_to_spiel, bracket_faults_of, pull_saison_membership
 from app.api.spiele.schemas import (
     SONDEREREIGNIS_NO_SHOW,
     FLBracketFault,
@@ -24,13 +23,16 @@ from app.api.spiele.schemas import (
     FLPatchSpielDataResponse,
     FLSpiel,
     FLSpielElfmeterschiessen,
+    FLSpielJoinedInternalListAdapter,
     FLSpielListAdapter,
 )
 from app.api.spiele.services import (
+    build_spiele_pipeline,
     judge_spieltag_occupancy,
 )
 from app.core.codes import Code
 from app.core.collections import Collection
+from app.core.crud import aggregate_many_from_db
 from app.core.exceptions import APIError
 from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SCHIEDSRICHTER_ID
 from tests import documents
@@ -1154,9 +1156,6 @@ class TestAResultThatReordersItsGroupIsPreviewedAsItIsSaved:
 # the result the semi-final was played to.
 OVERTURNED = {"team1": side(ALPHA, 3), "team2": side(BETA, 1)}
 
-# Any day: the queue's date arm is not what these cases read.
-TODAY = "2026-09-14"
-
 
 def a_played_semi_final_booked(**booked: Any) -> list[dict[str, Any]]:
     """`bracket_season`, its semi-final played under the booking `booked` names -- which no retirement and no erasure is refused over."""
@@ -1167,19 +1166,27 @@ def a_played_semi_final_booked(**booked: Any) -> list[dict[str, Any]]:
 
 
 async def faults_now(database: AsyncDatabase) -> list[FLBracketFault]:
-    """The Übersicht's faults for the seeded season, read as the page reads them."""
+    """Every fault of the seeded season, walked as the Übersicht's read walks it, over the fixtures as it joins them.
 
-    response = await get_saison_overview(
+    The walk itself and not the Übersicht's cards, which show a fixture once, for its first open kind: these fixtures
+    hold no slot, so a fault of theirs stands behind „Termin fehlt“ there.
+    """
+
+    spiele = FLSpielJoinedInternalListAdapter.validate_python(
+        await aggregate_many_from_db(collection=database[Collection.SPIELE], pipeline=build_spiele_pipeline(db_filter={"saison_id": SAISON_ID}))
+    )
+    saison = await database[Collection.SAISONS].find_one({"_id": SAISON_ID})
+    assert saison is not None
+
+    return await bracket_faults_of(
+        spiele=spiele,
+        rules=FLSaisonRules.model_validate(saison["rules"]),
         saison_id=SAISON_ID,
-        saisons_collection=database[Collection.SAISONS],
         spiele_collection=database[Collection.SPIELE],
         teams_collection=database[Collection.TEAMS],
         spielorte_collection=database[Collection.SPIELORTE],
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-        today=TODAY,
     )
-
-    return [row.fault for card in response.cards for row in card.rows if isinstance(row, FLOverviewBracketFaultRow)]
 
 
 def booking_faults(faults: list[FLBracketFault]) -> list[tuple[int, str, str]]:

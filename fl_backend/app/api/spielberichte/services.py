@@ -1,7 +1,7 @@
 from collections.abc import Iterable, Mapping, Sequence
 from datetime import datetime
 from http import HTTPStatus
-from typing import Any, Final, NamedTuple
+from typing import Any, Final, Literal, NamedTuple, TypeIs, get_args
 
 from bson import ObjectId
 
@@ -354,9 +354,17 @@ def vorschlag_entspricht(vorschlag: FLSpielberichtVorschlag, spiel_raw: Mapping[
     return (None if saved is None else FLSpielElfmeterschiessen.model_validate(saved)) == vorschlag.elfmeterschiessen
 
 
-# The states awaiting the administrator, which the triage lists: an adopted report awaits nothing, and one on a match
+# The states awaiting the administrator, which the Übersicht lists: an adopted report awaits nothing, and one on a match
 # that took no place awaits nothing anyone can do.
-BERICHT_ZUSTAENDE_OFFEN: Final[frozenset[FLSpielberichtState]] = frozenset({"vorgeschlagen", "differing", "teams_changed"})
+type FLSpielberichtOpenState = Literal["vorgeschlagen", "differing", "teams_changed"]
+
+BERICHT_ZUSTAENDE_OFFEN: Final[frozenset[FLSpielberichtOpenState]] = frozenset(get_args(FLSpielberichtOpenState.__value__))
+
+
+def is_offen(state: FLSpielberichtState) -> TypeIs[FLSpielberichtOpenState]:
+    """Whether a report in `state` awaits the administrator."""
+
+    return state in BERICHT_ZUSTAENDE_OFFEN
 
 
 def bericht_zustand_of(bericht: FLSpielberichtBericht, spiel_raw: Mapping[str, Any]) -> FLSpielberichtState:
