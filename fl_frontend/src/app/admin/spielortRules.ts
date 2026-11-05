@@ -9,28 +9,28 @@ import {
 } from "@/core/generated/zod/inputs";
 
 /** The fields of a new venue, by the names its form posts. */
-export type SpielortFeld = "name" | "strasse" | "hausnummer" | "plz" | "stadtteil" | "stadt" | "mietpreis";
+export type SpielortField = "name" | "strasse" | "hausnummer" | "plz" | "stadtteil" | "stadt" | "mietpreis";
 
 /** What the create's write asks of each field, read on the server so its schema never reaches the browser. */
-export type SpielortRegeln = { pflicht: Readonly<Record<SpielortFeld, boolean>>; hoechstens: Readonly<Partial<Record<SpielortFeld, number>>> };
+export type SpielortRules = { required: Readonly<Record<SpielortField, boolean>>; maxLength: Readonly<Partial<Record<SpielortField, number>>> };
 
 const { shape } = SpielortePostSpielortBody;
-const adresse = shape.address.shape;
+const address = shape.address.shape;
 
 /** A field is required where the write refuses it empty: an untouched text box posts "", an untouched figure nothing. */
-const pflicht = (feld: { safeParse: (value: unknown) => { success: boolean } }, empty: "" | null) => !feld.safeParse(empty).success;
+const required = (field: { safeParse: (value: unknown) => { success: boolean } }, empty: "" | null) => !field.safeParse(empty).success;
 
-export const SPIELORT_REGELN: SpielortRegeln = {
-  pflicht: {
-    name: pflicht(shape.name, ""),
-    strasse: pflicht(adresse.strasse, ""),
-    hausnummer: pflicht(adresse.hausnummer, ""),
-    plz: pflicht(adresse.plz, ""),
-    stadtteil: pflicht(adresse.stadtteil, ""),
-    stadt: pflicht(adresse.stadt, ""),
-    mietpreis: pflicht(shape.default_mietpreis, null),
+export const SPIELORT_RULES: SpielortRules = {
+  required: {
+    name: required(shape.name, ""),
+    strasse: required(address.strasse, ""),
+    hausnummer: required(address.hausnummer, ""),
+    plz: required(address.plz, ""),
+    stadtteil: required(address.stadtteil, ""),
+    stadt: required(address.stadt, ""),
+    mietpreis: required(shape.default_mietpreis, null),
   },
-  hoechstens: {
+  maxLength: {
     strasse: spielortePostSpielortBodyAddressStrasseMax,
     hausnummer: spielortePostSpielortBodyAddressHausnummerMax,
     stadtteil: spielortePostSpielortBodyAddressStadtteilMax,

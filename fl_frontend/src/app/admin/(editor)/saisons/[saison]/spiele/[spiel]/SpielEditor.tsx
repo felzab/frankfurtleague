@@ -20,7 +20,7 @@ import { useEditor } from "@/kit/useEditor";
 import { COPY } from "@/core/copy";
 import { admitsShootOut } from "@/features/spiele/shootOut";
 
-import { SpielortFelder } from "../../../../../SpielortFelder";
+import { SpielortFields } from "../../../../../SpielortFields";
 import { isNoShow, NO_SONDEREREIGNIS, takesNoResult } from "./spielValues";
 
 import type { ActionAnswer } from "@/core/action";
@@ -31,7 +31,7 @@ import type { Option } from "@/kit/OptionList";
 import type { PageTitle } from "@/kit/RailFrame";
 import type { TableRow } from "@/kit/Table";
 import type { EditorRecord, EditorSave } from "@/kit/useEditor";
-import type { SpielortRegeln } from "../../../../../spielortRegeln";
+import type { SpielortRules } from "../../../../../spielortRules";
 import type { SpielValues } from "./spielValues";
 
 const WORDS = COPY.admin.spiel;
@@ -121,8 +121,8 @@ export function SpielEditor({
   report,
   adoption,
   answers,
-  spielortAnlegen,
-  spielortRegeln,
+  createSpielort,
+  spielortRules,
   closed,
 }: {
   title: PageTitle;
@@ -148,8 +148,8 @@ export function SpielEditor({
   adoption: Adoption | null;
   /** Each party's answer about the match as it stands. */
   answers: readonly TableRow[];
-  spielortAnlegen: (formData: FormData) => Promise<ActionAnswer>;
-  spielortRegeln: SpielortRegeln;
+  createSpielort: (formData: FormData) => Promise<ActionAnswer>;
+  spielortRules: SpielortRules;
   /** Why the match is closed read-only: its season has finished, and the write refuses every change to it. */
   closed?: Copy;
 }) {
@@ -329,10 +329,10 @@ export function SpielEditor({
               <Dialog
                 title={COPY.shared.withObject(ORT.object, "create")}
                 act={{ verb: "create", object: ORT.object }}
-                action={spielortAnlegen}
+                action={createSpielort}
                 open={{ isOpen: creating, onOpenChange: setCreating }}>
-                <SpielortFelder
-                  regeln={spielortRegeln}
+                <SpielortFields
+                  rules={spielortRules}
                   name={newName}
                 />
               </Dialog>

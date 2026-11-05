@@ -11,7 +11,7 @@ import type { ActionAnswer } from "@/core/action";
 import type { DangerAct } from "@/kit/EditorPage";
 import type { PageTitle } from "@/kit/RailFrame";
 import type { EditorRecord, EditorSave } from "@/kit/useEditor";
-import type { SpielortRegeln } from "../../../spielortRegeln";
+import type { SpielortRules } from "../../../spielortRules";
 import type { SpielortValues } from "./spielortValues";
 
 const WORDS = COPY.admin.spielort;
@@ -36,14 +36,14 @@ export function SpielortEditor({
   record: EditorRecord<SpielortValues>;
   save: (change: EditorSave<SpielortValues>) => Promise<ActionAnswer<number>>;
   /** What the write asks of each field, read on the server. */
-  rules: SpielortRegeln;
+  rules: SpielortRules;
   retired: boolean;
   retire: Act;
   reactivate: Act;
 }) {
   const editor = useEditor(record, save);
   const { draft, set } = editor;
-  const { pflicht: required, hoechstens: max } = rules;
+  const { required, maxLength: max } = rules;
 
   const danger: DangerAct = retired
     ? {

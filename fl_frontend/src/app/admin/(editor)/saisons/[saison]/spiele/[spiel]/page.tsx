@@ -14,8 +14,8 @@ import { getAdminSpiel } from "@/features/spiele/queries";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { resolveObjectIdParam } from "@/shared/utils/routeParams";
 
-import { spielortAnlegen } from "../../../../../spielortAnlegen";
-import { SPIELORT_REGELN } from "../../../../../spielortRegeln";
+import { createSpielort } from "../../../../../createSpielort";
+import { SPIELORT_RULES } from "../../../../../spielortRules";
 import { previewSpiel, saveSpiel } from "./saveSpiel";
 import { SpielEditor } from "./SpielEditor";
 import { NO_SONDEREREIGNIS, valuesOf } from "./spielValues";
@@ -248,7 +248,10 @@ async function readEditor(params: Props["params"]) {
       save={saveSpiel}
       preview={previewSpiel}
       phase={saved.saison_phase}
-      sides={{ team1: saved.team1 === null ? null : { record: saved.team1.name }, team2: saved.team2 === null ? null : { record: saved.team2.name } }}
+      sides={{
+        team1: saved.team1 === null ? null : { record: saved.team1.name },
+        team2: saved.team2 === null ? null : { record: saved.team2.name },
+      }}
       quellen={{ team1: quelleWords(saved.team1_quelle)?.long ?? null, team2: quelleWords(saved.team2_quelle)?.long ?? null }}
       clubs={clubsOf(view)}
       spielorte={view.spielorte.map((spielort) => ({
@@ -276,8 +279,8 @@ async function readEditor(params: Props["params"]) {
       report={view.spielbericht === null ? [] : berichtRows(saved, view.spielbericht)}
       adoption={adoptionOf(saved, view.spielbericht)}
       answers={answerRows(view)}
-      spielortAnlegen={spielortAnlegen}
-      spielortRegeln={SPIELORT_REGELN}
+      createSpielort={createSpielort}
+      spielortRules={SPIELORT_RULES}
       {...(closed ? { closed: SERVER_COPY.refusalLine.saison_past } : {})}
     />
   );

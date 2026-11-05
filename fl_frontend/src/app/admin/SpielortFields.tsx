@@ -4,26 +4,26 @@ import { TextField } from "@/kit/TextField";
 
 import { COPY } from "@/core/copy";
 
-import type { SpielortRegeln } from "./spielortRegeln";
+import type { SpielortRules } from "./spielortRules";
 
 const WORDS = COPY.admin.spielort;
 
 /**
  * A new venue's inputs, in the create dialog over the venue list and over the match editor alike: its name,
  * then its address under „Adresse“ and its price under „Konditionen“, each a group of the dialog. Each posts
- * under its own name, which `spielortAnlegen` reads. The street and its number, and the postcode and its
+ * under its own name, which `createSpielort` reads. The street and its number, and the postcode and its
  * town, each form one line of the address and share a row at every width, the postcode before its town as a
  * German address writes it.
  */
-export function SpielortFelder({
-  regeln,
+export function SpielortFields({
+  rules,
   name,
 }: {
-  regeln: SpielortRegeln;
+  rules: SpielortRules;
   /** The name typed into the match editor's venue field before its create entry was chosen. */
   name?: string;
 }) {
-  const { pflicht, hoechstens } = regeln;
+  const { required, maxLength } = rules;
   return (
     <>
       <TextField
@@ -32,7 +32,7 @@ export function SpielortFelder({
         width="W3"
         kind="text"
         defaultValue={name}
-        isRequired={pflicht.name}
+        isRequired={required.name}
       />
       <FieldGroup name={WORDS.address}>
         <FieldPair
@@ -43,16 +43,16 @@ export function SpielortFelder({
             name="strasse"
             width="W3"
             kind="text"
-            isRequired={pflicht.strasse}
-            maxLength={hoechstens.strasse}
+            isRequired={required.strasse}
+            maxLength={maxLength.strasse}
           />
           <TextField
             label={WORDS.hausnummer}
             name="hausnummer"
             width="C5"
             kind="text"
-            isRequired={pflicht.hausnummer}
-            maxLength={hoechstens.hausnummer}
+            isRequired={required.hausnummer}
+            maxLength={maxLength.hausnummer}
           />
         </FieldPair>
         <TextField
@@ -60,8 +60,8 @@ export function SpielortFelder({
           name="stadtteil"
           width="W3"
           kind="text"
-          isRequired={pflicht.stadtteil}
-          maxLength={hoechstens.stadtteil}
+          isRequired={required.stadtteil}
+          maxLength={maxLength.stadtteil}
         />
         <FieldPair
           short="first"
@@ -71,7 +71,7 @@ export function SpielortFelder({
             name="plz"
             width="C5"
             kind="digits"
-            isRequired={pflicht.plz}
+            isRequired={required.plz}
             // The write's postcode is five digits, a rule the field holds itself before the send as well.
             maxLength={5}
             minLength={5}
@@ -82,8 +82,8 @@ export function SpielortFelder({
             width="W3"
             kind="text"
             defaultValue={WORDS.stadtDefault}
-            isRequired={pflicht.stadt}
-            maxLength={hoechstens.stadt}
+            isRequired={required.stadt}
+            maxLength={maxLength.stadt}
           />
         </FieldPair>
       </FieldGroup>
@@ -94,7 +94,7 @@ export function SpielortFelder({
           width="C5"
           kind="digits"
           unit={COPY.shared.unit.euro}
-          isRequired={pflicht.mietpreis}
+          isRequired={required.mietpreis}
         />
       </FieldGroup>
     </>
