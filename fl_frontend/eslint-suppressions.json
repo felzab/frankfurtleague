@@ -391,11 +391,6 @@
       "count": 1
     }
   },
-  "src/core/spielEmail.ts": {
-    "no-restricted-syntax": {
-      "count": 3
-    }
-  },
   "src/core/teamVocabulary.ts": {
     "no-restricted-syntax": {
       "count": 24
