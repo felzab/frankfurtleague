@@ -22,7 +22,6 @@
   "ignoreFiles": [
     // Session 5.
     "src/kit/Switch.tsx",
-    "src/kit/CardGrid.tsx",
     "src/kit/ScorePair.tsx",
     "src/kit/AdoptLine.tsx",
     "src/kit/SpieltagHead.tsx"

@@ -3,22 +3,28 @@ import { COPY } from "@/core/copy";
 import { card, cardSurface, stacked } from "./cardStyles";
 import { tv } from "./tv";
 
+import type { ReactNode } from "react";
+
 /**
  * The final boxes a template waits for: a table's rows, the match cards a Spielplan sets two a row, a read page's
- * facts, an editor's sections, the school tiles Teams sets four a row, Konto's list of its pages, and the one
- * row-high box of a Konto page holding a control that acts at once.
+ * facts, an editor's sections, the school tiles Teams sets four a row, Konto's list of its pages, the one
+ * row-high box of a Konto page holding a control that acts at once, and the cards of rows an Übersicht sets two a
+ * row.
  */
-export type SkeletonShape = "table" | "cards" | "facts" | "sections" | "tiles" | "list" | "box";
+export type SkeletonShape = "table" | "cards" | "facts" | "sections" | "tiles" | "list" | "box" | "cardRows";
+
+/** The shapes drawn as rows of bars, every shape but the cards of rows, whose boxes each hold a head over rows. */
+type RowShape = Exclude<SkeletonShape, "cardRows">;
 
 /** How many rows or boxes each shape draws. */
-const ROWS: Readonly<Record<SkeletonShape, number>> = { table: 8, cards: 6, facts: 4, sections: 2, tiles: 8, list: 4, box: 1 };
+const ROWS: Readonly<Record<RowShape, number>> = { table: 8, cards: 6, facts: 4, sections: 2, tiles: 8, list: 4, box: 1 };
 
 /**
  * The shapes whose rows are boxes of their own, laid out as their final boxes are: the sections one under another,
  * the match cards two a row from `lg`, the tiles four a row and two on a phone, the one box alone. Every other shape
  * is one box of rows.
  */
-const GRID: Partial<Record<SkeletonShape, string>> = {
+const GRID: Partial<Record<RowShape, string>> = {
   sections: "grid gap-6",
   cards: "grid gap-3 lg:grid-cols-2",
   tiles: "grid grid-cols-2 gap-2 lg:grid-cols-4",
@@ -30,7 +36,7 @@ const GRID: Partial<Record<SkeletonShape, string>> = {
  * three figures at the row's end; a match card's date line over its two sides; a fact's label over its value; a
  * section's title; a tile's plaque and its name; a list row's glyph and its name; the one box's title.
  */
-const BARS: Readonly<Record<SkeletonShape, readonly string[]>> = {
+const BARS: Readonly<Record<RowShape, readonly string[]>> = {
   table: ["w-6", "w-1/3", "ms-auto w-6", "w-6", "w-6"],
   cards: ["h-3 w-1/4", "w-1/2", "w-1/2"],
   facts: ["h-3 w-1/4", "w-1/2"],
@@ -192,6 +198,7 @@ export function LandingSkeleton({ part }: { part: LandingPart }) {
  * the content's place is busy. A template places it as its one boundary's fallback.
  */
 export function Skeleton({ shape }: { shape: SkeletonShape }) {
+  if (shape === "cardRows") return <CardRowsSkeleton />;
   const { root, box, row, bar } = skeleton({ shape });
   const rows = Array.from({ length: ROWS[shape] }, (_, index) => (
     <div
@@ -206,9 +213,20 @@ export function Skeleton({ shape }: { shape: SkeletonShape }) {
     </div>
   ));
   return (
+    <Waiting
+      className={root()}
+      layout={GRID[shape] ?? box()}>
+      {rows}
+    </Waiting>
+  );
+}
+
+/** The busy box and its status, around the bars it hides from assistive technology, laid out as `layout` says. */
+function Waiting({ className, layout, children }: { className: string; layout: string; children: ReactNode }) {
+  return (
     <div
       aria-busy
-      className={root()}>
+      className={className}>
       <span
         role="status"
         className="sr-only">
@@ -216,9 +234,49 @@ export function Skeleton({ shape }: { shape: SkeletonShape }) {
       </span>
       <div
         aria-hidden
-        className={GRID[shape] ?? box()}>
-        {rows}
+        className={layout}>
+        {children}
       </div>
     </div>
+  );
+}
+
+const cardRows = tv({
+  extend: skeleton,
+  slots: {
+    // The Übersicht's grid (`CardGrid`), each card the kit's card: its title in the head's band, then its rows.
+    grid: "grid gap-6 lg:grid-cols-2",
+    cardBox: card().root(),
+    cardHead: card().head(),
+    // A card row's name over its one line, at the row's height (`Card.tsx :: CardActRow`).
+    cardRow: `grid h-14 content-center gap-2 ${stacked()} px-4 lg:h-13`,
+  },
+});
+
+/** The Übersicht's four cards, two a row from `lg`, each its title's band over three rows of a name and a line. */
+function CardRowsSkeleton() {
+  const slots = cardRows();
+  return (
+    <Waiting
+      className={slots.root()}
+      layout={slots.grid()}>
+      {[0, 1, 2, 3].map((index) => (
+        <div
+          key={index}
+          className={slots.cardBox()}>
+          <div className={slots.cardHead()}>
+            <span className={slots.bar({ class: "w-1/3" })} />
+          </div>
+          {[0, 1, 2].map((at) => (
+            <div
+              key={at}
+              className={slots.cardRow()}>
+              <span className={slots.bar({ class: "w-1/2" })} />
+              <span className={slots.bar({ class: "h-3 w-1/3" })} />
+            </div>
+          ))}
+        </div>
+      ))}
+    </Waiting>
   );
 }

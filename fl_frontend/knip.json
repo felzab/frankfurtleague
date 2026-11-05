@@ -14,7 +14,6 @@
   // and stands in `knip.production.json` alone.
   "ignoreFiles": [
     // Session 5.
-    "src/kit/CardGrid.tsx",
     "src/kit/ScorePair.tsx",
     "src/kit/AdoptLine.tsx",
     "src/kit/SpieltagHead.tsx"
