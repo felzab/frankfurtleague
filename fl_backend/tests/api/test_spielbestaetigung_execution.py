@@ -330,7 +330,7 @@ class TestWhatALinkOpens:
                     "inactive_since": None,
                 }
             )
-            ort = {"spielort_id": elsewhere, "name": "Halle West", "maps_link": "Halle West, Frankfurt", "mietpreis": 30}
+            ort = {"spielort_id": elsewhere, "mietpreis": 30}
             await database[Collection.SPIELE].update_one({"_id": SPIEL}, {"$set": {"ort": ort, "datum": None}})
 
             return await read_view(database, token(TEAM1, "trainer"))
@@ -1598,7 +1598,7 @@ class TestARefereesDeclineReturnsTheFixture:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await absagen(database, client)
             await database[Collection.SPIELE].update_one(
-                {"_id": SPIEL}, {"$set": {"schiedsrichter": {"schiedsrichter_id": SCHIEDSRICHTER, "name": REFEREE, "payment": 20}}}
+                {"_id": SPIEL}, {"$set": {"schiedsrichter": {"schiedsrichter_id": SCHIEDSRICHTER, "payment": 20}}}
             )
 
             return await database[Collection.SPIELBESTAETIGUNGEN].count_documents(
@@ -1658,9 +1658,7 @@ class TestARefereesOwnRowsAreReadThroughTheirIndex:
 
 
 async def book_ute(database: AsyncDatabase) -> None:
-    await database[Collection.SPIELE].update_one(
-        {"_id": SPIEL}, {"$set": {"schiedsrichter": {"schiedsrichter_id": UTE, "name": "Ute Lang", "payment": 20}}}
-    )
+    await database[Collection.SPIELE].update_one({"_id": SPIEL}, {"$set": {"schiedsrichter": {"schiedsrichter_id": UTE, "payment": 20}}})
 
 
 class TestAReassignmentLandingMidAnswer:
@@ -1893,7 +1891,7 @@ class TestTheRefereesOwnRows:
                     "$set": {
                         "datum": "2027-07-01",
                         "uhrzeit": "19:30:00",
-                        "ort": {"spielort_id": other_ground, "name": "Halle West", "maps_link": "Halle West, Frankfurt", "mietpreis": 40},
+                        "ort": {"spielort_id": other_ground, "mietpreis": 40},
                     }
                 },
             )

@@ -40,7 +40,7 @@ SPIELTAG = ObjectId("6890a1b2c3d4e5f607330031")
 
 
 def side(team_id: ObjectId, tore: int | None = None) -> dict[str, Any]:
-    return {"team_id": team_id, "name": NAMES[team_id], "shorthand": NAMES[team_id][:3].upper(), "tore": tore}
+    return {"team_id": team_id, "tore": tore}
 
 
 # A1 and A2 have played their group fixture; A3's is still to come, as is group B's; B1 holds a hand-set knockout
