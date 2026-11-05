@@ -48,7 +48,7 @@ const OBJECTION_RIGHT = {
   after: " genügt.",
 };
 const MORE = { before: "Mehr unter ", after: "." };
-// What an objection does to an entry that stands alone, a contact's season row's and a referee's alike.
+// What an objection does to a contact's seat on a season row, an entry that stands alone.
 const OBJECTION_DELETES_ENTRY = "Widersprichst du, löschen wir deinen Eintrag.";
 // A referee's confirmation's opening, which its mail opens on too, and what the league stores of the entry.
 const REFEREE_OPENING = "Die Liga hat dich als Schiedsrichterin oder Schiedsrichter für ihre Spiele eingetragen.";
@@ -871,7 +871,9 @@ export const SERVER_COPY = catalogue({
     opening: REFEREE_OPENING,
     /** The deadline in the two parts around its day: the mail sets the day semibold, the page writes it plain. */
     deadline: ENTRY_DEADLINE,
-    question: (until: CalendarDay) => [REFEREE_OPENING, REFEREE_STORED, entryDeadline(until), OBJECTION_DELETES_ENTRY].join(" "),
+    /** Both answers that end the entry, an unanswered deadline and an objection, in one clause: either deletes it alike. */
+    question: (until: CalendarDay) =>
+      `${REFEREE_OPENING} ${REFEREE_STORED} ${ENTRY_DEADLINE.before} ${formatDatumLong(until)} oder widersprichst du${ENTRY_DEADLINE.after}`,
     /** The two ends of an answer, each a title; a link opened again after it titles it with the day (`COPY.shared.end.doneOn`). */
     confirmed: "Eintrag bestätigt",
     objected: "Widersprochen",
