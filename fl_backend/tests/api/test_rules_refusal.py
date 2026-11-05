@@ -213,6 +213,20 @@ class TestADrawIsNeverWorthMoreThanAWin:
         assert refusal.error_code == Code.RULES_UNENTSCHIEDEN_OUTVALUES_WIN
 
 
+class TestALossIsNeverWorthMoreThanADraw:
+    def test_a_loss_worth_more_than_a_draw_is_refused_on_its_field_under_the_draws_points(self):
+        """A season rewarding a loss above a draw ranks a club that lost above one that drew, in every table the league serves."""
+
+        refusal = judge(proposed=rules(win=3, draw=1, loss=2))
+
+        assert refusal is not None
+        assert (refusal.error_code, refusal.fields, dict(refusal.bounds)) == (
+            Code.RULES_NIEDERLAGE_OUTVALUES_UNENTSCHIEDEN,
+            (("rules", "loss_points"),),
+            {"max": 1},
+        )
+
+
 class TestADrawnForfeitCannotDecideAKnockout:
     """A knockout round has to produce a winner, and a level award composes a draw the bracket cannot advance out of.
 

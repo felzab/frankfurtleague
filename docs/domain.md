@@ -179,9 +179,10 @@ start; after a match it would reopen what the start locks closed.
 
 ## The competition's own rules
 
-- **Nothing about scoring is a constant.** What a win and a draw are worth is the season's, there is no
-  points value for a loss at all, and the only bound on the pair is that a season may not make a draw the
-  better result (`rules_unentschieden_outvalues_win`).
+- **Nothing about scoring is a constant.** What a win, a draw and a loss are worth is the season's, and the
+  only bound on the three is their order: a season may make neither a draw the better result than a win
+  (`rules_unentschieden_outvalues_win`) nor a loss the better result than a draw
+  (`rules_niederlage_outvalues_unentschieden`).
 - **A season runs a prefix of a closed group set**, whose members are [`glossary.md`](glossary.md)'s `Gruppe`
   entry. The count and the size are the season's (`fl_backend/app/api/saisons/schemas.py :: NumberOfGroups`,
   `:: TeamsPerGroup`), and each is bounded as one field. What keeps a whole season inside one page of a

@@ -116,6 +116,7 @@ export const saveSaison = action({
     "saison_start_austritt_stored",
     "rules_qualifiers_above_gruppe",
     "rules_unentschieden_outvalues_win",
+    "rules_niederlage_outvalues_unentschieden",
     "rules_forfeit_unentschieden_in_a_knockout",
     "rules_gruppen_in_use",
     "rules_capacity_below_use",
