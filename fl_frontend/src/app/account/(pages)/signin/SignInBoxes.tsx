@@ -110,7 +110,7 @@ export function SignInBoxes({
             confirm: { verb: "delete", subject: COPY.template.account, consequence: COPY.account.erasure.consequence, tone: "danger" },
           },
           done: COPY.shared.toast.linkSent,
-          closed: lastOwner,
+          locked: lastOwner,
         }}
       />
     </>

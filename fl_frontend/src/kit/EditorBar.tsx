@@ -35,6 +35,12 @@ export function EditorBar({
   // first render, closed, as a held dialog must: one mounted open is closed again by its own cleanup.
   const [shown, setShown] = useState(question.asked);
   if (question.asked !== null && question.asked !== shown) setShown(question.asked);
+  const held = {
+    isOpen: question.asked !== null,
+    onOpenChange: (isOpen: boolean) => {
+      if (!isOpen) question.decline();
+    },
+  };
   return (
     // On desktop as tall as the rail's foot beside it (`--rail-foot`, from `tokens.css`), so the two top
     // hairlines are one line. A landmark of its own, named by its act: the bar stands after `main`, and content
@@ -53,21 +59,24 @@ export function EditorBar({
         isBusy={isPending}
         onPress={onSave}
       />
-      <ConfirmDialog
-        verb="save"
-        // No question is asked before the first, so the dialog's words are then never shown.
-        subject={shown?.subject ?? COPY.shared.verb.save}
-        consequence={shown?.consequence ?? COPY.shared.verb.save}
-        {...(shown?.facts === undefined ? {} : { facts: shown.facts })}
-        tone="primary"
-        open={{
-          isOpen: question.asked !== null,
-          onOpenChange: (isOpen) => {
-            if (!isOpen) question.decline();
-          },
-        }}
-        onConfirm={question.confirm}
-      />
+      {/* One dialog in one place either way, so it keeps its state: before the first question it stands closed with
+          nothing to say. */}
+      {shown === null ? (
+        <ConfirmDialog
+          open={held}
+          onConfirm={question.confirm}
+        />
+      ) : (
+        <ConfirmDialog
+          verb="save"
+          subject={shown.subject}
+          consequence={shown.consequence}
+          {...(shown.facts === undefined ? {} : { facts: shown.facts })}
+          tone="primary"
+          open={held}
+          onConfirm={question.confirm}
+        />
+      )}
     </div>
   );
 }

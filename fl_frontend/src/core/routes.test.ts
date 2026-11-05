@@ -42,6 +42,16 @@ describe("the pages a mail opens", () => {
   });
 });
 
+describe("a placed row's pattern", () => {
+  // The frame marks a placed page's entry by matching the address against the pattern, so a pattern no page folder
+  // writes, which typed routes still let through with a concrete segment, would leave the rail marking another entry.
+  it.each(
+    Object.entries(ROUTES as Record<string, RouteEntry>).flatMap(([key, row]) => (row.place === undefined ? [] : [[key, row.place.pattern]])),
+  )("is the %s page's route folder, %s", (_key, pattern) => {
+    expect(PAGES.has(pattern)).toBe(true);
+  });
+});
+
 describe("the links every rail frame writes", () => {
   // The rail's foot signed out, and the strip's and „Mehr“'s two legal pages.
   it.each(["signIn", "legalNotice", "privacyNotice"] as const)("lead to a page answering at the %s row's address", (row) => {

@@ -36,7 +36,7 @@ describe("a table's name cell", () => {
           {
             id: "1",
             name: { record: LONG },
-            chip: { tone: "neutral", label: COPY.admin.spielort.retired },
+            chip: { tone: "neutral", label: COPY.shared.retired },
             cells: { stadtteil: { record: "Nordend" } },
           },
         ])}
@@ -47,7 +47,7 @@ describe("a table's name cell", () => {
     expect(name.classList).toContain("truncate");
     expect(name.parentElement?.classList).toContain("min-w-0");
 
-    const chip = screen.getByText(COPY.admin.spielort.retired);
+    const chip = screen.getByText(COPY.shared.retired);
     expect(chip.parentElement).toBe(name.parentElement);
     expect([...chip.classList]).toEqual(expect.arrayContaining(["shrink-0", "whitespace-nowrap"]));
   });

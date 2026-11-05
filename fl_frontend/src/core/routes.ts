@@ -12,20 +12,23 @@ type Crawl = "index" | "noindex" | "disallow";
 
 /**
  * One page: the address it answers at, built from its segments, the name its tab and its strip show,
- * and what a search engine may do with it. A link takes its address from here, so with typed routes
- * on, an address whose page does not exist fails where the link is written. A page named by its record, such
- * as a club's, holds `null`: the page hands its record's name as a title of its own (`{ record }`); so does an
- * address that renders nothing, a route handler sending the request on.
+ * and what a search engine may do with it. A link takes its address from here, so each address is spelled
+ * once. Next's typed routes are off (`typedRoutes` in `next.config.ts`), so the compiler does not hold a row to
+ * a page; `routes.test.ts` holds the rows a mail, a rail frame or a placed page names. A page named by its record,
+ * such as a club's, holds `null`: the page hands its record's name as a title of its own (`{ record }`); so does
+ * an address that renders nothing, a route handler sending the request on.
  */
 export type RouteEntry = {
   readonly path: (...segments: never) => `/${string}`;
   readonly title: Copy | ((...names: never) => Copy) | null;
   readonly crawl: Crawl;
   /**
-   * The row of the menu entry the page belongs to, where its address lies under another entry's: a frame marks
-   * that entry and leads back to it rather than to the entry the address lies under (`kit/navPlace.tsx :: placeOf`).
+   * The menu entry the page belongs to, where its address lies under another entry's: a frame marks that entry and
+   * leads back to it rather than to the entry the address lies under (`kit/navPlace.tsx :: placeOf`). `entry` is the
+   * entry's row; `pattern` is the address the page answers at as its route folder writes it, each dynamic segment
+   * `[name]`, which `routes.test.ts` holds to a page folder of the tree.
    */
-  readonly place?: string;
+  readonly place?: { readonly entry: string; readonly pattern: `/${string}` };
 };
 
 /**
@@ -222,7 +225,7 @@ export const ROUTES = {
     path: (saison: string) => `/admin/saisons/${saison}/settings` as const,
     title: COPY.shared.saisonName,
     crawl: "disallow",
-    place: "adminSaisons",
+    place: { entry: "adminSaisons", pattern: "/admin/saisons/[saison]/settings" },
   },
   adminSpiele: {
     path: (saison: string) => `/admin/saisons/${saison}/spiele` as const,
@@ -237,7 +240,7 @@ export const ROUTES = {
     path: (saison: string, spieltag: string) => `/admin/saisons/${saison}/spieltage/${spieltag}` as const,
     title: null,
     crawl: "disallow",
-    place: "adminSpiele",
+    place: { entry: "adminSpiele", pattern: "/admin/saisons/[saison]/spieltage/[spieltag]" },
   },
   /** The match editor, named by the match's two teams as the match's own page is. */
   adminSpiel: {

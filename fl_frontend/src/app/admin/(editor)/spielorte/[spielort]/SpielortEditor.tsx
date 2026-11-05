@@ -72,7 +72,7 @@ export function SpielortEditor({
   return (
     <EditorPage
       title={title}
-      chip={retired ? { tone: "neutral", label: WORDS.retired } : undefined}
+      chip={retired ? { tone: "neutral", label: COPY.shared.retired } : undefined}
       editor={editor}
       danger={{ title: COPY.admin.stilllegung, acts: [danger] }}
       sections={[

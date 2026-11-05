@@ -85,9 +85,10 @@ export function FieldLabel({ label, isRequired }: { label: Words; isRequired: bo
 }
 
 /**
- * A form's status line at its acts: a refusal, a done save, or the editor's count of unsaved fields. An outcome
- * is announced politely, from a live region standing from the first render, so it answers the press that sent
- * the form; the running count stays outside the region, since it would speak on every edit that changes it.
+ * A form's status line at its acts: a refusal, a done save, why its act cannot run, or the editor's count of unsaved
+ * fields. An outcome or a reason is announced politely, from a live region standing from the first render, so it
+ * answers the press that sent the form; the running count stays outside the region, since it would speak on every
+ * edit that changes it.
  */
 export function StatusLine({ status, placement }: { status: FormStatus; placement: "row" | "column" }) {
   const tone = status?.tone ?? "none";

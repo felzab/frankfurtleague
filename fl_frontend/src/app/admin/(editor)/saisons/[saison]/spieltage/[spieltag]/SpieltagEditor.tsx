@@ -13,7 +13,7 @@ import type { PageTitle } from "@/kit/RailFrame";
 import type { EditorRecord, EditorSave } from "@/kit/useEditor";
 import type { SpieltagValues } from "./spieltagValues";
 
-const WORDS = COPY.admin.spiel;
+const WORDS = COPY.admin.saison;
 
 /**
  * The matchday editor: its first and last day, one value in one box as a season's span is, saved from the editor's
@@ -45,7 +45,7 @@ export function SpieltagEditor({
       sections={[
         {
           id: "zeitraum",
-          title: COPY.admin.saison.zeitraum,
+          title: WORDS.zeitraum,
           fields: (
             // A span's two ends are one value, sharing their row at every width.
             <FieldPair

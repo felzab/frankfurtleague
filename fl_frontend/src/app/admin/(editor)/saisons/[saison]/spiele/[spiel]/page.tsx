@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { EditorShell } from "@/kit/EditorShell";
 
+import { requires } from "@/core/action";
 import { COPY } from "@/core/copy";
 import { dayOf, formatDatum, timeOf } from "@/core/format";
 import { FLSonderereignis } from "@/core/generated/client/types";
@@ -50,8 +51,8 @@ const { ort, schiedsrichter } = SpielePatchSpielBody.shape;
 
 /** Whether a booking's money is required beside it, read off the write's schema. */
 const REQUIRED = {
-  mietpreis: !ort.options[0].shape.mietpreis.safeParse(null).success,
-  honorar: !schiedsrichter.options[0].shape.payment.safeParse(null).success,
+  mietpreis: requires(ort.options[0].shape.mietpreis, null),
+  honorar: requires(schiedsrichter.options[0].shape.payment, null),
 };
 
 /** One read of the editor's whole view, for the tab's title and the page alike. */
@@ -101,8 +102,8 @@ const minuteOf = (minute: string): [number, number] => {
 };
 
 /**
- * The report's goals as rows, read-only, since its referee writes them (D296): each in the order it was scored, the
- * side's plaque before the scorer, and the score the goal made. An own goal counts for the other side.
+ * The report's goals as rows, read-only, since its referee writes them: each in the order it was scored, the side's
+ * plaque before the scorer, and the score the goal made. An own goal counts for the other side.
  */
 function berichtRows(spiel: FLSpielJoinedAdmin, bericht: FLSpielEditorBericht): TableRow[] {
   const words = SERVER_COPY.season.spiel;
@@ -260,7 +261,7 @@ async function readEditor(params: Props["params"]) {
         option:
           spielort.inactive_since === null
             ? { id: spielort.id, label: { record: spielort.name } }
-            : { id: spielort.id, label: { record: spielort.name }, isDisabled: true, note: COPY.admin.spielort.retired },
+            : { id: spielort.id, label: { record: spielort.name }, isDisabled: true, note: COPY.shared.retired },
         price: spielort.default_mietpreis,
       }))}
       schiedsrichter={view.schiedsrichter.map((person) => ({
@@ -268,7 +269,7 @@ async function readEditor(params: Props["params"]) {
         // not to be chosen; the match's own retired referee stays listed as its retired venue does.
         option:
           person.inactive_since !== null
-            ? { id: person.id, label: { record: person.name }, isDisabled: true, note: COPY.admin.spielort.retired }
+            ? { id: person.id, label: { record: person.name }, isDisabled: true, note: COPY.shared.retired }
             : person.confirmed
               ? { id: person.id, label: { record: person.name } }
               : { id: person.id, label: { record: person.name }, isDisabled: true, note: WORDS.unconfirmed },

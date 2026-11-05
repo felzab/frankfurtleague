@@ -18,7 +18,7 @@ import type { Metadata, ResolvingMetadata } from "next";
 
 type Props = PageProps<"/admin/spielorte/[spielort]">;
 
-/** One read of the venue by its id for the tab's title and the page alike (K230). */
+/** One read of the venue by its id for the tab's title and the page alike, shared within the request. */
 const read = cache(getSpielort);
 
 /** The venue the address names, retired or not: not-found for a malformed id and for one no venue holds. */

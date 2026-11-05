@@ -14,7 +14,7 @@
   outline-offset: 2px;
 }
 
-/* A field's edge lies over its 1-px border and one pixel in, so nothing moves and no grey shows
+/* A field's edge lies over its 1-px inset ring and one pixel in, so nothing moves and no grey shows
    inside it; an item of a scrolling list draws its ring inside itself, where the scroller cannot cut it. */
 [data-kit-focus="field"],
 [data-kit-focus="inset"] {

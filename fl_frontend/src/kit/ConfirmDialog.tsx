@@ -21,20 +21,8 @@ import type { Fact } from "./Facts";
 
 const DONE: ActionAnswer<unknown> = { ok: true, value: undefined };
 
-/** What opens the question: its own trigger, or the open state another control holds, as the kit's `Dialog` takes it. */
-type Opening =
-  | {
-      /** The kit `Button` that opens the question. */
-      trigger: ReactElement;
-      open?: never;
-    }
-  | {
-      /** The open state, held by the control that asks: a row's act asking once the passkey touch has answered. */
-      open: HeldOpen;
-      trigger?: never;
-    };
-
-export type ConfirmDialogProps = {
+/** What the question says, which names its act and the button that does it. */
+export type ConfirmWords = {
   /** The act, which names the question and the button that does it. */
   verb: Verb;
   /** The record the act touches: „Passkey“ asks „Passkey löschen?“. */
@@ -48,13 +36,37 @@ export type ConfirmDialogProps = {
   facts?: ReadonlyArray<Fact>;
   /** `danger` for a destructive act, `primary` for one that is merely irreversible. */
   tone: "danger" | "primary";
+};
+
+/** What opens the question: its own trigger, or the open state another control holds, as the kit's `Dialog` takes it. */
+type Opening =
+  | {
+      /** The kit `Button` that opens the question. */
+      trigger: ReactElement;
+      open?: never;
+    }
+  | {
+      /** The open state, held by the control that asks: a row's act asking once the passkey touch has answered. */
+      open: HeldOpen;
+      trigger?: never;
+    };
+
+type Act = {
   /**
    * Does the act. The dialog closes once it has run, unless the act answers with a refusal, such as a venue still
    * booked, or throws, as a lost answer does: the dialog then stays open with the refusal in its status line beside
    * the acts, a throw worded and the page read again as every form's send is (`answering`).
    */
   onConfirm: () => void | Promise<void> | Promise<ActionAnswer<unknown>>;
-} & Opening;
+};
+
+export type ConfirmDialogProps = ConfirmWords & Act & Opening;
+
+/**
+ * A held question its holder has not asked yet, such as the save bar's before any save was held back: mounted closed
+ * from the first render, as a held dialog must be, it takes no words, having none to say.
+ */
+type Unasked = Act & { open: HeldOpen; trigger?: never } & { [Word in keyof ConfirmWords]?: never };
 
 /**
  * The question before an act that cannot be undone: the act and its record, one short sentence of consequence over
@@ -63,7 +75,9 @@ export type ConfirmDialogProps = {
  * A refusal stands until the next press or until the dialog closes; the line is empty while the act runs, so the same
  * refusal twice is announced twice.
  */
-export function ConfirmDialog({ verb, subject, consequence, facts, tone, trigger, open, onConfirm }: ConfirmDialogProps) {
+export function ConfirmDialog(props: ConfirmDialogProps | Unasked) {
+  const { trigger, open, onConfirm } = props;
+  const words = props.verb === undefined ? null : props;
   const router = useRouter();
   const [isOpen, setOpen] = useOpenUntilHidden(open);
   const [isBusy, startAct] = useTransition();
@@ -79,7 +93,7 @@ export function ConfirmDialog({ verb, subject, consequence, facts, tone, trigger
   // An act answering nothing is done; one answering is judged by its answer.
   const act = answering(async () => (await onConfirm()) ?? DONE, router.refresh);
 
-  const overlay = (
+  const overlay = words !== null && (
     <DialogOverlay
       width="question"
       isOpen={isOpen}
@@ -93,10 +107,10 @@ export function ConfirmDialog({ verb, subject, consequence, facts, tone, trigger
           slot="title"
           level={2}
           className="text-base font-semibold">
-          {COPY.shared.question(subject, verb)}
+          {COPY.shared.question(words.subject, words.verb)}
         </Heading>
-        <p className="text-sm text-fg-muted">{consequence}</p>
-        {facts !== undefined && facts.length > 0 && <Facts facts={facts} />}
+        <p className="text-sm text-fg-muted">{words.consequence}</p>
+        {words.facts !== undefined && words.facts.length > 0 && <Facts facts={words.facts} />}
         <ActRow>
           <StatusLine
             status={refusal === null ? null : { tone: "error", text: refusal }}
@@ -109,8 +123,8 @@ export function ConfirmDialog({ verb, subject, consequence, facts, tone, trigger
             onPress={() => setOpen(false)}
           />
           <Button
-            variant={tone}
-            label={COPY.shared.verb[verb]}
+            variant={words.tone}
+            label={COPY.shared.verb[words.verb]}
             isBusy={isBusy}
             onPress={() =>
               startAct(async () => {

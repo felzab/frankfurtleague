@@ -166,6 +166,8 @@ export const COPY = catalogue({
 
     /** Beside the save button once the record is stored. */
     saved: "Gespeichert",
+    /** The chip of a venue or a referee taken out of use, and its greyed entry where a match books one. */
+    retired: "Stillgelegt",
 
     /**
      * The five toast titles; a toast carries no body. `linkSent` labels the referee editor's fact for the day the last
@@ -649,7 +651,6 @@ export const COPY = catalogue({
       mietpreisExample: "60",
       plzExample: "60438",
       hausnummerExample: "12a",
-      retired: "Stillgelegt",
       /** The danger box's two consequences, under the act's name and in its question alike. */
       retireConsequence: "Der Spielort steht für neue Spiele nicht mehr zur Auswahl.",
       reactivateConsequence: "Der Spielort steht wieder zur Auswahl.",
@@ -851,9 +852,6 @@ export const COPY = catalogue({
       /** A matchday's dates over its matches, until it is dated what is still to settle. */
       span: (beginn: CalendarDay | null, ende: CalendarDay | null) =>
         beginn === null || ende === null ? DATE_OPEN : formatPeriod(beginn, ende),
-      /** The matchday dialog's two dates. */
-      beginn: "Beginn",
-      ende: "Ende",
 
       /** The match editor's sections beyond the three it shares with the old pages: a knockout match's clubs, the report and the answers. */
       spielberichtUndBestaetigungen: "Spielbericht und Bestätigungen",
@@ -867,8 +865,6 @@ export const COPY = catalogue({
       /** Why a club cannot take a side: it stands on another match of the matchday, or has left the season. */
       onSpieltag: "Spielt schon an diesem Spieltag",
       departed: "Aus der Saison ausgeschieden",
-      /** The referee's fee for the match, which the glossary's `payment` names on screen. */
-      honorar: "Honorar",
       /** A referee who has not confirmed their entry, whom no match can be booked onto yet. */
       unconfirmed: "Noch nicht bestätigt",
       elfmeterschiessen: "Elfmeterschießen",
@@ -884,7 +880,6 @@ export const COPY = catalogue({
       /** The answers as rows: whose, their answer and what a declining club proposed. */
       party: "Partei",
       answer: "Antwort",
-      proposal: "Vorschlag",
       reason: "Grund",
       zugesagt: "Zugesagt",
       /** A club's decline, and a referee's, as the glossary's `Absage` names the second. */

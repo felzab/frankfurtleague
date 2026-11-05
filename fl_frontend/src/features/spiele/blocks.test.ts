@@ -4,8 +4,9 @@ import { COPY } from "@/core/copy";
 import { buildMapsSearchUrl } from "@/core/maps";
 import { SERVER_COPY } from "@/core/serverCopy";
 
-import { ereignisOf, matchdayOf, matchRowOf, outcomeFor, popupFactsOf } from "./blocks";
+import { ereignisOf, matchdayOf, matchRowOf, outcomeFor, popupFactsOf, vorschauOf, whenOf } from "./blocks";
 
+import type { Copy } from "@/core/copy";
 import type { FLSonderereignis, FLSpielJoined } from "@/core/generated/client/types";
 
 const GOETHE = "0".repeat(24);
@@ -106,6 +107,26 @@ describe("what befell a match", () => {
 
   it("is nothing for a match simply played", () => {
     expect(ereignisOf(spiel([2, 1]))).toBeNull();
+  });
+});
+
+describe("the match editor's Vorschau", () => {
+  // The line under the editor's title is the one place the editor says what the match holds as stored: a branch read
+  // wrongly would call a cancelled match unplayed, or hide a stored score, on a page reviewed in one state at a time.
+  const vorschau = (result: Copy) =>
+    COPY.admin.spiel.vorschau(COPY.page.spiel({ record: "Goethe" }, { record: "Helmholtz" }), whenOf(spiel(null)), result);
+
+  it("says the stored result, an abandoned match's included", () => {
+    expect(vorschauOf(spiel([2, 1]))).toBe(vorschau(COPY.admin.spiel.score({ team1: 2, team2: 1 }, null)));
+    expect(vorschauOf(spiel([2, 1], "abgebrochen"))).toBe(vorschau(COPY.admin.spiel.score({ team1: 2, team2: 1 }, null)));
+  });
+
+  it("says the event that leaves a match no result", () => {
+    expect(vorschauOf(spiel(null, "ausgefallen"))).toBe(vorschau(COPY.spielplan.sonderereignis.ausgefallen));
+  });
+
+  it("says that no result is stored yet, where nothing befell the match", () => {
+    expect(vorschauOf(spiel(null))).toBe(vorschau(COPY.admin.spiel.noResult));
   });
 });
 

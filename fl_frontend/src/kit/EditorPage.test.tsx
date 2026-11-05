@@ -1,4 +1,6 @@
 // @vitest-environment jsdom
+import { useState } from "react";
+
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderToReadableStream, renderToString } from "react-dom/server";
@@ -29,8 +31,17 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: () => undefined, replace: () => undefined }),
 }));
 
-function SpielortEditor({ save, closed }: { save: (change: EditorSave<Spielort>) => Promise<ActionAnswer<number>>; closed?: Copy }) {
-  const editor = useEditor({ id: "ort-1", version: 1, values: { name: "Riedberg" } }, save);
+function SpielortEditor({
+  save,
+  closed,
+  stored = { version: 1, name: "Riedberg" },
+}: {
+  save: (change: EditorSave<Spielort>) => Promise<ActionAnswer<number>>;
+  closed?: Copy;
+  /** The record as the page serves it, read again after a save as the page's refresh does. */
+  stored?: { version: number; name: string };
+}) {
+  const editor = useEditor({ id: "ort-1", version: stored.version, values: { name: stored.name } }, save);
   return (
     <EditorPage
       title={{ record: "Riedberg" }}
@@ -57,6 +68,21 @@ function SpielortEditor({ save, closed }: { save: (change: EditorSave<Spielort>)
   );
 }
 
+/** The editor on a page that serves its record afresh once a save has stored it, as the page's refresh does. */
+function Served({ save }: { save: (change: EditorSave<Spielort>) => Promise<ActionAnswer<number>> }) {
+  const [stored, setStored] = useState({ version: 1, name: "Riedberg" });
+  return (
+    <SpielortEditor
+      stored={stored}
+      save={async (change) => {
+        const answer = await save(change);
+        if (answer.ok) setStored({ version: answer.value, name: change.changes.name ?? stored.name });
+        return answer;
+      }}
+    />
+  );
+}
+
 describe("the editor template's save", () => {
   it("keeps back a field its own rule refuses, pointing the status line at it", async () => {
     const save = vi.fn(async (): Promise<ActionAnswer<number>> => ({ ok: true, value: 2 }));
@@ -79,6 +105,30 @@ describe("the editor template's save", () => {
     await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.save }));
 
     await waitFor(() => expect(save).toHaveBeenCalledWith({ id: "ort-1", version: 1, changes: { name: "Riedberg Nord" } }));
+  });
+
+  // Each half is held alone, the hook's answers and the server's gate; joined, the bar's own dialog closing after its
+  // act calls the decline too, so a question dropped or confirmed wrongly here leaves a save that can never complete,
+  // the bar counting the changes and saying nothing.
+  it("asks the question a held-back save answers, and sends it again with its token once confirmed", async () => {
+    const consequence = COPY.admin.spiel.voids([5]);
+    const save = vi
+      .fn<(change: EditorSave<Spielort>) => Promise<ActionAnswer<number>>>()
+      .mockResolvedValueOnce({ ok: false, ask: { subject: COPY.admin.spiel.ergebnis, consequence, confirm: "5" } })
+      .mockResolvedValueOnce({ ok: true, value: 2 });
+    render(<Served save={save} />);
+
+    await userEvent.type(screen.getByRole("textbox"), " Nord");
+    await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.save }));
+
+    const question = await screen.findByRole("alertdialog");
+    expect(within(question).getByText(consequence)).toBeTruthy();
+    await userEvent.click(within(question).getByRole("button", { name: COPY.shared.verb.save }));
+
+    await waitFor(() => expect(save).toHaveBeenLastCalledWith({ id: "ort-1", version: 1, changes: { name: "Riedberg Nord" }, confirm: "5" }));
+    expect(save).toHaveBeenCalledTimes(2);
+    expect(await screen.findByText(COPY.shared.saved)).toBeTruthy();
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
   });
 });
 
@@ -144,6 +194,19 @@ function ActingEditor({ act }: { act: () => Promise<ActionAnswer> }) {
               onConfirm: act,
             },
           },
+          // A danger act behind the passkey touch draws its own button, which the lock closes too.
+          {
+            name: COPY.shared.withObject(COPY.page.spielplan, "discard"),
+            consequence: COPY.admin.spielort.retireConsequence,
+            touch: { holder: "admin@example.com" },
+            confirm: {
+              verb: "discard",
+              subject: COPY.page.spielplan,
+              consequence: COPY.admin.spielort.retireConsequence,
+              tone: "danger",
+              onConfirm: act,
+            },
+          },
         ],
       }}
     />
@@ -155,23 +218,29 @@ function ActingEditor({ act }: { act: () => Promise<ActionAnswer> }) {
 describe("an editor's own acts", () => {
   const sectionAct = () => screen.getByRole("button", { name: COPY.shared.withObject(COPY.page.spielplan, "create") });
   const dangerAct = () => screen.getByRole("button", { name: COPY.shared.verb.retire });
+  const touchedAct = () => screen.getByRole("button", { name: COPY.shared.verb.discard });
 
   it("stand open while the draft holds no change", () => {
     render(<ActingEditor act={vi.fn()} />);
 
     expect(sectionAct().hasAttribute("disabled")).toBe(false);
     expect(dangerAct().hasAttribute("disabled")).toBe(false);
+    expect(touchedAct().hasAttribute("disabled")).toBe(false);
     expect(screen.queryByText(COPY.template.draftUnsaved)).toBeNull();
   });
 
-  it("close while the draft holds a change, each saying why in its own line", async () => {
+  // A screen reader hears why an act closed from the line's live region; a reason set outside it is read by no one.
+  it("close while the draft holds a change, each saying why in its own line, announced", async () => {
     render(<ActingEditor act={vi.fn()} />);
 
     await userEvent.type(screen.getByRole("textbox"), " Nord");
 
     expect(sectionAct().hasAttribute("disabled")).toBe(true);
     expect(dangerAct().hasAttribute("disabled")).toBe(true);
-    expect(screen.getAllByText(COPY.template.draftUnsaved)).toHaveLength(2);
+    expect(touchedAct().hasAttribute("disabled")).toBe(true);
+    const lines = screen.getAllByText(COPY.template.draftUnsaved);
+    expect(lines).toHaveLength(3);
+    for (const line of lines) expect(line.closest('[role="status"]')).not.toBeNull();
   });
 });
 

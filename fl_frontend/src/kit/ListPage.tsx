@@ -8,8 +8,10 @@ import { cardSurface } from "./cardStyles";
 import { Dialog } from "./Dialog";
 import { actLabel } from "./dialogAct";
 import { EmptyState } from "./EmptyState";
+import { StatusLine } from "./FieldParts";
 import { Filters } from "./Filters";
 import { ListMatches, ListQueryScope, ListSearchField, ListTable, ListTiles } from "./ListTable";
+import { lockedLine } from "./lockedLine";
 import { PageWait } from "./PageFade";
 import { RailPage } from "./RailFrame";
 import { Skeleton } from "./Skeleton";
@@ -175,13 +177,11 @@ function CreateAct({ create }: { create: ListCreate }) {
           />
         }
       />
-      {/* A standing reason, as a danger row's stands in its second line. */}
       {locked !== undefined && (
-        <span
-          role="status"
-          className="text-xs text-fg-muted">
-          {locked}
-        </span>
+        <StatusLine
+          status={lockedLine(locked)}
+          placement="column"
+        />
       )}
     </div>
   );

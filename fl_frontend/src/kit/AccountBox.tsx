@@ -11,7 +11,9 @@ import { Button } from "./Button";
 import { cardSurface, stacked } from "./cardStyles";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { Dialog } from "./Dialog";
+import { useLocked } from "./draftUnsaved";
 import { StatusLine } from "./FieldParts";
+import { lockedLine } from "./lockedLine";
 import { SectionTitle } from "./Section";
 import { appToast } from "./Toast";
 import { tv } from "./tv";
@@ -21,7 +23,7 @@ import { usePasskeyTouch } from "./usePasskeyTouch";
 import type { ActionAnswer } from "@/core/action";
 import type { Copy, RecordText, Verb, Words } from "@/core/copy";
 import type { ReactElement, ReactNode } from "react";
-import type { ConfirmDialogProps } from "./ConfirmDialog";
+import type { ConfirmWords } from "./ConfirmDialog";
 import type { FormStatus } from "./useFormAction";
 
 /**
@@ -31,7 +33,7 @@ import type { FormStatus } from "./useFormAction";
 type Run = (formData: FormData) => Promise<ActionAnswer<unknown>>;
 
 /** The question an act asks before it runs; its button then carries the question's verb and record. */
-type Question = Omit<ConfirmDialogProps, "trigger" | "open" | "onConfirm">;
+type Question = ConfirmWords;
 
 /** The one act a box's footer holds, beside its status line. */
 export type AccountAct = {
@@ -44,8 +46,8 @@ export type AccountAct = {
   carry?: Readonly<Record<string, string>>;
   /** The toast once it is done, for an act that leaves nothing in the box to change. */
   done?: Copy;
-  /** Why the act cannot run on the box's present state: the button closed, the line saying it. */
-  closed?: Copy;
+  /** Why the act cannot run on the box's present state: the button closed, the line saying it (`useLocked`). */
+  locked?: Copy;
   /** What the line says while nothing has answered: why a row's act is closed, which the row's button cannot say. */
   line?: Copy;
   /** The act saves the box's fields, which the line then says beside its button, „Gespeichert“. */
@@ -165,19 +167,15 @@ export function AccountBox(
   );
 }
 
-/** A sentence standing on the line in a refusal's red: why an act is closed. */
-const closedLine = (text: Copy): FormStatus => ({ tone: "error", text });
-
 function ActBox({ act, head, children }: { act: AccountAct; head: ReactElement; children?: ReactNode }) {
   const slots = box();
   const { send, block, status, answer, isBusy } = useAct(act);
   // A row's outcome, until the footer's act answers or another row does.
   const [rowStatus, setRowStatus] = useState<FormStatus>(null);
   const form = useRef<HTMLFormElement>(null);
-  const isClosed = act.closed !== undefined;
-  // A closed act's line stands whatever its act would say, since it cannot run; the resting line gives way to any answer.
-  const shown =
-    rowStatus ?? (act.closed !== undefined ? closedLine(act.closed) : (status ?? (act.line === undefined ? null : closedLine(act.line))));
+  const locked = useLocked(act.locked);
+  // A locked act's line stands whatever its act would say, since it cannot run; the resting line gives way to any answer.
+  const shown = rowStatus ?? (locked !== undefined ? lockedLine(locked) : (status ?? (act.line === undefined ? null : lockedLine(act.line))));
 
   const posted = () => {
     const formData = new FormData(form.current ?? undefined);
@@ -231,7 +229,7 @@ function ActBox({ act, head, children }: { act: AccountAct; head: ReactElement; 
               type="submit"
               label={act.button.label}
               isBusy={isBusy}
-              isDisabled={isClosed}
+              isDisabled={locked !== undefined}
             />
           ) : (
             <ConfirmDialog
@@ -242,7 +240,7 @@ function ActBox({ act, head, children }: { act: AccountAct; head: ReactElement; 
                   variant={act.button.confirm.tone === "danger" ? "danger" : "secondary"}
                   label={COPY.shared.withObject(act.button.confirm.subject, act.button.confirm.verb)}
                   isBusy={isBusy}
-                  isDisabled={isClosed}
+                  isDisabled={locked !== undefined}
                 />
               }
             />
@@ -267,7 +265,7 @@ type Rename = { title: Copy; run: (formData: FormData) => Promise<ActionAnswer>;
 
 /**
  * A row's removal: the passkey touch first where the person holds one, then the question, worded from the session
- * the touch made, then the act. `closed` keeps the button shut where the page knows at render that the act would be
+ * the touch made, then the act. `locked` keeps the button shut where the page knows at render that the act would be
  * refused; the box's `line` says why.
  */
 type Remove = {
@@ -277,7 +275,7 @@ type Remove = {
   touch: boolean;
   /** The address the page was drawn for, the one account the touch may answer for. */
   holder: string;
-  closed?: Copy;
+  locked?: Copy;
   run: () => Promise<ActionAnswer<unknown>>;
 };
 
@@ -385,7 +383,7 @@ function RemoveAct({ remove, describedBy }: { remove: Remove; describedBy: strin
         label={COPY.shared.verb[remove.verb]}
         aria-describedby={describedBy}
         isBusy={isTouching || isRefreshing}
-        isDisabled={remove.closed !== undefined}
+        isDisabled={remove.locked !== undefined}
         onPress={() => void ask()}
       />
       <ConfirmDialog

@@ -1,7 +1,6 @@
 // @vitest-environment jsdom
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { Form } from "react-aria-components/Form";
 import { describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
@@ -119,15 +118,13 @@ describe("toggle boxes", () => {
   });
 
   /* The boxes post no form value, so a refusal of the group named nothing on screen but the status line's generic line. */
-  it("show the message the form names them by, under the boxes and describing the group", () => {
+  it("show the served message they are given, under the boxes and describing the group", () => {
     const { container } = render(
-      <Form validationErrors={{ stufen: COPY.shared.field.required }}>
-        <ToggleBoxes
-          label={COPY.shared.saison}
-          name="stufen"
-          choices={CHOICES}
-        />
-      </Form>,
+      <ToggleBoxes
+        label={COPY.shared.saison}
+        errorMessage={COPY.shared.field.required}
+        choices={CHOICES}
+      />,
     );
     const described = container.querySelector("[aria-labelledby]")?.getAttribute("aria-describedby");
     expect(document.getElementById(described ?? "")?.textContent).toBe(COPY.shared.field.required);

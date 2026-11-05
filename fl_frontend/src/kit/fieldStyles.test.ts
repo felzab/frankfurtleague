@@ -32,6 +32,26 @@ describe("a short field's width in the built stylesheet", () => {
   });
 });
 
+// A frame's edge taking room would leave its parts 2 px short of the touch screen's 40-px target, the calendar button,
+// the arrow and the search's text 38 px tall, which no page review sees.
+describe("a field frame's edge in the built stylesheet", () => {
+  const WIDTHS = ["C2", "C5", "C10", "W3", "column", "fit", "W4"] as const;
+  const LAYOUTS = [undefined, "trigger", "group"] as const;
+  const classes = new Set(WIDTHS.flatMap((width) => LAYOUTS.flatMap((layout) => fieldFrame({ width, inset: "start", layout }).split(" "))));
+
+  it("takes no room in any frame, a border width set by none of its classes", async () => {
+    const widths = await Promise.all(
+      [...classes].flatMap((name) => ["border-width", "border-top-width", "border-bottom-width"].map((prop) => declared(name, prop))),
+    );
+    expect(widths.flat()).toStrictEqual([]);
+  });
+
+  it("is drawn all the same, as a 1-px ring inside the frame", async () => {
+    const rings = (await Promise.all([...classes].map((name) => declared(name, "--tw-inset-ring-shadow")))).flat();
+    expect(rings.map((rule) => rule.value)).toContainEqual(expect.stringMatching(/^inset 0 0 0 1px /));
+  });
+});
+
 describe("a date's empty segment in the built stylesheet", () => {
   it("sets its placeholder in capitals, and only while it is a placeholder", async () => {
     const name = dateSegment()

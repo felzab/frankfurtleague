@@ -191,11 +191,16 @@ describe("the rail's collapse", () => {
 });
 
 describe("the account menu", () => {
-  it("names an address with no name once, in the row, and repeats it in no heading of the menu", async () => {
+  // The row is one line, which cuts a long address, and a review on a short one sees nothing missing: the menu's head
+  // is the one place an administrator, whose grant stores no name, reads whom they are signed in as.
+  it("heads the menu with the whole address where no name is stored, as the row's own name too", async () => {
     await renderFrame(Promise.resolve(ACCOUNT));
     await openMenu();
 
-    expect(screen.getAllByText(ADDRESS)).toHaveLength(1);
+    expect(screen.getAllByText(ADDRESS)).toHaveLength(2);
+    const head = within(screen.getByRole("menu").parentElement ?? document.body).getByText(ADDRESS);
+    expect(head.className.split(" ")).not.toContain("truncate");
+    expect(head.className.split(" ")).toContain("wrap-anywhere");
     expect(screen.getByRole("menuitem", { name: COPY.template.account })).toBeTruthy();
     expect(screen.getByRole("menuitem", { name: COPY.page.legalNotice })).toBeTruthy();
   });

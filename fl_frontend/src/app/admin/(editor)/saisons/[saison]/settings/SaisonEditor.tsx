@@ -70,7 +70,7 @@ export type SaisonFacts = {
    */
   spielplan: { spieltage: number; spiele: number; drawnOn: CalendarDay | null } | null;
   /** Why the draw and each danger act cannot run now, by the refusal its write would answer, which the read serves. */
-  blocked: { activate?: Copy; create?: Copy; recreate?: Copy; undraw?: Copy };
+  locked: { activate?: Copy; create?: Copy; recreate?: Copy; undraw?: Copy };
 };
 
 /** The registration links: each team's row, how many teams the press would mail, and how many of those hold a link it replaces. */
@@ -88,7 +88,7 @@ export type SaisonActs = {
 };
 
 /** A danger row's closing, where its read names a reason. */
-const blockedBy = (reason: Copy | undefined) => (reason === undefined ? {} : { blocked: reason });
+const lockedBy = (reason: Copy | undefined) => (reason === undefined ? {} : { locked: reason });
 
 /** A club as a picker lists it, „Lessing · Gruppe A“, closed with its reason where `closed` says so. */
 const optionOf = (club: SaisonClub, closed: boolean): Option =>
@@ -401,7 +401,7 @@ export function SaisonEditor({
           />
           <ToggleBoxes
             label={WORDS.stufen}
-            name="stufen"
+            errorMessage={editor.fieldErrors?.stufen}
             choices={STUFEN}
             isRequired={required.stufen}
             value={draft.stufen}
@@ -463,7 +463,7 @@ export function SaisonEditor({
             label={COPY.shared.withObject(SPIELPLAN, "create")}
             variant="primary"
             isDisabled={isClosed}
-            blocked={facts.blocked.create}
+            locked={facts.locked.create}
             run={() => acts.draw({ saison_id: saison })}
           />
         ) : (
@@ -550,7 +550,7 @@ export function SaisonEditor({
             name: COPY.shared.withObject(SPIELPLAN, "recreate"),
             consequence: WORDS.recreateConsequence,
             touch,
-            ...blockedBy(facts.blocked.recreate),
+            ...lockedBy(facts.locked.recreate),
             confirm: {
               verb: "recreate",
               subject: SPIELPLAN,
@@ -564,7 +564,7 @@ export function SaisonEditor({
             name: COPY.shared.withObject(SPIELPLAN, "delete"),
             consequence: WORDS.deleteConsequence,
             touch,
-            ...blockedBy(facts.blocked.undraw),
+            ...lockedBy(facts.locked.undraw),
             confirm: {
               verb: "delete",
               subject: SPIELPLAN,
@@ -584,7 +584,7 @@ export function SaisonEditor({
             name: WORDS.umstellung,
             consequence: WORDS.activateConsequence(saison),
             touch,
-            ...blockedBy(facts.blocked.activate),
+            ...lockedBy(facts.locked.activate),
             confirm: {
               verb: "activate",
               subject: WORDS.onto(saison),

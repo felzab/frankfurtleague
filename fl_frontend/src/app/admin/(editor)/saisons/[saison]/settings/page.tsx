@@ -50,7 +50,7 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
  * Why a danger act cannot run now, by the refusal its write would answer, which the read serves: never a rule of the
  * page's own. A code no line here words means a page older than the API, which the stale line says.
  */
-function blockedOf(code: Code | null, status: FLSaisonStatus): Copy | undefined {
+function lockedOf(code: Code | null, status: FLSaisonStatus): Copy | undefined {
   switch (code) {
     case null:
       return undefined;
@@ -115,11 +115,11 @@ async function readEditor(params: Props["params"]) {
         siteShows: saisons.find((listed) => listed.status === "active")?.id ?? null,
         spielplan:
           spielplan === null ? null : { spieltage: spielplan.spieltage, spiele: spielplan.spiele, drawnOn: dayOf(spielplan.generated_at) },
-        blocked: {
-          activate: blockedOf(refusals.activate, saison.status),
-          create: blockedOf(refusals.create, saison.status),
-          recreate: blockedOf(refusals.recreate, saison.status),
-          undraw: blockedOf(refusals.undraw, saison.status),
+        locked: {
+          activate: lockedOf(refusals.activate, saison.status),
+          create: lockedOf(refusals.create, saison.status),
+          recreate: lockedOf(refusals.recreate, saison.status),
+          undraw: lockedOf(refusals.undraw, saison.status),
         },
       }}
       shapes={shapes}

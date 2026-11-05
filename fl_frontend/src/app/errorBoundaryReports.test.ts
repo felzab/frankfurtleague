@@ -10,7 +10,7 @@ import { underNext } from "@/test-support/nextContexts.ts";
 import { filesUnder } from "@/test-support/treeWalk.ts";
 import { act, cleanup, render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { COPY } from "@/core/copy.ts";
 import { ROUTES } from "@/core/routes.ts";
@@ -171,5 +171,31 @@ describe.each(RETRYING)("the error boundary $shown", ({ shown, file }) => {
     answer();
     await act(refreshes.answered);
     expect(press.hasAttribute("disabled"), "the press stays disabled once the refresh answered").toBe(false);
+  });
+});
+
+/** A frame read failing as it is drawn, as a rejected seasons or account read meets `use`. */
+function FailingRead(): null {
+  throw new Error("gepflanzt");
+}
+
+/* The rail frame's own boundary is no `error.tsx`, so the sweep above never lists it; its failure is as silent. */
+describe("the rail frame's own boundary", () => {
+  it("sends one crash report to a route this app serves, and leads on to the frame's home alone", async () => {
+    const { RailFrameBoundary } = await import("@/kit/RailFrameBoundary");
+    const home = ROUTES.admin.path();
+    // React reports the caught throw on the console, which says nothing this case reads.
+    const quiet = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    onTestFinished(() => quiet.mockRestore());
+
+    render(underNext(h(RailFrameBoundary, { groups: [], bar: ["uebersicht"], home }, h(FailingRead)), ROUTED));
+    await act(() => Promise.resolve());
+    const reports = sent.mock.calls.map(([input, init]) => ({ address: String(input), method: init?.method }));
+
+    expect(reports).toHaveLength(1);
+    expect(reports[0]?.method).toBe("POST");
+    expect(existsSync(path.join(APP_DIR, ...(reports[0]?.address ?? "").split("/"), "route.ts"))).toBe(true);
+    const waysOn = screen.getAllByRole("link").filter((link) => WAYS_ON.includes(link.textContent ?? ""));
+    expect(waysOn.map((link) => link.getAttribute("href"))).toStrictEqual([home]);
   });
 });

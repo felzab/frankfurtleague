@@ -10,7 +10,9 @@ import { tv } from "./tv";
  * 40 px (32 with a mouse), as WCAG 2.5.8's target size asks with the kit's own figure; a link inside running text is
  * the exception that criterion makes for inline targets. A control drawn at that height is its own target; one drawn
  * smaller keeps its look and reaches the height through its row (`toggleRow`) or through a target laid over its
- * frame's inset (`choiceButton`'s segment).
+ * frame's inset (`choiceButton`'s segment). A field's frame draws its 1-px edge as an inset ring, which takes no room,
+ * so a part filling the frame, a date's calendar button, a combo box's arrow or a search's text, is the frame's whole
+ * height.
  */
 
 /**
@@ -61,6 +63,8 @@ export const statusLine = tv({
     tone: {
       none: "",
       changes: "text-fg",
+      // An act's reason it cannot run, in the small muted tone a danger row's second line takes.
+      locked: "text-xs text-fg-muted",
       saved: "text-success",
       error: "text-danger",
     },
@@ -78,19 +82,20 @@ export const columnCap = tv({ base: "text-sm lg:max-w-field pointer-coarse:text-
 /**
  * The edge a value is typed into: 32 px with a mouse, 40 px and 16-px text on a touch screen, transparent inside
  * its control edge, as every control is, so it takes the fill of the page or the card it stands on, as the
- * secondary button does. Inside a pair sharing its row on a phone
- * (`FieldPair`'s `data-pair`), it fills its side of the row: a percentage minimum adds nothing to the width
- * the side is laid out at, so the side starts from the field's width class and the frame then fills what
- * the side grew to.
+ * secondary button does. The edge is an inset ring, as the switch's track draws its own, so the frame's parts fill
+ * its whole height by the touch rule at this file's head, the edge lying inside the frame's inset. Inside a pair
+ * sharing its row on a phone (`FieldPair`'s `data-pair`), it fills its side of the row: a percentage minimum adds
+ * nothing to the width the side is laid out at, so the side starts from the field's width class and the frame then
+ * fills what the side grew to.
  */
 export const fieldFrame = tv({
-  base: "rounded-lg border border-border-control bg-transparent text-sm text-fg transition-colors duration-(--motion-state) group-data-invalid:border-danger data-disabled:opacity-50 data-invalid:border-danger max-lg:in-data-pair:min-w-full pointer-coarse:text-base",
+  base: "rounded-lg bg-transparent text-sm text-fg inset-ring inset-ring-border-control transition-[color,outline-color,box-shadow] duration-(--motion-state) group-data-invalid:inset-ring-danger data-disabled:opacity-50 data-invalid:inset-ring-danger max-lg:in-data-pair:min-w-full pointer-coarse:text-base",
   variants: {
     // A field is as wide as its value. The short widths are counted in characters, as the GOV.UK Design
     // System sizes its fixed-width inputs, so they grow with the reader's font size: each holds its count
-    // of characters and one more for the caret, inside the two 10-px insets and the two 1-px edges
-    // (1.375 rem together). Then a long field, the column up to `columnCap`; the column at four lines for a
-    // paragraph, free text taking the whole column; and a field filling the column it stands in, uncapped.
+    // of characters and one more for the caret, inside the two 10-px insets, with 2 px to spare (1.375 rem
+    // together). Then a long field, the column up to `columnCap`; the column at four lines for a paragraph, free
+    // text taking the whole column; and a field filling the column it stands in, uncapped.
     width: {
       // A score.
       C2: "h-8 w-[calc(3ch+1.375rem)] pointer-coarse:h-10",

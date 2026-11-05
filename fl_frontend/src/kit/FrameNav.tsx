@@ -153,7 +153,7 @@ export type Account = {
   name?: RecordText;
   /** The role the area is for, the row's second line. */
   role: Copy;
-  /** The sign-in address: under the name at the top of the menu, or the row's own name where there is none. */
+  /** The sign-in address: whole at the top of the menu, under the name where there is one; the row's own name where not. */
   address: RecordText;
   /**
    * Every Funktion the person holds, by the page each opens on, the one this area serves marked current; two or more
@@ -203,9 +203,10 @@ export function ThemeChoice() {
 /**
  * The account menu, the same in every area: „Funktion wechseln“ in a group of its own for a person holding two or
  * more Funktionen, its submenu marking the one this area serves; Konto and Abmelden; Impressum and Datenschutz; and at
- * its foot the theme as one row, „Darstellung“ with the three glyphs. A person with a name sees it with their address
- * at the top; an address alone already stands in the row, so the menu does not repeat it. `accountPage` is the Konto page
- * the menu opens: the phone's list of its pages, or on desktop its first page, beside the rail listing the rest.
+ * its foot the theme as one row, „Darstellung“ with the three glyphs. It heads with the person's whole address, under
+ * their name where one is stored, for every role alike: the row is one line, which cuts a long address, so the menu is
+ * where it is read in full. `accountPage` is the Konto page the menu opens: the phone's list of its pages, or on desktop
+ * its first page, beside the rail listing the rest.
  */
 function AccountMenu({
   account,
@@ -226,7 +227,7 @@ function AccountMenu({
       label={COPY.template.account}
       placement="above"
       beside={beside}
-      head={account.name === undefined ? undefined : { name: account.name, detail: account.address }}
+      head={{ name: account.name, detail: account.address }}
       groups={[
         ...switchRole,
         [
