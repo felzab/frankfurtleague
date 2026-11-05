@@ -3,10 +3,11 @@ import { Suspense } from "react";
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 
-import { ClassicPage, ClassicTitle } from "./ClassicPage";
-import { Facts } from "./Facts";
+import { buttonPlaceholder } from "./buttonStyles";
+import { ClassicPage, ClassicTitle, classicTitle } from "./ClassicPage";
+import { Facts, FactsPlaceholder } from "./Facts";
 import { OneShotEnd, OneShotForm } from "./OneShot";
-import { Skeleton, SkeletonTitle } from "./Skeleton";
+import { PlaceholderLine, Waiting } from "./Skeleton";
 import { StatusPage } from "./StatusPage";
 
 import type { Copy } from "@/core/copy";
@@ -128,7 +129,8 @@ async function MailedBody({ page }: { page: Promise<MailedState> }) {
 /**
  * The one shape of the seven pages a mail opens, in the classic frame's form column. Its state is a function of the
  * link's token and the session beside it, so the whole page waits for the read in the template's one boundary:
- * meanwhile the column holds a bar where the title will stand and the skeleton of the facts, as the sign-in waits.
+ * meanwhile the column holds the placeholders of the question, the state a link is opened on: its title, its facts,
+ * its sentence and its act.
  */
 export function MailedPage({ page }: { page: Promise<MailedState> }) {
   return (
@@ -137,8 +139,21 @@ export function MailedPage({ page }: { page: Promise<MailedState> }) {
       <Suspense
         fallback={
           <ClassicPage width="form">
-            <SkeletonTitle />
-            <Skeleton shape="facts" />
+            <Waiting layout="flex flex-col gap-6">
+              <PlaceholderLine
+                text={classicTitle()}
+                width="w-2/3"
+              />
+              <FactsPlaceholder pairs={4} />
+              <PlaceholderLine
+                text="text-base"
+                width="w-full"
+              />
+              <div className="grid gap-3 lg:justify-items-center">
+                <span className={buttonPlaceholder("w-full lg:w-40")} />
+                <span className="min-h-5" />
+              </div>
+            </Waiting>
           </ClassicPage>
         }>
         <MailedBody page={page} />

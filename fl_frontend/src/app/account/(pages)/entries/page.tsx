@@ -1,3 +1,4 @@
+import { AccountBoxPlaceholder } from "@/kit/AccountBox";
 import { AccountEmpty, AccountPage } from "@/kit/AccountPage";
 
 import { COPY } from "@/core/copy";
@@ -146,7 +147,14 @@ async function EntriesContent() {
 /** Deine Einträge: each record of the person's own, with its consents. */
 export default function AccountEntriesPage() {
   return (
-    <AccountPage route="accountEntries">
+    <AccountPage
+      route="accountEntries"
+      wait={
+        <AccountBoxPlaceholder
+          rows={2}
+          foot
+        />
+      }>
       <EntriesContent />
     </AccountPage>
   );

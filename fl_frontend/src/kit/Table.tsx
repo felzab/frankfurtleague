@@ -7,6 +7,7 @@ import { EmptyState } from "./EmptyState";
 import { Link } from "./Link";
 import { PlaquePopover } from "./PlaquePopover";
 import { RowEnd } from "./RowEnd";
+import { placeholderBar, PlaceholderLine } from "./Skeleton";
 import { TargetMark } from "./TargetMark";
 import { TeamPlaque } from "./TeamPlaque";
 import { tv } from "./tv";
@@ -111,6 +112,15 @@ export type TableProps = {
    */
   chevronOnPhone?: boolean;
 };
+
+/**
+ * What a table is before its rows are read: its heads, its columns and how its cells set. A page states it once,
+ * beside the rows it reads, so the table and its placeholder are drawn from the one declaration.
+ */
+export type TableHead = Pick<TableProps, "nameLabel" | "rankLabel" | "columns" | "compact" | "chevronOnPhone">;
+
+/** A table's rows once read: everything but its head. */
+export type TableBody = Omit<TableProps, keyof TableHead>;
 
 /** A grid row's chevron on a phone: out of the row's one column, at its end. */
 const PHONE_END = "max-lg:absolute max-lg:end-3 max-lg:top-1/2 max-lg:w-auto max-lg:-translate-y-1/2 max-lg:p-0";
@@ -497,6 +507,80 @@ export function Table({
           </tbody>
         </table>
       )}
+    </div>
+  );
+}
+
+/**
+ * A table while its rows are read: its own head, the columns' labels as the page states them, over `rows` rows at the
+ * rows' height, each cell a bar where its value will stand, set as the column sets its values: a rank and figures
+ * centred, a name from the start after a club's plaque where the rows hold clubs, the chevron where rows lead on.
+ * Drawn with the table's own recipe, so it stands as the table will at every width, a phone's left-out columns
+ * left out.
+ */
+export function TablePlaceholder({
+  head,
+  rows,
+  plaques = false,
+  bare = false,
+}: {
+  head: TableHead;
+  rows: number;
+  /** Whether each row names a club, its plaque before its name, which alone stands for the club on a phone. */
+  plaques?: boolean;
+  bare?: boolean;
+}) {
+  const { nameLabel, rankLabel, columns, compact = false, chevronOnPhone = true } = head;
+  return (
+    <div className={bare ? "w-full overflow-hidden" : cardSurface({ class: "w-full overflow-hidden" })}>
+      <table className="w-full border-collapse text-sm">
+        <thead>
+          <tr className={columnHead().rule()}>
+            {rankLabel !== undefined && <th className={table({ align: "centre", compact }).head()}>{rankLabel}</th>}
+            <th className={table({ align: "start", compact }).head()}>{nameLabel}</th>
+            {columns.map((column) => (
+              <th
+                key={column.key}
+                className={table({ align: column.figures === true ? "figure" : "start", phone: phoneOf(column), compact }).head()}>
+                {column.label}
+              </th>
+            ))}
+            <td className={table({ phone: chevronOnPhone ? "shown" : "hidden" }).head()} />
+          </tr>
+        </thead>
+        <tbody>
+          {Array.from({ length: rows }, (_, index) => (
+            <tr
+              key={index}
+              className={table({ chevronOnPhone }).row()}>
+              {rankLabel !== undefined && (
+                <td className={table({ align: "centre", compact }).cell()}>
+                  <span className={placeholderBar("mx-auto h-3 w-3")} />
+                </td>
+              )}
+              <td className={table({ compact }).name()}>
+                <span className="flex min-w-0 items-center gap-2">
+                  {plaques && <span className={placeholderBar("h-6 w-10")} />}
+                  <PlaceholderLine
+                    text={plaques ? "flex-1 text-sm max-lg:hidden" : "flex-1 text-sm"}
+                    width="w-1/2"
+                  />
+                </span>
+              </td>
+              {columns.map((column) => (
+                <td
+                  key={column.key}
+                  className={table({ align: column.figures === true ? "figure" : "start", phone: phoneOf(column), compact }).cell()}>
+                  <span className={placeholderBar(column.figures === true ? "mx-auto h-3 w-4" : "h-3 w-20")} />
+                </td>
+              ))}
+              <td className={table({ chevronOnPhone }).end()}>
+                <RowEnd />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

@@ -49,7 +49,9 @@ function landingWith(content: Promise<LandingContent>): ReactElement {
 
 /** The document once every boundary has its content. */
 async function streamed(page: ReactElement): Promise<HTMLElement> {
-  const stream = await renderToReadableStream(page);
+  // Every boundary inlined, as a stream does where the content lands before the shell is sent: past React's default
+  // chunk the placeholders would leave the content outlined behind a script this document never runs.
+  const stream = await renderToReadableStream(page, { progressiveChunkSize: Number.POSITIVE_INFINITY });
   await stream.allReady;
   const root = document.createElement("div");
   root.innerHTML = await new Response(stream).text();
@@ -57,13 +59,14 @@ async function streamed(page: ReactElement): Promise<HTMLElement> {
 }
 
 describe("the landing while its read is on its way", () => {
-  // The tagline is the page's title, which stands outside the wait; the rest is the first screen's skeleton.
-  it("stands its tagline at once, and the skeleton of the rest of the first screen under one status", () => {
+  // The tagline is the page's title and the lead is known before the read, so both stand outside the wait; the rest
+  // is the first screen's placeholders.
+  it("stands its tagline and its lead at once, and the placeholders of the rest of the first screen under one status", () => {
     const waiting = document.createElement("div");
     waiting.innerHTML = renderToString(landingWith(new Promise(() => undefined)));
     expect(within(waiting).getByRole("heading", { level: 1 }).textContent).toBe(landing.tagline);
     expect(within(waiting).queryByRole("link")).toBeNull();
-    expect(within(waiting).queryByText(landing.paragraph)).toBeNull();
+    expect(within(waiting).getByText(landing.paragraph)).toBeTruthy();
     expect(
       within(waiting)
         .getAllByRole("status")
@@ -74,7 +77,7 @@ describe("the landing while its read is on its way", () => {
 });
 
 describe("the landing once read", () => {
-  it("adds the two ways on, the season's card and the sections, and no skeleton", async () => {
+  it("adds the two ways on, the season's card and the sections, and no placeholder", async () => {
     const page = await streamed(landingWith(Promise.resolve(CONTENT)));
     expect(
       within(page)

@@ -8,7 +8,7 @@ import { COPY } from "@/core/copy";
 import { ReadPage } from "./ReadPage";
 
 import type { ComponentProps, ReactElement } from "react";
-import type { ReadRecord } from "./ReadPage";
+import type { ReadRecord, ReadWait } from "./ReadPage";
 
 vi.mock("next/link", () => ({
   default: ({ children, ...props }: ComponentProps<"a">) => <a {...props}>{children}</a>,
@@ -30,11 +30,15 @@ async function streamed(page: ReactElement): Promise<HTMLElement> {
   return root;
 }
 
+/** The page's outline while its record is read: one group of facts, as `RECORD` holds. */
+const WAIT: ReadWait = { groups: [{ kind: "facts", pairs: 4 }] };
+
 describe("a match's own page", () => {
   it("heads its facts with the match's head and what befell the match", async () => {
     const page = await streamed(
       <ReadPage
         scope="saison"
+        wait={WAIT}
         record={Promise.resolve({
           ...RECORD,
           spiel: {
@@ -63,6 +67,7 @@ describe("a club's own page", () => {
     const page = await streamed(
       <ReadPage
         scope="saison"
+        wait={WAIT}
         record={Promise.resolve({
           ...RECORD,
           club: { head: <p>Goethe-Gymnasium</p>, austritt: { title, text: { record: "Zweimal nicht angetreten." } } },
@@ -82,11 +87,12 @@ describe("a club's own page", () => {
 });
 
 describe("the read page's wait", () => {
-  it("draws the facts' skeleton while the record is read, and the record once it is", async () => {
+  it("draws its groups' placeholders while the record is read, and the record once it is", async () => {
     const waiting = document.createElement("div");
     waiting.innerHTML = renderToString(
       <ReadPage
         scope="saison"
+        wait={WAIT}
         record={new Promise(() => undefined)}
       />,
     );
@@ -97,6 +103,7 @@ describe("the read page's wait", () => {
     const read = await streamed(
       <ReadPage
         scope="saison"
+        wait={WAIT}
         record={Promise.resolve(RECORD)}
       />,
     );

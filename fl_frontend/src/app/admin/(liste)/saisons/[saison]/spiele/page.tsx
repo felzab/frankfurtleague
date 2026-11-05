@@ -63,7 +63,7 @@ export default function SpielePage({ params, searchParams }: Props) {
   return (
     <ListPage
       head={{ scope: "area", title: { route: "adminSpiele" } }}
-      list={{ kind: "spieltage", content: readSpieltage(params, searchParams) }}
+      list={{ kind: "spieltage", dated: true, content: readSpieltage(params, searchParams) }}
     />
   );
 }

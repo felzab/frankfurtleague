@@ -24,6 +24,7 @@ import { RailTooltip, useRailCollapsed } from "./RailState";
 import { railFade, railGlyph } from "./railStyles";
 import { groupHeading } from "./Section";
 import { Sheet } from "./Sheet";
+import { Placeholder, placeholderBar, PlaceholderLine } from "./Skeleton";
 import { appToast } from "./Toast";
 import { tv } from "./tv";
 
@@ -72,6 +73,11 @@ const SaisonContext = createContext<(FrameSaisons & { pages: readonly SaisonPage
 /** Hands the frame's seasons and its season pages to its menus, which a layout's server code cannot reach. */
 export function SaisonScope({ value, children }: { value: FrameSaisons & { pages: readonly SaisonPage[] }; children: ReactNode }) {
   return <SaisonContext value={value}>{children}</SaisonContext>;
+}
+
+/** Whether the frame holds seasons at all, which it knows before they are read: a frame with none draws no season button. */
+export function useHoldsSaison() {
+  return useContext(SaisonContext) !== null;
 }
 
 /** A route's dynamic segments as Next fills them in from the address. */
@@ -330,6 +336,49 @@ export function RailEntries({ groups: given }: { groups: ReadonlyArray<RailGroup
   );
 }
 
+/**
+ * The rail's entries while the season their addresses name is read: every group and entry as `RailEntries` draws it,
+ * each heading's and name's words a bar as wide as they will stand and each glyph a bar of its size, so the entries
+ * appear in their places. No entry is marked current, which the address decides once the read lands.
+ */
+export function RailEntriesPlaceholder({ groups }: { groups: ReadonlyArray<RailGroup> }) {
+  return (
+    <Placeholder layout="grid min-h-0 flex-1 grid-cols-1 content-start gap-4 overflow-hidden px-3 py-2">
+      {groups.map((group, index) => (
+        <div
+          key={group.heading ?? index}
+          className="relative">
+          {group.heading !== undefined && (
+            <div className={railHeading}>
+              <PlaceholderLine
+                text="text-xs"
+                words={group.heading}
+              />
+            </div>
+          )}
+          <div className="grid gap-1">
+            {group.entries.map((entry) => (
+              <span
+                key={entry.id}
+                className={railEntry({ current: false })}>
+                <span className={railGlyph()}>
+                  <span className={placeholderBar("size-4.5")} />
+                </span>
+                <span className={railFade()}>
+                  <PlaceholderLine
+                    text="text-sm"
+                    words={entry.label}
+                  />
+                </span>
+              </span>
+            ))}
+          </div>
+        </div>
+      ))}
+    </Placeholder>
+  );
+}
+
 /** A person's initials, for the round avatar standing in for them. */
 function initials(name: string) {
   const words = name.trim().split(/\s+/);
@@ -389,6 +438,31 @@ export function AccountRow({ account: read }: { account: AccountRead }) {
         </AriaButton>
       }
     />
+  );
+}
+
+/**
+ * The rail's foot while the session is judged: the row `AccountRow` draws, its avatar, its two lines and its „…“ as
+ * bars of their sizes, so the foot keeps its height and the entries above stay where they are.
+ */
+export function AccountRowPlaceholder() {
+  return (
+    <Placeholder layout="flex h-12 w-full items-center gap-3 overflow-hidden rounded-lg px-2">
+      <span className={placeholderBar(avatar({ size: "rail" }))} />
+      <span className={railFade({ class: "grid min-w-0 flex-1" })}>
+        <PlaceholderLine
+          text="text-sm"
+          width="w-3/4"
+        />
+        <PlaceholderLine
+          text="text-xs"
+          width="w-1/2"
+        />
+      </span>
+      <span className={railFade()}>
+        <span className={placeholderBar("size-4")} />
+      </span>
+    </Placeholder>
   );
 }
 
@@ -509,12 +583,68 @@ function Places({ groups: given, bar, extra, account }: FrameMenu) {
         </FreshPerPage>
       )}
       {account !== undefined && (
-        // The bar's places stand drawn while the session is judged; the account's keeps its column.
-        <Suspense fallback={<span />}>
+        // The bar's places stand drawn while the session is judged; the account's keeps its column, drawn as it waits.
+        <Suspense
+          fallback={
+            <Placeholder layout="h-full">
+              <PlacePlaceholder
+                label={COPY.template.account}
+                glyph={avatar({ size: "bar" })}
+              />
+            </Placeholder>
+          }>
           <AccountPlace account={account} />
         </Suspense>
       )}
     </nav>
+  );
+}
+
+/** One of the phone bar's places while it waits: its glyph and its words as bars, over one another as the place sets them. */
+function PlacePlaceholder({ label, glyph }: { label: Copy; glyph: string }) {
+  return (
+    <span className={barPlace({ current: false })}>
+      <span className={placeholderBar(glyph)} />
+      <PlaceholderLine
+        text="text-xs"
+        words={label}
+      />
+    </span>
+  );
+}
+
+/**
+ * The phone's bottom bar while the season its addresses name is read: every place `BarPlaces` will draw, the pages,
+ * „Mehr“ and the account, each its glyph and its words as bars, so the bar stands at once at its height.
+ */
+export function BarPlacesPlaceholder() {
+  const menu = useContext(MenuContext);
+  if (menu === null) return null;
+  const entries = menu.groups.flatMap((group) => group.entries);
+  const placed = menu.bar.flatMap((id) => entries.filter((entry) => entry.id === id));
+  const more = entries.length > placed.length || menu.extra.length > 0;
+  return (
+    <Placeholder layout="sticky bottom-0 z-20 grid h-14 auto-cols-fr grid-flow-col border-t border-border bg-bg lg:hidden">
+      {placed.map((entry) => (
+        <PlacePlaceholder
+          key={entry.id}
+          label={entry.label}
+          glyph="size-4.5"
+        />
+      ))}
+      {more && (
+        <PlacePlaceholder
+          label={COPY.template.more}
+          glyph="size-4.5"
+        />
+      )}
+      {menu.account !== undefined && (
+        <PlacePlaceholder
+          label={COPY.template.account}
+          glyph={avatar({ size: "bar" })}
+        />
+      )}
+    </Placeholder>
   );
 }
 
@@ -590,6 +720,23 @@ export function BackControl({ href }: { href: Route }) {
         </AriaButton>
       }
     />
+  );
+}
+
+/**
+ * „‹ Zurück“ in an editor's band while the list it leads to is read: its glyph and its words as the band's bars, in
+ * the place and at the size the control takes.
+ */
+export function EditorBackPlaceholder() {
+  return (
+    <Placeholder layout={back({ class: "gap-1" })}>
+      <span className={placeholderBar("size-4.5", "band")} />
+      <PlaceholderLine
+        text="text-sm"
+        words={COPY.shared.back}
+        ground="band"
+      />
+    </Placeholder>
   );
 }
 

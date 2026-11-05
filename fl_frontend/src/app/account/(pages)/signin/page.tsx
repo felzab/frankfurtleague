@@ -1,3 +1,4 @@
+import { AccountBoxPlaceholder } from "@/kit/AccountBox";
 import { AccountPage } from "@/kit/AccountPage";
 
 import { requires } from "@/core/action";
@@ -57,7 +58,17 @@ async function SignInContent() {
 /** Anmeldung: the address the person signs in with, and „Konto löschen“. */
 export default function AccountSignInPage() {
   return (
-    <AccountPage route="accountSignIn">
+    <AccountPage
+      route="accountSignIn"
+      wait={
+        <>
+          <AccountBoxPlaceholder
+            fields={1}
+            foot
+          />
+          <AccountBoxPlaceholder foot />
+        </>
+      }>
       <SignInContent />
     </AccountPage>
   );

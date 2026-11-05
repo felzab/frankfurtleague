@@ -1,5 +1,7 @@
 import { textOf } from "@/core/copy";
 
+import { placeholderBar, PlaceholderLine } from "./Skeleton";
+import { SpielListPlaceholder } from "./SpielRow";
 import { tv } from "./tv";
 
 import type { Copy, Words } from "@/core/copy";
@@ -64,6 +66,36 @@ const timeline = tv({
     detail: "font-numeric text-xs text-fg-muted",
   },
 });
+
+/**
+ * The line while its checkpoints are read: `count` checkpoints on the line's own grid, each its point, its title's
+ * line and, where each holds a match as a club's line does, that match's row placeholder under it.
+ */
+export function TimelinePlaceholder({ count, matches = false }: { count: number; matches?: boolean }) {
+  const slots = timeline();
+  return (
+    <div className={slots.list()}>
+      {Array.from({ length: count }, (_, index) => (
+        <div
+          key={index}
+          className={slots.step()}>
+          <div className={slots.line()}>
+            <span className={placeholderBar("size-6 rounded-full")} />
+          </div>
+          <div className={slots.body()}>
+            <div className={slots.head()}>
+              <PlaceholderLine
+                text={slots.title()}
+                width="w-28"
+              />
+            </div>
+            {matches && <SpielListPlaceholder count={1} />}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 /**
  * Things in their order along one dotted line, a checkpoint for each: a club's matches by matchday, a match's

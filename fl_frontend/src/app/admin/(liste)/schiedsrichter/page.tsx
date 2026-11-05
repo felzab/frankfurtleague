@@ -12,7 +12,7 @@ import { SchiedsrichterFields } from "./SchiedsrichterFields";
 
 import type { FLSchiedsrichter } from "@/core/generated/client/types";
 import type { ChipProps } from "@/kit/Chip";
-import type { TableRow } from "@/kit/Table";
+import type { TableHead, TableRow } from "@/kit/Table";
 import type { Metadata, ResolvingMetadata } from "next";
 
 const WORDS = COPY.admin.schiedsrichter;
@@ -67,10 +67,19 @@ export default function SchiedsrichterPage() {
         action: createSchiedsrichter,
         children: <SchiedsrichterFields />,
       }}
-      list={{ kind: "table", search: { label: WORDS.search }, content: readSchiedsrichter() }}
+      list={{ kind: "table", search: { label: WORDS.search }, head: HEAD, content: readSchiedsrichter() }}
     />
   );
 }
+
+/** The table's head, drawn while the rows are read and over them once they are. */
+const HEAD: TableHead = {
+  nameLabel: COPY.shared.name,
+  columns: [
+    { key: "email", label: COPY.signIn.address, hideOnPhone: true },
+    { key: "telefon", label: COPY.account.entries.facts.phone },
+  ],
+};
 
 async function readSchiedsrichter() {
   // Retired included: the list is the one way into a retired referee's page, whose danger box brings them back.
@@ -78,11 +87,6 @@ async function readSchiedsrichter() {
   return {
     table: {
       label: ROUTES.adminSchiedsrichter.title,
-      nameLabel: COPY.shared.name,
-      columns: [
-        { key: "email", label: COPY.signIn.address, hideOnPhone: true },
-        { key: "telefon", label: COPY.account.entries.facts.phone },
-      ],
       rows: schiedsrichter.map(rowOf),
       empty: { kind: "none", plural: ROUTES.adminSchiedsrichter.title, glyph: "schiedsrichter" } as const,
     },

@@ -5,11 +5,14 @@ import { useEffect, useRef } from "react";
 import { Form } from "react-aria-components/Form";
 
 import { Button } from "./Button";
-import { ClassicPage, ClassicTitle } from "./ClassicPage";
+import { buttonPlaceholder } from "./buttonStyles";
+import { ClassicPage, ClassicTitle, classicTitle } from "./ClassicPage";
 import { CodeField } from "./CodeField";
+import { FieldPlaceholder } from "./FieldPair";
 import { StatusLine } from "./FieldParts";
+import { statusLine } from "./fieldStyles";
 import { Link } from "./Link";
-import { Skeleton, SkeletonTitle } from "./Skeleton";
+import { PlaceholderLine, Waiting } from "./Skeleton";
 import { TextField } from "./TextField";
 import { tv } from "./tv";
 
@@ -127,24 +130,65 @@ export function SignInPage(props: SignInView) {
 }
 
 /**
- * The sign-in while its session is read: the title, which the address view and the signed-in view share, where
- * either sets it, and under it the facts' skeleton, which appears once the wait outlasts the delay every
- * template's skeleton keeps, the one wait every template draws. `null` where the title waits on the read too, as
- * the passkey's step names its own: the title's bar stands centred in its line, as a rail page's strip draws it.
+ * The sign-in while its session is read, drawn with the view's own column and blocks as placeholders. Where the page
+ * names the title before the read, the view is the address view, which shares that title with the signed-in view:
+ * the title, the address field, „Code senden“, the „oder“ divider and the passkey's button. Where the title waits on
+ * the read too, the passkey's step: the title's, the sentence's and the address's lines, centred, over its button.
+ * Under either the status line keeps its place.
  */
-export function SignInSkeleton({ title }: { title: Copy | null }) {
+export function SignInPlaceholder({ title }: { title: Copy | null }) {
   const slots = look();
   return (
     <ClassicPage width="signin">
       <div className={slots.column()}>
         {title === null ? (
-          <span className="flex h-8 justify-center">
-            <SkeletonTitle />
-          </span>
+          <Waiting layout="flex flex-col gap-4">
+            <div className={slots.head()}>
+              <PlaceholderLine
+                text={classicTitle()}
+                width="w-48"
+              />
+              <PlaceholderLine
+                text={slots.sentence()}
+                width="w-full"
+              />
+              <PlaceholderLine
+                text={slots.sentence()}
+                width="w-2/3"
+              />
+            </div>
+            <div className={slots.acts()}>
+              <span className={buttonPlaceholder("w-full")} />
+            </div>
+          </Waiting>
         ) : (
-          <ClassicTitle text={title} />
+          <>
+            <ClassicTitle text={title} />
+            <Waiting layout="flex flex-col gap-4">
+              <div className={slots.form()}>
+                <FieldPlaceholder
+                  width="column"
+                  line={false}
+                />
+                {/* The bot check's place: it shows nothing unless it asks the visitor to act. */}
+                <span />
+                <span className={buttonPlaceholder("w-full")} />
+              </div>
+              <div className={slots.divider()}>
+                <span className={slots.rule()} />
+                <PlaceholderLine
+                  text="text-xs"
+                  width="w-6"
+                />
+                <span className={slots.rule()} />
+              </div>
+              <div className={slots.acts()}>
+                <span className={buttonPlaceholder("w-full")} />
+              </div>
+            </Waiting>
+          </>
         )}
-        <Skeleton shape="facts" />
+        <span className={statusLine({ placement: "column" })} />
       </div>
     </ClassicPage>
   );

@@ -1,7 +1,9 @@
 import { textOf } from "@/core/copy";
 
 import { cardSurface } from "./cardStyles";
+import { FieldPairPlaceholder, FieldPlaceholder } from "./FieldPair";
 import { HelpPopover } from "./HelpPopover";
+import { PlaceholderLine } from "./Skeleton";
 import { tv } from "./tv";
 
 import type { Copy, Words } from "@/core/copy";
@@ -21,6 +23,39 @@ export function SectionTitle({ text, level = 2 }: { text: Words; level?: 2 | 3 }
  * groups and the phone sheet's. Each place adds its own spacing.
  */
 export const groupHeading = tv({ base: "text-xs font-medium text-fg-muted" });
+
+/**
+ * One row of a section's fields as its placeholder draws it: one field at a long field's width, or two in one row as
+ * `FieldPair` sets them.
+ */
+export type FieldRow = "field" | "pair";
+
+/**
+ * A section while the record filling it is read: the section's own box, its title's line, and its fields'
+ * placeholders row by row, 8 px apart as its fields stand, so the box stands as tall as the section will.
+ */
+export function SectionPlaceholder({ rows }: { rows: ReadonlyArray<FieldRow> }) {
+  return (
+    <div className={cardSurface({ class: "grid gap-4 p-4" })}>
+      <PlaceholderLine
+        text="text-base font-semibold"
+        width="w-1/3"
+      />
+      <div className="grid justify-items-start gap-2">
+        {rows.map((row, index) =>
+          row === "pair" ? (
+            <FieldPairPlaceholder key={index} />
+          ) : (
+            <FieldPlaceholder
+              key={index}
+              width="W3"
+            />
+          ),
+        )}
+      </div>
+    </div>
+  );
+}
 
 /**
  * A form's or a settings page's group of fields: a box exactly as tall as its content under its 16-px

@@ -1,3 +1,4 @@
+import { AccountBoxPlaceholder } from "@/kit/AccountBox";
 import { AccountPage } from "@/kit/AccountPage";
 
 import { requires } from "@/core/action";
@@ -55,7 +56,17 @@ async function SecurityContent() {
 /** Sicherheit: the passkeys, and „Alle anderen abmelden“. */
 export default function AccountSecurityPage() {
   return (
-    <AccountPage route="accountSecurity">
+    <AccountPage
+      route="accountSecurity"
+      wait={
+        <>
+          <AccountBoxPlaceholder
+            rows={2}
+            foot
+          />
+          <AccountBoxPlaceholder foot />
+        </>
+      }>
       <SecurityContent />
     </AccountPage>
   );

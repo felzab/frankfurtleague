@@ -1,4 +1,5 @@
-import { columnCap, fieldLabel } from "./fieldStyles";
+import { columnCap, fieldFrame, fieldLabel, fieldRoot, messageLine } from "./fieldStyles";
+import { placeholderBar, PlaceholderLine } from "./Skeleton";
 import { tv } from "./tv";
 
 import type { Copy } from "@/core/copy";
@@ -22,6 +23,39 @@ const reach = tv({
     },
   },
 });
+
+/**
+ * A field while the record filling it is read: its label's line, its frame at its width class's size, and the
+ * message line under it, in the field's own column, so a box of placeholders stands as tall as its fields will. A
+ * field whose line appears with its error alone, the sign-in's address, takes `line={false}`.
+ */
+export function FieldPlaceholder({ width, line = true }: { width: "W3" | "C10" | "C5" | "column"; line?: boolean }) {
+  return (
+    <div className={fieldRoot()}>
+      <PlaceholderLine
+        text={fieldLabel()}
+        width="w-24"
+      />
+      <span className={placeholderBar(`rounded-lg ${fieldFrame.variants.width[width]}`)} />
+      {line && <span className={messageLine()} />}
+    </div>
+  );
+}
+
+/**
+ * Two fields of one row while they are read, as `FieldPair` sets a long field beside a short one: the pair's own
+ * row, a phone's included.
+ */
+export function FieldPairPlaceholder() {
+  return (
+    <FieldPair
+      short="second"
+      phone="pair">
+      <FieldPlaceholder width="W3" />
+      <FieldPlaceholder width="C10" />
+    </FieldPair>
+  );
+}
 
 /**
  * Two fields that belong in one row, such as a street with its number, a postcode with its town or a day with

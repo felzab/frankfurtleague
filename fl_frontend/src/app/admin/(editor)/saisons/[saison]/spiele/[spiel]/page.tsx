@@ -90,7 +90,12 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
 
 /** The match editor, on its one view read. */
 export default function SpielEditorPage({ params }: Props) {
-  return <EditorShell editor={readEditor(params)} />;
+  return (
+    <EditorShell
+      wait={{ lead: true, sections: [["pair", "pair", "pair"], ["field", "pair"], ["field"], ["field"], ["field", "field"]] }}
+      editor={readEditor(params)}
+    />
+  );
 }
 
 /** A pupil a goal names, by the names their record holds; a goal nobody was named for, „unbekannt“. */

@@ -1,7 +1,11 @@
+import { buttonPlaceholder } from "./buttonStyles";
 import { ClassicPage } from "./ClassicPage";
+import { LandingSectionPlaceholder } from "./LandingSection";
 import { Link } from "./Link";
 import { PageWait } from "./PageFade";
-import { LandingSkeleton } from "./Skeleton";
+import { PillarsPlaceholder } from "./Pillars";
+import { SaisonBlockPlaceholder } from "./SaisonBlock";
+import { Placeholder, Waiting } from "./Skeleton";
 import { tv } from "./tv";
 
 import type { Copy } from "@/core/copy";
@@ -87,9 +91,10 @@ async function Read({ lead, content }: { lead: Copy; content: Promise<LandingCon
  * `h1`, its tagline, over the lead and its two ways on, the season's card beside them; then the page's
  * sections, each one of the landing's blocks.
  *
- * The tagline is the page's title and stands at once, as every template's title stands outside its wait;
- * everything under it waits for the read in the template's one boundary, drawn meanwhile as the skeleton of the
- * first screen, part by part in the place each final block takes, so nothing moves when the read arrives.
+ * The tagline is the page's title and stands at once, as every template's title stands outside its wait, and so does
+ * the lead under it, which the page knows before the read; everything else waits for the read in the template's one
+ * boundary, drawn meanwhile as its blocks' placeholders, part by part in the place each final block takes: the two
+ * ways on, the season's card and the first section, so nothing moves when the read arrives.
  */
 export function LandingPage({
   title,
@@ -109,9 +114,28 @@ export function LandingPage({
         <PageWait
           fallback={
             <Parts
-              words={<LandingSkeleton part="words" />}
-              aside={<LandingSkeleton part="card" />}
-              sections={<LandingSkeleton part="sections" />}
+              words={
+                <>
+                  <p className={slots.lead()}>{lead}</p>
+                  <Waiting layout={slots.acts()}>
+                    <span className={buttonPlaceholder("w-28")} />
+                    <span className={buttonPlaceholder("w-36")} />
+                  </Waiting>
+                </>
+              }
+              aside={
+                <Placeholder>
+                  <SaisonBlockPlaceholder />
+                </Placeholder>
+              }
+              sections={
+                // One screen while it waits: a phone's hero fills it, so the sections' placeholder stands from `lg`.
+                <Placeholder layout="max-lg:hidden">
+                  <LandingSectionPlaceholder>
+                    <PillarsPlaceholder />
+                  </LandingSectionPlaceholder>
+                </Placeholder>
+              }
             />
           }>
           <Read

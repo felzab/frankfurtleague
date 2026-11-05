@@ -1,22 +1,27 @@
 import { Suspense } from "react";
 
-import { BracketTree } from "./BracketTree";
+import { BracketTree, BracketTreePlaceholder } from "./BracketTree";
 import { Button } from "./Button";
-import { Card, CardActRow } from "./Card";
+import { buttonPlaceholder } from "./buttonStyles";
+import { Card, CardActRow, CardPlaceholder, CardRowsPlaceholder } from "./Card";
 import { CardGrid } from "./CardGrid";
 import { cardSurface } from "./cardStyles";
 import { Dialog } from "./Dialog";
 import { actLabel } from "./dialogAct";
 import { EmptyState } from "./EmptyState";
+import { FieldPlaceholder } from "./FieldPair";
 import { StatusLine } from "./FieldParts";
 import { Filters } from "./Filters";
 import { ListMatches, ListQueryScope, ListSearchField, ListTable, ListTiles } from "./ListTable";
 import { lockedLine } from "./lockedLine";
 import { PageWait } from "./PageFade";
 import { RailPage } from "./RailFrame";
-import { Skeleton } from "./Skeleton";
-import { Table } from "./Table";
-import { Tabs } from "./Tabs";
+import { Placeholder, Waiting } from "./Skeleton";
+import { SpielListPlaceholder } from "./SpielRow";
+import { SpieltagHeadPlaceholder } from "./SpieltagHead";
+import { Table, TablePlaceholder } from "./Table";
+import { Tabs, TabsPlaceholder } from "./Tabs";
+import { SchoolTilesPlaceholder } from "./TileGrid";
 
 import type { Copy } from "@/core/copy";
 import type { ComponentProps, ReactNode } from "react";
@@ -26,9 +31,8 @@ import type { EmptyStateProps } from "./EmptyState";
 import type { Filter } from "./Filters";
 import type { ListMore, ListSearch } from "./ListTable";
 import type { RailPageHead } from "./RailFrame";
-import type { SkeletonShape } from "./Skeleton";
 import type { SpielRowProps } from "./SpielRow";
-import type { TableProps } from "./Table";
+import type { TableBody, TableHead } from "./Table";
 import type { SchoolTile } from "./TileGrid";
 
 /** The matchday tabs, each with its matches, and the tab the server chose by `chosenTab`. */
@@ -38,8 +42,8 @@ type SpieltagTabs = {
   tabs: ReadonlyArray<{ id: string; label: Copy; panel: ReactNode }>;
 };
 
-/** A table's rows, and how a list past one read's cap reaches the rest. */
-type TableContent = { table: TableProps; more?: ListMore };
+/** A table's rows, and how a list past one read's cap reaches the rest; its head is the list's, stated before the read. */
+type TableContent = { table: TableBody; more?: ListMore };
 
 /** The season's matches once read: the matchday tabs, or why there are none. */
 export type SpieltageContent = {
@@ -51,7 +55,7 @@ export type SpieltageContent = {
 
 /** One card per group under the page's one title, such as the Tabelle's: each group's name and count heading its table. */
 type GroupsContent = {
-  groups: ReadonlyArray<{ id: string; title: Copy; table: TableProps }>;
+  groups: ReadonlyArray<{ id: string; title: Copy; table: TableBody }>;
   /** Why there is no group to show, standing in the tables' place. */
   empty: EmptyStateProps;
 };
@@ -85,25 +89,89 @@ type ListContent =
   | {
       kind: "table";
       /** The search field's name, where the list holds about 20 rows or more. */ search?: ListSearch;
+      /** The table's head, which its placeholder draws while the rows are read. */
+      head: TableHead;
       content: Promise<TableContent>;
     }
-  | { kind: "spieltage"; content: Promise<SpieltageContent> }
-  | { kind: "groups"; content: Promise<GroupsContent> }
+  | {
+      kind: "spieltage";
+      /** Each matchday's panel opens with its dates and its act, as the administrator's „Spiele“ list's do. */
+      dated?: true;
+      content: Promise<SpieltageContent>;
+    }
+  | {
+      kind: "groups";
+      /** Every group's table's head, one for all, which their placeholder draws while the rows are read. */
+      head: TableHead;
+      content: Promise<GroupsContent>;
+    }
   | { kind: "cards"; content: Promise<CardsContent> }
   | { kind: "tree"; content: Promise<TreeContent> }
   | { kind: "spiele"; /** The search field's name. */ search: ListSearch; content: Promise<SpieleContent> }
   | { kind: "tiles"; /** The search field's name. */ search: ListSearch; content: Promise<TilesContent> };
 
-/** The skeleton each kind waits in: rows, a matchday's match cards, the tree's cards, a list of matches, the tiles. */
-const WAIT: Readonly<Record<ListContent["kind"], SkeletonShape>> = {
-  table: "table",
-  groups: "table",
-  cards: "cardRows",
-  spieltage: "cards",
-  tree: "cards",
-  spiele: "cards",
-  tiles: "tiles",
-};
+/**
+ * What each kind waits in: the placeholders of the blocks its content is drawn with, laid out as the content lays them,
+ * so the wait stands as tall as the first screen of the content will. How many rows, cards or tiles it draws is a
+ * typical first screen's, since how many there are is what the read tells.
+ */
+function ListPlaceholder({ list }: { list: ListContent }) {
+  switch (list.kind) {
+    case "table":
+      return (
+        <TablePlaceholder
+          head={list.head}
+          rows={8}
+        />
+      );
+    case "groups":
+      return [0, 1].map((index) => (
+        <CardPlaceholder
+          key={index}
+          count>
+          <TablePlaceholder
+            head={list.head}
+            rows={4}
+            plaques
+            bare
+          />
+        </CardPlaceholder>
+      ));
+    case "cards":
+      return (
+        <CardGrid>
+          {[0, 1, 2, 3].map((index) => (
+            <CardPlaceholder
+              key={index}
+              count>
+              <CardRowsPlaceholder rows={3} />
+            </CardPlaceholder>
+          ))}
+        </CardGrid>
+      );
+    case "spieltage":
+      return (
+        <TabsPlaceholder count={6}>
+          {list.dated === true && <SpieltagHeadPlaceholder />}
+          <SpielListPlaceholder
+            count={6}
+            layout="cards"
+          />
+        </TabsPlaceholder>
+      );
+    case "tree":
+      return <BracketTreePlaceholder />;
+    case "spiele":
+      return (
+        <SpielListPlaceholder
+          count={6}
+          layout="cards"
+        />
+      );
+    case "tiles":
+      return <SchoolTilesPlaceholder count={8} />;
+  }
+}
 
 /** A list's empty state inside the list's box, as `Table` places its own. */
 function EmptyBox({ empty }: { empty: EmptyStateProps }) {
@@ -127,16 +195,17 @@ function Spieltage({ label, selectedKey, tabs }: SpieltagTabs) {
 }
 
 /**
- * The filter block's place while its choices are read, at the height it will stand at, so nothing under the
- * toolbar moves when it arrives, as every part of a template's frame holds its space: on a phone the „Filter“ button's line,
- * on desktop a labelled select, its label, its field and the line under it.
+ * The filter block while its choices are read, at the height it will stand at, so nothing under the toolbar moves when
+ * it arrives: on a phone the „Filter“ button, on desktop a labelled select, its label, its field and the line under it.
  */
-function FiltersSpace() {
+function FiltersPlaceholder() {
   return (
-    <div
-      aria-hidden
-      className="h-8 lg:h-19 pointer-coarse:h-10 lg:pointer-coarse:h-21"
-    />
+    <Placeholder>
+      <span className={buttonPlaceholder("w-24 lg:hidden")} />
+      <span className="max-lg:hidden">
+        <FieldPlaceholder width="C10" />
+      </span>
+    </Placeholder>
   );
 }
 
@@ -151,13 +220,12 @@ async function FiltersOnceRead({ filters }: { filters: Promise<ReadonlyArray<Fil
  */
 export type ListCreate = DialogAct & { locked?: Copy };
 
-/** The create act's place while what it makes is read, at its button's height, so the toolbar keeps its height. */
-function CreateSpace() {
+/** The create act while what it makes is read: its button's placeholder, so the toolbar keeps its height. */
+function CreatePlaceholder() {
   return (
-    <div
-      aria-hidden
-      className="h-8 pointer-coarse:h-10"
-    />
+    <Placeholder>
+      <span className={buttonPlaceholder("w-36")} />
+    </Placeholder>
   );
 }
 
@@ -199,7 +267,7 @@ async function ListBody({ list }: { list: ListContent }) {
       const { table, more } = await list.content;
       return (
         <ListTable
-          table={table}
+          table={{ ...list.head, ...table }}
           more={more}
         />
       );
@@ -219,6 +287,7 @@ async function ListBody({ list }: { list: ListContent }) {
             title={group.title}
             count={group.table.rows.length}>
             <Table
+              {...list.head}
               {...group.table}
               bare
             />
@@ -287,7 +356,7 @@ async function ListBody({ list }: { list: ListContent }) {
  * in it shows its empty state in its place.
  *
  * The title and the toolbar are drawn at once; the list alone waits for its content, in the template's one
- * boundary, drawn meanwhile as the skeleton of its box. Typing into the search field before the rows arrive
+ * boundary, drawn meanwhile as the placeholders of the blocks it will be drawn with. Typing into the search field before the rows arrive
  * searches them once they do.
  */
 export function ListPage({
@@ -322,14 +391,14 @@ export function ListPage({
           <div className="flex flex-wrap items-center gap-3">
             {search !== undefined && <ListSearchField label={search.label} />}
             {filters !== undefined && (
-              <Suspense fallback={<FiltersSpace />}>
+              <Suspense fallback={<FiltersPlaceholder />}>
                 <FiltersOnceRead filters={filters} />
               </Suspense>
             )}
             {create !== undefined && (
               <div className="ms-auto">
                 {create instanceof Promise ? (
-                  <Suspense fallback={<CreateSpace />}>
+                  <Suspense fallback={<CreatePlaceholder />}>
                     <CreateOnceRead create={create} />
                   </Suspense>
                 ) : (
@@ -339,7 +408,12 @@ export function ListPage({
             )}
           </div>
         )}
-        <PageWait fallback={<Skeleton shape={WAIT[list.kind]} />}>
+        <PageWait
+          fallback={
+            <Waiting layout="flex flex-col gap-6">
+              <ListPlaceholder list={list} />
+            </Waiting>
+          }>
           <ListBody list={list} />
         </PageWait>
       </ListQueryScope>

@@ -263,14 +263,24 @@ function Framed({ editor, children }: { editor: boolean; children: ReactNode }) 
 const saved = async (): Promise<ActionAnswer<number>> => ({ ok: true, value: 2 });
 
 describe("the editor template's wait", () => {
-  it("draws the strip and the sections' skeleton while the record is read, and the editor once it is", async () => {
+  it("draws the strip and the sections' placeholders while the record is read, and the editor once it is", async () => {
     const waiting = document.createElement("div");
-    waiting.innerHTML = renderToString(<EditorShell editor={new Promise(() => undefined)} />);
+    waiting.innerHTML = renderToString(
+      <EditorShell
+        wait={{ sections: [["field", "pair"]] }}
+        editor={new Promise(() => undefined)}
+      />,
+    );
     expect(within(waiting).getByRole("status").textContent).toBe(COPY.shared.loading);
     // The record names the page, so no heading stands until it is read.
     expect(within(waiting).queryByRole("heading", { level: 1 })).toBeNull();
 
-    const stream = await renderToReadableStream(<EditorShell editor={Promise.resolve(<SpielortEditor save={saved} />)} />);
+    const stream = await renderToReadableStream(
+      <EditorShell
+        wait={{ sections: [["field", "pair"]] }}
+        editor={Promise.resolve(<SpielortEditor save={saved} />)}
+      />,
+    );
     await stream.allReady;
     const read = document.createElement("div");
     read.innerHTML = await new Response(stream).text();

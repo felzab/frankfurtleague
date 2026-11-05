@@ -31,7 +31,9 @@ function shell(page: ReactElement): HTMLElement {
 
 /** The document once every boundary has its content. */
 async function streamed(page: ReactElement): Promise<HTMLElement> {
-  const stream = await renderToReadableStream(page);
+  // Every boundary inlined, as a stream does where the content lands before the shell is sent: past React's default
+  // chunk the placeholders would leave the content outlined behind a script this document never runs.
+  const stream = await renderToReadableStream(page, { progressiveChunkSize: Number.POSITIVE_INFINITY });
   await stream.allReady;
   const root = document.createElement("div");
   root.innerHTML = await new Response(stream).text();
@@ -139,9 +141,10 @@ describe("the list template's filter block", () => {
     const read = await streamed(filtered(Promise.resolve([SPIELTAG])));
 
     // The toolbar is the column's first row, and holds the filter block alone here, so its last element is the
-    // block's place.
-    const space = waiting.querySelector("main")?.firstElementChild?.firstElementChild?.lastElementChild;
-    expect(space?.getAttribute("aria-hidden")).toBe("true");
+    // block's placeholder, whose first part stands for the phone's button.
+    const placeholder = waiting.querySelector("main")?.firstElementChild?.firstElementChild?.lastElementChild;
+    expect(placeholder?.getAttribute("aria-hidden")).toBe("true");
+    const space = placeholder?.firstElementChild;
     // By its text: the page stands outside the document, where a name another element gives cannot be resolved.
     const button = within(read)
       .getAllByRole("button")

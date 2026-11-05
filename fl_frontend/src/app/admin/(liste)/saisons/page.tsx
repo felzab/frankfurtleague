@@ -16,7 +16,7 @@ import type { Copy } from "@/core/copy";
 import type { Code, FLSaisonAdminListed } from "@/core/generated/client/types";
 import type { NextSaison } from "@/features/saisons/nextSaison";
 import type { ListCreate } from "@/kit/ListPage";
-import type { TableRow } from "@/kit/Table";
+import type { TableHead, TableRow } from "@/kit/Table";
 import type { Metadata, ResolvingMetadata } from "next";
 
 const WORDS = COPY.admin.saison;
@@ -49,7 +49,7 @@ export default function SaisonsPage() {
     <ListPage
       head={{ scope: "area", title: { route: "adminSaisons" } }}
       create={readCreate(read)}
-      list={{ kind: "table", content: readSaisons(read) }}
+      list={{ kind: "table", head: HEAD, content: readSaisons(read) }}
     />
   );
 }
@@ -104,19 +104,23 @@ function CreateFields({ next }: { next: NextSaison }) {
   );
 }
 
+/** The table's head, drawn while the seasons are read and over them once they are. */
+const HEAD: TableHead = {
+  nameLabel: COPY.shared.saison,
+  // A phone's row holds the name, its chip and the start beside them, with room to spare at 390 px.
+  columns: [
+    { key: "beginn", label: WORDS.beginn },
+    { key: "ende", label: WORDS.ende, hideOnPhone: true },
+    { key: "teams", label: COPY.page.teams, figures: true, hideOnPhone: true },
+    { key: "spiele", label: COPY.page.spiele, figures: true, hideOnPhone: true },
+  ],
+};
+
 async function readSaisons(read: ReturnType<typeof getAdminSaisons>) {
   const { saisons } = await read;
   return {
     table: {
       label: ROUTES.adminSaisons.title,
-      nameLabel: COPY.shared.saison,
-      // A phone's row holds the name, its chip and the start beside them, with room to spare at 390 px.
-      columns: [
-        { key: "beginn", label: WORDS.beginn },
-        { key: "ende", label: WORDS.ende, hideOnPhone: true },
-        { key: "teams", label: COPY.page.teams, figures: true, hideOnPhone: true },
-        { key: "spiele", label: COPY.page.spiele, figures: true, hideOnPhone: true },
-      ],
       // Read oldest first, the order `getAdminSaisons` asks for.
       rows: saisons.toReversed().map(rowOf),
       empty: { kind: "none", plural: ROUTES.adminSaisons.title, glyph: "saisons" } as const,

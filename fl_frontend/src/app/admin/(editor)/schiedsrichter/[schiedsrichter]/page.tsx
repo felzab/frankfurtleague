@@ -57,7 +57,17 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
 
 /** A referee's editor, on its one read by id and its write on the version it was read at. */
 export default function SchiedsrichterEditorPage({ params }: Props) {
-  return <EditorShell editor={readEditor(params)} />;
+  return (
+    <EditorShell
+      wait={{
+        sections: [
+          ["field", "field", "field"],
+          ["pair", "field"],
+        ],
+      }}
+      editor={readEditor(params)}
+    />
+  );
 }
 
 /** The chip after the name, as the list puts it: „Stillgelegt“, or where an entry not yet confirmed stands. */

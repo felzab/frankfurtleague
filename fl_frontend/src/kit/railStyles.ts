@@ -17,3 +17,11 @@ export const railFade = tv({ base: "transition-opacity duration-(--motion-in) gr
  * 12 and the box's 3 centre it in the 72-px rail, which no step of the spacing scale does with 18 px alone.
  */
 export const railGlyph = tv({ base: "flex shrink-0 justify-center group-data-collapsed:w-6" });
+
+/**
+ * The editor's bar at the foot of the viewport, which `EditorBar` draws and the editor's placeholder holds: on desktop as
+ * tall as the rail's foot beside it (`--rail-foot`, from `tokens.css`), so the two top hairlines are one line.
+ */
+export const editorBarLook = tv({
+  base: "sticky bottom-0 z-10 flex h-14 items-center gap-4 border-t border-border bg-bg px-4 lg:h-(--rail-foot) lg:px-8",
+});

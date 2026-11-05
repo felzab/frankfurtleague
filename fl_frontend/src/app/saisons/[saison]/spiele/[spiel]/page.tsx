@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 
-import { ReadFolds } from "@/kit/ReadFolds";
+import { ReadFolds, ReadFoldsPlaceholder } from "@/kit/ReadFolds";
 import { ReadPage } from "@/kit/ReadPage";
 
 import { COPY } from "@/core/copy";
@@ -67,6 +67,14 @@ export default function SpielPage({ params }: Props) {
   return (
     <ReadPage
       scope="saison"
+      wait={{
+        spiel: true,
+        groups: [
+          { kind: "tiles", layout: "five" },
+          { title: SERVER_COPY.season.spiel.aufstellung, kind: "folds", folds: <ReadFoldsPlaceholder count={2} /> },
+          { title: SERVER_COPY.season.spiel.toreAndKarten, kind: "timeline", count: 3 },
+        ],
+      }}
       record={readRecord(params)}
     />
   );

@@ -87,7 +87,25 @@ function linkOf(row: FLInvitationLinkRow, team: FLSaisonAdminTeam | undefined): 
 
 /** The season editor, on the season's one admin read. */
 export default function SaisonSettingsPage({ params }: Props) {
-  return <EditorShell editor={readEditor(params)} />;
+  return (
+    <EditorShell
+      wait={{
+        sections: [
+          ["pair"],
+          ["pair", "field", "pair"],
+          ["pair", "field"],
+          ["field", "field"],
+          ["pair"],
+          ["field", "field"],
+          ["field"],
+          ["pair"],
+          ["pair"],
+          ["field"],
+        ],
+      }}
+      editor={readEditor(params)}
+    />
+  );
 }
 
 async function readEditor(params: Props["params"]) {

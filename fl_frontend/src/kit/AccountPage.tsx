@@ -8,42 +8,31 @@ import { Icon } from "./Icon";
 import { PageWait } from "./PageFade";
 import { formColumn, RailPage } from "./RailFrame";
 import { RowEnd } from "./RowEnd";
-import { Skeleton } from "./Skeleton";
+import { placeholderBar, PlaceholderLine, Waiting } from "./Skeleton";
 import { tv } from "./tv";
 
 import type { Copy } from "@/core/copy";
 import type { Route } from "next";
 import type { ReactNode } from "react";
 import type { IconName } from "./Icon";
-import type { SkeletonShape } from "./Skeleton";
 
 /** Konto's pages, by their routes: its list, and the four the list and the rail lead to. */
 type AccountRoute = "account" | "accountSignIn" | "accountSecurity" | "accountAppearance" | "accountEntries";
 
 /**
- * The skeleton each page waits in, shaped like its final box: the list's one box of rows, Darstellung's one row-high
- * box, and the boxes with a footer for the rest.
- */
-const WAIT: Readonly<Record<AccountRoute, SkeletonShape>> = {
-  account: "list",
-  accountSignIn: "sections",
-  accountSecurity: "sections",
-  accountAppearance: "box",
-  accountEntries: "sections",
-};
-
-/**
  * A Konto page: its title in the strip and its boxes one under another in the 760-px column, each an `AccountBox`.
- * The boxes are read in the template's one boundary, the column holding the boxes' skeleton meanwhile, so the title
- * stands at once.
+ * The boxes are read in the template's one boundary, the column holding meanwhile the placeholders the page names in
+ * `wait`, its own boxes' (`AccountBoxPlaceholder`) or its list's (`AccountListPlaceholder`) in their order, so the
+ * title stands at once. The page places them as it places the boxes, from the box's own module, which Konto's pages
+ * alone import.
  */
-export function AccountPage({ route, children }: { route: AccountRoute; children: ReactNode }) {
+export function AccountPage({ route, wait, children }: { route: AccountRoute; wait: ReactNode; children: ReactNode }) {
   return (
     <RailPage
       scope="area"
       title={{ route }}>
       <div className={formColumn()}>
-        <PageWait fallback={<Skeleton shape={WAIT[route]} />}>{children}</PageWait>
+        <PageWait fallback={<Waiting layout="grid gap-6">{wait}</Waiting>}>{children}</PageWait>
       </div>
     </RailPage>
   );
@@ -73,6 +62,30 @@ const list = tv({
     words: "min-w-0 flex-1 truncate",
   },
 });
+
+/**
+ * Konto's list while the session is judged: the list's own box with a row for each of the pages every person holds and
+ * Deine Einträge, each its glyph and its name's line as bars beside the chevron.
+ */
+export function AccountListPlaceholder() {
+  const slots = list();
+  return (
+    <div className={slots.root()}>
+      {[0, 1, 2, 3].map((index) => (
+        <span
+          key={index}
+          className={slots.row()}>
+          <span className={placeholderBar("size-4.5")} />
+          <PlaceholderLine
+            text={slots.words()}
+            width="w-1/3"
+          />
+          <RowEnd />
+        </span>
+      ))}
+    </div>
+  );
+}
 
 /**
  * Konto's pages as the phone opens on them: one box of rows, each the page's rail glyph, its name and the chevron,

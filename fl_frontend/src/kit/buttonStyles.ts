@@ -1,4 +1,7 @@
+import { placeholderBar } from "./Skeleton";
 import { tv } from "./tv";
+
+import type { Ground } from "./Skeleton";
 
 /**
  * The look of everything that acts or leads on as a button: the kit's `Button`, and the kit's `Link` drawn
@@ -41,3 +44,11 @@ export const buttonLook = tv({
     { look: "danger", host: "aria", class: "data-hovered:bg-danger-solid-hover data-pressed:bg-danger-solid-hover" },
   ],
 });
+
+/**
+ * A button while what it acts on is read: a bar of the button's height and corners, `width` wide, such as a label's
+ * width or the full width of a column whose buttons fill it.
+ */
+export function buttonPlaceholder(width: string, ground: Ground = "page") {
+  return placeholderBar(`h-8 rounded-lg pointer-coarse:h-10 ${width}`, ground);
+}

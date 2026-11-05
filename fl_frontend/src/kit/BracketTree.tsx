@@ -1,7 +1,7 @@
 import { COPY } from "@/core/copy";
 import { SERVER_COPY } from "@/core/serverCopy";
 
-import { BracketCard } from "./BracketCard";
+import { BracketCard, BracketCardPlaceholder } from "./BracketCard";
 import { TargetMark } from "./TargetMark";
 import { tv } from "./tv";
 
@@ -143,6 +143,43 @@ function ThirdPlace({ match, width }: { match: BracketMatch; width: Width }) {
         <span className={style.thirdBus()} />
         <span className={style.thirdStem()} />
       </span>
+    </div>
+  );
+}
+
+/**
+ * The K.-o.-Baum while its rounds are read: the tree of a Viertelfinale, its Halbfinale and its Finale, the shape a
+ * season of eight qualifiers draws, each card the card's placeholder in the tree's own rows, joined by the tree's own
+ * lines, so the tree stands where and as wide as it will.
+ */
+export function BracketTreePlaceholder() {
+  const width = 4;
+  return (
+    <div className={tree().root()}>
+      {([4, 2, 1] as const).map((count, index) => {
+        const { row, cell, card } = tree({ columns: key(width), span: key((width / count) as Width) });
+        return (
+          <div key={count}>
+            {index > 0 && (
+              <Feeds
+                into={count}
+                width={width}
+              />
+            )}
+            <div className={row()}>
+              {Array.from({ length: count }, (_, at) => (
+                <div
+                  key={at}
+                  className={cell()}>
+                  <div className={card()}>
+                    <BracketCardPlaceholder />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }

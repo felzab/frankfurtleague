@@ -4,13 +4,14 @@ import Image from "next/image";
 
 import { now } from "@/core/clock";
 import { COPY } from "@/core/copy";
-import { ROUTES } from "@/core/routes";
+import { ROUTES, SAISON_PAGES } from "@/core/routes";
 import { SITE_CACHE_TAG } from "@/core/siteCache";
 
 import { Brand } from "./Brand";
 import { smallCaps } from "./cardStyles";
 import { HeaderLinks } from "./HeaderLinks";
 import { Link } from "./Link";
+import { Placeholder, PlaceholderLine } from "./Skeleton";
 import { ToastRegion } from "./Toast";
 
 import type { Copy } from "@/core/copy";
@@ -43,6 +44,30 @@ function FooterGroup({ heading, links }: { heading: Copy; links: ReadonlyArray<H
         />
       ))}
     </nav>
+  );
+}
+
+/**
+ * The „Saison“ group while the season is read: its heading and a season's pages as `FooterGroup` draws them, their
+ * words as bars as wide as they will stand, so the groups beside it keep their columns.
+ */
+function SeasonGroupPlaceholder() {
+  return (
+    <Placeholder layout="grid content-start gap-1">
+      <div className={smallCaps({ class: "mb-1" })}>
+        <PlaceholderLine
+          text="text-xs"
+          words={COPY.shared.saison}
+        />
+      </div>
+      {SAISON_PAGES.map((page) => (
+        <PlaceholderLine
+          key={page}
+          text="text-sm leading-6"
+          words={ROUTES[page].title}
+        />
+      ))}
+    </Placeholder>
   );
 }
 
@@ -136,8 +161,8 @@ export function ClassicFrame({
               </div>
             </div>
             <div className="grid grid-cols-2 gap-6 lg:grid-cols-3">
-              {/* The season's pages wait for the read naming the season; the footer stands below the first screen. */}
-              <Suspense fallback={null}>
+              {/* The season's pages wait for the read naming the season, their group's place held meanwhile. */}
+              <Suspense fallback={<SeasonGroupPlaceholder />}>
                 <SeasonGroup pages={seasonPages} />
               </Suspense>
               <FooterGroup

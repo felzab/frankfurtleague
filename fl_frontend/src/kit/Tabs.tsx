@@ -1,9 +1,47 @@
 import NextLink from "next/link";
 
+import { placeholderBar } from "./Skeleton";
 import { TAB_PARAM } from "./tabChoice";
+import { tv } from "./tv";
 
 import type { Copy } from "@/core/copy";
 import type { ReactNode } from "react";
+
+/**
+ * The tab row's look, which the tabs and their placeholder share: the row's 1-px line is its background's bottom
+ * edge, so the chosen tab's 2-px mark, painted over the background, covers it where the tab stands; each tab as
+ * tall as every control.
+ */
+const tabs = tv({
+  slots: {
+    // A grid item is as wide as its content unless told otherwise, so without `min-w-0` the row would widen the page
+    // on a phone rather than scroll inside it.
+    row: "flex min-w-0 gap-1 bg-[linear-gradient(var(--border),var(--border))] bg-size-[100%_1px] bg-bottom bg-no-repeat",
+    tab: "flex h-8 shrink-0 items-center border-b-2 border-transparent px-3 text-sm font-medium whitespace-nowrap pointer-coarse:h-10",
+  },
+});
+
+/**
+ * The tabs while their labels are read: the row's own line with `count` tabs, each its label's line as a bar, and
+ * under it the placeholder of the chosen tab's content, as `Tabs` sets the chosen tab's content under its row.
+ */
+export function TabsPlaceholder({ count, children }: { count: number; children: ReactNode }) {
+  const { row, tab } = tabs();
+  return (
+    <div className="grid gap-4">
+      <div className={row({ class: "overflow-hidden" })}>
+        {Array.from({ length: count }, (_, index) => (
+          <span
+            key={index}
+            className={tab()}>
+            <span className={placeholderBar("h-3 w-20")} />
+          </span>
+        ))}
+      </div>
+      {children}
+    </div>
+  );
+}
 
 /**
  * Switching what a page shows, such as its matchday: a row of links in a `nav`, as GitHub Primer's
@@ -15,13 +53,12 @@ import type { ReactNode } from "react";
  * they hydrate and drop a link click whose press they did not see begin: a press held across hydration did
  * nothing (adobe/react-spectrum#8239). On a phone the row scrolls sideways, and where the browser drives
  * animations from a scroll, the edge with more to read fades through the `kit-scroll-fade` keyframes in the
- * token file. The row's 1-px line is its background's bottom edge, so the chosen tab's 2-px mark, painted
- * over the background, covers it where the tab stands.
+ * token file.
  */
 export function Tabs({
   label,
   selectedKey,
-  tabs,
+  tabs: entries,
   scroll = true,
   children,
 }: {
@@ -39,25 +76,31 @@ export function Tabs({
   /** The chosen tab's content, alone: the other tabs' content never reaches the page. */
   children: ReactNode;
 }) {
+  const { row, tab } = tabs();
   return (
     <div className="grid gap-4">
-      {/* A grid item is as wide as its content unless told otherwise, so without `min-w-0` the row would widen
-          the page on a phone rather than scroll inside it. */}
       <nav
         aria-label={label}
         className="min-w-0">
-        <ul className="flex [scrollbar-width:none] gap-1 overflow-x-auto bg-[linear-gradient(var(--border),var(--border))] bg-size-[100%_1px] bg-bottom bg-no-repeat supports-[animation-timeline:scroll()]:[mask-image:linear-gradient(to_right,transparent,#000_var(--kit-fade-start),#000_calc(100%-var(--kit-fade-end)),transparent)] supports-[animation-timeline:scroll()]:[animation-fill-mode:both] supports-[animation-timeline:scroll()]:[animation-name:kit-scroll-fade] supports-[animation-timeline:scroll()]:[animation-timeline:scroll(self_inline)] supports-[animation-timeline:scroll()]:[animation-timing-function:linear]">
-          {tabs.map((tab) => (
+        <ul
+          className={row({
+            class:
+              "[scrollbar-width:none] overflow-x-auto supports-[animation-timeline:scroll()]:[mask-image:linear-gradient(to_right,transparent,#000_var(--kit-fade-start),#000_calc(100%-var(--kit-fade-end)),transparent)] supports-[animation-timeline:scroll()]:[animation-fill-mode:both] supports-[animation-timeline:scroll()]:[animation-name:kit-scroll-fade] supports-[animation-timeline:scroll()]:[animation-timeline:scroll(self_inline)] supports-[animation-timeline:scroll()]:[animation-timing-function:linear]",
+          })}>
+          {entries.map((entry) => (
             <li
-              key={tab.id}
+              key={entry.id}
               className="shrink-0">
               <NextLink
-                href={`?${new URLSearchParams({ [TAB_PARAM]: tab.id }).toString()}`}
+                href={`?${new URLSearchParams({ [TAB_PARAM]: entry.id }).toString()}`}
                 scroll={scroll}
-                aria-current={tab.id === selectedKey ? "page" : undefined}
+                aria-current={entry.id === selectedKey ? "page" : undefined}
                 data-kit-focus="inset"
-                className="flex h-8 items-center border-b-2 border-transparent px-3 text-sm font-medium whitespace-nowrap text-fg-muted transition-colors duration-(--motion-state) hover:text-fg aria-[current=page]:border-brand aria-[current=page]:text-fg pointer-coarse:h-10">
-                {tab.label}
+                className={tab({
+                  class:
+                    "text-fg-muted transition-colors duration-(--motion-state) hover:text-fg aria-[current=page]:border-brand aria-[current=page]:text-fg",
+                })}>
+                {entry.label}
               </NextLink>
             </li>
           ))}

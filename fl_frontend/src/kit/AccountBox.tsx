@@ -8,13 +8,16 @@ import { Form } from "react-aria-components/Form";
 import { COPY } from "@/core/copy";
 
 import { Button } from "./Button";
+import { buttonPlaceholder } from "./buttonStyles";
 import { cardSurface, stacked } from "./cardStyles";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { Dialog } from "./Dialog";
 import { useLocked } from "./draftUnsaved";
+import { FieldPlaceholder } from "./FieldPair";
 import { StatusLine } from "./FieldParts";
 import { lockedLine } from "./lockedLine";
 import { SectionTitle } from "./Section";
+import { PlaceholderLine } from "./Skeleton";
 import { appToast } from "./Toast";
 import { tv } from "./tv";
 import { statusOf, useFormAction } from "./useFormAction";
@@ -112,6 +115,90 @@ const box = tv({
     inline: "flex flex-wrap items-center justify-between gap-4 p-4",
   },
 });
+
+/**
+ * A Konto box while the person's records are read: the box's own shape, its title's and its sentence's lines, then
+ * `fields` fields or `rows` of `AccountRows`' rows, and the footer band with its button where the box has an act; or,
+ * `inline`, the one row of words beside a control that acts at once.
+ */
+export function AccountBoxPlaceholder({
+  fields = 0,
+  rows = 0,
+  foot = false,
+  inline = false,
+}: {
+  fields?: number;
+  rows?: number;
+  foot?: boolean;
+  inline?: boolean;
+}) {
+  const slots = box();
+  const head = (
+    <div className={slots.head({ class: "min-w-0 flex-1" })}>
+      <PlaceholderLine
+        text="text-base font-semibold"
+        width="w-1/3"
+      />
+      <PlaceholderLine
+        text={slots.description()}
+        width="w-2/3"
+      />
+    </div>
+  );
+  if (inline)
+    return (
+      <div className={slots.root()}>
+        <div className={slots.inline()}>
+          {head}
+          <span className={buttonPlaceholder("w-28")} />
+        </div>
+      </div>
+    );
+  const row = rowLook();
+  return (
+    <div className={slots.root()}>
+      <div className={slots.body()}>
+        {head}
+        {(fields > 0 || rows > 0) && (
+          <div className={slots.content()}>
+            {Array.from({ length: fields }, (_, index) => (
+              <FieldPlaceholder
+                key={index}
+                width="W3"
+              />
+            ))}
+            {rows > 0 && (
+              <div className={row.list()}>
+                {Array.from({ length: rows }, (_, index) => (
+                  <div
+                    key={index}
+                    className={row.row()}>
+                    <span className={row.words()}>
+                      <PlaceholderLine
+                        text="text-sm"
+                        width="w-1/2"
+                      />
+                      <PlaceholderLine
+                        text="text-xs"
+                        width="w-1/3"
+                      />
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+      {foot && (
+        <div className={slots.foot()}>
+          <span className="min-h-5 min-w-0 flex-1" />
+          <span className={buttonPlaceholder("w-28", "head")} />
+        </div>
+      )}
+    </div>
+  );
+}
 
 /**
  * One box of a Konto page, every box the same shape: its 16-px title, one sentence under it saying what the box
@@ -282,7 +369,7 @@ type Remove = {
 /** One record of a box: its name, the line under it, and its acts as icon buttons at the row's end. */
 export type AccountRow = { id: string; name: RecordText; detail: Copy; rename?: Rename; remove: Remove };
 
-const rows = tv({
+const rowLook = tv({
   slots: {
     list: "grid w-full",
     row: `flex min-h-14 items-center gap-3 ${stacked()} py-2 lg:min-h-13`,
@@ -297,7 +384,7 @@ const rows = tv({
  * in its question.
  */
 export function AccountRows({ rows: records }: { rows: ReadonlyArray<AccountRow> }) {
-  const slots = rows();
+  const slots = rowLook();
   return (
     <div className={slots.list()}>
       {records.map((record) => (
@@ -312,7 +399,7 @@ export function AccountRows({ rows: records }: { rows: ReadonlyArray<AccountRow>
 
 /** One row: its icon buttons share one name each across the rows, so each is described by its row's name. */
 function Row({ record }: { record: AccountRow }) {
-  const slots = rows();
+  const slots = rowLook();
   const nameId = useId();
   return (
     <div className={slots.row()}>

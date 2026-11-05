@@ -11,7 +11,7 @@ import { SpielortFields } from "../../SpielortFields";
 import { SPIELORT_RULES } from "../../spielortRules";
 
 import type { FLSpielort } from "@/core/generated/client/types";
-import type { TableRow } from "@/kit/Table";
+import type { TableHead, TableRow } from "@/kit/Table";
 import type { Metadata, ResolvingMetadata } from "next";
 
 const WORDS = COPY.admin.spielort;
@@ -43,10 +43,19 @@ export default function SpielortePage() {
         action: createSpielort,
         children: <SpielortFields rules={SPIELORT_RULES} />,
       }}
-      list={{ kind: "table", search: { label: WORDS.search }, content: readSpielorte() }}
+      list={{ kind: "table", search: { label: WORDS.search }, head: HEAD, content: readSpielorte() }}
     />
   );
 }
+
+/** The table's head, drawn while the rows are read and over them once they are. */
+const HEAD: TableHead = {
+  nameLabel: COPY.shared.name,
+  columns: [
+    { key: "adresse", label: WORDS.address, hideOnPhone: true },
+    { key: "mietpreis", label: WORDS.mietpreis, figures: true },
+  ],
+};
 
 async function readSpielorte() {
   // Retired included: the list will be the one way into a retired venue's page.
@@ -54,11 +63,6 @@ async function readSpielorte() {
   return {
     table: {
       label: ROUTES.adminSpielorte.title,
-      nameLabel: COPY.shared.name,
-      columns: [
-        { key: "adresse", label: WORDS.address, hideOnPhone: true },
-        { key: "mietpreis", label: WORDS.mietpreis, figures: true },
-      ],
       rows: spielorte.map(rowOf),
       empty: { kind: "none", plural: ROUTES.adminSpielorte.title, glyph: "spielorte" } as const,
     },
