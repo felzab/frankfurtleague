@@ -59,7 +59,8 @@ const timeline = tv({
     // Down from under the point, through the gap, to the next point; the last checkpoint draws none.
     line: "relative flex items-start justify-center before:top-6 before:-bottom-6 before:left-[calc(50%-1px)] group-last/checkpoint:before:hidden",
     body: "grid min-w-0 gap-2",
-    head: "flex min-h-6 flex-wrap items-baseline gap-x-2",
+    // As tall as the point, its line centred on the point's middle, the title's and the detail's words on one baseline.
+    head: "flex min-h-6 flex-wrap content-center items-baseline gap-x-2",
     title: "text-sm font-semibold",
     detail: "font-numeric text-xs text-fg-muted",
   },

@@ -154,6 +154,15 @@ const whenCell = tv({
   variants: { form: { line: "col-start-1 row-span-2 row-start-1", card: "text-xs" } },
 });
 
+/**
+ * The one-line row's score: centred in the row's two lines, or, after a shoot-out, on the first with „n. E.“ under
+ * it, the pair centred together, so the row keeps one height either way.
+ */
+const scoreCell = tv({
+  base: "col-start-3 row-start-1 text-center text-base",
+  variants: { shootOut: { true: "", false: "row-span-2" } },
+});
+
 const whenWords = tv({ base: "min-w-0 font-numeric text-fg-muted", variants: { cut: { true: "truncate" } } });
 
 /**
@@ -187,7 +196,7 @@ function SpielRow({ href, when, team1, team2, result, chip, chips }: SpielRowPro
               mirrored
             />
           </span>
-          <span className="col-start-3 row-start-1 text-center text-base">
+          <span className={scoreCell({ shootOut: shootOut !== null })}>
             <Goals
               score={score}
               part="team1"
@@ -199,7 +208,7 @@ function SpielRow({ href, when, team1, team2, result, chip, chips }: SpielRowPro
             />
           </span>
           {/* Placed under the score, and read straight after it. */}
-          <span className="col-start-3 row-start-2 text-center text-xs text-fg-muted">{shootOut}</span>
+          {shootOut !== null && <span className="col-start-3 row-start-2 text-center text-xs text-fg-muted">{shootOut}</span>}
           <span className="col-start-4 row-span-2 row-start-1 flex min-w-0 items-center gap-2">
             <Side
               side={team2}
