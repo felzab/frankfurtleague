@@ -168,7 +168,7 @@ function openOf(row: Exclude<FLOverviewRow, { kind: "bewerbung" }>): { line: Cop
             discard={{
               consequence: WORDS.discardConsequence,
               facts: [
-                { label: SPIEL.termin, value: from },
+                { label: COPY.admin.overview.termin, value: from },
                 { label: SPIEL.proposal, value: to },
                 { label: FACTS.mailTo, value: team ?? nameOf(spiel) },
               ],
