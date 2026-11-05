@@ -6,7 +6,14 @@ from typing import Any
 from app.api.saisons.schedule import expected_matches
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.schemas import PHASE_RANK, is_unplayed
-from app.api.spieltage.schemas import FLSpielplanSpieltag, FLSpielplanSpieltagListAdapter, FLSpieltag, FLSpieltageFilterParams
+from app.api.spieltage.schemas import (
+    FLSpielplanSpieltag,
+    FLSpielplanSpieltagAdmin,
+    FLSpielplanSpieltagAdminListAdapter,
+    FLSpielplanSpieltagListAdapter,
+    FLSpieltag,
+    FLSpieltageFilterParams,
+)
 from app.core.codes import Code
 from app.core.crud import build_query, build_sort
 from app.core.exceptions import WriteRefusal
@@ -61,6 +68,16 @@ def with_expected_matches(spieltag_raw: Mapping[str, Any], rules: FLSaisonRules)
     return {**spieltag_raw, "count_spiele": expected_matches(rules, spieltag_raw["saison_phase"])}
 
 
+def _with_their_spiele(
+    spieltage_raw: Iterable[Mapping[str, Any]], spiele_raw: Iterable[Mapping[str, Any]], rules: FLSaisonRules
+) -> list[dict[str, Any]]:
+    spiele_by_spieltag: dict[Any, list[Mapping[str, Any]]] = {}
+    for spiel_raw in sorted(spiele_raw, key=lambda spiel_raw: spiel_raw["spiel_nr"]):
+        spiele_by_spieltag.setdefault(spiel_raw["spieltag_id"], []).append(spiel_raw)
+
+    return [{**with_expected_matches(raw, rules), "spiele": spiele_by_spieltag.get(raw["_id"], [])} for raw in spieltage_raw]
+
+
 def build_spielplan(
     spieltage_raw: Iterable[Mapping[str, Any]], spiele_raw: Iterable[Mapping[str, Any]], rules: FLSaisonRules
 ) -> list[FLSpielplanSpieltag]:
@@ -69,15 +86,15 @@ def build_spielplan(
     `spiele_raw` is what `app/api/spiele/services.py :: build_spiele_pipeline` yields for the same season.
     """
 
-    spiele_by_spieltag: dict[Any, list[Mapping[str, Any]]] = {}
-    for spiel_raw in sorted(spiele_raw, key=lambda spiel_raw: spiel_raw["spiel_nr"]):
-        spiele_by_spieltag.setdefault(spiel_raw["spieltag_id"], []).append(spiel_raw)
+    return order_spieltage(FLSpielplanSpieltagListAdapter.validate_python(_with_their_spiele(spieltage_raw, spiele_raw, rules)))
 
-    spieltage = FLSpielplanSpieltagListAdapter.validate_python(
-        [{**with_expected_matches(raw, rules), "spiele": spiele_by_spieltag.get(raw["_id"], [])} for raw in spieltage_raw]
-    )
 
-    return order_spieltage(spieltage)
+def build_admin_spielplan(
+    spieltage_raw: Iterable[Mapping[str, Any]], spiele_raw: Iterable[Mapping[str, Any]], rules: FLSaisonRules
+) -> list[FLSpielplanSpieltagAdmin]:
+    """`build_spielplan`'s matchdays, their matches in the admin shape: money, the referee's whole name and `version`."""
+
+    return order_spieltage(FLSpielplanSpieltagAdminListAdapter.validate_python(_with_their_spiele(spieltage_raw, spiele_raw, rules)))
 
 
 def current_spieltag_id(spieltage: Sequence[FLSpielplanSpieltag], *, saison_status: FLSaisonStatus) -> CustomObjectId | None:

@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime
 from typing import Annotated
 
@@ -6,6 +7,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.berechtigungen.guard import verify_actor_is_admin
 from app.api.saisons.crud import pull_active_saison_id
+from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.crud import (
     SpielSaveCollections,
     preview_spiel_save,
@@ -24,19 +26,23 @@ from app.api.spiele.services import (
     build_spiele_pipeline,
     build_spiele_sort,
 )
+from app.api.spieltage.schemas import FLSpieleSpielplanAdminResponse
+from app.api.spieltage.services import build_admin_spielplan, current_spieltag_id
 from app.core.config import API_VERSION
-from app.core.crud import aggregate_many_from_db
+from app.core.crud import aggregate_many_from_db, pull_many_from_db, pull_one_from_db
 from app.core.dependencies import (
     DBClient,
     OutboxCollection,
     SaisonsCollection,
     SaisonSpielerCollection,
+    SaisonsReadCollection,
     SaisonTeamsCollection,
     SchiedsrichterCollection,
     SpielberichteCollection,
     SpielbestaetigungenCollection,
     SpieleCollection,
     SpielerCollection,
+    SpieleReadCollection,
     SpielorteCollection,
     SpieltageCollection,
     TeamsCollection,
@@ -46,6 +52,7 @@ from app.core.dependencies import (
 from app.core.routing import SAFE_WHEN, by_id
 from app.core.security import bind_actor, verify_access_admin
 from app.core.transactions import transaction_session
+from app.shared.schemas.bounds import LIST_LIMIT_MAX
 from app.shared.schemas.custom import CustomRouteObjectId
 
 router = APIRouter(
@@ -89,6 +96,39 @@ async def get_spiele_verwaltung(
     )
 
     return FLSpieleAdminListResponse(spiele=FLSpielJoinedAdminListAdapter.validate_python(spiele_raw))
+
+
+# A static path, which the `objectid` convertor keeps out of `{spiel_id}`'s reach whichever router loads first.
+@router.get(
+    "/spielplan",
+    response_model=FLSpieleSpielplanAdminResponse,
+    summary="One Saison's Spiele by matchday, for the admin Spiele list",
+)
+async def get_spiele_spielplan(
+    saison_id: Annotated[str, Query(description="The season whose matchdays and knockout rounds the list shows")],
+    saisons_collection: SaisonsReadCollection,
+    spieltage_collection: SpieltageCollection,
+    spiele_collection: SpieleReadCollection,
+) -> FLSpieleSpielplanAdminResponse:
+    """
+    Every matchday and knockout round of one season, a planned one included, its matches in the admin shape, in order.
+
+    Each round holds its matches by number, and the rounds come in the order they are played. The matchday to open on
+    is the Spielplan's own: the first holding a match still to be played, else the last; a finished season opens on its
+    last. `document_not_found` for a season id naming no season. Writes nothing.
+    """
+
+    saison_raw, spieltage_raw, spiele_raw = await asyncio.gather(
+        pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["rules", "status"]),
+        pull_many_from_db(collection=spieltage_collection, db_filter={"saison_id": saison_id}, limit=LIST_LIMIT_MAX),
+        aggregate_many_from_db(collection=spiele_collection, pipeline=build_spiele_pipeline(db_filter={"saison_id": saison_id})),
+    )
+
+    spieltage = build_admin_spielplan(spieltage_raw, spiele_raw, FLSaisonRules.model_validate(saison_raw["rules"]))
+
+    return FLSpieleSpielplanAdminResponse(
+        spieltage=spieltage, current_spieltag_id=current_spieltag_id(spieltage, saison_status=saison_raw["status"])
+    )
 
 
 # A static suffix rather than a second `GET /{spiel_id}`: the public router owns that path at this

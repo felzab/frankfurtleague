@@ -16124,6 +16124,36 @@
         "title": "FLSpieleSingleResponse",
         "type": "object"
       },
+      "FLSpieleSpielplanAdminResponse": {
+        "description": "A season's matchdays and knockout rounds in playing order, matches in the admin shape, and the one to open on.\n\n`current_spieltag_id` is the Spielplan's own: the first matchday holding a match still to be played, else the last;\nin a finished season, the last. Null for a season with no matchday.",
+        "properties": {
+          "current_spieltag_id": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-fA-F]{24}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Spieltag Id"
+          },
+          "spieltage": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielplanSpieltagAdmin"
+            },
+            "title": "Spieltage",
+            "type": "array"
+          }
+        },
+        "required": [
+          "spieltage",
+          "current_spieltag_id"
+        ],
+        "title": "FLSpieleSpielplanAdminResponse",
+        "type": "object"
+      },
       "FLSpielerAdminSingleResponse": {
         "description": "The same player echoed back to the admin who just wrote them, with their whole name.\n\n`inactive_since` rides here alone: it IS the answer `DELETE` and `reactivate` give, and no public\nsurface renders a pupil's leaving date.",
         "properties": {
@@ -16911,6 +16941,84 @@
           "spiele"
         ],
         "title": "FLSpielplanSpieltag",
+        "type": "object"
+      },
+      "FLSpielplanSpieltagAdmin": {
+        "description": "One matchday as the administrator's Spiele list shows it, its matches in the admin shape.",
+        "properties": {
+          "beginn": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Beginn"
+          },
+          "count_spiele": {
+            "minimum": 0.0,
+            "title": "Count Spiele",
+            "type": "integer"
+          },
+          "ende": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ende"
+          },
+          "id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "position": {
+            "minimum": 1.0,
+            "title": "Position",
+            "type": "integer"
+          },
+          "saison_id": {
+            "maxLength": 4,
+            "minLength": 4,
+            "title": "Saison Id",
+            "type": "string"
+          },
+          "saison_phase": {
+            "$ref": "#/components/schemas/FLSaisonPhase"
+          },
+          "spiele": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielJoinedAdmin"
+            },
+            "title": "Spiele",
+            "type": "array"
+          },
+          "version": {
+            "default": 0,
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "beginn",
+          "ende",
+          "position",
+          "saison_phase",
+          "saison_id",
+          "version",
+          "count_spiele",
+          "spiele"
+        ],
+        "title": "FLSpielplanSpieltagAdmin",
         "type": "object"
       },
       "FLSpieltag": {
@@ -27298,6 +27406,82 @@
           }
         ],
         "summary": "Spiele for the admin surfaces",
+        "tags": [
+          "spiele"
+        ]
+      }
+    },
+    "/api/v0/spiele/spielplan": {
+      "get": {
+        "description": "Every matchday and knockout round of one season, a planned one included, its matches in the admin shape, in order.\n\nEach round holds its matches by number, and the rounds come in the order they are played. The matchday to open on\nis the Spielplan's own: the first holding a match still to be played, else the last; a finished season opens on its\nlast. `document_not_found` for a season id naming no season. Writes nothing.",
+        "operationId": "spiele_get_spiele_spielplan",
+        "parameters": [
+          {
+            "description": "The season whose matchdays and knockout rounds the list shows",
+            "in": "query",
+            "name": "saison_id",
+            "required": true,
+            "schema": {
+              "description": "The season whose matchdays and knockout rounds the list shows",
+              "title": "Saison Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSpieleSpielplanAdminResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "$ref": "#/components/responses/400",
+            "description": "Bad Request"
+          },
+          "401": {
+            "$ref": "#/components/responses/401",
+            "description": "Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/403",
+            "description": "Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/404",
+            "description": "Not Found"
+          },
+          "409": {
+            "$ref": "#/components/responses/409",
+            "description": "Conflict"
+          },
+          "410": {
+            "$ref": "#/components/responses/410",
+            "description": "Gone"
+          },
+          "422": {
+            "$ref": "#/components/responses/422",
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "$ref": "#/components/responses/500",
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/503",
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "AdminKey": []
+          }
+        ],
+        "summary": "One Saison's Spiele by matchday, for the admin Spiele list",
         "tags": [
           "spiele"
         ]

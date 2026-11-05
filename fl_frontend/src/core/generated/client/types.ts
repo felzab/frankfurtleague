@@ -5586,6 +5586,39 @@ export interface FLSpieleSingleResponse {
 }
 
 /**
+ * One matchday as the administrator's Spiele list shows it, its matches in the admin shape.
+ */
+export interface FLSpielplanSpieltagAdmin {
+  beginn: string | null;
+  /** @minimum 0 */
+  count_spiele: number;
+  ende: string | null;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  id: string;
+  /** @minimum 1 */
+  position: number;
+  /**
+   * @minLength 4
+   * @maxLength 4
+   */
+  saison_id: string;
+  saison_phase: FLSaisonPhase;
+  spiele: FLSpielJoinedAdmin[];
+  version: number;
+}
+
+/**
+ * A season's matchdays and knockout rounds in playing order, matches in the admin shape, and the one to open on.
+ *
+ * `current_spieltag_id` is the Spielplan's own: the first matchday holding a match still to be played, else the last;
+ * in a finished season, the last. Null for a season with no matchday.
+ */
+export interface FLSpieleSpielplanAdminResponse {
+  current_spieltag_id: string | null;
+  spieltage: FLSpielplanSpieltagAdmin[];
+}
+
+/**
  * The same player echoed back to the admin who just wrote them, with their whole name.
  *
  * `inactive_since` rides here alone: it IS the answer `DELETE` and `reactivate` give, and no public
@@ -6372,6 +6405,13 @@ export const SpieleGetSpieleVerwaltungOrder = {
   asc: "asc",
   desc: "desc",
 } as const;
+
+export type SpieleGetSpieleSpielplanParams = {
+  /**
+   * The season whose matchdays and knockout rounds the list shows
+   */
+  saison_id: string;
+};
 
 export type SpielePatchSpielParams = {
   /**

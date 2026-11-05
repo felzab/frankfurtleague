@@ -2834,6 +2834,18 @@ export const SpieleGetSpieleVerwaltungQueryParams = zod.object({
 });
 
 /**
+ * Every matchday and knockout round of one season, a planned one included, its matches in the admin shape, in order.
+ *
+ * Each round holds its matches by number, and the rounds come in the order they are played. The matchday to open on
+ * is the Spielplan's own: the first holding a match still to be played, else the last; a finished season opens on its
+ * last. `document_not_found` for a season id naming no season. Writes nothing.
+ * @summary One Saison's Spiele by matchday, for the admin Spiele list
+ */
+export const SpieleGetSpieleSpielplanQueryParams = zod.object({
+  saison_id: zod.string().describe("The season whose matchdays and knockout rounds the list shows"),
+});
+
+/**
  * Return one match by its id, answering 404 for a match of a season this tier may not read.
  * @summary One Spiel
  */

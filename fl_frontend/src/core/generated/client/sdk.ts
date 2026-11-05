@@ -184,6 +184,7 @@ import type {
   FLSpielerSelfResponse,
   FLSpielerSingleResponse,
   FLSpieleSingleResponse,
+  FLSpieleSpielplanAdminResponse,
   FLSpielorteListResponse,
   FLSpielorteSingleResponse,
   FLSpielPageResponse,
@@ -212,6 +213,7 @@ import type {
   SchiedsrichterGetSchiedsrichterParams,
   SpielberichteGetSpielberichteParams,
   SpielbestaetigungenGetSpielbestaetigungenParams,
+  SpieleGetSpieleSpielplanParams,
   SpieleGetSpieleVerwaltungParams,
   SpielePatchSpielParams,
   SpielorteGetSpielorteParams,
@@ -3952,6 +3954,30 @@ export const spieleGetSpieleVerwaltung = async (
   options?: Parameters<typeof adminKeyTransport>[1],
 ): Promise<FLSpieleAdminListResponse> => {
   return adminKeyTransport<FLSpieleAdminListResponse>(getSpieleGetSpieleVerwaltungUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getSpieleGetSpieleSpielplanUrl = (params: SpieleGetSpieleSpielplanParams) => {
+  const stringifiedParams = serializeQuery(params);
+
+  return stringifiedParams.length > 0 ? `/api/v0/spiele/spielplan?${stringifiedParams}` : `/api/v0/spiele/spielplan`;
+};
+
+/**
+ * Every matchday and knockout round of one season, a planned one included, its matches in the admin shape, in order.
+ *
+ * Each round holds its matches by number, and the rounds come in the order they are played. The matchday to open on
+ * is the Spielplan's own: the first holding a match still to be played, else the last; a finished season opens on its
+ * last. `document_not_found` for a season id naming no season. Writes nothing.
+ * @summary One Saison's Spiele by matchday, for the admin Spiele list
+ */
+export const spieleGetSpieleSpielplan = async (
+  params: SpieleGetSpieleSpielplanParams,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLSpieleSpielplanAdminResponse> => {
+  return adminKeyTransport<FLSpieleSpielplanAdminResponse>(getSpieleGetSpieleSpielplanUrl(params), {
     ...options,
     method: "GET",
   });
