@@ -197,9 +197,13 @@ export const dateSegment = tv({ base: "rounded-md caret-transparent data-placeho
 /** The weekdays over a date's calendar, in the caption grade. */
 export const calendarHead = tv({ base: "pb-1 text-xs font-medium text-fg-muted" });
 
-/** A day in a date's calendar, as large as a control; the chosen day inverts. */
+/**
+ * A day in a date's calendar, as large as a control; the chosen day inverts. React Aria's calendar moves its focus by
+ * the keys alone and marks the day under the pointer `data-hovered`, so the pointer fills a day as the keys' focus
+ * does (`focus.css`), the chosen day keeping its inverted mark.
+ */
 export const calendarCell = tv({
-  base: "flex size-8 cursor-default items-center justify-center rounded-md font-numeric text-sm data-disabled:opacity-50 data-outside-month:text-fg-muted data-selected:bg-fg data-selected:text-bg pointer-coarse:size-10",
+  base: "flex size-8 cursor-default items-center justify-center rounded-md font-numeric text-sm transition-colors duration-(--motion-state) data-disabled:opacity-50 data-hovered:not-data-selected:bg-bg-muted data-outside-month:text-fg-muted data-selected:bg-fg data-selected:text-bg pointer-coarse:size-10",
 });
 
 /**
