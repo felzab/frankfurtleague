@@ -37,7 +37,7 @@ SPIELER_OIDS = {
     # Two seasons — the case `FLSpieler` cannot report and this endpoint must.
     "Cordes": ObjectId("6890a1b2c3d4e5f607290003"),
     # No squad row at all: a player created by the admin form before being given one.
-    "Without": ObjectId("6890a1b2c3d4e5f607290004"),
+    "Ohne": ObjectId("6890a1b2c3d4e5f607290004"),
 }
 
 TEAM_OID = ObjectId("6890a1b2c3d4e5f607190001")
@@ -87,8 +87,8 @@ class TestWhyTheSeasonScopedReadCannotAnswerIt:
         with pytest.raises(ValidationError) as failure:
             FLSpieler.model_validate(
                 {
-                    "_id": SPIELER_OIDS["Without"],
-                    "vorname": "Without",
+                    "_id": SPIELER_OIDS["Ohne"],
+                    "vorname": "Ohne",
                     "nachname": "Squad",
                     "inactive_since": None,
                 }
@@ -107,8 +107,8 @@ class TestTheResponseModel:
             {
                 "spieler": [
                     {
-                        "_id": str(SPIELER_OIDS["Without"]),
-                        "vorname": "Without",
+                        "_id": str(SPIELER_OIDS["Ohne"]),
+                        "vorname": "Ohne",
                         "nachname": "Squad",
                         "inactive_since": None,
                         "geburtsdatum": "2009-05-04",
@@ -291,7 +291,7 @@ def squads(mongo_database: Database) -> Database:
             # The person is retired and their squad row is not: the two are independent.
             _spieler("Baum", inactive_since="2026-05-01"),
             _spieler("Cordes"),
-            _spieler("Without"),
+            _spieler("Ohne"),
         ]
     )
 
@@ -322,12 +322,12 @@ class TestTheSaisonsPipelineExecuted:
         """One row per PERSON, including the one who plays two seasons — the unwind's failure, undone."""
         players = self._by_surname(squads)
 
-        assert sorted(players) == ["Abel", "Alt", "Baum", "Cordes", "Without"]
+        assert sorted(players) == ["Abel", "Alt", "Baum", "Cordes", "Ohne"]
         assert len(players["Cordes"].memberships) == 2
 
     def test_a_player_with_no_squad_row_comes_back_with_an_empty_list(self, squads: Database):
         """Not dropped and not malformed — which is what makes the create-then-enter flow possible."""
-        assert self._by_surname(squads)["Without"].memberships == []
+        assert self._by_surname(squads)["Ohne"].memberships == []
 
     def test_a_retired_person_is_returned_with_their_squad_row(self, squads: Database):
         players = self._by_surname(squads)

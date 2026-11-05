@@ -464,7 +464,7 @@ class TestEachPupilIsJudgedAgainInTheirOwnTransaction:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await seeded(database, a_due_pupil(1))
             # Another person's, at the address the pupil held when the run read them.
-            await database[Collection.REGISTRIERUNGEN].insert_one(registration(stranger, address_of(1), declined=True, nachname="Foreign"))
+            await database[Collection.REGISTRIERUNGEN].insert_one(registration(stranger, address_of(1), declined=True, nachname="Fremd"))
             await database[Collection.REGISTRIERUNGEN].update_one({"_id": numbered(5001)}, {"$set": {"email": corrected}})
 
             async def correct_it() -> None:
