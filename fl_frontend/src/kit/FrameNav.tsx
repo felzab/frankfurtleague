@@ -353,9 +353,11 @@ const avatar = tv({
 export type AccountRead = Promise<Account | null>;
 
 /**
- * The rail's foot when signed in: the name, the role under it, and „…“; the whole row opens the account menu.
- * Collapsed, the avatar alone stands centred, 8 px of the row's inset after the foot's 12, and the words
- * fade, clipped by the row; the menu then opens beside the row, at the rail's edge.
+ * The rail's foot when signed in: the avatar, the name and the role under it. The whole row is the one button opening
+ * the account menu, filled under the pointer as the season button over it is, so it carries no „…“ of its own, which
+ * would read as a second, smaller target, and the name keeps that room. Collapsed, the avatar alone stands centred, 8
+ * px of the row's inset after the foot's 12, and the words fade, clipped by the row; the menu then opens beside the
+ * row, at the rail's edge.
  */
 export function AccountRow({ account: read }: { account: AccountRead }) {
   const collapsed = useRailCollapsed();
@@ -379,12 +381,6 @@ export function AccountRow({ account: read }: { account: AccountRead }) {
           <span className={railFade({ class: "grid min-w-0 flex-1" })}>
             <span className="truncate font-semibold text-fg">{name}</span>
             <span className="truncate text-xs text-fg-muted">{account.role}</span>
-          </span>
-          <span className={railFade({ class: "text-fg-muted" })}>
-            <Icon
-              glyph="more"
-              size={16}
-            />
           </span>
         </AriaButton>
       }
