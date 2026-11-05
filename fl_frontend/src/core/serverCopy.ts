@@ -132,8 +132,8 @@ export const SERVER_COPY = catalogue({
   },
 
   /**
-   * The mail shell's own lines, and the words of the account's mails; every other mail's sentences are its template's
-   * until its area's session rewrites them.
+   * The mail shell's own lines, and the words of the account's, the fixtures' and the referee's mails; every other
+   * mail's sentences are its template's until its area's session rewrites them.
    */
   mail: {
     /** The one greeting: the first name where it is known. */
@@ -155,6 +155,60 @@ export const SERVER_COPY = catalogue({
 
     /** A mailed link's deadline, by the hours its lifetime counts. */
     linkValidFor: (hours: number) => `Der Link gilt ${formatNumber(hours)} Stunden.`,
+
+    /**
+     * The fixture mails: a club asked to confirm a fixture's slot, a referee booked onto it, and the word of what became
+     * of either. Each subject names the day; a sentence's moment is set semibold between its two parts, whose spaces
+     * they hold.
+     */
+    spiel: {
+      requestSubject: (day: CalendarDay) => `Spieltermin am ${formatDatumLong(day)} bestätigen`,
+      reminderSubject: (day: CalendarDay) => `Erinnerung: Spieltermin am ${formatDatumLong(day)}`,
+      /** Both answers named before the press, as the page offers both. */
+      confirmAsk: (team: Words) => `Bestätige den Termin für ${textOf(team)} oder schlag einen anderen vor.`,
+      answerMissing: (team: Words) => `Die Antwort von ${textOf(team)} fehlt noch.`,
+      /** Around the deadline. */
+      answerUntil: { before: "Antworte bis zum ", after: "." },
+      /** Any seat of the club answers and the first press binds, so a later reader meets a link already spent. */
+      firstAnswerCounts: "Es gilt die erste Antwort aus deinem Team.",
+
+      /** A move, by the day the fixture moved to, or by the day it left where it holds no new one yet. */
+      movedSubject: (day: CalendarDay) => `Spiel verlegt auf den ${formatDatumLong(day)}`,
+      movedFromSubject: (day: CalendarDay) => `Spiel am ${formatDatumLong(day)} verlegt`,
+      moved: (spiel: Words) => `${textOf(spiel)} ist verlegt.`,
+      /** The block's rows of a move, beside the slot's own: the moment it left and the one it moved to. */
+      previous: "Bisher",
+      next: "Neu",
+      /** A move whose new slot is asked later, by the reader: a club is asked, a referee booked. */
+      askedLater: {
+        team: "Zum neuen Termin bekommst du eine neue Anfrage.",
+        schiedsrichter: "Zum neuen Termin bekommst du eine neue Einteilung.",
+      },
+      /** A club taken off a fixture it was asked about, around the moment it was asked about. */
+      voidSubject: (day: CalendarDay) => `Nicht mehr angefragt: Spiel am ${formatDatumLong(day)}`,
+      void: { before: (spiel: Words) => `Die Anfrage zu ${textOf(spiel)} am `, after: " gilt nicht mehr." },
+
+      /** A call-off, around its moment, and what a reinstated fixture brings each reader. */
+      cancelledSubject: (day: CalendarDay) => `Spiel am ${formatDatumLong(day)} fällt aus`,
+      cancelled: { before: (spiel: Words) => `${textOf(spiel)} am `, after: " fällt aus." },
+      reinstated: {
+        team: "Wird das Spiel neu angesetzt, bekommst du eine neue Anfrage.",
+        schiedsrichter: "Wird das Spiel neu angesetzt, bekommst du eine neue Einteilung.",
+      },
+
+      /** The referee's Einteilung, which they answer on their own Übersicht, signed in. */
+      bookedSubject: (day: CalendarDay) => `Einteilung: Spiel am ${formatDatumLong(day)}`,
+      booked: (spiel: Words) => `Du pfeifst ${textOf(spiel)}.`,
+      sayYesOrNo: "Sag zu oder ab.",
+      /** A referee taken off a fixture, around the moment they were booked for. */
+      unbookedSubject: (day: CalendarDay) => `Nicht mehr eingeteilt: Spiel am ${formatDatumLong(day)}`,
+      unbooked: { before: (spiel: Words) => `Du pfeifst ${textOf(spiel)} am `, after: " nicht mehr." },
+
+      /** A club's proposal the league discarded, around the moment that stands. */
+      keptSubject: (day: CalendarDay) => `Termin bleibt: Spiel am ${formatDatumLong(day)}`,
+      kept: { before: (spiel: Words) => `${textOf(spiel)} bleibt am `, after: "." },
+      keptDiscarded: "Den Vorschlag deines Teams hat die Liga verworfen.",
+    },
 
     /** The sign-in code: no button, since a link carrying the code would sign in whoever opened a forwarded mail. */
     signInCode: {

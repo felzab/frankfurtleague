@@ -16,7 +16,7 @@ from app.api.einladungen.services import (
     find_unknown_einladung_refusal,
 )
 from app.api.outbox.services import enqueue_mails, final_update
-from app.api.saisons.admin_router import get_invitations_dispatch_preview, post_invitations_dispatch
+from app.api.saisons.admin_router import get_invitations_dispatch_preview, get_saison_admin, post_invitations_dispatch
 from app.api.sperrliste.services import compose_barred_until_saison_id
 from app.api.teams.admin_router import delete_invitation, get_invitation, post_invitation, post_invitation_dispatch
 from app.core.codes import Code
@@ -98,7 +98,9 @@ def junction_row(team_id: ObjectId, *, saison_id: str = SAISON_ID) -> dict[str, 
     )
 
 
-def einladung_row(team_id: ObjectId, *, revoked_at: str | None = None, _id: ObjectId | None = None) -> dict[str, Any]:
+def einladung_row(
+    team_id: ObjectId, *, revoked_at: str | None = None, _id: ObjectId | None = None, sent_at: str | None = None
+) -> dict[str, Any]:
     return {
         "_id": _id or ObjectId(),
         "saison_id": SAISON_ID,
@@ -107,6 +109,7 @@ def einladung_row(team_id: ObjectId, *, revoked_at: str | None = None, _id: Obje
         "created_at": "2026-03-15",
         "created_by": ADMIN,
         "revoked_at": revoked_at,
+        "sent_at": sent_at,
     }
 
 
@@ -132,7 +135,7 @@ def on_a_league(url: str, body: Body, *, saison_status: str = "active", teams: t
             if teams:
                 await database[Collection.SAISON_TEAMS].insert_many([junction_row(team_id) for team_id in teams])
             if ALREADY_MAILED in teams:
-                await database[Collection.INVITATIONS].insert_one(einladung_row(ALREADY_MAILED, _id=SEEDED_EINLADUNG))
+                await database[Collection.INVITATIONS].insert_one(einladung_row(ALREADY_MAILED, _id=SEEDED_EINLADUNG, sent_at="2026-03-15"))
                 await a_sent_mail(database, SEEDED_EINLADUNG, "fendrick@example.com")
 
             return await body(database)
@@ -277,11 +280,13 @@ class TestWhatAMintStores:
 
         response, stored = on_a_league(mongo_replica_set_url, body)
 
-        assert set(stored) == {"_id", "saison_id", "team_id", "token_hashes", "created_at", "created_by", "revoked_at"}
+        assert set(stored) == {"_id", "saison_id", "team_id", "token_hashes", "created_at", "created_by", "revoked_at", "sent_at"}
         assert stored["token_hashes"] == [hash_token(response.token)]
         assert stored["created_by"] == ADMIN
         assert stored["created_at"] == TODAY
         assert stored["revoked_at"] is None
+        # Minted for copying, so nothing has been sent.
+        assert stored["sent_at"] is None
 
     def test_the_raw_link_reaches_the_answer_and_no_stored_field(self, mongo_replica_set_url: str):
         """A link recoverable from the row would make the admin read the place every live credential leaks from."""
@@ -761,6 +766,53 @@ class TestTheTeamsMailPress:
             return await owed_for(database, TWO_SEATS)
 
         assert on_a_league(mongo_replica_set_url, body) == []
+
+
+class TestTheDayALinkWasSent:
+    """The season editor shows each team's link as sent on its stored day, which only the two presses owing its mails stamp."""
+
+    def test_the_season_press_stamps_the_day_the_editor_shows(self, mongo_replica_set_url: str):
+        """A mailed link served as never sent sends the administrator to send it again, and the press then kills the link the team holds."""
+
+        async def body(database: AsyncDatabase) -> Any:
+            await press(database)
+            view = await get_saison_admin(
+                saison_id=SAISON_ID,
+                saisons_collection=database[Collection.SAISONS],
+                saison_teams_collection=database[Collection.SAISON_TEAMS],
+                spiele_collection=database[Collection.SPIELE],
+                spieltage_collection=database[Collection.SPIELTAGE],
+                teams_collection=database[Collection.TEAMS],
+                spielberichte_collection=database[Collection.SPIELBERICHTE],
+                invitations_collection=database[Collection.INVITATIONS],
+                outbox_collection=database[Collection.OUTBOX],
+                ban_list=ban_list(database),
+                today=TODAY,
+            )
+
+            return {str(row.team_id): (row.has_link, row.sent_at) for row in view.invitations}
+
+        assert on_a_league(mongo_replica_set_url, body) == {
+            str(TWO_SEATS): (True, TODAY),
+            str(UNCONFIRMED): (False, None),
+            str(NO_BLOCK): (False, None),
+            # Skipped as already sent, so it keeps the link and the day its own mail was owed on.
+            str(ALREADY_MAILED): (True, "2026-03-15"),
+            str(WITHDRAWN): (False, None),
+        }
+
+    def test_the_team_press_stamps_the_link_it_owes(self, mongo_replica_set_url: str):
+        """The team's own press sends the same live link without minting, so a day the season press alone stamped would miss it."""
+
+        async def body(database: AsyncDatabase) -> Any:
+            minted = await mint(database, TWO_SEATS)
+            await mail(database, TWO_SEATS, minted.invitation_id)
+            stored = await database[Collection.INVITATIONS].find_one({"_id": ObjectId(minted.invitation_id)})
+
+            assert stored is not None
+            return stored["sent_at"]
+
+        assert on_a_league(mongo_replica_set_url, body) == TODAY
 
 
 class TestTheSeasonWidePress:

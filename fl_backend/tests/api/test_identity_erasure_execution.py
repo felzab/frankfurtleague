@@ -711,7 +711,12 @@ async def records_they_made_holding_no_grant(database: AsyncDatabase) -> None:
         {
             "_id": INVITED_BY_THEM_OID,
             **compose_einladung(
-                saison_id=SAISON_ID, team_id=HOME_TEAM_OID, token_hashes=["hash-of-their-invite"], created_by=IDENTIFIER, today=TODAY
+                saison_id=SAISON_ID,
+                team_id=HOME_TEAM_OID,
+                token_hashes=["hash-of-their-invite"],
+                created_by=IDENTIFIER,
+                today=TODAY,
+                sent_at=None,
             ),
         }
     )

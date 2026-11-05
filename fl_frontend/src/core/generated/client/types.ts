@@ -2675,6 +2675,23 @@ export interface FLInvitationDispatchResponse {
 }
 
 /**
+ * One team as the season editor's registration links list it: today's preview of the press, and the link the team holds.
+ *
+ * The preview is the press's own plan with `resend` left false, as the editor's press sends it.
+ */
+export interface FLInvitationLinkRow {
+  has_link: boolean;
+  recipient: FLInvitationRecipient[];
+  replaced_link: boolean;
+  sent_at: string | null;
+  skipped: FLInvitationSkipReason | null;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  team_id: string;
+  /** @minLength 1 */
+  team_name: string;
+}
+
+/**
  * The one live link a team's panel shows, to be mailed to the team's confirmed seats.
  */
 export interface FLInvitationMailPayload {
@@ -2725,6 +2742,7 @@ export interface FLInvitationRow {
   revoked_at: string | null;
   /** @minLength 1 */
   saison_id: string;
+  sent_at: string | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   team_id: string;
 }
@@ -3823,6 +3841,10 @@ export interface FLPatchSaisonPayload {
   version: number;
 }
 
+export interface FLPatchSaisonResponse {
+  version: number;
+}
+
 /**
  * Replaces the squad row WHOLESALE — see `FLPatchSpielerPayload` for why nothing has a default.
  *
@@ -4559,11 +4581,25 @@ export interface FLSaison {
 }
 
 /**
+ * Why each of the editor's three danger acts would be refused if pressed now, judged by its write's own rules; null where it takes it.
+ *
+ * `activate` and `undraw` are their writes' whole judgement. `recreate` is the part of a confirmed redraw no shape
+ * changes, its planning window and then the reports it would delete: the shape's own refusals come with the press, the
+ * shapes offered being those the draw admits.
+ */
+export interface FLSaisonActRefusals {
+  activate: Code | null;
+  recreate: Code | null;
+  undraw: Code | null;
+}
+
+/**
  * The same season for the admin surfaces, with whether it has started and whether a fixture of it has taken place.
  */
 export interface FLSaisonAdmin {
   begun: boolean;
   bewerbung: FLSaisonBewerbung | null;
+  decided: boolean;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   end_date: string;
   /**
@@ -4593,6 +4629,33 @@ export interface FLSaisonAdminClub {
 }
 
 /**
+ * One season as the admin list shows it: the editor's season and how many clubs it holds.
+ */
+export interface FLSaisonAdminListed {
+  begun: boolean;
+  bewerbung: FLSaisonBewerbung | null;
+  /** @minimum 0 */
+  count_teams: number;
+  decided: boolean;
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  end_date: string;
+  /**
+   * @minLength 4
+   * @maxLength 4
+   */
+  id: string;
+  registrierung: FLSaisonRegistrierung | null;
+  rules: FLSaisonRules;
+  schedule: FLSaisonPhaseSchedule[];
+  spielplan: FLSaisonSpielplan | null;
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  start_date: string;
+  status: FLSaisonStatus;
+  taken_place: boolean;
+  version: number;
+}
+
+/**
  * One club's row of the season as the editor's swap and replacement sections list it, graded as each write judges it.
  *
  * Both flags are `app/api/teams/services.py :: has_taken_place` over the row's fixtures, the predicate each write's
@@ -4611,15 +4674,17 @@ export interface FLSaisonAdminTeam {
 }
 
 /**
- * What the season editor shows, in one read: the season, its clubs, the clubs a replacement may bring in, its shapes and its matchdays.
+ * What the season editor shows, in one read: its season, clubs, shapes and matchdays, its acts' states and its registration links.
  *
  * `shapes` is every shape the season's other rules admit, judged as the draw judges a shape it is given;
- * `count_spieltage` is the matchdays the season holds.
+ * `count_spieltage` is the matchdays the season holds; `invitations` holds one row per club, in `teams`' order.
  */
 export interface FLSaisonAdminResponse {
   /** @minimum 0 */
   count_spieltage: number;
   incoming_clubs: FLSaisonAdminClub[];
+  invitations: FLInvitationLinkRow[];
+  refusals: FLSaisonActRefusals;
   saison: FLSaisonAdmin;
   shapes: FLSpielplanShape[];
   teams: FLSaisonAdminTeam[];
@@ -4743,7 +4808,7 @@ export interface FLSaisonTeamsResponse {
 
 export interface FLSaisonsAdminListResponse {
   format: "list";
-  saisons: FLSaisonAdmin[];
+  saisons: FLSaisonAdminListed[];
 }
 
 export interface FLSaisonsSingleResponse {

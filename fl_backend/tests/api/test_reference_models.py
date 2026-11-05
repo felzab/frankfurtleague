@@ -630,37 +630,43 @@ class TestTheSeasonsSpans:
         """`None` is the season with nothing recorded, which the span rule has nothing to say about."""
         assert FLPatchSaisonPayload.model_validate(self.payload(saison, bewerbung=None, registrierung=None)).bewerbung is None
 
-    def test_refuses_a_window_ending_before_it_opens(self, saison):
-        reversed_window = {"start": "2025-10-31", "end": "2025-09-01"}
-
-        with pytest.raises(ValidationError) as failure:
-            FLPatchSaisonPayload.model_validate(self.payload(saison, bewerbung=reversed_window))
-
-        assert [error["type"] for error in failure.value.errors()] == ["bewerbung_window_ends_before_start"]
-
     def test_judges_the_window_apart_from_the_season_it_belongs_to(self, saison):
         """A window may legitimately open and close before the season's first day."""
         before_the_saison = {"start": "2025-01-01", "end": "2025-02-01"}
 
         assert FLPatchSaisonPayload.model_validate(self.payload(saison, bewerbung=before_the_saison)).bewerbung is not None
 
-    def test_refuses_a_season_ending_before_it_starts_in_the_other_sides_words(self, saison):
-        """The same helper's other caller: one kind moved without the other is what this catches."""
+    @pytest.mark.parametrize(
+        ("overrides", "refused"),
+        [
+            pytest.param(
+                {"start_date": "2026-06-30", "end_date": "2026-01-01"},
+                ("saison_ends_before_start", ("end_date",), {"start": "2026-06-30"}),
+                id="the season's end",
+            ),
+            pytest.param(
+                {"bewerbung": {"start": "2025-10-31", "end": "2025-09-01"}},
+                ("bewerbung_window_ends_before_start", ("bewerbung", "end"), {"start": "2025-10-31"}),
+                id="the application window's end",
+            ),
+            pytest.param(
+                {"registrierung": {"offen": True, "end": "2026-01-01"}},
+                ("registrierung_window_reaches_saison_start", ("registrierung", "end"), {"latest": "2025-12-31"}),
+                id="the registration window's end",
+            ),
+        ],
+    )
+    def test_refuses_each_span_at_its_end_with_its_kind_and_bound(self, saison, overrides, refused):
+        """Each rule sits at the end it judges: one raised at the model's own path reaches the wire naming no box, and no form shows it.
+
+        The wire's `path` is this `loc`, `app/core/exception_handlers.py :: _refused_field` dropping only FastAPI's `body`.
+        """
+        assert saison()["start_date"] == "2026-01-01"
+
         with pytest.raises(ValidationError) as failure:
-            FLPatchSaisonPayload.model_validate(self.payload(saison, start_date="2026-06-30", end_date="2026-01-01"))
+            FLPatchSaisonPayload.model_validate(self.payload(saison, **overrides))
 
-        assert [error["type"] for error in failure.value.errors()] == ["saison_ends_before_start"]
-
-    def test_refuses_a_registration_window_reaching_the_season_s_start_and_names_its_last_day(self, saison):
-        """A window running into the season would take registrations once play has begun; the line is worded from `latest`."""
-        on_the_start = {"offen": True, "end": saison()["start_date"]}
-
-        with pytest.raises(ValidationError) as failure:
-            FLPatchSaisonPayload.model_validate(self.payload(saison, registrierung=on_the_start))
-
-        assert [(error["type"], error.get("ctx")) for error in failure.value.errors()] == [
-            ("registrierung_window_reaches_saison_start", {"latest": "2025-12-31"})
-        ]
+        assert [(error["type"], error["loc"], error.get("ctx")) for error in failure.value.errors()] == [refused]
 
 
 class TestTheSeasonsWindowsAreRequiredWithNoDefault:

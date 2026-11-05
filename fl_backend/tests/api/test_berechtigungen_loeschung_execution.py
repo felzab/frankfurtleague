@@ -208,7 +208,9 @@ async def a_league_she_administered(database: AsyncDatabase) -> None:
         [
             {
                 "_id": invite_id,
-                **compose_einladung(saison_id=RUNNING, team_id=ObjectId(), token_hashes=[f"hash-{invite_id}"], created_by=by, today=TODAY),
+                **compose_einladung(
+                    saison_id=RUNNING, team_id=ObjectId(), token_hashes=[f"hash-{invite_id}"], created_by=by, today=TODAY, sent_at=None
+                ),
             }
             for invite_id, by in ((INVITE_BY_HER, ERIKA), (INVITE_BY_DORA, DORA))
         ]

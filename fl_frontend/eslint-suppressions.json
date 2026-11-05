@@ -378,19 +378,9 @@
       "count": 3
     }
   },
-  "src/core/schiedsrichterEmail.ts": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
   "src/core/sessionLifetimes.ts": {
     "no-restricted-syntax": {
       "count": 1
-    }
-  },
-  "src/core/spielEmail.ts": {
-    "no-restricted-syntax": {
-      "count": 3
     }
   },
   "src/core/teamVocabulary.ts": {
