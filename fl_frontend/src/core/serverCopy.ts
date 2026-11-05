@@ -408,8 +408,14 @@ export const SERVER_COPY = catalogue({
   landing: {
     /** The hero's one heading. */
     tagline: "Frankfurts Abi-Jahrgänge spielen um den Titel",
-    /** The one paragraph the league describes itself with, under the tagline and at the head of About. */
-    paragraph: `${COPY.brand.description} Ehrenamtliche aus den Jahrgängen organisieren die Liga.`,
+    /**
+     * The two paragraphs the league describes itself with, under the tagline and at the head of About: what the league
+     * is, then who stands behind a team and who runs it.
+     */
+    paragraphs: [
+      COPY.brand.description,
+      "Hinter jedem Team steht eine ganze Schule, die zu den Spielen kommt und mitfiebert. Ehrenamtliche aus den Jahrgängen organisieren die Liga, von der Bewerbung bis zum Finale.",
+    ],
     /** The way to apply while a window is open: the hero's second act, the steps' band and the school's door. */
     toBewerbung: "Zur Bewerbung",
 

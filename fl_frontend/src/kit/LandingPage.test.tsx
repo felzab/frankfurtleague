@@ -41,7 +41,7 @@ function landingWith(content: Promise<LandingContent>): ReactElement {
   return (
     <LandingPage
       title={landing.tagline}
-      lead={landing.paragraph}
+      lead={landing.paragraphs}
       content={content}
     />
   );
@@ -63,7 +63,7 @@ describe("the landing while its read is on its way", () => {
     waiting.innerHTML = renderToString(landingWith(new Promise(() => undefined)));
     expect(within(waiting).getByRole("heading", { level: 1 }).textContent).toBe(landing.tagline);
     expect(within(waiting).queryByRole("link")).toBeNull();
-    expect(within(waiting).queryByText(landing.paragraph)).toBeNull();
+    for (const paragraph of landing.paragraphs) expect(within(waiting).queryByText(paragraph)).toBeNull();
     expect(
       within(waiting)
         .getAllByRole("status")

@@ -201,7 +201,7 @@ export default function HomePage() {
       <OrganizationJsonLd />
       <LandingPage
         title={words.tagline}
-        lead={words.paragraph}
+        lead={words.paragraphs}
         content={contentOf()}
       />
     </>
