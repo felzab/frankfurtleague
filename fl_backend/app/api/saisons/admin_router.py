@@ -3,7 +3,7 @@ from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Body, Depends, status
+from fastapi import APIRouter, Body, Depends
 from pymongo import AsyncMongoClient, ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
@@ -39,6 +39,7 @@ from app.api.saisons.schemas import (
     FLGenerateSpielplanPayload,
     FLGenerateSpielplanResponse,
     FLPatchSaisonPayload,
+    FLPatchSaisonResponse,
     FLPostSaisonPayload,
     FLPostSaisonResponse,
     FLSaisonAdmin,
@@ -85,6 +86,7 @@ from app.core.codes import Code
 from app.core.config import API_VERSION
 from app.core.crud import (
     GERMAN_COLLATION,
+    VERSION_FIELD,
     anchor_in_db,
     build_query,
     build_sort,
@@ -370,7 +372,7 @@ async def post_saison(
 
 @router.patch(
     "/{saison_id}",
-    status_code=status.HTTP_204_NO_CONTENT,
+    response_model=FLPatchSaisonResponse,
     summary="Update a Saison's dates and rules",
 )
 async def patch_saison(
@@ -383,18 +385,17 @@ async def patch_saison(
     saison_spieler_collection: SaisonSpielerCollection,
     db: DBClient,
     today: str = Depends(get_german_date_str),
-) -> None:
+) -> FLPatchSaisonResponse:
     """
-    Update a season's dates and rules. `status` is on no payload.
+    Update a season's dates and rules on the `version` the editor was served, answering the version stored, which its next save sends.
 
-    Editing the points moves every league table on the NEXT READ, standings being derived. What a
-    started or drawn season has fixed is refused, as is a rule narrowed below what it holds. The start
-    date moves until a fixture of the season has taken place (`saison_start_taken_place`); the rules
-    freeze reads the STORED start, so a season started too early is unlocked by one save moving its
-    start and a second changing its rules.
+    `status` is on no payload. Editing the points moves every league table on the NEXT READ, standings being derived. What a
+    started or drawn season has fixed is refused, as is a rule narrowed below what it holds. The start date moves until a
+    fixture of the season has taken place (`saison_start_taken_place`); the rules freeze reads the STORED start, so a season
+    started too early is unlocked by one save moving its start and a second changing its rules.
     """
 
-    async def judge_and_write_the_rules(session: AsyncClientSession) -> None:
+    async def judge_and_write_the_rules(session: AsyncClientSession) -> FLPatchSaisonResponse:
         """Judge, then write the season's dates and rules. Every figure is read in-session."""
 
         # THROUGH the session, and FIRST: this opens the snapshot the update below is judged
@@ -514,13 +515,14 @@ async def patch_saison(
             )
         )
 
-        await patch_one_in_db(
+        # `AFTER`, read back inside the transaction at no extra round trip: the version answered is the one this commit stores.
+        patched = await patch_one_in_db(
             collection=saisons_collection,
             db_filter={"_id": saison_id},
             update={"$set": saison_data.model_dump(mode="json", exclude={"version"})},
             expected_version=saison_data.version,
             session=session,
-            return_document=ReturnDocument.BEFORE,
+            return_document=ReturnDocument.AFTER,
         )
 
         # A result is a write to `spiele` alone, so a moved start writes the fixtures it was judged on:
@@ -528,6 +530,8 @@ async def patch_saison(
         # and a matchday re-dating anchor `saisons` themselves, so the season write above is theirs.
         if saison_data.start_date != stored_raw["start_date"]:
             await anchor_in_db(collection=spiele_collection, db_filter={"saison_id": saison_id}, session=session)
+
+        return FLPatchSaisonResponse(version=patched[VERSION_FIELD])
 
     # `with_transaction`, not a bare `start_transaction`: a draw and an undraw write `saisons` too,
     # so one landing under a `$set` that changes something conflicts, and the retry judges the
