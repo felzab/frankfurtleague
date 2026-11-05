@@ -74,4 +74,4 @@ class TestATeamTheBanListKeepsTheLinkFrom:
             barred=frozenset({"bramblewick@example.com"}),
         )
 
-        assert decided == ([], "kontakte_barred", False)
+        assert decided == ([], "kontakte_barred")

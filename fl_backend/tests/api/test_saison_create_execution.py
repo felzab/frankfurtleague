@@ -2,6 +2,7 @@ import asyncio
 from typing import Any
 
 import pytest
+from bson import ObjectId
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.saisons.admin_router import get_saisons_admin, post_saison
@@ -65,6 +66,8 @@ class TestTheCreateMakesTheNextSeason:
             pytest.param([("2026", "past"), ("2027", "active")], "2028", id="the-year-after-the-newest"),
             # Sorted after every year by string order, so a create reading it as the newest answers 500.
             pytest.param([("2027", "active"), ("abcd", "past")], "2028", id="the-year-after-the-newest-past-an-odd-row"),
+            # Of another length too, so a list holding the row to the id's length answers 500.
+            pytest.param([("2027", "active"), ("2027-alt", "past")], "2028", id="the-year-after-the-newest-past-a-longer-row"),
         ],
     )
     def test_the_list_serves_the_id_the_create_mints(self, mongo_replica_set_url: str, stored: list[tuple[str, str]], minted: str):
@@ -80,6 +83,25 @@ class TestTheCreateMakesTheNextSeason:
 
         assert (listed_id, refusal, created_id) == (minted, None, minted)
         assert seasons == sorted([*stored, (minted, "future")])
+
+    def test_the_list_counts_each_seasons_own_matches(self, mongo_replica_set_url: str):
+        """A count off the wrong season, or off every season, would stand in a column nobody checks against the plan."""
+
+        async def body(database: AsyncDatabase) -> Any:
+            spieltag_id = ObjectId()
+            await database[Collection.SPIELE].insert_many(
+                [
+                    documents.spiel_document(spiel_id=ObjectId(), saison_id=saison_id, spiel_nr=spiel_nr, spieltag_id=spieltag_id)
+                    for saison_id, count in (("2026", 1), ("2027", 3))
+                    for spiel_nr in range(1, count + 1)
+                ]
+            )
+
+            return {listed.id: listed.count_spiele for listed in (await _listed(database)).saisons}
+
+        counted = _on(mongo_replica_set_url, [("2025", "past"), ("2026", "past"), ("2027", "active")], body)
+
+        assert counted == {"2025": 0, "2026": 1, "2027": 3}
 
     @pytest.mark.parametrize(
         ("stored", "carried"),

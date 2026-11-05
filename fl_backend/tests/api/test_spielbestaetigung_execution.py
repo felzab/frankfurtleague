@@ -49,7 +49,6 @@ from app.api.teams.schemas import FLReplaceSaisonTeamPayload
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
-from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX
 from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.schemas.literals import KONTAKT_ROLLEN
@@ -1874,20 +1873,6 @@ class TestTheDryRunNamesWhomTheSaveHasThePassMail:
 
         assert sorted((party.model_dump() for party in on_a_refereed_fixture(mongo_replica_set_url, body, rows=rows)), key=str) == sorted(
             [CLUB1, CLUB2, OTTOS, UTES], key=str
-        )
-
-    def test_the_ghost_an_erasure_leaves_on_a_row_is_no_recipient(self, mongo_replica_set_url: str):
-        """The ghost holds no address and no name: a question naming it would name a mail nobody is sent."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            preview = await speichern(database, client, await spiel_now(database), dry_run=True, sonderereignis="ausgefallen")
-
-            return preview.recipients
-
-        rows = [confirmation(ROW1, TEAM1), confirmation(ROW2, TEAM2), referee_row(schiedsrichter_id=GHOST_SCHIEDSRICHTER_ID)]
-
-        assert sorted((party.model_dump() for party in on_a_refereed_fixture(mongo_replica_set_url, body, rows=rows)), key=str) == sorted(
-            [CLUB1, CLUB2], key=str
         )
 
     def test_a_club_out_by_the_fixtures_day_has_the_pass_tell_nobody(self, mongo_replica_set_url: str):

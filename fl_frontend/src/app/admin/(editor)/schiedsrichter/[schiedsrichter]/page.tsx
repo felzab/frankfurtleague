@@ -11,7 +11,8 @@ import { confirmationStateOf } from "@/features/schiedsrichter/confirmationState
 import { SAVE_RULES } from "@/features/schiedsrichter/fieldRules";
 import { getSchiedsrichterById } from "@/features/schiedsrichter/queries";
 import { pageMetadata } from "@/shared/utils/metadata";
-import { resolveObjectIdParam } from "@/shared/utils/routeParams";
+import { metadataFor } from "@/shared/utils/notFoundMetadata";
+import { objectIdParamOf } from "@/shared/utils/routeParams";
 
 import { reactivateSchiedsrichter, retireSchiedsrichter, sendSchiedsrichterLink } from "./retireSchiedsrichter";
 import { saveSchiedsrichter } from "./saveSchiedsrichter";
@@ -31,9 +32,14 @@ const WORDS = COPY.admin.schiedsrichter;
 /** One read of the referee by id for the tab's title and the page alike. */
 const read = cache(getSchiedsrichterById);
 
-/** The referee the address names, retired or not: not-found for a malformed id and for one no referee holds. */
+/** The referee the address names, retired or not: `null` for a malformed id and for one no referee holds. */
+async function findSchiedsrichter(params: Props["params"]) {
+  const id = await objectIdParamOf(params, "schiedsrichter");
+  return id === null ? null : read(id);
+}
+
 async function readSchiedsrichter(params: Props["params"]) {
-  const found = await read(await resolveObjectIdParam(params, "schiedsrichter"));
+  const found = await findSchiedsrichter(params);
   if (found === null) notFound();
   return found;
 }
@@ -42,10 +48,11 @@ async function readSchiedsrichter(params: Props["params"]) {
 const nameOf = (referee: FLSchiedsrichter): Words => (referee.name === null ? COPY.shared.noValue : { record: referee.name });
 
 export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
-  const { schiedsrichter } = await readSchiedsrichter(params);
-  return pageMetadata(parent, ROUTES.adminSchiedsrichterRecord, ROUTES.adminSchiedsrichterRecord.path(schiedsrichter.id), {
-    title: nameOf(schiedsrichter),
-  });
+  return metadataFor(findSchiedsrichter(params), ({ schiedsrichter }) =>
+    pageMetadata(parent, ROUTES.adminSchiedsrichterRecord, ROUTES.adminSchiedsrichterRecord.path(schiedsrichter.id), {
+      title: nameOf(schiedsrichter),
+    }),
+  );
 }
 
 /** A referee's editor, on its one read by id and its write on the version it was read at. */

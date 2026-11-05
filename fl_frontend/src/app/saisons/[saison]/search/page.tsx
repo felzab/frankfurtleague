@@ -8,10 +8,11 @@ import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { PHASE_LABELS, SAISON_PHASE_OPTIONS } from "@/features/saisons/constants";
 import { getSpielplan } from "@/features/saisons/queries";
-import { resolvePublicSaisonParam } from "@/features/saisons/resolvers";
+import { publicSaisonOf, resolvePublicSaisonParam } from "@/features/saisons/resolvers";
 import { matchRowOf, sidesOf, whenOf } from "@/features/spiele/blocks";
 import { spieltagNamer } from "@/features/spieltage/utils";
 import { pageMetadata } from "@/shared/utils/metadata";
+import { metadataFor } from "@/shared/utils/notFoundMetadata";
 
 import type { Copy } from "@/core/copy";
 import type { FLSpielJoined, FLSpielplanSpieltag } from "@/core/generated/client/types";
@@ -21,8 +22,7 @@ import type { Metadata, ResolvingMetadata } from "next";
 type Props = PageProps<"/saisons/[saison]/search">;
 
 export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
-  const saison = await resolvePublicSaisonParam(params);
-  return pageMetadata(parent, ROUTES.spielSearch, ROUTES.spielSearch.path(saison));
+  return metadataFor(publicSaisonOf(params), (saison) => pageMetadata(parent, ROUTES.spielSearch, ROUTES.spielSearch.path(saison)));
 }
 
 /** A matchday as the address names it: its stored phase and position, as the Spielplan's tabs do. */

@@ -10,7 +10,9 @@ import { Button } from "./Button";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { DraftUnsaved, useLocked } from "./draftUnsaved";
 import { EditorBar } from "./EditorBar";
+import { StatusLine } from "./FieldParts";
 import { FormClosed } from "./formClosed";
+import { lockedLine } from "./lockedLine";
 import { formColumn, RailPage } from "./RailFrame";
 import { Section } from "./Section";
 import { usePasskeyTouch } from "./usePasskeyTouch";
@@ -21,6 +23,7 @@ import type { ChipProps } from "./Chip";
 import type { ConfirmDialogProps } from "./ConfirmDialog";
 import type { PageTitle } from "./RailFrame";
 import type { Editor, EditorValue } from "./useEditor";
+import type { FormStatus } from "./useFormAction";
 
 /**
  * One of an editor's sections, in the order the person's task takes them: its title, its ⓘ, its fields, and `note`,
@@ -62,16 +65,17 @@ function DangerRow({ act }: { act: DangerAct }) {
   const label = COPY.shared.verb[act.confirm.verb];
   const locked = useLocked(act.locked);
   const isLocked = locked !== undefined;
+  // The row's one line, a live region from the first render, so the touch's refusal and a reason are announced as each
+  // replaces the consequence, which rests in the small muted face of the reason taking its place.
+  const line: FormStatus = refusal === null ? lockedLine(locked ?? act.consequence) : { tone: "error", text: refusal };
   return (
     <div className="flex min-h-14 items-center gap-3 rounded-lg border border-[color-mix(in_srgb,var(--danger)_45%,var(--border))] px-4 py-2 lg:min-h-13">
       <div className="grid min-w-0 flex-1 text-sm">
         <span className="font-semibold">{act.name}</span>
-        {/* A polite status from the first render, so the touch's refusal is announced as it replaces the consequence. */}
-        <span
-          role="status"
-          className={refusal === null ? "text-xs text-fg-muted" : "text-xs text-danger"}>
-          {refusal ?? locked ?? act.consequence}
-        </span>
+        <StatusLine
+          status={line}
+          placement="column"
+        />
       </div>
       {act.touch === undefined ? (
         <ConfirmDialog

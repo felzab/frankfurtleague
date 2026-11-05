@@ -6,7 +6,8 @@ import { EditorShell } from "@/kit/EditorShell";
 import { ROUTES } from "@/core/routes";
 import { getSpielort } from "@/features/spielorte/queries";
 import { pageMetadata } from "@/shared/utils/metadata";
-import { resolveObjectIdParam } from "@/shared/utils/routeParams";
+import { metadataFor } from "@/shared/utils/notFoundMetadata";
+import { objectIdParamOf } from "@/shared/utils/routeParams";
 
 import { SPIELORT_SAVE_RULES } from "../../../spielortRules";
 import { reactivateSpielort, retireSpielort } from "./retireSpielort";
@@ -21,16 +22,22 @@ type Props = PageProps<"/admin/spielorte/[spielort]">;
 /** One read of the venue by its id for the tab's title and the page alike, shared within the request. */
 const read = cache(getSpielort);
 
-/** The venue the address names, retired or not: not-found for a malformed id and for one no venue holds. */
+/** The venue the address names, retired or not: `null` for a malformed id and for one no venue holds. */
+async function findSpielort(params: Props["params"]) {
+  const id = await objectIdParamOf(params, "spielort");
+  return id === null ? null : read(id);
+}
+
 async function readSpielort(params: Props["params"]) {
-  const spielort = await read(await resolveObjectIdParam(params, "spielort"));
+  const spielort = await findSpielort(params);
   if (spielort === null) notFound();
   return spielort;
 }
 
 export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
-  const spielort = await readSpielort(params);
-  return pageMetadata(parent, ROUTES.adminSpielort, ROUTES.adminSpielort.path(spielort.id), { title: { record: spielort.name } });
+  return metadataFor(findSpielort(params), (spielort) =>
+    pageMetadata(parent, ROUTES.adminSpielort, ROUTES.adminSpielort.path(spielort.id), { title: { record: spielort.name } }),
+  );
 }
 
 /** A venue's editor, on its one read by id and its write on the version it was read at. */

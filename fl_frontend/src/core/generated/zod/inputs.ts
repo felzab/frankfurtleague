@@ -1803,8 +1803,7 @@ export const SaisonsSwapGruppenBody = zod
  *
  * **Every team mailed gets a fresh invite, and any link that team already held is REVOKED in the same per-team transaction** — the
  * copy in somebody's inbox opens nothing from that moment. The mails are owed in that transaction too, each minting its link when it is
- * handed out; no link is answered. `replaced_link` says of each row whether a link died for it, and the season editor's rows answer it
- * before the press. A team this skips is left exactly as it was.
+ * handed out; no link is answered. A team this skips is left exactly as it was.
  *
  * Five skips, each an ordinary state rather than a refusal: the team has left this season, it holds no contact block, no seat of that block
  * has been confirmed by its own person, every confirmed seat's address is on the ban list, or its live link was already sent and
