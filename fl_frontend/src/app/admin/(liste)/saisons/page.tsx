@@ -12,7 +12,10 @@ import { CREATE_REQUIRED } from "@/features/saisons/required";
 import { saisonChipOf } from "@/features/saisons/saisonState";
 import { pageMetadata } from "@/shared/utils/metadata";
 
-import type { FLSaisonAdminListed } from "@/core/generated/client/types";
+import type { Copy } from "@/core/copy";
+import type { Code, FLSaisonAdminListed } from "@/core/generated/client/types";
+import type { NextSaison } from "@/features/saisons/nextSaison";
+import type { ListCreate } from "@/kit/ListPage";
 import type { TableRow } from "@/kit/Table";
 import type { Metadata, ResolvingMetadata } from "next";
 
@@ -39,27 +42,45 @@ const rowOf = (saison: FLSaisonAdminListed): TableRow => ({
   },
 });
 
-/** Every season, the newest first, and a new one created in the dialog over the list, a year on from the newest. */
+/** Every season, the newest first, and the next one created in the dialog over the list, a year on from the newest. */
 export default function SaisonsPage() {
   const read = getAdminSaisons();
   return (
     <ListPage
       head={{ scope: "area", title: { route: "adminSaisons" } }}
-      create={{
-        title: COPY.shared.withObject(COPY.shared.saison, "create"),
-        act: { verb: "create", object: COPY.shared.saison },
-        action: createSaison,
-        children: <CreateFields read={read} />,
-      }}
+      create={readCreate(read)}
       list={{ kind: "table", content: readSaisons(read) }}
     />
   );
 }
 
-/** The create dialog's boxes, starting from the next season the newest suggests. */
-async function CreateFields({ read }: { read: ReturnType<typeof getAdminSaisons> }) {
-  // Served oldest first, by id.
-  const next = nextSaisonOf((await read).saisons.at(-1));
+/**
+ * Why the create cannot run now, by the refusal the read serves for it: never a rule of the page's own. A code no line
+ * here words means a page older than the API, which the stale line says.
+ */
+function lockedOf(code: Code): Copy {
+  return code === "create_saison_future_stands" ? WORDS.futureStands : COPY.shared.failure.stale;
+}
+
+/**
+ * The next season's own act, named by the id the backend mints for it, closed while the read says the create would be
+ * refused.
+ */
+async function readCreate(read: ReturnType<typeof getAdminSaisons>): Promise<ListCreate> {
+  const { saisons, next_saison_id, refusals } = await read;
+  const name = COPY.shared.saisonName(next_saison_id);
+  return {
+    title: COPY.shared.withObject(name, "create"),
+    act: { verb: "create", object: name },
+    action: createSaison,
+    // Read oldest first, the order `getAdminSaisons` asks for.
+    children: <CreateFields next={nextSaisonOf(saisons.at(-1))} />,
+    ...(refusals.create === null ? {} : { locked: lockedOf(refusals.create) }),
+  };
+}
+
+/** The create dialog's boxes, starting from the days the newest season suggests. */
+function CreateFields({ next }: { next: NextSaison }) {
   return (
     <>
       {/* A season's two days are one value, sharing their row at every width. */}
@@ -96,6 +117,7 @@ async function readSaisons(read: ReturnType<typeof getAdminSaisons>) {
         { key: "teams", label: COPY.page.teams, figures: true, hideOnPhone: true },
         { key: "spiele", label: COPY.page.spiele, figures: true, hideOnPhone: true },
       ],
+      // Read oldest first, the order `getAdminSaisons` asks for.
       rows: saisons.toReversed().map(rowOf),
       empty: { kind: "none", plural: ROUTES.adminSaisons.title, glyph: "saisons" } as const,
     },

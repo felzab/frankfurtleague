@@ -112,14 +112,6 @@ const saisonName = (id: string) => `Saison ${id}`;
 // A team's season, Deine Einträge's fact, which the deletion list's label for a registration names it by.
 const teamSeason = (team: Words, saison: Copy) => `${textOf(team)}, ${saison}`;
 
-/**
- * A range's end: a figure, or a year, which as a season id takes no thousands separator. A year is data, never a
- * string, so no entry taking a bound passes a caller's words through as the catalogue's.
- */
-type Bound = number | { year: number };
-
-const bound = (value: Bound): string => (typeof value === "number" ? formatNumber(value) : String(value.year));
-
 export const COPY = catalogue({
   /** What every area draws from; an area adds a key of its own only for a string this lacks. */
   shared: {
@@ -145,7 +137,7 @@ export const COPY = catalogue({
       exampleDate: "31.12.2026",
       // Reserved as the address example's domain is.
       exampleUrl: "https://example.com",
-      between: (from: Bound, to: Bound) => `Zwischen ${bound(from)} und ${bound(to)}`,
+      between: (from: number, to: number) => `Zwischen ${formatNumber(from)} und ${formatNumber(to)}`,
       // One-sided bounds of a number or of a list, the box's label saying what is counted.
       max: (count: number) => `Höchstens ${formatNumber(count)}`,
       min: (count: number) => `Mindestens ${formatNumber(count)}`,
@@ -705,8 +697,6 @@ export const COPY = catalogue({
 
       /** The span a season runs from its start to its end: the list's column and the editor's first box. */
       zeitraum: "Zeitraum",
-      /** A new season's id, which is the year it is played in. */
-      jahr: "Jahr",
       /** A span's two days, the season's and each window's alike. */
       beginn: "Beginn",
       ende: "Ende",
@@ -810,6 +800,8 @@ export const COPY = catalogue({
       /** Why the activation cannot run yet: the season the site shows owes results, or this one's matchdays owe dates. */
       unfinished: "Die bisherige Saison hat noch Spiele ohne Ergebnis.",
       undated: "Diese Saison hat noch Spieltage ohne Datum.",
+      /** Why the list's create cannot run: a planned season stands, and a league plans one season at a time. */
+      futureStands: "Eine Saison ist schon geplant.",
     },
 
     spiel: {
