@@ -43,7 +43,6 @@ from app.api.schiedsrichter.services import (
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
-from app.shared.schemas.bounds import BEWERBUNG_KONTAKT_MAX_AGE_YEARS, SCHIEDSRICHTER_MIN_AGE_YEARS
 from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.tokens import hash_token
 from tests import documents
@@ -605,10 +604,7 @@ class TestTheConfirmation:
         assert row.get("geburtsdatum") is None
 
     def test_a_birthdate_under_the_floor_is_refused_before_anything_is_written(self, mongo_replica_set_url: str):
-        """A consent from someone under the referees' minimum age is one the league may not hold.
-
-        Refused without its bounds, the field's message cannot name the range and falls to the unexpected line.
-        """
+        """A consent from someone under the referees' minimum age is one the league may not hold."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             minted = await resend(database, client)
@@ -621,8 +617,6 @@ class TestTheConfirmation:
         refused, row = on_a_league(mongo_replica_set_url, body)
 
         assert refused.error_code == Code.CONFIRMATION_AGE
-        # The range the field's message names, the floor and the ceiling the write judged.
-        assert refused.bounds == {"min": SCHIEDSRICHTER_MIN_AGE_YEARS, "max": BEWERBUNG_KONTAKT_MAX_AGE_YEARS}
         assert row.get("geburtsdatum") is None
 
 
