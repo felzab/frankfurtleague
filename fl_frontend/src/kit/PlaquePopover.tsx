@@ -74,7 +74,7 @@ export function PlaquePopover({ plaque, name, href, line }: { plaque: RecordText
           data-kit-focus
           className="grid">
           <p className="grid px-3 py-2">
-            <span className="font-semibold [overflow-wrap:anywhere]">{textOf(name)}</span>
+            <span className="font-semibold wrap-anywhere">{textOf(name)}</span>
             {line !== undefined && <span className="text-xs text-fg-muted">{line}</span>}
           </p>
           <span

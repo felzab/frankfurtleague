@@ -37,7 +37,7 @@ const facts = tv({
     row: "grid gap-0.5",
     // The glyph, 16 px, on the label's own 16-px line, 6 px before it.
     term: "flex items-center gap-1.5 text-xs text-fg-muted",
-    detail: "font-medium [overflow-wrap:anywhere]",
+    detail: "font-medium wrap-anywhere",
   },
   variants: {
     look: {
