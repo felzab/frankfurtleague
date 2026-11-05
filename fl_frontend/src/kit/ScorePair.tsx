@@ -46,9 +46,9 @@ const scorePair = tv({
 const HUE = { win: "success", draw: "warn" } as const;
 
 /**
- * A score as one value in one row at every width (D279, D342), drawn as the match head draws a match (D358 kopf B):
- * each side's plaque over its club's name over its two-digit field, the colon between them on the fields' line, the
- * whole centred in a box of its own. The result's goals and a shoot-out's alike. `label`, „Tore“ or
+ * A score as one value in one row at every width, drawn as the match head draws a match, so a result is typed in the
+ * shape it is read in: each side's plaque over its club's name over its two-digit field, the colon between them on the
+ * fields' line, the whole centred in a box of its own. The result's goals and a shoot-out's alike. `label`, „Tore“ or
  * „Elfmeterschießen“, names the group. The two boxes otherwise read alike, the same clubs over the same fields, so a
  * `captioned` pair, the shoot-out's, sets its label over the clubs in the kit's label rung, the caption being the
  * group's name on the screen and for a screen reader alike; the goals' pair, standing first, names itself to a

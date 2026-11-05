@@ -102,8 +102,8 @@ const minuteOf = (minute: string): [number, number] => {
 };
 
 /**
- * The report's goals as rows, read-only, since its referee writes them (D296): each in the order it was scored, the
- * side's plaque before the scorer, and the score the goal made. An own goal counts for the other side.
+ * The report's goals as rows, read-only, since its referee writes them: each in the order it was scored, the side's
+ * plaque before the scorer, and the score the goal made. An own goal counts for the other side.
  */
 function berichtRows(spiel: FLSpielJoinedAdmin, bericht: FLSpielEditorBericht): TableRow[] {
   const words = SERVER_COPY.season.spiel;
