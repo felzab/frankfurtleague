@@ -1602,7 +1602,6 @@ export const saisonsPostSaisonBodyIdMax = 4;
 
 export const saisonsPostSaisonBodyIdRegExp = new RegExp("^[0-9]+$");
 export const saisonsPostSaisonBodyRegistrierungOneEndRegExp = new RegExp("^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$");
-export const saisonsPostSaisonBodyRegistrierungOneVonRegExp = new RegExp("^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$");
 
 export const saisonsPostSaisonBodyRulesDrawPointsMin = 0;
 
@@ -1629,11 +1628,10 @@ export const SaisonsPostSaisonBody = zod.object({
     zod
       .object({
         end: zod.string().regex(saisonsPostSaisonBodyBewerbungOneEndRegExp),
-        offen: zod.boolean(),
         start: zod.string().regex(saisonsPostSaisonBodyBewerbungOneStartRegExp),
       })
       .describe(
-        "When the league accepts applications for this season.\n\nThe two halves that record it: the span, and the `offen` flag an administrator sets beside it.",
+        "When the league accepts applications for this season: while today lies between `start` and `end`, both included.\n\nNo flag beside the span: closing early is moving `end` to today (`app/api/bewerbungen/services.py ::\nsaison_nimmt_bewerbungen_an`).",
       ),
     zod.null(),
   ]),
@@ -1644,10 +1642,9 @@ export const SaisonsPostSaisonBody = zod.object({
       .object({
         end: zod.string().regex(saisonsPostSaisonBodyRegistrierungOneEndRegExp),
         offen: zod.boolean(),
-        von: zod.string().regex(saisonsPostSaisonBodyRegistrierungOneVonRegExp),
       })
       .describe(
-        "When a pupil may register for this season.\n\nIts own model rather than an alias of `FLSaisonBewerbung` above: the two windows are two\ndecisions an administrator takes apart, and one component name on both would publish them as one.",
+        "When a pupil may register for this season: from its activation to `end`, which falls before the season's start.\n\nNo start of its own, the activation being the opening (`app/api/registrierungen/services.py ::\nsaison_nimmt_registrierungen_an`); `offen` pauses the link alone. Its own model rather than an alias of\n`FLSaisonBewerbung` above: the two windows are two decisions an administrator takes apart.",
       ),
     zod.null(),
   ]),
@@ -1681,17 +1678,17 @@ export const SaisonsPostSaisonBody = zod.object({
  * fixes the start date (`saison_start_taken_place`).
  * @summary Every Saison for the admin surfaces
  */
-export const saisonsGetSaisonsVerwaltungQueryLimitDefault = 1024;
-export const saisonsGetSaisonsVerwaltungQueryLimitMax = 1024;
+export const saisonsGetSaisonsAdminQueryLimitDefault = 1024;
+export const saisonsGetSaisonsAdminQueryLimitMax = 1024;
 
-export const saisonsGetSaisonsVerwaltungQuerySortByDefault = `_id`;
-export const saisonsGetSaisonsVerwaltungQueryOrderDefault = `asc`;
+export const saisonsGetSaisonsAdminQuerySortByDefault = `_id`;
+export const saisonsGetSaisonsAdminQueryOrderDefault = `asc`;
 
-export const SaisonsGetSaisonsVerwaltungQueryParams = zod.object({
+export const SaisonsGetSaisonsAdminQueryParams = zod.object({
   status: zod.union([zod.enum(["past", "active", "future"]), zod.null()]).optional(),
-  limit: zod.int().min(1).max(saisonsGetSaisonsVerwaltungQueryLimitMax).default(saisonsGetSaisonsVerwaltungQueryLimitDefault),
-  sort_by: zod.enum(["_id", "start_date", "end_date"]).default(saisonsGetSaisonsVerwaltungQuerySortByDefault),
-  order: zod.enum(["asc", "desc"]).default(saisonsGetSaisonsVerwaltungQueryOrderDefault),
+  limit: zod.int().min(1).max(saisonsGetSaisonsAdminQueryLimitMax).default(saisonsGetSaisonsAdminQueryLimitDefault),
+  sort_by: zod.enum(["_id", "start_date", "end_date"]).default(saisonsGetSaisonsAdminQuerySortByDefault),
+  order: zod.enum(["asc", "desc"]).default(saisonsGetSaisonsAdminQueryOrderDefault),
 });
 
 /**
@@ -1722,7 +1719,6 @@ export const saisonsPatchSaisonBodyBewerbungOneEndRegExp = new RegExp("^[0-9]{4}
 export const saisonsPatchSaisonBodyBewerbungOneStartRegExp = new RegExp("^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$");
 export const saisonsPatchSaisonBodyEndDateRegExp = new RegExp("^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$");
 export const saisonsPatchSaisonBodyRegistrierungOneEndRegExp = new RegExp("^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$");
-export const saisonsPatchSaisonBodyRegistrierungOneVonRegExp = new RegExp("^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$");
 
 export const saisonsPatchSaisonBodyRulesDrawPointsMin = 0;
 
@@ -1749,11 +1745,10 @@ export const SaisonsPatchSaisonBody = zod.object({
     zod
       .object({
         end: zod.string().regex(saisonsPatchSaisonBodyBewerbungOneEndRegExp),
-        offen: zod.boolean(),
         start: zod.string().regex(saisonsPatchSaisonBodyBewerbungOneStartRegExp),
       })
       .describe(
-        "When the league accepts applications for this season.\n\nThe two halves that record it: the span, and the `offen` flag an administrator sets beside it.",
+        "When the league accepts applications for this season: while today lies between `start` and `end`, both included.\n\nNo flag beside the span: closing early is moving `end` to today (`app/api/bewerbungen/services.py ::\nsaison_nimmt_bewerbungen_an`).",
       ),
     zod.null(),
   ]),
@@ -1763,10 +1758,9 @@ export const SaisonsPatchSaisonBody = zod.object({
       .object({
         end: zod.string().regex(saisonsPatchSaisonBodyRegistrierungOneEndRegExp),
         offen: zod.boolean(),
-        von: zod.string().regex(saisonsPatchSaisonBodyRegistrierungOneVonRegExp),
       })
       .describe(
-        "When a pupil may register for this season.\n\nIts own model rather than an alias of `FLSaisonBewerbung` above: the two windows are two\ndecisions an administrator takes apart, and one component name on both would publish them as one.",
+        "When a pupil may register for this season: from its activation to `end`, which falls before the season's start.\n\nNo start of its own, the activation being the opening (`app/api/registrierungen/services.py ::\nsaison_nimmt_registrierungen_an`); `offen` pauses the link alone. Its own model rather than an alias of\n`FLSaisonBewerbung` above: the two windows are two decisions an administrator takes apart.",
       ),
     zod.null(),
   ]),
@@ -1789,7 +1783,7 @@ export const SaisonsPatchSaisonBody = zod.object({
     win_points: zod.int().gt(saisonsPatchSaisonBodyRulesWinPointsExclusiveMin),
   }),
   start_date: zod.string().regex(saisonsPatchSaisonBodyStartDateRegExp),
-  version: zod.union([zod.int(), zod.null()]).optional(),
+  version: zod.int(),
 });
 
 /**
@@ -1800,6 +1794,22 @@ export const SaisonsPatchSaisonBody = zod.object({
  * @summary Make this the active Saison
  */
 export const SaisonsActivateSaisonParams = zod.object({
+  saison_id: zod.string(),
+});
+
+/**
+ * Return what the season editor shows in one read: the season and its clubs, the clubs a replacement may bring in, its shapes and matchdays.
+ *
+ * The season is served a `future` one included, with its `version`, whether it has started (`begun`) and whether a
+ * fixture of it has taken place (`taken_place`).
+ *
+ * Each club's two flags are what the group swap's and the replacement's `sides_taken_place` read, so a picker closes
+ * exactly the pairs and rows those writes refuse; `begun` closes both before either is pressed. `incoming_clubs` is
+ * every club still in the league holding no row of the season, which is what the replacement admits. 404 where no
+ * season holds that id.
+ * @summary One Saison for the admin editor
+ */
+export const SaisonsGetSaisonAdminParams = zod.object({
   saison_id: zod.string(),
 });
 
@@ -1970,9 +1980,8 @@ export const SaisonsGetSpielplanParams = zod.object({
  *
  * `shape` states the three rules the fixtures come out of, and is stored with them. `replace`
  * deletes both lists first, every fixture's confirmations with them, inside `spielplan_replace_outside_its_window`'s
- * window and on a season holding no submitted match report (`spielplan_berichte_submitted`), and is refused
- * `confirmation_required` from a sign-in or confirmation older than `STEP_UP_WINDOW_HOURS`: nothing writes
- * the removed rows back.
+ * window and on a season holding no submitted match report (`spielplan_berichte_submitted`): nothing writes the
+ * removed rows back.
  * @summary Draw this Saison's Spielplan
  */
 export const SaisonsPostSpielplanParams = zod.object({
@@ -3694,24 +3703,24 @@ export const TeamsPostTeamBody = zod.object({
  * cannot see one cannot enter it.
  * @summary Teams for a Saison, for the admin surfaces
  */
-export const teamsGetTeamsVerwaltungQueryStatistikScopeDefault = `gruppenphase`;
-export const teamsGetTeamsVerwaltungQueryLimitDefault = 1024;
-export const teamsGetTeamsVerwaltungQueryLimitMax = 1024;
+export const teamsGetTeamsAdminQueryStatistikScopeDefault = `gruppenphase`;
+export const teamsGetTeamsAdminQueryLimitDefault = 1024;
+export const teamsGetTeamsAdminQueryLimitMax = 1024;
 
-export const teamsGetTeamsVerwaltungQuerySortByDefault = `name`;
-export const teamsGetTeamsVerwaltungQueryOrderDefault = `asc`;
-export const teamsGetTeamsVerwaltungQueryIncludeInactiveDefault = false;
+export const teamsGetTeamsAdminQuerySortByDefault = `name`;
+export const teamsGetTeamsAdminQueryOrderDefault = `asc`;
+export const teamsGetTeamsAdminQueryIncludeInactiveDefault = false;
 
-export const TeamsGetTeamsVerwaltungQueryParams = zod.object({
+export const TeamsGetTeamsAdminQueryParams = zod.object({
   saison_id: zod.union([zod.string(), zod.null()]).optional(),
   gruppe: zod.union([zod.enum(["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P"]), zod.null()]).optional(),
   has_austritt: zod.union([zod.boolean(), zod.null()]).optional(),
   austritt_type: zod.union([zod.enum(["disqualifikation", "rueckzug"]), zod.null()]).optional(),
-  statistik_scope: zod.enum(["gruppenphase", "total"]).default(teamsGetTeamsVerwaltungQueryStatistikScopeDefault),
-  limit: zod.int().min(1).max(teamsGetTeamsVerwaltungQueryLimitMax).default(teamsGetTeamsVerwaltungQueryLimitDefault),
-  sort_by: zod.literal("name").default(teamsGetTeamsVerwaltungQuerySortByDefault).meta({ title: "Sort By" }),
-  order: zod.enum(["asc", "desc"]).default(teamsGetTeamsVerwaltungQueryOrderDefault),
-  include_inactive: zod.boolean().default(teamsGetTeamsVerwaltungQueryIncludeInactiveDefault),
+  statistik_scope: zod.enum(["gruppenphase", "total"]).default(teamsGetTeamsAdminQueryStatistikScopeDefault),
+  limit: zod.int().min(1).max(teamsGetTeamsAdminQueryLimitMax).default(teamsGetTeamsAdminQueryLimitDefault),
+  sort_by: zod.literal("name").default(teamsGetTeamsAdminQuerySortByDefault).meta({ title: "Sort By" }),
+  order: zod.enum(["asc", "desc"]).default(teamsGetTeamsAdminQueryOrderDefault),
+  include_inactive: zod.boolean().default(teamsGetTeamsAdminQueryIncludeInactiveDefault),
 });
 
 /**

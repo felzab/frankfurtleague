@@ -23,13 +23,13 @@ def einladung_bezug(invitation_id: Any) -> FLOutboxReference:
 
 
 def owed_einladung_mails(
-    *, invitation_id: Any, team_name: str, saison_id: str, recipient: Sequence[FLInvitationRecipient], anlass: str
+    *, invitation_id: Any, team_name: str, saison_id: str, recipient: Sequence[FLInvitationRecipient], occasion: str
 ) -> list[OwedMail]:
     """One mail per confirmed seat, each keyed by the invite, the occasion and the seat, so a replayed write owes nothing twice."""
 
     return [
         OwedMail(
-            key=f"{Collection.INVITATIONS}/{invitation_id}/{anlass}/{person.rolle}",
+            key=f"{Collection.INVITATIONS}/{invitation_id}/{occasion}/{person.rolle}",
             an=person.email,
             data=FLInvitationData(kind="invitation", team=team_name, saison_id=saison_id),
             reference=einladung_bezug(invitation_id),

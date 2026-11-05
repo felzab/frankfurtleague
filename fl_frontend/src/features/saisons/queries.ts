@@ -6,7 +6,7 @@ import {
   saisonsGetErasurePreview,
   saisonsGetFrame,
   saisonsGetKoRunde,
-  saisonsGetSaisonsVerwaltung,
+  saisonsGetSaisonsAdmin,
   saisonsGetSpiel,
   saisonsGetSpielplan,
   saisonsGetTabelle,
@@ -33,7 +33,7 @@ import type {
  * only while it is still planned, so an admin surface that cannot see one cannot run the league.
  */
 // `cache` memoizes per RENDER PASS, never `"use cache"`, which keys on the arguments.
-export const getAdminSaisons = cache(async (): Promise<FLSaisonsAdminListResponse> => runAdminRead(() => saisonsGetSaisonsVerwaltung()));
+export const getAdminSaisons = cache(async (): Promise<FLSaisonsAdminListResponse> => runAdminRead(() => saisonsGetSaisonsAdmin()));
 
 /**
  * Whom activating `saisonId` would delete, on the statuses that activation leaves. Read afresh on every

@@ -94,8 +94,8 @@ code it governs, or in the commit that first wrote its words, which `git log -S 
   list
 - **spieler** — Widen a squad row's `position` or `stufe` past their `Literal`s; drop `E2`
 - **swap** — Split the group swap into two writes; relax the move lock to serve it
-- **swap** — Reach the swap's disqualification refusal backwards; refuse a club standing on its own
-  fixture
+- **swap** — Refuse a swap for anything beyond its pair, a finished season, the season's start and its sides
+  having taken place; record an exit dated before the season's start
 
 ## Operations
 

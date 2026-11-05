@@ -13,7 +13,6 @@ from app.api.spiele.schemas import (
     SONDEREREIGNIS_PRODUCING_A_RECORD,
     SONDEREREIGNIS_WITHOUT_A_RESULT,
     FLSpielCommon,
-    records_an_absence,
 )
 from app.api.teams.schemas import (
     FLAustritt,
@@ -1461,6 +1460,24 @@ def find_gruppe_move_refusal(*, fixtures_drawn: int) -> WriteRefusal | None:
     )
 
 
+def find_austritt_refusal(*, proposed: Mapping[str, Any] | None, stored: Mapping[str, Any] | None, start_date: str) -> WriteRefusal | None:
+    """Why this exit must be refused, or `None`: one dated before the season's start, whose club the replacement swaps out instead.
+
+    The record as the payload dumps it beside the stored one, so a save resubmitting an exit stored before this rule
+    passes and only a new or changed one is judged. `earliest` is the first day an exit may take effect.
+    """
+
+    if proposed is None or str(proposed["datum"]) >= start_date or proposed == stored:
+        return None
+
+    return WriteRefusal(
+        error_code=Code.AUSTRITT_BEFORE_SAISON_START,
+        status=HTTPStatus.CONFLICT,
+        fields=(("austritt", "datum"),),
+        bounds={"earliest": start_date},
+    )
+
+
 def find_entry_refusal(saison_status: str, gruppe: FLGruppenNames, rules: FLSaisonRules, occupied: int) -> WriteRefusal | None:
     """Why entering this team into the season must be refused, or `None`.
 
@@ -1489,46 +1506,6 @@ def find_entry_refusal(saison_status: str, gruppe: FLGruppenNames, rules: FLSais
     return None
 
 
-def fixtures_newly_fielding_a_departed_club(
-    *,
-    team1_id: Any,
-    team2_id: Any,
-    departed_since: Mapping[Any, str | None],
-    gruppenphase_spiele: Sequence[Mapping[str, Any]],
-) -> int:
-    """How many group fixtures the exchange would newly field a departed club on.
-
-    The date and the carve-outs are `find_eligibility_refusal`'s, read through the predicate it
-    reads; an UNDATED one counts, since it can still be dated after the exit.
-    """
-
-    arriving = {team1_id: team2_id, team2_id: team1_id}
-
-    offending = 0
-    for spiel in gruppenphase_spiele:
-        for slot in ("team1", "team2"):
-            standing = (spiel.get(slot) or {}).get("team_id")
-            # A side holding neither club does not move, so it can field nobody new.
-            incoming = arriving.get(standing)
-            if incoming is None:
-                continue
-
-            effective_from = departed_since.get(incoming)
-            if effective_from is None:
-                continue
-
-            # A fixture recording this side's absence fields nobody on it, the eligibility rule's own
-            # carve-out.
-            if records_an_absence(side=slot, sonderereignis=spiel.get("sonderereignis"), saison_phase="gruppenphase"):
-                continue
-
-            datum = spiel.get("datum")
-            if datum is None or str(datum) >= effective_from:
-                offending += 1
-
-    return offending
-
-
 def find_swap_pair_refusal(*, team1_id: Any, team2_id: Any) -> WriteRefusal | None:
     """Why this pair names no swap whatever the season holds, or `None`. Judged before any read."""
 
@@ -1553,13 +1530,13 @@ def find_gruppe_swap_refusal(
     # Whether a fixture the swap rewrites `has_taken_place`: a result entered before the start is a record
     # too, and the rewrite would hand it to the other club, `tore` staying where they are.
     taken_place: bool,
-    clashing_spieltage: int,
-    departed_fixtures: int,
 ) -> WriteRefusal | None:
     """Why exchanging these two clubs' groups must be refused, or `None`.
 
-    **The order is the argument**: it narrows from "not a swap" through the season to the two clubs,
-    and the REPAIRABLE refusals come last, so nobody does work a terminal refusal wastes.
+    **The order is the argument**: it narrows from "not a swap" through the season to the two clubs, and the one
+    repairable refusal comes last, so nobody does work a terminal refusal wastes. The season's start is the one lock,
+    and an exit is refused a date before it (`austritt_before_saison_start`), so the fixtures an exchange rewrites
+    never field a club that has left.
     """
 
     missing = [label for label, gruppe in (("team1", team1_gruppe), ("team2", team2_gruppe)) if gruppe is None]
@@ -1592,18 +1569,6 @@ def find_gruppe_swap_refusal(
     if taken_place:
         return WriteRefusal(
             error_code=Code.SIDES_TAKEN_PLACE,
-            status=HTTPStatus.CONFLICT,
-        )
-
-    if clashing_spieltage > 0:
-        return WriteRefusal(
-            error_code=Code.SWAP_SPIELTAG_CLASH,
-            status=HTTPStatus.CONFLICT,
-        )
-
-    if departed_fixtures > 0:
-        return WriteRefusal(
-            error_code=Code.SWAP_FIELDS_DISQUALIFIED,
             status=HTTPStatus.CONFLICT,
         )
 

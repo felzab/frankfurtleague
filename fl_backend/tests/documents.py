@@ -108,6 +108,7 @@ def saison_document(saison_id: str, status: str, **fields: Any) -> dict[str, Any
         "rules": rules_document(),
         "bewerbung": None,
         "registrierung": None,
+        "version": 0,
         **fields,
     }
 

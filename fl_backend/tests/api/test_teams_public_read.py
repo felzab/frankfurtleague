@@ -9,7 +9,7 @@ from app.api.saisons.public_router import get_tabelle
 from app.api.saisons.public_router import get_teams as get_saison_teams
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.crud import advance_bracket_winners
-from app.api.teams.admin_router import get_teams_verwaltung
+from app.api.teams.admin_router import get_teams_admin
 from app.api.teams.public_router import get_team
 from app.api.teams.schemas import FLGruppenTeam, FLTeam, FLTeamsFilterParams, FLTeamSingleFilterParams
 from app.api.teams.services import build_team_pipeline
@@ -150,8 +150,8 @@ async def read_saison_teams(database: AsyncDatabase, saison_id: str = SAISON) ->
     )
 
 
-async def read_teams_verwaltung(database: AsyncDatabase, filters: FLTeamsFilterParams) -> Any:
-    return await get_teams_verwaltung(
+async def read_teams_admin(database: AsyncDatabase, filters: FLTeamsFilterParams) -> Any:
+    return await get_teams_admin(
         teams_collection=database[Collection.TEAMS],
         saisons_collection=database[Collection.SAISONS],
         filters=filters,
@@ -208,7 +208,7 @@ class TestARetiredClubStaysOutOfTheBaseTierReads:
     def test_the_admin_read_still_un_hides_it(self, seeded_url: str):
         """Non-vacuity as well as the rule: the same corpus, one tier along, answers with the club every case above refused."""
         filters = FLTeamsFilterParams(saison_id=SAISON, include_inactive=True)
-        response = on_a_league(seeded_url, lambda database: read_teams_verwaltung(database, filters))
+        response = on_a_league(seeded_url, lambda database: read_teams_admin(database, filters))
 
         assert sorted(team.name for team in response.teams) == ["Helmholtz", "Lessing"]
 

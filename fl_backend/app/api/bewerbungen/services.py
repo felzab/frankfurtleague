@@ -143,27 +143,20 @@ def find_new_club_refusal(*, club_document: Mapping[str, Any]) -> WriteRefusal |
 # router asks them in.
 
 
-def window_is_running(*, bewerbung: Any, today: str) -> bool:
-    """Whether this season's application window runs on `today`: `offen`, AND the day inside the span.
+def saison_nimmt_bewerbungen_an(*, saison_status: Any, bewerbung: Any, today: str) -> bool:
+    """Whether this season takes an application on `today`: a season not yet ended, `today` inside its window's span.
 
-    Both ends are compared rather than assuming `start <= end`: span ordering is enforced on the
-    season PAYLOAD alone, so a stored reversal is reachable.
+    The window is null or the whole object the season form writes, both ends included, and closing it early is moving
+    its `end` to today. Both ends are compared rather than assuming `start <= end`: span ordering is enforced on the
+    season PAYLOAD alone, so a stored reversal is reachable. A finished season's window is over for good, whatever
+    dates it still stores: the payload names the season, and the dates alone would still admit an application into
+    one that has ended.
     """
 
-    if bewerbung is None:
+    if bewerbung is None or season_has_ended(saison_status=saison_status):
         return False
 
-    return bool(bewerbung["offen"]) and str(bewerbung["start"]) <= today <= str(bewerbung["end"])
-
-
-def saison_nimmt_bewerbungen_an(*, saison_status: Any, bewerbung: Any, today: str) -> bool:
-    """Whether this season takes an application on `today`.
-
-    A finished season's window is over for good, whatever dates it still stores: the payload names
-    the season, and the dates alone would still admit an application into one that has ended.
-    """
-
-    return not season_has_ended(saison_status=saison_status) and window_is_running(bewerbung=bewerbung, today=today)
+    return str(bewerbung["start"]) <= today <= str(bewerbung["end"])
 
 
 # `season_has_ended`'s negation for a read that narrows in the query. Every write stores a season's status, which is why

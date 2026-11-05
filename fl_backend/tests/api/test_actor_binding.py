@@ -157,10 +157,6 @@ STEP_UP_WRITES = [
     pytest.param("post", "/api/v0/bewerbungen/{bewerbung_id}/kontakte/{seat}", id="a reseat"),
     pytest.param("post", "/api/v0/identity/erasure", id="an erasure on a mailed request"),
     pytest.param("post", "/api/v0/identity/sign_out", id="an address's sign-out of every session"),
-    pytest.param("post", "/api/v0/saisons", id="a season's creation"),
-    pytest.param("post", "/api/v0/saisons/{saison_id}/activate", id="the rollover"),
-    pytest.param("delete", "/api/v0/saisons/{saison_id}/spielplan", id="the undraw"),
-    pytest.param("post", "/api/v0/saisons/{saison_id}/invitations/dispatch", id="the season's invitation send"),
     pytest.param("post", "/api/v0/sperrliste", id="a ban"),
     pytest.param("delete", "/api/v0/sperrliste/{sperrliste_id}", id="a ban's lift"),
     pytest.param("patch", "/api/v0/spielberichte/{spiel_id}", id="an administrator's write of a report"),
@@ -170,9 +166,6 @@ STEP_UP_WRITES = [
     pytest.param("delete", "/api/v0/grants/approval_requests/{approval_request_id}", id="a request for a grant refused or withdrawn"),
     pytest.param("post", "/api/v0/teams/{team_id}/saisons", id="a club's entry into a season"),
     pytest.param("post", "/api/v0/teams/{team_id}/saisons/{saison_id}/kontakte/{seat}/confirmation/invite", id="a contact seat's fresh link"),
-    pytest.param("post", "/api/v0/teams/{team_id}/saisons/{saison_id}/replace", id="a club's replacement"),
-    pytest.param("delete", "/api/v0/teams/{team_id}/saisons/{saison_id}/invitation", id="a club's link revoked"),
-    pytest.param("post", "/api/v0/teams/{team_id}/saisons/{saison_id}/invitation/dispatch", id="a club's link mailed to its seats"),
 ]
 
 

@@ -9,7 +9,6 @@ from pymongo.errors import OperationFailure
 
 from app.api.saisons.admin_router import swap_gruppen
 from app.api.saisons.schemas import FLSwapGruppenPayload
-from app.api.spiele.schemas import SONDEREREIGNIS_WITHOUT_A_RESULT
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
@@ -49,17 +48,8 @@ def junction(team_id: ObjectId, gruppe: str) -> dict[str, Any]:
     return saison_team_document(SAISON_ID, team_id, name, shorthand, gruppe=gruppe)
 
 
-# Only `datum` decides `swap_fields_disqualified`; the type and the reason are what a surface reports.
-AUSTRITT = {"type": "disqualifikation", "grund": "Regelverstoss", "datum": "2026-04-01"}
-# A day after `AUSTRITT`, so the date half is satisfied and the EVENT is what each case turns on.
-AFTER_THE_EXIT = "2026-05-01"
-
-# The German day the swap is judged on, before `AFTER_THE_EXIT`; every season here starts the day after unless a case says so.
+# The German day the swap is judged on; every season here starts the day after unless a case says so.
 TODAY, TOMORROW = "2026-03-01", "2026-03-02"
-
-
-async def record_an_austritt(database: AsyncDatabase, team_id: ObjectId) -> None:
-    await database[Collection.SAISON_TEAMS].update_one({"saison_id": SAISON_ID, "team_id": team_id}, {"$set": {"austritt": AUSTRITT}})
 
 
 def club(team_id: ObjectId) -> dict[str, Any]:
@@ -76,9 +66,8 @@ def side(team_id: ObjectId, tore: int | None = None) -> dict[str, Any]:
     return {"team_id": team_id, "name": name, "shorthand": shorthand, "tore": tore}
 
 
-# Sharing one matchday is what makes a `swap_spieltag_clash` clash reachable; the second is for cases needing two.
+# The matchday every group fixture here hangs on unless a case says so.
 SPIELTAG = ObjectId("6890a1b2c3d4e5f6072100ff")
-OTHER_SPIELTAG = ObjectId("6890a1b2c3d4e5f6072100fe")
 # The bracket's own, so a knockout fixture shares a matchday with nothing unless a case says so.
 KNOCKOUT_SPIELTAG = ObjectId("6890a1b2c3d4e5f6072100fd")
 
@@ -118,7 +107,7 @@ def knockout_fixture(
     spiel_nr: int = KNOCKOUT_SPIEL_NR,
     datum: str | None = None,
 ) -> dict[str, Any]:
-    """Its own matchday by default, which `_spieltag_clashes` finds no group fixture on: the clash cases name `SPIELTAG` themselves."""
+    """Its own matchday by default, so a knockout fixture shares a matchday with no group fixture."""
 
     return spiel_document(
         spiel_id=ObjectId(),
@@ -325,7 +314,7 @@ class TestTheDrawnFixturesMoveWithTheClubs:
         assert rewritten == 1
 
     def test_no_club_is_fielded_twice_on_one_matchday(self, mongo_replica_set_url: str):
-        """Group fixtures only; a mixed Spieltag is `swap_spieltag_clash`'s. The before count is asserted so an illegal seed cannot pass."""
+        """Group fixtures only, the rewrite moving no bracket side. The before count is asserted so an illegal seed cannot pass."""
 
         async def occupancy(database: AsyncDatabase) -> int:
             """The most matches any one club is fielded in on a single matchday."""
@@ -406,7 +395,10 @@ class TestTheRefusalsReadTheRealDocuments:
         assert sides == {1: (ALPHA, ALPHA_RIVAL), 2: (BETA_RIVAL, BETA)}, "a refused swap rewrote a fixture"
 
     def test_a_season_starting_today_closes_the_window(self, mongo_replica_set_url: str):
-        """The season starts on its `start_date`, so a swap that day is refused and rewrites nothing."""
+        """The start lock, the swap's one: a swap on the season's first day would hand a club's fixtures to another as they are played.
+
+        The season starts on its `start_date`, so a swap that day is refused and rewrites nothing.
+        """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             with pytest.raises(APIError) as refusal:
@@ -451,122 +443,6 @@ class TestTheRefusalsReadTheRealDocuments:
         assert code == Code.SIDES_TAKEN_PLACE
         assert stored[ALPHA] == "A" and stored[BETA] == "B", "a refused swap moved a junction row"
         assert sides == {1: (ALPHA, ALPHA_RIVAL), 2: (BETA_RIVAL, BETA)}, "a refused swap rewrote a fixture"
-
-    def test_a_swap_that_would_field_a_club_twice_on_one_matchday_is_refused(self, mongo_replica_set_url: str):
-        """`swap_spieltag_clash`: the rewrite moves group sides only, so Alpha takes Beta's fixture and plays twice: what a swap could dodge."""
-
-        manual_pick = {**knockout_fixture(ergebnis=None, spieltag_id=SPIELTAG), "spiel_nr": 9, "team1": side(ALPHA), "team2": None}
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(APIError) as refusal:
-                await call_swap(database, client, ALPHA, BETA)
-            return refusal.value.error_code, await gruppen_now(database), await sides_now(database)
-
-        code, stored, sides = on_a_seeded_season(
-            mongo_replica_set_url,
-            body,
-            spiele=[
-                gruppen_fixture(1, ALPHA, ALPHA_RIVAL, spieltag_id=OTHER_SPIELTAG),
-                gruppen_fixture(2, BETA_RIVAL, BETA, spieltag_id=SPIELTAG),
-                manual_pick,
-            ],
-        )
-
-        assert code == Code.SWAP_SPIELTAG_CLASH
-        assert stored[ALPHA] == "A" and stored[BETA] == "B", "a refused swap moved a junction row"
-        assert sides[2] == (BETA_RIVAL, BETA), "a refused swap rewrote a fixture"
-
-    def test_the_same_bracket_pick_on_its_own_matchday_leaves_it_open(self, mongo_replica_set_url: str):
-        """Identical but for the bracket fixture's matchday: a guard not keying by Spieltag would refuse most swaps."""
-
-        manual_pick = {
-            **knockout_fixture(ergebnis=None, spieltag_id=OTHER_SPIELTAG),
-            "spiel_nr": 9,
-            "team1": side(ALPHA),
-            "team2": None,
-        }
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await call_swap(database, client, ALPHA, BETA)
-            return await gruppen_now(database), await sides_now(database)
-
-        stored, sides = on_a_seeded_season(
-            mongo_replica_set_url,
-            body,
-            spiele=[
-                gruppen_fixture(1, ALPHA, ALPHA_RIVAL, spieltag_id=SPIELTAG),
-                gruppen_fixture(2, BETA_RIVAL, BETA, spieltag_id=SPIELTAG),
-                manual_pick,
-            ],
-        )
-
-        assert stored[ALPHA] == "B" and stored[BETA] == "A"
-        assert sides[9] == (ALPHA, None), "the bracket side was rewritten"
-
-    def test_a_matchday_already_holding_a_club_twice_does_not_refuse_the_swap(self, mongo_replica_set_url: str):
-        """Only a Spieltag the exchange breaks is counted: the stored breach here is one the swap in fact resolves."""
-
-        manual_pick = {**knockout_fixture(ergebnis=None, spieltag_id=SPIELTAG), "spiel_nr": 9, "team1": side(ALPHA), "team2": None}
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await call_swap(database, client, ALPHA, BETA)
-            return await gruppen_now(database), await sides_now(database)
-
-        stored, sides = on_a_seeded_season(
-            mongo_replica_set_url,
-            body,
-            spiele=[
-                gruppen_fixture(1, ALPHA, ALPHA_RIVAL, spieltag_id=SPIELTAG),
-                gruppen_fixture(2, BETA_RIVAL, BETA, spieltag_id=OTHER_SPIELTAG),
-                manual_pick,
-            ],
-        )
-
-        assert stored[ALPHA] == "B" and stored[BETA] == "A"
-        assert sides[1] == (BETA, ALPHA_RIVAL), "the fixture that made the matchday legal again did not move"
-
-    def test_a_swap_landing_a_departed_club_on_a_later_fixture_is_refused(self, mongo_replica_set_url: str):
-        """`swap_fields_disqualified` against real documents: the junction read supplies the exit day and the projection the fixture's date."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await record_an_austritt(database, ALPHA)
-            with pytest.raises(APIError) as refusal:
-                await call_swap(database, client, ALPHA, BETA)
-            return refusal.value.error_code, await gruppen_now(database), await sides_now(database)
-
-        code, stored, sides = on_a_seeded_season(
-            mongo_replica_set_url,
-            body,
-            spiele=[
-                gruppen_fixture(1, ALPHA, ALPHA_RIVAL, datum=AFTER_THE_EXIT),
-                gruppen_fixture(2, BETA_RIVAL, BETA, datum=AFTER_THE_EXIT),
-            ],
-        )
-
-        assert code == Code.SWAP_FIELDS_DISQUALIFIED
-        assert stored[ALPHA] == "A" and stored[BETA] == "B", "a refused swap moved a junction row"
-        assert sides == {1: (ALPHA, ALPHA_RIVAL), 2: (BETA_RIVAL, BETA)}, "a refused swap rewrote a fixture"
-
-    @pytest.mark.parametrize("sonderereignis", SONDEREREIGNIS_WITHOUT_A_RESULT)
-    def test_a_fixture_awarding_nothing_takes_a_departed_club_anyway(self, mongo_replica_set_url: str, sonderereignis: str):
-        """The case above but for the event: the eligibility rule takes a fixture awarding nothing, so the swap does too."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await record_an_austritt(database, ALPHA)
-            await call_swap(database, client, ALPHA, BETA)
-            return await gruppen_now(database), await sides_now(database)
-
-        stored, sides = on_a_seeded_season(
-            mongo_replica_set_url,
-            body,
-            spiele=[
-                gruppen_fixture(1, ALPHA, ALPHA_RIVAL, datum=AFTER_THE_EXIT),
-                gruppen_fixture(2, BETA_RIVAL, BETA, datum=AFTER_THE_EXIT, sonderereignis=sonderereignis),
-            ],
-        )
-
-        assert stored[ALPHA] == "B" and stored[BETA] == "A"
-        assert sides == {1: (BETA, ALPHA_RIVAL), 2: (BETA_RIVAL, ALPHA)}
 
 
 class SeasonsRunningARivalAfterTheSessionRead(InterleavedCollection):

@@ -53,7 +53,7 @@ SAISON_ID = "2026"
 TODAY = "2026-04-01"
 TEAM_ID = ObjectId("6890a1b2c3d4e5f607950001")
 
-REGISTRIERUNG: dict[str, Any] = {"offen": True, "von": "2026-03-01", "end": "2026-04-30"}
+REGISTRIERUNG: dict[str, Any] = {"offen": True, "end": "2026-04-30"}
 
 Body = Callable[[AsyncDatabase, AsyncClient], Awaitable[Any]]
 
@@ -193,27 +193,6 @@ class TestTheClubsContacts:
             return refused(response), stored and stored["kontakte"]
 
         assert on_a_season(mongo_replica_set_url, body, seed=seed) == (True, seated)
-
-
-class TestTheDraw:
-    URL = f"/api/v{API_VERSION}/saisons/{SAISON_ID}/spielplan"
-
-    def test_a_replacing_draw_from_an_older_sign_in_is_refused(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, http: AsyncClient) -> bool:
-            return refused(await http.post(self.URL, headers=OLDER, json={"replace": True}))
-
-        assert on_a_season(mongo_replica_set_url, body) is True
-
-    def test_a_first_draw_takes_the_older_sign_in_to_the_draw_s_own_judgement(self, mongo_replica_set_url: str):
-        """One club cannot fill two groups, so the draw's own rule answers, which only a request past the window reaches."""
-
-        async def body(database: AsyncDatabase, http: AsyncClient) -> tuple[int, str]:
-            response = await http.post(self.URL, headers=OLDER, json={})
-            return response.status_code, str(response.json().get("error_code"))
-
-        status, code = on_a_season(mongo_replica_set_url, body)
-
-        assert (status, code.startswith("spielplan_")) == (409, True)
 
 
 # An administrator's address beside the suite's, whose erasure on request takes that grant with the rest.

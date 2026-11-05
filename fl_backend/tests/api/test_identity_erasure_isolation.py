@@ -62,9 +62,9 @@ PUPIL_EMAIL = "wraxlington@example.com"
 REFEREE_OID = ObjectId("6890a1b2c3d4e5f607e10005")
 STEPPED_OUT_OID = ObjectId("6890a1b2c3d4e5f607e10007")
 
-OPEN_WINDOW = {"offen": True, "start": "2026-03-01", "end": "2026-04-30"}
+OPEN_WINDOW = {"start": "2026-03-01", "end": "2026-04-30"}
 # The registration window's own shape: it stores its start as `von`.
-OPEN_REGISTRATION_WINDOW = {"offen": True, "von": "2026-03-01", "end": "2026-04-30"}
+OPEN_REGISTRATION_WINDOW = {"offen": True, "end": "2026-04-30"}
 
 REFEREE_NAME = "Bernd Kraus"
 TELEFON = "+49 69 5550202"

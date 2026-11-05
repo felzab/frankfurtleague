@@ -1495,10 +1495,10 @@
       "count": 8
     },
     "react/forbid-component-props": {
-      "count": 7
+      "count": 5
     },
     "react/jsx-no-literals": {
-      "count": 5
+      "count": 4
     }
   },
   "src/features/saisons/components/forms/AdminSaisonEditForm/FormEinladungVersandSection.tsx": {
@@ -1571,10 +1571,10 @@
       "count": 8
     },
     "react/forbid-component-props": {
-      "count": 7
+      "count": 6
     },
     "react/jsx-no-literals": {
-      "count": 5
+      "count": 4
     }
   },
   "src/features/saisons/components/forms/AdminSaisonEditForm/FormRolloverSection.tsx": {

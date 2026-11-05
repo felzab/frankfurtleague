@@ -27,7 +27,6 @@ const PATTERNED = {
     typeof min === "number" && typeof max === "number" ? field.between({ year: min }, { year: max }) : undefined,
   saison_ends_before_start: notBeforeStart,
   bewerbung_window_ends_before_start: notBeforeStart,
-  registrierung_window_ends_before_start: notBeforeStart,
   spieltag_ends_before_start: notBeforeStart,
   good_spieler_exceed_kader: ({ max }: Context) => (typeof max === "number" ? field.max(max) : undefined),
   // A box left empty that the rule requires once another box is set.

@@ -287,8 +287,7 @@
           "state_nichtantreten_without_two_sides",
           "swap_not_a_swap",
           "swap_saison_started",
-          "swap_spieltag_clash",
-          "swap_fields_disqualified",
+          "austritt_before_saison_start",
           "payload_refused",
           "body_unreadable",
           "wiring_unsupported",
@@ -4277,10 +4276,6 @@
             "title": "End",
             "type": "string"
           },
-          "offen": {
-            "title": "Offen",
-            "type": "boolean"
-          },
           "running": {
             "title": "Running",
             "type": "boolean"
@@ -4301,7 +4296,6 @@
         },
         "required": [
           "saison_id",
-          "offen",
           "start",
           "end",
           "running",
@@ -6418,18 +6412,6 @@
         "title": "FLInvitationData",
         "type": "object"
       },
-      "FLInvitationDispatchGrund": {
-        "enum": [
-          "austritt_entered",
-          "mint_failed",
-          "mint_uncertain",
-          "no_kontaktblock",
-          "no_confirmed_kontaktperson",
-          "kontakte_barred",
-          "already_sent"
-        ],
-        "type": "string"
-      },
       "FLInvitationDispatchPayload": {
         "additionalProperties": false,
         "properties": {
@@ -6482,7 +6464,7 @@
           "skipped": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/FLInvitationDispatchGrund"
+                "$ref": "#/components/schemas/FLInvitationSkipReason"
               },
               {
                 "type": "null"
@@ -6561,7 +6543,7 @@
           "skipped": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/FLInvitationDispatchGrund"
+                "$ref": "#/components/schemas/FLInvitationSkipReason"
               },
               {
                 "type": "null"
@@ -6810,6 +6792,18 @@
         ],
         "title": "FLInvitationRow",
         "type": "object"
+      },
+      "FLInvitationSkipReason": {
+        "enum": [
+          "austritt_entered",
+          "mint_failed",
+          "mint_uncertain",
+          "no_kontaktblock",
+          "no_confirmed_kontaktperson",
+          "kontakte_barred",
+          "already_sent"
+        ],
+        "type": "string"
       },
       "FLInvitationViewResponse": {
         "description": "What an invite's holder is told before they type anything, and the bounds the form is held to.",
@@ -8835,15 +8829,8 @@
             "type": "string"
           },
           "version": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Version"
+            "title": "Version",
+            "type": "integer"
           }
         },
         "required": [
@@ -8851,7 +8838,8 @@
           "end_date",
           "rules",
           "bewerbung",
-          "registrierung"
+          "registrierung",
+          "version"
         ],
         "title": "FLPatchSaisonPayload",
         "type": "object"
@@ -11242,17 +11230,131 @@
         "title": "FLSaisonAdmin",
         "type": "object"
       },
+      "FLSaisonAdminClub": {
+        "description": "A club a replacement may bring into the season: one still in the league that holds no row of it.",
+        "properties": {
+          "id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "shorthand": {
+            "title": "Shorthand",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "shorthand"
+        ],
+        "title": "FLSaisonAdminClub",
+        "type": "object"
+      },
+      "FLSaisonAdminResponse": {
+        "description": "What the season editor shows, in one read: the season, its clubs, the clubs a replacement may bring in, its shapes and its matchdays.\n\n`shapes` is every shape the season's other rules admit, judged as the draw judges a shape it is given;\n`count_spieltage` is the matchdays the season holds.",
+        "properties": {
+          "count_spieltage": {
+            "minimum": 0.0,
+            "title": "Count Spieltage",
+            "type": "integer"
+          },
+          "incoming_clubs": {
+            "items": {
+              "$ref": "#/components/schemas/FLSaisonAdminClub"
+            },
+            "title": "Incoming Clubs",
+            "type": "array"
+          },
+          "saison": {
+            "$ref": "#/components/schemas/FLSaisonAdmin"
+          },
+          "shapes": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielplanShape"
+            },
+            "title": "Shapes",
+            "type": "array"
+          },
+          "teams": {
+            "items": {
+              "$ref": "#/components/schemas/FLSaisonAdminTeam"
+            },
+            "title": "Teams",
+            "type": "array"
+          }
+        },
+        "required": [
+          "saison",
+          "teams",
+          "incoming_clubs",
+          "shapes",
+          "count_spieltage"
+        ],
+        "title": "FLSaisonAdminResponse",
+        "type": "object"
+      },
+      "FLSaisonAdminTeam": {
+        "description": "One club's row of the season as the editor's swap and replacement sections list it, graded as each write judges it.\n\nBoth flags are `app/api/teams/services.py :: has_taken_place` over the row's fixtures, the predicate each write's\n`sides_taken_place` reads: over its group fixtures for the swap, which rewrites those alone, so a pair is closed\nwhere either club's is; over every fixture for the replacement, which hands the whole schedule over.",
+        "properties": {
+          "austritt": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLAustritt"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "fixture_taken_place": {
+            "title": "Fixture Taken Place",
+            "type": "boolean"
+          },
+          "group_fixture_taken_place": {
+            "title": "Group Fixture Taken Place",
+            "type": "boolean"
+          },
+          "gruppe": {
+            "$ref": "#/components/schemas/FLGruppenNames"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "shorthand": {
+            "title": "Shorthand",
+            "type": "string"
+          },
+          "team_id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Team Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "team_id",
+          "name",
+          "shorthand",
+          "gruppe",
+          "austritt",
+          "group_fixture_taken_place",
+          "fixture_taken_place"
+        ],
+        "title": "FLSaisonAdminTeam",
+        "type": "object"
+      },
       "FLSaisonBewerbung": {
-        "description": "When the league accepts applications for this season.\n\nThe two halves that record it: the span, and the `offen` flag an administrator sets beside it.",
+        "description": "When the league accepts applications for this season: while today lies between `start` and `end`, both included.\n\nNo flag beside the span: closing early is moving `end` to today (`app/api/bewerbungen/services.py ::\nsaison_nimmt_bewerbungen_an`).",
         "properties": {
           "end": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "End",
             "type": "string"
-          },
-          "offen": {
-            "title": "Offen",
-            "type": "boolean"
           },
           "start": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -11261,7 +11363,6 @@
           }
         },
         "required": [
-          "offen",
           "start",
           "end"
         ],
@@ -11396,7 +11497,7 @@
         "type": "object"
       },
       "FLSaisonRegistrierung": {
-        "description": "When a pupil may register for this season.\n\nIts own model rather than an alias of `FLSaisonBewerbung` above: the two windows are two\ndecisions an administrator takes apart, and one component name on both would publish them as one.",
+        "description": "When a pupil may register for this season: from its activation to `end`, which falls before the season's start.\n\nNo start of its own, the activation being the opening (`app/api/registrierungen/services.py ::\nsaison_nimmt_registrierungen_an`); `offen` pauses the link alone. Its own model rather than an alias of\n`FLSaisonBewerbung` above: the two windows are two decisions an administrator takes apart.",
         "properties": {
           "end": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -11406,16 +11507,10 @@
           "offen": {
             "title": "Offen",
             "type": "boolean"
-          },
-          "von": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Von",
-            "type": "string"
           }
         },
         "required": [
           "offen",
-          "von",
           "end"
         ],
         "title": "FLSaisonRegistrierung",
@@ -18225,7 +18320,7 @@
           "kontakt_telefon_twice",
           "nichtantreten_with_tore",
           "nichtantreten_with_torschuetzen",
-          "registrierung_window_ends_before_start",
+          "registrierung_window_reaches_saison_start",
           "saison_ends_before_start",
           "saison_year_out_of_range",
           "spieltag_ends_before_start",
@@ -23607,10 +23702,10 @@
         ]
       }
     },
-    "/api/v0/saisons/list/verwaltung": {
+    "/api/v0/saisons/list/admin": {
       "get": {
         "description": "List every season, the `future` ones every base-tier read withholds included, each with whether it has started and has been played.\n\nThe admin surfaces read here because a season is created `future` and clubs are entered while it\nstill is, so an admin who cannot see one cannot run the league. `begun` is the start every\nstart lock refuses on, the swap's, the replacement's and the rules freeze's; `taken_place` is what\nfixes the start date (`saison_start_taken_place`).",
-        "operationId": "saisons_get_saisons_verwaltung",
+        "operationId": "saisons_get_saisons_admin",
         "parameters": [
           {
             "in": "query",
@@ -23947,6 +24042,80 @@
           }
         ],
         "summary": "Make this the active Saison",
+        "tags": [
+          "saisons"
+        ]
+      }
+    },
+    "/api/v0/saisons/{saison_id}/admin": {
+      "get": {
+        "description": "Return what the season editor shows in one read: the season and its clubs, the clubs a replacement may bring in, its shapes and matchdays.\n\nThe season is served a `future` one included, with its `version`, whether it has started (`begun`) and whether a\nfixture of it has taken place (`taken_place`).\n\nEach club's two flags are what the group swap's and the replacement's `sides_taken_place` read, so a picker closes\nexactly the pairs and rows those writes refuse; `begun` closes both before either is pressed. `incoming_clubs` is\nevery club still in the league holding no row of the season, which is what the replacement admits. 404 where no\nseason holds that id.",
+        "operationId": "saisons_get_saison_admin",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "saison_id",
+            "required": true,
+            "schema": {
+              "title": "Saison Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSaisonAdminResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "$ref": "#/components/responses/400",
+            "description": "Bad Request"
+          },
+          "401": {
+            "$ref": "#/components/responses/401",
+            "description": "Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/403",
+            "description": "Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/404",
+            "description": "Not Found"
+          },
+          "409": {
+            "$ref": "#/components/responses/409",
+            "description": "Conflict"
+          },
+          "410": {
+            "$ref": "#/components/responses/410",
+            "description": "Gone"
+          },
+          "422": {
+            "$ref": "#/components/responses/422",
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "$ref": "#/components/responses/500",
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/503",
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "AdminKey": []
+          }
+        ],
+        "summary": "One Saison for the admin editor",
         "tags": [
           "saisons"
         ]
@@ -24656,7 +24825,7 @@
         ]
       },
       "post": {
-        "description": "Draw the whole season at once: every matchday and every fixture, undated, in one transaction.\n\n`shape` states the three rules the fixtures come out of, and is stored with them. `replace`\ndeletes both lists first, every fixture's confirmations with them, inside `spielplan_replace_outside_its_window`'s\nwindow and on a season holding no submitted match report (`spielplan_berichte_submitted`), and is refused\n`confirmation_required` from a sign-in or confirmation older than `STEP_UP_WINDOW_HOURS`: nothing writes\nthe removed rows back.",
+        "description": "Draw the whole season at once: every matchday and every fixture, undated, in one transaction.\n\n`shape` states the three rules the fixtures come out of, and is stored with them. `replace`\ndeletes both lists first, every fixture's confirmations with them, inside `spielplan_replace_outside_its_window`'s\nwindow and on a season holding no submitted match report (`spielplan_berichte_submitted`): nothing writes the\nremoved rows back.",
         "operationId": "saisons_post_spielplan",
         "parameters": [
           {
@@ -29890,10 +30059,10 @@
         ]
       }
     },
-    "/api/v0/teams/list/verwaltung": {
+    "/api/v0/teams/list/admin": {
       "get": {
         "description": "List a season's teams for the admin surfaces, a `future` season's included.\n\nNo base-tier season gate: a club is entered while its season is still planned, so an admin who\ncannot see one cannot enter it.",
-        "operationId": "teams_get_teams_verwaltung",
+        "operationId": "teams_get_teams_admin",
         "parameters": [
           {
             "in": "query",
@@ -30082,7 +30251,7 @@
     },
     "/api/v0/teams/saisons": {
       "get": {
-        "description": "Every team, retired ones included, each with every season membership it holds. Sorted by name.\n\n`GET /teams/list/verwaltung` cannot answer it: that read is season-scoped with a strict junction join. Each membership names the live\nchange of each seat's address, which the address tool shows, and per seat why the tool refuses that change this\nadministrator. Each seat's link names what became of the last mail carrying it, `delivery` null where none was\never owed.",
+        "description": "Every team, retired ones included, each with every season membership it holds. Sorted by name.\n\n`GET /teams/list/admin` cannot answer it: that read is season-scoped with a strict junction join. Each membership names the live\nchange of each seat's address, which the address tool shows, and per seat why the tool refuses that change this\nadministrator. Each seat's link names what became of the last mail carrying it, `delivery` null where none was\never owed.",
         "operationId": "teams_get_team_saisons",
         "responses": {
           "200": {

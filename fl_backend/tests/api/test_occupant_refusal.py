@@ -1565,7 +1565,7 @@ class TestTheResolutionNeverFieldsAClubTwice:
         assert advancement_refusal(saison, advancement(saison, 30, team1=team(CRONBERG, "Cronberg"))) is None
 
     def test_a_pair_the_season_already_holds_is_left_to_be_repaired(self, spiel_at):
-        """`swap_spieltag_clash`'s line, at this write: refusing over a standing fault would block every edit that could clear it."""
+        """A pair the season already holds is no fault of this write: refusing over it would block every edit that could clear it."""
 
         stored = [
             spiel_at(29, "halbfinale", SPIELTAG_TWO, team1=team(ADLER, "Adler"), team2=None),

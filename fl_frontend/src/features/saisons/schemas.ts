@@ -66,12 +66,8 @@ const FLSaisonRulesSchema = z.object({
   allowed_stufen: z.array(FLSpielerStufeSchema).min(1, { error: "Bitte wähle mindestens eine Stufe aus." }),
 });
 
-/**
- * The two halves recording when the league accepts applications for a season: the span, and the
- * `offen` flag an administrator sets beside it.
- */
+/** When the league accepts applications for a season: while today lies between the two dates. */
 const FLSaisonBewerbungSchema = z.object({
-  offen: z.boolean(),
   start: CustomDateStringSchema,
   end: CustomDateStringSchema,
 });
@@ -82,7 +78,6 @@ const FLSaisonBewerbungSchema = z.object({
  */
 const FLSaisonRegistrierungSchema = z.object({
   offen: z.boolean(),
-  von: CustomDateStringSchema,
   end: CustomDateStringSchema,
 });
 
@@ -138,13 +133,6 @@ const windowEndsAfterItOpens = {
  * applications, which this rule has nothing to say about.
  */
 const windowRunsForwards = (opens: string, ends: string) => ends >= opens;
-
-// The sentence `the_registration_window_ends_after_it_opens` raises, worded for its own window:
-// one message over both would name neither panel's field.
-const registrationWindowEndsAfterItOpens = {
-  error: "Das Ende darf nicht vor dem Beginn der Registrierungsfrist liegen.",
-  path: ["registrierung", "end"],
-};
 
 /**
  * Shared by create and patch, which replace the season wholesale. **Each window is required and
@@ -202,10 +190,6 @@ export const FLPostSaisonPayloadSchema = z
   })
   .refine((saison) => saison.end_date >= saison.start_date, endsAfterItStarts)
   .refine((saison) => saison.bewerbung === null || windowRunsForwards(saison.bewerbung.start, saison.bewerbung.end), windowEndsAfterItOpens)
-  .refine(
-    (saison) => saison.registrierung === null || windowRunsForwards(saison.registrierung.von, saison.registrierung.end),
-    registrationWindowEndsAfterItOpens,
-  )
   .refine((saison) => saison.rules.qualifiers_per_gruppe <= saison.rules.teams_per_gruppe, groupCannotOverQualify)
   .refine((saison) => hasPlayableBracket(saison.rules), bracketMustHaveAShape);
 
@@ -214,13 +198,11 @@ export const FLPatchSaisonPayloadSchema = z
     // In the PATH on the wire; here because the editor has to know which season it is saving.
     id: saisonIdReference,
     ...saisonPayloadFields,
+    // The season's `version` as the editor was served it, which the save is checked against.
+    version: z.int(),
   })
   .refine((saison) => saison.end_date >= saison.start_date, endsAfterItStarts)
-  .refine((saison) => saison.bewerbung === null || windowRunsForwards(saison.bewerbung.start, saison.bewerbung.end), windowEndsAfterItOpens)
-  .refine(
-    (saison) => saison.registrierung === null || windowRunsForwards(saison.registrierung.von, saison.registrierung.end),
-    registrationWindowEndsAfterItOpens,
-  );
+  .refine((saison) => saison.bewerbung === null || windowRunsForwards(saison.bewerbung.start, saison.bewerbung.end), windowEndsAfterItOpens);
 
 /** An id in the path and no request body. */
 export const FLActivateSaisonPayloadSchema = z.object({

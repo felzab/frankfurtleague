@@ -10,7 +10,7 @@ from http import HTTPStatus
 from typing import Any, NamedTuple
 
 from app.api.bewerbungen.services import seat_named
-from app.api.einladungen.schemas import FLInvitationDispatchGrund, FLInvitationRecipient
+from app.api.einladungen.schemas import FLInvitationRecipient, FLInvitationSkipReason
 from app.api.outbox.schemas import FLOutboxStatus
 from app.core.codes import Code
 from app.core.exceptions import WriteRefusal
@@ -70,20 +70,6 @@ def find_unknown_einladung_refusal(*, einladung_raw: Mapping[str, Any] | None) -
         error_code=Code.DOCUMENT_NOT_FOUND,
         status=HTTPStatus.NOT_FOUND,
     )
-
-
-def registrierungsfenster_laeuft(*, registrierung: Any, today: str) -> bool:
-    """Whether this season's registration window runs on `today`: `offen`, AND the day inside the span.
-
-    The window is null or the whole object the season form writes, as `app/api/bewerbungen/services.py ::
-    window_is_running` reads its own. Both ends compared: span ordering is enforced on the season PAYLOAD
-    alone, so a stored reversal is reachable.
-    """
-
-    if registrierung is None:
-        return False
-
-    return bool(registrierung["offen"]) and str(registrierung["von"]) <= today <= str(registrierung["end"])
 
 
 # The partial filter `uniq_invitation_live` is built on, spelled as it is: the equality with `None`
@@ -174,7 +160,7 @@ class EinladungVersandPlan(NamedTuple):
     """What one team's row says, before anything is minted."""
 
     recipient: list[FLInvitationRecipient]
-    skipped: FLInvitationDispatchGrund | None
+    skipped: FLInvitationSkipReason | None
     #: Whether minting for this team kills a link somebody may already hold. False on every skip,
     #: which is what leaves a skipped team exactly as it was.
     replaced_link: bool

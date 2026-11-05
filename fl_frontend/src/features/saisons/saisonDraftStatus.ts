@@ -92,12 +92,9 @@ const FIELD_DESCRIPTORS = [
       const fenster = source.bewerbung;
       if (fenster === null) return null;
 
-      // The freischaltung is IN the rendered value: flipping it changes nothing else, and a line
-      // ignoring it would leave the save bar disabled on a real edit.
-      const freigabe = fenster.offen ? "Freigeschaltet" : "Gesperrt";
       // Both fallbacks render a row rather than hiding one: an empty date is the mid-edit state the
       // schema refuses on save, and the change list is where the admin sees what is still missing.
-      return `${freigabe}: ${formatSpielDatum(fenster.start)} bis ${formatSpielDatum(fenster.end)}`;
+      return `${formatSpielDatum(fenster.start)} bis ${formatSpielDatum(fenster.end)}`;
     },
     errorPaths: ["bewerbung", "bewerbung.offen", "bewerbung.start", "bewerbung.end"],
   },
@@ -112,7 +109,7 @@ const FIELD_DESCRIPTORS = [
       if (fenster === null) return null;
 
       const freigabe = fenster.offen ? "Freigeschaltet" : "Gesperrt";
-      return `${freigabe}: ${formatSpielDatum(fenster.von)} bis ${formatSpielDatum(fenster.end)}`;
+      return `${freigabe}: bis ${formatSpielDatum(fenster.end)}`;
     },
     errorPaths: ["registrierung", "registrierung.offen", "registrierung.von", "registrierung.end"],
   },
