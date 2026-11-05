@@ -1,7 +1,6 @@
 import { FLSpielberichtVorschlagSonderereignis } from "@/core/generated/client/types";
 
-import type { FLKartenFarbe, FLKartenGrund, FLSpielberichtState } from "@/core/generated/client/types";
-import type { PillTone } from "@/shared/components/ui/badges";
+import type { FLKartenFarbe, FLKartenGrund } from "@/core/generated/client/types";
 import type { FLSpielberichtSonderereignis } from "./schemas";
 
 /**
@@ -46,20 +45,3 @@ export const TORSCHUETZE_UNBEKANNT_LABEL = "unbekannt";
 export const SPIELBERICHT_SONDEREREIGNIS_OPTIONS: readonly FLSpielberichtSonderereignis[] = Object.values(
   FLSpielberichtVorschlagSonderereignis,
 );
-
-export const SPIELBERICHT_ZUSTAND_LABELS: Record<FLSpielberichtState, string> = {
-  vorgeschlagen: "Vorgeschlagen",
-  adopted: "Übernommen",
-  differing: "Nicht übernommen",
-  abgesagt: "Abgesagt",
-  teams_changed: "Teams geändert",
-};
-
-/** One tone per state on the panel and on a fixture card alike; `abgesagt` in the fixture status chip's own. */
-export const SPIELBERICHT_ZUSTAND_TONE: Record<FLSpielberichtState, PillTone> = {
-  vorgeschlagen: "info",
-  adopted: "success",
-  differing: "warning",
-  abgesagt: "danger",
-  teams_changed: "warning",
-};

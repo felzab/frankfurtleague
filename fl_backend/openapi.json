@@ -13396,6 +13396,37 @@
         "title": "FLSpielEditorSpielort",
         "type": "object"
       },
+      "FLSpielEditorTeam": {
+        "description": "A club a knockout fixture's Begegnung offers for either side, by the name its season row holds.\n\n`on_spieltag`: the club stands on another fixture of this matchday, which a save fielding it here either moves it\noff or is refused for. `fieldable`: a save fielding it on this fixture as it stands passes the write's eligibility\nand occupancy rules (`find_eligibility_refusal`, `judge_spieltag_occupancy`), judged on the side it already holds.",
+        "properties": {
+          "fieldable": {
+            "title": "Fieldable",
+            "type": "boolean"
+          },
+          "id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "on_spieltag": {
+            "title": "On Spieltag",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "on_spieltag",
+          "fieldable"
+        ],
+        "title": "FLSpielEditorTeam",
+        "type": "object"
+      },
       "FLSpielEinteilungData": {
         "description": "A referee's word that they are booked onto a fixture, which they answer on their own panel.",
         "properties": {
@@ -16588,6 +16619,20 @@
             },
             "title": "Spielorte",
             "type": "array"
+          },
+          "teams": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/FLSpielEditorTeam"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Teams"
           }
         },
         "required": [
@@ -16595,6 +16640,7 @@
           "saison_status",
           "spielorte",
           "schiedsrichter",
+          "teams",
           "spielbericht",
           "spielbestaetigungen"
         ],
@@ -28383,7 +28429,7 @@
     },
     "/api/v0/spiele/{spiel_id}/verwaltung": {
       "get": {
-        "description": "The match editor's one read: the fixture in the admin shape, money and `version` included, and its season's status.\n\nBeside it every live venue and referee to book, the fixture's own where it has retired, each referee saying whether\nthey confirmed their entry; the fixture's report as its Spielbericht section shows it, its goals, its proposal and\nthe state it reads in, null where none stands; and the fixture's confirmation rows as the confirmations' read serves\nthem. `document_not_found` for an id no fixture holds.",
+        "description": "The match editor's one read: the fixture in the admin shape, money and `version` included, and its season's status.\n\nBeside it every live venue and referee to book, the fixture's own where it has retired, each referee saying whether\nthey confirmed their entry; on a knockout fixture every club of its season, each saying whether it stands on\nanother fixture of the matchday and whether a save fielding it here by hand would pass the write's rules, null on a\ngroup fixture; the fixture's report as its Spielbericht section shows it, its goals, its proposal and the state it\nreads in, null where none stands; and the fixture's confirmation rows as the confirmations' read serves them.\n`document_not_found` for an id no fixture holds.",
         "operationId": "spiele_get_spiel_verwaltung",
         "parameters": [
           {

@@ -23,10 +23,11 @@ const NEW_VENUE = "Sportplatz Ulmenring";
 
 /**
  * The running season's match 6, today at 16:00 between Kastanie and Eiche, the only match today at its
- * venue and with its referee, so a later kick-off meets no clash (`scripts/ops/seed/seed.js`).
+ * venue and with its referee, so a later kick-off meets no clash (`scripts/ops/seed/seed.js`). Today's
+ * matchday is the season's first still to be played, which the Spiele list opens on.
  */
 const SAISON = "2027";
-const SPIEL_NR = 6;
+const PAIRING = "Kastanie – Eiche";
 
 /**
  * Whether the document, or the box any table scrolls in, scrolls sideways, which no page may. The kit's
@@ -40,17 +41,12 @@ const scrollsSideways = (page: Page) =>
     ),
   );
 
-// Session 5: reads the id off the new match list once it stands, and the old search goes from this journey.
-/**
- * The match's id, read off today's admin match search: no new page lists a season's matches yet, so the
- * old search's editor link names it.
- */
+/** The match's id, read off its row in the season's Spiele list, whose link opens its editor. */
 async function spielId(page: Page): Promise<string> {
-  await page.goto(`/area/admin/spielsuche?saison_id=${SAISON}&status=heute`);
-  const link = page.getByRole("link", { name: `Spiel bearbeiten: Spiel Nr. ${String(SPIEL_NR)}` });
-  const href = await link.getAttribute("href");
-  const id = /\/area\/admin\/spiele\/([0-9a-f]{24})/.exec(href ?? "")?.[1];
-  if (id === undefined) throw new Error(`no editor link for match ${String(SPIEL_NR)} on today's search`);
+  await page.goto(`/admin/saisons/${SAISON}/spiele`);
+  const href = await page.getByRole("main").getByRole("link", { name: PAIRING }).getAttribute("href");
+  const id = new RegExp(`^/admin/saisons/${SAISON}/spiele/([0-9a-f]{24})$`).exec(href ?? "")?.[1];
+  if (id === undefined) throw new Error(`no editor link for ${PAIRING} on the Spiele list's opening matchday`);
   return id;
 }
 

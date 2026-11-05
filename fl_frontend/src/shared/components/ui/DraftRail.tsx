@@ -17,7 +17,7 @@ import type { RailBanner } from "@/shared/components/ui/railBanner";
  * **The warnings card never disappears**: one that vanished at zero would jump the layout and leave
  * nowhere to confirm "no warnings", so it folds shut and reads "Keine Hinweise." when opened empty.
  */
-export function RailHinweiseSection({
+function RailHinweiseSection({
   banners,
   nomen,
 }: {
@@ -77,7 +77,7 @@ export function RailHinweiseSection({
 }
 
 /** Every unsaved edit, grouped by the descriptor table's sections — the answer to "what will I have done". */
-export function RailChangesSection() {
+function RailChangesSection() {
   const status = useDraftStatus();
 
   // A removal is the edit most easily made by accident and least visible in a form, so it counts

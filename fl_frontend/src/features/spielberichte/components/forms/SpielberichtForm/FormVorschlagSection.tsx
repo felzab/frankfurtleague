@@ -3,7 +3,7 @@
 import { FieldError } from "@heroui/react/field-error";
 
 import { SONDEREREIGNIS_LABELS } from "@/features/spiele/constants";
-import { admitsShootOut } from "@/features/spiele/draftStatus";
+import { admitsShootOut } from "@/features/spiele/shootOut";
 import { useFieldStatus } from "@/shared/components/ui/DraftStatusContext";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import {

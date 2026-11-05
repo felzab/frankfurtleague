@@ -8,7 +8,7 @@ import { getSpielort } from "@/features/spielorte/queries";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { resolveObjectIdParam } from "@/shared/utils/routeParams";
 
-import { SPIELORT_REGELN } from "../../../spielortRegeln";
+import { SPIELORT_RULES } from "../../../spielortRules";
 import { reactivateSpielort, retireSpielort } from "./retireSpielort";
 import { saveSpielort } from "./saveSpielort";
 import { SpielortEditor } from "./SpielortEditor";
@@ -45,7 +45,7 @@ async function readEditor(params: Props["params"]) {
       title={{ record: spielort.name }}
       record={{ id: spielort.id, version: spielort.version, values: valuesOf(spielort) }}
       save={saveSpielort}
-      rules={SPIELORT_REGELN}
+      rules={SPIELORT_RULES}
       retired={spielort.inactive_since !== null}
       retire={retireSpielort}
       reactivate={reactivateSpielort}

@@ -2,7 +2,6 @@ import { notFound, redirect } from "next/navigation";
 
 import z from "zod";
 
-import { ROUTES } from "@/core/routes";
 import { SEARCH_QUERY_PARAM } from "@/shared/utils/searchQuery";
 
 import { SAISON_ID_LENGTH } from "./constants";
@@ -62,11 +61,6 @@ export async function resolveAdminSaison(searchParamsPromise: NextPageProps["sea
   const { saisons } = await getAdminSaisons();
 
   return selectSaison(saisons, requestedSaisonId);
-}
-
-/** For a page whose reads name a season: a league holding none is sent to the page that creates one. */
-export async function requireAdminSaison(searchParamsPromise: NextPageProps["searchParams"]): Promise<FLSaisonAdmin> {
-  return (await resolveAdminSaison(searchParamsPromise)) ?? redirect(ROUTES.adminSaisons.path());
 }
 
 /**

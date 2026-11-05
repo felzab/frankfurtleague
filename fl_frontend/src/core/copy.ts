@@ -2,15 +2,17 @@ import {
   formatDatum,
   formatDatumLong,
   formatDatumWithWeekday,
+  formatErgebnis,
   formatInstant,
   formatList,
   formatNumber,
   formatOrdinal,
+  formatPeriod,
   formatUhrzeit,
 } from "./format";
 import { rollenText } from "./teamVocabulary";
 
-import type { CalendarDay, Uhrzeit } from "./format";
+import type { CalendarDay, Pair, Uhrzeit } from "./format";
 import type { FLKontaktRolle, FLSpielerStufe } from "./generated/client/types";
 
 declare const copyBrand: unique symbol;
@@ -91,6 +93,10 @@ const K_O_RUNDE = "K.-o.-Runde";
 // Words two areas of this one object say alike, each written once and read under both keys: a match's facts and
 // its events as a visitor reads them and as the editor's fields name them, and the sign-in's acts and pages.
 const SPIEL_FACT = { datum: "Datum", uhrzeit: "Uhrzeit" } as const;
+// A match or a matchday not dated yet, as a match row and a matchday's line say it.
+const DATE_OPEN = "Termin offen";
+// The mark beside a score a shoot-out decided.
+const AFTER_ELFMETERSCHIESSEN = "n. E.";
 const SONDEREREIGNIS = { ausgefallen: "Ausgefallen", abgebrochen: "Abgebrochen", annulliert: "Annulliert" } as const;
 const SIGN_IN = "Anmeldung";
 const SIGN_IN_WITH_PASSKEY = "Mit Passkey anmelden";
@@ -235,7 +241,7 @@ export const COPY = catalogue({
     /** A knockout matchday where its phase spans several, „Viertelfinale (2)“: the phase's name and the matchday's place in it. */
     knockoutRound: (phase: Copy, position: number) => `${phase} (${formatNumber(position)})`,
     /** The mark a result decided in a shoot-out carries, under the score in a match row and a match's head. */
-    afterElfmeterschiessen: "n. E.",
+    afterElfmeterschiessen: AFTER_ELFMETERSCHIESSEN,
     /**
      * The two routes out of a season, each in its three wordings: `label` names the record, `state` the club's
      * resulting state, `kuerzel` the badge. `AUSTRITT_OPTIONS` serves them to every surface, so no two can name
@@ -346,7 +352,7 @@ export const COPY = catalogue({
     spieltage: "Spieltage",
     /** When a match is played, as its row shows it; until it is dated, what is still to settle. */
     when: (day: CalendarDay | null, time: Uhrzeit | null) =>
-      day === null ? "Termin offen" : time === null ? formatDatumWithWeekday(day) : `${formatDatumWithWeekday(day)} · ${formatUhrzeit(time)}`,
+      day === null ? DATE_OPEN : time === null ? formatDatumWithWeekday(day) : `${formatDatumWithWeekday(day)} · ${formatUhrzeit(time)}`,
 
     /** A side the draw has not settled: its source short in the dashed plaque, and in full as its name. */
     quelle: {
@@ -793,6 +799,63 @@ export const COPY = catalogue({
       needsBothSides: "Nur mit beiden Teams",
       /** The save's done line where the write moved other matches too, by their numbers: „Auch Spiel 5 und 7 geändert“. */
       alsoChanged: (spiele: readonly number[]) => `Auch Spiel ${formatList(spiele.map(formatNumber))} geändert`,
+
+      /** The Spiele list: a match row's two facts' heads, its pairing's head, and the chip a match not yet confirmed carries. */
+      termin: "Termin",
+      begegnung: "Begegnung",
+      provisional: "Vorläufig",
+      /** A row's result: the goals, and after a shoot-out each side's goals and shoot-out goals added, marked „n. E.“. */
+      score: (tore: Pair, elfmeterschiessen: Pair | null) =>
+        elfmeterschiessen === null ? formatErgebnis(tore) : `${formatErgebnis(tore, elfmeterschiessen)} ${AFTER_ELFMETERSCHIESSEN}`,
+      /** A matchday's dates over its matches, until it is dated what is still to settle. */
+      span: (beginn: CalendarDay | null, ende: CalendarDay | null) =>
+        beginn === null || ende === null ? DATE_OPEN : formatPeriod(beginn, ende),
+      /** The matchday dialog's two dates. */
+      beginn: "Beginn",
+      ende: "Ende",
+
+      /** The match editor's sections beyond the three it shares with the old pages: a knockout match's clubs, the report and the answers. */
+      spielberichtUndBestaetigungen: "Spielbericht und Bestätigungen",
+      spielbericht: "Spielbericht",
+      bestaetigungen: "Bestätigungen",
+      /** The Vorschau under the editor's title: the fields changed and not yet saved, each by its own label. */
+      changed: (labels: readonly Copy[]) => formatList(labels),
+      /** A club picked by hand over the side's source, which the side no longer follows once saved. */
+      replacesQuelle: (quelle: Copy) => `Ersetzt ${quelle}`,
+      /** Why a club cannot take a side: it stands on another match of the matchday, or has left the season. */
+      onSpieltag: "Spielt schon an diesem Spieltag",
+      departed: "Aus der Saison ausgeschieden",
+      /** The referee's fee for the match, which the glossary's `payment` names on screen. */
+      honorar: "Honorar",
+      /** A referee who has not confirmed their entry, whom no match can be booked onto yet. */
+      unconfirmed: "Noch nicht bestätigt",
+      elfmeterschiessen: "Elfmeterschießen",
+      /** Level knockout goals saved without a shoot-out leave the match undecided, and the bracket after it. */
+      shootOutMissing: "Ohne Elfmeterschießen wartet der K.-o.-Baum.",
+      /** An event after which the match carries no result, chosen over a stored one. */
+      resultDropped: (score: Copy) => `Ergebnis ${score} wird verworfen`,
+      /** The referee's proposal, which „Übernehmen“ carries into the fields: „Laut Spielbericht 3:1“. */
+      fromReport: (result: Words) => `Laut Spielbericht ${textOf(result)}`,
+      /** The report's goals as rows: what happened, the minute, and the score it made. */
+      event: "Ereignis",
+      minute: "Minute",
+      /** The answers as rows: whose, their answer and what a declining club proposed. */
+      party: "Partei",
+      answer: "Antwort",
+      proposal: "Vorschlag",
+      reason: "Grund",
+      zugesagt: "Zugesagt",
+      /** A club's decline, and a referee's, as the glossary's `Absage` names the second. */
+      abgelehnt: "Abgelehnt",
+      abgesagt: "Abgesagt",
+      answerBy: (day: CalendarDay) => `Antwort bis ${formatDatum(day)}`,
+      enteredByLeague: "Von der Verwaltung eingetragen",
+      notAsked: "Noch nicht angefragt",
+      /** A save voiding later matches' results, which it asks before. */
+      voids: (spiele: readonly number[]) =>
+        spiele.length === 1
+          ? `Das Ergebnis von Spiel ${formatNumber(spiele[0] ?? 0)} wird gelöscht.`
+          : `Die Ergebnisse von Spiel ${formatList(spiele.map(formatNumber))} werden gelöscht.`,
     },
   },
 

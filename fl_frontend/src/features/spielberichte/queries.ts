@@ -1,22 +1,9 @@
 import { cache } from "react";
 
-import { spielberichteGetSelf, spielberichteGetSpielberichtBericht, spielberichteGetSpielberichtVerwaltung } from "@/core/generated/client/sdk";
-import { runAdminRead } from "@/shared/utils/adminRead";
+import { spielberichteGetSelf, spielberichteGetSpielberichtBericht } from "@/core/generated/client/sdk";
 import { runPersonRead } from "@/shared/utils/personRead";
 
-import type {
-  FLSpielberichtAdminResponse,
-  FLSpielberichteSelfResponse,
-  FLSpielberichtSchiedsrichterResponse,
-} from "@/core/generated/client/types";
-
-/**
- * One fixture's report as the administrator reads it, remarks and reasons included, with its state. Uncached: an
- * admin-tier read.
- */
-export async function getAdminSpielbericht(spielId: string): Promise<FLSpielberichtAdminResponse> {
-  return runAdminRead(() => spielberichteGetSpielberichtVerwaltung(spielId));
-}
+import type { FLSpielberichteSelfResponse, FLSpielberichtSchiedsrichterResponse } from "@/core/generated/client/types";
 
 /** What the booked referee's form opens on; refused `bericht_not_officiated` once the fixture is booked to somebody else. */
 export async function getSchiedsrichterSpielbericht(spielId: string): Promise<FLSpielberichtSchiedsrichterResponse> {
