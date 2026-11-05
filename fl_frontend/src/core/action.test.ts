@@ -148,8 +148,8 @@ describe("the admin lane", () => {
     ["signIn", COPY.shared.failure.signInExpired],
     ["noGrant", COPY.shared.failure.accessGone],
     ["grantGone", COPY.shared.failure.accessGone],
-    ["unread", COPY.shared.failure.accessUnchecked],
-  ])("turns a caller the guard refuses as %s away in the words of its repair, before anything else", async (refused, reason) => {
+    ["unread", COPY.shared.failure.unexpected],
+  ])("turns a caller the guard refuses as %s away in its shared line, before anything else", async (refused, reason) => {
     state.admin = { refused };
 
     expect(await create()({ name: "Nord", plz: "60438" })).toStrictEqual({ ok: false, reason });

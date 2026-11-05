@@ -65,7 +65,9 @@ you write one; the strings themselves live in the catalogue, `fl_frontend/src/co
 
 **If the sentence were deleted, would the reader do something wrong?** If not, delete it. Copy says
 what is so or what to expect, never why it is so, how to repair it or how the system works. A shared
-string replaces a detailed one wherever it can.
+string replaces a detailed one wherever it can: a reason stands on its own only where the reader
+would not think of it and can act on it, in as few words as say it, and one sentence serves every
+place that means the same thing.
 
 ## The voice is plain and says du
 
@@ -100,7 +102,7 @@ there.
 | Tooltip                 | 5 words                                                  | names an icon-only control, nothing more                                                      |
 | Section info tip (ⓘ)    | 2 sentences, about 200 characters                        | only where a named question needs it                                                          |
 | Field error             | one phrase, one line, 80 characters                      | a fixed pattern                                                                               |
-| Form refusal            | 1 short sentence, the status line's two lines on a phone | a refusal about the whole form, or about a field no pattern words, naming that field          |
+| Form refusal            | 1 short sentence, the status line's two lines on a phone | a plain fact about the whole form, or about a field no pattern words, naming that field       |
 | Failure line            | 1 short sentence, the status line's two lines on a phone | what happened, never the repair; a failure no reason names, the one line `failure.unexpected` |
 | Empty state             | 1 sentence plus at most one button                       | which narrowing emptied it                                                                    |
 | Toast                   | a title of 1 to 3 words, no body                         | a past participle; a failure, the one line `failure.unexpected`                               |
@@ -124,8 +126,11 @@ Each pattern is an entry of `COPY.shared`; what the entry cannot say is when it 
   the whole form or about a field no pattern can word, takes the status line in one short sentence
   that fits its two lines on a phone and names its field itself where it has one; a field phrase
   never stands on the status line, since it has no subject there. Every other refusal takes a
-  `failure` line: `stale` for a stale page or a concurrent change, `signInExpired` for an ended
-  sign-in, `unexpected` for anything else.
+  `failure` line: `stale` for a stale page, a concurrent change or a choice the screen had closed
+  when it was read, `signInExpired` for an ended sign-in, `unexpected` for an outage, a fault inside
+  the system and anything else. A refusal the screen closes off before the press, a race between two
+  writes and a precondition only the system knows are never explained, since the reader cannot act
+  on the detail.
 - **A saved record** shows `saved` beside its save button, never as a toast.
 - **A toast** is one of `toast`'s five titles, and only for an action that leaves nothing on the page
   to change.

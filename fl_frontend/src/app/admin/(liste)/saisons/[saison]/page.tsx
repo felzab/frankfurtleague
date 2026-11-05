@@ -29,7 +29,6 @@ import type {
   FLBracketFault,
   FLOverviewRow,
   FLSpielJoinedAdmin,
-  FLSpielQuelle,
   FLSpielRecipientSchiedsrichter,
   FLSpielRecipientTeam,
 } from "@/core/generated/client/types";
@@ -84,13 +83,6 @@ function mailTo(recipients: readonly (FLSpielRecipientTeam | FLSpielRecipientSch
 /** A stored day and hour as the catalogue's sentences take a slot. */
 const slotOf = (datum: string | null, uhrzeit: string | null) => ({ day: dayOf(datum), time: timeOf(uhrzeit) });
 
-/** A side's source by its full name, „2. der Gruppe A“ or „Sieger von Spiel 12“. */
-function quelleName(quelle: FLSpielQuelle): Copy {
-  const words = COPY.spielplan.quelle;
-  if (quelle.type === "gruppe") return words.gruppe(quelle.gruppe, quelle.platz);
-  return quelle.ausgang === "sieger" ? words.sieger(quelle.spiel_nr) : words.verlierer(quelle.spiel_nr);
-}
-
 const BOOKED = { ort: COPY.admin.spielort.object, schiedsrichter: COPY.shared.schiedsrichter } as const;
 
 /** A fault of the bracket or of the fixture's bookings, in one line. */
@@ -101,19 +93,15 @@ function faultLine(fault: FLBracketFault): Copy {
     case "tie_unresolved":
       return words[fault.reason](fault.gruppe, fault.platz);
     case "gruppe_not_run":
-      return words.gruppe_not_run(fault.gruppe);
     case "seed_past_the_opening_round":
-      return words.seed_past_the_opening_round;
     case "spiel_missing":
     case "reference_cycle":
     case "gruppenphase_feeder":
     case "feeder_not_played_first":
-      return words[fault.reason](fault.quelle_spiel_nr);
     case "same_team":
     case "gruppenphase_fixture_wired":
-      return words[fault.reason];
     case "source_feeds_another_fixture":
-      return words.source_feeds_another_fixture(quelleName(fault.quelle));
+      return words.wiring;
     case "departed_occupant":
       return words.departed_occupant(
         { record: fault.team_name },

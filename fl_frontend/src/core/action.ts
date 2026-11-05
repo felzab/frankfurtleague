@@ -214,6 +214,8 @@ const STALE: ReadonlySet<Code> = new Set<Code>([
   "spielplan_berichte_submitted",
   "swap_not_a_swap",
   "swap_saison_started",
+  "swap_sides_taken_place",
+  "replace_sides_taken_place",
   "replace_saison_started",
   "replace_incoming_already_entered",
   "replace_one_team_on_both_ends",
@@ -225,14 +227,21 @@ const STALE: ReadonlySet<Code> = new Set<Code>([
   "schiedsrichter_retired",
   "confirmation_exists",
   "schiedsrichter_no_address",
+  // A confirmed referee's address, which the editor shows read-only: only a page read before the confirmation sends it.
+  "schiedsrichter_address_only_per_change",
+  // A referee who has not confirmed, whom the match editor offers only as a closed choice.
+  "booking_unconfirmed_schiedsrichter",
 ]);
 
-/** The admin guard's refusals, each in the words of what repairs it. */
+/**
+ * The admin guard's refusals: an ended sign-in and a gone grant each in the words of what holds, and a grant the backend
+ * left unread, an outage nothing the person does repairs, as every other failure.
+ */
 const TURNED_AWAY: Readonly<Record<AdminRefusal, Copy>> = {
   signIn: COPY.shared.failure.signInExpired,
   noGrant: COPY.shared.failure.accessGone,
   grantGone: COPY.shared.failure.accessGone,
-  unread: COPY.shared.failure.accessUnchecked,
+  unread: COPY.shared.failure.unexpected,
 };
 
 const UNEXPECTED = { ok: false, reason: COPY.shared.failure.unexpected } as const;
