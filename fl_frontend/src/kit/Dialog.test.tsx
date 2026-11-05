@@ -158,7 +158,71 @@ describe("the kit's confirmation", () => {
     const question = await screen.findByRole("alertdialog");
     await waitFor(() => expect(within(question).getByRole("status").textContent).toBe(reason));
   });
+
+  // The harm: an answer lost on its way back replacing the page with the area's error page, an editor's draft with it,
+  // where the press may have written and only the page read again shows whether it did.
+  it("answers an act that throws with the stale-page line, stays open and reads the page again", async () => {
+    router.refresh.mockClear();
+    render(
+      <RetireQuestion
+        onConfirm={async () => {
+          throw new Error("unreachable");
+        }}
+      />,
+    );
+    await retireThroughTheQuestion();
+
+    const question = await screen.findByRole("alertdialog");
+    await waitFor(() => expect(within(question).getByRole("status").textContent).toBe(COPY.shared.failure.stale));
+    expect(router.refresh).toHaveBeenCalledOnce();
+  });
+
+  // The harm: a refusal of a press the page hid before it answered greeting the next opening, as if the next press had
+  // been refused.
+  it("opens again without a refusal that arrived after it closed", async () => {
+    const late = Promise.withResolvers<ActionAnswer>();
+    onTestFinished(() => late.resolve(DONE));
+    const page = (mode: "visible" | "hidden") => (
+      <Activity mode={mode}>
+        <RetireQuestion onConfirm={() => late.promise} />
+      </Activity>
+    );
+    const { rerender } = render(page("visible"));
+    await retireThroughTheQuestion();
+
+    await act(async () => rerender(page("hidden")));
+    await act(async () => late.resolve({ ok: false, reason: COPY.shared.failure.stale }));
+    await act(async () => rerender(page("visible")));
+    await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.retire }));
+
+    expect(within(screen.getByRole("alertdialog")).getByRole("status").textContent).toBe("");
+  });
 });
+
+/** A retirement's question, opened by its own button. */
+function RetireQuestion({ onConfirm }: { onConfirm: () => Promise<ActionAnswer> }) {
+  return (
+    <ConfirmDialog
+      verb="retire"
+      subject={NAME}
+      consequence={COPY.admin.spielort.retireConsequence}
+      tone="danger"
+      trigger={
+        <Button
+          variant="danger"
+          label={COPY.shared.verb.retire}
+        />
+      }
+      onConfirm={onConfirm}
+    />
+  );
+}
+
+/** Opens the question and presses its act. */
+async function retireThroughTheQuestion() {
+  await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.retire }));
+  await userEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: COPY.shared.verb.retire }));
+}
 
 /** A control opening its dialog through an open state of its own, a plain one. */
 function HeldDialog() {

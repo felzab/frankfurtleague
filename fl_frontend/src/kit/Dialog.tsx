@@ -84,7 +84,7 @@ export function DialogOverlay({
   width,
   children,
   ...overlay
-}: Pick<ModalOverlayProps, "isOpen" | "isDismissable" | "onOpenChange"> & {
+}: Pick<ModalOverlayProps, "isOpen" | "isDismissable" | "isKeyboardDismissDisabled" | "onOpenChange"> & {
   width: "question" | "form";
   /** The React Aria `Dialog` the box holds. */
   children: ReactNode;

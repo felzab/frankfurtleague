@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useId, useRef, useState, useTransition } from "react";
+import { createContext, startTransition, useContext, useId, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { Form } from "react-aria-components/Form";
@@ -15,7 +15,7 @@ import { StatusLine } from "./FieldParts";
 import { SectionTitle } from "./Section";
 import { appToast } from "./Toast";
 import { tv } from "./tv";
-import { answering, statusOf, useFormAction } from "./useFormAction";
+import { statusOf, useFormAction } from "./useFormAction";
 import { usePasskeyTouch } from "./usePasskeyTouch";
 
 import type { ActionAnswer } from "@/core/action";
@@ -42,10 +42,6 @@ export type AccountAct = {
    * action's reference alone.
    */
   carry?: Readonly<Record<string, string>>;
-  /** Its button's label, or the question it asks first. */
-  button: { label: Copy } | { confirm: Question };
-  /** The passkey touch first, for a person holding a passkey (`usePasskeyTouch`). */
-  touch?: boolean;
   /** The toast once it is done, for an act that leaves nothing in the box to change. */
   done?: Copy;
   /** Why the act cannot run on the box's present state: the button closed, the line saying it. */
@@ -54,7 +50,22 @@ export type AccountAct = {
   line?: Copy;
   /** The act saves the box's fields, which the line then says beside its button, „Gespeichert“. */
   saves?: true;
-};
+} & (
+  | {
+      /** Its button's label. */
+      button: { label: Copy };
+      /** The passkey touch first, for a person holding a passkey (`usePasskeyTouch`). */
+      touch?: boolean;
+    }
+  | {
+      /**
+       * The question it asks first, which answers a refusal in its own line as every question does. It takes no touch:
+       * the touch comes before any question, as a row's removal asks it (`AccountRows`).
+       */
+      button: { confirm: Question };
+      touch?: never;
+    }
+);
 
 /** Where a row of the box answers into the box's one status line. */
 const BoxLine = createContext<((status: FormStatus) => void) | null>(null);
@@ -109,7 +120,8 @@ const box = tv({
  * administrator started, which the old address's stop link ends, shows its content and no footer. A row of the
  * box (`AccountRows`) answers on the footer's line too. The outcome stands in that line: a refusal in red with the
  * input kept, a field's message under its field; a done act leaves the line empty, the box showing what changed,
- * and the line's answer is cleared once the page is left.
+ * and the line's answer is cleared once the page is left. An act asking a question first answers a refusal in the
+ * question, which stays open with it, as every question does.
  */
 export function AccountBox(
   props: { title: Words; description: Copy } & (
@@ -167,12 +179,27 @@ function ActBox({ act, head, children }: { act: AccountAct; head: ReactElement; 
   const shown =
     rowStatus ?? (act.closed !== undefined ? closedLine(act.closed) : (status ?? (act.line === undefined ? null : closedLine(act.line))));
 
+  const posted = () => {
+    const formData = new FormData(form.current ?? undefined);
+    for (const [name, value] of Object.entries(act.carry ?? {})) formData.set(name, value);
+    return formData;
+  };
+
   const press = () => {
     setRowStatus(null);
-    if (form.current === null) return;
-    const formData = new FormData(form.current);
-    for (const [name, value] of Object.entries(act.carry ?? {})) formData.set(name, value);
-    send(formData);
+    send(posted());
+  };
+
+  // A question's act runs inside the question, which shows its refusal and words a throw; the line says what a done one
+  // moved beyond the box, as `lineOf` words a done act.
+  const confirmed = async () => {
+    setRowStatus(null);
+    const answered = await act.run(posted());
+    if (answered.ok && act.done !== undefined) appToast("success", act.done);
+    const { note } = answered.ok ? answered : { note: undefined };
+    // An update after the `await` lands outside the press's transition unless it opens one of its own.
+    if (note !== undefined) startTransition(() => setRowStatus({ tone: "saved", text: note }));
+    return answered;
   };
 
   return (
@@ -209,7 +236,7 @@ function ActBox({ act, head, children }: { act: AccountAct; head: ReactElement; 
           ) : (
             <ConfirmDialog
               {...act.button.confirm}
-              onConfirm={press}
+              onConfirm={confirmed}
               trigger={
                 <Button
                   variant={act.button.confirm.tone === "danger" ? "danger" : "secondary"}
@@ -267,7 +294,10 @@ const rows = tv({
   },
 });
 
-/** A box's records as rows, each with its own acts, whose outcome stands on the box's status line. */
+/**
+ * A box's records as rows, each with its own acts, whose outcome stands on the box's status line, a removal's refusal
+ * in its question.
+ */
 export function AccountRows({ rows: records }: { rows: ReadonlyArray<AccountRow> }) {
   const slots = rows();
   return (
@@ -337,8 +367,8 @@ function RemoveAct({ remove, describedBy }: { remove: Remove; describedBy: strin
   // read, so its consequence is worded from the session the act will run under.
   const [isRefreshing, startRefresh] = useTransition();
   const [isAsking, setAsking] = useState(false);
-  const [isActing, setActing] = useState(false);
 
+  // The touch's refusal stands on the box's line, the act never having run; the act's own answers in its question.
   const ask = async () => {
     setLine?.(null);
     const refusal = await run(() => {
@@ -348,24 +378,13 @@ function RemoveAct({ remove, describedBy }: { remove: Remove; describedBy: strin
     if (refusal !== null) setLine?.({ tone: "error", text: refusal });
   };
 
-  const confirm = async () => {
-    setActing(true);
-    try {
-      // Through the form wrapper's own answering, so a throw reads the page again as every act's does.
-      const answered = await answering(remove.run, router.refresh)(undefined);
-      if (!answered.ok) setLine?.({ tone: "error", text: answered.reason ?? COPY.shared.failure.unexpected });
-    } finally {
-      setActing(false);
-    }
-  };
-
   return (
     <>
       <Button
         icon="erasures"
         label={COPY.shared.verb[remove.verb]}
         aria-describedby={describedBy}
-        isBusy={isTouching || isRefreshing || isActing}
+        isBusy={isTouching || isRefreshing}
         isDisabled={remove.closed !== undefined}
         onPress={() => void ask()}
       />
@@ -374,7 +393,7 @@ function RemoveAct({ remove, describedBy }: { remove: Remove; describedBy: strin
         subject={remove.subject}
         consequence={remove.consequence}
         tone="danger"
-        onConfirm={confirm}
+        onConfirm={remove.run}
         open={{ isOpen: isAsking && !isRefreshing, onOpenChange: setAsking }}
       />
     </>
