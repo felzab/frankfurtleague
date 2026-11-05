@@ -375,7 +375,7 @@ class TestTheNotices:
     def test_every_notice_queued_before_her_loeschung_names_her_nowhere_and_no_other_moves(self, mongo_replica_set_url: str):
         """Her grant's address withheld under its own reason; her as the actor, the marker; a ban's reason kept beside it."""
 
-        sites = ("now", "before", "changed_by", "withheld")
+        sites = ("current", "before", "changed_by", "withheld")
 
         async def stored(database: AsyncDatabase) -> dict[ObjectId, tuple[Any, ...]]:
             return {
