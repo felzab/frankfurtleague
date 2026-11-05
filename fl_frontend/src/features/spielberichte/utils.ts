@@ -121,9 +121,6 @@ export function berichtSperre(spiel: Pick<FLSpielberichtSpiel, "datum" | "sonder
   return spiel.datum > today ? "kuenftig" : null;
 }
 
-/** Who reads the sentence: the booked referee on their panel, or an administrator correcting the report. */
-export type SpielberichtLeser = "schiedsrichter" | "admin";
-
 export const BEMERKUNGEN_PATH = "bericht.bemerkungen";
 
 // The form offers no shoot-out on a group fixture, so this arrives only from a request no page composed.
@@ -139,62 +136,40 @@ const GRUND_FEHLT = buildRefusal({
 // The reload draws the form anew from the report standing now, so the change the press carried has to be entered again.
 const NEU_EINTRAGEN = "Lade die Seite neu und trage Deine Änderung dort erneut ein";
 
-const SAETZE: Record<SpielberichtLeser, Readonly<Record<string, string>>> = {
-  schiedsrichter: {
-    // Ahead of the spine's own reading, whose sentence names a team: the referee's record is what went.
-    role_not_held: "Du bist nicht mehr als Schiedsrichterin oder Schiedsrichter eingetragen. Lade die Seite neu.",
-    bericht_not_played: buildRefusal({
-      reason: "Dieses Spiel hat noch kein Datum oder noch nicht stattgefunden",
-      repair: LADE_DIE_SEITE_NEU,
-    }),
-    bericht_not_officiated: buildRefusal({ reason: "Dieses Spiel leitest Du nicht mehr", repair: LADE_DIE_SEITE_NEU }),
-    bericht_not_in_kader: buildRefusal({
-      reason: "Eine gewählte Person steht nicht mehr im Kader ihres Teams",
-      repair: "Lade die Seite neu und wähle neu",
-    }),
-    bericht_abgesagt: buildRefusal({
-      reason: "Dieses Spiel ist inzwischen als ausgefallen oder annulliert eingetragen und nimmt keinen Spielbericht an",
-      repair: LADE_DIE_SEITE_NEU,
-    }),
-    bericht_grund_missing: GRUND_FEHLT,
-    bericht_elfmeter_in_the_gruppe: ELFMETER_IN_DER_GRUPPE,
-    saison_past: buildRefusal({
-      reason: "Die Saison dieses Spiels ist vorbei, und den Spielbericht kannst Du nicht mehr ändern",
-      repair: LADE_DIE_SEITE_NEU,
-    }),
-    bericht_meanwhile_changed: buildRefusal({
-      reason: "Der Spielbericht wurde inzwischen geändert, etwa von der Verwaltung oder von Dir in einem anderen Fenster",
-      repair: NEU_EINTRAGEN,
-    }),
-    duplicate_key: buildRefusal({ reason: "Der Spielbericht wurde gerade gleichzeitig gespeichert", repair: NEU_EINTRAGEN }),
-  },
-  admin: {
-    // A reload, no date to enter: the correction page states an undated or future fixture before any press, so this
-    // arrives only where the fixture moved under the page, and an entered date may be the future one.
-    bericht_not_played: buildRefusal({ reason: "Das Spiel hat noch kein Datum oder findet erst noch statt", repair: LADE_DIE_SEITE_NEU }),
-    bericht_not_in_kader: buildRefusal({
-      reason: "Eine gewählte Person steht nicht im Kader ihres Teams",
-      repair: "Lade die Seite neu und wähle neu",
-    }),
-    bericht_abgesagt: buildRefusal({
-      reason: "Das Spiel ist als ausgefallen oder annulliert eingetragen",
-      repair: "Entferne das Sonderereignis im Spiel, um den Spielbericht zu bearbeiten",
-    }),
-    bericht_grund_missing: GRUND_FEHLT,
-    bericht_elfmeter_in_the_gruppe: ELFMETER_IN_DER_GRUPPE,
-    bericht_meanwhile_changed: buildRefusal({
-      reason: "Der Spielbericht wurde inzwischen geändert, etwa von der Schiedsrichterin oder dem Schiedsrichter",
-      repair: NEU_EINTRAGEN,
-    }),
-    duplicate_key: buildRefusal({ reason: "Der Spielbericht wurde gerade gleichzeitig gespeichert", repair: NEU_EINTRAGEN }),
-  },
-} satisfies Record<SpielberichtLeser, Partial<Record<Code, string>>>;
+const SAETZE: Readonly<Record<string, string>> = {
+  // Ahead of the spine's own reading, whose sentence names a team: the referee's record is what went.
+  role_not_held: "Du bist nicht mehr als Schiedsrichterin oder Schiedsrichter eingetragen. Lade die Seite neu.",
+  bericht_not_played: buildRefusal({
+    reason: "Dieses Spiel hat noch kein Datum oder noch nicht stattgefunden",
+    repair: LADE_DIE_SEITE_NEU,
+  }),
+  bericht_not_officiated: buildRefusal({ reason: "Dieses Spiel leitest Du nicht mehr", repair: LADE_DIE_SEITE_NEU }),
+  bericht_not_in_kader: buildRefusal({
+    reason: "Eine gewählte Person steht nicht mehr im Kader ihres Teams",
+    repair: "Lade die Seite neu und wähle neu",
+  }),
+  bericht_abgesagt: buildRefusal({
+    reason: "Dieses Spiel ist inzwischen als ausgefallen oder annulliert eingetragen und nimmt keinen Spielbericht an",
+    repair: LADE_DIE_SEITE_NEU,
+  }),
+  bericht_grund_missing: GRUND_FEHLT,
+  bericht_elfmeter_in_the_gruppe: ELFMETER_IN_DER_GRUPPE,
+  saison_past: buildRefusal({
+    reason: "Die Saison dieses Spiels ist vorbei, und den Spielbericht kannst Du nicht mehr ändern",
+    repair: LADE_DIE_SEITE_NEU,
+  }),
+  // Its referee is the report's one writer, so the other write is their own, from another window.
+  bericht_meanwhile_changed: buildRefusal({
+    reason: "Der Spielbericht wurde inzwischen geändert, etwa von Dir in einem anderen Fenster",
+    repair: NEU_EINTRAGEN,
+  }),
+  duplicate_key: buildRefusal({ reason: "Der Spielbericht wurde gerade gleichzeitig gespeichert", repair: NEU_EINTRAGEN }),
+} satisfies Partial<Record<Code, string>>;
 
-/** A report write's refusal in its reader's words, `null` for a code neither write answers. */
-export function mapSpielberichtRefusal(error: unknown, leser: SpielberichtLeser): { error?: string; fieldErrors?: FieldErrors } | null {
+/** The referee's report write's refusal in their words, `null` for a code the write does not answer. */
+export function mapSpielberichtRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
   if (!isRefusal(error) || error.serverErrorCode === undefined) return null;
 
-  const saetze = SAETZE[leser];
   // Own keys alone, so a code spelling an inherited member never reads as worded.
-  return Object.hasOwn(saetze, error.serverErrorCode) ? { error: saetze[error.serverErrorCode] } : null;
+  return Object.hasOwn(SAETZE, error.serverErrorCode) ? { error: SAETZE[error.serverErrorCode] } : null;
 }

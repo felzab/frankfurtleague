@@ -613,8 +613,6 @@ export function AdminEditSpielDataForm({
                     : uebernahmeGesperrt(spielbericht.lesen.bericht.seiten, { team1: team1Payload, team2: team2Payload })
                 }
                 eingesetzt={eingesetztStand(uebernimmtBericht, spielbericht?.lesen.bericht?.version ?? null)}
-                hatEntwurf={isDirty}
-                today={today}
               />
             )}
 

@@ -13684,7 +13684,7 @@
         "type": "object"
       },
       "FLSpielberichtAdminResponse": {
-        "description": "The administrator's panel, with the state the report reads in, null exactly where no block stands.\n\nBoth squads empty unless the read asks `kader`, the correction's form; a write answers them always.",
+        "description": "The administrator's panel, with the state the report reads in, null exactly where no block stands, and both squads empty.",
         "properties": {
           "bericht": {
             "anyOf": [
@@ -13980,7 +13980,7 @@
       },
       "FLSpielberichtKartePayload": {
         "additionalProperties": false,
-        "description": "One card as a write sends it: a caution names its reason unless the stored card's reason was stripped.",
+        "description": "One card as a write sends it: a caution names its reason (`find_grund_fehlt_refusal`).",
         "properties": {
           "farbe": {
             "$ref": "#/components/schemas/FLKartenFarbe"
@@ -14048,7 +14048,7 @@
       },
       "FLSpielberichtPayload": {
         "additionalProperties": false,
-        "description": "The whole `bericht` block, written wholesale by the referee's PUT and the administrator's PATCH alike.",
+        "description": "The whole `bericht` block, written wholesale by the referee's PUT.",
         "properties": {
           "bericht": {
             "$ref": "#/components/schemas/FLSpielberichtBerichtPayload"
@@ -25731,91 +25731,6 @@
         ]
       }
     },
-    "/api/v0/spielberichte/{spiel_id}": {
-      "patch": {
-        "description": "Write the whole report of one fixture as an administrator, replacing what stood, as the referee's own write does.\n\nEvery write changing it raises its `version`, so a report adopted before reads `differing` until it is adopted\nagain, and a write changing nothing writes nothing. Who first wrote the report stays recorded; a report an\nadministrator writes first records an administrator, naming nobody.\n\n`bericht_stand` is the `version` of the report the page was served, null where none stood, as on the referee's\nwrite.\n\nRefuses, in this order, each writing nothing: a fixture that does not exist (`document_not_found`); a `bericht_stand`\nother than the version standing now, or than none where none stands (`bericht_meanwhile_changed`); one undated or whose day is\nstill to come (`bericht_not_played`); one called off or struck out (`bericht_abgesagt`); a shoot-out proposed on a\ngroup-phase fixture (`bericht_elfmeter_in_the_gruppe`); a pupil newly named on a side outside that side's live squad of the season\n(`bericht_not_in_kader`); and a yellow or second yellow card naming no reason, unless the stored report holds that card,\nby side, pupil and colour, stripped of its reason at the end of the season after the match (`bericht_grund_missing`). Each\nbut `bericht_meanwhile_changed` is asked again outside the transaction just before answering; a write of the report landing\nmid-press conflicts with this one, whose retry meets `bericht_meanwhile_changed`. Two first writes at once are two pages\nopened on no report: the later is refused.",
-        "operationId": "spielberichte_patch_spielbericht",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "spiel_id",
-            "required": true,
-            "schema": {
-              "pattern": "^[0-9a-fA-F]{24}$",
-              "title": "Spiel Id",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/FLSpielberichtPayload"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLSpielberichtAdminResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "AdminKey": []
-          }
-        ],
-        "summary": "Write one fixture's report as an administrator",
-        "tags": [
-          "spielberichte"
-        ]
-      }
-    },
     "/api/v0/spielberichte/{spiel_id}/bericht": {
       "get": {
         "description": "What the booked referee's report form reads.\n\nThe fixture, both clubs' live squads of the season, the pupils the stored report names outside them, and the stored\nreport, its remarks and card reasons included, or null.\n\nServed for a fixture still to come or called off too, whose page says why it takes no report, with both squads\nempty: the pupils the stored report names are then all in `named`. Once the fixture's season has ended,\n`completed` is true and the read is the report alone, both squads empty, which its referee writes no more.\nRefused\n`role_not_held` where the address holds no confirmed, live referee record, and `bericht_not_officiated` where the fixture\nis booked to none of its records; `document_not_found` for a fixture that does not exist.",
@@ -25986,7 +25901,7 @@
     },
     "/api/v0/spielberichte/{spiel_id}/verwaltung": {
       "get": {
-        "description": "One fixture's report as the editor's panel reads it, whole, with the state it reads in.\n\nBeside it the fixture and the pupils the report names, by name. Both clubs' live squads of the season only with\n`kader`, which the correction's form picks from: the panel reads no pupil the report does not name, so a fixture\nholding no report serves none. The report and its state are null where no report stands; `document_not_found` only for\na fixture that does not exist.",
+        "description": "One fixture's report as the editor's panel reads it, whole, with the state it reads in.\n\nBeside it the fixture and the pupils the report names, by name. The panel picks no pupil, so it reads no squad and\nno pupil the report does not name: a fixture holding no report serves none. The report and its state are null where\nno report stands; `document_not_found` only for a fixture that does not exist.",
         "operationId": "spielberichte_get_spielbericht_verwaltung",
         "parameters": [
           {
@@ -25997,18 +25912,6 @@
               "pattern": "^[0-9a-fA-F]{24}$",
               "title": "Spiel Id",
               "type": "string"
-            }
-          },
-          {
-            "description": "Serve both clubs' live squads of the season, for a form picking from them",
-            "in": "query",
-            "name": "kader",
-            "required": false,
-            "schema": {
-              "default": false,
-              "description": "Serve both clubs' live squads of the season, for a form picking from them",
-              "title": "Kader",
-              "type": "boolean"
             }
           }
         ],

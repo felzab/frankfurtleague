@@ -338,8 +338,8 @@ async def repoint_pupil_entries_in_session(
 
     The one place an erased pupil's entries are repointed. A line-up's entries (`services.py :: AUFSTELLUNGEN_FIELD`)
     are outside this update, so a write storing a line-up adds them to it, or a report keeps an erased pupil's id. The
-    report stands as the league's record of the match, its adoption with it: `bericht.version` counts the referee's and
-    the administrator's writes alone.
+    report stands as the league's record of the match, its adoption with it: `bericht.version` counts the referee's writes
+    alone.
     """
 
     # One update over both arrays, each through its own `$[<identifier>]` (the manual's

@@ -4943,9 +4943,7 @@ export const FLSpielberichtState = {
 } as const;
 
 /**
- * The administrator's panel, with the state the report reads in, null exactly where no block stands.
- *
- * Both squads empty unless the read asks `kader`, the correction's form; a write answers them always.
+ * The administrator's panel, with the state the report reads in, null exactly where no block stands, and both squads empty.
  */
 export interface FLSpielberichtAdminResponse {
   bericht: FLSpielberichtBericht | null;
@@ -4958,7 +4956,7 @@ export interface FLSpielberichtAdminResponse {
 }
 
 /**
- * One card as a write sends it: a caution names its reason unless the stored card's reason was stripped.
+ * One card as a write sends it: a caution names its reason (`find_grund_fehlt_refusal`).
  */
 export interface FLSpielberichtKartePayload {
   farbe: FLKartenFarbe;
@@ -4980,7 +4978,7 @@ export interface FLSpielberichtBerichtPayload {
 }
 
 /**
- * The whole `bericht` block, written wholesale by the referee's PUT and the administrator's PATCH alike.
+ * The whole `bericht` block, written wholesale by the referee's PUT.
  */
 export interface FLSpielberichtPayload {
   bericht: FLSpielberichtBerichtPayload;
@@ -6138,13 +6136,6 @@ export const SchiedsrichterGetSchiedsrichterOrder = {
 
 export type SpielberichteGetSpielberichteParams = {
   saison_id?: string | null;
-};
-
-export type SpielberichteGetSpielberichtVerwaltungParams = {
-  /**
-   * Serve both clubs' live squads of the season, for a form picking from them
-   */
-  kader?: boolean;
 };
 
 export type SpielbestaetigungenGetSpielbestaetigungenParams = {

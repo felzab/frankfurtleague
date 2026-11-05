@@ -27,7 +27,7 @@ export async function putSpielberichtAction(spielId: string, rawPayload: z.input
     try {
       await spielberichtePutSpielberichtBericht(id.data, validated.data);
     } catch (error) {
-      const refusal = mapSpielberichtRefusal(error, "schiedsrichter");
+      const refusal = mapSpielberichtRefusal(error);
       if (refusal !== null) return refusalResult(refusal);
       throw error;
     }

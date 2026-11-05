@@ -1,4 +1,3 @@
-from collections import Counter
 from collections.abc import Iterable, Mapping, Sequence
 from datetime import datetime
 from http import HTTPStatus
@@ -236,7 +235,7 @@ def ist_abgeschlossen(lage: BerichtLage) -> bool:
 
 
 def find_saison_beendet_refusal(lage: BerichtLage) -> WriteRefusal | None:
-    """`saison_past`: the referee writes while the fixture's season runs; the administrator's correction is not asked."""
+    """`saison_past`: the referee writes while the fixture's season runs."""
 
     if not ist_abgeschlossen(lage):
         return None
@@ -301,50 +300,38 @@ def find_nicht_im_kader_refusal(*, lage: BerichtLage, new: Mapping[FLSpielSeite,
     return None
 
 
-def find_grund_fehlt_refusal(*, payload: FLSpielberichtBerichtPayload, saved: Mapping[str, Any] | None) -> WriteRefusal | None:
-    """`bericht_grund_missing`: a caution names its reason unless the stored block holds it stripped, which a correction would otherwise invent.
+def find_grund_fehlt_refusal(*, payload: FLSpielberichtBerichtPayload) -> WriteRefusal | None:
+    """`bericht_grund_missing`: a caution names its reason.
 
-    A card has no id: the same side, pupil and colour is the same card, its minute correctable.
+    A stored caution whose reason the end of the season after the match stripped is never resent: only the referee
+    writes a report, and only while its season runs (`saison_past`).
     """
 
-    def schluessel(karte: Mapping[str, Any]) -> tuple[Any, ...]:
-        return karte["seite"], karte["spieler_id"], karte["farbe"]
+    if all(karte.farbe == "rot" or karte.grund is not None for karte in payload.karten):
+        return None
 
-    gestrippt = Counter(
-        schluessel(karte) for karte in ([] if saved is None else saved["karten"]) if karte["farbe"] != "rot" and karte["grund"] is None
+    return WriteRefusal(
+        error_code=Code.BERICHT_GRUND_MISSING,
+        status=HTTPStatus.UNPROCESSABLE_CONTENT,
+        # The list, a refusal's field being a literal: the form refuses the card itself before any press.
+        fields=(("bericht", "karten"),),
     )
-    for karte in payload.model_dump(context={"keep_oid": True})["karten"]:
-        if karte["farbe"] == "rot" or karte["grund"] is not None:
-            continue
-        if gestrippt[schluessel(karte)] > 0:
-            gestrippt[schluessel(karte)] -= 1
-            continue
-
-        return WriteRefusal(
-            error_code=Code.BERICHT_GRUND_MISSING,
-            status=HTTPStatus.UNPROCESSABLE_CONTENT,
-            # The list, a refusal's field being a literal: the form refuses the card itself before any press.
-            fields=(("bericht", "karten"),),
-        )
-
-    return None
 
 
 def judge_bericht(
     *,
     lage: BerichtLage,
     payload: FLSpielberichtBerichtPayload,
-    saved: Mapping[str, Any] | None,
     new: Mapping[FLSpielSeite, set[ObjectId]],
     today: str,
 ) -> None:
-    """Every refusal both writers of a report owe, in order."""
+    """Every refusal the report's write asks inside its transaction and again outside it, in order."""
 
     refuse(find_nicht_gespielt_refusal(datum=lage.spiel.get("datum"), today=today))
     refuse(find_abgesagt_refusal(sonderereignis=lage.spiel.get("sonderereignis")))
     refuse(find_elfmeter_in_der_gruppe_refusal(spiel_raw=lage.spiel, payload=payload))
     refuse(find_nicht_im_kader_refusal(lage=lage, new=new))
-    refuse(find_grund_fehlt_refusal(payload=payload, saved=saved))
+    refuse(find_grund_fehlt_refusal(payload=payload))
 
 
 def vorschlag_entspricht(vorschlag: FLSpielberichtVorschlag, spiel_raw: Mapping[str, Any]) -> bool:

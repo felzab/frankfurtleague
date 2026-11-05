@@ -70,7 +70,6 @@ export default async function SchiedsrichterSpielberichtPage({ params }: NextPag
     // Keyed by the stored report, so the refresh after a save draws the draft anew from what was saved.
     <SpielberichtForm
       key={String(read.bericht?.version ?? 0)}
-      leser="schiedsrichter"
       spielId={spiel.spiel_id}
       kontext={kontext}
       stored={read.bericht}

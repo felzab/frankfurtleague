@@ -293,7 +293,7 @@ async def put_spielbericht_bericht(
         refuse(find_nicht_geleitet_refusal(spiel_raw=lage.spiel, schiedsrichter_ids=eigene))
         refuse(find_saison_beendet_refusal(lage))
         refuse(find_bericht_stand_refusal(stand=bericht_data.bericht_stand, saved=block))
-        judge_bericht(lage=lage, payload=payload, saved=block, new=new, today=today)
+        judge_bericht(lage=lage, payload=payload, new=new, today=today)
 
         await anchor_the_pupils_named(spieler_collection=spieler_collection, spieler_ids=set().union(*new.values()), session=session)
         dokument = await write_bericht(
@@ -331,7 +331,7 @@ async def put_spielbericht_bericht(
             )
         )
         refuse(find_saison_beendet_refusal(current))
-        judge_bericht(lage=current, payload=payload, saved=block, new=new, today=today)
+        judge_bericht(lage=current, payload=payload, new=new, today=today)
 
         angelegt = saved is None or saved.get("bericht") is None
         view = {**compose_ansicht(lage, kader_offen=True, named=named, dokument=dokument), "completed": False}

@@ -2382,123 +2382,6 @@ export const SpielberichteGetSpielberichteQueryParams = zod.object({
 });
 
 /**
- * Write the whole report of one fixture as an administrator, replacing what stood, as the referee's own write does.
- *
- * Every write changing it raises its `version`, so a report adopted before reads `differing` until it is adopted
- * again, and a write changing nothing writes nothing. Who first wrote the report stays recorded; a report an
- * administrator writes first records an administrator, naming nobody.
- *
- * `bericht_stand` is the `version` of the report the page was served, null where none stood, as on the referee's
- * write.
- *
- * Refuses, in this order, each writing nothing: a fixture that does not exist (`document_not_found`); a `bericht_stand`
- * other than the version standing now, or than none where none stands (`bericht_meanwhile_changed`); one undated or whose day is
- * still to come (`bericht_not_played`); one called off or struck out (`bericht_abgesagt`); a shoot-out proposed on a
- * group-phase fixture (`bericht_elfmeter_in_the_gruppe`); a pupil newly named on a side outside that side's live squad of the season
- * (`bericht_not_in_kader`); and a yellow or second yellow card naming no reason, unless the stored report holds that card,
- * by side, pupil and colour, stripped of its reason at the end of the season after the match (`bericht_grund_missing`). Each
- * but `bericht_meanwhile_changed` is asked again outside the transaction just before answering; a write of the report landing
- * mid-press conflicts with this one, whose retry meets `bericht_meanwhile_changed`. Two first writes at once are two pages
- * opened on no report: the later is refused.
- * @summary Write one fixture's report as an administrator
- */
-export const spielberichtePatchSpielberichtPathSpielIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
-
-export const SpielberichtePatchSpielberichtParams = zod.object({
-  spiel_id: zod.string().regex(spielberichtePatchSpielberichtPathSpielIdRegExp),
-});
-
-export const spielberichtePatchSpielberichtBodyBerichtBemerkungenOneMax = 2000;
-
-export const spielberichtePatchSpielberichtBodyBerichtErgebnisVorschlagElfmeterschiessenOneTeam1Min = 0;
-
-export const spielberichtePatchSpielberichtBodyBerichtErgebnisVorschlagElfmeterschiessenOneTeam2Min = 0;
-
-export const spielberichtePatchSpielberichtBodyBerichtErgebnisVorschlagTeam1ToreOneMin = 0;
-
-export const spielberichtePatchSpielberichtBodyBerichtErgebnisVorschlagTeam2ToreOneMin = 0;
-
-export const spielberichtePatchSpielberichtBodyBerichtKartenItemMinuteRegExp = new RegExp("^[0-9]{1,3}(\\+[0-9]{1,2})?$");
-export const spielberichtePatchSpielberichtBodyBerichtKartenItemSpielerIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
-export const spielberichtePatchSpielberichtBodyBerichtKartenMax = 60;
-
-export const spielberichtePatchSpielberichtBodyBerichtTorschuetzenItemMinuteRegExp = new RegExp("^[0-9]{1,3}(\\+[0-9]{1,2})?$");
-export const spielberichtePatchSpielberichtBodyBerichtTorschuetzenItemSpielerIdOneRegExp = new RegExp("^[0-9a-fA-F]{24}$");
-export const spielberichtePatchSpielberichtBodyBerichtTorschuetzenMax = 60;
-
-export const SpielberichtePatchSpielberichtBody = zod
-  .object({
-    bericht: zod.object({
-      bemerkungen: zod.union([zod.string().min(1).max(spielberichtePatchSpielberichtBodyBerichtBemerkungenOneMax), zod.null()]),
-      ergebnis_vorschlag: zod
-        .object({
-          elfmeterschiessen: zod.union([
-            zod
-              .object({
-                team1: zod.int().min(spielberichtePatchSpielberichtBodyBerichtErgebnisVorschlagElfmeterschiessenOneTeam1Min),
-                team2: zod.int().min(spielberichtePatchSpielberichtBodyBerichtErgebnisVorschlagElfmeterschiessenOneTeam2Min),
-              })
-              .describe("The penalty shoot-out that settled a level knockout fixture: the side with more goals in it won."),
-            zod.null(),
-          ]),
-          sonderereignis: zod.union([zod.enum(["abgebrochen", "nichtantreten_team1", "nichtantreten_team2"]), zod.null()]),
-          team1_tore: zod.union([zod.int().min(spielberichtePatchSpielberichtBodyBerichtErgebnisVorschlagTeam1ToreOneMin), zod.null()]),
-          team2_tore: zod.union([zod.int().min(spielberichtePatchSpielberichtBodyBerichtErgebnisVorschlagTeam2ToreOneMin), zod.null()]),
-        })
-        .describe(
-          "The referee's proposed result, which only the administrator's own save applies.\n\nBoth counts null on a no-show alone: the save composes its goals from the season's forfeit, which typed goals\ncould never equal.",
-        ),
-      karten: zod
-        .array(
-          zod
-            .object({
-              farbe: zod.enum(["gelb", "gelb_rot", "rot"]),
-              grund: zod.union([
-                zod.enum([
-                  "foulspiel",
-                  "unsportlichkeit",
-                  "handspiel",
-                  "meckern",
-                  "spielverzoegerung",
-                  "wiederholtes_foulspiel",
-                  "grobes_foulspiel",
-                  "taetlichkeit",
-                  "beleidigung",
-                  "notbremse",
-                ]),
-                zod.null(),
-              ]),
-              minute: zod.string().regex(spielberichtePatchSpielberichtBodyBerichtKartenItemMinuteRegExp),
-              seite: zod.enum(["team1", "team2"]),
-              spieler_id: zod.string().regex(spielberichtePatchSpielberichtBodyBerichtKartenItemSpielerIdRegExp),
-            })
-            .describe("One card as a write sends it: a caution names its reason unless the stored card's reason was stripped."),
-        )
-        .max(spielberichtePatchSpielberichtBodyBerichtKartenMax),
-      torschuetzen: zod
-        .array(
-          zod
-            .object({
-              eigentor: zod.boolean(),
-              minute: zod.string().regex(spielberichtePatchSpielberichtBodyBerichtTorschuetzenItemMinuteRegExp),
-              seite: zod.enum(["team1", "team2"]),
-              spieler_id: zod.union([
-                zod.string().regex(spielberichtePatchSpielberichtBodyBerichtTorschuetzenItemSpielerIdOneRegExp),
-                zod.null(),
-              ]),
-            })
-            .describe(
-              "One goal. A null `spieler_id` is a scorer nobody named and nothing else: an erasure never nulls an entry, which would read as one.",
-            ),
-        )
-        .max(spielberichtePatchSpielberichtBodyBerichtTorschuetzenMax),
-    }),
-    bericht_stand: zod.union([zod.int(), zod.null()]),
-    version: zod.union([zod.int(), zod.null()]).optional(),
-  })
-  .describe("The whole `bericht` block, written wholesale by the referee's PUT and the administrator's PATCH alike.");
-
-/**
  * What the booked referee's report form reads.
  *
  * The fixture, both clubs' live squads of the season, the pupils the stored report names outside them, and the stored
@@ -2615,7 +2498,7 @@ export const SpielberichtePutSpielberichtBerichtBody = zod
               seite: zod.enum(["team1", "team2"]),
               spieler_id: zod.string().regex(spielberichtePutSpielberichtBerichtBodyBerichtKartenItemSpielerIdRegExp),
             })
-            .describe("One card as a write sends it: a caution names its reason unless the stored card's reason was stripped."),
+            .describe("One card as a write sends it: a caution names its reason (`find_grund_fehlt_refusal`)."),
         )
         .max(spielberichtePutSpielberichtBerichtBodyBerichtKartenMax),
       torschuetzen: zod
@@ -2639,30 +2522,20 @@ export const SpielberichtePutSpielberichtBerichtBody = zod
     bericht_stand: zod.union([zod.int(), zod.null()]),
     version: zod.union([zod.int(), zod.null()]).optional(),
   })
-  .describe("The whole `bericht` block, written wholesale by the referee's PUT and the administrator's PATCH alike.");
+  .describe("The whole `bericht` block, written wholesale by the referee's PUT.");
 
 /**
  * One fixture's report as the editor's panel reads it, whole, with the state it reads in.
  *
- * Beside it the fixture and the pupils the report names, by name. Both clubs' live squads of the season only with
- * `kader`, which the correction's form picks from: the panel reads no pupil the report does not name, so a fixture
- * holding no report serves none. The report and its state are null where no report stands; `document_not_found` only for
- * a fixture that does not exist.
+ * Beside it the fixture and the pupils the report names, by name. The panel picks no pupil, so it reads no squad and
+ * no pupil the report does not name: a fixture holding no report serves none. The report and its state are null where
+ * no report stands; `document_not_found` only for a fixture that does not exist.
  * @summary One fixture's report, whole, for an administrator
  */
 export const spielberichteGetSpielberichtVerwaltungPathSpielIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
 
 export const SpielberichteGetSpielberichtVerwaltungParams = zod.object({
   spiel_id: zod.string().regex(spielberichteGetSpielberichtVerwaltungPathSpielIdRegExp),
-});
-
-export const spielberichteGetSpielberichtVerwaltungQueryKaderDefault = false;
-
-export const SpielberichteGetSpielberichtVerwaltungQueryParams = zod.object({
-  kader: zod
-    .boolean()
-    .default(spielberichteGetSpielberichtVerwaltungQueryKaderDefault)
-    .describe("Serve both clubs' live squads of the season, for a form picking from them"),
 });
 
 /**
