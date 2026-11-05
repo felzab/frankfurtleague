@@ -89,7 +89,7 @@ class FLSpielberichtKarte(BaseModel):
 
 
 class FLSpielberichtKartePayload(FLSpielberichtKarte):
-    """One card as a write sends it: a caution names its reason (`find_grund_fehlt_refusal`)."""
+    """One card as a write sends it: a caution names its reason (`find_card_reason_missing_refusal`)."""
 
     model_config = ConfigDict(extra="forbid")
 

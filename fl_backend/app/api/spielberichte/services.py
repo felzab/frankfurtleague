@@ -299,7 +299,7 @@ def find_nicht_im_kader_refusal(*, lage: BerichtLage, new: Mapping[FLSpielSeite,
     return None
 
 
-def find_grund_fehlt_refusal(*, payload: FLSpielberichtBerichtPayload) -> WriteRefusal | None:
+def find_card_reason_missing_refusal(*, payload: FLSpielberichtBerichtPayload) -> WriteRefusal | None:
     """`bericht_grund_missing`: a caution names its reason.
 
     A stored caution whose reason the end of the season after the match stripped is never resent: only the referee
@@ -330,7 +330,7 @@ def judge_bericht(
     refuse(find_abgesagt_refusal(sonderereignis=lage.spiel.get("sonderereignis")))
     refuse(find_elfmeter_in_der_gruppe_refusal(spiel_raw=lage.spiel, payload=payload))
     refuse(find_nicht_im_kader_refusal(lage=lage, new=new))
-    refuse(find_grund_fehlt_refusal(payload=payload))
+    refuse(find_card_reason_missing_refusal(payload=payload))
 
 
 def vorschlag_entspricht(vorschlag: FLSpielberichtVorschlag, spiel_raw: Mapping[str, Any]) -> bool:

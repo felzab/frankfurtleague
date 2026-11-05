@@ -18,7 +18,7 @@ from app.api.spielberichte.services import (
     compose_bericht_update,
     compose_neuer_bericht,
     find_abgesagt_refusal,
-    find_grund_fehlt_refusal,
+    find_card_reason_missing_refusal,
     find_nicht_geleitet_refusal,
     find_nicht_gespielt_refusal,
     find_nicht_im_kader_refusal,
@@ -97,8 +97,8 @@ def refused_with(code: str, refusal: Any) -> bool:
     return refusal is not None and refusal.error_code == code
 
 
-def karte(farbe: str, grund: str | None) -> dict[str, Any]:
-    return {"seite": "team1", "spieler_id": LIVE1, "minute": "12", "farbe": farbe, "grund": grund}
+def karte(farbe: str, reason: str | None) -> dict[str, Any]:
+    return {"seite": "team1", "spieler_id": LIVE1, "minute": "12", "farbe": farbe, "grund": reason}
 
 
 def mit_karten(*karten: dict[str, Any]) -> FLSpielberichtBerichtPayload:
@@ -108,13 +108,13 @@ def mit_karten(*karten: dict[str, Any]) -> FLSpielberichtBerichtPayload:
 class TestACautionOwesItsReason:
     @pytest.mark.parametrize("farbe", ["gelb", "gelb_rot"])
     def test_a_caution_without_a_reason_is_refused_at_its_box(self, farbe: str):
-        refusal = find_grund_fehlt_refusal(payload=mit_karten(karte("rot", None), karte(farbe, None)))
+        refusal = find_card_reason_missing_refusal(payload=mit_karten(karte("rot", None), karte(farbe, None)))
 
         assert refused_with(Code.BERICHT_GRUND_MISSING, refusal)
         assert refusal is not None and refusal.fields == (("bericht", "karten"),)
 
     def test_a_red_card_may_stand_without_one(self):
-        assert find_grund_fehlt_refusal(payload=mit_karten(karte("rot", None))) is None
+        assert find_card_reason_missing_refusal(payload=mit_karten(karte("rot", None))) is None
 
     def test_a_stored_caution_reads_without_one(self):
         """A season's end strips every card's reason, and the reads serve the report after it."""
