@@ -51,8 +51,11 @@ export type MenuProps = {
   label: Copy;
   /** The kit control that opens it. */
   trigger: ReactElement;
-  /** Plain text above the entries, such as a person's name and address: data, not catalogue text. */
-  head?: { name: RecordText; detail: RecordText };
+  /**
+   * Plain text above the entries, such as a person's name over their address, or the address alone where no name is
+   * stored: data, not catalogue text. The detail is shown whole, wrapping where the menu is narrower than it.
+   */
+  head?: { name?: RecordText; detail: RecordText };
   /** The entries, a separator between two groups. */
   groups: ReadonlyArray<ReadonlyArray<MenuEntry>>;
   /** Where the menu opens on desktop: under its trigger, or above it for a trigger at the rail's foot. */
@@ -270,8 +273,8 @@ function Group({ entries, size, onOpenSubmenu }: { entries: ReadonlyArray<MenuEn
 function Head({ head, size }: { head: NonNullable<MenuProps["head"]>; size: Size }) {
   return (
     <div className={size === "desktop" ? "grid px-3 py-2 text-sm" : "grid px-3 pt-3 pb-2 text-base"}>
-      <span className="truncate font-semibold">{head.name.record}</span>
-      <span className="truncate font-numeric text-xs text-fg-muted">{head.detail.record}</span>
+      {head.name !== undefined && <span className="truncate font-semibold">{head.name.record}</span>}
+      <span className="font-numeric text-xs wrap-anywhere text-fg-muted">{head.detail.record}</span>
     </div>
   );
 }
