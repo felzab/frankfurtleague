@@ -72,6 +72,7 @@ from app.api.teams.services import (
     compose_bestaetigungen_nach,
     compose_kontakt_bestaetigung,
     compose_kontakte_herkunft,
+    find_austritt_refusal,
     find_club_entry_refusal,
     find_gruppe_move_refusal,
     find_kontakt_seat_barred_refusal,
@@ -543,7 +544,7 @@ async def patch_saison_team(
         existing_raw = await pull_one_from_db(
             collection=saison_teams_collection,
             db_filter={"team_id": team_id, "saison_id": saison_id},
-            projection=["gruppe", "name", "shorthand"],
+            projection=["gruppe", "name", "shorthand", "austritt"],
             session=session,
         )
 
@@ -555,6 +556,17 @@ async def patch_saison_team(
         # Every write, an exit record included: a finished season's table and podium are read off these rows,
         # and an exit recorded now would move places its fixtures can no longer be saved to answer.
         refuse(find_saison_past_refusal(saison_status=str(saison_raw["status"])))
+
+        # On the anchored season's stored start, so a start moved under this write conflicts and the retry judges the
+        # exit against the date it left.
+        austritt = saison_team_data.austritt
+        refuse(
+            find_austritt_refusal(
+                proposed=None if austritt is None else austritt.model_dump(mode="json"),
+                stored=existing_raw.get("austritt"),
+                start_date=str(saison_raw["start_date"]),
+            )
+        )
 
         # Only a CHANGE is judged: recording an austritt writes the same row without moving anyone, so two
         # austritte contend only on the season's anchor above, which costs one retry.
@@ -888,7 +900,7 @@ async def replace_saison_team(
             collection=saison_teams_collection,
             db_filter={"saison_id": saison_id, "team_id": team_id},
             # `austritt` cleared: left standing it marks the INCOMING club withdrawn to
-            # `swap_fields_disqualified` and `_may_hold_a_platz`; the exit survives in the logged pre-image. The
+            # `find_eligibility_refusal` and `_may_hold_a_platz`; the exit survives in the logged pre-image. The
             # colour, the contacts and their links leave with the OUTGOING school.
             update={"$set": {**incoming_side, "austritt": None, "trikot_farbe": None, "kontakte": None, "confirmations": None}},
             session=session,

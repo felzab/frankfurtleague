@@ -204,6 +204,40 @@ class TestRecordingAnExitFromTheSeason:
         assert code == Code.SAISON_PAST
         assert after == before, "a refused write changed the row"
 
+    def test_an_exit_dated_before_the_season_starts_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
+        """Before the start a departed club is replaced: an exit dated earlier would leave it on fixtures the group swap rewrites."""
+
+        async def body(database: AsyncDatabase) -> Any:
+            before = await stored_row(database)
+            with pytest.raises(APIError) as refused:
+                await call_patch(database, austritt={**EXIT, "datum": "2025-12-31"})
+
+            return refused.value, before, await stored_row(database)
+
+        refusal, before, after = on_a_season(mongo_replica_set_url, body)
+
+        assert (refusal.error_code, refusal.fields, refusal.bounds) == (
+            Code.AUSTRITT_BEFORE_SAISON_START,
+            (("austritt", "datum"),),
+            {"earliest": "2026-01-01"},
+        )
+        assert after == before, "a refused write changed the row"
+
+    def test_an_early_exit_stored_before_the_rule_is_resubmitted_unchanged(self, mongo_replica_set_url: str):
+        """Every save replaces the exit wholesale, so refusing a stored one unchanged would bar the row's kit colour and group for good."""
+
+        early = {**EXIT, "datum": "2025-12-31"}
+
+        async def body(database: AsyncDatabase) -> Any:
+            await database[Collection.SAISON_TEAMS].update_one({"saison_id": SAISON_ID, "team_id": ADLER}, {"$set": {"austritt": early}})
+            await call_patch(database, austritt=dict(early), trikot_farbe="rot")
+
+            return await stored_row(database)
+
+        row = on_a_season(mongo_replica_set_url, body)
+
+        assert (row["austritt"], row["trikot_farbe"]) == (early, "rot")
+
 
 class TestMovingAClubBetweenGroups:
     def test_the_move_lands_on_the_row(self, mongo_replica_set_url: str):

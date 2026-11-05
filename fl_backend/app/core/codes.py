@@ -284,9 +284,9 @@ class Code(StrEnum):
     # decides is none: the person's pick is what is refused, so a 422 naming both boxes.
     SWAP_NOT_A_SWAP = auto()
     SWAP_SAISON_STARTED = auto()
-    SWAP_SPIELTAG_CLASH = auto()
-    # FORWARDS ONLY, exactly as `eligibility_disqualified` is: the past is left alone.
-    SWAP_FIELDS_DISQUALIFIED = auto()
+    # An exit dated before the season starts: before the start a club out of the season is replaced, so no fixture
+    # of an unstarted season, which the swap alone rewrites, fields a departed club.
+    AUSTRITT_BEFORE_SAISON_START = auto()
     PAYLOAD_REFUSED = auto()
     # A body no field could be read from: malformed syntax, RFC 9110's 400, never a refused payload's 422.
     BODY_UNREADABLE = auto()

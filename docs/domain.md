@@ -206,7 +206,9 @@ start; after a match it would reopen what the start locks closed.
   round may not configure that award level (`rules_forfeit_unentschieden_in_a_knockout`) — a drawn forfeit would leave the round with
   nobody to advance.
 - **A club leaves one season, never the league.** An `austritt` record says which of the two routes out it
-  took, and the club's own document is untouched by it.
+  took, and the club's own document is untouched by it. It takes effect on the season's start or later
+  (`austritt_before_saison_start`): before the start a club out of the season is replaced, so the group swap,
+  which the start locks, never fields a departed club.
 
 ---
 
@@ -306,7 +308,7 @@ no later feature can come to depend on a flag.
 - **One venue or referee claimed by two fixtures under four hours apart.** `spiel_double_booked` refuses only a claim
   a save newly makes. A lifted no-show reclaiming its slot is reported, because which fixture moves is a
   competition call.
-- **A Spieltag on which a club already stands twice.** The swap, `spieltag_occupied` and `spieltag_occupied_by_the_resolution`
+- **A Spieltag on which a club already stands twice.** `spieltag_occupied` and `spieltag_occupied_by_the_resolution`
   refuse only a pair the write would create, since refusing over a standing fault would block its repair;
   each standing appearance is reported.
 - **A departed club holding drawn fixtures.** It keeps its row in its group and its opponents need a fixture to

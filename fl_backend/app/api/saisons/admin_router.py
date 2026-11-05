@@ -68,12 +68,11 @@ from app.api.saisons.services import (
 from app.api.saisons.spielplan import EnteredTeam, draw_spielplan
 from app.api.sperrliste.lookup import BanList, BanListLookup, barred_addresses
 from app.api.spielberichte.crud import anchor_the_season_reported_in, count_eingereichte_berichte
-from app.api.spiele.schemas import KNOCKOUT_PHASES, FLSpielListAdapter
+from app.api.spiele.schemas import FLSpielListAdapter
 from app.api.teams.services import (
     TAKEN_PLACE_FIELDS,
     find_gruppe_swap_refusal,
     find_swap_pair_refusal,
-    fixtures_newly_fielding_a_departed_club,
     has_taken_place,
 )
 from app.core.codes import Code
@@ -125,48 +124,6 @@ router = APIRouter(
 
 # No `tore`: goals belong to whoever scored them, and a swap runs only on fixtures none of which has taken place.
 SWAPPED_SIDE_KEYS: tuple[str, ...] = ("team_id", "name", "shorthand")
-
-
-def _spieltag_clashes(
-    *,
-    team_ids: Sequence[Any],
-    gruppenphase_spiele: Sequence[Mapping[str, Any]],
-    knockout_spiele: Sequence[Mapping[str, Any]],
-) -> int:
-    """How many Spieltage would double one of these clubs once they exchange (`swap_spieltag_clash`).
-
-    A bijection over the Gruppenphase, so afterwards a club stands in its OWN knockout fixtures plus
-    the OTHER's group ones.
-    """
-
-    other_of = {team_ids[0]: team_ids[1], team_ids[1]: team_ids[0]}
-
-    # Split by whether the rewrite moves the fixture: a group side becomes the other club's and a
-    # bracket side stays put, which is the whole arithmetic below.
-    moved: dict[tuple[Any, Any], int] = {}
-    fixed: dict[tuple[Any, Any], int] = {}
-
-    for spiele, counted in ((gruppenphase_spiele, moved), (knockout_spiele, fixed)):
-        for spiel in spiele:
-            spieltag_id = spiel.get("spieltag_id")
-            if spieltag_id is None:
-                continue
-            for slot in ("team1", "team2"):
-                occupant = (spiel.get(slot) or {}).get("team_id")
-                if occupant in other_of:
-                    counted[(occupant, spieltag_id)] = counted.get((occupant, spieltag_id), 0) + 1
-
-    offending: set[Any] = set()
-    for club in team_ids:
-        other = other_of[club]
-        for spieltag_id in {day for held, day in fixed if held == club} | {day for held, day in moved if held == other}:
-            before = fixed.get((club, spieltag_id), 0) + moved.get((club, spieltag_id), 0)
-            after = fixed.get((club, spieltag_id), 0) + moved.get((other, spieltag_id), 0)
-            # Only a Spieltag the exchange BREAKS, never one already broken.
-            if after > 1 and before <= 1:
-                offending.add(spieltag_id)
-
-    return len(offending)
 
 
 async def _rewrite_gruppenphase_sides(
@@ -643,13 +600,10 @@ async def swap_gruppen(
         rows = await pull_many_from_db(
             collection=saison_teams_collection,
             db_filter={"saison_id": saison_id, "team_id": {"$in": both_ids}},
-            projection=["team_id", "gruppe", "austritt"],
+            projection=["team_id", "gruppe"],
             session=session,
         )
         gruppe_of = {row["team_id"]: row["gruppe"] for row in rows}
-
-        # The same rows as the groups, so `swap_fields_disqualified` cannot judge against a stale record.
-        departed_since = {row["team_id"]: (row.get("austritt") or {}).get("datum") for row in rows}
 
         saison_raw = await pull_one_from_db(
             collection=saisons_collection, db_filter={"_id": saison_id}, projection={"status": 1, "start_date": 1}, session=session
@@ -659,7 +613,7 @@ async def swap_gruppen(
         # judgement conflicts and the retry judges the season it left.
         await anchor_in_db(collection=saisons_collection, db_filter={"_id": saison_id}, session=session)
 
-        # The fixtures the rewrite moves, read once for the refusals below too, so the two cannot disagree.
+        # The fixtures the rewrite moves, read once for the refusal below too, so the two cannot disagree.
         gruppenphase_spiele = await pull_many_from_db(
             collection=spiele_collection,
             db_filter={
@@ -667,15 +621,7 @@ async def swap_gruppen(
                 "saison_phase": "gruppenphase",
                 "$or": [{"team1.team_id": {"$in": both_ids}}, {"team2.team_id": {"$in": both_ids}}],
             },
-            projection=["spieltag_id", "datum", "team1.team_id", "team2.team_id", *TAKEN_PLACE_FIELDS],
-            session=session,
-        )
-
-        # The bracket's fixtures stay with the club holding them, so they are read for the clash count alone.
-        knockout_spiele = await pull_many_from_db(
-            collection=spiele_collection,
-            db_filter={"saison_id": saison_id, "saison_phase": {"$in": list(KNOCKOUT_PHASES)}},
-            projection=["spieltag_id", "team1.team_id", "team2.team_id"],
+            projection=["team1.team_id", "team2.team_id", *TAKEN_PLACE_FIELDS],
             session=session,
         )
 
@@ -686,17 +632,6 @@ async def swap_gruppen(
                 saison_status=str(saison_raw["status"]),
                 started=has_started(start_date=str(saison_raw["start_date"]), today=today),
                 taken_place=any(has_taken_place(spiel) for spiel in gruppenphase_spiele),
-                clashing_spieltage=_spieltag_clashes(
-                    team_ids=both_ids,
-                    gruppenphase_spiele=gruppenphase_spiele,
-                    knockout_spiele=knockout_spiele,
-                ),
-                departed_fixtures=fixtures_newly_fielding_a_departed_club(
-                    team1_id=swap_data.team1_id,
-                    team2_id=swap_data.team2_id,
-                    departed_since=departed_since,
-                    gruppenphase_spiele=gruppenphase_spiele,
-                ),
             )
         )
 
