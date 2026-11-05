@@ -26,15 +26,17 @@ export const buttonLook = tv({
       link: "",
     },
   },
-  // Under the pointer a look lays the one hover layer over its fill (`bg-layer`, 12 % of its own words' colour), so
-  // the step shows on the page, a card, a card's head and an overlay alike, and over a row's own layer. A press takes
-  // the hover's look, so under a mouse the two are one state and a touch, which never hovers, still answers the
-  // press: React Aria's `data-pressed` on its button, `:active` on an anchor.
+  // Under the pointer every look but the quiet one lays the one hover layer over its fill (`bg-layer`, 12 % of its own
+  // words' colour), so the step shows on the page, a card, a card's head and an overlay alike, and over a row's own
+  // layer. A press takes the hover's look, so under a mouse the two are one state and a touch, which never hovers,
+  // still answers the press: React Aria's `data-pressed` on its button, `:active` on an anchor.
   compoundVariants: [
     { look: ["primary", "secondary", "danger", "icon"], host: "aria", class: "data-hovered:bg-layer data-pressed:bg-layer" },
     { look: ["primary", "secondary", "icon"], host: "link", class: "hover:bg-layer active:bg-layer" },
-    { look: "quiet", host: "aria", class: "data-hovered:bg-bg-hover data-hovered:text-fg data-pressed:bg-bg-hover data-pressed:text-fg" },
-    { look: "quiet", host: "link", class: "hover:bg-bg-hover hover:text-fg active:bg-bg-hover active:text-fg" },
+    // A quiet act is a button, so it takes no underline, which marks a link alone, and its words alone answer: they
+    // take their full colour, as a plain button and a text button do (Apple's HIG, Material).
+    { look: "quiet", host: "aria", class: "data-hovered:text-fg data-pressed:text-fg" },
+    { look: "quiet", host: "link", class: "hover:text-fg active:text-fg" },
   ],
 });
 
