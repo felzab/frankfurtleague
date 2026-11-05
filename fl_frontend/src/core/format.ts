@@ -54,7 +54,7 @@ export const dayIn = (instant: Date): CalendarDay => ISO_DAY.format(instant) as 
  * The day `years` after `day`, on the Gregorian calendar of `@internationalized/date`: the same month and day, or the
  * month's last day where that year holds no such day, so 29 February moves to 28 February.
  */
-export const yearsLater = (day: CalendarDay, years: number): CalendarDay => parseDate(day).add({ years }).toString() as CalendarDay;
+const yearsLater = (day: CalendarDay, years: number): CalendarDay => parseDate(day).add({ years }).toString() as CalendarDay;
 
 /**
  * The latest birthdate `years` old on `today`: the same day that many years back, the month's last day where that year
