@@ -143,7 +143,7 @@ async def a_league_holding_their_images(database: AsyncDatabase, client: AsyncMo
         ]
     )
     for change in (TO_THEM, STARTED_BY_THEM):
-        await patched(database, Collection.ADDRESS_CHANGES, change, compose_end_update(art="discarded", now=GRANTED_AT))
+        await patched(database, Collection.ADDRESS_CHANGES, change, compose_end_update(kind="discarded", now=GRANTED_AT))
     # A grant asked for them and one they asked for, each decided since, which removes it with its image.
     await database[Collection.GRANT_APPROVAL_REQUESTS].insert_many(
         [

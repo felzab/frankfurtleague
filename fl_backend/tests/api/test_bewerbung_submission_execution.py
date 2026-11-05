@@ -329,7 +329,7 @@ class TestWhatTheCreateOwes:
                 "key": f"{stamm}/confirmation/stellvertretung",
                 "an": KONTAKTE["stellvertretung"]["email"],
                 "data": {
-                    "art": "bewerbung_confirmation",
+                    "kind": "bewerbung_confirmation",
                     "saison_id": SAISON_ID,
                     "schule": EXISTING_NAME,
                     "rollen": ["stellvertretung"],
@@ -340,7 +340,7 @@ class TestWhatTheCreateOwes:
                 "key": f"{stamm}/confirmation/trainer",
                 "an": KONTAKTE["trainer"]["email"],
                 "data": {
-                    "art": "bewerbung_confirmation",
+                    "kind": "bewerbung_confirmation",
                     "saison_id": SAISON_ID,
                     "schule": EXISTING_NAME,
                     "rollen": ["trainer"],
@@ -351,7 +351,7 @@ class TestWhatTheCreateOwes:
                 "key": f"{stamm}/received",
                 "an": KONTAKTE["ansprechperson"]["email"],
                 "data": {
-                    "art": "bewerbung_received",
+                    "kind": "bewerbung_received",
                     "saison_id": SAISON_ID,
                     "rollen": ["ansprechperson"],
                     "pending": [

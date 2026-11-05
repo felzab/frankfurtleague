@@ -516,7 +516,7 @@ export interface FLAccountErasureBewerbung {
 }
 
 export const FLAccountErasureDataValue = {
-  art: "account_erasure",
+  kind: "account_erasure",
 } as const;
 export type FLAccountErasureData = typeof FLAccountErasureDataValue;
 
@@ -889,7 +889,7 @@ export interface FLAddressChangeApprovalResponse {
  * The new mailbox's notice that a confirmed change did not take effect: never why, nor the address on file.
  */
 export const FLAddressChangeDiscardedDataValue = {
-  art: "address_change_discarded",
+  kind: "address_change_discarded",
 } as const;
 export type FLAddressChangeDiscardedData = typeof FLAddressChangeDiscardedDataValue;
 
@@ -897,14 +897,14 @@ export type FLAddressChangeDiscardedData = typeof FLAddressChangeDiscardedDataVa
  * The replaced address's notice that the change took effect.
  */
 export interface FLAddressChangeEffectiveData {
-  art: "address_change_effective";
   instant: string;
+  kind: "address_change_effective";
   vorname: string | null;
 }
 
-export type FLAddressChangeEndArt = (typeof FLAddressChangeEndArt)[keyof typeof FLAddressChangeEndArt];
+export type FLAddressChangeEndKind = (typeof FLAddressChangeEndKind)[keyof typeof FLAddressChangeEndKind];
 
-export const FLAddressChangeEndArt = {
+export const FLAddressChangeEndKind = {
   effective: "effective",
   declined: "declined",
   stopped: "stopped",
@@ -922,7 +922,7 @@ export interface FLAddressChangeIdResponse {
  * The new mailbox's link to confirm an address change, minted at the hand-out into the change's `token_hashes`.
  */
 export interface FLAddressChangeLinkData {
-  art: "address_change_link";
+  kind: "address_change_link";
   valid_until: string;
   way: FLAddressChangeWay;
 }
@@ -964,7 +964,7 @@ export interface FLAddressChangeMovesResponse {
  * it confirmed, stops the change; on the lost-mailbox way it stops the change.
  */
 export interface FLAddressChangeNoticeData {
-  art: "address_change_notice";
+  kind: "address_change_notice";
   valid_until: string;
   vorname: string | null;
   way: FLAddressChangeWay;
@@ -1001,9 +1001,9 @@ export const FLAddressChangeViewEndedSide = {
  * What either link opens once its change ended, for as long as its record is kept.
  */
 export interface FLAddressChangeViewEnded {
-  art: FLAddressChangeEndArt;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   ended_on: string;
+  kind: FLAddressChangeEndKind;
   released_on: string | null;
   side: FLAddressChangeViewEndedSide;
   state: "ended";
@@ -1185,9 +1185,9 @@ export interface FLAustrittPayload {
  * The ban's own notice, the one mail a ban does not stop (`app/api/outbox/services.py :: UNBARRED`).
  */
 export interface FLBanData {
-  art: "ban";
   barred_until_saison_id: string;
   grund: string;
+  kind: "ban";
 }
 
 /**
@@ -1390,8 +1390,8 @@ export interface FLBewerbung {
  * A decline, to one person of the application, with the administrator's reason verbatim.
  */
 export interface FLBewerbungAbsageData {
-  art: "bewerbung_absage";
   grund: string;
+  kind: "bewerbung_absage";
   /** @minItems 1 */
   rollen: FLKontaktRolle[];
   saison_id: string;
@@ -1561,7 +1561,7 @@ export interface FLBewerbungPerson {
  * The fourteen-day deletion notice, to the submitter, naming who never confirmed; owed in the erasure's own write.
  */
 export interface FLBewerbungErasureData {
-  art: "bewerbung_erasure";
+  kind: "bewerbung_erasure";
   pending: FLBewerbungPerson[];
   /** @minItems 1 */
   rollen: FLKontaktRolle[];
@@ -1666,9 +1666,9 @@ export interface FLBewerbungKuerzelResponse {
   taken: boolean;
 }
 
-export type FLBewerbungLinkDataArt = (typeof FLBewerbungLinkDataArt)[keyof typeof FLBewerbungLinkDataArt];
+export type FLBewerbungLinkDataKind = (typeof FLBewerbungLinkDataKind)[keyof typeof FLBewerbungLinkDataKind];
 
-export const FLBewerbungLinkDataArt = {
+export const FLBewerbungLinkDataKind = {
   bewerbung_confirmation: "bewerbung_confirmation",
   bewerbung_reminder: "bewerbung_reminder",
 } as const;
@@ -1679,9 +1679,9 @@ export const FLBewerbungLinkDataArt = {
  * `rollen` are every seat the link answers, two where the Trainer holds a second; the reminder's link joins the first.
  */
 export interface FLBewerbungLinkData {
-  art: FLBewerbungLinkDataArt;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   frist: string;
+  kind: FLBewerbungLinkDataKind;
   /** @minItems 1 */
   rollen: FLKontaktRolle[];
   saison_id: string;
@@ -1701,10 +1701,10 @@ export interface FLBewerbungNoWindowResponse {
  * A contact's Widerspruch, to the submitter, naming the person who refused: it stands as the deletion notice too.
  */
 export interface FLBewerbungObjectionData {
-  art: "bewerbung_objection";
   declined: FLBewerbungPerson;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   frist: string;
+  kind: "bewerbung_objection";
   /** @minItems 1 */
   rollen: FLKontaktRolle[];
   saison_id: string;
@@ -1714,9 +1714,9 @@ export interface FLBewerbungObjectionData {
  * The submitter's receipt, which carries their own link: the Ansprechperson's seats and every other person still to answer.
  */
 export interface FLBewerbungReceivedData {
-  art: "bewerbung_received";
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   frist: string;
+  kind: "bewerbung_received";
   pending: FLBewerbungPerson[];
   /** @minItems 1 */
   rollen: FLKontaktRolle[];
@@ -1828,8 +1828,8 @@ export interface FLBewerbungWindowResponse {
  * An acceptance, to one person of the application, naming the seats they were entered for.
  */
 export interface FLBewerbungZusageData {
-  art: "bewerbung_zusage";
   gruppe: FLGruppenNames;
+  kind: "bewerbung_zusage";
   /** @minItems 1 */
   rollen: FLKontaktRolle[];
   saison_id: string;
@@ -2540,12 +2540,12 @@ export interface FLGrantSnapshot {
  * A change to a grant, or a grant or promotion asked for, as the notice to each administrator states it.
  */
 export interface FLGrantData {
-  art: "grant";
   author: FLGrantDataAuthor;
   before: FLGrantSnapshot | null;
   change: FLGrantDataChange;
   changed_at: string | null;
   changed_by: string | null;
+  kind: "grant";
   now: FLGrantSnapshot | null;
   withheld: FLGrantDataWithheld;
 }
@@ -2600,7 +2600,7 @@ export interface FLGrantsListResponse {
  * A team's registration link, to one confirmed contact seat, for the pupils to register through.
  */
 export interface FLInvitationData {
-  art: "invitation";
+  kind: "invitation";
   saison_id: string;
   team: string;
 }
@@ -3015,9 +3015,9 @@ export interface FLKontaktKenntnisnahmePayload {
  * One person an administrator seated on a team's season row, asked to confirm: no name, the address being unconfirmed.
  */
 export interface FLKontaktLinkData {
-  art: "kontakt_confirmation";
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   frist: string;
+  kind: "kontakt_confirmation";
   /** @minItems 1 */
   rollen: FLKontaktRolle[];
   row: FLKontaktRow;
@@ -3226,13 +3226,13 @@ export interface FLOutboxEventResponse {
 }
 
 export const FLSignInCodeDataValue = {
-  art: "sign_in_code",
+  kind: "sign_in_code",
 } as const;
 export type FLSignInCodeData = typeof FLSignInCodeDataValue;
 
-export type FLPasskeyDataArt = (typeof FLPasskeyDataArt)[keyof typeof FLPasskeyDataArt];
+export type FLPasskeyDataKind = (typeof FLPasskeyDataKind)[keyof typeof FLPasskeyDataKind];
 
-export const FLPasskeyDataArt = {
+export const FLPasskeyDataKind = {
   passkey_added: "passkey_added",
   passkey_erased: "passkey_erased",
 } as const;
@@ -3243,17 +3243,17 @@ export interface FLPasskeyData {
    * @pattern ^/[a-z0-9/_-]*$
    */
   account: string;
-  art: FLPasskeyDataArt;
   instant: string;
+  kind: FLPasskeyDataKind;
 }
 
 /**
  * A referee's confirmation link, owed by their entry, a corrected address, a re-send or their return.
  */
 export interface FLSchiedsrichterConfirmationData {
-  art: "schiedsrichter_confirmation";
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   frist: string;
+  kind: "schiedsrichter_confirmation";
 }
 
 /**
@@ -3269,9 +3269,9 @@ export interface FLSpielMailAnsetzung {
   uhrzeit: string;
 }
 
-export type FLSpielRequestDataArt = (typeof FLSpielRequestDataArt)[keyof typeof FLSpielRequestDataArt];
+export type FLSpielRequestDataKind = (typeof FLSpielRequestDataKind)[keyof typeof FLSpielRequestDataKind];
 
-export const FLSpielRequestDataArt = {
+export const FLSpielRequestDataKind = {
   spiel_request: "spiel_request",
   spiel_reminder: "spiel_reminder",
 } as const;
@@ -3281,9 +3281,9 @@ export const FLSpielRequestDataArt = {
  */
 export interface FLSpielRequestData {
   ansetzung: FLSpielMailAnsetzung;
-  art: FLSpielRequestDataArt;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   frist: string;
+  kind: FLSpielRequestDataKind;
   team: string;
 }
 
@@ -3292,7 +3292,7 @@ export interface FLSpielRequestData {
  */
 export interface FLSpielEinteilungData {
   ansetzung: FLSpielMailAnsetzung;
-  art: "spiel_einteilung";
+  kind: "spiel_einteilung";
 }
 
 /**
@@ -3307,9 +3307,9 @@ export interface FLSpielMailAppointment {
   uhrzeit: string;
 }
 
-export type FLSpielNoticeDataArt = (typeof FLSpielNoticeDataArt)[keyof typeof FLSpielNoticeDataArt];
+export type FLSpielNoticeDataKind = (typeof FLSpielNoticeDataKind)[keyof typeof FLSpielNoticeDataKind];
 
-export const FLSpielNoticeDataArt = {
+export const FLSpielNoticeDataKind = {
   spiel_new_scheduled: "spiel_new_scheduled",
   spiel_abgesagt: "spiel_abgesagt",
 } as const;
@@ -3326,7 +3326,7 @@ export const FLSpielNoticeDataRecipient = {
  */
 export interface FLSpielNoticeData {
   appointment: FLSpielMailAppointment;
-  art: FLSpielNoticeDataArt;
+  kind: FLSpielNoticeDataKind;
   recipient: FLSpielNoticeDataRecipient;
 }
 
@@ -3335,7 +3335,7 @@ export interface FLSpielNoticeData {
  */
 export interface FLSpielEinteilungLiftedData {
   appointment: FLSpielMailAppointment;
-  art: "spiel_einteilung_lifted";
+  kind: "spiel_einteilung_lifted";
 }
 
 /**
@@ -3343,12 +3343,12 @@ export interface FLSpielEinteilungLiftedData {
  */
 export interface FLSpielVorschlagDiscardedData {
   appointment: FLSpielMailAppointment;
-  art: "spiel_vorschlag_discarded";
+  kind: "spiel_vorschlag_discarded";
 }
 
-export type FLRegistrierungLinkDataArt = (typeof FLRegistrierungLinkDataArt)[keyof typeof FLRegistrierungLinkDataArt];
+export type FLRegistrierungLinkDataKind = (typeof FLRegistrierungLinkDataKind)[keyof typeof FLRegistrierungLinkDataKind];
 
-export const FLRegistrierungLinkDataArt = {
+export const FLRegistrierungLinkDataKind = {
   registrierung_confirmation: "registrierung_confirmation",
   registrierung_reminder: "registrierung_reminder",
 } as const;
@@ -3357,9 +3357,9 @@ export const FLRegistrierungLinkDataArt = {
  * A pupil's confirmation link, first or as the one reminder, which joins the first link rather than replacing it.
  */
 export interface FLRegistrierungLinkData {
-  art: FLRegistrierungLinkDataArt;
   /** @minimum 1 */
   frist_days: number;
+  kind: FLRegistrierungLinkDataKind;
   saison_id: string;
   team: string;
 }
@@ -3368,8 +3368,8 @@ export interface FLRegistrierungLinkData {
  * A team's decline, to a pupil whose address was confirmed.
  */
 export interface FLRegistrierungAbsageData {
-  art: "registrierung_absage";
   grund: "other_person" | null;
+  kind: "registrierung_absage";
   saison_id: string;
   team: string;
   vorname: string;

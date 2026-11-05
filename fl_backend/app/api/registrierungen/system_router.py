@@ -206,7 +206,7 @@ async def sweep_registrierungen(
                     key=f"{Collection.REGISTRIERUNGEN}/{row['_id']}/reminder/{today}",
                     an=str(row["email"]),
                     data=FLRegistrierungLinkData(
-                        art="registrierung_reminder",
+                        kind="registrierung_reminder",
                         # Empty where the team row is gone: a reminder naming no team beats a pass that stops.
                         team=team_names.get(row.get("team_id"), _TEAM_UNBEKANNT),
                         saison_id=saison_id,

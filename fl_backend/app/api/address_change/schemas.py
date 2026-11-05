@@ -16,7 +16,7 @@ from app.shared.schemas.custom import (
     CustomObjectId,
 )
 from app.shared.schemas.kontakt import CustomEmail
-from app.shared.schemas.literals import FLAddressChangeEndArt, FLAddressChangeWaitsOn, FLAddressChangeWay, FLAdminTier
+from app.shared.schemas.literals import FLAddressChangeEndKind, FLAddressChangeWaitsOn, FLAddressChangeWay, FLAdminTier
 from app.shared.schemas.responses import BaseAPIResponse
 
 type FLAddressChangeAnswer = Literal["confirmed", "declined"]
@@ -48,7 +48,7 @@ class FLAddressChangeApproval(BaseModel):
 
 
 class FLAddressChangeEnded(BaseModel):
-    art: FLAddressChangeEndArt
+    kind: FLAddressChangeEndKind
     at: datetime
 
 
@@ -201,7 +201,7 @@ class FLAddressChangeViewEnded(BaseModel):
 
     side: Literal["new", "previous"]
     state: Literal["ended"]
-    art: FLAddressChangeEndArt
+    kind: FLAddressChangeEndKind
     # The German day it ended on, which the page names beside what became of it.
     ended_on: CustomDateString
     # The way it began, which tells the person's own change apart on either side, as the live views do.

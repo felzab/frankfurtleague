@@ -369,7 +369,7 @@ async def _queue_the_request(
         [
             compose_mitteilung(
                 grant_id=approval_request_id,
-                art="requested",
+                kind="requested",
                 current=FLGrantSnapshot.model_validate({"address": address, "admin_tier": admin_tier}),
                 before=None,
                 changed_by=started_by,
@@ -664,12 +664,12 @@ async def _move_the_tier_in_session(
     await owe_in_session(
         [
             *(
-                compose_mitteilung(grant_id=changed_id, art=art, current=was, before=before, changed_by=None, now=now, barred=barred)
-                for changed_id, art, was, before in pending
+                compose_mitteilung(grant_id=changed_id, kind=kind, current=was, before=before, changed_by=None, now=now, barred=barred)
+                for changed_id, kind, was, before in pending
             ),
             compose_mitteilung(
                 grant_id=grant_id,
-                art="changed",
+                kind="changed",
                 current=current,
                 before=before,
                 changed_by=changed_by,
@@ -872,7 +872,7 @@ async def delete_approval_request(
         journal.note(
             antrag_line(
                 approval_request=approval_request,
-                art="approval_request_withdrawn" if zurueckgezogen else "approval_request_declined",
+                kind="approval_request_withdrawn" if zurueckgezogen else "approval_request_declined",
                 at=log_stamp(now),
                 key=config.sperrliste_key,
             )

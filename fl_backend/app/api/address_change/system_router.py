@@ -124,7 +124,7 @@ async def _end_the_lapsed_change(
             address_changes_collection=address_changes_collection,
             action_log_collection=action_log_collection,
             db_filter={"_id": row["_id"], **build_lapsed_terms(now)},
-            art="expired",
+            kind="expired",
             now=now,
             stamp=stamp,
             session=session,
@@ -215,7 +215,7 @@ async def _make_the_due_change_take_effect(
                 address_changes_collection=address_changes_collection,
                 action_log_collection=action_log_collection,
                 db_filter={"_id": record["_id"]},
-                art="discarded",
+                kind="discarded",
                 now=now,
                 stamp=stamp,
                 session=session,
@@ -224,7 +224,7 @@ async def _make_the_due_change_take_effect(
             # the change back from, due.
             journal.note(
                 ending_line(
-                    art="address_change_discarded_notified",
+                    kind="address_change_discarded_notified",
                     new_address=str(record["email"]),
                     record_id=record["_id"],
                     at=stamp,
@@ -361,7 +361,7 @@ async def sweep_address_change(
                     "address_change.sweep_cut",
                     extra={
                         "error_code": Code.UNKNOWN_OUTCOME if uncertain else Code.DATABASE_FAILED,
-                        "art": which,
+                        "kind": which,
                         "address_change_id": str(row["_id"]),
                         # The step whose commit went out unanswered, null where none did.
                         "unanswered": was if uncertain else None,
@@ -374,7 +374,7 @@ async def sweep_address_change(
             code, diagnosis = diagnosis_of(failure)
             fl_logger.error(
                 "address_change.sweep_row_failed",
-                extra={"error_code": code, "art": which, "step": was, "address_change_id": str(row["_id"]), "diagnosis": diagnosis},
+                extra={"error_code": code, "kind": which, "step": was, "address_change_id": str(row["_id"]), "diagnosis": diagnosis},
             )
             continue
 

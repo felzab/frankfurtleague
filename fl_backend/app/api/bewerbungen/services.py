@@ -1433,16 +1433,16 @@ def owed_link(
     schule: str,
     frist: str,
     key: str,
-    art: Literal["bewerbung_confirmation", "bewerbung_reminder"] = "bewerbung_confirmation",
+    kind: Literal["bewerbung_confirmation", "bewerbung_reminder"] = "bewerbung_confirmation",
 ) -> OwedMail:
     """One person's confirmation link, or its one reminder, the address read off the seat the write left."""
 
     return OwedMail(
         key=key,
         an=str(kontakte[seats[0]]["email"]),
-        data=FLBewerbungLinkData(art=art, saison_id=saison_id, schule=schule, rollen=list(seats), frist=frist),
+        data=FLBewerbungLinkData(kind=kind, saison_id=saison_id, schule=schule, rollen=list(seats), frist=frist),
         reference=bewerbung_bezug(bewerbung_id, seats),
-        link=bewerbung_link(seats, replaced=art != "bewerbung_reminder"),
+        link=bewerbung_link(seats, replaced=kind != "bewerbung_reminder"),
     )
 
 
@@ -1474,7 +1474,7 @@ def owed_at_submission(*, bewerbung_id: Any, kontakte: Any, saison_id: str, schu
                 key=f"{stamm}/received",
                 an=email,
                 data=FLBewerbungReceivedData(
-                    art="bewerbung_received",
+                    kind="bewerbung_received",
                     saison_id=saison_id,
                     rollen=seats,
                     pending=ausstehende_personen(kontakte=kontakte, seats=andere),
@@ -1504,7 +1504,7 @@ def owed_loeschung(*, bewerbung_raw: Mapping[str, Any], saison_id: str) -> OwedM
         key=f"{Sammlung.BEWERBUNGEN}/{bewerbung_raw['_id']}/erasure",
         an=email,
         data=FLBewerbungErasureData(
-            art="bewerbung_erasure",
+            kind="bewerbung_erasure",
             saison_id=saison_id,
             rollen=rollen,
             pending=ausstehende_personen(kontakte=kontakte, seats=ausstehende_seats(kontakte=kontakte)),

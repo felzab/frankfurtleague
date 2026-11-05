@@ -47,7 +47,7 @@ async def owe_the_bestaetigung(
             OwedMail(
                 key=f"schiedsrichter/{schiedsrichter_id}/confirmation/{version}",
                 an=email,
-                data=FLSchiedsrichterConfirmationData(art="schiedsrichter_confirmation", frist=frist),
+                data=FLSchiedsrichterConfirmationData(kind="schiedsrichter_confirmation", frist=frist),
                 reference=FLOutboxReference(collection=Collection.SCHIEDSRICHTER, id=schiedsrichter_id, seat=None),
                 link=FLOutboxLink(paths=[TOKEN_HASHES_PATH], addresses=[ADDRESS_PATH], replaced=True),
             )

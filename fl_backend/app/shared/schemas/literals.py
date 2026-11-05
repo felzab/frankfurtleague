@@ -138,4 +138,4 @@ type FLAddressChangeWaitsOn = Literal["previous_address", "new_address", "approv
 
 # How a change ended. `discarded` is every discard: an administrator's, the pass's refusal when due,
 # nothing left to move, and an erasure's.
-type FLAddressChangeEndArt = Literal["effective", "declined", "stopped", "expired", "replaced", "discarded"]
+type FLAddressChangeEndKind = Literal["effective", "declined", "stopped", "expired", "replaced", "discarded"]

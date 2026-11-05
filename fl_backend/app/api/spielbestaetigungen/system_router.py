@@ -207,14 +207,14 @@ def _anfrage(
     row: Mapping[str, Any],
     spiel: Mapping[str, Any],
     links: _Links,
-    art: Literal["spiel_request", "spiel_reminder"],
+    kind: Literal["spiel_request", "spiel_reminder"],
     schluessel_of: Callable[[str], str],
 ) -> list[OwedMail]:
     """A team row's request or reminder, one mail per link, each minting its link into the seats it answers."""
 
     view = ansicht_ansetzung_of(spiel)
     team = view.team1_name if seite_of(row) == "team1" else view.team2_name
-    data = FLSpielRequestData(art=art, team=team, ansetzung=spiel_mail_ansetzung_of(view), frist=row["frist"])
+    data = FLSpielRequestData(kind=kind, team=team, ansetzung=spiel_mail_ansetzung_of(view), frist=row["frist"])
 
     return [
         OwedMail(
@@ -541,7 +541,7 @@ async def sweep_spielbestaetigungen(
                                 key=f"spielbestaetigung/{row['_id']}/einteilung",
                                 an=address,
                                 data=FLSpielEinteilungData(
-                                    art="spiel_einteilung", ansetzung=spiel_mail_ansetzung_of(ansicht_ansetzung_of(spiel))
+                                    kind="spiel_einteilung", ansetzung=spiel_mail_ansetzung_of(ansicht_ansetzung_of(spiel))
                                 ),
                                 reference=bezug_of(spielbestaetigung_id=row["_id"], seat=None),
                             )
@@ -588,7 +588,7 @@ async def sweep_spielbestaetigungen(
                         row=row,
                         spiel=spiel,
                         links=links,
-                        art="spiel_request",
+                        kind="spiel_request",
                         schluessel_of=lambda seat, row_id=row["_id"]: f"spielbestaetigung/{row_id}/anfrage/{seat}/{ObjectId()}",
                     )
 
@@ -697,7 +697,7 @@ async def sweep_spielbestaetigungen(
                 row=row,
                 spiel=spiel,
                 links=links,
-                art="spiel_reminder",
+                kind="spiel_reminder",
                 schluessel_of=lambda seat: f"spielbestaetigung/{row['_id']}/erinnerung/{today}/{seat}",
             )
             return _Owed(mails=mails, emails=links.emails, marked=True)

@@ -670,14 +670,14 @@
       },
       "FLAccountErasureData": {
         "properties": {
-          "art": {
+          "kind": {
             "const": "account_erasure",
-            "title": "Art",
+            "title": "Kind",
             "type": "string"
           }
         },
         "required": [
-          "art"
+          "kind"
         ],
         "title": "FLAccountErasureData",
         "type": "object"
@@ -2145,14 +2145,14 @@
       "FLAddressChangeDiscardedData": {
         "description": "The new mailbox's notice that a confirmed change did not take effect: never why, nor the address on file.",
         "properties": {
-          "art": {
+          "kind": {
             "const": "address_change_discarded",
-            "title": "Art",
+            "title": "Kind",
             "type": "string"
           }
         },
         "required": [
-          "art"
+          "kind"
         ],
         "title": "FLAddressChangeDiscardedData",
         "type": "object"
@@ -2160,14 +2160,14 @@
       "FLAddressChangeEffectiveData": {
         "description": "The replaced address's notice that the change took effect.",
         "properties": {
-          "art": {
-            "const": "address_change_effective",
-            "title": "Art",
-            "type": "string"
-          },
           "instant": {
             "format": "date-time",
             "title": "Instant",
+            "type": "string"
+          },
+          "kind": {
+            "const": "address_change_effective",
+            "title": "Kind",
             "type": "string"
           },
           "vorname": {
@@ -2183,14 +2183,14 @@
           }
         },
         "required": [
-          "art",
+          "kind",
           "instant",
           "vorname"
         ],
         "title": "FLAddressChangeEffectiveData",
         "type": "object"
       },
-      "FLAddressChangeEndArt": {
+      "FLAddressChangeEndKind": {
         "enum": [
           "effective",
           "declined",
@@ -2218,9 +2218,9 @@
       "FLAddressChangeLinkData": {
         "description": "The new mailbox's link to confirm an address change, minted at the hand-out into the change's `token_hashes`.",
         "properties": {
-          "art": {
+          "kind": {
             "const": "address_change_link",
-            "title": "Art",
+            "title": "Kind",
             "type": "string"
           },
           "valid_until": {
@@ -2233,7 +2233,7 @@
           }
         },
         "required": [
-          "art",
+          "kind",
           "way",
           "valid_until"
         ],
@@ -2294,9 +2294,9 @@
       "FLAddressChangeNoticeData": {
         "description": "The address on file's mail about an address change, its link minted at the hand-out into `stop.token_hashes`.\n\nOn the person's own `account` way the link confirms or declines the change before the new mailbox is asked, and once\nit confirmed, stops the change; on the lost-mailbox way it stops the change.",
         "properties": {
-          "art": {
+          "kind": {
             "const": "address_change_notice",
-            "title": "Art",
+            "title": "Kind",
             "type": "string"
           },
           "valid_until": {
@@ -2320,7 +2320,7 @@
           }
         },
         "required": [
-          "art",
+          "kind",
           "way",
           "valid_until",
           "vorname"
@@ -2417,13 +2417,13 @@
       "FLAddressChangeViewEnded": {
         "description": "What either link opens once its change ended, for as long as its record is kept.",
         "properties": {
-          "art": {
-            "$ref": "#/components/schemas/FLAddressChangeEndArt"
-          },
           "ended_on": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Ended On",
             "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/FLAddressChangeEndKind"
           },
           "released_on": {
             "anyOf": [
@@ -2457,7 +2457,7 @@
         "required": [
           "side",
           "state",
-          "art",
+          "kind",
           "ended_on",
           "way",
           "released_on"
@@ -2933,11 +2933,6 @@
       "FLBanData": {
         "description": "The ban's own notice, the one mail a ban does not stop (`app/api/outbox/services.py :: UNBARRED`).",
         "properties": {
-          "art": {
-            "const": "ban",
-            "title": "Art",
-            "type": "string"
-          },
           "barred_until_saison_id": {
             "title": "Barred Until Saison Id",
             "type": "string"
@@ -2945,10 +2940,15 @@
           "grund": {
             "title": "Grund",
             "type": "string"
+          },
+          "kind": {
+            "const": "ban",
+            "title": "Kind",
+            "type": "string"
           }
         },
         "required": [
-          "art",
+          "kind",
           "grund",
           "barred_until_saison_id"
         ],
@@ -3062,13 +3062,13 @@
       "FLBewerbungAbsageData": {
         "description": "A decline, to one person of the application, with the administrator's reason verbatim.",
         "properties": {
-          "art": {
-            "const": "bewerbung_absage",
-            "title": "Art",
-            "type": "string"
-          },
           "grund": {
             "title": "Grund",
+            "type": "string"
+          },
+          "kind": {
+            "const": "bewerbung_absage",
+            "title": "Kind",
             "type": "string"
           },
           "rollen": {
@@ -3089,7 +3089,7 @@
           }
         },
         "required": [
-          "art",
+          "kind",
           "team",
           "saison_id",
           "rollen",
@@ -3524,9 +3524,9 @@
       "FLBewerbungErasureData": {
         "description": "The fourteen-day deletion notice, to the submitter, naming who never confirmed; owed in the erasure's own write.",
         "properties": {
-          "art": {
+          "kind": {
             "const": "bewerbung_erasure",
-            "title": "Art",
+            "title": "Kind",
             "type": "string"
           },
           "pending": {
@@ -3550,7 +3550,7 @@
           }
         },
         "required": [
-          "art",
+          "kind",
           "saison_id",
           "rollen",
           "pending"
@@ -3789,17 +3789,17 @@
       "FLBewerbungLinkData": {
         "description": "One person's confirmation link on an application: at its submission, a re-send, a correction or a reseat, or the one reminder.\n\n`rollen` are every seat the link answers, two where the Trainer holds a second; the reminder's link joins the first.",
         "properties": {
-          "art": {
+          "frist": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Frist",
+            "type": "string"
+          },
+          "kind": {
             "enum": [
               "bewerbung_confirmation",
               "bewerbung_reminder"
             ],
-            "title": "Art",
-            "type": "string"
-          },
-          "frist": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Frist",
+            "title": "Kind",
             "type": "string"
           },
           "rollen": {
@@ -3820,7 +3820,7 @@
           }
         },
         "required": [
-          "art",
+          "kind",
           "saison_id",
           "schule",
           "rollen",
@@ -3851,17 +3851,17 @@
       "FLBewerbungObjectionData": {
         "description": "A contact's Widerspruch, to the submitter, naming the person who refused: it stands as the deletion notice too.",
         "properties": {
-          "art": {
-            "const": "bewerbung_objection",
-            "title": "Art",
-            "type": "string"
-          },
           "declined": {
             "$ref": "#/components/schemas/FLBewerbungPerson"
           },
           "frist": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Frist",
+            "type": "string"
+          },
+          "kind": {
+            "const": "bewerbung_objection",
+            "title": "Kind",
             "type": "string"
           },
           "rollen": {
@@ -3878,7 +3878,7 @@
           }
         },
         "required": [
-          "art",
+          "kind",
           "saison_id",
           "rollen",
           "declined",
@@ -3920,14 +3920,14 @@
       "FLBewerbungReceivedData": {
         "description": "The submitter's receipt, which carries their own link: the Ansprechperson's seats and every other person still to answer.",
         "properties": {
-          "art": {
-            "const": "bewerbung_received",
-            "title": "Art",
-            "type": "string"
-          },
           "frist": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Frist",
+            "type": "string"
+          },
+          "kind": {
+            "const": "bewerbung_received",
+            "title": "Kind",
             "type": "string"
           },
           "pending": {
@@ -3951,7 +3951,7 @@
           }
         },
         "required": [
-          "art",
+          "kind",
           "saison_id",
           "rollen",
           "pending",
@@ -4313,13 +4313,13 @@
       "FLBewerbungZusageData": {
         "description": "An acceptance, to one person of the application, naming the seats they were entered for.",
         "properties": {
-          "art": {
-            "const": "bewerbung_zusage",
-            "title": "Art",
-            "type": "string"
-          },
           "gruppe": {
             "$ref": "#/components/schemas/FLGruppenNames"
+          },
+          "kind": {
+            "const": "bewerbung_zusage",
+            "title": "Kind",
+            "type": "string"
           },
           "rollen": {
             "items": {
@@ -4360,7 +4360,7 @@
           }
         },
         "required": [
-          "art",
+          "kind",
           "team",
           "saison_id",
           "rollen",
@@ -6103,11 +6103,6 @@
       "FLGrantData": {
         "description": "A change to a grant, or a grant or promotion asked for, as the notice to each administrator states it.",
         "properties": {
-          "art": {
-            "const": "grant",
-            "title": "Art",
-            "type": "string"
-          },
           "author": {
             "enum": [
               "anwendung",
@@ -6159,6 +6154,11 @@
             ],
             "title": "Changed By"
           },
+          "kind": {
+            "const": "grant",
+            "title": "Kind",
+            "type": "string"
+          },
           "now": {
             "anyOf": [
               {
@@ -6186,7 +6186,7 @@
           }
         },
         "required": [
-          "art",
+          "kind",
           "change",
           "author",
           "now",
@@ -6396,9 +6396,9 @@
       "FLInvitationData": {
         "description": "A team's registration link, to one confirmed contact seat, for the pupils to register through.",
         "properties": {
-          "art": {
+          "kind": {
             "const": "invitation",
-            "title": "Art",
+            "title": "Kind",
             "type": "string"
           },
           "saison_id": {
@@ -6411,7 +6411,7 @@
           }
         },
         "required": [
-          "art",
+          "kind",
           "team",
           "saison_id"
         ],
@@ -7219,14 +7219,14 @@
       "FLKontaktLinkData": {
         "description": "One person an administrator seated on a team's season row, asked to confirm: no name, the address being unconfirmed.",
         "properties": {
-          "art": {
-            "const": "kontakt_confirmation",
-            "title": "Art",
-            "type": "string"
-          },
           "frist": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Frist",
+            "type": "string"
+          },
+          "kind": {
+            "const": "kontakt_confirmation",
+            "title": "Kind",
             "type": "string"
           },
           "rollen": {
@@ -7250,7 +7250,7 @@
           }
         },
         "required": [
-          "art",
+          "kind",
           "saison_id",
           "schule",
           "rollen",
@@ -8038,7 +8038,7 @@
                 "spiel_request": "#/components/schemas/FLSpielRequestData",
                 "spiel_vorschlag_discarded": "#/components/schemas/FLSpielVorschlagDiscardedData"
               },
-              "propertyName": "art"
+              "propertyName": "kind"
             },
             "oneOf": [
               {
@@ -8309,7 +8309,7 @@
                 "passkey_erased": "#/components/schemas/FLPasskeyData",
                 "sign_in_code": "#/components/schemas/FLSignInCodeData"
               },
-              "propertyName": "art"
+              "propertyName": "kind"
             },
             "oneOf": [
               {
@@ -8407,22 +8407,22 @@
             "title": "Account",
             "type": "string"
           },
-          "art": {
-            "enum": [
-              "passkey_added",
-              "passkey_erased"
-            ],
-            "title": "Art",
-            "type": "string"
-          },
           "instant": {
             "format": "date-time",
             "title": "Instant",
             "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "passkey_added",
+              "passkey_erased"
+            ],
+            "title": "Kind",
+            "type": "string"
           }
         },
         "required": [
-          "art",
+          "kind",
           "instant",
           "account"
         ],
@@ -10094,11 +10094,6 @@
       "FLRegistrierungAbsageData": {
         "description": "A team's decline, to a pupil whose address was confirmed.",
         "properties": {
-          "art": {
-            "const": "registrierung_absage",
-            "title": "Art",
-            "type": "string"
-          },
           "grund": {
             "anyOf": [
               {
@@ -10110,6 +10105,11 @@
               }
             ],
             "title": "Grund"
+          },
+          "kind": {
+            "const": "registrierung_absage",
+            "title": "Kind",
+            "type": "string"
           },
           "saison_id": {
             "title": "Saison Id",
@@ -10125,7 +10125,7 @@
           }
         },
         "required": [
-          "art",
+          "kind",
           "vorname",
           "team",
           "saison_id",
@@ -10557,18 +10557,18 @@
       "FLRegistrierungLinkData": {
         "description": "A pupil's confirmation link, first or as the one reminder, which joins the first link rather than replacing it.",
         "properties": {
-          "art": {
-            "enum": [
-              "registrierung_confirmation",
-              "registrierung_reminder"
-            ],
-            "title": "Art",
-            "type": "string"
-          },
           "frist_days": {
             "minimum": 1.0,
             "title": "Frist Days",
             "type": "integer"
+          },
+          "kind": {
+            "enum": [
+              "registrierung_confirmation",
+              "registrierung_reminder"
+            ],
+            "title": "Kind",
+            "type": "string"
           },
           "saison_id": {
             "title": "Saison Id",
@@ -10580,7 +10580,7 @@
           }
         },
         "required": [
-          "art",
+          "kind",
           "team",
           "saison_id",
           "frist_days"
@@ -11966,19 +11966,19 @@
       "FLSchiedsrichterConfirmationData": {
         "description": "A referee's confirmation link, owed by their entry, a corrected address, a re-send or their return.",
         "properties": {
-          "art": {
-            "const": "schiedsrichter_confirmation",
-            "title": "Art",
-            "type": "string"
-          },
           "frist": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Frist",
             "type": "string"
+          },
+          "kind": {
+            "const": "schiedsrichter_confirmation",
+            "title": "Kind",
+            "type": "string"
           }
         },
         "required": [
-          "art",
+          "kind",
           "frist"
         ],
         "title": "FLSchiedsrichterConfirmationData",
@@ -12356,14 +12356,14 @@
       },
       "FLSignInCodeData": {
         "properties": {
-          "art": {
+          "kind": {
             "const": "sign_in_code",
-            "title": "Art",
+            "title": "Kind",
             "type": "string"
           }
         },
         "required": [
-          "art"
+          "kind"
         ],
         "title": "FLSignInCodeData",
         "type": "object"
@@ -12582,14 +12582,14 @@
           "ansetzung": {
             "$ref": "#/components/schemas/FLSpielMailAnsetzung"
           },
-          "art": {
+          "kind": {
             "const": "spiel_einteilung",
-            "title": "Art",
+            "title": "Kind",
             "type": "string"
           }
         },
         "required": [
-          "art",
+          "kind",
           "ansetzung"
         ],
         "title": "FLSpielEinteilungData",
@@ -12601,14 +12601,14 @@
           "appointment": {
             "$ref": "#/components/schemas/FLSpielMailAppointment"
           },
-          "art": {
+          "kind": {
             "const": "spiel_einteilung_lifted",
-            "title": "Art",
+            "title": "Kind",
             "type": "string"
           }
         },
         "required": [
-          "art",
+          "kind",
           "appointment"
         ],
         "title": "FLSpielEinteilungLiftedData",
@@ -13109,12 +13109,12 @@
           "appointment": {
             "$ref": "#/components/schemas/FLSpielMailAppointment"
           },
-          "art": {
+          "kind": {
             "enum": [
               "spiel_new_scheduled",
               "spiel_abgesagt"
             ],
-            "title": "Art",
+            "title": "Kind",
             "type": "string"
           },
           "recipient": {
@@ -13127,7 +13127,7 @@
           }
         },
         "required": [
-          "art",
+          "kind",
           "recipient",
           "appointment"
         ],
@@ -13400,17 +13400,17 @@
           "ansetzung": {
             "$ref": "#/components/schemas/FLSpielMailAnsetzung"
           },
-          "art": {
+          "frist": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Frist",
+            "type": "string"
+          },
+          "kind": {
             "enum": [
               "spiel_request",
               "spiel_reminder"
             ],
-            "title": "Art",
-            "type": "string"
-          },
-          "frist": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Frist",
+            "title": "Kind",
             "type": "string"
           },
           "team": {
@@ -13419,7 +13419,7 @@
           }
         },
         "required": [
-          "art",
+          "kind",
           "team",
           "ansetzung",
           "frist"
@@ -13670,14 +13670,14 @@
           "appointment": {
             "$ref": "#/components/schemas/FLSpielMailAppointment"
           },
-          "art": {
+          "kind": {
             "const": "spiel_vorschlag_discarded",
-            "title": "Art",
+            "title": "Kind",
             "type": "string"
           }
         },
         "required": [
-          "art",
+          "kind",
           "appointment"
         ],
         "title": "FLSpielVorschlagDiscardedData",

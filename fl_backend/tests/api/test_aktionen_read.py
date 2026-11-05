@@ -268,7 +268,7 @@ class _LogCollection:
             cell = (str(document["collection"]), str(document["operation"]))
             tally[cell] = tally.get(cell, 0) + 1
 
-        return _LogCells([{"_id": {"collection": area, "operation": art}, "count": held} for (area, art), held in tally.items()])
+        return _LogCells([{"_id": {"collection": area, "operation": kind}, "count": held} for (area, kind), held in tally.items()])
 
     def find(self, filter: Any, projection: Any = None, collation: Any = None, session: Any = None) -> _LogCollection:
         self.requested_filter = filter

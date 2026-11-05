@@ -1280,15 +1280,15 @@ export const OutboxPostSignInBody = zod
     an: zod.string().max(outboxPostSignInBodyAnMax),
     data: zod.union([
       zod.object({
-        art: zod.literal("sign_in_code").meta({ title: "Art" }),
+        kind: zod.literal("sign_in_code").meta({ title: "Kind" }),
       }),
       zod.object({
         account: zod.string().max(outboxPostSignInBodyDataTwoAccountMax).regex(outboxPostSignInBodyDataTwoAccountRegExp),
-        art: zod.enum(["passkey_added", "passkey_erased"]),
         instant: zod.iso.datetime({ offset: true }),
+        kind: zod.enum(["passkey_added", "passkey_erased"]),
       }),
       zod.object({
-        art: zod.literal("account_erasure").meta({ title: "Art" }),
+        kind: zod.literal("account_erasure").meta({ title: "Kind" }),
       }),
     ]),
     secret: zod.union([zod.string().min(1).max(outboxPostSignInBodySecretOneMax), zod.null()]),

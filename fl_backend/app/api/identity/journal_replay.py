@@ -71,7 +71,7 @@ from app.core.recording import act_row, log_stamp, request_var
 from app.core.security import erasure_journal_hash
 from app.core.transactions import transaction_session
 from app.shared.einwilligung_evidence import FLEinwilligungChoice, is_given, receipt_of
-from app.shared.schemas.literals import KONTAKT_ROLLEN, FLAddressChangeEndArt
+from app.shared.schemas.literals import KONTAKT_ROLLEN, FLAddressChangeEndKind
 
 # What the action log names as a replay's call: no route made it, and its path names the line it replays.
 REPLAY_METHOD: Final = "REPLAY"
@@ -98,7 +98,7 @@ def _objection_update(home: Collection, *, kontakte: Mapping[str, Any], seats: S
 
 
 # The ending each ending line replays, as its press ended the change.
-_ENDE_ART: Final[Mapping[str, FLAddressChangeEndArt]] = {
+_END_KIND: Final[Mapping[str, FLAddressChangeEndKind]] = {
     "address_change_declined": "declined",
     "address_change_stopped": "stopped",
     "address_change_discarded": "discarded",
@@ -390,13 +390,13 @@ async def _plan_address_change(
             address_changes_collection=database[Collection.ADDRESS_CHANGES],
             action_log_collection=database[Collection.ACTION_LOG],
             db_filter=db_filter,
-            art=_ENDE_ART[line.art],
+            kind=_END_KIND[line.kind],
             now=pressed_at,
             stamp=log_stamp(now),
             session=session,
         )
         # Owed again, under the key the end owed it by: a restored row of it, sent or not, is found rather than doubled.
-        if line.art == "address_change_discarded_notified":
+        if line.kind == "address_change_discarded_notified":
             await owe_the_refusal_notice_in_session(record, outbox_collection=database[Collection.OUTBOX], now=now, session=session)
         return stored
 
@@ -459,7 +459,7 @@ async def _plan_address_change_effective(
     if ended is not None:
         return (
             Plan("already done")
-            if ended.get("art") == "effective"
+            if ended.get("kind") == "effective"
             else Plan("left for review", detail="the restored change ended otherwise: its person starts the change again")
         )
     if not _holds(record.get("email"), line, key):
@@ -579,7 +579,7 @@ async def plan_replay(
     An erasure's line is planned only for its pseudonym's traces: its records are the page's to erase.
     """
 
-    match line.art:
+    match line.kind:
         case "withdrawal":
             return await _plan_withdrawal(line, database, key=key, session=session)
         case "objection":
@@ -638,7 +638,7 @@ async def run_replay(
     window = Window(since=since, until=until)
     read, unreadable = read_day_files(lines, since=since, until=until)
     # Each person's last erasure, the read being oldest first.
-    erased_at = {entry.line.person_hash: entry.timestamp for entry in read if entry.line.art == "erasure"}
+    erased_at = {entry.line.person_hash: entry.timestamp for entry in read if entry.line.kind == "erasure"}
     replaced = {entry.line.before for entry in read if entry.line.before is not None}
     held = await where_held(database, set(erased_at) | replaced, key=key)
     # A person whose erasure has run again: their own choices' records went with it, and nothing of theirs is left to replay.
@@ -656,11 +656,11 @@ async def run_replay(
         line = entry.line
         print(f"\n{entry.timestamp.isoformat()}  {line.act()}", file=out)
 
-        if line.art == "erasure" and held[line.person_hash]:
+        if line.kind == "erasure" and held[line.person_hash]:
             left["erasures to run"] += 1
             _print_held(held[line.person_hash], out)
             continue
-        if line.art == "erasure" and line.pseudonym is None and line.halter is None:
+        if line.kind == "erasure" and line.pseudonym is None and line.halter is None:
             print("    its address is held nowhere in the restored database: nothing to run", file=out)
             continue
         if _erased_after(entry, gone, erased_at) and line.before is not None and held[line.before]:
@@ -668,7 +668,7 @@ async def run_replay(
             print("    its person's erasure followed it, and the address it replaced holds their records again", file=out)
             _print_held(held[line.before], out)
             continue
-        if line.art != "erasure" and _erased_after(entry, gone, erased_at):
+        if line.kind != "erasure" and _erased_after(entry, gone, erased_at):
             print("    its person's erasure has run: nothing to replay", file=out)
             continue
 

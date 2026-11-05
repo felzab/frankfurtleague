@@ -1058,7 +1058,7 @@ class TestTheDiscard:
             await ablehnen(database, client, token(TEAM1, "trainer"), PROPOSAL, begruendung=REASON)
             declined = (await row_now(database, ROW1))["antwort"]
             await verwerfen(database, client, ROW1)
-            owed = await database[Collection.OUTBOX].find({}, {"an": 1, "art": 1, "reference": 1, "_id": 0}).to_list()
+            owed = await database[Collection.OUTBOX].find({}, {"an": 1, "kind": 1, "reference": 1, "_id": 0}).to_list()
 
             return declined, await row_now(database, ROW1), owed
 
@@ -1066,7 +1066,7 @@ class TestTheDiscard:
 
         assert (row["antwort"], row["closed"]) == (declined, {"at": TODAY, "grund": "discarded"})
         # Owed the club in the discard's own transaction, the fixture's day being to come: every address its seats hold.
-        assert sorted((mail["an"], mail["art"], mail["reference"]["seat"]) for mail in owed) == sorted(
+        assert sorted((mail["an"], mail["kind"], mail["reference"]["seat"]) for mail in owed) == sorted(
             (address(TEAM1, seat), "spiel_vorschlag_discarded", seat) for seat in KONTAKT_ROLLEN
         )
 

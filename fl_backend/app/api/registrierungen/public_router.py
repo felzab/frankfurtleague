@@ -327,7 +327,7 @@ async def post_registrierung(
                     key=f"{Collection.REGISTRIERUNGEN}/{registrierung_id}/confirmation",
                     an=str(registrierung_data.email),
                     data=FLRegistrierungLinkData(
-                        art="registrierung_confirmation",
+                        kind="registrierung_confirmation",
                         # Off the invite the token opened, never the body: anyone holding the link could otherwise word the
                         # league's message. `or {}` for the type checker alone: `refuse` above has raised where the row is missing.
                         team=str((junction_raw or {}).get("name", "")),

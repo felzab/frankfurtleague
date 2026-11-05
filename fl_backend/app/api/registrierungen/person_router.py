@@ -408,7 +408,7 @@ async def decline(
                         key=f"{Collection.REGISTRIERUNGEN}/{registrierung_id}/absage",
                         an=str(registrierung_raw["email"]),
                         data=FLRegistrierungAbsageData(
-                            art="registrierung_absage",
+                            kind="registrierung_absage",
                             vorname=str(registrierung_raw["vorname"]),
                             team=str(junction_raw["name"]),
                             saison_id=saison_id,

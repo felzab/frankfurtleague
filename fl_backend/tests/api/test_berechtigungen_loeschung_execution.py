@@ -104,20 +104,20 @@ def announced(grant_id: ObjectId, address: str, admin_tier: str) -> dict[str, An
 
 
 def notice(
-    row_id: ObjectId, grant_id: ObjectId, art: Any, current: str | None, before: str | None, by: str, *, barred: frozenset[str] = frozenset()
+    row_id: ObjectId, grant_id: ObjectId, kind: Any, current: str | None, before: str | None, by: str, *, barred: frozenset[str] = frozenset()
 ) -> dict[str, Any]:
     def stand(address: str | None) -> FLGrantSnapshot | None:
         return None if address is None else FLGrantSnapshot(address=address, admin_tier="administration")
 
     mitteilung = compose_mitteilung(
-        grant_id=grant_id, art=art, current=stand(current), before=stand(before), changed_by=by, now=QUEUED, barred=barred
+        grant_id=grant_id, kind=kind, current=stand(current), before=stand(before), changed_by=by, now=QUEUED, barred=barred
     )
 
     # Owed to Dora, as `app/api/outbox/services.py :: enqueue_mails` stores a row: her copy of the notice.
     return {
         "_id": row_id,
-        "key": f"grant/{grant_id}/{art}/anwendung/{QUEUED.isoformat()}/{DORA}",
-        "art": "grant",
+        "key": f"grant/{grant_id}/{kind}/anwendung/{QUEUED.isoformat()}/{DORA}",
+        "kind": "grant",
         "an": DORA,
         "data": FLGrantData.model_validate(mitteilung.data).model_dump(mode="json"),
         "secret": None,
@@ -265,7 +265,7 @@ async def queued_for(database: AsyncDatabase, grant_id: ObjectId) -> list[Mappin
         notices.setdefault(
             row["key"].rpartition("/")[0],
             {
-                "art": data["change"],
+                "kind": data["change"],
                 "author": data["author"],
                 "now": data["now"],
                 "before": data["before"],
@@ -322,7 +322,7 @@ class TestTheNotices:
 
         assert on_a_league(mongo_replica_set_url, body) == [
             {
-                "art": "revoked",
+                "kind": "revoked",
                 "author": "anwendung",
                 "now": None,
                 "before": {"address": None, "admin_tier": "owner"},
@@ -346,7 +346,7 @@ class TestTheNotices:
             await database[Collection.GRANTS_ANNOUNCED].update_one({"_id": ERIKA_ID}, {"$set": {"admin_tier": "administration"}})
             await erase(database, client)
 
-            return [(row["art"], row["author"], row["now"], row["before"], row["withheld"]) for row in await queued_for(database, ERIKA_ID)]
+            return [(row["kind"], row["author"], row["now"], row["before"], row["withheld"]) for row in await queued_for(database, ERIKA_ID)]
 
         withheld = {"address": None, "admin_tier": "owner"}
         assert on_a_league(mongo_replica_set_url, body) == [
@@ -360,7 +360,7 @@ class TestTheNotices:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[set[ObjectId], set[ObjectId], list[tuple[Any, ...]]]:
             await database[Collection.GRANTS_ANNOUNCED].update_one({"_id": NAHE_ID}, {"$set": {"address": ERIKA}})
             await erase(database, client)
-            queued = [(row["art"], row["author"], row["before"], row["withheld"]) for row in await queued_for(database, NAHE_ID)]
+            queued = [(row["kind"], row["author"], row["before"], row["withheld"]) for row in await queued_for(database, NAHE_ID)]
 
             return await ids_in(database, Collection.GRANTS), await ids_in(database, Collection.GRANTS_ANNOUNCED), queued
 

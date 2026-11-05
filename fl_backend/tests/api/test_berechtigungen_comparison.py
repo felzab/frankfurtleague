@@ -28,7 +28,7 @@ def row(grant_id: ObjectId, address: str, admin_tier: str = "administration") ->
 
 
 def kinds(grants: list[dict[str, Any]], announced: list[dict[str, Any]]) -> list[tuple[ObjectId, str]]:
-    return [(grant_id, art) for grant_id, art, _, _ in compare(grants=grants, announced=announced)]
+    return [(grant_id, kind) for grant_id, kind, _, _ in compare(grants=grants, announced=announced)]
 
 
 def test_an_unchanged_list_has_nothing_to_announce():
@@ -55,8 +55,8 @@ def test_an_address_repointed_under_one_id_is_the_old_ones_removal_and_the_new_o
     changes = compare(grants=[row(FIRST, "berta@schule.de", "owner")], announced=[row(FIRST, "anna@schule.de")])
 
     assert [
-        (art, current and (current.address, current.admin_tier), before and (before.address, before.admin_tier))
-        for _, art, current, before in changes
+        (kind, current and (current.address, current.admin_tier), before and (before.address, before.admin_tier))
+        for _, kind, current, before in changes
     ] == [("revoked", None, ("anna@schule.de", "administration")), ("granted", ("berta@schule.de", "owner"), None)]
 
 

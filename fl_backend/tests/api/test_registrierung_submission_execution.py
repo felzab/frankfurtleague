@@ -366,7 +366,7 @@ class TestWhatASubmissionStores:
 
         assert stored["confirmation"]["token_hashes"] == []
         assert (stored["confirmation"]["sent_at"], stored["confirmation"]["reminded_at"]) == (TODAY, None)
-        assert [(row["art"], row["an"], row["reference"]["id"], row["link"]) for row in owed] == [
+        assert [(row["kind"], row["an"], row["reference"]["id"], row["link"]) for row in owed] == [
             (
                 "registrierung_confirmation",
                 PUPIL_EMAIL,
@@ -376,7 +376,7 @@ class TestWhatASubmissionStores:
         ]
         # Off the invite, never off the body: the mail addresses the pupil by them.
         assert owed[0]["data"] == {
-            "art": "registrierung_confirmation",
+            "kind": "registrierung_confirmation",
             "team": TEAM_NAME,
             "saison_id": SAISON_ID,
             "frist_days": REGISTRIERUNG_CONFIRMATION_FRIST_DAYS,
@@ -456,7 +456,7 @@ class TestTheSubmissionKey:
 
         assert len(rows) == 1
         assert second.registrierung_id == first.registrierung_id
-        assert [row["art"] for row in owed] == ["registrierung_confirmation"]
+        assert [row["kind"] for row in owed] == ["registrierung_confirmation"]
 
     def test_a_replay_answers_after_the_invite_was_revoked(self, mongo_replica_set_url: str):
         """Looked up before every judgement: the first press opened a live invite, and its answer outlives the revocation."""

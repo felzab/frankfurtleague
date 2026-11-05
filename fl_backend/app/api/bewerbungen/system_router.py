@@ -233,7 +233,7 @@ async def sweep_saison(
             schule = schule_name(bewerbung_raw=row, club_names=club_names)
             return [
                 owed_link(
-                    art="bewerbung_reminder",
+                    kind="bewerbung_reminder",
                     bewerbung_id=row["_id"],
                     kontakte=row["kontakte"],
                     seats=seats,

@@ -501,7 +501,7 @@ def test_each_unique_index_refuses_the_second_document(mongo_url: str, collectio
 def test_two_ended_changes_of_one_address_are_both_kept(mongo_url: str):
     """An ending nulls the address, so a filter on `ended` alone would hold every tombstone under one null key."""
 
-    ended = {"address": None, "email": None, "ended": {"art": "declined", "at": datetime(2026, 3, 17, tzinfo=UTC)}}
+    ended = {"address": None, "email": None, "ended": {"kind": "declined", "at": datetime(2026, 3, 17, tzinfo=UTC)}}
 
     async def body(database: AsyncDatabase) -> int:
         await database.address_changes.insert_one(valid_document("address_changes", **ended))

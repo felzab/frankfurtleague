@@ -291,11 +291,11 @@ class TestThePersonsStart:
 
         first, second, replaced, seen, held, journal = on_a_person(mongo_replica_set_url, body)
 
-        assert (replaced["ended"]["art"], replaced["address"], replaced["email"], replaced["grund"]) == ("replaced", None, None, None)
-        assert (seen.view.state, seen.view.art) == ("ended", "replaced")
+        assert (replaced["ended"]["kind"], replaced["address"], replaced["email"], replaced["grund"]) == ("replaced", None, None, None)
+        assert (seen.view.state, seen.view.kind) == ("ended", "replaced")
         # Only the row of the link mail the league sent, which keeps its recipient until its retention ends.
         assert held == {FOREIGN_EMAIL: ["outbox"]}
-        assert [(line.art, line.record_id) for line in journal] == [("address_change_discarded", first.id)]
+        assert [(line.kind, line.record_id) for line in journal] == [("address_change_discarded", first.id)]
         assert second.id != first.id
 
 
@@ -446,8 +446,8 @@ class TestTheLinks:
         new, bisherig, pressed, stopped = on_a_person(mongo_replica_set_url, body)
 
         # The day it ended on, which the page names beside what became of it.
-        assert (new.view.side, new.view.state, new.view.art, new.view.ended_on) == ("new", "ended", "stopped", TODAY)
-        assert (bisherig.view.side, bisherig.view.state, bisherig.view.art, bisherig.view.ended_on) == ("previous", "ended", "stopped", TODAY)
+        assert (new.view.side, new.view.state, new.view.kind, new.view.ended_on) == ("new", "ended", "stopped", TODAY)
+        assert (bisherig.view.side, bisherig.view.state, bisherig.view.kind, bisherig.view.ended_on) == ("previous", "ended", "stopped", TODAY)
         assert (pressed, stopped) == (Code.ADDRESS_CHANGE_ENDED, Code.ADDRESS_CHANGE_ENDED)
 
     def test_a_confirmed_link_answers_its_state_and_takes_no_second_press(self, mongo_replica_set_url: str):
@@ -506,11 +506,11 @@ class TestTheAddressOnFileConfirmsFirst:
 
         declined, record, bisherig, journal = on_a_person(mongo_replica_set_url, body)
 
-        assert (declined.answer, record["email"], record["ended"]["art"], record["token_hashes"]) == ("declined", None, "declined", [])
-        assert (bisherig.view.state, bisherig.view.art, bisherig.view.ended_on) == ("ended", "declined", TODAY)
+        assert (declined.answer, record["email"], record["ended"]["kind"], record["token_hashes"]) == ("declined", None, "declined", [])
+        assert (bisherig.view.state, bisherig.view.kind, bisherig.view.ended_on) == ("ended", "declined", TODAY)
         # Declined before it confirmed anything: the link names no day of a confirmation.
         assert (bisherig.view.way, bisherig.view.released_on) == ("account", None)
-        assert [line.art for line in journal] == ["address_change_declined"]
+        assert [line.kind for line in journal] == ["address_change_declined"]
 
     def test_once_in_effect_its_link_names_the_day_it_confirmed(self, mongo_replica_set_url: str):
         """Opened again after the change took effect, the link says it is done, never that it died."""
@@ -522,7 +522,7 @@ class TestTheAddressOnFileConfirmsFirst:
 
         seen = on_a_person(mongo_replica_set_url, body)
 
-        assert (seen.side, seen.state, seen.art, seen.released_on) == ("previous", "ended", "effective", TODAY)
+        assert (seen.side, seen.state, seen.kind, seen.released_on) == ("previous", "ended", "effective", TODAY)
 
     def test_past_its_deadline_it_confirms_nothing_and_still_declines(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -669,7 +669,7 @@ class TestTheConfirmation:
                     **documents.address_change_document(address=FOREIGN_EMAIL, email=EMAIL, token_hash=None, day="2126-03-01"),
                     "address": None,
                     "email": None,
-                    "ended": {"art": "effective", "at": NOW},
+                    "ended": {"kind": "effective", "at": NOW},
                     "move": {"old": FOREIGN_EMAIL, "new": EMAIL},
                 }
             )
@@ -731,9 +731,9 @@ class TestTheConfirmation:
         assert after["accepted application"]["kontakte"]["ansprechperson"]["email"] == NEW_EMAIL
         assert (after["confirmed registration"]["email"], after["unconfirmed registration"]["email"]) == (NEW_EMAIL, NEW_EMAIL)
         # The tombstone holds no address and answers how the change ended.
-        assert (record["address"], record["email"], record["ended"]["art"]) == (None, None, "effective")
+        assert (record["address"], record["email"], record["ended"]["kind"]) == (None, None, "effective")
         assert record["token_hashes"] == [hash_token(minted.token)]
-        [line] = [line for line in journal if line.art == "address_change_effective"]
+        [line] = [line for line in journal if line.kind == "address_change_effective"]
         assert (line.record_id, line.before) == (minted.id, erasure_journal_hash(EMAIL, key=KEY))
 
     def test_a_change_started_with_a_reason_is_confirmed_and_waits_for_the_pass(self, mongo_replica_set_url: str):
@@ -754,7 +754,7 @@ class TestTheConfirmation:
         assert (early.removed, early.discarded, early.effective) == (0, 0, 0)
         assert late.effective == 1
         # The lost-mailbox way greets nobody, and carries no account: that mailbox may have passed to a stranger.
-        assert (notices, owed_carries) == ([{"art": "effective", "an": EMAIL, "vorname": None}], [])
+        assert (notices, owed_carries) == ([{"kind": "effective", "an": EMAIL, "vorname": None}], [])
         assert (after["pupil"]["email"], after["referee"]["kontakt"]["email"]) == (NEW_EMAIL, NEW_EMAIL)
 
     def test_a_change_finding_nothing_left_to_move_ends_discarded(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
@@ -770,8 +770,8 @@ class TestTheConfirmation:
 
         code, record, journal = on_a_person(mongo_replica_set_url, body)
 
-        assert (code, record["ended"]["art"], record["email"]) == (Code.ADDRESS_CHANGE_ENDED, "discarded", None)
-        assert [line.art for line in journal] == ["address_change_discarded"]
+        assert (code, record["ended"]["kind"], record["email"]) == (Code.ADDRESS_CHANGE_ENDED, "discarded", None)
+        assert [line.kind for line in journal] == ["address_change_discarded"]
 
     def test_the_decline_ends_it_and_leaves_its_address_nowhere(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -786,10 +786,10 @@ class TestTheConfirmation:
         answered, record, held, journal = on_a_person(mongo_replica_set_url, body)
 
         assert (answered.answer, answered.effective) == ("declined", False)
-        assert record["ended"]["art"] == "declined"
+        assert record["ended"]["kind"] == "declined"
         # Only the row of the link mail the league sent, which keeps its recipient until its retention ends.
         assert held == {NEW_EMAIL: ["outbox"]}
-        assert [line.art for line in journal] == ["address_change_declined"]
+        assert [line.kind for line in journal] == ["address_change_declined"]
 
 
 VERA_ROW_OID = ObjectId("6890a1b2c3d4e5f607850032")
@@ -853,7 +853,7 @@ async def held_by_another(database: AsyncDatabase, what: str) -> None:
                     **documents.address_change_document(address=NEW_EMAIL, email=FOREIGN_EMAIL, token_hash=None, day="2126-03-01"),
                     "address": None,
                     "email": None,
-                    "ended": {"art": "effective", "at": NOW},
+                    "ended": {"kind": "effective", "at": NOW},
                     "move": {"old": NEW_EMAIL, "new": FOREIGN_EMAIL},
                 }
             )
@@ -918,8 +918,8 @@ class TestTheNewAddressesOwnRecords:
 
         swept, record, rows, notices = on_a_person(mongo_replica_set_url, body)
 
-        assert (swept.discarded, swept.effective, record["ended"]["art"], rows["pupil"]["email"]) == (1, 0, "discarded", EMAIL)
-        assert [(notice["art"], notice["an"]) for notice in notices] == [("discarded", NEW_EMAIL)]
+        assert (swept.discarded, swept.effective, record["ended"]["kind"], rows["pupil"]["email"]) == (1, 0, "discarded", EMAIL)
+        assert [(notice["kind"], notice["an"]) for notice in notices] == [("discarded", NEW_EMAIL)]
 
     def test_entries_arriving_before_the_approval_refuse_it_and_write_nothing(self, mongo_replica_set_url: str):
         """The approval is the press that takes effect here, judged as the confirmation is."""
@@ -1032,11 +1032,11 @@ class TestTheStop:
 
         record, held, seen, journal = on_a_person(mongo_replica_set_url, body)
 
-        assert record["ended"]["art"] == "stopped"
+        assert record["ended"]["kind"] == "stopped"
         # Only the row of the link mail the league sent, which keeps its recipient until its retention ends.
         assert held == {NEW_EMAIL: ["outbox"]}
         assert seen.open is None
-        assert [line.art for line in journal] == ["address_change_stopped"]
+        assert [line.kind for line in journal] == ["address_change_stopped"]
 
     def test_the_address_on_file_s_question_takes_no_stop_and_its_decline_ends_the_change(self, mongo_replica_set_url: str):
         """One act on one link keeps one ending: declined, as the page asking the question words it."""
@@ -1046,7 +1046,7 @@ class TestTheStop:
             stopped = await refused_code(stop_by_link(database, client, minted.stopp_token))
             standing = (await change(database, minted.id))["ended"]
             await answer(database, client, minted.stopp_token, "declined")
-            return stopped, standing, (await change(database, minted.id))["ended"]["art"]
+            return stopped, standing, (await change(database, minted.id))["ended"]["kind"]
 
         assert on_a_person(mongo_replica_set_url, body) == (Code.LINK_INVALID, None, "declined")
 
@@ -1072,7 +1072,7 @@ class TestTheToolsStart:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await start(database, client, released=False)
             await administrator_starts(database, client, grund=GRUND)
-            rows = database[Collection.OUTBOX].find({"art": "address_change_notice"}, sort=[("recorded_at", 1), ("_id", 1)])
+            rows = database[Collection.OUTBOX].find({"kind": "address_change_notice"}, sort=[("recorded_at", 1), ("_id", 1)])
             return [(row["data"]["way"], row["data"]["vorname"]) async for row in rows]
 
         assert on_a_person(mongo_replica_set_url, body) == [("account", "Lenore"), ("waiting_period", None)]
@@ -1194,10 +1194,10 @@ class TestTheTool:
 
         stale, later, record, held, journal = on_a_person(mongo_replica_set_url, body)
 
-        assert (stale, record["ended"]["art"]) == (Code.ADDRESS_CHANGE_ENDED, "discarded")
+        assert (stale, record["ended"]["kind"]) == (Code.ADDRESS_CHANGE_ENDED, "discarded")
         # Only the row of the link mail the league sent, which keeps its recipient until its retention ends.
         assert held == {NEW_EMAIL: ["outbox"]}
-        assert [(line.art, line.record_id) for line in journal] == [("address_change_discarded", later)]
+        assert [(line.kind, line.record_id) for line in journal] == [("address_change_discarded", later)]
 
 
 class TestTheApproval:
@@ -1214,12 +1214,12 @@ class TestTheApproval:
             await database[Collection.REGISTRIERUNGEN].delete_many({})
             await database[Collection.GRANTS].delete_one({"address": EMAIL})
             code = await refused_code(approve(database, client, minted.id, operator=ADMIN))
-            return code, (await change(database, minted.id))["ended"]["art"], await owed(database)
+            return code, (await change(database, minted.id))["ended"]["kind"], await owed(database)
 
-        code, art, notices = on_a_person(mongo_replica_set_url, body)
+        code, kind, notices = on_a_person(mongo_replica_set_url, body)
 
-        assert (code, art) == (Code.ADDRESS_CHANGE_NOTHING, "discarded")
-        assert [(notice["art"], notice["an"]) for notice in notices] == [("discarded", NEW_EMAIL)]
+        assert (code, kind) == (Code.ADDRESS_CHANGE_NOTHING, "discarded")
+        assert [(notice["kind"], notice["an"]) for notice in notices] == [("discarded", NEW_EMAIL)]
 
     def test_an_approval_before_the_confirmation_lets_the_confirmation_take_effect(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -1252,7 +1252,7 @@ class TestTheApproval:
         assert after["pupil"]["email"] == NEW_EMAIL
         # Taking effect days after both mailboxes confirmed, the change tells the replaced one then, as a grant holder's
         # change always did; one taking effect at the new mailbox's press owes it nothing.
-        assert (told, [(notice["art"], notice["an"]) for notice in notices]) == ([], [("effective", EMAIL)])
+        assert (told, [(notice["kind"], notice["an"]) for notice in notices]) == ([], [("effective", EMAIL)])
 
     @staticmethod
     def refused_approval(url: str, *, approver: str, admin_tier: str) -> tuple[str, Any]:
@@ -1384,9 +1384,9 @@ class TestTheApproval:
 
         refused, removed, record, notices = on_a_person(mongo_replica_set_url, body)
 
-        assert (refused, removed, record["ended"]["art"]) == (Code.LINK_EXPIRED, 1, "expired")
+        assert (refused, removed, record["ended"]["kind"]) == (Code.LINK_EXPIRED, 1, "expired")
         # The new mailbox was told the change waits on the administration, so it is told it did not take effect.
-        assert notices == [{"art": "discarded", "an": NEW_EMAIL}]
+        assert notices == [{"kind": "discarded", "an": NEW_EMAIL}]
 
     def test_a_link_lapsing_unconfirmed_queues_nothing(self, mongo_replica_set_url: str):
         """Nobody confirmed it, so nobody waits to hear of it."""
@@ -1411,7 +1411,7 @@ class TestTheApproval:
         swept, record = on_a_person(mongo_replica_set_url, body)
 
         assert (swept.removed, swept.discarded, swept.effective, swept.remaining) == (1, 0, 0, 0)
-        assert (record["ended"]["art"], record["email"], record["grund"]) == ("expired", None, None)
+        assert (record["ended"]["kind"], record["email"], record["grund"]) == ("expired", None, None)
 
 
 class TestEveryLinkIntoTheToolSaysWhetherItOpens:
@@ -1504,9 +1504,9 @@ class TestAGrantEndedBeforeTheApproval:
 
         assert (open, offered) == (True, [])
         assert (swept.effective, swept.remaining) == (1, 0)
-        assert record["ended"]["art"] == "effective"
+        assert record["ended"]["kind"] == "effective"
         # Taking effect at the pass, after both mailboxes confirmed, it tells the replaced one then.
-        assert [(notice["art"], notice["an"]) for notice in notices] == [("effective", EMAIL)]
+        assert [(notice["kind"], notice["an"]) for notice in notices] == [("effective", EMAIL)]
         assert after["pupil"]["email"] == NEW_EMAIL
 
     def test_a_change_whose_grant_stands_waits_and_is_no_remainder(self, mongo_replica_set_url: str):
@@ -1535,7 +1535,7 @@ class TestTheMovedGrant:
             await approve(database, client, minted.id, operator=SECOND_ADMIN)
             await answer(database, client, minted.token)
             grants = {row["address"]: row async for row in database[Collection.GRANTS].find({"address": {"$in": [EMAIL, NEW_EMAIL]}})}
-            outbox = [row["data"] async for row in database[Collection.OUTBOX].find({"art": "grant", "an": SECOND_ADMIN}, sort=[("_id", 1)])]
+            outbox = [row["data"] async for row in database[Collection.OUTBOX].find({"kind": "grant", "an": SECOND_ADMIN}, sort=[("_id", 1)])]
             async with client.start_session(snapshot=True) as session:
                 since = await live_unbarred_grant_since(
                     NEW_EMAIL, grants_collection=database[Collection.GRANTS], sperrliste=ban_list(database), session=session
@@ -1837,7 +1837,7 @@ class TestTheRequestsForAGrantAnEffectMeets:
         change_id, approval_request, journal = on_a_person(mongo_replica_set_url, body)
 
         assert approval_request is None
-        assert [(line.art, line.record_id) for line in journal] == [
+        assert [(line.kind, line.record_id) for line in journal] == [
             ("approval_request_ended", ANTRAG_OID),
             ("address_change_effective", change_id),
         ]
@@ -1881,7 +1881,7 @@ class TestTheRequestsForAGrantAnEffectMeets:
                 await approve(database, client, onward.id, operator=SECOND_ADMIN)
                 await answer(database, client, onward.token)
                 erased_at = THIRD_EMAIL
-            naming = [row["art"] async for row in database[Collection.OUTBOX].find({}) if EMAIL in str(row)]
+            naming = [row["kind"] async for row in database[Collection.OUTBOX].find({}) if EMAIL in str(row)]
             await erase(database, client, erased_at)
             return naming, await where_held(database, EMAIL, folded=True)
 
@@ -1931,14 +1931,14 @@ class TestTwoPressesAtOnce:
             confirmed, discarded = await asyncio.gather(
                 outcome_code(answer(database, client, minted.token)), outcome_code(discard(database, client, minted.id))
             )
-            return confirmed, discarded, (await change(database, minted.id))["ended"]["art"], (await everything(database))["pupil"]["email"]
+            return confirmed, discarded, (await change(database, minted.id))["ended"]["kind"], (await everything(database))["pupil"]["email"]
 
-        confirmed, discarded, art, address = on_a_person(mongo_replica_set_url, body)
+        confirmed, discarded, kind, address = on_a_person(mongo_replica_set_url, body)
 
         if confirmed is None:
-            assert (discarded, art, address) == (Code.ADDRESS_CHANGE_ENDED, "effective", NEW_EMAIL)
+            assert (discarded, kind, address) == (Code.ADDRESS_CHANGE_ENDED, "effective", NEW_EMAIL)
         else:
-            assert (confirmed, discarded, art, address) == (Code.ADDRESS_CHANGE_ENDED, None, "discarded", EMAIL)
+            assert (confirmed, discarded, kind, address) == (Code.ADDRESS_CHANGE_ENDED, None, "discarded", EMAIL)
 
 
 class TestTheDecline:
@@ -1956,12 +1956,12 @@ class TestTheDecline:
                     database, client, email=NEW_EMAIL, grund="Falschangaben", by="admin@frankfurtleague.de", today=TODAY
                 )
             await answer(database, client, minted.token, "declined", **given)
-            return (await change(database, minted.id))["ended"]["art"], await where_held(database, NEW_EMAIL, folded=True)
+            return (await change(database, minted.id))["ended"]["kind"], await where_held(database, NEW_EMAIL, folded=True)
 
-        art, held = on_a_person(mongo_replica_set_url, body)
+        kind, held = on_a_person(mongo_replica_set_url, body)
 
         # Only the row of the link mail the league sent, which keeps its recipient until its retention ends.
-        assert (art, held) == ("declined", {NEW_EMAIL: ["outbox"]})
+        assert (kind, held) == ("declined", {NEW_EMAIL: ["outbox"]})
 
 
 class TestTheReplayTellsTheNewMailboxAgain:
@@ -2013,7 +2013,7 @@ class TestTheReplayTellsTheNewMailboxAgain:
                 if plan.rewrite is not None:
                     async with transaction_session(client) as session:
                         await session.with_transaction(plan.rewrite)
-            return stands, [(notice["art"], notice["an"]) for notice in await owed(database)]
+            return stands, [(notice["kind"], notice["an"]) for notice in await owed(database)]
 
         stands, notices = on_a_person(mongo_replica_set_url, body)
 
@@ -2036,7 +2036,7 @@ class TestTheReplayOntoEntries:
                 await held_by_another(database, what)
             line = JournalLine(
                 person_hash=erasure_journal_hash(NEW_EMAIL, key=KEY),
-                art="address_change_effective",
+                kind="address_change_effective",
                 collection=Collection.ADDRESS_CHANGES,
                 record_id=minted.id,
                 at=log_stamp(NOW),
@@ -2107,8 +2107,8 @@ class TestTheWaitingTime:
         started, swept, journal, notices = on_a_person(mongo_replica_set_url, body)
 
         assert swept.discarded == 1
-        assert notices == [{"art": "discarded", "an": NEW_EMAIL}]
-        assert [(line.art, line.record_id, line.person_hash) for line in journal] == [
+        assert notices == [{"kind": "discarded", "an": NEW_EMAIL}]
+        assert [(line.kind, line.record_id, line.person_hash) for line in journal] == [
             ("address_change_discarded_notified", started, erasure_journal_hash(NEW_EMAIL, key=KEY))
         ]
 
@@ -2272,7 +2272,7 @@ class TestWhatTheEffectLeavesTheLoeschung:
                     **documents.address_change_document(address=FOREIGN_EMAIL, email=EMAIL, token_hash=None, day="2126-03-01"),
                     "address": None,
                     "email": None,
-                    "ended": {"art": "effective", "at": NOW},
+                    "ended": {"kind": "effective", "at": NOW},
                     "move": {"old": FOREIGN_EMAIL, "new": EMAIL},
                 }
             )
@@ -2350,7 +2350,7 @@ class TestTheLoeschung:
 
         record, held = on_a_person(mongo_replica_set_url, body)
 
-        assert (record["ended"]["art"], record["email"]) == ("discarded", None)
+        assert (record["ended"]["kind"], record["email"]) == ("discarded", None)
         assert held == {NEW_EMAIL: []}
 
     def test_an_geloescht_address_on_file_ends_its_own_change_and_neither_address_is_held(self, mongo_replica_set_url: str):
@@ -2361,7 +2361,7 @@ class TestTheLoeschung:
 
         record, held = on_a_person(mongo_replica_set_url, body)
 
-        assert (record["ended"]["art"], record["address"], record["email"]) == ("discarded", None, None)
+        assert (record["ended"]["kind"], record["address"], record["email"]) == ("discarded", None, None)
         assert held == {EMAIL: [], NEW_EMAIL: []}
 
 
@@ -2420,4 +2420,4 @@ class TestTwoStartsAtOnce:
         assert reads == 2
         assert failures == ["OperationFailure:112"]
         assert live == [minted]
-        assert rival_end["art"] == "replaced"
+        assert rival_end["kind"] == "replaced"

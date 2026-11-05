@@ -579,7 +579,7 @@ async def post_einwilligung(
         # Keyed on the link's own seat, whose person pressed; an emptied one holds nobody a replay could find again.
         for address in seat_addresses(kontakte=row.get("kontakte"), seats=(seat,)):
             hashed = erasure_journal_hash(address, key=config.sperrliste_key)
-            journal.note(JournalLine(person_hash=hashed, art="objection", collection=home, record_id=row["_id"], at=at, seats=seats))
+            journal.note(JournalLine(person_hash=hashed, kind="objection", collection=home, record_id=row["_id"], at=at, seats=seats))
 
     async def answer_on_the_season_row(session: AsyncClientSession) -> FLSaisonTeamEinwilligungAntwortResponse:
         """The application's judgement in its order, on the season row holding the token; a miss there is the unknown-token refusal."""
@@ -794,10 +794,10 @@ async def post_einwilligung(
                 session=session,
                 mails=[
                     OwedMail(
-                        key=f"{Collection.BEWERBUNGEN}/{bewerbung_raw['_id']}/widerspruch/{seat}",
+                        key=f"{Collection.BEWERBUNGEN}/{bewerbung_raw['_id']}/objection/{seat}",
                         an=abgelehnt_email,
                         data=FLBewerbungObjectionData(
-                            art="bewerbung_objection",
+                            kind="bewerbung_objection",
                             saison_id=saison_id,
                             rollen=abgelehnt_rollen,
                             # Named off the read before the decline: nothing left in the record can say whose entry was refused.

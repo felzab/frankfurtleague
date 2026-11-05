@@ -502,7 +502,7 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
             **documents.address_change_document(address="vorher.zorbanax@example.org", email=IDENTIFIER, token_hash=None, day="2126-03-01"),
             "address": None,
             "email": None,
-            "ended": {"art": "effective", "at": NOW},
+            "ended": {"kind": "effective", "at": NOW},
             "move": {"old": "vorher.zorbanax@example.org", "new": IDENTIFIER},
             "moved": {
                 "person_hash": erasure_journal_hash(IDENTIFIER, key=CONFIG.sperrliste_key),
@@ -515,7 +515,7 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
         {
             "_id": SENT_NOTICE_OID,
             "key": f"address_changes/{OWED_CARRY_OID}/effective",
-            "art": "address_change_effective",
+            "kind": "address_change_effective",
             "an": "vorher.zorbanax@example.org",
             "secret": None,
             "reference": None,
@@ -901,7 +901,7 @@ class TestWhatStandsBesideThem:
 
         change, row = on_a_league(mongo_replica_set_url, body)
 
-        assert (change["ended"]["art"], change["email"]) == ("discarded", None)
+        assert (change["ended"]["kind"], change["email"]) == ("discarded", None)
         held: Any = row
         for key in path.split("."):
             held = held[key]
@@ -1330,7 +1330,7 @@ class TestEachStepWritesWhatItDeclares:
 
         assert writes[EMPTIED.run.__name__] == {str(collection) for collection in EMPTIED.reaches}
         # Its address on file goes too: no erasure of the address follows a pupil's to take it.
-        assert (change["ended"]["art"], change["address"], change["email"]) == ("discarded", None, None)
+        assert (change["ended"]["kind"], change["address"], change["email"]) == ("discarded", None, None)
 
     def test_a_pupils_loeschung_leaves_the_change_of_an_address_still_holding_records(self, mongo_replica_set_url: str):
         """The person is a referee and a seat holder beside the pupil, so their change still has those to move."""
@@ -1490,7 +1490,7 @@ class TestThePreview:
                 preview = (await http.get(f"{PATH}/view", headers=as_person(TYPED))).json()["address_change"]
 
             answered = (await geloescht_by_the_handler(database, client)).address_change
-            return preview, answered, (await the_one(database, Collection.ADDRESS_CHANGES, {"_id": asked_first["_id"]}))["ended"]["art"]
+            return preview, answered, (await the_one(database, Collection.ADDRESS_CHANGES, {"_id": asked_first["_id"]}))["ended"]["kind"]
 
         # The seed's two changes alone; the press still ends all three, nothing of the asked one being this address's.
         assert on_a_league(mongo_replica_set_url, body) == (2, 2, "discarded")

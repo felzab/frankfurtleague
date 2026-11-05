@@ -268,12 +268,12 @@ async def loeschen_antraege_in_session(
 AntragEndeLine = Literal["approval_request_declined", "approval_request_withdrawn", "approval_request_ended"]
 
 
-def antrag_line(*, approval_request: Mapping[str, Any], art: AntragEndeLine, at: str, key: SecretStr) -> JournalLine:
+def antrag_line(*, approval_request: Mapping[str, Any], kind: AntragEndeLine, at: str, key: SecretStr) -> JournalLine:
     """An ended request's line, so a restore from before its end does not bring it back to be approved."""
 
     return JournalLine(
         person_hash=erasure_journal_hash(str(approval_request["address"]), key=key),
-        art=art,
+        kind=kind,
         collection=Collection.GRANT_APPROVAL_REQUESTS,
         record_id=approval_request["_id"],
         at=at,

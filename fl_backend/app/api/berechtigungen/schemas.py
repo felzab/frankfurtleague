@@ -21,11 +21,11 @@ FLUtcInstant = Annotated[datetime, AfterValidator(as_utc)]
 
 # What happened to one grant: added, removed, or its tier changed in place, by the tier change or by
 # a database edit. An address changed in place is a removal and a grant, never `changed`.
-FLBerechtigungAenderungArt = Literal["granted", "revoked", "changed"]
+FLGrantChangeKind = Literal["granted", "revoked", "changed"]
 
 # What a grant's notice tells: a change to a grant, or, no change of one yet, a grant or promotion asked for, waiting on
 # an approval (`app/api/outbox/schemas.py :: FLGrantData`).
-FLBerechtigungMitteilungArt = Literal[FLBerechtigungAenderungArt, Literal["requested"]]
+FLGrantNoticeKind = Literal[FLGrantChangeKind, Literal["requested"]]
 
 # Who made a queued change: an administrator through the application, or an edit in the database.
 # Stated, since a null actor also stands for one whose address is withheld.

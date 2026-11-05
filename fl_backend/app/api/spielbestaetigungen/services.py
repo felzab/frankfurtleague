@@ -1044,13 +1044,13 @@ def notice_daten_of(*, grund: FLSpielbestaetigungGrund, partei_art: str, appoint
 
     empfaenger = "schiedsrichter" if partei_art == "schiedsrichter" else "team"
     if grund == "ansetzung_changed":
-        return FLSpielNoticeData(art="spiel_new_scheduled", recipient=empfaenger, appointment=appointment)
+        return FLSpielNoticeData(kind="spiel_new_scheduled", recipient=empfaenger, appointment=appointment)
     if grund == "abgesagt":
-        return FLSpielNoticeData(art="spiel_abgesagt", recipient=empfaenger, appointment=appointment)
+        return FLSpielNoticeData(kind="spiel_abgesagt", recipient=empfaenger, appointment=appointment)
     if grund == "schiedsrichter_switched":
-        return FLSpielEinteilungLiftedData(art="spiel_einteilung_lifted", appointment=appointment)
+        return FLSpielEinteilungLiftedData(kind="spiel_einteilung_lifted", appointment=appointment)
     if grund == "discarded":
-        return FLSpielVorschlagDiscardedData(art="spiel_vorschlag_discarded", appointment=appointment)
+        return FLSpielVorschlagDiscardedData(kind="spiel_vorschlag_discarded", appointment=appointment)
 
     raise ValueError(f"a closing for {grund} owes no notice")
 

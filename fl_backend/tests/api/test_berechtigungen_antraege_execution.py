@@ -221,7 +221,7 @@ async def owed(database: AsyncDatabase) -> list[tuple[Mapping[str, Any], list[st
     """Each grant notice still owed, in the order owed: its facts and every address it is owed to."""
 
     notices: dict[str, tuple[Mapping[str, Any], list[str]]] = {}
-    async for row in database[Collection.OUTBOX].find({"state": "open", "art": "grant"}, sort=[("recorded_at", 1), ("_id", 1)]):
+    async for row in database[Collection.OUTBOX].find({"state": "open", "kind": "grant"}, sort=[("recorded_at", 1), ("_id", 1)]):
         notices.setdefault(row["key"].rpartition("/")[0], (row["data"], []))[1].append(str(row["an"]))
 
     return [(data, sorted(an)) for data, an in notices.values()]
@@ -366,7 +366,7 @@ class TestFourEyesOnAPromotion:
     def test_a_lone_owner_promotes_alone_though_administrators_could_approve(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             answer = await tier(database, client, ANNA_ID)
-            kinds = {art for art, _, _ in await announced(database)}
+            kinds = {kind for kind, _, _ in await announced(database)}
             return answer.requested, (await tiers(database))[ANNA], await antraege(database), "requested" in kinds
 
         assert on_a_league(mongo_replica_set_url, body) == (False, "owner", [], False)
@@ -449,7 +449,7 @@ class TestTheRequestAsksItsApprovers:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             antrag_id = await asked_for(database, client)
             await decided(database, client, antrag_id)
-            return [art for art, _, _ in await announced(database) if art == "requested"], await asked(database)
+            return [kind for kind, _, _ in await announced(database) if kind == "requested"], await asked(database)
 
         assert on_a_league(mongo_replica_set_url, body) == ([], [])
 
@@ -762,23 +762,23 @@ class TestTheRefusalIsJournalled:
     """A restore from before a refusal or a withdrawal brings the request back only until its replay."""
 
     @pytest.mark.parametrize(
-        ("als", "art"),
+        ("als", "kind"),
         [pytest.param(BERND, "approval_request_declined", id="refused"), pytest.param(ANNA, "approval_request_withdrawn", id="withdrawn")],
     )
     def test_the_decision_writes_one_line_naming_the_request(
-        self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture, als: str, art: str
+        self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture, als: str, kind: str
     ):
-        """Its own art each: the replay tells the requester again of a refusal, and of a withdrawal nobody."""
+        """Its own kind each: the replay tells the requester again of a refusal, and of a withdrawal nobody."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             antrag_id = await asked_for(database, client)
             with journal_of(caplog) as lines:
                 await refuse(database, client, antrag_id, als=als)
-            return antrag_id, [(line.art, line.collection, line.record_id) for line in lines]
+            return antrag_id, [(line.kind, line.collection, line.record_id) for line in lines]
 
         antrag_id, lines = on_a_league(mongo_replica_set_url, body)
 
-        assert lines == [(art, Collection.GRANT_APPROVAL_REQUESTS, antrag_id)]
+        assert lines == [(kind, Collection.GRANT_APPROVAL_REQUESTS, antrag_id)]
 
     def test_a_refusal_refused_and_an_approval_write_none(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         """A refused press rolled back, and an approval leaves its grant, which a restore takes back with the request."""
@@ -847,7 +847,7 @@ class TestTheReplayEndsTheRestoredRequest:
                     (approval_request,) = await ended(database, client, NEU)
                     lines.append(
                         antrag_line(
-                            approval_request=approval_request, art="approval_request_ended", at=log_stamp(NOW), key=CONFIG.sperrliste_key
+                            approval_request=approval_request, kind="approval_request_ended", at=log_stamp(NOW), key=CONFIG.sperrliste_key
                         )
                     )
                 else:

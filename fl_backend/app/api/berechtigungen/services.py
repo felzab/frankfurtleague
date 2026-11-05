@@ -13,7 +13,7 @@ from typing import Any, Final
 
 from bson import ObjectId
 
-from app.api.berechtigungen.schemas import FLBerechtigungAenderungArt, FLBerechtigungMitteilungArt, FLGrantSnapshot, as_utc
+from app.api.berechtigungen.schemas import FLGrantChangeKind, FLGrantNoticeKind, FLGrantSnapshot, as_utc
 from app.api.sperrliste.services import withheld_actor
 from app.core.codes import Code
 from app.core.exceptions import WriteRefusal
@@ -72,22 +72,22 @@ def owner_since(row: Mapping[str, Any], angekuendigt: Mapping[str, Any] | None) 
 
 
 def found_ids(
-    changes: Sequence[tuple[Any, FLBerechtigungAenderungArt, FLGrantSnapshot | None, FLGrantSnapshot | None]],
+    changes: Sequence[tuple[Any, FLGrantChangeKind, FLGrantSnapshot | None, FLGrantSnapshot | None]],
 ) -> list[Any]:
     """The grant ids a comparison found granted anew, an address changed in place among them, each of which is stamped `gefunden_am`."""
 
-    return [berechtigung_id for berechtigung_id, art, _, _ in changes if art == "granted"]
+    return [berechtigung_id for berechtigung_id, kind, _, _ in changes if kind == "granted"]
 
 
 def ernannt(
-    changes: Sequence[tuple[Any, FLBerechtigungAenderungArt, FLGrantSnapshot | None, FLGrantSnapshot | None]],
+    changes: Sequence[tuple[Any, FLGrantChangeKind, FLGrantSnapshot | None, FLGrantSnapshot | None]],
 ) -> list[Any]:
     """The grant ids a comparison found promoted to `owner` in place, each of which is stamped `appointed_at`."""
 
     return [
         berechtigung_id
-        for berechtigung_id, art, current, _ in changes
-        if art == "changed" and current is not None and current.admin_tier == OWNER
+        for berechtigung_id, kind, current, _ in changes
+        if kind == "changed" and current is not None and current.admin_tier == OWNER
     ]
 
 
@@ -205,7 +205,7 @@ def stand_of(row: Mapping[str, Any]) -> FLGrantSnapshot:
 
 def compare(
     *, grants: Sequence[Mapping[str, Any]], announced: Sequence[Mapping[str, Any]]
-) -> list[tuple[Any, FLBerechtigungAenderungArt, FLGrantSnapshot | None, FLGrantSnapshot | None]]:
+) -> list[tuple[Any, FLGrantChangeKind, FLGrantSnapshot | None, FLGrantSnapshot | None]]:
     """Every grant whose state differs from the announced record, in id order.
 
     Keyed on the grant's id, never its address, or a revoke and a re-grant cancel out unannounced.
@@ -214,7 +214,7 @@ def compare(
     current = {row["_id"]: stand_of(row) for row in grants}
     previous = {row["_id"]: stand_of(row) for row in announced}
 
-    changes: list[tuple[Any, FLBerechtigungAenderungArt, FLGrantSnapshot | None, FLGrantSnapshot | None]] = []
+    changes: list[tuple[Any, FLGrantChangeKind, FLGrantSnapshot | None, FLGrantSnapshot | None]] = []
     for berechtigung_id in sorted(current.keys() | previous.keys()):
         now, before = current.get(berechtigung_id), previous.get(berechtigung_id)
         if before is None:
@@ -252,7 +252,7 @@ class Mitteilung:
 def compose_mitteilung(
     *,
     grant_id: ObjectId,
-    art: FLBerechtigungMitteilungArt,
+    kind: FLGrantNoticeKind,
     current: FLGrantSnapshot | None,
     before: FLGrantSnapshot | None,
     changed_by: str | None,
@@ -270,8 +270,8 @@ def compose_mitteilung(
     return Mitteilung(
         grant_id=grant_id,
         data={
-            "art": "grant",
-            "change": art,
+            "kind": "grant",
+            "change": kind,
             "author": "datenbank" if changed_by is None else "anwendung",
             "now": None if stands[0] is None else stands[0].model_dump(),
             "before": None if stands[1] is None else stands[1].model_dump(),

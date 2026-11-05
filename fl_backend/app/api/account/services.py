@@ -111,7 +111,7 @@ def withdrawal_line(
 
     return JournalLine(
         person_hash=person_hash,
-        art="withdrawal",
+        kind="withdrawal",
         collection=collection,
         record_id=record_id,
         at=at,

@@ -65,8 +65,8 @@ async def post_grants_reconciliation(
             barred = await barred_addresses(sperrliste, {str(row["address"]) for row in grants} | named, session=session)
             await owe_in_session(
                 [
-                    compose_mitteilung(grant_id=grant_id, art=art, current=after, before=before, changed_by=None, now=now, barred=barred)
-                    for grant_id, art, after, before in changes
+                    compose_mitteilung(grant_id=grant_id, kind=kind, current=after, before=before, changed_by=None, now=now, barred=barred)
+                    for grant_id, kind, after, before in changes
                 ],
                 outbox_collection=outbox_collection,
                 grants_collection=grants_collection,

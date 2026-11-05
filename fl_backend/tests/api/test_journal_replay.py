@@ -516,7 +516,7 @@ class TestARecordTheLineNoLongerFits:
     def test_a_record_now_holding_somebody_else_is_left_for_review_and_unchanged(self, mongo_replica_set_url: str):
         line = JournalLine(
             person_hash=erasure_journal_hash(PERSON, key=KEY),
-            art="withdrawal",
+            kind="withdrawal",
             collection=Collection.SPIELER,
             record_id=MOVING_PUPIL_OID,
             at=AT,
@@ -550,10 +550,10 @@ def _day_file(*entries: tuple[str, str]) -> list[str]:
 class TestTheListing:
     def test_it_names_where_an_loeschung_s_address_is_held_and_prints_no_address_and_no_hash(self, mongo_replica_set_url: str):
         # Its pseudonym named, and its address held: the page's erasure takes the pseudonym's rows with everything else.
-        erased = JournalLine(person_hash=erasure_journal_hash(PERSON, key=KEY), art="erasure", pseudonym=actor_pseudonym(PERSON, key=KEY))
+        erased = JournalLine(person_hash=erasure_journal_hash(PERSON, key=KEY), kind="erasure", pseudonym=actor_pseudonym(PERSON, key=KEY))
         withdrawal = JournalLine(
             person_hash=erasure_journal_hash(PERSON, key=KEY),
-            art="withdrawal",
+            kind="withdrawal",
             collection=Collection.SPIELER,
             record_id=PUPIL_OID,
             at=AT,
@@ -562,7 +562,7 @@ class TestTheListing:
         )
         on_the_restored_site = JournalLine(
             person_hash=erasure_journal_hash(PERSON, key=KEY),
-            art="withdrawal",
+            kind="withdrawal",
             collection=Collection.SCHIEDSRICHTER,
             record_id=REFEREE_OID,
             at="2126-10-03T12:30:00+00:00",
@@ -932,8 +932,8 @@ class TestADiscardedChange:
         line, stand, discarded, after = served(mongo_replica_set_url, steps)
 
         assert line is not None
-        assert (line.art, line.collection, line.record_id) == ("address_change_discarded", Collection.ADDRESS_CHANGES, PUPIL_CHANGE_OID)
+        assert (line.kind, line.collection, line.record_id) == ("address_change_discarded", Collection.ADDRESS_CHANGES, PUPIL_CHANGE_OID)
         assert line.person_hash == erasure_journal_hash(NEW_ADDRESS, key=KEY)
         # Ended as the discard ended it, at the discard's own instant.
         assert (stand, after) == ("replayed", discarded)
-        assert after["ended"]["art"] == "discarded"
+        assert after["ended"]["kind"] == "discarded"

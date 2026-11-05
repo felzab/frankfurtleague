@@ -316,14 +316,14 @@ async def delete_address_change(
             address_changes_collection=address_changes_collection,
             action_log_collection=action_log_collection,
             db_filter={"_id": live["_id"]},
-            art="stopped",
+            kind="stopped",
             now=germany_now,
             stamp=stamp,
             session=session,
         )
         journal.note(
             ending_line(
-                art="address_change_stopped",
+                kind="address_change_stopped",
                 new_address=str(stored["email"]),
                 record_id=stored["_id"],
                 at=stamp,

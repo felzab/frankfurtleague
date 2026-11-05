@@ -294,7 +294,7 @@ class Notice:
     """One grant notice as owed, once whoever it is owed to, read as the frontend's builder reads its facts."""
 
     grant_id: ObjectId
-    art: str
+    kind: str
     author: str
     now: FLGrantSnapshot | None
     before: FLGrantSnapshot | None
@@ -310,7 +310,7 @@ class Notice:
 async def _open_rows(database: AsyncDatabase) -> list[Mapping[str, Any]]:
     """The grant notices still owed, in the order they were owed: one row per recipient."""
 
-    return [row async for row in database[Collection.OUTBOX].find({"state": "open", "art": "grant"}).sort([("recorded_at", 1), ("_id", 1)])]
+    return [row async for row in database[Collection.OUTBOX].find({"state": "open", "kind": "grant"}).sort([("recorded_at", 1), ("_id", 1)])]
 
 
 def _by_notice(rows: list[Mapping[str, Any]]) -> dict[str, list[Mapping[str, Any]]]:
@@ -329,7 +329,7 @@ async def queued(database: AsyncDatabase) -> list[Mapping[str, Any]]:
     notices = []
     for rows in _by_notice(await _open_rows(database)).values():
         data = dict(rows[0]["data"])
-        data["art"] = data.pop("change")
+        data["kind"] = data.pop("change")
         notices.append(data)
 
     return notices
@@ -345,7 +345,7 @@ async def owed(database: AsyncDatabase) -> list[Notice]:
         notices.append(
             Notice(
                 grant_id=ObjectId(key.split("/")[1]),
-                art=data["change"],
+                kind=data["change"],
                 author=data["author"],
                 now=stand(data["now"]),
                 before=stand(data["before"]),
@@ -426,7 +426,7 @@ def summary(notices: list[Notice]) -> list[tuple[str, str | None, str | None]]:
     for notice in notices:
         state = notice.now or notice.before
         assert state is not None
-        summarised.append((notice.art, state.address, notice.changed_by))
+        summarised.append((notice.kind, state.address, notice.changed_by))
 
     return summarised
 
@@ -490,7 +490,7 @@ class TestAReplayOwesNothingTwice:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[int, int]:
             mitteilung = compose_mitteilung(
                 grant_id=ANNA_ID,
-                art="changed",
+                kind="changed",
                 current=FLGrantSnapshot(address=ANNA, admin_tier="owner"),
                 before=FLGrantSnapshot(address=ANNA, admin_tier="administration"),
                 changed_by=OWNER,
@@ -729,7 +729,7 @@ class TestAnOwnerChangesATier:
 
             return (
                 await tiers(database),
-                [(row["art"], row["now"], row["before"], row["author"], row["changed_by"]) for row in await queued(database)],
+                [(row["kind"], row["now"], row["before"], row["author"], row["changed_by"]) for row in await queued(database)],
                 announced and announced["admin_tier"],
                 logged,
             )
@@ -1146,7 +1146,7 @@ class TestTheComparison:
 
         assert [row["withheld"] for row in rows] == ["barred", "barred"]
         assert all(NEU not in str(row) for row in rows)
-        assert [(change.art, change.barred) for change in answer] == [("granted", True), ("revoked", True)]
+        assert [(change.kind, change.barred) for change in answer] == [("granted", True), ("revoked", True)]
 
     def test_a_barred_grant_revoked_here_is_queued_with_no_address(self, mongo_replica_set_url: str):
         """The revoke withholds as it owes, before any hand-out reads the row."""
@@ -1175,7 +1175,7 @@ class TestTheComparison:
             answer = await compared(database, client)
 
             return [
-                (row["art"], row["changed_by"], row["withheld"], change.barred, change.geaendert_von_gesperrt)
+                (row["kind"], row["changed_by"], row["withheld"], change.barred, change.geaendert_von_gesperrt)
                 for row, change in zip(stored, answer, strict=True)
             ]
 
@@ -1196,7 +1196,7 @@ class TestTheComparison:
             return [
                 (
                     change.grant_id,
-                    change.art,
+                    change.kind,
                     change.author,
                     change.changed_by,
                     change.geaendert_von_gesperrt,
@@ -1243,7 +1243,7 @@ class TestTheComparison:
 
             return [
                 (
-                    change.art,
+                    change.kind,
                     change.now.address if change.now else None,
                     change.before.address if change.before else None,
                     change.changed_by,

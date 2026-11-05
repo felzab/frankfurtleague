@@ -213,7 +213,7 @@ async def mailed(database: AsyncDatabase, answer: Any, owed: list[Any]) -> Maile
             row=mail.data.row,
         )
         for mail in mails
-        if mail.data.art == "kontakt_confirmation"
+        if mail.data.kind == "kontakt_confirmation"
     ]
     assert [(link.rollen, link.email) for link in links] == [(mint.rollen, mint.email) for mint in owed], "the answer and the mails part"
 

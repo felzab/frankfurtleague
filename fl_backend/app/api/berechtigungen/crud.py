@@ -162,7 +162,7 @@ async def live_unbarred_grant_since(
 
 
 # A grant's notice still to be handed out: the one shape a ban or an erasure rewrites, a sent one being past saying.
-OFFENE_MITTEILUNG: Final[Mapping[str, Any]] = {"state": "open", "art": "grant"}
+OFFENE_MITTEILUNG: Final[Mapping[str, Any]] = {"state": "open", "kind": "grant"}
 
 
 async def owe_in_session(
@@ -278,7 +278,7 @@ async def grant_in_session(
         [
             compose_mitteilung(
                 grant_id=created.inserted_id,
-                art="granted",
+                kind="granted",
                 current=stand,
                 before=None,
                 changed_by=granted_by,
@@ -314,13 +314,13 @@ async def revoke_in_session(
     """
 
     mitteilungen = [
-        compose_mitteilung(grant_id=changed_id, art=art, current=current, before=before, changed_by=None, now=now, barred=barred)
-        for changed_id, art, current, before in compare(grants=[grant], announced=announced)
+        compose_mitteilung(grant_id=changed_id, kind=kind, current=current, before=before, changed_by=None, now=now, barred=barred)
+        for changed_id, kind, current, before in compare(grants=[grant], announced=announced)
     ]
     mitteilungen.append(
         compose_mitteilung(
             grant_id=grant["_id"],
-            art="revoked",
+            kind="revoked",
             current=None,
             before=stand_of(grant),
             changed_by=revoked_by,

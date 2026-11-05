@@ -453,7 +453,7 @@ class TestAConfirmationMintWhoseCommitAnswerIsLost:
                 await client.admin.command("configureFailPoint", FAIL_POINT, mode="off")
                 await losing.close()
             standing = await confirmations.rows(database, closed=None)
-            owed = await database[Collection.OUTBOX].find({"reference.id": {"$in": [row["_id"] for row in standing]}}, {"art": 1}).to_list()
+            owed = await database[Collection.OUTBOX].find({"reference.id": {"$in": [row["_id"] for row in standing]}}, {"kind": 1}).to_list()
 
             return commits.answered, lost.value, standing, owed, await confirmations.a_pass(database, client)
 
@@ -470,7 +470,7 @@ class TestAConfirmationMintWhoseCommitAnswerIsLost:
             ("team", "19:00:00", confirmations.TODAY),
             ("team", "19:00:00", confirmations.TODAY),
         ]
-        assert sorted(mail["art"] for mail in owed) == ["spiel_einteilung"] + ["spiel_request"] * 6
+        assert sorted(mail["kind"] for mail in owed) == ["spiel_einteilung"] + ["spiel_request"] * 6
         assert (nxt.asked, nxt.mails) == (0, 0)
 
 

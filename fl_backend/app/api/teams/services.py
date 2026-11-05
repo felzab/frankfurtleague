@@ -935,7 +935,7 @@ def build_team_saisons_pipeline() -> list[Mapping[str, Any]]:
 
 
 def membership_row_ids(teams_raw: Sequence[Mapping[str, Any]]) -> list[Any]:
-    """Every season row the memberships read holds a link on, whose mails `postausgang/crud.py :: lagen_of` reads."""
+    """Every season row the memberships read holds a link on, whose mails `app/api/outbox/crud.py :: states_of` reads."""
 
     return [row["_id"] for team in teams_raw for row in team.get("memberships", []) if isinstance(row.get("confirmations"), Mapping)]
 
@@ -1322,7 +1322,7 @@ def owed_kontakt_link(
             key=key,
             an=email,
             data=FLKontaktLinkData(
-                art="kontakt_confirmation",
+                kind="kontakt_confirmation",
                 saison_id=saison_id,
                 schule=str(row.get("name") or ""),
                 rollen=list(seats),

@@ -31,14 +31,14 @@ AT = "2026-10-15T10:00:00+00:00"
 JOURNAL_LOGGER = f"{FL_LOGGER_NAME}.{JOURNAL_LOGGER_SUFFIX}"
 
 LINES = {
-    "an erasure": JournalLine(person_hash=PERSON, art="erasure", pseudonym=PSEUDONYM, halter=HALTER),
+    "an erasure": JournalLine(person_hash=PERSON, kind="erasure", pseudonym=PSEUDONYM, halter=HALTER),
     # As every erasure was journalled before the line named its holder digest.
-    "an erasure naming no holder": JournalLine(person_hash=PERSON, art="erasure", pseudonym=PSEUDONYM),
+    "an erasure naming no holder": JournalLine(person_hash=PERSON, kind="erasure", pseudonym=PSEUDONYM),
     # As every erasure was journalled before the line named its pseudonym.
-    "an older erasure": JournalLine(person_hash=PERSON, art="erasure"),
+    "an older erasure": JournalLine(person_hash=PERSON, kind="erasure"),
     "a withdrawal": JournalLine(
         person_hash=PERSON,
-        art="withdrawal",
+        kind="withdrawal",
         collection=Collection.SPIELER,
         record_id=RECORD,
         at=AT,
@@ -46,28 +46,28 @@ LINES = {
         choices={"scope": "intern", "media": False},
     ),
     "a Widerspruch": JournalLine(
-        person_hash=PERSON, art="objection", collection=Collection.BEWERBUNGEN, record_id=RECORD, at=AT, seats=("trainer", "ansprechperson")
+        person_hash=PERSON, kind="objection", collection=Collection.BEWERBUNGEN, record_id=RECORD, at=AT, seats=("trainer", "ansprechperson")
     ),
     "a declined address change": JournalLine(
-        person_hash=PERSON, art="address_change_declined", collection=Collection.ADDRESS_CHANGES, record_id=RECORD, at=AT
+        person_hash=PERSON, kind="address_change_declined", collection=Collection.ADDRESS_CHANGES, record_id=RECORD, at=AT
     ),
     "a discarded address change": JournalLine(
-        person_hash=PERSON, art="address_change_discarded", collection=Collection.ADDRESS_CHANGES, record_id=RECORD, at=AT
+        person_hash=PERSON, kind="address_change_discarded", collection=Collection.ADDRESS_CHANGES, record_id=RECORD, at=AT
     ),
     "a discarded address change whose new mailbox was told": JournalLine(
-        person_hash=PERSON, art="address_change_discarded_notified", collection=Collection.ADDRESS_CHANGES, record_id=RECORD, at=AT
+        person_hash=PERSON, kind="address_change_discarded_notified", collection=Collection.ADDRESS_CHANGES, record_id=RECORD, at=AT
     ),
     "a refused request": JournalLine(
-        person_hash=PERSON, art="approval_request_declined", collection=Collection.GRANT_APPROVAL_REQUESTS, record_id=RECORD, at=AT
+        person_hash=PERSON, kind="approval_request_declined", collection=Collection.GRANT_APPROVAL_REQUESTS, record_id=RECORD, at=AT
     ),
     "a withdrawn request": JournalLine(
-        person_hash=PERSON, art="approval_request_withdrawn", collection=Collection.GRANT_APPROVAL_REQUESTS, record_id=RECORD, at=AT
+        person_hash=PERSON, kind="approval_request_withdrawn", collection=Collection.GRANT_APPROVAL_REQUESTS, record_id=RECORD, at=AT
     ),
     "a request an address change ended": JournalLine(
-        person_hash=PERSON, art="approval_request_ended", collection=Collection.GRANT_APPROVAL_REQUESTS, record_id=RECORD, at=AT
+        person_hash=PERSON, kind="approval_request_ended", collection=Collection.GRANT_APPROVAL_REQUESTS, record_id=RECORD, at=AT
     ),
     "an address change taking effect": JournalLine(
-        person_hash=PERSON, art="address_change_effective", collection=Collection.ADDRESS_CHANGES, record_id=RECORD, at=AT, before=BEFORE
+        person_hash=PERSON, kind="address_change_effective", collection=Collection.ADDRESS_CHANGES, record_id=RECORD, at=AT, before=BEFORE
     ),
 }
 
@@ -95,7 +95,7 @@ def test_every_act_reads_back_as_it_was_written(line: JournalLine):
 @pytest.mark.parametrize("line", LINES.values(), ids=LINES.keys())
 def test_the_replay_names_a_line_by_its_act_alone(line: JournalLine):
     """The log outlives the day files by eleven months, so a replay's row names no keyed hash; nor the token, which reads as an erasure."""
-    assert line.act().startswith(line.art)
+    assert line.act().startswith(line.kind)
     assert all(keyed not in line.act() for keyed in (PERSON, PSEUDONYM, HALTER, BEFORE, JOURNAL_TOKEN))
 
 
@@ -187,7 +187,7 @@ def test_a_withdrawal_naming_one_label_for_its_press_replays_under_its_kinds_lab
 
     assert line == JournalLine(
         person_hash=PERSON,
-        art="withdrawal",
+        kind="withdrawal",
         collection=collection,
         record_id=RECORD,
         at=AT,
@@ -200,7 +200,7 @@ def _committed(journal: Journal, caplog: pytest.LogCaptureFixture, *, failure: B
     """The lines a write's block leaves behind, its callback noting one line per attempt and the block ending on `failure`."""
 
     async def write(_session: AsyncClientSession, attempt: int) -> None:
-        journal.note(JournalLine(person_hash=f"{attempt:064x}", art="erasure"))
+        journal.note(JournalLine(person_hash=f"{attempt:064x}", kind="erasure"))
 
     async def block() -> None:
         async with journal:

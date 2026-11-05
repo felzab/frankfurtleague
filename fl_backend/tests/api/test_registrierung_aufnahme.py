@@ -295,7 +295,7 @@ async def decline(
 
 
 async def notes_owed(database: AsyncDatabase) -> list[Mapping[str, Any]]:
-    return await database[Collection.OUTBOX].find({"art": "registrierung_absage"}).to_list(length=None)
+    return await database[Collection.OUTBOX].find({"kind": "registrierung_absage"}).to_list(length=None)
 
 
 async def read(

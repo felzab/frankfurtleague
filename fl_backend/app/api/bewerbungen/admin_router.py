@@ -368,7 +368,7 @@ async def accept_bewerbung(
                     key=_key(bewerbung_id, "zusage", seats[0]),
                     an=email,
                     data=FLBewerbungZusageData(
-                        art="bewerbung_zusage",
+                        kind="bewerbung_zusage",
                         team=name,
                         saison_id=saison_id,
                         rollen=seats,
@@ -450,7 +450,7 @@ async def decline_bewerbung(
                     key=_key(bewerbung_id, "absage", seats[0]),
                     an=email,
                     data=FLBewerbungAbsageData(
-                        art="bewerbung_absage", team=team, saison_id=str(stored_raw["saison_id"]), rollen=seats, grund=ablehnung_data.grund
+                        kind="bewerbung_absage", team=team, saison_id=str(stored_raw["saison_id"]), rollen=seats, grund=ablehnung_data.grund
                     ),
                 )
                 for email, seats in people_with_address(kontakte=stored_raw.get("kontakte"))

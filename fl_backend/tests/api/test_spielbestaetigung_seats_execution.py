@@ -352,7 +352,7 @@ async def replay_the_widerspruch(database: AsyncDatabase, client: AsyncMongoClie
 
     line = JournalLine(
         person_hash=erasure_journal_hash("ida@example.com", key=CONFIG.sperrliste_key),
-        art="objection",
+        kind="objection",
         collection=Collection.SAISON_TEAMS,
         record_id=ROW_OID,
         at=AT,

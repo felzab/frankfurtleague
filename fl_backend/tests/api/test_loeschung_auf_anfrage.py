@@ -592,7 +592,7 @@ class TestAGrantHoldersPendingChange:
 
         assert (by_operator.status_code, by_operator.json()["error_code"], untouched) == (403, Code.FOREIGN_ADDRESS_CHANGE, True)
         assert owners_status == 200
-        assert ended is not None and ended["ended"]["art"] == "discarded"
+        assert ended is not None and ended["ended"]["kind"] == "discarded"
 
 
 @pytest.mark.db

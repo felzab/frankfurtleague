@@ -34,8 +34,8 @@ from app.shared.schemas.einwilligung import FLSchiedsrichterTextVersions, FLSeat
 JOURNAL_TOKEN: Final = "erasure-journal"
 
 # An erasure, which an administrator runs again on its page, and each act the replay writes again. An end that told
-# somebody has an art of its own: the replay tells them again from the art alone.
-JournalArt = Literal[
+# somebody has a kind of its own: the replay tells them again from the kind alone.
+JournalKind = Literal[
     "erasure",
     "withdrawal",
     "objection",
@@ -50,7 +50,7 @@ JournalArt = Literal[
 ]
 
 # The collections each act is made on: a line naming any other is unreadable rather than replayed there.
-RECORDS: Final[Mapping[JournalArt, frozenset[Collection]]] = {
+RECORDS: Final[Mapping[JournalKind, frozenset[Collection]]] = {
     "erasure": frozenset(),
     "withdrawal": frozenset(
         {Collection.SPIELER, Collection.SCHIEDSRICHTER, Collection.REGISTRIERUNGEN, Collection.SAISON_TEAMS, Collection.BEWERBUNGEN}
@@ -88,7 +88,7 @@ class JournalLine:
     """One act, as its line spells it; refused at construction where the act could not be replayed from it."""
 
     person_hash: str
-    art: JournalArt
+    kind: JournalKind
     collection: Collection | None = None
     record_id: ObjectId | None = None
     # The instant the act's evidence was stamped with, as `app/core/recording.py :: log_stamp` spells it.
@@ -111,16 +111,16 @@ class JournalLine:
     def __post_init__(self) -> None:
         if not _HASH.fullmatch(self.person_hash):
             raise ValueError("a journal line names its person by a journal hash")
-        if self.pseudonym is not None and (self.art != "erasure" or not _HASH.fullmatch(self.pseudonym)):
+        if self.pseudonym is not None and (self.kind != "erasure" or not _HASH.fullmatch(self.pseudonym)):
             raise ValueError("an erasure's line alone names its person's log pseudonym")
-        if self.halter is not None and (self.art != "erasure" or not _HASH.fullmatch(self.halter)):
+        if self.halter is not None and (self.kind != "erasure" or not _HASH.fullmatch(self.halter)):
             raise ValueError("an erasure's line alone names its person's holder digest")
-        if (self.art == "address_change_effective") != (self.before is not None) or (
+        if (self.kind == "address_change_effective") != (self.before is not None) or (
             self.before is not None and not _HASH.fullmatch(self.before)
         ):
             raise ValueError("a change taking effect, and only one, names the address it replaced by a journal hash")
 
-        if self.art == "erasure":
+        if self.kind == "erasure":
             if (
                 self.collection is not None
                 or self.record_id is not None
@@ -132,8 +132,8 @@ class JournalLine:
                 raise ValueError("an erasure's line names its person alone: the erasure is keyed on the address")
             return
 
-        if self.collection not in RECORDS[self.art] or self.record_id is None:
-            raise ValueError(f"a {self.art} line names a record of {sorted(RECORDS[self.art])}")
+        if self.collection not in RECORDS[self.kind] or self.record_id is None:
+            raise ValueError(f"a {self.kind} line names a record of {sorted(RECORDS[self.kind])}")
         if self.at is None or datetime.fromisoformat(self.at).tzinfo is None:
             raise ValueError("a choice's line carries the instant it was made, with its offset")
 
@@ -146,9 +146,9 @@ class JournalLine:
                 for choice, value in self.choices.items()
             )
         )
-        if (self.art == "withdrawal") != withdrawn:
+        if (self.kind == "withdrawal") != withdrawn:
             raise ValueError("a withdrawal's line, and only one, carries the withholding values it set and each one's label")
-        if (self.art == "objection") != (bool(self.seats) and all(_WORD.fullmatch(seat) for seat in self.seats)):
+        if (self.kind == "objection") != (bool(self.seats) and all(_WORD.fullmatch(seat) for seat in self.seats)):
             raise ValueError("a Widerspruch's line, and only one, names the slots it emptied")
 
     def text(self) -> str:
@@ -165,7 +165,7 @@ class JournalLine:
     def act(self) -> str:
         """The act and its record, as the listing and a replay's log row name a line: neither the token nor anything keyed on its person."""
 
-        tokens: list[str] = [self.art]
+        tokens: list[str] = [self.kind]
         if self.collection is not None:
             tokens.append(f"{self.collection}/{self.record_id}")
         if self.at is not None:
@@ -212,10 +212,10 @@ def parse_line(message: str) -> JournalLine | None:
     tokens = message.split(" ")
     if tokens[0] != JOURNAL_TOKEN:
         return None
-    if len(tokens) < 3 or tokens[2] not in get_args(JournalArt):
+    if len(tokens) < 3 or tokens[2] not in get_args(JournalKind):
         raise ValueError("a journal line names its person and its act")
 
-    fields: dict[str, Any] = {"person_hash": tokens[1], "art": tokens[2]}
+    fields: dict[str, Any] = {"person_hash": tokens[1], "kind": tokens[2]}
     rest = tokens[3:]
     if rest and "=" not in rest[0]:
         collection, _, spelled_id = rest.pop(0).partition("/")

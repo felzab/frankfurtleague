@@ -25,7 +25,7 @@ def test_an_acting_administrator_barred_when_queued_is_stored_withheld_and_still
     """
 
     row = compose_mitteilung(
-        grant_id=GRANT, art="granted", current=NEU, before=None, changed_by="Anna.Admin@Frankfurtleague.de", now=NOW, barred={ANNA}
+        grant_id=GRANT, kind="granted", current=NEU, before=None, changed_by="Anna.Admin@Frankfurtleague.de", now=NOW, barred={ANNA}
     ).data
 
     assert (row["changed_by"], row["author"], row["withheld"], row["changed_at"]) == (None, "anwendung", None, NOW)
@@ -36,21 +36,21 @@ def test_an_unbarred_actor_is_stored_folded_with_no_reason():
     """The control for the case above: nothing barred, nothing withheld."""
 
     row = compose_mitteilung(
-        grant_id=GRANT, art="granted", current=NEU, before=None, changed_by="Anna.Admin@Frankfurtleague.de", now=NOW, barred=()
+        grant_id=GRANT, kind="granted", current=NEU, before=None, changed_by="Anna.Admin@Frankfurtleague.de", now=NOW, barred=()
     ).data
 
     assert (row["changed_by"], row["author"], row["withheld"]) == (ANNA, "anwendung", None)
 
 
 def test_a_change_found_in_the_database_names_its_source_rather_than_leaving_a_null_actor_to_say_it():
-    row = compose_mitteilung(grant_id=GRANT, art="granted", current=NEU, before=None, changed_by=None, now=NOW, barred=()).data
+    row = compose_mitteilung(grant_id=GRANT, kind="granted", current=NEU, before=None, changed_by=None, now=NOW, barred=()).data
 
     assert (row["changed_by"], row["changed_at"], row["author"], row["withheld"]) == (None, None, "datenbank", None)
 
 
 def test_a_barred_grant_address_is_withheld_with_the_same_reason():
     row = compose_mitteilung(
-        grant_id=GRANT, art="revoked", current=None, before=NEU, changed_by=None, now=NOW, barred={"nora.neu@beispielschule.de"}
+        grant_id=GRANT, kind="revoked", current=None, before=NEU, changed_by=None, now=NOW, barred={"nora.neu@beispielschule.de"}
     ).data
 
     assert (row["before"], row["withheld"]) == ({"address": None, "admin_tier": "administration"}, "barred")

@@ -253,7 +253,7 @@ def _served(body: dict[str, Any]) -> set[tuple[str, str]]:
 def _counted(entries: frozenset[tuple[str, Any]]) -> set[tuple[str, str]]:
     """The gate's set in the read's spelling."""
 
-    return {(art, f"{key[0]}/{key[1]}" if art == "seats" else str(key)) for art, key in entries}
+    return {(kind, f"{key[0]}/{key[1]}" if kind == "seats" else str(key)) for kind, key in entries}
 
 
 @pytest.mark.db

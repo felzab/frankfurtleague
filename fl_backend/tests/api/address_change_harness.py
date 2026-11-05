@@ -325,9 +325,9 @@ async def handed_out(database: AsyncDatabase, client: AsyncMongoClient, answer: 
         )
     ).mails:
         mails += claim.mails
-    links = {_LINKS[mail.data.art]: mail.token for mail in mails if mail.data.art in _LINKS}
-    held = [mail.id for mail in mails if mail.data.art in _LINKS]
-    others = [mail.id for mail in mails if mail.data.art not in _LINKS]
+    links = {_LINKS[mail.data.kind]: mail.token for mail in mails if mail.data.kind in _LINKS}
+    held = [mail.id for mail in mails if mail.data.kind in _LINKS]
+    others = [mail.id for mail in mails if mail.data.kind not in _LINKS]
     if held:
         await database[Collection.OUTBOX].update_many({"_id": {"$in": held}}, {"$set": {"state": "sent"}})
     if others:
@@ -446,11 +446,11 @@ async def owed(database: AsyncDatabase) -> list[dict[str, Any]]:
     """The notices the ends owe, in the order the drain hands them out: their kind, their recipient and whom they greet."""
 
     rows = database[Collection.OUTBOX].find(
-        {"art": {"$in": ["address_change_effective", "address_change_discarded"]}, "state": "open"}, sort=[("recorded_at", 1), ("_id", 1)]
+        {"kind": {"$in": ["address_change_effective", "address_change_discarded"]}, "state": "open"}, sort=[("recorded_at", 1), ("_id", 1)]
     )
     return [
         {
-            "art": row["art"].removeprefix("address_change_"),
+            "kind": row["kind"].removeprefix("address_change_"),
             "an": row["an"],
             **({"vorname": row["data"]["vorname"]} if "vorname" in row["data"] else {}),
         }

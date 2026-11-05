@@ -529,10 +529,10 @@ class TestWhatAWiderspruchOwesTheSubmitter:
 
         assert on_a_league(mongo_replica_set_url, body) == [
             {
-                "key": f"{Collection.BEWERBUNGEN}/{BEWERBUNG_OID}/widerspruch/stellvertretung",
+                "key": f"{Collection.BEWERBUNGEN}/{BEWERBUNG_OID}/objection/stellvertretung",
                 "an": "quillhilde@example.com",
                 "data": {
-                    "art": "bewerbung_objection",
+                    "kind": "bewerbung_objection",
                     "saison_id": SAISON_ID,
                     "rollen": ["ansprechperson"],
                     # Off the read before the decline: nothing left in the record names whose entry was refused.
@@ -590,7 +590,7 @@ class TestAResend:
         assert old_code == Code.LINK_INVALID
         assert (view.state, view.rolle) == ("valid", "trainer")
         assert (response.rolle, response.confirmation_deadline) == ("trainer", "2026-04-15")
-        assert (mail.an, mail.data.art) == ("wraxlington@example.com", "bewerbung_confirmation")
+        assert (mail.an, mail.data.kind) == ("wraxlington@example.com", "bewerbung_confirmation")
         assert document["confirmation_deadline"] == "2026-04-15"
         assert document["confirmations"]["trainer"] == {
             "token_hashes": [hash_token(mail.token or "")],

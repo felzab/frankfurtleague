@@ -21,7 +21,7 @@ from app.core.codes import Code
 from app.core.exceptions import WriteRefusal
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.bounds import ADDRESS_CHANGE_VALID_HOURS, ADDRESS_CHANGE_WAITING_PERIOD_DAYS, APPROVAL_DAYS
-from app.shared.schemas.literals import FLAddressChangeEndArt, FLAddressChangeWaitsOn, FLAddressChangeWay, FLApprovalDenied
+from app.shared.schemas.literals import FLAddressChangeEndKind, FLAddressChangeWaitsOn, FLAddressChangeWay, FLApprovalDenied
 
 ADDRESS_CHANGE_WAYS: Final[tuple[str, ...]] = get_args(FLAddressChangeWay.__value__)
 
@@ -33,7 +33,7 @@ FLAddressChangePreviousState = Literal["release_open", "release_expired", "open"
 # approval week, never `expired`: that is the link's own deadline, and a confirmed link takes no second answer.
 FLAddressChangeNewState = Literal["valid", "expired", "barred", "not_confirmable", "confirmed", "approval_expired"]
 
-ADDRESS_CHANGE_END_KINDS: Final[tuple[str, ...]] = get_args(FLAddressChangeEndArt.__value__)
+ADDRESS_CHANGE_END_KINDS: Final[tuple[str, ...]] = get_args(FLAddressChangeEndKind.__value__)
 
 # The tier of the grant a change moves ranked, and so who may approve it: `owner` another owner alone.
 _RANK: Final[Mapping[str, int]] = {"administration": 0, "owner": 1}
@@ -155,7 +155,7 @@ def compose_approval_withdrawn_update() -> dict[str, Any]:
     return {"$set": {"approval.approved_at": None, "approval.approved_by": None}}
 
 
-def compose_end_update(*, art: FLAddressChangeEndArt, now: datetime) -> dict[str, Any]:
+def compose_end_update(*, kind: FLAddressChangeEndKind, now: datetime) -> dict[str, Any]:
     """An ended change's tombstone: its addresses, its reason and its approval go; its hashes stay.
 
     The hashes let each link answer how the change ended until the TTL removes the record.
@@ -167,7 +167,7 @@ def compose_end_update(*, art: FLAddressChangeEndArt, now: datetime) -> dict[str
             "email": None,
             "grund": None,
             "approval": None,
-            "ended": {"art": art, "at": now.astimezone(UTC)},
+            "ended": {"kind": kind, "at": now.astimezone(UTC)},
         }
     }
 
