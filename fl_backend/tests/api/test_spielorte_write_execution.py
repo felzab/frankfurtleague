@@ -178,10 +178,21 @@ class TestAnEditOntoATakenVenueNameIsRefused:
     create is answered with.
     """
 
-    def test_the_edit_is_answered_409(self, seeded_url: str):
-        response = served(seeded_url, f"{SPIELORTE}/{RETIRED_OID}", edit(STANDING_NAME), method="PATCH")
+    def test_the_edit_is_answered_409_on_the_name(self, seeded_url: str):
+        """Answered by the index alone, the refusal names no field, and the editor's name box says nothing."""
 
-        assert (response.status_code, response.json()["error_code"]) == (409, Code.DUPLICATE_KEY)
+        response = served(seeded_url, f"{SPIELORTE}/{RETIRED_OID}", edit(STANDING_NAME), method="PATCH")
+        body = response.json()
+
+        assert (response.status_code, body["error_code"]) == (409, Code.DUPLICATE_KEY)
+        assert body["fields"] == [{"in": "body", "path": ["name"], "kind": Code.DUPLICATE_KEY, "ctx": {}}]
+
+    def test_an_edit_keeping_its_own_name_is_accepted(self, seeded_url: str):
+        """Counted as its own name's other holder, every save of a venue would be refused."""
+
+        response = served(seeded_url, f"{SPIELORTE}/{RETIRED_OID}", edit(RETIRED_NAME), method="PATCH")
+
+        assert response.status_code == 200, response.json()
 
     def test_the_refused_edit_leaves_both_venues_named_as_they_were(self, seeded_url: str):
         served(seeded_url, f"{SPIELORTE}/{RETIRED_OID}", edit(STANDING_NAME), method="PATCH")

@@ -11,7 +11,6 @@ from typing import Any, NamedTuple
 
 from app.api.bewerbungen.services import seat_named
 from app.api.einladungen.schemas import FLInvitationRecipient, FLInvitationSkipReason
-from app.api.outbox.schemas import FLOutboxStatus
 from app.core.codes import Code
 from app.core.exceptions import WriteRefusal
 from app.shared.einwilligung import is_confirmed
@@ -125,15 +124,15 @@ def compose_revocation_update(*, today: str) -> Mapping[str, Any]:
     return {"$set": {"revoked_at": today}}
 
 
-def einladung_ist_versendet(*, lage: FLOutboxStatus | None) -> bool:
-    """Whether the last mail owed about this invite is still owed or went out.
+def einladung_ist_versendet(einladung_raw: Mapping[str, Any] | None) -> bool:
+    """Whether this live link was mailed, by the day the season's press or the team's own stored on it.
 
-    The row's own state and never its delivery: a message that BOUNCED went out, and that team WAS
-    reached, so a press judging the delivery would re-mail it for ever. A mail given up, barred,
-    held back or dropped reached nobody, so the team is mailed again.
+    The stored day and never the Postausgang: its row is erased a retention after it settles, and a press judging it would
+    then mail the club again, replacing the link it holds. So a link is replaced only by a deliberate resend, whatever
+    became of its mail.
     """
 
-    return lage is not None and lage.state in ("open", "sent")
+    return einladung_raw is not None and einladung_raw.get("sent_at") is not None
 
 
 def _confirmed_seat(kontakte: Any, seat: str) -> Mapping[str, Any] | None:
@@ -179,12 +178,12 @@ class EinladungVersandPlan(NamedTuple):
 
 
 def plan_einladung_versand(
-    *, austritt: Any, kontakte: Any, einladung_raw: Mapping[str, Any] | None, versendet: bool, resend: bool, barred: Collection[str]
+    *, austritt: Any, kontakte: Any, einladung_raw: Mapping[str, Any] | None, resend: bool, barred: Collection[str]
 ) -> EinladungVersandPlan:
     """Who this team's link goes to, or why it is skipped. The preview and the press both read it.
 
-    `versendet` is `einladung_ist_versendet` of the team's live invite. `barred` holds the stored addresses a standing ban
-    holds, as `app/api/sperrliste/lookup.py :: barred_addresses` answers them.
+    `einladung_raw` is the team's live invite, `None` where it holds none. `barred` holds the stored addresses a standing
+    ban holds, as `app/api/sperrliste/lookup.py :: barred_addresses` answers them.
     """
 
     # The record's PRESENCE, never its `type` and never a flag beside it: a team is out of the
@@ -204,9 +203,9 @@ def plan_einladung_versand(
     if all(person.email in barred for person in empfaenger):
         return EinladungVersandPlan([], "kontakte_barred", False)
 
-    # The mail and never the row: a team holding a live link nobody was sent is a team this press
-    # exists to reach, and skipping on the row would leave sixteen links unsent for ever.
-    if versendet and not resend:
+    # Its day and never the row's presence: a team holding a live link nobody was sent is a team this press exists to
+    # reach, and skipping on the row would leave sixteen links unsent for ever.
+    if einladung_ist_versendet(einladung_raw) and not resend:
         return EinladungVersandPlan([], "already_sent", False)
 
     return EinladungVersandPlan(empfaenger, None, einladung_raw is not None)

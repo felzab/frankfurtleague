@@ -28,15 +28,14 @@ TEAM_OIDS = {
     "Lessing": ObjectId("6890a1b2c3d4e5f607190003"),
     # The zeroed fallback: a junction row, no counting match, and an absage from a called-off fixture and an annulled one both.
     "Ohne": ObjectId("6890a1b2c3d4e5f607190004"),
-    # The strict join: no junction row, so it drops entirely though it plays a match.
+    # Komplett's and Ohne's opponent in group B, whose three fixtures carry the abandonment and the annulment.
     "Fremd": ObjectId("6890a1b2c3d4e5f607190005"),
     # The abandonment, which counts as played and never as an absage, so the two figures part company here.
     "Komplett": ObjectId("6890a1b2c3d4e5f607190006"),
 }
 
-# The spelling a season row and a fixture side both copy in at entry. Helmholtz's differs from its
-# club document's, which is what proves the copy; Fremd, holding no season row, is written to match
-# its club document instead.
+# The spelling a season row copies in at entry. Helmholtz's differs from its club document's, which is what proves
+# every read takes the row's.
 SAISON_SHORTHANDS = {
     "Helmholtz": "HEX",
     "Bock": "BOX",
@@ -204,10 +203,10 @@ SAISON_TEAMS = [
     _junction("Lessing", "A", austritt=dict(AUSTRITT)),
     _junction("Ohne", "B"),
     _junction("Komplett", "B"),
+    _junction("Fremd", "B"),
     # Last season's rows, Lessing's under the name it played that season under, and without the 2026 withdrawal.
     _junction("Helmholtz", "A", saison_id=PRIOR_SAISON),
     _junction("Lessing", "A", saison_id=PRIOR_SAISON, name="Lessing 2025"),
-    # No row for Fremd, which the table drops: asserted on, and served on no fixture read.
 ]
 
 SPIELE = [
@@ -230,7 +229,7 @@ SPIELE = [
     _spiel(10, "gruppenphase", "Helmholtz", "Ohne", None, None, ergebnis=None, sonderereignis="ausgefallen"),
     # The same, one phase later, so the absage count can be shown to obey the scope.
     _spiel(11, "halbfinale", "Helmholtz", "Bock", None, None, ergebnis=None, sonderereignis="ausgefallen"),
-    # Its opponent holds no junction row, so Komplett gains a counting match without moving anyone else.
+    # Komplett's counting match against the group's last club.
     _spiel(12, "gruppenphase", "Komplett", "Fremd", 2, 0, ergebnis="2:0"),
     # Struck from the record, so Ohne stays on zero played and takes a second absage beside its Spiel 10.
     _spiel(13, "gruppenphase", "Ohne", "Fremd", None, None, ergebnis=None, sonderereignis="annulliert"),

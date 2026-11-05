@@ -387,27 +387,17 @@ def find_confirmation_barred_refusal(*, barred: bool) -> WriteRefusal | None:
 def find_alter_refusal(*, geburtsdatum: str, today: str) -> WriteRefusal | None:
     """Why the typed date is refused, or `None`. Judged BEFORE any write, so a mistyped year spends nothing."""
 
-    age = whole_years_between(born=geburtsdatum, today=today)
+    # The pupil's own floor and never a contact seat's, so raising one cannot silently raise the other; the ceiling is
+    # every consent flow's, refusing a mistyped century rather than a real age. One range, as the referee's is judged.
+    if REGISTRIERUNG_MIN_AGE_YEARS <= whole_years_between(born=geburtsdatum, today=today) <= BEWERBUNG_KONTAKT_MAX_AGE_YEARS:
+        return None
 
-    # The pupil's own floor and never a contact seat's: raising one must not silently raise the other.
-    if age < REGISTRIERUNG_MIN_AGE_YEARS:
-        return WriteRefusal(
-            error_code=Code.CONFIRMATION_AGE,
-            status=HTTPStatus.UNPROCESSABLE_CONTENT,
-            fields=(("geburtsdatum",),),
-            bounds={"min": REGISTRIERUNG_MIN_AGE_YEARS, "max": BEWERBUNG_KONTAKT_MAX_AGE_YEARS},
-        )
-
-    # One ceiling over every consent flow, refusing a mistyped century rather than a real age.
-    if age > BEWERBUNG_KONTAKT_MAX_AGE_YEARS:
-        return WriteRefusal(
-            error_code=Code.CONFIRMATION_AGE,
-            status=HTTPStatus.UNPROCESSABLE_CONTENT,
-            fields=(("geburtsdatum",),),
-            bounds={"min": REGISTRIERUNG_MIN_AGE_YEARS, "max": BEWERBUNG_KONTAKT_MAX_AGE_YEARS},
-        )
-
-    return None
+    return WriteRefusal(
+        error_code=Code.CONFIRMATION_AGE,
+        status=HTTPStatus.UNPROCESSABLE_CONTENT,
+        fields=(("geburtsdatum",),),
+        bounds={"min": REGISTRIERUNG_MIN_AGE_YEARS, "max": BEWERBUNG_KONTAKT_MAX_AGE_YEARS},
+    )
 
 
 def build_addresses_filter(addresses: Iterable[str]) -> Mapping[str, Any]:

@@ -25,6 +25,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.address_change.admin_router import delete_address_change as discard_the_change
 from app.api.address_change.services import as_utc
 from app.api.identity.journal_replay import REPLAY_METHOD, Read, Window, replay_line, run_replay
+from app.api.schiedsrichter.services import compose_confirmation, confirmation_deadline_from, erase_at_from
 from app.api.teams.services import compose_kontakt_bestaetigung
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -95,6 +96,7 @@ PUPIL_OID = ObjectId("6890a1b2c3d4e5f607870011")
 MOVING_PUPIL_OID = ObjectId("6890a1b2c3d4e5f607870012")
 REFEREE_OID = ObjectId("6890a1b2c3d4e5f607870021")
 MOVING_REFEREE_OID = ObjectId("6890a1b2c3d4e5f607870022")
+OBJECTING_REFEREE_OID = ObjectId("6890a1b2c3d4e5f607870023")
 APPLICATION_OID = ObjectId("6890a1b2c3d4e5f607870031")
 DECLINED_APPLICATION_OID = ObjectId("6890a1b2c3d4e5f607870032")
 REGISTRATION_OID = ObjectId("6890a1b2c3d4e5f607870041")
@@ -102,6 +104,7 @@ PUPIL_CHANGE_OID = ObjectId("6890a1b2c3d4e5f607870051")
 REFEREE_CHANGE_OID = ObjectId("6890a1b2c3d4e5f607870052")
 MOVING_PUPIL = "lenore@schule.de"
 MOVING_REFEREE = "baldur@schule.de"
+OBJECTING_REFEREE = "kunigunde@schule.de"
 ADMIN = "verwaltung@frankfurtleague.de"
 
 
@@ -109,6 +112,7 @@ ROW_LINK = "the-season-rows-link"
 APPLICATION_LINK = "the-applications-link"
 REFEREE_ADDRESS_LINK = "the-referees-address-link"
 PUPIL_ADDRESS_LINK = "the-pupils-address-link"
+REFEREE_LINK = "the-referees-link"
 
 
 def _own(text_versions: TextVersions, **fields: Any) -> dict[str, Any]:
@@ -213,6 +217,16 @@ async def _seed(database: AsyncDatabase) -> None:
                 default_payment=20,
                 einwilligung=_own(SCHIEDSRICHTER_TEXT_VERSIONS),
                 geburtsdatum=ADULT,
+            ),
+            # Entered and mailed before the snapshot's day, and unanswered: the link the objection is pressed through.
+            schiedsrichter_document(
+                OBJECTING_REFEREE_OID,
+                email=OBJECTING_REFEREE,
+                name="Kunigunde Wackelstein",
+                default_payment=20,
+                einwilligung=None,
+                confirmation={**compose_confirmation(today="2126-10-01"), "token_hashes": [hash_token(REFEREE_LINK)]},
+                erase_at=erase_at_from(frist=confirmation_deadline_from(today="2126-10-01")),
             ),
         ]
     )
@@ -350,6 +364,11 @@ PRESSES: dict[str, tuple[Press, Collection, ObjectId]] = {
         Collection.SAISON_TEAMS,
         ROW_OID,
     ),
+    "a referee's objection": (
+        lambda http, _database: http.post(f"{V}/schiedsrichter/confirmation/decline", json={"token": REFEREE_LINK}, headers=BASE_AUTH),
+        Collection.SCHIEDSRICHTER,
+        OBJECTING_REFEREE_OID,
+    ),
     "a referee's declined address": (
         lambda http, _database: http.post(ANSWER, json={"token": REFEREE_ADDRESS_LINK, "answer": "declined"}, headers=BASE_AUTH),
         Collection.ADDRESS_CHANGES,
@@ -388,6 +407,7 @@ PERSONS = {
     "a pending registration's withdrawal": REGISTRANT,
     "a Widerspruch on an application": DECLINER,
     "a Widerspruch on a season row": DECLINER,
+    "a referee's objection": OBJECTING_REFEREE,
     "a referee's declined address": NEW_ADDRESS,
     "a pupil's declined address": NEW_ADDRESS,
     "a pupil's stopped address": NEW_ADDRESS,
@@ -402,6 +422,7 @@ ANSWERING_NOTHING = {
     "a season seat's withdrawal",
     "a pending application seat's withdrawal",
     "a pending registration's withdrawal",
+    "a referee's objection",
 }
 
 

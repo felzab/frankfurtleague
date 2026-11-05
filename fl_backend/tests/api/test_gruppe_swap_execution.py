@@ -13,7 +13,7 @@ from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
-from tests.documents import saison_document, saison_team_document, spiel_document, team_document
+from tests.documents import saison_document, saison_team_document, spiel_document
 from tests.isolation import COMMITTED, InterleavedCollection, outcome_of
 from tests.worker import worker_database
 
@@ -41,7 +41,7 @@ NAMES = {
 
 
 def junction(team_id: ObjectId, gruppe: str) -> dict[str, Any]:
-    """The season's own name and shorthand are read by nothing here: the rewrite composes a side's copies from `teams`."""
+    """The season's own name and shorthand, which every read joins a side's name from and the swap never copies."""
 
     name, shorthand = NAMES[team_id]
 
@@ -52,18 +52,10 @@ def junction(team_id: ObjectId, gruppe: str) -> dict[str, Any]:
 TODAY, TOMORROW = "2026-03-01", "2026-03-02"
 
 
-def club(team_id: ObjectId) -> dict[str, Any]:
-    """`name` and `shorthand` are what the rewrite projects, from `teams` and never from the season's junction row."""
-
-    name, shorthand = NAMES[team_id]
-
-    return team_document(team_id, name, shorthand)
-
-
 def side(team_id: ObjectId, tore: int | None = None) -> dict[str, Any]:
-    name, shorthand = NAMES[team_id]
+    """A side as `spiele` stores it: the club and its goals, the name joined at read."""
 
-    return {"team_id": team_id, "name": name, "shorthand": shorthand, "tore": tore}
+    return {"team_id": team_id, "tore": tore}
 
 
 # The matchday every group fixture here hangs on unless a case says so.
@@ -142,7 +134,6 @@ def on_a_seeded_season(
             await database[Collection.SAISON_TEAMS].insert_many(
                 [junction(ALPHA, "A"), junction(ALPHA_RIVAL, "A"), junction(BETA, "B"), junction(BETA_RIVAL, "B")]
             )
-            await database[Collection.TEAMS].insert_many([club(team_id) for team_id in NAMES])
             if spiele:
                 await database[Collection.SPIELE].insert_many(spiele)
 
@@ -162,7 +153,6 @@ async def call_swap(
         saisons_collection=saisons_collection if saisons_collection is not None else database[Collection.SAISONS],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         spiele_collection=database[Collection.SPIELE],
-        teams_collection=database[Collection.TEAMS],
         db=client,
         today=TODAY,
     )
@@ -232,8 +222,8 @@ class TestTheDrawnFixturesMoveWithTheClubs:
         assert sides == {1: (BETA, ALPHA_RIVAL), 2: (BETA_RIVAL, ALPHA)}
         assert rewritten == 2
 
-    def test_the_display_copies_move_with_the_id(self, mongo_replica_set_url: str):
-        """Rewriting `team_id` alone is silent: every card shows the old club's name over the new club's fixture."""
+    def test_a_moved_side_holds_the_club_alone(self, mongo_replica_set_url: str):
+        """A name copied onto a side is a shape the record model refuses at the read-back, which no read serves anyway."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await call_swap(database, client, ALPHA, BETA)
@@ -241,8 +231,8 @@ class TestTheDrawnFixturesMoveWithTheClubs:
 
         spiele = on_a_seeded_season(mongo_replica_set_url, body, spiele=list(DRAWN_ROUND_ROBIN))
 
-        assert spiele[1]["team1"] == {"team_id": BETA, "name": "Beta", "shorthand": "BEX", "tore": None}
-        assert spiele[2]["team2"] == {"team_id": ALPHA, "name": "Alpha", "shorthand": "ALX", "tore": None}
+        assert spiele[1]["team1"] == side(BETA)
+        assert spiele[2]["team2"] == side(ALPHA)
 
     def test_the_opponent_and_the_slot_are_left_alone(self, mongo_replica_set_url: str):
         """The date, venue and matchday stay with the fixture, so each club inherits the other's schedule rather than carrying its own."""
@@ -297,8 +287,8 @@ class TestTheDrawnFixturesMoveWithTheClubs:
 
         rewritten, spiele = on_a_seeded_season(mongo_replica_set_url, body, spiele=[gruppen_fixture(1, ALPHA, BETA)])
 
-        assert spiele[1]["team1"] == {"team_id": BETA, "name": "Beta", "shorthand": "BEX", "tore": None}
-        assert spiele[1]["team2"] == {"team_id": ALPHA, "name": "Alpha", "shorthand": "ALX", "tore": None}
+        assert spiele[1]["team1"] == side(BETA)
+        assert spiele[1]["team2"] == side(ALPHA)
         assert rewritten == 1, "one fixture fielding both clubs was counted twice"
 
     def test_a_club_with_no_drawn_fixture_leaves_the_other_unscheduled(self, mongo_replica_set_url: str):

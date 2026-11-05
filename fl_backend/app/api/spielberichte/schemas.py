@@ -265,12 +265,6 @@ class FLSpielberichtSchiedsrichterResponse(_SpielberichtAnsicht):
     completed: bool
 
 
-class FLSpielberichtAdminResponse(_SpielberichtAnsicht):
-    """The administrator's panel, with the state the report reads in, null exactly where no block stands, and both squads empty."""
-
-    state: FLSpielberichtState | None
-
-
 class FLSpielberichtPersonEntry(BaseModel):
     """One played fixture booked to the signed-in referee, and when its report, whoever wrote it, was first sent."""
 

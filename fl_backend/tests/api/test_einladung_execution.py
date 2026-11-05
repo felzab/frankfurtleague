@@ -200,7 +200,6 @@ async def preview(database: AsyncDatabase, *, resend: bool = False) -> Any:
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         invitations_collection=database[Collection.INVITATIONS],
         saisons_collection=database[Collection.SAISONS],
-        outbox_collection=database[Collection.OUTBOX],
         ban_list=ban_list(database),
         resend=resend,
     )
@@ -785,7 +784,6 @@ class TestTheDayALinkWasSent:
                 teams_collection=database[Collection.TEAMS],
                 spielberichte_collection=database[Collection.SPIELBERICHTE],
                 invitations_collection=database[Collection.INVITATIONS],
-                outbox_collection=database[Collection.OUTBOX],
                 ban_list=ban_list(database),
                 today=TODAY,
             )
@@ -849,6 +847,21 @@ class TestTheSeasonWidePress:
             str(ALREADY_MAILED): "already_sent",
             str(WITHDRAWN): "austritt_entered",
         }
+
+    def test_a_mailed_link_whose_postausgang_row_is_gone_is_not_mailed_again(self, mongo_replica_set_url: str):
+        """The row is erased a retention after it settles: judged by it, the press would mail the club again and kill the link it holds."""
+
+        async def body(database: AsyncDatabase) -> Any:
+            await database[Collection.OUTBOX].delete_many({})
+            done = await press(database)
+            live = await database[Collection.INVITATIONS].find_one({"team_id": ALREADY_MAILED, "revoked_at": None}, {"_id": 1})
+
+            return {str(zeile.team_id): zeile.skipped for zeile in done.rows}[str(ALREADY_MAILED)], live
+
+        skipped, live = on_a_league(mongo_replica_set_url, body)
+
+        assert skipped == "already_sent"
+        assert live is not None and live["_id"] == SEEDED_EINLADUNG
 
     def test_it_mails_the_confirmed_seats_of_the_team_it_reaches(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:
@@ -1035,21 +1048,6 @@ class TestTheSeasonWidePress:
         assert skips[str(TWO_SEATS)] == "already_sent"
         assert live == 1
         assert len(owed) == 2
-
-    def test_a_press_over_a_link_whose_mails_reached_nobody_mints_again(self, mongo_replica_set_url: str):
-        """Given up, barred, held back or dropped: no message left, so the next press reaches the team again."""
-
-        async def body(database: AsyncDatabase) -> Any:
-            await press(database)
-            await database[Collection.OUTBOX].update_many({}, dict(final_update("abandoned", now=MAIL_NOW)))
-            second = await press(database)
-
-            return {str(zeile.team_id): zeile.skipped for zeile in second.rows}, await live_count(database, TWO_SEATS)
-
-        skips, live = on_a_league(mongo_replica_set_url, body)
-
-        assert skips[str(TWO_SEATS)] is None
-        assert live == 1
 
     def test_a_season_that_has_ended_refuses_the_press(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:

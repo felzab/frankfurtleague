@@ -75,6 +75,8 @@ def spieltag_document(**overrides: Any) -> dict[str, Any]:
         "position": 1,
         "saison_phase": "gruppenphase",
         "saison_id": SAISON_ID,
+        # As the draw's insert writes it: the save is checked against it.
+        "version": 0,
         **overrides,
     }
 
@@ -124,11 +126,13 @@ async def move_the_seasons_end(database: AsyncDatabase, end_date: str) -> Any:
 
 
 async def re_date(database: AsyncDatabase, spieltag_id: ObjectId, *, beginn: str, ende: str) -> Any:
-    """The whole of `PATCH /spieltage/{spieltag_id}`, the payload carrying the span and nothing else; the matchday as stored after."""
+    """The whole of `PATCH /spieltage/{spieltag_id}`, the payload carrying the span and the version an editor opened now is served."""
 
+    stored = await database.spieltage.find_one({"_id": spieltag_id}, {"version": 1})
+    assert stored is not None
     await patch_spieltag(
         spieltag_id=spieltag_id,
-        spieltag_data=FLPatchSpieltagPayload(beginn=beginn, ende=ende),
+        spieltag_data=FLPatchSpieltagPayload(beginn=beginn, ende=ende, version=stored["version"]),
         spieltage_collection=database.spieltage,
         saisons_collection=database.saisons,
         spiele_collection=database.spiele,

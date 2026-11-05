@@ -24,6 +24,7 @@ from app.shared.schemas.custom import (
     CustomShorthand,
     CustomSpielNr,
     CustomTimeString,
+    CustomVersion,
 )
 from app.shared.schemas.literals import (
     FLAustrittType,
@@ -170,7 +171,7 @@ class FLSpielTeamFieldJoined(FLSpielTeamField):
 
     # The TYPE alone, as `fl_backend/app/api/teams/schemas.py :: FLGruppenTeam` narrows a league
     # table row: a card says WHICH way a club left, its own page publishes the reason and the date.
-    # Null ALSO covers a team holding no row at all.
+    # Every fielded club holds its season's row, which every write requires of a newly fielded side.
     austritt_type: FLAustrittType | None
 
 
@@ -532,7 +533,7 @@ class FLPatchSpielDataPayload(BaseModel):
 
     # The `version` the editor was served, with no default: the save is refused once another write has raised it
     # (`version_stale`), a referee's decline emptying the slot among them.
-    version: int
+    version: CustomVersion
 
     @model_validator(mode="before")
     @classmethod

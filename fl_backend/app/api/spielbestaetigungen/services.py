@@ -364,6 +364,26 @@ def find_vorschlag_vergangen_refusal(*, vorschlag: FLSpielbestaetigungAppointmen
     )
 
 
+def find_vorschlag_unchanged_refusal(*, vorschlag: FLSpielbestaetigungAppointment, spiel: FLSpiel) -> WriteRefusal | None:
+    """`ansetzung_vorschlag_unchanged`: a proposal names the day and hour the fixture already holds.
+
+    Adopted, it would save the slot unchanged, leaving the row about it open and the proposal pressable for ever.
+    """
+
+    if (vorschlag.datum, vorschlag.uhrzeit) != (spiel.datum, spiel.uhrzeit):
+        return None
+
+    return WriteRefusal(
+        error_code=Code.ANSETZUNG_VORSCHLAG_UNCHANGED,
+        status=HTTPStatus.UNPROCESSABLE_CONTENT,
+        fields=(("vorschlag", "datum"), ("vorschlag", "uhrzeit")),
+    )
+
+
+# What the adoption answers under a 409 twin: each judges the stored proposal, which a payload write judges as its body.
+ADOPTION_TWINS: Mapping[Code, Code] = {Code.ANSETZUNG_VORSCHLAG_PAST: Code.ANSETZUNG_VORSCHLAG_PAST_AS_STORED}
+
+
 def judged_as_a_proposal(refusal: WriteRefusal | None) -> WriteRefusal | None:
     """A refusal of the proposal, naming no field: the paths it names are a body this request does not carry."""
 

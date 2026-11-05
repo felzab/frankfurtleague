@@ -22,21 +22,6 @@ from app.core.crud import ensure_one_in_db, erase_many_from_db, patch_many_in_db
 from app.shared.schemas.custom import CustomObjectId
 
 
-async def name_is_taken(
-    *,
-    schiedsrichter_collection: AsyncCollection,
-    name: str,
-    # The referee the write saves, whose own name is no other's; `None` for a create.
-    schiedsrichter_id: Any,
-    session: AsyncClientSession,
-) -> bool:
-    """Whether another referee holds this name, as `uniq_schiedsrichter_name` compares it, a retired one included."""
-
-    db_filter: dict[str, Any] = {"name": name} if schiedsrichter_id is None else {"name": name, "_id": {"$ne": schiedsrichter_id}}
-
-    return await schiedsrichter_collection.find_one(db_filter, projection={"_id": 1}, session=session) is not None
-
-
 async def owe_the_confirmation(
     *,
     outbox_collection: AsyncCollection,

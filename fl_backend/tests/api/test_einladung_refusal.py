@@ -1,13 +1,9 @@
 from typing import Any
 
-import pytest
-
 from app.api.einladungen.services import (
     bestaetigte_empfaenger,
-    einladung_ist_versendet,
     plan_einladung_versand,
 )
-from app.api.outbox.schemas import FLOutboxStatus
 from tests.documents import kontaktperson_document
 
 CONFIRMED_ON = "2026-03-20"
@@ -29,14 +25,6 @@ def kontakte(*, trainer: Any = None, ansprechperson: Any = None, stellvertretung
 
 
 EINLADUNG: dict[str, Any] = {"saison_id": "2026", "revoked_at": None}
-
-
-def lage(stand: str, *, delivery: str | None = None) -> FLOutboxStatus:
-    """The last mail owed about an invite, as the outbox serves it."""
-
-    gemeldet = None if delivery is None else {"state": delivery, "grund": None, "at": "2026-03-29T10:00:00+00:00"}
-
-    return FLOutboxStatus.model_validate({"state": stand, "delivery": gemeldet})
 
 
 class TestWhoALinkIsMailedTo:
@@ -72,28 +60,6 @@ class TestWhoALinkIsMailedTo:
         assert bestaetigte_empfaenger(kontakte=block) == []
 
 
-class TestWhetherAnythingWasEverMailed:
-    @pytest.mark.parametrize("stand", ["open", "sent"])
-    def test_a_mail_owed_or_sent_counts(self, stand: str):
-        """Owed counts as sent: a second press while the first one's mails wait in the outbox would owe them twice."""
-
-        assert einladung_ist_versendet(lage=lage(stand))
-
-    @pytest.mark.parametrize("stand", ["abandoned", "barred", "held", "dropped"])
-    def test_a_mail_that_reached_nobody_does_not(self, stand: str):
-        """No message left, so the press has still reached nobody and the next press must go out."""
-
-        assert not einladung_ist_versendet(lage=lage(stand))
-
-    def test_an_invite_nobody_was_owed_was_not(self):
-        assert not einladung_ist_versendet(lage=None)
-
-    def test_a_message_that_bounced_was_still_a_send(self):
-        """The row's state and never its delivery: that team WAS reached, and judging the bounce would re-mail it for ever."""
-
-        assert einladung_ist_versendet(lage=lage("sent", delivery="undeliverable"))
-
-
 class TestATeamTheBanListKeepsTheLinkFrom:
     """The mailer sends a barred address nothing and records nothing, so the plan reads the ban itself."""
 
@@ -103,8 +69,7 @@ class TestATeamTheBanListKeepsTheLinkFrom:
         decided = plan_einladung_versand(
             austritt=None,
             kontakte=kontakte(trainer=kontaktperson("Bramblewick", "bramblewick@example.com", confirmed_at=CONFIRMED_ON)),
-            einladung_raw=EINLADUNG,
-            versendet=True,
+            einladung_raw={**EINLADUNG, "sent_at": CONFIRMED_ON},
             resend=True,
             barred=frozenset({"bramblewick@example.com"}),
         )

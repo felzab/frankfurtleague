@@ -25,6 +25,7 @@ from app.api.spielbestaetigungen.services import (
     find_barred_link_refusal,
     find_spent_link_refusal,
     find_unknown_link_refusal,
+    find_vorschlag_unchanged_refusal,
     find_vorschlag_vergangen_refusal,
     first_press_refusal,
     judged_as_a_proposal,
@@ -175,7 +176,8 @@ async def post_spielbestaetigung(
     (`ansetzung_answered`); one closed unanswered (`ansetzung_closed`); a fixture decided, called off or left by a club
     (`ansetzung_decided`), then one whose date, time, ground or sides moved since the link (`ansetzung_changed`), each
     as the confirmation pass's close judges the row; an answer after the deadline's day (`ansetzung_frist_past`); a
-    proposal dated before today (`ansetzung_vorschlag_past`); and a proposal the administrator's own save of that date would be
+    proposal dated before today (`ansetzung_vorschlag_past`); one naming the day and hour the fixture already holds
+    (`ansetzung_vorschlag_unchanged`, on both boxes); and a proposal the administrator's own save of that date would be
     refused, judged on what it newly claims and in that save's order: on or after a club's exit
     (`eligibility_disqualified`), outside the matchday (`spiel_outside_spieltag`), or within four hours of the ground's or the referee's
     other fixture (`spiel_double_booked`). The reason is stored as typed. Every refusal after the ban's is asked again outside
@@ -227,6 +229,7 @@ async def post_spielbestaetigung(
                 refuse(find_vorschlag_vergangen_refusal(vorschlag=vorschlag, today=today))
 
                 stored = FLSpiel.model_validate(gegen.spiel)
+                refuse(find_vorschlag_unchanged_refusal(vorschlag=vorschlag, spiel=stored))
                 proposed = proposal_payload(stored, vorschlag)
 
                 # The administrator's save's judges in its order, each read just ahead of the one refusal that consumes it.

@@ -8,7 +8,7 @@ the privacy notice gives it. Served against the shipped indexes, every write one
 
 import dataclasses
 from collections.abc import Awaitable, Callable, Mapping
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -40,6 +40,7 @@ from app.api.schiedsrichter.services import (
     confirmation_deadline_from,
     erase_at_from,
 )
+from app.api.schiedsrichter.system_router import sweep_schiedsrichter
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
@@ -52,10 +53,13 @@ from tests.database import a_clean_database, on_the_seed_loop
 from tests.outbox import MAIL_NOW, drained
 from tests.worker import worker_database
 
+from .conftest import config_for
+
 # Module level: every case below reaches a real mongod, the whole slice being one transaction each.
 pytestmark = pytest.mark.db
 
 DATABASE_NAME = worker_database("fl_schiedsrichter_confirmation_test")
+CONFIG = config_for(DATABASE_NAME)
 
 SAISON_ID = "2026"
 TODAY = "2026-04-01"
@@ -232,8 +236,21 @@ async def decline(database: AsyncDatabase, client: AsyncMongoClient, token: str 
     await post_decline(
         decline_data=FLTokenPayload(token=token),
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+        action_log_collection=database[Collection.ACTION_LOG],
         db=client,
+        config=CONFIG,
         today=today,
+        germany_now=NOW,
+    )
+
+
+async def sweep(database: AsyncDatabase, client: AsyncMongoClient, *, now: datetime) -> Any:
+    return await sweep_schiedsrichter(
+        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+        spiele_collection=database[Collection.SPIELE],
+        action_log_collection=database[Collection.ACTION_LOG],
+        db=client,
+        germany_now=now,
     )
 
 
@@ -668,6 +685,24 @@ class TestTheDecline:
         assert asked_again.error_code == Code.CONFIRMATION_EXISTS
         assert state == ("declined", TODAY)
 
+    def test_the_objection_takes_the_person_out_of_every_log_image_of_the_entry(self, mongo_replica_set_url: str):
+        """As a contact's objection does, at the press.
+
+        Kept, an image of a person who objected outlives the entry wherever a corrected address re-mints it and its new
+        person confirms, for the log's twelve months, which no page shows.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            minted = await resend(database, client)
+            imaged = await images_holding(database, EMAIL)
+            await decline(database, client, minted.token)
+            return imaged, await images_holding(database, EMAIL)
+
+        imaged, left = on_a_league(mongo_replica_set_url, body)
+
+        # The premise: the re-send filed an image holding the address, the objection's own patch a second.
+        assert (imaged, left) == (1, 0)
+
     def test_a_declined_link_is_spent_and_takes_no_consent(self, mongo_replica_set_url: str):
         """A consent through a link its person objected through would store a birthdate and a publication scope against that objection."""
 
@@ -686,6 +721,56 @@ class TestTheDecline:
         assert row.get(EINWILLIGUNG_FELD) is None
         assert row.get("geburtsdatum") is None
         assert ERASE_AT_FIELD in row
+
+
+CONFIRMED_OID = ObjectId("6890a1b2c3d4e5f607810002")
+CONFIRMED_EMAIL = "rosetti@example.com"
+
+
+async def images_holding(database: AsyncDatabase, address: str) -> int:
+    """The log rows of either referee whose stored text still carries `address`, read whole rather than by a path."""
+
+    rows = await database[Collection.ACTION_LOG].find({"collection": str(Collection.SCHIEDSRICHTER)}).to_list(length=None)
+
+    return sum(address in str(row) for row in rows)
+
+
+class TestTheClock:
+    def test_a_lapsed_entry_goes_with_every_image_of_it_and_a_confirmed_one_stays(self, mongo_replica_set_url: str):
+        """The privacy notice gives an unconfirmed or declined entry fourteen days, its log images included.
+
+        Deleted without them, the person's name and address stay in the log for its twelve months, which no page shows;
+        erased early, or a confirmed entry erased at all, a referee the league keeps is gone.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            # Left unanswered, its re-send's image holding the address; a declined entry's images go at the press.
+            await resend(database, client)
+            kept = await resend(database, client, schiedsrichter_id=CONFIRMED_OID)
+            await confirm(database, client, kept.token)
+            clock = (await stored(database))[ERASE_AT_FIELD].replace(tzinfo=UTC)
+            imaged = await images_holding(database, EMAIL)
+
+            early = await sweep(database, client, now=clock - timedelta(seconds=1))
+            standing = await database[Collection.SCHIEDSRICHTER].count_documents({"_id": SCHIEDSRICHTER_OID})
+            late = await sweep(database, client, now=clock)
+            left = await database[Collection.SCHIEDSRICHTER].find({}, {"_id": 1}).to_list(length=None)
+
+            return imaged, (early.erased, standing), (late.erased, late.failed), left, await images_holding(database, EMAIL)
+
+        imaged, early, late, left, images_left = on_a_league(
+            mongo_replica_set_url,
+            body,
+            referees=[referee_document(), referee_document(_id=CONFIRMED_OID, name="Roberto Rosetti", email=CONFIRMED_EMAIL)],
+        )
+
+        # The premise: without an image holding the address, the last assertion would pass with no redaction at all.
+        assert imaged > 0
+        assert early == (0, 1)
+        assert late == (1, 0)
+        assert {row["_id"] for row in left} >= {CONFIRMED_OID}
+        assert SCHIEDSRICHTER_OID not in {row["_id"] for row in left}
+        assert images_left == 0
 
 
 # Against `TODAY`, 17 years and 364 days.
