@@ -1861,8 +1861,8 @@ export const SaisonsSwapGruppenBody = zod
  *
  * **Every team mailed gets a fresh invite, and any link that team already held is REVOKED in the same per-team transaction** — the
  * copy in somebody's inbox opens nothing from that moment. The mails are owed in that transaction too, each minting its link when it is
- * handed out; no link is answered. `replaced_link` says of each row whether a link died for it, and the preview answers it before the
- * press. A team this skips is left exactly as it was.
+ * handed out; no link is answered. `replaced_link` says of each row whether a link died for it, and the season editor's rows answer it
+ * before the press. A team this skips is left exactly as it was.
  *
  * Five skips, each an ordinary state rather than a refusal: the team has left this season, it holds no contact block, no seat of that block
  * has been confirmed by its own person, every confirmed seat's address is on the ban list, or its live link was already sent and
@@ -1889,33 +1889,6 @@ export const saisonsPostInvitationsDispatchBodyResendDefault = false;
 
 export const SaisonsPostInvitationsDispatchBody = zod.object({
   resend: zod.boolean().default(saisonsPostInvitationsDispatchBodyResendDefault),
-});
-
-/**
- * Per team of this season, the mailboxes the send would write to and the reason it would skip a team — and it writes nothing itself.
- *
- * Decided by the function the send itself decides by, so the list read here is the list performed. `resend` mirrors the send's own
- * switch: left false, a team whose live link was already sent, by the day stored on it, reads as `already_sent`, and pressing the send with
- * `resend` true instead makes this preview's own answer wrong unless the same value is asked for here.
- *
- * **`replaced_link` is the warning this list carries**: the send mints for every team it answers, so a team already holding a link has that
- * link REVOKED and the copy in somebody's inbox opens nothing from that moment. A row carries no trace of the invitation the team holds,
- * so a page offering the press reads that fact here or nowhere.
- *
- * Five skips, each an ordinary state rather than a refusal: the team has left this season, it holds no contact block, no seat of that
- * block has been confirmed by its own person, every confirmed seat's address is on the ban list, or its live link was already
- * sent and `resend` is false. A season holding
- * no team answers an empty list. One row per MAILBOX, so a person sitting in two seats is named once. 404 where no season holds that id.
- * @summary Who the send would reach
- */
-export const SaisonsGetInvitationsDispatchPreviewParams = zod.object({
-  saison_id: zod.string(),
-});
-
-export const saisonsGetInvitationsDispatchPreviewQueryResendDefault = false;
-
-export const SaisonsGetInvitationsDispatchPreviewQueryParams = zod.object({
-  resend: zod.boolean().default(saisonsGetInvitationsDispatchPreviewQueryResendDefault),
 });
 
 /**

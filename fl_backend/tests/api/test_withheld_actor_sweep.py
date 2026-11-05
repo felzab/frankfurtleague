@@ -111,7 +111,6 @@ NAMES_NO_ADMINISTRATOR: dict[str, str] = {
     "/api/v0/registrierungen/kader/{team_id:objectid}/{saison_id}": "a team's pending registrations, no decision among them",
     "/api/v0/saisons/list/admin": "seasons and their rules",
     "/api/v0/saisons/{saison_id}/admin": "one season, its clubs by name and the clubs a replacement may bring in",
-    "/api/v0/saisons/{saison_id}/invitations/dispatch/preview": f"the teams a mailing would reach, their seats being {_PERSON_RECORDS}",
     "/api/v0/saisons/{saison_id}/erasure/preview": "how many pupils an activation deletes, counted and never named",
     "/api/v0/saisons/{saison_id}/overview": "fixtures, their open confirmation rows, report states and applications by school",
     "/api/v0/schiedsrichter": f"referees, {_PERSON_RECORDS}",

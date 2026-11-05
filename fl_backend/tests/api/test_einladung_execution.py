@@ -16,7 +16,7 @@ from app.api.einladungen.services import (
     find_unknown_einladung_refusal,
 )
 from app.api.outbox.services import enqueue_mails, final_update
-from app.api.saisons.admin_router import get_invitations_dispatch_preview, get_saison_admin, post_invitations_dispatch
+from app.api.saisons.admin_router import get_saison_admin, post_invitations_dispatch
 from app.api.sperrliste.services import compose_barred_until_saison_id
 from app.api.teams.admin_router import delete_invitation, get_invitation, post_invitation, post_invitation_dispatch
 from app.core.codes import Code
@@ -194,14 +194,20 @@ async def read_state(database: AsyncDatabase, team_id: ObjectId, *, today: str =
     )
 
 
-async def preview(database: AsyncDatabase, *, resend: bool = False) -> Any:
-    return await get_invitations_dispatch_preview(
+async def editor(database: AsyncDatabase) -> Any:
+    """The season editor's read, whose registration links' rows are the press's own plan with `resend` left false."""
+
+    return await get_saison_admin(
         saison_id=SAISON_ID,
-        saison_teams_collection=database[Collection.SAISON_TEAMS],
-        invitations_collection=database[Collection.INVITATIONS],
         saisons_collection=database[Collection.SAISONS],
+        saison_teams_collection=database[Collection.SAISON_TEAMS],
+        spiele_collection=database[Collection.SPIELE],
+        spieltage_collection=database[Collection.SPIELTAGE],
+        teams_collection=database[Collection.TEAMS],
+        spielberichte_collection=database[Collection.SPIELBERICHTE],
+        invitations_collection=database[Collection.INVITATIONS],
         ban_list=ban_list(database),
-        resend=resend,
+        today=TODAY,
     )
 
 
@@ -775,18 +781,7 @@ class TestTheDayALinkWasSent:
 
         async def body(database: AsyncDatabase) -> Any:
             await press(database)
-            view = await get_saison_admin(
-                saison_id=SAISON_ID,
-                saisons_collection=database[Collection.SAISONS],
-                saison_teams_collection=database[Collection.SAISON_TEAMS],
-                spiele_collection=database[Collection.SPIELE],
-                spieltage_collection=database[Collection.SPIELTAGE],
-                teams_collection=database[Collection.TEAMS],
-                spielberichte_collection=database[Collection.SPIELBERICHTE],
-                invitations_collection=database[Collection.INVITATIONS],
-                ban_list=ban_list(database),
-                today=TODAY,
-            )
+            view = await editor(database)
 
             return {str(row.team_id): (row.has_link, row.sent_at) for row in view.invitations}
 
@@ -816,19 +811,19 @@ class TestTheDayALinkWasSent:
 class TestTheSeasonWidePress:
     """One press over a season whose four teams sit in the four states it can meet."""
 
-    def test_the_preview_and_the_press_decide_the_same_rows(self, mongo_replica_set_url: str):
-        """Two readers of one rule is how a preview starts telling an administrator something the press then contradicts."""
+    def test_the_editor_and_the_press_decide_the_same_rows(self, mongo_replica_set_url: str):
+        """Two readers of one rule is how the editor starts telling an administrator something the press then contradicts."""
 
         async def body(database: AsyncDatabase) -> Any:
-            shown = await preview(database)
+            shown = await editor(database)
             done = await press(database)
 
-            return decided(shown.rows), decided(done.rows)
+            return decided(shown.invitations), decided(done.rows)
 
         shown, done = on_a_league(mongo_replica_set_url, body)
 
         # The whole list rather than a subset: two readers agreeing on the teams they both mention
-        # is what a preview missing a team passes.
+        # is what an editor missing a team passes.
         assert shown == done
         assert len(shown) == len(TEAM_NAMES)
 
@@ -892,11 +887,11 @@ class TestTheSeasonWidePress:
                 [ban_document("Bramblewick@Example.com", until=bound), ban_document("quillhilde@example.com", until=bound)]
             )
             await database[Collection.INVITATIONS].insert_one(einladung_row(TWO_SEATS))
-            shown = await preview(database)
+            shown = await editor(database)
             first = await press(database)
             second = await press(database)
 
-            return decided(shown.rows), [decided(done.rows) for done in (first, second)], await live_count(database, TWO_SEATS)
+            return decided(shown.invitations), [decided(done.rows) for done in (first, second)], await live_count(database, TWO_SEATS)
 
         shown, presses, live = on_a_league(mongo_replica_set_url, body)
 
@@ -952,20 +947,15 @@ class TestTheSeasonWidePress:
         """What a page warns about before the press: the message already in somebody's inbox stops opening anything."""
 
         async def body(database: AsyncDatabase) -> Any:
-            shown = await preview(database, resend=True)
             done = await press(database, resend=True)
 
-            return (
-                {str(zeile.team_id): zeile.replaced_link for zeile in shown.rows},
-                {str(zeile.team_id): zeile.replaced_link for zeile in done.rows},
-            )
+            return {str(zeile.team_id): zeile.replaced_link for zeile in done.rows}
 
-        warned, performed = on_a_league(mongo_replica_set_url, body)
+        performed = on_a_league(mongo_replica_set_url, body)
 
-        assert warned == performed
         # The team holding a mailed link loses it; the one holding none loses nothing, and neither
         # does a team the press skips.
-        assert warned == {
+        assert performed == {
             str(TWO_SEATS): False,
             str(UNCONFIRMED): False,
             str(NO_BLOCK): False,
@@ -1017,19 +1007,6 @@ class TestTheSeasonWidePress:
         assert skips[str(UNCONFIRMED)] == "no_confirmed_kontaktperson"
         assert skips[str(NO_BLOCK)] == "no_kontaktblock"
 
-    def test_the_preview_shows_the_re_send_it_is_asked_about(self, mongo_replica_set_url: str):
-        """Asked with the switch the press will carry, or the list an administrator reads is not the list they then perform."""
-
-        async def body(database: AsyncDatabase) -> Any:
-            shown = await preview(database, resend=True)
-            done = await press(database, resend=True)
-
-            return decided(shown.rows), decided(done.rows)
-
-        shown, done = on_a_league(mongo_replica_set_url, body)
-
-        assert shown == done
-
     def test_a_second_press_skips_the_team_whose_mails_are_owed(self, mongo_replica_set_url: str):
         """The whole of the idempotence: a mail still waiting in the outbox counts as sent, so a second press owes nothing twice."""
 
@@ -1066,7 +1043,7 @@ class TestTheSeasonWidePress:
         """An empty state the page renders, rather than an error an administrator has to interpret."""
 
         async def body(database: AsyncDatabase) -> Any:
-            return (await preview(database)).rows, (await press(database)).rows
+            return (await editor(database)).invitations, (await press(database)).rows
 
         shown, done = on_a_league(mongo_replica_set_url, body, teams=())
 

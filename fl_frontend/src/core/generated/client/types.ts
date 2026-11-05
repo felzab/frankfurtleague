@@ -2640,28 +2640,6 @@ export const FLInvitationSkipReason = {
 } as const;
 
 /**
- * One team as the preview reports it. It mints nothing, so it answers no link.
- */
-export interface FLInvitationDispatchPreviewRow {
-  recipient: FLInvitationRecipient[];
-  replaced_link: boolean;
-  skipped: FLInvitationSkipReason | null;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  team_id: string;
-  /** @minLength 1 */
-  team_name: string;
-}
-
-/**
- * Who the press would mail, over the same rule the press then performs.
- */
-export interface FLInvitationDispatchPreviewResponse {
-  rows: FLInvitationDispatchPreviewRow[];
-  /** @minLength 1 */
-  saison_id: string;
-}
-
-/**
  * One team as the press left it: `recipient` are owed the team's link, which each mail's hand-out mints.
  */
 export interface FLInvitationDispatchRow {
@@ -6565,10 +6543,6 @@ export const SaisonsGetSaisonsAdminOrder = {
   asc: "asc",
   desc: "desc",
 } as const;
-
-export type SaisonsGetInvitationsDispatchPreviewParams = {
-  resend?: boolean;
-};
 
 export type SchiedsrichterGetSchiedsrichterParams = {
   default_payment?: number | null;

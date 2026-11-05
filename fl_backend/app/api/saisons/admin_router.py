@@ -15,8 +15,6 @@ from app.api.einladungen.crud import owed_einladung_mails
 from app.api.einladungen.schemas import (
     FLEinladung,
     FLInvitationDispatchPayload,
-    FLInvitationDispatchPreviewResponse,
-    FLInvitationDispatchPreviewRow,
     FLInvitationDispatchResponse,
     FLInvitationDispatchRow,
     FLInvitationLinkRow,
@@ -318,7 +316,6 @@ async def get_saison_admin(
                 saison_teams_collection=saison_teams_collection,
                 invitations_collection=invitations_collection,
                 ban_list=ban_list,
-                resend=False,
             ),
         ),
     )
@@ -1253,11 +1250,11 @@ async def _plan_the_dispatch(
     saison_teams_collection: AsyncCollection,
     invitations_collection: AsyncCollection,
     ban_list: BanList,
-    resend: bool,
 ) -> list[_PlannedTeam]:
     """Every team of the season planned by `plan_einladung_versand`, the function the press decides each team by.
 
-    Read outside any transaction, for the preview and the editor's read: the press plans each team again in its own.
+    `resend` left false, as the editor's press sends it. Read outside any transaction, for the editor's read: the press
+    plans each team again in its own.
     """
 
     entered = await _entered_teams(saison_teams_collection=saison_teams_collection, saison_id=saison_id)
@@ -1281,7 +1278,7 @@ async def _plan_the_dispatch(
             austritt=team.get("austritt"),
             kontakte=team.get("kontakte"),
             einladung_raw=einladung_raw,
-            resend=resend,
+            resend=False,
             barred=barred,
         )
         planned.append(_PlannedTeam(team=team, live=einladung_raw, plan=plan))
@@ -1423,61 +1420,6 @@ async def _mail_one_team(
 
 
 @router.get(
-    "/{saison_id}/invitations/dispatch/preview",
-    response_model=FLInvitationDispatchPreviewResponse,
-    summary="Who the send would reach",
-)
-async def get_invitations_dispatch_preview(
-    saison_id: str,
-    saison_teams_collection: SaisonTeamsCollection,
-    invitations_collection: InvitationsCollection,
-    saisons_collection: SaisonsCollection,
-    ban_list: BanListLookup,
-    resend: bool = False,
-) -> FLInvitationDispatchPreviewResponse:
-    """
-    Per team of this season, the mailboxes the send would write to and the reason it would skip a team — and it writes nothing itself.
-
-    Decided by the function the send itself decides by, so the list read here is the list performed. `resend` mirrors the send's own
-    switch: left false, a team whose live link was already sent, by the day stored on it, reads as `already_sent`, and pressing the send with
-    `resend` true instead makes this preview's own answer wrong unless the same value is asked for here.
-
-    **`replaced_link` is the warning this list carries**: the send mints for every team it answers, so a team already holding a link has that
-    link REVOKED and the copy in somebody's inbox opens nothing from that moment. A row carries no trace of the invitation the team holds,
-    so a page offering the press reads that fact here or nowhere.
-
-    Five skips, each an ordinary state rather than a refusal: the team has left this season, it holds no contact block, no seat of that
-    block has been confirmed by its own person, every confirmed seat's address is on the ban list, or its live link was already
-    sent and `resend` is false. A season holding
-    no team answers an empty list. One row per MAILBOX, so a person sitting in two seats is named once. 404 where no season holds that id.
-    """
-
-    await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["_id"])
-
-    planned = await _plan_the_dispatch(
-        saison_id=saison_id,
-        saison_teams_collection=saison_teams_collection,
-        invitations_collection=invitations_collection,
-        ban_list=ban_list,
-        resend=resend,
-    )
-
-    return FLInvitationDispatchPreviewResponse(
-        saison_id=saison_id,
-        rows=[
-            FLInvitationDispatchPreviewRow(
-                team_id=team.team["team_id"],
-                team_name=team.team["name"],
-                recipient=team.plan.recipient,
-                skipped=team.plan.skipped,
-                replaced_link=team.plan.replaced_link,
-            )
-            for team in planned
-        ],
-    )
-
-
-@router.get(
     "/{saison_id}/erasure/preview",
     response_model=FLErasurePreviewResponse,
     summary="How many pupils activating this season would delete",
@@ -1533,8 +1475,8 @@ async def post_invitations_dispatch(
 
     **Every team mailed gets a fresh invite, and any link that team already held is REVOKED in the same per-team transaction** — the
     copy in somebody's inbox opens nothing from that moment. The mails are owed in that transaction too, each minting its link when it is
-    handed out; no link is answered. `replaced_link` says of each row whether a link died for it, and the preview answers it before the
-    press. A team this skips is left exactly as it was.
+    handed out; no link is answered. `replaced_link` says of each row whether a link died for it, and the season editor's rows answer it
+    before the press. A team this skips is left exactly as it was.
 
     Five skips, each an ordinary state rather than a refusal: the team has left this season, it holds no contact block, no seat of that block
     has been confirmed by its own person, every confirmed seat's address is on the ban list, or its live link was already sent and

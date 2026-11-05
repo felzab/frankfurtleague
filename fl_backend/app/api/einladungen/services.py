@@ -1,8 +1,8 @@
 """
 API · the invite's judgements, spelled apart from the request
 
-One planner decides who a season's press mails, and the preview answers the same call. Two readers
-of one rule is how a preview starts telling an administrator something the press then contradicts.
+One planner decides who a season's press mails, and the season editor's rows answer the same call. Two
+readers of one rule is how a page starts telling an administrator something the press then contradicts.
 """
 
 from collections.abc import Collection, Mapping
@@ -180,7 +180,7 @@ class EinladungVersandPlan(NamedTuple):
 def plan_einladung_versand(
     *, austritt: Any, kontakte: Any, einladung_raw: Mapping[str, Any] | None, resend: bool, barred: Collection[str]
 ) -> EinladungVersandPlan:
-    """Who this team's link goes to, or why it is skipped. The preview and the press both read it.
+    """Who this team's link goes to, or why it is skipped. The season editor's rows and the press both read it.
 
     `einladung_raw` is the team's live invite, `None` where it holds none. `barred` holds the stored addresses a standing
     ban holds, as `app/api/sperrliste/lookup.py :: barred_addresses` answers them.
