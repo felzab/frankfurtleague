@@ -8,18 +8,14 @@ import type {
   FLSpielberichtAdminResponse,
   FLSpielberichteSelfResponse,
   FLSpielberichtSchiedsrichterResponse,
-  SpielberichteGetSpielberichtVerwaltungParams,
 } from "@/core/generated/client/types";
 
 /**
  * One fixture's report as the administrator reads it, remarks and reasons included, with its state. Uncached: an
- * admin-tier read. Both squads come only with `kader`, for a form picking from them; without it they read empty.
+ * admin-tier read.
  */
-export async function getAdminSpielbericht(
-  spielId: string,
-  params: SpielberichteGetSpielberichtVerwaltungParams = {},
-): Promise<FLSpielberichtAdminResponse> {
-  return runAdminRead(() => spielberichteGetSpielberichtVerwaltung(spielId, params));
+export async function getAdminSpielbericht(spielId: string): Promise<FLSpielberichtAdminResponse> {
+  return runAdminRead(() => spielberichteGetSpielberichtVerwaltung(spielId));
 }
 
 /** What the booked referee's form opens on; refused `bericht_not_officiated` once the fixture is booked to somebody else. */

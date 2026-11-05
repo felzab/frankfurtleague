@@ -226,11 +226,6 @@ class TestEmbeddedFields:
         with pytest.raises(ValidationError):
             FLSpiel.model_validate(spiel(schiedsrichter=spiel_schiedsrichter_field(payment=-1)))
 
-    @pytest.mark.parametrize("field", ["name", "maps_link"])
-    def test_rejects_an_empty_venue_string(self, spiel, spiel_ort_field, field):
-        with pytest.raises(ValidationError):
-            FLSpiel.model_validate(spiel(ort=spiel_ort_field(**{field: ""})))
-
     # A rental price is whole euros; some stored values are integral floats, which Pydantic coerces.
     def test_coerces_an_integral_float_rent(self, spiel, spiel_ort_field):
         parsed = FLSpiel.model_validate(spiel(ort=spiel_ort_field(mietpreis=80.0)))
@@ -247,7 +242,7 @@ class TestEmbeddedFields:
         with pytest.raises(ValidationError):
             FLSpiel.model_validate(spiel(ort=spiel_ort_field(mietpreis=-1)))
 
-    @pytest.mark.parametrize("field", ["mietpreis", "name", "maps_link", "spielort_id"])
+    @pytest.mark.parametrize("field", ["mietpreis", "spielort_id"])
     def test_requires_every_venue_field(self, spiel, spiel_ort_field, field):
         """No field may have a default: the admin PATCH writes wholesale, so a default overwrites a real rent with 0."""
         incomplete = spiel_ort_field()

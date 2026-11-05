@@ -17,8 +17,8 @@ import type { FLPatchSpielDataPayload, FLSonderereignis, FLSpielJoinedAdmin } fr
 
 const { shape } = SpielePatchSpielBody;
 const [ortShape] = shape.ort.options;
-// The write's version as a number alone: the editor's save always sends the one it read.
-const [versionShape] = shape.version.unwrap().options;
+// The write's version: the editor's save always sends the one it read.
+const versionShape = shape.version;
 
 /** A price box's text: empty is no price, digits alone a figure, anything else stays text the price refuses. */
 const preis = z.preprocess(
@@ -53,9 +53,10 @@ const gespeicherterPreis = (spiel: FLSpielJoinedAdmin) => spiel.ort?.mietpreis ?
 
 /**
  * The fixture as it stands with the editor's changes over it. Today's write replaces the whole fixture, so
- * every field the editor does not show is sent as it is stored: the sides, their sources and the referee.
+ * every field the editor does not show is sent as it is stored: the sides, their sources and the referee. The version
+ * apart: the save sends the one the editor read, never the one read again here.
  */
-function payloadOf(saved: FLSpielJoinedAdmin, changes: Aenderungen): FLPatchSpielDataPayload | ActionAnswer<never> {
+function payloadOf(saved: FLSpielJoinedAdmin, changes: Aenderungen): Omit<FLPatchSpielDataPayload, "version"> | ActionAnswer<never> {
   const werte = werteOf(saved);
   const spielort = changes.spielort === undefined ? werte.spielort : changes.spielort;
   const mietpreis = changes.mietpreis === undefined ? gespeicherterPreis(saved) : changes.mietpreis;
@@ -91,8 +92,6 @@ function payloadOf(saved: FLSpielJoinedAdmin, changes: Aenderungen): FLPatchSpie
     elfmeterschiessen: admitsShootOut(saved.saison_phase, team1, team2, sonderereignis) ? saved.elfmeterschiessen : null,
     sonderereignis,
     notiz: changes.notiz === undefined ? werte.notiz : changes.notiz,
-    // The referee the editor was served: the write refuses the save where the fixture books another or none since.
-    schiedsrichter_stand: saved.schiedsrichter?.schiedsrichter_id ?? null,
   };
 }
 

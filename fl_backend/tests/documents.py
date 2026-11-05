@@ -175,6 +175,25 @@ def spiel_document(*, spiel_id: Any, saison_id: str, spiel_nr: int, spieltag_id:
     }
 
 
+def joined_spiel_document(spiel: Mapping[str, Any]) -> dict[str, Any]:
+    """`spiel` as `build_spiele_pipeline` serves it, for a report judging joined fixtures without the database.
+
+    Each side's club still in its season, nobody asked to confirm, no match for third place. The names are whatever
+    `spiel` carries where a read would join them.
+    """
+
+    def side(stored: Mapping[str, Any] | None) -> dict[str, Any] | None:
+        return None if stored is None else {"austritt": None, "austritt_type": None, **stored}
+
+    return {
+        **spiel,
+        "team1": side(spiel.get("team1")),
+        "team2": side(spiel.get("team2")),
+        "ansetzung_confirmed": None,
+        "for_third_place": False,
+    }
+
+
 def spielbestaetigung_document(spiel: Mapping[str, Any], *, party: Mapping[str, Any], **fields: Any) -> dict[str, Any]:
     """An open, unanswered row as the pass mints it, its snapshot composed from `spiel` by the composer the mint calls.
 

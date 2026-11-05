@@ -186,6 +186,7 @@ import type {
   FLSpielerSelfResponse,
   FLSpielerSingleResponse,
   FLSpieleSingleResponse,
+  FLSpieleSpielplanAdminResponse,
   FLSpielorteListResponse,
   FLSpielorteSingleResponse,
   FLSpielPageResponse,
@@ -213,8 +214,8 @@ import type {
   SaisonsGetSaisonsAdminParams,
   SchiedsrichterGetSchiedsrichterParams,
   SpielberichteGetSpielberichteParams,
-  SpielberichteGetSpielberichtVerwaltungParams,
   SpielbestaetigungenGetSpielbestaetigungenParams,
+  SpieleGetSpieleSpielplanParams,
   SpieleGetSpieleVerwaltungParams,
   SpielePatchSpielParams,
   SpielorteGetSpielorteParams,
@@ -3557,56 +3558,6 @@ export const spielberichteGetSelf = async (options?: Parameters<typeof adminKeyT
   });
 };
 
-export const getSpielberichtePatchSpielberichtUrl = (spielId: string) => {
-  return `/api/v0/spielberichte/${encodeURIComponent(String(spielId))}`;
-};
-
-/**
- * Write the whole report of one fixture as an administrator, replacing what stood, as the referee's own write does.
- *
- * Every write changing it raises its `version`, so a report adopted before reads `differing` until it is adopted
- * again, and a write changing nothing writes nothing. Who first wrote the report stays recorded; a report an
- * administrator writes first records an administrator, naming nobody.
- *
- * `bericht_stand` is the `version` of the report the page was served, null where none stood, as on the referee's
- * write.
- *
- * Refuses, in this order, each writing nothing: a fixture that does not exist (`document_not_found`); a `bericht_stand`
- * other than the version standing now, or than none where none stands (`bericht_meanwhile_changed`); one undated or whose day is
- * still to come (`bericht_not_played`); one called off or struck out (`bericht_abgesagt`); a shoot-out proposed on a
- * group-phase fixture (`bericht_elfmeter_in_the_gruppe`); a pupil newly named on a side outside that side's live squad of the season
- * (`bericht_not_in_kader`); and a yellow or second yellow card naming no reason, unless the stored report holds that card,
- * by side, pupil and colour, stripped of its reason at the end of the season after the match (`bericht_grund_missing`). Each
- * but `bericht_meanwhile_changed` is asked again outside the transaction just before answering; a write of the report landing
- * mid-press conflicts with this one, whose retry meets `bericht_meanwhile_changed`. Two first writes at once are two pages
- * opened on no report: the later is refused.
- * @summary Write one fixture's report as an administrator
- */
-export const spielberichtePatchSpielbericht = async (
-  spielId: string,
-  fLSpielberichtPayload: FLSpielberichtPayload,
-  options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLSpielberichtAdminResponse> => {
-  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
-    if (!h) return {};
-    if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
-  };
-  return adminKeyTransport<FLSpielberichtAdminResponse>(getSpielberichtePatchSpielberichtUrl(spielId), {
-    ...options,
-    method: "PATCH",
-    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLSpielberichtPayload),
-  });
-};
-
 export const getSpielberichteGetSpielberichtBerichtUrl = (spielId: string) => {
   return `/api/v0/spielberichte/${encodeURIComponent(String(spielId))}/bericht`;
 };
@@ -3691,29 +3642,23 @@ export const spielberichtePutSpielberichtBericht = async (
   });
 };
 
-export const getSpielberichteGetSpielberichtVerwaltungUrl = (spielId: string, params?: SpielberichteGetSpielberichtVerwaltungParams) => {
-  const stringifiedParams = serializeQuery(params);
-
-  return stringifiedParams.length > 0
-    ? `/api/v0/spielberichte/${encodeURIComponent(String(spielId))}/verwaltung?${stringifiedParams}`
-    : `/api/v0/spielberichte/${encodeURIComponent(String(spielId))}/verwaltung`;
+export const getSpielberichteGetSpielberichtVerwaltungUrl = (spielId: string) => {
+  return `/api/v0/spielberichte/${encodeURIComponent(String(spielId))}/verwaltung`;
 };
 
 /**
  * One fixture's report as the editor's panel reads it, whole, with the state it reads in.
  *
- * Beside it the fixture and the pupils the report names, by name. Both clubs' live squads of the season only with
- * `kader`, which the correction's form picks from: the panel reads no pupil the report does not name, so a fixture
- * holding no report serves none. The report and its state are null where no report stands; `document_not_found` only for
- * a fixture that does not exist.
+ * Beside it the fixture and the pupils the report names, by name. The panel picks no pupil, so it reads no squad and
+ * no pupil the report does not name: a fixture holding no report serves none. The report and its state are null where
+ * no report stands; `document_not_found` only for a fixture that does not exist.
  * @summary One fixture's report, whole, for an administrator
  */
 export const spielberichteGetSpielberichtVerwaltung = async (
   spielId: string,
-  params?: SpielberichteGetSpielberichtVerwaltungParams,
   options?: Parameters<typeof adminKeyTransport>[1],
 ): Promise<FLSpielberichtAdminResponse> => {
-  return adminKeyTransport<FLSpielberichtAdminResponse>(getSpielberichteGetSpielberichtVerwaltungUrl(spielId, params), {
+  return adminKeyTransport<FLSpielberichtAdminResponse>(getSpielberichteGetSpielberichtVerwaltungUrl(spielId), {
     ...options,
     method: "GET",
   });
@@ -4090,6 +4035,30 @@ export const spieleGetSpieleVerwaltung = async (
   });
 };
 
+export const getSpieleGetSpieleSpielplanUrl = (params: SpieleGetSpieleSpielplanParams) => {
+  const stringifiedParams = serializeQuery(params);
+
+  return stringifiedParams.length > 0 ? `/api/v0/spiele/spielplan?${stringifiedParams}` : `/api/v0/spiele/spielplan`;
+};
+
+/**
+ * Every matchday and knockout round of one season, a planned one included, its matches in the admin shape, in order.
+ *
+ * Each round holds its matches by number, and the rounds come in the order they are played. The matchday to open on
+ * is the Spielplan's own: the first holding a match still to be played, else the last; a finished season opens on its
+ * last. `document_not_found` for a season id naming no season. Writes nothing.
+ * @summary One Saison's Spiele by matchday, for the admin Spiele list
+ */
+export const spieleGetSpieleSpielplan = async (
+  params: SpieleGetSpieleSpielplanParams,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLSpieleSpielplanAdminResponse> => {
+  return adminKeyTransport<FLSpieleSpielplanAdminResponse>(getSpieleGetSpieleSpielplanUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
 export const getSpieleGetSpielUrl = (spielId: string) => {
   return `/api/v0/spiele/${encodeURIComponent(String(spielId))}`;
 };
@@ -4116,7 +4085,7 @@ export const getSpielePatchSpielUrl = (spielId: string, params?: SpielePatchSpie
 /**
  * Save one Spiel wholesale and resolve the season's bracket, answering every fixture the save moved beyond it.
  *
- * Every name is composed by the server. With `adopts_bericht` the save also stamps the fixture's Spielbericht
+ * The fixture stores no name: every read joins it. With `adopts_bericht` the save also stamps the fixture's Spielbericht
  * adopted, where it still stands at that version about the clubs the save leaves; a miss refuses nothing. A
  * `dry_run` answers the same report and writes nothing. A `past` season's fixture is refused (`saison_past`), the
  * `dry_run` included.
@@ -4153,8 +4122,13 @@ export const getSpieleGetSpielVerwaltungUrl = (spielId: string) => {
 };
 
 /**
- * Return one match in the admin shape, money included, for the editor, with its season's status.
- * @summary One Spiel for the admin editor
+ * The match editor's one read: the fixture in the admin shape, money and `version` included, and its season's status.
+ *
+ * Beside it every live venue and referee to book, the fixture's own where it has retired, each referee saying whether
+ * they confirmed their entry; the fixture's report as its Spielbericht section shows it, its goals, its proposal and
+ * the state it reads in, null where none stands; and the fixture's confirmation rows as the confirmations' read serves
+ * them. `document_not_found` for an id no fixture holds.
+ * @summary One Spiel and all the match editor offers and shows beside it
  */
 export const spieleGetSpielVerwaltung = async (
   spielId: string,

@@ -144,7 +144,7 @@ def _side(team: EnteredTeam) -> dict[str, Any]:
     its id would miss the fixture.
     """
 
-    return FLSpielTeamField(team_id=team.team_id, tore=None, name=team.name, shorthand=team.shorthand).model_dump(context={"keep_oid": True})
+    return FLSpielTeamField(team_id=team.team_id, tore=None).model_dump(context={"keep_oid": True})
 
 
 def _spieltag(*, saison_id: str, phase: FLSaisonPhase, position: int) -> dict[str, Any]:

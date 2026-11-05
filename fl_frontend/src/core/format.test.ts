@@ -5,6 +5,7 @@ import {
   formatDatumLong,
   formatDatumPair,
   formatDatumWithWeekday,
+  formatDayAndTime,
   formatErgebnis,
   formatEuro,
   formatInstant,
@@ -82,6 +83,14 @@ describe("formatInstant", () => {
 
   it("prints an unreadable stored instant as it was stored rather than throw and lose the page or the mail", async (t) => {
     await same(t, formatInstant("kein Zeitpunkt"), "kein Zeitpunkt");
+  });
+});
+
+describe("formatDayAndTime", () => {
+  // Read as an instant in the league's zone the pair moves by its offset, and 02:30 on the night the clocks go forward
+  // exists on no Berlin clock at all.
+  it("joins a stored day and time with „um“ as the league's wall clock holds them", async (t) => {
+    await same(t, formatDayAndTime("2027-03-28", "02:30:00"), "28. März 2027 um 02:30");
   });
 });
 

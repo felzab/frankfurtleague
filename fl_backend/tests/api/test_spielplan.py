@@ -827,20 +827,7 @@ class TestTheSemiFinalLosersPlayForThirdPlace:
         ]
 
 
-class TestTheSeasonIsPlayedUnderTheJunctionRowsNames:
-    @pytest.mark.parametrize("shape", SHAPES)
-    def test_a_side_copies_the_name_and_shorthand_the_row_carries(self, shape: tuple[int, int, int]):
-        """The row's name, never the club's: the row is what the season was played under."""
-
-        groups, teams, _ = shape
-        entered = entered_for(groups, teams)
-        expected = {team.team_id: (team.name, team.shorthand) for team in entered}
-
-        for spiel in draw(*shape).spiele:
-            for side in (spiel["team1"], spiel["team2"]):
-                if side is not None:
-                    assert (side["name"], side["shorthand"]) == expected[side["team_id"]]
-
+class TestTheDrawFollowsTheEntryOrderAlone:
     @pytest.mark.parametrize("shape", SHAPES)
     def test_the_entry_order_is_the_row_id_and_not_the_order_the_caller_passed(self, shape: tuple[int, int, int]):
         """A read handing the rows back in another order must not redraw the season."""

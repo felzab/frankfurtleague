@@ -22,7 +22,6 @@ import { SPIELBERICHT_SONDEREREIGNIS_OPTIONS } from "../../../constants";
 import { AuswahlSelect } from "./AuswahlSelect";
 
 import type { FLSpielberichtSonderereignis } from "../../../schemas";
-import type { SpielberichtLeser } from "../../../utils";
 import type { SpielberichtDraft, SpielberichtFieldPath, SpielberichtKontext } from "./spielberichtDraft";
 
 const TORE_PATHS = ["bericht.ergebnis_vorschlag.team1_tore", "bericht.ergebnis_vorschlag.team2_tore"] as const;
@@ -31,6 +30,8 @@ const ELFMETER_PATHS = ["bericht.ergebnis_vorschlag.elfmeterschiessen.team1", "b
 /** „Keines“ as a picker row: no event is the ordinary match, offered beside the three rather than behind a switch. */
 const KEINES = "keines";
 
+const OHNE_TORE = "Ist ein Team nicht angetreten, trägst Du keine Tore ein: Das Ergebnis setzt die Liga.";
+
 /**
  * A side as `admitsShootOut` reads it, its count alone: the rule is the editor's, imported rather than restated, so
  * the form offers a shoot-out exactly where the administrator's save keeps one.
@@ -38,14 +39,11 @@ const KEINES = "keines";
 const seiteMitToren = (tore: number | null) => ({ team_id: "", name: "", shorthand: "", tore });
 
 export function FormVorschlagSection({
-  leser,
   kontext,
   draft,
   onChange,
   onValidateFields,
 }: {
-  /** Whose count the hint speaks of: the referee's own, or the report's to the administrator correcting it. */
-  leser: SpielberichtLeser;
   kontext: SpielberichtKontext;
   draft: SpielberichtDraft;
   onChange: (next: Partial<SpielberichtDraft>) => void;
@@ -89,12 +87,7 @@ export function FormVorschlagSection({
           <Hint
             mode="reveal"
             label="Hinweis zum Ergebnis"
-            body={{
-              lead:
-                leser === "admin"
-                  ? "Die Tore beider Teams, wie der Spielbericht sie vorschlägt."
-                  : "Die Tore beider Teams, wie Du sie gezählt hast.",
-            }}
+            body={{ lead: "Die Tore beider Teams, wie Du sie gezählt hast." }}
           />
         </PanelHeading>
       </div>
@@ -118,11 +111,7 @@ export function FormVorschlagSection({
         />
 
         {istNichtantreten ? (
-          <p className="muted-hint">
-            {leser === "admin"
-              ? "Ist ein Team nicht angetreten, stehen im Bericht keine Tore: Das Ergebnis ergibt sich im Spiel aus der Wertung."
-              : "Ist ein Team nicht angetreten, trägst Du keine Tore ein: Das Ergebnis setzt die Liga."}
-          </p>
+          <p className="muted-hint">{OHNE_TORE}</p>
         ) : (
           <div className={FIELD_PAIR_CLASSES}>
             {(
