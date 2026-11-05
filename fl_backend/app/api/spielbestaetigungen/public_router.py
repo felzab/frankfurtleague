@@ -5,7 +5,7 @@ from fastapi import APIRouter, Body, Depends
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.sperrliste.lookup import SperrlisteLookup, barred_addresses, sperrliste_saison
+from app.api.sperrliste.lookup import BanListLookup, ban_list_saison, barred_addresses
 from app.api.spielbestaetigungen.crud import ANSICHT_SPIEL_FIELDS, pull_ansetzung_lage, pull_vorschlag_offen, verein_fields
 from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigungAntwortPayload,
@@ -23,7 +23,7 @@ from app.api.spielbestaetigungen.services import (
     build_token_filter,
     clubs_without_a_season_row,
     compose_antwort_update,
-    find_gesperrt_link_refusal,
+    find_barred_link_refusal,
     find_spent_link_refusal,
     find_unknown_link_refusal,
     find_vorschlag_vergangen_refusal,
@@ -88,7 +88,7 @@ async def get_spielbestaetigung_view(
     saison_teams_collection: SaisonTeamsReadCollection,
     spielorte_collection: SpielorteReadCollection,
     teams_collection: TeamsReadCollection,
-    sperrliste: SperrlisteLookup,
+    ban_list: BanListLookup,
     today: str = Depends(get_german_date_str),
 ) -> FLSpielbestaetigungViewResponse:
     """
@@ -124,7 +124,7 @@ async def get_spielbestaetigung_view(
     refuse(find_unknown_link_refusal(seat=None if lage is None else seat))
     assert lage is not None
     address = seat_address(lage=lage, spielbestaetigung_raw=row, seat=seat)
-    barred = bool(await barred_addresses(sperrliste, [] if address is None else [address]))
+    barred = bool(await barred_addresses(ban_list, [] if address is None else [address]))
     vorschlag_offen = await pull_vorschlag_offen(spielbestaetigungen_collection=spielbestaetigungen_collection, spielbestaetigung_raw=row)
 
     state = zustand_of(spielbestaetigung_raw=row, lage=lage, today=today, barred=barred, vorschlag_offen=vorschlag_offen)
@@ -166,7 +166,7 @@ async def post_spielbestaetigung(
     spiele_collection: SpieleCollection,
     saison_teams_collection: SaisonTeamsCollection,
     spieltage_collection: SpieltageCollection,
-    sperrliste: SperrlisteLookup,
+    ban_list: BanListLookup,
     db: DBClient,
     today: str = Depends(get_german_date_str),
 ) -> FLSpielbestaetigungAntwortResponse:
@@ -190,8 +190,8 @@ async def post_spielbestaetigung(
     """
 
     token_hash = hash_token(antwort_data.token)
-    # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_gesperrt`).
-    governing_saison_id = await sperrliste_saison(sperrliste)
+    # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_barred`).
+    governing_saison_id = await ban_list_saison(ban_list)
     vorschlag = (
         None
         if antwort_data.vorschlag is None
@@ -218,11 +218,11 @@ async def post_spielbestaetigung(
         assert lage is not None
         address = seat_address(lage=lage, spielbestaetigung_raw=row, seat=seat)
         barred = await barred_addresses(
-            sperrliste, [] if address is None else [address], governing_saison_id=governing_saison_id, session=session
+            ban_list, [] if address is None else [address], governing_saison_id=governing_saison_id, session=session
         )
         # The ban alone is not asked again below: one committing after this read bars the next press, and an answer
         # given before it stands.
-        refuse(find_gesperrt_link_refusal(barred=bool(barred)))
+        refuse(find_barred_link_refusal(barred=bool(barred)))
 
         async def judge(gegen: AnsetzungLage, reads: AsyncClientSession | None) -> None:
             """Every other refusal, over this Ansetzung and reads under `reads`: asked in the transaction, then again outside it."""
@@ -267,7 +267,7 @@ async def post_spielbestaetigung(
                     antwort=antwort_data.antwort,
                     seat=seat,
                     address=address,
-                    key=sperrliste.key,
+                    key=ban_list.key,
                     vorschlag=vorschlag,
                     begruendung=antwort_data.begruendung,
                     today=today,

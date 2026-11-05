@@ -282,7 +282,7 @@ def find_unknown_link_refusal(*, seat: FLKontaktRolle | None) -> WriteRefusal | 
     )
 
 
-def find_gesperrt_link_refusal(*, barred: bool) -> WriteRefusal | None:
+def find_barred_link_refusal(*, barred: bool) -> WriteRefusal | None:
     """`link_barred`: asked at the press, however old the link, ahead of every state of its row."""
 
     if not barred:

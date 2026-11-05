@@ -103,7 +103,7 @@ def test_the_ko_runde_holds_the_knockout_matchdays_alone(seeded_url: str):
 def matchday(*states: tuple[str | None, FLSonderereignis | None]) -> FLSpielplanSpieltag:
     """A matchday holding one match per `(ergebnis, sonderereignis)`, all the rule reads."""
 
-    spiele = [FLSpielJoined.model_construct(ergebnis=ergebnis, sonderereignis=event) for ergebnis, event in states]
+    spiele = [FLSpielJoined.model_construct(ergebnis=ergebnis, sonderereignis=sonderereignis) for ergebnis, sonderereignis in states]
     return FLSpielplanSpieltag.model_construct(id=ObjectId(), spiele=spiele)
 
 

@@ -45,7 +45,7 @@ from app.api.address_change.services import (
     side_of,
 )
 from app.api.identity.lookup import SubjectLookup
-from app.api.sperrliste.lookup import SperrlisteLookup, sperrliste_saison
+from app.api.sperrliste.lookup import BanListLookup, ban_list_saison
 from app.core.clock import german_day
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import patch_one_in_db, refuse
@@ -119,7 +119,7 @@ async def get_address_change_view(
     grants_collection: GrantsReadCollection,
     grants_announced_collection: GrantsAnnouncedReadCollection,
     grant_approval_requests_collection: GrantApprovalRequestsReadCollection,
-    sperrliste: SperrlisteLookup,
+    ban_list: BanListLookup,
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLAddressChangeViewResponse:
     """
@@ -192,8 +192,8 @@ async def get_address_change_view(
             spieler_collection=spieler_collection,
             grants_collection=grants_collection,
             grants_announced_collection=grants_announced_collection,
-            sperrliste=sperrliste,
-            governing_saison_id=await sperrliste_saison(sperrliste),
+            ban_list=ban_list,
+            governing_saison_id=await ban_list_saison(ban_list),
             occupancy=Occupancy(
                 grants_collection=grants_collection,
                 grant_approval_requests_collection=grant_approval_requests_collection,
@@ -247,7 +247,7 @@ async def post_address_change_answer(
     grant_approval_requests_collection: GrantApprovalRequestsCollection,
     invitations_collection: InvitationsCollection,
     ban_list_collection: BanListCollection,
-    sperrliste: SperrlisteLookup,
+    ban_list: BanListLookup,
     action_log_collection: ActionLogCollection,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
@@ -311,7 +311,7 @@ async def post_address_change_answer(
                 session=session,
             )
 
-        refuse(find_ended_refusal(open=record.get("ended") is None and record.get("confirmed_at") is None))
+        refuse(find_ended_refusal(is_open=record.get("ended") is None and record.get("confirmed_at") is None))
         db_filter = {"_id": record["_id"], **build_open_link_terms(token_hash)}
 
         if answer_data.answer == "declined":
@@ -338,9 +338,9 @@ async def post_address_change_answer(
         verdict, effective = await take_effect_in_session(
             record=record,
             records=records,
-            sperrliste=sperrliste,
+            ban_list=ban_list,
             # In the session, read by the confirmation alone: the address on file's answer and a decline judge no ban.
-            governing_saison_id=await sperrliste_saison(sperrliste, session=session),
+            governing_saison_id=await ban_list_saison(ban_list, session=session),
             address_changes_collection=address_changes_collection,
             spieler_collection=spieler_collection,
             schiedsrichter_collection=schiedsrichter_collection,
@@ -388,7 +388,7 @@ async def post_address_change_answer(
             answered = await session.with_transaction(answer_the_link)
 
     # After the commit, the discard standing: the link now answers how the change ended.
-    refuse(find_ended_refusal(open=answered is not None))
+    refuse(find_ended_refusal(is_open=answered is not None))
     assert answered is not None
 
     return answered
@@ -412,7 +412,7 @@ async def _answer_for_the_address_on_file(
 
     # A link of another way's notice offers its stop alone, so it answers no confirmation.
     refuse(find_unknown_refusal(found=record["way"] == "account"))
-    refuse(find_ended_refusal(open=record.get("ended") is None and record.get("released_at") is None))
+    refuse(find_ended_refusal(is_open=record.get("ended") is None and record.get("released_at") is None))
     db_filter = {"_id": record["_id"], **build_previous_link_terms(stop_hash)}
 
     if answer == "declined":
@@ -492,7 +492,7 @@ async def post_address_change_stop(
         )
         refuse(find_unknown_refusal(found=record is not None))
         assert record is not None
-        refuse(find_ended_refusal(open=record.get("ended") is None))
+        refuse(find_ended_refusal(is_open=record.get("ended") is None))
         refuse(find_unknown_refusal(found=not asks_the_address_on_file(record)))
 
         await end_the_change_in_session(

@@ -47,7 +47,7 @@ from app.api.registrierungen.services import (
 )
 from app.api.saisons.services import has_started
 from app.api.sperrliste.guard import PERSON_ACTOR_BINDERS, KontaktIdentifier, SpielerIdentifier
-from app.api.sperrliste.lookup import SperrlisteLookup, barred_addresses, sperrliste_saison
+from app.api.sperrliste.lookup import BanListLookup, ban_list_saison, barred_addresses
 from app.api.spieler.crud import refuse_a_full_squad
 from app.core.collections import Collection
 from app.core.config import API_VERSION, BackendConfig, get_app_config
@@ -190,7 +190,7 @@ async def admit(
     spieler_collection: SpielerCollection,
     records: SubjectLookup,
     action_log_collection: ActionLogCollection,
-    sperrliste: SperrlisteLookup,
+    ban_list: BanListLookup,
     db: DBClient,
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
@@ -221,8 +221,8 @@ async def admit(
     written on any of them.
     """
 
-    # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_gesperrt`).
-    governing_saison_id = await sperrliste_saison(sperrliste)
+    # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_barred`).
+    governing_saison_id = await ban_list_saison(ban_list)
 
     async def admit_the_pupil(session: AsyncClientSession) -> FLRegistrierungAdmissionResponse:
         """Judge, then write the person, the squad row and the erasure. Everything judged is read in-session."""
@@ -238,7 +238,7 @@ async def admit(
 
         # Inside the transaction, with no season anchor: a ban writes no registration, so only this
         # read orders a ban entered between the team's read and its press.
-        barred = await barred_addresses(sperrliste, [str(registrierung_raw["email"])], governing_saison_id=governing_saison_id, session=session)
+        barred = await barred_addresses(ban_list, [str(registrierung_raw["email"])], governing_saison_id=governing_saison_id, session=session)
         refuse(find_barred_refusal(barred=bool(barred)))
 
         # The one read of the season: its rules for the level and the cap, its `start_date` for the Nachnominierung marker.

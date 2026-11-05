@@ -470,7 +470,7 @@ async def _plan_address_change_effective(
     if holdings.empty:
         return Plan("left for review", detail="the address it replaced holds nothing in the restored database")
     approval = record.get("approval")
-    sperrliste = BanList(ban_list_collection=database[Collection.BAN_LIST], saisons_collection=database[Collection.SAISONS], key=key)
+    ban_list = BanList(ban_list_collection=database[Collection.BAN_LIST], saisons_collection=database[Collection.SAISONS], key=key)
     if holdings.grant is not None and (
         not covers(approval, holdings.grant.get("admin_tier"))
         or (approval or {}).get("approved_at") is None
@@ -499,7 +499,7 @@ async def _plan_address_change_effective(
         await move_the_address_in_session(
             record=record,
             holdings=holdings,
-            sperrliste=sperrliste,
+            ban_list=ban_list,
             address_changes_collection=database[Collection.ADDRESS_CHANGES],
             spieler_collection=database[Collection.SPIELER],
             schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],

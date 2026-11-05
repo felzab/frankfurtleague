@@ -287,7 +287,7 @@ bind_system_actor = actor_binder(_the_application)
 
 
 # The action log's label under the `sperrliste_key` secret file's key, beside the ban list's
-# (`app/api/sperrliste/services.py :: SPERRLISTE_SCHLUESSEL_VERSION`); one label per purpose.
+# (`app/api/sperrliste/services.py :: BAN_LIST_KEY_VERSION`); one label per purpose.
 ACTOR_PSEUDONYM_VERSION: Final = "actor-v1"
 
 

@@ -108,7 +108,7 @@ STAMP = "2026-01-20"
 
 
 def _person(email: str, *, confirmed_at: str | None = STAMP) -> dict[str, Any]:
-    """Every field `app/core/constraints.py :: _KONTAKTPERSON` requires, the address and the stamp the only ones a case reads.
+    """Every field `app/api/teams/schemas.py :: FLKontaktperson` requires, the address and the stamp the only ones a case reads.
 
     Stamped by default: the lookup answers a seat only once its own person has confirmed it.
     """
@@ -274,7 +274,7 @@ async def call_subject(database: AsyncDatabase, email: str) -> FLSubjectResponse
         return await get_subject(
             subject_data=FLSubjectPayload(email=email),
             records=record_collections(database),
-            sperrliste=ban_list(database),
+            ban_list=ban_list(database),
             grants_collection=database[Collection.GRANTS],
             session=session,
         )
@@ -379,7 +379,7 @@ class TestEveryAddressReadWalksAnIndex:
                     await get_sign_in(
                         sign_in_data=FLSubjectPayload(email=IDENTIFIER),
                         records=record_collections(watched),
-                        sperrliste=ban_list(watched),
+                        ban_list=ban_list(watched),
                         grants_collection=watched[Collection.GRANTS],
                         session=session,
                     )

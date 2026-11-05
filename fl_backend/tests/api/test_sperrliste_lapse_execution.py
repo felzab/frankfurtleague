@@ -17,7 +17,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.saisons.admin_router import activate_saison
 from app.api.saisons.crud import pull_massgebliche_saison_id
 from app.api.sperrliste.admin_router import get_sperrliste
-from app.api.sperrliste.crud import address_is_gesperrt
+from app.api.sperrliste.crud import address_is_barred
 from app.api.sperrliste.services import address_hash
 from app.core.codes import Code
 from app.core.collections import Collection
@@ -101,7 +101,7 @@ async def listed(database: AsyncDatabase) -> Any:
 
     return await get_sperrliste(
         ban_list_collection=database[Collection.BAN_LIST],
-        sperrliste=ban_list(database),
+        ban_list=ban_list(database),
     )
 
 
@@ -109,8 +109,8 @@ async def ban(database: AsyncDatabase, client: AsyncMongoClient, *, email: str =
     return await ban_through_the_route(database, client, email=email, grund=GRUND, by=ADMIN, today=TODAY)
 
 
-async def is_gesperrt(database: AsyncDatabase, *, against: str | None, email: str = BANNED) -> bool:
-    return await address_is_gesperrt(
+async def is_barred(database: AsyncDatabase, *, against: str | None, email: str = BANNED) -> bool:
+    return await address_is_barred(
         ban_list_collection=database[Collection.BAN_LIST],
         address_hash=address_hash(email, key=CONFIG.sperrliste_key),
         governing_saison_id=against,
@@ -234,7 +234,7 @@ class TestALeagueWithNoSeasonRunning:
         """A public submission must not be turned away for the league's own state, and the refusal above is what leaves the list empty."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> bool:
-            return await is_gesperrt(database, against=None)
+            return await is_barred(database, against=None)
 
         assert on_a_league(mongo_replica_set_url, [saison_document("2027", "future")], body) is False
 
@@ -246,7 +246,7 @@ class TestTheBoundaryTheCheckReads:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[bool, bool]:
             await ban(database, client)
 
-            return await is_gesperrt(database, against=LAST_COVERED), await is_gesperrt(database, against=FIRST_CLEAR)
+            return await is_barred(database, against=LAST_COVERED), await is_barred(database, against=FIRST_CLEAR)
 
         assert on_a_league(mongo_replica_set_url, [saison_document(ENTERED_UNDER, "active")], body) == (True, False)
 
@@ -256,7 +256,7 @@ class TestTheBoundaryTheCheckReads:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[bool, int]:
             await ban(database, client)
 
-            return await is_gesperrt(database, against=FIRST_CLEAR), await database[Collection.BAN_LIST].count_documents({})
+            return await is_barred(database, against=FIRST_CLEAR), await database[Collection.BAN_LIST].count_documents({})
 
         assert on_a_league(mongo_replica_set_url, [saison_document(ENTERED_UNDER, "active")], body) == (False, 1)
 

@@ -16,14 +16,14 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.berechtigungen.loeschung import GeloeschtGrantsAndAuthorship, loeschen_grants_and_authorship_in_session
+from app.api.berechtigungen.loeschung import ErasedGrantsAndAuthorship, erase_grants_and_authorship_in_session
 from app.api.berechtigungen.schemas import FLGrantSnapshot
 from app.api.berechtigungen.services import compose_notice
 from app.api.einladungen.services import compose_einladung
 from app.api.outbox.schemas import FLGrantData
 from app.api.outbox.services import DELIVERY_DEADLINE, RETENTION
 from app.api.registrierungen.services import compose_ablehnung_update
-from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
+from app.api.sperrliste.services import compose_barred_until_saison_id
 from app.core.collections import Collection
 from app.core.recording import ERASED_ACTOR_MARKER
 from tests.bans import ban_list
@@ -41,7 +41,7 @@ NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 QUEUED = datetime(2026, 3, 31, 9, 0, tzinfo=UTC)
 TODAY = "2026-04-01"
 RUNNING = "2026"
-STANDING = compose_gesperrt_bis_saison_id(governing_saison_id=RUNNING)
+STANDING = compose_barred_until_saison_id(governing_saison_id=RUNNING)
 
 # The person erased, an owner. Distinctive, so the whole-database scan finding it is no coincidence.
 ERIKA = "erika.zwirbelmoos@frankfurtleague.de"
@@ -231,9 +231,9 @@ def on_a_league(url: str, body: Body) -> Any:
 
 async def erase(
     database: AsyncDatabase, client: AsyncMongoClient, *, changed_by: str = DORA, identifier: str = ERIKA
-) -> GeloeschtGrantsAndAuthorship:
-    async def step(session: AsyncClientSession) -> GeloeschtGrantsAndAuthorship:
-        return await loeschen_grants_and_authorship_in_session(
+) -> ErasedGrantsAndAuthorship:
+    async def step(session: AsyncClientSession) -> ErasedGrantsAndAuthorship:
+        return await erase_grants_and_authorship_in_session(
             grants_collection=database[Collection.GRANTS],
             grants_announced_collection=database[Collection.GRANTS_ANNOUNCED],
             outbox_collection=database[Collection.OUTBOX],
@@ -241,7 +241,7 @@ async def erase(
             registrierungen_collection=database[Collection.REGISTRIERUNGEN],
             invitations_collection=database[Collection.INVITATIONS],
             ban_list_collection=database[Collection.BAN_LIST],
-            sperrliste=ban_list(database),
+            ban_list=ban_list(database),
             identifier=identifier,
             changed_by=changed_by,
             now=NOW,
@@ -279,7 +279,7 @@ async def queued_for(database: AsyncDatabase, grant_id: ObjectId) -> list[Mappin
 
 class TestHerGrantsGo:
     def test_every_grant_her_address_holds_goes_her_owner_grant_and_a_dead_spelling_included(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[GeloeschtGrantsAndAuthorship, set[ObjectId], set[ObjectId]]:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[ErasedGrantsAndAuthorship, set[ObjectId], set[ObjectId]]:
             result = await erase(database, client)
 
             return result, await ids_in(database, Collection.GRANTS), await ids_in(database, Collection.GRANTS_ANNOUNCED)
@@ -375,7 +375,7 @@ class TestTheNotices:
     def test_every_notice_queued_before_her_loeschung_names_her_nowhere_and_no_other_moves(self, mongo_replica_set_url: str):
         """Her grant's address withheld under its own reason; her as the actor, the marker; a ban's reason kept beside it."""
 
-        sites = ("now", "before", "changed_by", "withheld")
+        sites = ("current", "before", "changed_by", "withheld")
 
         async def stored(database: AsyncDatabase) -> dict[ObjectId, tuple[Any, ...]]:
             return {

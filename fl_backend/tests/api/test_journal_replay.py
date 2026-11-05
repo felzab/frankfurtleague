@@ -608,7 +608,7 @@ class TestTheListing:
             assert KEY.get_secret_value() not in output
 
 
-LOESCHUNG = f"{V}/identity/account/erasure"
+ERASURE = f"{V}/identity/account/erasure"
 # An hour after the presses: the person's own later act.
 AN_HOUR_LATER = datetime(2126, 10, 3, 13, 0, tzinfo=ZoneInfo("Europe/Berlin"))
 PSEUDONYM = actor_pseudonym(PERSON, key=KEY)
@@ -707,7 +707,7 @@ class TestAnLoeschungSettlesItsPersonsChoices:
         async def steps(http: AsyncClient, database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             with caplog.at_level(logging.INFO):
                 withdrawn = await PRESSES["a season seat's withdrawal"][0](http, database)
-                erased = await http.post(LOESCHUNG, headers=_person(PERSON))
+                erased = await http.post(ERASURE, headers=_person(PERSON))
             assert (withdrawn.status_code, erased.status_code) == (204, 200), erased.text
             withdrawal, erasure = journalled(caplog)
             day = _day_file(("2126-10-03T10:00:01+00:00", withdrawal), ("2126-10-03T10:00:02+00:00", erasure))
@@ -727,7 +727,7 @@ class TestAnLoeschungSettlesItsPersonsChoices:
         async def steps(http: AsyncClient, database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             with caplog.at_level(logging.INFO):
                 withdrawn = await PRESSES["a season seat's withdrawal"][0](http, database)
-                erased = await http.post(LOESCHUNG, headers=_person(PERSON))
+                erased = await http.post(ERASURE, headers=_person(PERSON))
             assert (withdrawn.status_code, erased.status_code) == (204, 200), erased.text
             withdrawal, erasure = journalled(caplog)
             return await _listed(
@@ -752,7 +752,7 @@ class TestAnGeloeschtPersonsPseudonym:
             withdrawal = await _withdrawn_and_granted_again(http, database, caplog)
             rows = [row["_id"] async for row in database[Collection.ACTION_LOG].find({"actor.pseudonym": PSEUDONYM}, {"_id": 1})]
             with caplog.at_level(logging.INFO):
-                erased = await http.post(LOESCHUNG, headers=_person(PERSON))
+                erased = await http.post(ERASURE, headers=_person(PERSON))
             assert erased.status_code == 200, erased.text
             _, erasure = journalled(caplog)
 
@@ -818,7 +818,7 @@ class TestAnGeloeschtPersonsReasons:
             confirmations = database[Collection.SPIELBESTAETIGUNGEN]
             await confirmations.insert_one(snapshot)
             with caplog.at_level(logging.INFO):
-                erased = await http.post(LOESCHUNG, headers=_person(PERSON))
+                erased = await http.post(ERASURE, headers=_person(PERSON))
             assert erased.status_code == 200, erased.text
             erasure = journalled(caplog)[-1]
             removed = (await confirmations.find_one({"_id": snapshot["_id"]}) or {})["antwort"]
@@ -871,7 +871,7 @@ class TestAnLoeschungAfterAChangeTookEffect:
             snapshot = await _record(database, Collection.SPIELER, MOVING_PUPIL_OID)
             with caplog.at_level(logging.INFO):
                 moved = await PRESSES["a pupil's address that took effect"][0](http, database)
-                gone = await http.post(LOESCHUNG, headers=_person(NEW_ADDRESS))
+                gone = await http.post(ERASURE, headers=_person(NEW_ADDRESS))
             assert (moved.status_code, gone.status_code) == (200, 200), gone.text
             effect, erasure = journalled(caplog)
 

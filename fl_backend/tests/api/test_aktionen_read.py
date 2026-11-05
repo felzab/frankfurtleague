@@ -336,7 +336,7 @@ def run_list(log: _LogCollection, **filters: Any) -> Any:
     return asyncio.run(
         get_action_log(
             action_log_collection=cast(AsyncCollection, log),
-            sperrliste=ban_list({Collection.BAN_LIST: _NothingStored(), Collection.SAISONS: _NothingStored()}),
+            ban_list=ban_list({Collection.BAN_LIST: _NothingStored(), Collection.SAISONS: _NothingStored()}),
             filters=FLAktionenFilterParams.model_validate(filters),
         )
     )

@@ -143,7 +143,7 @@ def find_grant_wording_refusal(
     )
 
 
-def find_give_refusal(*, allowed: bool) -> WriteRefusal | None:
+def find_giving_refusal(*, allowed: bool) -> WriteRefusal | None:
     """`giving_not_allowed`: the record is the person's own and takes a withdrawal alone, so a grant on it is refused.
 
     Its own code, not `role_not_held`'s: the record was found, so naming the cause hides nothing.

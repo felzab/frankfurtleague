@@ -63,7 +63,7 @@ async def read_sperrliste_page(
     return rows, int(counted[0].get("count", 0))
 
 
-async def address_is_gesperrt(
+async def address_is_barred(
     *,
     ban_list_collection: ReadCollection,
     address_hash: str,
@@ -92,14 +92,14 @@ async def address_is_gesperrt(
     return bool(found)
 
 
-async def gesperrte_hashes(
+async def read_barred_hashes(
     *,
     ban_list_collection: ReadCollection,
     address_hashes: Iterable[str],
     governing_saison_id: str | None,
     session: AsyncClientSession | None = None,
 ) -> set[str]:
-    """Which of these hashes a standing ban holds, judged as `address_is_gesperrt` judges one.
+    """Which of these hashes a standing ban holds, judged as `address_is_barred` judges one.
 
     ONE read for a sweep's page of mailboxes: a read each would spend the round trips its share is
     sized on.
@@ -128,14 +128,14 @@ async def read_barred_addresses(
     governing_saison_id: str | None,
     session: AsyncClientSession | None = None,
 ) -> set[str]:
-    """Which of these stored addresses a standing ban holds, in `gesperrte_hashes`' one read.
+    """Which of these stored addresses a standing ban holds, in `read_barred_hashes`' one read.
 
     One today's rule refuses is barred by none, as no ban can key it
     (`app/api/sperrliste/services.py :: stored_address_hash`).
     """
 
     hashes = {address: hashed for address in set(addresses) if (hashed := stored_address_hash(address, key=key)) is not None}
-    barred = await gesperrte_hashes(
+    barred = await read_barred_hashes(
         ban_list_collection=ban_list_collection,
         address_hashes=hashes.values(),
         governing_saison_id=governing_saison_id,

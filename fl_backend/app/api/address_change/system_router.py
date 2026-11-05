@@ -29,7 +29,7 @@ from app.api.address_change.services import (
     is_expired,
 )
 from app.api.identity.lookup import RecordCollections, SubjectLookup
-from app.api.sperrliste.lookup import BanList, SperrlisteLookup, sperrliste_saison
+from app.api.sperrliste.lookup import BanList, BanListLookup, ban_list_saison
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION, BackendConfig, get_app_config
@@ -82,7 +82,7 @@ def _pipeline(*, now: datetime, after: Any, size: int) -> list[dict[str, Any]]:
     No index serves the instants: the collection holds live changes and recent tombstones alone.
     """
 
-    seite: list[dict[str, Any]] = [{"$sort": {"_id": 1}}, {"$limit": size}]
+    page: list[dict[str, Any]] = [{"$sort": {"_id": 1}}, {"$limit": size}]
 
     return [
         {"$match": {"$or": [build_lapsed_terms(now), build_due_terms(now)]}},
@@ -100,7 +100,7 @@ def _pipeline(*, now: datetime, after: Any, size: int) -> list[dict[str, Any]]:
         # What `is_expired` labels a lapse by: a confirmed change whose approval's week passed holds a `effective_from` too,
         # and is no due change for that.
         {"$project": {"_id": 1, "valid_until": 1, "approval.until": 1, "approval.approved_at": 1}},
-        {"$facet": {"seite": seite if after is None else [{"$match": {"_id": {"$gt": after}}}, *seite], "count": [{"$count": "count"}]}},
+        {"$facet": {"page": page if after is None else [{"$match": {"_id": {"$gt": after}}}, *page], "count": [{"$count": "count"}]}},
     ]
 
 
@@ -142,7 +142,7 @@ async def _make_the_due_change_take_effect(
     row: Mapping[str, Any],
     *,
     records: RecordCollections,
-    sperrliste: BanList,
+    ban_list: BanList,
     governing_saison_id: str | None,
     address_changes_collection: AsyncCollection,
     spieler_collection: AsyncCollection,
@@ -179,7 +179,7 @@ async def _make_the_due_change_take_effect(
         verdict, effective = await take_effect_in_session(
             record=record,
             records=records,
-            sperrliste=sperrliste,
+            ban_list=ban_list,
             governing_saison_id=governing_saison_id,
             address_changes_collection=address_changes_collection,
             spieler_collection=spieler_collection,
@@ -260,7 +260,7 @@ async def sweep_address_change(
     grant_approval_requests_collection: GrantApprovalRequestsCollection,
     invitations_collection: InvitationsCollection,
     ban_list_collection: BanListCollection,
-    sperrliste: SperrlisteLookup,
+    ban_list: BanListLookup,
     action_log_collection: ActionLogCollection,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
@@ -294,18 +294,18 @@ async def sweep_address_change(
         pipeline=_pipeline(now=germany_now, after=params.after, size=ADDRESS_CHANGE_PER_PASS + 1),
     )
     # The lapse and the due terms are disjoint, so the lapse's own judgement parts them.
-    seite = [{"_id": row["_id"], "due": not is_expired(row, now=germany_now)} for row in read["seite"]]
+    page = [{"_id": row["_id"], "due": not is_expired(row, now=germany_now)} for row in read["page"]]
     count = sum(row["count"] for row in read["count"])
     stamp = log_stamp(germany_now)
-    # Outside every change's transaction (`app/api/sperrliste/crud.py :: address_is_gesperrt`), and only where a due change
+    # Outside every change's transaction (`app/api/sperrliste/crud.py :: address_is_barred`), and only where a due change
     # asks the ban list: a page of lapses reads no season.
-    governing_saison_id = await sperrliste_saison(sperrliste) if any(row["due"] for row in seite[:ADDRESS_CHANGE_PER_PASS]) else None
+    governing_saison_id = await ban_list_saison(ban_list) if any(row["due"] for row in page[:ADDRESS_CHANGE_PER_PASS]) else None
 
     removed, skipped = 0, 0
     discarded, effective = 0, 0
     reached: Any = None
-    abgebrochen = False
-    for row in seite[:ADDRESS_CHANGE_PER_PASS]:
+    broke_off = False
+    for row in page[:ADDRESS_CHANGE_PER_PASS]:
         reached = row["_id"]
         which, was = ("due", "effect") if row["due"] else ("lapsed", "end")
         # Each caught outside the change's session.
@@ -314,7 +314,7 @@ async def sweep_address_change(
                 ergebnis = await _make_the_due_change_take_effect(
                     row,
                     records=records,
-                    sperrliste=sperrliste,
+                    ban_list=ban_list,
                     governing_saison_id=governing_saison_id,
                     address_changes_collection=address_changes_collection,
                     spieler_collection=spieler_collection,
@@ -367,7 +367,7 @@ async def sweep_address_change(
                         "unanswered": was if uncertain else None,
                     },
                 )
-                abgebrochen = True
+                broke_off = True
                 break
 
             # The id and what locates the failure, never an address this pass handles.
@@ -393,7 +393,7 @@ async def sweep_address_change(
         discarded=discarded,
         effective=effective,
         remaining=count - removed - discarded - effective - skipped,
-        after=reached if abgebrochen or len(seite) > ADDRESS_CHANGE_PER_PASS else None,
+        after=reached if broke_off or len(page) > ADDRESS_CHANGE_PER_PASS else None,
     )
 
 

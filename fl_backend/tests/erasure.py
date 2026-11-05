@@ -38,7 +38,7 @@ async def erased(
     return await post_account_erasure(
         identifier=sign_in_identifier(address),
         **erasure_collections(database, **replaced),
-        sperrliste=ban_list(database),
+        ban_list=ban_list(database),
         db=client,
         config=_CONFIG,
         germany_now=germany_now,

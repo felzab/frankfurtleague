@@ -59,7 +59,7 @@ from app.api.outbox.schemas import (
     FLOutboxStatus,
 )
 from app.api.outbox.services import SIGN_IN_KINDS, OwedMail, enqueue_mails
-from app.api.registrierungen.services import build_loeschung_registrierung_filter, registrierung_ist_bestaetigt
+from app.api.registrierungen.services import build_erasure_registrierung_filter, registrierung_ist_bestaetigt
 from app.api.schiedsrichter.services import build_self_referee_filter, vorname_of
 from app.api.sperrliste.lookup import BanList, Saison, barred_addresses
 from app.api.spielbestaetigungen.services import (
@@ -166,7 +166,7 @@ async def read_the_holdings(
     registrierungen = await aggregate_many_from_db(
         collection=records.registrierungen_collection,
         pipeline=[
-            {"$match": build_loeschung_registrierung_filter(identifier)},
+            {"$match": build_erasure_registrierung_filter(identifier)},
             {"$project": dict(_REGISTRIERUNG_FIELDS)},
             {"$sort": {"_id": 1}},
         ],
@@ -206,7 +206,7 @@ async def address_taken(email: str, *, records: RecordCollections, occupancy: Oc
         (records.schiedsrichter_collection, build_self_referee_filter(folded)),
         (records.saison_teams_collection, rows_seating(folded)),
         (records.bewerbungen_collection, rows_seating(folded)),
-        (records.registrierungen_collection, build_loeschung_registrierung_filter(folded)),
+        (records.registrierungen_collection, build_erasure_registrierung_filter(folded)),
         # As stored, as the account sweep reads it: a row the comparison has not seen yet still keeps an account.
         (occupancy.grants_collection, {"address": folded}),
         (occupancy.grant_approval_requests_collection, {"address": folded, **build_open_filter(occupancy.now)}),
@@ -470,7 +470,7 @@ async def judge_the_effect_in_session(
     spieler_collection: ReadCollection,
     grants_collection: ReadCollection,
     grants_announced_collection: ReadCollection,
-    sperrliste: BanList,
+    ban_list: BanList,
     governing_saison_id: Saison,
     occupancy: Occupancy,
     # The link's own deadline, judged second: a press on a lapsed link to a barred address names the ban.
@@ -483,7 +483,7 @@ async def judge_the_effect_in_session(
     """
 
     new_address, old = str(record["email"]), str(record["address"])
-    barred = await barred_addresses(sperrliste, [new_address, old], governing_saison_id=governing_saison_id, session=session)
+    barred = await barred_addresses(ban_list, [new_address, old], governing_saison_id=governing_saison_id, session=session)
     first: list[tuple[FLAddressChangeCause, bool]] = [
         ("new_barred", new_address in barred),
         ("expired", expired),
@@ -529,7 +529,7 @@ async def judge_the_effect_in_session(
         approval=approval,
         grants=await read_berechtigungen(grants_collection=grants_collection, session=session),
         announced=await read_the_announced(grants_announced_collection=grants_announced_collection, session=session),
-        barred=await barred_addresses(sperrliste, [by], session=session) if isinstance(by, str) else set(),
+        barred=await barred_addresses(ban_list, [by], session=session) if isinstance(by, str) else set(),
     )
 
     return Verdict(cause=None, empty=False, waits=not stands, withdrawn=not stands)
@@ -561,7 +561,7 @@ async def take_effect_in_session(
     *,
     record: Mapping[str, Any],
     records: RecordCollections,
-    sperrliste: BanList,
+    ban_list: BanList,
     governing_saison_id: Saison,
     address_changes_collection: AsyncCollection,
     spieler_collection: AsyncCollection,
@@ -602,7 +602,7 @@ async def take_effect_in_session(
         spieler_collection=spieler_collection,
         grants_collection=grants_collection,
         grants_announced_collection=grants_announced_collection,
-        sperrliste=sperrliste,
+        ban_list=ban_list,
         governing_saison_id=governing_saison_id,
         occupancy=Occupancy(
             grants_collection=grants_collection,
@@ -655,7 +655,7 @@ async def take_effect_in_session(
     ended = await move_the_address_in_session(
         record=record,
         holdings=holdings,
-        sperrliste=sperrliste,
+        ban_list=ban_list,
         address_changes_collection=address_changes_collection,
         spieler_collection=spieler_collection,
         schiedsrichter_collection=schiedsrichter_collection,
@@ -686,7 +686,7 @@ async def move_the_address_in_session(
     *,
     record: Mapping[str, Any],
     holdings: Holdings,
-    sperrliste: BanList,
+    ban_list: BanList,
     address_changes_collection: AsyncCollection,
     spieler_collection: AsyncCollection,
     schiedsrichter_collection: AsyncCollection,
@@ -774,7 +774,7 @@ async def move_the_address_in_session(
             holdings.grant,
             new_address=sign_in_identifier(new_address),
             by=by,
-            sperrliste=sperrliste,
+            ban_list=ban_list,
             grants_collection=grants_collection,
             grants_announced_collection=grants_announced_collection,
             outbox_collection=outbox_collection,
@@ -938,7 +938,7 @@ async def _move_the_grant(
     *,
     new_address: str,
     by: str,
-    sperrliste: BanList,
+    ban_list: BanList,
     grants_collection: AsyncCollection,
     grants_announced_collection: AsyncCollection,
     outbox_collection: AsyncCollection,
@@ -953,7 +953,7 @@ async def _move_the_grant(
     announced = await aggregate_many_from_db(
         collection=grants_announced_collection, pipeline=[{"$match": {"_id": grant["_id"]}}], session=session
     )
-    barred = await barred_addresses(sperrliste, [by], session=session)
+    barred = await barred_addresses(ban_list, [by], session=session)
     await revoke_in_session(
         grant=grant,
         announced=announced,

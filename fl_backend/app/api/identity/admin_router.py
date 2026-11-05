@@ -28,7 +28,7 @@ from app.api.identity.services import (
     find_foreign_address_change_refusal,
     find_own_address_refusal,
 )
-from app.api.sperrliste.lookup import SperrlisteLookup, barred_addresses
+from app.api.sperrliste.lookup import BanListLookup, barred_addresses
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import aggregate_many_from_db, post_one_to_db, refuse
 from app.core.dependencies import (
@@ -105,7 +105,7 @@ async def get_erasure_view(
     grants_announced_collection: GrantsAnnouncedReadCollection,
     grant_approval_requests_collection: GrantApprovalRequestsReadCollection,
     address_changes_collection: AddressChangeReadCollection,
-    sperrliste: SperrlisteLookup,
+    ban_list: BanListLookup,
     session: SnapshotSession,
     config: Annotated[BackendConfig, Depends(get_app_config)],
     operator: str = Depends(get_actor_email),
@@ -196,7 +196,7 @@ async def get_erasure_view(
     )
     # The stored-address judgement, as the Postausgang's hand-out judges a mail's address: an address no rule
     # keys a ban under answers false, where keying the payload's spelling would raise.
-    barred = await barred_addresses(sperrliste, [view_data.email], session=session)
+    barred = await barred_addresses(ban_list, [view_data.email], session=session)
     approval_request_rows = await read_the_approval_requests_of(
         grant_approval_requests_collection=grant_approval_requests_collection, identifier=identifier, now=germany_now, session=session
     )
@@ -260,7 +260,7 @@ async def post_erasure(
     ban_list_collection: BanListCollection,
     address_changes_collection: AddressChangeCollection,
     grant_approval_requests_collection: GrantApprovalRequestsCollection,
-    sperrliste: SperrlisteLookup,
+    ban_list: BanListLookup,
     actor: Annotated[SessionActor, Depends(verify_admin_actor)],
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
@@ -350,7 +350,7 @@ async def post_erasure(
             ban_list_collection=ban_list_collection,
             address_changes_collection=address_changes_collection,
             grant_approval_requests_collection=grant_approval_requests_collection,
-            sperrliste=sperrliste,
+            ban_list=ban_list,
             changed_by=operator,
             key=config.sperrliste_key,
             stamp=log_stamp(germany_now),
@@ -405,15 +405,15 @@ async def post_sign_out(
     """
 
     identifier = sign_in_identifier(sign_out_data.email)
-    actor = sign_in_identifier(operator)
-    refuse(find_own_address_refusal(identifier=identifier, actor=actor))
+    actor_identifier = sign_in_identifier(operator)
+    refuse(find_own_address_refusal(identifier=identifier, actor=actor_identifier))
 
     async def log_the_act(session: AsyncClientSession) -> None:
         grants = await read_berechtigungen(grants_collection=grants_collection, session=session)
         announced = await read_the_announced(grants_announced_collection=grants_announced_collection, session=session)
         refuse(
             find_admin_address_refusal(
-                identifier=identifier, actor=actor, auth_time=auth_time, grants=grants, announced=announced, protected=OWNER_ONLY
+                identifier=identifier, actor=actor_identifier, auth_time=auth_time, grants=grants, announced=announced, protected=OWNER_ONLY
             )
         )
 

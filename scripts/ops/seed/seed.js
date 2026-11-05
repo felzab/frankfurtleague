@@ -153,7 +153,7 @@ const REFEREES = [
   journeyPerson("Gustav Gerber", "gustav.gerber@example.com"),
   journeyPerson("Dora Dahl", "dora.dahl@example.com"),
   journeyPerson("Ingo Imhof", "ingo.imhof@example.com"),
-  // The desktop passkey journeys' (`fl_frontend/e2e/desktop/kontoPasskeys.spec.ts`), one each.
+  // The desktop passkey journeys' (`fl_frontend/e2e/desktop/accountPasskeys.spec.ts`), one each.
   journeyPerson("Emil Ernst", "emil.ernst@example.com"),
   journeyPerson("Jana Jansen", "jana.jansen@example.com"),
 ];

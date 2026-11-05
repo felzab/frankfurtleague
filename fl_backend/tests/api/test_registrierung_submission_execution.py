@@ -20,7 +20,7 @@ from app.api.registrierungen.schemas import FLPostRegistrierungPayload, FLRegist
 from app.api.registrierungen.services import (
     compose_confirmation_update,
 )
-from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
+from app.api.sperrliste.services import compose_barred_until_saison_id
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -149,7 +149,7 @@ def junction_document(saison_id: str, team_id: ObjectId, name: str) -> dict[str,
 
 # Composed by the production helper rather than spelled: a hand-written bound that drifted from it
 # would leave these cases passing over a lapsed row.
-STANDING = compose_gesperrt_bis_saison_id(governing_saison_id=SAISON_ID)
+STANDING = compose_barred_until_saison_id(governing_saison_id=SAISON_ID)
 
 
 def on_a_league(
@@ -159,7 +159,7 @@ def on_a_league(
     registrierung: Any = OPEN_WINDOW,
     squad: int = 0,
     banned: str | None = None,
-    banned_bis: str = STANDING,
+    banned_until: str = STANDING,
     saison_status: str = "active",
     spaetere_saison: bool = False,
     start_date: str = AFTER_TODAY,
@@ -203,7 +203,7 @@ def on_a_league(
                 )
 
             if banned is not None:
-                await database[Collection.BAN_LIST].insert_one(documents.ban_document(banned, until=banned_bis))
+                await database[Collection.BAN_LIST].insert_one(documents.ban_document(banned, until=banned_until))
 
             return await body(database, client)
 
@@ -234,7 +234,7 @@ async def register(
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saison_spieler_collection=database[Collection.SAISON_SPIELER],
         outbox_collection=database[Collection.OUTBOX],
-        sperrliste=ban_list(database),
+        ban_list=ban_list(database),
         db=client,
         today=TODAY,
         germany_now=MAIL_NOW,
@@ -285,7 +285,7 @@ async def admit_as_the_team(database: AsyncDatabase, client: AsyncMongoClient, r
         spieler_collection=database[Collection.SPIELER],
         records=record_collections(database),
         action_log_collection=database[Collection.ACTION_LOG],
-        sperrliste=ban_list(database),
+        ban_list=ban_list(database),
         db=client,
         today=TODAY,
         germany_now=NOW,
@@ -395,7 +395,7 @@ class TestWhatASubmissionStores:
                 registrierungen_collection=database[Collection.REGISTRIERUNGEN],
                 teams_collection=database[Collection.TEAMS],
                 spieler_collection=database[Collection.SPIELER],
-                sperrliste=ban_list(database),
+                ban_list=ban_list(database),
                 today=TODAY,
             )
 
@@ -797,7 +797,7 @@ class TestWhichSeasonABanIsCountedFrom:
             return refused.value.error_code
 
         outcome = on_a_league(
-            mongo_replica_set_url, body, spaetere_saison=True, banned=BANNED_EMAIL, banned_bis=SAISON_ID, saison_status="active"
+            mongo_replica_set_url, body, spaetere_saison=True, banned=BANNED_EMAIL, banned_until=SAISON_ID, saison_status="active"
         )
 
         assert SAISON_ID < SPAETERE_SAISON_ID
@@ -811,7 +811,7 @@ class TestWhichSeasonABanIsCountedFrom:
 
             return await database[Collection.REGISTRIERUNGEN].count_documents({})
 
-        assert on_a_league(mongo_replica_set_url, body, banned=BANNED_EMAIL, banned_bis="2025") == 1
+        assert on_a_league(mongo_replica_set_url, body, banned=BANNED_EMAIL, banned_until="2025") == 1
 
     def test_a_league_no_season_has_run_judges_on_the_hash_alone(self, mongo_replica_set_url: str):
         """One `future` season and nothing that ever ran: the reference read answers nothing, and a ban still bars."""
@@ -822,7 +822,7 @@ class TestWhichSeasonABanIsCountedFrom:
 
             return refused.value.error_code
 
-        outcome = on_a_league(mongo_replica_set_url, body, saison_status="future", banned=BANNED_EMAIL, banned_bis="2025")
+        outcome = on_a_league(mongo_replica_set_url, body, saison_status="future", banned=BANNED_EMAIL, banned_until="2025")
 
         assert outcome == Code.REGISTRIERUNG_ADDRESS_BARRED
 

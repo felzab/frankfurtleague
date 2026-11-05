@@ -732,7 +732,7 @@ MOVED_ENV_NAMES=(MONGODB_URI SPERRLISTE_KEY AUTH_SECRET AUTH_RESEND_KEY RESEND_W
 RETIRED_ENV_NAMES=(ALLOWED_ADMIN_EMAILS BEWERBUNG_SWEEP KONTO_SWEEP LOESCHUNG_SWEEP SPIEL_SWEEP SPIELBERICHT_EINGABE SPERRLISTE_SCHLUESSEL)
 
 # No command, so the image's own server runs its boot gates, which `BOOT_CHECK` ends there; `$2` is
-# the deployment the boot holds `APP_ENV` to (`fl_frontend/src/instrumentation-node.ts :: registerOnNode`).
+# the deployment the boot holds `APP_ENV` to (`fl_frontend/src/instrumentationNode.ts :: registerOnNode`).
 check_frontend_boot_config() { # $1 what stands at the refusal, $2 production or local, the rest runs the frontend's container
   # Off, so a trace never prints what the container said before `redact_uri_credentials` reads it.
   local -

@@ -24,7 +24,7 @@ from app.api.bewerbungen.system_router import (
     sweep_saison,
 )
 from app.api.saisons.admin_router import activate_saison
-from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
+from app.api.sperrliste.services import compose_barred_until_saison_id
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -220,7 +220,7 @@ async def view(database: AsyncDatabase, token: str) -> Any:
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
         teams_collection=database[Collection.TEAMS],
-        sperrliste=ban_list(database),
+        ban_list=ban_list(database),
         today=TODAY,
     )
 
@@ -233,7 +233,7 @@ async def log_rows_naming(database: AsyncDatabase, collection: Collection, row_i
     return await database[Collection.ACTION_LOG].find({"collection": str(collection), "document_id": row_id}).to_list(length=None)
 
 
-async def loeschung_rows(database: AsyncDatabase) -> list[Mapping[str, Any]]:
+async def erasure_rows(database: AsyncDatabase) -> list[Mapping[str, Any]]:
     return await database[Collection.ACTION_LOG].find({"operation": "erase_many"}).sort("_id", 1).to_list(length=None)
 
 
@@ -292,7 +292,7 @@ async def resend(database: AsyncDatabase, seat: str) -> Any:
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         teams_collection=database[Collection.TEAMS],
         outbox_collection=database[Collection.OUTBOX],
-        sperrliste=ban_list(database),
+        ban_list=ban_list(database),
         db=database.client,
         today=TODAY,
         germany_now=MAIL_NOW,
@@ -477,17 +477,17 @@ class TestTheFourteenDayClock:
                 await stored(database, REMIND_OID),
                 await stored(database, OTHER_SEASON_OID),
                 await log_rows_naming(database, Collection.BEWERBUNGEN, DELETE_OID),
-                await loeschung_rows(database),
+                await erasure_rows(database),
             )
 
-        response, kept, other, rows, loeschungen = on_a_league(mongo_replica_set_url, body)
+        response, kept, other, rows, erasures = on_a_league(mongo_replica_set_url, body)
 
         assert response.erased == 1
         assert kept is not None and other is not None
         assert rows and all(row["before"] is None and row["redacted_at"] == REDACTED_AT for row in rows)
         # The erasure's own rows: no image, a filter naming the season and the ids and nothing else, the system as actor.
         # The filter is stored as text, so the id is found in it as text.
-        fourteen_day = [row for row in loeschungen if str(DELETE_OID) in row["db_filter"]["_id"]]
+        fourteen_day = [row for row in erasures if str(DELETE_OID) in row["db_filter"]["_id"]]
         assert len(fourteen_day) == 1
         assert fourteen_day[0]["before"] is None
         assert set(fourteen_day[0]["db_filter"]) == {"saison_id", "_id"}
@@ -547,7 +547,7 @@ class TestAnApplicationWhoseNoticeCannotArrive:
 
 
 # Composed by the production helper rather than spelled, so a drifted bound cannot leave these cases passing over a lapsed row.
-STANDING = compose_gesperrt_bis_saison_id(governing_saison_id=SAISON_ID)
+STANDING = compose_barred_until_saison_id(governing_saison_id=SAISON_ID)
 
 
 # An address today's rule refuses, its local part being no ASCII: a stored row may hold one, and no
@@ -648,15 +648,15 @@ class TestTheOneMonthClock:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await sweep(database, client)
 
-            return await stored(database, OTHER_SEASON_OID), await loeschung_rows(database)
+            return await stored(database, OTHER_SEASON_OID), await erasure_rows(database)
 
-        other, loeschungen = on_a_league(mongo_replica_set_url, body)
+        other, erasures = on_a_league(mongo_replica_set_url, body)
 
         assert other is not None
         # Floored as the case above floors its own rows: `all` over an empty corpus is true, so a sweep
         # that erased nothing would pass this while proving the opposite of what it claims.
-        assert loeschungen, "the sweep erased nothing, so this proves no season was spared"
-        assert all(row["db_filter"]["saison_id"] == SAISON_ID for row in loeschungen)
+        assert erasures, "the sweep erased nothing, so this proves no season was spared"
+        assert all(row["db_filter"]["saison_id"] == SAISON_ID for row in erasures)
 
 
 class TestTheSeasonsOwnEndClock:
@@ -675,10 +675,10 @@ class TestTheSeasonsOwnEndClock:
                 await stored(database, DELETE_OID),
                 await stored(database, ACCEPTED_OID),
                 await log_rows_naming(database, Collection.BEWERBUNGEN, REMIND_OID),
-                await loeschung_rows(database),
+                await erasure_rows(database),
             )
 
-        response, confirmed, past_its_deadline, accepted, rows, loeschungen = on_a_league(
+        response, confirmed, past_its_deadline, accepted, rows, erasures = on_a_league(
             mongo_replica_set_url, body, status="past", next_status="active"
         )
 
@@ -686,7 +686,7 @@ class TestTheSeasonsOwnEndClock:
         # The accepted one is the successor season's business, and that season still runs.
         assert accepted is not None
         assert rows and all(row["before"] is None and row["redacted_at"] == REDACTED_AT for row in rows)
-        assert all(row["db_filter"]["saison_id"] == SAISON_ID for row in loeschungen)
+        assert all(row["db_filter"]["saison_id"] == SAISON_ID for row in erasures)
 
     def test_nothing_goes_while_the_season_still_runs(self, mongo_replica_set_url: str):
         """The row every other clock leaves standing: confirmed by all three, decided by nobody, and its deadline behind it."""
@@ -1024,7 +1024,7 @@ class TestASeasonNobodyHas:
             with pytest.raises(DocumentNotFoundError):
                 await sweep(database, client, saison_id="1999")
 
-            return await database[Collection.BEWERBUNGEN].count_documents({}), await loeschung_rows(database)
+            return await database[Collection.BEWERBUNGEN].count_documents({}), await erasure_rows(database)
 
         assert on_a_league(mongo_replica_set_url, body) == (5, [])
 

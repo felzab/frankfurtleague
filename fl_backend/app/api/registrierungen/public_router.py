@@ -48,7 +48,7 @@ from app.api.registrierungen.services import (
     zustand_of,
 )
 from app.api.saisons.services import has_started
-from app.api.sperrliste.lookup import SperrlisteLookup, barred_addresses, hash_gesperrt, sperrliste_saison
+from app.api.sperrliste.lookup import BanListLookup, ban_list_saison, barred_addresses, hash_barred
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db, post_one_to_db, pull_one_from_db, refuse
@@ -206,7 +206,7 @@ async def post_registrierung(
     saison_teams_collection: SaisonTeamsCollection,
     saison_spieler_collection: SaisonSpielerCollection,
     outbox_collection: OutboxCollection,
-    sperrliste: SperrlisteLookup,
+    ban_list: BanListLookup,
     db: DBClient,
     # Version 4 alone: a guessable key lets a stranger store other details under it first, and the
     # pupil's own press is then refused as a changed replay.
@@ -233,11 +233,11 @@ async def post_registrierung(
 
     # Hashed outside the transaction: it reads no document, and `with_transaction` may run its
     # callback again.
-    hashed = sperrliste.hash_of(str(registrierung_data.email))
+    hashed = ban_list.hash_of(str(registrierung_data.email))
 
     # The REFERENCE season a ban is counted from, and never the invite's: a ban covers the seasons
     # following the one it was entered in, so counting from a link for a future season lifts it early.
-    governing_saison_id = await sperrliste_saison(sperrliste)
+    governing_saison_id = await ban_list_saison(ban_list)
 
     async def store_or_replay(session: AsyncClientSession) -> FLPostRegistrierungResponse:
         """The replay, or every refusal in the flow's order and then the one write, in one transaction.
@@ -286,10 +286,10 @@ async def post_registrierung(
         squad_size = await saison_spieler_collection.count_documents(_live_squad_filter(saison_id=saison_id, team_id=team_id), session=session)
         refuse(find_kader_refusal(squad_size=squad_size, max_kadergroesse=int(rules.get("max_kadergroesse") or 0)))
 
-        barred = await hash_gesperrt(
-            sperrliste,
+        barred = await hash_barred(
+            ban_list,
             hashed,
-            # Read before this transaction (`app/api/sperrliste/crud.py :: address_is_gesperrt`).
+            # Read before this transaction (`app/api/sperrliste/crud.py :: address_is_barred`).
             governing_saison_id=governing_saison_id,
             session=session,
         )
@@ -362,7 +362,7 @@ async def get_confirmation_view(
     registrierungen_collection: RegistrierungenReadCollection,
     teams_collection: TeamsReadCollection,
     spieler_collection: SpielerReadCollection,
-    sperrliste: SperrlisteLookup,
+    ban_list: BanListLookup,
     today: str = Depends(get_german_date_str),
 ) -> FLRegistrierungConfirmationViewResponse:
     """What the confirmation page renders for the registration this token opens, and nothing of the pupil.
@@ -389,7 +389,7 @@ async def get_confirmation_view(
     person = await person_at_the_address(spieler_collection=spieler_collection, registrierung_raw=raw, session=None)
     seite = seite_of(registrierung_raw=raw, person_raw=person)
 
-    barred = await barred_addresses(sperrliste, [str(raw.get("email") or "")])
+    barred = await barred_addresses(ban_list, [str(raw.get("email") or "")])
 
     return FLRegistrierungConfirmationViewResponse(
         state=zustand_of(registrierung_raw=raw, today=today, barred=bool(barred)),
@@ -411,7 +411,7 @@ async def post_confirmation(
     antwort_data: Annotated[FLRegistrierungConfirmationPayload, Body()],
     registrierungen_collection: RegistrierungenCollection,
     spieler_collection: SpielerCollection,
-    sperrliste: SperrlisteLookup,
+    ban_list: BanListLookup,
     db: DBClient,
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
@@ -423,8 +423,8 @@ async def post_confirmation(
     """
 
     token_hash = hash_token(antwort_data.token)
-    # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_gesperrt`).
-    governing_saison_id = await sperrliste_saison(sperrliste)
+    # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_barred`).
+    governing_saison_id = await ban_list_saison(ban_list)
 
     async def answer_for_the_pupil(session: AsyncClientSession) -> FLRegistrierungConfirmationResponse:
         """Judge, then write. Everything judged is read in-session, so a retry re-judges it.
@@ -461,7 +461,7 @@ async def post_confirmation(
         assert geburtsdatum is not None
         # Asked at the press rather than only at the mint: a ban entered after the link went out
         # stops it here, and one lifted while it runs lets it answer again.
-        barred = await barred_addresses(sperrliste, [str(raw.get("email") or "")], governing_saison_id=governing_saison_id, session=session)
+        barred = await barred_addresses(ban_list, [str(raw.get("email") or "")], governing_saison_id=governing_saison_id, session=session)
         refuse(find_confirmation_barred_refusal(barred=bool(barred)))
         refuse(find_alter_refusal(geburtsdatum=geburtsdatum, today=today))
         refuse(find_medien_refusal(geburtsdatum=geburtsdatum, media=antwort_data.media is True, today=today))

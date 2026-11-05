@@ -96,7 +96,7 @@ def on_a_league(url: str, body: Body) -> Any:
 async def read(database: AsyncDatabase, **filters: Any) -> Any:
     return await get_registrierungen(
         registrierungen_collection=database[Collection.REGISTRIERUNGEN],
-        sperrliste=ban_list(database),
+        ban_list=ban_list(database),
         filters=FLRegistrierungenFilterParams.model_validate(filters),
     )
 

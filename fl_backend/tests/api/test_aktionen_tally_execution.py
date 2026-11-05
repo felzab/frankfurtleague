@@ -161,7 +161,7 @@ def answered(mongo_url: str, **filters: Any) -> FLActionLogListResponse:
 
             return await get_action_log(
                 action_log_collection=database[Collection.ACTION_LOG],
-                sperrliste=ban_list(database),
+                ban_list=ban_list(database),
                 filters=FLAktionenFilterParams.model_validate(filters),
             )
 

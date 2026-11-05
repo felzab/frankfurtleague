@@ -17,7 +17,7 @@ from app.api.einladungen.services import (
 )
 from app.api.outbox.services import enqueue_mails, final_update
 from app.api.saisons.admin_router import get_invitations_dispatch_preview, post_invitations_dispatch
-from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
+from app.api.sperrliste.services import compose_barred_until_saison_id
 from app.api.teams.admin_router import delete_invitation, get_invitation, post_invitation, post_invitation_dispatch
 from app.core.codes import Code
 from app.core.collections import Collection
@@ -186,7 +186,7 @@ async def read_state(database: AsyncDatabase, team_id: ObjectId, *, today: str =
         invitations_collection=database[Collection.INVITATIONS],
         saisons_collection=database[Collection.SAISONS],
         outbox_collection=database[Collection.OUTBOX],
-        sperrliste=ban_list(database),
+        ban_list=ban_list(database),
         today=today,
     )
 
@@ -198,7 +198,7 @@ async def preview(database: AsyncDatabase, *, resend: bool = False) -> Any:
         invitations_collection=database[Collection.INVITATIONS],
         saisons_collection=database[Collection.SAISONS],
         outbox_collection=database[Collection.OUTBOX],
-        sperrliste=ban_list(database),
+        ban_list=ban_list(database),
         resend=resend,
     )
 
@@ -211,7 +211,7 @@ async def press(database: AsyncDatabase, *, resend: bool = False) -> Any:
         invitations_collection=database[Collection.INVITATIONS],
         saisons_collection=database[Collection.SAISONS],
         outbox_collection=database[Collection.OUTBOX],
-        sperrliste=ban_list(database),
+        ban_list=ban_list(database),
         db=database.client,
         created_by=ADMIN,
         today=TODAY,
@@ -696,7 +696,7 @@ class TestTheStateRead:
             await mint(database, TWO_SEATS)
             if barred:
                 await database[Collection.BAN_LIST].insert_one(
-                    ban_document(ADMIN, until=compose_gesperrt_bis_saison_id(governing_saison_id=SAISON_ID))
+                    ban_document(ADMIN, until=compose_barred_until_saison_id(governing_saison_id=SAISON_ID))
                 )
             state = await read_state(database, TWO_SEATS)
 
@@ -820,7 +820,7 @@ class TestTheSeasonWidePress:
         One seat is banned in another spelling than the row stores, as the ban list is read off stored addresses.
         """
 
-        bound = compose_gesperrt_bis_saison_id(governing_saison_id=SAISON_ID)
+        bound = compose_barred_until_saison_id(governing_saison_id=SAISON_ID)
 
         async def body(database: AsyncDatabase) -> Any:
             await database[Collection.BAN_LIST].insert_many(
@@ -845,7 +845,7 @@ class TestTheSeasonWidePress:
 
         async def body(database: AsyncDatabase) -> Any:
             await database[Collection.BAN_LIST].insert_one(
-                ban_document("bramblewick@example.com", until=compose_gesperrt_bis_saison_id(governing_saison_id=SAISON_ID))
+                ban_document("bramblewick@example.com", until=compose_barred_until_saison_id(governing_saison_id=SAISON_ID))
             )
             done = await press(database)
 
@@ -1035,7 +1035,7 @@ class TestTheSeasonWidePress:
                 invitations_collection=collection,
                 saisons_collection=database[Collection.SAISONS],
                 outbox_collection=database[Collection.OUTBOX],
-                sperrliste=ban_list(database),
+                ban_list=ban_list(database),
                 db=database.client,
                 created_by=ADMIN,
                 today=TODAY,

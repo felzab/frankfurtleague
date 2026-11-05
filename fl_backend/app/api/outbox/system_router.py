@@ -29,7 +29,7 @@ from app.api.outbox.services import (
     retry_update,
     row_of,
 )
-from app.api.sperrliste.lookup import SperrlisteLookup, barred_addresses
+from app.api.sperrliste.lookup import BanListLookup, barred_addresses
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import patch_many_in_db, post_one_to_db, pull_many_from_db, stamp_in_db
@@ -78,7 +78,7 @@ def _link_update(link: Mapping[str, Any], token_hash: str) -> dict[str, Any]:
 @router.post("/handout", response_model=FLOutboxHandoutResponse, summary="Claim the mails owed now and hand them out")
 async def post_handout(
     outbox_collection: OutboxCollection,
-    sperrliste: SperrlisteLookup,
+    ban_list: BanListLookup,
     db: DB,
     db_client: DBClient,
     now: datetime = Depends(get_germany_now),
@@ -124,7 +124,7 @@ async def post_handout(
 
         # The ban is judged here, at the last moment before the send, rather than when the mail was owed.
         judged = {str(row["an"]) for row in due if row["kind"] not in UNBARRED}
-        barred = await barred_addresses(sperrliste, judged, session=session) if judged else set()
+        barred = await barred_addresses(ban_list, judged, session=session) if judged else set()
         barred_ids = [row["_id"] for row in due if row["kind"] not in UNBARRED and row["an"] in barred]
         dropped_ids: list[Any] = []
 

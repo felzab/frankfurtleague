@@ -15,7 +15,7 @@ from app.api.registrierungen.services import (
     SEITE_WIEDERKEHREND,
     compose_bestaetigung,
 )
-from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
+from app.api.sperrliste.services import compose_barred_until_saison_id
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
@@ -156,7 +156,7 @@ async def read_view(database: AsyncDatabase, token: str, *, spieler_collection: 
         registrierungen_collection=database[Collection.REGISTRIERUNGEN] if registrierungen_collection is None else registrierungen_collection,
         teams_collection=database[Collection.TEAMS],
         spieler_collection=database[Collection.SPIELER] if spieler_collection is None else spieler_collection,
-        sperrliste=ban_list(database),
+        ban_list=ban_list(database),
         today=TODAY,
     )
 
@@ -176,7 +176,7 @@ async def answer(database: AsyncDatabase, client: AsyncMongoClient, token: str, 
         antwort_data=FLRegistrierungConfirmationPayload.model_validate(body),
         registrierungen_collection=database[Collection.REGISTRIERUNGEN],
         spieler_collection=database[Collection.SPIELER],
-        sperrliste=ban_list(database),
+        ban_list=ban_list(database),
         db=client,
         today=TODAY,
         germany_now=NOW,
@@ -503,7 +503,7 @@ class TestTheMediaAge:
 
 # Composed by the production helper rather than spelled: a hand-written bound that drifted from it
 # would leave these cases passing over a lapsed row.
-STANDING = compose_gesperrt_bis_saison_id(governing_saison_id=SAISON_ID)
+STANDING = compose_barred_until_saison_id(governing_saison_id=SAISON_ID)
 
 
 async def ban(database: AsyncDatabase, address: str, *, until: str = STANDING) -> None:

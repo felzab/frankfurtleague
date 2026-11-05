@@ -24,7 +24,7 @@ from pymongo import MongoClient
 
 from app.api.berechtigungen.antraege import compose_approval_request
 from app.api.einladungen.services import compose_einladung
-from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
+from app.api.sperrliste.services import compose_barred_until_saison_id
 from app.core.collections import Collection
 from app.core.recording import log_stamp
 from app.core.routing import SAFE_WHEN
@@ -143,7 +143,7 @@ NAMES_NO_ADMINISTRATOR: dict[str, str] = {
 
 
 # Composed by the production helper rather than spelled, so a drifted bound cannot leave these cases passing over a lapsed row.
-STANDING = compose_gesperrt_bis_saison_id(governing_saison_id=SAISON_ID)
+STANDING = compose_barred_until_saison_id(governing_saison_id=SAISON_ID)
 # The season before the running one, so a ban naming it as its last has lapsed.
 LAPSED = f"{int(SAISON_ID) - 1}"
 

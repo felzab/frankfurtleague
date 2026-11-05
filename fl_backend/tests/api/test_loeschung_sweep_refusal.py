@@ -26,9 +26,9 @@ ADDRESS = "thessaly.okonkwo@beispielschule.de"
 
 
 def due_for_erasure(
-    kader: list[str], *, statuses: dict[str, FLSaisonStatus] = LEAGUE, open: frozenset[str] = frozenset(), email: Any = ADDRESS
+    kader: list[str], *, statuses: dict[str, FLSaisonStatus] = LEAGUE, pending_addresses: frozenset[str] = frozenset(), email: Any = ADDRESS
 ) -> bool:
-    return erasure_due(email=email, kader_saison_ids=kader, open=open, kept=kept_saison_ids(statuses))
+    return erasure_due(email=email, kader_saison_ids=kader, pending_addresses=pending_addresses, kept=kept_saison_ids(statuses))
 
 
 class TestTheKeptSeasons:
@@ -79,10 +79,10 @@ class TestTheDueJudgement:
         assert due_for_erasure(kader) is due
 
     def test_a_pending_registration_keeps_its_pupil(self):
-        open = open_addresses([{"status": "submitted", "email": ADDRESS}])
+        pending_addresses = open_addresses([{"status": "submitted", "email": ADDRESS}])
 
-        assert open == {ADDRESS}
-        assert not due_for_erasure([], open=open)
+        assert pending_addresses == {ADDRESS}
+        assert not due_for_erasure([], pending_addresses=pending_addresses)
 
     def test_a_declined_registration_keeps_nobody(self):
         assert open_addresses([{"status": "declined", "email": ADDRESS}]) == frozenset()

@@ -45,7 +45,7 @@ from app.api.bewerbungen.services import (
     find_already_entered_refusal,
     find_alter_refusal,
     find_barred_refusal,
-    find_einwilligung_gesperrt_refusal,
+    find_einwilligung_barred_refusal,
     find_expired_token_refusal,
     find_picked_club_refusal,
     find_saison_frist_refusal,
@@ -75,7 +75,7 @@ from app.api.einwilligung.services import find_self_media_refusal
 from app.api.kontakte.crud import redact_the_decliner, remove_their_reasons
 from app.api.outbox.schemas import FLBewerbungObjectionData, FLBewerbungPerson
 from app.api.outbox.services import OwedMail, enqueue_mails
-from app.api.sperrliste.lookup import BanList, SperrlisteLookup, barred_addresses, hashes_gesperrt, sperrliste_saison
+from app.api.sperrliste.lookup import BanList, BanListLookup, ban_list_saison, barred_addresses, barred_hashes
 from app.api.spielbestaetigungen.crud import redact_seat_entries_in_images
 from app.api.spielbestaetigungen.services import kontakte_ohne, seat_void_of
 from app.api.teams.crud import void_moved_seats
@@ -255,10 +255,10 @@ async def get_trikotfarben(
     return FLBewerbungTrikotFarbenResponse(saison_id=saison_id, taken=assigned_trikot_farben(stored=stored))
 
 
-async def _any_gesperrt(*, sperrliste: BanList, hashed: Sequence[str], governing_saison_id: str | None, session: AsyncClientSession) -> bool:
+async def _any_barred(*, ban_list: BanList, hashed: Sequence[str], governing_saison_id: str | None, session: AsyncClientSession) -> bool:
     """Whether the ban list holds any of the seats' addresses, asked in the caller's transaction in one read."""
 
-    return bool(await hashes_gesperrt(sperrliste, hashed, governing_saison_id=governing_saison_id, session=session))
+    return bool(await barred_hashes(ban_list, hashed, governing_saison_id=governing_saison_id, session=session))
 
 
 def _answer_as_the_first(*, stored: Mapping[str, Any], fingerabdruck: str) -> FLCreatedResponse:
@@ -282,7 +282,7 @@ async def post_bewerbung(
     teams_collection: TeamsCollection,
     saison_teams_collection: SaisonTeamsCollection,
     outbox_collection: OutboxCollection,
-    sperrliste: SperrlisteLookup,
+    ban_list: BanListLookup,
     db: DBClient,
     # Version 4 alone: a guessable key lets a stranger store other details under it first, and the
     # visitor's own press is then refused as a changed replay.
@@ -313,9 +313,9 @@ async def post_bewerbung(
     # Hashed outside the transaction, whose callback may run again: the hash reads no document. One
     # per distinct address, the seat the Trainer also holds naming theirs twice.
     kontakte = bewerbung_data.kontakte
-    hashed = sorted({sperrliste.hash_of(str(person.email)) for person in (kontakte.trainer, kontakte.ansprechperson, kontakte.stellvertretung)})
+    hashed = sorted({ban_list.hash_of(str(person.email)) for person in (kontakte.trainer, kontakte.ansprechperson, kontakte.stellvertretung)})
     # The REFERENCE season a ban is counted from, as the registration reads it.
-    governing_saison_id = await sperrliste_saison(sperrliste)
+    governing_saison_id = await ban_list_saison(ban_list)
 
     async def store_or_replay(session: AsyncClientSession) -> FLCreatedResponse:
         """The replay or the judged insert, in one transaction: either write is the request's only one."""
@@ -362,7 +362,7 @@ async def post_bewerbung(
 
         # Last, as the registration asks it: every other refusal names what the applicant can repair
         # themselves, and this one they are told neutrally.
-        barred = await _any_gesperrt(sperrliste=sperrliste, hashed=hashed, governing_saison_id=governing_saison_id, session=session)
+        barred = await _any_barred(ban_list=ban_list, hashed=hashed, governing_saison_id=governing_saison_id, session=session)
         refuse(find_barred_refusal(barred=barred))
 
         bestaetigungsfrist = bestaetigungsfrist_from(today=today)
@@ -440,7 +440,7 @@ async def _saison_ansicht(
     token_hash: str,
     saison_teams_collection: SaisonTeamsReadCollection,
     saisons_collection: SaisonsReadCollection,
-    sperrliste: SperrlisteLookup,
+    ban_list: BanListLookup,
     today: str,
 ) -> FLBewerbungEinwilligungViewResponse:
     """The view of a link no application holds, read off the season row holding it, or the unknown-token refusal."""
@@ -455,7 +455,7 @@ async def _saison_ansicht(
     zugleich = saison_link_pair(kontakte=row.get("kontakte"), confirmations=row.get("confirmations"), seat=seat, token_hash=token_hash)
     seats = (seat,) if zugleich is None else (seat, zugleich)
 
-    barred = await barred_addresses(sperrliste, seat_addresses(kontakte=row.get("kontakte"), seats=seats))
+    barred = await barred_addresses(ban_list, seat_addresses(kontakte=row.get("kontakte"), seats=seats))
     # As the press reads it: no season is ever deleted, so a miss is a broken invariant rather than a 404.
     saison_raw = await saisons_collection.find_one({"_id": row["saison_id"]}, projection={"status": 1})
     assert saison_raw is not None
@@ -488,7 +488,7 @@ async def get_einwilligung_view(
     saison_teams_collection: SaisonTeamsReadCollection,
     saisons_collection: SaisonsReadCollection,
     teams_collection: TeamsReadCollection,
-    sperrliste: SperrlisteLookup,
+    ban_list: BanListLookup,
     today: str = Depends(get_german_date_str),
 ) -> FLBewerbungEinwilligungViewResponse:
     """What the confirmation page renders for the seat this token opens, and nothing of the person.
@@ -507,7 +507,7 @@ async def get_einwilligung_view(
             token_hash=token_hash,
             saison_teams_collection=saison_teams_collection,
             saisons_collection=saisons_collection,
-            sperrliste=sperrliste,
+            ban_list=ban_list,
             today=today,
         )
 
@@ -522,7 +522,7 @@ async def get_einwilligung_view(
     zugleich = paired_seat(kontakte=bewerbung_raw.get("kontakte"), confirmations=bewerbung_raw.get("confirmations"), seat=seat)
     seats = (seat,) if zugleich is None else (seat, zugleich)
 
-    barred = await barred_addresses(sperrliste, seat_addresses(kontakte=bewerbung_raw.get("kontakte"), seats=seats))
+    barred = await barred_addresses(ban_list, seat_addresses(kontakte=bewerbung_raw.get("kontakte"), seats=seats))
 
     state = zustand_of(bewerbung_raw=bewerbung_raw, seat=seat, today=today, barred=bool(barred))
     refuse(find_unknown_token_refusal(seat=None if seat_opens_nobody(slot=slot, state=state) else seat))
@@ -553,7 +553,7 @@ async def post_einwilligung(
     action_log_collection: ActionLogCollection,
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
     outbox_collection: OutboxCollection,
-    sperrliste: SperrlisteLookup,
+    ban_list: BanListLookup,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
     today: str = Depends(get_german_date_str),
@@ -568,9 +568,9 @@ async def post_einwilligung(
     """
 
     token_hash = hash_token(antwort_data.token)
-    # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_gesperrt`), and only for the
+    # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_barred`), and only for the
     # answer that asks the ban.
-    governing_saison_id = await sperrliste_saison(sperrliste) if antwort_data.antwort == "given" else None
+    governing_saison_id = await ban_list_saison(ban_list) if antwort_data.antwort == "given" else None
     # One instant for the decline's day and its journal line, so a replay records the day the person declined on.
     at = log_stamp(germany_now)
     journal = Journal()
@@ -614,9 +614,9 @@ async def post_einwilligung(
             # Asked at the press, however old the link, as the application's consent asks it;
             # never of the Widerspruch below.
             barred = await barred_addresses(
-                sperrliste, seat_addresses(kontakte=kontakte, seats=seats), governing_saison_id=governing_saison_id, session=session
+                ban_list, seat_addresses(kontakte=kontakte, seats=seats), governing_saison_id=governing_saison_id, session=session
             )
-            refuse(find_einwilligung_gesperrt_refusal(barred=bool(barred)))
+            refuse(find_einwilligung_barred_refusal(barred=bool(barred)))
             refuse(find_alter_refusal(geburtsdatum=geburtsdatum, today=today, minimum_age=mindestalter_for(seats)))
             refuse(find_self_media_refusal(saved=None, media=antwort_data.media, geburtsdatum=geburtsdatum, today=today))
 
@@ -731,9 +731,9 @@ async def post_einwilligung(
             # Asked at the press rather than only at the mint, so a ban entered after the link went out
             # stops it here. Never of the decline below: a barred person asking to be removed is not refused.
             barred = await barred_addresses(
-                sperrliste, seat_addresses(kontakte=kontakte, seats=seats), governing_saison_id=governing_saison_id, session=session
+                ban_list, seat_addresses(kontakte=kontakte, seats=seats), governing_saison_id=governing_saison_id, session=session
             )
-            refuse(find_einwilligung_gesperrt_refusal(barred=bool(barred)))
+            refuse(find_einwilligung_barred_refusal(barred=bool(barred)))
             # Over BOTH seats, so a Trainer who also sits in one of the other two is judged as the
             # person they are rather than as the link they pressed.
             refuse(find_alter_refusal(geburtsdatum=geburtsdatum, today=today, minimum_age=mindestalter_for(seats)))
@@ -773,7 +773,7 @@ async def post_einwilligung(
         )
 
         # LAST, so it reaches the pre-image the clearing patch just filed, which still holds the
-        # person who refused to be held (`app/api/kontakte/crud.py :: loeschen_kontaktperson_in_session`).
+        # person who refused to be held (`app/api/kontakte/crud.py :: erase_kontaktperson_in_session`).
         await redact_the_decliner(
             action_log_collection=action_log_collection,
             collection=Collection.BEWERBUNGEN,

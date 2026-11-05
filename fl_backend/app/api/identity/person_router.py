@@ -15,7 +15,7 @@ from app.api.identity.services import (
     holds_an_owner_grant,
 )
 from app.api.sperrliste.guard import PERSON_ACTOR_BINDERS, KontaktIdentifier
-from app.api.sperrliste.lookup import SperrlisteLookup, barred_addresses
+from app.api.sperrliste.lookup import BanListLookup, barred_addresses
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import aggregate_many_from_db, refuse
 from app.core.dependencies import (
@@ -75,7 +75,7 @@ async def post_account_erasure(
     ban_list_collection: BanListCollection,
     address_changes_collection: AddressChangeCollection,
     grant_approval_requests_collection: GrantApprovalRequestsCollection,
-    sperrliste: SperrlisteLookup,
+    ban_list: BanListLookup,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
     germany_now: datetime = Depends(get_germany_now),
@@ -116,7 +116,7 @@ async def post_account_erasure(
             # Rereads this snapshot's rows and writes each, so two owners erasing themselves at once conflict, and
             # the one retried finds itself the last.
             await pull_the_list_to_judge(grants_collection=grants_collection, session=session)
-            barred = await barred_addresses(sperrliste, [str(grant["address"]) for grant in grants], session=session)
+            barred = await barred_addresses(ban_list, [str(grant["address"]) for grant in grants], session=session)
             refuse(find_last_owner_erasure_refusal(identifier=identifier, grants=grants, barred=barred))
 
         erased = await erase_everything(
@@ -139,7 +139,7 @@ async def post_account_erasure(
             ban_list_collection=ban_list_collection,
             address_changes_collection=address_changes_collection,
             grant_approval_requests_collection=grant_approval_requests_collection,
-            sperrliste=sperrliste,
+            ban_list=ban_list,
             changed_by=identifier,
             for_the_person=True,
             key=config.sperrliste_key,
@@ -172,7 +172,7 @@ async def get_account_erasure_view(
     registrierungen_collection: RegistrierungenCollection,
     address_changes_collection: AddressChangeCollection,
     grants_collection: GrantsCollection,
-    sperrliste: SperrlisteLookup,
+    ban_list: BanListLookup,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
 ) -> FLAccountErasureViewResponse:
@@ -232,7 +232,7 @@ async def get_account_erasure_view(
             find_last_owner_erasure_refusal(
                 identifier=identifier,
                 grants=grants,
-                barred=await barred_addresses(sperrliste, [str(grant["address"]) for grant in grants], session=session),
+                barred=await barred_addresses(ban_list, [str(grant["address"]) for grant in grants], session=session),
             )
             is not None
         )

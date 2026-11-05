@@ -20,9 +20,9 @@ from app.api.address_change.crud import (
 )
 from app.api.address_change.services import build_owed_carry_filter
 from app.api.aktionen.crud import reattribute_administrator_in_session, redact_address_in_images
-from app.api.berechtigungen.antraege import loeschen_antraege_in_session
+from app.api.berechtigungen.antraege import erase_approval_requests_in_session
 from app.api.berechtigungen.crud import read_berechtigungen
-from app.api.berechtigungen.loeschung import loeschen_grants_and_authorship_in_session
+from app.api.berechtigungen.loeschung import erase_grants_and_authorship_in_session
 from app.api.identity.lookup import RecordCollections
 from app.api.identity.schemas import FLErasure, FLSignIn, FLSubject, FLSubjectSchiedsrichter, FLSubjectSeat, FLSubjectSpieler
 from app.api.identity.services import (
@@ -65,15 +65,15 @@ from app.api.identity.services import (
     statuses_of,
     unreferenced,
 )
-from app.api.kontakte.crud import loeschen_kontaktperson_in_session
-from app.api.registrierungen.crud import loeschen_registrierungen_in_session
+from app.api.kontakte.crud import erase_kontaktperson_in_session
+from app.api.registrierungen.crud import erase_registrierungen_in_session
 from app.api.registrierungen.services import build_eigene_registrierung_filter
-from app.api.schiedsrichter.crud import ensure_ghost_schiedsrichter, loeschen_referee_in_session
+from app.api.schiedsrichter.crud import ensure_ghost_schiedsrichter, erase_referee_in_session
 from app.api.sperrliste.lookup import BanList
 from app.api.spielberichte.crud import repoint_referee_reports_in_session
-from app.api.spielbestaetigungen.crud import loeschen_referee_confirmations_in_session
+from app.api.spielbestaetigungen.crud import erase_referee_confirmations_in_session
 from app.api.spielbestaetigungen.services import halter_of
-from app.api.spieler.crud import ensure_ghost_spieler, loeschen_person_in_session
+from app.api.spieler.crud import ensure_ghost_spieler, erase_person_in_session
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.crud import aggregate_many_from_db, anchor_in_db, erase_many_from_db, patch_many_in_db, refuse
@@ -363,16 +363,16 @@ async def resolve_subject(
     async def read(collection: ReadCollection, pipeline: Sequence[Mapping[str, Any]]) -> Rows:
         return await aggregate_many_from_db(collection=collection, pipeline=pipeline, session=session)
 
-    seats = _runs(loeschen_kontaktperson_in_session, scope)
+    seats = _runs(erase_kontaktperson_in_session, scope)
     saison_teams = await read(saison_teams_collection, build_erasure_seat_pipeline(identifier)) if seats else None
     bewerbungen = await read(bewerbungen_collection, build_erasure_seat_pipeline(identifier)) if seats else None
     schiedsrichter = (
-        await read(schiedsrichter_collection, build_erasure_referee_pipeline(identifier)) if _runs(loeschen_referee_in_session, scope) else None
+        await read(schiedsrichter_collection, build_erasure_referee_pipeline(identifier)) if _runs(erase_referee_in_session, scope) else None
     )
-    spieler = await read(spieler_collection, build_erasure_pupil_pipeline(identifier)) if _runs(loeschen_person_in_session, scope) else None
+    spieler = await read(spieler_collection, build_erasure_pupil_pipeline(identifier)) if _runs(erase_person_in_session, scope) else None
     registrierungen = (
         await read(registrierungen_collection, build_erasure_registrierung_pipeline(identifier))
-        if _runs(loeschen_registrierungen_in_session, scope)
+        if _runs(erase_registrierungen_in_session, scope)
         else None
     )
     address_change = (
@@ -546,7 +546,7 @@ ERASURE_STEPS: Final[tuple[ErasureStep, ...]] = (
     ErasureStep(
         reaches=frozenset({Collection.SAISON_TEAMS, Collection.BEWERBUNGEN, Collection.SPIELBESTAETIGUNGEN, Collection.ACTION_LOG}),
         person_group="kontakt",
-        run=loeschen_kontaktperson_in_session,
+        run=erase_kontaktperson_in_session,
     ),
     # No kind's alone: a change belongs to the address, whatever it holds, and another address's to that one.
     ErasureStep(
@@ -557,7 +557,7 @@ ERASURE_STEPS: Final[tuple[ErasureStep, ...]] = (
     ErasureStep(
         reaches=frozenset({Collection.SPIELBESTAETIGUNGEN, Collection.ACTION_LOG}),
         person_group="schiedsrichter",
-        run=loeschen_referee_confirmations_in_session,
+        run=erase_referee_confirmations_in_session,
     ),
     ErasureStep(
         reaches=frozenset({Collection.SPIELBERICHTE, Collection.ACTION_LOG}),
@@ -567,17 +567,17 @@ ERASURE_STEPS: Final[tuple[ErasureStep, ...]] = (
     ErasureStep(
         reaches=frozenset({Collection.SCHIEDSRICHTER, Collection.SPIELE, Collection.ACTION_LOG}),
         person_group="schiedsrichter",
-        run=loeschen_referee_in_session,
+        run=erase_referee_in_session,
     ),
     ErasureStep(
         reaches=frozenset({Collection.REGISTRIERUNGEN, Collection.ACTION_LOG}),
         person_group="spieler",
-        run=loeschen_registrierungen_in_session,
+        run=erase_registrierungen_in_session,
     ),
     ErasureStep(
         reaches=frozenset({Collection.SPIELER, Collection.SAISON_SPIELER, Collection.SPIELBERICHTE, Collection.ACTION_LOG}),
         person_group="spieler",
-        run=loeschen_person_in_session,
+        run=erase_person_in_session,
     ),
     # After the pupil's records went: the season's erasure leaves the address's other records, and their change, standing.
     ErasureStep(
@@ -585,7 +585,7 @@ ERASURE_STEPS: Final[tuple[ErasureStep, ...]] = (
     ),
     # No kind's alone: a request is about an address, whatever it holds, or made by an administrator.
     ErasureStep(
-        reaches=frozenset({Collection.GRANT_APPROVAL_REQUESTS, Collection.OUTBOX}), person_group=None, run=loeschen_antraege_in_session
+        reaches=frozenset({Collection.GRANT_APPROVAL_REQUESTS, Collection.OUTBOX}), person_group=None, run=erase_approval_requests_in_session
     ),
     # No kind's alone: it changes records the person made as an administrator and as a seat holder, so
     # the pupil scope must never run it.
@@ -602,7 +602,7 @@ ERASURE_STEPS: Final[tuple[ErasureStep, ...]] = (
             }
         ),
         person_group=None,
-        run=loeschen_grants_and_authorship_in_session,
+        run=erase_grants_and_authorship_in_session,
     ),
     # No kind's alone: a mail to the address is owed it whatever it holds. After the grants' step, which owes this
     # erasure's notices to the administrators who remain.
@@ -648,7 +648,7 @@ async def erase_everything(
     ban_list_collection: AsyncCollection,
     address_changes_collection: AsyncCollection,
     grant_approval_requests_collection: AsyncCollection,
-    sperrliste: BanList,
+    ban_list: BanList,
     # Whom the grant notice names as ending the person's grant: the person on their own request, the
     # administrator on theirs.
     changed_by: str,
@@ -684,15 +684,15 @@ async def erase_everything(
 
     # Each sentinel ahead of the step erasing its kind. The referee's takes the fixtures that booked the
     # person and the reports they sent; the pupils' takes the scorer and card entries naming them.
-    if _runs(loeschen_referee_in_session, scope) and subject.schiedsrichter:
+    if _runs(erase_referee_in_session, scope) and subject.schiedsrichter:
         await ensure_ghost_schiedsrichter(schiedsrichter_collection=schiedsrichter_collection, session=session)
-    if _runs(loeschen_person_in_session, scope) and subject.spieler:
+    if _runs(erase_person_in_session, scope) and subject.spieler:
         await ensure_ghost_spieler(spieler_collection=spieler_collection, session=session)
 
     kontakt_seats = 0
-    if _runs(loeschen_kontaktperson_in_session, scope):
+    if _runs(erase_kontaktperson_in_session, scope):
         kontakt_seats = (
-            await loeschen_kontaktperson_in_session(
+            await erase_kontaktperson_in_session(
                 saison_teams_collection=saison_teams_collection,
                 bewerbungen_collection=bewerbungen_collection,
                 spielbestaetigungen_collection=spielbestaetigungen_collection,
@@ -722,8 +722,8 @@ async def erase_everything(
             others = others_naming(subject.address_change, identifier)
             address_change -= len(others) - len(known_to_the_new_mailbox(others))
 
-    if _runs(loeschen_referee_confirmations_in_session, scope):
-        await loeschen_referee_confirmations_in_session(
+    if _runs(erase_referee_confirmations_in_session, scope):
+        await erase_referee_confirmations_in_session(
             spielbestaetigungen_collection=spielbestaetigungen_collection,
             action_log_collection=action_log_collection,
             schiedsrichter_ids=[row["_id"] for row in subject.schiedsrichter],
@@ -742,9 +742,9 @@ async def erase_everything(
         )
 
     spiele = 0
-    if _runs(loeschen_referee_in_session, scope):
+    if _runs(erase_referee_in_session, scope):
         for row in subject.schiedsrichter:
-            spiele += await loeschen_referee_in_session(
+            spiele += await erase_referee_in_session(
                 schiedsrichter_collection=schiedsrichter_collection,
                 spiele_collection=spiele_collection,
                 action_log_collection=action_log_collection,
@@ -754,8 +754,8 @@ async def erase_everything(
             )
 
     registrierungen = 0
-    if _runs(loeschen_registrierungen_in_session, scope):
-        registrierungen = await loeschen_registrierungen_in_session(
+    if _runs(erase_registrierungen_in_session, scope):
+        registrierungen = await erase_registrierungen_in_session(
             registrierungen_collection=registrierungen_collection,
             action_log_collection=action_log_collection,
             registrierungen=subject.registrierungen,
@@ -764,9 +764,9 @@ async def erase_everything(
         )
 
     spieler, saison_spieler = 0, 0
-    if _runs(loeschen_person_in_session, scope):
+    if _runs(erase_person_in_session, scope):
         for row in subject.spieler:
-            erased = await loeschen_person_in_session(
+            erased = await erase_person_in_session(
                 spieler_collection=spieler_collection,
                 saison_spieler_collection=saison_spieler_collection,
                 spielberichte_collection=spielberichte_collection,
@@ -797,8 +797,8 @@ async def erase_everything(
         )
 
     grant_approval_requests = 0
-    if _runs(loeschen_antraege_in_session, scope):
-        grant_approval_requests = await loeschen_antraege_in_session(
+    if _runs(erase_approval_requests_in_session, scope):
+        grant_approval_requests = await erase_approval_requests_in_session(
             grant_approval_requests_collection=grant_approval_requests_collection,
             outbox_collection=outbox_collection,
             identifier=identifier,
@@ -807,9 +807,9 @@ async def erase_everything(
         )
 
     grants = 0
-    if _runs(loeschen_grants_and_authorship_in_session, scope):
+    if _runs(erase_grants_and_authorship_in_session, scope):
         grants = (
-            await loeschen_grants_and_authorship_in_session(
+            await erase_grants_and_authorship_in_session(
                 grants_collection=grants_collection,
                 grants_announced_collection=grants_announced_collection,
                 outbox_collection=outbox_collection,
@@ -817,7 +817,7 @@ async def erase_everything(
                 registrierungen_collection=registrierungen_collection,
                 invitations_collection=invitations_collection,
                 ban_list_collection=ban_list_collection,
-                sperrliste=sperrliste,
+                ban_list=ban_list,
                 identifier=identifier,
                 changed_by=changed_by,
                 now=now,
@@ -848,7 +848,7 @@ async def erase_everything(
     return FLErasure(
         spieler=spieler,
         saison_spieler=saison_spieler,
-        schiedsrichter=len(subject.schiedsrichter) if _runs(loeschen_referee_in_session, scope) else 0,
+        schiedsrichter=len(subject.schiedsrichter) if _runs(erase_referee_in_session, scope) else 0,
         spiele=spiele,
         kontakt_seats=kontakt_seats,
         registrierungen=registrierungen,
@@ -858,7 +858,7 @@ async def erase_everything(
     )
 
 
-class ErasureJournal[Geloescht: FLErasure]:
+class ErasureJournal[Erased: FLErasure]:
     """Entered around every erasure route's transaction block: the journal and the warnings follow its commit.
 
     Outside the block, whose abort a failure meets first; never in the callback, where a
@@ -869,12 +869,12 @@ class ErasureJournal[Geloescht: FLErasure]:
         self._identifier = identifier
         self._key = key
         self._grants_collection = grants_collection
-        self._erased: Geloescht | None = None
+        self._erased: Erased | None = None
 
-    async def __aenter__(self) -> ErasureJournal[Geloescht]:
+    async def __aenter__(self) -> ErasureJournal[Erased]:
         return self
 
-    def took(self, erased: Geloescht) -> Geloescht:
+    def took(self, erased: Erased) -> Erased:
         """The transaction's answer, handed on as it arrives."""
 
         self._erased = erased
@@ -979,7 +979,7 @@ async def saison_statuses(*, saisons_collection: AsyncCollection) -> dict[str, F
     return statuses_of(await aggregate_many_from_db(collection=saisons_collection, pipeline=[{"$project": {"status": 1}}]))
 
 
-async def _open(registrierungen_collection: AsyncCollection) -> frozenset[str]:
+async def _pending_addresses(registrierungen_collection: AsyncCollection) -> frozenset[str]:
     return open_addresses(await aggregate_many_from_db(collection=registrierungen_collection, pipeline=build_open_registrierungen_pipeline()))
 
 
@@ -1000,10 +1000,12 @@ async def erasure_due_page(
     if kept is None:
         return [], 0
 
-    pipeline = build_erasure_due_page_pipeline(kept=kept, open=await _open(registrierungen_collection), after=after, size=size)
+    pipeline = build_erasure_due_page_pipeline(
+        kept=kept, pending_addresses=await _pending_addresses(registrierungen_collection), after=after, size=size
+    )
     [read] = await aggregate_many_from_db(collection=spieler_collection, pipeline=pipeline)
 
-    return read["seite"], sum(row["count"] for row in read["count"])
+    return read["page"], sum(row["count"] for row in read["count"])
 
 
 async def due_count(
@@ -1015,7 +1017,7 @@ async def due_count(
     if kept is None:
         return 0
 
-    pipeline = build_erasure_due_count_pipeline(kept=kept, open=await _open(registrierungen_collection))
+    pipeline = build_erasure_due_count_pipeline(kept=kept, pending_addresses=await _pending_addresses(registrierungen_collection))
 
     return sum(row["count"] for row in await aggregate_many_from_db(collection=spieler_collection, pipeline=pipeline))
 
@@ -1041,7 +1043,7 @@ async def erase_if_still_due(
     ban_list_collection: AsyncCollection,
     address_changes_collection: AsyncCollection,
     grant_approval_requests_collection: AsyncCollection,
-    sperrliste: BanList,
+    ban_list: BanList,
     key: SecretStr,
     stamp: str,
     now: datetime,
@@ -1082,7 +1084,7 @@ async def erase_if_still_due(
     if not erasure_due(
         email=email,
         kader_saison_ids=[row["saison_id"] for row in kader],
-        open=open_addresses(registrierungen),
+        pending_addresses=open_addresses(registrierungen),
         kept=kept,
     ):
         return None
@@ -1107,7 +1109,7 @@ async def erase_if_still_due(
         ban_list_collection=ban_list_collection,
         address_changes_collection=address_changes_collection,
         grant_approval_requests_collection=grant_approval_requests_collection,
-        sperrliste=sperrliste,
+        ban_list=ban_list,
         # Read by the grants step alone, which this scope never runs.
         changed_by=SYSTEM_ACTOR_EMAIL,
         key=key,

@@ -130,7 +130,7 @@ async def clear_the_address_in_session(
         pipeline=[{"$match": {"address": address}}, {"$project": {"approval.until": 1}}],
         session=session,
     )
-    refuse(find_approval_request_open_refusal(open=any(ist_offen(row, now=now) for row in rows)))
+    refuse(find_approval_request_open_refusal(is_open=any(ist_offen(row, now=now) for row in rows)))
     if rows:
         await delete_many_from_db(
             collection=grant_approval_requests_collection, db_filter={"_id": {"$in": [row["_id"] for row in rows]}}, session=session
@@ -239,7 +239,7 @@ async def end_the_approval_requests_about_in_session(
     return rows
 
 
-async def loeschen_antraege_in_session(
+async def erase_approval_requests_in_session(
     *,
     grant_approval_requests_collection: AsyncCollection,
     outbox_collection: AsyncCollection,
@@ -284,10 +284,10 @@ def approval_request_line(*, approval_request: Mapping[str, Any], kind: Approval
     )
 
 
-def find_approval_request_open_refusal(*, open: bool) -> WriteRefusal | None:
+def find_approval_request_open_refusal(*, is_open: bool) -> WriteRefusal | None:
     """`grant_approval_request_open`: a request for this address waits already, which its approver or a refusal decides first."""
 
-    if not open:
+    if not is_open:
         return None
 
     return WriteRefusal(

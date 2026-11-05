@@ -262,7 +262,7 @@ def call(handler: Callable[..., Awaitable[Any]], database: AsyncDatabase, client
             supplied[name] = database[Collection[name.removesuffix("_collection").upper()]]
         elif name == "records":
             supplied[name] = record_collections(database)
-        elif name == "sperrliste":
+        elif name == "ban_list":
             supplied[name] = ban_list(database)
         elif name == "db":
             supplied[name] = client
@@ -321,7 +321,7 @@ async def handed_out(database: AsyncDatabase, client: AsyncMongoClient, answer: 
     mails = []
     while (
         claim := await post_handout(
-            outbox_collection=database[Collection.OUTBOX], sperrliste=ban_list(database), db=database, db_client=client, now=claimable(now)
+            outbox_collection=database[Collection.OUTBOX], ban_list=ban_list(database), db=database, db_client=client, now=claimable(now)
         )
     ).mails:
         mails += claim.mails

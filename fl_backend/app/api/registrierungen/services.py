@@ -669,10 +669,10 @@ def build_offene_filter(*, saison_id: str, team_id: Any) -> Mapping[str, Any]:
 def build_eigene_registrierung_filter(*identifiers: str) -> Mapping[str, Any]:
     """Every pending registration of these addresses, on `registrierungen_email_status`."""
 
-    return {**build_loeschung_registrierung_filter(*identifiers), "status": SUBMITTED}
+    return {**build_erasure_registrierung_filter(*identifiers), "status": SUBMITTED}
 
 
-def build_loeschung_registrierung_filter(*identifiers: str) -> Mapping[str, Any]:
+def build_erasure_registrierung_filter(*identifiers: str) -> Mapping[str, Any]:
     """Every registration of these addresses, of every status: a declined row holds the same person until its month is out."""
 
     # Folded here, the form every registration stores.

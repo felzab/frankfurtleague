@@ -16,7 +16,7 @@ from pydantic import SecretStr
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.saisons.crud import pull_massgebliche_saison_id
-from app.api.sperrliste.crud import address_is_gesperrt, gesperrte_hashes, read_barred_addresses
+from app.api.sperrliste.crud import address_is_barred, read_barred_addresses, read_barred_hashes
 from app.api.sperrliste.services import address_hash
 from app.core.config import BackendConfig, get_app_config
 from app.core.dependencies import BanListReadCollection, SaisonsReadCollection
@@ -45,18 +45,18 @@ class BanList:
         return address_hash(address, key=self.key)
 
 
-async def sperrliste_saison(sperrliste: BanList, *, session: AsyncClientSession | None = None) -> str | None:
+async def ban_list_saison(ban_list: BanList, *, session: AsyncClientSession | None = None) -> str | None:
     """The season a ban is judged against, for a caller reading it once ahead of several questions."""
 
-    return await pull_massgebliche_saison_id(sperrliste.saisons_collection, session=session)
+    return await pull_massgebliche_saison_id(ban_list.saisons_collection, session=session)
 
 
-async def _saison(sperrliste: BanList, saison: Saison, *, session: AsyncClientSession | None) -> str | None:
-    return await sperrliste_saison(sperrliste, session=session) if isinstance(saison, RunningSeason) else saison
+async def _saison(ban_list: BanList, saison: Saison, *, session: AsyncClientSession | None) -> str | None:
+    return await ban_list_saison(ban_list, session=session) if isinstance(saison, RunningSeason) else saison
 
 
 async def barred_addresses(
-    sperrliste: BanList,
+    ban_list: BanList,
     addresses: Iterable[str],
     *,
     session: AsyncClientSession | None = None,
@@ -66,43 +66,43 @@ async def barred_addresses(
 
     return await read_barred_addresses(
         addresses,
-        ban_list_collection=sperrliste.ban_list_collection,
-        key=sperrliste.key,
-        governing_saison_id=await _saison(sperrliste, governing_saison_id, session=session),
+        ban_list_collection=ban_list.ban_list_collection,
+        key=ban_list.key,
+        governing_saison_id=await _saison(ban_list, governing_saison_id, session=session),
         session=session,
     )
 
 
-async def hash_gesperrt(
-    sperrliste: BanList,
+async def hash_barred(
+    ban_list: BanList,
     hashed: str,
     *,
     session: AsyncClientSession | None = None,
     governing_saison_id: Saison = RUNNING_SEASON,
 ) -> bool:
-    """Whether a standing ban holds this hash (`app/api/sperrliste/crud.py :: address_is_gesperrt`)."""
+    """Whether a standing ban holds this hash (`app/api/sperrliste/crud.py :: address_is_barred`)."""
 
-    return await address_is_gesperrt(
-        ban_list_collection=sperrliste.ban_list_collection,
+    return await address_is_barred(
+        ban_list_collection=ban_list.ban_list_collection,
         address_hash=hashed,
-        governing_saison_id=await _saison(sperrliste, governing_saison_id, session=session),
+        governing_saison_id=await _saison(ban_list, governing_saison_id, session=session),
         session=session,
     )
 
 
-async def hashes_gesperrt(
-    sperrliste: BanList,
+async def barred_hashes(
+    ban_list: BanList,
     hashes: Iterable[str],
     *,
     session: AsyncClientSession | None = None,
     governing_saison_id: Saison = RUNNING_SEASON,
 ) -> set[str]:
-    """Which of these hashes a standing ban holds, in one read (`app/api/sperrliste/crud.py :: gesperrte_hashes`)."""
+    """Which of these hashes a standing ban holds, in one read (`app/api/sperrliste/crud.py :: read_barred_hashes`)."""
 
-    return await gesperrte_hashes(
-        ban_list_collection=sperrliste.ban_list_collection,
+    return await read_barred_hashes(
+        ban_list_collection=ban_list.ban_list_collection,
         address_hashes=hashes,
-        governing_saison_id=await _saison(sperrliste, governing_saison_id, session=session),
+        governing_saison_id=await _saison(ban_list, governing_saison_id, session=session),
         session=session,
     )
 
@@ -117,4 +117,4 @@ def get_ban_list(
     return BanList(ban_list_collection=ban_list_collection, saisons_collection=saisons_collection, key=config.sperrliste_key)
 
 
-SperrlisteLookup = Annotated[BanList, Depends(get_ban_list)]
+BanListLookup = Annotated[BanList, Depends(get_ban_list)]

@@ -75,7 +75,7 @@ async def ensure_ghost_schiedsrichter(
     await ensure_one_in_db(collection=schiedsrichter_collection, document=build_ghost_schiedsrichter(), session=session)
 
 
-async def loeschen_referee_in_session(
+async def erase_referee_in_session(
     *,
     schiedsrichter_collection: AsyncCollection,
     spiele_collection: AsyncCollection,

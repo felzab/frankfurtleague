@@ -37,7 +37,7 @@ from tests.whole_database import where_held
 from . import test_spielbestaetigung_sweep_execution as confirmations
 from . import test_spiele_write_execution as fixture_saves
 from .test_funktionen_loeschung import IDENTIFIER, THEIR_GRANT_OID, a_grant
-from .test_funktionen_loeschung import geloescht_by_the_handler as geloescht_by_the_person
+from .test_funktionen_loeschung import erased_by_the_handler as geloescht_by_the_person
 from .test_funktionen_loeschung import on_a_league as on_their_league
 from .test_identity_sign_in_execution import BARRED as SIGN_IN_GESPERRT
 from .test_identity_sign_in_execution import call_sign_in
@@ -47,7 +47,7 @@ from .test_identity_subject_execution import IDENTIFIER as SUBJECTS_SEAT_HOLDER
 from .test_identity_subject_execution import on_a_league as on_the_subjects_league
 from .test_journal_replay import PERSON, PUPIL_OID, V, _app, _person, _withdrawal, journalled, served
 from .test_loeschung_auf_anfrage import CONFIG as REQUEST_CONFIG
-from .test_loeschung_auf_anfrage import geloescht_by_the_handler as geloescht_on_request
+from .test_loeschung_auf_anfrage import erased_by_the_handler as geloescht_on_request
 from .test_loeschung_auf_anfrage import journal_lines
 from .test_loeschung_auf_anfrage import on_a_league as on_the_administrators_league
 from .test_loeschung_sweep import a_due_pupil, a_report_naming, seeded
@@ -196,7 +196,7 @@ class TestTheReadsAPerRequestLookupGathers:
                     return await live_unbarred_grant_since(
                         ADMIN_STORED,
                         grants_collection=held[database.name][Collection.GRANTS],
-                        sperrliste=ban_list(held[database.name]),
+                        ban_list=ban_list(held[database.name]),
                         session=session,
                     )
 

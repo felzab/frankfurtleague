@@ -12,7 +12,7 @@ Invariants:
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from typing import Any
 
-from app.api.account.services import find_evidence_state_refusal, find_give_refusal, find_grant_wording_refusal, gives_anything
+from app.api.account.services import find_evidence_state_refusal, find_giving_refusal, find_grant_wording_refusal, gives_anything
 from app.api.einwilligung.services import find_self_media_refusal
 from app.core.crud import refuse
 from app.shared.einwilligung_evidence import FLEinwilligungChoice, is_given
@@ -36,7 +36,7 @@ async def _before_giving(
 
     given = any(gives_anything(saved=block, chosen=chosen) for block in blocks)
     if given:
-        refuse(find_give_refusal(allowed=may_give is not None and await may_give()))
+        refuse(find_giving_refusal(allowed=may_give is not None and await may_give()))
 
     return given
 

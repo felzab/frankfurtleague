@@ -83,15 +83,15 @@ from .test_funktionen_loeschung import (
     as_person,
     everything_in,
 )
-from .test_funktionen_loeschung import PATH as SELBST_PATH
+from .test_funktionen_loeschung import PATH as OWN_ERASURE_PATH
 
 DATABASE_NAME = worker_database("fl_loeschung_auf_anfrage_test")
 
 CONFIG = config_for(DATABASE_NAME)
 
 PATH = f"/api/v{API_VERSION}/identity/erasure"
-ANSICHT_PATH = f"{PATH}/view"
-ABMELDUNG_PATH = f"/api/v{API_VERSION}/identity/sign_out"
+VIEW_PATH = f"{PATH}/view"
+SIGN_OUT_PATH = f"/api/v{API_VERSION}/identity/sign_out"
 
 # The suite's owner, and an administrator holding no owner's power, who presses unless a case says otherwise.
 OWNER, OPERATOR = ADMINISTRATORS[0], ADMINISTRATORS[1]
@@ -155,15 +155,15 @@ async def posted(url: str, path: str, body: Mapping[str, Any], *, by: str = OPER
         return await http.post(path, json=dict(body), headers=StampedHeaders(by, ADMIN_KEY))
 
 
-def loeschung_of(email: str = TYPED, anlass: str = ANLASS) -> dict[str, str]:
+def erasure_of(email: str = TYPED, anlass: str = ANLASS) -> dict[str, str]:
     return {"email": email, "anlass": anlass}
 
 
-def ansicht_of(email: str = TYPED) -> dict[str, str]:
+def view_of(email: str = TYPED) -> dict[str, str]:
     return {"email": email}
 
 
-async def geloescht_by_the_handler(
+async def erased_by_the_handler(
     database: AsyncDatabase, client: AsyncMongoClient, *, email: str = TYPED, anlass: str = ANLASS, **replaced: Any
 ) -> FLErasureResponse:
     """The route's own function outside a request, as `OPERATOR` signed in a minute ago, for a case driving the driver itself."""
@@ -171,7 +171,7 @@ async def geloescht_by_the_handler(
     return await post_erasure(
         erasure_data=FLErasurePayload(email=email, anlass=anlass),
         **erasure_collections(database, **replaced),
-        sperrliste=ban_list(database),
+        ban_list=ban_list(database),
         # Refusing none: the window is held over HTTP, in `tests/api/test_step_up_execution.py`.
         actor=fresh_admin_actor(),
         db=client,
@@ -199,7 +199,7 @@ async def revealed(database: AsyncDatabase, client: AsyncMongoClient, email: str
             grants_announced_collection=database[Collection.GRANTS_ANNOUNCED],
             grant_approval_requests_collection=database[Collection.GRANT_APPROVAL_REQUESTS],
             address_changes_collection=database[Collection.ADDRESS_CHANGES],
-            sperrliste=ban_list(database),
+            ban_list=ban_list(database),
             session=session,
             config=CONFIG,
             operator=OPERATOR,
@@ -337,7 +337,7 @@ class TestTheRegistryRunsWhole:
             live = {"saison_id": SAISON_ID, "team_id": HOME_TEAM_OID, "inactive_since": None}
             pupil = await database[Collection.SPIELER].find_one({"_id": PUPIL_OID})
             before = (await where_held(database, *THEIR_VALUES), await database[Collection.SAISON_SPIELER].count_documents(live))
-            response = await posted(mongo_replica_set_url, PATH, loeschung_of())
+            response = await posted(mongo_replica_set_url, PATH, erasure_of())
             after = (await where_held(database, *THEIR_VALUES), await database[Collection.SAISON_SPIELER].count_documents(live))
 
             return pupil, before, response, after
@@ -375,8 +375,8 @@ class TestTheRegistryRunsWhole:
 
             return on_a_league(mongo_replica_set_url, body)
 
-        by_the_administrator = after(lambda http: http.post(PATH, json=loeschung_of(), headers=StampedHeaders(OPERATOR, ADMIN_KEY)))
-        by_the_person = after(lambda http: http.post(SELBST_PATH, headers=as_person(TYPED)))
+        by_the_administrator = after(lambda http: http.post(PATH, json=erasure_of(), headers=StampedHeaders(OPERATOR, ADMIN_KEY)))
+        by_the_person = after(lambda http: http.post(OWN_ERASURE_PATH, headers=as_person(TYPED)))
 
         assert (by_the_administrator[0], by_the_person[0]) == (200, 200)
         assert by_the_administrator[1] == by_the_person[1]
@@ -388,7 +388,7 @@ class TestTheirOwnAddress:
 
     @pytest.mark.parametrize(
         ("path", "body"),
-        [(ANSICHT_PATH, ansicht_of), (PATH, loeschung_of), (ABMELDUNG_PATH, ansicht_of)],
+        [(VIEW_PATH, view_of), (PATH, erasure_of), (SIGN_OUT_PATH, view_of)],
         ids=["the reveal", "the erasure", "the sign-out"],
     )
     def test_it_is_refused_in_other_capitals_and_between_spaces_and_nothing_is_written(
@@ -412,11 +412,11 @@ class TestAGrantHoldersAddress:
     @pytest.mark.parametrize(
         ("path", "body", "address"),
         [
-            (ANSICHT_PATH, ansicht_of, OWNER),
-            (PATH, loeschung_of, OWNER),
-            (ABMELDUNG_PATH, ansicht_of, OWNER),
-            (ANSICHT_PATH, ansicht_of, ANOTHER_ADMINISTRATOR),
-            (PATH, loeschung_of, ANOTHER_ADMINISTRATOR),
+            (VIEW_PATH, view_of, OWNER),
+            (PATH, erasure_of, OWNER),
+            (SIGN_OUT_PATH, view_of, OWNER),
+            (VIEW_PATH, view_of, ANOTHER_ADMINISTRATOR),
+            (PATH, erasure_of, ANOTHER_ADMINISTRATOR),
         ],
         ids=[
             "the reveal of an owner",
@@ -473,7 +473,7 @@ class TestAGrantHoldersAddress:
                     return cast(AsyncCollection, racing[-1])
 
                 served.dependency_overrides[collection_dependency(Collection.SPIELER)] = pupils
-                response = await http.post(PATH, json=loeschung_of(), headers=StampedHeaders(OPERATOR, ADMIN_KEY))
+                response = await http.post(PATH, json=erasure_of(), headers=StampedHeaders(OPERATOR, ADMIN_KEY))
 
             return (
                 response,
@@ -501,7 +501,7 @@ class TestTheReveal:
             await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, "administration")
             await their_requests_open(database)
             before = await everything_in(database)
-            response = await posted(mongo_replica_set_url, ANSICHT_PATH, ansicht_of(), by=OWNER)
+            response = await posted(mongo_replica_set_url, VIEW_PATH, view_of(), by=OWNER)
 
             return response, before == await everything_in(database)
 
@@ -524,9 +524,9 @@ class TestTheReveal:
             await database[Collection.ADDRESS_CHANGES].insert_one(
                 address_change_document(address="noch.gefragt@example.com", email=IDENTIFIER, token_hash=None, day="2126-03-30", way="account")
             )
-            view = (await posted(mongo_replica_set_url, ANSICHT_PATH, ansicht_of(), by=OWNER)).json()
+            view = (await posted(mongo_replica_set_url, VIEW_PATH, view_of(), by=OWNER)).json()
 
-            return view, (await posted(mongo_replica_set_url, PATH, loeschung_of(), by=OWNER)).json()
+            return view, (await posted(mongo_replica_set_url, PATH, erasure_of(), by=OWNER)).json()
 
         view, erased = on_a_league(mongo_replica_set_url, body)
         named = {
@@ -563,9 +563,7 @@ class TestAGrantHoldersPendingChange:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await a_grant(database, CHANGING_HOLDER_GRANT_OID, CHANGING_HOLDER, tier)
-            return [
-                (await posted(mongo_replica_set_url, ANSICHT_PATH, ansicht_of(), by=by)).json()["address_change"] for by in (OPERATOR, OWNER)
-            ]
+            return [(await posted(mongo_replica_set_url, VIEW_PATH, view_of(), by=by)).json()["address_change"] for by in (OPERATOR, OWNER)]
 
         operators, owners = on_a_league(mongo_replica_set_url, body)
 
@@ -582,9 +580,9 @@ class TestAGrantHoldersPendingChange:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await a_grant(database, CHANGING_HOLDER_GRANT_OID, CHANGING_HOLDER, tier)
             before = await everything_in(database)
-            by_operator = await posted(mongo_replica_set_url, PATH, loeschung_of())
+            by_operator = await posted(mongo_replica_set_url, PATH, erasure_of())
             untouched = before == await everything_in(database)
-            by_owner = by_operator if by_operator.status_code == 200 else await posted(mongo_replica_set_url, PATH, loeschung_of(), by=OWNER)
+            by_owner = by_operator if by_operator.status_code == 200 else await posted(mongo_replica_set_url, PATH, erasure_of(), by=OWNER)
             ended = await database[Collection.ADDRESS_CHANGES].find_one({"_id": OTHER_REFEREE_CHANGE_OID})
             return by_operator, untouched, by_owner.status_code, ended
 
@@ -601,7 +599,7 @@ class TestTheAnlass:
 
     def test_every_row_the_loeschung_files_carries_it_stripped_and_no_other_row_does(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await posted(mongo_replica_set_url, PATH, loeschung_of(anlass=f"  {ANLASS}  "))
+            response = await posted(mongo_replica_set_url, PATH, erasure_of(anlass=f"  {ANLASS}  "))
 
             return response.status_code, await database[Collection.ACTION_LOG].find().to_list(length=None)
 
@@ -617,7 +615,7 @@ class TestTheAnlass:
         """Over HTTP each request runs in a context of its own, so a value left standing shows only in one context reused."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await geloescht_by_the_handler(database, client)
+            await erased_by_the_handler(database, client)
             await acting(
                 Actor(kind="admin_session", email=OPERATOR),
                 lambda: patch_one_in_db(
@@ -656,7 +654,7 @@ class TestAnotherAdministratorsAddress:
         """Only an owner presses here (`admin_address`)."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await posted(mongo_replica_set_url, PATH, loeschung_of(ANOTHER_ADMINISTRATOR), by=OWNER)
+            response = await posted(mongo_replica_set_url, PATH, erasure_of(ANOTHER_ADMINISTRATOR), by=OWNER)
             # One row per administrator a notice is owed to: the owner's copy, which every notice has.
             notices = [
                 row["data"]
@@ -685,8 +683,8 @@ class TestRowsNoMailboxNames:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             ghost = build_ghost_schiedsrichter()
             await database[Collection.SCHIEDSRICHTER].insert_one({**ghost, "kontakt": {**ghost["kontakt"], "email": SENTINEL_ADDRESS}})
-            view = await posted(mongo_replica_set_url, ANSICHT_PATH, ansicht_of(SENTINEL_ADDRESS))
-            erasure = await posted(mongo_replica_set_url, PATH, loeschung_of(SENTINEL_ADDRESS))
+            view = await posted(mongo_replica_set_url, VIEW_PATH, view_of(SENTINEL_ADDRESS))
+            erasure = await posted(mongo_replica_set_url, PATH, erasure_of(SENTINEL_ADDRESS))
 
             return (
                 view.json(),
@@ -707,7 +705,7 @@ class TestTheSignOut:
     def test_it_files_one_row_naming_the_operator_and_the_act_and_writes_nothing_else(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             before = await everything_in(database)
-            response = await posted(mongo_replica_set_url, ABMELDUNG_PATH, ansicht_of())
+            response = await posted(mongo_replica_set_url, SIGN_OUT_PATH, view_of())
             after = await everything_in(database)
             async with app_client(mongo_replica_set_url, app=_app(), now=NOW) as http:
                 served = await http.get(
@@ -724,7 +722,7 @@ class TestTheSignOut:
         assert [{key: row[key] for key in ROW_KEYS} for row in filed] == [
             {
                 "actor": {"kind": "admin_session", "email": OPERATOR},
-                "request": {"method": "POST", "path": ABMELDUNG_PATH},
+                "request": {"method": "POST", "path": SIGN_OUT_PATH},
                 "collection": "anmeldungen",
                 "operation": "delete_many",
                 "document_id": None,
@@ -754,10 +752,10 @@ class TestTheAnlassIsRefusedAtTheBox:
         "body",
         [
             pytest.param({"email": TYPED}, id="none sent"),
-            pytest.param(loeschung_of(anlass="   "), id="spaces alone"),
-            pytest.param(loeschung_of(anlass="x" * (ERASURE_ANLASS_MAX_LENGTH + 1)), id="one past the bound"),
-            pytest.param(loeschung_of(anlass="Mail vom 30.03.\nBetreff: Löschung"), id="two lines"),
-            pytest.param(loeschung_of(anlass="Mail von anna.mueller@schule.de"), id="holding an address"),
+            pytest.param(erasure_of(anlass="   "), id="spaces alone"),
+            pytest.param(erasure_of(anlass="x" * (ERASURE_ANLASS_MAX_LENGTH + 1)), id="one past the bound"),
+            pytest.param(erasure_of(anlass="Mail vom 30.03.\nBetreff: Löschung"), id="two lines"),
+            pytest.param(erasure_of(anlass="Mail von anna.mueller@schule.de"), id="holding an address"),
         ],
     )
     def test_the_loeschung_is_refused_naming_it(self, body: dict[str, str]):
@@ -773,8 +771,8 @@ class TestADomainIsRefusedBeyondAscii:
     @pytest.mark.parametrize(
         ("payload", "body"),
         [
-            pytest.param(FLErasureAddressPayload, ansicht_of("anna@müller.de"), id="the lookup"),
-            pytest.param(FLErasurePayload, loeschung_of("anna@müller.de"), id="the erasure"),
+            pytest.param(FLErasureAddressPayload, view_of("anna@müller.de"), id="the lookup"),
+            pytest.param(FLErasurePayload, erasure_of("anna@müller.de"), id="the erasure"),
         ],
     )
     def test_the_address_rule_s_own_refusal_names_the_box(self, payload: type[FLErasureAddressPayload], body: dict[str, str]):

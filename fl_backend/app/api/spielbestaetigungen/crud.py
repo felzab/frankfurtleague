@@ -290,7 +290,7 @@ async def strip_the_seasons_confirmations(
 # --- The REFEREE'S ERASURE, the registry's member for their confirmation rows.
 
 
-async def loeschen_referee_confirmations_in_session(
+async def erase_referee_confirmations_in_session(
     *,
     spielbestaetigungen_collection: AsyncCollection,
     action_log_collection: AsyncCollection,

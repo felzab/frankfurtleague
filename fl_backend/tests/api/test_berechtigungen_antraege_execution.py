@@ -34,12 +34,12 @@ from app.api.berechtigungen.antraege import (
     approval_request_line,
     compose_approval_request,
     end_the_approval_requests_about_in_session,
-    loeschen_antraege_in_session,
+    erase_approval_requests_in_session,
 )
 from app.api.berechtigungen.schemas import FLPatchGrantPayload, FLPostGrantPayload
 from app.api.berechtigungen.system_router import post_grants_reconciliation
 from app.api.identity.journal_replay import Window, plan_replay
-from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
+from app.api.sperrliste.services import compose_barred_until_saison_id
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError, DocumentNotFoundError
@@ -70,7 +70,7 @@ NOW = datetime(2126, 4, 1, 12, 30, tzinfo=BERLIN)
 PASTED = datetime(2026, 1, 1, tzinfo=UTC)
 RUNNING = "2026"
 # Composed by the production helper, so a drifted bound cannot leave a case passing over a lapsed ban.
-STANDING = compose_gesperrt_bis_saison_id(governing_saison_id=RUNNING)
+STANDING = compose_barred_until_saison_id(governing_saison_id=RUNNING)
 
 OWNER_ID = ObjectId("6890a1b2c3d4e5f607920001")
 ANNA_ID = ObjectId("6890a1b2c3d4e5f607920002")
@@ -143,7 +143,7 @@ async def call(handler: Callable[..., Awaitable[Any]], database: AsyncDatabase, 
             supplied[name] = given[name]
         elif name.endswith("_collection"):
             supplied[name] = database[Collection[name.removesuffix("_collection").upper()]]
-        elif name == "sperrliste":
+        elif name == "ban_list":
             supplied[name] = ban_list(database)
         elif name == "db":
             supplied[name] = client
@@ -388,7 +388,7 @@ async def compared(database: AsyncDatabase, client: AsyncMongoClient, *, now: da
             grants_collection=database[Collection.GRANTS],
             grants_announced_collection=database[Collection.GRANTS_ANNOUNCED],
             outbox_collection=database[Collection.OUTBOX],
-            sperrliste=ban_list(database),
+            ban_list=ban_list(database),
             db=client,
             now=now,
         )
@@ -734,7 +734,7 @@ async def anna_geloescht(database: AsyncDatabase, client: AsyncMongoClient, _: O
     """The erasure's request step on its own transaction, as `erase_everything` runs it for Anna."""
 
     async def step(session: AsyncClientSession) -> int:
-        return await loeschen_antraege_in_session(
+        return await erase_approval_requests_in_session(
             grant_approval_requests_collection=database[Collection.GRANT_APPROVAL_REQUESTS],
             outbox_collection=database[Collection.OUTBOX],
             identifier=ANNA,
@@ -893,7 +893,7 @@ class TestTheLoeschungTakesEveryRequestOfTheAddress:
             async def step(session: AsyncClientSession) -> list[int]:
                 collection = database[Collection.GRANT_APPROVAL_REQUESTS]
                 return [
-                    await loeschen_antraege_in_session(
+                    await erase_approval_requests_in_session(
                         grant_approval_requests_collection=collection,
                         outbox_collection=database[Collection.OUTBOX],
                         identifier=identifier,

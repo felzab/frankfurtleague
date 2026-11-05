@@ -6,7 +6,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from app.api.berechtigungen.crud import owe_in_session, pull_the_list_to_judge, read_berechtigungen, read_the_announced
 from app.api.berechtigungen.schemas import FLGrantReconciliationResponse
 from app.api.berechtigungen.services import appointed, compare, compose_announced, compose_notice, found_ids
-from app.api.sperrliste.lookup import SperrlisteLookup, barred_addresses
+from app.api.sperrliste.lookup import BanListLookup, barred_addresses
 from app.core.config import API_VERSION
 from app.core.crud import erase_many_from_db, patch_many_in_db, post_many_to_db
 from app.core.dependencies import (
@@ -36,7 +36,7 @@ async def post_grants_reconciliation(
     grants_collection: GrantsCollection,
     grants_announced_collection: GrantsAnnouncedCollection,
     outbox_collection: OutboxCollection,
-    sperrliste: SperrlisteLookup,
+    ban_list: BanListLookup,
     db: DBClient,
     now: datetime = Depends(get_germany_now),
 ) -> FLGrantReconciliationResponse:
@@ -65,7 +65,7 @@ async def post_grants_reconciliation(
                 for snapshot in (current, before)
                 if snapshot is not None and snapshot.address is not None
             }
-            barred = await barred_addresses(sperrliste, {str(row["address"]) for row in grants} | named, session=session)
+            barred = await barred_addresses(ban_list, {str(row["address"]) for row in grants} | named, session=session)
             await owe_in_session(
                 [
                     compose_notice(grant_id=grant_id, kind=kind, current=current, before=before, changed_by=None, now=now, barred=barred)

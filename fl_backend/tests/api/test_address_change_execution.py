@@ -1538,7 +1538,7 @@ class TestTheMovedGrant:
             outbox = [row["data"] async for row in database[Collection.OUTBOX].find({"kind": "grant", "an": SECOND_ADMIN}, sort=[("_id", 1)])]
             async with client.start_session(snapshot=True) as session:
                 since = await live_unbarred_grant_since(
-                    NEW_EMAIL, grants_collection=database[Collection.GRANTS], sperrliste=ban_list(database), session=session
+                    NEW_EMAIL, grants_collection=database[Collection.GRANTS], ban_list=ban_list(database), session=session
                 )
             return old_grant, grants, outbox, since
 

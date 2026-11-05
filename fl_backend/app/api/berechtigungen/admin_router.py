@@ -63,7 +63,7 @@ from app.api.berechtigungen.services import (
 )
 from app.api.identity.services import address_change_viewable_denied
 from app.api.outbox.schemas import FLOutboxReference
-from app.api.sperrliste.lookup import SperrlisteLookup, barred_addresses, hash_gesperrt
+from app.api.sperrliste.lookup import BanListLookup, barred_addresses, hash_barred
 from app.api.sperrliste.services import withheld_actor
 from app.core.collections import Collection
 from app.core.config import API_VERSION, BackendConfig, get_app_config
@@ -101,7 +101,7 @@ async def get_grants(
     grants_announced_collection: GrantsAnnouncedCollection,
     address_changes_collection: AddressChangeCollection,
     grant_approval_requests_collection: GrantApprovalRequestsCollection,
-    sperrliste: SperrlisteLookup,
+    ban_list: BanListLookup,
     db: DBClient,
     operator: str = Depends(get_actor_email),
     auth_time: int = Depends(get_actor_auth_time),
@@ -138,7 +138,7 @@ async def get_grants(
         )
         grants = [FLBerechtigung.model_validate(row) for row in rows]
         barred = await barred_addresses(
-            sperrliste,
+            ban_list,
             [grant.address for grant in grants]
             + [sign_in_identifier(grant.granted_by) for grant in grants]
             + [str(approval_request["address"]) for approval_request in approval_requests]
@@ -156,8 +156,8 @@ async def get_grants(
             )
         }
         # A pending new address and an administrator's start are judged as every address the page serves is.
-        barred_im_wechsel = await barred_addresses(
-            sperrliste,
+        barred_in_change = await barred_addresses(
+            ban_list,
             [str(record["email"]) for record in wartend.values()] + [str(record["approval"]["started_by"]) for record in wartend.values()],
             session=session,
         )
@@ -180,7 +180,7 @@ async def get_grants(
                 address_change=None
                 if record is None
                 else _adresswechsel_zeile(
-                    record, actor=actor, auth_time=auth_time, owner=owner, grants=rows, announced=announced, barred=barred_im_wechsel
+                    record, actor=actor, auth_time=auth_time, owner=owner, grants=rows, announced=announced, barred=barred_in_change
                 ),
                 version=grant.version,
             )
@@ -268,7 +268,7 @@ async def post_grant(
     grants_announced_collection: GrantsAnnouncedCollection,
     outbox_collection: OutboxCollection,
     grant_approval_requests_collection: GrantApprovalRequestsCollection,
-    sperrliste: SperrlisteLookup,
+    ban_list: BanListLookup,
     db: DBClient,
     granted_by: str = Depends(get_actor_email),
     now: datetime = Depends(get_germany_now),
@@ -290,8 +290,8 @@ async def post_grant(
 
     address = sign_in_identifier(str(berechtigung_data.email))
     actor = sign_in_identifier(granted_by)
-    # Keyed from the payload's own value, as the ban write keys it (`app/api/identity/system_router.py :: get_subjekt`).
-    hashed = sperrliste.hash_of(str(berechtigung_data.email))
+    # Keyed from the payload's own value, as the ban write keys it (`app/api/identity/system_router.py :: get_subject`).
+    hashed = ban_list.hash_of(str(berechtigung_data.email))
 
     async def judge_and_grant(session: AsyncClientSession) -> tuple[ObjectId, bool]:
         """Anchor and read the list, ask the ban list, then write the request, or the grant and its announced row, owing its notice."""
@@ -299,7 +299,7 @@ async def post_grant(
         grants = await pull_the_list_to_judge(grants_collection=grants_collection, session=session)
         refuse(find_vorhanden_refusal(address=address, grants=grants))
 
-        barred = await hash_gesperrt(sperrliste, hashed, session=session)
+        barred = await hash_barred(ban_list, hashed, session=session)
         refuse(find_barred_refusal(barred=barred))
 
         await clear_the_address_in_session(
@@ -310,7 +310,7 @@ async def post_grant(
             excepted={address, actor},
             grants=grants,
             grants_announced_collection=grants_announced_collection,
-            sperrliste=sperrliste,
+            ban_list=ban_list,
             now=now,
             session=session,
         ):
@@ -395,7 +395,7 @@ async def _approver(
     excepted: Set[str],
     grants: Sequence[Mapping[str, Any]],
     grants_announced_collection: AsyncCollection,
-    sperrliste: SperrlisteLookup,
+    ban_list: BanListLookup,
     now: datetime,
     session: AsyncClientSession,
 ) -> list[str]:
@@ -405,7 +405,7 @@ async def _approver(
     """
 
     announced = await read_the_announced(grants_announced_collection=grants_announced_collection, session=session)
-    barred = await barred_addresses(sperrliste, [str(row["address"]) for row in grants], session=session)
+    barred = await barred_addresses(ban_list, [str(row["address"]) for row in grants], session=session)
 
     return approver_of(admin_tier=admin_tier, excepted=excepted, grants=grants, announced=announced, barred=barred, before=now)
 
@@ -422,7 +422,7 @@ async def delete_grant(
     grants_announced_collection: GrantsAnnouncedCollection,
     outbox_collection: OutboxCollection,
     grant_approval_requests_collection: GrantApprovalRequestsCollection,
-    sperrliste: SperrlisteLookup,
+    ban_list: BanListLookup,
     db: DBClient,
     revoked_by: str = Depends(get_actor_email),
     auth_time: int = Depends(get_actor_auth_time),
@@ -457,7 +457,7 @@ async def delete_grant(
         refuse(find_inhaber_refusal(grant=grant))
 
         live = grants
-        barred = await barred_addresses(sperrliste, [str(row["address"]) for row in live], session=session)
+        barred = await barred_addresses(ban_list, [str(row["address"]) for row in live], session=session)
         remaining = [row for row in live if row["_id"] != grant_id and row["address"] not in barred]
         refuse(find_mindestzahl_refusal(remaining=len(remaining)))
 
@@ -500,7 +500,7 @@ async def patch_grant(
     grants_announced_collection: GrantsAnnouncedCollection,
     outbox_collection: OutboxCollection,
     grant_approval_requests_collection: GrantApprovalRequestsCollection,
-    sperrliste: SperrlisteLookup,
+    ban_list: BanListLookup,
     db: DBClient,
     changed_by: str = Depends(get_actor_email),
     auth_time: int = Depends(get_actor_auth_time),
@@ -551,7 +551,7 @@ async def patch_grant(
         # Rereads this snapshot's rows and writes each, so a rival judging the list conflicts.
         await pull_the_list_to_judge(grants_collection=grants_collection, session=session)
 
-        barred = await barred_addresses(sperrliste, [str(row["address"]) for row in live], session=session)
+        barred = await barred_addresses(ban_list, [str(row["address"]) for row in live], session=session)
         if admin_tier == OWNER:
             refuse(find_barred_refusal(barred=grant["address"] in barred))
             await clear_the_address_in_session(
@@ -562,7 +562,7 @@ async def patch_grant(
                 excepted={str(grant["address"]), actor},
                 grants=grants,
                 grants_announced_collection=grants_announced_collection,
-                sperrliste=sperrliste,
+                ban_list=ban_list,
                 now=now,
                 session=session,
             ):
@@ -708,7 +708,7 @@ async def post_approval_request_approval(
     grants_announced_collection: GrantsAnnouncedCollection,
     outbox_collection: OutboxCollection,
     grant_approval_requests_collection: GrantApprovalRequestsCollection,
-    sperrliste: SperrlisteLookup,
+    ban_list: BanListLookup,
     db: DBClient,
     operator: str = Depends(get_actor_email),
     auth_time: int = Depends(get_actor_auth_time),
@@ -744,7 +744,7 @@ async def post_approval_request_approval(
         # Written, so a revoke or a demotion of the approver or the requester committing beside it conflicts.
         grants = await pull_the_list_to_judge(grants_collection=grants_collection, session=session)
         records = await read_the_announced(grants_announced_collection=grants_announced_collection, session=session)
-        barred = await barred_addresses(sperrliste, [str(row["address"]) for row in grants] + [address], session=session)
+        barred = await barred_addresses(ban_list, [str(row["address"]) for row in grants] + [address], session=session)
 
         owner = holds_an_owners_power(actor=actor, auth_time=auth_time, grants=grants, announced=records)
         refuse(
@@ -826,7 +826,7 @@ async def delete_approval_request(
     grants_announced_collection: GrantsAnnouncedCollection,
     grant_approval_requests_collection: GrantApprovalRequestsCollection,
     outbox_collection: OutboxCollection,
-    sperrliste: SperrlisteLookup,
+    ban_list: BanListLookup,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
     operator: str = Depends(get_actor_email),

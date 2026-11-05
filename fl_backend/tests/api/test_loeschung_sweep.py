@@ -174,7 +174,7 @@ async def run(database: AsyncDatabase, client: AsyncMongoClient, *, after: Any =
     return await sweep_erasure(
         params=FLErasureSweepParams(after=after),
         **erasure_collections(database, **({"saisons_collection": database[Collection.SAISONS]} | replaced)),
-        sperrliste=ban_list(database),
+        ban_list=ban_list(database),
         db=client,
         config=CONFIG,
         germany_now=NOW,
@@ -230,7 +230,7 @@ WHOLE = 1000
 
 
 async def population(database: AsyncDatabase) -> list[Any]:
-    seite, _ = await erasure_due_page(
+    page, _ = await erasure_due_page(
         await saison_statuses(saisons_collection=database[Collection.SAISONS]),
         after=None,
         size=WHOLE,
@@ -238,7 +238,7 @@ async def population(database: AsyncDatabase) -> list[Any]:
         registrierungen_collection=database[Collection.REGISTRIERUNGEN],
     )
 
-    return [row["_id"] for row in seite]
+    return [row["_id"] for row in page]
 
 
 class WrittenAfterThePopulationRead:

@@ -216,7 +216,7 @@ async def read_view(
         saison_teams_collection=either(database, Collection.SAISON_TEAMS, saison_teams),
         spielorte_collection=database[Collection.SPIELORTE],
         teams_collection=database[Collection.TEAMS],
-        sperrliste=ban_list(database),
+        ban_list=ban_list(database),
         today=today,
     )
 
@@ -248,7 +248,7 @@ async def antworten(
         spiele_collection=either(database, Collection.SPIELE, spiele),
         saison_teams_collection=either(database, Collection.SAISON_TEAMS, saison_teams),
         spieltage_collection=either(database, Collection.SPIELTAGE, spieltage),
-        sperrliste=ban_list(database),
+        ban_list=ban_list(database),
         db=client,
         today=today,
     )
@@ -1307,7 +1307,7 @@ class TestTheQueueListsAFixtureItsConfirmationsPutThere:
 
 # The answering Trainer's address, and the clock their erasure stamps its redactions with.
 IDA = "ida@example.com"
-GELOESCHT_AT = datetime(2027, 5, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
+ERASED_AT = datetime(2027, 5, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 
 
 class ConfirmationsRunningARivalBeforeTheFirstFanOut(InterleavedCollection):
@@ -1328,10 +1328,10 @@ class TestAnAnswerAndItsWritersLoeschungCross:
         """The answer run again finds no seat holding its link: the void took it."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            async def loeschen_the_trainer() -> None:
-                await erased(database, client, IDA, germany_now=GELOESCHT_AT)
+            async def erase_the_trainer() -> None:
+                await erased(database, client, IDA, germany_now=ERASED_AT)
 
-            confirmations = ConfirmationsRunningARivalBeforeTheWrite(database[Collection.SPIELBESTAETIGUNGEN], loeschen_the_trainer)
+            confirmations = ConfirmationsRunningARivalBeforeTheWrite(database[Collection.SPIELBESTAETIGUNGEN], erase_the_trainer)
             outcome = await outcome_of(
                 ablehnen(database, client, token(TEAM1, "trainer"), PROPOSAL, begruendung=REASON, spielbestaetigungen=confirmations)
             )
@@ -1352,7 +1352,7 @@ class TestAnAnswerAndItsWritersLoeschungCross:
                 await ablehnen(database, client, token(TEAM1, "trainer"), PROPOSAL, begruendung=REASON)
 
             confirmations = ConfirmationsRunningARivalBeforeTheFirstFanOut(database[Collection.SPIELBESTAETIGUNGEN], answer_as_the_trainer)
-            await erased(database, client, IDA, germany_now=GELOESCHT_AT, spielbestaetigungen_collection=confirmations)
+            await erased(database, client, IDA, germany_now=ERASED_AT, spielbestaetigungen_collection=confirmations)
 
             return confirmations, await row_now(database, ROW1)
 
@@ -1573,7 +1573,7 @@ class TestARefereesOwnRowsAreReadThroughTheirIndex:
         "read",
         [
             pytest.param(lambda watched, watching: eigene(watched, watching), id="the panel"),
-            pytest.param(lambda watched, watching: erased(watched, watching, OTTO, germany_now=GELOESCHT_AT), id="the erasure"),
+            pytest.param(lambda watched, watching: erased(watched, watching, OTTO, germany_now=ERASED_AT), id="the erasure"),
         ],
     )
     def test_the_read_walks_the_referee_index_past_a_season_of_other_rows(

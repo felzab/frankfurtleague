@@ -129,7 +129,7 @@ class SeatsCleared(NamedTuple):
     redacted_aktionen: int
 
 
-async def loeschen_kontaktperson_in_session(
+async def erase_kontaktperson_in_session(
     *,
     saison_teams_collection: AsyncCollection,
     bewerbungen_collection: AsyncCollection,
