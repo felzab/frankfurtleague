@@ -127,4 +127,27 @@ describe("a select's chosen value", () => {
     expect(chosen.querySelector("svg")).not.toBe(null);
     expect(screen.getByRole("option", { name: "Helmholtz" }).querySelector("svg")).toBe(null);
   });
+
+  // The harm: React Aria's own placeholder, „Element wählen“, on screen where nothing is chosen, outside the catalogue.
+  it("shows nothing while none is chosen, in either width", () => {
+    const options = [{ id: "a", label: { record: "Goethe" } }];
+    render(
+      <>
+        <Select
+          label={COPY.shared.saison}
+          options={options}
+        />
+        <Select
+          label={COPY.page.teams}
+          options={options}
+          width="fit"
+        />
+      </>,
+    );
+
+    for (const label of [COPY.shared.saison, COPY.page.teams]) {
+      const value = screen.getByRole("button", { name: new RegExp(label) }).querySelector("[data-placeholder]");
+      expect(value?.textContent, label).toBe("");
+    }
+  });
 });
