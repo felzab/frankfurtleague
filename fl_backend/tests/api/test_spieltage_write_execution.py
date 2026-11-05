@@ -7,7 +7,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.saisons.admin_router import patch_saison
 from app.api.saisons.schemas import FLPatchSaisonPayload, FLSaisonRules
-from app.api.spieltage.admin_router import patch_spieltag
+from app.api.spieltage.admin_router import get_spieltag_verwaltung, patch_spieltag
 from app.api.spieltage.schemas import FLPatchSpieltagPayload
 from app.core.codes import Code
 from app.core.exceptions import APIError
@@ -342,3 +342,55 @@ class TestAMatchdayNeverBeginsBeforeItsPredecessor:
         response = on_a_database(mongo_replica_set_url, body)
 
         assert response["beginn"] == AFTER_THE_NEIGHBOUR
+
+
+class TestAFinishedSeasonsMatchdayIsClosed:
+    """`saison_past` through the endpoint, as a finished season's fixtures refuse their saves."""
+
+    def test_a_re_dating_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
+        """The harm: a finished season's record re-dated from an editor its match editor's twin would have closed."""
+
+        async def body(database: AsyncDatabase) -> tuple[APIError, Any, Any]:
+            await database.saisons.update_one({"_id": SAISON_ID}, {"$set": {"status": "past"}})
+            before = await database.spieltage.find_one({"_id": SPIELTAG_OID})
+
+            with pytest.raises(APIError) as excinfo:
+                await re_date(database, SPIELTAG_OID, beginn=BEFORE_THE_FIRST_BEGINN, ende=BEFORE_THE_FIRST_ENDE)
+
+            return excinfo.value, before, await database.spieltage.find_one({"_id": SPIELTAG_OID})
+
+        refusal, before, after = on_a_database(mongo_replica_set_url, body)
+
+        assert refusal.error_code == Code.SAISON_PAST
+        assert after == before, "a refused re-dating wrote something"
+
+
+class TestTheEditorsReadNamesItsMatchday:
+    """`count_spieltage_in_phase` and `saison_status` off a real read: only a database proves which matchdays the count reads."""
+
+    def test_it_counts_its_own_phase_of_its_own_season_and_serves_its_seasons_status(self, mongo_replica_set_url: str):
+        """The harm: a count missing its phase or its season names a knockout leg or a lone round wrongly, nothing failing."""
+
+        async def read(database: AsyncDatabase, spieltag_id: ObjectId) -> Any:
+            return await get_spieltag_verwaltung(
+                spieltag_id=spieltag_id, spieltage_collection=database.spieltage, saisons_collection=database.saisons
+            )
+
+        async def body(database: AsyncDatabase) -> tuple[Any, Any]:
+            await database.saisons.insert_one(documents.saison_document(OTHER_SAISON_ID, "past", rules=dict(RULES)))
+            await database.spieltage.insert_many(
+                [
+                    spieltag_document(_id=SECOND_OID, position=2, beginn=None, ende=None),
+                    spieltag_document(_id=FINALE_OID, position=1, saison_phase="finale", beginn=None, ende=None),
+                    spieltag_document(
+                        _id=OTHER_SAISON_OID, position=3, saison_id=OTHER_SAISON_ID, beginn=OTHER_SAISON_BEGINN, ende=OTHER_SAISON_ENDE
+                    ),
+                ]
+            )
+
+            return await read(database, SPIELTAG_OID), await read(database, FINALE_OID)
+
+        gruppenphase, finale = on_a_database(mongo_replica_set_url, body)
+
+        assert (gruppenphase.spieltag.count_spieltage_in_phase, finale.spieltag.count_spieltage_in_phase) == (2, 1)
+        assert gruppenphase.saison_status == "active"

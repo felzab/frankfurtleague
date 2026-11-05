@@ -6032,10 +6032,10 @@ export interface FLSpieltag {
  */
 export interface FLSpieltagAdmin {
   beginn: string | null;
-  /** @minimum 1 */
-  count_in_phase: number;
   /** @minimum 0 */
   count_spiele: number;
+  /** @minimum 1 */
+  count_spieltage_in_phase: number;
   ende: string | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
@@ -6050,7 +6050,14 @@ export interface FLSpieltagAdmin {
   version: number;
 }
 
+/**
+ * One matchday for its editor, and its season's status, by which the editor opens a finished season's read-only.
+ *
+ * On the response rather than on the matchday, as the match editor's read serves it: a matchday carries no
+ * season-scoped state.
+ */
 export interface FLSpieltagAdminResponse {
+  saison_status: FLSaisonStatus;
   spieltag: FLSpieltagAdmin;
 }
 

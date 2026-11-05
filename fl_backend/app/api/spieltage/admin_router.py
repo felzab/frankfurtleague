@@ -8,6 +8,8 @@ from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.berechtigungen.guard import verify_actor_is_admin
 from app.api.saisons.crud import pull_saison_id_and_rules
+from app.api.saisons.schemas import FLSaisonRules
+from app.api.saisons.services import find_saison_past_refusal
 from app.api.spieltage.schemas import (
     FLPatchSpieltagPayload,
     FLSpieltagAdmin,
@@ -97,20 +99,30 @@ async def get_spieltag_verwaltung(
     """
     Return one matchday by its id for the admin editor, a `future` season's included.
 
-    The shape of `GET /spieltage/{spieltag_id}`, without its season gate, plus `count_in_phase`, how many matchdays
-    its phase holds: the editor opens a matchday to date it, and that happens before its season is ever activated.
+    The shape of `GET /spieltage/{spieltag_id}`, without its season gate, plus `count_spieltage_in_phase`, how many
+    matchdays its phase holds: the editor opens a matchday to date it, and that happens before its season is ever
+    activated. Beside it its season's `status`, read as the re-dating judges it, so the editor opens read-only on
+    exactly the season the write refuses (`saison_past`).
     """
 
     spieltag_raw = await pull_one_from_db(collection=spieltage_collection, db_filter={"_id": spieltag_id})
 
     # Its OWN season, as the base read resolves it: `count_spiele` derives from that season's rules.
-    _, rules = await pull_saison_id_and_rules(saisons_collection=saisons_collection, saison_id=str(spieltag_raw["saison_id"]))
-    count_in_phase = await spieltage_collection.count_documents(
+    saison_raw = await pull_one_from_db(
+        collection=saisons_collection, db_filter={"_id": spieltag_raw["saison_id"]}, projection=["rules", "status"]
+    )
+    count_spieltage_in_phase = await spieltage_collection.count_documents(
         {"saison_id": spieltag_raw["saison_id"], "saison_phase": spieltag_raw["saison_phase"]}
     )
 
     return FLSpieltagAdminResponse(
-        spieltag=FLSpieltagAdmin.model_validate({**with_expected_matches(spieltag_raw, rules), "count_in_phase": count_in_phase})
+        spieltag=FLSpieltagAdmin.model_validate(
+            {
+                **with_expected_matches(spieltag_raw, FLSaisonRules.model_validate(saison_raw["rules"])),
+                "count_spieltage_in_phase": count_spieltage_in_phase,
+            }
+        ),
+        saison_status=saison_raw["status"],
     )
 
 
@@ -179,7 +191,9 @@ async def patch_spieltag(
     Move a matchday's span, answering the matchday's `version` after the save.
 
     No fan-out: matches embed no copy, so a re-dated matchday is picked up on the next read. The span is held
-    to its season's, to the days its own fixtures stand on, and its `beginn` to the order its phase is dated in.
+    to its season's, to the days its own fixtures stand on, and its `beginn` to the order its phase is dated in. A
+    `past` season's matchday is refused (`saison_past`), as its fixtures' saves are: a finished season's record is
+    closed.
     """
 
     async def redate_the_matchday(session: AsyncClientSession) -> FLSpieltagWriteResponse:
@@ -187,8 +201,11 @@ async def patch_spieltag(
 
         stored_raw = await pull_one_from_db(collection=spieltage_collection, db_filter={"_id": spieltag_id}, session=session)
 
-        # The season bounds the span.
+        # The season bounds the span. Its `status` read here stays current through the write: the order's judgement
+        # writes the season document, which `activate_saison` writes too, so a rollover landing under this save
+        # conflicts with it and the retry reads `past`.
         saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": stored_raw["saison_id"]}, session=session)
+        refuse(find_saison_past_refusal(saison_status=str(saison_raw["status"])))
 
         # Undated fixtures are filtered out rather than passed as nulls: one constrains nothing.
         fixture_dates = [
