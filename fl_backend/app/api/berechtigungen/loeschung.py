@@ -122,7 +122,7 @@ async def _withhold_queued(outbox_collection: AsyncCollection, identifier: str, 
 async def carry_authorship_in_session(
     *,
     grants_collection: AsyncCollection,
-    grants_approval_requests_collection: AsyncCollection,
+    grant_approval_requests_collection: AsyncCollection,
     bewerbungen_collection: AsyncCollection,
     registrierungen_collection: AsyncCollection,
     invitations_collection: AsyncCollection,
@@ -144,7 +144,7 @@ async def carry_authorship_in_session(
     carried += await _set_authored(invitations_collection, "created_by", old, new_address, session)
     # A moved requester's request stays theirs, approvable as before: carried so it holds no
     # address an erasure at the new one misses.
-    carried += await _set_authored(grants_approval_requests_collection, "approval.started_by", old, new_address, session)
+    carried += await _set_authored(grant_approval_requests_collection, "approval.started_by", old, new_address, session)
 
     return carried
 

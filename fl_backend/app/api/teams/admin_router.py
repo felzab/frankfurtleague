@@ -189,7 +189,7 @@ async def _rewrite_the_outgoing_clubs_sides(
 @router.get("/saisons", response_model=FLTeamsSaisonsResponse, summary="Every team with its season memberships")
 async def get_team_saisons(
     teams_collection: TeamsCollection,
-    address_change_collection: AddressChangeCollection,
+    address_changes_collection: AddressChangeCollection,
     grants_collection: GrantsCollection,
     grants_announced_collection: GrantsAnnouncedCollection,
     outbox_collection: OutboxCollection,
@@ -212,7 +212,7 @@ async def get_team_saisons(
         {
             row["adresse"]: row["_id"]
             for row in await aggregate_many_from_db(
-                collection=address_change_collection,
+                collection=address_changes_collection,
                 pipeline=[{"$match": build_addresses_filter(adressen)}, {"$project": {"adresse": 1}}],
             )
         }

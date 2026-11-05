@@ -23,7 +23,7 @@ def erasure_collections(database: AsyncDatabase | Mapping[Collection, Any], **re
     fails the call.
     """
 
-    handles = {f"{collection}_collection": database[collection] for step in ERASURE_STEPS for collection in sorted(step.reaches)}
+    handles = {f"{collection.name.lower()}_collection": database[collection] for step in ERASURE_STEPS for collection in sorted(step.reaches)}
     return {**handles, **replaced}
 
 

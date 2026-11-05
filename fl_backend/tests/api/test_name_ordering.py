@@ -151,7 +151,7 @@ class TestEveryNameListIsOrderedAsGermanReads:
         async def body(database: AsyncDatabase) -> Any:
             response = await get_team_saisons(
                 teams_collection=database[Collection.TEAMS],
-                address_change_collection=database[Collection.ADDRESS_CHANGES],
+                address_changes_collection=database[Collection.ADDRESS_CHANGES],
                 grants_collection=database[Collection.GRANTS],
                 grants_announced_collection=database[Collection.GRANTS_ANNOUNCED],
                 outbox_collection=database[Collection.OUTBOX],

@@ -132,11 +132,11 @@ async def _refuse_the_address(
 
 
 async def _pull_the_change(
-    address_change_collection: ReadCollection, address_change_id: Any, *, session: AsyncClientSession | None
+    address_changes_collection: ReadCollection, address_change_id: Any, *, session: AsyncClientSession | None
 ) -> Mapping[str, Any]:
     """The change an id names, ended or not: 404 where none is kept, `address_change_ended` where it ended."""
 
-    record = await address_change_collection.find_one({"_id": address_change_id}, session=session)
+    record = await address_changes_collection.find_one({"_id": address_change_id}, session=session)
     if record is None:
         raise DocumentNotFoundError()
     refuse(find_ended_refusal(open=record.get("ended") is None))
@@ -183,7 +183,7 @@ def _holdings(holdings: Holdings) -> FLAddressChangeAdminHoldings:
 )
 async def get_address_change_admin_view(
     view_data: Annotated[FLAddressChangeAdminViewPayload, Body()],
-    address_change_collection: AddressChangeReadCollection,
+    address_changes_collection: AddressChangeReadCollection,
     outbox_collection: OutboxReadCollection,
     records: SubjectLookup,
     grants_collection: GrantsReadCollection,
@@ -209,7 +209,7 @@ async def get_address_change_admin_view(
     # Every read in the request's snapshot session, so the tool names the records of one moment; never a transaction, a
     # read writing nothing having no conflict to retry for.
     if view_data.address_change_id is not None:
-        identifier = str((await _pull_the_change(address_change_collection, view_data.address_change_id, session=session))["adresse"])
+        identifier = str((await _pull_the_change(address_changes_collection, view_data.address_change_id, session=session))["adresse"])
     else:
         identifier = sign_in_identifier(str(view_data.adresse))
     await _refuse_the_address(
@@ -221,7 +221,7 @@ async def get_address_change_admin_view(
         session=session,
     )
     holdings = await read_the_holdings(identifier, records=records, grants_collection=grants_collection, session=session)
-    open = await address_change_collection.find_one(build_address_filter(identifier), session=session)
+    open = await address_changes_collection.find_one(build_address_filter(identifier), session=session)
     delivery = (
         None if open is None else await state_of_the_link(outbox_collection=outbox_collection, address_change_id=open["_id"], session=session)
     )
@@ -267,13 +267,13 @@ async def _refuse_without_approver(
 )
 async def post_address_change_admin(
     address_change_data: Annotated[FLAddressChangeAdminPayload, Body()],
-    address_change_collection: AddressChangeCollection,
+    address_changes_collection: AddressChangeCollection,
     records: SubjectLookup,
     spieler_collection: SpielerCollection,
     grants_collection: GrantsCollection,
     grants_announced_collection: GrantsAnnouncedCollection,
     outbox_collection: OutboxCollection,
-    grants_approval_requests_collection: GrantApprovalRequestsCollection,
+    grant_approval_requests_collection: GrantApprovalRequestsCollection,
     sperrliste: SperrlisteLookup,
     action_log_collection: ActionLogCollection,
     db: DBClient,
@@ -333,8 +333,8 @@ async def post_address_change_admin(
                     records=records,
                     occupancy=Occupancy(
                         grants_collection=grants_collection,
-                        grants_approval_requests_collection=grants_approval_requests_collection,
-                        address_change_collection=address_change_collection,
+                        grant_approval_requests_collection=grant_approval_requests_collection,
+                        address_changes_collection=address_changes_collection,
                         now=germany_now,
                     ),
                     session=session,
@@ -358,7 +358,7 @@ async def post_address_change_admin(
         )
         address_change_id = await start_the_change_in_session(
             record=record,
-            address_change_collection=address_change_collection,
+            address_changes_collection=address_changes_collection,
             action_log_collection=action_log_collection,
             key=sperrliste.key,
             now=germany_now,
@@ -404,13 +404,13 @@ async def post_address_change_admin(
 )
 async def invite_address_change(
     address_change_id: CustomRouteObjectId,
-    address_change_collection: AddressChangeCollection,
+    address_changes_collection: AddressChangeCollection,
     outbox_collection: OutboxCollection,
     records: SubjectLookup,
     spieler_collection: SpielerCollection,
     grants_collection: GrantsCollection,
     grants_announced_collection: GrantsAnnouncedCollection,
-    grants_approval_requests_collection: GrantApprovalRequestsCollection,
+    grant_approval_requests_collection: GrantApprovalRequestsCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
     operator: str = Depends(get_actor_email),
@@ -437,7 +437,7 @@ async def invite_address_change(
     governing_saison_id = await sperrliste_saison(sperrliste)
 
     async def judge_and_remint_the_change(session: AsyncClientSession) -> FLAddressChangeAdminMintResponse:
-        record = await _pull_the_change(address_change_collection, address_change_id, session=session)
+        record = await _pull_the_change(address_changes_collection, address_change_id, session=session)
         identifier = str(record["adresse"])
         await _refuse_the_address(
             identifier,
@@ -465,8 +465,8 @@ async def invite_address_change(
                     records=records,
                     occupancy=Occupancy(
                         grants_collection=grants_collection,
-                        grants_approval_requests_collection=grants_approval_requests_collection,
-                        address_change_collection=address_change_collection,
+                        grant_approval_requests_collection=grant_approval_requests_collection,
+                        address_changes_collection=address_changes_collection,
                         now=germany_now,
                     ),
                     session=session,
@@ -480,7 +480,7 @@ async def invite_address_change(
 
         # The filter is the judgement: a change awaiting its approval or confirmed is the 404 here.
         updated = await patch_one_in_db(
-            collection=address_change_collection,
+            collection=address_changes_collection,
             db_filter=build_live_filter(address_change_id, build_resendable_terms()),
             update=compose_link_update(now=germany_now, released=False),
             session=session,
@@ -513,7 +513,7 @@ async def invite_address_change(
 )
 async def delete_address_change(
     address_change_id: CustomRouteObjectId,
-    address_change_collection: AddressChangeCollection,
+    address_changes_collection: AddressChangeCollection,
     grants_collection: GrantsCollection,
     grants_announced_collection: GrantsAnnouncedCollection,
     action_log_collection: ActionLogCollection,
@@ -541,7 +541,7 @@ async def delete_address_change(
 
     @journal.attempted
     async def discard_the_change(session: AsyncClientSession) -> FLAddressChangeIdResponse:
-        record = await _pull_the_change(address_change_collection, address_change_id, session=session)
+        record = await _pull_the_change(address_changes_collection, address_change_id, session=session)
         await _refuse_the_address(
             str(record["adresse"]),
             actor=actor,
@@ -551,7 +551,7 @@ async def delete_address_change(
             session=session,
         )
         await end_the_change_in_session(
-            address_change_collection=address_change_collection,
+            address_changes_collection=address_changes_collection,
             action_log_collection=action_log_collection,
             db_filter={"_id": address_change_id},
             art="discarded",
@@ -586,7 +586,7 @@ async def delete_address_change(
 )
 async def post_address_change_approval(
     address_change_id: CustomRouteObjectId,
-    address_change_collection: AddressChangeCollection,
+    address_changes_collection: AddressChangeCollection,
     records: SubjectLookup,
     spieler_collection: SpielerCollection,
     schiedsrichter_collection: SchiedsrichterCollection,
@@ -597,7 +597,7 @@ async def post_address_change_approval(
     grants_collection: GrantsCollection,
     grants_announced_collection: GrantsAnnouncedCollection,
     outbox_collection: OutboxCollection,
-    grants_approval_requests_collection: GrantApprovalRequestsCollection,
+    grant_approval_requests_collection: GrantApprovalRequestsCollection,
     invitations_collection: InvitationsCollection,
     ban_list_collection: BanListCollection,
     sperrliste: SperrlisteLookup,
@@ -633,7 +633,7 @@ async def post_address_change_approval(
 
     @journal.attempted
     async def approve_the_change(session: AsyncClientSession) -> FLAddressChangeApprovalResponse | None:
-        record = await _pull_the_change(address_change_collection, address_change_id, session=session)
+        record = await _pull_the_change(address_changes_collection, address_change_id, session=session)
         refuse(find_no_approval_open_refusal(open=approval_open(record)))
         refuse(find_expired_refusal(expired=is_expired(record, now=germany_now)))
         grants = await read_berechtigungen(grants_collection=grants_collection, session=session)
@@ -646,7 +646,7 @@ async def post_address_change_approval(
 
         # The filter is the judgement: a rival's approval committed since the read is the miss.
         approved = await patch_one_in_db(
-            collection=address_change_collection,
+            collection=address_changes_collection,
             db_filter=build_live_filter(address_change_id, {"approval.approved_at": None}),
             update=compose_approved_update(actor=actor, now=germany_now),
             session=session,
@@ -660,7 +660,7 @@ async def post_address_change_approval(
             records=records,
             sperrliste=sperrliste,
             governing_saison_id=governing_saison_id,
-            address_change_collection=address_change_collection,
+            address_changes_collection=address_changes_collection,
             spieler_collection=spieler_collection,
             schiedsrichter_collection=schiedsrichter_collection,
             saison_teams_collection=saison_teams_collection,
@@ -670,7 +670,7 @@ async def post_address_change_approval(
             grants_collection=grants_collection,
             grants_announced_collection=grants_announced_collection,
             outbox_collection=outbox_collection,
-            grants_approval_requests_collection=grants_approval_requests_collection,
+            grant_approval_requests_collection=grant_approval_requests_collection,
             invitations_collection=invitations_collection,
             ban_list_collection=ban_list_collection,
             action_log_collection=action_log_collection,

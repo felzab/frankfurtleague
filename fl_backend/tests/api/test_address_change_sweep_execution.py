@@ -157,8 +157,8 @@ def on_a_league(url: str, body: Body, *, mutates_schema: bool = False) -> Any:
 async def sweep(database: AsyncDatabase, client: AsyncMongoClient, *, after: Any = None, **replaced: Any) -> Any:
     return await sweep_address_change(
         params=FLAddressChangeSweepParams(after=after),
-        records=record_collections(database, **{name: value for name, value in replaced.items() if name != "address_change_collection"}),
-        address_change_collection=replaced.get("address_change_collection", database[Collection.ADDRESS_CHANGES]),
+        records=record_collections(database, **{name: value for name, value in replaced.items() if name != "address_changes_collection"}),
+        address_changes_collection=replaced.get("address_changes_collection", database[Collection.ADDRESS_CHANGES]),
         spieler_collection=replaced.get("spieler_collection", database[Collection.SPIELER]),
         schiedsrichter_collection=replaced.get("schiedsrichter_collection", database[Collection.SCHIEDSRICHTER]),
         saison_teams_collection=replaced.get("saison_teams_collection", database[Collection.SAISON_TEAMS]),
@@ -168,7 +168,7 @@ async def sweep(database: AsyncDatabase, client: AsyncMongoClient, *, after: Any
         grants_collection=database[Collection.GRANTS],
         grants_announced_collection=database[Collection.GRANTS_ANNOUNCED],
         outbox_collection=database[Collection.OUTBOX],
-        grants_approval_requests_collection=database[Collection.GRANT_APPROVAL_REQUESTS],
+        grant_approval_requests_collection=database[Collection.GRANT_APPROVAL_REQUESTS],
         invitations_collection=database[Collection.INVITATIONS],
         ban_list_collection=database[Collection.BAN_LIST],
         sperrliste=ban_list(database),
@@ -327,7 +327,7 @@ class TestEachChangeIsJudgedAgainInItsOwnTransaction:
                 )
 
             answer = await sweep(
-                database, client, address_change_collection=WrittenAfterTheRead(database[Collection.ADDRESS_CHANGES], send_it_again)
+                database, client, address_changes_collection=WrittenAfterTheRead(database[Collection.ADDRESS_CHANGES], send_it_again)
             )
 
             return (answer.removed, answer.remaining), await live(database)
@@ -413,7 +413,7 @@ class TestOneChangeHoldsBackNoOther:
                 [a_change(position, minted=MINTED_TO_LAPSE_YESTERDAY) for position in (1, 2)]
             )
             answer = await sweep(
-                database, client, address_change_collection=RaisesOnOneChange(database[Collection.ADDRESS_CHANGES], numbered(1))
+                database, client, address_changes_collection=RaisesOnOneChange(database[Collection.ADDRESS_CHANGES], numbered(1))
             )
 
             return (answer.removed, answer.remaining, answer.after), await live(database)
@@ -643,11 +643,11 @@ class TestTheOwedCarries:
                     for position in (1, 2)
                 ]
             )
-            listed = (await get_address_change_moves(address_change_collection=database[Collection.ADDRESS_CHANGES])).moves
+            listed = (await get_address_change_moves(address_changes_collection=database[Collection.ADDRESS_CHANGES])).moves
             payload = FLAddressChangeMovesDonePayload(ids=[numbered(1)])
-            first = await post_address_change_moves_done(done_data=payload, address_change_collection=database[Collection.ADDRESS_CHANGES])
-            again = await post_address_change_moves_done(done_data=payload, address_change_collection=database[Collection.ADDRESS_CHANGES])
-            left = (await get_address_change_moves(address_change_collection=database[Collection.ADDRESS_CHANGES])).moves
+            first = await post_address_change_moves_done(done_data=payload, address_changes_collection=database[Collection.ADDRESS_CHANGES])
+            again = await post_address_change_moves_done(done_data=payload, address_changes_collection=database[Collection.ADDRESS_CHANGES])
+            left = (await get_address_change_moves(address_changes_collection=database[Collection.ADDRESS_CHANGES])).moves
 
             return [(row.id, row.old, row.new) for row in listed], first.done, again.done, [row.id for row in left]
 

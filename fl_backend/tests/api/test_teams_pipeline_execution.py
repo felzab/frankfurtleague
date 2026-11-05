@@ -91,7 +91,7 @@ def test_a_match_without_an_ergebnis_does_not_count(league: SeededLeague):
 
 
 def test_an_ergebnis_without_goal_counts_does_not_count(league: SeededLeague):
-    """Without the goal-count filters this match groups as a 0:0 draw, giving Lessing a fourth match and Ohne its first."""
+    """Without the goal-count filters this match groups as a 0:0 draw, giving Lessing a fourth match and Without its first."""
     figures = table(league)
 
     assert figures["Lessing"]["count_gespielte_spiele"] == 3
@@ -115,7 +115,7 @@ class TestACalledOffFixture:
     """The two counts are deliberately not a partition: a forfeit is in this figure and in `count_gespielte_spiele` both."""
 
     def test_it_is_counted_for_both_teams(self, league: SeededLeague):
-        """The `$expr` reaches either side: Ohne holds slot two of Spiel 10 and slot one of Spiel 13, so a one-slot match leaves it on 1."""
+        """The `$expr` reaches either side: Without holds slot two of Spiel 10 and slot one of Spiel 13, so a one-slot match leaves it on 1."""
         figures = table(league)
 
         assert figures["Helmholtz"]["count_abgesagte_spiele"] == 1
@@ -130,7 +130,7 @@ class TestACalledOffFixture:
         assert komplett["count_abgesagte_spiele"] == 0
 
     def test_an_annulled_fixture_is_an_absage_and_never_a_match_played(self, league: SeededLeague):
-        """Spiel 13 did not take place, so it joins the absage Ohne's Spiel 10 earns while the played figure stays where it was."""
+        """Spiel 13 did not take place, so it joins the absage Without's Spiel 10 earns while the played figure stays where it was."""
         without = table(league)["Without"]
 
         assert without["count_gespielte_spiele"] == 0
@@ -163,7 +163,7 @@ class TestACalledOffFixture:
         assert table(league, scope="total")["Helmholtz"]["count_abgesagte_spiele"] == 2
 
     def test_a_team_with_no_cancellation_reads_zero(self, league: SeededLeague):
-        """Komplett rather than a team with no match: only a team `$group` produced a document for proves the `$ifNull`."""
+        """Complete rather than a team with no match: only a team `$group` produced a document for proves the `$ifNull`."""
         assert table(league)["Complete"]["count_abgesagte_spiele"] == 0
 
 
@@ -194,7 +194,7 @@ def test_a_team_with_no_counting_match_is_served_zeroes(league: SeededLeague):
 
 
 def test_a_team_with_no_junction_row_disappears(league: SeededLeague):
-    """Fremd exists in `teams` and plays a 2026 match, so only the missing junction row can drop it."""
+    """Foreign exists in `teams` and plays a 2026 match, so only the missing junction row can drop it."""
     unseasoned = "Foreign"
 
     assert unseasoned in league.team_oids, "the club this case is about is no longer seeded"
@@ -250,7 +250,7 @@ def test_a_stored_statistik_on_the_junction_is_ignored(league: SeededLeague):
 
 
 def test_the_result_validates_as_the_response_model(league: SeededLeague):
-    """Validating through the adapter proves the projection carries every field `FLTeam` requires, Ohne's fallback included."""
+    """Validating through the adapter proves the projection carries every field `FLTeam` requires, Without's fallback included."""
     teams = FLTeamListAdapter.validate_python(rows(league))
 
     assert {team.name for team in teams} == {"Helmholtz", "Bock", "Lessing", "Without", "Complete"}

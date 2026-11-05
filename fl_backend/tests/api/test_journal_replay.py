@@ -912,7 +912,7 @@ class TestADiscardedChange:
             with caplog.at_level(logging.INFO):
                 await discard_the_change(
                     address_change_id=PUPIL_CHANGE_OID,
-                    address_change_collection=changes,
+                    address_changes_collection=changes,
                     grants_collection=database[Collection.GRANTS],
                     grants_announced_collection=database[Collection.GRANTS_ANNOUNCED],
                     action_log_collection=database[Collection.ACTION_LOG],

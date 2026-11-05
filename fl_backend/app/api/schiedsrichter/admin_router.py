@@ -138,7 +138,7 @@ async def get_schiedsrichter(
 async def get_schiedsrichter_by_id(
     schiedsrichter_id: CustomRouteObjectId,
     schiedsrichter_collection: SchiedsrichterCollection,
-    address_change_collection: AddressChangeCollection,
+    address_changes_collection: AddressChangeCollection,
     grants_collection: GrantsCollection,
     grants_announced_collection: GrantsAnnouncedCollection,
     outbox_collection: OutboxCollection,
@@ -161,7 +161,7 @@ async def get_schiedsrichter_by_id(
     schiedsrichter_raw = await pull_one_from_db(collection=schiedsrichter_collection, db_filter=build_referee_filter(schiedsrichter_id))
     email = (schiedsrichter_raw.get("kontakt") or {}).get("email")
     identifier = sign_in_identifier(email) if isinstance(email, str) else None
-    open = None if identifier is None else await address_change_collection.find_one(build_address_filter(identifier), {"_id": 1})
+    open = None if identifier is None else await address_changes_collection.find_one(build_address_filter(identifier), {"_id": 1})
     denied = await denied_addresses(
         [] if open is None or identifier is None else [identifier],
         actor=sign_in_identifier(operator),

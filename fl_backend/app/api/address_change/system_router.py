@@ -107,7 +107,7 @@ def _pipeline(*, now: datetime, after: Any, size: int) -> list[dict[str, Any]]:
 async def _end_the_lapsed_change(
     row: Mapping[str, Any],
     *,
-    address_change_collection: AsyncCollection,
+    address_changes_collection: AsyncCollection,
     outbox_collection: AsyncCollection,
     action_log_collection: AsyncCollection,
     db: AsyncMongoClient,
@@ -121,7 +121,7 @@ async def _end_the_lapsed_change(
 
     async def end_the_lapsed_change(session: AsyncClientSession) -> None:
         stored = await end_the_change_in_session(
-            address_change_collection=address_change_collection,
+            address_changes_collection=address_changes_collection,
             action_log_collection=action_log_collection,
             db_filter={"_id": row["_id"], **build_lapsed_terms(now)},
             art="expired",
@@ -144,7 +144,7 @@ async def _make_the_due_change_take_effect(
     records: RecordCollections,
     sperrliste: BanList,
     governing_saison_id: str | None,
-    address_change_collection: AsyncCollection,
+    address_changes_collection: AsyncCollection,
     spieler_collection: AsyncCollection,
     schiedsrichter_collection: AsyncCollection,
     saison_teams_collection: AsyncCollection,
@@ -154,7 +154,7 @@ async def _make_the_due_change_take_effect(
     grants_collection: AsyncCollection,
     grants_announced_collection: AsyncCollection,
     outbox_collection: AsyncCollection,
-    grants_approval_requests_collection: AsyncCollection,
+    grant_approval_requests_collection: AsyncCollection,
     invitations_collection: AsyncCollection,
     ban_list_collection: AsyncCollection,
     action_log_collection: AsyncCollection,
@@ -174,14 +174,14 @@ async def _make_the_due_change_take_effect(
     @journal.attempted
     async def take_effect(session: AsyncClientSession) -> Literal["effective", "discarded"] | None:
         record = await pull_one_from_db(
-            collection=address_change_collection, db_filter={"_id": row["_id"], **build_due_terms(now)}, session=session
+            collection=address_changes_collection, db_filter={"_id": row["_id"], **build_due_terms(now)}, session=session
         )
         verdict, effective = await take_effect_in_session(
             record=record,
             records=records,
             sperrliste=sperrliste,
             governing_saison_id=governing_saison_id,
-            address_change_collection=address_change_collection,
+            address_changes_collection=address_changes_collection,
             spieler_collection=spieler_collection,
             schiedsrichter_collection=schiedsrichter_collection,
             saison_teams_collection=saison_teams_collection,
@@ -191,7 +191,7 @@ async def _make_the_due_change_take_effect(
             grants_collection=grants_collection,
             grants_announced_collection=grants_announced_collection,
             outbox_collection=outbox_collection,
-            grants_approval_requests_collection=grants_approval_requests_collection,
+            grant_approval_requests_collection=grant_approval_requests_collection,
             invitations_collection=invitations_collection,
             ban_list_collection=ban_list_collection,
             action_log_collection=action_log_collection,
@@ -212,7 +212,7 @@ async def _make_the_due_change_take_effect(
         # Every judgement the confirmation makes, at the end of the waiting time as at its start.
         if not verdict.empty:
             await end_the_change_in_session(
-                address_change_collection=address_change_collection,
+                address_changes_collection=address_changes_collection,
                 action_log_collection=action_log_collection,
                 db_filter={"_id": record["_id"]},
                 art="discarded",
@@ -247,7 +247,7 @@ async def _make_the_due_change_take_effect(
 async def sweep_address_change(
     params: Annotated[FLAddressChangeSweepParams, Query()],
     records: SubjectLookup,
-    address_change_collection: AddressChangeCollection,
+    address_changes_collection: AddressChangeCollection,
     spieler_collection: SpielerCollection,
     schiedsrichter_collection: SchiedsrichterCollection,
     saison_teams_collection: SaisonTeamsCollection,
@@ -257,7 +257,7 @@ async def sweep_address_change(
     grants_collection: GrantsCollection,
     grants_announced_collection: GrantsAnnouncedCollection,
     outbox_collection: OutboxCollection,
-    grants_approval_requests_collection: GrantApprovalRequestsCollection,
+    grant_approval_requests_collection: GrantApprovalRequestsCollection,
     invitations_collection: InvitationsCollection,
     ban_list_collection: BanListCollection,
     sperrliste: SperrlisteLookup,
@@ -289,7 +289,7 @@ async def sweep_address_change(
     """
 
     [read] = await aggregate_many_from_db(
-        collection=address_change_collection,
+        collection=address_changes_collection,
         # One past the share, so a call ending exactly at the share's last row can tell whether any follow.
         pipeline=_pipeline(now=germany_now, after=params.after, size=ADDRESS_CHANGE_PER_PASS + 1),
     )
@@ -316,7 +316,7 @@ async def sweep_address_change(
                     records=records,
                     sperrliste=sperrliste,
                     governing_saison_id=governing_saison_id,
-                    address_change_collection=address_change_collection,
+                    address_changes_collection=address_changes_collection,
                     spieler_collection=spieler_collection,
                     schiedsrichter_collection=schiedsrichter_collection,
                     saison_teams_collection=saison_teams_collection,
@@ -326,7 +326,7 @@ async def sweep_address_change(
                     grants_collection=grants_collection,
                     grants_announced_collection=grants_announced_collection,
                     outbox_collection=outbox_collection,
-                    grants_approval_requests_collection=grants_approval_requests_collection,
+                    grant_approval_requests_collection=grant_approval_requests_collection,
                     invitations_collection=invitations_collection,
                     ban_list_collection=ban_list_collection,
                     action_log_collection=action_log_collection,
@@ -338,7 +338,7 @@ async def sweep_address_change(
             else:
                 await _end_the_lapsed_change(
                     row,
-                    address_change_collection=address_change_collection,
+                    address_changes_collection=address_changes_collection,
                     outbox_collection=outbox_collection,
                     action_log_collection=action_log_collection,
                     db=db,
@@ -398,7 +398,7 @@ async def sweep_address_change(
 
 
 @router.get("/sweep/moves", response_model=FLAddressChangeMovesResponse, summary="List the sign-in accounts the effects still owe to carry")
-async def get_address_change_moves(address_change_collection: AddressChangeCollection) -> FLAddressChangeMovesResponse:
+async def get_address_change_moves(address_changes_collection: AddressChangeCollection) -> FLAddressChangeMovesResponse:
     """
     List, oldest first and a page at a time, the ended changes still owing to carry a sign-in account to their new address.
 
@@ -409,7 +409,7 @@ async def get_address_change_moves(address_change_collection: AddressChangeColle
     """
 
     owed = await pull_many_from_db(
-        collection=address_change_collection,
+        collection=address_changes_collection,
         db_filter={"move": {"$type": "object"}},
         sort_by=[("_id", ASCENDING)],
         limit=LIST_LIMIT_DEFAULT,
@@ -428,13 +428,13 @@ async def get_address_change_moves(address_change_collection: AddressChangeColle
 )
 async def post_address_change_moves_done(
     done_data: Annotated[FLAddressChangeMovesDonePayload, Body()],
-    address_change_collection: AddressChangeCollection,
+    address_changes_collection: AddressChangeCollection,
 ) -> FLAddressChangeMovesDoneResponse:
     """Take the owed carry off each named change, counting the ones that owed one; an id owing none is left alone."""
 
     # By id alone: the log keeps the filter, and an address would stand in it.
     result = await patch_many_in_db(
-        collection=address_change_collection,
+        collection=address_changes_collection,
         db_filter={"_id": {"$in": sorted(set(done_data.ids))}, "move": {"$type": "object"}},
         update={"$unset": {"move": ""}},
     )
@@ -450,7 +450,7 @@ async def post_address_change_moves_done(
 )
 async def get_address_change_adresse(
     adresse_data: Annotated[FLAddressChangeAdressePayload, Body()],
-    address_change_collection: AddressChangeReadCollection,
+    address_changes_collection: AddressChangeReadCollection,
 ) -> FLAddressChangeAdresseResponse:
     """
     Answer the new address of the live change the new mailbox's link token or the change's id names, folded to the sign-in identifier.
@@ -467,6 +467,6 @@ async def get_address_change_adresse(
         if adresse_data.token is None
         else {"token_hashes": hash_token(adresse_data.token), **LIVE_TERMS}
     )
-    record = await address_change_collection.find_one(db_filter, projection={"email": 1})
+    record = await address_changes_collection.find_one(db_filter, projection={"email": 1})
 
     return FLAddressChangeAdresseResponse(email=None if record is None else sign_in_identifier(str(record["email"])))

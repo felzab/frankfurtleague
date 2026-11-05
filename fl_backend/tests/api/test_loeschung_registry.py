@@ -33,7 +33,7 @@ A_GRANT_TAKEN = FLErasure(
     registrierungen=0,
     address_change=0,
     grants=1,
-    grants_approval_requests=0,
+    grant_approval_requests=0,
 )
 
 

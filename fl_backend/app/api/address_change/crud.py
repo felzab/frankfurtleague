@@ -189,8 +189,8 @@ class Occupancy:
     """What `address_taken` reads beyond the records: the grants, their open requests and the changes owing a carry."""
 
     grants_collection: ReadCollection
-    grants_approval_requests_collection: ReadCollection
-    address_change_collection: ReadCollection
+    grant_approval_requests_collection: ReadCollection
+    address_changes_collection: ReadCollection
     now: datetime
 
 
@@ -209,9 +209,9 @@ async def address_taken(email: str, *, records: RecordCollections, occupancy: Oc
         (records.registrierungen_collection, build_loeschung_registrierung_filter(folded)),
         # As stored, as the account sweep reads it: a row the comparison has not seen yet still keeps an account.
         (occupancy.grants_collection, {"adresse": folded}),
-        (occupancy.grants_approval_requests_collection, {"adresse": folded, **build_offen_filter(occupancy.now)}),
+        (occupancy.grant_approval_requests_collection, {"adresse": folded, **build_offen_filter(occupancy.now)}),
         # The account still standing there until its own carry moves it off.
-        (occupancy.address_change_collection, build_owed_carry_filter([folded])),
+        (occupancy.address_changes_collection, build_owed_carry_filter([folded])),
     ]
     # One read at a time, as a session runs them: `$unionWith` would send one command, and no transaction takes it.
     for collection, db_filter in reads:
@@ -230,7 +230,7 @@ def _redacting(fields: tuple[str, ...]) -> Callable[[Mapping[str, Any]], dict[st
 
 async def end_the_change_in_session(
     *,
-    address_change_collection: AsyncCollection,
+    address_changes_collection: AsyncCollection,
     action_log_collection: AsyncCollection,
     # The judgement: a change it matches not is a miss, `DocumentNotFoundError`, before any write.
     db_filter: Mapping[str, Any],
@@ -247,7 +247,7 @@ async def end_the_change_in_session(
     """
 
     stored = await patch_one_in_db(
-        collection=address_change_collection,
+        collection=address_changes_collection,
         db_filter={**db_filter, **LIVE_TERMS},
         update=compose_end_update(art=art, now=now),
         session=session,
@@ -302,7 +302,7 @@ def effective_line(*, record: Mapping[str, Any], now: datetime, key: SecretStr) 
 async def start_the_change_in_session(
     *,
     record: Mapping[str, Any],
-    address_change_collection: AsyncCollection,
+    address_changes_collection: AsyncCollection,
     action_log_collection: AsyncCollection,
     key: SecretStr,
     now: datetime,
@@ -315,10 +315,10 @@ async def start_the_change_in_session(
     """
 
     stamp = log_stamp(now)
-    replaced = await address_change_collection.find_one(build_address_filter(str(record["adresse"])), {"email": 1}, session=session)
+    replaced = await address_changes_collection.find_one(build_address_filter(str(record["adresse"])), {"email": 1}, session=session)
     if replaced is not None:
         await end_the_change_in_session(
-            address_change_collection=address_change_collection,
+            address_changes_collection=address_changes_collection,
             action_log_collection=action_log_collection,
             db_filter={"_id": replaced["_id"]},
             art="replaced",
@@ -331,7 +331,7 @@ async def start_the_change_in_session(
         )
 
     # Two starts on one address meet at `uniq_address_change_adresse` as a write conflict, which the transaction retries.
-    created = await post_one_to_db(collection=address_change_collection, document=record, session=session)
+    created = await post_one_to_db(collection=address_changes_collection, document=record, session=session)
 
     return created.inserted_id
 
@@ -563,7 +563,7 @@ async def take_effect_in_session(
     records: RecordCollections,
     sperrliste: BanList,
     governing_saison_id: Saison,
-    address_change_collection: AsyncCollection,
+    address_changes_collection: AsyncCollection,
     spieler_collection: AsyncCollection,
     schiedsrichter_collection: AsyncCollection,
     saison_teams_collection: AsyncCollection,
@@ -573,7 +573,7 @@ async def take_effect_in_session(
     grants_collection: AsyncCollection,
     grants_announced_collection: AsyncCollection,
     outbox_collection: AsyncCollection,
-    grants_approval_requests_collection: AsyncCollection,
+    grant_approval_requests_collection: AsyncCollection,
     invitations_collection: AsyncCollection,
     ban_list_collection: AsyncCollection,
     action_log_collection: AsyncCollection,
@@ -606,8 +606,8 @@ async def take_effect_in_session(
         governing_saison_id=governing_saison_id,
         occupancy=Occupancy(
             grants_collection=grants_collection,
-            grants_approval_requests_collection=grants_approval_requests_collection,
-            address_change_collection=address_change_collection,
+            grant_approval_requests_collection=grant_approval_requests_collection,
+            address_changes_collection=address_changes_collection,
             now=now,
         ),
         expired=expired,
@@ -616,7 +616,7 @@ async def take_effect_in_session(
     if verdict.withdrawn:
         # Taken off the record, so the administrators page offers the approval again and the pass finds it due nowhere.
         await patch_one_in_db(
-            collection=address_change_collection,
+            collection=address_changes_collection,
             db_filter={"_id": record["_id"], **LIVE_TERMS},
             update=compose_approval_withdrawn_update(),
             session=session,
@@ -630,7 +630,7 @@ async def take_effect_in_session(
     stamp = log_stamp(now)
     if verdict.empty:
         await end_the_change_in_session(
-            address_change_collection=address_change_collection,
+            address_changes_collection=address_changes_collection,
             action_log_collection=action_log_collection,
             db_filter={"_id": record["_id"]},
             art="discarded",
@@ -656,7 +656,7 @@ async def take_effect_in_session(
         record=record,
         holdings=holdings,
         sperrliste=sperrliste,
-        address_change_collection=address_change_collection,
+        address_changes_collection=address_changes_collection,
         spieler_collection=spieler_collection,
         schiedsrichter_collection=schiedsrichter_collection,
         saison_teams_collection=saison_teams_collection,
@@ -666,7 +666,7 @@ async def take_effect_in_session(
         grants_collection=grants_collection,
         grants_announced_collection=grants_announced_collection,
         outbox_collection=outbox_collection,
-        grants_approval_requests_collection=grants_approval_requests_collection,
+        grant_approval_requests_collection=grant_approval_requests_collection,
         invitations_collection=invitations_collection,
         ban_list_collection=ban_list_collection,
         action_log_collection=action_log_collection,
@@ -687,7 +687,7 @@ async def move_the_address_in_session(
     record: Mapping[str, Any],
     holdings: Holdings,
     sperrliste: BanList,
-    address_change_collection: AsyncCollection,
+    address_changes_collection: AsyncCollection,
     spieler_collection: AsyncCollection,
     schiedsrichter_collection: AsyncCollection,
     saison_teams_collection: AsyncCollection,
@@ -697,7 +697,7 @@ async def move_the_address_in_session(
     grants_collection: AsyncCollection,
     grants_announced_collection: AsyncCollection,
     outbox_collection: AsyncCollection,
-    grants_approval_requests_collection: AsyncCollection,
+    grant_approval_requests_collection: AsyncCollection,
     invitations_collection: AsyncCollection,
     ban_list_collection: AsyncCollection,
     action_log_collection: AsyncCollection,
@@ -792,7 +792,7 @@ async def move_the_address_in_session(
         session=session,
     )
     await end_the_change_in_session(
-        address_change_collection=address_change_collection,
+        address_changes_collection=address_changes_collection,
         action_log_collection=action_log_collection,
         db_filter={"_id": record["_id"]},
         art="effective",
@@ -803,7 +803,7 @@ async def move_the_address_in_session(
 
     # Before the images' carry below, which takes the replaced address out of the image an ended request keeps.
     ended = await end_the_antraege_about_in_session(
-        grants_approval_requests_collection=grants_approval_requests_collection,
+        grant_approval_requests_collection=grant_approval_requests_collection,
         outbox_collection=outbox_collection,
         adresse=holdings.identifier,
         now=now,
@@ -817,7 +817,7 @@ async def move_the_address_in_session(
     # decisions included: the starter of a change stays excluded from approving it.
     await carry_authorship_in_session(
         grants_collection=grants_collection,
-        grants_approval_requests_collection=grants_approval_requests_collection,
+        grant_approval_requests_collection=grant_approval_requests_collection,
         bewerbungen_collection=bewerbungen_collection,
         registrierungen_collection=registrierungen_collection,
         invitations_collection=invitations_collection,
@@ -826,7 +826,7 @@ async def move_the_address_in_session(
         new_address=new,
         session=session,
     )
-    await _reattribute_the_changes(address_change_collection, old, new, session=session)
+    await _reattribute_the_changes(address_changes_collection, old, new, session=session)
     await reattribute_administrator_in_session(action_log_collection=action_log_collection, identifier=old, value=new, session=session)
     # A seat or referee row left before the change is in no document an erasure at the new address reads, so its images
     # follow the person; one standing at the replaced address as nobody's proven own keeps it.
@@ -849,11 +849,11 @@ async def move_the_address_in_session(
     # An earlier effect's carry still owed takes its account to where the person is now, and an erasure there finds it.
     # Read, then written by id: the log keeps a fan-out's filter as text, address and all.
     owed = await aggregate_many_from_db(
-        collection=address_change_collection, pipeline=[{"$match": {"move.new": old}}, {"$project": {"_id": 1}}], session=session
+        collection=address_changes_collection, pipeline=[{"$match": {"move.new": old}}, {"$project": {"_id": 1}}], session=session
     )
     if owed:
         await patch_many_in_db(
-            collection=address_change_collection,
+            collection=address_changes_collection,
             db_filter={"_id": {"$in": [row["_id"] for row in owed]}},
             update={"$set": {"move.new": new}},
             session=session,
@@ -863,7 +863,7 @@ async def move_the_address_in_session(
     # A change that waited carries no account: whatever its old mailbox's holder enrolled meanwhile would follow. The carry
     # is owed on the ended record itself, in this transaction, so a commit whose answer was lost still owes it.
     await patch_many_in_db(
-        collection=address_change_collection,
+        collection=address_changes_collection,
         db_filter={"_id": record["_id"]},
         update={
             "$set": {
@@ -1107,7 +1107,7 @@ _APPROVAL_ACTORS: Final = ("approval.started_by", "approval.approved_by")
 
 async def end_the_address_changes_in_session(
     *,
-    address_change_collection: AsyncCollection,
+    address_changes_collection: AsyncCollection,
     outbox_collection: AsyncCollection,
     action_log_collection: AsyncCollection,
     identifier: str,
@@ -1137,7 +1137,7 @@ async def end_the_address_changes_in_session(
 
     for row in rows:
         await end_the_change_in_session(
-            address_change_collection=address_change_collection,
+            address_changes_collection=address_changes_collection,
             action_log_collection=action_log_collection,
             db_filter={"_id": row["_id"]},
             art="discarded",
@@ -1147,18 +1147,18 @@ async def end_the_address_changes_in_session(
         )
 
     # Read after the endings, which took the approval off every change they ended.
-    await _reattribute_the_changes(address_change_collection, identifier, ERASED_ACTOR_MARKER, session=session)
+    await _reattribute_the_changes(address_changes_collection, identifier, ERASED_ACTOR_MARKER, session=session)
 
     # A carry still owed off or onto the erased address goes: the erasure takes the account it would move, or the address
     # it would move one to. By id, as every write here.
     owed = await aggregate_many_from_db(
-        collection=address_change_collection,
+        collection=address_changes_collection,
         pipeline=[{"$match": {"$or": [{"move.old": identifier}, {"move.new": identifier}]}}, {"$project": {"_id": 1}}],
         session=session,
     )
     if owed:
         await patch_many_in_db(
-            collection=address_change_collection,
+            collection=address_changes_collection,
             db_filter={"_id": {"$in": [row["_id"] for row in owed]}},
             update={"$unset": {"move": ""}},
             session=session,
@@ -1168,7 +1168,7 @@ async def end_the_address_changes_in_session(
 
 
 async def _reattribute_the_changes(
-    address_change_collection: AsyncCollection, identifier: str, value: str, *, session: AsyncClientSession
+    address_changes_collection: AsyncCollection, identifier: str, value: str, *, session: AsyncClientSession
 ) -> None:
     """Put `value` where this folded administrator started or approved a live change: the erasure's marker, or their new address.
 
@@ -1178,13 +1178,13 @@ async def _reattribute_the_changes(
     for path in _APPROVAL_ACTORS:
         # Folded, as `app/core/security.py :: bind_actor` stores every administrator's address.
         named = await aggregate_many_from_db(
-            collection=address_change_collection,
+            collection=address_changes_collection,
             pipeline=[{"$match": {**LIVE_TERMS, path: sign_in_identifier(identifier)}}, {"$project": {"_id": 1}}],
             session=session,
         )
         if named:
             await patch_many_in_db(
-                collection=address_change_collection,
+                collection=address_changes_collection,
                 db_filter={"_id": {"$in": [row["_id"] for row in named]}},
                 update={"$set": {path: value}},
                 session=session,
@@ -1193,7 +1193,7 @@ async def _reattribute_the_changes(
 
 async def end_an_emptied_change_in_session(
     *,
-    address_change_collection: AsyncCollection,
+    address_changes_collection: AsyncCollection,
     action_log_collection: AsyncCollection,
     grants_collection: AsyncCollection,
     records: RecordCollections,
@@ -1207,7 +1207,7 @@ async def end_an_emptied_change_in_session(
     The season's erasure takes the pupil alone, so a change standing for the address's other records stays.
     """
 
-    live = await address_change_collection.find_one(build_address_filter(identifier), {"_id": 1}, session=session)
+    live = await address_changes_collection.find_one(build_address_filter(identifier), {"_id": 1}, session=session)
     if live is None:
         return 0
 
@@ -1216,7 +1216,7 @@ async def end_an_emptied_change_in_session(
         return 0
 
     await end_the_change_in_session(
-        address_change_collection=address_change_collection,
+        address_changes_collection=address_changes_collection,
         action_log_collection=action_log_collection,
         db_filter={"_id": live["_id"]},
         art="discarded",

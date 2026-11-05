@@ -103,8 +103,8 @@ async def get_erasure_view(
     spiele_collection: SpieleReadCollection,
     grants_collection: GrantsReadCollection,
     grants_announced_collection: GrantsAnnouncedReadCollection,
-    grants_approval_requests_collection: GrantApprovalRequestsReadCollection,
-    address_change_collection: AddressChangeReadCollection,
+    grant_approval_requests_collection: GrantApprovalRequestsReadCollection,
+    address_changes_collection: AddressChangeReadCollection,
     sperrliste: SperrlisteLookup,
     session: SnapshotSession,
     config: Annotated[BackendConfig, Depends(get_app_config)],
@@ -165,7 +165,7 @@ async def get_erasure_view(
         schiedsrichter_collection=schiedsrichter_collection,
         spieler_collection=spieler_collection,
         registrierungen_collection=registrierungen_collection,
-        address_change_collection=address_change_collection,
+        address_changes_collection=address_changes_collection,
         key=config.sperrliste_key,
         session=session,
     )
@@ -198,7 +198,7 @@ async def get_erasure_view(
     # keys a ban under answers false, where keying the payload's spelling would raise.
     barred = await adressen_gesperrt(sperrliste, [view_data.email], session=session)
     approval_request_rows = await read_the_antraege_of(
-        grants_approval_requests_collection=grants_approval_requests_collection, identifier=identifier, now=germany_now, session=session
+        grant_approval_requests_collection=grant_approval_requests_collection, identifier=identifier, now=germany_now, session=session
     )
 
     denied: dict[str, FLAddressChangeViewableDenied] = {
@@ -258,8 +258,8 @@ async def post_erasure(
     outbox_collection: OutboxCollection,
     invitations_collection: InvitationsCollection,
     ban_list_collection: BanListCollection,
-    address_change_collection: AddressChangeCollection,
-    grants_approval_requests_collection: GrantApprovalRequestsCollection,
+    address_changes_collection: AddressChangeCollection,
+    grant_approval_requests_collection: GrantApprovalRequestsCollection,
     sperrliste: SperrlisteLookup,
     actor: Annotated[SessionActor, Depends(verify_admin_actor)],
     db: DBClient,
@@ -315,7 +315,7 @@ async def post_erasure(
             schiedsrichter_collection=schiedsrichter_collection,
             spieler_collection=spieler_collection,
             registrierungen_collection=registrierungen_collection,
-            address_change_collection=address_change_collection,
+            address_changes_collection=address_changes_collection,
             key=config.sperrliste_key,
             session=session,
         )
@@ -348,8 +348,8 @@ async def post_erasure(
             outbox_collection=outbox_collection,
             invitations_collection=invitations_collection,
             ban_list_collection=ban_list_collection,
-            address_change_collection=address_change_collection,
-            grants_approval_requests_collection=grants_approval_requests_collection,
+            address_changes_collection=address_changes_collection,
+            grant_approval_requests_collection=grant_approval_requests_collection,
             sperrliste=sperrliste,
             changed_by=operator,
             key=config.sperrliste_key,

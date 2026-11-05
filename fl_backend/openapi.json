@@ -5264,14 +5264,14 @@
             "title": "Address Change",
             "type": "integer"
           },
+          "grant_approval_requests": {
+            "minimum": 0.0,
+            "title": "Grant Approval Requests",
+            "type": "integer"
+          },
           "grants": {
             "minimum": 0.0,
             "title": "Grants",
-            "type": "integer"
-          },
-          "grants_approval_requests": {
-            "minimum": 0.0,
-            "title": "Grants Approval Requests",
             "type": "integer"
           },
           "kontakt_seats": {
@@ -5314,7 +5314,7 @@
           "registrierungen",
           "address_change",
           "grants",
-          "grants_approval_requests"
+          "grant_approval_requests"
         ],
         "title": "FLErasureResponse",
         "type": "object"

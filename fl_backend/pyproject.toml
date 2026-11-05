@@ -79,6 +79,9 @@ exclude-newer = "1 day"
 
 [tool.ruff]
 line-length = 144
+# The packages below `app` and the test tree carry no `__init__.py` (pytest's importlib mode needs
+# none), and ruff judges a module's name (N999) only inside a package it can see.
+namespace-packages = ["app", "tests"]
 
 [tool.ruff.lint]
 select = [
