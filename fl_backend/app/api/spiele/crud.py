@@ -71,10 +71,18 @@ from app.api.teams.services import (
     build_team_pipeline,
     offered_gruppen,
 )
-from app.core.crud import VERSION_FIELD, aggregate_many_from_db, anchor_in_db, patch_one_in_db, pull_many_from_db, pull_one_from_db, refuse
+from app.core.crud import (
+    VERSION_FIELD,
+    aggregate_many_from_db,
+    anchor_in_db,
+    patch_one_in_db,
+    pull_many_from_db,
+    pull_one_from_db,
+    pull_whole_from_db,
+    refuse,
+)
 from app.core.readonly import ReadCollection
 from app.shared.einwilligung import is_confirmed
-from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import CustomObjectId
 from app.shared.schemas.literals import FLGruppenNames, FLSpielSeite
 
@@ -468,17 +476,11 @@ async def advance_bracket_winners(
     edit triggered it and a second run writes nothing.
     """
 
-    # One over the cap, so a truncated season is DETECTED rather than resolved: a dropped fixture
-    # reads as a dangling source, and the bracket written back would be resolved from a season
-    # with a hole in it.
-    spiele_raw = await pull_many_from_db(
-        collection=spiele_collection,
-        db_filter={"saison_id": saison_id},
-        limit=LIST_LIMIT_DEFAULT + 1,
-        session=session,
+    # Whole: a dropped fixture reads as a dangling source, and the bracket written back would be resolved from a
+    # season with a hole in it.
+    spiele_raw = await pull_whole_from_db(
+        collection=spiele_collection, db_filter={"saison_id": saison_id}, what=f"season {saison_id}'s fixtures", session=session
     )
-    if len(spiele_raw) > LIST_LIMIT_DEFAULT:
-        raise ValueError(f"season {saison_id} holds more than {LIST_LIMIT_DEFAULT} fixtures, which is more than one read can resolve")
 
     spiele = FLSpielListAdapter.validate_python(spiele_raw)
 
@@ -675,14 +677,11 @@ async def _judge_spiel_save(
     )
     rules = FLSaisonRules.model_validate(saison_raw["rules"])
 
-    # One over the cap, so a truncated season is DETECTED rather than judged: a dropped fixture leaves
-    # `find_wiring_refusal` reporting a live `spiel_nr` as no such match, and `judge_spieltag_occupancy` blind to a
-    # release it owes.
-    season_raw = await pull_many_from_db(
-        collection=collections.spiele, db_filter={"saison_id": saison_id}, limit=LIST_LIMIT_DEFAULT + 1, session=session
+    # Whole: a dropped fixture leaves `find_wiring_refusal` reporting a live `spiel_nr` as no such match, and
+    # `judge_spieltag_occupancy` blind to a release it owes.
+    season_raw = await pull_whole_from_db(
+        collection=collections.spiele, db_filter={"saison_id": saison_id}, what=f"season {saison_id}'s fixtures", session=session
     )
-    if len(season_raw) > LIST_LIMIT_DEFAULT:
-        raise ValueError(f"season {saison_id} holds more than {LIST_LIMIT_DEFAULT} fixtures, which is more than one read can judge")
 
     season = FLSpielListAdapter.validate_python(season_raw)
     stored = stored_in_slice(spiel_id, season)

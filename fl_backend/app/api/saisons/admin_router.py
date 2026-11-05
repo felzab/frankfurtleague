@@ -105,6 +105,7 @@ from app.core.crud import (
     post_one_to_db,
     pull_many_from_db,
     pull_one_from_db,
+    pull_whole_from_db,
     refuse,
 )
 from app.core.dependencies import (
@@ -129,7 +130,6 @@ from app.core.exceptions import WriteRefusal
 from app.core.logging import fl_logger
 from app.core.security import bind_actor, get_actor_email, verify_access_admin
 from app.core.transactions import transaction_session
-from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.literals import FLGruppenNames
 
 router = APIRouter(
@@ -266,28 +266,31 @@ async def get_saison_admin(
     # Two groups of reads sent at once, because `asyncio.gather`'s typing stops at six.
     (rows, fixtures, count_spieltage, clubs, finale_by_saison), (activation, recorded_rows, berichte, planned) = await asyncio.gather(
         asyncio.gather(
-            pull_many_from_db(
+            # Each whole, as `fl_backend/app/api/spiele/crud.py :: advance_bracket_winners` reads its season: a truncated
+            # list grades a club open whose taken-place fixture fell past the page, and offers a club the replacement
+            # refuses as entered.
+            pull_whole_from_db(
                 collection=saison_teams_collection,
                 db_filter={"saison_id": saison_id},
+                what=f"season {saison_id}'s clubs",
                 projection=["team_id", "name", "shorthand", "gruppe", "austritt"],
                 sort_by=build_sort(sort_by="name", order="asc"),
                 collation=GERMAN_COLLATION,
-                limit=LIST_LIMIT_DEFAULT + 1,
             ),
-            pull_many_from_db(
+            pull_whole_from_db(
                 collection=spiele_collection,
                 db_filter={"saison_id": saison_id},
+                what=f"season {saison_id}'s fixtures",
                 projection=["saison_phase", "team1.team_id", "team2.team_id", *TAKEN_PLACE_FIELDS],
-                limit=LIST_LIMIT_DEFAULT + 1,
             ),
             spieltage_collection.count_documents({"saison_id": saison_id}),
-            pull_many_from_db(
+            pull_whole_from_db(
                 collection=teams_collection,
                 db_filter={"inactive_since": None},
+                what="the league's clubs",
                 projection=["name", "shorthand"],
                 sort_by=build_sort(sort_by="name", order="asc"),
                 collation=GERMAN_COLLATION,
-                limit=LIST_LIMIT_DEFAULT + 1,
             ),
             pull_finale_by_saison(spiele_collection=spiele_collection, saison_ids=[saison_id]),
         ),
@@ -315,12 +318,6 @@ async def get_saison_admin(
 
     def code_of(refusal: WriteRefusal | None) -> Code | None:
         return None if refusal is None else refusal.error_code
-
-    # One over the cap, as `fl_backend/app/api/spiele/crud.py :: advance_bracket_winners` asks: a truncated list grades a
-    # club open whose taken-place fixture fell past the page, and offers a club the replacement refuses as entered.
-    for listed, what in ((rows, "teams"), (fixtures, "fixtures"), (clubs, "clubs")):
-        if len(listed) > LIST_LIMIT_DEFAULT:
-            raise ValueError(f"season {saison_id} reads more than {LIST_LIMIT_DEFAULT} {what}, which is more than one read can grade")
 
     played = [spiel for spiel in fixtures if has_taken_place(spiel)]
 
@@ -693,20 +690,13 @@ async def _pull_recorded_fact_rows(
     records than the season holds, and the window opens on work the removal would destroy.
     """
 
-    stored_spiele = await pull_many_from_db(
+    return await pull_whole_from_db(
         collection=spiele_collection,
         db_filter={"saison_id": saison_id},
+        what=f"season {saison_id}'s fixtures",
         projection=list(RECORDED_FACT_FIELDS),
-        limit=LIST_LIMIT_DEFAULT + 1,
         session=session,
     )
-
-    if len(stored_spiele) > LIST_LIMIT_DEFAULT:
-        raise ValueError(
-            f"season {saison_id} holds more than {LIST_LIMIT_DEFAULT} fixtures, more than one read can weigh a replace or an undraw against"
-        )
-
-    return stored_spiele
 
 
 def _find_undraw_refusal_of(*, saison_status: str, recorded_fixtures: int, berichte: int) -> WriteRefusal | None:
@@ -959,21 +949,16 @@ async def post_spielplan(
         # under `FLSaisonRules`' own types.
         rules = stored_rules if spielplan_data.shape is None else stored_rules.model_copy(update=spielplan_data.shape.model_dump())
 
-        entered_rows = await pull_many_from_db(
+        # Whole: a truncated entry list draws a season short of teams and weighs a group occupancy no group holds.
+        entered_rows = await pull_whole_from_db(
             collection=saison_teams_collection,
             db_filter={"saison_id": saison_id},
+            what=f"season {saison_id}'s clubs",
             # `name` and `shorthand` off the JUNCTION: that is the name the season is played under,
             # and `teams` may since have been renamed.
             projection=["team_id", "gruppe", "name", "shorthand"],
-            limit=LIST_LIMIT_DEFAULT + 1,
             session=session,
         )
-
-        # One over the cap, as `fl_backend/app/api/spiele/crud.py :: advance_bracket_winners` asks:
-        # a truncated entry list draws a season short of teams and
-        # weighs a group occupancy no group holds.
-        if len(entered_rows) > LIST_LIMIT_DEFAULT:
-            raise ValueError(f"season {saison_id} holds more than {LIST_LIMIT_DEFAULT} entry rows, which is more than one read can draw from")
 
         occupancy: dict[FLGruppenNames, int] = {}
         for row in entered_rows:
@@ -1227,19 +1212,14 @@ async def _entered_teams(*, saison_teams_collection: AsyncCollection, saison_id:
     reason): a truncated list silently leaves teams unmailed, which is what this press exists to stop.
     """
 
-    entered = await pull_many_from_db(
+    return await pull_whole_from_db(
         collection=saison_teams_collection,
         db_filter={"saison_id": saison_id},
+        what=f"season {saison_id}'s clubs",
         projection=["team_id", "name", "kontakte", "austritt"],
         sort_by=build_sort(sort_by="name", order="asc"),
         collation=GERMAN_COLLATION,
-        limit=LIST_LIMIT_DEFAULT + 1,
     )
-
-    if len(entered) > LIST_LIMIT_DEFAULT:
-        raise ValueError(f"season {saison_id} holds more than {LIST_LIMIT_DEFAULT} teams, which is more than one read can mail in one press")
-
-    return entered
 
 
 async def _barred_recipients(ban_list: BanList, entered: Sequence[Mapping[str, Any]]) -> set[str]:

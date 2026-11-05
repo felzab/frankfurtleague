@@ -33,12 +33,12 @@ from app.api.spiele.services import (
     judge_spieltag_occupancy,
     stored_in_slice,
 )
-from app.core.crud import GERMAN_COLLATION, aggregate_many_from_db, pull_many_from_db, pull_one_from_db
+from app.core.crud import GERMAN_COLLATION, aggregate_many_from_db, pull_many_from_db, pull_one_from_db, pull_whole_from_db
 from app.core.exceptions import DocumentNotFoundError
 from app.core.readonly import ReadCollection
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.shared.einwilligung import is_confirmed
-from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX
+from app.shared.schemas.bounds import LIST_LIMIT_MAX
 from app.shared.schemas.custom import CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
 from app.shared.schemas.literals import FLSaisonStatus
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
@@ -151,9 +151,9 @@ async def _teams_of(
 ) -> list[FLSpielEditorTeam]:
     """Every club holding a row for the fixture's season, in the German order of their names, each judged by the write's own rules."""
 
-    # One over the cap, as the save reads its season, so a truncated season is detected rather than judged.
+    # Whole, as the save reads its season.
     season_raw, membership, ordered = await asyncio.gather(
-        pull_many_from_db(collection=spiele_collection, db_filter={"saison_id": spiel.saison_id}, limit=LIST_LIMIT_DEFAULT + 1),
+        pull_whole_from_db(collection=spiele_collection, db_filter={"saison_id": spiel.saison_id}, what=f"season {spiel.saison_id}'s fixtures"),
         pull_saison_membership(saison_teams_collection=saison_teams_collection, saison_id=spiel.saison_id),
         pull_many_from_db(
             collection=saison_teams_collection,
@@ -164,9 +164,6 @@ async def _teams_of(
             collation=GERMAN_COLLATION,
         ),
     )
-    if len(season_raw) > LIST_LIMIT_DEFAULT:
-        raise ValueError(f"season {spiel.saison_id} holds more than {LIST_LIMIT_DEFAULT} fixtures, which is more than one read can judge")
-
     season = FLSpielListAdapter.validate_python(season_raw)
     stored = stored_in_slice(spiel.id, season)
 
