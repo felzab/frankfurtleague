@@ -12,7 +12,7 @@ from typing import Any, Final, Literal, get_args
 
 from bson import ObjectId
 
-from app.api.berechtigungen.services import OWNER, holds_an_owners_power, verwaltung_des
+from app.api.berechtigungen.services import OWNER, admin_tier_of, holds_an_owners_power
 from app.api.bewerbungen.services import build_eigene_bewerbung_filter
 from app.api.identity.schemas import FLAccountErasureView, FLErasureView, FLSubject, FLSubjectSeat
 from app.api.kontakte.services import rows_seating
@@ -577,7 +577,7 @@ def admin_address_denied(
 ) -> bool:
     """`admin_address`'s judgement: the address holds a live grant of a `protected` tier and the actor no owner's power."""
 
-    return verwaltung_des(identifier, grants) in protected and not holds_an_owners_power(
+    return admin_tier_of(identifier, grants) in protected and not holds_an_owners_power(
         actor=actor, auth_time=auth_time, grants=grants, announced=announced
     )
 

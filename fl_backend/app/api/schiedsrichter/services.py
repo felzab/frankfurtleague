@@ -10,7 +10,7 @@ from app.core.exceptions import WriteRefusal
 from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SCHIEDSRICHTER_ID
 from app.shared.age import whole_years_between
 from app.shared.einwilligung import is_confirmed
-from app.shared.einwilligung_evidence import TextVersions, compose_born
+from app.shared.einwilligung_evidence import TextVersions, compose_initial
 from app.shared.folding import league_address, sign_in_identifier
 from app.shared.schemas.bounds import (
     BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
@@ -209,7 +209,7 @@ def compose_confirmation_update(
 
     # Born whole rather than moved: the stamp refusal admits only a row whose stored block no answer
     # of this referee's stands on, and a dotted `$set` under a null block aborts the transaction.
-    record = compose_born(block=compose_einwilligung(scope=scope, media=media, today=today), at=at, text_versions=text_versions)
+    record = compose_initial(block=compose_einwilligung(scope=scope, media=media, today=today), at=at, text_versions=text_versions)
 
     return {"$set": {"geburtsdatum": geburtsdatum, EINWILLIGUNG_FELD: record}}
 

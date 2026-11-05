@@ -37,7 +37,7 @@ FLBerechtigungUrheber = Literal["anwendung", "datenbank"]
 FLBerechtigungVorenthalten = Literal["barred", "erased"]
 
 
-class FLBerechtigungFortgefuehrt(BaseModel):
+class FLGrantCarried(BaseModel):
     """The since-whens a grant moved by its holder's own address change carries of the row it replaced."""
 
     granted_since: datetime
@@ -57,15 +57,15 @@ class FLBerechtigung(Anchored):
     granted_at: datetime
     # Absent until a comparison finds the row new, and never written by a grant made here: a paste's
     # `granted_at` is whatever was typed, and an address changed in place keeps the old one.
-    gefunden_am: datetime | None = None
+    found_at: datetime | None = None
     # Written once, by the first pass to read the row, or by the write here that first
     # records it: a row carrying it and no record was edited after it was seen.
-    gesehen_am: datetime | None = None
+    seen_at: datetime | None = None
     # When the row last became `owner` by a promotion, written by the tier change and by a comparison
     # finding one made in the database: an older session holds no owner's power.
     appointed_at: datetime | None = None
     # Written by an address change's move alone, read by the four-eyes rule and never by a session's check.
-    fortgefuehrt: FLBerechtigungFortgefuehrt | None = None
+    carried: FLGrantCarried | None = None
     # 0 until a write raises it, as the grant's insert stamps it.
     version: int = 0
 
@@ -111,7 +111,7 @@ class FLGrantRow(BaseModel):
     version: int
 
 
-class FLBerechtigungAntragGenehmigung(BaseModel):
+class FLGrantApprovalRequestApproval(BaseModel):
     """What a request waits on, the block an address change's approval keeps too, so one judgement reads both."""
 
     # The tier the request asks for, and the one its approver and its requester must hold.
@@ -122,7 +122,7 @@ class FLBerechtigungAntragGenehmigung(BaseModel):
     started_by: CustomNonEmptyString
 
 
-class FLBerechtigungAntrag(BaseModel):
+class FLGrantApprovalRequest(BaseModel):
     """One request as the collection stores it: never an approval, which writes the grant and removes the request at once."""
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
@@ -130,7 +130,7 @@ class FLBerechtigungAntrag(BaseModel):
     address: CustomNonEmptyString
     # The grant a promotion raises, null for a grant: its approval finds nothing where that grant has gone since.
     grant_id: CustomObjectId | None
-    approval: FLBerechtigungAntragGenehmigung
+    approval: FLGrantApprovalRequestApproval
 
 
 class FLGrantApprovalRequestRow(BaseModel):
@@ -217,10 +217,10 @@ class FLGrantSnapshot(BaseModel):
     admin_tier: FLAdminTier
 
 
-class FLBerechtigungAngekuendigt(BaseModel):
+class FLGrantAnnounced(BaseModel):
     """One row of the announced record: keyed on the grant's own id, with the moment it was recorded."""
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
     address: CustomNonEmptyString
     admin_tier: FLAdminTier
-    angekuendigt_am: datetime
+    announced_at: datetime

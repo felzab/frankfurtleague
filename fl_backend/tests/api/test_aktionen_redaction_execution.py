@@ -17,8 +17,8 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.address_change.services import compose_approval, compose_end_update
 from app.api.aktionen.crud import redact_address_in_images
 from app.api.aktionen.services import IMAGE_ADDRESSES, address_image_edits
-from app.api.berechtigungen.antraege import compose_antrag
-from app.api.einladungen.services import compose_einladung, compose_widerruf_update
+from app.api.berechtigungen.antraege import compose_approval_request
+from app.api.einladungen.services import compose_einladung, compose_revocation_update
 from app.core.collections import Collection
 from app.core.crud import delete_many_from_db, patch_one_in_db
 from app.core.recording import ERASED_ACTOR_MARKER
@@ -90,7 +90,7 @@ async def a_league_holding_their_images(database: AsyncDatabase, client: AsyncMo
             **compose_einladung(saison_id="2026", team_id=TEAM, token_hashes=["h" * 64], created_by=GELOESCHT, today="2026-03-01"),
         }
     )
-    await patched(database, Collection.INVITATIONS, EINLADUNG, compose_widerruf_update(today="2026-03-02"))
+    await patched(database, Collection.INVITATIONS, EINLADUNG, compose_revocation_update(today="2026-03-02"))
     await database[Collection.BEWERBUNGEN].insert_one(
         documents.bewerbung_document(
             BEWERBUNG, "2026", "declined", kontakte=documents.kontakte_document(), submitted_at="2026-02-01", decision=ENTSCHEIDUNG
@@ -149,11 +149,13 @@ async def a_league_holding_their_images(database: AsyncDatabase, client: AsyncMo
         [
             {
                 "_id": ASKED_FOR_THEM,
-                **compose_antrag(address=GELOESCHT, admin_tier="administration", grant_id=None, started_by=OTHER_ADMIN, now=GRANTED_AT),
+                **compose_approval_request(
+                    address=GELOESCHT, admin_tier="administration", grant_id=None, started_by=OTHER_ADMIN, now=GRANTED_AT
+                ),
             },
             {
                 "_id": ASKED_BY_THEM,
-                **compose_antrag(address=GRANTEE, admin_tier="administration", grant_id=None, started_by=GELOESCHT, now=GRANTED_AT),
+                **compose_approval_request(address=GRANTEE, admin_tier="administration", grant_id=None, started_by=GELOESCHT, now=GRANTED_AT),
             },
         ]
     )

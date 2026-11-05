@@ -44,7 +44,7 @@ SEEDED_LINK: Mapping[str, Any] = {
     "token_hashes": [hash_token("seeded")],
     "created_at": "2026-03-15",
     "created_by": "admin@frankfurtleague.de",
-    "widerrufen_am": None,
+    "revoked_at": None,
 }
 
 # What a rival's press costs the first attempt: `with_transaction` runs the callback again.
@@ -101,7 +101,7 @@ class TestARetriedMint:
                     now=MAIL_NOW,
                 )
 
-                live = await database[Collection.INVITATIONS].find({"widerrufen_am": None}).to_list(length=None)
+                live = await database[Collection.INVITATIONS].find({"revoked_at": None}).to_list(length=None)
 
                 return zeile, [row["_id"] for row in live]
 

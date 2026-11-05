@@ -13,7 +13,7 @@ from pymongo.errors import OperationFailure
 
 from app.api.aktionen.admin_router import FACET_TALLY
 from app.api.aktionen.services import build_aktionen_sort
-from app.api.berechtigungen.antraege import compose_antrag
+from app.api.berechtigungen.antraege import compose_approval_request
 from app.api.bewerbungen.services import build_bewerbungen_sort, build_schluessel_filter
 from app.api.identity.crud import erase_pupil_actor_in_session, unattribute_in_session
 from app.api.spielberichte.crud import pull_bericht_lage
@@ -254,7 +254,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "created_at": "2026-03-15",
             "barred_until_saison_id": "2031",
         },
-        # `widerrufen_am` is null rather than absent because `uniq_invitation_live` reaches the rows
+        # `revoked_at` is null rather than absent because `uniq_invitation_live` reaches the rows
         # holding null.
         "einladungen": {
             "_id": INVITATION_OID,
@@ -263,7 +263,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "token_hashes": ["b3c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f70819200"],
             "created_at": "2026-03-15",
             "created_by": "admin@example.invalid",
-            "widerrufen_am": None,
+            "revoked_at": None,
         },
         # Every key the submission writes, `geburtsdatum`, `einwilligung` and `decision`
         # included: each is a stored null rather than an absent key, which is what `required` means.
@@ -302,7 +302,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "_id": GRANT_OID,
             "address": "inhaberin@example.invalid",
             "admin_tier": "owner",
-            "angekuendigt_am": datetime(2026, 1, 1, 0, 5, tzinfo=UTC),
+            "announced_at": datetime(2026, 1, 1, 0, 5, tzinfo=UTC),
         },
         # An open team row as the pass mints it: one seat holding the link the request went out with,
         # one sharing it as a mirrored pair does, one empty.
@@ -338,7 +338,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
         # A promotion asked, so `grant_id` is an id rather than the null a grant's request holds.
         "berechtigungen_antraege": {
             "_id": APPROVAL_REQUEST_OID,
-            **compose_antrag(
+            **compose_approval_request(
                 address="vorstand@example.invalid",
                 admin_tier="owner",
                 grant_id=TEAM_OID,
@@ -461,7 +461,7 @@ DUPLICATE_PAIRS: dict[str, tuple[dict[str, Any], dict[str, Any]]] = {
         valid_document(
             "berechtigungen_antraege",
             _id=TEAM_OID,
-            **compose_antrag(
+            **compose_approval_request(
                 address="vorstand@example.invalid",
                 admin_tier="owner",
                 grant_id=TEAM_OID,

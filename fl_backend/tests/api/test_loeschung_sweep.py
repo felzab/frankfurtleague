@@ -551,7 +551,7 @@ async def a_running_season_open_to_its_team(database: AsyncDatabase) -> None:
             "token_hashes": [hash_token(EINLADUNG_TOKEN)],
             "created_at": "2026-03-15",
             "created_by": "admin@frankfurtleague.de",
-            "widerrufen_am": None,
+            "revoked_at": None,
         }
     )
 

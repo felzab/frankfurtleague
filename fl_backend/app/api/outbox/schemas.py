@@ -53,7 +53,7 @@ class FLGrantData(BaseModel):
     kind: Literal["grant"]
     change: FLGrantNoticeKind
     author: FLBerechtigungUrheber
-    now: FLGrantSnapshot | None
+    current: FLGrantSnapshot | None
     before: FLGrantSnapshot | None
     # The administrator whose write made it; null where it was found in the database, or where a ban withholds them,
     # `author` telling the two apart; `app/core/recording.py :: ERASED_ACTOR_MARKER` for one erased since.

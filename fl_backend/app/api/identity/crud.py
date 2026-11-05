@@ -497,7 +497,7 @@ async def erase_the_mails_in_session(
         collection=outbox_collection,
         pipeline=[
             {"$match": {"kind": {"$ne": "account_erasure"}}},
-            {"$project": {"an": 1, "kind": 1, "state": 1, "data.now": 1, "data.before": 1, "data.changed_by": 1}},
+            {"$project": {"an": 1, "kind": 1, "state": 1, "data.current": 1, "data.before": 1, "data.changed_by": 1}},
         ],
         session=session,
     )
@@ -511,7 +511,7 @@ async def erase_the_mails_in_session(
             continue
         data = row.get("data") or {}
         withheld: dict[str, Any] = {}
-        for site in ("now", "before"):
+        for site in ("current", "before"):
             if theirs((data.get(site) or {}).get("address")):
                 withheld |= {f"data.{site}.address": None, "data.withheld": "erased"}
         if theirs(data.get("changed_by")):
@@ -941,7 +941,7 @@ async def unreferenced_of(
         aggregate_many_from_db(collection=records.schiedsrichter_collection, pipeline=build_referee_references_pipeline(folded)),
         aggregate_many_from_db(collection=records.spieler_collection, pipeline=build_pupil_references_pipeline(folded)),
         aggregate_many_from_db(collection=records.registrierungen_collection, pipeline=build_registrierung_references_pipeline(folded)),
-        # Every row as stored, never `app/api/berechtigungen/crud.py :: verwaltung_of`: a grant edited in
+        # Every row as stored, never `app/api/berechtigungen/crud.py :: read_admin_tier_of`: a grant edited in
         # the database is in effect for nobody until the comparison sees it, and its account outlasts that.
         read_berechtigungen(grants_collection=grants_collection),
         aggregate_many_from_db(

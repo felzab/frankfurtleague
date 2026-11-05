@@ -7,8 +7,8 @@ from app.api.bewerbungen.services import compose_einwilligung
 from app.api.registrierungen.services import compose_person_update
 from app.shared.einwilligung_evidence import (
     TextVersions,
-    compose_born,
     compose_choices,
+    compose_initial,
     compose_receipt,
     compose_renewed,
     evidence_state_of,
@@ -48,7 +48,7 @@ MEDIA_WITHDRAWN: Final[Mapping[str, Any]] = {
     },
 }
 
-# The same record as the referee's press composes it, before `compose_born` evidences it.
+# The same record as the referee's press composes it, before `compose_initial` evidences it.
 AS_PRESSED: Final[Mapping[str, Any]] = {key: value for key, value in CONFIRMED.items() if key != "evidence"}
 
 # A contact seat's record as the application seated its person, nobody having answered.
@@ -130,7 +130,7 @@ class TestTheTwoShapesOfAWrite:
         }
 
     def test_a_record_born_whole_carries_each_choice_it_holds_evidenced_under_its_own_label(self):
-        born = compose_born(block=AS_PRESSED, at=GIVEN_AT, text_versions=CONFIRMED_LABELS)
+        born = compose_initial(block=AS_PRESSED, at=GIVEN_AT, text_versions=CONFIRMED_LABELS)
 
         assert born == CONFIRMED
 
@@ -138,7 +138,7 @@ class TestTheTwoShapesOfAWrite:
         """Born over stored evidence, a withdrawal's earlier grant would go in one `$set`."""
 
         with pytest.raises(ValueError):
-            compose_born(block=MEDIA_WITHDRAWN, at=LATER, text_versions=CONFIRMED_LABELS)
+            compose_initial(block=MEDIA_WITHDRAWN, at=LATER, text_versions=CONFIRMED_LABELS)
 
 
 # A registration confirmed between the record's confirmation and its withdrawal: scope narrowed, media granted.
@@ -226,7 +226,7 @@ class TestARenewalFromTheSamePersonsLaterAnswers:
         Left as stored, the name stays published while the record claims the pupil confirmed it on the day they declined.
         """
 
-        saved = compose_born(
+        saved = compose_initial(
             block={
                 "scope": "kader_oeffentlich",
                 "date": "2025-09-01",
@@ -240,7 +240,7 @@ class TestARenewalFromTheSamePersonsLaterAnswers:
             "vorname": "Ida",
             "nachname": "Muster",
             "geburtsdatum": "2009-05-04",
-            "einwilligung": compose_born(
+            "einwilligung": compose_initial(
                 block={
                     "scope": "intern",
                     "date": "2026-10-01",

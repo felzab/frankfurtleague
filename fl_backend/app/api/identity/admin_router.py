@@ -5,7 +5,7 @@ from fastapi import APIRouter, Body, Depends
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.address_change.crud import others_naming
-from app.api.berechtigungen.antraege import read_the_antraege_of
+from app.api.berechtigungen.antraege import read_the_approval_requests_of
 from app.api.berechtigungen.crud import read_berechtigungen, read_the_announced
 from app.api.berechtigungen.guard import verify_actor_is_admin
 from app.api.identity.crud import EACH_PERSON_GROUP, ErasureJournal, erase_everything, resolve_subject
@@ -197,7 +197,7 @@ async def get_erasure_view(
     # The stored-address judgement, as the Postausgang's hand-out judges a mail's address: an address no rule
     # keys a ban under answers false, where keying the payload's spelling would raise.
     barred = await barred_addresses(sperrliste, [view_data.email], session=session)
-    approval_request_rows = await read_the_antraege_of(
+    approval_request_rows = await read_the_approval_requests_of(
         grant_approval_requests_collection=grant_approval_requests_collection, identifier=identifier, now=germany_now, session=session
     )
 

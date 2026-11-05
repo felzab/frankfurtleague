@@ -501,7 +501,7 @@ class TestTheSubmissionKey:
     @pytest.mark.parametrize(
         "emptying",
         [
-            pytest.param(compose_decline_update(seats=("stellvertretung",), today=TODAY, angekuendigt=False), id="a Widerspruch"),
+            pytest.param(compose_decline_update(seats=("stellvertretung",), today=TODAY, announced=False), id="a Widerspruch"),
             pytest.param(build_clearing_update(("stellvertretung",), confirmations=True), id="a contact erasure"),
         ],
     )

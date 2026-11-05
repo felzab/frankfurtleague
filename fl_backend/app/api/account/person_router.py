@@ -43,7 +43,7 @@ from app.api.address_change.services import (
     waits_on,
 )
 from app.api.berechtigungen.crud import read_berechtigungen, read_the_announced
-from app.api.berechtigungen.services import genehmiger_of
+from app.api.berechtigungen.services import approver_of
 from app.api.identity.crud import roles_from
 from app.api.identity.lookup import SubjectLookup
 from app.api.identity.services import is_own_schiedsrichter, is_own_spieler, may_grant_on_schiedsrichter, may_grant_on_spieler
@@ -241,7 +241,7 @@ async def post_address_change(
             announced = await read_the_announced(grants_announced_collection=grants_announced_collection, session=session)
             barred = await barred_addresses(sperrliste, [str(row["address"]) for row in grants], session=session)
             admin_tier = str(holdings.grant["admin_tier"])
-            approver = genehmiger_of(
+            approver = approver_of(
                 admin_tier=admin_tier, excepted={identifier}, grants=grants, announced=announced, barred=barred, before=germany_now
             )
             refuse(find_no_approver_refusal(approver=len(approver)))

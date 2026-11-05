@@ -890,17 +890,17 @@ def objection_is_announced(*, kontakte: Any, seats: Sequence[str]) -> bool:
     return "ansprechperson" not in seats and ansprechperson_mailbox(kontakte=kontakte)[0] is not None
 
 
-def compose_decline_update(*, seats: Sequence[str], today: str, angekuendigt: bool) -> Mapping[str, Any]:
+def compose_decline_update(*, seats: Sequence[str], today: str, announced: bool) -> Mapping[str, Any]:
     """A decline empties the person's slot and records the day beside it, where the emptying cannot reach.
 
-    `angekuendigt` where the objection notice goes out: it names the deletion day, so it is the deletion notice too.
+    `announced` where the objection notice goes out: it names the deletion day, so it is the deletion notice too.
     """
 
     written: dict[str, Any] = {}
     for seat in seats:
         written[f"kontakte.{seat}"] = None
         written[f"confirmations.{seat}.declined_at"] = today
-    if angekuendigt:
+    if announced:
         written["erasure_announced_at"] = today
 
     # The submission's digest was taken over this person's details too, and a hash of personal data is

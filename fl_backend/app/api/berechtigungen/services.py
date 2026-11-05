@@ -28,18 +28,18 @@ MINDESTZAHL: Final = 2
 OWNER: Final = "owner"
 
 
-def granted_since(row: Mapping[str, Any], angekuendigt: Mapping[str, Any] | None) -> datetime | None:
+def granted_since(row: Mapping[str, Any], announced: Mapping[str, Any] | None) -> datetime | None:
     """When a stored grant took effect, the one reading the subject lookup and the actor check share.
 
     Two readings would let the frontend's guard and this side judge one session against two instants.
     """
 
-    since = as_utc(row.get("gefunden_am") or row["granted_at"])
-    if angekuendigt is None:
+    since = as_utc(row.get("found_at") or row["granted_at"])
+    if announced is None:
         # Seen before and its record gone since: repointed past the pass
         # that erased its record, or put back whole. Every date it carries, its id's included, is from
         # before that edit.
-        if row.get("gesehen_am") is not None:
+        if row.get("seen_at") is not None:
             return None
 
         # A paste nothing has seen, whose typed date can lie before it: never earlier than the id the
@@ -48,50 +48,46 @@ def granted_since(row: Mapping[str, Any], angekuendigt: Mapping[str, Any] | None
 
     # An address changed in place before the comparison found it: nothing dates the change, and the
     # dates the row carries are the address before's.
-    return since if angekuendigt.get("address") == row.get("address") else None
+    return since if announced.get("address") == row.get("address") else None
 
 
-def owner_since(row: Mapping[str, Any], angekuendigt: Mapping[str, Any] | None) -> datetime | None:
+def owner_since(row: Mapping[str, Any], announced: Mapping[str, Any] | None) -> datetime | None:
     """When a stored grant's `owner` tier took effect, or `None` where no session holds an owner's power through it.
 
     A session older than it keeps administering and holds none of an owner's.
     """
 
-    since = granted_since(row, angekuendigt)
+    since = granted_since(row, announced)
     if since is None or row.get("admin_tier") != OWNER:
         return None
 
     # Promoted in the database and not yet found: nothing dates the edit, so no session holds the tier
     # until the comparison stamps `appointed_at`. A demotion needs no find, taking the power at once.
-    if angekuendigt is not None and angekuendigt.get("admin_tier") != OWNER:
+    if announced is not None and announced.get("admin_tier") != OWNER:
         return None
 
-    ernannt_am = row.get("appointed_at")
+    appointed_at = row.get("appointed_at")
 
-    return since if ernannt_am is None else max(since, as_utc(ernannt_am))
+    return since if appointed_at is None else max(since, as_utc(appointed_at))
 
 
 def found_ids(
     changes: Sequence[tuple[Any, FLGrantChangeKind, FLGrantSnapshot | None, FLGrantSnapshot | None]],
 ) -> list[Any]:
-    """The grant ids a comparison found granted anew, an address changed in place among them, each of which is stamped `gefunden_am`."""
+    """The grant ids a comparison found granted anew, an address changed in place among them, each of which is stamped `found_at`."""
 
-    return [berechtigung_id for berechtigung_id, kind, _, _ in changes if kind == "granted"]
+    return [grant_id for grant_id, kind, _, _ in changes if kind == "granted"]
 
 
-def ernannt(
+def appointed(
     changes: Sequence[tuple[Any, FLGrantChangeKind, FLGrantSnapshot | None, FLGrantSnapshot | None]],
 ) -> list[Any]:
     """The grant ids a comparison found promoted to `owner` in place, each of which is stamped `appointed_at`."""
 
-    return [
-        berechtigung_id
-        for berechtigung_id, kind, current, _ in changes
-        if kind == "changed" and current is not None and current.admin_tier == OWNER
-    ]
+    return [grant_id for grant_id, kind, current, _ in changes if kind == "changed" and current is not None and current.admin_tier == OWNER]
 
 
-def verwaltung_des(address: str, grants: Sequence[Mapping[str, Any]]) -> str | None:
+def admin_tier_of(address: str, grants: Sequence[Mapping[str, Any]]) -> str | None:
     """The tier this folded address holds among the live grants, or `None`."""
 
     return next((str(grant["admin_tier"]) for grant in grants if grant["address"] == address), None)
@@ -100,7 +96,7 @@ def verwaltung_des(address: str, grants: Sequence[Mapping[str, Any]]) -> str | N
 def find_vorhanden_refusal(*, address: str, grants: Sequence[Mapping[str, Any]]) -> WriteRefusal | None:
     """`grant_exists`: a grant already holds the address, of either tier."""
 
-    if verwaltung_des(address, grants) is None:
+    if admin_tier_of(address, grants) is None:
         return None
 
     return WriteRefusal(
@@ -199,7 +195,7 @@ def find_letzter_inhaber_refusal(*, remaining_owners: int) -> WriteRefusal | Non
     )
 
 
-def stand_of(row: Mapping[str, Any]) -> FLGrantSnapshot:
+def snapshot_of(row: Mapping[str, Any]) -> FLGrantSnapshot:
     return FLGrantSnapshot(address=str(row["address"]), admin_tier=row["admin_tier"])
 
 
@@ -211,45 +207,45 @@ def compare(
     Keyed on the grant's id, never its address, or a revoke and a re-grant cancel out unannounced.
     """
 
-    current = {row["_id"]: stand_of(row) for row in grants}
-    previous = {row["_id"]: stand_of(row) for row in announced}
+    current_by_id = {row["_id"]: snapshot_of(row) for row in grants}
+    before_by_id = {row["_id"]: snapshot_of(row) for row in announced}
 
     changes: list[tuple[Any, FLGrantChangeKind, FLGrantSnapshot | None, FLGrantSnapshot | None]] = []
-    for berechtigung_id in sorted(current.keys() | previous.keys()):
-        now, before = current.get(berechtigung_id), previous.get(berechtigung_id)
+    for grant_id in sorted(current_by_id.keys() | before_by_id.keys()):
+        current, before = current_by_id.get(grant_id), before_by_id.get(grant_id)
         if before is None:
-            changes.append((berechtigung_id, "granted", now, None))
-        elif now is None:
-            changes.append((berechtigung_id, "revoked", None, before))
+            changes.append((grant_id, "granted", current, None))
+        elif current is None:
+            changes.append((grant_id, "revoked", None, before))
         # Read as one tier change, a repointed address would name its new holder alone and hide whose
         # access ended.
-        elif now.address != before.address:
-            changes.append((berechtigung_id, "revoked", None, before))
-            changes.append((berechtigung_id, "granted", now, None))
-        elif now != before:
-            changes.append((berechtigung_id, "changed", now, before))
+        elif current.address != before.address:
+            changes.append((grant_id, "revoked", None, before))
+            changes.append((grant_id, "granted", current, None))
+        elif current != before:
+            changes.append((grant_id, "changed", current, before))
 
     return changes
 
 
-def withheld(stand: FLGrantSnapshot | None, barred: Collection[str]) -> FLGrantSnapshot | None:
-    """`stand` with its address removed where that address is barred."""
+def withheld(snapshot: FLGrantSnapshot | None, barred: Collection[str]) -> FLGrantSnapshot | None:
+    """`snapshot` with its address removed where that address is barred."""
 
-    if stand is None or stand.address is None or stand.address not in barred:
-        return stand
+    if snapshot is None or snapshot.address is None or snapshot.address not in barred:
+        return snapshot
 
-    return stand.model_copy(update={"address": None})
+    return snapshot.model_copy(update={"address": None})
 
 
 @dataclass(frozen=True)
-class Mitteilung:
+class Notice:
     """One notice a grants write owes: the grant or request it is keyed by, and its facts (`FLGrantData`)."""
 
     grant_id: ObjectId
     data: dict[str, Any]
 
 
-def compose_mitteilung(
+def compose_notice(
     *,
     grant_id: ObjectId,
     kind: FLGrantNoticeKind,
@@ -258,61 +254,61 @@ def compose_mitteilung(
     changed_by: str | None,
     now: datetime,
     barred: Collection[str],
-) -> Mitteilung:
+) -> Notice:
     """One notice, every barred address in it withheld as it is written; `changed_by` null is a change found in the database.
 
     The actor stored folded, the spelling a later ban or erasure matches queued notices by.
     """
 
-    stands = (withheld(current, barred), withheld(before, barred))
+    snapshots = (withheld(current, barred), withheld(before, barred))
     actor = None if changed_by is None else sign_in_identifier(changed_by)
 
-    return Mitteilung(
+    return Notice(
         grant_id=grant_id,
         data={
             "kind": "grant",
             "change": kind,
             "author": "datenbank" if changed_by is None else "anwendung",
-            "now": None if stands[0] is None else stands[0].model_dump(),
-            "before": None if stands[1] is None else stands[1].model_dump(),
+            "current": None if snapshots[0] is None else snapshots[0].model_dump(),
+            "before": None if snapshots[1] is None else snapshots[1].model_dump(),
             "changed_by": withheld_actor(actor, barred),
             "changed_at": None if changed_by is None else now,
             # The grant's address alone: a null actor on an application's change already says it is barred.
-            "withheld": "barred" if any(stand is not None and stand.address is None for stand in stands) else None,
+            "withheld": "barred" if any(snapshot is not None and snapshot.address is None for snapshot in snapshots) else None,
         },
     )
 
 
-def compose_announced(*, grant_id: ObjectId, stand: FLGrantSnapshot, now: datetime) -> dict[str, Any]:
-    return {"_id": grant_id, "address": stand.address, "admin_tier": stand.admin_tier, "angekuendigt_am": now}
+def compose_announced(*, grant_id: ObjectId, snapshot: FLGrantSnapshot, now: datetime) -> dict[str, Any]:
+    return {"_id": grant_id, "address": snapshot.address, "admin_tier": snapshot.admin_tier, "announced_at": now}
 
 
-def vier_augen_seit(row: Mapping[str, Any], angekuendigt: Mapping[str, Any] | None, *, admin_tier: str) -> datetime | None:
+def four_eyes_since(row: Mapping[str, Any], announced: Mapping[str, Any] | None, *, admin_tier: str) -> datetime | None:
     """Since when the four-eyes rule counts this grant's holder as holding `admin_tier`'s tier.
 
     The person's, not the mailbox's: a row their own address change moved keeps the dates it replaced.
     """
 
-    since = (owner_since if admin_tier == OWNER else granted_since)(row, angekuendigt)
-    getragen = (row.get("fortgefuehrt") or {}).get("owner_since" if admin_tier == OWNER else "granted_since")
+    since = (owner_since if admin_tier == OWNER else granted_since)(row, announced)
+    carried = (row.get("carried") or {}).get("owner_since" if admin_tier == OWNER else "granted_since")
     # A promotion since the move dates an owner's tier afresh, as a demotion took the carried one.
-    if since is None or getragen is None or (admin_tier == OWNER and row.get("appointed_at") is not None):
+    if since is None or carried is None or (admin_tier == OWNER and row.get("appointed_at") is not None):
         return since
 
-    return min(since, as_utc(getragen))
+    return min(since, as_utc(carried))
 
 
-def compose_fortgefuehrt(row: Mapping[str, Any], angekuendigt: Mapping[str, Any] | None) -> dict[str, Any] | None:
+def compose_carried(row: Mapping[str, Any], announced: Mapping[str, Any] | None) -> dict[str, Any] | None:
     """What a grant moved to its holder's new address carries of the row it replaces: both tiers' since-whens, carried on."""
 
-    administration = vier_augen_seit(row, angekuendigt, admin_tier="administration")
+    administration = four_eyes_since(row, announced, admin_tier="administration")
     if administration is None:
         return None
 
-    return {"granted_since": administration, "owner_since": vier_augen_seit(row, angekuendigt, admin_tier=OWNER)}
+    return {"granted_since": administration, "owner_since": four_eyes_since(row, announced, admin_tier=OWNER)}
 
 
-def haelt_seit(
+def holds_since(
     address: str, *, admin_tier: str, before: datetime, grants: Sequence[Mapping[str, Any]], announced: Sequence[Mapping[str, Any]]
 ) -> bool:
     """Whether this folded address's live grant, an owner's for an `owner` act, took effect at or before `before`.
@@ -324,12 +320,12 @@ def haelt_seit(
     if row is None:
         return False
     record = next((entry for entry in announced if entry["_id"] == row["_id"]), None)
-    since = vier_augen_seit(row, record, admin_tier=admin_tier)
+    since = four_eyes_since(row, record, admin_tier=admin_tier)
 
     return since is not None and since <= as_utc(before)
 
 
-def genehmiger_of(
+def approver_of(
     *,
     admin_tier: str,
     excepted: Set[str],
@@ -349,11 +345,11 @@ def genehmiger_of(
         for row in grants
         if row["address"] not in excepted
         and row["address"] not in barred
-        and haelt_seit(str(row["address"]), admin_tier=admin_tier, before=before, grants=grants, announced=announced)
+        and holds_since(str(row["address"]), admin_tier=admin_tier, before=before, grants=grants, announced=announced)
     ]
 
 
-def genehmigung_verwehrt(
+def approval_denied(
     *,
     target: Any,
     approval: Mapping[str, Any],
@@ -374,13 +370,13 @@ def genehmigung_verwehrt(
     admin_tier = str(approval.get("admin_tier"))
     if admin_tier == OWNER and not owner:
         return "owner"
-    if not haelt_seit(actor, admin_tier=admin_tier, before=approval["asked_at"], grants=grants, announced=announced):
+    if not holds_since(actor, admin_tier=admin_tier, before=approval["asked_at"], grants=grants, announced=announced):
         return "younger"
 
     return None
 
 
-def genehmigung_steht(
+def approval_stands(
     *,
     target: Any,
     approval: Mapping[str, Any],
@@ -397,4 +393,4 @@ def genehmigung_steht(
     if not isinstance(by, str) or by in barred or by in {target, approval.get("started_by")}:
         return False
 
-    return haelt_seit(by, admin_tier=str(approval.get("admin_tier")), before=approval["asked_at"], grants=grants, announced=announced)
+    return holds_since(by, admin_tier=str(approval.get("admin_tier")), before=approval["asked_at"], grants=grants, announced=announced)

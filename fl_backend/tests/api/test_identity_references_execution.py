@@ -190,7 +190,7 @@ async def _seed(database: AsyncDatabase, *, owner: str | None) -> None:
     # The address changed in place in the database, which the comparison has not seen: the grant is in
     # effect for nobody until it does, and its account still stays.
     await database[Collection.GRANTS_ANNOUNCED].insert_one(
-        {"_id": GRANT_OID, "address": "verena.vorher@schule.de", "admin_tier": "administration", "angekuendigt_am": granted}
+        {"_id": GRANT_OID, "address": "verena.vorher@schule.de", "admin_tier": "administration", "announced_at": granted}
     )
     if owner is not None:
         await database[Collection.GRANTS].insert_one(

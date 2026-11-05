@@ -22,7 +22,7 @@ from pymongo import AsyncMongoClient, ReturnDocument
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.berechtigungen.antraege import compose_antrag
+from app.api.berechtigungen.antraege import compose_approval_request
 from app.api.identity.admin_router import get_erasure_view, post_erasure
 from app.api.identity.schemas import (
     FLErasure,
@@ -55,8 +55,8 @@ from tests.worker import worker_database
 
 from .conftest import config_for
 from .test_funktionen_loeschung import (
-    ANTRAG_BY_THEM_OID,
-    ANTRAG_FOR_THEM_OID,
+    APPROVAL_REQUEST_BY_THEM_OID,
+    APPROVAL_REQUEST_FOR_THEM_OID,
     BEWERBUNG_OID,
     BLOCKLESS_BEWERBUNG_OID,
     DECLINED_OID,
@@ -320,8 +320,8 @@ EXPECTED_ANSICHT = {
     "own_address_change": None,
     # A grant asked for their address and one they asked for another's.
     "approval_requests": [
-        {"approval_request_id": str(ANTRAG_FOR_THEM_OID), "admin_tier": "administration", "party": "target"},
-        {"approval_request_id": str(ANTRAG_BY_THEM_OID), "admin_tier": "administration", "party": "requester"},
+        {"approval_request_id": str(APPROVAL_REQUEST_FOR_THEM_OID), "admin_tier": "administration", "party": "target"},
+        {"approval_request_id": str(APPROVAL_REQUEST_BY_THEM_OID), "admin_tier": "administration", "party": "requester"},
     ],
     "admin_tier": "administration",
     "barred": False,
@@ -454,7 +454,7 @@ class TestAGrantHoldersAddress:
             # Asked at the suite's clock, a century ahead of the real one, so no TTL pass removes it: the rival approves it.
             await database[Collection.GRANT_APPROVAL_REQUESTS].delete_many({"address": IDENTIFIER})
             approval_request = await database[Collection.GRANT_APPROVAL_REQUESTS].insert_one(
-                compose_antrag(address=IDENTIFIER, admin_tier="administration", grant_id=None, started_by=OWNER, now=NOW)
+                compose_approval_request(address=IDENTIFIER, admin_tier="administration", grant_id=None, started_by=OWNER, now=NOW)
             )
             held = await where_held(database, *THEIR_VALUES)
             served = _app()

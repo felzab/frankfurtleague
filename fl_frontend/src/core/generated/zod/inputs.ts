@@ -997,7 +997,7 @@ export const GrantsDeleteGrantParams = zod.object({
  * promotion of an address on the ban list is refused (`grant_barred`), one whose request waits already
  * (`grant_approval_request_open`), and a demotion leaving no live, unbarred owner (`grant_last_owner`). Naming the tier the grant
  * holds changes nothing and answers 200. The change reaches the next request; its announcement is queued in the same transaction, after
- * any change to the row made in the database and not yet announced, and a grant found that way is stamped `gefunden_am` as
+ * any change to the row made in the database and not yet announced, and a grant found that way is stamped `found_at` as
  * `POST /grants/reconciliation` stamps one. A sign-in or confirmation older than `ENROLMENT_WINDOW_MINUTES` is refused
  * `confirmation_required`, as the grant's is.
  * @summary Change a grant between administrator and owner
