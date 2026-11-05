@@ -3073,8 +3073,8 @@ export const getSchiedsrichterPostConfirmationUrl = () => {
  * publication scope has one home, which the fixture list joins at read time to decide whether to publish the name each
  * fixture stores.
  *
- * Refuses, in this order: a token no referee holds (`link_invalid`), an entry already confirmed
- * (`confirmation_exists`), a link whose deadline has passed (`link_expired`), a link mailed to an address the ban
+ * Refuses, in this order: a token no referee holds (`link_invalid`), an entry already answered, confirmed or
+ * declined (`confirmation_exists`), a link whose deadline has passed (`link_expired`), a link mailed to an address the ban
  * list holds now, whenever the link was minted (`link_barred`), an age outside what this consent asks
  * (`confirmation_age`), and a media consent from a referee below `media_minimum_age` (`media_age`) -- the last two
  * judged before anything is written, so a mistyped year spends nothing.
@@ -3104,6 +3104,46 @@ export const schiedsrichterPostConfirmation = async (
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
     body: JSON.stringify(fLSchiedsrichterConfirmationPayload),
+  });
+};
+
+export const getSchiedsrichterPostDeclineUrl = () => {
+  return `/api/v0/schiedsrichter/confirmation/decline`;
+};
+
+/**
+ * Record the referee's objection to the entry their link opens: its day, and nothing else of the person.
+ *
+ * The entry then goes on the clock its link started, the midnight after the deadline, as the privacy notice says of an
+ * unconfirmed or declined one (`app/core/constraints.py :: TTL_INDEXES`). Until then no booking takes it and no
+ * re-send or reactivation asks the person again.
+ *
+ * Refuses, in the confirmation's order: a token no referee holds (`link_invalid`), an entry already answered,
+ * confirmed or declined (`confirmation_exists`), and a link whose deadline has passed (`link_expired`). The ban list
+ * is not asked: an objection gives the league nothing a ban withholds.
+ * @summary Decline one Schiedsrichter's entry
+ */
+export const schiedsrichterPostDecline = async (
+  fLTokenPayload: FLTokenPayload,
+  options?: Parameters<typeof baseKeyTransport>[1],
+): Promise<void> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return baseKeyTransport<void>(getSchiedsrichterPostDeclineUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLTokenPayload),
   });
 };
 
@@ -3276,7 +3316,7 @@ export const getSchiedsrichterInviteSchiedsrichterUrl = (schiedsrichterId: strin
  * It replaces the whole block, so the previous link stops working at once. The deadline restarts from today.
  *
  * Refused where the referee is retired (`schiedsrichter_retired`), where they have already
- * answered (`confirmation_exists`), where they carry no email address
+ * answered, consenting or objecting (`confirmation_exists`), where they carry no email address
  * (`schiedsrichter_no_address`), and where that address is on the ban list
  * (`schiedsrichter_address_barred`). 404 for an id no referee holds, an erased referee's among them, and
  * for the ghost, which every by-id route filters out.

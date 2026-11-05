@@ -11838,7 +11838,7 @@
           "confirmation": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/FLConfirmation"
+                "$ref": "#/components/schemas/FLSchiedsrichterConfirmation"
               },
               {
                 "type": "null"
@@ -11963,6 +11963,53 @@
         "title": "FLSchiedsrichterAccountEinwilligungPayload",
         "type": "object"
       },
+      "FLSchiedsrichterConfirmation": {
+        "description": "A referee's confirmation bookkeeping as an administrator reads it, the objection's day with it.",
+        "properties": {
+          "declined_at": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Declined At"
+          },
+          "frist": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Frist",
+            "type": "string"
+          },
+          "reminded_at": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reminded At"
+          },
+          "sent_at": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Sent At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sent_at",
+          "reminded_at",
+          "frist",
+          "declined_at"
+        ],
+        "title": "FLSchiedsrichterConfirmation",
+        "type": "object"
+      },
       "FLSchiedsrichterConfirmationData": {
         "description": "A referee's confirmation link, owed by their entry, a corrected address, a re-send or their return.",
         "properties": {
@@ -12048,6 +12095,16 @@
         "title": "FLSchiedsrichterConfirmationResponse",
         "type": "object"
       },
+      "FLSchiedsrichterConfirmationState": {
+        "enum": [
+          "valid",
+          "confirmed",
+          "declined",
+          "expired",
+          "barred"
+        ],
+        "type": "string"
+      },
       "FLSchiedsrichterConfirmationViewResponse": {
         "description": "What one confirmation link opens, and nothing a leaked one should not learn (`READ-REFEREE-002`).\n\nNever a name, the school, the contact details, the fee, the birthdate or the id.",
         "properties": {
@@ -12066,7 +12123,7 @@
             "type": "integer"
           },
           "state": {
-            "$ref": "#/components/schemas/FLConfirmationState"
+            "$ref": "#/components/schemas/FLSchiedsrichterConfirmationState"
           }
         },
         "required": [
@@ -24796,7 +24853,7 @@
     },
     "/api/v0/schiedsrichter/confirmation": {
       "post": {
-        "description": "Record a referee's own answer for the entry their link opens: their date of birth and the consent, in one update.\n\nThe consent carries the publication scope they chose, the media answer beside it, the stamp and, on each choice's\nevidence, the wording they were shown. It reaches this one collection and writes nothing on any fixture: a referee's\npublication scope has one home, which the fixture list joins at read time to decide whether to publish the name each\nfixture stores.\n\nRefuses, in this order: a token no referee holds (`link_invalid`), an entry already confirmed\n(`confirmation_exists`), a link whose deadline has passed (`link_expired`), a link mailed to an address the ban\nlist holds now, whenever the link was minted (`link_barred`), an age outside what this consent asks\n(`confirmation_age`), and a media consent from a referee below `media_minimum_age` (`media_age`) -- the last two\njudged before anything is written, so a mistyped year spends nothing.\n\n**The caller drops the cached fixture list after a successful answer**, which reads this record. Nothing here can:\na withheld name would go on being served for as long as that entry lives.",
+        "description": "Record a referee's own answer for the entry their link opens: their date of birth and the consent, in one update.\n\nThe consent carries the publication scope they chose, the media answer beside it, the stamp and, on each choice's\nevidence, the wording they were shown. It reaches this one collection and writes nothing on any fixture: a referee's\npublication scope has one home, which the fixture list joins at read time to decide whether to publish the name each\nfixture stores.\n\nRefuses, in this order: a token no referee holds (`link_invalid`), an entry already answered, confirmed or\ndeclined (`confirmation_exists`), a link whose deadline has passed (`link_expired`), a link mailed to an address the ban\nlist holds now, whenever the link was minted (`link_barred`), an age outside what this consent asks\n(`confirmation_age`), and a media consent from a referee below `media_minimum_age` (`media_age`) -- the last two\njudged before anything is written, so a mistyped year spends nothing.\n\n**The caller drops the cached fixture list after a successful answer**, which reads this record. Nothing here can:\na withheld name would go on being served for as long as that entry lives.",
         "operationId": "schiedsrichter_post_confirmation",
         "requestBody": {
           "content": {
@@ -24862,6 +24919,72 @@
           }
         ],
         "summary": "Confirm one Schiedsrichter's entry and consent",
+        "tags": [
+          "schiedsrichter"
+        ]
+      }
+    },
+    "/api/v0/schiedsrichter/confirmation/decline": {
+      "post": {
+        "description": "Record the referee's objection to the entry their link opens: its day, and nothing else of the person.\n\nThe entry then goes on the clock its link started, the midnight after the deadline, as the privacy notice says of an\nunconfirmed or declined one (`app/core/constraints.py :: TTL_INDEXES`). Until then no booking takes it and no\nre-send or reactivation asks the person again.\n\nRefuses, in the confirmation's order: a token no referee holds (`link_invalid`), an entry already answered,\nconfirmed or declined (`confirmation_exists`), and a link whose deadline has passed (`link_expired`). The ban list\nis not asked: an objection gives the league nothing a ban withholds.",
+        "operationId": "schiedsrichter_post_decline",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLTokenPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "400": {
+            "$ref": "#/components/responses/400",
+            "description": "Bad Request"
+          },
+          "401": {
+            "$ref": "#/components/responses/401",
+            "description": "Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/403",
+            "description": "Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/404",
+            "description": "Not Found"
+          },
+          "409": {
+            "$ref": "#/components/responses/409",
+            "description": "Conflict"
+          },
+          "410": {
+            "$ref": "#/components/responses/410",
+            "description": "Gone"
+          },
+          "422": {
+            "$ref": "#/components/responses/422",
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "$ref": "#/components/responses/500",
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/503",
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "BaseKey": []
+          }
+        ],
+        "summary": "Decline one Schiedsrichter's entry",
         "tags": [
           "schiedsrichter"
         ]
@@ -25230,7 +25353,7 @@
     },
     "/api/v0/schiedsrichter/{schiedsrichter_id}/confirmation/invite": {
       "post": {
-        "description": "Owe this referee a fresh confirmation link, which the Postausgang mints and mails, and answer where it goes.\n\nIt replaces the whole block, so the previous link stops working at once. The deadline restarts from today.\n\nRefused where the referee is retired (`schiedsrichter_retired`), where they have already\nanswered (`confirmation_exists`), where they carry no email address\n(`schiedsrichter_no_address`), and where that address is on the ban list\n(`schiedsrichter_address_barred`). 404 for an id no referee holds, an erased referee's among them, and\nfor the ghost, which every by-id route filters out.\n\n**A referee who has already answered is refused rather than sent a second link**: the\nconfirmation refuses every such press, so minting one would replace a live block with a\ncredential that can never be spent.",
+        "description": "Owe this referee a fresh confirmation link, which the Postausgang mints and mails, and answer where it goes.\n\nIt replaces the whole block, so the previous link stops working at once. The deadline restarts from today.\n\nRefused where the referee is retired (`schiedsrichter_retired`), where they have already\nanswered, consenting or objecting (`confirmation_exists`), where they carry no email address\n(`schiedsrichter_no_address`), and where that address is on the ban list\n(`schiedsrichter_address_barred`). 404 for an id no referee holds, an erased referee's among them, and\nfor the ghost, which every by-id route filters out.\n\n**A referee who has already answered is refused rather than sent a second link**: the\nconfirmation refuses every such press, so minting one would replace a live block with a\ncredential that can never be spent.",
         "operationId": "schiedsrichter_invite_schiedsrichter",
         "parameters": [
           {

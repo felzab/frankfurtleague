@@ -17,8 +17,12 @@ from app.shared.schemas.custom import (
 )
 from app.shared.schemas.einwilligung import FLSchiedsrichterTextVersions, cite_their_kind, refuse_a_stale_grant
 from app.shared.schemas.kontakt import CustomKontaktName, FLKontakt, FLKontaktPayload
-from app.shared.schemas.literals import FLAddressChangeViewableDenied, FLConfirmationState, FLEinwilligungScope, FLSortOrder
+from app.shared.schemas.literals import FLAddressChangeViewableDenied, FLEinwilligungScope, FLSortOrder
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
+
+# What a referee's link shows reopened. `declined` beside the states every link page shares: the referee objects
+# through the same link, and the entry stays until its clock runs out.
+type FLSchiedsrichterConfirmationState = Literal["valid", "confirmed", "declined", "expired", "barred"]
 
 
 class _SchiedsrichterWritable(BaseModel):
@@ -63,6 +67,13 @@ class FLSchiedsrichterMint(BaseModel):
     email: CustomNonEmptyString
 
 
+class FLSchiedsrichterConfirmation(FLConfirmation):
+    """A referee's confirmation bookkeeping as an administrator reads it, the objection's day with it."""
+
+    # Null until the person objects through their link.
+    declined_at: CustomOptionalDateString = None
+
+
 class FLSchiedsrichter(_SchiedsrichterWritable, BaseReadModel):
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
     # Nullable where the payload is not, for the one row that stands behind nobody
@@ -77,14 +88,14 @@ class FLSchiedsrichter(_SchiedsrichterWritable, BaseReadModel):
     # Defaulted, on no payload: the ghost carries none, the create no record or birthdate before
     # confirmation, and an address correction on a retired, unconfirmed referee drops the link.
     # Refusing an absent key would 500 the list.
-    confirmation: FLConfirmation | None = None
+    confirmation: FLSchiedsrichterConfirmation | None = None
     einwilligung: FLEinwilligung | None = None
     geburtsdatum: CustomOptionalDateString = None
     # The writes counted so far, which the editor's save sends back.
     version: int = 0
 
 
-class FLSchiedsrichterBestaetigungRecord(FLConfirmation):
+class FLSchiedsrichterBestaetigungRecord(FLSchiedsrichterConfirmation):
     """One referee's confirmation bookkeeping as `schiedsrichter` stores it, its links' hashes with it."""
 
     # Empty until the hand-out mints the link the write owed; each hand-out's link replaces the one before it.
@@ -156,7 +167,7 @@ class FLSchiedsrichterConfirmationViewResponse(BaseAPIResponse):
     Never a name, the school, the contact details, the fee, the birthdate or the id.
     """
 
-    state: FLConfirmationState
+    state: FLSchiedsrichterConfirmationState
     minimum_age: int
     # Served for `minimum_age`'s reason: the page offers the media switch only from this age, and a
     # copy of its own would offer it where the write refuses.

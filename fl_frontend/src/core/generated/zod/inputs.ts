@@ -2147,8 +2147,8 @@ export const SchiedsrichterPatchEinwilligungBody = zod
  * publication scope has one home, which the fixture list joins at read time to decide whether to publish the name each
  * fixture stores.
  *
- * Refuses, in this order: a token no referee holds (`link_invalid`), an entry already confirmed
- * (`confirmation_exists`), a link whose deadline has passed (`link_expired`), a link mailed to an address the ban
+ * Refuses, in this order: a token no referee holds (`link_invalid`), an entry already answered, confirmed or
+ * declined (`confirmation_exists`), a link whose deadline has passed (`link_expired`), a link mailed to an address the ban
  * list holds now, whenever the link was minted (`link_barred`), an age outside what this consent asks
  * (`confirmation_age`), and a media consent from a referee below `media_minimum_age` (`media_age`) -- the last two
  * judged before anything is written, so a mistyped year spends nothing.
@@ -2174,6 +2174,28 @@ export const SchiedsrichterPostConfirmationBody = zod.object({
     .describe("A referee's two wordings: the name on the fixtures and the media switch."),
   token: zod.string().min(1).max(schiedsrichterPostConfirmationBodyTokenMax).regex(schiedsrichterPostConfirmationBodyTokenRegExp),
 });
+
+/**
+ * Record the referee's objection to the entry their link opens: its day, and nothing else of the person.
+ *
+ * The entry then goes on the clock its link started, the midnight after the deadline, as the privacy notice says of an
+ * unconfirmed or declined one (`app/core/constraints.py :: TTL_INDEXES`). Until then no booking takes it and no
+ * re-send or reactivation asks the person again.
+ *
+ * Refuses, in the confirmation's order: a token no referee holds (`link_invalid`), an entry already answered,
+ * confirmed or declined (`confirmation_exists`), and a link whose deadline has passed (`link_expired`). The ban list
+ * is not asked: an objection gives the league nothing a ban withholds.
+ * @summary Decline one Schiedsrichter's entry
+ */
+export const schiedsrichterPostDeclineBodyTokenMax = 128;
+
+export const schiedsrichterPostDeclineBodyTokenRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
+
+export const SchiedsrichterPostDeclineBody = zod
+  .object({
+    token: zod.string().min(1).max(schiedsrichterPostDeclineBodyTokenMax).regex(schiedsrichterPostDeclineBodyTokenRegExp),
+  })
+  .describe("The token of the link a person opened, in the body: a token in a URL reaches the edge's access line.");
 
 /**
  * Answer what this token opens: the link's state and deadline, and both age floors.
@@ -2289,7 +2311,7 @@ export const SchiedsrichterPatchSchiedsrichterBody = zod.object({
  * It replaces the whole block, so the previous link stops working at once. The deadline restarts from today.
  *
  * Refused where the referee is retired (`schiedsrichter_retired`), where they have already
- * answered (`confirmation_exists`), where they carry no email address
+ * answered, consenting or objecting (`confirmation_exists`), where they carry no email address
  * (`schiedsrichter_no_address`), and where that address is on the ban list
  * (`schiedsrichter_address_barred`). 404 for an id no referee holds, an erased referee's among them, and
  * for the ghost, which every by-id route filters out.

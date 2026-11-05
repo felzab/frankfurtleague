@@ -4,6 +4,7 @@ from http import HTTPStatus
 from typing import Any, Final
 
 from app.api.bewerbungen.services import days_after
+from app.api.schiedsrichter.schemas import FLSchiedsrichterConfirmationState
 from app.api.spiele.schemas import unplayed_filter
 from app.core import clock
 from app.core.codes import Code
@@ -21,7 +22,6 @@ from app.shared.schemas.bounds import (
     SCHIEDSRICHTER_MIN_AGE_YEARS,
 )
 from app.shared.schemas.kontakt import FLKontakt
-from app.shared.schemas.literals import FLConfirmationState
 
 
 def build_ghost_schiedsrichter() -> dict[str, Any]:
@@ -162,6 +162,9 @@ BESTAETIGUNG_FELD: Final = "confirmation"
 
 # Where the hand-out stores the hashes of the links it mints, and the address it mints them for.
 TOKEN_HASHES_PATH: Final = f"{BESTAETIGUNG_FELD}.token_hashes"
+# The day the person objected through their link. On the block, so a mint replacing it asks them afresh: only a save
+# moving the address mints over an answer, the objection then having come from a mailbox the entry no longer names.
+DECLINED_AT_PATH: Final = f"{BESTAETIGUNG_FELD}.declined_at"
 ADDRESS_PATH: Final = "kontakt.email"
 
 EINWILLIGUNG_FELD: Final = "einwilligung"
@@ -228,6 +231,12 @@ def compose_confirmation_update(
     return {"$set": {"geburtsdatum": geburtsdatum, EINWILLIGUNG_FELD: record}, "$unset": {ERASE_AT_FIELD: ""}}
 
 
+def compose_decline_update(*, today: str) -> Mapping[str, Any]:
+    """The objection's one write: its day on the block, the entry left to go on the clock its link started."""
+
+    return {"$set": {DECLINED_AT_PATH: today}}
+
+
 def build_token_filter(*, token_hash: str) -> Mapping[str, Any]:
     """The hash alone finds the referee. No `inactive_since` term: a person retired after the mint still owns the answer they give."""
 
@@ -258,8 +267,20 @@ def frist_abgelaufen(block: Mapping[str, Any] | None, *, today: str) -> bool:
     return block is not None and link_is_over(frist=block["frist"], today=today)
 
 
-def zustand_of(*, einwilligung: Any, confirmation: Mapping[str, Any], today: str, barred: bool) -> FLConfirmationState:
-    """What a reopened link shows: the ban first, then a stamp over the deadline.
+def is_declined(confirmation: Any) -> bool:
+    """Whether the person objected through the link their block holds."""
+
+    return isinstance(confirmation, Mapping) and confirmation.get("declined_at") is not None
+
+
+def has_answered(*, einwilligung: Any, confirmation: Any) -> bool:
+    """Whether the person answered their link either way, which spends it: a consent's stamp or an objection's day."""
+
+    return is_confirmed(einwilligung=einwilligung) or is_declined(confirmation)
+
+
+def zustand_of(*, einwilligung: Any, confirmation: Mapping[str, Any], today: str, barred: bool) -> FLSchiedsrichterConfirmationState:
+    """What a reopened link shows: the ban first, then an answer over the deadline.
 
     A person who answered on the last valid day is shown that they did.
     """
@@ -269,6 +290,9 @@ def zustand_of(*, einwilligung: Any, confirmation: Mapping[str, Any], today: str
 
     if is_confirmed(einwilligung=einwilligung):
         return "confirmed"
+
+    if is_declined(confirmation):
+        return "declined"
 
     return "expired" if link_is_over(frist=confirmation["frist"], today=today) else "valid"
 
@@ -301,11 +325,11 @@ def find_expired_token_refusal(*, frist: str, today: str) -> WriteRefusal | None
     )
 
 
-def find_already_confirmed_refusal(*, einwilligung: Any) -> WriteRefusal | None:
-    """Why this entry takes no second answer, or `None`. The single use: a stamp is what spends the link."""
+def find_already_answered_refusal(*, einwilligung: Any, confirmation: Any) -> WriteRefusal | None:
+    """Why this entry takes no second answer, or `None`. The single use: a stamp or an objection is what spends the link."""
 
-    # The STAMP and never a nulled hash: the hash stays live so a second press is told why.
-    if not is_confirmed(einwilligung=einwilligung):
+    # The answer and never a nulled hash: the hash stays live so a second press is told why.
+    if not has_answered(einwilligung=einwilligung, confirmation=confirmation):
         return None
 
     return WriteRefusal(
@@ -475,12 +499,13 @@ def compose_korrektur_update(
 def owes_reactivation_mint(*, stored: Mapping[str, Any]) -> bool:
     """Whether bringing this referee back mints them a link: retired, unanswered, and holding an address a link can go to.
 
-    A row with no such address comes back unasked; entering one is the save that mints.
+    A row with no such address comes back unasked; entering one is the save that mints. A person who objected is
+    asked nothing again.
     """
 
     return (
         stored.get("inactive_since") is not None
-        and not is_confirmed(einwilligung=stored.get(EINWILLIGUNG_FELD))
+        and not has_answered(einwilligung=stored.get(EINWILLIGUNG_FELD), confirmation=stored.get(BESTAETIGUNG_FELD))
         and find_missing_address_refusal(email=(stored.get("kontakt") or {}).get("email")) is None
     )
 
@@ -490,6 +515,7 @@ def owes_reactivation_mint(*, stored: Mapping[str, Any]) -> bool:
 BESTAETIGUNG_ANSICHT_FIELDS: Mapping[str, int] = {
     f"{EINWILLIGUNG_FELD}.confirmed_at": 1,
     f"{BESTAETIGUNG_FELD}.frist": 1,
+    DECLINED_AT_PATH: 1,
     # For the ban list alone, as the answer's read takes it: the response model declares no field to
     # carry it.
     "kontakt.email": 1,
@@ -502,11 +528,17 @@ BESTAETIGUNG_ANSICHT_FIELDS: Mapping[str, int] = {
 BESTAETIGUNG_ANTWORT_FIELDS: Mapping[str, int] = {
     f"{EINWILLIGUNG_FELD}.confirmed_at": 1,
     f"{BESTAETIGUNG_FELD}.frist": 1,
+    DECLINED_AT_PATH: 1,
     "kontakt.email": 1,
 }
 
-# What the re-send judges, and the address it hashes against the ban list.
-EINLADEN_FIELDS: Mapping[str, int] = {"inactive_since": 1, "kontakt.email": 1, f"{EINWILLIGUNG_FELD}.confirmed_at": 1}
+# What the re-send and the reactivation judge, and the address they hash against the ban list.
+EINLADEN_FIELDS: Mapping[str, int] = {
+    "inactive_since": 1,
+    "kontakt.email": 1,
+    f"{EINWILLIGUNG_FELD}.confirmed_at": 1,
+    DECLINED_AT_PATH: 1,
+}
 
 
 def build_self_referee_filter(*identifiers: str, schiedsrichter_id: Any = None) -> Mapping[str, Any]:

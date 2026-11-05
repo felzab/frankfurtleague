@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Body, Depends
+from fastapi import APIRouter, Body, Depends, status
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
@@ -17,7 +17,8 @@ from app.api.schiedsrichter.services import (
     EINWILLIGUNG_FELD,
     build_token_filter,
     compose_confirmation_update,
-    find_already_confirmed_refusal,
+    compose_decline_update,
+    find_already_answered_refusal,
     find_alter_refusal,
     find_confirmation_barred_refusal,
     find_expired_token_refusal,
@@ -45,7 +46,7 @@ from app.shared.schemas.einwilligung import by_choice
 from app.shared.tokens import hash_token
 
 # Beside the admin and person routers, each guarded whole: the token is the whole credential, so
-# these two endpoints alone are base-tier and bind the public actor — no browser sends the
+# these three endpoints alone are base-tier and bind the public actor — no browser sends the
 # `X-FL-Actor`.
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/schiedsrichter/confirmation",
@@ -122,8 +123,8 @@ async def post_confirmation(
     publication scope has one home, which the fixture list joins at read time to decide whether to publish the name each
     fixture stores.
 
-    Refuses, in this order: a token no referee holds (`link_invalid`), an entry already confirmed
-    (`confirmation_exists`), a link whose deadline has passed (`link_expired`), a link mailed to an address the ban
+    Refuses, in this order: a token no referee holds (`link_invalid`), an entry already answered, confirmed or
+    declined (`confirmation_exists`), a link whose deadline has passed (`link_expired`), a link mailed to an address the ban
     list holds now, whenever the link was minted (`link_barred`), an age outside what this consent asks
     (`confirmation_age`), and a media consent from a referee below `media_minimum_age` (`media_age`) -- the last two
     judged before anything is written, so a mistyped year spends nothing.
@@ -152,7 +153,7 @@ async def post_confirmation(
         # The STAMP is asked first, as `zustand_of` ranks it: a person who answered on the last
         # valid day and presses again is told their answer stands, never that the link expired and
         # to ask for another.
-        refuse(find_already_confirmed_refusal(einwilligung=raw.get(EINWILLIGUNG_FELD)))
+        refuse(find_already_answered_refusal(einwilligung=raw.get(EINWILLIGUNG_FELD), confirmation=raw[BESTAETIGUNG_FELD]))
         refuse(find_expired_token_refusal(frist=raw[BESTAETIGUNG_FELD]["frist"], today=today))
         # Asked at the press rather than only at the mint: a ban entered after the link went out
         # stops it here, and one lifted while it runs lets it answer again.
@@ -189,3 +190,53 @@ async def post_confirmation(
 
     async with transaction_session(db) as session:
         return await session.with_transaction(answer_for_the_person)
+
+
+@router.post(
+    "/decline",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Decline one Schiedsrichter's entry",
+)
+async def post_decline(
+    decline_data: Annotated[FLTokenPayload, Body()],
+    schiedsrichter_collection: SchiedsrichterCollection,
+    db: DBClient,
+    today: str = Depends(get_german_date_str),
+) -> None:
+    """
+    Record the referee's objection to the entry their link opens: its day, and nothing else of the person.
+
+    The entry then goes on the clock its link started, the midnight after the deadline, as the privacy notice says of an
+    unconfirmed or declined one (`app/core/constraints.py :: TTL_INDEXES`). Until then no booking takes it and no
+    re-send or reactivation asks the person again.
+
+    Refuses, in the confirmation's order: a token no referee holds (`link_invalid`), an entry already answered,
+    confirmed or declined (`confirmation_exists`), and a link whose deadline has passed (`link_expired`). The ban list
+    is not asked: an objection gives the league nothing a ban withholds.
+    """
+
+    token_hash = hash_token(decline_data.token)
+
+    async def object_for_the_person(session: AsyncClientSession) -> None:
+        """Judge, then write, everything judged read in-session, so a second press is refused by the first answer."""
+
+        raw = await schiedsrichter_collection.find_one(
+            build_token_filter(token_hash=token_hash), projection=dict(BESTAETIGUNG_ANTWORT_FIELDS), session=session
+        )
+        refuse(find_unknown_token_refusal(found=raw is not None))
+        assert raw is not None
+
+        refuse(find_already_answered_refusal(einwilligung=raw.get(EINWILLIGUNG_FELD), confirmation=raw[BESTAETIGUNG_FELD]))
+        refuse(find_expired_token_refusal(frist=raw[BESTAETIGUNG_FELD]["frist"], today=today))
+
+        await patch_one_in_db(
+            collection=schiedsrichter_collection,
+            db_filter={"_id": raw["_id"]},
+            update=compose_decline_update(today=today),
+            session=session,
+            expected_version=None,
+            return_document=ReturnDocument.BEFORE,
+        )
+
+    async with transaction_session(db) as session:
+        await session.with_transaction(object_for_the_person)

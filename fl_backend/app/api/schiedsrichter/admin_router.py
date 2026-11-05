@@ -37,7 +37,7 @@ from app.api.schiedsrichter.services import (
     build_unplayed_assignment_filter,
     compose_korrektur_update,
     compose_mint_update,
-    find_already_confirmed_refusal,
+    find_already_answered_refusal,
     find_barred_refusal,
     find_confirmed_address_refusal,
     find_missing_address_refusal,
@@ -519,7 +519,7 @@ async def invite_schiedsrichter(
     It replaces the whole block, so the previous link stops working at once. The deadline restarts from today.
 
     Refused where the referee is retired (`schiedsrichter_retired`), where they have already
-    answered (`confirmation_exists`), where they carry no email address
+    answered, consenting or objecting (`confirmation_exists`), where they carry no email address
     (`schiedsrichter_no_address`), and where that address is on the ban list
     (`schiedsrichter_address_barred`). 404 for an id no referee holds, an erased referee's among them, and
     for the ghost, which every by-id route filters out.
@@ -547,7 +547,7 @@ async def invite_schiedsrichter(
         )
 
         refuse(find_retired_refusal(inactive_since=stored.get("inactive_since")))
-        refuse(find_already_confirmed_refusal(einwilligung=stored.get(EINWILLIGUNG_FELD)))
+        refuse(find_already_answered_refusal(einwilligung=stored.get(EINWILLIGUNG_FELD), confirmation=stored.get(BESTAETIGUNG_FELD)))
 
         email = (stored.get("kontakt") or {}).get("email")
         refuse(find_missing_address_refusal(email=email))

@@ -17,7 +17,7 @@ from app.api.schiedsrichter.admin_router import (
     post_schiedsrichter,
     reactivate_schiedsrichter,
 )
-from app.api.schiedsrichter.public_router import get_confirmation_view, post_confirmation
+from app.api.schiedsrichter.public_router import get_confirmation_view, post_confirmation, post_decline
 from app.api.schiedsrichter.schemas import (
     FLPatchSchiedsrichterPayload,
     FLPostSchiedsrichterPayload,
@@ -245,6 +245,17 @@ async def confirm(database: AsyncDatabase, client: AsyncMongoClient, token: str 
         db=client,
         today=today,
         germany_now=NOW,
+    )
+
+
+async def decline(database: AsyncDatabase, client: AsyncMongoClient, token: str | None, *, today: str = TODAY) -> None:
+    assert token is not None, "the write owed no link to decline through"
+
+    await post_decline(
+        decline_data=FLTokenPayload(token=token),
+        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+        db=client,
+        today=today,
     )
 
 
@@ -795,6 +806,52 @@ class TestTheConfirmation:
         # Read back rather than inferred from the refusal: a row nulled in place would refuse the
         # same way while still holding the birthdate and the record.
         assert surviving == 0
+
+
+class TestTheDecline:
+    def test_a_declined_entry_keeps_its_clock_and_is_asked_nothing_again(self, mongo_replica_set_url: str):
+        """The privacy notice says a declined entry goes on the unconfirmed one's clock, and nobody mails a person who objected.
+
+        Dropped from the clock, the entry outlives what the notice promises; asked again, the person is mailed against their
+        objection. Neither shows on any page.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            minted = await resend(database, client)
+            clock = (await stored(database))[ERASE_AT_FIELD]
+            await decline(database, client, minted.token)
+
+            with pytest.raises(APIError) as asked_again:
+                await resend(database, client)
+
+            return clock, await stored(database), asked_again.value, (await read_view(database, minted.token)).state
+
+        clock, row, asked_again, state = on_a_league(mongo_replica_set_url, body)
+
+        assert row[BESTAETIGUNG_FELD]["declined_at"] == TODAY
+        assert row[ERASE_AT_FIELD] == clock
+        assert row.get(EINWILLIGUNG_FELD) is None
+        assert asked_again.error_code == Code.CONFIRMATION_EXISTS
+        assert state == "declined"
+
+    def test_a_declined_link_is_spent_and_takes_no_consent(self, mongo_replica_set_url: str):
+        """A consent through a link its person objected through would store a birthdate and a publication scope against that objection."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            minted = await resend(database, client)
+            await decline(database, client, minted.token)
+
+            with pytest.raises(APIError) as refused:
+                await confirm(database, client, minted.token)
+
+            return refused.value, await stored(database)
+
+        refused, row = on_a_league(mongo_replica_set_url, body)
+
+        assert refused.error_code == Code.CONFIRMATION_EXISTS
+        assert row.get(EINWILLIGUNG_FELD) is None
+        assert row.get("geburtsdatum") is None
+        assert ERASE_AT_FIELD in row
 
 
 class TestAWithheldNameReachesOneCollection:
