@@ -3,7 +3,7 @@
 import { now } from "./clock";
 import { COPY } from "./copy";
 import { bornBy, dayIn, dayOf } from "./format";
-import { saisonsPatchSaisonBodyRulesDrawPointsMin } from "./generated/zod/inputs";
+import { saisonsPatchSaisonBodyRulesDrawPointsMin, saisonsPatchSaisonBodyRulesLossPointsMin } from "./generated/zod/inputs";
 import { SERVER_COPY } from "./serverCopy";
 
 import type { Copy } from "./copy";
@@ -66,6 +66,9 @@ const PATTERNED = {
   // Between the floor the write publishes for the box and the points a win is worth.
   rules_unentschieden_outvalues_win: ({ max }: Context) =>
     typeof max === "number" ? field.between(saisonsPatchSaisonBodyRulesDrawPointsMin, max) : undefined,
+  // Between the floor the write publishes for the box and the points a draw is worth.
+  rules_niederlage_outvalues_unentschieden: ({ max }: Context) =>
+    typeof max === "number" ? field.between(saisonsPatchSaisonBodyRulesLossPointsMin, max) : undefined,
   rules_forfeit_unentschieden_in_a_knockout: atLeast,
   rules_gruppen_in_use: atLeast,
   rules_capacity_below_use: atLeast,

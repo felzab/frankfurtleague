@@ -2,7 +2,7 @@
 
 import { DateField } from "@/kit/DateField";
 import { EditorPage } from "@/kit/EditorPage";
-import { FieldColumns } from "@/kit/FieldPair";
+import { FieldColumns } from "@/kit/FieldColumns";
 import { useEditor } from "@/kit/useEditor";
 
 import { COPY } from "@/core/copy";

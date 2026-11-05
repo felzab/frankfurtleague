@@ -157,6 +157,7 @@ export const Code = {
   rules_spieltag_over_its_phase: "rules_spieltag_over_its_phase",
   rules_qualifiers_above_gruppe: "rules_qualifiers_above_gruppe",
   rules_unentschieden_outvalues_win: "rules_unentschieden_outvalues_win",
+  rules_niederlage_outvalues_unentschieden: "rules_niederlage_outvalues_unentschieden",
   rules_kader_below_use: "rules_kader_below_use",
   rules_forfeit_unentschieden_in_a_knockout: "rules_forfeit_unentschieden_in_a_knockout",
   rules_shape_after_spielplan: "rules_shape_after_spielplan",

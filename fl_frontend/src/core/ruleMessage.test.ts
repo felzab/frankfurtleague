@@ -48,6 +48,7 @@ describe("the field patterns over the backend's rules", () => {
     expect(rule("registrierung_window_reaches_saison_start", { latest: "2027-02-28" })).toStrictEqual({ field: field.latest("2027-02-28") });
     expect(rule("rules_qualifiers_above_gruppe", { max: 4 })).toStrictEqual({ field: field.max(4) });
     expect(rule("rules_unentschieden_outvalues_win", { max: 3 })).toStrictEqual({ field: field.between(0, 3) });
+    expect(rule("rules_niederlage_outvalues_unentschieden", { max: 1 })).toStrictEqual({ field: field.between(0, 1) });
     for (const kind of [
       "rules_forfeit_unentschieden_in_a_knockout",
       "rules_gruppen_in_use",

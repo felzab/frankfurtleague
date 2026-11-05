@@ -258,6 +258,16 @@ def find_rules_refusal(
             bounds={"max": proposed.win_points},
         )
 
+    # The same order one rung down, judged by its excess as the draw's is: a loss is never the better result.
+    loss_excess = proposed.loss_points - proposed.draw_points
+    if loss_excess > 0 and (stored is None or loss_excess > stored.loss_points - stored.draw_points):
+        return WriteRefusal(
+            error_code=Code.RULES_NIEDERLAGE_OUTVALUES_UNENTSCHIEDEN,
+            status=HTTPStatus.UNPROCESSABLE_CONTENT,
+            fields=(("rules", "loss_points"),),
+            bounds={"max": proposed.draw_points},
+        )
+
     qualifiers = proposed.number_of_gruppen * proposed.qualifiers_per_gruppe
     stored_qualifiers = None if stored is None else stored.number_of_gruppen * stored.qualifiers_per_gruppe
     # Against the stored product: an unchanged product carries an unchanged verdict, so equality

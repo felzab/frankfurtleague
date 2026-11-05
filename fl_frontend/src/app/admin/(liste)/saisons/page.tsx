@@ -1,5 +1,5 @@
 import { DateField } from "@/kit/DateField";
-import { FieldColumns } from "@/kit/FieldPair";
+import { FieldColumns } from "@/kit/FieldColumns";
 import { ListPage } from "@/kit/ListPage";
 
 import { COPY } from "@/core/copy";
